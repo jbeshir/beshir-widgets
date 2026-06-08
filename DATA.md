@@ -1,14 +1,16 @@
-# Per-Widget Data Contract
+# Widget data
 
-Widgets are offline-bundled Vite SPAs deployed to Cloudflare Workers. The per-widget data contract lets future widgets consume real external data while keeping local dev and the offline E2E render fully self-contained — no runtime egress required from the agent build or validate lanes.
+How a widget gets its data, recorded in its `widget.json` so the build and tooling know what to expect. Today every widget is `static`; the `prebake` and `live` modes below are conventions reserved for widgets that need external data, and are not used by any widget yet.
+
+A widget is a static bundle served from a Cloudflare Worker and embedded in an `<iframe>`. Its data is therefore either built into the bundle or fetched over the network when the widget runs. The `data` mode records which.
 
 ## Modes
 
-- **`static`** (default) — no external data; fully self-contained. The widget ships all its data as part of the bundle (e.g. the function-plotter). No `data` block is required in `widget.json`.
+- **`static`** (default) — all data is in the bundle; nothing is fetched at runtime. The `function-plotter` is static: it computes its curve from the expression you type. Omit `data`, or set `{ "mode": "static" }`.
 
-- **`prebake`** — the widget needs real data, but data is fetched and normalized at build/deploy time and baked into the bundle. The widget commits a representative `sample` dataset used in dev and the offline E2E render. A `prebake` command (run by the HOST or CI via the open-egress lane, **never** by the sandboxed agent build) fetches real data and writes the `output` file. The widget code reads `output` if present and falls back to `sample`, so it always renders offline.
+- **`prebake`** *(convention — not yet used by any widget)* — the widget needs real external data, but it is fetched and written into the source tree **before `npm run build`**, so the deployed bundle stays self-contained. The widget commits a representative **`sample`** file (used during local development) and a **`prebake`** command that writes the real **`output`** file; the widget loads `output` when present and falls back to `sample`.
 
-- **`live`** — the widget's Cloudflare Worker fetches data at runtime (Workers have egress). The committed `sample` is the offline/E2E fallback so `egress=none` rendering still passes.
+- **`live`** *(convention — not yet used by any widget)* — the widget fetches data at runtime (for example from its Worker). The committed **`sample`** is the fallback used during local development, so the widget still renders without the network.
 
 ## `widget.json` `data` block
 
@@ -21,23 +23,13 @@ Widgets are offline-bundled Vite SPAs deployed to Cloudflare Workers. The per-wi
 }
 ```
 
-Required fields per mode:
+Required fields per mode (paths are relative to the widget directory):
+- **`static`** — omit `data`, or just `{ "mode": "static" }`.
+- **`prebake`** — `mode`, `sample`, `output`, `prebake`.
+- **`live`** — `mode`, `sample`.
 
-- **`static`**: `data` may be omitted entirely, or `{ "mode": "static" }`.
-- **`prebake`**: requires `mode`, `sample`, `output`, `prebake`.
-- **`live`**: requires `mode`, `sample`.
-
-All paths are relative to the widget directory.
-
-## Why this maps to our egress tiers
-
-The agent build/validate/render lanes run with `none` or `package-managers` egress only — they cannot fetch arbitrary external data. Only the trusted host/CI (open egress) or the deployed Cloudflare Worker can reach external sources. `sample` is what makes the offline lanes work: it is always present in the repo and never fetched at build time. `prebake` keeps real data in the bundle without coupling the deploy build to runtime egress — the host fetches once and writes `output` before the deploy build runs. `live` keeps the Worker as the only runtime fetcher, with `sample` as the offline E2E fallback. This approach borrows Observable Framework's build-time "data loader" pattern without adopting the framework.
-
-## How the build-widget pipeline handles each mode
-
-The pipeline always builds, validates, and renders against `sample` offline. For `prebake` widgets, the host runs the `prebake` command when wiring the deploy (so `output` lands in the tree before the deploy build), then the deploy build picks it up. For `live` widgets, the pipeline ignores the `live` fetch path entirely — `sample` ensures the offline E2E render still passes. `static` widgets have no data step.
+`scripts/validate-widgets.mjs` checks this shape whenever a widget includes a `data` block.
 
 ## See also
-
-- [`LIBRARIES.md`](./LIBRARIES.md) — curated library menu and "How To Choose" guidelines.
+- [`LIBRARIES.md`](./LIBRARIES.md) — library menu and how to choose.
 - [`README.md`](./README.md) — project overview and default stack.
