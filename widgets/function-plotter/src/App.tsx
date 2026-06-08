@@ -1,128 +1,180 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
+import * as Plot from '@observablehq/plot';
 import { compileExpr } from './evaluator';
 
-const SVG_W = 720;
-const SVG_H = 400;
-const PAD = 36;
-const N_SAMPLES = 400;
+const N_SAMPLES = 480;
 const X_MIN = -10;
 const X_MAX = 10;
+const Y_CLAMP = 1e6;
 
-function mapToSVG(
-  val: number,
-  domainMin: number,
-  domainMax: number,
-  svgMin: number,
-  svgMax: number,
-): number {
-  return svgMin + ((val - domainMin) / (domainMax - domainMin)) * (svgMax - svgMin);
+type Sample = { x: number; y: number; seg: number };
+
+function sampleFunction(fn: (x: number) => number): Sample[] {
+  const out: Sample[] = [];
+  let seg = 0;
+  let prevFinite = false;
+  let prevY = 0;
+  for (let i = 0; i < N_SAMPLES; i++) {
+    const x = X_MIN + ((X_MAX - X_MIN) * i) / (N_SAMPLES - 1);
+    const y = fn(x);
+    const finite = Number.isFinite(y) && Math.abs(y) < Y_CLAMP;
+    if (!finite) {
+      prevFinite = false;
+      continue;
+    }
+    // Split into a new segment on discontinuity jumps (very large step between adjacent samples).
+    if (prevFinite && Math.abs(y - prevY) > 50) {
+      seg++;
+    }
+    out.push({ x, y, seg });
+    prevFinite = true;
+    prevY = y;
+  }
+  return out;
 }
 
-function computeYRange(ys: number[]): [number, number] {
-  const finite = ys.filter(Number.isFinite);
-  if (finite.length === 0) return [-10, 10];
-  let yMin = Math.min(...finite);
-  let yMax = Math.max(...finite);
-  if (yMin === yMax) { yMin -= 5; yMax += 5; }
-  const pad = (yMax - yMin) * 0.05;
+function computeYDomain(samples: Sample[]): [number, number] {
+  if (samples.length === 0) return [-10, 10];
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  for (const s of samples) {
+    if (s.y < yMin) yMin = s.y;
+    if (s.y > yMax) yMax = s.y;
+  }
+  if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) return [-10, 10];
+  if (yMin === yMax) {
+    yMin -= 5;
+    yMax += 5;
+  }
+  const pad = (yMax - yMin) * 0.08;
   return [yMin - pad, yMax + pad];
 }
 
 export function App() {
   const [expr, setExpr] = useState('sin(x)');
   const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    setReady(true);
-  }, []);
+  const [width, setWidth] = useState(720);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const fn = useMemo(() => compileExpr(expr), [expr]);
   const invalid = fn === null;
 
-  const xs = useMemo(
-    () => Array.from({ length: N_SAMPLES }, (_, i) => X_MIN + (X_MAX - X_MIN) * (i / (N_SAMPLES - 1))),
-    [],
-  );
+  const samples = useMemo(() => {
+    if (!fn) return [] as Sample[];
+    return sampleFunction(fn);
+  }, [fn]);
 
-  const ys = useMemo(() => {
-    if (!fn) return xs.map(() => NaN);
-    return xs.map(fn);
-  }, [fn, xs]);
+  const yDomain = useMemo(() => computeYDomain(samples), [samples]);
 
-  const [yMin, yMax] = useMemo(() => computeYRange(ys), [ys]);
-
-  // x/y-axis positions in SVG space
-  const axisY = mapToSVG(0, yMin, yMax, SVG_H - PAD, PAD);
-  const axisX = mapToSVG(0, X_MIN, X_MAX, PAD, SVG_W - PAD);
-
-  // Split curve into segments over consecutive finite points.
-  const segments = useMemo(() => {
-    const segs: string[][] = [];
-    let current: string[] = [];
-    for (let i = 0; i < N_SAMPLES; i++) {
-      if (Number.isFinite(ys[i])) {
-        const sx = mapToSVG(xs[i], X_MIN, X_MAX, PAD, SVG_W - PAD);
-        const sy = mapToSVG(ys[i], yMin, yMax, SVG_H - PAD, PAD);
-        current.push(`${sx.toFixed(2)},${sy.toFixed(2)}`);
-      } else {
-        if (current.length > 1) segs.push(current);
-        current = [];
+  // Observe container width so the plot is responsive within the iframe.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.max(280, Math.floor(entry.contentRect.width));
+        setWidth((prev) => (Math.abs(prev - w) > 2 ? w : prev));
       }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Mount/update the Observable Plot SVG.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    if (samples.length < 2) {
+      host.replaceChildren();
+      if (!ready) setReady(true);
+      return;
     }
-    if (current.length > 1) segs.push(current);
-    return segs;
-  }, [ys, xs, yMin, yMax]);
+
+    const node = Plot.plot({
+      width,
+      height: Math.max(260, Math.round(width * 0.55)),
+      marginLeft: 52,
+      marginBottom: 40,
+      marginRight: 18,
+      marginTop: 18,
+      style: {
+        background: 'transparent',
+        color: 'var(--fg)',
+        fontFamily: 'inherit',
+        fontSize: '12px',
+      },
+      x: {
+        domain: [X_MIN, X_MAX],
+        label: 'x →',
+        grid: true,
+        nice: true,
+      },
+      y: {
+        domain: yDomain,
+        label: '↑ f(x)',
+        grid: true,
+        nice: true,
+      },
+      marks: [
+        Plot.ruleX([0], { stroke: 'var(--axis)', strokeWidth: 1 }),
+        Plot.ruleY([0], { stroke: 'var(--axis)', strokeWidth: 1 }),
+        Plot.line(samples, {
+          x: 'x',
+          y: 'y',
+          z: 'seg',
+          stroke: 'var(--curve)',
+          strokeWidth: 2,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+        }),
+      ],
+    });
+
+    host.replaceChildren(node);
+    if (!ready) setReady(true);
+
+    return () => {
+      node.remove();
+    };
+  }, [samples, yDomain, width, ready]);
 
   return (
     <div className="container">
-      <div className="input-row">
-        <label htmlFor="expr-input">f(x) =</label>
-        <input
-          id="expr-input"
-          type="text"
-          value={expr}
-          onChange={(e) => setExpr(e.target.value)}
-          className={invalid ? 'error' : ''}
-          spellCheck={false}
-          autoComplete="off"
-        />
-      </div>
-      <div className="error-msg">{invalid ? 'Invalid expression' : ''}</div>
+      <div className="card">
+        <header className="card-header">
+          <h1>Function plotter</h1>
+          <p className="hint">
+            Try expressions in <code>x</code> like <code>sin(x)</code>, <code>x^2 - 4</code>,{' '}
+            <code>1/x</code>, <code>exp(-x^2/4)*cos(x)</code>.
+          </p>
+        </header>
 
-      <svg
-        className="plot-svg"
-        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-        xmlns="http://www.w3.org/2000/svg"
-        aria-label={`Plot of f(x) = ${expr}`}
-      >
-        <rect x={0} y={0} width={SVG_W} height={SVG_H} fill="#f4f4f4" />
-
-        {/* x-axis */}
-        <line
-          x1={PAD} y1={axisY} x2={SVG_W - PAD} y2={axisY}
-          stroke="#999" strokeWidth={1}
-        />
-        {/* y-axis */}
-        <line
-          x1={axisX} y1={PAD} x2={axisX} y2={SVG_H - PAD}
-          stroke="#999" strokeWidth={1}
-        />
-
-        {/* curve segments */}
-        {segments.map((pts, idx) => (
-          <polyline
-            key={idx}
-            points={pts.join(' ')}
-            fill="none"
-            stroke="#2563eb"
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-            strokeLinecap="round"
+        <div className="input-row">
+          <label htmlFor="expr-input">f(x) =</label>
+          <input
+            id="expr-input"
+            type="text"
+            value={expr}
+            onInput={(e) => setExpr((e.target as HTMLInputElement).value)}
+            className={invalid ? 'error' : ''}
+            spellcheck={false}
+            autocomplete="off"
+            aria-invalid={invalid}
+            aria-describedby="expr-error"
           />
-        ))}
-      </svg>
+        </div>
+        <div id="expr-error" className="error-msg" role="alert">
+          {invalid ? 'Invalid expression' : ''}
+        </div>
 
-      {ready && <div id="widget-ready" style={{ display: 'none' }} />}
+        <div className="plot-wrap" ref={containerRef}>
+          <div className="plot-host" ref={hostRef} aria-label={`Plot of f(x) = ${expr}`} />
+        </div>
+      </div>
+
+      {ready && <div id="widget-ready" data-ready="true" hidden />}
     </div>
   );
 }

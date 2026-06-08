@@ -3,7 +3,7 @@
   "slug": "function-plotter",
   "title": "Function Plotter",
   "description": "Plot a user-supplied function of x as an SVG curve.",
-  "framework": "react-vite",
+  "framework": "preact-vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "dataSources": [],

@@ -1,6 +1,6 @@
 # beshir-widgets
 
-A collection of independent, iframe-embeddable web widgets. Each widget is a self-contained React+Vite app deployed automatically to its own subdomain on Cloudflare Workers via GitHub Actions. Widgets are designed to be embedded in any page without coordination with the host origin.
+A collection of independent, iframe-embeddable web widgets. Each widget is a self-contained Vite SPA deployed automatically to its own subdomain on Cloudflare Workers via GitHub Actions. Widgets are designed to be embedded in any page without coordination with the host origin.
 
 ## Widget index
 
@@ -11,8 +11,15 @@ A collection of independent, iframe-embeddable web widgets. Each widget is a sel
 ## Embedding
 
 ```html
-<iframe src="https://function-plotter.widgets.beshir.org" loading="lazy" style="width:100%;height:400px;border:0"></iframe>
+<iframe src="https://function-plotter.widgets.beshir.org" loading="lazy" style="width:100%;height:480px;border:0"></iframe>
 ```
+
+## Default stack
+
+- **Runtime: Preact core** (not React). Tiny, framework-agnostic libraries pair well with it; React-only packages should generally be avoided unless they justify the `preact/compat` cost.
+- **Charts: Observable Plot** (`@observablehq/plot`) as the default for chart-like widgets — grammar-of-graphics, SVG output, no CDN required.
+- See [`LIBRARIES.md`](./LIBRARIES.md) for the curated library menu covering charts, plotting/math, geometry/graphs, simulation/physics, 2D/3D rendering, animation, interactivity, maps, and utility/data. Pick the lightest option that fits the behavior.
+- Widgets must stay **fully self-contained and offline-capable**: everything bundled by Vite, no runtime CDN, no remote fonts/scripts, no external tile/font/asset fetches at runtime.
 
 ## Per-widget convention
 
