@@ -18,7 +18,8 @@ A collection of independent, iframe-embeddable web widgets. Each widget is a sel
 
 - **Runtime: Preact core** (not React). Tiny, framework-agnostic libraries pair well with it; React-only packages should generally be avoided unless they justify the `preact/compat` cost.
 - **Charts: Observable Plot** (`@observablehq/plot`) as the default for chart-like widgets — grammar-of-graphics, SVG output, no CDN required.
-- See [`LIBRARIES.md`](./LIBRARIES.md) for the curated library menu covering charts, plotting/math, geometry/graphs, simulation/physics, 2D/3D rendering, animation, interactivity, maps, and utility/data. Pick the lightest option that fits the behavior.
+- **Target: prettiness-first within a ~100–150 KB gzip budget.** A polished widget is the goal; the lightweight Preact + modular D3/SVG tier (≈19 KB) is a deliberate choice when bytes matter (many widgets on one page, intentionally minimal embed), not the default.
+- See [`LIBRARIES.md`](./LIBRARIES.md) for the curated library menu, and [`DATA.md`](./DATA.md) for the per-widget data contract (`static` / `prebake` / `live`).
 - Widgets must stay **fully self-contained and offline-capable**: everything bundled by Vite, no runtime CDN, no remote fonts/scripts, no external tile/font/asset fetches at runtime.
 
 ## Per-widget convention

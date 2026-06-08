@@ -120,14 +120,16 @@ Only add these when the widget actually needs them; utilities can quietly domina
 
 ## How To Choose
 
-1. Default to the lightest option that fits the behavior. Native APIs, plain SVG, and Canvas2D are valid first choices.
-2. Keep everything bundled and offline. No runtime CDN, no remote fonts, no unplanned map tiles, no external worker scripts.
-3. Prefer framework-agnostic libraries. We use Preact core; `preact/compat` can bridge React-only packages, but it adds weight and compatibility risk.
-4. For chart-like widgets, start with **Observable Plot**. Use uPlot for dense time-series, Chartist for tiny simple charts, Chart.js for conventional canvas charts, and ECharts only for rich dashboards. Avoid Plotly for small widgets; avoid Recharts/visx unless React compatibility is already required.
-5. Set the `#widget-ready` marker only after first meaningful paint, including async WASM, fonts, or layout work.
-6. Respect `prefers-color-scheme` for theming and `prefers-reduced-motion` for animation. Do not make essential information depend on motion.
-7. Use `ResizeObserver` inside the iframe to report content size to the parent via `postMessage`; debounce if layout is noisy.
-8. Put heavy layout, parsing, or simulation work in a Worker when it can block interaction; Comlink is a small convenience layer.
+1. **Default to prettiness within a ~100–150 KB gzip budget.** A polished, well-typeset widget is the goal; do not race to the smallest possible bundle. The default stack for chart-like widgets is **Preact core + Observable Plot** (~135 KB gzip for Plot alone, comfortably inside the budget).
+2. **The lightweight tier is a deliberate choice, not the default.** Preact core + modular D3/SVG (≈19 KB gzip) is the right pick when bytes matter — many widgets on one page, or an intentionally minimal embed — but use it on purpose, not by reflex.
+3. **For chart-like widgets, start with Observable Plot.** Reach for uPlot for dense time-series, Chartist for tiny simple charts, Chart.js for conventional canvas charts, and ECharts only for rich dashboards. Avoid Plotly for small widgets; avoid Recharts/visx unless React compatibility is already required.
+4. **Data:** widgets that need real external data follow the per-widget contract in [`DATA.md`](./DATA.md) (modes: `static` / `prebake` / `live`).
+5. Keep everything bundled and offline. No runtime CDN, no remote fonts, no unplanned map tiles, no external worker scripts.
+6. Prefer framework-agnostic libraries. We use Preact core; `preact/compat` can bridge React-only packages but adds weight and compatibility risk.
+7. Set the `#widget-ready` marker only after first meaningful paint, including async WASM, fonts, or layout work.
+8. Respect `prefers-color-scheme` for theming and `prefers-reduced-motion` for animation. Do not make essential information depend on motion.
+9. Use `ResizeObserver` inside the iframe to report content size to the parent via `postMessage`; debounce if layout is noisy.
+10. Put heavy layout, parsing, or simulation work in a Worker when it can block interaction; Comlink is a small convenience layer.
 
 Imperative library integration in Preact:
 
