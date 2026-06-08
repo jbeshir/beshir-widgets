@@ -1,0 +1,45 @@
+name: Deploy widgets
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          echo "matrix=$(ls -1 widgets | jq -R . | jq -s -c '{widget: .}')" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: discover
+    strategy:
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+      fail-fast: false
+    concurrency:
+      group: deploy-${{ matrix.widget }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: widgets/${{ matrix.widget }}/package-lock.json
+      - name: Install
+        working-directory: widgets/${{ matrix.widget }}
+        run: npm ci
+      - name: Build
+        working-directory: widgets/${{ matrix.widget }}
+        run: npm run build
+      - name: Deploy
+        working-directory: widgets/${{ matrix.widget }}
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

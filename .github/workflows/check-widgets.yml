@@ -1,0 +1,44 @@
+name: Check widgets
+
+on:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/validate-widgets.mjs
+
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          echo "matrix=$(ls -1 widgets | jq -R . | jq -s -c '{widget: .}')" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: [validate, discover]
+    strategy:
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: widgets/${{ matrix.widget }}/package-lock.json
+      - name: Install
+        working-directory: widgets/${{ matrix.widget }}
+        run: npm ci
+      - name: Build
+        working-directory: widgets/${{ matrix.widget }}
+        run: npm run build
