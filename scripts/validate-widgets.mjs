@@ -99,6 +99,30 @@ for (const entry of entries) {
     errors.push(`${slug}: widget.dataSources must be an Array`);
   }
 
+  // Optional data block validation
+  if (widget.data !== undefined) {
+    if (widget.data === null || typeof widget.data !== 'object') {
+      errors.push(`${slug}: widget.data must be an object`);
+    } else {
+      const data = widget.data;
+      const validModes = ['static', 'prebake', 'live'];
+      if (!validModes.includes(data.mode)) {
+        errors.push(`${slug}: widget.data.mode "${data.mode}" must be one of static|prebake|live`);
+      } else {
+        const nonEmpty = (v) => typeof v === 'string' && v.length > 0;
+        if (data.mode === 'prebake') {
+          if (!nonEmpty(data.sample)) errors.push(`${slug}: widget.data.sample must be a non-empty string for mode "prebake"`);
+          else if (!fs.existsSync(path.join(widgetPath, data.sample))) errors.push(`${slug}: widget.data.sample file "${data.sample}" does not exist`);
+          if (!nonEmpty(data.output)) errors.push(`${slug}: widget.data.output must be a non-empty string for mode "prebake"`);
+          if (!nonEmpty(data.prebake)) errors.push(`${slug}: widget.data.prebake must be a non-empty string for mode "prebake"`);
+        } else if (data.mode === 'live') {
+          if (!nonEmpty(data.sample)) errors.push(`${slug}: widget.data.sample must be a non-empty string for mode "live"`);
+          else if (!fs.existsSync(path.join(widgetPath, data.sample))) errors.push(`${slug}: widget.data.sample file "${data.sample}" does not exist`);
+        }
+      }
+    }
+  }
+
   // wrangler.jsonc assertions
   if (wrangler.name !== widget.workerName) {
     errors.push(`${slug}: wrangler.name "${wrangler.name}" should equal widget.workerName "${widget.workerName}"`);
