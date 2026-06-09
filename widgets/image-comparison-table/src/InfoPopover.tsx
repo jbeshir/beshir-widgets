@@ -55,7 +55,10 @@ export function InfoPopover({ prompt, rowLabel, note }: Props) {
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
       >
-        <span aria-hidden="true">ⓘ</span>
+        <svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" aria-hidden="true">
+          <circle cx="10" cy="5" r="1.6" />
+          <rect x="8.4" y="8.2" width="3.2" height="8" rx="1.6" />
+        </svg>
       </button>
       {open && (
         <span class="info-popover" role="dialog" aria-label={`Generation prompt for ${rowLabel}`}>
