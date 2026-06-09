@@ -25,7 +25,7 @@ export function Grid({ table, compact, onCellClick }: Props) {
               <span class="col-label">{col.label}</span>
               {col.reference
                 ? <span class="col-tag" title="Reference image, not generated from the row prompt">reference</span>
-                : <span class="col-tag">AI</span>}
+                : <span class="col-tag">2026 AI</span>}
             </div>
           ))}
         </div>
