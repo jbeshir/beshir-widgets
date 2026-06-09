@@ -149,7 +149,9 @@ export function Lightbox({ table, selection, onClose, onNavigate }: Props) {
               <span class="lb-theme">{row.label}</span>
               <span class="lb-sep" aria-hidden="true">›</span>
               <span class="lb-model">{col.label}</span>
-              {col.reference && <span class="lb-tag">reference</span>}
+              {col.reference
+                ? <span class="lb-tag">reference</span>
+                : <span class="lb-tag">2026 AI</span>}
             </h2>
             <button
               type="button"
