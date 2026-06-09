@@ -2,13 +2,21 @@
 
 A generic, data-driven **image comparison table** widget built on **Preact core** + Vite. All images are bundled (`data.mode: static`); the widget renders fully offline.
 
-A URL query parameter chooses which comparison table to render:
+The comparison table to render is chosen by **either** a path segment **or** a query parameter:
 
 ```
-?table=<id>
+/<id>          e.g. /imitating-classic-ai-art
+?table=<id>    e.g. ?table=imitating-classic-ai-art
 ```
 
-If the param is missing or unknown, the default table (`ai-classic-motivational-pictures`) is used.
+The query parameter takes precedence; if neither is present or the id is unknown, the default table (`ai-classic-motivational-pictures`) is used.
+
+Available tables:
+
+| id | What it shows |
+|---|---|
+| `ai-classic-motivational-pictures` (default) | Classic early-AI posters vs the same briefs given to GPT-Image-2 and Imagen-4-Ultra. |
+| `imitating-classic-ai-art` | The classic posters vs GPT-Image-2 / Imagen-4-Ultra **prompted to deliberately imitate the early-AI look** (garbled text and all). |
 
 ## What it renders
 
@@ -44,4 +52,4 @@ Output goes to `dist/`.
 <iframe src="https://image-comparison-table.widgets.beshir.org" loading="lazy" style="width:100%;height:760px;border:0"></iframe>
 ```
 
-Append `?table=<id>` to the `src` to pick a specific table.
+Append `?table=<id>` (or use the `/<id>` path) on the `src` to pick a specific table.

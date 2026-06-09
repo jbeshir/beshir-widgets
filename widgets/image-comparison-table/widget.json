@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "slug": "image-comparison-table",
   "title": "Image Comparison Table",
-  "description": "Side-by-side comparison grids of labelled images, with click-to-zoom lightbox and per-row prompt info. Chooses which table via ?table=<id>.",
+  "description": "Side-by-side comparison grids of labelled images, with click-to-zoom lightbox and per-row prompt info. Selects which table via the /<id> path or ?table=<id>, and scales to fit the viewport.",
   "framework": "preact-vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
