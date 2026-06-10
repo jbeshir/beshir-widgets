@@ -2,20 +2,20 @@
 
 A generic, data-driven **image comparison table** widget built on **Preact core** + Vite. All images are bundled (`data.mode: static`); the widget renders fully offline.
 
-The comparison table to render is chosen by **either** a path segment **or** a query parameter:
+With no table specified the widget shows a **picker** of all available tables. A specific table is chosen by **either** a path segment **or** a query parameter:
 
 ```
 /<id>          e.g. /imitating-classic-ai-art
 ?table=<id>    e.g. ?table=imitating-classic-ai-art
 ```
 
-The query parameter takes precedence; if neither is present or the id is unknown, the default table (`ai-classic-motivational-pictures`) is used.
+The query parameter takes precedence; if neither is present or the id is unknown, the picker is shown.
 
 Available tables:
 
 | id | What it shows |
 |---|---|
-| `ai-classic-motivational-pictures` (default) | Classic early-AI posters vs the same briefs given to GPT-Image-2 and Imagen-4-Ultra. |
+| `ai-classic-motivational-pictures` | Classic early-AI posters vs the same briefs given to GPT-Image-2 and Imagen-4-Ultra. |
 | `imitating-classic-ai-art` | The classic posters vs GPT-Image-2 / Imagen-4-Ultra **prompted to deliberately imitate the early-AI look** (garbled text and all). |
 | `imitating-classic-ai-art-2` | As above with an **expanded prompt** — uncanny-valley figures and a misaligned decorative border that slices through the scene. |
 

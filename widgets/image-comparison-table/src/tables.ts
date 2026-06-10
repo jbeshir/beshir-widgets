@@ -224,9 +224,22 @@ export const TABLES: Record<string, Table> = {
   [IMITATING_CLASSIC_AI_ART_2.id]: IMITATING_CLASSIC_AI_ART_2,
 };
 
-export const DEFAULT_TABLE_ID = 'ai-classic-motivational-pictures';
+export const TABLE_LIST: Table[] = Object.values(TABLES);
 
-export function resolveTable(id: string | null | undefined): Table {
+// Resolve a table id (from `?table=` or the path). Returns null when no id is
+// given or it doesn't match a table — the app shows the table picker then.
+export function resolveTable(id: string | null | undefined): Table | null {
   if (id && Object.prototype.hasOwnProperty.call(TABLES, id)) return TABLES[id];
-  return TABLES[DEFAULT_TABLE_ID];
+  return null;
+}
+
+// Up to three representative thumbnails (the first row across columns) used as a
+// preview on the picker.
+export function previewThumbs(table: Table): string[] {
+  const row = table.rows[0];
+  if (!row) return [];
+  return table.columns
+    .slice(0, 3)
+    .map((c) => row.cells[c.id]?.thumb)
+    .filter((s): s is string => typeof s === 'string');
 }
