@@ -17,6 +17,7 @@ Available tables:
 |---|---|
 | `ai-classic-motivational-pictures` (default) | Classic early-AI posters vs the same briefs given to GPT-Image-2 and Imagen-4-Ultra. |
 | `imitating-classic-ai-art` | The classic posters vs GPT-Image-2 / Imagen-4-Ultra **prompted to deliberately imitate the early-AI look** (garbled text and all). |
+| `imitating-classic-ai-art-2` | As above with an **expanded prompt** — uncanny-valley figures and a misaligned decorative border that slices through the scene. |
 
 ## What it renders
 
