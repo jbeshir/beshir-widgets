@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { resolveTable, type Table } from './tables';
+import { resolveTable, TABLE_LIST, type Table } from './tables';
 import { Grid } from './Grid';
 import { Lightbox } from './Lightbox';
+import { Picker } from './Picker';
 
 export type Selection = { rowIdx: number; colIdx: number };
 
 // Table id comes from `?table=<id>` (explicit) or the first path segment
-// (e.g. `/imitating-classic-ai-art`); unknown ids fall back to the default.
+// (e.g. `/imitating-classic-ai-art`). When absent or unknown, the app shows the
+// table picker instead of a table.
 function getInitialTableId(): string | null {
   try {
     const q = new URLSearchParams(window.location.search).get('table');
@@ -19,7 +21,7 @@ function getInitialTableId(): string | null {
 }
 
 export function App() {
-  const [table] = useState<Table>(() => resolveTable(getInitialTableId()));
+  const [table] = useState<Table | null>(() => resolveTable(getInitialTableId()));
   const [selection, setSelection] = useState<Selection | null>(null);
   const [ready, setReady] = useState(false);
   const [width, setWidth] = useState(960);
@@ -89,10 +91,10 @@ export function App() {
     if (!ready) setReady(true);
   }, [ready]);
 
-  // Reflect the resolved table id in <title> so it's clear when navigated to directly.
+  // Reflect the resolved view in <title>.
   useEffect(() => {
-    document.title = `${table.title} — Image Comparison`;
-  }, [table.title]);
+    document.title = table ? `${table.title} — Image Comparison` : 'Image Comparison Tables';
+  }, [table]);
 
   const compact = width < 560;
 
@@ -105,51 +107,58 @@ export function App() {
 
   const navigateLightbox = useMemo(
     () => (dRow: number, dCol: number) => {
+      if (!table) return;
+      const rowCount = table.rows.length;
+      const colCount = table.columns.length;
       setSelection((prev) => {
         if (!prev) return prev;
-        const rowCount = table.rows.length;
-        const colCount = table.columns.length;
         const nextRow = Math.min(rowCount - 1, Math.max(0, prev.rowIdx + dRow));
         const nextCol = Math.min(colCount - 1, Math.max(0, prev.colIdx + dCol));
         if (nextRow === prev.rowIdx && nextCol === prev.colIdx) return prev;
         return { rowIdx: nextRow, colIdx: nextCol };
       });
     },
-    [table.rows.length, table.columns.length],
+    [table],
   );
 
   return (
     <div class="page" ref={pageRef}>
       <div class="fit-scale" style={fitStyle}>
         <div class="container" ref={contentRef}>
-          <article class="card" aria-labelledby="ict-title">
-              <header class="card-header">
-                <span class="eyebrow">Comparison</span>
-                <h1 id="ict-title">{table.title}</h1>
-                {table.subtitle && <p class="subtitle">{table.subtitle}</p>}
-              </header>
+          {table ? (
+            <>
+              <article class="card" aria-labelledby="ict-title">
+                <header class="card-header">
+                  <span class="eyebrow">Comparison</span>
+                  <h1 id="ict-title">{table.title}</h1>
+                  {table.subtitle && <p class="subtitle">{table.subtitle}</p>}
+                </header>
 
-              <Grid table={table} compact={compact} onCellClick={handleCellClick} />
-            </article>
+                <Grid table={table} compact={compact} onCellClick={handleCellClick} />
+              </article>
 
-            <div class="footnote" aria-label="Usage hints">
-              <span class="footnote-hint">
-                <svg aria-hidden="true" viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="9" cy="9" r="6" />
-                  <path d="m17 17-3.5-3.5" />
-                  <path d="M9 6v6M6 9h6" />
-                </svg>
-                Click any thumbnail to expand
-              </span>
-              <span class="footnote-hint">
-                <span class="info-glyph" aria-hidden="true">ⓘ</span>
-                Row label shows the generation prompt
-              </span>
-            </div>
-          </div>
+              <div class="footnote" aria-label="Usage hints">
+                <span class="footnote-hint">
+                  <svg aria-hidden="true" viewBox="0 0 20 20" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9" cy="9" r="6" />
+                    <path d="m17 17-3.5-3.5" />
+                    <path d="M9 6v6M6 9h6" />
+                  </svg>
+                  Click any thumbnail to expand
+                </span>
+                <span class="footnote-hint">
+                  <span class="info-glyph" aria-hidden="true">ⓘ</span>
+                  Row label shows the generation prompt
+                </span>
+              </div>
+            </>
+          ) : (
+            <Picker tables={TABLE_LIST} />
+          )}
         </div>
+      </div>
 
-      {selection && (
+      {table && selection && (
         <Lightbox
           table={table}
           selection={selection}
