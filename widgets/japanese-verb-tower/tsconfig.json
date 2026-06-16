@@ -9,6 +9,7 @@
     "strict": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": false,
+    "resolveJsonModule": true,
     "noEmit": true
   },
   "include": ["src"]

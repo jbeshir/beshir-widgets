@@ -2,11 +2,17 @@
   "schemaVersion": 1,
   "slug": "japanese-verb-tower",
   "title": "Japanese Verb Conjugation Tower",
-  "description": "Toggle morpheme layers (causative, passive/potential, polite, negative, past) and watch a Japanese verb assemble morpheme-by-morpheme in canonical composition order, with each tier highlighting the newly-added morpheme and illegal orderings disabled.",
+  "description": "Toggle morpheme layers (causative, passive/potential, polite, negative, past) and watch a Japanese verb assemble morpheme-by-morpheme in canonical composition order, with each tier highlighting the newly-added morpheme and naming its auxiliary (助動詞). Search 26,784 verbs by romaji, kana, or kanji — romaji is auto-converted to kana.",
   "framework": "preact-vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "dataSources": [],
+  "dataSources": [
+    {
+      "name": "JMdict / EDICT",
+      "url": "https://www.edrdg.org/jmdict/j_jmdict.html",
+      "license": "EDRDG (CC BY-SA)"
+    }
+  ],
   "data": { "mode": "static" },
   "workerName": "widget-japanese-verb-tower",
   "hostname": "japanese-verb-tower.widgets.beshir.org",

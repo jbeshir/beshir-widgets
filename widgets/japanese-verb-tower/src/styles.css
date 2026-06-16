@@ -510,7 +510,9 @@ body {
 /* ── Reduced motion ────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .verb-chip,
-  .tier { transition: none; }
+  .tier,
+  .search-input,
+  .search-result { transition: none; }
 }
 
 /* ── Responsive: collapse two columns → single column ─────────────────────── */
@@ -533,4 +535,196 @@ body {
   .verb-chip   { min-width: 52px; padding: 5px 7px; }
   .verb-chip-kanji { font-size: 17px; }
   .tier--top .tier-kanji { font-size: 26px; }
+}
+
+/* ── Search/entry box ──────────────────────────────────────────────────────── */
+.search-section {
+  margin-bottom: 14px;
+}
+
+.search-box-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--fg);
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.search-input:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+/* Remove browser default clear button on type=search */
+.search-input::-webkit-search-cancel-button { display: none; }
+
+.dict-hint {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dict-hint--loading {
+  font-style: italic;
+}
+
+/* ── Search results list ───────────────────────────────────────────────────── */
+.search-results {
+  margin-top: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.search-no-match {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.search-result {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--card-border);
+  cursor: pointer;
+  font: inherit;
+  color: var(--fg);
+  text-align: left;
+  transition: background 80ms ease;
+}
+
+.search-result:last-child {
+  border-bottom: none;
+}
+
+.search-result:hover {
+  background: var(--tier-top-bg);
+  outline: none;
+}
+
+.search-result:focus-visible {
+  background: var(--tier-top-bg);
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--input-focus);
+}
+
+.search-result-kanji {
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 48px;
+  flex-shrink: 0;
+}
+
+.search-result-reading {
+  font-size: 12px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.search-result-gloss {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-cls {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted);
+  background: var(--label-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+/* ── Tier auxiliary label ──────────────────────────────────────────────────── */
+/* tier-label--aux uses the same base style as tier-label; cursor shows tooltip */
+.tier-label--aux {
+  cursor: help;
+}
+
+/* Auxiliary name in JP font inside the label — faint dotted underline hints hoverable */
+.tier-aux {
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP",
+               "Yu Gothic", Meiryo, "MS PGothic", sans-serif;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* ── Active (non-featured) verb indicator ─────────────────────────────────── */
+.active-verb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  padding: 2px 9px 2px 7px;
+  font-size: 11.5px;
+  color: var(--muted);
+  background: var(--label-bg);
+  border: 1px solid var(--fieldset-border);
+  border-radius: 20px;
+}
+
+.active-verb-chip .jp {
+  font-size: 13px;
+}
+
+/* ── Slot legend subtitle ──────────────────────────────────────────────────── */
+.slot-legend-sub {
+  display: block;
+  font-size: 9px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ── Attribution credit ────────────────────────────────────────────────────── */
+.credit {
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--card-border);
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: right;
+  line-height: 1.4;
+}
+
+/* ── Narrow-width adjustments for search ──────────────────────────────────── */
+@media (max-width: 600px) {
+  .search-result-cls { display: none; }
+  .search-result-gloss { white-space: normal; }
+}
+
+@media (max-width: 400px) {
+  .search-input { font-size: 13px; padding: 7px 10px; }
+  .dict-hint { display: none; }
 }
