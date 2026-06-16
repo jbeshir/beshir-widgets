@@ -2,14 +2,6 @@
 
 An interactive widget that makes **morpheme composition order** the visual object. Pick one of ten demo verbs, then toggle conjugation layers (causative → passive/potential → polite → negative → past). A vertical tower builds up in real time: the base form sits at the bottom, each active layer adds a slab showing the cumulative form with the newly-added morpheme highlighted, and the final fully-assembled form floats at the top in large type with furigana and rōmaji.
 
-## Why it's novel
-
-Every existing Japanese conjugation tool produces either a flat table of finished forms or a drill that asks you to recall one target form. None makes *the ordering of composition* manipulable. The differentiator here:
-
-- **Illegal orderings are structurally impossible** — voice (passive/potential) lives in one mutually exclusive slot and is always applied before polite/tense, so you can't accidentally construct an out-of-order agglutination.
-- **Each morpheme's contribution is visually isolated** — the highlighted suffix shows exactly what changed at each step.
-- **The tower grows live** — removing a layer collapses that slab and re-derives everything downstream.
-
 ## The agglutination model
 
 Japanese verb conjugation is **agglutinative**: each morpheme layer attaches to a specific *stem* of the preceding form, and the output of a voice layer (causative/passive/potential) is itself a fresh ichidan verb with its own stems, enabling recursive composition with a tiny rule set.
