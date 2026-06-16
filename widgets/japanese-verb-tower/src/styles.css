@@ -1,0 +1,730 @@
+/* ── Design tokens — light / dark ─────────────────────────────────────────── */
+:root {
+  --bg:               #f1f5f9;
+  --card-bg:          #ffffff;
+  --card-border:      #e2e8f0;
+  --card-shadow:      0 1px 3px rgba(15,23,42,.06), 0 12px 32px rgba(15,23,42,.09);
+  --fg:               #0f172a;
+  --muted:            #64748b;
+  --input-focus:      #2563eb;
+  --input-focus-ring: rgba(37,99,235,.22);
+  --chip-bg:          #f1f5f9;
+  --chip-border:      #e2e8f0;
+  --chip-active-bg:   #1d4ed8;
+  --chip-active-fg:   #ffffff;
+  --chip-active-brd:  #1e40af;
+  --tier-bg:          #ffffff;
+  --tier-border:      #e2e8f0;
+  --tier-top-bg:      #eff6ff;
+  --tier-top-border:  #60a5fa;
+  --tier-base-bg:     #f8fafc;
+  --hl-bg:            #fef08a;
+  --hl-fg:            #78350f;
+  --hl-border:        #fcd34d;
+  --conn-color:       #93c5fd;
+  --label-bg:         #f1f5f9;
+  --note-bg:          #fefce8;
+  --note-border:      #fde047;
+  --note-fg:          #713f12;
+  --fieldset-border:  #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:               #0b1220;
+    --card-bg:          #111827;
+    --card-border:      #1e2d3d;
+    --card-shadow:      0 1px 3px rgba(0,0,0,.5), 0 12px 32px rgba(0,0,0,.6);
+    --fg:               #e2e8f0;
+    --muted:            #94a3b8;
+    --input-focus:      #60a5fa;
+    --input-focus-ring: rgba(96,165,250,.3);
+    --chip-bg:          #1e2d3d;
+    --chip-border:      #2d3f52;
+    --chip-active-bg:   #2563eb;
+    --chip-active-fg:   #ffffff;
+    --chip-active-brd:  #3b82f6;
+    --tier-bg:          #1a2738;
+    --tier-border:      #253447;
+    --tier-top-bg:      #1a3252;
+    --tier-top-border:  #3b82f6;
+    --tier-base-bg:     #141f2d;
+    --hl-bg:            #92400e;
+    --hl-fg:            #fef3c7;
+    --hl-border:        #b45309;
+    --conn-color:       #2d5ca8;
+    --label-bg:         #0f1e2d;
+    --note-bg:          #1c1a10;
+    --note-border:      #ca8a04;
+    --note-fg:          #fde68a;
+    --fieldset-border:  #2d3f52;
+  }
+}
+
+/* ── Reset ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Japanese text — system JP stack for proper glyph rendering */
+.jp {
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP",
+               "Yu Gothic", Meiryo, "MS PGothic", sans-serif;
+}
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 20px 14px 36px;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  padding: 22px 26px 28px;
+}
+
+/* ── Card header ───────────────────────────────────────────────────────────── */
+.card-header {
+  margin-bottom: 18px;
+}
+
+.card-header h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--fg);
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ── Verb picker ───────────────────────────────────────────────────────────── */
+.verb-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.verb-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--fg);
+  transition: background 120ms ease, border-color 120ms ease,
+              color 120ms ease, box-shadow 120ms ease;
+  text-align: center;
+  min-width: 62px;
+  font: inherit;
+}
+
+.verb-chip:hover:not(.verb-chip--active) {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 2px var(--input-focus-ring);
+}
+
+.verb-chip--active {
+  background: var(--chip-active-bg);
+  border-color: var(--chip-active-brd);
+  color: var(--chip-active-fg);
+  box-shadow: 0 1px 4px rgba(29,78,216,.35);
+}
+
+.verb-chip-kanji {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.verb-chip-sub {
+  font-size: 10px;
+  opacity: .8;
+  letter-spacing: 0.02em;
+}
+
+.verb-chip-gloss {
+  font-size: 10px;
+  opacity: .65;
+}
+
+/* ── Two-column body ───────────────────────────────────────────────────────── */
+.card-body {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.card-controls {
+  flex: 0 0 220px;
+  min-width: 0;
+}
+
+.card-tower {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Controls ──────────────────────────────────────────────────────────────── */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 3px 0;
+}
+
+.toggle-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--input-focus);
+  flex-shrink: 0;
+}
+
+.toggle-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.morph-tag {
+  font-size: 10.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted);
+  background: var(--label-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.01em;
+}
+
+/* Voice fieldset */
+.voice-group {
+  border: 1px solid var(--fieldset-border);
+  border-radius: 8px;
+  padding: 8px 12px 10px;
+  margin: 2px 0;
+}
+
+.voice-group legend {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.radio-row input[type="radio"] {
+  accent-color: var(--input-focus);
+  cursor: pointer;
+}
+
+.ordering-note {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* ── Teaching notes ────────────────────────────────────────────────────────── */
+.notes { margin-bottom: 0; }
+
+.note {
+  margin: 0 0 6px;
+  padding: 8px 12px;
+  background: var(--note-bg);
+  border: 1px solid var(--note-border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--note-fg);
+  line-height: 1.45;
+}
+
+/* ── Tower — stacked slabs ─────────────────────────────────────────────────── */
+/*
+  Tiers share one outer border/rounded-rect container; a 1px gap between them
+  (whose color is var(--tier-border)) reads as a hairline separator.
+  A left accent border on each slab is the "spine" connecting them visually.
+*/
+.tower {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--tier-border);   /* hairline separators between slabs */
+  border: 1px solid var(--tier-border);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Continuous gradient rail running from base (softer) → top (accent blue) */
+.tower::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: linear-gradient(to top, var(--conn-color), var(--tier-top-border));
+  z-index: 1;
+  pointer-events: none;
+}
+
+.tier {
+  transition: opacity 180ms ease;
+}
+
+.tier-body {
+  background: var(--tier-bg);
+  border-left: 4px solid var(--conn-color);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Outer corners follow the tower's border-radius */
+.tier:first-child .tier-body { border-radius: 9px 9px 0 0; }
+.tier:last-child  .tier-body { border-radius: 0 0 9px 9px; }
+.tier:only-child  .tier-body { border-radius: 9px; }
+
+/* ── Top tier: final assembled form — most prominent ─────────────────────── */
+.tier--top .tier-body {
+  background: var(--tier-top-bg);
+  border-left-color: var(--tier-top-border);
+  border-left-width: 5px;
+  padding: 18px 18px 14px;
+}
+
+/* ── Base tier: foundation — smallest, subtlest ─────────────────────────── */
+.tier--base .tier-body {
+  background: var(--tier-base-bg);
+  padding: 8px 14px;
+}
+
+/* ── Tier content rows ─────────────────────────────────────────────────────── */
+.tier-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Kanji size progression: top → intermediate → base */
+.tier-kanji {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.tier--top .tier-kanji {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.tier--base .tier-kanji {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+/* Kana */
+.tier-kana {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tier--top .tier-kana {
+  font-size: 17px;
+}
+
+.tier--base .tier-kana {
+  font-size: 12px;
+}
+
+/* Romaji */
+.tier-romaji {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.03em;
+}
+
+.tier--top .tier-romaji {
+  font-size: 14px;
+}
+
+.tier--base .tier-romaji {
+  font-size: 11px;
+}
+
+/* Meta row: label badge + gloss */
+.tier-row--meta { gap: 6px; }
+
+.tier-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  background: var(--label-bg);
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.tier-gloss {
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.tier--top .tier-gloss {
+  font-size: 14px;
+}
+
+/* ── Morpheme highlight ────────────────────────────────────────────────────── */
+.hl {
+  background: var(--hl-bg);
+  color: var(--hl-fg);
+  border-radius: 4px;
+  padding: 1px 3px;
+  border: 1px solid var(--hl-border);
+  margin: 0 1px;
+}
+
+/* ── Composition slot legend ───────────────────────────────────────────────── */
+.slot-legend {
+  margin-top: 10px;
+  padding: 9px 10px 8px;
+  border: 1px solid var(--fieldset-border);
+  border-radius: 8px;
+  background: var(--label-bg);
+}
+
+.slot-legend-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+
+.slot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.slot-chips-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.slot-arrow {
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.slot-chip {
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.3;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.slot-chip--active {
+  background: var(--tier-top-bg);
+  border-color: var(--tier-top-border);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* ── Ruby furigana on top-tier kanji ──────────────────────────────────────── */
+.tier--top .tier-kanji ruby {
+  ruby-align: center;
+}
+
+.tier--top .tier-kanji ruby rt {
+  font-size: 0.38em;
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP",
+               "Yu Gothic", Meiryo, "MS PGothic", sans-serif;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .verb-chip,
+  .tier,
+  .search-input,
+  .search-result { transition: none; }
+}
+
+/* ── Responsive: collapse two columns → single column ─────────────────────── */
+@media (max-width: 600px) {
+  .card-body {
+    flex-direction: column;
+  }
+  .card-controls {
+    flex: none;
+    width: 100%;
+  }
+  .tier--top .tier-kanji { font-size: 32px; }
+  .tier-kanji             { font-size: 20px; }
+  .tier--base .tier-kanji { font-size: 16px; }
+}
+
+@media (max-width: 400px) {
+  .card { padding: 16px 14px 20px; }
+  .verb-picker { gap: 4px; }
+  .verb-chip   { min-width: 52px; padding: 5px 7px; }
+  .verb-chip-kanji { font-size: 17px; }
+  .tier--top .tier-kanji { font-size: 26px; }
+}
+
+/* ── Search/entry box ──────────────────────────────────────────────────────── */
+.search-section {
+  margin-bottom: 14px;
+}
+
+.search-box-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--fg);
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.search-input:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+/* Remove browser default clear button on type=search */
+.search-input::-webkit-search-cancel-button { display: none; }
+
+.dict-hint {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dict-hint--loading {
+  font-style: italic;
+}
+
+/* ── Search results list ───────────────────────────────────────────────────── */
+.search-results {
+  margin-top: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.search-no-match {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.search-result {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--card-border);
+  cursor: pointer;
+  font: inherit;
+  color: var(--fg);
+  text-align: left;
+  transition: background 80ms ease;
+}
+
+.search-result:last-child {
+  border-bottom: none;
+}
+
+.search-result:hover {
+  background: var(--tier-top-bg);
+  outline: none;
+}
+
+.search-result:focus-visible {
+  background: var(--tier-top-bg);
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--input-focus);
+}
+
+.search-result-kanji {
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 48px;
+  flex-shrink: 0;
+}
+
+.search-result-reading {
+  font-size: 12px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.search-result-gloss {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-cls {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted);
+  background: var(--label-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+/* ── Tier auxiliary label ──────────────────────────────────────────────────── */
+/* tier-label--aux uses the same base style as tier-label; cursor shows tooltip */
+.tier-label--aux {
+  cursor: help;
+}
+
+/* Auxiliary name in JP font inside the label — faint dotted underline hints hoverable */
+.tier-aux {
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP",
+               "Yu Gothic", Meiryo, "MS PGothic", sans-serif;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+/* ── Active (non-featured) verb indicator ─────────────────────────────────── */
+.active-verb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  padding: 2px 9px 2px 7px;
+  font-size: 11.5px;
+  color: var(--muted);
+  background: var(--label-bg);
+  border: 1px solid var(--fieldset-border);
+  border-radius: 20px;
+}
+
+.active-verb-chip .jp {
+  font-size: 13px;
+}
+
+/* ── Slot legend subtitle ──────────────────────────────────────────────────── */
+.slot-legend-sub {
+  display: block;
+  font-size: 9px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ── Attribution credit ────────────────────────────────────────────────────── */
+.credit {
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--card-border);
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: right;
+  line-height: 1.4;
+}
+
+/* ── Narrow-width adjustments for search ──────────────────────────────────── */
+@media (max-width: 600px) {
+  .search-result-cls { display: none; }
+  .search-result-gloss { white-space: normal; }
+}
+
+@media (max-width: 400px) {
+  .search-input { font-size: 13px; padding: 7px 10px; }
+  .dict-hint { display: none; }
+}
