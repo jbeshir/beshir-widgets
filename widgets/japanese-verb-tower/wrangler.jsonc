@@ -1,0 +1,14 @@
+{
+  "name": "widget-japanese-verb-tower",
+  "compatibility_date": "2026-06-01",
+  "assets": {
+    "directory": "./dist/",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    {
+      "pattern": "japanese-verb-tower.widgets.beshir.org",
+      "custom_domain": true
+    }
+  ]
+}
