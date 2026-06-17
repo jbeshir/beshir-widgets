@@ -728,3 +728,187 @@ body {
   .search-input { font-size: 13px; padding: 7px 10px; }
   .dict-hint { display: none; }
 }
+
+/* ── Type badge pill ────────────────────────────────────────────────────────── */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 10px;
+  border: 1px solid var(--tier-top-border);
+  background: var(--tier-top-bg);
+  color: var(--input-focus);
+  white-space: nowrap;
+  line-height: 1.5;
+  cursor: default;
+  flex-shrink: 0;
+}
+
+/* ── Tier remove button ─────────────────────────────────────────────────────── */
+.tier-body { position: relative; }
+
+.tier-remove {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid var(--chip-border);
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
+}
+
+.tier-remove:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tier-remove:hover {
+    background: #450a0a;
+    border-color: #7f1d1d;
+    color: #f87171;
+  }
+}
+
+/* ── Disabled toggle row ────────────────────────────────────────────────────── */
+.toggle-row--disabled {
+  opacity: 0.45;
+}
+
+/* ── Add-layer affordance ───────────────────────────────────────────────────── */
+.add-layer-wrap {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.add-layer-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--input-focus);
+  background: var(--tier-top-bg);
+  border: 1.5px dashed var(--tier-top-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease;
+  justify-content: center;
+}
+
+.add-layer-btn:hover, .add-layer-btn--open {
+  background: color-mix(in srgb, var(--tier-top-bg) 60%, var(--tier-top-border));
+  border-style: solid;
+}
+
+.add-layer-terminal {
+  padding: 5px 12px;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  border: 1px solid var(--fieldset-border);
+  border-radius: 8px;
+  background: var(--label-bg);
+}
+
+/* ── Layer menu dropdown ────────────────────────────────────────────────────── */
+.layer-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.08);
+  z-index: 50;
+  overflow: hidden;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.layer-menu-group {
+  padding: 6px 0 4px;
+  border-bottom: 1px solid var(--fieldset-border);
+}
+
+.layer-menu-group:last-child { border-bottom: none; }
+
+.layer-menu-group-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 12px 4px;
+}
+
+.layer-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 13px;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  transition: background 80ms ease;
+}
+
+.layer-menu-item:hover:not(:disabled) {
+  background: var(--tier-top-bg);
+}
+
+.layer-menu-item--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.layer-menu-label { font-weight: 500; }
+
+.layer-menu-aux {
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* ── Colloquial alt label ───────────────────────────────────────────────────── */
+.tier-colloq {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── Deep tower mobile legibility ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .tier-body { padding-right: 32px; }
+  .layer-menu { max-height: 260px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .add-layer-btn, .tier-remove, .layer-menu-item { transition: none; }
+}

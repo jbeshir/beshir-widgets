@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'preact/hooks';
 import type { JSX } from 'preact';
-import { makeVerb, buildTower, FEATURED_KANJI } from './engine';
-import type { Verb, Tier, DictEntry } from './engine';
+import {
+  makeVerb, buildTower, FEATURED_KANJI, finalForm, allowedOps, disabledReason,
+  OP_FAMILIES, OP_META, FORM_LABEL,
+} from './engine';
+import type { Verb, Tier, DictEntry, Form, OpId } from './engine';
 import { romajiToKana, hasJapanese } from './romaji';
 import sampleDataJson from './data/verbs.sample.json';
 
-// 助動詞 tooltip content per tier layer (condensed from research Part 4)
 const AUX_TOOLTIP: Readonly<Record<string, string>> = {
   causative: 'make/let someone do — auxiliary せる／させる, attaches to the 未然形 (a-stem); conjugates as an ichidan verb.',
   passive:   'passive/potential/spontaneous/honorific — one auxiliary れる／られる, attaches to the 未然形 (a-stem); conjugates as an ichidan verb.',
@@ -15,13 +17,10 @@ const AUX_TOOLTIP: Readonly<Record<string, string>> = {
   past:      'past/completed — auxiliary た (だ after voiced ん-onbin: 飲んだ, 遊んだ), on the て／た euphonic stem.',
 };
 
-// Static inline sample — 300 verbs, always available, no fetch required
 const SAMPLE = sampleDataJson as unknown as DictEntry[];
-
-// Featured verbs: the original 10 demo verbs, sourced from the sample
 const FEATURED: Verb[] = FEATURED_KANJI.map(k => makeVerb(SAMPLE.find(e => e.k === k)!));
+const MIRU = FEATURED.find(v => v.kanji === '見る') ?? FEATURED[0];
 
-// Build reading index: Map<kana-reading, Verb[]>
 function buildByReading(data: DictEntry[]): Map<string, Verb[]> {
   const m = new Map<string, Verb[]>();
   for (const e of data) {
@@ -32,8 +31,6 @@ function buildByReading(data: DictEntry[]): Map<string, Verb[]> {
   return m;
 }
 
-// Search corpus: tiered ranking — (a) exact reading, (b) reading prefix, (c) kanji contains raw,
-// (d) romaji prefix. Within each tier: data order (pre-sorted common-first). Cap at 30.
 function searchEntries(raw: string, data: DictEntry[]): DictEntry[] {
   const lo   = raw.toLowerCase();
   const kana = hasJapanese(raw) ? raw : romajiToKana(lo);
@@ -81,7 +78,6 @@ function renderTopKanji(
   verb: { kanjiPrefix: string; prefixLen: number },
 ): JSX.Element {
   const { kanjiPrefix, prefixLen } = verb;
-  // Only apply ruby when there's a kanji stem and the highlight doesn't overlap it
   if (!kanjiPrefix || prefixLen === 0 || !kanji.startsWith(kanjiPrefix) || hl[0] < kanjiPrefix.length) {
     return <span class="tier-kanji jp">{renderHighlighted(kanji, hl)}</span>;
   }
@@ -97,22 +93,34 @@ function renderTopKanji(
   );
 }
 
+const COLLOQ_ALT: Partial<Record<OpId, string>> = {
+  'te-iru':    'てる／でる',
+  'te-iku':    'てく／でく',
+  'te-shimau': 'ちゃう／じゃう',
+  'te-oku':    'とく／どく',
+};
+
+const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
+  { label: 'Desire & ease',      ops: OP_FAMILIES.desire },
+  { label: 'Adjective & なる',    ops: OP_FAMILIES.adjective },
+  { label: 'Aspect & direction',  ops: OP_FAMILIES.aspect },
+  { label: 'Mood',               ops: OP_FAMILIES.mood },
+  { label: 'Core',               ops: OP_FAMILIES.core },
+];
+
 export function App() {
-  const [selectedVerb, setSelectedVerb] = useState<Verb>(FEATURED[0]);
-  const [causative, setCausative]       = useState(true);
-  const [voice, setVoice]               = useState<'none' | 'passive' | 'potential'>('passive');
-  const [polite, setPolite]             = useState(false);
-  const [negative, setNegative]         = useState(false);
-  const [past, setPast]                 = useState(false);
+  const [selectedVerb, setSelectedVerb] = useState<Verb>(MIRU);
+  const [stack, setStack]               = useState<OpId[]>(['tai']);
+  const [addLayerOpen, setAddLayerOpen] = useState(false);
   const [ready, setReady]               = useState(false);
   const [query, setQuery]               = useState('');
   const [allEntries, setAllEntries]     = useState<DictEntry[]>(SAMPLE);
   const [dictLoading, setDictLoading]   = useState(true);
   const [dictSize, setDictSize]         = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef      = useRef<HTMLDivElement>(null);
   const byReadingRef = useRef(buildByReading(SAMPLE));
 
-  // Lazy-load full corpus after first paint; never blocks #widget-ready
   useEffect(() => {
     import('./data/verbs.full.json')
       .then((m) => {
@@ -125,10 +133,8 @@ export function App() {
       .catch(() => { setDictLoading(false); });
   }, []);
 
-  // #widget-ready fires on first paint, not gated on dict load
   useEffect(() => { setReady(true); }, []);
 
-  // ResizeObserver → postMessage to parent frame
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -140,9 +146,30 @@ export function App() {
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!addLayerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setAddLayerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [addLayerOpen]);
+
   const tower: Tier[] = useMemo(
-    () => buildTower(selectedVerb, { causative, voice, polite, negative, past }),
-    [selectedVerb, causative, voice, polite, negative, past],
+    () => buildTower(selectedVerb, stack),
+    [selectedVerb, stack],
+  );
+
+  const currentForm: Form = useMemo(
+    () => finalForm(selectedVerb, stack),
+    [selectedVerb, stack],
+  );
+
+  const nextOps: OpId[] = useMemo(
+    () => allowedOps(currentForm, stack),
+    [currentForm, stack],
   );
 
   const trimmedQuery = query.trim();
@@ -151,46 +178,90 @@ export function App() {
     [trimmedQuery, allEntries],
   );
 
-  function selectVerb(v: Verb) {
-    setSelectedVerb(v);
-    setQuery('');
+  const cChecked      = stack.includes('causative');
+  const politeChecked = stack.includes('polite');
+  const negChecked    = stack.includes('negative');
+  const pastChecked   = stack.includes('past');
+  const currentVoice: 'none' | 'passive' | 'potential' =
+    stack.includes('passive') ? 'passive' :
+    stack.includes('potential') ? 'potential' : 'none';
+
+  function opDisabled(op: OpId): boolean {
+    return !stack.includes(op) && !nextOps.includes(op);
   }
 
-  // Contextual teaching notes
+  function toggleOn(op: OpId) {
+    if (nextOps.includes(op)) setStack([...stack, op]);
+  }
+
+  function toggleOff(op: OpId) {
+    const idx = stack.indexOf(op);
+    if (idx >= 0) setStack(stack.slice(0, idx));
+  }
+
+  function handleVoiceChange(v: 'none' | 'passive' | 'potential') {
+    const voiceOps: OpId[] = ['passive', 'potential'];
+    let newStack = stack;
+    for (const vo of voiceOps) {
+      const idx = newStack.indexOf(vo);
+      if (idx >= 0) { newStack = newStack.slice(0, idx); break; }
+    }
+    if (v !== 'none') {
+      const tempForm = finalForm(selectedVerb, newStack);
+      const tempNext = allowedOps(tempForm, newStack);
+      if (tempNext.includes(v)) newStack = [...newStack, v];
+    }
+    setStack(newStack);
+  }
+
+  function selectVerb(v: Verb) {
+    setSelectedVerb(v);
+    setStack([]);
+    setQuery('');
+    setAddLayerOpen(false);
+  }
+
+  function removeTier(towerIdx: number) {
+    // tower[i] corresponds to stack[i-1]; truncate stack to keep everything before tower[towerIdx]
+    setStack(stack.slice(0, towerIdx - 1));
+  }
+
   const notes: string[] = [];
-  if (selectedVerb.klass === 'suru' && voice === 'potential') {
+  if (selectedVerb.klass === 'suru' && stack.includes('potential')) {
     notes.push('する + potential → できる (suppletive — completely different word, not derived)');
   }
-  if (selectedVerb.klass === 'ichidan' && !causative && voice !== 'none') {
+  if (selectedVerb.klass === 'ichidan' && !cChecked && currentVoice !== 'none') {
     notes.push(
       `${selectedVerb.kanji}られる: ichidan passive = potential surface (homophony). ` +
       `Godan verbs diverge: 飲める (potential) vs 飲まれる (passive).`,
     );
   }
-  if (selectedVerb.klass === 'kuru' && voice === 'passive') {
+  if (selectedVerb.klass === 'kuru' && stack.includes('passive')) {
     notes.push('来る passive/potential = こられる (same form; irregular reading shift こ/き)');
   }
-  if (selectedVerb.rawClass === 'godan-r-i' && negative && !polite && !causative && voice === 'none') {
+  if (selectedVerb.rawClass === 'godan-r-i' && negChecked && !politeChecked && !cChecked && currentVoice === 'none') {
     notes.push("ある's plain negative is the suppletive adjective ない (not あらない).");
   }
+  if (stack.includes('tai')) {
+    notes.push('たい is an い-adjective: its polite form uses です (見たいです), never ます.');
+  }
+  if (stack.includes('te-shimau-colloq')) {
+    notes.push('ちゃう (て→ちゃう) / じゃう (で→じゃう) is colloquial; formal is てしまう.');
+  }
 
-  // Display reversed: top tier (final form) first, base last
   const displayTiers = [...tower].reverse();
-  const isActive = (v: Verb) =>
-    v.kanji === selectedVerb.kanji && v.kana === selectedVerb.kana;
-  const isFeatured = FEATURED.some(v => v.kanji === selectedVerb.kanji && v.kana === selectedVerb.kana);
+  const isActive = (v: Verb) => v.kanji === selectedVerb.kanji && v.kana === selectedVerb.kana;
+  const isFeatured = FEATURED.some(isActive);
+  const isTerminal = nextOps.length === 0;
 
   return (
     <div class="container" ref={containerRef}>
       <div class="card">
         <header class="card-header">
           <h1>Japanese Verb Conjugation Tower</h1>
-          <p class="hint">
-            Pick a verb, toggle layers — watch the conjugated form build up morpheme by morpheme.
-          </p>
+          <p class="hint">Pick a verb, build up layers — watch the form type change with each step.</p>
         </header>
 
-        {/* ── Search/entry — NEW, above the featured row ───────────────────── */}
         <div class="search-section">
           <div class="search-box-wrap">
             <input
@@ -239,7 +310,6 @@ export function App() {
           )}
         </div>
 
-        {/* ── Featured quick-pick row ────────────────────────────────────────── */}
         <div class="verb-picker" role="group" aria-label="Select a featured verb">
           {FEATURED.map((v) => (
             <button
@@ -256,113 +326,97 @@ export function App() {
           ))}
         </div>
 
-        {/* ── Two-column body ──────────────────────────────────────────────── */}
         <div class="card-body">
-
-          {/* Left column: conjugation controls */}
           <div class="card-controls">
             <div class="controls" aria-label="Conjugation layer toggles">
 
-              <label class="toggle-row">
+              <label class={`toggle-row${opDisabled('causative') ? ' toggle-row--disabled' : ''}`}>
                 <input
                   type="checkbox"
-                  checked={causative}
-                  onChange={(e) => setCausative((e.target as HTMLInputElement).checked)}
+                  checked={cChecked}
+                  disabled={opDisabled('causative')}
+                  onChange={(e) => {
+                    (e.target as HTMLInputElement).checked ? toggleOn('causative') : toggleOff('causative');
+                  }}
                 />
                 <span class="toggle-text">
-                  Causative
-                  <span class="morph-tag">-させる / -せる</span>
+                  Causative <span class="morph-tag">-させる / -せる</span>
                 </span>
               </label>
 
               <fieldset class="voice-group">
-                <legend>
-                  Voice
-                  <span class="morph-tag">one slot — always innermost</span>
-                </legend>
+                <legend>Voice <span class="morph-tag">one slot — always innermost</span></legend>
                 {(['none', 'passive', 'potential'] as const).map((v) => (
                   <label key={v} class="radio-row">
                     <input
                       type="radio"
                       name="voice"
                       value={v}
-                      checked={voice === v}
-                      onChange={() => setVoice(v)}
+                      checked={currentVoice === v}
+                      disabled={v !== 'none' && v !== currentVoice && opDisabled(v)}
+                      onChange={() => handleVoiceChange(v)}
                     />
                     {v === 'none' ? (
                       <span class="toggle-text">none</span>
                     ) : v === 'passive' ? (
-                      <span class="toggle-text">
-                        Passive
-                        <span class="morph-tag">-られる / -れる</span>
-                      </span>
+                      <span class="toggle-text">Passive <span class="morph-tag">-られる / -れる</span></span>
                     ) : (
-                      <span class="toggle-text">
-                        Potential
-                        <span class="morph-tag">-える / -られる</span>
-                      </span>
+                      <span class="toggle-text">Potential <span class="morph-tag">-える / -られる</span></span>
                     )}
                   </label>
                 ))}
-                <p class="ordering-note">
-                  Voice applies before polite/tense — the pipeline enforces this automatically.
-                </p>
+                <p class="ordering-note">Voice applies before polite/tense — the pipeline enforces this automatically.</p>
               </fieldset>
 
-              <label class="toggle-row">
+              <label class={`toggle-row${opDisabled('polite') ? ' toggle-row--disabled' : ''}`}>
                 <input
                   type="checkbox"
-                  checked={polite}
-                  onChange={(e) => setPolite((e.target as HTMLInputElement).checked)}
+                  checked={politeChecked}
+                  disabled={opDisabled('polite')}
+                  onChange={(e) => {
+                    (e.target as HTMLInputElement).checked ? toggleOn('polite') : toggleOff('polite');
+                  }}
                 />
-                <span class="toggle-text">
-                  Polite
-                  <span class="morph-tag">-ます</span>
-                </span>
+                <span class="toggle-text">Polite <span class="morph-tag">-ます</span></span>
               </label>
 
-              <label class="toggle-row">
+              <label class={`toggle-row${opDisabled('negative') ? ' toggle-row--disabled' : ''}`}>
                 <input
                   type="checkbox"
-                  checked={negative}
-                  onChange={(e) => setNegative((e.target as HTMLInputElement).checked)}
+                  checked={negChecked}
+                  disabled={opDisabled('negative')}
+                  onChange={(e) => {
+                    (e.target as HTMLInputElement).checked ? toggleOn('negative') : toggleOff('negative');
+                  }}
                 />
-                <span class="toggle-text">
-                  Negative
-                  <span class="morph-tag">-ない / -ません</span>
-                </span>
+                <span class="toggle-text">Negative <span class="morph-tag">-ない / -ません</span></span>
               </label>
 
-              <label class="toggle-row">
+              <label class={`toggle-row${opDisabled('past') ? ' toggle-row--disabled' : ''}`}>
                 <input
                   type="checkbox"
-                  checked={past}
-                  onChange={(e) => setPast((e.target as HTMLInputElement).checked)}
+                  checked={pastChecked}
+                  disabled={opDisabled('past')}
+                  onChange={(e) => {
+                    (e.target as HTMLInputElement).checked ? toggleOn('past') : toggleOff('past');
+                  }}
                 />
-                <span class="toggle-text">
-                  Past
-                  <span class="morph-tag">-た / -ました</span>
-                </span>
+                <span class="toggle-text">Past <span class="morph-tag">-た / -ました</span></span>
               </label>
             </div>
 
-            {/* Composition slot legend — enhanced with 助動詞 context */}
-            <div class="slot-legend" aria-label="Morpheme slot order">
+            <div class="slot-legend" aria-label="Current op stack">
               <div class="slot-legend-title">
-                Composition order
-                <span class="slot-legend-sub">each active slot adds a helper word (助動詞)</span>
+                Op stack
+                <span class="slot-legend-sub">active layers (innermost → outermost)</span>
               </div>
               <div class="slot-chips">
-                {([
-                  { key: 'root',  label: 'root',    active: true },
-                  { key: 'caus',  label: 'caus',    active: causative },
-                  { key: 'voice', label: 'voice',   active: voice !== 'none' },
-                  { key: 'pol',   label: 'polite',  active: polite },
-                  { key: 'neg',   label: 'neg·tns', active: negative || past },
-                ] as const).map((s, i) => (
-                  <span key={s.key} class="slot-chips-group">
+                {stack.length === 0 ? (
+                  <span class="slot-chip">base only</span>
+                ) : stack.map((op, i) => (
+                  <span key={i} class="slot-chips-group">
                     {i > 0 && <span class="slot-arrow" aria-hidden="true">→</span>}
-                    <span class={`slot-chip${s.active ? ' slot-chip--active' : ''}`}>{s.label}</span>
+                    <span class="slot-chip slot-chip--active">{OP_META[op]?.label ?? op}</span>
                   </span>
                 ))}
               </div>
@@ -370,43 +424,101 @@ export function App() {
 
             {notes.length > 0 && (
               <div class="notes" role="note">
-                {notes.map((n, i) => (
-                  <p key={i} class="note">{n}</p>
-                ))}
+                {notes.map((n, i) => <p key={i} class="note">{n}</p>)}
               </div>
             )}
           </div>
 
-          {/* Right column: the tower */}
           <div class="card-tower">
+            <div class="add-layer-wrap" ref={menuRef}>
+              {isTerminal ? (
+                <div class="add-layer-terminal" aria-live="polite">terminal form — nothing more attaches</div>
+              ) : (
+                <>
+                  <button
+                    class={`add-layer-btn${addLayerOpen ? ' add-layer-btn--open' : ''}`}
+                    onClick={() => setAddLayerOpen(o => !o)}
+                    aria-expanded={addLayerOpen}
+                    aria-haspopup="menu"
+                    aria-label="Add conjugation layer"
+                  >＋ add layer</button>
+                  {addLayerOpen && (
+                    <div class="layer-menu" role="menu" aria-label="Conjugation layers">
+                      {MENU_GROUPS.map(group => (
+                        <div key={group.label} class="layer-menu-group">
+                          <div class="layer-menu-group-label">{group.label}</div>
+                          {group.ops.map(op => {
+                            const meta = OP_META[op];
+                            const enabled = nextOps.includes(op);
+                            const reason = enabled ? undefined : disabledReason(currentForm, stack, op) ?? undefined;
+                            return (
+                              <button
+                                key={op}
+                                class={`layer-menu-item${enabled ? '' : ' layer-menu-item--disabled'}`}
+                                disabled={!enabled}
+                                title={reason ?? meta.tooltip}
+                                onClick={() => { if (enabled) { setStack([...stack, op]); setAddLayerOpen(false); } }}
+                                role="menuitem"
+                                aria-disabled={!enabled}
+                              >
+                                <span class="layer-menu-label">{meta.label}</span>
+                                <span class="layer-menu-aux jp">{meta.aux}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             <div class="tower" aria-label="Conjugation tower — base at bottom, final at top">
               {displayTiers.map((tier, idx) => {
                 const isTop  = idx === 0;
-                const isBase = idx === displayTiers.length - 1;
+                const isBase = tier.op === 'base';
+                const towerIdx = tower.length - 1 - idx;
+                const opMeta = tier.op !== 'base' ? OP_META[tier.op] : undefined;
+                const colloq = tier.op !== 'base' ? COLLOQ_ALT[tier.op] : undefined;
                 return (
                   <div
-                    key={tier.layer}
+                    key={towerIdx}
                     class={`tier${isTop ? ' tier--top' : ''}${isBase ? ' tier--base' : ''}`}
                     aria-label={`${tier.label}: ${tier.kanji}`}
                   >
                     <div class="tier-body">
+                      {!isBase && (
+                        <button
+                          class="tier-remove"
+                          onClick={() => removeTier(towerIdx)}
+                          aria-label={`Remove ${tier.label} layer and everything above`}
+                          title="Remove this layer (and all above)"
+                        >✕</button>
+                      )}
                       <div class="tier-row tier-row--main">
                         {isTop
                           ? renderTopKanji(tier.kanji, tier.kana, tier.hlKanji, selectedVerb)
                           : <span class="tier-kanji jp">{renderHighlighted(tier.kanji, tier.hlKanji)}</span>
                         }
+                        <span class="type-badge" title={`form type: ${tier.type}`}>
+                          {FORM_LABEL[tier.type]}
+                        </span>
                       </div>
                       <div class="tier-row tier-row--sub">
-                        <span class="tier-kana jp">
-                          {renderHighlighted(tier.kana, tier.hlKana)}
-                        </span>
+                        <span class="tier-kana jp">{renderHighlighted(tier.kana, tier.hlKana)}</span>
                         <span class="tier-romaji">{tier.romaji}</span>
                       </div>
+                      {colloq && (
+                        <div class="tier-row">
+                          <span class="tier-colloq jp" title="colloquial contraction">{colloq} (colloq)</span>
+                        </div>
+                      )}
                       <div class="tier-row tier-row--meta">
                         {tier.aux ? (
                           <span
                             class="tier-label tier-label--aux"
-                            title={AUX_TOOLTIP[tier.layer] ?? ''}
+                            title={AUX_TOOLTIP[tier.op] ?? opMeta?.tooltip ?? ''}
                           >
                             {tier.label} · <span class="tier-aux jp">{tier.aux}</span>
                           </span>
@@ -423,7 +535,6 @@ export function App() {
           </div>
         </div>
 
-        {/* ── Attribution footer ────────────────────────────────────────────── */}
         <p class="credit">Verb data derived from JMdict / EDICT, © EDRDG — used under the EDRDG licence (CC BY-SA).</p>
       </div>
 
@@ -431,3 +542,7 @@ export function App() {
     </div>
   );
 }
+
+
+
+

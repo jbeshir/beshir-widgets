@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "tsx test/golden.ts"
   },
   "dependencies": {
     "preact": "^10.27.2"
@@ -15,6 +16,7 @@
     "@preact/preset-vite": "^2.10.2",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
-    "wrangler": "^4.98.0"
+    "wrangler": "^4.98.0",
+    "tsx": "^4.19.4"
   }
 }
