@@ -10,6 +10,7 @@ import { parseState, serializeState } from './urlstate';
 import { buildCorpus, deconjugate } from './deconjugate';
 import type { Parse } from './deconjugate';
 import sampleDataJson from './data/verbs.sample.json';
+import adjDataJson from './data/adjectives.sample.json';
 
 const AUX_TOOLTIP: Readonly<Record<string, string>> = {
   causative: 'make/let someone do — auxiliary せる／させる, attaches to the 未然形 (a-stem); conjugates as an ichidan verb.',
@@ -178,7 +179,11 @@ export function App() {
   const menuRef      = useRef<HTMLDivElement>(null);
   const byReadingRef = useRef(buildByReading(SAMPLE));
 
-  const corpus = useMemo(() => buildCorpus(allEntries), [allEntries]);
+  // Adjectives are included in the breakdown corpus only — not in build-mode search.
+  const corpus = useMemo(
+    () => buildCorpus([...allEntries, ...(adjDataJson as unknown as DictEntry[])]),
+    [allEntries],
+  );
 
   useEffect(() => {
     import('./data/verbs.full.json')
