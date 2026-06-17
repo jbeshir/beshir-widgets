@@ -41,7 +41,7 @@ function writeState(verb: Verb, ops: OpId[]): void {
 
 const INITIAL_STATE = readInitialState();
 const FEATURED: Verb[] = FEATURED_KANJI.map(k => makeVerb(SAMPLE.find(e => e.k === k)!));
-const DEFAULT_VERB = FEATURED.find(v => v.kanji === '食べる') ?? FEATURED[0];
+const DEFAULT_VERB = FEATURED.find(v => v.kanji === '飲む') ?? FEATURED[0];
 
 function buildByReading(data: DictEntry[]): Map<string, Verb[]> {
   const m = new Map<string, Verb[]>();
@@ -164,7 +164,7 @@ const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
 
 export function App() {
   const [selectedVerb, setSelectedVerb] = useState<Verb>(INITIAL_STATE?.verb ?? DEFAULT_VERB);
-  const [stack, setStack]               = useState<OpId[]>(INITIAL_STATE?.ops ?? ['tai','negative','naru','te-kuru','past']);
+  const [stack, setStack]               = useState<OpId[]>(INITIAL_STATE?.ops ?? []);
   const [addLayerOpen, setAddLayerOpen] = useState(false);
   const [ready, setReady]               = useState(false);
   const [query, setQuery]               = useState('');
