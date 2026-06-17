@@ -6,6 +6,9 @@ import {
 } from './engine';
 import type { Verb, Tier, DictEntry, Form, OpId } from './engine';
 import { romajiToKana, hasJapanese } from './romaji';
+import { parseState, serializeState } from './urlstate';
+import { buildCorpus, deconjugate } from './deconjugate';
+import type { Parse } from './deconjugate';
 import sampleDataJson from './data/verbs.sample.json';
 
 const AUX_TOOLTIP: Readonly<Record<string, string>> = {
@@ -18,6 +21,25 @@ const AUX_TOOLTIP: Readonly<Record<string, string>> = {
 };
 
 const SAMPLE = sampleDataJson as unknown as DictEntry[];
+
+function readInitialState(): { verb: Verb; ops: OpId[] } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return parseState(window.location.search);
+  } catch {
+    return null;
+  }
+}
+
+function writeState(verb: Verb, ops: OpId[]): void {
+  try {
+    history.replaceState(history.state, '', '?' + serializeState(verb, ops));
+  } catch {
+    // sandboxed iframe / history restricted — no-op
+  }
+}
+
+const INITIAL_STATE = readInitialState();
 const FEATURED: Verb[] = FEATURED_KANJI.map(k => makeVerb(SAMPLE.find(e => e.k === k)!));
 const DEFAULT_VERB = FEATURED.find(v => v.kanji === '食べる') ?? FEATURED[0];
 
@@ -141,17 +163,22 @@ const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
 ];
 
 export function App() {
-  const [selectedVerb, setSelectedVerb] = useState<Verb>(DEFAULT_VERB);
-  const [stack, setStack]               = useState<OpId[]>(['tai','negative','naru','te-kuru','past']);
+  const [selectedVerb, setSelectedVerb] = useState<Verb>(INITIAL_STATE?.verb ?? DEFAULT_VERB);
+  const [stack, setStack]               = useState<OpId[]>(INITIAL_STATE?.ops ?? ['tai','negative','naru','te-kuru','past']);
   const [addLayerOpen, setAddLayerOpen] = useState(false);
   const [ready, setReady]               = useState(false);
   const [query, setQuery]               = useState('');
   const [allEntries, setAllEntries]     = useState<DictEntry[]>(SAMPLE);
   const [dictLoading, setDictLoading]   = useState(true);
   const [dictSize, setDictSize]         = useState(0);
+  const [mode, setMode]                 = useState<'build' | 'breakdown'>('build');
+  const [bdInput, setBdInput]           = useState('');
+  const [bdParses, setBdParses]         = useState<Parse[] | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef      = useRef<HTMLDivElement>(null);
   const byReadingRef = useRef(buildByReading(SAMPLE));
+
+  const corpus = useMemo(() => buildCorpus(allEntries), [allEntries]);
 
   useEffect(() => {
     import('./data/verbs.full.json')
@@ -166,6 +193,10 @@ export function App() {
   }, []);
 
   useEffect(() => { setReady(true); }, []);
+
+  useEffect(() => {
+    writeState(selectedVerb, stack);
+  }, [selectedVerb, stack]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -258,6 +289,24 @@ export function App() {
     setStack(stack.slice(0, towerIdx - 1));
   }
 
+  function applyParse(p: Parse) {
+    setSelectedVerb(p.verb);
+    setStack(p.ops);
+    setBdParses(null);
+    setMode('build');
+  }
+
+  function runBreakdown() {
+    const input = bdInput.trim();
+    if (!input) return;
+    const parses = deconjugate(input, corpus);
+    if (parses.length === 1) {
+      applyParse(parses[0]);
+    } else {
+      setBdParses(parses);
+    }
+  }
+
   const notes: string[] = [];
   if (selectedVerb.klass === 'suru' && stack.includes('potential')) {
     notes.push('する + potential → できる (suppletive — completely different word, not derived)');
@@ -301,69 +350,142 @@ export function App() {
           <p class="hint">Pick a verb, build up layers — watch the form type change with each step.</p>
         </header>
 
-        <div class="search-section">
-          <div class="search-box-wrap">
-            <input
-              class="search-input"
-              type="search"
-              placeholder="Type a verb — romaji (nomu, taberu, benkyou suru) or kana/kanji"
-              value={query}
-              onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
-              aria-label="Search verbs by romaji, kana, or kanji"
-              aria-autocomplete="list"
-              aria-controls={trimmedQuery ? 'search-results' : undefined}
-              aria-expanded={!!trimmedQuery}
-            />
-            {dictLoading ? (
-              <span class="dict-hint dict-hint--loading" aria-live="polite">loading full dictionary…</span>
-            ) : dictSize > 0 && !trimmedQuery ? (
-              <span class="dict-hint">{dictSize.toLocaleString()} verbs</span>
-            ) : null}
-          </div>
-          {trimmedQuery && (
-            <div id="search-results" class="search-results" role="listbox" aria-label="Search results">
-              {searchResults.length === 0 ? (
-                <div class="search-no-match">No matches</div>
-              ) : (
-                searchResults.map((e) => (
-                  <button
-                    key={e.k + '\0' + e.r}
-                    class="search-result"
-                    role="option"
-                    aria-selected="false"
-                    onClick={() => selectVerb(makeVerb(e))}
-                  >
-                    <span class="search-result-kanji jp">{e.k}</span>
-                    <span class="search-result-reading jp">{e.r}</span>
-                    <span class="search-result-gloss">{e.gloss}</span>
-                    <span class="search-result-cls">{e.cls}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-          {!trimmedQuery && !isFeatured && (
-            <div class="active-verb-chip">
-              showing{' '}<span class="jp">{selectedVerb.kanji}</span>{' · '}<span class="jp">{selectedVerb.kana}</span>
-            </div>
-          )}
+        <div class="mode-toggle" role="tablist" aria-label="Widget mode">
+          <button
+            class={`mode-btn${mode === 'build' ? ' mode-btn--active' : ''}`}
+            role="tab"
+            aria-selected={mode === 'build'}
+            onClick={() => setMode('build')}
+          >Build</button>
+          <button
+            class={`mode-btn${mode === 'breakdown' ? ' mode-btn--active' : ''}`}
+            role="tab"
+            aria-selected={mode === 'breakdown'}
+            onClick={() => setMode('breakdown')}
+          >Break down</button>
         </div>
 
-        <div class="verb-picker" role="group" aria-label="Select a featured verb">
-          {FEATURED.map((v) => (
-            <button
-              key={v.kanji}
-              class={`verb-chip${isActive(v) ? ' verb-chip--active' : ''}`}
-              onClick={() => selectVerb(v)}
-              aria-pressed={isActive(v)}
-              title={`${v.kanji} (${v.romaji}) — ${v.gloss}`}
-            >
-              <span class="verb-chip-kanji jp">{v.kanji}</span>
-              <span class="verb-chip-sub">{v.romaji}</span>
-              <span class="verb-chip-gloss">{v.gloss}</span>
-            </button>
-          ))}
-        </div>
+        {mode === 'build' ? (
+          <>
+            <div class="search-section">
+              <div class="search-box-wrap">
+                <input
+                  class="search-input"
+                  type="search"
+                  placeholder="Type a verb — romaji (nomu, taberu, benkyou suru) or kana/kanji"
+                  value={query}
+                  onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+                  aria-label="Search verbs by romaji, kana, or kanji"
+                  aria-autocomplete="list"
+                  aria-controls={trimmedQuery ? 'search-results' : undefined}
+                  aria-expanded={!!trimmedQuery}
+                />
+                {dictLoading ? (
+                  <span class="dict-hint dict-hint--loading" aria-live="polite">loading full dictionary…</span>
+                ) : dictSize > 0 && !trimmedQuery ? (
+                  <span class="dict-hint">{dictSize.toLocaleString()} verbs</span>
+                ) : null}
+              </div>
+              {trimmedQuery && (
+                <div id="search-results" class="search-results" role="listbox" aria-label="Search results">
+                  {searchResults.length === 0 ? (
+                    <div class="search-no-match">No matches</div>
+                  ) : (
+                    searchResults.map((e) => (
+                      <button
+                        key={e.k + '\0' + e.r}
+                        class="search-result"
+                        role="option"
+                        aria-selected="false"
+                        onClick={() => selectVerb(makeVerb(e))}
+                      >
+                        <span class="search-result-kanji jp">{e.k}</span>
+                        <span class="search-result-reading jp">{e.r}</span>
+                        <span class="search-result-gloss">{e.gloss}</span>
+                        <span class="search-result-cls">{e.cls}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+              {!trimmedQuery && !isFeatured && (
+                <div class="active-verb-chip">
+                  showing{' '}<span class="jp">{selectedVerb.kanji}</span>{' · '}<span class="jp">{selectedVerb.kana}</span>
+                </div>
+              )}
+            </div>
+
+            <div class="verb-picker" role="group" aria-label="Select a featured verb">
+              {FEATURED.map((v) => (
+                <button
+                  key={v.kanji}
+                  class={`verb-chip${isActive(v) ? ' verb-chip--active' : ''}`}
+                  onClick={() => selectVerb(v)}
+                  aria-pressed={isActive(v)}
+                  title={`${v.kanji} (${v.romaji}) — ${v.gloss}`}
+                >
+                  <span class="verb-chip-kanji jp">{v.kanji}</span>
+                  <span class="verb-chip-sub">{v.romaji}</span>
+                  <span class="verb-chip-gloss">{v.gloss}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div class="breakdown-section">
+            <p class="hint">Enter a conjugated form (romaji, kana, or kanji) to identify the base verb and conjugation.</p>
+            <div class="breakdown-input-row">
+              <input
+                class="breakdown-input"
+                type="text"
+                placeholder="e.g. tabetakunakatta, 食べたくなかった"
+                value={bdInput}
+                onInput={(e) => { setBdInput((e.target as HTMLInputElement).value); setBdParses(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') runBreakdown(); }}
+                aria-label="Enter a conjugated verb form to analyze"
+              />
+              <button
+                class="breakdown-btn"
+                onClick={runBreakdown}
+                disabled={!bdInput.trim()}
+              >Break down</button>
+            </div>
+            {dictLoading && (
+              <span class="dict-hint dict-hint--loading" aria-live="polite">loading full dictionary…</span>
+            )}
+            {bdParses !== null && (
+              <div class="breakdown-results" aria-live="polite">
+                {bdParses.length === 0 ? (
+                  <p class="breakdown-no-parse">Couldn't analyze <span class="jp">{bdInput.trim()}</span> as a conjugation of a known verb.</p>
+                ) : (
+                  <>
+                    <p class="breakdown-hint">Did you mean…?</p>
+                    <div class="candidate-picker">
+                      {bdParses.map((p, i) => (
+                        <button key={i} class="candidate-row" onClick={() => applyParse(p)}>
+                          <span class="candidate-base">
+                            <span class="jp">{p.base.k}</span>
+                            <span class="candidate-reading jp">【{p.base.r}】</span>
+                            {p.base.gloss && <span class="candidate-gloss">{p.base.gloss}</span>}
+                          </span>
+                          <span class="candidate-ops">
+                            {p.ops.length === 0
+                              ? <span class="op-chip">base form</span>
+                              : p.ops.map((op, j) => (
+                                  <span key={j} class="op-chip">{OP_META[op]?.label ?? op}</span>
+                                ))
+                            }
+                          </span>
+                          <span class="candidate-surface jp">→ {p.kana}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div class="card-body">
           <div class="card-controls">

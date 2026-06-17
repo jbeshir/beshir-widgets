@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "tsx test/golden.ts"
+    "test": "tsx test/golden.ts",
+    "test:url": "tsx test/urlstate.ts",
+    "test:deconj": "tsx test/deconjugate.ts"
   },
   "dependencies": {
     "preact": "^10.27.2"
