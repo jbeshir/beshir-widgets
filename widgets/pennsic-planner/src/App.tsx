@@ -67,6 +67,7 @@ export function App() {
         setSelectedDay((prev) => (days.includes(prev) ? prev : getBusiestDay(ds)));
         setTrackFilter([]);
         setLocationFilter('');
+        setTextFilter('');
       }
     });
 

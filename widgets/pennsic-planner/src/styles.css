@@ -494,6 +494,11 @@ details[open] .track-legend-summary::before {
   border-color: var(--input-border);
 }
 
+.legend-chip:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
 .legend-swatch {
   width: 10px;
   height: 10px;

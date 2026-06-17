@@ -180,14 +180,24 @@ export function Filters({
         <div class="track-legend-grid">
           {tracks.map((t) => {
             const color = trackColors[t] ?? { l: 'hsl(220,55%,37%)', d: 'hsl(220,51%,49%)' };
+            const filterByTrack = () => {
+              if (!trackFilter.includes(t)) addTrack(t);
+            };
             return (
               <span
                 key={t}
                 class="legend-chip"
+                role="button"
+                tabIndex={0}
                 style={{ '--tc-l': color.l, '--tc-d': color.d } as Record<string, unknown>}
-                onClick={() => {
-                  if (!trackFilter.includes(t)) addTrack(t);
+                onClick={filterByTrack}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    filterByTrack();
+                  }
                 }}
+                aria-label={`Filter by ${t}`}
                 title={`Filter by ${t}`}
               >
                 <span class="legend-swatch" />

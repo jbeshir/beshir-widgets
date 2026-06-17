@@ -2,22 +2,11 @@ import { useState, useRef } from 'preact/hooks';
 import type { Session } from '../types';
 import { planStore } from '../store';
 import { normalizeCsv } from '../lib/normalize.js';
-import { buildIcs } from '../lib/ics.js';
+import { downloadIcs } from '../lib/download.js';
 
 interface Props {
   planSessions: Session[];
   currentPlanIds: string[];
-}
-
-function downloadIcs(sessions: Session[]) {
-  const text = buildIcs(sessions) as string;
-  const blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'pennsic-plan-2026.ics';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 export function ImportExport({ planSessions, currentPlanIds }: Props) {
