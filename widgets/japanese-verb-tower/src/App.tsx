@@ -10,6 +10,7 @@ import { parseState, serializeState } from './urlstate';
 import { buildCorpus, deconjugate } from './deconjugate';
 import type { Parse } from './deconjugate';
 import sampleDataJson from './data/verbs.sample.json';
+import adjDataJson from './data/adjectives.sample.json';
 
 const AUX_TOOLTIP: Readonly<Record<string, string>> = {
   causative: 'make/let someone do — auxiliary せる／させる, attaches to the 未然形 (a-stem); conjugates as an ichidan verb.',
@@ -41,7 +42,7 @@ function writeState(verb: Verb, ops: OpId[]): void {
 
 const INITIAL_STATE = readInitialState();
 const FEATURED: Verb[] = FEATURED_KANJI.map(k => makeVerb(SAMPLE.find(e => e.k === k)!));
-const DEFAULT_VERB = FEATURED.find(v => v.kanji === '食べる') ?? FEATURED[0];
+const DEFAULT_VERB = FEATURED.find(v => v.kanji === '飲む') ?? FEATURED[0];
 
 function buildByReading(data: DictEntry[]): Map<string, Verb[]> {
   const m = new Map<string, Verb[]>();
@@ -164,7 +165,7 @@ const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
 
 export function App() {
   const [selectedVerb, setSelectedVerb] = useState<Verb>(INITIAL_STATE?.verb ?? DEFAULT_VERB);
-  const [stack, setStack]               = useState<OpId[]>(INITIAL_STATE?.ops ?? ['tai','negative','naru','te-kuru','past']);
+  const [stack, setStack]               = useState<OpId[]>(INITIAL_STATE?.ops ?? []);
   const [addLayerOpen, setAddLayerOpen] = useState(false);
   const [ready, setReady]               = useState(false);
   const [query, setQuery]               = useState('');
@@ -178,7 +179,11 @@ export function App() {
   const menuRef      = useRef<HTMLDivElement>(null);
   const byReadingRef = useRef(buildByReading(SAMPLE));
 
-  const corpus = useMemo(() => buildCorpus(allEntries), [allEntries]);
+  // Adjectives are included in the breakdown corpus only — not in build-mode search.
+  const corpus = useMemo(
+    () => buildCorpus([...allEntries, ...(adjDataJson as unknown as DictEntry[])]),
+    [allEntries],
+  );
 
   useEffect(() => {
     import('./data/verbs.full.json')

@@ -27,6 +27,45 @@ import zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 
 // ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// adj-i extraction: extracts JMdict adj-i entries into an adjectives output.
+//
+// The SHIPPED src/data/adjectives.sample.json is a CURATED COMMON SUBSET and
+// is not produced by this script (JMdict source is not fetched in normal builds).
+// To regenerate a full adjective set from JMdict, call buildAdjectives(words)
+// and write the result to adjectives.full.json using the same pipeline as verbs.
+//
+// Adjective record schema (same shape as verb records):
+//   { k, r, romaji, cls:"i-adjective", common, gloss }
+// ----------------------------------------------------------------------------
+
+function buildAdjectives(words) {
+  const out = [];
+  const seen = new Map();
+  for (const w of words) {
+    // Only include entries with adj-i PoS (plain い-adjective)
+    const isAdjI = w.sense.some(s => s.partOfSpeech.includes('adj-i'));
+    if (!isAdjI) continue;
+    const kj = pickKanji(w);
+    const kn = pickKana(w, kj && kj.text);
+    if (!kn) continue;
+    const k = kj ? kj.text : kn.text;
+    const r = kn.text;
+    const common = !!((kj && kj.common) || kn.common);
+    const rec = { k, r, romaji: kanaToRomaji(r), cls: 'i-adjective', common, gloss: firstGloss(w) };
+    const key = k + '|i-adjective';
+    if (seen.has(key)) {
+      const ex = out[seen.get(key)];
+      if (common && !ex.common) out[seen.get(key)] = rec;
+      continue;
+    }
+    seen.set(key, out.length);
+    out.push(rec);
+  }
+  out.sort((a, b) => (b.common - a.common) || a.romaji.localeCompare(b.romaji));
+  return out;
+}
+
 // PoS tag -> conjugation class. Covers ALL JMdict verb PoS.
 // godan classes carry the final-consonant column (u/k/g/s/t/n/b/m/r).
 // ----------------------------------------------------------------------------

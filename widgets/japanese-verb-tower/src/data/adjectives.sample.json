@@ -1,0 +1,954 @@
+[
+  {
+    "k": "高い",
+    "r": "たかい",
+    "romaji": "takai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "high; tall"
+  },
+  {
+    "k": "低い",
+    "r": "ひくい",
+    "romaji": "hikui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "low; short"
+  },
+  {
+    "k": "大きい",
+    "r": "おおきい",
+    "romaji": "ookii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "big; large"
+  },
+  {
+    "k": "小さい",
+    "r": "ちいさい",
+    "romaji": "chiisai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "small; little"
+  },
+  {
+    "k": "長い",
+    "r": "ながい",
+    "romaji": "nagai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "long"
+  },
+  {
+    "k": "短い",
+    "r": "みじかい",
+    "romaji": "mijikai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "short"
+  },
+  {
+    "k": "広い",
+    "r": "ひろい",
+    "romaji": "hiroi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "wide; spacious"
+  },
+  {
+    "k": "狭い",
+    "r": "せまい",
+    "romaji": "semai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "narrow; cramped"
+  },
+  {
+    "k": "新しい",
+    "r": "あたらしい",
+    "romaji": "atarashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "new"
+  },
+  {
+    "k": "古い",
+    "r": "ふるい",
+    "romaji": "furui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "old"
+  },
+  {
+    "k": "良い",
+    "r": "よい",
+    "romaji": "yoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "good"
+  },
+  {
+    "k": "いい",
+    "r": "いい",
+    "romaji": "ii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "good"
+  },
+  {
+    "k": "悪い",
+    "r": "わるい",
+    "romaji": "warui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "bad"
+  },
+  {
+    "k": "多い",
+    "r": "おおい",
+    "romaji": "ooi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "many; numerous"
+  },
+  {
+    "k": "少ない",
+    "r": "すくない",
+    "romaji": "sukunai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "few; little"
+  },
+  {
+    "k": "難しい",
+    "r": "むずかしい",
+    "romaji": "muzukashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "difficult"
+  },
+  {
+    "k": "易しい",
+    "r": "やさしい",
+    "romaji": "yasashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "easy"
+  },
+  {
+    "k": "楽しい",
+    "r": "たのしい",
+    "romaji": "tanoshii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "fun; enjoyable"
+  },
+  {
+    "k": "悲しい",
+    "r": "かなしい",
+    "romaji": "kanashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "sad"
+  },
+  {
+    "k": "嬉しい",
+    "r": "うれしい",
+    "romaji": "ureshii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "happy; glad"
+  },
+  {
+    "k": "怖い",
+    "r": "こわい",
+    "romaji": "kowai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "scary"
+  },
+  {
+    "k": "面白い",
+    "r": "おもしろい",
+    "romaji": "omoshiroi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "interesting; funny"
+  },
+  {
+    "k": "つまらない",
+    "r": "つまらない",
+    "romaji": "tsumaranai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "boring; dull"
+  },
+  {
+    "k": "暑い",
+    "r": "あつい",
+    "romaji": "atsui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "hot (weather)"
+  },
+  {
+    "k": "寒い",
+    "r": "さむい",
+    "romaji": "samui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "cold (weather)"
+  },
+  {
+    "k": "熱い",
+    "r": "あつい",
+    "romaji": "atsui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "hot (to touch)"
+  },
+  {
+    "k": "冷たい",
+    "r": "つめたい",
+    "romaji": "tsumetai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "cold (to touch)"
+  },
+  {
+    "k": "重い",
+    "r": "おもい",
+    "romaji": "omoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "heavy"
+  },
+  {
+    "k": "軽い",
+    "r": "かるい",
+    "romaji": "karui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "light (weight)"
+  },
+  {
+    "k": "速い",
+    "r": "はやい",
+    "romaji": "hayai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "fast; quick"
+  },
+  {
+    "k": "遅い",
+    "r": "おそい",
+    "romaji": "osoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "slow; late"
+  },
+  {
+    "k": "早い",
+    "r": "はやい",
+    "romaji": "hayai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "early"
+  },
+  {
+    "k": "若い",
+    "r": "わかい",
+    "romaji": "wakai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "young"
+  },
+  {
+    "k": "近い",
+    "r": "ちかい",
+    "romaji": "chikai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "near; close"
+  },
+  {
+    "k": "遠い",
+    "r": "とおい",
+    "romaji": "tooi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "far; distant"
+  },
+  {
+    "k": "深い",
+    "r": "ふかい",
+    "romaji": "fukai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "deep"
+  },
+  {
+    "k": "浅い",
+    "r": "あさい",
+    "romaji": "asai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "shallow"
+  },
+  {
+    "k": "強い",
+    "r": "つよい",
+    "romaji": "tsuyoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "strong"
+  },
+  {
+    "k": "弱い",
+    "r": "よわい",
+    "romaji": "yowai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "weak"
+  },
+  {
+    "k": "明るい",
+    "r": "あかるい",
+    "romaji": "akarui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "bright; cheerful"
+  },
+  {
+    "k": "暗い",
+    "r": "くらい",
+    "romaji": "kurai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "dark"
+  },
+  {
+    "k": "白い",
+    "r": "しろい",
+    "romaji": "shiroi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "white"
+  },
+  {
+    "k": "黒い",
+    "r": "くろい",
+    "romaji": "kuroi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "black"
+  },
+  {
+    "k": "赤い",
+    "r": "あかい",
+    "romaji": "akai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "red"
+  },
+  {
+    "k": "青い",
+    "r": "あおい",
+    "romaji": "aoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "blue; green"
+  },
+  {
+    "k": "黄色い",
+    "r": "きいろい",
+    "romaji": "kiiroi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "yellow"
+  },
+  {
+    "k": "丸い",
+    "r": "まるい",
+    "romaji": "marui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "round"
+  },
+  {
+    "k": "固い",
+    "r": "かたい",
+    "romaji": "katai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "hard; firm"
+  },
+  {
+    "k": "柔らかい",
+    "r": "やわらかい",
+    "romaji": "yawarakai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "soft; tender"
+  },
+  {
+    "k": "甘い",
+    "r": "あまい",
+    "romaji": "amai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "sweet"
+  },
+  {
+    "k": "辛い",
+    "r": "からい",
+    "romaji": "karai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "spicy"
+  },
+  {
+    "k": "苦い",
+    "r": "にがい",
+    "romaji": "nigai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "bitter"
+  },
+  {
+    "k": "酸っぱい",
+    "r": "すっぱい",
+    "romaji": "suppai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "sour"
+  },
+  {
+    "k": "塩辛い",
+    "r": "しおからい",
+    "romaji": "shiokarai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "salty"
+  },
+  {
+    "k": "美味しい",
+    "r": "おいしい",
+    "romaji": "oishii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "delicious"
+  },
+  {
+    "k": "まずい",
+    "r": "まずい",
+    "romaji": "mazui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "bad-tasting"
+  },
+  {
+    "k": "忙しい",
+    "r": "いそがしい",
+    "romaji": "isogashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "busy"
+  },
+  {
+    "k": "うるさい",
+    "r": "うるさい",
+    "romaji": "urusai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "noisy; annoying"
+  },
+  {
+    "k": "痛い",
+    "r": "いたい",
+    "romaji": "itai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "painful"
+  },
+  {
+    "k": "眠い",
+    "r": "ねむい",
+    "romaji": "nemui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "sleepy"
+  },
+  {
+    "k": "優しい",
+    "r": "やさしい",
+    "romaji": "yasashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "kind; gentle"
+  },
+  {
+    "k": "厳しい",
+    "r": "きびしい",
+    "romaji": "kibishii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "strict; severe"
+  },
+  {
+    "k": "賢い",
+    "r": "かしこい",
+    "romaji": "kashikoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "wise; clever"
+  },
+  {
+    "k": "すごい",
+    "r": "すごい",
+    "romaji": "sugoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "amazing"
+  },
+  {
+    "k": "ひどい",
+    "r": "ひどい",
+    "romaji": "hidoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "terrible; awful"
+  },
+  {
+    "k": "可愛い",
+    "r": "かわいい",
+    "romaji": "kawaii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "cute; adorable"
+  },
+  {
+    "k": "美しい",
+    "r": "うつくしい",
+    "romaji": "utsukushii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "beautiful"
+  },
+  {
+    "k": "醜い",
+    "r": "みにくい",
+    "romaji": "minikui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "ugly"
+  },
+  {
+    "k": "うらやましい",
+    "r": "うらやましい",
+    "romaji": "urayamashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "envious"
+  },
+  {
+    "k": "恥ずかしい",
+    "r": "はずかしい",
+    "romaji": "hazukashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "embarrassing"
+  },
+  {
+    "k": "懐かしい",
+    "r": "なつかしい",
+    "romaji": "natsukashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "nostalgic"
+  },
+  {
+    "k": "珍しい",
+    "r": "めずらしい",
+    "romaji": "mezurashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "rare; unusual"
+  },
+  {
+    "k": "素晴らしい",
+    "r": "すばらしい",
+    "romaji": "subarashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "wonderful"
+  },
+  {
+    "k": "正しい",
+    "r": "ただしい",
+    "romaji": "tadashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "correct; right"
+  },
+  {
+    "k": "詳しい",
+    "r": "くわしい",
+    "romaji": "kuwashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "detailed; familiar with"
+  },
+  {
+    "k": "激しい",
+    "r": "はげしい",
+    "romaji": "hageshii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "intense; violent"
+  },
+  {
+    "k": "細かい",
+    "r": "こまかい",
+    "romaji": "komakai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "fine; detailed"
+  },
+  {
+    "k": "太い",
+    "r": "ふとい",
+    "romaji": "futoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "fat; thick"
+  },
+  {
+    "k": "細い",
+    "r": "ほそい",
+    "romaji": "hosoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "thin; slender"
+  },
+  {
+    "k": "薄い",
+    "r": "うすい",
+    "romaji": "usui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "thin; faint"
+  },
+  {
+    "k": "厚い",
+    "r": "あつい",
+    "romaji": "atsui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "thick"
+  },
+  {
+    "k": "おかしい",
+    "r": "おかしい",
+    "romaji": "okashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "strange; funny"
+  },
+  {
+    "k": "ない",
+    "r": "ない",
+    "romaji": "nai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "nonexistent; not"
+  },
+  {
+    "k": "欲しい",
+    "r": "ほしい",
+    "romaji": "hoshii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "wanted; desired"
+  },
+  {
+    "k": "危ない",
+    "r": "あぶない",
+    "romaji": "abunai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "dangerous"
+  },
+  {
+    "k": "怪しい",
+    "r": "あやしい",
+    "romaji": "ayashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "suspicious"
+  },
+  {
+    "k": "幼い",
+    "r": "おさない",
+    "romaji": "osanai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "young; infantile"
+  },
+  {
+    "k": "臭い",
+    "r": "くさい",
+    "romaji": "kusai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "smelly"
+  },
+  {
+    "k": "眩しい",
+    "r": "まぶしい",
+    "romaji": "mabushii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "dazzling; bright"
+  },
+  {
+    "k": "涼しい",
+    "r": "すずしい",
+    "romaji": "suzushii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "cool (temperature)"
+  },
+  {
+    "k": "暖かい",
+    "r": "あたたかい",
+    "romaji": "atatakai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "warm"
+  },
+  {
+    "k": "ぬるい",
+    "r": "ぬるい",
+    "romaji": "nurui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "lukewarm"
+  },
+  {
+    "k": "しつこい",
+    "r": "しつこい",
+    "romaji": "shitsukoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "persistent"
+  },
+  {
+    "k": "かゆい",
+    "r": "かゆい",
+    "romaji": "kayui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "itchy"
+  },
+  {
+    "k": "気持ち悪い",
+    "r": "きもちわるい",
+    "romaji": "kimochiwarui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "disgusting"
+  },
+  {
+    "k": "惜しい",
+    "r": "おしい",
+    "romaji": "oshii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "regrettable; close"
+  },
+  {
+    "k": "寂しい",
+    "r": "さびしい",
+    "romaji": "sabishii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "lonely"
+  },
+  {
+    "k": "恋しい",
+    "r": "こいしい",
+    "romaji": "koishii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "longed for"
+  },
+  {
+    "k": "粗い",
+    "r": "あらい",
+    "romaji": "arai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "rough; coarse"
+  },
+  {
+    "k": "汚い",
+    "r": "きたない",
+    "romaji": "kitanai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "dirty; messy"
+  },
+  {
+    "k": "清い",
+    "r": "きよい",
+    "romaji": "kiyoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "clean; pure"
+  },
+  {
+    "k": "偉い",
+    "r": "えらい",
+    "romaji": "erai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "great; admirable"
+  },
+  {
+    "k": "おとなしい",
+    "r": "おとなしい",
+    "romaji": "otonashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "quiet; obedient"
+  },
+  {
+    "k": "凄まじい",
+    "r": "すさまじい",
+    "romaji": "susamajii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "terrific; tremendous"
+  },
+  {
+    "k": "むごい",
+    "r": "むごい",
+    "romaji": "mugoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "cruel; merciless"
+  },
+  {
+    "k": "せつない",
+    "r": "せつない",
+    "romaji": "setsunai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "painful; heartbreaking"
+  },
+  {
+    "k": "煩わしい",
+    "r": "わずらわしい",
+    "romaji": "wazurawashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "troublesome"
+  },
+  {
+    "k": "眠たい",
+    "r": "ねむたい",
+    "romaji": "nemutai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "sleepy"
+  },
+  {
+    "k": "物悲しい",
+    "r": "ものがなしい",
+    "romaji": "monoganashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "melancholy"
+  },
+  {
+    "k": "騒がしい",
+    "r": "さわがしい",
+    "romaji": "sawagashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "noisy; bustling"
+  },
+  {
+    "k": "鋭い",
+    "r": "するどい",
+    "romaji": "surudoi",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "sharp; keen"
+  },
+  {
+    "k": "鈍い",
+    "r": "にぶい",
+    "romaji": "nibui",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "dull; blunt"
+  },
+  {
+    "k": "おいしい",
+    "r": "おいしい",
+    "romaji": "oishii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "tasty"
+  },
+  {
+    "k": "ふさわしい",
+    "r": "ふさわしい",
+    "romaji": "fusawashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "suitable; appropriate"
+  },
+  {
+    "k": "頼もしい",
+    "r": "たのもしい",
+    "romaji": "tanomoshii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "reliable; dependable"
+  },
+  {
+    "k": "ありがたい",
+    "r": "ありがたい",
+    "romaji": "arigatai",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "grateful; thankful"
+  },
+  {
+    "k": "著しい",
+    "r": "いちじるしい",
+    "romaji": "ichijirushii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "remarkable; conspicuous"
+  },
+  {
+    "k": "慌ただしい",
+    "r": "あわただしい",
+    "romaji": "awatadashii",
+    "cls": "i-adjective",
+    "common": true,
+    "gloss": "hurried; busy"
+  },
+  {
+    "k": "目まぐるしい",
+    "r": "めまぐるしい",
+    "romaji": "memagurushii",
+    "cls": "i-adjective",
+    "common": false,
+    "gloss": "dizzying; rapid"
+  }
+]

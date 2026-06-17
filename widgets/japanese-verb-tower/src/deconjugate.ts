@@ -624,6 +624,29 @@ function invertAll(cur: string): Candidate[] {
   return out;
 }
 
+// Module-level memoization for invertAll (pure function of input string).
+// Persists across deconjugate() calls — safe because invertAll has no side effects.
+const _invertAllCache = new Map<string, Candidate[]>();
+
+function invertAllMemo(cur: string): Candidate[] {
+  const cached = _invertAllCache.get(cur);
+  if (cached !== undefined) return cached;
+  const result = invertAll(cur);
+  _invertAllCache.set(cur, result);
+  return result;
+}
+
+// Expand colloquial て/でいる contraction at the end of a string.
+// Matches only when て/で is not the first character (guards bare てる/でた/出る etc.).
+// Examples: 食べてた→食べていた, 読んでた→読んでいた, 食べてます→食べています
+function expandColloquialTeIru(s: string): string | null {
+  const m = s.match(/([てで])(る|た|ます|ました|ません|ませんでした|なかった|ない)$/);
+  if (!m) return null;
+  const idx = s.length - m[0].length;
+  if (idx <= 0) return null; // bare てる/でた/でる — untouched
+  return s.slice(0, idx) + m[1] + 'い' + m[2];
+}
+
 function calcScore(base: DictEntry, ops: OpId[]): number {
   let s = 0;
   if (base.common) s += 4;
@@ -635,10 +658,15 @@ function calcScore(base: DictEntry, ops: OpId[]): number {
 
 export function deconjugate(input: string, corpus: DeconjCorpus): Parse[] {
   const cur0 = hasJapanese(input) ? input : romajiToKana(input);
-  const kanjiGiven = /[一-龯]/.test(cur0);
 
   const results: Parse[] = [];
   const seen = new Set<string>();
+
+  // Node-count budget: abort expansion if exceeded to prevent runaway search.
+  // Warning is emitted at most once per deconjugate() call.
+  const NODE_BUDGET = 300_000;
+  let nodeCount = 0;
+  let budgetWarned = false;
 
   function lookup(cur: string): DictEntry[] {
     const arr: DictEntry[] = [];
@@ -656,13 +684,37 @@ export function deconjugate(input: string, corpus: DeconjCorpus): Parse[] {
     return arr;
   }
 
-  function recurse(cur: string, opsOuter: OpId[], depth: number): void {
-    // (a) Terminate
+  // verifyTarget: the surface string this terminal parse must reproduce.
+  // pathSet: strings currently on the DFS stack (per-path cycle guard).
+  function recurse(
+    cur: string,
+    opsOuter: OpId[],
+    depth: number,
+    verifyTarget: string,
+    pathSet: Set<string>,
+    scoreAdjust: number,
+  ): void {
+    // Per-path cycle guard: skip if this string is already on the current DFS path.
+    // Stack-scoped: add before expanding, delete after, so the same intermediate
+    // string reached via a DIFFERENT op branch is still explored.
+    if (pathSet.has(cur)) return;
+
+    nodeCount++;
+    if (nodeCount > NODE_BUDGET) {
+      if (!budgetWarned) {
+        console.warn(`deconjugate: node budget (${NODE_BUDGET}) exceeded on input "${cur0}"; stopping expansion`);
+        budgetWarned = true;
+      }
+      return;
+    }
+
+    // (a) Terminate: try to match cur as a dictionary base form
+    const kanjiGivenLocal = /[一-龯]/.test(verifyTarget);
     for (const base of lookup(cur)) {
       let tiers;
       try { tiers = buildTower(makeVerb(base), opsOuter); } catch { continue; }
       const top = tiers[tiers.length - 1];
-      const ok = kanjiGiven ? top.kanji === cur0 : top.kana === cur0;
+      const ok = kanjiGivenLocal ? top.kanji === verifyTarget : top.kana === verifyTarget;
       if (!ok) continue;
       const key = base.k + '\0' + base.r + '\0' + opsOuter.join(',');
       if (seen.has(key)) continue;
@@ -670,16 +722,31 @@ export function deconjugate(input: string, corpus: DeconjCorpus): Parse[] {
       results.push({
         base, verb: makeVerb(base), ops: opsOuter,
         kana: top.kana, kanji: top.kanji,
-        score: calcScore(base, opsOuter),
+        score: calcScore(base, opsOuter) + scoreAdjust,
       });
     }
-    // (b) Expand
-    if (depth >= 8) return;
-    for (const { innerForm, op } of invertAll(cur)) {
-      recurse(innerForm, [op, ...opsOuter], depth + 1);
+
+    // (b) Expand: try stripping one more layer
+    if (depth >= 14) return;
+
+    pathSet.add(cur);
+    for (const { innerForm, op } of invertAllMemo(cur)) {
+      recurse(innerForm, [op, ...opsOuter], depth + 1, verifyTarget, pathSet, scoreAdjust);
     }
+    pathSet.delete(cur);
   }
 
-  recurse(cur0, [], 0);
+  // Pass 1: exact match on the normalized input
+  recurse(cur0, [], 0, cur0, new Set(), 0);
+
+  // Pass 2: colloquial て/でいる contraction fallback.
+  // Expands e.g. 食べてた→食べていた, then searches for parses whose forward-
+  // verified surface equals the EXPANDED form. Results are penalised by -3 so
+  // they never outrank an exact pass-1 parse, and deduped (pass-1 keys win).
+  const expanded = expandColloquialTeIru(cur0);
+  if (expanded !== null && expanded !== cur0) {
+    recurse(expanded, [], 0, expanded, new Set(), -3);
+  }
+
   return results.sort((a, b) => b.score - a.score);
 }
