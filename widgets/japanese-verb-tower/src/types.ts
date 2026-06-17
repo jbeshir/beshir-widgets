@@ -25,7 +25,8 @@ export type OpId =
   | 'tai' | 'tagaru' | 'yasui' | 'nikui' | 'sugiru' | 'sou' | 'naru'
   | 'volitional' | 'imperative' | 'ba' | 'tara'
   | 'te-iru' | 'te-kuru' | 'te-iku' | 'te-shimau' | 'te-oku' | 'te-aru'
-  | 'te-shimau-colloq';
+  | 'te-shimau-colloq'
+  | 'naosu';
 
 // Tier — keeps legacy `layer` field for App.tsx compat; adds `op` + `type`.
 export interface Tier {

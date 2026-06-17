@@ -182,4 +182,4 @@ export function highlightRange(prev: string, curr: string): [number, number] {
   return [i, curr.length];
 }
 
-export const FEATURED_KANJI = ['飲む','話す','行く','買う','待つ','泳ぐ','食べる','見る','する','来る'];
+export const FEATURED_KANJI = ['飲む','話す','行く','買う','待つ','泳ぐ','食べる','帰る','する','来る'];

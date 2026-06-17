@@ -303,6 +303,11 @@ reg({ id:'nikui', label:'hard to', aux:'にくい', family:'desire',
   apply(f): Form { return { kana: iStem(f) + 'にくい', type: 'i-adjective' }; },
 });
 
+reg({ id:'naosu', label:'redo / do over', aux:'なおす', family:'desire',
+  tooltip:'do over / fix — 連用形 (i-stem) + 補助動詞 なおす; result conjugates as a godan-s verb (直す), so it recurses (なおさない／なおして／なおした／なおします).',
+  apply(f): Form { return { kana: iStem(f) + 'なおす', type: 'godan' }; },
+});
+
 // ── ADJECTIVE OPS ─────────────────────────────────────────────────────────────
 
 reg({ id:'sugiru', label:'too much', aux:'すぎる', family:'adjective',
@@ -538,7 +543,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
   } else if (isVerb(t)) {
     base = [
       'causative','passive','potential','causative-passive',
-      'tai','tagaru','yasui','nikui','sugiru',
+      'tai','tagaru','yasui','nikui','naosu','sugiru',
       'te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru',
       'polite','negative','past','negative-past','te','volitional','imperative','ba','tara',
     ];
@@ -562,6 +567,9 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
   const hasDesire = stack.some(id => DESIRE_OPS.has(id));
   if (hasDesire) { DESIRE_OPS.forEach(id => allowed.delete(id)); }
 
+  // Naosu once
+  if (stack.includes('naosu')) allowed.delete('naosu');
+
   // sugiru guard: already ends in すぎ
   if (form.kana.endsWith('すぎ') || form.kana.endsWith('すぎる')) allowed.delete('sugiru');
 
@@ -580,7 +588,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
 
 export const OP_FAMILIES: Record<OpFamily, OpId[]> = {
   core:      ['causative','passive','potential','causative-passive','polite','negative','past','negative-past','te'],
-  desire:    ['tai','tagaru','yasui','nikui'],
+  desire:    ['tai','tagaru','yasui','nikui','naosu'],
   adjective: ['adverbial','sugiru','sou','naru'],
   aspect:    ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
   mood:      ['volitional','imperative','ba','tara'],
@@ -641,6 +649,7 @@ export function disabledReason(form: Form, stack: OpId[], op: OpId): string | nu
   if (stack.length >= 8) return 'tower depth limit reached';
   if (DESIRE_OPS.has(op) && t === 'i-adjective') return 'already an い-adjective — can’t re-want';
   if (DESIRE_OPS.has(op) && stack.some(id => DESIRE_OPS.has(id))) return 'a desire/ease layer is already applied';
+  if (op === 'naosu' && stack.includes('naosu')) return '〜直す already applied';
   if (op === 'causative' && stack.includes('causative')) return 'causative can apply only once';
   if ((op === 'passive' || op === 'potential' || op === 'causative-passive')
       && stack.some(id => id === 'passive' || id === 'potential' || id === 'causative-passive')) {

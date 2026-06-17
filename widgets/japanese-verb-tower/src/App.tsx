@@ -19,7 +19,7 @@ const AUX_TOOLTIP: Readonly<Record<string, string>> = {
 
 const SAMPLE = sampleDataJson as unknown as DictEntry[];
 const FEATURED: Verb[] = FEATURED_KANJI.map(k => makeVerb(SAMPLE.find(e => e.k === k)!));
-const MIRU = FEATURED.find(v => v.kanji === '見る') ?? FEATURED[0];
+const DEFAULT_VERB = FEATURED.find(v => v.kanji === '食べる') ?? FEATURED[0];
 
 function buildByReading(data: DictEntry[]): Map<string, Verb[]> {
   const m = new Map<string, Verb[]>();
@@ -100,6 +100,38 @@ const COLLOQ_ALT: Partial<Record<OpId, string>> = {
   'te-oku':    'とく／どく',
 };
 
+const OP_SENSE: Record<OpId, string> = {
+  causative:           'make/let',
+  passive:             'be ~ed',
+  potential:           'can',
+  'causative-passive': 'be made to',
+  polite:              '(polite)',
+  negative:            'not',
+  past:                '(past)',
+  'negative-past':     "didn't",
+  te:                  'and/-ing',
+  adverbial:           '-ly',
+  tai:                 'want to',
+  tagaru:              'seems to want to',
+  yasui:               'easy to',
+  nikui:               'hard to',
+  naosu:               'redo / do over',
+  sugiru:              'too much',
+  sou:                 'looks like',
+  naru:                'become',
+  volitional:          "let's/intend to",
+  imperative:          '(command)',
+  ba:                  'if',
+  tara:                'when/if',
+  'te-iru':            'be ~ing',
+  'te-kuru':           'come to/start',
+  'te-iku':            'go on ~ing',
+  'te-shimau':         'end up/completely',
+  'te-oku':            'in advance',
+  'te-aru':            'is done',
+  'te-shimau-colloq':  'end up (colloq)',
+};
+
 const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
   { label: 'Desire & ease',      ops: OP_FAMILIES.desire },
   { label: 'Adjective & なる',    ops: OP_FAMILIES.adjective },
@@ -109,8 +141,8 @@ const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
 ];
 
 export function App() {
-  const [selectedVerb, setSelectedVerb] = useState<Verb>(MIRU);
-  const [stack, setStack]               = useState<OpId[]>(['tai']);
+  const [selectedVerb, setSelectedVerb] = useState<Verb>(DEFAULT_VERB);
+  const [stack, setStack]               = useState<OpId[]>(['tai','negative','naru','te-kuru','past']);
   const [addLayerOpen, setAddLayerOpen] = useState(false);
   const [ready, setReady]               = useState(false);
   const [query, setQuery]               = useState('');
@@ -248,6 +280,13 @@ export function App() {
   if (stack.includes('te-shimau-colloq')) {
     notes.push('ちゃう (て→ちゃう) / じゃう (で→じゃう) is colloquial; formal is てしまう.');
   }
+  if (selectedVerb.kanji === '帰る') {
+    notes.push('帰る looks ichidan (ends in 〜る after an e-vowel) but is actually godan-r: its forms are 帰らない／帰った／帰ります, not 帰ない／帰た.');
+  }
+
+  const approxGloss = stack.length > 0
+    ? selectedVerb.gloss + ' · ' + stack.map(o => OP_SENSE[o]).join(' · ')
+    : '';
 
   const displayTiers = [...tower].reverse();
   const isActive = (v: Verb) => v.kanji === selectedVerb.kanji && v.kana === selectedVerb.kana;
@@ -525,7 +564,11 @@ export function App() {
                         ) : (
                           <span class="tier-label">{tier.label}</span>
                         )}
-                        <span class="tier-gloss">{tier.gloss}</span>
+                        <span class="tier-gloss">
+                          {isTop && stack.length > 0 ? (
+                            <>{approxGloss} <span class="tier-approx">approx</span></>
+                          ) : tier.gloss}
+                        </span>
                       </div>
                     </div>
                   </div>

@@ -903,6 +903,15 @@ body {
   font-style: italic;
 }
 
+/* ── Approximate gloss badge ────────────────────────────────────────────────── */
+.tier-approx {
+  font-size: 9.5px;
+  color: var(--muted);
+  font-style: normal;
+  opacity: 0.7;
+  margin-left: 3px;
+}
+
 /* ── Deep tower mobile legibility ──────────────────────────────────────────── */
 @media (max-width: 600px) {
   .tier-body { padding-right: 32px; }

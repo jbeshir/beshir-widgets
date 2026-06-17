@@ -85,5 +85,13 @@
   {"verb":"飲む","class":"godan-m","ops":["tai","naru","past"],"expectedKana":"飲みたくなった","expectedRomaji":"nomitakunatta"},
   {"verb":"食べる","class":"ichidan","ops":["tai","naru","te-kuru","past"],"expectedKana":"食べたくなってきた","expectedRomaji":"tabetakunattekita"},
   {"verb":"行く","class":"godan-iku","ops":["negative","ba"],"expectedKana":"行かなければ","expectedRomaji":"ikanakereba"},
-  {"verb":"飲む","class":"godan-m","ops":["yasui","naru"],"expectedKana":"飲みやすくなる","expectedRomaji":"nomiyasukunaru"}
+  {"verb":"飲む","class":"godan-m","ops":["yasui","naru"],"expectedKana":"飲みやすくなる","expectedRomaji":"nomiyasukunaru"},
+
+  {"verb":"飲む","class":"godan-m","ops":["naosu"],"expectedKana":"飲みなおす","expectedRomaji":"nominaosu"},
+  {"verb":"飲む","class":"godan-m","ops":["naosu","past"],"expectedKana":"飲みなおした","expectedRomaji":"nominaoshita"},
+  {"verb":"飲む","class":"godan-m","ops":["naosu","negative"],"expectedKana":"飲みなおさない","expectedRomaji":"nominaosanai"},
+  {"verb":"飲む","class":"godan-m","ops":["naosu","negative-past"],"expectedKana":"飲みなおさなかった","expectedRomaji":"nominaosanakatta"},
+  {"verb":"書く","class":"godan-k","ops":["naosu"],"expectedKana":"書きなおす","expectedRomaji":"kakinaosu"},
+  {"verb":"食べる","class":"ichidan","ops":["naosu"],"expectedKana":"食べなおす","expectedRomaji":"tabenaosu"},
+  {"verb":"する","class":"suru","ops":["naosu"],"expectedKana":"しなおす","expectedRomaji":"shinaosu"}
 ]
