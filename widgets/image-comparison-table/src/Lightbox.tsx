@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'preact/hooks';
 import type { Selection } from './App';
 import type { Table } from './tables';
 
@@ -11,21 +11,55 @@ type Props = {
 
 export function Lightbox({ table, selection, onClose, onNavigate }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const prevActive = useRef<Element | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   const row = table.rows[selection.rowIdx];
   const col = table.columns[selection.colIdx];
   const cell = row?.cells[col?.id];
 
-  // Keyboard handlers: Esc close, arrows navigate.
+  // Open as a native modal on mount. showModal() puts the dialog in the top
+  // layer, traps focus, and restores focus to the previously-focused element
+  // automatically on close — so no hand-rolled focus trap/restore is needed.
+  // Background scroll is not reliably locked by showModal(), so keep the cheap
+  // body overflow lock.
+  useLayoutEffect(() => {
+    const dlg = dialogRef.current;
+    if (!dlg) return;
+    if (!dlg.open) dlg.showModal();
+    closeRef.current?.focus();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  // Bridge the native dialog's cancel/close events to onClose() so Preact
+  // unmounts the (conditionally-mounted) component and clears the selection.
+  // In Preact core, wire these via addEventListener on the ref — onCancel/onClose
+  // JSX props are not reliable here (see FINDINGS). Esc fires `cancel`; explicit
+  // dismissals (close button, backdrop click) call dlg.close(), which fires `close`.
+  useEffect(() => {
+    const dlg = dialogRef.current;
+    if (!dlg) return;
+    const onCancel = (e: Event) => {
+      e.preventDefault();
+      onClose();
+    };
+    const onCloseEvt = () => onClose();
+    dlg.addEventListener('cancel', onCancel);
+    dlg.addEventListener('close', onCloseEvt);
+    return () => {
+      dlg.removeEventListener('cancel', onCancel);
+      dlg.removeEventListener('close', onCloseEvt);
+    };
+  }, [onClose]);
+
+  // Arrow keys navigate between cells. Esc is handled by the native `cancel`
+  // event above, so this handler only deals with the four arrows.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       switch (e.key) {
-        case 'Escape':
-          e.preventDefault();
-          onClose();
-          return;
         case 'ArrowLeft':
           e.preventDefault();
           onNavigate(0, -1);
@@ -42,45 +76,11 @@ export function Lightbox({ table, selection, onClose, onNavigate }: Props) {
           e.preventDefault();
           onNavigate(1, 0);
           return;
-        case 'Tab':
-          // Trap focus inside the dialog.
-          {
-            const dlg = dialogRef.current;
-            if (!dlg) return;
-            const focusable = dlg.querySelectorAll<HTMLElement>(
-              'button, [href], [tabindex]:not([tabindex="-1"])',
-            );
-            if (focusable.length === 0) return;
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (e.shiftKey && document.activeElement === first) {
-              e.preventDefault();
-              last.focus();
-            } else if (!e.shiftKey && document.activeElement === last) {
-              e.preventDefault();
-              first.focus();
-            }
-          }
-          return;
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, onNavigate]);
-
-  // Lock body scroll while open, restore focus on close.
-  useEffect(() => {
-    prevActive.current = document.activeElement;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    closeRef.current?.focus();
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      if (prevActive.current instanceof HTMLElement) {
-        prevActive.current.focus();
-      }
-    };
-  }, []);
+  }, [onNavigate]);
 
   const captionId = useMemo(() => 'lightbox-caption', []);
   const titleId = useMemo(() => 'lightbox-title', []);
@@ -95,21 +95,16 @@ export function Lightbox({ table, selection, onClose, onNavigate }: Props) {
   const showPrompt = !col.reference && row.prompt;
 
   return (
-    <div
+    <dialog
       class="lb-backdrop"
-      role="presentation"
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-describedby={captionId}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) dialogRef.current?.close();
       }}
     >
-      <div
-        class="lb-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={captionId}
-        ref={dialogRef}
-      >
+      <div class="lb-dialog">
         <div class="lb-figure">
           <button
             type="button"
@@ -158,7 +153,7 @@ export function Lightbox({ table, selection, onClose, onNavigate }: Props) {
               class="lb-close"
               aria-label="Close (Esc)"
               ref={closeRef}
-              onClick={onClose}
+              onClick={() => dialogRef.current?.close()}
             >
               <svg viewBox="0 0 20 20" width="16" height="16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none">
                 <path d="M4 4l12 12M16 4L4 16" />
@@ -192,6 +187,6 @@ export function Lightbox({ table, selection, onClose, onNavigate }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

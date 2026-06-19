@@ -316,6 +316,7 @@ body {
   border-radius: 8px;
   background: rgba(15, 23, 42, 0.65);
   color: #f8fafc;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   opacity: 0;
   transition: opacity 160ms ease, transform 160ms ease;
@@ -484,22 +485,51 @@ body {
 }
 .grid-wrap--compact .grid-cell--label { grid-column: 1 / -1; }
 .grid-wrap--compact .grid-cell--label::before { display: none; }
+/* Compact mode hides the header row, so surface each column's label as a small
+   badge over the thumbnail via the data-label attribute set in Grid.tsx. */
 .grid-wrap--compact .grid-cell--img::after {
   content: attr(data-label);
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.65);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border-radius: 7px;
+  padding: 3px 7px;
+  pointer-events: none;
 }
 .grid-wrap--compact .grid-cell--img {
   position: relative;
 }
 
-/* Add a small column-label badge in compact mode using the alt text we set */
+/* Compact thumbnails use a 4:3 frame to suit the two-column layout. */
 .grid-wrap--compact .thumb-frame img { aspect-ratio: 4 / 3; height: 100%; }
 
 /* ---------- Lightbox ---------- */
 
 .lb-backdrop {
+  /* Native <dialog>: override UA defaults so it fills the viewport exactly as
+     the former full-screen backdrop <div> did (UA centres dialogs with margin:auto
+     and an auto inset; these overrides neutralise that). */
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  border: 0;
   background: var(--lb-backdrop);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -507,6 +537,12 @@ body {
   z-index: 100;
   padding: 24px;
   animation: lb-fade 140ms ease-out;
+}
+
+/* The frosted dim + blur live on the dialog element itself; keep the UA backdrop
+   transparent so the dim doesn't double up. */
+.lb-backdrop::backdrop {
+  background: transparent;
 }
 
 @keyframes lb-fade {
@@ -572,6 +608,7 @@ body {
   justify-content: center;
   cursor: pointer;
   transition: background-color 140ms ease, transform 140ms ease;
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
 
