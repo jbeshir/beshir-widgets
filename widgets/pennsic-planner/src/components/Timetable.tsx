@@ -7,12 +7,13 @@ interface Props {
   sessions: Session[];
   planIds: string[];
   onToggle: (id: string) => void;
+  onOpenDetail: (id: string) => void;
   trackColors: Record<string, { l: string; d: string }>;
   selectedDay: string;
   conflicts?: Set<string>;
 }
 
-export function Timetable({ sessions, planIds, onToggle, trackColors, selectedDay, conflicts }: Props) {
+export function Timetable({ sessions, planIds, onToggle, onOpenDetail, trackColors, selectedDay, conflicts }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const planSet = useMemo(() => new Set(planIds), [planIds]);
 
@@ -67,6 +68,7 @@ export function Timetable({ sessions, planIds, onToggle, trackColors, selectedDa
                   inPlan={planSet.has(s.id)}
                   trackColor={trackColors[s.track] ?? { l: 'hsl(220,55%,37%)', d: 'hsl(220,51%,49%)' }}
                   onToggle={() => onToggle(s.id)}
+                  onOpenDetail={() => onOpenDetail(s.id)}
                   conflict={conflicts?.has(s.id)}
                 />
               ))}
