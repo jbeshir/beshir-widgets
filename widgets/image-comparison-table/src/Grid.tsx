@@ -54,6 +54,7 @@ export function Grid({ table, compact, onCellClick }: Props) {
                   <button
                     type="button"
                     class="grid-cell--img"
+                    data-label={col.label}
                     onClick={() => onCellClick(rowIdx, colIdx)}
                     aria-label={`Open full-size ${cell.alt}`}
                   >
