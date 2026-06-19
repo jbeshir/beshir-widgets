@@ -29,3 +29,11 @@ export interface Session {
   source: string;
   synthetic: boolean;
 }
+
+export interface PlacedSession {
+  session: Session;
+  startMin: number;
+  endMin: number;
+  lane: number;
+  lanes: number;
+}

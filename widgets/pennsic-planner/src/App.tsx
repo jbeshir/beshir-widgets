@@ -9,7 +9,8 @@ import type { TabId } from './components/Tabs';
 import { DayPicker } from './components/DayPicker';
 import { Filters } from './components/Filters';
 import { Timetable } from './components/Timetable';
-import { MyPlan } from './components/MyPlan';
+import { MyCalendar } from './components/MyCalendar';
+import { PlanSidebar } from './components/PlanSidebar';
 import { SessionDetail } from './components/SessionDetail';
 import { ImportExport } from './components/ImportExport';
 import { About } from './components/About';
@@ -237,23 +238,35 @@ export function App() {
               resultCount={filteredSessions.length}
               trackColors={trackColors}
             />
-            <Timetable
-              sessions={filteredSessions}
-              planIds={planIds}
-              onToggle={handleToggle}
-              onOpenDetail={handleOpenDetail}
-              trackColors={trackColors}
-              selectedDay={selectedDay}
-              conflicts={conflicts}
-            />
+            <div class="picker-layout">
+              <div class="picker-main">
+                <Timetable
+                  sessions={filteredSessions}
+                  planIds={planIds}
+                  onToggle={handleToggle}
+                  onOpenDetail={handleOpenDetail}
+                  trackColors={trackColors}
+                  selectedDay={selectedDay}
+                  conflicts={conflicts}
+                />
+              </div>
+              <PlanSidebar
+                day={selectedDay}
+                sessions={planSessions.filter((s) => s.day === selectedDay)}
+                conflicts={conflicts}
+                trackColors={trackColors}
+                onOpenDetail={handleOpenDetail}
+                onOpenCalendar={() => setActiveTab('plan')}
+              />
+            </div>
           </>
         )}
 
         {activeTab === 'plan' && (
-          <MyPlan
+          <MyCalendar
             sessions={planSessions}
             conflicts={conflicts}
-            onRemove={handleToggle}
+            trackColors={trackColors}
             onOpenDetail={handleOpenDetail}
           />
         )}

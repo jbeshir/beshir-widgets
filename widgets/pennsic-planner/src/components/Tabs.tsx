@@ -8,7 +8,7 @@ interface Props {
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'timetable', label: 'Timetable' },
-  { id: 'plan', label: 'My Plan' },
+  { id: 'plan', label: 'My Calendar' },
   { id: 'import', label: 'Import / Export' },
   { id: 'about', label: 'About' },
 ];
