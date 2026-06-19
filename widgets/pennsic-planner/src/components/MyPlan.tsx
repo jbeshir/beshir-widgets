@@ -7,9 +7,10 @@ interface Props {
   sessions: Session[];
   conflicts: Set<string>;
   onRemove: (id: string) => void;
+  onOpenDetail: (id: string) => void;
 }
 
-export function MyPlan({ sessions, conflicts, onRemove }: Props) {
+export function MyPlan({ sessions, conflicts, onRemove, onOpenDetail }: Props) {
   const byDay = useMemo(() => {
     const map = new Map<string, Session[]>();
     for (const s of sessions) {
@@ -62,7 +63,18 @@ export function MyPlan({ sessions, conflicts, onRemove }: Props) {
           <h3 class="plan-day-heading">{longDayLabel(day)}</h3>
           {list.map((s) => (
             <div key={s.id} class={`plan-item${conflicts.has(s.id) ? ' conflict' : ''}`}>
-              <div class="plan-item-body">
+              <div
+                class="plan-item-body"
+                role="button"
+                tabIndex={0}
+                onClick={() => onOpenDetail(s.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOpenDetail(s.id);
+                  }
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '2px' }}>
                   <div class="plan-item-title">{s.title}</div>
                   {conflicts.has(s.id) && (
@@ -79,7 +91,8 @@ export function MyPlan({ sessions, conflicts, onRemove }: Props) {
               </div>
               <button
                 class="plan-remove-btn"
-                onClick={() => onRemove(s.id)}
+                onClick={(e) => { e.stopPropagation(); onRemove(s.id); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }}
                 aria-label={`Remove ${s.title} from plan`}
               >
                 Remove

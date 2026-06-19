@@ -10,6 +10,7 @@ import { DayPicker } from './components/DayPicker';
 import { Filters } from './components/Filters';
 import { Timetable } from './components/Timetable';
 import { MyPlan } from './components/MyPlan';
+import { SessionDetail } from './components/SessionDetail';
 import { ImportExport } from './components/ImportExport';
 import { About } from './components/About';
 
@@ -39,6 +40,7 @@ export function App() {
   const [trackFilter, setTrackFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState('');
   const [textFilter, setTextFilter] = useState('');
+  const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Init from store
@@ -170,8 +172,28 @@ export function App() {
     [planSessions]
   );
 
+  // Derived: open session for detail lightbox
+  const openSession = useMemo(
+    () => dataset.find((s) => s.id === openSessionId) ?? null,
+    [dataset, openSessionId]
+  );
+
   async function handleToggle(id: string) {
     await planStore.togglePlan(id);
+  }
+
+  function handleOpenDetail(id: string) {
+    setOpenSessionId(id);
+  }
+
+  function handleNavigateDetail(id: string) {
+    setOpenSessionId(id);
+    const t = dataset.find((s) => s.id === id);
+    if (t) setSelectedDay(t.day);
+  }
+
+  function handleCloseDetail() {
+    setOpenSessionId(null);
   }
 
   if (loading) {
@@ -219,6 +241,7 @@ export function App() {
               sessions={filteredSessions}
               planIds={planIds}
               onToggle={handleToggle}
+              onOpenDetail={handleOpenDetail}
               trackColors={trackColors}
               selectedDay={selectedDay}
               conflicts={conflicts}
@@ -231,6 +254,7 @@ export function App() {
             sessions={planSessions}
             conflicts={conflicts}
             onRemove={handleToggle}
+            onOpenDetail={handleOpenDetail}
           />
         )}
 
@@ -243,6 +267,19 @@ export function App() {
 
         {activeTab === 'about' && <About />}
       </div>
+
+      {openSession && (
+        <SessionDetail
+          session={openSession}
+          allSessions={dataset}
+          planSet={planSet}
+          conflicts={conflicts}
+          trackColor={trackColors[openSession.track] ?? { l: 'hsl(220,55%,37%)', d: 'hsl(220,51%,49%)' }}
+          onToggle={handleToggle}
+          onNavigate={handleNavigateDetail}
+          onClose={handleCloseDetail}
+        />
+      )}
     </div>
   );
 }

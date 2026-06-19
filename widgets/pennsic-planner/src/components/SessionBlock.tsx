@@ -7,16 +7,17 @@ interface Props {
   inPlan: boolean;
   trackColor: { l: string; d: string };
   onToggle: () => void;
+  onOpenDetail: () => void;
   conflict?: boolean;
 }
 
-export function SessionBlock({ session, inPlan, trackColor, onToggle, conflict }: Props) {
+export function SessionBlock({ session, inPlan, trackColor, onToggle, onOpenDetail, conflict }: Props) {
   const style: JSX.CSSProperties & Record<string, unknown> = {
     '--tc-l': trackColor.l,
     '--tc-d': trackColor.d,
   };
 
-  const ariaLabel = `${inPlan ? 'Remove from plan' : 'Add to plan'}: ${session.title}, ${to12h(session.startTime)}–${to12h(session.endTime)}${session.location ? ', ' + session.location : ''}${session.instructor ? ', ' + session.instructor : ''}`;
+  const ariaLabel = `View details: ${session.title}, ${to12h(session.startTime)}–${to12h(session.endTime)}${session.location ? ', ' + session.location : ''}${session.instructor ? ', ' + session.instructor : ''}`;
 
   const cardClass = [
     'session-card',
@@ -28,14 +29,23 @@ export function SessionBlock({ session, inPlan, trackColor, onToggle, conflict }
     <div
       class={cardClass}
       style={style}
-      onClick={onToggle}
+      onClick={onOpenDetail}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail(); } }}
       aria-label={ariaLabel}
-      aria-pressed={inPlan}
       title={`${session.title}\n${to12h(session.startTime)}–${to12h(session.endTime)}\n${session.location ?? ''}\n${session.instructor ?? ''}`}
     >
+      <button
+        class="star-toggle"
+        aria-pressed={inPlan}
+        aria-label={inPlan ? `Remove ${session.title} from plan` : `Add ${session.title} to plan`}
+        title={inPlan ? 'Remove from plan' : 'Add to plan'}
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); }}
+      >
+        {inPlan ? '★' : '☆'}
+      </button>
       <div class="session-card-title">{session.title}</div>
       <div class="session-card-time">
         {to12h(session.startTime)}–{to12h(session.endTime)} · {session.durationMin} min
@@ -48,7 +58,6 @@ export function SessionBlock({ session, inPlan, trackColor, onToggle, conflict }
           {session.adultOnly && <span class="card-badge">18+</span>}
         </div>
       )}
-      {inPlan && <span class="plan-check" aria-hidden="true">✓</span>}
       {conflict && inPlan && <span class="conflict-badge" aria-hidden="true">conflict</span>}
     </div>
   );

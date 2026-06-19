@@ -1045,4 +1045,368 @@ details[open] .track-legend-summary::before {
   .legend-chip { transition: background 100ms ease, border-color 100ms ease; }
   .track-legend-summary::before { transition: transform 120ms ease; }
   .filter-clear-btn { transition: color 120ms ease, border-color 120ms ease; }
+  .star-toggle { transition: color 120ms ease, background 120ms ease; }
+}
+
+/* ── Star toggle on session card ── */
+
+.star-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--fg-secondary);
+  border-radius: 4px;
+}
+
+.star-toggle[aria-pressed="true"] {
+  color: hsl(43, 96%, 42%);
+}
+
+.star-toggle:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+/* Warm gold hint on hover when unplanned */
+.star-toggle:not([aria-pressed="true"]):hover {
+  color: hsl(43, 80%, 38%);
+  background: rgba(180, 83, 0, 0.08);
+}
+
+.star-toggle:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 1px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .star-toggle[aria-pressed="true"] {
+    color: hsl(43, 96%, 62%);
+  }
+  .star-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .star-toggle:not([aria-pressed="true"]):hover {
+    color: hsl(43, 90%, 62%);
+    background: rgba(251, 191, 36, 0.12);
+  }
+}
+
+/* Increase title padding to clear the star toggle */
+.session-card-title {
+  padding-right: 32px;
+}
+
+/* ── Lightbox / SessionDetail ── */
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.lightbox-dialog {
+  background: var(--card-bg);
+  color: var(--fg);
+  border: 1px solid var(--card-border);
+  border-left: 4px solid var(--tc-l, hsl(220, 55%, 37%));
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: auto;
+  padding: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .lightbox-dialog {
+    border-left-color: var(--tc-d, hsl(220, 51%, 49%));
+  }
+}
+
+.lightbox-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card-bg);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.lightbox-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.lightbox-close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--input-border);
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.lightbox-close:hover { background: var(--pill-hover); color: var(--fg); }
+.lightbox-close:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; }
+
+.lightbox-body {
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lightbox-meta {
+  font-size: 13px;
+  color: var(--fg-secondary);
+  line-height: 1.5;
+}
+
+.lightbox-meta-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lightbox-chip {
+  display: inline-block;
+  background: var(--tc-l, hsl(220, 55%, 37%));
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .lightbox-chip {
+    background: var(--tc-d, hsl(220, 51%, 49%));
+  }
+}
+
+.lightbox-topic {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lightbox-topic::before {
+  content: '· ';
+  opacity: 0.6;
+}
+
+.lightbox-fee {
+  font-size: 13px;
+  color: var(--warning);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  padding: 4px 10px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.lightbox-adult {
+  font-size: 13px;
+  color: var(--conflict);
+  background: var(--conflict-bg);
+  border: 1px solid var(--conflict);
+  border-radius: 6px;
+  padding: 4px 10px;
+  align-self: flex-start;
+}
+
+.lightbox-conflict-note {
+  font-size: 13px;
+  color: var(--warning);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  padding: 6px 12px;
+}
+
+.lightbox-section {
+  margin-top: 12px;
+}
+
+.lightbox-section-heading {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+.lightbox-desc {
+  font-size: 13.5px;
+  color: var(--fg-secondary);
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* Also offered at */
+.lightbox-also {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lightbox-occurrence {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 7px;
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+}
+
+.lightbox-occurrence.in-plan {
+  background: var(--success-bg);
+  border-color: var(--success);
+  box-shadow: inset 3px 0 0 var(--success);
+}
+
+.lightbox-occurrence:not(.in-plan):hover {
+  border-color: var(--input-border);
+  background: var(--pill-bg);
+}
+
+.lightbox-occurrence.in-plan:hover {
+  border-color: var(--success);
+  background: var(--success-bg);
+}
+
+.lightbox-occ-nav {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--fg);
+  font-size: 12.5px;
+  text-align: left;
+  padding: 8px 12px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.lightbox-occ-nav:hover { color: var(--input-focus); background: rgba(0, 0, 0, 0.04); }
+.lightbox-occ-nav:focus-visible { outline: 2px solid var(--input-focus); outline-offset: -2px; }
+
+@media (prefers-color-scheme: dark) {
+  .lightbox-occ-nav:hover { background: rgba(255, 255, 255, 0.05); }
+}
+
+/* Override absolute positioning; add hairline separator between nav and star */
+.lightbox-occurrence .star-toggle,
+.lightbox-occ-star {
+  position: static;
+  flex-shrink: 0;
+  margin-right: 0;
+  border-left: 1px solid var(--card-border);
+  border-radius: 0;
+  align-self: stretch;
+  min-width: 36px;
+  width: 36px;
+}
+
+.lightbox-occurrence.in-plan .star-toggle,
+.lightbox-occurrence.in-plan .lightbox-occ-star {
+  border-left-color: var(--success);
+}
+
+/* Primary action */
+.lightbox-primary {
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--input-focus);
+  color: #fff;
+  border: 2px solid var(--input-focus);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 20px;
+  letter-spacing: 0.01em;
+}
+
+.lightbox-primary:hover { filter: brightness(1.1); }
+.lightbox-primary:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; }
+
+.lightbox-primary.in-plan {
+  background: none;
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.lightbox-primary.in-plan:hover { background: var(--conflict-bg); filter: none; }
+
+/* Make plan-item-body interactive */
+.plan-item-body[role="button"] {
+  cursor: pointer;
+}
+
+.plan-item-body[role="button"]:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Lightbox open animation (reduced-motion gated) ── */
+
+@keyframes lightbox-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes lightbox-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lightbox-overlay {
+    animation: lightbox-fade-in 150ms ease;
+  }
+  .lightbox-dialog {
+    animation: lightbox-scale-in 160ms ease;
+  }
 }
