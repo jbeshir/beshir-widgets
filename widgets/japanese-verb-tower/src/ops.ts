@@ -107,6 +107,22 @@ function teForm(form: Form): string {
   }
 }
 
+function plainNegativeKana(f: Form): string {
+  if (f.type === 'i-adjective') return adjStem(f) + 'くない';
+  if (f.type === 'na-adjective') return f.kana + 'ではない';
+  const b = base(f);
+  switch (f.type) {
+    case 'suru':    return (f.suruPrefix??'') + 'しない';
+    case 'kuru':    return f.kana.slice(0,-2) + 'こない';
+    case 'ichidan': return dropRu(b) + 'ない';
+    default:        return f.aruNeg ? 'ない' : godanStem(b, GODAN_A) + 'ない';
+  }
+}
+
+function teKana(f: Form): string {
+  return f.type === 'i-adjective' ? adjStem(f) + 'くて' : teForm(f);
+}
+
 // ── Operator implementations (apply returns new Form.kana) ────────────────────
 
 function applyVerb(form: Form, suffix: string): string {
@@ -198,6 +214,11 @@ reg({ id:'polite', label:'Polite', aux:'ます／です', family:'core',
   apply(f): Form {
     if (f.type === 'i-adjective') return { kana: f.kana + 'です', type: 'polite' };
     if (f.type === 'na-adjective') return { kana: f.kana + 'です', type: 'polite' };
+    if (f.type === 'must' || f.type === 'must-not') {
+      const k = f.kana.endsWith('ならない') ? f.kana.slice(0,-4) + 'なりません'
+              : f.kana.endsWith('いけない') ? f.kana.slice(0,-4) + 'いけません' : f.kana;
+      return { kana: k, type: 'must-polite' };
+    }
     const b = base(f);
     let kana: string;
     switch (f.type) {
@@ -216,19 +237,8 @@ reg({ id:'polite', label:'Polite', aux:'ます／です', family:'core',
 reg({ id:'negative', label:'Negative', aux:'ない', family:'core',
   tooltip:'plain negative — a-stem+ない; i-adj ADJ+くない; polite ます→ません.',
   apply(f): Form {
-    if (f.type === 'i-adjective') return { kana: adjStem(f) + 'くない', type: 'i-adjective' };
-    if (f.type === 'na-adjective') return { kana: f.kana + 'ではない', type: 'i-adjective' };
     if (f.type === 'polite') return { kana: f.kana.slice(0,-2) + 'ません', type: 'polite-neg' };
-    const b = base(f);
-    let kana: string;
-    switch (f.type) {
-      case 'suru': kana = (f.suruPrefix??'') + 'しない'; break;
-      case 'kuru': kana = f.kana.slice(0,-2) + 'こない'; break;
-      case 'ichidan': kana = dropRu(b) + 'ない'; break;
-      default:
-        kana = f.aruNeg ? 'ない' : godanStem(b, GODAN_A) + 'ない';
-    }
-    return { kana, type: 'i-adjective' };
+    return { kana: plainNegativeKana(f), type: 'i-adjective' };
   },
 });
 
@@ -239,6 +249,8 @@ reg({ id:'past', label:'Past', aux:'た／だ', family:'core',
     if (f.type === 'na-adjective') return { kana: f.kana + 'だった', type: 'plain-past' };
     if (f.type === 'polite') return { kana: f.kana.slice(0,-2) + 'ました', type: 'polite-past' };
     if (f.type === 'polite-neg') return { kana: f.kana.slice(0,-3) + 'ませんでした', type: 'polite-neg-past' };
+    if (f.type === 'must' || f.type === 'must-not') return { kana: f.kana.slice(0,-2) + 'なかった', type: 'plain-past' };
+    if (f.type === 'must-polite') return { kana: f.kana.slice(0,-3) + 'ませんでした', type: 'polite-neg-past' };
     const b = base(f);
     let kana: string;
     switch (f.type) {
@@ -414,6 +426,20 @@ reg({ id:'tara', label:'when/if (〜たら)', aux:'たら', family:'mood',
   },
 });
 
+reg({ id:'must', label:'must', aux:'なければならない', family:'mood',
+  tooltip:'must / have to — plain negative\'s ば-conditional + ならない: 〜なければならない (colloq 〜なきゃ); tail conjugates (past 〜ならなかった, polite 〜なりません).',
+  apply(f): Form {
+    return { kana: plainNegativeKana(f).slice(0,-1) + 'ければならない', type: 'must' };
+  },
+});
+
+reg({ id:'must-not', label:'must not', aux:'てはいけない', family:'mood',
+  tooltip:'must not / may not — て-form + はいけない: 〜てはいけない (colloq 〜ちゃ／じゃ); tail conjugates (past 〜いけなかった, polite 〜いけません).',
+  apply(f): Form {
+    return { kana: teKana(f) + 'はいけない', type: 'must-not' };
+  },
+});
+
 // ── ASPECT (て-form auxiliaries) ──────────────────────────────────────────────
 
 reg({ id:'te-iru', label:'〜ている', aux:'いる', family:'aspect',
@@ -540,12 +566,17 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
     base = ['naru', 'polite', 'past', 'negative'];
   } else if (t === 'i-adjective') {
     base = ['negative','past','negative-past','te','adverbial','ba','polite','sou','sugiru','naru','tara'];
+  } else if (t === 'must' || t === 'must-not') {
+    base = ['past', 'polite'];
+  } else if (t === 'must-polite') {
+    base = ['past'];
   } else if (isVerb(t)) {
     base = [
       'causative','passive','potential','causative-passive',
       'tai','tagaru','yasui','nikui','naosu','sugiru',
       'te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru',
       'polite','negative','past','negative-past','te','volitional','imperative','ba','tara',
+      'must','must-not',
     ];
   } else {
     return [];
@@ -591,7 +622,7 @@ export const OP_FAMILIES: Record<OpFamily, OpId[]> = {
   desire:    ['tai','tagaru','yasui','nikui','naosu'],
   adjective: ['adverbial','sugiru','sou','naru'],
   aspect:    ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
-  mood:      ['volitional','imperative','ba','tara'],
+  mood:      ['volitional','imperative','ba','tara','must','must-not'],
 };
 
 export { OPS };

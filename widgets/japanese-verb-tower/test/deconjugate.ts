@@ -98,6 +98,68 @@ if (noParses.length !== 0) {
   console.log('no-parse assert (xyzzy → []): OK');
 }
 
+// ── must / must-not round-trip assertions ─────────────────────────────────────
+
+// 飲まなければならない → 飲む[must]
+const mustParses = deconjugate('のまなければならない', corpus);
+const hasMust = mustParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'must');
+if (!hasMust) {
+  fails.push(`MUST: のまなければならない should parse as 飲む[must]; got [${mustParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ must: のまなければならない missing 飲む[must]');
+} else {
+  console.log('must assert (のまなければならない → 飲む[must]): OK');
+}
+
+// 飲んではいけない → 飲む[must-not]
+const mustNotParses = deconjugate('のんではいけない', corpus);
+const hasMustNot = mustNotParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'must-not');
+if (!hasMustNot) {
+  fails.push(`MUST-NOT: のんではいけない should parse as 飲む[must-not]; got [${mustNotParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ must-not: のんではいけない missing 飲む[must-not]');
+} else {
+  console.log('must-not assert (のんではいけない → 飲む[must-not]): OK');
+}
+
+// 飲まなければならなかった → 飲む[must,past]
+const mustPastParses = deconjugate('のまなければならなかった', corpus);
+const hasMustPast = mustPastParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'must,past');
+if (!hasMustPast) {
+  fails.push(`MUST-PAST: のまなければならなかった should parse as 飲む[must,past]; got [${mustPastParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ must-past: のまなければならなかった missing 飲む[must,past]');
+} else {
+  console.log('must-past assert (のまなければならなかった → 飲む[must,past]): OK');
+}
+
+// 飲まなければなりません → 飲む[must,polite]
+const mustPoliteParses = deconjugate('のまなければなりません', corpus);
+const hasMustPolite = mustPoliteParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'must,polite');
+if (!hasMustPolite) {
+  fails.push(`MUST-POLITE: のまなければなりません should parse as 飲む[must,polite]; got [${mustPoliteParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ must-polite: のまなければなりません missing 飲む[must,polite]');
+} else {
+  console.log('must-polite assert (のまなければなりません → 飲む[must,polite]): OK');
+}
+
+// 飲んではいけなかった → 飲む[must-not,past]
+const mustNotPastParses = deconjugate('のんではいけなかった', corpus);
+const hasMustNotPast = mustNotPastParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'must-not,past');
+if (!hasMustNotPast) {
+  fails.push(`MUST-NOT-PAST: のんではいけなかった should parse as 飲む[must-not,past]; got [${mustNotPastParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ must-not-past: のんではいけなかった missing 飲む[must-not,past]');
+} else {
+  console.log('must-not-past assert (のんではいけなかった → 飲む[must-not,past]): OK');
+}
+
+// 飲んではいけません → 飲む[must-not,polite]
+const mustNotPoliteParses = deconjugate('のんではいけません', corpus);
+const hasMustNotPolite = mustNotPoliteParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'must-not,polite');
+if (!hasMustNotPolite) {
+  fails.push(`MUST-NOT-POLITE: のんではいけません should parse as 飲む[must-not,polite]; got [${mustNotPoliteParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ must-not-polite: のんではいけません missing 飲む[must-not,polite]');
+} else {
+  console.log('must-not-polite assert (のんではいけません → 飲む[must-not,polite]): OK');
+}
+
 if (fails.length) {
   console.error(`\nFAILED: ${fails.length} issue(s)`);
   process.exit(1);

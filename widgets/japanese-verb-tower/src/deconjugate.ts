@@ -265,6 +265,24 @@ function invertAll(cur: string): Candidate[] {
     add(astem + 'る', 'negative'); // ichidan
   }
 
+  // ── Must / Must-not ──────────────────────────────────────────────────────
+
+  if (cur.endsWith('なければならない')) {
+    const astem = cur.slice(0, -8);
+    addMany(fromAStem(astem), 'must');
+    if (astem.endsWith('し')) add(astem.slice(0, -1) + 'する', 'must');
+    if (astem.endsWith('く')) add(astem.slice(0, -1) + 'い', 'must');
+  }
+  if (cur.endsWith('はいけない')) {
+    const teStr = cur.slice(0, -5);
+    const last = teStr.slice(-1);
+    if (last === 'て' || last === 'で') for (const d of invertTe(teStr)) add(d, 'must-not');
+  }
+  if (cur.endsWith('ならなかった')) add(cur.slice(0, -4) + 'ない', 'past');
+  if (cur.endsWith('いけなかった')) add(cur.slice(0, -4) + 'ない', 'past');
+  if (cur.endsWith('なりません')) add(cur.slice(0, -5) + 'ならない', 'polite');
+  if (cur.endsWith('いけません')) add(cur.slice(0, -5) + 'いけない', 'polite');
+
   // ── Past ─────────────────────────────────────────────────────────────────
 
   if (cur.endsWith('した')) {

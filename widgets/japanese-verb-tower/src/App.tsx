@@ -121,6 +121,8 @@ const COLLOQ_ALT: Partial<Record<OpId, string>> = {
   'te-iku':    'てく／でく',
   'te-shimau': 'ちゃう／じゃう',
   'te-oku':    'とく／どく',
+  'must':      'なきゃ',
+  'must-not':  'ちゃ／じゃ',
 };
 
 const OP_SENSE: Record<OpId, string> = {
@@ -153,6 +155,8 @@ const OP_SENSE: Record<OpId, string> = {
   'te-oku':            'in advance',
   'te-aru':            'is done',
   'te-shimau-colloq':  'end up (colloq)',
+  'must':              'must',
+  'must-not':          'must not',
 };
 
 const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
@@ -333,6 +337,12 @@ export function App() {
   }
   if (stack.includes('te-shimau-colloq')) {
     notes.push('ちゃう (て→ちゃう) / じゃう (で→じゃう) is colloquial; formal is てしまう.');
+  }
+  if (stack.includes('must')) {
+    notes.push('なきゃ is the casual contraction of なければ (〜なきゃ(ならない／いけない), or just 〜なきゃ). The polite form is 〜なければなりません.');
+  }
+  if (stack.includes('must-not')) {
+    notes.push('ちゃ (ては→ちゃ) / じゃ (では→じゃ) is the casual contraction; the formal form is 〜てはいけない and the polite is 〜てはいけません.');
   }
   if (selectedVerb.kanji === '帰る') {
     notes.push('帰る looks ichidan (ends in 〜る after an e-vowel) but is actually godan-r: its forms are 帰らない／帰った／帰ります, not 帰ない／帰た.');

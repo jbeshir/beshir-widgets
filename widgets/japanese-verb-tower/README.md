@@ -78,6 +78,8 @@ Each tier in the tower names the helper word (助動詞) that layer adds:
 | polite | ます | 連用形 (i-stem) |
 | negative | ない | 未然形 (a-stem) |
 | past | た／だ | て／た euphonic stem |
+| must | なければならない | 未然形 (a-stem) |
+| must-not | てはいけない | 連用形-て (te-form) |
 
 Hover any tier label to see a one-line tooltip describing which stem the auxiliary attaches to and how it conjugates in its own right.
 
