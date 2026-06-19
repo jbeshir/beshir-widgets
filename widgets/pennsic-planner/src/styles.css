@@ -25,11 +25,6 @@
   --pill-active-bg: #2563eb;
   --pill-active-fg: #ffffff;
   --tab-border: #e2e8f0;
-  --block-text: #ffffff;
-  --gutter-bg: #ffffff;
-  --gutter-border: #e2e8f0;
-  --gutter-shadow: 2px 0 6px rgba(0, 0, 0, 0.06);
-  --hour-line: rgba(0, 0, 0, 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,11 +55,6 @@
     --pill-active-bg: #3b82f6;
     --pill-active-fg: #ffffff;
     --tab-border: #1e2d3d;
-    --block-text: #ffffff;
-    --gutter-bg: #111827;
-    --gutter-border: #1e2d3d;
-    --gutter-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
-    --hour-line: rgba(255, 255, 255, 0.04);
   }
 }
 
@@ -97,7 +87,7 @@ body {
   border: 1px solid var(--card-border);
   border-radius: 14px;
   box-shadow: var(--card-shadow);
-  overflow: hidden;
+  overflow: clip; /* clip preserves border-radius clipping without creating a scroll container, which would break position:sticky on slot headers */
 }
 
 /* Loading */
@@ -169,41 +159,42 @@ body {
   border-radius: 2px;
 }
 
-/* Day picker */
-.day-picker-outer {
-  position: relative;
-  border-bottom: 1px solid var(--card-border);
-}
-
-/* Right-edge fade hint */
-.day-picker-outer::after {
-  content: '';
+/* Visually hidden (for sr-only labels) */
+.sr-only {
   position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 56px;
-  background: linear-gradient(to right, transparent, var(--card-bg));
-  pointer-events: none;
-  z-index: 1;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-.day-picker {
-  padding: 10px 16px;
+/* Day tabs */
+.day-tabs-outer {
+  border-bottom: 1px solid var(--card-border);
+  padding: 10px 16px 8px;
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.day-picker::-webkit-scrollbar { display: none; }
+.day-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
-.day-pill {
-  flex-shrink: 0;
+.day-tab {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   padding: 6px 13px;
+  min-height: 44px;
+  min-width: 60px;
   border-radius: 20px;
   background: var(--pill-bg);
   border: 1px solid transparent;
@@ -214,12 +205,12 @@ body {
   white-space: nowrap;
 }
 
-.day-pill:hover {
+.day-tab:hover {
   background: var(--pill-hover);
   border-color: var(--input-border);
 }
 
-.day-pill.active {
+.day-tab.active {
   background: var(--pill-active-bg);
   color: var(--pill-active-fg);
   border-color: transparent;
@@ -228,20 +219,38 @@ body {
 }
 
 @media (prefers-color-scheme: dark) {
-  .day-pill.active {
+  .day-tab.active {
     box-shadow: 0 2px 8px rgba(96, 165, 250, 0.35);
   }
 }
 
-.day-pill:focus-visible {
+.day-tab:focus-visible {
   outline: 2px solid var(--input-focus);
   outline-offset: 2px;
 }
 
-.day-pill-label { font-weight: 700; font-size: 12px; }
-.day-pill-count { font-size: 10.5px; opacity: 0.65; margin-top: 1px; font-weight: 400; }
+.day-tab-label { font-weight: 700; font-size: 12px; }
+.day-tab-count { font-size: 10.5px; opacity: 0.65; margin-top: 1px; font-weight: 400; }
+.day-tab.active .day-tab-count { opacity: 0.9; }
 
-.day-pill.active .day-pill-count { opacity: 0.9; }
+.jump-to-day {
+  align-self: flex-start;
+  padding: 5px 8px;
+  background: var(--input-bg);
+  color: var(--fg);
+  border: 1px solid var(--input-border);
+  border-radius: 7px;
+  font-size: 13px;
+  cursor: pointer;
+  height: 30px;
+  appearance: auto;
+  outline: none;
+}
+
+.jump-to-day:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
 
 /* Filters */
 .filters {
@@ -513,10 +522,9 @@ details[open] .track-legend-summary::before {
   }
 }
 
-/* Timetable */
-.timetable-wrap {
-  overflow: auto;
-  position: relative;
+/* Schedule panel */
+.schedule-panel {
+  overflow-y: auto;
   max-height: 72vh;
   background-color: var(--card-bg);
   background-image:
@@ -526,115 +534,138 @@ details[open] .track-legend-summary::before {
   background-position: top, top;
   background-repeat: no-repeat, no-repeat;
   background-attachment: local, scroll;
+  outline: none;
+}
+
+.schedule-panel:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: -2px;
 }
 
 @media (prefers-color-scheme: dark) {
-  .timetable-wrap {
+  .schedule-panel {
     background-image:
       linear-gradient(var(--card-bg) 30%, transparent),
       linear-gradient(rgba(255, 255, 255, 0.05), transparent);
   }
 }
 
-.timetable-inner {
-  display: flex;
-  position: relative;
-  min-height: 200px;
+/* Time slots */
+.slot {
+  overflow: clip;
 }
 
-.time-gutter {
+.slot-header {
   position: sticky;
-  left: 0;
-  flex-shrink: 0;
-  width: 54px;
-  background: var(--gutter-bg);
-  border-right: 1px solid var(--gutter-border);
-  box-shadow: var(--gutter-shadow);
+  top: 0;
   z-index: 10;
-  pointer-events: none;
+  margin: 0;
+  padding: 10px 16px 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg);
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
-.hour-label {
-  position: absolute;
-  right: 7px;
-  font-size: 10px;
+.slot-count {
+  font-size: 11.5px;
+  font-weight: 400;
   color: var(--muted);
-  white-space: nowrap;
-  transform: translateY(-50%);
-  line-height: 1;
-  font-weight: 500;
   letter-spacing: 0.01em;
 }
 
-.sessions-area {
+.slot-sessions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 10px;
+  align-items: stretch;
+  padding: 10px 16px 14px;
+}
+
+/* Session card */
+.session-card {
   position: relative;
-  flex: 1;
-}
-
-.hour-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--hour-line);
-  pointer-events: none;
-}
-
-/* Session blocks */
-.session-block {
-  position: absolute;
-  border-radius: 7px;
-  padding: 5px 7px 4px;
-  overflow: hidden;
+  border-radius: 8px;
+  padding: 10px 10px 8px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-left: 4px solid var(--tc-l, hsl(220, 55%, 37%));
   cursor: pointer;
-  background: var(--tc-l, hsl(220, 55%, 37%));
-  color: var(--block-text);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
   min-width: 0;
-  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  text-align: left;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (prefers-color-scheme: dark) {
-  .session-block {
-    background: var(--tc-d, hsl(220, 51%, 49%));
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  .session-card {
+    border-left-color: var(--tc-d, hsl(220, 51%, 49%));
   }
 }
 
-.session-block:hover {
-  filter: brightness(1.1);
-  z-index: 2;
+.session-card:hover {
+  background: var(--pill-bg);
+  border-color: var(--input-border);
+  border-left-color: var(--tc-l, hsl(220, 55%, 37%));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-.session-block.in-plan {
-  box-shadow: 0 0 0 2.5px rgba(255, 255, 255, 0.95), 0 2px 6px rgba(0, 0, 0, 0.28);
-  filter: brightness(1.1) saturate(1.05);
-  z-index: 3;
+@media (prefers-color-scheme: dark) {
+  .session-card:hover {
+    border-left-color: var(--tc-d, hsl(220, 51%, 49%));
+  }
 }
 
-.session-block:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: -2px;
-  z-index: 4;
+.session-card.in-plan {
+  background: var(--success-bg);
+  border-color: var(--success);
+  border-left-color: var(--tc-l, hsl(220, 55%, 37%));
 }
 
-.session-block-title {
-  font-size: 12px;
+@media (prefers-color-scheme: dark) {
+  .session-card.in-plan {
+    border-left-color: var(--tc-d, hsl(220, 51%, 49%));
+  }
+}
+
+.session-card.in-plan.conflict {
+  border-color: var(--conflict);
+  background: var(--conflict-bg);
+}
+
+.session-card:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+.session-card-title {
+  font-size: 13px;
   font-weight: 700;
+  line-height: 1.35;
+  color: var(--fg);
+  margin: 0 0 4px;
+  padding-right: 22px;
+  word-break: break-word;
+}
+
+.session-card-time {
+  font-size: 11.5px;
+  color: var(--fg-secondary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  margin-bottom: 2px;
   line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
-.session-block.in-plan .session-block-title {
-  padding-right: 14px;
-}
-
-.session-block-meta {
-  font-size: 10px;
-  opacity: 0.78;
+.session-card-meta {
+  font-size: 11px;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -642,39 +673,51 @@ details[open] .track-legend-summary::before {
   line-height: 1.3;
 }
 
-.session-block-instructor {
-  opacity: 0.62;
-  font-size: 9.5px;
+.session-card-instructor {
+  opacity: 0.8;
 }
 
-.session-block-badges {
+.session-card-badges {
   display: flex;
-  gap: 3px;
-  margin-top: 2px;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 5px;
   flex-wrap: wrap;
 }
 
-.block-badge {
-  font-size: 9px;
+.card-badge {
+  font-size: 10px;
   font-weight: 700;
-  background: rgba(0, 0, 0, 0.22);
-  color: #fff;
-  padding: 1px 4px;
-  border-radius: 3px;
+  background: var(--pill-bg);
+  color: var(--muted);
+  border: 1px solid var(--card-border);
+  padding: 1px 5px;
+  border-radius: 4px;
   line-height: 1.4;
 }
 
 .plan-check {
   position: absolute;
-  top: 3px;
-  right: 4px;
-  font-size: 9px;
+  top: 7px;
+  right: 8px;
+  font-size: 12px;
   font-weight: 800;
-  line-height: 1.25;
-  background: rgba(255, 255, 255, 0.92);
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--success);
+  line-height: 1;
+}
+
+.conflict-badge {
+  position: absolute;
+  bottom: 7px;
+  right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--conflict);
+  background: var(--conflict-bg);
+  border: 1px solid var(--conflict);
+  padding: 1px 4px;
   border-radius: 3px;
-  padding: 1.5px 4px;
+  line-height: 1.4;
 }
 
 /* Empty state */
@@ -996,8 +1039,8 @@ details[open] .track-legend-summary::before {
 /* Transitions (reduced-motion safe) */
 @media (prefers-reduced-motion: no-preference) {
   .tab-btn { transition: color 120ms ease, border-color 120ms ease; }
-  .day-pill { transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease; }
-  .session-block { transition: filter 100ms ease; }
+  .day-tab { transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease; }
+  .session-card { transition: background 100ms ease, border-color 100ms ease, box-shadow 100ms ease; }
   .import-btn, .plan-export-btn { transition: filter 120ms ease; }
   .legend-chip { transition: background 100ms ease, border-color 100ms ease; }
   .track-legend-summary::before { transition: transform 120ms ease; }
