@@ -221,6 +221,7 @@ export function App() {
               onToggle={handleToggle}
               trackColors={trackColors}
               selectedDay={selectedDay}
+              conflicts={conflicts}
             />
           </>
         )}

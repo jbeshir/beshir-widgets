@@ -29,12 +29,3 @@ export interface Session {
   source: string;
   synthetic: boolean;
 }
-
-// Result of laying out one day's sessions into side-by-side lanes.
-export interface PlacedSession {
-  session: Session;
-  startMin: number;
-  endMin: number;
-  lane: number; // 0-based column index within its cluster
-  lanes: number; // total columns in its cluster (for width = 1/lanes)
-}
