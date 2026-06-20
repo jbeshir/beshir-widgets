@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
+import type { JSX } from 'preact';
 
 interface Props {
   tracks: string[];
@@ -70,7 +71,7 @@ export function Filters({
               <span
                 key={t}
                 class="track-chip"
-                style={{ '--tc-l': color.l, '--tc-d': color.d } as Record<string, unknown>}
+                style={{ '--tc-l': color.l, '--tc-d': color.d } as JSX.CSSProperties & Record<string, unknown>}
               >
                 {t}
                 <button
@@ -114,7 +115,7 @@ export function Filters({
                     >
                       <span
                         class="track-dot"
-                        style={{ '--tc-l': color.l, '--tc-d': color.d } as Record<string, unknown>}
+                        style={{ '--tc-l': color.l, '--tc-d': color.d } as JSX.CSSProperties & Record<string, unknown>}
                       />
                       {t}
                     </div>
@@ -189,7 +190,7 @@ export function Filters({
                 class="legend-chip"
                 role="button"
                 tabIndex={0}
-                style={{ '--tc-l': color.l, '--tc-d': color.d } as Record<string, unknown>}
+                style={{ '--tc-l': color.l, '--tc-d': color.d } as JSX.CSSProperties & Record<string, unknown>}
                 onClick={filterByTrack}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
