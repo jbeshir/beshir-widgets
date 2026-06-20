@@ -130,9 +130,9 @@ const OP_SENSE: Record<OpId, string> = {
   passive:             'be ~ed',
   potential:           'can',
   'causative-passive': 'be made to',
-  polite:              '(polite)',
+  polite:              'polite',
   negative:            'not',
-  past:                '(past)',
+  past:                'past',
   'negative-past':     "didn't",
   te:                  'and/-ing',
   adverbial:           '-ly',
@@ -141,11 +141,15 @@ const OP_SENSE: Record<OpId, string> = {
   yasui:               'easy to',
   nikui:               'hard to',
   naosu:               'redo / do over',
+  hajimeru:            'start ~ing',
+  owaru:               'finish ~ing',
+  tsuzukeru:           'keep ~ing',
+  dasu:                'burst out ~ing',
   sugiru:              'too much',
   sou:                 'looks like',
   naru:                'become',
   volitional:          "let's/intend to",
-  imperative:          '(command)',
+  imperative:          'command',
   ba:                  'if',
   tara:                'when/if',
   'te-iru':            'be ~ing',
@@ -161,6 +165,7 @@ const OP_SENSE: Record<OpId, string> = {
 
 const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
   { label: 'Desire & ease',      ops: OP_FAMILIES.desire },
+  { label: 'Compound (phase)',   ops: OP_FAMILIES.compound },
   { label: 'Adjective & なる',    ops: OP_FAMILIES.adjective },
   { label: 'Aspect & direction',  ops: OP_FAMILIES.aspect },
   { label: 'Mood',               ops: OP_FAMILIES.mood },
@@ -638,6 +643,7 @@ export function App() {
                                 aria-disabled={!enabled}
                               >
                                 <span class="layer-menu-label">{meta.label}</span>
+                                <span class="layer-menu-sense">{OP_SENSE[op]}</span>
                                 <span class="layer-menu-aux jp">{meta.aux}</span>
                               </button>
                             );

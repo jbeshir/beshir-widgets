@@ -320,6 +320,28 @@ reg({ id:'naosu', label:'redo / do over', aux:'なおす', family:'desire',
   apply(f): Form { return { kana: iStem(f) + 'なおす', type: 'godan' }; },
 });
 
+// ── COMPOUND (phase) ──────────────────────────────────────────────────────────
+
+reg({ id:'hajimeru', label:'start', aux:'はじめる', family:'compound',
+  tooltip:'start doing — 連用形 (i-stem) + 補助動詞 始める; result conjugates as an ichidan verb (〜はじめない／はじめた／はじめます).',
+  apply(f): Form { return { kana: iStem(f) + 'はじめる', type: 'ichidan' }; },
+});
+
+reg({ id:'owaru', label:'finish', aux:'おわる', family:'compound',
+  tooltip:'finish doing — i-stem + 終わる; conjugates as a godan verb (〜おわらない／おわった).',
+  apply(f): Form { return { kana: iStem(f) + 'おわる', type: 'godan' }; },
+});
+
+reg({ id:'tsuzukeru', label:'continue', aux:'つづける', family:'compound',
+  tooltip:'continue doing — i-stem + 続ける; conjugates as an ichidan verb.',
+  apply(f): Form { return { kana: iStem(f) + 'つづける', type: 'ichidan' }; },
+});
+
+reg({ id:'dasu', label:'start abruptly', aux:'だす', family:'compound',
+  tooltip:'suddenly start / burst out — i-stem + 出す; conjugates as a godan verb (〜だして／だした).',
+  apply(f): Form { return { kana: iStem(f) + 'だす', type: 'godan' }; },
+});
+
 // ── ADJECTIVE OPS ─────────────────────────────────────────────────────────────
 
 reg({ id:'sugiru', label:'too much', aux:'すぎる', family:'adjective',
@@ -535,6 +557,7 @@ const TE_AUX_OPS: Set<OpId> = new Set([
   'te-iru','te-kuru','te-iku','te-shimau','te-oku','te-aru','te-shimau-colloq',
 ]);
 const DESIRE_OPS: Set<OpId> = new Set(['tai','yasui','nikui','tagaru']);
+const COMPOUND_OPS: Set<OpId> = new Set(['hajimeru','owaru','tsuzukeru','dasu']);
 const VOICE_OPS: Set<OpId> = new Set(['causative','passive','potential','causative-passive']);
 
 export function allowedOps(form: Form, stack: OpId[]): OpId[] {
@@ -573,7 +596,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
   } else if (isVerb(t)) {
     base = [
       'causative','passive','potential','causative-passive',
-      'tai','tagaru','yasui','nikui','naosu','sugiru',
+      'tai','tagaru','yasui','nikui','naosu','sugiru','hajimeru','owaru','tsuzukeru','dasu',
       'te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru',
       'polite','negative','past','negative-past','te','volitional','imperative','ba','tara',
       'must','must-not',
@@ -601,6 +624,9 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
   // Naosu once
   if (stack.includes('naosu')) allowed.delete('naosu');
 
+  // Compound (phase) once
+  if (stack.some(id => COMPOUND_OPS.has(id))) { COMPOUND_OPS.forEach(id => allowed.delete(id)); }
+
   // sugiru guard: already ends in すぎ
   if (form.kana.endsWith('すぎ') || form.kana.endsWith('すぎる')) allowed.delete('sugiru');
 
@@ -620,6 +646,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
 export const OP_FAMILIES: Record<OpFamily, OpId[]> = {
   core:      ['causative','passive','potential','causative-passive','polite','negative','past','negative-past','te'],
   desire:    ['tai','tagaru','yasui','nikui','naosu'],
+  compound:  ['hajimeru','owaru','tsuzukeru','dasu'],
   adjective: ['adverbial','sugiru','sou','naru'],
   aspect:    ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
   mood:      ['volitional','imperative','ba','tara','must','must-not'],
@@ -681,6 +708,7 @@ export function disabledReason(form: Form, stack: OpId[], op: OpId): string | nu
   if (DESIRE_OPS.has(op) && t === 'i-adjective') return 'already an い-adjective — can’t re-want';
   if (DESIRE_OPS.has(op) && stack.some(id => DESIRE_OPS.has(id))) return 'a desire/ease layer is already applied';
   if (op === 'naosu' && stack.includes('naosu')) return '〜直す already applied';
+  if (COMPOUND_OPS.has(op) && stack.some(id => COMPOUND_OPS.has(id))) return 'a compound (phase) verb is already applied';
   if (op === 'causative' && stack.includes('causative')) return 'causative can apply only once';
   if ((op === 'passive' || op === 'potential' || op === 'causative-passive')
       && stack.some(id => id === 'passive' || id === 'potential' || id === 'causative-passive')) {

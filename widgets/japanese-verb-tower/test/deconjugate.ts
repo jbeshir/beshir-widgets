@@ -160,6 +160,58 @@ if (!hasMustNotPolite) {
   console.log('must-not-polite assert (のんではいけません → 飲む[must-not,polite]): OK');
 }
 
+// ── Compound-verb (phase) assertions ──────────────────────────────────────────
+
+// のみはじめる → 飲む[hajimeru]
+const compoundHajimeruParses = deconjugate('のみはじめる', corpus);
+const hasCompoundHajimeru = compoundHajimeruParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'hajimeru');
+if (!hasCompoundHajimeru) {
+  fails.push(`COMPOUND-HAJIMERU: のみはじめる should parse as 飲む[hajimeru]; got [${compoundHajimeruParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ compound-hajimeru: のみはじめる missing 飲む[hajimeru]');
+} else {
+  console.log('compound-hajimeru assert (のみはじめる → 飲む[hajimeru]): OK');
+}
+
+// のみおわった → 飲む[owaru,past]
+const compoundOwaruParses = deconjugate('のみおわった', corpus);
+const hasCompoundOwaru = compoundOwaruParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'owaru,past');
+if (!hasCompoundOwaru) {
+  fails.push(`COMPOUND-OWARU-PAST: のみおわった should parse as 飲む[owaru,past]; got [${compoundOwaruParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ compound-owaru-past: のみおわった missing 飲む[owaru,past]');
+} else {
+  console.log('compound-owaru-past assert (のみおわった → 飲む[owaru,past]): OK');
+}
+
+// たべはじめる → 食べる[hajimeru]
+const compoundTabeHajimeruParses = deconjugate('たべはじめる', corpus);
+const hasCompoundTabeHajimeru = compoundTabeHajimeruParses.some(p => p.base.k === '食べる' && p.ops.join(',') === 'hajimeru');
+if (!hasCompoundTabeHajimeru) {
+  fails.push(`COMPOUND-TABE-HAJIMERU: たべはじめる should parse as 食べる[hajimeru]; got [${compoundTabeHajimeruParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ compound-tabe-hajimeru: たべはじめる missing 食べる[hajimeru]');
+} else {
+  console.log('compound-tabe-hajimeru assert (たべはじめる → 食べる[hajimeru]): OK');
+}
+
+// のみだす → 飲む[dasu]
+const compoundDasuParses = deconjugate('のみだす', corpus);
+const hasCompoundDasu = compoundDasuParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'dasu');
+if (!hasCompoundDasu) {
+  fails.push(`COMPOUND-DASU: のみだす should parse as 飲む[dasu]; got [${compoundDasuParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ compound-dasu: のみだす missing 飲む[dasu]');
+} else {
+  console.log('compound-dasu assert (のみだす → 飲む[dasu]): OK');
+}
+
+// のみつづける → 飲む[tsuzukeru]
+const compoundTsuzukeruParses = deconjugate('のみつづける', corpus);
+const hasCompoundTsuzukeru = compoundTsuzukeruParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'tsuzukeru');
+if (!hasCompoundTsuzukeru) {
+  fails.push(`COMPOUND-TSUZUKERU: のみつづける should parse as 飲む[tsuzukeru]; got [${compoundTsuzukeruParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ compound-tsuzukeru: のみつづける missing 飲む[tsuzukeru]');
+} else {
+  console.log('compound-tsuzukeru assert (のみつづける → 飲む[tsuzukeru]): OK');
+}
+
 if (fails.length) {
   console.error(`\nFAILED: ${fails.length} issue(s)`);
   process.exit(1);

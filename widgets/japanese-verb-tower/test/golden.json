@@ -110,5 +110,21 @@
   {"verb":"来る","class":"kuru","ops":["must-not"],"expectedKana":"来てはいけない","expectedRomaji":"kitehaikenai"},
   {"verb":"行く","class":"godan-iku","ops":["must"],"expectedKana":"行かなければならない","expectedRomaji":"ikanakerebanaranai"},
   {"verb":"行く","class":"godan-iku","ops":["must-not"],"expectedKana":"行ってはいけない","expectedRomaji":"ittehaikenai"},
-  {"verb":"書く","class":"godan-k","ops":["must-not"],"expectedKana":"書いてはいけない","expectedRomaji":"kaitehaikenai"}
+  {"verb":"書く","class":"godan-k","ops":["must-not"],"expectedKana":"書いてはいけない","expectedRomaji":"kaitehaikenai"},
+
+  {"verb":"飲む","class":"godan-m","ops":["hajimeru"],"expectedKana":"飲みはじめる","expectedRomaji":"nomihajimeru"},
+  {"verb":"飲む","class":"godan-m","ops":["hajimeru","past"],"expectedKana":"飲みはじめた","expectedRomaji":"nomihajimeta"},
+  {"verb":"飲む","class":"godan-m","ops":["hajimeru","polite"],"expectedKana":"飲みはじめます","expectedRomaji":"nomihajimemasu"},
+  {"verb":"飲む","class":"godan-m","ops":["hajimeru","negative"],"expectedKana":"飲みはじめない","expectedRomaji":"nomihajimenai"},
+  {"verb":"飲む","class":"godan-m","ops":["owaru"],"expectedKana":"飲みおわる","expectedRomaji":"nomiowaru"},
+  {"verb":"飲む","class":"godan-m","ops":["owaru","past"],"expectedKana":"飲みおわった","expectedRomaji":"nomiowatta"},
+  {"verb":"飲む","class":"godan-m","ops":["tsuzukeru"],"expectedKana":"飲みつづける","expectedRomaji":"nomitsuzukeru"},
+  {"verb":"飲む","class":"godan-m","ops":["dasu"],"expectedKana":"飲みだす","expectedRomaji":"nomidasu"},
+  {"verb":"飲む","class":"godan-m","ops":["dasu","past"],"expectedKana":"飲みだした","expectedRomaji":"nomidashita"},
+  {"verb":"食べる","class":"ichidan","ops":["hajimeru"],"expectedKana":"食べはじめる","expectedRomaji":"tabehajimeru"},
+  {"verb":"食べる","class":"ichidan","ops":["owaru"],"expectedKana":"食べおわる","expectedRomaji":"tabeowaru"},
+  {"verb":"する","class":"suru","ops":["hajimeru"],"expectedKana":"しはじめる","expectedRomaji":"shihajimeru"},
+  {"verb":"来る","class":"kuru","ops":["hajimeru"],"expectedKana":"来はじめる","expectedRomaji":"kihajimeru"},
+  {"verb":"行く","class":"godan-iku","ops":["hajimeru"],"expectedKana":"行きはじめる","expectedRomaji":"ikihajimeru"},
+  {"verb":"書く","class":"godan-k","ops":["dasu"],"expectedKana":"書きだす","expectedRomaji":"kakidasu"}
 ]

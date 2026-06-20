@@ -28,6 +28,7 @@ export type OpId =
   | 'te-iru' | 'te-kuru' | 'te-iku' | 'te-shimau' | 'te-oku' | 'te-aru'
   | 'te-shimau-colloq'
   | 'naosu'
+  | 'hajimeru' | 'owaru' | 'tsuzukeru' | 'dasu'
   | 'must' | 'must-not';
 
 // Tier — keeps legacy `layer` field for App.tsx compat; adds `op` + `type`.
@@ -75,4 +76,4 @@ export const FORM_LABEL: Record<FormType, string> = {
   'must-polite':       'polite',
 };
 
-export type OpFamily = 'core' | 'desire' | 'adjective' | 'aspect' | 'mood';
+export type OpFamily = 'core' | 'desire' | 'compound' | 'adjective' | 'aspect' | 'mood';

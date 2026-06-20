@@ -431,6 +431,13 @@ function invertAll(cur: string): Candidate[] {
     addMany(fromIStem(cur.slice(0, -3)), 'naosu');
   }
 
+  // ── Compound (phase) ──────────────────────────────────────────────────────
+
+  if (cur.endsWith('はじめる')) addMany(fromIStem(cur.slice(0, -4)), 'hajimeru');
+  if (cur.endsWith('おわる'))   addMany(fromIStem(cur.slice(0, -3)), 'owaru');
+  if (cur.endsWith('つづける')) addMany(fromIStem(cur.slice(0, -4)), 'tsuzukeru');
+  if (cur.endsWith('だす'))     addMany(fromIStem(cur.slice(0, -2)), 'dasu');
+
   // ── Sugiru ───────────────────────────────────────────────────────────────
 
   if (cur.endsWith('すぎる')) {
