@@ -80,6 +80,7 @@ Each tier in the tower names the helper word (助動詞) that layer adds:
 | past | た／だ | て／た euphonic stem |
 | must | なければならない | 未然形 (a-stem) |
 | must-not | てはいけない | 連用形-て (te-form) |
+| please (request) | てください | 連用形-て (te-form) |
 | hajimeru | はじめる (begin to) | 連用形 (i-stem) → ichidan |
 | owaru | おわる (finish) | 連用形 (i-stem) → godan |
 | tsuzukeru | つづける (keep doing) | 連用形 (i-stem) → ichidan |
@@ -99,6 +100,7 @@ Teaching notes:
 - **Ichidan passive ≈ potential:** For ichidan verbs (食べる, 見る) the passive and potential are the same surface form (食べられる). Godan verbs use the dedicated e-row for potential (飲める) and れる for passive (飲まれる).
 - **ない is an adjective:** Plain negative inflects as an い-adjective — negative-past stacks as なかった, not ×ないた.
 - **ある's suppletive negative:** ある → ない (not あらない), shown as a contextual note when ある is selected with Negative on.
+- **〜てください is a request:** Like 〜てはいけない, the polite request builds on the **連用形-て (te-form)** + ください (待ってください = "please wait"). It is terminal — nothing stacks on top. The casual request simply drops ください, leaving the bare て-form (待って!).
 
 ## How the verb data was generated
 

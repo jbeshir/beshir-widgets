@@ -278,6 +278,11 @@ function invertAll(cur: string): Candidate[] {
     const last = teStr.slice(-1);
     if (last === 'て' || last === 'で') for (const d of invertTe(teStr)) add(d, 'must-not');
   }
+  if (cur.endsWith('ください')) {
+    const teStr = cur.slice(0, -4);
+    const last = teStr.slice(-1);
+    if (last === 'て' || last === 'で') for (const d of invertTe(teStr)) add(d, 'kudasai');
+  }
   if (cur.endsWith('ならなかった')) add(cur.slice(0, -4) + 'ない', 'past');
   if (cur.endsWith('いけなかった')) add(cur.slice(0, -4) + 'ない', 'past');
   if (cur.endsWith('なりません')) add(cur.slice(0, -5) + 'ならない', 'polite');

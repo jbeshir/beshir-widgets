@@ -161,6 +161,7 @@ const OP_SENSE: Record<OpId, string> = {
   'te-shimau-colloq':  'end up (colloq)',
   'must':              'must',
   'must-not':          'must not',
+  kudasai:             'please',
 };
 
 const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
@@ -348,6 +349,9 @@ export function App() {
   }
   if (stack.includes('must-not')) {
     notes.push('ちゃ (ては→ちゃ) / じゃ (では→じゃ) is the casual contraction; the formal form is 〜てはいけない and the polite is 〜てはいけません.');
+  }
+  if (stack.includes('kudasai')) {
+    notes.push('The casual request drops ください — the bare て-form is itself a request (待って! = "wait!"). 〜てください is the polite form.');
   }
   if (selectedVerb.kanji === '帰る') {
     notes.push('帰る looks ichidan (ends in 〜る after an e-vowel) but is actually godan-r: its forms are 帰らない／帰った／帰ります, not 帰ない／帰た.');

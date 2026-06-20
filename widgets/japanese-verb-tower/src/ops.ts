@@ -462,6 +462,11 @@ reg({ id:'must-not', label:'must not', aux:'てはいけない', family:'mood',
   },
 });
 
+reg({ id:'kudasai', label:'please', aux:'ください', family:'mood',
+  tooltip:'polite request — て-form + ください: 〜てください (casual just drops ください → the bare て-form). Terminal.',
+  apply(f): Form { return { kana: teKana(f) + 'ください', type: 'request' }; },
+});
+
 // ── ASPECT (て-form auxiliaries) ──────────────────────────────────────────────
 
 reg({ id:'te-iru', label:'〜ている', aux:'いる', family:'aspect',
@@ -569,7 +574,8 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
   // Terminals
   if (t === 'volitional' || t === 'imperative' || t === 'conditional-ba'
       || t === 'te-form' || t === 'conditional-tara'
-      || t === 'polite-past' || t === 'polite-neg-past' || t === 'polite-volitional') {
+      || t === 'polite-past' || t === 'polite-neg-past' || t === 'polite-volitional'
+      || t === 'request') {
     return [];
   }
 
@@ -599,7 +605,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
       'tai','tagaru','yasui','nikui','naosu','sugiru','hajimeru','owaru','tsuzukeru','dasu',
       'te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru',
       'polite','negative','past','negative-past','te','volitional','imperative','ba','tara',
-      'must','must-not',
+      'must','must-not','kudasai',
     ];
   } else {
     return [];
@@ -649,7 +655,7 @@ export const OP_FAMILIES: Record<OpFamily, OpId[]> = {
   compound:  ['hajimeru','owaru','tsuzukeru','dasu'],
   adjective: ['adverbial','sugiru','sou','naru'],
   aspect:    ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
-  mood:      ['volitional','imperative','ba','tara','must','must-not'],
+  mood:      ['volitional','imperative','ba','tara','must','must-not','kudasai'],
 };
 
 export { OPS };
@@ -701,7 +707,8 @@ export function disabledReason(form: Form, stack: OpId[], op: OpId): string | nu
   const t = form.type;
   if (t === 'volitional' || t === 'imperative' || t === 'conditional-ba'
       || t === 'conditional-tara' || t === 'te-form'
-      || t === 'polite-past' || t === 'polite-neg-past' || t === 'polite-volitional') {
+      || t === 'polite-past' || t === 'polite-neg-past' || t === 'polite-volitional'
+      || t === 'request') {
     return 'terminal form — nothing more attaches';
   }
   if (stack.length >= 8) return 'tower depth limit reached';
