@@ -107,6 +107,22 @@ function teForm(form: Form): string {
   }
 }
 
+function plainNegativeKana(f: Form): string {
+  if (f.type === 'i-adjective') return adjStem(f) + 'くない';
+  if (f.type === 'na-adjective') return f.kana + 'ではない';
+  const b = base(f);
+  switch (f.type) {
+    case 'suru':    return (f.suruPrefix??'') + 'しない';
+    case 'kuru':    return f.kana.slice(0,-2) + 'こない';
+    case 'ichidan': return dropRu(b) + 'ない';
+    default:        return f.aruNeg ? 'ない' : godanStem(b, GODAN_A) + 'ない';
+  }
+}
+
+function teKana(f: Form): string {
+  return f.type === 'i-adjective' ? adjStem(f) + 'くて' : teForm(f);
+}
+
 // ── Operator implementations (apply returns new Form.kana) ────────────────────
 
 function applyVerb(form: Form, suffix: string): string {
@@ -198,6 +214,11 @@ reg({ id:'polite', label:'Polite', aux:'ます／です', family:'core',
   apply(f): Form {
     if (f.type === 'i-adjective') return { kana: f.kana + 'です', type: 'polite' };
     if (f.type === 'na-adjective') return { kana: f.kana + 'です', type: 'polite' };
+    if (f.type === 'must' || f.type === 'must-not') {
+      const k = f.kana.endsWith('ならない') ? f.kana.slice(0,-4) + 'なりません'
+              : f.kana.endsWith('いけない') ? f.kana.slice(0,-4) + 'いけません' : f.kana;
+      return { kana: k, type: 'must-polite' };
+    }
     const b = base(f);
     let kana: string;
     switch (f.type) {
@@ -216,19 +237,8 @@ reg({ id:'polite', label:'Polite', aux:'ます／です', family:'core',
 reg({ id:'negative', label:'Negative', aux:'ない', family:'core',
   tooltip:'plain negative — a-stem+ない; i-adj ADJ+くない; polite ます→ません.',
   apply(f): Form {
-    if (f.type === 'i-adjective') return { kana: adjStem(f) + 'くない', type: 'i-adjective' };
-    if (f.type === 'na-adjective') return { kana: f.kana + 'ではない', type: 'i-adjective' };
     if (f.type === 'polite') return { kana: f.kana.slice(0,-2) + 'ません', type: 'polite-neg' };
-    const b = base(f);
-    let kana: string;
-    switch (f.type) {
-      case 'suru': kana = (f.suruPrefix??'') + 'しない'; break;
-      case 'kuru': kana = f.kana.slice(0,-2) + 'こない'; break;
-      case 'ichidan': kana = dropRu(b) + 'ない'; break;
-      default:
-        kana = f.aruNeg ? 'ない' : godanStem(b, GODAN_A) + 'ない';
-    }
-    return { kana, type: 'i-adjective' };
+    return { kana: plainNegativeKana(f), type: 'i-adjective' };
   },
 });
 
@@ -239,6 +249,8 @@ reg({ id:'past', label:'Past', aux:'た／だ', family:'core',
     if (f.type === 'na-adjective') return { kana: f.kana + 'だった', type: 'plain-past' };
     if (f.type === 'polite') return { kana: f.kana.slice(0,-2) + 'ました', type: 'polite-past' };
     if (f.type === 'polite-neg') return { kana: f.kana.slice(0,-3) + 'ませんでした', type: 'polite-neg-past' };
+    if (f.type === 'must' || f.type === 'must-not') return { kana: f.kana.slice(0,-2) + 'なかった', type: 'plain-past' };
+    if (f.type === 'must-polite') return { kana: f.kana.slice(0,-3) + 'ませんでした', type: 'polite-neg-past' };
     const b = base(f);
     let kana: string;
     switch (f.type) {
@@ -306,6 +318,28 @@ reg({ id:'nikui', label:'hard to', aux:'にくい', family:'desire',
 reg({ id:'naosu', label:'redo / do over', aux:'なおす', family:'desire',
   tooltip:'do over / fix — 連用形 (i-stem) + 補助動詞 なおす; result conjugates as a godan-s verb (直す), so it recurses (なおさない／なおして／なおした／なおします).',
   apply(f): Form { return { kana: iStem(f) + 'なおす', type: 'godan' }; },
+});
+
+// ── COMPOUND (phase) ──────────────────────────────────────────────────────────
+
+reg({ id:'hajimeru', label:'start', aux:'はじめる', family:'compound',
+  tooltip:'start doing — 連用形 (i-stem) + 補助動詞 始める; result conjugates as an ichidan verb (〜はじめない／はじめた／はじめます).',
+  apply(f): Form { return { kana: iStem(f) + 'はじめる', type: 'ichidan' }; },
+});
+
+reg({ id:'owaru', label:'finish', aux:'おわる', family:'compound',
+  tooltip:'finish doing — i-stem + 終わる; conjugates as a godan verb (〜おわらない／おわった).',
+  apply(f): Form { return { kana: iStem(f) + 'おわる', type: 'godan' }; },
+});
+
+reg({ id:'tsuzukeru', label:'continue', aux:'つづける', family:'compound',
+  tooltip:'continue doing — i-stem + 続ける; conjugates as an ichidan verb.',
+  apply(f): Form { return { kana: iStem(f) + 'つづける', type: 'ichidan' }; },
+});
+
+reg({ id:'dasu', label:'start abruptly', aux:'だす', family:'compound',
+  tooltip:'suddenly start / burst out — i-stem + 出す; conjugates as a godan verb (〜だして／だした).',
+  apply(f): Form { return { kana: iStem(f) + 'だす', type: 'godan' }; },
 });
 
 // ── ADJECTIVE OPS ─────────────────────────────────────────────────────────────
@@ -414,6 +448,20 @@ reg({ id:'tara', label:'when/if (〜たら)', aux:'たら', family:'mood',
   },
 });
 
+reg({ id:'must', label:'must', aux:'なければならない', family:'mood',
+  tooltip:'must / have to — plain negative\'s ば-conditional + ならない: 〜なければならない (colloq 〜なきゃ); tail conjugates (past 〜ならなかった, polite 〜なりません).',
+  apply(f): Form {
+    return { kana: plainNegativeKana(f).slice(0,-1) + 'ければならない', type: 'must' };
+  },
+});
+
+reg({ id:'must-not', label:'must not', aux:'てはいけない', family:'mood',
+  tooltip:'must not / may not — て-form + はいけない: 〜てはいけない (colloq 〜ちゃ／じゃ); tail conjugates (past 〜いけなかった, polite 〜いけません).',
+  apply(f): Form {
+    return { kana: teKana(f) + 'はいけない', type: 'must-not' };
+  },
+});
+
 // ── ASPECT (て-form auxiliaries) ──────────────────────────────────────────────
 
 reg({ id:'te-iru', label:'〜ている', aux:'いる', family:'aspect',
@@ -509,6 +557,7 @@ const TE_AUX_OPS: Set<OpId> = new Set([
   'te-iru','te-kuru','te-iku','te-shimau','te-oku','te-aru','te-shimau-colloq',
 ]);
 const DESIRE_OPS: Set<OpId> = new Set(['tai','yasui','nikui','tagaru']);
+const COMPOUND_OPS: Set<OpId> = new Set(['hajimeru','owaru','tsuzukeru','dasu']);
 const VOICE_OPS: Set<OpId> = new Set(['causative','passive','potential','causative-passive']);
 
 export function allowedOps(form: Form, stack: OpId[]): OpId[] {
@@ -540,12 +589,17 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
     base = ['naru', 'polite', 'past', 'negative'];
   } else if (t === 'i-adjective') {
     base = ['negative','past','negative-past','te','adverbial','ba','polite','sou','sugiru','naru','tara'];
+  } else if (t === 'must' || t === 'must-not') {
+    base = ['past', 'polite'];
+  } else if (t === 'must-polite') {
+    base = ['past'];
   } else if (isVerb(t)) {
     base = [
       'causative','passive','potential','causative-passive',
-      'tai','tagaru','yasui','nikui','naosu','sugiru',
+      'tai','tagaru','yasui','nikui','naosu','sugiru','hajimeru','owaru','tsuzukeru','dasu',
       'te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru',
       'polite','negative','past','negative-past','te','volitional','imperative','ba','tara',
+      'must','must-not',
     ];
   } else {
     return [];
@@ -570,6 +624,9 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
   // Naosu once
   if (stack.includes('naosu')) allowed.delete('naosu');
 
+  // Compound (phase) once
+  if (stack.some(id => COMPOUND_OPS.has(id))) { COMPOUND_OPS.forEach(id => allowed.delete(id)); }
+
   // sugiru guard: already ends in すぎ
   if (form.kana.endsWith('すぎ') || form.kana.endsWith('すぎる')) allowed.delete('sugiru');
 
@@ -589,9 +646,10 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
 export const OP_FAMILIES: Record<OpFamily, OpId[]> = {
   core:      ['causative','passive','potential','causative-passive','polite','negative','past','negative-past','te'],
   desire:    ['tai','tagaru','yasui','nikui','naosu'],
+  compound:  ['hajimeru','owaru','tsuzukeru','dasu'],
   adjective: ['adverbial','sugiru','sou','naru'],
   aspect:    ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
-  mood:      ['volitional','imperative','ba','tara'],
+  mood:      ['volitional','imperative','ba','tara','must','must-not'],
 };
 
 export { OPS };
@@ -650,6 +708,7 @@ export function disabledReason(form: Form, stack: OpId[], op: OpId): string | nu
   if (DESIRE_OPS.has(op) && t === 'i-adjective') return 'already an い-adjective — can’t re-want';
   if (DESIRE_OPS.has(op) && stack.some(id => DESIRE_OPS.has(id))) return 'a desire/ease layer is already applied';
   if (op === 'naosu' && stack.includes('naosu')) return '〜直す already applied';
+  if (COMPOUND_OPS.has(op) && stack.some(id => COMPOUND_OPS.has(id))) return 'a compound (phase) verb is already applied';
   if (op === 'causative' && stack.includes('causative')) return 'causative can apply only once';
   if ((op === 'passive' || op === 'potential' || op === 'causative-passive')
       && stack.some(id => id === 'passive' || id === 'potential' || id === 'causative-passive')) {

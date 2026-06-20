@@ -888,7 +888,13 @@ body {
   cursor: not-allowed;
 }
 
-.layer-menu-label { font-weight: 500; }
+.layer-menu-label { font-weight: 500; flex-shrink: 0; }
+
+.layer-menu-sense {
+  font-size: 11px;
+  color: var(--muted);
+  flex: 1;
+}
 
 .layer-menu-aux {
   font-size: 11px;

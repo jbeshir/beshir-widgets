@@ -121,6 +121,8 @@ const COLLOQ_ALT: Partial<Record<OpId, string>> = {
   'te-iku':    'てく／でく',
   'te-shimau': 'ちゃう／じゃう',
   'te-oku':    'とく／どく',
+  'must':      'なきゃ',
+  'must-not':  'ちゃ／じゃ',
 };
 
 const OP_SENSE: Record<OpId, string> = {
@@ -128,9 +130,9 @@ const OP_SENSE: Record<OpId, string> = {
   passive:             'be ~ed',
   potential:           'can',
   'causative-passive': 'be made to',
-  polite:              '(polite)',
+  polite:              'polite',
   negative:            'not',
-  past:                '(past)',
+  past:                'past',
   'negative-past':     "didn't",
   te:                  'and/-ing',
   adverbial:           '-ly',
@@ -139,11 +141,15 @@ const OP_SENSE: Record<OpId, string> = {
   yasui:               'easy to',
   nikui:               'hard to',
   naosu:               'redo / do over',
+  hajimeru:            'start ~ing',
+  owaru:               'finish ~ing',
+  tsuzukeru:           'keep ~ing',
+  dasu:                'burst out ~ing',
   sugiru:              'too much',
   sou:                 'looks like',
   naru:                'become',
   volitional:          "let's/intend to",
-  imperative:          '(command)',
+  imperative:          'command',
   ba:                  'if',
   tara:                'when/if',
   'te-iru':            'be ~ing',
@@ -153,10 +159,13 @@ const OP_SENSE: Record<OpId, string> = {
   'te-oku':            'in advance',
   'te-aru':            'is done',
   'te-shimau-colloq':  'end up (colloq)',
+  'must':              'must',
+  'must-not':          'must not',
 };
 
 const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
   { label: 'Desire & ease',      ops: OP_FAMILIES.desire },
+  { label: 'Compound (phase)',   ops: OP_FAMILIES.compound },
   { label: 'Adjective & なる',    ops: OP_FAMILIES.adjective },
   { label: 'Aspect & direction',  ops: OP_FAMILIES.aspect },
   { label: 'Mood',               ops: OP_FAMILIES.mood },
@@ -333,6 +342,12 @@ export function App() {
   }
   if (stack.includes('te-shimau-colloq')) {
     notes.push('ちゃう (て→ちゃう) / じゃう (で→じゃう) is colloquial; formal is てしまう.');
+  }
+  if (stack.includes('must')) {
+    notes.push('なきゃ is the casual contraction of なければ (〜なきゃ(ならない／いけない), or just 〜なきゃ). The polite form is 〜なければなりません.');
+  }
+  if (stack.includes('must-not')) {
+    notes.push('ちゃ (ては→ちゃ) / じゃ (では→じゃ) is the casual contraction; the formal form is 〜てはいけない and the polite is 〜てはいけません.');
   }
   if (selectedVerb.kanji === '帰る') {
     notes.push('帰る looks ichidan (ends in 〜る after an e-vowel) but is actually godan-r: its forms are 帰らない／帰った／帰ります, not 帰ない／帰た.');
@@ -628,6 +643,7 @@ export function App() {
                                 aria-disabled={!enabled}
                               >
                                 <span class="layer-menu-label">{meta.label}</span>
+                                <span class="layer-menu-sense">{OP_SENSE[op]}</span>
                                 <span class="layer-menu-aux jp">{meta.aux}</span>
                               </button>
                             );

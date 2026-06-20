@@ -78,8 +78,20 @@ Each tier in the tower names the helper word (助動詞) that layer adds:
 | polite | ます | 連用形 (i-stem) |
 | negative | ない | 未然形 (a-stem) |
 | past | た／だ | て／た euphonic stem |
+| must | なければならない | 未然形 (a-stem) |
+| must-not | てはいけない | 連用形-て (te-form) |
+| hajimeru | はじめる (begin to) | 連用形 (i-stem) → ichidan |
+| owaru | おわる (finish) | 連用形 (i-stem) → godan |
+| tsuzukeru | つづける (keep doing) | 連用形 (i-stem) → ichidan |
+| dasu | だす (start doing) | 連用形 (i-stem) → godan |
 
 Hover any tier label to see a one-line tooltip describing which stem the auxiliary attaches to and how it conjugates in its own right.
+
+### Compound / phase verbs
+
+始める・終わる・続ける・出す attach to the **連用形 (i-stem)** of any verb and express the start, end, continuation, or sudden onset of an action. The attached form is itself an ordinary ichidan or godan verb, so it conjugates further with the standard tense/polite/negative layers — e.g. 飲みはじめる → 飲みはじめた / 飲みはじめない / 飲みはじめます. Only one phase verb may be stacked at a time.
+
+The add-layer dropdown shows a brief English meaning beside each entry (e.g. "begin to", "finish", "keep doing", "start doing") to help learners distinguish the options at a glance.
 
 The "Composition order" legend carries the subtitle "each active slot adds a helper word (助動詞)" to surface the agglutination model: a Japanese conjugated form is the root verb plus a stack of auxiliaries, each attaching to a specific stem of the preceding form and conjugating independently.
 
