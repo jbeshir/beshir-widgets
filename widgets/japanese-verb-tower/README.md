@@ -80,6 +80,8 @@ Each tier in the tower names the helper word (助動詞) that layer adds:
 | past | た／だ | て／た euphonic stem |
 | must | なければならない | 未然形 (a-stem) |
 | must-not | てはいけない | 連用形-て (te-form) |
+| may | てもいい | 連用形-て (te-form) → い-adjective |
+| don't have to | なくてもいい | 未然形 (a-stem) → plain negative → い-adjective |
 | please (request) | てください | 連用形-て (te-form) |
 | please don't (neg request) | ないでください | 未然形 (a-stem) → plain negative |
 | hajimeru | はじめる (begin to) | 連用形 (i-stem) → ichidan |
@@ -103,6 +105,7 @@ Teaching notes:
 - **ある's suppletive negative:** ある → ない (not あらない), shown as a contextual note when ある is selected with Negative on.
 - **〜てください is a request:** Like 〜てはいけない, the polite request builds on the **連用形-て (te-form)** + ください (待ってください = "please wait"). It is terminal — nothing stacks on top. The casual request simply drops ください, leaving the bare て-form (待って!).
 - **〜ないでください is the negative request:** The mirror of 〜てください — "please don't ~". It builds on the **plain negative** (未然形 + ない) + でください (飲まないでください = "please don't drink"). Verb-only and terminal, sharing the same `request` form type as the affirmative.
+- **〜てもいい / 〜なくてもいい complete the obligation set:** Permission 〜てもいい ("may / it's OK to") builds on the **連用形-て (te-form)** + もいい (飲んでもいい = "you may drink"); exemption 〜なくてもいい ("don't have to") builds on the **plain negative** minus the final い + くてもいい (飲まなくてもいい = "you don't have to drink"). Both end in いい and **re-conjugate as an い-adjective** (the irregular よ-stem), so they stack further as past 〜てもよかった, polite 〜てもいいです, negative 〜てもよくない. Together with 〜なければならない (must) and 〜てはいけない (must not) they round out the four corners of the deontic square. Casually the も drops: 〜ていい / 〜なくていい.
 
 ## How the verb data was generated
 

@@ -284,6 +284,40 @@ if (!hasKudasaiNotKaku) {
   console.log('kudasai-not-kaku assert (かかないでください → 書く[kudasai-not]): OK');
 }
 
+// ── may (〜てもいい) round-trip assertions ────────────────────────────────────
+
+function assertParse(input: string, baseK: string, opsStr: string, tag: string): void {
+  const parses = deconjugate(input, corpus);
+  const hit = parses.some(p => p.base.k === baseK && p.ops.join(',') === opsStr);
+  if (!hit) {
+    fails.push(`${tag}: ${input} should parse as ${baseK}[${opsStr}]; got [${parses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+    console.error(`  ✗ ${tag}: ${input} missing ${baseK}[${opsStr}]`);
+  } else {
+    console.log(`${tag} assert (${input} → ${baseK}[${opsStr}]): OK`);
+  }
+}
+
+assertParse('のんでもいい', '飲む', 'may', 'MAY-NOMU');
+assertParse('たべてもいい', '食べる', 'may', 'MAY-TABE');
+assertParse('してもいい', 'する', 'may', 'MAY-SURU');
+assertParse('きてもいい', '来る', 'may', 'MAY-KURU');
+assertParse('いってもいい', '行く', 'may', 'MAY-IKU');
+assertParse('かいてもいい', '書く', 'may', 'MAY-KAKU');
+
+// ── need-not (〜なくてもいい) round-trip assertions ───────────────────────────
+
+assertParse('のまなくてもいい', '飲む', 'need-not', 'NEEDNOT-NOMU');
+assertParse('たべなくてもいい', '食べる', 'need-not', 'NEEDNOT-TABE');
+assertParse('しなくてもいい', 'する', 'need-not', 'NEEDNOT-SURU');
+assertParse('こなくてもいい', '来る', 'need-not', 'NEEDNOT-KURU');
+assertParse('いかなくてもいい', '行く', 'need-not', 'NEEDNOT-IKU');
+assertParse('かかなくてもいい', '書く', 'need-not', 'NEEDNOT-KAKU');
+
+// ── inflected may/need-not (re-conjugate as い-adjective) ─────────────────────
+
+assertParse('のんでもよかった', '飲む', 'may,past', 'MAY-PAST-NOMU');
+assertParse('のまなくてもよかった', '飲む', 'need-not,past', 'NEEDNOT-PAST-NOMU');
+
 // ── Compound-verb (phase) assertions ──────────────────────────────────────────
 
 // のみはじめる → 飲む[hajimeru]

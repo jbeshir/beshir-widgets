@@ -297,6 +297,20 @@ function invertAll(cur: string): Candidate[] {
       add(astem + 'る', 'kudasai-not'); // ichidan
     }
   }
+  // may: 〜てもいい / 〜てもよい
+  if (cur.endsWith('もいい') || cur.endsWith('もよい')) {
+    const teStr = cur.slice(0, -3);
+    const last = teStr.slice(-1);
+    if (last === 'て' || last === 'で') for (const d of invertTe(teStr)) add(d, 'may');
+  }
+  // need-not: 〜なくてもいい / 〜なくてもよい (reconstruct the ない-form, then invert the negative)
+  if (cur.endsWith('くてもいい') || cur.endsWith('くてもよい')) {
+    const neg = cur.slice(0, -5) + 'い'; // strip くても{いい|よい}=5, restore ない-form
+    if (neg.endsWith('しない')) { const p = neg.slice(0,-3); add(p+'する','need-not'); add(p+'す','need-not'); }
+    else if (neg.endsWith('こない')) add(neg.slice(0,-3)+'くる','need-not');
+    else if (neg.endsWith('くない')) add(neg.slice(0,-3)+'い','need-not'); // i-adj base
+    else if (neg.endsWith('ない')) { const astem = neg.slice(0,-2); addMany(fromAStem(astem),'need-not'); add(astem+'る','need-not'); }
+  }
   if (cur.endsWith('ならなかった')) add(cur.slice(0, -4) + 'ない', 'past');
   if (cur.endsWith('いけなかった')) add(cur.slice(0, -4) + 'ない', 'past');
   if (cur.endsWith('なりません')) add(cur.slice(0, -5) + 'ならない', 'polite');
