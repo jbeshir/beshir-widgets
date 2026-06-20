@@ -126,6 +126,25 @@
   {"verb":"行く","class":"godan-iku","ops":["kudasai-not"],"expectedKana":"行かないでください","expectedRomaji":"ikanaidekudasai"},
   {"verb":"書く","class":"godan-k","ops":["kudasai-not"],"expectedKana":"書かないでください","expectedRomaji":"kakanaidekudasai"},
 
+  {"verb":"飲む","class":"godan-m","ops":["may"],"expectedKana":"飲んでもいい","expectedRomaji":"nondemoii"},
+  {"verb":"食べる","class":"ichidan","ops":["may"],"expectedKana":"食べてもいい","expectedRomaji":"tabetemoii"},
+  {"verb":"する","class":"suru","ops":["may"],"expectedKana":"してもいい","expectedRomaji":"shitemoii"},
+  {"verb":"来る","class":"kuru","ops":["may"],"expectedKana":"来てもいい","expectedRomaji":"kitemoii"},
+  {"verb":"行く","class":"godan-iku","ops":["may"],"expectedKana":"行ってもいい","expectedRomaji":"ittemoii"},
+  {"verb":"書く","class":"godan-k","ops":["may"],"expectedKana":"書いてもいい","expectedRomaji":"kaitemoii"},
+
+  {"verb":"飲む","class":"godan-m","ops":["need-not"],"expectedKana":"飲まなくてもいい","expectedRomaji":"nomanakutemoii"},
+  {"verb":"食べる","class":"ichidan","ops":["need-not"],"expectedKana":"食べなくてもいい","expectedRomaji":"tabenakutemoii"},
+  {"verb":"する","class":"suru","ops":["need-not"],"expectedKana":"しなくてもいい","expectedRomaji":"shinakutemoii"},
+  {"verb":"来る","class":"kuru","ops":["need-not"],"expectedKana":"来なくてもいい","expectedRomaji":"konakutemoii"},
+  {"verb":"行く","class":"godan-iku","ops":["need-not"],"expectedKana":"行かなくてもいい","expectedRomaji":"ikanakutemoii"},
+  {"verb":"書く","class":"godan-k","ops":["need-not"],"expectedKana":"書かなくてもいい","expectedRomaji":"kakanakutemoii"},
+
+  {"verb":"飲む","class":"godan-m","ops":["may","past"],"expectedKana":"飲んでもよかった","expectedRomaji":"nondemoyokatta"},
+  {"verb":"飲む","class":"godan-m","ops":["may","polite"],"expectedKana":"飲んでもいいです","expectedRomaji":"nondemoiidesu"},
+  {"verb":"飲む","class":"godan-m","ops":["need-not","past"],"expectedKana":"飲まなくてもよかった","expectedRomaji":"nomanakutemoyokatta"},
+  {"verb":"高い","class":"i-adjective","ops":["may"],"expectedKana":"高くてもいい","expectedRomaji":"takakutemoii"},
+
   {"verb":"飲む","class":"godan-m","ops":["hajimeru"],"expectedKana":"飲みはじめる","expectedRomaji":"nomihajimeru"},
   {"verb":"飲む","class":"godan-m","ops":["hajimeru","past"],"expectedKana":"飲みはじめた","expectedRomaji":"nomihajimeta"},
   {"verb":"飲む","class":"godan-m","ops":["hajimeru","polite"],"expectedKana":"飲みはじめます","expectedRomaji":"nomihajimemasu"},

@@ -161,6 +161,8 @@ const OP_SENSE: Record<OpId, string> = {
   'te-shimau-colloq':  'end up (colloq)',
   'must':              'must',
   'must-not':          'must not',
+  may:                 'may / OK to',
+  'need-not':          "don't have to",
   kudasai:             'please',
   'kudasai-not':       "please don't",
 };
@@ -356,6 +358,9 @@ export function App() {
   }
   if (stack.includes('kudasai-not')) {
     notes.push('〜ないでください is the negative request ("please don’t ~"): the plain negative + でください.');
+  }
+  if (stack.includes('may') || stack.includes('need-not')) {
+    notes.push('〜てもいい (may) and 〜なくてもいい (don\'t have to) complete the obligation set with 〜なければならない (must) and 〜てはいけない (must not). Casually も drops: 〜ていい / 〜なくていい.');
   }
   if (selectedVerb.kanji === '帰る') {
     notes.push('帰る looks ichidan (ends in 〜る after an e-vowel) but is actually godan-r: its forms are 帰らない／帰った／帰ります, not 帰ない／帰た.');

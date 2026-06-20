@@ -472,6 +472,16 @@ reg({ id:'kudasai-not', label:'please don’t', aux:'ないでください', fam
   apply(f): Form { return { kana: plainNegativeKana(f) + 'でください', type: 'request' }; },
 });
 
+reg({ id:'may', label:'may', aux:'てもいい', family:'mood',
+  tooltip:'permission — て-form + もいい: 〜てもいい ("may / it\'s OK to"). Re-conjugates as an い-adjective (てもよかった / てもいいです).',
+  apply(f): Form { return { kana: teKana(f) + 'もいい', type: 'i-adjective', iiAdj: true }; },
+});
+
+reg({ id:'need-not', label:"don't have to", aux:'なくてもいい', family:'mood',
+  tooltip:'non-obligation — plain negative + くてもいい: 〜なくてもいい ("don\'t have to"). Re-conjugates as an い-adjective.',
+  apply(f): Form { return { kana: plainNegativeKana(f).slice(0,-1) + 'くてもいい', type: 'i-adjective', iiAdj: true }; },
+});
+
 // ── ASPECT (て-form auxiliaries) ──────────────────────────────────────────────
 
 reg({ id:'te-iru', label:'〜ている', aux:'いる', family:'aspect',
@@ -599,7 +609,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
   } else if (t === 'na-adjective') {
     base = ['naru', 'polite', 'past', 'negative'];
   } else if (t === 'i-adjective') {
-    base = ['negative','past','negative-past','te','adverbial','ba','polite','sou','sugiru','naru','tara'];
+    base = ['negative','past','negative-past','te','adverbial','ba','polite','sou','sugiru','naru','tara','may','need-not'];
   } else if (t === 'must' || t === 'must-not') {
     base = ['past', 'polite'];
   } else if (t === 'must-polite') {
@@ -610,7 +620,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
       'tai','tagaru','yasui','nikui','naosu','sugiru','hajimeru','owaru','tsuzukeru','dasu',
       'te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru',
       'polite','negative','past','negative-past','te','volitional','imperative','ba','tara',
-      'must','must-not','kudasai','kudasai-not',
+      'must','must-not','may','need-not','kudasai','kudasai-not',
     ];
   } else {
     return [];
