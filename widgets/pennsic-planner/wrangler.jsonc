@@ -1,11 +1,25 @@
 {
-  // Cloudflare Worker serving the Pennsic Planner static bundle.
+  // Cloudflare Worker for the Pennsic Planner: serves the static SPA bundle and backs the
+  // shareable-calendar API (/api/*) with D1.
   "name": "widget-pennsic-planner",
   "compatibility_date": "2026-06-01",
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist/",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // /api/* runs the Worker first; everything else is served straight from static assets.
+    "run_worker_first": ["/api/*"]
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "widget-pennsic-planner",
+      // PLACEHOLDER — the repo owner must create the D1 database and paste its id here.
+      // See CHANGES.md for the one-time setup (wrangler d1 create + apply schema.sql).
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+    }
+  ],
   "routes": [
     {
       "pattern": "pennsic-planner.widgets.beshir.org",
