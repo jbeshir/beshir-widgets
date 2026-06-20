@@ -1,14 +1,24 @@
 {
   "name": "widget-japanese-verb-tower",
   "compatibility_date": "2026-06-01",
+  "main": "./src/worker.ts",
   "assets": {
     "directory": "./dist/",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
   },
   "routes": [
     {
       "pattern": "japanese-verb-tower.widgets.beshir.org",
       "custom_domain": true
+    }
+  ],
+  "ai": { "binding": "AI" },
+  "ratelimits": [
+    {
+      "name": "TRANSLATE_RL",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 }
     }
   ]
 }

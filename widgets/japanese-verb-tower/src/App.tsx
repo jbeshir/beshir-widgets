@@ -7,6 +7,7 @@ import {
 import type { Verb, Tier, DictEntry, Form, OpId } from './engine';
 import { romajiToKana, hasJapanese } from './romaji';
 import { parseState, serializeState } from './urlstate';
+import { fetchTranslation, peekTranslation } from './translate-client';
 import { buildCorpus, deconjugate } from './deconjugate';
 import type { Parse } from './deconjugate';
 import sampleDataJson from './data/verbs.sample.json';
@@ -190,6 +191,8 @@ export function App() {
   const [mode, setMode]                 = useState<'build' | 'breakdown'>('build');
   const [bdInput, setBdInput]           = useState('');
   const [bdParses, setBdParses]         = useState<Parse[] | null>(null);
+  const [translation, setTranslation]   = useState<string | null>(null);
+  const [translating, setTranslating]   = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef      = useRef<HTMLDivElement>(null);
   const byReadingRef = useRef(buildByReading(SAMPLE));
@@ -244,6 +247,26 @@ export function App() {
     () => buildTower(selectedVerb, stack),
     [selectedVerb, stack],
   );
+
+  const topForm = tower.length > 0 ? tower[tower.length - 1].kana : '';
+  const features = useMemo(() => stack.map(o => OP_SENSE[o]), [stack]);
+
+  useEffect(() => {
+    if (stack.length === 0 || !topForm) { setTranslation(null); setTranslating(false); return; }
+    const base = selectedVerb.gloss;
+    const cached = peekTranslation({ base, form: topForm });
+    if (cached !== null) { setTranslation(cached.length > 0 ? cached : null); setTranslating(false); return; }
+    let active = true;
+    setTranslation(null);
+    setTranslating(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetchTranslation({ base, features, form: topForm }, controller.signal)
+        .then(result => { if (!active) return; setTranslating(false); setTranslation(result && result.length > 0 ? result : null); })
+        .catch(() => { if (!active) return; setTranslating(false); setTranslation(null); });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); controller.abort(); };
+  }, [selectedVerb.gloss, topForm, stack]);
 
   const currentForm: Form = useMemo(
     () => finalForm(selectedVerb, stack),
@@ -723,11 +746,15 @@ export function App() {
                           <span class="tier-label">{tier.label}</span>
                         )}
                         <span class="tier-gloss">
-                          {isTop && stack.length > 0 ? (
-                            <>{approxGloss} <span class="tier-approx">approx</span></>
-                          ) : tier.gloss}
+                          {isTop && stack.length > 0 ? approxGloss : tier.gloss}
                         </span>
                       </div>
+                      {isTop && stack.length > 0 && (translating || translation) && (
+                        <div class="tier-row tier-row--translation">
+                          <span class="tier-translation-label">AI translation</span>
+                          <span class="tier-translation">{translation ?? '…'}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

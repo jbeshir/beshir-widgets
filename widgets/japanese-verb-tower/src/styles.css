@@ -909,14 +909,24 @@ body {
   font-style: italic;
 }
 
-/* ── Approximate gloss badge ────────────────────────────────────────────────── */
-.tier-approx {
+/* ── Natural-English translation line ──────────────────────────────────────── */
+.tier-row--translation { margin-top: 3px; }
+.tier-translation-label {
   font-size: 9.5px;
   color: var(--muted);
   font-style: normal;
   opacity: 0.7;
-  margin-left: 3px;
+  margin-right: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
+.tier-translation {
+  font-size: 13.5px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--fg);
+}
+.tier--top .tier-translation { font-size: 15px; }
 
 /* ── Deep tower mobile legibility ──────────────────────────────────────────── */
 @media (max-width: 600px) {

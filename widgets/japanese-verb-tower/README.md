@@ -107,6 +107,20 @@ Teaching notes:
 - **〜ないでください is the negative request:** The mirror of 〜てください — "please don't ~". It builds on the **plain negative** (未然形 + ない) + でください (飲まないでください = "please don't drink"). Verb-only and terminal, sharing the same `request` form type as the affirmative.
 - **〜てもいい / 〜なくてもいい complete the obligation set:** Permission 〜てもいい ("may / it's OK to") builds on the **連用形-て (te-form)** + もいい (飲んでもいい = "you may drink"); exemption 〜なくてもいい ("don't have to") builds on the **plain negative** minus the final い + くてもいい (飲まなくてもいい = "you don't have to drink"). Both end in いい and **re-conjugate as an い-adjective** (the irregular よ-stem), so they stack further as past 〜てもよかった, polite 〜てもいいです, negative 〜てもよくない. Together with 〜なければならない (must) and 〜てはいけない (must not) they round out the four corners of the deontic square. Casually the も drops: 〜ていい / 〜なくていい.
 
+## Natural-English translation
+
+The top (final) conjugated form is rendered into natural English, shown directly below the compositional "approx" gloss line.
+
+**How it works:** the widget calls `POST /api/translate` on the same origin. That endpoint is served by a small server-side Cloudflare Worker (`src/worker.ts`) scoped to `/api/*` via `assets.run_worker_first`; all other paths continue to serve the static SPA as before. The Worker calls **Cloudflare Workers AI**, model `@cf/meta/llama-3.2-1b-instruct`, and returns the English phrase.
+
+**Graceful degradation:** the translation is best-effort. When the Worker isn't running — local `vite dev`, the offline render-check, a network failure, or a rate-limit response — the translation line simply renders nothing. The `#widget-ready` signal and all other widget functionality are never blocked.
+
+**In-Worker abuse guard (no external WAF):**
+- Input caps: form and base each ≤ 64 chars, ≤ 12 features.
+- Cross-site requests rejected (`Sec-Fetch-Site: cross-site` check).
+- Rate limiting: `ratelimits` binding — 20 req / 60 s per IP.
+- Cache API memoization of deterministic translations — 7-day TTL.
+
 ## How the verb data was generated
 
 `scripts/build-dict.mjs` produces the corpus files from JMdict:
@@ -141,6 +155,8 @@ npm run build     # outputs to dist/
 ## Deploy
 
 Deployed as a Cloudflare Worker serving static assets from `dist/`. Worker name: `widget-japanese-verb-tower`; custom domain: `japanese-verb-tower.widgets.beshir.org`. Config in `wrangler.jsonc` — do not edit invariant fields.
+
+**Workers AI note:** the Cloudflare API token used by CI may need Workers AI permissions, and Workers AI must be enabled on the account.
 
 ```bash
 npx wrangler deploy
