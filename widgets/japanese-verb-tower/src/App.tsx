@@ -746,13 +746,12 @@ export function App() {
                           <span class="tier-label">{tier.label}</span>
                         )}
                         <span class="tier-gloss">
-                          {isTop && stack.length > 0 ? (
-                            <>{approxGloss} <span class="tier-approx">approx</span></>
-                          ) : tier.gloss}
+                          {isTop && stack.length > 0 ? approxGloss : tier.gloss}
                         </span>
                       </div>
                       {isTop && stack.length > 0 && (translating || translation) && (
                         <div class="tier-row tier-row--translation">
+                          <span class="tier-translation-label">AI translation</span>
                           <span class="tier-translation">{translation ?? '…'}</span>
                         </div>
                       )}
