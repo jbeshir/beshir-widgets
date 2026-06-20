@@ -7,7 +7,7 @@ export type FormType =
   | 'volitional' | 'imperative' | 'conditional-ba' | 'conditional-tara'
   | 'plain-past' | 'i-adj-past'
   | 'polite' | 'polite-neg' | 'polite-past' | 'polite-neg-past' | 'polite-volitional'
-  | 'must' | 'must-not' | 'must-polite';
+  | 'must' | 'must-not' | 'must-polite' | 'request';
 
 export interface Form {
   kana: string;
@@ -29,7 +29,7 @@ export type OpId =
   | 'te-shimau-colloq'
   | 'naosu'
   | 'hajimeru' | 'owaru' | 'tsuzukeru' | 'dasu'
-  | 'must' | 'must-not';
+  | 'must' | 'must-not' | 'kudasai' | 'kudasai-not';
 
 // Tier — keeps legacy `layer` field for App.tsx compat; adds `op` + `type`.
 export interface Tier {
@@ -74,6 +74,7 @@ export const FORM_LABEL: Record<FormType, string> = {
   'must':              'must',
   'must-not':          'must-not',
   'must-polite':       'polite',
+  'request':           'request',
 };
 
 export type OpFamily = 'core' | 'desire' | 'compound' | 'adjective' | 'aspect' | 'mood';
