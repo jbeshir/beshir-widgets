@@ -162,6 +162,7 @@ const OP_SENSE: Record<OpId, string> = {
   'must':              'must',
   'must-not':          'must not',
   kudasai:             'please',
+  'kudasai-not':       "please don't",
 };
 
 const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
@@ -352,6 +353,9 @@ export function App() {
   }
   if (stack.includes('kudasai')) {
     notes.push('The casual request drops ください — the bare て-form is itself a request (待って! = "wait!"). 〜てください is the polite form.');
+  }
+  if (stack.includes('kudasai-not')) {
+    notes.push('〜ないでください is the negative request ("please don’t ~"): the plain negative + でください.');
   }
   if (selectedVerb.kanji === '帰る') {
     notes.push('帰る looks ichidan (ends in 〜る after an e-vowel) but is actually godan-r: its forms are 帰らない／帰った／帰ります, not 帰ない／帰た.');

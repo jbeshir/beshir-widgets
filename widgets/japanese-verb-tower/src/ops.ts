@@ -467,6 +467,11 @@ reg({ id:'kudasai', label:'please', aux:'ください', family:'mood',
   apply(f): Form { return { kana: teKana(f) + 'ください', type: 'request' }; },
 });
 
+reg({ id:'kudasai-not', label:'please don’t', aux:'ないでください', family:'mood',
+  tooltip:'negative polite request — plain negative + でください: 〜ないでください. Verb-only, terminal.',
+  apply(f): Form { return { kana: plainNegativeKana(f) + 'でください', type: 'request' }; },
+});
+
 // ── ASPECT (て-form auxiliaries) ──────────────────────────────────────────────
 
 reg({ id:'te-iru', label:'〜ている', aux:'いる', family:'aspect',
@@ -605,7 +610,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
       'tai','tagaru','yasui','nikui','naosu','sugiru','hajimeru','owaru','tsuzukeru','dasu',
       'te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru',
       'polite','negative','past','negative-past','te','volitional','imperative','ba','tara',
-      'must','must-not','kudasai',
+      'must','must-not','kudasai','kudasai-not',
     ];
   } else {
     return [];
@@ -655,7 +660,7 @@ export const OP_FAMILIES: Record<OpFamily, OpId[]> = {
   compound:  ['hajimeru','owaru','tsuzukeru','dasu'],
   adjective: ['adverbial','sugiru','sou','naru'],
   aspect:    ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
-  mood:      ['volitional','imperative','ba','tara','must','must-not','kudasai'],
+  mood:      ['volitional','imperative','ba','tara','must','must-not','kudasai','kudasai-not'],
 };
 
 export { OPS };

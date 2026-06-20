@@ -119,6 +119,13 @@
   {"verb":"行く","class":"godan-iku","ops":["kudasai"],"expectedKana":"行ってください","expectedRomaji":"ittekudasai"},
   {"verb":"書く","class":"godan-k","ops":["kudasai"],"expectedKana":"書いてください","expectedRomaji":"kaitekudasai"},
 
+  {"verb":"飲む","class":"godan-m","ops":["kudasai-not"],"expectedKana":"飲まないでください","expectedRomaji":"nomanaidekudasai"},
+  {"verb":"食べる","class":"ichidan","ops":["kudasai-not"],"expectedKana":"食べないでください","expectedRomaji":"tabenaidekudasai"},
+  {"verb":"する","class":"suru","ops":["kudasai-not"],"expectedKana":"しないでください","expectedRomaji":"shinaidekudasai"},
+  {"verb":"来る","class":"kuru","ops":["kudasai-not"],"expectedKana":"来ないでください","expectedRomaji":"konaidekudasai"},
+  {"verb":"行く","class":"godan-iku","ops":["kudasai-not"],"expectedKana":"行かないでください","expectedRomaji":"ikanaidekudasai"},
+  {"verb":"書く","class":"godan-k","ops":["kudasai-not"],"expectedKana":"書かないでください","expectedRomaji":"kakanaidekudasai"},
+
   {"verb":"飲む","class":"godan-m","ops":["hajimeru"],"expectedKana":"飲みはじめる","expectedRomaji":"nomihajimeru"},
   {"verb":"飲む","class":"godan-m","ops":["hajimeru","past"],"expectedKana":"飲みはじめた","expectedRomaji":"nomihajimeta"},
   {"verb":"飲む","class":"godan-m","ops":["hajimeru","polite"],"expectedKana":"飲みはじめます","expectedRomaji":"nomihajimemasu"},

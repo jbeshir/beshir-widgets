@@ -222,6 +222,68 @@ if (!hasKudasaiKaku) {
   console.log('kudasai-kaku assert (かいてください → 書く[kudasai]): OK');
 }
 
+// ── kudasai-not (negative polite request) round-trip assertions ──────────────
+
+// のまないでください → 飲む[kudasai-not]
+const kudasaiNotNomuParses = deconjugate('のまないでください', corpus);
+const hasKudasaiNotNomu = kudasaiNotNomuParses.some(p => p.base.k === '飲む' && p.ops.join(',') === 'kudasai-not');
+if (!hasKudasaiNotNomu) {
+  fails.push(`KUDASAI-NOT: のまないでください should parse as 飲む[kudasai-not]; got [${kudasaiNotNomuParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ kudasai-not: のまないでください missing 飲む[kudasai-not]');
+} else {
+  console.log('kudasai-not assert (のまないでください → 飲む[kudasai-not]): OK');
+}
+
+// たべないでください → 食べる[kudasai-not]
+const kudasaiNotTabeParses = deconjugate('たべないでください', corpus);
+const hasKudasaiNotTabe = kudasaiNotTabeParses.some(p => p.base.k === '食べる' && p.ops.join(',') === 'kudasai-not');
+if (!hasKudasaiNotTabe) {
+  fails.push(`KUDASAI-NOT-TABE: たべないでください should parse as 食べる[kudasai-not]; got [${kudasaiNotTabeParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ kudasai-not-tabe: たべないでください missing 食べる[kudasai-not]');
+} else {
+  console.log('kudasai-not-tabe assert (たべないでください → 食べる[kudasai-not]): OK');
+}
+
+// しないでください → する[kudasai-not]
+const kudasaiNotSuruParses = deconjugate('しないでください', corpus);
+const hasKudasaiNotSuru = kudasaiNotSuruParses.some(p => p.base.k === 'する' && p.ops.join(',') === 'kudasai-not');
+if (!hasKudasaiNotSuru) {
+  fails.push(`KUDASAI-NOT-SURU: しないでください should parse as する[kudasai-not]; got [${kudasaiNotSuruParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ kudasai-not-suru: しないでください missing する[kudasai-not]');
+} else {
+  console.log('kudasai-not-suru assert (しないでください → する[kudasai-not]): OK');
+}
+
+// こないでください → 来る[kudasai-not]
+const kudasaiNotKuruParses = deconjugate('こないでください', corpus);
+const hasKudasaiNotKuru = kudasaiNotKuruParses.some(p => p.base.k === '来る' && p.ops.join(',') === 'kudasai-not');
+if (!hasKudasaiNotKuru) {
+  fails.push(`KUDASAI-NOT-KURU: こないでください should parse as 来る[kudasai-not]; got [${kudasaiNotKuruParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ kudasai-not-kuru: こないでください missing 来る[kudasai-not]');
+} else {
+  console.log('kudasai-not-kuru assert (こないでください → 来る[kudasai-not]): OK');
+}
+
+// いかないでください → 行く[kudasai-not]
+const kudasaiNotIkuParses = deconjugate('いかないでください', corpus);
+const hasKudasaiNotIku = kudasaiNotIkuParses.some(p => p.base.k === '行く' && p.ops.join(',') === 'kudasai-not');
+if (!hasKudasaiNotIku) {
+  fails.push(`KUDASAI-NOT-IKU: いかないでください should parse as 行く[kudasai-not]; got [${kudasaiNotIkuParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ kudasai-not-iku: いかないでください missing 行く[kudasai-not]');
+} else {
+  console.log('kudasai-not-iku assert (いかないでください → 行く[kudasai-not]): OK');
+}
+
+// かかないでください → 書く[kudasai-not]
+const kudasaiNotKakuParses = deconjugate('かかないでください', corpus);
+const hasKudasaiNotKaku = kudasaiNotKakuParses.some(p => p.base.k === '書く' && p.ops.join(',') === 'kudasai-not');
+if (!hasKudasaiNotKaku) {
+  fails.push(`KUDASAI-NOT-KAKU: かかないでください should parse as 書く[kudasai-not]; got [${kudasaiNotKakuParses.map(p => `${p.base.k}[${p.ops.join(',')}]`).join('|')}]`);
+  console.error('  ✗ kudasai-not-kaku: かかないでください missing 書く[kudasai-not]');
+} else {
+  console.log('kudasai-not-kaku assert (かかないでください → 書く[kudasai-not]): OK');
+}
+
 // ── Compound-verb (phase) assertions ──────────────────────────────────────────
 
 // のみはじめる → 飲む[hajimeru]
