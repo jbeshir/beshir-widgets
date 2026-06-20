@@ -52,7 +52,7 @@ Tutorial [01](./01-function-plotter.md) introduced the Preact/Vite skeleton, `us
 
 - **A multi-file component tree** — five components with explicit prop interfaces instead of one self-contained file.
 - **No external charting library** — `preact` is the only runtime dependency; everything is hand-built JSX.
-- **A heavier accessibility story** — the Lightbox traps focus inside a modal, handles `Escape` to close, and uses `aria-modal`; the Grid uses semantic `role` attributes throughout. Tutorial 01 had no modal interaction to manage.
+- **A heavier accessibility story** — the Lightbox uses a native `<dialog>` with `showModal()` for a browser-managed focus trap, keyboard navigation, and modal accessibility semantics; the Grid uses semantic `role` attributes throughout. Tutorial 01 had no modal interaction to manage.
 
 With the big picture in mind, the first architectural decision is how to divide those three UI states among components and what wires them together.
 
@@ -129,7 +129,7 @@ The rule is simple: data flows down through props, state changes flow up through
 `App` passes `table` and `compact` down to `Grid` as read-only data. When the user clicks a thumbnail, `Grid` does not reach for `setSelection` — it cannot, because `setSelection` is private to `App`. Instead, `Grid` calls the callback it was handed:
 
 ```tsx
-// Grid.tsx:57
+// Grid.tsx:58
 onClick={() => onCellClick(rowIdx, colIdx)}
 ```
 
@@ -761,7 +761,7 @@ With navigation in place, the next challenge is the lightbox: a full-screen moda
 
 ## Modal dialog: accessibility and lifecycle
 
-A modal dialog imposes several obligations at once: it must trap keyboard focus, announce itself to screen readers, lock the page scroll, and restore the previous focus state when it closes. The `Lightbox` component handles all of this by leaning on Preact's conditional mount/unmount as its open/close mechanism — the same lifecycle hook pattern introduced in [01](./01-function-plotter.md) for `useEffect` and `useRef`.
+A modal dialog imposes several obligations at once: it must trap keyboard focus, announce itself to screen readers, lock the page scroll, and restore the previous focus state when it closes. The `Lightbox` component fulfills all of these by using a native `<dialog>` element opened with `showModal()` — which handles focus trap, background inertness, and focus restore at the platform level — combined with Preact's conditional mount/unmount as the open/close mechanism.
 
 For the visual presentation — the full-screen backdrop and centred dialog panel — see [`../design/02-image-comparison-table.md`](../design/02-image-comparison-table.md).
 
@@ -785,100 +785,134 @@ For the visual presentation — the full-screen backdrop and centred dialog pane
 
 The consequence for effects is direct: whatever setup runs on mount (scroll lock, event listeners, focus change) is automatically unwound on unmount via the cleanup function. The lifecycle is clean because the component's lifetime matches the dialog's visible lifetime.
 
-### Three refs
+### Two refs
 
-`Lightbox.tsx:13-15` declares three refs:
+`Lightbox.tsx:13-14` declares two refs:
 
 ```tsx
-// Lightbox.tsx:13-15
+// Lightbox.tsx:13-14
 const closeRef = useRef<HTMLButtonElement>(null);
-const dialogRef = useRef<HTMLDivElement>(null);
-const prevActive = useRef<Element | null>(null);
+const dialogRef = useRef<HTMLDialogElement>(null);
 ```
 
-- `closeRef` points at the close button — the initial focus target when the dialog opens.
-- `dialogRef` points at the dialog `<div>` — queried for focusable children in the Tab trap.
-- `prevActive` stores whatever element had focus *before* the dialog opened, so it can be restored on close.
+- `closeRef` points at the close button — the explicit initial focus target when the dialog opens.
+- `dialogRef` points at the native `<dialog>` element — used to call `showModal()`, wire event listeners, and trigger `close()` for dismissal.
 
-### Two effects, different dependency arrays
+The old `prevActive` ref that stored the previously-focused element is gone. `showModal()` records the focused element automatically and restores it when the dialog closes — no hand-rolled save/restore needed.
 
-`Lightbox` uses two separate `useEffect` calls with intentionally different dependency arrays. This is not arbitrary organisation — each effect has a different reason to re-run.
+### Three effects: open, event-bridge, navigation
 
-**Effect 1 — keyboard handling** (`Lightbox.tsx:22-69`, deps `[onClose, onNavigate]`):
+`Lightbox` uses three separate effect calls with intentionally different dependency arrays. Each effect has a distinct reason to re-run.
 
-```tsx
-// Lightbox.tsx:22-44 (excerpt)
-useEffect(() => {
-  const onKey = (e: KeyboardEvent) => {
-    switch (e.key) {
-      case 'Escape':
-        e.preventDefault();
-        onClose();
-        return;
-      case 'ArrowLeft':
-        e.preventDefault();
-        onNavigate(0, -1);
-        return;
-      // ArrowRight, ArrowUp, ArrowDown…
-    }
-  };
-  document.addEventListener('keydown', onKey);
-  return () => document.removeEventListener('keydown', onKey);
-}, [onClose, onNavigate]);
-```
-
-The listener is added to `document` (not the dialog element) because keyboard events need to be caught regardless of what is focused inside the dialog. The cleanup `removeEventListener` runs before the effect re-fires and on unmount, so there is never a duplicate listener.
-
-`[onClose, onNavigate]` in the dependency array means: if the parent re-renders and passes new callback references, the old listener is torn down and a new one is registered with the updated callbacks. This avoids a stale closure — without this, `onNavigate` inside `onKey` would be frozen at the callback from the first render, and navigation to a new selection index would silently use the wrong function.
-
-**Effect 2 — scroll lock and focus** (`Lightbox.tsx:72-83`, deps `[]`):
+**Effect 1 — open as modal, focus, and scroll lock** (`Lightbox.tsx:25–35`, deps `[]`):
 
 ```tsx
-// Lightbox.tsx:72-83
-useEffect(() => {
-  prevActive.current = document.activeElement;
+// Lightbox.tsx:25-35
+useLayoutEffect(() => {
+  const dlg = dialogRef.current;
+  if (!dlg) return;
+  if (!dlg.open) dlg.showModal();
+  closeRef.current?.focus();
   const prevOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
-  closeRef.current?.focus();
   return () => {
     document.body.style.overflow = prevOverflow;
-    if (prevActive.current instanceof HTMLElement) {
-      prevActive.current.focus();
-    }
   };
 }, []);
 ```
 
-`[]` means run exactly once on mount and clean up once on unmount — no re-runs. This is correct because scroll lock and focus management are tied to the dialog's existence, not to the value of any prop.
+`useLayoutEffect` with `[]` runs once on mount, synchronously after the DOM is committed and before the browser paints — the right hook for `showModal()`, which must place the dialog in the top layer before any frame is rendered. (See the `useLayoutEffect` section for the full hook-choice rationale.)
 
-The setup does three things: captures the currently focused element into `prevActive.current`, saves and overrides `document.body.style.overflow` to prevent the page from scrolling behind the dialog, and moves focus to the close button. The cleanup reverses all three.
+`showModal()` does three things at once: it puts the `<dialog>` in the browser's **top layer** — a spec-defined surface that sits above every stacking context and `z-index` on the page; it makes all other elements in the document **inert** (non-focusable, non-clickable, unreachable by assistive technology); and it records the currently-focused element so it is **automatically restored when the dialog closes** — which is why the old `prevActive` ref and its manual focus-restore are gone.
 
-Saving `prevOverflow` rather than hard-coding an empty string is important: if another piece of code had already set `overflow` to something else, the restore step puts it back to that value, not to a blank.
+The code then calls `closeRef.current?.focus()` explicitly. `showModal()` runs its own dialog-focusing algorithm before the layout effect fires (browsers typically focus the first focusable descendant). The explicit call overrides that and guarantees the close button receives initial focus regardless of other focusable content in the dialog.
 
-Focus save and restore is the accessibility equivalent of "put things back where you found them." A keyboard user who triggered the dialog from a table cell will have their cursor returned to that cell when the dialog closes.
+`showModal()` does **not** lock background scroll — a user can still scroll the page behind an open modal dialog. The `document.body.style.overflow = 'hidden'` line is kept for exactly that reason. The cleanup restores the previous value rather than hard-coding `''`, so any pre-existing `overflow` setting is preserved when the dialog closes.
+
+**Effect 2 — cancel and close event bridge** (`Lightbox.tsx:42–56`, deps `[onClose]`):
+
+```tsx
+// Lightbox.tsx:42-56
+useEffect(() => {
+  const dlg = dialogRef.current;
+  if (!dlg) return;
+  const onCancel = (e: Event) => {
+    e.preventDefault();
+    onClose();
+  };
+  const onCloseEvt = () => onClose();
+  dlg.addEventListener('cancel', onCancel);
+  dlg.addEventListener('close', onCloseEvt);
+  return () => {
+    dlg.removeEventListener('cancel', onCancel);
+    dlg.removeEventListener('close', onCloseEvt);
+  };
+}, [onClose]);
+```
+
+This effect bridges the native dialog's two dismissal events to `onClose()` — the parent-supplied callback that sets `selection` to `null` and drives the unmount.
+
+**`cancel` vs `close`:** Pressing Escape fires a `cancel` event on the `<dialog>` element. `cancel` is cancelable — the handler calls `e.preventDefault()` to stop the platform from also closing the dialog on its own. If the platform closed it, a `close` event would fire without a corresponding `onClose()` call, leaving the DOM dialog closed while Preact still thinks it is mounted. After preventing the default, `onClose()` is called, which clears `selection` and triggers Preact's unmount. Explicit dismissals — the close button and backdrop click — call `dialogRef.current?.close()`, which fires only `close` (never `cancel`), and the `close` handler calls `onClose()` directly. Net: `onClose()` fires exactly once, on every dismissal path.
+
+**Why `addEventListener` and not `onCancel`/`onClose` JSX props?** Preact core maps `onX` props by stripping the `on` prefix and lowercasing, so `onCancel` and `onClose` would technically wire the correct DOM events. The widget's code comment says these are "not reliable here" — accurate in spirit, but the precise reasons are: (a) `Lightbox` already accepts its own `onClose` *prop* from the parent. Writing `<dialog onClose={…}>` inside the component would visually collide with that prop name, making it unclear whether the JSX attribute is forwarding the component prop or registering a new DOM handler. (b) The `cancel` handler must call `e.preventDefault()` before `onClose()`, and the explicit `addEventListener`/`removeEventListener` lifecycle is the cleanest way to express that. Using the ref + effect approach is unambiguous, survives prop renames, and co-locates setup and teardown in one block.
+
+The dep array is `[onClose]`: if the parent passes a new `onClose` reference on re-render, the old listeners are torn down and new ones registered with the fresh callback.
+
+**Effect 3 — arrow key navigation** (`Lightbox.tsx:60–83`, deps `[onNavigate]`):
+
+```tsx
+// Lightbox.tsx:60-83
+useEffect(() => {
+  const onKey = (e: KeyboardEvent) => {
+    switch (e.key) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        onNavigate(0, -1);
+        return;
+      case 'ArrowRight':
+        e.preventDefault();
+        onNavigate(0, 1);
+        return;
+      case 'ArrowUp':
+        e.preventDefault();
+        onNavigate(-1, 0);
+        return;
+      case 'ArrowDown':
+        e.preventDefault();
+        onNavigate(1, 0);
+        return;
+    }
+  };
+  document.addEventListener('keydown', onKey);
+  return () => document.removeEventListener('keydown', onKey);
+}, [onNavigate]);
+```
+
+This effect handles only the four arrow keys. Escape is absent — the native `cancel` event (Effect 2) handles it. Tab is absent — Tab is trapped by the browser because all background elements are inert after `showModal()`. The handler stays on `document` so it catches keypresses regardless of what is focused inside the dialog. The dep is `[onNavigate]` so a new reference triggers a teardown and re-registration with the fresh callback.
 
 ### ARIA roles and associations
 
-The dialog div (`Lightbox.tsx:105-112`) carries the full set of WAI-ARIA dialog attributes:
+The `<dialog>` element (`Lightbox.tsx:98–106`) carries the ARIA labelling attributes:
 
 ```tsx
-// Lightbox.tsx:105-112
-<div
-  class="lb-dialog"
-  role="dialog"
-  aria-modal="true"
+// Lightbox.tsx:98-106
+<dialog
+  class="lb-backdrop"
+  ref={dialogRef}
   aria-labelledby={titleId}
   aria-describedby={captionId}
-  ref={dialogRef}
+  onClick={(e) => {
+    if (e.target === e.currentTarget) dialogRef.current?.close();
+  }}
 >
 ```
 
-- `role="dialog"` tells assistive technology this is a modal dialog widget.
-- `aria-modal="true"` signals to screen readers that content outside the dialog is inert for the purposes of virtual cursor navigation. Note: this is a *hint* to screen readers, not a DOM-level enforcement — see the focus-trap caveat below.
 - `aria-labelledby={titleId}` associates the dialog with its visible `<h2>` title. Screen readers announce this label when the dialog receives focus.
-- `aria-describedby={captionId}` associates it with the caption text (prompt or reference note), giving screen readers a longer description to optionally read out.
+- `aria-describedby={captionId}` associates it with the caption text (prompt or reference note), providing a longer description for screen readers to optionally read out.
 
-`titleId` and `captionId` come from `Lightbox.tsx:85-86`:
+`role="dialog"` and `aria-modal="true"` were present on the old `<div>` wrapper and are now absent. A `<dialog>` opened with `showModal()` is already exposed to assistive technology as a modal dialog with inert background — the platform enforces the modal semantics structurally, so the explicit ARIA attributes are redundant and were dropped.
+
+`titleId` and `captionId` come from `Lightbox.tsx:85–86`:
 
 ```tsx
 // Lightbox.tsx:85-86
@@ -888,48 +922,19 @@ const titleId = useMemo(() => 'lightbox-title', []);
 
 These are `useMemo` calls that return string literals — functionally equivalent to `const titleId = 'lightbox-title'`. Because `Lightbox` is only ever mounted once at a time (it's conditional on a single selection), there's no collision risk from a fixed id. This is a minor curiosity; in a context where multiple instances could coexist, ids would need to be unique (typically via `useId()` or a counter).
 
-### Tab focus trap
+### Focus management: native trap and restore
 
-`Lightbox.tsx:45-64` handles Tab inside the keyboard effect:
+The hand-rolled Tab focus trap from the old `Lightbox` is gone. No JavaScript is needed to cycle focus within the dialog — the native focus trap falls out of the background inertness applied by `showModal()`.
 
-```tsx
-// Lightbox.tsx:45-64
-case 'Tab': {
-  const dlg = dialogRef.current;
-  if (!dlg) return;
-  const focusable = dlg.querySelectorAll<HTMLElement>(
-    'button, [href], [tabindex]:not([tabindex="-1"])',
-  );
-  if (focusable.length === 0) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault();
-    last.focus();
-  } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault();
-    first.focus();
-  }
-}
-```
+Per the HTML Living Standard, all elements in the same document as a modal dialog (except the dialog and its descendants) become **inert** when the dialog enters the top layer. Inert elements cannot receive keyboard focus. Tab therefore cycles only among the focusable elements within the dialog — not because a `keydown` handler intercepts Tab and manually re-directs focus, but because there is nowhere else for the browser to go. All current engines enforce this correctly.
 
-The logic is: when Tab would leave the last focusable element forward, wrap to the first; when Shift+Tab would leave the first element backward, wrap to the last. For the dialog's fixed set of buttons (close, two nav arrows) this works correctly.
+Automatic focus restore works the same way: when the `<dialog>` closes by any means, the browser restores focus to the element that had focus before `showModal()` was called. This is spec-required behaviour. The old `prevActive.current = document.activeElement` save and the corresponding `prevActive.current.focus()` in the cleanup are gone — the platform handles both.
 
-**This focus trap is incomplete and that matters.** Be clear about what it does not handle:
-
-- The `querySelectorAll` selector does not exclude elements that are `disabled`, `visibility: hidden`, `display: none`, or inside an `[inert]` subtree. Those elements can still match the query and end up as `first` or `last`, causing focus to land on a non-focusable node.
-- The query runs once per Tab keypress. If the dialog's focusable content changes (e.g. a button is added or removed while the dialog is open), the next Tab uses a stale set.
-- Most critically: the trap only intercepts Tab. It does *not* set `aria-hidden="true"` or the `inert` attribute on the rest of the document. Screen-reader users in browse/virtual-cursor mode can navigate outside the dialog to background content, making `aria-modal="true"` only a partial mitigation.
-- The dialog is a `<div>`, not a browser top-layer element. Other fixed-positioned content with high `z-index` could visually overlap it.
-
-This implementation is functional and instructive for a dialog with a small, static set of focusable elements. But for new production code, prefer:
-
-- The native `<dialog>` element with `showModal()`, which is Baseline Widely Available (since 2022) and provides a browser-backed focus trap, automatic background `inert`, top-layer rendering, and a built-in `::backdrop`. See [MDN — HTMLDialogElement.showModal()](https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement/showModal).
-- A vetted accessibility library such as Radix UI Dialog or Headless UI, which handle the full WAI-ARIA Dialog pattern including dynamic focusable sets, `inert` propagation, and robust browser compatibility.
+What *is* still explicit (in the `useLayoutEffect`) is the **initial focus** call: `closeRef.current?.focus()`. `showModal()` runs its own focusing algorithm — browsers typically focus the first focusable descendant — before the layout effect fires. The explicit call overrides that to guarantee the close button receives focus, making initial focus deterministic regardless of the dialog's content order.
 
 ### Early return guard
 
-`Lightbox.tsx:88` sits after the two effects:
+`Lightbox.tsx:88` sits after the three effects:
 
 ```tsx
 // Lightbox.tsx:88
@@ -940,22 +945,20 @@ The effects run unconditionally on mount; the guard only controls what gets rend
 
 ### Backdrop click-to-close
 
-The outermost `<div>` is the backdrop (`Lightbox.tsx:98-104`):
+The outermost element is the `<dialog>` itself, and its click handler (`Lightbox.tsx:103–105`) provides light-dismiss:
 
 ```tsx
-// Lightbox.tsx:98-104
-<div
-  class="lb-backdrop"
-  role="presentation"
-  onClick={(e) => {
-    if (e.target === e.currentTarget) onClose();
-  }}
->
+// Lightbox.tsx:103-105
+onClick={(e) => {
+  if (e.target === e.currentTarget) dialogRef.current?.close();
+}}
 ```
 
-`e.target === e.currentTarget` is the reliable outside-click pattern for a full-screen overlay: `e.target` is the element the user actually clicked, and `e.currentTarget` is the element with the listener (the backdrop div). If the click landed on any child (the image, a button, the dialog panel itself), `e.target` will be that child and the check fails, so `onClose` is not called. Only a click directly on the blank backdrop area passes the check.
+`e.target === e.currentTarget` is the reliable outside-click pattern for a full-screen overlay: `e.target` is the element the user actually clicked, and `e.currentTarget` is the element with the listener (the `<dialog>`). If the click landed on any child (the image, a button, the inner content panel), `e.target` will be that child and the check fails — no dismissal. Only a click directly on the bare backdrop area passes the check.
 
-`role="presentation"` removes the backdrop from the accessibility tree — it is a visual containment element, not a semantic one.
+Crucially, the handler calls `dialogRef.current?.close()` rather than `onClose()` directly. Calling `close()` fires the native `close` event, which the event-bridge effect (Effect 2) catches and routes to `onClose()`. This keeps all dismissal paths — close button, backdrop click, and Escape — on the same event route, so `onClose()` is always invoked through a single code path.
+
+`::backdrop` is a pseudo-element the browser creates behind any top-layer `<dialog>`. The widget sets `.lb-backdrop::backdrop { background: transparent; }` so the browser's built-in backdrop does not double up with the dialog's own frosted-glass treatment. Visual details are in [`../design/02-image-comparison-table.md`](../design/02-image-comparison-table.md).
 
 The row-level `InfoPopover` solves a lighter version of the same problem — an overlay that dismisses without taking over the page.
 
@@ -1060,10 +1063,10 @@ No special close cleanup is required: without a focus trap or scroll lock, dismi
 |---|---|---|
 | `open` state | Local `useState` | Lifted `selection` in `App` |
 | Background interactive | Yes | No |
-| Focus trap | No | Yes (Tab cycling) |
+| Focus trap | No | Yes (native, via background inert) |
 | Scroll lock | No | `document.body.overflow = 'hidden'` |
-| Escape | `e.stopPropagation(); setOpen(false)` | `e.preventDefault(); onClose()` |
-| Focus return | `wasOpenRef` latch in second `useEffect` | Stored `prevActive` ref, restored in unmount cleanup |
+| Escape | `e.stopPropagation(); setOpen(false)` | `cancel` event: `e.preventDefault(); onClose()` |
+| Focus return | `wasOpenRef` latch in second `useEffect` | Automatic (native `<dialog>` restores on close) |
 
 Both approaches use `useEffect` with `[open]` deps and document-level listeners — the architecture is the same. The difference is weight: the popover opts out of every feature that would block background interaction.
 
@@ -1125,6 +1128,8 @@ Inside `Grid`, the flag drives a class toggle:
 ```tsx
 <div class={`grid-wrap${compact ? ' grid-wrap--compact' : ''}`}>
 ```
+
+In compact mode the column header row is hidden, so each image button carries `data-label={col.label}` (`Grid.tsx:57`) — a data attribute the CSS reads via `content: attr(data-label)` to render a small badge over the thumbnail identifying the column.
 
 The design choice is that `Grid` receives a pre-computed boolean rather than measuring the viewport itself. This keeps `Grid` stateless and free of layout side-effects: it applies a class when told to and knows nothing about where the breakpoint sits. What `.grid-wrap--compact` actually does to the layout — column reflow, thumbnail sizing — is covered in [`../design/02-image-comparison-table.md`](../design/02-image-comparison-table.md).
 
@@ -1229,13 +1234,13 @@ The widget is small — six source files — but every component and hook choice
 
 **User clicks a cell.** `Grid` fires `onCellClick(rowIdx, colIdx)`, which is `handleCellClick` in `App`. `handleCellClick` calls `setSelection({ rowIdx, colIdx })`. `App` re-renders; `selection` is now non-null.
 
-**`selection` set; Lightbox mounts.** The `{table && selection && <Lightbox …/>}` conditional at `App.tsx:161` now renders. Preact mounts `Lightbox`, which is the open signal. Two `useEffect` calls fire: the keyboard effect registers `document.addEventListener('keydown', onKey)` with `[onClose, onNavigate]` deps; the scroll-lock effect saves `document.activeElement` to `prevActive.current`, sets `document.body.style.overflow = 'hidden'`, and moves focus to the close button.
+**`selection` set; Lightbox mounts.** The `{table && selection && <Lightbox …/>}` conditional at `App.tsx:161` now renders. Preact mounts `Lightbox`, which is the open signal. Three effects fire: the `useLayoutEffect` calls `dialogRef.current.showModal()` (placing the dialog in the top layer and making the background inert), explicitly focuses the close button, and locks body scroll; the cancel/close `useEffect` wires the native dialog events to `onClose()`; the arrow-keys `useEffect` registers `document.addEventListener('keydown', onKey)` with `[onNavigate]` deps.
 
 **Keyboard/focus effects fire.** The user presses ArrowRight. `onKey` matches `'ArrowRight'`, calls `onNavigate(0, 1)`, which is `navigateLightbox`. Inside `navigateLightbox`, `setSelection(prev => …)` clamps `prev.colIdx + 1` to the column bounds and returns the new selection — or returns `prev` unchanged if already at the edge, skipping the re-render for free.
 
-**Esc pressed; Lightbox unmounts.** `onKey` matches `'Escape'`, calls `onClose()`, which is `closeLightbox`. `closeLightbox` calls `setSelection(null)`. `App` re-renders; `selection` is `null` again. The `{table && selection && …}` conditional is `false`; Preact unmounts `Lightbox`.
+**Esc pressed; Lightbox unmounts.** Pressing Escape fires a `cancel` event on the `<dialog>`. The cancel handler calls `e.preventDefault()` (stopping the platform from closing the dialog independently) then `onClose()`, which is `closeLightbox`. `closeLightbox` calls `setSelection(null)`. `App` re-renders; `selection` is `null` again. The `{table && selection && …}` conditional is `false`; Preact unmounts `Lightbox`.
 
-**Focus restored.** The scroll-lock effect's cleanup runs: `document.body.style.overflow` is restored to its saved value, and `prevActive.current.focus()` moves focus back to the grid cell the user clicked to open the lightbox.
+**Focus restored.** The `useLayoutEffect` cleanup runs: `document.body.style.overflow` is restored to its saved value. The native `<dialog>` automatically restores focus to the element that was focused before `showModal()` was called — the grid cell the user clicked — with no explicit JS needed.
 
 ### Three architecture decisions
 
@@ -1270,11 +1275,15 @@ The widget is small — six source files — but every component and hook choice
 | `ResizeObserver` + `window.resize` dual observation for fit-to-viewport | Fit-to-viewport scaling |
 | Functional `setState` updater: `setX(prev => ...)` for stale-closure safety | Functional updaters |
 | Clamping within a functional updater; same-reference bail-out | Functional updaters |
-| `role="dialog"` + `aria-modal="true"` for accessible modal semantics | Modal dialog |
+| Native `<dialog>` element with `showModal()` for browser-managed modal semantics | Modal dialog |
+| `showModal()`: top-layer rendering above all stacking contexts and z-indices | Modal dialog |
+| Background inertness via `showModal()`: built-in focus trap and AT exclusion (spec-guaranteed) | Modal dialog |
+| Automatic focus restore on `<dialog>` close (spec-guaranteed, no JS needed) | Modal dialog |
+| Deterministic initial focus via explicit `.focus()` call after `showModal()` | Modal dialog |
+| `cancel` vs `close` native dialog events: when each fires and why they differ | Modal dialog |
+| Wiring dialog events via `addEventListener` in Preact: prop-collision avoidance and explicit teardown | Modal dialog |
 | `aria-labelledby` + `aria-describedby` for modal title/description wiring | Modal dialog |
-| Focus save and restore on modal open/close | Modal dialog |
-| Hand-rolled Tab focus trap and its gaps vs native `<dialog showModal()>` | Modal dialog |
-| Body scroll lock via `document.body.style.overflow = 'hidden'` | Modal dialog |
+| Body scroll lock via `document.body.style.overflow = 'hidden'` (still needed: `showModal()` does not lock scroll) | Modal dialog |
 | Backdrop click-to-close via `e.target === e.currentTarget` | Modal dialog |
 | Conditional mount/unmount as the modal open/close lifecycle backbone | Modal dialog |
 | Early `return null` guard in conditionally rendered components | Modal dialog |
