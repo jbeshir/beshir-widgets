@@ -87,7 +87,7 @@ Without intervention, `.grid-row` would be a direct child of `.grid` and therefo
 The widget's image picker uses an entirely different approach to grid column-counting:
 
 ```css
-/* styles.css:734–736 */
+/* styles.css:771–773 */
 display: grid;
 grid-template-columns: repeat(auto-fill, minmax(258px, 1fr));
 gap: 14px;
@@ -126,7 +126,7 @@ For the ResizeObserver wiring and how the `width` value is kept current, see the
 ### Step 1: Collapse the outer grid
 
 ```css
-/* styles.css:466–469 */
+/* styles.css:467–470 */
 .grid-wrap--compact .grid {
   grid-template-columns: 1fr;
   gap: 0;
@@ -138,7 +138,7 @@ The base rule (§1) gives `.grid` a multi-column `grid-template-columns` driven 
 ### Step 2: Undo `display: contents`
 
 ```css
-/* styles.css:471 */
+/* styles.css:472 */
 .grid-wrap--compact .grid-row { display: block; margin-bottom: 18px; }
 ```
 
@@ -147,16 +147,16 @@ Section §1 taught that `.grid-row { display: contents }` dissolves the row wrap
 ### Step 3: Hide the column header row
 
 ```css
-/* styles.css:472 */
+/* styles.css:473 */
 .grid-wrap--compact .grid-row--head { display: none; }
 ```
 
-The header row (the one with model names) made sense when every column had a heading above it. With each data row now a self-contained layout, the column headers have no visual home — and repeating them for every row would be noise. `display: none` removes the element from both the box tree and the accessibility tree. Because the widget already handles accessible labelling via `role="columnheader"` on those cells, hiding them in compact view is safe: the comparison structure is communicated differently.
+The header row (the one with model names) made sense when every column had a heading above it. With each data row now a self-contained layout, the column headers have no visual home — and repeating them for every row would be noise. `display: none` removes the element from both the box tree and the accessibility tree. Because the widget already handles accessible labelling via `role="columnheader"` on those cells, hiding them in compact view is safe: column identity is instead surfaced per-thumbnail as a styled label badge (see the [`attr()` section](#attr--reading-attribute-values-into-content) below).
 
 ### Step 4: Each data row becomes its own two-column grid
 
 ```css
-/* styles.css:479–484 */
+/* styles.css:480–485 */
 .grid-wrap--compact .grid-row:not(.grid-row--head) {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -183,7 +183,7 @@ The base rule targeting the same elements (`.grid-row`) sits at **(0,1,0)**. The
 ### Step 5: Span the label across both columns
 
 ```css
-/* styles.css:485 */
+/* styles.css:486 */
 .grid-wrap--compact .grid-cell--label { grid-column: 1 / -1; }
 ```
 
@@ -194,7 +194,7 @@ The result: the label row sits above the two image cells, behaving like a sectio
 ### Step 6: Suppress the accent bar
 
 ```css
-/* styles.css:486 */
+/* styles.css:487 */
 .grid-wrap--compact .grid-cell--label::before { display: none; }
 ```
 
@@ -229,7 +229,7 @@ The fix is one declaration on the parent:
 The same pattern repeats for the info popover. `.info-wrap` wraps both the trigger button and the floating panel:
 
 ```css
-/* styles.css:340–344 */
+/* styles.css:341–345 */
 .info-wrap {
   position: relative;
   display: inline-flex;
@@ -251,12 +251,12 @@ With containing blocks in place, the children go absolute. The zoom badge is pin
   right: 8px;
 ```
 
-`top` and `right` resolve against the containing block's edge. The badge sits 8 px from each corner regardless of cell width — a fixed mount. Notice `pointer-events: none` at `styles.css:322`: the badge overlaps the clickable button underneath, and without this declaration it would intercept the click intended to open the lightbox. With it, the badge is visually present but transparent to pointer events.
+`top` and `right` resolve against the containing block's edge. The badge sits 8 px from each corner regardless of cell width — a fixed mount. Notice `pointer-events: none` at `styles.css:323`: the badge overlaps the clickable button underneath, and without this declaration it would intercept the click intended to open the lightbox. With it, the badge is visually present but transparent to pointer events.
 
 The info popover is more involved. It needs to float directly below its trigger and be horizontally centred over it — at whatever computed width the popover happens to be:
 
 ```css
-/* styles.css:377–381 */
+/* styles.css:378–382 */
 .info-popover {
   position: absolute;
   top: calc(100% + 10px);
@@ -266,12 +266,12 @@ The info popover is more involved. It needs to float directly below its trigger 
 
 `top: calc(100% + 10px)` places the popover's top edge just past `.info-wrap`'s bottom edge (`100%` of the containing block's height), then adds 10 px of clearance. `calc()` is the tool that makes this expressible as a single value — it mixes `%` and `px` in one arithmetic expression where neither unit alone would work. The CSS Math section (§4) builds on this foundation.
 
-The centering idiom that follows is worth memorising: `left: 50%` positions the popover's *left edge* at the midpoint of the containing block. That overshoots — the popover extends rightward past centre. `transform: translateX(-50%)` corrects it by nudging the element left by half its *own* width. Because `translateX` percentages resolve against the element itself rather than the containing block, the expression centres the popover regardless of its computed width. The lightbox uses the vertical variant: `top: 50%; transform: translateY(-50%)` on `.lb-nav` (`styles.css:559–562`) keeps the navigation arrows pinned to the midpoint of the image area at any height.
+The centering idiom that follows is worth memorising: `left: 50%` positions the popover's *left edge* at the midpoint of the containing block. That overshoots — the popover extends rightward past centre. `transform: translateX(-50%)` corrects it by nudging the element left by half its *own* width. Because `translateX` percentages resolve against the element itself rather than the containing block, the expression centres the popover regardless of its computed width. The lightbox uses the vertical variant: `top: 50%; transform: translateY(-50%)` on `.lb-nav` (`styles.css:597–598`) keeps the navigation arrows pinned to the midpoint of the image area at any height.
 
 The decorative arrow above the popover applies both axes at once:
 
 ```css
-/* styles.css:404–413 */
+/* styles.css:405–415 */
 .info-arrow {
   position: absolute;
   top: -7px;
@@ -288,10 +288,17 @@ The decorative arrow above the popover applies both axes at once:
 The lightbox backdrop must cover the entire viewport and stay in place as the user scrolls. `position: absolute` would scroll away with the page. `position: fixed` positions the element against the viewport itself:
 
 ```css
-/* styles.css:499–510 */
+/* styles.css:519–540 */
 .lb-backdrop {
+  /* Native <dialog>: override UA defaults ... */
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  border: 0;
   ...
   z-index: 100;
   ...
@@ -300,6 +307,8 @@ The lightbox backdrop must cover the entire viewport and stay in place as the us
 ```
 
 `inset: 0` is the four-side shorthand — equivalent to `top: 0; right: 0; bottom: 0; left: 0` — that stretches the backdrop across the entire viewport. Fixed elements stay at those coordinates regardless of scroll position; the document moves behind them.
+
+`.lb-backdrop` is now a native `<dialog>` element opened via `showModal()`, which places it in the browser's **top layer** — a rendering surface above every stacking context on the page regardless of `z-index` (the `z-index: 100` is now belt-and-braces). The UA centres dialogs by default with `margin: auto` and an `auto` inset; the `width: 100%; height: 100%; max-width: 100%; max-height: 100%; margin: 0; border: 0` declarations neutralise those defaults so the dialog fills the viewport exactly as the former `<div>` backdrop did. A companion rule at `styles.css:544–546` keeps the UA-generated `::backdrop` transparent — the frosted dim lives on the `<dialog>` element itself and must not double up behind it. For the focus-trap, `cancel`/`close` event wiring, and accessibility detail, see [`../frontend/02-image-comparison-table.md`](../frontend/02-image-comparison-table.md) ("Modal dialog" section).
 
 ### Stacking contexts — the heart of it
 
@@ -311,7 +320,7 @@ A **stacking context** is an isolated z-axis group. `z-index` values only compar
 - A positioned element with `z-index` other than `auto`
 - Any element with `transform ≠ none`, `opacity < 1`, `filter ≠ none`, or `backdrop-filter ≠ none`
 
-The root element creates the first context. The popover (`z-index: 80`, `styles.css:389`) and the lightbox backdrop (`z-index: 100`, `styles.css:507`) are both direct children of the root context — z-axis siblings — so their indexes compare directly, and 100 beats 80.
+The root element creates the first context. The popover (`z-index: 80`, `styles.css:390`) is a direct child of the root context — any other root-level stacking context with a higher index paints over it. The lightbox backdrop (`z-index: 100`, `styles.css:537`) is now a native `<dialog>` in the browser's top layer via `showModal()`, which paints above every stacking context on the page regardless of `z-index`; the `z-index: 100` is retained as belt-and-braces.
 
 The constraint that trips people up: a z-index on a child cannot escape its parent's stacking context. If `.grid-cell--img` permanently carried `transform ≠ none`, it would form its own stacking context, trapping the zoom badge inside it. A badge with `z-index: 9999` inside that context would still sit *below* any root-level sibling with `z-index: 2`. The widget avoids this by keeping the card's hover lift — `transform: translateY(-3px)` at `styles.css:277` — as a transient `:hover` state, not a permanent property, and by placing the popover in `.info-wrap`, not inside the thumbnail.
 
@@ -321,7 +330,7 @@ The offsets in this section — `calc(100% + 10px)`, `min(360px, 80vw)`, `min(42
 
 ## CSS Math Functions: clamp(), min(), max()
 
-Section §3 introduced `calc()` as the tool for mixing units in a single value — the popover sits at `top: calc(100% + 10px)` (`styles.css:379`) because no other mechanism can add a pixel offset to a percentage. Three functions build on that foundation: `clamp()`, `min()`, and `max()`. All four resolve at computed-value time, after `var()` substitution and before layout, so the browser can freely mix `vw`, `px`, `%`, and `vh` in a single expression. The payoff is responsive sizing that scales continuously rather than jumping at discrete breakpoints — the approach [tutorial 01](./01-function-plotter.md) used `@media` for was the right tool for discrete layout switches, but for values that should track the viewport on a smooth curve, a math function does it in one declaration with no query at all.
+Section §3 introduced `calc()` as the tool for mixing units in a single value — the popover sits at `top: calc(100% + 10px)` (`styles.css:380`) because no other mechanism can add a pixel offset to a percentage. Three functions build on that foundation: `clamp()`, `min()`, and `max()`. All four resolve at computed-value time, after `var()` substitution and before layout, so the browser can freely mix `vw`, `px`, `%`, and `vh` in a single expression. The payoff is responsive sizing that scales continuously rather than jumping at discrete breakpoints — the approach [tutorial 01](./01-function-plotter.md) used `@media` for was the right tool for discrete layout switches, but for values that should track the viewport on a smooth curve, a math function does it in one declaration with no query at all.
 
 ### Fluid type with clamp()
 
@@ -347,7 +356,7 @@ Between roughly 437 px and 750 px the heading scales continuously with the viewp
 The info popover uses it on both of its width bounds:
 
 ```css
-/* styles.css:382–383 */
+/* styles.css:383–384 */
 min-width: min(360px, 80vw);
 max-width: min(420px, 92vw);
 ```
@@ -359,7 +368,7 @@ On a 1200 px desktop, `80vw = 960px` and `92vw = 1104px` — both larger than 36
 The lightbox image shows the natural next step: nesting `calc()` inside `min()`.
 
 ```css
-/* styles.css:553 */
+/* styles.css:589 */
 max-height: min(760px, calc(100vh - 180px));
 ```
 
@@ -382,7 +391,7 @@ When a popover appears — or a lightbox slides into focus — the event needs a
 A `@keyframes` block names a timeline and defines property values at stops along it. `from` and `to` are aliases for `0%` and `100%` of the animation's total duration; between them, the browser interpolates values using the animation's easing function. The `animation` property on a selector references the timeline by name and sets how it plays:
 
 ```css
-/* styles.css:396 */
+/* styles.css:397 */
 animation: popover-in 160ms ease-out;
 ```
 
@@ -393,7 +402,7 @@ The shorthand order is `name duration easing-function`. These three are all the 
 The popover's keyframe rig is the most instructive of the three:
 
 ```css
-/* styles.css:399–402 */
+/* styles.css:400–403 */
 @keyframes popover-in {
   from { opacity: 0; transform: translate(-50%, -4px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
@@ -405,10 +414,10 @@ The popover's resting position is established in §3 by `left: 50%; transform: t
 ### Backdrop: opacity only
 
 ```css
-/* styles.css:509 */
+/* styles.css:539 */
 animation: lb-fade 140ms ease-out;
 
-/* styles.css:512–515 */
+/* styles.css:548–551 */
 @keyframes lb-fade {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -420,10 +429,10 @@ The backdrop fades in without moving. It doesn't need to travel — its purpose 
 ### Dialog: scale-and-fade
 
 ```css
-/* styles.css:528 */
+/* styles.css:564 */
 animation: lb-pop 160ms ease-out;
 
-/* styles.css:531–534 */
+/* styles.css:567–570 */
 @keyframes lb-pop {
   from { opacity: 0; transform: scale(0.97); }
   to   { opacity: 1; transform: scale(1); }
@@ -438,10 +447,10 @@ All three animations touch only `transform` and `opacity`. Modern browsers hand 
 
 ### Reduced motion: two halves, two property types
 
-The `@media (prefers-reduced-motion: reduce)` block at the bottom of the stylesheet has two distinct halves. The first (`styles.css:810–820`) targets hover and focus state changes — card lift, button pulse, close-button transitions — and sets `transition: none !important` on them. The second targets the entrance animations:
+The `@media (prefers-reduced-motion: reduce)` block at the bottom of the stylesheet has two distinct halves. The first (`styles.css:847–857`) targets hover and focus state changes — card lift, button pulse, close-button transitions — and sets `transition: none !important` on them. The second targets the entrance animations:
 
 ```css
-/* styles.css:821–825 */
+/* styles.css:858–862 */
 .info-popover,
 .lb-backdrop,
 .lb-dialog {
@@ -496,7 +505,7 @@ The zoom is contained because `.grid-cell--img` has `overflow: hidden` (`styles.
 The info button pulses on hover and holds that scale while the popover is open:
 
 ```css
-/* styles.css:365–370 */
+/* styles.css:366–371 */
 .info-btn:hover,
 .info-btn--open {
   background: var(--accent-mid);
@@ -512,7 +521,7 @@ The info button pulses on hover and holds that scale while the popover is open:
 The tooltip arrow is a 12×12 px square with borders on its top and left edges:
 
 ```css
-/* styles.css:413 */
+/* styles.css:414 */
 transform: translateX(-50%) rotate(45deg);
 ```
 
@@ -525,7 +534,7 @@ Order is not decorative — it is geometric. If you reversed the functions to `r
 The fit-to-viewport wrapper has a single declaration:
 
 ```css
-/* styles.css:108–109 */
+/* styles.css:107–109 */
 .fit-scale {
   transform-origin: top center;
 }
@@ -537,13 +546,13 @@ The pivot matters because the default `transform-origin` is `50% 50%` — the el
 
 ### Recap: translateY on the nav buttons
 
-The lightbox nav buttons (`styles.css:562`) use `transform: translateY(-50%)` with `top: 50%` — the classic absolute-centering trick introduced in §3. It appears here again as a reminder that `translate` is the tool CSS reaches for whenever vertical centering needs to be self-sizing: unlike a negative margin, `translateY(-50%)` uses the element's own height as the reference, so it works regardless of button height.
+The lightbox nav buttons (`styles.css:598`) use `transform: translateY(-50%)` with `top: 50%` — the classic absolute-centering trick introduced in §3. It appears here again as a reminder that `translate` is the tool CSS reaches for whenever vertical centering needs to be self-sizing: unlike a negative margin, `translateY(-50%)` uses the element's own height as the reference, so it works regardless of button height.
 
 ### The side effects every transform brings
 
 Any element with `transform` other than `none` creates a new stacking context (as detailed in §3) and becomes a containing block for any `position: fixed` descendants inside it. That second effect is surprising: a `position: fixed` child that you expect to be anchored to the viewport will instead be anchored to the transformed ancestor.
 
-The `.lb-nav` buttons are deliberately `position: absolute`, not `position: fixed` (`styles.css:560`). They position themselves relative to the lightbox dialog, which is what the layout requires. Had they been `fixed`, the transform on an ancestor would have broken that positioning. Choosing `absolute` here sidesteps the containing-block trap entirely — the transform's side effect becomes irrelevant.
+The `.lb-nav` buttons are deliberately `position: absolute`, not `position: fixed` (`styles.css:596`). They position themselves relative to the lightbox dialog, which is what the layout requires. Had they been `fixed`, the transform on an ancestor would have broken that positioning. Choosing `absolute` here sidesteps the containing-block trap entirely — the transform's side effect becomes irrelevant.
 
 The visual surface of the widget is nearly complete. The next layer addresses the glass-like quality of the lightbox backdrop, the square thumbnail slots, and how images fill them — `backdrop-filter`, `aspect-ratio`, and `object-fit`.
 
@@ -560,9 +569,10 @@ Because the filter only affects the backdrop, the element must be at least parti
 The zoom badge on each thumbnail:
 
 ```css
-/* styles.css:317–319 */
+/* styles.css:317–320 */
 background: rgba(15, 23, 42, 0.65);
 color: #f8fafc;
+-webkit-backdrop-filter: blur(4px);
 backdrop-filter: blur(4px);
 ```
 
@@ -571,28 +581,29 @@ The slate `rgba` at 65% opacity lets the thumbnail show through at 35%, and the 
 The lightbox overlay uses the same technique at the viewport scale:
 
 ```css
-/* styles.css:503 */
+/* styles.css:532–533 */
+-webkit-backdrop-filter: blur(4px);
 backdrop-filter: blur(4px);
 ```
 
 And the navigation buttons frosted over the displayed image:
 
 ```css
-/* styles.css:568, 575 */
-background: rgba(15, 23, 42, 0.55);
+/* styles.css:611–612 */
+-webkit-backdrop-filter: blur(6px);
 backdrop-filter: blur(6px);
 ```
 
 The nav buttons use a slightly lighter background (55% opacity instead of 65%) because they sit over the already-darkened lightbox image rather than over bright thumbnail content.
 
-**Portability note.** Older Safari — versions before Safari 18 — requires `-webkit-backdrop-filter` to recognise this property. This stylesheet does not include the prefixed form. It will work correctly in Chrome, Firefox, and Safari 18+, but visitors on older Safari see flat semi-opaque panels rather than the frosted-glass effect. Production code should pair both:
+**Browser compatibility.** Older Safari — versions before Safari 18 — requires `-webkit-backdrop-filter`; Chrome and Firefox have shipped the unprefixed form since 2019 and 2022 respectively, and Safari 18 (2024) added unprefixed support. This stylesheet now pairs both declarations, with the prefixed form first:
 
 ```css
 -webkit-backdrop-filter: blur(4px);
 backdrop-filter: blur(4px);
 ```
 
-Note also that `backdrop-filter` creates a new stacking context (as in §3) — any sibling that needs to stack above a backdrop-filter element must account for that isolation.
+The prefixed-first ordering is the established convention for vendor-prefix fallbacks: engines that only understand `-webkit-backdrop-filter` (older Safari < 18) apply the first declaration and ignore the unknown second; engines that support both use the unprefixed declaration because it appears later in the cascade. Note also that `backdrop-filter` creates a new stacking context (as in §3) — any sibling that needs to stack above a backdrop-filter element must account for that isolation.
 
 ### aspect-ratio: deriving height from width
 
@@ -613,7 +624,7 @@ Before `aspect-ratio`, a common technique for enforcing a box's proportions was 
 The same ratio on the missing-cell placeholder:
 
 ```css
-/* styles.css:331–336 */
+/* styles.css:332–337 */
 .grid-cell--missing {
   background: var(--thumb-bg);
   border: 1.5px dashed var(--thumb-border);
@@ -627,7 +638,7 @@ The placeholder occupies the same space as a real thumbnail, so the grid row doe
 In compact mode, the per-image aspect ratio widens to 4:3:
 
 ```css
-/* styles.css:495 */
+/* styles.css:515 */
 .grid-wrap--compact .thumb-frame img { aspect-ratio: 4 / 3; height: 100%; }
 ```
 
@@ -636,7 +647,7 @@ A 4:3 frame is a better fit for most photographs than a square crop, and compact
 The picker thumbnails follow the same square pattern:
 
 ```css
-/* styles.css:766–770 */
+/* styles.css:803–807 */
 .pick-thumb {
   display: block;
   aspect-ratio: 1 / 1;
@@ -664,7 +675,7 @@ The picker thumbnails follow the same square pattern:
 The picker repeats the pattern:
 
 ```css
-/* styles.css:771–776 */
+/* styles.css:808–813 */
 .pick-thumb img {
   display: block;
   width: 100%;
@@ -676,7 +687,7 @@ The picker repeats the pattern:
 The lightbox makes the opposite choice:
 
 ```css
-/* styles.css:547–557 */
+/* styles.css:583–593 */
 .lb-image {
   display: block;
   max-width: 100%;
@@ -725,7 +736,7 @@ The layout context matters here. `.grid-cell--label` is a flex container, so the
 In compact mode the accent bar disappears:
 
 ```css
-/* styles.css:486 */
+/* styles.css:487 */
 .grid-wrap--compact .grid-cell--label::before { display: none; }
 ```
 
@@ -733,35 +744,57 @@ In compact mode the accent bar disappears:
 
 ### `attr()` — reading attribute values into `content`
 
-Alongside the accent bar suppression, the compact-mode block adds a second generated-content rule:
+Alongside the accent bar suppression, the compact-mode block adds a live column-label badge — a `::after` pseudo-element that floats a chip over each thumbnail:
 
 ```css
-/* styles.css:487–489 */
+/* styles.css:490–512 */
 .grid-wrap--compact .grid-cell--img::after {
   content: attr(data-label);
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.65);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border-radius: 7px;
+  padding: 3px 7px;
+  pointer-events: none;
+}
+.grid-wrap--compact .grid-cell--img {
+  position: relative;
 }
 ```
 
-`attr(name)` is a CSS function that reads the value of the named HTML attribute on the matched element and returns it as a string for use in `content`. It has been part of CSS since CSS2 and is broadly supported in all browsers for the `content` property.
+`attr(name)` is a CSS function that reads the value of the named HTML attribute on the matched element and returns it as a string for use in `content`. It has been part of CSS since CSS2 and is broadly supported in all browsers for the `content` property. `Grid.tsx:57` sets `data-label={col.label}` on every `.grid-cell--img` button, so `attr(data-label)` resolves to the column name — "DALL·E 3", "Stable Diffusion", etc. — and the `::after` box renders that string as a visible chip.
 
-This rule is syntactically valid and mechanically correct — but it currently renders nothing. The `.grid-cell--img` `<button>` in `Grid.tsx` has no `data-label` attribute anywhere; the button's only data is `aria-label`. When `attr()` finds the named attribute absent it returns an empty string, so the `::after` pseudo-element generates a box with no content — invisible. The stylesheet comment at `styles.css:494` describes the intent ("Add a small column-label badge in compact mode"), but the attribute was never wired up. This is a latent feature, not a working one.
+The badge exists because compact mode hides the header row (Step 3), removing the model names from view. Scoping to `.grid-wrap--compact` keeps it invisible in normal mode, where the header row already carries the labels.
 
-The mechanic is still real: if `data-label="DALL·E 3"` were set on the button, that string would appear as `::after` text. The CSS is ready; the HTML is not.
+**Positioning within the button.** `.grid-wrap--compact .grid-cell--img { position: relative; }` establishes the button as a containing block for the absolutely positioned pseudo-element. `position: absolute; left: 8px; bottom: 8px` pins the chip to the thumbnail's bottom-left corner.
+
+**Legibility treatment.** A translucent-dark `rgba(15, 23, 42, 0.65)` background with light `#f8fafc` text keeps the chip readable over any image. `-webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px)` (the prefixed form targets older Safari < 18; see §7) adds the same frosted-glass effect used on the zoom badge and the lightbox. `max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap` prevent a long model name from escaping the cell boundary. `pointer-events: none` ensures the chip never intercepts a click intended for the button beneath it.
 
 ### `quotes` and the `<q>` element
 
 The model prompts shown in the info popover and the lightbox are marked up as `<q>` elements:
 
 - `InfoPopover.tsx:81` — `<q class="prompt-text">{prompt}</q>`
-- `Lightbox.tsx:173` — `<q class="lb-prompt">{row.prompt}</q>`
+- `Lightbox.tsx:168` — `<q class="lb-prompt">{row.prompt}</q>`
 
 `<q>` is the HTML inline quotation element. Browsers automatically generate opening and closing quotation marks on its `::before` and `::after` pseudo-elements — this happens via the browser's default stylesheet, not the author's. The characters used are controlled by the CSS `quotes` property.
 
 ```css
-/* styles.css:455 */
+/* styles.css:456 */
 .prompt-text { quotes: "\201C" "\201D"; }
 
-/* styles.css:674 */
+/* styles.css:711 */
 .lb-prompt  { quotes: "\201C" "\201D"; }
 ```
 
@@ -771,7 +804,7 @@ The browser's default stylesheet inserts `open-quote` and `close-quote` as `cont
 
 ### A real element doing a pseudo-element's job
 
-One tooltip-arrow shape in this widget does *not* use a pseudo-element. The `<span class="info-arrow" aria-hidden="true" />` in `InfoPopover.tsx` achieves its rotated-square diamond shape via `position: absolute; transform: translateX(-50%) rotate(45deg)` on a real DOM node (see `styles.css:404–414`). The same visual is commonly done with `::before` or `::after` on the tooltip container — one less DOM element — but a real element works just as well, and in this case the explicit `aria-hidden` attribute makes the decorative intent clear.
+One tooltip-arrow shape in this widget does *not* use a pseudo-element. The `<span class="info-arrow" aria-hidden="true" />` in `InfoPopover.tsx` achieves its rotated-square diamond shape via `position: absolute; transform: translateX(-50%) rotate(45deg)` on a real DOM node (see `styles.css:405–415`). The same visual is commonly done with `::before` or `::after` on the tooltip container — one less DOM element — but a real element works just as well, and in this case the explicit `aria-hidden` attribute makes the decorative intent clear.
 
 With generated content and quotation marks handled, the remaining interaction-layer techniques — `:focus-visible` focus rings, `appearance: none` resets, and the rest of the keyboard-polish declarations — are next.
 
@@ -793,7 +826,7 @@ Every interactive element in this widget — thumbnail buttons, image picker car
 }
 ```
 
-The same pattern appears on `.info-btn` (`styles.css:372–375`), `.info-popover-close` (`styles.css:442`), `.lb-nav` (`styles.css:579`), `.lb-close` (`styles.css:649`), and `.pick-card` (`styles.css:758`) — every interactive element in the widget.
+The same pattern appears on `.info-btn` (`styles.css:373–376`), `.info-popover-close` (`styles.css:443`), `.lb-nav` (`styles.css:616`), `.lb-close` (`styles.css:686`), and `.pick-card` (`styles.css:795`) — every interactive element in the widget.
 
 ### The :hover / :focus-visible pairing idiom
 
@@ -817,7 +850,7 @@ There is a subtler requirement beyond showing a ring: keyboard users should rece
 
 Rule one is a comma-separated selector list: hover and keyboard focus both trigger the lift — the `-3px` translate, the brightened border, the elevated shadow. A keyboard user tabs to a thumbnail and it rises exactly as it would under the pointer. Rule two is keyboard-only: the `outline` ring appears on top of the lifted state, adding an unambiguous signal that focus arrived by keyboard. Mouse users see the lift but never the ring.
 
-`.pick-card` is an `<a>` element in the image picker, and it follows the identical two-rule structure at `styles.css:752–758`. Shared affordance first; explicit ring second.
+`.pick-card` is an `<a>` element in the image picker, and it follows the identical two-rule structure at `styles.css:789–795`. Shared affordance first; explicit ring second.
 
 ### appearance: none
 
@@ -828,7 +861,7 @@ Each thumbnail button is a `<button>` element. Without intervention the browser 
 appearance: none;
 ```
 
-After this reset, only the stylesheet's own declarations contribute to the visual. The same reset appears on `.info-popover-close` (`styles.css:432`), `.lb-nav` (`styles.css:563`), and `.lb-close` (`styles.css:639`) — every element the browser would otherwise render as a system widget. `outline: none` at `styles.css:272` then discards the default focus ring on `.grid-cell--img`; the `:focus-visible` block above restores a deliberate replacement, following the same contract [tutorial 01](./01-function-plotter.md) established for the text input.
+After this reset, only the stylesheet's own declarations contribute to the visual. The same reset appears on `.info-popover-close` (`styles.css:432`), `.lb-nav` (`styles.css:595`), and `.lb-close` (`styles.css:675`) — every element the browser would otherwise render as a system widget. `outline: none` at `styles.css:272` then discards the default focus ring on `.grid-cell--img`; the `:focus-visible` block above restores a deliberate replacement, following the same contract [tutorial 01](./01-function-plotter.md) established for the text input.
 
 ### outline-offset and the explicit ring
 
@@ -840,14 +873,14 @@ outline: 2px solid var(--accent);
 outline-offset: 2px;
 ```
 
-`outline-offset` pushes the ring outside the element's border by the given distance. On an element with its own 1.5px border (`styles.css:264`), a flush outline and the border can merge visually. A 2px gap separates them cleanly. The `.lb-nav:focus-visible` rule uses `outline: 2px solid #f8fafc` (`styles.css:579`) — white rather than accent — because the nav buttons float over a dark image where the accent blue blends in.
+`outline-offset` pushes the ring outside the element's border by the given distance. On an element with its own 1.5px border (`styles.css:264`), a flush outline and the border can merge visually. A 2px gap separates them cleanly. The `.lb-nav:focus-visible` rule uses `outline: 2px solid #f8fafc` (`styles.css:616`) — white rather than accent — because the nav buttons float over a dark image where the accent blue blends in.
 
 ### :disabled
 
 The lightbox nav arrows are `<button>` elements that `Lightbox.tsx` marks `disabled` when there is no further row or column to navigate to:
 
 ```css
-/* styles.css:580 */
+/* styles.css:617 */
 .lb-nav:disabled { opacity: 0.25; cursor: not-allowed; }
 ```
 
@@ -858,7 +891,7 @@ The lightbox nav arrows are `<button>` elements that `Lightbox.tsx` marks `disab
 The `.thumb-zoom` badge is absolutely positioned over the thumbnail button. A click landing on the badge would be consumed by the badge rather than the button behind it:
 
 ```css
-/* styles.css:322 */
+/* styles.css:323 */
 pointer-events: none;
 ```
 
@@ -866,9 +899,9 @@ The badge becomes visually present but click-through. All pointer events pass to
 
 ### Minor polish
 
-Three small techniques finish the interaction layer. `border-radius: 999px` at `styles.css:168`, `226`, and `634` creates a pill on the footnote hint, the column tag, and the lightbox tag. As [tutorial 01](./01-function-plotter.md) noted, `border-radius` clips to half the element's shortest side, so 999 px — safely above any realistic dimension — always yields a capsule without knowing the element's width.
+Three small techniques finish the interaction layer. `border-radius: 999px` at `styles.css:168`, `226`, and `671` creates a pill on the footnote hint, the column tag, and the lightbox tag. As [tutorial 01](./01-function-plotter.md) noted, `border-radius` clips to half the element's shortest side, so 999 px — safely above any realistic dimension — always yields a capsule without knowing the element's width.
 
-`font-variant-numeric: tabular-nums` at `styles.css:716` on `.lb-pos` requests equal-width digit glyphs. The position counter displays "row 3/8 · col 2/5"; without tabular digits, single-digit values swapping for double-digit ones reflow the layout on each navigation step. Tabular digits eliminate the jitter.
+`font-variant-numeric: tabular-nums` at `styles.css:753` on `.lb-pos` requests equal-width digit glyphs. The position counter displays "row 3/8 · col 2/5"; without tabular digits, single-digit values swapping for double-digit ones reflow the layout on each navigation step. Tabular digits eliminate the jitter.
 
 Finally, `.card` carries `border-top: 2.5px solid var(--accent)` at `styles.css:116` — 1.5px thicker than the card's 1px border — producing a visible accent stripe at the top edge. The same `--accent` token colours the focus rings, the label bar from §8, and the eyebrow text: one token, three scales of emphasis.
 
@@ -889,40 +922,42 @@ Every technique in the table below is introduced here for the first time in the 
 | `minmax(0, 1fr)` anti-blowout | line 184 | CSS Grid |
 | Custom property as column-count driver (`var(--cols)`) | lines 184, `Grid.tsx:19` | CSS Grid |
 | `display: contents` (flatten grid wrapper) | line 189 | CSS Grid |
-| `repeat(auto-fill, …)` vs `auto-fit` intrinsic grid | line 735 | CSS Grid |
-| `grid-template-columns: 1fr` (single-column override) | line 467 | Compact-Layout Restructure |
-| `display: grid` on row wrapper (compact mode) | lines 479–481 | Compact-Layout Restructure |
-| `grid-column: 1 / -1` (full-width span, negative line) | line 485 | Compact-Layout Restructure |
-| `:not()` pseudo-class | line 479 | Compact-Layout Restructure |
+| `repeat(auto-fill, …)` vs `auto-fit` intrinsic grid | line 772 | CSS Grid |
+| `grid-template-columns: 1fr` (single-column override) | line 468 | Compact-Layout Restructure |
+| `display: grid` on row wrapper (compact mode) | lines 480–482 | Compact-Layout Restructure |
+| `grid-column: 1 / -1` (full-width span, negative line) | line 486 | Compact-Layout Restructure |
+| `:not()` pseudo-class | line 480 | Compact-Layout Restructure |
 | `position: relative` / `position: absolute` | lines 259, 307 | Positioning & Stacking Contexts |
-| `position: fixed` | line 500 | Positioning & Stacking Contexts |
-| `inset: 0` shorthand | line 501 | Positioning & Stacking Contexts |
-| `z-index` and stacking contexts | lines 389, 507 | Positioning & Stacking Contexts |
-| `calc()` for mixed-unit placement | lines 379, 553 | Positioning & Stacking Contexts |
+| `position: fixed` | line 523 | Positioning & Stacking Contexts |
+| `inset: 0` shorthand | line 524 | Positioning & Stacking Contexts |
+| `z-index` and stacking contexts | lines 390, 537 | Positioning & Stacking Contexts |
+| `calc()` for mixed-unit placement | lines 380, 589 | Positioning & Stacking Contexts |
 | `clamp(MIN, PREFERRED, MAX)` | line 140 | CSS Math Functions |
-| `min(A, B)` | lines 382–383, 553 | CSS Math Functions |
-| `@keyframes` declaration | lines 399–402 | @keyframes & animation |
-| `animation` shorthand | lines 396, 509, 528 | @keyframes & animation |
-| `animation: none !important` for reduced-motion | lines 821–825 | @keyframes & animation |
-| `transform: translateY()` | lines 277, 562 | Transform and transform-origin |
-| `transform: scale()` | lines 304, 369 | Transform and transform-origin |
-| `transform: rotate()` | line 413 | Transform and transform-origin |
-| `transform` function chaining | line 413 | Transform and transform-origin |
-| `transform-origin` | lines 108–109 | Transform and transform-origin |
-| `backdrop-filter: blur()` | lines 319, 503, 575 | Frosted Glass, Square Thumbnails |
-| `aspect-ratio` | lines 289, 335, 495, 768 | Frosted Glass, Square Thumbnails |
-| `object-fit: cover` | lines 298, 775 | Frosted Glass, Square Thumbnails |
-| `object-fit: contain` | line 554 | Frosted Glass, Square Thumbnails |
+| `min(A, B)` | lines 383–384, 589 | CSS Math Functions |
+| `@keyframes` declaration | lines 400–403 | @keyframes & animation |
+| `animation` shorthand | lines 397, 539, 564 | @keyframes & animation |
+| `animation: none !important` for reduced-motion | lines 858–862 | @keyframes & animation |
+| `transform: translateY()` | lines 277, 598 | Transform and transform-origin |
+| `transform: scale()` | lines 304, 370 | Transform and transform-origin |
+| `transform: rotate()` | line 414 | Transform and transform-origin |
+| `transform` function chaining | line 414 | Transform and transform-origin |
+| `transform-origin` | lines 107–109 | Transform and transform-origin |
+| `backdrop-filter: blur()` | lines 320, 533, 612 | Frosted Glass, Square Thumbnails |
+| `-webkit-backdrop-filter` (vendor-prefixed fallback ordering) | lines 319, 504, 532, 611 | Frosted Glass, Square Thumbnails |
+| `aspect-ratio` | lines 289, 336, 515, 805 | Frosted Glass, Square Thumbnails |
+| `object-fit: cover` | lines 298, 812 | Frosted Glass, Square Thumbnails |
+| `object-fit: contain` | line 590 | Frosted Glass, Square Thumbnails |
 | `::before` / `::after` pseudo-elements | lines 241–251 | Pseudo-element Content |
 | `content: ''` (decorative pseudo-element) | line 242 | Pseudo-element Content |
-| `content: attr(NAME)` | line 488 | Pseudo-element Content |
-| `quotes` property with `<q>` element | lines 455, 674 | Pseudo-element Content |
-| `:focus-visible` pseudo-class | lines 282, 326, 372, 442, 579, 649, 758 | :focus-visible & Interaction Polish |
+| `content: attr(NAME)` | line 491 | Pseudo-element Content |
+| `::backdrop` (styling native dialog UA backdrop) | lines 544–546 | Pseudo-element Content |
+| `quotes` property with `<q>` element | lines 456, 711 | Pseudo-element Content |
+| `:focus-visible` pseudo-class | lines 282, 327, 373, 443, 616, 686, 795 | :focus-visible & Interaction Polish |
 | `:hover` / `:focus-visible` pairing idiom | lines 275–285, 302–305 | :focus-visible & Interaction Polish |
-| `appearance: none` reset | lines 263, 432, 563, 639 | :focus-visible & Interaction Polish |
-| `outline-offset` | lines 284, 374 | :focus-visible & Interaction Polish |
-| `:disabled` pseudo-class | line 580 | :focus-visible & Interaction Polish |
-| `pointer-events: none` | line 322 | :focus-visible & Interaction Polish |
-| `border-radius: 999px` pill technique | lines 168, 226, 634 | :focus-visible & Interaction Polish |
-| `font-variant-numeric: tabular-nums` | line 716 | :focus-visible & Interaction Polish |
+| `appearance: none` reset | lines 263, 432, 599, 676 | :focus-visible & Interaction Polish |
+| `outline-offset` | lines 284, 375 | :focus-visible & Interaction Polish |
+| `:disabled` pseudo-class | line 617 | :focus-visible & Interaction Polish |
+| `pointer-events: none` | line 323 | :focus-visible & Interaction Polish |
+| `border-radius: 999px` pill technique | lines 168, 226, 671 | :focus-visible & Interaction Polish |
+| `font-variant-numeric: tabular-nums` | line 753 | :focus-visible & Interaction Polish |
 | `border-top` accent override | line 116 | :focus-visible & Interaction Polish |
