@@ -918,6 +918,16 @@ body {
   margin-left: 3px;
 }
 
+/* ── Natural-English translation line ──────────────────────────────────────── */
+.tier-row--translation { margin-top: 3px; }
+.tier-translation {
+  font-size: 13.5px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--fg);
+}
+.tier--top .tier-translation { font-size: 15px; }
+
 /* ── Deep tower mobile legibility ──────────────────────────────────────────── */
 @media (max-width: 600px) {
   .tier-body { padding-right: 32px; }
