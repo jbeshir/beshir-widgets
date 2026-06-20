@@ -58,7 +58,7 @@ export default {
       let translation = '';
       try {
         const messages = buildTranslateMessages(base, features, form);
-        const out = await env.AI.run('@cf/meta/llama-3.2-1b-instruct', { messages }) as { response?: string };
+        const out = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages }) as { response?: string };
         translation = cleanTranslation(out.response ?? '');
       } catch {
         return json({ translation: '' });
