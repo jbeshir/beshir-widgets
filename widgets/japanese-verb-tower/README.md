@@ -109,9 +109,9 @@ Teaching notes:
 
 ## Natural-English translation
 
-The top (final) conjugated form is rendered into natural English, shown directly below the compositional "approx" gloss line.
+The top (final) conjugated form is rendered into natural English, shown directly below the compositional gloss line and marked with an "AI translation" label.
 
-**How it works:** the widget calls `POST /api/translate` on the same origin. That endpoint is served by a small server-side Cloudflare Worker (`src/worker.ts`) scoped to `/api/*` via `assets.run_worker_first`; all other paths continue to serve the static SPA as before. The Worker calls **Cloudflare Workers AI**, model `@cf/meta/llama-3.2-1b-instruct`, and returns the English phrase.
+**How it works:** the widget calls `POST /api/translate` on the same origin. That endpoint is served by a small server-side Cloudflare Worker (`src/worker.ts`) scoped to `/api/*` via `assets.run_worker_first`; all other paths continue to serve the static SPA as before. The Worker calls **Cloudflare Workers AI**, model `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, and returns the English phrase. The base meaning and ordered grammatical features the widget already computes are passed alongside the Japanese form to ground the translation.
 
 **Graceful degradation:** the translation is best-effort. When the Worker isn't running — local `vite dev`, the offline render-check, a network failure, or a rate-limit response — the translation line simply renders nothing. The `#widget-ready` signal and all other widget functionality are never blocked.
 
