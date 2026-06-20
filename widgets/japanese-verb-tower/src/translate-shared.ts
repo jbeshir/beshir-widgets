@@ -13,9 +13,10 @@ export function buildTranslateMessages(
     {
       role: 'system',
       content:
-        'You translate a Japanese verb form into natural English. ' +
-        'You are given the base verb\'s English meaning and the ordered grammatical features, ' +
-        'and must assemble them into the natural English phrase. ' +
+        'You translate a conjugated Japanese verb form into natural, idiomatic English. ' +
+        'You are given the Japanese form, plus the base verb\'s English meaning and its ordered grammatical features as hints. ' +
+        'Render the meaning of the whole form the way a fluent speaker would phrase it, treating grammatical constructions as idioms ' +
+        '(e.g. 〜てはいけない → "must not ~", 〜なければならない → "have to ~", 〜てしまう → "end up ~ing"). ' +
         'Reply with only the resulting English phrase — no quotes, no Japanese, no explanation, no trailing punctuation.',
     },
     {
