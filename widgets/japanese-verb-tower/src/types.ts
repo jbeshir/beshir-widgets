@@ -77,4 +77,6 @@ export const FORM_LABEL: Record<FormType, string> = {
   'request':           'request',
 };
 
-export type OpFamily = 'core' | 'desire' | 'compound' | 'adjective' | 'aspect' | 'mood';
+export type OpFamily =
+  | 'core' | 'desire' | 'compound' | 'adjective' | 'aspect'
+  | 'command' | 'deontic' | 'conditional';

@@ -377,9 +377,9 @@ reg({ id:'naru', label:'become', aux:'なる', family:'adjective',
   },
 });
 
-// ── MOOD ─────────────────────────────────────────────────────────────────────
+// ── COMMAND / DEONTIC / CONDITIONAL ──────────────────────────────────────────
 
-reg({ id:'volitional', label:'Volitional', aux:'う／よう', family:'mood',
+reg({ id:'volitional', label:'Volitional', aux:'う／よう', family:'command',
   tooltip:'let\'s / intention — godan o-row+う; ichidan +よう; polite ましょう.',
   apply(f): Form {
     if (f.type === 'polite') return { kana: f.kana.slice(0,-2) + 'ましょう', type: 'polite-volitional' };
@@ -395,7 +395,7 @@ reg({ id:'volitional', label:'Volitional', aux:'う／よう', family:'mood',
   },
 });
 
-reg({ id:'imperative', label:'Imperative', aux:'ろ／え', family:'mood',
+reg({ id:'imperative', label:'Imperative', aux:'ろ／え', family:'command',
   tooltip:'command — godan e-stem; ichidan +ろ; する→しろ; くる→こい.',
   apply(f): Form {
     const b = base(f);
@@ -413,7 +413,7 @@ reg({ id:'imperative', label:'Imperative', aux:'ろ／え', family:'mood',
   },
 });
 
-reg({ id:'ba', label:'if (〜ば)', aux:'ば', family:'mood',
+reg({ id:'ba', label:'if (〜ば)', aux:'ば', family:'conditional',
   tooltip:'provisional conditional — godan e+ば; ichidan +れば; i-adj +ければ.',
   apply(f): Form {
     if (f.type === 'i-adjective') return { kana: adjStem(f) + 'ければ', type: 'conditional-ba' };
@@ -429,7 +429,7 @@ reg({ id:'ba', label:'if (〜ば)', aux:'ば', family:'mood',
   },
 });
 
-reg({ id:'tara', label:'when/if (〜たら)', aux:'たら', family:'mood',
+reg({ id:'tara', label:'when/if (〜たら)', aux:'たら', family:'conditional',
   tooltip:'conditional/when — past stem+ら; i-adj ADJ+かったら; polite ましたら.',
   apply(f): Form {
     if (f.type === 'i-adjective') return { kana: adjStem(f) + 'かったら', type: 'conditional-tara' };
@@ -448,36 +448,36 @@ reg({ id:'tara', label:'when/if (〜たら)', aux:'たら', family:'mood',
   },
 });
 
-reg({ id:'must', label:'must', aux:'なければならない', family:'mood',
+reg({ id:'must', label:'must', aux:'なければならない', family:'deontic',
   tooltip:'must / have to — plain negative\'s ば-conditional + ならない: 〜なければならない (colloq 〜なきゃ); tail conjugates (past 〜ならなかった, polite 〜なりません).',
   apply(f): Form {
     return { kana: plainNegativeKana(f).slice(0,-1) + 'ければならない', type: 'must' };
   },
 });
 
-reg({ id:'must-not', label:'must not', aux:'てはいけない', family:'mood',
+reg({ id:'must-not', label:'must not', aux:'てはいけない', family:'deontic',
   tooltip:'must not / may not — て-form + はいけない: 〜てはいけない (colloq 〜ちゃ／じゃ); tail conjugates (past 〜いけなかった, polite 〜いけません).',
   apply(f): Form {
     return { kana: teKana(f) + 'はいけない', type: 'must-not' };
   },
 });
 
-reg({ id:'kudasai', label:'please', aux:'ください', family:'mood',
+reg({ id:'kudasai', label:'please', aux:'ください', family:'deontic',
   tooltip:'polite request — て-form + ください: 〜てください (casual just drops ください → the bare て-form). Terminal.',
   apply(f): Form { return { kana: teKana(f) + 'ください', type: 'request' }; },
 });
 
-reg({ id:'kudasai-not', label:'please don’t', aux:'ないでください', family:'mood',
+reg({ id:'kudasai-not', label:'please don’t', aux:'ないでください', family:'deontic',
   tooltip:'negative polite request — plain negative + でください: 〜ないでください. Verb-only, terminal.',
   apply(f): Form { return { kana: plainNegativeKana(f) + 'でください', type: 'request' }; },
 });
 
-reg({ id:'may', label:'may', aux:'てもいい', family:'mood',
+reg({ id:'may', label:'may', aux:'てもいい', family:'deontic',
   tooltip:'permission — て-form + もいい: 〜てもいい ("may / it\'s OK to"). Re-conjugates as an い-adjective (てもよかった / てもいいです).',
   apply(f): Form { return { kana: teKana(f) + 'もいい', type: 'i-adjective', iiAdj: true }; },
 });
 
-reg({ id:'need-not', label:"don't have to", aux:'なくてもいい', family:'mood',
+reg({ id:'need-not', label:"don't have to", aux:'なくてもいい', family:'deontic',
   tooltip:'non-obligation — plain negative + くてもいい: 〜なくてもいい ("don\'t have to"). Re-conjugates as an い-adjective.',
   apply(f): Form { return { kana: plainNegativeKana(f).slice(0,-1) + 'くてもいい', type: 'i-adjective', iiAdj: true }; },
 });
@@ -665,12 +665,14 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
 // ── OP_FAMILIES ───────────────────────────────────────────────────────────────
 
 export const OP_FAMILIES: Record<OpFamily, OpId[]> = {
-  core:      ['causative','passive','potential','causative-passive','polite','negative','past','negative-past','te'],
-  desire:    ['tai','tagaru','yasui','nikui','naosu'],
-  compound:  ['hajimeru','owaru','tsuzukeru','dasu'],
-  adjective: ['adverbial','sugiru','sou','naru'],
-  aspect:    ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
-  mood:      ['volitional','imperative','ba','tara','must','must-not','kudasai','kudasai-not'],
+  core:        ['causative','passive','potential','causative-passive','polite','negative','past','negative-past','te'],
+  desire:      ['tai','tagaru','yasui','nikui','naosu'],
+  compound:    ['hajimeru','owaru','tsuzukeru','dasu'],
+  adjective:   ['adverbial','sugiru','sou','naru'],
+  aspect:      ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
+  command:     ['volitional','imperative'],
+  deontic:     ['must','must-not','may','need-not','kudasai','kudasai-not'],
+  conditional: ['ba','tara'],
 };
 
 export { OPS };

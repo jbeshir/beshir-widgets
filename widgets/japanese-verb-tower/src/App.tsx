@@ -168,12 +168,14 @@ const OP_SENSE: Record<OpId, string> = {
 };
 
 const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
-  { label: 'Desire & ease',      ops: OP_FAMILIES.desire },
-  { label: 'Compound (phase)',   ops: OP_FAMILIES.compound },
-  { label: 'Adjective & なる',    ops: OP_FAMILIES.adjective },
-  { label: 'Aspect & direction',  ops: OP_FAMILIES.aspect },
-  { label: 'Mood',               ops: OP_FAMILIES.mood },
-  { label: 'Core',               ops: OP_FAMILIES.core },
+  { label: 'Core',                    ops: OP_FAMILIES.core },
+  { label: 'Aspect & direction',      ops: OP_FAMILIES.aspect },
+  { label: 'Desire & ease',           ops: OP_FAMILIES.desire },
+  { label: 'Commands & intention',    ops: OP_FAMILIES.command },
+  { label: 'Obligation & permission', ops: OP_FAMILIES.deontic },
+  { label: 'Conditionals',            ops: OP_FAMILIES.conditional },
+  { label: 'Compound (phase)',        ops: OP_FAMILIES.compound },
+  { label: 'Adjective & なる',         ops: OP_FAMILIES.adjective },
 ];
 
 export function App() {
