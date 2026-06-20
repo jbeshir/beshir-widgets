@@ -1,8 +1,9 @@
 // @ts-check
-// In-browser importer for the Thing (thing.pennsicuniversity.org) `calendars` CSV export.
-// Reproduces the exact normalization that produced the bundled sessions-2026.json so that an
-// imported schedule is shape-compatible with the bundled data. Pure ESM JS, dependency-free,
-// so it is shared verbatim by the Preact app and the Node test (test/importer.test.mjs).
+// Maintenance normalizer for the Thing (thing.pennsicuniversity.org) `calendars` CSV export.
+// This is a build-time / maintenance tool, NOT part of the shipped bundle: it produces the bundled
+// src/data/sessions-2026.json from a downloaded Thing CSV. Schedule updates are made by re-running
+// this against a fresh export and committing the regenerated JSON — there is no in-app import.
+// Pure ESM JS, dependency-free; covered by the Node test test/importer.test.mjs.
 
 const MONTHS = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
@@ -183,7 +184,7 @@ function hash(str) {
  * Normalize a Thing `calendars` CSV export into the bundled Session schema.
  * @param {string} text - raw CSV text
  * @param {{defaultYear?: number}} [opts]
- * @returns {import('../types').Session[]}
+ * @returns {import('../src/types').Session[]}
  */
 export function normalizeCsv(text, opts = {}) {
   const defaultYear = opts.defaultYear || 2026;
