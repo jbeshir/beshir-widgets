@@ -856,120 +856,237 @@ details[open] .track-legend-summary::before {
 .plan-remove-btn:hover { color: var(--error); border-color: var(--error); }
 .plan-remove-btn:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; }
 
-/* Import/Export */
-.import-export {
-  padding: 20px;
+/* Calendar bar (landing / edit / readonly) */
+.cal-bar {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--tab-border);
 }
 
-.ie-section {
-  margin-bottom: 28px;
-}
-
-.ie-section h2 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 8px;
-  color: var(--fg);
-}
-
-.ie-section p {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 0 0 12px;
-  line-height: 1.6;
-}
-
-.ie-section code {
-  background: var(--code-bg);
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
-.file-pick-row {
+.cal-bar-cta,
+.cal-bar-readonly,
+.cal-bar-row {
   display: flex;
-  gap: 10px;
   align-items: center;
+  gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
 }
 
-.file-pick-btn {
-  padding: 8px 14px;
-  background: var(--pill-bg);
-  border: 1px solid var(--input-border);
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--fg);
-  cursor: pointer;
+.cal-bar-cta-text,
+.cal-bar-readonly-text {
+  flex: 1;
+  min-width: 200px;
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
-.file-pick-btn:hover { border-color: var(--input-focus); }
+.cal-bar-cta-text strong,
+.cal-bar-readonly-text strong { color: var(--fg); }
 
-.csv-textarea {
-  width: 100%;
-  height: 80px;
-  padding: 8px;
-  background: var(--input-bg);
-  color: var(--fg);
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  font-size: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  resize: vertical;
-  outline: none;
-  margin-bottom: 8px;
-}
-
-.csv-textarea:focus {
-  border-color: var(--input-focus);
-  box-shadow: 0 0 0 3px var(--input-focus-ring);
-}
-
-.import-btn {
-  padding: 8px 16px;
+.cal-create-btn {
+  padding: 9px 18px;
   background: var(--input-focus);
   color: #fff;
   border: none;
   border-radius: 8px;
-  font-size: 13.5px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  margin-right: 8px;
+  white-space: nowrap;
 }
 
-.import-btn:hover { filter: brightness(1.1); }
+.cal-create-btn:hover { filter: brightness(1.08); }
+.cal-create-btn:disabled { opacity: 0.6; cursor: progress; }
+.cal-create-btn:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; }
 
-.reset-btn {
-  padding: 8px 14px;
-  background: none;
+.cal-bar-readonly {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.cal-bar-readonly .cal-bar-readonly-text { color: var(--warning); }
+.cal-bar-readonly .cal-bar-readonly-text strong { color: var(--warning); }
+
+.cal-name-input {
+  flex: 1;
+  min-width: 180px;
+  padding: 7px 11px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: 8px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
+  outline: none;
+}
+.cal-name-input:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
 }
 
-.reset-btn:hover { color: var(--fg); border-color: var(--fg); }
-
-.import-feedback {
-  margin-top: 8px;
-  font-size: 13px;
-  padding: 9px 13px;
-  border-radius: 7px;
+.cal-sync {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
+.cal-sync-saved { color: var(--success); background: var(--success-bg); }
+.cal-sync-saving { color: var(--muted); background: var(--pill-bg); }
+.cal-sync-error { color: var(--error); background: var(--conflict-bg); }
 
-.import-feedback.success {
-  color: var(--success);
+.cal-keep-link {
+  margin-top: 12px;
   background: var(--success-bg);
   border: 1px solid var(--success);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.cal-keep-link-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.cal-keep-link-head strong { color: var(--fg); font-size: 14px; }
+.cal-keep-link-note {
+  margin: 6px 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.cal-dismiss {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.cal-dismiss:hover { color: var(--fg); }
+
+.cal-link-grid {
+  display: grid;
+  gap: 8px;
+}
+.cal-link-grid-compact { margin-top: 10px; }
+
+.cal-link-row { display: flex; flex-direction: column; gap: 3px; }
+.cal-link-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.cal-link-field { display: flex; gap: 6px; }
+.cal-link-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--fg-secondary);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 7px;
+  outline: none;
+}
+.cal-copy-btn {
+  padding: 7px 14px;
+  background: var(--pill-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cal-copy-btn:hover { border-color: var(--input-focus); }
+.cal-copy-btn.copied { color: var(--success); border-color: var(--success); }
+.cal-copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* "Your calendars on this device" */
+.device-cals { margin-top: 12px; }
+.device-cals-summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+.device-cals-count { color: var(--muted); font-weight: 400; }
+.device-cals-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0 8px;
+  line-height: 1.5;
+}
+.device-cals-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.device-cal-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+.device-cal-link {
+  flex: 1;
+  min-width: 0;
+  color: var(--input-focus);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-cal-link:hover { text-decoration: underline; }
+.device-cal-mode {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.device-cal-forget,
+.device-cals-clear {
+  background: none;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 9px;
+}
+.device-cal-forget:hover,
+.device-cals-clear:hover { color: var(--error); border-color: var(--error); }
+
+/* Calendar not-found / missing-event messages */
+.cal-message {
+  padding: 40px 24px;
+  text-align: center;
+}
+.cal-message h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--fg);
+}
+.cal-message p {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 auto 16px;
+  max-width: 460px;
+  line-height: 1.6;
 }
 
-.import-feedback.error {
-  color: var(--error);
-  background: var(--conflict-bg);
-  border: 1px solid var(--error-border);
+.lightbox-readonly-note {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
 }
 
 /* About */
@@ -1042,7 +1159,7 @@ details[open] .track-legend-summary::before {
   .tab-btn { transition: color 120ms ease, border-color 120ms ease; }
   .day-tab { transition: background 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease; }
   .session-card { transition: background 100ms ease, border-color 100ms ease, box-shadow 100ms ease; }
-  .import-btn, .plan-export-btn { transition: filter 120ms ease; }
+  .plan-export-btn, .cal-create-btn { transition: filter 120ms ease; }
   .legend-chip { transition: background 100ms ease, border-color 100ms ease; }
   .track-legend-summary::before { transition: transform 120ms ease; }
   .filter-clear-btn { transition: color 120ms ease, border-color 120ms ease; }

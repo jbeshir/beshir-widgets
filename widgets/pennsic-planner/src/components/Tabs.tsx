@@ -1,19 +1,19 @@
-export type TabId = 'timetable' | 'plan' | 'import' | 'about';
+export type TabId = 'timetable' | 'plan' | 'about';
 
 interface Props {
   active: TabId;
   onChange: (tab: TabId) => void;
   planCount: number;
+  planLabel: string;
 }
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'timetable', label: 'Timetable' },
   { id: 'plan', label: 'My Calendar' },
-  { id: 'import', label: 'Import / Export' },
   { id: 'about', label: 'About' },
 ];
 
-export function Tabs({ active, onChange, planCount }: Props) {
+export function Tabs({ active, onChange, planCount, planLabel }: Props) {
   return (
     <nav class="tabs" role="tablist" aria-label="Planner sections">
       {TABS.map((t) => (
@@ -24,7 +24,7 @@ export function Tabs({ active, onChange, planCount }: Props) {
           class={`tab-btn${active === t.id ? ' active' : ''}`}
           onClick={() => onChange(t.id)}
         >
-          {t.id === 'plan' && planCount > 0 ? `${t.label} (${planCount})` : t.label}
+          {t.id === 'plan' ? (planCount > 0 ? `${planLabel} (${planCount})` : planLabel) : t.label}
         </button>
       ))}
     </nav>

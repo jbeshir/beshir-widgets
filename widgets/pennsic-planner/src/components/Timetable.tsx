@@ -11,9 +11,10 @@ interface Props {
   trackColors: Record<string, { l: string; d: string }>;
   selectedDay: string;
   conflicts?: Set<string>;
+  readOnly?: boolean;
 }
 
-export function Timetable({ sessions, planIds, onToggle, onOpenDetail, trackColors, selectedDay, conflicts }: Props) {
+export function Timetable({ sessions, planIds, onToggle, onOpenDetail, trackColors, selectedDay, conflicts, readOnly }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const planSet = useMemo(() => new Set(planIds), [planIds]);
 
@@ -70,6 +71,7 @@ export function Timetable({ sessions, planIds, onToggle, onOpenDetail, trackColo
                   onToggle={() => onToggle(s.id)}
                   onOpenDetail={() => onOpenDetail(s.id)}
                   conflict={conflicts?.has(s.id)}
+                  readOnly={readOnly}
                 />
               ))}
             </div>
