@@ -88,6 +88,11 @@ describe('GET /api/calendar/:id', () => {
     const res = await call('GET', '/api/calendar/does-not-exist');
     expect(res.status).toBe(404);
   });
+
+  it('returns 404 (not 500) for a malformed percent-encoded id', async () => {
+    const res = await call('GET', '/api/calendar/%');
+    expect(res.status).toBe(404);
+  });
 });
 
 describe('PUT /api/calendar/:id', () => {

@@ -42,21 +42,25 @@ interface CalendarRow {
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-    const { pathname } = url;
+    try {
+      const { pathname } = new URL(request.url);
 
-    if (pathname === '/api/calendar' || pathname.startsWith('/api/calendar/')) {
-      return handleCalendarApi(request, env, pathname);
+      if (pathname === '/api/calendar' || pathname.startsWith('/api/calendar/')) {
+        return await handleCalendarApi(request, env, pathname);
+      }
+
+      if (pathname.startsWith('/api/')) {
+        return jsonError(404, 'not_found', 'Unknown API route.');
+      }
+
+      // Non-API requests fall through to the static assets (SPA). With run_worker_first scoped to
+      // /api/*, these normally never reach the Worker, but delegating keeps it correct if they do.
+      if (env.ASSETS) return env.ASSETS.fetch(request);
+      return new Response('Not found', { status: 404 });
+    } catch {
+      // Defense in depth: never surface a bare runtime error (e.g. a D1 failure) to the client.
+      return jsonError(500, 'internal_error', 'Unexpected error.');
     }
-
-    if (pathname.startsWith('/api/')) {
-      return jsonError(404, 'not_found', 'Unknown API route.');
-    }
-
-    // Non-API requests fall through to the static assets (SPA). With run_worker_first scoped to
-    // /api/*, these normally never reach the Worker, but delegating keeps it correct if they do.
-    if (env.ASSETS) return env.ASSETS.fetch(request);
-    return new Response('Not found', { status: 404 });
   },
 };
 
@@ -70,7 +74,12 @@ async function handleCalendarApi(request: Request, env: Env, pathname: string): 
   }
 
   // Item: /api/calendar/:id
-  const id = decodeURIComponent(rest.replace(/^\//, ''));
+  let id: string;
+  try {
+    id = decodeURIComponent(rest.replace(/^\//, ''));
+  } catch {
+    return jsonError(404, 'not_found', 'Unknown calendar route.'); // malformed percent-encoding
+  }
   if (id === '' || id.includes('/')) {
     return jsonError(404, 'not_found', 'Unknown calendar route.');
   }

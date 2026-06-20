@@ -120,7 +120,13 @@ class RemotePlanStore implements PlanStore {
       this.emitSync('error', 'The server rejected the new calendar.');
       return null;
     }
-    const data = (await res.json()) as { id: string; editSecret: string; eventId: string };
+    let data: { id: string; editSecret: string; eventId: string };
+    try {
+      data = (await res.json()) as { id: string; editSecret: string; eventId: string };
+    } catch {
+      this.emitSync('error', 'The server returned an unexpected response.');
+      return null;
+    }
 
     const calendar: ActiveCalendar = {
       id: data.id,
@@ -226,7 +232,10 @@ class RemotePlanStore implements PlanStore {
     }
     if (!res.ok) {
       this.writing = false;
-      this.emitSync('error', 'Save failed.');
+      // A server-side (5xx) failure is transient: keep the edit dirty so flush()/a later change
+      // retries it. A 4xx is our bug or a rejected body — don't loop on it.
+      if (res.status >= 500) this.dirty = true;
+      this.emitSync('error', res.status >= 500 ? 'Save failed — will retry.' : 'Save failed.');
       return;
     }
 

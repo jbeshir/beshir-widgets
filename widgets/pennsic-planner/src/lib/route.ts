@@ -16,11 +16,20 @@ export function parseHash(hash: string): Route {
   const raw = hash.replace(/^#/, '').replace(/^\//, '');
   const parts = raw.split('/').filter((p) => p.length > 0);
   if (parts[0] === 'c' && parts[1]) {
-    const id = decodeURIComponent(parts[1]);
-    if (parts[2]) return { mode: 'edit', id, secret: decodeURIComponent(parts[2]) };
+    const id = safeDecode(parts[1]);
+    if (parts[2]) return { mode: 'edit', id, secret: safeDecode(parts[2]) };
     return { mode: 'readonly', id };
   }
   return { mode: 'landing' };
+}
+
+/** decodeURIComponent that never throws — a malformed hash must not blank the SPA on boot. */
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
 }
 
 export function editHash(id: string, secret: string): string {
