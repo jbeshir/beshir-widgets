@@ -12,6 +12,8 @@ interface Props {
   onToggle: (id: string) => void;
   onNavigate: (id: string) => void;
   onClose: () => void;
+  // When provided, the instructor name becomes a link into the Instructors view (landing/edit only).
+  onViewInstructor?: (name: string) => void;
   readOnly?: boolean;
   addLabel?: string;
 }
@@ -28,6 +30,7 @@ export function SessionDetail({
   onToggle,
   onNavigate,
   onClose,
+  onViewInstructor,
   readOnly,
   addLabel,
 }: Props) {
@@ -153,7 +156,18 @@ export function SessionDetail({
 
           {session.instructor && (
             <div class="lightbox-meta">
-              {session.instructor}
+              {onViewInstructor ? (
+                <button
+                  type="button"
+                  class="lightbox-instructor-link"
+                  aria-label={`View all classes by ${session.instructor}`}
+                  onClick={() => onViewInstructor(session.instructor!)}
+                >
+                  {session.instructor}
+                </button>
+              ) : (
+                session.instructor
+              )}
               {session.instructorKingdom ? ` · ${session.instructorKingdom}` : ''}
             </div>
           )}

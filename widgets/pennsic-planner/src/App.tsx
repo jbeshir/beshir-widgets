@@ -19,6 +19,7 @@ import type { Mode } from './components/CalendarBar';
 import { DayPicker } from './components/DayPicker';
 import { Filters } from './components/Filters';
 import { Timetable } from './components/Timetable';
+import { InstructorsView } from './components/InstructorsView';
 import { MyCalendar } from './components/MyCalendar';
 import { PlanSidebar } from './components/PlanSidebar';
 import { SharedView } from './components/SharedView';
@@ -34,14 +35,6 @@ function getDays(ds: Session[]): string[] {
   const s = new Set<string>();
   for (const r of ds) s.add(r.day);
   return [...s].sort();
-}
-
-function getBusiestDay(ds: Session[]): string {
-  const counts: Record<string, number> = {};
-  for (const s of ds) counts[s.day] = (counts[s.day] ?? 0) + 1;
-  const days = Object.keys(counts).sort();
-  if (days.length === 0) return '';
-  return days.reduce((best, d) => (counts[d] > counts[best] ? d : best), days[0]);
 }
 
 function initialMode(): AppMode {
@@ -60,11 +53,17 @@ export function App() {
 
   // View state — deliberately preserved across mode switches (create / duplicate / hash changes).
   const [activeTab, setActiveTab] = useState<TabId>('timetable');
-  const [selectedDay, setSelectedDay] = useState<string>(() => getBusiestDay(DEFAULT_EVENT.sessions));
+  const [selectedDay, setSelectedDay] = useState<string>(() => {
+    const days = getDays(DEFAULT_EVENT.sessions);
+    const dd = DEFAULT_EVENT.defaultDay;
+    return (dd && days.includes(dd)) ? dd : (days[0] ?? '');
+  });
   const [trackFilter, setTrackFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState('');
   const [textFilter, setTextFilter] = useState('');
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
+  // Deep-link target for the Instructors view, set when an instructor name is activated in the detail.
+  const [selectedInstructor, setSelectedInstructor] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -182,8 +181,12 @@ export function App() {
   useEffect(() => {
     const days = getDays(dataset);
     if (days.length === 0) return;
-    setSelectedDay((prev) => (days.includes(prev) ? prev : getBusiestDay(dataset)));
-  }, [dataset]);
+    setSelectedDay((prev) => {
+      if (days.includes(prev)) return prev;
+      const dd = eventDef?.defaultDay;
+      return (dd && days.includes(dd)) ? dd : (days[0] ?? '');
+    });
+  }, [dataset, eventDef]);
 
   const days = useMemo(() => getDays(dataset), [dataset]);
 
@@ -292,6 +295,12 @@ export function App() {
     if (t) setSelectedDay(t.day);
   }
   function handleCloseDetail() { setOpenSessionId(null); }
+  // Detail → Instructors deep link: close the lightbox, switch tabs, and anchor to the instructor.
+  function handleViewInstructor(name: string) {
+    setOpenSessionId(null);
+    setActiveTab('instructors');
+    setSelectedInstructor(name.trim());
+  }
 
   function goLanding() {
     if (location.hash) location.hash = '';
@@ -421,6 +430,19 @@ export function App() {
               </>
             )}
 
+            {activeTab === 'instructors' && (
+              <InstructorsView
+                sessions={dataset}
+                planIds={planIds}
+                conflicts={conflicts}
+                trackColors={trackColors}
+                onToggle={handleToggle}
+                onOpenDetail={handleOpenDetail}
+                selectedInstructor={selectedInstructor}
+                onSelectInstructor={setSelectedInstructor}
+              />
+            )}
+
             {activeTab === 'plan' && (
               <MyCalendar
                 sessions={planSessions}
@@ -445,6 +467,7 @@ export function App() {
           onToggle={handleToggle}
           onNavigate={handleNavigateDetail}
           onClose={handleCloseDetail}
+          onViewInstructor={readOnly ? undefined : handleViewInstructor}
           readOnly={readOnly}
           addLabel={mode === 'landing' ? 'Add & create calendar' : 'Add to plan'}
         />
