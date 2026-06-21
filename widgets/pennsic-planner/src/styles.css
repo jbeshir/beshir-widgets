@@ -955,7 +955,6 @@ details[open] .track-legend-summary::before {
   display: grid;
   gap: 8px;
 }
-.cal-link-grid-compact { margin-top: 10px; }
 
 .cal-link-row { display: flex; flex-direction: column; gap: 3px; }
 .cal-link-label {
@@ -992,6 +991,45 @@ details[open] .track-legend-summary::before {
 .cal-copy-btn:hover { border-color: var(--input-focus); }
 .cal-copy-btn.copied { color: var(--success); border-color: var(--success); }
 .cal-copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Share control — small button + on-demand popover with the capability links */
+.cal-share-wrap { position: relative; flex-shrink: 0; }
+
+.cal-share-btn {
+  padding: 7px 14px;
+  background: var(--pill-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cal-share-btn:hover { border-color: var(--input-focus); }
+.cal-share-btn:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; }
+
+.cal-share-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  width: min(360px, 86vw);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  padding: 12px 14px;
+}
+
+.cal-share-popover-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.cal-share-popover-head strong { color: var(--fg); font-size: 13.5px; }
 
 /* "Your calendars on this device" */
 .device-cals { margin-top: 12px; }
