@@ -273,7 +273,44 @@ function invertAll(cur: string): Candidate[] {
     if (astem.endsWith('し')) add(astem.slice(0, -1) + 'する', 'must');
     if (astem.endsWith('く')) add(astem.slice(0, -1) + 'い', 'must');
   }
-  if (cur.endsWith('はいけない')) {
+  // なければいけない
+  if (cur.endsWith('なければいけない')) {
+    const astem = cur.slice(0, -8);
+    addMany(fromAStem(astem), 'must-nke-ikenai');
+    if (astem.endsWith('し')) add(astem.slice(0, -1) + 'する', 'must-nke-ikenai');
+    if (astem.endsWith('く')) add(astem.slice(0, -1) + 'い',  'must-nke-ikenai'); // i-adj
+  }
+  // なくてはならない
+  if (cur.endsWith('なくてはならない')) {
+    const astem = cur.slice(0, -8);
+    addMany(fromAStem(astem), 'must-nakutewa-naranai');
+    if (astem.endsWith('し')) add(astem.slice(0, -1) + 'する', 'must-nakutewa-naranai');
+    if (astem.endsWith('く')) add(astem.slice(0, -1) + 'い',  'must-nakutewa-naranai');
+  }
+  // なくてはいけない
+  if (cur.endsWith('なくてはいけない')) {
+    const astem = cur.slice(0, -8);
+    addMany(fromAStem(astem), 'must-nakutewa-ikenai');
+    if (astem.endsWith('し')) add(astem.slice(0, -1) + 'する', 'must-nakutewa-ikenai');
+    if (astem.endsWith('く')) add(astem.slice(0, -1) + 'い',  'must-nakutewa-ikenai');
+  }
+  // なきゃ (standalone casual)
+  if (cur.endsWith('なきゃ')) {
+    const astem = cur.slice(0, -3);
+    addMany(fromAStem(astem), 'must-nakya');
+    if (astem.endsWith('し')) add(astem.slice(0, -1) + 'する', 'must-nakya');
+    if (astem.endsWith('く')) add(astem.slice(0, -1) + 'い',  'must-nakya');
+  }
+  // なくちゃ (standalone casual)
+  if (cur.endsWith('なくちゃ')) {
+    const astem = cur.slice(0, -4);
+    addMany(fromAStem(astem), 'must-nakucha');
+    if (astem.endsWith('し')) add(astem.slice(0, -1) + 'する', 'must-nakucha');
+    if (astem.endsWith('く')) add(astem.slice(0, -1) + 'い',  'must-nakucha');
+  }
+  if (cur.endsWith('はいけない')
+      && !cur.endsWith('ければいけない')
+      && !cur.endsWith('なくてはいけない')) {
     const teStr = cur.slice(0, -5);
     const last = teStr.slice(-1);
     if (last === 'て' || last === 'で') for (const d of invertTe(teStr)) add(d, 'must-not');
@@ -505,8 +542,8 @@ function invertAll(cur: string): Candidate[] {
   if (cur.endsWith('になる')) {
     add(cur.slice(0, -3), 'naru');
   }
-  if (cur.endsWith('なる') && !cur.endsWith('くなる') && !cur.endsWith('になる')) {
-    // adverbial (ends in く) + なる → strip なる → adverbial form
+  if (cur.endsWith('なる') && !cur.endsWith('くなる') && !cur.endsWith('になる')
+      && cur.slice(0, -2).endsWith('く')) {
     add(cur.slice(0, -2), 'naru');
   }
 
@@ -705,6 +742,13 @@ function expandColloquialTeIru(s: string): string | null {
   return s.slice(0, idx) + m[1] + 'い' + m[2];
 }
 
+function expandCasualObligation(s: string): string | null {
+  // only when a consequence follows (bare なきゃ/なくちゃ stay standalone ops)
+  if (/なきゃ(いけない|ならない)$/.test(s))  return s.replace(/なきゃ(?=(いけない|ならない)$)/,  'なければ');
+  if (/なくちゃ(いけない|ならない)$/.test(s)) return s.replace(/なくちゃ(?=(いけない|ならない)$)/, 'なくては');
+  return null;
+}
+
 function calcScore(base: DictEntry, ops: OpId[]): number {
   let s = 0;
   if (base.common) s += 4;
@@ -804,6 +848,14 @@ export function deconjugate(input: string, corpus: DeconjCorpus): Parse[] {
   const expanded = expandColloquialTeIru(cur0);
   if (expanded !== null && expanded !== cur0) {
     recurse(expanded, [], 0, expanded, new Set(), -3);
+  }
+
+  // Pass 3: casual obligation contraction (なきゃ/なくちゃ + consequence) → formal keystone.
+  // Penalised by -3 so it never outranks an exact pass-1 parse; standalone なきゃ/なくちゃ
+  // (no consequence) are NOT expanded and stay their exact ops.
+  const expandedOb = expandCasualObligation(cur0);
+  if (expandedOb !== null && expandedOb !== cur0) {
+    recurse(expandedOb, [], 0, expandedOb, new Set(), -3);
   }
 
   return results.sort((a, b) => b.score - a.score);

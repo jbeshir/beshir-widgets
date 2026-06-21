@@ -159,5 +159,21 @@
   {"verb":"する","class":"suru","ops":["hajimeru"],"expectedKana":"しはじめる","expectedRomaji":"shihajimeru"},
   {"verb":"来る","class":"kuru","ops":["hajimeru"],"expectedKana":"来はじめる","expectedRomaji":"kihajimeru"},
   {"verb":"行く","class":"godan-iku","ops":["hajimeru"],"expectedKana":"行きはじめる","expectedRomaji":"ikihajimeru"},
-  {"verb":"書く","class":"godan-k","ops":["dasu"],"expectedKana":"書きだす","expectedRomaji":"kakidasu"}
+  {"verb":"書く","class":"godan-k","ops":["dasu"],"expectedKana":"書きだす","expectedRomaji":"kakidasu"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nke-ikenai"],"expectedKana":"飲まなければいけない","expectedRomaji":"nomanakerebaikenai"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nke-ikenai","past"],"expectedKana":"飲まなければいけなかった","expectedRomaji":"nomanakerebaikenakatta"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nke-ikenai","polite"],"expectedKana":"飲まなければいけません","expectedRomaji":"nomanakerebaikemasen"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nke-ikenai","polite","past"],"expectedKana":"飲まなければいけませんでした","expectedRomaji":"nomanakerebaikemasendeshita"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nakutewa-naranai"],"expectedKana":"飲まなくてはならない","expectedRomaji":"nomanakutehanaranai"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nakutewa-naranai","polite"],"expectedKana":"飲まなくてはなりません","expectedRomaji":"nomanakutehanarimasen"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nakutewa-ikenai"],"expectedKana":"飲まなくてはいけない","expectedRomaji":"nomanakutehaikenai"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nakutewa-ikenai","past"],"expectedKana":"飲まなくてはいけなかった","expectedRomaji":"nomanakutehaikenakatta"},
+  {"verb":"食べる","class":"ichidan","ops":["must-nke-ikenai"],"expectedKana":"食べなければいけない","expectedRomaji":"tabenakerebaikenai"},
+  {"verb":"する","class":"suru","ops":["must-nakutewa-ikenai"],"expectedKana":"しなくてはいけない","expectedRomaji":"shinakutehaikenai"},
+  {"verb":"来る","class":"kuru","ops":["must-nke-ikenai"],"expectedKana":"来なければいけない","expectedRomaji":"konakerebaikenai"},
+  {"verb":"行く","class":"godan-iku","ops":["must-nakutewa-naranai"],"expectedKana":"行かなくてはならない","expectedRomaji":"ikanakutehanaranai"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nakya"],"expectedKana":"飲まなきゃ","expectedRomaji":"nomanakya"},
+  {"verb":"飲む","class":"godan-m","ops":["must-nakucha"],"expectedKana":"飲まなくちゃ","expectedRomaji":"nomanakucha"},
+  {"verb":"する","class":"suru","ops":["must-nakya"],"expectedKana":"しなきゃ","expectedRomaji":"shinakya"},
+  {"verb":"食べる","class":"ichidan","ops":["must-nakucha"],"expectedKana":"食べなくちゃ","expectedRomaji":"tabenakucha"}
 ]
