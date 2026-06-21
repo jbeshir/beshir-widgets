@@ -8,8 +8,8 @@
   --muted: #64748b;
   --input-bg: #ffffff;
   --input-border: #cbd5e1;
-  --input-focus: #2563eb;
-  --input-focus-ring: rgba(37, 99, 235, 0.2);
+  --input-focus: #9d2235;
+  --input-focus-ring: rgba(157, 34, 53, 0.2);
   --error: #b91c1c;
   --error-border: #dc2626;
   --code-bg: #f1f5f9;
@@ -22,8 +22,9 @@
   --conflict-bg: #fef2f2;
   --pill-bg: #f1f5f9;
   --pill-hover: #e2e8f0;
-  --pill-active-bg: #2563eb;
+  --pill-active-bg: #9d2235;
   --pill-active-fg: #ffffff;
+  --accent-fill: #9d2235;
   --tab-border: #e2e8f0;
 }
 
@@ -38,8 +39,8 @@
     --muted: #94a3b8;
     --input-bg: #0f172a;
     --input-border: #334155;
-    --input-focus: #60a5fa;
-    --input-focus-ring: rgba(96, 165, 250, 0.25);
+    --input-focus: #ff8097;
+    --input-focus-ring: rgba(255, 128, 151, 0.25);
     --error: #fca5a5;
     --error-border: #ef4444;
     --code-bg: #1e293b;
@@ -52,8 +53,9 @@
     --conflict-bg: #1f0707;
     --pill-bg: #1e293b;
     --pill-hover: #253347;
-    --pill-active-bg: #3b82f6;
+    --pill-active-bg: #b02a3e;
     --pill-active-fg: #ffffff;
+    --accent-fill: #b02a3e;
     --tab-border: #1e2d3d;
   }
 }
@@ -220,13 +222,13 @@ body {
   background: var(--pill-active-bg);
   color: var(--pill-active-fg);
   border-color: transparent;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 2px 8px rgba(157, 34, 53, 0.4);
   font-weight: 600;
 }
 
 @media (prefers-color-scheme: dark) {
   .day-tab.active {
-    box-shadow: 0 2px 8px rgba(96, 165, 250, 0.35);
+    box-shadow: 0 2px 8px rgba(255, 128, 151, 0.35);
   }
 }
 
@@ -740,7 +742,7 @@ details[open] .track-legend-summary::before {
 
 .plan-export-btn {
   padding: 8px 16px;
-  background: var(--input-focus);
+  background: var(--accent-fill);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -866,7 +868,7 @@ details[open] .track-legend-summary::before {
 
 .cal-create-btn {
   padding: 9px 18px;
-  background: var(--input-focus);
+  background: var(--accent-fill);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -1561,9 +1563,9 @@ details[open] .track-legend-summary::before {
 .lightbox-primary {
   width: 100%;
   padding: 10px 16px;
-  background: var(--input-focus);
+  background: var(--accent-fill);
   color: #fff;
-  border: 2px solid var(--input-focus);
+  border: 2px solid var(--accent-fill);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;

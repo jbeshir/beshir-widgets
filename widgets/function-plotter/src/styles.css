@@ -7,11 +7,11 @@
   --muted: #64748b;
   --input-bg: #ffffff;
   --input-border: #cbd5e1;
-  --input-focus: #2563eb;
-  --input-focus-ring: rgba(37, 99, 235, 0.25);
+  --input-focus: #9d2235;
+  --input-focus-ring: rgba(157, 34, 53, 0.25);
   --error: #b91c1c;
   --error-border: #dc2626;
-  --curve: #2563eb;
+  --curve: #9d2235;
   --axis: #94a3b8;
   --code-bg: #f1f5f9;
 }
@@ -26,11 +26,11 @@
     --muted: #94a3b8;
     --input-bg: #0f172a;
     --input-border: #334155;
-    --input-focus: #60a5fa;
-    --input-focus-ring: rgba(96, 165, 250, 0.3);
+    --input-focus: #ff8097;
+    --input-focus-ring: rgba(255, 128, 151, 0.3);
     --error: #fca5a5;
     --error-border: #ef4444;
-    --curve: #60a5fa;
+    --curve: #ff8097;
     --axis: #64748b;
     --code-bg: #1f2937;
   }

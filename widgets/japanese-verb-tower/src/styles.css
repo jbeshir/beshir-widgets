@@ -6,22 +6,22 @@
   --card-shadow:      0 1px 3px rgba(15,23,42,.06), 0 12px 32px rgba(15,23,42,.09);
   --fg:               #0f172a;
   --muted:            #5a6a7e;
-  --input-focus:      #2563eb;
-  --input-focus-ring: rgba(37,99,235,.22);
+  --input-focus:      #9d2235;
+  --input-focus-ring: rgba(157,34,53,.22);
   --chip-bg:          #f1f5f9;
   --chip-border:      #e2e8f0;
-  --chip-active-bg:   #1d4ed8;
+  --chip-active-bg:   #7a1626;
   --chip-active-fg:   #ffffff;
-  --chip-active-brd:  #1e40af;
+  --chip-active-brd:  #5e0f1c;
   --tier-bg:          #ffffff;
   --tier-border:      #e2e8f0;
-  --tier-top-bg:      #eff6ff;
-  --tier-top-border:  #60a5fa;
+  --tier-top-bg:      #fbeaed;
+  --tier-top-border:  #d2677a;
   --tier-base-bg:     #f8fafc;
   --hl-bg:            #fef08a;
   --hl-fg:            #78350f;
   --hl-border:        #fcd34d;
-  --conn-color:       #93c5fd;
+  --conn-color:       #e59aa6;
   --label-bg:         #f1f5f9;
   --note-bg:          #fefce8;
   --note-border:      #fde047;
@@ -37,22 +37,22 @@
     --card-shadow:      0 1px 3px rgba(0,0,0,.5), 0 12px 32px rgba(0,0,0,.6);
     --fg:               #e2e8f0;
     --muted:            #94a3b8;
-    --input-focus:      #60a5fa;
-    --input-focus-ring: rgba(96,165,250,.3);
+    --input-focus:      #ff8097;
+    --input-focus-ring: rgba(255,128,151,.3);
     --chip-bg:          #1e2d3d;
     --chip-border:      #2d3f52;
-    --chip-active-bg:   #2563eb;
+    --chip-active-bg:   #b02a3e;
     --chip-active-fg:   #ffffff;
-    --chip-active-brd:  #3b82f6;
+    --chip-active-brd:  #c0405a;
     --tier-bg:          #1a2738;
     --tier-border:      #253447;
-    --tier-top-bg:      #1a3252;
-    --tier-top-border:  #3b82f6;
+    --tier-top-bg:      #3a1620;
+    --tier-top-border:  #c0405a;
     --tier-base-bg:     #141f2d;
     --hl-bg:            #92400e;
     --hl-fg:            #fef3c7;
     --hl-border:        #b45309;
-    --conn-color:       #2d5ca8;
+    --conn-color:       #8a3a48;
     --label-bg:         #1e2d3d;
     --note-bg:          #1c1a10;
     --note-border:      #ca8a04;
@@ -150,7 +150,7 @@ body {
   background: var(--chip-active-bg);
   border-color: var(--chip-active-brd);
   color: var(--chip-active-fg);
-  box-shadow: 0 1px 4px rgba(29,78,216,.35);
+  box-shadow: 0 1px 4px rgba(122,22,38,.35);
 }
 
 .verb-chip-kanji {
