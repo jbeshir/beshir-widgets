@@ -34,6 +34,14 @@ const msgsEmpty = buildTranslateMessages('drink', [], 'のむ');
 assert(msgsEmpty[1].content.includes('drink'), 'empty features: user message includes base');
 assert(msgsEmpty[1].content.includes('のむ'), 'empty features: user message includes form');
 
+// Empty base (e.g. a URL-restored verb before its gloss is filled): the base-meaning
+// line is omitted, but form + features are still present.
+const msgsNoBase = buildTranslateMessages('', ['can', 'past', 'when/if'], 'かえたら');
+assert(msgsNoBase.length === 2, 'empty base: returns 2 messages');
+assert(!msgsNoBase[1].content.includes('Base meaning:'), 'empty base: base-meaning line omitted');
+assert(msgsNoBase[1].content.includes('can · past · when/if'), 'empty base: features present');
+assert(msgsNoBase[1].content.includes('かえたら'), 'empty base: form present');
+
 // ── cleanTranslation ──────────────────────────────────────────────────────────
 
 assert(cleanTranslation('  had to drink  ') === 'had to drink', 'trims surrounding whitespace');

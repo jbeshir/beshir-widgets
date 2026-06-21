@@ -43,6 +43,15 @@ function writeState(verb: Verb, ops: OpId[]): void {
 
 const INITIAL_STATE = readInitialState();
 const FEATURED: Verb[] = FEATURED_KANJI.map(k => makeVerb(SAMPLE.find(e => e.k === k)!));
+
+// A URL-restored verb carries no gloss (the URL encodes only kanji/kana/class),
+// so re-derive it from the corpus by matching kanji+kana; leave it untouched if
+// the gloss is already present or the verb isn't in the loaded data yet.
+function withGloss(verb: Verb, entries: DictEntry[]): Verb {
+  if (verb.gloss) return verb;
+  const e = entries.find(x => x.k === verb.kanji && x.r === verb.kana);
+  return e ? makeVerb(e) : verb;
+}
 const DEFAULT_VERB = FEATURED.find(v => v.kanji === '飲む') ?? FEATURED[0];
 
 function buildByReading(data: DictEntry[]): Map<string, Verb[]> {
@@ -193,7 +202,9 @@ const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
 ].map(g => ({ ...g, ops: g.ops.filter(op => !HIDDEN_OPS.has(op)) }));
 
 export function App() {
-  const [selectedVerb, setSelectedVerb] = useState<Verb>(INITIAL_STATE?.verb ?? DEFAULT_VERB);
+  const [selectedVerb, setSelectedVerb] = useState<Verb>(
+    INITIAL_STATE ? withGloss(INITIAL_STATE.verb, SAMPLE) : DEFAULT_VERB,
+  );
   const [stack, setStack]               = useState<OpId[]>(INITIAL_STATE?.ops ?? []);
   const [addLayerOpen, setAddLayerOpen] = useState(false);
   const [ready, setReady]               = useState(false);
@@ -229,6 +240,11 @@ export function App() {
   }, []);
 
   useEffect(() => { setReady(true); }, []);
+
+  // Once the full corpus loads, fill a URL-restored verb's missing gloss.
+  useEffect(() => {
+    setSelectedVerb(v => (v.gloss ? v : withGloss(v, allEntries)));
+  }, [allEntries]);
 
   useEffect(() => {
     writeState(selectedVerb, stack);
