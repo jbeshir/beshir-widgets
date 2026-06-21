@@ -33,11 +33,11 @@ After causative or any voice layer, the working class becomes **ichidan** for ev
 | 待つ | まつ | matsu | godan | wait |
 | 泳ぐ | およぐ | oyogu | godan | swim |
 | 食べる | たべる | taberu | ichidan | eat |
-| 見る | みる | miru | ichidan | see |
+| 帰る | かえる | kaeru | godan | return |
 | する | する | suru | irregular | do |
 | 来る | くる | kuru | irregular | come |
 
-Notable edge cases covered: 行く→行った (irregular て-form), 買う→買わない (わ-stem, not あ-stem), する→できる (suppletive potential), 来る reading shift (こ/き).
+Notable edge cases covered: 行く→行った (irregular て-form), 買う→買わない (わ-stem, not あ-stem), 帰る (looks ichidan but conjugates godan: 帰らない／帰った), する→できる (suppletive potential), 来る reading shift (こ/き).
 
 ## Enforced ordering rules
 
@@ -100,7 +100,7 @@ The add-layer dropdown shows a brief English meaning beside each entry (e.g. "be
 The "Composition order" legend carries the subtitle "each active slot adds a helper word (助動詞)" to surface the agglutination model: a Japanese conjugated form is the root verb plus a stack of auxiliaries, each attaching to a specific stem of the preceding form and conjugating independently.
 
 Teaching notes:
-- **Ichidan passive ≈ potential:** For ichidan verbs (食べる, 見る) the passive and potential are the same surface form (食べられる). Godan verbs use the dedicated e-row for potential (飲める) and れる for passive (飲まれる).
+- **Ichidan passive ≈ potential:** For ichidan verbs (食べる) the passive and potential are the same surface form (食べられる). Godan verbs use the dedicated e-row for potential (飲める) and れる for passive (飲まれる).
 - **ない is an adjective:** Plain negative inflects as an い-adjective — negative-past stacks as なかった, not ×ないた.
 - **ある's suppletive negative:** ある → ない (not あらない), shown as a contextual note when ある is selected with Negative on.
 - **〜てください is a request:** Like 〜てはいけない, the polite request builds on the **連用形-て (te-form)** + ください (待ってください = "please wait"). It is terminal — nothing stacks on top. The casual request simply drops ください, leaving the bare て-form (待って!).
