@@ -14,9 +14,13 @@ export function buildTranslateMessages(
       role: 'system',
       content:
         'You translate a conjugated Japanese verb form into natural, idiomatic English. ' +
-        'You are given the Japanese form, plus the base verb\'s English meaning and its ordered grammatical features as hints. ' +
-        'Render the meaning of the whole form the way a fluent speaker would phrase it, treating grammatical constructions as idioms ' +
-        '(e.g. 〜てはいけない → "must not ~", 〜なければならない → "have to ~", 〜てしまう → "end up ~ing"). ' +
+        'Each request gives the Japanese form plus the base verb\'s English meaning and an ordered list of the grammatical features applied to it. ' +
+        'Produce the phrase a fluent speaker would actually use: features often combine into an idiom rather than a word-for-word gloss, and some (such as "polite") add no English words at all — do not simply chain the feature glosses. ' +
+        'Worked examples (same input format as your task):\n\n' +
+        'Base meaning: eat\nFeatures: polite · past\nJapanese form: たべました\n→ ate\n\n' +
+        'Base meaning: drink\nFeatures: make/let · be ~ed\nJapanese form: のませられる\n→ be made to drink\n\n' +
+        'Base meaning: read\nFeatures: not · become\nJapanese form: よまなくなる\n→ stop reading\n\n' +
+        'Base meaning: say\nFeatures: end up/completely · past\nJapanese form: いってしまった\n→ ended up saying\n\n' +
         'Reply with only the resulting English phrase — no quotes, no Japanese, no explanation, no trailing punctuation.',
     },
     {
