@@ -148,6 +148,104 @@ for (const entry of entries) {
       errors.push(`${slug}: wrangler.assets.directory "${wrangler.assets.directory}" normalises to "${normalized}" but widget.outputDirectory is "${widget.outputDirectory}"`);
     }
   }
+
+  // Optional journey.json sidecar (the interaction/UX testing spec — see TESTING.md).
+  // Absent = the widget skips the journey gate; present = validate its shape.
+  const journeyPath = path.join(widgetPath, 'journey.json');
+  if (fs.existsSync(journeyPath)) {
+    let journey;
+    try {
+      journey = JSON.parse(fs.readFileSync(journeyPath, 'utf8'));
+    } catch (e) {
+      errors.push(`${slug}: failed to parse journey.json: ${e.message}`);
+      journey = null;
+    }
+    if (journey !== null) {
+      const isStr = (v) => typeof v === 'string' && v.length > 0;
+      const viewportRe = /^[a-z0-9-]+:\d+x\d+$/;
+      const validSchemes = ['light', 'dark'];
+
+      const matrix = journey.matrix;
+      if (matrix === null || typeof matrix !== 'object') {
+        errors.push(`${slug}: journey.matrix must be an object`);
+      } else {
+        if (!Array.isArray(matrix.viewports) || matrix.viewports.length === 0) {
+          errors.push(`${slug}: journey.matrix.viewports must be a non-empty array`);
+        } else {
+          for (const vp of matrix.viewports) {
+            if (!isStr(vp) || !viewportRe.test(vp)) {
+              errors.push(`${slug}: journey.matrix.viewports entry "${vp}" must match label:WIDTHxHEIGHT (e.g. "mobile:390x844")`);
+            }
+          }
+        }
+        if (!Array.isArray(matrix.schemes) || matrix.schemes.length === 0) {
+          errors.push(`${slug}: journey.matrix.schemes must be a non-empty array`);
+        } else {
+          for (const sc of matrix.schemes) {
+            if (!validSchemes.includes(sc)) {
+              errors.push(`${slug}: journey.matrix.schemes entry "${sc}" must be one of light|dark`);
+            }
+          }
+        }
+      }
+
+      if (!Array.isArray(journey.states) || journey.states.length === 0) {
+        errors.push(`${slug}: journey.states must be a non-empty array`);
+      } else {
+        const seenLabels = new Set();
+        // One recognised key per step, with its expected payload shape.
+        const stepCheck = {
+          click: (v) => isStr(v),
+          clickRole: (v) => v !== null && typeof v === 'object' && isStr(v.role) && (v.name === undefined || isStr(v.name)),
+          fill: (v, step) => isStr(v) && typeof step.value === 'string',
+          press: (v) => isStr(v),
+          hover: (v) => isStr(v),
+          waitFor: (v) => isStr(v),
+          eval: (v) => isStr(v),
+        };
+        journey.states.forEach((state, i) => {
+          const where = `journey.states[${i}]`;
+          if (state === null || typeof state !== 'object') {
+            errors.push(`${slug}: ${where} must be an object`);
+            return;
+          }
+          if (!isStr(state.label)) {
+            errors.push(`${slug}: ${where}.label must be a non-empty string`);
+          } else if (seenLabels.has(state.label)) {
+            errors.push(`${slug}: ${where}.label "${state.label}" is duplicated (labels must be unique)`);
+          } else {
+            seenLabels.add(state.label);
+          }
+          const lbl = isStr(state.label) ? state.label : `#${i}`;
+          if (!Array.isArray(state.steps)) {
+            errors.push(`${slug}: state "${lbl}" steps must be an array`);
+          } else {
+            state.steps.forEach((step, j) => {
+              if (step === null || typeof step !== 'object' || Array.isArray(step)) {
+                errors.push(`${slug}: state "${lbl}" step[${j}] must be an object`);
+                return;
+              }
+              const keys = Object.keys(step).filter((k) => k !== 'value');
+              if (keys.length !== 1 || !(keys[0] in stepCheck)) {
+                errors.push(`${slug}: state "${lbl}" step[${j}] must have exactly one action key from click|clickRole|fill|press|hover|waitFor|eval`);
+                return;
+              }
+              const k = keys[0];
+              if (!stepCheck[k](step[k], step)) {
+                errors.push(`${slug}: state "${lbl}" step[${j}] "${k}" has an invalid payload`);
+              }
+            });
+          }
+          const exp = state.expect;
+          if (exp === null || typeof exp !== 'object') {
+            errors.push(`${slug}: state "${lbl}" expect must be an object`);
+          } else if (!(isStr(exp.state) || isStr(exp.selector))) {
+            errors.push(`${slug}: state "${lbl}" expect must have a non-empty "state" or "selector" string`);
+          }
+        });
+      }
+    }
+  }
 }
 
 if (errors.length > 0) {
