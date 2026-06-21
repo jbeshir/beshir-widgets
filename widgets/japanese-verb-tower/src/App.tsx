@@ -217,9 +217,12 @@ export function App() {
   const [bdParses, setBdParses]         = useState<Parse[] | null>(null);
   const [translation, setTranslation]   = useState<string | null>(null);
   const [translating, setTranslating]   = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const menuRef      = useRef<HTMLDivElement>(null);
-  const byReadingRef = useRef(buildByReading(SAMPLE));
+  const containerRef    = useRef<HTMLDivElement>(null);
+  const menuRef         = useRef<HTMLDivElement>(null);
+  const addLayerBtnRef  = useRef<HTMLButtonElement>(null);
+  const buildTabRef     = useRef<HTMLButtonElement>(null);
+  const breakdownTabRef = useRef<HTMLButtonElement>(null);
+  const byReadingRef    = useRef(buildByReading(SAMPLE));
 
   // Adjectives are included in the breakdown corpus only — not in build-mode search.
   const corpus = useMemo(
@@ -272,6 +275,31 @@ export function App() {
     return () => document.removeEventListener('mousedown', handler);
   }, [addLayerOpen]);
 
+  useEffect(() => {
+    if (!addLayerOpen || !menuRef.current) return;
+    const first = menuRef.current.querySelector<HTMLButtonElement>('.layer-menu-item:not(:disabled)');
+    first?.focus();
+  }, [addLayerOpen]);
+
+  function handleMenuKeyDown(e: KeyboardEvent) {
+    if (!menuRef.current) return;
+    const items = Array.from(
+      menuRef.current.querySelectorAll<HTMLButtonElement>('.layer-menu-item:not(:disabled)')
+    );
+    const idx = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setAddLayerOpen(false);
+      addLayerBtnRef.current?.focus();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items[(idx + 1) % items.length]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(idx - 1 + items.length) % items.length]?.focus();
+    }
+  }
+
   const tower: Tier[] = useMemo(
     () => buildTower(selectedVerb, stack),
     [selectedVerb, stack],
@@ -281,6 +309,9 @@ export function App() {
   const features = useMemo(() => stack.map(o => OP_SENSE[o]), [stack]);
 
   useEffect(() => {
+    if (typeof location !== 'undefined' && location.protocol === 'file:') {
+      setTranslation(null); setTranslating(false); return;
+    }
     if (stack.length === 0 || !topForm) { setTranslation(null); setTranslating(false); return; }
     const base = selectedVerb.gloss;
     const cached = peekTranslation({ base, form: topForm });
@@ -454,30 +485,56 @@ export function App() {
           <p class="hint">Pick a verb, build up layers — watch the form type change with each step.</p>
         </header>
 
-        <div class="mode-toggle" role="tablist" aria-label="Widget mode">
+        <div
+          class="mode-toggle"
+          role="tablist"
+          aria-label="Widget mode"
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              e.preventDefault();
+              if (mode === 'build') {
+                setMode('breakdown');
+                breakdownTabRef.current?.focus();
+              } else {
+                setMode('build');
+                buildTabRef.current?.focus();
+              }
+            }
+          }}
+        >
           <button
+            id="tab-build"
+            ref={buildTabRef}
             class={`mode-btn${mode === 'build' ? ' mode-btn--active' : ''}`}
             role="tab"
             aria-selected={mode === 'build'}
+            aria-controls="panel-build"
+            tabIndex={mode === 'build' ? 0 : -1}
             onClick={() => setMode('build')}
             data-testid="mode-build"
           >Build</button>
           <button
+            id="tab-breakdown"
+            ref={breakdownTabRef}
             class={`mode-btn${mode === 'breakdown' ? ' mode-btn--active' : ''}`}
             role="tab"
             aria-selected={mode === 'breakdown'}
+            aria-controls="panel-breakdown"
+            tabIndex={mode === 'breakdown' ? 0 : -1}
+            title="Paste a conjugated form — we'll reverse-engineer the base verb and each step"
             onClick={() => setMode('breakdown')}
             data-testid="mode-breakdown"
           >Break down</button>
         </div>
 
         {mode === 'build' ? (
-          <>
+          <div id="panel-build" role="tabpanel" aria-labelledby="tab-build" tabIndex={0}>
             <div class="search-section">
               <div class="search-box-wrap">
                 <input
                   class="search-input"
                   type="search"
+                  role="combobox"
                   placeholder="Type a verb — romaji (nomu, taberu, benkyou suru) or kana/kanji"
                   value={query}
                   onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
@@ -496,14 +553,14 @@ export function App() {
               {trimmedQuery && (
                 <div id="search-results" class="search-results" role="listbox" aria-label="Search results" data-testid="search-results">
                   {searchResults.length === 0 ? (
-                    <div class="search-no-match" data-testid="search-no-match">No matches</div>
+                    <div class="search-no-match" data-testid="search-no-match">No matches — try romaji (taberu, nomu) or kana/kanji</div>
                   ) : (
                     searchResults.map((e) => (
                       <button
                         key={e.k + '\0' + e.r}
                         class="search-result"
                         role="option"
-                        aria-selected="false"
+                        aria-selected={e.k === selectedVerb.kanji && e.r === selectedVerb.kana}
                         onClick={() => selectVerb(makeVerb(e))}
                       >
                         <span class="search-result-kanji jp">{e.k}</span>
@@ -538,9 +595,9 @@ export function App() {
                 </button>
               ))}
             </div>
-          </>
+          </div>
         ) : (
-          <div class="breakdown-section">
+          <div id="panel-breakdown" role="tabpanel" aria-labelledby="tab-breakdown" tabIndex={0} class="breakdown-section">
             <p class="hint">Enter a conjugated form (romaji, kana, or kanji) to identify the base verb and conjugation.</p>
             <div class="breakdown-input-row">
               <input
@@ -558,7 +615,7 @@ export function App() {
                 onClick={runBreakdown}
                 disabled={!bdInput.trim()}
                 data-testid="breakdown-run"
-              >Break down</button>
+              >Analyse</button>
             </div>
             {dictLoading && (
               <span class="dict-hint dict-hint--loading" aria-live="polite">loading full dictionary…</span>
@@ -599,7 +656,7 @@ export function App() {
 
         <div class="card-body">
           <div class="card-controls">
-            <div class="controls" aria-label="Conjugation layer toggles">
+            <div class="controls" role="group" aria-label="Conjugation layer toggles">
 
               <label class={`toggle-row${opDisabled('causative') ? ' toggle-row--disabled' : ''}`}>
                 <input
@@ -680,7 +737,7 @@ export function App() {
               </label>
             </div>
 
-            <div class="slot-legend" aria-label="Current op stack">
+            <div class="slot-legend" role="status" aria-live="polite" aria-label="Current op stack">
               <div class="slot-legend-title">
                 Op stack
                 <span class="slot-legend-sub">active layers (innermost → outermost)</span>
@@ -711,6 +768,7 @@ export function App() {
               ) : (
                 <>
                   <button
+                    ref={addLayerBtnRef}
                     class={`add-layer-btn${addLayerOpen ? ' add-layer-btn--open' : ''}`}
                     onClick={() => setAddLayerOpen(o => !o)}
                     aria-expanded={addLayerOpen}
@@ -718,7 +776,7 @@ export function App() {
                     aria-label="Add conjugation layer"
                   >＋ add layer</button>
                   {addLayerOpen && (
-                    <div class="layer-menu" role="menu" aria-label="Conjugation layers">
+                    <div class="layer-menu" role="menu" aria-label="Conjugation layers" onKeyDown={handleMenuKeyDown}>
                       {MENU_GROUPS.map(group => (
                         <div key={group.label} class="layer-menu-group">
                           <div class="layer-menu-group-label">{group.label}</div>
