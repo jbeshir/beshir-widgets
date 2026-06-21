@@ -149,6 +149,30 @@ for (const entry of entries) {
     }
   }
 
+  // Favicon assertions: index.html must reference both icon files, and the
+  // referenced files must exist in public/ so Vite copies them into dist/.
+  const indexHtmlPath = path.join(widgetPath, 'index.html');
+  let indexHtml;
+  try {
+    indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  } catch (e) {
+    errors.push(`${slug}: failed to read index.html: ${e.message}`);
+  }
+  if (indexHtml !== undefined) {
+    const icons = [
+      { rel: 'svg favicon', re: /<link[^>]*rel="icon"[^>]*type="image\/svg\+xml"[^>]*href="\.\/favicon\.svg"/, file: 'public/favicon.svg' },
+      { rel: 'ico favicon', re: /<link[^>]*rel="icon"[^>]*href="\.\/favicon\.ico"/, file: 'public/favicon.ico' },
+    ];
+    for (const icon of icons) {
+      if (!icon.re.test(indexHtml)) {
+        errors.push(`${slug}: index.html is missing the ${icon.rel} <link> (href="./${path.basename(icon.file)}")`);
+      }
+      if (!fs.existsSync(path.join(widgetPath, icon.file))) {
+        errors.push(`${slug}: ${icon.file} does not exist`);
+      }
+    }
+  }
+
   // Optional journey.json sidecar (the interaction/UX testing spec — see TESTING.md).
   // Absent = the widget skips the journey gate; present = validate its shape.
   const journeyPath = path.join(widgetPath, 'journey.json');

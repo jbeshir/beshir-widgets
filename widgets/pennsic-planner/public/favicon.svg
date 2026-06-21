@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Pennsic Planner">
+  <style>
+    .t0 { stop-color: #a4243b }
+    .t1 { stop-color: #7d1b2b }
+    .gl { fill: #fdf2e0 }
+    .gold { fill: #f1c453; stroke: #f1c453 }
+    @media (prefers-color-scheme: dark) {
+      .t0 { stop-color: #c33049 }
+      .t1 { stop-color: #8f2030 }
+      .gl { fill: #fff4e2 }
+      .gold { fill: #ffd166; stroke: #ffd166 }
+    }
+  </style>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="t0" />
+      <stop offset="1" class="t1" />
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#tile)" />
+  <line class="gold" x1="16" y1="5.5" x2="16" y2="9" stroke-width="1.3" stroke-linecap="round" />
+  <path class="gold" d="M16 6 L20 7 L16 8.6 Z" stroke="none" />
+  <path class="gl" d="M16 8.8 L25.5 23.5 H6.5 Z" />
+  <path class="gold" d="M16 14.5 L20 23.5 H12 Z" stroke="none" />
+</svg>

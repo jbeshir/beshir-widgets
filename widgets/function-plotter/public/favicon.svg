@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Function Plotter">
+  <style>
+    .t0 { stop-color: #a4243b }
+    .t1 { stop-color: #7d1b2b }
+    .gl { stroke: #fdf2e0 }
+    .gold { fill: #f1c453 }
+    @media (prefers-color-scheme: dark) {
+      .t0 { stop-color: #c33049 }
+      .t1 { stop-color: #8f2030 }
+      .gl { stroke: #fff4e2 }
+      .gold { fill: #ffd166 }
+    }
+  </style>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="t0" />
+      <stop offset="1" class="t1" />
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#tile)" />
+  <line class="gl" x1="6" y1="17" x2="26" y2="17" stroke-width="1.3" stroke-linecap="round" opacity="0.4" />
+  <path class="gl" d="M6 22 Q11 7 16 16 T26 11" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+  <circle class="gold" cx="16" cy="16" r="1.9" />
+</svg>
