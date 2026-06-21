@@ -15,6 +15,7 @@ export interface EventDef {
   year: number;
   sessions: Session[];
   isDefault: boolean;
+  defaultDay?: string;
 }
 
 // The default event new calendars attach to. Kept in sync with the Worker's DEFAULT_EVENT_ID and the
@@ -28,6 +29,7 @@ export const EVENTS: Record<string, EventDef> = {
     year: 2026,
     sessions: sessions2026 as Session[],
     isDefault: true,
+    defaultDay: '2026-07-27',
   },
 };
 

@@ -37,14 +37,6 @@ function getDays(ds: Session[]): string[] {
   return [...s].sort();
 }
 
-function getBusiestDay(ds: Session[]): string {
-  const counts: Record<string, number> = {};
-  for (const s of ds) counts[s.day] = (counts[s.day] ?? 0) + 1;
-  const days = Object.keys(counts).sort();
-  if (days.length === 0) return '';
-  return days.reduce((best, d) => (counts[d] > counts[best] ? d : best), days[0]);
-}
-
 function initialMode(): AppMode {
   if (typeof location === 'undefined') return 'landing';
   return parseHash(location.hash).mode === 'landing' ? 'landing' : 'loading';
@@ -61,7 +53,11 @@ export function App() {
 
   // View state — deliberately preserved across mode switches (create / duplicate / hash changes).
   const [activeTab, setActiveTab] = useState<TabId>('timetable');
-  const [selectedDay, setSelectedDay] = useState<string>(() => getBusiestDay(DEFAULT_EVENT.sessions));
+  const [selectedDay, setSelectedDay] = useState<string>(() => {
+    const days = getDays(DEFAULT_EVENT.sessions);
+    const dd = DEFAULT_EVENT.defaultDay;
+    return (dd && days.includes(dd)) ? dd : (days[0] ?? '');
+  });
   const [trackFilter, setTrackFilter] = useState<string[]>([]);
   const [locationFilter, setLocationFilter] = useState('');
   const [textFilter, setTextFilter] = useState('');
@@ -185,8 +181,12 @@ export function App() {
   useEffect(() => {
     const days = getDays(dataset);
     if (days.length === 0) return;
-    setSelectedDay((prev) => (days.includes(prev) ? prev : getBusiestDay(dataset)));
-  }, [dataset]);
+    setSelectedDay((prev) => {
+      if (days.includes(prev)) return prev;
+      const dd = eventDef?.defaultDay;
+      return (dd && days.includes(dd)) ? dd : (days[0] ?? '');
+    });
+  }, [dataset, eventDef]);
 
   const days = useMemo(() => getDays(dataset), [dataset]);
 

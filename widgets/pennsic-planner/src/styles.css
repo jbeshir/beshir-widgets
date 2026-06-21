@@ -1729,8 +1729,8 @@ details[open] .track-legend-summary::before {
   position: sticky;
   top: 0;
   z-index: 1;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   color: var(--fg);
   background: var(--card-bg);
   padding: 0 0 6px 48px;
@@ -1911,7 +1911,7 @@ details[open] .track-legend-summary::before {
 .cal-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 24px;
   align-items: flex-start;
   padding: 16px;
 }
