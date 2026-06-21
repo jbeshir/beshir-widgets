@@ -41,11 +41,13 @@ export default {
 
       const { form, base, features } = body;
 
+      // Reject forged/abusive payloads while admitting real data: JMdict glosses
+      // run to ~130 chars, and a conjugation can stack many (~50) layers.
       if (
-        typeof form !== 'string' || form.length === 0 || form.length > 64 ||
-        typeof base !== 'string' || base.length === 0 || base.length > 64 ||
-        !Array.isArray(features) || features.length > 12 ||
-        !features.every((f): f is string => typeof f === 'string' && f.length <= 40)
+        typeof form !== 'string' || form.length === 0 || form.length > 512 ||
+        typeof base !== 'string' || base.length === 0 || base.length > 256 ||
+        !Array.isArray(features) || features.length > 50 ||
+        !features.every((f): f is string => typeof f === 'string' && f.length <= 64)
       ) {
         return json({ error: 'invalid' }, 400);
       }
