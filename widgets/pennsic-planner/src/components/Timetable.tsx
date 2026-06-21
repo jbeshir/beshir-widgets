@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from 'preact/hooks';
+import { useMemo } from 'preact/hooks';
 import type { Session } from '../types';
 import { hmToMinutes, to12h } from '../lib/time.js';
 import { SessionBlock } from './SessionBlock';
@@ -15,7 +15,6 @@ interface Props {
 }
 
 export function Timetable({ sessions, planIds, onToggle, onOpenDetail, trackColors, selectedDay, conflicts, readOnly }: Props) {
-  const panelRef = useRef<HTMLDivElement>(null);
   const planSet = useMemo(() => new Set(planIds), [planIds]);
 
   const slots = useMemo(() => {
@@ -34,12 +33,6 @@ export function Timetable({ sessions, planIds, onToggle, onOpenDetail, trackColo
       .sort((a, b) => a.minutes - b.minutes);
   }, [sessions]);
 
-  useEffect(() => {
-    const el = panelRef.current;
-    if (!el) return;
-    el.scrollTop = 0;
-  }, [selectedDay]);
-
   return (
     <div
       class="schedule-panel"
@@ -47,7 +40,6 @@ export function Timetable({ sessions, planIds, onToggle, onOpenDetail, trackColo
       role="tabpanel"
       aria-labelledby={`day-tab-${selectedDay}`}
       tabIndex={0}
-      ref={panelRef}
     >
       {sessions.length === 0 ? (
         <div class="empty-state">

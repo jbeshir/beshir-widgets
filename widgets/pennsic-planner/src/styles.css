@@ -173,8 +173,13 @@ body {
   border: 0;
 }
 
-/* Day tabs */
+/* Day tabs — sticky so the day picker stays reachable in the single-scroll standalone view.
+   Harmless in the auto-height embed (nothing scrolls past it there). */
 .day-tabs-outer {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--card-bg);
   border-bottom: 1px solid var(--card-border);
   padding: 10px 16px 8px;
   display: flex;
@@ -523,18 +528,8 @@ details[open] .track-legend-summary::before {
   }
 }
 
-/* Schedule panel */
+/* Schedule panel — part of the single page flow; it is not a scroll container of its own. */
 .schedule-panel {
-  overflow-y: auto;
-  max-height: 72vh;
-  background-color: var(--card-bg);
-  background-image:
-    linear-gradient(var(--card-bg) 30%, transparent),
-    linear-gradient(rgba(0, 0, 0, 0.07), transparent);
-  background-size: 100% 40px, 100% 14px;
-  background-position: top, top;
-  background-repeat: no-repeat, no-repeat;
-  background-attachment: local, scroll;
   outline: none;
 }
 
@@ -543,23 +538,12 @@ details[open] .track-legend-summary::before {
   outline-offset: -2px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .schedule-panel {
-    background-image:
-      linear-gradient(var(--card-bg) 30%, transparent),
-      linear-gradient(rgba(255, 255, 255, 0.05), transparent);
-  }
-}
-
 /* Time slots */
 .slot {
   overflow: clip;
 }
 
 .slot-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   margin: 0;
   padding: 10px 16px 8px;
   font-size: 14px;
@@ -863,7 +847,6 @@ details[open] .track-legend-summary::before {
 }
 
 .cal-bar-cta,
-.cal-bar-readonly,
 .cal-bar-row {
   display: flex;
   align-items: center;
@@ -871,8 +854,7 @@ details[open] .track-legend-summary::before {
   flex-wrap: wrap;
 }
 
-.cal-bar-cta-text,
-.cal-bar-readonly-text {
+.cal-bar-cta-text {
   flex: 1;
   min-width: 200px;
   font-size: 13.5px;
@@ -880,8 +862,7 @@ details[open] .track-legend-summary::before {
   line-height: 1.5;
 }
 
-.cal-bar-cta-text strong,
-.cal-bar-readonly-text strong { color: var(--fg); }
+.cal-bar-cta-text strong { color: var(--fg); }
 
 .cal-create-btn {
   padding: 9px 18px;
@@ -898,15 +879,6 @@ details[open] .track-legend-summary::before {
 .cal-create-btn:hover { filter: brightness(1.08); }
 .cal-create-btn:disabled { opacity: 0.6; cursor: progress; }
 .cal-create-btn:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; }
-
-.cal-bar-readonly {
-  background: var(--warning-bg);
-  border: 1px solid var(--warning);
-  border-radius: 8px;
-  padding: 10px 14px;
-}
-.cal-bar-readonly .cal-bar-readonly-text { color: var(--warning); }
-.cal-bar-readonly .cal-bar-readonly-text strong { color: var(--warning); }
 
 .cal-name-input {
   flex: 1;
@@ -971,7 +943,6 @@ details[open] .track-legend-summary::before {
   display: grid;
   gap: 8px;
 }
-.cal-link-grid-compact { margin-top: 10px; }
 
 .cal-link-row { display: flex; flex-direction: column; gap: 3px; }
 .cal-link-label {
@@ -1008,6 +979,45 @@ details[open] .track-legend-summary::before {
 .cal-copy-btn:hover { border-color: var(--input-focus); }
 .cal-copy-btn.copied { color: var(--success); border-color: var(--success); }
 .cal-copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Share control — small button + on-demand popover with the capability links */
+.cal-share-wrap { position: relative; flex-shrink: 0; }
+
+.cal-share-btn {
+  padding: 7px 14px;
+  background: var(--pill-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cal-share-btn:hover { border-color: var(--input-focus); }
+.cal-share-btn:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; }
+
+.cal-share-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  width: min(360px, 86vw);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  padding: 12px 14px;
+}
+
+.cal-share-popover-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.cal-share-popover-head strong { color: var(--fg); font-size: 13.5px; }
 
 /* "Your calendars on this device" */
 .device-cals { margin-top: 12px; }
@@ -1089,6 +1099,79 @@ details[open] .track-legend-summary::before {
   font-style: italic;
 }
 
+/* Read-only share view */
+.shared-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.shared-view-head {
+  padding: 18px 16px 0;
+}
+
+.shared-view-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.shared-view-title {
+  margin: 3px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.shared-view-empty {
+  padding: 32px 24px;
+}
+
+/* Secondary invitation — a link, not a primary CTA */
+.shared-view-browse {
+  padding: 0 16px 4px;
+}
+
+.shared-view-browse-link {
+  background: none;
+  border: none;
+  padding: 6px 0;
+  color: var(--input-focus);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  letter-spacing: 0.01em;
+}
+
+.shared-view-browse-link:hover { text-decoration: underline; }
+.shared-view-browse-link:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; border-radius: 4px; }
+
+/* Deliberately sidelined duplicate-to-edit link */
+.shared-view-footer {
+  margin-top: 6px;
+  padding: 14px 16px 18px;
+  border-top: 1px solid var(--card-border);
+}
+
+.shared-view-dup-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.shared-view-dup-link:hover { color: var(--fg); }
+.shared-view-dup-link:disabled { opacity: 0.6; cursor: progress; }
+.shared-view-dup-link:focus-visible { outline: 2px solid var(--input-focus); outline-offset: 2px; border-radius: 3px; }
+
 /* About */
 .about-view {
   padding: 20px;
@@ -1165,6 +1248,8 @@ details[open] .track-legend-summary::before {
   .filter-clear-btn { transition: color 120ms ease, border-color 120ms ease; }
   .star-toggle { transition: color 120ms ease, background 120ms ease; }
   .plan-sidebar-link { transition: background 120ms ease, border-color 120ms ease; }
+  .cal-share-btn { transition: border-color 120ms ease; }
+  .shared-view-browse-link, .shared-view-dup-link { transition: color 120ms ease; }
 }
 
 /* ── Star toggle on session card ── */
@@ -1555,10 +1640,7 @@ details[open] .track-legend-summary::before {
     border: 1px solid var(--card-border);
     border-radius: 10px;
     padding: 14px;
-    max-height: 72vh;
-    overflow-y: auto;
     align-self: flex-start;
-    scrollbar-width: thin;
   }
 }
 

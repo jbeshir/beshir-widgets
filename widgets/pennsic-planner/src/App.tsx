@@ -21,6 +21,7 @@ import { Filters } from './components/Filters';
 import { Timetable } from './components/Timetable';
 import { MyCalendar } from './components/MyCalendar';
 import { PlanSidebar } from './components/PlanSidebar';
+import { SharedView } from './components/SharedView';
 import { SessionDetail } from './components/SessionDetail';
 import { About } from './components/About';
 
@@ -298,7 +299,8 @@ export function App() {
   }
 
   const eventName = eventDef ? eventDef.name : 'Pennsic';
-  const planLabel = readOnly ? 'Shared Calendar' : 'My Calendar';
+  // The plan tab only renders outside read-only mode, so the label is always "My Calendar".
+  const planLabel = 'My Calendar';
 
   return (
     <div class="container" ref={containerRef}>
@@ -340,7 +342,22 @@ export function App() {
           </div>
         )}
 
-        {browsing && (
+        {/* Read-only share view: the shared plan only — no timetable browser, tabs, or filters. */}
+        {mode === 'readonly' && active && eventDef && (
+          <SharedView
+            name={active.name}
+            eventName={eventName}
+            sessions={planSessions}
+            conflicts={conflicts}
+            trackColors={trackColors}
+            onOpenDetail={handleOpenDetail}
+            onBrowse={goLanding}
+            onDuplicate={() => void handleDuplicate()}
+            busy={busy}
+          />
+        )}
+
+        {browsing && mode !== 'readonly' && (
           <>
             <CalendarBar
               mode={mode as Mode}
@@ -350,7 +367,6 @@ export function App() {
               justCreated={justCreated}
               busy={busy}
               onCreate={() => void createWith([])}
-              onDuplicate={() => void handleDuplicate()}
               onRename={(name) => planStore.setName(name)}
               onDismissCreated={() => setJustCreated(false)}
               deviceCalendars={devices}

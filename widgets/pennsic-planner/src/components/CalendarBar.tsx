@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import type { ActiveCalendar, SyncStatus } from '../store';
 import type { DeviceCalendar } from '../lib/deviceCalendars';
 import { capabilityUrls, editHash, shareHash } from '../lib/route';
@@ -13,7 +13,6 @@ interface Props {
   justCreated: boolean;
   busy: boolean;
   onCreate: () => void;
-  onDuplicate: () => void;
   onRename: (name: string) => void;
   onDismissCreated: () => void;
   deviceCalendars: DeviceCalendar[];
@@ -23,8 +22,8 @@ interface Props {
 
 export function CalendarBar(props: Props) {
   const { mode } = props;
+  // Read-only mode renders its own focused view (SharedView), never this bar.
   if (mode === 'landing') return <LandingBar {...props} />;
-  if (mode === 'readonly') return <ReadonlyBar {...props} />;
   return <EditBar {...props} />;
 }
 
@@ -43,20 +42,6 @@ function LandingBar({ onCreate, busy, deviceCalendars, onForgetDevice, onClearDe
       {deviceCalendars.length > 0 && (
         <DeviceList list={deviceCalendars} onForget={onForgetDevice} onClear={onClearDevices} />
       )}
-    </div>
-  );
-}
-
-function ReadonlyBar({ active, onDuplicate, busy }: Props) {
-  return (
-    <div class="cal-bar cal-bar-readonly" role="note">
-      <div class="cal-bar-readonly-text">
-        <strong>{active?.name ?? 'Shared calendar'}</strong>
-        <span> · viewing a shared calendar (read-only)</span>
-      </div>
-      <button class="cal-create-btn" onClick={onDuplicate} disabled={busy}>
-        {busy ? 'Copying…' : 'Duplicate to edit'}
-      </button>
     </div>
   );
 }
@@ -95,9 +80,12 @@ function EditBar({ active, sync, justCreated, onRename, onDismissCreated }: Prop
           aria-label="Calendar name"
         />
         <SyncBadge sync={sync} />
+        {/* Once the create banner is dismissed (and on every later visit), the links live behind
+            this on-demand control instead of taking up space inline. */}
+        {!justCreated && <SharePopover urls={urls} />}
       </div>
 
-      {justCreated ? (
+      {justCreated && (
         <div class="cal-keep-link" role="status">
           <div class="cal-keep-link-head">
             <strong>This is your calendar — keep this link to come back and edit it.</strong>
@@ -105,17 +93,60 @@ function EditBar({ active, sync, justCreated, onRename, onDismissCreated }: Prop
           </div>
           <p class="cal-keep-link-note">
             The link is the only way back in — there are no accounts. Bookmark the edit link, and share
-            the read-only link with others.
+            the read-only link with others. You can reopen these any time from the Share button.
           </p>
           <div class="cal-link-grid">
             <LinkCopyRow label="Edit link (keep private)" value={urls.edit ?? ''} />
             <LinkCopyRow label="Read-only share link" value={urls.share} />
           </div>
         </div>
-      ) : (
-        <div class="cal-link-grid cal-link-grid-compact">
-          <LinkCopyRow label="Edit link" value={urls.edit ?? ''} />
-          <LinkCopyRow label="Share link" value={urls.share} />
+      )}
+    </div>
+  );
+}
+
+// Unobtrusive on-demand access to the two capability links: a small button that toggles a popover.
+// Clicking outside it or pressing Escape closes it.
+function SharePopover({ urls }: { urls: { edit: string | null; share: string } }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div class="cal-share-wrap" ref={wrapRef}>
+      <button
+        class="cal-share-btn"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        Share…
+      </button>
+      {open && (
+        <div class="cal-share-popover" role="dialog" aria-label="Share this calendar">
+          <div class="cal-share-popover-head">
+            <strong>Share this calendar</strong>
+            <button class="cal-dismiss" aria-label="Close share links" onClick={() => setOpen(false)}>×</button>
+          </div>
+          <div class="cal-link-grid">
+            <LinkCopyRow label="Edit link (keep private)" value={urls.edit ?? ''} />
+            <LinkCopyRow label="Read-only share link" value={urls.share} />
+          </div>
         </div>
       )}
     </div>
