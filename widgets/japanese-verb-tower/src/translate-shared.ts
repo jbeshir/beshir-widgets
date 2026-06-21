@@ -16,7 +16,7 @@ export function buildTranslateMessages(
         // Qwen3 soft switch: answer directly, no chain-of-thought.
         '/no_think\n' +
         'You translate a conjugated Japanese verb form into natural, idiomatic English. ' +
-        'Each request gives the Japanese form plus the base verb\'s English meaning and an ordered list of the grammatical features applied to it. ' +
+        'Each request gives the Japanese form, an ordered list of the grammatical features applied to it, and (when known) the base verb\'s English meaning. ' +
         'Produce the phrase a fluent speaker would actually use: features often combine into an idiom rather than a word-for-word gloss, and some (such as "polite") add no English words at all — do not simply chain the feature glosses. ' +
         'Worked examples (same input format as your task):\n\n' +
         'Base meaning: eat\nFeatures: polite · past\nJapanese form: たべました\n→ ate\n\n' +
@@ -27,7 +27,7 @@ export function buildTranslateMessages(
     },
     {
       role: 'user',
-      content: `Base meaning: ${base}\nFeatures: ${joined}\nJapanese form: ${form}`,
+      content: `${base ? `Base meaning: ${base}\n` : ''}Features: ${joined}\nJapanese form: ${form}`,
     },
   ];
 }
