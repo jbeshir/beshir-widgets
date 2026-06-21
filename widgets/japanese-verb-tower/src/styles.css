@@ -644,7 +644,8 @@ body {
   outline: none;
 }
 
-.search-result:focus-visible {
+.search-result:focus-visible,
+.search-result--active {
   background: var(--tier-top-bg);
   outline: none;
   box-shadow: inset 0 0 0 2px var(--input-focus);
@@ -660,7 +661,8 @@ body {
 }
 
 .search-result:hover::after,
-.search-result:focus-visible::after {
+.search-result:focus-visible::after,
+.search-result--active::after {
   opacity: 1;
   color: var(--input-focus);
 }
