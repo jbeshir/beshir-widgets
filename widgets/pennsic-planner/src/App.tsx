@@ -63,7 +63,7 @@ export function App() {
   const [textFilter, setTextFilter] = useState('');
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
   // Deep-link target for the Instructors view, set when an instructor name is activated in the detail.
-  const [focusInstructor, setFocusInstructor] = useState<string | null>(null);
+  const [selectedInstructor, setSelectedInstructor] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -299,7 +299,7 @@ export function App() {
   function handleViewInstructor(name: string) {
     setOpenSessionId(null);
     setActiveTab('instructors');
-    setFocusInstructor(name);
+    setSelectedInstructor(name.trim());
   }
 
   function goLanding() {
@@ -438,8 +438,8 @@ export function App() {
                 trackColors={trackColors}
                 onToggle={handleToggle}
                 onOpenDetail={handleOpenDetail}
-                focusInstructor={focusInstructor}
-                onFocusHandled={() => setFocusInstructor(null)}
+                selectedInstructor={selectedInstructor}
+                onSelectInstructor={setSelectedInstructor}
               />
             )}
 

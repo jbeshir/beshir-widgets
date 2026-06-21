@@ -9,10 +9,8 @@ interface Props {
   trackColors: Record<string, { l: string; d: string }>;
   onToggle: (id: string) => void;
   onOpenDetail: (id: string) => void;
-  // Deep-link target from the detail lightbox: the instructor name to scroll to and highlight.
-  focusInstructor: string | null;
-  // Called once the focus request has been consumed, so the parent can clear it.
-  onFocusHandled: () => void;
+  selectedInstructor: string | null;
+  onSelectInstructor: (key: string | null) => void;
 }
 
 interface InstructorGroup {
@@ -25,10 +23,6 @@ interface InstructorGroup {
 const UNLISTED_KEY = '';
 const UNLISTED_LABEL = 'Unlisted instructor';
 
-function prefersReducedMotion(): boolean {
-  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
 export function InstructorsView({
   sessions,
   planIds,
@@ -36,12 +30,16 @@ export function InstructorsView({
   trackColors,
   onToggle,
   onOpenDetail,
-  focusInstructor,
-  onFocusHandled,
+  selectedInstructor,
+  onSelectInstructor,
 }: Props) {
   const [query, setQuery] = useState('');
-  const [highlightKey, setHighlightKey] = useState<string | null>(null);
-  const sectionRefs = useRef(new Map<string, HTMLElement>());
+
+  const backRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
+  const prevKeyRef = useRef<string | null>(null);
+  const savedScrollRef = useRef(0);
 
   const planSet = useMemo(() => new Set(planIds), [planIds]);
 
@@ -91,38 +89,65 @@ export function InstructorsView({
     );
   }, [groups, query]);
 
-  // Deep link from the lightbox: clear any active search so the full list is shown, then (after the
-  // list has painted) scroll the target section into view and briefly highlight it.
   useEffect(() => {
-    if (!focusInstructor) return;
-    const key = focusInstructor.trim();
-    setQuery('');
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        const el = sectionRefs.current.get(key);
-        if (el) {
-          el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
-          setHighlightKey(key);
-        }
-        onFocusHandled();
-      });
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusInstructor]);
+    if (selectedInstructor !== null) {
+      backRef.current?.focus();
+      prevKeyRef.current = selectedInstructor;
+    } else if (prevKeyRef.current !== null) {
+      window.scrollTo({ top: savedScrollRef.current, behavior: 'instant' });
+      const rowEl = rowRefs.current.get(prevKeyRef.current);
+      if (rowEl) rowEl.focus();
+      else searchRef.current?.focus();
+      prevKeyRef.current = null;
+    }
+  }, [selectedInstructor]);
 
-  // Drop the highlight after its pulse so it doesn't linger on later interactions.
-  useEffect(() => {
-    if (!highlightKey) return;
-    const t = setTimeout(() => setHighlightKey(null), 1800);
-    return () => clearTimeout(t);
-  }, [highlightKey]);
+  function handleSelectGroup(g: InstructorGroup) {
+    savedScrollRef.current = window.scrollY;
+    onSelectInstructor(g.key);
+  }
+
+  function handleBack() {
+    onSelectInstructor(null);
+  }
+
+  const drillGroup = selectedInstructor !== null
+    ? (groups.find((g) => g.key === selectedInstructor) ?? null)
+    : null;
 
   const totalInstructors = groups.length;
+
+  if (drillGroup !== null) {
+    const count = drillGroup.sessions.length;
+    return (
+      <div class="instructors-view">
+        <div class="instructor-detail">
+          <button class="instructor-back-link" type="button" ref={backRef} onClick={handleBack}>
+            ‹ All instructors
+          </button>
+          <div class="instructor-detail-header">
+            <h2 class="instructor-name">{drillGroup.name}</h2>
+            {drillGroup.kingdom && <span class="instructor-kingdom">{drillGroup.kingdom}</span>}
+            <span class="instructor-count">{count} {count === 1 ? 'class' : 'classes'}</span>
+          </div>
+          <div class="instructor-sessions">
+            {drillGroup.sessions.map((s) => (
+              <SessionBlock
+                key={s.id}
+                session={s}
+                inPlan={planSet.has(s.id)}
+                trackColor={trackColors[s.track] ?? { l: 'hsl(220,55%,37%)', d: 'hsl(220,51%,49%)' }}
+                onToggle={() => onToggle(s.id)}
+                onOpenDetail={() => onOpenDetail(s.id)}
+                conflict={conflicts.has(s.id)}
+                showDay
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div class="instructors-view">
@@ -135,6 +160,7 @@ export function InstructorsView({
           placeholder="Search instructors…"
           value={query}
           onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+          ref={searchRef}
         />
         <span class="filter-result-count">
           {query.trim()
@@ -149,41 +175,26 @@ export function InstructorsView({
           <p>Try a different name, or clear the search to see everyone.</p>
         </div>
       ) : (
-        <div class="instructors-list">
+        <div class="instructor-index">
           {filtered.map((g) => {
             const count = g.sessions.length;
             return (
-              <section
+              <button
                 key={g.key || UNLISTED_LABEL}
-                class={`instructor-section${highlightKey === g.key ? ' is-highlighted' : ''}`}
-                aria-label={`${g.name}, ${count} ${count === 1 ? 'class' : 'classes'}`}
-                ref={(el: HTMLElement | null) => {
-                  if (el) sectionRefs.current.set(g.key, el);
-                  else sectionRefs.current.delete(g.key);
+                class="instructor-row"
+                type="button"
+                ref={(el: HTMLButtonElement | null) => {
+                  if (el) rowRefs.current.set(g.key, el);
+                  else rowRefs.current.delete(g.key);
                 }}
+                aria-label={`${g.name}${g.kingdom ? `, ${g.kingdom}` : ''}, ${count} ${count === 1 ? 'class' : 'classes'}`}
+                onClick={() => handleSelectGroup(g)}
               >
-                <header class="instructor-head">
-                  <h3 class="instructor-name">{g.name}</h3>
-                  <span class="instructor-meta">
-                    {g.kingdom && <span class="instructor-kingdom">{g.kingdom}</span>}
-                    <span class="instructor-count">{count} {count === 1 ? 'class' : 'classes'}</span>
-                  </span>
-                </header>
-                <div class="instructor-sessions">
-                  {g.sessions.map((s) => (
-                    <SessionBlock
-                      key={s.id}
-                      session={s}
-                      inPlan={planSet.has(s.id)}
-                      trackColor={trackColors[s.track] ?? { l: 'hsl(220,55%,37%)', d: 'hsl(220,51%,49%)' }}
-                      onToggle={() => onToggle(s.id)}
-                      onOpenDetail={() => onOpenDetail(s.id)}
-                      conflict={conflicts.has(s.id)}
-                      showDay
-                    />
-                  ))}
-                </div>
-              </section>
+                <span class="instructor-row-name">{g.name}</span>
+                {g.kingdom && <span class="instructor-row-kingdom">{g.kingdom}</span>}
+                <span class="instructor-row-count">{count} {count === 1 ? 'class' : 'classes'}</span>
+                <span class="instructor-row-chevron" aria-hidden="true">›</span>
+              </button>
             );
           })}
         </div>
