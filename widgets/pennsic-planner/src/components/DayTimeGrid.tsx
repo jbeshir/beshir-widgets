@@ -3,6 +3,11 @@ import type { Session, PlacedSession } from '../types';
 import { assignLanes } from '../lib/layout.js';
 import { to12h, shortDayLabel } from '../lib/time.js';
 
+const BLOCK_VERT_PAD = 8;
+const TITLE_LINE_H = 14;
+const TIME_H = 14;
+const LOC_H = 14;
+
 function toCompactHour(minOfDay: number): string {
   const total = ((Math.round(minOfDay) % 1440) + 1440) % 1440;
   const h24 = Math.floor(total / 60);
@@ -71,6 +76,8 @@ export function DayTimeGrid({ day, sessions, rangeStartMin, rangeEndMin, pxPerMi
               '--tc-l': tc.l,
               '--tc-d': tc.d,
             };
+            const reservedH = BLOCK_VERT_PAD + TIME_H + (s.location ? LOC_H : 0);
+            const titleLines = Math.max(1, Math.floor((height - reservedH) / TITLE_LINE_H));
             const blockClass = `dtg-block${conflicts.has(s.id) ? ' conflict' : ''}`;
             const ariaLabel = `${s.title}, ${to12h(s.startTime)}–${to12h(s.endTime)}${s.location ? ', ' + s.location : ''}`;
             return (
@@ -90,7 +97,7 @@ export function DayTimeGrid({ day, sessions, rangeStartMin, rangeEndMin, pxPerMi
                   }
                 }}
               >
-                <div class="dtg-block-title">{s.title}</div>
+                <div class="dtg-block-title" style={{ WebkitLineClamp: titleLines }}>{s.title}</div>
                 <div class="dtg-block-time">{to12h(s.startTime)}–{to12h(s.endTime)}</div>
                 {s.location && <div class="dtg-block-loc">{s.location}</div>}
               </div>
