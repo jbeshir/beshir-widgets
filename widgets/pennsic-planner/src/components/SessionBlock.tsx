@@ -1,6 +1,6 @@
 import type { JSX } from 'preact';
 import type { Session } from '../types';
-import { to12h } from '../lib/time.js';
+import { to12h, shortDayLabel } from '../lib/time.js';
 
 interface Props {
   session: Session;
@@ -10,15 +10,19 @@ interface Props {
   onOpenDetail: () => void;
   conflict?: boolean;
   readOnly?: boolean;
+  // Show the day on the time line — for cross-day listings (e.g. the Instructors view) where the
+  // surrounding context doesn't already fix a single day.
+  showDay?: boolean;
 }
 
-export function SessionBlock({ session, inPlan, trackColor, onToggle, onOpenDetail, conflict, readOnly }: Props) {
+export function SessionBlock({ session, inPlan, trackColor, onToggle, onOpenDetail, conflict, readOnly, showDay }: Props) {
   const style: JSX.CSSProperties & Record<string, unknown> = {
     '--tc-l': trackColor.l,
     '--tc-d': trackColor.d,
   };
 
-  const ariaLabel = `View details: ${session.title}, ${to12h(session.startTime)}–${to12h(session.endTime)}${session.location ? ', ' + session.location : ''}${session.instructor ? ', ' + session.instructor : ''}`;
+  const dayPrefix = showDay ? `${shortDayLabel(session.day)}, ` : '';
+  const ariaLabel = `View details: ${session.title}, ${dayPrefix}${to12h(session.startTime)}–${to12h(session.endTime)}${session.location ? ', ' + session.location : ''}${session.instructor ? ', ' + session.instructor : ''}`;
 
   const cardClass = [
     'session-card',
@@ -51,6 +55,7 @@ export function SessionBlock({ session, inPlan, trackColor, onToggle, onOpenDeta
       )}
       <div class="session-card-title">{session.title}</div>
       <div class="session-card-time">
+        {showDay && <span class="session-card-day">{shortDayLabel(session.day)} · </span>}
         {to12h(session.startTime)}–{to12h(session.endTime)} · {session.durationMin} min
       </div>
       {session.location && <div class="session-card-meta">{session.location}</div>}
