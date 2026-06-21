@@ -827,12 +827,23 @@ body {
 
 /* ── Focus-visible keyboard outlines ─────────────────────────────────────── */
 .verb-chip:focus-visible,
-.candidate-row:focus-visible,
 .breakdown-btn:focus-visible,
 .mode-btn:focus-visible,
 .add-layer-btn:focus-visible,
 .layer-menu-item:focus-visible,
 .tier-remove:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+/* Candidate rows take focus programmatically — the first match is auto-focused,
+   then arrow keys rove focus between rows. Highlight on :focus, not
+   :focus-visible, since the latter is suppressed for programmatic focus that
+   follows a mouse click (clicking "Analyse"), which would leave the focused
+   first row unhighlighted. */
+.candidate-row:focus {
+  border-color: var(--input-focus);
+  background: var(--tier-top-bg);
   outline: 2px solid var(--input-focus);
   outline-offset: 2px;
 }
@@ -1128,7 +1139,7 @@ body {
 }
 
 .candidate-row:hover::after,
-.candidate-row:focus-visible::after {
+.candidate-row:focus::after {
   opacity: 1;
   color: var(--input-focus);
 }
