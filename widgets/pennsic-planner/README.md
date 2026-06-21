@@ -81,9 +81,13 @@ npx wrangler d1 create widget-pennsic-planner
 npx wrangler d1 execute widget-pennsic-planner --remote --file=./schema.sql
 ```
 
-The deploy token also needs **D1 → Edit**. Because `POST /api/calendar` is unauthenticated
-by design, add a Cloudflare WAF rate-limiting rule on `/api/calendar` for the widget's
-hostname (e.g. ~30 requests/minute per IP) to cap abusive creation.
+The deploy token also needs **D1 → Edit**.
+
+`POST /api/calendar` is unauthenticated by design, so creation is rate-limited inside the
+Worker via the native `ratelimits` binding (`CREATE_LIMITER` in `wrangler.jsonc`, 10 creates
+per minute per IP) — no dashboard WAF rule is required. The limit is per-colo and
+best-effort, which is proportionate here; tighten it, or add a Turnstile bot gate on the
+create flow, if abuse ever shows up.
 
 ## Data
 
