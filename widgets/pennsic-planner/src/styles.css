@@ -173,8 +173,13 @@ body {
   border: 0;
 }
 
-/* Day tabs */
+/* Day tabs — sticky so the day picker stays reachable in the single-scroll standalone view.
+   Harmless in the auto-height embed (nothing scrolls past it there). */
 .day-tabs-outer {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--card-bg);
   border-bottom: 1px solid var(--card-border);
   padding: 10px 16px 8px;
   display: flex;
@@ -523,18 +528,8 @@ details[open] .track-legend-summary::before {
   }
 }
 
-/* Schedule panel */
+/* Schedule panel — part of the single page flow; it is not a scroll container of its own. */
 .schedule-panel {
-  overflow-y: auto;
-  max-height: 72vh;
-  background-color: var(--card-bg);
-  background-image:
-    linear-gradient(var(--card-bg) 30%, transparent),
-    linear-gradient(rgba(0, 0, 0, 0.07), transparent);
-  background-size: 100% 40px, 100% 14px;
-  background-position: top, top;
-  background-repeat: no-repeat, no-repeat;
-  background-attachment: local, scroll;
   outline: none;
 }
 
@@ -543,23 +538,12 @@ details[open] .track-legend-summary::before {
   outline-offset: -2px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .schedule-panel {
-    background-image:
-      linear-gradient(var(--card-bg) 30%, transparent),
-      linear-gradient(rgba(255, 255, 255, 0.05), transparent);
-  }
-}
-
 /* Time slots */
 .slot {
   overflow: clip;
 }
 
 .slot-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
   margin: 0;
   padding: 10px 16px 8px;
   font-size: 14px;
@@ -1165,6 +1149,8 @@ details[open] .track-legend-summary::before {
   .filter-clear-btn { transition: color 120ms ease, border-color 120ms ease; }
   .star-toggle { transition: color 120ms ease, background 120ms ease; }
   .plan-sidebar-link { transition: background 120ms ease, border-color 120ms ease; }
+  .cal-share-btn { transition: border-color 120ms ease; }
+  .shared-view-browse-link, .shared-view-dup-link { transition: color 120ms ease; }
 }
 
 /* ── Star toggle on session card ── */
