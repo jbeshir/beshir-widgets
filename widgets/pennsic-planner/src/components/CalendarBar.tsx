@@ -13,7 +13,6 @@ interface Props {
   justCreated: boolean;
   busy: boolean;
   onCreate: () => void;
-  onDuplicate: () => void;
   onRename: (name: string) => void;
   onDismissCreated: () => void;
   deviceCalendars: DeviceCalendar[];
@@ -23,8 +22,8 @@ interface Props {
 
 export function CalendarBar(props: Props) {
   const { mode } = props;
+  // Read-only mode renders its own focused view (SharedView), never this bar.
   if (mode === 'landing') return <LandingBar {...props} />;
-  if (mode === 'readonly') return <ReadonlyBar {...props} />;
   return <EditBar {...props} />;
 }
 
@@ -43,20 +42,6 @@ function LandingBar({ onCreate, busy, deviceCalendars, onForgetDevice, onClearDe
       {deviceCalendars.length > 0 && (
         <DeviceList list={deviceCalendars} onForget={onForgetDevice} onClear={onClearDevices} />
       )}
-    </div>
-  );
-}
-
-function ReadonlyBar({ active, onDuplicate, busy }: Props) {
-  return (
-    <div class="cal-bar cal-bar-readonly" role="note">
-      <div class="cal-bar-readonly-text">
-        <strong>{active?.name ?? 'Shared calendar'}</strong>
-        <span> · viewing a shared calendar (read-only)</span>
-      </div>
-      <button class="cal-create-btn" onClick={onDuplicate} disabled={busy}>
-        {busy ? 'Copying…' : 'Duplicate to edit'}
-      </button>
     </div>
   );
 }
