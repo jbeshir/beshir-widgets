@@ -19,6 +19,7 @@ import type { Mode } from './components/CalendarBar';
 import { DayPicker } from './components/DayPicker';
 import { Filters } from './components/Filters';
 import { Timetable } from './components/Timetable';
+import { InstructorsView } from './components/InstructorsView';
 import { MyCalendar } from './components/MyCalendar';
 import { PlanSidebar } from './components/PlanSidebar';
 import { SharedView } from './components/SharedView';
@@ -65,6 +66,8 @@ export function App() {
   const [locationFilter, setLocationFilter] = useState('');
   const [textFilter, setTextFilter] = useState('');
   const [openSessionId, setOpenSessionId] = useState<string | null>(null);
+  // Deep-link target for the Instructors view, set when an instructor name is activated in the detail.
+  const [focusInstructor, setFocusInstructor] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -292,6 +295,12 @@ export function App() {
     if (t) setSelectedDay(t.day);
   }
   function handleCloseDetail() { setOpenSessionId(null); }
+  // Detail → Instructors deep link: close the lightbox, switch tabs, and anchor to the instructor.
+  function handleViewInstructor(name: string) {
+    setOpenSessionId(null);
+    setActiveTab('instructors');
+    setFocusInstructor(name);
+  }
 
   function goLanding() {
     if (location.hash) location.hash = '';
@@ -421,6 +430,19 @@ export function App() {
               </>
             )}
 
+            {activeTab === 'instructors' && (
+              <InstructorsView
+                sessions={dataset}
+                planIds={planIds}
+                conflicts={conflicts}
+                trackColors={trackColors}
+                onToggle={handleToggle}
+                onOpenDetail={handleOpenDetail}
+                focusInstructor={focusInstructor}
+                onFocusHandled={() => setFocusInstructor(null)}
+              />
+            )}
+
             {activeTab === 'plan' && (
               <MyCalendar
                 sessions={planSessions}
@@ -445,6 +467,7 @@ export function App() {
           onToggle={handleToggle}
           onNavigate={handleNavigateDetail}
           onClose={handleCloseDetail}
+          onViewInstructor={readOnly ? undefined : handleViewInstructor}
           readOnly={readOnly}
           addLabel={mode === 'landing' ? 'Add & create calendar' : 'Add to plan'}
         />

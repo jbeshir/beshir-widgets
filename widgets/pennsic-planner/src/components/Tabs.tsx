@@ -1,4 +1,4 @@
-export type TabId = 'timetable' | 'plan' | 'about';
+export type TabId = 'timetable' | 'instructors' | 'plan' | 'about';
 
 interface Props {
   active: TabId;
@@ -9,6 +9,7 @@ interface Props {
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'timetable', label: 'Timetable' },
+  { id: 'instructors', label: 'Instructors' },
   { id: 'plan', label: 'My Calendar' },
   { id: 'about', label: 'About' },
 ];
