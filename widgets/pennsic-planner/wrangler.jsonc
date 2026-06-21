@@ -15,9 +15,7 @@
     {
       "binding": "DB",
       "database_name": "widget-pennsic-planner",
-      // PLACEHOLDER — the repo owner must create the D1 database and paste its id here.
-      // See CHANGES.md for the one-time setup (wrangler d1 create + apply schema.sql).
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "acb68fb0-cd85-44d9-961a-581592590ce4"
     }
   ],
   "ratelimits": [
