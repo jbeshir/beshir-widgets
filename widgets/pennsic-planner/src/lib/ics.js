@@ -29,7 +29,11 @@ const VTIMEZONE = [
   'END:VTIMEZONE',
 ];
 
-/** RFC-5545 TEXT escaping: backslash, semicolon, comma, and newlines. */
+/**
+ * RFC-5545 TEXT escaping: backslash, semicolon, comma, and newlines.
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function escapeText(value) {
   return String(value == null ? '' : value)
     .replace(/\\/g, '\\\\')
@@ -38,7 +42,11 @@ export function escapeText(value) {
     .replace(/\r\n|\r|\n/g, '\\n');
 }
 
-/** Fold a content line to <=75 octets per line, continuation lines start with a single space. */
+/**
+ * Fold a content line to <=75 octets per line, continuation lines start with a single space.
+ * @param {string} line
+ * @returns {string}
+ */
 export function foldLine(line) {
   // Work in UTF-8 octets so multibyte characters don't get split across the 75-octet boundary.
   const enc = new TextEncoder();
@@ -59,7 +67,12 @@ export function foldLine(line) {
   return out.join('\r\n');
 }
 
-/** "2026-07-25" + "16:00" -> "20260725T160000" (local, used with TZID). */
+/**
+ * "2026-07-25" + "16:00" -> "20260725T160000" (local, used with TZID).
+ * @param {string} day
+ * @param {string} hm
+ * @returns {string | null}
+ */
 function toIcsLocal(day, hm) {
   const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day));
   const tm = /^(\d{1,2}):(\d{2})$/.exec(String(hm));
@@ -67,7 +80,11 @@ function toIcsLocal(day, hm) {
   return `${dm[1]}${dm[2]}${dm[3]}T${tm[1].padStart(2, '0')}${tm[2]}00`;
 }
 
-/** End datetime from a session's end ISO ("YYYY-MM-DDTHH:MM:SS") -> "YYYYMMDDTHHMMSS". */
+/**
+ * End datetime from a session's end ISO ("YYYY-MM-DDTHH:MM:SS") -> "YYYYMMDDTHHMMSS".
+ * @param {import('../types').Session} s
+ * @returns {string | null}
+ */
 function endStamp(s) {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(s.end || ''));
   if (m) return `${m[1]}${m[2]}${m[3]}T${m[4]}${m[5]}00`;
@@ -127,8 +144,12 @@ export function buildIcs(sessions, opts = {}) {
   return lines.map(foldLine).join('\r\n') + '\r\n';
 }
 
+/**
+ * @param {Date} date
+ * @returns {string}
+ */
 function utcStamp(date) {
-  const p = (n) => String(n).padStart(2, '0');
+  const p = (/** @type {number} */ n) => String(n).padStart(2, '0');
   return (
     date.getUTCFullYear() +
     p(date.getUTCMonth() + 1) +

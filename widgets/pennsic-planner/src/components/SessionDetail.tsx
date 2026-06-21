@@ -12,6 +12,8 @@ interface Props {
   onToggle: (id: string) => void;
   onNavigate: (id: string) => void;
   onClose: () => void;
+  readOnly?: boolean;
+  addLabel?: string;
 }
 
 const FOCUSABLE =
@@ -26,6 +28,8 @@ export function SessionDetail({
   onToggle,
   onNavigate,
   onClose,
+  readOnly,
+  addLabel,
 }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -199,20 +203,22 @@ export function SessionDetail({
                         {longDayLabel(occ.day)} · {to12h(occ.startTime)}–{to12h(occ.endTime)}
                         {occ.location ? ` · ${occ.location}` : ''}
                       </button>
-                      <button
-                        class="star-toggle lightbox-occ-star"
-                        aria-pressed={occInPlan}
-                        aria-label={occInPlan ? `Remove ${occ.title} from plan` : `Add ${occ.title} to plan`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggle(occ.id);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
-                        }}
-                      >
-                        {occInPlan ? '★' : '☆'}
-                      </button>
+                      {!readOnly && (
+                        <button
+                          class="star-toggle lightbox-occ-star"
+                          aria-pressed={occInPlan}
+                          aria-label={occInPlan ? `Remove ${occ.title} from plan` : `Add ${occ.title} to plan`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggle(occ.id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
+                          }}
+                        >
+                          {occInPlan ? '★' : '☆'}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -220,12 +226,16 @@ export function SessionDetail({
             </div>
           )}
 
-          <button
-            class={`lightbox-primary${inPlan ? ' in-plan' : ''}`}
-            onClick={() => onToggle(session.id)}
-          >
-            {inPlan ? 'Remove from plan' : 'Add to plan'}
-          </button>
+          {readOnly ? (
+            <p class="lightbox-readonly-note">This is a read-only shared calendar. Duplicate it to make your own edits.</p>
+          ) : (
+            <button
+              class={`lightbox-primary${inPlan ? ' in-plan' : ''}`}
+              onClick={() => onToggle(session.id)}
+            >
+              {inPlan ? 'Remove from plan' : addLabel ?? 'Add to plan'}
+            </button>
+          )}
         </div>
       </div>
     </div>

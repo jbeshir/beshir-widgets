@@ -1,9 +1,10 @@
-// Proves the in-browser CSV importer (src/lib/normalize.js) reproduces the bundled normalization
-// against the REAL Thing export. Run with: node test/importer.test.mjs
+// Proves the maintenance normalizer (maintenance/normalize.mjs) reproduces the bundled normalization
+// against the REAL Thing export. This is the build-time generator for src/data/sessions-2026.json;
+// there is no in-app import. Run with: node test/importer.test.mjs
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { normalizeCsv } from '../src/lib/normalize.js';
+import { normalizeCsv } from '../maintenance/normalize.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 

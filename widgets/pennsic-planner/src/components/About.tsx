@@ -1,7 +1,11 @@
-export function About() {
+interface Props {
+  eventName: string;
+}
+
+export function About({ eventName }: Props) {
   return (
     <div class="about-view">
-      <h2>Pennsic 53 · 2026 Planner</h2>
+      <h2>{eventName} Planner</h2>
       <p>
         A schedule browser and personal planner for{' '}
         <strong>Pennsic War 53</strong> — the Society for Creative Anachronism's
@@ -11,14 +15,19 @@ export function About() {
       </p>
 
       <div class="about-notice" role="note">
+        <strong>How calendars work:</strong> Star classes to create a calendar — it's stored online and
+        reached by a link, with no account. Bookmark the edit link to come back, or share the read-only
+        link with friends. The link is the only key, so keep your edit link somewhere safe.
+      </div>
+
+      <div class="about-notice" role="note">
         <strong>Data snapshot:</strong> This widget uses the Pennsic 53 class schedule as
         captured on <strong>2026-06-17</strong>. The live schedule at{' '}
         <a href="https://thing.pennsicuniversity.org" target="_blank" rel="noopener">
           thing.pennsicuniversity.org
         </a>{' '}
         is updated continuously — classes may be added, changed, or cancelled after this
-        snapshot. Use the <strong>Import / Export</strong> tab to load a fresh CSV export
-        from the Thing.
+        snapshot. Refreshed schedules ship in new releases of the planner.
       </div>
 
       <div class="stat-grid">

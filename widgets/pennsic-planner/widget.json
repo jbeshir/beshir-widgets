@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "slug": "pennsic-planner",
   "title": "Pennsic Planner",
-  "description": "Browse the Pennsic 53 (2026) class schedule as a side-by-side day timetable, build a personal plan with time-conflict detection, import an updated CSV export, and export your plan to calendar (.ics).",
+  "description": "Browse the Pennsic 53 (2026) class schedule as a side-by-side day timetable, build a shareable personal calendar with time-conflict detection (stored online and reached by a link), and export your plan to calendar (.ics).",
   "framework": "preact-vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "dataSources": [
     {
       "name": "Pennsic 53 / 2026 class schedule",
-      "description": "Official Pennsic University class schedule for Pennsic 53 (2026), downloaded from thing.pennsicuniversity.org as a calendars CSV export on 2026-06-17 and normalized to the bundled record schema (1,836 sessions). The live schedule keeps changing; users refresh via the in-browser CSV import.",
+      "description": "Official Pennsic University class schedule for Pennsic 53 (2026), downloaded from thing.pennsicuniversity.org as a calendars CSV export on 2026-06-17 and normalized to the bundled record schema (1,836 sessions). The live schedule keeps changing; refreshed snapshots ship in new releases (regenerated via maintenance/normalize.mjs).",
       "url": "https://thing.pennsicuniversity.org/"
     }
   ],

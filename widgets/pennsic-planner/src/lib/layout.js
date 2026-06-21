@@ -1,6 +1,10 @@
 // @ts-check
 import { hmToMinutes } from './time.js';
 
+/**
+ * @param {import('../types').Session} s
+ * @returns {number}
+ */
 function minutesEnd(s) {
   let end = hmToMinutes(s.endTime);
   const start = hmToMinutes(s.startTime);
@@ -67,11 +71,17 @@ export function assignLanes(sessions) {
  * @returns {Set<string>} ids of sessions that overlap at least one other selected session
  */
 export function findConflicts(sessions) {
+  /** @type {Set<string>} */
   const conflicting = new Set();
+  /** @type {Map<string, import('../types').Session[]>} */
   const byDay = new Map();
   for (const s of sessions) {
-    if (!byDay.has(s.day)) byDay.set(s.day, []);
-    byDay.get(s.day).push(s);
+    let bucket = byDay.get(s.day);
+    if (!bucket) {
+      bucket = [];
+      byDay.set(s.day, bucket);
+    }
+    bucket.push(s);
   }
   for (const list of byDay.values()) {
     const spans = list

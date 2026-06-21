@@ -1,54 +1,283 @@
 // PlanStore — the single persistence seam for the planner.
 //
-// Everything the UI persists (the set of selected session ids, and any user-imported dataset)
-// goes through this one module. The signatures are intentionally **async** (Promise-returning) so
-// the current localStorage implementation can later be swapped for a Cloudflare-KV-backed remote
-// implementation — for a signed-in user, "my plan" would live in KV keyed by user id — without
-// touching any caller. The UI never calls localStorage directly; it calls a PlanStore.
+// A "plan" is no longer device-local: it is a named calendar of selected session ids that belongs to
+// one event and lives in Cloudflare D1, reached by a capability URL. This store is remote-first. It
+// owns the in-memory snapshot of the *active* calendar and talks to the Worker over fetch():
 //
-// To add a KV backend later: implement this same interface against `fetch('/api/plan', …)` talking
-// to the Worker (which reads/writes KV), keep the in-memory cache + subscription model, and select
-// the backend at startup. The async interface is the only seam that needs to exist for that swap.
+//   open(id, secret)   GET  /api/calendar/:id     — load an existing calendar (edit or read-only)
+//   create(name, ids)  POST /api/calendar         — make a new calendar, return its id + edit secret
+//   togglePlan(id)     PUT  /api/calendar/:id      — debounced, optimistic-concurrency edit
+//
+// Edits update the snapshot immediately and are flushed to D1 on a short debounce with If-Match on
+// the current revision. A 409 (someone else edited the same calendar) is surfaced — never silently
+// dropped — by reloading the server's copy and telling the UI the last change may not have saved.
+//
+// The bundled event schedules are the only datasets (see data/events.ts); there is no user-provided
+// dataset, so this store carries none. localStorage is used ONLY by lib/deviceCalendars.ts for a
+// non-authoritative "calendars on this device" shortcut list — never for a plan.
 
-import type { Session } from './types';
+import { rememberDeviceCalendar } from './lib/deviceCalendars';
+
+export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
+
+export interface ActiveCalendar {
+  id: string;
+  secret: string | null; // present ⇒ editable; null ⇒ read-only view
+  eventId: string;
+  name: string;
+  rev: number;
+  sessionIds: string[];
+  updatedAt: string | null;
+}
 
 export type PlanChange =
-  | { type: 'plan'; ids: string[] }
-  | { type: 'dataset'; dataset: Session[] | null };
+  | { type: 'active'; calendar: ActiveCalendar | null }
+  | { type: 'sync'; status: SyncStatus; message?: string };
+
+export type OpenResult =
+  | { ok: true; calendar: ActiveCalendar }
+  | { ok: false; reason: 'notfound' | 'error' };
 
 export interface PlanStore {
-  getPlan(): Promise<string[]>;
-  setPlan(ids: string[]): Promise<void>;
-  togglePlan(id: string): Promise<string[]>;
-  getDataset(): Promise<Session[] | null>;
-  setDataset(dataset: Session[] | null): Promise<void>;
+  getActive(): ActiveCalendar | null;
+  getPlan(): string[];
+  open(id: string, secret: string | null): Promise<OpenResult>;
+  create(name: string, sessionIds: string[]): Promise<{ id: string; secret: string; eventId: string } | null>;
+  togglePlan(id: string): void;
+  setName(name: string): void;
+  clear(): void;
+  flush(): Promise<void>;
   subscribe(listener: (change: PlanChange) => void): () => void;
 }
 
-const PLAN_KEY = 'pennsic-planner:plan:v1';
-const DATASET_KEY = 'pennsic-planner:dataset:v1';
+const API_BASE = '/api/calendar';
+const WRITE_DEBOUNCE_MS = 700;
+const CONFLICT_MESSAGE = 'Reloaded from the server — your last change may not have been saved.';
 
-/** localStorage-backed PlanStore. Reads are async to match the future remote backend. */
-class LocalPlanStore implements PlanStore {
+class RemotePlanStore implements PlanStore {
+  private active: ActiveCalendar | null = null;
   private listeners = new Set<(change: PlanChange) => void>();
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private dirty = false;
+  private writing = false;
 
-  private read<T>(key: string, fallback: T): T {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw == null) return fallback;
-      return JSON.parse(raw) as T;
-    } catch {
-      return fallback;
-    }
+  getActive(): ActiveCalendar | null {
+    return this.active;
   }
 
-  private write(key: string, value: unknown): void {
+  getPlan(): string[] {
+    return this.active ? this.active.sessionIds : [];
+  }
+
+  async open(id: string, secret: string | null): Promise<OpenResult> {
+    let res: Response;
     try {
-      if (value == null) localStorage.removeItem(key);
-      else localStorage.setItem(key, JSON.stringify(value));
+      res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, { headers: { Accept: 'application/json' } });
     } catch {
-      /* storage may be unavailable (private mode / quota); degrade to in-memory only */
+      return { ok: false, reason: 'error' };
     }
+    if (res.status === 404) return { ok: false, reason: 'notfound' };
+    if (!res.ok) return { ok: false, reason: 'error' };
+
+    let data: ServerCalendar;
+    try {
+      data = (await res.json()) as ServerCalendar;
+    } catch {
+      return { ok: false, reason: 'error' };
+    }
+
+    const calendar: ActiveCalendar = {
+      id: data.id,
+      secret,
+      eventId: data.eventId,
+      name: data.name,
+      rev: data.rev,
+      sessionIds: Array.isArray(data.sessionIds) ? data.sessionIds.slice() : [],
+      updatedAt: data.updatedAt ?? null,
+    };
+    this.setActive(calendar);
+    rememberDeviceCalendar({ id: calendar.id, secret, name: calendar.name, eventId: calendar.eventId });
+    return { ok: true, calendar };
+  }
+
+  async create(
+    name: string,
+    sessionIds: string[]
+  ): Promise<{ id: string; secret: string; eventId: string } | null> {
+    this.emitSync('saving');
+    let res: Response;
+    try {
+      res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, sessionIds }),
+      });
+    } catch {
+      this.emitSync('error', 'Could not reach the server to create the calendar.');
+      return null;
+    }
+    if (!res.ok) {
+      this.emitSync('error', 'The server rejected the new calendar.');
+      return null;
+    }
+    let data: { id: string; editSecret: string; eventId: string };
+    try {
+      data = (await res.json()) as { id: string; editSecret: string; eventId: string };
+    } catch {
+      this.emitSync('error', 'The server returned an unexpected response.');
+      return null;
+    }
+
+    const calendar: ActiveCalendar = {
+      id: data.id,
+      secret: data.editSecret,
+      eventId: data.eventId,
+      name,
+      rev: 1,
+      sessionIds: dedupe(sessionIds),
+      updatedAt: new Date().toISOString(),
+    };
+    this.setActive(calendar);
+    this.emitSync('saved');
+    rememberDeviceCalendar({ id: calendar.id, secret: data.editSecret, name, eventId: data.eventId });
+    return { id: data.id, secret: data.editSecret, eventId: data.eventId };
+  }
+
+  togglePlan(id: string): void {
+    if (!this.active || !this.active.secret) return; // editing requires an active editable calendar
+    const has = this.active.sessionIds.includes(id);
+    const sessionIds = has
+      ? this.active.sessionIds.filter((x) => x !== id)
+      : [...this.active.sessionIds, id];
+    this.setActive({ ...this.active, sessionIds });
+    this.markDirty();
+  }
+
+  setName(name: string): void {
+    if (!this.active || !this.active.secret) return;
+    if (name === this.active.name) return;
+    this.setActive({ ...this.active, name });
+    this.markDirty();
+  }
+
+  clear(): void {
+    // Drop the active calendar (landing mode). Any pending write is flushed first so edits aren't lost.
+    void this.flush();
+    if (this.active !== null) this.setActive(null);
+  }
+
+  subscribe(listener: (change: PlanChange) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  // ── internal ────────────────────────────────────────────────────────────────────────────────
+
+  private setActive(calendar: ActiveCalendar | null): void {
+    this.active = calendar;
+    this.emit({ type: 'active', calendar });
+  }
+
+  private markDirty(): void {
+    this.dirty = true;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.runWrite();
+    }, WRITE_DEBOUNCE_MS);
+  }
+
+  async flush(): Promise<void> {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    await this.runWrite(true);
+  }
+
+  private async runWrite(keepalive = false): Promise<void> {
+    if (this.writing) return; // a write is in flight; it re-checks `dirty` when it finishes
+    const cal = this.active;
+    if (!cal || !cal.secret || !this.dirty) return;
+
+    this.writing = true;
+    this.dirty = false;
+    const snapshotRev = cal.rev;
+    this.emitSync('saving');
+
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/${encodeURIComponent(cal.id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${cal.secret}`,
+          'If-Match': String(snapshotRev),
+        },
+        body: JSON.stringify({ name: cal.name, sessionIds: cal.sessionIds }),
+        keepalive,
+      });
+    } catch {
+      this.dirty = true; // network blip — let a later change or flush retry
+      this.writing = false;
+      this.emitSync('error', 'Offline — changes will retry.');
+      return;
+    }
+
+    if (res.status === 409) {
+      // Hold the write lock across the reload so a queued write can't race the refetch.
+      await this.reloadAfterConflict();
+      this.writing = false;
+      return;
+    }
+    if (!res.ok) {
+      this.writing = false;
+      // A server-side (5xx) failure is transient: keep the edit dirty so flush()/a later change
+      // retries it. A 4xx is our bug or a rejected body — don't loop on it.
+      if (res.status >= 500) this.dirty = true;
+      this.emitSync('error', res.status >= 500 ? 'Save failed — will retry.' : 'Save failed.');
+      return;
+    }
+
+    try {
+      const data = (await res.json()) as ServerCalendar;
+      // Only the rev/updatedAt are authoritative from the response; keep the user's latest local edits.
+      if (this.active && this.active.id === cal.id) {
+        this.setActive({ ...this.active, rev: data.rev, updatedAt: data.updatedAt ?? this.active.updatedAt });
+      }
+    } catch {
+      /* response body optional for our purposes */
+    }
+    this.writing = false;
+    this.emitSync('saved');
+
+    if (this.dirty) void this.runWrite(); // more edits arrived mid-flight — flush them
+  }
+
+  private async reloadAfterConflict(): Promise<void> {
+    const cur = this.active;
+    if (!cur) return;
+    try {
+      const res = await fetch(`${API_BASE}/${encodeURIComponent(cur.id)}`, { headers: { Accept: 'application/json' } });
+      if (res.ok) {
+        const data = (await res.json()) as ServerCalendar;
+        this.dirty = false;
+        this.setActive({
+          ...cur,
+          name: data.name,
+          rev: data.rev,
+          sessionIds: Array.isArray(data.sessionIds) ? data.sessionIds.slice() : [],
+          updatedAt: data.updatedAt ?? cur.updatedAt,
+        });
+      }
+    } catch {
+      /* leave the local snapshot in place if the reload itself fails */
+    }
+    this.emitSync('conflict', CONFLICT_MESSAGE);
+  }
+
+  private emitSync(status: SyncStatus, message?: string): void {
+    this.emit({ type: 'sync', status, message });
   }
 
   private emit(change: PlanChange): void {
@@ -56,43 +285,24 @@ class LocalPlanStore implements PlanStore {
       try {
         l(change);
       } catch {
-        /* a listener throwing must not break others */
+        /* a listener throwing must not break the others */
       }
     }
   }
+}
 
-  async getPlan(): Promise<string[]> {
-    const ids = this.read<string[]>(PLAN_KEY, []);
-    return Array.isArray(ids) ? ids.filter((x) => typeof x === 'string') : [];
-  }
+interface ServerCalendar {
+  id: string;
+  name: string;
+  sessionIds: string[];
+  eventId: string;
+  rev: number;
+  updatedAt: string | null;
+}
 
-  async setPlan(ids: string[]): Promise<void> {
-    const unique = Array.from(new Set(ids));
-    this.write(PLAN_KEY, unique);
-    this.emit({ type: 'plan', ids: unique });
-  }
-
-  async togglePlan(id: string): Promise<string[]> {
-    const ids = await this.getPlan();
-    const next = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
-    await this.setPlan(next);
-    return next;
-  }
-
-  async getDataset(): Promise<Session[] | null> {
-    return this.read<Session[] | null>(DATASET_KEY, null);
-  }
-
-  async setDataset(dataset: Session[] | null): Promise<void> {
-    this.write(DATASET_KEY, dataset);
-    this.emit({ type: 'dataset', dataset });
-  }
-
-  subscribe(listener: (change: PlanChange) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
+function dedupe(ids: string[]): string[] {
+  return Array.from(new Set(ids));
 }
 
 // Singleton — the app imports this one instance.
-export const planStore: PlanStore = new LocalPlanStore();
+export const planStore: PlanStore = new RemotePlanStore();
