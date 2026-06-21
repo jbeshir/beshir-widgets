@@ -1642,6 +1642,11 @@ details[open] .track-legend-summary::before {
     padding: 14px;
     align-self: flex-start;
   }
+
+  .plan-sidebar--floating {
+    position: sticky;
+    top: var(--sticky-top, 0px);
+  }
 }
 
 .plan-sidebar-head {

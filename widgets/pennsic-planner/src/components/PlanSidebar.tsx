@@ -1,4 +1,4 @@
-import { useMemo } from 'preact/hooks';
+import { useMemo, useRef, useEffect } from 'preact/hooks';
 import type { Session } from '../types';
 import { hmToMinutes, shortDayLabel } from '../lib/time.js';
 import { sessionEndMin } from '../lib/layout.js';
@@ -14,6 +14,32 @@ interface Props {
 }
 
 export function PlanSidebar({ day, sessions, conflicts, trackColors, onOpenDetail, onOpenCalendar }: Props) {
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+
+    function check() {
+      if (!el) return;
+      const dayTabsEl = document.querySelector('.day-tabs-outer');
+      const topOffset = dayTabsEl ? dayTabsEl.getBoundingClientRect().height : 0;
+      const sidebarHeight = el.getBoundingClientRect().height;
+      el.style.setProperty('--sticky-top', `${topOffset}px`);
+      el.classList.toggle('plan-sidebar--floating', sidebarHeight <= window.innerHeight - topOffset);
+    }
+
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    window.addEventListener('resize', check);
+    check();
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', check);
+    };
+  }, []);
+
   const hasConflicts = useMemo(
     () => sessions.some((s) => conflicts.has(s.id)),
     [sessions, conflicts]
@@ -38,7 +64,7 @@ export function PlanSidebar({ day, sessions, conflicts, trackColors, onOpenDetai
   const pxPerMin = 0.8;
 
   return (
-    <aside class="plan-sidebar" aria-label="Your plan for the selected day">
+    <aside class="plan-sidebar" ref={sidebarRef} aria-label="Your plan for the selected day">
       <div class="plan-sidebar-head">
         <span class="plan-sidebar-title">Your plan · {shortDayLabel(day)}</span>
         <span class="plan-sidebar-count">{sessions.length} pick{sessions.length !== 1 ? 's' : ''}</span>
