@@ -166,7 +166,20 @@ const OP_SENSE: Record<OpId, string> = {
   'need-not':          "don't have to",
   kudasai:             'please',
   'kudasai-not':       "please don't",
+  'must-nke-ikenai':       'must',
+  'must-nakutewa-naranai': 'must',
+  'must-nakutewa-ikenai':  'must',
+  'must-nakya':            'gotta',
+  'must-nakucha':          'gotta',
 };
+
+// Ops the picker is allowed to show. Anything in OP_FAMILIES but NOT here is
+// "hidden but buildable": the engine builds it and deconjugate recognizes it,
+// but the menu omits it. New obligation variants + standalone casual ops live here.
+const HIDDEN_OPS = new Set<OpId>([
+  'must-nke-ikenai', 'must-nakutewa-naranai', 'must-nakutewa-ikenai',
+  'must-nakya', 'must-nakucha',
+]);
 
 const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
   { label: 'Core',                    ops: OP_FAMILIES.core },
@@ -177,7 +190,7 @@ const MENU_GROUPS: Array<{ label: string; ops: OpId[] }> = [
   { label: 'Conditionals',            ops: OP_FAMILIES.conditional },
   { label: 'Compound (phase)',        ops: OP_FAMILIES.compound },
   { label: 'Adjective & なる',         ops: OP_FAMILIES.adjective },
-];
+].map(g => ({ ...g, ops: g.ops.filter(op => !HIDDEN_OPS.has(op)) }));
 
 export function App() {
   const [selectedVerb, setSelectedVerb] = useState<Verb>(INITIAL_STATE?.verb ?? DEFAULT_VERB);

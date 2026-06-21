@@ -482,6 +482,41 @@ reg({ id:'need-not', label:"don't have to", aux:'なくてもいい', family:'de
   apply(f): Form { return { kana: plainNegativeKana(f).slice(0,-1) + 'くてもいい', type: 'i-adjective', iiAdj: true }; },
 });
 
+reg({ id:'must-nke-ikenai', label:'must (variant)', aux:'なければいけない', family:'deontic',
+  tooltip:'must / have to — plain negative\'s ば-conditional + いけない: 〜なければいけない; tail conjugates (past 〜いけなかった, polite 〜いけません).',
+  apply(f): Form {
+    return { kana: plainNegativeKana(f).slice(0,-1) + 'ければいけない', type: 'must' };
+  },
+});
+
+reg({ id:'must-nakutewa-naranai', label:'must (variant)', aux:'なくてはならない', family:'deontic',
+  tooltip:'must / have to — plain negative\'s て-form + はならない: 〜なくてはならない; tail conjugates (past 〜ならなかった, polite 〜なりません).',
+  apply(f): Form {
+    return { kana: plainNegativeKana(f).slice(0,-1) + 'くてはならない', type: 'must' };
+  },
+});
+
+reg({ id:'must-nakutewa-ikenai', label:'must (variant)', aux:'なくてはいけない', family:'deontic',
+  tooltip:'must / have to — plain negative\'s て-form + はいけない: 〜なくてはいけない; tail conjugates (past 〜いけなかった, polite 〜いけません).',
+  apply(f): Form {
+    return { kana: plainNegativeKana(f).slice(0,-1) + 'くてはいけない', type: 'must' };
+  },
+});
+
+reg({ id:'must-nakya', label:'must (casual)', aux:'なきゃ', family:'deontic',
+  tooltip:'must / have to (casual) — contraction of なければ: 〜なきゃ. Terminal.',
+  apply(f): Form {
+    return { kana: plainNegativeKana(f).slice(0,-1) + 'きゃ', type: 'must-casual' };
+  },
+});
+
+reg({ id:'must-nakucha', label:'must (casual)', aux:'なくちゃ', family:'deontic',
+  tooltip:'must / have to (casual) — contraction of なくては: 〜なくちゃ. Terminal.',
+  apply(f): Form {
+    return { kana: plainNegativeKana(f).slice(0,-1) + 'くちゃ', type: 'must-casual' };
+  },
+});
+
 // ── ASPECT (て-form auxiliaries) ──────────────────────────────────────────────
 
 reg({ id:'te-iru', label:'〜ている', aux:'いる', family:'aspect',
@@ -590,7 +625,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
   if (t === 'volitional' || t === 'imperative' || t === 'conditional-ba'
       || t === 'te-form' || t === 'conditional-tara'
       || t === 'polite-past' || t === 'polite-neg-past' || t === 'polite-volitional'
-      || t === 'request') {
+      || t === 'request' || t === 'must-casual') {
     return [];
   }
 
@@ -620,7 +655,7 @@ export function allowedOps(form: Form, stack: OpId[]): OpId[] {
       'tai','tagaru','yasui','nikui','naosu','sugiru','hajimeru','owaru','tsuzukeru','dasu',
       'te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru',
       'polite','negative','past','negative-past','te','volitional','imperative','ba','tara',
-      'must','must-not','may','need-not','kudasai','kudasai-not',
+      'must','must-nke-ikenai','must-nakutewa-naranai','must-nakutewa-ikenai','must-not','must-nakya','must-nakucha','may','need-not','kudasai','kudasai-not',
     ];
   } else {
     return [];
@@ -671,7 +706,7 @@ export const OP_FAMILIES: Record<OpFamily, OpId[]> = {
   adjective:   ['adverbial','sugiru','sou','naru'],
   aspect:      ['te-iru','te-kuru','te-iku','te-shimau','te-shimau-colloq','te-oku','te-aru'],
   command:     ['volitional','imperative'],
-  deontic:     ['must','must-not','may','need-not','kudasai','kudasai-not'],
+  deontic:     ['must','must-nke-ikenai','must-nakutewa-naranai','must-nakutewa-ikenai','must-not','may','need-not','kudasai','kudasai-not','must-nakya','must-nakucha'],
   conditional: ['ba','tara'],
 };
 
@@ -725,7 +760,7 @@ export function disabledReason(form: Form, stack: OpId[], op: OpId): string | nu
   if (t === 'volitional' || t === 'imperative' || t === 'conditional-ba'
       || t === 'conditional-tara' || t === 'te-form'
       || t === 'polite-past' || t === 'polite-neg-past' || t === 'polite-volitional'
-      || t === 'request') {
+      || t === 'request' || t === 'must-casual') {
     return 'terminal form — nothing more attaches';
   }
   if (stack.length >= 8) return 'tower depth limit reached';

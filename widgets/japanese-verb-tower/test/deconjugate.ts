@@ -370,6 +370,61 @@ if (!hasCompoundTsuzukeru) {
   console.log('compound-tsuzukeru assert (のみつづける → 飲む[tsuzukeru]): OK');
 }
 
+// ── new obligation variant ops (formal) — exact, single canonical ─────────────
+
+assertParse('のまなければいけない', '飲む', 'must-nke-ikenai', 'MUST-NKE-NOMU');
+assertParse('たべなければいけない', '食べる', 'must-nke-ikenai', 'MUST-NKE-TABE');
+assertParse('しなければいけない', 'する', 'must-nke-ikenai', 'MUST-NKE-SURU');
+assertParse('こなければいけない', '来る', 'must-nke-ikenai', 'MUST-NKE-KURU');
+assertParse('いかなければいけない', '行く', 'must-nke-ikenai', 'MUST-NKE-IKU');
+assertParse('のまなくてはならない', '飲む', 'must-nakutewa-naranai', 'MUST-NTN-NOMU');
+assertParse('のまなくてはいけない', '飲む', 'must-nakutewa-ikenai', 'MUST-NTI-NOMU');
+
+// composition with past / polite (compose for free via the must branches)
+assertParse('のまなければいけなかった', '飲む', 'must-nke-ikenai,past', 'MUST-NKE-PAST');
+assertParse('のまなければいけません', '飲む', 'must-nke-ikenai,polite', 'MUST-NKE-POL');
+assertParse('のまなければいけませんでした', '飲む', 'must-nke-ikenai,polite,past', 'MUST-NKE-POLPAST');
+assertParse('のまなくてはなりません', '飲む', 'must-nakutewa-naranai,polite', 'MUST-NTN-POL');
+
+// ── standalone casual obligation ops ─────────────────────────────────────────
+
+assertParse('のまなきゃ', '飲む', 'must-nakya', 'NAKYA-NOMU');
+assertParse('しなきゃ', 'する', 'must-nakya', 'NAKYA-SURU');
+assertParse('のまなくちゃ', '飲む', 'must-nakucha', 'NAKUCHA-NOMU');
+assertParse('たべなくちゃ', '食べる', 'must-nakucha', 'NAKUCHA-TABE');
+
+// casual-with-consequence breaks down to the formal op (penalised expansion pass)
+assertParse('のまなきゃいけない', '飲む', 'must-nke-ikenai', 'NAKYA-CONS-NOMU');
+assertParse('のまなくちゃならない', '飲む', 'must-nakutewa-naranai', 'NAKUCHA-CONS-NOMU');
+
+// ── single-parse / no-spurious asserts (the point of the ambiguity work) ──────
+
+function assertTop(input: string, baseK: string, opsStr: string, tag: string): void {
+  const ps = deconjugate(input, corpus);
+  const top = ps[0];
+  if (!top || top.base.k !== baseK || top.ops.join(',') !== opsStr) {
+    fails.push(`${tag}: top parse of ${input} != ${baseK}[${opsStr}] (got ${ps.map(p => p.base.k + '[' + p.ops.join(',') + ']').join('|')})`);
+    console.error(`  ✗ ${tag}: top parse of ${input} != ${baseK}[${opsStr}]`);
+  } else {
+    console.log(`${tag} assert (${input} top → ${baseK}[${opsStr}]): OK`);
+  }
+}
+
+assertTop('しなければならない', 'する', 'must', 'AMBIG-MUST-SURU');
+assertTop('のまなければならない', '飲む', 'must', 'AMBIG-MUST-NOMU');
+assertTop('しなければならなかった', 'する', 'must,past', 'AMBIG-MUSTPAST');
+
+// naru trailing-く guard collapses しなければならない to a single parse
+{
+  const n = deconjugate('しなければならない', corpus).length;
+  if (n !== 1) {
+    fails.push(`AMBIG-LEN: しなければならない should have exactly 1 parse; got ${n}`);
+    console.error(`  ✗ AMBIG-LEN: しなければならない has ${n} parses (want 1)`);
+  } else {
+    console.log('AMBIG-LEN assert (しなければならない → 1 parse): OK');
+  }
+}
+
 if (fails.length) {
   console.error(`\nFAILED: ${fails.length} issue(s)`);
   process.exit(1);
