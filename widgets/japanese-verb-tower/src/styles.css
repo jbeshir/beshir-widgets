@@ -1,63 +1,65 @@
 /* ── Design tokens — light / dark ─────────────────────────────────────────── */
 :root {
-  --bg:               #f1f5f9;
-  --card-bg:          #ffffff;
-  --card-border:      #e2e8f0;
-  --card-shadow:      0 1px 3px rgba(15,23,42,.06), 0 12px 32px rgba(15,23,42,.09);
-  --fg:               #0f172a;
-  --muted:            #5a6a7e;
-  --input-focus:      #2563eb;
-  --input-focus-ring: rgba(37,99,235,.22);
-  --chip-bg:          #f1f5f9;
-  --chip-border:      #e2e8f0;
-  --chip-active-bg:   #1d4ed8;
+  --bg:               #faf6f0;
+  --card-bg:          #fffdfa;
+  --card-border:      #e7ddcd;
+  --card-shadow:      0 1px 3px rgba(61,47,30,.07), 0 12px 32px rgba(61,47,30,.10);
+  --fg:               #20242b;
+  --muted:            #6b6358;
+  --input-focus:      #9d2235;
+  --input-focus-ring: rgba(157,34,53,.22);
+  --chip-bg:          #f3ece1;
+  --chip-border:      #e7ddcd;
+  --chip-active-bg:   #7a1626;
   --chip-active-fg:   #ffffff;
-  --chip-active-brd:  #1e40af;
-  --tier-bg:          #ffffff;
-  --tier-border:      #e2e8f0;
-  --tier-top-bg:      #eff6ff;
-  --tier-top-border:  #60a5fa;
-  --tier-base-bg:     #f8fafc;
+  --chip-active-brd:  #5e0f1c;
+  --tier-bg:          #fffdfa;
+  --tier-border:      #e7ddcd;
+  --tier-top-bg:      #fbeaed;
+  --tier-top-border:  #d2677a;
+  --tier-crown:       #d99a1f;
+  --tier-base-bg:     #f7f1e7;
   --hl-bg:            #fef08a;
   --hl-fg:            #78350f;
   --hl-border:        #fcd34d;
-  --conn-color:       #93c5fd;
-  --label-bg:         #f1f5f9;
+  --conn-color:       #e59aa6;
+  --label-bg:         #f3ece1;
   --note-bg:          #fefce8;
   --note-border:      #fde047;
   --note-fg:          #713f12;
-  --fieldset-border:  #e2e8f0;
+  --fieldset-border:  #e7ddcd;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:               #0b1220;
-    --card-bg:          #111827;
-    --card-border:      #1e2d3d;
+    --bg:               #14171d;
+    --card-bg:          #1b1f27;
+    --card-border:      #2b313c;
     --card-shadow:      0 1px 3px rgba(0,0,0,.5), 0 12px 32px rgba(0,0,0,.6);
-    --fg:               #e2e8f0;
-    --muted:            #94a3b8;
-    --input-focus:      #60a5fa;
-    --input-focus-ring: rgba(96,165,250,.3);
-    --chip-bg:          #1e2d3d;
-    --chip-border:      #2d3f52;
-    --chip-active-bg:   #2563eb;
+    --fg:               #e9e6e1;
+    --muted:            #9aa1ab;
+    --input-focus:      #ff8097;
+    --input-focus-ring: rgba(255,128,151,.3);
+    --chip-bg:          #252a33;
+    --chip-border:      #353b45;
+    --chip-active-bg:   #b02a3e;
     --chip-active-fg:   #ffffff;
-    --chip-active-brd:  #3b82f6;
-    --tier-bg:          #1a2738;
-    --tier-border:      #253447;
-    --tier-top-bg:      #1a3252;
-    --tier-top-border:  #3b82f6;
-    --tier-base-bg:     #141f2d;
+    --chip-active-brd:  #c0405a;
+    --tier-bg:          #21262e;
+    --tier-border:      #2f3540;
+    --tier-top-bg:      #3a1620;
+    --tier-top-border:  #c0405a;
+    --tier-crown:       #f1c453;
+    --tier-base-bg:     #181b21;
     --hl-bg:            #92400e;
     --hl-fg:            #fef3c7;
     --hl-border:        #b45309;
-    --conn-color:       #2d5ca8;
-    --label-bg:         #1e2d3d;
+    --conn-color:       #8a3a48;
+    --label-bg:         #252a33;
     --note-bg:          #1c1a10;
     --note-border:      #ca8a04;
     --note-fg:          #fde68a;
-    --fieldset-border:  #4a6280;
+    --fieldset-border:  #3b414c;
   }
 }
 
@@ -150,7 +152,7 @@ body {
   background: var(--chip-active-bg);
   border-color: var(--chip-active-brd);
   color: var(--chip-active-fg);
-  box-shadow: 0 1px 4px rgba(29,78,216,.35);
+  box-shadow: 0 1px 4px rgba(122,22,38,.35);
 }
 
 .verb-chip-kanji {
@@ -310,7 +312,7 @@ body {
   bottom: 0;
   left: 0;
   width: 2px;
-  background: linear-gradient(to top, var(--conn-color), var(--tier-top-border));
+  background: linear-gradient(to top, var(--conn-color), var(--tier-crown));
   z-index: 1;
   pointer-events: none;
 }
@@ -336,7 +338,7 @@ body {
 /* ── Top tier: final assembled form — most prominent ─────────────────────── */
 .tier--top .tier-body {
   background: var(--tier-top-bg);
-  border-left-color: var(--input-focus);
+  border-left-color: var(--tier-crown);
   border-left-width: 5px;
   padding: 18px 18px 14px;
 }
