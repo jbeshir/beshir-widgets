@@ -42,3 +42,23 @@ jobs:
       - name: Build
         working-directory: widgets/${{ matrix.widget }}
         run: npm run build
+      # Interaction + UX gate. Runs only for widgets that ship a journey.json
+      # sidecar (see TESTING.md). Mirrors the local invocation of
+      # scripts/journey.cjs <dist/index.html> <journey.json> <out-dir>.
+      - name: Journey gate (interaction + UX)
+        if: ${{ hashFiles(format('widgets/{0}/journey.json', matrix.widget)) != '' }}
+        working-directory: widgets/${{ matrix.widget }}
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          NODE_PATH="$PWD/node_modules" node "$GITHUB_WORKSPACE/scripts/journey.cjs" \
+            "$PWD/dist/index.html" \
+            "$PWD/journey.json" \
+            "$GITHUB_WORKSPACE/.journey-out/${{ matrix.widget }}"
+      - name: Upload journey gallery
+        if: ${{ always() && hashFiles(format('widgets/{0}/journey.json', matrix.widget)) != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: journey-${{ matrix.widget }}
+          path: .journey-out/${{ matrix.widget }}
+          if-no-files-found: ignore

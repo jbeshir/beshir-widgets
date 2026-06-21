@@ -1,0 +1,54 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    {
+      "label": "initial",
+      "steps": [],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "search-results",
+      "steps": [
+        { "fill": "[data-testid=search-input]", "value": "taberu" }
+      ],
+      "expect": { "state": "populated" }
+    },
+    {
+      "label": "built-tower",
+      "steps": [
+        { "click": "[data-testid=verb-nomu]" },
+        { "click": "[data-testid=toggle-negative]" },
+        { "click": "[data-testid=toggle-past]" }
+      ],
+      "expect": { "state": "populated" }
+    },
+    {
+      "label": "breakdown-candidates",
+      "steps": [
+        { "clickRole": { "role": "tab", "name": "Break down" } },
+        { "fill": "[data-testid=breakdown-input]", "value": "あった" },
+        { "click": "[data-testid=breakdown-run]" }
+      ],
+      "expect": { "selector": "[data-testid=candidate-picker]" }
+    },
+    {
+      "label": "breakdown-applied",
+      "steps": [
+        { "clickRole": { "role": "tab", "name": "Break down" } },
+        { "fill": "[data-testid=breakdown-input]", "value": "見たくなくなってきた" },
+        { "click": "[data-testid=breakdown-run]" }
+      ],
+      "expect": { "state": "populated" }
+    },
+    {
+      "label": "empty-search",
+      "steps": [
+        { "fill": "[data-testid=search-input]", "value": "zzzqqx" }
+      ],
+      "expect": { "state": "empty" }
+    }
+  ]
+}

@@ -313,6 +313,23 @@ export function App() {
     [trimmedQuery, allEntries],
   );
 
+  useEffect(() => {
+    const el = document.documentElement;
+    let s: string;
+    if (dictLoading) {
+      s = 'loading';
+    } else if (mode === 'breakdown') {
+      if (bdParses !== null) s = bdParses.length > 0 ? 'populated' : 'empty';
+      else if (stack.length > 0) s = 'populated';
+      else s = 'ready';
+    } else {
+      if (trimmedQuery) s = searchResults.length > 0 ? 'populated' : 'empty';
+      else if (stack.length > 0) s = 'populated';
+      else s = 'ready';
+    }
+    el.dataset.widgetState = s;
+  }, [dictLoading, mode, bdParses, stack.length, trimmedQuery, searchResults.length]);
+
   const cChecked      = stack.includes('causative');
   const politeChecked = stack.includes('polite');
   const negChecked    = stack.includes('negative');
@@ -443,12 +460,14 @@ export function App() {
             role="tab"
             aria-selected={mode === 'build'}
             onClick={() => setMode('build')}
+            data-testid="mode-build"
           >Build</button>
           <button
             class={`mode-btn${mode === 'breakdown' ? ' mode-btn--active' : ''}`}
             role="tab"
             aria-selected={mode === 'breakdown'}
             onClick={() => setMode('breakdown')}
+            data-testid="mode-breakdown"
           >Break down</button>
         </div>
 
@@ -466,6 +485,7 @@ export function App() {
                   aria-autocomplete="list"
                   aria-controls={trimmedQuery ? 'search-results' : undefined}
                   aria-expanded={!!trimmedQuery}
+                  data-testid="search-input"
                 />
                 {dictLoading ? (
                   <span class="dict-hint dict-hint--loading" aria-live="polite">loading full dictionary…</span>
@@ -474,9 +494,9 @@ export function App() {
                 ) : null}
               </div>
               {trimmedQuery && (
-                <div id="search-results" class="search-results" role="listbox" aria-label="Search results">
+                <div id="search-results" class="search-results" role="listbox" aria-label="Search results" data-testid="search-results">
                   {searchResults.length === 0 ? (
-                    <div class="search-no-match">No matches</div>
+                    <div class="search-no-match" data-testid="search-no-match">No matches</div>
                   ) : (
                     searchResults.map((e) => (
                       <button
@@ -510,6 +530,7 @@ export function App() {
                   onClick={() => selectVerb(v)}
                   aria-pressed={isActive(v)}
                   title={`${v.kanji} (${v.romaji}) — ${v.gloss}`}
+                  data-testid={`verb-${v.romaji}`}
                 >
                   <span class="verb-chip-kanji jp">{v.kanji}</span>
                   <span class="verb-chip-sub">{v.romaji}</span>
@@ -530,11 +551,13 @@ export function App() {
                 onInput={(e) => { setBdInput((e.target as HTMLInputElement).value); setBdParses(null); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') runBreakdown(); }}
                 aria-label="Enter a conjugated verb form to analyze"
+                data-testid="breakdown-input"
               />
               <button
                 class="breakdown-btn"
                 onClick={runBreakdown}
                 disabled={!bdInput.trim()}
+                data-testid="breakdown-run"
               >Break down</button>
             </div>
             {dictLoading && (
@@ -547,7 +570,7 @@ export function App() {
                 ) : (
                   <>
                     <p class="breakdown-hint">Did you mean…?</p>
-                    <div class="candidate-picker">
+                    <div class="candidate-picker" data-testid="candidate-picker">
                       {bdParses.map((p, i) => (
                         <button key={i} class="candidate-row" onClick={() => applyParse(p)}>
                           <span class="candidate-base">
@@ -586,6 +609,7 @@ export function App() {
                   onChange={(e) => {
                     (e.target as HTMLInputElement).checked ? toggleOn('causative') : toggleOff('causative');
                   }}
+                  data-testid="toggle-causative"
                 />
                 <span class="toggle-text">
                   Causative <span class="morph-tag">-させる / -せる</span>
@@ -624,6 +648,7 @@ export function App() {
                   onChange={(e) => {
                     (e.target as HTMLInputElement).checked ? toggleOn('polite') : toggleOff('polite');
                   }}
+                  data-testid="toggle-polite"
                 />
                 <span class="toggle-text">Polite <span class="morph-tag">-ます</span></span>
               </label>
@@ -636,6 +661,7 @@ export function App() {
                   onChange={(e) => {
                     (e.target as HTMLInputElement).checked ? toggleOn('negative') : toggleOff('negative');
                   }}
+                  data-testid="toggle-negative"
                 />
                 <span class="toggle-text">Negative <span class="morph-tag">-ない / -ません</span></span>
               </label>
@@ -648,6 +674,7 @@ export function App() {
                   onChange={(e) => {
                     (e.target as HTMLInputElement).checked ? toggleOn('past') : toggleOff('past');
                   }}
+                  data-testid="toggle-past"
                 />
                 <span class="toggle-text">Past <span class="morph-tag">-た / -ました</span></span>
               </label>
@@ -723,7 +750,7 @@ export function App() {
               )}
             </div>
 
-            <div class="tower" aria-label="Conjugation tower — base at bottom, final at top">
+            <div class="tower" aria-label="Conjugation tower — base at bottom, final at top" data-testid="tower">
               {displayTiers.map((tier, idx) => {
                 const isTop  = idx === 0;
                 const isBase = tier.op === 'base';

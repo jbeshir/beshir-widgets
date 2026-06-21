@@ -3,3 +3,7 @@ dist/
 .wrangler/
 *.log
 .DS_Store
+
+# Journey harness output (screenshots + report) and local UX-review scratch
+.journey-out/
+.reviews/
