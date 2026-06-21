@@ -13,6 +13,8 @@ export function buildTranslateMessages(
     {
       role: 'system',
       content:
+        // Qwen3 soft switch: answer directly, no chain-of-thought.
+        '/no_think\n' +
         'You translate a conjugated Japanese verb form into natural, idiomatic English. ' +
         'Each request gives the Japanese form plus the base verb\'s English meaning and an ordered list of the grammatical features applied to it. ' +
         'Produce the phrase a fluent speaker would actually use: features often combine into an idiom rather than a word-for-word gloss, and some (such as "polite") add no English words at all — do not simply chain the feature glosses. ' +
@@ -34,6 +36,14 @@ export function cleanTranslation(raw: string): string {
   if (typeof raw !== 'string' || raw.length === 0) return '';
 
   let s = raw.trim();
+  if (s.length === 0) return '';
+
+  // Drop any reasoning a model emits despite /no_think: remove complete
+  // <think>…</think> blocks, then anything from an unclosed <think> onward.
+  s = s.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  const thinkAt = s.indexOf('<think>');
+  if (thinkAt !== -1) s = s.slice(0, thinkAt);
+  s = s.replace(/<\/think>/gi, '').trim();
   if (s.length === 0) return '';
 
   s = s.split(/\r?\n/)[0].trim();
