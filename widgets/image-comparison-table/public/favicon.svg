@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Image Comparison Table">
+  <style>
+    .t0 { stop-color: #a4243b }
+    .t1 { stop-color: #7d1b2b }
+    .gl { fill: #fdf2e0; stroke: #fdf2e0 }
+    .gold { fill: #f1c453; stroke: #f1c453 }
+    @media (prefers-color-scheme: dark) {
+      .t0 { stop-color: #c33049 }
+      .t1 { stop-color: #8f2030 }
+      .gl { fill: #fff4e2; stroke: #fff4e2 }
+      .gold { fill: #ffd166; stroke: #ffd166 }
+    }
+  </style>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="t0" />
+      <stop offset="1" class="t1" />
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#tile)" />
+  <rect class="gl" x="7.5" y="8.5" width="17" height="15" rx="2.5" fill="none" stroke-width="2" />
+  <path class="gl" d="M9.5 8.5 H14 V23.5 H9.5 a2 2 0 0 1 -2 -2 V10.5 a2 2 0 0 1 2 -2 Z" stroke="none" opacity="0.85" />
+  <line class="gold" x1="16" y1="6.5" x2="16" y2="25.5" stroke-width="1.6" stroke-linecap="round" />
+</svg>
