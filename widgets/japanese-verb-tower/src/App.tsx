@@ -217,11 +217,14 @@ export function App() {
   const [bdParses, setBdParses]         = useState<Parse[] | null>(null);
   const [translation, setTranslation]   = useState<string | null>(null);
   const [translating, setTranslating]   = useState(false);
+  const [searchActive, setSearchActive] = useState(-1);
   const containerRef    = useRef<HTMLDivElement>(null);
   const menuRef         = useRef<HTMLDivElement>(null);
   const addLayerBtnRef  = useRef<HTMLButtonElement>(null);
   const buildTabRef     = useRef<HTMLButtonElement>(null);
   const breakdownTabRef = useRef<HTMLButtonElement>(null);
+  const resultsRef      = useRef<HTMLDivElement>(null);
+  const candidateRefs   = useRef<(HTMLButtonElement | null)[]>([]);
   const byReadingRef    = useRef(buildByReading(SAMPLE));
 
   // Adjectives are included in the breakdown corpus only — not in build-mode search.
@@ -343,6 +346,73 @@ export function App() {
     () => (trimmedQuery ? searchEntries(trimmedQuery, allEntries) : []),
     [trimmedQuery, allEntries],
   );
+
+  // The highlighted option is virtual-focus only — the input keeps DOM focus
+  // (aria-activedescendant combobox pattern). Any change to the result set
+  // resets the highlight so it can never point past the rendered options.
+  useEffect(() => { setSearchActive(-1); }, [searchResults]);
+
+  useEffect(() => {
+    if (searchActive < 0) return;
+    const el = resultsRef.current?.children[searchActive] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [searchActive]);
+
+  function onSearchKeyDown(e: JSX.TargetedKeyboardEvent<HTMLInputElement>) {
+    if (searchResults.length === 0) return;
+    const last = searchResults.length - 1;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSearchActive(i => (i >= last ? 0 : i + 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSearchActive(i => (i <= 0 ? last : i - 1));
+        break;
+      case 'Home':
+        e.preventDefault();
+        setSearchActive(0);
+        break;
+      case 'End':
+        e.preventDefault();
+        setSearchActive(last);
+        break;
+      case 'Enter':
+        if (searchActive >= 0) {
+          e.preventDefault();
+          selectVerb(makeVerb(searchResults[searchActive]));
+        }
+        break;
+      case 'Escape':
+        if (query) { e.preventDefault(); setQuery(''); }
+        break;
+    }
+  }
+
+  // Move keyboard focus onto the first "did you mean" candidate as soon as a
+  // breakdown produces an ambiguous result, so it's reachable without tabbing.
+  useEffect(() => {
+    if (bdParses && bdParses.length > 0) candidateRefs.current[0]?.focus();
+  }, [bdParses]);
+
+  function onCandidateKeyDown(e: JSX.TargetedKeyboardEvent<HTMLButtonElement>, i: number) {
+    const n = bdParses?.length ?? 0;
+    if (n === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      candidateRefs.current[(i + 1) % n]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      candidateRefs.current[(i - 1 + n) % n]?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      candidateRefs.current[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      candidateRefs.current[n - 1]?.focus();
+    }
+  }
 
   useEffect(() => {
     const el = document.documentElement;
@@ -538,10 +608,12 @@ export function App() {
                   placeholder="Type a verb — romaji (nomu, taberu, benkyou suru) or kana/kanji"
                   value={query}
                   onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+                  onKeyDown={onSearchKeyDown}
                   aria-label="Search verbs by romaji, kana, or kanji"
                   aria-autocomplete="list"
                   aria-controls={trimmedQuery ? 'search-results' : undefined}
                   aria-expanded={!!trimmedQuery}
+                  aria-activedescendant={searchActive >= 0 ? `search-opt-${searchActive}` : undefined}
                   data-testid="search-input"
                 />
                 {dictLoading ? (
@@ -551,16 +623,18 @@ export function App() {
                 ) : null}
               </div>
               {trimmedQuery && (
-                <div id="search-results" class="search-results" role="listbox" aria-label="Search results" data-testid="search-results">
+                <div id="search-results" ref={resultsRef} class="search-results" role="listbox" aria-label="Search results" data-testid="search-results">
                   {searchResults.length === 0 ? (
                     <div class="search-no-match" data-testid="search-no-match">No matches — try romaji (taberu, nomu) or kana/kanji</div>
                   ) : (
-                    searchResults.map((e) => (
+                    searchResults.map((e, i) => (
                       <button
                         key={e.k + '\0' + e.r}
-                        class="search-result"
+                        id={`search-opt-${i}`}
+                        class={`search-result${i === searchActive ? ' search-result--active' : ''}`}
                         role="option"
-                        aria-selected={e.k === selectedVerb.kanji && e.r === selectedVerb.kana}
+                        tabIndex={-1}
+                        aria-selected={i === searchActive}
                         onClick={() => selectVerb(makeVerb(e))}
                       >
                         <span class="search-result-kanji jp">{e.k}</span>
@@ -627,9 +701,17 @@ export function App() {
                 ) : (
                   <>
                     <p class="breakdown-hint">Did you mean…?</p>
-                    <div class="candidate-picker" data-testid="candidate-picker">
+                    <div class="candidate-picker" role="listbox" aria-label="Matching verbs" data-testid="candidate-picker">
                       {bdParses.map((p, i) => (
-                        <button key={i} class="candidate-row" onClick={() => applyParse(p)}>
+                        <button
+                          key={i}
+                          ref={(el) => { candidateRefs.current[i] = el; }}
+                          class="candidate-row"
+                          role="option"
+                          aria-selected="false"
+                          onClick={() => applyParse(p)}
+                          onKeyDown={(e) => onCandidateKeyDown(e, i)}
+                        >
                           <span class="candidate-base">
                             <span class="jp">{p.base.k}</span>
                             <span class="candidate-reading jp">【{p.base.r}】</span>
