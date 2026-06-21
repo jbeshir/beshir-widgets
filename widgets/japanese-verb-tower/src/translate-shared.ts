@@ -21,6 +21,7 @@ export function buildTranslateMessages(
         'Base meaning: drink\nFeatures: make/let · be ~ed\nJapanese form: のませられる\n→ be made to drink\n\n' +
         'Base meaning: read\nFeatures: not · become\nJapanese form: よまなくなる\n→ stop reading\n\n' +
         'Base meaning: say\nFeatures: end up/completely · past\nJapanese form: いってしまった\n→ ended up saying\n\n' +
+        'Base meaning: go\nFeatures: not · must not\nJapanese form: いかなくてはいけない\n→ have to go\n\n' +
         'Reply with only the resulting English phrase — no quotes, no Japanese, no explanation, no trailing punctuation.',
     },
     {
