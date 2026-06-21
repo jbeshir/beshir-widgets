@@ -170,3 +170,24 @@ describe('PUT /api/calendar/:id', () => {
     expect(res.status).toBe(404);
   });
 });
+describe('POST /api/calendar rate limiting', () => {
+  it('returns 429 after 10 requests from the same IP', async () => {
+    // Use a dedicated IP so this test's counter is independent of the other tests, which all
+    // use the 'unknown' key (no CF-Connecting-IP header). limit is 10/60s per key.
+    const ip = '192.0.2.1';
+    for (let i = 0; i < 10; i++) {
+      const res = await call('POST', '/api/calendar', {
+        body: { name: `RL test ${i}`, sessionIds: [] },
+        headers: { 'CF-Connecting-IP': ip },
+      });
+      expect(res.status).toBe(201);
+    }
+    const limited = await call('POST', '/api/calendar', {
+      body: { name: 'RL over limit', sessionIds: [] },
+      headers: { 'CF-Connecting-IP': ip },
+    });
+    expect(limited.status).toBe(429);
+    const body = (await limited.json()) as Record<string, unknown>;
+    expect(body.error).toBe('rate_limited');
+  });
+});

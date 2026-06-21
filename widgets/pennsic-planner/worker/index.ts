@@ -17,6 +17,7 @@
 interface Env {
   DB: D1Database;
   ASSETS?: Fetcher;
+  CREATE_LIMITER: RateLimit;
 }
 
 // Kept in sync with src/data/events.ts DEFAULT_EVENT_ID and the seed row in schema.sql.
@@ -90,6 +91,9 @@ async function handleCalendarApi(request: Request, env: Env, pathname: string): 
 }
 
 async function createCalendar(request: Request, env: Env): Promise<Response> {
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+  const { success } = await env.CREATE_LIMITER.limit({ key: ip });
+  if (!success) return jsonError(429, 'rate_limited', 'Too many calendars created — try again shortly.');
   const parsed = await parseBody(request);
   if ('error' in parsed) return parsed.error;
   const input = validateCalendarInput(parsed.body);

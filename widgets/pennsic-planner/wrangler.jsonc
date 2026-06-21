@@ -20,6 +20,9 @@
       "database_id": "REPLACE_WITH_D1_DATABASE_ID"
     }
   ],
+  "ratelimits": [
+    { "name": "CREATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
+  ],
   "routes": [
     {
       "pattern": "pennsic-planner.widgets.beshir.org",
