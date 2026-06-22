@@ -34,6 +34,17 @@ Output goes to `dist/`.
 <iframe src="https://function-plotter.widgets.beshir.org" loading="lazy" style="width:100%;height:480px;border:0"></iframe>
 ```
 
+The widget posts `{ type: "resize", height }` to its parent (via `ResizeObserver`),
+so a host can auto-size the iframe to its content:
+
+```js
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'resize' && e.source === frame.contentWindow) {
+    frame.style.height = e.data.height + 'px';
+  }
+});
+```
+
 ## Note
 
 This widget is the template other widgets copy. See `LIBRARIES.md` at the
