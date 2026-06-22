@@ -156,3 +156,11 @@ body {
     transition: none;
   }
 }
+
+/* ── Embedded (in an iframe) ────────────────────────────────────────────────
+   The frame is already the container, so shed the standalone page chrome and
+   let the card fill it. The card keeps its own opaque, theme-correct background
+   so contrast holds whatever the host page's background is. */
+.embedded body { background: transparent; }
+.embedded .container { max-width: none; padding: 0; }
+.embedded .card { border: 0; border-radius: 0; box-shadow: none; }
