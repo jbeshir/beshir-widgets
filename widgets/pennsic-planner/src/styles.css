@@ -53,9 +53,9 @@
     --conflict-bg: #1f0707;
     --pill-bg: #252a33;
     --pill-hover: #2f3540;
-    --pill-active-bg: #b02a3e;
-    --pill-active-fg: #ffffff;
-    --accent-fill: #b02a3e;
+    --pill-active-bg: #9e3346;
+    --pill-active-fg: #ffe1e7;
+    --accent-fill: #9e3346;
     --tab-border: #2b313c;
   }
 }
@@ -743,7 +743,7 @@ details[open] .track-legend-summary::before {
 .plan-export-btn {
   padding: 8px 16px;
   background: var(--accent-fill);
-  color: #fff;
+  color: var(--pill-active-fg);
   border: none;
   border-radius: 8px;
   font-size: 13.5px;
@@ -869,7 +869,7 @@ details[open] .track-legend-summary::before {
 .cal-create-btn {
   padding: 9px 18px;
   background: var(--accent-fill);
-  color: #fff;
+  color: var(--pill-active-fg);
   border: none;
   border-radius: 8px;
   font-size: 14px;
@@ -1564,7 +1564,7 @@ details[open] .track-legend-summary::before {
   width: 100%;
   padding: 10px 16px;
   background: var(--accent-fill);
-  color: #fff;
+  color: var(--pill-active-fg);
   border: 2px solid var(--accent-fill);
   border-radius: 8px;
   font-size: 14px;
