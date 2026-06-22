@@ -2114,3 +2114,12 @@ details[open] .track-legend-summary::before {
   outline-offset: 2px;
   border-radius: 2px;
 }
+
+/* ── Embedded (in an iframe) ────────────────────────────────────────────────
+   The frame is already the container, so shed the standalone page chrome and
+   let the card fill it. The card keeps its own opaque, theme-correct background
+   (and its overflow/container-query behaviour) so contrast and layout hold
+   whatever the host page's background is. */
+.embedded body { background: transparent; }
+.embedded .container { max-width: none; padding: 0; }
+.embedded .card { border: 0; border-radius: 0; box-shadow: none; }

@@ -870,3 +870,15 @@ kbd {
   .lb-meta { padding: 12px 14px 14px; }
   .lb-nav { width: 38px; height: 38px; }
 }
+
+/* ── Embedded (in an iframe) ────────────────────────────────────────────────
+   The frame is already the container, so shed the standalone page chrome and
+   let the card fill it. The card keeps its own opaque, theme-correct background
+   so contrast holds whatever the host page's background is; the rose top accent
+   stays as a small brand cue. The fit-scale wrapper reads .page padding, so
+   zeroing it here gives it the full frame to measure against. */
+.embedded { background: transparent; }
+.embedded body { background: transparent; background-image: none; }
+.embedded .page { min-height: 0; padding: 0; }
+.embedded .container { max-width: none; padding: 0; }
+.embedded .card { border: 0; border-top: 2.5px solid var(--accent); border-radius: 0; box-shadow: none; }
