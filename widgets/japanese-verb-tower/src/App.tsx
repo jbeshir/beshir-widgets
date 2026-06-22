@@ -260,7 +260,7 @@ export function App() {
     const el = containerRef.current;
     if (!el) return;
     const send = () =>
-      window.parent.postMessage({ type: 'widget-size', height: el.scrollHeight }, '*');
+      window.parent.postMessage({ type: 'resize', height: el.scrollHeight }, '*');
     const ro = new ResizeObserver(send);
     ro.observe(el);
     send();

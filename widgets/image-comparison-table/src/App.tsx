@@ -96,6 +96,32 @@ export function App() {
     document.title = table ? `${table.title} — Image Comparison` : 'Image Comparison Tables';
   }, [table]);
 
+  // Report natural (untransformed) content height so a host can auto-size the
+  // iframe to fit; the fit-scale above is the fallback for when a host instead
+  // pins a fixed height. scrollHeight is unaffected by the fit-scale transform.
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    let last = -1;
+    let timer: ReturnType<typeof setTimeout>;
+    const send = () => {
+      const h = el.scrollHeight;
+      if (h === last) return;
+      last = h;
+      window.parent.postMessage({ type: 'resize', height: h }, '*');
+    };
+    const ro = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(send, 100);
+    });
+    ro.observe(el);
+    send();
+    return () => {
+      clearTimeout(timer);
+      ro.disconnect();
+    };
+  }, []);
+
   const compact = width < 560;
 
   const handleCellClick = useMemo(

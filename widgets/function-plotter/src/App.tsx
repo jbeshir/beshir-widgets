@@ -54,6 +54,7 @@ export function App() {
   const [expr, setExpr] = useState('sin(x)');
   const [ready, setReady] = useState(false);
   const [width, setWidth] = useState(720);
+  const rootRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -78,6 +79,18 @@ export function App() {
       }
     });
     ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Report content height so a host page can auto-size the iframe to fit.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const send = () =>
+      window.parent.postMessage({ type: 'resize', height: el.scrollHeight }, '*');
+    const ro = new ResizeObserver(send);
+    ro.observe(el);
+    send();
     return () => ro.disconnect();
   }, []);
 
@@ -141,7 +154,7 @@ export function App() {
   }, [samples, yDomain, width, ready]);
 
   return (
-    <div className="container">
+    <div className="container" ref={rootRef}>
       <div className="card">
         <header className="card-header">
           <h1>Function plotter</h1>

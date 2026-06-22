@@ -54,3 +54,16 @@ Output goes to `dist/`.
 ```
 
 Append `?table=<id>` (or use the `/<id>` path) on the `src` to pick a specific table.
+
+The widget posts `{ type: "resize", height }` to its parent with its natural content
+height, so a host can auto-size the iframe:
+
+```js
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'resize' && e.source === frame.contentWindow) {
+    frame.style.height = e.data.height + 'px';
+  }
+});
+```
+
+If the host pins a fixed height instead, the table scales down to fit it.
