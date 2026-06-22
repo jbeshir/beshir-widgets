@@ -6,3 +6,4 @@ Build-through tutorials for the [beshir-widgets](../../README.md) collection, te
 |---|---|---|---|
 | 01 | function-plotter | Preact core + Observable Plot: deriving state with `useMemo`, a safe expression evaluator, and imperative-library integration via `useEffect` | [01-function-plotter.md](./01-function-plotter.md) |
 | 02 | image-comparison-table | Multi-component composition + lifting state up, URL-driven view routing, useLayoutEffect + fit-to-viewport scaling, and an accessible lightbox modal | [02-image-comparison-table.md](./02-image-comparison-table.md) |
+| 03 | japanese-verb-tower | Pure algorithmic conjugation engine, a Cloudflare Worker AI backend, debounced/abortable fetch with graceful degradation, lazy code-split corpus, bidirectional URL state, romaji input | [03-japanese-verb-tower.md](./03-japanese-verb-tower.md) |
