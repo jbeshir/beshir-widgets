@@ -1,0 +1,155 @@
+{
+  "buckets": [
+    {
+      "id": "late-roman-colonus",
+      "label": "Late Roman colonus",
+      "era": "3rd–5th c. CE",
+      "region": "Roman Empire",
+      "caveat": "Tax and rent partly overlap: the land tax was formally the landowner's but often passed to the tenant, so a colonus on a private estate could bear tax PLUS rent while a free proprietor bore tax only — the ~57% combined central is a heavily-burdened tenant, not a universal figure. 'Output' = gross agricultural produce before subsistence.",
+      "segments": {
+        "direct_tax": { "low": 20, "central": 27, "high": 33, "citation": "Jones, The Later Roman Empire 284–602 (1964), pp. 467–9", "note": "Annona/iugatio-capitatio land tax, put by Jones at ~1/4 to 1/3 of gross yield." },
+        "rent": { "low": 20, "central": 30, "high": 40, "citation": "Jones (1964); Wickham, Framing the Early Middle Ages (2005)", "note": "Tenant (colonus partiarius) sharecropping rent to landlord, commonly ~1/3; money/kind rent where not sharecropped." },
+        "corvee": { "low": 0, "central": 2, "high": 5, "citation": "Jones, The Later Roman Empire 284–602 (1964)", "note": "THIN. Estate labour services (operae) existed but were minor vs tax and rent; kept small and flagged." }
+      }
+    },
+    {
+      "id": "medieval-english-villein-pre-black-death",
+      "label": "English villein (pre-Plague)",
+      "era": "~13th c.",
+      "region": "England / Western Europe",
+      "caveat": "Kanzaka: villein CUSTOMARY rents were usually BELOW competitive freehold rents — the burden bites via labour (week-work), not money rent. Huge variance between full virgaters, half-virgaters and cottagers. 'Output' = gross produce of the holding before seed-corn, tithe, rent, tax.",
+      "segments": {
+        "direct_tax": { "low": 8, "central": 13, "high": 20, "citation": "Postan, The Medieval Economy and Society (1972); tithe ~10% per Dodds, Agric. Hist. Rev. 56 (2008)", "note": "Ecclesiastical tithe (~10%) folded in with irregular tallage and occasional royal fifteenths/tenths. Heriot/merchet are non-annual and not annualised." },
+        "rent": { "low": 5, "central": 10, "high": 18, "citation": "Kanzaka, Villein Rents in Thirteenth-Century England, Econ. Hist. Rev. 55:4 (2002), 593–618", "note": "Money + kind rent only; week-work is counted under corvee, not here, to avoid double-counting." },
+        "corvee": { "low": 10, "central": 20, "high": 40, "citation": "1279 Hundred Rolls manorial schedules (Warboys, High Easter, Great Waltham); Postan (1972); Dyer (1989)", "note": "Full virgater owed ~2–3 days/week week-work + boons (up to ~8 works/week at harvest on heavy Essex manors); valued as labour-days/total working days, averaged over a servile population incl. lighter-burdened cottagers." }
+      }
+    },
+    {
+      "id": "medieval-western-serf-post-black-death",
+      "label": "W. European serf (post-Plague)",
+      "era": "late 14th–15th c.",
+      "region": "England / Western Europe",
+      "caveat": "A transition, not an equilibrium — a figure for 1360 differs sharply from 1450, with no authoritative national average. Labour scarcity after 1348 drove commutation of services into cash rent; effective burden fell even where nominal rents were sticky. 'Output' = gross produce of the holding.",
+      "segments": {
+        "direct_tax": { "low": 8, "central": 12, "high": 18, "citation": "Hatcher, Plague, Population and the English Economy 1348–1530 (1977); tithe ~10%", "note": "Tithe (~10%) plus royal taxation; the 1377–81 poll taxes spike this in those years (trigger of the 1381 revolt) but are flat per-capita sums, not cleanly % of output." },
+        "rent": { "low": 5, "central": 10, "high": 18, "citation": "Dyer, Standards of Living in the Later Middle Ages (1989) & Making a Living in the Middle Ages (2002); Hatcher (1977)", "note": "Money rent after commutation; real rents and grain prices fell for ~a century post-1375." },
+        "corvee": { "low": 0, "central": 3, "high": 15, "citation": "Dyer (1989, 2002)", "note": "Labour services largely commuted to cash (e.g. Cuxham); high tail where ecclesiastical estates / West Midlands / Durham retained services longer." }
+      }
+    },
+    {
+      "id": "eastern-europe-second-serfdom",
+      "label": "E. European serf (second serfdom)",
+      "era": "16th–17th c.",
+      "region": "Poland / Bohemia / Russia",
+      "caveat": "THE DIVERGENCE CASE: as Western corvée collapsed, Eastern labour-service rose. Do NOT treat Poland, Bohemia and Russia as one system (different timelines; Bohemia post-1620 not researched). 'Output' = the peasant's OWN allotment (distinct from the lord's demesne, which corvée produced for the lord); ~100% corvée implies the household plot was worked by wife/children/elderly.",
+      "segments": {
+        "direct_tax": { "low": 0, "central": 3, "high": 10, "citation": "THIN — not reliably quantified. Kula, Blum, Kochanowicz foreground labour dues over state tax", "note": "FLAGGED AS THIN: the second-serfdom literature does not reliably quantify state tax as a % of output; this is a heavily-caveated bracket, not a finding." },
+        "rent": { "low": 0, "central": 5, "high": 15, "citation": "THIN — direction only. Blum, The Rise of Serfdom in Eastern Europe, Amer. Hist. Rev. 62 (1957), 807–836", "note": "FLAGGED AS THIN: money/kind czynsz was actively displaced by labour dues (robota/barshchina); magnitude not reliably located." },
+        "corvee": { "low": 17, "central": 50, "high": 83, "citation": "Blum (1957); Blum, Lord and Peasant in Russia (1961); Kula, An Economic Theory of the Feudal System (1976)", "note": "~1 day/week (~17%) early 16th c. → 3–5 days/week (~50–83%) by mid-late 17th c.; 4–6+ days on worst magnate estates. Days/week ÷ working days. Page-level attributions reported via secondary scholarship." }
+      }
+    },
+    {
+      "id": "ancien-regime-france",
+      "label": "Ancien Régime French peasant",
+      "era": "18th c.",
+      "region": "France",
+      "caveat": "The classic overlapping-burdens case. Extreme regional variation: pays d'état vs pays d'élection; owner-occupier/censitaire North vs métayage (sharecropping ~50%) South/Centre. We model the small proprietor/censitaire; a métayer tenant faced a very different, higher-rent stack. 'Output' = gross agricultural produce.",
+      "segments": {
+        "direct_tax": { "low": 12, "central": 18, "high": 28, "citation": "Goubert, The Ancien Régime (1973 tr.); Le Roy Ladurie, The Peasants of Languedoc (1974 tr.)", "note": "Royal taxes (taille, capitation, vingtième) + gabelle (salt) + the dîme (Church tithe, ~one-thirteenth ≈ 8%, folded into direct_tax as an institutional levy)." },
+        "rent": { "low": 5, "central": 12, "high": 25, "citation": "Goubert (1973); McPhee, A Social History of France (2004)", "note": "Seigneurial dues: champart/terrage crop-share (~1/12–1/8), near-worthless cens, monopoly banalités. Higher tail where champart heavy or peasant is a tenant." },
+        "corvee": { "low": 1, "central": 3, "high": 6, "citation": "McPhee (2004); standard Ancien Régime fiscal histories", "note": "Corvée royale (road labour, formalised c.1730s), ~1–2 weeks/year ÷ working days." }
+      }
+    },
+    {
+      "id": "qing-china",
+      "label": "Qing Chinese peasant",
+      "era": "18th–19th c.",
+      "region": "China",
+      "caveat": "Bimodal by tenure: an owner-cultivator paid only the light land tax (rent≈0); a tenant paid ~40–50% rent, and on tenant land the tax often fell on the landlord (tenant tax≈0). We headline the tenant's rent because tenancy was widespread; the 'central total' is not additive for a single owner-occupier. 'Output' = gross farm output.",
+      "segments": {
+        "direct_tax": { "low": 2, "central": 5, "high": 10, "citation": "Wang Yeh-chien, Land Taxation in Imperial China 1750–1911 (1973), pp. 110–128", "note": "Diding (merged land-and-poll tax) was ultra-light — a small single-digit % of output, ~2–4% of national product by late Qing; huohao meltage surcharge adds a little." },
+        "rent": { "low": 30, "central": 45, "high": 55, "citation": "Perkins, Agricultural Development in China 1368–1968 (1969); Huang, The Peasant Economy and Social Change in North China (1985)", "note": "Landlord rent for tenants ~40–50% of the main crop (sharecropping or fixed); owner-cultivators paid ~0 rent." },
+        "corvee": { "low": 0, "central": 1, "high": 3, "citation": "Wang Yeh-chien (1973)", "note": "Labour service (yaoyi) largely commuted into the land tax by the Qing; negligible by the 18th c." }
+      }
+    },
+    {
+      "id": "tokugawa-japan",
+      "label": "Tokugawa Japanese peasant",
+      "era": "17th–19th c.",
+      "region": "Japan",
+      "caveat": "The nominal/effective gap is the point: legal nengu of 40–50% (yonkō-rokumin / gokō-gomin) overstated the real ~20–35% because frozen kokudaka assessments missed productivity growth (Smith; Nakamura). We model the modal owner-cultivator (honbyakushō, rent≈0); tenant (kosaku) farmers instead paid ~50–60% rent (landlord remitting the nengu) — hence rent high=55. 'Output' = assessed/actual rice-equivalent village output.",
+      "segments": {
+        "direct_tax": { "low": 15, "central": 30, "high": 50, "citation": "Thomas C. Smith, The Agrarian Origins of Modern Japan (1959); Nakamura (1966); Hanley & Yamamura (1977)", "note": "Nengu land tax on kokudaka. High=nominal 50% (gokō-gomin); central=effective ~30% after under-assessment; recorded 1868 domain rates ranged ~15–70%." },
+        "rent": { "low": 0, "central": 0, "high": 55, "citation": "Smith (1959); Hanley & Yamamura (1977)", "note": "Owner-cultivator modeled (rent 0). Tenant (kosaku) farmers, a growing minority, paid ~50–60% rent to landlords who remitted the nengu — hence high=55." },
+        "corvee": { "low": 1, "central": 3, "high": 8, "citation": "Thomas C. Smith, The Agrarian Origins of Modern Japan (1959)", "note": "Sukego (post-station transport labour) and kuniyaku provincial levies; a modest add-on valued as days/working days." }
+      }
+    },
+    {
+      "id": "ottoman-peasant",
+      "label": "Ottoman peasant (timar system)",
+      "era": "16th–18th c.",
+      "region": "Ottoman Empire",
+      "caveat": "The 'state vs landlord' line is blurry under the timar: the sipahi collector was a STATE cavalryman, not a private landlord, so we classify öşür/çift-resmi as direct_tax, not rent — a defensible choice, but a choice. İnalcık stresses the classical burden was modest vs contemporary W. Europe, tightening only with late-16th-c. tax-farming (iltizam). 'Output' = gross agricultural produce.",
+      "segments": {
+        "direct_tax": { "low": 12, "central": 18, "high": 30, "citation": "İnalcık, The Ottoman Empire: The Classical Age 1300–1600 (1973); İnalcık & Quataert, Econ. & Social History of the Ottoman Empire 1300–1914 (1994)", "note": "Öşür (nominal 'tithe', effectively ~10–25%) + fixed household çift-resmi (or ispençe for non-Muslims) + avarız; high tail reflects 17th–18th c. tax-farming." },
+        "rent": { "low": 0, "central": 5, "high": 30, "citation": "İnalcık, The Ottoman Empire: The Classical Age 1300–1600 (1973)", "note": "LOW CONFIDENCE: the peasant held hereditary usufruct (tapu), so private rent was limited in the classical timar system; higher only on çiftlik / ortakçı sharecropping (high tail)." },
+        "corvee": { "low": 1, "central": 3, "high": 7, "citation": "İnalcık, The Ottoman Empire: The Classical Age 1300–1600 (1973)", "note": "Light labour service to the sipahi — İnalcık notes it was lighter than in contemporary Western Europe." }
+      }
+    },
+    {
+      "id": "industrial-britain",
+      "label": "Industrial-Revolution British worker",
+      "era": "~1800–1850",
+      "region": "Britain",
+      "caveat": "STRUCTURALLY DIFFERENT: a wage-labour case measured against cash income, not agricultural output — compare its structure, not its absolute height, to the agrarian bars. Direct income tax barely touched the poor (repealed 1816; reintroduced 1842 with a ~£150 exemption); their fiscal burden was indirect (excise on necessaries). corvée = 0.",
+      "segments": {
+        "direct_tax": { "low": 5, "central": 10, "high": 18, "citation": "O'Brien, The Political Economy of British Taxation 1660–1815, Econ. Hist. Rev. 41:1 (1988), 1–32; Mathias & O'Brien, J. Eur. Econ. Hist. 5:3 (1976), 601–650", "note": "INDIRECT taxes (excise/customs on beer, malt, sugar, tea, soap, tobacco) borne disproportionately by the poor; total tax rose ~12→18% of national income in the French wars. Classified as direct_tax (state levy) but flagged as indirect." },
+        "rent": { "low": 8, "central": 12, "high": 20, "citation": "Williamson, Coping with City Growth during the British Industrial Revolution (1990); Feinstein, Pessimism Perpetuated, J. Econ. Hist. 58:3 (1998), 625–658", "note": "Urban housing rent as a share of worker income, higher in London; contested." },
+        "corvee": { "low": 0, "central": 0, "high": 0, "citation": "N/A — free wage labour", "note": "No labour-service obligation on a free wage worker; set to 0." }
+      }
+    },
+    {
+      "id": "modern-uk",
+      "label": "Modern United Kingdom",
+      "era": "present day (2020s)",
+      "region": "United Kingdom",
+      "modern": true,
+      "caveat": "COMPARABILITY TRAP: the tax figure is a share of gross income; the housing figure is spent OUT OF (largely post-tax) income, so stacking them overstates a single combined 'take' relative to the agrarian bars where tax and rent share one gross-output base. Consumption tax (VAT, several more points of incidence) is omitted from the headline. A reference point, not a strict apples-to-apples total.",
+      "segments": {
+        "direct_tax": { "low": 20, "central": 23, "high": 31, "citation": "OECD, Taxing Wages 2024 (single average worker, UK)", "note": "Net personal average tax rate (income tax + employee NIC) ≈23%; rises to a total tax wedge of 31.2% (2023) / 29.4% (2024) once employer NIC is included (the high)." },
+        "rent": { "low": 18, "central": 25, "high": 34, "citation": "English Housing Survey 2022–23 (MHCLG); ONS, Private rental affordability, England and Wales 2023", "note": "Housing costs as a share of income: mortgagors ~18% (low), private renters ~32% (EHS) / 34.2% median (ONS) (high); ~25% central blends tenures." },
+        "corvee": { "low": 0, "central": 0, "high": 0, "citation": "N/A — does not apply in a modern economy", "note": "No labour-service obligation exists; set to 0." }
+      }
+    }
+  ],
+  "sources": [
+    { "key": "jones1964", "full": "A.H.M. Jones, The Later Roman Empire 284–602: A Social, Economic and Administrative Survey, Oxford: Blackwell (1964)", "claim": "Late Roman land tax (annona/iugatio-capitatio) ~1/4 to 1/3 of gross yield; colonus rent and estate obligations (esp. pp. 467–9).", "caveat": "Tax incidence between landowner and tenant varied; a single colonus rarely bore the full tax+rent stack." },
+    { "key": "wickham2005", "full": "Chris Wickham, Framing the Early Middle Ages: Europe and the Mediterranean 400–800, Oxford University Press (2005)", "claim": "Structure of late-Roman/early-medieval fiscal extraction and rent.", "caveat": "Revisionist; regional; not a source of precise peasant-level percentages." },
+    { "key": "kanzaka2002", "full": "Junichi Kanzaka, 'Villein Rents in Thirteenth-Century England: An Analysis of the Hundred Rolls of 1279–1280', Economic History Review 55:4 (2002), 593–618", "claim": "Villein customary rents/labour valuations; custom held villein rents usually below competitive freehold market rents.", "caveat": "Regional sample (Cambs, Hunts, Oxon, Warks); some figures here are reported as cited in later secondary scholarship, not verified against the original tables." },
+    { "key": "postan1972", "full": "M.M. Postan, The Medieval Economy and Society: An Economic History of Britain 1100–1500, Weidenfeld & Nicolson (1972)", "claim": "Manorial structure, week-work labour services, tallage and lordship.", "caveat": "Broad synthesis; page-level tax fractions not pinned here." },
+    { "key": "dyer1989", "full": "Christopher Dyer, Standards of Living in the Later Middle Ages: Social Change in England c.1200–1520, Cambridge University Press (1989); and Making a Living in the Middle Ages, Yale (2002)", "claim": "Peasant living standards, seigneurial extraction, and post-plague commutation of labour services.", "caveat": "Qualitative narrative; precise % figures are inferred from the account." },
+    { "key": "hatcher1977", "full": "John Hatcher, Plague, Population and the English Economy 1348–1530, Macmillan (1977)", "claim": "Post-Black Death labour scarcity, commutation, falling real rents/prices; poll taxes.", "caveat": "Poll-tax rates are flat per-capita sums, not cleanly convertible to % of output." },
+    { "key": "blum1957", "full": "Jerome Blum, 'The Rise of Serfdom in Eastern Europe', American Historical Review 62:4 (1957), 807–836", "claim": "East/West divergence; rising labour dues (robota/barshchina) on export-oriented demesne (folwark).", "caveat": "Frames direction and drivers; state-tax and money-rent magnitudes not quantified as % of output." },
+    { "key": "blum1961", "full": "Jerome Blum, Lord and Peasant in Russia from the Ninth to the Nineteenth Century, Princeton University Press (1961)", "claim": "Barshchina rising to ~3 days/week and beyond; black-earth regions predominantly labour-dues.", "caveat": "Days/week figures here reported via secondary syntheses; not verified to page." },
+    { "key": "kula1976", "full": "Witold Kula, An Economic Theory of the Feudal System: Towards a Model of the Polish Economy 1500–1800, NLB (1976, transl.)", "claim": "Economics of the folwark labour-rent (robota) system.", "caveat": "Primary text not accessed directly; cited for the model, not for verified page-level percentages." },
+    { "key": "goubert1973", "full": "Pierre Goubert, The Ancien Régime: French Society 1600–1750, Weidenfeld & Nicolson (1973, transl.)", "claim": "Layered peasant burdens (taille, tithe, seigneurial dues) taking on the order of a quarter to a half of produce.", "caveat": "Historiographical-consensus range; regional variation extreme; not a false-precise single figure." },
+    { "key": "leroyladurie1974", "full": "Emmanuel Le Roy Ladurie, The Peasants of Languedoc, University of Illinois Press (1974, transl.)", "claim": "Rising combined tithe/rent/tax share on Languedoc peasants.", "caveat": "Regional (Languedoc, largely métayage); not nationally representative." },
+    { "key": "mcphee2004", "full": "Peter McPhee, A Social History of France 1789–1914, 2nd ed., Palgrave Macmillan (2004)", "claim": "Seigneurial dues, the dîme, and the royal corvée in the late Ancien Régime.", "caveat": "Synthetic survey." },
+    { "key": "wang1973", "full": "Yeh-chien Wang, Land Taxation in Imperial China 1750–1911, Harvard University Press (1973), esp. pp. 110–128", "claim": "Qing land tax was ultra-light — a small single-digit % of agricultural output, ~2–4% of national product by the late dynasty.", "caveat": "Land tax only; says nothing about (much heavier) landlord rent on tenants." },
+    { "key": "perkins1969", "full": "Dwight H. Perkins, Agricultural Development in China 1368–1968, Aldine (1969)", "claim": "Landlord rents on tenants ~40–50% of the main crop; extent of tenancy.", "caveat": "Rent varied by region/tenure; owner-cultivators paid no rent." },
+    { "key": "huang1985", "full": "Philip C.C. Huang, The Peasant Economy and Social Change in North China, Stanford University Press (1985)", "claim": "Tenancy patterns and rent shares in North China.", "caveat": "North China focus; the south had higher tenancy." },
+    { "key": "smith1959", "full": "Thomas C. Smith, The Agrarian Origins of Modern Japan, Stanford University Press (1959)", "claim": "Effective nengu incidence fell well below the nominal 40–50% because frozen kokudaka assessments failed to capture productivity growth.", "caveat": "The nominal/effective gap is itself an estimate; regional variation large." },
+    { "key": "nakamura1966", "full": "James I. Nakamura, Agricultural Production and the Economic Development of Japan 1873–1922, Princeton University Press (1966)", "claim": "Systematic under-assessment of the Japanese agricultural tax base.", "caveat": "Focus straddles late Tokugawa/early Meiji; his under-assessment thesis is debated." },
+    { "key": "hanleyyamamura1977", "full": "Susan B. Hanley & Kozo Yamamura, Economic and Demographic Change in Preindustrial Japan 1600–1868, Princeton University Press (1977)", "claim": "Effective tax rates and tenant rent shares in Tokugawa Japan.", "caveat": "Revisionist on living standards; contested." },
+    { "key": "inalcik1973", "full": "Halil İnalcık, The Ottoman Empire: The Classical Age 1300–1600, Weidenfeld & Nicolson (1973)", "claim": "Öşür (~10%, regionally to ~25%), fixed çift-resmi, timar system; classical peasant burden relatively light and collected by state sipahis.", "caveat": "Classical age; burden rose with 17th–18th c. tax-farming (iltizam)." },
+    { "key": "inalcikquataert1994", "full": "Halil İnalcık with Donald Quataert (eds.), An Economic and Social History of the Ottoman Empire 1300–1914, Cambridge University Press (1994)", "claim": "Regional variation of öşür (10–50%) and the çift-hane household unit.", "caveat": "Wide regional/temporal span." },
+    { "key": "obrien1988", "full": "Patrick K. O'Brien, 'The Political Economy of British Taxation, 1660–1815', Economic History Review 41:1 (1988), 1–32", "claim": "British taxation was heavily indirect and regressive; total tax rose from ~12% to ~18% of national income during the French wars.", "caveat": "National-average figures, not a poor-family-specific incidence rate." },
+    { "key": "mathiasobrien1976", "full": "Peter Mathias & Patrick O'Brien, 'Taxation in Britain and France, 1715–1810', Journal of European Economic History 5:3 (1976), 601–650", "claim": "Comparative social/economic incidence of central-government taxes on workers.", "caveat": "Incidence assumptions are contested." },
+    { "key": "feinstein1998", "full": "Charles H. Feinstein, 'Pessimism Perpetuated: Real Wages and the Standard of Living in Britain during and after the Industrial Revolution', Journal of Economic History 58:3 (1998), 625–658", "claim": "Real wages and cost-of-living (including housing) for British workers, 1770–1870.", "caveat": "Rent share is embedded in cost-of-living indices; not a standalone measured rent %." },
+    { "key": "williamson1990", "full": "Jeffrey G. Williamson, Coping with City Growth during the British Industrial Revolution, Cambridge University Press (1990)", "claim": "Urban housing rent as a share of working-class budgets, with London premium.", "caveat": "Model-based estimates; contested." },
+    { "key": "oecd2024", "full": "OECD, Taxing Wages 2024, OECD Publishing (2024)", "claim": "UK single average-wage worker: net personal average tax rate (income tax + employee NIC) ≈23%; total tax wedge 31.2% in 2023 (29.4% in 2024).", "caveat": "Single, childless, average-wage worker; excludes VAT/consumption-tax incidence and varies by household type/earnings." },
+    { "key": "ehs2023", "full": "English Housing Survey 2022–23, Ministry of Housing, Communities & Local Government (2023)", "claim": "Private renters spent ~32% of household income on housing; mortgagors ~18%; social renters ~26%.", "caveat": "England only; mean/median and housing-support treatment shift the headline." },
+    { "key": "ons2023", "full": "Office for National Statistics, Private rental affordability, England and Wales: 2023", "claim": "A median-income private renter could expect to spend 34.2% of income on an average-priced rented home in England.", "caveat": "Private-rented sector only; not representative of owner-occupiers." }
+  ],
+  "methodology": "These bars are illustrative orders of magnitude, not measurements. Every historical figure is contested and reconstructed from fragmentary evidence, so we give low/central/high ranges rather than false-precise points. CLASSIFICATION: direct_tax = compulsory levies to a state/sovereign/lord as taxation (land tax, poll tax, royal taxes), with the ecclesiastical tithe (dîme/öşür-as-tithe/desyatina) folded in as an institutional levy; rent = payment to a landlord for use of land (money rent, rent-in-kind, sharecropping share); corvee = forced/unpaid labour service valued as labour-days owed per year ÷ ~250–300 working days. Labour-rent (week-work/robot/barshchina) is counted ONLY under corvee, never also under rent, to avoid double-counting. Because a real individual rarely bore every layer (a tenant paid rent but his landlord often paid the tax; an owner-cultivator paid tax but no rent), several bars model one representative type and describe the alternative in the caveat — do not read the stacked total as 'what everyone paid'. (a) WHAT 'OUTPUT/INCOME' MEANS — the deepest comparability problem: for agrarian buckets the denominator is GROSS agricultural output before subsistence, so a 20% levy can be half or more of the peasant's thin net surplus above subsistence; for wage-labour buckets the denominator is CASH income from which subsistence is bought in a market. These are economically different quantities that no single axis fully reconciles, so prefer comparing the STRUCTURE (composition) of burdens over the absolute HEIGHT of bars. (b) CORVÉE OPPORTUNITY COST is monetised as a time-fraction (days owed ÷ working days), which is transparent but imperfect: forced labour was often low-effort (biasing the fraction up as a cost measure) yet demanded at peak agricultural moments when a day's marginal value was high (biasing it up the other way), and source days/week are often statutory maxima not uniform practice — the corvée segment is the least precise of the three. (c) NOMINAL RATES OVERSTATE EFFECTIVE INCIDENCE: statutory rates are ceilings, not collections. Tokugawa Japan is the paradigm — a legal nengu of 40–50% became an effective ~20–35% because frozen kokudaka assessments missed productivity growth (Smith; Nakamura); the same wedge recurs in Qing under-assessment (Wang), Ottoman öşür practice (İnalcık), French taille evasion, and custom-frozen medieval villein rents (Kanzaka). We headline effective (central) figures with nominal rates pushed to the high end. (d) HONESTY STATEMENT: placing a late-Roman colonus, a Tokugawa rice farmer and a modern UK renter on one axis is a drastic simplification many economic historians would resist; the evidence bases differ by orders of magnitude, the categories are anachronistic across societies, and the 'ordinary person' is a fiction papering over huge intra-society inequality. These bars are pedagogical illustrations of orders of magnitude and structural difference, not precise measurements; the ranges are the honest part of the estimate. Where sourcing is thin (Eastern-European direct_tax and money-rent, Ottoman private rent, late-Roman corvée) we flag it explicitly rather than manufacturing a tidy number. Treat any two bars' difference as suggestive, not decisive."
+}

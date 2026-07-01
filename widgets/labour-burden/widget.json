@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "slug": "labour-burden",
+  "title": "The burden of the ordinary person",
+  "description": "A horizontal stacked-bar comparison of direct tax, rent, and forced labour as a share of an ordinary person's output across historical eras, with full in-widget sourcing.",
+  "framework": "preact-vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "dataSources": [],
+  "data": { "mode": "static" },
+  "workerName": "widget-labour-burden",
+  "hostname": "labour-burden.widgets.beshir.org",
+  "embeddable": {
+    "arbitraryParents": true,
+    "recommendedIframe": "<iframe src=\"https://labour-burden.widgets.beshir.org\" loading=\"lazy\"></iframe>"
+  }
+}
