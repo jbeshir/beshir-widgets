@@ -33,6 +33,13 @@ export function PinMarker({ pin, editable, editing, highlighted, onSelect, onDra
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
   }
 
+  // The pan/zoom surface (this pin's ancestor) binds d3-zoom on mousedown/touchstart. Stop those here
+  // so grabbing a pin drags the pin, never pans the map underneath it. (pointerdown is stopped above;
+  // mouse/touch events are a separate stream and must be stopped too.)
+  function stopGestureStart(e: Event) {
+    e.stopPropagation();
+  }
+
   function handlePointerMove(e: PointerEvent) {
     if (!editable || e.buttons === 0) return;
     onDragMove(pin.id, e.clientX, e.clientY);
@@ -72,6 +79,8 @@ export function PinMarker({ pin, editable, editing, highlighted, onSelect, onDra
       aria-label={label}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
+      onMouseDown={stopGestureStart}
+      onTouchStart={stopGestureStart}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
     >

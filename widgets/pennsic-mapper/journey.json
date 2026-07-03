@@ -19,6 +19,16 @@
       "expect": { "state": "populated" }
     },
     {
+      "label": "zoomed-in",
+      "steps": [
+        { "click": "[data-testid=start-new-map]" },
+        { "click": "[data-testid=zoom-in]" },
+        { "click": "[data-testid=zoom-in]" },
+        { "eval": "(() => { const w = document.querySelector('.map-zoom-wrapper'); const z = parseFloat(getComputedStyle(w).getPropertyValue('--zoom')); if (!(z > 1.01)) throw new Error('zoom-in did not scale the map: --zoom=' + z); })()" }
+      ],
+      "expect": { "state": "empty" }
+    },
+    {
       "label": "load-error",
       "steps": [{ "eval": "location.hash = '#/m/doesnotexist'" }],
       "expect": { "state": "error" }

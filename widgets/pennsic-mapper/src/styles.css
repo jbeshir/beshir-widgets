@@ -15,7 +15,7 @@
   --gold-bright: #ffd166;
   --success: #15803d;
   --success-bg: #f0fdf4;
-  --warning: #b45309;
+  --warning: #92400e;
   --warning-bg: #fffbeb;
   --error: #b91c1c;
   --error-bg: #fef2f2;
@@ -31,8 +31,8 @@
     --card-bg: #1b1f27;
     --card-border: #2b313c;
     --fg: #e9e6e1;
-    --fg-secondary: #a8a59d;
-    --muted: #9aa1ab;
+    --fg-secondary: #c4c0b6;
+    --muted: #b4bac4;
     --input-bg: #14171d;
     --input-border: #3b414c;
     --input-focus: #ff8097;
@@ -182,39 +182,141 @@ body {
   gap: 14px;
 }
 
-/* ── Map surface ── */
+/* ── Map surface (framed, pan/zoom) ── */
 
+/* The framed card: a subtle border + padding + card background so the printed multi-colour map is
+   inset and doesn't glare against a dark surround. Also the positioning context for the zoom
+   controls. */
+.map-frame {
+  position: relative;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 8px;
+  width: 100%;
+  max-width: 460px; /* cap the portrait map's footprint (and thus its height) in single-column layouts */
+  margin: 0 auto;
+}
+
+/* The clipping viewport AND the coordinate reference for pin math. Its aspect-ratio matches the
+   official map image (1648×2551, portrait) so the map fills it with no letterboxing or distortion —
+   which keeps normalized [0,1] pin coordinates aligned to image pixels. */
 .map-surface {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 2;
-  border-radius: 12px;
+  aspect-ratio: 1648 / 2551;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--card-border);
-  cursor: crosshair;
+  background: #f4efe6;
+  cursor: grab; /* the map pans on drag; editable surfaces switch to crosshair (click places a pin) */
   touch-action: none;
 }
 
-.map-surface-img {
+.map-surface-editable {
+  cursor: crosshair;
+}
+
+.map-surface:active {
+  cursor: grabbing;
+}
+
+/* The single transformed layer carrying pan/zoom (translate + scale, origin 0,0). Holds BOTH the map
+   image and the pin overlay, so pins stay glued to the map at any zoom. */
+.map-zoom-wrapper {
   position: absolute;
   inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.map-surface-img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* The surface box's aspect-ratio equals the image's, so `fill` shows the map with no visible
+     distortion while guaranteeing the image exactly covers the wrapper box — which is what makes a
+     normalized [0,1] coordinate map to the same image pixel at any box rounding. */
+  object-fit: fill;
   pointer-events: none;
   user-select: none;
 }
 
-.map-surface-img-dark { display: none; }
-
+/* Very mild dimming in dark mode so the bright printed map doesn't glare — hue/saturation untouched. */
 @media (prefers-color-scheme: dark) {
-  .map-surface-img-light { display: none; }
-  .map-surface-img-dark { display: block; }
+  .map-surface { background: #201d18; }
+  .map-surface-img { filter: brightness(0.9); }
+}
+
+.pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* the layer itself is inert; individual pins re-enable pointer events */
 }
 
 .map-surface:focus-visible {
   outline: 3px solid var(--input-focus);
   outline-offset: 2px;
+}
+
+/* ── Zoom controls ── */
+
+.map-zoom-controls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+.map-zoom-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--card-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+
+.map-zoom-btn:hover {
+  background: var(--pill-hover);
+  border-color: var(--input-focus);
+}
+
+.map-zoom-btn:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+/* ── Map caption (zoom affordance + attribution) ── */
+
+.map-caption {
+  margin: 8px 2px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-caption-hint {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  line-height: 1.4;
+}
+
+.map-caption-credit {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 /* ── Pins ── */
@@ -223,11 +325,16 @@ body {
   position: absolute;
   width: 40px;
   height: 40px;
-  transform: translate(-50%, -100%);
+  /* Anchor the pin's tip (bottom-centre) at its map point, and counter-scale by 1/zoom so the marker
+     keeps a constant on-screen size instead of ballooning as the wrapper scales up. transform-origin
+     at the tip keeps the tip pinned to the point through the counter-scale. */
+  transform-origin: 50% 100%;
+  transform: translate(-50%, -100%) scale(calc(1 / var(--zoom, 1)));
   background: none;
   border: none;
   padding: 0;
   cursor: grab;
+  pointer-events: auto;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -235,8 +342,8 @@ body {
 }
 
 .pin-marker-dot {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50% 50% 50% 0;
   transform: rotate(45deg);
   background: var(--pin-color-light);
@@ -275,8 +382,8 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   @keyframes pin-pop {
     0% { transform: translate(-50%, -100%) scale(0); opacity: 0; }
-    60% { transform: translate(-50%, -100%) scale(1.15); opacity: 1; }
-    100% { transform: translate(-50%, -100%) scale(1); opacity: 1; }
+    60% { transform: translate(-50%, -100%) scale(calc(1.15 / var(--zoom, 1))); opacity: 1; }
+    100% { transform: translate(-50%, -100%) scale(calc(1 / var(--zoom, 1))); opacity: 1; }
   }
   .pin-marker { animation: pin-pop 220ms ease-out; }
 }
@@ -599,19 +706,24 @@ li:last-child .legend-row { border-bottom: none; }
   gap: 14px;
 }
 
-/* Wider viewports: colour picker/pin editor + legend side by side beside the map. */
+/* Wider viewports: the tall portrait map sits in a fixed-width left column, with the colour
+   picker/pin editor and legend stacked in the roomy right column beside it. */
 @container (min-width: 700px) {
   .editor {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    /* The right column is capped (not 1fr) so the controls sit beside the tall portrait map as a
+       tidy content block, rather than stretching across the whole width and reading as dead space. */
+    grid-template-columns: minmax(280px, 380px) minmax(320px, 560px);
     grid-template-areas:
       "bar bar"
-      "map legend"
-      "aux legend";
+      "map aux"
+      "map legend";
     gap: 14px 16px;
+    align-items: start;
+    justify-content: start;
   }
   .editor > .map-bar { grid-area: bar; }
-  .editor > .map-surface { grid-area: map; }
+  .editor > .map-frame { grid-area: map; align-self: start; }
   .editor > .color-picker { grid-area: aux; align-self: start; }
   .editor > .pin-editor { grid-area: aux; align-self: start; }
   .editor > .legend { grid-area: legend; align-self: start; }

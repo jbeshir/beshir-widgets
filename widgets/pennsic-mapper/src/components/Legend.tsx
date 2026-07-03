@@ -13,7 +13,7 @@ export function Legend({ pins, highlightPinId, onSelect }: Props) {
   if (pins.length === 0) {
     return (
       <div class="legend legend-empty" data-testid="legend">
-        <p class="legend-hint">Click the map to drop your first pin.</p>
+        <p class="legend-hint">Zoom in to find your spot, then click the map to drop your first pin.</p>
       </div>
     );
   }

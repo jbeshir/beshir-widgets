@@ -5,17 +5,22 @@ single-page Preact widget served via Cloudflare Workers, with a map API backed b
 
 ## Features
 
-- **Base map** — an original, hand-authored parchment-style schematic evoking the publicly
-  documented general layout of the Pennsic War site (lake, battlefield, merchants'/A&S row,
-  lettered entrance gates, kingdom-camping rings). See *Base-map provenance* below.
-- **Pins** — click anywhere on the map to drop a coloured, labelled pin (camp, gate, landmark,
-  meetup spot, whatever you like). Drag to reposition, click to relabel/recolour/delete.
+- **Base map** — the **official Pennsic War land map** for Pennsic LIII (2026), bundled as a single
+  static image and served offline. See *Base-map provenance* below.
+- **Pan & zoom** — the real map is dense (block labels like `N38`, `E06`, `W17`, street names), so
+  it is pan/zoomable: pinch, mouse-wheel, or drag, plus explicit **zoom-in / zoom-out / reset**
+  buttons for keyboard and touch. Pins are glued to the map at every zoom level.
+- **Pins** — click, tap, or keyboard-activate anywhere on the map to drop a coloured, labelled pin
+  (camp, gate, landmark, meetup spot, whatever you like). Drag to reposition, click to
+  relabel/recolour/delete. Pin positions are stored as normalized `[0,1]` image coordinates, so
+  they stay put regardless of the current pan/zoom.
 - **Legend** — every pin listed as swatch + label; clicking a row jumps to that pin on the map.
 - **Shareable maps** — see *Storage* below. Start a map, get a private edit link and a
   read-only share link; anyone with the share link can view it and duplicate it into their own
   editable copy.
-- **Dark mode** — full `prefers-color-scheme: dark` theme, including a separate dark variant of
-  the base map; transitions respect `prefers-reduced-motion`.
+- **Dark mode** — full `prefers-color-scheme: dark` theme for all UI chrome (pins, legend, zoom
+  controls, editor). The printed map keeps its native colours in both themes, presented in a framed
+  card; transitions respect `prefers-reduced-motion`.
 - **Iframe-ready** — sends `{ type: "resize", height }` to `window.parent` via `ResizeObserver`
   for auto-height embedding.
 
@@ -32,9 +37,10 @@ shortcut list, so clearing it loses the shortcuts, never a map.
 The data model is **event-keyed**. A map row carries an `event_id`; the URL never does. New maps
 attach to the default event (`pennsic-53`).
 
-Adding a future Pennsic without breaking existing maps or URLs:
+Adding a future Pennsic without breaking existing maps or URLs (full steps in
+[`maintenance/README.md`](./maintenance/README.md)):
 
-1. Bundle the new base-map SVGs and add an entry to `src/data/events.ts`.
+1. Bundle the new year's official land-map PNG and add an entry to `src/data/events.ts`.
 2. Insert an `events` row with `is_default = 1` (and clear the old default).
 3. Update `DEFAULT_EVENT_ID` in `src/data/events.ts` and `worker/index.ts` to match.
 
@@ -91,13 +97,20 @@ shows up.
 
 ## Base-map provenance
 
-`src/assets/basemap-light.svg` and `src/assets/basemap-dark.svg` are original, hand-authored
-schematic illustrations. They evoke the *publicly documented* general layout of the Pennsic War
-site — a lake, a battlefield, a merchants'/A&S row, several lettered entrance gates, and
-concentric kingdom-camping rings — which are non-copyrightable **layout facts** shared across
-countless public maps, trip reports, and camp-planning threads, not a trace or derivative of any
-specific copyrighted cartography. No third-party map image or geodata file is bundled or fetched
-at runtime. See `widget.json → dataSources` for the same note.
+`src/assets/pennsic-53-official-map.png` is the **official Pennsic War land map** for Pennsic LIII
+(2026) — a single 1648×2551 PNG (~570 KB), supplied for direct use by the widget's owner. It is
+bundled at build time and served offline; no map image or geodata is fetched at runtime.
+
+- **Source:** <https://land.pennsicwar.org/maps/53/pennsic_L.png> (official Pennsic War land-map
+  site), captured 2026-07-03.
+- **Attribution (in-image):** *Map Created by Aakin, Updated by Genoveva, Marit, Tananda.*
+
+The map keeps its native printed colours in both light and dark themes — it is a legend-heavy,
+multi-colour document, so recolouring/inverting it for dark mode would destroy legibility. In dark
+mode it sits in a framed card (subtle border + padding, very mild dimming) so it doesn't glare;
+hue/saturation are never touched. All other UI (pins, legend, zoom controls, editor) meets the
+dark-mode contrast bar. See `widget.json → dataSources` and
+[`maintenance/README.md`](./maintenance/README.md) for provenance and refresh notes.
 
 ## Dev / build
 

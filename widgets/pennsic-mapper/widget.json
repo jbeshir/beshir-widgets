@@ -8,9 +8,9 @@
   "outputDirectory": "dist",
   "dataSources": [
     {
-      "name": "Pennsic camp layout (schematic, original art)",
-      "description": "The base map is an original, hand-authored parchment-style schematic evoking the publicly documented general layout of the Pennsic War site (lake, battlefield, merchants'/A&S row, lettered entrance gates, kingdom-camping rings). These are non-copyrightable layout facts, not a trace of any specific copyrighted cartography — no third-party map image or data file is bundled or fetched.",
-      "url": "https://pennsicwar.org/"
+      "name": "Official Pennsic LIII (2026) land map",
+      "description": "The base map is the official Pennsic War land map for Pennsic LIII (2026), a single 1648×2551 PNG (~570 KB) bundled at build time and served offline — never fetched at runtime. Captured 2026-07-03 from the official Pennsic War land-map site. In-image attribution: 'Map Created by Aakin, Updated by Genoveva, Marit, Tananda.' Supplied for direct use by the widget owner; see maintenance/README.md to refresh it for a future Pennsic.",
+      "url": "https://land.pennsicwar.org/maps/53/pennsic_L.png"
     }
   ],
   "data": {
