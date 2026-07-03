@@ -1,0 +1,622 @@
+:root {
+  --bg: #faf3e6;
+  --card-bg: #fffdfa;
+  --card-border: #e7ddcd;
+  --fg: #20242b;
+  --fg-secondary: #4b4438;
+  --muted: #6b6358;
+  --input-bg: #fffdfa;
+  --input-border: #d9cbb5;
+  --input-focus: #9d2235;
+  --input-focus-ring: rgba(157, 34, 53, 0.2);
+  --accent-fill: #9d2235;
+  --accent-fg: #fdf3ea;
+  --gold: #d99a1f;
+  --gold-bright: #ffd166;
+  --success: #15803d;
+  --success-bg: #f0fdf4;
+  --warning: #b45309;
+  --warning-bg: #fffbeb;
+  --error: #b91c1c;
+  --error-bg: #fef2f2;
+  --pill-bg: #f3ece1;
+  --pill-hover: #ece2d2;
+  --pin-ring-inner: #fdf9f2;
+  --pin-ring-outer: #1b1610;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d;
+    --card-bg: #1b1f27;
+    --card-border: #2b313c;
+    --fg: #e9e6e1;
+    --fg-secondary: #a8a59d;
+    --muted: #9aa1ab;
+    --input-bg: #14171d;
+    --input-border: #3b414c;
+    --input-focus: #ff8097;
+    --input-focus-ring: rgba(255, 128, 151, 0.25);
+    --accent-fill: #9e3346;
+    --accent-fg: #ffe1e7;
+    --gold: #ffd166;
+    --gold-bright: #ffd166;
+    --success: #4ade80;
+    --success-bg: #052e16;
+    --warning: #fbbf24;
+    --warning-bg: #1c1004;
+    --error: #fca5a5;
+    --error-bg: #1f0707;
+    --pill-bg: #252a33;
+    --pill-hover: #2f3540;
+    --pin-ring-inner: #f5ede0;
+    --pin-ring-outer: #0b0805;
+  }
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  container-type: inline-size;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Buttons ── */
+
+.button-primary,
+.button-secondary,
+.button-danger {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 10px 18px;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+}
+
+.button-primary {
+  background: var(--accent-fill);
+  color: var(--accent-fg);
+  border: none;
+}
+.button-primary:hover { filter: brightness(1.08); }
+.button-primary:disabled { opacity: 0.6; cursor: progress; }
+
+.button-secondary {
+  background: var(--pill-bg);
+  color: var(--fg);
+  border: 1px solid var(--input-border);
+}
+.button-secondary:hover { border-color: var(--input-focus); }
+.button-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.button-danger {
+  background: none;
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+.button-danger:hover { background: var(--error-bg); }
+
+.button-primary:focus-visible,
+.button-secondary:focus-visible,
+.button-danger:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+/* ── Landing ── */
+
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.landing-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.landing-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.landing-subtitle {
+  margin: 0;
+  font-size: 16px;
+  color: var(--fg-secondary);
+  line-height: 1.6;
+  max-width: 60ch;
+}
+
+.status-view {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--fg-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ── Map surface ── */
+
+.map-surface {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.map-surface-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}
+
+.map-surface-img-dark { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  .map-surface-img-light { display: none; }
+  .map-surface-img-dark { display: block; }
+}
+
+.map-surface:focus-visible {
+  outline: 3px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+/* ── Pins ── */
+
+.pin-marker {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -100%);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: grab;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  touch-action: none;
+}
+
+.pin-marker-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(45deg);
+  background: var(--pin-color-light);
+  border: 2px solid var(--pin-ring-inner);
+  box-shadow:
+    0 0 0 2px var(--pin-ring-outer),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pin-marker-dot {
+    background: var(--pin-color-dark);
+  }
+}
+
+.pin-marker.editing .pin-marker-dot {
+  box-shadow:
+    0 0 0 2px var(--pin-ring-outer),
+    0 0 0 5px var(--input-focus-ring),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pin-marker.highlighted .pin-marker-dot {
+  box-shadow:
+    0 0 0 2px var(--pin-ring-outer),
+    0 0 0 5px var(--gold-bright),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pin-marker:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes pin-pop {
+    0% { transform: translate(-50%, -100%) scale(0); opacity: 0; }
+    60% { transform: translate(-50%, -100%) scale(1.15); opacity: 1; }
+    100% { transform: translate(-50%, -100%) scale(1); opacity: 1; }
+  }
+  .pin-marker { animation: pin-pop 220ms ease-out; }
+}
+
+/* ── Colour picker ── */
+
+.color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.color-picker-caption {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.color-swatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 6px;
+  background: var(--pill-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--fg);
+  min-height: 40px;
+}
+
+.color-swatch:hover { border-color: var(--input-focus); }
+
+.color-swatch.selected {
+  border-color: var(--input-focus);
+  background: var(--pill-hover);
+  font-weight: 600;
+}
+
+.color-swatch:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+.color-swatch-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--swatch-color-light);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .color-swatch-dot {
+    background: var(--swatch-color-dark);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.color-swatch-name {
+  white-space: nowrap;
+}
+
+/* ── Legend ── */
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.legend-empty {
+  padding: 16px;
+  border: 1px dashed var(--card-border);
+  border-radius: 10px;
+}
+
+.legend-hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border: none;
+  border-bottom: 1px solid var(--card-border);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fg);
+  text-align: left;
+}
+
+li:last-child .legend-row { border-bottom: none; }
+
+.legend-row:hover { background: var(--pill-bg); }
+
+.legend-row.highlighted {
+  background: var(--pill-hover);
+  font-weight: 600;
+}
+
+.legend-row:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: -2px;
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--swatch-color-light);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .legend-swatch {
+    background: var(--swatch-color-dark);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.legend-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Pin editor ── */
+
+.pin-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.pin-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pin-editor-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pin-editor input[type="text"] {
+  font: inherit;
+  font-size: 16px;
+  padding: 8px 11px;
+  color: var(--fg);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.pin-editor input[type="text"]:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+.pin-editor-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Map bar (rename + sync + share links) ── */
+
+.map-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.map-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.map-bar-name {
+  flex: 1;
+  min-width: 160px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fg);
+  padding: 7px 11px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.map-bar-name:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+.sync-badge {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.sync-badge-saved { color: var(--success); background: var(--success-bg); }
+.sync-badge-saving { color: var(--muted); background: var(--pill-bg); }
+.sync-badge-pending { color: var(--warning); background: var(--warning-bg); }
+.sync-badge-error { color: var(--error); background: var(--error-bg); }
+
+.map-bar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--card-border);
+}
+
+.map-bar-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.map-bar-link-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+
+.map-bar-link-caption {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.map-bar-link-subtext {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── Read-only view ── */
+
+.readonly-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.readonly-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.readonly-title {
+  margin: -6px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--fg);
+}
+
+.readonly-duplicate-caption {
+  margin: -6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── Editor layout ── */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Wider viewports: colour picker/pin editor + legend side by side beside the map. */
+@container (min-width: 700px) {
+  .editor {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-areas:
+      "bar bar"
+      "map legend"
+      "aux legend";
+    gap: 14px 16px;
+  }
+  .editor > .map-bar { grid-area: bar; }
+  .editor > .map-surface { grid-area: map; }
+  .editor > .color-picker { grid-area: aux; align-self: start; }
+  .editor > .pin-editor { grid-area: aux; align-self: start; }
+  .editor > .legend { grid-area: legend; align-self: start; }
+}
+
+/* ── Embedded (in an iframe) ── */
+.embedded body { background: transparent; }
+.embedded .app { max-width: none; padding: 0; }

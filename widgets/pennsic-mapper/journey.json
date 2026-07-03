@@ -1,0 +1,27 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    { "label": "initial", "steps": [], "expect": { "state": "ready" } },
+    {
+      "label": "new-map",
+      "steps": [{ "click": "[data-testid=start-new-map]" }],
+      "expect": { "state": "empty" }
+    },
+    {
+      "label": "pin-added",
+      "steps": [
+        { "click": "[data-testid=start-new-map]" },
+        { "click": "[data-testid=map-surface]" }
+      ],
+      "expect": { "state": "populated" }
+    },
+    {
+      "label": "load-error",
+      "steps": [{ "eval": "location.hash = '#/m/doesnotexist'" }],
+      "expect": { "state": "error" }
+    }
+  ]
+}
