@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { mapStore, type ActiveMap, type MapChange, type SyncStatus } from './store';
-import { parseHash, type Route } from './lib/route';
+import { mapStore, type ActiveMap, type MapChange, type SyncStatus, type Pin } from './store';
+import { parseHash, editHash, type Route } from './lib/route';
 import { PALETTE } from './lib/palette';
 import { MapSurface, type MapSurfaceApi } from './components/MapSurface';
 import { ColorPicker } from './components/ColorPicker';
 import { Legend } from './components/Legend';
 import { PinEditor } from './components/PinEditor';
 import { MapBar } from './components/MapBar';
+import { CreateBar, type CreateStatus } from './components/CreateBar';
 import { ReadonlyView } from './components/ReadonlyView';
 import { MapKey } from './components/MapKey';
 import { RoyalEncampments } from './components/RoyalEncampments';
@@ -17,16 +18,23 @@ import type { RoyalEncampment } from './data/mapKey';
 // keep the surrounding neighbourhood in view.
 const ENCAMPMENT_JUMP_SCALE = 3.5;
 
-type AppMode = 'loading' | 'edit' | 'readonly' | 'error';
+// The modes the app can be in. `preview` is the locked, read-only preview shown before any map exists:
+// the map is fully pannable/zoomable and every reference dock panel works, but pin editing and the map
+// name are locked until the user explicitly creates a shared map (the creation gate).
+type AppMode = 'preview' | 'loading' | 'edit' | 'readonly' | 'error';
 type WidgetState = 'ready' | 'empty' | 'populated' | 'loading' | 'error';
 type DockPanel = 'key' | 'royals' | 'legend' | 'layers' | null;
 
-function widgetStateFor(mode: AppMode, pinCount: number): WidgetState {
-  if (mode === 'loading') return 'loading';
-  if (mode === 'error') return 'error';
-  if (mode === 'readonly') return pinCount > 0 ? 'populated' : 'empty';
-  // edit: `ready` = a fresh, editable, still-empty map (first paint, idle); `populated` = ≥1 pin.
-  return pinCount > 0 ? 'populated' : 'ready';
+// The reference map shown in the locked preview has no pins (nothing has been created yet). One shared
+// empty array — it is never mutated.
+const PREVIEW_PINS: Pin[] = [];
+
+// Widget-state for the loaded/created modes. `preview`'s state is driven separately by the create gate
+// (ready = locked preview, loading = create in flight, error = create failed) so it isn't handled here.
+function widgetStateFor(mode: 'edit' | 'readonly', pinCount: number): WidgetState {
+  // Both an editable map and a shared map are `empty` until they hold ≥1 pin, then `populated`. These
+  // are only ever reachable AFTER a successful creation (or opening an existing map).
+  return pinCount > 0 ? 'populated' : 'empty';
 }
 
 function setWidgetState(state: WidgetState): void {
@@ -41,10 +49,10 @@ function genId(): string {
   return `pin-${pinCounter}`;
 }
 
-// No map hash ⇒ an immediately-editable local draft (no landing gate); a map hash ⇒ load it.
+// No map hash ⇒ a locked preview behind the creation gate; a map hash ⇒ load it.
 function initialMode(): AppMode {
-  if (typeof location === 'undefined') return 'edit';
-  return parseHash(location.hash).mode === 'landing' ? 'edit' : 'loading';
+  if (typeof location === 'undefined') return 'preview';
+  return parseHash(location.hash).mode === 'landing' ? 'preview' : 'loading';
 }
 
 export function App() {
@@ -66,6 +74,12 @@ export function App() {
   const [showLabels, setShowLabels] = useState(true);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  // Creation-gate state for the locked preview: 'idle' shows "Create shared map"; 'creating' shows the
+  // in-flight button; 'error' shows an inline message + a "Try again" retry, keeping the preview intact.
+  const [createStatus, setCreateStatus] = useState<CreateStatus>('idle');
+  const [createError, setCreateError] = useState('');
+  // Set when a readonly "Duplicate to edit" attempt fails (offline/server); surfaced in ReadonlyView.
+  const [duplicateError, setDuplicateError] = useState('');
   // The currently-mounted MapSurface's imperative API (only one surface is ever mounted at a time).
   const mapApiRef = useRef<MapSurfaceApi | null>(null);
   // Last royal-encampment jumped to: drives the persistent row marker + the screen-reader announcement.
@@ -73,8 +87,8 @@ export function App() {
   const [jumpAnnounce, setJumpAnnounce] = useState('');
 
   // Kept alongside the `mode` state itself: the `subscribe` listener below can fire synchronously
-  // inside a store call (e.g. startLocalDraft), before Preact has applied a pending setModeState, so it
-  // reads this ref rather than the possibly-stale `mode` closure variable.
+  // inside a store call (e.g. clear()'s setActive(null)), before Preact has applied a pending
+  // setModeState, so it reads this ref rather than the possibly-stale `mode` closure variable.
   const modeRef = useRef<AppMode>(mode);
   modeRef.current = mode;
 
@@ -86,13 +100,27 @@ export function App() {
   const applyRouteRef = useRef<(route: Route) => Promise<void>>(async () => {});
   applyRouteRef.current = async (route: Route) => {
     if (route.mode === 'landing') {
-      // No-gate local-first flow: on any no-hash load, immediately start an editable draft so the map is
-      // interactive from first paint. startLocalDraft is offline-safe under file:// (no fetch — emits a
-      // non-blocking 'local' sync status), so this never triggers a network call the render/journey
-      // gates would treat as a failure.
-      transitionMode('edit');
-      mapStore.startLocalDraft('Untitled map');
+      // No hash ⇒ the locked preview behind the creation gate. No network, no draft, no D1 row: the map
+      // is a fully-pannable read-only reference until the user clicks "Create shared map". This is what
+      // keeps a casual visit (or a bot) from ever minting a row. Offline-safe by construction.
+      mapStore.clear();
+      transitionMode('preview');
+      setCreateStatus('idle');
+      setCreateError('');
       setWidgetState('ready');
+      setReady(true);
+      return;
+    }
+
+    // A just-created or just-duplicated map is already in memory under this same id — reuse it rather
+    // than round-tripping a GET (which offline would fail). This is what lets create()/duplicate() swap
+    // the hash to the real edit link and land straight in edit mode.
+    const existing = mapStore.getActive();
+    if (existing && existing.id === route.id) {
+      const editable = route.mode === 'edit' && !!existing.secret;
+      const next: 'edit' | 'readonly' = editable ? 'edit' : 'readonly';
+      transitionMode(next);
+      setWidgetState(widgetStateFor(next, existing.pins.length));
       setReady(true);
       return;
     }
@@ -107,7 +135,7 @@ export function App() {
       return;
     }
     const editable = route.mode === 'edit' && !!result.map.secret;
-    const next: AppMode = editable ? 'edit' : 'readonly';
+    const next: 'edit' | 'readonly' = editable ? 'edit' : 'readonly';
     transitionMode(next);
     setWidgetState(widgetStateFor(next, result.map.pins.length));
     setReady(true);
@@ -117,7 +145,13 @@ export function App() {
     const unsub = mapStore.subscribe((change: MapChange) => {
       if (change.type === 'active') {
         setActive(change.map);
-        setWidgetState(widgetStateFor(modeRef.current, change.map ? change.map.pins.length : 0));
+        // Only edit/readonly derive their widget-state from the pin count. `preview` (and the transient
+        // `loading`/`error` of the create gate) own their state via the gate handlers, so a setActive
+        // fired mid-create must not clobber the 'loading'/'error' marker back to 'empty'.
+        const m = modeRef.current;
+        if (m === 'edit' || m === 'readonly') {
+          setWidgetState(widgetStateFor(m, change.map ? change.map.pins.length : 0));
+        }
       } else {
         setSync({ status: change.status, message: change.message });
       }
@@ -221,21 +255,50 @@ export function App() {
     }
   }
 
+  // The creation gate. This is the ONLY entry point that mints a D1 row on the landing/preview path, and
+  // it only runs from an explicit click. On success the store holds a real id/secret; we swap the URL to
+  // the edit link and applyRoute (reusing the in-memory map) unlocks editing. On failure we stay in the
+  // locked preview and surface an inline retry — the page never blanks.
+  async function handleCreate(): Promise<void> {
+    if (createStatus === 'creating') return;
+    setCreateStatus('creating');
+    setCreateError('');
+    setWidgetState('loading');
+    const result = await mapStore.create('Untitled map', []);
+    if (!result.ok) {
+      setCreateStatus('error');
+      setCreateError(result.message);
+      setWidgetState('error');
+      return;
+    }
+    setCreateStatus('idle');
+    transitionMode('edit');
+    setWidgetState(widgetStateFor('edit', result.map.pins.length));
+    // applyRoute reuses the just-created in-memory map for this id, so this never re-fetches.
+    location.hash = editHash(result.map.id, result.map.secret!);
+  }
+
+  // "Duplicate to edit" from a shared map: an explicit user action, so it is allowed to mint a row. It
+  // creates a fresh map seeded with copies of the source pins (fresh ids), then lands in edit mode.
   async function handleDuplicate(): Promise<void> {
     if (!active || busy) return;
     setBusy(true);
-    const pins = active.pins;
-    const name = `Copy of ${active.name}`;
-    transitionMode('edit');
-    mapStore.startLocalDraft(name);
+    setDuplicateError('');
     // Fresh ids throughout: the source pins' ids may collide with this session's own counter.
-    for (const p of pins) mapStore.addPin({ id: genId(), x: p.x, y: p.y, color: p.color, label: p.label });
+    const pins = active.pins.map((p) => ({ id: genId(), x: p.x, y: p.y, color: p.color, label: p.label }));
+    const result = await mapStore.create(`Copy of ${active.name}`, pins);
     setBusy(false);
-    setWidgetState(widgetStateFor('edit', pins.length));
+    if (!result.ok) {
+      setDuplicateError(result.message);
+      return;
+    }
+    transitionMode('edit');
+    setWidgetState(widgetStateFor('edit', result.map.pins.length));
+    location.hash = editHash(result.map.id, result.map.secret!);
   }
 
   function goLanding(): void {
-    // Clearing the hash re-enters the no-hash branch → a fresh editable draft.
+    // Clearing the hash re-enters the no-hash branch → the locked preview / creation gate.
     location.hash = '';
   }
 
@@ -261,6 +324,9 @@ export function App() {
 
   const editingPin = active && editingPinId ? active.pins.find((p) => p.id === editingPinId) ?? null : null;
   const selectedColorName = PALETTE.find((c) => c.key === selectedColor)?.name ?? PALETTE[0].name;
+  // `preview` shows the empty reference map; `edit` shows the created map's pins.
+  const isEditing = mode === 'edit';
+  const mapPins = isEditing && active ? active.pins : PREVIEW_PINS;
 
   return (
     <div class="app">
@@ -284,12 +350,16 @@ export function App() {
         </div>
       )}
 
-      {mode === 'edit' && active && (
+      {/* The locked preview and the editable map share the same full-bleed map + reference dock. They
+          differ only in the top bar (create gate vs rename/share), whether the surface is editable
+          (pin dropping), and the editing chrome (pin editor + colour toolbar). Keeping them in one
+          branch is what makes the preview→editable transition seamless: only these differences swap. */}
+      {(mode === 'preview' || mode === 'edit') && (
         <>
-          <h1 class="sr-only">{active.name}</h1>
+          <h1 class="sr-only">{isEditing && active ? active.name : 'Untitled map'}</h1>
           <MapSurface
-            pins={active.pins}
-            editable
+            pins={mapPins}
+            editable={isEditing}
             editingPinId={editingPinId}
             highlightPinId={highlightPinId}
             showLabels={showLabels}
@@ -298,14 +368,18 @@ export function App() {
             onSelectPin={handleSelectPin}
             registerApi={registerMapApi}
           />
-          <MapBar
-            map={active}
-            sync={sync}
-            onRename={handleRename}
-            shareOpen={shareOpen}
-            onShareToggle={handleShareToggle}
-          />
-          <div class="panel-dock">
+          {isEditing && active ? (
+            <MapBar
+              map={active}
+              sync={sync}
+              onRename={handleRename}
+              shareOpen={shareOpen}
+              onShareToggle={handleShareToggle}
+            />
+          ) : (
+            <CreateBar status={createStatus} errorMessage={createError} onCreate={handleCreate} />
+          )}
+          <div class={`panel-dock${mode === 'preview' && createStatus === 'error' ? ' panel-dock--error-offset' : ''}`}>
             <MapKey open={openPanel === 'key'} onToggle={(o) => handlePanelToggle('key', o)} />
             <RoyalEncampments
               onJump={handleJumpToBlock}
@@ -327,43 +401,52 @@ export function App() {
               <summary class="info-panel-summary" title="Your pins">
                 <span class="info-panel-heading">
                   <h2 class="info-panel-title">Your pins</h2>
-                  <span class="info-panel-hint">{active.pins.length} pinned</span>
+                  <span class="info-panel-hint">{mapPins.length} pinned</span>
                 </span>
               </summary>
               <div class="info-panel-body legend-panel-body">
-                <Legend pins={active.pins} highlightPinId={highlightPinId} onSelect={handleSelectPin} />
+                <Legend pins={mapPins} highlightPinId={highlightPinId} onSelect={handleSelectPin} />
               </div>
             </details>
           </div>
-          {editingPin ? (
-            <PinEditor
-              key={editingPin.id}
-              pin={editingPin}
-              onChangeLabel={handleChangeLabel}
-              onChangeColor={handleChangeColor}
-              onDelete={handleDeletePin}
-              onClose={() => setEditingPinId(null)}
-            />
-          ) : (
-            <div class="color-toolbar">
-              <ColorPicker
-                selected={selectedColor}
-                onSelect={setSelectedColor}
-                idPrefix="next-pin"
-                caption="New pin:"
-                compact
+          {/* Editing chrome (pin editor / colour toolbar) is edit-only: there is nothing to edit in the
+              locked preview until a map is created. */}
+          {isEditing && active && (
+            editingPin ? (
+              <PinEditor
+                key={editingPin.id}
+                pin={editingPin}
+                onChangeLabel={handleChangeLabel}
+                onChangeColor={handleChangeColor}
+                onDelete={handleDeletePin}
+                onClose={() => setEditingPinId(null)}
               />
-            </div>
+            ) : (
+              <div class="color-toolbar">
+                <ColorPicker
+                  selected={selectedColor}
+                  onSelect={setSelectedColor}
+                  idPrefix="next-pin"
+                  caption="New pin:"
+                  compact
+                />
+              </div>
+            )
           )}
-          {/* First-run invitation: shown only while the editable map is still empty (0 pins). Once a pin
-              exists it has served its purpose and is hidden. Visible at all widths (see .map-hint CSS);
-              the trailing detail collapses to just the core instruction on tablet/mobile. */}
-          {active.pins.length === 0 && (
+          {/* A slim floating hint. In the locked preview it explains why pins can't be dropped yet and
+              points at the create action; in an empty editable map it's the first-run "drop a pin"
+              invitation. Both hide once there's a pin (or nothing more to say). */}
+          {mode === 'preview' && createStatus === 'idle' ? (
+            <p class="map-hint">
+              Create a shared map to start dropping pins
+              <span class="map-hint-detail"> · scroll or drag to explore the map</span>
+            </p>
+          ) : mode === 'edit' && active && active.pins.length === 0 ? (
             <p class="map-hint">
               Click the map to drop a pin
               <span class="map-hint-detail"> · scroll or drag to explore · {selectedColorName} selected</span>
             </p>
-          )}
+          ) : null}
         </>
       )}
 
@@ -372,6 +455,7 @@ export function App() {
           map={active}
           highlightPinId={highlightPinId}
           busy={busy}
+          duplicateError={duplicateError}
           registerMapApi={registerMapApi}
           activeBlock={jumpedBlock}
           onSelectPin={handleSelectPin}

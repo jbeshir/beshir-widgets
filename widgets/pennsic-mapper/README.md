@@ -51,15 +51,27 @@ Adding a future Pennsic without breaking existing maps or URLs (full steps in
 2. Insert an `events` row with `is_default = 1` (and clear the old default).
 3. Update `DEFAULT_EVENT_ID` in `src/data/events.ts` and `worker/index.ts` to match.
 
-### Offline / local-first behaviour
+### Creation gate
 
-Starting a map and every pin edit happen **locally first** — the widget never has to reach the
-network to go from an empty map to a populated one. A brand-new map has no server id until a
-background request succeeds, so the edit/share links render **disabled**, with a caption
-("Links appear once your map is saved online.") until that completes. In production this
-happens moments after you start a map; the app then swaps `location.hash` to the real edit link
-automatically. No pin edit is ever silently dropped: if a save fails or races another writer, the
+A fresh visit (no hash) renders a **locked, read-only preview**: the map is fully pannable and
+zoomable and every reference panel (Map key, Royal encampments, Layers, Your pins) works, but pin
+editing and the map name are disabled and the top bar shows a **"Create shared map"** button in
+place of Share. **No D1 row exists until you click it** — a casual visitor, a bot, or someone just
+poking at the map never mints a row, and there is never an "edited but not yet saved" state to lose
+on a refresh.
+
+Clicking "Create shared map" issues `POST /api/map` (default name, no pins). On success the widget
+stores the returned `id` + `editSecret`, swaps `location.hash` to the real edit link, and unlocks
+editing; from then on every edit debounce-syncs exactly as before, and the top bar shows the working
+Share popover. On failure (offline, network error, server rejection) the preview stays put and the
+button surfaces an inline error with a **Try again** retry — the page is never blanked.
+
+Once a row exists, no pin edit is ever silently dropped: if a save fails or races another writer, the
 widget reloads the server's copy and surfaces that your last change may not have been saved.
+
+Opening an existing map (`#/m/<id>` or `#/m/<id>/<secret>`) is unaffected — it still does a real
+`GET`; offline that naturally lands in the error state. The read-only "Duplicate to edit" action is
+likewise an explicit, user-initiated creation (`POST` with the copied pins).
 
 ### API (`worker/index.ts`)
 

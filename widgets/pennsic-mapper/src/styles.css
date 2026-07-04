@@ -999,18 +999,115 @@ li:last-child .legend-row { border-bottom: none; }
   color: var(--fg-secondary);
 }
 
-.map-bar-link-caption {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
 .map-bar-link-subtext {
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--muted);
   line-height: 1.4;
+}
+
+/* ── Locked preview / creation gate + read-only top bars ── */
+
+/* Both the locked-preview bar (Create shared map) and the read-only bar (Duplicate to edit) can surface
+   an inline error, so they share a TWO-ROW layout: a horizontal main row (title + caption + action) and
+   an optional full-width error row beneath it. Making the bar a column that GROWS DOWNWARD (min-height,
+   not a fixed height) is what keeps a failed create/duplicate legible at every width — the error can
+   never be clipped up into the fixed 52px bar the way a single centred row would, and it never steals
+   width from the title. The editable MapBar keeps the base fixed-height single-row layout. */
+.map-topbar-preview,
+.map-topbar-readonly {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  height: auto;
+  min-height: 52px;
+  /* Lift above the panel dock (z-index:4 on mobile) so the full-width error row, which grows the bar
+     down into the dock's top chips, is never buried behind them. The dock's bottom-sheet (opened on
+     mobile) anchors to the bottom of the viewport, so it never collides with this raised top bar. */
+  z-index: 5;
+}
+
+/* The main (always-present) horizontal row of a two-row bar: title/caption on the left, action button
+   pushed to the right, kept at the bar's nominal 52px so the idle state looks identical to before. */
+.topbar-main-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+}
+
+.preview-topbar-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.preview-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.preview-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Explains WHY the map is locked (nothing is saved until you create), sitting between the title and the
+   Create button. Hidden on narrow bars where there's no spare room — the map hint carries the same cue,
+   and the button label is self-explanatory. */
+.preview-topbar-caption {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+@container (max-width: 760px) {
+  .preview-topbar-caption {
+    display: none;
+  }
+}
+
+.create-map-btn {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* While the create/duplicate request is in flight the button is aria-disabled (not natively disabled, so
+   keyboard focus is never dropped mid-request). Give it the same muted/progress affordance the native
+   :disabled state would. The click handler is a no-op in this state, so it can't double-submit. */
+.button-primary[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* The inline, non-blocking error (role="alert") for a failed create/duplicate: its own full-width row
+   beneath the main row, so it's fully legible at every width in both themes (--error on --error-bg
+   clears the contrast bar like the sync badge's error state) and is never clipped or truncated. */
+.topbar-error {
+  margin: 0 0 8px;
+  padding: 6px 12px;
+  max-width: 640px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--error);
+  background: var(--error-bg);
+  border-radius: 8px;
 }
 
 /* ── Read-only view ── */
@@ -1177,6 +1274,21 @@ li:last-child .legend-row { border-bottom: none; }
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -6px 28px rgba(0, 0, 0, 0.3);
     z-index: 3;
+  }
+}
+
+/* When a create/duplicate error banner is showing, the two-row top bar grows taller (main row + the
+   full-width error row). Nudge the dock's top chips down so they clear the raised bar rather than being
+   covered by it — the reference panels must stay reachable, notably for an offline visitor who is stuck
+   in the error state. Only applied while the banner is present (App/ReadonlyView add the class). The
+   values clear the tallest bar at each width (≈91px desktop/tablet 1-line, ≈108px mobile 2-line). */
+.panel-dock--error-offset {
+  top: 104px;
+}
+
+@container (max-width: 700px) {
+  .panel-dock--error-offset {
+    top: 120px;
   }
 }
 

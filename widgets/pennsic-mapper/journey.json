@@ -6,50 +6,6 @@
   "states": [
     { "label": "initial", "steps": [], "expect": { "state": "ready" } },
     {
-      "label": "pin-added",
-      "steps": [
-        { "click": "[data-testid=map-surface]" },
-        { "click": "[data-testid=label-confirm]" }
-      ],
-      "expect": { "state": "populated" }
-    },
-    {
-      "label": "pin-editing",
-      "steps": [{ "click": "[data-testid=map-surface]" }],
-      "expect": { "selector": "[data-testid=label-input]" }
-    },
-    {
-      "label": "pin-labelled",
-      "steps": [
-        { "click": "[data-testid=map-surface]" },
-        { "fill": "[data-testid=label-input]", "value": "House Sable" },
-        { "click": "[data-testid=label-confirm]" },
-        { "eval": "(() => { const l = document.querySelector('[data-testid=pin-label]'); if (!l) throw new Error('pin label not rendered on the map'); if (l.textContent.trim() !== 'House Sable') throw new Error('pin label text wrong: ' + l.textContent); const r = l.getBoundingClientRect(); if (r.width < 1 || r.height < 1) throw new Error('pin label not visible'); })()" }
-      ],
-      "expect": { "state": "populated" }
-    },
-    {
-      "label": "pin-labels-off",
-      "steps": [
-        { "click": "[data-testid=map-surface]" },
-        { "fill": "[data-testid=label-input]", "value": "House Sable" },
-        { "click": "[data-testid=label-confirm]" },
-        { "click": "[data-testid=layers-panel] > summary" },
-        { "click": "[data-testid=toggle-pin-labels]" },
-        { "eval": "(() => { if (document.querySelector('[data-testid=pin-label]')) throw new Error('pin labels still shown after toggling Show pin labels off'); })()" }
-      ],
-      "expect": { "state": "populated" }
-    },
-    {
-      "label": "share-over-dock",
-      "steps": [
-        { "click": "[data-testid=map-legend] > summary" },
-        { "click": "[data-testid=share-toggle]" },
-        { "eval": "(() => { const pop = document.querySelector('[data-testid=share-popover]'); if (!pop) throw new Error('share popover missing'); const legend = document.querySelector('[data-testid=map-legend]'); if (legend && legend.open) throw new Error('opening Share should close the open dock panel'); const r = pop.getBoundingClientRect(); const cx = Math.round(r.left + r.width / 2); const cy = Math.round(r.top + r.height / 2); const top = document.elementFromPoint(cx, cy); if (!top || (!pop.contains(top) && top !== pop)) throw new Error('share popover is not the topmost element at its centre — buried behind ' + (top && top.className)); })()" }
-      ],
-      "expect": { "selector": "[data-testid=share-popover]" }
-    },
-    {
       "label": "zoomed-in",
       "steps": [
         { "click": "[data-testid=zoom-in]" },
@@ -81,6 +37,15 @@
         { "eval": "(() => { const w = document.querySelector('.map-zoom-wrapper'); const z = parseFloat(getComputedStyle(w).getPropertyValue('--zoom')); if (!(z > 1.5)) throw new Error('encampment jump did not zoom the map: --zoom=' + z); if (!document.querySelector('[data-testid=block-pulse]')) throw new Error('block-jump pulse missing'); })()" }
       ],
       "expect": { "state": "ready" }
+    },
+    {
+      "label": "create-failed",
+      "steps": [
+        { "click": "[data-testid=create-map]" },
+        { "waitFor": "[data-testid=create-error]" },
+        { "eval": "(() => { const btn = document.querySelector('[data-testid=create-map]'); if (!btn) throw new Error('create button vanished after a failed create — the preview must stay put'); const label = (btn.textContent || '').trim().toLowerCase(); if (!label.includes('retry') && !label.includes('try again')) throw new Error('retry affordance missing; button reads: ' + btn.textContent); const err = document.querySelector('[data-testid=create-error]'); if (!err || err.getBoundingClientRect().height < 1) throw new Error('create error message not visible'); })()" }
+      ],
+      "expect": { "state": "error" }
     },
     {
       "label": "load-error",
