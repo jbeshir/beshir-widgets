@@ -15,9 +15,7 @@
     {
       "binding": "DB",
       "database_name": "widget-pennsic-mapper",
-      // Placeholder — replaced with the real id after `wrangler d1 create widget-pennsic-mapper`.
-      // See README.md "One-time Cloudflare setup".
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "05b6db8d-66c3-43f0-b406-3df864d25077"
     }
   ],
   "ratelimits": [
