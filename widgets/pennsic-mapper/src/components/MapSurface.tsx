@@ -5,6 +5,15 @@ import type { Pin } from '../store';
 import { PinMarker } from './PinMarker';
 import mapUrl from '../assets/pennsic-53-official-map.png';
 
+// Imperative handle the surface hands back to App via `registerApi`, so a sibling panel (Royal
+// Encampments) can drive the map. Calling `focusOn` synchronously inside a click handler mirrors the
+// zoom buttons exactly (direct d3-zoom manipulation, one render) — no state→effect round-trip that
+// would race a test harness reading the resulting transform.
+export interface MapSurfaceApi {
+  /** Pan/zoom so the normalized [0,1] point sits at the viewport centre at `scale`, then pulse it. */
+  focusOn: (x: number, y: number, scale: number) => void;
+}
+
 interface Props {
   pins: Pin[];
   editable: boolean;
@@ -13,6 +22,8 @@ interface Props {
   onAddPin: (x: number, y: number) => void;
   onMovePin: (id: string, x: number, y: number) => void;
   onSelectPin: (id: string) => void;
+  /** Called on mount with the imperative API (and with null on unmount) so App can drive the map. */
+  registerApi?: (api: MapSurfaceApi | null) => void;
 }
 
 function clamp01(n: number): number {
@@ -41,13 +52,16 @@ const MAP_KEYBOARD_LABEL =
 //
 // A drag on the surface pans the map; a plain click (no drag) drops a pin. d3-zoom's `start`/`zoom`/
 // `end` events tell us whether a gesture actually moved, so a pan never ends by dropping a stray pin.
-export function MapSurface({ pins, editable, editingPinId, highlightPinId, onAddPin, onMovePin, onSelectPin }: Props) {
+export function MapSurface({ pins, editable, editingPinId, highlightPinId, onAddPin, onMovePin, onSelectPin, registerApi }: Props) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<ZoomBehavior<HTMLDivElement, unknown> | null>(null);
   const transformRef = useRef<ZoomTransform>(zoomIdentity);
   // Set true on `end` of a gesture that actually panned, so the trailing `click` doesn't drop a pin.
   const suppressClickRef = useRef(false);
   const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
+  // A transient "you are here" pulse dropped by a Royal-Encampments jump; cleared on a timer.
+  const [blockPulse, setBlockPulse] = useState<{ x: number; y: number; nonce: number } | null>(null);
+  const pulseNonceRef = useRef(0);
 
   useEffect(() => {
     const node = surfaceRef.current;
@@ -94,6 +108,53 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, onAdd
       zoomRef.current = null;
     };
   }, []);
+
+  // A Royal-Encampments jump: pan/zoom so the normalized point sits at the viewport centre at the
+  // requested scale, then drop a transient pulse there. Applied instantly (no d3 transition) so it
+  // never depends on a running clock — matching the zoom buttons, and safe under the journey harness's
+  // frozen Date. The transform is clamped to the same translateExtent the pan gestures use, so the
+  // jump can never push the map off-screen. Closes over refs + stable setters only, so the once-
+  // registered instance below stays correct for the component's lifetime.
+  function focusOn(x: number, y: number, scale: number): void {
+    const node = surfaceRef.current;
+    const zb = zoomRef.current;
+    if (!node || !zb) return;
+    const r = node.getBoundingClientRect();
+    const w = Math.max(1, r.width);
+    const h = Math.max(1, r.height);
+    const k = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
+    // Centre the point: screen_centre = t + k·(point·size) ⇒ t = centre − k·point·size.
+    let tx = w / 2 - k * x * w;
+    let ty = h / 2 - k * y * h;
+    // Clamp so [0,0]–[w,h] keeps covering the viewport (t ∈ [size·(1−k), 0]).
+    tx = Math.min(0, Math.max(w * (1 - k), tx));
+    ty = Math.min(0, Math.max(h * (1 - k), ty));
+    zb.transform(select(node), zoomIdentity.translate(tx, ty).scale(k));
+    pulseNonceRef.current += 1;
+    setBlockPulse({ x, y, nonce: pulseNonceRef.current });
+    // Bring the map into view if a row deep in the encampments list scrolled it off-screen (common on
+    // mobile). `block: 'nearest'` is a no-op when the map is already visible; instant (not smooth) so it
+    // never depends on a running clock under the journey harness.
+    node.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Hand the imperative API to App on mount; withdraw it on unmount. Registered once — `focusOn` only
+  // reads stable refs/setters, so the first-render instance is valid for this surface's whole life.
+  useEffect(() => {
+    registerApi?.({ focusOn });
+    return () => registerApi?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Clear the jump pulse ~1.9s after it lands (setTimeout, not the frozen Date, so it still fires).
+  useEffect(() => {
+    if (!blockPulse) return;
+    const id = setTimeout(
+      () => setBlockPulse((cur) => (cur && cur.nonce === blockPulse.nonce ? null : cur)),
+      1900,
+    );
+    return () => clearTimeout(id);
+  }, [blockPulse]);
 
   // Screen (client) coordinates → normalized [0,1] image coordinates, inverting the current pan/zoom.
   function normalize(clientX: number, clientY: number): { x: number; y: number } {
@@ -168,6 +229,15 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, onAdd
         <div class="map-zoom-wrapper" style={wrapperStyle}>
           <img class="map-surface-img" src={mapUrl} alt={MAP_ALT} draggable={false} />
           <div class="pin-layer">
+            {blockPulse && (
+              <div
+                key={blockPulse.nonce}
+                class="block-pulse"
+                data-testid="block-pulse"
+                aria-hidden="true"
+                style={{ left: `${blockPulse.x * 100}%`, top: `${blockPulse.y * 100}%` }}
+              />
+            )}
             {pins.map((pin) => (
               <PinMarker
                 key={pin.id}

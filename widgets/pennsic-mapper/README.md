@@ -15,6 +15,13 @@ single-page Preact widget served via Cloudflare Workers, with a map API backed b
   relabel/recolour/delete. Pin positions are stored as normalized `[0,1]` image coordinates, so
   they stay put regardless of the current pan/zoom.
 - **Legend** — every pin listed as swatch + label; clicking a row jumps to that pin on the map.
+- **Map key & royal encampments** — the information blocks printed on the base map (icon/fill
+  legend, Town Square area key, bus routes, credit) and the Royal Encampments kingdom→block list are
+  reproduced as real, legible HTML in two collapsible panels near the map, so you never have to zoom
+  in tight to read the raster print. The map image itself is left completely intact. Each royal
+  encampment row is a button that pans/zooms the map to that kingdom's block and pulses it. The
+  content is bundled TypeScript (`src/data/mapKey.ts`), hand-transcribed from the map — never scraped
+  at runtime; the per-block coordinates are approximate centroids estimated by eye.
 - **Shareable maps** — see *Storage* below. Start a map, get a private edit link and a
   read-only share link; anyone with the share link can view it and duplicate it into their own
   editable copy.

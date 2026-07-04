@@ -2,12 +2,19 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { mapStore, type ActiveMap, type MapChange, type SyncStatus } from './store';
 import { parseHash, type Route } from './lib/route';
 import { PALETTE } from './lib/palette';
-import { MapSurface } from './components/MapSurface';
+import { MapSurface, type MapSurfaceApi } from './components/MapSurface';
 import { ColorPicker } from './components/ColorPicker';
 import { Legend } from './components/Legend';
 import { PinEditor } from './components/PinEditor';
 import { MapBar } from './components/MapBar';
 import { ReadonlyView } from './components/ReadonlyView';
+import { MapKey } from './components/MapKey';
+import { RoyalEncampments } from './components/RoyalEncampments';
+import type { RoyalEncampment } from './data/mapKey';
+
+// Zoom level a Royal-Encampments jump lands at — tight enough to read block labels, loose enough to
+// keep the surrounding neighbourhood in view.
+const ENCAMPMENT_JUMP_SCALE = 3.5;
 
 type AppMode = 'landing' | 'loading' | 'edit' | 'readonly' | 'error';
 type WidgetState = 'ready' | 'empty' | 'populated' | 'loading' | 'error';
@@ -45,6 +52,11 @@ export function App() {
   const [highlightPinId, setHighlightPinId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  // The currently-mounted MapSurface's imperative API (only one surface is ever mounted at a time).
+  const mapApiRef = useRef<MapSurfaceApi | null>(null);
+  // Last royal-encampment jumped to: drives the persistent row marker + the screen-reader announcement.
+  const [jumpedBlock, setJumpedBlock] = useState<string | null>(null);
+  const [jumpAnnounce, setJumpAnnounce] = useState('');
 
   // Kept alongside the `mode` state itself: the `subscribe` listener below can fire synchronously
   // inside a store call (e.g. startLocalDraft), before Preact has applied a pending setModeState, so it
@@ -188,6 +200,20 @@ export function App() {
     location.hash = '';
   }
 
+  // Pan/zoom the active map to a royal encampment block. Driven synchronously through MapSurface's
+  // imperative API so the transform lands in the same click that requested it. Also marks the row and
+  // announces the jump: the on-map pulse is aria-hidden and can fade off-screen, so screen-reader and
+  // mobile users get a durable, non-visual confirmation of where they landed.
+  function handleJumpToBlock(camp: RoyalEncampment): void {
+    mapApiRef.current?.focusOn(camp.x, camp.y, ENCAMPMENT_JUMP_SCALE);
+    setJumpedBlock(camp.block);
+    setJumpAnnounce(`Jumped to ${camp.kingdom}, block ${camp.block}.`);
+  }
+
+  const registerMapApi = (api: MapSurfaceApi | null): void => {
+    mapApiRef.current = api;
+  };
+
   const editingPin = active && editingPinId ? active.pins.find((p) => p.id === editingPinId) ?? null : null;
 
   return (
@@ -205,10 +231,15 @@ export function App() {
             onAddPin={() => {}}
             onMovePin={() => {}}
             onSelectPin={() => {}}
+            registerApi={registerMapApi}
           />
           <button type="button" class="button-primary" data-testid="start-new-map" onClick={startNewMap}>
             Start a new map
           </button>
+          <div class="map-info">
+            <MapKey />
+            <RoyalEncampments onJump={handleJumpToBlock} activeBlock={jumpedBlock} />
+          </div>
         </div>
       )}
 
@@ -240,6 +271,7 @@ export function App() {
             onAddPin={handleAddPin}
             onMovePin={handleMovePin}
             onSelectPin={handleSelectPin}
+            registerApi={registerMapApi}
           />
           {editingPin ? (
             <PinEditor
@@ -259,6 +291,8 @@ export function App() {
             />
           )}
           <Legend pins={active.pins} highlightPinId={highlightPinId} onSelect={handleSelectPin} />
+          <MapKey />
+          <RoyalEncampments onJump={handleJumpToBlock} activeBlock={jumpedBlock} />
         </main>
       )}
 
@@ -267,10 +301,16 @@ export function App() {
           map={active}
           highlightPinId={highlightPinId}
           busy={busy}
+          registerMapApi={registerMapApi}
+          activeBlock={jumpedBlock}
           onSelectPin={handleSelectPin}
           onDuplicate={handleDuplicate}
+          onJumpToBlock={handleJumpToBlock}
         />
       )}
+
+      {/* Polite, visually-hidden announcer for royal-encampment jumps (the on-map pulse is aria-hidden). */}
+      <div class="sr-only" role="status" aria-live="polite">{jumpAnnounce}</div>
 
       {ready && <div id="widget-ready" style={{ display: 'none' }} aria-hidden="true" />}
     </div>
