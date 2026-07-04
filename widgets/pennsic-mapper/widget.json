@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "slug": "pennsic-mapper",
+  "title": "Pennsic Mapper",
+  "description": "Browse the Pennsic 53 (2026) camp map and build a shareable personal map of coloured, labelled pins, reached by a link.",
+  "framework": "preact-vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "dataSources": [
+    {
+      "name": "Official Pennsic LIII (2026) land map",
+      "description": "The base map is the official Pennsic War land map for Pennsic LIII (2026), a single 1648×2551 PNG (~570 KB) bundled at build time and served offline — never fetched at runtime. Captured 2026-07-03 from the official Pennsic War land-map site. In-image attribution: 'Map Created by Aakin, Updated by Genoveva, Marit, Tananda.' Supplied for direct use by the widget owner; see maintenance/README.md to refresh it for a future Pennsic.",
+      "url": "https://land.pennsicwar.org/maps/53/pennsic_L.png"
+    }
+  ],
+  "data": {
+    "mode": "static"
+  },
+  "workerName": "widget-pennsic-mapper",
+  "hostname": "pennsic-mapper.widgets.beshir.org",
+  "embeddable": {
+    "arbitraryParents": true,
+    "recommendedIframe": "<iframe src=\"https://pennsic-mapper.widgets.beshir.org\" loading=\"lazy\" style=\"width:100%;height:720px;border:0\"></iframe>"
+  }
+}

@@ -1,0 +1,1096 @@
+:root {
+  --bg: #faf3e6;
+  --card-bg: #fffdfa;
+  --card-border: #e7ddcd;
+  --fg: #20242b;
+  --fg-secondary: #4b4438;
+  --muted: #6b6358;
+  --input-bg: #fffdfa;
+  --input-border: #d9cbb5;
+  --input-focus: #9d2235;
+  --input-focus-ring: rgba(157, 34, 53, 0.2);
+  --accent-fill: #9d2235;
+  --accent-fg: #fdf3ea;
+  --gold: #d99a1f;
+  --gold-bright: #ffd166;
+  --success: #15803d;
+  --success-bg: #f0fdf4;
+  --warning: #92400e;
+  --warning-bg: #fffbeb;
+  --error: #b91c1c;
+  --error-bg: #fef2f2;
+  --pill-bg: #f3ece1;
+  --pill-hover: #ece2d2;
+  --pin-ring-inner: #fdf9f2;
+  --pin-ring-outer: #1b1610;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d;
+    --card-bg: #1b1f27;
+    --card-border: #2b313c;
+    --fg: #e9e6e1;
+    /* Secondary/muted lightened vs a straight WCAG-only tune so dark-mode body copy also clears APCA
+       Lc 75 (fg-secondary ≈ Lc 79, muted ≈ Lc 75 on --card-bg), preserving the primary→secondary→muted
+       hierarchy (fg ≈ 90). */
+    --fg-secondary: #d9d5cb;
+    --muted: #c9cfd8;
+    --input-bg: #14171d;
+    --input-border: #3b414c;
+    --input-focus: #ff8097;
+    --input-focus-ring: rgba(255, 128, 151, 0.25);
+    --accent-fill: #9e3346;
+    --accent-fg: #ffe1e7;
+    --gold: #ffd166;
+    --gold-bright: #ffd166;
+    --success: #4ade80;
+    --success-bg: #052e16;
+    --warning: #fbbf24;
+    --warning-bg: #1c1004;
+    --error: #fca5a5;
+    --error-bg: #1f0707;
+    --pill-bg: #252a33;
+    --pill-hover: #2f3540;
+    --pin-ring-inner: #f5ede0;
+    --pin-ring-outer: #0b0805;
+  }
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  container-type: inline-size;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Buttons ── */
+
+.button-primary,
+.button-secondary,
+.button-danger {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 10px 18px;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+}
+
+.button-primary {
+  background: var(--accent-fill);
+  color: var(--accent-fg);
+  border: none;
+}
+.button-primary:hover { filter: brightness(1.08); }
+.button-primary:disabled { opacity: 0.6; cursor: progress; }
+
+.button-secondary {
+  background: var(--pill-bg);
+  color: var(--fg);
+  border: 1px solid var(--input-border);
+}
+.button-secondary:hover { border-color: var(--input-focus); }
+.button-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.button-danger {
+  background: none;
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+.button-danger:hover { background: var(--error-bg); }
+
+.button-primary:focus-visible,
+.button-secondary:focus-visible,
+.button-danger:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+/* ── Landing ── */
+
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.landing-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.landing-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.landing-subtitle {
+  margin: 0;
+  font-size: 16px;
+  color: var(--fg-secondary);
+  line-height: 1.6;
+  max-width: 60ch;
+}
+
+.status-view {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--fg-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ── Map surface (framed, pan/zoom) ── */
+
+/* The framed card: a subtle border + padding + card background so the printed multi-colour map is
+   inset and doesn't glare against a dark surround. Also the positioning context for the zoom
+   controls. */
+.map-frame {
+  position: relative;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 8px;
+  width: 100%;
+  max-width: 460px; /* cap the portrait map's footprint (and thus its height) in single-column layouts */
+  margin: 0 auto;
+}
+
+/* The clipping viewport AND the coordinate reference for pin math. Its aspect-ratio matches the
+   official map image (1648×2551, portrait) so the map fills it with no letterboxing or distortion —
+   which keeps normalized [0,1] pin coordinates aligned to image pixels. */
+.map-surface {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1648 / 2551;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f4efe6;
+  cursor: grab; /* the map pans on drag; editable surfaces switch to crosshair (click places a pin) */
+  touch-action: none;
+}
+
+.map-surface-editable {
+  cursor: crosshair;
+}
+
+.map-surface:active {
+  cursor: grabbing;
+}
+
+/* The single transformed layer carrying pan/zoom (translate + scale, origin 0,0). Holds BOTH the map
+   image and the pin overlay, so pins stay glued to the map at any zoom. */
+.map-zoom-wrapper {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.map-surface-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The surface box's aspect-ratio equals the image's, so `fill` shows the map with no visible
+     distortion while guaranteeing the image exactly covers the wrapper box — which is what makes a
+     normalized [0,1] coordinate map to the same image pixel at any box rounding. */
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Very mild dimming in dark mode so the bright printed map doesn't glare — hue/saturation untouched. */
+@media (prefers-color-scheme: dark) {
+  .map-surface { background: #201d18; }
+  .map-surface-img { filter: brightness(0.9); }
+}
+
+.pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* the layer itself is inert; individual pins re-enable pointer events */
+}
+
+.map-surface:focus-visible {
+  outline: 3px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+/* ── Zoom controls ── */
+
+.map-zoom-controls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+.map-zoom-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--fg);
+  background: var(--card-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+
+.map-zoom-btn:hover {
+  background: var(--pill-hover);
+  border-color: var(--input-focus);
+}
+
+.map-zoom-btn:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+/* ── Map caption (zoom affordance + attribution) ── */
+
+.map-caption {
+  margin: 8px 2px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-caption-hint {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  line-height: 1.4;
+}
+
+.map-caption-credit {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── Pins ── */
+
+.pin-marker {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  /* Anchor the pin's tip (bottom-centre) at its map point, and counter-scale by 1/zoom so the marker
+     keeps a constant on-screen size instead of ballooning as the wrapper scales up. transform-origin
+     at the tip keeps the tip pinned to the point through the counter-scale. */
+  transform-origin: 50% 100%;
+  transform: translate(-50%, -100%) scale(calc(1 / var(--zoom, 1)));
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: grab;
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  touch-action: none;
+}
+
+.pin-marker-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(45deg);
+  background: var(--pin-color-light);
+  border: 2px solid var(--pin-ring-inner);
+  box-shadow:
+    0 0 0 2px var(--pin-ring-outer),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pin-marker-dot {
+    background: var(--pin-color-dark);
+  }
+}
+
+.pin-marker.editing .pin-marker-dot {
+  box-shadow:
+    0 0 0 2px var(--pin-ring-outer),
+    0 0 0 5px var(--input-focus-ring),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pin-marker.highlighted .pin-marker-dot {
+  box-shadow:
+    0 0 0 2px var(--pin-ring-outer),
+    0 0 0 5px var(--gold-bright),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pin-marker:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes pin-pop {
+    0% { transform: translate(-50%, -100%) scale(0); opacity: 0; }
+    60% { transform: translate(-50%, -100%) scale(calc(1.15 / var(--zoom, 1))); opacity: 1; }
+    100% { transform: translate(-50%, -100%) scale(calc(1 / var(--zoom, 1))); opacity: 1; }
+  }
+  .pin-marker { animation: pin-pop 220ms ease-out; }
+}
+
+/* ── Colour picker ── */
+
+.color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.color-picker-caption {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.color-swatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 6px;
+  background: var(--pill-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--fg);
+  min-height: 40px;
+}
+
+.color-swatch:hover { border-color: var(--input-focus); }
+
+.color-swatch.selected {
+  border-color: var(--input-focus);
+  background: var(--pill-hover);
+  font-weight: 600;
+}
+
+.color-swatch:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+.color-swatch-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--swatch-color-light);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .color-swatch-dot {
+    background: var(--swatch-color-dark);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.color-swatch-name {
+  white-space: nowrap;
+}
+
+/* ── Legend ── */
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.legend-empty {
+  padding: 16px;
+  border: 1px dashed var(--card-border);
+  border-radius: 10px;
+}
+
+.legend-hint {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border: none;
+  border-bottom: 1px solid var(--card-border);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fg);
+  text-align: left;
+}
+
+li:last-child .legend-row { border-bottom: none; }
+
+.legend-row:hover { background: var(--pill-bg); }
+
+.legend-row.highlighted {
+  background: var(--pill-hover);
+  font-weight: 600;
+}
+
+.legend-row:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: -2px;
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--swatch-color-light);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .legend-swatch {
+    background: var(--swatch-color-dark);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.legend-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Pin editor ── */
+
+.pin-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.pin-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pin-editor-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pin-editor input[type="text"] {
+  font: inherit;
+  font-size: 16px;
+  padding: 8px 11px;
+  color: var(--fg);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.pin-editor input[type="text"]:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+.pin-editor-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Map bar (rename + sync + share links) ── */
+
+.map-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.map-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.map-bar-name {
+  flex: 1;
+  min-width: 160px;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fg);
+  padding: 7px 11px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.map-bar-name:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+.sync-badge {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.sync-badge-saved { color: var(--success); background: var(--success-bg); }
+.sync-badge-saving { color: var(--muted); background: var(--pill-bg); }
+.sync-badge-pending { color: var(--warning); background: var(--warning-bg); }
+.sync-badge-error { color: var(--error); background: var(--error-bg); }
+
+.map-bar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--card-border);
+}
+
+.map-bar-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.map-bar-link-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+
+.map-bar-link-caption {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.map-bar-link-subtext {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── Read-only view ── */
+
+.readonly-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.readonly-eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.readonly-title {
+  margin: -6px 0 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--fg);
+}
+
+.readonly-duplicate-caption {
+  margin: -6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── Editor layout ── */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Wider viewports: the tall portrait map sits in a fixed-width left column, with the colour
+   picker/pin editor and legend stacked in the roomy right column beside it. */
+@container (min-width: 700px) {
+  .editor {
+    display: grid;
+    /* The right column is capped (not 1fr) so the controls sit beside the tall portrait map as a
+       tidy content block, rather than stretching across the whole width and reading as dead space. */
+    grid-template-columns: minmax(280px, 380px) minmax(320px, 560px);
+    grid-template-areas:
+      "bar bar"
+      "map aux"
+      "map legend"
+      "key key"
+      "royals royals";
+    gap: 14px 16px;
+    align-items: start;
+    justify-content: start;
+  }
+  .editor > .map-bar { grid-area: bar; }
+  .editor > .map-frame { grid-area: map; align-self: start; }
+  .editor > .color-picker { grid-area: aux; align-self: start; }
+  .editor > .pin-editor { grid-area: aux; align-self: start; }
+  .editor > .legend { grid-area: legend; align-self: start; }
+  .editor > .map-key { grid-area: key; align-self: start; }
+  .editor > .royal-encampments { grid-area: royals; align-self: start; }
+}
+
+/* ── Block-jump pulse (Royal Encampments → map) ── */
+
+/* A transient "you are here" ring dropped at a block's centroid when a Royal-Encampments row jumps
+   the map. Lives inside the transformed wrapper (via .pin-layer) and counter-scales by 1/zoom so it
+   keeps a constant on-screen size, exactly like the pins. */
+.block-pulse {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  transform-origin: 50% 50%;
+  transform: translate(-50%, -50%) scale(calc(1 / var(--zoom, 1)));
+  border-radius: 50%;
+  border: 3px solid var(--gold-bright);
+  box-shadow:
+    0 0 0 2px var(--pin-ring-outer),
+    0 0 12px 3px rgba(217, 154, 31, 0.55);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes block-pulse-ring {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(calc(0.45 / var(--zoom, 1))); }
+    45% { opacity: 1; transform: translate(-50%, -50%) scale(calc(1.1 / var(--zoom, 1))); }
+    100% { opacity: 0.9; transform: translate(-50%, -50%) scale(calc(1 / var(--zoom, 1))); }
+  }
+  .block-pulse { animation: block-pulse-ring 1900ms ease-out; }
+}
+
+/* ── Info panels (Map key + Royal encampments) ── */
+
+/* Landing stacks the two reference panels below the CTA. */
+.map-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+/* Collapsible reference cards, matching the widget's other panels (card bg + border + radius). Closed
+   by default so the map and pin workflow stay primary; the summary is the tap target. */
+.info-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.info-panel-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.info-panel-summary::-webkit-details-marker { display: none; }
+
+/* Title + hint share one wrapping block so the chevron never joins the text's wrap flow (which made it
+   drop to its own near-empty line at narrow widths). The block wraps freely; the chevron stays pinned. */
+.info-panel-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+
+/* Disclosure chevron drawn with a pseudo-element so it doesn't rely on the native marker. */
+.info-panel-summary::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform 150ms ease;
+}
+.info-panel[open] > .info-panel-summary::after { transform: rotate(-135deg); }
+
+.info-panel-summary:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: -2px;
+}
+
+.info-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.info-panel-hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.info-panel-body {
+  padding: 0 14px 16px;
+  border-top: 1px solid var(--card-border);
+}
+
+/* ── Map key body ── */
+
+/* Single column by default so the three groups stack cleanly on narrow screens (an `auto-fit` grid
+   with exactly three items strands one group in a 2-column limbo, leaving a large dead gap). */
+.map-key .info-panel-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px 24px;
+  padding-top: 14px;
+}
+
+/* Wide enough for three balanced columns side by side; the credit line spans the full width beneath. */
+@container (min-width: 680px) {
+  .map-key .info-panel-body {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.key-group { min-width: 0; }
+
+.key-group-title {
+  margin: 6px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.key-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--fg-secondary);
+  line-height: 1.35;
+}
+
+.key-row-mark {
+  flex: 0 0 auto;
+  width: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.key-row-label { min-width: 0; }
+
+.key-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.key-icon--line {
+  width: 26px;
+  height: auto;
+}
+
+/* Area-fill swatches — colours approximate the printed map. A translucent outline keeps the pale
+   fills (tan/water) visible against the card in both themes. */
+/* A firm inset outline so the pale fills (tan/grey/water) stay visible against the near-white card and
+   clear the 3:1 non-text floor — they read as a near-blank patch with a fainter outline. */
+.key-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: block;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.key-swatch--noncamp { background: #e7dfca; }
+.key-swatch--parking { background: #c7c7c7; }
+.key-swatch--royal { background: #a98fc9; }
+.key-swatch--xblock { background: #3f6b3d; }
+.key-swatch--water { background: #a9cbe0; }
+
+@media (prefers-color-scheme: dark) {
+  .key-swatch { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45); }
+}
+
+/* Town Square numbered key. */
+.key-area-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.key-area-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.key-area-num {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  /* Self-contained accent chip (not the shared --accent tokens) so the small badge text clears APCA
+     Lc 75 in both themes: white on the rose fill in light, a slightly darker rose + off-white in dark. */
+  color: #ffffff;
+  background: #9d2235;
+}
+
+@media (prefers-color-scheme: dark) {
+  .key-area-num { color: #ffeef2; background: #8c2a3c; }
+}
+
+.key-area-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.key-area-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  line-height: 1.35;
+}
+
+.key-area-detail {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.key-credit {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.key-credit-link {
+  color: var(--input-focus);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* A lighter rose in dark mode (the shared --input-focus is tuned for focus rings/inputs, not 13px body
+   text); paired with the underline so linkness never rests on colour alone. */
+@media (prefers-color-scheme: dark) {
+  .key-credit-link { color: #ffb3c0; }
+}
+.key-credit-link:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ── Royal encampments body ── */
+
+.royals-list {
+  list-style: none;
+  margin: 0;
+  padding: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.royals-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--pill-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fg);
+  text-align: left;
+}
+
+.royals-row:hover {
+  background: var(--pill-hover);
+  border-color: var(--input-focus);
+}
+
+/* The last-jumped row keeps a durable accent marker (left bar + tint) independent of focus, so it's
+   clear where you last went even after the on-map pulse has faded. */
+.royals-row.is-active {
+  border-color: var(--input-focus);
+  box-shadow: inset 3px 0 0 var(--accent-fill);
+  background: var(--pill-hover);
+}
+
+.royals-row:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 1px;
+}
+
+.royals-kingdom {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.royals-block {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  /* Self-contained accent chip (see .key-area-num) so the small pill text clears APCA Lc 75 in both
+     themes rather than riding the shared --accent tokens. */
+  color: #ffffff;
+  background: #9d2235;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .royals-block { color: #ffeef2; background: #8c2a3c; }
+}
+
+.royals-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* ── Embedded (in an iframe) ── */
+.embedded body { background: transparent; }
+.embedded .app { max-width: none; padding: 0; }

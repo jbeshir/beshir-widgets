@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Pennsic Mapper">
+  <style>
+    .t0 { stop-color: #a4243b }
+    .t1 { stop-color: #7d1b2b }
+    .gold { fill: #f1c453 }
+    .dot { fill: #fdf2e0 }
+    @media (prefers-color-scheme: dark) {
+      .t0 { stop-color: #c33049 }
+      .t1 { stop-color: #8f2030 }
+      .gold { fill: #ffd166 }
+      .dot { fill: #fff4e2 }
+    }
+  </style>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="t0" />
+      <stop offset="1" class="t1" />
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#tile)" />
+  <!-- Map pin: a teardrop pointing down to a location, with a hollow dot at its centre. -->
+  <path class="gold" d="M16 6.5c-4.1 0-7.4 3.28-7.4 7.33 0 5.5 7.4 12.17 7.4 12.17s7.4-6.67 7.4-12.17c0-4.05-3.3-7.33-7.4-7.33Z" />
+  <circle class="dot" cx="16" cy="13.7" r="3.1" />
+</svg>

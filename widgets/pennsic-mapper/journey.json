@@ -1,0 +1,56 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    { "label": "initial", "steps": [], "expect": { "state": "ready" } },
+    {
+      "label": "new-map",
+      "steps": [{ "click": "[data-testid=start-new-map]" }],
+      "expect": { "state": "empty" }
+    },
+    {
+      "label": "pin-added",
+      "steps": [
+        { "click": "[data-testid=start-new-map]" },
+        { "click": "[data-testid=map-surface]" }
+      ],
+      "expect": { "state": "populated" }
+    },
+    {
+      "label": "zoomed-in",
+      "steps": [
+        { "click": "[data-testid=start-new-map]" },
+        { "click": "[data-testid=zoom-in]" },
+        { "click": "[data-testid=zoom-in]" },
+        { "eval": "(() => { const w = document.querySelector('.map-zoom-wrapper'); const z = parseFloat(getComputedStyle(w).getPropertyValue('--zoom')); if (!(z > 1.01)) throw new Error('zoom-in did not scale the map: --zoom=' + z); })()" }
+      ],
+      "expect": { "state": "empty" }
+    },
+    {
+      "label": "map-key-open",
+      "steps": [
+        { "click": "[data-testid=start-new-map]" },
+        { "click": "[data-testid=map-legend] > summary" },
+        { "eval": "(() => { const d = document.querySelector('[data-testid=map-legend]'); if (!d || !d.open) throw new Error('map key did not open'); if (!d.querySelector('.key-swatch--royal')) throw new Error('legend swatches missing'); })()" }
+      ],
+      "expect": { "state": "empty" }
+    },
+    {
+      "label": "jumped-to-encampment",
+      "steps": [
+        { "click": "[data-testid=start-new-map]" },
+        { "click": "[data-testid=royal-encampments] > summary" },
+        { "click": "[data-testid=royal-jump-N04]" },
+        { "eval": "(() => { const w = document.querySelector('.map-zoom-wrapper'); const z = parseFloat(getComputedStyle(w).getPropertyValue('--zoom')); if (!(z > 1.5)) throw new Error('encampment jump did not zoom the map: --zoom=' + z); if (!document.querySelector('[data-testid=block-pulse]')) throw new Error('block-jump pulse missing'); })()" }
+      ],
+      "expect": { "state": "empty" }
+    },
+    {
+      "label": "load-error",
+      "steps": [{ "eval": "location.hash = '#/m/doesnotexist'" }],
+      "expect": { "state": "error" }
+    }
+  ]
+}
