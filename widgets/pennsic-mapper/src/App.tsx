@@ -10,6 +10,7 @@ import { MapBar } from './components/MapBar';
 import { ReadonlyView } from './components/ReadonlyView';
 import { MapKey } from './components/MapKey';
 import { RoyalEncampments } from './components/RoyalEncampments';
+import { LayersPanel } from './components/LayersPanel';
 import type { RoyalEncampment } from './data/mapKey';
 
 // Zoom level a Royal-Encampments jump lands at — tight enough to read block labels, loose enough to
@@ -18,7 +19,7 @@ const ENCAMPMENT_JUMP_SCALE = 3.5;
 
 type AppMode = 'loading' | 'edit' | 'readonly' | 'error';
 type WidgetState = 'ready' | 'empty' | 'populated' | 'loading' | 'error';
-type DockPanel = 'key' | 'royals' | 'legend' | null;
+type DockPanel = 'key' | 'royals' | 'legend' | 'layers' | null;
 
 function widgetStateFor(mode: AppMode, pinCount: number): WidgetState {
   if (mode === 'loading') return 'loading';
@@ -53,9 +54,16 @@ export function App() {
   const [selectedColor, setSelectedColor] = useState<string>(PALETTE[0].key);
   const [editingPinId, setEditingPinId] = useState<string | null>(null);
   const [highlightPinId, setHighlightPinId] = useState<string | null>(null);
-  // Which dock panel is open. Single-open: opening one closes the others AND the pin editor, so at most
-  // one bottom sheet is ever shown (matters most on mobile). Kept deterministic from App state.
+  // Which dock panel is open. Single-open: opening one closes the others AND the pin editor AND the Share
+  // popover, so at most one floating surface is ever shown (matters most on mobile). Deterministic from
+  // App state.
   const [openPanel, setOpenPanel] = useState<DockPanel>(null);
+  // Share popover open state, lifted here (out of MapBar) so App is the single mutual-exclusion authority:
+  // opening Share closes any open dock panel + pin editor, and opening either of those closes Share. This
+  // is what guarantees Share never has to fight a dock bottom sheet for the top layer on mobile (Fix 1).
+  const [shareOpen, setShareOpen] = useState(false);
+  // Whether the always-on pin labels are drawn on the map (Layers → "Show pin labels"; on by default).
+  const [showLabels, setShowLabels] = useState(true);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   // The currently-mounted MapSurface's imperative API (only one surface is ever mounted at a time).
@@ -151,7 +159,9 @@ export function App() {
     if (mode !== 'edit') return;
     const id = genId();
     mapStore.addPin({ id, x, y, color: selectedColor, label: '' });
-    setOpenPanel(null); // adding/selecting a pin opens the editor → close any open dock panel
+    // adding/selecting a pin opens the editor → close any other floating surface (dock panel + Share)
+    setOpenPanel(null);
+    setShareOpen(false);
     setEditingPinId(id);
     setWidgetState('populated');
   }
@@ -164,6 +174,7 @@ export function App() {
   function handleSelectPin(id: string): void {
     if (mode === 'edit') {
       setOpenPanel(null);
+      setShareOpen(false);
       setEditingPinId(id);
       return;
     }
@@ -188,13 +199,25 @@ export function App() {
     mapStore.setName(name);
   }
 
-  // Opening a dock panel closes the pin editor (mutual exclusion); closing it just clears that panel.
+  // Opening a dock panel closes the pin editor AND the Share popover (mutual exclusion — only one floating
+  // surface at a time); closing it just clears that panel.
   function handlePanelToggle(name: Exclude<DockPanel, null>, isOpen: boolean): void {
     if (isOpen) {
       setOpenPanel(name);
       setEditingPinId(null);
+      setShareOpen(false);
     } else {
       setOpenPanel((cur) => (cur === name ? null : cur));
+    }
+  }
+
+  // Share toggle from the top bar. Opening Share closes any open dock panel + pin editor so the popover
+  // never has to overlap another floating surface (the crux of Fix 1, alongside the CSS layer lift).
+  function handleShareToggle(next: boolean): void {
+    setShareOpen(next);
+    if (next) {
+      setOpenPanel(null);
+      setEditingPinId(null);
     }
   }
 
@@ -221,9 +244,12 @@ export function App() {
   // announces the jump: the on-map pulse is aria-hidden and can fade off-screen, so screen-reader and
   // mobile users get a durable, non-visual confirmation of where they landed.
   function handleJumpToBlock(camp: RoyalEncampment): void {
-    // Close any open dock panel so the map's pan/zoom/pulse is visible — on mobile the open panel is a
-    // 70cqh bottom sheet that would otherwise hide the very reaction the jump triggers.
+    // Close every floating surface so the map's pan/zoom/pulse is visible — on mobile the open panel is a
+    // 70cqh bottom sheet that would otherwise hide the very reaction the jump triggers. (Clearing the pin
+    // editor is defensive: a jump is only reachable via the Encampments panel, which already closed it.)
     setOpenPanel(null);
+    setShareOpen(false);
+    setEditingPinId(null);
     mapApiRef.current?.focusOn(camp.x, camp.y, ENCAMPMENT_JUMP_SCALE);
     setJumpedBlock(camp.block);
     setJumpAnnounce(`Jumped to ${camp.kingdom}, block ${camp.block}.`);
@@ -266,12 +292,19 @@ export function App() {
             editable
             editingPinId={editingPinId}
             highlightPinId={highlightPinId}
+            showLabels={showLabels}
             onAddPin={handleAddPin}
             onMovePin={handleMovePin}
             onSelectPin={handleSelectPin}
             registerApi={registerMapApi}
           />
-          <MapBar map={active} sync={sync} onRename={handleRename} />
+          <MapBar
+            map={active}
+            sync={sync}
+            onRename={handleRename}
+            shareOpen={shareOpen}
+            onShareToggle={handleShareToggle}
+          />
           <div class="panel-dock">
             <MapKey open={openPanel === 'key'} onToggle={(o) => handlePanelToggle('key', o)} />
             <RoyalEncampments
@@ -279,6 +312,12 @@ export function App() {
               activeBlock={jumpedBlock}
               open={openPanel === 'royals'}
               onToggle={(o) => handlePanelToggle('royals', o)}
+            />
+            <LayersPanel
+              showLabels={showLabels}
+              onToggleLabels={setShowLabels}
+              open={openPanel === 'layers'}
+              onToggle={(o) => handlePanelToggle('layers', o)}
             />
             <details
               class="info-panel legend-panel"
