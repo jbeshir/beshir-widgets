@@ -1153,9 +1153,14 @@ li:last-child .legend-row { border-bottom: none; }
     min-width: 0;
     flex-wrap: nowrap;
   }
-  /* Ellipsise the title so a long name ("Royal encampments") reads as a clean truncated pill instead of
-     spilling past its edge; the full name stays available via the summary's `title` attribute. */
+  /* Ellipsise the title so a long name reads as a clean truncated pill instead of spilling past its
+     edge; the full name stays available via the summary's `title` attribute. Also drop to 14px here —
+     at 16px the longest chip label ("Encampments") fits with near-zero margin, and cross-environment
+     font-metric differences (this repo's sandbox render vs. CI's runner) were enough to tip it into
+     truncation there even though it measured clean locally. 14px still clears this widget's secondary-
+     text floor and buys real margin instead of shaving the edge. */
   .panel-dock > .info-panel:not([open]) .info-panel-title {
+    font-size: 14px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
