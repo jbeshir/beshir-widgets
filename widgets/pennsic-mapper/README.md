@@ -144,7 +144,7 @@ npm test
 <iframe
   src="https://pennsic-mapper.widgets.beshir.org"
   loading="lazy"
-  style="width:100%;height:720px;border:0"
+  style="width:100%;height:760px;border:0"
 ></iframe>
 ```
 

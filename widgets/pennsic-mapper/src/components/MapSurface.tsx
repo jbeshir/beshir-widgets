@@ -216,6 +216,10 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, onAdd
 
   return (
     <div class="map-frame">
+      {/* Decorative ambient wash of the map filling the canvas gutters (see .map-canvas-backdrop). Behind
+          everything, aria-hidden, pointer-events:none — it is NOT the coordinate reference, so it cannot
+          affect pin math; the crisp .map-surface below is the sole pin coordinate box. */}
+      <div class="map-canvas-backdrop" aria-hidden="true" style={{ backgroundImage: `url(${mapUrl})` }} />
       <div
         class={editable ? 'map-surface map-surface-editable' : 'map-surface'}
         data-testid="map-surface"
@@ -285,12 +289,6 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, onAdd
           <span aria-hidden="true">⟲</span>
         </button>
       </div>
-      <p class="map-caption">
-        <span class="map-caption-hint">Scroll, pinch, or drag to explore — zoom in to read camp block labels.</span>
-        <span class="map-caption-credit">
-          Official Pennsic LIII land map · Map by Aakin, updated by Genoveva, Marit &amp; Tananda.
-        </span>
-      </p>
     </div>
   );
 }
