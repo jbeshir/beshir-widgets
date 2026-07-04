@@ -456,6 +456,25 @@ body {
     0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+/* Touch hold-to-drag affordance (see PinMarker's TOUCH_HOLD_MS). "pending" is the press while the hold
+   timer is still running — a slight press-in, standard tactile-button feedback. "dragging" is the
+   armed/lifted state once the hold completes, giving the same "picked up" cue a hover/cursor change
+   gives a mouse drag, which touch has no equivalent of. */
+.pin-marker.pin-pending .pin-marker-dot {
+  transform: rotate(-45deg) scale(0.9);
+}
+
+.pin-marker.pin-dragging {
+  z-index: 1;
+}
+
+.pin-marker.pin-dragging .pin-marker-dot {
+  transform: rotate(-45deg) scale(1.15);
+  box-shadow:
+    0 0 0 2px var(--pin-ring-outer),
+    0 4px 10px rgba(0, 0, 0, 0.55);
+}
+
 .pin-marker:focus-visible {
   outline: 2px solid var(--input-focus);
   outline-offset: 2px;

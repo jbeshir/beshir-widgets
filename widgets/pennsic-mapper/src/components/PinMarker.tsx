@@ -1,3 +1,4 @@
+import { useRef, useState } from 'preact/hooks';
 import { PALETTE } from '../lib/palette';
 import type { Pin } from '../store';
 
@@ -15,6 +16,12 @@ interface Props {
 
 const NUDGE_STEP = 0.02;
 
+// A touch drag only arms after this long a hold, so a finger brushing a pin (scrolling, reaching for
+// something else) never nudges it — a quick tap or an early drift always falls through as a no-op.
+// Matches iOS's UILongPressGestureRecognizer default (minimumPressDuration / allowableMovement).
+const TOUCH_HOLD_MS = 500;
+const TOUCH_HOLD_TOLERANCE_PX = 10;
+
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
@@ -25,15 +32,50 @@ function clamp01(n: number): number {
 // underneath, so a drag never bubbles up as an "add pin" click on the surface. Arrow keys nudge the
 // pin by a fixed step for keyboard-only placement; Enter/Space already open the editor via the
 // button's native click activation.
+//
+// Mouse/pen drag arms immediately on pointerdown, as before — a precise pointer has no accidental-touch
+// risk. Touch instead goes through a hold-and-drag: pointerdown starts a timer rather than arming the
+// drag, so an accidental brush or a normal tap (release before the timer fires) never moves the pin;
+// only a held-still finger past `TOUCH_HOLD_MS` arms it, at which point it drags freely like a mouse.
 export function PinMarker({ pin, editable, editing, highlighted, showLabel, onSelect, onDragMove, onKeyMove }: Props) {
   const color = PALETTE.find((c) => c.key === pin.color) ?? PALETTE[0];
   const trimmedLabel = pin.label.trim();
   const label = trimmedLabel || 'unlabelled pin';
 
+  const holdTimerRef = useRef<number | null>(null);
+  const holdOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const armedRef = useRef(false);
+  const [phase, setPhase] = useState<'idle' | 'pending' | 'dragging'>('idle');
+
+  function clearHold() {
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    holdOriginRef.current = null;
+    armedRef.current = false;
+    setPhase('idle');
+  }
+
   function handlePointerDown(e: PointerEvent) {
     e.stopPropagation();
     if (!editable) return;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    if (e.pointerType === 'touch') {
+      holdOriginRef.current = { x: e.clientX, y: e.clientY };
+      armedRef.current = false;
+      setPhase('pending');
+      holdTimerRef.current = window.setTimeout(() => {
+        holdTimerRef.current = null;
+        armedRef.current = true;
+        setPhase('dragging');
+        navigator.vibrate?.(10);
+      }, TOUCH_HOLD_MS);
+    } else {
+      // Mouse/pen: precise pointer, no accidental-touch risk — drag arms immediately as before, with no
+      // pending/dragging visual (that affordance exists only to make the touch hold legible).
+      armedRef.current = true;
+    }
   }
 
   // The pan/zoom surface (this pin's ancestor) binds d3-zoom on mousedown/touchstart. Stop those here
@@ -45,7 +87,20 @@ export function PinMarker({ pin, editable, editing, highlighted, showLabel, onSe
 
   function handlePointerMove(e: PointerEvent) {
     if (!editable || e.buttons === 0) return;
+    if (!armedRef.current) {
+      // Still within the hold window (or already abandoned it) — a drift past tolerance means this was
+      // a brush or a pan attempt, not a hold, so give up on arming rather than letting it jump on arrival.
+      const origin = holdOriginRef.current;
+      if (origin && Math.hypot(e.clientX - origin.x, e.clientY - origin.y) > TOUCH_HOLD_TOLERANCE_PX) {
+        clearHold();
+      }
+      return;
+    }
     onDragMove(pin.id, e.clientX, e.clientY);
+  }
+
+  function handlePointerUp() {
+    clearHold();
   }
 
   function handleClick(e: MouseEvent) {
@@ -70,7 +125,7 @@ export function PinMarker({ pin, editable, editing, highlighted, showLabel, onSe
   return (
     <button
       type="button"
-      class={`pin-marker${editing ? ' editing' : ''}${highlighted ? ' highlighted' : ''}`}
+      class={`pin-marker${editing ? ' editing' : ''}${highlighted ? ' highlighted' : ''}${phase !== 'idle' ? ` pin-${phase}` : ''}`}
       data-testid="pin-marker"
       data-pin-id={pin.id}
       style={{
@@ -82,6 +137,8 @@ export function PinMarker({ pin, editable, editing, highlighted, showLabel, onSe
       aria-label={label}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onMouseDown={stopGestureStart}
       onTouchStart={stopGestureStart}
       onClick={handleClick}
