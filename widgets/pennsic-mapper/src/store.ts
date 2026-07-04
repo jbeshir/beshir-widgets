@@ -85,9 +85,19 @@ const DEFAULT_MAP_NAME = 'Untitled map';
 // the user-facing text for the deterministic offline failure path behind the "Create shared map" button.
 const OFFLINE_CREATE_MESSAGE = "You're offline — connect to the internet to create a shared map.";
 
-/** NEVER fetch under `file://` — see the offline-safe networking note above. */
+/**
+ * NEVER fetch under `file://` — see the offline-safe networking note above — with ONE test-only seam:
+ * the journey harness's `mockFetch` step (see TESTING.md) installs an in-page `window.fetch` interceptor
+ * and sets `window.__journeyMockFetch`, opting a journey back into the network path so the create/sync
+ * flow can be driven end-to-end offline. Every such request is intercepted inside the browser and answered
+ * with a canned response — nothing ever leaves the page — so the offline guarantee is intact: with no
+ * mock installed this still returns false under file://, and in production (https) it never reads the
+ * flag at all.
+ */
 function remoteEnabled(): boolean {
-  return typeof location !== 'undefined' && location.protocol !== 'file:';
+  if (typeof location === 'undefined') return false;
+  if (location.protocol !== 'file:') return true;
+  return (globalThis as { __journeyMockFetch?: boolean }).__journeyMockFetch === true;
 }
 
 function clamp01(n: number): number {

@@ -6,6 +6,75 @@
   "states": [
     { "label": "initial", "steps": [], "expect": { "state": "ready" } },
     {
+      "label": "pin-added",
+      "steps": [
+        { "mockFetch": { "urlPattern": "/\\/api\\/map$/", "method": "POST", "status": 201, "body": { "id": "test-map-01", "editSecret": "edit-secret-01", "eventId": "pennsic-53" } } },
+        { "mockFetch": { "urlPattern": "/\\/api\\/map\\/[^/]+$/", "method": "PUT", "status": 200, "body": { "id": "test-map-01", "name": "Untitled map", "pins": [], "eventId": "pennsic-53", "rev": 2, "updatedAt": "2024-06-01T00:00:00.000Z" } } },
+        { "click": "[data-testid=create-map]" },
+        { "waitFor": "[data-testid=map-surface].map-surface-editable" },
+        { "click": "[data-testid=map-surface]" },
+        { "click": "[data-testid=label-confirm]" },
+        { "waitFor": "[data-testid=sync-badge][data-status=saved]" }
+      ],
+      "expect": { "state": "populated" }
+    },
+    {
+      "label": "pin-editing",
+      "steps": [
+        { "mockFetch": { "urlPattern": "/\\/api\\/map$/", "method": "POST", "status": 201, "body": { "id": "test-map-01", "editSecret": "edit-secret-01", "eventId": "pennsic-53" } } },
+        { "mockFetch": { "urlPattern": "/\\/api\\/map\\/[^/]+$/", "method": "PUT", "status": 200, "body": { "id": "test-map-01", "name": "Untitled map", "pins": [], "eventId": "pennsic-53", "rev": 2, "updatedAt": "2024-06-01T00:00:00.000Z" } } },
+        { "click": "[data-testid=create-map]" },
+        { "waitFor": "[data-testid=map-surface].map-surface-editable" },
+        { "click": "[data-testid=map-surface]" }
+      ],
+      "expect": { "selector": "[data-testid=label-input]" }
+    },
+    {
+      "label": "pin-labelled",
+      "steps": [
+        { "mockFetch": { "urlPattern": "/\\/api\\/map$/", "method": "POST", "status": 201, "body": { "id": "test-map-01", "editSecret": "edit-secret-01", "eventId": "pennsic-53" } } },
+        { "mockFetch": { "urlPattern": "/\\/api\\/map\\/[^/]+$/", "method": "PUT", "status": 200, "body": { "id": "test-map-01", "name": "Untitled map", "pins": [], "eventId": "pennsic-53", "rev": 2, "updatedAt": "2024-06-01T00:00:00.000Z" } } },
+        { "click": "[data-testid=create-map]" },
+        { "waitFor": "[data-testid=map-surface].map-surface-editable" },
+        { "click": "[data-testid=map-surface]" },
+        { "fill": "[data-testid=label-input]", "value": "House Sable" },
+        { "click": "[data-testid=label-confirm]" },
+        { "eval": "(() => { const l = document.querySelector('[data-testid=pin-label]'); if (!l) throw new Error('pin label not rendered on the map'); if (l.textContent.trim() !== 'House Sable') throw new Error('pin label text wrong: ' + l.textContent); const r = l.getBoundingClientRect(); if (r.width < 1 || r.height < 1) throw new Error('pin label not visible'); })()" },
+        { "waitFor": "[data-testid=sync-badge][data-status=saved]" }
+      ],
+      "expect": { "state": "populated" }
+    },
+    {
+      "label": "pin-labels-off",
+      "steps": [
+        { "mockFetch": { "urlPattern": "/\\/api\\/map$/", "method": "POST", "status": 201, "body": { "id": "test-map-01", "editSecret": "edit-secret-01", "eventId": "pennsic-53" } } },
+        { "mockFetch": { "urlPattern": "/\\/api\\/map\\/[^/]+$/", "method": "PUT", "status": 200, "body": { "id": "test-map-01", "name": "Untitled map", "pins": [], "eventId": "pennsic-53", "rev": 2, "updatedAt": "2024-06-01T00:00:00.000Z" } } },
+        { "click": "[data-testid=create-map]" },
+        { "waitFor": "[data-testid=map-surface].map-surface-editable" },
+        { "click": "[data-testid=map-surface]" },
+        { "fill": "[data-testid=label-input]", "value": "House Sable" },
+        { "click": "[data-testid=label-confirm]" },
+        { "click": "[data-testid=layers-panel] > summary" },
+        { "click": "[data-testid=toggle-pin-labels]" },
+        { "eval": "(() => { if (document.querySelector('[data-testid=pin-label]')) throw new Error('pin labels still shown after toggling Show pin labels off'); })()" },
+        { "waitFor": "[data-testid=sync-badge][data-status=saved]" }
+      ],
+      "expect": { "state": "populated" }
+    },
+    {
+      "label": "share-over-dock",
+      "steps": [
+        { "mockFetch": { "urlPattern": "/\\/api\\/map$/", "method": "POST", "status": 201, "body": { "id": "test-map-01", "editSecret": "edit-secret-01", "eventId": "pennsic-53" } } },
+        { "mockFetch": { "urlPattern": "/\\/api\\/map\\/[^/]+$/", "method": "PUT", "status": 200, "body": { "id": "test-map-01", "name": "Untitled map", "pins": [], "eventId": "pennsic-53", "rev": 2, "updatedAt": "2024-06-01T00:00:00.000Z" } } },
+        { "click": "[data-testid=create-map]" },
+        { "waitFor": "[data-testid=map-surface].map-surface-editable" },
+        { "click": "[data-testid=map-legend] > summary" },
+        { "click": "[data-testid=share-toggle]" },
+        { "eval": "(() => { const pop = document.querySelector('[data-testid=share-popover]'); if (!pop) throw new Error('share popover missing'); const legend = document.querySelector('[data-testid=map-legend]'); if (legend && legend.open) throw new Error('opening Share should close the open dock panel'); const r = pop.getBoundingClientRect(); const cx = Math.round(r.left + r.width / 2); const cy = Math.round(r.top + r.height / 2); const top = document.elementFromPoint(cx, cy); if (!top || (!pop.contains(top) && top !== pop)) throw new Error('share popover is not the topmost element at its centre — buried behind ' + (top && top.className)); })()" }
+      ],
+      "expect": { "selector": "[data-testid=share-popover]" }
+    },
+    {
       "label": "zoomed-in",
       "steps": [
         { "click": "[data-testid=zoom-in]" },

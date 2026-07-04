@@ -29,7 +29,13 @@ const STATUS_CLASS: Record<SyncStatus, string> = {
 
 function SyncBadge({ status, message }: { status: SyncStatus; message?: string }) {
   return (
-    <span class={`sync-badge sync-badge-${STATUS_CLASS[status]}`} role="status" title={message ?? ''}>
+    <span
+      class={`sync-badge sync-badge-${STATUS_CLASS[status]}`}
+      role="status"
+      title={message ?? ''}
+      data-testid="sync-badge"
+      data-status={STATUS_CLASS[status]}
+    >
       {STATUS_TEXT[status]}
     </span>
   );

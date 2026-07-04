@@ -226,6 +226,15 @@ for (const entry of entries) {
           hover: (v) => isStr(v),
           waitFor: (v) => isStr(v),
           eval: (v) => isStr(v),
+          mockFetch: (v) =>
+            v !== null &&
+            typeof v === 'object' &&
+            !Array.isArray(v) &&
+            isStr(v.urlPattern) &&
+            (v.method === undefined || isStr(v.method)) &&
+            (v.status === undefined || (typeof v.status === 'number' && Number.isInteger(v.status))) &&
+            (v.contentType === undefined || isStr(v.contentType)) &&
+            (v.headers === undefined || (v.headers !== null && typeof v.headers === 'object' && !Array.isArray(v.headers))),
         };
         journey.states.forEach((state, i) => {
           const where = `journey.states[${i}]`;
@@ -251,7 +260,7 @@ for (const entry of entries) {
               }
               const keys = Object.keys(step).filter((k) => k !== 'value');
               if (keys.length !== 1 || !(keys[0] in stepCheck)) {
-                errors.push(`${slug}: state "${lbl}" step[${j}] must have exactly one action key from click|clickRole|fill|press|hover|waitFor|eval`);
+                errors.push(`${slug}: state "${lbl}" step[${j}] must have exactly one action key from click|clickRole|fill|press|hover|waitFor|eval|mockFetch`);
                 return;
               }
               const k = keys[0];

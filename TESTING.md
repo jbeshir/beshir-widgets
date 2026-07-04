@@ -87,6 +87,53 @@ CSS classes (classes churn with restyling; testids and roles are contracts).
 | `{ "hover": "<selector>" }` | hover an element |
 | `{ "waitFor": "<selector>" }` | wait for a selector to become visible |
 | `{ "eval": "<js expression>" }` | escape hatch: evaluate an expression in the page |
+| `{ "mockFetch": { "urlPattern": "**/api/map", "method": "POST", "status": 201, "body": { … } } }` | intercept matching requests in the browser and answer with a canned response |
+
+Prefer `[data-testid=…]` selectors and roles. Avoid relying on incidental CSS classes.
+
+#### `mockFetch` — driving network-gated flows offline
+
+Some widgets only reach their most interesting states after a real network
+round-trip (e.g. a "Create shared map" `POST /api/map` that mints a row, after
+which pin editing unlocks). Both gates run under `file://` with `egress: none`,
+so those states would otherwise be untestable. `mockFetch` closes that gap
+**without any real network**: it installs an in-page `window.fetch` wrapper that
+answers matching calls with a response you specify and delegates everything else
+to the real fetch — nothing ever leaves the page, so it behaves identically
+whether or not egress is available.
+
+> A `file://` page cannot fetch anything — the browser rejects
+> `fetch('/api/map')` outright ("URL scheme file is not supported") — and
+> Playwright's network-layer `page.route` does **not** intercept `file://`
+> requests, so it is unusable here. Wrapping `window.fetch` in the page is the
+> mechanism that actually works under the `file://` gate, and it is strictly more
+> general: it catches those relative `file://` fetches too.
+
+Fields (declarative JSON — no inline JS):
+
+| field | meaning |
+|-------|---------|
+| `urlPattern` | **required.** A URL glob (`*` within a path segment, `**` across segments, `?` a single char) or, wrapped in slashes, a regex (`"/\\/api\\/map$/"`). Anchored and matched against the full request URL — under the gate that is e.g. `file:///api/map`. |
+| `method` | optional. Only intercept this HTTP verb; a non-matching verb falls through to any other registered mock (or the real default). Register one `mockFetch` per verb to answer, say, `POST` create and `PUT` sync independently. |
+| `status` | response status (default `200`). |
+| `body` | response body. An object/array is JSON-stringified (with `Content-Type: application/json`); a string is sent verbatim. |
+| `contentType` / `headers` | optional response header overrides. |
+
+Register a `mockFetch` step **before** the step that triggers the request (so it
+is ready to intercept it). Its scope is the current state only: every
+`state × viewport × scheme` cell runs in its own fresh browser context, so a mock
+never leaks into a later state. The shim is installed on the live page (not as an
+init script), so it covers same-document (hash) routing but would not survive a
+full page navigation — re-register after one if a widget ever does that.
+
+Offline-guarded widgets: a widget may deliberately suppress *all* real network
+under `file://` so a fresh offline visit never logs a console error (see
+`LIBRARIES.md` §5). Installing a `mockFetch` sets a `window.__journeyMockFetch`
+flag; such a widget can read it to opt a mocked journey back into its network
+path (matching requests are answered in-page; an unmatched request still falls
+through to the widget's real fetch) while still refusing to fetch when no mock is
+present. With no `mockFetch` in a state's steps the flag is never set, so the
+genuine offline path is what gets exercised.
 
 Prefer `[data-testid=…]` selectors and roles. Avoid relying on incidental CSS classes.
 

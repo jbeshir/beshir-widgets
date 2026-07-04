@@ -96,9 +96,119 @@ async function applyStep(page, step) {
       // eslint-disable-next-line no-eval
       return (0, eval)(expr);
     }, step.eval);
+  } else if ('mockFetch' in step) {
+    await applyMockFetch(page, step.mockFetch);
   } else {
     throw new Error(`unknown step: ${JSON.stringify(step)}`);
   }
+}
+
+// Turn a `urlPattern` into `{ source, flags }` for an in-page `new RegExp(...)`. A pattern wrapped in
+// slashes ("/…/flags") is a JS regex used verbatim; anything else is a URL glob (`*` matches within a
+// path segment, `**` across segments, `?` a single char), anchored and matched against the FULL request
+// URL — under the file:// gate that is e.g. `file:///api/map`.
+function toMatcherParts(pattern) {
+  const m = /^\/(.*)\/([a-z]*)$/is.exec(pattern);
+  // Only treat a slash-wrapped pattern as a regex if it actually compiles — otherwise a natural glob
+  // like "/api/map" (which happens to start and end with a slash) would be mis-read as the regex
+  // `/api/map` with flags "map", throw "Invalid flags", and silently fall through to the real fetch.
+  if (m) {
+    try {
+      // eslint-disable-next-line no-new
+      new RegExp(m[1], m[2]);
+      return { source: m[1], flags: m[2] };
+    } catch { /* not a valid regex — fall through and treat the pattern as a glob */ }
+  }
+  let source = '^';
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === '*') {
+      if (pattern[i + 1] === '*') { source += '.*'; i++; } else { source += '[^/]*'; }
+    } else if (c === '?') {
+      source += '[^/]';
+    } else {
+      source += c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  return { source: source + '$', flags: '' };
+}
+
+// Install a browser-side response mock for the NEXT request(s) matching `urlPattern`. This is how a
+// widget with a network-gated flow (e.g. a "Create shared map" POST) is exercised end-to-end under the
+// offline gate.
+//
+// *** Why an in-page window.fetch shim, not page.route ***
+// The gates load the widget over `file://`. A `file://` page cannot fetch anything — the browser rejects
+// `fetch('/api/map')` (it resolves to `file:///api/map`) with "URL scheme file is not supported" — and
+// Playwright's network-layer `page.route` does NOT intercept `file://` requests at all. So the ONLY way
+// to answer such a request without real network is to intercept `fetch` itself, in the page: we wrap
+// `window.fetch` to return a canned `Response` for matching calls and delegate everything else to the
+// real fetch. It is a pure browser-side hook (no request ever leaves the page), so it works identically
+// under `egress: none`, and it is strictly more general than page.route — it also catches the relative
+// `file://` fetches that page.route cannot reach.
+//
+// Shape (declarative JSON, no inline JS): { urlPattern, method?, status?, body?, contentType?, headers? }
+//   urlPattern  glob ("**/api/map") or regex ("/\\/api\\/map$/") matched against the full URL
+//   method      optional — only intercept this HTTP verb; other verbs fall through to any other mock/real
+//   status      response status (default 200)
+//   body        response body: an object/array is JSON-stringified; a string is sent verbatim
+//   contentType / headers  optional response header overrides
+//
+// Scope: the harness gives every (state × viewport × scheme) cell its own fresh browser context + page,
+// so the shim + its rules are torn down with that page and can never leak into a later state. Multiple
+// mockFetch steps in one state stack onto one shim: registering method-scoped mocks (e.g. POST create +
+// PUT sync) lets each verb be answered independently, matched most-recent-first.
+async function applyMockFetch(page, mock) {
+  if (mock === null || typeof mock !== 'object' || Array.isArray(mock) || typeof mock.urlPattern !== 'string') {
+    throw new Error(`mockFetch requires an object with a string urlPattern: ${JSON.stringify(mock)}`);
+  }
+  const { source, flags } = toMatcherParts(mock.urlPattern);
+  const isJsonBody = mock.body !== undefined && mock.body !== null && typeof mock.body === 'object';
+  const rule = {
+    source,
+    flags,
+    method: typeof mock.method === 'string' ? mock.method.toUpperCase() : null,
+    status: typeof mock.status === 'number' ? mock.status : 200,
+    body: mock.body === undefined ? '' : (typeof mock.body === 'string' ? mock.body : JSON.stringify(mock.body)),
+    contentType: mock.contentType || (isJsonBody ? 'application/json' : 'text/plain'),
+    headers: mock.headers || null,
+  };
+
+  // Install (once) an in-page window.fetch wrapper and push this rule onto its registry. Rules are matched
+  // most-recent-first; a request matching no rule falls through to the widget's real fetch.
+  await page.evaluate((r) => {
+    const w = window;
+    // Signal that a browser-side fetch mock is now installed. Widgets that deliberately suppress all real
+    // network under file:// (so a fresh offline visit never logs a console error) can read this flag to
+    // opt a mocked journey back into their network path — matching requests are answered in-page, and any
+    // request matching no rule still falls through to the widget's real fetch.
+    w.__journeyMockFetch = true;
+    if (!w.__journeyFetchMocks) {
+      w.__journeyFetchMocks = [];
+      const orig = typeof w.fetch === 'function' ? w.fetch.bind(w) : null;
+      // Statuses that MUST have a null body — `new Response('', { status })` throws for these.
+      const NULL_BODY = { 101: 1, 204: 1, 205: 1, 304: 1 };
+      w.fetch = function (input, init) {
+        try {
+          const url = typeof input === 'string' ? input : (input && input.url) || String(input);
+          const method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+          const mocks = w.__journeyFetchMocks;
+          for (let i = mocks.length - 1; i >= 0; i--) {
+            const m = mocks[i];
+            if (m.method && m.method !== method) continue;
+            if (!new RegExp(m.source, m.flags).test(url)) continue;
+            const headers = Object.assign({ 'Content-Type': m.contentType }, m.headers || {});
+            return Promise.resolve(new Response(NULL_BODY[m.status] ? null : m.body, { status: m.status, headers }));
+          }
+        } catch (e) {
+          /* a shim error must never mask the real fetch — fall through */
+        }
+        if (orig) return orig(input, init);
+        return Promise.reject(new TypeError('fetch is not available'));
+      };
+    }
+    w.__journeyFetchMocks.push(r);
+  }, rule);
 }
 
 async function awaitExpect(page, expect) {
@@ -182,11 +292,14 @@ async function awaitExpect(page, expect) {
             );
           } catch { /* page may be in a bad state */ }
 
-          // a11y tree once per state on the canonical light/desktop-ish cell.
+          // a11y snapshot once per state on the canonical light/desktop-ish cell. Uses ariaSnapshot()
+          // (roles + accessible names, as a YAML string) — `page.accessibility` was removed in modern
+          // Playwright, so the previous `page.accessibility.snapshot()` silently caught to null on every
+          // run. Record the error text instead of null so a future breakage is visible, not swallowed.
           if (scheme === 'light' && (vp.name === 'desktop' || a11yByState[state.label] === undefined)) {
             try {
-              a11yByState[state.label] = await page.accessibility.snapshot();
-            } catch { a11yByState[state.label] = null; }
+              a11yByState[state.label] = await page.locator('body').ariaSnapshot();
+            } catch (err) { a11yByState[state.label] = `<<a11y snapshot failed: ${(err && err.message) || err}>>`; }
           }
 
           try {
