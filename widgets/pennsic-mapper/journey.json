@@ -79,7 +79,8 @@
       "steps": [
         { "click": "[data-testid=zoom-in]" },
         { "click": "[data-testid=zoom-in]" },
-        { "eval": "(() => { const w = document.querySelector('.map-zoom-wrapper'); const z = parseFloat(getComputedStyle(w).getPropertyValue('--zoom')); if (!(z > 1.01)) throw new Error('zoom-in did not scale the map: --zoom=' + z); })()" }
+        { "click": "[data-testid=zoom-in]" },
+        { "eval": "(() => { const w = document.querySelector('.map-zoom-wrapper'); const z = parseFloat(getComputedStyle(w).getPropertyValue('--zoom')); if (!(z > 1.01)) throw new Error('zoom-in did not scale the map: --zoom=' + z); const s = document.querySelector('[data-testid=map-surface]').getBoundingClientRect(); const wr = w.getBoundingClientRect(); if (wr.width < s.width - 1 || wr.height < s.height - 1) throw new Error('zoomed-in map does not fill the viewport (portrait-clip regression): wrapper=' + Math.round(wr.width) + 'x' + Math.round(wr.height) + ' surface=' + Math.round(s.width) + 'x' + Math.round(s.height)); })()" }
       ],
       "expect": { "state": "ready" }
     },

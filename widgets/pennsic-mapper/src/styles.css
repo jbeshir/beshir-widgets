@@ -222,24 +222,19 @@ body {
   .map-canvas-backdrop { opacity: 0.22; filter: blur(32px) saturate(0.9) brightness(0.8); }
 }
 
-/* The clipping viewport AND the coordinate reference for pin math. Its aspect-ratio matches the
-   official map image (1648×2551, portrait) so the map fills it with no letterboxing or distortion —
-   which keeps normalized [0,1] pin coordinates aligned to image pixels. Sized to CONTAIN within the
-   canvas, centred: height-constrained on landscape viewports (side gutters), width-constrained on
-   portrait/mobile (top/bottom gutters). The exact aspect-ratio is what keeps pins aligned to pixels. */
+/* The clip viewport for the pan/zoom map. Sized to FILL the full available (full-bleed) space of
+   .map-frame — deliberately NOT locked to the image's aspect ratio, so a wide window is never clipped to
+   a narrow portrait box (the bug this fixes). The image's aspect ratio instead sets only the
+   initial/reset d3-zoom transform (see MapSurface's `fitBox`), which fits the whole map into this
+   viewport, letter/pillar-boxed. The pin coordinate box is the transformed .map-zoom-wrapper inside (it
+   keeps the image's aspect ratio), so this viewport's own aspect ratio no longer affects pin math.
+   Transparent: the ambient blurred backdrop behind it shows through ONLY in the true letterbox/pillarbox
+   gaps at the fitted view — never as a wasted margin, and never once zoomed in past the fit. */
 .map-surface {
-  position: relative;
-  height: min(100cqh, calc(100cqw * 2551 / 1648));
-  width: auto;
-  max-width: 100cqw;
-  aspect-ratio: 1648 / 2551;
-  border-radius: 8px;
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* above the ambient backdrop (z-index:0), below the zoom controls (z-index:2) */
   overflow: hidden;
-  /* A hairline frame + shadow so the printed map doesn't glare against the canvas, without capping its
-     height — it still fills the available height/width. */
-  border: 1px solid var(--card-border);
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);
-  background: #f4efe6;
   cursor: grab; /* the map pans on drag; editable surfaces switch to crosshair (click places a pin) */
   touch-action: none;
 }
@@ -253,10 +248,13 @@ body {
 }
 
 /* The single transformed layer carrying pan/zoom (translate + scale, origin 0,0). Holds BOTH the map
-   image and the pin overlay, so pins stay glued to the map at any zoom. */
+   image and the pin overlay, so pins stay glued to the map at any zoom. Its width/height are set inline
+   from JS to the fitted image box (image aspect ratio) — the coordinate box pins are positioned within —
+   while the d3 transform scales and centres it inside the full-bleed .map-surface. */
 .map-zoom-wrapper {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   transform-origin: 0 0;
   will-change: transform;
 }
@@ -265,9 +263,9 @@ body {
   display: block;
   width: 100%;
   height: 100%;
-  /* The surface box's aspect-ratio equals the image's, so `fill` shows the map with no visible
-     distortion while guaranteeing the image exactly covers the wrapper box — which is what makes a
-     normalized [0,1] coordinate map to the same image pixel at any box rounding. */
+  /* The wrapper box's aspect ratio equals the image's (it IS the fitted image box), so `fill` shows the
+     map with no visible distortion while guaranteeing the image exactly covers the wrapper box — which is
+     what makes a normalized [0,1] coordinate map to the same image pixel at any box rounding. */
   object-fit: fill;
   pointer-events: none;
   user-select: none;
@@ -275,7 +273,6 @@ body {
 
 /* Very mild dimming in dark mode so the bright printed map doesn't glare — hue/saturation untouched. */
 @media (prefers-color-scheme: dark) {
-  .map-surface { background: #201d18; }
   .map-surface-img { filter: brightness(0.9); }
 }
 
@@ -285,9 +282,12 @@ body {
   pointer-events: none; /* the layer itself is inert; individual pins re-enable pointer events */
 }
 
+/* Inset outline (negative offset) so the keyboard-focus ring renders INSIDE the now full-bleed surface —
+   an outer/positive-offset ring would sit flush against .map-frame's edge and be clipped away by its
+   overflow:hidden, leaving the tabbable (Enter/Space drops a pin) map with no visible focus indicator. */
 .map-surface:focus-visible {
   outline: 3px solid var(--input-focus);
-  outline-offset: 2px;
+  outline-offset: -3px;
 }
 
 /* ── Zoom controls ── */
