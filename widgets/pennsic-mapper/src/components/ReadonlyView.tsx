@@ -4,6 +4,7 @@ import { MapSurface, type MapSurfaceApi } from './MapSurface';
 import { Legend } from './Legend';
 import { MapKey } from './MapKey';
 import { RoyalEncampments } from './RoyalEncampments';
+import { LayersPanel } from './LayersPanel';
 import type { RoyalEncampment } from '../data/mapKey';
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
   onJumpToBlock: (camp: RoyalEncampment) => void;
 }
 
-type DockPanel = 'key' | 'royals' | 'legend' | null;
+type DockPanel = 'key' | 'royals' | 'legend' | 'layers' | null;
 
 // A shared map viewed without its secret: the full-bleed map + floating chrome, but no editing. The
 // top bar shows the map name (read-only) + a Duplicate action; the left dock carries the map key, royal
@@ -26,6 +27,8 @@ type DockPanel = 'key' | 'royals' | 'legend' | null;
 export function ReadonlyView({ map, highlightPinId, busy, registerMapApi, activeBlock, onSelectPin, onDuplicate, onJumpToBlock }: Props) {
   // Single-open dock: opening one panel closes the others (avoids two bottom sheets on mobile).
   const [openPanel, setOpenPanel] = useState<DockPanel>(null);
+  // On-map pin labels toggle (Layers → "Show pin labels"; on by default), same as the editable view.
+  const [showLabels, setShowLabels] = useState(true);
   function panelToggle(name: Exclude<DockPanel, null>, isOpen: boolean): void {
     if (isOpen) setOpenPanel(name);
     else setOpenPanel((cur) => (cur === name ? null : cur));
@@ -63,6 +66,7 @@ export function ReadonlyView({ map, highlightPinId, busy, registerMapApi, active
         editable={false}
         editingPinId={null}
         highlightPinId={highlightPinId}
+        showLabels={showLabels}
         onAddPin={() => {}}
         onMovePin={() => {}}
         onSelectPin={onSelectPin}
@@ -75,6 +79,12 @@ export function ReadonlyView({ map, highlightPinId, busy, registerMapApi, active
           activeBlock={activeBlock}
           open={openPanel === 'royals'}
           onToggle={(o) => panelToggle('royals', o)}
+        />
+        <LayersPanel
+          showLabels={showLabels}
+          onToggleLabels={setShowLabels}
+          open={openPanel === 'layers'}
+          onToggle={(o) => panelToggle('layers', o)}
         />
         <details
           class="info-panel legend-panel"

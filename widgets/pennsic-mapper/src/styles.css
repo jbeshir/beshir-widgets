@@ -462,6 +462,43 @@ body {
   border-radius: 4px;
 }
 
+/* Always-on map label (Fix 2 — Layers → "Show pin labels"). Sits just below the pin's tip, centred on
+   the point. It lives INSIDE the 1/zoom counter-scaled marker, so the wrapper's zoom scale cancels the
+   marker's counter-scale — the label renders at a constant on-screen size (font-size:12px stays a legible
+   12px at every zoom level), never ballooning or shrinking with the map. A near-opaque card-bg pill with
+   a hairline border + shadow gives it background-independent contrast over the busy raster in BOTH themes
+   (the tokens flip with the scheme), mirroring how .map-hint / .color-toolbar sit over the map.
+   pointer-events:none so it is purely visual: it never expands the pin's hit target nor swallows a map
+   click meant to drop a nearby pin — the dot stays the sole interactive target. */
+.pin-marker-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 3px;
+  max-width: 132px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+@supports (backdrop-filter: blur(4px)) {
+  .pin-marker-label {
+    background: color-mix(in srgb, var(--card-bg) 82%, transparent);
+    backdrop-filter: blur(6px);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   @keyframes pin-pop {
     0% { transform: translate(-50%, -100%) scale(0); opacity: 0; }
@@ -804,6 +841,64 @@ li:last-child .legend-row { border-bottom: none; }
   }
 }
 
+/* Fix 1 — Share popover stacking. The popover is a descendant of .map-topbar, which is itself a
+   positioned, z-indexed stacking context; the popover's own z-index is therefore trapped INSIDE the bar
+   and can never exceed the bar's z-index relative to the bar's siblings. On mobile the panel dock is
+   z-index:4 (so opened dock bottom sheets cover the bar) — above the bar's resting z-index:3 — so the
+   whole dock subtree (closed chips AND any open sheet) painted over the popover, burying it. The fix is
+   to raise the BAR itself above the dock while the popover is open (raising the popover alone does
+   nothing). App also closes any open dock panel when Share opens (mutual exclusion), so the two floating
+   surfaces never coexist; this lift additionally guarantees the popover clears the always-present closed
+   dock chips it overlaps. Only applied while open, so a normally-opened dock sheet still covers the
+   resting bar as before. */
+.map-topbar.share-open {
+  z-index: 6;
+}
+
+/* Rename field + pencil affordance grouped in one flex block, which claims the bar's flexible middle. */
+.map-topbar-name-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Small edit/pencil affordance (Fix 3) sitting just after the name, so the field visibly reads as an
+   editable name, not static text. Only rendered in the editable top bar (MapBar), so its mere presence
+   is the "this is editable" signal; the read-only shared view uses a different, non-editable title. */
+.map-topbar-edit {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.map-topbar-edit:hover {
+  color: var(--fg);
+  background: var(--pill-bg);
+  border-color: var(--input-border);
+}
+
+.map-topbar-edit:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+.map-topbar-edit svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 /* Rename field: reads as plain text until hovered/focused, then reveals an input affordance. */
 .map-topbar-name {
   flex: 1 1 auto;
@@ -977,6 +1072,45 @@ li:last-child .legend-row { border-bottom: none; }
   padding-top: 14px;
 }
 
+/* ── Layers panel (map display options) ── */
+
+.layers-panel-body {
+  padding-top: 14px;
+}
+
+/* A single checkbox row (the label wraps the input so the whole row is the click target). Sized like the
+   colour swatches (≥40px row) so it's a comfortable touch target. */
+.layers-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--fg);
+}
+
+.layers-toggle-input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent-fill);
+  /* Let the native checkbox itself follow the OS light/dark preference, so its unchecked box isn't a
+     stark white square in dark mode (accent-color only skins the CHECKED fill). Scoped to this control so
+     it doesn't change any other native rendering. */
+  color-scheme: light dark;
+}
+
+.layers-toggle-input:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+.layers-toggle-text {
+  min-width: 0;
+}
+
 /* Mobile: the dock becomes a bottom-sheet area. Closed panels are chips wrapped in a row under the top
    bar; an opened panel pops out of the row into a bottom sheet anchored to the viewport bottom. Mutual
    exclusion (App state) guarantees only one panel — and never also the pin editor — is open at once. */
@@ -1005,8 +1139,9 @@ li:last-child .legend-row { border-bottom: none; }
      `max-width`): with a content-based width the chip collapses to a 2px sliver, because the ellipsising
      title has `min-width: 0` (so its min-content is ~0) and the base `.info-panel { overflow: hidden }`
      makes `max-content` resolve to ~0 too. A definite 44cqw caps each chip at ~2-per-row on a 390px
-     phone (2×44cqw + gap + padding < 100cqw), so the three chips wrap cleanly to two rows, never overlap,
-     and never cause horizontal overflow; the summary fills the pill and the title ellipsises inside it. */
+     phone (2×44cqw + gap + padding < 100cqw), so the four chips (Map key / Encampments / Layers / Your
+     pins) wrap cleanly into a 2×2 grid, never overlap, and never cause horizontal overflow; the summary
+     fills the pill and the title ellipsises inside it. */
   .panel-dock > .info-panel:not([open]) {
     width: 44cqw;
   }

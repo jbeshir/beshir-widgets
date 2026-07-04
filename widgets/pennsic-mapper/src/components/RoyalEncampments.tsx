@@ -23,10 +23,13 @@ export function RoyalEncampments({ onJump, activeBlock, open, onToggle }: Props)
       open={open}
       onToggle={(e) => onToggle?.((e.currentTarget as HTMLDetailsElement).open)}
     >
-      <summary class="info-panel-summary" title="Royal encampments">
+      {/* Chip/summary label shortened to "Encampments" so it never ellipsis-truncates in the mobile dock's
+          fixed-width (44cqw) closed chip; the fuller "Royal encampments" sense is carried by the hint and
+          the in-body note. */}
+      <summary class="info-panel-summary" title="Encampments">
         <span class="info-panel-heading">
-          <h2 class="info-panel-title">Royal encampments</h2>
-          <span class="info-panel-hint">Find a kingdom’s block — tap to jump the map there</span>
+          <h2 class="info-panel-title">Encampments</h2>
+          <span class="info-panel-hint">Find a kingdom’s royal encampment block — tap to jump there</span>
         </span>
       </summary>
       <div class="info-panel-body">

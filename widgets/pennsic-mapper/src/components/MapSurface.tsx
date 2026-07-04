@@ -19,6 +19,8 @@ interface Props {
   editable: boolean;
   editingPinId: string | null;
   highlightPinId: string | null;
+  /** Whether to render the always-on text label beside each pin (Layers → "Show pin labels"). */
+  showLabels: boolean;
   onAddPin: (x: number, y: number) => void;
   onMovePin: (id: string, x: number, y: number) => void;
   onSelectPin: (id: string) => void;
@@ -52,7 +54,7 @@ const MAP_KEYBOARD_LABEL =
 //
 // A drag on the surface pans the map; a plain click (no drag) drops a pin. d3-zoom's `start`/`zoom`/
 // `end` events tell us whether a gesture actually moved, so a pan never ends by dropping a stray pin.
-export function MapSurface({ pins, editable, editingPinId, highlightPinId, onAddPin, onMovePin, onSelectPin, registerApi }: Props) {
+export function MapSurface({ pins, editable, editingPinId, highlightPinId, showLabels, onAddPin, onMovePin, onSelectPin, registerApi }: Props) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<ZoomBehavior<HTMLDivElement, unknown> | null>(null);
   const transformRef = useRef<ZoomTransform>(zoomIdentity);
@@ -249,6 +251,7 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, onAdd
                 editable={editable}
                 editing={pin.id === editingPinId}
                 highlighted={pin.id === highlightPinId}
+                showLabel={showLabels}
                 onSelect={onSelectPin}
                 onDragMove={handleDragMove}
                 onKeyMove={onMovePin}

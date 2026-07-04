@@ -6,6 +6,8 @@ interface Props {
   editable: boolean;
   editing: boolean;
   highlighted: boolean;
+  /** Show the pin's text label on the map (the "Show pin labels" layer toggle; on by default). */
+  showLabel: boolean;
   onSelect: (id: string) => void;
   onDragMove: (id: string, clientX: number, clientY: number) => void;
   onKeyMove: (id: string, x: number, y: number) => void;
@@ -23,9 +25,10 @@ function clamp01(n: number): number {
 // underneath, so a drag never bubbles up as an "add pin" click on the surface. Arrow keys nudge the
 // pin by a fixed step for keyboard-only placement; Enter/Space already open the editor via the
 // button's native click activation.
-export function PinMarker({ pin, editable, editing, highlighted, onSelect, onDragMove, onKeyMove }: Props) {
+export function PinMarker({ pin, editable, editing, highlighted, showLabel, onSelect, onDragMove, onKeyMove }: Props) {
   const color = PALETTE.find((c) => c.key === pin.color) ?? PALETTE[0];
-  const label = pin.label.trim() || 'unlabelled pin';
+  const trimmedLabel = pin.label.trim();
+  const label = trimmedLabel || 'unlabelled pin';
 
   function handlePointerDown(e: PointerEvent) {
     e.stopPropagation();
@@ -85,6 +88,16 @@ export function PinMarker({ pin, editable, editing, highlighted, onSelect, onDra
       onKeyDown={handleKeyDown}
     >
       <span class="pin-marker-dot" aria-hidden="true" />
+      {/* Always-on map label (Layers → "Show pin labels"). Only rendered for pins that actually carry a
+          label — an empty pill would be map noise. aria-hidden: the button's aria-label already voices the
+          name, so the visible pill is a pure visual duplicate. pointer-events:none (see CSS) so the pill
+          never expands the hit target or swallows a nearby map click; the dot stays the sole target. The
+          pill counter-scales with the marker, so it keeps a constant, legible on-screen size at any zoom. */}
+      {showLabel && trimmedLabel && (
+        <span class="pin-marker-label" data-testid="pin-label" aria-hidden="true">
+          {trimmedLabel}
+        </span>
+      )}
     </button>
   );
 }
