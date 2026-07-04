@@ -1,18 +1,19 @@
 // MapStore — the single persistence seam for the mapper.
 //
 // A "map" is a named set of coloured, labelled pins that belongs to one event and lives in Cloudflare
-// D1, reached by a capability URL. This store is remote-first once a server id exists, but map
-// creation and every pin edit are **local-first**: the in-memory snapshot updates immediately and a
-// short-debounced write flushes it to D1. This lets `empty` and `populated` states (see
-// data-widget-state in README.md) be reached with zero network calls, which the offline render/journey
-// gates require.
+// D1, reached by a capability URL. The store is **remote-first with an explicit creation gate**: a D1
+// row exists ONLY after the user asks for one. Nothing is ever kept "in memory but not yet persisted".
 //
-//   startLocalDraft(name)      — begin a brand-new map purely in memory (id `local-draft`), then (if
-//                                 online) kick off a background POST /api/map to mint the real id/secret
-//   addPin/updatePin/movePin/  — mutate the active map's pins locally, then debounce a write
-//   removePin/setName
-//   open(id, secret)    GET  /api/map/:id  — load an existing map (edit or read-only)
-//   flush()                    — force any pending debounced write out immediately (e.g. before unload)
+//   create(name, pins)  POST /api/map — mint a real id/secret up front; the returned map is already
+//                        persisted (rev 1). This is the ONLY way a map comes into existence, and it is
+//                        always a deliberate, user-initiated action (the "Create shared map" button, or
+//                        "Duplicate to edit" on a shared map). No row is ever created as a side effect
+//                        of an edit.
+//   open(id, secret)    GET /api/map/:id — load an existing map (edit or read-only).
+//   addPin/updatePin/   mutate the active (already-created) map's pins locally, then debounce a PUT.
+//   movePin/removePin/  These are only ever reachable once a row exists, so they always have a real
+//   setName             id + secret to write against.
+//   flush()             force any pending debounced write out immediately (e.g. before unload).
 //
 // Edits update the snapshot immediately and are flushed to D1 on a short debounce with If-Match on the
 // current revision. A 409 (someone else edited the same map) is surfaced — never silently dropped — by
@@ -22,15 +23,14 @@
 // The render + journey gates run under `file://` with zero network (`egress: none`), and the journey
 // harness treats any Chromium console error — including a failed `fetch()` — as a cell failure. Every
 // network call in this store is therefore guarded behind `remoteEnabled()`, which is false under
-// `file://`. `open()` returns an `error` result WITHOUT fetching; `startLocalDraft()`'s background
-// create and the debounced write both skip the fetch entirely, keep the draft purely local, and emit a
-// non-blocking `'local'` sync status instead. Never throw, never block the UI.
+// `file://`. `open()` and `create()` return a failure result WITHOUT fetching, so the offline harness
+// can drive the create→failure→retry path deterministically (it produces the `error` state with no
+// network access). Never throw, never block the UI.
 
 import { rememberDeviceMap } from './lib/deviceMaps';
-import { editHash } from './lib/route';
 import { DEFAULT_EVENT_ID } from './data/events';
 
-export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'conflict' | 'local';
+export type SyncStatus = 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
 
 export interface Pin {
   id: string;
@@ -58,11 +58,15 @@ export type OpenResult =
   | { ok: true; map: ActiveMap }
   | { ok: false; reason: 'notfound' | 'error' };
 
+export type CreateResult =
+  | { ok: true; map: ActiveMap }
+  | { ok: false; message: string };
+
 export interface MapStore {
   getActive(): ActiveMap | null;
   getPins(): Pin[];
   open(id: string, secret: string | null): Promise<OpenResult>;
-  startLocalDraft(name: string): ActiveMap;
+  create(name?: string, pins?: Pin[]): Promise<CreateResult>;
   addPin(pin: Pin): void;
   updatePin(id: string, patch: Partial<Pick<Pin, 'x' | 'y' | 'color' | 'label'>>): void;
   movePin(id: string, x: number, y: number): void;
@@ -76,16 +80,24 @@ export interface MapStore {
 const API_BASE = '/api/map';
 const WRITE_DEBOUNCE_MS = 700;
 const CONFLICT_MESSAGE = 'Reloaded from the server — your last change may not have been saved.';
-const OFFLINE_MESSAGE = 'Offline — not saved.';
+const DEFAULT_MAP_NAME = 'Untitled map';
+// Shown when a create is attempted with no network (offline, or the offline render/journey gate). It is
+// the user-facing text for the deterministic offline failure path behind the "Create shared map" button.
+const OFFLINE_CREATE_MESSAGE = "You're offline — connect to the internet to create a shared map.";
 
-// Sentinel id/secret for a map that only exists in memory, before the background create() (if any)
-// has resolved to a real server id. Never sent over the network.
-const LOCAL_DRAFT_ID = 'local-draft';
-const LOCAL_DRAFT_SECRET = 'local-draft';
-
-/** NEVER fetch under `file://` — see the offline-safe networking note above. */
+/**
+ * NEVER fetch under `file://` — see the offline-safe networking note above — with ONE test-only seam:
+ * the journey harness's `mockFetch` step (see TESTING.md) installs an in-page `window.fetch` interceptor
+ * and sets `window.__journeyMockFetch`, opting a journey back into the network path so the create/sync
+ * flow can be driven end-to-end offline. Every such request is intercepted inside the browser and answered
+ * with a canned response — nothing ever leaves the page — so the offline guarantee is intact: with no
+ * mock installed this still returns false under file://, and in production (https) it never reads the
+ * flag at all.
+ */
 function remoteEnabled(): boolean {
-  return typeof location !== 'undefined' && location.protocol !== 'file:';
+  if (typeof location === 'undefined') return false;
+  if (location.protocol !== 'file:') return true;
+  return (globalThis as { __journeyMockFetch?: boolean }).__journeyMockFetch === true;
 }
 
 function clamp01(n: number): number {
@@ -140,23 +152,57 @@ class RemoteMapStore implements MapStore {
     return { ok: true, map };
   }
 
-  startLocalDraft(name: string): ActiveMap {
-    const draft: ActiveMap = {
-      id: LOCAL_DRAFT_ID,
-      secret: LOCAL_DRAFT_SECRET,
-      eventId: DEFAULT_EVENT_ID,
-      name: name.trim() || 'Untitled map',
-      rev: 0,
-      pins: [],
-      updatedAt: null,
-    };
-    this.setActive(draft);
-    if (remoteEnabled()) {
-      void this.backgroundCreate();
-    } else {
-      this.emitSync('local', OFFLINE_MESSAGE);
+  /**
+   * Mint a brand-new map on the server and make it the active, editable map. This is the creation gate:
+   * a D1 row is only ever born here, in response to an explicit user action. Returns a failure result —
+   * never throws — so the caller can show an inline retry affordance. Offline (including under the
+   * file:// render/journey gate) it fails immediately WITHOUT touching the network.
+   */
+  async create(name: string = DEFAULT_MAP_NAME, pins: Pin[] = []): Promise<CreateResult> {
+    if (!remoteEnabled()) {
+      return { ok: false, message: OFFLINE_CREATE_MESSAGE };
     }
-    return draft;
+
+    const cleanName = name.trim() || DEFAULT_MAP_NAME;
+    const cleanPins = pins.map((p) => ({ ...p, x: clamp01(p.x), y: clamp01(p.y) }));
+
+    this.emitSync('saving');
+    let res: Response;
+    try {
+      res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cleanName, pins: cleanPins }),
+      });
+    } catch {
+      this.emitSync('error');
+      return { ok: false, message: 'Could not reach the server — check your connection and try again.' };
+    }
+    if (!res.ok) {
+      this.emitSync('error');
+      return { ok: false, message: 'The server rejected the new map — please try again.' };
+    }
+    let data: { id: string; editSecret: string; eventId: string };
+    try {
+      data = (await res.json()) as { id: string; editSecret: string; eventId: string };
+    } catch {
+      this.emitSync('error');
+      return { ok: false, message: 'The server returned an unexpected response — please try again.' };
+    }
+
+    const map: ActiveMap = {
+      id: data.id,
+      secret: data.editSecret,
+      eventId: data.eventId,
+      name: cleanName,
+      rev: 1,
+      pins: cleanPins,
+      updatedAt: new Date().toISOString(),
+    };
+    this.setActive(map);
+    rememberDeviceMap({ id: map.id, secret: map.secret, name: map.name, eventId: map.eventId });
+    this.emitSync('saved');
+    return { ok: true, map };
   }
 
   addPin(pin: Pin): void {
@@ -198,7 +244,8 @@ class RemoteMapStore implements MapStore {
   }
 
   clear(): void {
-    // Drop the active map (landing mode). Any pending write is flushed first so edits aren't lost.
+    // Drop the active map (return to the locked preview). Any pending write is flushed first so edits
+    // aren't lost.
     void this.flush();
     if (this.active !== null) this.setActive(null);
   }
@@ -232,76 +279,12 @@ class RemoteMapStore implements MapStore {
     }, WRITE_DEBOUNCE_MS);
   }
 
-  /** Mint a real id/secret for a local-only draft. Never drops edits made while the request is in flight. */
-  private async backgroundCreate(): Promise<void> {
-    const draft = this.active;
-    if (!draft || draft.id !== LOCAL_DRAFT_ID) return;
-
-    this.emitSync('saving');
-    let res: Response;
-    try {
-      res = await fetch(API_BASE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: draft.name, pins: draft.pins }),
-      });
-    } catch {
-      this.emitSync('error', 'Could not reach the server to save this map.');
-      return;
-    }
-    if (!res.ok) {
-      this.emitSync('error', 'The server rejected the new map.');
-      return;
-    }
-    let data: { id: string; editSecret: string; eventId: string };
-    try {
-      data = (await res.json()) as { id: string; editSecret: string; eventId: string };
-    } catch {
-      this.emitSync('error', 'The server returned an unexpected response.');
-      return;
-    }
-
-    const cur = this.active;
-    if (!cur || cur.id !== LOCAL_DRAFT_ID) return; // the user navigated away while this was in flight
-
-    // Swap the local draft for the real id/secret, keeping whatever the user has edited since the
-    // POST was sent — that snapshot is what's carried over, not the one the POST body was built from.
-    const swapped: ActiveMap = {
-      ...cur,
-      id: data.id,
-      secret: data.editSecret,
-      eventId: data.eventId,
-      rev: 1,
-      updatedAt: new Date().toISOString(),
-    };
-    this.setActive(swapped);
-    rememberDeviceMap({ id: swapped.id, secret: swapped.secret, name: swapped.name, eventId: swapped.eventId });
-    if (typeof location !== 'undefined') location.hash = editHash(swapped.id, data.editSecret);
-    this.emitSync('saved');
-
-    if (this.dirty) void this.runWrite(); // pins/name changed while the create() was in flight
-  }
-
   private async runWrite(keepalive = false): Promise<void> {
     if (this.writing) return; // a write is in flight; it re-checks `dirty` when it finishes
     const map = this.active;
+    // Every editable map here has a real server id (creation is gated), so there is no "no id yet" case.
     if (!map || !map.secret || !this.dirty) return;
-
-    if (map.id === LOCAL_DRAFT_ID) {
-      // No real id yet: either backgroundCreate() is still in flight (it will call runWrite() itself
-      // once it swaps in a real id/secret) or we're offline and no create was ever attempted.
-      if (!remoteEnabled()) {
-        this.dirty = false;
-        this.emitSync('local', OFFLINE_MESSAGE);
-      }
-      return;
-    }
-
-    if (!remoteEnabled()) {
-      this.dirty = false;
-      this.emitSync('local', OFFLINE_MESSAGE);
-      return;
-    }
+    if (!remoteEnabled()) return; // defensive: never fetch under file:// (unreachable in practice — an editable map implies a prior successful create/open)
 
     this.writing = true;
     this.dirty = false;

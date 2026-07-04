@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { select } from 'd3-selection';
 import { zoom as d3Zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
 import type { Pin } from '../store';
@@ -36,6 +36,34 @@ const MIN_SCALE = 1;
 const MAX_SCALE = 8;
 const ZOOM_STEP = 1.6;
 
+// The official map PNG's natural pixel dimensions (portrait). These set ONLY the fitted zoom level and
+// centring below — NOT the size of the clip viewport, which fills the full available (full-bleed) space.
+const IMG_W = 1648;
+const IMG_H = 2551;
+
+// The map is shown "contain"-fitted — the whole image visible, letter/pillar-boxed inside the full-bleed
+// viewport — but implemented via the d3-zoom transform, not CSS `object-fit`. Given the viewport size,
+// this returns the fitted image box (fW×fH: the zoom wrapper's un-transformed footprint, which is also
+// the pin coordinate box) and the translate that centres it. The fit scale is baked into fW/fH, so the
+// fitted "whole map" view is exactly d3 scale k=1 (= MIN_SCALE): pins counter-scale by 1/k = 1 there,
+// unchanged from before, and zooming past k=1 reveals crisp map across the ENTIRE viewport — no longer
+// clipped to a portrait box on a wide window.
+function fitBox(cW: number, cH: number): { fW: number; fH: number; tx: number; ty: number } {
+  const s = Math.min(cW / IMG_W, cH / IMG_H);
+  const fW = IMG_W * s;
+  const fH = IMG_H * s;
+  return { fW, fH, tx: (cW - fW) / 2, ty: (cH - fH) / 2 };
+}
+
+// Clamp a translate on one axis so the scaled content never opens a gap inside the viewport: centre it
+// when it is smaller than the viewport (the pillar/letterbox at the fitted view and low zoom), else
+// clamp to the edges. Mirrors d3-zoom's own constrain against the extents set in `applyFit`, so an
+// imperative jump (`focusOn`) lands exactly where a pan gesture would settle.
+function clampAxis(t: number, content: number, viewport: number): number {
+  if (content <= viewport) return (viewport - content) / 2;
+  return Math.min(0, Math.max(viewport - content, t));
+}
+
 const MAP_ALT = 'Official Pennsic LIII (2026) land map showing camp blocks, roads, and a legend';
 const MAP_KEYBOARD_LABEL =
   'Camp map — press Enter or Space to drop a pin at the centre of the view; use the zoom-in and zoom-out buttons that follow to read camp block labels';
@@ -61,11 +89,17 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, showL
   // Set true on `end` of a gesture that actually panned, so the trailing `click` doesn't drop a pin.
   const suppressClickRef = useRef(false);
   const [transform, setTransform] = useState<ZoomTransform>(zoomIdentity);
+  // The zoom wrapper's un-transformed footprint = the fitted image box (see `fitBox`). Sized in px from
+  // the viewport on mount/resize so the wrapper always keeps the image's aspect ratio (the pin
+  // coordinate box) even though the clip viewport around it is full-bleed and a different aspect.
+  const [fit, setFit] = useState<{ fW: number; fH: number }>({ fW: 0, fH: 0 });
   // A transient "you are here" pulse dropped by a Royal-Encampments jump; cleared on a timer.
   const [blockPulse, setBlockPulse] = useState<{ x: number; y: number; nonce: number } | null>(null);
   const pulseNonceRef = useRef(0);
 
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so the fitted transform + wrapper size are set before the first
+  // paint — the wrapper starts at 0×0 for one un-painted commit, then this fills it in synchronously.
+  useLayoutEffect(() => {
     const node = surfaceRef.current;
     if (!node) return;
     const sel = select(node);
@@ -91,17 +125,44 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, showL
     sel.call(zoomBehavior).on('dblclick.zoom', null);
     zoomRef.current = zoomBehavior;
 
-    function applyExtents(): void {
+    // Fit the whole map into the full-bleed viewport and centre it. The clip viewport (.map-surface)
+    // fills the full available space; the image's aspect ratio only sets this fitted scale (baked into
+    // fW/fH, so the fitted view is d3 k=1 = the reset target) and the centring translate. The zoom
+    // `extent` is the viewport and `translateExtent` is the fitted image box, so d3 centres the map when
+    // it is smaller than the viewport (pillar/letterbox at the fit) and clamps to the edges once zoomed
+    // in — letting a wide window pan across the map's full width, with the ambient backdrop only ever
+    // showing in the true letterbox/pillarbox gaps.
+    //
+    // On the FIRST layout this sets the fitted view; on a later resize it preserves the user's zoom
+    // multiple and re-centres whatever map point was at the viewport centre (rather than snapping back to
+    // fit) — `prev` holds the geometry the live transform was computed against so we can read that point.
+    let prev: { cW: number; cH: number; fW: number; fH: number } | null = null;
+    function applyFit(): void {
       const el = surfaceRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const w = Math.max(1, r.width);
-      const h = Math.max(1, r.height);
-      // Keep [0,0]–[w,h] (the map at k=1) always covering the viewport: no panning the map off-screen.
-      zoomBehavior.extent([[0, 0], [w, h]]).translateExtent([[0, 0], [w, h]]);
+      const cW = Math.max(1, r.width);
+      const cH = Math.max(1, r.height);
+      const { fW, fH, tx, ty } = fitBox(cW, cH);
+      zoomBehavior.extent([[0, 0], [cW, cH]]).translateExtent([[0, 0], [fW, fH]]);
+      setFit({ fW, fH });
+      if (!prev) {
+        zoomBehavior.transform(sel, zoomIdentity.translate(tx, ty).scale(MIN_SCALE));
+      } else {
+        const t = transformRef.current;
+        const k = Math.min(MAX_SCALE, Math.max(MIN_SCALE, t.k));
+        // Normalized map point at the viewport centre under the PREVIOUS geometry…
+        const nx = clamp01((prev.cW / 2 - t.x) / t.k / prev.fW);
+        const ny = clamp01((prev.cH / 2 - t.y) / t.k / prev.fH);
+        // …re-centred at the same zoom multiple under the new geometry (clamped like a pan gesture).
+        const ntx = clampAxis(cW / 2 - k * nx * fW, k * fW, cW);
+        const nty = clampAxis(cH / 2 - k * ny * fH, k * fH, cH);
+        zoomBehavior.transform(sel, zoomIdentity.translate(ntx, nty).scale(k));
+      }
+      prev = { cW, cH, fW, fH };
     }
-    applyExtents();
-    const ro = new ResizeObserver(applyExtents);
+    applyFit();
+    const ro = new ResizeObserver(applyFit);
     ro.observe(node);
 
     return () => {
@@ -122,15 +183,17 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, showL
     const zb = zoomRef.current;
     if (!node || !zb) return;
     const r = node.getBoundingClientRect();
-    const w = Math.max(1, r.width);
-    const h = Math.max(1, r.height);
+    const cW = Math.max(1, r.width);
+    const cH = Math.max(1, r.height);
+    const { fW, fH } = fitBox(cW, cH);
     const k = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
-    // Centre the point: screen_centre = t + k·(point·size) ⇒ t = centre − k·point·size.
-    let tx = w / 2 - k * x * w;
-    let ty = h / 2 - k * y * h;
-    // Clamp so [0,0]–[w,h] keeps covering the viewport (t ∈ [size·(1−k), 0]).
-    tx = Math.min(0, Math.max(w * (1 - k), tx));
-    ty = Math.min(0, Math.max(h * (1 - k), ty));
+    // Centre the point: screen_centre = t + k·(point·fittedImageBox) ⇒ t = centre − k·point·fittedBox.
+    let tx = cW / 2 - k * x * fW;
+    let ty = cH / 2 - k * y * fH;
+    // Clamp exactly as the pan gestures do (centre when the scaled map is smaller than the viewport,
+    // else clamp to the edges), so a jump can never open a gap or push the map off-screen.
+    tx = clampAxis(tx, k * fW, cW);
+    ty = clampAxis(ty, k * fH, cH);
     zb.transform(select(node), zoomIdentity.translate(tx, ty).scale(k));
     pulseNonceRef.current += 1;
     setBlockPulse({ x, y, nonce: pulseNonceRef.current });
@@ -167,7 +230,11 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, showL
     // screen = translate(t.x,t.y) + scale(t.k) · wrapperLocal  ⇒  wrapperLocal = (screen − t)/t.k
     const wx = (px - t.x) / t.k;
     const wy = (py - t.y) / t.k;
-    return { x: clamp01(wx / r.width), y: clamp01(wy / r.height) };
+    // Normalize by the fitted image box (the wrapper's footprint), NOT the surface — the surface is now
+    // full-bleed and a different aspect ratio, so dividing by it would skew the coordinate. Dividing by
+    // the image-aspect fit box is what keeps a normalized [0,1] coordinate glued to the same map pixel.
+    const { fW, fH } = fitBox(Math.max(1, r.width), Math.max(1, r.height));
+    return { x: clamp01(wx / fW), y: clamp01(wy / fH) };
   }
 
   function handleClick(e: MouseEvent): void {
@@ -204,14 +271,22 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, showL
     zb.scaleBy(select(node), factor);
   }
 
+  // Reset returns to the fitted, centred "whole map" view — the same transform `applyFit` sets on mount,
+  // recomputed for the current viewport (NOT bare zoomIdentity, which would top-left-anchor the map).
   function resetZoom(): void {
     const node = surfaceRef.current;
     const zb = zoomRef.current;
     if (!node || !zb) return;
-    zb.transform(select(node), zoomIdentity);
+    const r = node.getBoundingClientRect();
+    const { tx, ty } = fitBox(Math.max(1, r.width), Math.max(1, r.height));
+    zb.transform(select(node), zoomIdentity.translate(tx, ty).scale(MIN_SCALE));
   }
 
   const wrapperStyle = {
+    // The wrapper's un-transformed size = the fitted image box, so it keeps the image's aspect ratio (the
+    // pin coordinate box) inside the full-bleed clip viewport; the d3 transform scales/centres it.
+    width: `${fit.fW}px`,
+    height: `${fit.fH}px`,
     transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.k})`,
     '--zoom': String(transform.k),
   } as Record<string, string>;

@@ -17,8 +17,6 @@ const STATUS_TEXT: Record<SyncStatus, string> = {
   saved: 'Saved',
   error: 'Not saved — will retry',
   conflict: 'Reloaded',
-  // `local` = an untouched/offline draft, not an error — reads calm, not alarming.
-  local: 'Not synced',
 };
 
 const STATUS_CLASS: Record<SyncStatus, string> = {
@@ -27,13 +25,17 @@ const STATUS_CLASS: Record<SyncStatus, string> = {
   saved: 'saved',
   error: 'error',
   conflict: 'error',
-  // Neutral (not the warning `pending` style): an offline/local map is a normal resting state.
-  local: 'neutral',
 };
 
 function SyncBadge({ status, message }: { status: SyncStatus; message?: string }) {
   return (
-    <span class={`sync-badge sync-badge-${STATUS_CLASS[status]}`} role="status" title={message ?? ''}>
+    <span
+      class={`sync-badge sync-badge-${STATUS_CLASS[status]}`}
+      role="status"
+      title={message ?? ''}
+      data-testid="sync-badge"
+      data-status={STATUS_CLASS[status]}
+    >
       {STATUS_TEXT[status]}
     </span>
   );
@@ -70,13 +72,11 @@ function CopyButton({
   url,
   label,
   ariaLabel,
-  describedBy,
 }: {
   testId: string;
   url: string | null;
   label: string;
   ariaLabel: string;
-  describedBy?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -96,7 +96,6 @@ function CopyButton({
       data-testid={testId}
       disabled={!url}
       aria-label={ariaLabel}
-      aria-describedby={describedBy}
       onClick={handleClick}
     >
       {copied ? 'Copied!' : label}
@@ -104,19 +103,16 @@ function CopyButton({
   );
 }
 
-// The floating top bar: a compact rename field, the sync badge, and a Share button that toggles a small
-// popover with the edit/share link rows. While the map is still a local-only draft the link rows render
-// disabled, with the "links appear once saved" caption above them (wired via aria-describedby) as the
-// primary cue for that state.
+// The floating top bar for an EDITABLE map: a compact rename field, the sync badge, and a Share button
+// that toggles a small popover with the edit/share link rows. This bar only ever renders once a real
+// row exists (creation is gated), so the links are always live — there is no "not saved yet" state.
 export function MapBar({ map, sync, onRename, shareOpen, onShareToggle }: Props) {
   const [name, setName] = useState(map.name);
   const inputRef = useRef<HTMLInputElement>(null);
   const shareWrapRef = useRef<HTMLDivElement>(null);
   const shareToggleRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const pending = map.id === 'local-draft';
   const urls = capabilityUrls(map.id, map.secret);
-  const linksInfoId = 'map-bar-links-info';
 
   function commitName() {
     const trimmed = name.trim();
@@ -220,31 +216,14 @@ export function MapBar({ map, sync, onRename, shareOpen, onShareToggle }: Props)
         </button>
         {shareOpen && (
           <div ref={popoverRef} tabIndex={-1} class="share-popover" data-testid="share-popover" role="dialog" aria-label="Share this map">
-            {pending && (
-              <p class="map-bar-link-caption" id={linksInfoId}>
-                Links appear once your map is saved online.
-              </p>
-            )}
             <div class="map-bar-link-row">
               <span class="map-bar-link-label">Edit link</span>
-              <CopyButton
-                testId="copy-edit-link"
-                url={pending ? null : urls.edit}
-                label="Copy"
-                ariaLabel="Copy edit link"
-                describedBy={pending ? linksInfoId : undefined}
-              />
+              <CopyButton testId="copy-edit-link" url={urls.edit} label="Copy" ariaLabel="Copy edit link" />
             </div>
             <p class="map-bar-link-subtext">Anyone with this link can edit</p>
             <div class="map-bar-link-row">
               <span class="map-bar-link-label">Share link</span>
-              <CopyButton
-                testId="copy-share-link"
-                url={pending ? null : urls.share}
-                label="Copy"
-                ariaLabel="Copy share link"
-                describedBy={pending ? linksInfoId : undefined}
-              />
+              <CopyButton testId="copy-share-link" url={urls.share} label="Copy" ariaLabel="Copy share link" />
             </div>
             <p class="map-bar-link-subtext">Anyone with this link can view & duplicate</p>
           </div>
