@@ -1,4 +1,4 @@
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ActiveMap, SyncStatus } from '../store';
 import { capabilityUrls } from '../lib/route';
 
@@ -14,7 +14,8 @@ const STATUS_TEXT: Record<SyncStatus, string> = {
   saved: 'Saved',
   error: 'Not saved — will retry',
   conflict: 'Reloaded',
-  local: 'Not saved — will retry',
+  // `local` = an untouched/offline draft, not an error — reads calm, not alarming.
+  local: 'Not synced',
 };
 
 const STATUS_CLASS: Record<SyncStatus, string> = {
@@ -23,7 +24,8 @@ const STATUS_CLASS: Record<SyncStatus, string> = {
   saved: 'saved',
   error: 'error',
   conflict: 'error',
-  local: 'pending',
+  // Neutral (not the warning `pending` style): an offline/local map is a normal resting state.
+  local: 'neutral',
 };
 
 function SyncBadge({ status, message }: { status: SyncStatus; message?: string }) {
@@ -99,13 +101,17 @@ function CopyButton({
   );
 }
 
-// The map's name, sync status, and share/edit link panel. Unlike pennsic-planner's popover-gated
-// SharePopover, the link panel here is always visible (just disabled) while the map is still a
-// local-only draft — the "links appear once saved" caption is the primary cue for that state, so it
-// sits above the disabled rows and is wired to them via aria-describedby.
+// The floating top bar: a compact rename field, the sync badge, and a Share button that toggles a small
+// popover with the edit/share link rows. While the map is still a local-only draft the link rows render
+// disabled, with the "links appear once saved" caption above them (wired via aria-describedby) as the
+// primary cue for that state.
 export function MapBar({ map, sync, onRename }: Props) {
   const [name, setName] = useState(map.name);
+  const [shareOpen, setShareOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const shareWrapRef = useRef<HTMLDivElement>(null);
+  const shareToggleRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const pending = map.id === 'local-draft';
   const urls = capabilityUrls(map.id, map.secret);
   const linksInfoId = 'map-bar-links-info';
@@ -120,51 +126,89 @@ export function MapBar({ map, sync, onRename }: Props) {
     if (e.key === 'Enter') inputRef.current?.blur();
   }
 
+  // Focus management + dismissal for the share popover (role="dialog"). On open, move focus into the
+  // dialog (first enabled Copy button, else the dialog container). Dismiss on outside pointerdown or
+  // Escape; on Escape, return focus to the Share toggle (standard dialog behaviour).
+  useEffect(() => {
+    if (!shareOpen) return;
+    const firstFocusable =
+      popoverRef.current?.querySelector<HTMLElement>('button:not([disabled])') ?? popoverRef.current;
+    firstFocusable?.focus();
+    function onPointer(e: PointerEvent) {
+      if (!shareWrapRef.current?.contains(e.target as Node)) setShareOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setShareOpen(false);
+        shareToggleRef.current?.focus();
+      }
+    }
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [shareOpen]);
+
   return (
-    <div class="map-bar">
-      <div class="map-bar-row">
-        <input
-          ref={inputRef}
-          type="text"
-          class="map-bar-name"
-          data-testid="rename-map"
-          value={name}
-          maxLength={80}
-          aria-label="Map name"
-          onInput={(e) => setName((e.target as HTMLInputElement).value)}
-          onBlur={commitName}
-          onKeyDown={handleKeyDown}
-        />
-        <SyncBadge status={sync.status} message={sync.message} />
-      </div>
-      <div class="map-bar-links">
-        {pending && (
-          <p class="map-bar-link-caption" id={linksInfoId}>
-            Links appear once your map is saved online.
-          </p>
+    <div class="map-topbar">
+      <input
+        ref={inputRef}
+        type="text"
+        class="map-topbar-name"
+        data-testid="rename-map"
+        value={name}
+        maxLength={80}
+        aria-label="Map name"
+        onInput={(e) => setName((e.target as HTMLInputElement).value)}
+        onBlur={commitName}
+        onKeyDown={handleKeyDown}
+      />
+      <SyncBadge status={sync.status} message={sync.message} />
+      <div class="share-wrap" ref={shareWrapRef}>
+        <button
+          ref={shareToggleRef}
+          type="button"
+          class="button-secondary share-toggle"
+          data-testid="share-toggle"
+          aria-haspopup="dialog"
+          aria-expanded={shareOpen}
+          onClick={() => setShareOpen((v) => !v)}
+        >
+          Share
+        </button>
+        {shareOpen && (
+          <div ref={popoverRef} tabIndex={-1} class="share-popover" data-testid="share-popover" role="dialog" aria-label="Share this map">
+            {pending && (
+              <p class="map-bar-link-caption" id={linksInfoId}>
+                Links appear once your map is saved online.
+              </p>
+            )}
+            <div class="map-bar-link-row">
+              <span class="map-bar-link-label">Edit link</span>
+              <CopyButton
+                testId="copy-edit-link"
+                url={pending ? null : urls.edit}
+                label="Copy"
+                ariaLabel="Copy edit link"
+                describedBy={pending ? linksInfoId : undefined}
+              />
+            </div>
+            <p class="map-bar-link-subtext">Anyone with this link can edit</p>
+            <div class="map-bar-link-row">
+              <span class="map-bar-link-label">Share link</span>
+              <CopyButton
+                testId="copy-share-link"
+                url={pending ? null : urls.share}
+                label="Copy"
+                ariaLabel="Copy share link"
+                describedBy={pending ? linksInfoId : undefined}
+              />
+            </div>
+            <p class="map-bar-link-subtext">Anyone with this link can view & duplicate</p>
+          </div>
         )}
-        <div class="map-bar-link-row">
-          <span class="map-bar-link-label">Edit link</span>
-          <CopyButton
-            testId="copy-edit-link"
-            url={pending ? null : urls.edit}
-            label="Copy"
-            ariaLabel="Copy edit link"
-            describedBy={pending ? linksInfoId : undefined}
-          />
-        </div>
-        <p class="map-bar-link-subtext">Anyone with this link can edit</p>
-        <div class="map-bar-link-row">
-          <span class="map-bar-link-label">Share link</span>
-          <CopyButton
-            testId="copy-share-link"
-            url={pending ? null : urls.share}
-            label="Copy"
-            ariaLabel="Copy share link"
-            describedBy={pending ? linksInfoId : undefined}
-          />
-        </div>
-        <p class="map-bar-link-subtext">Anyone with this link can view & duplicate</p>
       </div>
     </div>
   );

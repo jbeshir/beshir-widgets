@@ -1,5 +1,8 @@
 :root {
   --bg: #faf3e6;
+  /* The full-bleed canvas the centred map floats on — subtly distinct from --card-bg so the framed map
+     reads as inset against it, and darker than --bg so side/top gutters don't glare in standalone. */
+  --canvas: #efe6d4;
   --card-bg: #fffdfa;
   --card-border: #e7ddcd;
   --fg: #20242b;
@@ -13,11 +16,11 @@
   --accent-fg: #fdf3ea;
   --gold: #d99a1f;
   --gold-bright: #ffd166;
-  --success: #15803d;
+  --success: #166534;
   --success-bg: #f0fdf4;
   --warning: #92400e;
   --warning-bg: #fffbeb;
-  --error: #b91c1c;
+  --error: #a51414;
   --error-bg: #fef2f2;
   --pill-bg: #f3ece1;
   --pill-hover: #ece2d2;
@@ -28,6 +31,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #14171d;
+    --canvas: #0f1216;
     --card-bg: #1b1f27;
     --card-border: #2b313c;
     --fg: #e9e6e1;
@@ -41,14 +45,14 @@
     --input-focus: #ff8097;
     --input-focus-ring: rgba(255, 128, 151, 0.25);
     --accent-fill: #9e3346;
-    --accent-fg: #ffe1e7;
+    --accent-fg: #fff2f5;
     --gold: #ffd166;
     --gold-bright: #ffd166;
-    --success: #4ade80;
+    --success: #86efac;
     --success-bg: #052e16;
-    --warning: #fbbf24;
+    --warning: #fcd34d;
     --warning-bg: #1c1004;
-    --error: #fca5a5;
+    --error: #fecaca;
     --error-bg: #1f0707;
     --pill-bg: #252a33;
     --pill-hover: #2f3540;
@@ -75,14 +79,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* The full-bleed positioning root: the map canvas fills it and every piece of chrome floats on top as
+   an absolutely-positioned overlay (standard map-app pattern). container-type:size so descendant
+   container queries can read BOTH the width and height of this box. */
 .app {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* dvh where supported; the vh line above is the fallback */
+  overflow: hidden;
+  background: var(--canvas);
+  container-type: size;
 }
 
 .sr-only {
@@ -141,16 +148,35 @@ body {
   outline-offset: 2px;
 }
 
-/* ── Landing ── */
+/* ── Loading / error overlay ── */
 
-.landing {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: flex-start;
+/* A small centred card floated on the canvas while a shared map loads or fails — the only chrome shown
+   in those two modes (no map surface is mounted). */
+.overlay-center {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 16px;
 }
 
-.landing-eyebrow {
+.status-card {
+  max-width: min(420px, 92cqw);
+  padding: 24px 22px;
+  text-align: center;
+  color: var(--fg-secondary);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.status-eyebrow {
   margin: 0;
   font-size: 12px;
   font-weight: 700;
@@ -159,57 +185,60 @@ body {
   color: var(--muted);
 }
 
-.landing-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--fg);
-}
-
-.landing-subtitle {
-  margin: 0;
-  font-size: 16px;
-  color: var(--fg-secondary);
-  line-height: 1.6;
-  max-width: 60ch;
-}
-
-.status-view {
-  padding: 48px 16px;
-  text-align: center;
-  color: var(--fg-secondary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
-
 /* ── Map surface (framed, pan/zoom) ── */
 
-/* The framed card: a subtle border + padding + card background so the printed multi-colour map is
-   inset and doesn't glare against a dark surround. Also the positioning context for the zoom
-   controls. */
+/* The full-bleed canvas that holds the centred map. Fills .app; the map surface is centred inside it
+   and every floating chrome overlay sits above it. container-type:size so .map-surface can size itself
+   from this box's width AND height (cqw/cqh). z-index:0 keeps it beneath all chrome. */
 .map-frame {
-  position: relative;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 8px;
-  width: 100%;
-  max-width: 460px; /* cap the portrait map's footprint (and thus its height) in single-column layouts */
-  margin: 0 auto;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  container-type: size;
+  background: var(--canvas);
+  overflow: hidden;
+}
+
+/* Ambient blurred wash of the map filling the canvas gutters, so the empty side/top space reads as
+   part of the map rather than dead app chrome. Purely decorative: absolutely positioned on the lowest
+   layer, aria-hidden, pointer-events:none — it never intercepts a map drag and, being outside the
+   crisp .map-surface coordinate box, cannot affect pin math. The crisp surface paints above it. */
+.map-canvas-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(32px) saturate(0.9);
+  transform: scale(1.2);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* A touch dimmer in dark mode so the bright printed map doesn't glow behind the crisp surface. */
+  .map-canvas-backdrop { opacity: 0.22; filter: blur(32px) saturate(0.9) brightness(0.8); }
 }
 
 /* The clipping viewport AND the coordinate reference for pin math. Its aspect-ratio matches the
    official map image (1648×2551, portrait) so the map fills it with no letterboxing or distortion —
-   which keeps normalized [0,1] pin coordinates aligned to image pixels. */
+   which keeps normalized [0,1] pin coordinates aligned to image pixels. Sized to CONTAIN within the
+   canvas, centred: height-constrained on landscape viewports (side gutters), width-constrained on
+   portrait/mobile (top/bottom gutters). The exact aspect-ratio is what keeps pins aligned to pixels. */
 .map-surface {
   position: relative;
-  width: 100%;
+  height: min(100cqh, calc(100cqw * 2551 / 1648));
+  width: auto;
+  max-width: 100cqw;
   aspect-ratio: 1648 / 2551;
   border-radius: 8px;
   overflow: hidden;
+  /* A hairline frame + shadow so the printed map doesn't glare against the canvas, without capping its
+     height — it still fills the available height/width. */
+  border: 1px solid var(--card-border);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.22);
   background: #f4efe6;
   cursor: grab; /* the map pans on drag; editable surfaces switch to crosshair (click places a pin) */
   touch-action: none;
@@ -263,19 +292,32 @@ body {
 
 /* ── Zoom controls ── */
 
+/* Anchored bottom-right on desktop/tablet (top-right would collide with the top bar + share popover).
+   Absolute within .map-frame, which fills .app, so bottom-right = the viewport corner. */
 .map-zoom-controls {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  bottom: 16px;
+  right: 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   z-index: 2;
 }
 
+/* Mobile: pin them to the right edge, vertically centred, so they never collide with the top bar or
+   the bottom sheet (pin editor / dock panel). */
+@container (max-width: 700px) {
+  .map-zoom-controls {
+    top: 50%;
+    bottom: auto;
+    right: 10px;
+    transform: translateY(-50%);
+  }
+}
+
 .map-zoom-btn {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -300,26 +342,61 @@ body {
   outline-offset: 2px;
 }
 
-/* ── Map caption (zoom affordance + attribution) ── */
+/* ── Map hint (slim floating affordance) ── */
 
-.map-caption {
-  margin: 8px 2px 2px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.map-caption-hint {
-  font-size: 12.5px;
+/* A slim first-run affordance inviting the user to drop their first pin — shown at ALL widths (the crux
+   of the no-gate redesign: touch users need the invitation too). App renders it only while the editable
+   map still has zero pins. pointer-events:none so it never eats a map drag. Full attribution lives in
+   the Map key panel.
+   Default (tablet/mobile): a slim centred pill anchored just above the bottom-centre colour toolbar, so
+   it never overlaps the toolbar, the top-docked chips, or the right-edge zoom controls. Desktop (≥1200)
+   moves it to the bottom-left gutter and reveals the extra detail. */
+.map-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: block;
+  max-width: min(92cqw, 360px);
+  margin: 0;
+  padding: 7px 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--fg-secondary);
   line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg-secondary);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  pointer-events: none;
 }
 
-.map-caption-credit {
-  font-size: 11.5px;
-  color: var(--muted);
-  line-height: 1.4;
+/* The trailing "· scroll or drag · <colour> selected" detail only fits (and is only useful with a
+   pointer) on desktop; hidden on the compact centred pill. */
+.map-hint-detail { display: none; }
+
+@container (min-width: 1200px) {
+  .map-hint {
+    left: 12px;
+    bottom: 14px;
+    transform: none;
+    max-width: 320px;
+    text-align: left;
+    white-space: normal;
+    overflow: visible;
+  }
+  .map-hint-detail { display: inline; }
+}
+
+@supports (backdrop-filter: blur(4px)) {
+  .map-hint {
+    background: color-mix(in srgb, var(--card-bg) 84%, transparent);
+    backdrop-filter: blur(8px);
+  }
 }
 
 /* ── Pins ── */
@@ -348,7 +425,10 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 50% 50% 50% 0;
-  transform: rotate(45deg);
+  /* The teardrop tip must point DOWN at the anchored map point. border-radius puts the sharp corner at
+     bottom-left; rotating −45° (anticlockwise) swings that corner to straight down. (+45° would swing it
+     due west — the sideways-pin bug.) */
+  transform: rotate(-45deg);
   background: var(--pin-color-light);
   border: 2px solid var(--pin-ring-inner);
   box-shadow:
@@ -401,7 +481,7 @@ body {
 
 .color-picker-caption {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--fg-secondary);
 }
@@ -457,6 +537,73 @@ body {
 
 .color-swatch-name {
   white-space: nowrap;
+}
+
+/* ── Colour picker — compact (dots-only) variant ── */
+
+/* Used in the floating pin editor + the slim colour toolbar: just the colour dots in a tight row, with
+   the SELECTED colour's name shown as a small caption on its OWN line BELOW the row (individual dots
+   carry no visible text, so the caption is the text cue for the active choice; the Legend swatch+label
+   remains the primary non-colour cue for placed pins). Stacking the caption under the dots lets all 8
+   dots claim the full toolbar width and fit one clean row (no orphaned 8th dot wrapping to a 2nd row).
+   Keeps the radiogroup / roving-tabindex / aria intact. */
+.color-picker-compact {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-picker-compact .color-swatches {
+  gap: 6px;
+}
+
+.color-swatch-compact {
+  gap: 0;
+  padding: 4px;
+  min-height: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  justify-content: center;
+  background: var(--pill-bg);
+}
+
+.color-swatch-compact .color-swatch-dot {
+  width: 18px;
+  height: 18px;
+}
+
+.color-swatch-compact.selected {
+  background: var(--pill-hover);
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 2px var(--input-focus);
+}
+
+.color-picker-selected {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
+
+/* Mobile: enlarge the compact dots to a ≥36px effective touch target (desktop keeps the tighter 30px
+   dots). Sized so all 8 dots still fit one row inside the full-width bottom-sheet toolbar at 390px
+   (8×38 + 7×6 gap ≈ 346px < the ~362px inner width) — no orphan-dot wrap. The radiogroup / roving-
+   tabindex / aria / testids are untouched; only the box grows. */
+@container (max-width: 700px) {
+  .color-swatch-compact {
+    width: 38px;
+    height: 38px;
+  }
+  .color-swatch-compact .color-swatch-dot {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.color-picker-selected-name {
+  color: var(--fg);
 }
 
 /* ── Legend ── */
@@ -537,16 +684,62 @@ li:last-child .legend-row { border-bottom: none; }
   white-space: nowrap;
 }
 
-/* ── Pin editor ── */
+/* ── Pin editor / colour toolbar (floating, bottom-centre) ── */
 
-.pin-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
+/* Both float bottom-centre on desktop/tablet and become a full-width bottom sheet on mobile. Mutual
+   exclusion in App guarantees at most one of {pin editor, colour toolbar, open dock panel} is shown,
+   so two bottom sheets can never stack. */
+.pin-editor,
+.color-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.pin-editor {
+  width: min(380px, 92cqw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+/* The slim colour toolbar shown when no pin is selected: a compact dots row + a "New pin: <colour>"
+   caption. ~48px tall — a pill, not a full-width card. */
+.color-toolbar {
+  max-width: min(92cqw, 460px);
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
+@supports (backdrop-filter: blur(4px)) {
+  .color-toolbar {
+    background: color-mix(in srgb, var(--card-bg) 90%, transparent);
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Mobile: dock both to the bottom edge as a full-width sheet. */
+@container (max-width: 700px) {
+  .pin-editor,
+  .color-toolbar {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    transform: none;
+    border-radius: 16px 16px 0 0;
+    justify-content: center;
+  }
 }
 
 .pin-editor-field {
@@ -585,42 +778,101 @@ li:last-child .legend-row { border-bottom: none; }
   flex-wrap: wrap;
 }
 
-/* ── Map bar (rename + sync + share links) ── */
+/* ── Top bar (floating: rename + sync + share popover) ── */
 
-.map-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-}
-
-.map-bar-row {
+/* Slim translucent bar pinned across the top, floating over the map's top edge. Solid card-bg fallback
+   where backdrop-filter is unsupported so the bar text always sits on an opaque-enough layer. */
+.map-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 52px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--card-border);
+  background: var(--card-bg);
 }
 
-.map-bar-name {
-  flex: 1;
-  min-width: 160px;
+@supports (backdrop-filter: blur(4px)) {
+  .map-topbar {
+    background: color-mix(in srgb, var(--card-bg) 82%, transparent);
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Rename field: reads as plain text until hovered/focused, then reveals an input affordance. */
+.map-topbar-name {
+  flex: 1 1 auto;
+  min-width: 0;
   font: inherit;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--fg);
-  padding: 7px 11px;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 8px;
   outline: none;
 }
 
-.map-bar-name:focus {
+.map-topbar-name:hover {
+  border-color: var(--input-border);
+}
+
+.map-topbar-name:focus {
+  background: var(--input-bg);
   border-color: var(--input-focus);
   box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+/* Readonly variant: name shown read-only alongside a Duplicate action. */
+.readonly-topbar-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.readonly-topbar-title .readonly-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.share-toggle {
+  padding: 7px 14px;
+  font-size: 14px;
+}
+
+/* Small popover anchored under the Share button (top-right). z-index:4 — above the top bar itself. */
+.share-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 4;
+  width: min(300px, 86cqw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
 .sync-badge {
@@ -633,16 +885,11 @@ li:last-child .legend-row { border-bottom: none; }
 
 .sync-badge-saved { color: var(--success); background: var(--success-bg); }
 .sync-badge-saving { color: var(--muted); background: var(--pill-bg); }
+/* Calm/neutral state for offline/local-only maps — NOT a warning. fg-secondary on pill-bg clears APCA
+   Lc 75 in both themes (deliberately not --muted, which is too low-contrast on --pill-bg). */
+.sync-badge-neutral { color: var(--fg-secondary); background: var(--pill-bg); }
 .sync-badge-pending { color: var(--warning); background: var(--warning-bg); }
 .sync-badge-error { color: var(--error); background: var(--error-bg); }
-
-.map-bar-links {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--card-border);
-}
 
 .map-bar-link-row {
   display: flex;
@@ -673,12 +920,6 @@ li:last-child .legend-row { border-bottom: none; }
 
 /* ── Read-only view ── */
 
-.readonly-view {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
 .readonly-eyebrow {
   margin: 0;
   font-size: 12px;
@@ -688,52 +929,115 @@ li:last-child .legend-row { border-bottom: none; }
   color: var(--muted);
 }
 
-.readonly-title {
-  margin: -6px 0 0;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--fg);
-}
-
-.readonly-duplicate-caption {
-  margin: -6px 0 0;
+/* "Creates your own copy…" caption sitting beside the Duplicate button in the readonly top bar. Hidden
+   on narrow viewports where the bar has no spare room; the button's aria-label carries the meaning. */
+.readonly-topbar-caption {
+  flex: 0 1 auto;
+  margin: 0;
   font-size: 13px;
   color: var(--muted);
+  line-height: 1.35;
 }
 
-/* ── Editor layout ── */
+@container (max-width: 700px) {
+  .readonly-topbar-caption {
+    display: none;
+  }
+}
 
-.editor {
+/* ── Panel dock (Map key + Royal encampments + Your pins) ── */
+
+/* A floating, scrollable dock of collapsible panels. Desktop/tablet: anchored down the left gutter,
+   clear of the top bar (top) and the pin editor/toolbar (bottom-centre) and zoom controls (right).
+   pointer-events:none so the empty dock area passes clicks through to the map; each panel re-enables
+   pointer events. Panels are closed by default (just a summary card) so the map stays fully visible. */
+.panel-dock {
+  position: absolute;
+  left: 12px;
+  top: 64px;
+  /* Clears the bottom-centre colour toolbar even at its tallest (compact picker: dot row + caption line)
+     so a tall open desktop panel never underlaps it. */
+  bottom: 120px;
+  width: min(340px, 40cqw);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
+  overflow: auto;
+  pointer-events: none;
+  z-index: 2;
 }
 
-/* Wider viewports: the tall portrait map sits in a fixed-width left column, with the colour
-   picker/pin editor and legend stacked in the roomy right column beside it. */
-@container (min-width: 700px) {
-  .editor {
-    display: grid;
-    /* The right column is capped (not 1fr) so the controls sit beside the tall portrait map as a
-       tidy content block, rather than stretching across the whole width and reading as dead space. */
-    grid-template-columns: minmax(280px, 380px) minmax(320px, 560px);
-    grid-template-areas:
-      "bar bar"
-      "map aux"
-      "map legend"
-      "key key"
-      "royals royals";
-    gap: 14px 16px;
-    align-items: start;
-    justify-content: start;
+.panel-dock > .info-panel {
+  flex: 0 0 auto;
+  pointer-events: auto;
+}
+
+/* "Your pins" legend panel body: the legend list/empty-hint sits directly in the panel body. */
+.legend-panel-body {
+  padding-top: 14px;
+}
+
+/* Mobile: the dock becomes a bottom-sheet area. Closed panels are chips wrapped in a row under the top
+   bar; an opened panel pops out of the row into a bottom sheet anchored to the viewport bottom. Mutual
+   exclusion (App state) guarantees only one panel — and never also the pin editor — is open at once. */
+@container (max-width: 700px) {
+  .panel-dock {
+    left: 0;
+    right: 0;
+    top: 52px;
+    bottom: 0;
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    overflow: visible;
+    /* Above the colour toolbar/top bar (z-index 3) so an opened bottom sheet sits over them (and its
+       opaque card background covers the toolbar), and so the closed chips always sit above the map. */
+    z-index: 4;
   }
-  .editor > .map-bar { grid-area: bar; }
-  .editor > .map-frame { grid-area: map; align-self: start; }
-  .editor > .color-picker { grid-area: aux; align-self: start; }
-  .editor > .pin-editor { grid-area: aux; align-self: start; }
-  .editor > .legend { grid-area: legend; align-self: start; }
-  .editor > .map-key { grid-area: key; align-self: start; }
-  .editor > .royal-encampments { grid-area: royals; align-self: start; }
+  .panel-dock > .info-panel {
+    flex: 0 0 auto;
+    max-width: 82cqw;
+  }
+  /* Closed chip = a fixed-width, ellipsising pill. The width MUST be definite (`width: 44cqw`, not
+     `max-width`): with a content-based width the chip collapses to a 2px sliver, because the ellipsising
+     title has `min-width: 0` (so its min-content is ~0) and the base `.info-panel { overflow: hidden }`
+     makes `max-content` resolve to ~0 too. A definite 44cqw caps each chip at ~2-per-row on a 390px
+     phone (2×44cqw + gap + padding < 100cqw), so the three chips wrap cleanly to two rows, never overlap,
+     and never cause horizontal overflow; the summary fills the pill and the title ellipsises inside it. */
+  .panel-dock > .info-panel:not([open]) {
+    width: 44cqw;
+  }
+  .panel-dock > .info-panel:not([open]) .info-panel-hint {
+    display: none;
+  }
+  .panel-dock > .info-panel:not([open]) .info-panel-heading {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+  /* Ellipsise the title so a long name ("Royal encampments") reads as a clean truncated pill instead of
+     spilling past its edge; the full name stays available via the summary's `title` attribute. */
+  .panel-dock > .info-panel:not([open]) .info-panel-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .panel-dock > .info-panel[open] {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    max-width: none;
+    max-height: 70cqh;
+    overflow: auto;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -6px 28px rgba(0, 0, 0, 0.3);
+    z-index: 3;
+  }
 }
 
 /* ── Block-jump pulse (Royal Encampments → map) ── */
@@ -764,23 +1068,19 @@ li:last-child .legend-row { border-bottom: none; }
   .block-pulse { animation: block-pulse-ring 1900ms ease-out; }
 }
 
-/* ── Info panels (Map key + Royal encampments) ── */
-
-/* Landing stacks the two reference panels below the CTA. */
-.map-info {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  width: 100%;
-}
+/* ── Info panels (Map key + Royal encampments + Your pins) ── */
 
 /* Collapsible reference cards, matching the widget's other panels (card bg + border + radius). Closed
-   by default so the map and pin workflow stay primary; the summary is the tap target. */
+   by default so the map and pin workflow stay primary; the summary is the tap target.
+   container-type:inline-size so each panel's internal container queries (e.g. the Map key's 3-column
+   layout) resolve against the PANEL's width in the narrow dock — not the full-viewport .app container
+   — and stay single-column when docked. */
 .info-panel {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 10px;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .info-panel-summary {
@@ -824,14 +1124,17 @@ li:last-child .legend-row { border-bottom: none; }
   outline-offset: -2px;
 }
 
+/* An <h2> (so heading-rotor navigation reaches each dock section) reset to its inline-looking style —
+   margin:0 neutralises the default heading margins; the explicit font here keeps the visible look. */
 .info-panel-title {
+  margin: 0;
   font-size: 16px;
   font-weight: 700;
   color: var(--fg);
 }
 
 .info-panel-hint {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
 
@@ -1005,7 +1308,7 @@ li:last-child .legend-row { border-bottom: none; }
 /* A lighter rose in dark mode (the shared --input-focus is tuned for focus rings/inputs, not 13px body
    text); paired with the underline so linkness never rests on colour alone. */
 @media (prefers-color-scheme: dark) {
-  .key-credit-link { color: #ffb3c0; }
+  .key-credit-link { color: #ffc6d1; }
 }
 .key-credit-link:focus-visible {
   outline: 2px solid var(--input-focus);
@@ -1092,5 +1395,6 @@ li:last-child .legend-row { border-bottom: none; }
 }
 
 /* ── Embedded (in an iframe) ── */
+/* The full-bleed layout applies in both standalone and embedded; the frame is the container, so just
+   shed the standalone page background. .app already fills the frame (100dvh = the iframe height). */
 .embedded body { background: transparent; }
-.embedded .app { max-width: none; padding: 0; }

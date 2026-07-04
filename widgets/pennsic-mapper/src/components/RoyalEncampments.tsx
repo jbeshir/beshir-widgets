@@ -5,7 +5,9 @@ interface Props {
   onJump: (camp: RoyalEncampment) => void;
   /** Block code of the last-jumped encampment, marked as the current selection (persists past focus). */
   activeBlock?: string | null;
-  defaultOpen?: boolean;
+  /** Controlled disclosure state for the dock's single-open mutual exclusion (uncontrolled if omitted). */
+  open?: boolean;
+  onToggle?: (isOpen: boolean) => void;
 }
 
 // The map's printed "Royal Encampments" list, hoisted into a clean, scannable table. Each row is a
@@ -13,12 +15,17 @@ interface Props {
 // visitor can find their kingdom's camp without hunting the raster. Collapsible so it never buries
 // the map + pin workflow. The last-jumped row keeps a persistent "current" marker (independent of
 // focus) so it's clear where you last went even after the on-map pulse fades.
-export function RoyalEncampments({ onJump, activeBlock, defaultOpen = false }: Props) {
+export function RoyalEncampments({ onJump, activeBlock, open, onToggle }: Props) {
   return (
-    <details class="info-panel royal-encampments" data-testid="royal-encampments" open={defaultOpen}>
-      <summary class="info-panel-summary">
+    <details
+      class="info-panel royal-encampments"
+      data-testid="royal-encampments"
+      open={open}
+      onToggle={(e) => onToggle?.((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary class="info-panel-summary" title="Royal encampments">
         <span class="info-panel-heading">
-          <span class="info-panel-title">Royal encampments</span>
+          <h2 class="info-panel-title">Royal encampments</h2>
           <span class="info-panel-hint">Find a kingdom’s block — tap to jump the map there</span>
         </span>
       </summary>

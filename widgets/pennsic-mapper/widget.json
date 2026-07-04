@@ -20,6 +20,6 @@
   "hostname": "pennsic-mapper.widgets.beshir.org",
   "embeddable": {
     "arbitraryParents": true,
-    "recommendedIframe": "<iframe src=\"https://pennsic-mapper.widgets.beshir.org\" loading=\"lazy\" style=\"width:100%;height:720px;border:0\"></iframe>"
+    "recommendedIframe": "<iframe src=\"https://pennsic-mapper.widgets.beshir.org\" loading=\"lazy\" style=\"width:100%;height:760px;border:0\"></iframe>"
   }
 }

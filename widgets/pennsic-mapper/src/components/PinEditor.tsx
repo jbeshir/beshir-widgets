@@ -10,16 +10,14 @@ interface Props {
   onClose: () => void;
 }
 
-// Inline (not popover) editor for the currently-selected pin, rendered in normal document flow
-// directly below the map surface. The parent keys this component by pin id, so switching pins
+// Compact editor for the currently-selected pin, floated bottom-centre over the map (a bottom sheet on
+// mobile) — never a big stacked card. The parent keys this component by pin id, so switching pins
 // remounts it and resets the local label draft rather than needing an effect to resync from props.
 export function PinEditor({ pin, onChangeLabel, onChangeColor, onDelete, onClose }: Props) {
   const [label, setLabel] = useState(pin.label);
-  const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    containerRef.current?.scrollIntoView({ block: 'nearest' });
     inputRef.current?.focus();
   }, []);
 
@@ -36,7 +34,7 @@ export function PinEditor({ pin, onChangeLabel, onChangeColor, onDelete, onClose
   }
 
   return (
-    <div class="pin-editor" ref={containerRef}>
+    <div class="pin-editor">
       <h2 class="sr-only">Edit pin</h2>
       <label class="pin-editor-field">
         <span class="pin-editor-field-label">Pin label</span>
@@ -54,7 +52,8 @@ export function PinEditor({ pin, onChangeLabel, onChangeColor, onDelete, onClose
         selected={pin.color}
         onSelect={(key) => onChangeColor(pin.id, key)}
         idPrefix={`pin-${pin.id}`}
-        caption="This pin's colour"
+        caption="Colour:"
+        compact
       />
       <div class="pin-editor-actions">
         <button type="button" class="button-primary" data-testid="label-confirm" onClick={confirm}>

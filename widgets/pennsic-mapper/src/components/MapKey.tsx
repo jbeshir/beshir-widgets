@@ -120,12 +120,20 @@ function KeyRow({ glyph, label }: { glyph: KeyGlyph; label: string }) {
   );
 }
 
-export function MapKey({ defaultOpen = false }: { defaultOpen?: boolean }) {
+// `open`/`onToggle` let the parent drive the disclosure state (for the dock's single-open mutual
+// exclusion). Left uncontrolled — native <details> behaviour — when neither is supplied. The <details>
+// element and its `.open` semantics are preserved either way so the journey evals keep working.
+export function MapKey({ open, onToggle }: { open?: boolean; onToggle?: (isOpen: boolean) => void } = {}) {
   return (
-    <details class="info-panel map-key" data-testid="map-legend" open={defaultOpen}>
-      <summary class="info-panel-summary">
+    <details
+      class="info-panel map-key"
+      data-testid="map-legend"
+      open={open}
+      onToggle={(e) => onToggle?.((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary class="info-panel-summary" title="Map key">
         <span class="info-panel-heading">
-          <span class="info-panel-title">Map key</span>
+          <h2 class="info-panel-title">Map key</h2>
           <span class="info-panel-hint">Icons, area fills, town square &amp; bus routes</span>
         </span>
       </summary>

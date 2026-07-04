@@ -16,14 +16,16 @@ import type { RoyalEncampment } from './data/mapKey';
 // keep the surrounding neighbourhood in view.
 const ENCAMPMENT_JUMP_SCALE = 3.5;
 
-type AppMode = 'landing' | 'loading' | 'edit' | 'readonly' | 'error';
+type AppMode = 'loading' | 'edit' | 'readonly' | 'error';
 type WidgetState = 'ready' | 'empty' | 'populated' | 'loading' | 'error';
+type DockPanel = 'key' | 'royals' | 'legend' | null;
 
 function widgetStateFor(mode: AppMode, pinCount: number): WidgetState {
   if (mode === 'loading') return 'loading';
   if (mode === 'error') return 'error';
-  if (mode === 'landing') return 'ready';
-  return pinCount > 0 ? 'populated' : 'empty';
+  if (mode === 'readonly') return pinCount > 0 ? 'populated' : 'empty';
+  // edit: `ready` = a fresh, editable, still-empty map (first paint, idle); `populated` = ≥1 pin.
+  return pinCount > 0 ? 'populated' : 'ready';
 }
 
 function setWidgetState(state: WidgetState): void {
@@ -38,9 +40,10 @@ function genId(): string {
   return `pin-${pinCounter}`;
 }
 
+// No map hash ⇒ an immediately-editable local draft (no landing gate); a map hash ⇒ load it.
 function initialMode(): AppMode {
-  if (typeof location === 'undefined') return 'landing';
-  return parseHash(location.hash).mode === 'landing' ? 'landing' : 'loading';
+  if (typeof location === 'undefined') return 'edit';
+  return parseHash(location.hash).mode === 'landing' ? 'edit' : 'loading';
 }
 
 export function App() {
@@ -50,6 +53,9 @@ export function App() {
   const [selectedColor, setSelectedColor] = useState<string>(PALETTE[0].key);
   const [editingPinId, setEditingPinId] = useState<string | null>(null);
   const [highlightPinId, setHighlightPinId] = useState<string | null>(null);
+  // Which dock panel is open. Single-open: opening one closes the others AND the pin editor, so at most
+  // one bottom sheet is ever shown (matters most on mobile). Kept deterministic from App state.
+  const [openPanel, setOpenPanel] = useState<DockPanel>(null);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   // The currently-mounted MapSurface's imperative API (only one surface is ever mounted at a time).
@@ -72,8 +78,12 @@ export function App() {
   const applyRouteRef = useRef<(route: Route) => Promise<void>>(async () => {});
   applyRouteRef.current = async (route: Route) => {
     if (route.mode === 'landing') {
-      mapStore.clear();
-      transitionMode('landing');
+      // No-gate local-first flow: on any no-hash load, immediately start an editable draft so the map is
+      // interactive from first paint. startLocalDraft is offline-safe under file:// (no fetch — emits a
+      // non-blocking 'local' sync status), so this never triggers a network call the render/journey
+      // gates would treat as a failure.
+      transitionMode('edit');
+      mapStore.startLocalDraft('Untitled map');
       setWidgetState('ready');
       setReady(true);
       return;
@@ -137,17 +147,11 @@ export function App() {
     return () => observer.disconnect();
   }, []);
 
-  function startNewMap(): void {
-    if (mode !== 'landing') return;
-    transitionMode('edit');
-    mapStore.startLocalDraft('Untitled map');
-    setWidgetState('empty');
-  }
-
   function handleAddPin(x: number, y: number): void {
     if (mode !== 'edit') return;
     const id = genId();
     mapStore.addPin({ id, x, y, color: selectedColor, label: '' });
+    setOpenPanel(null); // adding/selecting a pin opens the editor → close any open dock panel
     setEditingPinId(id);
     setWidgetState('populated');
   }
@@ -159,6 +163,7 @@ export function App() {
 
   function handleSelectPin(id: string): void {
     if (mode === 'edit') {
+      setOpenPanel(null);
       setEditingPinId(id);
       return;
     }
@@ -183,6 +188,16 @@ export function App() {
     mapStore.setName(name);
   }
 
+  // Opening a dock panel closes the pin editor (mutual exclusion); closing it just clears that panel.
+  function handlePanelToggle(name: Exclude<DockPanel, null>, isOpen: boolean): void {
+    if (isOpen) {
+      setOpenPanel(name);
+      setEditingPinId(null);
+    } else {
+      setOpenPanel((cur) => (cur === name ? null : cur));
+    }
+  }
+
   async function handleDuplicate(): Promise<void> {
     if (!active || busy) return;
     setBusy(true);
@@ -197,6 +212,7 @@ export function App() {
   }
 
   function goLanding(): void {
+    // Clearing the hash re-enters the no-hash branch → a fresh editable draft.
     location.hash = '';
   }
 
@@ -205,6 +221,9 @@ export function App() {
   // announces the jump: the on-map pulse is aria-hidden and can fade off-screen, so screen-reader and
   // mobile users get a durable, non-visual confirmation of where they landed.
   function handleJumpToBlock(camp: RoyalEncampment): void {
+    // Close any open dock panel so the map's pan/zoom/pulse is visible — on mobile the open panel is a
+    // 70cqh bottom sheet that would otherwise hide the very reaction the jump triggers.
+    setOpenPanel(null);
     mapApiRef.current?.focusOn(camp.x, camp.y, ENCAMPMENT_JUMP_SCALE);
     setJumpedBlock(camp.block);
     setJumpAnnounce(`Jumped to ${camp.kingdom}, block ${camp.block}.`);
@@ -215,54 +234,33 @@ export function App() {
   };
 
   const editingPin = active && editingPinId ? active.pins.find((p) => p.id === editingPinId) ?? null : null;
+  const selectedColorName = PALETTE.find((c) => c.key === selectedColor)?.name ?? PALETTE[0].name;
 
   return (
     <div class="app">
-      {mode === 'landing' && (
-        <div class="landing">
-          <p class="landing-eyebrow">Pennsic Mapper</p>
-          <h1 class="landing-title">Sketch your camp on the war map</h1>
-          <p class="landing-subtitle">Drop pins for your campsite, favourite haunts, and meetup spots — then share the link.</p>
-          <MapSurface
-            pins={[]}
-            editable={false}
-            editingPinId={null}
-            highlightPinId={null}
-            onAddPin={() => {}}
-            onMovePin={() => {}}
-            onSelectPin={() => {}}
-            registerApi={registerMapApi}
-          />
-          <button type="button" class="button-primary" data-testid="start-new-map" onClick={startNewMap}>
-            Start a new map
-          </button>
-          <div class="map-info">
-            <MapKey />
-            <RoyalEncampments onJump={handleJumpToBlock} activeBlock={jumpedBlock} />
+      {mode === 'loading' && (
+        <div class="overlay-center">
+          <div class="status-card" role="status">
+            <p>Loading map…</p>
           </div>
         </div>
       )}
 
-      {mode === 'loading' && (
-        <div class="status-view" role="status">
-          <p>Loading map…</p>
-        </div>
-      )}
-
       {mode === 'error' && (
-        <div class="status-view">
-          <p class="landing-eyebrow">Pennsic Mapper</p>
-          <p role="alert">We couldn't load that map. It may be offline, deleted, or the link may be wrong.</p>
-          <button type="button" class="button-secondary" onClick={goLanding}>
-            Back to start
-          </button>
+        <div class="overlay-center">
+          <div class="status-card">
+            <p class="status-eyebrow">Pennsic Mapper</p>
+            <p role="alert">We couldn't load that map. It may be offline, deleted, or the link may be wrong.</p>
+            <button type="button" class="button-secondary" onClick={goLanding}>
+              Back to start
+            </button>
+          </div>
         </div>
       )}
 
       {mode === 'edit' && active && (
-        <main class="editor">
+        <>
           <h1 class="sr-only">{active.name}</h1>
-          <MapBar map={active} sync={sync} onRename={handleRename} />
           <MapSurface
             pins={active.pins}
             editable
@@ -273,6 +271,31 @@ export function App() {
             onSelectPin={handleSelectPin}
             registerApi={registerMapApi}
           />
+          <MapBar map={active} sync={sync} onRename={handleRename} />
+          <div class="panel-dock">
+            <MapKey open={openPanel === 'key'} onToggle={(o) => handlePanelToggle('key', o)} />
+            <RoyalEncampments
+              onJump={handleJumpToBlock}
+              activeBlock={jumpedBlock}
+              open={openPanel === 'royals'}
+              onToggle={(o) => handlePanelToggle('royals', o)}
+            />
+            <details
+              class="info-panel legend-panel"
+              open={openPanel === 'legend'}
+              onToggle={(e) => handlePanelToggle('legend', (e.currentTarget as HTMLDetailsElement).open)}
+            >
+              <summary class="info-panel-summary" title="Your pins">
+                <span class="info-panel-heading">
+                  <h2 class="info-panel-title">Your pins</h2>
+                  <span class="info-panel-hint">{active.pins.length} pinned</span>
+                </span>
+              </summary>
+              <div class="info-panel-body legend-panel-body">
+                <Legend pins={active.pins} highlightPinId={highlightPinId} onSelect={handleSelectPin} />
+              </div>
+            </details>
+          </div>
           {editingPin ? (
             <PinEditor
               key={editingPin.id}
@@ -283,17 +306,26 @@ export function App() {
               onClose={() => setEditingPinId(null)}
             />
           ) : (
-            <ColorPicker
-              selected={selectedColor}
-              onSelect={setSelectedColor}
-              idPrefix="next-pin"
-              caption="Colour for new pins"
-            />
+            <div class="color-toolbar">
+              <ColorPicker
+                selected={selectedColor}
+                onSelect={setSelectedColor}
+                idPrefix="next-pin"
+                caption="New pin:"
+                compact
+              />
+            </div>
           )}
-          <Legend pins={active.pins} highlightPinId={highlightPinId} onSelect={handleSelectPin} />
-          <MapKey />
-          <RoyalEncampments onJump={handleJumpToBlock} activeBlock={jumpedBlock} />
-        </main>
+          {/* First-run invitation: shown only while the editable map is still empty (0 pins). Once a pin
+              exists it has served its purpose and is hidden. Visible at all widths (see .map-hint CSS);
+              the trailing detail collapses to just the core instruction on tablet/mobile. */}
+          {active.pins.length === 0 && (
+            <p class="map-hint">
+              Click the map to drop a pin
+              <span class="map-hint-detail"> · scroll or drag to explore · {selectedColorName} selected</span>
+            </p>
+          )}
+        </>
       )}
 
       {mode === 'readonly' && active && (
