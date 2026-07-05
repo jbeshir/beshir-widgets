@@ -30,6 +30,11 @@ export function PinEditor({ pin, onChangeLabel, onChangeColor, onDelete, onClose
     if (e.key === 'Enter') {
       e.preventDefault();
       confirm();
+    } else if (e.key === 'Escape') {
+      // Dismiss without saving the in-progress label draft — the sole way to back out of the editor
+      // without either committing a change (Done) or destroying the pin (Delete pin).
+      e.preventDefault();
+      onClose();
     }
   }
 

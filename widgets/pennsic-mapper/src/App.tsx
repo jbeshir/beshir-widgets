@@ -41,12 +41,13 @@ function setWidgetState(state: WidgetState): void {
   document.documentElement.dataset.widgetState = state;
 }
 
-// A caller-generated, monotonic id — never crypto.randomUUID (the journey harness freezes Date and
-// Math.random, not crypto, but a plain counter is simplest and needs no polyfill either way).
-let pinCounter = 0;
+// A caller-generated id. crypto.randomUUID() (not frozen by the journey harness — only Date.now and
+// Math.random are — and confirmed available under the file:// render/journey gate) instead of a
+// session-local counter: two browser tabs editing the same shared map independently is a real case
+// this widget supports, and a counter reseeded from whatever pins happen to be loaded still lets two
+// concurrent sessions compute the same "next" id and collide; a UUID can't.
 function genId(): string {
-  pinCounter += 1;
-  return `pin-${pinCounter}`;
+  return `pin-${crypto.randomUUID()}`;
 }
 
 // No map hash ⇒ a locked preview behind the creation gate; a map hash ⇒ load it.
