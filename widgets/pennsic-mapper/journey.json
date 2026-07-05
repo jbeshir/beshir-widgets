@@ -121,6 +121,18 @@
       "label": "load-error",
       "steps": [{ "eval": "location.hash = '#/m/doesnotexist'" }],
       "expect": { "state": "error" }
+    },
+    {
+      "label": "reopened-map-first-click",
+      "steps": [
+        { "mockFetch": { "urlPattern": "/\\/api\\/map\\/[^/]+$/", "method": "GET", "status": 200, "body": { "id": "test-map-01", "name": "Reopened", "eventId": "pennsic-53", "rev": 3, "updatedAt": "2024-06-01T00:00:00.000Z", "pins": [ { "id": "pin-1", "x": 0.15, "y": 0.08, "color": "sable", "label": "Alpha" }, { "id": "pin-2", "x": 0.35, "y": 0.1, "color": "gules", "label": "Beta" } ] } } },
+        { "mockFetch": { "urlPattern": "/\\/api\\/map\\/[^/]+$/", "method": "PUT", "status": 200, "body": { "id": "test-map-01", "name": "Reopened", "eventId": "pennsic-53", "rev": 4, "updatedAt": "2024-06-01T00:00:00.000Z", "pins": [ { "id": "pin-1", "x": 0.15, "y": 0.08, "color": "sable", "label": "Alpha" }, { "id": "pin-2", "x": 0.35, "y": 0.1, "color": "gules", "label": "Beta" } ] } } },
+        { "eval": "location.hash = '#/m/test-map-01/edit-secret-01'" },
+        { "waitFor": "[data-testid=map-surface].map-surface-editable" },
+        { "click": "[data-testid=map-surface]" },
+        { "eval": "(() => { const li = document.querySelector('[data-testid=label-input]'); if (!li) throw new Error('editor did not open for a new pin'); if (li.value !== '') throw new Error('editor is showing an EXISTING pin (regression: id-collision bug), value=' + li.value); const markers = document.querySelectorAll('[data-testid=pin-marker]'); if (markers.length !== 3) throw new Error('expected a new pin to be added (3 total), got ' + markers.length); })()" }
+      ],
+      "expect": { "selector": "[data-testid=label-input]" }
     }
   ]
 }

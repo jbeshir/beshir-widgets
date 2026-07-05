@@ -207,7 +207,13 @@ class RemoteMapStore implements MapStore {
 
   addPin(pin: Pin): void {
     if (!this.active || !this.active.secret) return;
-    if (this.active.pins.some((p) => p.id === pin.id)) return; // ids are caller-generated; a collision is a caller bug
+    // The caller (App's genId()) is responsible for generating a unique id — it now seeds its counter
+    // past every id already on a loaded map, so this is a genuine invariant, not a reachable case. A
+    // silent no-op here previously masked exactly that bug: the id collided, no pin was added, and the
+    // caller went on to open an editor for the wrong (existing) pin with no indication anything failed.
+    if (this.active.pins.some((p) => p.id === pin.id)) {
+      throw new Error(`addPin: id collision — "${pin.id}" already exists on the active map`);
+    }
     this.setActive({ ...this.active, pins: [...this.active.pins, { ...pin, x: clamp01(pin.x), y: clamp01(pin.y) }] });
     this.markDirty();
   }
