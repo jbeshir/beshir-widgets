@@ -37,7 +37,7 @@ The slug determines the worker name (`widget-<slug>`) and the hostname (`<slug>.
 
 ## CI deploys
 
-Pushes to `main` trigger `.github/workflows/deploy-widgets.yml`, which discovers all widget directories, builds each one with `npm ci && npm run build`, and deploys via `wrangler deploy`. Pull requests trigger `.github/workflows/check-widgets.yml`, which validates all `widget.json`/`wrangler.jsonc` configs and builds each widget without deploying.
+Pushes to `main` trigger `.github/workflows/deploy-widgets.yml`, which discovers widget directories changed since their last successful deploy — each widget's last-deployed commit is tracked with a `deployed/<slug>` git tag, moved forward only after that widget's `wrangler deploy` succeeds — builds each changed widget with `npm ci && npm run build`, and deploys via `wrangler deploy`. Unchanged widgets are skipped. Pull requests trigger `.github/workflows/check-widgets.yml`, which validates all `widget.json`/`wrangler.jsonc` configs, then builds (and journey-gates) only the widgets changed versus the PR base — or every widget if the PR touches shared files outside `widgets/` (e.g. `scripts/`) — without deploying.
 
 ## Cloudflare setup (one-time, manual)
 

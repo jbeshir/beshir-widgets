@@ -19,9 +19,26 @@ jobs:
       matrix: ${{ steps.list.outputs.matrix }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - id: list
         run: |
-          echo "matrix=$(ls -1 widgets | jq -R . | jq -s -c '{widget: .}')" >> "$GITHUB_OUTPUT"
+          base="${{ github.event.pull_request.base.sha }}"
+          if ! git diff --quiet "$base" -- . ':!widgets'; then
+            echo "shared files changed outside widgets/ — building all widgets"
+            mapfile -t changed < <(ls -1 widgets)
+          else
+            changed=()
+            for dir in widgets/*/; do
+              widget=$(basename "$dir")
+              if ! git diff --quiet "$base" -- "widgets/${widget}"; then
+                echo "changed: ${widget}"
+                changed+=("$widget")
+              fi
+            done
+          fi
+          matrix=$(printf '%s\n' "${changed[@]:-}" | grep -v '^$' | jq -R . | jq -s -c '{widget: .}')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   build:
     needs: [validate, discover]
