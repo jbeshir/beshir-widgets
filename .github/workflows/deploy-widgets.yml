@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   discover:
     runs-on: ubuntu-latest
@@ -11,9 +14,24 @@ jobs:
       matrix: ${{ steps.list.outputs.matrix }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - id: list
         run: |
-          echo "matrix=$(ls -1 widgets | jq -R . | jq -s -c '{widget: .}')" >> "$GITHUB_OUTPUT"
+          changed=()
+          for dir in widgets/*/; do
+            widget=$(basename "$dir")
+            tag="refs/tags/deployed/${widget}"
+            if git rev-parse -q --verify "$tag" >/dev/null && git diff --quiet "$tag" -- "widgets/${widget}"; then
+              echo "skip (unchanged since last deploy): ${widget}"
+              continue
+            fi
+            echo "deploy: ${widget}"
+            changed+=("$widget")
+          done
+          matrix=$(printf '%s\n' "${changed[@]:-}" | grep -v '^$' | jq -R . | jq -s -c '{widget: .}')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: discover
@@ -43,3 +61,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Record successful deploy
+        run: |
+          git tag -f "deployed/${{ matrix.widget }}" "${{ github.sha }}"
+          git push origin "refs/tags/deployed/${{ matrix.widget }}" --force
