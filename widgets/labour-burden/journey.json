@@ -1,0 +1,28 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    {
+      "label": "initial",
+      "steps": [],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "modern-on",
+      "steps": [{ "click": "[data-testid=toggle-modern]" }],
+      "expect": { "selector": "[data-testid=bar-modern-uk]" }
+    },
+    {
+      "label": "segment-detail",
+      "steps": [{ "click": "[data-testid=segment-ancien-regime-france-direct_tax]" }],
+      "expect": { "selector": "[data-testid=segment-detail]" }
+    },
+    {
+      "label": "methodology-open",
+      "steps": [{ "click": "[data-testid=methodology-toggle]" }],
+      "expect": { "selector": "[data-testid=methodology-panel]" }
+    }
+  ]
+}
