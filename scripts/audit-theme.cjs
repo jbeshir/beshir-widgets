@@ -7,9 +7,75 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const [slug, indexPath, outDir = '/out'] = process.argv.slice(2);
+const repositoryDir = path.resolve(__dirname, '..');
+const widgetsDir = path.join(repositoryDir, 'widgets');
+const localThemeWidgets = [
+  'function-plotter',
+  'image-comparison-table',
+  'japanese-verb-tower',
+  'labour-burden',
+  'pennsic-mapper',
+  'pennsic-planner',
+];
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, 'theme-audit-manifest.json'), 'utf8'));
-if (!slug || !indexPath || !manifest.widgets[slug]) {
+const manifestWidgets = Object.keys(manifest.widgets || {}).sort();
+if (!slug || !indexPath || !manifest.widgets[slug] ||
+  manifestWidgets.length !== localThemeWidgets.length ||
+  manifestWidgets.some((widget, index) => widget !== localThemeWidgets[index])) {
   console.error('usage: audit-theme.cjs <widget-slug> <abs-dist-index.html> <out-dir>');
+  process.exit(2);
+}
+
+function readImportSpecifiers(source) {
+  const specifiers = [];
+  for (const match of source.matchAll(/\bimport\s+(?:[^'";]+?\s+from\s+)?['"]([^'"]+)['"]/g)) specifiers.push(match[1]);
+  for (const match of source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]/g)) specifiers.push(match[1]);
+  for (const match of source.matchAll(/@import\s+(?:url\(\s*)?(?:['"]([^'"]+)['"]|([^\s);]+))/g)) specifiers.push(match[1] || match[2]);
+  return specifiers;
+}
+
+function isWithin(candidate, directory) {
+  const relative = path.relative(directory, candidate);
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function assertLocalThemeOwnership() {
+  if (!localThemeWidgets.includes(slug)) throw new Error(`${slug}: not one of the six local-theme widgets`);
+  if (fs.existsSync(path.join(repositoryDir, 'shared', 'theme.css'))) throw new Error('shared/theme.css must not exist');
+  const widgetPath = path.join(widgetsDir, slug);
+  const themePath = path.join(widgetPath, 'src', 'theme.css');
+  const entrypointPath = path.join(widgetPath, 'src', 'main.tsx');
+  if (!fs.lstatSync(themePath).isFile()) throw new Error(`${slug}: missing regular local src/theme.css`);
+  const entrypoint = fs.readFileSync(entrypointPath, 'utf8');
+  if (readImportSpecifiers(entrypoint).filter((specifier) => specifier === './theme.css').length !== 1) {
+    throw new Error(`${slug}: src/main.tsx must import './theme.css' exactly once`);
+  }
+  const sourceFiles = [];
+  const visit = (directory) => {
+    for (const child of fs.readdirSync(directory, { withFileTypes: true })) {
+      const childPath = path.join(directory, child.name);
+      if (child.isDirectory()) visit(childPath);
+      else if (child.isFile() && /\.(?:[cm]?[jt]sx?|css)$/.test(child.name)) sourceFiles.push(childPath);
+    }
+  };
+  visit(path.join(widgetPath, 'src'));
+  for (const sourcePath of sourceFiles) {
+    for (const specifier of readImportSpecifiers(fs.readFileSync(sourcePath, 'utf8'))) {
+      if (specifier.includes('theme.css') && !(sourcePath === entrypointPath && specifier === './theme.css')) {
+        throw new Error(`${slug}: ${path.relative(widgetPath, sourcePath)} imports a non-local theme '${specifier}'`);
+      }
+      if (!specifier.startsWith('.')) continue;
+      const resolved = path.resolve(path.dirname(sourcePath), specifier);
+      if (isWithin(resolved, path.join(repositoryDir, 'shared'))) throw new Error(`${slug}: imports shared dependency '${specifier}'`);
+      if (isWithin(resolved, widgetsDir) && !isWithin(resolved, widgetPath)) throw new Error(`${slug}: imports another widget '${specifier}'`);
+    }
+  }
+}
+
+try {
+  assertLocalThemeOwnership();
+} catch (error) {
+  console.error(error.message);
   process.exit(2);
 }
 const spec = manifest.widgets[slug];

@@ -1,0 +1,40 @@
+/* Local, declarative primitives owned by this independently built widget. */
+:root {
+  color-scheme: light dark;
+  --widget-bg: #faf6f0;
+  --widget-panel: #fffdfa;
+  --widget-fg: #20242b;
+  --widget-fg-secondary: #5f574c;
+  --widget-fg-muted: #5f574c;
+  --widget-accent-display: #9d2235;
+  --widget-accent-text: #9d2235;
+  --widget-border: #948468;
+  --widget-focus: #9d2235;
+  --widget-disabled: #756d62;
+  --widget-error: #b91c1c;
+  --widget-warning: #8a5a14;
+  --widget-success: #176b4b;
+  --widget-font-identity: "Schibsted Grotesk", "IBM Plex Sans JP", ui-sans-serif, system-ui, sans-serif;
+  --widget-font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --widget-text-floor: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --widget-bg: #14171d;
+    --widget-panel: #252a35;
+    --widget-fg: #e9e6e1;
+    --widget-fg-secondary: #d2d7df;
+    --widget-fg-muted: #d2d7df;
+    --widget-accent-display: #efa6b3;
+    --widget-accent-text: #f8cdd5;
+    --widget-border: #6e788c;
+    --widget-focus: #f8cdd5;
+    --widget-disabled: #b5bcc7;
+    --widget-error: #fecaca;
+    --widget-warning: #f1c453;
+    --widget-success: #86efac;
+  }
+}
+
+h1, h2, h3 { font-family: var(--widget-font-identity); }

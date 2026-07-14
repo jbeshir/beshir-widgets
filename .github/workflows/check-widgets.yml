@@ -24,8 +24,8 @@ jobs:
       - id: list
         run: |
           base="${{ github.event.pull_request.base.sha }}"
-          if ! git diff --quiet "$base" -- . ':!widgets' ':!shared' || ! git diff --quiet "$base" -- shared; then
-            echo "repository or shared-theme files changed — building all widgets"
+          if ! git diff --quiet "$base" -- . ':!widgets' ':!shared'; then
+            echo "repository-wide files changed — building all widgets"
             mapfile -t changed < <(find widgets -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
           else
             changed=()

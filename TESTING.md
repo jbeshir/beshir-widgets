@@ -170,8 +170,11 @@ and avoid leaving a transient spinner in the captured frame.
 ## Running it
 
 ```sh
+# authoritative source/metadata/theme-ownership validation (run from repository root)
+node scripts/validate-widgets.mjs
+
 # build the widget first (produces dist/)
-cd widgets/<slug> && npm install && npm run build && cd ../..
+cd widgets/<slug> && npm ci && npm run build && cd ../..
 
 # first-paint gate
 node scripts/render.cjs widgets/<slug>/dist/index.html
@@ -220,3 +223,18 @@ screenshot evidence, otherwise the audit fails.
 The spec is also shape-checked by `node scripts/validate-widgets.mjs` whenever a
 `journey.json` is present, and CI runs both gates in
 `.github/workflows/check-widgets.yml`.
+
+## Local theme ownership
+
+The six independently built widgets deliberately duplicate their theme
+primitives. Each widget owns a regular `widgets/<slug>/src/theme.css`, and its
+`src/main.tsx` imports that file exactly once as `./theme.css`. This is the
+runtime ownership model: there is no shared theme stylesheet, shared theme
+package, or cross-widget theme import.
+
+`node scripts/validate-widgets.mjs` is the authoritative repository check for
+that contract. It requires exactly the six local theme files and entrypoint
+imports, rejects `shared/theme.css`, and rejects source imports that resolve
+into `shared/` or another widget. `scripts/audit-theme.cjs` repeats those
+ownership checks before auditing a built widget and requires the audit manifest
+to cover the same six widgets.

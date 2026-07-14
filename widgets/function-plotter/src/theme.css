@@ -1,4 +1,4 @@
-/* Shared, declarative primitives for every independently built widget. */
+/* Local, declarative primitives owned by this independently built widget. */
 :root {
   color-scheme: light dark;
   --widget-bg: #faf6f0;

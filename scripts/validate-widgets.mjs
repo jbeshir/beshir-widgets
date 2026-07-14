@@ -4,7 +4,93 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repositoryDir = path.resolve(__dirname, '..');
 const widgetsDir = path.resolve(__dirname, '..', 'widgets');
+const localThemeWidgets = [
+  'function-plotter',
+  'image-comparison-table',
+  'japanese-verb-tower',
+  'labour-burden',
+  'pennsic-mapper',
+  'pennsic-planner',
+];
+
+function readImportSpecifiers(source) {
+  const specifiers = [];
+  for (const match of source.matchAll(/\bimport\s+(?:[^'";]+?\s+from\s+)?['"]([^'"]+)['"]/g)) {
+    specifiers.push(match[1]);
+  }
+  for (const match of source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]/g)) {
+    specifiers.push(match[1]);
+  }
+  for (const match of source.matchAll(/@import\s+(?:url\(\s*)?(?:['"]([^'"]+)['"]|([^\s);]+))/g)) {
+    specifiers.push(match[1] || match[2]);
+  }
+  return specifiers;
+}
+
+function isWithin(candidate, directory) {
+  const relative = path.relative(directory, candidate);
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function validateLocalThemeOwnership(slug, widgetPath, errors) {
+  const themePath = path.join(widgetPath, 'src', 'theme.css');
+  const entrypointPath = path.join(widgetPath, 'src', 'main.tsx');
+
+  try {
+    if (!fs.lstatSync(themePath).isFile()) {
+      errors.push(`${slug}: src/theme.css must be a regular local theme file`);
+    }
+  } catch {
+    errors.push(`${slug}: missing required local src/theme.css`);
+  }
+
+  let entrypoint = '';
+  try {
+    entrypoint = fs.readFileSync(entrypointPath, 'utf8');
+  } catch (e) {
+    errors.push(`${slug}: failed to read src/main.tsx for local theme ownership: ${e.message}`);
+  }
+  const localThemeImports = readImportSpecifiers(entrypoint).filter((specifier) => specifier === './theme.css');
+  if (localThemeImports.length !== 1) {
+    errors.push(`${slug}: src/main.tsx must import its local theme exactly once as './theme.css'`);
+  }
+
+  const sourceDir = path.join(widgetPath, 'src');
+  const sourceFiles = [];
+  const visit = (directory) => {
+    for (const child of fs.readdirSync(directory, { withFileTypes: true })) {
+      const childPath = path.join(directory, child.name);
+      if (child.isDirectory()) visit(childPath);
+      else if (child.isFile() && /\.(?:[cm]?[jt]sx?|css)$/.test(child.name)) sourceFiles.push(childPath);
+    }
+  };
+  try {
+    visit(sourceDir);
+  } catch (e) {
+    errors.push(`${slug}: failed to inspect src imports for local theme ownership: ${e.message}`);
+    return;
+  }
+
+  for (const sourcePath of sourceFiles) {
+    const source = fs.readFileSync(sourcePath, 'utf8');
+    const relativeSource = path.relative(widgetPath, sourcePath);
+    for (const specifier of readImportSpecifiers(source)) {
+      if (specifier.includes('theme.css') && !(sourcePath === entrypointPath && specifier === './theme.css')) {
+        errors.push(`${slug}: ${relativeSource} must not import a theme outside src/main.tsx ('${specifier}')`);
+      }
+      if (!specifier.startsWith('.')) continue;
+      const resolved = path.resolve(path.dirname(sourcePath), specifier);
+      if (isWithin(resolved, path.join(repositoryDir, 'shared'))) {
+        errors.push(`${slug}: ${relativeSource} must not import from shared/ ('${specifier}')`);
+      }
+      if (isWithin(resolved, widgetsDir) && !isWithin(resolved, widgetPath)) {
+        errors.push(`${slug}: ${relativeSource} must not import another widget ('${specifier}')`);
+      }
+    }
+  }
+}
 
 function stripJsonComments(src) {
   let result = '';
@@ -50,6 +136,16 @@ try {
   process.exit(1);
 }
 
+const widgetDirectories = entries
+  .filter((entry) => fs.statSync(path.join(widgetsDir, entry)).isDirectory())
+  .sort();
+if (widgetDirectories.length !== localThemeWidgets.length || widgetDirectories.some((slug, index) => slug !== localThemeWidgets[index])) {
+  errors.push(`widgets: expected exactly the local-theme widgets ${localThemeWidgets.join(', ')}, found ${widgetDirectories.join(', ')}`);
+}
+if (fs.existsSync(path.join(repositoryDir, 'shared', 'theme.css'))) {
+  errors.push('shared/theme.css must not exist; themes are owned locally by each widget');
+}
+
 for (const entry of entries) {
   const widgetPath = path.join(widgetsDir, entry);
   const stat = fs.statSync(widgetPath);
@@ -57,6 +153,10 @@ for (const entry of entries) {
 
   const slug = entry;
   widgetCount++;
+
+  if (localThemeWidgets.includes(slug)) {
+    validateLocalThemeOwnership(slug, widgetPath, errors);
+  }
 
   const widgetJsonPath = path.join(widgetPath, 'widget.json');
   const wranglerPath = path.join(widgetPath, 'wrangler.jsonc');
