@@ -1,12 +1,13 @@
 /* ── Design tokens — light / dark ─────────────────────────────────────────── */
 :root {
-  --bg:               #faf6f0;
-  --card-bg:          #fffdfa;
-  --card-border:      #e7ddcd;
+  --bg:               var(--widget-bg);
+  --card-bg:          var(--widget-panel);
+  --card-border:      var(--widget-border);
   --card-shadow:      0 1px 3px rgba(61,47,30,.07), 0 12px 32px rgba(61,47,30,.10);
-  --fg:               #20242b;
-  --muted:            #6b6358;
-  --input-focus:      #9d2235;
+  --fg:               var(--widget-fg);
+  --muted:            var(--widget-fg-muted);
+  --input-boundary:   var(--widget-border);
+  --input-focus:      var(--widget-focus);
   --input-focus-ring: rgba(157,34,53,.22);
   --chip-bg:          #f3ece1;
   --chip-border:      #e7ddcd;
@@ -32,13 +33,16 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:               #14171d;
-    --card-bg:          #1b1f27;
-    --card-border:      #2b313c;
+    --bg:               var(--widget-bg);
+    --card-bg:          var(--widget-panel);
+    --card-border:      var(--widget-border);
     --card-shadow:      0 1px 3px rgba(0,0,0,.5), 0 12px 32px rgba(0,0,0,.6);
-    --fg:               #e9e6e1;
-    --muted:            #9aa1ab;
-    --input-focus:      #ff8097;
+    --fg:               var(--widget-fg);
+    --muted:            var(--widget-fg-muted);
+    /* The search field sits on the same panel surface, so it needs a distinct
+       input boundary rather than the quieter card-outline role. */
+    --input-boundary:   #7d899f;
+    --input-focus:      var(--widget-focus);
     --input-focus-ring: rgba(255,128,151,.3);
     --chip-bg:          #252a33;
     --chip-border:      #353b45;
@@ -68,8 +72,7 @@
 html, body { margin: 0; padding: 0; }
 
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-               "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--widget-font-ui);
   background: var(--bg);
   color: var(--fg);
   font-size: 15px;
@@ -79,7 +82,7 @@ body {
 
 /* Japanese text — system JP stack for proper glyph rendering */
 .jp {
-  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP",
+  font-family: "IBM Plex Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP",
                "Yu Gothic", Meiryo, "MS PGothic", sans-serif;
 }
 
@@ -104,6 +107,7 @@ body {
 }
 
 .card-header h1 {
+  font-family: var(--widget-font-identity);
   margin: 0 0 4px;
   font-size: 20px;
   font-weight: 700;
@@ -172,7 +176,8 @@ body {
   opacity: .65;
 }
 
-.verb-chip--active .verb-chip-gloss { opacity: 0.92; }
+.verb-chip--active .verb-chip-sub,
+.verb-chip--active .verb-chip-gloss { opacity: 1; }
 
 /* ── Two-column body ───────────────────────────────────────────────────────── */
 .card-body {
@@ -577,7 +582,7 @@ body {
   font: inherit;
   font-size: 13.5px;
   background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  border: 1px solid var(--input-boundary);
   border-radius: 8px;
   color: var(--fg);
   outline: none;
@@ -821,8 +826,8 @@ body {
     border-color: #7f1d1d;
     color: #f87171;
   }
-  .search-input { border-color: #7a5862; }
-  .breakdown-input { border-color: #7a5862; background: var(--chip-bg); }
+  .search-input { border-color: var(--input-boundary); }
+  .breakdown-input { border-color: var(--input-boundary); background: var(--chip-bg); }
   .candidate-row { background: var(--chip-bg); border-color: #7a5862; }
   .search-result { border-bottom-color: #7a5862; }
 }
@@ -1195,3 +1200,88 @@ body {
 .embedded body { background: transparent; }
 .embedded .container { max-width: none; padding: 0; }
 .embedded .card { border: 0; border-radius: 0; box-shadow: none; }
+
+/* Phase 2 typography/state floor. Tower glyph sizes stay proportional; these are
+   instructions, controls, status, and explanatory labels rather than geometry. */
+.hint,
+.verb-chip-sub,
+.verb-chip-gloss,
+.morph-tag,
+.ordering-note,
+.note,
+.tier-kana,
+.tier-romaji,
+.tier-label,
+.tier-gloss,
+.slot-legend-title,
+.slot-legend-sub,
+.slot-arrow,
+.slot-chip,
+.dict-hint,
+.search-no-match,
+.search-result-reading,
+.search-result-gloss,
+.search-result-cls,
+.active-verb-chip,
+.credit,
+.type-badge,
+.add-layer-btn,
+.add-layer-terminal,
+.layer-menu-group-label,
+.layer-menu-item,
+.layer-menu-sense,
+.layer-menu-aux,
+.tier-colloq,
+.tier-translation-label,
+.tier-translation,
+.mode-btn,
+.breakdown-hint,
+.candidate-reading,
+.candidate-gloss,
+.op-chip,
+.candidate-surface {
+  font-size: var(--widget-text-floor);
+}
+
+.tier--base .tier-kana,
+.tier--base .tier-romaji,
+.tier--top .tier-translation { font-size: var(--widget-text-floor); }
+
+/* Ruby is a positional reading aid bound to the kanji geometry, not ordinary
+   copy. It deliberately remains proportional to its parent glyph. */
+.tier--top .tier-kanji ruby rt,
+.tier-aux { font-family: "IBM Plex Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", "Yu Gothic", Meiryo, "MS PGothic", sans-serif; }
+
+.search-input,
+.search-input:focus-visible,
+.breakdown-input,
+.breakdown-input:focus-visible {
+  font-size: var(--widget-text-floor);
+}
+
+.search-input:focus-visible,
+.breakdown-input:focus-visible {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 3px var(--input-focus-ring);
+}
+
+.verb-chip:active,
+.mode-btn:active,
+.breakdown-btn:active,
+.add-layer-btn:active,
+.layer-menu-item:active,
+.candidate-row:active { transform: translateY(1px); }
+
+.toggle-row input:disabled,
+.radio-row input:disabled,
+.breakdown-btn:disabled,
+.layer-menu-item:disabled,
+[aria-disabled='true'] {
+  color: var(--widget-disabled);
+  cursor: not-allowed;
+}
+
+.toggle-row--disabled,
+.layer-menu-item--disabled,
+.breakdown-btn:disabled,
+[aria-disabled='true'] { opacity: .72; }

@@ -1,0 +1,37 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    { "label": "initial", "steps": [], "expect": { "state": "ready" } },
+    {
+      "label": "filtered-empty",
+      "steps": [{ "fill": "[data-testid=session-search]", "value": "zzzz-no-pennsic-session" }],
+      "expect": { "selector": "[data-testid=session-empty-state]" }
+    },
+    {
+      "label": "session-modal",
+      "steps": [{ "click": "[data-testid=session-card]" }],
+      "expect": { "selector": "[data-testid=session-dialog]" }
+    },
+    {
+      "label": "instructors",
+      "steps": [{ "clickRole": { "role": "tab", "name": "Instructors" } }],
+      "expect": { "selector": "[data-testid=instructors-view]" }
+    },
+    {
+      "label": "about",
+      "steps": [{ "clickRole": { "role": "tab", "name": "About" } }],
+      "expect": { "selector": "[data-testid=about-view]" }
+    },
+    {
+      "label": "focused-search",
+      "steps": [
+        { "eval": "document.querySelector('[data-testid=session-search]').focus()" },
+        { "eval": "(() => { if (document.activeElement !== document.querySelector('[data-testid=session-search]')) throw new Error('planner search did not receive keyboard focus'); })()" }
+      ],
+      "expect": { "state": "ready" }
+    }
+  ]
+}

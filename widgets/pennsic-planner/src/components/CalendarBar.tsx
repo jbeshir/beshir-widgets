@@ -35,7 +35,7 @@ function LandingBar({ onCreate, busy, deviceCalendars, onForgetDevice, onClearDe
           <strong>Build a shareable calendar.</strong>
           <span> Star classes to start one — it saves online and lives at a link you can bookmark and share.</span>
         </div>
-        <button class="cal-create-btn" onClick={onCreate} disabled={busy}>
+        <button class="cal-create-btn" data-testid="create-calendar" onClick={onCreate} disabled={busy}>
           {busy ? 'Creating…' : '+ Create calendar'}
         </button>
       </div>
@@ -131,6 +131,7 @@ function SharePopover({ urls }: { urls: { edit: string | null; share: string } }
     <div class="cal-share-wrap" ref={wrapRef}>
       <button
         class="cal-share-btn"
+        data-testid="share-calendar"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}

@@ -3,7 +3,7 @@
 Source-of-truth for the interaction-and-UX testing stage, alongside
 [`LIBRARIES.md`](./LIBRARIES.md) and [`DATA.md`](./DATA.md).
 
-Two gates run on every widget:
+Three gates run on every widget:
 
 1. **First-paint gate** — `scripts/render.cjs` loads the built `dist/index.html`,
    waits for the `#widget-ready` marker, and takes one screenshot. Unchanged.
@@ -11,6 +11,12 @@ Two gates run on every widget:
    `state × viewport × scheme` cells described by an **optional** per-widget
    sidecar `widgets/<slug>/journey.json`, capturing a screenshot per cell plus
    correctness signals. A widget with no `journey.json` skips this gate.
+3. **Rendered theme audit** — `scripts/audit-theme.cjs` uses the built
+   `file://` document and the repository manifest to record computed family,
+   weight, size, foreground/background composition, text/boundary/focus/status
+   checks, opacity and ordinary/200% zoom overflow in light and dark. It applies
+   WCAG 2.2 ratios only where CSS layers resolve to a stable solid surface;
+   gradients, images and maps are explicitly reported for manual review.
 
 The journey harness is **both a screenshot generator and a correctness gate**: it
 exits non-zero if any cell hits a page error, a console error, or fails to reach
@@ -175,7 +181,41 @@ node scripts/journey.cjs \
   "$PWD/widgets/<slug>/dist/index.html" \
   "$PWD/widgets/<slug>/journey.json" \
   "$PWD/.journey-out"
+
+# computed/composited audit (after the same build; Playwright must be available)
+NODE_PATH="$PWD/widgets/<slug>/node_modules" node scripts/audit-theme.cjs \
+  <slug> "$PWD/widgets/<slug>/dist/index.html" "$PWD/.theme-audit"
 ```
+
+## Theme audit contract
+
+[`scripts/theme-audit-manifest.json`](./scripts/theme-audit-manifest.json) is
+the repository-wide audit declaration. Every shipped widget has an identity
+heading, functional UI, ordinary text, boundary, focus, and status surface in
+the manifest. The audit fails a declared ordinary text/status surface below
+14px, a measurable normal-text pair below 4.5:1, a measurable component
+boundary below 3:1, missing identity/UI font roles, missing visible focus, or
+standalone/200%-zoom overflow. It writes the computed inputs and unrounded
+ratio to JSON for review rather than trusting static token values.
+
+The audit additionally walks every visible direct-text element (excluding only
+the manifest's named geometry exceptions), so the declaration list is a
+state/boundary inventory rather than a tiny selector sample. It records an
+unrounded WCAG ratio and APCA Lc for every measurable text pair. WCAG remains
+the release gate; APCA is the supplementary house-style signal.
+
+The required evidence matrix is 390×844, 768×1024 and 1280×800, light and dark,
+standalone and embedded. `journey.cjs` retains the state-specific screenshots,
+accessibility tree and overflow result; the theme audit's JSON records the
+computed/composited values, font roles, focus/boundary checks and its explicit
+manual-surface checklist. Store both reports and their galleries in the final
+validation output. Do not substitute initial-page results for a journey state.
+
+The named density exceptions are not a waiver for controls, instructions,
+errors, or state. Each has a selector, rationale, opaque stable surface, and
+200%-zoom journey evidence. Map/image/gradient surfaces deliberately have no
+invented CSS ratio: their checklist entry must be marked pass with the reviewed
+screenshot evidence, otherwise the audit fails.
 
 The spec is also shape-checked by `node scripts/validate-widgets.mjs` whenever a
 `journey.json` is present, and CI runs both gates in

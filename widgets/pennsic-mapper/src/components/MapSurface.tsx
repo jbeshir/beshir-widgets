@@ -300,6 +300,7 @@ export function MapSurface({ pins, editable, editingPinId, highlightPinId, showL
       <div
         class={editable ? 'map-surface map-surface-editable' : 'map-surface'}
         data-testid="map-surface"
+        data-editable={editable ? 'true' : 'false'}
         ref={surfaceRef}
         onClick={handleClick}
         tabIndex={editable ? 0 : undefined}

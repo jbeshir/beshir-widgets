@@ -24,9 +24,9 @@ jobs:
       - id: list
         run: |
           base="${{ github.event.pull_request.base.sha }}"
-          if ! git diff --quiet "$base" -- . ':!widgets'; then
-            echo "shared files changed outside widgets/ — building all widgets"
-            mapfile -t changed < <(ls -1 widgets)
+          if ! git diff --quiet "$base" -- . ':!widgets' ':!shared' || ! git diff --quiet "$base" -- shared; then
+            echo "repository or shared-theme files changed — building all widgets"
+            mapfile -t changed < <(find widgets -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
           else
             changed=()
             for dir in widgets/*/; do
@@ -59,6 +59,17 @@ jobs:
       - name: Build
         working-directory: widgets/${{ matrix.widget }}
         run: npm run build
+      - name: Install browser for rendered gates
+        working-directory: widgets/${{ matrix.widget }}
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: First-paint gate
+        working-directory: widgets/${{ matrix.widget }}
+        run: NODE_PATH="$PWD/node_modules" node "$GITHUB_WORKSPACE/scripts/render.cjs" "$PWD/dist/index.html" widget-ready "$GITHUB_WORKSPACE/.render-out/${{ matrix.widget }}"
+      - name: Computed/composited theme audit
+        working-directory: widgets/${{ matrix.widget }}
+        run: NODE_PATH="$PWD/node_modules" node "$GITHUB_WORKSPACE/scripts/audit-theme.cjs" "${{ matrix.widget }}" "$PWD/dist/index.html" "$GITHUB_WORKSPACE/.theme-audit/${{ matrix.widget }}"
       # Interaction + UX gate. Runs only for widgets that ship a journey.json
       # sidecar (see TESTING.md). Mirrors the local invocation of
       # scripts/journey.cjs <dist/index.html> <journey.json> <out-dir>.
@@ -66,8 +77,6 @@ jobs:
         if: ${{ hashFiles(format('widgets/{0}/journey.json', matrix.widget)) != '' }}
         working-directory: widgets/${{ matrix.widget }}
         run: |
-          npm install --no-save playwright
-          npx playwright install --with-deps chromium
           NODE_PATH="$PWD/node_modules" node "$GITHUB_WORKSPACE/scripts/journey.cjs" \
             "$PWD/dist/index.html" \
             "$PWD/journey.json" \
@@ -78,4 +87,11 @@ jobs:
         with:
           name: journey-${{ matrix.widget }}
           path: .journey-out/${{ matrix.widget }}
+          if-no-files-found: ignore
+      - name: Upload theme audit
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: theme-audit-${{ matrix.widget }}
+          path: .theme-audit/${{ matrix.widget }}
           if-no-files-found: ignore

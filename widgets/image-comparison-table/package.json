@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/schibsted-grotesk": "^5.2.8",
     "preact": "^10.27.2"
   },
   "devDependencies": {

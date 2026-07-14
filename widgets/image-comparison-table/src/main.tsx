@@ -1,5 +1,8 @@
 import { render } from 'preact';
 import { App } from './App';
+import '@fontsource/schibsted-grotesk/400.css';
+import '@fontsource/schibsted-grotesk/700.css';
+import '../../../shared/theme.css';
 import './styles.css';
 
 // Embedded in an iframe the frame is already the container, so shed the

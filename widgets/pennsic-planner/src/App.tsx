@@ -311,8 +311,12 @@ export function App() {
   // The plan tab only renders outside read-only mode, so the label is always "My Calendar".
   const planLabel = 'My Calendar';
 
+  useEffect(() => {
+    document.documentElement.dataset.widgetState = ready ? 'ready' : 'loading';
+  }, [ready]);
+
   return (
-    <div class="container" ref={containerRef}>
+    <div class="container" ref={containerRef} data-testid="planner-root">
       {ready && <div id="widget-ready" style={{ display: 'none' }} aria-hidden="true" />}
       <div class="card">
         <div class="card-header">

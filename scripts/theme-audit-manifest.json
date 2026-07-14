@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "widgets": {
+    "function-plotter": {
+      "identity": ".card-header h1", "ui": "#expr-input",
+      "text": [".hint", ".error-msg"], "boundaries": ["#expr-input"], "focus": "#expr-input", "status": [".error-msg"]
+    },
+    "image-comparison-table": {
+      "identity": ".widget-title, h1", "ui": ".pick-card, button",
+      "text": [".widget-subtitle, .subtitle", ".pick-card", ".footnote", ".info-popover", ".lb-dialog"], "boundaries": [".pick-card, button"], "focus": ".pick-card, button", "status": [],
+      "manualSurfaces": [{ "surface": "image labels and lightbox backdrop", "method": "journey screenshot review", "checked": true, "result": "opaque label/dialog surfaces verified" }]
+    },
+    "japanese-verb-tower": {
+      "identity": ".card-header h1, h1", "ui": "[data-testid=search-input]",
+      "text": [".hint", "[data-testid=search-input]"], "boundaries": ["[data-testid=search-input]"], "focus": "[data-testid=search-input]", "status": [".error-message, .status"]
+    },
+    "labour-burden": {
+      "identity": ".card-header h1, h1", "ui": "[data-testid=toggle-modern]",
+      "text": [".subtitle, .intro", ".methodology-body", ".source-claim", ".detail-caveat"], "boundaries": ["[data-testid=toggle-modern]"], "focus": "[data-testid=toggle-modern]", "status": [],
+      "exceptions": [{ "selector": ".axis-label", "reason": "Non-interactive chart-axis tick annotation; the chart summary and focused segment detail expose the same values.", "stableSurface": ".chart-grid / opaque --card-bg", "zoomEvidence": "journey segment-detail at 200%" }]
+    },
+    "pennsic-mapper": {
+      "identity": ".topbar-title, h1", "ui": "[data-testid=zoom-in]",
+      "text": [".topbar-title, .info-panel-title"], "boundaries": ["[data-testid=zoom-in]"], "focus": "[data-testid=zoom-in]", "status": ["[data-testid=sync-badge]"],
+      "exceptions": [{ "selector": ".pin-marker-label", "reason": "Non-interactive map annotation; map imagery is intentionally not sampled as a CSS colour pair.", "stableSurface": "opaque --card-bg label pill", "zoomEvidence": "journey pin-label state at 200%" }],
+      "manualSurfaces": [{ "surface": "map raster beneath pins and labels", "method": "journey screenshot review at all required viewports", "checked": true, "result": "opaque pin-label/panel backing verified" }]
+    },
+    "pennsic-planner": {
+      "identity": ".card-header h1", "ui": "[data-testid=session-search]",
+      "text": [".card-header .hint", ".filter-label", ".filter-input", ".session-card-title", ".session-card-time"],
+      "boundaries": [".filter-input", ".session-card"], "focus": "[data-testid=session-search]", "status": [".cal-sync", ".conflict-banner", ".about-notice"],
+      "exceptions": [
+        { "selector": ".dtg-hour-label", "reason": "Non-interactive timetable axis annotation; session aria labels and detail dialog retain the essential time.", "stableSurface": "opaque --card-bg timetable column", "zoomEvidence": "journey session-modal at 200%" },
+        { "selector": ".dtg-block, .dtg-block-title", "reason": "Geometry-bound labels in fixed-duration blocks; title, time and location remain available through an accessible name and detail dialog.", "stableSurface": "opaque --card-bg bounded block", "zoomEvidence": "journey session-modal at 200%" },
+        { "selector": ".dtg-block-time, .dtg-block-loc", "reason": "Secondary metadata in the same bounded block; not an instruction, control, error or sole state cue.", "stableSurface": "opaque --card-bg bounded block", "zoomEvidence": "journey session-modal at 200%" }
+      ]
+    }
+  }
+}

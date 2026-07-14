@@ -50,6 +50,7 @@ export function InfoPopover({ prompt, rowLabel, note }: Props) {
         type="button"
         ref={triggerRef}
         class={`info-btn${open ? ' info-btn--open' : ''}`}
+        data-testid="prompt-toggle"
         aria-label={`Show generation prompt for ${rowLabel}`}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -61,7 +62,7 @@ export function InfoPopover({ prompt, rowLabel, note }: Props) {
         </svg>
       </button>
       {open && (
-        <span class="info-popover" role="dialog" aria-label={`Generation prompt for ${rowLabel}`}>
+        <span class="info-popover" data-testid="prompt-popover" role="dialog" aria-label={`Generation prompt for ${rowLabel}`}>
           <span class="info-arrow" aria-hidden="true" />
           <span class="info-popover-head">
             <span class="info-popover-title">Prompt</span>

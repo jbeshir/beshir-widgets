@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/schibsted-grotesk": "^5.2.8",
     "d3-selection": "^3.0.0",
     "d3-zoom": "^3.0.0",
     "preact": "^10.27.2"
