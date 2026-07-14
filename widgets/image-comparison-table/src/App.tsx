@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { resolveTable, TABLE_LIST, type Table } from './tables';
 import { Grid } from './Grid';
 import { Lightbox } from './Lightbox';
@@ -25,65 +25,19 @@ export function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [ready, setReady] = useState(false);
   const [width, setWidth] = useState(960);
-  const [fitStyle, setFitStyle] = useState<{ transform: string; marginBottom: string } | undefined>(
-    undefined,
-  );
   const pageRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Fit the widget to the viewport: bound by available width (the grid reflows
-  // to a compact layout when narrow) AND by available height (the whole thing
-  // scales down so it fits without scrolling).
-  useLayoutEffect(() => {
-    const page = pageRef.current;
-    const content = contentRef.current;
-    if (!page || !content) return;
-
-    const recompute = () => {
-      const cs = getComputedStyle(page);
-      const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-      const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-      // Use the viewport, not page.clientHeight — `.page` has min-height:100vh and
-      // grows with tall content, so it would report the full content height.
-      const availW = Math.max(0, window.innerWidth - padX);
-      const availH = Math.max(0, window.innerHeight - padY);
-      // Natural (untransformed) content size — transforms don't affect layout box.
-      const naturalW = content.offsetWidth;
-      const naturalH = content.offsetHeight;
-      if (naturalW <= 0 || naturalH <= 0) return;
-
-      const w = Math.max(280, Math.floor(availW));
-      setWidth((prev) => (Math.abs(prev - w) > 4 ? w : prev));
-
-      // Shrink to fit available height (and width); compensate the layout with a
-      // negative margin so the page reclaims the space the scale visually removes,
-      // avoiding scrollbars while keeping overflow visible for popovers.
-      const s = Math.min(1, availW / naturalW, availH / naturalH);
-      if (s < 0.999) {
-        const next = {
-          transform: `scale(${s})`,
-          marginBottom: `-${Math.ceil(naturalH * (1 - s))}px`,
-        };
-        setFitStyle((prev) =>
-          prev && prev.transform === next.transform && prev.marginBottom === next.marginBottom
-            ? prev
-            : next,
-        );
-      } else {
-        setFitStyle((prev) => (prev === undefined ? prev : undefined));
-      }
-    };
-
+  // Keep the compact-layout signal but never transform-scale the document:
+  // scaling can render otherwise compliant text below the 14px floor.
+  useEffect(() => {
+    const recompute = () => setWidth((prev) => {
+      const next = Math.max(280, Math.floor(window.innerWidth));
+      return Math.abs(prev - next) > 4 ? next : prev;
+    });
     recompute();
-    // Content size changes (reflow, table swap) — observe the layout box.
-    const ro = new ResizeObserver(recompute);
-    ro.observe(content);
-    // Viewport size changes (window / iframe resize).
     window.addEventListener('resize', recompute);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', recompute);
-    };
+    return () => window.removeEventListener('resize', recompute);
   }, []);
 
   // Mark widget ready after first paint.
@@ -91,14 +45,19 @@ export function App() {
     if (!ready) setReady(true);
   }, [ready]);
 
+  // The picker/table is interactive after first paint. This is metadata for
+  // the journey harness and does not alter either view's behaviour.
+  useEffect(() => {
+    document.documentElement.dataset.widgetState = ready ? 'ready' : 'loading';
+  }, [ready]);
+
   // Reflect the resolved view in <title>.
   useEffect(() => {
     document.title = table ? `${table.title} — Image Comparison` : 'Image Comparison Tables';
   }, [table]);
 
-  // Report natural (untransformed) content height so a host can auto-size the
-  // iframe to fit; the fit-scale above is the fallback for when a host instead
-  // pins a fixed height. scrollHeight is unaffected by the fit-scale transform.
+  // Report content height so a host can auto-size the iframe instead of
+  // shrinking typography to fit a fixed-height frame.
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
@@ -149,8 +108,7 @@ export function App() {
 
   return (
     <div class="page" ref={pageRef}>
-      <div class="fit-scale" style={fitStyle}>
-        <div class="container" ref={contentRef}>
+      <div class="container" ref={contentRef}>
           {table ? (
             <>
               <article class="card" aria-labelledby="ict-title">
@@ -181,7 +139,6 @@ export function App() {
           ) : (
             <Picker tables={TABLE_LIST} />
           )}
-        </div>
       </div>
 
       {table && selection && (

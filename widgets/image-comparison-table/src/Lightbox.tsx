@@ -97,6 +97,7 @@ export function Lightbox({ table, selection, onClose, onNavigate }: Props) {
   return (
     <dialog
       class="lb-backdrop"
+      data-testid="image-lightbox"
       ref={dialogRef}
       aria-labelledby={titleId}
       aria-describedby={captionId}

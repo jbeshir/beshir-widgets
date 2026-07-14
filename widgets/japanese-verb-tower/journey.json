@@ -49,6 +49,22 @@
         { "fill": "[data-testid=search-input]", "value": "zzzqqx" }
       ],
       "expect": { "state": "empty" }
+    },
+    {
+      "label": "focused-search",
+      "steps": [
+        { "eval": "document.querySelector('[data-testid=search-input]').focus()" },
+        { "eval": "(() => { const e = document.querySelector('[data-testid=search-input]'); if (document.activeElement !== e) throw new Error('search input did not receive keyboard focus'); })()" }
+      ],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "breakdown-empty-disabled",
+      "steps": [
+        { "clickRole": { "role": "tab", "name": "Break down" } },
+        { "eval": "(() => { const e = document.querySelector('[data-testid=breakdown-run]'); if (!e || !e.disabled) throw new Error('empty breakdown action is not disabled'); })()" }
+      ],
+      "expect": { "state": "ready" }
     }
   ]
 }

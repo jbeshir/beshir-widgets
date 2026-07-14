@@ -4,9 +4,9 @@ type Props = {
   tables: Table[];
 };
 
-// Landing view shown when no table is selected. Each card links to a table via
-// `./?table=<id>` — `./` resolves to the app root, so it works from `/` and from
-// a `/<id>` deep link alike.
+// Landing view shown when no table is selected. Each card uses the supported
+// `?table=<id>` query fixture, preserving the current document path. This works
+// for both deployed deep links and the file:// journey harness's index document.
 export function Picker({ tables }: Props) {
   return (
     <section class="picker card" aria-labelledby="picker-title">
@@ -21,7 +21,7 @@ export function Picker({ tables }: Props) {
       <ul class="pick-grid" role="list">
         {tables.map((t) => (
           <li key={t.id}>
-            <a class="pick-card" href={`./?table=${encodeURIComponent(t.id)}`}>
+            <a class="pick-card" data-testid="table-picker-card" href={`?table=${encodeURIComponent(t.id)}`}>
               <span class="pick-thumbs" aria-hidden="true">
                 {previewThumbs(t).map((src) => (
                   <span class="pick-thumb" key={src}>

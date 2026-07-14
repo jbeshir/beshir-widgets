@@ -16,6 +16,8 @@
     "typecheck:worker": "tsc -p tsconfig.worker.json --noEmit"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-sans-jp": "^5.2.8",
+    "@fontsource/schibsted-grotesk": "^5.2.8",
     "preact": "^10.27.2"
   },
   "devDependencies": {

@@ -115,6 +115,7 @@ export function SessionDetail({
   return (
     <div
       class="lightbox-overlay"
+      data-testid="session-dialog"
       style={style}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();

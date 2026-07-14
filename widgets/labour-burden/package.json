@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/schibsted-grotesk": "^5.2.8",
     "d3-scale": "^4.0.2",
     "preact": "^10.27.2"
   },

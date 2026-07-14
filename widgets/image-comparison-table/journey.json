@@ -1,0 +1,27 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    { "label": "picker", "steps": [], "expect": { "state": "ready" } },
+    {
+      "label": "table-lightbox",
+      "steps": [
+        { "click": "[data-testid=table-picker-card]" },
+        { "waitFor": "[data-testid=image-cell]" },
+        { "click": "[data-testid=image-cell]" }
+      ],
+      "expect": { "selector": "[data-testid=image-lightbox][open]" }
+    },
+    {
+      "label": "prompt-popover",
+      "steps": [
+        { "click": "[data-testid=table-picker-card]" },
+        { "waitFor": "[data-testid=prompt-toggle]" },
+        { "click": "[data-testid=prompt-toggle]" }
+      ],
+      "expect": { "selector": "[data-testid=prompt-popover]" }
+    }
+  ]
+}
