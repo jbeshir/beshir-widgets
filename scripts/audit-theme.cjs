@@ -16,6 +16,7 @@ const localThemeWidgets = [
   'labour-burden',
   'pennsic-mapper',
   'pennsic-planner',
+  'starfall-reliquary',
 ];
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, 'theme-audit-manifest.json'), 'utf8'));
 const manifestWidgets = Object.keys(manifest.widgets || {}).sort();

@@ -1,0 +1,9 @@
+/* Audit-friendly typography floor and explicit identity/UI font roles. */
+h1, h2, h3 {
+  font-family: "Schibsted Grotesk", Georgia, serif;
+}
+
+small, .eyebrow, .kicker, .hint, .build-name, .legend h3, .legend p,
+.arena output, footer, .card em, .controls button {
+  font-size: 14px !important;
+}

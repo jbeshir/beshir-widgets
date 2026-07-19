@@ -1,0 +1,1 @@
+{"name":"widget-starfall-reliquary","compatibility_date":"2026-06-01","assets":{"directory":"./dist/","not_found_handling":"single-page-application"},"routes":[{"pattern":"starfall-reliquary.widgets.beshir.org","custom_domain":true}]}

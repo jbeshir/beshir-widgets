@@ -13,6 +13,7 @@ const localThemeWidgets = [
   'labour-burden',
   'pennsic-mapper',
   'pennsic-planner',
+  'starfall-reliquary',
 ];
 
 function readImportSpecifiers(source) {
