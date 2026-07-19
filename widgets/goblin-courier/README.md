@@ -1,10 +1,10 @@
 # Goblin Courier
 
-A bounded 11-room top-down Canvas2D action-adventure widget built with Preact and TypeScript.
+A compact top-down Canvas2D fantasy delivery run built with Preact and TypeScript.
 
 ## Play offline
 
-Run `npm ci`, `npm run build`, then open the absolute `dist/index.html` path in a browser. The file is self-contained and requires no server or network. Keyboard: arrows/WASD move, Space dash, F toss, hold J to brace, E interact, Escape pause, M mute. Pointer and touch controls are overlaid on the game.
+Run `npm ci`, `npm run build`, then open the absolute `dist/index.html` path in a browser. The file is self-contained and requires no server or network. Keyboard: arrows/WASD move, Space DASH, F SHOOT, hold J to BRACE, E to USE a nearby parcel/door, Escape pause, M mute. Pointer and touch controls are overlaid on the game.
 
 ## Edit and verify
 
