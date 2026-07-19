@@ -25,6 +25,11 @@
       "exceptions": [{ "selector": ".pin-marker-label", "reason": "Non-interactive map annotation; map imagery is intentionally not sampled as a CSS colour pair.", "stableSurface": "opaque --card-bg label pill", "zoomEvidence": "journey pin-label state at 200%" }],
       "manualSurfaces": [{ "surface": "map raster beneath pins and labels", "method": "journey screenshot review at all required viewports", "checked": true, "result": "opaque pin-label/panel backing verified" }]
     },
+    "starfall-reliquary": {
+      "identity": "h1", "ui": "[data-testid=start-button], [data-testid=pause-button]",
+      "text": [".kicker", ".hint", ".hud", "aside"], "boundaries": ["button", ".arena"], "focus": "button, canvas", "status": ["footer [role=status]"],
+      "manualSurfaces": [{"surface":"procedural game canvas","method":"journey screenshot review","checked":true,"result":"high-contrast geometric factions and opaque overlays"}]
+    },
     "pennsic-planner": {
       "identity": ".card-header h1", "ui": "[data-testid=session-search]",
       "text": [".card-header .hint", ".filter-label", ".filter-input", ".session-card-title", ".session-card-time"],
