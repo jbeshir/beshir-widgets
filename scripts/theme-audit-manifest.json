@@ -1,6 +1,11 @@
 {
   "version": 1,
   "widgets": {
+    "goblin-courier": {
+      "identity": ".top h1", "ui": "#start-button, button[aria-label='Pause or resume']",
+      "text": [".card p", ".tip"], "boundaries": ["button"], "focus": "#start-button", "status": [],
+      "manualSurfaces": [{ "surface": "pixel-art Canvas2D playfield", "method": "journey screenshot review at all required viewports", "checked": true, "result": "opaque HUD chips and DOM labels preserve text readability independently of canvas" }]
+    },
     "function-plotter": {
       "identity": ".card-header h1", "ui": "#expr-input",
       "text": [".hint", ".error-msg"], "boundaries": ["#expr-input"], "focus": "#expr-input", "status": [".error-msg"]

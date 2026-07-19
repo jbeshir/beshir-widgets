@@ -8,6 +8,7 @@ const repositoryDir = path.resolve(__dirname, '..');
 const widgetsDir = path.resolve(__dirname, '..', 'widgets');
 const localThemeWidgets = [
   'function-plotter',
+  'goblin-courier',
   'image-comparison-table',
   'japanese-verb-tower',
   'labour-burden',
@@ -137,7 +138,7 @@ try {
 }
 
 const widgetDirectories = entries
-  .filter((entry) => fs.statSync(path.join(widgetsDir, entry)).isDirectory())
+  .filter((entry) => fs.statSync(path.join(widgetsDir, entry)).isDirectory() && fs.existsSync(path.join(widgetsDir, entry, 'widget.json')))
   .sort();
 if (widgetDirectories.length !== localThemeWidgets.length || widgetDirectories.some((slug, index) => slug !== localThemeWidgets[index])) {
   errors.push(`widgets: expected exactly the local-theme widgets ${localThemeWidgets.join(', ')}, found ${widgetDirectories.join(', ')}`);
@@ -149,7 +150,7 @@ if (fs.existsSync(path.join(repositoryDir, 'shared', 'theme.css'))) {
 for (const entry of entries) {
   const widgetPath = path.join(widgetsDir, entry);
   const stat = fs.statSync(widgetPath);
-  if (!stat.isDirectory()) continue;
+  if (!stat.isDirectory() || !fs.existsSync(path.join(widgetPath, 'widget.json'))) continue;
 
   const slug = entry;
   widgetCount++;

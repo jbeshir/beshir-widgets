@@ -11,6 +11,7 @@ const repositoryDir = path.resolve(__dirname, '..');
 const widgetsDir = path.join(repositoryDir, 'widgets');
 const localThemeWidgets = [
   'function-plotter',
+  'goblin-courier',
   'image-comparison-table',
   'japanese-verb-tower',
   'labour-burden',
