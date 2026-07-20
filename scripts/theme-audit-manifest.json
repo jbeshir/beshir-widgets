@@ -19,6 +19,11 @@
       "text": [".subtitle, .intro", ".methodology-body", ".source-claim", ".detail-caveat"], "boundaries": ["[data-testid=toggle-modern]"], "focus": "[data-testid=toggle-modern]", "status": [],
       "exceptions": [{ "selector": ".axis-label", "reason": "Non-interactive chart-axis tick annotation; the chart summary and focused segment detail expose the same values.", "stableSurface": ".chart-grid / opaque --card-bg", "zoomEvidence": "journey segment-detail at 200%" }]
     },
+    "long-thaw": {
+      "identity": ".shell", "ui": "canvas",
+      "text": [], "boundaries": ["canvas"], "focus": "canvas", "status": [],
+      "manualSurfaces": [{ "surface": "procedural game canvas", "method": "title, gameplay, and completion screenshot review", "checked": true, "result": "winter sprites, opaque HUD panels, focus frame, pause overlay, and ending overlay verified" }]
+    },
     "pennsic-mapper": {
       "identity": ".topbar-title, h1", "ui": "[data-testid=zoom-in]",
       "text": [".topbar-title, .info-panel-title"], "boundaries": ["[data-testid=zoom-in]"], "focus": "[data-testid=zoom-in]", "status": ["[data-testid=sync-badge]"],

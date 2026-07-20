@@ -2,7 +2,7 @@
 * { box-sizing: border-box; }
 html, body, #app { margin: 0; width: 100%; height: 100%; overflow: hidden; }
 body { background: radial-gradient(circle at 50% 15%, #24445c 0, #091725 54%, #03080d 100%); }
-.shell { width: 100%; height: 100%; display: grid; place-items: center; padding: 12px; }
-canvas { display: block; width: min(100%, calc((100vh - 24px) * 16 / 9)); max-height: calc(100vh - 24px); aspect-ratio: 16 / 9; border-radius: 12px; box-shadow: 0 30px 90px #000b, 0 0 0 1px #9ed7e52b; outline: none; background: #071521; }
+.shell { width: 100%; height: 100%; display: grid; place-items: center; padding: 12px; font-family: "Schibsted Grotesk", sans-serif; }
+canvas { display: block; width: min(100%, calc((100vh - 24px) * 16 / 9)); max-height: calc(100vh - 24px); aspect-ratio: 16 / 9; border-radius: 12px; box-shadow: 0 30px 90px #000b, 0 0 0 1px #9ed7e52b; outline: none; background: #071521; font-family: "Nunito Sans", sans-serif; }
 canvas:focus-visible { box-shadow: 0 30px 90px #000b, 0 0 0 3px #f8cc75; }
 .fallback { position: fixed; left: -9999px; }
