@@ -14,6 +14,7 @@ const localThemeWidgets = [
   'image-comparison-table',
   'japanese-verb-tower',
   'labour-burden',
+  'long-thaw',
   'pennsic-mapper',
   'pennsic-planner',
   'starfall-reliquary',
