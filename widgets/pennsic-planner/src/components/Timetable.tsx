@@ -42,7 +42,7 @@ export function Timetable({ sessions, planIds, onToggle, onOpenDetail, trackColo
       tabIndex={0}
     >
       {sessions.length === 0 ? (
-        <div class="empty-state">
+        <div class="empty-state" data-testid="session-empty-state">
           <h3>No sessions match</h3>
           <p>Try adjusting your filters, or select a different day.</p>
         </div>

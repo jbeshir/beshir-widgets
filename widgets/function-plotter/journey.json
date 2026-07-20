@@ -1,0 +1,22 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    { "label": "initial", "steps": [], "expect": { "state": "ready" } },
+    {
+      "label": "valid-expression",
+      "steps": [{ "fill": "[data-testid=expression-input]", "value": "cos(x) * x" }],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "invalid-expression-focused",
+      "steps": [
+        { "click": "[data-testid=expression-input]" },
+        { "fill": "[data-testid=expression-input]", "value": "sin(" }
+      ],
+      "expect": { "selector": "[data-testid=expression-error]:not(:empty)" }
+    }
+  ]
+}

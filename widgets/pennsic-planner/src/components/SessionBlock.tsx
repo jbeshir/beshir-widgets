@@ -33,6 +33,7 @@ export function SessionBlock({ session, inPlan, trackColor, onToggle, onOpenDeta
   return (
     <div
       class={cardClass}
+      data-testid="session-card"
       style={style}
       onClick={onOpenDetail}
       role="button"

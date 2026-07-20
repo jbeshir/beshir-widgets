@@ -61,6 +61,16 @@ export function App() {
   const fn = useMemo(() => compileExpr(expr), [expr]);
   const invalid = fn === null;
 
+  // Journey lifecycle contract: plotting is interactive once its first render
+  // completes; invalid input is a deterministic input-processing error.
+  useEffect(() => {
+    document.documentElement.dataset.widgetState = !ready
+      ? 'loading'
+      : invalid
+        ? 'error'
+        : 'ready';
+  }, [ready, invalid]);
+
   const samples = useMemo(() => {
     if (!fn) return [] as Sample[];
     return sampleFunction(fn);
@@ -116,7 +126,7 @@ export function App() {
         background: 'transparent',
         color: 'var(--fg)',
         fontFamily: 'inherit',
-        fontSize: '12px',
+        fontSize: '14px',
       },
       x: {
         domain: [X_MIN, X_MAX],
@@ -168,6 +178,7 @@ export function App() {
           <label htmlFor="expr-input">f(x) =</label>
           <input
             id="expr-input"
+            data-testid="expression-input"
             type="text"
             value={expr}
             onInput={(e) => setExpr((e.target as HTMLInputElement).value)}
@@ -178,7 +189,7 @@ export function App() {
             aria-describedby="expr-error"
           />
         </div>
-        <div id="expr-error" className="error-msg" role="alert">
+        <div id="expr-error" className="error-msg" role="alert" data-testid="expression-error">
           {invalid ? 'Invalid expression' : ''}
         </div>
 

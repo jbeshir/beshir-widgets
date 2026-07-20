@@ -1,26 +1,26 @@
 :root {
-  --bg: #faf3e6;
+  --bg: var(--widget-bg);
   /* The full-bleed canvas the centred map floats on — subtly distinct from --card-bg so the framed map
      reads as inset against it, and darker than --bg so side/top gutters don't glare in standalone. */
   --canvas: #efe6d4;
-  --card-bg: #fffdfa;
-  --card-border: #e7ddcd;
-  --fg: #20242b;
-  --fg-secondary: #4b4438;
-  --muted: #6b6358;
-  --input-bg: #fffdfa;
-  --input-border: #d9cbb5;
-  --input-focus: #9d2235;
+  --card-bg: var(--widget-panel);
+  --card-border: var(--widget-border);
+  --fg: var(--widget-fg);
+  --fg-secondary: var(--widget-fg-secondary);
+  --muted: var(--widget-fg-muted);
+  --input-bg: var(--widget-panel);
+  --input-border: var(--widget-border);
+  --input-focus: var(--widget-focus);
   --input-focus-ring: rgba(157, 34, 53, 0.2);
   --accent-fill: #9d2235;
   --accent-fg: #fdf3ea;
   --gold: #d99a1f;
   --gold-bright: #ffd166;
-  --success: #166534;
+  --success: var(--widget-success);
   --success-bg: #f0fdf4;
-  --warning: #92400e;
+  --warning: var(--widget-warning);
   --warning-bg: #fffbeb;
-  --error: #a51414;
+  --error: var(--widget-error);
   --error-bg: #fef2f2;
   --pill-bg: #f3ece1;
   --pill-hover: #ece2d2;
@@ -30,29 +30,29 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14171d;
+    --bg: var(--widget-bg);
     --canvas: #0f1216;
     --card-bg: #1b1f27;
-    --card-border: #2b313c;
-    --fg: #e9e6e1;
+    --card-border: var(--widget-border);
+    --fg: var(--widget-fg);
     /* Secondary/muted lightened vs a straight WCAG-only tune so dark-mode body copy also clears APCA
        Lc 75 (fg-secondary ≈ Lc 79, muted ≈ Lc 75 on --card-bg), preserving the primary→secondary→muted
        hierarchy (fg ≈ 90). */
     --fg-secondary: #d9d5cb;
     --muted: #c9cfd8;
     --input-bg: #14171d;
-    --input-border: #3b414c;
-    --input-focus: #ff8097;
+    --input-border: var(--widget-border);
+    --input-focus: var(--widget-focus);
     --input-focus-ring: rgba(255, 128, 151, 0.25);
     --accent-fill: #9e3346;
     --accent-fg: #fff2f5;
     --gold: #ffd166;
     --gold-bright: #ffd166;
-    --success: #86efac;
+    --success: var(--widget-success);
     --success-bg: #052e16;
-    --warning: #fcd34d;
+    --warning: var(--widget-warning);
     --warning-bg: #1c1004;
-    --error: #fecaca;
+    --error: var(--widget-error);
     --error-bg: #1f0707;
     --pill-bg: #252a33;
     --pill-hover: #2f3540;
@@ -71,7 +71,7 @@ html, body {
 }
 
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--widget-font-ui);
   background: var(--bg);
   color: var(--fg);
   font-size: 16px;
@@ -1669,3 +1669,65 @@ li:last-child .legend-row { border-bottom: none; }
 /* The full-bleed layout applies in both standalone and embedded; the frame is the container, so just
    shed the standalone page background. .app already fills the frame (100dvh = the iframe height). */
 .embedded body { background: transparent; }
+
+/* Semantic typography and interaction states. Map/data colours and full-bleed
+   positioning above remain local; these aliases only govern readable chrome. */
+.status-card h1,
+.status-card h2,
+.preview-title,
+.readonly-topbar-title .readonly-title,
+.info-panel-title { font-family: var(--widget-font-identity); }
+
+.status-eyebrow,
+.map-hint,
+.map-zoom-btn,
+.pin-editor-field-label,
+.pin-editor label,
+.color-toolbar label,
+.sync-badge,
+.map-bar-link-label,
+.map-bar-link-subtext,
+.preview-eyebrow,
+.preview-topbar-caption,
+.topbar-error,
+.readonly-eyebrow,
+.readonly-topbar-caption,
+.key-group-title,
+.key-area-num,
+.key-area-detail,
+.key-credit,
+.royals-block,
+.royals-note { font-size: var(--widget-text-floor); }
+
+/* A map label is a compact, non-interactive data annotation. Its fully opaque
+   backing makes the 12px density exception stable over every map region. */
+.pin-marker-label { background: var(--card-bg); }
+
+/* Text-bearing floating chrome must never inherit a translucent map/image. */
+.map-hint,
+.color-toolbar,
+.map-topbar,
+.share-popover,
+.pin-editor,
+.info-panel,
+.status-card { background: var(--card-bg); }
+
+.button-primary:active,
+.button-secondary:active,
+.button-danger:active,
+.map-zoom-btn:active,
+.color-swatch:active,
+.legend-row:active,
+.royals-row:active { transform: translateY(1px); }
+
+.button-primary:disabled,
+.button-secondary:disabled,
+.button-primary[aria-disabled='true'],
+.button-secondary[aria-disabled='true'] {
+  color: var(--widget-disabled);
+  border-color: var(--widget-border);
+  opacity: .78;
+}
+
+.button-primary[aria-disabled='true'],
+.button-secondary[aria-disabled='true'] { pointer-events: none; }

@@ -120,7 +120,7 @@ export function InstructorsView({
   if (drillGroup !== null) {
     const count = drillGroup.sessions.length;
     return (
-      <div class="instructors-view">
+      <div class="instructors-view" data-testid="instructors-view">
         <div class="instructor-detail">
           <button class="instructor-back-link" type="button" ref={backRef} onClick={handleBack}>
             ‹ All instructors
@@ -150,7 +150,7 @@ export function InstructorsView({
   }
 
   return (
-    <div class="instructors-view">
+    <div class="instructors-view" data-testid="instructors-view">
       <div class="instructors-toolbar">
         <label class="sr-only" for="instructor-search">Search instructors</label>
         <input

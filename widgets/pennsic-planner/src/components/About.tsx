@@ -4,7 +4,7 @@ interface Props {
 
 export function About({ eventName }: Props) {
   return (
-    <div class="about-view">
+    <div class="about-view" data-testid="about-view">
       <h2>{eventName} Planner</h2>
       <p>
         A schedule browser and personal planner for{' '}

@@ -88,6 +88,7 @@ export function Filters({
             <input
               ref={searchRef}
               class="filter-input"
+              data-testid="track-filter"
               type="text"
               placeholder="Add track…"
               value={trackSearch}
@@ -156,6 +157,7 @@ export function Filters({
         <span class="filter-label" style={{ marginLeft: '8px' }}>Search</span>
         <input
           class="filter-input"
+          data-testid="session-search"
           type="text"
           placeholder="Title, instructor…"
           value={textFilter}

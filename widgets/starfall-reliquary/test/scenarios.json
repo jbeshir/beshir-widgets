@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "name": "boot-title",
+      "kind": "boot",
+      "start": "fresh",
+      "setup": [],
+      "actions": [],
+      "expect": {
+        "state": "title",
+        "check": "g.getState().lifecycle === 'title'",
+        "visible": ["canvas", "#game-ready", "[data-testid=start-button]"]
+      },
+      "screenshot": "boot-title.png"
+    },
+    {
+      "name": "core-keyboard-movement",
+      "kind": "core",
+      "start": "fresh",
+      "setup": [],
+      "actions": ["press:interact", "hold:right:35"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().playerX > 450 && g.getState().wave === 1",
+        "visible": ["canvas", "[data-testid=wave-label]"]
+      },
+      "screenshot": "core-keyboard.png"
+    },
+    {
+      "name": "pointer-drag-release",
+      "kind": "input",
+      "start": "fresh",
+      "setup": ["call:start()"],
+      "actions": [
+        "pointer:down:1:@0.35,0.55",
+        "pointer:move:1:@0.62,0.55",
+        "wait:25",
+        "pointer:up:1:@0.62,0.55",
+        "wait:30"
+      ],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().playerX > 450 && !g.getState().stickActive && g.getState().playerVelocity < 0.2",
+        "visible": ["canvas"]
+      },
+      "screenshot": "pointer-drag.png"
+    },
+    {
+      "name": "touch-drag-end",
+      "kind": "input",
+      "start": "fresh",
+      "setup": ["call:start()"],
+      "actions": [
+        "touch:start:2:@0.35,0.5",
+        "touch:move:2:@0.6,0.5",
+        "wait:24",
+        "touch:end:2:@0.6,0.5",
+        "wait:30"
+      ],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().playerX > 450 && !g.getState().stickActive && g.getState().playerVelocity < 0.2",
+        "visible": ["canvas"]
+      },
+      "screenshot": "touch-drag.png"
+    },
+    {
+      "name": "touch-cancel-stop",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()"],
+      "actions": [
+        "touch:start:3:@0.5,0.5",
+        "touch:move:3:@0.5,0.8",
+        "wait:12",
+        "touch:cancel:3:@0.5,0.8",
+        "wait:30"
+      ],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().playerY > 300 && !g.getState().stickActive && g.getState().playerVelocity < 0.2",
+        "visible": ["canvas"]
+      },
+      "screenshot": "touch-cancel.png"
+    },
+    {
+      "name": "pause-resume",
+      "kind": "pause",
+      "start": "fresh",
+      "setup": ["call:start()"],
+      "actions": [
+        "tap:[data-testid=pause-button]",
+        "wait:15",
+        "press:pause",
+        "wait:2"
+      ],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().lifecycle === 'playing' && g.getState().frame <= 6",
+        "visible": ["canvas"]
+      },
+      "screenshot": "pause-resume.png"
+    },
+    {
+      "name": "upgrade-keyboard",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:grantXp(100)"],
+      "actions": ["press:right", "press:interact"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().level >= 2 && g.getState().upgradeIds.length >= 2",
+        "visible": ["canvas"]
+      },
+      "screenshot": "upgrade-keyboard.png"
+    },
+    {
+      "name": "upgrade-pointer",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:grantXp(100)"],
+      "actions": ["tap:.card"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().upgradeIds.length >= 2",
+        "visible": ["canvas"]
+      },
+      "screenshot": "upgrade-pointer.png"
+    },
+    {
+      "name": "boss-phase-victory",
+      "kind": "win",
+      "start": "fresh",
+      "setup": ["call:start()", "call:setWave(5)"],
+      "actions": ["wait:2", "call:damageBoss(300)", "wait:2", "call:damageBoss(300)", "wait:2", "call:damageBoss(249)", "wait:80"],
+      "expect": {
+        "state": "won",
+        "check": "g.getState().bossHp === 0 && g.getState().bossPhase === 3 && g.getState().weaponStats.bossTransitions >= 3 && g.getScore() >= 3000",
+        "visible": ["[data-testid=restart-button]"]
+      },
+      "screenshot": "boss-victory.png"
+    },
+    {
+      "name": "loss-and-restart",
+      "kind": "loss",
+      "start": "fresh",
+      "setup": ["call:start()", "call:setHull(5)", "call:damagePlayer(20)"],
+      "actions": ["tap:[data-testid=restart-button]"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().hull === 100 && g.getState().frame >= 1",
+        "visible": ["canvas"]
+      },
+      "screenshot": "loss-restart.png"
+    },
+    {
+      "name": "synergy-determinism",
+      "kind": "regression",
+      "start": "reload",
+      "setup": [
+        "call:setSeed(4242)",
+        "call:start()",
+        "call:grantUpgrade(\"orbit\")",
+        "call:grantUpgrade(\"magnet\")",
+        "call:grantUpgrade(\"mortar\")",
+        "call:grantUpgrade(\"cryo\")",
+        "call:spawnEnemy(\"drifter\",520,300)",
+        "call:spawnEnemy(\"splitter\",650,300)"
+      ],
+      "actions": ["hold:right:120", "wait:120"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().weaponStats.orbit > 0 && g.getState().weaponStats.mortar > 0 && g.getState().weaponStats.cryo > 0 && typeof g.getChecksum() === 'string'",
+        "visible": ["canvas"]
+      },
+      "screenshot": "synergy-checksum.png"
+    },
+    {
+      "name": "archetype-behaviors",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:spawnEnemy(\"lancer\",700,300)", "call:spawnEnemy(\"cantor\",150,150)", "call:spawnEnemy(\"minekeeper\",750,150)", "call:spawnEnemy(\"orbiter\",450,80)", "call:spawnEnemy(\"splitter\",160,450)"],
+      "actions": ["hold:right:190"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().weaponStats.lancerTelegraph > 0 && g.getState().weaponStats.cantorShots > 0 && g.getState().weaponStats.minesDropped > 0 && g.getState().mineCount > 0 && g.getState().enemyKinds.includes('orbiter') && g.getState().enemyKinds.includes('splitter')",
+        "visible": ["canvas"]
+      },
+      "screenshot": "archetype-behaviors.png"
+    },
+    {
+      "name": "core-normal-combat",
+      "kind": "core",
+      "start": "fresh",
+      "setup": [],
+      "actions": ["press:interact", "hold:right:180", "hold:left:180"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().frame >= 360 && g.getState().weaponStats.needle > 0 && g.getScore() > 0",
+        "visible": ["canvas", "[data-testid=wave-label]"]
+      },
+      "screenshot": "core-normal-combat.png"
+    }
+  ]
+}
