@@ -1,0 +1,35 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    {
+      "label": "initial",
+      "steps": [],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "flip-back",
+      "steps": [{ "click": "[data-testid=face-toggle]" }],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "pick-city",
+      "steps": [
+        {
+          "eval": "(() => { const e = document.querySelector('[data-testid=city-select]'); e.value = 'Cairo'; e.dispatchEvent(new Event('change', { bubbles: true })); })()"
+        }
+      ],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "manual-latitude",
+      "steps": [
+        { "fill": "[data-testid=lat-input]", "value": "35.68" },
+        { "fill": "[data-testid=lng-input]", "value": "139.69" }
+      ],
+      "expect": { "selector": "[data-testid=mismatch]:not(:empty)" }
+    }
+  ]
+}

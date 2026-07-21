@@ -1,0 +1,84 @@
+/* Local, declarative primitives owned by this independently built widget.
+   Museum-brass palette; see PLAN.md §7. */
+:root {
+  color-scheme: light dark;
+  --widget-bg: #efe6d4;
+  --widget-panel: #faf4e8;
+  --widget-fg: #2a2118;
+  --widget-fg-secondary: #4d4028;
+  --widget-fg-muted: #6b5f4c;
+  --widget-accent-display: #8a6a2f;
+  --widget-accent-text: #9d2235;
+  --widget-border: #b5893f;
+  --widget-focus: #9d2235;
+  --widget-disabled: #a89a7c;
+  --widget-error: #b91c1c;
+  --widget-warning: #8a5a14;
+  --widget-success: #176b4b;
+  --widget-font-identity: "EB Garamond", Georgia, serif;
+  --widget-font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --widget-text-floor: 14px;
+
+  /* Astrolabe instrument tokens (phase02): aliases onto the tokens above so
+     the SVG face stays theme-correct without hardcoded colors. */
+  --astro-mater-fill: var(--widget-panel);
+  --astro-limb-fill: var(--widget-bg);
+  --astro-rim: var(--widget-border);
+  --astro-line: var(--widget-fg-muted);
+  --astro-line-strong: var(--widget-fg-secondary);
+  --astro-horizon: var(--widget-fg-secondary);
+  --astro-brass: var(--widget-accent-display);
+  --astro-gold: var(--widget-accent-display);
+  --astro-accent-red: var(--widget-accent-text);
+  --astro-label: var(--widget-fg-secondary);
+  --astro-label-muted: var(--widget-fg-muted);
+  --astro-star: var(--widget-accent-display);
+  --astro-zenith: var(--widget-accent-text);
+  --astro-alidade-fill: #b99855;
+  --astro-alidade-line: #5f4824;
+
+  /* Declination-circle hierarchy (phase-polish): Capricorn/rim stays on
+     --astro-rim (boldest, brass); the equator and Tropic of Cancer each get
+     their own softer ink tone so the plate reads as an engraved hierarchy
+     rather than three near-identical dark lines. */
+  --astro-line-medium: #7c6640;
+  --astro-line-faint: #93805c;
+  /* Rule body reuses the alidade's brass tone so front/back rules match. */
+  --astro-rule-fill: var(--astro-alidade-fill);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --widget-bg: #12100c;
+    --widget-panel: #201d16;
+    --widget-fg: #ece3d0;
+    --widget-fg-secondary: #cbbfa0;
+    --widget-fg-muted: #a89878;
+    --widget-accent-display: #d9b45a;
+    --widget-accent-text: #e08a95;
+    --widget-border: #7a6636;
+    --widget-focus: #e08a95;
+    --widget-disabled: #6b6250;
+    --widget-error: #fca5a5;
+    --widget-warning: #f1c453;
+    --widget-success: #86efac;
+
+    --astro-mater-fill: var(--widget-panel);
+    --astro-limb-fill: var(--widget-bg);
+    --astro-rim: var(--widget-border);
+    --astro-line: var(--widget-fg-muted);
+    --astro-line-strong: var(--widget-fg-secondary);
+    --astro-horizon: var(--widget-fg-secondary);
+    --astro-brass: var(--widget-accent-display);
+    --astro-gold: var(--widget-accent-display);
+    --astro-accent-red: var(--widget-accent-text);
+    --astro-label: var(--widget-fg-secondary);
+    --astro-label-muted: var(--widget-fg-muted);
+    --astro-star: var(--widget-accent-display);
+    --astro-zenith: var(--widget-accent-text);
+    --astro-alidade-fill: #9d7d39;
+    --astro-alidade-line: #f0cf79;
+  }
+}
+
+h1, h2, h3 { font-family: var(--widget-font-identity); }
