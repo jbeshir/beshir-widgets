@@ -1,8 +1,7 @@
 import { render } from 'preact';
 import { App } from './App';
-import '@fontsource/eb-garamond/400.css';
-import '@fontsource/eb-garamond/600.css';
-import '@fontsource/eb-garamond/700.css';
+import '@fontsource/schibsted-grotesk/400.css';
+import '@fontsource/schibsted-grotesk/700.css';
 import './theme.css';
 import './styles.css';
 

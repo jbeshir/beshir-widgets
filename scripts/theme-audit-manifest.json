@@ -1,6 +1,12 @@
 {
   "version": 1,
   "widgets": {
+    "astrolabe-simulator": {
+      "identity": ".card-header h1", "ui": "[data-testid=city-select]",
+      "text": [".hint", ".mismatch", ".info-panel summary", ".part-button span"],
+      "boundaries": ["[data-testid=city-select]", ".part-button"], "focus": "[data-testid=face-toggle]", "status": ["[data-testid=mismatch]"],
+      "manualSurfaces": [{ "surface": "engraved astrolabe SVG faces", "method": "journey screenshot review in front and back states", "checked": true, "result": "theme-token-backed fills, strokes and labels verified" }]
+    },
     "function-plotter": {
       "identity": ".card-header h1", "ui": "#expr-input",
       "text": [".hint", ".error-msg"], "boundaries": ["#expr-input"], "focus": "#expr-input", "status": [".error-msg"]

@@ -9,13 +9,13 @@
   --widget-fg-muted: #6b5f4c;
   --widget-accent-display: #8a6a2f;
   --widget-accent-text: #9d2235;
-  --widget-border: #b5893f;
+  --widget-border: #ad8038;
   --widget-focus: #9d2235;
   --widget-disabled: #a89a7c;
   --widget-error: #b91c1c;
   --widget-warning: #8a5a14;
   --widget-success: #176b4b;
-  --widget-font-identity: "EB Garamond", Georgia, serif;
+  --widget-font-identity: "Schibsted Grotesk", "IBM Plex Sans JP", ui-sans-serif, system-ui, sans-serif;
   --widget-font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --widget-text-floor: 14px;
 

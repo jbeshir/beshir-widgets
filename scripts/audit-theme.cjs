@@ -10,6 +10,7 @@ const [slug, indexPath, outDir = '/out'] = process.argv.slice(2);
 const repositoryDir = path.resolve(__dirname, '..');
 const widgetsDir = path.join(repositoryDir, 'widgets');
 const localThemeWidgets = [
+  'astrolabe-simulator',
   'function-plotter',
   'image-comparison-table',
   'japanese-verb-tower',
