@@ -40,6 +40,12 @@ export interface Shard extends Vec {
   id: number;
   value: number;
 }
+export interface CryoField extends Vec {
+  id: number;
+  r: number;
+  life: number;
+  maxLife: number;
+}
 export interface GameState {
   lifecycle: Life;
   frame: number;
@@ -61,6 +67,7 @@ export interface GameState {
   enemies: Enemy[];
   shots: Shot[];
   shards: Shard[];
+  cryoFields: CryoField[];
   upgrades: Record<string, number>;
   offers: string[];
   nextId: number;
@@ -73,6 +80,7 @@ export interface GameState {
   stick: Vec | null;
   aegis: number;
   aegisCooldown: number;
+  shardsCollected: number;
   weaponStats: Record<string, number>;
   bossPhase: number;
 }

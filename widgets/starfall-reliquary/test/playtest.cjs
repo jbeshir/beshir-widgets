@@ -4,6 +4,10 @@ const { chromium } = require('playwright');
 
 const root = path.resolve(__dirname, '..');
 const suite = JSON.parse(fs.readFileSync(path.join(__dirname, 'scenarios.json'), 'utf8'));
+if (process.env.SCENARIO) {
+  const selected = new Set(process.env.SCENARIO.split(','));
+  suite.scenarios = suite.scenarios.filter(({ name }) => selected.has(name));
+}
 const gallery = path.join(root, 'artifacts/gallery');
 const reportPath = path.join(root, 'artifacts/playtest-report.json');
 const fileUrl = `file://${path.join(root, 'dist-test/index.html')}`;
@@ -171,7 +175,10 @@ async function waitReady(page) {
           if (!visible) throw new Error(`not visible: ${selector}`);
         }
         const check = await page.evaluate(expression => { const g = window.__game, state = document.documentElement.dataset.gameState; return Function('g', 'state', `return (${expression})`)(g, state); }, scenario.expect.check);
-        if (check !== true) throw new Error(`expect.check returned ${String(check)}`);
+        if (check !== true) {
+          const snapshot = await page.evaluate(() => window.__game?.getState());
+          throw new Error(`expect.check returned ${String(check)}; state ${JSON.stringify(snapshot)}`);
+        }
         if (consoleErrors.length) throw new Error(`console/page errors: ${consoleErrors.join('; ')}`);
         const screenshot = path.join(gallery, scenario.screenshot);
         await page.screenshot({ path: screenshot, timeout: 3000 });
