@@ -4,12 +4,12 @@ export const UPGRADES=[
  {id:'twin',name:'Twin Needle',text:'Needle Array fires an additional bolt.',tag:'Needle'},
  {id:'pierce',name:'Piercing Script',text:'Bolts pass through another foe.',tag:'Needle'},
  {id:'quick',name:'Quick Etching',text:'Needle cadence increases by 22%.',tag:'Needle'},
- {id:'orbit',name:'Orbit Blades',text:'A celestial blade circles and damages foes.',tag:'Weapon'},
- {id:'mortar',name:'Comet Mortar',text:'Periodic explosive comets strike clusters.',tag:'Weapon'},
- {id:'prism',name:'Prism Beam',text:'A sweeping beam sears nearby enemies.',tag:'Weapon'},
- {id:'magnet',name:'Magnet Core',text:'Shards attract from farther away.',tag:'Support'},
- {id:'cryo',name:'Cryo Wake',text:'Movement leaves slowing frost motes.',tag:'Support'},
- {id:'aegis',name:'Aegis',text:'Regenerate a ward that absorbs one hit.',tag:'Defense'},
+ {id:'orbit',name:'Orbit Blades',text:'Add a celestial blade that circles and damages foes.',tag:'Weapon'},
+ {id:'mortar',name:'Comet Mortar',text:'Comets strike faster and explode in a larger blast.',tag:'Weapon'},
+ {id:'prism',name:'Prism Beam',text:'Lengthen and strengthen a sweeping beam.',tag:'Weapon'},
+ {id:'magnet',name:'Magnet Core',text:'Extend shard attraction; higher ranks repair hull.',tag:'Support'},
+ {id:'cryo',name:'Cryo Wake',text:'Leave larger, longer slowing fields; chilled foes burst.',tag:'Support'},
+ {id:'aegis',name:'Aegis',text:'Absorb one hit; ranks recharge faster and repel foes.',tag:'Defense'},
  {id:'overclock',name:'Overclock',text:'+30% damage and fire rate; -15 max hull.',tag:'Risk'}
 ] as const;
 export const upgradeName=(id:string)=>UPGRADES.find(u=>u.id===id)?.name||id;

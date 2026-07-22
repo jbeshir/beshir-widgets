@@ -38,8 +38,21 @@ export function draw(c: HTMLCanvasElement, s: GameState) {
     x.fillRect(-5, -5, 10, 10);
     x.restore();
   }
+  for(const f of s.cryoFields){
+    const alpha=Math.max(0,f.life/f.maxLife);
+    x.fillStyle=`rgba(116,226,255,${alpha*.11})`;
+    x.strokeStyle=`rgba(165,242,255,${alpha*.62})`;
+    x.lineWidth=2;x.beginPath();x.arc(f.x,f.y,f.r*(1-alpha*.12),0,7);x.fill();x.stroke();
+    x.beginPath();x.arc(f.x,f.y,f.r*.55,0,7);x.stroke();
+  }
+  if(s.upgrades.prism&&s.enemies.length&&s.frame%75<7+4*s.upgrades.prism){
+    const a=s.frame*(.028+s.upgrades.prism*.004), length=280;
+    x.save();x.translate(s.player.x,s.player.y);x.rotate(a);
+    const beam=x.createLinearGradient(0,0,length,0);beam.addColorStop(0,'#ffffff');beam.addColorStop(.35,'#a8f8ff');beam.addColorStop(1,'#d48cff00');
+    x.strokeStyle=beam;x.lineWidth=5+s.upgrades.prism*2;x.shadowBlur=14;x.shadowColor='#a8f8ff';x.beginPath();x.moveTo(12,0);x.lineTo(length,0);x.stroke();x.restore();
+  }
   for (const p of s.shots) {
-    x.fillStyle = p.hostile ? "#ff648f" : "#7ff6ff";
+    x.fillStyle = p.hostile ? "#ff648f" : p.kind === "mortar" ? "#ffd172" : "#7ff6ff";
     x.beginPath();
     if (p.kind === "mine") {
       x.strokeStyle = "#ffcf72";
@@ -52,10 +65,19 @@ export function draw(c: HTMLCanvasElement, s: GameState) {
       x.moveTo(p.x, p.y - p.r);
       x.lineTo(p.x, p.y + p.r);
       x.stroke();
+    } else if(p.kind==='mortar'){
+      x.strokeStyle='#ffad66';x.lineWidth=2;x.arc(p.x,p.y,p.r+5+Math.sin(p.life*.3)*2,0,7);x.stroke();x.beginPath();x.arc(p.x,p.y,p.r,0,7);
     } else p.hostile
       ? x.rect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2)
       : x.arc(p.x, p.y, p.r, 0, 7);
     x.fill();
+  }
+  if(s.upgrades.orbit){
+    const blades=s.upgrades.orbit;
+    for(let i=0;i<blades;i++){
+      const a=s.frame*.07+i*Math.PI*2/blades,bx=s.player.x+Math.cos(a)*70,by=s.player.y+Math.sin(a)*70;
+      x.save();x.translate(bx,by);x.rotate(a+Math.PI/2);x.shadowBlur=10;x.shadowColor='#ffe789';x.fillStyle='#fff1a6';x.beginPath();x.moveTo(0,-13);x.lineTo(6,7);x.lineTo(0,11);x.lineTo(-6,7);x.closePath();x.fill();x.restore();
+    }
   }
   for (const e of s.enemies) {
     if (e.kind === "lancer" && e.telegraph) {
@@ -114,6 +136,10 @@ export function draw(c: HTMLCanvasElement, s: GameState) {
   x.closePath();
   x.fill();
   x.restore();
+  if(s.upgrades.aegis){
+    const ready=!!s.aegis, progress=s.aegisCooldown?1-s.aegisCooldown/Math.max(180,480-80*s.upgrades.aegis):1;
+    x.strokeStyle=ready?'#b9f8ff':`rgba(185,248,255,${Math.max(.12,progress*.65)})`;x.lineWidth=ready?4:2;x.setLineDash(ready?[]:[5,8]);x.beginPath();x.arc(s.player.x,s.player.y,25,-Math.PI/2,-Math.PI/2+Math.PI*2*(ready?1:Math.max(0,progress)));x.stroke();x.setLineDash([]);
+  }
   if (s.stick) {
     x.strokeStyle = "#b9f8ff88";
     x.lineWidth = 3;

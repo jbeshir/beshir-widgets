@@ -31,6 +31,7 @@ export function fresh(
     enemies: [],
     shots: [],
     shards: [],
+    cryoFields: [],
     upgrades: { needle: 1 },
     offers: [],
     nextId: 1,
@@ -43,6 +44,7 @@ export function fresh(
     stick: null,
     aegis: 0,
     aegisCooldown: 0,
+    shardsCollected: 0,
     weaponStats: { needle: 0, orbit: 0, mortar: 0, prism: 0, cryo: 0 },
     bossPhase: 0,
   };
@@ -91,6 +93,15 @@ export function damagePlayer(s: GameState, n: number) {
     s.aegisCooldown = Math.max(180, 480 - 80 * s.upgrades.aegis);
     s.player.inv = 40;
     s.status = "Aegis shattered — impact repelled.";
+    if (s.upgrades.aegis > 1) {
+      const force = 18 + s.upgrades.aegis * 7;
+      for (const e of s.enemies) {
+        const dx = e.x - s.player.x, dy = e.y - s.player.y;
+        const d = Math.hypot(dx, dy) || 1;
+        if (d < 145) { e.x += dx / d * force; e.y += dy / d * force; e.slow = Math.max(e.slow || 0, 30); }
+      }
+      s.weaponStats.aegisRepels = (s.weaponStats.aegisRepels || 0) + 1;
+    }
     return;
   }
   s.player.hull = Math.max(0, s.player.hull - n);
@@ -123,20 +134,22 @@ export function offer(s: GameState) {
 }
 export function choose(s: GameState, id: string) {
   if (s.lifecycle !== "choosing" || !s.offers.includes(id)) return;
-  s.upgrades[id] = (s.upgrades[id] || 0) + 1;
-  if (id === "overclock") {
-    s.player.maxHull = Math.max(40, s.player.maxHull - 15);
-    s.player.hull = Math.min(s.player.hull, s.player.maxHull);
-  }
-  if (id === "aegis") s.aegis = 1;
+  applyUpgrade(s, id);
   s.offers = [];
   s.lifecycle = "playing";
   s.status = `${id} joined the constellation.`;
 }
 export function grantUpgrade(s: GameState, id: string) {
   if (!UPGRADES.some((u) => u.id === id)) throw Error("unknown upgrade");
+  applyUpgrade(s, id);
+}
+function applyUpgrade(s: GameState, id: string) {
   s.upgrades[id] = (s.upgrades[id] || 0) + 1;
   if (id === "aegis") s.aegis = 1;
+  if (id === "overclock") {
+    s.player.maxHull = Math.max(40, s.player.maxHull - 15);
+    s.player.hull = Math.min(s.player.hull, s.player.maxHull);
+  }
 }
 function nearest(s: GameState) {
   return [...s.enemies].sort(
@@ -191,22 +204,29 @@ function fireNeedles(s: GameState) {
 }
 function weapons(s: GameState) {
   const t = nearest(s);
+  if (s.upgrades.aegis && !s.aegis && s.aegisCooldown > 0 && !--s.aegisCooldown)
+    s.aegis = 1;
+  if (s.upgrades.cryo && Math.hypot(s.player.vx, s.player.vy) > 0.5 && s.frame % 12 === 0) {
+    const rank = s.upgrades.cryo;
+    s.cryoFields.push({id:s.nextId++,x:s.player.x,y:s.player.y,r:30+rank*10,life:70+rank*25,maxLife:70+rank*25});
+    s.weaponStats.cryoFields = (s.weaponStats.cryoFields || 0) + 1;
+  }
   if (!t) return;
   if (s.upgrades.orbit) {
-    const blades = 1 + s.upgrades.orbit;
+    const blades = s.upgrades.orbit;
     for (let i = 0; i < blades; i++) {
       const a = s.frame * 0.07 + (i * Math.PI * 2) / blades,
         bx = s.player.x + Math.cos(a) * 70,
         by = s.player.y + Math.sin(a) * 70;
       for (const e of s.enemies)
         if (Math.hypot(e.x - bx, e.y - by) < e.r + 10 && e.age % 18 === 0) {
-          e.hp -= 7;
+          damageEnemy(s, e, 6 + s.upgrades.orbit * 2);
           e.slow = s.upgrades.magnet ? 45 : e.slow;
           s.weaponStats.orbit++;
         }
     }
   }
-  if (s.upgrades.mortar && s.frame % (105 - 15 * s.upgrades.mortar) === 0) {
+  if (s.upgrades.mortar && s.frame % (110 - 18 * s.upgrades.mortar) === 0) {
     const a = Math.atan2(t.y - s.player.y, t.x - s.player.x);
     shot(
       s,
@@ -214,14 +234,14 @@ function weapons(s: GameState) {
       s.player.y,
       Math.cos(a) * 5,
       Math.sin(a) * 5,
-      26,
+      20 + 8 * s.upgrades.mortar,
       9,
       "mortar",
     );
     s.weaponStats.mortar++;
   }
-  if (s.upgrades.prism && s.frame % 75 < 10) {
-    const a = s.frame * 0.035;
+  if (s.upgrades.prism && s.frame % 75 < 7 + 4 * s.upgrades.prism) {
+    const a = s.frame * (0.028 + s.upgrades.prism * .004);
     for (const e of s.enemies) {
       const dx = e.x - s.player.x,
         dy = e.y - s.player.y,
@@ -229,29 +249,16 @@ function weapons(s: GameState) {
         cross = Math.abs(dx * Math.sin(a) - dy * Math.cos(a));
       if (
         d < 280 &&
-        cross < e.r + 6 &&
+        cross < e.r + (5 + s.upgrades.prism * 2) / 2 &&
         dx * Math.cos(a) + dy * Math.sin(a) > 0
       ) {
-        e.hp -= 0.8 * (s.upgrades.prism || 1);
-        if (s.upgrades.pierce) e.hp -= 0.4;
+        damageEnemy(s, e, 0.55 + 0.35 * s.upgrades.prism + (s.upgrades.pierce ? .35 : 0));
         s.weaponStats.prism++;
       }
     }
   }
-  if (
-    s.upgrades.cryo &&
-    Math.hypot(s.player.vx, s.player.vy) > 0.5 &&
-    s.frame % 12 === 0
-  ) {
-    for (const e of s.enemies)
-      if (Math.hypot(e.x - s.player.x, e.y - s.player.y) < 95) {
-        e.slow = 90;
-        s.weaponStats.cryo++;
-      }
-  }
-  if (s.upgrades.aegis && !s.aegis && s.aegisCooldown > 0 && !--s.aegisCooldown)
-    s.aegis = 1;
 }
+function damageEnemy(s:GameState,e:Enemy,n:number){e.hp-=n;if(e.kind==='warden')s.bossHp=Math.max(0,e.hp)}
 function hostile(s: GameState, e: Enemy, count = 3, speed = 2.2) {
   const a = Math.atan2(s.player.y - e.y, s.player.x - e.x);
   for (let i = 0; i < count; i++) {
@@ -371,6 +378,11 @@ function kill(s: GameState, e: Enemy) {
     spawn(s, "spark", e.x - 8, e.y);
     spawn(s, "spark", e.x + 8, e.y);
   }
+  if ((s.upgrades.cryo || 0) >= 2 && e.slow) {
+    const rank=s.upgrades.cryo;
+    s.cryoFields.push({id:s.nextId++,x:e.x,y:e.y,r:35+rank*12,life:55+rank*15,maxLife:55+rank*15});
+    s.weaponStats.cryoBursts=(s.weaponStats.cryoBursts||0)+1;
+  }
   s.shards.push({
     id: s.nextId++,
     x: e.x,
@@ -421,6 +433,11 @@ export function tick(s: GameState, input: { x: number; y: number }) {
     s.fire = cadence;
   }
   weapons(s);
+  for(const f of s.cryoFields){
+    f.life--;
+    for(const e of s.enemies) if(Math.hypot(e.x-f.x,e.y-f.y)<f.r+e.r){e.slow=Math.max(e.slow||0,20+s.upgrades.cryo*15);s.weaponStats.cryo++;}
+  }
+  s.cryoFields=s.cryoFields.filter(f=>f.life>0);
   for (const e of [...s.enemies]) behavior(s, e);
   for (const p of s.shots) {
     p.x += p.vx;
@@ -428,11 +445,13 @@ export function tick(s: GameState, input: { x: number; y: number }) {
     p.life--;
     if (p.kind === "mine" && p.life < 150) p.r += 0.02;
     if (p.kind === "mortar" && p.life <= 0) {
+      const blast=65+20*(s.upgrades.mortar||1);
       for (const e of s.enemies)
-        if (Math.hypot(e.x - p.x, e.y - p.y) < 85) {
-          e.hp -= p.damage;
+        if (Math.hypot(e.x - p.x, e.y - p.y) < blast) {
+          damageEnemy(s,e,p.damage);
           if (s.upgrades.cryo) e.slow = 100;
         }
+      s.weaponStats.mortarBlasts=(s.weaponStats.mortarBlasts||0)+1;
     } else if (p.hostile) {
       if (Math.hypot(p.x - s.player.x, p.y - s.player.y) < p.r + 11) {
         damagePlayer(s, p.damage);
@@ -441,7 +460,7 @@ export function tick(s: GameState, input: { x: number; y: number }) {
     } else
       for (const e of s.enemies)
         if (p.life > 0 && Math.hypot(p.x - e.x, p.y - e.y) < p.r + e.r) {
-          e.hp -= p.damage;
+          damageEnemy(s,e,p.damage);
           if (--p.pierce < 0) p.life = 0;
           if (e.kind === "warden") s.bossHp = Math.max(0, e.hp);
         }
@@ -454,7 +473,8 @@ export function tick(s: GameState, input: { x: number; y: number }) {
   );
   for (const q of s.shards) {
     const d = Math.hypot(q.x - s.player.x, q.y - s.player.y);
-    if (d < (s.upgrades.magnet ? 190 : 90)) {
+    const magnetRadius=90+100*(s.upgrades.magnet||0);
+    if (d < magnetRadius) {
       q.x += (s.player.x - q.x) * 0.09;
       q.y += (s.player.y - q.y) * 0.09;
     }
@@ -462,6 +482,8 @@ export function tick(s: GameState, input: { x: number; y: number }) {
       if (q.value) {
         grantXp(s, q.value);
         s.score += 5;
+        s.shardsCollected++;
+        if(s.upgrades.magnet>=2){const every=s.upgrades.magnet>=3?12:20;if(s.shardsCollected%every===0){const heal=s.upgrades.magnet>=3?5:3;s.player.hull=Math.min(s.player.maxHull,s.player.hull+heal);s.weaponStats.magnetHeals=(s.weaponStats.magnetHeals||0)+1;s.status=`Magnet Core restored ${heal} hull.`;}}
       }
       q.value = 0;
     }

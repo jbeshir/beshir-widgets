@@ -76,10 +76,10 @@ Weapons acquire targets deterministically by nearest distance, then stable entit
 
 The run begins with **Needle Array**, a short-cadence aimed bolt. Upgrade offerings are drawn without replacement from eligible definitions using the run RNG; at least one offer improves an owned weapon or survivability when possible. Maxed upgrades are excluded. Choices include:
 
-- **Needle Array:** Twin Needle (extra bolt), Piercing Script (passes through targets), Quick Etching (fire-rate). At Twin + Pierce, every third volley becomes a wide **Scribe Fan**.
-- **Orbit Blades:** persistent blades circle the craft; upgrades add blades, radius, and return damage. With Magnet Core, blades pull shards and briefly slow struck enemies (**Harvest Ring**).
-- **Comet Mortar:** slow arcing shots explode at clustered targets; upgrades add blast size, burning wake, and a second charge. With Cryo Wake, explosion edges freeze briefly (**Thermal Shock**) and deal bonus damage to slowed foes.
-- **Prism Beam:** periodic rotating beam with upgrades for duration, split reflection, and sweep speed. With Piercing Script, first contact refracts toward a second enemy (**Glass Choir**).
+- **Needle Array:** Twin Needle adds bolts, Piercing Script adds penetrations, and Quick Etching shortens the cadence. Overclock further strengthens and accelerates every bolt.
+- **Orbit Blades:** each rank adds a visible persistent blade and increases contact damage. With Magnet Core, struck enemies are briefly slowed (**Harvest Ring**).
+- **Comet Mortar:** each rank launches explosive comets faster, increases impact damage, and widens the blast. With Cryo Wake, the explosion chills enemies (**Thermal Shock**).
+- **Prism Beam:** each rank extends the visible sweep window and increases beam width, rotation speed, and damage. Piercing Script adds beam damage (**Glass Choir**).
 - **Magnet Core:** pickup radius and shard attraction; later ranks grant a small heal every fixed shard threshold.
 - **Cryo Wake:** movement leaves fading slow fields; later ranks make slowed enemy deaths burst harmless chill.
 - **Aegis:** one regenerating hit shield; upgrades shorten recharge and emit knockback on break.
@@ -154,7 +154,7 @@ Store only versioned preferences and summary records in `localStorage`: `starfal
 
 Instrumentation exists only when the explicit test build flag is enabled and must be unreachable/absent in production emitted HTML and executable text. The instrumented build exposes `window.__game` with narrow methods:
 
-- `getState()` → `{ lifecycle, frame, seed, score, wave, level, hull, maxHull, xp, enemyCount, hostileProjectileCount, upgradeIds, bossHp, muted, reducedMotion }`
+- `getState()` → a read-only combat snapshot including lifecycle/player state, entities and health, unlock counters, Cryo fields, shards, Aegis cooldown, and input state
 - `getScore()` → integer
 - `start()` → same transition as activating Begin, for setup convenience only
 - `restart()` → same reset path as the Restart control
@@ -162,6 +162,9 @@ Instrumentation exists only when the explicit test build flag is enabled and mus
 - `grantXp(amount: number)` → setup helper that uses normal XP/level-up logic
 - `setHull(amount: number)` → setup helper with normal clamping
 - `spawnEnemy(archetype: string, x?: number, y?: number)` → stable setup insertion
+- `spawnShard(x: number, y: number, value?: number)` → stable pickup setup insertion
+- `clearEnemies()` → remove enemies and hostile shots for isolated recharge coverage
+- `setEnemyHealth(index: number, hp: number)` → put an existing foe near death so normal weapons exercise on-death effects
 - `setWave(wave: number)` → setup helper that resets wave scheduler consistently
 - `damagePlayer(amount: number)` → normal damage/loss path
 - `damageBoss(amount: number)` → normal boss damage/victory path; requires boss present

@@ -150,6 +150,24 @@ export function App() {
         spawn(game.current, k, x, y);
         rerender();
       },
+      spawnShard: (x: number, y: number, value = 1) => {
+        if (![x, y, value].every(Number.isFinite) || value < 0)
+          throw Error("invalid shard");
+        game.current.shards.push({ id: game.current.nextId++, x, y, value });
+        rerender();
+      },
+      clearEnemies: () => {
+        game.current.enemies = [];
+        game.current.shots = game.current.shots.filter((p) => !p.hostile);
+        rerender();
+      },
+      setEnemyHealth: (index: number, hp: number) => {
+        const enemy = game.current.enemies[index];
+        if (!enemy || !Number.isInteger(index) || !Number.isFinite(hp) || hp <= 0)
+          throw Error("invalid enemy health");
+        enemy.hp = hp;
+        rerender();
+      },
       setWave: (n: number) => {
         if (!Number.isFinite(n) || n < 1 || n > 5) throw Error("invalid wave");
         game.current.wave = n;

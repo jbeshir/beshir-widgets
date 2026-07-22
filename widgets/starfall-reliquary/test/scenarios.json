@@ -190,6 +190,84 @@
       "screenshot": "archetype-behaviors.png"
     },
     {
+      "name": "needle-ranks-and-overclock",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:grantUpgrade(\"twin\")", "call:grantUpgrade(\"twin\")", "call:grantUpgrade(\"twin\")", "call:grantUpgrade(\"pierce\")", "call:grantUpgrade(\"pierce\")", "call:grantUpgrade(\"pierce\")", "call:grantUpgrade(\"quick\")", "call:grantUpgrade(\"quick\")", "call:grantUpgrade(\"quick\")", "call:grantUpgrade(\"overclock\")", "call:grantUpgrade(\"overclock\")", "call:grantUpgrade(\"overclock\")", "call:spawnEnemy(\"splitter\",850,300)"],
+      "actions": ["wait:13"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().maxHull === 55 && g.getState().weaponStats.needle === 8 && g.getState().friendlyShotDetails.length === 8 && g.getState().friendlyShotDetails.every(p => p.kind === 'needle' && p.damage === 19 && p.pierce === 3)",
+        "visible": ["canvas"]
+      },
+      "screenshot": "needle-ranks.png"
+    },
+    {
+      "name": "ranked-weapons-damage",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:grantUpgrade(\"orbit\")", "call:grantUpgrade(\"orbit\")", "call:grantUpgrade(\"orbit\")", "call:grantUpgrade(\"mortar\")", "call:grantUpgrade(\"mortar\")", "call:grantUpgrade(\"mortar\")", "call:grantUpgrade(\"prism\")", "call:grantUpgrade(\"prism\")", "call:grantUpgrade(\"prism\")", "call:spawnEnemy(\"splitter\",520,300)", "call:spawnEnemy(\"splitter\",650,300)"],
+      "actions": ["wait:230"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().weaponStats.orbit > 0 && g.getState().weaponStats.mortar >= 3 && g.getState().weaponStats.mortarBlasts >= 1 && g.getState().weaponStats.prism > 0 && g.getState().score > 0",
+        "visible": ["canvas"]
+      },
+      "screenshot": "ranked-weapons.png"
+    },
+    {
+      "name": "ranked-cryo-wake",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:grantUpgrade(\"cryo\")", "call:grantUpgrade(\"cryo\")", "call:grantUpgrade(\"cryo\")", "call:spawnEnemy(\"splitter\",500,300)"],
+      "actions": ["hold:right:30", "call:setEnemyHealth(0,1)", "wait:30"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().cryoFieldCount >= 3 && g.getState().cryoFieldDetails.some(f => f.r === 60 && f.maxLife === 145) && g.getState().weaponStats.cryoFields >= 2 && g.getState().weaponStats.cryo > 0 && g.getState().weaponStats.cryoBursts > 0",
+        "visible": ["canvas"]
+      },
+      "screenshot": "ranked-cryo.png"
+    },
+    {
+      "name": "ranked-magnet-repair",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:setHull(50)", "call:grantUpgrade(\"magnet\")", "call:grantUpgrade(\"magnet\")", "call:grantUpgrade(\"magnet\")", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)", "call:spawnShard(650,300)"],
+      "actions": ["wait:80"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().shardsCollected === 12 && g.getState().hull === 55 && g.getState().weaponStats.magnetHeals === 1",
+        "visible": ["canvas"]
+      },
+      "screenshot": "ranked-magnet.png"
+    },
+    {
+      "name": "ranked-aegis-recharge",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:setWave(5)", "call:clearEnemies()", "call:grantUpgrade(\"aegis\")", "call:grantUpgrade(\"aegis\")", "call:grantUpgrade(\"aegis\")", "call:damagePlayer(10)"],
+      "actions": ["wait:245"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().enemyCount === 0 && g.getState().aegis === 1 && g.getState().aegisCooldown === 0 && g.getState().hull === 100",
+        "visible": ["canvas"]
+      },
+      "screenshot": "ranked-aegis.png"
+    },
+    {
+      "name": "ranked-aegis-repel",
+      "kind": "regression",
+      "start": "fresh",
+      "setup": ["call:start()", "call:grantUpgrade(\"aegis\")", "call:grantUpgrade(\"aegis\")", "call:spawnEnemy(\"drifter\",480,300)", "call:damagePlayer(10)"],
+      "actions": ["wait:1"],
+      "expect": {
+        "state": "playing",
+        "check": "g.getState().hull === 100 && g.getState().aegis === 0 && g.getState().weaponStats.aegisRepels === 1 && g.getState().enemyDetails[0].slow > 0 && g.getState().enemyDetails[0].x > 480",
+        "visible": ["canvas"]
+      },
+      "screenshot": "ranked-aegis-repel.png"
+    },
+    {
       "name": "core-normal-combat",
       "kind": "core",
       "start": "fresh",
