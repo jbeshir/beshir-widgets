@@ -176,8 +176,7 @@ body {
   border: 0;
 }
 
-/* Day tabs — sticky so the day picker stays reachable in the single-scroll standalone view.
-   Harmless in the auto-height embed (nothing scrolls past it there). */
+/* Day tabs stay reachable while scrolling on wider layouts. */
 .day-tabs-outer {
   position: sticky;
   top: 0;
@@ -188,6 +187,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* On narrow screens the wrapped tabs consume too much of the viewport when pinned. */
+@container (max-width: 719px) {
+  .day-tabs-outer {
+    position: static;
+  }
 }
 
 .day-tabs {
