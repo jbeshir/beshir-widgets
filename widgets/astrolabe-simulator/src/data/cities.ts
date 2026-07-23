@@ -8,7 +8,10 @@ export interface City {
 
 export const CITIES: City[] = [
   { name: 'London', lat: 51.5074, lng: -0.1278 },
+  { name: 'Edinburgh', lat: 55.9533, lng: -3.1883 },
   { name: 'New York', lat: 40.7128, lng: -74.006 },
+  { name: 'Pittsburgh', lat: 40.4406, lng: -79.9959 },
+  { name: 'Seattle', lat: 47.6062, lng: -122.3321 },
   { name: 'Cairo', lat: 30.0444, lng: 31.2357 },
   { name: 'Rome', lat: 41.9028, lng: 12.4964 },
   { name: 'Reykjavík', lat: 64.1466, lng: -21.9426 },
