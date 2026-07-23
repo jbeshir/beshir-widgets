@@ -33,3 +33,23 @@ export function solarLongitude(date: Date): number {
   const lambda = L + 1.915 * Math.sin(gRad) + 0.02 * Math.sin(2 * gRad);
   return normalizeDeg(lambda);
 }
+
+/**
+ * Equation of time in minutes, apparent solar time minus mean solar time.
+ * NOAA's fractional-year approximation; leap years use their actual length.
+ */
+export function equationOfTime(date: Date): number {
+  const year = date.getUTCFullYear();
+  const start = Date.UTC(year, 0, 1);
+  const day = Math.floor((date.getTime() - start) / MS_PER_DAY) + 1;
+  const daysInYear = Date.UTC(year + 1, 0, 1) - start === 366 * MS_PER_DAY ? 366 : 365;
+  const hour = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+  const gamma = (2 * Math.PI / daysInYear) * (day - 1 + (hour - 12) / 24);
+  return 229.18 * (
+    0.000075 +
+    0.001868 * Math.cos(gamma) -
+    0.032077 * Math.sin(gamma) -
+    0.014615 * Math.cos(2 * gamma) -
+    0.040849 * Math.sin(2 * gamma)
+  );
+}

@@ -28,6 +28,6 @@ export function InfoPanel(): JSX.Element {
       <li>Flip to the back and rotate the alidade as though sighting along its two vanes.</li>
       <li>Use the calendar, zodiac and shadow-square engravings to compare civil dates, solar longitude and proportional shadows.</li>
     </ol></details>
-    <details><summary>Accuracy and simplifications</summary><p>This is an educational geometric model, not an observational-precision instrument. Stars use J2000 positions without precession; refraction and the equation of time are omitted; obliquity is fixed; the calendar approximation uses the current epoch. Plates are a finite northern set, and the unequal-hour curves and physical engraving are idealized.</p></details>
+    <details><summary>Accuracy and simplifications</summary><p>This is an educational geometric model, not an observational-precision instrument. Stars use J2000 positions without precession; refraction is omitted; obliquity is fixed; solar longitude and the equation of time use compact approximations. Plates are a finite northern set, and the unequal-hour curves and physical engraving are idealized.</p></details>
   </aside>;
 }

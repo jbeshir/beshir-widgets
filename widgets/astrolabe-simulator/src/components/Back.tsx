@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { solarLongitude } from '../astro';
+import { equationOfTime, solarLongitude } from '../astro';
 import { shadowSquareLayout } from '../shadowSquare';
 import { useStore } from '../store';
 import { Alidade } from './Alidade';
@@ -29,8 +29,9 @@ function radialTick(angle: number, inner: number, outer: number, className: stri
 }
 
 export function Back(): JSX.Element {
-  const { alidadeRotation } = useStore();
+  const { alidadeRotation, visibility } = useStore();
   const year = new Date().getFullYear();
+  const now = new Date();
   const degreeTicks = Array.from({ length: 180 }, (_, index) => index * 2);
   const degreeLabels = Array.from({ length: 12 }, (_, index) => index * 30);
   const zodiacDivisions = Array.from({ length: 12 }, (_, index) => index * 30);
@@ -44,6 +45,16 @@ export function Back(): JSX.Element {
   const monthStarts = MONTHS.map((_, month) => solarLongitude(new Date(year, month, 1)));
   const shadow = shadowSquareLayout();
   const hourArcs = Array.from({ length: 5 }, (_, index) => index + 1);
+  const equationSamples = Array.from({ length: 123 }, (_, index) => {
+    const day = Math.min(index * 3, 365);
+    const date = new Date(Date.UTC(year, 0, day + 1, 12));
+    return { x: -320 + day * (640 / 365), y: -175 - equationOfTime(date) * 5 };
+  });
+  const equationPath = equationSamples.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+  const startOfYear = Date.UTC(year, 0, 1);
+  const currentDay = Math.floor((now.getTime() - startOfYear) / 86400000);
+  const currentEquation = equationOfTime(now);
+  const equationMarker = { x: -320 + currentDay * (640 / 365), y: -175 - currentEquation * 5 };
 
   return (
     <svg
@@ -78,6 +89,7 @@ export function Back(): JSX.Element {
         ))}
       </g>
 
+      {visibility.zodiacScale && <>
       <path className="astro-zodiac-band" d={ringPath(ZODIAC_OUTER, ZODIAC_INNER)} fill-rule="evenodd" />
       <g aria-label="Zodiac ring, Aries at the vernal equinox on the left">
         {zodiacDivisions.map((longitude) => radialTick(longitude, ZODIAC_INNER, ZODIAC_OUTER, 'astro-zodiac-division'))}
@@ -86,7 +98,9 @@ export function Back(): JSX.Element {
           return <text key={sign} className="astro-back-zodiac-label" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{sign}</text>;
         })}
       </g>
+      </>}
 
+      {visibility.calendar && <>
       <path className="astro-calendar-band" d={ringPath(ZODIAC_INNER, CALENDAR_INNER)} fill-rule="evenodd" />
       <g aria-label={`${year} calendar ring aligned by computed solar longitude`}>
         {calendarDays.map((longitude, index) => radialTick(longitude, index % 5 === 0 ? 450 : 456, ZODIAC_INNER - 2, 'astro-calendar-tick'))}
@@ -98,13 +112,14 @@ export function Back(): JSX.Element {
           return <text key={month} className="astro-calendar-label" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{month}</text>;
         })}
       </g>
+      </>}
 
       <circle className="astro-back-field" r={CALENDAR_INNER - 2} />
       <line className="astro-back-axis" x1="-392" y1="0" x2="392" y2="0" />
       <line className="astro-back-axis" x1="0" y1="-392" x2="0" y2="392" />
 
-      <g aria-label="Shadow square divided into twelve parts">
-        <rect className="astro-shadow-square" x={shadow.left} y={shadow.top} width={shadow.right - shadow.left} height={shadow.bottom - shadow.top} />
+      {visibility.shadowSquare && <g aria-label="Shadow square divided into twelve parts">
+        <rect data-testid="shadow-square" className="astro-shadow-square" x={shadow.left} y={shadow.top} width={shadow.right - shadow.left} height={shadow.bottom - shadow.top} />
         {shadow.verticals.map((x, part) => <line key={`shadow-v-${part}`} className="astro-shadow-grid" x1={x} y1={shadow.top} x2={x} y2={shadow.bottom} />)}
         {shadow.horizontals.map((y, part) => <line key={`shadow-h-${part}`} className="astro-shadow-grid" x1={shadow.left} y1={y} x2={shadow.right} y2={y} />)}
         <line className="astro-shadow-gnomon" x1="0" y1={shadow.top} x2={shadow.left} y2={shadow.bottom} />
@@ -113,14 +128,22 @@ export function Back(): JSX.Element {
         {[2, 4, 6, 8, 10, 12].map((n) => <text key={`v-${n}`} className="astro-shadow-number" x={shadow.left - 14} y={shadow.top + n * shadow.step} text-anchor="end" dominant-baseline="middle">{n}</text>)}
         <text className="astro-shadow-label" x="0" y={shadow.bottom + 42} text-anchor="middle">UMBRA RECTA</text>
         <text className="astro-shadow-label" transform={`translate(${shadow.left - 48} ${(shadow.top + shadow.bottom) / 2}) rotate(-90)`} text-anchor="middle">UMBRA VERSA</text>
-      </g>
+      </g>}
 
-      <g aria-label="Approximate unequal temporal hour arcs">
+      {visibility.backUnequalHours && <g aria-label="Approximate unequal temporal hour arcs">
         {hourArcs.map((hour) => <path key={hour} className="astro-back-hour" d={`M -360 ${20 + hour * 18} Q 0 ${-80 + hour * 42} 360 ${20 + hour * 18}`} />)}
         <text className="astro-hour-label" x="0" y="60" text-anchor="middle">HORAE INAEQUALES</text>
-      </g>
+      </g>}
 
-      <Alidade alidadeRotation={alidadeRotation} />
+      {visibility.equationOfTime && <g aria-label={`Equation of time: ${currentEquation.toFixed(1)} minutes`}>
+        <line className="astro-equation-axis" x1="-320" y1="-175" x2="320" y2="-175" />
+        <path className="astro-equation-curve" d={equationPath} />
+        <circle className="astro-equation-marker" cx={equationMarker.x} cy={equationMarker.y} r="5" />
+        <text className="astro-equation-label" x="0" y="-278" text-anchor="middle">EQUATION OF TIME · MINUTES</text>
+        <text className="astro-equation-value" x="0" y="-250" text-anchor="middle">{currentEquation >= 0 ? '+' : ''}{currentEquation.toFixed(1)} min today</text>
+      </g>}
+
+      {visibility.alidade && <Alidade alidadeRotation={alidadeRotation} />}
       <circle className="astro-pin" r="13" />
       <circle className="astro-pin-core" r="4" />
     </svg>

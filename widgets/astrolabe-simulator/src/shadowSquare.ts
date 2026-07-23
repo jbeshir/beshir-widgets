@@ -1,6 +1,6 @@
 export const SHADOW_SQUARE = {
   halfWidth: 228,
-  top: 72,
+  top: 0,
   size: 228,
   divisions: 12,
 } as const;
@@ -47,8 +47,9 @@ export function shadowSquareIntersection(alidadeAngleDeg: number): ShadowSquareI
   if (Math.abs(tangent) < 1e-12) return null;
 
   const bottomX = -bottom / tangent;
-  if (bottomX >= left && bottomX <= right) {
-    return { x: bottomX, y: bottom, edge: 'bottom' };
+  const epsilon = 1e-9;
+  if (bottomX >= left - epsilon && bottomX <= right + epsilon) {
+    return { x: Math.max(left, Math.min(right, bottomX)), y: bottom, edge: 'bottom' };
   }
 
   const x = bottomX < left ? left : right;

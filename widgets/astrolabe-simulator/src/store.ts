@@ -26,6 +26,12 @@ export interface Visibility {
   stars: boolean;
   rule: boolean;
   tropics: boolean;
+  calendar: boolean;
+  zodiacScale: boolean;
+  shadowSquare: boolean;
+  backUnequalHours: boolean;
+  equationOfTime: boolean;
+  alidade: boolean;
 }
 
 export interface AstrolabeState {
@@ -64,6 +70,12 @@ function defaultState(): AstrolabeState {
       stars: true,
       rule: true,
       tropics: true,
+      calendar: true,
+      zodiacScale: true,
+      shadowSquare: true,
+      backUnequalHours: true,
+      equationOfTime: true,
+      alidade: true,
     },
     highlight: null,
     reducedMotion: resolveReducedMotion(),
