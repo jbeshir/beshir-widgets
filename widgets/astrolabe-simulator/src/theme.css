@@ -24,9 +24,9 @@
   --astro-mater-fill: var(--widget-panel);
   --astro-device-edge: #76501f;
   --astro-device-shadow: rgba(73, 47, 17, 0.34);
-  --astro-device-surface-light: #ead59b;
-  --astro-device-surface: #cfab61;
-  --astro-device-surface-dark: #a87932;
+  --astro-device-surface-light: #f7edda;
+  --astro-device-surface: #f5e9d2;
+  --astro-device-surface-dark: #f3e5c9;
   --astro-limb-fill: var(--widget-bg);
   --astro-rim: var(--widget-border);
   --astro-line: var(--widget-fg-muted);
@@ -71,9 +71,9 @@
     --astro-mater-fill: var(--widget-panel);
     --astro-device-edge: #3b2c15;
     --astro-device-shadow: rgba(0, 0, 0, 0.62);
-    --astro-device-surface-light: #856b34;
-    --astro-device-surface: #59451f;
-    --astro-device-surface-dark: #342713;
+    --astro-device-surface-light: #211b10;
+    --astro-device-surface: #282113;
+    --astro-device-surface-dark: #302717;
     --astro-limb-fill: var(--widget-bg);
     --astro-rim: var(--widget-border);
     --astro-line: var(--widget-fg-muted);
