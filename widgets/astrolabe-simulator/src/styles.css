@@ -163,14 +163,19 @@ button, input, select {
 .control-group {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   min-width: 0;
 }
 
 .control-actions { margin-right: auto; }
-.controls button { min-height: 40px; cursor: pointer; }
-.controls input[type="number"] { width: 78px; }
-.location-controls select { max-width: 150px; }
+.controls button { min-height: 34px; cursor: pointer; }
+.controls input[type="number"] { width: 66px; }
+.controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.location-controls select { max-width: 132px; }
 .layer-controls {
   display: flex;
   flex: 1 1 100%;
@@ -317,7 +322,10 @@ button, input, select {
 @media (min-width: 821px) {
   .card-header { margin-bottom: 8px; }
   .card-header h1 { margin-bottom: 0; white-space: nowrap; }
-  .controls { margin-top: 0; padding: 8px 10px; gap: 7px; }
+  .controls { margin-top: 0; padding: 7px 8px; gap: 5px; }
+  .controls input,
+  .controls select,
+  .controls button { padding: 6px 8px; font-size: 14px; }
   .control-actions { margin-right: 0; }
   .layer-controls { padding-block: 5px; }
   .instrument-stage, .info-panel { margin-top: 8px; }
