@@ -327,12 +327,18 @@ button, input, select {
 .astro-zenith-dot { fill: var(--astro-zenith); stroke: none; }
 .astro-label { fill: var(--astro-label); font-family: var(--widget-font-identity); }
 .astro-label-muted { fill: var(--astro-label-muted); font-family: var(--widget-font-identity); }
+.astro-grid-degree-label {
+  paint-order: stroke;
+  stroke: var(--astro-mater-fill);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
 
 /* Rete — an open brass double-line ecliptic band with engraved zodiac
    abbreviations (see Rete.tsx) instead of filled glyph bubbles. */
 .astro-rete-ring { fill: none; stroke: var(--astro-gold); stroke-width: 2.1; }
 .astro-rete-thin { fill: none; stroke: var(--astro-gold); stroke-width: 1.2; opacity: 0.85; }
-.astro-zodiac-tick { fill: none; stroke: var(--astro-gold); stroke-width: 1.1; opacity: 0.85; }
+.astro-zodiac-tick, .astro-ecliptic-degree-tick { fill: none; stroke: var(--astro-gold); stroke-width: 1.1; opacity: 0.85; }
 .astro-rete-pointer { fill: none; stroke: var(--astro-gold); stroke-width: 1.3; }
 .astro-star-dot { fill: var(--astro-star); stroke: none; }
 .astro-star-label {
@@ -354,6 +360,16 @@ button, input, select {
   paint-order: stroke;
   stroke: var(--astro-mater-fill);
   stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.astro-ecliptic-degree-label {
+  fill: var(--astro-label-muted);
+  font-family: var(--widget-font-identity);
+  font-size: 10px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--astro-mater-fill);
+  stroke-width: 2.5px;
   stroke-linejoin: round;
 }
 

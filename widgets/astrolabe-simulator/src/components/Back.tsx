@@ -41,7 +41,11 @@ export function Back(): JSX.Element {
     }
   }
   const monthStarts = MONTHS.map((_, month) => solarLongitude(new Date(year, month, 1)));
-  const squareLines = Array.from({ length: 13 }, (_, index) => index);
+  const shadowHalf = 228;
+  const shadowTop = 72;
+  const shadowStep = shadowHalf / 12;
+  const shadowVerticals = Array.from({ length: 25 }, (_, index) => index);
+  const shadowHorizontals = Array.from({ length: 13 }, (_, index) => index);
   const hourArcs = Array.from({ length: 5 }, (_, index) => index + 1);
 
   return (
@@ -95,21 +99,21 @@ export function Back(): JSX.Element {
       <line className="astro-back-axis" x1="0" y1="-392" x2="0" y2="392" />
 
       <g aria-label="Shadow square divided into twelve parts">
-        <rect className="astro-shadow-square" x="-258" y="86" width="516" height="258" />
-        {squareLines.map((part) => {
-          const x = -258 + part * 43;
-          const y = 86 + part * 21.5;
-          return <g key={part}>
-            <line className="astro-shadow-grid" x1={x} y1="86" x2={x} y2="344" />
-            <line className="astro-shadow-grid" x1="-258" y1={y} x2="258" y2={y} />
-          </g>;
+        <rect className="astro-shadow-square" x={-shadowHalf} y={shadowTop} width={shadowHalf * 2} height={shadowHalf} />
+        {shadowVerticals.map((part) => {
+          const x = -shadowHalf + part * shadowStep;
+          return <line key={`shadow-v-${part}`} className="astro-shadow-grid" x1={x} y1={shadowTop} x2={x} y2={shadowTop + shadowHalf} />;
         })}
-        <line className="astro-shadow-gnomon" x1="0" y1="86" x2="-258" y2="344" />
-        <line className="astro-shadow-gnomon" x1="0" y1="86" x2="258" y2="344" />
-        {[2, 4, 6, 8, 10, 12].map((n) => <text key={`r-${n}`} className="astro-shadow-number" x={n * 21.5} y="363" text-anchor="middle">{n}</text>)}
-        {[2, 4, 6, 8, 10, 12].map((n) => <text key={`v-${n}`} className="astro-shadow-number" x="-276" y={86 + n * 21.5} text-anchor="end" dominant-baseline="middle">{n}</text>)}
-        <text className="astro-shadow-label" x="0" y="390" text-anchor="middle">UMBRA RECTA</text>
-        <text className="astro-shadow-label" transform="translate(-306 218) rotate(-90)" text-anchor="middle">UMBRA VERSA</text>
+        {shadowHorizontals.map((part) => {
+          const y = shadowTop + part * shadowStep;
+          return <line key={`shadow-h-${part}`} className="astro-shadow-grid" x1={-shadowHalf} y1={y} x2={shadowHalf} y2={y} />;
+        })}
+        <line className="astro-shadow-gnomon" x1="0" y1={shadowTop} x2={-shadowHalf} y2={shadowTop + shadowHalf} />
+        <line className="astro-shadow-gnomon" x1="0" y1={shadowTop} x2={shadowHalf} y2={shadowTop + shadowHalf} />
+        {[2, 4, 6, 8, 10, 12].map((n) => <text key={`r-${n}`} className="astro-shadow-number" x={n * shadowStep} y={shadowTop + shadowHalf + 18} text-anchor="middle">{n}</text>)}
+        {[2, 4, 6, 8, 10, 12].map((n) => <text key={`v-${n}`} className="astro-shadow-number" x={-shadowHalf - 14} y={shadowTop + n * shadowStep} text-anchor="end" dominant-baseline="middle">{n}</text>)}
+        <text className="astro-shadow-label" x="0" y={shadowTop + shadowHalf + 42} text-anchor="middle">UMBRA RECTA</text>
+        <text className="astro-shadow-label" transform={`translate(${-shadowHalf - 48} ${shadowTop + shadowHalf / 2}) rotate(-90)`} text-anchor="middle">UMBRA VERSA</text>
       </g>
 
       <g aria-label="Approximate unequal temporal hour arcs">

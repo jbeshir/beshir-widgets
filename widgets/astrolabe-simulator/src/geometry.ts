@@ -181,6 +181,27 @@ export function project(angleDeg: number, decDeg: number, R: number): ProjectedP
 }
 
 /**
+ * Project a local horizontal-coordinate point onto the plate. Azimuth is
+ * measured conventionally clockwise from north. This is useful for locating
+ * labels and markers at exact intersections of almucantars and azimuths.
+ */
+export function projectHorizontal(phiDeg: number, altitudeDeg: number, azimuthDeg: number, R: number): ProjectedPoint {
+  const phi = deg2rad(phiDeg);
+  const altitude = deg2rad(altitudeDeg);
+  const azimuth = deg2rad(azimuthDeg);
+  const dec = Math.asin(
+    Math.sin(phi) * Math.sin(altitude) +
+    Math.cos(phi) * Math.cos(altitude) * Math.cos(azimuth),
+  );
+  const hourAngle = Math.atan2(
+    -Math.sin(azimuth) * Math.cos(altitude),
+    Math.sin(altitude) * Math.cos(phi) -
+    Math.cos(altitude) * Math.sin(phi) * Math.cos(azimuth),
+  );
+  return project(rad2deg(hourAngle), rad2deg(dec), R);
+}
+
+/**
  * Place a zodiac/ecliptic-longitude point λ on the plate: convert to
  * equatorial coordinates, then project by right ascension. FINDINGS §3.2:
  *   δ(λ) = asin(sinε·sinλ), α(λ) = atan2(cosε·sinλ, cosλ)

@@ -10,6 +10,7 @@ import {
   horizon,
   nadir,
   project,
+  projectHorizontal,
   rOfDec,
   tropicCancerRadius,
   tropicCapricornRadius,
@@ -140,6 +141,38 @@ describe('plate azimuth geometry', () => {
       expect(b.cx).toBeCloseTo(2 * a.cx, 12);
       expect(b.cy).toBeCloseTo(2 * a.cy, 12);
       expect(b.r).toBeCloseTo(2 * a.r, 12);
+    }
+  });
+});
+
+describe('horizontal-coordinate projection', () => {
+  it('places the zenith independently of azimuth', () => {
+    for (const azimuth of [0, 90, 180, 270]) {
+      const point = projectHorizontal(45, 90, azimuth, R);
+      expect(point.x).toBeCloseTo(zenith(45, R).x, 10);
+      expect(point.y).toBeCloseTo(zenith(45, R).y, 10);
+    }
+  });
+
+  it('places horizon points on the horizon circle', () => {
+    const circle = horizon(45, R);
+    expect(circle.kind).toBe('circle');
+    if (circle.kind === 'circle') {
+      for (let azimuth = 0; azimuth < 360; azimuth += 30) {
+        const point = projectHorizontal(45, 0, azimuth, R);
+        expect(Math.hypot(point.x - circle.cx, point.y - circle.cy)).toBeCloseTo(circle.r, 10);
+      }
+    }
+  });
+
+  it('places points on their altitude and azimuth circles', () => {
+    const point = projectHorizontal(52, 30, 120, R);
+    const altitude = almucantar(52, 30, R);
+    const azimuthCircle = azimuth(52, 90 - 120, R);
+    expect(Math.hypot(point.x - altitude.cx, point.y - altitude.cy)).toBeCloseTo(altitude.r, 10);
+    expect(azimuthCircle.kind).toBe('circle');
+    if (azimuthCircle.kind === 'circle') {
+      expect(Math.hypot(point.x - azimuthCircle.cx, point.y - azimuthCircle.cy)).toBeCloseTo(azimuthCircle.r, 10);
     }
   });
 });
