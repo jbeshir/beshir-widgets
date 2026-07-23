@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "slug": "astrolabe-simulator",
+  "title": "Astrolabe Simulator",
+  "description": "Interactive, accurate planispheric astrolabe: rotate the rete, rule and alidade, switch front/back, pick a latitude plate, and learn to read it.",
+  "framework": "preact-vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "dataSources": [],
+  "data": { "mode": "static" },
+  "workerName": "widget-astrolabe-simulator",
+  "hostname": "astrolabe-simulator.widgets.beshir.org",
+  "embeddable": {
+    "arbitraryParents": true,
+    "recommendedIframe": "<iframe src=\"https://astrolabe-simulator.widgets.beshir.org\" loading=\"lazy\"></iframe>"
+  }
+}

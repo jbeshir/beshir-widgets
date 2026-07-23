@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repositoryDir = path.resolve(__dirname, '..');
 const widgetsDir = path.resolve(__dirname, '..', 'widgets');
 const localThemeWidgets = [
+  'astrolabe-simulator',
   'function-plotter',
   'image-comparison-table',
   'japanese-verb-tower',

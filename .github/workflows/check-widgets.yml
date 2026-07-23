@@ -59,6 +59,11 @@ jobs:
       - name: Build
         working-directory: widgets/${{ matrix.widget }}
         run: npm run build
+
+      - name: Unit tests
+        if: ${{ matrix.widget == 'astrolabe-simulator' }}
+        working-directory: widgets/${{ matrix.widget }}
+        run: npm test
       - name: Install browser for rendered gates
         working-directory: widgets/${{ matrix.widget }}
         run: |
