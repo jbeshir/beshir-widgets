@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { equationOfTime } from './astro';
+import { equationOfTime, solarLongitude } from './astro';
+
+/**
+ * Regression fixture sources:
+ * - USNO: the Equation of Time is apparent solar time minus mean solar time
+ *   https://aa.usno.navy.mil/faq/eqtime
+ * - Astronomie-Québec astrolabe booklet, pp. 21-22: the table lists -6m30s
+ *   on July 26 and instructs subtracting EoT from AST to obtain MST
+ *   https://astronomie.quebec/astrolabe_booklet.pdf
+ */
+describe('solar longitude and equation of time sign', () => {
+  it('stays near 120 degrees while the conventional EoT is negative around late July 2026', () => {
+    const date = new Date('2026-07-23T00:00:00Z');
+
+    expect(solarLongitude(date)).toBeCloseTo(120, 0);
+    expect(equationOfTime(date)).toBeCloseTo(-6.4, 1);
+  });
+});
 
 describe('equation of time', () => {
   it.each([
