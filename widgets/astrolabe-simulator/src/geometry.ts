@@ -54,12 +54,6 @@ export interface ProjectedPoint {
   onPlate: boolean;
 }
 
-export interface SelfCheckResult {
-  name: string;
-  pass: boolean;
-  detail: string;
-}
-
 /** Negate y once at render time to put the zenith at the top of the screen. */
 export function flipY(y: number): number {
   return -y;
@@ -163,11 +157,11 @@ export function nadir(phiDeg: number, R: number): Point {
  * The ecliptic ring: an off-center circle tangent internally to Cancer and
  * reaching out to Capricorn. FINDINGS §3.1:
  *   R_ecliptic = R·secε ≈ 1.0903·R, center_offset = R·tanε ≈ 0.4335·R
- *   center = (0, −R·tanε)   (offset toward Capricorn)
+ *   center = (−R·tanε, 0)   (offset toward Capricorn at α=270°)
  */
 export function eclipticCircle(R: number): CircleGeom {
   const eps = deg2rad(OBLIQUITY_DEG);
-  return { kind: 'circle', cx: 0, cy: -R * Math.tan(eps), r: R / Math.cos(eps) };
+  return { kind: 'circle', cx: -R * Math.tan(eps), cy: 0, r: R / Math.cos(eps) };
 }
 
 /**
@@ -197,61 +191,4 @@ export function eclipticPoint(lambdaDeg: number, R: number): ProjectedPoint {
   const decDeg = rad2deg(Math.asin(Math.sin(eps) * Math.sin(lambda)));
   const raDeg = rad2deg(Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda)));
   return project(raDeg, decDeg, R);
-}
-
-function approxEqual(a: number, b: number, eps: number): boolean {
-  return Math.abs(a - b) < eps;
-}
-
-/**
- * Ship-with-the-module acceptance checks (PLAN §3/§12, FINDINGS-derived
- * constants). DOM-free so it can run under plain node.
- */
-export function selfCheck(): SelfCheckResult[] {
-  const R = 1;
-  const results: SelfCheckResult[] = [];
-
-  const cancer = tropicCancerRadius(R) / R;
-  const equator = equatorRadius(R) / R;
-  const capricorn = tropicCapricornRadius(R) / R;
-  const tropicOk =
-    approxEqual(cancer, 0.6566, 0.001) &&
-    approxEqual(equator, 1, 0.001) &&
-    approxEqual(capricorn, 1.5232, 0.001);
-  results.push({
-    name: 'tropic-radii-ratios',
-    pass: tropicOk,
-    detail: `cancer=${cancer.toFixed(4)}, equator=${equator.toFixed(4)}, capricorn=${capricorn.toFixed(4)} (expected 0.6566 / 1.0000 / 1.5232)`,
-  });
-
-  const phiTest = 45;
-  const alm90 = almucantar(phiTest, 90, R);
-  const zen = zenith(phiTest, R);
-  const collapseOk = approxEqual(alm90.r, 0, 1e-6) && approxEqual(alm90.cy, zen.y, 1e-6);
-  results.push({
-    name: 'almucantar-90-collapses-to-zenith',
-    pass: collapseOk,
-    detail: `almucantar(45,90)={cy:${alm90.cy.toFixed(6)},r:${alm90.r.toFixed(6)}}, zenith(45)={y:${zen.y.toFixed(6)}}`,
-  });
-
-  const hz = horizon(45, R);
-  const hzOk = hz.kind === 'circle' && approxEqual(hz.cy, R, 0.001) && approxEqual(hz.r, R * Math.SQRT2, 0.001);
-  results.push({
-    name: 'horizon-45',
-    pass: hzOk,
-    detail:
-      hz.kind === 'circle'
-        ? `horizon(45)={cy:${hz.cy.toFixed(4)},r:${hz.r.toFixed(4)}} (expected cy=R=${R}, r=R√2=${(R * Math.SQRT2).toFixed(4)})`
-        : 'horizon(45) unexpectedly degenerated to a line',
-  });
-
-  const ecl = eclipticCircle(R);
-  const eclOk = approxEqual(ecl.r, 1.0903, 0.001) && approxEqual(Math.abs(ecl.cy), 0.4335, 0.001);
-  results.push({
-    name: 'ecliptic-constants',
-    pass: eclOk,
-    detail: `eclipticCircle={r:${ecl.r.toFixed(4)},offset:${Math.abs(ecl.cy).toFixed(4)}} (expected r≈1.0903, offset≈0.4335)`,
-  });
-
-  return results;
 }

@@ -15,3 +15,7 @@ The plate geometry is an exact stereographic construction. Star positions are a 
 ## Development
 
 This widget uses Preact, Vite, TypeScript, bundled EB Garamond fonts, and no remote runtime data or assets.
+
+Run `npm test` for the stereographic-projection geometry suite and `npm run build`
+for the production bundle. CI runs the geometry suite only when this widget is
+included in the changed-widget build matrix.
