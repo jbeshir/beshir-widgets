@@ -35,8 +35,8 @@ const t0 = Date.now();
 const records = normalizeCsv(text);
 console.log(`  parsed ${records.length} records in ${Date.now() - t0}ms`);
 
-// ~1,836 records (allow a small tolerance for blank-row trimming differences).
-check('record count near 1836', records.length >= 1700 && records.length <= 1900, records.length);
+// ~1,938 records (allow a small tolerance for blank-row trimming differences).
+check('record count near 1938', records.length >= 1900 && records.length <= 2000, records.length);
 
 // Every record has the required schema fields with correct types.
 const REQUIRED = [
@@ -68,6 +68,9 @@ const durOk = records.every((r) => Number.isInteger(r.durationMin) && r.duration
 check('all durations positive integers', durOk);
 const ids = new Set(records.map((r) => r.id));
 check('ids unique', ids.size === records.length, `${records.length - ids.size} dupes`);
+check('ids use the Pennsic 53 prefix', records.every((r) => /^p53-\d+$/.test(r.id)));
+const refreshed = normalizeCsv(text, { existingSessions: records });
+check('refresh preserves session ids', refreshed.every((r, i) => r.id === records[i].id));
 
 // The known first row: "Sat, Jul 25 04:00PM" -> day 2026-07-25, 16:00–17:00, track "Meetings".
 const first = records[0];

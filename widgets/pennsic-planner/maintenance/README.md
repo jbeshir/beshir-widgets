@@ -16,10 +16,13 @@ The widget ships a fixed schedule snapshot; there is no in-app upload. To refres
    node -e "import('./maintenance/normalize.mjs').then(async m => {
      const fs = await import('node:fs');
      const csv = fs.readFileSync(process.argv[1], 'utf8');
-     fs.writeFileSync('src/data/sessions-2026.json', JSON.stringify(m.normalizeCsv(csv)));
+     const output = 'src/data/sessions-2026.json';
+     const existingSessions = JSON.parse(fs.readFileSync(output, 'utf8'));
+     fs.writeFileSync(output, JSON.stringify(m.normalizeCsv(csv, { existingSessions })));
    })" path/to/export.csv
    ```
-3. Commit the regenerated `src/data/sessions-2026.json`.
+3. Replace `test/fixtures/pennsic-2026-schedule.csv` with the new export.
+4. Commit the regenerated JSON and CSV fixture.
 
 `test/importer.test.mjs` exercises this normalizer against the committed fixture
 (`test/fixtures/pennsic-2026-schedule.csv`) so the generator stays correct.

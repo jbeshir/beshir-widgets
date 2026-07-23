@@ -163,10 +163,10 @@ function parseFee(raw) {
   return Number.isFinite(v) ? v : null;
 }
 
-// Strip surrounding markdown emphasis (*, **, ***) and collapse whitespace.
+// Titles are rendered as plain text, so strip markdown emphasis markers and collapse whitespace.
 function cleanTitle(raw) {
   let s = String(raw == null ? '' : raw).trim();
-  s = s.replace(/^\*+/, '').replace(/\*+$/, '').trim();
+  s = s.replace(/\*+/g, '').trim();
   return s.replace(/\s+/g, ' ');
 }
 
@@ -183,11 +183,27 @@ function hash(str) {
 /**
  * Normalize a Thing `calendars` CSV export into the bundled Session schema.
  * @param {string} text - raw CSV text
- * @param {{defaultYear?: number}} [opts]
+ * @param {{
+ *   defaultYear?: number,
+ *   idPrefix?: string,
+ *   existingSessions?: import('../src/types').Session[],
+ * }} [opts]
  * @returns {import('../src/types').Session[]}
  */
 export function normalizeCsv(text, opts = {}) {
   const defaultYear = opts.defaultYear || 2026;
+  const idPrefix = opts.idPrefix || 'p53';
+  const existingByOccurrence = new Map();
+  let nextId = 0;
+  for (const session of opts.existingSessions || []) {
+    const key = cleanTitle(session.title) + '||' + (session.instructor || '') + '||' + session.start;
+    const ids = existingByOccurrence.get(key) || [];
+    ids.push(session.id);
+    existingByOccurrence.set(key, ids);
+    const escapedPrefix = idPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`^${escapedPrefix}-(\\d+)$`).exec(session.id);
+    if (match) nextId = Math.max(nextId, Number(match[1]) + 1);
+  }
   const rows = parseCsv(text).filter((r) => r.length > 1 || (r.length === 1 && r[0].trim() !== ''));
   if (rows.length < 2) return [];
   const header = rows[0];
@@ -260,35 +276,40 @@ export function normalizeCsv(text, opts = {}) {
   }
 
   // Second pass: assign ids, classIds, repeatCounts.
-  return drafts.map((d, i) => ({
-    id: `imp-${String(i).padStart(5, '0')}`,
-    classId: `imp-c${hash(d.repeatKey)}`,
-    title: d.title,
-    instructor: d.instructor,
-    instructorKingdom: d.kingdom,
-    track: d.track,
-    topic: d.topic,
-    culture: null,
-    day: d.day,
-    start: d.start,
-    end: d.end,
-    startTime: d.startTime,
-    endTime: d.endTime,
-    durationMin: d.durationMin,
-    location: d.location,
-    description: d.description,
-    descriptionBook: d.description,
-    adultOnly: d.adultOnly,
-    adultReason: d.adultReason,
-    handoutFee: d.handoutFee,
-    materialFee: d.materialFee,
-    feeItemization: null,
-    hasFee: d.hasFee,
-    repeatCount: repeatKeyCount.get(d.repeatKey) || 1,
-    timezone: 'America/New_York',
-    source: 'thing.pennsicuniversity.org calendars CSV (in-browser import)',
-    synthetic: false,
-  }));
+  return drafts.map((d) => {
+    const occurrenceKey = d.repeatKey + '||' + d.start;
+    const existingIds = existingByOccurrence.get(occurrenceKey);
+    const id = existingIds?.shift() || `${idPrefix}-${String(nextId++).padStart(4, '0')}`;
+    return {
+      id,
+      classId: `${idPrefix}-c${hash(d.repeatKey)}`,
+      title: d.title,
+      instructor: d.instructor,
+      instructorKingdom: d.kingdom,
+      track: d.track,
+      topic: d.topic,
+      culture: null,
+      day: d.day,
+      start: d.start,
+      end: d.end,
+      startTime: d.startTime,
+      endTime: d.endTime,
+      durationMin: d.durationMin,
+      location: d.location,
+      description: d.description,
+      descriptionBook: d.description,
+      adultOnly: d.adultOnly,
+      adultReason: d.adultReason,
+      handoutFee: d.handoutFee,
+      materialFee: d.materialFee,
+      feeItemization: null,
+      hasFee: d.hasFee,
+      repeatCount: repeatKeyCount.get(d.repeatKey) || 1,
+      timezone: 'America/New_York',
+      source: 'thing.pennsicuniversity.org calendars export (Pennsic 53 / 2026)',
+      synthetic: false,
+    };
+  });
 }
 
 function addMinutes(dt, mins) {
