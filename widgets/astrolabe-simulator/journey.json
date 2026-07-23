@@ -18,9 +18,24 @@
       "label": "shadow-square-45-degree-corner",
       "steps": [
         { "click": "[data-testid=face-toggle]" },
-        { "fill": "[data-testid=alidade-angle]", "value": "45" },
         {
-          "eval": "(() => { const square = document.querySelector('[data-testid=shadow-square]'); const alidade = document.querySelector('[data-testid=alidade]'); if (!square || !alidade) throw new Error('shadow-square journey elements missing'); const x = Number(square.getAttribute('x')); const y = Number(square.getAttribute('y')) + Number(square.getAttribute('height')); if (Math.abs(x + y) > 1e-9) throw new Error(`45-degree alidade misses shadow-square corner (${x}, ${y})`); if (alidade.getAttribute('transform') !== 'rotate(-45)') throw new Error('alidade did not rotate to 45 degrees'); })()"
+          "eval": "new Promise((resolve, reject) => { window.astrolabe.setAlidade(45); requestAnimationFrame(() => requestAnimationFrame(() => { try { const square = document.querySelector('[data-testid=shadow-square]'); if (!square) throw new Error('shadow-square journey element missing'); const x = Number(square.getAttribute('x')); const y = Number(square.getAttribute('y')) + Number(square.getAttribute('height')); if (Math.abs(x + y) > 1e-9) throw new Error(`45-degree alidade misses shadow-square corner (${x}, ${y})`); if (window.astrolabe.getState().alidadeRotation !== 45) throw new Error('alidade state did not rotate to 45 degrees'); resolve(true); } catch (error) { reject(error); } })); })"
+        }
+      ],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "url-state-survives-refresh",
+      "steps": [
+        { "click": "[data-testid=face-toggle]" },
+        { "fill": "[data-testid=alidade-angle]", "value": "45" },
+        { "click": "[data-testid=layer-shadowSquare]" },
+        {
+          "eval": "(() => { const params = new URLSearchParams(location.search); if (params.get('face') !== 'back' || params.get('alidade') !== '45' || params.get('hide') !== 'shadowSquare') throw new Error(`URL did not capture state: ${location.search}`); location.reload(); return true; })()"
+        },
+        { "waitFor": "[data-testid=alidade-angle]" },
+        {
+          "eval": "(() => { const state = window.astrolabe.getState(); if (state.face !== 'back' || state.alidadeRotation !== 45 || state.visibility.shadowSquare !== false) throw new Error('URL state was not restored after refresh'); })()"
         }
       ],
       "expect": { "state": "ready" }

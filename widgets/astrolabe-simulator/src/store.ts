@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { nearestPlate } from './data/plates';
 import { normalizeDeg } from './astro';
+import { searchFromState, stateFromSearch } from './urlState';
 
 export type Face = 'front' | 'back';
 
@@ -82,12 +83,20 @@ function defaultState(): AstrolabeState {
   };
 }
 
-let state: AstrolabeState = defaultState();
+const defaults = defaultState();
+let state: AstrolabeState = typeof window === 'undefined'
+  ? defaults
+  : stateFromSearch(window.location.search, defaults);
 let plateManuallyPinned = false;
 const listeners = new Set<(state: AstrolabeState) => void>();
 
 function notify(): void {
   for (const listener of listeners) listener(state);
+  if (typeof window !== 'undefined') {
+    const search = searchFromState(window.location.search, state, defaults);
+    const nextUrl = `${window.location.pathname}${search}${window.location.hash}`;
+    window.history.replaceState(window.history.state, '', nextUrl);
+  }
 }
 
 export function getState(): AstrolabeState {

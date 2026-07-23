@@ -1,5 +1,6 @@
 import type { JSX } from 'preact';
 import { equationOfTime, solarLongitude } from '../astro';
+import { EQUATION_ZERO_RADIUS, equationOfTimePoint } from '../ruleGeometry';
 import { shadowSquareLayout } from '../shadowSquare';
 import { useStore } from '../store';
 import { Alidade } from './Alidade';
@@ -45,16 +46,13 @@ export function Back(): JSX.Element {
   const monthStarts = MONTHS.map((_, month) => solarLongitude(new Date(year, month, 1)));
   const shadow = shadowSquareLayout();
   const hourArcs = Array.from({ length: 5 }, (_, index) => index + 1);
-  const equationSamples = Array.from({ length: 123 }, (_, index) => {
-    const day = Math.min(index * 3, 365);
-    const date = new Date(Date.UTC(year, 0, day + 1, 12));
-    return { x: -320 + day * (640 / 365), y: -175 - equationOfTime(date) * 5 };
-  });
-  const equationPath = equationSamples.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
-  const startOfYear = Date.UTC(year, 0, 1);
-  const currentDay = Math.floor((now.getTime() - startOfYear) / 86400000);
+  const daysInYear = Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1) === 366 * 86400000 ? 366 : 365;
+  const equationSamples = Array.from({ length: daysInYear }, (_, day) => (
+    equationOfTimePoint(new Date(Date.UTC(year, 0, day + 1, 12)))
+  ));
+  const equationPath = `${equationSamples.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')} Z`;
   const currentEquation = equationOfTime(now);
-  const equationMarker = { x: -320 + currentDay * (640 / 365), y: -175 - currentEquation * 5 };
+  const equationMarker = equationOfTimePoint(now);
 
   return (
     <svg
@@ -136,11 +134,10 @@ export function Back(): JSX.Element {
       </g>}
 
       {visibility.equationOfTime && <g aria-label={`Equation of time: ${currentEquation.toFixed(1)} minutes`}>
-        <line className="astro-equation-axis" x1="-320" y1="-175" x2="320" y2="-175" />
+        <circle className="astro-equation-axis" r={EQUATION_ZERO_RADIUS} />
         <path className="astro-equation-curve" d={equationPath} />
         <circle className="astro-equation-marker" cx={equationMarker.x} cy={equationMarker.y} r="5" />
-        <text className="astro-equation-label" x="0" y="-278" text-anchor="middle">EQUATION OF TIME · MINUTES</text>
-        <text className="astro-equation-value" x="0" y="-250" text-anchor="middle">{currentEquation >= 0 ? '+' : ''}{currentEquation.toFixed(1)} min today</text>
+        <text className="astro-equation-label" x="0" y="-330" text-anchor="middle">EQUATION OF TIME</text>
       </g>}
 
       {visibility.alidade && <Alidade alidadeRotation={alidadeRotation} />}

@@ -1,15 +1,17 @@
 import type { JSX } from 'preact';
 import { useRef, useState } from 'preact/hooks';
-import { capricornRadius } from '../geometry';
+import { capricornRadius, rOfDec } from '../geometry';
 import { angleFromPointer, keyRotate, rotationDelta } from '../interaction';
 import { setRule, type Visibility } from '../store';
 import { ASTROLABE_R } from './Plate';
+import { counterchangedRulePaths } from '../ruleGeometry';
 
 interface RuleProps { ruleRotation: number; visibility: Visibility; }
 
 export function Rule({ ruleRotation, visibility }: RuleProps): JSX.Element | null {
   const rim = capricornRadius(ASTROLABE_R);
-  const ticks = Array.from({ length: 17 }, (_, index) => -rim + 34 + index * ((rim * 2 - 68) / 16));
+  const declinations = Array.from({ length: 21 }, (_, index) => -20 + index * 5);
+  const arms = counterchangedRulePaths('vertical', rim - 18, 7);
   const drag = useRef<{ pointerId: number; pointerAngle: number; rotation: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const endDrag = (event: JSX.TargetedPointerEvent<SVGGElement>) => {
@@ -51,11 +53,20 @@ export function Rule({ ruleRotation, visibility }: RuleProps): JSX.Element | nul
         setRule(keyRotate(ruleRotation, event.key, event.shiftKey));
       }}
     >
-      <path className="astro-rule-body" d={`M -2.6 ${-rim + 18} L 2.6 ${-rim + 18} L 2.6 ${rim - 18} L -2.6 ${rim - 18} Z`} />
+      {arms.map((path, index) => <path key={index} className="astro-rule-body" d={path} />)}
       <path className="astro-rule-tip" d={`M 0 ${-rim - 7} L 5.5 ${-rim + 18} L -5.5 ${-rim + 18} Z`} />
       <path className="astro-rule-tip" d={`M 0 ${rim + 7} L 5.5 ${rim - 18} L -5.5 ${rim - 18} Z`} />
       <line className="astro-rule-edge" x1="0" y1={-rim - 7} x2="0" y2={rim + 7} />
-      {ticks.map((y, index) => <line key={index} className="astro-rule-tick" x1={index % 4 === 0 ? -8 : -5} y1={y} x2={index % 4 === 0 ? 8 : 5} y2={y} stroke-width={index % 4 === 0 ? 1.1 : 0.65} />)}
+      {declinations.map((declination) => {
+        const y = rOfDec(declination, ASTROLABE_R);
+        const major = declination % 10 === 0;
+        return <g key={declination}>
+          <line className="astro-rule-tick" x1="0" y1={y} x2={major ? 12 : 8} y2={y} stroke-width={major ? 1.1 : 0.65} />
+          {major && <g transform={`translate(16 ${y}) scale(1,-1)`}>
+            <text className="astro-rule-label" text-anchor="start" dominant-baseline="middle">{declination}°</text>
+          </g>}
+        </g>;
+      })}
     </g>
   );
 }

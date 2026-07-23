@@ -275,10 +275,10 @@ button, input, select {
 .astro-shadow-number { font-size: 12px; }
 .astro-shadow-label, .astro-hour-label { font-size: 14px; font-weight: 600; letter-spacing: 1.4px; }
 .astro-back-hour { fill: none; stroke: var(--astro-line); stroke-width: 0.8; opacity: 0.48; }
-.astro-equation-axis { stroke: var(--astro-line); stroke-width: 0.7; opacity: 0.6; }
+.astro-equation-axis { fill: none; stroke: var(--astro-line); stroke-width: 0.7; stroke-dasharray: 3 5; opacity: 0.45; }
 .astro-equation-curve { fill: none; stroke: var(--astro-accent-red); stroke-width: 2; }
 .astro-equation-marker { fill: var(--astro-accent-red); stroke: var(--astro-mater-fill); stroke-width: 2; }
-.astro-equation-label, .astro-equation-value {
+.astro-equation-label {
   fill: var(--astro-label);
   font-family: var(--widget-font-identity);
   paint-order: stroke;
@@ -286,9 +286,22 @@ button, input, select {
   stroke-width: 3px;
 }
 .astro-equation-label { font-size: 13px; font-weight: 700; letter-spacing: 1.2px; }
-.astro-equation-value { font-size: 12px; }
 .astro-alidade-bar { fill: var(--astro-alidade-fill); stroke: var(--astro-rim); stroke-width: 1.2; }
 .astro-alidade-pointer { stroke: var(--astro-alidade-line); stroke-width: 1; }
+.astro-alidade-scale-tick { stroke: var(--astro-alidade-line); stroke-width: 0.8; }
+.astro-alidade-scale-label {
+  fill: var(--astro-alidade-line);
+  font-family: var(--widget-font-identity);
+  font-size: 10px;
+  font-weight: 700;
+}
+.astro-alidade-arm-label {
+  fill: var(--astro-alidade-line);
+  font-family: var(--widget-font-identity);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
 .astro-alidade-tip { fill: var(--astro-accent-red); }
 .astro-alidade-vane { fill: var(--astro-alidade-fill); stroke: var(--astro-line-strong); stroke-width: 1.3; }
 .astro-alidade-sight { fill: var(--astro-mater-fill); stroke: var(--astro-line-strong); stroke-width: 1.2; }
@@ -406,6 +419,15 @@ button, input, select {
 .astro-rule-body { fill: var(--astro-rule-fill); stroke: var(--astro-line-strong); stroke-width: 0.6; opacity: 0.92; }
 .astro-rule-tip { fill: var(--astro-accent-red); opacity: 0.9; }
 .astro-rule-tick { stroke: var(--astro-line-strong); opacity: 0.75; }
+.astro-rule-label {
+  fill: var(--astro-line-strong);
+  font-family: var(--widget-font-identity);
+  font-size: 10px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--astro-mater-fill);
+  stroke-width: 2px;
+}
 .astro-rule-edge { fill: none; stroke: var(--astro-line-strong); stroke-width: 0.7; opacity: 0.7; }
 
 /* Center pin */

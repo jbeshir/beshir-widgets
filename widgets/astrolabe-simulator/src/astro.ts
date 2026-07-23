@@ -18,6 +18,61 @@ export function raDegFromHMS(h: number, m: number, s: number): number {
   return normalizeDeg(15 * (h + m / 60 + s / 3600));
 }
 
+/** Greenwich mean sidereal angle in degrees, using the standard J2000 polynomial. */
+export function greenwichSiderealTime(date: Date): number {
+  const jd = date.getTime() / MS_PER_DAY + 2440587.5;
+  const centuries = (jd - 2451545) / 36525;
+  return normalizeDeg(
+    280.46061837 +
+    360.98564736629 * (jd - 2451545) +
+    0.000387933 * centuries ** 2 -
+    centuries ** 3 / 38710000,
+  );
+}
+
+/** Local mean sidereal angle; longitude is positive east of Greenwich. */
+export function localSiderealTime(date: Date, longitudeDeg: number): number {
+  return normalizeDeg(greenwichSiderealTime(date) + longitudeDeg);
+}
+
+export interface HorizontalObservation {
+  altitude: number;
+  azimuth: number;
+  hourAngle: number;
+}
+
+/**
+ * Convert fixed-catalogue equatorial coordinates to local horizontal
+ * coordinates. Azimuth is clockwise from north.
+ */
+export function equatorialToHorizontal(
+  raDeg: number,
+  decDeg: number,
+  latitudeDeg: number,
+  siderealDeg: number,
+): HorizontalObservation {
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+  const hourAngle = normalizeDeg(siderealDeg - raDeg);
+  const h = hourAngle * toRad;
+  const dec = decDeg * toRad;
+  const latitude = latitudeDeg * toRad;
+  const altitude = Math.asin(
+    Math.sin(latitude) * Math.sin(dec) +
+    Math.cos(latitude) * Math.cos(dec) * Math.cos(h),
+  );
+  const azimuth = Math.atan2(
+    -Math.sin(h) * Math.cos(dec),
+    Math.sin(dec) * Math.cos(latitude) -
+    Math.cos(dec) * Math.sin(latitude) * Math.cos(h),
+  );
+  return {
+    altitude: altitude * toDeg,
+    azimuth: normalizeDeg(azimuth * toDeg),
+    hourAngle,
+  };
+}
+
 /**
  * Apparent solar ecliptic longitude λ (degrees), FINDINGS §5.3:
  *   D = days since J2000.0 (2000-01-01T12:00:00Z)

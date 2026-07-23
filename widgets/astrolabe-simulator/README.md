@@ -1,10 +1,13 @@
 # Astrolabe Simulator
 
-An interactive, procedural-SVG planispheric astrolabe. It includes northern latitude plates, a rotating rete and rule, a fully engraved back with a movable alidade, location controls, and plain-language guidance.
+An interactive, procedural-SVG planispheric astrolabe. It includes northern latitude plates, a rotating rete and declination rule, a fully engraved back with a movable two-arm alidade and equation-of-time loop, location controls, and plain-language guidance.
 
 ## Use
 
 Choose a city or enter a latitude and longitude, then select the nearest plate. The mismatch message explains the expected reading error. Drag the rete and rule on the front or the alidade on the back; arrow keys move a focused part by 1°, Shift+arrow by 10°, and Home returns it to 0°.
+
+The current face, location, plate, rotations, and hidden layers are reflected
+in the URL. Refreshing or sharing that URL restores the same configuration.
 
 The stable `window.astrolabe` API exposes the serializable state and actions for tutorials and host pages.
 
