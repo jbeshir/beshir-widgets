@@ -74,6 +74,7 @@ button, input, select {
   justify-content: space-between;
   gap: 16px;
 }
+.header-row .hint { margin-left: auto; text-align: right; }
 
 .face-toggle {
   flex: 0 0 auto;
@@ -274,6 +275,18 @@ button, input, select {
 .astro-shadow-number { font-size: 12px; }
 .astro-shadow-label, .astro-hour-label { font-size: 14px; font-weight: 600; letter-spacing: 1.4px; }
 .astro-back-hour { fill: none; stroke: var(--astro-line); stroke-width: 0.8; opacity: 0.48; }
+.astro-equation-axis { stroke: var(--astro-line); stroke-width: 0.7; opacity: 0.6; }
+.astro-equation-curve { fill: none; stroke: var(--astro-accent-red); stroke-width: 2; }
+.astro-equation-marker { fill: var(--astro-accent-red); stroke: var(--astro-mater-fill); stroke-width: 2; }
+.astro-equation-label, .astro-equation-value {
+  fill: var(--astro-label);
+  font-family: var(--widget-font-identity);
+  paint-order: stroke;
+  stroke: var(--astro-mater-fill);
+  stroke-width: 3px;
+}
+.astro-equation-label { font-size: 13px; font-weight: 700; letter-spacing: 1.2px; }
+.astro-equation-value { font-size: 12px; }
 .astro-alidade-bar { fill: var(--astro-alidade-fill); stroke: var(--astro-rim); stroke-width: 1.2; }
 .astro-alidade-pointer { stroke: var(--astro-alidade-line); stroke-width: 1; }
 .astro-alidade-tip { fill: var(--astro-accent-red); }
@@ -283,8 +296,19 @@ button, input, select {
 .astro-pin-core { fill: var(--astro-mater-fill); stroke: var(--astro-rim); stroke-width: 0.8; }
 
 @media (max-width: 520px) {
-  .header-row { align-items: flex-start; }
+  .header-row { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .header-row .hint { margin-left: 0; text-align: left; }
   .face-toggle { padding-inline: 11px; }
+}
+
+@media (min-width: 821px) {
+  .card-header { margin-bottom: 8px; }
+  .card-header h1 { margin-bottom: 0; white-space: nowrap; }
+  .controls { margin-top: 0; padding: 8px 10px; gap: 7px; }
+  .control-actions { margin-right: 0; }
+  .layer-controls { padding-block: 5px; }
+  .instrument-stage, .info-panel { margin-top: 8px; }
+  .astro-svg { max-width: min(700px, calc(100vh - 210px)); }
 }
 
 @media (max-width: 820px) {

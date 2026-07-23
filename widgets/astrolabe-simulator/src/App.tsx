@@ -31,7 +31,7 @@ export function App(): JSX.Element {
   return (
     <div className="container" ref={rootRef}>
       <div className="card">
-        <header className="card-header">
+        <header className="card-header header-row">
           <h1>Astrolabe Simulator</h1>
           <p className="hint">A working map of the heavens, engraved for latitude {state.plateLatitude.toFixed(2)}°.</p>
         </header>

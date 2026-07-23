@@ -29,11 +29,11 @@ describe('shadow-square construction', () => {
 describe('alidade intersections with the shadow square', () => {
   it.each([
     [30, -228, 228 * Math.tan(Math.PI / 6), 'left'],
-    [45, -228, 228, 'left'],
-    [60, -300 / Math.sqrt(3), 300, 'bottom'],
-    [90, 0, 300, 'bottom'],
-    [120, 300 / Math.sqrt(3), 300, 'bottom'],
-    [135, 228, 228, 'right'],
+    [45, -228, 228, 'bottom'],
+    [60, -228 / Math.sqrt(3), 228, 'bottom'],
+    [90, 0, 228, 'bottom'],
+    [120, 228 / Math.sqrt(3), 228, 'bottom'],
+    [135, 228, 228, 'bottom'],
     [150, 228, 228 * Math.tan(Math.PI / 6), 'right'],
   ] as const)('places a %s° sightline at (%s, %s) on the %s edge', (angle, x, y, edge) => {
     const intersection = shadowSquareIntersection(angle);
@@ -45,9 +45,16 @@ describe('alidade intersections with the shadow square', () => {
 
   it('returns no reading when the sightline passes below the square', () => {
     expect(shadowSquareIntersection(0)).toBeNull();
-    expect(shadowSquareIntersection(10)).toBeNull();
-    expect(shadowSquareIntersection(170)).toBeNull();
     expect(shadowSquareIntersection(180)).toBeNull();
+  });
+
+  it('places the 45° sightline exactly through the lower-left corner', () => {
+    const layout = shadowSquareLayout();
+    expect(shadowSquareIntersection(45)).toEqual({
+      x: layout.left,
+      y: layout.bottom,
+      edge: 'bottom',
+    });
   });
 
   it('mirrors readings across the vertical axis', () => {

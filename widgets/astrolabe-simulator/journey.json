@@ -15,6 +15,17 @@
       "expect": { "state": "ready" }
     },
     {
+      "label": "shadow-square-45-degree-corner",
+      "steps": [
+        { "click": "[data-testid=face-toggle]" },
+        { "fill": "[data-testid=alidade-angle]", "value": "45" },
+        {
+          "eval": "(() => { const square = document.querySelector('[data-testid=shadow-square]'); const alidade = document.querySelector('[data-testid=alidade]'); if (!square || !alidade) throw new Error('shadow-square journey elements missing'); const x = Number(square.getAttribute('x')); const y = Number(square.getAttribute('y')) + Number(square.getAttribute('height')); if (Math.abs(x + y) > 1e-9) throw new Error(`45-degree alidade misses shadow-square corner (${x}, ${y})`); if (alidade.getAttribute('transform') !== 'rotate(-45)') throw new Error('alidade did not rotate to 45 degrees'); })()"
+        }
+      ],
+      "expect": { "state": "ready" }
+    },
+    {
       "label": "pick-city",
       "steps": [
         {

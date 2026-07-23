@@ -10,7 +10,7 @@ The stable `window.astrolabe` API exposes the serializable state and actions for
 
 ## Accuracy
 
-The plate geometry is an exact stereographic construction. Star positions are a compact J2000 catalogue without precession, atmospheric refraction is omitted, obliquity is fixed, and solar longitude is approximate. The finite plates are northern constructions; southern locations therefore carry an explicit limitation warning. This widget is educational and does not claim observational precision.
+The plate geometry is an exact stereographic construction. Star positions are a compact J2000 catalogue without precession, atmospheric refraction is omitted, obliquity is fixed, and solar longitude and equation-of-time values are approximate. The finite plates are northern constructions; southern locations therefore carry an explicit limitation warning. This widget is educational and does not claim observational precision.
 
 ## Development
 
