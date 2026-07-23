@@ -309,7 +309,11 @@ button, input, select {
 }
 
 /* Mater / limb */
-.astro-mater { fill: var(--astro-mater-fill); stroke: none; }
+.astro-device-depth {
+  fill: var(--astro-device-edge);
+  filter: drop-shadow(0 8px 10px var(--astro-device-shadow));
+}
+.astro-mater { stroke: color-mix(in srgb, var(--astro-device-edge) 76%, white 24%); stroke-width: 2; }
 .astro-limb-band { fill: var(--astro-limb-fill); stroke: var(--astro-rim); stroke-width: 1.5; }
 .astro-limb-tick-major { stroke: var(--astro-line-strong); stroke-width: 1.6; }
 .astro-limb-tick-minor { stroke: var(--astro-line); stroke-width: 0.8; }
