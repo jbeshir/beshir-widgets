@@ -6,7 +6,7 @@ const PARTS = [
   ['plate', 'Latitude plate', 'The fixed horizon, altitude and azimuth grid for one latitude.', 'front'],
   ['rete', 'Rete', 'The rotating star map and ecliptic zodiac ring.', 'front'],
   ['rule', 'Rule', 'A sighting and reading edge on the front.', 'front'],
-  ['back', 'Back scales', 'Calendar, zodiac, degree, shadow-square and unequal-hour engravings.', 'back'],
+  ['back', 'Back scales', 'Calendar, zodiac, equation-of-time, shadow-square and unequal-hour engravings.', 'back'],
   ['alidade', 'Alidade', 'The rotating sighting rule on the back.', 'back'],
 ] as const;
 
