@@ -19,6 +19,7 @@ const ZODIAC = [
   ['LEO', 'Leo'], ['VIR', 'Virgo'], ['LIB', 'Libra'], ['SCO', 'Scorpio'],
   ['SAG', 'Sagittarius'], ['CAP', 'Capricorn'], ['AQU', 'Aquarius'], ['PIS', 'Pisces'],
 ] as const;
+const ECLIPTIC_DEGREES = Array.from({ length: 36 }, (_, index) => index * 10);
 
 function uprightTransform(x: number, y: number, rotation: number): string {
   return `translate(${x} ${y}) rotate(${-rotation}) scale(1,-1)`;
@@ -74,6 +75,11 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
       {visibility.ecliptic && <g clip-path="url(#plate-clip)">
         <circle className="astro-rete-ring" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r} />
         <circle className="astro-rete-thin" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r - 14} />
+        {ECLIPTIC_DEGREES.map((degrees) => {
+          const outer = eclipticPoint(degrees, ASTROLABE_R);
+          const inner = eclipticPoint(degrees, ASTROLABE_R - (degrees % 30 === 0 ? 24 : 14));
+          return <line key={`degree-${degrees}`} className="astro-ecliptic-degree-tick" x1={outer.x} y1={outer.y} x2={inner.x} y2={inner.y} />;
+        })}
         {ZODIAC.map(([abbr, name], index) => {
           const point = eclipticPoint(index * 30, ASTROLABE_R);
           const inner = eclipticPoint(index * 30, ASTROLABE_R - 20);
@@ -82,6 +88,9 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
             <line className="astro-zodiac-tick" x1={point.x} y1={point.y} x2={inner.x} y2={inner.y} />
             <g transform={uprightTransform(label.x, label.y, reteRotation)}>
               <text className="astro-zodiac-label" text-anchor="middle" dominant-baseline="middle" aria-label={name}>{abbr}</text>
+            </g>
+            <g transform={uprightTransform(inner.x, inner.y, reteRotation)}>
+              <text className="astro-ecliptic-degree-label" text-anchor="middle" dominant-baseline="middle">{index * 30}°</text>
             </g>
           </g>;
         })}
