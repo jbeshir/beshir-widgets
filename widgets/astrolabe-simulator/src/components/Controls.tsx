@@ -36,7 +36,7 @@ export function Controls(): JSX.Element {
       <label>Plate <select data-testid="plate-select" value={plateValue} onChange={(event) => {
         selectPlate(event.currentTarget.value.startsWith('exact:') ? exactPlateLatitude : Number(event.currentTarget.value));
       }}>
-        <option value={exactPlateValue}>Exact ({exactPlateLatitude.toFixed(2)}°)</option>
+        <option value={exactPlateValue}>Exact</option>
         {PLATES.map((plate) => <option key={plate.latitude} value={plate.latitude}>{plate.label}</option>)}
       </select></label>
     </div>
