@@ -5,6 +5,7 @@ import {
   capricornRadius,
   equatorRadius,
   horizon,
+  projectHorizontal,
   tropicCancerRadius,
   zenith,
   type HorizonGeom,
@@ -49,12 +50,20 @@ export function Plate({ latitude, visibility }: PlateProps): JSX.Element {
   const cancer = tropicCancerRadius(ASTROLABE_R);
   const equator = equatorRadius(ASTROLABE_R);
   const zen = zenith(latitude, ASTROLABE_R);
+  const horizonGeometry = horizon(latitude, ASTROLABE_R);
   const altitudes = [10, 20, 30, 40, 50, 60, 70, 80];
-  const azimuthAngles = [-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150, 180];
+  const azimuthDegrees = Array.from({ length: 12 }, (_, index) => index * 30);
 
   return (
     <g aria-label={`Latitude plate ${latitude.toFixed(2)} degrees`}>
-      <defs><clipPath id="plate-clip"><circle r={rim} /></clipPath></defs>
+      <defs>
+        <clipPath id="plate-clip"><circle r={rim} /></clipPath>
+        <clipPath id="above-horizon-clip">
+          {horizonGeometry.kind === 'circle'
+            ? <circle cx={horizonGeometry.cx} cy={horizonGeometry.cy} r={Math.abs(horizonGeometry.r)} />
+            : <rect x={-rim} y={horizonGeometry.value} width={rim * 2} height={rim} />}
+        </clipPath>
+      </defs>
       <circle className="astro-rim" r={rim} />
       {visibility.tropics && <>
         <circle className="astro-equator" r={equator} />
@@ -71,8 +80,8 @@ export function Plate({ latitude, visibility }: PlateProps): JSX.Element {
             return <circle key={altitude} className="astro-almucantar" cx={curve.cx} cy={curve.cy} r={Math.abs(curve.r)} />;
           })}
         </g>}
-        {visibility.azimuths && <g>
-          {azimuthAngles.map((angle) => <GeometryMark key={angle} geometry={azimuth(latitude, angle, ASTROLABE_R)} className="astro-azimuth" extent={rim} />)}
+        {visibility.azimuths && <g clip-path="url(#above-horizon-clip)">
+          {azimuthDegrees.map((degrees) => <GeometryMark key={degrees} geometry={azimuth(latitude, 90 - degrees, ASTROLABE_R)} className="astro-azimuth" extent={rim} />)}
         </g>}
         {visibility.unequalHours && <g>
           {/* Approximation from FINDINGS §5.5: twelve evenly fanned quadratic arcs
@@ -84,15 +93,21 @@ export function Plate({ latitude, visibility }: PlateProps): JSX.Element {
             return <path key={index} className="astro-unequal-hour" d={`M 0 ${equator * 0.16} Q ${x * 0.55} ${equator * 0.92} ${x} ${rim * 0.92}`} />;
           })}
         </g>}
-        <GeometryMark geometry={horizon(latitude, ASTROLABE_R)} className="astro-horizon" extent={rim} />
+        <GeometryMark geometry={horizonGeometry} className="astro-horizon" extent={rim} />
       </g>
 
-      {visibility.almucantars && <>
-        {[30, 60].map((altitude) => {
-          const curve = almucantar(latitude, altitude, ASTROLABE_R);
-          return <UprightLabel key={altitude} x={34} y={curve.cy - curve.r} className="astro-label-muted" fontSize={13}>{`${altitude}°`}</UprightLabel>;
+      {visibility.almucantars && <g aria-label="Altitude degree labels">
+        {altitudes.map((altitude) => {
+          const label = projectHorizontal(latitude, altitude, 96, ASTROLABE_R);
+          return <UprightLabel key={altitude} x={label.x} y={label.y} className="astro-label-muted astro-grid-degree-label" fontSize={11}>{`${altitude}°`}</UprightLabel>;
         })}
-      </>}
+      </g>}
+      {visibility.azimuths && <g aria-label="Azimuth degree labels">
+        {azimuthDegrees.map((degrees) => {
+          const label = projectHorizontal(latitude, 5, degrees, ASTROLABE_R);
+          return <UprightLabel key={degrees} x={label.x} y={label.y} className="astro-label-muted astro-grid-degree-label" fontSize={10}>{`${degrees}°`}</UprightLabel>;
+        })}
+      </g>}
       <circle className="astro-zenith-dot" cx={zen.x} cy={zen.y} r={5} />
       <UprightLabel x={zen.x + 20} y={zen.y + 8} anchor="start" fontSize={14}>Zenith</UprightLabel>
     </g>
