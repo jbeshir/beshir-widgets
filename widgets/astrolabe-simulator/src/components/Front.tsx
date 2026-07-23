@@ -22,7 +22,15 @@ export function Front(): JSX.Element {
 
   return (
     <svg className="astro-svg" role="img" aria-label={`Front face, latitude ${plateLatitude.toFixed(2)} degrees, rete ${reteRotation.toFixed(1)} degrees, rule ${ruleRotation.toFixed(1)} degrees`} viewBox={VIEWBOX}>
-      <circle className="astro-mater" r={outer + 8} />
+      <defs>
+        <radialGradient id="front-mater-surface" cx="34%" cy="28%" r="72%">
+          <stop offset="0%" stop-color="var(--astro-device-surface-light)" />
+          <stop offset="62%" stop-color="var(--astro-device-surface)" />
+          <stop offset="100%" stop-color="var(--astro-device-surface-dark)" />
+        </radialGradient>
+      </defs>
+      <circle className="astro-device-depth" r={outer + 13} />
+      <circle className="astro-mater" r={outer + 8} fill="url(#front-mater-surface)" />
       <path className="astro-limb-band" d={annulus} fill-rule="evenodd" />
       <g transform="scale(1,-1)">
         <g aria-label="Limb hour and degree scales">

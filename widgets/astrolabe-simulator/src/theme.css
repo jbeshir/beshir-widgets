@@ -22,6 +22,11 @@
   /* Astrolabe instrument tokens (phase02): aliases onto the tokens above so
      the SVG face stays theme-correct without hardcoded colors. */
   --astro-mater-fill: var(--widget-panel);
+  --astro-device-edge: #76501f;
+  --astro-device-shadow: rgba(73, 47, 17, 0.34);
+  --astro-device-surface-light: #ead59b;
+  --astro-device-surface: #cfab61;
+  --astro-device-surface-dark: #a87932;
   --astro-limb-fill: var(--widget-bg);
   --astro-rim: var(--widget-border);
   --astro-line: var(--widget-fg-muted);
@@ -64,6 +69,11 @@
     --widget-success: #86efac;
 
     --astro-mater-fill: var(--widget-panel);
+    --astro-device-edge: #3b2c15;
+    --astro-device-shadow: rgba(0, 0, 0, 0.62);
+    --astro-device-surface-light: #856b34;
+    --astro-device-surface: #59451f;
+    --astro-device-surface-dark: #342713;
     --astro-limb-fill: var(--widget-bg);
     --astro-rim: var(--widget-border);
     --astro-line: var(--widget-fg-muted);
