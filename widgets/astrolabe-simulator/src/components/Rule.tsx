@@ -4,7 +4,7 @@ import { capricornRadius, rOfDec } from '../geometry';
 import { angleFromPointer, keyRotate, rotationDelta } from '../interaction';
 import { setRule, type Visibility } from '../store';
 import { ASTROLABE_R } from './Plate';
-import { counterchangedRulePaths } from '../ruleGeometry';
+import { FRONT_RULE_HIT_WIDTH, counterchangedRulePaths, frontRuleHitPath } from '../ruleGeometry';
 
 interface RuleProps { ruleRotation: number; visibility: Visibility; }
 
@@ -53,6 +53,7 @@ export function Rule({ ruleRotation, visibility }: RuleProps): JSX.Element | nul
         setRule(keyRotate(ruleRotation, event.key, event.shiftKey));
       }}
     >
+      <path className="astro-rule-hit" d={frontRuleHitPath(rim + 7)} stroke-width={FRONT_RULE_HIT_WIDTH} />
       {arms.map((path, index) => <path key={index} className="astro-rule-body" d={path} />)}
       <path className="astro-rule-tip" d={`M 0 ${-rim - 7} L 5.5 ${-rim + 18} L -5.5 ${-rim + 18} Z`} />
       <path className="astro-rule-tip" d={`M 0 ${rim + 7} L 5.5 ${rim - 18} L -5.5 ${rim - 18} Z`} />

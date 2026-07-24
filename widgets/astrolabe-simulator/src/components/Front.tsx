@@ -50,8 +50,8 @@ export function Front(): JSX.Element {
         <Plate latitude={plateLatitude} visibility={visibility} />
         <Rete reteRotation={reteRotation} visibility={visibility} />
         <Rule ruleRotation={ruleRotation} visibility={visibility} />
-        <circle className="astro-pin" r={11} />
-        <circle r={3.5} fill="var(--astro-mater-fill)" />
+        <circle className="astro-pin astro-center-pin-decoration" r={11} />
+        <circle className="astro-center-pin-decoration" r={3.5} fill="var(--astro-mater-fill)" />
       </g>
     </svg>
   );

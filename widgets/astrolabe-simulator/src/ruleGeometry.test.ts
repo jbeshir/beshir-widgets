@@ -3,8 +3,10 @@ import { equationOfTime } from './astro';
 import {
   EQUATION_PIXELS_PER_MINUTE,
   EQUATION_ZERO_RADIUS,
+  FRONT_RULE_HIT_WIDTH,
   counterchangedRulePaths,
   equationOfTimePoint,
+  frontRuleHitPath,
 } from './ruleGeometry';
 
 describe('shared counterchanged rule geometry', () => {
@@ -20,6 +22,11 @@ describe('shared counterchanged rule geometry', () => {
       'M 0 -100 L 0 0 L -8 0 L -8 -100 Z',
       'M 0 0 L 8 0 L 8 100 L 0 100 Z',
     ]);
+  });
+
+  it('provides a continuous rule hit corridor wide enough to own overlaps', () => {
+    expect(frontRuleHitPath(107)).toBe('M 0 -107 L 0 107');
+    expect(FRONT_RULE_HIT_WIDTH).toBeGreaterThan(14);
   });
 });
 

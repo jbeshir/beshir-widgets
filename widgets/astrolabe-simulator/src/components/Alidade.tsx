@@ -46,11 +46,6 @@ export function Alidade({ alidadeRotation }: AlidadeProps): JSX.Element {
       <line className="astro-alidade-pointer" x1={-EXTENT} y1="0" x2={EXTENT} y2="0" />
       <path className="astro-alidade-tip" d={`M ${EXTENT} 0 l -24 -6 v 12 Z`} />
       <path className="astro-alidade-tip" d={`M ${-EXTENT} 0 l 24 -6 v 12 Z`} />
-      {[-455, 455].map((x) => <g key={x} transform={`translate(${x} 0)`}>
-        <path className="astro-alidade-vane" d="M -15 8 L -12 -31 Q 0 -43 12 -31 L 15 8 Z" />
-        <circle className="astro-alidade-sight" cy="-24" r="4.5" />
-        <line className="astro-alidade-vane-line" x1="0" y1="-19" x2="0" y2="8" />
-      </g>)}
       {[-15, -10, -5, 0, 5, 10, 15].map((minutes) => {
         const x = EQUATION_ZERO_RADIUS + minutes * EQUATION_PIXELS_PER_MINUTE;
         return <g key={minutes}>
