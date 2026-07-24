@@ -1,6 +1,6 @@
 import type { JSX } from 'preact';
 import { solarLongitude } from '../astro';
-import { EQUATION_ZERO_RADIUS, equationOfTimePoint } from '../ruleGeometry';
+import { equationOfTimePoint } from '../ruleGeometry';
 import { shadowSquareLayout } from '../shadowSquare';
 import { useStore } from '../store';
 import { Alidade } from './Alidade';
@@ -132,7 +132,6 @@ export function Back(): JSX.Element {
       </g>}
 
       {visibility.equationOfTime && <g aria-label="Equation-of-time curve">
-        <circle className="astro-equation-axis" r={EQUATION_ZERO_RADIUS} />
         <path className="astro-equation-curve" d={equationPath} />
         <text className="astro-equation-label" x="0" y="-330" text-anchor="middle">EQUATION OF TIME</text>
       </g>}

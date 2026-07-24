@@ -280,7 +280,6 @@ button, input, select {
 .astro-shadow-number { font-size: 12px; }
 .astro-shadow-label, .astro-hour-label { font-size: 14px; font-weight: 600; letter-spacing: 1.4px; }
 .astro-back-hour { fill: none; stroke: var(--astro-line); stroke-width: 0.8; opacity: 0.48; }
-.astro-equation-axis { fill: none; stroke: var(--astro-line); stroke-width: 0.7; stroke-dasharray: 3 5; opacity: 0.45; }
 .astro-equation-curve { fill: none; stroke: var(--astro-accent-red); stroke-width: 2; }
 .astro-equation-label {
   fill: var(--astro-label);
