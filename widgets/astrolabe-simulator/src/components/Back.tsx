@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { equationOfTime, solarLongitude } from '../astro';
+import { solarLongitude } from '../astro';
 import { EQUATION_ZERO_RADIUS, equationOfTimePoint } from '../ruleGeometry';
 import { shadowSquareLayout } from '../shadowSquare';
 import { useStore } from '../store';
@@ -51,8 +51,6 @@ export function Back(): JSX.Element {
     equationOfTimePoint(new Date(Date.UTC(year, 0, day + 1, 12)))
   ));
   const equationPath = `${equationSamples.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')} Z`;
-  const currentEquation = equationOfTime(now);
-  const equationMarker = equationOfTimePoint(now);
 
   return (
     <svg
@@ -133,10 +131,9 @@ export function Back(): JSX.Element {
         <text className="astro-hour-label" x="0" y="60" text-anchor="middle">HORAE INAEQUALES</text>
       </g>}
 
-      {visibility.equationOfTime && <g aria-label={`Equation of time: ${currentEquation.toFixed(1)} minutes`}>
+      {visibility.equationOfTime && <g aria-label="Equation-of-time curve">
         <circle className="astro-equation-axis" r={EQUATION_ZERO_RADIUS} />
         <path className="astro-equation-curve" d={equationPath} />
-        <circle className="astro-equation-marker" cx={equationMarker.x} cy={equationMarker.y} r="5" />
         <text className="astro-equation-label" x="0" y="-330" text-anchor="middle">EQUATION OF TIME</text>
       </g>}
 
