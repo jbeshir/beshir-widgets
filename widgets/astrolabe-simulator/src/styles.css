@@ -267,7 +267,7 @@ button, input, select {
 .astro-back-tick-major { stroke: var(--astro-line-strong); stroke-width: 1.7; }
 .astro-back-tick-minor, .astro-calendar-tick { stroke: var(--astro-line); stroke-width: 0.7; }
 .astro-back-number, .astro-altitude-number, .astro-back-zodiac-label, .astro-calendar-label,
-.astro-shadow-number, .astro-shadow-label, .astro-hour-label { fill: var(--astro-label); font-family: var(--widget-font-identity); }
+.astro-shadow-number, .astro-shadow-label, .astro-hour-label, .astro-hour-side-label, .astro-horary-number { fill: var(--astro-label); font-family: var(--widget-font-identity); }
 .astro-back-number { font-size: 15px; font-weight: 600; }
 .astro-altitude-number { fill: var(--astro-accent-red); font-size: 13px; font-weight: 600; }
 .astro-back-zodiac-label { font-size: 16px; font-weight: 600; letter-spacing: 1px; }
@@ -278,8 +278,18 @@ button, input, select {
 .astro-shadow-grid { stroke: var(--astro-line); stroke-width: 0.55; opacity: 0.52; }
 .astro-shadow-gnomon { stroke: var(--astro-line-strong); stroke-width: 1; }
 .astro-shadow-number { font-size: 12px; }
-.astro-shadow-label, .astro-hour-label { font-size: 14px; font-weight: 600; letter-spacing: 1.4px; }
-.astro-back-hour { fill: none; stroke: var(--astro-line); stroke-width: 0.8; opacity: 0.48; }
+.astro-shadow-label { font-size: 14px; font-weight: 600; letter-spacing: 1.4px; }
+.astro-hour-label, .astro-hour-side-label {
+  paint-order: stroke;
+  stroke: var(--astro-device-surface);
+  stroke-width: 5px;
+}
+.astro-hour-label { font-size: 30px; font-weight: 700; letter-spacing: 1px; }
+.astro-hour-side-label { font-size: 42px; font-weight: 700; letter-spacing: 1px; opacity: 0.9; }
+.astro-horary-number { font-size: 44px; font-weight: 700; paint-order: stroke; stroke: var(--astro-device-surface); stroke-width: 5px; }
+.astro-horary-boundary { fill: none; stroke: var(--astro-line-strong); stroke-width: 1.1; opacity: 0.72; }
+.astro-back-hour { fill: none; stroke: var(--astro-line); stroke-width: 1; opacity: 0.62; }
+.astro-back-hour-sixth { stroke: var(--astro-line-strong); stroke-width: 1.35; opacity: 0.78; }
 .astro-equation-curve { fill: none; stroke: var(--astro-accent-red); stroke-width: 2; }
 .astro-equation-label {
   fill: var(--astro-label);
