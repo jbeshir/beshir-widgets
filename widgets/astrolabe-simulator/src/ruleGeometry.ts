@@ -2,6 +2,12 @@ import { equationOfTime, solarLongitude } from './astro';
 
 export const EQUATION_ZERO_RADIUS = 215;
 export const EQUATION_PIXELS_PER_MINUTE = 6;
+export const FRONT_RULE_HIT_WIDTH = 28;
+
+/** Continuous centerline used by the front rule's semantic pointer hit area. */
+export function frontRuleHitPath(extent: number): string {
+  return `M 0 ${-extent} L 0 ${extent}`;
+}
 
 export function counterchangedRulePaths(
   orientation: 'horizontal' | 'vertical',

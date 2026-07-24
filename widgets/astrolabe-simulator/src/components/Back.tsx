@@ -141,8 +141,8 @@ export function Back(): JSX.Element {
       </g>}
 
       {visibility.alidade && <Alidade alidadeRotation={alidadeRotation} />}
-      <circle className="astro-pin" r="13" />
-      <circle className="astro-pin-core" r="4" />
+      <circle className="astro-pin astro-center-pin-decoration" r="13" />
+      <circle className="astro-pin-core astro-center-pin-decoration" r="4" />
     </svg>
   );
 }

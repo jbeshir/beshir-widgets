@@ -25,7 +25,7 @@ export function InfoPanel(): JSX.Element {
       <li>Choose your city, then select the closest latitude plate and check the mismatch above.</li>
       <li>Drag the rete until the Sun or a known star is aligned for the date and time you want to explore.</li>
       <li>Turn the rule across a star pointer and read its position against the fixed plate grid.</li>
-      <li>Flip to the back and rotate the alidade as though sighting along its two vanes.</li>
+      <li>Flip to the back, rotate the alidade to align its pointer line with the desired angle, and read the degree and back scales.</li>
       <li>Use the calendar, zodiac and shadow-square engravings to compare civil dates, solar longitude and proportional shadows.</li>
     </ol></details>
     <details><summary>Accuracy and simplifications</summary><p>This is an educational geometric model, not an observational-precision instrument. Stars use J2000 positions without precession; refraction is omitted; obliquity is fixed; solar longitude and the equation of time use compact approximations. Plates are a finite northern set, and the unequal-hour curves and physical engraving are idealized.</p></details>

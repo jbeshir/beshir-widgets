@@ -308,9 +308,6 @@ button, input, select {
   letter-spacing: 0.8px;
 }
 .astro-alidade-tip { fill: var(--astro-accent-red); }
-.astro-alidade-vane { fill: var(--astro-alidade-fill); stroke: var(--astro-line-strong); stroke-width: 1.3; }
-.astro-alidade-sight { fill: var(--astro-mater-fill); stroke: var(--astro-line-strong); stroke-width: 1.2; }
-.astro-alidade-vane-line { stroke: var(--astro-line); stroke-width: 0.7; }
 .astro-pin-core { fill: var(--astro-mater-fill); stroke: var(--astro-rim); stroke-width: 0.8; }
 
 @media (max-width: 520px) {
@@ -424,6 +421,7 @@ button, input, select {
 
 /* Rule — a fine engraved bar: slender brass body, red used only as sparing
    pointer-tip accents at the two ends. */
+.astro-rule-hit { fill: none; stroke: transparent; pointer-events: stroke; }
 .astro-rule-body { fill: var(--astro-rule-fill); stroke: var(--astro-line-strong); stroke-width: 0.6; opacity: 0.92; }
 .astro-rule-tip { fill: var(--astro-accent-red); opacity: 0.9; }
 .astro-rule-tick { stroke: var(--astro-line-strong); opacity: 0.75; }
@@ -440,6 +438,7 @@ button, input, select {
 
 /* Center pin */
 .astro-pin { fill: var(--astro-gold); stroke: var(--astro-rim); stroke-width: 1.5; }
+.astro-center-pin-decoration { pointer-events: none; }
 
 /* ── Embedded (in an iframe) ────────────────────────────────────────────────
    The frame is already the container, so shed the standalone page chrome and
