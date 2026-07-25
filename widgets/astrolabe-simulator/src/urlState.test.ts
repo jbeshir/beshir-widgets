@@ -47,6 +47,24 @@ describe('astrolabe URL state', () => {
     expect(restored.plateLatitude).toBe(50);
   });
 
+  it('round-trips an Exact plate using the location latitude', () => {
+    const configured: AstrolabeState = {
+      ...defaults,
+      location: { label: 'Edinburgh', lat: 55.9533, lng: -3.1883, manual: false },
+      plateLatitude: 55.9533,
+      visibility: { ...defaults.visibility },
+    };
+    const search = searchFromState('', configured, defaults);
+    expect(search).toBe('?city=Edinburgh&plate=exact');
+    expect(stateFromSearch(search, defaults)).toEqual(configured);
+  });
+
+  it('applies an Exact plate after parsing custom coordinates', () => {
+    const restored = stateFromSearch('?lat=-47.61&lng=-122.33&plate=exact', defaults);
+    expect(restored.location).toEqual({ label: 'Custom', lat: -47.61, lng: -122.33, manual: true });
+    expect(restored.plateLatitude).toBe(47.61);
+  });
+
   it('normalizes rotations and ignores malformed or out-of-range values', () => {
     const restored = stateFromSearch('?face=sideways&city=Missing&lat=200&lng=nope&plate=47&rete=-10&rule=721', defaults);
     expect(restored.face).toBe('front');
