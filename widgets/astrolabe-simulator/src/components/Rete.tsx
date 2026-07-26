@@ -109,7 +109,6 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
             </g>}
           </g>;
         })}
-        <circle className="astro-rete-thin" r={rim * 0.13} />
       </g>}
     </g>
   );

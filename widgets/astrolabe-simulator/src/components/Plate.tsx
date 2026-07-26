@@ -11,6 +11,7 @@ import {
   type HorizonGeom,
 } from '../geometry';
 import type { Visibility } from '../store';
+import { UNEQUAL_HOUR_LINES, unequalHourPath } from '../unequalHours';
 
 export const ASTROLABE_R = 380;
 
@@ -84,14 +85,9 @@ export function Plate({ latitude, visibility }: PlateProps): JSX.Element {
           {azimuthDegrees.map((degrees) => <GeometryMark key={degrees} geometry={azimuth(latitude, 90 - degrees, ASTROLABE_R)} className="astro-azimuth" extent={rim} />)}
         </g>}
         {visibility.unequalHours && <g>
-          {/* Approximation from FINDINGS §5.5: twelve evenly fanned quadratic arcs
-              suggest temporal-hour divisions below the horizon; they are decorative,
-              not a calibrated unequal-hour construction. */}
-          {Array.from({ length: 11 }, (_, index) => {
-            const t = (index + 1) / 12;
-            const x = (t * 2 - 1) * equator * 0.92;
-            return <path key={index} className="astro-unequal-hour" d={`M 0 ${equator * 0.16} Q ${x * 0.55} ${equator * 0.92} ${x} ${rim * 0.92}`} />;
-          })}
+          {UNEQUAL_HOUR_LINES.map((hour) =>
+            <path key={hour} className="astro-unequal-hour" d={unequalHourPath(latitude, hour, ASTROLABE_R)} />,
+          )}
         </g>}
         <GeometryMark geometry={horizonGeometry} className="astro-horizon" extent={rim} />
       </g>

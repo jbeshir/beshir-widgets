@@ -11,7 +11,7 @@
  * overlays continue to register with each other.
  */
 
-const OBLIQUITY_DEG = 23.44; // ε, obliquity of the ecliptic (FINDINGS §1, fixed constant per §10.4)
+export const OBLIQUITY_DEG = 23.44; // ε, obliquity of the ecliptic (FINDINGS §1, fixed constant per §10.4)
 
 function deg2rad(deg: number): number {
   return (deg * Math.PI) / 180;
