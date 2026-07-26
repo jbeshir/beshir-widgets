@@ -142,13 +142,26 @@ describe('traditional double horary construction', () => {
     }
   });
 
-  it('keeps the complete engraving readable at desktop and mobile widths', () => {
+  it('scales the deliberately fine engraving consistently with the instrument', () => {
     expect(engravingLayout.labels.map(({ roman }) => roman)).toHaveLength(12);
     expect(engravingLayout.sideLabels.map(({ text }) => text)).toEqual(['A.M.', 'P.M.']);
     for (const width of [700, 340]) {
-      expect(engravingCssPixels(HORARY_LABEL_FONT_SIZE, width)).toBeGreaterThanOrEqual(12);
-      expect(engravingCssPixels(HORARY_SIDE_FONT_SIZE, width)).toBeGreaterThanOrEqual(11);
-      expect(engravingCssPixels(HORARY_TITLE_FONT_SIZE, width)).toBeGreaterThanOrEqual(8);
+      expect(engravingCssPixels(HORARY_LABEL_FONT_SIZE, width)).toBeCloseTo(HORARY_LABEL_FONT_SIZE * width / 1240, 10);
+      expect(engravingCssPixels(HORARY_SIDE_FONT_SIZE, width)).toBeCloseTo(HORARY_SIDE_FONT_SIZE * width / 1240, 10);
+      expect(engravingCssPixels(HORARY_TITLE_FONT_SIZE, width)).toBeCloseTo(HORARY_TITLE_FONT_SIZE * width / 1240, 10);
+    }
+  });
+
+  it('places every numeral directly on the line it labels', () => {
+    for (const label of engravingLayout.labels) {
+      if (label.hour === 12) {
+        expect(label.position.x).toBeCloseTo(engravingLayout.radius - 35, 10);
+        expect(label.position.y).toBeCloseTo(-18, 10);
+        continue;
+      }
+      const circleHour = label.hour <= 6 ? label.hour : 12 - label.hour;
+      const circle = engravingLayout.circles[circleHour - 1];
+      expect(distance(label.position, circle.center)).toBeCloseTo(circle.radius, 10);
     }
   });
 
