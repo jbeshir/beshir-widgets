@@ -1,9 +1,9 @@
 export const HORARY_RADIUS = 385;
 export const HORARY_DIVISION_DEGREES = 15;
 export const BACK_VIEWBOX_SIZE = 1240;
-export const HORARY_LABEL_FONT_SIZE = 44;
-export const HORARY_SIDE_FONT_SIZE = 42;
-export const HORARY_TITLE_FONT_SIZE = 30;
+export const HORARY_LABEL_FONT_SIZE = 15;
+export const HORARY_SIDE_FONT_SIZE = 14;
+export const HORARY_TITLE_FONT_SIZE = 14;
 export const HORARY_FIELD_RADIUS = 403;
 
 export interface EngravingBox {
@@ -133,17 +133,16 @@ export function createHoraryLayout(radius = HORARY_RADIUS): HoraryLayout {
     };
   });
 
-  // The near-rim label ring makes 46-unit type possible without crowding the
-  // central title or the equation-of-time loop. Its paint halo separates type
-  // from construction strokes, as on a densely engraved physical instrument.
   const labels = Array.from({ length: 12 }, (_, index): HoraryLabel => {
     const hour = index + 1;
-    // Wide VIII is inset to preserve its neighbours; VI is lifted slightly
-    // to clear the equation-of-time caption. The remaining labels share the
-    // same ring, so the complete double-quadrant sequence is still immediate.
-    const labelRadius = radius - 35 + (hour === 6 ? 15 : hour === 4 || hour === 8 ? -60 : 0);
-    const point = horaryBoundaryPoint(labelRadius, hour * HORARY_DIVISION_DEGREES);
-    if (hour === 12) point.y -= 28;
+    // Put each numeral at the curve's intersection with the construction
+    // semicircle, so no neighbouring hour line can appear between the label
+    // and the line it identifies. XII labels the horizon endpoint itself.
+    const point = horaryBoundaryPoint(radius, hour * HORARY_DIVISION_DEGREES);
+    if (hour === 12) {
+      point.x -= 35;
+      point.y -= 18;
+    }
     return { hour, roman: ROMAN[index], position: point };
   });
 
