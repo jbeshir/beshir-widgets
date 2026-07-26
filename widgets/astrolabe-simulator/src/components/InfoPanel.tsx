@@ -26,8 +26,9 @@ export function InfoPanel(): JSX.Element {
       <li>Drag the rete until the Sun or a known star is aligned for the date and time you want to explore.</li>
       <li>Turn the rule across a star pointer and read its position against the fixed plate grid.</li>
       <li>Flip to the back, rotate the alidade to align its pointer line with the desired angle, and read the degree and back scales.</li>
-      <li>Use the calendar, zodiac and shadow-square engravings to compare civil dates, solar longitude and proportional shadows.</li>
+      <li>On the back, set the alidade to the Sun’s noon altitude and mark its crossing with curve VI. Keep that distance from the pivot, turn to the observed altitude, then read I–VI before noon or the mirrored VI–XII after noon.</li>
     </ol></details>
-    <details><summary>Accuracy and simplifications</summary><p>This is an educational geometric model, not an observational-precision instrument. Stars use J2000 positions without precession; refraction is omitted; obliquity is fixed; solar longitude and the equation of time use compact approximations. Plates are a finite northern set, and the unequal-hour curves and physical engraving are idealized.</p></details>
+    <details><summary>Unequal-hour scale</summary><p>The upper semicircle is the traditional double horary quadrant: six exact circular constructions serve the mirrored labels I–XII. Find the Sun’s noon altitude for the date, set the alidade there and note where it meets VI; transfer that pivot distance to the current-altitude line and interpolate between the hour curves. Use the left/morning I–VI sequence before noon and the mirrored VI–XII sequence afterward.</p></details>
+    <details><summary>Accuracy and simplifications</summary><p>This is an educational geometric model, not an observational-precision instrument. Stars use J2000 positions without precession; refraction is omitted; obliquity is fixed; solar longitude and the equation of time use compact approximations. Plates are a finite northern set. The unequal-hour engraving is an exact traditional geometric construction, but the historical read-off is itself an approximation away from sunrise, noon and sunset; interpolate rather than claiming clock-minute precision.</p></details>
   </aside>;
 }

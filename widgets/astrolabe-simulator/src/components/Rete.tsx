@@ -101,13 +101,8 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
       {visibility.stars && <g clip-path="url(#plate-clip)">
         {STARS.filter((star) => star.onPlate).map((star) => {
           const point = project(star.raDeg, star.decDeg, ASTROLABE_R);
-          const length = 27;
-          const scale = point.r > 0 ? (point.r - length) / point.r : 0;
-          const baseX = point.x * scale;
-          const baseY = point.y * scale;
           const labelX = point.x + (point.x >= 0 ? 13 : -13);
           return <g key={star.bayer}>
-            <path className="astro-rete-pointer" d={`M ${baseX} ${baseY} L ${point.x} ${point.y} L ${baseX + (point.y / Math.max(point.r, 1)) * 5} ${baseY - (point.x / Math.max(point.r, 1)) * 5}`} />
             <circle className="astro-star-dot" cx={point.x} cy={point.y} r={3.5} />
             {star.label && <g transform={uprightTransform(labelX, point.y, reteRotation)}>
               <text className="astro-star-label" x={0} y={0} text-anchor={point.x >= 0 ? 'start' : 'end'} dominant-baseline="middle">{star.name}</text>

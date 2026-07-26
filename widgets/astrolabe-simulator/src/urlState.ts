@@ -40,8 +40,11 @@ export function stateFromSearch(search: string, defaults: AstrolabeState): Astro
   }
   state.plateLatitude = nearestPlate(state.location.lat).latitude;
 
-  const plate = finiteNumber(params.get('plate'));
-  if (plate !== null && PLATES.some((candidate) => candidate.latitude === plate)) {
+  const plateParam = params.get('plate');
+  const plate = finiteNumber(plateParam);
+  if (plateParam === 'exact') {
+    state.plateLatitude = Math.abs(state.location.lat);
+  } else if (plate !== null && PLATES.some((candidate) => candidate.latitude === plate)) {
     state.plateLatitude = plate;
   }
 
@@ -74,7 +77,12 @@ export function searchFromState(currentSearch: string, state: AstrolabeState, de
   }
 
   const automaticPlate = nearestPlate(state.location.lat).latitude;
-  if (state.plateLatitude !== automaticPlate) params.set('plate', compactNumber(state.plateLatitude));
+  const exactPlate = Math.abs(state.location.lat);
+  if (state.plateLatitude === exactPlate && state.plateLatitude !== automaticPlate) {
+    params.set('plate', 'exact');
+  } else if (state.plateLatitude !== automaticPlate) {
+    params.set('plate', compactNumber(state.plateLatitude));
+  }
   if (state.reteRotation !== defaults.reteRotation) params.set('rete', compactNumber(state.reteRotation));
   if (state.ruleRotation !== defaults.ruleRotation) params.set('rule', compactNumber(state.ruleRotation));
   if (state.alidadeRotation !== defaults.alidadeRotation) params.set('alidade', compactNumber(state.alidadeRotation));

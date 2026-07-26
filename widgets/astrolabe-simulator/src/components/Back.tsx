@@ -1,7 +1,8 @@
 import type { JSX } from 'preact';
-import { equationOfTime, solarLongitude } from '../astro';
-import { EQUATION_ZERO_RADIUS, equationOfTimePoint } from '../ruleGeometry';
+import { solarLongitude } from '../astro';
+import { equationOfTimePoint } from '../ruleGeometry';
 import { shadowSquareLayout } from '../shadowSquare';
+import { createHoraryLayout } from '../horaryQuadrant';
 import { useStore } from '../store';
 import { Alidade } from './Alidade';
 
@@ -45,14 +46,12 @@ export function Back(): JSX.Element {
   }
   const monthStarts = MONTHS.map((_, month) => solarLongitude(new Date(year, month, 1)));
   const shadow = shadowSquareLayout();
-  const hourArcs = Array.from({ length: 5 }, (_, index) => index + 1);
+  const horary = createHoraryLayout();
   const daysInYear = Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1) === 366 * 86400000 ? 366 : 365;
   const equationSamples = Array.from({ length: daysInYear }, (_, day) => (
     equationOfTimePoint(new Date(Date.UTC(year, 0, day + 1, 12)))
   ));
   const equationPath = `${equationSamples.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')} Z`;
-  const currentEquation = equationOfTime(now);
-  const equationMarker = equationOfTimePoint(now);
 
   return (
     <svg
@@ -128,16 +127,42 @@ export function Back(): JSX.Element {
         <text className="astro-shadow-label" transform={`translate(${shadow.left - 48} ${(shadow.top + shadow.bottom) / 2}) rotate(-90)`} text-anchor="middle">UMBRA VERSA</text>
       </g>}
 
-      {visibility.backUnequalHours && <g aria-label="Approximate unequal temporal hour arcs">
-        {hourArcs.map((hour) => <path key={hour} className="astro-back-hour" d={`M -360 ${20 + hour * 18} Q 0 ${-80 + hour * 42} 360 ${20 + hour * 18}`} />)}
-        <text className="astro-hour-label" x="0" y="60" text-anchor="middle">HORAE INAEQUALES</text>
+      {visibility.backUnequalHours && <g aria-label="Traditional upper-half double horary quadrant, hours I through XII">
+        <path className="astro-horary-boundary" d={horary.semicirclePath} />
+        {horary.circles.map((circle) => (
+          <path
+            key={circle.hour}
+            data-hour={circle.hour}
+            className={`astro-back-hour${circle.hour === 6 ? ' astro-back-hour-sixth' : ''}`}
+            d={circle.path}
+          />
+        ))}
+        {horary.labels.map((label) => (
+          <text
+            key={label.hour}
+            className="astro-horary-number"
+            x={label.position.x}
+            y={label.position.y}
+            text-anchor="middle"
+            dominant-baseline="middle"
+          >{label.roman}</text>
+        ))}
+        <text className="astro-hour-label" x={horary.title.position.x} y={horary.title.position.y}
+          text-anchor="middle" dominant-baseline="middle">{horary.title.text}</text>
+        {horary.sideLabels.map((label) => (
+          <text key={label.period} className="astro-hour-side-label"
+            x={label.position.x} y={label.position.y}
+            text-anchor="middle" dominant-baseline="middle"
+            aria-label={label.period === 'morning' ? 'Ante meridiem, morning hours' : 'Post meridiem, afternoon hours'}>
+            {label.text}
+          </text>
+        ))}
       </g>}
 
-      {visibility.equationOfTime && <g aria-label={`Equation of time: ${currentEquation.toFixed(1)} minutes`}>
-        <circle className="astro-equation-axis" r={EQUATION_ZERO_RADIUS} />
+      {visibility.equationOfTime && <g aria-label="Equation-of-time curve">
         <path className="astro-equation-curve" d={equationPath} />
-        <circle className="astro-equation-marker" cx={equationMarker.x} cy={equationMarker.y} r="5" />
-        <text className="astro-equation-label" x="0" y="-330" text-anchor="middle">EQUATION OF TIME</text>
+        <text className="astro-equation-label" x="0" y="-330" text-anchor="middle"
+          aria-label="Equation of time">EOT</text>
       </g>}
 
       {visibility.alidade && <Alidade alidadeRotation={alidadeRotation} />}
