@@ -24,7 +24,7 @@ export function InfoPanel(): JSX.Element {
     <details><summary>Five things to try</summary><ol>
       <li>Choose your city, then select the closest latitude plate and check the mismatch above.</li>
       <li>Drag the rete until the Sun or a known star is aligned for the date and time you want to explore.</li>
-      <li>Turn the rule across a star pointer and read its position against the fixed plate grid.</li>
+      <li>Turn the rule across a star and read its position against the fixed plate grid.</li>
       <li>Flip to the back, rotate the alidade to align its pointer line with the desired angle, and read the degree and back scales.</li>
       <li>On the back, set the alidade to the Sun’s noon altitude and mark its crossing with curve VI. Keep that distance from the pivot, turn to the observed altitude, then read I–VI before noon or the mirrored VI–XII after noon.</li>
     </ol></details>
