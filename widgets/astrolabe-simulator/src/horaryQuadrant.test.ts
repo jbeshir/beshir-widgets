@@ -14,6 +14,7 @@ import {
   readTemporalHour,
   solarNoonAltitude,
 } from './horaryQuadrant';
+import { equationOfTimeLabelPosition, equationOfTimePoint } from './ruleGeometry';
 
 const distance = (a: { x: number; y: number }, b: { x: number; y: number }): number => (
   Math.hypot(a.x - b.x, a.y - b.y)
@@ -177,7 +178,10 @@ describe('traditional double horary construction', () => {
   it('keeps hour labels inside the field and clear of fixed central engravings', () => {
     const titleBox = engravingTextBox(engravingLayout.title.text, engravingLayout.title.position, engravingLayout.title.fontSize);
     const sideBoxes = engravingLayout.sideLabels.map((label) => engravingTextBox(label.text, label.position, label.fontSize));
-    const equationLabel = engravingTextBox('EOT', { x: 0, y: -330 }, 13);
+    const equationSamples = Array.from({ length: 365 }, (_, day) => (
+      equationOfTimePoint(new Date(Date.UTC(2026, 0, day + 1, 12)))
+    ));
+    const equationLabel = engravingTextBox('EOT', equationOfTimeLabelPosition(equationSamples), 13);
     const centerHub = { left: -13, right: 13, top: -13, bottom: 13 };
 
     for (const label of engravingLayout.labels) {
