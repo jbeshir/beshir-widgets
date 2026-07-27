@@ -33,7 +33,7 @@ function writeLessonUrl(lesson: Lesson | null, stepIndex: number, push: boolean)
   window.history[push ? 'pushState' : 'replaceState'](window.history.state, '', url);
 }
 
-export function OperationStudio(): JSX.Element {
+export function AstrolabeGuide(): JSX.Element {
   const simulator = useStore();
   const [tab, setTab] = useState<'learn' | 'reference'>('learn');
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -94,6 +94,11 @@ export function OperationStudio(): JSX.Element {
     restore.current = null; writeLessonUrl(null, 0, true);
     queueMicrotask(() => launchButton.current?.focus());
   };
+  const closeFromHistory = () => {
+    animation.current?.abort(); animation.current = null; operationId.current += 1;
+    setLesson(null); setStepIndex(0); setInterrupted(false); setComplete(false);
+    setCheckpointPassed(false); restore.current = null;
+  };
 
   useEffect(() => subscribeChanges((change) => {
     if (!lesson || !animation.current || animation.current.signal.aborted) return;
@@ -107,7 +112,7 @@ export function OperationStudio(): JSX.Element {
       const parsed = parseTutorialSearch(window.location.search);
       setStatus(parsed.unavailable);
       if (!parsed.lessonId) {
-        setLesson(null);
+        closeFromHistory();
         if (parsed.needsRepair) writeLessonUrl(null, 0, false);
         return;
       }
@@ -122,16 +127,16 @@ export function OperationStudio(): JSX.Element {
     return () => window.removeEventListener('popstate', openFromUrl);
   }, []);
 
-  return <aside className="info-panel operation-studio" aria-label="Astrolabe Operation Studio">
+  return <aside className="info-panel astrolabe-guide" aria-label="Astrolabe Guide">
     <p className="mismatch" data-testid="mismatch" role="status" aria-live="polite">{mismatch}</p>
     {!lesson ? <>
-      <div className="studio-tabs" role="tablist" aria-label="Operation Studio views">
+      <div className="guide-tabs" role="tablist" aria-label="Astrolabe Guide views">
         <button role="tab" id="learn-tab" aria-selected={tab === 'learn'} aria-controls="learn-panel" onClick={() => setTab('learn')}>Learn</button>
         <button role="tab" id="reference-tab" aria-selected={tab === 'reference'} aria-controls="reference-panel" onClick={() => setTab('reference')}>Reference</button>
       </div>
       {tab === 'learn' ? <section id="learn-panel" role="tabpanel" aria-labelledby="learn-tab">
-        <h2>Operation Studio</h2>
-        <p className="studio-intro">Three deterministic, step-by-step operations use the live simulator.</p>
+        <h2>Astrolabe Guide</h2>
+        <p className="guide-intro">Choose a guided lesson to learn the instrument step by step.</p>
         {[...new Set(LESSONS.map((item) => item.category))].map((category) => <section className="lesson-category" key={category}>
           <h3>{category}</h3>
           {LESSONS.filter((item) => item.category === category).map((item) => <article className="lesson-card" key={item.id}>
@@ -198,6 +203,13 @@ function Reference({ simulator }: { simulator: AstrolabeState }): JSX.Element {
         onMouseEnter={() => setHighlight(key)} onMouseLeave={() => setHighlight(null)}
         onClick={() => setHighlight(simulator.highlight === key ? null : key)}>
         <strong>{name}</strong><span>{description}</span></button></li>)}</ul></details>
+    <details><summary>Five things to try</summary><ol>
+      <li>Choose your city, then select the closest latitude plate and check the mismatch above.</li>
+      <li>Drag the rete until the Sun or a known star is aligned for the date and time you want to explore.</li>
+      <li>Turn the rule across a star and read its position against the fixed plate grid.</li>
+      <li>Flip to the back, rotate the alidade to align its pointer line with the desired angle, and read the degree and back scales.</li>
+      <li>On the back, set the alidade to the Sun’s noon altitude and mark its crossing with curve VI. Keep that distance from the pivot, turn to the observed altitude, then read I–VI before noon or the mirrored VI–XII after noon.</li>
+    </ol></details>
     <details><summary>Unequal-hour scale</summary>{simulator.face === 'front'
       ? <p>The curves below the horizon divide each star’s nightly path into twelve equal parts. At night, read the Sun’s ecliptic position; in daylight, read the point opposite the Sun. The horizon marks sunset and sunrise, and the middle curve marks the sixth hour. Interpolate between curves.</p>
       : <p>The upper semicircle is the traditional double horary quadrant. Set the alidade to the Sun’s noon altitude and note its crossing with VI; transfer that pivot distance to the current-altitude line. Read I–VI before noon or mirrored VI–XII afterward.</p>}</details>

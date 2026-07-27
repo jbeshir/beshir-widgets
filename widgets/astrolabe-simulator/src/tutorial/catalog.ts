@@ -1,7 +1,25 @@
 import type { AstrolabeState } from '../store';
+import { equatorialToHorizontal, localSiderealTime } from '../astro';
+import { STARS } from '../data/stars';
 import type { FutureTopic, Lesson, LessonStep, Snapshot } from './types';
 
 const epochIso = '2026-07-14T12:00:00.000Z';
+const lessonLocation = { label: 'London', lat: 51.5, lng: -0.12, manual: false } as const;
+const sirius = STARS.find((star) => star.name === 'Sirius');
+if (!sirius) throw new Error('Sirius is required by the known-star tutorial');
+const siriusSidereal = localSiderealTime(new Date(epochIso), lessonLocation.lng);
+const siriusObservation = equatorialToHorizontal(
+  sirius.raDeg,
+  sirius.decDeg,
+  lessonLocation.lat,
+  siriusSidereal,
+);
+export const SIRIUS_FIXTURE = {
+  star: sirius,
+  reteRotation: siriusSidereal,
+  ruleRotation: siriusObservation.hourAngle,
+  altitude: siriusObservation.altitude,
+} as const;
 const visibility: AstrolabeState['visibility'] = {
   almucantars: true, azimuths: true, unequalHours: true, ecliptic: true, stars: true,
   rule: true, tropics: true, calendar: true, zodiacScale: true, shadowSquare: true,
@@ -9,7 +27,7 @@ const visibility: AstrolabeState['visibility'] = {
 };
 const base = (face: 'front' | 'back', rotations: Partial<Pick<Snapshot, 'reteRotation' | 'ruleRotation' | 'alidadeRotation'>> = {}): Snapshot => ({
   face,
-  location: { label: 'London', lat: 51.5, lng: -0.12, manual: false },
+  location: { ...lessonLocation },
   plateSelection: 'pinned',
   plateLatitude: 51.5,
   reteRotation: rotations.reteRotation ?? 0,
@@ -43,11 +61,11 @@ export const LESSONS = [
       step('fixture', 'Set the observation', 'Use London, the 51.5° plate, and July 14, 2026 so the result is reproducible.', 'instrument', base('front'), 'The observation fixture is set.'),
       step('find-sirius', 'Find Sirius', 'Sirius is labelled on the rete; the rete carries it with the rotating sky.', 'front.star.sirius', base('front'), 'Sirius is identified on the rete.'),
       step('show-grid', 'Read the fixed grid', 'Altitude circles on the plate remain fixed beneath the star map.', 'front.altitude-grid', base('front'), 'The altitude grid is visible.'),
-      step('rotate-sky', 'Align the sky', 'Replay demonstrates the checked rete orientation of 248°.', 'front.rete', base('front', { reteRotation: 248 }), 'The rete is at 248°.', { demonstration: { field: 'reteRotation', from: 0, to: 248, durationMs: 800 } }),
-      step('move-rule', 'Place the rule', 'Move the rule to 224° so its edge passes through Sirius.', 'front.rule', base('front', { reteRotation: 248 }), 'The rule passes through Sirius.', { check: { kind: 'angleNear', field: 'ruleRotation', value: 224, tolerance: 2 } }),
-      step('read-altitude', 'Read the altitude', 'Follow the rule to the fixed altitude circle under Sirius.', 'front.altitude-grid', base('front', { reteRotation: 248, ruleRotation: 224 }), 'Sirius is approximately 24° above the horizon.'),
-      step('interpret', 'Interpret the reading', 'This is a geometric fixture reading; refraction and precession are outside this compact model.', 'front.star.sirius', base('front', { reteRotation: 248, ruleRotation: 224 }), 'Textual result: Sirius altitude ≈ 24°.'),
-      step('sirius-result', 'Known-star result', 'The star, rule, and plate now agree on the checked reading.', 'instrument', base('front', { reteRotation: 248, ruleRotation: 224 }), 'Result: Sirius altitude approximately 24°.'),
+      step('rotate-sky', 'Align the sky', `Replay demonstrates the checked sidereal orientation of ${SIRIUS_FIXTURE.reteRotation.toFixed(1)}°.`, 'front.rete', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation }), `The rete is at ${SIRIUS_FIXTURE.reteRotation.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: 0, to: SIRIUS_FIXTURE.reteRotation, durationMs: 800 } }),
+      step('move-rule', 'Place the rule', `Move the rule to ${SIRIUS_FIXTURE.ruleRotation.toFixed(1)}° so its edge passes through Sirius.`, 'front.rule', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation }), 'The rule passes through Sirius.', { check: { kind: 'angleNear', field: 'ruleRotation', value: SIRIUS_FIXTURE.ruleRotation, tolerance: 2 } }),
+      step('read-altitude', 'Read the altitude', 'Follow the rule to the fixed altitude circle under Sirius.', 'front.altitude-grid', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation, ruleRotation: SIRIUS_FIXTURE.ruleRotation }), `Sirius is approximately ${Math.round(SIRIUS_FIXTURE.altitude)}° above the horizon.`),
+      step('interpret', 'Interpret the reading', 'This is a geometric fixture reading; refraction and precession are outside this compact model.', 'front.star.sirius', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation, ruleRotation: SIRIUS_FIXTURE.ruleRotation }), `Textual result: Sirius altitude ≈ ${SIRIUS_FIXTURE.altitude.toFixed(1)}°.`),
+      step('sirius-result', 'Known-star result', 'The star, rule, and plate now agree on the checked reading.', 'instrument', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation, ruleRotation: SIRIUS_FIXTURE.ruleRotation }), `Result: Sirius altitude approximately ${Math.round(SIRIUS_FIXTURE.altitude)}°.`),
     ],
   },
   {
@@ -57,10 +75,10 @@ export const LESSONS = [
     steps: [
       step('turn-back', 'Turn to the back', 'The back carries the altitude scale, double horary quadrant, and alidade.', 'instrument', base('back'), 'The back face is shown.'),
       step('find-altitude', 'Find the altitude scale', 'The red outer numbers read altitude from the horizon toward the zenith.', 'back.altitude-scale', base('back'), 'The altitude scale is identified.'),
-      step('noon-altitude', 'Set noon altitude', 'Set the alidade to the fixture’s 70° noon solar altitude.', 'back.alidade', base('back'), 'Noon altitude is 70°.', { check: { kind: 'angleNear', field: 'alidadeRotation', value: 70, tolerance: 1 } }),
+      step('noon-altitude', 'Set noon altitude', 'Replay demonstrates setting the alidade to the fixture’s 70° noon solar altitude.', 'back.alidade', base('back', { alidadeRotation: 70 }), 'Noon altitude is 70°.', { demonstration: { field: 'alidadeRotation', from: 0, to: 70, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: 70, tolerance: 1 } }),
       step('curve-six', 'Locate curve VI', 'Curve VI is the noon divider shared by the mirrored morning and afternoon sequences.', 'back.horary.vi', base('back', { alidadeRotation: 70 }), 'Curve VI supplies the pivot distance.'),
       step('transfer-distance', 'Transfer the pivot distance', 'Keep the curve-VI crossing’s distance from the center; this is the traditional geometric transfer.', 'back.horary.vi', base('back', { alidadeRotation: 70 }), 'The curve-VI pivot distance is retained.'),
-      step('observed-altitude', 'Set observed altitude', 'Move the alidade to the documented observed altitude of 27.5°.', 'back.alidade', base('back', { alidadeRotation: 70 }), 'Observed altitude is 27.5°.', { check: { kind: 'angleNear', field: 'alidadeRotation', value: 27.5, tolerance: 1 } }),
+      step('observed-altitude', 'Set observed altitude', 'Replay demonstrates moving the alidade to the documented observed altitude of 27.5°.', 'back.alidade', base('back', { alidadeRotation: 27.5 }), 'Observed altitude is 27.5°.', { demonstration: { field: 'alidadeRotation', from: 70, to: 27.5, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: 27.5, tolerance: 1 } }),
       step('choose-afternoon', 'Choose the afternoon sequence', 'After noon, read the mirrored VI–XII labels on the right-hand sequence.', 'back.horary.vi', base('back', { alidadeRotation: 27.5 }), 'The afternoon sequence is selected.'),
       step('interpolate-hour', 'Interpolate the curve', 'The transferred point lies near hour X. Historical interpolation between engraved curves is approximate.', 'back.horary.vi', base('back', { alidadeRotation: 27.5 }), 'Approximate temporal hour X after noon.'),
       step('unequal-result', 'Unequal-hour result', 'The 70° noon and 27.5° observed-altitude construction gives a traditional approximate reading.', 'instrument', base('back', { alidadeRotation: 27.5 }), 'Result: approximately temporal hour X after noon.'),
