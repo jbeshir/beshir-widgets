@@ -23,6 +23,7 @@ export function Rule({ ruleRotation, visibility }: RuleProps): JSX.Element | nul
   if (!visibility.rule) return null;
   return (
     <g
+      data-tutorial-target="front.rule"
       className={`astro-rotary${dragging ? ' is-dragging' : ''}`}
       transform={`rotate(${ruleRotation})`}
       tabIndex={0}
@@ -31,6 +32,7 @@ export function Rule({ ruleRotation, visibility }: RuleProps): JSX.Element | nul
       aria-valuemin={0}
       aria-valuemax={360}
       aria-valuenow={Math.round(ruleRotation)}
+      aria-valuetext={`${ruleRotation.toFixed(1)} degrees`}
       onPointerDown={(event) => {
         const svg = event.currentTarget.ownerSVGElement;
         if (!svg) return;

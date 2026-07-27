@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Front } from './components/Front';
 import { Back } from './components/Back';
 import { Controls } from './components/Controls';
-import { InfoPanel } from './components/InfoPanel';
+import { OperationStudio } from './components/OperationStudio';
 import { useStore } from './store';
 
 export function App(): JSX.Element {
@@ -40,7 +40,7 @@ export function App(): JSX.Element {
           <div className={`instrument-stage${state.reducedMotion ? ' reduced-motion' : ''}`}>
             {state.face === 'front' ? <Front /> : <Back />}
           </div>
-          <InfoPanel />
+          <OperationStudio />
         </div>
       </div>
       {ready && <div id="widget-ready" data-ready="true" hidden />}

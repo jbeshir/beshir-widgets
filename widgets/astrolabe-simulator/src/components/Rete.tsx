@@ -3,7 +3,7 @@ import { useRef, useState } from 'preact/hooks';
 import { solarLongitude } from '../astro';
 import { STARS } from '../data/stars';
 import { capricornRadius, eclipticCircle, eclipticPoint, project } from '../geometry';
-import { setRete, type Visibility } from '../store';
+import { setRete, useStore, type Visibility } from '../store';
 import { angleFromPointer, keyRotate, rotationDelta } from '../interaction';
 import { ASTROLABE_R } from './Plate';
 
@@ -26,9 +26,10 @@ function uprightTransform(x: number, y: number, rotation: number): string {
 }
 
 export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
+  const { epochIso } = useStore();
   const ecliptic = eclipticCircle(ASTROLABE_R);
   const rim = capricornRadius(ASTROLABE_R);
-  const sun = eclipticPoint(solarLongitude(new Date()), ASTROLABE_R);
+  const sun = eclipticPoint(solarLongitude(new Date(epochIso)), ASTROLABE_R);
   const drag = useRef<{ pointerId: number; pointerAngle: number; rotation: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -41,6 +42,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
 
   return (
     <g
+      data-tutorial-target="front.rete"
       className={`astro-rotary${dragging ? ' is-dragging' : ''}`}
       transform={`rotate(${reteRotation})`}
       tabIndex={0}
@@ -49,6 +51,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
       aria-valuemin={0}
       aria-valuemax={360}
       aria-valuenow={Math.round(reteRotation)}
+      aria-valuetext={`${reteRotation.toFixed(1)} degrees`}
       onPointerDown={(event) => {
         const svg = event.currentTarget.ownerSVGElement;
         if (!svg) return;
@@ -102,7 +105,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
         {STARS.filter((star) => star.onPlate).map((star) => {
           const point = project(star.raDeg, star.decDeg, ASTROLABE_R);
           const labelX = point.x + (point.x >= 0 ? 13 : -13);
-          return <g key={star.bayer}>
+          return <g key={star.bayer} data-tutorial-target={star.name === 'Sirius' ? 'front.star.sirius' : undefined}>
             <circle className="astro-star-dot" cx={point.x} cy={point.y} r={3.5} />
             {star.label && <g transform={uprightTransform(labelX, point.y, reteRotation)}>
               <text className="astro-star-label" x={0} y={0} text-anchor={point.x >= 0 ? 'start' : 'end'} dominant-baseline="middle">{star.name}</text>

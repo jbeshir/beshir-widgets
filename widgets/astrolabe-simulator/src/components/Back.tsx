@@ -31,9 +31,8 @@ function radialTick(angle: number, inner: number, outer: number, className: stri
 }
 
 export function Back(): JSX.Element {
-  const { alidadeRotation, visibility } = useStore();
-  const year = new Date().getFullYear();
-  const now = new Date();
+  const { alidadeRotation, visibility, epochIso } = useStore();
+  const year = new Date(epochIso).getUTCFullYear();
   const degreeTicks = Array.from({ length: 180 }, (_, index) => index * 2);
   const degreeLabels = Array.from({ length: 12 }, (_, index) => index * 30);
   const zodiacDivisions = Array.from({ length: 12 }, (_, index) => index * 30);
@@ -72,7 +71,7 @@ export function Back(): JSX.Element {
       <circle className="astro-mater" r="608" fill="url(#back-mater-surface)" />
       <path className="astro-back-limb" d={ringPath(OUTER, 548)} fill-rule="evenodd" />
 
-      <g aria-label="Outer degree and altitude scales">
+      <g aria-label="Outer degree and altitude scales" data-tutorial-target="back.altitude-scale">
         {degreeTicks.map((degrees) => radialTick(degrees, OUTER - (degrees % 10 === 0 ? 20 : 10), OUTER - 2, degrees % 10 === 0 ? 'astro-back-tick-major' : 'astro-back-tick-minor'))}
         {degreeLabels.map((degrees) => {
           const p = zodiacPoint(564, degrees);
@@ -128,7 +127,7 @@ export function Back(): JSX.Element {
         <text className="astro-shadow-label" transform={`translate(${shadow.left - 48} ${(shadow.top + shadow.bottom) / 2}) rotate(-90)`} text-anchor="middle">UMBRA VERSA</text>
       </g>}
 
-      {visibility.backUnequalHours && <g aria-label="Traditional upper-half double horary quadrant, hours I through XII">
+      {visibility.backUnequalHours && <g aria-label="Traditional upper-half double horary quadrant, hours I through XII" data-tutorial-target="back.horary.vi">
         <path className="astro-horary-boundary" d={horary.semicirclePath} />
         {horary.circles.map((circle) => (
           <path
