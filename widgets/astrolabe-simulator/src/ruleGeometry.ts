@@ -2,6 +2,7 @@ import { equationOfTime, solarLongitude } from './astro';
 
 export const EQUATION_ZERO_RADIUS = 215;
 export const EQUATION_PIXELS_PER_MINUTE = 6;
+export const EQUATION_LABEL_GAP = 14;
 export const FRONT_RULE_HIT_WIDTH = 28;
 
 /** Continuous centerline used by the front rule's semantic pointer hit area. */
@@ -36,4 +37,13 @@ export function equationOfTimePoint(date: Date): { x: number; y: number; radius:
     radius,
     longitude,
   };
+}
+
+/** Place the caption immediately above the loop instead of at a fixed radius. */
+export function equationOfTimeLabelPosition(
+  samples: readonly { x: number; y: number }[],
+): { x: number; y: number } {
+  if (samples.length === 0) throw new RangeError('Equation-of-time samples must not be empty');
+  const top = samples.reduce((highest, point) => point.y < highest.y ? point : highest);
+  return { x: top.x, y: top.y - EQUATION_LABEL_GAP };
 }

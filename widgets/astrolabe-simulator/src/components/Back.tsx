@@ -1,6 +1,6 @@
 import type { JSX } from 'preact';
 import { solarLongitude } from '../astro';
-import { equationOfTimePoint } from '../ruleGeometry';
+import { equationOfTimeLabelPosition, equationOfTimePoint } from '../ruleGeometry';
 import { shadowSquareLayout } from '../shadowSquare';
 import { createHoraryLayout } from '../horaryQuadrant';
 import { useStore } from '../store';
@@ -52,6 +52,7 @@ export function Back(): JSX.Element {
     equationOfTimePoint(new Date(Date.UTC(year, 0, day + 1, 12)))
   ));
   const equationPath = `${equationSamples.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')} Z`;
+  const equationLabel = equationOfTimeLabelPosition(equationSamples);
 
   return (
     <svg
@@ -161,7 +162,7 @@ export function Back(): JSX.Element {
 
       {visibility.equationOfTime && <g aria-label="Equation-of-time curve">
         <path className="astro-equation-curve" d={equationPath} />
-        <text className="astro-equation-label" x="0" y="-330" text-anchor="middle"
+        <text className="astro-equation-label" x={equationLabel.x} y={equationLabel.y} text-anchor="middle"
           aria-label="Equation of time">EOT</text>
       </g>}
 

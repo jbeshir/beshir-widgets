@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { equationOfTime } from './astro';
 import {
   EQUATION_PIXELS_PER_MINUTE,
+  EQUATION_LABEL_GAP,
   EQUATION_ZERO_RADIUS,
   FRONT_RULE_HIT_WIDTH,
   counterchangedRulePaths,
+  equationOfTimeLabelPosition,
   equationOfTimePoint,
   frontRuleHitPath,
 } from './ruleGeometry';
@@ -47,5 +49,21 @@ describe('polar equation-of-time loop', () => {
       const direction = { x: Math.cos(alidadeAngle), y: -Math.sin(alidadeAngle) };
       expect(point.x * direction.y - point.y * direction.x).toBeCloseTo(0, 9);
     }
+  });
+
+  it('anchors the label immediately above the top of the rendered loop', () => {
+    const samples = Array.from({ length: 365 }, (_, day) => (
+      equationOfTimePoint(new Date(Date.UTC(2026, 0, day + 1, 12)))
+    ));
+    const top = samples.reduce((highest, point) => point.y < highest.y ? point : highest);
+    const label = equationOfTimeLabelPosition(samples);
+    expect(label.x).toBe(top.x);
+    expect(label.y).toBe(top.y - EQUATION_LABEL_GAP);
+    expect(Math.min(...samples.map((point) => Math.hypot(label.x - point.x, label.y - point.y))))
+      .toBeLessThanOrEqual(EQUATION_LABEL_GAP);
+  });
+
+  it('rejects an empty curve when positioning its label', () => {
+    expect(() => equationOfTimeLabelPosition([])).toThrow(RangeError);
   });
 });

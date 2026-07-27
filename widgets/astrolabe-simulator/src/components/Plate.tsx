@@ -69,7 +69,7 @@ export function Plate({ latitude, visibility }: PlateProps): JSX.Element {
       {visibility.tropics && <>
         <circle className="astro-equator" r={equator} />
         <circle className="astro-tropic" r={cancer} />
-        <UprightLabel x={18} y={-rim + 42} anchor="start" fontSize={13}>Tropic of Capricorn</UprightLabel>
+        <UprightLabel x={18} y={-rim + 16} anchor="start" fontSize={13}>Tropic of Capricorn</UprightLabel>
         <UprightLabel x={18} y={-equator + 16} anchor="start" fontSize={13}>Celestial equator</UprightLabel>
         <UprightLabel x={18} y={-cancer + 15} anchor="start" fontSize={13}>Tropic of Cancer</UprightLabel>
       </>}
