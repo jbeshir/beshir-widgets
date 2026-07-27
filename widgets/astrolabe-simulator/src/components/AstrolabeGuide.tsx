@@ -203,13 +203,6 @@ function Reference({ simulator }: { simulator: AstrolabeState }): JSX.Element {
         onMouseEnter={() => setHighlight(key)} onMouseLeave={() => setHighlight(null)}
         onClick={() => setHighlight(simulator.highlight === key ? null : key)}>
         <strong>{name}</strong><span>{description}</span></button></li>)}</ul></details>
-    <details><summary>Five things to try</summary><ol>
-      <li>Choose your city, then select the closest latitude plate and check the mismatch above.</li>
-      <li>Drag the rete until the Sun or a known star is aligned for the date and time you want to explore.</li>
-      <li>Turn the rule across a star and read its position against the fixed plate grid.</li>
-      <li>Flip to the back, rotate the alidade to align its pointer line with the desired angle, and read the degree and back scales.</li>
-      <li>On the back, set the alidade to the Sun’s noon altitude and mark its crossing with curve VI. Keep that distance from the pivot, turn to the observed altitude, then read I–VI before noon or the mirrored VI–XII after noon.</li>
-    </ol></details>
     <details><summary>Unequal-hour scale</summary>{simulator.face === 'front'
       ? <p>The curves below the horizon divide each star’s nightly path into twelve equal parts. At night, read the Sun’s ecliptic position; in daylight, read the point opposite the Sun. The horizon marks sunset and sunrise, and the middle curve marks the sixth hour. Interpolate between curves.</p>
       : <p>The upper semicircle is the traditional double horary quadrant. Set the alidade to the Sun’s noon altitude and note its crossing with VI; transfer that pivot distance to the current-altitude line. Read I–VI before noon or mirrored VI–XII afterward.</p>}</details>
