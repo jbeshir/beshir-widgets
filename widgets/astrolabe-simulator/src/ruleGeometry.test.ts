@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { equationOfTime } from './astro';
+import { alidadeLineCross, alidadeRotationForLongitude } from './backGeometry';
 import {
   EQUATION_PIXELS_PER_MINUTE,
   EQUATION_LABEL_GAP,
@@ -45,9 +46,7 @@ describe('polar equation-of-time loop', () => {
   it('lies on the center line when the alidade is aligned to its date', () => {
     for (let month = 0; month < 12; month += 1) {
       const point = equationOfTimePoint(new Date(Date.UTC(2026, month, 15, 12)));
-      const alidadeAngle = (180 - point.longitude) * Math.PI / 180;
-      const direction = { x: Math.cos(alidadeAngle), y: -Math.sin(alidadeAngle) };
-      expect(point.x * direction.y - point.y * direction.x).toBeCloseTo(0, 9);
+      expect(alidadeLineCross(point, alidadeRotationForLongitude(point.longitude))).toBeCloseTo(0, 9);
     }
   });
 

@@ -1,6 +1,7 @@
 import type { AstrolabeState } from '../store';
 import { equatorialToHorizontal, localSiderealTime, normalizeDeg, solarLongitude } from '../astro';
 import { eclipticPoint } from '../geometry';
+import { alidadeRotationForLongitude } from '../backGeometry';
 import { STARS } from '../data/stars';
 import type { FutureTopic, Lesson, LessonStep, Snapshot } from './types';
 
@@ -17,6 +18,7 @@ const rotatedSun = {
 };
 export const SUN_FIXTURE = {
   eclipticLongitude: sunLongitude,
+  alidadeRotation: alidadeRotationForLongitude(sunLongitude),
   reteRotation: siriusSidereal,
   ruleRotation: normalizeDeg(Math.atan2(-rotatedSun.x, rotatedSun.y) * 180 / Math.PI),
 } as const;
@@ -72,8 +74,8 @@ export const LESSONS = [
     summary: 'Set the sky from the calendar and time scales, then locate Sirius and read its position.',
     steps: [
       step('choose-observation', 'Choose the place, date, and time', 'Use London on July 14, 2026, at 11:54 local apparent solar time. The 51.5° plate supplies London’s local horizon and altitude grid.', 'instrument', base('back'), 'The place, plate, date, and solar time for the example are known.'),
-      step('find-date', 'Find the date on the calendar', 'Rotate the alidade until the straight inner edge of one arm runs from the center through July 14 on the inner calendar ring. Its daily notches restart at 5, 10, 15, and so on within each unequal-width month.', 'back.calendar', base('back', { alidadeRotation: SUN_FIXTURE.eclipticLongitude }), 'The alidade’s inner edge passes through July 14 on the fixed 365-day calendar ring.', { demonstration: { field: 'alidadeRotation', from: 0, to: SUN_FIXTURE.eclipticLongitude, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: SUN_FIXTURE.eclipticLongitude, tolerance: 1 } }),
-      step('read-sun-longitude', 'Read the Sun’s ecliptic longitude', `Keep the alidade fixed on July 14. Continue along its inner edge across the zodiac-sign band to the degree scale on the band’s outer side, where the edge meets about ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}°. This is the Sun’s ecliptic longitude: its position around the ecliptic measured from 0° to 360°.`, 'back.ecliptic-longitude', base('back', { alidadeRotation: SUN_FIXTURE.eclipticLongitude }), `The alidade’s inner edge carries July 14 across the zodiac band to an ecliptic longitude of about ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}°.`),
+      step('find-date', 'Find the date on the calendar', 'Rotate the alidade until the straight inner edge of one arm runs from the center through July 14 on the inner calendar ring. Its daily notches restart at 5, 10, 15, and so on within each unequal-width month.', 'back.calendar', base('back', { alidadeRotation: SUN_FIXTURE.alidadeRotation }), 'The alidade’s inner edge passes through July 14 on the fixed 365-day calendar ring.', { demonstration: { field: 'alidadeRotation', from: 0, to: SUN_FIXTURE.alidadeRotation, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: SUN_FIXTURE.alidadeRotation, tolerance: 1 } }),
+      step('read-sun-longitude', 'Read the Sun’s ecliptic longitude', `Keep the alidade fixed on July 14. Continue along its inner edge across the zodiac-sign band to the degree scale on the band’s outer side, where the edge meets about ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}°. This is the Sun’s ecliptic longitude: its position around the ecliptic measured from 0° to 360°.`, 'back.ecliptic-longitude', base('back', { alidadeRotation: SUN_FIXTURE.alidadeRotation }), `The alidade’s inner edge carries July 14 across the zodiac band to an ecliptic longitude of about ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}°.`),
       step('find-sun-point', 'Find the same longitude on the front', `Turn to the front and find ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° on the rete’s ecliptic ring. The Sun marker shows this point for the selected date.`, 'front.sun', base('front'), 'The Sun’s date position is identified on the ecliptic ring.'),
       step('set-time', 'Set the rule to the time', 'Place the rule at 11:54 on the limb’s 24-hour scale. Keep the rule there: it now represents the requested local apparent solar time.', 'front.rule', base('front', { ruleRotation: SUN_FIXTURE.ruleRotation }), 'The rule marks 11:54 local apparent solar time.', { demonstration: { field: 'ruleRotation', from: 90, to: SUN_FIXTURE.ruleRotation, durationMs: 700 }, check: { kind: 'angleNear', field: 'ruleRotation', value: SUN_FIXTURE.ruleRotation, tolerance: 2 } }),
       step('set-sky', 'Set the sky', 'Rotate the rete until the Sun marker for July 14 lies under the rule. Do not move the rule. This alignment orients the whole star map for the chosen date and time.', 'front.rete', base('front', { reteRotation: 0, ruleRotation: SUN_FIXTURE.ruleRotation }), 'The Sun marker and time rule are aligned, so the sky is set.', { demonstration: { field: 'reteRotation', from: 0, to: SUN_FIXTURE.reteRotation, durationMs: 800 }, check: { kind: 'angleNear', field: 'reteRotation', value: SUN_FIXTURE.reteRotation, tolerance: 2 } }),
