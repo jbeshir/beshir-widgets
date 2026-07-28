@@ -430,8 +430,10 @@ button, input, select {
 }
 .astro-mater { stroke: color-mix(in srgb, var(--astro-device-edge) 76%, white 24%); stroke-width: 2; }
 .astro-limb-band { fill: var(--astro-limb-fill); stroke: var(--astro-rim); stroke-width: 1.5; }
-.astro-limb-tick-major { stroke: var(--astro-line-strong); stroke-width: 1.6; }
-.astro-limb-tick-minor { stroke: var(--astro-line); stroke-width: 0.8; }
+.astro-limb-tick { stroke: var(--astro-line); }
+.astro-limb-tick-degree { stroke-width: 0.55; opacity: 0.7; }
+.astro-limb-tick-five-degree { stroke-width: 0.9; }
+.astro-limb-tick-hour { stroke: var(--astro-line-strong); stroke-width: 1.6; }
 .astro-limb-label { fill: var(--astro-label); font-family: var(--widget-font-identity); }
 
 /* Plate — engraved hierarchy: rim (Capricorn) strongest, equator medium,
@@ -453,11 +455,20 @@ button, input, select {
   stroke-linejoin: round;
 }
 
-/* Rete — an open brass double-line ecliptic band with engraved zodiac
-   abbreviations (see Rete.tsx) instead of filled glyph bubbles. */
+/* Rete — a subtly hand-finished outer frame and an open, graduated ecliptic band. */
+.astro-rete-outer-rim {
+  fill: none;
+  stroke: var(--astro-gold);
+  stroke-width: 1.35;
+  opacity: 0.76;
+}
 .astro-rete-ring { fill: none; stroke: var(--astro-gold); stroke-width: 2.1; }
 .astro-rete-thin { fill: none; stroke: var(--astro-gold); stroke-width: 1.2; opacity: 0.85; }
-.astro-zodiac-tick, .astro-ecliptic-degree-tick { fill: none; stroke: var(--astro-gold); stroke-width: 1.1; opacity: 0.85; }
+.astro-ecliptic-tick { fill: none; stroke: var(--astro-gold); opacity: 0.8; }
+.astro-ecliptic-tick-half-degree { stroke-width: 0.38; opacity: 0.55; }
+.astro-ecliptic-tick-degree { stroke-width: 0.62; }
+.astro-ecliptic-tick-five-degree { stroke-width: 0.95; }
+.astro-ecliptic-tick-ten-degree { stroke-width: 1.25; opacity: 0.95; }
 .astro-star-dot { fill: var(--astro-star); stroke: none; }
 .astro-star-label {
   fill: var(--astro-label);
@@ -469,21 +480,10 @@ button, input, select {
   stroke-linejoin: round;
 }
 .astro-sun { fill: var(--astro-gold); stroke: var(--astro-rim); stroke-width: 1; }
-.astro-zodiac-label {
-  fill: var(--astro-label);
-  font-family: var(--widget-font-identity);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  paint-order: stroke;
-  stroke: var(--astro-mater-fill);
-  stroke-width: 3px;
-  stroke-linejoin: round;
-}
 .astro-ecliptic-degree-label {
   fill: var(--astro-label-muted);
   font-family: var(--widget-font-identity);
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 600;
   paint-order: stroke;
   stroke: var(--astro-mater-fill);

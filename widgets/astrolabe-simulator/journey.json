@@ -6,7 +6,11 @@
   "states": [
     {
       "label": "initial",
-      "steps": [],
+      "steps": [
+        {
+          "eval": "(() => { const eclipticTicks = document.querySelectorAll('.astro-ecliptic-tick'); const limbTicks = document.querySelectorAll('.astro-limb-tick'); if (eclipticTicks.length !== 720 || !document.querySelector('[data-ecliptic-longitude=\"0.5\"]')) throw new Error(`front ecliptic is not graduated by half degrees (${eclipticTicks.length} ticks)`); if (document.querySelector('.astro-zodiac-label')) throw new Error('zodiac abbreviations remain on the front'); if (limbTicks.length !== 360 || !document.querySelector('[data-limb-degree=\"1\"]')) throw new Error(`front limb is not graduated by degrees (${limbTicks.length} ticks)`); const reteRim = document.querySelector('.astro-rete-outer-rim'); if (!reteRim?.getAttribute('d')?.endsWith(' Z')) throw new Error('hand-finished rete rim is missing or open'); })()"
+        }
+      ],
       "expect": { "state": "ready" }
     },
     {

@@ -6,20 +6,21 @@ import { capricornRadius, eclipticCircle, eclipticPoint, project } from '../geom
 import { setRete, useStore, type Visibility } from '../store';
 import { angleFromPointer, keyRotate, rotationDelta } from '../interaction';
 import { ASTROLABE_R } from './Plate';
+import { eclipticLabels, eclipticTicks } from '../eclipticScale';
+import { reteRimPath } from '../reteRim';
 
 interface ReteProps { reteRotation: number; visibility: Visibility; }
 
-// Three-letter abbreviations, matching the back face's zodiac ring, rather
-// than the Unicode astrological glyphs (♈–♓): several platforms substitute
-// those code points with a color-emoji font, which produced the bright
-// rainbow "bubbles" this pass is meant to remove. Plain text can't be
-// swapped for an emoji glyph, so it always renders in the brass ink color.
-const ZODIAC = [
-  ['ARI', 'Aries'], ['TAU', 'Taurus'], ['GEM', 'Gemini'], ['CAN', 'Cancer'],
-  ['LEO', 'Leo'], ['VIR', 'Virgo'], ['LIB', 'Libra'], ['SCO', 'Scorpio'],
-  ['SAG', 'Sagittarius'], ['CAP', 'Capricorn'], ['AQU', 'Aquarius'], ['PIS', 'Pisces'],
-] as const;
-const ECLIPTIC_DEGREES = Array.from({ length: 36 }, (_, index) => index * 10);
+const ECLIPTIC_TICKS = eclipticTicks().map((tick) => ({
+  ...tick,
+  outer: eclipticPoint(tick.longitude, ASTROLABE_R),
+  inner: eclipticPoint(tick.longitude, ASTROLABE_R - tick.inset),
+}));
+const ECLIPTIC_LABELS = eclipticLabels().map((longitude) => ({
+  longitude,
+  point: eclipticPoint(longitude, ASTROLABE_R - 29),
+}));
+const RETE_RIM_PATH = reteRimPath(capricornRadius(ASTROLABE_R));
 
 function uprightTransform(x: number, y: number, rotation: number): string {
   return `translate(${x} ${y}) rotate(${-rotation}) scale(1,-1)`;
@@ -75,26 +76,16 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
       }}
     >
       <circle className="astro-rotary-hit" r={rim} />
-      {visibility.ecliptic && <g clip-path="url(#plate-clip)">
+      <path className="astro-rete-outer-rim" d={RETE_RIM_PATH} aria-label="Subtly hand-finished outer rim of the rete" />
+      {visibility.ecliptic && <g clip-path="url(#plate-clip)" aria-label="Ecliptic longitude scale, graduated every half degree">
         <circle className="astro-rete-ring" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r} />
         <circle className="astro-rete-thin" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r - 14} />
-        {ECLIPTIC_DEGREES.map((degrees) => {
-          const outer = eclipticPoint(degrees, ASTROLABE_R);
-          const inner = eclipticPoint(degrees, ASTROLABE_R - (degrees % 30 === 0 ? 24 : 14));
-          return <line key={`degree-${degrees}`} className="astro-ecliptic-degree-tick" x1={outer.x} y1={outer.y} x2={inner.x} y2={inner.y} />;
-        })}
-        {ZODIAC.map(([abbr, name], index) => {
-          const point = eclipticPoint(index * 30, ASTROLABE_R);
-          const inner = eclipticPoint(index * 30, ASTROLABE_R - 20);
-          const label = eclipticPoint(index * 30 + 15, ASTROLABE_R - 27);
-          return <g key={name}>
-            <line className="astro-zodiac-tick" x1={point.x} y1={point.y} x2={inner.x} y2={inner.y} />
-            <g transform={uprightTransform(label.x, label.y, reteRotation)}>
-              <text className="astro-zodiac-label" text-anchor="middle" dominant-baseline="middle" aria-label={name}>{abbr}</text>
-            </g>
-            <g transform={uprightTransform(inner.x, inner.y, reteRotation)}>
-              <text className="astro-ecliptic-degree-label" text-anchor="middle" dominant-baseline="middle">{index * 30}°</text>
-            </g>
+        {ECLIPTIC_TICKS.map((tick) =>
+          <line key={`degree-${tick.longitude}`} data-ecliptic-longitude={tick.longitude} className={`astro-ecliptic-tick astro-ecliptic-tick-${tick.level}`} x1={tick.outer.x} y1={tick.outer.y} x2={tick.inner.x} y2={tick.inner.y} />,
+        )}
+        {ECLIPTIC_LABELS.map(({ longitude, point }) => {
+          return <g key={longitude} transform={uprightTransform(point.x, point.y, reteRotation)}>
+            <text className="astro-ecliptic-degree-label" text-anchor="middle" dominant-baseline="middle">{longitude}°</text>
           </g>;
         })}
         <g data-tutorial-target="front.sun">
