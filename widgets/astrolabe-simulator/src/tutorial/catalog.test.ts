@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { project } from '../geometry';
-import { FUTURE_TOPICS, LESSONS, SIRIUS_FIXTURE, validateCatalog } from './catalog';
+import { eclipticPoint, project } from '../geometry';
+import { FUTURE_TOPICS, LESSONS, SIRIUS_FIXTURE, SUN_FIXTURE, validateCatalog } from './catalog';
 
 describe('tutorial catalog', () => {
   it('has exactly the three enabled permanent IDs', () => {
@@ -8,7 +8,7 @@ describe('tutorial catalog', () => {
       'front.parts.v1', 'front.align-star.v1', 'back.unequal-hours.v1',
     ]);
   });
-  it('has the required step depths', () => expect(LESSONS.map((lesson) => lesson.steps.length)).toEqual([6, 7, 9]));
+  it('has the required step depths', () => expect(LESSONS.map((lesson) => lesson.steps.length)).toEqual([6, 9, 9]));
   it('passes typed runtime validation', () => expect(validateCatalog()).toEqual([]));
   it.each(LESSONS)('$id has canonical results on every step', (lesson) => {
     for (const step of lesson.steps) {
@@ -28,6 +28,19 @@ describe('tutorial catalog', () => {
     expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
     expect(SIRIUS_FIXTURE.altitude).toBeCloseTo(21.1142782184, 8);
     expect(LESSONS[1].steps.at(-1)?.result).toContain(`approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}°`);
+  });
+  it('sets the sky by aligning the dated Sun point with the time rule', () => {
+    const sun = eclipticPoint(SUN_FIXTURE.eclipticLongitude, 380);
+    const rete = SUN_FIXTURE.reteRotation * Math.PI / 180;
+    const transformed = {
+      x: sun.x * Math.cos(rete) - sun.y * Math.sin(rete),
+      y: sun.x * Math.sin(rete) + sun.y * Math.cos(rete),
+    };
+    const rule = SUN_FIXTURE.ruleRotation * Math.PI / 180;
+    expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
+    const lessonCopy = LESSONS[1].steps.map((item) => `${item.title} ${item.body}`).join(' ');
+    expect(lessonCopy).not.toMatch(/prepared/i);
+    expect(lessonCopy).toMatch(/calendar.+ecliptic longitude.+rule.+rotate the rete/is);
   });
   it('commits the unequal-hour fixture and approximation', () => {
     const copy = LESSONS[2].steps.map((step) => `${step.body} ${step.result}`).join(' ');

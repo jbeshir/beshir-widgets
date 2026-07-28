@@ -6,7 +6,11 @@ export const LESSON_ALIASES: Readonly<Record<string, LessonId>> = {
   'front.orientation.v1': 'front.parts.v1',
 };
 export const STEP_ALIASES: Readonly<Record<string, string>> = {
-  'front.align-star.v1:align-rule': 'move-rule',
+  'front.align-star.v1:align-rule': 'set-time',
+  'front.align-star.v1:fixture': 'choose-observation',
+  'front.align-star.v1:rotate-sky': 'set-sky',
+  'front.align-star.v1:move-rule': 'set-time',
+  'front.align-star.v1:read-altitude': 'read-position',
 };
 
 export interface TutorialLocation {

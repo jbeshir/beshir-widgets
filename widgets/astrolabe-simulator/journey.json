@@ -56,6 +56,37 @@
         { "fill": "[data-testid=lng-input]", "value": "139.69" }
       ],
       "expect": { "selector": "[data-testid=mismatch]:not(:empty)" }
+    },
+    {
+      "label": "set-sky-before-reading-star",
+      "steps": [
+        { "click": "[data-testid=start-front\\.align-star\\.v1]" },
+        {
+          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Choose the place, date, and time') throw new Error(`unexpected first step: ${heading?.textContent}`); if (document.body.textContent.includes('prepared astrolabe')) throw new Error('prepared-astrolabe shortcut remains visible'); if (window.astrolabe.getState().face !== 'back') throw new Error('lesson did not begin on the date scales'); })()"
+        },
+        {
+          "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (!next) throw new Error('Next button missing'); next.click(); })()"
+        },
+        {
+          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Find the date on the calendar') throw new Error('calendar step did not precede reading'); const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); next?.click(); })()"
+        },
+        { "eval": "new Promise((resolve) => setTimeout(resolve, 800))" },
+        {
+          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Read the Sun’s ecliptic longitude') throw new Error('ecliptic-longitude step missing'); const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); next?.click(); })()"
+        },
+        {
+          "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (document.querySelector('#lesson-step-heading')?.textContent !== 'Find the same longitude on the front' || window.astrolabe.getState().face !== 'front') throw new Error('lesson did not transfer the longitude to the front'); next?.click(); })()"
+        },
+        { "eval": "new Promise((resolve) => setTimeout(resolve, 800))" },
+        {
+          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Set the rule to the time') throw new Error('time rule was not set before the sky'); const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); next?.click(); })()"
+        },
+        { "eval": "new Promise((resolve) => setTimeout(resolve, 900))" },
+        {
+          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); })()"
+        }
+      ],
+      "expect": { "state": "ready" }
     }
   ]
 }

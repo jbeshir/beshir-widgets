@@ -1,5 +1,6 @@
 import type { AstrolabeState } from '../store';
-import { equatorialToHorizontal, localSiderealTime } from '../astro';
+import { equatorialToHorizontal, localSiderealTime, normalizeDeg, solarLongitude } from '../astro';
+import { eclipticPoint } from '../geometry';
 import { STARS } from '../data/stars';
 import type { FutureTopic, Lesson, LessonStep, Snapshot } from './types';
 
@@ -8,6 +9,17 @@ const lessonLocation = { label: 'London', lat: 51.5, lng: -0.12, manual: false }
 const sirius = STARS.find((star) => star.name === 'Sirius');
 if (!sirius) throw new Error('Sirius is required by the known-star tutorial');
 const siriusSidereal = localSiderealTime(new Date(epochIso), lessonLocation.lng);
+const sunLongitude = solarLongitude(new Date(epochIso));
+const sunPoint = eclipticPoint(sunLongitude, 380);
+const rotatedSun = {
+  x: sunPoint.x * Math.cos(siriusSidereal * Math.PI / 180) - sunPoint.y * Math.sin(siriusSidereal * Math.PI / 180),
+  y: sunPoint.x * Math.sin(siriusSidereal * Math.PI / 180) + sunPoint.y * Math.cos(siriusSidereal * Math.PI / 180),
+};
+export const SUN_FIXTURE = {
+  eclipticLongitude: sunLongitude,
+  reteRotation: siriusSidereal,
+  ruleRotation: normalizeDeg(Math.atan2(-rotatedSun.x, rotatedSun.y) * 180 / Math.PI),
+} as const;
 const siriusObservation = equatorialToHorizontal(
   sirius.raDeg,
   sirius.decDeg,
@@ -19,6 +31,7 @@ export const SIRIUS_FIXTURE = {
   reteRotation: siriusSidereal,
   ruleRotation: siriusObservation.hourAngle,
   altitude: siriusObservation.altitude,
+  azimuth: siriusObservation.azimuth,
 } as const;
 const visibility: AstrolabeState['visibility'] = {
   almucantars: true, azimuths: true, unequalHours: true, ecliptic: true, stars: true,
@@ -55,16 +68,18 @@ export const LESSONS = [
   },
   {
     id: 'front.align-star.v1', version: 1, category: 'Front operations',
-    title: 'Align Sirius and read the altitude grid',
-    summary: 'Set the sky for a known time, place the rule over Sirius, and read the star’s altitude.',
+    title: 'Locate a star at a given date and time',
+    summary: 'Set the sky from the calendar and time scales, then locate Sirius and read its position.',
     steps: [
-      step('fixture', 'Set the observation', 'Use London, the 51.5° plate, and noon on July 14, 2026. A known place and time determine how the sky is oriented over the plate.', 'instrument', base('front'), 'The astrolabe is set for the example observation.'),
-      step('find-sirius', 'Find Sirius', 'Sirius is labelled on the rete; the rete carries it with the rotating sky.', 'front.star.sirius', base('front'), 'Sirius is identified on the rete.'),
-      step('show-grid', 'Read the fixed grid', 'Altitude circles on the plate remain fixed beneath the star map.', 'front.altitude-grid', base('front'), 'The altitude grid is visible.'),
-      step('rotate-sky', 'Set the sky for the observation', `Rotate the rete to ${SIRIUS_FIXTURE.reteRotation.toFixed(1)}°. This places the star map over the fixed plate for the example place and time.`, 'front.rete', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation }), `The sky is oriented with the rete at ${SIRIUS_FIXTURE.reteRotation.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: 0, to: SIRIUS_FIXTURE.reteRotation, durationMs: 800 } }),
-      step('move-rule', 'Place the rule', `Move the rule to ${SIRIUS_FIXTURE.ruleRotation.toFixed(1)}° so its edge passes through Sirius.`, 'front.rule', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation }), 'The rule passes through Sirius.', { check: { kind: 'angleNear', field: 'ruleRotation', value: SIRIUS_FIXTURE.ruleRotation, tolerance: 2 } }),
-      step('read-altitude', 'Read the altitude', 'At Sirius, read the fixed altitude circle beneath the star pointer. The rule helps you keep your place while you trace the reading to the labelled grid.', 'front.altitude-grid', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation, ruleRotation: SIRIUS_FIXTURE.ruleRotation }), `Sirius is approximately ${Math.round(SIRIUS_FIXTURE.altitude)}° above the horizon.`),
-      step('sirius-result', 'Interpret the reading', 'The star pointer lies near the 21° altitude circle, so Sirius is about 21° above the horizon in this example. The simulator omits small corrections such as atmospheric refraction and the slow change in star positions over centuries.', 'instrument', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation, ruleRotation: SIRIUS_FIXTURE.ruleRotation }), `Sirius has an altitude of approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}°.`),
+      step('choose-observation', 'Choose the place, date, and time', 'Use London on July 14, 2026, at 11:54 local apparent solar time. The 51.5° plate supplies London’s local horizon and altitude grid.', 'instrument', base('back'), 'The place, plate, date, and solar time for the example are known.'),
+      step('find-date', 'Find the date on the calendar', 'On the back, find July 14 on the calendar ring. A radial line from the center through that date continues into the adjacent ecliptic-longitude scale.', 'back.calendar', base('back'), 'July 14 is located on the calendar ring.'),
+      step('read-sun-longitude', 'Read the Sun’s ecliptic longitude', `Follow the July 14 radial line to about ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° on the adjacent scale. This is the Sun’s ecliptic longitude: its position around the ecliptic measured from 0° to 360°.`, 'back.ecliptic-longitude', base('back', { alidadeRotation: SUN_FIXTURE.eclipticLongitude }), `The Sun’s ecliptic longitude is about ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}°.`, { demonstration: { field: 'alidadeRotation', from: 0, to: SUN_FIXTURE.eclipticLongitude, durationMs: 700 } }),
+      step('find-sun-point', 'Find the same longitude on the front', `Turn to the front and find ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° on the rete’s ecliptic ring. The Sun marker shows this point for the selected date.`, 'front.sun', base('front'), 'The Sun’s date position is identified on the ecliptic ring.'),
+      step('set-time', 'Set the rule to the time', 'Place the rule at 11:54 on the limb’s 24-hour scale. Keep the rule there: it now represents the requested local apparent solar time.', 'front.rule', base('front', { ruleRotation: SUN_FIXTURE.ruleRotation }), 'The rule marks 11:54 local apparent solar time.', { demonstration: { field: 'ruleRotation', from: 90, to: SUN_FIXTURE.ruleRotation, durationMs: 700 } }),
+      step('set-sky', 'Set the sky', 'Rotate the rete until the Sun marker for July 14 lies under the rule. Do not move the rule. This alignment orients the whole star map for the chosen date and time.', 'front.rete', base('front', { reteRotation: 0, ruleRotation: SUN_FIXTURE.ruleRotation }), 'The Sun marker and time rule are aligned, so the sky is set.', { demonstration: { field: 'reteRotation', from: 0, to: SUN_FIXTURE.reteRotation, durationMs: 800 }, check: { kind: 'angleNear', field: 'reteRotation', value: SUN_FIXTURE.reteRotation, tolerance: 2 } }),
+      step('find-sirius', 'Locate Sirius', 'Find the Sirius pointer on the rete. Because the entire rete is now set, the pointer shows where Sirius lies in London’s sky at the chosen date and time.', 'front.star.sirius', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), 'Sirius is located on the set star map.'),
+      step('read-position', 'Read Sirius on the plate', 'Read the fixed altitude and azimuth curves beneath the Sirius pointer. It lies just above the southern meridian.', 'front.altitude-grid', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), `Sirius is approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}° above the horizon at azimuth ${SIRIUS_FIXTURE.azimuth.toFixed(1)}°.`),
+      step('sirius-result', 'Interpret the result', 'Sirius is above the horizon and slightly west of due south. The date and time set the entire sky; Sirius was read from that setting rather than aligned independently.', 'instrument', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), `Sirius is located at approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}° altitude and ${SIRIUS_FIXTURE.azimuth.toFixed(1)}° azimuth.`),
     ],
   },
   {
@@ -92,9 +107,9 @@ export const FUTURE_TOPICS: readonly FutureTopic[] = [
   { category: 'Front astronomy', title: 'Find date and time from a known star', prerequisite: 'Planned: enter a measured star position and work backwards to a date and time.' },
   { category: 'Front astronomy', title: 'Determine sunrise and sunset', prerequisite: 'Planned: choose a date and follow the Sun to the horizon.' },
   { category: 'Front astronomy', title: 'Read front unequal hours', prerequisite: 'Planned: use the Sun’s ecliptic position with the unequal-hour curves below the horizon.' },
-  { category: 'Front astronomy', title: 'Locate the Sun for any date', prerequisite: 'Planned: choose a date and place the Sun at its corresponding point on the ecliptic.' },
+  { category: 'Front astronomy', title: 'Find the Sun’s ecliptic longitude for any date', prerequisite: 'Planned: choose a date and transfer it from the calendar scale to degrees of ecliptic longitude.' },
   { category: 'Front astronomy', title: 'Predict when a star rises and sets', prerequisite: 'Planned: follow a chosen star to the eastern and western horizon.' },
-  { category: 'Back calculations', title: 'Convert a calendar date to zodiac longitude', prerequisite: 'Planned: align a chosen date with the adjacent zodiac scale.' },
+  { category: 'Back calculations', title: 'Convert a calendar date to ecliptic longitude', prerequisite: 'Planned: follow a chosen date to its degree on the adjacent ecliptic-longitude scale.' },
   { category: 'Back calculations', title: 'Use the equation-of-time loop', prerequisite: 'Planned: choose a date and read the difference between apparent and mean solar time.' },
   { category: 'Back calculations', title: 'Measure height with the shadow square', prerequisite: 'Planned: enter a known distance and turn the observed shadow ratio into a height.' },
   { category: 'Assessment and tools', title: 'Place your own measurement markers', prerequisite: 'Planned: mark positions on the instrument and return to them while practising.' },
