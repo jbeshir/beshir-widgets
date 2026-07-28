@@ -55,10 +55,10 @@ export const LESSONS = [
   },
   {
     id: 'front.align-star.v1', version: 1, category: 'Front operations',
-    title: 'Align Sirius and read the altitude grid',
-    summary: 'Set the sky for a known time, place the rule over Sirius, and read the star’s altitude.',
+    title: 'Read a star’s position on a prepared astrolabe',
+    summary: 'Use a prepared sky setting to find Sirius and read the star’s altitude. A later lesson will teach how to set the sky from a date and time.',
     steps: [
-      step('fixture', 'Set the observation', 'Use London, the 51.5° plate, and noon on July 14, 2026. A known place and time determine how the sky is oriented over the plate.', 'instrument', base('front'), 'The astrolabe is set for the example observation.'),
+      step('fixture', 'Start from a prepared setting', 'This example begins with the astrolabe prepared for London at noon on July 14, 2026. Here you will practise reading the star map; a later lesson will teach the separate operation of setting the sky from a date and time.', 'instrument', base('front'), 'The prepared astrolabe is ready for the reading exercise.'),
       step('find-sirius', 'Find Sirius', 'Sirius is labelled on the rete; the rete carries it with the rotating sky.', 'front.star.sirius', base('front'), 'Sirius is identified on the rete.'),
       step('show-grid', 'Read the fixed grid', 'Altitude circles on the plate remain fixed beneath the star map.', 'front.altitude-grid', base('front'), 'The altitude grid is visible.'),
       step('rotate-sky', 'Set the sky for the observation', `Rotate the rete to ${SIRIUS_FIXTURE.reteRotation.toFixed(1)}°. This places the star map over the fixed plate for the example place and time.`, 'front.rete', base('front', { reteRotation: SIRIUS_FIXTURE.reteRotation }), `The sky is oriented with the rete at ${SIRIUS_FIXTURE.reteRotation.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: 0, to: SIRIUS_FIXTURE.reteRotation, durationMs: 800 } }),
