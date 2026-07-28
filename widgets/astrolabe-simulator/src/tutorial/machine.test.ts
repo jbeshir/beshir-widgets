@@ -19,7 +19,7 @@ describe('pure tutorial machine', () => {
     expect(tutorialReducer(started, { type: 'CHECK', passed: true }).message).toContain('passed');
   });
   it('ignores stale completion', () => expect(tutorialReducer(started, { type: 'ANIMATION_DONE', operationId: 999 })).toBe(started));
-  it('accepts current completion', () => expect(tutorialReducer(started, { type: 'ANIMATION_DONE', operationId: started.operationId }).message).toContain('endpoint'));
+  it('accepts current completion', () => expect(tutorialReducer(started, { type: 'ANIMATION_DONE', operationId: started.operationId }).message).toContain('in position'));
   it('interrupts and rejects finish outside a step', () => {
     const interrupted = tutorialReducer(started, { type: 'USER_CHANGE' });
     expect(interrupted.phase).toBe('interrupted');

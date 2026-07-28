@@ -3,15 +3,16 @@ import { CITIES } from '../data/cities';
 import { PLATES } from '../data/plates';
 import { reset, selectPlate, setAlidade, setFace, setLocation, setRete, setRule, toggleLayer, useStore, type Visibility } from '../store';
 
-const FRONT_LAYERS: { key: keyof Visibility; label: string }[] = [
+type LayerControl = { key: keyof Visibility; label: string; description?: string };
+const FRONT_LAYERS: LayerControl[] = [
   { key: 'almucantars', label: 'Altitude circles' }, { key: 'azimuths', label: 'Azimuths' },
   { key: 'unequalHours', label: 'Unequal hours' }, { key: 'ecliptic', label: 'Ecliptic' },
   { key: 'stars', label: 'Stars' }, { key: 'rule', label: 'Rule' },
 ];
-const BACK_LAYERS: { key: keyof Visibility; label: string }[] = [
+const BACK_LAYERS: LayerControl[] = [
   { key: 'calendar', label: 'Calendar' }, { key: 'zodiacScale', label: 'Zodiac' },
   { key: 'shadowSquare', label: 'Shadow square' }, { key: 'backUnequalHours', label: 'Unequal hours' },
-  { key: 'equationOfTime', label: 'Equation of time' }, { key: 'alidade', label: 'Alidade' },
+  { key: 'equationOfTime', label: 'Equation of time', description: 'Shows the correction between apparent solar time and mean clock time.' }, { key: 'alidade', label: 'Alidade' },
 ];
 const number = (value: string, fallback: number) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
@@ -33,7 +34,7 @@ export function Controls(): JSX.Element {
       }}><option value="">Custom</option>{CITIES.map((city) => <option key={city.name} value={city.name}>{city.name}</option>)}</select></label>
       <label>Latitude <input data-testid="lat-input" type="number" min="-90" max="90" step="0.01" value={state.location.lat} onInput={(event) => setLocation({ label: 'Custom', lat: number(event.currentTarget.value, state.location.lat), lng: state.location.lng, manual: true })} /></label>
       <label>Longitude <input data-testid="lng-input" type="number" min="-180" max="180" step="0.01" value={state.location.lng} onInput={(event) => setLocation({ label: 'Custom', lat: state.location.lat, lng: number(event.currentTarget.value, state.location.lng), manual: true })} /></label>
-      <label>Plate <select data-testid="plate-select" value={plateValue} onChange={(event) => {
+      <label>Plate <select data-testid="plate-select" aria-label="Plate latitude; Exact uses the current location latitude" value={plateValue} onChange={(event) => {
         selectPlate(event.currentTarget.value.startsWith('exact:') ? exactPlateLatitude : Number(event.currentTarget.value));
       }}>
         <option value={exactPlateValue}>Exact</option>
@@ -46,8 +47,8 @@ export function Controls(): JSX.Element {
         <label>Rule <input data-testid="rule-angle" type="number" min="0" max="360" step="1" value={state.ruleRotation} onInput={(event) => setRule(Number(event.currentTarget.value))} /></label>
       </> : <label>Alidade <input data-testid="alidade-angle" type="number" min="0" max="360" step="1" value={state.alidadeRotation} onInput={(event) => setAlidade(Number(event.currentTarget.value))} /></label>}
     </div>
-    <fieldset className="layer-controls"><legend>Visible layers</legend>{(state.face === 'front' ? FRONT_LAYERS : BACK_LAYERS).map(({ key, label }) => <label key={key}>
-      <input type="checkbox" data-testid={`layer-${key}`} checked={state.visibility[key]} onChange={() => toggleLayer(key)} /> {label}
+    <fieldset className="layer-controls"><legend>Visible layers</legend>{(state.face === 'front' ? FRONT_LAYERS : BACK_LAYERS).map(({ key, label, description }) => <label key={key} title={description}>
+      <input type="checkbox" data-testid={`layer-${key}`} aria-description={description} checked={state.visibility[key]} onChange={() => toggleLayer(key)} /> {label}
     </label>)}</fieldset>
   </div>;
 }

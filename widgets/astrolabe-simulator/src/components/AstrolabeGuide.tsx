@@ -15,7 +15,7 @@ const PARTS = [
   ['plate', 'Latitude plate', 'The fixed horizon, altitude and azimuth grid for one latitude.', 'front'],
   ['rete', 'Rete', 'The rotating star map and ecliptic zodiac ring.', 'front'],
   ['rule', 'Rule', 'A sighting and reading edge on the front.', 'front'],
-  ['back', 'Back scales', 'Calendar, zodiac, equation-of-time, shadow-square and unequal-hour engravings.', 'back'],
+  ['back', 'Back scales', 'Scales relate dates to the zodiac, correct apparent solar time, measure proportions from shadows, and read unequal hours.', 'back'],
   ['alidade', 'Alidade', 'The rotating sighting rule on the back.', 'back'],
 ] as const;
 
@@ -78,7 +78,7 @@ export function AstrolabeGuide(): JSX.Element {
         if (id !== operationId.current || outcome === 'aborted') return;
         animation.current = null;
         applyTransaction({ [demo.field]: demo.to }, { source: 'tutorial', operationId: id, syncUrl: true });
-        setStatus(`${nextStep.result} Demonstration settled at the exact endpoint.`);
+        setStatus(nextStep.result);
       });
     }
   };
@@ -104,7 +104,7 @@ export function AstrolabeGuide(): JSX.Element {
     if (!lesson || !animation.current || animation.current.signal.aborted) return;
     if (change.meta.source === 'tutorial' && change.meta.operationId === operationId.current) return;
     animation.current.abort(); operationId.current += 1; setInterrupted(true);
-    setStatus('The demonstration was interrupted by a user, host, or reset change. Choose how to continue.');
+    setStatus('The instrument moved away from this step. Restart the step or keep the position you chose.');
   }), [lesson]);
 
   useEffect(() => {
@@ -150,7 +150,7 @@ export function AstrolabeGuide(): JSX.Element {
           <h3>{category}</h3>
           {FUTURE_TOPICS.filter((item) => item.category === category).map((item) => <article className="lesson-card future-card" key={item.title}>
             <h4>{item.title}</h4><p>{item.prerequisite}</p>
-            <button disabled aria-disabled="true" title={item.prerequisite}>Planned — prerequisite needed</button>
+            <button disabled aria-disabled="true" title={item.prerequisite}>Planned lesson</button>
           </article>)}
         </section>)}
       </section> : <Reference simulator={simulator} />}
@@ -162,10 +162,9 @@ export function AstrolabeGuide(): JSX.Element {
         <h2 id="lesson-step-heading" ref={heading} tabIndex={-1}>{step.title}</h2>
         <p>{step.body}</p>
         <p className="lesson-result"><strong>Result:</strong> {step.result}</p>
-        <p className="target-note">Instrument target: {step.target.replaceAll('.', ' › ')}</p>
         {interrupted && <div className="interruption" role="alert">
-          <p>Scripted motion stopped before any stale callback could advance the lesson.</p>
-          <button onClick={() => runStep(lesson, stepIndex, false)}>Rebuild and replay</button>
+          <p>The instrument moved away from the position shown in this step. You can restart the step or continue with your own position.</p>
+          <button onClick={() => runStep(lesson, stepIndex, false)}>Restart this step</button>
           <button onClick={() => exit(false)}>Keep this setup and exit</button>
           <button onClick={() => exit(true)}>Restore and exit</button>
         </div>}
@@ -204,8 +203,15 @@ function Reference({ simulator }: { simulator: AstrolabeState }): JSX.Element {
         onClick={() => setHighlight(simulator.highlight === key ? null : key)}>
         <strong>{name}</strong><span>{description}</span></button></li>)}</ul></details>
     <details><summary>Unequal-hour scale</summary>{simulator.face === 'front'
-      ? <p>The curves below the horizon divide each star’s nightly path into twelve equal parts. At night, read the Sun’s ecliptic position; in daylight, read the point opposite the Sun. The horizon marks sunset and sunrise, and the middle curve marks the sixth hour. Interpolate between curves.</p>
-      : <p>The upper semicircle is the traditional double horary quadrant. Set the alidade to the Sun’s noon altitude and note its crossing with VI; transfer that pivot distance to the current-altitude line. Read I–VI before noon or mirrored VI–XII afterward.</p>}</details>
-    <details><summary>Accuracy and simplifications</summary><p>This is an educational geometric model, not an observational-precision instrument. Stars use J2000 positions without precession; refraction is omitted; obliquity is fixed; solar longitude and equation of time use compact approximations. Plates are a finite northern set. The front unequal-hour lines exactly divide model arcs; the historical back read-off is approximate away from sunrise, noon, and sunset.</p></details>
+      ? <p>The curves below the horizon divide a path across the sky into twelve unequal hours. To use them for solar time, treat the Sun’s position on the ecliptic as the marker for night; during daylight, use the point directly opposite the Sun. The horizon marks sunset and sunrise, and the middle curve marks the sixth hour. Interpolate between curves.</p>
+      : <p>The upper semicircle is the double horary quadrant used to read unequal, or temporal, hours. First set the alidade to the Sun’s noon altitude and note where its reading edge crosses curve VI. Remember that crossing’s distance from the center. Set the alidade to the Sun’s current altitude, find the same distance along its reading edge, and read the hour curve at that point: I–VI before noon or the mirrored VI–XII afterward.</p>}</details>
+    <details><summary>Accuracy and simplifications</summary><ul>
+      <li>This is an educational geometric model, not an observational-precision instrument.</li>
+      <li>Star positions use the standard J2000 catalogue coordinates and do not include their slow shift over centuries.</li>
+      <li>Atmospheric refraction—the apparent lifting of objects near the horizon—is omitted.</li>
+      <li>Earth’s axial tilt is held fixed, and the Sun and equation-of-time calculations use compact approximations.</li>
+      <li>The available plates cover a finite set of northern latitudes.</li>
+      <li>The front unequal-hour curves exactly divide the modelled paths. Readings from the historical back construction are approximate between sunrise, noon, and sunset.</li>
+    </ul></details>
   </section>;
 }

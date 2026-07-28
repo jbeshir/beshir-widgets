@@ -35,7 +35,7 @@ export function tutorialReducer(state: TutorialState, event: TutorialEvent): Tut
       if (state.phase !== 'step') return state;
       return event.passed ? { ...state, message: 'Checkpoint passed.' } : { ...state, message: 'Not yet. Adjust the named control and check again.' };
     case 'ANIMATION_DONE':
-      return state.phase === 'step' && event.operationId === state.operationId ? { ...state, message: 'Demonstration settled at the exact endpoint.' } : state;
+      return state.phase === 'step' && event.operationId === state.operationId ? { ...state, message: 'The instrument is in position for this step.' } : state;
     case 'ANIMATION_ABORTED':
       return event.operationId === state.operationId ? { ...state, phase: 'interrupted', message: 'Demonstration interrupted by a simulator change.' } : state;
     case 'USER_CHANGE':

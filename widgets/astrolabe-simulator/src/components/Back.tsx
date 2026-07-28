@@ -127,7 +127,7 @@ export function Back(): JSX.Element {
         <text className="astro-shadow-label" transform={`translate(${shadow.left - 48} ${(shadow.top + shadow.bottom) / 2}) rotate(-90)`} text-anchor="middle">UMBRA VERSA</text>
       </g>}
 
-      {visibility.backUnequalHours && <g aria-label="Traditional upper-half double horary quadrant, hours I through XII" data-tutorial-target="back.horary.vi">
+      {visibility.backUnequalHours && <g aria-label="Upper semicircle for reading temporal hours I through XII, traditionally called a double horary quadrant" data-tutorial-target="back.horary.vi">
         <path className="astro-horary-boundary" d={horary.semicirclePath} />
         {horary.circles.map((circle) => (
           <path

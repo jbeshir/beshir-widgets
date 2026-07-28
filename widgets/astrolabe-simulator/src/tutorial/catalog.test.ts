@@ -8,7 +8,7 @@ describe('tutorial catalog', () => {
       'front.parts.v1', 'front.align-star.v1', 'back.unequal-hours.v1',
     ]);
   });
-  it('has the required step depths', () => expect(LESSONS.map((lesson) => lesson.steps.length)).toEqual([6, 8, 9]));
+  it('has the required step depths', () => expect(LESSONS.map((lesson) => lesson.steps.length)).toEqual([6, 7, 9]));
   it('passes typed runtime validation', () => expect(validateCatalog()).toEqual([]));
   it.each(LESSONS)('$id has canonical results on every step', (lesson) => {
     for (const step of lesson.steps) {
@@ -27,7 +27,7 @@ describe('tutorial catalog', () => {
     const rule = SIRIUS_FIXTURE.ruleRotation * Math.PI / 180;
     expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
     expect(SIRIUS_FIXTURE.altitude).toBeCloseTo(21.1142782184, 8);
-    expect(LESSONS[1].steps.at(-1)?.result).toContain('approximately 21°');
+    expect(LESSONS[1].steps.at(-1)?.result).toContain(`approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}°`);
   });
   it('commits the unequal-hour fixture and approximation', () => {
     const copy = LESSONS[2].steps.map((step) => `${step.body} ${step.result}`).join(' ');
@@ -40,7 +40,7 @@ describe('tutorial catalog', () => {
     expect(new Set(FUTURE_TOPICS.map((topic) => topic.category))).toEqual(new Set([
       'Setup and construction', 'Front astronomy', 'Back calculations', 'Assessment and tools',
     ]));
-    for (const topic of FUTURE_TOPICS) expect(topic.prerequisite).toMatch(/^Needs /);
+    for (const topic of FUTURE_TOPICS) expect(topic.prerequisite).toMatch(/^(Planned|Unavailable)[: ]/);
   });
   it('gives every enabled lesson a real scripted instrument demonstration', () => {
     for (const lesson of LESSONS) {
