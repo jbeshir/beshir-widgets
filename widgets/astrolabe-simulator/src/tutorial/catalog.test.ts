@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { eclipticPoint, project } from '../geometry';
+import { alidadeLineCross, backLongitudePoint } from '../backGeometry';
 import { FUTURE_TOPICS, LESSONS, SIRIUS_FIXTURE, SUN_FIXTURE, validateCatalog } from './catalog';
 
 describe('tutorial catalog', () => {
@@ -42,6 +43,19 @@ describe('tutorial catalog', () => {
     expect(lessonCopy).not.toMatch(/prepared/i);
     expect(lessonCopy).toMatch(/calendar.+ecliptic longitude.+rule.+rotate the rete/is);
     expect(lessonCopy).toMatch(/inner edge.+across the zodiac-sign band.+outer side/is);
+  });
+  it('aligns the lesson alidade with the dated back-scale radial', () => {
+    const datePoint = backLongitudePoint(456, SUN_FIXTURE.eclipticLongitude);
+    const longitudePoint = backLongitudePoint(590, SUN_FIXTURE.eclipticLongitude);
+    expect(alidadeLineCross(datePoint, SUN_FIXTURE.alidadeRotation)).toBeCloseTo(0, 10);
+    expect(alidadeLineCross(longitudePoint, SUN_FIXTURE.alidadeRotation)).toBeCloseTo(0, 10);
+    const findDate = LESSONS[1].steps.find((step) => step.id === 'find-date');
+    expect(findDate?.snapshot.alidadeRotation).toBe(SUN_FIXTURE.alidadeRotation);
+    expect(findDate?.check).toMatchObject({
+      kind: 'angleNear',
+      field: 'alidadeRotation',
+      value: SUN_FIXTURE.alidadeRotation,
+    });
   });
   it('commits the unequal-hour fixture and approximation', () => {
     const copy = LESSONS[2].steps.map((step) => `${step.body} ${step.result}`).join(' ');

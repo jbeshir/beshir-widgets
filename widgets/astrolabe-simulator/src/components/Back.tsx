@@ -4,6 +4,7 @@ import { shadowSquareLayout } from '../shadowSquare';
 import { createHoraryLayout } from '../horaryQuadrant';
 import { useStore } from '../store';
 import { calendarDayTicks, calendarMonthStarts } from '../calendarScale';
+import { backLongitudePoint } from '../backGeometry';
 import { Alidade } from './Alidade';
 
 const VIEWBOX = '-620 -620 1240 1240';
@@ -14,20 +15,14 @@ const CALENDAR_INNER = 405;
 const ZODIAC = ['ARI', 'TAU', 'GEM', 'CAN', 'LEO', 'VIR', 'LIB', 'SCO', 'SAG', 'CAP', 'AQU', 'PIS'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-function zodiacPoint(radius: number, longitude: number): { x: number; y: number } {
-  const radians = longitude * Math.PI / 180;
-  // Aries 0° is the left horizontal; longitude advances toward the top.
-  return { x: -radius * Math.cos(radians), y: -radius * Math.sin(radians) };
-}
-
 function ringPath(outer: number, inner: number): string {
   return `M 0 ${-outer} A ${outer} ${outer} 0 1 1 0 ${outer} A ${outer} ${outer} 0 1 1 0 ${-outer} M 0 ${-inner} A ${inner} ${inner} 0 1 0 0 ${inner} A ${inner} ${inner} 0 1 0 0 ${-inner}`;
 }
 
-function radialTick(angle: number, inner: number, outer: number, className: string): JSX.Element {
-  const a = zodiacPoint(inner, angle);
-  const b = zodiacPoint(outer, angle);
-  return <line key={`${className}-${angle}-${inner}`} className={className} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
+function radialTick(angle: number, inner: number, outer: number, className: string, testId?: string): JSX.Element {
+  const a = backLongitudePoint(inner, angle);
+  const b = backLongitudePoint(outer, angle);
+  return <line key={`${className}-${angle}-${inner}`} data-testid={testId} className={className} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
 }
 
 export function Back(): JSX.Element {
@@ -73,7 +68,7 @@ export function Back(): JSX.Element {
           degrees % 10 === 0 ? 'astro-back-tick-major' : degrees % 5 === 0 ? 'astro-back-tick-medium' : 'astro-back-tick-minor',
         ))}
         {degreeLabels.map((degrees) => {
-          const p = zodiacPoint(564, degrees);
+          const p = backLongitudePoint(564, degrees);
           return <text key={degrees} className="astro-back-number" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{degrees}</text>;
         })}
       </g>
@@ -81,7 +76,7 @@ export function Back(): JSX.Element {
         {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map((altitude) => (
           (altitude === 90 ? [-1] : [-1, 1]).map((side) => {
             const longitude = side < 0 ? altitude : 180 - altitude;
-            const p = zodiacPoint(538, longitude);
+            const p = backLongitudePoint(538, longitude);
             return <text key={`${side}-${altitude}`} className="astro-altitude-number" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{altitude}</text>;
           })
         ))}
@@ -92,7 +87,7 @@ export function Back(): JSX.Element {
       <g aria-label="Ecliptic-longitude ring, divided into zodiac signs with Aries at the vernal equinox on the left">
         {zodiacDivisions.map((longitude) => radialTick(longitude, ZODIAC_INNER, ZODIAC_OUTER, 'astro-zodiac-division'))}
         {ZODIAC.map((sign, index) => {
-          const p = zodiacPoint(499, index * 30 + 15);
+          const p = backLongitudePoint(499, index * 30 + 15);
           return <text key={sign} className="astro-back-zodiac-label" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{sign}</text>;
         })}
       </g>
@@ -102,12 +97,18 @@ export function Back(): JSX.Element {
       <g data-tutorial-target="back.calendar">
       <path className="astro-calendar-band" d={ringPath(ZODIAC_INNER, CALENDAR_INNER)} fill-rule="evenodd" />
       <g aria-label="Fixed 365-day calendar ring aligned with ecliptic longitude">
-        {calendarDays.map((tick) => radialTick(tick.longitude, tick.isFiveDayTick ? 450 : 456, ZODIAC_INNER - 2, 'astro-calendar-tick'))}
+        {calendarDays.map((tick) => radialTick(
+          tick.longitude,
+          tick.isFiveDayTick ? 450 : 456,
+          ZODIAC_INNER - 2,
+          'astro-calendar-tick',
+          tick.month === 6 && tick.dayOfMonth === 14 ? 'calendar-july-14' : undefined,
+        ))}
         {monthStarts.map((longitude) => radialTick(longitude, CALENDAR_INNER, ZODIAC_INNER, 'astro-calendar-month-line'))}
         {MONTHS.map((month, index) => {
           const next = monthStarts[(index + 1) % 12] + (index === 11 ? 360 : 0);
           const span = ((next - monthStarts[index]) + 360) % 360;
-          const p = zodiacPoint(429, monthStarts[index] + span / 2);
+          const p = backLongitudePoint(429, monthStarts[index] + span / 2);
           return <text key={month} className="astro-calendar-label" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{month}</text>;
         })}
       </g>

@@ -1,4 +1,5 @@
 import { equationOfTime, solarLongitude } from './astro';
+import { backLongitudePoint } from './backGeometry';
 
 export const EQUATION_ZERO_RADIUS = 215;
 export const EQUATION_PIXELS_PER_MINUTE = 6;
@@ -30,10 +31,10 @@ export function counterchangedRulePaths(
 export function equationOfTimePoint(date: Date): { x: number; y: number; radius: number; longitude: number } {
   const longitude = solarLongitude(date);
   const radius = EQUATION_ZERO_RADIUS + equationOfTime(date) * EQUATION_PIXELS_PER_MINUTE;
-  const radians = longitude * Math.PI / 180;
+  const point = backLongitudePoint(radius, longitude);
   return {
-    x: -radius * Math.cos(radians),
-    y: -radius * Math.sin(radians),
+    x: point.x,
+    y: point.y,
     radius,
     longitude,
   };
