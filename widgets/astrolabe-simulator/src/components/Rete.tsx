@@ -97,8 +97,10 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
             </g>
           </g>;
         })}
-        <circle className="astro-sun" cx={sun.x} cy={sun.y} r={9} />
-        <circle cx={sun.x} cy={sun.y} r={3} fill="var(--astro-mater-fill)" />
+        <g data-tutorial-target="front.sun">
+          <circle className="astro-sun" cx={sun.x} cy={sun.y} r={9} />
+          <circle cx={sun.x} cy={sun.y} r={3} fill="var(--astro-mater-fill)" />
+        </g>
       </g>}
 
       {visibility.stars && <g clip-path="url(#plate-clip)">

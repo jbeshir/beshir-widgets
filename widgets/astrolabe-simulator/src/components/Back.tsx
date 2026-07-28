@@ -87,17 +87,20 @@ export function Back(): JSX.Element {
       </g>
 
       {visibility.zodiacScale && <>
+      <g data-tutorial-target="back.ecliptic-longitude">
       <path className="astro-zodiac-band" d={ringPath(ZODIAC_OUTER, ZODIAC_INNER)} fill-rule="evenodd" />
-      <g aria-label="Zodiac ring, Aries at the vernal equinox on the left">
+      <g aria-label="Ecliptic-longitude ring, divided into zodiac signs with Aries at the vernal equinox on the left">
         {zodiacDivisions.map((longitude) => radialTick(longitude, ZODIAC_INNER, ZODIAC_OUTER, 'astro-zodiac-division'))}
         {ZODIAC.map((sign, index) => {
           const p = zodiacPoint(499, index * 30 + 15);
           return <text key={sign} className="astro-back-zodiac-label" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{sign}</text>;
         })}
       </g>
+      </g>
       </>}
 
       {visibility.calendar && <>
+      <g data-tutorial-target="back.calendar">
       <path className="astro-calendar-band" d={ringPath(ZODIAC_INNER, CALENDAR_INNER)} fill-rule="evenodd" />
       <g aria-label={`${year} calendar ring aligned by computed solar longitude`}>
         {calendarDays.map((longitude, index) => radialTick(longitude, index % 5 === 0 ? 450 : 456, ZODIAC_INNER - 2, 'astro-calendar-tick'))}
@@ -108,6 +111,7 @@ export function Back(): JSX.Element {
           const p = zodiacPoint(429, monthStarts[index] + span / 2);
           return <text key={month} className="astro-calendar-label" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{month}</text>;
         })}
+      </g>
       </g>
       </>}
 

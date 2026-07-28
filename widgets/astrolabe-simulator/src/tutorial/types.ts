@@ -3,7 +3,8 @@ import type { AstrolabeState } from '../store';
 export type LessonId = 'front.parts.v1' | 'front.align-star.v1' | 'back.unequal-hours.v1';
 export type TargetId =
   | 'instrument' | 'front.plate' | 'front.altitude-grid' | 'front.rete'
-  | 'front.star.sirius' | 'front.rule' | 'back.altitude-scale'
+  | 'front.star.sirius' | 'front.sun' | 'front.rule' | 'back.altitude-scale'
+  | 'back.calendar' | 'back.ecliptic-longitude'
   | 'back.horary.vi' | 'back.alidade';
 export type Snapshot = Pick<AstrolabeState,
   'face' | 'location' | 'plateSelection' | 'plateLatitude' | 'reteRotation' |
