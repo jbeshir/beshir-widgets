@@ -61,4 +61,16 @@ describe('tutorial catalog', () => {
       expect(lesson.steps.some((item) => item.demonstration)).toBe(true);
     }
   });
+  it('requires a checkpoint after every demonstrated manipulation', () => {
+    for (const lesson of LESSONS) {
+      for (const step of lesson.steps.filter((item) => item.demonstration)) {
+        expect(step.check, `${lesson.id}/${step.id}`).toBeDefined();
+        expect(step.check?.kind).toBe('angleNear');
+        if (step.demonstration && step.check?.kind === 'angleNear') {
+          expect(step.check.field).toBe(step.demonstration.field);
+          expect(step.check.value).toBe(step.demonstration.to);
+        }
+      }
+    }
+  });
 });
