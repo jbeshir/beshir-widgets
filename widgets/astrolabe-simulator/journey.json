@@ -83,7 +83,7 @@
         },
         { "eval": "new Promise((resolve) => setTimeout(resolve, 900))" },
         {
-          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); })()"
+          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); })()"
         }
       ],
       "expect": { "state": "ready" }
