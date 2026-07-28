@@ -41,6 +41,7 @@ describe('tutorial catalog', () => {
     const lessonCopy = LESSONS[1].steps.map((item) => `${item.title} ${item.body}`).join(' ');
     expect(lessonCopy).not.toMatch(/prepared/i);
     expect(lessonCopy).toMatch(/calendar.+ecliptic longitude.+rule.+rotate the rete/is);
+    expect(lessonCopy).toMatch(/inner edge.+across the zodiac-sign band.+outer side/is);
   });
   it('commits the unequal-hour fixture and approximation', () => {
     const copy = LESSONS[2].steps.map((step) => `${step.body} ${step.result}`).join(' ');
@@ -58,6 +59,18 @@ describe('tutorial catalog', () => {
   it('gives every enabled lesson a real scripted instrument demonstration', () => {
     for (const lesson of LESSONS) {
       expect(lesson.steps.some((item) => item.demonstration)).toBe(true);
+    }
+  });
+  it('requires a checkpoint after every demonstrated manipulation', () => {
+    for (const lesson of LESSONS) {
+      for (const step of lesson.steps.filter((item) => item.demonstration)) {
+        expect(step.check, `${lesson.id}/${step.id}`).toBeDefined();
+        expect(step.check?.kind).toBe('angleNear');
+        if (step.demonstration && step.check?.kind === 'angleNear') {
+          expect(step.check.field).toBe(step.demonstration.field);
+          expect(step.check.value).toBe(step.demonstration.to);
+        }
+      }
     }
   });
 });

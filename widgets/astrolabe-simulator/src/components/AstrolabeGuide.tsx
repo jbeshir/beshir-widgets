@@ -45,7 +45,6 @@ export function AstrolabeGuide(): JSX.Element {
   const restore = useRef<AstrolabeState | null>(null);
   const operationId = useRef(0);
   const animation = useRef<AbortController | null>(null);
-  const heading = useRef<HTMLHeadingElement>(null);
   const launchButton = useRef<HTMLElement | null>(null);
   const step = lesson?.steps[stepIndex];
 
@@ -62,10 +61,10 @@ export function AstrolabeGuide(): JSX.Element {
     operationId.current += 1;
     const id = operationId.current;
     const nextStep = nextLesson.steps[index];
-    setLesson(nextLesson); setStepIndex(index); setInterrupted(false); setComplete(false); setCheckpointPassed(false); setStatus(nextStep.result);
+    setLesson(nextLesson); setStepIndex(index); setInterrupted(false); setComplete(false); setCheckpointPassed(false);
+    setStatus(`Step ${index + 1}: ${nextStep.title}. ${nextStep.result}`);
     applySnapshot(nextStep.snapshot, id);
     writeLessonUrl(nextLesson, index, push);
-    queueMicrotask(() => heading.current?.focus());
     if (nextStep.demonstration) {
       const controller = new AbortController();
       animation.current = controller;
@@ -159,7 +158,7 @@ export function AstrolabeGuide(): JSX.Element {
       <p className="lesson-breadcrumb">{lesson.category} · {lesson.title}</p>
       {!complete && step && <>
         <p className="lesson-progress">Step {stepIndex + 1} of {lesson.steps.length}</p>
-        <h2 id="lesson-step-heading" ref={heading} tabIndex={-1}>{step.title}</h2>
+        <h2 id="lesson-step-heading">{step.title}</h2>
         <p>{step.body}</p>
         <p className="lesson-result"><strong>Result:</strong> {step.result}</p>
         {interrupted && <div className="interruption" role="alert">
@@ -182,7 +181,7 @@ export function AstrolabeGuide(): JSX.Element {
         </div>}
       </>}
       {complete && step && <div className="completion">
-        <h2 id="lesson-step-heading" ref={heading} tabIndex={-1}>Lesson complete</h2>
+        <h2 id="lesson-step-heading">Lesson complete</h2>
         <p>{step.result}</p>
         <button onClick={() => exit(true)}>Return and restore</button>
         <button onClick={() => exit(false)}>Practice with this setup</button>

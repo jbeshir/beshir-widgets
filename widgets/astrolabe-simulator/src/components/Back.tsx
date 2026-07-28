@@ -1,9 +1,9 @@
 import type { JSX } from 'preact';
-import { solarLongitude } from '../astro';
 import { equationOfTimeLabelPosition, equationOfTimePoint } from '../ruleGeometry';
 import { shadowSquareLayout } from '../shadowSquare';
 import { createHoraryLayout } from '../horaryQuadrant';
 import { useStore } from '../store';
+import { calendarDayTicks, calendarMonthStarts } from '../calendarScale';
 import { Alidade } from './Alidade';
 
 const VIEWBOX = '-620 -620 1240 1240';
@@ -33,17 +33,11 @@ function radialTick(angle: number, inner: number, outer: number, className: stri
 export function Back(): JSX.Element {
   const { alidadeRotation, visibility, epochIso } = useStore();
   const year = new Date(epochIso).getUTCFullYear();
-  const degreeTicks = Array.from({ length: 180 }, (_, index) => index * 2);
-  const degreeLabels = Array.from({ length: 12 }, (_, index) => index * 30);
+  const degreeTicks = Array.from({ length: 360 }, (_, index) => index);
+  const degreeLabels = Array.from({ length: 36 }, (_, index) => index * 10);
   const zodiacDivisions = Array.from({ length: 12 }, (_, index) => index * 30);
-  const calendarDays: number[] = [];
-  for (let month = 0; month < 12; month += 1) {
-    const days = new Date(year, month + 1, 0).getDate();
-    for (let day = 1; day <= days; day += 1) {
-      calendarDays.push(solarLongitude(new Date(year, month, day)));
-    }
-  }
-  const monthStarts = MONTHS.map((_, month) => solarLongitude(new Date(year, month, 1)));
+  const calendarDays = calendarDayTicks();
+  const monthStarts = calendarMonthStarts();
   const shadow = shadowSquareLayout();
   const horary = createHoraryLayout();
   const daysInYear = Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1) === 366 * 86400000 ? 366 : 365;
@@ -71,12 +65,19 @@ export function Back(): JSX.Element {
       <circle className="astro-mater" r="608" fill="url(#back-mater-surface)" />
       <path className="astro-back-limb" d={ringPath(OUTER, 548)} fill-rule="evenodd" />
 
-      <g aria-label="Outer degree and altitude scales" data-tutorial-target="back.altitude-scale">
-        {degreeTicks.map((degrees) => radialTick(degrees, OUTER - (degrees % 10 === 0 ? 20 : 10), OUTER - 2, degrees % 10 === 0 ? 'astro-back-tick-major' : 'astro-back-tick-minor'))}
+      <g aria-label="Outer ecliptic-longitude scale, marked from zero to 360 degrees" data-tutorial-target="back.ecliptic-longitude">
+        {degreeTicks.map((degrees) => radialTick(
+          degrees,
+          OUTER - (degrees % 10 === 0 ? 20 : degrees % 5 === 0 ? 15 : 9),
+          OUTER - 2,
+          degrees % 10 === 0 ? 'astro-back-tick-major' : degrees % 5 === 0 ? 'astro-back-tick-medium' : 'astro-back-tick-minor',
+        ))}
         {degreeLabels.map((degrees) => {
           const p = zodiacPoint(564, degrees);
           return <text key={degrees} className="astro-back-number" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{degrees}</text>;
         })}
+      </g>
+      <g aria-label="Altitude scales" data-tutorial-target="back.altitude-scale">
         {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90].map((altitude) => (
           (altitude === 90 ? [-1] : [-1, 1]).map((side) => {
             const longitude = side < 0 ? altitude : 180 - altitude;
@@ -87,7 +88,6 @@ export function Back(): JSX.Element {
       </g>
 
       {visibility.zodiacScale && <>
-      <g data-tutorial-target="back.ecliptic-longitude">
       <path className="astro-zodiac-band" d={ringPath(ZODIAC_OUTER, ZODIAC_INNER)} fill-rule="evenodd" />
       <g aria-label="Ecliptic-longitude ring, divided into zodiac signs with Aries at the vernal equinox on the left">
         {zodiacDivisions.map((longitude) => radialTick(longitude, ZODIAC_INNER, ZODIAC_OUTER, 'astro-zodiac-division'))}
@@ -96,14 +96,13 @@ export function Back(): JSX.Element {
           return <text key={sign} className="astro-back-zodiac-label" x={p.x} y={p.y} text-anchor="middle" dominant-baseline="middle">{sign}</text>;
         })}
       </g>
-      </g>
       </>}
 
       {visibility.calendar && <>
       <g data-tutorial-target="back.calendar">
       <path className="astro-calendar-band" d={ringPath(ZODIAC_INNER, CALENDAR_INNER)} fill-rule="evenodd" />
-      <g aria-label={`${year} calendar ring aligned by computed solar longitude`}>
-        {calendarDays.map((longitude, index) => radialTick(longitude, index % 5 === 0 ? 450 : 456, ZODIAC_INNER - 2, 'astro-calendar-tick'))}
+      <g aria-label="Fixed 365-day calendar ring aligned with ecliptic longitude">
+        {calendarDays.map((tick) => radialTick(tick.longitude, tick.isFiveDayTick ? 450 : 456, ZODIAC_INNER - 2, 'astro-calendar-tick'))}
         {monthStarts.map((longitude) => radialTick(longitude, CALENDAR_INNER, ZODIAC_INNER, 'astro-calendar-month-line'))}
         {MONTHS.map((month, index) => {
           const next = monthStarts[(index + 1) % 12] + (index === 11 ? 360 : 0);

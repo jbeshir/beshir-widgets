@@ -67,10 +67,14 @@
         {
           "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (!next) throw new Error('Next button missing'); next.click(); })()"
         },
-        {
-          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Find the date on the calendar') throw new Error('calendar step did not precede reading'); const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); next?.click(); })()"
-        },
         { "eval": "new Promise((resolve) => setTimeout(resolve, 800))" },
+        {
+          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Find the date on the calendar') throw new Error('calendar step did not precede reading'); const buttons = [...document.querySelectorAll('.lesson-actions button')]; const next = buttons.find((button) => button.textContent === 'Next'); const check = buttons.find((button) => button.textContent === 'Check'); if (!check || !next?.disabled) throw new Error('Find the date did not require Check before Next'); check.click(); })()"
+        },
+        { "eval": "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))" },
+        {
+          "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (!next || next.disabled) throw new Error('Find the date did not pass its checkpoint'); next.click(); })()"
+        },
         {
           "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Read the Sun’s ecliptic longitude') throw new Error('ecliptic-longitude step missing'); const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); next?.click(); })()"
         },
@@ -79,11 +83,15 @@
         },
         { "eval": "new Promise((resolve) => setTimeout(resolve, 800))" },
         {
-          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Set the rule to the time') throw new Error('time rule was not set before the sky'); const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); next?.click(); })()"
+          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Set the rule to the time') throw new Error('time rule was not set before the sky'); const buttons = [...document.querySelectorAll('.lesson-actions button')]; const next = buttons.find((button) => button.textContent === 'Next'); const check = buttons.find((button) => button.textContent === 'Check'); if (!check || !next?.disabled) throw new Error('Set the rule did not require Check before Next'); check.click(); })()"
+        },
+        { "eval": "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))" },
+        {
+          "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (!next || next.disabled) throw new Error('Set the rule did not pass its checkpoint'); next.click(); })()"
         },
         { "eval": "new Promise((resolve) => setTimeout(resolve, 900))" },
         {
-          "eval": "(() => { if (document.querySelector('#lesson-step-heading')?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); })()"
+          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); })()"
         }
       ],
       "expect": { "state": "ready" }
