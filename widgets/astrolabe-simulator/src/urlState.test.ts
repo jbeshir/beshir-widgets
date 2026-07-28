@@ -5,6 +5,7 @@ import { searchFromState, stateFromSearch } from './urlState';
 const defaults: AstrolabeState = {
   face: 'front',
   location: { label: 'London', lat: 51.5, lng: -0.12, manual: false },
+  plateSelection: 'automatic',
   plateLatitude: 50,
   reteRotation: 0,
   ruleRotation: 0,
@@ -16,6 +17,7 @@ const defaults: AstrolabeState = {
   },
   highlight: null,
   reducedMotion: false,
+  epochIso: '2026-07-14T12:00:00.000Z',
 };
 
 describe('astrolabe URL state', () => {
@@ -40,6 +42,7 @@ describe('astrolabe URL state', () => {
       ...defaults,
       location: { label: 'Custom', lat: 47.61, lng: -122.33, manual: true },
       plateLatitude: 50,
+      plateSelection: 'pinned',
       visibility: { ...defaults.visibility },
     };
     const restored = stateFromSearch(searchFromState('', configured, defaults), defaults);
@@ -52,6 +55,7 @@ describe('astrolabe URL state', () => {
       ...defaults,
       location: { label: 'Edinburgh', lat: 55.9533, lng: -3.1883, manual: false },
       plateLatitude: 55.9533,
+      plateSelection: 'pinned',
       visibility: { ...defaults.visibility },
     };
     const search = searchFromState('', configured, defaults);

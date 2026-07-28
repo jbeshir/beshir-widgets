@@ -3,7 +3,7 @@ import { CITIES } from './data/cities';
 import { nearestPlate, PLATES } from './data/plates';
 import type { AstrolabeState, Visibility } from './store';
 
-const MANAGED_PARAMS = ['face', 'city', 'lat', 'lng', 'plate', 'rete', 'rule', 'alidade', 'hide'] as const;
+const MANAGED_PARAMS = ['face', 'city', 'lat', 'lng', 'plate', 'platePolicy', 'rete', 'rule', 'alidade', 'hide', 'epoch'] as const;
 const VISIBILITY_KEYS: (keyof Visibility)[] = [
   'almucantars', 'azimuths', 'unequalHours', 'ecliptic', 'stars', 'rule', 'tropics',
   'calendar', 'zodiacScale', 'shadowSquare', 'backUnequalHours', 'equationOfTime', 'alidade',
@@ -39,14 +39,23 @@ export function stateFromSearch(search: string, defaults: AstrolabeState): Astro
     state.location = { label: 'Custom', lat, lng, manual: true };
   }
   state.plateLatitude = nearestPlate(state.location.lat).latitude;
+  state.plateSelection = 'automatic';
 
   const plateParam = params.get('plate');
   const plate = finiteNumber(plateParam);
   if (plateParam === 'exact') {
     state.plateLatitude = Math.abs(state.location.lat);
+    state.plateSelection = 'pinned';
   } else if (plate !== null && PLATES.some((candidate) => candidate.latitude === plate)) {
     state.plateLatitude = plate;
+    state.plateSelection = 'pinned';
   }
+  if (params.get('platePolicy') === 'automatic') {
+    state.plateSelection = 'automatic';
+    state.plateLatitude = nearestPlate(state.location.lat).latitude;
+  }
+  const epoch = params.get('epoch');
+  if (epoch && !Number.isNaN(Date.parse(epoch))) state.epochIso = new Date(epoch).toISOString();
 
   for (const [param, key] of [
     ['rete', 'reteRotation'],
@@ -78,14 +87,16 @@ export function searchFromState(currentSearch: string, state: AstrolabeState, de
 
   const automaticPlate = nearestPlate(state.location.lat).latitude;
   const exactPlate = Math.abs(state.location.lat);
-  if (state.plateLatitude === exactPlate && state.plateLatitude !== automaticPlate) {
+  if (state.plateSelection === 'pinned' && state.plateLatitude === exactPlate && state.plateLatitude !== automaticPlate) {
     params.set('plate', 'exact');
-  } else if (state.plateLatitude !== automaticPlate) {
+  } else if (state.plateSelection === 'pinned' || state.plateLatitude !== automaticPlate) {
     params.set('plate', compactNumber(state.plateLatitude));
   }
+  if (state.plateSelection === 'automatic' && state.plateLatitude !== automaticPlate) params.set('platePolicy', 'automatic');
   if (state.reteRotation !== defaults.reteRotation) params.set('rete', compactNumber(state.reteRotation));
   if (state.ruleRotation !== defaults.ruleRotation) params.set('rule', compactNumber(state.ruleRotation));
   if (state.alidadeRotation !== defaults.alidadeRotation) params.set('alidade', compactNumber(state.alidadeRotation));
+  if (state.epochIso !== defaults.epochIso) params.set('epoch', state.epochIso);
 
   const hidden = VISIBILITY_KEYS.filter((key) => !state.visibility[key]);
   if (hidden.length > 0) params.set('hide', hidden.join(','));

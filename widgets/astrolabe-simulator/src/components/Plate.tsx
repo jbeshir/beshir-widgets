@@ -75,7 +75,7 @@ export function Plate({ latitude, visibility }: PlateProps): JSX.Element {
       </>}
 
       <g clip-path="url(#plate-clip)">
-        {visibility.almucantars && <g>
+        {visibility.almucantars && <g data-tutorial-target="front.altitude-grid">
           {altitudes.map((altitude) => {
             const curve = almucantar(latitude, altitude, ASTROLABE_R);
             return <circle key={altitude} className="astro-almucantar" cx={curve.cx} cy={curve.cy} r={Math.abs(curve.r)} />;

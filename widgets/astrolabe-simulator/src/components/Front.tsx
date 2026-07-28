@@ -32,7 +32,7 @@ export function Front(): JSX.Element {
       <circle className="astro-device-depth" r={outer + 13} />
       <circle className="astro-mater" r={outer + 8} fill="url(#front-mater-surface)" />
       <path className="astro-limb-band" d={annulus} fill-rule="evenodd" />
-      <g transform="scale(1,-1)">
+      <g transform="scale(1,-1)" data-tutorial-target="instrument">
         <g aria-label="Limb hour and degree scales">
           {ticks.map((degrees) => {
             const major = degrees % 15 === 0;
@@ -47,7 +47,7 @@ export function Front(): JSX.Element {
             </g>;
           })}
         </g>
-        <Plate latitude={plateLatitude} visibility={visibility} />
+        <g data-tutorial-target="front.plate"><Plate latitude={plateLatitude} visibility={visibility} /></g>
         <Rete reteRotation={reteRotation} visibility={visibility} />
         <Rule ruleRotation={ruleRotation} visibility={visibility} />
         <circle className="astro-pin astro-center-pin-decoration" r={11} />

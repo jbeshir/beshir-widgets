@@ -19,9 +19,10 @@ export function Alidade({ alidadeRotation }: AlidadeProps): JSX.Element {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
   return (
-    <g data-testid="alidade" className={`astro-rotary${dragging ? ' is-dragging' : ''}`} transform={`rotate(${-alidadeRotation})`}
+    <g data-testid="alidade" data-tutorial-target="back.alidade" className={`astro-rotary${dragging ? ' is-dragging' : ''}`} transform={`rotate(${-alidadeRotation})`}
       tabIndex={0} role="slider" aria-label="Alidade rotation" aria-valuemin={0} aria-valuemax={360}
       aria-valuenow={Math.round(alidadeRotation)}
+      aria-valuetext={`${alidadeRotation.toFixed(1)} degrees altitude`}
       onPointerDown={(event) => {
         const svg = event.currentTarget.ownerSVGElement;
         if (!svg) return;
