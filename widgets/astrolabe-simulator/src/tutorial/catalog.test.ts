@@ -41,6 +41,7 @@ describe('tutorial catalog', () => {
     const lessonCopy = LESSONS[1].steps.map((item) => `${item.title} ${item.body}`).join(' ');
     expect(lessonCopy).not.toMatch(/prepared/i);
     expect(lessonCopy).toMatch(/calendar.+ecliptic longitude.+rule.+rotate the rete/is);
+    expect(lessonCopy).toMatch(/inner edge.+across the zodiac-sign band.+outer side/is);
   });
   it('commits the unequal-hour fixture and approximation', () => {
     const copy = LESSONS[2].steps.map((step) => `${step.body} ${step.result}`).join(' ');

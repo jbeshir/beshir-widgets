@@ -320,6 +320,7 @@ button, input, select {
 .astro-back-limb, .astro-zodiac-band, .astro-calendar-band { fill: var(--astro-limb-fill); stroke: var(--astro-rim); stroke-width: 1.4; }
 .astro-back-field { fill: var(--astro-mater-fill); stroke: var(--astro-rim); stroke-width: 1.3; }
 .astro-back-tick-major { stroke: var(--astro-line-strong); stroke-width: 1.7; }
+.astro-back-tick-medium { stroke: var(--astro-line-strong); stroke-width: 1; }
 .astro-back-tick-minor, .astro-calendar-tick { stroke: var(--astro-line); stroke-width: 0.7; }
 .astro-back-number, .astro-altitude-number, .astro-back-zodiac-label, .astro-calendar-label,
 .astro-shadow-number, .astro-shadow-label, .astro-hour-label, .astro-hour-side-label, .astro-horary-number { fill: var(--astro-label); font-family: var(--widget-font-identity); }
