@@ -7,7 +7,7 @@ import { setRete, useStore, type Visibility } from '../store';
 import { angleFromPointer, keyRotate, rotationDelta } from '../interaction';
 import { ASTROLABE_R } from './Plate';
 import { eclipticLabels, eclipticTicks } from '../eclipticScale';
-import { reteRimPath } from '../reteRim';
+import { reteEdgeGrain } from '../reteTexture';
 
 interface ReteProps { reteRotation: number; visibility: Visibility; }
 
@@ -20,7 +20,8 @@ const ECLIPTIC_LABELS = eclipticLabels().map((longitude) => ({
   longitude,
   point: eclipticPoint(longitude, ASTROLABE_R - 29),
 }));
-const RETE_RIM_PATH = reteRimPath(capricornRadius(ASTROLABE_R));
+const RETE_RIM = capricornRadius(ASTROLABE_R);
+const RETE_EDGE_GRAIN = reteEdgeGrain(RETE_RIM);
 
 function uprightTransform(x: number, y: number, rotation: number): string {
   return `translate(${x} ${y}) rotate(${-rotation}) scale(1,-1)`;
@@ -76,7 +77,12 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
       }}
     >
       <circle className="astro-rotary-hit" r={rim} />
-      <path className="astro-rete-outer-rim" d={RETE_RIM_PATH} aria-label="Subtly hand-finished outer rim of the rete" />
+      <circle className="astro-rete-outer-rim" r={RETE_RIM} aria-label="Outer frame of the rete" />
+      <g className="astro-rete-edge-grain" aria-hidden="true">
+        {RETE_EDGE_GRAIN.map((mark, index) =>
+          <line key={index} x1={mark.x1} y1={mark.y1} x2={mark.x2} y2={mark.y2} opacity={mark.opacity} />,
+        )}
+      </g>
       {visibility.ecliptic && <g clip-path="url(#plate-clip)" aria-label="Ecliptic longitude scale, graduated every half degree">
         <circle className="astro-rete-ring" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r} />
         <circle className="astro-rete-thin" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r - 14} />

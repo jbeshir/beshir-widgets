@@ -455,12 +455,17 @@ button, input, select {
   stroke-linejoin: round;
 }
 
-/* Rete — a subtly hand-finished outer frame and an open, graduated ecliptic band. */
+/* Rete — a circular outer frame with faint rotating edge grain, and a graduated ecliptic band. */
 .astro-rete-outer-rim {
   fill: none;
   stroke: var(--astro-gold);
-  stroke-width: 1.35;
-  opacity: 0.76;
+  stroke-width: 1.15;
+  opacity: 0.58;
+}
+.astro-rete-edge-grain {
+  stroke: var(--astro-line-strong);
+  stroke-width: 0.7;
+  stroke-linecap: round;
 }
 .astro-rete-ring { fill: none; stroke: var(--astro-gold); stroke-width: 2.1; }
 .astro-rete-thin { fill: none; stroke: var(--astro-gold); stroke-width: 1.2; opacity: 0.85; }
@@ -483,7 +488,7 @@ button, input, select {
 .astro-ecliptic-degree-label {
   fill: var(--astro-label-muted);
   font-family: var(--widget-font-identity);
-  font-size: 8px;
+  font-size: 15px;
   font-weight: 600;
   paint-order: stroke;
   stroke: var(--astro-mater-fill);
