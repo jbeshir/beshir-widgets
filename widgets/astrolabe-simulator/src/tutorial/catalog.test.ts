@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eclipticPoint, project } from '../geometry';
+import { eclipticPoint, orientRetePoint, project } from '../geometry';
 import { alidadeLineCross, backLongitudePoint } from '../backGeometry';
 import { FUTURE_TOPICS, LESSONS, SIRIUS_FIXTURE, SUN_FIXTURE, validateCatalog } from './catalog';
 
@@ -20,11 +20,7 @@ describe('tutorial catalog', () => {
   });
   it('derives a Sirius fixture whose rule, rete, and altitude agree', () => {
     const star = project(SIRIUS_FIXTURE.star.raDeg, SIRIUS_FIXTURE.star.decDeg, 380);
-    const rete = SIRIUS_FIXTURE.reteRotation * Math.PI / 180;
-    const transformed = {
-      x: star.x * Math.cos(rete) - star.y * Math.sin(rete),
-      y: star.x * Math.sin(rete) + star.y * Math.cos(rete),
-    };
+    const transformed = orientRetePoint(star, SIRIUS_FIXTURE.reteRotation);
     const rule = SIRIUS_FIXTURE.ruleRotation * Math.PI / 180;
     expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
     expect(SIRIUS_FIXTURE.altitude).toBeCloseTo(21.1142782184, 8);
@@ -32,11 +28,7 @@ describe('tutorial catalog', () => {
   });
   it('sets the sky by aligning the dated Sun point with the time rule', () => {
     const sun = eclipticPoint(SUN_FIXTURE.eclipticLongitude, 380);
-    const rete = SUN_FIXTURE.reteRotation * Math.PI / 180;
-    const transformed = {
-      x: sun.x * Math.cos(rete) - sun.y * Math.sin(rete),
-      y: sun.x * Math.sin(rete) + sun.y * Math.cos(rete),
-    };
+    const transformed = orientRetePoint(sun, SUN_FIXTURE.reteRotation);
     const rule = SUN_FIXTURE.ruleRotation * Math.PI / 180;
     expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
     const lessonCopy = LESSONS[1].steps.map((item) => `${item.title} ${item.body}`).join(' ');

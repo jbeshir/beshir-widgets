@@ -25,7 +25,7 @@
           "eval": "new Promise((resolve) => { window.astrolabe.setRete(47); requestAnimationFrame(() => requestAnimationFrame(resolve)); })"
         },
         {
-          "eval": "(() => { const rete = document.querySelector('[aria-label=\"Rete rotation\"]'); const texture = document.querySelector('.astro-rete-edge-texture'); if (rete?.getAttribute('transform') !== 'rotate(47)' || !texture) throw new Error('rete texture did not rotate with the star-map layer'); })()"
+          "eval": "(() => { const rete = document.querySelector('[aria-label=\"Rete rotation\"]'); const texture = document.querySelector('.astro-rete-edge-texture'); if (rete?.getAttribute('aria-valuenow') !== '47' || !rete?.getAttribute('transform')?.startsWith('matrix(') || !texture) throw new Error('rete texture did not rotate with the star-map layer'); })()"
         }
       ],
       "expect": { "state": "ready" }
@@ -117,7 +117,7 @@
         },
         { "eval": "new Promise((resolve) => setTimeout(resolve, 900))" },
         {
-          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); })()"
+          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); if (document.body.textContent.includes('Sirius pointer')) throw new Error('lesson still calls Sirius a pointer'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); const sirius = document.querySelector('[data-tutorial-target=\"front.star.sirius\"] .astro-star-dot'); const svg = sirius?.ownerSVGElement; if (!sirius || !svg) throw new Error('Sirius render target missing'); const star = new DOMPoint(Number(sirius.getAttribute('cx')), Number(sirius.getAttribute('cy'))).matrixTransform(sirius.getCTM()); const center = new DOMPoint(0, 0).matrixTransform(svg.getCTM()); if (star.x <= center.x) throw new Error(`Sirius rendered east of south instead of at azimuth about 191° (${star.x} <= ${center.x})`); })()"
         }
       ],
       "expect": { "state": "ready" }

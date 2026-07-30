@@ -1,6 +1,6 @@
 import type { AstrolabeState } from '../store';
 import { equatorialToHorizontal, localSiderealTime, normalizeDeg, solarLongitude } from '../astro';
-import { eclipticPoint } from '../geometry';
+import { eclipticPoint, orientRetePoint } from '../geometry';
 import { alidadeRotationForLongitude } from '../backGeometry';
 import { STARS } from '../data/stars';
 import type { FutureTopic, Lesson, LessonStep, Snapshot } from './types';
@@ -12,10 +12,7 @@ if (!sirius) throw new Error('Sirius is required by the known-star tutorial');
 const siriusSidereal = localSiderealTime(new Date(epochIso), lessonLocation.lng);
 const sunLongitude = solarLongitude(new Date(epochIso));
 const sunPoint = eclipticPoint(sunLongitude, 380);
-const rotatedSun = {
-  x: sunPoint.x * Math.cos(siriusSidereal * Math.PI / 180) - sunPoint.y * Math.sin(siriusSidereal * Math.PI / 180),
-  y: sunPoint.x * Math.sin(siriusSidereal * Math.PI / 180) + sunPoint.y * Math.cos(siriusSidereal * Math.PI / 180),
-};
+const rotatedSun = orientRetePoint(sunPoint, siriusSidereal);
 export const SUN_FIXTURE = {
   eclipticLongitude: sunLongitude,
   alidadeRotation: alidadeRotationForLongitude(sunLongitude),
@@ -31,7 +28,7 @@ const siriusObservation = equatorialToHorizontal(
 export const SIRIUS_FIXTURE = {
   star: sirius,
   reteRotation: siriusSidereal,
-  ruleRotation: siriusObservation.hourAngle,
+  ruleRotation: normalizeDeg(-siriusObservation.hourAngle),
   altitude: siriusObservation.altitude,
   azimuth: siriusObservation.azimuth,
 } as const;

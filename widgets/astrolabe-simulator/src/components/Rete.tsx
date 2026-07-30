@@ -2,7 +2,7 @@ import type { JSX } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import { solarLongitude } from '../astro';
 import { STARS } from '../data/stars';
-import { capricornRadius, eclipticCircle, eclipticPoint, project } from '../geometry';
+import { capricornRadius, eclipticCircle, eclipticPoint, project, reteOrientationMatrix } from '../geometry';
 import { setRete, useStore, type Visibility } from '../store';
 import { angleFromPointer, keyRotate, rotationDelta } from '../interaction';
 import { ASTROLABE_R } from './Plate';
@@ -21,8 +21,12 @@ const ECLIPTIC_LABELS = eclipticLabels().map((longitude) => ({
 }));
 const RETE_RIM = capricornRadius(ASTROLABE_R);
 
+function matrixTransform(rotation: number): string {
+  return `matrix(${reteOrientationMatrix(rotation).join(' ')} 0 0)`;
+}
+
 function uprightTransform(x: number, y: number, rotation: number): string {
-  return `translate(${x} ${y}) rotate(${-rotation}) scale(1,-1)`;
+  return `translate(${x} ${y}) ${matrixTransform(rotation)} scale(1,-1)`;
 }
 
 export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
@@ -44,7 +48,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
     <g
       data-tutorial-target="front.rete"
       className={`astro-rotary${dragging ? ' is-dragging' : ''}`}
-      transform={`rotate(${reteRotation})`}
+      transform={matrixTransform(reteRotation)}
       tabIndex={0}
       role="slider"
       aria-label="Rete rotation"
@@ -64,7 +68,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
         const start = drag.current;
         const svg = event.currentTarget.ownerSVGElement;
         if (!start || start.pointerId !== event.pointerId || !svg) return;
-        setRete(start.rotation + rotationDelta(start.pointerAngle, angleFromPointer(svg, event.clientX, event.clientY)));
+        setRete(start.rotation - rotationDelta(start.pointerAngle, angleFromPointer(svg, event.clientX, event.clientY)));
       }}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
