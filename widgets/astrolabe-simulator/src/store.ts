@@ -24,6 +24,7 @@ export interface Visibility {
   azimuths: boolean;
   unequalHours: boolean;
   ecliptic: boolean;
+  artificialAssists: boolean;
   stars: boolean;
   rule: boolean;
   tropics: boolean;
@@ -77,6 +78,7 @@ function defaultState(): AstrolabeState {
       azimuths: true,
       unequalHours: true,
       ecliptic: true,
+      artificialAssists: false,
       stars: true,
       rule: true,
       tropics: true,

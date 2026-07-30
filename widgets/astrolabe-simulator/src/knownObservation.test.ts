@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   equatorialToHorizontal,
   greenwichSiderealTime,
+  localSiderealTime,
   raDegFromHMS,
   solarLongitude,
 } from './astro';
-import { project, projectHorizontal, rOfDec } from './geometry';
+import { orientRetePoint, project, projectHorizontal, rOfDec } from './geometry';
 import { STARS } from './data/stars';
 
 /**
@@ -75,5 +76,54 @@ describe('externally verified Aldebaran observation', () => {
     expect(retePoint.r).toBeCloseTo(ruleRadius, 10);
     expect(platePoint.x).toBeCloseTo(retePoint.x, 9);
     expect(platePoint.y).toBeCloseTo(retePoint.y, 9);
+  });
+});
+
+/**
+ * Sirius reference:
+ *   SIMBAD ICRS/J2000: 06 45 08.91728, −16 42 58.0171
+ *   https://simbad.u-strasbg.fr/simbad/sim-basic?Ident=sirius
+ *
+ * Astropy 8.0.1 ICRS → AltAz at 2026-07-14T12:00:00Z for
+ * 51.5° N, 0.12° W, pressure=0 gives altitude 21.1228204159° and
+ * azimuth 190.9588941942° clockwise from north:
+ * https://docs.astropy.org/en/stable/coordinates/index.html
+ *
+ * This astrolabe intentionally holds J2000 catalogue coordinates fixed, so
+ * its simpler result differs by about 0.30° in azimuth at this date.
+ */
+describe('externally verified Sirius lesson observation', () => {
+  const date = new Date('2026-07-14T12:00:00Z');
+  const latitude = 51.5;
+  const longitude = -0.12;
+  const sirius = {
+    ra: raDegFromHMS(6, 45, 8.91728),
+    dec: -(16 + 42 / 60 + 58.0171 / 3600),
+  };
+  const astropy = { altitude: 21.1228204159, azimuth: 190.9588941942 };
+
+  it('keeps the rete catalogue consistent with SIMBAD', () => {
+    const catalogue = STARS.find((star) => star.name === 'Sirius');
+    expect(catalogue).toBeDefined();
+    expect(catalogue!.raDeg).toBeCloseTo(sirius.ra, 3);
+    expect(catalogue!.decDeg).toBeCloseTo(sirius.dec, 3);
+  });
+
+  it('agrees with the trusted apparent AltAz calculation within fixed-J2000 model accuracy', () => {
+    const sidereal = localSiderealTime(date, longitude);
+    const observation = equatorialToHorizontal(sirius.ra, sirius.dec, latitude, sidereal);
+    expect(observation.altitude).toBeCloseTo(astropy.altitude, 1);
+    expect(Math.abs(observation.azimuth - astropy.azimuth)).toBeLessThan(0.35);
+    expect(observation.azimuth).toBeGreaterThan(180);
+  });
+
+  it('renders Sirius at the same altitude and azimuth grid intersection', () => {
+    const sidereal = localSiderealTime(date, longitude);
+    const observation = equatorialToHorizontal(sirius.ra, sirius.dec, latitude, sidereal);
+    const renderedStar = orientRetePoint(project(sirius.ra, sirius.dec, RADIUS), sidereal);
+    const platePoint = projectHorizontal(latitude, observation.altitude, observation.azimuth, RADIUS);
+
+    expect(renderedStar.x).toBeCloseTo(platePoint.x, 9);
+    expect(renderedStar.y).toBeCloseTo(platePoint.y, 9);
   });
 });

@@ -3,9 +3,9 @@ import { CITIES } from './data/cities';
 import { nearestPlate, PLATES } from './data/plates';
 import type { AstrolabeState, Visibility } from './store';
 
-const MANAGED_PARAMS = ['face', 'city', 'lat', 'lng', 'plate', 'platePolicy', 'rete', 'rule', 'alidade', 'hide', 'epoch'] as const;
+const MANAGED_PARAMS = ['face', 'city', 'lat', 'lng', 'plate', 'platePolicy', 'rete', 'rule', 'alidade', 'hide', 'show', 'epoch'] as const;
 const VISIBILITY_KEYS: (keyof Visibility)[] = [
-  'almucantars', 'azimuths', 'unequalHours', 'ecliptic', 'stars', 'rule', 'tropics',
+  'almucantars', 'azimuths', 'unequalHours', 'ecliptic', 'artificialAssists', 'stars', 'rule', 'tropics',
   'calendar', 'zodiacScale', 'shadowSquare', 'backUnequalHours', 'equationOfTime', 'alidade',
 ];
 
@@ -67,8 +67,10 @@ export function stateFromSearch(search: string, defaults: AstrolabeState): Astro
   }
 
   const hidden = new Set((params.get('hide') ?? '').split(',').filter(Boolean));
+  const shown = new Set((params.get('show') ?? '').split(',').filter(Boolean));
   for (const key of VISIBILITY_KEYS) {
     if (hidden.has(key)) state.visibility[key] = false;
+    if (shown.has(key)) state.visibility[key] = true;
   }
   return state;
 }
@@ -98,8 +100,10 @@ export function searchFromState(currentSearch: string, state: AstrolabeState, de
   if (state.alidadeRotation !== defaults.alidadeRotation) params.set('alidade', compactNumber(state.alidadeRotation));
   if (state.epochIso !== defaults.epochIso) params.set('epoch', state.epochIso);
 
-  const hidden = VISIBILITY_KEYS.filter((key) => !state.visibility[key]);
+  const hidden = VISIBILITY_KEYS.filter((key) => defaults.visibility[key] && !state.visibility[key]);
+  const shown = VISIBILITY_KEYS.filter((key) => !defaults.visibility[key] && state.visibility[key]);
   if (hidden.length > 0) params.set('hide', hidden.join(','));
+  if (shown.length > 0) params.set('show', shown.join(','));
   const serialized = params.toString();
   return serialized ? `?${serialized}` : '';
 }

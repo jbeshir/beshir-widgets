@@ -181,6 +181,26 @@ export function project(angleDeg: number, decDeg: number, R: number): ProjectedP
 }
 
 /**
+ * Orient a catalogue point on the rete for local sidereal angle θ.
+ *
+ * The engraved catalogue angle is right ascension α, while the fixed plate
+ * reads local hour angle H = θ − α. This is a reflection followed by a
+ * rotation, not an ordinary rotation of the SVG's RA coordinates.
+ */
+export function orientRetePoint(point: Point, siderealDeg: number): Point {
+  const sidereal = deg2rad(siderealDeg);
+  return {
+    x: -Math.cos(sidereal) * point.x + Math.sin(sidereal) * point.y,
+    y: Math.sin(sidereal) * point.x + Math.cos(sidereal) * point.y,
+  };
+}
+
+export function reteOrientationMatrix(siderealDeg: number): [number, number, number, number] {
+  const sidereal = deg2rad(siderealDeg);
+  return [-Math.cos(sidereal), Math.sin(sidereal), Math.sin(sidereal), Math.cos(sidereal)];
+}
+
+/**
  * Project a local horizontal-coordinate point onto the plate. Azimuth is
  * measured conventionally clockwise from north. This is useful for locating
  * labels and markers at exact intersections of almucantars and azimuths.

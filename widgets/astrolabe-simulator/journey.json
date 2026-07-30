@@ -8,7 +8,7 @@
       "label": "initial",
       "steps": [
         {
-          "eval": "(() => { const eclipticTicks = document.querySelectorAll('.astro-ecliptic-tick'); const limbTicks = document.querySelectorAll('.astro-limb-tick'); if (eclipticTicks.length !== 720 || !document.querySelector('[data-ecliptic-longitude=\"0.5\"]')) throw new Error(`front ecliptic is not graduated by half degrees (${eclipticTicks.length} ticks)`); if (document.querySelector('.astro-zodiac-label')) throw new Error('zodiac abbreviations remain on the front'); if (limbTicks.length !== 360 || !document.querySelector('[data-limb-degree=\"1\"]')) throw new Error(`front limb is not graduated by degrees (${limbTicks.length} ticks)`); const texture = document.querySelector('.astro-rete-edge-texture'); const filter = document.querySelector('#rete-edge-texture'); const textureStyle = texture && getComputedStyle(texture); if (!document.querySelector('.astro-rete-outer-rim') || !texture || !filter?.querySelector('feTurbulence') || textureStyle?.filter === 'none' || parseFloat(textureStyle?.strokeWidth || '0') < 18 || parseFloat(textureStyle?.opacity || '0') < 0.5) throw new Error('visible procedural rotating rete texture is missing'); })()"
+          "eval": "(() => { const eclipticTicks = document.querySelectorAll('.astro-ecliptic-tick'); const limbTicks = document.querySelectorAll('.astro-limb-tick'); if (eclipticTicks.length !== 720 || !document.querySelector('[data-ecliptic-longitude=\"0.5\"]')) throw new Error(`front ecliptic is not graduated by half degrees (${eclipticTicks.length} ticks)`); if (document.querySelector('.astro-zodiac-label')) throw new Error('zodiac abbreviations remain on the front'); if (limbTicks.length !== 360 || !document.querySelector('[data-limb-degree=\"1\"]')) throw new Error(`front limb is not graduated by degrees (${limbTicks.length} ticks)`); const texture = document.querySelector('.astro-rete-edge-texture'); const filter = document.querySelector('#rete-edge-texture'); const textureStyle = texture && getComputedStyle(texture); if (!document.querySelector('.astro-rete-outer-rim') || !texture || !filter?.querySelector('feTurbulence') || textureStyle?.filter === 'none' || parseFloat(textureStyle?.strokeWidth || '0') < 18 || parseFloat(textureStyle?.opacity || '0') < 0.5) throw new Error('visible procedural rotating rete texture is missing'); const assists = document.querySelector('[data-testid=layer-artificialAssists]'); if (!assists || assists.checked || document.querySelector('.astro-sun')) throw new Error('artificial Sun assist is not off by default'); })()"
         }
       ],
       "expect": { "state": "ready" }
@@ -25,7 +25,17 @@
           "eval": "new Promise((resolve) => { window.astrolabe.setRete(47); requestAnimationFrame(() => requestAnimationFrame(resolve)); })"
         },
         {
-          "eval": "(() => { const rete = document.querySelector('[aria-label=\"Rete rotation\"]'); const texture = document.querySelector('.astro-rete-edge-texture'); if (rete?.getAttribute('transform') !== 'rotate(47)' || !texture) throw new Error('rete texture did not rotate with the star-map layer'); })()"
+          "eval": "(() => { const rete = document.querySelector('[aria-label=\"Rete rotation\"]'); const texture = document.querySelector('.astro-rete-edge-texture'); if (rete?.getAttribute('aria-valuenow') !== '47' || !rete?.getAttribute('transform')?.startsWith('matrix(') || !texture) throw new Error('rete texture did not rotate with the star-map layer'); })()"
+        }
+      ],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "enable-artificial-assists",
+      "steps": [
+        { "click": "[data-testid=layer-artificialAssists]" },
+        {
+          "eval": "(() => { if (!document.querySelector('.astro-sun')) throw new Error('calculated Sun assist did not appear'); if (new URLSearchParams(location.search).get('show') !== 'artificialAssists') throw new Error('enabled artificial assist was not preserved in the URL'); })()"
         }
       ],
       "expect": { "state": "ready" }
@@ -107,7 +117,7 @@
         },
         { "eval": "new Promise((resolve) => setTimeout(resolve, 900))" },
         {
-          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); })()"
+          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); if (document.body.textContent.includes('Sirius pointer')) throw new Error('lesson still calls Sirius a pointer'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); const sirius = document.querySelector('[data-tutorial-target=\"front.star.sirius\"] .astro-star-dot'); const svg = sirius?.ownerSVGElement; if (!sirius || !svg) throw new Error('Sirius render target missing'); const star = new DOMPoint(Number(sirius.getAttribute('cx')), Number(sirius.getAttribute('cy'))).matrixTransform(sirius.getCTM()); const center = new DOMPoint(0, 0).matrixTransform(svg.getCTM()); if (star.x <= center.x) throw new Error(`Sirius rendered east of south instead of at azimuth about 191° (${star.x} <= ${center.x})`); })()"
         }
       ],
       "expect": { "state": "ready" }

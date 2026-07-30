@@ -2,7 +2,7 @@ import type { JSX } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import { solarLongitude } from '../astro';
 import { STARS } from '../data/stars';
-import { capricornRadius, eclipticCircle, eclipticPoint, project } from '../geometry';
+import { capricornRadius, eclipticCircle, eclipticPoint, project, reteOrientationMatrix } from '../geometry';
 import { setRete, useStore, type Visibility } from '../store';
 import { angleFromPointer, keyRotate, rotationDelta } from '../interaction';
 import { ASTROLABE_R } from './Plate';
@@ -21,8 +21,12 @@ const ECLIPTIC_LABELS = eclipticLabels().map((longitude) => ({
 }));
 const RETE_RIM = capricornRadius(ASTROLABE_R);
 
+function matrixTransform(rotation: number): string {
+  return `matrix(${reteOrientationMatrix(rotation).join(' ')} 0 0)`;
+}
+
 function uprightTransform(x: number, y: number, rotation: number): string {
-  return `translate(${x} ${y}) rotate(${-rotation}) scale(1,-1)`;
+  return `translate(${x} ${y}) ${matrixTransform(rotation)} scale(1,-1)`;
 }
 
 export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
@@ -44,7 +48,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
     <g
       data-tutorial-target="front.rete"
       className={`astro-rotary${dragging ? ' is-dragging' : ''}`}
-      transform={`rotate(${reteRotation})`}
+      transform={matrixTransform(reteRotation)}
       tabIndex={0}
       role="slider"
       aria-label="Rete rotation"
@@ -64,7 +68,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
         const start = drag.current;
         const svg = event.currentTarget.ownerSVGElement;
         if (!start || start.pointerId !== event.pointerId || !svg) return;
-        setRete(start.rotation + rotationDelta(start.pointerAngle, angleFromPointer(svg, event.clientX, event.clientY)));
+        setRete(start.rotation - rotationDelta(start.pointerAngle, angleFromPointer(svg, event.clientX, event.clientY)));
       }}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
@@ -101,7 +105,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
       <circle className="astro-rotary-hit" r={rim} />
       <circle className="astro-rete-outer-rim" r={RETE_RIM} aria-label="Outer frame of the rete" />
       <circle className="astro-rete-edge-texture" r={RETE_RIM - 10} aria-hidden="true" />
-      {visibility.ecliptic && <g clip-path="url(#plate-clip)" aria-label="Ecliptic longitude scale, graduated every half degree">
+      {visibility.ecliptic && <g clip-path="url(#plate-clip)" aria-label="Ecliptic longitude scale, graduated every half degree" data-tutorial-target="front.ecliptic">
         <circle className="astro-rete-ring" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r} />
         <circle className="astro-rete-thin" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r - 14} />
         {ECLIPTIC_TICKS.map((tick) =>
@@ -112,10 +116,10 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
             <text className="astro-ecliptic-degree-label" text-anchor="middle" dominant-baseline="middle">{longitude}°</text>
           </g>;
         })}
-        <g data-tutorial-target="front.sun">
-          <circle className="astro-sun" cx={sun.x} cy={sun.y} r={9} />
-          <circle cx={sun.x} cy={sun.y} r={3} fill="var(--astro-mater-fill)" />
-        </g>
+      </g>}
+      {visibility.artificialAssists && <g clip-path="url(#plate-clip)" aria-label="Artificial calculated assists">
+        <circle className="astro-sun" cx={sun.x} cy={sun.y} r={9} aria-label="Calculated Sun position" />
+        <circle cx={sun.x} cy={sun.y} r={3} fill="var(--astro-mater-fill)" />
       </g>}
 
       {visibility.stars && <g clip-path="url(#plate-clip)">
