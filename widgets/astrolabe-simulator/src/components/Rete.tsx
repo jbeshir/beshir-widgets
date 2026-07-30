@@ -7,7 +7,6 @@ import { setRete, useStore, type Visibility } from '../store';
 import { angleFromPointer, keyRotate, rotationDelta } from '../interaction';
 import { ASTROLABE_R } from './Plate';
 import { eclipticLabels, eclipticTicks } from '../eclipticScale';
-import { reteEdgeGrain } from '../reteTexture';
 
 interface ReteProps { reteRotation: number; visibility: Visibility; }
 
@@ -21,7 +20,6 @@ const ECLIPTIC_LABELS = eclipticLabels().map((longitude) => ({
   point: eclipticPoint(longitude, ASTROLABE_R - 29),
 }));
 const RETE_RIM = capricornRadius(ASTROLABE_R);
-const RETE_EDGE_GRAIN = reteEdgeGrain(RETE_RIM);
 
 function uprightTransform(x: number, y: number, rotation: number): string {
   return `translate(${x} ${y}) rotate(${-rotation}) scale(1,-1)`;
@@ -76,13 +74,33 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
         setRete(keyRotate(reteRotation, event.key, event.shiftKey));
       }}
     >
+      <defs>
+        <filter
+          id="rete-edge-texture"
+          x={-RETE_RIM}
+          y={-RETE_RIM}
+          width={RETE_RIM * 2}
+          height={RETE_RIM * 2}
+          filterUnits="userSpaceOnUse"
+          color-interpolation-filters="sRGB"
+        >
+          <feTurbulence type="fractalNoise" baseFrequency="0.18 0.55" numOctaves="2" seed="23" result="noise" />
+          <feColorMatrix
+            in="noise"
+            values="0 0 0 0 0
+                    0 0 0 0 0
+                    0 0 0 0 0
+                    0.34 0.34 0.34 0 -0.48"
+            result="grain-alpha"
+          />
+          <feFlood flood-color="var(--astro-line-strong)" result="grain-colour" />
+          <feComposite in="grain-colour" in2="grain-alpha" operator="in" result="tinted-grain" />
+          <feComposite in="tinted-grain" in2="SourceGraphic" operator="in" />
+        </filter>
+      </defs>
       <circle className="astro-rotary-hit" r={rim} />
       <circle className="astro-rete-outer-rim" r={RETE_RIM} aria-label="Outer frame of the rete" />
-      <g className="astro-rete-edge-grain" aria-hidden="true">
-        {RETE_EDGE_GRAIN.map((mark, index) =>
-          <line key={index} x1={mark.x1} y1={mark.y1} x2={mark.x2} y2={mark.y2} opacity={mark.opacity} />,
-        )}
-      </g>
+      <circle className="astro-rete-edge-texture" r={RETE_RIM - 6} aria-hidden="true" />
       {visibility.ecliptic && <g clip-path="url(#plate-clip)" aria-label="Ecliptic longitude scale, graduated every half degree">
         <circle className="astro-rete-ring" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r} />
         <circle className="astro-rete-thin" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r - 14} />
