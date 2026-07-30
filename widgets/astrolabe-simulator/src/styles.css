@@ -465,8 +465,8 @@ button, input, select {
 .astro-rete-edge-texture {
   fill: none;
   stroke: var(--astro-line-strong);
-  stroke-width: 10;
-  opacity: 0.4;
+  stroke-width: 20;
+  opacity: 0.55;
   filter: url("#rete-edge-texture");
   pointer-events: none;
 }
