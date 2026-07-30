@@ -100,7 +100,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
       </defs>
       <circle className="astro-rotary-hit" r={rim} />
       <circle className="astro-rete-outer-rim" r={RETE_RIM} aria-label="Outer frame of the rete" />
-      <circle className="astro-rete-edge-texture" r={RETE_RIM - 6} aria-hidden="true" />
+      <circle className="astro-rete-edge-texture" r={RETE_RIM - 10} aria-hidden="true" />
       {visibility.ecliptic && <g clip-path="url(#plate-clip)" aria-label="Ecliptic longitude scale, graduated every half degree">
         <circle className="astro-rete-ring" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r} />
         <circle className="astro-rete-thin" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r - 14} />
