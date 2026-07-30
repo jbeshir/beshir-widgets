@@ -7,6 +7,7 @@ type LayerControl = { key: keyof Visibility; label: string; description?: string
 const FRONT_LAYERS: LayerControl[] = [
   { key: 'almucantars', label: 'Altitude circles' }, { key: 'azimuths', label: 'Azimuths' },
   { key: 'unequalHours', label: 'Unequal hours' }, { key: 'ecliptic', label: 'Ecliptic' },
+  { key: 'artificialAssists', label: 'Artificial assists', description: 'Shows calculated markers that are not part of a historical astrolabe.' },
   { key: 'stars', label: 'Stars' }, { key: 'rule', label: 'Rule' },
 ];
 const BACK_LAYERS: LayerControl[] = [

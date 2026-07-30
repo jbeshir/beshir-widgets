@@ -101,7 +101,7 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
       <circle className="astro-rotary-hit" r={rim} />
       <circle className="astro-rete-outer-rim" r={RETE_RIM} aria-label="Outer frame of the rete" />
       <circle className="astro-rete-edge-texture" r={RETE_RIM - 10} aria-hidden="true" />
-      {visibility.ecliptic && <g clip-path="url(#plate-clip)" aria-label="Ecliptic longitude scale, graduated every half degree">
+      {visibility.ecliptic && <g clip-path="url(#plate-clip)" aria-label="Ecliptic longitude scale, graduated every half degree" data-tutorial-target="front.ecliptic">
         <circle className="astro-rete-ring" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r} />
         <circle className="astro-rete-thin" cx={ecliptic.cx} cy={ecliptic.cy} r={ecliptic.r - 14} />
         {ECLIPTIC_TICKS.map((tick) =>
@@ -112,10 +112,10 @@ export function Rete({ reteRotation, visibility }: ReteProps): JSX.Element {
             <text className="astro-ecliptic-degree-label" text-anchor="middle" dominant-baseline="middle">{longitude}°</text>
           </g>;
         })}
-        <g data-tutorial-target="front.sun">
-          <circle className="astro-sun" cx={sun.x} cy={sun.y} r={9} />
-          <circle cx={sun.x} cy={sun.y} r={3} fill="var(--astro-mater-fill)" />
-        </g>
+      </g>}
+      {visibility.artificialAssists && <g clip-path="url(#plate-clip)" aria-label="Artificial calculated assists">
+        <circle className="astro-sun" cx={sun.x} cy={sun.y} r={9} aria-label="Calculated Sun position" />
+        <circle cx={sun.x} cy={sun.y} r={3} fill="var(--astro-mater-fill)" />
       </g>}
 
       {visibility.stars && <g clip-path="url(#plate-clip)">

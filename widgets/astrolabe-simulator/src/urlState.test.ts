@@ -12,7 +12,7 @@ const defaults: AstrolabeState = {
   alidadeRotation: 0,
   visibility: {
     almucantars: true, azimuths: true, unequalHours: true, ecliptic: true,
-    stars: true, rule: true, tropics: true, calendar: true, zodiacScale: true,
+    artificialAssists: false, stars: true, rule: true, tropics: true, calendar: true, zodiacScale: true,
     shadowSquare: true, backUnequalHours: true, equationOfTime: true, alidade: true,
   },
   highlight: null,
@@ -86,5 +86,15 @@ describe('astrolabe URL state', () => {
     const restored = stateFromSearch('?hide=stars,notARealLayer', defaults);
     expect(restored.visibility.stars).toBe(false);
     expect(restored.visibility.azimuths).toBe(true);
+  });
+
+  it('round-trips an enabled layer that defaults off through show', () => {
+    const configured = {
+      ...defaults,
+      visibility: { ...defaults.visibility, artificialAssists: true },
+    };
+    const search = searchFromState('', configured, defaults);
+    expect(search).toBe('?show=artificialAssists');
+    expect(stateFromSearch(search, defaults).visibility.artificialAssists).toBe(true);
   });
 });

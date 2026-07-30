@@ -41,8 +41,10 @@ describe('tutorial catalog', () => {
     expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
     const lessonCopy = LESSONS[1].steps.map((item) => `${item.title} ${item.body}`).join(' ');
     expect(lessonCopy).not.toMatch(/prepared/i);
+    expect(lessonCopy).not.toMatch(/Sun marker|Sirius pointer|pointer shows/i);
     expect(lessonCopy).toMatch(/calendar.+ecliptic longitude.+rule.+rotate the rete/is);
     expect(lessonCopy).toMatch(/inner edge.+across the zodiac-sign band.+outer side/is);
+    expect(LESSONS[1].steps.every((step) => !step.snapshot.visibility.artificialAssists)).toBe(true);
   });
   it('aligns the lesson alidade with the dated back-scale radial', () => {
     const datePoint = backLongitudePoint(456, SUN_FIXTURE.eclipticLongitude);
