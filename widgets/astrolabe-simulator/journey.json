@@ -9,6 +9,9 @@
       "steps": [
         {
           "eval": "(() => { const eclipticTicks = document.querySelectorAll('.astro-ecliptic-tick'); const limbTicks = document.querySelectorAll('.astro-limb-tick'); if (eclipticTicks.length !== 720 || !document.querySelector('[data-ecliptic-longitude=\"0.5\"]')) throw new Error(`front ecliptic is not graduated by half degrees (${eclipticTicks.length} ticks)`); if (document.querySelector('.astro-zodiac-label')) throw new Error('zodiac abbreviations remain on the front'); if (limbTicks.length !== 360 || !document.querySelector('[data-limb-degree=\"1\"]')) throw new Error(`front limb is not graduated by degrees (${limbTicks.length} ticks)`); const texture = document.querySelector('.astro-rete-edge-texture'); const filter = document.querySelector('#rete-edge-texture'); const textureStyle = texture && getComputedStyle(texture); if (!document.querySelector('.astro-rete-outer-rim') || !texture || !filter?.querySelector('feTurbulence') || textureStyle?.filter === 'none' || parseFloat(textureStyle?.strokeWidth || '0') < 18 || parseFloat(textureStyle?.opacity || '0') < 0.5) throw new Error('visible procedural rotating rete texture is missing'); const assists = document.querySelector('[data-testid=layer-artificialAssists]'); if (!assists || assists.checked || document.querySelector('.astro-sun')) throw new Error('artificial Sun assist is not off by default'); })()"
+        },
+        {
+          "eval": "(() => { const cards = [...document.querySelectorAll('.lesson-card')]; const starts = [...document.querySelectorAll('[data-testid^=\"start-\"]')]; if (cards.length !== 9 || starts.length !== 9) throw new Error(`complete curriculum not rendered (${cards.length} cards, ${starts.length} starts)`); if (document.querySelector('.future-card, .lesson-category, .lesson-card button:disabled')) throw new Error('lesson categories or placeholders remain'); const titles = cards.map((card) => card.querySelector('h3')?.textContent); if (!titles[3]?.includes('sunrise, noon, and sunset') || !titles[6]?.includes('apparent solar time') || !titles[7]?.includes('shadow square')) throw new Error(`curriculum order is wrong: ${titles.join(' | ')}`); })()"
         }
       ],
       "expect": { "state": "ready" }
@@ -118,6 +121,15 @@
         { "eval": "new Promise((resolve) => setTimeout(resolve, 900))" },
         {
           "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading leaked into the sky-setting lesson'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); })()"
+        }
+      ],
+      "expect": { "state": "ready" }
+    },
+    {
+      "label": "all-completed-lessons-launch",
+      "steps": [
+        {
+          "eval": "(async () => { const cases = [['solar.events.v1', 'Choose the date and place', 'front'], ['front.unequal-hours.v1', 'Understand temporal hours', 'front'], ['back.measure-altitude.v1', 'Understand the physical observation', 'back'], ['back.equation-time.v1', 'Distinguish the two kinds of time', 'back'], ['back.shadow-square.v1', 'Choose the known measurements', 'back'], ['back.unequal-hours.v1', 'Turn to the back', 'back']]; const settle = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))); for (const [id, heading, face] of cases) { const start = document.querySelector(`[data-testid=\"start-${CSS.escape(id)}\"]`); if (!start) throw new Error(`missing start button for ${id}`); start.click(); await settle(); if (document.querySelector('#lesson-step-heading')?.textContent !== heading) throw new Error(`${id} did not open at its first step`); if (window.astrolabe.getState().face !== face) throw new Error(`${id} opened on the wrong face`); const all = [...document.querySelectorAll('button')].find((button) => button.textContent === 'All lessons'); if (!all) throw new Error(`cannot return from ${id}`); all.click(); await settle(); } })()"
         }
       ],
       "expect": { "state": "ready" }

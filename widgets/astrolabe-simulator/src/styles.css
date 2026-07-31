@@ -249,7 +249,7 @@ button, input, select {
 .astrolabe-guide button:focus-visible { outline: 3px solid var(--input-focus); outline-offset: 2px; }
 .astrolabe-guide h2 { margin-top: 10px; }
 .astrolabe-guide h3 { margin: 18px 0 8px; font-size: 17px; }
-.astrolabe-guide h4 { margin: 0; font-size: 16px; }
+.lesson-card h3 { margin: 0; font-size: 16px; }
 .guide-intro, .lesson-card p { color: var(--fg-secondary); }
 .lesson-card {
   margin-bottom: 10px;
@@ -260,20 +260,6 @@ button, input, select {
 }
 .lesson-card p { margin: 5px 0 10px; }
 .lesson-meta, .lesson-progress, .lesson-breadcrumb, .target-note { color: var(--muted); font-size: 14px; }
-.future-card {
-  color: var(--fg);
-  background: var(--card-bg);
-  border-color: var(--card-border);
-}
-/* Theme audits sample disabled controls directly: keep every surface fully
-   opaque and explicit. Never dim this card or one of its ancestors. */
-.future-card button:disabled {
-  opacity: 1;
-  color: var(--fg-secondary);
-  background-color: var(--card-bg);
-  border-color: var(--card-border);
-  cursor: not-allowed;
-}
 .lesson-player h2:focus { outline: 3px solid var(--input-focus); outline-offset: 3px; }
 .lesson-result { padding: 10px; border-left: 4px solid var(--accent); background: var(--card-bg); }
 .lesson-actions, .interruption, .completion { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -412,7 +398,6 @@ button, input, select {
 }
 
 @media (forced-colors: active) {
-  .future-card, .future-card button:disabled { color: GrayText; background: Canvas; border-color: GrayText; opacity: 1; }
   .astrolabe-guide button:focus-visible { outline-color: Highlight; }
 }
 

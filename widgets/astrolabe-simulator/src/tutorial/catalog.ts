@@ -1,9 +1,10 @@
 import type { AstrolabeState } from '../store';
-import { equatorialToHorizontal, localSiderealTime, normalizeDeg, solarLongitude } from '../astro';
-import { eclipticPoint, orientRetePoint } from '../geometry';
+import { equationOfTime, equatorialToHorizontal, localSiderealTime, normalizeDeg, solarLongitude } from '../astro';
+import { eclipticPoint, OBLIQUITY_DEG, orientRetePoint } from '../geometry';
 import { alidadeRotationForLongitude } from '../backGeometry';
+import { shadowSquareIntersection } from '../shadowSquare';
 import { STARS } from '../data/stars';
-import type { FutureTopic, Lesson, LessonStep, Snapshot } from './types';
+import type { Lesson, LessonStep, Snapshot } from './types';
 
 const epochIso = '2026-07-14T12:00:00.000Z';
 const lessonLocation = { label: 'London', lat: 51.5, lng: -0.12, manual: false } as const;
@@ -53,6 +54,51 @@ export const SIRIUS_PATH_FIXTURE = {
   culmination: pathEvent(sirius.raDeg),
   setting: pathEvent(sirius.raDeg + horizonHourAngle),
 } as const;
+const sunLongitudeRad = sunLongitude * Math.PI / 180;
+const obliquityRad = OBLIQUITY_DEG * Math.PI / 180;
+const sunRightAscension = normalizeDeg(Math.atan2(
+  Math.sin(sunLongitudeRad) * Math.cos(obliquityRad),
+  Math.cos(sunLongitudeRad),
+) * 180 / Math.PI);
+const sunDeclination = Math.asin(Math.sin(obliquityRad) * Math.sin(sunLongitudeRad)) * 180 / Math.PI;
+const sunHorizonHourAngle = Math.acos(
+  -Math.tan(latitudeRad) * Math.tan(sunDeclination * Math.PI / 180),
+) * 180 / Math.PI;
+const solarEvent = (hourAngle: number) => {
+  const reteRotation = normalizeDeg(sunRightAscension + hourAngle);
+  const observation = equatorialToHorizontal(
+    sunRightAscension, sunDeclination, lessonLocation.lat, reteRotation,
+  );
+  return {
+    reteRotation,
+    ruleRotation: ruleRotationForSidereal(reteRotation),
+    altitude: observation.altitude,
+    azimuth: observation.azimuth,
+  };
+};
+export const SOLAR_EVENT_FIXTURE = {
+  sunrise: solarEvent(-sunHorizonHourAngle),
+  noon: solarEvent(0),
+  sunset: solarEvent(sunHorizonHourAngle),
+} as const;
+export const FRONT_UNEQUAL_HOUR_FIXTURE = {
+  hour: 9,
+  antipodalDeclination: -sunDeclination,
+  ...solarEvent(sunHorizonHourAngle / 2),
+} as const;
+export const ALTITUDE_FIXTURE = { angle: 35 } as const;
+export const EQUATION_TIME_FIXTURE = {
+  minutes: equationOfTime(new Date(epochIso)),
+  alidadeRotation: SUN_FIXTURE.alidadeRotation,
+} as const;
+const shadowIntersection = shadowSquareIntersection(45);
+if (!shadowIntersection) throw new Error('The 45-degree shadow-square fixture must intersect the square');
+export const SHADOW_SQUARE_FIXTURE = {
+  angle: 45,
+  distance: 12,
+  height: 12,
+  intersection: shadowIntersection,
+} as const;
 const visibility: AstrolabeState['visibility'] = {
   almucantars: true, azimuths: true, unequalHours: true, ecliptic: true, artificialAssists: false, stars: true,
   rule: true, tropics: true, calendar: true, zodiacScale: true, shadowSquare: true,
@@ -75,7 +121,7 @@ const step = (id: string, title: string, body: string, target: LessonStep['targe
 
 export const LESSONS = [
   {
-    id: 'front.foundations.v1', version: 1, category: 'Foundations',
+    id: 'front.foundations.v1', version: 1,
     title: 'Understand and configure the astrolabe front',
     summary: 'Identify the fixed and moving parts, then choose the latitude plate used for a reading.',
     steps: [
@@ -91,7 +137,7 @@ export const LESSONS = [
     ],
   },
   {
-    id: 'front.set-sky.v1', version: 1, category: 'Front operations',
+    id: 'front.set-sky.v1', version: 1,
     title: 'Set the astrolabe for a date and time',
     summary: 'Convert a calendar date to ecliptic longitude, set the time, and orient the rete.',
     steps: [
@@ -105,7 +151,7 @@ export const LESSONS = [
     ],
   },
   {
-    id: 'front.read-star.v1', version: 1, category: 'Front operations',
+    id: 'front.read-star.v1', version: 1,
     title: 'Read a star and follow its daily path',
     summary: 'Read Sirius from a known date-and-time setting, then follow it from rising to setting.',
     steps: [
@@ -120,7 +166,71 @@ export const LESSONS = [
     ],
   },
   {
-    id: 'back.unequal-hours.v1', version: 1, category: 'Back operations',
+    id: 'solar.events.v1', version: 1,
+    title: 'Find sunrise, noon, and sunset',
+    summary: 'Use the Sun’s date point, horizon, meridian, and rule to read the day’s three principal solar events.',
+    steps: [
+      step('choose-date', 'Choose the date and place', 'Use London on July 14. From the earlier date-setting lesson, July 14 corresponds to the marked ecliptic longitude on the rete.', 'instrument', base('front'), `The Sun’s date point is ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° ecliptic longitude on London’s 51.5° plate.`),
+      step('identify-sun-point', 'Identify the Sun’s date point', 'Use the ecliptic-longitude scale to identify July 14’s point. This engraved point represents the Sun for every event in this lesson; no added Sun marker is needed.', 'front.ecliptic', base('front'), 'The same ecliptic point will be carried across the local horizon and meridian.'),
+      step('find-sunrise', 'Move the Sun to the eastern horizon', 'Turn the rete until the date point meets the eastern side of the horizon. Then place the rule through that point and read the corresponding time on the limb.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.noon.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunrise.ruleRotation }), `At sunrise the point is on the horizon at azimuth ${SOLAR_EVENT_FIXTURE.sunrise.azimuth.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.noon.reteRotation, to: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, tolerance: 2 } }),
+      step('find-noon', 'Move the Sun to the meridian', 'Turn the rete until the date point crosses the southern meridian. Move the rule to remain over the point; the limb now reads local apparent noon.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.noon.ruleRotation }), `At noon the Sun culminates due south at altitude ${SOLAR_EVENT_FIXTURE.noon.altitude.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, to: SOLAR_EVENT_FIXTURE.noon.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SOLAR_EVENT_FIXTURE.noon.reteRotation, tolerance: 2 } }),
+      step('find-sunset', 'Move the Sun to the western horizon', 'Continue turning the rete until the date point meets the western side of the horizon, again moving the rule through the point to read the time.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.noon.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunset.ruleRotation }), `At sunset the point is on the horizon at azimuth ${SOLAR_EVENT_FIXTURE.sunset.azimuth.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.noon.reteRotation, to: SOLAR_EVENT_FIXTURE.sunset.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SOLAR_EVENT_FIXTURE.sunset.reteRotation, tolerance: 2 } }),
+      step('interpret-day', 'Interpret the three readings', 'The two horizon crossings give sunrise and sunset; the meridian crossing gives local apparent noon and the Sun’s greatest altitude. The intervals on the limb give morning length, afternoon length, and total daylight.', 'instrument', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunset.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunset.ruleRotation }), 'Result: the Sun has been followed from sunrise through noon to sunset without an artificial marker.'),
+    ],
+  },
+  {
+    id: 'front.unequal-hours.v1', version: 1,
+    title: 'Read a daylight temporal hour',
+    summary: 'Use the Sun’s antipodal point and the lower plate curves to divide daylight into twelve seasonal hours.',
+    steps: [
+      step('recall-temporal-hours', 'Understand temporal hours', 'Temporal hours divide the daylight interval from sunrise to sunset into twelve equal parts. Their clock duration therefore changes with the season.', 'instrument', base('front'), 'The sixth temporal hour is local apparent noon; the ninth is three quarters of the way from sunrise to sunset.'),
+      step('set-date-point', 'Set the Sun’s date point', `Use July 14’s ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° ecliptic-longitude point, as in the preceding solar-events lesson.`, 'front.ecliptic', base('front'), 'The Sun’s seasonal declination is fixed by its date point.'),
+      step('use-opposite-point', 'Use the point opposite the Sun', 'During daylight the Sun is above the horizon while the unequal-hour curves are engraved below it. Follow the ecliptic exactly 180° from the Sun’s point and use that antipodal point for the reading.', 'front.ecliptic', base('front'), 'The antipodal point mirrors the daytime solar path onto the lower unequal-hour scale.'),
+      step('find-hour-nine', 'Move to temporal hour IX', 'Turn the rete until the antipodal point meets curve IX. Keep the date point beneath the rule so the rule can read the corresponding local apparent solar time.', 'front.unequal-hours', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, ruleRotation: FRONT_UNEQUAL_HOUR_FIXTURE.ruleRotation }), 'The antipodal date point lies on curve IX, three quarters of the way through daylight.', { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, to: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, tolerance: 2 } }),
+      step('read-rule', 'Read the corresponding time', 'Read the rule where it crosses the 24-hour limb. That equal-hour clock reading changes with the date even though the temporal-hour label remains IX.', 'front.rule', base('front', { reteRotation: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, ruleRotation: FRONT_UNEQUAL_HOUR_FIXTURE.ruleRotation }), 'The rule converts temporal hour IX on July 14 into local apparent solar time.'),
+      step('unequal-front-result', 'Interpret the temporal hour', 'Curve IX means that nine of the day’s twelve temporal hours have elapsed and three remain before sunset.', 'instrument', base('front', { reteRotation: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, ruleRotation: FRONT_UNEQUAL_HOUR_FIXTURE.ruleRotation }), 'Result: July 14’s ninth daylight temporal hour is read from the front plate.'),
+    ],
+  },
+  {
+    id: 'back.measure-altitude.v1', version: 1,
+    title: 'Transfer a measured altitude to the alidade',
+    summary: 'Understand physical altitude sighting, then reproduce an external 35° observation on the simulated back.',
+    steps: [
+      step('physical-sighting', 'Understand the physical observation', 'On a physical astrolabe, suspend the instrument vertically and sight the object along the alidade. For the Sun, align by the shadows instead of looking at it. This flat simulation cannot reproduce that sight line.', 'instrument', base('back'), 'The lesson begins with an altitude measured outside the simulation.'),
+      step('given-altitude', 'Take the supplied observation', `Use an externally measured altitude of ${ALTITUDE_FIXTURE.angle}°. Altitude is the angle above the local horizon: 0° at the horizon and 90° at the zenith.`, 'back.altitude-scale', base('back'), `The supplied observation is ${ALTITUDE_FIXTURE.angle}° above the horizon.`),
+      step('set-alidade', 'Set the alidade to the observation', `Rotate the alidade until its straight reading edge meets ${ALTITUDE_FIXTURE.angle}° on the red outer altitude scale.`, 'back.alidade', base('back', { alidadeRotation: ALTITUDE_FIXTURE.angle }), `The simulated alidade records the external ${ALTITUDE_FIXTURE.angle}° observation.`, { demonstration: { field: 'alidadeRotation', from: 0, to: ALTITUDE_FIXTURE.angle, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: ALTITUDE_FIXTURE.angle, tolerance: 1 } }),
+      step('check-complement', 'Distinguish altitude from zenith distance', `The complementary black scale reads ${90 - ALTITUDE_FIXTURE.angle}°. That is the object’s zenith distance, not a second altitude.`, 'back.altitude-scale', base('back', { alidadeRotation: ALTITUDE_FIXTURE.angle }), `Altitude ${ALTITUDE_FIXTURE.angle}° and zenith distance ${90 - ALTITUDE_FIXTURE.angle}° add to 90°.`),
+      step('altitude-result', 'Carry the reading forward', 'Keep the alidade at this angle when a later construction asks for the observed altitude. The simulation starts at the engraved reading, after the real-world sighting.', 'instrument', base('back', { alidadeRotation: ALTITUDE_FIXTURE.angle }), `Result: an external ${ALTITUDE_FIXTURE.angle}° altitude has been transferred accurately to the back.`),
+    ],
+  },
+  {
+    id: 'back.equation-time.v1', version: 1,
+    title: 'Convert apparent solar time to mean solar time',
+    summary: 'Use a calendar date and the equation-of-time loop to correct a sundial-style reading.',
+    steps: [
+      step('understand-times', 'Distinguish the two kinds of time', 'The Sun does not cross the meridian at perfectly uniform clock intervals. Equation of time is apparent solar time minus mean solar time.', 'instrument', base('back'), 'A negative value means apparent solar time is behind mean solar time.'),
+      step('find-eot-date', 'Set July 14 on the calendar', 'Place the alidade’s inner edge through July 14, using the same calendar operation taught earlier.', 'back.calendar', base('back', { alidadeRotation: EQUATION_TIME_FIXTURE.alidadeRotation }), 'The alidade follows July 14’s radial line.', { demonstration: { field: 'alidadeRotation', from: 0, to: EQUATION_TIME_FIXTURE.alidadeRotation, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: EQUATION_TIME_FIXTURE.alidadeRotation, tolerance: 1 } }),
+      step('meet-eot-loop', 'Find the equation-of-time intersection', 'Continue along the alidade’s inner edge until it intersects the potato-shaped equation-of-time loop. Read the signed minute offset represented by that radial displacement.', 'back.equation-time', base('back', { alidadeRotation: EQUATION_TIME_FIXTURE.alidadeRotation }), `For July 14 the engraved convention gives about ${EQUATION_TIME_FIXTURE.minutes.toFixed(1)} minutes.`),
+      step('apply-sign', 'Apply the engraved sign', `Because apparent minus mean is ${EQUATION_TIME_FIXTURE.minutes.toFixed(1)} minutes, apparent solar time is about ${Math.abs(EQUATION_TIME_FIXTURE.minutes).toFixed(1)} minutes behind mean solar time. Subtracting this negative correction therefore adds the same amount to apparent time.`, 'back.equation-time', base('back', { alidadeRotation: EQUATION_TIME_FIXTURE.alidadeRotation }), `An apparent reading of 12:00 corresponds to about 12:${Math.round(Math.abs(EQUATION_TIME_FIXTURE.minutes)).toString().padStart(2, '0')} mean solar time.`),
+      step('limit-correction', 'Keep civil-time corrections separate', 'Longitude within a time zone and daylight-saving time are later civil conventions. The equation-of-time loop corrects only the non-uniform apparent Sun to uniform local mean solar time.', 'instrument', base('back', { alidadeRotation: EQUATION_TIME_FIXTURE.alidadeRotation }), 'The astronomical correction has been separated from time-zone corrections.'),
+      step('eot-result', 'Complete the conversion', 'Read the date, take the signed offset from the loop, and subtract apparent-minus-mean from the apparent reading.', 'instrument', base('back', { alidadeRotation: EQUATION_TIME_FIXTURE.alidadeRotation }), `Result: July 14 apparent solar time is converted using a ${EQUATION_TIME_FIXTURE.minutes.toFixed(1)}-minute correction.`),
+    ],
+  },
+  {
+    id: 'back.shadow-square.v1', version: 1,
+    title: 'Measure a height with the shadow square',
+    summary: 'Turn a supplied sighting angle and measured distance into a proportional height.',
+    steps: [
+      step('choose-measurement', 'Choose the known measurements', `Stand ${SHADOW_SQUARE_FIXTURE.distance} m from an object on level ground. A physical alidade sighting to its top gives ${SHADOW_SQUARE_FIXTURE.angle}°; this simulation begins with that supplied angle.`, 'instrument', base('back'), `Known horizontal distance: ${SHADOW_SQUARE_FIXTURE.distance} m; supplied elevation angle: ${SHADOW_SQUARE_FIXTURE.angle}°.`),
+      step('set-shadow-angle', 'Set the sighting angle', `Rotate the alidade to ${SHADOW_SQUARE_FIXTURE.angle}° on the altitude scale.`, 'back.alidade', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), `The alidade records the ${SHADOW_SQUARE_FIXTURE.angle}° sighting.`, { demonstration: { field: 'alidadeRotation', from: 0, to: SHADOW_SQUARE_FIXTURE.angle, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: SHADOW_SQUARE_FIXTURE.angle, tolerance: 1 } }),
+      step('read-corner', 'Read the shadow-square ratio', 'Follow the alidade’s inner edge to the shadow square. At 45° it passes exactly through the corner where both twelve-part scales reach 12.', 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), 'The corner gives a 12:12 ratio, which simplifies to 1:1.'),
+      step('calculate-height', 'Apply the proportion', `Multiply the ${SHADOW_SQUARE_FIXTURE.distance} m horizontal distance by the 12:12 ratio.`, 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), `The height above eye level is ${SHADOW_SQUARE_FIXTURE.height} m.`),
+      step('account-eye-level', 'Account for the observer', 'For a real object, add the height of the astrolabe’s pivot above the ground unless the measured baseline begins at the same level as the object’s base.', 'instrument', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), 'The proportional result is height above the horizontal sight line.'),
+      step('shadow-result', 'Complete the height reading', 'The shadow square replaces trigonometric calculation with engraved similar-triangle ratios.', 'instrument', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), `Result: a ${SHADOW_SQUARE_FIXTURE.angle}° sighting at ${SHADOW_SQUARE_FIXTURE.distance} m gives ${SHADOW_SQUARE_FIXTURE.height} m above eye level.`),
+    ],
+  },
+  {
+    id: 'back.unequal-hours.v1', version: 1,
     title: 'Read a temporal hour on the double horary quadrant',
     summary: 'Reproduce the documented traditional July 14 unequal-hour construction.',
     steps: [
@@ -136,14 +246,6 @@ export const LESSONS = [
     ],
   },
 ] as const satisfies readonly Lesson[];
-
-export const FUTURE_TOPICS: readonly FutureTopic[] = [
-  { category: 'Solar operations', title: 'Determine sunrise, noon, and sunset', prerequisite: 'Planned: choose a date and follow the Sun from the eastern horizon through culmination to the western horizon.' },
-  { category: 'Solar operations', title: 'Read unequal hours on the front', prerequisite: 'Planned: use the Sun’s ecliptic-longitude point with the unequal-hour curves below the horizon.' },
-  { category: 'Back operations', title: 'Measure altitude with the alidade', prerequisite: 'Planned: sight an object along the alidade and read its altitude from the limb.' },
-  { category: 'Back operations', title: 'Use the equation-of-time loop', prerequisite: 'Planned: choose a date and read the difference between apparent and mean solar time.' },
-  { category: 'Back operations', title: 'Measure height with the shadow square', prerequisite: 'Planned: enter a known distance and turn the observed shadow ratio into a height.' },
-];
 
 export function validateCatalog(lessons: readonly Lesson[] = LESSONS): string[] {
   const errors: string[] = [];
