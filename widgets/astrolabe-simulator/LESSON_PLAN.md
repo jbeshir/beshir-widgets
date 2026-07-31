@@ -50,157 +50,51 @@ value on the alidade, and teaches how to use the reading from that point on.
 
 ## Course sequence
 
-### 1. Setting up and reading the front of an astrolabe
+### 1. Understand and configure the astrolabe front
 
 **Prerequisites:** none.
 
-This combines the essential orientation material into one substantial lesson:
+This substantial lesson identifies the fixed plate, moving rete, and reading
+rule; demonstrates their independent motion; and shows why the observer's
+latitude determines the plate. It includes choosing London's exact plate,
+observing the warning from a nearby plate, and restoring the exact match.
 
-- choose the plate nearest the observation latitude and interpret plate
-  mismatch;
-- distinguish the mater, fixed plate, rotating rete, rule, limb, and pivot;
-- see that the plate represents the local horizon and coordinate grid while
-  the rete represents the moving celestial sphere;
-- read the horizon, zenith, altitude circles, and azimuth curves;
-- move the rete and rule independently and recognize what remains fixed.
+### 2. Set the astrolabe for a date and time
 
-**Demonstration:** select a city and its nearest plate; rotate the rete while
-the plate stays fixed; rotate the rule independently; highlight several points
-on the plate and read their coordinates.
+**Prerequisite:** lesson 1.
 
-**Checked outcome:** the learner selects the appropriate plate, moves each
-front part independently, and reads the approximate altitude and azimuth of a
-marked point.
+This substantial lesson carries July 14 from the back calendar to the
+ecliptic-longitude scale, finds the same longitude on the front, sets the rule
+to local apparent solar time, and turns the rete until the date point lies
+beneath the rule. The result is a complete sky setting rather than an
+unexplained rotation angle.
 
-### 2. Locating a star at a given date and time
+### 3. Read a star and follow its daily path
 
-**Prerequisite:** Setting up and reading the front of an astrolabe.
+**Prerequisites:** lessons 1 and 2.
 
-This teaches the complete operation rather than beginning with a prepared
-instrument:
+This substantial lesson locates Sirius on the rete, reads its altitude and
+azimuth from the fixed plate, and then keeps the date point beneath the moving
+rule while following Sirius to the eastern horizon, culmination, and western
+horizon.
 
-1. On the back, find the date on the calendar scale.
-2. Follow the same radial line to the adjacent ecliptic-longitude scale.
-   Explain that ecliptic longitude measures the Sun's position around the
-   ecliptic from 0° to 360°. Zodiac signs are labels for twelve 30° sections of
-   that longitude scale, not the quantity being sought.
-3. Turn to the front and find that longitude on the rete's ecliptic ring.
-4. Place the rule at the supplied local apparent solar time on the limb.
-5. Rotate the rete—not the rule—until the Sun's ecliptic-longitude point lies
-   under the rule. Explain that this alignment sets the whole star map for the
-   selected place, date, and time.
-6. Find the named star pointer and read its altitude and azimuth against the
-   fixed plate.
+### 4. Solar operations
 
-The worked example may use Sirius, but neither the title nor the method is
-specific to Sirius. The learner is never given a rete angle.
+Keep these as separate future lessons:
 
-**Demonstration:** carry one date from the calendar to ecliptic longitude, set
-the rule to a labelled solar time, rotate the rete to the Sun–rule alignment,
-then locate and read Sirius.
+- determine sunrise, noon, and sunset;
+- read unequal hours on the front.
 
-**Checked outcome:** the learner repeats the operation with a second date,
-time, and star; reports whether the star is above the horizon; and reads its
-approximate altitude and azimuth.
+### 5. Back operations
 
-### 3. Finding the time from an observed Sun or star altitude
+Keep these as separate lessons:
 
-**Prerequisites:** Locating a star at a given date and time.
+- measure altitude with the alidade;
+- use the equation-of-time loop;
+- measure height with the shadow square;
+- read a temporal hour on the double horary quadrant (implemented).
 
-State clearly that the altitude was measured outside the simulation. Briefly
-explain the physical alidade sighting, then demonstrate placing the supplied
-angle on the back degree scale.
-
-For a star:
-
-1. Set the named star pointer on the supplied altitude circle, choosing the
-   eastern or western side from the observation context.
-2. Find the Sun's ecliptic longitude for the date.
-3. Place the rule through the Sun point and read local apparent solar time on
-   the limb.
-
-For the Sun, place the Sun's ecliptic-longitude point directly on the supplied
-altitude circle, again resolving the morning/afternoon ambiguity from context.
-
-**Checked outcome:** the learner derives local apparent solar time from a
-second supplied observation without being given any front rotation angle.
-
-### 4. Finding rise, culmination, set, and length of daylight
-
-**Prerequisites:** Locating a star at a given date and time.
-
-Use the same horizon and meridian geometry for two related tasks:
-
-- move the Sun's ecliptic-longitude point to the eastern and western horizon
-  to find sunrise, sunset, and day length;
-- move a star pointer to the eastern horizon, meridian, and western horizon to
-  find rise, culmination, and set.
-
-Include a circumpolar example so the absence of a horizon crossing is
-interpreted as a result rather than a failed interaction.
-
-**Checked outcome:** the learner reads solar and stellar events for a supplied
-date and distinguishes a setting star from a circumpolar one.
-
-### 5. Converting between clock time and local apparent solar time
-
-**Prerequisites:** Locating a star at a given date and time.
-
-Combine the two corrections needed before a civil clock time can be used in
-the earlier operations:
-
-1. Read the equation of time for the date using the calendar scale, alidade
-   arm, and equation-of-time loop.
-2. Apply the engraved sign convention to convert between apparent and mean
-   solar time.
-3. Apply the longitude difference from the civil time zone's reference
-   meridian.
-4. Treat daylight-saving time as an explicit civil correction outside the
-   astrolabe.
-
-**Checked outcome:** the learner converts both directions for dates with
-positive and negative equation-of-time values, then uses the result to set the
-front.
-
-### 6. Reading unequal hours
-
-**Prerequisites:** Finding the time from an observed Sun or star altitude;
-Locating a star at a given date and time.
-
-Teach the common idea first: daylight and darkness are each divided into
-twelve hours whose equal-clock duration changes with the season.
-
-Then compare the two engraved methods:
-
-- **Front:** use the Sun's ecliptic-longitude point by night and the point
-  opposite it by day, reading against the unequal-hour curves.
-- **Back:** start with supplied noon and observed solar altitudes; retain the
-  center-to-curve-VI distance, set the observed altitude, and find the same
-  distance along the new alidade edge.
-
-The existing 70°/27.5° back construction becomes one worked example inside
-this lesson, after the front method establishes what is being measured.
-
-**Checked outcome:** the learner reads the same approximate unequal hour using
-both faces and explains why the back interpolation is approximate between
-sunrise, noon, and sunset.
-
-### 7. Measuring a height with the shadow square
-
-**Prerequisite:** experience setting a supplied alidade angle in lesson 3.
-
-Explain that the physical observation is external to this simulation. Given an
-observed angle and a measured horizontal distance:
-
-1. set the alidade to the supplied angle;
-2. read the shadow-square ratio;
-3. choose *umbra recta* or *umbra versa* according to which gives the useful
-   ratio;
-4. calculate the object's height.
-
-**Checked outcome:** the learner calculates a height from two worked
-measurements and verifies that a 45° line meets the square's corner and
-represents a 1:1 ratio.
+There is no section 6 in the current course plan.
 
 ## Assessment and test requirements
 

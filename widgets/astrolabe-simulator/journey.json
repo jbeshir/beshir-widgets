@@ -86,9 +86,9 @@
     {
       "label": "set-sky-before-reading-star",
       "steps": [
-        { "click": "[data-testid=start-front\\.align-star\\.v1]" },
+        { "click": "[data-testid=start-front\\.set-sky\\.v1]" },
         {
-          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Choose the place, date, and time') throw new Error(`unexpected first step: ${heading?.textContent}`); if (document.body.textContent.includes('prepared astrolabe')) throw new Error('prepared-astrolabe shortcut remains visible'); if (window.astrolabe.getState().face !== 'back') throw new Error('lesson did not begin on the date scales'); })()"
+          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Choose the place, date, and time') throw new Error(`unexpected first step: ${heading?.textContent}`); if (/prepared/i.test(document.body.textContent)) throw new Error('confusing terminology remains visible'); if (window.astrolabe.getState().face !== 'back') throw new Error('lesson did not begin on the date scales'); })()"
         },
         {
           "eval": "(() => { const next = [...document.querySelectorAll('.lesson-actions button')].find((button) => button.textContent === 'Next'); if (!next) throw new Error('Next button missing'); next.click(); })()"
@@ -117,7 +117,7 @@
         },
         { "eval": "new Promise((resolve) => setTimeout(resolve, 900))" },
         {
-          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing before star reading'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading appeared before sky setting completed'); if (document.body.textContent.includes('Sirius pointer')) throw new Error('lesson still calls Sirius a pointer'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); const sirius = document.querySelector('[data-tutorial-target=\"front.star.sirius\"] .astro-star-dot'); const svg = sirius?.ownerSVGElement; if (!sirius || !svg) throw new Error('Sirius render target missing'); const star = new DOMPoint(Number(sirius.getAttribute('cx')), Number(sirius.getAttribute('cy'))).matrixTransform(sirius.getCTM()); const center = new DOMPoint(0, 0).matrixTransform(svg.getCTM()); if (star.x <= center.x) throw new Error(`Sirius rendered east of south instead of at azimuth about 191° (${star.x} <= ${center.x})`); })()"
+          "eval": "(() => { const heading = document.querySelector('#lesson-step-heading'); if (heading?.textContent !== 'Set the sky') throw new Error('sky-setting step missing'); if (document.body.textContent.includes('Locate Sirius')) throw new Error('star reading leaked into the sky-setting lesson'); if (heading.hasAttribute('tabindex')) throw new Error('non-interactive lesson heading is focusable'); if (document.activeElement === heading) throw new Error('lesson heading received focus'); })()"
         }
       ],
       "expect": { "state": "ready" }

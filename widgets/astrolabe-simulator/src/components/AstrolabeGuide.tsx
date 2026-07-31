@@ -127,7 +127,7 @@ export function AstrolabeGuide(): JSX.Element {
   }, []);
 
   return <aside className="info-panel astrolabe-guide" aria-label="Astrolabe Guide">
-    <p className="mismatch" data-testid="mismatch" role="status" aria-live="polite">{mismatch}</p>
+    <p className="mismatch" data-testid="mismatch" data-tutorial-target="setup.plate-mismatch" role="status" aria-live="polite">{mismatch}</p>
     {!lesson ? <>
       <div className="guide-tabs" role="tablist" aria-label="Astrolabe Guide views">
         <button role="tab" id="learn-tab" aria-selected={tab === 'learn'} aria-controls="learn-panel" onClick={() => setTab('learn')}>Learn</button>

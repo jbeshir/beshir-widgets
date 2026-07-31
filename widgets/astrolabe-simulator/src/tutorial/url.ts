@@ -3,14 +3,16 @@ import type { LessonId } from './types';
 
 const FIELDS = ['lesson', 'step', 'lv'] as const;
 export const LESSON_ALIASES: Readonly<Record<string, LessonId>> = {
-  'front.orientation.v1': 'front.parts.v1',
+  'front.orientation.v1': 'front.foundations.v1',
+  'front.parts.v1': 'front.foundations.v1',
+  'front.align-star.v1': 'front.set-sky.v1',
 };
 export const STEP_ALIASES: Readonly<Record<string, string>> = {
-  'front.align-star.v1:align-rule': 'set-time',
-  'front.align-star.v1:fixture': 'choose-observation',
-  'front.align-star.v1:rotate-sky': 'set-sky',
-  'front.align-star.v1:move-rule': 'set-time',
-  'front.align-star.v1:read-altitude': 'read-position',
+  'front.set-sky.v1:align-rule': 'set-time',
+  'front.set-sky.v1:fixture': 'choose-observation',
+  'front.set-sky.v1:rotate-sky': 'set-sky',
+  'front.set-sky.v1:move-rule': 'set-time',
+  'front.set-sky.v1:read-altitude': 'setting-result',
 };
 
 export interface TutorialLocation {
