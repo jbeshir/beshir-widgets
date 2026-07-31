@@ -1,15 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { eclipticPoint, orientRetePoint, project } from '../geometry';
 import { alidadeLineCross, backLongitudePoint } from '../backGeometry';
-import { FUTURE_TOPICS, LESSONS, SIRIUS_FIXTURE, SUN_FIXTURE, validateCatalog } from './catalog';
+import { FUTURE_TOPICS, LESSONS, SIRIUS_FIXTURE, SIRIUS_PATH_FIXTURE, SUN_FIXTURE, validateCatalog } from './catalog';
 
 describe('tutorial catalog', () => {
-  it('has exactly the three enabled permanent IDs', () => {
+  it('has exactly the four enabled permanent IDs', () => {
     expect(LESSONS.map((lesson) => lesson.id)).toEqual([
-      'front.parts.v1', 'front.align-star.v1', 'back.unequal-hours.v1',
+      'front.foundations.v1', 'front.set-sky.v1', 'front.read-star.v1', 'back.unequal-hours.v1',
     ]);
   });
-  it('has the required step depths', () => expect(LESSONS.map((lesson) => lesson.steps.length)).toEqual([6, 9, 9]));
+  it('keeps each foundational lesson substantial', () => {
+    expect(LESSONS.slice(0, 3).map((lesson) => lesson.steps.length)).toEqual([9, 7, 8]);
+    for (const lesson of LESSONS.slice(0, 3)) expect(lesson.steps.some((step) => step.check)).toBe(true);
+  });
+  it('demonstrates latitude mismatch and returns to the exact plate', () => {
+    const foundations = LESSONS[0];
+    expect(foundations.steps.find((step) => step.id === 'choose-plate')?.snapshot.plateLatitude).toBe(51.5);
+    expect(foundations.steps.find((step) => step.id === 'compare-mismatch')?.snapshot.plateLatitude).toBe(50);
+    expect(foundations.steps.find((step) => step.id === 'compare-mismatch')?.target).toBe('setup.plate-mismatch');
+    expect(foundations.steps.find((step) => step.id === 'restore-plate')?.snapshot.plateLatitude).toBe(51.5);
+  });
   it('passes typed runtime validation', () => expect(validateCatalog()).toEqual([]));
   it.each(LESSONS)('$id has canonical results on every step', (lesson) => {
     for (const step of lesson.steps) {
@@ -24,7 +34,8 @@ describe('tutorial catalog', () => {
     const rule = SIRIUS_FIXTURE.ruleRotation * Math.PI / 180;
     expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
     expect(SIRIUS_FIXTURE.altitude).toBeCloseTo(21.1142782184, 8);
-    expect(LESSONS[1].steps.at(-1)?.result).toContain(`approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}°`);
+    expect(LESSONS[2].steps.find((step) => step.id === 'read-position')?.result)
+      .toContain(`approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}°`);
   });
   it('sets the sky by aligning the dated Sun point with the time rule', () => {
     const sun = eclipticPoint(SUN_FIXTURE.eclipticLongitude, 380);
@@ -37,6 +48,23 @@ describe('tutorial catalog', () => {
     expect(lessonCopy).toMatch(/calendar.+ecliptic longitude.+rule.+rotate the rete/is);
     expect(lessonCopy).toMatch(/inner edge.+across the zodiac-sign band.+outer side/is);
     expect(LESSONS[1].steps.every((step) => !step.snapshot.visibility.artificialAssists)).toBe(true);
+  });
+  it('does not use the confusing prepared terminology anywhere in the curriculum', () => {
+    expect(JSON.stringify({ lessons: LESSONS, future: FUTURE_TOPICS })).not.toMatch(/prepared/i);
+  });
+  it('follows Sirius from the eastern horizon through culmination to the western horizon', () => {
+    expect(SIRIUS_PATH_FIXTURE.rising.altitude).toBeCloseTo(0, 8);
+    expect(SIRIUS_PATH_FIXTURE.setting.altitude).toBeCloseTo(0, 8);
+    expect(SIRIUS_PATH_FIXTURE.rising.azimuth).toBeLessThan(180);
+    expect(SIRIUS_PATH_FIXTURE.setting.azimuth).toBeGreaterThan(180);
+    expect(SIRIUS_PATH_FIXTURE.culmination.azimuth).toBeCloseTo(180, 8);
+    expect(SIRIUS_PATH_FIXTURE.culmination.altitude).toBeGreaterThan(SIRIUS_FIXTURE.altitude);
+  });
+  it.each(Object.entries(SIRIUS_PATH_FIXTURE))('keeps the July 14 longitude under the rule at %s', (_name, event) => {
+    const sun = eclipticPoint(SUN_FIXTURE.eclipticLongitude, 380);
+    const transformed = orientRetePoint(sun, event.reteRotation);
+    const rule = event.ruleRotation * Math.PI / 180;
+    expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
   });
   it('aligns the lesson alidade with the dated back-scale radial', () => {
     const datePoint = backLongitudePoint(456, SUN_FIXTURE.eclipticLongitude);
@@ -52,7 +80,7 @@ describe('tutorial catalog', () => {
     });
   });
   it('commits the unequal-hour fixture and approximation', () => {
-    const copy = LESSONS[2].steps.map((step) => `${step.body} ${step.result}`).join(' ');
+    const copy = LESSONS[3].steps.map((step) => `${step.body} ${step.result}`).join(' ');
     expect(copy).toContain('70°');
     expect(copy).toContain('27.5°');
     expect(copy).toMatch(/approximate/i);
@@ -60,9 +88,16 @@ describe('tutorial catalog', () => {
   });
   it('categorizes all future work and names prerequisites', () => {
     expect(new Set(FUTURE_TOPICS.map((topic) => topic.category))).toEqual(new Set([
-      'Setup and construction', 'Front astronomy', 'Back calculations', 'Assessment and tools',
+      'Solar operations', 'Back operations',
     ]));
-    for (const topic of FUTURE_TOPICS) expect(topic.prerequisite).toMatch(/^(Planned|Unavailable)[: ]/);
+    expect(FUTURE_TOPICS.map((topic) => topic.title)).toEqual([
+      'Determine sunrise, noon, and sunset',
+      'Read unequal hours on the front',
+      'Measure altitude with the alidade',
+      'Use the equation-of-time loop',
+      'Measure height with the shadow square',
+    ]);
+    for (const topic of FUTURE_TOPICS) expect(topic.prerequisite).toMatch(/^Planned[: ]/);
   });
   it('gives every enabled lesson a real scripted instrument demonstration', () => {
     for (const lesson of LESSONS) {

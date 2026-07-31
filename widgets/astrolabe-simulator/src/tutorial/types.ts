@@ -1,8 +1,11 @@
 import type { AstrolabeState } from '../store';
 
-export type LessonId = 'front.parts.v1' | 'front.align-star.v1' | 'back.unequal-hours.v1';
+export type LessonId =
+  | 'front.foundations.v1' | 'front.set-sky.v1' | 'front.read-star.v1'
+  | 'back.unequal-hours.v1';
 export type TargetId =
-  | 'instrument' | 'front.plate' | 'front.altitude-grid' | 'front.rete'
+  | 'instrument' | 'setup.plate' | 'setup.plate-mismatch'
+  | 'front.plate' | 'front.altitude-grid' | 'front.rete'
   | 'front.star.sirius' | 'front.ecliptic' | 'front.rule' | 'back.altitude-scale'
   | 'back.calendar' | 'back.ecliptic-longitude'
   | 'back.horary.vi' | 'back.alidade';
@@ -25,7 +28,7 @@ export interface LessonStep {
 export interface Lesson {
   id: LessonId;
   version: 1;
-  category: 'Orientation' | 'Front operations' | 'Back operations';
+  category: 'Foundations' | 'Front operations' | 'Back operations';
   title: string;
   summary: string;
   steps: readonly LessonStep[];

@@ -32,6 +32,27 @@ export const SIRIUS_FIXTURE = {
   altitude: siriusObservation.altitude,
   azimuth: siriusObservation.azimuth,
 } as const;
+const latitudeRad = lessonLocation.lat * Math.PI / 180;
+const declinationRad = sirius.decDeg * Math.PI / 180;
+const horizonHourAngle = Math.acos(-Math.tan(latitudeRad) * Math.tan(declinationRad)) * 180 / Math.PI;
+const ruleRotationForSidereal = (reteRotation: number) => {
+  const point = orientRetePoint(sunPoint, reteRotation);
+  return normalizeDeg(Math.atan2(-point.x, point.y) * 180 / Math.PI);
+};
+const pathEvent = (reteRotation: number) => {
+  const observation = equatorialToHorizontal(sirius.raDeg, sirius.decDeg, lessonLocation.lat, reteRotation);
+  return {
+    reteRotation: normalizeDeg(reteRotation),
+    ruleRotation: ruleRotationForSidereal(reteRotation),
+    altitude: observation.altitude,
+    azimuth: observation.azimuth,
+  };
+};
+export const SIRIUS_PATH_FIXTURE = {
+  rising: pathEvent(sirius.raDeg - horizonHourAngle),
+  culmination: pathEvent(sirius.raDeg),
+  setting: pathEvent(sirius.raDeg + horizonHourAngle),
+} as const;
 const visibility: AstrolabeState['visibility'] = {
   almucantars: true, azimuths: true, unequalHours: true, ecliptic: true, artificialAssists: false, stars: true,
   rule: true, tropics: true, calendar: true, zodiacScale: true, shadowSquare: true,
@@ -48,27 +69,31 @@ const base = (face: 'front' | 'back', rotations: Partial<Pick<Snapshot, 'reteRot
   visibility: { ...visibility },
   epochIso,
 });
+const plateSnapshot = (plateLatitude: number): Snapshot => ({ ...base('front'), plateLatitude });
 const step = (id: string, title: string, body: string, target: LessonStep['target'], snapshot: Snapshot, result: string, extra: Partial<LessonStep> = {}): LessonStep =>
   ({ id, title, body, target, snapshot, result, ...extra });
 
 export const LESSONS = [
   {
-    id: 'front.parts.v1', version: 1, category: 'Orientation',
-    title: 'Meet the front: fixed plate, moving sky, reading rule',
-    summary: 'Learn which parts stay fixed and which turn, then reconstruct a reading.',
+    id: 'front.foundations.v1', version: 1, category: 'Foundations',
+    title: 'Understand and configure the astrolabe front',
+    summary: 'Identify the fixed and moving parts, then choose the latitude plate used for a reading.',
     steps: [
-      step('meet-instrument', 'Meet the instrument', 'The mater holds the working parts. This lesson uses a fixed latitude plate, a moving rete, and a reading rule.', 'instrument', base('front'), 'The front is set for London at noon on July 14, 2026.'),
+      step('meet-instrument', 'Meet the instrument', 'The mater holds the working parts. On the front, a latitude plate supplies local coordinates, the rete carries the star map, and the rule provides a straight reading edge.', 'instrument', base('front'), 'The front is set for London at noon on July 14, 2026.'),
       step('fixed-plate', 'Find the fixed plate', 'The plate carries the horizon, altitude circles, and azimuths for 51.5° north.', 'front.plate', base('front'), 'The plate remains fixed while the sky turns.'),
       step('moving-rete', 'Turn the moving sky', 'Rotate the rete to 45°. The star map turns over the fixed latitude plate, placing the sky in a new orientation.', 'front.rete', base('front', { reteRotation: 45 }), 'The rete is at 45° while the plate remains fixed.', { demonstration: { field: 'reteRotation', from: 0, to: 45, durationMs: 700 }, check: { kind: 'angleNear', field: 'reteRotation', value: 45, tolerance: 2 } }),
       step('reading-rule', 'Use the reading rule', 'Rotate the rule to 90°. It provides a reading edge across the plate and rete without moving either engraving.', 'front.rule', base('front', { reteRotation: 45, ruleRotation: 90 }), 'The rule is at 90°, independently of the rete.', { demonstration: { field: 'ruleRotation', from: 0, to: 90, durationMs: 700 }, check: { kind: 'angleNear', field: 'ruleRotation', value: 90, tolerance: 2 } }),
       step('return-rete', 'Return the rete', 'Use the rete control, keyboard arrows, or drag to return it to 0°.', 'front.rete', base('front', { reteRotation: 45, ruleRotation: 90 }), 'The rete is back at 0°.', { check: { kind: 'angleNear', field: 'reteRotation', value: 0, tolerance: 2 } }),
-      step('orientation-result', 'Orientation complete', 'You can now distinguish the fixed coordinate plate from the moving sky and reading edge.', 'instrument', base('front'), 'Result: plate fixed; rete and rule independently movable.'),
+      step('choose-plate', 'Choose the latitude plate', 'Select Exact 51.5° for London. A plate’s horizon and coordinate curves are constructed for one latitude, so this choice controls how the rete is read.', 'setup.plate', plateSnapshot(51.5), 'The exact 51.5° plate matches London.'),
+      step('compare-mismatch', 'See what a nearby plate changes', 'Now compare the 50° plate. Its star map is unchanged, but its local horizon, altitude, and azimuth curves are 1.5° away from London’s latitude.', 'setup.plate-mismatch', plateSnapshot(50), 'The mismatch warning quantifies the 1.5° latitude difference.'),
+      step('restore-plate', 'Restore the exact plate', 'Return to Exact 51.5° before making observations for London.', 'setup.plate', plateSnapshot(51.5), 'The plate and observation latitude match again.'),
+      step('foundations-result', 'Foundations complete', 'You can distinguish the fixed local-coordinate plate from the independently moving rete and rule, and choose a plate appropriate to the observer’s latitude.', 'instrument', base('front'), 'Result: the instrument is configured with London’s exact latitude plate.'),
     ],
   },
   {
-    id: 'front.align-star.v1', version: 1, category: 'Front operations',
-    title: 'Locate a star at a given date and time',
-    summary: 'Set the sky from the calendar and time scales, then locate Sirius and read its position.',
+    id: 'front.set-sky.v1', version: 1, category: 'Front operations',
+    title: 'Set the astrolabe for a date and time',
+    summary: 'Convert a calendar date to ecliptic longitude, set the time, and orient the rete.',
     steps: [
       step('choose-observation', 'Choose the place, date, and time', 'Use London on July 14, 2026, at 11:54 local apparent solar time. The 51.5° plate supplies London’s local horizon and altitude grid.', 'instrument', base('back'), 'The place, plate, date, and solar time for the example are known.'),
       step('find-date', 'Find the date on the calendar', 'Rotate the alidade until the straight inner edge of one arm runs from the center through July 14 on the inner calendar ring. Its daily notches restart at 5, 10, 15, and so on within each unequal-width month.', 'back.calendar', base('back', { alidadeRotation: SUN_FIXTURE.alidadeRotation }), 'The alidade’s inner edge passes through July 14 on the fixed 365-day calendar ring.', { demonstration: { field: 'alidadeRotation', from: 0, to: SUN_FIXTURE.alidadeRotation, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: SUN_FIXTURE.alidadeRotation, tolerance: 1 } }),
@@ -76,9 +101,22 @@ export const LESSONS = [
       step('find-sun-point', 'Find the same longitude on the front', `Turn to the front and find ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° on the rete’s engraved ecliptic-longitude scale. Interpolate between the half-degree marks to identify the point for July 14.`, 'front.ecliptic', base('front'), 'The date’s ecliptic-longitude point is identified on the rete.'),
       step('set-time', 'Set the rule to the time', 'Place the rule at 11:54 on the limb’s 24-hour scale. Keep the rule there: it now represents the requested local apparent solar time.', 'front.rule', base('front', { ruleRotation: SUN_FIXTURE.ruleRotation }), 'The rule marks 11:54 local apparent solar time.', { demonstration: { field: 'ruleRotation', from: 90, to: SUN_FIXTURE.ruleRotation, durationMs: 700 }, check: { kind: 'angleNear', field: 'ruleRotation', value: SUN_FIXTURE.ruleRotation, tolerance: 2 } }),
       step('set-sky', 'Set the sky', `Rotate the rete until the ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° point you identified lies under the rule. Do not move the rule. This alignment orients the whole star map for the chosen date and time.`, 'front.rete', base('front', { reteRotation: 0, ruleRotation: SUN_FIXTURE.ruleRotation }), 'The date’s ecliptic-longitude point and time rule are aligned, so the sky is set.', { demonstration: { field: 'reteRotation', from: 0, to: SUN_FIXTURE.reteRotation, durationMs: 800 }, check: { kind: 'angleNear', field: 'reteRotation', value: SUN_FIXTURE.reteRotation, tolerance: 2 } }),
-      step('find-sirius', 'Locate Sirius', 'Find Sirius on the rete. Because the entire rete is now set, the star shows where Sirius lies in London’s sky at the chosen date and time.', 'front.star.sirius', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), 'Sirius is located on the set star map.'),
+      step('setting-result', 'Date and time set', 'The rule fixes the requested time and the date’s ecliptic-longitude point lies beneath it. Every star on the rete now represents its position for this place, date, and time.', 'instrument', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), 'Result: the sky is set for London on July 14, 2026, at 11:54 local apparent solar time.'),
+    ],
+  },
+  {
+    id: 'front.read-star.v1', version: 1, category: 'Front operations',
+    title: 'Read a star and follow its daily path',
+    summary: 'Read Sirius from a known date-and-time setting, then follow it from rising to setting.',
+    steps: [
+      step('start-setting', 'Begin with a known setting', 'Use the London, July 14, 11:54 setting established in the preceding lesson: the rule marks the time and the date’s ecliptic-longitude point lies beneath it.', 'instrument', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), 'The whole rete represents London’s sky at the chosen date and time.'),
+      step('find-sirius', 'Locate Sirius', 'Find Sirius on the rete. It is a star marker carried by the rotating map, not a separate pointer or control.', 'front.star.sirius', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), 'Sirius is identified on the set star map.'),
       step('read-position', 'Read Sirius on the plate', 'Read the fixed altitude and azimuth curves beneath Sirius. It lies just above the southern meridian.', 'front.altitude-grid', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), `Sirius is approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}° above the horizon at azimuth ${SIRIUS_FIXTURE.azimuth.toFixed(1)}°.`),
-      step('sirius-result', 'Interpret the result', 'Sirius is above the horizon and slightly west of due south. The date and time set the entire sky; Sirius was read from that setting rather than aligned independently.', 'instrument', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), `Sirius is located at approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}° altitude and ${SIRIUS_FIXTURE.azimuth.toFixed(1)}° azimuth.`),
+      step('interpret-position', 'Interpret the position', 'Altitude measures height above the horizon. Azimuth measures direction clockwise from north, so a value just over 180° places Sirius slightly west of due south.', 'instrument', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), `At this setting, Sirius is above the horizon at altitude ${SIRIUS_FIXTURE.altitude.toFixed(1)}° and azimuth ${SIRIUS_FIXTURE.azimuth.toFixed(1)}°.`),
+      step('follow-rising', 'Follow Sirius to rising', 'Move the time rule earlier while keeping July 14’s ecliptic-longitude point beneath it, turning the rete with the rule until Sirius reaches the eastern horizon.', 'front.star.sirius', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.rising.ruleRotation }), `Sirius rises near azimuth ${SIRIUS_PATH_FIXTURE.rising.azimuth.toFixed(1)}° east of north.`, { demonstration: { field: 'reteRotation', from: SUN_FIXTURE.reteRotation, to: SIRIUS_PATH_FIXTURE.rising.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SIRIUS_PATH_FIXTURE.rising.reteRotation, tolerance: 2 } }),
+      step('follow-culmination', 'Follow Sirius to culmination', 'Continue turning the rule and rete together, always keeping the date point beneath the rule. Sirius culminates when it crosses the meridian and reaches its greatest altitude.', 'front.star.sirius', base('front', { reteRotation: SIRIUS_PATH_FIXTURE.rising.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.culmination.ruleRotation }), `At culmination, Sirius is due south at altitude ${SIRIUS_PATH_FIXTURE.culmination.altitude.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SIRIUS_PATH_FIXTURE.rising.reteRotation, to: SIRIUS_PATH_FIXTURE.culmination.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SIRIUS_PATH_FIXTURE.culmination.reteRotation, tolerance: 2 } }),
+      step('follow-setting', 'Follow Sirius to setting', 'Continue the same coupled motion until Sirius reaches the western horizon. The rule’s position on the limb gives the corresponding local apparent solar time.', 'front.star.sirius', base('front', { reteRotation: SIRIUS_PATH_FIXTURE.culmination.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.setting.ruleRotation }), `Sirius sets near azimuth ${SIRIUS_PATH_FIXTURE.setting.azimuth.toFixed(1)}° west of north.`, { demonstration: { field: 'reteRotation', from: SIRIUS_PATH_FIXTURE.culmination.reteRotation, to: SIRIUS_PATH_FIXTURE.setting.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SIRIUS_PATH_FIXTURE.setting.reteRotation, tolerance: 2 } }),
+      step('path-result', 'Daily path complete', 'A star’s marker stays fixed on the rete. Turning the rete through time carries it across the plate’s eastern horizon, meridian, and western horizon.', 'instrument', base('front', { reteRotation: SIRIUS_PATH_FIXTURE.setting.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.setting.ruleRotation }), 'Result: Sirius has been followed from rising through culmination to setting.'),
     ],
   },
   {
@@ -100,19 +138,11 @@ export const LESSONS = [
 ] as const satisfies readonly Lesson[];
 
 export const FUTURE_TOPICS: readonly FutureTopic[] = [
-  { category: 'Setup and construction', title: 'Choose a plate and understand latitude mismatch', prerequisite: 'Planned: compare your latitude with the available plates and estimate the effect on a reading.' },
-  { category: 'Setup and construction', title: 'Compare two latitude plates', prerequisite: 'Planned: make the same reading on two plates and compare the difference.' },
-  { category: 'Setup and construction', title: 'Southern-hemisphere construction', prerequisite: 'Unavailable with the current northern-hemisphere plates.' },
-  { category: 'Front astronomy', title: 'Find date and time from a known star', prerequisite: 'Planned: enter a measured star position and work backwards to a date and time.' },
-  { category: 'Front astronomy', title: 'Determine sunrise and sunset', prerequisite: 'Planned: choose a date and follow the Sun to the horizon.' },
-  { category: 'Front astronomy', title: 'Read front unequal hours', prerequisite: 'Planned: use the Sun’s ecliptic position with the unequal-hour curves below the horizon.' },
-  { category: 'Front astronomy', title: 'Find the Sun’s ecliptic longitude for any date', prerequisite: 'Planned: choose a date and transfer it from the calendar scale to degrees of ecliptic longitude.' },
-  { category: 'Front astronomy', title: 'Predict when a star rises and sets', prerequisite: 'Planned: follow a chosen star to the eastern and western horizon.' },
-  { category: 'Back calculations', title: 'Convert a calendar date to ecliptic longitude', prerequisite: 'Planned: follow a chosen date to its degree on the adjacent ecliptic-longitude scale.' },
-  { category: 'Back calculations', title: 'Use the equation-of-time loop', prerequisite: 'Planned: choose a date and read the difference between apparent and mean solar time.' },
-  { category: 'Back calculations', title: 'Measure height with the shadow square', prerequisite: 'Planned: enter a known distance and turn the observed shadow ratio into a height.' },
-  { category: 'Assessment and tools', title: 'Place your own measurement markers', prerequisite: 'Planned: mark positions on the instrument and return to them while practising.' },
-  { category: 'Assessment and tools', title: 'Check your understanding', prerequisite: 'Planned: answer guided questions and revisit the steps that need more practice.' },
+  { category: 'Solar operations', title: 'Determine sunrise, noon, and sunset', prerequisite: 'Planned: choose a date and follow the Sun from the eastern horizon through culmination to the western horizon.' },
+  { category: 'Solar operations', title: 'Read unequal hours on the front', prerequisite: 'Planned: use the Sun’s ecliptic-longitude point with the unequal-hour curves below the horizon.' },
+  { category: 'Back operations', title: 'Measure altitude with the alidade', prerequisite: 'Planned: sight an object along the alidade and read its altitude from the limb.' },
+  { category: 'Back operations', title: 'Use the equation-of-time loop', prerequisite: 'Planned: choose a date and read the difference between apparent and mean solar time.' },
+  { category: 'Back operations', title: 'Measure height with the shadow square', prerequisite: 'Planned: enter a known distance and turn the observed shadow ratio into a height.' },
 ];
 
 export function validateCatalog(lessons: readonly Lesson[] = LESSONS): string[] {

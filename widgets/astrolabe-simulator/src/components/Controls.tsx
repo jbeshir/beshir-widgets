@@ -35,7 +35,7 @@ export function Controls(): JSX.Element {
       }}><option value="">Custom</option>{CITIES.map((city) => <option key={city.name} value={city.name}>{city.name}</option>)}</select></label>
       <label>Latitude <input data-testid="lat-input" type="number" min="-90" max="90" step="0.01" value={state.location.lat} onInput={(event) => setLocation({ label: 'Custom', lat: number(event.currentTarget.value, state.location.lat), lng: state.location.lng, manual: true })} /></label>
       <label>Longitude <input data-testid="lng-input" type="number" min="-180" max="180" step="0.01" value={state.location.lng} onInput={(event) => setLocation({ label: 'Custom', lat: state.location.lat, lng: number(event.currentTarget.value, state.location.lng), manual: true })} /></label>
-      <label>Plate <select data-testid="plate-select" aria-label="Plate latitude; Exact uses the current location latitude" value={plateValue} onChange={(event) => {
+      <label data-tutorial-target="setup.plate">Plate <select data-testid="plate-select" aria-label="Plate latitude; Exact uses the current location latitude" value={plateValue} onChange={(event) => {
         selectPlate(event.currentTarget.value.startsWith('exact:') ? exactPlateLatitude : Number(event.currentTarget.value));
       }}>
         <option value={exactPlateValue}>Exact</option>

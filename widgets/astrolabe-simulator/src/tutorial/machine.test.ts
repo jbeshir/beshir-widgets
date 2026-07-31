@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { initialTutorialState, tutorialReducer } from './machine';
 
 describe('pure tutorial machine', () => {
-  const started = tutorialReducer(initialTutorialState, { type: 'START', lessonId: 'front.parts.v1' });
+  const started = tutorialReducer(initialTutorialState, { type: 'START', lessonId: 'front.foundations.v1' });
   it('starts deterministically', () => expect(started).toMatchObject({ phase: 'step', stepIndex: 0 }));
   it('advances but not beyond the final step', () => {
     const next = tutorialReducer(started, { type: 'NEXT', stepCount: 6 });
