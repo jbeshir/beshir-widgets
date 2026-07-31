@@ -1,13 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { eclipticPoint, orientRetePoint, project } from '../geometry';
 import { alidadeLineCross, backLongitudePoint } from '../backGeometry';
-import { FUTURE_TOPICS, LESSONS, SIRIUS_FIXTURE, SIRIUS_PATH_FIXTURE, SUN_FIXTURE, validateCatalog } from './catalog';
+import { equationOfTime } from '../astro';
+import { shadowSquareLayout } from '../shadowSquare';
+import { unequalHourPoint } from '../unequalHours';
+import {
+  ALTITUDE_FIXTURE, EQUATION_TIME_FIXTURE, FRONT_UNEQUAL_HOUR_FIXTURE, LESSONS,
+  SHADOW_SQUARE_FIXTURE, SIRIUS_FIXTURE, SIRIUS_PATH_FIXTURE, SOLAR_EVENT_FIXTURE,
+  SUN_FIXTURE, validateCatalog,
+} from './catalog';
 
 describe('tutorial catalog', () => {
-  it('has exactly the four enabled permanent IDs', () => {
+  it('has the complete ordered curriculum and no placeholders', () => {
     expect(LESSONS.map((lesson) => lesson.id)).toEqual([
-      'front.foundations.v1', 'front.set-sky.v1', 'front.read-star.v1', 'back.unequal-hours.v1',
+      'front.foundations.v1',
+      'front.set-sky.v1',
+      'front.read-star.v1',
+      'solar.events.v1',
+      'front.unequal-hours.v1',
+      'back.measure-altitude.v1',
+      'back.equation-time.v1',
+      'back.shadow-square.v1',
+      'back.unequal-hours.v1',
     ]);
+    expect(LESSONS.every((lesson) => !('category' in lesson))).toBe(true);
+    expect(JSON.stringify(LESSONS)).not.toMatch(/planned lesson|coming later|future operations/i);
   });
   it('keeps each foundational lesson substantial', () => {
     expect(LESSONS.slice(0, 3).map((lesson) => lesson.steps.length)).toEqual([9, 7, 8]);
@@ -50,7 +67,7 @@ describe('tutorial catalog', () => {
     expect(LESSONS[1].steps.every((step) => !step.snapshot.visibility.artificialAssists)).toBe(true);
   });
   it('does not use the confusing prepared terminology anywhere in the curriculum', () => {
-    expect(JSON.stringify({ lessons: LESSONS, future: FUTURE_TOPICS })).not.toMatch(/prepared/i);
+    expect(JSON.stringify(LESSONS)).not.toMatch(/prepared/i);
   });
   it('follows Sirius from the eastern horizon through culmination to the western horizon', () => {
     expect(SIRIUS_PATH_FIXTURE.rising.altitude).toBeCloseTo(0, 8);
@@ -66,6 +83,62 @@ describe('tutorial catalog', () => {
     const rule = event.ruleRotation * Math.PI / 180;
     expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
   });
+  it('places the Sun on the horizon at rise and set and on the meridian at noon', () => {
+    expect(SOLAR_EVENT_FIXTURE.sunrise.altitude).toBeCloseTo(0, 8);
+    expect(SOLAR_EVENT_FIXTURE.sunset.altitude).toBeCloseTo(0, 8);
+    expect(SOLAR_EVENT_FIXTURE.sunrise.azimuth).toBeLessThan(180);
+    expect(SOLAR_EVENT_FIXTURE.sunset.azimuth).toBeGreaterThan(180);
+    expect(SOLAR_EVENT_FIXTURE.noon.azimuth).toBeCloseTo(180, 8);
+    expect(SOLAR_EVENT_FIXTURE.noon.altitude).toBeGreaterThan(50);
+  });
+  it.each(Object.entries(SOLAR_EVENT_FIXTURE))('keeps the Sun date point under the event rule at %s', (_name, event) => {
+    const sun = eclipticPoint(SUN_FIXTURE.eclipticLongitude, 380);
+    const transformed = orientRetePoint(sun, event.reteRotation);
+    const rule = event.ruleRotation * Math.PI / 180;
+    expect(transformed.x * Math.cos(rule) + transformed.y * Math.sin(rule)).toBeCloseTo(0, 8);
+  });
+  it('constructs temporal hour IX three quarters through daylight', () => {
+    const daylightArc = SOLAR_EVENT_FIXTURE.sunset.reteRotation - SOLAR_EVENT_FIXTURE.sunrise.reteRotation;
+    const normalizedArc = daylightArc < 0 ? daylightArc + 360 : daylightArc;
+    const fromSunrise = FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation - SOLAR_EVENT_FIXTURE.sunrise.reteRotation;
+    const normalizedFromSunrise = fromSunrise < 0 ? fromSunrise + 360 : fromSunrise;
+    expect(FRONT_UNEQUAL_HOUR_FIXTURE.hour).toBe(9);
+    expect(normalizedFromSunrise / normalizedArc).toBeCloseTo(9 / 12, 10);
+    const antipode = orientRetePoint(
+      eclipticPoint(SUN_FIXTURE.eclipticLongitude + 180, 380),
+      FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation,
+    );
+    const hourPoint = unequalHourPoint(
+      51.5,
+      FRONT_UNEQUAL_HOUR_FIXTURE.hour,
+      FRONT_UNEQUAL_HOUR_FIXTURE.antipodalDeclination,
+      380,
+    );
+    expect(hourPoint).not.toBeNull();
+    expect(antipode.x).toBeCloseTo(hourPoint!.x, 8);
+    expect(antipode.y).toBeCloseTo(hourPoint!.y, 8);
+  });
+  it('treats the simulated altitude as an external observation', () => {
+    const lesson = LESSONS.find((item) => item.id === 'back.measure-altitude.v1');
+    expect(lesson?.steps.find((step) => step.id === 'set-alidade')?.check).toMatchObject({
+      field: 'alidadeRotation', value: ALTITUDE_FIXTURE.angle,
+    });
+    expect(lesson?.steps.map((step) => step.body).join(' ')).toMatch(/cannot reproduce that sight line/i);
+    expect(ALTITUDE_FIXTURE.angle + (90 - ALTITUDE_FIXTURE.angle)).toBe(90);
+  });
+  it('uses the rendered equation-of-time convention and dated radial', () => {
+    expect(EQUATION_TIME_FIXTURE.minutes).toBeCloseTo(equationOfTime(new Date('2026-07-14T12:00:00.000Z')), 10);
+    const datePoint = backLongitudePoint(456, SUN_FIXTURE.eclipticLongitude);
+    expect(alidadeLineCross(datePoint, EQUATION_TIME_FIXTURE.alidadeRotation)).toBeCloseTo(0, 10);
+    expect(EQUATION_TIME_FIXTURE.minutes).toBeLessThan(0);
+  });
+  it('makes the 45-degree shadow-square journey land exactly on its 1:1 corner', () => {
+    const layout = shadowSquareLayout();
+    expect(SHADOW_SQUARE_FIXTURE.intersection).toEqual({
+      x: layout.left, y: layout.bottom, edge: 'bottom',
+    });
+    expect(SHADOW_SQUARE_FIXTURE.height / SHADOW_SQUARE_FIXTURE.distance).toBe(1);
+  });
   it('aligns the lesson alidade with the dated back-scale radial', () => {
     const datePoint = backLongitudePoint(456, SUN_FIXTURE.eclipticLongitude);
     const longitudePoint = backLongitudePoint(590, SUN_FIXTURE.eclipticLongitude);
@@ -80,24 +153,12 @@ describe('tutorial catalog', () => {
     });
   });
   it('commits the unequal-hour fixture and approximation', () => {
-    const copy = LESSONS[3].steps.map((step) => `${step.body} ${step.result}`).join(' ');
+    const lesson = LESSONS.find((item) => item.id === 'back.unequal-hours.v1');
+    const copy = lesson?.steps.map((step) => `${step.body} ${step.result}`).join(' ') ?? '';
     expect(copy).toContain('70°');
     expect(copy).toContain('27.5°');
     expect(copy).toMatch(/approximate/i);
     expect(copy).toContain('hour X');
-  });
-  it('categorizes all future work and names prerequisites', () => {
-    expect(new Set(FUTURE_TOPICS.map((topic) => topic.category))).toEqual(new Set([
-      'Solar operations', 'Back operations',
-    ]));
-    expect(FUTURE_TOPICS.map((topic) => topic.title)).toEqual([
-      'Determine sunrise, noon, and sunset',
-      'Read unequal hours on the front',
-      'Measure altitude with the alidade',
-      'Use the equation-of-time loop',
-      'Measure height with the shadow square',
-    ]);
-    for (const topic of FUTURE_TOPICS) expect(topic.prerequisite).toMatch(/^Planned[: ]/);
   });
   it('gives every enabled lesson a real scripted instrument demonstration', () => {
     for (const lesson of LESSONS) {

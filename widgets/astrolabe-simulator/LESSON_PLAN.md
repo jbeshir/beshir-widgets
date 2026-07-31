@@ -50,51 +50,28 @@ value on the alidade, and teaches how to use the reading from that point on.
 
 ## Course sequence
 
-### 1. Understand and configure the astrolabe front
+The guide presents one ordered list rather than dividing operations by face.
+Many real operations move between the front and back, so a face-based taxonomy
+would be misleading.
 
-**Prerequisites:** none.
-
-This substantial lesson identifies the fixed plate, moving rete, and reading
-rule; demonstrates their independent motion; and shows why the observer's
-latitude determines the plate. It includes choosing London's exact plate,
-observing the warning from a nearby plate, and restoring the exact match.
-
-### 2. Set the astrolabe for a date and time
-
-**Prerequisite:** lesson 1.
-
-This substantial lesson carries July 14 from the back calendar to the
-ecliptic-longitude scale, finds the same longitude on the front, sets the rule
-to local apparent solar time, and turns the rete until the date point lies
-beneath the rule. The result is a complete sky setting rather than an
-unexplained rotation angle.
-
-### 3. Read a star and follow its daily path
-
-**Prerequisites:** lessons 1 and 2.
-
-This substantial lesson locates Sirius on the rete, reads its altitude and
-azimuth from the fixed plate, and then keeps the date point beneath the moving
-rule while following Sirius to the eastern horizon, culmination, and western
-horizon.
-
-### 4. Solar operations
-
-Keep these as separate future lessons:
-
-- determine sunrise, noon, and sunset;
-- read unequal hours on the front.
-
-### 5. Back operations
-
-Keep these as separate lessons:
-
-- measure altitude with the alidade;
-- use the equation-of-time loop;
-- measure height with the shadow square;
-- read a temporal hour on the double horary quadrant (implemented).
-
-There is no section 6 in the current course plan.
+1. **Understand and configure the astrolabe front.** Identify the fixed plate,
+   moving rete, and rule; compare a nearby plate with London's exact plate.
+2. **Set the astrolabe for a date and time.** Carry July 14 from the back
+   calendar to ecliptic longitude, set the rule, and orient the rete.
+3. **Read a star and follow its daily path.** Read Sirius and follow it through
+   rising, culmination, and setting.
+4. **Find sunrise, noon, and sunset.** Carry the Sun's engraved date point
+   across the eastern horizon, meridian, and western horizon.
+5. **Read a daylight temporal hour.** Use the point opposite the Sun and the
+   lower unequal-hour curves.
+6. **Transfer a measured altitude to the alidade.** Explain the external
+   physical sighting and set its supplied angle on the simulated back.
+7. **Convert apparent solar time to mean solar time.** Read and apply the
+   equation-of-time loop with its engraved sign convention.
+8. **Measure a height with the shadow square.** Use an external angle and known
+   distance to read a proportional height.
+9. **Read a temporal hour on the double horary quadrant.** Transfer the
+   curve-VI distance between noon and observed-altitude settings.
 
 ## Assessment and test requirements
 

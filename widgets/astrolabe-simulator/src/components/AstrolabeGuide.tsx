@@ -5,7 +5,7 @@ import {
   type AstrolabeState,
 } from '../store';
 import { animateAngle } from '../tutorial/animation';
-import { LESSONS, FUTURE_TOPICS } from '../tutorial/catalog';
+import { LESSONS } from '../tutorial/catalog';
 import { evaluateCheckpoint } from '../tutorial/checkpoints';
 import { composeTutorialSearch, parseTutorialSearch } from '../tutorial/url';
 import type { Lesson, Snapshot } from '../tutorial/types';
@@ -136,26 +136,17 @@ export function AstrolabeGuide(): JSX.Element {
       {tab === 'learn' ? <section id="learn-panel" role="tabpanel" aria-labelledby="learn-tab">
         <h2>Astrolabe Guide</h2>
         <p className="guide-intro">Choose a guided lesson to learn the instrument step by step.</p>
-        {[...new Set(LESSONS.map((item) => item.category))].map((category) => <section className="lesson-category" key={category}>
-          <h3>{category}</h3>
-          {LESSONS.filter((item) => item.category === category).map((item) => <article className="lesson-card" key={item.id}>
-            <h4>{item.title}</h4><p>{item.summary}</p>
-            <p className="lesson-meta">{item.steps.length} steps · {item.id.startsWith('back') ? 'Back' : 'Front'}</p>
+        <div className="lesson-list" aria-label="Lessons in course order">
+          {LESSONS.map((item, index) => <article className="lesson-card" key={item.id}>
+            <h3>{index + 1}. {item.title}</h3><p>{item.summary}</p>
+            <p className="lesson-meta">{item.steps.length} steps</p>
             <button data-testid={`start-${item.id}`} onClick={(event) => start(item, event.currentTarget)}>Start lesson</button>
           </article>)}
-        </section>)}
-        <h2>Future operations</h2>
-        {[...new Set(FUTURE_TOPICS.map((item) => item.category))].map((category) => <section className="lesson-category future-category" key={category}>
-          <h3>{category}</h3>
-          {FUTURE_TOPICS.filter((item) => item.category === category).map((item) => <article className="lesson-card future-card" key={item.title}>
-            <h4>{item.title}</h4><p>{item.prerequisite}</p>
-            <button disabled aria-disabled="true" title={item.prerequisite}>Planned lesson</button>
-          </article>)}
-        </section>)}
+        </div>
       </section> : <Reference simulator={simulator} />}
     </> : <section className="lesson-player" aria-labelledby="lesson-step-heading">
       <button className="text-button" onClick={() => exit(false)}>All lessons</button>
-      <p className="lesson-breadcrumb">{lesson.category} · {lesson.title}</p>
+      <p className="lesson-breadcrumb">{lesson.title}</p>
       {!complete && step && <>
         <p className="lesson-progress">Step {stepIndex + 1} of {lesson.steps.length}</p>
         <h2 id="lesson-step-heading">{step.title}</h2>

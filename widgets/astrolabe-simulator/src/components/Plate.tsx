@@ -84,7 +84,7 @@ export function Plate({ latitude, visibility }: PlateProps): JSX.Element {
         {visibility.azimuths && <g clip-path="url(#above-horizon-clip)">
           {azimuthDegrees.map((degrees) => <GeometryMark key={degrees} geometry={azimuth(latitude, 90 - degrees, ASTROLABE_R)} className="astro-azimuth" extent={rim} />)}
         </g>}
-        {visibility.unequalHours && <g>
+        {visibility.unequalHours && <g data-tutorial-target="front.unequal-hours">
           {UNEQUAL_HOUR_LINES.map((hour) =>
             <path key={hour} className="astro-unequal-hour" d={unequalHourPath(latitude, hour, ASTROLABE_R)} />,
           )}

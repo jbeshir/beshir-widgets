@@ -119,7 +119,7 @@ export function Back(): JSX.Element {
       <line className="astro-back-axis" x1="-392" y1="0" x2="392" y2="0" />
       <line className="astro-back-axis" x1="0" y1="-392" x2="0" y2="392" />
 
-      {visibility.shadowSquare && <g aria-label="Shadow square divided into twelve parts">
+      {visibility.shadowSquare && <g aria-label="Shadow square divided into twelve parts" data-tutorial-target="back.shadow-square">
         <rect data-testid="shadow-square" className="astro-shadow-square" x={shadow.left} y={shadow.top} width={shadow.right - shadow.left} height={shadow.bottom - shadow.top} />
         {shadow.verticals.map((x, part) => <line key={`shadow-v-${part}`} className="astro-shadow-grid" x1={x} y1={shadow.top} x2={x} y2={shadow.bottom} />)}
         {shadow.horizontals.map((y, part) => <line key={`shadow-h-${part}`} className="astro-shadow-grid" x1={shadow.left} y1={y} x2={shadow.right} y2={y} />)}
@@ -163,7 +163,7 @@ export function Back(): JSX.Element {
         ))}
       </g>}
 
-      {visibility.equationOfTime && <g aria-label="Equation-of-time curve">
+      {visibility.equationOfTime && <g aria-label="Equation-of-time curve" data-tutorial-target="back.equation-time">
         <path className="astro-equation-curve" d={equationPath} />
         <text className="astro-equation-label" x={equationLabel.x} y={equationLabel.y} text-anchor="middle"
           aria-label="Equation of time">EOT</text>
