@@ -2,7 +2,7 @@ import type { AstrolabeState } from '../store';
 import { equationOfTime, equatorialToHorizontal, localSiderealTime, normalizeDeg, solarLongitude } from '../astro';
 import { eclipticPoint, OBLIQUITY_DEG, orientRetePoint } from '../geometry';
 import { alidadeRotationForLongitude } from '../backGeometry';
-import { shadowSquareIntersection } from '../shadowSquare';
+import { shadowSquareIntersection, shadowSquareLayout } from '../shadowSquare';
 import { STARS } from '../data/stars';
 import type { Lesson, LessonStep, Snapshot } from './types';
 
@@ -13,6 +13,13 @@ if (!sirius) throw new Error('Sirius is required by the known-star tutorial');
 const siriusSidereal = localSiderealTime(new Date(epochIso), lessonLocation.lng);
 const sunLongitude = solarLongitude(new Date(epochIso));
 const sunPoint = eclipticPoint(sunLongitude, 380);
+const sunLongitudeRad = sunLongitude * Math.PI / 180;
+const obliquityRad = OBLIQUITY_DEG * Math.PI / 180;
+const sunRightAscension = normalizeDeg(Math.atan2(
+  Math.sin(sunLongitudeRad) * Math.cos(obliquityRad),
+  Math.cos(sunLongitudeRad),
+) * 180 / Math.PI);
+const sunDeclination = Math.asin(Math.sin(obliquityRad) * Math.sin(sunLongitudeRad)) * 180 / Math.PI;
 const rotatedSun = orientRetePoint(sunPoint, siriusSidereal);
 export const SUN_FIXTURE = {
   eclipticLongitude: sunLongitude,
@@ -40,6 +47,14 @@ const ruleRotationForSidereal = (reteRotation: number) => {
   const point = orientRetePoint(sunPoint, reteRotation);
   return normalizeDeg(Math.atan2(-point.x, point.y) * 180 / Math.PI);
 };
+const signedHourAngle = (degrees: number) => ((degrees + 540) % 360) - 180;
+const apparentSolarHours = (reteRotation: number) => (
+  (12 + signedHourAngle(reteRotation - sunRightAscension) / 15 + 24) % 24
+);
+const formatTime = (hours: number) => {
+  const totalMinutes = Math.round(hours * 60) % (24 * 60);
+  return `${Math.floor(totalMinutes / 60).toString().padStart(2, '0')}:${(totalMinutes % 60).toString().padStart(2, '0')}`;
+};
 const pathEvent = (reteRotation: number) => {
   const observation = equatorialToHorizontal(sirius.raDeg, sirius.decDeg, lessonLocation.lat, reteRotation);
   return {
@@ -47,6 +62,7 @@ const pathEvent = (reteRotation: number) => {
     ruleRotation: ruleRotationForSidereal(reteRotation),
     altitude: observation.altitude,
     azimuth: observation.azimuth,
+    time: formatTime(apparentSolarHours(reteRotation)),
   };
 };
 export const SIRIUS_PATH_FIXTURE = {
@@ -54,13 +70,6 @@ export const SIRIUS_PATH_FIXTURE = {
   culmination: pathEvent(sirius.raDeg),
   setting: pathEvent(sirius.raDeg + horizonHourAngle),
 } as const;
-const sunLongitudeRad = sunLongitude * Math.PI / 180;
-const obliquityRad = OBLIQUITY_DEG * Math.PI / 180;
-const sunRightAscension = normalizeDeg(Math.atan2(
-  Math.sin(sunLongitudeRad) * Math.cos(obliquityRad),
-  Math.cos(sunLongitudeRad),
-) * 180 / Math.PI);
-const sunDeclination = Math.asin(Math.sin(obliquityRad) * Math.sin(sunLongitudeRad)) * 180 / Math.PI;
 const sunHorizonHourAngle = Math.acos(
   -Math.tan(latitudeRad) * Math.tan(sunDeclination * Math.PI / 180),
 ) * 180 / Math.PI;
@@ -74,6 +83,7 @@ const solarEvent = (hourAngle: number) => {
     ruleRotation: ruleRotationForSidereal(reteRotation),
     altitude: observation.altitude,
     azimuth: observation.azimuth,
+    time: formatTime(12 + hourAngle / 15),
   };
 };
 export const SOLAR_EVENT_FIXTURE = {
@@ -93,12 +103,36 @@ export const EQUATION_TIME_FIXTURE = {
 } as const;
 const shadowIntersection = shadowSquareIntersection(45);
 if (!shadowIntersection) throw new Error('The 45-degree shadow-square fixture must intersect the square');
+const shadowStep = shadowSquareLayout().step;
+const versaIntersection = shadowSquareIntersection(30);
+const rectaIntersection = shadowSquareIntersection(60);
+if (!versaIntersection || !rectaIntersection) throw new Error('Shadow-square teaching fixtures must intersect the square');
 export const SHADOW_SQUARE_FIXTURE = {
-  angle: 45,
   distance: 12,
-  height: 12,
-  intersection: shadowIntersection,
+  corner: { angle: 45, height: 12, intersection: shadowIntersection },
+  versa: {
+    angle: 30,
+    reading: versaIntersection.y / shadowStep,
+    height: 12 * (versaIntersection.y / shadowStep) / 12,
+    intersection: versaIntersection,
+  },
+  recta: {
+    angle: 60,
+    reading: Math.abs(rectaIntersection.x) / shadowStep,
+    height: 12 * 12 / (Math.abs(rectaIntersection.x) / shadowStep),
+    intersection: rectaIntersection,
+  },
 } as const;
+const sunCoordinates = { raDeg: sunRightAscension, decDeg: sunDeclination } as const;
+const geometryCheck = (
+  body: { raDeg: number; decDeg: number },
+  event: { altitude: number; azimuth: number },
+): LessonStep['check'] => ({
+  kind: 'frontGeometry',
+  body,
+  position: { altitude: event.altitude, azimuth: event.azimuth, tolerance: 1 },
+  rulePoint: { ...sunCoordinates, tolerance: 1 },
+});
 const visibility: AstrolabeState['visibility'] = {
   almucantars: true, azimuths: true, unequalHours: true, ecliptic: true, artificialAssists: false, stars: true,
   rule: true, tropics: true, calendar: true, zodiacScale: true, shadowSquare: true,
@@ -146,7 +180,7 @@ export const LESSONS = [
       step('read-sun-longitude', 'Read the Sun’s ecliptic longitude', `Keep the alidade fixed on July 14. Continue along its inner edge across the zodiac-sign band to the degree scale on the band’s outer side, where the edge meets about ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}°. This is the Sun’s ecliptic longitude: its position around the ecliptic measured from 0° to 360°.`, 'back.ecliptic-longitude', base('back', { alidadeRotation: SUN_FIXTURE.alidadeRotation }), `The alidade’s inner edge carries July 14 across the zodiac band to an ecliptic longitude of about ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}°.`),
       step('find-sun-point', 'Find the same longitude on the front', `Turn to the front and find ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° on the rete’s engraved ecliptic-longitude scale. Interpolate between the half-degree marks to identify the point for July 14.`, 'front.ecliptic', base('front'), 'The date’s ecliptic-longitude point is identified on the rete.'),
       step('set-time', 'Set the rule to the time', 'Place the rule at 11:54 on the limb’s 24-hour scale. Keep the rule there: it now represents the requested local apparent solar time.', 'front.rule', base('front', { ruleRotation: SUN_FIXTURE.ruleRotation }), 'The rule marks 11:54 local apparent solar time.', { demonstration: { field: 'ruleRotation', from: 90, to: SUN_FIXTURE.ruleRotation, durationMs: 700 }, check: { kind: 'angleNear', field: 'ruleRotation', value: SUN_FIXTURE.ruleRotation, tolerance: 2 } }),
-      step('set-sky', 'Set the sky', `Rotate the rete until the ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° point you identified lies under the rule. Do not move the rule. This alignment orients the whole star map for the chosen date and time.`, 'front.rete', base('front', { reteRotation: 0, ruleRotation: SUN_FIXTURE.ruleRotation }), 'The date’s ecliptic-longitude point and time rule are aligned, so the sky is set.', { demonstration: { field: 'reteRotation', from: 0, to: SUN_FIXTURE.reteRotation, durationMs: 800 }, check: { kind: 'angleNear', field: 'reteRotation', value: SUN_FIXTURE.reteRotation, tolerance: 2 } }),
+      step('set-sky', 'Set the sky', `Rotate the rete until the ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° point you identified lies under the rule. Do not move the rule. This alignment orients the whole star map for the chosen date and time.`, 'front.rete', base('front', { reteRotation: 0, ruleRotation: SUN_FIXTURE.ruleRotation }), 'The date’s ecliptic-longitude point and time rule are aligned, so the sky is set.', { demonstration: { field: 'reteRotation', from: 0, to: SUN_FIXTURE.reteRotation, durationMs: 800 }, check: { kind: 'frontGeometry', body: sunCoordinates, rulePoint: { ...sunCoordinates, tolerance: 1 } } }),
       step('setting-result', 'Date and time set', 'The rule fixes the requested time and the date’s ecliptic-longitude point lies beneath it. Every star on the rete now represents its position for this place, date, and time.', 'instrument', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), 'Result: the sky is set for London on July 14, 2026, at 11:54 local apparent solar time.'),
     ],
   },
@@ -159,9 +193,9 @@ export const LESSONS = [
       step('find-sirius', 'Locate Sirius', 'Find Sirius on the rete. It is a star marker carried by the rotating map, not a separate pointer or control.', 'front.star.sirius', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), 'Sirius is identified on the set star map.'),
       step('read-position', 'Read Sirius on the plate', 'Read the fixed altitude and azimuth curves beneath Sirius. It lies just above the southern meridian.', 'front.altitude-grid', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), `Sirius is approximately ${SIRIUS_FIXTURE.altitude.toFixed(1)}° above the horizon at azimuth ${SIRIUS_FIXTURE.azimuth.toFixed(1)}°.`),
       step('interpret-position', 'Interpret the position', 'Altitude measures height above the horizon. Azimuth measures direction clockwise from north, so a value just over 180° places Sirius slightly west of due south.', 'instrument', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), `At this setting, Sirius is above the horizon at altitude ${SIRIUS_FIXTURE.altitude.toFixed(1)}° and azimuth ${SIRIUS_FIXTURE.azimuth.toFixed(1)}°.`),
-      step('follow-rising', 'Follow Sirius to rising', 'Move the time rule earlier while keeping July 14’s ecliptic-longitude point beneath it, turning the rete with the rule until Sirius reaches the eastern horizon.', 'front.star.sirius', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.rising.ruleRotation }), `Sirius rises near azimuth ${SIRIUS_PATH_FIXTURE.rising.azimuth.toFixed(1)}° east of north.`, { demonstration: { field: 'reteRotation', from: SUN_FIXTURE.reteRotation, to: SIRIUS_PATH_FIXTURE.rising.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SIRIUS_PATH_FIXTURE.rising.reteRotation, tolerance: 2 } }),
-      step('follow-culmination', 'Follow Sirius to culmination', 'Continue turning the rule and rete together, always keeping the date point beneath the rule. Sirius culminates when it crosses the meridian and reaches its greatest altitude.', 'front.star.sirius', base('front', { reteRotation: SIRIUS_PATH_FIXTURE.rising.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.culmination.ruleRotation }), `At culmination, Sirius is due south at altitude ${SIRIUS_PATH_FIXTURE.culmination.altitude.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SIRIUS_PATH_FIXTURE.rising.reteRotation, to: SIRIUS_PATH_FIXTURE.culmination.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SIRIUS_PATH_FIXTURE.culmination.reteRotation, tolerance: 2 } }),
-      step('follow-setting', 'Follow Sirius to setting', 'Continue the same coupled motion until Sirius reaches the western horizon. The rule’s position on the limb gives the corresponding local apparent solar time.', 'front.star.sirius', base('front', { reteRotation: SIRIUS_PATH_FIXTURE.culmination.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.setting.ruleRotation }), `Sirius sets near azimuth ${SIRIUS_PATH_FIXTURE.setting.azimuth.toFixed(1)}° west of north.`, { demonstration: { field: 'reteRotation', from: SIRIUS_PATH_FIXTURE.culmination.reteRotation, to: SIRIUS_PATH_FIXTURE.setting.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SIRIUS_PATH_FIXTURE.setting.reteRotation, tolerance: 2 } }),
+      step('follow-rising', 'Follow Sirius to rising', 'Move the time rule earlier while keeping July 14’s ecliptic-longitude point beneath it, turning the rete with the rule until Sirius reaches the eastern horizon.', 'front.star.sirius', base('front', { reteRotation: SUN_FIXTURE.reteRotation, ruleRotation: SUN_FIXTURE.ruleRotation }), `Sirius rises at about ${SIRIUS_PATH_FIXTURE.rising.time} local apparent solar time, near azimuth ${SIRIUS_PATH_FIXTURE.rising.azimuth.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SUN_FIXTURE.reteRotation, to: SIRIUS_PATH_FIXTURE.rising.reteRotation, durationMs: 900, companion: { field: 'ruleRotation', from: SUN_FIXTURE.ruleRotation, to: SIRIUS_PATH_FIXTURE.rising.ruleRotation } }, check: geometryCheck(sirius, SIRIUS_PATH_FIXTURE.rising) }),
+      step('follow-culmination', 'Follow Sirius to culmination', 'Continue turning the rule and rete together, always keeping the date point beneath the rule. Sirius culminates when it crosses the meridian and reaches its greatest altitude.', 'front.star.sirius', base('front', { reteRotation: SIRIUS_PATH_FIXTURE.rising.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.rising.ruleRotation }), `At ${SIRIUS_PATH_FIXTURE.culmination.time} local apparent solar time, Sirius culminates due south at altitude ${SIRIUS_PATH_FIXTURE.culmination.altitude.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SIRIUS_PATH_FIXTURE.rising.reteRotation, to: SIRIUS_PATH_FIXTURE.culmination.reteRotation, durationMs: 900, companion: { field: 'ruleRotation', from: SIRIUS_PATH_FIXTURE.rising.ruleRotation, to: SIRIUS_PATH_FIXTURE.culmination.ruleRotation } }, check: geometryCheck(sirius, SIRIUS_PATH_FIXTURE.culmination) }),
+      step('follow-setting', 'Follow Sirius to setting', 'Continue the same coupled motion until Sirius reaches the western horizon. The rule’s position on the limb gives the corresponding local apparent solar time.', 'front.star.sirius', base('front', { reteRotation: SIRIUS_PATH_FIXTURE.culmination.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.culmination.ruleRotation }), `Sirius sets at about ${SIRIUS_PATH_FIXTURE.setting.time} local apparent solar time, near azimuth ${SIRIUS_PATH_FIXTURE.setting.azimuth.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SIRIUS_PATH_FIXTURE.culmination.reteRotation, to: SIRIUS_PATH_FIXTURE.setting.reteRotation, durationMs: 900, companion: { field: 'ruleRotation', from: SIRIUS_PATH_FIXTURE.culmination.ruleRotation, to: SIRIUS_PATH_FIXTURE.setting.ruleRotation } }, check: geometryCheck(sirius, SIRIUS_PATH_FIXTURE.setting) }),
       step('path-result', 'Daily path complete', 'A star’s marker stays fixed on the rete. Turning the rete through time carries it across the plate’s eastern horizon, meridian, and western horizon.', 'instrument', base('front', { reteRotation: SIRIUS_PATH_FIXTURE.setting.reteRotation, ruleRotation: SIRIUS_PATH_FIXTURE.setting.ruleRotation }), 'Result: Sirius has been followed from rising through culmination to setting.'),
     ],
   },
@@ -172,10 +206,10 @@ export const LESSONS = [
     steps: [
       step('choose-date', 'Choose the date and place', 'Use London on July 14. From the earlier date-setting lesson, July 14 corresponds to the marked ecliptic longitude on the rete.', 'instrument', base('front'), `The Sun’s date point is ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° ecliptic longitude on London’s 51.5° plate.`),
       step('identify-sun-point', 'Identify the Sun’s date point', 'Use the ecliptic-longitude scale to identify July 14’s point. This engraved point represents the Sun for every event in this lesson; no added Sun marker is needed.', 'front.ecliptic', base('front'), 'The same ecliptic point will be carried across the local horizon and meridian.'),
-      step('find-sunrise', 'Move the Sun to the eastern horizon', 'Turn the rete until the date point meets the eastern side of the horizon. Then place the rule through that point and read the corresponding time on the limb.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.noon.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunrise.ruleRotation }), `At sunrise the point is on the horizon at azimuth ${SOLAR_EVENT_FIXTURE.sunrise.azimuth.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.noon.reteRotation, to: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, tolerance: 2 } }),
-      step('find-noon', 'Move the Sun to the meridian', 'Turn the rete until the date point crosses the southern meridian. Move the rule to remain over the point; the limb now reads local apparent noon.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.noon.ruleRotation }), `At noon the Sun culminates due south at altitude ${SOLAR_EVENT_FIXTURE.noon.altitude.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, to: SOLAR_EVENT_FIXTURE.noon.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SOLAR_EVENT_FIXTURE.noon.reteRotation, tolerance: 2 } }),
-      step('find-sunset', 'Move the Sun to the western horizon', 'Continue turning the rete until the date point meets the western side of the horizon, again moving the rule through the point to read the time.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.noon.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunset.ruleRotation }), `At sunset the point is on the horizon at azimuth ${SOLAR_EVENT_FIXTURE.sunset.azimuth.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.noon.reteRotation, to: SOLAR_EVENT_FIXTURE.sunset.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: SOLAR_EVENT_FIXTURE.sunset.reteRotation, tolerance: 2 } }),
-      step('interpret-day', 'Interpret the three readings', 'The two horizon crossings give sunrise and sunset; the meridian crossing gives local apparent noon and the Sun’s greatest altitude. The intervals on the limb give morning length, afternoon length, and total daylight.', 'instrument', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunset.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunset.ruleRotation }), 'Result: the Sun has been followed from sunrise through noon to sunset without an artificial marker.'),
+      step('find-sunrise', 'Move the Sun to the eastern horizon', 'Turn the rete until the date point meets the eastern side of the horizon. Move the rule with it so the date point remains beneath the rule, then read the time on the limb.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.noon.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.noon.ruleRotation }), `Sunrise is about ${SOLAR_EVENT_FIXTURE.sunrise.time} local apparent solar time, at azimuth ${SOLAR_EVENT_FIXTURE.sunrise.azimuth.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.noon.reteRotation, to: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, durationMs: 900, companion: { field: 'ruleRotation', from: SOLAR_EVENT_FIXTURE.noon.ruleRotation, to: SOLAR_EVENT_FIXTURE.sunrise.ruleRotation } }, check: geometryCheck(sunCoordinates, SOLAR_EVENT_FIXTURE.sunrise) }),
+      step('find-noon', 'Move the Sun to the meridian', 'Turn the rete until the date point crosses the southern meridian. Move the rule with it so the date point remains beneath the reading edge.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunrise.ruleRotation }), `At ${SOLAR_EVENT_FIXTURE.noon.time} local apparent solar time, the Sun culminates due south at altitude ${SOLAR_EVENT_FIXTURE.noon.altitude.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, to: SOLAR_EVENT_FIXTURE.noon.reteRotation, durationMs: 900, companion: { field: 'ruleRotation', from: SOLAR_EVENT_FIXTURE.sunrise.ruleRotation, to: SOLAR_EVENT_FIXTURE.noon.ruleRotation } }, check: geometryCheck(sunCoordinates, SOLAR_EVENT_FIXTURE.noon) }),
+      step('find-sunset', 'Move the Sun to the western horizon', 'Continue turning the rete until the date point meets the western horizon, moving the rule with it to retain the date-point alignment.', 'front.ecliptic', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.noon.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.noon.ruleRotation }), `Sunset is about ${SOLAR_EVENT_FIXTURE.sunset.time} local apparent solar time, at azimuth ${SOLAR_EVENT_FIXTURE.sunset.azimuth.toFixed(1)}°.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.noon.reteRotation, to: SOLAR_EVENT_FIXTURE.sunset.reteRotation, durationMs: 900, companion: { field: 'ruleRotation', from: SOLAR_EVENT_FIXTURE.noon.ruleRotation, to: SOLAR_EVENT_FIXTURE.sunset.ruleRotation } }, check: geometryCheck(sunCoordinates, SOLAR_EVENT_FIXTURE.sunset) }),
+      step('interpret-day', 'Interpret the three readings', `The horizon crossings give sunrise at ${SOLAR_EVENT_FIXTURE.sunrise.time} and sunset at ${SOLAR_EVENT_FIXTURE.sunset.time}; the meridian crossing gives 12:00 local apparent noon. Their difference gives the daylight duration.`, 'instrument', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunset.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunset.ruleRotation }), `Result: sunrise ${SOLAR_EVENT_FIXTURE.sunrise.time}, noon 12:00, and sunset ${SOLAR_EVENT_FIXTURE.sunset.time} local apparent solar time.`),
     ],
   },
   {
@@ -185,9 +219,9 @@ export const LESSONS = [
     steps: [
       step('recall-temporal-hours', 'Understand temporal hours', 'Temporal hours divide the daylight interval from sunrise to sunset into twelve equal parts. Their clock duration therefore changes with the season.', 'instrument', base('front'), 'The sixth temporal hour is local apparent noon; the ninth is three quarters of the way from sunrise to sunset.'),
       step('set-date-point', 'Set the Sun’s date point', `Use July 14’s ${SUN_FIXTURE.eclipticLongitude.toFixed(1)}° ecliptic-longitude point, as in the preceding solar-events lesson.`, 'front.ecliptic', base('front'), 'The Sun’s seasonal declination is fixed by its date point.'),
-      step('use-opposite-point', 'Use the point opposite the Sun', 'During daylight the Sun is above the horizon while the unequal-hour curves are engraved below it. Follow the ecliptic exactly 180° from the Sun’s point and use that antipodal point for the reading.', 'front.ecliptic', base('front'), 'The antipodal point mirrors the daytime solar path onto the lower unequal-hour scale.'),
-      step('find-hour-nine', 'Move to temporal hour IX', 'Turn the rete until the antipodal point meets curve IX. Keep the date point beneath the rule so the rule can read the corresponding local apparent solar time.', 'front.unequal-hours', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, ruleRotation: FRONT_UNEQUAL_HOUR_FIXTURE.ruleRotation }), 'The antipodal date point lies on curve IX, three quarters of the way through daylight.', { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, to: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, durationMs: 900 }, check: { kind: 'angleNear', field: 'reteRotation', value: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, tolerance: 2 } }),
-      step('read-rule', 'Read the corresponding time', 'Read the rule where it crosses the 24-hour limb. That equal-hour clock reading changes with the date even though the temporal-hour label remains IX.', 'front.rule', base('front', { reteRotation: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, ruleRotation: FRONT_UNEQUAL_HOUR_FIXTURE.ruleRotation }), 'The rule converts temporal hour IX on July 14 into local apparent solar time.'),
+      step('use-opposite-point', 'Use the rule to find the opposite point', 'Place the rule through the Sun’s date point. Because the rule is a straight diameter through the pivot, its other half crosses the ecliptic exactly 180° away at the antipodal point used for a daylight reading.', 'front.rule', base('front'), 'The opposite half of the rule identifies the point that mirrors the daytime solar path onto the lower unequal-hour scale.', { demonstration: { field: 'ruleRotation', from: 90, to: ruleRotationForSidereal(0), durationMs: 700 }, check: { kind: 'frontGeometry', body: sunCoordinates, rulePoint: { ...sunCoordinates, tolerance: 1 } } }),
+      step('find-hour-nine', 'Move to temporal hour IX', 'Turn the rete until the rule-indicated antipodal point meets curve IX. Move the rule with the rete so its opposite half continues to identify that point.', 'front.unequal-hours', base('front', { reteRotation: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, ruleRotation: SOLAR_EVENT_FIXTURE.sunrise.ruleRotation }), `The antipodal point meets curve IX at about ${FRONT_UNEQUAL_HOUR_FIXTURE.time} local apparent solar time.`, { demonstration: { field: 'reteRotation', from: SOLAR_EVENT_FIXTURE.sunrise.reteRotation, to: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, durationMs: 900, companion: { field: 'ruleRotation', from: SOLAR_EVENT_FIXTURE.sunrise.ruleRotation, to: FRONT_UNEQUAL_HOUR_FIXTURE.ruleRotation } }, check: geometryCheck(sunCoordinates, FRONT_UNEQUAL_HOUR_FIXTURE) }),
+      step('read-rule', 'Read the corresponding time', `Read ${FRONT_UNEQUAL_HOUR_FIXTURE.time} where the rule crosses the 24-hour limb. That equal-hour reading changes with the date even though the temporal-hour label remains IX.`, 'front.rule', base('front', { reteRotation: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, ruleRotation: FRONT_UNEQUAL_HOUR_FIXTURE.ruleRotation }), `On July 14, temporal hour IX corresponds to about ${FRONT_UNEQUAL_HOUR_FIXTURE.time} local apparent solar time.`),
       step('unequal-front-result', 'Interpret the temporal hour', 'Curve IX means that nine of the day’s twelve temporal hours have elapsed and three remain before sunset.', 'instrument', base('front', { reteRotation: FRONT_UNEQUAL_HOUR_FIXTURE.reteRotation, ruleRotation: FRONT_UNEQUAL_HOUR_FIXTURE.ruleRotation }), 'Result: July 14’s ninth daylight temporal hour is read from the front plate.'),
     ],
   },
@@ -219,14 +253,18 @@ export const LESSONS = [
   {
     id: 'back.shadow-square.v1', version: 1,
     title: 'Measure a height with the shadow square',
-    summary: 'Turn a supplied sighting angle and measured distance into a proportional height.',
+    summary: 'Use umbra versa and umbra recta ratios for low and steep sighting angles.',
     steps: [
-      step('choose-measurement', 'Choose the known measurements', `Stand ${SHADOW_SQUARE_FIXTURE.distance} m from an object on level ground. A physical alidade sighting to its top gives ${SHADOW_SQUARE_FIXTURE.angle}°; this simulation begins with that supplied angle.`, 'instrument', base('back'), `Known horizontal distance: ${SHADOW_SQUARE_FIXTURE.distance} m; supplied elevation angle: ${SHADOW_SQUARE_FIXTURE.angle}°.`),
-      step('set-shadow-angle', 'Set the sighting angle', `Rotate the alidade to ${SHADOW_SQUARE_FIXTURE.angle}° on the altitude scale.`, 'back.alidade', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), `The alidade records the ${SHADOW_SQUARE_FIXTURE.angle}° sighting.`, { demonstration: { field: 'alidadeRotation', from: 0, to: SHADOW_SQUARE_FIXTURE.angle, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: SHADOW_SQUARE_FIXTURE.angle, tolerance: 1 } }),
-      step('read-corner', 'Read the shadow-square ratio', 'Follow the alidade’s inner edge to the shadow square. At 45° it passes exactly through the corner where both twelve-part scales reach 12.', 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), 'The corner gives a 12:12 ratio, which simplifies to 1:1.'),
-      step('calculate-height', 'Apply the proportion', `Multiply the ${SHADOW_SQUARE_FIXTURE.distance} m horizontal distance by the 12:12 ratio.`, 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), `The height above eye level is ${SHADOW_SQUARE_FIXTURE.height} m.`),
-      step('account-eye-level', 'Account for the observer', 'For a real object, add the height of the astrolabe’s pivot above the ground unless the measured baseline begins at the same level as the object’s base.', 'instrument', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), 'The proportional result is height above the horizontal sight line.'),
-      step('shadow-result', 'Complete the height reading', 'The shadow square replaces trigonometric calculation with engraved similar-triangle ratios.', 'instrument', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.angle }), `Result: a ${SHADOW_SQUARE_FIXTURE.angle}° sighting at ${SHADOW_SQUARE_FIXTURE.distance} m gives ${SHADOW_SQUARE_FIXTURE.height} m above eye level.`),
+      step('choose-measurement', 'Choose a known distance', `Stand ${SHADOW_SQUARE_FIXTURE.distance} m from an object on level ground. The following supplied angles represent physical alidade sightings made outside the simulation.`, 'instrument', base('back'), `The horizontal distance is ${SHADOW_SQUARE_FIXTURE.distance} m.`),
+      step('set-versa-angle', 'Set a low sighting angle', `First rotate the alidade to ${SHADOW_SQUARE_FIXTURE.versa.angle}°. Its inner edge reaches the vertical UMBRA VERSA scale.`, 'back.alidade', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.versa.angle }), `The alidade records the ${SHADOW_SQUARE_FIXTURE.versa.angle}° sighting.`, { demonstration: { field: 'alidadeRotation', from: 0, to: SHADOW_SQUARE_FIXTURE.versa.angle, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: SHADOW_SQUARE_FIXTURE.versa.angle, tolerance: 1 } }),
+      step('read-versa', 'Read umbra versa', `The edge meets the vertical scale at about ${SHADOW_SQUARE_FIXTURE.versa.reading.toFixed(1)} parts out of 12. For umbra versa, height ÷ distance equals the reading ÷ 12.`, 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.versa.angle }), `The engraved ratio is ${SHADOW_SQUARE_FIXTURE.versa.reading.toFixed(1)}:12.`),
+      step('calculate-versa', 'Calculate the low height', `Multiply ${SHADOW_SQUARE_FIXTURE.distance} m by ${SHADOW_SQUARE_FIXTURE.versa.reading.toFixed(1)} ÷ 12.`, 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.versa.angle }), `The height above eye level is about ${SHADOW_SQUARE_FIXTURE.versa.height.toFixed(1)} m.`),
+      step('set-recta-angle', 'Set a steep sighting angle', `Now rotate the alidade to ${SHADOW_SQUARE_FIXTURE.recta.angle}°. Its inner edge reaches the horizontal UMBRA RECTA scale.`, 'back.alidade', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.recta.angle }), `The alidade records the ${SHADOW_SQUARE_FIXTURE.recta.angle}° sighting.`, { demonstration: { field: 'alidadeRotation', from: SHADOW_SQUARE_FIXTURE.versa.angle, to: SHADOW_SQUARE_FIXTURE.recta.angle, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: SHADOW_SQUARE_FIXTURE.recta.angle, tolerance: 1 } }),
+      step('read-recta', 'Read umbra recta', `The edge meets the horizontal scale at about ${SHADOW_SQUARE_FIXTURE.recta.reading.toFixed(1)} parts. For umbra recta, height ÷ distance equals 12 ÷ the reading.`, 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.recta.angle }), `The engraved ratio is 12:${SHADOW_SQUARE_FIXTURE.recta.reading.toFixed(1)}.`),
+      step('calculate-recta', 'Calculate the steep height', `Multiply ${SHADOW_SQUARE_FIXTURE.distance} m by 12 ÷ ${SHADOW_SQUARE_FIXTURE.recta.reading.toFixed(1)}.`, 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.recta.angle }), `The height above eye level is about ${SHADOW_SQUARE_FIXTURE.recta.height.toFixed(1)} m.`),
+      step('recognize-corner', 'Recognize the 45° boundary', 'At 45° the alidade passes exactly through the corner: both scales read 12, both formulas give 1:1, and height above eye level equals horizontal distance.', 'back.shadow-square', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.corner.angle }), `At ${SHADOW_SQUARE_FIXTURE.distance} m, the 45° construction gives ${SHADOW_SQUARE_FIXTURE.corner.height} m above eye level.`),
+      step('account-eye-level', 'Account for the observer', 'For a real object, add the height of the astrolabe’s pivot above the ground unless the measured baseline begins at the same level as the object’s base.', 'instrument', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.corner.angle }), 'The proportional result is height above the horizontal sight line.'),
+      step('shadow-result', 'Complete the height readings', 'Use umbra versa for the low-angle side crossing, umbra recta for the steep-angle bottom crossing, and either scale at the 45° corner.', 'instrument', base('back', { alidadeRotation: SHADOW_SQUARE_FIXTURE.corner.angle }), `Result: ${SHADOW_SQUARE_FIXTURE.versa.angle}° gives ${SHADOW_SQUARE_FIXTURE.versa.height.toFixed(1)} m and ${SHADOW_SQUARE_FIXTURE.recta.angle}° gives ${SHADOW_SQUARE_FIXTURE.recta.height.toFixed(1)} m above eye level at ${SHADOW_SQUARE_FIXTURE.distance} m distance.`),
     ],
   },
   {

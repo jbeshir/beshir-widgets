@@ -4,6 +4,7 @@ import { alidadeLineCross, backLongitudePoint } from '../backGeometry';
 import { equationOfTime } from '../astro';
 import { shadowSquareLayout } from '../shadowSquare';
 import { unequalHourPoint } from '../unequalHours';
+import { evaluateCheckpoint } from './checkpoints';
 import {
   ALTITUDE_FIXTURE, EQUATION_TIME_FIXTURE, FRONT_UNEQUAL_HOUR_FIXTURE, LESSONS,
   SHADOW_SQUARE_FIXTURE, SIRIUS_FIXTURE, SIRIUS_PATH_FIXTURE, SOLAR_EVENT_FIXTURE,
@@ -134,10 +135,22 @@ describe('tutorial catalog', () => {
   });
   it('makes the 45-degree shadow-square journey land exactly on its 1:1 corner', () => {
     const layout = shadowSquareLayout();
-    expect(SHADOW_SQUARE_FIXTURE.intersection).toEqual({
+    expect(SHADOW_SQUARE_FIXTURE.corner.intersection).toEqual({
       x: layout.left, y: layout.bottom, edge: 'bottom',
     });
-    expect(SHADOW_SQUARE_FIXTURE.height / SHADOW_SQUARE_FIXTURE.distance).toBe(1);
+    expect(SHADOW_SQUARE_FIXTURE.corner.height / SHADOW_SQUARE_FIXTURE.distance).toBe(1);
+  });
+  it('derives both nontrivial shadow-square ratios from rendered intersections', () => {
+    expect(SHADOW_SQUARE_FIXTURE.versa.intersection.edge).toBe('left');
+    expect(SHADOW_SQUARE_FIXTURE.versa.reading).toBeCloseTo(12 * Math.tan(Math.PI / 6), 10);
+    expect(SHADOW_SQUARE_FIXTURE.versa.height).toBeCloseTo(
+      SHADOW_SQUARE_FIXTURE.distance * Math.tan(Math.PI / 6), 10,
+    );
+    expect(SHADOW_SQUARE_FIXTURE.recta.intersection.edge).toBe('bottom');
+    expect(SHADOW_SQUARE_FIXTURE.recta.reading).toBeCloseTo(12 / Math.tan(Math.PI / 3), 10);
+    expect(SHADOW_SQUARE_FIXTURE.recta.height).toBeCloseTo(
+      SHADOW_SQUARE_FIXTURE.distance * Math.tan(Math.PI / 3), 10,
+    );
   });
   it('aligns the lesson alidade with the dated back-scale radial', () => {
     const datePoint = backLongitudePoint(456, SUN_FIXTURE.eclipticLongitude);
@@ -169,11 +182,40 @@ describe('tutorial catalog', () => {
     for (const lesson of LESSONS) {
       for (const step of lesson.steps.filter((item) => item.demonstration)) {
         expect(step.check, `${lesson.id}/${step.id}`).toBeDefined();
-        expect(step.check?.kind).toBe('angleNear');
         if (step.demonstration && step.check?.kind === 'angleNear') {
           expect(step.check.field).toBe(step.demonstration.field);
           expect(step.check.value).toBe(step.demonstration.to);
         }
+      }
+    }
+  });
+  it('uses coordinated rule and rete motion for every moving front construction', () => {
+    const coordinated = LESSONS.flatMap((lesson) => lesson.steps).filter(
+      (item) => item.demonstration?.field === 'reteRotation' && item.check?.kind === 'frontGeometry',
+    );
+    expect(coordinated.length).toBeGreaterThanOrEqual(7);
+    for (const item of coordinated) {
+      if (item.id === 'set-sky') continue;
+      expect(item.demonstration?.companion?.field, item.id).toBe('ruleRotation');
+    }
+  });
+  it('passes geometric checkpoints only when both the visible body position and rule alignment agree', () => {
+    const steps = LESSONS.flatMap((lesson) => lesson.steps).filter(
+      (item) => item.demonstration && item.check?.kind === 'frontGeometry',
+    );
+    for (const item of steps) {
+      const demonstration = item.demonstration!;
+      const finalState = {
+        ...item.snapshot,
+        highlight: null,
+        reducedMotion: false,
+        [demonstration.field]: demonstration.to,
+        ...(demonstration.companion ? { [demonstration.companion.field]: demonstration.companion.to } : {}),
+      };
+      expect(evaluateCheckpoint(item.check!, finalState), item.id).toBe(true);
+      expect(evaluateCheckpoint(item.check!, { ...finalState, ruleRotation: finalState.ruleRotation + 5 }), `${item.id} wrong rule`).toBe(false);
+      if (item.check?.kind === 'frontGeometry' && item.check.position) {
+        expect(evaluateCheckpoint(item.check, { ...finalState, reteRotation: finalState.reteRotation + 5 }), `${item.id} wrong rete`).toBe(false);
       }
     }
   });

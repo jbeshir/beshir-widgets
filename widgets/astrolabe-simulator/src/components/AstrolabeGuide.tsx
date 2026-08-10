@@ -69,14 +69,17 @@ export function AstrolabeGuide(): JSX.Element {
       const controller = new AbortController();
       animation.current = controller;
       const demo = nextStep.demonstration;
-      applyTransaction({ [demo.field]: demo.from }, { source: 'tutorial', operationId: id, syncUrl: false });
-      void animateAngle({
-        ...demo, reducedMotion: simulator.reducedMotion, signal: controller.signal,
-        update: (value) => applyTransaction({ [demo.field]: value }, { source: 'tutorial', operationId: id, syncUrl: false }),
-      }).then((outcome) => {
-        if (id !== operationId.current || outcome === 'aborted') return;
+      const motions = [demo, ...(demo.companion ? [demo.companion] : [])];
+      applyTransaction(Object.fromEntries(motions.map((motion) => [motion.field, motion.from])),
+        { source: 'tutorial', operationId: id, syncUrl: false });
+      void Promise.all(motions.map((motion) => animateAngle({
+        ...motion, durationMs: demo.durationMs, reducedMotion: simulator.reducedMotion, signal: controller.signal,
+        update: (value) => applyTransaction({ [motion.field]: value }, { source: 'tutorial', operationId: id, syncUrl: false }),
+      }))).then((outcomes) => {
+        if (id !== operationId.current || outcomes.includes('aborted')) return;
         animation.current = null;
-        applyTransaction({ [demo.field]: demo.to }, { source: 'tutorial', operationId: id, syncUrl: true });
+        applyTransaction(Object.fromEntries(motions.map((motion) => [motion.field, motion.to])),
+          { source: 'tutorial', operationId: id, syncUrl: true });
         setStatus(nextStep.result);
       });
     }
@@ -163,7 +166,7 @@ export function AstrolabeGuide(): JSX.Element {
           <button onClick={() => runStep(lesson, stepIndex, false)}>Replay</button>
           {step.check && <button onClick={() => {
             const passed = evaluateCheckpoint(step.check!, getState()); setCheckpointPassed(passed);
-            setStatus(passed ? `Checkpoint passed. ${step.result}` : 'Not yet. Adjust the named control to the requested value and check again.');
+            setStatus(passed ? `Checkpoint passed. ${step.result}` : 'Not yet. Recreate the visible alignment described in this step and check again.');
           }}>Check</button>}
           {stepIndex < lesson.steps.length - 1
             ? <button disabled={Boolean(step.check) && !checkpointPassed} onClick={() => runStep(lesson, stepIndex + 1, true)}>Next</button>
