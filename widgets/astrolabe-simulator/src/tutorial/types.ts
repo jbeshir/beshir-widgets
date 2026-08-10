@@ -15,7 +15,18 @@ export type Snapshot = Pick<AstrolabeState,
   'ruleRotation' | 'alidadeRotation' | 'visibility' | 'epochIso'>;
 export type Predicate =
   | { kind: 'angleNear'; field: 'reteRotation' | 'ruleRotation' | 'alidadeRotation'; value: number; tolerance: number }
+  | {
+    kind: 'frontGeometry';
+    body: { raDeg: number; decDeg: number };
+    position?: { altitude: number; azimuth: number; tolerance: number };
+    rulePoint?: { raDeg: number; decDeg: number; tolerance: number };
+  }
   | { kind: 'faceIs'; value: 'front' | 'back' };
+export interface AngleMotion {
+  field: 'reteRotation' | 'ruleRotation' | 'alidadeRotation';
+  from: number;
+  to: number;
+}
 export interface LessonStep {
   id: string;
   title: string;
@@ -23,7 +34,7 @@ export interface LessonStep {
   result: string;
   target: TargetId;
   snapshot: Snapshot;
-  demonstration?: { field: 'reteRotation' | 'ruleRotation' | 'alidadeRotation'; from: number; to: number; durationMs: number };
+  demonstration?: AngleMotion & { durationMs: number; companion?: AngleMotion };
   check?: Predicate;
 }
 export interface Lesson {
