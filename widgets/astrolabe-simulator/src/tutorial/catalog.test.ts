@@ -28,7 +28,7 @@ describe('tutorial catalog', () => {
     expect(JSON.stringify(LESSONS)).not.toMatch(/planned lesson|coming later|future operations/i);
   });
   it('keeps each foundational lesson substantial', () => {
-    expect(LESSONS.slice(0, 3).map((lesson) => lesson.steps.length)).toEqual([9, 7, 8]);
+    expect(LESSONS.slice(0, 3).map((lesson) => lesson.steps.length)).toEqual([12, 7, 8]);
     for (const lesson of LESSONS.slice(0, 3)) expect(lesson.steps.some((step) => step.check)).toBe(true);
   });
   it('demonstrates latitude mismatch and returns to the exact plate', () => {
@@ -37,6 +37,14 @@ describe('tutorial catalog', () => {
     expect(foundations.steps.find((step) => step.id === 'compare-mismatch')?.snapshot.plateLatitude).toBe(50);
     expect(foundations.steps.find((step) => step.id === 'compare-mismatch')?.target).toBe('setup.plate-mismatch');
     expect(foundations.steps.find((step) => step.id === 'restore-plate')?.snapshot.plateLatitude).toBe(51.5);
+  });
+  it('introduces both faces without claiming an unperformed sky setting', () => {
+    const foundations = LESSONS[0];
+    expect(foundations.title).not.toMatch(/front$/i);
+    expect(foundations.steps[0].result).toMatch(/no date or time has been set/i);
+    expect(foundations.steps.some((step) => step.snapshot.face === 'back')).toBe(true);
+    expect(foundations.steps.find((step) => step.id === 'move-alidade')?.demonstration?.field).toBe('alidadeRotation');
+    expect(foundations.steps.at(-1)?.result).not.toMatch(/noon|July 14/i);
   });
   it('passes typed runtime validation', () => expect(validateCatalog()).toEqual([]));
   it.each(LESSONS)('$id has canonical results on every step', (lesson) => {
