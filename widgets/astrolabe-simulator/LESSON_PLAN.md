@@ -54,8 +54,9 @@ The guide presents one ordered list rather than dividing operations by face.
 Many real operations move between the front and back, so a face-based taxonomy
 would be misleading.
 
-1. **Understand and configure the astrolabe front.** Identify the fixed plate,
-   moving rete, and rule; compare a nearby plate with London's exact plate.
+1. **Understand and configure the astrolabe.** Identify the fixed front plate,
+   moving rete and rule, compare latitude plates, then identify the fixed back
+   scales and independently moving alidade.
 2. **Set the astrolabe for a date and time.** Carry July 14 from the back
    calendar to ecliptic longitude, set the rule, and orient the rete.
 3. **Read a star and follow its daily path.** Read Sirius and follow it through
