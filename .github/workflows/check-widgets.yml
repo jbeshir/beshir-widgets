@@ -3,6 +3,9 @@ name: Check widgets
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -60,8 +63,14 @@ jobs:
         working-directory: widgets/${{ matrix.widget }}
         run: npm run build
 
+      # Widgets with a vitest.config.ts have unit tests; type-check them too when they define a
+      # typecheck script.
+      - name: Typecheck
+        if: ${{ hashFiles(format('widgets/{0}/vitest.config.ts', matrix.widget)) != '' }}
+        working-directory: widgets/${{ matrix.widget }}
+        run: npm run typecheck --if-present
       - name: Unit tests
-        if: ${{ matrix.widget == 'astrolabe-simulator' }}
+        if: ${{ hashFiles(format('widgets/{0}/vitest.config.ts', matrix.widget)) != '' }}
         working-directory: widgets/${{ matrix.widget }}
         run: npm test
       - name: Install browser for rendered gates

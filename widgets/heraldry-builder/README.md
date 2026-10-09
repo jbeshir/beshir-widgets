@@ -65,7 +65,7 @@ Both are wrapped in `try/catch`; private mode or a full quota just disables them
 The data model is **registry-keyed**. Every entry belongs to one row of `registries`, and
 uniqueness is enforced per registry. The URL selects a registry with `?registry=<id>`; with no
 parameter, the API uses the default registry (`is_default = 1`, `default` today). Tables
-(`schema.sql`):
+(created by `migrations/`):
 
 | table | contents |
 |---|---|
@@ -96,10 +96,12 @@ tincture. It then computes everything itself:
   - posture, when the postures are in different posture groups
 
   Rampant vs passant is clear. Passant vs statant is minor, and so is 4 vs 5 charges. The check
-  scans the registry in registration order and reports the first conflict, with its minor
-  differences listed ("posture (statant ↔ passant)"). This is deliberately more lenient than the
+  only needs to compare against entries with the same field division, ordinary and charge (every
+  other difference in the list above is decided on those), so the Worker loads just those
+  candidates through the `arms_registry_similarity` index, in registration order, and reports the
+  first conflict, with its minor differences listed ("posture (statant ↔ passant)"). This is deliberately more lenient than the
   SCA's rules: it is a nametag system for a community, not a kingdom armorial.
-- A registry holds at most **2,000 entries** (`409 registry_full`), which also bounds the scan.
+- A registry holds at most **2,000 entries** (`409 registry_full`), counted with `COUNT(*)`.
 
 ### API (`worker/index.ts`)
 
@@ -149,6 +151,7 @@ The offline sample search in `src/store.ts` runs the same parameter parsing and 
 | `registry_full` (409) | The registry already holds 2,000 entries. |
 | `conflict` (409) | Stale revision. |
 | `rate_limited` (429) | Too many registrations from this IP. |
+| `payload_too_large` (413) | Request body over 16 KB. |
 | `internal_error` (500) | Unexpected failure. |
 
 ### Capability URLs and edits
@@ -158,7 +161,7 @@ The offline sample search in `src/store.ts` runs the same parameter parsing and 
   `Authorization: Bearer` header on edits.
 - **Share link** `…/#/a/<id>`: the public entry view.
 
-Only the SHA-256 hash of the edit secret is stored, compared in constant time. The order of checks
+The edit secret is 32 random bytes (256-bit, base64url) and the entry id is 16 (128-bit). Only the SHA-256 hash of the edit secret is stored, compared in constant time. The order of checks
 on `PUT` is:
 
 1. `404` unknown entry
@@ -188,7 +191,7 @@ The UI never touches `localStorage` or the API directly.
   in code points. They are rendered only as text: never linkified, no `mailto:`/`tel:`.
 - **No harvesting.** The contact is excluded from search and list results and from conflict
   details. It is returned only by `GET /api/arms/:id`. There is no bulk export.
-- **Withdrawal deletes.** `DELETE` removes the row and its tags outright (nothing is retained),
+- **Withdrawal deletes.** `DELETE` removes the row and, by `ON DELETE CASCADE`, its tags outright (nothing is retained),
   which also frees the design for someone else.
 
 ### One-time Cloudflare setup
@@ -201,14 +204,51 @@ cd widgets/heraldry-builder
 # 1. Create the database (name must match wrangler.jsonc).
 npx wrangler d1 create widget-heraldry-builder
 
-# 2. Paste the printed database_id into wrangler.jsonc → d1_databases[0].database_id,
-#    replacing REPLACE_WITH_D1_DATABASE_ID.
+# 2. Make wrangler.jsonc → d1_databases[0].database_id the printed id (it already is, for the
+#    production database).
 
-# 3. Create the tables and seed the "Default" registry.
-npx wrangler d1 execute widget-heraldry-builder --remote --file=schema.sql
+# 3. Create the tables and seed the "Default" registry from the migrations.
+npx wrangler d1 migrations apply widget-heraldry-builder --remote
 ```
 
 The deploy token also needs **D1 → Edit**.
+
+### Migrations
+
+`migrations/` is the only schema source (`migrations_dir` in `wrangler.jsonc`); the tests apply the
+same files to their local D1 with `readD1Migrations` / `applyD1Migrations`. Never edit an applied
+migration: add the next-numbered file.
+
+- `0001_init.sql`: the original schema (tables, indexes, the `default` registry). Every statement is
+  `IF NOT EXISTS` / `OR IGNORE`, so re-running it against a database that already has these tables
+  changes nothing.
+- `0002_registry_integrity_and_prefilter.sql`: one default registry (unique partial index),
+  `ON DELETE CASCADE` on `arms_tags` (a table rebuild that copies the rows), and the composite index
+  behind the too-close lookup.
+
+Local database (used by `wrangler dev`):
+
+```bash
+npx wrangler d1 migrations apply widget-heraldry-builder --local
+```
+
+Production is a **manual step, run before deploying code that needs the new migration**. CI never
+applies migrations:
+
+```bash
+npx wrangler d1 migrations list  widget-heraldry-builder --remote   # what is pending
+npx wrangler d1 migrations apply widget-heraldry-builder --remote
+```
+
+**One-time production baseline.** Production was created from the pre-migration `schema.sql`, so it
+already has the 0001 tables but no `d1_migrations` table. Record 0001 as applied once, before the
+first `migrations apply --remote` (this is the table shape wrangler itself creates):
+
+```bash
+npx wrangler d1 execute widget-heraldry-builder --remote --command "CREATE TABLE IF NOT EXISTS d1_migrations(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP); INSERT INTO d1_migrations(name) VALUES ('0001_init.sql');"
+```
+
+Skipping this is also safe, because 0001 is idempotent: `apply` would run it as a no-op and record it.
 
 **Adding another registry.** There is no API for creating registries; the owner adds rows with SQL:
 
@@ -226,7 +266,14 @@ inside the Worker before the body is parsed. It uses the native `ratelimits` bin
 Namespace ids are account-unique: 1001 is pennsic-planner and japanese-verb-tower, 1002 is
 pennsic-mapper. No dashboard WAF rule is required. The limit is per-colo and best-effort, which is
 proportionate here. Tighten it, or add a Turnstile gate on registration, if abuse ever shows up.
-Checks and searches are not limited by it.
+Checks and searches are not limited by it; a check reads only the indexed candidates for the design
+(see Uniqueness), so its cost does not grow with the registry. Request bodies are capped at 16 KB
+(`413 payload_too_large`, checked on `Content-Length` and again while reading).
+
+**Logging and caching.** Workers observability is on. An unexpected failure logs one JSON line
+(`unhandled_error`, route, method, error name and message) and never a body, header, email or
+contact. Every API response is `Cache-Control: no-store` with `X-Content-Type-Options: nosniff`.
+The widget is served only from its custom domain (`workers_dev` and `preview_urls` are off).
 
 ## Data mode
 
@@ -270,7 +317,7 @@ npm run favicon
 
 - `test/heraldry.test.ts`: the pure library. Covers every validation example, the uniqueness
   examples, the sample fixture byte check, tags and the options helper.
-- `test/worker.test.ts`: every API route. It applies `schema.sql` to a local D1 and covers:
+- `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps
   - registry scoping, the UNIQUE race, and the 2,000-entry cap
@@ -280,6 +327,10 @@ npm run favicon
   - edit: 401/403/400/409, revision bump, uniqueness re-check and tag rewrite
   - withdraw, which frees the signature
   - the 429 rate-limit path
+  - response headers, the 16 KB body cap, the structured error log, one default registry, tag cascade
+  - the too-close candidate lookup giving the same verdicts as a full registry scan
+- `test/prefilter.test.ts`: the candidate key never changes a `checkUnique` verdict, over generated designs.
+- `test/migrations.test.ts`: migrations apply from empty, `0001` matches the production schema (`test/fixtures/production-schema.sql`, the original `schema.sql`), re-running it is harmless, and `0002` preserves rows.
 - `test/store.test.ts`: the store's offline mode (sample search/check, offline write refusal) and
   its online result mapping, with `fetch` stubbed.
 
@@ -314,8 +365,8 @@ standalone (non-embedded) layout.
 
 The widget deploys as a Cloudflare Worker (`widget-heraldry-builder`). It serves static assets
 from `dist/` and the `/api/*` routes (`run_worker_first`). See `wrangler.jsonc` for the route,
-domain, assets, D1 and rate-limit bindings. After the one-time D1 setup above, run
-`npm run build` then `npx wrangler deploy`.
+domain, assets, D1 and rate-limit bindings. After the one-time D1 setup above, apply any
+pending migrations (see Migrations), then run `npm run build` and `npx wrangler deploy`.
 
 ## Deferred features
 

@@ -1,9 +1,13 @@
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
-import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
+import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers';
 // Offline tests run in the workers runtime (workerd) via @cloudflare/vitest-pool-workers, against a
 // local Miniflare D1 — no real Cloudflare account or network is involved. The pure heraldry-library
 // tests share the same pool. The pool options are passed to the cloudflareTest() plugin
-// (vitest-pool-workers v0.16+).
+// (vitest-pool-workers v0.16+). The committed migrations are read here and applied to DB by
+// test/apply-migrations.ts, so the tests run against exactly the schema production gets.
+const migrations = await readD1Migrations(path.join(import.meta.dirname, 'migrations'));
+
 export default defineConfig({
   plugins: [
     cloudflareTest({
@@ -11,7 +15,9 @@ export default defineConfig({
       isolatedStorage: false,
       miniflare: {
         compatibilityDate: '2026-06-01',
-        d1Databases: ['DB'],
+        // MIGRATION_DB and BASELINE_DB stay empty until test/migrations.test.ts fills them.
+        d1Databases: ['DB', 'MIGRATION_DB', 'BASELINE_DB'],
+        bindings: { MIGRATIONS: migrations },
         // CREATE_LIMITER must be declared here so miniflare creates the binding; it reads
         // wrangler.jsonc for most things but ratelimits need an explicit entry in WorkerOptions.
         ratelimits: {
@@ -22,5 +28,6 @@ export default defineConfig({
   ],
   test: {
     include: ['test/*.test.ts'],
+    setupFiles: ['test/apply-migrations.ts'],
   },
 });

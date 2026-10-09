@@ -55,6 +55,14 @@ jobs:
       - name: Build
         working-directory: widgets/${{ matrix.widget }}
         run: npm run build
+      - name: Typecheck
+        if: ${{ hashFiles(format('widgets/{0}/vitest.config.ts', matrix.widget)) != '' }}
+        working-directory: widgets/${{ matrix.widget }}
+        run: npm run typecheck --if-present
+      - name: Unit tests
+        if: ${{ hashFiles(format('widgets/{0}/vitest.config.ts', matrix.widget)) != '' }}
+        working-directory: widgets/${{ matrix.widget }}
+        run: npm test
       - name: Deploy
         working-directory: widgets/${{ matrix.widget }}
         run: npx wrangler deploy

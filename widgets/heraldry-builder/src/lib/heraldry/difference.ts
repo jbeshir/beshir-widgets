@@ -70,6 +70,19 @@ export function checkUnique(nd: NormDesign, sig: string, registry: readonly Regi
   return { kind: 'ok' };
 }
 
+/**
+ * The indexed attributes two designs must all share to be "too close": field division, ordinary
+ * type and charge type (including their absence) are always a clear difference. Tinctures and
+ * placement are too, but are not stored in columns, so `checkUnique` decides those on the
+ * candidates. Looking a registry up by this key therefore returns every entry that could be
+ * flagged as a duplicate or as too close.
+ */
+export interface CandidateKey { fieldDivision: string; ordinary: string | null; charge: string | null }
+
+export function candidateKey(nd: NormDesign): CandidateKey {
+  return { fieldDivision: fieldDivision(nd.field), ordinary: nd.ordinary?.type ?? null, charge: nd.charges?.charge ?? null };
+}
+
 export const DIFF_LABEL: Record<DiffAttr, string> = {
   'field-division': 'field division',
   'field-tincture': 'field tincture',

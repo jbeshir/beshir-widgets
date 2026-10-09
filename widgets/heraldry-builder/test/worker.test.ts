@@ -1,21 +1,16 @@
 // Offline Worker/D1 tests. These run in the workers runtime (workerd) against a local Miniflare D1
-// via @cloudflare/vitest-pool-workers — no real Cloudflare account or network. schema.sql is applied
-// to the local D1 before the suite, and the Worker's fetch handler is exercised directly.
+// via @cloudflare/vitest-pool-workers — no real Cloudflare account or network. The committed
+// migrations are applied to the local D1 before the suite (test/apply-migrations.ts), and the
+// Worker's fetch handler is exercised directly.
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeAll } from 'vitest';
 import worker from '../worker/index';
-import schemaSql from '../schema.sql?raw';
 import sample from '../src/data/sample-registry.json';
-import { parseSearchParams, resolve, searchEntries, type SearchParams } from '../src/lib/heraldry';
-
-beforeAll(async () => {
-  // Apply the committed schema (the same file the owner applies in production). Strip line comments
-  // and run each statement; our schema has no semicolons inside literals, so a naive split is safe.
-  const cleaned = schemaSql.replace(/--[^\n]*(?:\n|$)/g, '\n');
-  for (const stmt of cleaned.split(';').map((s) => s.trim()).filter(Boolean)) {
-    await env.DB.prepare(stmt).run();
-  }
-});
+import {
+  blazon, candidateKey, checkUnique, parseSearchParams, resolve, searchEntries, signature,
+  type RegistryEntryLike, type SearchParams,
+} from '../src/lib/heraldry';
+import { generatedDesigns } from './design-generator';
 
 interface CallOpts {
   body?: unknown;
@@ -682,5 +677,146 @@ describe('rate limiting', () => {
     expect((await bodyOf(res)).error).toBe('rate_limited');
     // Other IPs are unaffected.
     await register(freshDesign());
+  });
+});
+
+// ── hardening ────────────────────────────────────────────────────────────────────────────────
+
+describe('API response headers', () => {
+  it('are no-store and nosniff on success and error JSON alike', async () => {
+    const ok = await call('GET', '/api/registries');
+    const missing = await call('GET', '/api/nope');
+    const wrongMethod = await call('DELETE', '/api/registries');
+    const invalid = await call('POST', '/api/arms/check', { body: { design: 5 } });
+    for (const res of [ok, missing, wrongMethod, invalid]) {
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    }
+    expect([ok.status, missing.status, wrongMethod.status, invalid.status]).toEqual([200, 404, 405, 400]);
+  });
+});
+
+describe('request body cap', () => {
+  const oversize = { displayName: 'x'.repeat(17 * 1024), design: freshDesign() };
+
+  it('refuses a body whose Content-Length is over 16 KB (413 payload_too_large)', async () => {
+    const res = await call('POST', '/api/arms/check', { body: oversize });
+    expect(res.status).toBe(413);
+    expect((await bodyOf(res)).error).toBe('payload_too_large');
+  });
+
+  it('refuses an over-long body even when Content-Length is absent', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(JSON.stringify(oversize)));
+        controller.close();
+      },
+    });
+    const request = new Request('https://widget.test/api/arms/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '10.9.9.9' },
+      body: stream,
+      duplex: 'half',
+    } as RequestInit);
+    expect(request.headers.get('Content-Length')).toBeNull();
+    const ctx = createExecutionContext();
+    const res = await worker.fetch(request, env, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(413);
+    expect((await bodyOf(res)).error).toBe('payload_too_large');
+  });
+
+  it('still accepts a normal body', async () => {
+    const res = await call('POST', '/api/arms/check', { body: { design: freshDesign() } });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('unexpected errors', () => {
+  it('log one structured line without request content and answer a generic 500', async () => {
+    const lines: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => { lines.push(args.map(String).join(' ')); };
+    const broken = { ...env, DB: { prepare: () => { throw new Error('database exploded'); } } } as unknown as typeof env;
+    try {
+      const request = new Request('https://widget.test/api/arms/secret-id-123', {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer top-secret-value', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: 'Private Person', contact: 'me@example.com' }),
+      });
+      const ctx = createExecutionContext();
+      const res = await worker.fetch(request, broken, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(500);
+      expect((await bodyOf(res)).error).toBe('internal_error');
+    } finally {
+      console.error = original;
+    }
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toEqual({
+      event: 'unhandled_error',
+      route: '/api/arms/:id',
+      method: 'PUT',
+      errorName: 'Error',
+      errorMessage: 'database exploded',
+    });
+    for (const secret of ['top-secret-value', 'Private Person', 'me@example.com', 'secret-id-123']) {
+      expect(lines[0]).not.toContain(secret);
+    }
+  });
+});
+
+describe('default registry', () => {
+  it('is the one flagged default, and a second default cannot be added', async () => {
+    await expect(
+      env.DB.prepare(`INSERT INTO registries (id, name, is_default, created_at) VALUES ('rival', 'Rival', 1, 'now')`).run()
+    ).rejects.toThrow(/UNIQUE/i);
+    const res = await call('GET', '/api/arms');
+    expect((await bodyOf(res)).registry).toEqual({ id: 'default', name: 'Default' });
+  });
+});
+
+describe('withdrawal cascades to tags', () => {
+  it('leaves no tags behind when the row is deleted directly', async () => {
+    const c = await register(freshDesign());
+    const before = await env.DB.prepare(`SELECT COUNT(*) AS n FROM arms_tags WHERE arms_id = ?`).bind(c.id).first<Json>();
+    expect(before!.n).toBeGreaterThan(0);
+    await env.DB.prepare(`DELETE FROM arms WHERE id = ?`).bind(c.id).run();
+    const after = await env.DB.prepare(`SELECT COUNT(*) AS n FROM arms_tags WHERE arms_id = ?`).bind(c.id).first<Json>();
+    expect(after!.n).toBe(0);
+  });
+});
+
+describe('too-close candidate lookup', () => {
+  it('gives the verdict a full scan of the stored registry gives', async () => {
+    await addRegistry('prefilter', 'Prefilter');
+    const stored = generatedDesigns(1, 60);
+    const entries: RegistryEntryLike[] = [];
+    for (const [i, design] of stored.entries()) {
+      const sig = signature(design);
+      if (entries.some((e) => e.signature === sig)) continue;
+      const key = candidateKey(design);
+      await env.DB.prepare(
+        `INSERT INTO arms (id, registry_id, display_name, contact, design, signature, blazon, field_division,
+           ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
+         VALUES (?, 'prefilter', 'Stored', NULL, ?, ?, ?, ?, ?, ?, 'bold', 'h', 1, ?, ?)`
+      ).bind(
+        `pf-${i}`, JSON.stringify(design), sig, blazon(design), key.fieldDivision, key.ordinary, key.charge,
+        `2026-10-03T00:00:${String(i).padStart(2, '0')}Z`, `2026-10-03T00:00:${String(i).padStart(2, '0')}Z`
+      ).run();
+      entries.push({ id: `pf-${i}`, signature: sig, design });
+    }
+
+    const verdicts = new Set<string>();
+    for (const probe of generatedDesigns(50_000, 120)) {
+      const full = checkUnique(probe, signature(probe), entries);
+      const res = await call('POST', '/api/arms/check', { body: { registry: 'prefilter', design: probe } });
+      expect(res.status).toBe(200);
+      const data = await bodyOf(res);
+      expect(data.verdict).toBe(full.kind);
+      if (full.kind !== 'ok') expect(data.conflictId ?? data.conflict.id).toBe(full.of);
+      verdicts.add(data.verdict);
+    }
+    expect([...verdicts].sort()).toEqual(['duplicate', 'ok', 'too-close']);
   });
 });

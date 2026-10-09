@@ -1,0 +1,113 @@
+// The committed migrations are the only schema source. These tests apply them to empty databases
+// and prove 0001 reproduces the schema production was created from (test/fixtures/production-schema.sql).
+import { applyD1Migrations, env } from 'cloudflare:test';
+import { describe, it, expect } from 'vitest';
+import productionSchema from './fixtures/production-schema.sql?raw';
+
+interface SchemaObject { type: string; name: string; tbl_name: string; sql: string }
+
+/** Comments and whitespace differ between files that create the same object; the statement doesn't. */
+function normaliseSql(sql: string): string {
+  return sql
+    .replace(/--[^\n]*/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([(),])\s*/g, '$1')
+    .replace(/^CREATE (UNIQUE )?(TABLE|INDEX) IF NOT EXISTS /i, 'CREATE $1$2 ')
+    .trim();
+}
+
+async function schemaObjects(db: D1Database): Promise<SchemaObject[]> {
+  const { results } = await db.prepare(
+    `SELECT type, name, tbl_name, sql FROM sqlite_master
+     WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name <> 'd1_migrations'
+     ORDER BY type, name`
+  ).all<SchemaObject>();
+  return results.map((o) => ({ ...o, sql: normaliseSql(o.sql) }));
+}
+
+async function execAll(db: D1Database, sql: string) {
+  const statements = sql.replace(/--[^\n]*/g, '').split(';').map((s) => s.trim()).filter(Boolean);
+  await db.batch(statements.map((s) => db.prepare(s)));
+}
+
+const [init, ...laterMigrations] = env.MIGRATIONS;
+
+const insertArms = (id: string) =>
+  env.MIGRATION_DB.prepare(
+    `INSERT INTO arms (id, registry_id, display_name, design, signature, blazon, field_division, readability,
+       edit_secret_hash, created_at, updated_at)
+     VALUES (?, 'default', 'Name', '{}', ?, 'Vert', 'plain', 'bold', 'h', '2026-10-03T00:00:00Z', '2026-10-03T00:00:00Z')`
+  ).bind(id, `sig-${id}`);
+
+describe('migrations', () => {
+  it('are numbered consecutively from 0001_init', () => {
+    expect(init.name).toBe('0001_init.sql');
+    const numbers = env.MIGRATIONS.map((m) => parseInt(m.name, 10));
+    expect(numbers).toEqual(numbers.map((_, i) => i + 1));
+  });
+
+  it('apply cleanly to an empty database (the test database was built that way)', async () => {
+    const applied = await env.DB.prepare(`SELECT name FROM d1_migrations ORDER BY id`).all<{ name: string }>();
+    expect(applied.results.map((r) => r.name)).toEqual(env.MIGRATIONS.map((m) => m.name));
+    const registries = await env.DB.prepare(`SELECT id, name, is_default FROM registries WHERE id = 'default'`).all();
+    expect(registries.results).toEqual([{ id: 'default', name: 'Default', is_default: 1 }]);
+  });
+
+  it('0001 reproduces the production schema object for object', async () => {
+    await execAll(env.BASELINE_DB, productionSchema);
+    await applyD1Migrations(env.MIGRATION_DB, [init]);
+    const production = await schemaObjects(env.BASELINE_DB);
+    expect(production.length).toBeGreaterThan(8);
+    expect(await schemaObjects(env.MIGRATION_DB)).toEqual(production);
+    const seeded = await env.MIGRATION_DB.prepare(`SELECT id, name, is_default, created_at FROM registries`).all();
+    const original = await env.BASELINE_DB.prepare(`SELECT id, name, is_default, created_at FROM registries`).all();
+    expect(seeded.results).toEqual(original.results);
+  });
+
+  it('0001 is harmless to re-run against a database that already has its tables', async () => {
+    const before = await schemaObjects(env.MIGRATION_DB);
+    await execAll(env.MIGRATION_DB, init.queries.join(';\n'));
+    expect(await schemaObjects(env.MIGRATION_DB)).toEqual(before);
+    const registries = await env.MIGRATION_DB.prepare(`SELECT COUNT(*) AS n FROM registries`).first<{ n: number }>();
+    expect(registries!.n).toBe(1);
+  });
+
+  it('later migrations carry existing arms and tags across the tags table rebuild', async () => {
+    await env.MIGRATION_DB.batch([
+      insertArms('a1'),
+      insertArms('a2'),
+      env.MIGRATION_DB.prepare(`INSERT INTO arms_tags (arms_id, registry_id, tag) VALUES ('a1', 'default', 'charge:wolf'), ('a1', 'default', 'tincture:or'), ('a2', 'default', 'charge:wolf')`),
+    ]);
+    await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS);
+    expect(laterMigrations.length).toBeGreaterThan(0);
+
+    const tags = await env.MIGRATION_DB.prepare(`SELECT arms_id, tag FROM arms_tags ORDER BY arms_id, tag`).all();
+    expect(tags.results).toEqual([
+      { arms_id: 'a1', tag: 'charge:wolf' },
+      { arms_id: 'a1', tag: 'tincture:or' },
+      { arms_id: 'a2', tag: 'charge:wolf' },
+    ]);
+    expect(await schemaObjects(env.MIGRATION_DB)).toEqual(await schemaObjects(env.DB));
+  });
+
+  it('deleting an arms row deletes its tags', async () => {
+    await env.MIGRATION_DB.prepare(`DELETE FROM arms WHERE id = 'a1'`).run();
+    const tags = await env.MIGRATION_DB.prepare(`SELECT arms_id FROM arms_tags`).all();
+    expect(tags.results).toEqual([{ arms_id: 'a2' }]);
+  });
+
+  it('allow only one default registry', async () => {
+    await expect(
+      env.MIGRATION_DB.prepare(`INSERT INTO registries (id, name, is_default, created_at) VALUES ('second', 'Second', 1, 'now')`).run()
+    ).rejects.toThrow(/UNIQUE/i);
+    await env.MIGRATION_DB.prepare(`INSERT INTO registries (id, name, is_default, created_at) VALUES ('third', 'Third', 0, 'now')`).run();
+    await env.MIGRATION_DB.prepare(`INSERT INTO registries (id, name, is_default, created_at) VALUES ('fourth', 'Fourth', 0, 'now')`).run();
+  });
+
+  it('serve the candidate lookup from the similarity index', async () => {
+    const plan = await env.MIGRATION_DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT id FROM arms WHERE registry_id = ? AND field_division = ? AND ordinary IS ? AND charge IS ? ORDER BY created_at, id`
+    ).bind('default', 'plain', null, null).all<{ detail: string }>();
+    expect(plan.results.map((r) => r.detail).join('\n')).toContain('arms_registry_similarity');
+  });
+});

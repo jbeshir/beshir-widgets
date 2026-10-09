@@ -7,6 +7,9 @@ declare namespace Cloudflare {
   interface Env {
     DB: D1Database;
     CREATE_LIMITER: RateLimit;
+    MIGRATION_DB: D1Database;
+    BASELINE_DB: D1Database;
+    MIGRATIONS: import("cloudflare:test").D1Migration[];
   }
 }
 

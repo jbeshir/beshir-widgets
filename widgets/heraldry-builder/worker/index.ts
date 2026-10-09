@@ -21,8 +21,8 @@
 //   DELETE /api/arms/:id        -> withdraw; Authorization: Bearer <secret>; deletes the row + tags
 
 import {
-  blazon, checkUnique, cleanContact, cleanDisplayName, deriveTags, explainDifferences,
-  fieldDivision, likePattern, normalise, parseSearchParams, readability, resolve, searchParamsFromUrl,
+  blazon, candidateKey, checkUnique, cleanContact, cleanDisplayName, deriveTags, explainDifferences,
+  likePattern, normalise, parseSearchParams, readability, resolve, searchParamsFromUrl,
   signature, type Issue, type NormDesign, type RegistryEntryLike,
 } from '../src/lib/heraldry';
 
@@ -32,9 +32,10 @@ interface Env {
   CREATE_LIMITER: RateLimit;
 }
 
-// A registry holds at most this many entries; the too-close scan reads them all, so this also
-// bounds the work of a check. Generous for a community armorial (FINDINGS §10).
+// A registry holds at most this many entries; generous for a community armorial.
 const MAX_ENTRIES_PER_REGISTRY = 2000;
+// Request bodies are a design plus a name and contact, well under 2 KB; anything past this is refused.
+const MAX_BODY_BYTES = 16 * 1024;
 const MAX_REGISTRY_ID_LEN = 64;
 
 interface RegistryRow {
@@ -83,8 +84,17 @@ export default {
       // /api/*, these normally never reach the Worker, but delegating keeps it correct if they do.
       if (env.ASSETS) return env.ASSETS.fetch(request);
       return new Response('Not found', { status: 404 });
-    } catch {
+    } catch (e) {
       // Defense in depth: never surface a bare runtime error (e.g. a D1 failure) to the client.
+      // One structured line for the logs: no body, headers, ids or contact details.
+      const { pathname } = new URL(request.url);
+      console.error(JSON.stringify({
+        event: 'unhandled_error',
+        route: pathname.startsWith('/api/arms/') && pathname !== '/api/arms/check' ? '/api/arms/:id' : pathname,
+        method: request.method,
+        errorName: e instanceof Error ? e.name : typeof e,
+        errorMessage: e instanceof Error ? e.message : String(e),
+      }));
       return jsonError(500, 'internal_error', 'Unexpected error.');
     }
   },
@@ -143,7 +153,7 @@ async function lookupRegistry(env: Env, raw: unknown): Promise<RegistryLookup> {
   const row = id
     ? await env.DB.prepare(`SELECT id, name, is_default FROM registries WHERE id = ?`).bind(id).first<RegistryRow>()
     : await env.DB.prepare(
-        `SELECT id, name, is_default FROM registries WHERE is_default = 1 ORDER BY id LIMIT 1`
+        `SELECT id, name, is_default FROM registries WHERE is_default = 1 LIMIT 1`
       ).first<RegistryRow>();
   if (!row) return { error: jsonError(404, 'not_found', 'Unknown registry.') };
   return { registry: { id: row.id, name: row.name } };
@@ -237,15 +247,27 @@ function invalidDesign(issues: Issue[]): Response {
   });
 }
 
-/** The registry's rows in registration order (the deterministic scan order of checkUnique). */
-async function loadRegistryRows(env: Env, registryId: string): Promise<ScanRow[]> {
+/**
+ * The registry entries that could be a duplicate of, or too close to, `nd`: those sharing its field
+ * division, ordinary and charge (served by arms_registry_similarity), in registration order.
+ */
+async function loadCandidates(env: Env, registryId: string, nd: NormDesign): Promise<ScanRow[]> {
+  const key = candidateKey(nd);
   const { results } = await env.DB.prepare(
     `SELECT id, display_name, design, signature, blazon FROM arms
-     WHERE registry_id = ? ORDER BY created_at, id LIMIT ?`
+     WHERE registry_id = ? AND field_division = ? AND ordinary IS ? AND charge IS ?
+     ORDER BY created_at, id`
   )
-    .bind(registryId, MAX_ENTRIES_PER_REGISTRY + 1)
+    .bind(registryId, key.fieldDivision, key.ordinary, key.charge)
     .all<ScanRow>();
   return results;
+}
+
+async function countEntries(env: Env, registryId: string): Promise<number> {
+  const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM arms WHERE registry_id = ?`)
+    .bind(registryId)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
 }
 
 type Uniqueness =
@@ -306,7 +328,7 @@ async function checkArms(request: Request, env: Env): Promise<Response> {
   const d = deriveDesign(body.design);
   if ('error' in d) return d.error;
 
-  const u = uniqueness(d.derived, await loadRegistryRows(env, reg.registry.id));
+  const u = uniqueness(d.derived, await loadCandidates(env, reg.registry.id, d.derived.design));
   const base = {
     registry: reg.registry,
     blazon: d.derived.blazon,
@@ -351,11 +373,10 @@ async function createArms(request: Request, env: Env): Promise<Response> {
   const reg = await lookupRegistry(env, body.registry);
   if ('error' in reg) return reg.error;
 
-  const rows = await loadRegistryRows(env, reg.registry.id);
-  if (rows.length >= MAX_ENTRIES_PER_REGISTRY) {
+  if ((await countEntries(env, reg.registry.id)) >= MAX_ENTRIES_PER_REGISTRY) {
     return jsonError(409, 'registry_full', 'This registry is full.');
   }
-  const u = uniqueness(input.derived, rows);
+  const u = uniqueness(input.derived, await loadCandidates(env, reg.registry.id, input.derived.design));
   if (u.kind !== 'ok') return uniquenessError(u);
 
   const id = randomToken(16); // ~128-bit
@@ -364,6 +385,7 @@ async function createArms(request: Request, env: Env): Promise<Response> {
   const now = new Date().toISOString();
   const d = input.derived;
   const nd = d.design;
+  const key = candidateKey(nd);
 
   try {
     // One transaction: the row and its tags land together or not at all.
@@ -374,7 +396,7 @@ async function createArms(request: Request, env: Env): Promise<Response> {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
       ).bind(
         id, reg.registry.id, input.displayName, input.contact, JSON.stringify(nd), d.signature, d.blazon,
-        fieldDivision(nd.field), nd.ordinary?.type ?? null, nd.charges?.charge ?? null, d.readability,
+        key.fieldDivision, key.ordinary, key.charge, d.readability,
         editSecretHash, now, now
       ),
       insertTags(env, id, reg.registry.id, d.tags),
@@ -492,8 +514,9 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
   // A design change must still be unique within the registry (ignoring this entry itself).
   const d = input.derived;
   const nd = d.design;
+  const key = candidateKey(nd);
   if (d.signature !== row.signature) {
-    const u = uniqueness(d, await loadRegistryRows(env, row.registry_id), id);
+    const u = uniqueness(d, await loadCandidates(env, row.registry_id, nd), id);
     if (u.kind !== 'ok') return uniquenessError(u);
   }
 
@@ -512,7 +535,7 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
          WHERE id = ? AND rev = ?`
       ).bind(
         input.displayName, input.contact, JSON.stringify(nd), d.signature, d.blazon,
-        fieldDivision(nd.field), nd.ordinary?.type ?? null, nd.charges?.charge ?? null, d.readability,
+        key.fieldDivision, key.ordinary, key.charge, d.readability,
         now, id, expectedRev
       ),
       env.DB.prepare(`DELETE FROM arms_tags WHERE arms_id = ? AND ${landed}`).bind(id, id, newRev, d.signature),
@@ -552,11 +575,9 @@ async function withdrawArms(request: Request, env: Env, id: string): Promise<Res
   const auth = await authorise(request, env, id);
   if ('error' in auth) return auth.error;
 
-  // Withdrawal deletes the entry outright (nothing is kept), which also frees its signature.
-  await env.DB.batch([
-    env.DB.prepare(`DELETE FROM arms_tags WHERE arms_id = ?`).bind(id),
-    env.DB.prepare(`DELETE FROM arms WHERE id = ?`).bind(id),
-  ]);
+  // Withdrawal deletes the entry outright (nothing is kept), which also frees its signature. The
+  // tags go with it (ON DELETE CASCADE).
+  await env.DB.prepare(`DELETE FROM arms WHERE id = ?`).bind(id).run();
   return json(200, { id, withdrawn: true });
 }
 
@@ -587,11 +608,44 @@ async function parseBody(request: Request): Promise<ParseResult> {
   if (!ct.includes('application/json')) {
     return { error: jsonError(400, 'bad_request', 'Expected application/json body.') };
   }
+  const declared = Number(request.headers.get('Content-Length'));
+  if (declared > MAX_BODY_BYTES) return { error: bodyTooLarge() };
+  const text = await readCapped(request, MAX_BODY_BYTES);
+  if (text == null) return { error: bodyTooLarge() };
   try {
-    return { body: await request.json() };
+    return { body: JSON.parse(text) };
   } catch {
     return { error: jsonError(400, 'bad_request', 'Body is not valid JSON.') };
   }
+}
+
+function bodyTooLarge(): Response {
+  return jsonError(413, 'payload_too_large', `Request body must be at most ${MAX_BODY_BYTES} bytes.`);
+}
+
+/** The body as text, or null once it passes `limit` bytes (a missing or false Content-Length can't dodge the cap). */
+async function readCapped(request: Request, limit: number): Promise<string | null> {
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    bytes.set(c, at);
+    at += c.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 function bearerToken(header: string | null): string | null {
@@ -641,7 +695,12 @@ function timingSafeEqual(a: string, b: string): boolean {
 function json(status: number, body: unknown, extraHeaders?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...extraHeaders },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      ...extraHeaders,
+    },
   });
 }
 
