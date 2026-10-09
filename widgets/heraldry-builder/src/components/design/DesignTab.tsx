@@ -9,6 +9,7 @@ import type { Issue } from '../../lib/heraldry';
 import type { DesignReport } from '../../lib/builder';
 import type { RefObject } from 'preact';
 import type { JumpTarget } from '../Availability';
+import { SavePicture } from '../SavePicture';
 import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
 import { ChargesStep, FieldStep, OrdinaryStep } from './BuilderSteps';
@@ -137,6 +138,7 @@ export function DesignTab(p: Props) {
           </button>
           <span id="hatching-help" class="switch-help">Line patterns show each tincture without colour.</span>
         </div>
+        <SavePicture design={design} shape={shape} hatching={p.hatching} displayName="" />
         <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />
 
         <BlazonPanel design={design} />

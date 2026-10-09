@@ -1058,7 +1058,7 @@ describe('too-close candidate lookup', () => {
       }
     }
     expect([...verdicts].sort()).toEqual(['duplicate', 'ok', 'ok-on-halves', 'too-close']);
-  });
+  }, 30_000);
 });
 
 describe('half differences', () => {

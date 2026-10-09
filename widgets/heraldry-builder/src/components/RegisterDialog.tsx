@@ -7,16 +7,18 @@
 
 import { useRef, useState } from 'preact/hooks';
 import { DISCORD_MAX, DISPLAY_NAME_MAX, EMAIL_MAX, blazon, cleanDiscord, cleanDisplayName, cleanEmail, type FieldShape, type MailOutcome, type NormDesign } from '../lib/heraldry';
-import { capabilityUrls, registryParam } from '../lib/route';
+import { capabilityUrls, printHash, registryParam } from '../lib/route';
 import * as store from '../store';
 import { TakenPanel } from './Availability';
 import { CopyField, SecretLinkField } from './CopyField';
 import { Dialog, Popover } from './overlay';
+import { SavePicture } from './SavePicture';
 import { Shield } from './Shield';
 
 interface Props {
   design: NormDesign;
   shape: FieldShape;
+  hatching: boolean;
   onClose: () => void;
   onRegistered: () => void;
 }
@@ -43,7 +45,7 @@ function validate(name: string, email: string, discord: string): Checked {
   };
 }
 
-export function RegisterDialog({ design, shape, onClose, onRegistered }: Props) {
+export function RegisterDialog({ design, shape, hatching, onClose, onRegistered }: Props) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [discord, setDiscord] = useState('');
@@ -112,7 +114,9 @@ export function RegisterDialog({ design, shape, onClose, onRegistered }: Props) 
           <p class="field-hint">
             A copy is kept under “Your arms” on this device. Lost it later? Use “Lost your link?” at the top of the page and we’ll email you a new one.
           </p>
+          <SavePicture design={design} shape={shape} hatching={hatching} displayName={name} />
           <div class="dialog-actions">
+            <a class="button-secondary" href={printHash([registered.id])} data-testid="print-nametag">Print nametag</a>
             <button type="button" class="button-secondary" data-testid="register-done" onClick={onClose}>Done</button>
           </div>
         </div>

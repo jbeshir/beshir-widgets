@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FIELD_SHAPE, blazon, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
 import { DEFAULT_DESIGN, assess, sameDesign } from './lib/builder';
-import { RECOVER_HASH, registryParam } from './lib/route';
+import { RECOVER_HASH, parseHash, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
 import { computeWidgetState, type ListStatus, type Tab } from './lib/widgetState';
 import * as store from './store';
@@ -9,6 +9,7 @@ import { Availability, outcomeMessage, type CheckOutcome } from './components/Av
 import { DesignTab } from './components/design/DesignTab';
 import { RegistryPanel } from './components/registry/RegistryPanel';
 import { YourArmsPanel } from './components/YourArmsPanel';
+import { PrintView } from './components/PrintView';
 import { RegisterDialog } from './components/RegisterDialog';
 
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -43,9 +44,37 @@ export function App() {
   const announce = useCallback((m: string) => setAnnouncement((cur) => (cur === m ? `${m}\u00a0` : m)), []);
   const focusPreview = useRef(false);
 
+  // The nametag sheet replaces the app on screen (the app stays mounted, hidden, so no state is lost).
+  // Back returns to the page it was opened from and puts focus back where the visitor left it.
+  const printing = route.mode === 'print';
+  const backHash = useRef('#/');
+  const printOpener = useRef<Element | null>(null);
+  const wasPrinting = useRef(false);
+  useEffect(() => {
+    if (!printing) backHash.current = location.hash || '#/';
+  }, [route]);
+  useEffect(() => {
+    const on = () => {
+      if (parseHash(location.hash).mode === 'print' && !wasPrinting.current) printOpener.current = document.activeElement;
+    };
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+  useEffect(() => {
+    if (printing) {
+      wasPrinting.current = true;
+      return;
+    }
+    if (!wasPrinting.current) return;
+    wasPrinting.current = false;
+    const opener = printOpener.current;
+    if (opener instanceof HTMLElement && opener.isConnected && !opener.closest('[hidden]')) opener.focus();
+    else document.getElementById(`tab-${tab}`)?.focus();
+  }, [printing]);
+
   // An entry, owner or recovery link opens the registry tab (it shows that page in place of the list).
   useEffect(() => {
-    if (route.mode !== 'builder') selectTab('registry');
+    if (route.mode !== 'builder' && route.mode !== 'print') selectTab('registry');
   }, [route]);
 
   const selectTab = useCallback((t: Tab) => {
@@ -168,7 +197,8 @@ export function App() {
   };
 
   return (
-    <main class="container">
+    <>
+    <main class="container" hidden={printing}>
       <section class="card">
         <header class="card-header">
           <h1>Heraldry Builder</h1>
@@ -231,9 +261,11 @@ export function App() {
       <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="live-status">{announcement}</div>
 
       {registerOpen && (
-        <RegisterDialog design={design} shape={shape} onClose={() => setRegisterOpen(false)} onRegistered={() => setYours(store.deviceArms())} />
+        <RegisterDialog design={design} shape={shape} hatching={hatching} onClose={() => setRegisterOpen(false)} onRegistered={() => setYours(store.deviceArms())} />
       )}
       {ready && <div id="widget-ready" style={{ display: 'none' }} aria-hidden="true" />}
     </main>
+    {route.mode === 'print' && <PrintView ids={route.ids} hatching={hatching} onBack={() => { location.hash = backHash.current; }} />}
+    </>
   );
 }

@@ -6,19 +6,21 @@
 //   #/a/<id>           → public entry view
 //   #/recover          → "Lost your link?" request form
 //   #/recover/<token>  → redeem an emailed recovery token
+//   #/print[/<id>,<id>] → nametag sheet (no ids: every entry remembered on this device)
 //   anything else      → builder
 // The registry is chosen with a query parameter (`?registry=<id>`); absent → the default registry.
 
 import { entryHash, ownerHash } from './hashes';
 
-export { RECOVER_HASH, entryHash, ownerHash, recoverTokenHash } from './hashes';
+export { PRINT_HASH, RECOVER_HASH, entryHash, ownerHash, printHash, recoverTokenHash } from './hashes';
 
 export type Route =
   | { mode: 'builder' }
   | { mode: 'entry'; id: string }
   | { mode: 'owner'; id: string; secret: string }
   | { mode: 'recover' }
-  | { mode: 'redeem'; token: string };
+  | { mode: 'redeem'; token: string }
+  | { mode: 'print'; ids: string[] };
 
 export function parseHash(hash: string): Route {
   // Accept "#/a/..", "#a/..", and a leading "#/" tolerant of an extra slash.
@@ -32,7 +34,18 @@ export function parseHash(hash: string): Route {
   if (parts[0] === 'recover') {
     return parts[1] ? { mode: 'redeem', token: safeDecode(parts[1]) } : { mode: 'recover' };
   }
+  if (parts[0] === 'print') return { mode: 'print', ids: parsePrintIds(parts[1]) };
   return { mode: 'builder' };
+}
+
+/** The most entries one nametag sheet holds (the device list is capped at the same number). */
+export const MAX_PRINT_ENTRIES = 50;
+
+/** The distinct ids of a comma-separated `#/print/` segment, in order; absent or empty → none. */
+function parsePrintIds(segment: string | undefined): string[] {
+  if (!segment) return [];
+  const ids = segment.split(',').map(safeDecode).filter((id) => id.length > 0);
+  return [...new Set(ids)].slice(0, MAX_PRINT_ENTRIES);
 }
 
 /** decodeURIComponent that never throws — a malformed hash must not blank the SPA on boot. */

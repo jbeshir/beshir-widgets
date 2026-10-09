@@ -5,10 +5,11 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { gloss, type Contact, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
-import { RECOVER_HASH, capabilityUrls } from '../../lib/route';
+import { RECOVER_HASH, capabilityUrls, printHash } from '../../lib/route';
 import * as store from '../../store';
 import { CopyField, useCopy } from '../CopyField';
 import { Dialog } from '../overlay';
+import { SavePicture } from '../SavePicture';
 import { Shield } from '../Shield';
 
 interface Summary {
@@ -63,7 +64,9 @@ export function EntryBody({ entry, sample, hatching, onLoad }: BodyProps) {
         <button type="button" class="button-primary" data-testid="load-into-builder" onClick={() => onLoad({ design: entry.design, shape: entry.shape })}>
           Load into builder
         </button>
+        <a class="button-secondary" href={printHash([entry.id])} data-testid="print-nametag">Print nametag</a>
       </div>
+      <SavePicture design={entry.design} shape={entry.shape} hatching={hatching} displayName={entry.displayName} />
       <a class="text-link entry-recover" href={RECOVER_HASH} data-testid="entry-recover-link">Your arms? Lost your link? / Withdraw my registration</a>
     </div>
   );

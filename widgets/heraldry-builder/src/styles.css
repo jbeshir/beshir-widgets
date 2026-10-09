@@ -1580,3 +1580,109 @@ html.overlay-open, html.overlay-open body { overflow: hidden; overscroll-behavio
 .recover-actions { justify-content: flex-start; }
 .recover-heading:focus { outline: none; }
 .recover-heading:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── Save picture ── */
+a.button-primary,
+a.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.save-picture { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; }
+.save-picture-label { font-size: 15px; font-weight: 600; color: var(--fg-secondary); }
+.save-picture-status { flex: 1 1 100%; font-size: 15px; color: var(--fg-secondary); overflow-wrap: anywhere; }
+.entry-actions { align-items: center; }
+.yours-print { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 12px; }
+.yours-print-hint { font-size: 15px; }
+.yours-pick { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; margin: -8px -6px -8px -10px; cursor: pointer; }
+.yours-pick input { width: 22px; height: 22px; accent-color: var(--accent-fill); cursor: pointer; }
+
+/* ── Nametag sheet ──
+   The paper is always light: its colours are fixed here, not taken from the theme. */
+.print-view { max-width: 920px; margin: 0 auto; padding: 16px 12px 32px; }
+.print-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  color: var(--fg);
+}
+.print-toolbar h1 { margin: 0; font-size: 22px; flex: 1 1 100%; }
+.print-toolbar h1:focus { outline: none; }
+.print-toolbar h1:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+.print-count, .print-missing { margin: 0; flex: 1 1 100%; font-size: 16px; color: var(--fg-secondary); }
+.print-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.print-pages { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.print-page {
+  --shield-rim: transparent;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 210mm;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px;
+  background: #ffffff;
+  color: #111111;
+  border-radius: 4px;
+  box-shadow: var(--card-shadow);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.nametag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed #5c5c5c;
+  text-align: center;
+  break-inside: avoid;
+}
+.nametag-shield { flex: none; width: 120px; height: auto; }
+.nametag-text { min-width: 0; }
+.nametag-name { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 700; overflow-wrap: anywhere; color: #111111; }
+
+.nametag-name-long { font-size: 22px; }
+.nametag-blazon { margin: 8px 0 0; font-size: 15px; line-height: 1.35; color: #3a3a3a; overflow-wrap: anywhere; }
+
+/* Wide screens preview the paper as it prints: A4, two columns of four tags. */
+@media (min-width: 760px), print {
+  .print-page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 10mm;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    gap: 4mm;
+  }
+  .nametag { flex-direction: row; gap: 5mm; padding: 5mm; text-align: left; overflow: hidden; }
+  .nametag-shield { width: 28mm; }
+  .nametag-name { font-size: 17pt; }
+  .nametag-name-long { font-size: 13pt; }
+  .nametag-blazon { font-size: 10pt; margin-top: 2mm; }
+}
+
+@page nametags { size: A4; margin: 0; }
+.print-view { page: nametags; }
+
+@media print {
+  html, body { background: #ffffff !important; }
+  .print-view { max-width: none; margin: 0; padding: 0; }
+  .print-toolbar, .sr-only, #overlay-root { display: none !important; }
+  .print-pages { display: block; }
+  .print-page {
+    height: 297mm;
+    min-height: 0;
+    box-shadow: none;
+    border-radius: 0;
+    break-after: page;
+  }
+  .print-page:last-child { break-after: auto; }
+}

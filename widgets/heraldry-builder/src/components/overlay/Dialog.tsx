@@ -45,6 +45,13 @@ export function Dialog({ title, onClose, layer = 'dialog', testid, class: cls, i
     };
   }, []);
 
+  // Following a link to another page leaves the dialog behind.
+  useEffect(() => {
+    const leave = () => closeRef.current();
+    window.addEventListener('hashchange', leave);
+    return () => window.removeEventListener('hashchange', leave);
+  }, []);
+
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key !== 'Tab' || !ref.current) return;
     const items = focusables(ref.current);
