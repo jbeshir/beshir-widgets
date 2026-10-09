@@ -43,11 +43,6 @@ export const TINCTURE_WORD: Record<Tincture, string> = {
 /** Colour words used by the gloss (§4.5): the plain word, naming celestine since it isn't a familiar colour term. */
 export const TINCTURE_GLOSS: Record<Tincture, string> = { ...TINCTURE_WORD, celestine: 'sky blue (celestine)' };
 
-/** Everyday colour words a search may use for a tincture that isn't named by its plain word (lowercase). */
-export const TINCTURE_SYNONYMS: Readonly<Record<string, Tincture>> = {
-  cyan: 'celestine', 'sky blue': 'celestine', 'light blue': 'celestine', turquoise: 'celestine',
-};
-
 /**
  * Fixed render palette, identical in light and dark themes (§4.8). Celestine is a mid cyan, far
  * lighter than Azure and clearly coloured against Argent (CIEDE2000 34.5 and 28.7).

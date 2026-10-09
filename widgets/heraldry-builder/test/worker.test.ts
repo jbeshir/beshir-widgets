@@ -11,6 +11,7 @@ import {
   type RegistryEntryLike, type SearchParams,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
+import { sampleSearchEntries } from './sample-search-entries';
 
 interface CallOpts {
   body?: unknown;
@@ -488,10 +489,11 @@ describe('GET /api/arms (search)', () => {
     expect(names(await find({ q: 'cyan', charge: 'crescent' }))).toEqual(['Quinn Ashworth']);
   });
 
-  it('matches q case-insensitively on name or blazon, with LIKE wildcards escaped', async () => {
+  it('matches q case-insensitively as whole words of name, blazon or gloss; punctuation matches nothing', async () => {
     expect(names(await find({ q: 'UNICORN' }))).toEqual(['Basil Thorne']);
     expect(names(await find({ q: 'pike' }))).toEqual(['Noor Pike']);
-    expect(names(await find({ q: 'or, a' }))).toEqual(['Hana Roe']);
+    expect(names(await find({ q: 'pik' }))).toEqual([]);
+    expect(names(await find({ q: 'five-pointed star' }))).toEqual(['Elin Sato']);
     expect((await find({ q: '%' })).total).toBe(0);
     expect((await find({ q: '_' })).total).toBe(0);
     expect((await find({ q: 'a\\' })).total).toBe(0);
@@ -538,25 +540,108 @@ describe('GET /api/arms (search)', () => {
     expect(page.registry).toEqual({ id: 'default', name: 'Default' });
   });
 
-  it('agrees with the shared offline search over the sample (parity)', async () => {
-    const entries = sample.entries.map((e) => ({
-      id: e.id, displayName: e.displayName, blazon: e.blazon, createdAt: e.registeredAt, design: (resolve(e.design) as any).design,
-    }));
-    const cases: SearchParams[] = [
-      {}, { charge: 'mullet' }, { ordinary: 'chief' }, { tincture: 'or' }, { tincture: 'argent', division: 'plain' },
-      { chargeTincture: 'or' }, { posture: 'rampant' }, { division: 'per-bend-sinister' }, { q: 'Sable' },
-      { q: 'a', tincture: 'vert' }, { ordinary: 'saltire', chargeTincture: 'azure' }, { charge: 'rose', ordinary: 'chevron' },
-      { tincture: 'celestine' }, { q: 'cyan' }, { q: 'sky blue', division: 'plain' },
-    ];
-    for (const params of cases) {
+  it('400s a parameter the API does not define, naming it', async () => {
+    for (const bad of ['colour=red', 'category2=bird', 'Q=wolf', 'offsets=1']) {
+      const res = await call('GET', `/api/arms?registry=${SEARCH}&${bad}`);
+      expect(res.status, bad).toBe(400);
+      expect(await bodyOf(res)).toMatchObject({ error: 'unknown_param', param: bad.split('=')[0] });
+    }
+  });
+
+  it('filters by charge category and field tincture', async () => {
+    expect(names(await find({ category: 'monster' }))).toEqual(['Basil Thorne', 'Hana Roe']);
+    expect(names(await find({ category: 'geometric', fieldTincture: 'gules' }))).toEqual(['Elin Sato', 'Jules Okafor']);
+    expect(names(await find({ fieldTincture: 'sable' }))).toEqual(['Dev Halloran', 'Jules Okafor']);
+    for (const [param, value] of [['category', 'bird2'], ['fieldTincture', 'gold']]) {
+      const res = await call('GET', `/api/arms?registry=${SEARCH}&${param}=${value}`);
+      expect(res.status, param).toBe(400);
+      expect(await bodyOf(res)).toMatchObject({ error: 'bad_request', param });
+    }
+  });
+
+  it('answers plain-English queries like the shared offline search (parity over the sample)', async () => {
+    const idOfName = new Map(sampleSearchEntries.map((e) => [e.displayName, e.id]));
+    for (const params of PARITY_CASES) {
       const parsed = parseSearchParams({ ...params, limit: 50 });
       expect(parsed.ok).toBe(true);
       if (!parsed.ok) continue;
-      const local = searchEntries(entries, parsed.query);
+      const local = searchEntries(sampleSearchEntries, parsed.query);
       const remote = await find({ ...(params as Record<string, string>), limit: 50 });
+      const remoteIds = remote.items.map((i: Json) => idOfName.get(i.displayName));
+      expect(remoteIds, JSON.stringify(params)).toEqual(local.items.map((i) => i.id));
       expect(remote.total, JSON.stringify(params)).toBe(local.total);
-      expect(names(remote), JSON.stringify(params)).toEqual(local.items.map((i) => i.displayName).sort());
     }
+  });
+
+  it('stores search text with the gloss and name, and never the contact or email', async () => {
+    const { results } = await env.DB.prepare(`SELECT display_name, search_text FROM arms WHERE registry_id = ?`).bind(SEARCH).all<{ display_name: string; search_text: string }>();
+    expect(results).toHaveLength(17);
+    const cass = results.find((r) => r.display_name === 'Cass Merriweather')!;
+    expect(cass.search_text).toBe(' cass merriweather per pale azure and vert a wolf passant argent a shield split vertically blue on the left and green on the right with a white wolf walking ');
+    const basil = results.find((r) => r.display_name === 'Basil Thorne')!;
+    expect(basil.search_text).not.toContain('snack');
+    for (const r of results) expect(r.search_text).not.toContain(OWNER_EMAIL);
+  });
+});
+
+/** Parameter sets the Worker and the offline sample search must answer with identical id lists. */
+const PARITY_CASES: SearchParams[] = [
+  {}, { charge: 'mullet' }, { ordinary: 'chief' }, { tincture: 'or' }, { tincture: 'argent', division: 'plain' },
+  { chargeTincture: 'or' }, { posture: 'rampant' }, { division: 'per-bend-sinister' }, { category: 'beast' }, { fieldTincture: 'azure' },
+  { tincture: 'celestine' }, { q: 'Sable' }, { q: 'cyan' }, { q: 'sky blue', division: 'plain' }, { q: 'a', tincture: 'vert' },
+  { q: 'yellow' }, { q: 'gold lion' }, { q: 'passant wolf' }, { q: 'wolf passant' }, { q: 'walking wolf' }, { q: 'standing goat' },
+  { q: 'bird' }, { q: 'white border' }, { q: 'star' }, { q: 'wolves' }, { q: 'Or' }, { q: 'or', ordinary: 'bend' }, { q: 'animal' },
+  { q: 'yellow animal on black with a white border' }, { q: 'a red dragon' }, { q: 'rearing dragon' }, { q: 'segreant' },
+  { q: 'stripe' }, { q: 'x' }, { q: 'cross-shaped' }, { q: 'moon' }, { q: 'fire' }, { q: 'cog' }, { q: 'dog' }, { q: 'lily' },
+  { q: 'fleurs-de-lis' }, { q: 'the' }, { q: '%' }, { q: 'pike' }, { q: 'pik' }, { q: 'Ada Brightwater' }, { q: 'purple', category: 'object' },
+];
+
+describe('GET /api/arms (plain-English search of registered entries)', () => {
+  const PLAIN = 'plainsearch';
+  const search = async (q: string) => {
+    const res = await call('GET', `/api/arms?${new URLSearchParams({ registry: PLAIN, q })}`);
+    expect(res.status).toBe(200);
+    return ((await bodyOf(res)).items as Json[]).map((i) => i.displayName);
+  };
+  let lion: { id: string; editSecret: string };
+
+  beforeAll(async () => {
+    await addRegistry(PLAIN, 'Plain search');
+    const wolf = { v: 1, field: plain('sable'), charges: { charge: 'wolf', count: 3, placement: 'field', arrangement: 'two-and-one', posture: 'passant', tincture: 'or' } };
+    lion = await register(
+      { v: 1, field: plain('azure'), charges: { charge: 'lion', count: 1, placement: 'field', arrangement: 'single', posture: 'rampant', tincture: 'or' } },
+      { registry: PLAIN, displayName: 'Morgan Lyon', contact: { discord: 'lyon.user' } },
+    );
+    await register(wolf, { registry: PLAIN, displayName: 'Wolfgang Pack' });
+  });
+
+  it('finds a gold lion, a yellow animal, a plural, and not part of a word', async () => {
+    expect(await search('gold lion')).toEqual(['Morgan Lyon']);
+    expect(await search('yellow cat on blue')).toEqual(['Morgan Lyon']);
+    expect(await search('yellow animal')).toEqual(['Wolfgang Pack', 'Morgan Lyon']);
+    expect(await search('three wolves')).toEqual(['Wolfgang Pack']);
+    expect(await search('passant dog')).toEqual(['Wolfgang Pack']);
+    expect(await search('Or')).toEqual(['Wolfgang Pack', 'Morgan Lyon']);
+    expect(await search('morgan')).toEqual(['Morgan Lyon']);
+    expect(await search('morg')).toEqual([]);
+    expect(await search('wolf')).toEqual(['Wolfgang Pack']);
+  });
+
+  it('keeps search text in step with an edit, and out of the contact', async () => {
+    const edited = await call('PUT', `/api/arms/${lion.id}`, {
+      body: {
+        displayName: 'Morgan Lyon',
+        design: { v: 1, field: plain('vert'), charges: { charge: 'owl', count: 1, placement: 'field', arrangement: 'single', tincture: 'argent' } },
+      },
+      headers: { Authorization: `Bearer ${lion.editSecret}`, 'If-Match': '1' },
+    });
+    expect(edited.status, await edited.clone().text()).toBe(200);
+    expect(await search('gold lion')).toEqual([]);
+    expect(await search('white bird on green')).toEqual(['Morgan Lyon']);
+    expect(await search('lyon.user')).toEqual([]);
+    const row = await env.DB.prepare(`SELECT search_text FROM arms WHERE id = ?`).bind(lion.id).first<{ search_text: string }>();
+    expect(row!.search_text).not.toContain('user');
+    expect(row!.search_text).not.toContain(OWNER_EMAIL);
   });
 });
 

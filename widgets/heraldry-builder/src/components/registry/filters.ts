@@ -5,16 +5,16 @@ import {
   TINCTURE_NAME, TINCTURE_WORD, chargesInCategory, type SearchParams,
 } from '../../lib/heraldry';
 
-export const FILTER_KEYS = ['charge', 'posture', 'ordinary', 'division', 'tincture', 'chargeTincture'] as const;
+export const FILTER_KEYS = ['category', 'charge', 'posture', 'ordinary', 'division', 'fieldTincture', 'tincture', 'chargeTincture'] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 export type Filters = Record<FilterKey, string>;
 
 /** Always visible; the rest sit behind "More filters" on narrow screens. */
 export const PRIMARY_FILTERS: FilterKey[] = ['charge', 'ordinary'];
 
-export const isTinctureFilter = (k: FilterKey) => k === 'tincture' || k === 'chargeTincture';
+export const isTinctureFilter = (k: FilterKey) => k === 'tincture' || k === 'fieldTincture' || k === 'chargeTincture';
 
-export const EMPTY_FILTERS: Filters = { charge: '', posture: '', ordinary: '', division: '', tincture: '', chargeTincture: '' };
+export const EMPTY_FILTERS: Filters = { category: '', charge: '', posture: '', ordinary: '', division: '', fieldTincture: '', tincture: '', chargeTincture: '' };
 
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -31,6 +31,10 @@ const tinctureOptions = TINCTURES.map((t) => ({ value: t, label: `${TINCTURE_NAM
 
 export const FILTER_SPECS: FilterSpec[] = [
   {
+    key: 'category', testid: 'filter-category', label: 'Kind of charge', any: 'Any',
+    options: CHARGE_CATEGORIES.map((cat) => ({ value: cat, label: CATEGORY_LABEL[cat] })),
+  },
+  {
     key: 'charge', testid: 'filter-charge', label: 'Charge', any: 'Any',
     options: CHARGE_CATEGORIES.flatMap((cat) =>
       chargesInCategory(cat).map((m) => ({ value: m.id, label: cap(m.name), group: CATEGORY_LABEL[cat] })),
@@ -42,6 +46,7 @@ export const FILTER_SPECS: FilterSpec[] = [
     key: 'division', testid: 'filter-division', label: 'Field', any: 'Any',
     options: [{ value: 'plain', label: 'Plain (undivided)' }, ...DIVISIONS.map((d) => ({ value: d, label: DIVISION_NAME[d] }))],
   },
+  { key: 'fieldTincture', testid: 'filter-field-tincture', label: 'Field colour', any: 'Any', options: tinctureOptions },
   { key: 'tincture', testid: 'filter-tincture', label: 'Tincture (anywhere)', any: 'Any', options: tinctureOptions },
   { key: 'chargeTincture', testid: 'filter-charge-tincture', label: 'Charge tincture', any: 'Any', options: tinctureOptions },
 ];

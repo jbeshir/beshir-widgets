@@ -117,6 +117,10 @@ export function isChargeId(value: unknown): value is ChargeId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(CHARGES, value);
 }
 
+export function isChargeCategory(value: unknown): value is ChargeCategory {
+  return typeof value === 'string' && (CHARGE_CATEGORIES as readonly string[]).includes(value);
+}
+
 export function isPosture(value: unknown): value is Posture {
   return typeof value === 'string' && (POSTURES as readonly string[]).includes(value);
 }

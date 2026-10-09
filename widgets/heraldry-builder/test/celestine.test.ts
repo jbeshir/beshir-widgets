@@ -6,10 +6,11 @@ import {
   COLOURS, METALS, NON_STANDARD_NOTE, TINCTURES, TINCTURE_CLASS, TINCTURE_CODE, TINCTURE_FILL, TINCTURE_HATCHING,
   blazon, chargeTinctureChoices, contrastFailure, deriveTags, designTinctures, explainDifferences, filtersToTags, gloss,
   isNonStandard, normalise, ordinaryTinctureChoices, parseSearchParams, readability, resolve, searchEntries, signature,
-  withBlazonTerms, type NormDesign, type Tincture,
+  queryWords, type NormDesign, type Tincture,
 } from '../src/lib/heraldry';
 import { setDivision } from '../src/lib/builder';
 import sample from '../src/data/sample-registry.json';
+import { sampleSearchEntries, searchEntryOf } from './sample-search-entries';
 
 const plain = (tincture: string) => ({ kind: 'plain', tincture });
 
@@ -160,22 +161,16 @@ describe('celestine in words, signature and tags', () => {
 });
 
 describe('search synonyms for celestine', () => {
-  it('rewrites whole-word synonyms to the blazon term', () => {
-    expect(withBlazonTerms('cyan')).toBe('celestine');
-    expect(withBlazonTerms('Sky Blue')).toBe('celestine');
-    expect(withBlazonTerms('light blue crescent')).toBe('celestine crescent');
-    expect(withBlazonTerms('TURQUOISE')).toBe('celestine');
-    expect(withBlazonTerms('cyanotype')).toBe('cyanotype');
-    expect(withBlazonTerms('blue')).toBe('blue');
+  it('reads the everyday words as the celestine tincture, whole words only', () => {
+    for (const q of ['cyan', 'Sky Blue', 'light blue', 'TURQUOISE']) expect(queryWords(q).flat(), q).toContain('celestine');
+    expect(queryWords('cyanotype').flat()).not.toContain('celestine');
+    expect(queryWords('blue').flat()).not.toContain('celestine');
   });
 
-  const entries = sample.entries.map((e) => ({
-    id: e.id, displayName: e.displayName, blazon: e.blazon, createdAt: e.registeredAt, design: nd(e.design),
-  }));
-  const find = (q: string, extra: (typeof entries)[number][] = []) => {
+  const find = (q: string, extra: (typeof sampleSearchEntries)[number][] = []) => {
     const parsed = parseSearchParams({ q });
     if (!parsed.ok) throw new Error(parsed.message);
-    return searchEntries([...entries, ...extra], parsed.query).items.map((i) => i.id);
+    return searchEntries([...sampleSearchEntries, ...extra], parsed.query).items.map((i) => i.id);
   };
 
   it('finds celestine arms by cyan, sky blue, light blue or turquoise', () => {
@@ -183,7 +178,7 @@ describe('search synonyms for celestine', () => {
   });
 
   it('still matches the words literally in display names', () => {
-    const named = { ...entries[0], id: 'x-cyan', displayName: 'Cyan Okoro', createdAt: '2026-02-01T00:00:00Z' };
+    const named = searchEntryOf({ ...sample.entries[0], id: 'x-cyan', displayName: 'Cyan Okoro', registeredAt: '2026-02-01T00:00:00Z' });
     expect(find('cyan', [named])).toEqual(['x-cyan', 'demo-017']);
   });
 

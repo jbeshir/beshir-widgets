@@ -2,7 +2,7 @@
 // AND of tags; filtersToTags() maps the public search parameters onto that vocabulary so the Worker
 // and the offline sample search share one implementation.
 
-import { CHARGES, POSTURE_GROUP, isChargeId, isPosture } from './charges';
+import { CHARGES, POSTURE_GROUP, isChargeCategory, isChargeId, isPosture } from './charges';
 import { fieldTinctures, isBetweenOrdinary, isDivision, isOrdinaryType, type NormDesign } from './design';
 import { readability } from './readability';
 import { isTincture, type Tincture } from './tinctures';
@@ -48,8 +48,12 @@ export function deriveTags(nd: NormDesign): string[] {
 /** Public search filters (query parameters of GET /api/arms and the offline registry search). */
 export interface SearchFilters {
   tincture?: string | null;
+  /** A tincture of the field (either half of a divided field). */
+  fieldTincture?: string | null;
   chargeTincture?: string | null;
   charge?: string | null;
+  /** A charge category: beast, monster, bird, plant, geometric, object or modern. */
+  category?: string | null;
   posture?: string | null;
   ordinary?: string | null;
   /** A division id, or 'plain' for undivided fields. */
@@ -70,8 +74,10 @@ export function filtersToTags(f: SearchFilters): FilterTagsResult {
   };
   const bad =
     check('tincture', isTincture, (v) => `tincture:${v}`) ??
+    check('fieldTincture', isTincture, (v) => `field-tincture:${v}`) ??
     check('chargeTincture', isTincture, (v) => `charge-tincture:${v}`) ??
     check('charge', isChargeId, (v) => `charge:${v}`) ??
+    check('category', isChargeCategory, (v) => `charge-category:${v}`) ??
     check('posture', isPosture, (v) => `posture:${v}`) ??
     check('ordinary', isOrdinaryType, (v) => `ordinary:${v}`) ??
     check('division', (v) => v === 'plain' || isDivision(v), (v) => (v === 'plain' ? 'field:plain' : `division:${v}`));

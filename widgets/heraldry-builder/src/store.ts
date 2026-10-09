@@ -29,7 +29,7 @@
 // in the sample; the UI offers "Show offline sample" (search/getEntry with `{ sample: true }`).
 
 import {
-  DEFAULT_FIELD_SHAPE, NO_CONTACT, checkUnique, explainDifferences, isFieldShape, parseSearchParams, normalise, readability, resolve,
+  DEFAULT_FIELD_SHAPE, NO_CONTACT, buildSearchText, checkUnique, explainDifferences, isFieldShape, parseSearchParams, normalise, readability, resolve,
   searchEntries, searchParamsToUrl, signature, blazon, type Contact, type FieldShape, type Issue, type MailOutcome, type ShapedDesign, type NormDesign, type ReadabilityBand, type SearchParams,
 } from './lib/heraldry';
 import { forgetDeviceArms, listDeviceArms, rememberDeviceArms, type DeviceArms } from './lib/deviceArms';
@@ -104,6 +104,11 @@ export interface ArmsEntry extends ArmsSummary {
   updatedAt: string;
 }
 
+/** A bundled sample entry with the text free-text search runs over. */
+export interface SampleEntry extends ArmsEntry {
+  searchText: string;
+}
+
 export interface SearchPage {
   registry: RegistryRef;
   total: number;
@@ -173,7 +178,7 @@ export interface Recovered {
 
 export interface OfflineSample {
   registry: RegistryRef;
-  entries: ArmsEntry[];
+  entries: SampleEntry[];
 }
 
 // ── constants ────────────────────────────────────────────────────────────────────────────────
@@ -213,7 +218,7 @@ let sampleCache: OfflineSample | null = null;
 export function offlineSample(): OfflineSample {
   if (sampleCache) return sampleCache;
   const registry: RegistryRef = { id: sampleData.registry.id, name: sampleData.registry.name };
-  const entries: ArmsEntry[] = [];
+  const entries: SampleEntry[] = [];
   for (const e of sampleData.entries) {
     const r = resolve(e.design);
     if (!r.ok) continue;
@@ -225,6 +230,7 @@ export function offlineSample(): OfflineSample {
       design: r.design,
       shape: toShape(e.shape),
       blazon: e.blazon,
+      searchText: buildSearchText({ displayName: e.displayName, blazon: e.blazon, design: r.design }),
       signature: e.signature,
       readability: readability(r.design).band,
       rev: 1,
@@ -256,7 +262,7 @@ function conflictOf(e: ArmsEntry): ConflictSummary {
 function searchSample(params: SearchParams): Result<{ page: SearchPage }> {
   const parsed = parseSearchParams(params);
   if (!parsed.ok) {
-    return { ok: false, kind: 'http', status: 400, code: 'bad_request', message: parsed.message, param: parsed.param };
+    return { ok: false, kind: 'http', status: 400, code: parsed.code, message: parsed.message, param: parsed.param };
   }
   const s = offlineSample();
   const { total, items } = searchEntries(s.entries, parsed.query);

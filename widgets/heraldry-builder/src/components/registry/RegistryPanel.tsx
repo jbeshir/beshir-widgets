@@ -4,7 +4,7 @@
 // entry page and the owner view; #/recover and #/recover/<token> with the recovery screens.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, type ShapedDesign, type Tincture } from '../../lib/heraldry';
+import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, gloss, type ShapedDesign, type Tincture } from '../../lib/heraldry';
 import { registryParam, type Route } from '../../lib/route';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
@@ -132,13 +132,13 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
 
       <div class="registry-filters">
         <div class="filter-search">
-          <label class="field-label" for="registry-search">Search by name or blazon</label>
+          <label class="field-label" for="registry-search">Search by name, colour or charge</label>
           <input
             id="registry-search"
             class="text-input"
             type="search"
             data-testid="registry-search"
-            placeholder="e.g. wolf, bordure, Azure"
+            placeholder="e.g. gold wolf, white border"
             value={qInput}
             maxLength={60}
             autoComplete="off"
@@ -259,6 +259,7 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
                 <button type="button" class="arms-card arms-card-link" data-testid="result-card" data-id={a.id} onClick={() => setOpen(a)}>
                   <Shield design={a.design} shape={a.shape} size={72} hatching={hatching} label={null} />
                   <span class="arms-card-name">{a.displayName}</span>
+                  <span class="arms-card-gloss" data-testid="result-gloss">{gloss(a.design)}</span>
                   <span class="arms-card-blazon">{a.blazon}</span>
                 </button>
               </li>

@@ -37,7 +37,7 @@
 
 import {
   DEFAULT_FIELD_SHAPE, FIELD_SHAPES, blazon, candidateKey, checkUnique, cleanContact, cleanDisplayName, cleanEmail,
-  deriveTags, explainDifferences, isFieldShape, likePattern, normalise, parseSearchParams, readability, resolve,
+  buildSearchText, deriveTags, explainDifferences, isFieldShape, normalise, parseSearchParams, readability, resolve,
   searchParamsFromUrl, signature, type Contact, type FieldShape, type Issue, type NormDesign, type RegistryEntryLike,
 } from '../src/lib/heraldry';
 import { RECOVER_HASH, entryHash, ownerHash, recoverTokenHash } from '../src/lib/hashes';
@@ -79,6 +79,7 @@ interface ArmsRow {
   signature: string;
   blazon: string;
   readability: string;
+  search_text: string;
   edit_secret_hash: string;
   rev: number;
   created_at: string;
@@ -205,12 +206,13 @@ async function lookupRegistry(env: Env, raw: unknown): Promise<RegistryLookup> {
 // ── search ───────────────────────────────────────────────────────────────────────────────────
 
 async function searchArms(env: Env, url: URL): Promise<Response> {
-  const params = searchParamsFromUrl(url.searchParams);
-  const parsed = parseSearchParams(params);
-  if (!parsed.ok) return json(400, { error: 'bad_request', message: parsed.message, param: parsed.param });
-  const reg = await lookupRegistry(env, params.registry);
+  const fromUrl = searchParamsFromUrl(url.searchParams);
+  if (!fromUrl.ok) return json(400, { error: fromUrl.code, message: fromUrl.message, param: fromUrl.param });
+  const parsed = parseSearchParams(fromUrl.params);
+  if (!parsed.ok) return json(400, { error: parsed.code, message: parsed.message, param: parsed.param });
+  const reg = await lookupRegistry(env, fromUrl.params.registry);
   if ('error' in reg) return reg.error;
-  const { tags, q, qBlazon, limit, offset } = parsed.query;
+  const { tags, q, words, limit, offset } = parsed.query;
 
   // Tag-AND: one EXISTS per required tag, each served by the (arms_id, tag) primary key.
   const where = ['a.registry_id = ?'];
@@ -219,10 +221,13 @@ async function searchArms(env: Env, url: URL): Promise<Response> {
     where.push('EXISTS (SELECT 1 FROM arms_tags t WHERE t.arms_id = a.id AND t.tag = ?)');
     binds.push(tag);
   }
-  if (q) {
-    where.push(`(a.display_name LIKE ? ESCAPE '\\' OR a.blazon LIKE ? ESCAPE '\\' OR a.blazon LIKE ? ESCAPE '\\')`);
-    const pattern = likePattern(q);
-    binds.push(pattern, pattern, likePattern(qBlazon));
+  // Free text: each word needs one of its alternatives as a whole word of search_text (stored with a
+  // space at each end), so one JSON array per word keeps the bind count small. No searchable word
+  // matches nothing.
+  if (q && words.length === 0) where.push('0');
+  for (const alternatives of q ? words : []) {
+    where.push(`EXISTS (SELECT 1 FROM json_each(?) w WHERE instr(a.search_text, ' ' || w.value || ' ') > 0)`);
+    binds.push(JSON.stringify(alternatives));
   }
   const whereSql = where.join(' AND ');
 
@@ -442,11 +447,12 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
     await env.DB.batch([
       env.DB.prepare(
         `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, field_shape, signature, blazon,
-           field_division, ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+           field_division, ordinary, charge, readability, search_text, edit_secret_hash, rev, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
       ).bind(
         id, reg.registry.id, input.displayName, input.contact.discord, JSON.stringify(nd), input.shape, d.signature, d.blazon,
         key.fieldDivision, key.ordinary, key.charge, d.readability,
+        buildSearchText({ displayName: input.displayName, blazon: d.blazon, design: nd }),
         editSecretHash, now, now
       ),
       insertTags(env, id, reg.registry.id, d.tags),
@@ -597,11 +603,12 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
       // Conditional UPDATE on rev closes the race between the SELECT above and this write.
       env.DB.prepare(
         `UPDATE arms SET display_name = ?, contact_discord = ?, design = ?, field_shape = ?, signature = ?, blazon = ?,
-           field_division = ?, ordinary = ?, charge = ?, readability = ?, rev = rev + 1, updated_at = ?
+           field_division = ?, ordinary = ?, charge = ?, readability = ?, search_text = ?, rev = rev + 1, updated_at = ?
          WHERE id = ? AND rev = ?`
       ).bind(
         input.displayName, input.contact.discord, JSON.stringify(nd), input.shape, d.signature, d.blazon,
         key.fieldDivision, key.ordinary, key.charge, d.readability,
+        buildSearchText({ displayName: input.displayName, blazon: d.blazon, design: nd }),
         now, id, expectedRev
       ),
       env.DB.prepare(`DELETE FROM arms_tags WHERE arms_id = ? AND ${landed}`).bind(id, id, newRev, d.signature),

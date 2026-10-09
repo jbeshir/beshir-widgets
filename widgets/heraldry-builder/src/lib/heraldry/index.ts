@@ -16,6 +16,7 @@ export * from './difference';
 export * from './text';
 export * from './contact';
 export * from './email';
+export * from './search-terms';
 export * from './search';
 export * from './options';
 export * from './charge-art';

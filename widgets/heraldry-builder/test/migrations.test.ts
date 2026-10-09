@@ -90,6 +90,13 @@ describe('migrations', () => {
     expect(await schemaObjects(env.MIGRATION_DB)).toEqual(await schemaObjects(env.DB));
   });
 
+  it('0005 gives rows that already exist the words they stored, as padded lowercase words', async () => {
+    const rows = await env.MIGRATION_DB.prepare(`SELECT id, search_text FROM arms ORDER BY id`).all();
+    expect(rows.results).toEqual([{ id: 'a1', search_text: ' name vert ' }, { id: 'a2', search_text: ' name vert ' }]);
+    const column = await env.MIGRATION_DB.prepare(`SELECT dflt_value, "notnull" FROM pragma_table_info('arms') WHERE name = 'search_text'`).first();
+    expect(column).toEqual({ dflt_value: "''", notnull: 1 });
+  });
+
   it('deleting an arms row deletes its tags', async () => {
     await env.MIGRATION_DB.prepare(`DELETE FROM arms WHERE id = 'a1'`).run();
     const tags = await env.MIGRATION_DB.prepare(`SELECT arms_id FROM arms_tags`).all();

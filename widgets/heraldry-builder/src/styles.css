@@ -1040,6 +1040,7 @@ button, input, select, textarea {
 }
 .arms-card-link:hover { border-color: var(--focus); }
 .arms-card-name { font-weight: 700; }
+.arms-card-gloss { font-size: 16px; color: var(--fg); }
 .arms-card-blazon { font-size: 14px; color: var(--fg-secondary); }
 
 .yours-list {
@@ -1339,7 +1340,7 @@ button.arms-card-link {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
 }
-.arms-card-blazon { overflow-wrap: anywhere; }
+.arms-card-gloss, .arms-card-blazon { overflow-wrap: anywhere; }
 
 .skeleton-card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 10px; }
 .skeleton { display: block; background: var(--pill-bg); border-radius: 6px; }

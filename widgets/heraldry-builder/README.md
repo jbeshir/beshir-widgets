@@ -37,7 +37,7 @@ Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Desig
 
 **Check availability** shows an inline result: *Available*, *Already registered* or *Too close*, the last two with the conflicting mini shield, its name and blazon, the differences, and what to change. **Register…** opens a dialog (a bottom sheet on mobile) with a display name (public), an email address (required, private: "Used only to send you your edit/withdraw link. Never shown publicly.") and an optional Discord username (public), inline per-field errors using the same validators as the Worker, and a "What's public?" popover. A server 409 (duplicate / too close) is rendered with the same panel; an offline copy says the registry can't be reached. Success puts the share link first with a primary **Copy share link** button; the edit link sits below in a distinct "Secret edit link — don't share" box (lock icon, masked after 20 characters, Show and **Copy edit link** buttons), followed by a line saying whether it was emailed ("We've emailed it to you at the address you gave", or a clear note to save it now when sending failed or isn't configured). The address shown is what the user typed in this dialog; the API never returns it. The entry is also kept under Your arms on this device.
 
-**Registry.** Registry name, entry count and an "Offline sample" badge; a search box (name or blazon), selects for charge, posture, ordinary, field, tincture and charge tincture, removable filter chips and Clear filters, a Refresh button, a card grid (shield, name, blazon) and Show more. A card opens an entry sheet (big shield, blazon, gloss, name, the public Discord username as plain text with a Copy button, share link, **Load into builder**, and the "Lost your link? / Withdraw my registration" link). Failure shows an error panel with Retry and Show offline sample (production never silently swaps to the sample).
+**Registry.** Registry name, entry count and an "Offline sample" badge; a search box (plain-English words: name, colour, charge), selects for kind of charge, charge, posture, ordinary, field, field colour, tincture and charge tincture, removable filter chips and Clear filters, a Refresh button, a card grid (shield, name, plain-English description, blazon) and Show more. A card opens an entry sheet (big shield, blazon, gloss, name, the public Discord username as plain text with a Copy button, share link, **Load into builder**, and the "Lost your link? / Withdraw my registration" link). Failure shows an error panel with Retry and Show offline sample (production never silently swaps to the sample).
 
 **Entry and owner links.** `#/a/<id>` is the public entry page. `#/a/<id>/<secret>` is the owner view. It checks the secret on load (`GET /api/arms/:id/owner`), so a truncated or replaced link shows "This edit link doesn't work" with a way to get a new one instead of a form that fails on Save, and a working link is remembered under Your arms on this device. The owner can edit the display name, Discord username (blank removes it) and display shape (sent with `If-Match`; a stale revision says the entry changed elsewhere and offers Reload), copy the edit link from the same masked secret box, or Withdraw (confirm dialog: "the design is free to register again"). The secret stays in the URL fragment.
 
@@ -45,7 +45,7 @@ Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Desig
 
 **States** (`data-widget-state` on `<html>`): Design — `ready`, `populated`, `error`; Registry — `loading`, `populated`, `empty`, `error`; Your arms — `populated` or `empty`. Dialogs and sheets keep the underlying tab's state.
 
-**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N`, `placement-*`, `swatch-<part>-<tincture>`, `posture-select`, `arrangement-select`; status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-charge|posture|ordinary|division|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`).
+**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N`, `placement-*`, `swatch-<part>-<tincture>`, `posture-select`, `arrangement-select`; status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`).
 
 **Keyboard.** Tab order follows the page; radio-style option groups are one tab stop with arrow keys moving and selecting (blocked options can be focused and explain themselves on Enter/Space). Dialogs and sheets trap focus, Escape closes only the topmost layer (a popover inside a dialog closes first), and focus returns to the opener. Animations are off under `prefers-reduced-motion`.
 
@@ -128,7 +128,7 @@ parameter, the API uses the default registry (`is_default = 1`, `default` today)
 | table | contents |
 |---|---|
 | `registries` | `id`, `name`, `is_default`, `created_at`. Seeded with `('default', 'Default', 1, …)`. |
-| `arms` | `id`, `registry_id`, `display_name`, `contact_discord` (nullable, CHECK-constrained to a valid Discord username), the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, the indexed component columns `field_division` / `ordinary` / `charge`, `readability`, `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
+| `arms` | `id`, `registry_id`, `display_name`, `contact_discord` (nullable, CHECK-constrained to a valid Discord username), the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, the indexed component columns `field_division` / `ordinary` / `charge`, `readability`, `search_text` (blazon + gloss + display name as lowercase words, a space at each end; never contact, email or shape), `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
 | `arms_tags` | `(arms_id, registry_id, tag)`: derived search tags such as `charge:wolf`, `posture:passant`, `ordinary:bordure`, `tincture:or`, indexed on `(registry_id, tag)`. |
 | `owner_emails` | `arms_id` (primary key), `email_hmac` (hex HMAC-SHA-256 of the normalised owner address), `key_version`, `created_at`. Indexed on `(email_hmac, key_version)`. Never the address. |
 | `owner_tokens` | `token_hash` (SHA-256 of a recovery token), `arms_id`, `created_at`, `expires_at`, `used_at`. |
@@ -192,27 +192,31 @@ where noted.
 | `POST /api/recover/withdraw` | `{ token }` → uses the token, deletes the entry → `200 { id, withdrawn: true }`. |
 
 **Search parameters** (all optional, AND-combined). Every value is validated against the library's
-vocabularies, and an unknown value returns `400 bad_request` with `param`.
+vocabularies, and an unknown value returns `400 bad_request` with `param`. A parameter the API does not
+define returns `400 unknown_param` with `param`.
 
 | Parameter | Matches |
 |---|---|
 | `registry` | Registry id (default registry when absent; unknown → `404`) |
 | `charge` | Charge id, e.g. `wolf`, `fleur-de-lis` |
+| `category` | Charge category: `beast`, `monster`, `bird`, `plant`, `geometric`, `object`, `modern` |
 | `posture` | `rampant`, `passant`, `statant`, `sejant`, `naiant`, `haurient`, `displayed` |
 | `ordinary` | `fess`, `pale`, `bend`, `bend-sinister`, `chevron`, `cross`, `saltire`, `chief`, `bordure`, `pile` |
 | `division` | A division (`per-pale`, `per-fess`, `per-bend`, `per-bend-sinister`, `per-saltire`, `per-chevron`, `quarterly`) or `plain` |
 | `tincture` | A tincture anywhere on the arms (`or`, `argent`, `celestine`, `azure`, `gules`, `vert`, `sable`, `purpure`) |
+| `fieldTincture` | A tincture of the field (either half of a divided field) |
 | `chargeTincture` | The charges' tincture |
-| `q` | Case-insensitive text in the display name or blazon (≤ 60 characters; `%` and `_` match literally). The everyday words *cyan*, *sky blue*, *light blue* and *turquoise* also match blazons containing *Celestine*. |
+| `q` | Plain-English words (≤ 60 characters), all of which must match as whole words of the entry's search text (blazon, gloss, display name). Stopwords (*a, the, with, on…*) are ignored, plurals reduced (*wolves* → *wolf*), and everyday words expanded: *yellow* = *gold* = *Or*, *star* = *mullet*, *border* = *bordure*, *bird* = eagle or owl, *animal* = any beast or monster, *cyan* / *sky blue* = *Celestine*; posture words stand for their group (*walking*, *courant* or *passant* find a standing wolf too). *Or* matches only the word, never *bordure* or *Morgan*. A query with no searchable word matches nothing. |
 | `limit` / `offset` | Page size 1–50 (default 24) / offset 0–5000. Results are newest first. |
 
-The offline sample search in `src/store.ts` runs the same parameter parsing and tag matching
-(`src/lib/heraldry/search.ts`), so it behaves like the Worker.
+The offline sample search in `src/store.ts` runs the same parameter parsing, query words and tag matching
+(`src/lib/heraldry/search.ts`, `search-terms.ts`), so it behaves like the Worker.
 
 **Error codes:**
 
 | Code | Meaning |
 |---|---|
+| `unknown_param` (400) | A search parameter the API does not define; `param` names it. |
 | `bad_request` (400) | Malformed body, bad search parameter, or bad If-Match. Includes `field` (`displayName`, `email`, `discord`, `shape`, `token`) for field errors and `param` for search errors. |
 | `invalid_design` (400) | The design is malformed, structurally illegal, a plain field alone, or breaks the rule of tincture. Includes `issues: [{ code, layer, message, slots? }]`. |
 | `unauthorized` (401) | No edit secret. |
@@ -384,6 +388,8 @@ migration: add the next-numbered file.
 - `0004_owner_email_and_discord.sql`: drops the free-text `contact` column (in place: it has no
   index or constraint), adds the CHECK-constrained `contact_discord`, and creates `owner_emails`
   and `owner_tokens`. Production has no arms rows yet, so nothing is lost.
+- `0005_search_text.sql`: the `search_text` column free-text search runs over. Existing rows get their
+  name and blazon words; the Worker writes the full text (with the gloss) on every register and edit.
 
 Local database (used by `wrangler dev`):
 
