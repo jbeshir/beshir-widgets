@@ -1,12 +1,13 @@
-// Entry detail: big shield, blazon, gloss, name, public contact (plain text), share link and a
-// "Load into builder" action. Shown as a sheet over the registry (card press) and inline for the
-// public route #/a/<id>. Search results carry no contact, so it is fetched with store.getEntry.
+// Entry detail: big shield, blazon, gloss, name, public Discord username (plain text, with a copy
+// button), share link, a "Load into builder" action and the "Lost your link? / Withdraw" entry
+// point. Shown as a sheet over the registry (card press) and inline for the public route #/a/<id>.
+// Search results carry no contact, so it is fetched with store.getEntry.
 
 import { useEffect, useState } from 'preact/hooks';
-import { gloss, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
-import { capabilityUrls } from '../../lib/route';
+import { gloss, type Contact, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
+import { RECOVER_HASH, capabilityUrls } from '../../lib/route';
 import * as store from '../../store';
-import { CopyField } from '../CopyField';
+import { CopyField, useCopy } from '../CopyField';
 import { Dialog } from '../overlay';
 import { Shield } from '../Shield';
 
@@ -27,7 +28,7 @@ interface BodyProps {
   onLoad: (arms: ShapedDesign) => void;
 }
 
-type ContactState = { status: 'loading' } | { status: 'ready'; contact: string | null } | { status: 'unavailable'; message: string };
+type ContactState = { status: 'loading' } | { status: 'ready'; contact: Contact } | { status: 'unavailable'; message: string };
 
 export function EntryBody({ entry, sample, hatching, onLoad }: BodyProps) {
   const [contact, setContact] = useState<ContactState>({ status: 'loading' });
@@ -51,19 +52,34 @@ export function EntryBody({ entry, sample, hatching, onLoad }: BodyProps) {
         <p class="blazon" data-testid="entry-blazon">{entry.blazon}</p>
         <p class="gloss" data-testid="entry-gloss">{gloss(entry.design)}</p>
         <p class="entry-contact" data-testid="entry-contact">
-          <span class="entry-contact-label">Contact (public): </span>
+          <span class="entry-contact-label">Discord (public): </span>
           {contact.status === 'loading' && <span>Loading…</span>}
-          {contact.status === 'ready' && (contact.contact ? <span>{contact.contact}</span> : <span class="muted">None given</span>)}
+          {contact.status === 'ready' && (contact.contact.discord ? <DiscordHandle handle={contact.contact.discord} /> : <span class="muted">None given</span>)}
           {contact.status === 'unavailable' && <span class="muted">Not available ({contact.message})</span>}
         </p>
       </div>
-      <CopyField label="Share link" value={capabilityUrls(entry.id, null).share} testid="entry-share-link" />
+      <CopyField label="Share link" value={capabilityUrls(entry.id, null).share} testid="entry-share-link" buttonLabel="Copy" emphasis="secondary" />
       <div class="dialog-actions entry-actions">
         <button type="button" class="button-primary" data-testid="load-into-builder" onClick={() => onLoad({ design: entry.design, shape: entry.shape })}>
           Load into builder
         </button>
       </div>
+      <a class="text-link entry-recover" href={RECOVER_HASH} data-testid="entry-recover-link">Your arms? Lost your link? / Withdraw my registration</a>
     </div>
+  );
+}
+
+/** A Discord username as plain text (never a link) with a Copy button. */
+function DiscordHandle({ handle }: { handle: string }) {
+  const { state, copy } = useCopy(handle, () => {});
+  return (
+    <span class="contact-row">
+      <span data-testid="entry-discord">{handle}</span>
+      <button type="button" class="button-secondary button-small" data-testid="copy-entry-discord" aria-label={`Copy Discord username ${handle}`} onClick={copy}>
+        {state === 'copied' ? 'Copied' : 'Copy'}
+      </button>
+      <span class="sr-only" role="status">{state === 'copied' ? 'Copied to the clipboard.' : state === 'failed' ? 'Couldn’t copy automatically.' : ''}</span>
+    </span>
   );
 }
 

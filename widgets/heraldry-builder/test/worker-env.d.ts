@@ -7,6 +7,10 @@ declare namespace Cloudflare {
   interface Env {
     DB: D1Database;
     CREATE_LIMITER: RateLimit;
+    EMAIL_HMAC_KEY: string;
+    EMAIL_HMAC_KEY_VERSION: string;
+    MAIL_FROM: string;
+    RESEND_API_KEY?: string;
     MIGRATION_DB: D1Database;
     BASELINE_DB: D1Database;
     MIGRATIONS: import("cloudflare:test").D1Migration[];

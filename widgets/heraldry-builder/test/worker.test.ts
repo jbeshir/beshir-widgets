@@ -3,7 +3,7 @@
 // migrations are applied to the local D1 before the suite (test/apply-migrations.ts), and the
 // Worker's fetch handler is exercised directly.
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import worker from '../worker/index';
 import sample from '../src/data/sample-registry.json';
 import {
@@ -15,6 +15,8 @@ import { generatedDesigns } from './design-generator';
 interface CallOpts {
   body?: unknown;
   headers?: Record<string, string>;
+  /** The Worker's bindings; the test environment (no RESEND_API_KEY) when not given. */
+  bindings?: typeof env;
 }
 
 // The create route is rate-limited per CF-Connecting-IP *before* the body is parsed, so every
@@ -36,7 +38,7 @@ async function call(method: string, path: string, opts: CallOpts = {}): Promise<
   }
   const request = new Request(`https://widget.test${path}`, { method, headers, body });
   const ctx = createExecutionContext();
-  const res = await worker.fetch(request, env, ctx);
+  const res = await worker.fetch(request, opts.bindings ?? env, ctx);
   await waitOnExecutionContext(ctx);
   return res;
 }
@@ -68,6 +70,7 @@ function uniqueDesign(n: number) {
   };
 }
 let designCounter = 0;
+const OWNER_EMAIL = 'owner@example.com';
 const freshDesign = () => uniqueDesign(designCounter++);
 
 const wolfBordure = (posture: string) => ({
@@ -78,7 +81,7 @@ const wolfBordure = (posture: string) => ({
 });
 
 async function register(design: unknown, extra: Json = {}) {
-  const res = await call('POST', '/api/arms', { body: { displayName: 'Test Person', design, ...extra } });
+  const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Test Person', design, ...extra } });
   expect(res.status, JSON.stringify(await res.clone().json())).toBe(201);
   return (await res.json()) as { id: string; editSecret: string; registry: { id: string; name: string }; rev: number; blazon: string; signature: string };
 }
@@ -112,7 +115,7 @@ describe('POST /api/arms', () => {
   it('accepts celestine designs and rejects celestine on another metal', async () => {
     const ok = await call('POST', '/api/arms', {
       body: {
-        displayName: 'Sky Marlowe',
+        email: OWNER_EMAIL, displayName: 'Sky Marlowe',
         contact: null,
         design: { v: 1, field: plain('vert'), ordinary: { type: 'chevron', tincture: 'celestine' }, charges: { charge: 'rose', count: 3, placement: 'field', tincture: 'argent' } },
       },
@@ -131,7 +134,7 @@ describe('POST /api/arms', () => {
     expect((await bodyOf(check)).verdict).toBe('ok');
 
     const bad = await call('POST', '/api/arms', {
-      body: { displayName: 'Metal Metal', contact: null, design: { v: 1, field: plain('argent'), ordinary: { type: 'fess', tincture: 'celestine' } } },
+      body: { email: OWNER_EMAIL, displayName: 'Metal Metal', contact: null, design: { v: 1, field: plain('argent'), ordinary: { type: 'fess', tincture: 'celestine' } } },
     });
     expect(bad.status).toBe(400);
     const err = await bodyOf(bad);
@@ -142,8 +145,8 @@ describe('POST /api/arms', () => {
   it('registers in the default registry, returns id + secret, and stores only the hash', async () => {
     const res = await call('POST', '/api/arms', {
       body: {
-        displayName: 'Rowan Ashby',
-        contact: 'by the fire pit',
+        email: OWNER_EMAIL, displayName: 'Rowan Ashby',
+        contact: { discord: 'rowan.ashby' },
         design: { v: 1, field: plain('vert'), ordinary: { type: 'pale', tincture: 'argent' }, charges: null },
       },
     });
@@ -181,7 +184,7 @@ describe('POST /api/arms', () => {
   it('ignores a forged client blazon/signature and computes its own', async () => {
     const design = freshDesign();
     const res = await call('POST', '/api/arms', {
-      body: { displayName: 'Forger', design: { ...design }, blazon: 'Or, a lie', signature: 'v1|F:plain:or|O:-|C:-' },
+      body: { email: OWNER_EMAIL, displayName: 'Forger', design: { ...design }, blazon: 'Or, a lie', signature: 'v1|F:plain:or|O:-|C:-' },
     });
     expect(res.status).toBe(201);
     const data = await bodyOf(res);
@@ -197,7 +200,7 @@ describe('POST /api/arms', () => {
     // Explicitly stating the default arrangement normalises to the same signature.
     const res = await call('POST', '/api/arms', {
       body: {
-        displayName: 'Copycat',
+        email: OWNER_EMAIL, displayName: 'Copycat',
         design: { v: 1, field: plain('gules'), charges: { charge: 'mullet', count: 3, placement: 'field', arrangement: 'two-and-one', tincture: 'argent' } },
       },
     });
@@ -211,7 +214,7 @@ describe('POST /api/arms', () => {
 
   it('rejects a design that is too close (409) and lists the minor differences', async () => {
     const first = await register(wolfBordure('passant'));
-    const res = await call('POST', '/api/arms', { body: { displayName: 'Close Call', design: wolfBordure('statant') } });
+    const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Close Call', design: wolfBordure('statant') } });
     expect(res.status).toBe(409);
     const data = await bodyOf(res);
     expect(data.error).toBe('too_close');
@@ -224,7 +227,7 @@ describe('POST /api/arms', () => {
   it('rejects a rule-of-tincture violation (400 invalid_design) even with a forged signature', async () => {
     const res = await call('POST', '/api/arms', {
       body: {
-        displayName: 'Colour on colour',
+        email: OWNER_EMAIL, displayName: 'Colour on colour',
         design: { v: 1, field: plain('azure'), charges: { charge: 'lion', count: 1, placement: 'field', posture: 'rampant', tincture: 'gules' } },
         signature: 'v1|F:plain:az|O:-|C:lion:1:field:single:rampant:or',
         blazon: 'Azure, a lion rampant Or',
@@ -250,7 +253,7 @@ describe('POST /api/arms', () => {
       { v: 1, kind: 'badge', field: plain('azure'), ordinary: { type: 'bend', tincture: 'or' } },
     ];
     for (const design of bad) {
-      const res = await call('POST', '/api/arms', { body: { displayName: 'Bad', design } });
+      const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Bad', design } });
       expect(res.status, JSON.stringify(design)).toBe(400);
       expect((await bodyOf(res)).error).toBe('invalid_design');
     }
@@ -264,38 +267,40 @@ describe('POST /api/arms', () => {
     expect((await bodyOf(res2)).error).toBe('bad_request');
   });
 
-  it('validates and sanitises the public text fields', async () => {
-    const blank = await call('POST', '/api/arms', { body: { displayName: '   ', design: freshDesign() } });
+  it('validates and sanitises the public name and Discord contact', async () => {
+    const blank = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: '   ', design: freshDesign() } });
     expect(blank.status).toBe(400);
     expect((await bodyOf(blank)).field).toBe('displayName');
 
-    const long = await call('POST', '/api/arms', { body: { displayName: 'x'.repeat(61), design: freshDesign() } });
+    const long = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'x'.repeat(61), design: freshDesign() } });
     expect(long.status).toBe(400);
-    const longContact = await call('POST', '/api/arms', { body: { displayName: 'Ok', contact: 'y'.repeat(81), design: freshDesign() } });
-    expect(longContact.status).toBe(400);
-    expect((await bodyOf(longContact)).field).toBe('contact');
+    for (const contact of [{ discord: 'a..b' }, { discord: 'y'.repeat(33) }, 'free text', ['x']]) {
+      const bad = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Ok', contact, design: freshDesign() } });
+      expect(bad.status, JSON.stringify(contact)).toBe(400);
+      expect((await bodyOf(bad)).field).toBe('discord');
+    }
 
     // Exactly at the caps (counted in code points) is fine; controls, newlines and bidi overrides go.
     const okName = 'é'.repeat(59) + '🦁';
-    const created = await register(freshDesign(), { displayName: okName, contact: '  ' });
+    const created = await register(freshDesign(), { displayName: okName, contact: { discord: '  ' } });
     const got1 = await bodyOf(await call('GET', `/api/arms/${created.id}`));
     expect(got1.displayName).toBe(okName);
-    expect(got1.contact).toBeNull();
+    expect(got1.contact).toEqual({ discord: null });
 
     const created2 = await register(freshDesign(), {
       displayName: '  Evil\u202Eeman\u0007\n  Name ',
-      contact: 'line one\r\nline\u2066two',
+      contact: { discord: ' @Line.One_2 ' },
     });
     const got2 = await bodyOf(await call('GET', `/api/arms/${created2.id}`));
     expect(got2.displayName).toBe('Evileman Name');
-    expect(got2.contact).toBe('line one linetwo');
+    expect(got2.contact).toEqual({ discord: 'line.one_2' });
 
     const nfd = await register(freshDesign(), { displayName: 'Jose\u0301' });
     expect((await bodyOf(await call('GET', `/api/arms/${nfd.id}`))).displayName).toBe('Jos\u00e9');
   });
 
   it('404s an unknown registry', async () => {
-    const res = await call('POST', '/api/arms', { body: { registry: 'nowhere', displayName: 'X', design: freshDesign() } });
+    const res = await call('POST', '/api/arms', { body: { registry: 'nowhere', email: OWNER_EMAIL, displayName: 'X', design: freshDesign() } });
     expect(res.status).toBe(404);
     expect((await bodyOf(res)).error).toBe('not_found');
   });
@@ -315,11 +320,11 @@ describe('POST /api/arms', () => {
     const design = freshDesign();
     const sig = (await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'race', design } }))).signature;
     await env.DB.prepare(
-      `INSERT INTO arms (id, registry_id, display_name, contact, design, signature, blazon, field_division,
+      `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, signature, blazon, field_division,
          ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
        VALUES ('race-winner', 'race', 'Winner', NULL, 'not json', ?, 'x', 'plain', NULL, NULL, 'bold', 'h', 1, ?, ?)`
     ).bind(sig, '2026-10-03T00:00:00Z', '2026-10-03T00:00:00Z').run();
-    const res = await call('POST', '/api/arms', { body: { registry: 'race', displayName: 'Loser', design } });
+    const res = await call('POST', '/api/arms', { body: { registry: 'race', email: OWNER_EMAIL, displayName: 'Loser', design } });
     expect(res.status).toBe(409);
     const data = await bodyOf(res);
     expect(data.error).toBe('duplicate');
@@ -336,12 +341,12 @@ describe('POST /api/arms', () => {
     await addRegistry('full', 'Full house');
     await env.DB.prepare(
       `WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 2000)
-       INSERT INTO arms (id, registry_id, display_name, contact, design, signature, blazon, field_division,
+       INSERT INTO arms (id, registry_id, display_name, contact_discord, design, signature, blazon, field_division,
          ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
        SELECT 'full-' || i, 'full', 'Filler', NULL, 'null', 'sig-' || i, 'x', 'plain', NULL, NULL, 'bold', 'h', 1,
          '2026-10-04T00:00:00Z', '2026-10-04T00:00:00Z' FROM n`
     ).run();
-    const res = await call('POST', '/api/arms', { body: { registry: 'full', displayName: 'One more', design: freshDesign() } });
+    const res = await call('POST', '/api/arms', { body: { registry: 'full', email: OWNER_EMAIL, displayName: 'One more', design: freshDesign() } });
     expect(res.status).toBe(409);
     expect((await bodyOf(res)).error).toBe('registry_full');
   });
@@ -421,7 +426,7 @@ describe('GET /api/arms (search)', () => {
     // Register the 17 sample entries in order through the real API.
     for (const e of sample.entries) {
       const res = await call('POST', '/api/arms', {
-        body: { registry: SEARCH, displayName: e.displayName, contact: e.contact, design: e.design, shape: e.shape },
+        body: { registry: SEARCH, email: OWNER_EMAIL, displayName: e.displayName, contact: e.contact, design: e.design, shape: e.shape },
       });
       expect(res.status).toBe(201);
       idByName.set(e.displayName, (await bodyOf(res)).id);
@@ -559,7 +564,7 @@ describe('GET /api/arms (search)', () => {
 
 describe('GET /api/arms/:id', () => {
   it('returns one entry including the public contact', async () => {
-    const created = await register(freshDesign(), { displayName: 'Contactable', contact: '@me@example.social' });
+    const created = await register(freshDesign(), { displayName: 'Contactable', contact: { discord: '@Me_Contact' } });
     const res = await call('GET', `/api/arms/${created.id}`);
     expect(res.status).toBe(200);
     const e = await bodyOf(res);
@@ -567,7 +572,7 @@ describe('GET /api/arms/:id', () => {
       id: created.id,
       registry: { id: 'default', name: 'Default' },
       displayName: 'Contactable',
-      contact: '@me@example.social',
+      contact: { discord: 'me_contact' },
       blazon: created.blazon,
       signature: created.signature,
       rev: 1,
@@ -623,7 +628,7 @@ describe('field shape', () => {
     const design = freshDesign();
     const first = await register(design, { shape: 'round' });
     for (const shape of FIELD_SHAPES) {
-      const res = await call('POST', '/api/arms', { body: { displayName: 'Copycat', design, shape } });
+      const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Copycat', design, shape } });
       expect(res.status, shape).toBe(409);
       const b = await bodyOf(res);
       expect(b).toMatchObject({ error: 'duplicate', conflictId: first.id, conflict: { id: first.id, shape: 'round' } });
@@ -634,7 +639,7 @@ describe('field shape', () => {
 
   it('rejects an unknown shape (400) on register and edit, naming the field', async () => {
     for (const shape of ['kite', 'Heater', '', 3, null, ['round']]) {
-      const res = await call('POST', '/api/arms', { body: { displayName: 'Bad shape', design: freshDesign(), shape } });
+      const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Bad shape', design: freshDesign(), shape } });
       expect(res.status, JSON.stringify(shape)).toBe(400);
       expect(await bodyOf(res)).toMatchObject({ error: 'bad_request', field: 'shape' });
     }
@@ -671,10 +676,10 @@ describe('PUT /api/arms/:id', () => {
   it('edits with the secret and bumps rev', async () => {
     const design = freshDesign();
     const c = await register(design, { displayName: 'Before' });
-    const res = await put(c.id, { displayName: 'After', contact: 'new contact', design }, { Authorization: `Bearer ${c.editSecret}`, 'If-Match': '1' });
+    const res = await put(c.id, { displayName: 'After', contact: { discord: 'new.contact' }, design }, { Authorization: `Bearer ${c.editSecret}`, 'If-Match': '1' });
     expect(res.status).toBe(200);
     const e = await bodyOf(res);
-    expect(e).toMatchObject({ id: c.id, displayName: 'After', contact: 'new contact', rev: 2, signature: c.signature });
+    expect(e).toMatchObject({ id: c.id, displayName: 'After', contact: { discord: 'new.contact' }, rev: 2, signature: c.signature });
     expect(e).not.toHaveProperty('edit_secret_hash');
     const got = await bodyOf(await call('GET', `/api/arms/${c.id}`));
     expect(got.displayName).toBe('After');
@@ -682,7 +687,8 @@ describe('PUT /api/arms/:id', () => {
     // Quoted ETag form is accepted too.
     const res2 = await put(c.id, { displayName: 'Again', design }, { Authorization: `Bearer ${c.editSecret}`, 'If-Match': '"2"' });
     expect(res2.status).toBe(200);
-    expect((await bodyOf(res2)).contact).toBeNull();
+    // Leaving the contact out removes it.
+    expect((await bodyOf(res2)).contact).toEqual({ discord: null });
   });
 
   it('401 without a secret, 403 with a wrong one, and leaves the entry untouched', async () => {
@@ -787,7 +793,7 @@ describe('rate limiting', () => {
       const res = await call('POST', '/api/arms', { body: { junk: true }, headers });
       expect(res.status).toBe(400);
     }
-    const res = await call('POST', '/api/arms', { body: { displayName: 'Late', design: freshDesign() }, headers });
+    const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Late', design: freshDesign() }, headers });
     expect(res.status).toBe(429);
     expect((await bodyOf(res)).error).toBe('rate_limited');
     // Other IPs are unaffected.
@@ -912,7 +918,7 @@ describe('too-close candidate lookup', () => {
       if (entries.some((e) => e.signature === sig)) continue;
       const key = candidateKey(design);
       await env.DB.prepare(
-        `INSERT INTO arms (id, registry_id, display_name, contact, design, signature, blazon, field_division,
+        `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, signature, blazon, field_division,
            ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
          VALUES (?, 'prefilter', 'Stored', NULL, ?, ?, ?, ?, ?, ?, 'bold', 'h', 1, ?, ?)`
       ).bind(
@@ -933,5 +939,392 @@ describe('too-close candidate lookup', () => {
       verdicts.add(data.verdict);
     }
     expect([...verdicts].sort()).toEqual(['duplicate', 'ok', 'too-close']);
+  });
+});
+
+// ── ownership by email ───────────────────────────────────────────────────────────────────────
+
+/** The bindings with Resend configured; every send goes to a mocked fetch, never the network. */
+const mailBindings = { ...env, RESEND_API_KEY: 're_test_key' } as typeof env;
+
+interface SentMail { url: string; authorization: string | null; from: string; to: string[]; subject: string; text: string }
+
+/** Mock fetch so Resend calls are captured (and answered with `status`) instead of sent. */
+function mockResend(status = 200): SentMail[] {
+  const sent: SentMail[] = [];
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body));
+    sent.push({
+      url: String(input), authorization: new Headers(init?.headers).get('Authorization'),
+      from: body.from, to: body.to, subject: body.subject, text: body.text,
+    });
+    return new Response(JSON.stringify(status === 200 ? { id: 'mail-1' } : { message: 'nope' }), { status });
+  });
+  return sent;
+}
+
+/** Capture console output while `fn` runs. */
+async function captureLogs(fn: () => Promise<void>): Promise<string> {
+  const lines: string[] = [];
+  const log = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => void lines.push(a.map(String).join(' ')));
+  const error = vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void lines.push(a.map(String).join(' ')));
+  try {
+    await fn();
+  } finally {
+    log.mockRestore();
+    error.mockRestore();
+  }
+  return lines.join('\n');
+}
+
+async function hmacHex(key: string, message: string): Promise<string> {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(message)));
+  return [...mac].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function sha256(message: string): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(message)));
+  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Every row of every table the Worker writes, as one string, to search for leaked values. */
+async function databaseDump(): Promise<string> {
+  const tables = ['registries', 'arms', 'arms_tags', 'owner_emails', 'owner_tokens'];
+  const rows = await Promise.all(tables.map((t) => env.DB.prepare(`SELECT * FROM ${t}`).all()));
+  return JSON.stringify(rows.map((r) => r.results));
+}
+
+const ownerCheck = (id: string, secret: string | null) =>
+  call('GET', `/api/arms/${id}/owner`, { headers: secret === null ? {} : { Authorization: `Bearer ${secret}` } });
+
+/** The recovery tokens in a recovery email, in order. */
+function tokensIn(mail: SentMail): string[] {
+  return [...mail.text.matchAll(/https:\/\/widget\.test\/#\/recover\/([A-Za-z0-9_-]+)/g)].map((m) => decodeURIComponent(m[1]));
+}
+
+async function recoverFor(email: string, bindings = mailBindings): Promise<Response> {
+  return call('POST', '/api/recover', { body: { email }, bindings });
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('registration email', () => {
+  it('is required, and validated before anything is stored', async () => {
+    for (const email of [undefined, null, '', '   ', 'not-an-address', 'a@b', 42]) {
+      const res = await call('POST', '/api/arms', { body: { displayName: 'No Email', email, design: freshDesign() } });
+      expect(res.status, String(email)).toBe(400);
+      expect(await bodyOf(res)).toMatchObject({ error: 'bad_request', field: 'email' });
+    }
+    const stored = await env.DB.prepare(`SELECT COUNT(*) AS n FROM arms WHERE display_name = 'No Email'`).first<Json>();
+    expect(stored!.n).toBe(0);
+  });
+
+  it('is stored only as an HMAC of the normalised address, with its key version', async () => {
+    const typed = '  Hmac.Person+Party@Example.ORG ';
+    const created = await register(freshDesign(), { email: typed, displayName: 'Hmac Person' });
+    const row = await env.DB.prepare(`SELECT * FROM owner_emails WHERE arms_id = ?`).bind(created.id).first<Json>();
+    expect(row).toMatchObject({
+      arms_id: created.id,
+      email_hmac: await hmacHex('test-email-hmac-key', 'hmac.person+party@example.org'),
+      key_version: 1,
+    });
+    const dump = (await databaseDump()).toLowerCase();
+    expect(dump).not.toContain('hmac.person');
+    expect(dump).not.toContain('example.org');
+  });
+
+  it('is never returned by any API response', async () => {
+    const email = 'never.returned@example.net';
+    const sent = mockResend();
+    const createdRes = await call('POST', '/api/arms', { body: { displayName: 'Private Owner', email, design: freshDesign(), contact: { discord: 'private.owner' } }, bindings: mailBindings });
+    const created = await bodyOf(createdRes.clone());
+    const responses = [
+      createdRes,
+      await call('GET', `/api/arms/${created.id}`),
+      await call('GET', '/api/arms?q=Private'),
+      await ownerCheck(created.id, created.editSecret),
+      await call('PUT', `/api/arms/${created.id}`, {
+        body: { displayName: 'Private Owner', design: (await bodyOf(await call('GET', `/api/arms/${created.id}`))).design },
+        headers: { Authorization: `Bearer ${created.editSecret}`, 'If-Match': '1' },
+      }),
+      await recoverFor(email),
+    ];
+    const token = tokensIn(sent[1])[0];
+    responses.push(await call('POST', '/api/recover/lookup', { body: { token } }));
+    responses.push(await call('POST', '/api/recover/redeem', { body: { token } }));
+    for (const res of responses) {
+      expect(res.status, res.url).toBeLessThan(300);
+      expect((await res.text()).toLowerCase()).not.toContain('never.returned');
+    }
+  });
+
+  it('sends the edit link by email and reports it was sent', async () => {
+    const sent = mockResend();
+    const res = await call('POST', '/api/arms', {
+      body: { displayName: 'Mailed Person', email: 'Mailed@Example.com', design: freshDesign() },
+      bindings: mailBindings,
+    });
+    expect(res.status).toBe(201);
+    const data = await bodyOf(res);
+    expect(data.editLinkEmail).toBe('sent');
+    expect(sent).toHaveLength(1);
+    const [mail] = sent;
+    expect(mail.url).toBe('https://api.resend.com/emails');
+    expect(mail.authorization).toBe('Bearer re_test_key');
+    expect(mail.from).toBe('Heraldry Builder <heraldry@widgets.test>');
+    expect(mail.to).toEqual(['mailed@example.com']);
+    expect(mail.subject).not.toContain('Mailed');
+    expect(mail.text).toContain('"Mailed Person"');
+    expect(mail.text).toContain(data.blazon);
+    expect(mail.text).toContain(`https://widget.test/#/a/${data.id}/${data.editSecret}`);
+    expect(mail.text).toContain(`https://widget.test/#/a/${data.id}\n`);
+    expect(mail.text).toContain('Withdraw these arms');
+    expect(mail.text).toContain('Lost your link? / Withdraw my registration');
+    expect(mail.text).toContain('https://widget.test/#/recover');
+  });
+
+  it('still registers when sending fails, and says so without logging the address or link', async () => {
+    mockResend(500);
+    let data: Json = {};
+    const logs = await captureLogs(async () => {
+      const res = await call('POST', '/api/arms', { body: { displayName: 'Unlucky', email: 'unlucky@example.com', design: freshDesign() }, bindings: mailBindings });
+      expect(res.status).toBe(201);
+      data = await bodyOf(res);
+    });
+    expect(data.editLinkEmail).toBe('failed');
+    expect((await bodyOf(await ownerCheck(data.id, data.editSecret))).owner).toBe(true);
+    expect(logs).toContain('mail_failed');
+    for (const secret of ['unlucky@example.com', data.editSecret, data.id]) expect(logs).not.toContain(secret);
+
+    vi.restoreAllMocks();
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('network down'));
+    const thrown = await call('POST', '/api/arms', { body: { displayName: 'Unluckier', email: 'unluckier@example.com', design: freshDesign() }, bindings: mailBindings });
+    expect(thrown.status).toBe(201);
+    expect((await bodyOf(thrown)).editLinkEmail).toBe('failed');
+  });
+
+  it('is skipped without RESEND_API_KEY, logging one line without the address or link', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    let data: Json = {};
+    const logs = await captureLogs(async () => {
+      data = await register(freshDesign(), { email: 'dev.person@example.com', displayName: 'Dev Person' });
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect((data as Json).editLinkEmail).toBe('disabled');
+    expect(JSON.parse(logs)).toEqual({ event: 'mail_skipped', reason: 'no_api_key', subject: 'Your Heraldry Builder edit link' });
+    for (const secret of ['dev.person', data.editSecret, data.id]) expect(logs).not.toContain(secret);
+  });
+});
+
+describe('GET /api/arms/:id/owner', () => {
+  it('is 200 for the edit secret, 401 without one, 403 for a wrong or truncated one, 404 for an unknown id', async () => {
+    const c = await register(freshDesign());
+    const ok = await ownerCheck(c.id, c.editSecret);
+    expect(ok.status).toBe(200);
+    expect(await bodyOf(ok)).toEqual({ id: c.id, owner: true });
+    expect((await ownerCheck(c.id, null)).status).toBe(401);
+    expect((await ownerCheck(c.id, c.editSecret.slice(0, -3))).status).toBe(403);
+    expect((await ownerCheck(c.id, 'x')).status).toBe(403);
+    expect((await ownerCheck('no-such-id', c.editSecret)).status).toBe(404);
+    const post = await call('POST', `/api/arms/${c.id}/owner`, { body: {} });
+    expect(post.status).toBe(405);
+    expect(post.headers.get('Allow')).toBe('GET');
+    expect((await call('GET', `/api/arms/${c.id}/other`)).status).toBe(404);
+  });
+});
+
+describe('Discord contact', () => {
+  it('is normalised, editable and removable by the owner, and never in list results', async () => {
+    const design = freshDesign();
+    const c = await register(design, { displayName: 'Discordant', contact: { discord: '@Disc.Ordant' } });
+    expect((await bodyOf(await call('GET', `/api/arms/${c.id}`))).contact).toEqual({ discord: 'disc.ordant' });
+    const row = await env.DB.prepare(`SELECT contact_discord FROM arms WHERE id = ?`).bind(c.id).first<Json>();
+    expect(row!.contact_discord).toBe('disc.ordant');
+
+    const list = await call('GET', '/api/arms?q=Discordant');
+    const text = await list.text();
+    expect(JSON.parse(text).items).toHaveLength(1);
+    expect(text).not.toContain('disc.ordant');
+    expect(JSON.parse(text).items[0]).not.toHaveProperty('contact');
+
+    const auth = (rev: number) => ({ Authorization: `Bearer ${c.editSecret}`, 'If-Match': String(rev) });
+    const edited = await call('PUT', `/api/arms/${c.id}`, { body: { displayName: 'Discordant', contact: { discord: 'new_name' }, design }, headers: auth(1) });
+    expect((await bodyOf(edited)).contact).toEqual({ discord: 'new_name' });
+    const removed = await call('PUT', `/api/arms/${c.id}`, { body: { displayName: 'Discordant', contact: { discord: null }, design }, headers: auth(2) });
+    expect((await bodyOf(removed)).contact).toEqual({ discord: null });
+  });
+
+  it('is constrained to valid usernames in the database itself', async () => {
+    const c = await register(freshDesign());
+    for (const bad of ['UPPER', 'a..b', 'x', 'y'.repeat(33), 'sp ace']) {
+      await expect(env.DB.prepare(`UPDATE arms SET contact_discord = ? WHERE id = ?`).bind(bad, c.id).run(), bad).rejects.toThrow(/CHECK/i);
+    }
+  });
+});
+
+describe('POST /api/recover', () => {
+  it('answers 202 with the same body whether or not the address owns anything', async () => {
+    const sent = mockResend();
+    await register(freshDesign(), { email: 'known.owner@example.com', displayName: 'Known' });
+    const known = await recoverFor('known.owner@example.com');
+    const unknown = await recoverFor('nobody.here@example.com');
+    expect(known.status).toBe(202);
+    expect(unknown.status).toBe(202);
+    expect(await known.text()).toBe(await unknown.text());
+    // Only the owner of something gets an email.
+    expect(sent.map((m) => m.to)).toEqual([['known.owner@example.com']]);
+  });
+
+  it('400s a malformed address, and only accepts POST', async () => {
+    const res = await recoverFor('not an address');
+    expect(res.status).toBe(400);
+    expect((await bodyOf(res)).field).toBe('email');
+    const get = await call('GET', '/api/recover');
+    expect(get.status).toBe(405);
+    expect((await call('POST', '/api/recover/unknown', { body: {} })).status).toBe(404);
+  });
+
+  it('emails one single-use link per owned entry, in every registry, with the token in the fragment', async () => {
+    await addRegistry('recovery-two', 'Second party');
+    const sent = mockResend();
+    const a = await register(freshDesign(), { email: 'many@example.com', displayName: 'First Of Many' });
+    const b = await register(freshDesign(), { email: 'MANY@example.com ', displayName: 'Second Of Many', registry: 'recovery-two' });
+    await register(freshDesign(), { email: 'someone.else@example.com', displayName: 'Not Theirs' });
+    sent.length = 0;
+
+    expect((await recoverFor(' Many@Example.com')).status).toBe(202);
+    expect(sent).toHaveLength(1);
+    const [mail] = sent;
+    expect(mail.to).toEqual(['many@example.com']);
+    expect(mail.text).toContain('"First Of Many" (Default)');
+    expect(mail.text).toContain('"Second Of Many" (Second party)');
+    expect(mail.text).not.toContain('Not Theirs');
+    expect(mail.text).toContain('30 minutes');
+    const tokens = tokensIn(mail);
+    expect(tokens).toHaveLength(2);
+    for (const t of tokens) expect(t.length).toBeGreaterThanOrEqual(43); // 256 random bits, base64url
+
+    const rows = await env.DB.prepare(`SELECT * FROM owner_tokens WHERE arms_id IN (?, ?) ORDER BY created_at`).bind(a.id, b.id).all<Json>();
+    expect(rows.results).toHaveLength(2);
+    expect(new Set(rows.results.map((r) => r.token_hash))).toEqual(new Set(await Promise.all(tokens.map(sha256))));
+    for (const r of rows.results) {
+      expect(r.used_at).toBeNull();
+      expect(Date.parse(r.expires_at) - Date.parse(r.created_at)).toBe(30 * 60 * 1000);
+    }
+    const dump = await databaseDump();
+    for (const t of tokens) expect(dump).not.toContain(t);
+  });
+
+  it('does not log the address or links when the recovery email fails', async () => {
+    mockResend(503);
+    await register(freshDesign(), { email: 'quiet@example.com', displayName: 'Quiet' });
+    const logs = await captureLogs(async () => {
+      expect((await recoverFor('quiet@example.com')).status).toBe(202);
+    });
+    expect(logs).toContain('mail_failed');
+    expect(logs).not.toContain('quiet@');
+    expect(logs).not.toContain('#/recover/');
+  });
+});
+
+describe('recovery tokens', () => {
+  async function ownedEntry(email: string) {
+    const sent = mockResend();
+    const created = await register(freshDesign(), { email, displayName: 'Token Owner' });
+    await recoverFor(email);
+    const [token] = tokensIn(sent[sent.length - 1]);
+    return { created, token, sent };
+  }
+  const post = (path: string, token: unknown) => call('POST', `/api/recover/${path}`, { body: { token } });
+
+  it('look up the entry without using the token', async () => {
+    const { created, token } = await ownedEntry('lookup@example.com');
+    for (let i = 0; i < 2; i++) {
+      const res = await post('lookup', token);
+      expect(res.status).toBe(200);
+      const data = await bodyOf(res);
+      expect(data.entry).toMatchObject({ id: created.id, displayName: 'Token Owner', blazon: created.blazon, shape: 'heater', registry: { id: 'default', name: 'Default' } });
+      expect(data.entry.design.v).toBe(1);
+    }
+    const row = await env.DB.prepare(`SELECT used_at FROM owner_tokens WHERE token_hash = ?`).bind(await sha256(token)).first<Json>();
+    expect(row!.used_at).toBeNull();
+  });
+
+  it('redeem once: the edit secret is rotated (old link 403, new link 200)', async () => {
+    const { created, token } = await ownedEntry('rotate@example.com');
+    const res = await post('redeem', token);
+    expect(res.status).toBe(200);
+    const data = await bodyOf(res);
+    expect(data).toMatchObject({ id: created.id, registry: { id: 'default', name: 'Default' }, displayName: 'Token Owner', blazon: created.blazon });
+    expect(data.editSecret).not.toBe(created.editSecret);
+    expect((await ownerCheck(created.id, created.editSecret)).status).toBe(403);
+    expect((await ownerCheck(created.id, data.editSecret)).status).toBe(200);
+    const row = await env.DB.prepare(`SELECT edit_secret_hash FROM arms WHERE id = ?`).bind(created.id).first<Json>();
+    expect(row!.edit_secret_hash).toBe(await sha256(data.editSecret));
+
+    // Single use: a second redeem, a withdraw or a lookup with the same token is refused.
+    for (const path of ['redeem', 'withdraw', 'lookup']) {
+      const again = await post(path, token);
+      expect(again.status, path).toBe(410);
+      expect((await bodyOf(again)).error).toBe('token_used');
+    }
+    expect((await ownerCheck(created.id, data.editSecret)).status).toBe(200);
+  });
+
+  it('a redeem uses up the entry\'s other outstanding tokens too', async () => {
+    const { created, token, sent } = await ownedEntry('two.requests@example.com');
+    await recoverFor('two.requests@example.com');
+    const [second] = tokensIn(sent[sent.length - 1]);
+    expect(second).not.toBe(token);
+    expect((await post('redeem', second)).status).toBe(200);
+    expect((await bodyOf(await post('redeem', token))).error).toBe('token_used');
+    expect((await call('GET', `/api/arms/${created.id}`)).status).toBe(200);
+  });
+
+  it('expire after 30 minutes', async () => {
+    const { created, token } = await ownedEntry('expiry@example.com');
+    await env.DB.prepare(`UPDATE owner_tokens SET expires_at = ? WHERE token_hash = ?`)
+      .bind(new Date(Date.now() - 1000).toISOString(), await sha256(token)).run();
+    for (const path of ['lookup', 'redeem', 'withdraw']) {
+      const res = await post(path, token);
+      expect(res.status, path).toBe(410);
+      expect((await bodyOf(res)).error).toBe('token_expired');
+    }
+    expect((await ownerCheck(created.id, created.editSecret)).status).toBe(200);
+  });
+
+  it('refuse unknown, missing and malformed tokens', async () => {
+    for (const path of ['lookup', 'redeem', 'withdraw']) {
+      const unknown = await post(path, 'A'.repeat(43));
+      expect(unknown.status).toBe(404);
+      expect((await bodyOf(unknown)).error).toBe('token_invalid');
+      for (const bad of [undefined, '', 7, 'x'.repeat(129)]) {
+        const res = await post(path, bad);
+        expect(res.status).toBe(400);
+        expect((await bodyOf(res)).field).toBe('token');
+      }
+    }
+  });
+
+  it('withdraw deletes the entry with its tags, email HMAC and tokens', async () => {
+    const { created, token, sent } = await ownedEntry('withdraw.me@example.com');
+    await recoverFor('withdraw.me@example.com');
+    expect(tokensIn(sent[sent.length - 1])).toHaveLength(1);
+    const { design } = (await bodyOf(await post('lookup', token))).entry;
+    expect((await bodyOf(await call('POST', '/api/arms/check', { body: { design } }))).verdict).toBe('duplicate');
+    const res = await post('withdraw', token);
+    expect(res.status).toBe(200);
+    expect(await bodyOf(res)).toEqual({ id: created.id, withdrawn: true });
+    expect((await call('GET', `/api/arms/${created.id}`)).status).toBe(404);
+    for (const table of ['arms_tags', 'owner_emails', 'owner_tokens']) {
+      const left = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE arms_id = ?`).bind(created.id).first<Json>();
+      expect(left!.n, table).toBe(0);
+    }
+    // The design is free to register again, and the token went with the entry.
+    expect((await bodyOf(await call('POST', '/api/arms/check', { body: { design } }))).verdict).toBe('ok');
+    expect((await bodyOf(await post('lookup', token))).error).toBe('token_invalid');
   });
 });

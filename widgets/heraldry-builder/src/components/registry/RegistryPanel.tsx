@@ -1,7 +1,7 @@
 // Registry tab (PLAN §6/§7): search + filters + chips + result cards + entry sheet, with loading /
 // populated / empty / error states reported through `onStatus` (App turns that into
 // data-widget-state). Routes #/a/<id> and #/a/<id>/<secret> replace the browser with the public
-// entry page and the owner view.
+// entry page and the owner view; #/recover and #/recover/<token> with the recovery screens.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, type ShapedDesign, type Tincture } from '../../lib/heraldry';
@@ -12,6 +12,7 @@ import { Shield } from '../Shield';
 import { EntryPage } from './EntryPage';
 import { EntrySheet } from './EntryDetail';
 import { OwnerView } from './OwnerView';
+import { RecoverRedeem, RecoverRequest } from './RecoverView';
 import {
   EMPTY_FILTERS, FILTER_SPECS, PRIMARY_FILTERS, activeFilters, chipLabel, isTinctureFilter, toSearchParams, type FilterKey, type Filters,
 } from './filters';
@@ -27,6 +28,8 @@ interface Props {
 export function RegistryPanel(p: Props) {
   if (p.route.mode === 'owner') return <OwnerView id={p.route.id} secret={p.route.secret} onStatus={p.onStatus} hatching={p.hatching} onDeviceChange={p.onDeviceChange} />;
   if (p.route.mode === 'entry') return <EntryPage id={p.route.id} onStatus={p.onStatus} hatching={p.hatching} onLoad={p.onLoadDesign} />;
+  if (p.route.mode === 'recover') return <RecoverRequest onStatus={p.onStatus} />;
+  if (p.route.mode === 'redeem') return <RecoverRedeem token={p.route.token} onStatus={p.onStatus} hatching={p.hatching} onDeviceChange={p.onDeviceChange} />;
   return <RegistryBrowser {...p} />;
 }
 

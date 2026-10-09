@@ -1537,3 +1537,40 @@ html.overlay-open, html.overlay-open body { overflow: hidden; overscroll-behavio
   html { scroll-padding-top: 92px; }
   :is(a, button, input, select, textarea, summary, [tabindex]) { scroll-margin-top: 92px; }
 }
+
+/* Private edit links: a distinct warning box, masked until revealed. */
+.secret-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--warning);
+  border-radius: 10px;
+  background: var(--warning-bg);
+}
+.secret-title { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; font-size: 16px; color: var(--warning); }
+.secret-lock { flex: none; }
+.secret-help { margin: 0; font-size: 15px; }
+.secret-value { margin: 0; }
+.secret-masked {
+  min-height: 44px;
+  padding: 10px;
+  border: 1px dashed var(--input-border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.secret-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mail-status { margin: 0; padding: 8px 10px; border-radius: 8px; border-left: 4px solid var(--success); background: var(--success-bg); font-size: 15px; }
+.mail-status-failed { border-left-color: var(--warning); background: var(--warning-bg); }
+
+/* "Lost your link? / Withdraw my registration" entry points and screens. */
+.header-recover { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; }
+.entry-recover { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; align-self: flex-start; }
+.contact-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.recover-view .register-form { max-width: 480px; }
+.recover-actions { justify-content: flex-start; }
+.recover-heading:focus { outline: none; }
+.recover-heading:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

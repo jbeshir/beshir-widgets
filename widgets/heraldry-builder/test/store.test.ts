@@ -5,6 +5,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import * as store from '../src/store';
 import sample from '../src/data/sample-registry.json';
+import { NO_CONTACT } from '../src/lib/heraldry';
 
 const plain = (tincture: string) => ({ kind: 'plain', tincture });
 
@@ -74,16 +75,23 @@ describe('store (offline / file://)', () => {
 
   it('refuses writes with a friendly offline message', async () => {
     const design = { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' } };
-    expect(await store.register({ registry: null, displayName: 'X', design, shape: 'heater' })).toEqual({
-      ok: false, kind: 'offline', message: store.OFFLINE_WRITE_MESSAGE,
-    });
-    expect((await store.update('demo-001', 's', 1, { displayName: 'X', design, shape: 'heater' })).ok).toBe(false);
+    const offline = { ok: false, kind: 'offline', message: store.OFFLINE_WRITE_MESSAGE };
+    expect(await store.register({ registry: null, displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design, shape: 'heater' })).toEqual(offline);
+    expect((await store.update('demo-001', 's', 1, { displayName: 'X', contact: NO_CONTACT, design, shape: 'heater' })).ok).toBe(false);
     expect((await store.withdraw('demo-001', 's')).ok).toBe(false);
+    // Ownership checks and recovery need the hosted registry too.
+    expect(await store.checkOwner('demo-001', 's')).toEqual(offline);
+    expect(await store.requestRecovery('x@example.com')).toEqual(offline);
+    expect(await store.lookupRecovery('t')).toEqual(offline);
+    expect(await store.redeemRecovery('t', { design: store.offlineSample().entries[0].design, shape: 'heater' })).toEqual(offline);
+    expect(await store.withdrawByRecovery('t')).toEqual(offline);
   });
 
-  it('reads sample entries (with contact) and the offline sample accessor', async () => {
+  it('reads sample entries (with their Discord contact) and the offline sample accessor', async () => {
     const e = await store.getEntry('demo-002');
-    expect(e.ok && e.entry.contact).toBe('Ask for Basil at the snack table');
+    expect(e.ok && e.entry.contact).toEqual({ discord: 'basil.snacks' });
+    const none = await store.getEntry('demo-001');
+    expect(none.ok && none.entry.contact).toEqual({ discord: null });
     expect((await store.getEntry('nope')).ok).toBe(false);
     const s = store.offlineSample();
     expect(s.registry.id).toBe('sample');
@@ -143,7 +151,7 @@ describe('store (online)', () => {
         differences: ['posture (statant ↔ passant)'],
       })
     );
-    const r = await store.register({ registry: null, displayName: 'X', design: {}, shape: 'heater' });
+    const r = await store.register({ registry: null, displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design: {}, shape: 'heater' });
     expect(r).toMatchObject({ ok: false, kind: 'http', status: 409, code: 'too_close', message: 'Too close.', conflictId: 'demo-004' });
     expect(!r.ok && r.conflict?.design?.charges?.charge).toBe('wolf');
     // A conflict from a Worker that sends no shape displays as a heater shield.
@@ -161,26 +169,67 @@ describe('store (online)', () => {
   it('sends the secret and revision on update', async () => {
     const spy = goOnline(async () =>
       jsonResponse(200, {
-        id: 'a', registry: { id: 'default', name: 'B' }, displayName: 'N', contact: null, design: sample.entries[0].design, shape: 'banner',
+        id: 'a', registry: { id: 'default', name: 'B' }, displayName: 'N', contact: { discord: 'n.name' }, design: sample.entries[0].design, shape: 'banner',
         blazon: 'Azure, a bend Or', signature: 's', readability: 'bold', rev: 3, createdAt: 't', updatedAt: 'u',
       })
     );
-    const r = await store.update('a', 'sec', 2, { displayName: 'N', design: sample.entries[0].design, shape: 'banner' });
+    const r = await store.update('a', 'sec', 2, { displayName: 'N', contact: { discord: 'n.name' }, design: sample.entries[0].design, shape: 'banner' });
     expect(r.ok && r.entry.rev).toBe(3);
+    expect(r.ok && r.entry.contact).toEqual({ discord: 'n.name' });
     expect(r.ok && r.entry.shape).toBe('banner');
     const init = spy.mock.calls[0][1] as RequestInit;
     expect(init.method).toBe('PUT');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer sec');
     expect((init.headers as Record<string, string>)['If-Match']).toBe('2');
-    expect(JSON.parse(init.body as string)).toMatchObject({ displayName: 'N', shape: 'banner' });
+    expect(JSON.parse(init.body as string)).toMatchObject({ displayName: 'N', shape: 'banner', contact: { discord: 'n.name' } });
   });
 
   it('sends the field shape beside the design on register', async () => {
     const spy = goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's' }));
-    await store.register({ registry: null, displayName: 'N', design: sample.entries[0].design, shape: 'round' });
+    await store.register({ registry: null, displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design: sample.entries[0].design, shape: 'round' });
     const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
     expect(body.shape).toBe('round');
     expect(body.design).toEqual(sample.entries[0].design);
+  });
+
+  it('sends the email and Discord contact on register and reads whether the edit link was emailed', async () => {
+    const spy = goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's', editLinkEmail: 'sent' }));
+    const r = await store.register({ registry: null, displayName: 'N', email: 'n@example.com', contact: { discord: 'n.name' }, design: sample.entries[0].design, shape: 'heater' });
+    expect(r.ok && r.created.editLinkEmail).toBe('sent');
+    const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body).toMatchObject({ email: 'n@example.com', contact: { discord: 'n.name' } });
+
+    for (const [sent, read] of [['failed', 'failed'], ['disabled', 'disabled'], [undefined, 'failed']] as const) {
+      goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's', editLinkEmail: sent }));
+      const again = await store.register({ registry: null, displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design: sample.entries[0].design, shape: 'heater' });
+      expect(again.ok && again.created.editLinkEmail).toBe(read);
+    }
+  });
+
+  it('checks an edit link with the owner route', async () => {
+    const spy = goOnline(async () => jsonResponse(200, { id: 'a b', owner: true }));
+    expect(await store.checkOwner('a b', 'sec')).toEqual({ ok: true, id: 'a b' });
+    expect(spy.mock.calls[0][0]).toBe('/api/arms/a%20b/owner');
+    expect(((spy.mock.calls[0][1] as RequestInit).headers as Record<string, string>).Authorization).toBe('Bearer sec');
+    goOnline(async () => jsonResponse(403, { error: 'forbidden', message: 'Wrong edit secret.' }));
+    expect(await store.checkOwner('a', 'bad')).toMatchObject({ ok: false, kind: 'http', status: 403, code: 'forbidden' });
+  });
+
+  it('requests recovery, looks a token up, and maps typed token errors', async () => {
+    const spy = goOnline(async () => jsonResponse(202, { accepted: true, message: "If that address owns any arms, we've sent it a link." }));
+    expect(await store.requestRecovery('n@example.com')).toEqual({ ok: true, message: "If that address owns any arms, we've sent it a link." });
+    expect(spy.mock.calls[0][0]).toBe('/api/recover');
+    expect(JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string)).toEqual({ email: 'n@example.com' });
+
+    const entry = { id: 'a', registry: { id: 'default', name: 'D' }, displayName: 'N', design: sample.entries[0].design, shape: 'round', blazon: 'b' };
+    const lookup = goOnline(async () => jsonResponse(200, { entry, expiresAt: 'later' }));
+    const found = await store.lookupRecovery('tok');
+    expect(found.ok && found.entry).toMatchObject({ id: 'a', displayName: 'N', shape: 'round' });
+    expect(lookup.mock.calls[0][0]).toBe('/api/recover/lookup');
+    expect(JSON.parse((lookup.mock.calls[0][1] as RequestInit).body as string)).toEqual({ token: 'tok' });
+
+    goOnline(async () => jsonResponse(410, { error: 'token_expired', message: 'That recovery link has expired.' }));
+    expect(await store.lookupRecovery('tok')).toMatchObject({ ok: false, status: 410, code: 'token_expired' });
   });
 });
 
@@ -213,7 +262,7 @@ describe('store device storage (drafts and Your arms)', () => {
   it('keeps the arms and shape of a registration for the Your arms thumbnail', async () => {
     vi.stubGlobal('localStorage', memoryStorage());
     goOnline(async () => jsonResponse(201, { id: 'n1', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'Vert, a cross Or', signature: 's' }));
-    await store.register({ registry: null, displayName: 'N', design, shape: 'banner' });
+    await store.register({ registry: null, displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design, shape: 'banner' });
     const [saved] = store.deviceArms();
     expect(saved.shield).toEqual({ design, shape: 'banner' });
   });
@@ -228,5 +277,27 @@ describe('store device storage (drafts and Your arms)', () => {
     const bad = JSON.stringify({ v: 2, savedAt: '2026-10-01T00:00:00Z', design, shape: 'kite' });
     vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:draft:v1': bad }));
     expect(store.loadDraft()?.shape).toBe('heater');
+  });
+
+  it('remembers the new edit link from a redeemed recovery link, replacing the old one', async () => {
+    const old = [{ id: 'r1', registry: 'default', displayName: 'Old name', blazon: 'b', shield: null, secret: 'old-secret', savedAt: '2026-10-01T00:00:00Z' }];
+    vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:device-arms:v1': JSON.stringify(old) }));
+    const spy = goOnline(async () => jsonResponse(200, { id: 'r1', editSecret: 'new-secret', registry: { id: 'default', name: 'D' }, displayName: 'N', blazon: 'Vert, a cross Or', rev: 4 }));
+    const r = await store.redeemRecovery('tok', { design: store.offlineSample().entries[0].design, shape: 'round' });
+    expect(r.ok && r.recovered).toEqual({ id: 'r1', editSecret: 'new-secret', registry: { id: 'default', name: 'D' }, displayName: 'N', blazon: 'Vert, a cross Or' });
+    expect(spy.mock.calls[0][0]).toBe('/api/recover/redeem');
+    const [saved] = store.deviceArms();
+    expect(saved).toMatchObject({ id: 'r1', secret: 'new-secret', displayName: 'N', shield: { design: store.offlineSample().entries[0].design, shape: 'round' } });
+  });
+
+  it('forgets an entry withdrawn with a recovery link, and keeps it when the token is refused', async () => {
+    const kept = [{ id: 'w1', registry: 'default', displayName: 'W', blazon: 'b', shield: null, secret: 's', savedAt: '2026-10-01T00:00:00Z' }];
+    vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:device-arms:v1': JSON.stringify(kept) }));
+    goOnline(async () => jsonResponse(410, { error: 'token_used', message: 'Used.' }));
+    expect(await store.withdrawByRecovery('tok')).toMatchObject({ ok: false, code: 'token_used' });
+    expect(store.deviceArms().map((e) => e.id)).toEqual(['w1']);
+    goOnline(async () => jsonResponse(200, { id: 'w1', withdrawn: true }));
+    expect(await store.withdrawByRecovery('tok')).toEqual({ ok: true, id: 'w1' });
+    expect(store.deviceArms()).toEqual([]);
   });
 });

@@ -104,6 +104,32 @@ describe('migrations', () => {
     await env.MIGRATION_DB.prepare(`INSERT INTO registries (id, name, is_default, created_at) VALUES ('fourth', 'Fourth', 0, 'now')`).run();
   });
 
+  it('replace the free-text contact with a Discord column and add the owner email and token tables', async () => {
+    const columns = await env.MIGRATION_DB.prepare(`SELECT name FROM pragma_table_info('arms')`).all<{ name: string }>();
+    const names = columns.results.map((c) => c.name);
+    expect(names).toContain('contact_discord');
+    expect(names).toContain('field_shape');
+    expect(names).not.toContain('contact');
+    const tables = await env.MIGRATION_DB.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'owner_%' ORDER BY name`).all<{ name: string }>();
+    expect(tables.results.map((t) => t.name)).toEqual(['owner_emails', 'owner_tokens']);
+    const plan = await env.MIGRATION_DB.prepare(
+      `EXPLAIN QUERY PLAN SELECT arms_id FROM owner_emails WHERE email_hmac = ? AND key_version = ?`
+    ).bind('h', 1).all<{ detail: string }>();
+    expect(plan.results.map((r) => r.detail).join('\n')).toContain('owner_emails_lookup');
+  });
+
+  it('cascade an arms deletion to its owner email and tokens', async () => {
+    await env.MIGRATION_DB.batch([
+      env.MIGRATION_DB.prepare(`INSERT INTO owner_emails (arms_id, email_hmac, key_version, created_at) VALUES ('a2', 'h', 1, 'now')`),
+      env.MIGRATION_DB.prepare(`INSERT INTO owner_tokens (token_hash, arms_id, created_at, expires_at) VALUES ('t', 'a2', 'now', 'later')`),
+    ]);
+    await env.MIGRATION_DB.prepare(`DELETE FROM arms WHERE id = 'a2'`).run();
+    for (const table of ['owner_emails', 'owner_tokens']) {
+      const n = await env.MIGRATION_DB.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>();
+      expect(n!.n, table).toBe(0);
+    }
+  });
+
   it('serve the candidate lookup from the similarity index', async () => {
     const plan = await env.MIGRATION_DB.prepare(
       `EXPLAIN QUERY PLAN SELECT id FROM arms WHERE registry_id = ? AND field_division = ? AND ordinary IS ? AND charge IS ? ORDER BY created_at, id`

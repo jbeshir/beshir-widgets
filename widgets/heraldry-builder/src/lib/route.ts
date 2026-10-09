@@ -1,16 +1,24 @@
-// Hash-based routing for the capability URLs, plus the `?registry=` selector.
+// Hash-based routing for the capability URLs (lib/hashes.ts), plus the `?registry=` selector.
 //
-// The edit secret lives in the URL *fragment* so it never reaches the server (or its logs) and page
-// routing stays a static SPA. Shapes:
+// The edit secret and recovery tokens live in the URL *fragment* so they never reach the server (or
+// its logs) and page routing stays a static SPA. Shapes:
 //   #/a/<id>/<secret>  → owner view (edit name/contact, withdraw)
 //   #/a/<id>           → public entry view
+//   #/recover          → "Lost your link?" request form
+//   #/recover/<token>  → redeem an emailed recovery token
 //   anything else      → builder
 // The registry is chosen with a query parameter (`?registry=<id>`); absent → the default registry.
+
+import { entryHash, ownerHash } from './hashes';
+
+export { RECOVER_HASH, entryHash, ownerHash, recoverTokenHash } from './hashes';
 
 export type Route =
   | { mode: 'builder' }
   | { mode: 'entry'; id: string }
-  | { mode: 'owner'; id: string; secret: string };
+  | { mode: 'owner'; id: string; secret: string }
+  | { mode: 'recover' }
+  | { mode: 'redeem'; token: string };
 
 export function parseHash(hash: string): Route {
   // Accept "#/a/..", "#a/..", and a leading "#/" tolerant of an extra slash.
@@ -20,6 +28,9 @@ export function parseHash(hash: string): Route {
     const id = safeDecode(parts[1]);
     if (parts[2]) return { mode: 'owner', id, secret: safeDecode(parts[2]) };
     return { mode: 'entry', id };
+  }
+  if (parts[0] === 'recover') {
+    return parts[1] ? { mode: 'redeem', token: safeDecode(parts[1]) } : { mode: 'recover' };
   }
   return { mode: 'builder' };
 }
@@ -31,14 +42,6 @@ function safeDecode(s: string): string {
   } catch {
     return s;
   }
-}
-
-export function ownerHash(id: string, secret: string): string {
-  return `#/a/${encodeURIComponent(id)}/${encodeURIComponent(secret)}`;
-}
-
-export function entryHash(id: string): string {
-  return `#/a/${encodeURIComponent(id)}`;
 }
 
 /** Absolute capability URLs for sharing/bookmarking, built from the current page (sans fragment). */

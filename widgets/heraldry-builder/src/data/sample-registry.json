@@ -8,7 +8,9 @@
     {
       "id": "demo-001",
       "displayName": "Ada Brightwater",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-05T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -29,7 +31,9 @@
     {
       "id": "demo-002",
       "displayName": "Basil Thorne",
-      "contact": "Ask for Basil at the snack table",
+      "contact": {
+        "discord": "basil.snacks"
+      },
       "registeredAt": "2026-01-06T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -57,7 +61,9 @@
     {
       "id": "demo-003",
       "displayName": "Cass Merriweather",
-      "contact": "@cass@example.social",
+      "contact": {
+        "discord": "cass_herald"
+      },
       "registeredAt": "2026-01-07T12:00:00Z",
       "shape": "banner",
       "design": {
@@ -86,7 +92,9 @@
     {
       "id": "demo-004",
       "displayName": "Dev Halloran",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-08T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -114,7 +122,9 @@
     {
       "id": "demo-005",
       "displayName": "Elin Sato",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-09T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -142,7 +152,9 @@
     {
       "id": "demo-006",
       "displayName": "Farah Quist",
-      "contact": "Usually by the garden door",
+      "contact": {
+        "discord": "garden.door"
+      },
       "registeredAt": "2026-01-10T12:00:00Z",
       "shape": "round",
       "design": {
@@ -170,7 +182,9 @@
     {
       "id": "demo-007",
       "displayName": "Gus Pemberton",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-11T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -192,7 +206,9 @@
     {
       "id": "demo-008",
       "displayName": "Hana Roe",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-12T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -217,7 +233,9 @@
     {
       "id": "demo-009",
       "displayName": "Ivo Marsh",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-13T12:00:00Z",
       "shape": "lozenge",
       "design": {
@@ -242,7 +260,9 @@
     {
       "id": "demo-010",
       "displayName": "Jules Okafor",
-      "contact": "@jules@example.social",
+      "contact": {
+        "discord": "jules_"
+      },
       "registeredAt": "2026-01-14T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -271,7 +291,9 @@
     {
       "id": "demo-011",
       "displayName": "Kit Abernathy",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-15T12:00:00Z",
       "shape": "banner",
       "design": {
@@ -296,7 +318,9 @@
     {
       "id": "demo-012",
       "displayName": "Lior Vance",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-16T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -324,7 +348,9 @@
     {
       "id": "demo-013",
       "displayName": "Mina Castellanos",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-17T12:00:00Z",
       "shape": "round",
       "design": {
@@ -352,7 +378,9 @@
     {
       "id": "demo-014",
       "displayName": "Noor Pike",
-      "contact": "Find me near the kettle",
+      "contact": {
+        "discord": "kettle.keeper"
+      },
       "registeredAt": "2026-01-18T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -380,7 +408,9 @@
     {
       "id": "demo-015",
       "displayName": "Otto Fairbairn",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-19T12:00:00Z",
       "shape": "heater",
       "design": {
@@ -408,7 +438,9 @@
     {
       "id": "demo-016",
       "displayName": "Pia Lindqvist",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-20T12:00:00Z",
       "shape": "lozenge",
       "design": {
@@ -433,7 +465,9 @@
     {
       "id": "demo-017",
       "displayName": "Quinn Ashworth",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-21T12:00:00Z",
       "shape": "heater",
       "design": {

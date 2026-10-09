@@ -116,13 +116,67 @@
     {
       "label": "register-success",
       "steps": [
-        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":201,"body":{"id":"journey-arms-01","editSecret":"journey-secret-01","registry":{"id":"default","name":"Default"},"rev":1,"blazon":"Azure, a bend Or.","signature":"journey-signature"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":201,"body":{"id":"journey-arms-01","editSecret":"journey-secret-01","registry":{"id":"default","name":"Default"},"rev":1,"blazon":"Azure, a bend Or.","signature":"journey-signature","editLinkEmail":"sent"}}},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=open-register]"},
         {"fill":"[data-testid=register-name]","value":"House Journey"},
+        {"fill":"[data-testid=register-email]","value":"journey@example.com"},
         {"click":"[data-testid=register-submit]"}
       ],
       "expect": {"selector":"[data-testid=register-success]"}
+    },
+    {
+      "label": "register-validation",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":500,"body":{"error":"internal_error","message":"The form should have stopped this request."}}},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=open-register]"},
+        {"fill":"[data-testid=register-name]","value":"House Journey"},
+        {"fill":"[data-testid=register-email]","value":"not-an-address"},
+        {"fill":"[data-testid=register-discord]","value":"a..b"},
+        {"click":"[data-testid=register-submit]"}
+      ],
+      "expect": {"selector":"[data-testid=register-discord-error]"}
+    },
+    {
+      "label": "recover-request-sent",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/recover$/","method":"POST","status":202,"body":{"accepted":true,"message":"If that address owns any arms, we've sent it a link. It works once, for 30 minutes."}}},
+        {"click":"[data-testid=header-recover-link]"},
+        {"waitFor":"[data-testid=recover-email]"},
+        {"fill":"[data-testid=recover-email]","value":"journey@example.com"},
+        {"click":"[data-testid=recover-submit]"}
+      ],
+      "expect": {"selector":"[data-testid=recover-sent]"}
+    },
+    {
+      "label": "recover-redeemed",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/lookup$/","method":"POST","status":200,"body":{"entry":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or"},"expiresAt":"2099-01-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/redeem$/","method":"POST","status":200,"body":{"id":"journey-arms-01","editSecret":"journey-secret-02","registry":{"id":"default","name":"Default"},"displayName":"House Journey","blazon":"Azure, a bend Or","rev":1}}},
+        {"eval":"location.hash = '#/recover/journey-token'"},
+        {"waitFor":"[data-testid=redeem-new-link]"},
+        {"click":"[data-testid=redeem-new-link]"}
+      ],
+      "expect": {"selector":"[data-testid=redeem-recovered]"}
+    },
+    {
+      "label": "owner-view",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01\\/owner$/","method":"GET","status":200,"body":{"id":"journey-arms-01","owner":true}}},
+        {"eval":"location.hash = '#/a/journey-arms-01/journey-secret-01'"}
+      ],
+      "expect": {"selector":"[data-testid=owner-edit-link-box]"}
+    },
+    {
+      "label": "owner-link-denied",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or","contact":{"discord":null},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01\\/owner$/","method":"GET","status":403,"body":{"error":"forbidden","message":"Wrong edit secret."}}},
+        {"eval":"location.hash = '#/a/journey-arms-01/journey-secr'"}
+      ],
+      "expect": {"selector":"[data-testid=owner-denied]"}
     },
     {
       "label": "compound-layers",

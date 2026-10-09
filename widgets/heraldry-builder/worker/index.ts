@@ -2,42 +2,66 @@
 //
 // It owns the `/api/*` routes that back the community armorial; every other request is served from
 // the static SPA bundle (the assets binding). A registration is a structured design (field,
-// ordinary, charges), the field shape it is displayed in, a public display name and optional public
-// contact, stored in D1 under one registry. The shape is display only: it is stored beside the design
-// and never enters the signature, blazon, tags or uniqueness check. The Worker never trusts the client's blazon, signature or tags: it re-normalises and
-// re-validates the design with the shared heraldry library and computes everything itself.
+// ordinary, charges), the field shape it is displayed in, a public display name, an optional public
+// Discord username and the owner's (private) email address, stored in D1 under one registry. The
+// shape is display only: it is stored beside the design and never enters the signature, blazon,
+// tags or uniqueness check. The Worker never trusts the client's blazon, signature or tags: it
+// re-normalises and re-validates the design with the shared heraldry library and computes
+// everything itself.
 //
 // Uniqueness is per registry: an exact duplicate (same canonical signature) is blocked by a UNIQUE
 // index, and a design with no clear difference from an existing entry is "too close". The edit
 // secret is the capability for editing/withdrawing: we store only its SHA-256 hash and compare in
 // constant time.
 //
+// Ownership by email: the owner's address is required at registration, used there to email the
+// edit link, and stored only as an HMAC (EMAIL_HMAC_KEY) so "Lost your link?" can find the owner's
+// entries when they type the address again. Recovery emails a single-use, 30-minute token per entry
+// (stored hashed, delivered in the link's fragment); redeeming it rotates the edit secret or
+// withdraws the entry. No API ever returns the address.
+//
 // Routes:
-//   GET    /api/registries      -> [{ id, name, isDefault }]
-//   GET    /api/arms?…          -> public search (no contact in results)
-//   POST   /api/arms/check      -> availability check for a design (not rate-limited)
-//   POST   /api/arms            -> register { displayName, contact, design, shape }; returns { id, editSecret, registry, rev, blazon, signature } (201)
-//   GET    /api/arms/:id        -> one entry, including the public contact
-//   PUT    /api/arms/:id        -> edit;     Authorization: Bearer <secret>, If-Match: <rev>
-//   DELETE /api/arms/:id        -> withdraw; Authorization: Bearer <secret>; deletes the row + tags
+//   GET    /api/registries        -> [{ id, name, isDefault }]
+//   GET    /api/arms?…            -> public search (no contact in results)
+//   POST   /api/arms/check        -> availability check for a design (not rate-limited)
+//   POST   /api/arms              -> register { displayName, email, contact, design, shape };
+//                                    returns { id, editSecret, registry, rev, blazon, signature, editLinkEmail } (201)
+//   GET    /api/arms/:id          -> one entry, including the public contact
+//   GET    /api/arms/:id/owner    -> 200 when Authorization: Bearer <secret> is this entry's edit secret
+//   PUT    /api/arms/:id          -> edit;     Authorization: Bearer <secret>, If-Match: <rev>
+//   DELETE /api/arms/:id          -> withdraw; Authorization: Bearer <secret>; deletes the row + tags
+//   POST   /api/recover           -> { email }; always 202; emails recovery links for that address's entries
+//   POST   /api/recover/lookup    -> { token }; the entry a recovery token is for (does not use it up)
+//   POST   /api/recover/redeem    -> { token }; uses the token, rotates the edit secret, returns the new one
+//   POST   /api/recover/withdraw  -> { token }; uses the token and withdraws the entry
 
 import {
-  DEFAULT_FIELD_SHAPE, FIELD_SHAPES, blazon, candidateKey, checkUnique, cleanContact, cleanDisplayName, deriveTags,
-  explainDifferences, isFieldShape, likePattern, normalise, parseSearchParams, readability, resolve, searchParamsFromUrl,
-  signature, type FieldShape, type Issue, type NormDesign, type RegistryEntryLike,
+  DEFAULT_FIELD_SHAPE, FIELD_SHAPES, blazon, candidateKey, checkUnique, cleanContact, cleanDisplayName, cleanEmail,
+  deriveTags, explainDifferences, isFieldShape, likePattern, normalise, parseSearchParams, readability, resolve,
+  searchParamsFromUrl, signature, type Contact, type FieldShape, type Issue, type NormDesign, type RegistryEntryLike,
 } from '../src/lib/heraldry';
+import { RECOVER_HASH, entryHash, ownerHash, recoverTokenHash } from '../src/lib/hashes';
+import { sendMail, type MailEnv } from './mail';
 
-interface Env {
+interface Env extends MailEnv {
   DB: D1Database;
   ASSETS?: Fetcher;
   CREATE_LIMITER: RateLimit;
+  /** Secret key for the owner-email HMAC. */
+  EMAIL_HMAC_KEY: string;
+  /** Which EMAIL_HMAC_KEY is current (a positive integer); stored beside every HMAC it makes. */
+  EMAIL_HMAC_KEY_VERSION: string;
 }
 
 // A registry holds at most this many entries; generous for a community armorial.
 const MAX_ENTRIES_PER_REGISTRY = 2000;
-// Request bodies are a design plus a name and contact, well under 2 KB; anything past this is refused.
+// Request bodies are a design plus a name, email and contact, well under 2 KB; anything past this is refused.
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_REGISTRY_ID_LEN = 64;
+// How long an emailed recovery link works.
+const RECOVERY_TOKEN_TTL_MS = 30 * 60 * 1000;
+// Recovery tokens and edit secrets are base64url; anything longer than this is not one of ours.
+const MAX_TOKEN_LEN = 128;
 
 interface RegistryRow {
   id: string;
@@ -49,7 +73,7 @@ interface ArmsRow {
   id: string;
   registry_id: string;
   display_name: string;
-  contact: string | null;
+  contact_discord: string | null;
   design: string;
   field_shape: FieldShape;
   signature: string;
@@ -64,7 +88,7 @@ interface ArmsRow {
 type ScanRow = Pick<ArmsRow, 'id' | 'display_name' | 'design' | 'field_shape' | 'signature' | 'blazon'>;
 
 export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
       const url = new URL(request.url);
       const { pathname } = url;
@@ -76,6 +100,10 @@ export default {
 
       if (pathname === '/api/arms' || pathname.startsWith('/api/arms/')) {
         return await handleArmsApi(request, env, url);
+      }
+
+      if (pathname === '/api/recover' || pathname.startsWith('/api/recover/')) {
+        return await handleRecoverApi(request, env, ctx, url);
       }
 
       if (pathname.startsWith('/api/')) {
@@ -92,7 +120,7 @@ export default {
       const { pathname } = new URL(request.url);
       console.error(JSON.stringify({
         event: 'unhandled_error',
-        route: pathname.startsWith('/api/arms/') && pathname !== '/api/arms/check' ? '/api/arms/:id' : pathname,
+        route: routeLabel(pathname),
         method: request.method,
         errorName: e instanceof Error ? e.name : typeof e,
         errorMessage: e instanceof Error ? e.message : String(e),
@@ -102,13 +130,19 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+/** The route for logs, with entry ids replaced so a log line never names an entry. */
+function routeLabel(pathname: string): string {
+  if (!pathname.startsWith('/api/arms/') || pathname === '/api/arms/check') return pathname;
+  return pathname.endsWith('/owner') ? '/api/arms/:id/owner' : '/api/arms/:id';
+}
+
 async function handleArmsApi(request: Request, env: Env, url: URL): Promise<Response> {
   const rest = url.pathname.slice('/api/arms'.length); // '' | '/' | '/check' | '/<id>' | ...
 
   // Collection: GET (search) / POST (register) /api/arms
   if (rest === '' || rest === '/') {
     if (request.method === 'GET') return searchArms(env, url);
-    if (request.method === 'POST') return createArms(request, env);
+    if (request.method === 'POST') return createArms(request, env, url);
     return methodNotAllowed('GET, POST');
   }
 
@@ -117,17 +151,24 @@ async function handleArmsApi(request: Request, env: Env, url: URL): Promise<Resp
     return methodNotAllowed('POST');
   }
 
-  // Item: /api/arms/:id
+  // Item: /api/arms/:id, or its owner check /api/arms/:id/owner
+  const item = /^\/([^/]+)(\/owner)?$/.exec(rest);
+  if (!item) return jsonError(404, 'not_found', 'Unknown arms route.');
+  const ownerCheck = item[2] !== undefined;
   let id: string;
   try {
-    id = decodeURIComponent(rest.replace(/^\//, ''));
+    id = decodeURIComponent(item[1]);
   } catch {
     return jsonError(404, 'not_found', 'Unknown arms route.'); // malformed percent-encoding
   }
-  if (id === '' || id.includes('/')) {
+  if (id.includes('/')) {
     return jsonError(404, 'not_found', 'Unknown arms route.');
   }
 
+  if (ownerCheck) {
+    if (request.method === 'GET') return checkOwner(request, env, id);
+    return methodNotAllowed('GET');
+  }
   if (request.method === 'GET') return readArms(env, id);
   if (request.method === 'PUT') return updateArms(request, env, id);
   if (request.method === 'DELETE') return withdrawArms(request, env, id);
@@ -348,22 +389,22 @@ async function checkArms(request: Request, env: Env): Promise<Response> {
   });
 }
 
-type EntryInput = { displayName: string; contact: string | null; shape: FieldShape; derived: Derived } | { error: Response };
+type EntryInput = { displayName: string; contact: Contact; shape: FieldShape; derived: Derived } | { error: Response };
 
 function validateEntryInput(body: Record<string, unknown>): EntryInput {
   const name = cleanDisplayName(body.displayName);
   if (!name.ok) return { error: fieldError('displayName', name.message) };
   const contact = cleanContact(body.contact);
-  if (!contact.ok) return { error: fieldError('contact', contact.message) };
+  if (!contact.ok) return { error: fieldError(contact.field, contact.message) };
   // A request without a shape (e.g. from an SPA bundle older than field shapes) gets the default.
   const shape = body.shape === undefined ? DEFAULT_FIELD_SHAPE : body.shape;
   if (!isFieldShape(shape)) return { error: fieldError('shape', `The field shape must be one of: ${FIELD_SHAPES.join(', ')}.`) };
   const d = deriveDesign(body.design);
   if ('error' in d) return d;
-  return { displayName: name.value!, contact: contact.value, shape, derived: d.derived };
+  return { displayName: name.value, contact: contact.value, shape, derived: d.derived };
 }
 
-async function createArms(request: Request, env: Env): Promise<Response> {
+async function createArms(request: Request, env: Env, url: URL): Promise<Response> {
   // Rate-limited before the body is even parsed, so junk requests also spend the budget.
   const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   const { success } = await env.CREATE_LIMITER.limit({ key: ip });
@@ -376,6 +417,8 @@ async function createArms(request: Request, env: Env): Promise<Response> {
 
   const input = validateEntryInput(body);
   if ('error' in input) return input.error;
+  const email = cleanEmail(body.email);
+  if (!email.ok) return fieldError('email', email.message);
   const reg = await lookupRegistry(env, body.registry);
   if ('error' in reg) return reg.error;
 
@@ -388,30 +431,45 @@ async function createArms(request: Request, env: Env): Promise<Response> {
   const id = randomToken(16); // ~128-bit
   const editSecret = randomToken(32); // ~256-bit
   const editSecretHash = await sha256hex(editSecret);
+  const owner = await emailHmac(env, email.value);
   const now = new Date().toISOString();
   const d = input.derived;
   const nd = d.design;
   const key = candidateKey(nd);
 
   try {
-    // One transaction: the row and its tags land together or not at all.
+    // One transaction: the row, its tags and its owner's email HMAC land together or not at all.
     await env.DB.batch([
       env.DB.prepare(
-        `INSERT INTO arms (id, registry_id, display_name, contact, design, field_shape, signature, blazon,
+        `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, field_shape, signature, blazon,
            field_division, ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
       ).bind(
-        id, reg.registry.id, input.displayName, input.contact, JSON.stringify(nd), input.shape, d.signature, d.blazon,
+        id, reg.registry.id, input.displayName, input.contact.discord, JSON.stringify(nd), input.shape, d.signature, d.blazon,
         key.fieldDivision, key.ordinary, key.charge, d.readability,
         editSecretHash, now, now
       ),
       insertTags(env, id, reg.registry.id, d.tags),
+      env.DB.prepare(`INSERT INTO owner_emails (arms_id, email_hmac, key_version, created_at) VALUES (?, ?, ?, ?)`)
+        .bind(id, owner.hmac, owner.keyVersion, now),
     ]);
   } catch (e) {
     // Lost a race with a concurrent registration of the same signature.
     if (isUniqueViolation(e)) return await raceDuplicate(env, reg.registry.id, d.signature);
     throw e;
   }
+
+  // The registration stands whether or not the email goes out; the response says which, so the
+  // success screen can tell the owner to save the link themselves.
+  const site = siteUrl(url);
+  const editLinkEmail = await sendMail(env, {
+    to: email.value,
+    subject: 'Your Heraldry Builder edit link',
+    text: registrationMailText({
+      displayName: input.displayName, blazon: d.blazon, registryName: reg.registry.name,
+      editUrl: site + ownerHash(id, editSecret), shareUrl: site + entryHash(id), recoverUrl: site + RECOVER_HASH,
+    }),
+  });
 
   return json(201, {
     id,
@@ -420,6 +478,7 @@ async function createArms(request: Request, env: Env): Promise<Response> {
     rev: 1,
     blazon: d.blazon,
     signature: d.signature,
+    editLinkEmail,
   });
 }
 
@@ -447,7 +506,7 @@ async function raceDuplicate(env: Env, registryId: string, sig: string): Promise
 
 async function readArms(env: Env, id: string): Promise<Response> {
   const row = await env.DB.prepare(
-    `SELECT a.id, a.registry_id, a.display_name, a.contact, a.design, a.field_shape, a.signature, a.blazon,
+    `SELECT a.id, a.registry_id, a.display_name, a.contact_discord, a.design, a.field_shape, a.signature, a.blazon,
             a.readability, a.rev, a.created_at, a.updated_at, r.name AS registry_name
      FROM arms a JOIN registries r ON r.id = a.registry_id WHERE a.id = ?`
   )
@@ -464,7 +523,7 @@ function rowToEntry(row: Omit<ArmsRow, 'edit_secret_hash'>, registryName: string
     id: row.id,
     registry: { id: row.registry_id, name: registryName },
     displayName: row.display_name,
-    contact: row.contact,
+    contact: { discord: row.contact_discord },
     design: parseStoredDesign(row.design),
     shape: row.field_shape,
     blazon: row.blazon,
@@ -537,11 +596,11 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
     results = await env.DB.batch([
       // Conditional UPDATE on rev closes the race between the SELECT above and this write.
       env.DB.prepare(
-        `UPDATE arms SET display_name = ?, contact = ?, design = ?, field_shape = ?, signature = ?, blazon = ?,
+        `UPDATE arms SET display_name = ?, contact_discord = ?, design = ?, field_shape = ?, signature = ?, blazon = ?,
            field_division = ?, ordinary = ?, charge = ?, readability = ?, rev = rev + 1, updated_at = ?
          WHERE id = ? AND rev = ?`
       ).bind(
-        input.displayName, input.contact, JSON.stringify(nd), input.shape, d.signature, d.blazon,
+        input.displayName, input.contact.discord, JSON.stringify(nd), input.shape, d.signature, d.blazon,
         key.fieldDivision, key.ordinary, key.charge, d.readability,
         now, id, expectedRev
       ),
@@ -565,7 +624,7 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
       {
         ...row,
         display_name: input.displayName,
-        contact: input.contact,
+        contact_discord: input.contact.discord,
         design: JSON.stringify(nd),
         field_shape: input.shape,
         signature: d.signature,
@@ -583,10 +642,272 @@ async function withdrawArms(request: Request, env: Env, id: string): Promise<Res
   const auth = await authorise(request, env, id);
   if ('error' in auth) return auth.error;
 
-  // Withdrawal deletes the entry outright (nothing is kept), which also frees its signature. The
-  // tags go with it (ON DELETE CASCADE).
-  await env.DB.prepare(`DELETE FROM arms WHERE id = ?`).bind(id).run();
+  await deleteArms(env, id);
   return json(200, { id, withdrawn: true });
+}
+
+/**
+ * Withdrawal deletes the entry outright (nothing is kept), which also frees its signature. Its
+ * tags, owner email HMAC and recovery tokens go with it (ON DELETE CASCADE).
+ */
+async function deleteArms(env: Env, id: string): Promise<void> {
+  await env.DB.prepare(`DELETE FROM arms WHERE id = ?`).bind(id).run();
+}
+
+/** Owner check for the owner view: 200 when the Bearer secret is right (404 → 401 → 403 otherwise). */
+async function checkOwner(request: Request, env: Env, id: string): Promise<Response> {
+  const auth = await authorise(request, env, id);
+  if ('error' in auth) return auth.error;
+  return json(200, { id, owner: true });
+}
+
+// ── recovery ("Lost your link? / Withdraw my registration") ──────────────────────────────────
+
+async function handleRecoverApi(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
+  const action = url.pathname.slice('/api/recover'.length);
+  if (request.method !== 'POST') return methodNotAllowed('POST');
+  if (action === '' || action === '/') return requestRecovery(request, env, ctx, url);
+  if (action === '/lookup') return lookupRecoveryToken(request, env);
+  if (action === '/redeem') return redeemRecoveryToken(request, env);
+  if (action === '/withdraw') return withdrawByRecoveryToken(request, env);
+  return jsonError(404, 'not_found', 'Unknown recovery route.');
+}
+
+/** The one answer to every well-formed recovery request, whether or not the address owns anything. */
+const RECOVERY_ACCEPTED = {
+  accepted: true,
+  message: "If that address owns any arms, we've sent it a link. It works once, for 30 minutes.",
+};
+
+/**
+ * Always 202 for a valid address. The lookup and the email happen after the response (waitUntil),
+ * so neither the answer nor its timing says whether the address owns any entries. Entries in every
+ * registry are included: the address identifies the owner, and they may not remember (or have) the
+ * `?registry=` link they registered from.
+ */
+async function requestRecovery(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
+  const parsed = await parseBody(request);
+  if ('error' in parsed) return parsed.error;
+  const body = asObject(parsed.body);
+  if (!body) return jsonError(400, 'bad_request', 'Body must be a JSON object.');
+  const email = cleanEmail(body.email);
+  if (!email.ok) return fieldError('email', email.message);
+
+  ctx.waitUntil(
+    sendRecoveryMail(env, email.value, siteUrl(url)).catch((e: unknown) => {
+      console.error(JSON.stringify({ event: 'recovery_failed', errorName: e instanceof Error ? e.name : typeof e }));
+    })
+  );
+  return json(202, RECOVERY_ACCEPTED);
+}
+
+interface OwnedRow {
+  id: string;
+  display_name: string;
+  blazon: string;
+  registry_name: string;
+}
+
+/** One email listing a fresh single-use token link per entry the address owns; nothing if it owns none. */
+async function sendRecoveryMail(env: Env, email: string, site: string): Promise<void> {
+  const owner = await emailHmac(env, email);
+  const now = Date.now();
+  await env.DB.prepare(`DELETE FROM owner_tokens WHERE expires_at < ?`).bind(new Date(now).toISOString()).run();
+  const { results } = await env.DB.prepare(
+    `SELECT a.id, a.display_name, a.blazon, r.name AS registry_name
+     FROM owner_emails o JOIN arms a ON a.id = o.arms_id JOIN registries r ON r.id = a.registry_id
+     WHERE o.email_hmac = ? AND o.key_version = ?
+     ORDER BY a.created_at, a.id`
+  ).bind(owner.hmac, owner.keyVersion).all<OwnedRow>();
+  if (results.length === 0) return;
+
+  const createdAt = new Date(now).toISOString();
+  const expiresAt = new Date(now + RECOVERY_TOKEN_TTL_MS).toISOString();
+  const tokens = await Promise.all(results.map(async (row) => {
+    const token = randomToken(32);
+    return { row, token, hash: await sha256hex(token) };
+  }));
+  await env.DB.batch(tokens.map((t) =>
+    env.DB.prepare(`INSERT INTO owner_tokens (token_hash, arms_id, created_at, expires_at) VALUES (?, ?, ?, ?)`)
+      .bind(t.hash, t.row.id, createdAt, expiresAt)
+  ));
+  await sendMail(env, {
+    to: email,
+    subject: 'Your Heraldry Builder recovery link',
+    text: recoveryMailText(tokens.map((t) => ({
+      displayName: t.row.display_name, blazon: t.row.blazon, registryName: t.row.registry_name, url: site + recoverTokenHash(t.token),
+    }))),
+  });
+}
+
+interface TokenRow {
+  arms_id: string;
+  expires_at: string;
+  used_at: string | null;
+}
+
+type TokenBody = { tokenHash: string } | { error: Response };
+
+async function readToken(request: Request): Promise<TokenBody> {
+  const parsed = await parseBody(request);
+  if ('error' in parsed) return parsed;
+  const token = asObject(parsed.body)?.token;
+  if (typeof token !== 'string' || token === '' || token.length > MAX_TOKEN_LEN) {
+    return { error: fieldError('token', 'A recovery token is required.') };
+  }
+  return { tokenHash: await sha256hex(token) };
+}
+
+type TokenProblem = 'token_invalid' | 'token_used' | 'token_expired';
+
+/** Why a token can't be used, or null when it can. */
+function tokenProblem(row: TokenRow | null, now: string): TokenProblem | null {
+  if (!row) return 'token_invalid';
+  if (row.used_at !== null) return 'token_used';
+  if (row.expires_at <= now) return 'token_expired';
+  return null;
+}
+
+/** Unknown → 404; already used or expired → 410. */
+function tokenError(problem: TokenProblem): Response {
+  switch (problem) {
+    case 'token_invalid':
+      return jsonError(404, problem, "That recovery link isn't valid. Check you copied all of it, or ask for a new one.");
+    case 'token_used':
+      return jsonError(410, problem, 'That recovery link has already been used. Ask for a new one.');
+    case 'token_expired':
+      return jsonError(410, problem, 'That recovery link has expired. Ask for a new one.');
+  }
+}
+
+/** The entry a token is for, without using the token up, so the owner can see it before choosing. */
+async function lookupRecoveryToken(request: Request, env: Env): Promise<Response> {
+  const t = await readToken(request);
+  if ('error' in t) return t.error;
+  const now = new Date().toISOString();
+  const row = await env.DB.prepare(
+    `SELECT t.arms_id, t.expires_at, t.used_at, a.display_name, a.design, a.field_shape, a.blazon,
+            a.registry_id, r.name AS registry_name
+     FROM owner_tokens t JOIN arms a ON a.id = t.arms_id JOIN registries r ON r.id = a.registry_id
+     WHERE t.token_hash = ?`
+  ).bind(t.tokenHash).first<TokenRow & Pick<ArmsRow, 'display_name' | 'design' | 'field_shape' | 'blazon' | 'registry_id'> & { registry_name: string }>();
+  const problem = tokenProblem(row, now);
+  if (problem || !row) return tokenError(problem ?? 'token_invalid');
+  return json(200, {
+    entry: {
+      id: row.arms_id,
+      registry: { id: row.registry_id, name: row.registry_name },
+      displayName: row.display_name,
+      design: parseStoredDesign(row.design),
+      shape: row.field_shape,
+      blazon: row.blazon,
+    },
+    expiresAt: row.expires_at,
+  });
+}
+
+type Redeemed = { armsId: string } | { error: Response };
+
+/** Use a token up: atomically marks it used if it is unused and unexpired, so it works exactly once. */
+async function useToken(request: Request, env: Env): Promise<Redeemed> {
+  const t = await readToken(request);
+  if ('error' in t) return t;
+  const now = new Date().toISOString();
+  const used = await env.DB.prepare(
+    `UPDATE owner_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ? RETURNING arms_id`
+  ).bind(now, t.tokenHash, now).first<{ arms_id: string }>();
+  if (used) return { armsId: used.arms_id };
+  const row = await env.DB.prepare(`SELECT arms_id, expires_at, used_at FROM owner_tokens WHERE token_hash = ?`)
+    .bind(t.tokenHash)
+    .first<TokenRow>();
+  // The UPDATE only misses a missing, used or expired token, so there is always a problem to report.
+  return { error: tokenError(tokenProblem(row, now) ?? 'token_used') };
+}
+
+/**
+ * A new edit secret for the token's entry. Only the secret's hash is stored, so the old edit link
+ * stops working; any other outstanding recovery tokens for the entry are used up too.
+ */
+async function redeemRecoveryToken(request: Request, env: Env): Promise<Response> {
+  const r = await useToken(request, env);
+  if ('error' in r) return r.error;
+  const editSecret = randomToken(32);
+  const now = new Date().toISOString();
+  const [rotated] = await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE arms SET edit_secret_hash = ?, updated_at = ? WHERE id = ?
+       RETURNING id, display_name, blazon, rev, registry_id, (SELECT name FROM registries WHERE id = registry_id) AS registry_name`
+    ).bind(await sha256hex(editSecret), now, r.armsId),
+    env.DB.prepare(`UPDATE owner_tokens SET used_at = ? WHERE arms_id = ? AND used_at IS NULL`).bind(now, r.armsId),
+  ]);
+  const row = (rotated.results as Array<Pick<ArmsRow, 'id' | 'display_name' | 'blazon' | 'rev' | 'registry_id'> & { registry_name: string }>)[0];
+  if (!row) return jsonError(404, 'not_found', 'No arms with that id.');
+  return json(200, {
+    id: row.id,
+    editSecret,
+    registry: { id: row.registry_id, name: row.registry_name },
+    displayName: row.display_name,
+    blazon: row.blazon,
+    rev: row.rev,
+  });
+}
+
+async function withdrawByRecoveryToken(request: Request, env: Env): Promise<Response> {
+  const r = await useToken(request, env);
+  if ('error' in r) return r.error;
+  await deleteArms(env, r.armsId);
+  return json(200, { id: r.armsId, withdrawn: true });
+}
+
+// ── owner email ──────────────────────────────────────────────────────────────────────────────
+
+/** HMAC-SHA-256 (hex) of an already-normalised address under the current EMAIL_HMAC_KEY. */
+async function emailHmac(env: Env, normalisedEmail: string): Promise<{ hmac: string; keyVersion: number }> {
+  const keyVersion = Number(env.EMAIL_HMAC_KEY_VERSION);
+  if (!env.EMAIL_HMAC_KEY || !Number.isInteger(keyVersion) || keyVersion < 1) {
+    throw new Error('EMAIL_HMAC_KEY and a positive integer EMAIL_HMAC_KEY_VERSION must be configured');
+  }
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(env.EMAIL_HMAC_KEY), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(normalisedEmail));
+  return { hmac: hex(new Uint8Array(mac)), keyVersion };
+}
+
+/** The SPA's address (the Worker serves both), for the links in emails. */
+function siteUrl(url: URL): string {
+  return `${url.origin}/`;
+}
+
+function registrationMailText(m: {
+  displayName: string; blazon: string; registryName: string; editUrl: string; shareUrl: string; recoverUrl: string;
+}): string {
+  return [
+    `Your arms are registered in the ${m.registryName} armorial as "${m.displayName}":`,
+    m.blazon,
+    '',
+    'Your edit link (keep it private: anyone with it can change or withdraw the entry):',
+    m.editUrl,
+    '',
+    'To withdraw your registration, open the edit link and choose "Withdraw these arms". If you lose',
+    `this email, use "Lost your link? / Withdraw my registration" on the site to get a new link: ${m.recoverUrl}`,
+    '',
+    'Share link (public):',
+    m.shareUrl,
+    '',
+    "You're getting this because this address was given when the arms were registered.",
+  ].join('\n');
+}
+
+function recoveryMailText(entries: Array<{ displayName: string; blazon: string; registryName: string; url: string }>): string {
+  return [
+    'Someone (hopefully you) asked for new links to the arms registered with this address.',
+    'Each link below works once, for 30 minutes. Open it, then choose "Get a new edit link" or',
+    '"Withdraw this registration". Getting a new edit link stops the old one working.',
+    '',
+    ...entries.flatMap((e) => [`"${e.displayName}" (${e.registryName}): ${e.blazon}`, e.url, '']),
+    "If you didn't ask for this, ignore this email: nothing changes unless a link is opened and used.",
+  ].join('\n');
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────────────────────
@@ -686,10 +1007,13 @@ function base64url(bytes: Uint8Array): string {
 async function sha256hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest('SHA-256', data);
-  const bytes = new Uint8Array(digest);
-  let hex = '';
-  for (const b of bytes) hex += b.toString(16).padStart(2, '0');
-  return hex;
+  return hex(new Uint8Array(digest));
+}
+
+function hex(bytes: Uint8Array): string {
+  let s = '';
+  for (const b of bytes) s += b.toString(16).padStart(2, '0');
+  return s;
 }
 
 /** Constant-time compare of two equal-length hex strings (both are SHA-256 digests). */

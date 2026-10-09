@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FIELD_SHAPE, blazon, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
 import { DEFAULT_DESIGN, assess, sameDesign } from './lib/builder';
-import { registryParam } from './lib/route';
+import { RECOVER_HASH, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
 import { computeWidgetState, type ListStatus, type Tab } from './lib/widgetState';
 import * as store from './store';
@@ -43,7 +43,7 @@ export function App() {
   const announce = useCallback((m: string) => setAnnouncement((cur) => (cur === m ? `${m}\u00a0` : m)), []);
   const focusPreview = useRef(false);
 
-  // An entry/owner link opens the registry tab (it shows the public entry page / owner view).
+  // An entry, owner or recovery link opens the registry tab (it shows that page in place of the list).
   useEffect(() => {
     if (route.mode !== 'builder') selectTab('registry');
   }, [route]);
@@ -173,6 +173,7 @@ export function App() {
         <header class="card-header">
           <h1>Heraldry Builder</h1>
           <p class="hint">Design rule-checked coats of arms, read their blazon, and register them in a community armorial.</p>
+          <a class="text-link header-recover" href={RECOVER_HASH} data-testid="header-recover-link">Lost your link? / Withdraw my registration</a>
         </header>
 
         <div class="tabs" role="tablist" aria-label="Sections" onKeyDown={onTabKey}>

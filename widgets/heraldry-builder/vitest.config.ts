@@ -17,7 +17,13 @@ export default defineConfig({
         compatibilityDate: '2026-06-01',
         // MIGRATION_DB and BASELINE_DB stay empty until test/migrations.test.ts fills them.
         d1Databases: ['DB', 'MIGRATION_DB', 'BASELINE_DB'],
-        bindings: { MIGRATIONS: migrations },
+        // No RESEND_API_KEY: sending is skipped unless a test supplies one (and a mocked fetch).
+        bindings: {
+          MIGRATIONS: migrations,
+          EMAIL_HMAC_KEY: 'test-email-hmac-key',
+          EMAIL_HMAC_KEY_VERSION: '1',
+          MAIL_FROM: 'Heraldry Builder <heraldry@widgets.test>',
+        },
         // CREATE_LIMITER must be declared here so miniflare creates the binding; it reads
         // wrangler.jsonc for most things but ratelimits need an explicit entry in WorkerOptions.
         ratelimits: {

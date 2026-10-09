@@ -11,8 +11,13 @@
 //   getEntry(id)                GET  /api/arms/:id         (includes the public contact)
 //   check(registry, design)     POST /api/arms/check
 //   register(input)             POST /api/arms             (remembers the new edit link on this device)
+//   checkOwner(id, secret)      GET  /api/arms/:id/owner   (is this edit link right?)
 //   update(id, secret, rev, …)  PUT  /api/arms/:id         (Bearer secret + If-Match rev)
 //   withdraw(id, secret)        DELETE /api/arms/:id
+//   requestRecovery(email)      POST /api/recover          (always accepted; emails recovery links)
+//   lookupRecovery(token)       POST /api/recover/lookup   (the entry a recovery link is for)
+//   redeemRecovery(token)       POST /api/recover/redeem   (new edit link, remembered on this device)
+//   withdrawByRecovery(token)   POST /api/recover/withdraw
 //
 // *** Offline-safe networking ***
 // The render + journey gates run under `file://` with zero network, and the journey harness treats
@@ -24,8 +29,8 @@
 // in the sample; the UI offers "Show offline sample" (search/getEntry with `{ sample: true }`).
 
 import {
-  DEFAULT_FIELD_SHAPE, checkUnique, explainDifferences, isFieldShape, parseSearchParams, normalise, readability, resolve,
-  searchEntries, searchParamsToUrl, signature, blazon, type FieldShape, type Issue, type ShapedDesign, type NormDesign, type ReadabilityBand, type SearchParams,
+  DEFAULT_FIELD_SHAPE, NO_CONTACT, checkUnique, explainDifferences, isFieldShape, parseSearchParams, normalise, readability, resolve,
+  searchEntries, searchParamsToUrl, signature, blazon, type Contact, type FieldShape, type Issue, type MailOutcome, type ShapedDesign, type NormDesign, type ReadabilityBand, type SearchParams,
 } from './lib/heraldry';
 import { forgetDeviceArms, listDeviceArms, rememberDeviceArms, type DeviceArms } from './lib/deviceArms';
 import { clearDraft as clearStoredDraft, readDraft, writeDraft } from './lib/deviceDraft';
@@ -61,7 +66,7 @@ export interface Failure {
   conflict?: ConflictSummary;
   /** too_close: human descriptions of the (minor) differences. */
   differences?: string[];
-  /** 400 on an entry field: 'displayName' | 'contact' | 'shape'. */
+  /** 400 on an entry field: 'displayName' | 'email' | 'discord' | 'shape' | 'token'. */
   field?: string;
   /** 400 on a search parameter. */
   param?: string;
@@ -94,7 +99,7 @@ export interface ArmsSummary {
 /** A single entry, including the public contact and the revision for edits. */
 export interface ArmsEntry extends ArmsSummary {
   registry: RegistryRef;
-  contact: string | null;
+  contact: Contact;
   rev: number;
   updatedAt: string;
 }
@@ -129,11 +134,13 @@ export interface Registered {
   rev: number;
   blazon: string;
   signature: string;
+  /** Whether the edit link was emailed to the owner. */
+  editLinkEmail: MailOutcome;
 }
 
 export interface EntryInput {
   displayName: string;
-  contact?: string | null;
+  contact: Contact;
   design: unknown;
   shape: FieldShape;
 }
@@ -141,6 +148,27 @@ export interface EntryInput {
 export interface RegisterInput extends EntryInput {
   /** Registry id; null/blank → the default registry. */
   registry: string | null;
+  /** The owner's address: the edit link is emailed to it. Never shown or returned. */
+  email: string;
+}
+
+/** The entry a recovery link is for, shown before the owner chooses what to do. */
+export interface RecoveryEntry {
+  id: string;
+  registry: RegistryRef;
+  displayName: string;
+  design: NormDesign;
+  shape: FieldShape;
+  blazon: string;
+}
+
+/** A redeemed recovery link: the entry's new edit secret (the old link no longer works). */
+export interface Recovered {
+  id: string;
+  editSecret: string;
+  registry: RegistryRef;
+  displayName: string;
+  blazon: string;
 }
 
 export interface OfflineSample {
@@ -193,7 +221,7 @@ export function offlineSample(): OfflineSample {
       id: e.id,
       registry,
       displayName: e.displayName,
-      contact: e.contact ?? null,
+      contact: e.contact,
       design: r.design,
       shape: toShape(e.shape),
       blazon: e.blazon,
@@ -395,6 +423,15 @@ function toSummary(v: unknown): ArmsSummary | null {
   };
 }
 
+function toContact(v: unknown): Contact {
+  const o = obj(v);
+  return o && typeof o.discord === 'string' ? { discord: o.discord } : NO_CONTACT;
+}
+
+function toMailOutcome(v: unknown): MailOutcome {
+  return v === 'sent' || v === 'disabled' ? v : 'failed';
+}
+
 function toEntry(v: unknown): ArmsEntry | null {
   const s = toSummary(v);
   const o = obj(v);
@@ -403,7 +440,7 @@ function toEntry(v: unknown): ArmsEntry | null {
   return {
     ...s,
     registry,
-    contact: typeof o.contact === 'string' ? o.contact : null,
+    contact: toContact(o.contact),
     rev: o.rev,
     updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : s.createdAt,
   };
@@ -500,7 +537,8 @@ export async function register(input: RegisterInput): Promise<Result<{ created: 
     jsonInit('POST', {
       registry: input.registry || undefined,
       displayName: input.displayName,
-      contact: input.contact ?? null,
+      email: input.email,
+      contact: input.contact,
       design: input.design,
       shape: input.shape,
     })
@@ -516,6 +554,7 @@ export async function register(input: RegisterInput): Promise<Result<{ created: 
     rev: typeof o.rev === 'number' ? o.rev : 1,
     blazon: typeof o.blazon === 'string' ? o.blazon : '',
     signature: typeof o.signature === 'string' ? o.signature : '',
+    editLinkEmail: toMailOutcome(o.editLinkEmail),
   };
   rememberDeviceArms({
     id: created.id,
@@ -535,7 +574,7 @@ export async function update(id: string, secret: string, rev: number, input: Ent
     `/arms/${encodeURIComponent(id)}`,
     jsonInit(
       'PUT',
-      { displayName: input.displayName, contact: input.contact ?? null, design: input.design, shape: input.shape },
+      { displayName: input.displayName, contact: input.contact, design: input.design, shape: input.shape },
       { Authorization: `Bearer ${secret}`, 'If-Match': String(rev) }
     )
   );
@@ -546,6 +585,14 @@ export async function update(id: string, secret: string, rev: number, input: Ent
     id, registry: entry.registry.id, displayName: entry.displayName, blazon: entry.blazon, shield: { design: entry.design, shape: entry.shape }, secret,
   });
   return { ok: true, entry };
+}
+
+/** Whether `secret` is this entry's edit secret: ok, or a 401/403/404 failure. */
+export async function checkOwner(id: string, secret: string): Promise<Result<{ id: string }>> {
+  if (!remoteEnabled()) return { ok: false, kind: 'offline', message: OFFLINE_WRITE_MESSAGE };
+  const res = await request(`/arms/${encodeURIComponent(id)}/owner`, { headers: { Authorization: `Bearer ${secret}` } });
+  if (!res.ok) return res;
+  return { ok: true, id };
 }
 
 /** Withdraw (delete) an entry; also drops its shortcut from this device. */
@@ -590,4 +637,57 @@ export function saveDraft(draft: ShapedDesign): void {
 
 export function clearDraft(): void {
   clearStoredDraft();
+}
+
+// ── recovery ("Lost your link? / Withdraw my registration") ─────────────────────────────────
+
+/** Ask for recovery links. Accepted whether or not the address owns anything (the reply never says). */
+export async function requestRecovery(email: string): Promise<Result<{ message: string }>> {
+  if (!remoteEnabled()) return { ok: false, kind: 'offline', message: OFFLINE_WRITE_MESSAGE };
+  const res = await request('/recover', jsonInit('POST', { email }));
+  if (!res.ok) return res;
+  const o = obj(res.data);
+  return typeof o?.message === 'string' ? { ok: true, message: o.message } : badResponse();
+}
+
+/** The entry a recovery token is for; the token stays unused. Fails with 'token_invalid' | 'token_used' | 'token_expired'. */
+export async function lookupRecovery(token: string): Promise<Result<{ entry: RecoveryEntry }>> {
+  if (!remoteEnabled()) return { ok: false, kind: 'offline', message: OFFLINE_WRITE_MESSAGE };
+  const res = await request('/recover/lookup', jsonInit('POST', { token }));
+  if (!res.ok) return res;
+  const o = obj(obj(res.data)?.entry);
+  const registry = toRegistry(o?.registry);
+  const design = toDesign(o?.design);
+  if (!o || !registry || !design || typeof o.id !== 'string' || typeof o.displayName !== 'string' || typeof o.blazon !== 'string') {
+    return badResponse();
+  }
+  return { ok: true, entry: { id: o.id, registry, displayName: o.displayName, design, shape: toShape(o.shape), blazon: o.blazon } };
+}
+
+/** Use a recovery token for a new edit link; the new link is remembered on this device. */
+export async function redeemRecovery(token: string, shield: ShapedDesign): Promise<Result<{ recovered: Recovered }>> {
+  if (!remoteEnabled()) return { ok: false, kind: 'offline', message: OFFLINE_WRITE_MESSAGE };
+  const res = await request('/recover/redeem', jsonInit('POST', { token }));
+  if (!res.ok) return res;
+  const o = obj(res.data);
+  const registry = toRegistry(o?.registry);
+  if (!o || !registry || typeof o.id !== 'string' || typeof o.editSecret !== 'string' || typeof o.displayName !== 'string' || typeof o.blazon !== 'string') {
+    return badResponse();
+  }
+  const recovered: Recovered = { id: o.id, editSecret: o.editSecret, registry, displayName: o.displayName, blazon: o.blazon };
+  rememberDeviceArms({
+    id: recovered.id, registry: registry.id, displayName: recovered.displayName, blazon: recovered.blazon, shield, secret: recovered.editSecret,
+  });
+  return { ok: true, recovered };
+}
+
+/** Use a recovery token to withdraw its entry; also drops its shortcut from this device. */
+export async function withdrawByRecovery(token: string): Promise<Result<{ id: string }>> {
+  if (!remoteEnabled()) return { ok: false, kind: 'offline', message: OFFLINE_WRITE_MESSAGE };
+  const res = await request('/recover/withdraw', jsonInit('POST', { token }));
+  if (!res.ok) return res;
+  const o = obj(res.data);
+  if (!o || typeof o.id !== 'string') return badResponse();
+  forgetDeviceArms(o.id);
+  return { ok: true, id: o.id };
 }

@@ -8,7 +8,7 @@ import {
   arrangementChoices, blazon, chargePath, chargeSlotContacts, chargeSlots, chargeStructureIssue, chargeTinctureChoices,
   checkUnique, countChoices, deriveTags, differences, explainDifferences, fieldTinctureChoices, filtersToTags, fitCharges,
   gloss, hasClearDifference, matchesTags, normalise, ordinaryTinctureChoices, placementChoices, postureChoices,
-  readability, resolve, signature, slotsFor, suggestTinctureFix, validate,
+  cleanDiscord, readability, resolve, signature, slotsFor, suggestTinctureFix, validate,
   type Choice, type Count, type Design, type Issue, type NormDesign, type Ordinary, type Placement,
 } from '../src/lib/heraldry';
 import sample from '../src/data/sample-registry.json';
@@ -262,7 +262,7 @@ describe('sample registry fixture', () => {
       expect(blazon(r.design)).toBe(e.blazon);
       expect(e.displayName.length).toBeGreaterThanOrEqual(1);
       expect(e.displayName.length).toBeLessThanOrEqual(60);
-      expect(e.contact === null || (typeof e.contact === 'string' && e.contact.length <= 80)).toBe(true);
+      expect(cleanDiscord(e.contact.discord)).toEqual({ ok: true, value: e.contact.discord });
       expect(isFieldShape(e.shape)).toBe(true);
     });
   }
