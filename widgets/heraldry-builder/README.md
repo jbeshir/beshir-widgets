@@ -7,7 +7,7 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 ## Overview
 
 - **Builder.** Pick a field (plain or one of seven divisions), an optional ordinary (ten) and an
-  optional group of 1–6 charges (30 charges, 42 drawings with postures). Every option is
+  optional group of 1–6 charges (28 charges, 40 drawings with postures). Every option is
   checked against the **rule of tincture** (metal on colour, colour on metal) and against the
   structural rules (legal counts, arrangements and placements). Options that would break a rule
   stay visible but are marked blocked, with an explanation.
@@ -384,7 +384,22 @@ Not in v1, by design:
 
 ## Licence of charge art
 
-All 42 charge silhouettes in `src/lib/heraldry/charge-art.ts`, and the shield, ordinary and
+All 40 charge silhouettes in `src/lib/heraldry/charge-art.ts`, and the shield, ordinary and
 partition geometry, are **original work drawn for this widget**. They are licensed with this
 repository. No artwork is taken from DrawShield, Armoria, Heraldicon, Wikimedia Commons or any
 other source.
+
+How the art is drawn and shown:
+
+- Each silhouette is one even-odd path of straight-line polygons (`M`/`L`/`Z` only), centred
+  in a 100×100 box with its long axis about 86 units. Animals face dexter (the viewer's left).
+- Features are at least about 8 units wide where the design allows, so limbs, antlers, rays and
+  horns survive at registry-card and favicon sizes.
+- Each charge has an optical `scale` in `CHARGES` (0.88–1.15). Slender charges (sword, key,
+  anchor) are drawn larger and solid ones (heart, rose) smaller, so they look the same size.
+  `test/geometry-fit.test.ts` checks every drawing at its scale stays on the shield, on or off
+  its ordinary, and clear of its neighbours, in every slot table.
+- The charge outline is a 0.75 px hairline, dropped entirely on shields under 40 px wide or
+  when a charge is drawn under 24 px. With hatching on, a charge's hatch pitch follows its size,
+  a solid band of its tincture is kept along its edge, and Sable hatches as a dark grey grid on
+  black so it still reads dark.

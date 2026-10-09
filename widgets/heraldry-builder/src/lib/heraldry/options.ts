@@ -6,7 +6,7 @@
 // a lower layer is never blocked; if it invalidates an upper layer the design enters a violation
 // state (validate() reports it) and suggestTinctureFix()/fitCharges() offer repairs.
 
-import { CHARGES, type ChargeId, type Posture } from './charges';
+import { CHARGES, postureTerm, type ChargeId, type Posture } from './charges';
 import {
   COUNTS, FIELD_ARR, ORDINARY_NAME, ORDINARY_TYPES, chargeContext, chargeNoun, chargeStructureIssue, defaultArrangement,
   legalArrangements, type Arrangement, type Count, type NormChargeGroup, type NormDesign, type OrdinaryType, type Placement,
@@ -175,7 +175,7 @@ export function postureChoicesFor(id: ChargeId): Choice<Posture>[] {
   if (!meta.postures) return [];
   const quadruped = meta.postures.some((p) => QUADRUPED_POSTURES.includes(p));
   const list = quadruped ? QUADRUPED_POSTURES : meta.postures;
-  const allowed = meta.postures.map((p) => meta.postureTerms?.[p] ?? p);
+  const allowed = meta.postures.map((p) => postureTerm(id, p));
   return list.map((p) => choice(p, meta.postures!.includes(p) ? null
     : `The ${meta.name} is only drawn ${allowed.join(' or ')} in this builder.`));
 }

@@ -212,6 +212,9 @@ describe('POST /api/arms', () => {
       undefined,
       'Azure, a bend Or',
       { v: 1, field: plain('azure'), charges: { charge: 'kraken', count: 1, placement: 'field', tincture: 'or' } },
+      // laptop and paintbrush are no longer charges
+      { v: 1, field: plain('purpure'), charges: { charge: 'laptop', count: 1, placement: 'field', tincture: 'argent' } },
+      { v: 1, field: plain('vert'), charges: { charge: 'paintbrush', count: 3, placement: 'field', tincture: 'or' } },
       { v: 2, field: plain('azure'), ordinary: { type: 'bend', tincture: 'or' } },
       { v: 1, field: plain('azure') }, // plain field alone: too generic
       { v: 1, kind: 'badge', field: plain('azure'), ordinary: { type: 'bend', tincture: 'or' } },

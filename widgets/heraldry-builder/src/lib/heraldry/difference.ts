@@ -1,7 +1,7 @@
 // Uniqueness (FINDINGS §3.2): exact duplicate by signature, otherwise "too close" when two designs
 // have no clear difference. Same code on client (instant feedback) and Worker (authoritative).
 
-import { CHARGES, POSTURE_GROUP, type Posture } from './charges';
+import { CHARGES, POSTURE_GROUP, postureTerm, type ChargeId, type Posture } from './charges';
 import {
   ARRANGEMENT_WORD, DIVISION_NAME, ORDINARY_NAME, fieldDivision, fieldTinctures,
   type Arrangement, type NormDesign,
@@ -101,6 +101,8 @@ export const DIFF_LABEL: Record<DiffAttr, string> = {
 /** The attributes a too-close design could change to become clear (UI hint). */
 export const CLEAR_CHANGE_HINT = 'field, ordinary, charge type, tincture, count (1, 2, 3 or 4+), arrangement or posture group';
 
+const postureWord = (id: ChargeId, p: Posture | null) => (p ? postureTerm(id, p) : 'none');
+
 /** Human descriptions of each difference between `a` (new) and `b` (existing): "posture (passant ↔ statant)". */
 export function explainDifferences(a: NormDesign, b: NormDesign, diffs: readonly Diff[] = differences(a, b)): string[] {
   const ca = a.charges, cb = b.charges;
@@ -124,7 +126,7 @@ export function explainDifferences(a: NormDesign, b: NormDesign, diffs: readonly
       case 'charge-placement':
         return pair(ca!.placement === 'ordinary' ? 'on the ordinary' : 'on the field', cb!.placement === 'ordinary' ? 'on the ordinary' : 'on the field');
       case 'charge-arrangement': return pair(ARRANGEMENT_WORD[ca!.arrangement], ARRANGEMENT_WORD[cb!.arrangement]);
-      case 'charge-posture': return pair(ca!.posture ?? 'none', cb!.posture ?? 'none');
+      case 'charge-posture': return pair(postureWord(ca!.charge, ca!.posture), postureWord(cb!.charge, cb!.posture));
     }
   });
 }

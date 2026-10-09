@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  ARRANGEMENTS, CHARGES, CHARGE_IDS, CHARGE_ART, COUNTS, ORDINARY_TYPES, TINCTURES,
+  ARRANGEMENTS, CHARGES, CHARGE_IDS, CHARGE_ART, COUNTS, ORDINARY_TYPES, TINCTURES, isChargeId, postureGloss, postureTerm,
   arrangementChoices, blazon, chargePath, chargeSlotContacts, chargeSlots, chargeStructureIssue, chargeTinctureChoices,
   checkUnique, countChoices, deriveTags, differences, explainDifferences, fieldTinctureChoices, filtersToTags, fitCharges,
   gloss, hasClearDifference, matchesTags, normalise, ordinaryTinctureChoices, placementChoices, postureChoices,
@@ -452,7 +452,7 @@ describe('sample registry fixture', () => {
     expect(search({ division: 'quarterly' })).toEqual(['demo-007']);
     expect(search({ charge: 'dragon', ordinary: 'bordure' })).toEqual([]);
     const modern = sample.entries.filter((e) => matchesTags(nd(e.design), ['charge-category:modern'])).map((e) => e.id);
-    expect(modern).toEqual(['demo-011', 'demo-012', 'demo-013', 'demo-015', 'demo-016']);
+    expect(modern).toEqual(['demo-012', 'demo-013', 'demo-015']);
   });
 });
 
@@ -703,7 +703,7 @@ describe('geometry and art', () => {
     expect(chargeSlotContacts(nd(V.find((v) => v.id === 'V7')!.design))).toEqual([['azure', 'vert']]);
     expect(chargeSlotContacts(nd(V.find((v) => v.id === 'V9')!.design))).toEqual([['azure'], ['azure'], ['or']]);
     expect(chargeSlotContacts(nd(V.find((v) => v.id === 'V13')!.design))).toEqual([['sable', 'gules']]);
-    expect(chargeSlots(nd(V.find((v) => v.id === 'V12')!.design))).toEqual([{ x: 50, y: 55, size: 57.6 }]);
+    expect(chargeSlots(nd(V.find((v) => v.id === 'V12')!.design))).toEqual([{ x: 50, y: 54.14, size: 77.4 }]);
   });
 
   it('has a path for every charge and allowed posture', () => {
@@ -712,15 +712,78 @@ describe('geometry and art', () => {
       expect(CHARGE_ART[id]).toBeDefined();
       for (const p of meta.postures ?? [null]) expect(chargePath(id, p)).toMatch(/^M/);
     }
-    expect(CHARGE_IDS).toHaveLength(30);
+    expect(CHARGE_IDS).toHaveLength(28);
     expect(TINCTURES).toHaveLength(7);
-    // 42 (charge, posture) paths per FINDINGS §5.2.
-    expect(CHARGE_IDS.reduce((n, id) => n + (CHARGES[id].postures?.length ?? 1), 0)).toBe(42);
+    // 40 (charge, posture) paths.
+    expect(CHARGE_IDS.reduce((n, id) => n + (CHARGES[id].postures?.length ?? 1), 0)).toBe(40);
+  });
+
+  it('draws every path as M/L/Z polygons centred in the box with an ~86-unit long axis', () => {
+    for (const id of CHARGE_IDS) {
+      for (const [posture, d] of Object.entries(CHARGE_ART[id])) {
+        expect(d, `${id} ${posture}`).toMatch(/^(M[\d. -]+L[\d. -]+Z)+$/);
+        const n = d!.replace(/[MLZ]/g, ' ').trim().split(/\s+/).map(Number);
+        const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
+        const [w, h] = [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)];
+        expect(Math.max(w, h), `${id} ${posture} long axis`).toBeGreaterThanOrEqual(84);
+        expect(Math.max(w, h), `${id} ${posture} long axis`).toBeLessThanOrEqual(88);
+        expect(Math.abs((Math.max(...xs) + Math.min(...xs)) / 2 - 50), `${id} ${posture} centre x`).toBeLessThan(1);
+        expect(Math.abs((Math.max(...ys) + Math.min(...ys)) / 2 - 50), `${id} ${posture} centre y`).toBeLessThan(1);
+      }
+    }
   });
 
   it('a design typed as Design round-trips through normalise', () => {
     const d: Design = { v: 1, field: { kind: 'plain', tincture: 'azure' }, ordinary: { type: 'bend', tincture: 'or' } };
     const r = normalise(d);
     expect(r.ok && normalise(r.design).ok).toBe(true);
+  });
+});
+
+// ── Retired charges ─────────────────────────────────────────────────────────
+
+describe('retired charges', () => {
+  for (const id of ['laptop', 'paintbrush']) {
+    const design = { v: 1, field: plain('purpure'), charges: { charge: id, count: 1, placement: 'field', tincture: 'argent' } };
+
+    it(`${id} is not a charge: resolve and normalise reject it`, () => {
+      expect(isChargeId(id)).toBe(false);
+      const r = resolve(design);
+      expect(r.ok).toBe(false);
+      expect(!r.ok && r.errors).toEqual([expect.objectContaining({ code: 'shape', layer: 'charges' })]);
+      expect(normalise(design).ok).toBe(false);
+    });
+
+    it(`${id} is not a search filter`, () => {
+      expect(filtersToTags({ charge: id }).ok).toBe(false);
+    });
+  }
+});
+
+// ── Posture wording ─────────────────────────────────────────────────────────
+
+describe('charge-specific posture words', () => {
+  const hare = { v: 1, field: plain('vert'), charges: { charge: 'hare', count: 1, placement: 'field', tincture: 'or', posture: 'passant' } };
+
+  it('a hare courant is blazoned courant and glossed running', () => {
+    expect(postureTerm('hare', 'passant')).toBe('courant');
+    expect(postureGloss('hare', 'passant')).toBe('running');
+    expect(blazon(nd(hare))).toBe('Vert, a hare courant Or');
+    expect(gloss(nd(hare))).toBe('A green shield with a gold hare running.');
+  });
+
+  it('other charges fall back to the shared posture words', () => {
+    expect(postureTerm('wolf', 'passant')).toBe('passant');
+    expect(postureGloss('wolf', 'passant')).toBe('walking');
+    expect(postureTerm('stag', 'passant')).toBe('trippant');
+    expect(postureGloss('stag', 'passant')).toBe('walking');
+    expect(postureGloss('eagle', 'displayed')).toBeNull();
+  });
+
+  it('difference text names postures by their blazon term', () => {
+    const stag = (posture: string) => nd({ v: 1, field: plain('vert'), charges: { charge: 'stag', count: 1, placement: 'field', tincture: 'or', posture } });
+    expect(explainDifferences(stag('statant'), stag('passant'))).toEqual(['posture (statant ↔ trippant)']);
+    const hareSejant = nd({ ...hare, charges: { ...hare.charges, posture: 'sejant' } });
+    expect(explainDifferences(nd(hare), hareSejant)).toEqual(['posture (courant ↔ sejant)']);
   });
 });

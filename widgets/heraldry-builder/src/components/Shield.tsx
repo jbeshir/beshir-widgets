@@ -1,16 +1,21 @@
 // The heraldic shield as SVG, drawn from the DOM-free geometry and charge art in lib/heraldry.
 // Draws any resolved design, including ones that break the rules (the violation state still shows
-// the shield). Fill colours are the fixed tincture palette in both themes; every shape carries a
-// 1 px non-scaling dark outline so Argent stays visible on light surfaces.
+// the shield). Fill colours are the fixed tincture palette in both themes; field and ordinary shapes
+// carry a 1 px non-scaling dark outline so Argent stays visible on light surfaces (half that on
+// small shields, where a full pixel would swallow a bordure). Charges get a lighter outline, and
+// none at all when they render small enough for it to swallow them.
 //
 // Optional Petra Sancta hatching (FINDINGS §4.8) overlays each tincture's line pattern so the arms
-// read without colour. Pattern/clip ids are unique per instance (module counter), so many shields can share
+// read without colour. On charges the pattern's pitch follows the charge's size and a solid band of
+// the tincture is kept along the charge's edge, so small charges keep their silhouette.
+// Pattern/clip ids are unique per instance (module counter), so many shields can share
 // a page, including ones in portals and separate render roots (useId can repeat across roots).
 
 import { useRef } from 'preact/hooks';
 import {
   OUTLINE_COLOUR, ORDINARY_FILL_RULE, ORDINARY_PATHS, SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING,
-  chargePath, chargeSlots, designTinctures, fieldRegions, gloss, type Hatching, type NormDesign, type Tincture,
+  chargePath, chargeSlots, designTinctures, drawnBox, fieldRegions, gloss, type Hatching, type NormDesign, type Slot,
+  type Tincture,
 } from '../lib/heraldry';
 
 interface Props {
@@ -24,14 +29,36 @@ interface Props {
   testid?: string;
 }
 
+/** Hatching line colour per tincture. Sable's grid is a dark grey on black, so it still reads dark. */
 const HATCH_INK: Record<Tincture, string> = {
-  or: '#3d2c00', argent: '#222222', azure: '#ffffff', gules: '#ffffff', vert: '#ffffff', sable: '#d8d8d8', purpure: '#ffffff',
+  or: '#3d2c00', argent: '#222222', azure: '#ffffff', gules: '#ffffff', vert: '#ffffff', sable: '#6a6a6a', purpure: '#ffffff',
 };
 
-function HatchPattern({ id, kind, ink }: { id: string; kind: Hatching; ink: string }) {
+/** Field and ordinary hatch pitch, in shield units. */
+const HATCH_PITCH = 4;
+
+/** Hatch pitch on a charge: about 16 lines across its box, between 2 and 4 shield units. */
+const chargeHatchPitch = (box: Slot) => Math.min(HATCH_PITCH, Math.max(2, box.size / 16));
+
+/** Width, in shield units, of the solid tincture band kept along a hatched charge's edge. */
+const hatchEdge = (box: Slot) => Math.min(1.6, Math.max(0.8, box.size / 30));
+
+/** Charges drawn narrower than this (px), or on a shield narrower than SMALL_SHIELD_PX, get no outline. */
+const SMALL_CHARGE_PX = 24;
+const SMALL_SHIELD_PX = 40;
+const CHARGE_OUTLINE_PX = 0.75;
+const isSmallShield = (shieldPx: number | undefined) => shieldPx !== undefined && shieldPx < SMALL_SHIELD_PX;
+
+/** Charge outline width in px: a hairline, or none where it would swallow a small charge. */
+function chargeOutlinePx(shieldPx: number | undefined, box: Slot): number {
+  if (shieldPx === undefined) return CHARGE_OUTLINE_PX;
+  return isSmallShield(shieldPx) || (shieldPx * box.size) / 100 < SMALL_CHARGE_PX ? 0 : CHARGE_OUTLINE_PX;
+}
+
+function HatchPattern({ id, kind, ink, pitch }: { id: string; kind: Hatching; ink: string; pitch: number }) {
   const line = { stroke: ink, 'stroke-width': 0.9, 'stroke-linecap': 'square' as const };
   return (
-    <pattern id={id} patternUnits="userSpaceOnUse" width="4" height="4">
+    <pattern id={id} patternUnits="userSpaceOnUse" width="4" height="4" patternTransform={pitch === HATCH_PITCH ? undefined : `scale(${pitch / HATCH_PITCH})`}>
       {kind === 'dots' && <circle cx="2" cy="2" r="0.75" fill={ink} />}
       {kind === 'horizontal' && <path d="M0 2H4" {...line} />}
       {kind === 'vertical' && <path d="M2 0V4" {...line} />}
@@ -55,15 +82,21 @@ export function Shield({ design, size, hatching = false, label, class: cls, test
   const uid = uidRef.current;
   const clip = `shield-clip-${uid}`;
   const pat = (t: Tincture) => `hatch-${uid}-${t}`;
+  const chargePat = `hatch-${uid}-charge`;
   const chargeClip = `charge-clip-${uid}`;
   const c = design.charges;
-  const slots = c ? chargeSlots(design) : [];
+  const boxes = c ? chargeSlots(design).map((s) => drawnBox(s, c.charge)) : [];
   const d = c ? chargePath(c.charge, c.posture) : '';
   const name = label === undefined ? gloss(design) : label;
   const hatched = hatching ? designTinctures(design).filter((t) => TINCTURE_HATCHING[t] !== 'plain') : [];
-  const stroke = { stroke: OUTLINE_COLOUR, 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke' as const, 'stroke-linejoin': 'round' as const };
-  const transform = (s: { x: number; y: number; size: number }) => `translate(${s.x - s.size / 2} ${s.y - s.size / 2}) scale(${s.size / 100})`;
+  const small = isSmallShield(size);
+  const stroke = { stroke: OUTLINE_COLOUR, 'stroke-width': small ? 0.5 : 1, 'vector-effect': 'non-scaling-stroke' as const, 'stroke-linejoin': 'round' as const };
+  const transform = (s: Slot) => `translate(${s.x - s.size / 2} ${s.y - s.size / 2}) scale(${s.size / 100})`;
   const overlay = (t: Tincture) => hatched.includes(t);
+  // Every charge in a group shares one box size, so the first box sets the outline and hatch pitch.
+  const box = boxes[0];
+  const outlinePx = box ? chargeOutlinePx(size, box) : 0;
+  const chargeHatched = !!c && overlay(c.tincture);
 
   return (
     <svg
@@ -80,11 +113,14 @@ export function Shield({ design, size, hatching = false, label, class: cls, test
     >
       <defs>
         <clipPath id={clip}><path d={SHIELD_PATH} /></clipPath>
-        {hatched.map((t) => <HatchPattern key={t} id={pat(t)} kind={TINCTURE_HATCHING[t]} ink={HATCH_INK[t]} />)}
-        {c && hatched.includes(c.tincture) && (
-          <clipPath id={chargeClip}>
-            {slots.map((s, i) => <path key={i} d={d} clip-rule="evenodd" transform={transform(s)} />)}
-          </clipPath>
+        {hatched.map((t) => <HatchPattern key={t} id={pat(t)} kind={TINCTURE_HATCHING[t]} ink={HATCH_INK[t]} pitch={HATCH_PITCH} />)}
+        {chargeHatched && (
+          <>
+            <HatchPattern id={chargePat} kind={TINCTURE_HATCHING[c.tincture]} ink={HATCH_INK[c.tincture]} pitch={chargeHatchPitch(box)} />
+            <clipPath id={chargeClip}>
+              {boxes.map((s, i) => <path key={i} d={d} clip-rule="evenodd" transform={transform(s)} />)}
+            </clipPath>
+          </>
         )}
       </defs>
       <path class="shield-rim" d={SHIELD_PATH} fill="none" stroke-width="3.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
@@ -112,14 +148,28 @@ export function Shield({ design, size, hatching = false, label, class: cls, test
             )}
           </g>
         )}
-        {c && slots.map((s, i) => (
-          <path key={i} d={d} transform={transform(s)} fill={TINCTURE_FILL[c.tincture]} fill-rule="evenodd" {...stroke} />
+        {c && boxes.map((s, i) => (
+          <path key={i} d={d} transform={transform(s)} fill={TINCTURE_FILL[c.tincture]} fill-rule="evenodd" />
         ))}
-        {c && overlay(c.tincture) && (
-          <rect x="0" y="0" width="100" height="120" fill={`url(#${pat(c.tincture)})`} clip-path={`url(#${chargeClip})`} />
+        {chargeHatched && (
+          <g clip-path={`url(#${chargeClip})`}>
+            <rect x="0" y="0" width="100" height="120" fill={`url(#${chargePat})`} />
+            {boxes.map((s, i) => (
+              <path
+                key={i} d={d} transform={transform(s)} fill="none" stroke={TINCTURE_FILL[c.tincture]}
+                stroke-width={(2 * hatchEdge(s) * 100) / s.size} stroke-linejoin="round"
+              />
+            ))}
+          </g>
         )}
+        {c && outlinePx > 0 && boxes.map((s, i) => (
+          <path
+            key={i} d={d} transform={transform(s)} fill="none" stroke={OUTLINE_COLOUR} stroke-width={outlinePx}
+            vector-effect="non-scaling-stroke" stroke-linejoin="round"
+          />
+        ))}
       </g>
-      <path d={SHIELD_PATH} fill="none" stroke={OUTLINE_COLOUR} stroke-width="1.5" vector-effect="non-scaling-stroke" />
+      <path d={SHIELD_PATH} fill="none" stroke={OUTLINE_COLOUR} stroke-width={small ? 1 : 1.5} vector-effect="non-scaling-stroke" />
     </svg>
   );
 }

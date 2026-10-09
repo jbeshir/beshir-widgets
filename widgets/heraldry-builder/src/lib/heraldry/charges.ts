@@ -1,4 +1,4 @@
-// Charge metadata (FINDINGS §5.1): 30 curated charges, their blazon/gloss names, articles,
+// Charge metadata (FINDINGS §5.1): 28 curated charges, their blazon/gloss names, articles,
 // categories and allowed postures. Artwork lives in charge-art.ts.
 
 export type Posture = 'rampant' | 'passant' | 'statant' | 'sejant' | 'naiant' | 'haurient' | 'displayed';
@@ -40,7 +40,7 @@ export const CHARGE_IDS = [
   'rose', 'tree', 'fleur-de-lis',
   'mullet', 'crescent', 'sun', 'heart',
   'key', 'open-book', 'sword', 'crown', 'anchor',
-  'laptop', 'musical-note', 'paintbrush', 'flame', 'gear', 'lightbulb',
+  'musical-note', 'flame', 'gear', 'lightbulb',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -56,55 +56,61 @@ export interface ChargeMeta {
   /** Allowed postures (first is not necessarily the default), or null when posture-less. */
   postures: readonly Posture[] | null;
   defaultPosture: Posture | null;
-  /** Blazon-only display words overriding the posture id (dragon rampant → "segreant"). */
-  postureTerms?: Partial<Record<Posture, string>>;
+  /** This charge's own words for a posture, overriding the posture id and POSTURE_GLOSS. */
+  postureWording: Partial<Record<Posture, PostureWording>>;
   /** Gloss names (singular / plural). */
   glossName: string;
   glossPlural: string;
   /** Default orientation, for documentation and the artist. */
   orientation: string;
+  /**
+   * Optical scale applied to the slot box when drawing, so charges of different ink weight look the
+   * same size: slender charges (sword, key) are drawn larger, solid ones (heart, rose) smaller.
+   */
+  scale: number;
 }
+
+/** A charge-specific posture word: the blazon term and its plain-English gloss ("courant", "running"). */
+export interface PostureWording { term: string; gloss: string }
 
 function c(
   id: ChargeId, name: string, plural: string, article: 'a' | 'an', category: ChargeCategory,
   postures: readonly Posture[] | null, defaultPosture: Posture | null,
-  glossName: string, glossPlural: string, orientation: string,
-  postureTerms?: Partial<Record<Posture, string>>,
+  glossName: string, glossPlural: string, orientation: string, scale: number,
+  postureWording: Partial<Record<Posture, PostureWording>> = {},
 ): ChargeMeta {
-  return { id, name, plural, article, category, postures, defaultPosture, glossName, glossPlural, orientation, ...(postureTerms ? { postureTerms } : {}) };
+  return { id, name, plural, article, category, postures, defaultPosture, glossName, glossPlural, orientation, scale, postureWording };
 }
 
 export const CHARGES: Record<ChargeId, ChargeMeta> = {
-  lion: c('lion', 'lion', 'lions', 'a', 'beast', ['rampant', 'passant', 'statant', 'sejant'], 'rampant', 'lion', 'lions', 'faces dexter'),
-  wolf: c('wolf', 'wolf', 'wolves', 'a', 'beast', ['rampant', 'passant', 'statant'], 'passant', 'wolf', 'wolves', 'faces dexter'),
-  boar: c('boar', 'boar', 'boars', 'a', 'beast', ['passant'], 'passant', 'boar', 'boars', 'faces dexter'),
-  stag: c('stag', 'stag', 'stags', 'a', 'beast', ['statant', 'passant'], 'statant', 'stag', 'stags', 'faces dexter', { passant: 'trippant' }),
-  goat: c('goat', 'goat', 'goats', 'a', 'beast', ['statant', 'rampant'], 'statant', 'goat', 'goats', 'faces dexter'),
-  hare: c('hare', 'hare', 'hares', 'a', 'beast', ['sejant', 'passant'], 'sejant', 'hare', 'hares', 'faces dexter', { passant: 'courant' }),
-  fish: c('fish', 'fish', 'fish', 'a', 'beast', ['naiant', 'haurient'], 'naiant', 'fish', 'fish', 'head to dexter (naiant) / head up (haurient)'),
-  bee: c('bee', 'bee', 'bees', 'a', 'beast', null, null, 'bee', 'bees', 'head up (tergiant, fixed)'),
-  unicorn: c('unicorn', 'unicorn', 'unicorns', 'a', 'monster', ['rampant', 'passant', 'sejant'], 'rampant', 'unicorn', 'unicorns', 'faces dexter'),
-  dragon: c('dragon', 'dragon', 'dragons', 'a', 'monster', ['rampant', 'passant'], 'rampant', 'dragon', 'dragons', 'faces dexter', { rampant: 'segreant' }),
-  eagle: c('eagle', 'eagle', 'eagles', 'an', 'bird', ['displayed'], 'displayed', 'eagle with spread wings', 'eagles with spread wings', 'head to dexter'),
-  owl: c('owl', 'owl', 'owls', 'an', 'bird', null, null, 'owl', 'owls', 'upright, facing out'),
-  rose: c('rose', 'rose', 'roses', 'a', 'plant', null, null, 'rose', 'roses', 'upright'),
-  tree: c('tree', 'tree', 'trees', 'a', 'plant', null, null, 'tree', 'trees', 'upright'),
-  'fleur-de-lis': c('fleur-de-lis', 'fleur-de-lis', 'fleurs-de-lis', 'a', 'plant', null, null, 'lily (fleur-de-lis)', 'lilies (fleurs-de-lis)', 'upright'),
-  mullet: c('mullet', 'mullet', 'mullets', 'a', 'geometric', null, null, 'five-pointed star', 'five-pointed stars', 'one point up'),
-  crescent: c('crescent', 'crescent', 'crescents', 'a', 'geometric', null, null, 'crescent moon', 'crescent moons', 'horns up'),
-  sun: c('sun', 'sun', 'suns', 'a', 'geometric', null, null, 'sun', 'suns', '—'),
-  heart: c('heart', 'heart', 'hearts', 'a', 'geometric', null, null, 'heart', 'hearts', 'point down'),
-  key: c('key', 'key', 'keys', 'a', 'object', null, null, 'key', 'keys', 'wards up, bow down'),
-  'open-book': c('open-book', 'open book', 'open books', 'an', 'object', null, null, 'open book', 'open books', 'upright'),
-  sword: c('sword', 'sword', 'swords', 'a', 'object', null, null, 'sword', 'swords', 'point up'),
-  crown: c('crown', 'crown', 'crowns', 'a', 'object', null, null, 'crown', 'crowns', 'upright'),
-  anchor: c('anchor', 'anchor', 'anchors', 'an', 'object', null, null, 'anchor', 'anchors', 'ring up'),
-  laptop: c('laptop', 'laptop', 'laptops', 'a', 'modern', null, null, 'laptop', 'laptops', 'screen up, open, seen from front'),
-  'musical-note': c('musical-note', 'musical note', 'musical notes', 'a', 'modern', null, null, 'musical note', 'musical notes', 'stem up, flag to sinister'),
-  paintbrush: c('paintbrush', 'paintbrush', 'paintbrushes', 'a', 'modern', null, null, 'paintbrush', 'paintbrushes', 'bristles up'),
-  flame: c('flame', 'flame', 'flames', 'a', 'modern', null, null, 'flame', 'flames', 'tongues up'),
-  gear: c('gear', 'gear', 'gears', 'a', 'modern', null, null, 'gear', 'gears', '—'),
-  lightbulb: c('lightbulb', 'lightbulb', 'lightbulbs', 'a', 'modern', null, null, 'lightbulb', 'lightbulbs', 'bulb up'),
+  lion: c('lion', 'lion', 'lions', 'a', 'beast', ['rampant', 'passant', 'statant', 'sejant'], 'rampant', 'lion', 'lions', 'faces dexter', 1),
+  wolf: c('wolf', 'wolf', 'wolves', 'a', 'beast', ['rampant', 'passant', 'statant'], 'passant', 'wolf', 'wolves', 'faces dexter', 1.05),
+  boar: c('boar', 'boar', 'boars', 'a', 'beast', ['passant'], 'passant', 'boar', 'boars', 'faces dexter', 1),
+  stag: c('stag', 'stag', 'stags', 'a', 'beast', ['statant', 'passant'], 'statant', 'stag', 'stags', 'faces dexter', 1.05, { passant: { term: 'trippant', gloss: 'walking' } }),
+  goat: c('goat', 'goat', 'goats', 'a', 'beast', ['statant', 'rampant'], 'statant', 'goat', 'goats', 'faces dexter', 1),
+  hare: c('hare', 'hare', 'hares', 'a', 'beast', ['sejant', 'passant'], 'sejant', 'hare', 'hares', 'faces dexter', 1.05, { passant: { term: 'courant', gloss: 'running' } }),
+  fish: c('fish', 'fish', 'fish', 'a', 'beast', ['naiant', 'haurient'], 'naiant', 'fish', 'fish', 'head to dexter (naiant) / head up (haurient)', 1.05),
+  bee: c('bee', 'bee', 'bees', 'a', 'beast', null, null, 'bee', 'bees', 'head up (tergiant, fixed)', 1.05),
+  unicorn: c('unicorn', 'unicorn', 'unicorns', 'a', 'monster', ['rampant', 'passant', 'sejant'], 'rampant', 'unicorn', 'unicorns', 'faces dexter', 1),
+  dragon: c('dragon', 'dragon', 'dragons', 'a', 'monster', ['rampant', 'passant'], 'rampant', 'dragon', 'dragons', 'faces dexter', 0.9, { rampant: { term: 'segreant', gloss: 'rearing up' } }),
+  eagle: c('eagle', 'eagle', 'eagles', 'an', 'bird', ['displayed'], 'displayed', 'eagle with spread wings', 'eagles with spread wings', 'head to dexter', 0.95),
+  owl: c('owl', 'owl', 'owls', 'an', 'bird', null, null, 'owl', 'owls', 'upright, facing out', 1),
+  rose: c('rose', 'rose', 'roses', 'a', 'plant', null, null, 'rose', 'roses', 'upright', 0.88),
+  tree: c('tree', 'tree', 'trees', 'a', 'plant', null, null, 'tree', 'trees', 'upright', 0.95),
+  'fleur-de-lis': c('fleur-de-lis', 'fleur-de-lis', 'fleurs-de-lis', 'a', 'plant', null, null, 'lily (fleur-de-lis)', 'lilies (fleurs-de-lis)', 'upright', 1),
+  mullet: c('mullet', 'mullet', 'mullets', 'a', 'geometric', null, null, 'five-pointed star', 'five-pointed stars', 'one point up', 1.05),
+  crescent: c('crescent', 'crescent', 'crescents', 'a', 'geometric', null, null, 'crescent moon', 'crescent moons', 'horns up', 1.05),
+  sun: c('sun', 'sun', 'suns', 'a', 'geometric', null, null, 'sun', 'suns', '—', 1),
+  heart: c('heart', 'heart', 'hearts', 'a', 'geometric', null, null, 'heart', 'hearts', 'point down', 0.88),
+  key: c('key', 'key', 'keys', 'a', 'object', null, null, 'key', 'keys', 'wards up, bow down', 1.15),
+  'open-book': c('open-book', 'open book', 'open books', 'an', 'object', null, null, 'open book', 'open books', 'upright', 0.9),
+  sword: c('sword', 'sword', 'swords', 'a', 'object', null, null, 'sword', 'swords', 'point up', 1.15),
+  crown: c('crown', 'crown', 'crowns', 'a', 'object', null, null, 'crown', 'crowns', 'upright', 0.95),
+  anchor: c('anchor', 'anchor', 'anchors', 'an', 'object', null, null, 'anchor', 'anchors', 'ring up', 1.15),
+  'musical-note': c('musical-note', 'musical note', 'musical notes', 'a', 'modern', null, null, 'musical note', 'musical notes', 'stem up, flag to sinister', 1.15),
+  flame: c('flame', 'flame', 'flames', 'a', 'modern', null, null, 'flame', 'flames', 'tongues up', 0.95),
+  gear: c('gear', 'gear', 'gears', 'a', 'modern', null, null, 'gear', 'gears', '—', 0.9),
+  lightbulb: c('lightbulb', 'lightbulb', 'lightbulbs', 'a', 'modern', null, null, 'lightbulb', 'lightbulbs', 'bulb up', 1.1),
 };
 
 export function isChargeId(value: unknown): value is ChargeId {
@@ -121,7 +127,12 @@ export function isAnimate(id: ChargeId): boolean {
 
 /** Blazon word for a posture on a given charge ("segreant" for a rampant dragon). */
 export function postureTerm(id: ChargeId, p: Posture): string {
-  return CHARGES[id].postureTerms?.[p] ?? p;
+  return CHARGES[id].postureWording[p]?.term ?? p;
+}
+
+/** Plain-English word for a posture on a given charge ("running" for a hare courant); null for displayed. */
+export function postureGloss(id: ChargeId, p: Posture): string | null {
+  return CHARGES[id].postureWording[p]?.gloss ?? POSTURE_GLOSS[p];
 }
 
 /** Charges in a category, in table order. */

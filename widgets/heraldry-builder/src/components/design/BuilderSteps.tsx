@@ -4,9 +4,9 @@
 import type { ComponentChildren } from 'preact';
 import {
   CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, NUMBER_WORD,
-  ORDINARY_NAME, ORDINARY_TYPES, POSTURE_GLOSS, ARRANGEMENT_WORD, arrangementChoices, chargeNoun, chargePath,
+  ORDINARY_NAME, ORDINARY_TYPES, ARRANGEMENT_WORD, arrangementChoices, chargeNoun, chargePath,
   chargeTinctureChoices, chargesInCategory, countChoices, fieldTinctureChoices, ordinaryTinctureChoices,
-  placementChoices, postureChoices, postureTerm,
+  placementChoices, postureChoices, postureGloss, postureTerm,
   type Arrangement, type Division, type Issue, type NormDesign, type OrdinaryType, type Posture,
 } from '../../lib/heraldry';
 import {
@@ -128,12 +128,11 @@ export function OrdinaryStep({ design, onChange, issues }: StepProps) {
   );
 }
 
+/** "Courant — running": the charge's own blazon term, then its plain-English gloss. */
 function postureOption(design: NormDesign, p: Posture): string {
   const id = design.charges!.charge;
-  const term = postureTerm(id, p);
-  const gl = POSTURE_GLOSS[p];
-  const name = term !== p ? `${cap(term)} (${p})` : cap(p);
-  return gl ? `${name} — ${gl}` : name;
+  const gl = postureGloss(id, p);
+  return gl ? `${cap(postureTerm(id, p))} — ${gl}` : cap(postureTerm(id, p));
 }
 
 export function ChargesStep({ design, onChange, issues }: StepProps) {

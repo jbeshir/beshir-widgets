@@ -1,11 +1,15 @@
 // Charge slots must stay on the shield and on/off their ordinary: every slot's glyph disc (radius
 // 0.4 × the slot box — the art fills ~80% of its box) lies inside the shield, inside the bordure
 // ring's inner edge, on the ordinary it is charged on, or clear of the ordinary it sits between.
+// The same holds for the real artwork: every vertex of every drawing, drawn in its optically scaled
+// box, stays on the shield (clear of its edge) and neighbouring charges never overlap. Art also stays
+// on, or clear of, a fess, pale, chief, bend, pile or cross; the chevron's and saltire's arms are
+// narrower than a square charge's corners, so for those the glyph disc above is the check.
 
 import { describe, expect, it } from 'vitest';
 import {
-  BETWEEN_SLOTS, FIELD_SLOTS, ORDINARY_PATHS, SHIELD_INSET_PATH, SHIELD_PATH, UNDER_CHIEF_SLOTS, onOrdinarySlots, slotsFor,
-  type Slot,
+  BETWEEN_SLOTS, CHARGES, CHARGE_ART, CHARGE_IDS, FIELD_SLOTS, ORDINARY_PATHS, ORDINARY_TYPES, SHIELD_INSET_PATH, SHIELD_PATH,
+  UNDER_CHIEF_SLOTS, drawnBox, onOrdinarySlots, slotsFor, type ChargeId, type Slot,
 } from '../src/lib/heraldry';
 import type { Count, OrdinaryType } from '../src/lib/heraldry';
 
@@ -106,4 +110,97 @@ describe('charge slots fit their ground', () => {
       }
     }
   });
+});
+
+// ── Real artwork in its optically scaled box ────────────────────────────────
+
+/** Each drawing as rings of points in its 0–100 box (the art is M/L/Z polygons only). */
+function rings(d: string): Pt[][] {
+  return d.split('M').filter(Boolean).map((sub) => {
+    const n = sub.replace(/[LZ]/g, ' ').trim().split(/\s+/).map(Number);
+    return Array.from({ length: n.length / 2 }, (_, i): Pt => [n[2 * i], n[2 * i + 1]]);
+  });
+}
+
+const DRAWINGS = CHARGE_IDS.flatMap((id) => Object.entries(CHARGE_ART[id]).map(([posture, d]) => ({ id, label: `${id} ${posture}`, rings: rings(d!) })));
+
+const place = (rs: Pt[][], box: Slot): Pt[][] =>
+  rs.map((r) => r.map(([x, y]): Pt => [box.x + (x - 50) * box.size / 100, box.y + (y - 50) * box.size / 100]));
+
+/** Even-odd point-in-drawing test across all of a drawing's rings. */
+const inDrawing = (rs: Pt[][], p: Pt) => rs.filter((r) => inside(r, p)).length % 2 === 1;
+
+/** Distance from p to the nearest edge of a polygon. */
+function edgeDistance(poly: Pt[], [px, py]: Pt): number {
+  let best = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [x1, y1] = poly[j], [x2, y2] = poly[i];
+    const L = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+    const t = L ? Math.max(0, Math.min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / L)) : 0;
+    best = Math.min(best, Math.hypot(px - x1 - t * (x2 - x1), py - y1 - t * (y2 - y1)));
+  }
+  return best;
+}
+
+/** Clear of the shield's edge by at least a unit, so the outline never touches a charge. */
+const SHIELD_MARGIN = 1;
+const onShield = (p: Pt) => inside(SHIELD, p) && edgeDistance(SHIELD, p) >= SHIELD_MARGIN;
+
+interface Ground { name: string; slots: Slot[]; fits: (p: Pt) => boolean }
+
+/** Ordinaries whose band is wide enough for the art's corners, so the real art must respect them. */
+const ART_RESPECTS: readonly OrdinaryType[] = ['fess', 'pale', 'chief', 'bend', 'bend-sinister', 'pile', 'cross'];
+const respects = (t: OrdinaryType) => ART_RESPECTS.includes(t);
+
+function grounds(): Ground[] {
+  const out: Ground[] = [];
+  for (const [key, slots] of Object.entries(FIELD_SLOTS)) {
+    out.push({ name: `field ${key}`, slots, fits: onShield });
+    const [count, arrangement] = key.split(':');
+    const placed = slotsFor({ type: 'bordure', tincture: 'argent' }, 'field', Number(count) as Count, arrangement as never);
+    out.push({ name: `bordure ${key}`, slots: placed, fits: (p) => inside(INSET, p) });
+  }
+  for (const [key, slots] of Object.entries(UNDER_CHIEF_SLOTS)) out.push({ name: `under chief ${key}`, slots, fits: (p) => onShield(p) && !inside(poly('chief'), p) });
+  for (const [key, slots] of Object.entries(BETWEEN_SLOTS)) {
+    const t = key.split(':')[0] as OrdinaryType;
+    out.push({ name: `between ${key}`, slots, fits: (p) => onShield(p) && !(respects(t) && inside(poly(t), p)) });
+  }
+  for (const t of ORDINARY_TYPES.filter((o) => o !== 'bordure')) {
+    for (const count of [1, 2, 3, 5] as Count[]) {
+      const slots = onOrdinarySlots(t, count);
+      if (slots.length) out.push({ name: `on ${t} ${count}`, slots, fits: (p) => onShield(p) && (!respects(t) || inside(poly(t), p)) });
+    }
+  }
+  return out;
+}
+
+describe('charge artwork fits its ground at its optical scale', () => {
+  it('every charge has an optical scale between 0.85 and 1.2', () => {
+    for (const id of CHARGE_IDS) {
+      expect(CHARGES[id].scale, id).toBeGreaterThanOrEqual(0.85);
+      expect(CHARGES[id].scale, id).toBeLessThanOrEqual(1.2);
+    }
+  });
+
+  it('drawnBox scales the slot about its centre', () => {
+    const slot = { x: 50, y: 54, size: 90 };
+    for (const id of CHARGE_IDS) expect(drawnBox(slot, id)).toEqual({ x: 50, y: 54, size: Math.round(90 * CHARGES[id].scale * 100) / 100 });
+  });
+
+  for (const g of grounds()) {
+    it(`${g.name}: every drawing stays on its ground and clear of its neighbours`, () => {
+      for (const dr of DRAWINGS) {
+        const placed = g.slots.map((s) => place(dr.rings, drawnBox(s, dr.id as ChargeId)));
+        for (const rs of placed) {
+          const off = rs.flat().find((p) => !g.fits(p));
+          expect(off, `${dr.label} leaves its ground at ${off}`).toBeUndefined();
+        }
+        placed.forEach((a, i) => placed.forEach((b, j) => {
+          if (i === j) return;
+          const hit = a.flat().find((p) => inDrawing(b, p));
+          expect(hit, `${dr.label}: charge ${i + 1} overlaps charge ${j + 1} at ${hit}`).toBeUndefined();
+        }));
+      }
+    });
+  }
 });

@@ -271,7 +271,7 @@
         },
         "ordinary": null,
         "charges": {
-          "charge": "laptop",
+          "charge": "anchor",
           "count": 1,
           "placement": "field",
           "arrangement": "single",
@@ -279,8 +279,8 @@
           "tincture": "argent"
         }
       },
-      "signature": "v1|F:plain:pu|O:-|C:laptop:1:field:single:-:ar",
-      "blazon": "Purpure, a laptop Argent"
+      "signature": "v1|F:plain:pu|O:-|C:anchor:1:field:single:-:ar",
+      "blazon": "Purpure, an anchor Argent"
     },
     {
       "id": "demo-012",
@@ -403,7 +403,7 @@
         },
         "ordinary": null,
         "charges": {
-          "charge": "paintbrush",
+          "charge": "bee",
           "count": 3,
           "placement": "field",
           "arrangement": "in-fess",
@@ -411,8 +411,8 @@
           "tincture": "or"
         }
       },
-      "signature": "v1|F:plain:vt|O:-|C:paintbrush:3:field:in-fess:-:or",
-      "blazon": "Vert, three paintbrushes in fess Or"
+      "signature": "v1|F:plain:vt|O:-|C:bee:3:field:in-fess:-:or",
+      "blazon": "Vert, three bees in fess Or"
     }
   ]
 }

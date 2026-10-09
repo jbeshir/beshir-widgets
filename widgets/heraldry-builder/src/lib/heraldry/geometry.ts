@@ -6,6 +6,7 @@ import {
   chargeContext, type Count, type Arrangement, type Division, type Field, type NormDesign,
   type Ordinary, type OrdinaryType, type Placement,
 } from './design';
+import { CHARGES, type ChargeId } from './charges';
 import type { Tincture } from './tinctures';
 
 export const SHIELD_VIEWBOX = '0 0 100 120';
@@ -115,33 +116,38 @@ export const ORDINARY_FILL_RULE: Record<OrdinaryType, 'nonzero' | 'evenodd'> = {
 /** Slot centre and box size in shield units. Order is reading order (top→bottom, left→right). */
 export interface Slot { x: number; y: number; size: number }
 
+/** The box a charge's art is drawn in: the slot scaled by the charge's optical scale about its centre. */
+export function drawnBox(slot: Slot, charge: ChargeId): Slot {
+  return { x: slot.x, y: slot.y, size: r2(slot.size * CHARGES[charge].scale) };
+}
+
 const S = (size: number, ...xy: Array<[number, number]>): Slot[] => xy.map(([x, y]) => ({ x, y, size }));
 
 /** placement 'field' with no ordinary (also scaled for a bordure). Key `${count}:${arrangement}`. */
 export const FIELD_SLOTS: Record<string, Slot[]> = {
-  '1:single': S(72, [50, 55]),
-  '2:in-pale': S(44, [50, 30], [50, 82]),
-  '2:in-fess': S(44, [28, 55], [72, 55]),
-  '2:in-bend': S(42, [28, 30], [70, 74]),
-  '2:in-bend-sinister': S(42, [72, 30], [30, 74]),
-  '3:two-and-one': S(40, [28, 30], [72, 30], [50, 76]),
-  '3:in-pale': S(32, [50, 20], [50, 56], [50, 92]),
-  '3:in-fess': S(33, [19, 52], [50, 52], [81, 52]),
-  '3:in-bend': S(32, [22, 22], [50, 50], [78, 78]),
-  '3:in-bend-sinister': S(32, [78, 22], [50, 50], [22, 78]),
-  '4:two-and-two': S(36, [28, 30], [72, 30], [31, 72], [69, 72]),
-  '4:in-cross': S(32, [50, 22], [20, 55], [80, 55], [50, 88]),
-  '5:in-saltire': S(28, [24, 26], [76, 26], [50, 55], [30, 86], [70, 86]),
-  '5:in-cross': S(28, [50, 18], [18, 50], [50, 50], [82, 50], [50, 86]),
-  '6:three-two-one': S(28, [20, 22], [50, 22], [80, 22], [34, 52], [66, 52], [50, 84]),
+  '1:single': S(90, [50, 54]),
+  '2:in-pale': S(48, [50, 29], [50, 81]),
+  '2:in-fess': S(48, [27, 52], [73, 52]),
+  '2:in-bend': S(42, [30, 31], [70, 72]),
+  '2:in-bend-sinister': S(42, [70, 31], [30, 72]),
+  '3:two-and-one': S(44, [27, 29], [73, 29], [50, 77]),
+  '3:in-pale': S(35, [50, 20], [50, 56], [50, 92]),
+  '3:in-fess': S(32, [18, 52], [50, 52], [82, 52]),
+  '3:in-bend': S(31, [24, 24], [50, 50], [75, 75]),
+  '3:in-bend-sinister': S(31, [76, 24], [50, 50], [25, 75]),
+  '4:two-and-two': S(40, [27, 29], [73, 29], [31, 73], [69, 73]),
+  '4:in-cross': S(34, [50, 21], [20, 55], [80, 55], [50, 89]),
+  '5:in-saltire': S(30, [23, 25], [77, 25], [50, 55], [31, 85], [69, 85]),
+  '5:in-cross': S(30, [50, 18], [18, 51], [50, 51], [82, 51], [50, 86]),
+  '6:three-two-one': S(31, [19, 21], [50, 21], [81, 21], [34, 52], [66, 52], [50, 84]),
 };
 
 /** placement 'field' under a chief. */
 export const UNDER_CHIEF_SLOTS: Record<string, Slot[]> = {
-  '1:single': S(56, [50, 71]),
-  '2:in-fess': S(38, [28, 70], [72, 70]),
-  '3:two-and-one': S(32, [28, 54], [72, 54], [50, 90]),
-  '3:in-fess': S(30, [19, 68], [50, 68], [81, 68]),
+  '1:single': S(62, [50, 70]),
+  '2:in-fess': S(42, [27, 67], [73, 67]),
+  '3:two-and-one': S(35, [27, 53], [73, 53], [50, 89]),
+  '3:in-fess': S(32, [18, 66], [50, 66], [82, 66]),
 };
 
 /** placement 'field' with a "between" ordinary. Key `${ordinary}:${count}`. */
@@ -150,14 +156,14 @@ export const BETWEEN_SLOTS: Record<string, Slot[]> = {
   'fess:3': S(30, [28, 19], [72, 19], [50, 86]),
   'pale:2': S(30, [20, 50], [80, 50]),
   'bend:2': S(30, [76, 24], [24, 80]),
-  'bend-sinister:2': S(30, [24, 24], [76, 80]),
+  'bend-sinister:2': S(29, [24, 24], [76, 80]),
   'chevron:3': S(32, [25, 22], [75, 22], [50, 94]),
-  'cross:4': S(28, [21, 21], [79, 21], [21, 82], [79, 82]),
+  'cross:4': S(24, [20, 20], [80, 20], [21, 81], [79, 81]),
   'saltire:4': S(25, [50, 18], [16, 50], [84, 50], [50, 90]),
-  'pile:2': S(28, [20, 75], [80, 75]),
+  'pile:2': S(26, [19, 76], [81, 76]),
 };
 
-const BORDURE_SCALE = 0.8;
+const BORDURE_SCALE = 0.86;
 const BORDURE_ORIGIN = { x: 50, y: 55 };
 
 function withinBordure(slots: Slot[]): Slot[] {
@@ -183,8 +189,8 @@ export function onOrdinarySlots(type: OrdinaryType, count: Count): Slot[] {
     case 'fess': return alongAxis(50, 50, 1, 0, count, 27);
     case 'pale': return alongAxis(50, 50, 0, 1, count, 27);
     case 'chief': return alongAxis(50, 15, 1, 0, count, 26);
-    case 'bend': return alongAxis(50, 50, DIAG, DIAG, count, 26);
-    case 'bend-sinister': return alongAxis(50, 50, DIAG, -DIAG, count, 26);
+    case 'bend': return alongAxis(50, 50, DIAG, DIAG, count, 25.5);
+    case 'bend-sinister': return alongAxis(50, 50, DIAG, -DIAG, count, 25.5);
     // The pile narrows towards its point, so its slots are tuned rather than evenly spaced.
     case 'pile':
       return count === 1 ? S(24, [50, 34]) : count === 2 ? S(22, [50, 22], [50, 48]) : count === 3 ? S(20, [50, 14], [50, 36], [50, 58]) : [];
@@ -194,7 +200,7 @@ export function onOrdinarySlots(type: OrdinaryType, count: Count): Slot[] {
       return count === 1 ? S(24, apex) : count === 2 ? S(24, [24, limbY], [76, limbY]) : count === 3 ? S(24, apex, [24, limbY], [76, limbY]) : [];
     }
     case 'cross':
-      return count === 1 ? S(26, [50, 50]) : count === 5 ? S(26, [50, 19], [19, 50], [50, 50], [81, 50], [50, 88]) : [];
+      return count === 1 ? S(26, [50, 50]) : count === 5 ? S(24, [50, 19], [19, 50], [50, 50], [81, 50], [50, 88]) : [];
     case 'saltire':
       return count === 1 ? S(28, [50, 50]) : count === 5 ? S(24, [24, 24], [76, 24], [50, 50], [24, 76], [76, 76]) : [];
     case 'bordure': return [];

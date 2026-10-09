@@ -1,6 +1,6 @@
 // Plain-English gloss (FINDINGS §4.5). Left/right always mean as you look at the shield.
 
-import { CHARGES, POSTURE_GLOSS } from './charges';
+import { CHARGES, postureGloss } from './charges';
 import { NUMBER_WORD, bodyKind, type Arrangement, type Field, type NormChargeGroup, type NormDesign, type Ordinary, type OrdinaryType } from './design';
 import { TINCTURE_GLOSS } from './tinctures';
 
@@ -61,7 +61,7 @@ export function chargesGloss(g: NormChargeGroup): string {
   const meta = CHARGES[g.charge];
   const c = TINCTURE_GLOSS[g.tincture];
   let s = `${g.count === 1 ? article(c) : NUMBER_WORD[g.count]} ${c} ${g.count === 1 ? meta.glossName : meta.glossPlural}`;
-  const pg = g.posture ? POSTURE_GLOSS[g.posture] : null;
+  const pg = g.posture ? postureGloss(g.charge, g.posture) : null;
   if (pg) s += ` ${pg}`;
   const ag = ARRANGEMENT_GLOSS[g.arrangement];
   if (ag) s += `, ${ag}`;
