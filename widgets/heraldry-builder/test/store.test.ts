@@ -64,7 +64,10 @@ describe('store (offline / file://)', () => {
     });
     expect(close.ok && close.result.verdict).toBe('too-close');
     expect(close.ok && close.result.conflict?.id).toBe('demo-004');
-    expect(close.ok && close.result.differences).toEqual(['posture (statant ↔ passant)']);
+    expect(close.ok && close.result.differences).toEqual([{
+      attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)',
+      why: "Standing (statant) and walking (passant) look almost the same — that's only half a difference.",
+    }]);
 
     const ok = await store.check(null, { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' } });
     expect(ok.ok && ok.result).toMatchObject({ verdict: 'ok', blazon: 'Vert, a cross Or', sample: true });
@@ -148,7 +151,11 @@ describe('store (online)', () => {
         message: 'Too close.',
         conflictId: 'demo-004',
         conflict: { id: 'demo-004', displayName: 'Dev', blazon: 'b', design: sample.entries[3].design },
-        differences: ['posture (statant ↔ passant)'],
+        differences: [
+          { attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)', why: 'Half.' },
+          { attr: 'not-an-attribute', weight: 'minor', text: 'dropped', why: 'Malformed.' },
+          { attr: 'charge-count', weight: 'minor', text: 'dropped: a minor note needs a reason' },
+        ],
       })
     );
     const r = await store.register({ registry: null, displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design: {}, shape: 'heater' });
@@ -156,6 +163,7 @@ describe('store (online)', () => {
     expect(!r.ok && r.conflict?.design?.charges?.charge).toBe('wolf');
     // A conflict from a Worker that sends no shape displays as a heater shield.
     expect(!r.ok && r.conflict?.shape).toBe('heater');
+    expect(!r.ok && r.differences).toEqual([{ attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)', why: 'Half.' }]);
   });
 
   it('maps network failures to kind network', async () => {

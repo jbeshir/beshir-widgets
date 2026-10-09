@@ -10,7 +10,7 @@
 // everything itself.
 //
 // Uniqueness is per registry: an exact duplicate (same canonical signature) is blocked by a UNIQUE
-// index, and a design with no clear difference from an existing entry is "too close". The edit
+// index, and a design not different enough from an existing entry is "too close". The edit
 // secret is the capability for editing/withdrawing: we store only its SHA-256 hash and compare in
 // constant time.
 //
@@ -37,8 +37,9 @@
 
 import {
   DEFAULT_FIELD_SHAPE, FIELD_SHAPES, blazon, candidateKey, checkUnique, cleanContact, cleanDisplayName, cleanEmail,
-  buildSearchText, deriveTags, explainDifferences, isFieldShape, normalise, parseSearchParams, readability, resolve,
-  searchParamsFromUrl, signature, type Contact, type FieldShape, type Issue, type NormDesign, type RegistryEntryLike,
+  buildSearchText, deriveTags, explainDifferences, fieldDivision, isFieldShape, normalise, parseSearchParams, readability, resolve,
+  searchParamsFromUrl, signature, type Contact, type DifferenceNote, type FieldShape, type Issue, type NormDesign,
+  type Comparison, type RegistryEntryLike,
 } from '../src/lib/heraldry';
 import { RECOVER_HASH, entryHash, ownerHash, recoverTokenHash } from '../src/lib/hashes';
 import { sendMail, type MailEnv } from './mail';
@@ -297,17 +298,30 @@ function invalidDesign(issues: Issue[]): Response {
 }
 
 /**
- * The registry entries that could be a duplicate of, or too close to, `nd`: those sharing its field
- * division, ordinary and charge (served by arms_registry_similarity), in registration order.
+ * The design's columns, in the order INSERT and UPDATE name them: field_division, ordinary, charge
+ * (what it is) and division_group, ordinary_group, charge_group (the too-close lookup key).
+ */
+function designColumns(nd: NormDesign): (string | null)[] {
+  const key = candidateKey(nd);
+  return [
+    fieldDivision(nd.field), nd.ordinary?.type ?? null, nd.charges?.charge ?? null,
+    key.divisionGroup, key.ordinaryGroup, key.chargeGroup,
+  ];
+}
+
+/**
+ * The registry entries that could be a duplicate of, too close to, or the closest entry to `nd`:
+ * those sharing its division, ordinary and charge groups (served by arms_registry_similar_groups),
+ * in registration order.
  */
 async function loadCandidates(env: Env, registryId: string, nd: NormDesign): Promise<ScanRow[]> {
   const key = candidateKey(nd);
   const { results } = await env.DB.prepare(
     `SELECT id, display_name, design, field_shape, signature, blazon FROM arms
-     WHERE registry_id = ? AND field_division = ? AND ordinary IS ? AND charge IS ?
+     WHERE registry_id = ? AND division_group = ? AND ordinary_group IS ? AND charge_group IS ?
      ORDER BY created_at, id`
   )
-    .bind(registryId, key.fieldDivision, key.ordinary, key.charge)
+    .bind(registryId, key.divisionGroup, key.ordinaryGroup, key.chargeGroup)
     .all<ScanRow>();
   return results;
 }
@@ -319,10 +333,13 @@ async function countEntries(env: Env, registryId: string): Promise<number> {
   return row?.n ?? 0;
 }
 
+/** An entry and the differences between it and the checked design, in words. */
+interface Conflict { conflict: ScanRow; differences: DifferenceNote[] }
+
 type Uniqueness =
-  | { kind: 'ok' }
+  | { kind: 'ok'; closest: Conflict | null }
   | { kind: 'duplicate'; conflict: ScanRow }
-  | { kind: 'too-close'; conflict: ScanRow; differences: string[] };
+  | ({ kind: 'too-close' } & Conflict);
 
 function uniqueness(d: Derived, rows: ScanRow[], excludeId?: string): Uniqueness {
   const byId = new Map<string, ScanRow>();
@@ -334,14 +351,13 @@ function uniqueness(d: Derived, rows: ScanRow[], excludeId?: string): Uniqueness
     entries.push({ id: r.id, signature: r.signature, design });
   }
   const v = checkUnique(d.design, d.signature, entries, excludeId);
-  if (v.kind === 'ok') return v;
-  const conflict = byId.get(v.of)!;
-  if (v.kind === 'duplicate') return { kind: 'duplicate', conflict };
-  return {
-    kind: 'too-close',
-    conflict,
-    differences: explainDifferences(d.design, parseStoredDesign(conflict.design)!),
+  const explained = (c: Comparison): Conflict => {
+    const conflict = byId.get(c.of)!;
+    return { conflict, differences: explainDifferences(d.design, parseStoredDesign(conflict.design)!, c.differences) };
   };
+  if (v.kind === 'ok') return { kind: 'ok', closest: v.closest && explained(v.closest) };
+  if (v.kind === 'duplicate') return { kind: 'duplicate', conflict: byId.get(v.of)! };
+  return { kind: 'too-close', ...explained(v) };
 }
 
 function conflictSummary(r: ScanRow) {
@@ -359,7 +375,7 @@ function uniquenessError(u: Exclude<Uniqueness, { kind: 'ok' }>): Response {
   }
   return json(409, {
     error: 'too_close',
-    message: `Too close to the arms of ${u.conflict.display_name}: no clear difference.`,
+    message: `Too close to the arms of ${u.conflict.display_name}: not different enough.`,
     conflictId: u.conflict.id,
     conflict: conflictSummary(u.conflict),
     differences: u.differences,
@@ -384,7 +400,10 @@ async function checkArms(request: Request, env: Env): Promise<Response> {
     signature: d.derived.signature,
     readability: d.derived.readability,
   };
-  if (u.kind === 'ok') return json(200, { verdict: 'ok', ...base });
+  if (u.kind === 'ok') {
+    const closest = u.closest && { conflict: conflictSummary(u.closest.conflict), differences: u.closest.differences };
+    return json(200, { verdict: 'ok', closest, ...base });
+  }
   if (u.kind === 'duplicate') return json(200, { verdict: 'duplicate', conflict: conflictSummary(u.conflict), ...base });
   return json(200, {
     verdict: 'too-close',
@@ -440,18 +459,18 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
   const now = new Date().toISOString();
   const d = input.derived;
   const nd = d.design;
-  const key = candidateKey(nd);
 
   try {
     // One transaction: the row, its tags and its owner's email HMAC land together or not at all.
     await env.DB.batch([
       env.DB.prepare(
         `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, field_shape, signature, blazon,
-           field_division, ordinary, charge, readability, search_text, edit_secret_hash, rev, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+           field_division, ordinary, charge, division_group, ordinary_group, charge_group, readability, search_text,
+           edit_secret_hash, rev, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
       ).bind(
         id, reg.registry.id, input.displayName, input.contact.discord, JSON.stringify(nd), input.shape, d.signature, d.blazon,
-        key.fieldDivision, key.ordinary, key.charge, d.readability,
+        ...designColumns(nd), d.readability,
         buildSearchText({ displayName: input.displayName, blazon: d.blazon, design: nd }),
         editSecretHash, now, now
       ),
@@ -586,7 +605,6 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
   // A design change must still be unique within the registry (ignoring this entry itself).
   const d = input.derived;
   const nd = d.design;
-  const key = candidateKey(nd);
   if (d.signature !== row.signature) {
     const u = uniqueness(d, await loadCandidates(env, row.registry_id, nd), id);
     if (u.kind !== 'ok') return uniquenessError(u);
@@ -603,11 +621,12 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
       // Conditional UPDATE on rev closes the race between the SELECT above and this write.
       env.DB.prepare(
         `UPDATE arms SET display_name = ?, contact_discord = ?, design = ?, field_shape = ?, signature = ?, blazon = ?,
-           field_division = ?, ordinary = ?, charge = ?, readability = ?, search_text = ?, rev = rev + 1, updated_at = ?
+           field_division = ?, ordinary = ?, charge = ?, division_group = ?, ordinary_group = ?, charge_group = ?,
+           readability = ?, search_text = ?, rev = rev + 1, updated_at = ?
          WHERE id = ? AND rev = ?`
       ).bind(
         input.displayName, input.contact.discord, JSON.stringify(nd), input.shape, d.signature, d.blazon,
-        key.fieldDivision, key.ordinary, key.charge, d.readability,
+        ...designColumns(nd), d.readability,
         buildSearchText({ displayName: input.displayName, blazon: d.blazon, design: nd }),
         now, id, expectedRev
       ),

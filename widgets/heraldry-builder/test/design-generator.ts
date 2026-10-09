@@ -1,5 +1,8 @@
 // Seeded generator of valid designs drawn from small option sets, so that generated pairs often
-// share most attributes (duplicates, near misses and clear differences all turn up).
+// share most attributes (duplicates, near misses and clear differences all turn up). The sets include
+// look-alike charges (lion, wolf, goat; rose, gear), mirror images (per bend / per bend sinister, bend
+// / bend sinister, in bend / in bend sinister) and the four-or-more counts and patterns, so every kind
+// of half difference is exercised.
 import { normalise, type NormDesign } from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
@@ -15,13 +18,18 @@ function prng(seed: number): () => number {
 }
 
 const TINCTURE_IDS = ['or', 'argent', 'azure', 'gules', 'sable', 'vert'];
-const DIVISION_IDS = ['per-pale', 'per-fess', 'per-bend'];
-const ORDINARY_IDS = ['fess', 'pale', 'bordure'];
+const DIVISION_IDS = ['per-pale', 'per-bend', 'per-bend-sinister'];
+const ORDINARY_IDS = ['fess', 'bend', 'bend-sinister', 'bordure'];
 const POSTURES: Record<string, readonly (string | null)[]> = {
+  lion: ['rampant', 'passant', 'statant'],
   wolf: ['passant', 'statant', 'rampant'],
+  goat: ['statant', 'rampant'],
   mullet: [null],
   rose: [null],
+  gear: [null],
 };
+// null = the count's default arrangement; an arrangement the count can't take makes the design invalid.
+const ARRANGEMENT_IDS = [null, null, 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire'];
 const CHARGE_IDS = Object.keys(POSTURES);
 
 /** The normalised valid design for `seed`, or null when the random pick breaks a rule. */
@@ -36,7 +44,7 @@ export function generatedDesign(seed: number): NormDesign | null {
   const ordinary = next() < 0.5 ? { type: pick(ORDINARY_IDS), tincture: t() } : null;
   const charge = next() < 0.8 ? pick(CHARGE_IDS) : null;
   const charges = charge
-    ? { charge, count: 1 + Math.floor(next() * 6), placement: 'field', posture: pick(POSTURES[charge]), tincture: t() }
+    ? { charge, count: 1 + Math.floor(next() * 6), placement: 'field', arrangement: pick(ARRANGEMENT_IDS), posture: pick(POSTURES[charge]), tincture: t() }
     : null;
 
   const n = normalise({ v: 1, field, ordinary, charges });

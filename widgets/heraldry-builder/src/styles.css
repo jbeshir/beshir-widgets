@@ -1289,6 +1289,8 @@ button, input, select, textarea {
 
 .differences { margin: 4px 0 0; padding-left: 22px; }
 .differences li { margin: 2px 0; }
+.difference-why { display: block; color: var(--fg-secondary); font-size: 14px; }
+.availability .difference-tally { margin-top: 4px; font-weight: 600; }
 .info-popover { max-width: min(340px, calc(100vw - 24px)); }
 .info-popover p { margin: 0 0 8px; }
 .info-popover p:last-child { margin: 0; }

@@ -168,6 +168,7 @@ describe('POST /api/arms', () => {
     expect(row!.field_division).toBe('plain');
     expect(row!.ordinary).toBe('pale');
     expect(row!.charge).toBeNull();
+    expect(row!).toMatchObject({ division_group: 'plain', ordinary_group: 'pale', charge_group: null });
     expect(row!.readability).toBe('bold');
 
     const tags = await env.DB.prepare(`SELECT tag, registry_id FROM arms_tags WHERE arms_id = ?`).bind(data.id).all<Json>();
@@ -220,7 +221,8 @@ describe('POST /api/arms', () => {
     const data = await bodyOf(res);
     expect(data.error).toBe('too_close');
     expect(data.conflictId).toBe(first.id);
-    expect(data.differences).toEqual(['posture (statant ↔ passant)']);
+    expect(data.differences.map((n: Json) => n.text)).toEqual(['posture (statant ↔ passant)']);
+    expect(data.differences[0]).toMatchObject({ attr: 'charge-posture', weight: 'minor' });
     // A clear difference (posture group) is fine.
     await register(wolfBordure('rampant'));
   });
@@ -410,7 +412,7 @@ describe('POST /api/arms/check', () => {
     await register(wolfBordure('statant'), { registry: 'checks' });
     const close = await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'checks', design: wolfBordure('passant') } }));
     expect(close.verdict).toBe('too-close');
-    expect(close.differences).toEqual(['posture (passant ↔ statant)']);
+    expect(close.differences.map((n: Json) => n.text)).toEqual(['posture (passant ↔ statant)']);
   });
 
   it('400s an invalid design with issues and 404s an unknown registry', async () => {
@@ -856,8 +858,10 @@ describe('PUT /api/arms/:id', () => {
     expect(tags).toContain('charge:bee');
     expect(tags).toContain('ordinary:cross');
     expect(tags.some((t) => t === `charge:${mine.charges.charge}`)).toBe(false);
-    const row = await env.DB.prepare(`SELECT charge, ordinary, field_division FROM arms WHERE id = ?`).bind(c.id).first<Json>();
-    expect(row).toEqual({ charge: 'bee', ordinary: 'cross', field_division: 'plain' });
+    const row = await env.DB.prepare(
+      `SELECT charge, ordinary, field_division, charge_group, ordinary_group, division_group FROM arms WHERE id = ?`
+    ).bind(c.id).first<Json>();
+    expect(row).toEqual({ charge: 'bee', ordinary: 'cross', field_division: 'plain', charge_group: 'bee', ordinary_group: 'cross', division_group: 'plain' });
   });
 
   it('does not treat an unchanged design as a duplicate of itself', async () => {
@@ -1020,34 +1024,114 @@ describe('withdrawal cascades to tags', () => {
 describe('too-close candidate lookup', () => {
   it('gives the verdict a full scan of the stored registry gives', async () => {
     await addRegistry('prefilter', 'Prefilter');
-    const stored = generatedDesigns(1, 60);
+    const stored = generatedDesigns(1, 100);
     const entries: RegistryEntryLike[] = [];
     for (const [i, design] of stored.entries()) {
       const sig = signature(design);
       if (entries.some((e) => e.signature === sig)) continue;
       const key = candidateKey(design);
+      const at = `2026-10-03T00:${String(Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}Z`;
       await env.DB.prepare(
         `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, signature, blazon, field_division,
-           ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
-         VALUES (?, 'prefilter', 'Stored', NULL, ?, ?, ?, ?, ?, ?, 'bold', 'h', 1, ?, ?)`
+           ordinary, charge, division_group, ordinary_group, charge_group, readability, edit_secret_hash, rev, created_at, updated_at)
+         VALUES (?, 'prefilter', 'Stored', NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bold', 'h', 1, ?, ?)`
       ).bind(
-        `pf-${i}`, JSON.stringify(design), sig, blazon(design), key.fieldDivision, key.ordinary, key.charge,
-        `2026-10-03T00:00:${String(i).padStart(2, '0')}Z`, `2026-10-03T00:00:${String(i).padStart(2, '0')}Z`
+        `pf-${i}`, JSON.stringify(design), sig, blazon(design), design.field.kind === 'plain' ? 'plain' : design.field.division,
+        design.ordinary?.type ?? null, design.charges?.charge ?? null, key.divisionGroup, key.ordinaryGroup, key.chargeGroup, at, at
       ).run();
       entries.push({ id: `pf-${i}`, signature: sig, design });
     }
 
     const verdicts = new Set<string>();
-    for (const probe of generatedDesigns(50_000, 120)) {
+    for (const probe of generatedDesigns(50_000, 300)) {
       const full = checkUnique(probe, signature(probe), entries);
       const res = await call('POST', '/api/arms/check', { body: { registry: 'prefilter', design: probe } });
       expect(res.status).toBe(200);
       const data = await bodyOf(res);
       expect(data.verdict).toBe(full.kind);
-      if (full.kind !== 'ok') expect(data.conflictId ?? data.conflict.id).toBe(full.of);
-      verdicts.add(data.verdict);
+      if (full.kind === 'ok') {
+        expect(data.closest?.conflict.id ?? null).toBe(full.closest?.of ?? null);
+        verdicts.add(full.closest ? 'ok-on-halves' : 'ok');
+      } else {
+        expect(data.conflict.id).toBe(full.of);
+        verdicts.add(full.kind);
+      }
     }
-    expect([...verdicts].sort()).toEqual(['duplicate', 'ok', 'too-close']);
+    expect([...verdicts].sort()).toEqual(['duplicate', 'ok', 'ok-on-halves', 'too-close']);
+  });
+});
+
+describe('half differences', () => {
+  const lion = (charge: string, posture: string) => ({
+    v: 1, field: { kind: 'divided', division: 'per-bend', tinctures: ['or', 'azure'] }, ordinary: null,
+    charges: { charge, count: 1, placement: 'field', posture, tincture: 'gules' },
+  });
+  const halves = { registry: 'halves', displayName: 'Halves' };
+
+  beforeAll(async () => {
+    await addRegistry('halves', 'Halves');
+  });
+
+  it('stores the similarity groups the too-close lookup keys on', async () => {
+    const c = await register({
+      v: 1, field: { kind: 'divided', division: 'per-bend-sinister', tinctures: ['vert', 'gules'] },
+      ordinary: { type: 'bend-sinister', tincture: 'argent' }, charges: { charge: 'sun', count: 2, placement: 'field', tincture: 'or' },
+    }, halves);
+    const row = await env.DB.prepare(`SELECT division_group, ordinary_group, charge_group, field_division, ordinary, charge FROM arms WHERE id = ?`).bind(c.id).first<Json>();
+    expect(row).toEqual({
+      division_group: 'per-bend', ordinary_group: 'bend', charge_group: 'round',
+      field_division: 'per-bend-sinister', ordinary: 'bend-sinister', charge: 'sun',
+    });
+  });
+
+  it('rejects a look-alike charge as too close, explaining the half point', async () => {
+    const first = await register(lion('lion', 'rampant'), halves);
+    const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, ...halves, design: lion('wolf', 'rampant') } });
+    expect(res.status).toBe(409);
+    const data = await bodyOf(res);
+    expect(data.error).toBe('too_close');
+    expect(data.conflict.id).toBe(first.id);
+    expect(data.differences).toEqual([{
+      attr: 'charge-type', weight: 'minor', text: 'charge type (wolf ↔ lion)',
+      why: "Wolf and lion count as the same shape at nametag size — that's only half a difference.",
+    }]);
+  });
+
+  it('rejects an edit into the mirror image of another entry', async () => {
+    const original = { ...lion('lion', 'rampant'), charges: { ...lion('lion', 'rampant').charges, tincture: 'argent' } };
+    await register(original, halves);
+    const mine = await register(lion('boar', 'passant'), halves);
+    const mirrored = { ...original, field: { kind: 'divided', division: 'per-bend-sinister', tinctures: ['or', 'azure'] } };
+    const res = await call('PUT', `/api/arms/${mine.id}`, {
+      body: { displayName: 'Halves', design: mirrored },
+      headers: { Authorization: `Bearer ${mine.editSecret}`, 'If-Match': '1' },
+    });
+    expect(res.status).toBe(409);
+    const data = await bodyOf(res);
+    expect(data.error).toBe('too_close');
+    expect(data.differences.map((n: Json) => [n.attr, n.weight])).toEqual([['field-division', 'minor']]);
+  });
+
+  it('lets two half differences through and names the entry it only just passed', async () => {
+    const swappedAndMirrored = { ...lion('lion', 'rampant'), field: { kind: 'divided', division: 'per-bend-sinister', tinctures: ['azure', 'or'] } };
+    const res = await call('POST', '/api/arms/check', { body: { registry: 'halves', design: swappedAndMirrored } });
+    const data = await bodyOf(res);
+    expect(data.verdict).toBe('ok');
+    expect(data.closest.conflict.blazon).toBe('Per bend Or and Azure, a lion rampant Gules');
+    expect(data.closest.differences.map((n: Json) => [n.attr, n.weight])).toEqual([['field-division', 'minor'], ['field-tincture', 'minor']]);
+    const plainOk = await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'halves', design: freshDesign() } }));
+    expect(plainOk).toMatchObject({ verdict: 'ok', closest: null });
+  });
+
+  it('ignores the field shape', async () => {
+    const design = lion('goat', 'statant');
+    await register(design, { ...halves, shape: 'banner' });
+    const same = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, ...halves, shape: 'round', design } });
+    expect(same.status).toBe(409);
+    expect((await bodyOf(same)).error).toBe('duplicate');
+    const lookAlike = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, ...halves, shape: 'lozenge', design: lion('wolf', 'statant') } });
+    expect(lookAlike.status).toBe(409);
+    expect((await bodyOf(lookAlike)).error).toBe('too_close');
   });
 });
 

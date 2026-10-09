@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BETWEEN_COUNTS, COUNTS, DIVISIONS, FIELD_SHAPES, ORDINARY_TYPES, SHAPE_LAYOUT, TINCTURES, TINCTURE_CLASS,
   arrangementChoices, blazon, buildSearchText, chargePath, chargeSlotContacts, chargeTinctureChoices, counterchangedParts, countChoices,
-  deriveTags, differences, drawnBox, explainDifferences, filtersToTags, gloss, hasClearDifference, inFirstPart, matchesWords,
+  deriveTags, differences, drawnBox, explainDifferences, filtersToTags, gloss, areDistinct, inFirstPart, matchesWords,
   normalise, ordinaryTinctureChoices, placementChoices, queryWords, readability, resolve, shapedChargeSlots, signature,
   structuralIssues, suggestTinctureFix, tinctureIssues, validate,
   type ChargeId, type ChargeTincture, type Choice, type Division, type NormDesign, type Ordinary, type OrdinaryType,
@@ -82,10 +82,10 @@ describe('counterchanged in the design text', () => {
   it('is a clear tincture difference from any single tincture, explained by name', () => {
     for (const t of TINCTURES) {
       const other = mullets(div('per-pale', 'or', 'azure'), 3, t);
-      expect(differences(d, other), t).toEqual([{ attr: 'charge-tincture', clear: true }]);
-      expect(hasClearDifference(d, other)).toBe(true);
+      expect(differences(d, other), t).toEqual([{ attr: 'charge-tincture', weight: 'clear' }]);
+      expect(areDistinct(d, other)).toBe(true);
     }
-    expect(explainDifferences(d, mullets(div('per-pale', 'or', 'azure'), 3, 'argent'))).toEqual(['charge tincture (counterchanged ↔ Argent)']);
+    expect(explainDifferences(d, mullets(div('per-pale', 'or', 'azure'), 3, 'argent')).map((n) => n.text)).toEqual(['charge tincture (counterchanged ↔ Argent)']);
   });
 
   it('readability: no extra tincture, but charges split by the field line cost a point', () => {

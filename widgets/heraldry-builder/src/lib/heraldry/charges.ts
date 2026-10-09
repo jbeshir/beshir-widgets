@@ -143,3 +143,27 @@ export function postureGloss(id: ChargeId, p: Posture): string | null {
 export function chargesInCategory(cat: ChargeCategory): ChargeMeta[] {
   return CHARGE_IDS.map((id) => CHARGES[id]).filter((m) => m.category === cat);
 }
+
+/**
+ * Charges whose shapes look alike at nametag size (a shield about 32 px tall): there the horn, mane
+ * and tail that tell a lion from a wolf, unicorn or goat are under a pixel, and a rose, a gear and a
+ * sun are all a round boss with a ring of points. Changing a charge for another in the same group is
+ * only half a difference. A charge belongs to at most one group, so "looks the same" stays
+ * transitive and a charge's group can be stored and indexed.
+ */
+export type SimilarityGroup = 'quadruped' | 'round';
+
+export const SIMILARITY_GROUP: Partial<Record<ChargeId, SimilarityGroup>> = {
+  lion: 'quadruped', wolf: 'quadruped', unicorn: 'quadruped', goat: 'quadruped',
+  rose: 'round', gear: 'round', sun: 'round',
+};
+
+/** The charge's similarity group, or the charge itself when it looks like no other. */
+export function chargeGroup(id: ChargeId): SimilarityGroup | ChargeId {
+  return SIMILARITY_GROUP[id] ?? id;
+}
+
+/** The charges of a similarity group, in table order. */
+export function chargesInGroup(group: SimilarityGroup): ChargeId[] {
+  return CHARGE_IDS.filter((id) => SIMILARITY_GROUP[id] === group);
+}

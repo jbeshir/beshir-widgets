@@ -7,7 +7,7 @@ import {
   ARRANGEMENTS, CHARGES, CHARGE_IDS, CHARGE_ART, COUNTS, FIELD_SHAPES, ORDINARY_TYPES, TINCTURES, isChargeId, isFieldShape, postureGloss, postureTerm,
   arrangementChoices, blazon, chargePath, chargeSlotContacts, chargeSlots, chargeStructureIssue, chargeTinctureChoices,
   checkUnique, countChoices, deriveTags, differences, explainDifferences, fieldTinctureChoices, filtersToTags, fitCharges,
-  gloss, hasClearDifference, matchesTags, normalise, ordinaryTinctureChoices, placementChoices, postureChoices,
+  gloss, areDistinct, matchesTags, normalise, ordinaryTinctureChoices, placementChoices, postureChoices,
   BETWEEN_GLOSS, BETWEEN_SLOTS, cleanDiscord, readability, resolve, signature, slotsFor, suggestTinctureFix, validate,
   type Choice, type Count, type Design, type Issue, type NormDesign, type Ordinary, type Placement,
 } from '../src/lib/heraldry';
@@ -289,19 +289,19 @@ describe('sample registry fixture', () => {
     expect(new Set(sample.entries.map((e) => e.signature)).size).toBe(20);
   });
 
-  it('all 190 pairs have at least one clear difference', () => {
+  it('all 190 pairs are different enough', () => {
     const ds = sample.entries.map((e) => nd(e.design));
     let pairs = 0;
     for (let i = 0; i < ds.length; i++) for (let j = i + 1; j < ds.length; j++) {
       pairs++;
-      expect(hasClearDifference(ds[i], ds[j]), `${sample.entries[i].id} vs ${sample.entries[j].id}`).toBe(true);
+      expect(areDistinct(ds[i], ds[j]), `${sample.entries[i].id} vs ${sample.entries[j].id}`).toBe(true);
     }
     expect(pairs).toBe(190);
   });
 
   it('each entry is unique against all the others', () => {
     const reg = sample.entries.map((e) => ({ id: e.id, signature: e.signature, design: nd(e.design) }));
-    for (const e of reg) expect(checkUnique(e.design, e.signature, reg, e.id)).toEqual({ kind: 'ok' });
+    for (const e of reg) expect(checkUnique(e.design, e.signature, reg, e.id).kind).toBe('ok');
   });
 
   it('search sanity checks (FINDINGS §7)', () => {
@@ -339,8 +339,8 @@ describe('uniqueness worked examples (W1–W12)', () => {
     ['W5', { v: 1, field: az, charges: { charge: 'wolf', count: 1, placement: 'field', posture: 'passant', tincture: 'argent' } },
       { v: 1, field: az, charges: { charge: 'wolf', count: 1, placement: 'field', posture: 'rampant', tincture: 'argent' } }, 'ok', ['charge-posture']],
     ['W6', { v: 1, field: az, ordinary: { type: 'bend', tincture: 'or' } },
-      { v: 1, field: az, ordinary: { type: 'bend-sinister', tincture: 'or' } }, 'ok', ['ordinary-type']],
-    ['W7', { v: 1, field: div('per-pale', 'azure', 'or') }, { v: 1, field: div('per-pale', 'or', 'azure') }, 'ok', ['field-tincture']],
+      { v: 1, field: az, ordinary: { type: 'bend-sinister', tincture: 'or' } }, 'too-close', ['ordinary-type']],
+    ['W7', { v: 1, field: div('per-pale', 'azure', 'or') }, { v: 1, field: div('per-pale', 'or', 'azure') }, 'too-close', ['field-tincture']],
     ['W8', { v: 1, field: plain('vert'), charges: { charge: 'mullet', count: 3, placement: 'field', tincture: 'or' } },
       { v: 1, field: plain('vert'), charges: { charge: 'mullet', count: 3, placement: 'field', arrangement: 'in-fess', tincture: 'or' } }, 'ok', ['charge-arrangement']],
     ['W9', { v: 1, field: az, charges: { charge: 'lion', count: 1, placement: 'field', tincture: 'or' } },
@@ -348,7 +348,7 @@ describe('uniqueness worked examples (W1–W12)', () => {
     ['W10', { v: 1, field: az, ordinary: { type: 'bend', tincture: 'or' } },
       { v: 1, field: az, ordinary: { type: 'bend', tincture: 'or' }, charges: { charge: 'unicorn', count: 3, placement: 'ordinary', tincture: 'vert' } }, 'ok', ['charges-presence']],
     ['W11', { v: 1, field: plain('vert'), charges: { charge: 'mullet', count: 5, placement: 'field', tincture: 'or' } },
-      { v: 1, field: plain('vert'), charges: { charge: 'mullet', count: 3, placement: 'field', tincture: 'or' } }, 'ok', ['charge-count']],
+      { v: 1, field: plain('vert'), charges: { charge: 'mullet', count: 3, placement: 'field', tincture: 'or' } }, 'ok', ['charge-count', 'charge-arrangement']],
     // NB the "new" W12 design (Argent roses on an Or chevron) breaks the rule of tincture; only its difference is tested.
     ['W12', { v: 1, field: az, ordinary: { type: 'chevron', tincture: 'or' }, charges: { charge: 'rose', count: 3, placement: 'field', tincture: 'argent' } },
       { v: 1, field: az, ordinary: { type: 'chevron', tincture: 'or' }, charges: { charge: 'rose', count: 3, placement: 'ordinary', tincture: 'argent' } }, 'ok', ['charge-placement']],
@@ -359,7 +359,7 @@ describe('uniqueness worked examples (W1–W12)', () => {
       const v = checkUnique(n, signature(n), [{ id: 'existing', signature: signature(e), design: e }]);
       expect(v.kind).toBe(verdict);
       expect(differences(n, e).map((d) => d.attr)).toEqual(attrs);
-      if (v.kind === 'too-close') expect(v.minor).toEqual(attrs);
+      if (v.kind === 'too-close') expect(v.differences.map((d) => d.attr)).toEqual(attrs);
     });
   }
 
@@ -367,8 +367,11 @@ describe('uniqueness worked examples (W1–W12)', () => {
     const a = nd({ v: 1, field: plain('sable'), ordinary: { type: 'bordure', tincture: 'argent' }, charges: { charge: 'wolf', count: 1, placement: 'field', posture: 'statant', tincture: 'or' } });
     const demo004 = nd(sample.entries[3].design);
     const v = checkUnique(a, signature(a), sample.entries.map((e) => ({ id: e.id, signature: e.signature, design: nd(e.design) })));
-    expect(v).toEqual({ kind: 'too-close', of: 'demo-004', minor: ['charge-posture'] });
-    expect(explainDifferences(a, demo004)).toEqual(['posture (statant ↔ passant)']);
+    expect(v).toEqual({ kind: 'too-close', of: 'demo-004', differences: [{ attr: 'charge-posture', weight: 'minor', reason: 'similar-postures' }] });
+    expect(explainDifferences(a, demo004)).toEqual([{
+      attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)',
+      why: "Standing (statant) and walking (passant) look almost the same — that's only half a difference.",
+    }]);
   });
 
   it('the Azure-bend-Or journey design is a duplicate of demo-001', () => {
@@ -377,11 +380,11 @@ describe('uniqueness worked examples (W1–W12)', () => {
     expect(v).toEqual({ kind: 'duplicate', of: 'demo-001' });
   });
 
-  it('forced vs chosen arrangement with the same count is listed but not clear', () => {
-    // Two roses between a fess (forced) vs two roses in fess under a chief: only the ordinary type is clear.
+  it('an arrangement placed by the ordinary is not compared on its own', () => {
+    // Two roses between a fess (forced) vs two roses in fess under a chief: the ordinary type decides.
     const a = nd({ v: 1, field: plain('azure'), ordinary: { type: 'fess', tincture: 'argent' }, charges: { charge: 'rose', count: 2, placement: 'field', tincture: 'or' } });
     const b = nd({ v: 1, field: plain('azure'), ordinary: { type: 'chief', tincture: 'argent' }, charges: { charge: 'rose', count: 2, placement: 'field', tincture: 'or' } });
-    expect(differences(a, b)).toEqual([{ attr: 'ordinary-type', clear: true }, { attr: 'charge-arrangement', clear: false }]);
+    expect(differences(a, b)).toEqual([{ attr: 'ordinary-type', weight: 'clear' }]);
   });
 });
 
@@ -649,9 +652,9 @@ describe('charge-specific posture words', () => {
 
   it('difference text names postures by their blazon term', () => {
     const stag = (posture: string) => nd({ v: 1, field: plain('vert'), charges: { charge: 'stag', count: 1, placement: 'field', tincture: 'or', posture } });
-    expect(explainDifferences(stag('statant'), stag('passant'))).toEqual(['posture (statant ↔ trippant)']);
+    expect(explainDifferences(stag('statant'), stag('passant')).map((n) => n.text)).toEqual(['posture (statant ↔ trippant)']);
     const hareSejant = nd({ ...hare, charges: { ...hare.charges, posture: 'sejant' } });
-    expect(explainDifferences(nd(hare), hareSejant)).toEqual(['posture (courant ↔ sejant)']);
+    expect(explainDifferences(nd(hare), hareSejant).map((n) => n.text)).toEqual(['posture (courant ↔ sejant)']);
   });
 });
 

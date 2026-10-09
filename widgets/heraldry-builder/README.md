@@ -18,7 +18,8 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
   plain-English gloss are generated from the structured design, never typed by hand.
 - **Registry.** Each community (a *registry*, e.g. one group of friends) keeps its own
   armorial. Registering checks the design against every entry: an exact duplicate is refused, and so
-  is a design that is "too close" (no clear difference). Anyone can search the registry by
+  is a design that is "too close" (not different enough: less than one clear difference, where
+  look-alike charges and mirror images count half). Anyone can search the registry by
   component: charge, posture, ordinary, field division, any tincture, charge tincture, or text.
 - **No accounts.** Registering returns a private edit link (a capability URL). Keep it to edit or
   withdraw the entry later.
@@ -200,23 +201,46 @@ tincture. It then computes everything itself:
   Equivalent inputs normalise to the same signature, so you can't "blazon your way out" of a
   duplicate. A `UNIQUE INDEX` on `(registry_id, signature)` makes exact duplicates impossible,
   even under concurrent registrations (a lost race also answers `409 duplicate`).
-- **"Too close" rule.** A new design needs **at least one clear difference** from every entry in
-  the registry. The clear differences are:
-  - field division
-  - field tincture (swapping halves counts)
-  - ordinary presence, type or tincture
-  - charge presence, type or tincture
-  - placement (on the ordinary vs around it)
-  - count, unless both counts are 4 or more
-  - arrangement, for the same count, when neither arrangement is forced
-  - posture, when the postures are in different posture groups
+- **"Too close" rule.** A new design must be **different enough** from every entry in the
+  registry: each difference scores **1 point when clear** and **½ when minor**, and it needs a total
+  of **at least 1** — one clear difference, or two minor ones.
 
-  Rampant vs passant is clear. Passant vs statant is minor, and so is 4 vs 5 charges. The check
-  only needs to compare against entries with the same field division, ordinary and charge (every
-  other difference in the list above is decided on those), so the Worker loads just those
-  candidates through the `arms_registry_similarity` index, in registration order, and reports the
-  first conflict, with its minor differences listed ("posture (statant ↔ passant)"). This is deliberately more lenient than the
-  SCA's rules: it is a nametag system for a community, not a kingdom armorial.
+  | Change | Points |
+  |---|---|
+  | field division (plain ↔ divided, or another division) | 1 |
+  | per bend ↔ per bend sinister (mirror image) | ½ |
+  | field tincture | 1 |
+  | the same two field tinctures on swapped sides ("Per pale Or and Azure" ↔ "Per pale Azure and Or") | ½ |
+  | ordinary added, removed, another type, or another tincture | 1 |
+  | bend ↔ bend sinister (mirror image) | ½ |
+  | charges added or removed; charge tincture (counterchanged counts as its own tincture); placement (on the ordinary vs around it) | 1 |
+  | charge type | 1 |
+  | charge type within a similarity group: lion ↔ wolf ↔ unicorn ↔ goat, rose ↔ gear ↔ sun | ½ |
+  | count, unless both are 4 or more | 1 |
+  | count, both 4 or more | ½ |
+  | arrangement, same count | 1 |
+  | in bend ↔ in bend sinister (mirror image) | ½ |
+  | arrangement alongside a count change (four in cross ↔ five in saltire) | ½ |
+  | posture in another posture group (also compared across charges of one similarity group) | 1 |
+  | passant ↔ statant | ½ |
+
+  The similarity groups are `SIMILARITY_GROUP` in `src/lib/heraldry/charges.ts`: at nametag size
+  (a shield about 32 px tall) a lion, wolf, unicorn and goat are the same silhouette, and a rose, gear
+  and sun are all a round boss with a ring of points. Across counts, four "two and two" and five "in
+  saltire" are the same pattern (the same four corners plus a centre), just as four and five in cross
+  are. Or ↔ Argent and Celestine ↔ Azure/Argent stay clear: they are different tinctures with
+  different hatching. A single charge or charges placed by an ordinary have no arrangement of their
+  own, so it is not compared. The field shape is never compared.
+
+  A change of division (other than its mirror), of ordinary type (other than its mirror) or of charge
+  outside its similarity group is always a full point, so the check only needs entries that share all
+  three groups. Each row stores them (`division_group`, `ordinary_group`, `charge_group`), and
+  the Worker loads just those candidates through the `arms_registry_similar_groups` index, in
+  registration order, and reports the first entry that is too close, with each difference and why it
+  counts half ("Lion and wolf count as the same shape at nametag size — that's only half a
+  difference") and the tally ("½ — not enough (needs 1)"). An available design also names the first
+  entry it only passed by adding up halves ("½ + ½ = 1 — different enough"). This is deliberately
+  more lenient than the SCA's rules: it is a nametag system for a community, not a kingdom armorial.
 - A registry holds at most **2,000 entries** (`409 registry_full`), counted with `COUNT(*)`.
 
 ### API (`worker/index.ts`)
@@ -228,7 +252,7 @@ where noted.
 |---|---|
 | `GET /api/registries` | `[{ id, name, isDefault }]` |
 | `GET /api/arms?…` | Public search (parameters below) → `{ registry: {id,name}, total, offset, limit, items: [{ id, displayName, design, shape, blazon, signature, readability, createdAt }] }`. Never includes the contact. |
-| `POST /api/arms/check` | `{ registry?, design }` → `200 { verdict: 'ok' \| 'duplicate' \| 'too-close', conflict?: {id, displayName, blazon, design, shape}, differences?, registry, blazon, signature, readability }`. Not rate-limited. |
+| `POST /api/arms/check` | `{ registry?, design }` → `200 { verdict: 'ok' \| 'duplicate' \| 'too-close', conflict?: {id, displayName, blazon, design, shape}, differences?, closest?, registry, blazon, signature, readability }`. `differences` (too-close) are `[{ attr, weight: 'clear' \| 'minor', text, why? }]` (`why` on minor ones only); `closest` (ok) is `{ conflict, differences }` for the first entry passed only by adding up minor differences, else `null`. Not rate-limited. |
 | `POST /api/arms` | `{ registry?, displayName, email, contact?: { discord }, design, shape? }` (shape defaults to `heater`) → `201 { id, editSecret, registry: {id,name}, rev: 1, blazon, signature, editLinkEmail: 'sent' \| 'failed' \| 'disabled' }`. The edit link is emailed before answering; the registration stands whatever `editLinkEmail` says. |
 | `GET /api/arms/:id` | One entry: `{ id, registry, displayName, contact: { discord }, design, shape, blazon, signature, readability, rev, createdAt, updatedAt }`. Never the secret hash or the owner's email. |
 | `GET /api/arms/:id/owner` | Owner check. `Authorization: Bearer <secret>` → `200 { id, owner: true }`; otherwise 401/403 (404 unknown entry). |
@@ -438,6 +462,9 @@ migration: add the next-numbered file.
   and `owner_tokens`. Production has no arms rows yet, so nothing is lost.
 - `0005_search_text.sql`: the `search_text` column free-text search runs over. Existing rows get their
   name and blazon words; the Worker writes the full text (with the gloss) on every register and edit.
+- `0006_similarity_groups.sql`: the `division_group`, `ordinary_group` and `charge_group` columns
+  (filled in for existing rows) and the `arms_registry_similar_groups` index the too-close lookup
+  uses, replacing 0002's index on the exact columns.
 
 Local database (used by `wrangler dev`):
 

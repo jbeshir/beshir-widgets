@@ -29,8 +29,8 @@
 // in the sample; the UI offers "Show offline sample" (search/getEntry with `{ sample: true }`).
 
 import {
-  DEFAULT_FIELD_SHAPE, NO_CONTACT, buildSearchText, checkUnique, explainDifferences, isFieldShape, parseSearchParams, normalise, readability, resolve,
-  searchEntries, searchParamsToUrl, signature, blazon, type Contact, type FieldShape, type Issue, type MailOutcome, type ShapedDesign, type NormDesign, type ReadabilityBand, type SearchParams,
+  DEFAULT_FIELD_SHAPE, NO_CONTACT, buildSearchText, checkUnique, explainDifferences, isDiffAttr, isFieldShape, parseSearchParams, normalise, readability, resolve,
+  searchEntries, searchParamsToUrl, signature, blazon, type Contact, type DifferenceNote, type FieldShape, type Issue, type MailOutcome, type ShapedDesign, type NormDesign, type ReadabilityBand, type SearchParams,
 } from './lib/heraldry';
 import { forgetDeviceArms, listDeviceArms, rememberDeviceArms, type DeviceArms } from './lib/deviceArms';
 import { clearDraft as clearStoredDraft, readDraft, writeDraft } from './lib/deviceDraft';
@@ -64,8 +64,8 @@ export interface Failure {
   /** duplicate / too_close (409): the conflicting entry. */
   conflictId?: string;
   conflict?: ConflictSummary;
-  /** too_close: human descriptions of the (minor) differences. */
-  differences?: string[];
+  /** too_close: each difference in words, and why a minor one counts only half. */
+  differences?: DifferenceNote[];
   /** 400 on an entry field: 'displayName' | 'email' | 'discord' | 'shape' | 'token'. */
   field?: string;
   /** 400 on a search parameter. */
@@ -121,11 +121,19 @@ export interface SearchPage {
 
 export type Verdict = 'ok' | 'duplicate' | 'too-close';
 
+/** An entry and the differences from it, in words. */
+export interface ComparedEntry {
+  conflict: ConflictSummary;
+  differences: DifferenceNote[];
+}
+
 export interface CheckResult {
   verdict: Verdict;
   registry: RegistryRef;
   conflict?: ConflictSummary;
-  differences?: string[];
+  differences?: DifferenceNote[];
+  /** ok: the first entry this design is different enough from only by adding up minor differences. */
+  closest: ComparedEntry | null;
   blazon: string;
   signature: string;
   readability: ReadabilityBand;
@@ -299,12 +307,19 @@ function checkSample(design: unknown): Result<{ result: CheckResult }> {
   const ordered = s.entries.slice().sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? -1 : 1) : a.createdAt < b.createdAt ? -1 : 1));
   const v = checkUnique(nd, sig, ordered);
   const base = { registry: s.registry, blazon: blazon(nd), signature: sig, readability: readability(nd).band, sample: true };
-  if (v.kind === 'ok') return { ok: true, result: { verdict: 'ok', ...base } };
-  const hit = ordered.find((e) => e.id === v.of)!;
-  if (v.kind === 'duplicate') return { ok: true, result: { verdict: 'duplicate', conflict: conflictOf(hit), ...base } };
+  const entry = (id: string) => ordered.find((e) => e.id === id)!;
+  if (v.kind === 'ok') {
+    const closest = v.closest && {
+      conflict: conflictOf(entry(v.closest.of)),
+      differences: explainDifferences(nd, entry(v.closest.of).design, v.closest.differences),
+    };
+    return { ok: true, result: { verdict: 'ok', closest, ...base } };
+  }
+  const hit = entry(v.of);
+  if (v.kind === 'duplicate') return { ok: true, result: { verdict: 'duplicate', conflict: conflictOf(hit), closest: null, ...base } };
   return {
     ok: true,
-    result: { verdict: 'too-close', conflict: conflictOf(hit), differences: explainDifferences(nd, hit.design), ...base },
+    result: { verdict: 'too-close', conflict: conflictOf(hit), differences: explainDifferences(nd, hit.design, v.differences), closest: null, ...base },
   };
 }
 
@@ -359,7 +374,7 @@ function httpFailure(status: number, data: unknown): Failure {
   if (str(b.conflictId)) f.conflictId = str(b.conflictId);
   const c = toConflict(b.conflict);
   if (c) f.conflict = c;
-  if (Array.isArray(b.differences)) f.differences = b.differences.filter((d): d is string => typeof d === 'string');
+  if (Array.isArray(b.differences)) f.differences = toDifferenceNotes(b.differences);
   if (str(b.field)) f.field = str(b.field);
   if (str(b.param)) f.param = str(b.param);
   return f;
@@ -406,6 +421,24 @@ function toConflict(v: unknown): ConflictSummary | null {
     design: toDesign(o.design),
     shape: toShape(o.shape),
   };
+}
+
+/** The well-formed difference notes of a response (anything malformed is dropped). */
+function toDifferenceNotes(vs: unknown[]): DifferenceNote[] {
+  return vs.flatMap((v): DifferenceNote[] => {
+    const o = obj(v);
+    if (!o || !isDiffAttr(o.attr) || typeof o.text !== 'string') return [];
+    if (o.weight === 'clear') return [{ attr: o.attr, weight: 'clear', text: o.text }];
+    if (o.weight === 'minor' && typeof o.why === 'string') return [{ attr: o.attr, weight: 'minor', text: o.text, why: o.why }];
+    return [];
+  });
+}
+
+function toComparedEntry(v: unknown): ComparedEntry | null {
+  const o = obj(v);
+  const conflict = toConflict(o?.conflict);
+  if (!o || !conflict || !Array.isArray(o.differences)) return null;
+  return { conflict, differences: toDifferenceNotes(o.differences) };
 }
 
 function toBand(v: unknown, nd: NormDesign): ReadabilityBand {
@@ -527,11 +560,12 @@ export async function check(registry: string | null, design: unknown): Promise<R
     blazon: typeof o.blazon === 'string' ? o.blazon : '',
     signature: typeof o.signature === 'string' ? o.signature : '',
     readability: o.readability === 'bold' || o.readability === 'fine' || o.readability === 'busy' ? o.readability : 'fine',
+    closest: verdict === 'ok' ? toComparedEntry(o.closest) : null,
     sample: false,
   };
   const c = toConflict(o.conflict);
   if (c) result.conflict = c;
-  if (Array.isArray(o.differences)) result.differences = o.differences.filter((d): d is string => typeof d === 'string');
+  if (Array.isArray(o.differences)) result.differences = toDifferenceNotes(o.differences);
   return { ok: true, result };
 }
 

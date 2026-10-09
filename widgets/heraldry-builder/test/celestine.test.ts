@@ -156,7 +156,7 @@ describe('celestine in words, signature and tags', () => {
 
   it('names celestine in difference text', () => {
     const argent = nd({ v: 1, field: plain('argent'), charges: { charge: 'crescent', count: 1, placement: 'field', tincture: 'gules' } });
-    expect(explainDifferences(field, argent)).toEqual(['field tincture (Celestine ↔ Argent)']);
+    expect(explainDifferences(field, argent).map((n) => n.text)).toEqual(['field tincture (Celestine ↔ Argent)']);
   });
 });
 

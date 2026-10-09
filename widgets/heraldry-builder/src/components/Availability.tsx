@@ -2,9 +2,11 @@
 // server answers 409 duplicate / too_close, so both places show the same UI. The testids
 // availability-ok / -duplicate / -too-close / -error are the journey contract.
 
-import type { ConflictSummary, Result, CheckResult } from '../store';
+import type { ComparedEntry, ConflictSummary, Result, CheckResult } from '../store';
 import { entryHash } from '../lib/route';
-import { CLEAR_CHANGE_HINT } from '../lib/heraldry';
+import {
+  CLEAR_CHANGE_HINT, HALF_DIFFERENCE_HINT, POINTS, pointsText, tallyText, type DiffAttr, type DifferenceNote,
+} from '../lib/heraldry';
 import { Shield } from './Shield';
 
 export type CheckOutcome = Result<{ result: CheckResult }>;
@@ -12,7 +14,7 @@ export type CheckOutcome = Result<{ result: CheckResult }>;
 interface TakenProps {
   verdict: 'duplicate' | 'too-close';
   conflict?: ConflictSummary | null;
-  differences?: string[];
+  differences?: DifferenceNote[];
   registryName?: string | null;
   /** Called when "View" is pressed (the link also works on its own via the hash route). */
   onView?: () => void;
@@ -27,11 +29,35 @@ const JUMP_LABEL: Record<JumpTarget, string> = {
   arrangement: 'Change the arrangement', posture: 'Change the posture', tincture: 'Change a tincture',
 };
 
+/** The builder control behind each kind of difference. */
+const JUMP_FOR: Record<DiffAttr, JumpTarget> = {
+  'field-division': 'field', 'field-tincture': 'tincture',
+  'ordinary-presence': 'ordinary', 'ordinary-type': 'ordinary', 'ordinary-tincture': 'tincture',
+  'charges-presence': 'charge', 'charge-type': 'charge', 'charge-tincture': 'tincture', 'charge-placement': 'charge',
+  'charge-count': 'count', 'charge-arrangement': 'arrangement', 'charge-posture': 'posture',
+};
+
 /** Which controls the listed differences point at (falls back to the three step sections). */
-function jumpTargets(differences?: string[]): JumpTarget[] {
-  const text = (differences ?? []).join(' ').toLowerCase();
-  const hit = (['posture', 'arrangement', 'count', 'tincture'] as const).filter((k) => text.includes(k));
+function jumpTargets(differences?: readonly DifferenceNote[]): JumpTarget[] {
+  const hit = [...new Set((differences ?? []).map((d) => JUMP_FOR[d.attr]))];
   return hit.length ? hit : ['field', 'ordinary', 'charge'];
+}
+
+/** Each difference with its points, why a minor one counts half, and the tally. */
+function DifferenceList({ differences }: { differences: readonly DifferenceNote[] }) {
+  return (
+    <>
+      <ul class="differences" data-testid="availability-differences">
+        {differences.map((d) => (
+          <li key={d.attr}>
+            {d.text} — <strong>{pointsText(POINTS[d.weight])}</strong>
+            {d.weight === 'minor' && <span class="difference-why">{d.why}</span>}
+          </li>
+        ))}
+      </ul>
+      <p class="difference-tally" data-testid="availability-tally">{tallyText(differences)}</p>
+    </>
+  );
 }
 
 /** The sentence announced through the page's live region when a check finishes. */
@@ -79,14 +105,25 @@ export function TakenPanel({ verdict, conflict: c, differences, registryName, on
       {differences?.length ? (
         <div>
           <p class="availability-help">It only differs by:</p>
-          <ul class="differences" data-testid="availability-differences">
-            {differences.map((d) => <li key={d}>{d}</li>)}
-          </ul>
+          <DifferenceList differences={differences} />
         </div>
       ) : null}
       <p class="availability-help">Change at least one of: {CLEAR_CHANGE_HINT}.</p>
+      <p class="availability-help" data-testid="availability-half-rule">{HALF_DIFFERENCE_HINT}</p>
       {jumps}
       {card}
+    </div>
+  );
+}
+
+/** An available design that only passed an entry by adding up half differences. */
+function ClosestEntry({ closest }: { closest: ComparedEntry }) {
+  return (
+    <div data-testid="availability-closest">
+      <p class="availability-help">
+        Closest: the arms of {closest.conflict.displayName} ({closest.conflict.blazon}). It differs only by:
+      </p>
+      <DifferenceList differences={closest.differences} />
     </div>
   );
 }
@@ -104,6 +141,7 @@ export function Availability({ outcome, onJump }: { outcome: CheckOutcome; onJum
     return (
       <div class="availability availability-ok" data-testid="availability-ok">
         <p><strong>Available</strong> in {r.registry.name}.{r.sample ? ' (Checked against the offline sample.)' : ''}</p>
+        {r.closest && <ClosestEntry closest={r.closest} />}
       </div>
     );
   }
