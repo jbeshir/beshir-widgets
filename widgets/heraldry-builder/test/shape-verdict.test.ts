@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  FIELD_SHAPES, SHAPE_LAYOUT, chargeContext, chargeSlotContacts, chargeTinctureChoices, contrastFailure,
+  FIELD_SHAPES, SHAPE_LAYOUT, chargeContext, chargeContrastFailure, chargeSlotContacts, chargeTinctureChoices,
   fieldTinctureChoices, inFirstPart, ordinaryTinctureChoices, probePoints, resolve, shapedChargeSlots,
   suggestTinctureFix, validate, type FieldShape, type NormDesign, type ShapedDesign, type Slot, type Tincture,
 } from '../src/lib/heraldry';
@@ -39,12 +39,31 @@ const BROKEN: Array<[string, unknown]> = [
   ['per pale, fess between 3', { v: 1, field: div('per-pale', 'gules', 'or'), ordinary: { type: 'fess', tincture: 'argent' }, charges: group('sun', 3, 'azure') }],
   ['plain, colour on colour', { v: 1, field: plain('vert'), charges: group('wolf', 2, 'gules') }],
   ['on a pale, metal on metal', { v: 1, field: plain('azure'), ordinary: { type: 'pale', tincture: 'or' }, charges: { ...group('key', 3, 'argent'), placement: 'ordinary' } }],
+  ['counterchanged on two metals', { v: 1, field: div('per-pale', 'or', 'argent'), charges: group('mullet', 3, 'counterchanged') }],
+  ['counterchanged on two colours', { v: 1, field: div('quarterly', 'gules', 'azure'), charges: group('rose', 4, 'counterchanged') }],
+  ['counterchanged on a plain field', { v: 1, field: plain('vert'), charges: group('mullet', 2, 'counterchanged') }],
+  ['counterchanged on an ordinary', { v: 1, field: div('per-fess', 'or', 'azure'), ordinary: { type: 'fess', tincture: 'gules' }, charges: { ...group('key', 3, 'counterchanged'), placement: 'ordinary' } }],
+];
+
+/** Counterchanged charges on a metal-and-colour field, in every division and kind of field placement. */
+const COUNTERCHANGED: Array<[string, unknown]> = [
+  ['per pale, 3 two and one', { v: 1, field: div('per-pale', 'or', 'azure'), charges: group('mullet', 3, 'counterchanged') }],
+  ['per fess, 2 in bend', { v: 1, field: div('per-fess', 'gules', 'argent'), charges: group('rose', 2, 'counterchanged', 'in-bend') }],
+  ['per bend, 3 in fess', { v: 1, field: div('per-bend', 'celestine', 'vert'), charges: group('key', 3, 'counterchanged', 'in-fess') }],
+  ['per bend sinister, single', { v: 1, field: div('per-bend-sinister', 'sable', 'or'), charges: { ...group('lion', 1, 'counterchanged'), posture: 'rampant' } }],
+  ['per saltire, 5 in cross', { v: 1, field: div('per-saltire', 'argent', 'purpure'), charges: group('heart', 5, 'counterchanged', 'in-cross') }],
+  ['per chevron, 6', { v: 1, field: div('per-chevron', 'azure', 'or'), charges: group('crescent', 6, 'counterchanged') }],
+  ['quarterly, 4 two and two', { v: 1, field: div('quarterly', 'or', 'gules'), charges: group('anchor', 4, 'counterchanged') }],
+  ['per pale, chief, 3 under', { v: 1, field: div('per-pale', 'argent', 'vert'), ordinary: { type: 'chief', tincture: 'sable' }, charges: group('mullet', 3, 'counterchanged') }],
+  ['per fess, bordure, 2', { v: 1, field: div('per-fess', 'or', 'sable'), ordinary: { type: 'bordure', tincture: 'gules' }, charges: group('sun', 2, 'counterchanged') }],
+  ['per pale, pile between 2', { v: 1, field: div('per-pale', 'azure', 'argent'), ordinary: { type: 'pile', tincture: 'gules' }, charges: group('fish', 2, 'counterchanged') }],
 ];
 
 const DESIGNS: Array<[string, NormDesign]> = [
   ...sample.entries.map((e): [string, unknown] => [e.id, e.design]),
   ...V.map((c): [string, unknown] => [c.id, c.design]),
   ...BROKEN,
+  ...COUNTERCHANGED,
 ].flatMap(([name, raw]) => {
   const r = resolve(raw);
   return r.ok ? [[name, r.design] as [string, NormDesign]] : [];
@@ -82,6 +101,8 @@ describe('every field shape gives the same verdict', () => {
   it('covers valid and rule-breaking designs', () => {
     const verdicts = DESIGNS.map(([, nd]) => verdict(nd).report.status);
     expect(verdicts.filter((s) => s === 'valid').length).toBeGreaterThan(100);
+    const counterchanged = DESIGNS.filter(([, nd]) => nd.charges?.tincture === 'counterchanged').map(([, nd]) => verdict(nd).report.status);
+    expect(counterchanged.filter((s) => s === 'valid').length).toBeGreaterThanOrEqual(COUNTERCHANGED.length + 3);
     expect(verdicts.filter((s) => s === 'violation').length).toBeGreaterThanOrEqual(BROKEN.length + 6);
   });
 
@@ -94,9 +115,9 @@ describe('every field shape gives the same verdict', () => {
     if (nd.charges && chargeContext(nd.ordinary, nd.charges.placement) !== 'on') {
       it(`${name}: judged on the drawing in each shape, every charge gets its canonical verdict`, () => {
         const t = nd.charges!.tincture;
-        const canonical = chargeSlotContacts(nd).map((cs) => contrastFailure(t, cs));
+        const canonical = chargeSlotContacts(nd).map((cs) => chargeContrastFailure(t, nd.field, cs));
         for (const shape of FIELD_SHAPES) {
-          const drawn = shapedChargeSlots(nd, shape).map((s) => contrastFailure(t, drawnContacts(nd, s, shape)));
+          const drawn = shapedChargeSlots(nd, shape).map((s) => chargeContrastFailure(t, nd.field, drawnContacts(nd, s, shape)));
           expect(drawn, shape).toEqual(canonical);
         }
       });

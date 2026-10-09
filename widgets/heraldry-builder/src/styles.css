@@ -881,7 +881,7 @@ button, input, select, textarea {
   gap: 4px;
   min-width: 0;
 }
-.swatch-group:last-child { flex: 1 1 240px; }
+.swatch-group-colours { flex: 1 1 240px; }
 
 .swatch-group-label {
   font-size: 14px;
@@ -935,6 +935,9 @@ button, input, select, textarea {
   display: grid;
   place-items: center;
 }
+.swatch-chip.tincture-counterchanged { overflow: hidden; }
+.swatch-chip.tincture-counterchanged > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.swatch-chip.tincture-counterchanged > .lock-glyph { position: relative; }
 .swatch-chip .lock-glyph {
   width: 18px;
   height: 18px;

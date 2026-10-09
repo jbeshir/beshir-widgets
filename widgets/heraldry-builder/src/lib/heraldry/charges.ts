@@ -18,7 +18,7 @@ export function postureGroup(p: Posture | null | undefined): PostureGroup | null
 /** Plain-English posture words for the gloss (§4.5). Displayed is folded into the eagle's gloss name. */
 export const POSTURE_GLOSS: Record<Posture, string | null> = {
   rampant: 'rearing up', passant: 'walking', statant: 'standing', sejant: 'sitting',
-  naiant: 'swimming', haurient: 'leaping upward', displayed: null,
+  naiant: 'swimming', haurient: 'upright, head up', displayed: null,
 };
 
 export type ChargeCategory = 'beast' | 'monster' | 'bird' | 'plant' | 'geometric' | 'object' | 'modern';

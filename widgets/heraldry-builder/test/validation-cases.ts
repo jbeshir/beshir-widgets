@@ -79,7 +79,7 @@ export const V: VCase[] = [
   },
   {
     id: 'V10', design: { v: 1, field: plain('vert'), ordinary: { type: 'chevron', tincture: 'or' }, charges: { charge: 'rose', count: 3, placement: 'field', tincture: 'argent' } },
-    blazon: 'Vert, a chevron Or between three roses Argent', gloss: 'A green shield with a gold upside-down V between three white roses.',
+    blazon: 'Vert, a chevron Or between three roses Argent', gloss: 'A green shield with a gold upside-down V and three white roses, two above and one below.',
     valid: true, signature: 'v1|F:plain:vt|O:chevron:or|C:rose:3:field:forced:-:ar', score: 4, band: 'fine',
   },
   {
@@ -126,7 +126,7 @@ export const V: VCase[] = [
   {
     id: 'V18', design: { v: 1, field: div('per-pale', 'azure', 'vert'), ordinary: { type: 'chevron', tincture: 'argent' }, charges: { charge: 'wolf', count: 3, placement: 'field', posture: 'passant', tincture: 'or' } },
     blazon: 'Per pale Azure and Vert, a chevron Argent between three wolves passant Or',
-    gloss: 'A shield split vertically, blue on the left and green on the right, with a white upside-down V between three gold wolves walking.',
+    gloss: 'A shield split vertically, blue on the left and green on the right, with a white upside-down V and three gold wolves walking, two above and one below.',
     valid: true, signature: 'v1|F:per-pale:az:vt|O:chevron:ar|C:wolf:3:field:forced:passant:or', score: 7, band: 'busy',
   },
   {

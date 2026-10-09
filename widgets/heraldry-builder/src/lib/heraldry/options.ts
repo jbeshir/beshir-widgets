@@ -9,11 +9,16 @@
 import { CHARGES, postureTerm, type ChargeId, type Posture } from './charges';
 import {
   COUNTS, FIELD_ARR, ORDINARY_NAME, ORDINARY_TYPES, chargeContext, chargeNoun, chargeStructureIssue, defaultArrangement,
-  legalArrangements, type Arrangement, type Count, type NormChargeGroup, type NormDesign, type OrdinaryType, type Placement,
+  legalArrangements, type Arrangement, type Count, type NormChargeGroup, type NormDesign, type Ordinary, type OrdinaryType, type Placement,
 } from './design';
 import { chargeSlots, slotContacts, type Slot } from './geometry';
-import { contrastFailure, describeSlots, ordinaryContacts, tinctureIssues, type ContrastFailure } from './tincture-rule';
-import { COLOURS, METALS, TINCTURES, TINCTURE_NAME, listTinctureNames, type Tincture } from './tinctures';
+import {
+  FAILURE_TEXT, chargeContrastFailure, contrastFailure, counterchangeUnavailable, describeSlots, ordinaryContacts, tinctureIssues,
+  type ContrastFailure,
+} from './tincture-rule';
+import {
+  CHARGE_TINCTURES, COLOURS, METALS, TINCTURES, TINCTURE_NAME, listTinctureNames, type ChargeTincture, type Tincture,
+} from './tinctures';
 
 export interface Choice<T> {
   value: T;
@@ -98,12 +103,44 @@ function chargeTinctureReason(nd: NormDesign, g: NormChargeGroup, t: Tincture, s
   return cs.length === 1 && !cs.includes(t) ? `${cap(who)} ${group.length > 1 ? 'lie' : 'lies'} on ${where}. ${reason}` : reason;
 }
 
-/** Charge tinctures against what each slot lies on (five-point probe, or the ordinary). */
-export function chargeTinctureChoices(nd: NormDesign): Choice<Tincture>[] {
+/** Why the charges can't be counterchanged: not on a divided field, or a field of two metals or two colours. */
+function counterchangeReason(nd: NormDesign): string | null {
+  const unavailable = counterchangeUnavailable(nd);
+  if (unavailable || nd.field.kind === 'plain') return unavailable;
+  const [a, b] = nd.field.tinctures;
+  const f = chargeContrastFailure('counterchanged', nd.field, [a, b]);
+  if (!f) return null;
+  if (f === 'same') return `Both parts of the field are ${TINCTURE_NAME[a]}, so there is nothing to counterchange.`;
+  const both = f === 'metal-on-metal' ? 'both metals' : 'both colours';
+  return `Counterchanged on ${TINCTURE_NAME[a]} and ${TINCTURE_NAME[b]} — ${both} — would still be ${FAILURE_TEXT[f]}. It needs a field of one metal and one colour.`;
+}
+
+/**
+ * Charge tinctures against what each slot lies on (five-point probe, or the ordinary). On a divided
+ * field (or while the charges are counterchanged) "counterchanged" is offered too, after the colours.
+ */
+export function chargeTinctureChoices(nd: NormDesign): Choice<ChargeTincture>[] {
   const g = nd.charges;
-  if (!g) return TINCTURES.map(ok);
+  const offered = nd.field.kind === 'divided' || g?.tincture === 'counterchanged' ? CHARGE_TINCTURES : TINCTURES;
+  if (!g) return offered.map(ok);
   const slots = chargeSlots(nd);
-  return TINCTURES.map((t) => choice(t, chargeTinctureReason(nd, g, t, slots)));
+  return offered.map((t) => choice(t, t === 'counterchanged' ? counterchangeReason(nd) : chargeTinctureReason(nd, g, t, slots)));
+}
+
+/**
+ * Why a charge layout would leave every tincture blocked, or null when at least one works — so a
+ * count, placement or arrangement that leads nowhere is blocked before the user picks it.
+ */
+function noTinctureReason(nd: NormDesign): string | null {
+  const g = nd.charges;
+  const choices = chargeTinctureChoices(nd);
+  if (!g || choices.some((c) => c.allowed)) return null;
+  return `No tincture would work for the ${chargeNoun(g.charge, g.count)} like this. ${choices[0].reason}`;
+}
+
+/** The charge group with one structural attribute changed, as the builder would apply it. */
+function withCharges(nd: NormDesign, g: NormChargeGroup, change: Partial<Pick<NormChargeGroup, 'count' | 'placement' | 'arrangement'>>): NormDesign {
+  return { ...nd, charges: { ...g, ...change } };
 }
 
 // ── Charge structure ────────────────────────────────────────────────────────
@@ -112,11 +149,15 @@ function keepOrDefaultArrangement(nd: NormDesign, placement: Placement, count: C
   return legalArrangements(nd.ordinary, placement, count).includes(current) ? current : defaultArrangement(nd.ordinary, placement, count);
 }
 
+/** Counts: blocked when structurally illegal here, or when they would leave no legal tincture. */
 export function countChoices(nd: NormDesign): Choice<Count>[] {
   const g = nd.charges;
   if (!g) return COUNTS.map(ok);
-  return COUNTS.map((n) => choice(n, chargeStructureIssue(nd.ordinary, g.placement, n,
-    keepOrDefaultArrangement(nd, g.placement, n, g.arrangement), g.charge)));
+  return COUNTS.map((n) => {
+    const arrangement = keepOrDefaultArrangement(nd, g.placement, n, g.arrangement);
+    return choice(n, chargeStructureIssue(nd.ordinary, g.placement, n, arrangement, g.charge)
+      ?? noTinctureReason(withCharges(nd, g, { count: n, arrangement })));
+  });
 }
 
 export function placementChoices(nd: NormDesign): Choice<Placement>[] {
@@ -126,8 +167,11 @@ export function placementChoices(nd: NormDesign): Choice<Placement>[] {
     return placements.map((p) => choice(p, p === 'ordinary' && (!nd.ordinary || nd.ordinary.type === 'bordure')
       ? chargeStructureIssue(nd.ordinary, 'ordinary', 1, 'single') : null));
   }
-  return placements.map((p) => choice(p, chargeStructureIssue(nd.ordinary, p, g.count,
-    keepOrDefaultArrangement(nd, p, g.count, g.arrangement), g.charge)));
+  return placements.map((p) => {
+    const arrangement = keepOrDefaultArrangement(nd, p, g.count, g.arrangement);
+    return choice(p, chargeStructureIssue(nd.ordinary, p, g.count, arrangement, g.charge)
+      ?? noTinctureReason(withCharges(nd, g, { placement: p, arrangement })));
+  });
 }
 
 export interface ArrangementChoices {
@@ -153,7 +197,9 @@ export function arrangementChoices(nd: NormDesign): ArrangementChoices {
   const legal = legalArrangements(nd.ordinary, g.placement, g.count);
   return {
     mode: 'choose',
-    choices: FIELD_ARR[g.count].map((a) => choice(a, legal.includes(a) ? null : chargeStructureIssue(nd.ordinary, g.placement, g.count, a, g.charge))),
+    choices: FIELD_ARR[g.count].map((a) => choice(a, legal.includes(a)
+      ? noTinctureReason(withCharges(nd, g, { arrangement: a }))
+      : chargeStructureIssue(nd.ordinary, g.placement, g.count, a, g.charge))),
   };
 }
 
@@ -209,39 +255,64 @@ export function fitCharges(nd: NormDesign): NormDesign {
   return { ...nd, charges: { ...g, placement, count, arrangement, posture } };
 }
 
-export interface TinctureFix {
-  layer: 'ordinary' | 'charges';
-  tincture: Tincture;
-  /** Button text, e.g. "Switch the lion to Gules". */
-  label: string;
-  design: NormDesign;
-  /** Every tincture that would fix the design on this layer (the suggestion is the first). */
-  alternatives: Tincture[];
+/**
+ * A one-click repair for rule-of-tincture issues: a new tincture for the charges or the ordinary
+ * (every alternative on that layer listed, the suggestion first), or — when no single layer can
+ * clear them — new tinctures for both.
+ */
+export type TinctureFix =
+  | { layer: 'charges'; tincture: ChargeTincture; alternatives: ChargeTincture[]; label: string; design: NormDesign }
+  | { layer: 'ordinary'; tincture: Tincture; alternatives: Tincture[]; label: string; design: NormDesign }
+  | { layer: 'ordinary-and-charges'; ordinary: Tincture; charges: ChargeTincture; label: string; design: NormDesign };
+
+const withChargeTincture = (nd: NormDesign, g: NormChargeGroup, t: ChargeTincture): NormDesign => ({ ...nd, charges: { ...g, tincture: t } });
+const withOrdinaryTincture = (nd: NormDesign, o: Ordinary, t: Tincture): NormDesign => ({ ...nd, ordinary: { ...o, tincture: t } });
+
+/** "Switch the lions to Gules" / "Counterchange the mullets". */
+function chargeFixWords(g: NormChargeGroup, t: ChargeTincture): string {
+  const what = `the ${chargeNoun(g.charge, g.count)}`;
+  return t === 'counterchanged' ? `counterchange ${what}` : `switch ${what} to ${TINCTURE_NAME[t]}`;
 }
 
-/** A single one-layer tincture swap that clears every rule-of-tincture issue, or null. */
+/**
+ * A tincture change that clears every rule-of-tincture issue, or null when there are none. Tries a
+ * single layer first — the charges before the ordinary when the charges have an issue, and a plain
+ * tincture before counterchanged — then both layers together, which always finds a way out, so a
+ * design never sits in a violation with no fix.
+ */
 export function suggestTinctureFix(nd: NormDesign): TinctureFix | null {
   const issues = tinctureIssues(nd);
   if (!issues.length) return null;
-  const layers: Array<'charges' | 'ordinary'> = [];
-  if (nd.charges && issues.some((i) => i.layer === 'charges')) layers.push('charges');
-  if (nd.ordinary) layers.push('ordinary');
-  if (nd.charges && !layers.includes('charges')) layers.push('charges');
-  for (const layer of layers) {
-    const fixes = TINCTURES.filter((t) => {
-      const candidate: NormDesign = layer === 'charges'
-        ? { ...nd, charges: { ...nd.charges!, tincture: t } }
-        : { ...nd, ordinary: { ...nd.ordinary!, tincture: t } };
-      return (layer === 'charges' ? nd.charges!.tincture : nd.ordinary!.tincture) !== t && !tinctureIssues(candidate).length;
-    });
-    if (fixes.length) {
-      const t = fixes[0];
-      const what = layer === 'charges' ? `the ${chargeNoun(nd.charges!.charge, nd.charges!.count)}` : `the ${ORDINARY_NAME[nd.ordinary!.type]}`;
-      const design: NormDesign = layer === 'charges'
-        ? { ...nd, charges: { ...nd.charges!, tincture: t } }
-        : { ...nd, ordinary: { ...nd.ordinary!, tincture: t } };
-      return { layer, tincture: t, label: `Switch ${what} to ${TINCTURE_NAME[t]}`, design, alternatives: fixes };
+  const g = nd.charges, o = nd.ordinary;
+  const clears = (d: NormDesign) => tinctureIssues(d).length === 0;
+  const chargeFix = (): TinctureFix | null => {
+    if (!g) return null;
+    const alternatives = CHARGE_TINCTURES.filter((t) => t !== g.tincture && clears(withChargeTincture(nd, g, t)));
+    if (!alternatives.length) return null;
+    const t = alternatives[0];
+    return { layer: 'charges', tincture: t, alternatives, label: cap(chargeFixWords(g, t)), design: withChargeTincture(nd, g, t) };
+  };
+  const ordinaryFix = (): TinctureFix | null => {
+    if (!o) return null;
+    const alternatives = TINCTURES.filter((t) => t !== o.tincture && clears(withOrdinaryTincture(nd, o, t)));
+    if (!alternatives.length) return null;
+    const t = alternatives[0];
+    return { layer: 'ordinary', tincture: t, alternatives, label: `Switch the ${ORDINARY_NAME[o.type]} to ${TINCTURE_NAME[t]}`, design: withOrdinaryTincture(nd, o, t) };
+  };
+  const bothFix = (): TinctureFix | null => {
+    if (!g || !o) return null;
+    for (const ot of TINCTURES) {
+      const base = withOrdinaryTincture(nd, o, ot);
+      const ct = CHARGE_TINCTURES.find((t) => clears(withChargeTincture(base, g, t)));
+      if (ct) {
+        return {
+          layer: 'ordinary-and-charges', ordinary: ot, charges: ct, design: withChargeTincture(base, g, ct),
+          label: `Switch the ${ORDINARY_NAME[o.type]} to ${TINCTURE_NAME[ot]} and ${chargeFixWords(g, ct)}`,
+        };
+      }
     }
-  }
-  return null;
+    return null;
+  };
+  const chargesFirst = issues.some((i) => i.layer === 'charges');
+  return (chargesFirst ? chargeFix() ?? ordinaryFix() : ordinaryFix() ?? chargeFix()) ?? bothFix();
 }

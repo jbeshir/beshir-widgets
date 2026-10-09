@@ -488,6 +488,102 @@
       },
       "signature": "v1|F:plain:ce|O:-|C:crescent:1:field:single:-:gu",
       "blazon": "Celestine, a crescent Gules"
+    },
+    {
+      "id": "demo-018",
+      "displayName": "Wren Halloway",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-22T12:00:00Z",
+      "shape": "heater",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "per-pale",
+          "tinctures": [
+            "or",
+            "azure"
+          ]
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "mullet",
+          "count": 3,
+          "placement": "field",
+          "arrangement": "two-and-one",
+          "posture": null,
+          "tincture": "counterchanged"
+        }
+      },
+      "signature": "v1|F:per-pale:or:az|O:-|C:mullet:3:field:two-and-one:-:cc",
+      "blazon": "Per pale Or and Azure, three mullets counterchanged"
+    },
+    {
+      "id": "demo-019",
+      "displayName": "Tobias Fennimore",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-23T12:00:00Z",
+      "shape": "round",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "per-fess",
+          "tinctures": [
+            "argent",
+            "gules"
+          ]
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "lion",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": "rampant",
+          "tincture": "counterchanged"
+        }
+      },
+      "signature": "v1|F:per-fess:ar:gu|O:-|C:lion:1:field:single:rampant:cc",
+      "blazon": "Per fess Argent and Gules, a lion rampant counterchanged"
+    },
+    {
+      "id": "demo-020",
+      "displayName": "Mae Okonkwo",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-24T12:00:00Z",
+      "shape": "banner",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "per-bend",
+          "tinctures": [
+            "vert",
+            "or"
+          ]
+        },
+        "ordinary": {
+          "type": "bordure",
+          "tincture": "gules"
+        },
+        "charges": {
+          "charge": "rose",
+          "count": 2,
+          "placement": "field",
+          "arrangement": "in-pale",
+          "posture": null,
+          "tincture": "counterchanged"
+        }
+      },
+      "signature": "v1|F:per-bend:vt:or|O:bordure:gu|C:rose:2:field:in-pale:-:cc",
+      "blazon": "Per bend Vert and Or, two roses counterchanged within a bordure Gules"
     }
   ]
 }

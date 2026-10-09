@@ -1,8 +1,10 @@
 // Plain-English gloss (FINDINGS §4.5). Left/right always mean as you look at the shield.
 
 import { CHARGES, postureGloss } from './charges';
-import { NUMBER_WORD, bodyKind, type Arrangement, type Field, type NormChargeGroup, type NormDesign, type Ordinary, type OrdinaryType } from './design';
-import { TINCTURE_GLOSS } from './tinctures';
+import {
+  NUMBER_WORD, bodyKind, type Arrangement, type Count, type Field, type NormChargeGroup, type NormDesign, type Ordinary, type OrdinaryType,
+} from './design';
+import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 
 export const ORDINARY_GLOSS: Record<OrdinaryType, string> = {
   fess: 'horizontal band across the middle',
@@ -27,6 +29,22 @@ export const ARRANGEMENT_GLOSS: Partial<Record<Arrangement, string>> = {
   'in-cross': 'in a cross pattern',
   'in-saltire': 'in an X pattern',
   'three-two-one': 'in rows of three, two and one',
+};
+
+/**
+ * Where charges set between an ordinary sit, keyed `${ordinary}:${count}` like the slot tables.
+ * "one on each side" / "one in each quarter" read as "a white rose on each side".
+ */
+export const BETWEEN_GLOSS: Record<string, string> = {
+  'fess:2': 'one above and one below',
+  'fess:3': 'two above and one below',
+  'pale:2': 'one on each side',
+  'bend:2': 'one above and one below',
+  'bend-sinister:2': 'one above and one below',
+  'chevron:3': 'two above and one below',
+  'cross:4': 'one in each quarter',
+  'saltire:4': 'one above, one below and one on each side',
+  'pile:2': 'one on each side',
 };
 
 /** "a" / "an" chosen from the word that follows (colour words all start with consonants today). */
@@ -56,16 +74,42 @@ export function ordinaryGloss(o: Ordinary): string {
   return `${article(c)} ${c} ${ORDINARY_GLOSS[o.type]}`;
 }
 
-/** "three green unicorns rearing up", "three red five-pointed stars, two above one". */
-export function chargesGloss(g: NormChargeGroup): string {
+/** "in the opposite colours of the field (blue on gold, gold on blue)" for counterchanged charges on a divided field. */
+function counterchangedGloss(field: Field): string {
+  if (field.kind === 'plain') return 'in the opposite colours of the field';
+  const [a, b] = field.tinctures.map((t) => TINCTURE_WORD[t]);
+  return `in the opposite colours of the field (${b} on ${a}, ${a} on ${b})`;
+}
+
+/** The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word). */
+function chargesSubject(g: NormChargeGroup, count: Count): string {
   const meta = CHARGES[g.charge];
-  const c = TINCTURE_GLOSS[g.tincture];
-  let s = `${g.count === 1 ? article(c) : NUMBER_WORD[g.count]} ${c} ${g.count === 1 ? meta.glossName : meta.glossPlural}`;
+  const noun = count === 1 ? meta.glossName : meta.glossPlural;
+  const c = g.tincture === 'counterchanged' ? null : TINCTURE_GLOSS[g.tincture];
+  const lead = count === 1 ? article(c ?? noun) : NUMBER_WORD[count];
   const pg = g.posture ? postureGloss(g.charge, g.posture) : null;
-  if (pg) s += ` ${pg}`;
+  return [lead, c, noun, pg].filter(Boolean).join(' ');
+}
+
+/** "three red five-pointed stars, two above one"; counterchanged: "three five-pointed stars in the opposite colours of the field (…), two above one". */
+export function chargesGloss(g: NormChargeGroup, field: Field): string {
+  let s = chargesSubject(g, g.count);
+  if (g.tincture === 'counterchanged') s += ` ${counterchangedGloss(field)}`;
   const ag = ARRANGEMENT_GLOSS[g.arrangement];
   if (ag) s += `, ${ag}`;
   return s;
+}
+
+/**
+ * Charges set between an ordinary, placed around it: "a white rose on each side", "two white roses,
+ * one above and one below". A count the ordinary doesn't take (a structural error) is glossed plainly.
+ */
+function betweenGloss(g: NormChargeGroup, o: Ordinary, field: Field): string {
+  const where = BETWEEN_GLOSS[`${o.type}:${g.count}`];
+  if (!where) return chargesGloss(g, field);
+  const colour = g.tincture === 'counterchanged' ? `, ${counterchangedGloss(field)}` : '';
+  if (/^one (on|in) each /.test(where)) return `${chargesSubject(g, 1)} ${where.slice('one '.length)}${colour}`;
+  return `${chargesSubject(g, g.count)}${colour}, ${where}`;
 }
 
 export function gloss(nd: NormDesign): string {
@@ -76,12 +120,12 @@ export function gloss(nd: NormDesign): string {
   switch (bodyKind(nd)) {
     case 'none': return `${field}.`;
     case 'ordOnly': rest = ordinaryGloss(o!); break;
-    case 'chargesOnly': rest = chargesGloss(c!); break;
-    case 'onOrd': rest = `${ordinaryGloss(o!)}, carrying ${chargesGloss(c!)}`; break;
-    case 'between': rest = `${ordinaryGloss(o!)} between ${chargesGloss(c!)}`; break;
+    case 'chargesOnly': rest = chargesGloss(c!, nd.field); break;
+    case 'onOrd': rest = `${ordinaryGloss(o!)}, carrying ${chargesGloss(c!, nd.field)}`; break;
+    case 'between': rest = `${ordinaryGloss(o!)} and ${betweenGloss(c!, o!, nd.field)}`; break;
     case 'withChief':
     // A trailing arrangement clause ("…, two above one") takes a comma before "and" (V11).
-    case 'withBordure': rest = `${chargesGloss(c!)}${ARRANGEMENT_GLOSS[c!.arrangement] ? ',' : ''} and ${ordinaryGloss(o!)}`; break;
+    case 'withBordure': rest = `${chargesGloss(c!, nd.field)}${ARRANGEMENT_GLOSS[c!.arrangement] ? ',' : ''} and ${ordinaryGloss(o!)}`; break;
   }
   return `${field}${joiner}${rest}.`;
 }

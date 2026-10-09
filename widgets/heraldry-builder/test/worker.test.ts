@@ -241,6 +241,29 @@ describe('POST /api/arms', () => {
     expect(typeof data.message).toBe('string');
   });
 
+  it('accepts counterchanged charges on a metal-and-colour field and rejects them elsewhere', async () => {
+    const counterchanged = (field: unknown, extra: Json = {}) =>
+      ({ v: 1, field, charges: { charge: 'crown', count: 3, placement: 'field', tincture: 'counterchanged' }, ...extra });
+    const ok = await register(counterchanged({ kind: 'divided', division: 'per-pale', tinctures: ['purpure', 'or'] }));
+    expect(ok.blazon).toBe('Per pale Purpure and Or, three crowns counterchanged');
+    expect(ok.signature).toBe('v1|F:per-pale:pu:or|O:-|C:crown:3:field:two-and-one:-:cc');
+    // The same design in a single tincture is clearly different, not too close.
+    await register({ v: 1, field: { kind: 'divided', division: 'per-pale', tinctures: ['purpure', 'or'] }, charges: { charge: 'crown', count: 3, placement: 'field', arrangement: 'in-pale', tincture: 'argent' } });
+    const rejected: Array<[unknown, RegExp]> = [
+      [counterchanged({ kind: 'divided', division: 'per-pale', tinctures: ['or', 'argent'] }), /metal on metal/],
+      [counterchanged({ kind: 'divided', division: 'quarterly', tinctures: ['gules', 'vert'] }), /colour on colour/],
+      [counterchanged(plain('purpure')), /needs a divided field/],
+      [{ ...counterchanged({ kind: 'divided', division: 'per-fess', tinctures: ['or', 'azure'] }), ordinary: { type: 'fess', tincture: 'gules' }, charges: { charge: 'crown', count: 3, placement: 'ordinary', tincture: 'counterchanged' } }, /can't be counterchanged/],
+    ];
+    for (const [design, message] of rejected) {
+      const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Counterchange', design } });
+      expect(res.status, JSON.stringify(design)).toBe(400);
+      const data = await bodyOf(res);
+      expect(data.error).toBe('invalid_design');
+      expect(data.issues.map((i: Json) => `${i.code}: ${i.message}`).join(' | ')).toMatch(message);
+    }
+  });
+
   it('rejects malformed designs (400 invalid_design)', async () => {
     const bad: unknown[] = [
       undefined,
@@ -424,7 +447,7 @@ describe('GET /api/arms (search)', () => {
 
   beforeAll(async () => {
     await addRegistry(SEARCH, 'Search test');
-    // Register the 17 sample entries in order through the real API.
+    // Register the 20 sample entries in order through the real API.
     for (const e of sample.entries) {
       const res = await call('POST', '/api/arms', {
         body: { registry: SEARCH, email: OWNER_EMAIL, displayName: e.displayName, contact: e.contact, design: e.design, shape: e.shape },
@@ -445,10 +468,10 @@ describe('GET /api/arms (search)', () => {
   it('returns the page shape, newest first, with no contact in results', async () => {
     const page = await find({});
     expect(page.registry).toEqual({ id: SEARCH, name: 'Search test' });
-    expect(page.total).toBe(17);
+    expect(page.total).toBe(20);
     expect(page.offset).toBe(0);
     expect(page.limit).toBe(24);
-    expect(page.items).toHaveLength(17);
+    expect(page.items).toHaveLength(20);
     for (const item of page.items) {
       expect(Object.keys(item).sort()).toEqual(['blazon', 'createdAt', 'design', 'displayName', 'id', 'readability', 'shape', 'signature']);
       expect(item).not.toHaveProperty('contact');
@@ -468,15 +491,16 @@ describe('GET /api/arms (search)', () => {
     expect(names(await find({ charge: 'wolf' }))).toEqual(['Cass Merriweather', 'Dev Halloran']);
     expect(names(await find({ charge: 'wolf', posture: 'passant' }))).toEqual(['Cass Merriweather', 'Dev Halloran']);
     expect(names(await find({ posture: 'statant' }))).toEqual(['Noor Pike']);
-    expect(names(await find({ ordinary: 'bordure' }))).toEqual(['Dev Halloran', 'Noor Pike']);
+    expect(names(await find({ ordinary: 'bordure' }))).toEqual(['Dev Halloran', 'Mae Okonkwo', 'Noor Pike']);
     expect(names(await find({ ordinary: 'bend' }))).toEqual(['Ada Brightwater', 'Basil Thorne']);
     expect(names(await find({ chargeTincture: 'azure' }))).toEqual(['Mina Castellanos', 'Noor Pike']);
     expect(names(await find({ tincture: 'purpure' }))).toEqual(['Gus Pemberton', 'Kit Abernathy']);
-    expect(names(await find({ division: 'per-pale' }))).toEqual(['Cass Merriweather']);
+    expect(names(await find({ division: 'per-pale' }))).toEqual(['Cass Merriweather', 'Wren Halloway']);
+    expect(names(await find({ chargeTincture: 'counterchanged' }))).toEqual(['Mae Okonkwo', 'Tobias Fennimore', 'Wren Halloway']);
     expect(names(await find({ division: 'quarterly' }))).toEqual(['Gus Pemberton']);
     expect((await find({ division: 'plain' })).total).toBe(14);
     // AND of several components; no match → empty page.
-    expect(names(await find({ ordinary: 'bordure', tincture: 'gules' }))).toEqual(['Noor Pike']);
+    expect(names(await find({ ordinary: 'bordure', tincture: 'gules' }))).toEqual(['Mae Okonkwo', 'Noor Pike']);
     const none = await find({ charge: 'dragon', ordinary: 'bordure' });
     expect(none.total).toBe(0);
     expect(none.items).toEqual([]);
@@ -493,7 +517,7 @@ describe('GET /api/arms (search)', () => {
     expect(names(await find({ q: 'UNICORN' }))).toEqual(['Basil Thorne']);
     expect(names(await find({ q: 'pike' }))).toEqual(['Noor Pike']);
     expect(names(await find({ q: 'pik' }))).toEqual([]);
-    expect(names(await find({ q: 'five-pointed star' }))).toEqual(['Elin Sato']);
+    expect(names(await find({ q: 'five-pointed star' }))).toEqual(['Elin Sato', 'Wren Halloway']);
     expect((await find({ q: '%' })).total).toBe(0);
     expect((await find({ q: '_' })).total).toBe(0);
     expect((await find({ q: 'a\\' })).total).toBe(0);
@@ -503,11 +527,11 @@ describe('GET /api/arms (search)', () => {
   it('paginates with bounded limit/offset', async () => {
     const p1 = await find({ limit: 5 });
     const p2 = await find({ limit: 5, offset: 5 });
-    const p4 = await find({ limit: 5, offset: 15 });
+    const p4 = await find({ limit: 5, offset: 18 });
     expect(p1.items).toHaveLength(5);
     expect(p2.items).toHaveLength(5);
     expect(p4.items).toHaveLength(2);
-    expect(p1.total).toBe(17);
+    expect(p1.total).toBe(20);
     const ids = [...p1.items, ...p2.items].map((i: Json) => i.id);
     expect(new Set(ids).size).toBe(10);
     expect((await find({ offset: 5000 })).items).toEqual([]);
@@ -575,7 +599,7 @@ describe('GET /api/arms (search)', () => {
 
   it('stores search text with the gloss and name, and never the contact or email', async () => {
     const { results } = await env.DB.prepare(`SELECT display_name, search_text FROM arms WHERE registry_id = ?`).bind(SEARCH).all<{ display_name: string; search_text: string }>();
-    expect(results).toHaveLength(17);
+    expect(results).toHaveLength(20);
     const cass = results.find((r) => r.display_name === 'Cass Merriweather')!;
     expect(cass.search_text).toBe(' cass merriweather per pale azure and vert a wolf passant argent a shield split vertically blue on the left and green on the right with a white wolf walking ');
     const basil = results.find((r) => r.display_name === 'Basil Thorne')!;

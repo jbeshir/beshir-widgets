@@ -88,3 +88,26 @@ export function listTinctureNames(ts: readonly Tincture[], conj: 'and' | 'or' = 
   if (names.length <= 1) return names.join('');
   return `${names.slice(0, -1).join(', ')} ${conj} ${names[names.length - 1]}`;
 }
+
+// ── Charge tinctures ────────────────────────────────────────────────────────
+
+/**
+ * What a charge group can be tinctured: one of the tinctures, or counterchanged — on a divided
+ * field, each charge (or each part of a charge that crosses a partition line) takes the field's
+ * other tincture, so it always shows the opposite of what it lies on.
+ */
+export type ChargeTincture = Tincture | 'counterchanged';
+export const CHARGE_TINCTURES: readonly ChargeTincture[] = [...TINCTURES, 'counterchanged'];
+
+export function isChargeTincture(value: unknown): value is ChargeTincture {
+  return value === 'counterchanged' || isTincture(value);
+}
+
+/** Blazon words: the tincture names, and "counterchanged" (a term, not a tincture, so lower case). */
+export const CHARGE_TINCTURE_NAME: Record<ChargeTincture, string> = { ...TINCTURE_NAME, counterchanged: 'counterchanged' };
+
+/** Signature codes; `cc` is distinct from every tincture code. */
+export const CHARGE_TINCTURE_CODE: Record<ChargeTincture, string> = { ...TINCTURE_CODE, counterchanged: 'cc' };
+
+/** Plain words for picker and filter labels. */
+export const CHARGE_TINCTURE_WORD: Record<ChargeTincture, string> = { ...TINCTURE_WORD, counterchanged: 'opposite colours' };

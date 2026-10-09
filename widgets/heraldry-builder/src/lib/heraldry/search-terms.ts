@@ -85,6 +85,8 @@ for (const t of TINCTURES) {
   const names = [TINCTURE_NAME[t].toLowerCase(), TINCTURE_WORD[t], ...TINCTURE_ALIASES[t]];
   alias(names, names);
 }
+// Counterchanged charges: the blazon term and its spellings (the gloss says "opposite colours").
+alias(['counterchanged', 'counterchange', 'counter changed', 'counter change'], ['counterchanged']);
 
 // Ordinaries: the blazon name; everyday words only reach the ordinaries the picture could be.
 for (const o of ORDINARY_TYPES) alias([ORDINARY_NAME[o]], [ORDINARY_NAME[o]]);

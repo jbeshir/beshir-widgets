@@ -392,3 +392,36 @@ export function slotRow(slot: Slot): 'upper' | 'middle' | 'lower' {
 export function slotColumn(slot: Slot): 'left' | 'centre' | 'right' {
   return slot.x < 40 ? 'left' : slot.x > 60 ? 'right' : 'centre';
 }
+
+// ── Counterchanged charges ──────────────────────────────────────────────────
+
+/** One part of a counterchanged charge: a partition region it overlaps, filled with the field's other tincture. */
+export interface CounterchangedPart { region: 0 | 1; d: string; tincture: Tincture }
+
+/** Grid steps across a drawn box when finding the regions it overlaps (corners and edges included). */
+const PART_GRID = 8;
+
+/**
+ * How counterchanged charges are painted in a shape: for every drawn slot, the partition regions its
+ * drawn box overlaps (sampled on a grid that includes the box's corners and edges), each to be
+ * filled with the field's other tincture. [] unless the charges are counterchanged on a divided field.
+ */
+export function counterchangedParts(nd: NormDesign, shape: FieldShape): CounterchangedPart[][] {
+  const c = nd.charges, f = nd.field;
+  if (!c || c.tincture !== 'counterchanged' || f.kind !== 'divided') return [];
+  const l = SHAPE_LAYOUT[shape];
+  const [d1, d2] = l.regions[f.division];
+  const [t1, t2] = f.tinctures;
+  return shapedChargeSlots(nd, shape).map((s) => {
+    const box = drawnBox(s, c.charge);
+    const x0 = box.x - box.size / 2, y0 = box.y - box.size / 2, step = box.size / PART_GRID;
+    const firsts = new Set<boolean>();
+    for (let i = 0; i <= PART_GRID; i++) {
+      for (let j = 0; j <= PART_GRID; j++) firsts.add(inFirstPart(f.division, l.fessPoint, x0 + i * step, y0 + j * step));
+    }
+    const parts: CounterchangedPart[] = [];
+    if (firsts.has(true)) parts.push({ region: 0, d: d1, tincture: t2 });
+    if (firsts.has(false)) parts.push({ region: 1, d: d2, tincture: t1 });
+    return parts;
+  });
+}

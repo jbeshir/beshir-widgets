@@ -1,8 +1,8 @@
 // Registry search filters: state shape, option lists and chip labels. DOM-free.
 
 import {
-  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, DIVISIONS, DIVISION_NAME, ORDINARY_NAME, ORDINARY_TYPES, POSTURES, TINCTURES,
-  TINCTURE_NAME, TINCTURE_WORD, chargesInCategory, type SearchParams,
+  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, CHARGE_TINCTURE_WORD, DIVISIONS, DIVISION_NAME, ORDINARY_NAME, ORDINARY_TYPES, POSTURES,
+  TINCTURES, TINCTURE_NAME, TINCTURE_WORD, chargesInCategory, type SearchParams,
 } from '../../lib/heraldry';
 
 export const FILTER_KEYS = ['category', 'charge', 'posture', 'ordinary', 'division', 'fieldTincture', 'tincture', 'chargeTincture'] as const;
@@ -48,7 +48,10 @@ export const FILTER_SPECS: FilterSpec[] = [
   },
   { key: 'fieldTincture', testid: 'filter-field-tincture', label: 'Field colour', any: 'Any', options: tinctureOptions },
   { key: 'tincture', testid: 'filter-tincture', label: 'Tincture (anywhere)', any: 'Any', options: tinctureOptions },
-  { key: 'chargeTincture', testid: 'filter-charge-tincture', label: 'Charge tincture', any: 'Any', options: tinctureOptions },
+  {
+    key: 'chargeTincture', testid: 'filter-charge-tincture', label: 'Charge tincture', any: 'Any',
+    options: [...tinctureOptions, { value: 'counterchanged', label: `Counterchanged (${CHARGE_TINCTURE_WORD.counterchanged})` }],
+  },
 ];
 
 export function chipLabel(spec: FilterSpec, value: string): string {

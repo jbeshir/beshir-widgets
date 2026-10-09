@@ -6,7 +6,7 @@ import {
   ARRANGEMENT_WORD, DIVISION_NAME, ORDINARY_NAME, fieldDivision, fieldTinctures,
   type Arrangement, type NormDesign,
 } from './design';
-import { TINCTURE_NAME } from './tinctures';
+import { CHARGE_TINCTURE_NAME, TINCTURE_NAME } from './tinctures';
 
 export type DiffAttr =
   | 'field-division' | 'field-tincture'
@@ -121,7 +121,7 @@ export function explainDifferences(a: NormDesign, b: NormDesign, diffs: readonly
       case 'ordinary-tincture': return pair(TINCTURE_NAME[a.ordinary!.tincture], TINCTURE_NAME[b.ordinary!.tincture]);
       case 'charges-presence': return pair(ca ? CHARGES[ca.charge].plural : 'none', cb ? CHARGES[cb.charge].plural : 'none');
       case 'charge-type': return pair(CHARGES[ca!.charge].name, CHARGES[cb!.charge].name);
-      case 'charge-tincture': return pair(TINCTURE_NAME[ca!.tincture], TINCTURE_NAME[cb!.tincture]);
+      case 'charge-tincture': return pair(CHARGE_TINCTURE_NAME[ca!.tincture], CHARGE_TINCTURE_NAME[cb!.tincture]);
       case 'charge-count': return pair(String(ca!.count), String(cb!.count));
       case 'charge-placement':
         return pair(ca!.placement === 'ordinary' ? 'on the ordinary' : 'on the field', cb!.placement === 'ordinary' ? 'on the ordinary' : 'on the field');

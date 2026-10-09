@@ -15,8 +15,8 @@ import {
   probePoints, slotsFor, type ChargeId, type FieldShape, type Slot,
 } from '../src/lib/heraldry';
 import type { Count, OrdinaryType } from '../src/lib/heraldry';
+import { place, rings, type Pt } from './art-geometry';
 
-type Pt = [number, number];
 
 function bezier(p0: Pt, p1: Pt, p2: Pt, p3: Pt, n = 40): Pt[] {
   const out: Pt[] = [];
@@ -167,18 +167,7 @@ describe('every shape draws each charge on the field parts the canonical verdict
 
 // ── Real artwork in its optically scaled box ────────────────────────────────
 
-/** Each drawing as rings of points in its 0–100 box (the art is M/L/Z polygons only). */
-function rings(d: string): Pt[][] {
-  return d.split('M').filter(Boolean).map((sub) => {
-    const n = sub.replace(/[LZ]/g, ' ').trim().split(/\s+/).map(Number);
-    return Array.from({ length: n.length / 2 }, (_, i): Pt => [n[2 * i], n[2 * i + 1]]);
-  });
-}
-
 const DRAWINGS = CHARGE_IDS.flatMap((id) => Object.entries(CHARGE_ART[id]).map(([posture, d]) => ({ id, label: `${id} ${posture}`, rings: rings(d!) })));
-
-const place = (rs: Pt[][], box: Slot): Pt[][] =>
-  rs.map((r) => r.map(([x, y]): Pt => [box.x + (x - 50) * box.size / 100, box.y + (y - 50) * box.size / 100]));
 
 /** Even-odd point-in-drawing test across all of a drawing's rings. */
 const inDrawing = (rs: Pt[][], p: Pt) => rs.filter((r) => inside(r, p)).length % 2 === 1;

@@ -5,7 +5,7 @@
 import { CHARGES, POSTURE_GROUP, isChargeCategory, isChargeId, isPosture } from './charges';
 import { fieldTinctures, isBetweenOrdinary, isDivision, isOrdinaryType, type NormDesign } from './design';
 import { readability } from './readability';
-import { isTincture, type Tincture } from './tinctures';
+import { isChargeTincture, isTincture, type Tincture } from './tinctures';
 
 /** Deterministic, de-duplicated tag list (derivation order). */
 export function deriveTags(nd: NormDesign): string[] {
@@ -37,7 +37,7 @@ export function deriveTags(nd: NormDesign): string[] {
     add(`arrangement:${c.arrangement}`);
     if (c.placement === 'ordinary') add('placement:on-ordinary');
     else if (o && isBetweenOrdinary(o.type)) add('placement:between');
-    all.add(c.tincture);
+    if (c.tincture !== 'counterchanged') all.add(c.tincture);
   }
 
   for (const t of all) add(`tincture:${t}`);
@@ -50,6 +50,7 @@ export interface SearchFilters {
   tincture?: string | null;
   /** A tincture of the field (either half of a divided field). */
   fieldTincture?: string | null;
+  /** The charges' tincture, or 'counterchanged'. */
   chargeTincture?: string | null;
   charge?: string | null;
   /** A charge category: beast, monster, bird, plant, geometric, object or modern. */
@@ -75,7 +76,7 @@ export function filtersToTags(f: SearchFilters): FilterTagsResult {
   const bad =
     check('tincture', isTincture, (v) => `tincture:${v}`) ??
     check('fieldTincture', isTincture, (v) => `field-tincture:${v}`) ??
-    check('chargeTincture', isTincture, (v) => `charge-tincture:${v}`) ??
+    check('chargeTincture', isChargeTincture, (v) => `charge-tincture:${v}`) ??
     check('charge', isChargeId, (v) => `charge:${v}`) ??
     check('category', isChargeCategory, (v) => `charge-category:${v}`) ??
     check('posture', isPosture, (v) => `posture:${v}`) ??

@@ -8,7 +8,7 @@ import {
   arrangementChoices, blazon, chargePath, chargeSlotContacts, chargeSlots, chargeStructureIssue, chargeTinctureChoices,
   checkUnique, countChoices, deriveTags, differences, explainDifferences, fieldTinctureChoices, filtersToTags, fitCharges,
   gloss, hasClearDifference, matchesTags, normalise, ordinaryTinctureChoices, placementChoices, postureChoices,
-  cleanDiscord, readability, resolve, signature, slotsFor, suggestTinctureFix, validate,
+  BETWEEN_GLOSS, BETWEEN_SLOTS, cleanDiscord, readability, resolve, signature, slotsFor, suggestTinctureFix, validate,
   type Choice, type Count, type Design, type Issue, type NormDesign, type Ordinary, type Placement,
 } from '../src/lib/heraldry';
 import sample from '../src/data/sample-registry.json';
@@ -60,7 +60,7 @@ describe('FINDINGS §6 validation examples', () => {
   it('V18 readability breakdown matches the documented factors', () => {
     const rd = readability(nd(V.find((v) => v.id === 'V18')!.design));
     const pts = Object.fromEntries(rd.breakdown.map((b) => [b.factor, b.points]));
-    expect(pts).toEqual({ tinctures: 2, division: 1, ordinary: 1, charges: 1, 'on-ordinary': 0, count: 1, animate: 1 });
+    expect(pts).toEqual({ tinctures: 2, division: 1, ordinary: 1, charges: 1, 'on-ordinary': 0, count: 1, animate: 1, split: 0 });
   });
 
   it('V9 issue names the failing slots', () => {
@@ -151,11 +151,14 @@ describe('blazon defaults', () => {
     expect(gloss(fleurs)).toBe('A blue shield with three gold lilies (fleurs-de-lis), two above one.');
   });
 
-  it('under a chief two charges default to in fess (the only legal arrangement) and say so', () => {
+  it('under a chief two charges can only be in fess, so the blazon leaves it unsaid', () => {
     const d = nd({ v: 1, field: plain('gules'), ordinary: { type: 'chief', tincture: 'or' }, charges: { charge: 'mullet', count: 2, placement: 'field', tincture: 'argent' } });
     expect(d.charges!.arrangement).toBe('in-fess');
     expect(validate(d)).toEqual([]);
-    expect(blazon(d)).toBe('Gules, two mullets in fess Argent, a chief Or');
+    expect(blazon(d)).toBe('Gules, two mullets Argent, a chief Or');
+    // Three under a chief have a choice, so in fess (not the default) is still said.
+    const three = nd({ v: 1, field: plain('gules'), ordinary: { type: 'chief', tincture: 'or' }, charges: { charge: 'mullet', count: 3, placement: 'field', arrangement: 'in-fess', tincture: 'argent' } });
+    expect(blazon(three)).toBe('Gules, three mullets in fess Argent, a chief Or');
     expect(gloss(d)).toBe('A red shield with two white five-pointed stars, in a row, and a gold band across the top.');
   });
 
@@ -249,7 +252,7 @@ describe('sample registry fixture', () => {
   it('uses the sample registry identity', () => {
     expect(sample.schema).toBe('heraldry-builder/registry-sample@1');
     expect(sample.registry).toEqual({ id: 'sample', name: 'Sample armorial (offline demo)' });
-    expect(sample.entries).toHaveLength(17);
+    expect(sample.entries).toHaveLength(20);
   });
 
   for (const e of sample.entries as SampleEntry[]) {
@@ -282,18 +285,18 @@ describe('sample registry fixture', () => {
   it('is in registration order with unique ids and signatures', () => {
     const times = sample.entries.map((e) => e.registeredAt);
     expect([...times].sort()).toEqual(times);
-    expect(new Set(sample.entries.map((e) => e.id)).size).toBe(17);
-    expect(new Set(sample.entries.map((e) => e.signature)).size).toBe(17);
+    expect(new Set(sample.entries.map((e) => e.id)).size).toBe(20);
+    expect(new Set(sample.entries.map((e) => e.signature)).size).toBe(20);
   });
 
-  it('all 136 pairs have at least one clear difference', () => {
+  it('all 190 pairs have at least one clear difference', () => {
     const ds = sample.entries.map((e) => nd(e.design));
     let pairs = 0;
     for (let i = 0; i < ds.length; i++) for (let j = i + 1; j < ds.length; j++) {
       pairs++;
       expect(hasClearDifference(ds[i], ds[j]), `${sample.entries[i].id} vs ${sample.entries[j].id}`).toBe(true);
     }
-    expect(pairs).toBe(136);
+    expect(pairs).toBe(190);
   });
 
   it('each entry is unique against all the others', () => {
@@ -307,7 +310,8 @@ describe('sample registry fixture', () => {
       if (!t.ok) throw new Error(t.message);
       return sample.entries.filter((e) => matchesTags(nd(e.design), t.tags)).map((e) => e.id);
     };
-    expect(search({ ordinary: 'bordure' })).toEqual(['demo-004', 'demo-014']);
+    expect(search({ ordinary: 'bordure' })).toEqual(['demo-004', 'demo-014', 'demo-020']);
+    expect(search({ chargeTincture: 'counterchanged' })).toEqual(['demo-018', 'demo-019', 'demo-020']);
     expect(search({ chargeTincture: 'azure' })).toEqual(['demo-013', 'demo-014']);
     expect(search({ charge: 'wolf', posture: 'passant' })).toEqual(['demo-003', 'demo-004']);
     expect(search({ ordinary: 'bend' })).toEqual(['demo-001', 'demo-002']);
@@ -438,8 +442,9 @@ describe('options helper', () => {
     const gu = byValue(chargeTinctureChoices(d), 'gules');
     expect(gu.allowed).toBe(false);
     expect(gu.reason).toBe('The two upper mullets lie on Azure. Gules on Azure would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
-    // Upper mullets on Azure need a metal, the lower one on Or needs a colour: nothing fits.
-    expect(chargeTinctureChoices(d).every((c) => !c.allowed)).toBe(true);
+    // Upper mullets on Azure need a metal, the lower one on Or needs a colour: no single tincture
+    // fits, but counterchanged gives each the opposite of what it lies on.
+    expect(chargeTinctureChoices(d).filter((c) => c.allowed).map((c) => c.value)).toEqual(['counterchanged']);
     expect(byValue(chargeTinctureChoices(d), 'argent').reason)
       .toBe('The lower mullet lies on Or. Argent on Or would be metal on metal. Metals must sit on colours (Gules, Azure, Vert, Sable or Purpure).');
     expect(byValue(chargeTinctureChoices(d), 'or').reason)
@@ -537,10 +542,9 @@ describe('options helper', () => {
     const broken = nd({ v: 1, field: plain('or'), charges: { charge: 'lion', count: 1, placement: 'field', tincture: 'or' } });
     expect(validate(broken).map((i) => i.message)).toEqual(['Or lion on Or field: same tincture']);
     const fix = suggestTinctureFix(broken)!;
-    expect(fix.layer).toBe('charges');
-    expect(fix.tincture).toBe('gules');
-    expect(fix.label).toBe('Switch the lion to Gules');
-    expect(fix.alternatives).toEqual(['gules', 'azure', 'vert', 'sable', 'purpure']);
+    expect(fix).toMatchObject({
+      layer: 'charges', tincture: 'gules', label: 'Switch the lion to Gules', alternatives: ['gules', 'azure', 'vert', 'sable', 'purpure'],
+    });
     expect(validate(fix.design)).toEqual([]);
     expect(suggestTinctureFix(gulesLion)).toBeNull();
   });
@@ -648,5 +652,26 @@ describe('charge-specific posture words', () => {
     expect(explainDifferences(stag('statant'), stag('passant'))).toEqual(['posture (statant ↔ trippant)']);
     const hareSejant = nd({ ...hare, charges: { ...hare.charges, posture: 'sejant' } });
     expect(explainDifferences(nd(hare), hareSejant)).toEqual(['posture (courant ↔ sejant)']);
+  });
+});
+
+describe('gloss wording', () => {
+  it('a fish haurient is upright, head up', () => {
+    const fish = nd({ v: 1, field: plain('azure'), charges: { charge: 'fish', count: 1, placement: 'field', tincture: 'argent', posture: 'haurient' } });
+    expect(gloss(fish)).toBe('A blue shield with a white fish upright, head up.');
+  });
+
+  it('charges between an ordinary are placed around it', () => {
+    const between = (type: string, ordinaryTincture: string, count: number) => gloss(nd({
+      v: 1, field: plain('vert'), ordinary: { type, tincture: ordinaryTincture }, charges: { charge: 'rose', count, placement: 'field', tincture: 'argent' },
+    }));
+    expect(between('pale', 'or', 2)).toBe('A green shield with a gold vertical band down the middle and a white rose on each side.');
+    expect(between('fess', 'or', 2)).toBe('A green shield with a gold horizontal band across the middle and two white roses, one above and one below.');
+    expect(between('fess', 'or', 3)).toBe('A green shield with a gold horizontal band across the middle and three white roses, two above and one below.');
+    expect(between('cross', 'or', 4)).toBe('A green shield with a gold cross and a white rose in each quarter.');
+    expect(between('saltire', 'or', 4)).toBe('A green shield with a gold X-shaped cross and four white roses, one above, one below and one on each side.');
+    expect(between('pile', 'or', 2)).toBe('A green shield with a gold downward-pointing wedge from the top and a white rose on each side.');
+    // Every "between" slot table has its placement words.
+    expect(Object.keys(BETWEEN_GLOSS).sort()).toEqual(Object.keys(BETWEEN_SLOTS).sort());
   });
 });

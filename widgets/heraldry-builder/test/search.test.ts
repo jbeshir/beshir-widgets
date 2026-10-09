@@ -143,7 +143,7 @@ describe('the plain-English queries over the sample registry', () => {
   });
 
   it('"star" finds the mullets', () => {
-    expect(find('star')).toEqual(['demo-005']);
+    expect(find('star')).toEqual(['demo-018', 'demo-005']);
   });
 
   it('"wolves" finds the wolf', () => {
@@ -194,7 +194,7 @@ describe('the plain-English queries over the sample registry', () => {
   it('filters by category and field tincture, together with text', () => {
     expect(ids({ category: 'monster' }).slice().sort()).toEqual(['demo-002', 'demo-008']);
     expect(ids({ fieldTincture: 'sable' }).slice().sort()).toEqual(['demo-004', 'demo-010']);
-    expect(ids({ category: 'beast', q: 'white' })).toEqual(['demo-014', 'demo-004', 'demo-003']);
+    expect(ids({ category: 'beast', q: 'white' })).toEqual(['demo-019', 'demo-014', 'demo-004', 'demo-003']);
   });
 });
 

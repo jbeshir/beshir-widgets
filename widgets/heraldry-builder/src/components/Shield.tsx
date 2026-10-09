@@ -9,14 +9,17 @@
 // Optional Petra Sancta hatching (FINDINGS §4.8) overlays each tincture's line pattern so the arms
 // read without colour. On charges the pattern's pitch follows the charge's size and a solid band of
 // the tincture is kept along the charge's edge, so small charges keep their silhouette.
+// Counterchanged charges are painted per slot: each part of a charge is clipped to the partition
+// region it lies on and filled (and hatched) with the field's other tincture.
 // Pattern/clip ids are unique per instance (module counter), so many shields can share
 // a page, including ones in portals and separate render roots (useId can repeat across roots).
 
+import { Fragment } from 'preact';
 import { useRef } from 'preact/hooks';
 import {
   OUTLINE_COLOUR, ORDINARY_FILL_RULE, SHAPE_LAYOUT, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING,
-  chargePath, designTinctures, drawnBox, fieldRegions, gloss, shapedChargeSlots, type FieldShape, type Hatching,
-  type NormDesign, type Slot, type Tincture,
+  chargePath, counterchangedParts, designTinctures, drawnBox, fieldRegions, gloss, shapedChargeSlots, type FieldShape,
+  type Hatching, type NormDesign, type Slot, type Tincture,
 } from '../lib/heraldry';
 
 interface Props {
@@ -77,6 +80,24 @@ function HatchPattern({ id, kind, ink, pitch }: { id: string; kind: Hatching; in
   );
 }
 
+/**
+ * One fill of the charges: the boxes painted, their tincture, and the partition region (path) they
+ * are clipped to when counterchanged (null: the whole charge).
+ */
+interface ChargePaint { tincture: Tincture; boxes: Slot[]; region: string | null }
+
+function chargePaints(design: NormDesign, shape: FieldShape, boxes: Slot[]): ChargePaint[] {
+  const c = design.charges;
+  if (!c) return [];
+  if (c.tincture !== 'counterchanged') return [{ tincture: c.tincture, boxes, region: null }];
+  // A counterchanged group the rule rejects for want of a divided field has no parts: only its outline shows.
+  const parts = counterchangedParts(design, shape);
+  return ([0, 1] as const).flatMap((region) => {
+    const slots = parts.flatMap((ps, i) => ps.filter((p) => p.region === region).map((p) => ({ p, box: boxes[i] })));
+    return slots.length ? [{ tincture: slots[0].p.tincture, boxes: slots.map((x) => x.box), region: slots[0].p.d }] : [];
+  });
+}
+
 let shieldSeq = 0;
 /** Page-unique, deterministic id fragment: one per Shield instance, stable across re-renders. */
 export function nextShieldUid(): string {
@@ -90,8 +111,9 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
   const uid = uidRef.current;
   const clip = `shield-clip-${uid}`;
   const pat = (t: Tincture) => `hatch-${uid}-${t}`;
-  const chargePat = `hatch-${uid}-charge`;
-  const chargeClip = `charge-clip-${uid}`;
+  const chargePat = (t: Tincture) => `hatch-${uid}-charge-${t}`;
+  const chargeClip = (i: number) => `charge-clip-${uid}-${i}`;
+  const regionClip = (i: number) => `region-clip-${uid}-${i}`;
   const c = design.charges;
   const layout = SHAPE_LAYOUT[shape];
   const boxes = c ? shapedChargeSlots(design, shape).map((s) => drawnBox(s, c.charge)) : [];
@@ -104,8 +126,10 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
   const overlay = (t: Tincture) => hatched.includes(t);
   // Every charge in a group shares one box size, so the first box sets the outline and hatch pitch.
   const box = boxes[0];
-  const outlinePx = box ? chargeOutlinePx(size, box) : 0;
-  const chargeHatched = !!c && overlay(c.tincture);
+  const paints = chargePaints(design, shape, boxes);
+  // Without any paint (counterchanged on a plain field) the outline is all there is to see.
+  const outlinePx = !box ? 0 : paints.length ? chargeOutlinePx(size, box) : CHARGE_OUTLINE_PX;
+  const hatchedCharge = [...new Set(paints.map((p) => p.tincture))].filter(overlay);
 
   return (
     <svg
@@ -124,14 +148,19 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
       <defs>
         <clipPath id={clip}><path d={layout.outline} /></clipPath>
         {hatched.map((t) => <HatchPattern key={t} id={pat(t)} kind={TINCTURE_HATCHING[t]} ink={HATCH_INK[t]} pitch={HATCH_PITCH} />)}
-        {chargeHatched && (
-          <>
-            <HatchPattern id={chargePat} kind={TINCTURE_HATCHING[c.tincture]} ink={HATCH_INK[c.tincture]} pitch={chargeHatchPitch(box)} />
-            <clipPath id={chargeClip}>
-              {boxes.map((s, i) => <path key={i} d={d} clip-rule="evenodd" transform={transform(s)} />)}
-            </clipPath>
-          </>
-        )}
+        {hatchedCharge.map((t) => (
+          <HatchPattern key={t} id={chargePat(t)} kind={TINCTURE_HATCHING[t]} ink={HATCH_INK[t]} pitch={chargeHatchPitch(box)} />
+        ))}
+        {paints.map((p, i) => (
+          <Fragment key={i}>
+            {p.region !== null && <clipPath id={regionClip(i)}><path d={p.region} /></clipPath>}
+            {overlay(p.tincture) && (
+              <clipPath id={chargeClip(i)}>
+                {p.boxes.map((s, j) => <path key={j} d={d} clip-rule="evenodd" transform={transform(s)} />)}
+              </clipPath>
+            )}
+          </Fragment>
+        ))}
       </defs>
       <path class="shield-rim" d={layout.outline} fill="none" stroke-width="3.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
       <g clip-path={`url(#${clip})`}>
@@ -158,20 +187,24 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
             )}
           </g>
         )}
-        {c && boxes.map((s, i) => (
-          <path key={i} d={d} transform={transform(s)} fill={TINCTURE_FILL[c.tincture]} fill-rule="evenodd" />
-        ))}
-        {chargeHatched && (
-          <g clip-path={`url(#${chargeClip})`}>
-            <rect x="0" y="0" width="100" height="120" fill={`url(#${chargePat})`} />
-            {boxes.map((s, i) => (
-              <path
-                key={i} d={d} transform={transform(s)} fill="none" stroke={TINCTURE_FILL[c.tincture]}
-                stroke-width={(2 * hatchEdge(s) * 100) / s.size} stroke-linejoin="round"
-              />
+        {paints.map((p, i) => (
+          <g key={i} clip-path={p.region === null ? undefined : `url(#${regionClip(i)})`} data-charge-tincture={p.tincture}>
+            {p.boxes.map((s, j) => (
+              <path key={j} d={d} transform={transform(s)} fill={TINCTURE_FILL[p.tincture]} fill-rule="evenodd" />
             ))}
+            {overlay(p.tincture) && (
+              <g clip-path={`url(#${chargeClip(i)})`}>
+                <rect x="0" y="0" width="100" height="120" fill={`url(#${chargePat(p.tincture)})`} />
+                {p.boxes.map((s, j) => (
+                  <path
+                    key={j} d={d} transform={transform(s)} fill="none" stroke={TINCTURE_FILL[p.tincture]}
+                    stroke-width={(2 * hatchEdge(s) * 100) / s.size} stroke-linejoin="round"
+                  />
+                ))}
+              </g>
+            )}
           </g>
-        )}
+        ))}
         {c && outlinePx > 0 && boxes.map((s, i) => (
           <path
             key={i} d={d} transform={transform(s)} fill="none" stroke={OUTLINE_COLOUR} stroke-width={outlinePx}

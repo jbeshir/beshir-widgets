@@ -84,6 +84,33 @@ describe('builder transitions', () => {
     expect(setOrdinary(d, 'cross').ordinary?.tincture).toBe('gules');
   });
 
+  it('dividing, adding a mullet and asking for three no longer dead-ends: counterchanged is the way out', () => {
+    let d = setDivision(DEFAULT_DESIGN, 'per-pale');
+    expect(blazon(d)).toBe('Per pale Azure and Or');
+    d = setCharge(d, 'mullet');
+    expect(blazon(d)).toBe('Per pale Azure and Or, a mullet Argent');
+    expect(assess(d).status).toBe('valid');
+    // Three is offered, because counterchanged works for it…
+    expect(countChoices(d).find((c) => c.value === 3)!.allowed).toBe(true);
+    d = setCount(d, 3);
+    // …the Argent mullets now clash with the Or half, and every plain tincture would clash somewhere…
+    expect(assess(d).status).toBe('violation');
+    const choices = chargeTinctureChoices(d);
+    expect(choices.filter((c) => c.allowed).map((c) => c.value)).toEqual(['counterchanged']);
+    // …so the one-click fix counterchanges them.
+    const fix = suggestTinctureFix(d)!;
+    expect(fix.label).toBe('Counterchange the mullets');
+    expect(assess(fix.design).status).toBe('valid');
+    expect(blazon(fix.design)).toBe('Per pale Azure and Or, three mullets counterchanged');
+    expect(blazon(setChargeTincture(d, 'counterchanged'))).toBe('Per pale Azure and Or, three mullets counterchanged');
+  });
+
+  it('making the field plain leaves counterchanged charges in a violation with a fix', () => {
+    const d = setPlainField(setChargeTincture(setCount(setCharge(setDivision(DEFAULT_DESIGN, 'per-pale'), 'mullet'), 3), 'counterchanged'));
+    expect(assess(d).problems.map((p) => p.message)).toEqual(["Counterchanged needs a divided field: each charge takes the field's other tincture, and a plain field has only one."]);
+    expect(assess(suggestTinctureFix(d)!.design).status).toBe('valid');
+  });
+
   it('count choices block structurally illegal counts with a reason', () => {
     const d = setCharge(setOrdinary(DEFAULT_DESIGN, 'chief'), 'mullet');
     const four = countChoices(d).find((c) => c.value === 4)!;

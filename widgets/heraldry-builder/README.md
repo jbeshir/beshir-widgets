@@ -10,7 +10,10 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
   optional group of 1–6 charges (28 charges, 40 drawings with postures). Every option is
   checked against the **rule of tincture** (metal on colour, colour on metal) and against the
   structural rules (legal counts, arrangements and placements). Options that would break a rule
-  stay visible but are marked blocked, with an explanation.
+  stay visible but are marked blocked, with an explanation. On a divided field charges can be
+  **counterchanged** (each takes the field's other tincture), so every count and arrangement the
+  builder offers has at least one legal tincture, and a rule-of-tincture violation always comes
+  with a one-click fix.
 - **Blazon.** The formal blazon ("Azure, on a bend Or three unicorns rampant Vert") and a
   plain-English gloss are generated from the structured design, never typed by hand.
 - **Registry.** Each community (a *registry*, e.g. one group of friends) keeps its own
@@ -45,7 +48,7 @@ Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Desig
 
 **States** (`data-widget-state` on `<html>`): Design — `ready`, `populated`, `error`; Registry — `loading`, `populated`, `empty`, `error`; Your arms — `populated` or `empty`. Dialogs and sheets keep the underlying tab's state.
 
-**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N`, `placement-*`, `swatch-<part>-<tincture>`, `posture-select`, `arrangement-select`; status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`).
+**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N`, `placement-*`, `swatch-<part>-<tincture>` (charges also `swatch-charge-counterchanged`), `posture-select`, `arrangement-select`; status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`).
 
 **Keyboard.** Tab order follows the page; radio-style option groups are one tab stop with arrow keys moving and selecting (blocked options can be focused and explain themselves on Enter/Space). Dialogs and sheets trap focus, Escape closes only the topmost layer (a popover inside a dialog closes first), and focus returns to the opener. Animations are off under `prefers-reduced-motion`.
 
@@ -104,6 +107,51 @@ deep teal ink on the cyan. The lines run level like Azure's because celestine is
 says it is a different tincture. It is the only curved pattern, so it can't be read as any of the
 dotted, plain or straight-line patterns. Like the others it scales its pitch on charges and keeps
 a solid band of the tincture along a charge's edge.
+
+## Counterchanged charges
+
+On a divided field the charges may be **counterchanged**: each charge — or each part of one that
+crosses a partition line — takes the field's other tincture. "Per pale Or and Azure, three mullets
+counterchanged" has Azure mullets on the Or half, Or mullets on the Azure half, and a mullet across
+the line drawn half in each. Every division in the builder has exactly two tinctures (quarterly and
+per saltire alternate them), so "the other tincture" is always defined and counterchanging works on
+all seven divisions; a charge on the centre of a quarterly field is drawn in four parts.
+
+- **Model.** A charge group's tincture is a `ChargeTincture`: one of the eight tinctures or the
+  literal `counterchanged`. Designs, drafts and the API carry it as that one string.
+- **Where it is allowed.** Only for charges lying on a divided field: on the field, between an
+  ordinary, under a chief or within a bordure. On a plain field (nothing to reverse) or on an
+  ordinary (the charges don't lie on the field) it is a rule-of-tincture issue with its own message.
+- **Rule of tincture.** Each part shows the other field tincture over its own, so counterchanging is
+  legal exactly when the two field tinctures are one metal and one colour (celestine counts as a
+  metal). On "Per pale Or and Argent" counterchanged mullets are still metal on metal, and on two
+  colours still colour on colour, so both are illegal: every part is judged like any other charge.
+- **Text.** Blazon: the word replaces the tincture ("three mullets counterchanged", "a lion rampant
+  counterchanged"). Gloss: "three five-pointed stars in the opposite colours of the field (blue on
+  gold, gold on blue)". Signature code `cc`; tag `charge-tincture:counterchanged` (and the
+  `chargeTincture=counterchanged` search filter); search finds *counterchanged*, *counterchange*,
+  *counter-changed* and the gloss's *opposite colours*. Against any single tincture it is a clear
+  tincture difference.
+- **Readability.** It adds no tincture of its own; charges cut in two by a partition line score one
+  point ("Charges split by the field line").
+- **Drawing.** `counterchangedParts()` (geometry.ts) lists, per drawn slot in each shape, the
+  partition regions the charge's box overlaps and the opposite tincture for each; the Shield clips
+  the charge to each region and fills (and hatches) it in that tincture.
+
+**No dead ends.** Without counterchanging, 1,950 of the field layouts on metal-and-colour divided
+fields (e.g. "Per pale Or and Azure, three mullets") had every tincture blocked. The count,
+placement and arrangement choices now also check that some charge tincture would be legal and are
+blocked with a reason otherwise — a guard that, with counterchanging available, a test shows never
+has to fire. When a design is already in a violation, the one-click fix tries a new charge tincture
+(counterchanged last), then a new ordinary tincture, then both together, which always finds a way
+out.
+
+**Charges on a bend stay upright.** Heraldic convention turns charges on a bend "bendwise", but
+which way depends on the charge and its posture (a beast passant walks up the bend, a sword points
+up it, an upright charge rotates the other way, and a bend sinister has no settled convention), so
+it would need per-charge, per-posture orientation data and fresh art fits on the narrow bend. The
+builder keeps every charge upright, which reads best at nametag size, and the geometry tests check
+that upright charges fit the bend in every shape.
 
 ## Storage
 
@@ -205,7 +253,7 @@ define returns `400 unknown_param` with `param`.
 | `division` | A division (`per-pale`, `per-fess`, `per-bend`, `per-bend-sinister`, `per-saltire`, `per-chevron`, `quarterly`) or `plain` |
 | `tincture` | A tincture anywhere on the arms (`or`, `argent`, `celestine`, `azure`, `gules`, `vert`, `sable`, `purpure`) |
 | `fieldTincture` | A tincture of the field (either half of a divided field) |
-| `chargeTincture` | The charges' tincture |
+| `chargeTincture` | The charges' tincture, or `counterchanged` |
 | `q` | Plain-English words (≤ 60 characters), all of which must match as whole words of the entry's search text (blazon, gloss, display name). Stopwords (*a, the, with, on…*) are ignored, plurals reduced (*wolves* → *wolf*), and everyday words expanded: *yellow* = *gold* = *Or*, *star* = *mullet*, *border* = *bordure*, *bird* = eagle or owl, *animal* = any beast or monster, *cyan* / *sky blue* = *Celestine*; posture words stand for their group (*walking*, *courant* or *passant* find a standing wolf too). *Or* matches only the word, never *bordure* or *Morgan*. A query with no searchable word matches nothing. |
 | `limit` / `offset` | Page size 1–50 (default 24) / offset 0–5000. Results are newest first. |
 

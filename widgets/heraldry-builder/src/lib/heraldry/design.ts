@@ -3,7 +3,7 @@
 // tincture is `normalise()` in validate.ts.
 
 import { CHARGES, isChargeId, isPosture, type ChargeId, type Posture } from './charges';
-import { isTincture, TINCTURE_NAME, type Tincture } from './tinctures';
+import { isChargeTincture, isTincture, TINCTURE_NAME, type ChargeTincture, type Tincture } from './tinctures';
 
 export type Division = 'per-pale' | 'per-fess' | 'per-bend' | 'per-bend-sinister' | 'per-saltire' | 'per-chevron' | 'quarterly';
 export const DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron', 'quarterly'];
@@ -11,6 +11,7 @@ export const DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend
 export type Field =
   | { kind: 'plain'; tincture: Tincture }
   | { kind: 'divided'; division: Division; tinctures: [Tincture, Tincture] }; // t1 ≠ t2, order meaningful
+export type DividedField = Extract<Field, { kind: 'divided' }>;
 
 export type OrdinaryType = 'fess' | 'pale' | 'bend' | 'bend-sinister' | 'chevron' | 'cross' | 'saltire' | 'chief' | 'bordure' | 'pile';
 export const ORDINARY_TYPES: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'chief', 'bordure', 'pile'];
@@ -34,7 +35,7 @@ export interface ChargeGroup {
   placement: Placement;
   arrangement?: Arrangement | null;
   posture?: Posture | null;
-  tincture: Tincture;
+  tincture: ChargeTincture;
 }
 
 /** Input design (may omit defaults). `kind` is reserved for future badges; only 'arms' is accepted. */
@@ -52,7 +53,7 @@ export interface NormChargeGroup {
   placement: Placement;
   arrangement: Arrangement;
   posture: Posture | null;
-  tincture: Tincture;
+  tincture: ChargeTincture;
 }
 
 /** Every optional field resolved; nulls explicit; canonical key order. */
@@ -306,7 +307,7 @@ export function resolve(input: unknown): ResolveResult {
       if (c.placement !== 'field' && c.placement !== 'ordinary') err('charges', 'Charges go on the field or on the ordinary.');
       if (c.arrangement !== undefined && c.arrangement !== null && !isArrangement(c.arrangement)) err('charges', 'Unknown arrangement.');
       if (c.posture !== undefined && c.posture !== null && !isPosture(c.posture)) err('charges', 'Unknown posture.');
-      if (!isTincture(c.tincture)) err('charges', 'The charges need one of the eight tinctures.');
+      if (!isChargeTincture(c.tincture)) err('charges', 'The charges need one of the eight tinctures, or counterchanged.');
       if (errors.length === before) {
         const id = c.charge as ChargeId;
         const meta = CHARGES[id];
@@ -327,7 +328,7 @@ export function resolve(input: unknown): ResolveResult {
         const fixed = count === 1 || ctx === 'on' || ctx === 'between';
         const givenArr = (c.arrangement ?? null) as Arrangement | null;
         const arrangement = fixed || !givenArr ? defaultArrangement(ordinary, placement, count) : givenArr;
-        charges = { charge: id, count, placement, arrangement, posture, tincture: c.tincture as Tincture };
+        charges = { charge: id, count, placement, arrangement, posture, tincture: c.tincture as ChargeTincture };
       }
     }
   }

@@ -31,19 +31,19 @@ describe('store (offline / file://)', () => {
     const regs = await store.listRegistries();
     expect(regs).toEqual({ ok: true, registries: [{ id: 'sample', name: 'Sample armorial (offline demo)', isDefault: true }], sample: true });
     const page = await store.search({});
-    expect(page.ok && page.page.total).toBe(17);
+    expect(page.ok && page.page.total).toBe(20);
     expect(page.ok && page.page.sample).toBe(true);
     expect(spy).not.toHaveBeenCalled();
   });
 
   it('filters the sample with the Worker semantics (tags AND, q, newest first, bounds)', async () => {
     const r = await store.search({ ordinary: 'bordure' });
-    expect(r.ok && r.page.items.map((i) => i.id)).toEqual(['demo-014', 'demo-004']);
+    expect(r.ok && r.page.items.map((i) => i.id)).toEqual(['demo-020', 'demo-014', 'demo-004']);
     const none = await store.search({ charge: 'dragon', ordinary: 'bordure' });
     expect(none.ok && none.page.total).toBe(0);
     const q = await store.search({ q: 'UNICORN' });
     expect(q.ok && q.page.items.map((i) => i.id)).toEqual(['demo-002']);
-    const paged = await store.search({ limit: 5, offset: 15 });
+    const paged = await store.search({ limit: 5, offset: 18 });
     expect(paged.ok && paged.page.items.map((i) => i.id)).toEqual(['demo-002', 'demo-001']);
     const bad = await store.search({ charge: 'kraken' });
     expect(bad).toMatchObject({ ok: false, kind: 'http', status: 400, param: 'charge' });

@@ -7,7 +7,7 @@ import {
   CHARGES, ORDINARY_NAME, chargeContext, chargeTinctureChoices, defaultArrangement, fieldTinctures, fitCharges,
   isMetal, legalArrangements, ordinaryTinctureChoices, structuralIssues, tinctureIssues,
   type Arrangement, type ChargeId, type Choice, type Count, type Division, type Issue, type NormDesign,
-  type OrdinaryType, type Placement, type Posture, type Tincture,
+  type ChargeTincture, type OrdinaryType, type Placement, type Posture, type Tincture,
 } from './heraldry';
 
 export const DEFAULT_DESIGN: NormDesign = { v: 1, field: { kind: 'plain', tincture: 'azure' }, ordinary: null, charges: null };
@@ -101,7 +101,7 @@ export function setPosture(nd: NormDesign, posture: Posture): NormDesign {
   return { ...nd, charges: { ...g, posture } };
 }
 
-export function setChargeTincture(nd: NormDesign, t: Tincture): NormDesign {
+export function setChargeTincture(nd: NormDesign, t: ChargeTincture): NormDesign {
   const g = nd.charges;
   if (!g) return nd;
   return { ...nd, charges: { ...g, tincture: t } };
