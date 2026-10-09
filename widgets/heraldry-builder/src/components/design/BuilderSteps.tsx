@@ -1,13 +1,17 @@
-// The three builder fieldsets — Field, Ordinary, Charges — driven by the options helper so every
-// blocked choice stays visible with its reason.
+// The three builder fieldsets — Background (field), Band or shape (ordinary), Picture (charge) — driven
+// by the options helper so every blocked choice stays visible with its reason. Labels lead with
+// everyday words and give the heraldic term second. On phones the steps collapse into an accordion
+// and the picture list shows one kind of picture at a time.
 
 import type { ComponentChildren } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, NUMBER_WORD,
-  ORDINARY_NAME, ORDINARY_TYPES, ARRANGEMENT_WORD, arrangementChoices, chargeNoun, chargePath,
+  ARRANGEMENT_LABEL, CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISIONS, DIVISION_LABEL, DIVISION_PART_LABEL, NUMBER_WORD,
+  ORDINARY_LABEL, ORDINARY_TYPES, TINCTURE_LABEL, arrangementChoices, chargeNoun, chargePath,
   chargeTinctureChoices, chargesInCategory, countChoices, fieldTinctureChoices, ordinaryTinctureChoices,
-  placementChoices, postureChoices, postureGloss, postureTerm,
-  type Arrangement, type Division, type FieldShape, type Issue, type NormDesign, type OrdinaryType, type Posture,
+  placementChoices, plainFirst, postureChoices, postureGloss, postureLabel, postureTerm,
+  type Arrangement, type ChargeCategory, type Division, type FieldShape, type Issue, type NormDesign, type OrdinaryType, type Posture,
+  type PlainTerm,
 } from '../../lib/heraldry';
 import {
   placementLabel, setArrangement, setCharge, setChargeTincture, setCount, setDivision, setFieldTincture, setOrdinary,
@@ -18,16 +22,36 @@ import { ChoiceButton, RadioGroup } from './Choices';
 import { useExplainer } from './Explainer';
 import { TincturePicker } from './TincturePicker';
 
+/** How a step collapses on phones: null where steps are always open. */
+export interface Accordion {
+  open: boolean;
+  onToggle: () => void;
+}
+
 interface StepProps {
   design: NormDesign;
   onChange: (nd: NormDesign) => void;
   issues: Issue[];
+  accordion: Accordion | null;
 }
 
 /** Field and ordinary choices are never blocked; ChoiceButton still wants a handler. */
 const never = () => {};
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Two-line choice text: the everyday word, then the heraldic term in small type. */
+function PlainLabel({ label }: { label: PlainTerm }) {
+  return (
+    <span class="choice-label">
+      <span class="choice-plain">{label.plain}</span>
+      <span class="choice-term">{label.term}</span>
+    </span>
+  );
+}
+
+/** Accessible name of a choice: "Split down the middle (per pale)". */
+const nameOf = ({ plain, term }: PlainTerm) => `${plain} (${term})`;
 
 const ICON_FIELD = (division: Division | null): NormDesign => ({
   v: 1,
@@ -48,13 +72,48 @@ function LayerIssues({ issues }: { issues: Issue[] }) {
   );
 }
 
-function Step({ n, title, hint, issues, testid, children }: { n: number; title: string; hint?: string; issues: Issue[]; testid: string; children: ComponentChildren }) {
+interface StepFrameProps {
+  n: number;
+  title: string;
+  /** The heraldic term for what the step builds, shown after the title. */
+  term: string;
+  hint: string;
+  /** One line saying what is chosen, shown while the step is collapsed. */
+  summary: string;
+  issues: Issue[];
+  accordion: Accordion | null;
+  testid: string;
+  children: ComponentChildren;
+}
+
+function Step({ n, title, term, hint, summary, issues, accordion, testid, children }: StepFrameProps) {
+  const open = accordion?.open ?? true;
+  const heading = (
+    <>
+      <span class="step-num" aria-hidden="true">{n}</span>
+      <span class="step-name">{title} <span class="step-term">({term})</span></span>
+    </>
+  );
   return (
-    <fieldset class={`step${issues.length ? ' has-issue' : ''}`} data-testid={testid}>
-      <legend><span class="step-num" aria-hidden="true">{n}</span><h2 class="step-title">{title}</h2></legend>
-      {hint && <p class="step-hint">{hint}</p>}
-      <LayerIssues issues={issues} />
-      {children}
+    <fieldset class={`step${issues.length ? ' has-issue' : ''}${open ? '' : ' is-collapsed'}`} data-testid={testid}>
+      <legend>
+        <h2 class="step-title">
+          {accordion ? (
+            <button type="button" class="step-toggle" aria-expanded={open ? 'true' : 'false'} aria-controls={`${testid}-body`} data-testid={`${testid}-toggle`} onClick={accordion.onToggle}>
+              {heading}
+              <span class="step-chevron" aria-hidden="true" />
+            </button>
+          ) : heading}
+        </h2>
+      </legend>
+      {accordion && !open && (
+        <p class="step-summary" data-testid={`${testid}-summary`}>{issues.length ? 'Needs a fix — open to see why' : summary}</p>
+      )}
+      <div class="step-body" id={`${testid}-body`} hidden={!open}>
+        <p class="step-hint">{hint}</p>
+        <LayerIssues issues={issues} />
+        {children}
+      </div>
     </fieldset>
   );
 }
@@ -64,27 +123,35 @@ interface ShapedStepProps extends StepProps {
   shape: FieldShape;
 }
 
-export function FieldStep({ design, shape, onChange, issues }: ShapedStepProps) {
+const lower = (s: string) => s.toLowerCase();
+
+function fieldSummary(design: NormDesign): string {
+  const f = design.field;
+  if (f.kind === 'plain') return `${TINCTURE_LABEL[f.tincture].plain}, plain`;
+  return `${DIVISION_LABEL[f.division].plain}: ${lower(TINCTURE_LABEL[f.tinctures[0]].plain)} and ${lower(TINCTURE_LABEL[f.tinctures[1]].plain)}`;
+}
+
+export function FieldStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
   const f = design.field;
   const division = f.kind === 'divided' ? f.division : null;
   return (
-    <Step n={1} title="Field" hint="The background of the shield: one tincture, or split in two." issues={issues} testid="step-field">
+    <Step n={1} title="Background" term="field" hint="One colour, or split in two." summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field">
       <RadioGroup label="Field division" class="icon-grid icon-grid-field" testid="field-division-select">
-        <ChoiceButton testid="field-kind-plain" checked={!division} label="Plain" onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
+        <ChoiceButton testid="field-kind-plain" checked={!division} label="Plain (one colour)" onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
           <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
-          <span class="choice-label">Plain</span>
+          <PlainLabel label={{ plain: 'Plain', term: 'one colour' }} />
         </ChoiceButton>
         {DIVISIONS.map((d) => (
-          <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={DIVISION_NAME[d]} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
+          <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={nameOf(DIVISION_LABEL[d])} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_FIELD(d)} shape={shape} size={30} label={null} />
-            <span class="choice-label">{DIVISION_NAME[d]}</span>
+            <PlainLabel label={DIVISION_LABEL[d]} />
           </ChoiceButton>
         ))}
       </RadioGroup>
       <TincturePicker
         group="field1"
         testid="field-tincture-1"
-        legend={division ? DIVISION_PART_LABEL[division][0] : 'Field tincture'}
+        legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'}
         choices={fieldTinctureChoices(design, 0)}
         value={f.kind === 'plain' ? f.tincture : f.tinctures[0]}
         onChange={(t) => onChange(setFieldTincture(design, 0, t))}
@@ -103,19 +170,24 @@ export function FieldStep({ design, shape, onChange, issues }: ShapedStepProps) 
   );
 }
 
-export function OrdinaryStep({ design, shape, onChange, issues }: ShapedStepProps) {
+function ordinarySummary(design: NormDesign): string {
+  const o = design.ordinary;
+  return o ? `${ORDINARY_LABEL[o.type].plain}, ${lower(TINCTURE_LABEL[o.tincture].plain)}` : 'None';
+}
+
+export function OrdinaryStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
   const o = design.ordinary;
   return (
-    <Step n={2} title="Ordinary" hint="Optional: a bold geometric band across the field." issues={issues} testid="step-ordinary">
+    <Step n={2} title="Band or shape" term="ordinary" hint="A bold band, border or shape. You need this or a picture (or both)." summary={ordinarySummary(design)} issues={issues} accordion={accordion} testid="step-ordinary">
       <RadioGroup label="Ordinary" class="icon-grid icon-grid-ordinary" testid="ordinary-select">
-        <ChoiceButton testid="ordinary-none" checked={!o} label="No ordinary" onSelect={() => onChange(setOrdinary(design, null))} onBlocked={never} class="icon-choice">
+        <ChoiceButton testid="ordinary-none" checked={!o} label="No band or shape" onSelect={() => onChange(setOrdinary(design, null))} onBlocked={never} class="icon-choice">
           <NoneIcon />
           <span class="choice-label">None</span>
         </ChoiceButton>
         {ORDINARY_TYPES.map((t) => (
-          <ChoiceButton key={t} testid={`ordinary-${t}`} checked={o?.type === t} label={cap(ORDINARY_NAME[t])} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
+          <ChoiceButton key={t} testid={`ordinary-${t}`} checked={o?.type === t} label={nameOf(ORDINARY_LABEL[t])} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_ORDINARY(t)} shape={shape} size={30} label={null} />
-            <span class="choice-label">{cap(ORDINARY_NAME[t])}</span>
+            <PlainLabel label={ORDINARY_LABEL[t]} />
           </ChoiceButton>
         ))}
       </RadioGroup>
@@ -123,7 +195,7 @@ export function OrdinaryStep({ design, shape, onChange, issues }: ShapedStepProp
         <TincturePicker
           group="ordinary"
           testid="ordinary-tincture"
-          legend={`${cap(ORDINARY_NAME[o.type])} tincture`}
+          legend={`Colour of the ${lower(ORDINARY_LABEL[o.type].plain)}`}
           choices={ordinaryTinctureChoices(design)}
           value={o.tincture}
           onChange={(t) => onChange(setOrdinaryTincture(design, t))}
@@ -133,15 +205,30 @@ export function OrdinaryStep({ design, shape, onChange, issues }: ShapedStepProp
   );
 }
 
-/** "Courant — running": the charge's own blazon term, then its plain-English gloss. */
+/** "Running (courant)": the plain-English gloss, then the charge's own blazon term. */
 function postureOption(design: NormDesign, p: Posture): string {
   const id = design.charges!.charge;
-  const gl = postureGloss(id, p);
-  return gl ? `${cap(postureTerm(id, p))} — ${gl}` : cap(postureTerm(id, p));
+  return postureLabel(postureTerm(id, p), postureGloss(id, p), p);
 }
 
-export function ChargesStep({ design, onChange, issues }: StepProps) {
+function chargesSummary(design: NormDesign): string {
   const g = design.charges;
+  return g ? `${g.count} ${chargeNoun(g.charge, g.count)}, ${lower(TINCTURE_LABEL[g.tincture].plain)}` : 'None';
+}
+
+/** The picture list on phones shows one kind at a time; this is the kind to start on. */
+function categoryOf(design: NormDesign): ChargeCategory {
+  return design.charges ? CHARGES[design.charges.charge].category : CHARGE_CATEGORIES[0];
+}
+
+export function ChargesStep({ design, onChange, issues, accordion, compact }: StepProps & { compact: boolean }) {
+  const g = design.charges;
+  const [tab, setTab] = useState<ChargeCategory>(() => categoryOf(design));
+  // A design loaded from outside (an example, a registry entry) brings its own kind of picture along.
+  const selectedCategory = design.charges ? CHARGES[design.charges.charge].category : null;
+  useEffect(() => {
+    if (selectedCategory) setTab(selectedCategory);
+  }, [selectedCategory]);
   const counts = countChoices(design);
   const placements = placementChoices(design);
   const arr = arrangementChoices(design);
@@ -152,15 +239,24 @@ export function ChargesStep({ design, onChange, issues }: StepProps) {
   const placementWhy = useExplainer();
 
   return (
-    <Step n={3} title="Charges" hint="Optional: a picture repeated one to six times." issues={issues} testid="step-charges">
-      <RadioGroup label="Charge" class="charge-picker" testid="charge-select">
+    <Step n={3} title="Picture" term="charge" hint="Pick a picture and repeat it up to six times. You need this or a band or shape (or both)." summary={chargesSummary(design)} issues={issues} accordion={accordion} testid="step-charges">
+      {compact && (
+        <RadioGroup label="Kind of picture" class="charge-tabs" testid="charge-tabs">
+          {CHARGE_CATEGORIES.map((cat) => (
+            <ChoiceButton key={cat} testid={`charge-tab-${cat}`} checked={tab === cat} label={CATEGORY_LABEL[cat]} onSelect={() => setTab(cat)} onBlocked={never} class="chip-choice">
+              <span>{CATEGORY_LABEL[cat]}</span>
+            </ChoiceButton>
+          ))}
+        </RadioGroup>
+      )}
+      <RadioGroup label="Picture" class="charge-picker" testid="charge-select">
         <div class="charge-category">
-          <ChoiceButton testid="charge-none" checked={!g} label="No charge" onSelect={() => onChange(setCharge(design, null))} onBlocked={never} class="icon-choice charge-choice">
+          <ChoiceButton testid="charge-none" checked={!g} label="No picture" onSelect={() => onChange(setCharge(design, null))} onBlocked={never} class="icon-choice charge-choice">
             <NoneIcon />
             <span class="choice-label">None</span>
           </ChoiceButton>
         </div>
-        {CHARGE_CATEGORIES.map((cat) => (
+        {CHARGE_CATEGORIES.filter((cat) => !compact || cat === tab).map((cat) => (
           <div class="charge-category" key={cat} role="group" aria-label={CATEGORY_LABEL[cat]}>
             <p class="charge-category-label" aria-hidden="true">{CATEGORY_LABEL[cat]}</p>
             <div class="icon-grid icon-grid-charges">
@@ -175,7 +271,7 @@ export function ChargesStep({ design, onChange, issues }: StepProps) {
         ))}
       </RadioGroup>
       <p class="charge-selected" data-testid="charge-selected" aria-live="polite">
-        {g ? <>Selected: <strong>{cap(CHARGES[g.charge].name)}</strong></> : 'No charge selected.'}
+        {g ? <>Selected: <strong>{cap(CHARGES[g.charge].name)}</strong></> : 'No picture selected.'}
       </p>
 
       {g && (
@@ -193,8 +289,8 @@ export function ChargesStep({ design, onChange, issues }: StepProps) {
           </div>
 
           <div class="control">
-            <p class="picker-legend">Placement</p>
-            <RadioGroup label="Placement" class="segmented segmented-wide" testid="placement-select">
+            <p class="picker-legend">Where it goes</p>
+            <RadioGroup label="Where it goes" class="segmented segmented-wide" testid="placement-select">
               {placements.map((c) => {
                 const text = placementLabel(design, c.value);
                 return (
@@ -208,7 +304,7 @@ export function ChargesStep({ design, onChange, issues }: StepProps) {
           </div>
 
           <div class="control">
-            <label class="picker-legend" for="arrangement-select">Arrangement</label>
+            <label class="picker-legend" for="arrangement-select">Layout</label>
             <select
               id="arrangement-select"
               class="select"
@@ -221,10 +317,10 @@ export function ChargesStep({ design, onChange, issues }: StepProps) {
               {arr.mode === 'choose'
                 ? arr.choices.map((c) => (
                     <option key={c.value} value={c.value} disabled={!c.allowed}>
-                      {cap(ARRANGEMENT_WORD[c.value])}{c.allowed ? '' : ' (not available)'}
+                      {plainFirst(ARRANGEMENT_LABEL[c.value])}{c.allowed ? '' : ' (not available)'}
                     </option>
                   ))
-                : <option value={g.arrangement}>{arr.mode === 'single' ? 'Single, centred' : 'Set by the ordinary'}</option>}
+                : <option value={g.arrangement}>{arr.mode === 'single' ? 'Single, centred' : 'Set by the band or shape'}</option>}
             </select>
             {(arr.note || blockedArr.length > 0) && (
               <p class="control-note" id="arrangement-note">
@@ -235,7 +331,7 @@ export function ChargesStep({ design, onChange, issues }: StepProps) {
 
           {postures.length > 0 && (
             <div class="control">
-              <label class="picker-legend" for="posture-select">Posture</label>
+              <label class="picker-legend" for="posture-select">Pose</label>
               <select
                 id="posture-select"
                 class="select"
@@ -257,7 +353,7 @@ export function ChargesStep({ design, onChange, issues }: StepProps) {
           <TincturePicker
             group="charge"
             testid="charge-tincture"
-            legend={`Tincture of the ${chargeNoun(g.charge, g.count)}`}
+            legend={`Colour of the ${chargeNoun(g.charge, g.count)}`}
             choices={chargeTinctureChoices(design)}
             value={g.tincture}
             onChange={(t) => onChange(setChargeTincture(design, t))}

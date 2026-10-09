@@ -3,7 +3,7 @@
 // The community armorial lives in Cloudflare D1 behind the Worker's /api/* routes; this module is
 // the ONLY place that calls `fetch`, and the only importer of the localStorage helpers
 // (lib/deviceArms.ts for "Your arms on this device", lib/deviceDraft.ts for the unsaved builder
-// design). Every call resolves to a typed result and never throws:
+// design, lib/deviceWelcome.ts for the dismissed welcome strip). Every call resolves to a typed result and never throws:
 //   { ok: true, … } | { ok: false, kind: 'offline' | 'network' | 'http', status?, code?, message }
 //
 //   listRegistries()            GET  /api/registries
@@ -34,6 +34,7 @@ import {
 } from './lib/heraldry';
 import { forgetDeviceArms, listDeviceArms, rememberDeviceArms, type DeviceArms } from './lib/deviceArms';
 import { clearDraft as clearStoredDraft, readDraft, writeDraft } from './lib/deviceDraft';
+import { readWelcomeDismissed, writeWelcomeDismissed } from './lib/deviceWelcome';
 import sampleData from './data/sample-registry.json';
 
 export type { DeviceArms } from './lib/deviceArms';
@@ -647,7 +648,7 @@ export async function withdraw(id: string, secret: string): Promise<Result<{ id:
   return { ok: true, id };
 }
 
-// ── device-local conveniences (localStorage, via lib/deviceArms + lib/deviceDraft) ──────────
+// ── device-local conveniences (localStorage, via lib/deviceArms, deviceDraft + deviceWelcome) ──
 
 /** "Your arms on this device", most recent first. */
 export function deviceArms(): DeviceArms[] {
@@ -677,6 +678,15 @@ export function saveDraft(draft: ShapedDesign): void {
 
 export function clearDraft(): void {
   clearStoredDraft();
+}
+
+/** Whether the Design tab's welcome strip was dismissed on this device. */
+export function welcomeDismissed(): boolean {
+  return readWelcomeDismissed();
+}
+
+export function dismissWelcome(): void {
+  writeWelcomeDismissed();
 }
 
 // ── recovery ("Lost your link? / Withdraw my registration") ─────────────────────────────────

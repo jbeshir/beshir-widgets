@@ -12,8 +12,10 @@
     {
       "label": "design-valid",
       "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=swatch-ordinary-or]"},
+        {"eval":"document.querySelector('#charge-tab-monster')?.click()"},
         {"click":"[data-testid=charge-unicorn]"},
         {"click":"[data-testid=placement-ordinary]"},
         {"click":"[data-testid=count-3]"},
@@ -25,6 +27,7 @@
     {
       "label": "tincture-violation",
       "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=swatch-field1-gules]"},
         {"click":"[data-testid=charge-lion]"},
         {"click":"[data-testid=swatch-field1-or]"},
@@ -35,6 +38,7 @@
     {
       "label": "blocked-swatch-explained",
       "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=swatch-field1-gules]"},
         {"click":"[data-testid=charge-lion]"},
         {"click":"[data-testid=swatch-charge-azure]"}
@@ -44,6 +48,7 @@
     {
       "label": "duplicate-detected",
       "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=check-availability]"},
         {"waitFor":"[data-testid=availability-duplicate]"},
@@ -54,6 +59,7 @@
     {
       "label": "too-close",
       "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=swatch-field1-sable]"},
         {"click":"[data-testid=ordinary-bordure]"},
         {"click":"[data-testid=swatch-ordinary-argent]"},
@@ -116,6 +122,7 @@
     {
       "label": "register-success",
       "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":201,"body":{"id":"journey-arms-01","editSecret":"journey-secret-01","registry":{"id":"default","name":"Default"},"rev":1,"blazon":"Azure, a bend Or.","signature":"journey-signature","editLinkEmail":"sent"}}},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=open-register]"},
@@ -128,6 +135,7 @@
     {
       "label": "register-validation",
       "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":500,"body":{"error":"internal_error","message":"The form should have stopped this request."}}},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=open-register]"},
@@ -181,6 +189,7 @@
     {
       "label": "compound-layers",
       "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=open-register]"},
         {"click":"[data-testid=public-info-button]"}

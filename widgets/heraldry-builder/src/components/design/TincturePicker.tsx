@@ -7,7 +7,7 @@
 
 import { useRef } from 'preact/hooks';
 import {
-  CHARGE_TINCTURES, CHARGE_TINCTURE_NAME, CHARGE_TINCTURE_WORD, COLOURS, METALS, NON_STANDARD_NOTE, TINCTURE_FILL,
+  CHARGE_TINCTURES, COLOURS, METALS, NON_STANDARD_NOTE, TINCTURE_FILL, TINCTURE_LABEL, plainFirst,
   type ChargeTincture, type Choice,
 } from '../../lib/heraldry';
 import { LockGlyph, useExplainer } from './Explainer';
@@ -22,8 +22,6 @@ interface Props<T extends ChargeTincture> {
   onChange: (t: T) => void;
   testid?: string;
 }
-
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Note shown under the picker while counterchanged is selected. */
 const COUNTERCHANGED_NOTE = "Each charge, or each part of one that crosses the field's line, takes the field's other tincture.";
@@ -56,7 +54,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
   const anyBlocked = choices.some((c) => !c.allowed);
   const noteId = (t: ChargeTincture) => `note-${group}-${t}`;
   const noteOf = (t: ChargeTincture) => (t === 'counterchanged' ? null : NON_STANDARD_NOTE[t]);
-  const nameOf = (t: ChargeTincture) => cap(CHARGE_TINCTURE_NAME[t]);
+  const nameOf = (t: ChargeTincture) => TINCTURE_LABEL[t].plain;
   // Always rendered so the swatch's description resolves; visible only while that tincture is selected.
   const notes = order.flatMap((t) => {
     const note = noteOf(t);
@@ -74,7 +72,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
       onBlocked({
         anchor: el,
         kind: 'tincture',
-        title: `${nameOf(t)} isn't allowed here`,
+        title: `${plainFirst(TINCTURE_LABEL[t])} isn't allowed here`,
         reason: c.reason ?? '',
       });
       return;
@@ -119,7 +117,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
         class={`swatch${checked ? ' is-checked' : ''}${blocked ? ' is-blocked' : ''}`}
         aria-checked={checked ? 'true' : 'false'}
         aria-disabled={blocked && !checked ? 'true' : undefined}
-        aria-label={`${nameOf(t)} (${CHARGE_TINCTURE_WORD[t]})${note ? ', non-standard' : ''}${conflicts ? ', selected, conflicts with the design' : blocked ? ', not allowed here' : ''}`}
+        aria-label={`${nameOf(t)} (${TINCTURE_LABEL[t].term})${note ? ', non-standard' : ''}${conflicts ? ', selected, conflicts with the design' : blocked ? ', not allowed here' : ''}`}
         aria-describedby={describedBy || undefined}
         data-blocked={blocked ? 'true' : undefined}
         data-tincture={t}
@@ -132,7 +130,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
         </span>
         <span class="swatch-text" aria-hidden="true">
           <span class="swatch-name">{nameOf(t)}</span>
-          <span class="swatch-word">{CHARGE_TINCTURE_WORD[t]}</span>
+          <span class="swatch-word">{TINCTURE_LABEL[t].term}</span>
           {note && <span class="swatch-flag">Non-standard</span>}
         </span>
       </button>
@@ -160,7 +158,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
         </div>
         {byValue.has('counterchanged') && (
           <div class="swatch-group">
-            <span class="swatch-group-label" aria-hidden="true">Field's colours reversed</span>
+            <span class="swatch-group-label" aria-hidden="true">Swapped colours</span>
             <div class="swatch-row">{offered(['counterchanged']).map(swatch)}</div>
           </div>
         )}

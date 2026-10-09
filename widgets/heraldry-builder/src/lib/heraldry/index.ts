@@ -20,3 +20,4 @@ export * from './search-terms';
 export * from './search';
 export * from './options';
 export * from './charge-art';
+export * from './plain-words';

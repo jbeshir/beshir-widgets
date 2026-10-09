@@ -1,8 +1,8 @@
 // Registry search filters: state shape, option lists and chip labels. DOM-free.
 
 import {
-  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, CHARGE_TINCTURE_WORD, DIVISIONS, DIVISION_NAME, ORDINARY_NAME, ORDINARY_TYPES, POSTURES,
-  TINCTURES, TINCTURE_NAME, TINCTURE_WORD, chargesInCategory, type SearchParams,
+  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, ORDINARY_LABEL, ORDINARY_TYPES, POSTURES, POSTURE_GLOSS,
+  TINCTURES, TINCTURE_LABEL, chargesInCategory, postureLabel, type PlainTerm, type SearchParams,
 } from '../../lib/heraldry';
 
 export const FILTER_KEYS = ['category', 'charge', 'posture', 'ordinary', 'division', 'fieldTincture', 'tincture', 'chargeTincture'] as const;
@@ -27,37 +27,40 @@ export interface FilterSpec {
   options: Array<{ value: string; label: string; group?: string }>;
 }
 
-const tinctureOptions = TINCTURES.map((t) => ({ value: t, label: `${TINCTURE_NAME[t]} (${TINCTURE_WORD[t]})` }));
+/** "Gold (Or)": everyday word first, heraldic term in brackets (which chip labels drop). */
+const termed = ({ plain, term }: PlainTerm) => `${plain} (${term})`;
+
+const tinctureOptions = TINCTURES.map((t) => ({ value: t, label: termed(TINCTURE_LABEL[t]) }));
 
 export const FILTER_SPECS: FilterSpec[] = [
   {
-    key: 'category', testid: 'filter-category', label: 'Kind of charge', any: 'Any',
+    key: 'category', testid: 'filter-category', label: 'Kind of picture', any: 'Any',
     options: CHARGE_CATEGORIES.map((cat) => ({ value: cat, label: CATEGORY_LABEL[cat] })),
   },
   {
-    key: 'charge', testid: 'filter-charge', label: 'Charge', any: 'Any',
+    key: 'charge', testid: 'filter-charge', label: 'Picture', any: 'Any',
     options: CHARGE_CATEGORIES.flatMap((cat) =>
       chargesInCategory(cat).map((m) => ({ value: m.id, label: cap(m.name), group: CATEGORY_LABEL[cat] })),
     ),
   },
-  { key: 'posture', testid: 'filter-posture', label: 'Posture', any: 'Any', options: POSTURES.map((p) => ({ value: p, label: cap(p) })) },
-  { key: 'ordinary', testid: 'filter-ordinary', label: 'Ordinary', any: 'Any', options: ORDINARY_TYPES.map((o) => ({ value: o, label: cap(ORDINARY_NAME[o]) })) },
+  { key: 'posture', testid: 'filter-posture', label: 'Pose', any: 'Any', options: POSTURES.map((p) => ({ value: p, label: postureLabel(p, POSTURE_GLOSS[p], p) })) },
+  { key: 'ordinary', testid: 'filter-ordinary', label: 'Band or shape', any: 'Any', options: ORDINARY_TYPES.map((o) => ({ value: o, label: termed(ORDINARY_LABEL[o]) })) },
   {
-    key: 'division', testid: 'filter-division', label: 'Field', any: 'Any',
-    options: [{ value: 'plain', label: 'Plain (undivided)' }, ...DIVISIONS.map((d) => ({ value: d, label: DIVISION_NAME[d] }))],
+    key: 'division', testid: 'filter-division', label: 'Background split', any: 'Any',
+    options: [{ value: 'plain', label: 'Plain (one colour)' }, ...DIVISIONS.map((d) => ({ value: d, label: termed(DIVISION_LABEL[d]) }))],
   },
-  { key: 'fieldTincture', testid: 'filter-field-tincture', label: 'Field colour', any: 'Any', options: tinctureOptions },
-  { key: 'tincture', testid: 'filter-tincture', label: 'Tincture (anywhere)', any: 'Any', options: tinctureOptions },
+  { key: 'fieldTincture', testid: 'filter-field-tincture', label: 'Background colour', any: 'Any', options: tinctureOptions },
+  { key: 'tincture', testid: 'filter-tincture', label: 'Any colour', any: 'Any', options: tinctureOptions },
   {
-    key: 'chargeTincture', testid: 'filter-charge-tincture', label: 'Charge tincture', any: 'Any',
-    options: [...tinctureOptions, { value: 'counterchanged', label: `Counterchanged (${CHARGE_TINCTURE_WORD.counterchanged})` }],
+    key: 'chargeTincture', testid: 'filter-charge-tincture', label: 'Picture colour', any: 'Any',
+    options: [...tinctureOptions, { value: 'counterchanged', label: termed(TINCTURE_LABEL.counterchanged) }],
   },
 ];
 
 export function chipLabel(spec: FilterSpec, value: string): string {
   const o = spec.options.find((x) => x.value === value);
   const text = o ? o.label.replace(/ \(.*\)$/, '') : value;
-  return `${spec.key === 'tincture' ? 'Tincture' : spec.label}: ${text}`;
+  return `${spec.label}: ${text}`;
 }
 
 export function activeFilters(f: Filters): FilterKey[] {

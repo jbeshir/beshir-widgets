@@ -3,7 +3,7 @@
 // never applied. Escape or "Got it" closes it and returns focus to the option that opened it.
 
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { COLOURS, METALS, listTinctureNames } from '../../lib/heraldry';
+import { COLOURS, METALS, TINCTURE_LABEL, type Tincture } from '../../lib/heraldry';
 import { pushLayer, restoreFocus } from '../overlay/layers';
 
 export type ExplainKind = 'tincture' | 'structure';
@@ -15,8 +15,10 @@ export interface Explanation {
   reason: string;
 }
 
+const plainList = (ts: readonly Tincture[]) => ts.map((t) => TINCTURE_LABEL[t].plain.toLowerCase()).join(', ');
+
 const RULE_LINE: Record<ExplainKind, string> = {
-  tincture: `The rule of tincture: colours (${listTinctureNames(COLOURS)}) sit on metals (${listTinctureNames(METALS)}) and metals on colours, so arms read clearly from a distance.`,
+  tincture: `The rule of tincture: a colour (${plainList(COLOURS)}) goes on a metal (${plainList(METALS)}) and a metal on a colour, so arms read clearly from a distance.`,
   structure: 'Each layout in this builder has a fixed set of positions, so only some combinations fit.',
 };
 

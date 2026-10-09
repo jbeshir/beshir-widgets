@@ -60,7 +60,7 @@ describe('FINDINGS §6 validation examples', () => {
   it('V18 readability breakdown matches the documented factors', () => {
     const rd = readability(nd(V.find((v) => v.id === 'V18')!.design));
     const pts = Object.fromEntries(rd.breakdown.map((b) => [b.factor, b.points]));
-    expect(pts).toEqual({ tinctures: 2, division: 1, ordinary: 1, charges: 1, 'on-ordinary': 0, count: 1, animate: 1, split: 0 });
+    expect(pts).toEqual({ tinctures: 2, division: 1, touching: 2, straddle: 0, ordinary: 1, 'on-ordinary': 0, count: 1, detail: 1, split: 0 });
   });
 
   it('V9 issue names the failing slots', () => {
@@ -396,7 +396,7 @@ describe('tags', () => {
       'field:plain', 'field-tincture:azure', 'ordinary:bend', 'ordinary-tincture:or',
       'charge:unicorn', 'charge-category:monster', 'charge-tincture:vert', 'charge-count:3',
       'posture:rampant', 'posture-group:G1', 'arrangement:forced', 'placement:on-ordinary',
-      'tincture:azure', 'tincture:or', 'tincture:vert', 'readability:fine',
+      'tincture:azure', 'tincture:or', 'tincture:vert', 'readability:busy',
     ]);
   });
 

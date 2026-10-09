@@ -1,21 +1,25 @@
-// Design tab (PLAN §6): live preview + blazon + readability on the left (sticky on wide screens),
-// the Field / Ordinary / Charges builder on the right. Check availability and Register are wired to
+// Design tab: a welcome strip and starting designs on top, then the live preview + blazon + readability
+// on the left (sticky on wide screens) and the Background / Band or shape / Picture builder on the
+// right. Register is the main action; Check availability is a secondary one. Both are wired to
 // callbacks owned by App; this component only reports the design and renders what it is given.
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { METALS, blazon, listTinctureNames, type FieldShape, type NormDesign } from '../../lib/heraldry';
+import { blazon, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
 import type { Issue } from '../../lib/heraldry';
+import { useCompact } from '../../lib/useCompact';
 import type { DesignReport } from '../../lib/builder';
 import type { RefObject } from 'preact';
 import type { JumpTarget } from '../Availability';
 import { SavePicture } from '../SavePicture';
 import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
-import { ChargesStep, FieldStep, OrdinaryStep } from './BuilderSteps';
+import { ChargesStep, FieldStep, OrdinaryStep, type Accordion } from './BuilderSteps';
 import { ReadabilityMeter } from './ReadabilityMeter';
 import { ShapePicker } from './ShapePicker';
+import { StartingGallery } from './StartingGallery';
 import { ViolationPanel } from './ViolationPanel';
+import { WelcomeStrip } from './WelcomeStrip';
 
 interface Props {
   design: NormDesign;
@@ -25,6 +29,11 @@ interface Props {
   onChange: (nd: NormDesign) => void;
   onShape: (shape: FieldShape) => void;
   onStartOver: () => void;
+  /** Load a starting design; `caption` names it for the announcement. */
+  onStartFrom: (pick: ShapedDesign, caption: string) => void;
+  onSurprise: () => void;
+  /** Dismiss the welcome strip; null once it has been dismissed. */
+  onDismissWelcome: (() => void) | null;
   hatching: boolean;
   onHatching: (on: boolean) => void;
   /** Check availability against the registry (App owns the request and its result). */
@@ -37,6 +46,12 @@ interface Props {
 }
 
 type Layer = Issue['layer'];
+type StepKey = 'field' | 'ordinary' | 'charges';
+
+const STEP_OF_LAYER: Record<Layer, StepKey> = { field: 'field', ordinary: 'ordinary', charges: 'charges', design: 'charges' };
+const STEP_OF_JUMP: Record<JumpTarget, StepKey> = {
+  field: 'field', ordinary: 'ordinary', charge: 'charges', count: 'charges', arrangement: 'charges', posture: 'charges', tincture: 'charges',
+};
 
 const STEP_SELECTOR: Record<Layer, string> = {
   field: '[data-testid=step-field]', ordinary: '[data-testid=step-ordinary]', charges: '[data-testid=step-charges]', design: '[data-testid=step-charges]',
@@ -102,13 +117,36 @@ export function DesignTab(p: Props) {
       window.removeEventListener('resize', update);
     };
   }, []);
-  const goToLayer = (layer: Layer) => focusControl(STEP_SELECTOR[layer]);
+  const compact = useCompact();
+  // Phones collapse the steps, each showing what is chosen; a step with a problem opens by itself.
+  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, charges: false });
+  useEffect(() => {
+    const broken = report.problems.map((i) => STEP_OF_LAYER[i.layer]);
+    if (broken.some((k) => !open[k])) setOpen((o) => ({ ...o, ...Object.fromEntries(broken.map((k) => [k, true])) }));
+  }, [report]);
+  const accordion = (k: StepKey): Accordion | null => (compact ? { open: open[k], onToggle: () => setOpen((o) => ({ ...o, [k]: !o[k] })) } : null);
+  /** Open the step a control lives in, then move to the control once it is on screen. */
+  const reveal = (k: StepKey, selector: string) => {
+    setOpen((o) => ({ ...o, [k]: true }));
+    setTimeout(() => focusControl(selector), 0);
+  };
+  const goToLayer = (layer: Layer) => reveal(STEP_OF_LAYER[layer], STEP_SELECTOR[layer]);
+  // The dismiss button disappears with the strip, so focus moves on to the starting designs.
+  const welcomeShown = p.onDismissWelcome !== null;
+  const welcomeWasShown = useRef(welcomeShown);
+  useEffect(() => {
+    if (welcomeWasShown.current && !welcomeShown) document.querySelector<HTMLElement>('[data-testid=starting-gallery] button')?.focus();
+    welcomeWasShown.current = welcomeShown;
+  }, [welcomeShown]);
   const layerIssues = (layer: 'field' | 'ordinary' | 'charges') => report.problems.filter((i) => i.layer === layer);
   const blockedWhy = report.status === 'violation'
-    ? 'Fix the problem above before checking or registering.'
-    : report.status === 'incomplete' ? 'Add an ordinary or a charge first.' : null;
+    ? 'Fix the problem above before registering.'
+    : report.status === 'incomplete' ? 'Add a band or shape, or a picture, first.' : null;
 
   return (
+    <>
+    {p.onDismissWelcome && <WelcomeStrip onDismiss={p.onDismissWelcome} />}
+    <StartingGallery onPick={p.onStartFrom} onSurprise={p.onSurprise} />
     <div class="design-layout">
       <MiniPreview
         design={design}
@@ -134,9 +172,9 @@ export function DesignTab(p: Props) {
             onClick={() => p.onHatching(!p.hatching)}
           >
             <span class="switch-track" aria-hidden="true"><span class="switch-thumb" /></span>
-            <span>Hatching</span>
+            <span>Colour-blind patterns (hatching)</span>
           </button>
-          <span id="hatching-help" class="switch-help">Line patterns show each tincture without colour.</span>
+          <span id="hatching-help" class="switch-help">Line patterns show each colour without needing to see it.</span>
         </div>
         <SavePicture design={design} shape={shape} hatching={p.hatching} displayName="" />
         <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />
@@ -166,37 +204,37 @@ export function DesignTab(p: Props) {
             <button
               type="button"
               class="button-primary"
-              data-testid="check-availability"
-              disabled={!!blockedWhy || p.checking}
-              aria-describedby={blockedWhy ? 'actions-why' : undefined}
-              onClick={p.onCheck}
-            >
-              {p.checking ? 'Checking…' : 'Check availability'}
-            </button>
-            <button
-              type="button"
-              class="button-secondary"
               data-testid="open-register"
               disabled={!!blockedWhy}
               aria-describedby={blockedWhy ? 'actions-why' : undefined}
               onClick={p.onRegister}
             >
-              Register…
+              Register this design
+            </button>
+            <button
+              type="button"
+              class="button-secondary"
+              data-testid="check-availability"
+              disabled={!!blockedWhy || p.checking}
+              aria-describedby={blockedWhy ? 'actions-why' : undefined}
+              onClick={p.onCheck}
+            >
+              {p.checking ? 'Checking…' : 'Check availability first'}
             </button>
           </div>
           {blockedWhy && <p class="actions-why" id="actions-why">{blockedWhy}</p>}
-          {p.availability?.((t) => focusControl(JUMP_SELECTOR[t]))}
+          {p.availability?.((t) => reveal(STEP_OF_JUMP[t], JUMP_SELECTOR[t]))}
         </div>
       </div>
 
       <div class="design-builder">
         <h2 class="sr-only">Build your arms</h2>
         <p class="rule-intro" data-testid="rule-intro">
-          The rule of tincture: put metals ({listTinctureNames(METALS)}) on colours and colours on metals, never colour on colour or metal on metal. Locked options below would break it.
+          The one rule (the rule of tincture): gold, white and sky blue (the metals) go on colours, and colours go on metals — never colour on colour or metal on metal. Locked choices would break it; tap one to see why.
         </p>
-        <FieldStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('field')} />
-        <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('ordinary')} />
-        <ChargesStep design={design} onChange={p.onChange} issues={layerIssues('charges')} />
+        <FieldStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('field')} accordion={accordion('field')} />
+        <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('ordinary')} accordion={accordion('ordinary')} />
+        <ChargesStep design={design} onChange={p.onChange} issues={layerIssues('charges')} accordion={accordion('charges')} compact={compact} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over
@@ -205,5 +243,6 @@ export function DesignTab(p: Props) {
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -132,13 +132,13 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
 
       <div class="registry-filters">
         <div class="filter-search">
-          <label class="field-label" for="registry-search">Search by name, colour or charge</label>
+          <label class="field-label" for="registry-search">Search by name or what's on the shield</label>
           <input
             id="registry-search"
             class="text-input"
             type="search"
             data-testid="registry-search"
-            placeholder="e.g. gold wolf, white border"
+            placeholder="e.g. gold wolf on blue, white border"
             value={qInput}
             maxLength={60}
             autoComplete="off"

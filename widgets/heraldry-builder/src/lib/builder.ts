@@ -4,7 +4,7 @@
 // surface and offer a fix — never silently repaired.
 
 import {
-  CHARGES, ORDINARY_NAME, chargeContext, chargeTinctureChoices, defaultArrangement, fieldTinctures, fitCharges,
+  CHARGES, ORDINARY_LABEL, chargeContext, chargeTinctureChoices, defaultArrangement, fieldTinctures, fitCharges,
   isMetal, legalArrangements, ordinaryTinctureChoices, structuralIssues, tinctureIssues,
   type Arrangement, type ChargeId, type Choice, type Count, type Division, type Issue, type NormDesign,
   type ChargeTincture, type OrdinaryType, type Placement, type Posture, type Tincture,
@@ -124,22 +124,23 @@ export function assess(nd: NormDesign): DesignReport {
   const problems = issues.filter((i) => i.code !== 'generic');
   const generic = issues.find((i) => i.code === 'generic');
   const status: DesignStatus = problems.length ? 'violation' : generic ? 'incomplete' : 'valid';
-  return { status, problems, hint: generic ? 'Add an ordinary or charge — a plain field alone is too generic to register.' : null };
+  return { status, problems, hint: generic ? 'Add a band or shape, or a picture — a plain background alone is too generic to register.' : null };
 }
 
 export const LAYER_LABEL: Record<Issue['layer'], string> = {
-  design: 'Design', field: 'Field', ordinary: 'Ordinary', charges: 'Charges',
+  design: 'Design', field: 'Background', ordinary: 'Band or shape', charges: 'Picture',
 };
 
-/** "On the field" / "On the bend" / "Around the bend" / "Below the chief" / "Within the bordure". */
+/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border". */
 export function placementLabel(nd: NormDesign, placement: Placement): string {
   const o = nd.ordinary;
-  if (placement === 'ordinary') return o && o.type !== 'bordure' ? `On the ${ORDINARY_NAME[o.type]}` : 'On the ordinary';
+  const name = (type: OrdinaryType) => ORDINARY_LABEL[type].plain.toLowerCase();
+  if (placement === 'ordinary') return o && o.type !== 'bordure' ? `On the ${name(o.type)}` : 'On the band or shape';
   switch (chargeContext(o, 'field')) {
-    case 'between': return `Around the ${ORDINARY_NAME[o!.type]}`;
-    case 'chief': return 'Below the chief';
-    case 'bordure': return 'Within the bordure';
-    default: return 'On the field';
+    case 'between': return `Around the ${name(o!.type)}`;
+    case 'chief': return 'Below the top bar';
+    case 'bordure': return 'Within the border';
+    default: return 'On the background';
   }
 }
 

@@ -30,9 +30,6 @@ export const CATEGORY_LABEL: Record<ChargeCategory, string> = {
   geometric: 'Shapes', object: 'Objects', modern: 'Modern',
 };
 
-/** Categories whose silhouettes are detailed enough to cost a readability point (§4.8). */
-export const ANIMATE_CATEGORIES: readonly ChargeCategory[] = ['beast', 'bird', 'monster'];
-
 export const CHARGE_IDS = [
   'lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'fish', 'bee',
   'unicorn', 'dragon',
@@ -68,6 +65,8 @@ export interface ChargeMeta {
    * same size: slender charges (sword, key) are drawn larger, solid ones (heart, rose) smaller.
    */
   scale: number;
+  /** How much fine detail the silhouette has: 0 = bold at a glance, 1 = detailed, 2 = intricate. Costs readability points. */
+  detail: 0 | 1 | 2;
 }
 
 /** A charge-specific posture word: the blazon term and its plain-English gloss ("courant", "running"). */
@@ -76,41 +75,41 @@ export interface PostureWording { term: string; gloss: string }
 function c(
   id: ChargeId, name: string, plural: string, article: 'a' | 'an', category: ChargeCategory,
   postures: readonly Posture[] | null, defaultPosture: Posture | null,
-  glossName: string, glossPlural: string, orientation: string, scale: number,
+  glossName: string, glossPlural: string, orientation: string, scale: number, detail: 0 | 1 | 2,
   postureWording: Partial<Record<Posture, PostureWording>> = {},
 ): ChargeMeta {
-  return { id, name, plural, article, category, postures, defaultPosture, glossName, glossPlural, orientation, scale, postureWording };
+  return { id, name, plural, article, category, postures, defaultPosture, glossName, glossPlural, orientation, scale, detail, postureWording };
 }
 
 export const CHARGES: Record<ChargeId, ChargeMeta> = {
-  lion: c('lion', 'lion', 'lions', 'a', 'beast', ['rampant', 'passant', 'statant', 'sejant'], 'rampant', 'lion', 'lions', 'faces dexter', 1),
-  wolf: c('wolf', 'wolf', 'wolves', 'a', 'beast', ['rampant', 'passant', 'statant'], 'passant', 'wolf', 'wolves', 'faces dexter', 1.05),
-  boar: c('boar', 'boar', 'boars', 'a', 'beast', ['passant'], 'passant', 'boar', 'boars', 'faces dexter', 1),
-  stag: c('stag', 'stag', 'stags', 'a', 'beast', ['statant', 'passant'], 'statant', 'stag', 'stags', 'faces dexter', 1.05, { passant: { term: 'trippant', gloss: 'walking' } }),
-  goat: c('goat', 'goat', 'goats', 'a', 'beast', ['statant', 'rampant'], 'statant', 'goat', 'goats', 'faces dexter', 1),
-  hare: c('hare', 'hare', 'hares', 'a', 'beast', ['sejant', 'passant'], 'sejant', 'hare', 'hares', 'faces dexter', 1.05, { passant: { term: 'courant', gloss: 'running' } }),
-  fish: c('fish', 'fish', 'fish', 'a', 'beast', ['naiant', 'haurient'], 'naiant', 'fish', 'fish', 'head to dexter (naiant) / head up (haurient)', 1.05),
-  bee: c('bee', 'bee', 'bees', 'a', 'beast', null, null, 'bee', 'bees', 'head up (tergiant, fixed)', 1.05),
-  unicorn: c('unicorn', 'unicorn', 'unicorns', 'a', 'monster', ['rampant', 'passant', 'sejant'], 'rampant', 'unicorn', 'unicorns', 'faces dexter', 1),
-  dragon: c('dragon', 'dragon', 'dragons', 'a', 'monster', ['rampant', 'passant'], 'rampant', 'dragon', 'dragons', 'faces dexter', 0.9, { rampant: { term: 'segreant', gloss: 'rearing up' } }),
-  eagle: c('eagle', 'eagle', 'eagles', 'an', 'bird', ['displayed'], 'displayed', 'eagle with spread wings', 'eagles with spread wings', 'head to dexter', 0.95),
-  owl: c('owl', 'owl', 'owls', 'an', 'bird', null, null, 'owl', 'owls', 'upright, facing out', 1),
-  rose: c('rose', 'rose', 'roses', 'a', 'plant', null, null, 'rose', 'roses', 'upright', 0.88),
-  tree: c('tree', 'tree', 'trees', 'a', 'plant', null, null, 'tree', 'trees', 'upright', 0.95),
-  'fleur-de-lis': c('fleur-de-lis', 'fleur-de-lis', 'fleurs-de-lis', 'a', 'plant', null, null, 'lily (fleur-de-lis)', 'lilies (fleurs-de-lis)', 'upright', 1),
-  mullet: c('mullet', 'mullet', 'mullets', 'a', 'geometric', null, null, 'five-pointed star', 'five-pointed stars', 'one point up', 1.05),
-  crescent: c('crescent', 'crescent', 'crescents', 'a', 'geometric', null, null, 'crescent moon', 'crescent moons', 'horns up', 1.05),
-  sun: c('sun', 'sun', 'suns', 'a', 'geometric', null, null, 'sun', 'suns', '—', 1),
-  heart: c('heart', 'heart', 'hearts', 'a', 'geometric', null, null, 'heart', 'hearts', 'point down', 0.88),
-  key: c('key', 'key', 'keys', 'a', 'object', null, null, 'key', 'keys', 'wards up, bow down', 1.15),
-  'open-book': c('open-book', 'open book', 'open books', 'an', 'object', null, null, 'open book', 'open books', 'upright', 0.9),
-  sword: c('sword', 'sword', 'swords', 'a', 'object', null, null, 'sword', 'swords', 'point up', 1.15),
-  crown: c('crown', 'crown', 'crowns', 'a', 'object', null, null, 'crown', 'crowns', 'upright', 0.95),
-  anchor: c('anchor', 'anchor', 'anchors', 'an', 'object', null, null, 'anchor', 'anchors', 'ring up', 1.15),
-  'musical-note': c('musical-note', 'musical note', 'musical notes', 'a', 'modern', null, null, 'musical note', 'musical notes', 'stem up, flag to sinister', 1.15),
-  flame: c('flame', 'flame', 'flames', 'a', 'modern', null, null, 'flame', 'flames', 'tongues up', 0.95),
-  gear: c('gear', 'gear', 'gears', 'a', 'modern', null, null, 'gear', 'gears', '—', 0.9),
-  lightbulb: c('lightbulb', 'lightbulb', 'lightbulbs', 'a', 'modern', null, null, 'lightbulb', 'lightbulbs', 'bulb up', 1.1),
+  lion: c('lion', 'lion', 'lions', 'a', 'beast', ['rampant', 'passant', 'statant', 'sejant'], 'rampant', 'lion', 'lions', 'faces dexter', 1, 1),
+  wolf: c('wolf', 'wolf', 'wolves', 'a', 'beast', ['rampant', 'passant', 'statant'], 'passant', 'wolf', 'wolves', 'faces dexter', 1.05, 1),
+  boar: c('boar', 'boar', 'boars', 'a', 'beast', ['passant'], 'passant', 'boar', 'boars', 'faces dexter', 1, 1),
+  stag: c('stag', 'stag', 'stags', 'a', 'beast', ['statant', 'passant'], 'statant', 'stag', 'stags', 'faces dexter', 1.05, 1, { passant: { term: 'trippant', gloss: 'walking' } }),
+  goat: c('goat', 'goat', 'goats', 'a', 'beast', ['statant', 'rampant'], 'statant', 'goat', 'goats', 'faces dexter', 1, 1),
+  hare: c('hare', 'hare', 'hares', 'a', 'beast', ['sejant', 'passant'], 'sejant', 'hare', 'hares', 'faces dexter', 1.05, 1, { passant: { term: 'courant', gloss: 'running' } }),
+  fish: c('fish', 'fish', 'fish', 'a', 'beast', ['naiant', 'haurient'], 'naiant', 'fish', 'fish', 'head to dexter (naiant) / head up (haurient)', 1.05, 0),
+  bee: c('bee', 'bee', 'bees', 'a', 'beast', null, null, 'bee', 'bees', 'head up (tergiant, fixed)', 1.05, 0),
+  unicorn: c('unicorn', 'unicorn', 'unicorns', 'a', 'monster', ['rampant', 'passant', 'sejant'], 'rampant', 'unicorn', 'unicorns', 'faces dexter', 1, 2),
+  dragon: c('dragon', 'dragon', 'dragons', 'a', 'monster', ['rampant', 'passant'], 'rampant', 'dragon', 'dragons', 'faces dexter', 0.9, 2, { rampant: { term: 'segreant', gloss: 'rearing up' } }),
+  eagle: c('eagle', 'eagle', 'eagles', 'an', 'bird', ['displayed'], 'displayed', 'eagle with spread wings', 'eagles with spread wings', 'head to dexter', 0.95, 0),
+  owl: c('owl', 'owl', 'owls', 'an', 'bird', null, null, 'owl', 'owls', 'upright, facing out', 1, 1),
+  rose: c('rose', 'rose', 'roses', 'a', 'plant', null, null, 'rose', 'roses', 'upright', 0.88, 0),
+  tree: c('tree', 'tree', 'trees', 'a', 'plant', null, null, 'tree', 'trees', 'upright', 0.95, 2),
+  'fleur-de-lis': c('fleur-de-lis', 'fleur-de-lis', 'fleurs-de-lis', 'a', 'plant', null, null, 'lily (fleur-de-lis)', 'lilies (fleurs-de-lis)', 'upright', 1, 0),
+  mullet: c('mullet', 'mullet', 'mullets', 'a', 'geometric', null, null, 'five-pointed star', 'five-pointed stars', 'one point up', 1.05, 0),
+  crescent: c('crescent', 'crescent', 'crescents', 'a', 'geometric', null, null, 'crescent moon', 'crescent moons', 'horns up', 1.05, 0),
+  sun: c('sun', 'sun', 'suns', 'a', 'geometric', null, null, 'sun', 'suns', '—', 1, 0),
+  heart: c('heart', 'heart', 'hearts', 'a', 'geometric', null, null, 'heart', 'hearts', 'point down', 0.88, 0),
+  key: c('key', 'key', 'keys', 'a', 'object', null, null, 'key', 'keys', 'wards up, bow down', 1.15, 1),
+  'open-book': c('open-book', 'open book', 'open books', 'an', 'object', null, null, 'open book', 'open books', 'upright', 0.9, 1),
+  sword: c('sword', 'sword', 'swords', 'a', 'object', null, null, 'sword', 'swords', 'point up', 1.15, 1),
+  crown: c('crown', 'crown', 'crowns', 'a', 'object', null, null, 'crown', 'crowns', 'upright', 0.95, 0),
+  anchor: c('anchor', 'anchor', 'anchors', 'an', 'object', null, null, 'anchor', 'anchors', 'ring up', 1.15, 0),
+  'musical-note': c('musical-note', 'musical note', 'musical notes', 'a', 'modern', null, null, 'musical note', 'musical notes', 'stem up, flag to sinister', 1.15, 1),
+  flame: c('flame', 'flame', 'flames', 'a', 'modern', null, null, 'flame', 'flames', 'tongues up', 0.95, 0),
+  gear: c('gear', 'gear', 'gears', 'a', 'modern', null, null, 'gear', 'gears', '—', 0.9, 0),
+  lightbulb: c('lightbulb', 'lightbulb', 'lightbulbs', 'a', 'modern', null, null, 'lightbulb', 'lightbulbs', 'bulb up', 1.1, 1),
 };
 
 export function isChargeId(value: unknown): value is ChargeId {
@@ -123,10 +122,6 @@ export function isChargeCategory(value: unknown): value is ChargeCategory {
 
 export function isPosture(value: unknown): value is Posture {
   return typeof value === 'string' && (POSTURES as readonly string[]).includes(value);
-}
-
-export function isAnimate(id: ChargeId): boolean {
-  return ANIMATE_CATEGORIES.includes(CHARGES[id].category);
 }
 
 /** Blazon word for a posture on a given charge ("segreant" for a rampant dragon). */

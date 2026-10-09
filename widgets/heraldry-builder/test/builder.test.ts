@@ -122,10 +122,10 @@ describe('builder transitions', () => {
     let d = setCount(setCharge(DEFAULT_DESIGN, 'mullet'), 3);
     d = setArrangement(d, 'in-fess');
     expect(blazon(d)).toBe('Azure, three mullets in fess Or');
-    expect(placementLabel(setOrdinary(d, 'chevron'), 'field')).toBe('Around the chevron');
-    expect(placementLabel(setOrdinary(d, 'chief'), 'field')).toBe('Below the chief');
-    expect(placementLabel(setOrdinary(d, 'bordure'), 'field')).toBe('Within the bordure');
-    expect(placementLabel(setOrdinary(d, 'bend'), 'ordinary')).toBe('On the bend');
+    expect(placementLabel(setOrdinary(d, 'chevron'), 'field')).toBe('Around the peaked band');
+    expect(placementLabel(setOrdinary(d, 'chief'), 'field')).toBe('Below the top bar');
+    expect(placementLabel(setOrdinary(d, 'bordure'), 'field')).toBe('Within the border');
+    expect(placementLabel(setOrdinary(d, 'bend'), 'ordinary')).toBe('On the diagonal band ↘');
   });
 });
 

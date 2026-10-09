@@ -1,10 +1,9 @@
-// Bold / Fine / Busy readability meter with a points breakdown (FINDINGS §4.8). Busy designs stay
-// registrable; the meter only nudges.
+// Easy to spot / OK / Hard to read meter with a breakdown of what costs points. Hard-to-read designs
+// stay registrable; the meter only nudges, naming the one change that helps most.
 
-import { BAND_LABEL, readability, type NormDesign, type ReadabilityBand } from '../../lib/heraldry';
+import { BAND_LABEL, BAND_RANGE, readability, type NormDesign, type ReadabilityBand } from '../../lib/heraldry';
 
 const BANDS: ReadabilityBand[] = ['bold', 'fine', 'busy'];
-const BAND_RANGE: Record<ReadabilityBand, string> = { bold: '0–3', fine: '4–6', busy: '7+' };
 
 export function ReadabilityMeter({ design }: { design: NormDesign }) {
   const r = readability(design);
@@ -12,8 +11,8 @@ export function ReadabilityMeter({ design }: { design: NormDesign }) {
   return (
     <section class="meter" data-testid="readability-meter" data-band={r.band} aria-labelledby="meter-title">
       <div class="meter-head">
-        <h2 id="meter-title" class="section-label">Readability</h2>
-        <p class="meter-value"><strong>{BAND_LABEL[r.band]}</strong> · {r.score} {r.score === 1 ? 'point' : 'points'}</p>
+        <h2 id="meter-title" class="section-label">Readability at a distance</h2>
+        <p class="meter-value"><strong>{BAND_LABEL[r.band]}</strong></p>
       </div>
       <ol class="meter-steps" aria-label="Readability scale">
         {BANDS.map((b) => (
@@ -23,20 +22,16 @@ export function ReadabilityMeter({ design }: { design: NormDesign }) {
           </li>
         ))}
       </ol>
-      {r.band === 'busy' && (
-        <p class="meter-nudge" data-testid="readability-nudge">
-          Busy arms are hard to read at a distance. Try fewer tinctures, a plain field, or fewer charges.
-        </p>
-      )}
+      {r.nudge && <p class="meter-nudge" data-testid="readability-nudge">{r.nudge}</p>}
       <details class="meter-details">
-        <summary>How is this scored?</summary>
+        <summary>What makes it harder to read?</summary>
         <ul class="meter-breakdown">
           {scored.length ? scored.map((b) => (
             <li key={b.factor}><span>{b.label}</span><span>+{b.points}</span></li>
           )) : <li><span>Nothing adds complexity yet</span><span>0</span></li>}
         </ul>
         <p class="meter-bands">
-          {BANDS.map((b) => `${BAND_LABEL[b]} ${BAND_RANGE[b]}`).join(' · ')} points. Simpler arms are easier to recognise.
+          {BANDS.map((b) => `${BAND_LABEL[b]}: ${BAND_RANGE[b]}`).join(' · ')} points in total. Simpler designs are easier to recognise.
         </p>
       </details>
     </section>

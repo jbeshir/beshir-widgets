@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FIELD_SHAPE, blazon, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
 import { DEFAULT_DESIGN, assess, sameDesign } from './lib/builder';
+import { surpriseDesign } from './lib/presets';
 import { RECOVER_HASH, parseHash, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
 import { computeWidgetState, type ListStatus, type Tab } from './lib/widgetState';
@@ -32,6 +33,7 @@ export function App() {
   const [shape, setShape] = useState<FieldShape>(draft?.shape ?? DEFAULT_FIELD_SHAPE);
   const report = useMemo(() => assess(design), [design]);
   const [hatching, setHatching] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(() => !store.welcomeDismissed());
 
   const [check, setCheck] = useState<{ design: NormDesign; outcome: CheckOutcome } | null>(null);
   const [checking, setChecking] = useState(false);
@@ -101,6 +103,20 @@ export function App() {
     setDesign(DEFAULT_DESIGN);
     setShape(DEFAULT_FIELD_SHAPE);
     store.clearDraft();
+  };
+
+  // A starting design replaces the builder's design; focus goes to the preview so the change is seen and heard.
+  const startFrom = ({ design: nd, shape: s }: ShapedDesign, caption: string) => {
+    setDesign(nd);
+    setShape(s);
+    setCheck(null);
+    focusPreview.current = true;
+    announce(`Started from "${caption}": ${blazon(nd)}`);
+  };
+
+  const dismissWelcome = () => {
+    store.dismissWelcome();
+    setWelcomeOpen(false);
   };
 
   const announceWhenInteractive = (m: string, tries = 20) => {
@@ -202,7 +218,7 @@ export function App() {
       <section class="card">
         <header class="card-header">
           <h1>Heraldry Builder</h1>
-          <p class="hint">Design rule-checked coats of arms, read their blazon, and register them in a community armorial.</p>
+          <p class="hint">Design a personal coat of arms for your nametag, then register it so nobody else at the event has the same one.</p>
           <a class="text-link header-recover" href={RECOVER_HASH} data-testid="header-recover-link">Lost your link? / Withdraw my registration</a>
         </header>
 
@@ -234,6 +250,9 @@ export function App() {
             onChange={setDesign}
             onShape={setShape}
             onStartOver={startOver}
+            onStartFrom={startFrom}
+            onSurprise={() => startFrom(surpriseDesign(Math.random), 'Surprise me')}
+            onDismissWelcome={welcomeOpen ? dismissWelcome : null}
             hatching={hatching}
             onHatching={setHatching}
             onCheck={onCheck}

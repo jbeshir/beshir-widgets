@@ -1686,3 +1686,122 @@ a.button-secondary {
   }
   .print-page:last-child { break-after: auto; }
 }
+
+/* ── Onboarding: welcome strip, starting designs ── */
+
+.welcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: var(--selected-bg);
+  border: 1px solid var(--card-border);
+  border-left: 4px solid var(--accent-text);
+  border-radius: 8px;
+}
+.welcome-text { flex: 1 1 auto; min-width: 0; }
+.welcome-title {
+  margin: 0 0 2px;
+  font-family: var(--widget-font-identity);
+  font-size: 18px;
+  line-height: 1.25;
+}
+.welcome-text p { margin: 0; font-size: 15px; color: var(--fg); }
+.welcome-dismiss { flex: none; }
+
+.gallery { margin-bottom: 18px; }
+.gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.gallery-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 4px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 8px;
+}
+.gallery-item {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gallery-item:hover { border-color: var(--focus); background: var(--pill-bg); }
+.gallery-caption { font-size: 14px; line-height: 1.25; text-align: center; }
+
+/* Phones: one scrolling row, so the examples take little height. */
+@media (max-width: 599px) {
+  .welcome { flex-direction: column; gap: 4px; padding: 10px 12px; }
+  .welcome-title { font-size: 16px; }
+  .welcome-text p { font-size: 14px; }
+  .welcome-dismiss { align-self: flex-end; min-height: 44px; padding-block: 0; }
+  .gallery { margin-bottom: 12px; }
+  .gallery-list {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 112px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+  }
+  .gallery-list > li { scroll-snap-align: start; }
+}
+
+/* ── Plain-words labels, collapsible steps, kinds of picture ── */
+
+.choice-label { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.choice-term { font-size: 14px; color: var(--fg-secondary); }
+.step-term { font-family: var(--widget-font-ui); font-size: 14px; font-weight: 400; color: var(--fg-secondary); }
+
+.step-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 6px 0 0;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.step-chevron {
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+}
+.step-toggle[aria-expanded='true'] .step-chevron { transform: rotate(-135deg); }
+.step-summary { margin: -6px 0 0; font-size: 15px; color: var(--fg-secondary); }
+.step.is-collapsed { padding-bottom: 10px; }
+.step-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.step-body > .step-hint { margin: 0; }
+
+.charge-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-choice { padding: 6px 12px; border-radius: 999px; font-size: 15px; min-height: 44px; }
+
+.action-row > .button-primary { flex: 2 1 200px; }
+
+@media (max-width: 599px) {
+  .icon-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .icon-choice { min-height: 84px; }
+  .icon-grid.icon-grid-charges { grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); }
+  .icon-choice.charge-choice { min-height: 48px; }
+}
