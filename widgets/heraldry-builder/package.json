@@ -1,0 +1,27 @@
+{
+  "name": "widget-heraldry-builder",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
+    "test": "vitest run",
+    "favicon": "cd ../../scripts/favicon && npm ci --no-audit --no-fund && node generate-favicon.mjs ../../widgets/heraldry-builder/public/favicon.svg ../../widgets/heraldry-builder/public/favicon.ico"
+  },
+  "dependencies": {
+    "@fontsource/schibsted-grotesk": "^5.2.8",
+    "preact": "^10.27.2"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.16.18",
+    "@cloudflare/workers-types": "^4.20260620.1",
+    "@preact/preset-vite": "^2.10.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9",
+    "wrangler": "^4.98.0"
+  }
+}

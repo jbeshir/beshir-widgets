@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Heraldry Builder">
+  <style>
+    .t0 { stop-color: #a4243b }
+    .t1 { stop-color: #7d1b2b }
+    .gold { fill: #f1c453 }
+    .sable { fill: #1c1a1d }
+    @media (prefers-color-scheme: dark) {
+      .t0 { stop-color: #c33049 }
+      .t1 { stop-color: #8f2030 }
+      .gold { fill: #ffd166 }
+    }
+  </style>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" class="t0" />
+      <stop offset="1" class="t1" />
+    </linearGradient>
+    <clipPath id="shield">
+      <path d="M7.5 6H24.5V14.6C24.5 21 20.6 24.6 16 26.6C11.4 24.6 7.5 21 7.5 14.6Z" />
+    </clipPath>
+  </defs>
+  <!-- Blazon: Gules, on an escutcheon Or a bend Sable (tile = field, shield = escutcheon). -->
+  <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#tile)" />
+  <path class="gold" d="M7.5 6H24.5V14.6C24.5 21 20.6 24.6 16 26.6C11.4 24.6 7.5 21 7.5 14.6Z" />
+  <path class="sable" clip-path="url(#shield)" d="M4.6 7.4L8.9 3.1L28.4 22.6L24.1 26.9Z" />
+</svg>

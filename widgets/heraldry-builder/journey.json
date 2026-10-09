@@ -1,0 +1,137 @@
+{
+  "matrix": {
+    "viewports": ["mobile:390x844", "tablet:768x1024", "desktop:1280x800"],
+    "schemes": ["light", "dark"]
+  },
+  "states": [
+    {
+      "label": "initial",
+      "steps": [],
+      "expect": {"state":"ready"}
+    },
+    {
+      "label": "design-valid",
+      "steps": [
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=swatch-ordinary-or]"},
+        {"click":"[data-testid=charge-unicorn]"},
+        {"click":"[data-testid=placement-ordinary]"},
+        {"click":"[data-testid=count-3]"},
+        {"click":"[data-testid=swatch-charge-vert]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"state":"populated"}
+    },
+    {
+      "label": "tincture-violation",
+      "steps": [
+        {"click":"[data-testid=swatch-field1-gules]"},
+        {"click":"[data-testid=charge-lion]"},
+        {"click":"[data-testid=swatch-field1-or]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"state":"error"}
+    },
+    {
+      "label": "blocked-swatch-explained",
+      "steps": [
+        {"click":"[data-testid=swatch-field1-gules]"},
+        {"click":"[data-testid=charge-lion]"},
+        {"click":"[data-testid=swatch-charge-azure]"}
+      ],
+      "expect": {"selector":"[data-testid=tincture-explainer]"}
+    },
+    {
+      "label": "duplicate-detected",
+      "steps": [
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=check-availability]"},
+        {"waitFor":"[data-testid=availability-duplicate]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=availability-duplicate]"}
+    },
+    {
+      "label": "too-close",
+      "steps": [
+        {"click":"[data-testid=swatch-field1-sable]"},
+        {"click":"[data-testid=ordinary-bordure]"},
+        {"click":"[data-testid=swatch-ordinary-argent]"},
+        {"click":"[data-testid=charge-wolf]"},
+        {"eval":"(() => { const s = document.querySelector('[data-testid=posture-select]'); if (!s) throw new Error('missing posture-select'); s.value = 'statant'; s.dispatchEvent(new Event('change', { bubbles: true })); })()"},
+        {"click":"[data-testid=check-availability]"},
+        {"waitFor":"[data-testid=availability-too-close]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=availability-too-close]"}
+    },
+    {
+      "label": "registry-results",
+      "steps": [
+        {"click":"[data-testid=tab-registry]"},
+        {"waitFor":"[data-testid=result-card]"},
+        {"eval":"(() => { const s = document.querySelector('[data-testid=filter-ordinary]'); if (!s) throw new Error('missing filter-ordinary'); s.value = 'bordure'; s.dispatchEvent(new Event('change', { bubbles: true })); })()"}
+      ],
+      "expect": {"state":"populated"}
+    },
+    {
+      "label": "registry-empty",
+      "steps": [
+        {"click":"[data-testid=tab-registry]"},
+        {"waitFor":"[data-testid=result-card]"},
+        {"eval":"(() => { const s = document.querySelector('[data-testid=filter-charge]'); if (!s) throw new Error('missing filter-charge'); s.value = 'dragon'; s.dispatchEvent(new Event('change', { bubbles: true })); })()"},
+        {"eval":"(() => { const s = document.querySelector('[data-testid=filter-ordinary]'); if (!s) throw new Error('missing filter-ordinary'); s.value = 'bordure'; s.dispatchEvent(new Event('change', { bubbles: true })); })()"}
+      ],
+      "expect": {"state":"empty"}
+    },
+    {
+      "label": "registry-loading",
+      "steps": [
+        {"click":"[data-testid=tab-registry]"},
+        {"waitFor":"[data-testid=result-card]"},
+        {"eval":"(() => { window.__journeyMockFetch = true; window.fetch = () => new Promise(() => {}); })()"},
+        {"click":"[data-testid=registry-refresh]"}
+      ],
+      "expect": {"state":"loading"}
+    },
+    {
+      "label": "registry-error",
+      "steps": [
+        {"click":"[data-testid=tab-registry]"},
+        {"waitFor":"[data-testid=result-card]"},
+        {"mockFetch":{"urlPattern":"**/api/arms*","method":"GET","status":500,"body":{"error":"internal_error","message":"The registry had a problem."}}},
+        {"click":"[data-testid=registry-refresh]"}
+      ],
+      "expect": {"state":"error"}
+    },
+    {
+      "label": "entry-detail",
+      "steps": [
+        {"click":"[data-testid=tab-registry]"},
+        {"waitFor":"[data-testid=result-card]"},
+        {"click":"[data-testid=result-card]"}
+      ],
+      "expect": {"selector":"[data-testid=entry-sheet]"}
+    },
+    {
+      "label": "register-success",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":201,"body":{"id":"journey-arms-01","editSecret":"journey-secret-01","registry":{"id":"default","name":"Default"},"rev":1,"blazon":"Azure, a bend Or.","signature":"journey-signature"}}},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=open-register]"},
+        {"fill":"[data-testid=register-name]","value":"House Journey"},
+        {"click":"[data-testid=register-submit]"}
+      ],
+      "expect": {"selector":"[data-testid=register-success]"}
+    },
+    {
+      "label": "compound-layers",
+      "steps": [
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=open-register]"},
+        {"click":"[data-testid=public-info-button]"}
+      ],
+      "expect": {"selector":"[data-testid=public-info-popover]"}
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "beshir-widgets-favicon",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Renders a widget's favicon.svg (light variant) to a 16/32/48 multi-size favicon.ico.",
+  "type": "module",
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2"
+  }
+}

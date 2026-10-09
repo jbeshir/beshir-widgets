@@ -1,0 +1,30 @@
+{
+  // Cloudflare Worker for the Heraldry Builder: serves the static SPA bundle and backs the
+  // community armorial API (/api/*) with D1.
+  "name": "widget-heraldry-builder",
+  "compatibility_date": "2026-06-01",
+  "main": "worker/index.ts",
+  "assets": {
+    "directory": "./dist/",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // /api/* runs the Worker first; everything else is served straight from static assets.
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "widget-heraldry-builder",
+      "database_id": "0ea8885d-2f6c-4491-8dcd-115a5cf714cf"
+    }
+  ],
+  "ratelimits": [
+    { "name": "CREATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } }
+  ],
+  "routes": [
+    {
+      "pattern": "heraldry-builder.widgets.beshir.org",
+      "custom_domain": true
+    }
+  ]
+}

@@ -1,0 +1,418 @@
+{
+  "schema": "heraldry-builder/registry-sample@1",
+  "registry": {
+    "id": "sample",
+    "name": "Sample armorial (offline demo)"
+  },
+  "entries": [
+    {
+      "id": "demo-001",
+      "displayName": "Ada Brightwater",
+      "contact": null,
+      "registeredAt": "2026-01-05T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "azure"
+        },
+        "ordinary": {
+          "type": "bend",
+          "tincture": "or"
+        },
+        "charges": null
+      },
+      "signature": "v1|F:plain:az|O:bend:or|C:-",
+      "blazon": "Azure, a bend Or"
+    },
+    {
+      "id": "demo-002",
+      "displayName": "Basil Thorne",
+      "contact": "Ask for Basil at the snack table",
+      "registeredAt": "2026-01-06T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "azure"
+        },
+        "ordinary": {
+          "type": "bend",
+          "tincture": "or"
+        },
+        "charges": {
+          "charge": "unicorn",
+          "count": 3,
+          "placement": "ordinary",
+          "arrangement": "forced",
+          "posture": "rampant",
+          "tincture": "vert"
+        }
+      },
+      "signature": "v1|F:plain:az|O:bend:or|C:unicorn:3:ordinary:forced:rampant:vt",
+      "blazon": "Azure, on a bend Or three unicorns rampant Vert"
+    },
+    {
+      "id": "demo-003",
+      "displayName": "Cass Merriweather",
+      "contact": "@cass@example.social",
+      "registeredAt": "2026-01-07T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "per-pale",
+          "tinctures": [
+            "azure",
+            "vert"
+          ]
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "wolf",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": "passant",
+          "tincture": "argent"
+        }
+      },
+      "signature": "v1|F:per-pale:az:vt|O:-|C:wolf:1:field:single:passant:ar",
+      "blazon": "Per pale Azure and Vert, a wolf passant Argent"
+    },
+    {
+      "id": "demo-004",
+      "displayName": "Dev Halloran",
+      "contact": null,
+      "registeredAt": "2026-01-08T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "sable"
+        },
+        "ordinary": {
+          "type": "bordure",
+          "tincture": "argent"
+        },
+        "charges": {
+          "charge": "wolf",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": "passant",
+          "tincture": "or"
+        }
+      },
+      "signature": "v1|F:plain:sa|O:bordure:ar|C:wolf:1:field:single:passant:or",
+      "blazon": "Sable, a wolf passant Or within a bordure Argent"
+    },
+    {
+      "id": "demo-005",
+      "displayName": "Elin Sato",
+      "contact": null,
+      "registeredAt": "2026-01-09T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "gules"
+        },
+        "ordinary": {
+          "type": "chief",
+          "tincture": "or"
+        },
+        "charges": {
+          "charge": "mullet",
+          "count": 3,
+          "placement": "field",
+          "arrangement": "two-and-one",
+          "posture": null,
+          "tincture": "argent"
+        }
+      },
+      "signature": "v1|F:plain:gu|O:chief:or|C:mullet:3:field:two-and-one:-:ar",
+      "blazon": "Gules, three mullets Argent, a chief Or"
+    },
+    {
+      "id": "demo-006",
+      "displayName": "Farah Quist",
+      "contact": "Usually by the garden door",
+      "registeredAt": "2026-01-10T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "vert"
+        },
+        "ordinary": {
+          "type": "chevron",
+          "tincture": "or"
+        },
+        "charges": {
+          "charge": "rose",
+          "count": 3,
+          "placement": "field",
+          "arrangement": "forced",
+          "posture": null,
+          "tincture": "argent"
+        }
+      },
+      "signature": "v1|F:plain:vt|O:chevron:or|C:rose:3:field:forced:-:ar",
+      "blazon": "Vert, a chevron Or between three roses Argent"
+    },
+    {
+      "id": "demo-007",
+      "displayName": "Gus Pemberton",
+      "contact": null,
+      "registeredAt": "2026-01-11T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "quarterly",
+          "tinctures": [
+            "purpure",
+            "or"
+          ]
+        },
+        "ordinary": null,
+        "charges": null
+      },
+      "signature": "v1|F:quarterly:pu:or|O:-|C:-",
+      "blazon": "Quarterly Purpure and Or"
+    },
+    {
+      "id": "demo-008",
+      "displayName": "Hana Roe",
+      "contact": null,
+      "registeredAt": "2026-01-12T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "or"
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "dragon",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": "rampant",
+          "tincture": "gules"
+        }
+      },
+      "signature": "v1|F:plain:or|O:-|C:dragon:1:field:single:rampant:gu",
+      "blazon": "Or, a dragon segreant Gules"
+    },
+    {
+      "id": "demo-009",
+      "displayName": "Ivo Marsh",
+      "contact": null,
+      "registeredAt": "2026-01-13T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "argent"
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "key",
+          "count": 2,
+          "placement": "field",
+          "arrangement": "in-fess",
+          "posture": null,
+          "tincture": "sable"
+        }
+      },
+      "signature": "v1|F:plain:ar|O:-|C:key:2:field:in-fess:-:sa",
+      "blazon": "Argent, two keys in fess Sable"
+    },
+    {
+      "id": "demo-010",
+      "displayName": "Jules Okafor",
+      "contact": "@jules@example.social",
+      "registeredAt": "2026-01-14T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "per-bend-sinister",
+          "tinctures": [
+            "sable",
+            "gules"
+          ]
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "sun",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": null,
+          "tincture": "or"
+        }
+      },
+      "signature": "v1|F:per-bend-sinister:sa:gu|O:-|C:sun:1:field:single:-:or",
+      "blazon": "Per bend sinister Sable and Gules, a sun Or"
+    },
+    {
+      "id": "demo-011",
+      "displayName": "Kit Abernathy",
+      "contact": null,
+      "registeredAt": "2026-01-15T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "purpure"
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "laptop",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": null,
+          "tincture": "argent"
+        }
+      },
+      "signature": "v1|F:plain:pu|O:-|C:laptop:1:field:single:-:ar",
+      "blazon": "Purpure, a laptop Argent"
+    },
+    {
+      "id": "demo-012",
+      "displayName": "Lior Vance",
+      "contact": null,
+      "registeredAt": "2026-01-16T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "azure"
+        },
+        "ordinary": {
+          "type": "fess",
+          "tincture": "argent"
+        },
+        "charges": {
+          "charge": "musical-note",
+          "count": 2,
+          "placement": "field",
+          "arrangement": "forced",
+          "posture": null,
+          "tincture": "or"
+        }
+      },
+      "signature": "v1|F:plain:az|O:fess:ar|C:musical-note:2:field:forced:-:or",
+      "blazon": "Azure, a fess Argent between two musical notes Or"
+    },
+    {
+      "id": "demo-013",
+      "displayName": "Mina Castellanos",
+      "contact": null,
+      "registeredAt": "2026-01-17T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "gules"
+        },
+        "ordinary": {
+          "type": "saltire",
+          "tincture": "or"
+        },
+        "charges": {
+          "charge": "gear",
+          "count": 1,
+          "placement": "ordinary",
+          "arrangement": "single",
+          "posture": null,
+          "tincture": "azure"
+        }
+      },
+      "signature": "v1|F:plain:gu|O:saltire:or|C:gear:1:ordinary:single:-:az",
+      "blazon": "Gules, on a saltire Or a gear Azure"
+    },
+    {
+      "id": "demo-014",
+      "displayName": "Noor Pike",
+      "contact": "Find me near the kettle",
+      "registeredAt": "2026-01-18T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "argent"
+        },
+        "ordinary": {
+          "type": "bordure",
+          "tincture": "gules"
+        },
+        "charges": {
+          "charge": "goat",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": "statant",
+          "tincture": "azure"
+        }
+      },
+      "signature": "v1|F:plain:ar|O:bordure:gu|C:goat:1:field:single:statant:az",
+      "blazon": "Argent, a goat statant Azure within a bordure Gules"
+    },
+    {
+      "id": "demo-015",
+      "displayName": "Otto Fairbairn",
+      "contact": null,
+      "registeredAt": "2026-01-19T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "or"
+        },
+        "ordinary": {
+          "type": "pale",
+          "tincture": "sable"
+        },
+        "charges": {
+          "charge": "flame",
+          "count": 3,
+          "placement": "ordinary",
+          "arrangement": "forced",
+          "posture": null,
+          "tincture": "or"
+        }
+      },
+      "signature": "v1|F:plain:or|O:pale:sa|C:flame:3:ordinary:forced:-:or",
+      "blazon": "Or, on a pale Sable three flames Or"
+    },
+    {
+      "id": "demo-016",
+      "displayName": "Pia Lindqvist",
+      "contact": null,
+      "registeredAt": "2026-01-20T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "vert"
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "paintbrush",
+          "count": 3,
+          "placement": "field",
+          "arrangement": "in-fess",
+          "posture": null,
+          "tincture": "or"
+        }
+      },
+      "signature": "v1|F:plain:vt|O:-|C:paintbrush:3:field:in-fess:-:or",
+      "blazon": "Vert, three paintbrushes in fess Or"
+    }
+  ]
+}
