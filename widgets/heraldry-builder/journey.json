@@ -116,7 +116,7 @@
     {
       "label": "register-success",
       "steps": [
-        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":201,"body":{"id":"journey-arms-01","editSecret":"journey-secret-01","registry":{"id":"bayrat","name":"Bayrat house parties"},"rev":1,"blazon":"Azure, a bend Or.","signature":"journey-signature"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":201,"body":{"id":"journey-arms-01","editSecret":"journey-secret-01","registry":{"id":"default","name":"Default"},"rev":1,"blazon":"Azure, a bend Or.","signature":"journey-signature"}}},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=open-register]"},
         {"fill":"[data-testid=register-name]","value":"House Journey"},

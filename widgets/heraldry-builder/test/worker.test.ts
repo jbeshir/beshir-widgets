@@ -101,7 +101,7 @@ describe('GET /api/registries', () => {
     const res = await call('GET', '/api/registries');
     expect(res.status).toBe(200);
     const list = (await res.json()) as Json[];
-    expect(list[0]).toEqual({ id: 'bayrat', name: 'Bayrat house parties', isDefault: true });
+    expect(list[0]).toEqual({ id: 'default', name: 'Default', isDefault: true });
   });
 
   it('rejects other methods (405)', async () => {
@@ -127,7 +127,7 @@ describe('POST /api/arms', () => {
     const data = await bodyOf(res);
     expect(data.id.length).toBeGreaterThanOrEqual(16);
     expect(data.editSecret.length).toBeGreaterThanOrEqual(32);
-    expect(data.registry).toEqual({ id: 'bayrat', name: 'Bayrat house parties' });
+    expect(data.registry).toEqual({ id: 'default', name: 'Default' });
     expect(data.rev).toBe(1);
     expect(data.blazon).toBe('Vert, a pale Argent');
     expect(data.signature).toBe('v1|F:plain:vt|O:pale:ar|C:-');
@@ -145,7 +145,7 @@ describe('POST /api/arms', () => {
     const tagList = tags.results.map((t) => t.tag);
     expect(tagList).toContain('ordinary:pale');
     expect(tagList).toContain('field:plain');
-    expect(tags.results.every((t) => t.registry_id === 'bayrat')).toBe(true);
+    expect(tags.results.every((t) => t.registry_id === 'default')).toBe(true);
 
     const got = await bodyOf(await call('GET', `/api/arms/${data.id}`));
     expect(got).not.toHaveProperty('editSecret');
@@ -492,7 +492,7 @@ describe('GET /api/arms (search)', () => {
 
   it('defaults to the default registry', async () => {
     const page = await bodyOf(await call('GET', '/api/arms'));
-    expect(page.registry).toEqual({ id: 'bayrat', name: 'Bayrat house parties' });
+    expect(page.registry).toEqual({ id: 'default', name: 'Default' });
   });
 
   it('agrees with the shared offline search over the sample (parity)', async () => {
@@ -526,7 +526,7 @@ describe('GET /api/arms/:id', () => {
     const e = await bodyOf(res);
     expect(e).toMatchObject({
       id: created.id,
-      registry: { id: 'bayrat', name: 'Bayrat house parties' },
+      registry: { id: 'default', name: 'Default' },
       displayName: 'Contactable',
       contact: '@me@example.social',
       blazon: created.blazon,

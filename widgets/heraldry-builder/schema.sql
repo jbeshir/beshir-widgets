@@ -10,8 +10,8 @@
 -- query parameter, never stored in the client. Registries are added by the owner with SQL.
 
 CREATE TABLE IF NOT EXISTS registries (
-  id         TEXT PRIMARY KEY,            -- short slug, e.g. 'bayrat'
-  name       TEXT NOT NULL,              -- human label, e.g. 'Bayrat house parties'
+  id         TEXT PRIMARY KEY,            -- short slug, e.g. 'default'
+  name       TEXT NOT NULL,              -- human label, e.g. 'Default'
   is_default INTEGER NOT NULL DEFAULT 0, -- exactly one row should have is_default = 1
   created_at TEXT NOT NULL               -- ISO-8601 UTC
 );
@@ -55,4 +55,4 @@ CREATE INDEX IF NOT EXISTS arms_tags_lookup ON arms_tags(registry_id, tag);
 
 -- Seed the one registry that ships today. It is the default: requests without a registry use it.
 INSERT OR IGNORE INTO registries (id, name, is_default, created_at)
-VALUES ('bayrat', 'Bayrat house parties', 1, '2026-10-01T00:00:00Z');
+VALUES ('default', 'Default', 1, '2026-10-01T00:00:00Z');

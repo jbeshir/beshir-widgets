@@ -13,7 +13,7 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
   stay visible but are marked blocked, with an explanation.
 - **Blazon.** The formal blazon ("Azure, on a bend Or three unicorns rampant Vert") and a
   plain-English gloss are generated from the structured design, never typed by hand.
-- **Registry.** Each community (a *registry*, e.g. "Bayrat house parties") keeps its own
+- **Registry.** Each community (a *registry*, e.g. one group of friends) keeps its own
   armorial. Registering checks the design against every entry: an exact duplicate is refused, and so
   is a design that is "too close" (no clear difference). Anyone can search the registry by
   component: charge, posture, ordinary, field division, any tincture, charge tincture, or text.
@@ -64,12 +64,12 @@ Both are wrapped in `try/catch`; private mode or a full quota just disables them
 
 The data model is **registry-keyed**. Every entry belongs to one row of `registries`, and
 uniqueness is enforced per registry. The URL selects a registry with `?registry=<id>`; with no
-parameter, the API uses the default registry (`is_default = 1`, `bayrat` today). Tables
+parameter, the API uses the default registry (`is_default = 1`, `default` today). Tables
 (`schema.sql`):
 
 | table | contents |
 |---|---|
-| `registries` | `id`, `name`, `is_default`, `created_at`. Seeded with `('bayrat', 'Bayrat house parties', 1, …)`. |
+| `registries` | `id`, `name`, `is_default`, `created_at`. Seeded with `('default', 'Default', 1, …)`. |
 | `arms` | `id`, `registry_id`, `display_name`, `contact`, the normalised `design` JSON, `signature`, `blazon`, the indexed component columns `field_division` / `ordinary` / `charge`, `readability`, `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
 | `arms_tags` | `(arms_id, registry_id, tag)`: derived search tags such as `charge:wolf`, `posture:passant`, `ordinary:bordure`, `tincture:or`, indexed on `(registry_id, tag)`. |
 
@@ -204,7 +204,7 @@ npx wrangler d1 create widget-heraldry-builder
 # 2. Paste the printed database_id into wrangler.jsonc → d1_databases[0].database_id,
 #    replacing REPLACE_WITH_D1_DATABASE_ID.
 
-# 3. Create the tables and seed the default "bayrat" registry.
+# 3. Create the tables and seed the "Default" registry.
 npx wrangler d1 execute widget-heraldry-builder --remote --file=schema.sql
 ```
 

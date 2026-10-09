@@ -102,7 +102,7 @@ describe('store (online)', () => {
   it('maps search responses and re-validates designs', async () => {
     const spy = goOnline(async () =>
       jsonResponse(200, {
-        registry: { id: 'bayrat', name: 'Bayrat house parties' },
+        registry: { id: 'default', name: 'Default' },
         total: 2,
         offset: 0,
         limit: 24,
@@ -112,8 +112,8 @@ describe('store (online)', () => {
         ],
       })
     );
-    const r = await store.search({ registry: 'bayrat', charge: 'wolf', q: 'x y' });
-    expect(spy.mock.calls[0][0]).toBe('/api/arms?registry=bayrat&charge=wolf&q=x+y');
+    const r = await store.search({ registry: 'default', charge: 'wolf', q: 'x y' });
+    expect(spy.mock.calls[0][0]).toBe('/api/arms?registry=default&charge=wolf&q=x+y');
     expect(r.ok && r.page.items.map((i) => i.id)).toEqual(['a']);
     expect(r.ok && r.page.sample).toBe(false);
     // The "Show offline sample" action still works online.
@@ -147,7 +147,7 @@ describe('store (online)', () => {
   it('sends the secret and revision on update', async () => {
     const spy = goOnline(async () =>
       jsonResponse(200, {
-        id: 'a', registry: { id: 'bayrat', name: 'B' }, displayName: 'N', contact: null, design: sample.entries[0].design,
+        id: 'a', registry: { id: 'default', name: 'B' }, displayName: 'N', contact: null, design: sample.entries[0].design,
         blazon: 'Azure, a bend Or', signature: 's', readability: 'bold', rev: 3, createdAt: 't', updatedAt: 'u',
       })
     );
