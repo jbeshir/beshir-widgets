@@ -9,6 +9,7 @@ const widgetsDir = path.resolve(__dirname, '..', 'widgets');
 const localThemeWidgets = [
   'astrolabe-simulator',
   'function-plotter',
+  'heraldry-builder',
   'image-comparison-table',
   'japanese-verb-tower',
   'labour-burden',

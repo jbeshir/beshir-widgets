@@ -12,6 +12,7 @@ const widgetsDir = path.join(repositoryDir, 'widgets');
 const localThemeWidgets = [
   'astrolabe-simulator',
   'function-plotter',
+  'heraldry-builder',
   'image-comparison-table',
   'japanese-verb-tower',
   'labour-burden',

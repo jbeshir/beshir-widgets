@@ -11,6 +11,12 @@
       "identity": ".card-header h1", "ui": "#expr-input",
       "text": [".hint", ".error-msg"], "boundaries": ["#expr-input"], "focus": "#expr-input", "status": [".error-msg"]
     },
+    "heraldry-builder": {
+      "identity": ".card-header h1", "ui": "[data-testid=tab-registry]",
+      "text": [".card-header .hint", "[data-testid=blazon]", "[data-testid=gloss]", "[data-testid=structural-hint]", ".switch-help"],
+      "boundaries": ["[data-testid=tab-registry]", "[data-testid=copy-blazon]", "[data-testid=hatching-toggle]"], "focus": "[data-testid=tab-registry]", "status": ["[data-testid=structural-hint]"],
+      "manualSurfaces": [{ "surface": "heraldic shield SVG fills (fixed tincture palette, identical in light and dark, 1 px dark outline)", "method": "journey screenshot review", "checked": true, "result": "shield sits on an opaque theme surface; argent outlines visible in both schemes" }]
+    },
     "image-comparison-table": {
       "identity": ".widget-title, h1", "ui": ".pick-card, button",
       "text": [".widget-subtitle, .subtitle", ".pick-card", ".footnote", ".info-popover", ".lb-dialog"], "boundaries": [".pick-card, button"], "focus": ".pick-card, button", "status": [],
