@@ -15,8 +15,7 @@
     {
       "binding": "DB",
       "database_name": "widget-heraldry-builder",
-      // Placeholder: create the database once (see README) and paste its id here.
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "0ea8885d-2f6c-4491-8dcd-115a5cf714cf"
     }
   ],
   "ratelimits": [
