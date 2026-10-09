@@ -3,6 +3,7 @@
 
 import { entryHash, ownerHash } from '../lib/route';
 import type { DeviceArms } from '../store';
+import { Shield } from './Shield';
 
 export function YourArmsPanel({ items, onBrowse }: { items: DeviceArms[]; onBrowse: () => void }) {
   if (!items.length) {
@@ -22,7 +23,8 @@ export function YourArmsPanel({ items, onBrowse }: { items: DeviceArms[]; onBrow
       <p class="muted yours-note">Saved in this browser only. Clearing site data removes the private links.</p>
       <ul class="yours-list" data-testid="yours-list">
         {items.map((a) => (
-          <li key={a.id} class="yours-item" data-testid="yours-item">
+          <li key={a.id} class={`yours-item${a.shield ? ' has-shield' : ''}`} data-testid="yours-item">
+            {a.shield && <Shield design={a.shield.design} shape={a.shield.shape} size={40} label={null} class="yours-shield" />}
             <span class="yours-name">{a.displayName}</span>
             <span class="yours-blazon">{a.blazon}</span>
             <span class="yours-links">

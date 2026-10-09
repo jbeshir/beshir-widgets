@@ -4,7 +4,7 @@
 // entry page and the owner view.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, type NormDesign, type Tincture } from '../../lib/heraldry';
+import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, type ShapedDesign, type Tincture } from '../../lib/heraldry';
 import { registryParam, type Route } from '../../lib/route';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
@@ -20,7 +20,7 @@ interface Props {
   route: Route;
   onStatus: (s: ListStatus) => void;
   hatching: boolean;
-  onLoadDesign: (design: NormDesign) => void;
+  onLoadDesign: (arms: ShapedDesign) => void;
   onDeviceChange: () => void;
 }
 
@@ -254,7 +254,7 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
             {items.map((a) => (
               <li key={a.id}>
                 <button type="button" class="arms-card arms-card-link" data-testid="result-card" data-id={a.id} onClick={() => setOpen(a)}>
-                  <Shield design={a.design} size={72} hatching={hatching} label={null} />
+                  <Shield design={a.design} shape={a.shape} size={72} hatching={hatching} label={null} />
                   <span class="arms-card-name">{a.displayName}</span>
                   <span class="arms-card-blazon">{a.blazon}</span>
                 </button>

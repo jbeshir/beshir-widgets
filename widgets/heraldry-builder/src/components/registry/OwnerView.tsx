@@ -1,14 +1,15 @@
-// Owner view for #/a/<id>/<secret>: edit the display name and contact (PUT with the secret and
-// If-Match rev), or withdraw the entry (DELETE after a confirm dialog). The design itself is not
-// editable here — change the arms by registering a new design and withdrawing this one.
+// Owner view for #/a/<id>/<secret>: edit the display name, contact and display shape (PUT with the
+// secret and If-Match rev), or withdraw the entry (DELETE after a confirm dialog). The design itself
+// is not editable here — change the arms by registering a new design and withdrawing this one.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { CONTACT_MAX, DISPLAY_NAME_MAX } from '../../lib/heraldry';
+import { CONTACT_MAX, DEFAULT_FIELD_SHAPE, DISPLAY_NAME_MAX, type FieldShape } from '../../lib/heraldry';
 import { capabilityUrls } from '../../lib/route';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
 import { CopyField } from '../CopyField';
 import { Dialog } from '../overlay';
+import { ShapePicker } from '../design/ShapePicker';
 import { Shield } from '../Shield';
 
 interface Props {
@@ -26,6 +27,7 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
   const [attempt, setAttempt] = useState(0);
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
+  const [shape, setShape] = useState<FieldShape>(DEFAULT_FIELD_SHAPE);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error' | 'stale'; text: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -41,6 +43,7 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
       setLoad({ status: 'ok', entry: r.entry });
       setName(r.entry.displayName);
       setContact(r.entry.contact ?? '');
+      setShape(r.entry.shape);
     });
     return () => { live = false; };
   }, [id, attempt]);
@@ -54,13 +57,17 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
     const entry = load.entry;
     setBusy(true);
     setMessage(null);
-    const r = await store.update(id, secret, entry.rev, { displayName: name, contact: contact.trim() || null, design: entry.design });
+    const r = await store.update(id, secret, entry.rev, { displayName: name, contact: contact.trim() || null, design: entry.design, shape });
     setBusy(false);
     if (r.ok) {
       setLoad({ status: 'ok', entry: r.entry });
       setName(r.entry.displayName);
       setContact(r.entry.contact ?? '');
-      store.rememberArms({ id, registry: r.entry.registry.id, displayName: r.entry.displayName, blazon: r.entry.blazon, secret });
+      setShape(r.entry.shape);
+      store.rememberArms({
+        id, registry: r.entry.registry.id, displayName: r.entry.displayName, blazon: r.entry.blazon,
+        shield: { design: r.entry.design, shape: r.entry.shape }, secret,
+      });
       onDeviceChange();
       setMessage({ kind: 'ok', text: 'Saved.' });
     } else if (r.code === 'conflict') {
@@ -109,7 +116,7 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
         <>
           <h2 class="owner-title">Edit your registered arms</h2>
           <div class="register-summary">
-            <Shield design={load.entry.design} size={96} hatching={hatching} />
+            <Shield design={load.entry.design} shape={shape} size={96} hatching={hatching} />
             <p class="blazon blazon-small">{load.entry.blazon}</p>
           </div>
           <form class="register-form" onSubmit={save} noValidate>
@@ -119,6 +126,7 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
             <label class="field-label" for="own-contact">Contact (optional) <span class="public-tag">Public — anyone can see this</span></label>
             <input id="own-contact" class="text-input" data-testid="owner-contact" maxLength={CONTACT_MAX} value={contact} onInput={(e) => setContact((e.currentTarget as HTMLInputElement).value)} />
             <p class="field-hint">{contact.length} of {CONTACT_MAX} characters</p>
+            <ShapePicker design={load.entry.design} value={shape} onChange={setShape} idPrefix="owner-shape" />
             {message && (
               <div class={`owner-message owner-message-${message.kind}`} role={message.kind === 'ok' ? 'status' : 'alert'} data-testid={message.kind === 'stale' ? 'owner-stale' : 'owner-message'}>
                 <p>{message.text}</p>

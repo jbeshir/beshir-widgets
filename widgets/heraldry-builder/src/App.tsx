@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { blazon, type NormDesign } from './lib/heraldry';
+import { DEFAULT_FIELD_SHAPE, blazon, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
 import { DEFAULT_DESIGN, assess, sameDesign } from './lib/builder';
 import { registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
@@ -26,7 +26,9 @@ export function App() {
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set([tab]));
   const [ready, setReady] = useState(false);
 
-  const [design, setDesign] = useState<NormDesign>(() => store.loadDraft() ?? DEFAULT_DESIGN);
+  const [draft] = useState(() => store.loadDraft());
+  const [design, setDesign] = useState<NormDesign>(draft?.design ?? DEFAULT_DESIGN);
+  const [shape, setShape] = useState<FieldShape>(draft?.shape ?? DEFAULT_FIELD_SHAPE);
   const report = useMemo(() => assess(design), [design]);
   const [hatching, setHatching] = useState(false);
 
@@ -53,20 +55,22 @@ export function App() {
   }, []);
 
   // Draft autosave (debounced), flushed when the page is hidden.
-  const latest = useRef(design);
-  latest.current = design;
+  const latest = useRef<ShapedDesign>({ design, shape });
+  latest.current = { design, shape };
   useEffect(() => {
-    const save = () => (sameDesign(latest.current, DEFAULT_DESIGN) ? store.clearDraft() : store.saveDraft(latest.current));
+    const untouched = (d: ShapedDesign) => sameDesign(d.design, DEFAULT_DESIGN) && d.shape === DEFAULT_FIELD_SHAPE;
+    const save = () => (untouched(latest.current) ? store.clearDraft() : store.saveDraft(latest.current));
     const t = setTimeout(save, DRAFT_DEBOUNCE_MS);
     window.addEventListener('pagehide', save);
     return () => {
       clearTimeout(t);
       window.removeEventListener('pagehide', save);
     };
-  }, [design]);
+  }, [design, shape]);
 
   const startOver = () => {
     setDesign(DEFAULT_DESIGN);
+    setShape(DEFAULT_FIELD_SHAPE);
     store.clearDraft();
   };
 
@@ -76,9 +80,10 @@ export function App() {
     else setTimeout(() => announce(m), 100);
   };
 
-  // "Load into builder" from an entry: adopt its design and go to the Design tab.
-  const loadDesign = (nd: NormDesign) => {
+  // "Load into builder" from an entry: adopt its design and shape and go to the Design tab.
+  const loadDesign = ({ design: nd, shape: s }: ShapedDesign) => {
     setDesign(nd);
+    setShape(s);
     setCheck(null);
     if (route.mode !== 'builder') location.hash = '#/';
     selectTab('design');
@@ -193,8 +198,10 @@ export function App() {
         <div role="tabpanel" id="panel-design" aria-labelledby="tab-design" hidden={tab !== 'design'} class="tab-panel">
           <DesignTab
             design={design}
+            shape={shape}
             report={report}
             onChange={setDesign}
+            onShape={setShape}
             onStartOver={startOver}
             hatching={hatching}
             onHatching={setHatching}
@@ -223,7 +230,7 @@ export function App() {
       <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="live-status">{announcement}</div>
 
       {registerOpen && (
-        <RegisterDialog design={design} onClose={() => setRegisterOpen(false)} onRegistered={() => setYours(store.deviceArms())} />
+        <RegisterDialog design={design} shape={shape} onClose={() => setRegisterOpen(false)} onRegistered={() => setYours(store.deviceArms())} />
       )}
       {ready && <div id="widget-ready" style={{ display: 'none' }} aria-hidden="true" />}
     </main>

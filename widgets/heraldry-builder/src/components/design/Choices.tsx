@@ -9,12 +9,14 @@ import { LockGlyph, type ExplainKind, type Explanation } from './Explainer';
 
 interface GroupProps {
   label: string;
+  /** Id of an element that explains the whole group. */
+  describedBy?: string;
   testid?: string;
   class?: string;
   children: ComponentChildren;
 }
 
-export function RadioGroup({ label, testid, class: cls, children }: GroupProps) {
+export function RadioGroup({ label, describedBy, testid, class: cls, children }: GroupProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -40,7 +42,7 @@ export function RadioGroup({ label, testid, class: cls, children }: GroupProps) 
   };
 
   return (
-    <div ref={ref} role="radiogroup" aria-label={label} data-testid={testid} class={cls} onKeyDown={onKeyDown}>
+    <div ref={ref} role="radiogroup" aria-label={label} aria-describedby={describedBy} data-testid={testid} class={cls} onKeyDown={onKeyDown}>
       {children}
     </div>
   );

@@ -3,6 +3,7 @@
 export * from './tinctures';
 export * from './charges';
 export * from './design';
+export * from './shape';
 export * from './geometry';
 export * from './tincture-rule';
 export * from './validate';

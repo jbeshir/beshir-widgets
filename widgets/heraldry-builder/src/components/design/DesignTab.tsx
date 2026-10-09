@@ -4,7 +4,7 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { METALS, blazon, listTinctureNames, type NormDesign } from '../../lib/heraldry';
+import { METALS, blazon, listTinctureNames, type FieldShape, type NormDesign } from '../../lib/heraldry';
 import type { Issue } from '../../lib/heraldry';
 import type { DesignReport } from '../../lib/builder';
 import type { RefObject } from 'preact';
@@ -13,12 +13,16 @@ import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
 import { ChargesStep, FieldStep, OrdinaryStep } from './BuilderSteps';
 import { ReadabilityMeter } from './ReadabilityMeter';
+import { ShapePicker } from './ShapePicker';
 import { ViolationPanel } from './ViolationPanel';
 
 interface Props {
   design: NormDesign;
+  /** The shape the preview is drawn in (display only). */
+  shape: FieldShape;
   report: DesignReport;
   onChange: (nd: NormDesign) => void;
+  onShape: (shape: FieldShape) => void;
   onStartOver: () => void;
   hatching: boolean;
   onHatching: (on: boolean) => void;
@@ -54,7 +58,7 @@ function focusControl(selector: string): void {
 }
 
 /** Compact sticky shield + blazon bar for single-column layouts, shown once the main preview scrolls away. */
-function MiniPreview({ design, status, watch, onFix }: { design: NormDesign; status: DesignReport['status']; watch: RefObject<HTMLElement>; onFix: () => void }) {
+function MiniPreview({ design, shape, status, watch, onFix }: { design: NormDesign; shape: FieldShape; status: DesignReport['status']; watch: RefObject<HTMLElement>; onFix: () => void }) {
   const [away, setAway] = useState(false);
   useEffect(() => {
     const el = watch.current;
@@ -66,7 +70,7 @@ function MiniPreview({ design, status, watch, onFix }: { design: NormDesign; sta
   return (
     <div class="mini-anchor" data-away={away ? 'true' : 'false'}>
       <div class="mini-bar" data-testid="mini-preview" data-status={status} aria-hidden={away ? undefined : 'true'}>
-        <Shield design={design} size={40} label={null} />
+        <Shield design={design} shape={shape} size={40} label={null} />
         <p class="mini-blazon">{blazon(design)}</p>
         {status === 'violation' ? (
           <button type="button" class="button-primary button-small mini-fix" tabIndex={away ? 0 : -1} onClick={onFix}>Rule broken · Fix</button>
@@ -79,7 +83,7 @@ function MiniPreview({ design, status, watch, onFix }: { design: NormDesign; sta
 }
 
 export function DesignTab(p: Props) {
-  const { design, report } = p;
+  const { design, shape, report } = p;
   // The left column sticks to the top only while it fits the viewport; a taller column (e.g. with
   // a violation panel and a check result) would otherwise hide its bottom actions.
   const previewRef = useRef<HTMLDivElement>(null);
@@ -107,6 +111,7 @@ export function DesignTab(p: Props) {
     <div class="design-layout">
       <MiniPreview
         design={design}
+        shape={shape}
         status={report.status}
         watch={figureRef}
         onFix={() => goToLayer(report.problems[0]?.layer ?? 'charges')}
@@ -114,7 +119,7 @@ export function DesignTab(p: Props) {
       <div class="design-preview" ref={previewRef}>
         <h2 class="sr-only">Preview</h2>
         <figure class="preview" data-testid="shield-preview" data-status={report.status} ref={figureRef} tabIndex={-1}>
-          <Shield design={design} hatching={p.hatching} class="shield-large" />
+          <Shield design={design} shape={shape} hatching={p.hatching} class="shield-large" />
           <figcaption class="sr-only">Preview of your arms</figcaption>
         </figure>
         <div class="preview-toggles">
@@ -132,6 +137,7 @@ export function DesignTab(p: Props) {
           </button>
           <span id="hatching-help" class="switch-help">Line patterns show each tincture without colour.</span>
         </div>
+        <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />
 
         <BlazonPanel design={design} />
 
@@ -186,8 +192,8 @@ export function DesignTab(p: Props) {
         <p class="rule-intro" data-testid="rule-intro">
           The rule of tincture: put metals ({listTinctureNames(METALS)}) on colours and colours on metals, never colour on colour or metal on metal. Locked options below would break it.
         </p>
-        <FieldStep design={design} onChange={p.onChange} issues={layerIssues('field')} />
-        <OrdinaryStep design={design} onChange={p.onChange} issues={layerIssues('ordinary')} />
+        <FieldStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('field')} />
+        <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('ordinary')} />
         <ChargesStep design={design} onChange={p.onChange} issues={layerIssues('charges')} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>

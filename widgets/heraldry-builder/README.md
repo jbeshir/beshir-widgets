@@ -33,19 +33,45 @@ code.
 
 Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Design**, **Registry**, **Your arms**.
 
-**Design.** The left column (sticky on wide screens while it fits the viewport) holds the live shield, a Hatching switch, the blazon and plain-English gloss, the readability meter and the Check availability / Register… actions. The right column holds the Field, Ordinary and Charges steps. Options that would break the rule of tincture (or are structurally illegal) stay visible but are marked blocked; pressing one opens an explanation instead of applying it. A lower-layer change that breaks the design shows a violation panel (with a one-click fix when one exists) and disables Check and Register. On narrow screens the charge picker uses compact icon-only tiles (names are in the accessible name, the tooltip and a "Selected:" line).
+**Design.** The left column (sticky on wide screens while it fits the viewport) holds the live shield, a Hatching switch, the Shape picker (see Field shapes below), the blazon and plain-English gloss, the readability meter and the Check availability / Register… actions. The right column holds the Field, Ordinary and Charges steps. Options that would break the rule of tincture (or are structurally illegal) stay visible but are marked blocked; pressing one opens an explanation instead of applying it. A lower-layer change that breaks the design shows a violation panel (with a one-click fix when one exists) and disables Check and Register. On narrow screens the charge picker uses compact icon-only tiles (names are in the accessible name, the tooltip and a "Selected:" line).
 
 **Check availability** shows an inline result: *Available*, *Already registered* or *Too close*, the last two with the conflicting mini shield, its name and blazon, the differences, and what to change. **Register…** opens a dialog (a bottom sheet on mobile) with a display name and an optional contact, both labelled "Public — anyone can see this", length counters, and a "What's public?" popover. A server 409 (duplicate / too close) is rendered with the same panel; an offline copy says the registry can't be reached. Success shows a share link and a private edit link with copy buttons and a "save this link" warning; the entry is also kept under Your arms on this device.
 
 **Registry.** Registry name, entry count and an "Offline sample" badge; a search box (name or blazon), selects for charge, posture, ordinary, field, tincture and charge tincture, removable filter chips and Clear filters, a Refresh button, a card grid (shield, name, blazon) and Show more. A card opens an entry sheet (big shield, blazon, gloss, name, public contact as plain text, share link, **Load into builder**). Failure shows an error panel with Retry and Show offline sample (production never silently swaps to the sample).
 
-**Entry and owner links.** `#/a/<id>` is the public entry page. `#/a/<id>/<secret>` is the owner view: edit the display name and contact (sent with `If-Match`; a stale revision says the entry changed elsewhere and offers Reload) or Withdraw (confirm dialog). The secret stays in the URL fragment.
+**Entry and owner links.** `#/a/<id>` is the public entry page. `#/a/<id>/<secret>` is the owner view: edit the display name, contact and display shape (sent with `If-Match`; a stale revision says the entry changed elsewhere and offers Reload) or Withdraw (confirm dialog). The secret stays in the URL fragment.
 
 **States** (`data-widget-state` on `<html>`): Design — `ready`, `populated`, `error`; Registry — `loading`, `populated`, `empty`, `error`; Your arms — `populated` or `empty`. Dialogs and sheets keep the underlying tab's state.
 
-**Test ids.** Tabs `tab-design|registry|yours`; builder options `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N`, `placement-*`, `swatch-<part>-<tincture>`, `posture-select`, `arrangement-select`; status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-contact`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `edit-link`; registry `registry-search`, `filter-charge|posture|ordinary|division|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`; owner `owner-name`, `owner-contact`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`.
+**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N`, `placement-*`, `swatch-<part>-<tincture>`, `posture-select`, `arrangement-select`; status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-contact`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `edit-link`; registry `registry-search`, `filter-charge|posture|ordinary|division|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`; owner `owner-name`, `owner-contact`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`.
 
 **Keyboard.** Tab order follows the page; radio-style option groups are one tab stop with arrow keys moving and selecting (blocked options can be focused and explain themselves on Enter/Space). Dialogs and sheets trap focus, Escape closes only the topmost layer (a popover inside a dialog closes first), and focus returns to the opener. Animations are off under `prefers-reduced-motion`.
+
+## Field shapes
+
+Arms can be displayed on a **heater shield** (the default), a **square banner**, a **round** or a
+**lozenge**. The shape is display only: it is chosen with the Shape picker under the preview ("just
+for display; doesn't change your arms"), saved with the draft, sent with a registration or edit,
+stored in its own `field_shape` column and drawn wherever the entry appears (cards, entry page,
+owner view, conflicts, Your arms). It is never part of the design JSON, the blazon, the gloss, the
+signature, the tags or the "too close" comparison, so two designs that differ only in shape are the
+same arms (a duplicate). The owner can change it later without a uniqueness re-check.
+
+All four shapes share the 100 × 120 viewBox (`src/lib/heraldry/geometry.ts`). Each shape has its
+own outline, bordure inset (the outline moved inwards), fess point, chief depth and pile; partition
+lines and the fess, pale, bend, chevron, cross and saltire are built the same way around the shape's
+fess point and clipped to its outline. Charge slots for the banner, round and lozenge
+(`shape-slots.ts`) are the heater's tables spread, shifted and sized to fit each shape.
+
+**Validity is shape-independent.** The rule of tincture is judged on the canonical heater layout
+only, so every shape gives a design the same verdict, issues, fix suggestions and option locks.
+`test/shape-verdict.test.ts` checks this for the sample registry, the validation examples, rule-
+breaking designs and generated designs, and also that judging the drawing in each shape gives every
+charge its canonical verdict. `test/geometry-fit.test.ts` checks, per shape, that every drawing in
+every slot stays inside the outline (with margin), on or clear of its ordinary, and clear of its
+neighbours, and that each slot lies on the same parts of a divided field as its heater slot.
+
+Old drafts (saved before shapes existed) and requests without a `shape` use the heater shield.
 
 ## Tinctures and hatching
 
@@ -100,7 +126,7 @@ parameter, the API uses the default registry (`is_default = 1`, `default` today)
 | table | contents |
 |---|---|
 | `registries` | `id`, `name`, `is_default`, `created_at`. Seeded with `('default', 'Default', 1, …)`. |
-| `arms` | `id`, `registry_id`, `display_name`, `contact`, the normalised `design` JSON, `signature`, `blazon`, the indexed component columns `field_division` / `ordinary` / `charge`, `readability`, `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
+| `arms` | `id`, `registry_id`, `display_name`, `contact`, the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, the indexed component columns `field_division` / `ordinary` / `charge`, `readability`, `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
 | `arms_tags` | `(arms_id, registry_id, tag)`: derived search tags such as `charge:wolf`, `posture:passant`, `ordinary:bordure`, `tincture:or`, indexed on `(registry_id, tag)`. |
 
 ### Uniqueness: canonical signature and "too close"
@@ -141,11 +167,11 @@ where noted.
 | Route | Purpose |
 |---|---|
 | `GET /api/registries` | `[{ id, name, isDefault }]` |
-| `GET /api/arms?…` | Public search (parameters below) → `{ registry: {id,name}, total, offset, limit, items: [{ id, displayName, design, blazon, signature, readability, createdAt }] }`. Never includes the contact. |
-| `POST /api/arms/check` | `{ registry?, design }` → `200 { verdict: 'ok' \| 'duplicate' \| 'too-close', conflict?: {id, displayName, blazon, design}, differences?, registry, blazon, signature, readability }`. Not rate-limited. |
-| `POST /api/arms` | `{ registry?, displayName, contact?, design }` → `201 { id, editSecret, registry: {id,name}, rev: 1, blazon, signature }`. |
-| `GET /api/arms/:id` | One entry: `{ id, registry, displayName, contact, design, blazon, signature, readability, rev, createdAt, updatedAt }`. Never the secret hash. |
-| `PUT /api/arms/:id` | Full replacement `{ displayName, contact?, design }`. Requires `Authorization: Bearer <secret>` and `If-Match: <rev>`. Returns the entry with `rev + 1`. |
+| `GET /api/arms?…` | Public search (parameters below) → `{ registry: {id,name}, total, offset, limit, items: [{ id, displayName, design, shape, blazon, signature, readability, createdAt }] }`. Never includes the contact. |
+| `POST /api/arms/check` | `{ registry?, design }` → `200 { verdict: 'ok' \| 'duplicate' \| 'too-close', conflict?: {id, displayName, blazon, design, shape}, differences?, registry, blazon, signature, readability }`. Not rate-limited. |
+| `POST /api/arms` | `{ registry?, displayName, contact?, design, shape? }` (shape defaults to `heater`) → `201 { id, editSecret, registry: {id,name}, rev: 1, blazon, signature }`. |
+| `GET /api/arms/:id` | One entry: `{ id, registry, displayName, contact, design, shape, blazon, signature, readability, rev, createdAt, updatedAt }`. Never the secret hash. |
+| `PUT /api/arms/:id` | Full replacement `{ displayName, contact?, design, shape? }`. Requires `Authorization: Bearer <secret>` and `If-Match: <rev>`. Returns the entry with `rev + 1`. |
 | `DELETE /api/arms/:id` | Withdraw. Requires `Authorization: Bearer <secret>`. Returns `200 { id, withdrawn: true }`. |
 
 **Search parameters** (all optional, AND-combined). Every value is validated against the library's
@@ -170,7 +196,7 @@ The offline sample search in `src/store.ts` runs the same parameter parsing and 
 
 | Code | Meaning |
 |---|---|
-| `bad_request` (400) | Malformed body, bad search parameter, or bad If-Match. Includes `field` for name/contact errors and `param` for search errors. |
+| `bad_request` (400) | Malformed body, bad search parameter, or bad If-Match. Includes `field` for name/contact/shape errors and `param` for search errors. |
 | `invalid_design` (400) | The design is malformed, structurally illegal, a plain field alone, or breaks the rule of tincture. Includes `issues: [{ code, layer, message, slots? }]`. |
 | `unauthorized` (401) | No edit secret. |
 | `forbidden` (403) | Wrong edit secret. |
@@ -255,6 +281,8 @@ migration: add the next-numbered file.
 - `0002_registry_integrity_and_prefilter.sql`: one default registry (unique partial index),
   `ON DELETE CASCADE` on `arms_tags` (a table rebuild that copies the rows), and the composite index
   behind the too-close lookup.
+- `0003_field_shape.sql`: the `field_shape` column (`NOT NULL DEFAULT 'heater'`, CHECK-constrained to
+  the four shapes). Existing rows become heater shields.
 
 Local database (used by `wrangler dev`):
 

@@ -74,10 +74,10 @@ describe('store (offline / file://)', () => {
 
   it('refuses writes with a friendly offline message', async () => {
     const design = { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' } };
-    expect(await store.register({ registry: null, displayName: 'X', design })).toEqual({
+    expect(await store.register({ registry: null, displayName: 'X', design, shape: 'heater' })).toEqual({
       ok: false, kind: 'offline', message: store.OFFLINE_WRITE_MESSAGE,
     });
-    expect((await store.update('demo-001', 's', 1, { displayName: 'X', design })).ok).toBe(false);
+    expect((await store.update('demo-001', 's', 1, { displayName: 'X', design, shape: 'heater' })).ok).toBe(false);
     expect((await store.withdraw('demo-001', 's')).ok).toBe(false);
   });
 
@@ -88,13 +88,24 @@ describe('store (offline / file://)', () => {
     const s = store.offlineSample();
     expect(s.registry.id).toBe('sample');
     expect(s.entries).toHaveLength(sample.entries.length);
+    expect(s.entries.map((e) => e.shape)).toEqual(sample.entries.map((e) => e.shape));
+  });
+
+  it('carries each entry\'s field shape into search results and conflicts', async () => {
+    const page = await store.search({ q: 'Quinn' });
+    expect(page.ok && page.page.items.map((i) => i.shape)).toEqual(['heater']);
+    const lozenge = await store.getEntry('demo-009');
+    expect(lozenge.ok && lozenge.entry.shape).toBe('lozenge');
+    // demo-006 is displayed round; the same design checked from the builder conflicts with it.
+    const dup = await store.check(null, sample.entries[5].design);
+    expect(dup.ok && dup.result.conflict).toMatchObject({ id: 'demo-006', shape: 'round' });
   });
 
   it('degrades silently without localStorage', () => {
     expect(store.deviceArms()).toEqual([]);
     expect(store.loadDraft()).toBeNull();
-    store.saveDraft({ v: 1, field: { kind: 'plain', tincture: 'or' }, ordinary: null, charges: null });
-    store.rememberArms({ id: 'a', registry: 'r', displayName: 'n', blazon: 'b', secret: null });
+    store.saveDraft({ design: { v: 1, field: { kind: 'plain', tincture: 'or' }, ordinary: null, charges: null }, shape: 'round' });
+    store.rememberArms({ id: 'a', registry: 'r', displayName: 'n', blazon: 'b', shield: null, secret: null });
   });
 });
 
@@ -107,14 +118,15 @@ describe('store (online)', () => {
         offset: 0,
         limit: 24,
         items: [
-          { id: 'a', displayName: 'A', design: sample.entries[0].design, blazon: 'Azure, a bend Or', signature: 's', readability: 'bold', createdAt: 't' },
+          { id: 'a', displayName: 'A', design: sample.entries[0].design, shape: 'lozenge', blazon: 'Azure, a bend Or', signature: 's', readability: 'bold', createdAt: 't' },
+          { id: 'c', displayName: 'C', design: sample.entries[0].design, shape: 'kite', blazon: 'Azure, a bend Or', signature: 's', readability: 'bold', createdAt: 't' },
           { id: 'b', displayName: 'B', design: { v: 9 }, blazon: 'x', signature: 's', readability: 'bold', createdAt: 't' },
         ],
       })
     );
     const r = await store.search({ registry: 'default', charge: 'wolf', q: 'x y' });
     expect(spy.mock.calls[0][0]).toBe('/api/arms?registry=default&charge=wolf&q=x+y');
-    expect(r.ok && r.page.items.map((i) => i.id)).toEqual(['a']);
+    expect(r.ok && r.page.items.map((i) => [i.id, i.shape])).toEqual([['a', 'lozenge'], ['c', 'heater']]);
     expect(r.ok && r.page.sample).toBe(false);
     // The "Show offline sample" action still works online.
     const s = await store.search({}, { sample: true });
@@ -131,9 +143,11 @@ describe('store (online)', () => {
         differences: ['posture (statant ↔ passant)'],
       })
     );
-    const r = await store.register({ registry: null, displayName: 'X', design: {} });
+    const r = await store.register({ registry: null, displayName: 'X', design: {}, shape: 'heater' });
     expect(r).toMatchObject({ ok: false, kind: 'http', status: 409, code: 'too_close', message: 'Too close.', conflictId: 'demo-004' });
     expect(!r.ok && r.conflict?.design?.charges?.charge).toBe('wolf');
+    // A conflict from a Worker that sends no shape displays as a heater shield.
+    expect(!r.ok && r.conflict?.shape).toBe('heater');
   });
 
   it('maps network failures to kind network', async () => {
@@ -147,15 +161,72 @@ describe('store (online)', () => {
   it('sends the secret and revision on update', async () => {
     const spy = goOnline(async () =>
       jsonResponse(200, {
-        id: 'a', registry: { id: 'default', name: 'B' }, displayName: 'N', contact: null, design: sample.entries[0].design,
+        id: 'a', registry: { id: 'default', name: 'B' }, displayName: 'N', contact: null, design: sample.entries[0].design, shape: 'banner',
         blazon: 'Azure, a bend Or', signature: 's', readability: 'bold', rev: 3, createdAt: 't', updatedAt: 'u',
       })
     );
-    const r = await store.update('a', 'sec', 2, { displayName: 'N', design: sample.entries[0].design });
+    const r = await store.update('a', 'sec', 2, { displayName: 'N', design: sample.entries[0].design, shape: 'banner' });
     expect(r.ok && r.entry.rev).toBe(3);
+    expect(r.ok && r.entry.shape).toBe('banner');
     const init = spy.mock.calls[0][1] as RequestInit;
     expect(init.method).toBe('PUT');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer sec');
     expect((init.headers as Record<string, string>)['If-Match']).toBe('2');
+    expect(JSON.parse(init.body as string)).toMatchObject({ displayName: 'N', shape: 'banner' });
+  });
+
+  it('sends the field shape beside the design on register', async () => {
+    const spy = goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's' }));
+    await store.register({ registry: null, displayName: 'N', design: sample.entries[0].design, shape: 'round' });
+    const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.shape).toBe('round');
+    expect(body.design).toEqual(sample.entries[0].design);
+  });
+});
+
+describe('store device storage (drafts and Your arms)', () => {
+  /** A minimal in-memory localStorage. */
+  function memoryStorage(initial: Record<string, string> = {}) {
+    const data = new Map(Object.entries(initial));
+    return {
+      getItem: (k: string) => data.get(k) ?? null,
+      setItem: (k: string, v: string) => void data.set(k, v),
+      removeItem: (k: string) => void data.delete(k),
+    };
+  }
+  const design = { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' }, charges: null };
+
+  it('round-trips the design and its shape', () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    store.saveDraft({ design: store.offlineSample().entries[0].design, shape: 'lozenge' });
+    expect(store.loadDraft()).toEqual({ design: store.offlineSample().entries[0].design, shape: 'lozenge' });
+    store.clearDraft();
+    expect(store.loadDraft()).toBeNull();
+  });
+
+  it('reads a draft saved before field shapes as a heater shield', () => {
+    const old = JSON.stringify({ v: 1, savedAt: '2026-10-01T00:00:00Z', design });
+    vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:draft:v1': old }));
+    expect(store.loadDraft()).toEqual({ design, shape: 'heater' });
+  });
+
+  it('keeps the arms and shape of a registration for the Your arms thumbnail', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    goOnline(async () => jsonResponse(201, { id: 'n1', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'Vert, a cross Or', signature: 's' }));
+    await store.register({ registry: null, displayName: 'N', design, shape: 'banner' });
+    const [saved] = store.deviceArms();
+    expect(saved.shield).toEqual({ design, shape: 'banner' });
+  });
+
+  it('reads a Your arms shortcut saved before thumbnails without one', () => {
+    const old = [{ id: 'o', registry: 'default', displayName: 'Old', blazon: 'b', secret: 's', savedAt: '2026-10-01T00:00:00Z' }];
+    vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:device-arms:v1': JSON.stringify(old) }));
+    expect(store.deviceArms()).toEqual([{ ...old[0], shield: null }]);
+  });
+
+  it('ignores an unknown stored shape', () => {
+    const bad = JSON.stringify({ v: 2, savedAt: '2026-10-01T00:00:00Z', design, shape: 'kite' });
+    vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:draft:v1': bad }));
+    expect(store.loadDraft()?.shape).toBe('heater');
   });
 });

@@ -24,8 +24,8 @@
 // in the sample; the UI offers "Show offline sample" (search/getEntry with `{ sample: true }`).
 
 import {
-  checkUnique, explainDifferences, parseSearchParams, normalise, readability, resolve, searchEntries,
-  searchParamsToUrl, signature, blazon, type Issue, type NormDesign, type ReadabilityBand, type SearchParams,
+  DEFAULT_FIELD_SHAPE, checkUnique, explainDifferences, isFieldShape, parseSearchParams, normalise, readability, resolve,
+  searchEntries, searchParamsToUrl, signature, blazon, type FieldShape, type Issue, type ShapedDesign, type NormDesign, type ReadabilityBand, type SearchParams,
 } from './lib/heraldry';
 import { forgetDeviceArms, listDeviceArms, rememberDeviceArms, type DeviceArms } from './lib/deviceArms';
 import { clearDraft as clearStoredDraft, readDraft, writeDraft } from './lib/deviceDraft';
@@ -43,6 +43,7 @@ export interface ConflictSummary {
   displayName: string;
   blazon: string;
   design: NormDesign | null;
+  shape: FieldShape;
 }
 
 export interface Failure {
@@ -60,7 +61,7 @@ export interface Failure {
   conflict?: ConflictSummary;
   /** too_close: human descriptions of the (minor) differences. */
   differences?: string[];
-  /** 400 on a text field: 'displayName' | 'contact'. */
+  /** 400 on an entry field: 'displayName' | 'contact' | 'shape'. */
   field?: string;
   /** 400 on a search parameter. */
   param?: string;
@@ -82,6 +83,8 @@ export interface ArmsSummary {
   id: string;
   displayName: string;
   design: NormDesign;
+  /** The field shape the owner chose to display the arms in (not part of the arms). */
+  shape: FieldShape;
   blazon: string;
   signature: string;
   readability: ReadabilityBand;
@@ -132,6 +135,7 @@ export interface EntryInput {
   displayName: string;
   contact?: string | null;
   design: unknown;
+  shape: FieldShape;
 }
 
 export interface RegisterInput extends EntryInput {
@@ -191,6 +195,7 @@ export function offlineSample(): OfflineSample {
       displayName: e.displayName,
       contact: e.contact ?? null,
       design: r.design,
+      shape: toShape(e.shape),
       blazon: e.blazon,
       signature: e.signature,
       readability: readability(r.design).band,
@@ -208,6 +213,7 @@ function summary(e: ArmsEntry): ArmsSummary {
     id: e.id,
     displayName: e.displayName,
     design: e.design,
+    shape: e.shape,
     blazon: e.blazon,
     signature: e.signature,
     readability: e.readability,
@@ -215,8 +221,8 @@ function summary(e: ArmsEntry): ArmsSummary {
   };
 }
 
-function conflictOf(e: { id: string; displayName: string; blazon: string; design: NormDesign | null }): ConflictSummary {
-  return { id: e.id, displayName: e.displayName, blazon: e.blazon, design: e.design };
+function conflictOf(e: ArmsEntry): ConflictSummary {
+  return { id: e.id, displayName: e.displayName, blazon: e.blazon, design: e.design, shape: e.shape };
 }
 
 function searchSample(params: SearchParams): Result<{ page: SearchPage }> {
@@ -341,6 +347,16 @@ function toDesign(v: unknown): NormDesign | null {
   return r.ok ? r.design : null;
 }
 
+/** A missing or unknown shape (e.g. from a Worker that predates field shapes) displays as the default. */
+function toShape(v: unknown): FieldShape {
+  return isFieldShape(v) ? v : DEFAULT_FIELD_SHAPE;
+}
+
+function toShield(design: unknown, shape: FieldShape): ShapedDesign | null {
+  const d = toDesign(design);
+  return d ? { design: d, shape } : null;
+}
+
 function toRegistry(v: unknown): RegistryRef | null {
   const o = obj(v);
   return o && typeof o.id === 'string' && typeof o.name === 'string' ? { id: o.id, name: o.name } : null;
@@ -354,6 +370,7 @@ function toConflict(v: unknown): ConflictSummary | null {
     displayName: typeof o.displayName === 'string' ? o.displayName : '',
     blazon: typeof o.blazon === 'string' ? o.blazon : '',
     design: toDesign(o.design),
+    shape: toShape(o.shape),
   };
 }
 
@@ -370,6 +387,7 @@ function toSummary(v: unknown): ArmsSummary | null {
     id: o.id,
     displayName: o.displayName,
     design,
+    shape: toShape(o.shape),
     blazon: o.blazon,
     signature: typeof o.signature === 'string' ? o.signature : signature(design),
     readability: toBand(o.readability, design),
@@ -484,6 +502,7 @@ export async function register(input: RegisterInput): Promise<Result<{ created: 
       displayName: input.displayName,
       contact: input.contact ?? null,
       design: input.design,
+      shape: input.shape,
     })
   );
   if (!res.ok) return res;
@@ -503,6 +522,7 @@ export async function register(input: RegisterInput): Promise<Result<{ created: 
     registry: registry.id,
     displayName: input.displayName.trim(),
     blazon: created.blazon,
+    shield: toShield(input.design, input.shape),
     secret: created.editSecret,
   });
   return { ok: true, created };
@@ -515,14 +535,16 @@ export async function update(id: string, secret: string, rev: number, input: Ent
     `/arms/${encodeURIComponent(id)}`,
     jsonInit(
       'PUT',
-      { displayName: input.displayName, contact: input.contact ?? null, design: input.design },
+      { displayName: input.displayName, contact: input.contact ?? null, design: input.design, shape: input.shape },
       { Authorization: `Bearer ${secret}`, 'If-Match': String(rev) }
     )
   );
   if (!res.ok) return res;
   const entry = toEntry(res.data);
   if (!entry) return badResponse();
-  rememberDeviceArms({ id, registry: entry.registry.id, displayName: entry.displayName, blazon: entry.blazon, secret });
+  rememberDeviceArms({
+    id, registry: entry.registry.id, displayName: entry.displayName, blazon: entry.blazon, shield: { design: entry.design, shape: entry.shape }, secret,
+  });
   return { ok: true, entry };
 }
 
@@ -554,16 +576,16 @@ export function forgetArms(id: string): void {
   forgetDeviceArms(id);
 }
 
-/** The autosaved builder design, resolved (may still break the rules), or null. */
-export function loadDraft(): NormDesign | null {
+/** The autosaved builder draft (design and preview shape), its design resolved (may still break the rules), or null. */
+export function loadDraft(): ShapedDesign | null {
   const raw = readDraft();
   if (raw == null) return null;
-  const r = resolve(raw);
-  return r.ok ? r.design : null;
+  const r = resolve(raw.design);
+  return r.ok ? { design: r.design, shape: toShape(raw.shape) } : null;
 }
 
-export function saveDraft(design: NormDesign): void {
-  writeDraft(design);
+export function saveDraft(draft: ShapedDesign): void {
+  writeDraft(draft.design, draft.shape);
 }
 
 export function clearDraft(): void {

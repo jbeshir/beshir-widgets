@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import worker from '../worker/index';
 import sample from '../src/data/sample-registry.json';
 import {
-  blazon, candidateKey, checkUnique, parseSearchParams, resolve, searchEntries, signature,
+  FIELD_SHAPES, blazon, candidateKey, checkUnique, parseSearchParams, resolve, searchEntries, signature,
   type RegistryEntryLike, type SearchParams,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
@@ -421,7 +421,7 @@ describe('GET /api/arms (search)', () => {
     // Register the 17 sample entries in order through the real API.
     for (const e of sample.entries) {
       const res = await call('POST', '/api/arms', {
-        body: { registry: SEARCH, displayName: e.displayName, contact: e.contact, design: e.design },
+        body: { registry: SEARCH, displayName: e.displayName, contact: e.contact, design: e.design, shape: e.shape },
       });
       expect(res.status).toBe(201);
       idByName.set(e.displayName, (await bodyOf(res)).id);
@@ -444,7 +444,7 @@ describe('GET /api/arms (search)', () => {
     expect(page.limit).toBe(24);
     expect(page.items).toHaveLength(17);
     for (const item of page.items) {
-      expect(Object.keys(item).sort()).toEqual(['blazon', 'createdAt', 'design', 'displayName', 'id', 'readability', 'signature']);
+      expect(Object.keys(item).sort()).toEqual(['blazon', 'createdAt', 'design', 'displayName', 'id', 'readability', 'shape', 'signature']);
       expect(item).not.toHaveProperty('contact');
     }
     expect(JSON.stringify(page)).not.toContain('snack table');
@@ -453,6 +453,9 @@ describe('GET /api/arms (search)', () => {
     // The sample's blazons/signatures are reproduced server-side.
     const bySig = new Map(sample.entries.map((e) => [e.signature, e.blazon]));
     for (const item of page.items) expect(item.blazon).toBe(bySig.get(item.signature));
+    // …and each comes back in the shape it was registered in.
+    const shapeBySig = new Map(sample.entries.map((e) => [e.signature, e.shape]));
+    for (const item of page.items) expect(item.shape).toBe(shapeBySig.get(item.signature));
   });
 
   it('filters by charge, posture, ordinary, tincture, charge tincture and division', async () => {
@@ -590,6 +593,77 @@ describe('GET /api/arms/:id', () => {
 });
 
 // ── update ───────────────────────────────────────────────────────────────────────────────────
+
+describe('field shape', () => {
+  const put = (id: string, body: unknown, secret: string, rev: number) =>
+    call('PUT', `/api/arms/${id}`, { body, headers: { Authorization: `Bearer ${secret}`, 'If-Match': String(rev) } });
+
+  it('registers in every shape and returns the shape from GET and the list', async () => {
+    await addRegistry('shapes', 'Shapes');
+    for (const shape of FIELD_SHAPES) {
+      const c = await register(freshDesign(), { registry: 'shapes', displayName: `In ${shape}`, shape });
+      const got = await bodyOf(await call('GET', `/api/arms/${c.id}`));
+      expect(got.shape).toBe(shape);
+      const row = await env.DB.prepare(`SELECT field_shape, design, signature FROM arms WHERE id = ?`).bind(c.id).first<Json>();
+      expect(row!.field_shape).toBe(shape);
+      // Display only: the shape is in neither the stored design nor the signature.
+      expect(JSON.parse(row!.design)).not.toHaveProperty('shape');
+      expect(row!.signature).toBe(c.signature);
+    }
+    const page = await bodyOf(await call('GET', '/api/arms?registry=shapes'));
+    expect(page.items.map((i: Json) => [i.displayName, i.shape]).sort()).toEqual(FIELD_SHAPES.map((s) => [`In ${s}`, s]).sort());
+  });
+
+  it('defaults a request without a shape to the heater shield', async () => {
+    const c = await register(freshDesign());
+    expect((await bodyOf(await call('GET', `/api/arms/${c.id}`))).shape).toBe('heater');
+  });
+
+  it('treats two designs that differ only in shape as the same arms (409 duplicate)', async () => {
+    const design = freshDesign();
+    const first = await register(design, { shape: 'round' });
+    for (const shape of FIELD_SHAPES) {
+      const res = await call('POST', '/api/arms', { body: { displayName: 'Copycat', design, shape } });
+      expect(res.status, shape).toBe(409);
+      const b = await bodyOf(res);
+      expect(b).toMatchObject({ error: 'duplicate', conflictId: first.id, conflict: { id: first.id, shape: 'round' } });
+    }
+    const check = await bodyOf(await call('POST', '/api/arms/check', { body: { design } }));
+    expect(check).toMatchObject({ verdict: 'duplicate', signature: first.signature, conflict: { id: first.id, shape: 'round' } });
+  });
+
+  it('rejects an unknown shape (400) on register and edit, naming the field', async () => {
+    for (const shape of ['kite', 'Heater', '', 3, null, ['round']]) {
+      const res = await call('POST', '/api/arms', { body: { displayName: 'Bad shape', design: freshDesign(), shape } });
+      expect(res.status, JSON.stringify(shape)).toBe(400);
+      expect(await bodyOf(res)).toMatchObject({ error: 'bad_request', field: 'shape' });
+    }
+    const design = freshDesign();
+    const c = await register(design);
+    const res = await put(c.id, { displayName: 'X', design, shape: 'kite' }, c.editSecret, 1);
+    expect(res.status).toBe(400);
+    expect(await bodyOf(res)).toMatchObject({ error: 'bad_request', field: 'shape' });
+    expect((await bodyOf(await call('GET', `/api/arms/${c.id}`))).rev).toBe(1);
+  });
+
+  it('lets the owner change only the shape: same signature and tags, new rev', async () => {
+    const design = freshDesign();
+    const c = await register(design, { shape: 'heater' });
+    const tagsBefore = await env.DB.prepare(`SELECT tag FROM arms_tags WHERE arms_id = ? ORDER BY tag`).bind(c.id).all();
+    const res = await put(c.id, { displayName: 'Test Person', design, shape: 'lozenge' }, c.editSecret, 1);
+    expect(res.status).toBe(200);
+    expect(await bodyOf(res)).toMatchObject({ shape: 'lozenge', signature: c.signature, rev: 2 });
+    expect((await bodyOf(await call('GET', `/api/arms/${c.id}`))).shape).toBe('lozenge');
+    const tagsAfter = await env.DB.prepare(`SELECT tag FROM arms_tags WHERE arms_id = ? ORDER BY tag`).bind(c.id).all();
+    expect(tagsAfter.results).toEqual(tagsBefore.results);
+    expect(tagsAfter.results.some((t) => JSON.stringify(t).includes('lozenge'))).toBe(false);
+  });
+
+  it('is constrained to the four shapes in the database itself', async () => {
+    const c = await register(freshDesign());
+    await expect(env.DB.prepare(`UPDATE arms SET field_shape = 'kite' WHERE id = ?`).bind(c.id).run()).rejects.toThrow(/CHECK/i);
+  });
+});
 
 describe('PUT /api/arms/:id', () => {
   const put = (id: string, body: unknown, headers: Record<string, string>) => call('PUT', `/api/arms/${id}`, { body, headers });

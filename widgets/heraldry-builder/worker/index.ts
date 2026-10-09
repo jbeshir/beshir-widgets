@@ -2,8 +2,9 @@
 //
 // It owns the `/api/*` routes that back the community armorial; every other request is served from
 // the static SPA bundle (the assets binding). A registration is a structured design (field,
-// ordinary, charges) plus a public display name and optional public contact, stored in D1 under one
-// registry. The Worker never trusts the client's blazon, signature or tags: it re-normalises and
+// ordinary, charges), the field shape it is displayed in, a public display name and optional public
+// contact, stored in D1 under one registry. The shape is display only: it is stored beside the design
+// and never enters the signature, blazon, tags or uniqueness check. The Worker never trusts the client's blazon, signature or tags: it re-normalises and
 // re-validates the design with the shared heraldry library and computes everything itself.
 //
 // Uniqueness is per registry: an exact duplicate (same canonical signature) is blocked by a UNIQUE
@@ -15,15 +16,15 @@
 //   GET    /api/registries      -> [{ id, name, isDefault }]
 //   GET    /api/arms?…          -> public search (no contact in results)
 //   POST   /api/arms/check      -> availability check for a design (not rate-limited)
-//   POST   /api/arms            -> register; returns { id, editSecret, registry, rev, blazon, signature } (201)
+//   POST   /api/arms            -> register { displayName, contact, design, shape }; returns { id, editSecret, registry, rev, blazon, signature } (201)
 //   GET    /api/arms/:id        -> one entry, including the public contact
 //   PUT    /api/arms/:id        -> edit;     Authorization: Bearer <secret>, If-Match: <rev>
 //   DELETE /api/arms/:id        -> withdraw; Authorization: Bearer <secret>; deletes the row + tags
 
 import {
-  blazon, candidateKey, checkUnique, cleanContact, cleanDisplayName, deriveTags, explainDifferences,
-  likePattern, normalise, parseSearchParams, readability, resolve, searchParamsFromUrl,
-  signature, type Issue, type NormDesign, type RegistryEntryLike,
+  DEFAULT_FIELD_SHAPE, FIELD_SHAPES, blazon, candidateKey, checkUnique, cleanContact, cleanDisplayName, deriveTags,
+  explainDifferences, isFieldShape, likePattern, normalise, parseSearchParams, readability, resolve, searchParamsFromUrl,
+  signature, type FieldShape, type Issue, type NormDesign, type RegistryEntryLike,
 } from '../src/lib/heraldry';
 
 interface Env {
@@ -50,6 +51,7 @@ interface ArmsRow {
   display_name: string;
   contact: string | null;
   design: string;
+  field_shape: FieldShape;
   signature: string;
   blazon: string;
   readability: string;
@@ -59,7 +61,7 @@ interface ArmsRow {
   updated_at: string;
 }
 
-type ScanRow = Pick<ArmsRow, 'id' | 'display_name' | 'design' | 'signature' | 'blazon'>;
+type ScanRow = Pick<ArmsRow, 'id' | 'display_name' | 'design' | 'field_shape' | 'signature' | 'blazon'>;
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
@@ -186,20 +188,21 @@ async function searchArms(env: Env, url: URL): Promise<Response> {
   const [countRes, pageRes] = await env.DB.batch([
     env.DB.prepare(`SELECT COUNT(*) AS n FROM arms a WHERE ${whereSql}`).bind(...binds),
     env.DB.prepare(
-      `SELECT a.id, a.display_name, a.design, a.signature, a.blazon, a.readability, a.created_at
+      `SELECT a.id, a.display_name, a.design, a.field_shape, a.signature, a.blazon, a.readability, a.created_at
        FROM arms a WHERE ${whereSql}
        ORDER BY a.created_at DESC, a.id
        LIMIT ? OFFSET ?`
     ).bind(...binds, limit, offset),
   ]);
   const total = Number((countRes.results[0] as { n: number } | undefined)?.n ?? 0);
-  const rows = pageRes.results as Array<Pick<ArmsRow, 'id' | 'display_name' | 'design' | 'signature' | 'blazon' | 'readability' | 'created_at'>>;
+  const rows = pageRes.results as Array<Pick<ArmsRow, 'id' | 'display_name' | 'design' | 'field_shape' | 'signature' | 'blazon' | 'readability' | 'created_at'>>;
 
   // Public list results never include the contact (no harvesting affordance).
   const items = rows.map((r) => ({
     id: r.id,
     displayName: r.display_name,
     design: parseStoredDesign(r.design),
+    shape: r.field_shape,
     blazon: r.blazon,
     signature: r.signature,
     readability: r.readability,
@@ -254,7 +257,7 @@ function invalidDesign(issues: Issue[]): Response {
 async function loadCandidates(env: Env, registryId: string, nd: NormDesign): Promise<ScanRow[]> {
   const key = candidateKey(nd);
   const { results } = await env.DB.prepare(
-    `SELECT id, display_name, design, signature, blazon FROM arms
+    `SELECT id, display_name, design, field_shape, signature, blazon FROM arms
      WHERE registry_id = ? AND field_division = ? AND ordinary IS ? AND charge IS ?
      ORDER BY created_at, id`
   )
@@ -296,7 +299,7 @@ function uniqueness(d: Derived, rows: ScanRow[], excludeId?: string): Uniqueness
 }
 
 function conflictSummary(r: ScanRow) {
-  return { id: r.id, displayName: r.display_name, blazon: r.blazon, design: parseStoredDesign(r.design) };
+  return { id: r.id, displayName: r.display_name, blazon: r.blazon, design: parseStoredDesign(r.design), shape: r.field_shape };
 }
 
 function uniquenessError(u: Exclude<Uniqueness, { kind: 'ok' }>): Response {
@@ -345,16 +348,19 @@ async function checkArms(request: Request, env: Env): Promise<Response> {
   });
 }
 
-type EntryInput = { displayName: string; contact: string | null; derived: Derived } | { error: Response };
+type EntryInput = { displayName: string; contact: string | null; shape: FieldShape; derived: Derived } | { error: Response };
 
 function validateEntryInput(body: Record<string, unknown>): EntryInput {
   const name = cleanDisplayName(body.displayName);
   if (!name.ok) return { error: fieldError('displayName', name.message) };
   const contact = cleanContact(body.contact);
   if (!contact.ok) return { error: fieldError('contact', contact.message) };
+  // A request without a shape (e.g. from an SPA bundle older than field shapes) gets the default.
+  const shape = body.shape === undefined ? DEFAULT_FIELD_SHAPE : body.shape;
+  if (!isFieldShape(shape)) return { error: fieldError('shape', `The field shape must be one of: ${FIELD_SHAPES.join(', ')}.`) };
   const d = deriveDesign(body.design);
   if ('error' in d) return d;
-  return { displayName: name.value!, contact: contact.value, derived: d.derived };
+  return { displayName: name.value!, contact: contact.value, shape, derived: d.derived };
 }
 
 async function createArms(request: Request, env: Env): Promise<Response> {
@@ -391,11 +397,11 @@ async function createArms(request: Request, env: Env): Promise<Response> {
     // One transaction: the row and its tags land together or not at all.
     await env.DB.batch([
       env.DB.prepare(
-        `INSERT INTO arms (id, registry_id, display_name, contact, design, signature, blazon,
+        `INSERT INTO arms (id, registry_id, display_name, contact, design, field_shape, signature, blazon,
            field_division, ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
       ).bind(
-        id, reg.registry.id, input.displayName, input.contact, JSON.stringify(nd), d.signature, d.blazon,
+        id, reg.registry.id, input.displayName, input.contact, JSON.stringify(nd), input.shape, d.signature, d.blazon,
         key.fieldDivision, key.ordinary, key.charge, d.readability,
         editSecretHash, now, now
       ),
@@ -429,7 +435,7 @@ function isUniqueViolation(e: unknown): boolean {
 
 async function raceDuplicate(env: Env, registryId: string, sig: string): Promise<Response> {
   const row = await env.DB.prepare(
-    `SELECT id, display_name, design, signature, blazon FROM arms WHERE registry_id = ? AND signature = ?`
+    `SELECT id, display_name, design, field_shape, signature, blazon FROM arms WHERE registry_id = ? AND signature = ?`
   )
     .bind(registryId, sig)
     .first<ScanRow>();
@@ -441,7 +447,7 @@ async function raceDuplicate(env: Env, registryId: string, sig: string): Promise
 
 async function readArms(env: Env, id: string): Promise<Response> {
   const row = await env.DB.prepare(
-    `SELECT a.id, a.registry_id, a.display_name, a.contact, a.design, a.signature, a.blazon,
+    `SELECT a.id, a.registry_id, a.display_name, a.contact, a.design, a.field_shape, a.signature, a.blazon,
             a.readability, a.rev, a.created_at, a.updated_at, r.name AS registry_name
      FROM arms a JOIN registries r ON r.id = a.registry_id WHERE a.id = ?`
   )
@@ -452,7 +458,7 @@ async function readArms(env: Env, id: string): Promise<Response> {
   return json(200, rowToEntry(row, row.registry_name));
 }
 
-/** The single-entry shape (GET and PUT): includes the public contact, never the secret hash. */
+/** The single-entry response (GET and PUT): includes the public contact, never the secret hash. */
 function rowToEntry(row: Omit<ArmsRow, 'edit_secret_hash'>, registryName: string) {
   return {
     id: row.id,
@@ -460,6 +466,7 @@ function rowToEntry(row: Omit<ArmsRow, 'edit_secret_hash'>, registryName: string
     displayName: row.display_name,
     contact: row.contact,
     design: parseStoredDesign(row.design),
+    shape: row.field_shape,
     blazon: row.blazon,
     signature: row.signature,
     readability: row.readability,
@@ -530,11 +537,11 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
     results = await env.DB.batch([
       // Conditional UPDATE on rev closes the race between the SELECT above and this write.
       env.DB.prepare(
-        `UPDATE arms SET display_name = ?, contact = ?, design = ?, signature = ?, blazon = ?,
+        `UPDATE arms SET display_name = ?, contact = ?, design = ?, field_shape = ?, signature = ?, blazon = ?,
            field_division = ?, ordinary = ?, charge = ?, readability = ?, rev = rev + 1, updated_at = ?
          WHERE id = ? AND rev = ?`
       ).bind(
-        input.displayName, input.contact, JSON.stringify(nd), d.signature, d.blazon,
+        input.displayName, input.contact, JSON.stringify(nd), input.shape, d.signature, d.blazon,
         key.fieldDivision, key.ordinary, key.charge, d.readability,
         now, id, expectedRev
       ),
@@ -560,6 +567,7 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
         display_name: input.displayName,
         contact: input.contact,
         design: JSON.stringify(nd),
+        field_shape: input.shape,
         signature: d.signature,
         blazon: d.blazon,
         readability: d.readability,

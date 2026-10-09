@@ -1,8 +1,9 @@
 // The heraldic shield as SVG, drawn from the DOM-free geometry and charge art in lib/heraldry.
-// Draws any resolved design, including ones that break the rules (the violation state still shows
-// the shield). Fill colours are the fixed tincture palette in both themes; field and ordinary shapes
-// carry a 1 px non-scaling dark outline so Argent stays visible on light surfaces (half that on
-// small shields, where a full pixel would swallow a bordure). Charges get a lighter outline, and
+// Draws any resolved design in any field shape (all shapes share one 100×120 viewBox), including
+// designs that break the rules (the violation state still shows the shield). Fill colours are the
+// fixed tincture palette in both themes; field and ordinary shapes carry a 1 px non-scaling dark
+// outline so Argent stays visible on light surfaces (half that on small shields, where a full pixel
+// would swallow a bordure). Charges get a lighter outline, and
 // none at all when they render small enough for it to swallow them.
 //
 // Optional Petra Sancta hatching (FINDINGS §4.8) overlays each tincture's line pattern so the arms
@@ -13,13 +14,15 @@
 
 import { useRef } from 'preact/hooks';
 import {
-  OUTLINE_COLOUR, ORDINARY_FILL_RULE, ORDINARY_PATHS, SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING,
-  chargePath, chargeSlots, designTinctures, drawnBox, fieldRegions, gloss, type Hatching, type NormDesign, type Slot,
-  type Tincture,
+  OUTLINE_COLOUR, ORDINARY_FILL_RULE, SHAPE_LAYOUT, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING,
+  chargePath, designTinctures, drawnBox, fieldRegions, gloss, shapedChargeSlots, type FieldShape, type Hatching,
+  type NormDesign, type Slot, type Tincture,
 } from '../lib/heraldry';
 
 interface Props {
   design: NormDesign;
+  /** The field shape to draw the arms in (display only). */
+  shape: FieldShape;
   /** Rendered width in px (height is 1.2×). Omit to size with CSS (class). */
   size?: number;
   hatching?: boolean;
@@ -81,7 +84,7 @@ export function nextShieldUid(): string {
   return `s${shieldSeq}`;
 }
 
-export function Shield({ design, size, hatching = false, label, class: cls, testid }: Props) {
+export function Shield({ design, shape, size, hatching = false, label, class: cls, testid }: Props) {
   const uidRef = useRef<string>();
   if (!uidRef.current) uidRef.current = nextShieldUid();
   const uid = uidRef.current;
@@ -90,7 +93,8 @@ export function Shield({ design, size, hatching = false, label, class: cls, test
   const chargePat = `hatch-${uid}-charge`;
   const chargeClip = `charge-clip-${uid}`;
   const c = design.charges;
-  const boxes = c ? chargeSlots(design).map((s) => drawnBox(s, c.charge)) : [];
+  const layout = SHAPE_LAYOUT[shape];
+  const boxes = c ? shapedChargeSlots(design, shape).map((s) => drawnBox(s, c.charge)) : [];
   const d = c ? chargePath(c.charge, c.posture) : '';
   const name = label === undefined ? gloss(design) : label;
   const hatched = hatching ? designTinctures(design).filter((t) => TINCTURE_HATCHING[t] !== 'plain') : [];
@@ -114,10 +118,11 @@ export function Shield({ design, size, hatching = false, label, class: cls, test
       aria-hidden={name ? undefined : 'true'}
       data-testid={testid}
       data-hatching={hatching ? 'on' : 'off'}
+      data-shape={shape}
       focusable="false"
     >
       <defs>
-        <clipPath id={clip}><path d={SHIELD_PATH} /></clipPath>
+        <clipPath id={clip}><path d={layout.outline} /></clipPath>
         {hatched.map((t) => <HatchPattern key={t} id={pat(t)} kind={TINCTURE_HATCHING[t]} ink={HATCH_INK[t]} pitch={HATCH_PITCH} />)}
         {chargeHatched && (
           <>
@@ -128,9 +133,9 @@ export function Shield({ design, size, hatching = false, label, class: cls, test
           </>
         )}
       </defs>
-      <path class="shield-rim" d={SHIELD_PATH} fill="none" stroke-width="3.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
+      <path class="shield-rim" d={layout.outline} fill="none" stroke-width="3.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
       <g clip-path={`url(#${clip})`}>
-        {fieldRegions(design.field).map((r, i) => (
+        {fieldRegions(design.field, shape).map((r, i) => (
           <g key={i}>
             <path d={r.d} fill={TINCTURE_FILL[r.tincture]} {...stroke} />
             {overlay(r.tincture) && <path d={r.d} fill={`url(#${pat(r.tincture)})`} />}
@@ -139,14 +144,14 @@ export function Shield({ design, size, hatching = false, label, class: cls, test
         {design.ordinary && (
           <g>
             <path
-              d={ORDINARY_PATHS[design.ordinary.type]}
+              d={layout.ordinaries[design.ordinary.type]}
               fill={TINCTURE_FILL[design.ordinary.tincture]}
               fill-rule={ORDINARY_FILL_RULE[design.ordinary.type]}
               {...stroke}
             />
             {overlay(design.ordinary.tincture) && (
               <path
-                d={ORDINARY_PATHS[design.ordinary.type]}
+                d={layout.ordinaries[design.ordinary.type]}
                 fill={`url(#${pat(design.ordinary.tincture)})`}
                 fill-rule={ORDINARY_FILL_RULE[design.ordinary.type]}
               />
@@ -174,7 +179,7 @@ export function Shield({ design, size, hatching = false, label, class: cls, test
           />
         ))}
       </g>
-      <path d={SHIELD_PATH} fill="none" stroke={OUTLINE_COLOUR} stroke-width={small ? 1 : 1.5} vector-effect="non-scaling-stroke" />
+      <path d={layout.outline} fill="none" stroke={OUTLINE_COLOUR} stroke-width={small ? 1 : 1.5} vector-effect="non-scaling-stroke" />
     </svg>
   );
 }

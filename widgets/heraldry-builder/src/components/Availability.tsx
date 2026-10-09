@@ -48,7 +48,7 @@ export function TakenPanel({ verdict, conflict: c, differences, registryName, on
   const where = registryName ? ` in ${registryName}` : '';
   const card = c && (
     <div class="conflict">
-      {c.design && <Shield design={c.design} size={48} label={null} />}
+      {c.design && <Shield design={c.design} shape={c.shape} size={48} label={null} />}
       <div class="conflict-text">
         <p class="conflict-name">{c.displayName}</p>
         <p class="conflict-blazon">{c.blazon}</p>

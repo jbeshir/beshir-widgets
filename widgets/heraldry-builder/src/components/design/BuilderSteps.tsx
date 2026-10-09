@@ -7,7 +7,7 @@ import {
   ORDINARY_NAME, ORDINARY_TYPES, ARRANGEMENT_WORD, arrangementChoices, chargeNoun, chargePath,
   chargeTinctureChoices, chargesInCategory, countChoices, fieldTinctureChoices, ordinaryTinctureChoices,
   placementChoices, postureChoices, postureGloss, postureTerm,
-  type Arrangement, type Division, type Issue, type NormDesign, type OrdinaryType, type Posture,
+  type Arrangement, type Division, type FieldShape, type Issue, type NormDesign, type OrdinaryType, type Posture,
 } from '../../lib/heraldry';
 import {
   placementLabel, setArrangement, setCharge, setChargeTincture, setCount, setDivision, setFieldTincture, setOrdinary,
@@ -59,19 +59,24 @@ function Step({ n, title, hint, issues, testid, children }: { n: number; title: 
   );
 }
 
-export function FieldStep({ design, onChange, issues }: StepProps) {
+/** Field and ordinary icons are drawn in the shape the preview uses. */
+interface ShapedStepProps extends StepProps {
+  shape: FieldShape;
+}
+
+export function FieldStep({ design, shape, onChange, issues }: ShapedStepProps) {
   const f = design.field;
   const division = f.kind === 'divided' ? f.division : null;
   return (
     <Step n={1} title="Field" hint="The background of the shield: one tincture, or split in two." issues={issues} testid="step-field">
       <RadioGroup label="Field division" class="icon-grid icon-grid-field" testid="field-division-select">
         <ChoiceButton testid="field-kind-plain" checked={!division} label="Plain" onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
-          <Shield design={ICON_FIELD(null)} size={30} label={null} />
+          <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
           <span class="choice-label">Plain</span>
         </ChoiceButton>
         {DIVISIONS.map((d) => (
           <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={DIVISION_NAME[d]} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
-            <Shield design={ICON_FIELD(d)} size={30} label={null} />
+            <Shield design={ICON_FIELD(d)} shape={shape} size={30} label={null} />
             <span class="choice-label">{DIVISION_NAME[d]}</span>
           </ChoiceButton>
         ))}
@@ -98,7 +103,7 @@ export function FieldStep({ design, onChange, issues }: StepProps) {
   );
 }
 
-export function OrdinaryStep({ design, onChange, issues }: StepProps) {
+export function OrdinaryStep({ design, shape, onChange, issues }: ShapedStepProps) {
   const o = design.ordinary;
   return (
     <Step n={2} title="Ordinary" hint="Optional: a bold geometric band across the field." issues={issues} testid="step-ordinary">
@@ -109,7 +114,7 @@ export function OrdinaryStep({ design, onChange, issues }: StepProps) {
         </ChoiceButton>
         {ORDINARY_TYPES.map((t) => (
           <ChoiceButton key={t} testid={`ordinary-${t}`} checked={o?.type === t} label={cap(ORDINARY_NAME[t])} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
-            <Shield design={ICON_ORDINARY(t)} size={30} label={null} />
+            <Shield design={ICON_ORDINARY(t)} shape={shape} size={30} label={null} />
             <span class="choice-label">{cap(ORDINARY_NAME[t])}</span>
           </ChoiceButton>
         ))}

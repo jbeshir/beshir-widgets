@@ -1,7 +1,7 @@
 // Public entry view for #/a/<id>.
 
 import { useEffect, useState } from 'preact/hooks';
-import type { NormDesign } from '../../lib/heraldry';
+import type { ShapedDesign } from '../../lib/heraldry';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
 import { EntryBody } from './EntryDetail';
@@ -10,7 +10,7 @@ interface Props {
   id: string;
   onStatus: (s: ListStatus) => void;
   hatching: boolean;
-  onLoad: (design: NormDesign) => void;
+  onLoad: (arms: ShapedDesign) => void;
 }
 
 export function EntryPage({ id, onStatus, hatching, onLoad }: Props) {

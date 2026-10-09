@@ -4,7 +4,7 @@
 // is shown with the same panel as "Check availability".
 
 import { useRef, useState } from 'preact/hooks';
-import { CONTACT_MAX, DISPLAY_NAME_MAX, blazon, type NormDesign } from '../lib/heraldry';
+import { CONTACT_MAX, DISPLAY_NAME_MAX, blazon, type FieldShape, type NormDesign } from '../lib/heraldry';
 import { capabilityUrls, registryParam } from '../lib/route';
 import * as store from '../store';
 import { TakenPanel } from './Availability';
@@ -14,11 +14,12 @@ import { Shield } from './Shield';
 
 interface Props {
   design: NormDesign;
+  shape: FieldShape;
   onClose: () => void;
   onRegistered: () => void;
 }
 
-export function RegisterDialog({ design, onClose, onRegistered }: Props) {
+export function RegisterDialog({ design, shape, onClose, onRegistered }: Props) {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [busy, setBusy] = useState(false);
@@ -42,7 +43,7 @@ export function RegisterDialog({ design, onClose, onRegistered }: Props) {
     setBusy(true);
     setError(null);
     setTaken(null);
-    const r = await store.register({ registry: registryParam(), displayName: name, contact: contact.trim() || null, design });
+    const r = await store.register({ registry: registryParam(), displayName: name, contact: contact.trim() || null, design, shape });
     setBusy(false);
     if (!r.ok) {
       if (r.code === 'duplicate' || r.code === 'too_close') {
@@ -64,7 +65,7 @@ export function RegisterDialog({ design, onClose, onRegistered }: Props) {
       <Dialog title="Your arms are registered" onClose={onClose} testid="register-dialog" class="register-dialog">
         <div data-testid="register-success" class="register-success">
           <div class="register-summary">
-            <Shield design={design} size={72} />
+            <Shield design={design} shape={shape} size={72} />
             <div>
               <p class="summary-name">{name.trim()}</p>
               <p class="blazon blazon-small">{created.blazon}</p>
@@ -95,7 +96,7 @@ export function RegisterDialog({ design, onClose, onRegistered }: Props) {
     <Dialog title="Register your arms" onClose={onClose} testid="register-dialog" class="register-dialog" initialFocus={nameRef} owns={infoOpen ? 'public-info-popover-box' : undefined}>
       <form class="register-form" onSubmit={submit} noValidate>
         <div class="register-summary">
-          <Shield design={design} size={72} />
+          <Shield design={design} shape={shape} size={72} />
           <p class="blazon blazon-small">{blazon(design)}</p>
         </div>
 

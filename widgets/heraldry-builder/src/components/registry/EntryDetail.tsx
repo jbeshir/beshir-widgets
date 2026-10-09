@@ -3,7 +3,7 @@
 // public route #/a/<id>. Search results carry no contact, so it is fetched with store.getEntry.
 
 import { useEffect, useState } from 'preact/hooks';
-import { gloss, type NormDesign } from '../../lib/heraldry';
+import { gloss, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
 import { capabilityUrls } from '../../lib/route';
 import * as store from '../../store';
 import { CopyField } from '../CopyField';
@@ -14,6 +14,7 @@ interface Summary {
   id: string;
   displayName: string;
   design: NormDesign;
+  shape: FieldShape;
   blazon: string;
 }
 
@@ -22,7 +23,8 @@ interface BodyProps {
   /** Fetch the public contact; sample entries come from the bundled registry. */
   sample: boolean;
   hatching: boolean;
-  onLoad: (design: NormDesign) => void;
+  /** Open the entry's design, in its shape, in the builder. */
+  onLoad: (arms: ShapedDesign) => void;
 }
 
 type ContactState = { status: 'loading' } | { status: 'ready'; contact: string | null } | { status: 'unavailable'; message: string };
@@ -42,7 +44,7 @@ export function EntryBody({ entry, sample, hatching, onLoad }: BodyProps) {
   return (
     <div class="entry-detail">
       <div class="entry-shield">
-        <Shield design={entry.design} hatching={hatching} size={160} />
+        <Shield design={entry.design} shape={entry.shape} hatching={hatching} size={160} />
       </div>
       <div class="entry-text">
         <h3 class="entry-name" data-testid="entry-name">{entry.displayName}</h3>
@@ -57,7 +59,7 @@ export function EntryBody({ entry, sample, hatching, onLoad }: BodyProps) {
       </div>
       <CopyField label="Share link" value={capabilityUrls(entry.id, null).share} testid="entry-share-link" />
       <div class="dialog-actions entry-actions">
-        <button type="button" class="button-primary" data-testid="load-into-builder" onClick={() => onLoad(entry.design)}>
+        <button type="button" class="button-primary" data-testid="load-into-builder" onClick={() => onLoad({ design: entry.design, shape: entry.shape })}>
           Load into builder
         </button>
       </div>
@@ -72,7 +74,7 @@ interface SheetProps extends BodyProps {
 export function EntrySheet({ onClose, onLoad, ...rest }: SheetProps) {
   return (
     <Dialog title="Registered arms" layer="sheet" testid="entry-sheet" class="entry-sheet" onClose={onClose}>
-      <EntryBody {...rest} onLoad={(d) => { onLoad(d); onClose(); }} />
+      <EntryBody {...rest} onLoad={(arms) => { onLoad(arms); onClose(); }} />
     </Dialog>
   );
 }

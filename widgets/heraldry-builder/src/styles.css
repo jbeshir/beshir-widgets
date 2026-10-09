@@ -411,6 +411,37 @@ button, input, select, textarea {
   color: var(--fg-secondary);
 }
 
+/* Field shape picker (display only) */
+
+.shape-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shape-title {
+  margin: 0;
+  font-size: 14px;
+  color: var(--fg-secondary);
+}
+
+.shape-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.shape-choice {
+  min-height: 68px;
+  padding: 6px 2px;
+}
+
 /* Blazon */
 
 .blazon-panel {
@@ -1028,6 +1059,8 @@ button, input, select, textarea {
   border: 1px solid var(--card-border);
   border-radius: 10px;
 }
+.yours-item.has-shield { align-items: center; }
+.yours-shield { flex: none; }
 .yours-name { font-weight: 700; }
 .yours-blazon { color: var(--fg-secondary); font-size: 15px; flex: 1 1 200px; }
 
