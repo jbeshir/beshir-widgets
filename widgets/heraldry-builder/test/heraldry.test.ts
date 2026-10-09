@@ -387,7 +387,7 @@ describe('sample registry fixture', () => {
   it('uses the sample registry identity', () => {
     expect(sample.schema).toBe('heraldry-builder/registry-sample@1');
     expect(sample.registry).toEqual({ id: 'sample', name: 'Sample armorial (offline demo)' });
-    expect(sample.entries).toHaveLength(16);
+    expect(sample.entries).toHaveLength(17);
   });
 
   for (const e of sample.entries as SampleEntry[]) {
@@ -419,18 +419,18 @@ describe('sample registry fixture', () => {
   it('is in registration order with unique ids and signatures', () => {
     const times = sample.entries.map((e) => e.registeredAt);
     expect([...times].sort()).toEqual(times);
-    expect(new Set(sample.entries.map((e) => e.id)).size).toBe(16);
-    expect(new Set(sample.entries.map((e) => e.signature)).size).toBe(16);
+    expect(new Set(sample.entries.map((e) => e.id)).size).toBe(17);
+    expect(new Set(sample.entries.map((e) => e.signature)).size).toBe(17);
   });
 
-  it('all 120 pairs have at least one clear difference', () => {
+  it('all 136 pairs have at least one clear difference', () => {
     const ds = sample.entries.map((e) => nd(e.design));
     let pairs = 0;
     for (let i = 0; i < ds.length; i++) for (let j = i + 1; j < ds.length; j++) {
       pairs++;
       expect(hasClearDifference(ds[i], ds[j]), `${sample.entries[i].id} vs ${sample.entries[j].id}`).toBe(true);
     }
-    expect(pairs).toBe(120);
+    expect(pairs).toBe(136);
   });
 
   it('each entry is unique against all the others', () => {
@@ -566,7 +566,7 @@ describe('options helper', () => {
     expect(byValue(ch, 'argent').allowed).toBe(true);
     const az = byValue(ch, 'azure');
     expect(az.allowed).toBe(false);
-    expect(az.reason).toBe('Azure on Gules would be colour on colour. Colours must sit on metals (Or or Argent).');
+    expect(az.reason).toBe('Azure on Gules would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
     expect(byValue(ch, 'gules').reason).toBe("Gules on Gules would vanish — the lion can't share the tincture it lies on.");
   });
 
@@ -574,7 +574,7 @@ describe('options helper', () => {
     const d = nd(V.find((v) => v.id === 'V9')!.design);
     const gu = byValue(chargeTinctureChoices(d), 'gules');
     expect(gu.allowed).toBe(false);
-    expect(gu.reason).toBe('The two upper mullets lie on Azure. Gules on Azure would be colour on colour. Colours must sit on metals (Or or Argent).');
+    expect(gu.reason).toBe('The two upper mullets lie on Azure. Gules on Azure would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
     // Upper mullets on Azure need a metal, the lower one on Or needs a colour: nothing fits.
     expect(chargeTinctureChoices(d).every((c) => !c.allowed)).toBe(true);
     expect(byValue(chargeTinctureChoices(d), 'argent').reason)
@@ -586,12 +586,12 @@ describe('options helper', () => {
   it('explains straddling a two-colour field', () => {
     const d = nd(V.find((v) => v.id === 'V8')!.design);
     expect(byValue(chargeTinctureChoices(d), 'gules').reason)
-      .toBe('The wolf lies across Azure and Vert — both colours — so it must be a metal (Or or Argent).');
+      .toBe('The wolf lies across Azure and Vert — both colours — so it must be a metal (Or, Argent or Celestine).');
   });
 
   it('blocks ordinary tinctures against the field and charge tinctures against the ordinary they sit on', () => {
     const d = nd(V[1].design); // Azure, on a bend Or three unicorns Vert
-    expect(byValue(ordinaryTinctureChoices(d), 'vert').reason).toBe('Vert on Azure would be colour on colour. Colours must sit on metals (Or or Argent).');
+    expect(byValue(ordinaryTinctureChoices(d), 'vert').reason).toBe('Vert on Azure would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
     expect(byValue(ordinaryTinctureChoices(d), 'argent').allowed).toBe(true);
     expect(byValue(chargeTinctureChoices(d), 'argent').reason)
       .toBe('Argent on Or would be metal on metal. Metals must sit on colours (Gules, Azure, Vert, Sable or Purpure).');
@@ -603,7 +603,7 @@ describe('options helper', () => {
     const first = fieldTinctureChoices(d, 0);
     expect(byValue(first, 'vert').allowed).toBe(false);
     expect(byValue(first, 'vert').reason).toMatch(/two different tinctures/);
-    expect(first.filter((c) => c.allowed)).toHaveLength(6);
+    expect(first.filter((c) => c.allowed)).toHaveLength(7);
     expect(fieldTinctureChoices(gulesLion).every((c) => c.allowed)).toBe(true);
   });
 
@@ -713,7 +713,7 @@ describe('geometry and art', () => {
       for (const p of meta.postures ?? [null]) expect(chargePath(id, p)).toMatch(/^M/);
     }
     expect(CHARGE_IDS).toHaveLength(28);
-    expect(TINCTURES).toHaveLength(7);
+    expect(TINCTURES).toHaveLength(8);
     // 40 (charge, posture) paths.
     expect(CHARGE_IDS.reduce((n, id) => n + (CHARGES[id].postures?.length ?? 1), 0)).toBe(40);
   });

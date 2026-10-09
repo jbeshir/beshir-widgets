@@ -1,9 +1,13 @@
-// Radio group of the seven tinctures, metals and colours grouped. Choices that would break the
+// Radio group of the tinctures, metals and colours grouped. Choices that would break the
 // rule of tincture (or a divided field's "two different tinctures") stay visible but blocked:
 // lock glyph + strike, aria-disabled, data-blocked; activating one opens the explainer instead.
+// A non-standard tincture (celestine) says so on its swatch and in its accessible name; its note
+// describes the swatch and is shown under the metals while it is selected.
 
 import { useRef } from 'preact/hooks';
-import { COLOURS, METALS, TINCTURE_FILL, TINCTURE_GLOSS, TINCTURE_NAME, type Choice, type Tincture } from '../../lib/heraldry';
+import {
+  COLOURS, METALS, NON_STANDARD_NOTE, TINCTURE_FILL, TINCTURE_NAME, TINCTURE_WORD, type Choice, type Tincture,
+} from '../../lib/heraldry';
 import { LockGlyph, useExplainer } from './Explainer';
 
 interface Props {
@@ -27,6 +31,17 @@ export function TincturePicker({ group, legend, choices, value, onChange: change
   const order = [...METALS, ...COLOURS] as Tincture[];
   const legendId = `tl-${group}`;
   const anyBlocked = choices.some((c) => !c.allowed);
+  const noteId = (t: Tincture) => `note-${group}-${t}`;
+  // Always rendered so the swatch's description resolves; visible only while that tincture is selected.
+  const notes = order.flatMap((t) => {
+    const note = NON_STANDARD_NOTE[t];
+    if (!note) return [];
+    return [
+      <p key={t} id={noteId(t)} class={t === value ? 'tincture-note' : 'sr-only'} data-testid={`tincture-note-${group}-${t}`}>
+        <span class="tincture-note-flag">Non-standard</span> {note}
+      </p>,
+    ];
+  });
 
   const activate = (t: Tincture, el: HTMLElement) => {
     const c = byValue.get(t);
@@ -66,6 +81,8 @@ export function TincturePicker({ group, legend, choices, value, onChange: change
     // A checked swatch that is also blocked is the cause of a violation, not a disabled option.
     const conflicts = blocked && checked;
     const whyId = `why-${group}-${t}`;
+    const note = NON_STANDARD_NOTE[t];
+    const describedBy = [blocked && c?.reason ? whyId : null, note ? noteId(t) : null].filter(Boolean).join(' ');
     // The testid sits on a role-less wrapper box: test drivers (Playwright) refuse to click an
     // aria-disabled control, but a blocked swatch must stay clickable so it can explain itself.
     return (
@@ -77,8 +94,8 @@ export function TincturePicker({ group, legend, choices, value, onChange: change
         class={`swatch${checked ? ' is-checked' : ''}${blocked ? ' is-blocked' : ''}`}
         aria-checked={checked ? 'true' : 'false'}
         aria-disabled={blocked && !checked ? 'true' : undefined}
-        aria-label={`${TINCTURE_NAME[t]} (${TINCTURE_GLOSS[t]})${conflicts ? ', selected, conflicts with the design' : blocked ? ', not allowed here' : ''}`}
-        aria-describedby={blocked && c?.reason ? whyId : undefined}
+        aria-label={`${TINCTURE_NAME[t]} (${TINCTURE_WORD[t]})${note ? ', non-standard' : ''}${conflicts ? ', selected, conflicts with the design' : blocked ? ', not allowed here' : ''}`}
+        aria-describedby={describedBy || undefined}
         data-blocked={blocked ? 'true' : undefined}
         data-tincture={t}
         tabIndex={checked ? 0 : -1}
@@ -89,7 +106,8 @@ export function TincturePicker({ group, legend, choices, value, onChange: change
         </span>
         <span class="swatch-text" aria-hidden="true">
           <span class="swatch-name">{TINCTURE_NAME[t]}</span>
-          <span class="swatch-word">{TINCTURE_GLOSS[t]}</span>
+          <span class="swatch-word">{TINCTURE_WORD[t]}</span>
+          {note && <span class="swatch-flag">Non-standard</span>}
         </span>
       </button>
       {blocked && c?.reason && <span class="sr-only" id={whyId}>{c.reason}</span>}
@@ -115,6 +133,7 @@ export function TincturePicker({ group, legend, choices, value, onChange: change
           <div class="swatch-row">{COLOURS.map(swatch)}</div>
         </div>
       </div>
+      {notes}
       {explainer}
     </div>
   );

@@ -270,7 +270,7 @@ export function resolve(input: unknown): ResolveResult {
   if (!isObj(f)) err('field', 'The field is missing.');
   else if (f.kind === 'plain') {
     for (const k of extraKeys(f, ['kind', 'tincture'])) err('field', `Unknown field key "${k}".`);
-    if (!isTincture(f.tincture)) err('field', 'The field needs one of the seven tinctures.');
+    if (!isTincture(f.tincture)) err('field', 'The field needs one of the eight tinctures.');
     else field = { kind: 'plain', tincture: f.tincture };
   } else if (f.kind === 'divided') {
     for (const k of extraKeys(f, ['kind', 'division', 'tinctures'])) err('field', `Unknown field key "${k}".`);
@@ -288,7 +288,7 @@ export function resolve(input: unknown): ResolveResult {
     else {
       for (const k of extraKeys(o, ['type', 'tincture'])) err('ordinary', `Unknown ordinary key "${k}".`);
       if (!isOrdinaryType(o.type)) err('ordinary', 'Unknown ordinary.');
-      else if (!isTincture(o.tincture)) err('ordinary', 'The ordinary needs one of the seven tinctures.');
+      else if (!isTincture(o.tincture)) err('ordinary', 'The ordinary needs one of the eight tinctures.');
       else ordinary = { type: o.type, tincture: o.tincture };
     }
   }
@@ -306,7 +306,7 @@ export function resolve(input: unknown): ResolveResult {
       if (c.placement !== 'field' && c.placement !== 'ordinary') err('charges', 'Charges go on the field or on the ordinary.');
       if (c.arrangement !== undefined && c.arrangement !== null && !isArrangement(c.arrangement)) err('charges', 'Unknown arrangement.');
       if (c.posture !== undefined && c.posture !== null && !isPosture(c.posture)) err('charges', 'Unknown posture.');
-      if (!isTincture(c.tincture)) err('charges', 'The charges need one of the seven tinctures.');
+      if (!isTincture(c.tincture)) err('charges', 'The charges need one of the eight tinctures.');
       if (errors.length === before) {
         const id = c.charge as ChargeId;
         const meta = CHARGES[id];

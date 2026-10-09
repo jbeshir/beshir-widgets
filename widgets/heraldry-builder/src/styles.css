@@ -921,6 +921,26 @@ button, input, select, textarea {
 }
 .swatch-name { font-size: 15px; font-weight: 700; }
 .swatch-word { font-size: 14px; color: var(--fg-secondary); }
+.swatch-flag {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--fg-secondary);
+}
+
+/* Shown under the picker while a non-standard tincture is selected. */
+.tincture-note {
+  margin: 8px 0 0;
+  max-width: 60ch;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--fg-secondary);
+}
+.tincture-note-flag {
+  font-weight: 700;
+  font-style: italic;
+}
 
 .builder-footer {
   display: flex;

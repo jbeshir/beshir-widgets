@@ -109,6 +109,36 @@ describe('GET /api/registries', () => {
 // ── create ───────────────────────────────────────────────────────────────────────────────────
 
 describe('POST /api/arms', () => {
+  it('accepts celestine designs and rejects celestine on another metal', async () => {
+    const ok = await call('POST', '/api/arms', {
+      body: {
+        displayName: 'Sky Marlowe',
+        contact: null,
+        design: { v: 1, field: plain('vert'), ordinary: { type: 'chevron', tincture: 'celestine' }, charges: { charge: 'rose', count: 3, placement: 'field', tincture: 'argent' } },
+      },
+    });
+    expect(ok.status, await ok.clone().text()).toBe(201);
+    const data = await bodyOf(ok);
+    expect(data.blazon).toBe('Vert, a chevron Celestine between three roses Argent');
+    expect(data.signature).toContain('O:chevron:ce');
+    const tags = await env.DB.prepare(`SELECT tag FROM arms_tags WHERE arms_id = ?`).bind(data.id).all<{ tag: string }>();
+    expect(tags.results.map((r) => r.tag)).toEqual(expect.arrayContaining(['ordinary-tincture:celestine', 'tincture:celestine']));
+
+    const check = await call('POST', '/api/arms/check', {
+      body: { design: { v: 1, field: plain('celestine'), charges: { charge: 'stag', count: 1, placement: 'field', tincture: 'sable' } } },
+    });
+    expect(check.status).toBe(200);
+    expect((await bodyOf(check)).verdict).toBe('ok');
+
+    const bad = await call('POST', '/api/arms', {
+      body: { displayName: 'Metal Metal', contact: null, design: { v: 1, field: plain('argent'), ordinary: { type: 'fess', tincture: 'celestine' } } },
+    });
+    expect(bad.status).toBe(400);
+    const err = await bodyOf(bad);
+    expect(err.error).toBe('invalid_design');
+    expect(err.issues.map((i: Json) => i.message).join(' ')).toMatch(/metal on metal/);
+  });
+
   it('registers in the default registry, returns id + secret, and stores only the hash', async () => {
     const res = await call('POST', '/api/arms', {
       body: {
@@ -388,7 +418,7 @@ describe('GET /api/arms (search)', () => {
 
   beforeAll(async () => {
     await addRegistry(SEARCH, 'Search test');
-    // Register the 16 sample entries in order through the real API.
+    // Register the 17 sample entries in order through the real API.
     for (const e of sample.entries) {
       const res = await call('POST', '/api/arms', {
         body: { registry: SEARCH, displayName: e.displayName, contact: e.contact, design: e.design },
@@ -409,10 +439,10 @@ describe('GET /api/arms (search)', () => {
   it('returns the page shape, newest first, with no contact in results', async () => {
     const page = await find({});
     expect(page.registry).toEqual({ id: SEARCH, name: 'Search test' });
-    expect(page.total).toBe(16);
+    expect(page.total).toBe(17);
     expect(page.offset).toBe(0);
     expect(page.limit).toBe(24);
-    expect(page.items).toHaveLength(16);
+    expect(page.items).toHaveLength(17);
     for (const item of page.items) {
       expect(Object.keys(item).sort()).toEqual(['blazon', 'createdAt', 'design', 'displayName', 'id', 'readability', 'signature']);
       expect(item).not.toHaveProperty('contact');
@@ -435,12 +465,19 @@ describe('GET /api/arms (search)', () => {
     expect(names(await find({ tincture: 'purpure' }))).toEqual(['Gus Pemberton', 'Kit Abernathy']);
     expect(names(await find({ division: 'per-pale' }))).toEqual(['Cass Merriweather']);
     expect(names(await find({ division: 'quarterly' }))).toEqual(['Gus Pemberton']);
-    expect((await find({ division: 'plain' })).total).toBe(13);
+    expect((await find({ division: 'plain' })).total).toBe(14);
     // AND of several components; no match → empty page.
     expect(names(await find({ ordinary: 'bordure', tincture: 'gules' }))).toEqual(['Noor Pike']);
     const none = await find({ charge: 'dragon', ordinary: 'bordure' });
     expect(none.total).toBe(0);
     expect(none.items).toEqual([]);
+  });
+
+  it('finds celestine arms by its filter and by everyday colour words in q', async () => {
+    expect(names(await find({ tincture: 'celestine' }))).toEqual(['Quinn Ashworth']);
+    expect(names(await find({ chargeTincture: 'celestine' }))).toEqual([]);
+    for (const q of ['cyan', 'sky blue', 'light blue', 'Turquoise', 'celestine']) expect(names(await find({ q })), q).toEqual(['Quinn Ashworth']);
+    expect(names(await find({ q: 'cyan', charge: 'crescent' }))).toEqual(['Quinn Ashworth']);
   });
 
   it('matches q case-insensitively on name or blazon, with LIKE wildcards escaped', async () => {
@@ -459,8 +496,8 @@ describe('GET /api/arms (search)', () => {
     const p4 = await find({ limit: 5, offset: 15 });
     expect(p1.items).toHaveLength(5);
     expect(p2.items).toHaveLength(5);
-    expect(p4.items).toHaveLength(1);
-    expect(p1.total).toBe(16);
+    expect(p4.items).toHaveLength(2);
+    expect(p1.total).toBe(17);
     const ids = [...p1.items, ...p2.items].map((i: Json) => i.id);
     expect(new Set(ids).size).toBe(10);
     expect((await find({ offset: 5000 })).items).toEqual([]);
@@ -501,6 +538,7 @@ describe('GET /api/arms (search)', () => {
       {}, { charge: 'mullet' }, { ordinary: 'chief' }, { tincture: 'or' }, { tincture: 'argent', division: 'plain' },
       { chargeTincture: 'or' }, { posture: 'rampant' }, { division: 'per-bend-sinister' }, { q: 'Sable' },
       { q: 'a', tincture: 'vert' }, { ordinary: 'saltire', chargeTincture: 'azure' }, { charge: 'rose', ordinary: 'chevron' },
+      { tincture: 'celestine' }, { q: 'cyan' }, { q: 'sky blue', division: 'plain' },
     ];
     for (const params of cases) {
       const parsed = parseSearchParams({ ...params, limit: 50 });

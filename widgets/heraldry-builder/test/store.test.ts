@@ -30,7 +30,7 @@ describe('store (offline / file://)', () => {
     const regs = await store.listRegistries();
     expect(regs).toEqual({ ok: true, registries: [{ id: 'sample', name: 'Sample armorial (offline demo)', isDefault: true }], sample: true });
     const page = await store.search({});
-    expect(page.ok && page.page.total).toBe(16);
+    expect(page.ok && page.page.total).toBe(17);
     expect(page.ok && page.page.sample).toBe(true);
     expect(spy).not.toHaveBeenCalled();
   });
@@ -43,7 +43,7 @@ describe('store (offline / file://)', () => {
     const q = await store.search({ q: 'UNICORN' });
     expect(q.ok && q.page.items.map((i) => i.id)).toEqual(['demo-002']);
     const paged = await store.search({ limit: 5, offset: 15 });
-    expect(paged.ok && paged.page.items.map((i) => i.id)).toEqual(['demo-001']);
+    expect(paged.ok && paged.page.items.map((i) => i.id)).toEqual(['demo-002', 'demo-001']);
     const bad = await store.search({ charge: 'kraken' });
     expect(bad).toMatchObject({ ok: false, kind: 'http', status: 400, param: 'charge' });
     // List results never carry the contact.

@@ -413,6 +413,30 @@
       },
       "signature": "v1|F:plain:vt|O:-|C:bee:3:field:in-fess:-:or",
       "blazon": "Vert, three bees in fess Or"
+    },
+    {
+      "id": "demo-017",
+      "displayName": "Quinn Ashworth",
+      "contact": null,
+      "registeredAt": "2026-01-21T12:00:00Z",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "celestine"
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "crescent",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": null,
+          "tincture": "gules"
+        }
+      },
+      "signature": "v1|F:plain:ce|O:-|C:crescent:1:field:single:-:gu",
+      "blazon": "Celestine, a crescent Gules"
     }
   ]
 }

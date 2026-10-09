@@ -2,12 +2,14 @@
 // sample search in the SPA store, so both accept the same parameters, validate them against the
 // same vocabularies (via filtersToTags) and match with the same semantics:
 //   - every component filter is a required tag (AND), derived exactly as stored in arms_tags;
-//   - `q` is a case-insensitive (ASCII, like SQLite LIKE) substring of the display name or blazon;
+//   - `q` is a case-insensitive (ASCII, like SQLite LIKE) substring of the display name or blazon,
+//     and everyday colour words in it also match their blazon term ("cyan" finds Celestine);
 //   - order is newest first, ties by id; `limit`/`offset` are bounded.
 
 import { cleanText, textLength } from './text';
 import { filtersToTags, matchesTags, type SearchFilters } from './tags';
 import type { NormDesign } from './design';
+import { TINCTURE_NAME, TINCTURE_SYNONYMS } from './tinctures';
 
 export const SEARCH_DEFAULT_LIMIT = 24;
 export const SEARCH_MAX_LIMIT = 50;
@@ -29,6 +31,8 @@ export interface SearchQuery {
   tags: string[];
   /** Cleaned free-text query ('' = none). */
   q: string;
+  /** `q` with tincture synonyms replaced by their blazon term; equal to `q` when it has none. */
+  qBlazon: string;
   limit: number;
   offset: number;
 }
@@ -60,7 +64,15 @@ export function parseSearchParams(p: SearchParams): SearchQueryResult {
   const offset = boundedInt(p.offset, 0, 0, SEARCH_MAX_OFFSET);
   if (offset == null) return { ok: false, param: 'offset', message: `offset must be an integer from 0 to ${SEARCH_MAX_OFFSET}.` };
 
-  return { ok: true, query: { tags: tagResult.tags, q, limit, offset } };
+  return { ok: true, query: { tags: tagResult.tags, q, qBlazon: withBlazonTerms(q), limit, offset } };
+}
+
+/** Replace whole-word tincture synonyms with the tincture's blazon term: "sky blue lion" → "celestine lion". */
+export function withBlazonTerms(q: string): string {
+  return Object.entries(TINCTURE_SYNONYMS).reduce(
+    (s, [word, t]) => s.replace(new RegExp(`\\b${word}\\b`, 'gi'), TINCTURE_NAME[t].toLowerCase()),
+    q,
+  );
 }
 
 /** Read the search parameters from a URL query string. */
@@ -96,10 +108,11 @@ export function likePattern(q: string): string {
   return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
-export function matchesQueryText(entry: { displayName: string; blazon: string }, q: string): boolean {
-  if (!q) return true;
-  const needle = asciiLower(q);
-  return asciiLower(entry.displayName).includes(needle) || asciiLower(entry.blazon).includes(needle);
+export function matchesQueryText(entry: { displayName: string; blazon: string }, query: Pick<SearchQuery, 'q' | 'qBlazon'>): boolean {
+  if (!query.q) return true;
+  const needle = asciiLower(query.q);
+  const blazon = asciiLower(entry.blazon);
+  return asciiLower(entry.displayName).includes(needle) || blazon.includes(needle) || blazon.includes(asciiLower(query.qBlazon));
 }
 
 export interface SearchableEntry {
@@ -114,7 +127,7 @@ export interface SearchableEntry {
 /** Run a validated query over in-memory entries (the offline sample), exactly as the Worker would. */
 export function searchEntries<T extends SearchableEntry>(entries: readonly T[], query: SearchQuery): { total: number; items: T[] } {
   const hits = entries
-    .filter((e) => matchesTags(e.design, query.tags) && matchesQueryText(e, query.q))
+    .filter((e) => matchesTags(e.design, query.tags) && matchesQueryText(e, query))
     .sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : a.createdAt < b.createdAt ? 1 : -1));
   return { total: hits.length, items: hits.slice(query.offset, query.offset + query.limit) };
 }

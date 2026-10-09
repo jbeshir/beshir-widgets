@@ -5,7 +5,7 @@
 
 import {
   CHARGES, ORDINARY_NAME, chargeContext, chargeTinctureChoices, defaultArrangement, fieldTinctures, fitCharges,
-  legalArrangements, ordinaryTinctureChoices, structuralIssues, tinctureIssues,
+  isMetal, legalArrangements, ordinaryTinctureChoices, structuralIssues, tinctureIssues,
   type Arrangement, type ChargeId, type Choice, type Count, type Division, type Issue, type NormDesign,
   type OrdinaryType, type Placement, type Posture, type Tincture,
 } from './heraldry';
@@ -22,9 +22,8 @@ function isAllowed<T>(choices: Choice<T>[], v: T): boolean {
 
 /** A second tincture for a newly divided field: contrasting class, never equal to the first. */
 function partner(t: Tincture): Tincture {
-  if (t === 'or') return 'azure';
-  if (t === 'argent') return 'gules';
-  return 'or';
+  if (!isMetal(t)) return 'or';
+  return t === 'or' ? 'azure' : 'gules';
 }
 
 export function setPlainField(nd: NormDesign): NormDesign {

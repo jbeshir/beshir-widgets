@@ -2,7 +2,7 @@
 
 import {
   CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, DIVISIONS, DIVISION_NAME, ORDINARY_NAME, ORDINARY_TYPES, POSTURES, TINCTURES,
-  TINCTURE_GLOSS, TINCTURE_NAME, chargesInCategory, type SearchParams,
+  TINCTURE_NAME, TINCTURE_WORD, chargesInCategory, type SearchParams,
 } from '../../lib/heraldry';
 
 export const FILTER_KEYS = ['charge', 'posture', 'ordinary', 'division', 'tincture', 'chargeTincture'] as const;
@@ -27,7 +27,7 @@ export interface FilterSpec {
   options: Array<{ value: string; label: string; group?: string }>;
 }
 
-const tinctureOptions = TINCTURES.map((t) => ({ value: t, label: `${TINCTURE_NAME[t]} (${TINCTURE_GLOSS[t]})` }));
+const tinctureOptions = TINCTURES.map((t) => ({ value: t, label: `${TINCTURE_NAME[t]} (${TINCTURE_WORD[t]})` }));
 
 export const FILTER_SPECS: FilterSpec[] = [
   {

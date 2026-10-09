@@ -4,7 +4,7 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { blazon, type NormDesign } from '../../lib/heraldry';
+import { METALS, blazon, listTinctureNames, type NormDesign } from '../../lib/heraldry';
 import type { Issue } from '../../lib/heraldry';
 import type { DesignReport } from '../../lib/builder';
 import type { RefObject } from 'preact';
@@ -184,7 +184,7 @@ export function DesignTab(p: Props) {
       <div class="design-builder">
         <h2 class="sr-only">Build your arms</h2>
         <p class="rule-intro" data-testid="rule-intro">
-          The rule of tincture: put metals (Or, Argent) on colours and colours on metals, never colour on colour or metal on metal. Locked options below would break it.
+          The rule of tincture: put metals ({listTinctureNames(METALS)}) on colours and colours on metals, never colour on colour or metal on metal. Locked options below would break it.
         </p>
         <FieldStep design={design} onChange={p.onChange} issues={layerIssues('field')} />
         <OrdinaryStep design={design} onChange={p.onChange} issues={layerIssues('ordinary')} />

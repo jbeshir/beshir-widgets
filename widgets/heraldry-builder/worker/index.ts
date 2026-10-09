@@ -167,7 +167,7 @@ async function searchArms(env: Env, url: URL): Promise<Response> {
   if (!parsed.ok) return json(400, { error: 'bad_request', message: parsed.message, param: parsed.param });
   const reg = await lookupRegistry(env, params.registry);
   if ('error' in reg) return reg.error;
-  const { tags, q, limit, offset } = parsed.query;
+  const { tags, q, qBlazon, limit, offset } = parsed.query;
 
   // Tag-AND: one EXISTS per required tag, each served by the (arms_id, tag) primary key.
   const where = ['a.registry_id = ?'];
@@ -177,9 +177,9 @@ async function searchArms(env: Env, url: URL): Promise<Response> {
     binds.push(tag);
   }
   if (q) {
-    where.push(`(a.display_name LIKE ? ESCAPE '\\' OR a.blazon LIKE ? ESCAPE '\\')`);
+    where.push(`(a.display_name LIKE ? ESCAPE '\\' OR a.blazon LIKE ? ESCAPE '\\' OR a.blazon LIKE ? ESCAPE '\\')`);
     const pattern = likePattern(q);
-    binds.push(pattern, pattern);
+    binds.push(pattern, pattern, likePattern(qBlazon));
   }
   const whereSql = where.join(' AND ');
 

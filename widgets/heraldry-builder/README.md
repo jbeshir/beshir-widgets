@@ -47,6 +47,36 @@ Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Desig
 
 **Keyboard.** Tab order follows the page; radio-style option groups are one tab stop with arrow keys moving and selecting (blocked options can be focused and explain themselves on Enter/Space). Dialogs and sheets trap focus, Escape closes only the topmost layer (a popover inside a dialog closes first), and focus returns to the opener. Animations are off under `prefers-reduced-motion`.
 
+## Tinctures and hatching
+
+Eight tinctures: three metals and five colours. The rule of tincture puts metals on colours and
+colours on metals.
+
+| Tincture | Class | Gloss | Fill | Petra Sancta hatching |
+|---|---|---|---|---|
+| Or | metal | gold | `#F2C230` | dots |
+| Argent | metal | white | `#FFFFFF` | plain |
+| **Celestine** (non-standard) | metal | sky blue (celestine) | `#3CBDE0` | wavy horizontal lines |
+| Azure | colour | blue | `#1F5FBF` | horizontal lines |
+| Gules | colour | red | `#D0202E` | vertical lines |
+| Vert | colour | green | `#1E8B3A` | diagonal lines (top-left to bottom-right) |
+| Purpure | colour | purple | `#7B3F98` | diagonal lines (top-right to bottom-left) |
+| Sable | colour | black | `#141414` | horizontal and vertical grid |
+
+**Celestine** is a cyan treated as a metal: the one new tincture proposed for modern heraldry,
+named after its single historical example. Celestine on any colour is fine; on Or, Argent or
+Celestine it is metal on metal. The tincture picker lists it with the metals, labels it
+"Non-standard" (also in its accessible name) and shows the explanation while it is selected. Its
+fill is a mid cyan, far lighter than Azure and clearly coloured against Argent (CIEDE2000 34.5
+and 28.7), identical in both themes like every fill. Its signature code is `ce`.
+
+**Hatching convention for celestine.** Tradition gives celestine no hatching, so the widget uses
+**wavy horizontal lines** (one full wave per pitch, about half a pitch from crest to trough), in
+deep teal ink on the cyan. The lines run level like Azure's because celestine is a blue; the wave
+says it is a different tincture. It is the only curved pattern, so it can't be read as any of the
+dotted, plain or straight-line patterns. Like the others it scales its pitch on charges and keeps
+a solid band of the tincture along a charge's edge.
+
 ## Storage
 
 Registrations are **remote**: they live in Cloudflare D1 and are reached through capability URLs.
@@ -128,9 +158,9 @@ vocabularies, and an unknown value returns `400 bad_request` with `param`.
 | `posture` | `rampant`, `passant`, `statant`, `sejant`, `naiant`, `haurient`, `displayed` |
 | `ordinary` | `fess`, `pale`, `bend`, `bend-sinister`, `chevron`, `cross`, `saltire`, `chief`, `bordure`, `pile` |
 | `division` | A division (`per-pale`, `per-fess`, `per-bend`, `per-bend-sinister`, `per-saltire`, `per-chevron`, `quarterly`) or `plain` |
-| `tincture` | A tincture anywhere on the arms (`or`, `argent`, `azure`, `gules`, `vert`, `sable`, `purpure`) |
+| `tincture` | A tincture anywhere on the arms (`or`, `argent`, `celestine`, `azure`, `gules`, `vert`, `sable`, `purpure`) |
 | `chargeTincture` | The charges' tincture |
-| `q` | Case-insensitive text in the display name or blazon (≤ 60 characters; `%` and `_` match literally) |
+| `q` | Case-insensitive text in the display name or blazon (≤ 60 characters; `%` and `_` match literally). The everyday words *cyan*, *sky blue*, *light blue* and *turquoise* also match blazons containing *Celestine*. |
 | `limit` / `offset` | Page size 1–50 (default 24) / offset 0–5000. Results are newest first. |
 
 The offline sample search in `src/store.ts` runs the same parameter parsing and tag matching
@@ -289,7 +319,7 @@ and bypass withdrawal.
   shows the bundled sample with an "Offline sample" badge, and filters run locally with the same
   tag logic. "Check availability" runs locally against the sample. "Register" explains that the
   registry can't be reached from an offline copy.
-- **Sample data:** `src/data/sample-registry.json` holds 16 fictional, hand-authored entries in the
+- **Sample data:** `src/data/sample-registry.json` holds 17 fictional, hand-authored entries in the
   registry `sample` ("Sample armorial (offline demo)"). A unit test checks that their blazons and
   signatures equal the generator's output byte for byte.
 

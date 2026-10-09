@@ -29,9 +29,12 @@ interface Props {
   testid?: string;
 }
 
-/** Hatching line colour per tincture. Sable's grid is a dark grey on black, so it still reads dark. */
+/**
+ * Hatching line colour per tincture: dark ink on the light metals, white on the colours. Sable's grid
+ * is a dark grey on black, so it still reads dark.
+ */
 const HATCH_INK: Record<Tincture, string> = {
-  or: '#3d2c00', argent: '#222222', azure: '#ffffff', gules: '#ffffff', vert: '#ffffff', sable: '#6a6a6a', purpure: '#ffffff',
+  or: '#3d2c00', argent: '#222222', celestine: '#06303d', azure: '#ffffff', gules: '#ffffff', vert: '#ffffff', sable: '#6a6a6a', purpure: '#ffffff',
 };
 
 /** Field and ordinary hatch pitch, in shield units. */
@@ -61,6 +64,8 @@ function HatchPattern({ id, kind, ink, pitch }: { id: string; kind: Hatching; in
     <pattern id={id} patternUnits="userSpaceOnUse" width="4" height="4" patternTransform={pitch === HATCH_PITCH ? undefined : `scale(${pitch / HATCH_PITCH})`}>
       {kind === 'dots' && <circle cx="2" cy="2" r="0.75" fill={ink} />}
       {kind === 'horizontal' && <path d="M0 2H4" {...line} />}
+      {/* One full wave per tile, about half the pitch from crest to trough, so it never reads as straight. */}
+      {kind === 'wavy' && <path d="M0 2C0.8 0.6 1.2 0.6 2 2S3.2 3.4 4 2" {...line} fill="none" stroke-linecap="round" />}
       {kind === 'vertical' && <path d="M2 0V4" {...line} />}
       {kind === 'diagonal' && <path d="M-1 -1L5 5M-1 3L1 5M3 -1L5 1" {...line} />}
       {kind === 'diagonal-sinister' && <path d="M5 -1L-1 5M1 -1L-1 1M5 3L3 5" {...line} />}
