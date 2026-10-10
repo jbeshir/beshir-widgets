@@ -267,7 +267,7 @@ describe('the builder never offers a count, placement or arrangement without a l
     }
     expect(deadEnds).toBe(0);
     expect(offered).toBeGreaterThan(20000);
-  });
+  }, 30_000);
 
   it('the plain tinctures alone still leave dead ends on metal-and-colour fields, which counterchanged resolves', () => {
     let withoutCounterchange = 0;

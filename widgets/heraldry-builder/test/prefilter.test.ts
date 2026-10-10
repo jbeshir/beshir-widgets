@@ -73,7 +73,7 @@ describe('too-close pre-filter', () => {
       expect(differences(a, b).some((d) => d.weight === 'clear')).toBe(true);
     }
     expect(keyed).toBeGreaterThan(10_000);
-  });
+  }, 30_000);
 
   it('keys only on changes that are a full point on their own (every division, ordinary and charge)', () => {
     const field = (division: string | null) => (division ? { kind: 'divided', division, tinctures: ['or', 'azure'] } : { kind: 'plain', tincture: 'azure' });

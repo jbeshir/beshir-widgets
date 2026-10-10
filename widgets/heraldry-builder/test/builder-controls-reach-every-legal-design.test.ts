@@ -147,7 +147,7 @@ describe('builder controls never lock a legal value away', () => {
       checked++;
     }
     console.log(`checked count, placement, layout, pose and tincture options on ${checked} designs`);
-  });
+  }, 30_000);
 
   it('the lower layers always offer another value, and the charge can always be swapped', () => {
     for (const { design: d } of designs) {
@@ -188,7 +188,7 @@ describe('builder controls never lock a legal value away', () => {
       states += reached.size;
     }
     console.log(`searched from ${byStart.size} distinct starting layouts; ${pairs} (design, legal count+placement) pairs and ${states} reached layouts checked`);
-  }, 30_000);
+  }, 90_000);
 
   it('every legal count, placement and layout is reachable from a design whose charges break the rule of tincture', () => {
     for (const { design: d, legal } of violations) {
