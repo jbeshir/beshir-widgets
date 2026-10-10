@@ -174,7 +174,6 @@ export function RecoverRedeem({ token, onStatus, hatching, onDeviceChange }: {
           <div>
             <p class="summary-name" data-testid="redeem-name">{state.entry.displayName}</p>
             <p class="blazon blazon-small">{state.entry.blazon}</p>
-            <p class="field-hint">In {state.entry.registry.name}</p>
           </div>
         </div>
       )}

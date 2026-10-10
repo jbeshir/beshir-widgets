@@ -96,7 +96,6 @@ export interface SampleEntry extends ArmsEntry {
 }
 
 interface SearchPage {
-  registry: RegistryRef;
   total: number;
   offset: number;
   limit: number;
@@ -136,7 +135,6 @@ interface RegisterInput extends EntryInput {
 /** The entry a recovery link is for, shown before the owner chooses what to do. */
 export interface RecoveryEntry {
   id: string;
-  registry: RegistryRef;
   displayName: string;
   design: NormDesign;
   shape: FieldShape;
@@ -243,7 +241,6 @@ function searchSample(params: SearchParams): Result<{ page: SearchPage }> {
   return {
     ok: true,
     page: {
-      registry: s.registry,
       total,
       offset: parsed.query.offset,
       limit: parsed.query.limit,
@@ -457,12 +454,11 @@ export async function search(params: SearchParams, opts: { sample?: boolean } = 
   const res = await request(`/arms${qs ? `?${qs}` : ''}`);
   if (!res.ok) return res;
   const o = asObject(res.data);
-  const registry = toRegistry(o?.registry);
-  if (!o || !registry || !Array.isArray(o.items) || typeof o.total !== 'number' || typeof o.offset !== 'number' || typeof o.limit !== 'number') {
+  if (!o || !Array.isArray(o.items) || typeof o.total !== 'number' || typeof o.offset !== 'number' || typeof o.limit !== 'number') {
     return badResponse();
   }
   const items = o.items.map(toSummary).filter((x): x is ArmsSummary => x !== null);
-  return { ok: true, page: { registry, total: o.total, offset: o.offset, limit: o.limit, items, sample: false } };
+  return { ok: true, page: { total: o.total, offset: o.offset, limit: o.limit, items, sample: false } };
 }
 
 export async function getEntry(id: string, opts: { sample?: boolean } = {}): Promise<Result<{ entry: ArmsEntry; sample: boolean }>> {
@@ -637,13 +633,12 @@ export async function lookupRecovery(token: string): Promise<Result<{ entry: Rec
   const res = await request('/recover/lookup', jsonInit('POST', { token }));
   if (!res.ok) return res;
   const o = asObject(asObject(res.data)?.entry);
-  const registry = toRegistry(o?.registry);
   const design = toDesign(o?.design);
   const shape = toShape(o?.shape);
-  if (!o || !registry || !design || !shape || typeof o.id !== 'string' || typeof o.displayName !== 'string' || typeof o.blazon !== 'string') {
+  if (!o || !design || !shape || typeof o.id !== 'string' || typeof o.displayName !== 'string' || typeof o.blazon !== 'string') {
     return badResponse();
   }
-  return { ok: true, entry: { id: o.id, registry, displayName: o.displayName, design, shape, blazon: o.blazon } };
+  return { ok: true, entry: { id: o.id, displayName: o.displayName, design, shape, blazon: o.blazon } };
 }
 
 /** Use a recovery token for a new edit link; the new link is remembered on this device. */

@@ -13,7 +13,6 @@ export type CheckOutcome = Result<{ result: CheckResult }>;
 
 interface TakenProps {
   report: TakenReport;
-  registryName: string | null;
   /** Called when "View" is pressed (the link also works on its own via the hash route). */
   onView?: () => void;
   /** Jump to the builder control that would clear the conflict (inline results only). */
@@ -62,13 +61,12 @@ function DifferenceList({ differences }: { differences: readonly DifferenceNote[
 export function outcomeMessage(outcome: CheckOutcome): string {
   if (!outcome.ok) return `Couldn't check right now. ${outcome.message}`;
   const r = outcome.result;
-  if (r.verdict === 'ok') return `Available in ${r.registry.name}.`;
+  if (r.verdict === 'ok') return 'Available.';
   return r.verdict === 'duplicate' ? `Already registered by ${r.conflict.displayName}.` : `Too close to ${r.conflict.displayName}.`;
 }
 
 /** Duplicate / too-close panel: conflicting mini shield, name, blazon, what differs and what to change. */
-export function TakenPanel({ report, registryName, onView, onJump }: TakenProps) {
-  const where = registryName ? ` in ${registryName}` : '';
+export function TakenPanel({ report, onView, onJump }: TakenProps) {
   const c = report.conflict;
   const card = (
     <div class="conflict">
@@ -90,7 +88,7 @@ export function TakenPanel({ report, registryName, onView, onJump }: TakenProps)
   if (report.verdict === 'duplicate') {
     return (
       <div class="availability availability-taken" data-testid="availability-duplicate">
-        <p class="taken-verdict"><strong>Already registered{where} — change at least one thing.</strong></p>
+        <p class="taken-verdict"><strong>Already registered — change at least one thing.</strong></p>
         <p class="availability-help">Change one of: {CLEAR_CHANGE_HINT}.</p>
         {jumps}
         {card}
@@ -99,7 +97,7 @@ export function TakenPanel({ report, registryName, onView, onJump }: TakenProps)
   }
   return (
     <div class="availability availability-taken" data-testid="availability-too-close">
-      <p class="taken-verdict"><strong>Too similar to {c.displayName}’s arms{where} — change one more thing.</strong></p>
+      <p class="taken-verdict"><strong>Too similar to {c.displayName}’s arms — change one more thing.</strong></p>
       {report.differences.length > 0 && (
         <div>
           <p class="availability-help">What is different so far (you need 1 point):</p>
@@ -141,10 +139,10 @@ export function Availability({ outcome, onJump }: { outcome: CheckOutcome; onJum
   if (r.verdict === 'ok') {
     return (
       <div class="availability availability-ok" data-testid="availability-ok">
-        <p><strong>Available</strong> in {r.registry.name}.{r.sample ? ' (Checked against the offline sample.)' : ''}</p>
+        <p><strong>Available.</strong>{r.sample ? ' (Checked against the offline sample.)' : ''}</p>
         {r.closest && <ClosestEntry closest={r.closest} />}
       </div>
     );
   }
-  return <TakenPanel report={r} registryName={r.registry.name} onJump={onJump} />;
+  return <TakenPanel report={r} onJump={onJump} />;
 }

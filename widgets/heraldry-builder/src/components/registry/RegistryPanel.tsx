@@ -4,7 +4,7 @@
 // entry page and the owner view; #/recover and #/recover/<token> with the recovery screens.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, gloss, type RegistryRef, type ShapedDesign, type Tincture } from '../../lib/heraldry';
+import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, gloss, type ShapedDesign, type Tincture } from '../../lib/heraldry';
 import { registryParam, type Route } from '../../lib/route';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
@@ -45,7 +45,7 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
 
   const [status, setStatus] = useState<ListStatus>('loading');
   const [items, setItems] = useState<store.ArmsSummary[]>([]);
-  const [meta, setMeta] = useState<{ registry: RegistryRef | null; total: number; sample: boolean }>({ registry: null, total: 0, sample: false });
+  const [meta, setMeta] = useState<{ total: number; sample: boolean }>({ total: 0, sample: false });
   const [error, setError] = useState('');
   const [moreBusy, setMoreBusy] = useState(false);
   const [moreError, setMoreError] = useState('');
@@ -68,7 +68,7 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
       if (mine !== seq.current) return;
       if (r.ok) {
         setItems(r.page.items);
-        setMeta({ registry: r.page.registry, total: r.page.total, sample: r.page.sample });
+        setMeta({ total: r.page.total, sample: r.page.sample });
         setStatus(r.page.items.length ? 'populated' : 'empty');
       } else {
         setError(r.message);
@@ -116,7 +116,7 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
 
   const head = (
     <div class="registry-head">
-      <h2 class="registry-title" data-testid="registry-name">{status === 'error' ? 'Registry' : meta.registry?.name ?? 'Registry'}</h2>
+      <h2 class="registry-title">Registry</h2>
       <button type="button" class="button-secondary registry-refresh" data-testid="registry-refresh" onClick={refresh}>Refresh</button>
       {status !== 'error' && status !== 'loading' && (
         <span class="registry-count" data-testid="registry-count">

@@ -1268,7 +1268,8 @@ describe('registration email', () => {
     expect(mail.from).toBe('Heraldry Builder <heraldry@widgets.test>');
     expect(mail.to).toEqual(['mailed@example.com']);
     expect(mail.subject).not.toContain('Mailed');
-    expect(mail.text).toContain('"Mailed Person"');
+    expect(mail.text).toContain('Your arms are registered as "Mailed Person":');
+    expect(mail.text).not.toContain('Default');
     expect(mail.text).toContain(data.blazon);
     expect(mail.text).toContain(`https://widget.test/#/a/${data.id}/${data.editSecret}`);
     expect(mail.text).toContain(`https://widget.test/#/a/${data.id}\n`);
@@ -1390,8 +1391,10 @@ describe('POST /api/recover', () => {
     expect(sent).toHaveLength(1);
     const [mail] = sent;
     expect(mail.to).toEqual(['many@example.com']);
-    expect(mail.text).toContain('"First Of Many" (Default)');
-    expect(mail.text).toContain('"Second Of Many" (Second group)');
+    expect(mail.text).toContain('"First Of Many": ');
+    expect(mail.text).toContain('"Second Of Many": ');
+    expect(mail.text).not.toContain('Default');
+    expect(mail.text).not.toContain('Second group');
     expect(mail.text).not.toContain('Not Theirs');
     expect(mail.text).toContain('30 minutes');
     const tokens = tokensIn(mail);
