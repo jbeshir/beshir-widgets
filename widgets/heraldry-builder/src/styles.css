@@ -725,6 +725,7 @@ button, input, select, textarea {
   place-items: center;
   width: 26px;
   height: 26px;
+  margin-right: 5px;
   border-radius: 50%;
   background: var(--accent-fill);
   color: var(--accent-fg);
@@ -1711,10 +1712,7 @@ a.button-secondary {
 .save-picture-label { font-size: 15px; font-weight: 600; color: var(--fg-secondary); }
 .save-picture-status { flex: 1 1 100%; font-size: 15px; color: var(--fg-secondary); overflow-wrap: anywhere; }
 .entry-actions { align-items: center; }
-.yours-print { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 12px; }
-.yours-print-hint { font-size: 15px; }
-.yours-pick { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; margin: -8px -6px -8px -10px; cursor: pointer; }
-.yours-pick input { width: 22px; height: 22px; accent-color: var(--accent-fill); cursor: pointer; }
+.entry-print { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; font-size: 15px; }
 
 /* ── Nametag sheet ──
    The paper is always light: its colours are fixed here, not taken from the theme. */
@@ -1733,7 +1731,7 @@ a.button-secondary {
 }
 .print-toolbar h1 { margin: 0; font-size: 22px; flex: 1 1 100%; }
 .print-toolbar h1:focus, .print-toolbar h1:focus-visible { outline: none; }
-.print-count, .print-missing { margin: 0; flex: 1 1 100%; font-size: 16px; color: var(--fg-secondary); }
+.print-count { margin: 0; flex: 1 1 100%; font-size: 16px; color: var(--fg-secondary); }
 .print-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .print-copies { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; margin: 0; padding: 0; border: 0; flex: 1 1 100%; }
 .print-copies legend { float: left; margin-right: 4px; padding: 0; font-weight: 700; font-size: 16px; }
@@ -1832,9 +1830,7 @@ a.button-secondary {
     min-height: 0;
     box-shadow: none;
     border-radius: 0;
-    break-after: page;
   }
-  .print-page:last-child { break-after: auto; }
 }
 
 /* ── Onboarding: welcome strip, examples ── */

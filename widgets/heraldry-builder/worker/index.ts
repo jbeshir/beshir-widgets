@@ -440,7 +440,7 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
     to: email.value,
     subject: 'Your Heraldry Builder edit link',
     text: registrationMailText({
-      displayName: input.displayName, blazon: d.blazon, registryName: reg.registry.name,
+      displayName: input.displayName, blazon: d.blazon,
       editUrl: site + ownerHash(id, editSecret), shareUrl: site + entryHash(id), recoverUrl: site + RECOVER_HASH,
     }),
   });
@@ -678,7 +678,6 @@ interface OwnedRow {
   id: string;
   display_name: string;
   blazon: string;
-  registry_name: string;
 }
 
 /** One email listing a fresh single-use token link per entry the address owns; nothing if it owns none. */
@@ -687,8 +686,8 @@ async function sendRecoveryMail(env: Env, email: string, site: string): Promise<
   const now = Date.now();
   await env.DB.prepare(`DELETE FROM owner_tokens WHERE expires_at < ?`).bind(new Date(now).toISOString()).run();
   const { results } = await env.DB.prepare(
-    `SELECT a.id, a.display_name, a.blazon, r.name AS registry_name
-     FROM owner_emails o JOIN arms a ON a.id = o.arms_id JOIN registries r ON r.id = a.registry_id
+    `SELECT a.id, a.display_name, a.blazon
+     FROM owner_emails o JOIN arms a ON a.id = o.arms_id
      WHERE o.email_hmac = ? AND o.key_version = ?
      ORDER BY a.created_at, a.id`
   ).bind(owner.hmac, owner.keyVersion).all<OwnedRow>();
@@ -708,7 +707,7 @@ async function sendRecoveryMail(env: Env, email: string, site: string): Promise<
     to: email,
     subject: 'Your Heraldry Builder recovery link',
     text: recoveryMailText(tokens.map((t) => ({
-      displayName: t.row.display_name, blazon: t.row.blazon, registryName: t.row.registry_name, url: site + recoverTokenHash(t.token),
+      displayName: t.row.display_name, blazon: t.row.blazon, url: site + recoverTokenHash(t.token),
     }))),
   });
 }
@@ -859,10 +858,10 @@ function siteUrl(url: URL): string {
 }
 
 function registrationMailText(m: {
-  displayName: string; blazon: string; registryName: string; editUrl: string; shareUrl: string; recoverUrl: string;
+  displayName: string; blazon: string; editUrl: string; shareUrl: string; recoverUrl: string;
 }): string {
   return [
-    `Your arms are registered in the ${m.registryName} armorial as "${m.displayName}":`,
+    `Your arms are registered as "${m.displayName}":`,
     m.blazon,
     '',
     'Your edit link (keep it private: anyone with it can change or withdraw the entry):',
@@ -878,13 +877,13 @@ function registrationMailText(m: {
   ].join('\n');
 }
 
-function recoveryMailText(entries: Array<{ displayName: string; blazon: string; registryName: string; url: string }>): string {
+function recoveryMailText(entries: Array<{ displayName: string; blazon: string; url: string }>): string {
   return [
     'Someone (hopefully you) asked for new links to the arms registered with this address.',
     'Each link below works once, for 30 minutes. Open it, then choose "Get a new edit link" or',
     '"Withdraw this registration". Getting a new edit link stops the old one working.',
     '',
-    ...entries.flatMap((e) => [`"${e.displayName}" (${e.registryName}): ${e.blazon}`, e.url, '']),
+    ...entries.flatMap((e) => [`"${e.displayName}": ${e.blazon}`, e.url, '']),
     "If you didn't ask for this, ignore this email: nothing changes unless a link is opened and used.",
   ].join('\n');
 }

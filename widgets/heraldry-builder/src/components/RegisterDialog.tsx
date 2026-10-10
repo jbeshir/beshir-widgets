@@ -8,7 +8,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { API_ERROR, DISCORD_MAX, DISPLAY_NAME_MAX, EMAIL_MAX, blazon, cleanDiscord, cleanDisplayName, cleanEmail, type FieldShape, type MailOutcome, type NormDesign, type TakenReport } from '../lib/heraldry';
 import { useMedia } from '../lib/useCompact';
-import { editUrl, printHash, registryParam, shareUrl } from '../lib/route';
+import { editUrl, registryParam, shareUrl } from '../lib/route';
 import * as store from '../store';
 import { TakenPanel } from './Availability';
 import { CopyField, SecretLinkField } from './CopyField';
@@ -123,7 +123,6 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
         initialFocus="title"
         footer={
           <div class="dialog-actions">
-            <a class="button-secondary" href={printHash([registered.id])} data-testid="print-nametag">Print nametag</a>
             <button type="button" class="button-secondary" data-testid="register-done" onClick={onClose}>Done</button>
           </div>
         }
@@ -136,7 +135,7 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
               <p class="blazon blazon-small">{registered.blazon}</p>
             </div>
           </div>
-          <p>Registered in the {registered.registry.name} registry. Share this link so people can see your arms:</p>
+          <p>Registered. Share this link so people can see your arms:</p>
           <CopyField label="Share link (public)" value={shareUrl(registered.id)} testid="share-link" buttonLabel="Copy share link" emphasis="primary" />
           <SecretLinkField value={editUrl(registered.id, registered.editSecret)} testid="edit-link" />
           <MailStatus outcome={registered.editLinkEmail} email={created.email} />
@@ -273,7 +272,7 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
         {formError && <p ref={resultRef} class="form-error" role="alert" tabIndex={-1} data-testid="register-error">{formError}</p>}
         {taken && (
           <div ref={resultRef} role="alert" tabIndex={-1} data-testid="register-taken" class="register-taken">
-            <TakenPanel report={taken} registryName={null} onView={onClose} />
+            <TakenPanel report={taken} onView={onClose} />
             <button type="button" class="button-secondary" data-testid="register-back-to-design" onClick={onClose}>Back to my design</button>
           </div>
         )}

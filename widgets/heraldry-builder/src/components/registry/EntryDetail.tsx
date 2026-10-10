@@ -1,6 +1,7 @@
 // Entry detail: big shield, blazon, gloss, name, public Discord username (plain text, with a copy
-// button), share link, a "Load into builder" action and the "Lost your link? / Withdraw" entry
-// point. Shown as a sheet over the registry (card press) and inline for the public route #/a/<id>.
+// button), share link, a "Load into builder" action, a quieter "Print a nametag" link and the "Lost
+// your link? / Withdraw" entry point. Shown as a sheet over the registry (card press) and inline for
+// the public route #/a/<id>.
 // Search results carry no contact, so it is fetched with store.getEntry.
 
 import type { Ref } from 'preact';
@@ -28,7 +29,7 @@ interface BodyProps {
   hatching: boolean;
   /** Open the entry's design, in its shape, in the builder. */
   onLoad: (arms: ShapedDesign) => void;
-  /** Whether the Load / Print buttons sit in the body (a page) or are left to the caller (a sheet keeps them in its footer). */
+  /** Whether the Load button and Print link sit in the body (a page) or are left to the caller (a sheet keeps them in its footer). */
   showActions: boolean;
   /** Receives the entry's name heading, so a page that shows the entry can focus it; none in a sheet (the dialog takes focus). */
   nameRef: Ref<HTMLHeadingElement> | null;
@@ -78,7 +79,7 @@ function EntryActions({ entry, onLoad }: { entry: Summary; onLoad: (arms: Shaped
       <button type="button" class="button-primary" data-testid="load-into-builder" onClick={() => onLoad({ design: entry.design, shape: entry.shape })}>
         Load into builder
       </button>
-      <a class="button-secondary" href={printHash([entry.id])} data-testid="print-nametag">Print nametag</a>
+      <a class="text-link entry-print" href={printHash(entry.id)} data-testid="print-nametag">Print a nametag</a>
     </div>
   );
 }

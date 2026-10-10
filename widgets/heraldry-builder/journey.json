@@ -339,12 +339,36 @@
       "expect": {"selector":"[data-testid=owner-denied]"}
     },
     {
+      "label": "entry-page",
+      "steps": [
+        {"eval":"location.hash = '#/a/demo-001'"},
+        {"waitFor":"[data-testid=entry-name]"}
+      ],
+      "expect": {"selector":"[data-testid=print-nametag]"}
+    },
+    {
       "label": "print-preview",
       "steps": [
-        {"eval":"location.hash = '#/print/demo-001'"},
+        {"eval":"location.hash = '#/a/demo-001'"},
+        {"click":"[data-testid=print-nametag]"},
         {"waitFor":"[data-testid=nametag]"}
       ],
       "expect": {"selector":"[data-testid=print-copies-fill]:checked"}
+    },
+    {
+      "label": "print-bare-link",
+      "steps": [
+        {"eval":"location.hash = '#/print'"}
+      ],
+      "expect": {"selector":"[data-testid=tab-yours][aria-selected=true]"}
+    },
+    {
+      "label": "yours-populated",
+      "steps": [
+        {"eval":"localStorage.setItem('heraldry-builder:device-arms:v1', JSON.stringify([{id:'demo-001',registry:'default',displayName:'Mae Okonkwo',blazon:'Azure, a bend Or',shield:{design:{v:1,field:{kind:'plain',tincture:'azure'},ordinary:{type:'bend',tincture:'or'},charges:null},shape:'heater'},secret:'journey-secret-01',savedAt:'2026-10-01T00:00:00Z'}]))"},
+        {"click":"[data-testid=tab-yours]"}
+      ],
+      "expect": {"state":"populated"}
     },
     {
       "label": "compound-layers",
