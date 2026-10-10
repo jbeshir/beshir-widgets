@@ -18,7 +18,7 @@ interface StoredDraft {
 }
 
 /** The stored draft as written; `shape` is undefined for a draft saved before field shapes. */
-export interface RawDraft {
+interface RawDraft {
   design: unknown;
   shape: unknown;
 }

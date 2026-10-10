@@ -12,7 +12,7 @@
 
 import { entryHash, ownerHash } from './hashes';
 
-export { PRINT_HASH, RECOVER_HASH, entryHash, ownerHash, printHash, recoverTokenHash } from './hashes';
+export { RECOVER_HASH, entryHash, ownerHash, printHash } from './hashes';
 
 export type Route =
   | { mode: 'builder' }
@@ -68,12 +68,12 @@ export function capabilityUrls(id: string, secret: string | null): { edit: strin
 
 const REGISTRY_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
-/** The `?registry=` selector from a query string; null when absent or malformed (→ default). */
-export function registryParam(search: string = typeof location !== 'undefined' ? location.search : ''): string | null {
+/** The `?registry=` selector from a query string; '' when absent or malformed (→ default). */
+export function registryParam(search: string = typeof location !== 'undefined' ? location.search : ''): string {
   try {
     const v = new URLSearchParams(search).get('registry');
-    return v && REGISTRY_ID.test(v) ? v : null;
+    return v && REGISTRY_ID.test(v) ? v : '';
   } catch {
-    return null;
+    return '';
   }
 }

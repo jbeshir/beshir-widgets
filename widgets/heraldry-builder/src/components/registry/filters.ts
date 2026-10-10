@@ -1,7 +1,7 @@
 // Registry search filters: state shape, option lists and chip labels. DOM-free.
 
 import {
-  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, ORDINARY_LABEL, ORDINARY_TYPES, POSTURES, POSTURE_GLOSS,
+  CATEGORY_LABEL, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, ORDINARY_LABEL, ORDINARY_TYPES, POSTURES, POSTURE_GLOSS,
   TINCTURES, TINCTURE_LABEL, chargesInCategory, postureLabel, type PlainTerm, type SearchParams,
 } from '../../lib/heraldry';
 
@@ -16,9 +16,9 @@ export const isTinctureFilter = (k: FilterKey) => k === 'tincture' || k === 'fie
 
 export const EMPTY_FILTERS: Filters = { category: '', charge: '', posture: '', ordinary: '', division: '', fieldTincture: '', tincture: '', chargeTincture: '' };
 
-export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export interface FilterSpec {
+interface FilterSpec {
   key: FilterKey;
   testid: string;
   label: string;
@@ -67,11 +67,7 @@ export function activeFilters(f: Filters): FilterKey[] {
   return FILTER_KEYS.filter((k) => f[k] !== '');
 }
 
-export function toSearchParams(registry: string | null, q: string, f: Filters, offset = 0): SearchParams {
-  return { registry, q: q.trim() || null, offset: offset || null, ...f };
+export function toSearchParams(registry: string, q: string, f: Filters, offset = 0): SearchParams {
+  return { registry, q: q.trim(), limit: '', offset: offset ? String(offset) : '', ...f };
 }
 
-/** One-line name of a charge id for headings. */
-export function chargeName(id: string): string {
-  return id in CHARGES ? cap(CHARGES[id as keyof typeof CHARGES].name) : id;
-}

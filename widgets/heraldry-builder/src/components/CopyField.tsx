@@ -3,7 +3,7 @@
 
 import { useState } from 'preact/hooks';
 
-export type CopyState = 'idle' | 'copied' | 'failed';
+type CopyState = 'idle' | 'copied' | 'failed';
 
 /** Copy `value`; when the clipboard is unavailable (insecure context), `onFail` selects it instead. */
 export function useCopy(value: string, onFail: () => void): { state: CopyState; copy: () => Promise<void> } {

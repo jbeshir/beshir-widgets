@@ -1,10 +1,10 @@
-// Registry tab (PLAN §6/§7): search + filters + chips + result cards + entry sheet, with loading /
+// Registry tab: search + filters + chips + result cards + entry sheet, with loading /
 // populated / empty / error states reported through `onStatus` (App turns that into
 // data-widget-state). Routes #/a/<id> and #/a/<id>/<secret> replace the browser with the public
 // entry page and the owner view; #/recover and #/recover/<token> with the recovery screens.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, gloss, type ShapedDesign, type Tincture } from '../../lib/heraldry';
+import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, gloss, type RegistryRef, type ShapedDesign, type Tincture } from '../../lib/heraldry';
 import { registryParam, type Route } from '../../lib/route';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
@@ -45,7 +45,7 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
 
   const [status, setStatus] = useState<ListStatus>('loading');
   const [items, setItems] = useState<store.ArmsSummary[]>([]);
-  const [meta, setMeta] = useState<{ registry: store.RegistryRef | null; total: number; sample: boolean }>({ registry: null, total: 0, sample: false });
+  const [meta, setMeta] = useState<{ registry: RegistryRef | null; total: number; sample: boolean }>({ registry: null, total: 0, sample: false });
   const [error, setError] = useState('');
   const [moreBusy, setMoreBusy] = useState(false);
   const [moreError, setMoreError] = useState('');

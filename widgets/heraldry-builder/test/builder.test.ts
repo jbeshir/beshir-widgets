@@ -1,4 +1,4 @@
-// Builder transitions and the lifecycle-state computation (DOM-free), including the PLAN §8
+// Builder transitions and the lifecycle-state computation (DOM-free), including the
 // journey flows the Design tab must support.
 
 import { describe, expect, it } from 'vitest';

@@ -10,6 +10,14 @@
       "expect": {"state":"ready"}
     },
     {
+      "label": "onboarding-gallery",
+      "steps": [
+        {"waitFor":"[data-testid=welcome-strip]"},
+        {"waitFor":"[data-testid=starting-gallery]"}
+      ],
+      "expect": {"selector":"[data-testid=starting-gallery]"}
+    },
+    {
       "label": "design-valid",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
@@ -23,6 +31,64 @@
         {"eval":"window.scrollTo(0, 0)"}
       ],
       "expect": {"state":"populated"}
+    },
+    {
+      "label": "shape-banner",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=shape-banner]"},
+        {"waitFor":"[data-testid=shape-banner] [role=radio][aria-checked=true]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=shape-banner] [role=radio][aria-checked=true]"}
+    },
+    {
+      "label": "shape-round",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=shape-round]"},
+        {"waitFor":"[data-testid=shape-round] [role=radio][aria-checked=true]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=shape-round] [role=radio][aria-checked=true]"}
+    },
+    {
+      "label": "shape-lozenge",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=shape-lozenge]"},
+        {"waitFor":"[data-testid=shape-lozenge] [role=radio][aria-checked=true]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=shape-lozenge] [role=radio][aria-checked=true]"}
+    },
+    {
+      "label": "celestine-selected",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=swatch-ordinary-celestine]"},
+        {"waitFor":"[data-testid=tincture-note-ordinary-celestine]"}
+      ],
+      "expect": {"selector":"[data-testid=tincture-note-ordinary-celestine]"}
+    },
+    {
+      "label": "counterchanged-design",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=division-per-pale]"},
+        {"click":"[data-testid=swatch-field1-azure]"},
+        {"click":"[data-testid=swatch-field2-or]"},
+        {"eval":"document.querySelector('#charge-tab-geometric')?.click()"},
+        {"click":"[data-testid=charge-mullet]"},
+        {"click":"[data-testid=swatch-charge-counterchanged]"},
+        {"waitFor":"[data-testid=tincture-note-charge-counterchanged]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=tincture-note-charge-counterchanged]"}
     },
     {
       "label": "tincture-violation",
@@ -44,6 +110,21 @@
         {"click":"[data-testid=swatch-charge-azure]"}
       ],
       "expect": {"selector":"[data-testid=tincture-explainer]"}
+    },
+    {
+      "label": "dead-end-counterchange-fix",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=division-per-pale]"},
+        {"click":"[data-testid=swatch-field1-azure]"},
+        {"click":"[data-testid=swatch-field2-or]"},
+        {"eval":"document.querySelector('#charge-tab-geometric')?.click()"},
+        {"click":"[data-testid=charge-mullet]"},
+        {"click":"[data-testid=count-3]"},
+        {"waitFor":"[data-testid=violation-panel]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=violation-fix]"}
     },
     {
       "label": "duplicate-detected",
@@ -76,9 +157,23 @@
       "steps": [
         {"click":"[data-testid=tab-registry]"},
         {"waitFor":"[data-testid=result-card]"},
-        {"eval":"(() => { const s = document.querySelector('[data-testid=filter-ordinary]'); if (!s) throw new Error('missing filter-ordinary'); s.value = 'bordure'; s.dispatchEvent(new Event('change', { bubbles: true })); })()"}
+        {"eval":"(() => { const s = document.querySelector('[data-testid=filter-ordinary]'); if (!s) throw new Error('missing filter-ordinary'); s.value = 'bordure'; s.dispatchEvent(new Event('change', { bubbles: true })); })()"},
+        {"waitFor":"[data-testid=filter-chip-ordinary]"},
+        {"waitFor":"[data-testid=registry-count]:has-text(\"3 matching arms\")"},
+        {"waitFor":"[data-testid=registry-showing]:has-text(\"Showing 3 of 3\")"}
       ],
       "expect": {"state":"populated"}
+    },
+    {
+      "label": "search-plain-english",
+      "steps": [
+        {"click":"[data-testid=tab-registry]"},
+        {"waitFor":"[data-testid=result-card]"},
+        {"fill":"[data-testid=registry-search]","value":"passant wolf"},
+        {"waitFor":"[data-testid=registry-count]:has-text(\"2 matching arms\")"},
+        {"waitFor":"[data-testid=result-gloss]"}
+      ],
+      "expect": {"selector":"[data-testid=result-gloss]"}
     },
     {
       "label": "registry-empty",
@@ -130,7 +225,7 @@
         {"fill":"[data-testid=register-email]","value":"journey@example.com"},
         {"click":"[data-testid=register-submit]"}
       ],
-      "expect": {"selector":"[data-testid=register-success]"}
+      "expect": {"selector":"[data-testid=register-mail-status]"}
     },
     {
       "label": "register-validation",
@@ -142,7 +237,8 @@
         {"fill":"[data-testid=register-name]","value":"House Journey"},
         {"fill":"[data-testid=register-email]","value":"not-an-address"},
         {"fill":"[data-testid=register-discord]","value":"a..b"},
-        {"click":"[data-testid=register-submit]"}
+        {"click":"[data-testid=register-submit]"},
+        {"waitFor":"[data-testid=register-email-error]"}
       ],
       "expect": {"selector":"[data-testid=register-discord-error]"}
     },
@@ -185,6 +281,14 @@
         {"eval":"location.hash = '#/a/journey-arms-01/journey-secr'"}
       ],
       "expect": {"selector":"[data-testid=owner-denied]"}
+    },
+    {
+      "label": "print-preview",
+      "steps": [
+        {"eval":"location.hash = '#/print/demo-001,demo-003,demo-004'"},
+        {"waitFor":"[data-testid=nametag]"}
+      ],
+      "expect": {"selector":"[data-testid=print-view] [data-testid=nametag]"}
     },
     {
       "label": "compound-layers",

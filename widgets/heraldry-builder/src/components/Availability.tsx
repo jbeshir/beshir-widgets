@@ -1,21 +1,19 @@
-// Inline result of "Check availability" (PLAN §6 item 6), also used by the Register dialog when the
-// server answers 409 duplicate / too_close, so both places show the same UI. The testids
+// Inline result of "Check availability", also used by the Register dialog when the
+// server answers 409 duplicate / too-close, so both places show the same UI. The testids
 // availability-ok / -duplicate / -too-close / -error are the journey contract.
 
-import type { ComparedEntry, ConflictSummary, Result, CheckResult } from '../store';
+import type { Result, CheckResult } from '../store';
 import { entryHash } from '../lib/route';
 import {
-  CLEAR_CHANGE_HINT, HALF_DIFFERENCE_HINT, POINTS, pointsText, tallyText, type DiffAttr, type DifferenceNote,
+  CLEAR_CHANGE_HINT, HALF_DIFFERENCE_HINT, POINTS, pointsText, tallyText, type ComparedEntry, type DiffAttr, type DifferenceNote, type TakenReport,
 } from '../lib/heraldry';
 import { Shield } from './Shield';
 
 export type CheckOutcome = Result<{ result: CheckResult }>;
 
 interface TakenProps {
-  verdict: 'duplicate' | 'too-close';
-  conflict?: ConflictSummary | null;
-  differences?: DifferenceNote[];
-  registryName?: string | null;
+  report: TakenReport;
+  registryName: string | null;
   /** Called when "View" is pressed (the link also works on its own via the hash route). */
   onView?: () => void;
   /** Jump to the builder control that would clear the conflict (inline results only). */
@@ -38,8 +36,8 @@ const JUMP_FOR: Record<DiffAttr, JumpTarget> = {
 };
 
 /** Which controls the listed differences point at (falls back to the three step sections). */
-function jumpTargets(differences?: readonly DifferenceNote[]): JumpTarget[] {
-  const hit = [...new Set((differences ?? []).map((d) => JUMP_FOR[d.attr]))];
+function jumpTargets(differences: readonly DifferenceNote[]): JumpTarget[] {
+  const hit = [...new Set(differences.map((d) => JUMP_FOR[d.attr]))];
   return hit.length ? hit : ['field', 'ordinary', 'charge'];
 }
 
@@ -65,16 +63,16 @@ export function outcomeMessage(outcome: CheckOutcome): string {
   if (!outcome.ok) return `Couldn't check right now. ${outcome.message}`;
   const r = outcome.result;
   if (r.verdict === 'ok') return `Available in ${r.registry.name}.`;
-  const who = r.conflict ? ` ${r.verdict === 'duplicate' ? 'by' : 'to'} ${r.conflict.displayName}` : '';
-  return r.verdict === 'duplicate' ? `Already registered${who}.` : `Too close${who}.`;
+  return r.verdict === 'duplicate' ? `Already registered by ${r.conflict.displayName}.` : `Too close to ${r.conflict.displayName}.`;
 }
 
 /** Duplicate / too-close panel: conflicting mini shield, name, blazon, what differs and what to change. */
-export function TakenPanel({ verdict, conflict: c, differences, registryName, onView, onJump }: TakenProps) {
+export function TakenPanel({ report, registryName, onView, onJump }: TakenProps) {
   const where = registryName ? ` in ${registryName}` : '';
-  const card = c && (
+  const c = report.conflict;
+  const card = (
     <div class="conflict">
-      {c.design && <Shield design={c.design} shape={c.shape} size={48} label={null} />}
+      <Shield design={c.design} shape={c.shape} size={48} label={null} />
       <div class="conflict-text">
         <p class="conflict-name">{c.displayName}</p>
         <p class="conflict-blazon">{c.blazon}</p>
@@ -84,12 +82,12 @@ export function TakenPanel({ verdict, conflict: c, differences, registryName, on
   );
   const jumps = onJump && (
     <div class="jump-row" data-testid="availability-jumps">
-      {jumpTargets(verdict === 'duplicate' ? undefined : differences).map((t) => (
+      {jumpTargets(report.verdict === 'duplicate' ? [] : report.differences).map((t) => (
         <button key={t} type="button" class="button-secondary button-small" data-testid={`jump-${t}`} onClick={() => onJump(t)}>{JUMP_LABEL[t]}</button>
       ))}
     </div>
   );
-  if (verdict === 'duplicate') {
+  if (report.verdict === 'duplicate') {
     return (
       <div class="availability availability-taken" data-testid="availability-duplicate">
         <p><strong>Already registered</strong>{where}.</p>
@@ -102,12 +100,12 @@ export function TakenPanel({ verdict, conflict: c, differences, registryName, on
   return (
     <div class="availability availability-taken" data-testid="availability-too-close">
       <p><strong>Too close to existing arms</strong>{where}.</p>
-      {differences?.length ? (
+      {report.differences.length > 0 && (
         <div>
           <p class="availability-help">It only differs by:</p>
-          <DifferenceList differences={differences} />
+          <DifferenceList differences={report.differences} />
         </div>
-      ) : null}
+      )}
       <p class="availability-help">Change at least one of: {CLEAR_CHANGE_HINT}.</p>
       <p class="availability-help" data-testid="availability-half-rule">{HALF_DIFFERENCE_HINT}</p>
       {jumps}
@@ -145,5 +143,5 @@ export function Availability({ outcome, onJump }: { outcome: CheckOutcome; onJum
       </div>
     );
   }
-  return <TakenPanel verdict={r.verdict} conflict={r.conflict} differences={r.differences} registryName={r.registry.name} onJump={onJump} />;
+  return <TakenPanel report={r} registryName={r.registry.name} onJump={onJump} />;
 }

@@ -18,9 +18,8 @@ import { assess } from '../src/lib/builder';
 import sample from '../src/data/sample-registry.json';
 import { generatedDesigns } from './design-generator';
 import { V } from './validation-cases';
+import { plain, div } from './helpers';
 
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
-const div = (division: string, t1: string, t2: string) => ({ kind: 'divided', division, tinctures: [t1, t2] });
 const group = (charge: string, count: number, tincture: string, arrangement?: string) =>
   ({ charge, count, placement: 'field', tincture, ...(arrangement ? { arrangement } : {}) });
 

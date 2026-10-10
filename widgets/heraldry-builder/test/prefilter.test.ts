@@ -4,10 +4,11 @@
 // part of the key is always a full point on its own, which is proven here too.
 import { describe, it, expect } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, DIVISIONS, ORDINARY_TYPES, areDistinct, candidateKey, checkUnique, differences, resolve, signature,
+  CHARGE_IDS, CHARGES, DIVISIONS, ORDINARY_TYPES, areDistinct, candidateKey, checkUnique, differences, signature,
   type MinorReason, type NormDesign, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
+import { nd as design } from './helpers';
 
 const sameKey = (a: NormDesign, b: NormDesign) => JSON.stringify(candidateKey(a)) === JSON.stringify(candidateKey(b));
 
@@ -26,12 +27,6 @@ const outcome = (v: Verdict) => (v.kind === 'ok' && v.closest ? 'ok-on-halves' :
 function reasonsOf(v: Verdict): MinorReason[] {
   const ds = v.kind === 'too-close' ? v.differences : v.kind === 'ok' && v.closest ? v.closest.differences : [];
   return ds.flatMap((d) => (d.weight === 'minor' ? [d.reason] : []));
-}
-
-function design(input: unknown): NormDesign {
-  const r = resolve(input);
-  if (!r.ok) throw new Error(r.errors.map((e) => e.message).join('; '));
-  return r.design;
 }
 
 describe('too-close pre-filter', () => {

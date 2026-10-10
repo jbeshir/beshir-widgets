@@ -165,7 +165,7 @@ export function App() {
     announce(outcomeMessage(outcome));
   };
 
-  // ── data-widget-state: the single place it is computed (PLAN §7) ──
+  // ── data-widget-state: the single place it is computed ──
   const widgetState = computeWidgetState({
     tab,
     design: report.status,

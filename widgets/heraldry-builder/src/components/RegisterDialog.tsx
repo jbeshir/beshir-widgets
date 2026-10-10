@@ -6,7 +6,7 @@
 // "Check availability".
 
 import { useRef, useState } from 'preact/hooks';
-import { DISCORD_MAX, DISPLAY_NAME_MAX, EMAIL_MAX, blazon, cleanDiscord, cleanDisplayName, cleanEmail, type FieldShape, type MailOutcome, type NormDesign } from '../lib/heraldry';
+import { API_ERROR, DISCORD_MAX, DISPLAY_NAME_MAX, EMAIL_MAX, blazon, cleanDiscord, cleanDisplayName, cleanEmail, type FieldShape, type MailOutcome, type NormDesign, type TakenReport } from '../lib/heraldry';
 import { capabilityUrls, printHash, registryParam } from '../lib/route';
 import * as store from '../store';
 import { TakenPanel } from './Availability';
@@ -27,7 +27,7 @@ type Field = 'displayName' | 'email' | 'discord';
 type FieldErrors = Record<Field, string | null>;
 const NO_ERRORS: FieldErrors = { displayName: null, email: null, discord: null };
 
-function isField(f: string | undefined): f is Field {
+function isField(f: string): f is Field {
   return f === 'displayName' || f === 'email' || f === 'discord';
 }
 
@@ -52,7 +52,7 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>(NO_ERRORS);
   const [formError, setFormError] = useState<string | null>(null);
-  const [taken, setTaken] = useState<store.Failure | null>(null);
+  const [taken, setTaken] = useState<TakenReport | null>(null);
   const [created, setCreated] = useState<{ registered: store.Registered; email: string } | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef<HTMLButtonElement>(null);
@@ -85,10 +85,12 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
     if (r.ok) {
       setCreated({ registered: r.created, email: checked.email });
       onRegistered();
-    } else if (r.code === 'duplicate' || r.code === 'too_close') {
-      setTaken(r);
-    } else if (isField(r.field)) {
-      showErrors({ ...NO_ERRORS, [r.field]: r.message });
+    } else if (r.kind === 'http' && r.code === API_ERROR.duplicate) {
+      setTaken({ verdict: 'duplicate', conflict: r.conflict });
+    } else if (r.kind === 'http' && r.code === API_ERROR.tooClose) {
+      setTaken({ verdict: 'too-close', conflict: r.conflict, differences: r.differences });
+    } else if (r.kind === 'http' && r.code === API_ERROR.badRequest && r.culprit.kind === 'field' && isField(r.culprit.name)) {
+      showErrors({ ...NO_ERRORS, [r.culprit.name]: r.message });
     } else {
       setFormError(r.message);
     }
@@ -220,12 +222,7 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
         {formError && <p class="form-error" role="alert" data-testid="register-error">{formError}</p>}
         {taken && (
           <div role="alert" data-testid="register-taken">
-            <TakenPanel
-              verdict={taken.code === 'duplicate' ? 'duplicate' : 'too-close'}
-              conflict={taken.conflict}
-              differences={taken.differences}
-              onView={onClose}
-            />
+            <TakenPanel report={taken} registryName={null} onView={onClose} />
           </div>
         )}
         <div class="dialog-actions">

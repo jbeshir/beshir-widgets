@@ -1,4 +1,4 @@
-// Blazon generation (FINDINGS §4.4): every tincture capitalised, every element states its own
+// Blazon generation: every tincture capitalised, every element states its own
 // tincture (or "counterchanged"), posture always stated, default arrangements omitted — including
 // the only arrangement a place allows — no trailing full stop.
 
@@ -9,7 +9,7 @@ import {
 } from './design';
 import { CHARGE_TINCTURE_NAME, TINCTURE_NAME } from './tinctures';
 
-export function fieldBlazon(field: Field): string {
+function fieldBlazon(field: Field): string {
   if (field.kind === 'plain') return TINCTURE_NAME[field.tincture];
   return `${DIVISION_NAME[field.division]} ${TINCTURE_NAME[field.tinctures[0]]} and ${TINCTURE_NAME[field.tinctures[1]]}`;
 }
@@ -24,7 +24,7 @@ function statesArrangement(c: NormChargeGroup, ordinary: Ordinary | null): boole
 }
 
 /** "three lions passant in pale Or": number → name → posture → arrangement → tincture. */
-export function groupBlazon(c: NormChargeGroup, ordinary: Ordinary | null): string {
+function groupBlazon(c: NormChargeGroup, ordinary: Ordinary | null): string {
   const meta = CHARGES[c.charge];
   const parts = [c.count === 1 ? meta.article : NUMBER_WORD[c.count], c.count === 1 ? meta.name : meta.plural];
   if (c.posture) parts.push(postureTerm(c.charge, c.posture));

@@ -1,4 +1,4 @@
-// Search tags (FINDINGS §4.7), derived from a NormDesign and stored in arms_tags. A search is an
+// Search tags, derived from a NormDesign and stored in arms_tags. A search is an
 // AND of tags; filtersToTags() maps the public search parameters onto that vocabulary so the Worker
 // and the offline sample search share one implementation.
 
@@ -45,30 +45,34 @@ export function deriveTags(nd: NormDesign): string[] {
   return tags;
 }
 
-/** Public search filters (query parameters of GET /api/arms and the offline registry search). */
+/** Public search filters (query parameters of GET /api/arms and the offline registry search); '' = not filtering. */
 export interface SearchFilters {
-  tincture?: string | null;
+  tincture: string;
   /** A tincture of the field (either half of a divided field). */
-  fieldTincture?: string | null;
+  fieldTincture: string;
   /** The charges' tincture, or 'counterchanged'. */
-  chargeTincture?: string | null;
-  charge?: string | null;
+  chargeTincture: string;
+  charge: string;
   /** A charge category: beast, monster, bird, plant, geometric, object or modern. */
-  category?: string | null;
-  posture?: string | null;
-  ordinary?: string | null;
+  category: string;
+  posture: string;
+  ordinary: string;
   /** A division id, or 'plain' for undivided fields. */
-  division?: string | null;
+  division: string;
 }
 
-export type FilterTagsResult = { ok: true; tags: string[] } | { ok: false; param: keyof SearchFilters; message: string };
+export const NO_FILTERS: SearchFilters = {
+  tincture: '', fieldTincture: '', chargeTincture: '', charge: '', category: '', posture: '', ordinary: '', division: '',
+};
+
+type FilterTagsResult = { ok: true; tags: string[] } | { ok: false; param: keyof SearchFilters; message: string };
 
 /** Map filters to required tags, validating each value against its vocabulary. Blank values are ignored. */
 export function filtersToTags(f: SearchFilters): FilterTagsResult {
   const tags: string[] = [];
   const check = (param: keyof SearchFilters, ok: (v: string) => boolean, tag: (v: string) => string): FilterTagsResult | null => {
     const v = f[param];
-    if (v === undefined || v === null || v === '') return null;
+    if (v === '') return null;
     if (!ok(v)) return { ok: false, param, message: `Unknown ${param} "${v}".` };
     tags.push(tag(v));
     return null;

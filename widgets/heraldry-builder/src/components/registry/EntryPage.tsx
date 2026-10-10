@@ -1,7 +1,7 @@
 // Public entry view for #/a/<id>.
 
 import { useEffect, useState } from 'preact/hooks';
-import type { ShapedDesign } from '../../lib/heraldry';
+import { API_ERROR, type ShapedDesign } from '../../lib/heraldry';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
 import { EntryBody } from './EntryDetail';
@@ -28,6 +28,8 @@ export function EntryPage({ id, onStatus, hatching, onLoad }: Props) {
 
   useEffect(() => onStatus(state.status === 'ok' ? 'populated' : state.status), [state.status]);
 
+  const notFound = state.status === 'error' && store.failureCode(state.failure) === API_ERROR.notFound;
+
   return (
     <div class="entry-page" data-testid="entry-page">
       <a class="text-link back-link" href="#/" data-testid="back-to-registry">← Back to the registry</a>
@@ -35,10 +37,10 @@ export function EntryPage({ id, onStatus, hatching, onLoad }: Props) {
       {state.status === 'error' && (
         <div class="panel-message panel-error" role="alert" data-testid="entry-error">
           <p>
-            <strong>{state.failure.status === 404 ? "These arms aren't in the registry." : "These arms couldn't be loaded."}</strong>{' '}
-            {state.failure.status === 404 ? 'They may have been withdrawn, or the link is mistyped.' : state.failure.message}
+            <strong>{notFound ? "These arms aren't in the registry." : "These arms couldn't be loaded."}</strong>{' '}
+            {notFound ? 'They may have been withdrawn, or the link is mistyped.' : state.failure.message}
           </p>
-          {state.failure.status !== 404 && <button type="button" class="button-secondary" onClick={() => setAttempt((n) => n + 1)}>Retry</button>}
+          {!notFound && <button type="button" class="button-secondary" onClick={() => setAttempt((n) => n + 1)}>Retry</button>}
         </div>
       )}
       {state.status === 'ok' && <EntryBody entry={state.entry} sample={state.sample} hatching={hatching} onLoad={onLoad} />}

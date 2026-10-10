@@ -6,7 +6,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  ARRANGEMENT_LABEL, CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISIONS, DIVISION_LABEL, DIVISION_PART_LABEL, NUMBER_WORD,
+  ARRANGEMENT_LABEL, CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, DIVISION_PART_LABEL, NUMBER_WORD,
   ORDINARY_LABEL, ORDINARY_TYPES, TINCTURE_LABEL, arrangementChoices, chargeNoun, chargePath,
   chargeTinctureChoices, chargesInCategory, countChoices, fieldTinctureChoices, ordinaryTinctureChoices,
   placementChoices, plainFirst, postureChoices, postureGloss, postureLabel, postureTerm,

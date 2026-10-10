@@ -1,4 +1,4 @@
-// Uniqueness (FINDINGS §3.2): exact duplicate by signature, otherwise "too close" when two designs
+// Uniqueness: exact duplicate by signature, otherwise "too close" when two designs
 // are not different enough. Each difference scores a point when it is clear and half a point when it
 // is minor (a look-alike charge, a mirror image, swapped colours…); two designs are different enough
 // at one point, so one clear difference or two minor ones. Same code on client (instant feedback) and
@@ -20,7 +20,7 @@ export type DiffAttr =
   | 'charges-presence' | 'charge-type' | 'charge-tincture' | 'charge-count'
   | 'charge-placement' | 'charge-arrangement' | 'charge-posture';
 
-export const DIFF_ATTRS: readonly DiffAttr[] = [
+const DIFF_ATTRS: readonly DiffAttr[] = [
   'field-division', 'field-tincture', 'ordinary-presence', 'ordinary-type', 'ordinary-tincture',
   'charges-presence', 'charge-type', 'charge-tincture', 'charge-count', 'charge-placement',
   'charge-arrangement', 'charge-posture',
@@ -39,7 +39,7 @@ export type MinorReason =
   | 'many-charges'      // two counts of four or more
   | 'pattern-with-count'; // a different pattern alongside a different count
 
-export type Weight = 'clear' | 'minor';
+type Weight = 'clear' | 'minor';
 
 export type Diff =
   | { attr: DiffAttr; weight: 'clear' }
@@ -48,7 +48,7 @@ export type Diff =
 export const POINTS: Record<Weight, number> = { clear: 1, minor: 0.5 };
 
 /** The score at which two designs are different enough: one clear difference, or two minor ones. */
-export const DISTINCT_SCORE = 1;
+const DISTINCT_SCORE = 1;
 
 // ── Mirror images ───────────────────────────────────────────────────────────
 
@@ -186,7 +186,7 @@ export function checkUnique(nd: NormDesign, sig: string, registry: readonly Regi
  * rest can be clear too, but are not stored in columns, so `checkUnique` decides those on the
  * candidates. Looking a registry up by this key therefore returns every entry that matters.
  */
-export interface CandidateKey {
+interface CandidateKey {
   divisionGroup: 'plain' | Division;
   ordinaryGroup: OrdinaryType | null;
   chargeGroup: SimilarityGroup | ChargeId | null;
@@ -202,7 +202,7 @@ export function candidateKey(nd: NormDesign): CandidateKey {
 
 // ── Explanations ────────────────────────────────────────────────────────────
 
-export const DIFF_LABEL: Record<DiffAttr, string> = {
+const DIFF_LABEL: Record<DiffAttr, string> = {
   'field-division': 'field division',
   'field-tincture': 'field tincture',
   'ordinary-presence': 'ordinary',

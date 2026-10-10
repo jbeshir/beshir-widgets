@@ -8,9 +8,10 @@ import {
 } from '../src/lib/heraldry';
 import * as store from '../src/store';
 import { designOf, sampleSearchEntries, searchEntryOf } from './sample-search-entries';
+import { searchParams, type SearchArgs } from './helpers';
 
-function ids(params: SearchParams): string[] {
-  const parsed = parseSearchParams({ ...params, limit: 50 });
+function ids(params: SearchArgs): string[] {
+  const parsed = parseSearchParams(searchParams({ ...params, limit: 50 }));
   if (!parsed.ok) throw new Error(parsed.message);
   return searchEntries(sampleSearchEntries, parsed.query).items.map((i) => i.id);
 }
@@ -156,7 +157,7 @@ describe('the plain-English queries over the sample registry', () => {
     expect(orArms.slice().sort()).toEqual(hasTag('tincture:or'));
     expect(orArms).not.toContain('demo-014'); // Argent, a goat Azure within a bordure Gules
     const morgan = searchEntryOf({ ...sample.entries[13], id: 'x-morgan', displayName: 'Morgan Fay', registeredAt: '2026-03-01T00:00:00Z' });
-    const parsed = parseSearchParams({ q: 'or' });
+    const parsed = parseSearchParams(searchParams({ q: 'or' }));
     if (!parsed.ok) throw new Error(parsed.message);
     expect(searchEntries([morgan], parsed.query).total).toBe(0);
   });
@@ -212,8 +213,8 @@ describe('search parameters', () => {
   });
 
   it('reports a bad value for a defined parameter as bad_request', () => {
-    expect(parseSearchParams({ category: 'fish' })).toMatchObject({ ok: false, code: 'bad_request', param: 'category' });
-    expect(parseSearchParams({ fieldTincture: 'pink' })).toMatchObject({ ok: false, code: 'bad_request', param: 'fieldTincture' });
+    expect(parseSearchParams(searchParams({ category: 'fish' }))).toMatchObject({ ok: false, code: 'bad_request', param: 'category' });
+    expect(parseSearchParams(searchParams({ fieldTincture: 'pink' }))).toMatchObject({ ok: false, code: 'bad_request', param: 'fieldTincture' });
   });
 });
 
@@ -230,15 +231,15 @@ describe('the offline store answers like the library', () => {
 
   it('returns the same ids in the same order, for every query', async () => {
     for (const q of QUERIES) {
-      const r = await store.search({ q, limit: 50 });
+      const r = await store.search(searchParams({ q, limit: 50 }));
       expect(r.ok && r.page.items.map((i) => i.id), q).toEqual(find(q));
     }
   });
 
   it('filters by category and field tincture, and refuses an unknown value with a typed code', async () => {
-    const r = await store.search({ category: 'monster', fieldTincture: 'vert' });
+    const r = await store.search(searchParams({ category: 'monster', fieldTincture: 'vert' }));
     expect(r.ok && r.page.items.map((i) => i.id)).toEqual([]);
-    const bad = await store.search({ category: 'fish' });
-    expect(bad).toMatchObject({ ok: false, status: 400, code: 'bad_request', param: 'category' });
+    const bad = await store.search(searchParams({ category: 'fish' }));
+    expect(bad).toMatchObject({ ok: false, status: 400, code: 'bad_request', culprit: { kind: 'param', name: 'category' } });
   });
 });

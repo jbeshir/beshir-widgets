@@ -21,7 +21,7 @@ export function recoverTokenHash(token: string): string {
   return `${RECOVER_HASH}/${encodeURIComponent(token)}`;
 }
 
-export const PRINT_HASH = '#/print';
+const PRINT_HASH = '#/print';
 
 /** The nametag sheet of these entries; with none, of every entry remembered on this device. */
 export function printHash(ids: readonly string[]): string {

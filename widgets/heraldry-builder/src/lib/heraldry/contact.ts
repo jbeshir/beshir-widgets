@@ -12,11 +12,11 @@ export const NO_CONTACT: Contact = { discord: null };
 
 // Discord's username rules: 2–32 characters of lowercase a–z, 0–9, `_` and `.`, with no two
 // periods in a row. Usernames are case-insensitive, so input is lowercased.
-export const DISCORD_MIN = 2;
+const DISCORD_MIN = 2;
 export const DISCORD_MAX = 32;
 const DISCORD_CHARS = /^[a-z0-9_.]+$/;
 
-export type DiscordResult = { ok: true; value: string | null } | { ok: false; message: string };
+type DiscordResult = { ok: true; value: string | null } | { ok: false; message: string };
 
 /** Optional: missing, null or blank → null. Trims, strips one leading `@`, lowercases, then validates. */
 export function cleanDiscord(raw: unknown): DiscordResult {
@@ -34,7 +34,7 @@ export function cleanDiscord(raw: unknown): DiscordResult {
   return { ok: true, value };
 }
 
-export type ContactResult = { ok: true; value: Contact } | { ok: false; field: 'discord'; message: string };
+type ContactResult = { ok: true; value: Contact } | { ok: false; field: 'discord'; message: string };
 
 /** A request's `contact`: missing or null → no contact; otherwise an object of per-kind values. */
 export function cleanContact(raw: unknown): ContactResult {

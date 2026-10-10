@@ -1,4 +1,4 @@
-// Structured design model (FINDINGS §4.1): types, structural tables, shape parsing with defaults
+// Structured design model: types, structural tables, shape parsing with defaults
 // (`resolve`) and the structural rules (`structuralIssues`). The full pipeline including the rule of
 // tincture is `normalise()` in validate.ts.
 
@@ -80,9 +80,9 @@ export interface Issue {
   slots?: number[];
 }
 
-// ── Structural tables (§4.1) ────────────────────────────────────────────────
+// ── Structural tables ────────────────────────────────────────────────
 
-export const DEFAULT_ARR: Record<2 | 3 | 4 | 5 | 6, Arrangement> = {
+const DEFAULT_ARR: Record<2 | 3 | 4 | 5 | 6, Arrangement> = {
   2: 'in-pale', 3: 'two-and-one', 4: 'two-and-two', 5: 'in-saltire', 6: 'three-two-one',
 };
 
@@ -97,7 +97,7 @@ export const FIELD_ARR: Record<Count, readonly Arrangement[]> = {
 };
 
 /** placement 'field' with a chief (charges sit in the lower field). */
-export const UNDER_CHIEF_ARR: Partial<Record<Count, readonly Arrangement[]>> = {
+const UNDER_CHIEF_ARR: Partial<Record<Count, readonly Arrangement[]>> = {
   1: ['single'], 2: ['in-fess'], 3: ['two-and-one', 'in-fess'],
 };
 
@@ -134,7 +134,7 @@ export const ARRANGEMENT_WORD: Record<Arrangement, string> = {
 
 export const NUMBER_WORD: Record<Count, string> = { 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six' };
 
-/** Labels for the two tinctures of a divided field, as you look at it (§4.1 t1/t2 table). */
+/** Labels for the two tinctures of a divided field, as you look at it. */
 export const DIVISION_PART_LABEL: Record<Division, [string, string]> = {
   'per-pale': ['Left (dexter)', 'Right (sinister)'],
   'per-fess': ['Top (chief)', 'Bottom (base)'],
@@ -153,10 +153,10 @@ export function isDivision(v: unknown): v is Division {
 export function isOrdinaryType(v: unknown): v is OrdinaryType {
   return typeof v === 'string' && (ORDINARY_TYPES as readonly string[]).includes(v);
 }
-export function isArrangement(v: unknown): v is Arrangement {
+function isArrangement(v: unknown): v is Arrangement {
   return typeof v === 'string' && (ARRANGEMENTS as readonly string[]).includes(v);
 }
-export function isCount(v: unknown): v is Count {
+function isCount(v: unknown): v is Count {
   return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 6;
 }
 
@@ -179,7 +179,7 @@ export function isBetweenOrdinary(type: OrdinaryType): type is keyof typeof BETW
  * Where a charge group sits, which selects both the legal counts/arrangements and the slot table:
  * field (no ordinary), bordure (within), chief (under), between, on.
  */
-export type ChargeContext = 'field' | 'bordure' | 'chief' | 'between' | 'on';
+type ChargeContext = 'field' | 'bordure' | 'chief' | 'between' | 'on';
 export function chargeContext(ordinary: Ordinary | null | undefined, placement: Placement): ChargeContext {
   if (placement === 'ordinary') return 'on';
   if (!ordinary) return 'field';
@@ -188,8 +188,8 @@ export function chargeContext(ordinary: Ordinary | null | undefined, placement: 
   return 'between';
 }
 
-export type BodyKind = 'none' | 'ordOnly' | 'chargesOnly' | 'onOrd' | 'between' | 'withChief' | 'withBordure';
-/** Blazon/gloss body shape (§4.4). */
+type BodyKind = 'none' | 'ordOnly' | 'chargesOnly' | 'onOrd' | 'between' | 'withChief' | 'withBordure';
+/** Blazon/gloss body shape. */
 export function bodyKind(nd: NormDesign): BodyKind {
   const o = nd.ordinary, c = nd.charges;
   if (!o && !c) return 'none';
@@ -210,12 +210,12 @@ export function legalArrangements(ordinary: Ordinary | null | undefined, placeme
   return FIELD_ARR[count];
 }
 
-/** Arrangement used when none is given (§4.1 step 3). */
+/** Arrangement used when none is given. */
 export function defaultArrangement(ordinary: Ordinary | null | undefined, placement: Placement, count: Count): Arrangement {
   if (count === 1) return 'single';
   const ctx = chargeContext(ordinary, placement);
   if (ctx === 'on' || ctx === 'between') return 'forced';
-  // PLAN/phase-1 decision: under a chief, two charges default to the only legal arrangement (in fess)
+  // Under a chief, two charges default to the only legal arrangement (in fess)
   // rather than DEFAULT_ARR's in-pale; every other count keeps DEFAULT_ARR.
   if (ctx === 'chief') {
     const legal = UNDER_CHIEF_ARR[count];
@@ -242,7 +242,7 @@ function countList(counts: readonly number[]): string {
 
 // ── Shape parsing + defaults ────────────────────────────────────────────────
 
-export type ResolveResult = { ok: true; design: NormDesign } | { ok: false; errors: Issue[] };
+type ResolveResult = { ok: true; design: NormDesign } | { ok: false; errors: Issue[] };
 
 function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -253,7 +253,7 @@ function extraKeys(o: Record<string, unknown>, allowed: readonly string[]): stri
 }
 
 /**
- * Parse an untrusted design and fill every default (§4.1 normalisation steps 1–4). Fails only on
+ * Parse an untrusted design and fill every default. Fails only on
  * malformed input; structural and tincture rules are checked separately so the UI can still draw
  * and blazon an illegal-but-well-formed design.
  */
@@ -339,7 +339,7 @@ export function resolve(input: unknown): ResolveResult {
 
 // ── Structural rules ────────────────────────────────────────────────────────
 
-/** Structural problems of a resolved design (§4.1 tables and "other structural rules"). */
+/** Structural problems of a resolved design. */
 export function structuralIssues(nd: NormDesign): Issue[] {
   const issues: Issue[] = [];
   const add = (layer: IssueLayer, message: string, code: IssueCode = 'structure') => issues.push({ code, layer, message });

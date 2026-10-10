@@ -8,7 +8,7 @@
 //                        that merely open the page can't burn the token.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { EMAIL_MAX, cleanEmail } from '../../lib/heraldry';
+import { API_ERROR, EMAIL_MAX, cleanEmail, type ApiErrorCode } from '../../lib/heraldry';
 import { RECOVER_HASH, capabilityUrls, ownerHash } from '../../lib/route';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
@@ -106,7 +106,7 @@ type Redeem =
   | { status: 'recovered'; entry: store.RecoveryEntry; recovered: store.Recovered }
   | { status: 'withdrawn' };
 
-const TOKEN_CODES = new Set(['token_invalid', 'token_used', 'token_expired']);
+const TOKEN_CODES: readonly (ApiErrorCode | null)[] = [API_ERROR.tokenInvalid, API_ERROR.tokenUsed, API_ERROR.tokenExpired];
 
 export function RecoverRedeem({ token, onStatus, hatching, onDeviceChange }: {
   token: string;
@@ -132,7 +132,7 @@ export function RecoverRedeem({ token, onStatus, hatching, onDeviceChange }: {
   useEffect(() => onStatus(state.status === 'loading' || state.status === 'error' ? state.status : 'populated'), [state.status]);
 
   const fail = (f: store.Failure) => {
-    if (f.code && TOKEN_CODES.has(f.code)) setState({ status: 'error', failure: f });
+    if (TOKEN_CODES.includes(store.failureCode(f))) setState({ status: 'error', failure: f });
     else setActionError(f.message);
   };
 
@@ -218,14 +218,15 @@ export function RecoverRedeem({ token, onStatus, hatching, onDeviceChange }: {
 }
 
 function RedeemError({ failure }: { failure: store.Failure }) {
+  const code = store.failureCode(failure);
   const title =
-    failure.code === 'token_used' ? 'This link has already been used.'
-    : failure.code === 'token_expired' ? 'This link has expired.'
-    : failure.code === 'token_invalid' ? "This link doesn't work — check you copied all of it."
+    code === API_ERROR.tokenUsed ? 'This link has already been used.'
+    : code === API_ERROR.tokenExpired ? 'This link has expired.'
+    : code === API_ERROR.tokenInvalid ? "This link doesn't work — check you copied all of it."
     : "Your registration couldn't be loaded.";
-  const detail = failure.code && TOKEN_CODES.has(failure.code) ? 'Each emailed link works once, for 30 minutes.' : failure.message;
+  const detail = TOKEN_CODES.includes(code) ? 'Each emailed link works once, for 30 minutes.' : failure.message;
   return (
-    <div class="panel-message panel-error" role="alert" data-testid="redeem-link-error" data-code={failure.code ?? failure.kind}>
+    <div class="panel-message panel-error" role="alert" data-testid="redeem-link-error" data-code={code ?? failure.kind}>
       <p><strong>{title}</strong> {detail}</p>
       <a class="text-link" href={RECOVER_HASH} data-testid="redeem-ask-again">Ask for a new link</a>
     </div>

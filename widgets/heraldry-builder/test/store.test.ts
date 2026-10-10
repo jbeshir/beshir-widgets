@@ -6,8 +6,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import * as store from '../src/store';
 import sample from '../src/data/sample-registry.json';
 import { NO_CONTACT } from '../src/lib/heraldry';
+import { plain, searchParams } from './helpers';
 
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -28,58 +28,56 @@ describe('store (offline / file://)', () => {
     const spy = vi.fn();
     vi.stubGlobal('fetch', spy);
     expect(store.isOffline()).toBe(true);
-    const regs = await store.listRegistries();
-    expect(regs).toEqual({ ok: true, registries: [{ id: 'sample', name: 'Sample armorial (offline demo)', isDefault: true }], sample: true });
-    const page = await store.search({});
+    const page = await store.search(searchParams({}));
     expect(page.ok && page.page.total).toBe(20);
     expect(page.ok && page.page.sample).toBe(true);
     expect(spy).not.toHaveBeenCalled();
   });
 
   it('filters the sample with the Worker semantics (tags AND, q, newest first, bounds)', async () => {
-    const r = await store.search({ ordinary: 'bordure' });
+    const r = await store.search(searchParams({ ordinary: 'bordure' }));
     expect(r.ok && r.page.items.map((i) => i.id)).toEqual(['demo-020', 'demo-014', 'demo-004']);
-    const none = await store.search({ charge: 'dragon', ordinary: 'bordure' });
+    const none = await store.search(searchParams({ charge: 'dragon', ordinary: 'bordure' }));
     expect(none.ok && none.page.total).toBe(0);
-    const q = await store.search({ q: 'UNICORN' });
+    const q = await store.search(searchParams({ q: 'UNICORN' }));
     expect(q.ok && q.page.items.map((i) => i.id)).toEqual(['demo-002']);
-    const paged = await store.search({ limit: 5, offset: 18 });
+    const paged = await store.search(searchParams({ limit: 5, offset: 18 }));
     expect(paged.ok && paged.page.items.map((i) => i.id)).toEqual(['demo-002', 'demo-001']);
-    const bad = await store.search({ charge: 'kraken' });
-    expect(bad).toMatchObject({ ok: false, kind: 'http', status: 400, param: 'charge' });
+    const bad = await store.search(searchParams({ charge: 'kraken' }));
+    expect(bad).toMatchObject({ ok: false, kind: 'http', status: 400, code: 'bad_request', culprit: { kind: 'param', name: 'charge' } });
     // List results never carry the contact.
     expect(r.ok && r.page.items.every((i) => !('contact' in i))).toBe(true);
   });
 
   it('checks availability locally against the sample', async () => {
-    const dup = await store.check(null, { v: 1, field: plain('azure'), ordinary: { type: 'bend', tincture: 'or' } });
+    const dup = await store.check('', { v: 1, field: plain('azure'), ordinary: { type: 'bend', tincture: 'or' } });
     expect(dup.ok && dup.result.verdict).toBe('duplicate');
-    expect(dup.ok && dup.result.conflict?.id).toBe('demo-001');
+    expect(dup.ok && dup.result.verdict === 'duplicate' && dup.result.conflict.id).toBe('demo-001');
 
-    const close = await store.check(null, {
+    const close = await store.check('', {
       v: 1,
       field: plain('sable'),
       ordinary: { type: 'bordure', tincture: 'argent' },
       charges: { charge: 'wolf', count: 1, placement: 'field', posture: 'statant', tincture: 'or' },
     });
     expect(close.ok && close.result.verdict).toBe('too-close');
-    expect(close.ok && close.result.conflict?.id).toBe('demo-004');
-    expect(close.ok && close.result.differences).toEqual([{
+    expect(close.ok && close.result.verdict === 'too-close' && close.result.conflict.id).toBe('demo-004');
+    expect(close.ok && close.result.verdict === 'too-close' && close.result.differences).toEqual([{
       attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)',
       why: "Standing (statant) and walking (passant) look almost the same — that's only half a difference.",
     }]);
 
-    const ok = await store.check(null, { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' } });
+    const ok = await store.check('', { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' } });
     expect(ok.ok && ok.result).toMatchObject({ verdict: 'ok', blazon: 'Vert, a cross Or', sample: true });
 
-    const invalid = await store.check(null, { v: 1, field: plain('azure'), ordinary: { type: 'bend', tincture: 'gules' } });
+    const invalid = await store.check('', { v: 1, field: plain('azure'), ordinary: { type: 'bend', tincture: 'gules' } });
     expect(invalid).toMatchObject({ ok: false, code: 'invalid_design' });
   });
 
   it('refuses writes with a friendly offline message', async () => {
     const design = { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' } };
     const offline = { ok: false, kind: 'offline', message: store.OFFLINE_WRITE_MESSAGE };
-    expect(await store.register({ registry: null, displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design, shape: 'heater' })).toEqual(offline);
+    expect(await store.register({ registry: '', displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design, shape: 'heater' })).toEqual(offline);
     expect((await store.update('demo-001', 's', 1, { displayName: 'X', contact: NO_CONTACT, design, shape: 'heater' })).ok).toBe(false);
     expect((await store.withdraw('demo-001', 's')).ok).toBe(false);
     // Ownership checks and recovery need the hosted registry too.
@@ -103,13 +101,13 @@ describe('store (offline / file://)', () => {
   });
 
   it('carries each entry\'s field shape into search results and conflicts', async () => {
-    const page = await store.search({ q: 'Quinn' });
+    const page = await store.search(searchParams({ q: 'Quinn' }));
     expect(page.ok && page.page.items.map((i) => i.shape)).toEqual(['heater']);
     const lozenge = await store.getEntry('demo-009');
     expect(lozenge.ok && lozenge.entry.shape).toBe('lozenge');
     // demo-006 is displayed round; the same design checked from the builder conflicts with it.
-    const dup = await store.check(null, sample.entries[5].design);
-    expect(dup.ok && dup.result.conflict).toMatchObject({ id: 'demo-006', shape: 'round' });
+    const dup = await store.check('', sample.entries[5].design);
+    expect(dup.ok && dup.result.verdict === 'duplicate' && dup.result.conflict).toMatchObject({ id: 'demo-006', shape: 'round' });
   });
 
   it('degrades silently without localStorage', () => {
@@ -133,26 +131,25 @@ describe('store (online)', () => {
         items: [
           { id: 'a', displayName: 'A', design: sample.entries[0].design, shape: 'lozenge', blazon: 'Azure, a bend Or', signature: 's', readability: 'bold', createdAt: 't' },
           { id: 'c', displayName: 'C', design: sample.entries[0].design, shape: 'kite', blazon: 'Azure, a bend Or', signature: 's', readability: 'bold', createdAt: 't' },
-          { id: 'b', displayName: 'B', design: { v: 9 }, blazon: 'x', signature: 's', readability: 'bold', createdAt: 't' },
+          { id: 'b', displayName: 'B', design: { v: 9 }, shape: 'heater', blazon: 'x', signature: 's', readability: 'bold', createdAt: 't' },
         ],
       })
     );
-    const r = await store.search({ registry: 'default', charge: 'wolf', q: 'x y' });
+    const r = await store.search(searchParams({ registry: 'default', charge: 'wolf', q: 'x y' }));
     expect(spy.mock.calls[0][0]).toBe('/api/arms?registry=default&charge=wolf&q=x+y');
-    expect(r.ok && r.page.items.map((i) => [i.id, i.shape])).toEqual([['a', 'lozenge'], ['c', 'heater']]);
+    expect(r.ok && r.page.items.map((i) => [i.id, i.shape])).toEqual([['a', 'lozenge']]);
     expect(r.ok && r.page.sample).toBe(false);
     // The "Show offline sample" action still works online.
-    const s = await store.search({}, { sample: true });
+    const s = await store.search(searchParams({}), { sample: true });
     expect(s.ok && s.page.sample).toBe(true);
   });
 
-  it('maps HTTP errors to kind http with the Worker code and details', async () => {
+  it('maps a too-close answer to its code, conflict and well-formed difference notes', async () => {
     goOnline(async () =>
       jsonResponse(409, {
-        error: 'too_close',
+        error: 'too-close',
         message: 'Too close.',
-        conflictId: 'demo-004',
-        conflict: { id: 'demo-004', displayName: 'Dev', blazon: 'b', design: sample.entries[3].design },
+        conflict: { id: 'demo-004', displayName: 'Dev', blazon: 'b', design: sample.entries[3].design, shape: 'round' },
         differences: [
           { attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)', why: 'Half.' },
           { attr: 'not-an-attribute', weight: 'minor', text: 'dropped', why: 'Malformed.' },
@@ -160,20 +157,38 @@ describe('store (online)', () => {
         ],
       })
     );
-    const r = await store.register({ registry: null, displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design: {}, shape: 'heater' });
-    expect(r).toMatchObject({ ok: false, kind: 'http', status: 409, code: 'too_close', message: 'Too close.', conflictId: 'demo-004' });
-    expect(!r.ok && r.conflict?.design?.charges?.charge).toBe('wolf');
-    // A conflict from a Worker that sends no shape displays as a heater shield.
-    expect(!r.ok && r.conflict?.shape).toBe('heater');
-    expect(!r.ok && r.differences).toEqual([{ attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)', why: 'Half.' }]);
+    const r = await store.register({ registry: '', displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design: {}, shape: 'heater' });
+    expect(r).toMatchObject({ ok: false, kind: 'http', status: 409, code: 'too-close', message: 'Too close.' });
+    const tooClose = !r.ok && r.kind === 'http' && r.code === 'too-close' ? r : null;
+    expect(tooClose?.conflict.design.charges?.charge).toBe('wolf');
+    expect(tooClose?.conflict.shape).toBe('round');
+    expect(tooClose?.differences).toEqual([{ attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)', why: 'Half.' }]);
   });
 
   it('maps network failures to kind network', async () => {
     goOnline(async () => {
       throw new TypeError('Failed to fetch');
     });
-    const r = await store.listRegistries();
+    const r = await store.search(searchParams());
     expect(r).toMatchObject({ ok: false, kind: 'network' });
+  });
+
+  it('reports an answer that is not the protocol as a bad response', async () => {
+    goOnline(async () => jsonResponse(200, { registry: { id: 'default', name: 'D' }, items: [] }));
+    expect(await store.search(searchParams())).toMatchObject({ ok: false, kind: 'bad_response' });
+    goOnline(async () => new Response('<html>Bad gateway</html>', { status: 502 }));
+    expect(await store.search(searchParams())).toMatchObject({ ok: false, kind: 'bad_response', message: 'The registry returned an error (502).' });
+    goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's' }));
+    const noMail = await store.register({ registry: '', displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design: sample.entries[0].design, shape: 'heater' });
+    expect(noMail).toMatchObject({ ok: false, kind: 'bad_response' });
+  });
+
+  it('types a 400 by what it complains about', async () => {
+    goOnline(async () => jsonResponse(400, { error: 'bad_request', message: 'Enter a valid email address.', field: 'email' }));
+    const r = await store.register({ registry: '', displayName: 'N', email: 'bad', contact: NO_CONTACT, design: {}, shape: 'heater' });
+    expect(r).toMatchObject({ ok: false, kind: 'http', code: 'bad_request', culprit: { kind: 'field', name: 'email' } });
+    goOnline(async () => jsonResponse(400, { error: 'unknown_param', message: 'Unknown parameter "x".', param: 'x' }));
+    expect(await store.search(searchParams())).toMatchObject({ code: 'unknown_param', culprit: { kind: 'param', name: 'x' } });
   });
 
   it('sends the secret and revision on update', async () => {
@@ -195,8 +210,8 @@ describe('store (online)', () => {
   });
 
   it('sends the field shape beside the design on register', async () => {
-    const spy = goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's' }));
-    await store.register({ registry: null, displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design: sample.entries[0].design, shape: 'round' });
+    const spy = goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's', editLinkEmail: 'sent' }));
+    await store.register({ registry: '', displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design: sample.entries[0].design, shape: 'round' });
     const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
     expect(body.shape).toBe('round');
     expect(body.design).toEqual(sample.entries[0].design);
@@ -204,15 +219,15 @@ describe('store (online)', () => {
 
   it('sends the email and Discord contact on register and reads whether the edit link was emailed', async () => {
     const spy = goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's', editLinkEmail: 'sent' }));
-    const r = await store.register({ registry: null, displayName: 'N', email: 'n@example.com', contact: { discord: 'n.name' }, design: sample.entries[0].design, shape: 'heater' });
+    const r = await store.register({ registry: '', displayName: 'N', email: 'n@example.com', contact: { discord: 'n.name' }, design: sample.entries[0].design, shape: 'heater' });
     expect(r.ok && r.created.editLinkEmail).toBe('sent');
     const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
     expect(body).toMatchObject({ email: 'n@example.com', contact: { discord: 'n.name' } });
 
-    for (const [sent, read] of [['failed', 'failed'], ['disabled', 'disabled'], [undefined, 'failed']] as const) {
-      goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's', editLinkEmail: sent }));
-      const again = await store.register({ registry: null, displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design: sample.entries[0].design, shape: 'heater' });
-      expect(again.ok && again.created.editLinkEmail).toBe(read);
+    for (const outcome of ['failed', 'disabled'] as const) {
+      goOnline(async () => jsonResponse(201, { id: 'n', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'b', signature: 's', editLinkEmail: outcome }));
+      const again = await store.register({ registry: '', displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design: sample.entries[0].design, shape: 'heater' });
+      expect(again.ok && again.created.editLinkEmail).toBe(outcome);
     }
   });
 
@@ -278,8 +293,8 @@ describe('store device storage (drafts and Your arms)', () => {
 
   it('keeps the arms and shape of a registration for the Your arms thumbnail', async () => {
     vi.stubGlobal('localStorage', memoryStorage());
-    goOnline(async () => jsonResponse(201, { id: 'n1', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'Vert, a cross Or', signature: 's' }));
-    await store.register({ registry: null, displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design, shape: 'banner' });
+    goOnline(async () => jsonResponse(201, { id: 'n1', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'Vert, a cross Or', signature: 's', editLinkEmail: 'sent' }));
+    await store.register({ registry: '', displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design, shape: 'banner' });
     const [saved] = store.deviceArms();
     expect(saved.shield).toEqual({ design, shape: 'banner' });
   });

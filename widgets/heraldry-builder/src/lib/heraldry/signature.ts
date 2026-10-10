@@ -1,4 +1,4 @@
-// Canonical signature (FINDINGS §4.6), computed only from a NormDesign. Equivalent inputs normalise
+// Canonical signature, computed only from a NormDesign. Equivalent inputs normalise
 // to the same signature, so "you can't blazon your way out" of a duplicate.
 
 import type { Field, NormDesign } from './design';

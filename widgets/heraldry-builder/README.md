@@ -250,7 +250,6 @@ where noted.
 
 | Route | Purpose |
 |---|---|
-| `GET /api/registries` | `[{ id, name, isDefault }]` |
 | `GET /api/arms?…` | Public search (parameters below) → `{ registry: {id,name}, total, offset, limit, items: [{ id, displayName, design, shape, blazon, signature, readability, createdAt }] }`. Never includes the contact. |
 | `POST /api/arms/check` | `{ registry?, design }` → `200 { verdict: 'ok' \| 'duplicate' \| 'too-close', conflict?: {id, displayName, blazon, design, shape}, differences?, closest?, registry, blazon, signature, readability }`. `differences` (too-close) are `[{ attr, weight: 'clear' \| 'minor', text, why? }]` (`why` on minor ones only); `closest` (ok) is `{ conflict, differences }` for the first entry passed only by adding up minor differences, else `null`. Not rate-limited. |
 | `POST /api/arms` | `{ registry?, displayName, email, contact?: { discord }, design, shape? }` (shape defaults to `heater`) → `201 { id, editSecret, registry: {id,name}, rev: 1, blazon, signature, editLinkEmail: 'sent' \| 'failed' \| 'disabled' }`. The edit link is emailed before answering; the registration stands whatever `editLinkEmail` says. |
@@ -286,6 +285,9 @@ The offline sample search in `src/store.ts` runs the same parameter parsing, que
 
 **Error codes:**
 
+The codes are the `API_ERROR` constants in `src/lib/heraldry/api-errors.ts`, which the Worker
+produces and the app consumes.
+
 | Code | Meaning |
 |---|---|
 | `unknown_param` (400) | A search parameter the API does not define; `param` names it. |
@@ -298,8 +300,8 @@ The offline sample search in `src/store.ts` runs the same parameter parsing, que
 | `token_used` (410) | The recovery token was already used (or another token for the entry was). |
 | `token_expired` (410) | The recovery token is more than 30 minutes old. |
 | `method_not_allowed` (405) | Wrong method for the route. |
-| `duplicate` (409) | Exact duplicate. Includes `conflictId` and `conflict`. |
-| `too_close` (409) | No clear difference. Includes `conflictId`, `conflict` and `differences`. |
+| `duplicate` (409) | Exact duplicate. Includes `conflict`. |
+| `too-close` (409) | No clear difference. Includes `conflict` and `differences`. Spelled like the `too-close` verdict of `/api/arms/check`. |
 | `registry_full` (409) | The registry already holds 2,000 entries. |
 | `conflict` (409) | Stale revision. |
 | `rate_limited` (429) | Too many registrations from this IP. |

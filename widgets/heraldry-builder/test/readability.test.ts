@@ -3,9 +3,8 @@
 import { describe, it, expect } from 'vitest';
 import { BAND_LABEL, blazon, normalise, readability, resolve, type NormDesign } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
+import { plain, div } from './helpers';
 
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
-const div = (division: string, t1: string, t2: string) => ({ kind: 'divided', division, tinctures: [t1, t2] });
 const group = (charge: string, count: number, tincture: string, extra: Record<string, unknown> = {}) =>
   ({ charge, count, placement: 'field', tincture, ...extra });
 

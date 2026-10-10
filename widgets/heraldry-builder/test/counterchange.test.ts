@@ -16,15 +16,8 @@ import {
   type Placement, type Posture, type Tincture,
 } from '../src/lib/heraldry';
 import { place, rings } from './art-geometry';
+import { plain, div, nd, filters } from './helpers';
 
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
-const div = (division: string, t1: string, t2: string) => ({ kind: 'divided', division, tinctures: [t1, t2] });
-
-function nd(input: unknown): NormDesign {
-  const r = resolve(input);
-  if (!r.ok) throw new Error(JSON.stringify(r.errors));
-  return r.design;
-}
 
 const mullets = (field: unknown, count = 3, tincture = 'counterchanged', arrangement?: string) =>
   nd({ v: 1, field, charges: { charge: 'mullet', count, placement: 'field', tincture, ...(arrangement ? { arrangement } : {}) } });
@@ -71,8 +64,8 @@ describe('counterchanged in the design text', () => {
     expect(tags).toContain('charge-tincture:counterchanged');
     // The charges add no tincture of their own: they show the field's two.
     expect(tags.filter((t) => t.startsWith('tincture:'))).toEqual(['tincture:or', 'tincture:azure']);
-    expect(filtersToTags({ chargeTincture: 'counterchanged' })).toEqual({ ok: true, tags: ['charge-tincture:counterchanged'] });
-    expect(filtersToTags({ tincture: 'counterchanged' }).ok).toBe(false);
+    expect(filtersToTags(filters({ chargeTincture: 'counterchanged' }))).toEqual({ ok: true, tags: ['charge-tincture:counterchanged'] });
+    expect(filtersToTags(filters({ tincture: 'counterchanged' })).ok).toBe(false);
     const text = buildSearchText({ displayName: 'Wren', blazon: blazon(d), design: d });
     for (const q of ['counterchanged', 'counterchange', 'counter-changed', 'opposite colours', 'stars counterchanged']) {
       expect(matchesWords(text, queryWords(q)), q).toBe(true);

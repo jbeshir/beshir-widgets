@@ -4,7 +4,7 @@
 import type { ComponentChildren } from 'preact';
 import { createPortal } from 'preact/compat';
 
-export function overlayRoot(): HTMLElement {
+function overlayRoot(): HTMLElement {
   let el = document.getElementById('overlay-root');
   if (!el) {
     el = document.createElement('div');

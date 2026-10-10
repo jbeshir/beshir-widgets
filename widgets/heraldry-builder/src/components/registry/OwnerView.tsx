@@ -6,7 +6,7 @@
 // registering a new design and withdrawing this one.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { DEFAULT_FIELD_SHAPE, DISCORD_MAX, DISPLAY_NAME_MAX, cleanDiscord, type FieldShape } from '../../lib/heraldry';
+import { API_ERROR, DEFAULT_FIELD_SHAPE, DISCORD_MAX, DISPLAY_NAME_MAX, cleanDiscord, type FieldShape } from '../../lib/heraldry';
 import { RECOVER_HASH, capabilityUrls } from '../../lib/route';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
@@ -30,7 +30,10 @@ type Load =
   | { status: 'denied' }
   | { status: 'withdrawn' };
 
-const isDenied = (f: store.Failure) => f.status === 401 || f.status === 403;
+const isDenied = (f: store.Failure) => {
+  const code = store.failureCode(f);
+  return code === API_ERROR.unauthorized || code === API_ERROR.forbidden;
+};
 
 export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Props) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
@@ -84,9 +87,9 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
     if (r.ok) {
       adopt(r.entry);
       setMessage({ kind: 'ok', text: 'Saved.' });
-    } else if (r.code === 'conflict') {
+    } else if (store.failureCode(r) === API_ERROR.conflict) {
       setMessage({ kind: 'stale', text: 'These arms were changed elsewhere since you opened this page. Reload to see the latest version, then make your edit again.' });
-    } else if (r.status === 401 || r.status === 403) {
+    } else if (isDenied(r)) {
       setLoad({ status: 'denied' });
     } else {
       setMessage({ kind: 'error', text: r.message });
@@ -108,6 +111,7 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
     }
   };
 
+  const notFound = load.status === 'error' && store.failureCode(load.failure) === API_ERROR.notFound;
   const urls = capabilityUrls(id, secret);
   return (
     <div class="entry-page owner-view" data-testid="owner-view">
@@ -116,10 +120,10 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
       {load.status === 'error' && (
         <div class="panel-message panel-error" role="alert" data-testid="owner-error">
           <p>
-            <strong>{load.failure.status === 404 ? "These arms aren't in the registry." : "Your arms couldn't be loaded."}</strong>{' '}
-            {load.failure.status === 404 ? 'They may already have been withdrawn.' : load.failure.message}
+            <strong>{notFound ? "These arms aren't in the registry." : "Your arms couldn't be loaded."}</strong>{' '}
+            {notFound ? 'They may already have been withdrawn.' : load.failure.message}
           </p>
-          {load.failure.status !== 404 && <button type="button" class="button-secondary" onClick={() => setAttempt((n) => n + 1)}>Retry</button>}
+          {!notFound && <button type="button" class="button-secondary" onClick={() => setAttempt((n) => n + 1)}>Retry</button>}
         </div>
       )}
       {load.status === 'denied' && (

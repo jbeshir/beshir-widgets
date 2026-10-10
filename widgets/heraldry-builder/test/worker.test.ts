@@ -8,10 +8,11 @@ import worker from '../worker/index';
 import sample from '../src/data/sample-registry.json';
 import {
   FIELD_SHAPES, blazon, candidateKey, checkUnique, parseSearchParams, resolve, searchEntries, signature,
-  type RegistryEntryLike, type SearchParams,
+  type RegistryEntryLike,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
 import { sampleSearchEntries } from './sample-search-entries';
+import { nd, plain, searchParams, type SearchArgs } from './helpers';
 
 interface CallOpts {
   body?: unknown;
@@ -52,7 +53,6 @@ async function bodyOf(res: Response): Promise<Json> {
 
 // ── designs ──────────────────────────────────────────────────────────────────────────────────
 
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
 
 /** A unique, valid design per n: Azure/Gules/… field, a charge Or/Argent, varied by charge and count. */
 const CHARGE_POOL = ['mullet', 'rose', 'key', 'crown', 'heart', 'sword', 'anchor', 'gear', 'crescent', 'lightbulb'];
@@ -93,20 +93,9 @@ async function addRegistry(id: string, name: string) {
     .run();
 }
 
-// ── registries ───────────────────────────────────────────────────────────────────────────────
-
-describe('GET /api/registries', () => {
-  it('lists the seeded default registry', async () => {
-    const res = await call('GET', '/api/registries');
-    expect(res.status).toBe(200);
-    const list = (await res.json()) as Json[];
-    expect(list[0]).toEqual({ id: 'default', name: 'Default', isDefault: true });
-  });
-
-  it('rejects other methods (405)', async () => {
-    const res = await call('POST', '/api/registries', { body: {} });
-    expect(res.status).toBe(405);
-    expect(res.headers.get('Allow')).toBe('GET');
+describe('unknown API routes', () => {
+  it('404s the registry list, which the API does not offer', async () => {
+    expect((await call('GET', '/api/registries')).status).toBe(404);
   });
 });
 
@@ -209,7 +198,7 @@ describe('POST /api/arms', () => {
     expect(res.status).toBe(409);
     const data = await bodyOf(res);
     expect(data.error).toBe('duplicate');
-    expect(data.conflictId).toBe(first.id);
+    expect(data.conflict.id).toBe(first.id);
     expect(data.conflict.displayName).toBe('Test Person');
     expect(data.conflict).not.toHaveProperty('contact');
   });
@@ -219,8 +208,8 @@ describe('POST /api/arms', () => {
     const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Close Call', design: wolfBordure('statant') } });
     expect(res.status).toBe(409);
     const data = await bodyOf(res);
-    expect(data.error).toBe('too_close');
-    expect(data.conflictId).toBe(first.id);
+    expect(data.error).toBe('too-close');
+    expect(data.conflict.id).toBe(first.id);
     expect(data.differences.map((n: Json) => n.text)).toEqual(['posture (statant ↔ passant)']);
     expect(data.differences[0]).toMatchObject({ attr: 'charge-posture', weight: 'minor' });
     // A clear difference (posture group) is fine.
@@ -339,22 +328,22 @@ describe('POST /api/arms', () => {
     expect(res.registry).toEqual({ id: 'other', name: 'Another party' });
   });
 
-  it('maps a UNIQUE-index race to 409 duplicate', async () => {
+  it('maps a UNIQUE-index race to 409 duplicate, naming the winner', async () => {
     // Simulate a concurrent winner: a row with the same signature that the pre-insert scan can't
-    // read (unparseable design), so only the UNIQUE index catches it.
+    // see (it is filed under other similarity groups), so only the UNIQUE index catches it.
     await addRegistry('race', 'Race track');
     const design = freshDesign();
     const sig = (await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'race', design } }))).signature;
     await env.DB.prepare(
       `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, signature, blazon, field_division,
          ordinary, charge, readability, edit_secret_hash, rev, created_at, updated_at)
-       VALUES ('race-winner', 'race', 'Winner', NULL, 'not json', ?, 'x', 'plain', NULL, NULL, 'bold', 'h', 1, ?, ?)`
-    ).bind(sig, '2026-10-03T00:00:00Z', '2026-10-03T00:00:00Z').run();
+       VALUES ('race-winner', 'race', 'Winner', NULL, ?, ?, 'x', 'plain', NULL, NULL, 'bold', 'h', 1, ?, ?)`
+    ).bind(JSON.stringify(nd(design)), sig, '2026-10-03T00:00:00Z', '2026-10-03T00:00:00Z').run();
     const res = await call('POST', '/api/arms', { body: { registry: 'race', email: OWNER_EMAIL, displayName: 'Loser', design } });
     expect(res.status).toBe(409);
     const data = await bodyOf(res);
     expect(data.error).toBe('duplicate');
-    expect(data.conflictId).toBe('race-winner');
+    expect(data.conflict.id).toBe('race-winner');
     const count = await env.DB.prepare(`SELECT COUNT(*) AS n FROM arms WHERE registry_id = 'race'`).first<Json>();
     expect(count!.n).toBe(1);
     const orphanTags = await env.DB.prepare(
@@ -459,7 +448,7 @@ describe('GET /api/arms (search)', () => {
     }
   });
 
-  async function find(params: Record<string, string | number>) {
+  async function find(params: SearchArgs) {
     const qs = new URLSearchParams({ registry: SEARCH, ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])) });
     const res = await call('GET', `/api/arms?${qs}`);
     expect(res.status, await res.clone().text()).toBe(200);
@@ -588,11 +577,11 @@ describe('GET /api/arms (search)', () => {
   it('answers plain-English queries like the shared offline search (parity over the sample)', async () => {
     const idOfName = new Map(sampleSearchEntries.map((e) => [e.displayName, e.id]));
     for (const params of PARITY_CASES) {
-      const parsed = parseSearchParams({ ...params, limit: 50 });
+      const parsed = parseSearchParams(searchParams({ ...params, limit: 50 }));
       expect(parsed.ok).toBe(true);
       if (!parsed.ok) continue;
       const local = searchEntries(sampleSearchEntries, parsed.query);
-      const remote = await find({ ...(params as Record<string, string>), limit: 50 });
+      const remote = await find({ ...params, limit: 50 });
       const remoteIds = remote.items.map((i: Json) => idOfName.get(i.displayName));
       expect(remoteIds, JSON.stringify(params)).toEqual(local.items.map((i) => i.id));
       expect(remote.total, JSON.stringify(params)).toBe(local.total);
@@ -611,7 +600,7 @@ describe('GET /api/arms (search)', () => {
 });
 
 /** Parameter sets the Worker and the offline sample search must answer with identical id lists. */
-const PARITY_CASES: SearchParams[] = [
+const PARITY_CASES: SearchArgs[] = [
   {}, { charge: 'mullet' }, { ordinary: 'chief' }, { tincture: 'or' }, { tincture: 'argent', division: 'plain' },
   { chargeTincture: 'or' }, { posture: 'rampant' }, { division: 'per-bend-sinister' }, { category: 'beast' }, { fieldTincture: 'azure' },
   { tincture: 'celestine' }, { q: 'Sable' }, { q: 'cyan' }, { q: 'sky blue', division: 'plain' }, { q: 'a', tincture: 'vert' },
@@ -742,7 +731,7 @@ describe('field shape', () => {
       const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Copycat', design, shape } });
       expect(res.status, shape).toBe(409);
       const b = await bodyOf(res);
-      expect(b).toMatchObject({ error: 'duplicate', conflictId: first.id, conflict: { id: first.id, shape: 'round' } });
+      expect(b).toMatchObject({ error: 'duplicate', conflict: { id: first.id, shape: 'round' } });
     }
     const check = await bodyOf(await call('POST', '/api/arms/check', { body: { design } }));
     expect(check).toMatchObject({ verdict: 'duplicate', signature: first.signature, conflict: { id: first.id, shape: 'round' } });
@@ -845,7 +834,7 @@ describe('PUT /api/arms/:id', () => {
     expect(dup.status).toBe(409);
     const dupBody = await bodyOf(dup);
     expect(dupBody.error).toBe('duplicate');
-    expect(dupBody.conflictId).toBe(taken.id);
+    expect(dupBody.conflict.id).toBe(taken.id);
 
     // A genuinely new design is accepted and the search tags follow it.
     const newDesign = { v: 1, field: plain('argent'), ordinary: { type: 'cross', tincture: 'vert' }, charges: { charge: 'bee', count: 1, placement: 'ordinary', tincture: 'or' } };
@@ -918,9 +907,9 @@ describe('rate limiting', () => {
 
 describe('API response headers', () => {
   it('are no-store and nosniff on success and error JSON alike', async () => {
-    const ok = await call('GET', '/api/registries');
+    const ok = await call('GET', '/api/arms');
     const missing = await call('GET', '/api/nope');
-    const wrongMethod = await call('DELETE', '/api/registries');
+    const wrongMethod = await call('DELETE', '/api/arms');
     const invalid = await call('POST', '/api/arms/check', { body: { design: 5 } });
     for (const res of [ok, missing, wrongMethod, invalid]) {
       expect(res.headers.get('Cache-Control')).toBe('no-store');
@@ -1089,7 +1078,7 @@ describe('half differences', () => {
     const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, ...halves, design: lion('wolf', 'rampant') } });
     expect(res.status).toBe(409);
     const data = await bodyOf(res);
-    expect(data.error).toBe('too_close');
+    expect(data.error).toBe('too-close');
     expect(data.conflict.id).toBe(first.id);
     expect(data.differences).toEqual([{
       attr: 'charge-type', weight: 'minor', text: 'charge type (wolf ↔ lion)',
@@ -1108,7 +1097,7 @@ describe('half differences', () => {
     });
     expect(res.status).toBe(409);
     const data = await bodyOf(res);
-    expect(data.error).toBe('too_close');
+    expect(data.error).toBe('too-close');
     expect(data.differences.map((n: Json) => [n.attr, n.weight])).toEqual([['field-division', 'minor']]);
   });
 
@@ -1131,7 +1120,7 @@ describe('half differences', () => {
     expect((await bodyOf(same)).error).toBe('duplicate');
     const lookAlike = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, ...halves, shape: 'lozenge', design: lion('wolf', 'statant') } });
     expect(lookAlike.status).toBe(409);
-    expect((await bodyOf(lookAlike)).error).toBe('too_close');
+    expect((await bodyOf(lookAlike)).error).toBe('too-close');
   });
 });
 

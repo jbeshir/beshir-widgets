@@ -4,7 +4,7 @@
 export type Colour = 'gules' | 'azure' | 'vert' | 'sable' | 'purpure';
 export type Metal = 'or' | 'argent' | 'celestine';
 export type Tincture = Colour | Metal;
-export type TinctureClass = 'colour' | 'metal';
+type TinctureClass = 'colour' | 'metal';
 
 /** Display/picker order: metals first, then colours. */
 export const METALS: readonly Metal[] = ['or', 'argent', 'celestine'];
@@ -25,12 +25,12 @@ export const NON_STANDARD_NOTE: Record<Tincture, string | null> = {
   celestine: 'Celestine — cyan treated as a metal — is the one new tincture proposed for modern heraldry, named after its single historical example.',
 };
 
-/** Short codes used in canonical signatures (§4.6). Every code is distinct. */
+/** Short codes used in canonical signatures. Every code is distinct. */
 export const TINCTURE_CODE: Record<Tincture, string> = {
   or: 'or', argent: 'ar', celestine: 'ce', azure: 'az', gules: 'gu', vert: 'vt', sable: 'sa', purpure: 'pu',
 };
 
-/** Blazon names — every tincture capitalised (§4.4 DECISION). */
+/** Blazon names — every tincture capitalised. */
 export const TINCTURE_NAME: Record<Tincture, string> = {
   or: 'Or', argent: 'Argent', celestine: 'Celestine', azure: 'Azure', gules: 'Gules', vert: 'Vert', sable: 'Sable', purpure: 'Purpure',
 };
@@ -40,11 +40,11 @@ export const TINCTURE_WORD: Record<Tincture, string> = {
   or: 'gold', argent: 'white', celestine: 'sky blue', azure: 'blue', gules: 'red', vert: 'green', sable: 'black', purpure: 'purple',
 };
 
-/** Colour words used by the gloss (§4.5): the plain word, naming celestine since it isn't a familiar colour term. */
+/** Colour words used by the gloss: the plain word, naming celestine since it isn't a familiar colour term. */
 export const TINCTURE_GLOSS: Record<Tincture, string> = { ...TINCTURE_WORD, celestine: 'sky blue (celestine)' };
 
 /**
- * Fixed render palette, identical in light and dark themes (§4.8). Celestine is a mid cyan, far
+ * Fixed render palette, identical in light and dark themes. Celestine is a mid cyan, far
  * lighter than Azure and clearly coloured against Argent (CIEDE2000 34.5 and 28.7).
  */
 export const TINCTURE_FILL: Record<Tincture, string> = {
@@ -57,7 +57,7 @@ export const OUTLINE_COLOUR = '#222222';
 export type Hatching = 'dots' | 'plain' | 'wavy' | 'horizontal' | 'vertical' | 'diagonal' | 'diagonal-sinister' | 'cross';
 
 /**
- * Petra Sancta hatching for the accessibility toggle (§4.8). The traditional seven keep their
+ * Petra Sancta hatching for the accessibility toggle. The traditional seven keep their
  * classic patterns. Celestine has none in tradition; it is drawn as wavy horizontal lines — level
  * like Azure's lines because it is a blue, waved because it is a different tincture — the only
  * curved pattern, so it can't be read as any straight-line, dotted or plain one.
@@ -68,10 +68,6 @@ export const TINCTURE_HATCHING: Record<Tincture, Hatching> = {
 
 export function isTincture(value: unknown): value is Tincture {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(TINCTURE_CLASS, value);
-}
-
-export function tinctureClass(t: Tincture): TinctureClass {
-  return TINCTURE_CLASS[t];
 }
 
 export function isNonStandard(t: Tincture): boolean {
@@ -108,6 +104,3 @@ export const CHARGE_TINCTURE_NAME: Record<ChargeTincture, string> = { ...TINCTUR
 
 /** Signature codes; `cc` is distinct from every tincture code. */
 export const CHARGE_TINCTURE_CODE: Record<ChargeTincture, string> = { ...TINCTURE_CODE, counterchanged: 'cc' };
-
-/** Plain words for picker and filter labels. */
-export const CHARGE_TINCTURE_WORD: Record<ChargeTincture, string> = { ...TINCTURE_WORD, counterchanged: 'opposite colours' };

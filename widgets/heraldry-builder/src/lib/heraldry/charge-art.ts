@@ -1,4 +1,4 @@
-// Charge artwork: one path per (charge, posture) in viewBox 0 0 100 100 (FINDINGS §5.3), keyed by
+// Charge artwork: one path per (charge, posture) in viewBox 0 0 100 100, keyed by
 // posture id or '_' for posture-less charges. Rendered with fill = tincture, fill-rule evenodd (holes
 // for the gear hub, rose centre, key bow, book gutter…) plus an outline sized by Shield.tsx.
 //

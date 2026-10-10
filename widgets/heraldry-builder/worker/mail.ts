@@ -14,7 +14,7 @@ export interface MailEnv {
   MAIL_FROM: string;
 }
 
-export interface Mail {
+interface Mail {
   to: string;
   subject: string;
   text: string;

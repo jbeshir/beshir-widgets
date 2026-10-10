@@ -1,4 +1,4 @@
-// Rule of tincture (FINDINGS §4.3): contrast predicate, per-layer contacts (incl. the five-point slot
+// Rule of tincture: contrast predicate, per-layer contacts (incl. the five-point slot
 // probe) and human messages naming the layer and, where relevant, the slots.
 
 import { CHARGES, type ChargeId } from './charges';
@@ -12,10 +12,6 @@ import { CHARGE_TINCTURE_NAME, TINCTURE_CLASS, TINCTURE_NAME, type ChargeTinctur
 export type ContrastFailure = 'same' | 'colour-on-colour' | 'metal-on-metal';
 
 /** `contacts` = tinctures the element lies on. Never the same tincture, and at least one opposite class. */
-export function contrastOK(top: Tincture, contacts: Iterable<Tincture>): boolean {
-  return contrastFailure(top, [...contacts]) === null;
-}
-
 export function contrastFailure(top: Tincture, contacts: readonly Tincture[]): ContrastFailure | null {
   if (contacts.includes(top)) return 'same';
   if (contacts.some((c) => TINCTURE_CLASS[c] !== TINCTURE_CLASS[top])) return null;
@@ -29,7 +25,7 @@ export const FAILURE_TEXT: Record<ContrastFailure, string> = {
 };
 
 /** The field's other tincture: what a counterchanged charge is filled with where it lies on `under`. */
-export function counterchangeOf(field: DividedField, under: Tincture): Tincture {
+function counterchangeOf(field: DividedField, under: Tincture): Tincture {
   return field.tinctures[0] === under ? field.tinctures[1] : field.tinctures[0];
 }
 

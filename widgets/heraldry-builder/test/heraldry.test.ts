@@ -1,5 +1,5 @@
-// Pure tests of the DOM-free heraldry library (src/lib/heraldry): every FINDINGS §6 validation
-// example, the §3.3 uniqueness examples, the §7 sample fixture, tags and the options helper.
+// Pure tests of the DOM-free heraldry library (src/lib/heraldry): every worked validation
+// example, the uniqueness examples, the sample registry fixture, tags and the options helper.
 // Runs in the same vitest-pool-workers pool as the Worker tests.
 
 import { describe, it, expect } from 'vitest';
@@ -9,33 +9,26 @@ import {
   checkUnique, countChoices, deriveTags, differences, explainDifferences, fieldTinctureChoices, filtersToTags, fitCharges,
   gloss, areDistinct, matchesTags, normalise, ordinaryTinctureChoices, placementChoices, postureChoices,
   BETWEEN_GLOSS, BETWEEN_SLOTS, cleanDiscord, readability, resolve, signature, slotsFor, suggestTinctureFix, validate,
-  type Choice, type Count, type Design, type Issue, type NormDesign, type Ordinary, type Placement,
+  type Choice, type Count, type Design, type Issue, type Ordinary, type Placement, type SearchFilters,
 } from '../src/lib/heraldry';
 import sample from '../src/data/sample-registry.json';
 import sampleRaw from '../src/data/sample-registry.json?raw';
 import { V } from './validation-cases';
+import { plain, div, nd, filters } from './helpers';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
-const div = (division: string, t1: string, t2: string) => ({ kind: 'divided', division, tinctures: [t1, t2] });
 
 /** Resolve (parse + defaults) a design that is expected to be well-formed. */
-function nd(input: unknown): NormDesign {
-  const r = resolve(input);
-  if (!r.ok) throw new Error(`resolve failed: ${r.errors.map((e) => e.message).join('; ')}`);
-  return r.design;
-}
-
 function issuesOf(input: unknown): Issue[] {
   const r = normalise(input);
   return r.ok ? [] : r.errors;
 }
 
-// ── FINDINGS §6 validation examples ─────────────────────────────────────────
+// ── worked validation examples ─────────────────────────────────────────
 
 
-describe('FINDINGS §6 validation examples', () => {
+describe('worked validation examples', () => {
   for (const c of V) {
     it(`${c.id}: ${c.blazon ?? '(structural)'}`, () => {
       const r = normalise(c.design);
@@ -57,22 +50,22 @@ describe('FINDINGS §6 validation examples', () => {
     });
   }
 
-  it('V18 readability breakdown matches the documented factors', () => {
+  it('the three-wolves chevron design readability breakdown matches the documented factors', () => {
     const rd = readability(nd(V.find((v) => v.id === 'V18')!.design));
     const pts = Object.fromEntries(rd.breakdown.map((b) => [b.factor, b.points]));
     expect(pts).toEqual({ tinctures: 2, division: 1, touching: 2, straddle: 0, ordinary: 1, 'on-ordinary': 0, count: 1, detail: 1, split: 0 });
   });
 
-  it('V9 issue names the failing slots', () => {
+  it('the per-fess mullets issue names the failing slots', () => {
     const r = normalise(V.find((v) => v.id === 'V9')!.design);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors[0].slots).toEqual([0, 1]);
   });
 });
 
-// ── E1–E4 equivalences and non-equivalence ──────────────────────────────────
+// ── Equivalences and non-equivalence ──────────────────────────────────
 
-describe('equivalent inputs share a signature (E1–E4)', () => {
+describe('equivalent inputs share a signature', () => {
   const cases: Array<[string, unknown, unknown, string, string]> = [
     ['E1',
       { v: 1, field: plain('gules'), charges: { charge: 'mullet', count: 3, placement: 'field', tincture: 'argent' } },
@@ -244,7 +237,7 @@ describe('normalise: shape and structure', () => {
   });
 });
 
-// ── FINDINGS §7 sample fixture ──────────────────────────────────────────────
+// ── sample registry fixture ──────────────────────────────────────────────
 
 type SampleEntry = (typeof sample.entries)[number];
 
@@ -304,9 +297,9 @@ describe('sample registry fixture', () => {
     for (const e of reg) expect(checkUnique(e.design, e.signature, reg, e.id).kind).toBe('ok');
   });
 
-  it('search sanity checks (FINDINGS §7)', () => {
-    const search = (filters: Parameters<typeof filtersToTags>[0]) => {
-      const t = filtersToTags(filters);
+  it('search sanity checks', () => {
+    const search = (args: Partial<SearchFilters>) => {
+      const t = filtersToTags(filters(args));
       if (!t.ok) throw new Error(t.message);
       return sample.entries.filter((e) => matchesTags(nd(e.design), t.tags)).map((e) => e.id);
     };
@@ -323,9 +316,9 @@ describe('sample registry fixture', () => {
   });
 });
 
-// ── FINDINGS §3.3 uniqueness examples ───────────────────────────────────────
+// ── worked uniqueness examples ───────────────────────────────────────
 
-describe('uniqueness worked examples (W1–W12)', () => {
+describe('uniqueness worked examples', () => {
   const az = plain('azure');
   const W: Array<[string, unknown, unknown, 'ok' | 'duplicate' | 'too-close', string[]]> = [
     ['W1', { v: 1, field: az, charges: { charge: 'wolf', count: 1, placement: 'field', posture: 'passant', tincture: 'argent' } },
@@ -391,7 +384,7 @@ describe('uniqueness worked examples (W1–W12)', () => {
 // ── Tags ────────────────────────────────────────────────────────────────────
 
 describe('tags', () => {
-  it('derives the full vocabulary for V2', () => {
+  it('derives the full vocabulary for the unicorns-on-a-bend design', () => {
     expect(deriveTags(nd(V[1].design))).toEqual([
       'field:plain', 'field-tincture:azure', 'ordinary:bend', 'ordinary-tincture:or',
       'charge:unicorn', 'charge-category:monster', 'charge-tincture:vert', 'charge-count:3',
@@ -413,9 +406,9 @@ describe('tags', () => {
   });
 
   it('validates filter values', () => {
-    expect(filtersToTags({ tincture: 'teal' })).toEqual({ ok: false, param: 'tincture', message: 'Unknown tincture "teal".' });
-    expect(filtersToTags({ division: 'plain', charge: '', posture: null })).toEqual({ ok: true, tags: ['field:plain'] });
-    expect(filtersToTags({ chargeTincture: 'or', division: 'per-bend' })).toEqual({ ok: true, tags: ['charge-tincture:or', 'division:per-bend'] });
+    expect(filtersToTags(filters({ tincture: 'teal' }))).toEqual({ ok: false, param: 'tincture', message: 'Unknown tincture "teal".' });
+    expect(filtersToTags(filters({ division: 'plain', charge: '' }))).toEqual({ ok: true, tags: ['field:plain'] });
+    expect(filtersToTags(filters({ chargeTincture: 'or', division: 'per-bend' }))).toEqual({ ok: true, tags: ['charge-tincture:or', 'division:per-bend'] });
   });
 });
 
@@ -625,7 +618,7 @@ describe('retired charges', () => {
     });
 
     it(`${id} is not a search filter`, () => {
-      expect(filtersToTags({ charge: id }).ok).toBe(false);
+      expect(filtersToTags(filters({ charge: id })).ok).toBe(false);
     });
   }
 });

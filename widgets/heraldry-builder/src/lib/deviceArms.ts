@@ -86,11 +86,3 @@ export function rememberDeviceArms(entry: Omit<DeviceArms, 'savedAt'>): void {
 export function forgetDeviceArms(id: string): void {
   writeAll(readAll().filter((e) => e.id !== id));
 }
-
-export function clearDeviceArms(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    /* ignore */
-  }
-}

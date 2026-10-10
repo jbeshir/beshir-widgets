@@ -9,26 +9,31 @@
 //   - order is newest first, ties by id; `limit`/`offset` are bounded.
 
 import { cleanText, textLength } from './text';
-import { filtersToTags, matchesTags, type SearchFilters } from './tags';
+import { NO_FILTERS, filtersToTags, matchesTags, type SearchFilters } from './tags';
+import { API_ERROR } from './api-errors';
+import { registrationOrder } from './check';
 import type { NormDesign } from './design';
 import { matchesWords, queryWords, type SearchWord } from './search-terms';
 
-export const SEARCH_DEFAULT_LIMIT = 24;
-export const SEARCH_MAX_LIMIT = 50;
-export const SEARCH_MAX_OFFSET = 5000;
-export const SEARCH_MAX_Q = 60;
+const SEARCH_DEFAULT_LIMIT = 24;
+const SEARCH_MAX_LIMIT = 50;
+const SEARCH_MAX_OFFSET = 5000;
+const SEARCH_MAX_Q = 60;
 
 /** The filter parameter names, in the order the API documents them. */
 export const FILTER_PARAMS = ['tincture', 'fieldTincture', 'chargeTincture', 'category', 'charge', 'posture', 'ordinary', 'division'] as const;
 
+/** The search parameters as text, as they appear in a query string; '' = not given. */
 export interface SearchParams extends SearchFilters {
-  registry?: string | null;
-  q?: string | null;
-  limit?: number | string | null;
-  offset?: number | string | null;
+  registry: string;
+  q: string;
+  limit: string;
+  offset: string;
 }
 
-export interface SearchQuery {
+export const NO_SEARCH_PARAMS: SearchParams = { ...NO_FILTERS, registry: '', q: '', limit: '', offset: '' };
+
+interface SearchQuery {
   /** Required tags (AND). */
   tags: string[];
   /** Cleaned free-text query ('' = none). */
@@ -40,22 +45,27 @@ export interface SearchQuery {
 }
 
 /** `unknown_param`: a query parameter this API does not define; `bad_request`: a defined one with a bad value. */
-export type SearchErrorCode = 'bad_request' | 'unknown_param';
+type SearchErrorCode = typeof API_ERROR.badRequest | typeof API_ERROR.unknownParam;
 
-export interface SearchFailure {
+interface SearchFailure {
   ok: false;
   code: SearchErrorCode;
   param: string;
   message: string;
 }
 
-export type SearchQueryResult = { ok: true; query: SearchQuery } | SearchFailure;
+type SearchQueryResult = { ok: true; query: SearchQuery } | SearchFailure;
 
-const badParam = (param: string, message: string): SearchFailure => ({ ok: false, code: 'bad_request', param, message });
+const badParam = (param: string, message: string): SearchFailure => ({ ok: false, code: API_ERROR.badRequest, param, message });
 
-function boundedInt(raw: number | string | null | undefined, fallback: number, min: number, max: number): number | null {
-  if (raw === undefined || raw === null || raw === '') return fallback;
-  const s = String(raw).trim();
+/** The filter parameters of `p`, each mapped through `fn`. */
+function filtersOf(p: SearchParams, fn: (value: string, key: (typeof FILTER_PARAMS)[number]) => string): SearchFilters {
+  return Object.fromEntries(FILTER_PARAMS.map((k) => [k, fn(p[k], k)])) as unknown as SearchFilters;
+}
+
+function boundedInt(raw: string, fallback: number, min: number, max: number): number | null {
+  const s = raw.trim();
+  if (s === '') return fallback;
   if (!/^\d{1,6}$/.test(s)) return null;
   const n = Number(s);
   return n >= min && n <= max ? n : null;
@@ -63,12 +73,10 @@ function boundedInt(raw: number | string | null | undefined, fallback: number, m
 
 /** Validate search parameters (filters, q, limit, offset). The registry is resolved by the caller. */
 export function parseSearchParams(p: SearchParams): SearchQueryResult {
-  const filters: SearchFilters = {};
-  for (const k of FILTER_PARAMS) filters[k] = p[k] == null ? null : String(p[k]).trim();
-  const tagResult = filtersToTags(filters);
+  const tagResult = filtersToTags(filtersOf(p, (v) => v.trim()));
   if (!tagResult.ok) return badParam(tagResult.param, tagResult.message);
 
-  const q = p.q == null ? '' : cleanText(String(p.q));
+  const q = cleanText(p.q);
   if (textLength(q) > SEARCH_MAX_Q) return badParam('q', `q must be at most ${SEARCH_MAX_Q} characters.`);
 
   const limit = boundedInt(p.limit, SEARCH_DEFAULT_LIMIT, 1, SEARCH_MAX_LIMIT);
@@ -81,23 +89,20 @@ export function parseSearchParams(p: SearchParams): SearchQueryResult {
 
 const SEARCH_PARAM_NAMES: readonly string[] = ['registry', ...FILTER_PARAMS, 'q', 'limit', 'offset'];
 
-export type SearchUrlResult = { ok: true; params: SearchParams } | (SearchFailure & { code: 'unknown_param' });
+type SearchUrlResult = { ok: true; params: SearchParams } | (SearchFailure & { code: typeof API_ERROR.unknownParam });
 
 /** Read the search parameters from a URL query string; a parameter the API does not define is an error. */
 export function searchParamsFromUrl(sp: URLSearchParams): SearchUrlResult {
   for (const name of sp.keys()) {
     if (!SEARCH_PARAM_NAMES.includes(name)) {
-      return { ok: false, code: 'unknown_param', param: name.slice(0, 40), message: `Unknown parameter "${name.slice(0, 40)}".` };
+      return { ok: false, code: API_ERROR.unknownParam, param: name.slice(0, 40), message: `Unknown parameter "${name.slice(0, 40)}".` };
     }
   }
-  const params: SearchParams = {
-    registry: sp.get('registry'),
-    q: sp.get('q'),
-    limit: sp.get('limit'),
-    offset: sp.get('offset'),
+  const text = (name: string) => sp.get(name) ?? '';
+  return {
+    ok: true,
+    params: { registry: text('registry'), q: text('q'), limit: text('limit'), offset: text('offset'), ...filtersOf(NO_SEARCH_PARAMS, (_, k) => text(k)) },
   };
-  for (const k of FILTER_PARAMS) params[k] = sp.get(k);
-  return { ok: true, params };
 }
 
 /** Build a URL query string from search parameters (blank values omitted). */
@@ -105,14 +110,13 @@ export function searchParamsToUrl(p: SearchParams): URLSearchParams {
   const sp = new URLSearchParams();
   const keys = ['registry', ...FILTER_PARAMS, 'q', 'limit', 'offset'] as const;
   for (const k of keys) {
-    const v = p[k];
-    if (v !== undefined && v !== null && String(v) !== '') sp.set(k, String(v));
+    if (p[k] !== '') sp.set(k, p[k]);
   }
   return sp;
 }
 
 /** True when an entry's search text satisfies the free-text part of a query (no `q` = everything). */
-export function matchesQueryText(searchText: string, query: Pick<SearchQuery, 'q' | 'words'>): boolean {
+function matchesQueryText(searchText: string, query: Pick<SearchQuery, 'q' | 'words'>): boolean {
   return !query.q || (query.words.length > 0 && matchesWords(searchText, query.words));
 }
 
@@ -129,6 +133,6 @@ export interface SearchableEntry {
 export function searchEntries<T extends SearchableEntry>(entries: readonly T[], query: SearchQuery): { total: number; items: T[] } {
   const hits = entries
     .filter((e) => matchesTags(e.design, query.tags) && matchesQueryText(e.searchText, query))
-    .sort((a, b) => (a.createdAt === b.createdAt ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : a.createdAt < b.createdAt ? 1 : -1));
+    .sort((a, b) => (a.createdAt === b.createdAt ? registrationOrder(a, b) : registrationOrder(b, a)));
   return { total: hits.length, items: hits.slice(query.offset, query.offset + query.limit) };
 }

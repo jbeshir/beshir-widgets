@@ -6,18 +6,10 @@ import {
   TINCTURES, areDistinct, checkUnique, chargeGroup, chargesInGroup, differences, explainDifferences, pointsText,
   resolve, score, signature, tallyText, type NormDesign, type Verdict,
 } from '../src/lib/heraldry';
+import { plain, div, nd } from './helpers';
 
 type Kind = Verdict['kind'];
 
-/** Resolve (parse + defaults) a design that is expected to be well-formed. */
-function nd(input: unknown): NormDesign {
-  const r = resolve(input);
-  if (!r.ok) throw new Error(`resolve failed: ${r.errors.map((e) => e.message).join('; ')}`);
-  return r.design;
-}
-
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
-const div = (division: string, t1: string, t2: string) => ({ kind: 'divided', division, tinctures: [t1, t2] });
 const ord = (type: string, tincture: string) => ({ type, tincture });
 const ch = (charge: string, tincture: string, extra: Record<string, unknown> = {}) =>
   ({ charge, count: 1, placement: 'field', tincture, ...extra });

@@ -7,7 +7,7 @@ import {
 } from './heraldry';
 import { DEFAULT_DESIGN, assess, setCharge, setChargeTincture, setPosture } from './builder';
 
-export interface StartingDesign extends ShapedDesign {
+interface StartingDesign extends ShapedDesign {
   id: string;
   /** Plain-words caption shown under the picture. */
   caption: string;

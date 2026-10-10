@@ -8,7 +8,7 @@
 
 import { CHARGES, postureTerm, type ChargeId, type Posture } from './charges';
 import {
-  COUNTS, FIELD_ARR, ORDINARY_NAME, ORDINARY_TYPES, chargeContext, chargeNoun, chargeStructureIssue, defaultArrangement,
+  COUNTS, FIELD_ARR, ORDINARY_NAME, chargeContext, chargeNoun, chargeStructureIssue, defaultArrangement,
   legalArrangements, type Arrangement, type Count, type NormChargeGroup, type NormDesign, type Ordinary, type OrdinaryType, type Placement,
 } from './design';
 import { chargeSlots, slotContacts, type Slot } from './geometry';
@@ -42,7 +42,7 @@ const COLOUR_LIST = listTinctureNames(COLOURS, 'or');
  * Why `top` can't go on `contacts`, phrased hypothetically for an explainer popover.
  * `subject` names the element ("the lion", "the two upper mullets", "the bend"); `plural` picks verbs.
  */
-export function tinctureBlockReason(top: Tincture, contacts: readonly Tincture[], subject: string, plural = false): string | null {
+function tinctureBlockReason(top: Tincture, contacts: readonly Tincture[], subject: string, plural = false): string | null {
   const f: ContrastFailure | null = contrastFailure(top, contacts);
   if (!f) return null;
   const T = TINCTURE_NAME[top];
@@ -174,7 +174,7 @@ export function placementChoices(nd: NormDesign): Choice<Placement>[] {
   });
 }
 
-export interface ArrangementChoices {
+interface ArrangementChoices {
   /** single: one charge; forced: placed by the ordinary; choose: pick from `choices`. */
   mode: 'single' | 'forced' | 'choose';
   /** Why there is nothing to choose (single/forced). */
@@ -216,7 +216,7 @@ export function postureChoices(nd: NormDesign): Choice<Posture>[] {
   return postureChoicesFor(g.charge);
 }
 
-export function postureChoicesFor(id: ChargeId): Choice<Posture>[] {
+function postureChoicesFor(id: ChargeId): Choice<Posture>[] {
   const meta = CHARGES[id];
   if (!meta.postures) return [];
   const quadruped = meta.postures.some((p) => QUADRUPED_POSTURES.includes(p));
@@ -224,11 +224,6 @@ export function postureChoicesFor(id: ChargeId): Choice<Posture>[] {
   const allowed = meta.postures.map((p) => postureTerm(id, p));
   return list.map((p) => choice(p, meta.postures!.includes(p) ? null
     : `The ${meta.name} is only drawn ${allowed.join(' or ')} in this builder.`));
-}
-
-/** Ordinary types: never blocked (the ordinary sits beneath the charges). */
-export function ordinaryTypeChoices(): Choice<OrdinaryType | null>[] {
-  return [null, ...ORDINARY_TYPES].map(ok);
 }
 
 // ── Repairs ─────────────────────────────────────────────────────────────────
@@ -260,7 +255,7 @@ export function fitCharges(nd: NormDesign): NormDesign {
  * (every alternative on that layer listed, the suggestion first), or — when no single layer can
  * clear them — new tinctures for both.
  */
-export type TinctureFix =
+type TinctureFix =
   | { layer: 'charges'; tincture: ChargeTincture; alternatives: ChargeTincture[]; label: string; design: NormDesign }
   | { layer: 'ordinary'; tincture: Tincture; alternatives: Tincture[]; label: string; design: NormDesign }
   | { layer: 'ordinary-and-charges'; ordinary: Tincture; charges: ChargeTincture; label: string; design: NormDesign };

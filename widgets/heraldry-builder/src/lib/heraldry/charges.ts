@@ -1,12 +1,12 @@
-// Charge metadata (FINDINGS §5.1): 28 curated charges, their blazon/gloss names, articles,
+// Charge metadata: 28 curated charges, their blazon/gloss names, articles,
 // categories and allowed postures. Artwork lives in charge-art.ts.
 
 export type Posture = 'rampant' | 'passant' | 'statant' | 'sejant' | 'naiant' | 'haurient' | 'displayed';
 export const POSTURES: readonly Posture[] = ['rampant', 'passant', 'statant', 'sejant', 'naiant', 'haurient', 'displayed'];
 
-export type PostureGroup = 'G1' | 'G2' | 'G3' | 'G4' | 'G5' | 'G6';
+type PostureGroup = 'G1' | 'G2' | 'G3' | 'G4' | 'G5' | 'G6';
 
-/** Posture groups for the "too close" check (§3.2): passant ↔ statant is the only minor pair. */
+/** Posture groups for the "too close" check: passant ↔ statant is the only minor pair. */
 export const POSTURE_GROUP: Record<Posture, PostureGroup> = {
   rampant: 'G1', passant: 'G2', statant: 'G2', sejant: 'G3', naiant: 'G4', haurient: 'G5', displayed: 'G6',
 };
@@ -15,7 +15,7 @@ export function postureGroup(p: Posture | null | undefined): PostureGroup | null
   return p ? POSTURE_GROUP[p] : null;
 }
 
-/** Plain-English posture words for the gloss (§4.5). Displayed is folded into the eagle's gloss name. */
+/** Plain-English posture words for the gloss. Displayed is folded into the eagle's gloss name. */
 export const POSTURE_GLOSS: Record<Posture, string | null> = {
   rampant: 'rearing up', passant: 'walking', statant: 'standing', sejant: 'sitting',
   naiant: 'swimming', haurient: 'upright, head up', displayed: null,
@@ -42,7 +42,7 @@ export const CHARGE_IDS = [
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
 
-export interface ChargeMeta {
+interface ChargeMeta {
   id: ChargeId;
   /** Blazon name (singular / plural). */
   name: string;
@@ -70,7 +70,7 @@ export interface ChargeMeta {
 }
 
 /** A charge-specific posture word: the blazon term and its plain-English gloss ("courant", "running"). */
-export interface PostureWording { term: string; gloss: string }
+interface PostureWording { term: string; gloss: string }
 
 function c(
   id: ChargeId, name: string, plural: string, article: 'a' | 'an', category: ChargeCategory,
@@ -148,7 +148,7 @@ export function chargesInCategory(cat: ChargeCategory): ChargeMeta[] {
  */
 export type SimilarityGroup = 'quadruped' | 'round';
 
-export const SIMILARITY_GROUP: Partial<Record<ChargeId, SimilarityGroup>> = {
+const SIMILARITY_GROUP: Partial<Record<ChargeId, SimilarityGroup>> = {
   lion: 'quadruped', wolf: 'quadruped', unicorn: 'quadruped', goat: 'quadruped',
   rose: 'round', gear: 'round', sun: 'round',
 };

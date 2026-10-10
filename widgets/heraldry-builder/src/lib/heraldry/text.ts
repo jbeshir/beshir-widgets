@@ -18,7 +18,7 @@ export function textLength(s: string): number {
   return [...s].length;
 }
 
-export type TextFieldResult = { ok: true; value: string } | { ok: false; message: string };
+type TextFieldResult = { ok: true; value: string } | { ok: false; message: string };
 
 export function cleanDisplayName(raw: unknown): TextFieldResult {
   if (typeof raw !== 'string') return { ok: false, message: 'A display name is required.' };

@@ -2,9 +2,8 @@
 // readability. Shared by the library tests and the field-shape verdict tests.
 
 import type { Issue } from '../src/lib/heraldry';
+import { plain, div } from './helpers';
 
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
-const div = (division: string, t1: string, t2: string) => ({ kind: 'divided', division, tinctures: [t1, t2] });
 
 export interface VCase {
   id: string;
@@ -105,7 +104,7 @@ export const V: VCase[] = [
     valid: true, signature: 'v1|F:plain:or|O:pale:sa|C:flame:3:ordinary:forced:-:or', score: 4, band: 'fine',
   },
   {
-    // FINDINGS words this "Or bend lies on an Or section: same tincture"; the generator says "part of the field".
+    // The generator words an "Or bend on an Or section" as "part of the field".
     id: 'V15', design: { v: 1, field: div('per-pale', 'azure', 'or'), ordinary: { type: 'bend', tincture: 'or' } },
     blazon: 'Per pale Azure and Or, a bend Or',
     gloss: 'A shield split vertically, blue on the left and gold on the right, with a gold diagonal band from top-left to bottom-right.',

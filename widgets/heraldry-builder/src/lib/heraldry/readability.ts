@@ -15,7 +15,7 @@ import { TINCTURE_CLASS, TINCTURE_WORD, type Tincture } from './tinctures';
  * display text: the words people see are in BAND_LABEL, so renaming a label never needs a migration.
  */
 export type ReadabilityBand = 'bold' | 'fine' | 'busy';
-export type ReadabilityFactor =
+type ReadabilityFactor =
   | 'tinctures' | 'division' | 'touching' | 'straddle' | 'ordinary' | 'on-ordinary' | 'count' | 'detail' | 'split';
 
 export interface Readability {
@@ -28,6 +28,10 @@ export interface Readability {
 }
 
 export const BAND_LABEL: Record<ReadabilityBand, string> = { bold: 'Easy to spot', fine: 'OK', busy: 'Hard to read' };
+
+export function isReadabilityBand(value: unknown): value is ReadabilityBand {
+  return typeof value === 'string' && Object.hasOwn(BAND_LABEL, value);
+}
 
 /** Score ranges shown beside each band. */
 export const BAND_RANGE: Record<ReadabilityBand, string> = { bold: '0–2', fine: '3–4', busy: '5+' };
@@ -53,7 +57,7 @@ function splitCharges(nd: NormDesign): boolean {
   return nd.charges?.tincture === 'counterchanged' && chargeSlotContacts(nd).some((cs) => cs.length > 1);
 }
 
-export function readabilityBand(score: number): ReadabilityBand {
+function readabilityBand(score: number): ReadabilityBand {
   return score <= 2 ? 'bold' : score <= 4 ? 'fine' : 'busy';
 }
 

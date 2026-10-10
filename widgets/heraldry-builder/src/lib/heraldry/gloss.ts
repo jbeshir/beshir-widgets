@@ -1,4 +1,4 @@
-// Plain-English gloss (FINDINGS §4.5). Left/right always mean as you look at the shield.
+// Plain-English gloss. Left/right always mean as you look at the shield.
 
 import { CHARGES, postureGloss } from './charges';
 import {
@@ -6,7 +6,7 @@ import {
 } from './design';
 import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 
-export const ORDINARY_GLOSS: Record<OrdinaryType, string> = {
+const ORDINARY_GLOSS: Record<OrdinaryType, string> = {
   fess: 'horizontal band across the middle',
   pale: 'vertical band down the middle',
   bend: 'diagonal band from top-left to bottom-right',
@@ -19,7 +19,7 @@ export const ORDINARY_GLOSS: Record<OrdinaryType, string> = {
   pile: 'downward-pointing wedge from the top',
 };
 
-export const ARRANGEMENT_GLOSS: Partial<Record<Arrangement, string>> = {
+const ARRANGEMENT_GLOSS: Partial<Record<Arrangement, string>> = {
   'in-pale': 'in a vertical line',
   'in-fess': 'in a row',
   'in-bend': 'in a diagonal line from top-left',
@@ -52,7 +52,7 @@ function article(next: string): string {
   return /^[aeiou]/i.test(next) ? 'an' : 'a';
 }
 
-export function fieldGloss(field: Field): string {
+function fieldGloss(field: Field): string {
   if (field.kind === 'plain') {
     const c = TINCTURE_GLOSS[field.tincture];
     return `${article(c) === 'an' ? 'An' : 'A'} ${c} shield`;
@@ -69,7 +69,7 @@ export function fieldGloss(field: Field): string {
   }
 }
 
-export function ordinaryGloss(o: Ordinary): string {
+function ordinaryGloss(o: Ordinary): string {
   const c = TINCTURE_GLOSS[o.tincture];
   return `${article(c)} ${c} ${ORDINARY_GLOSS[o.type]}`;
 }
@@ -92,7 +92,7 @@ function chargesSubject(g: NormChargeGroup, count: Count): string {
 }
 
 /** "three red five-pointed stars, two above one"; counterchanged: "three five-pointed stars in the opposite colours of the field (…), two above one". */
-export function chargesGloss(g: NormChargeGroup, field: Field): string {
+function chargesGloss(g: NormChargeGroup, field: Field): string {
   let s = chargesSubject(g, g.count);
   if (g.tincture === 'counterchanged') s += ` ${counterchangedGloss(field)}`;
   const ag = ARRANGEMENT_GLOSS[g.arrangement];
@@ -124,7 +124,7 @@ export function gloss(nd: NormDesign): string {
     case 'onOrd': rest = `${ordinaryGloss(o!)}, carrying ${chargesGloss(c!, nd.field)}`; break;
     case 'between': rest = `${ordinaryGloss(o!)} and ${betweenGloss(c!, o!, nd.field)}`; break;
     case 'withChief':
-    // A trailing arrangement clause ("…, two above one") takes a comma before "and" (V11).
+    // A trailing arrangement clause ("…, two above one") takes a comma before "and".
     case 'withBordure': rest = `${chargesGloss(c!, nd.field)}${ARRANGEMENT_GLOSS[c!.arrangement] ? ',' : ''} and ${ordinaryGloss(o!)}`; break;
   }
   return `${field}${joiner}${rest}.`;

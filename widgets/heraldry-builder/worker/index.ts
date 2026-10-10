@@ -21,7 +21,6 @@
 // withdraws the entry. No API ever returns the address.
 //
 // Routes:
-//   GET    /api/registries        -> [{ id, name, isDefault }]
 //   GET    /api/arms?…            -> public search (no contact in results)
 //   POST   /api/arms/check        -> availability check for a design (not rate-limited)
 //   POST   /api/arms              -> register { displayName, email, contact, design, shape };
@@ -36,17 +35,17 @@
 //   POST   /api/recover/withdraw  -> { token }; uses the token and withdraws the entry
 
 import {
-  DEFAULT_FIELD_SHAPE, FIELD_SHAPES, blazon, candidateKey, checkUnique, cleanContact, cleanDisplayName, cleanEmail,
-  buildSearchText, deriveTags, explainDifferences, fieldDivision, isFieldShape, normalise, parseSearchParams, readability, resolve,
-  searchParamsFromUrl, signature, type Contact, type DifferenceNote, type FieldShape, type Issue, type NormDesign,
-  type Comparison, type RegistryEntryLike,
+  API_ERROR, DEFAULT_FIELD_SHAPE, FIELD_SHAPES, asObject, blazon, candidateKey, checkResponse, cleanContact, cleanDisplayName, cleanEmail,
+  buildSearchText, deriveTags, fieldDivision, isFieldShape, normalise, parseSearchParams, readability, reportUniqueness, resolve,
+  searchParamsFromUrl, signature, type ApiErrorCode, type CheckableEntry, type Contact, type FieldShape, type Issue, type NormDesign,
+  type RegistryRef, type TakenReport, type TokenProblem,
 } from '../src/lib/heraldry';
 import { RECOVER_HASH, entryHash, ownerHash, recoverTokenHash } from '../src/lib/hashes';
 import { sendMail, type MailEnv } from './mail';
 
 interface Env extends MailEnv {
   DB: D1Database;
-  ASSETS?: Fetcher;
+  ASSETS: Fetcher;
   CREATE_LIMITER: RateLimit;
   /** Secret key for the owner-email HMAC. */
   EMAIL_HMAC_KEY: string;
@@ -95,11 +94,6 @@ export default {
       const url = new URL(request.url);
       const { pathname } = url;
 
-      if (pathname === '/api/registries' || pathname === '/api/registries/') {
-        if (request.method === 'GET') return await listRegistries(env);
-        return methodNotAllowed('GET');
-      }
-
       if (pathname === '/api/arms' || pathname.startsWith('/api/arms/')) {
         return await handleArmsApi(request, env, url);
       }
@@ -109,13 +103,12 @@ export default {
       }
 
       if (pathname.startsWith('/api/')) {
-        return jsonError(404, 'not_found', 'Unknown API route.');
+        return jsonError(404, API_ERROR.notFound, 'Unknown API route.');
       }
 
       // Non-API requests fall through to the static assets (SPA). With run_worker_first scoped to
       // /api/*, these normally never reach the Worker, but delegating keeps it correct if they do.
-      if (env.ASSETS) return env.ASSETS.fetch(request);
-      return new Response('Not found', { status: 404 });
+      return env.ASSETS.fetch(request);
     } catch (e) {
       // Defense in depth: never surface a bare runtime error (e.g. a D1 failure) to the client.
       // One structured line for the logs: no body, headers, ids or contact details.
@@ -127,7 +120,7 @@ export default {
         errorName: e instanceof Error ? e.name : typeof e,
         errorMessage: e instanceof Error ? e.message : String(e),
       }));
-      return jsonError(500, 'internal_error', 'Unexpected error.');
+      return jsonError(500, API_ERROR.internalError, 'Unexpected error.');
     }
   },
 } satisfies ExportedHandler<Env>;
@@ -155,16 +148,16 @@ async function handleArmsApi(request: Request, env: Env, url: URL): Promise<Resp
 
   // Item: /api/arms/:id, or its owner check /api/arms/:id/owner
   const item = /^\/([^/]+)(\/owner)?$/.exec(rest);
-  if (!item) return jsonError(404, 'not_found', 'Unknown arms route.');
+  if (!item) return jsonError(404, API_ERROR.notFound, 'Unknown arms route.');
   const ownerCheck = item[2] !== undefined;
   let id: string;
   try {
     id = decodeURIComponent(item[1]);
   } catch {
-    return jsonError(404, 'not_found', 'Unknown arms route.'); // malformed percent-encoding
+    return jsonError(404, API_ERROR.notFound, 'Unknown arms route.'); // malformed percent-encoding
   }
   if (id.includes('/')) {
-    return jsonError(404, 'not_found', 'Unknown arms route.');
+    return jsonError(404, API_ERROR.notFound, 'Unknown arms route.');
   }
 
   if (ownerCheck) {
@@ -179,28 +172,21 @@ async function handleArmsApi(request: Request, env: Env, url: URL): Promise<Resp
 
 // ── registries ───────────────────────────────────────────────────────────────────────────────
 
-async function listRegistries(env: Env): Promise<Response> {
-  const { results } = await env.DB.prepare(
-    `SELECT id, name, is_default FROM registries ORDER BY is_default DESC, name, id`
-  ).all<RegistryRow>();
-  return json(200, results.map((r) => ({ id: r.id, name: r.name, isDefault: r.is_default === 1 })));
-}
-
-type RegistryLookup = { registry: { id: string; name: string } } | { error: Response };
+type RegistryLookup = { registry: RegistryRef } | { error: Response };
 
 /** Resolve a registry id (blank → the default registry). Unknown → 404. */
 async function lookupRegistry(env: Env, raw: unknown): Promise<RegistryLookup> {
   if (raw !== undefined && raw !== null && typeof raw !== 'string') {
-    return { error: jsonError(400, 'bad_request', 'registry must be a string.') };
+    return { error: jsonError(400, API_ERROR.badRequest, 'registry must be a string.') };
   }
   const id = (raw ?? '').trim();
-  if (id.length > MAX_REGISTRY_ID_LEN) return { error: jsonError(404, 'not_found', 'Unknown registry.') };
+  if (id.length > MAX_REGISTRY_ID_LEN) return { error: jsonError(404, API_ERROR.notFound, 'Unknown registry.') };
   const row = id
     ? await env.DB.prepare(`SELECT id, name, is_default FROM registries WHERE id = ?`).bind(id).first<RegistryRow>()
     : await env.DB.prepare(
         `SELECT id, name, is_default FROM registries WHERE is_default = 1 LIMIT 1`
       ).first<RegistryRow>();
-  if (!row) return { error: jsonError(404, 'not_found', 'Unknown registry.') };
+  if (!row) return { error: jsonError(404, API_ERROR.notFound, 'Unknown registry.') };
   return { registry: { id: row.id, name: row.name } };
 }
 
@@ -291,7 +277,7 @@ function deriveDesign(raw: unknown): DesignResult {
 
 function invalidDesign(issues: Issue[]): Response {
   return json(400, {
-    error: 'invalid_design',
+    error: API_ERROR.invalidDesign,
     message: issues[0]?.message ?? 'The design is not valid.',
     issues,
   });
@@ -333,51 +319,26 @@ async function countEntries(env: Env, registryId: string): Promise<number> {
   return row?.n ?? 0;
 }
 
-/** An entry and the differences between it and the checked design, in words. */
-interface Conflict { conflict: ScanRow; differences: DifferenceNote[] }
-
-type Uniqueness =
-  | { kind: 'ok'; closest: Conflict | null }
-  | { kind: 'duplicate'; conflict: ScanRow }
-  | ({ kind: 'too-close' } & Conflict);
-
-function uniqueness(d: Derived, rows: ScanRow[], excludeId?: string): Uniqueness {
-  const byId = new Map<string, ScanRow>();
-  const entries: RegistryEntryLike[] = [];
-  for (const r of rows) {
+/** The scanned rows whose stored design is readable, as entries for the check. */
+function checkableEntries(rows: readonly ScanRow[]): CheckableEntry[] {
+  return rows.flatMap((r): CheckableEntry[] => {
     const design = parseStoredDesign(r.design);
-    if (!design) continue;
-    byId.set(r.id, r);
-    entries.push({ id: r.id, signature: r.signature, design });
-  }
-  const v = checkUnique(d.design, d.signature, entries, excludeId);
-  const explained = (c: Comparison): Conflict => {
-    const conflict = byId.get(c.of)!;
-    return { conflict, differences: explainDifferences(d.design, parseStoredDesign(conflict.design)!, c.differences) };
-  };
-  if (v.kind === 'ok') return { kind: 'ok', closest: v.closest && explained(v.closest) };
-  if (v.kind === 'duplicate') return { kind: 'duplicate', conflict: byId.get(v.of)! };
-  return { kind: 'too-close', ...explained(v) };
+    return design ? [{ id: r.id, displayName: r.display_name, blazon: r.blazon, signature: r.signature, design, shape: r.field_shape }] : [];
+  });
 }
 
-function conflictSummary(r: ScanRow) {
-  return { id: r.id, displayName: r.display_name, blazon: r.blazon, design: parseStoredDesign(r.design), shape: r.field_shape };
-}
-
-function uniquenessError(u: Exclude<Uniqueness, { kind: 'ok' }>): Response {
-  if (u.kind === 'duplicate') {
+function uniquenessError(u: TakenReport): Response {
+  if (u.verdict === 'duplicate') {
     return json(409, {
-      error: 'duplicate',
-      message: `These arms are already registered by ${u.conflict.display_name}.`,
-      conflictId: u.conflict.id,
-      conflict: conflictSummary(u.conflict),
+      error: API_ERROR.duplicate,
+      message: `These arms are already registered by ${u.conflict.displayName}.`,
+      conflict: u.conflict,
     });
   }
   return json(409, {
-    error: 'too_close',
-    message: `Too close to the arms of ${u.conflict.display_name}: not different enough.`,
-    conflictId: u.conflict.id,
-    conflict: conflictSummary(u.conflict),
+    error: API_ERROR.tooClose,
+    message: `Too close to the arms of ${u.conflict.displayName}: not different enough.`,
+    conflict: u.conflict,
     differences: u.differences,
   });
 }
@@ -386,31 +347,15 @@ async function checkArms(request: Request, env: Env): Promise<Response> {
   const parsed = await parseBody(request);
   if ('error' in parsed) return parsed.error;
   const body = asObject(parsed.body);
-  if (!body) return jsonError(400, 'bad_request', 'Body must be a JSON object.');
+  if (!body) return jsonError(400, API_ERROR.badRequest, 'Body must be a JSON object.');
 
   const reg = await lookupRegistry(env, body.registry);
   if ('error' in reg) return reg.error;
   const d = deriveDesign(body.design);
   if ('error' in d) return d.error;
 
-  const u = uniqueness(d.derived, await loadCandidates(env, reg.registry.id, d.derived.design));
-  const base = {
-    registry: reg.registry,
-    blazon: d.derived.blazon,
-    signature: d.derived.signature,
-    readability: d.derived.readability,
-  };
-  if (u.kind === 'ok') {
-    const closest = u.closest && { conflict: conflictSummary(u.closest.conflict), differences: u.closest.differences };
-    return json(200, { verdict: 'ok', closest, ...base });
-  }
-  if (u.kind === 'duplicate') return json(200, { verdict: 'duplicate', conflict: conflictSummary(u.conflict), ...base });
-  return json(200, {
-    verdict: 'too-close',
-    conflict: conflictSummary(u.conflict),
-    differences: u.differences,
-    ...base,
-  });
+  const candidates = checkableEntries(await loadCandidates(env, reg.registry.id, d.derived.design));
+  return json(200, checkResponse(d.derived.design, reg.registry, candidates));
 }
 
 type EntryInput = { displayName: string; contact: Contact; shape: FieldShape; derived: Derived } | { error: Response };
@@ -432,12 +377,12 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
   // Rate-limited before the body is even parsed, so junk requests also spend the budget.
   const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
   const { success } = await env.CREATE_LIMITER.limit({ key: ip });
-  if (!success) return jsonError(429, 'rate_limited', 'Too many registrations — try again shortly.');
+  if (!success) return jsonError(429, API_ERROR.rateLimited, 'Too many registrations — try again shortly.');
 
   const parsed = await parseBody(request);
   if ('error' in parsed) return parsed.error;
   const body = asObject(parsed.body);
-  if (!body) return jsonError(400, 'bad_request', 'Body must be a JSON object.');
+  if (!body) return jsonError(400, API_ERROR.badRequest, 'Body must be a JSON object.');
 
   const input = validateEntryInput(body);
   if ('error' in input) return input.error;
@@ -447,10 +392,12 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
   if ('error' in reg) return reg.error;
 
   if ((await countEntries(env, reg.registry.id)) >= MAX_ENTRIES_PER_REGISTRY) {
-    return jsonError(409, 'registry_full', 'This registry is full.');
+    return jsonError(409, API_ERROR.registryFull, 'This registry is full.');
   }
-  const u = uniqueness(input.derived, await loadCandidates(env, reg.registry.id, input.derived.design));
-  if (u.kind !== 'ok') return uniquenessError(u);
+  const u = reportUniqueness(
+    input.derived.design, input.derived.signature, checkableEntries(await loadCandidates(env, reg.registry.id, input.derived.design))
+  );
+  if (u.verdict !== 'ok') return uniquenessError(u);
 
   const id = randomToken(16); // ~128-bit
   const editSecret = randomToken(32); // ~256-bit
@@ -479,8 +426,9 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
         .bind(id, owner.hmac, owner.keyVersion, now),
     ]);
   } catch (e) {
-    // Lost a race with a concurrent registration of the same signature.
-    if (isUniqueViolation(e)) return await raceDuplicate(env, reg.registry.id, d.signature);
+    // If another entry now has this signature, we lost a race with a concurrent registration of it.
+    const winner = await entryWithSignature(env, reg.registry.id, d.signature);
+    if (winner) return uniquenessError(winner);
     throw e;
   }
 
@@ -513,18 +461,15 @@ function insertTags(env: Env, armsId: string, registryId: string, tags: string[]
   ).bind(armsId, registryId, JSON.stringify(tags));
 }
 
-function isUniqueViolation(e: unknown): boolean {
-  return /UNIQUE constraint failed/i.test(String((e as { message?: unknown })?.message ?? e));
-}
-
-async function raceDuplicate(env: Env, registryId: string, sig: string): Promise<Response> {
+/** The duplicate verdict for the entry (other than `exceptId`) registered with this signature, if there is one. */
+async function entryWithSignature(env: Env, registryId: string, sig: string, exceptId = ''): Promise<Extract<TakenReport, { verdict: 'duplicate' }> | null> {
   const row = await env.DB.prepare(
-    `SELECT id, display_name, design, field_shape, signature, blazon FROM arms WHERE registry_id = ? AND signature = ?`
+    `SELECT id, display_name, design, field_shape, signature, blazon FROM arms WHERE registry_id = ? AND signature = ? AND id != ?`
   )
-    .bind(registryId, sig)
+    .bind(registryId, sig, exceptId)
     .first<ScanRow>();
-  if (!row) return jsonError(409, 'duplicate', 'These arms were just registered by someone else.');
-  return uniquenessError({ kind: 'duplicate', conflict: row });
+  const [entry] = row ? checkableEntries([row]) : [];
+  return entry ? { verdict: 'duplicate', conflict: { id: entry.id, displayName: entry.displayName, blazon: entry.blazon, design: entry.design, shape: entry.shape } } : null;
 }
 
 // ── read / update / withdraw ─────────────────────────────────────────────────────────────────
@@ -538,7 +483,7 @@ async function readArms(env: Env, id: string): Promise<Response> {
     .bind(id)
     .first<Omit<ArmsRow, 'edit_secret_hash'> & { registry_name: string }>();
 
-  if (!row) return jsonError(404, 'not_found', 'No arms with that id.');
+  if (!row) return jsonError(404, API_ERROR.notFound, 'No arms with that id.');
   return json(200, rowToEntry(row, row.registry_name));
 }
 
@@ -569,13 +514,13 @@ async function authorise(request: Request, env: Env, id: string): Promise<Author
   )
     .bind(id)
     .first<ArmsRow & { registry_name: string }>();
-  if (!row) return { error: jsonError(404, 'not_found', 'No arms with that id.') };
+  if (!row) return { error: jsonError(404, API_ERROR.notFound, 'No arms with that id.') };
 
   const secret = bearerToken(request.headers.get('Authorization'));
-  if (secret == null) return { error: jsonError(401, 'unauthorized', 'Missing edit secret.') };
+  if (secret == null) return { error: jsonError(401, API_ERROR.unauthorized, 'Missing edit secret.') };
   const presentedHash = await sha256hex(secret);
   if (!timingSafeEqual(presentedHash, row.edit_secret_hash)) {
-    return { error: jsonError(403, 'forbidden', 'Wrong edit secret.') };
+    return { error: jsonError(403, API_ERROR.forbidden, 'Wrong edit secret.') };
   }
   return { row };
 }
@@ -589,16 +534,16 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
   const ifMatch = request.headers.get('If-Match');
   const expectedRev = parseRev(ifMatch);
   if (expectedRev == null) {
-    return jsonError(400, 'bad_request', 'Missing or malformed If-Match revision.');
+    return jsonError(400, API_ERROR.badRequest, 'Missing or malformed If-Match revision.');
   }
   if (expectedRev !== row.rev) {
-    return jsonError(409, 'conflict', 'Stale revision; reload before saving.');
+    return jsonError(409, API_ERROR.conflict, 'Stale revision; reload before saving.');
   }
 
   const parsed = await parseBody(request);
   if ('error' in parsed) return parsed.error;
   const body = asObject(parsed.body);
-  if (!body) return jsonError(400, 'bad_request', 'Body must be a JSON object.');
+  if (!body) return jsonError(400, API_ERROR.badRequest, 'Body must be a JSON object.');
   const input = validateEntryInput(body);
   if ('error' in input) return input.error;
 
@@ -606,8 +551,8 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
   const d = input.derived;
   const nd = d.design;
   if (d.signature !== row.signature) {
-    const u = uniqueness(d, await loadCandidates(env, row.registry_id, nd), id);
-    if (u.kind !== 'ok') return uniquenessError(u);
+    const u = reportUniqueness(nd, d.signature, checkableEntries(await loadCandidates(env, row.registry_id, nd)), id);
+    if (u.verdict !== 'ok') return uniquenessError(u);
   }
 
   const now = new Date().toISOString();
@@ -636,12 +581,13 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
       ).bind(id, row.registry_id, JSON.stringify(d.tags), id, newRev, d.signature),
     ]);
   } catch (e) {
-    if (isUniqueViolation(e)) return await raceDuplicate(env, row.registry_id, d.signature);
+    const winner = await entryWithSignature(env, row.registry_id, d.signature, id);
+    if (winner) return uniquenessError(winner);
     throw e;
   }
 
   if (!results[0].meta.changes) {
-    return jsonError(409, 'conflict', 'Stale revision; reload before saving.');
+    return jsonError(409, API_ERROR.conflict, 'Stale revision; reload before saving.');
   }
 
   return json(
@@ -696,7 +642,7 @@ async function handleRecoverApi(request: Request, env: Env, ctx: ExecutionContex
   if (action === '/lookup') return lookupRecoveryToken(request, env);
   if (action === '/redeem') return redeemRecoveryToken(request, env);
   if (action === '/withdraw') return withdrawByRecoveryToken(request, env);
-  return jsonError(404, 'not_found', 'Unknown recovery route.');
+  return jsonError(404, API_ERROR.notFound, 'Unknown recovery route.');
 }
 
 /** The one answer to every well-formed recovery request, whether or not the address owns anything. */
@@ -715,7 +661,7 @@ async function requestRecovery(request: Request, env: Env, ctx: ExecutionContext
   const parsed = await parseBody(request);
   if ('error' in parsed) return parsed.error;
   const body = asObject(parsed.body);
-  if (!body) return jsonError(400, 'bad_request', 'Body must be a JSON object.');
+  if (!body) return jsonError(400, API_ERROR.badRequest, 'Body must be a JSON object.');
   const email = cleanEmail(body.email);
   if (!email.ok) return fieldError('email', email.message);
 
@@ -784,24 +730,22 @@ async function readToken(request: Request): Promise<TokenBody> {
   return { tokenHash: await sha256hex(token) };
 }
 
-type TokenProblem = 'token_invalid' | 'token_used' | 'token_expired';
-
 /** Why a token can't be used, or null when it can. */
 function tokenProblem(row: TokenRow | null, now: string): TokenProblem | null {
-  if (!row) return 'token_invalid';
-  if (row.used_at !== null) return 'token_used';
-  if (row.expires_at <= now) return 'token_expired';
+  if (!row) return API_ERROR.tokenInvalid;
+  if (row.used_at !== null) return API_ERROR.tokenUsed;
+  if (row.expires_at <= now) return API_ERROR.tokenExpired;
   return null;
 }
 
 /** Unknown → 404; already used or expired → 410. */
 function tokenError(problem: TokenProblem): Response {
   switch (problem) {
-    case 'token_invalid':
+    case API_ERROR.tokenInvalid:
       return jsonError(404, problem, "That recovery link isn't valid. Check you copied all of it, or ask for a new one.");
-    case 'token_used':
+    case API_ERROR.tokenUsed:
       return jsonError(410, problem, 'That recovery link has already been used. Ask for a new one.');
-    case 'token_expired':
+    case API_ERROR.tokenExpired:
       return jsonError(410, problem, 'That recovery link has expired. Ask for a new one.');
   }
 }
@@ -818,7 +762,7 @@ async function lookupRecoveryToken(request: Request, env: Env): Promise<Response
      WHERE t.token_hash = ?`
   ).bind(t.tokenHash).first<TokenRow & Pick<ArmsRow, 'display_name' | 'design' | 'field_shape' | 'blazon' | 'registry_id'> & { registry_name: string }>();
   const problem = tokenProblem(row, now);
-  if (problem || !row) return tokenError(problem ?? 'token_invalid');
+  if (problem || !row) return tokenError(problem ?? API_ERROR.tokenInvalid);
   return json(200, {
     entry: {
       id: row.arms_id,
@@ -847,7 +791,7 @@ async function useToken(request: Request, env: Env): Promise<Redeemed> {
     .bind(t.tokenHash)
     .first<TokenRow>();
   // The UPDATE only misses a missing, used or expired token, so there is always a problem to report.
-  return { error: tokenError(tokenProblem(row, now) ?? 'token_used') };
+  return { error: tokenError(tokenProblem(row, now) ?? API_ERROR.tokenUsed) };
 }
 
 /**
@@ -867,7 +811,7 @@ async function redeemRecoveryToken(request: Request, env: Env): Promise<Response
     env.DB.prepare(`UPDATE owner_tokens SET used_at = ? WHERE arms_id = ? AND used_at IS NULL`).bind(now, r.armsId),
   ]);
   const row = (rotated.results as Array<Pick<ArmsRow, 'id' | 'display_name' | 'blazon' | 'rev' | 'registry_id'> & { registry_name: string }>)[0];
-  if (!row) return jsonError(404, 'not_found', 'No arms with that id.');
+  if (!row) return jsonError(404, API_ERROR.notFound, 'No arms with that id.');
   return json(200, {
     id: row.id,
     editSecret,
@@ -948,12 +892,8 @@ function parseStoredDesign(raw: string): NormDesign | null {
   }
 }
 
-function asObject(v: unknown): Record<string, unknown> | null {
-  return v != null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-}
-
 function fieldError(field: string, message: string): Response {
-  return json(400, { error: 'bad_request', message, field });
+  return json(400, { error: API_ERROR.badRequest, message, field });
 }
 
 type ParseResult = { body: unknown } | { error: Response };
@@ -961,7 +901,7 @@ type ParseResult = { body: unknown } | { error: Response };
 async function parseBody(request: Request): Promise<ParseResult> {
   const ct = request.headers.get('Content-Type') ?? '';
   if (!ct.includes('application/json')) {
-    return { error: jsonError(400, 'bad_request', 'Expected application/json body.') };
+    return { error: jsonError(400, API_ERROR.badRequest, 'Expected application/json body.') };
   }
   const declared = Number(request.headers.get('Content-Length'));
   if (declared > MAX_BODY_BYTES) return { error: bodyTooLarge() };
@@ -970,12 +910,12 @@ async function parseBody(request: Request): Promise<ParseResult> {
   try {
     return { body: JSON.parse(text) };
   } catch {
-    return { error: jsonError(400, 'bad_request', 'Body is not valid JSON.') };
+    return { error: jsonError(400, API_ERROR.badRequest, 'Body is not valid JSON.') };
   }
 }
 
 function bodyTooLarge(): Response {
-  return jsonError(413, 'payload_too_large', `Request body must be at most ${MAX_BODY_BYTES} bytes.`);
+  return jsonError(413, API_ERROR.payloadTooLarge, `Request body must be at most ${MAX_BODY_BYTES} bytes.`);
 }
 
 /** The body as text, or null once it passes `limit` bytes (a missing or false Content-Length can't dodge the cap). */
@@ -1062,10 +1002,10 @@ function json(status: number, body: unknown, extraHeaders?: Record<string, strin
   });
 }
 
-function jsonError(status: number, code: string, message: string): Response {
+function jsonError(status: number, code: ApiErrorCode, message: string): Response {
   return json(status, { error: code, message });
 }
 
 function methodNotAllowed(allow: string): Response {
-  return json(405, { error: 'method_not_allowed', message: `Allowed: ${allow}.` }, { Allow: allow });
+  return json(405, { error: API_ERROR.methodNotAllowed, message: `Allowed: ${allow}.` }, { Allow: allow });
 }

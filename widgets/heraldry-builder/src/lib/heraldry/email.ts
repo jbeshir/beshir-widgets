@@ -10,9 +10,9 @@ export const EMAIL_MAX = 254;
 // One @, a local part with no spaces or controls, and a dotted domain whose labels are non-empty.
 const EMAIL_PATTERN = /^[^\s@\p{Cc}]{1,64}@[^\s@.\p{Cc}]+(?:\.[^\s@.\p{Cc}]+)+$/u;
 
-export type EmailResult = { ok: true; value: string } | { ok: false; message: string };
+type EmailResult = { ok: true; value: string } | { ok: false; message: string };
 
-export function normaliseEmail(raw: string): string {
+function normaliseEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
@@ -26,3 +26,7 @@ export function cleanEmail(raw: unknown): EmailResult {
 
 /** What happened to an email the Worker tried to send; `disabled` means sending isn't configured. */
 export type MailOutcome = 'sent' | 'failed' | 'disabled';
+
+export function isMailOutcome(value: unknown): value is MailOutcome {
+  return value === 'sent' || value === 'failed' || value === 'disabled';
+}

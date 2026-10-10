@@ -11,14 +11,8 @@ import {
 import { setDivision } from '../src/lib/builder';
 import sample from '../src/data/sample-registry.json';
 import { sampleSearchEntries, searchEntryOf } from './sample-search-entries';
+import { plain, nd, filters, searchParams } from './helpers';
 
-const plain = (tincture: string) => ({ kind: 'plain', tincture });
-
-function nd(input: unknown): NormDesign {
-  const r = resolve(input);
-  if (!r.ok) throw new Error(r.errors.map((e) => e.message).join('; '));
-  return r.design;
-}
 
 const valid = (input: unknown) => normalise(input).ok;
 const isColour = (t: Tincture) => TINCTURE_CLASS[t] === 'colour';
@@ -145,7 +139,7 @@ describe('celestine in words, signature and tags', () => {
     expect(deriveTags(field)).toEqual(expect.arrayContaining(['field-tincture:celestine', 'tincture:celestine']));
     expect(deriveTags(fess)).toContain('ordinary-tincture:celestine');
     expect(deriveTags(charges)).toContain('charge-tincture:celestine');
-    expect(filtersToTags({ tincture: 'celestine', chargeTincture: 'celestine' }))
+    expect(filtersToTags(filters({ tincture: 'celestine', chargeTincture: 'celestine' })))
       .toEqual({ ok: true, tags: ['tincture:celestine', 'charge-tincture:celestine'] });
   });
 
@@ -168,7 +162,7 @@ describe('search synonyms for celestine', () => {
   });
 
   const find = (q: string, extra: (typeof sampleSearchEntries)[number][] = []) => {
-    const parsed = parseSearchParams({ q });
+    const parsed = parseSearchParams(searchParams({ q }));
     if (!parsed.ok) throw new Error(parsed.message);
     return searchEntries([...sampleSearchEntries, ...extra], parsed.query).items.map((i) => i.id);
   };

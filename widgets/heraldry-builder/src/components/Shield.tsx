@@ -6,7 +6,7 @@
 // would swallow a bordure). Charges get a lighter outline, and
 // none at all when they render small enough for it to swallow them.
 //
-// Optional Petra Sancta hatching (FINDINGS §4.8) overlays each tincture's line pattern so the arms
+// Optional Petra Sancta hatching overlays each tincture's line pattern so the arms
 // read without colour. On charges the pattern's pitch follows the charge's size and a solid band of
 // the tincture is kept along the charge's edge, so small charges keep their silhouette.
 // Counterchanged charges are painted per slot: each part of a charge is clipped to the partition

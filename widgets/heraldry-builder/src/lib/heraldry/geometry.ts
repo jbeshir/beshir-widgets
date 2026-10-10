@@ -1,4 +1,4 @@
-// Shield geometry (FINDINGS §4.1): the outline of every field shape in one shared viewBox
+// Shield geometry: the outline of every field shape in one shared viewBox
 // (0 0 100 120), partition-line regions, ordinary shapes and the charge slot tables the five-point
 // tincture probe relies on. All paths are SVG path strings; renderers clip everything to the shape's
 // outline.
@@ -20,18 +20,15 @@ import type { Tincture } from './tinctures';
 
 export const SHIELD_VIEWBOX = '0 0 100 120';
 
-export interface Point { x: number; y: number }
+interface Point { x: number; y: number }
 
 /** Heater shield: straight top and sides to y=60, then two curves meeting at the base point. */
 export const SHIELD_PATH = 'M0 0H100V60C100 92 76 110 50 120C24 110 0 92 0 60Z';
 /** The heater inset by 10 units — the inner edge of its bordure. */
-export const SHIELD_INSET_PATH = 'M10 10H90V60C90 86 70 102 50 110C30 102 10 86 10 60Z';
+const SHIELD_INSET_PATH = 'M10 10H90V60C90 86 70 102 50 110C30 102 10 86 10 60Z';
 
 /** The layout every verdict is computed on. */
-export const CANONICAL_SHAPE: FieldShape = 'heater';
-
-/** Charge artwork viewBox (FINDINGS §5.3). */
-export const CHARGE_VIEWBOX = '0 0 100 100';
+const CANONICAL_SHAPE: FieldShape = 'heater';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const pts = (p: Array<[number, number]>) => `M${p.map(([x, y]) => `${r2(x)} ${r2(y)}`).join('L')}Z`;
@@ -87,8 +84,8 @@ const SHAPE_FRAME: Record<FieldShape, ShapeFrame> = {
 
 // ── Field partitions ────────────────────────────────────────────────────────
 
-/** Which field tincture lies at (x,y) in the canonical layout — §4.3 rules; points exactly on a line count as t2. */
-export function fieldTinctureAt(field: Field, x: number, y: number): Tincture {
+/** Which field tincture lies at (x,y) in the canonical layout; points exactly on a line count as t2. */
+function fieldTinctureAt(field: Field, x: number, y: number): Tincture {
   if (field.kind === 'plain') return field.tincture;
   const [t1, t2] = field.tinctures;
   return inFirstPart(field.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? t1 : t2;
@@ -206,7 +203,7 @@ export function drawnBox(slot: Slot, charge: ChargeId): Slot {
 const S = (size: number, ...xy: Array<readonly [number, number]>): Slot[] => xy.map(([x, y]) => ({ x, y, size }));
 
 /** placement 'field' with no ordinary (also scaled for a bordure). Key `${count}:${arrangement}`. */
-export const FIELD_SLOTS: Record<string, Slot[]> = {
+const FIELD_SLOTS: Record<string, Slot[]> = {
   '1:single': S(90, [50, 54]),
   '2:in-pale': S(48, [50, 29], [50, 81]),
   '2:in-fess': S(48, [27, 52], [73, 52]),
@@ -225,7 +222,7 @@ export const FIELD_SLOTS: Record<string, Slot[]> = {
 };
 
 /** placement 'field' under a chief. */
-export const UNDER_CHIEF_SLOTS: Record<string, Slot[]> = {
+const UNDER_CHIEF_SLOTS: Record<string, Slot[]> = {
   '1:single': S(62, [50, 70]),
   '2:in-fess': S(42, [27, 67], [73, 67]),
   '3:two-and-one': S(35, [27, 53], [73, 53], [50, 89]),
@@ -256,7 +253,7 @@ function withinBordure(slots: Slot[]): Slot[] {
   }));
 }
 
-/** Positions along an ordinary's axis: 1 centred, 2 at ±15, 3 at 0 and ±28 (§4.1). */
+/** Positions along an ordinary's axis: 1 centred, 2 at ±15, 3 at 0 and ±28. */
 function alongAxis(cx: number, cy: number, dx: number, dy: number, count: number, size: number): Slot[] {
   const offsets = count === 1 ? [0] : count === 2 ? [-15, 15] : count === 3 ? [-28, 0, 28] : [];
   return offsets.map((o) => ({ x: r2(cx + o * dx), y: r2(cy + o * dy), size }));
@@ -266,7 +263,7 @@ const DIAG = Math.SQRT1_2;
 const CHEVRON_MID = 40 + CHEVRON_THICK / 2; // centre line of the heater's chevron at its apex
 
 /** Heater slots for charges ON an ordinary (upright, never turned bendwise in v1). */
-export function onOrdinarySlots(type: OrdinaryType, count: Count): Slot[] {
+function onOrdinarySlots(type: OrdinaryType, count: Count): Slot[] {
   switch (type) {
     case 'fess': return alongAxis(50, 50, 1, 0, count, 27);
     case 'pale': return alongAxis(50, 50, 0, 1, count, 27);
@@ -313,7 +310,7 @@ function fromRows(rows: Record<SlotContext, Record<string, SlotRow>>): SlotTable
 // ── Layouts ─────────────────────────────────────────────────────────────────
 
 /** Everything needed to draw a design in one shape. */
-export interface ShapeLayout {
+interface ShapeLayout {
   outline: string;
   /** Inner edge of the bordure. */
   inset: string;
@@ -371,7 +368,7 @@ export function shapedChargeSlots(nd: NormDesign, shape: FieldShape): Slot[] {
   return c ? slotsFor(nd.ordinary, c.placement, c.count, c.arrangement, shape) : [];
 }
 
-/** The five probe points of a slot (§4.3): centre and ±0.3·size horizontally/vertically. */
+/** The five probe points of a slot: centre and ±0.3·size horizontally/vertically. */
 export function probePoints(slot: Slot): Array<[number, number]> {
   const p = 0.3 * slot.size;
   return [[slot.x, slot.y], [slot.x - p, slot.y], [slot.x + p, slot.y], [slot.x, slot.y - p], [slot.x, slot.y + p]];
@@ -396,7 +393,7 @@ export function slotColumn(slot: Slot): 'left' | 'centre' | 'right' {
 // ── Counterchanged charges ──────────────────────────────────────────────────
 
 /** One part of a counterchanged charge: a partition region it overlaps, filled with the field's other tincture. */
-export interface CounterchangedPart { region: 0 | 1; d: string; tincture: Tincture }
+interface CounterchangedPart { region: 0 | 1; d: string; tincture: Tincture }
 
 /** Grid steps across a drawn box when finding the regions it overlaps (corners and edges included). */
 const PART_GRID = 8;
