@@ -110,7 +110,6 @@ export type CheckResult = CheckResponse & { sample: boolean };
 export interface Registered {
   id: string;
   editSecret: string;
-  registry: RegistryRef;
   rev: number;
   blazon: string;
   signature: string;
@@ -145,7 +144,6 @@ export interface RecoveryEntry {
 export interface Recovered {
   id: string;
   editSecret: string;
-  registry: RegistryRef;
   displayName: string;
   blazon: string;
 }
@@ -510,7 +508,7 @@ export async function register(input: RegisterInput): Promise<Result<{ created: 
     return badResponse();
   }
   const created: Registered = {
-    id: o.id, editSecret: o.editSecret, registry, rev: o.rev, blazon: o.blazon, signature: o.signature, editLinkEmail: o.editLinkEmail,
+    id: o.id, editSecret: o.editSecret, rev: o.rev, blazon: o.blazon, signature: o.signature, editLinkEmail: o.editLinkEmail,
   };
   rememberDeviceArms({
     id: created.id,
@@ -651,7 +649,7 @@ export async function redeemRecovery(token: string, shield: ShapedDesign): Promi
   if (!o || !registry || typeof o.id !== 'string' || typeof o.editSecret !== 'string' || typeof o.displayName !== 'string' || typeof o.blazon !== 'string') {
     return badResponse();
   }
-  const recovered: Recovered = { id: o.id, editSecret: o.editSecret, registry, displayName: o.displayName, blazon: o.blazon };
+  const recovered: Recovered = { id: o.id, editSecret: o.editSecret, displayName: o.displayName, blazon: o.blazon };
   rememberDeviceArms({
     id: recovered.id, registry: registry.id, displayName: recovered.displayName, blazon: recovered.blazon, shield, secret: recovered.editSecret,
   });

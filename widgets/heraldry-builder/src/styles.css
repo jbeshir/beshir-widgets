@@ -1830,9 +1830,7 @@ a.button-secondary {
     min-height: 0;
     box-shadow: none;
     border-radius: 0;
-    break-after: page;
   }
-  .print-page:last-child { break-after: auto; }
 }
 
 /* ── Onboarding: welcome strip, examples ── */

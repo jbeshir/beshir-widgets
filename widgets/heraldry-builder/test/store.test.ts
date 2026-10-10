@@ -325,7 +325,7 @@ describe('store device storage (drafts and Your arms)', () => {
     vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:device-arms:v1': JSON.stringify(old) }));
     const spy = goOnline(async () => jsonResponse(200, { id: 'r1', editSecret: 'new-secret', registry: { id: 'default', name: 'D' }, displayName: 'N', blazon: 'Vert, a cross Or', rev: 4 }));
     const r = await store.redeemRecovery('tok', { design: store.offlineSample().entries[0].design, shape: 'round' });
-    expect(r.ok && r.recovered).toEqual({ id: 'r1', editSecret: 'new-secret', registry: { id: 'default', name: 'D' }, displayName: 'N', blazon: 'Vert, a cross Or' });
+    expect(r.ok && r.recovered).toEqual({ id: 'r1', editSecret: 'new-secret', displayName: 'N', blazon: 'Vert, a cross Or' });
     expect(spy.mock.calls[0][0]).toBe('/api/recover/redeem');
     const [saved] = store.deviceArms();
     expect(saved).toMatchObject({ id: 'r1', secret: 'new-secret', displayName: 'N', shield: { design: store.offlineSample().entries[0].design, shape: 'round' } });
