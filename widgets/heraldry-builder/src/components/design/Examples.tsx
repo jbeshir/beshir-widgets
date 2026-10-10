@@ -1,5 +1,5 @@
 // Example arms in a small box that folds away (open on a device's first visit, folded after), with
-// "Surprise me" beside it and always in view. Each example loads into the builder; its caption is
+// "Surprise me" in its top corner, outside the fold so it is always in view. Each example loads into the builder; its caption is
 // its accessible name and tooltip.
 
 import type { ShapedDesign } from '../../lib/heraldry';
