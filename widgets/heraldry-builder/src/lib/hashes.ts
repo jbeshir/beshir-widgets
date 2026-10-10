@@ -4,8 +4,7 @@
 //   #/a/<id>            → public entry view
 //   #/recover           → "Lost your link?" request form
 //   #/recover/<token>   → redeem an emailed recovery token
-//   #/print             → nametag sheet of every entry remembered on this device
-//   #/print/<id>,<id>   → nametag sheet of those entries
+//   #/print/<id>        → printable nametag sheet of that entry
 
 export function ownerHash(id: string, secret: string): string {
   return `#/a/${encodeURIComponent(id)}/${encodeURIComponent(secret)}`;
@@ -21,9 +20,6 @@ export function recoverTokenHash(token: string): string {
   return `${RECOVER_HASH}/${encodeURIComponent(token)}`;
 }
 
-const PRINT_HASH = '#/print';
-
-/** The nametag sheet of these entries; with none, of every entry remembered on this device. */
-export function printHash(ids: readonly string[]): string {
-  return ids.length ? `${PRINT_HASH}/${ids.map(encodeURIComponent).join(',')}` : PRINT_HASH;
+export function printHash(id: string): string {
+  return `#/print/${encodeURIComponent(id)}`;
 }

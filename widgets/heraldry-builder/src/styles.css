@@ -1690,7 +1690,7 @@ html.overlay-open, html.overlay-open body { overflow: hidden; overscroll-behavio
 
 /* "Lost your link? / Withdraw my registration" entry points and screens. */
 .header-recover { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; }
-.entry-recover { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; align-self: flex-start; }
+.entry-recover, .entry-print { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; align-self: flex-start; }
 .contact-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .recover-view .register-form { max-width: 480px; }
 .recover-actions { justify-content: flex-start; }
@@ -1711,10 +1711,6 @@ a.button-secondary {
 .save-picture-label { font-size: 15px; font-weight: 600; color: var(--fg-secondary); }
 .save-picture-status { flex: 1 1 100%; font-size: 15px; color: var(--fg-secondary); overflow-wrap: anywhere; }
 .entry-actions { align-items: center; }
-.yours-print { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 12px; }
-.yours-print-hint { font-size: 15px; }
-.yours-pick { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; margin: -8px -6px -8px -10px; cursor: pointer; }
-.yours-pick input { width: 22px; height: 22px; accent-color: var(--accent-fill); cursor: pointer; }
 
 /* ── Nametag sheet ──
    The paper is always light: its colours are fixed here, not taken from the theme. */
@@ -1733,7 +1729,7 @@ a.button-secondary {
 }
 .print-toolbar h1 { margin: 0; font-size: 22px; flex: 1 1 100%; }
 .print-toolbar h1:focus, .print-toolbar h1:focus-visible { outline: none; }
-.print-count, .print-missing { margin: 0; flex: 1 1 100%; font-size: 16px; color: var(--fg-secondary); }
+.print-count { margin: 0; flex: 1 1 100%; font-size: 16px; color: var(--fg-secondary); }
 .print-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .print-copies { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; margin: 0; padding: 0; border: 0; flex: 1 1 100%; }
 .print-copies legend { float: left; margin-right: 4px; padding: 0; font-weight: 700; font-size: 16px; }

@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { API_ERROR, DEFAULT_FIELD_SHAPE, DISCORD_MAX, DISPLAY_NAME_MAX, cleanDiscord, type FieldShape } from '../../lib/heraldry';
-import { RECOVER_HASH, editUrl, printHash, shareUrl } from '../../lib/route';
+import { RECOVER_HASH, editUrl, shareUrl } from '../../lib/route';
 import { useFocusOnChange } from '../../lib/useFocusOnChange';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
@@ -209,9 +209,6 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
               {message?.kind === 'ok' && <p class="owner-message owner-message-ok">{message.text}</p>}
             </div>
           </form>
-          <div class="dialog-actions entry-actions">
-            <a class="button-secondary" href={printHash([id])} data-testid="print-nametag">Print nametag</a>
-          </div>
           <SavePicture design={load.entry.design} shape={shape} hatching={hatching} displayName={name} />
           <CopyField label="Share link (public)" value={shareUrl(id)} testid="owner-share-link" buttonLabel="Copy share link" emphasis="secondary" />
           <SecretLinkField value={editUrl(id, secret)} testid="owner-edit-link" />

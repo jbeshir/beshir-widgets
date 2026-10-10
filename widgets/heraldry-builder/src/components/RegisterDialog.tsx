@@ -8,7 +8,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { API_ERROR, DISCORD_MAX, DISPLAY_NAME_MAX, EMAIL_MAX, blazon, cleanDiscord, cleanDisplayName, cleanEmail, type FieldShape, type MailOutcome, type NormDesign, type TakenReport } from '../lib/heraldry';
 import { useMedia } from '../lib/useCompact';
-import { editUrl, printHash, registryParam, shareUrl } from '../lib/route';
+import { editUrl, registryParam, shareUrl } from '../lib/route';
 import * as store from '../store';
 import { TakenPanel } from './Availability';
 import { CopyField, SecretLinkField } from './CopyField';
@@ -123,7 +123,6 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
         initialFocus="title"
         footer={
           <div class="dialog-actions">
-            <a class="button-secondary" href={printHash([registered.id])} data-testid="print-nametag">Print nametag</a>
             <button type="button" class="button-secondary" data-testid="register-done" onClick={onClose}>Done</button>
           </div>
         }

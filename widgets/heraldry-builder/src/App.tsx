@@ -25,7 +25,7 @@ const ANNOUNCE_DEBOUNCE_MS = 700;
 
 export function App() {
   const route = useRoute();
-  const [tab, setTab] = useState<Tab>(route.mode === 'builder' ? 'design' : 'registry');
+  const [tab, setTab] = useState<Tab>(route.mode === 'builder' ? 'design' : route.mode === 'yours' ? 'yours' : 'registry');
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set([tab]));
   const [ready, setReady] = useState(false);
 
@@ -78,9 +78,11 @@ export function App() {
     else document.getElementById(`tab-${tab}`)?.focus();
   }, [printing]);
 
-  // An entry, owner or recovery link opens the registry tab (it shows that page in place of the list).
+  // An entry, owner or recovery link opens the registry tab (it shows that page in place of the list);
+  // #/print without an entry opens Your arms.
   useEffect(() => {
-    if (route.mode !== 'builder' && route.mode !== 'print') selectTab('registry');
+    if (route.mode === 'yours') selectTab('yours');
+    else if (route.mode !== 'builder' && route.mode !== 'print') selectTab('registry');
   }, [route]);
 
   const selectTab = useCallback((t: Tab) => {
@@ -319,7 +321,7 @@ export function App() {
       )}
       {ready && <div id="widget-ready" style={{ display: 'none' }} aria-hidden="true" />}
     </main>
-    {route.mode === 'print' && <PrintView ids={route.ids} hatching={hatching} onBack={() => { location.hash = backHash.current; }} />}
+    {route.mode === 'print' && <PrintView id={route.id} hatching={hatching} onBack={() => { location.hash = backHash.current; }} />}
     </>
   );
 }
