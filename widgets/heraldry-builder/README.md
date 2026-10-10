@@ -98,7 +98,7 @@ colours on metals.
 **Celestine** is a cyan treated as a metal: the one new tincture proposed for modern heraldry,
 named after its single historical example. Celestine on any colour is fine; on Or, Argent or
 Celestine it is metal on metal. The tincture picker lists it with the metals, labels it
-"Non-standard" (also in its accessible name) and shows the explanation while it is selected. Its
+"Non-standard" on its swatch and in its accessible name. Its
 fill is a mid cyan, far lighter than Azure and clearly coloured against Argent (CIEDE2000 34.5
 and 28.7), identical in both themes like every fill. Its signature code is `ce`.
 

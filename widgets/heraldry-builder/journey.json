@@ -84,9 +84,9 @@
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=swatch-ordinary-celestine]"},
-        {"waitFor":"[data-testid=tincture-note-ordinary-celestine]"}
+        {"waitFor":"[data-testid=swatch-ordinary-celestine] [role=radio][aria-checked=true]"}
       ],
-      "expect": {"selector":"[data-testid=tincture-note-ordinary-celestine]"}
+      "expect": {"selector":"[data-testid=swatch-ordinary-celestine] [role=radio][aria-checked=true]"}
     },
     {
       "label": "counterchanged-design",

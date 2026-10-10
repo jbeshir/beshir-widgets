@@ -1,13 +1,12 @@
 // Radio group of the tinctures, metals and colours grouped. Choices that would break the
 // rule of tincture (or a divided field's "two different tinctures") stay visible but blocked:
 // lock glyph + strike, aria-disabled, data-blocked; activating one opens the explainer instead.
-// A non-standard tincture (celestine) says so on its swatch and in its accessible name; its note
-// describes the swatch and is shown under the metals while it is selected. The charge picker also
-// offers "counterchanged" on a divided field, in a group of its own after the colours.
+// A non-standard tincture (celestine) says so on its swatch and in its accessible name. The charge
+// picker also offers "counterchanged" on a divided field, in a group of its own after the colours.
 
 import { useRef } from 'preact/hooks';
 import {
-  CHARGE_TINCTURES, COLOURS, METALS, NON_STANDARD_NOTE, TINCTURE_FILL, TINCTURE_LABEL, plainFirst,
+  CHARGE_TINCTURES, COLOURS, METALS, NON_STANDARD_TINCTURES, TINCTURE_FILL, TINCTURE_LABEL, plainFirst,
   type ChargeTincture, type Choice,
 } from '../../lib/heraldry';
 import { LockGlyph, useExplainer } from './Explainer';
@@ -52,19 +51,8 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
   const offered = (ts: readonly ChargeTincture[]) => ts.filter((t): t is T => byValue.has(t));
   const legendId = `tl-${group}`;
   const anyBlocked = choices.some((c) => !c.allowed);
-  const noteId = (t: ChargeTincture) => `note-${group}-${t}`;
-  const noteOf = (t: ChargeTincture) => (t === 'counterchanged' ? null : NON_STANDARD_NOTE[t]);
+  const isNonStandard = (t: ChargeTincture) => t !== 'counterchanged' && NON_STANDARD_TINCTURES.has(t);
   const nameOf = (t: ChargeTincture) => TINCTURE_LABEL[t].plain;
-  // Always rendered so the swatch's description resolves; visible only while that tincture is selected.
-  const notes = order.flatMap((t) => {
-    const note = noteOf(t);
-    if (!note) return [];
-    return [
-      <p key={t} id={noteId(t)} class={t === value ? 'tincture-note' : 'sr-only'} data-testid={`tincture-note-${group}-${t}`}>
-        <span class="tincture-note-flag">Non-standard</span> {note}
-      </p>,
-    ];
-  });
 
   const activate = (t: T, el: HTMLElement) => {
     const c = byValue.get(t);
@@ -104,8 +92,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
     // A checked swatch that is also blocked is the cause of a violation, not a disabled option.
     const conflicts = blocked && checked;
     const whyId = `why-${group}-${t}`;
-    const note = noteOf(t);
-    const describedBy = [blocked ? whyId : null, note ? noteId(t) : null].filter(Boolean).join(' ');
+    const nonStandard = isNonStandard(t);
     // The testid sits on a role-less wrapper box: test drivers (Playwright) refuse to click an
     // aria-disabled control, but a blocked swatch must stay clickable so it can explain itself.
     return (
@@ -117,8 +104,8 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
         class={`swatch${checked ? ' is-checked' : ''}${blocked ? ' is-blocked' : ''}`}
         aria-checked={checked ? 'true' : 'false'}
         aria-disabled={blocked && !checked ? 'true' : undefined}
-        aria-label={`${nameOf(t)} (${TINCTURE_LABEL[t].term})${note ? ', non-standard' : ''}${conflicts ? ', selected, conflicts with the design' : blocked ? ', not allowed here' : ''}`}
-        aria-describedby={describedBy || undefined}
+        aria-label={`${nameOf(t)} (${TINCTURE_LABEL[t].term})${nonStandard ? ', non-standard' : ''}${conflicts ? ', selected, conflicts with the design' : blocked ? ', not allowed here' : ''}`}
+        aria-describedby={blocked ? whyId : undefined}
         data-blocked={blocked ? 'true' : undefined}
         data-tincture={t}
         tabIndex={checked ? 0 : -1}
@@ -131,7 +118,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
         <span class="swatch-text" aria-hidden="true">
           <span class="swatch-name">{nameOf(t)}</span>
           <span class="swatch-word">{TINCTURE_LABEL[t].term}</span>
-          {note && <span class="swatch-flag">Non-standard</span>}
+          {nonStandard && <span class="swatch-flag">Non-standard</span>}
         </span>
       </button>
       {c && !c.allowed && <span class="sr-only" id={whyId}>{c.reason}</span>}
@@ -151,9 +138,6 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
         <div class="swatch-group">
           <span class="swatch-group-label" aria-hidden="true">Metals</span>
           <div class="swatch-row">{offered(METALS).map(swatch)}</div>
-          {offered(METALS).some((t) => noteOf(t)) && (
-            <p class="swatch-group-hint" data-testid="non-standard-hint">Non-standard means a newer tincture that traditional heraldry does not have. It is treated as a metal.</p>
-          )}
         </div>
         <div class="swatch-group swatch-group-colours">
           <span class="swatch-group-label" aria-hidden="true">Colours</span>
@@ -166,7 +150,6 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
           </div>
         )}
       </div>
-      {notes}
       {value === 'counterchanged' && <p class="tincture-note" data-testid={`tincture-note-${group}-counterchanged`}>{COUNTERCHANGED_NOTE}</p>}
       {explainer}
     </div>

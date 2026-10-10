@@ -1005,17 +1005,13 @@ button, input, select, textarea {
   color: var(--fg-secondary);
 }
 
-/* Shown under the picker while a non-standard tincture is selected. */
+/* Shown under the picker while counterchanged is selected. */
 .tincture-note {
   margin: 8px 0 0;
   max-width: 60ch;
   font-size: 14px;
   line-height: 1.4;
   color: var(--fg-secondary);
-}
-.tincture-note-flag {
-  font-weight: 700;
-  font-style: italic;
 }
 
 .builder-footer {
@@ -1959,7 +1955,7 @@ a.button-secondary {
   .icon-choice.charge-choice { min-height: 48px; }
 }
 
-/* ── Register bar (single-column layouts), swatch hint, form controls ── */
+/* ── Register bar (single-column layouts), form controls ── */
 
 .register-bar {
   position: sticky;
@@ -1983,8 +1979,6 @@ a.button-secondary {
 }
 /* Nothing focused or scrolled to in the builder may end up under the Register bar. */
 .design-layout :is(a, button, input, select, textarea, summary, [tabindex]) { scroll-margin-bottom: 88px; }
-
-.swatch-group-hint { margin: 4px 0 0; font-size: 14px; color: var(--fg-secondary); }
 
 ::placeholder { color: var(--muted); opacity: 1; }
 
