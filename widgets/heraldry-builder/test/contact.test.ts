@@ -53,7 +53,7 @@ describe('cleanContact', () => {
 
 describe('cleanEmail', () => {
   it('trims and lowercases the whole address, and nothing more', () => {
-    expect(cleanEmail('  Alex.Smith+Party@Example.COM ')).toEqual({ ok: true, value: 'alex.smith+party@example.com' });
+    expect(cleanEmail('  Alex.Smith+Arms@Example.COM ')).toEqual({ ok: true, value: 'alex.smith+arms@example.com' });
     expect(cleanEmail('a@b.co')).toEqual({ ok: true, value: 'a@b.co' });
   });
 

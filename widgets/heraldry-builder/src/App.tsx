@@ -35,6 +35,8 @@ export function App() {
   const report = useMemo(() => assess(design), [design]);
   const [hatching, setHatching] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(() => !store.welcomeDismissed());
+  // The examples box is open on this device's first visit to the Design tab, folded on later ones.
+  const [examplesOpen] = useState(() => !store.examplesSeen());
 
   const [check, setCheck] = useState<{ design: NormDesign; outcome: CheckOutcome } | null>(null);
   const [checking, setChecking] = useState(false);
@@ -122,14 +124,14 @@ export function App() {
     announce(`Restored your design: ${blazon(replaced.previous.design)}`);
   };
 
-  // A starting design replaces the builder's design; focus goes to the preview so the change is seen and heard.
-  const startFrom = ({ design: nd, shape: s }: ShapedDesign, caption: string) => {
+  // An example or a surprise design replaces the builder's design; focus goes to the preview so the change is seen and heard.
+  const applyDesign = ({ design: nd, shape: s }: ShapedDesign, caption: string) => {
     setReplaced(replaceDesign({ design, shape }, { design: nd, shape: s }));
     setDesign(nd);
     setShape(s);
     setCheck(null);
     focusPreview.current = true;
-    announce(`Started from "${caption}": ${blazon(nd)}`);
+    announce(`Loaded ${caption}: ${blazon(nd)}`);
   };
 
   // A count or placement that brought its partner along: applied, with the note and Undo under the controls.
@@ -142,6 +144,10 @@ export function App() {
     store.dismissWelcome();
     setWelcomeOpen(false);
   };
+
+  useEffect(() => {
+    if (tab === 'design') store.markExamplesSeen();
+  }, [tab]);
 
   const announceWhenInteractive = (m: string, tries = 20) => {
     const app = document.getElementById('app');
@@ -243,7 +249,7 @@ export function App() {
       <section class="card">
         <header class="card-header">
           <h1>Heraldry Builder</h1>
-          <p class="hint">Design a personal coat of arms for your nametag, then register it so nobody else at the event has the same one.</p>
+          <p class="hint">Design a personal coat of arms for your nametag, then register it so nobody else in the registry has the same one.</p>
           <a class="text-link header-recover" href={RECOVER_HASH} data-testid="header-recover-link">Lost your link? / Withdraw my registration</a>
         </header>
 
@@ -278,8 +284,9 @@ export function App() {
             adjusted={(onFix) => <ReplacedNotice replacement={replaced} kind="adjusted" onUndo={undoReplace} onFix={onFix} />}
             onShape={setShape}
             onStartOver={startOver}
-            onStartFrom={startFrom}
-            onSurprise={() => startFrom(surpriseDesign(Math.random), 'Surprise me')}
+            examplesOpen={examplesOpen}
+            onLoadExample={applyDesign}
+            onSurprise={() => applyDesign(surpriseDesign(Math.random), 'a surprise design')}
             onDismissWelcome={welcomeOpen ? dismissWelcome : null}
             hatching={hatching}
             onHatching={setHatching}

@@ -17,14 +17,8 @@ export const TINCTURE_CLASS: Record<Tincture, TinctureClass> = {
   or: 'metal', argent: 'metal', celestine: 'metal',
 };
 
-/**
- * Tinctures outside the traditional seven carry a note saying why they exist; they are labelled
- * "non-standard" wherever they are offered. null = a traditional tincture.
- */
-export const NON_STANDARD_NOTE: Record<Tincture, string | null> = {
-  or: null, argent: null, azure: null, gules: null, vert: null, sable: null, purpure: null,
-  celestine: 'Celestine — cyan treated as a metal — is the one new tincture proposed for modern heraldry, named after its single historical example.',
-};
+/** Tinctures outside the traditional seven; they are labelled "non-standard" wherever they are offered. */
+export const NON_STANDARD_TINCTURES: ReadonlySet<Tincture> = new Set<Tincture>(['celestine']);
 
 /** Short codes used in canonical signatures. Every code is distinct. */
 export const TINCTURE_CODE: Record<Tincture, string> = {

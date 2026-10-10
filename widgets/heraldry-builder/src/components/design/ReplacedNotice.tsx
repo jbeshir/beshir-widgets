@@ -1,4 +1,4 @@
-// A non-modal note shown after the builder changed more than was asked for — a starting design or
+// A non-modal note shown after the builder changed more than was asked for — an example or
 // "Surprise me" replaced work in progress, or a count or placement brought its partner along — with
 // a one-click way back. Each kind has its own spot (replaced: above the builder; adjusted: under the
 // picture controls); the status region is always mounted so assistive tech announces the note when

@@ -1,5 +1,5 @@
-// Starting designs for the Design tab's gallery: bold, rule-abiding and easy to spot, so a first-time
-// visitor has something good to start from. "Surprise me" picks another design of the same quality.
+// Example arms for the Design tab: bold, rule-abiding and easy to spot, showing what a good design
+// looks like. "Surprise me" picks another design of the same quality.
 
 import {
   CHARGE_IDS, FIELD_SHAPES, TINCTURES, chargeTinctureChoices, postureChoices, readability,
@@ -7,15 +7,15 @@ import {
 } from './heraldry';
 import { DEFAULT_DESIGN, assess, setCharge, setChargeTincture, setPosture } from './builder';
 
-interface StartingDesign extends ShapedDesign {
+interface ExampleDesign extends ShapedDesign {
   id: string;
-  /** Plain-words caption shown under the picture. */
+  /** Plain-words caption: the example's accessible name and tooltip. */
   caption: string;
 }
 
 const plain = (tincture: Tincture) => ({ kind: 'plain', tincture }) as const;
 
-export const STARTING_DESIGNS: readonly StartingDesign[] = [
+export const EXAMPLE_DESIGNS: readonly ExampleDesign[] = [
   {
     id: 'gold-lion-on-blue', caption: 'Gold lion on blue', shape: 'heater',
     design: { v: 1, field: plain('azure'), ordinary: null, charges: { charge: 'lion', count: 1, placement: 'field', arrangement: 'single', posture: 'rampant', tincture: 'or' } },
@@ -72,5 +72,5 @@ export function surpriseDesign(random: () => number): ShapedDesign {
     const design = postures.length > 1 ? setPosture(toned, pick(postures).value) : toned;
     if (assess(design).status === 'valid' && readability(design).band === 'bold') return { design, shape: pick(FIELD_SHAPES) };
   }
-  return { design: STARTING_DESIGNS[0].design, shape: STARTING_DESIGNS[0].shape };
+  return { design: EXAMPLE_DESIGNS[0].design, shape: EXAMPLE_DESIGNS[0].shape };
 }

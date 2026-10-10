@@ -1,4 +1,4 @@
-// Design tab: a welcome strip and starting designs on top, then the live preview + blazon + readability
+// Design tab: a welcome strip and the examples box on top, then the live preview + blazon + readability
 // on the left (sticky on wide screens; when the column is taller than the screen only the shield
 // sticks and the Register bar takes over) and the Background / Band or shape / Picture builder on the
 // right. Register is the main action; Check availability is a secondary one. Both are wired to
@@ -16,9 +16,9 @@ import { SavePicture } from '../SavePicture';
 import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
 import { ChargesStep, FieldStep, OrdinaryStep, type Accordion } from './BuilderSteps';
+import { Examples } from './Examples';
 import { ReadabilityMeter } from './ReadabilityMeter';
 import { ShapePicker } from './ShapePicker';
-import { StartingGallery } from './StartingGallery';
 import { ViolationPanel } from './ViolationPanel';
 import { WelcomeStrip } from './WelcomeStrip';
 
@@ -34,8 +34,10 @@ interface Props {
   adjusted: (onFix: (nd: NormDesign) => void) => ComponentChildren;
   onShape: (shape: FieldShape) => void;
   onStartOver: () => void;
-  /** Load a starting design; `caption` names it for the announcement. */
-  onStartFrom: (pick: ShapedDesign, caption: string) => void;
+  /** Whether the examples box starts open (a device's first visit). */
+  examplesOpen: boolean;
+  /** Load an example; `caption` names it for the announcement. */
+  onLoadExample: (pick: ShapedDesign, caption: string) => void;
   onSurprise: () => void;
   /** Dismiss the welcome strip; null once it has been dismissed. */
   onDismissWelcome: (() => void) | null;
@@ -177,11 +179,11 @@ export function DesignTab(p: Props) {
     p.onChange(nd);
     reveal('charges', nd.charges ? `#swatch-charge-${nd.charges.tincture}` : JUMP_SELECTOR.tincture);
   };
-  // The dismiss button disappears with the strip, so focus moves on to the starting designs.
+  // The dismiss button disappears with the strip, so focus moves on to the examples box.
   const welcomeShown = p.onDismissWelcome !== null;
   const welcomeWasShown = useRef(welcomeShown);
   useEffect(() => {
-    if (welcomeWasShown.current && !welcomeShown) document.querySelector<HTMLElement>('[data-testid=starting-gallery] button')?.focus();
+    if (welcomeWasShown.current && !welcomeShown) document.querySelector<HTMLElement>('[data-testid=examples-summary]')?.focus();
     welcomeWasShown.current = welcomeShown;
   }, [welcomeShown]);
   const layerIssues = (layer: 'field' | 'ordinary' | 'charges') => report.problems.filter((i) => i.layer === layer);
@@ -192,7 +194,7 @@ export function DesignTab(p: Props) {
   return (
     <>
     {p.onDismissWelcome && <WelcomeStrip onDismiss={p.onDismissWelcome} />}
-    <StartingGallery onPick={p.onStartFrom} onSurprise={p.onSurprise} />
+    <Examples defaultOpen={p.examplesOpen} onPick={p.onLoadExample} onSurprise={p.onSurprise} />
     <div class="design-layout" ref={layoutRef}>
       <MiniPreview
         design={design}

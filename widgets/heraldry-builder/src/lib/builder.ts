@@ -225,8 +225,8 @@ export function isUntouched(d: ShapedDesign): boolean {
 }
 
 /**
- * A design swapped in for another, and the one to bring back on Undo: replaced wholesale (a starting
- * design, Surprise me, a registry entry) or adjusted — a choice that changed something else too,
+ * A design swapped in for another, and the one to bring back on Undo: replaced wholesale (an
+ * example, Surprise me, a registry entry) or adjusted — a choice that changed something else too,
  * which `note` says.
  */
 export type Replacement =

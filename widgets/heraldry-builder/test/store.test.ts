@@ -113,6 +113,8 @@ describe('store (offline / file://)', () => {
   it('degrades silently without localStorage', () => {
     expect(store.welcomeDismissed()).toBe(false);
     store.dismissWelcome();
+    expect(store.examplesSeen()).toBe(true);
+    store.markExamplesSeen();
     expect(store.deviceArms()).toEqual([]);
     expect(store.loadDraft()).toBeNull();
     store.saveDraft({ design: { v: 1, field: { kind: 'plain', tincture: 'or' }, ordinary: null, charges: null }, shape: 'round' });
@@ -283,6 +285,13 @@ describe('store device storage (drafts and Your arms)', () => {
     expect(store.welcomeDismissed()).toBe(false);
     store.dismissWelcome();
     expect(store.welcomeDismissed()).toBe(true);
+  });
+
+  it('remembers that the examples box has been seen', () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    expect(store.examplesSeen()).toBe(false);
+    store.markExamplesSeen();
+    expect(store.examplesSeen()).toBe(true);
   });
 
   it('reads a draft saved before field shapes as a heater shield', () => {

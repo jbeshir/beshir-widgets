@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  COLOURS, METALS, NON_STANDARD_NOTE, TINCTURES, TINCTURE_CLASS, TINCTURE_CODE, TINCTURE_FILL, TINCTURE_HATCHING,
+  COLOURS, METALS, NON_STANDARD_TINCTURES, TINCTURES, TINCTURE_CLASS, TINCTURE_CODE, TINCTURE_FILL, TINCTURE_HATCHING,
   blazon, chargeTinctureChoices, contrastFailure, deriveTags, designTinctures, explainDifferences, filtersToTags, gloss,
   normalise, ordinaryTinctureChoices, parseSearchParams, readability, resolve, searchEntries, signature,
   queryWords, type NormDesign, type Tincture,
@@ -25,9 +25,7 @@ describe('celestine is a non-standard metal', () => {
     expect(METALS).toEqual(['or', 'argent', 'celestine']);
     expect(TINCTURES).toHaveLength(8);
     expect(TINCTURE_CLASS.celestine).toBe('metal');
-    expect(TINCTURES.filter((t) => NON_STANDARD_NOTE[t] !== null)).toEqual(['celestine']);
-    expect(NON_STANDARD_NOTE.celestine).toMatch(/cyan treated as a metal/);
-    expect(NON_STANDARD_NOTE.celestine).toMatch(/new tincture proposed for modern heraldry/);
+    expect(TINCTURES.filter((t) => NON_STANDARD_TINCTURES.has(t))).toEqual(['celestine']);
   });
 
   it('has a fill no other tincture uses and a hatching pattern no other tincture uses', () => {

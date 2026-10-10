@@ -1,6 +1,7 @@
-// Plain-words-first labels for the builder, filters and explainer: everyday wording with the heraldic
-// term second ("Split down the middle · per pale"). The blazon keeps the heraldic names in
-// design.ts; these are display text only. Pure data — no DOM.
+// Everyday wording paired with the heraldic term, for the builder, filters and explainer. Most labels
+// lead with the everyday words ("Split down the middle · per pale"); the field and band tiles show
+// the term and keep the words for their tooltip. The blazon keeps the heraldic names in design.ts;
+// these are display text only. Pure data — no DOM.
 
 import type { Arrangement, Division, OrdinaryType } from './design';
 import { CHARGES, type ChargeId, type Posture } from './charges';

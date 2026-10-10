@@ -60,6 +60,8 @@ interface ChoiceProps {
   status?: OptionStatus;
   /** Accessible name (also used in the explainer title). */
   label: string;
+  /** Native hover tooltip. */
+  title?: string;
   kind?: ExplainKind;
   onSelect: () => void;
   onBlocked: (e: Explanation) => void;
@@ -67,7 +69,7 @@ interface ChoiceProps {
   children: ComponentChildren;
 }
 
-export function ChoiceButton({ testid, checked, status = OPEN, label, kind = 'structure', onSelect, onBlocked, class: cls, children }: ChoiceProps) {
+export function ChoiceButton({ testid, checked, status = OPEN, label, title, kind = 'structure', onSelect, onBlocked, class: cls, children }: ChoiceProps) {
   const blocked = status.kind === 'blocked';
   const described = status.kind === 'blocked' ? status.reason : status.kind === 'with-change' ? status.note : null;
   // testid on a role-less wrapper box so test drivers can click blocked (aria-disabled) options.
@@ -79,6 +81,7 @@ export function ChoiceButton({ testid, checked, status = OPEN, label, kind = 'st
       aria-checked={checked ? 'true' : 'false'}
       aria-disabled={blocked ? 'true' : undefined}
       aria-label={blocked ? `${label}, not available` : label}
+      title={title}
       aria-describedby={described ? `${testid}-why` : undefined}
       data-blocked={blocked ? 'true' : undefined}
       id={testid}

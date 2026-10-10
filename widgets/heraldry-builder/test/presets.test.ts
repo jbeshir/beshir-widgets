@@ -1,9 +1,9 @@
-// The starting designs: every one is a design the builder accepts, follows the rule of tincture, reads
+// The example designs: every one is a design the builder accepts, follows the rule of tincture, reads
 // at a glance and can be registered alongside the others. "Surprise me" repeats for a given seed.
 import { describe, it, expect } from 'vitest';
 import { areDistinct, normalise, readability, signature } from '../src/lib/heraldry';
 import { assess } from '../src/lib/builder';
-import { STARTING_DESIGNS, surpriseDesign } from '../src/lib/presets';
+import { EXAMPLE_DESIGNS, surpriseDesign } from '../src/lib/presets';
 
 function seeded(seed: number): () => number {
   let a = seed >>> 0;
@@ -16,15 +16,15 @@ function seeded(seed: number): () => number {
   };
 }
 
-describe('starting designs', () => {
+describe('example designs', () => {
   it('offers six to eight with distinct ids and captions', () => {
-    expect(STARTING_DESIGNS.length).toBeGreaterThanOrEqual(6);
-    expect(STARTING_DESIGNS.length).toBeLessThanOrEqual(8);
-    expect(new Set(STARTING_DESIGNS.map((p) => p.id)).size).toBe(STARTING_DESIGNS.length);
-    expect(new Set(STARTING_DESIGNS.map((p) => p.caption)).size).toBe(STARTING_DESIGNS.length);
+    expect(EXAMPLE_DESIGNS.length).toBeGreaterThanOrEqual(6);
+    expect(EXAMPLE_DESIGNS.length).toBeLessThanOrEqual(8);
+    expect(new Set(EXAMPLE_DESIGNS.map((p) => p.id)).size).toBe(EXAMPLE_DESIGNS.length);
+    expect(new Set(EXAMPLE_DESIGNS.map((p) => p.caption)).size).toBe(EXAMPLE_DESIGNS.length);
   });
 
-  it.each(STARTING_DESIGNS.map((p) => [p.id, p] as const))('%s resolves, follows the rules and is easy to spot', (_id, p) => {
+  it.each(EXAMPLE_DESIGNS.map((p) => [p.id, p] as const))('%s resolves, follows the rules and is easy to spot', (_id, p) => {
     const n = normalise(p.design);
     expect(n.ok).toBe(true);
     expect(n.ok && n.design).toEqual(p.design);
@@ -33,8 +33,8 @@ describe('starting designs', () => {
   });
 
   it('are pairwise distinct under the uniqueness rules', () => {
-    for (const [i, a] of STARTING_DESIGNS.entries()) {
-      for (const b of STARTING_DESIGNS.slice(i + 1)) {
+    for (const [i, a] of EXAMPLE_DESIGNS.entries()) {
+      for (const b of EXAMPLE_DESIGNS.slice(i + 1)) {
         expect(areDistinct(a.design, b.design), `${a.id} vs ${b.id}`).toBe(true);
         expect(signature(a.design)).not.toBe(signature(b.design));
       }
@@ -42,9 +42,9 @@ describe('starting designs', () => {
   });
 
   it('vary in shape, include a celestine and a counterchanged design', () => {
-    expect(new Set(STARTING_DESIGNS.map((p) => p.shape)).size).toBeGreaterThanOrEqual(3);
-    expect(STARTING_DESIGNS.some((p) => JSON.stringify(p.design).includes('"celestine"'))).toBe(true);
-    expect(STARTING_DESIGNS.some((p) => p.design.charges?.tincture === 'counterchanged')).toBe(true);
+    expect(new Set(EXAMPLE_DESIGNS.map((p) => p.shape)).size).toBeGreaterThanOrEqual(3);
+    expect(EXAMPLE_DESIGNS.some((p) => JSON.stringify(p.design).includes('"celestine"'))).toBe(true);
+    expect(EXAMPLE_DESIGNS.some((p) => p.design.charges?.tincture === 'counterchanged')).toBe(true);
   });
 });
 

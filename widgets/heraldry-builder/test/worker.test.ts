@@ -321,11 +321,11 @@ describe('POST /api/arms', () => {
   });
 
   it('scopes uniqueness per registry', async () => {
-    await addRegistry('other', 'Another party');
+    await addRegistry('other', 'Another group');
     const design = freshDesign();
     await register(design);
     const res = await register(design, { registry: 'other' });
-    expect(res.registry).toEqual({ id: 'other', name: 'Another party' });
+    expect(res.registry).toEqual({ id: 'other', name: 'Another group' });
   });
 
   it('maps a UNIQUE-index race to 409 duplicate, naming the winner', async () => {
@@ -377,7 +377,7 @@ describe('POST /api/arms', () => {
 
 describe('POST /api/arms/check', () => {
   it('reports ok / duplicate / too-close with the server-computed blazon and signature', async () => {
-    await addRegistry('checks', 'Check party');
+    await addRegistry('checks', 'Check group');
     const design = { v: 1, field: plain('or'), charges: { charge: 'dragon', count: 1, placement: 'field', posture: 'rampant', tincture: 'gules' } };
 
     const ok = await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'checks', design } }));
@@ -385,7 +385,7 @@ describe('POST /api/arms/check', () => {
     expect(ok.blazon).toBe('Or, a dragon segreant Gules');
     expect(ok.signature).toBe('v1|F:plain:or|O:-|C:dragon:1:field:single:rampant:gu');
     expect(ok.readability).toBe('bold');
-    expect(ok.registry).toEqual({ id: 'checks', name: 'Check party' });
+    expect(ok.registry).toEqual({ id: 'checks', name: 'Check group' });
     expect(ok).not.toHaveProperty('conflict');
 
     const created = await register(design, { registry: 'checks', displayName: 'Hana' });
@@ -1214,12 +1214,12 @@ describe('registration email', () => {
   });
 
   it('is stored only as an HMAC of the normalised address, with its key version', async () => {
-    const typed = '  Hmac.Person+Party@Example.ORG ';
+    const typed = '  Hmac.Person+Arms@Example.ORG ';
     const created = await register(freshDesign(), { email: typed, displayName: 'Hmac Person' });
     const row = await env.DB.prepare(`SELECT * FROM owner_emails WHERE arms_id = ?`).bind(created.id).first<Json>();
     expect(row).toMatchObject({
       arms_id: created.id,
-      email_hmac: await hmacHex('test-email-hmac-key', 'hmac.person+party@example.org'),
+      email_hmac: await hmacHex('test-email-hmac-key', 'hmac.person+arms@example.org'),
       key_version: 1,
     });
     const dump = (await databaseDump()).toLowerCase();
@@ -1379,7 +1379,7 @@ describe('POST /api/recover', () => {
   });
 
   it('emails one single-use link per owned entry, in every registry, with the token in the fragment', async () => {
-    await addRegistry('recovery-two', 'Second party');
+    await addRegistry('recovery-two', 'Second group');
     const sent = mockResend();
     const a = await register(freshDesign(), { email: 'many@example.com', displayName: 'First Of Many' });
     const b = await register(freshDesign(), { email: 'MANY@example.com ', displayName: 'Second Of Many', registry: 'recovery-two' });
@@ -1391,7 +1391,7 @@ describe('POST /api/recover', () => {
     const [mail] = sent;
     expect(mail.to).toEqual(['many@example.com']);
     expect(mail.text).toContain('"First Of Many" (Default)');
-    expect(mail.text).toContain('"Second Of Many" (Second party)');
+    expect(mail.text).toContain('"Second Of Many" (Second group)');
     expect(mail.text).not.toContain('Not Theirs');
     expect(mail.text).toContain('30 minutes');
     const tokens = tokensIn(mail);

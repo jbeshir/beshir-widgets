@@ -23,5 +23,5 @@ export { signature } from './signature';
 export { deriveTags, NO_FILTERS, filtersToTags, matchesTags, type SearchFilters } from './tags';
 export { DISPLAY_NAME_MAX, cleanDisplayName } from './text';
 export { contrastFailure, chargeContrastFailure, chargeSlotContacts, tinctureIssues } from './tincture-rule';
-export { METALS, COLOURS, TINCTURES, TINCTURE_CLASS, NON_STANDARD_NOTE, TINCTURE_CODE, TINCTURE_FILL, OUTLINE_COLOUR, TINCTURE_HATCHING, isMetal, CHARGE_TINCTURES, type Tincture, type Hatching, type ChargeTincture } from './tinctures';
+export { METALS, COLOURS, TINCTURES, TINCTURE_CLASS, NON_STANDARD_TINCTURES, TINCTURE_CODE, TINCTURE_FILL, OUTLINE_COLOUR, TINCTURE_HATCHING, isMetal, CHARGE_TINCTURES, type Tincture, type Hatching, type ChargeTincture } from './tinctures';
 export { validate, normalise } from './validate';

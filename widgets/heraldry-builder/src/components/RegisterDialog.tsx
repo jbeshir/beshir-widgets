@@ -267,7 +267,7 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
           aria-invalid={errors.discord ? 'true' : undefined}
           aria-describedby={describedBy('discord', 'reg-discord-hint')}
         />
-        <p class="field-hint" id="reg-discord-hint">So people at the party can find you, e.g. alex.smith. Shown as plain text.</p>
+        <p class="field-hint" id="reg-discord-hint">So people can find you, e.g. alex.smith. Shown as plain text.</p>
         <FieldError field="discord" message={errors.discord} />
 
         {formError && <p ref={resultRef} class="form-error" role="alert" tabIndex={-1} data-testid="register-error">{formError}</p>}
