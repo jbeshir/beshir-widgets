@@ -29,7 +29,7 @@ interface BodyProps {
   hatching: boolean;
   /** Open the entry's design, in its shape, in the builder. */
   onLoad: (arms: ShapedDesign) => void;
-  /** Whether the Load button sits in the body (a page) or are left to the caller (a sheet keeps them in its footer). */
+  /** Whether the Load button and Print link sit in the body (a page) or are left to the caller (a sheet keeps them in its footer). */
   showActions: boolean;
   /** Receives the entry's name heading, so a page that shows the entry can focus it; none in a sheet (the dialog takes focus). */
   nameRef: Ref<HTMLHeadingElement> | null;
@@ -67,7 +67,6 @@ export function EntryBody({ entry, sample, hatching, onLoad, showActions, nameRe
       </div>
       <CopyField label="Share link" value={shareUrl(entry.id)} testid="entry-share-link" buttonLabel="Copy" emphasis="secondary" />
       {showActions && <EntryActions entry={entry} onLoad={onLoad} />}
-      <a class="text-link entry-print" href={printHash(entry.id)} data-testid="print-nametag">Print a nametag</a>
       <a class="text-link entry-recover" href={RECOVER_HASH} data-testid="entry-recover-link">Your arms? Lost your link? / Withdraw my registration</a>
       <SavePicture design={entry.design} shape={entry.shape} hatching={hatching} displayName={entry.displayName} />
     </div>
@@ -80,6 +79,7 @@ function EntryActions({ entry, onLoad }: { entry: Summary; onLoad: (arms: Shaped
       <button type="button" class="button-primary" data-testid="load-into-builder" onClick={() => onLoad({ design: entry.design, shape: entry.shape })}>
         Load into builder
       </button>
+      <a class="text-link entry-print" href={printHash(entry.id)} data-testid="print-nametag">Print a nametag</a>
     </div>
   );
 }

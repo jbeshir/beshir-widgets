@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DEFAULT_FIELD_SHAPE, blazon, type ChargedDesign, type Companion, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
 import { DEFAULT_DESIGN, adjustDesign, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
 import { surpriseDesign } from './lib/presets';
-import { RECOVER_HASH, parseHash, registryParam } from './lib/route';
+import { RECOVER_HASH, entryHash, parseHash, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
 import { computeWidgetState, type ListStatus, type Tab } from './lib/widgetState';
 import * as store from './store';
@@ -51,31 +51,34 @@ export function App() {
   const [replaced, setReplaced] = useState<Replacement | null>(null);
 
   // The nametag sheet replaces the app on screen (the app stays mounted, hidden, so no state is lost).
-  // Back returns to the page it was opened from and puts focus back where the visitor left it.
+  // Back returns to the page it was opened from (the entry's page when the sheet was the first page
+  // opened) and puts focus back where the visitor left it.
   const printing = route.mode === 'print';
-  const backHash = useRef('#/');
+  const backHash = useRef<string | null>(null);
   const printOpener = useRef<Element | null>(null);
-  const wasPrinting = useRef(false);
+  const printedId = useRef<string | null>(null);
   useEffect(() => {
     if (!printing) backHash.current = location.hash || '#/';
   }, [route]);
   useEffect(() => {
     const on = () => {
-      if (parseHash(location.hash).mode === 'print' && !wasPrinting.current) printOpener.current = document.activeElement;
+      if (parseHash(location.hash).mode === 'print' && printedId.current === null) printOpener.current = document.activeElement;
     };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
   useEffect(() => {
-    if (printing) {
-      wasPrinting.current = true;
+    if (route.mode === 'print') {
+      printedId.current = route.id;
       return;
     }
-    if (!wasPrinting.current) return;
-    wasPrinting.current = false;
-    const opener = printOpener.current;
-    if (opener instanceof HTMLElement && opener.isConnected && !opener.closest('[hidden]')) opener.focus();
-    else document.getElementById(`tab-${tab}`)?.focus();
+    const id = printedId.current;
+    if (id === null) return;
+    printedId.current = null;
+    // A link in an entry sheet closed with the sheet, so fall back to the card that opened the sheet.
+    const card = document.querySelector(`[data-testid=result-card][data-id="${CSS.escape(id)}"]`);
+    const target = [printOpener.current, card].find((el): el is HTMLElement => el instanceof HTMLElement && el.isConnected && !el.closest('[hidden]'));
+    (target ?? document.getElementById(`tab-${tab}`))?.focus();
   }, [printing]);
 
   // An entry, owner or recovery link opens the registry tab (it shows that page in place of the list);
@@ -321,7 +324,7 @@ export function App() {
       )}
       {ready && <div id="widget-ready" style={{ display: 'none' }} aria-hidden="true" />}
     </main>
-    {route.mode === 'print' && <PrintView id={route.id} hatching={hatching} onBack={() => { location.hash = backHash.current; }} />}
+    {route.mode === 'print' && <PrintView id={route.id} hatching={hatching} onBack={() => { location.hash = backHash.current ?? entryHash(route.id); }} />}
     </>
   );
 }

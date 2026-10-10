@@ -53,7 +53,7 @@ export function PrintView({ id, hatching, onBack }: Props) {
         <p class="print-count" role="status" data-testid="print-count">
           {state.status === 'loading' && 'Getting the arms…'}
           {state.status === 'ready' && `${count} nametag${count === 1 ? '' : 's'} on one A4 page. Print on plain paper, then cut along the dashed lines.`}
-          {state.status === 'missing' && 'These arms couldn’t be loaded, so there is nothing to print.'}
+          {state.status === 'missing' && 'These arms couldn’t be loaded, so there is nothing to print. Go back and try again in a moment.'}
         </p>
         {state.status === 'ready' && (
           <fieldset class="print-copies" data-testid="print-copies">
@@ -68,7 +68,7 @@ export function PrintView({ id, hatching, onBack }: Props) {
             </label>
           </fieldset>
         )}
-        <p class="print-layout-note">On paper they print two across and four down, {TAGS_PER_PAGE} to a page.</p>
+        {state.status === 'ready' && <p class="print-layout-note">On paper the tags go two across and four down, {TAGS_PER_PAGE} to a page.</p>}
         <div class="print-actions">
           <button type="button" class="button-primary" data-testid="print-now" disabled={count === 0} onClick={() => window.print()}>Print</button>
           <button type="button" class="button-secondary" data-testid="print-back" onClick={onBack}>Back</button>

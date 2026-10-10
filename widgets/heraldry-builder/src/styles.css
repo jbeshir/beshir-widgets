@@ -1691,7 +1691,7 @@ html.overlay-open, html.overlay-open body { overflow: hidden; overscroll-behavio
 
 /* "Lost your link? / Withdraw my registration" entry points and screens. */
 .header-recover { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; }
-.entry-recover, .entry-print { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; align-self: flex-start; }
+.entry-recover { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; align-self: flex-start; }
 .contact-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .recover-view .register-form { max-width: 480px; }
 .recover-actions { justify-content: flex-start; }
@@ -1712,6 +1712,7 @@ a.button-secondary {
 .save-picture-label { font-size: 15px; font-weight: 600; color: var(--fg-secondary); }
 .save-picture-status { flex: 1 1 100%; font-size: 15px; color: var(--fg-secondary); overflow-wrap: anywhere; }
 .entry-actions { align-items: center; }
+.entry-print { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; font-size: 15px; }
 
 /* ── Nametag sheet ──
    The paper is always light: its colours are fixed here, not taken from the theme. */
