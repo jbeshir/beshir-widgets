@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["worker", "src/lib/heraldry/**/*.ts", "src/data/*.json", "test/heraldry.test.ts", "test/worker.test.ts", "test/worker-env.d.ts"]
+  "include": ["worker", "src/lib/heraldry/**/*.ts", "src/data/*.json", "test/heraldry.test.ts", "test/contact.test.ts", "test/validation-cases.ts", "test/shape-verdict.test.ts", "test/geometry-fit.test.ts", "test/worker.test.ts", "test/prefilter.test.ts", "test/design-generator.ts", "test/migrations.test.ts", "test/apply-migrations.ts", "test/worker-env.d.ts"]
 }

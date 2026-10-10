@@ -1,7 +1,8 @@
 // Radio-style option buttons shared by the builder's icon grids and segmented controls.
 // A RadioGroup keeps exactly one option tabbable (the checked one, else the first) and moves focus
 // with the arrow keys, selecting allowed options as it goes. Blocked options stay focusable and
-// visible; activating one explains it instead of applying it.
+// visible; activating one explains it instead of applying it. An option that changes something else
+// too says so in its accessible description and shows a small arrows mark.
 
 import type { ComponentChildren } from 'preact';
 import { useLayoutEffect, useRef } from 'preact/hooks';
@@ -9,12 +10,14 @@ import { LockGlyph, type ExplainKind, type Explanation } from './Explainer';
 
 interface GroupProps {
   label: string;
+  /** Id of an element that explains the whole group. */
+  describedBy?: string;
   testid?: string;
   class?: string;
   children: ComponentChildren;
 }
 
-export function RadioGroup({ label, testid, class: cls, children }: GroupProps) {
+export function RadioGroup({ label, describedBy, testid, class: cls, children }: GroupProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -40,17 +43,21 @@ export function RadioGroup({ label, testid, class: cls, children }: GroupProps) 
   };
 
   return (
-    <div ref={ref} role="radiogroup" aria-label={label} data-testid={testid} class={cls} onKeyDown={onKeyDown}>
+    <div ref={ref} role="radiogroup" aria-label={label} aria-describedby={describedBy} data-testid={testid} class={cls} onKeyDown={onKeyDown}>
       {children}
     </div>
   );
 }
 
+/** open: chosen as it is; blocked: explained instead of applied; with-change: choosing it changes something else too, which `note` says. */
+export type OptionStatus = { kind: 'open' } | { kind: 'blocked'; reason: string } | { kind: 'with-change'; note: string };
+
+const OPEN: OptionStatus = { kind: 'open' };
+
 interface ChoiceProps {
   testid: string;
   checked: boolean;
-  /** Present when the option is blocked. */
-  reason?: string | null;
+  status?: OptionStatus;
   /** Accessible name (also used in the explainer title). */
   label: string;
   kind?: ExplainKind;
@@ -60,30 +67,41 @@ interface ChoiceProps {
   children: ComponentChildren;
 }
 
-export function ChoiceButton({ testid, checked, reason, label, kind = 'structure', onSelect, onBlocked, class: cls, children }: ChoiceProps) {
-  const blocked = !!reason;
+export function ChoiceButton({ testid, checked, status = OPEN, label, kind = 'structure', onSelect, onBlocked, class: cls, children }: ChoiceProps) {
+  const blocked = status.kind === 'blocked';
+  const described = status.kind === 'blocked' ? status.reason : status.kind === 'with-change' ? status.note : null;
   // testid on a role-less wrapper box so test drivers can click blocked (aria-disabled) options.
   return (
-    <span class={`option-wrap${cls ? ` wrap-${cls.split(' ')[0]}` : ''}`} data-testid={testid} data-blocked={blocked ? 'true' : undefined}>
+    <span class={`option-wrap${cls ? ` wrap-${cls.split(' ')[0]}` : ''}`} data-testid={testid} data-blocked={blocked ? 'true' : undefined} data-with-change={status.kind === 'with-change' ? 'true' : undefined}>
     <button
       type="button"
       role="radio"
       aria-checked={checked ? 'true' : 'false'}
       aria-disabled={blocked ? 'true' : undefined}
       aria-label={blocked ? `${label}, not available` : label}
-      aria-describedby={blocked ? `${testid}-why` : undefined}
+      aria-describedby={described ? `${testid}-why` : undefined}
       data-blocked={blocked ? 'true' : undefined}
       id={testid}
       class={`choice${checked ? ' is-checked' : ''}${blocked ? ' is-blocked' : ''}${cls ? ` ${cls}` : ''}`}
       onClick={(e) => {
-        if (blocked) onBlocked({ anchor: e.currentTarget as HTMLElement, kind, title: `${label} isn't available`, reason: reason! });
+        if (status.kind === 'blocked') onBlocked({ anchor: e.currentTarget as HTMLElement, kind, title: `${label} isn't available`, reason: status.reason });
         else if (!checked) onSelect();
       }}
     >
       {children}
       {blocked && <LockGlyph />}
+      {status.kind === 'with-change' && <ChangeGlyph />}
     </button>
-    {blocked && <span class="sr-only" id={`${testid}-why`}>{reason}</span>}
+    {described && <span class="sr-only" id={`${testid}-why`}>{described}</span>}
     </span>
+  );
+}
+
+/** Marks an option that changes something else too (two arrows passing). */
+function ChangeGlyph() {
+  return (
+    <svg class="change-glyph" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
+      <path d="M2 5h10M9 2l3 3-3 3M14 11H4M7 8l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
   );
 }

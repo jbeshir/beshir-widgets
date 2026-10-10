@@ -1,4 +1,4 @@
-// DOM-free check that every Shield instance gets a distinct SVG id fragment (fix02 W1).
+// DOM-free check that every Shield instance gets a distinct SVG id fragment.
 import { describe, it, expect } from 'vitest';
 import { nextShieldUid } from '../src/components/Shield';
 

@@ -6,13 +6,25 @@
 // edit secret so the shortcut links straight into the owner view; treat it as device-local and
 // disposable, never as the source of truth. Only store.ts imports this module.
 
+import { isFieldShape, resolve, type ShapedDesign } from './heraldry';
+
 export interface DeviceArms {
   id: string;
   registry: string; // registry id the entry belongs to
   displayName: string;
   blazon: string;
+  /** The arms and their field shape, for the thumbnail; null for shortcuts saved before they were kept. */
+  shield: ShapedDesign | null;
   secret: string | null; // null when only ever viewed on this device
   savedAt: string; // ISO-8601
+}
+
+/** A stored thumbnail, re-checked on read; anything unreadable is dropped to null. */
+function readShield(v: unknown): ShapedDesign | null {
+  if (!v || typeof v !== 'object') return null;
+  const { design, shape } = v as { design?: unknown; shape?: unknown };
+  const r = resolve(design);
+  return r.ok && isFieldShape(shape) ? { design: r.design, shape } : null;
 }
 
 const KEY = 'heraldry-builder:device-arms:v1';
@@ -24,16 +36,20 @@ function readAll(): DeviceArms[] {
     if (!raw) return [];
     const v = JSON.parse(raw);
     if (!Array.isArray(v)) return [];
-    return v.filter(
-      (e): e is DeviceArms =>
-        e &&
-        typeof e.id === 'string' &&
-        typeof e.registry === 'string' &&
-        typeof e.displayName === 'string' &&
-        typeof e.blazon === 'string' &&
-        (e.secret === null || typeof e.secret === 'string') &&
-        typeof e.savedAt === 'string'
-    );
+    return v
+      .filter(
+        (e) =>
+          e &&
+          typeof e.id === 'string' &&
+          typeof e.registry === 'string' &&
+          typeof e.displayName === 'string' &&
+          typeof e.blazon === 'string' &&
+          (e.secret === null || typeof e.secret === 'string') &&
+          typeof e.savedAt === 'string'
+      )
+      .map((e): DeviceArms => ({
+        id: e.id, registry: e.registry, displayName: e.displayName, blazon: e.blazon, shield: readShield(e.shield), secret: e.secret, savedAt: e.savedAt,
+      }));
   } catch {
     return [];
   }
@@ -58,27 +74,15 @@ export function listDeviceArms(): DeviceArms[] {
 export function rememberDeviceArms(entry: Omit<DeviceArms, 'savedAt'>): void {
   const list = readAll();
   const existing = list.find((e) => e.id === entry.id);
-  const savedAt = new Date().toISOString();
-  if (existing) {
-    existing.registry = entry.registry;
-    existing.displayName = entry.displayName;
-    existing.blazon = entry.blazon;
-    if (entry.secret) existing.secret = entry.secret; // never downgrade a known secret to null
-    existing.savedAt = savedAt;
-  } else {
-    list.push({ ...entry, savedAt });
-  }
-  writeAll(list);
+  const saved: DeviceArms = {
+    ...entry,
+    shield: entry.shield ?? existing?.shield ?? null,
+    secret: entry.secret ?? existing?.secret ?? null, // never downgrade a known secret to null
+    savedAt: new Date().toISOString(),
+  };
+  writeAll([...list.filter((e) => e.id !== entry.id), saved]);
 }
 
 export function forgetDeviceArms(id: string): void {
   writeAll(readAll().filter((e) => e.id !== id));
-}
-
-export function clearDeviceArms(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    /* ignore */
-  }
 }

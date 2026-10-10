@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { blazon, type NormDesign } from './lib/heraldry';
-import { DEFAULT_DESIGN, assess, sameDesign } from './lib/builder';
-import { registryParam } from './lib/route';
+import { DEFAULT_FIELD_SHAPE, blazon, type ChargedDesign, type Companion, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
+import { DEFAULT_DESIGN, adjustDesign, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
+import { surpriseDesign } from './lib/presets';
+import { RECOVER_HASH, parseHash, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
 import { computeWidgetState, type ListStatus, type Tab } from './lib/widgetState';
 import * as store from './store';
 import { Availability, outcomeMessage, type CheckOutcome } from './components/Availability';
 import { DesignTab } from './components/design/DesignTab';
+import { ReplacedNotice } from './components/design/ReplacedNotice';
 import { RegistryPanel } from './components/registry/RegistryPanel';
 import { YourArmsPanel } from './components/YourArmsPanel';
+import { PrintView } from './components/PrintView';
 import { RegisterDialog } from './components/RegisterDialog';
 
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -26,9 +29,12 @@ export function App() {
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set([tab]));
   const [ready, setReady] = useState(false);
 
-  const [design, setDesign] = useState<NormDesign>(() => store.loadDraft() ?? DEFAULT_DESIGN);
+  const [draft] = useState(() => store.loadDraft());
+  const [design, setDesign] = useState<NormDesign>(draft?.design ?? DEFAULT_DESIGN);
+  const [shape, setShape] = useState<FieldShape>(draft?.shape ?? DEFAULT_FIELD_SHAPE);
   const report = useMemo(() => assess(design), [design]);
   const [hatching, setHatching] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(() => !store.welcomeDismissed());
 
   const [check, setCheck] = useState<{ design: NormDesign; outcome: CheckOutcome } | null>(null);
   const [checking, setChecking] = useState(false);
@@ -40,10 +46,39 @@ export function App() {
   const [announcement, setAnnouncement] = useState('');
   const announce = useCallback((m: string) => setAnnouncement((cur) => (cur === m ? `${m}\u00a0` : m)), []);
   const focusPreview = useRef(false);
+  const [replaced, setReplaced] = useState<Replacement | null>(null);
 
-  // An entry/owner link opens the registry tab (it shows the public entry page / owner view).
+  // The nametag sheet replaces the app on screen (the app stays mounted, hidden, so no state is lost).
+  // Back returns to the page it was opened from and puts focus back where the visitor left it.
+  const printing = route.mode === 'print';
+  const backHash = useRef('#/');
+  const printOpener = useRef<Element | null>(null);
+  const wasPrinting = useRef(false);
   useEffect(() => {
-    if (route.mode !== 'builder') selectTab('registry');
+    if (!printing) backHash.current = location.hash || '#/';
+  }, [route]);
+  useEffect(() => {
+    const on = () => {
+      if (parseHash(location.hash).mode === 'print' && !wasPrinting.current) printOpener.current = document.activeElement;
+    };
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+  useEffect(() => {
+    if (printing) {
+      wasPrinting.current = true;
+      return;
+    }
+    if (!wasPrinting.current) return;
+    wasPrinting.current = false;
+    const opener = printOpener.current;
+    if (opener instanceof HTMLElement && opener.isConnected && !opener.closest('[hidden]')) opener.focus();
+    else document.getElementById(`tab-${tab}`)?.focus();
+  }, [printing]);
+
+  // An entry, owner or recovery link opens the registry tab (it shows that page in place of the list).
+  useEffect(() => {
+    if (route.mode !== 'builder' && route.mode !== 'print') selectTab('registry');
   }, [route]);
 
   const selectTab = useCallback((t: Tab) => {
@@ -53,21 +88,59 @@ export function App() {
   }, []);
 
   // Draft autosave (debounced), flushed when the page is hidden.
-  const latest = useRef(design);
-  latest.current = design;
+  const latest = useRef<ShapedDesign>({ design, shape });
+  latest.current = { design, shape };
   useEffect(() => {
-    const save = () => (sameDesign(latest.current, DEFAULT_DESIGN) ? store.clearDraft() : store.saveDraft(latest.current));
+    const save = () => (isUntouched(latest.current) ? store.clearDraft() : store.saveDraft(latest.current));
     const t = setTimeout(save, DRAFT_DEBOUNCE_MS);
     window.addEventListener('pagehide', save);
     return () => {
       clearTimeout(t);
       window.removeEventListener('pagehide', save);
     };
-  }, [design]);
+  }, [design, shape]);
 
   const startOver = () => {
     setDesign(DEFAULT_DESIGN);
+    setShape(DEFAULT_FIELD_SHAPE);
+    setReplaced(null);
     store.clearDraft();
+  };
+
+  // Undo is offered only while the replacement is as it was put there.
+  useEffect(() => {
+    if (replaced && !undoStillOffered(replaced, { design, shape })) setReplaced(null);
+  }, [replaced, design, shape]);
+
+  const undoReplace = () => {
+    if (!replaced) return;
+    setDesign(replaced.previous.design);
+    setShape(replaced.previous.shape);
+    setReplaced(null);
+    setCheck(null);
+    focusPreview.current = true;
+    announce(`Restored your design: ${blazon(replaced.previous.design)}`);
+  };
+
+  // A starting design replaces the builder's design; focus goes to the preview so the change is seen and heard.
+  const startFrom = ({ design: nd, shape: s }: ShapedDesign, caption: string) => {
+    setReplaced(replaceDesign({ design, shape }, { design: nd, shape: s }));
+    setDesign(nd);
+    setShape(s);
+    setCheck(null);
+    focusPreview.current = true;
+    announce(`Started from "${caption}": ${blazon(nd)}`);
+  };
+
+  // A count or placement that brought its partner along: applied, with the note and Undo under the controls.
+  const adjust = (nd: ChargedDesign, companion: Companion) => {
+    setReplaced(adjustDesign({ design, shape }, nd, companion));
+    setDesign(nd);
+  };
+
+  const dismissWelcome = () => {
+    store.dismissWelcome();
+    setWelcomeOpen(false);
   };
 
   const announceWhenInteractive = (m: string, tries = 20) => {
@@ -76,9 +149,11 @@ export function App() {
     else setTimeout(() => announce(m), 100);
   };
 
-  // "Load into builder" from an entry: adopt its design and go to the Design tab.
-  const loadDesign = (nd: NormDesign) => {
+  // "Load into builder" from an entry: adopt its design and shape and go to the Design tab.
+  const loadDesign = ({ design: nd, shape: s }: ShapedDesign) => {
+    setReplaced(replaceDesign({ design, shape }, { design: nd, shape: s }));
     setDesign(nd);
+    setShape(s);
     setCheck(null);
     if (route.mode !== 'builder') location.hash = '#/';
     selectTab('design');
@@ -115,7 +190,7 @@ export function App() {
     announce(outcomeMessage(outcome));
   };
 
-  // ── data-widget-state: the single place it is computed (PLAN §7) ──
+  // ── data-widget-state: the single place it is computed ──
   const widgetState = computeWidgetState({
     tab,
     design: report.status,
@@ -163,11 +238,13 @@ export function App() {
   };
 
   return (
-    <main class="container">
+    <>
+    <main class="container" hidden={printing}>
       <section class="card">
         <header class="card-header">
           <h1>Heraldry Builder</h1>
-          <p class="hint">Design rule-checked coats of arms, read their blazon, and register them in a community armorial.</p>
+          <p class="hint">Design a personal coat of arms for your nametag, then register it so nobody else at the event has the same one.</p>
+          <a class="text-link header-recover" href={RECOVER_HASH} data-testid="header-recover-link">Lost your link? / Withdraw my registration</a>
         </header>
 
         <div class="tabs" role="tablist" aria-label="Sections" onKeyDown={onTabKey}>
@@ -191,11 +268,19 @@ export function App() {
         </div>
 
         <div role="tabpanel" id="panel-design" aria-labelledby="tab-design" hidden={tab !== 'design'} class="tab-panel">
+          <ReplacedNotice replacement={replaced} kind="replaced" onUndo={undoReplace} onFix={null} />
           <DesignTab
             design={design}
+            shape={shape}
             report={report}
             onChange={setDesign}
+            onAdjust={adjust}
+            adjusted={(onFix) => <ReplacedNotice replacement={replaced} kind="adjusted" onUndo={undoReplace} onFix={onFix} />}
+            onShape={setShape}
             onStartOver={startOver}
+            onStartFrom={startFrom}
+            onSurprise={() => startFrom(surpriseDesign(Math.random), 'Surprise me')}
+            onDismissWelcome={welcomeOpen ? dismissWelcome : null}
             hatching={hatching}
             onHatching={setHatching}
             onCheck={onCheck}
@@ -223,9 +308,11 @@ export function App() {
       <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="live-status">{announcement}</div>
 
       {registerOpen && (
-        <RegisterDialog design={design} onClose={() => setRegisterOpen(false)} onRegistered={() => setYours(store.deviceArms())} />
+        <RegisterDialog design={design} shape={shape} hatching={hatching} onClose={() => setRegisterOpen(false)} onRegistered={() => setYours(store.deviceArms())} />
       )}
       {ready && <div id="widget-ready" style={{ display: 'none' }} aria-hidden="true" />}
     </main>
+    {route.mode === 'print' && <PrintView ids={route.ids} hatching={hatching} onBack={() => { location.hash = backHash.current; }} />}
+    </>
   );
 }

@@ -4,6 +4,10 @@
   "name": "widget-heraldry-builder",
   "compatibility_date": "2026-06-01",
   "main": "worker/index.ts",
+  // Only the custom domain below serves the widget; no *.workers.dev or preview URLs.
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
   "assets": {
     "directory": "./dist/",
     "binding": "ASSETS",
@@ -15,9 +19,17 @@
     {
       "binding": "DB",
       "database_name": "widget-heraldry-builder",
-      "database_id": "0ea8885d-2f6c-4491-8dcd-115a5cf714cf"
+      "database_id": "0ea8885d-2f6c-4491-8dcd-115a5cf714cf",
+      "migrations_dir": "migrations"
     }
   ],
+  // Email (see README → Email): the sender address, whose domain must be verified in Resend, and
+  // which EMAIL_HMAC_KEY is current. The secrets RESEND_API_KEY and EMAIL_HMAC_KEY are set with
+  // `wrangler secret put`, never here.
+  "vars": {
+    "MAIL_FROM": "Heraldry Builder <heraldry@widgets.beshir.org>",
+    "EMAIL_HMAC_KEY_VERSION": "1"
+  },
   "ratelimits": [
     { "name": "CREATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } }
   ],

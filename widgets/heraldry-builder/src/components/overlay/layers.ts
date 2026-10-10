@@ -46,11 +46,6 @@ export function pushLayer(layer: Layer): () => void {
   };
 }
 
-/** Is `layer` (identified by its close callback) the topmost open layer? */
-export function isTopLayer(close: () => void): boolean {
-  return stack.length > 0 && stack[stack.length - 1].close === close;
-}
-
 /** z-index of the enclosing overlay layer, or null at page level. */
 export const LayerZ = createContext<string | null>(null);
 

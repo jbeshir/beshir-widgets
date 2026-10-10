@@ -4,11 +4,12 @@
 // surface and offer a fix — never silently repaired.
 
 import {
-  CHARGES, ORDINARY_NAME, chargeContext, chargeTinctureChoices, defaultArrangement, fieldTinctures, fitCharges,
-  legalArrangements, ordinaryTinctureChoices, structuralIssues, tinctureIssues,
-  type Arrangement, type ChargeId, type Choice, type Count, type Division, type Issue, type NormDesign,
-  type OrdinaryType, type Placement, type Posture, type Tincture,
+  DEFAULT_FIELD_SHAPE, CHARGES, NUMBER_WORD, ORDINARY_LABEL, TINCTURE_CLASS, TINCTURE_LABEL, chargeContext, chargeSlotContacts, chargeTinctureChoices,
+  contrastFailure, countChoices, fieldTinctures, fitCharges, isMetal, ordinaryTinctureChoices, placementChoices, structuralIssues, tinctureIssues,
+  type Arrangement, type ChargedDesign, type ChargeId, type Choice, type Companion, type Count, type Division, type Issue, type LayoutChoice, type NormDesign,
+  type ChargeTincture, type OrdinaryType, type Placement, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
+import { capitalise } from './heraldry/words';
 
 export const DEFAULT_DESIGN: NormDesign = { v: 1, field: { kind: 'plain', tincture: 'azure' }, ordinary: null, charges: null };
 
@@ -22,9 +23,8 @@ function isAllowed<T>(choices: Choice<T>[], v: T): boolean {
 
 /** A second tincture for a newly divided field: contrasting class, never equal to the first. */
 function partner(t: Tincture): Tincture {
-  if (t === 'or') return 'azure';
-  if (t === 'argent') return 'gules';
-  return 'or';
+  if (!isMetal(t)) return 'or';
+  return t === 'or' ? 'azure' : 'gules';
 }
 
 export function setPlainField(nd: NormDesign): NormDesign {
@@ -76,18 +76,70 @@ export function setCharge(nd: NormDesign, id: ChargeId | null): NormDesign {
   return { ...placed, charges: { ...placed.charges!, tincture } };
 }
 
-export function setCount(nd: NormDesign, count: Count): NormDesign {
-  const g = nd.charges;
-  if (!g) return nd;
-  const legal = legalArrangements(nd.ordinary, g.placement, count);
-  const arrangement: Arrangement = legal.includes(g.arrangement) ? g.arrangement : defaultArrangement(nd.ordinary, g.placement, count);
-  return fitCharges({ ...nd, charges: { ...g, count, arrangement } });
+/** The design a count or placement choice leads to; a blocked (or unknown) one changes nothing. */
+function chosenDesign<T>(nd: NormDesign, choices: LayoutChoice<T>[], value: T): NormDesign {
+  const c = choices.find((x) => x.value === value);
+  return c?.allowed ? c.design : nd;
 }
 
+/** A new count, bringing the placement along when only the other placement takes it (see countChoices). */
+export function setCount(nd: NormDesign, count: Count): NormDesign {
+  return chosenDesign(nd, countChoices(nd), count);
+}
+
+/** A new placement, bringing the nearest count it takes along when the current one doesn't fit (see placementChoices). */
 export function setPlacement(nd: NormDesign, placement: Placement): NormDesign {
-  const g = nd.charges;
-  if (!g) return nd;
-  return fitCharges({ ...nd, charges: { ...g, placement, arrangement: defaultArrangement(nd.ordinary, placement, g.count) } });
+  return chosenDesign(nd, placementChoices(nd), placement);
+}
+
+/** Whether the charges break the rule of tincture where they lie (the ordinary's own colour aside). */
+export function chargesClash(nd: NormDesign): boolean {
+  return tinctureIssues(nd).some((i) => i.layer === 'charges');
+}
+
+const colourWord = (t: Tincture) => TINCTURE_LABEL[t].plain.toLowerCase();
+
+/** What clashing charges lie on, in plain words: "red cross", "gold background", "gold part of the background". */
+function clashGround(nd: ChargedDesign, t: Tincture): string {
+  const o = nd.ordinary;
+  if (o && chargeContext(o, nd.charges.placement) === 'on') return `${colourWord(o.tincture)} ${ORDINARY_LABEL[o.type].plain.toLowerCase()}`;
+  // The look-alike tinctures under the failing charges: the ones they don't stand out against.
+  const alike = chargeSlotContacts(nd)
+    .filter((cs) => contrastFailure(t, cs))
+    .flatMap((cs) => cs.filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[t]));
+  const words = [...new Set(alike)].map(colourWord);
+  if (nd.field.kind === 'plain') return `${words[0]} background`;
+  return words.length === 1 ? `${words[0]} part of the background` : `${words.join(' and ')} parts of the background`;
+}
+
+/** The layout change itself: "Moves the lions around the cross" / "Changed to four lions". */
+function companionChange(next: ChargedDesign, companion: Companion, tense: 'offered' | 'done', noun: string): string {
+  if (companion.kind === 'count') return `${tense === 'offered' ? 'Changes' : 'Changed'} to ${NUMBER_WORD[next.charges.count]} ${noun}`;
+  // "On the cross" → "onto the cross"; "Around the cross" → "around the cross".
+  const label = placementLabel(next, companion.placement);
+  const where = companion.placement === 'ordinary' ? label.replace(/^On /, 'onto ') : `${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+  return `${tense === 'offered' ? 'Moves' : 'Moved'} the ${noun} ${where}`;
+}
+
+/**
+ * What else a count or placement choice changes, in words, for the design it leads to: offered
+ * ("Moves the lions around the cross", "Changes to four lions") or done ("Moved…", "Changed…").
+ * Only the layout moves, never a colour, so when the charges' colour then breaks the rule the note
+ * says so: "…; the gold lions would then need a new colour" / "… The gold lions don't stand out on
+ * the gold background — pick a new colour below."
+ */
+export function companionNote(next: ChargedDesign, companion: Companion, tense: 'offered' | 'done'): string {
+  const g = next.charges;
+  const meta = CHARGES[g.charge];
+  const noun = g.count === 1 ? meta.glossName : meta.glossPlural;
+  const change = companionChange(next, companion, tense, noun);
+  if (!chargesClash(next)) return tense === 'offered' ? change : `${change}.`;
+  const subject = g.tincture === 'counterchanged' ? `the ${noun}` : `the ${colourWord(g.tincture)} ${noun}`;
+  if (tense === 'offered') return `${change}; ${subject} would then need a new colour`;
+  const why = g.tincture === 'counterchanged'
+    ? `can't take swapped colours there`
+    : `${g.count === 1 ? "doesn't" : "don't"} stand out on the ${clashGround(next, g.tincture)}`;
+  return `${change}. ${capitalise(subject)} ${why} — pick a new colour below.`;
 }
 
 export function setArrangement(nd: NormDesign, arrangement: Arrangement): NormDesign {
@@ -102,7 +154,7 @@ export function setPosture(nd: NormDesign, posture: Posture): NormDesign {
   return { ...nd, charges: { ...g, posture } };
 }
 
-export function setChargeTincture(nd: NormDesign, t: Tincture): NormDesign {
+export function setChargeTincture(nd: NormDesign, t: ChargeTincture): NormDesign {
   const g = nd.charges;
   if (!g) return nd;
   return { ...nd, charges: { ...g, tincture: t } };
@@ -125,26 +177,74 @@ export function assess(nd: NormDesign): DesignReport {
   const problems = issues.filter((i) => i.code !== 'generic');
   const generic = issues.find((i) => i.code === 'generic');
   const status: DesignStatus = problems.length ? 'violation' : generic ? 'incomplete' : 'valid';
-  return { status, problems, hint: generic ? 'Add an ordinary or charge — a plain field alone is too generic to register.' : null };
+  return { status, problems, hint: generic ? 'Add a band or shape, or a picture — a plain background alone is too generic to register.' : null };
+}
+
+/**
+ * The readability tip to show: none while the rule of tincture is broken. That has to be fixed
+ * first, and a tip such as "Try a single lion instead of four" would point away from the fix —
+ * often back to the layout just chosen.
+ */
+export function readabilityTip(r: Readability, report: DesignReport): string | null {
+  return report.problems.some((p) => p.code === 'tincture') ? null : r.nudge;
+}
+
+/** A rule fix's button text: "Fix: switch the lions to Gules". */
+export function fixText(label: string): string {
+  return `Fix: ${label.charAt(0).toLowerCase()}${label.slice(1)}`;
 }
 
 export const LAYER_LABEL: Record<Issue['layer'], string> = {
-  design: 'Design', field: 'Field', ordinary: 'Ordinary', charges: 'Charges',
+  design: 'Design', field: 'Background', ordinary: 'Band or shape', charges: 'Picture',
 };
 
-/** "On the field" / "On the bend" / "Around the bend" / "Below the chief" / "Within the bordure". */
+/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border". */
 export function placementLabel(nd: NormDesign, placement: Placement): string {
   const o = nd.ordinary;
-  if (placement === 'ordinary') return o && o.type !== 'bordure' ? `On the ${ORDINARY_NAME[o.type]}` : 'On the ordinary';
+  const name = (type: OrdinaryType) => ORDINARY_LABEL[type].plain.toLowerCase();
+  if (placement === 'ordinary') return o && o.type !== 'bordure' ? `On the ${name(o.type)}` : 'On the band or shape';
   switch (chargeContext(o, 'field')) {
-    case 'between': return `Around the ${ORDINARY_NAME[o!.type]}`;
-    case 'chief': return 'Below the chief';
-    case 'bordure': return 'Within the bordure';
-    default: return 'On the field';
+    case 'between': return `Around the ${name(o!.type)}`;
+    case 'chief': return 'Below the top bar';
+    case 'bordure': return 'Within the border';
+    default: return 'On the background';
   }
 }
 
 export function sameDesign(a: NormDesign, b: NormDesign): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function sameShapedDesign(a: ShapedDesign, b: ShapedDesign): boolean {
+  return a.shape === b.shape && sameDesign(a.design, b.design);
+}
+
+/** The starting point: nothing has been designed yet, so nothing is lost by replacing it. */
+export function isUntouched(d: ShapedDesign): boolean {
+  return d.shape === DEFAULT_FIELD_SHAPE && sameDesign(d.design, DEFAULT_DESIGN);
+}
+
+/**
+ * A design swapped in for another, and the one to bring back on Undo: replaced wholesale (a starting
+ * design, Surprise me, a registry entry) or adjusted — a choice that changed something else too,
+ * which `note` says.
+ */
+export type Replacement =
+  | { kind: 'replaced'; previous: ShapedDesign; replacement: ShapedDesign }
+  | { kind: 'adjusted'; previous: ShapedDesign; replacement: ShapedDesign; note: string };
+
+/** What replacing `current` with `next` would lose: null when current is untouched or identical to next. */
+export function replaceDesign(current: ShapedDesign, next: ShapedDesign): Replacement | null {
+  return isUntouched(current) || sameShapedDesign(current, next) ? null : { kind: 'replaced', previous: current, replacement: next };
+}
+
+/** A count or placement choice applied with its companion change, kept so it can be undone. */
+export function adjustDesign(current: ShapedDesign, next: ChargedDesign, companion: Companion): Replacement {
+  return { kind: 'adjusted', previous: current, replacement: { shape: current.shape, design: next }, note: companionNote(next, companion, 'done') };
+}
+
+/** Undo stays on offer only until the replacement is edited; undoing then would throw that work away too. */
+export function undoStillOffered(r: Replacement, now: ShapedDesign): boolean {
+  return sameShapedDesign(r.replacement, now);
 }
 

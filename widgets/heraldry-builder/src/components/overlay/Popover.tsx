@@ -1,5 +1,5 @@
 // Anchored, non-modal popover: positioned next to its anchor (below, flipping above when there is
-// no room), closes on Escape or a pointer press outside it and the anchor, moves focus into itself
+// no room; or beside the dialog the anchor sits in, flipping to its other side), closes on Escape or a pointer press outside it and the anchor, moves focus into itself
 // on open and returns it to the anchor on close. role="dialog" (it can hold buttons/links).
 // Tab / Shift+Tab or focus leaving it closes it and hands focus back to the anchor, so keyboard
 // users are never stranded at the end of the overlay root.
@@ -18,8 +18,8 @@ interface Props {
   class?: string;
   /** id of the popover element (the anchor can point at it with aria-controls). */
   id?: string;
-  /** 'above' prefers the space above the anchor (so a trigger below its subject never covers it). */
-  placement?: 'auto' | 'above';
+  /** 'above' prefers the space above the anchor (so a trigger below its subject never covers it); 'beside' sits next to the dialog containing the anchor (right, else left, else as 'auto'). */
+  placement?: 'auto' | 'above' | 'beside';
   children: ComponentChildren;
 }
 
@@ -50,6 +50,15 @@ export function Popover({ anchor, onClose, label, testid, class: cls, id, placem
       const h = el.offsetHeight;
       const vw = document.documentElement.clientWidth;
       const vh = window.innerHeight;
+      const container = placement === 'beside' ? a.closest('[role=dialog]')?.getBoundingClientRect() : undefined;
+      if (container) {
+        const right = container.right + GAP;
+        const left = right + w + MARGIN <= vw ? right : container.left - GAP - w;
+        if (left >= MARGIN) {
+          setPos({ top: Math.min(Math.max(MARGIN, r.top), Math.max(MARGIN, vh - MARGIN - h)), left, above: false });
+          return;
+        }
+      }
       const fitsAbove = r.top - GAP - h >= MARGIN;
       const fitsBelow = r.bottom + GAP + h <= vh - MARGIN;
       const above = placement === 'above' ? fitsAbove || !fitsBelow && r.top > vh - r.bottom : !fitsBelow && fitsAbove;

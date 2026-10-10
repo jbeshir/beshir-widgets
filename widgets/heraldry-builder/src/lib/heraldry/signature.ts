@@ -1,8 +1,8 @@
-// Canonical signature (FINDINGS §4.6), computed only from a NormDesign. Equivalent inputs normalise
+// Canonical signature, computed only from a NormDesign. Equivalent inputs normalise
 // to the same signature, so "you can't blazon your way out" of a duplicate.
 
 import type { Field, NormDesign } from './design';
-import { TINCTURE_CODE } from './tinctures';
+import { CHARGE_TINCTURE_CODE, TINCTURE_CODE } from './tinctures';
 
 function fieldSig(f: Field): string {
   return f.kind === 'plain'
@@ -14,7 +14,7 @@ export function signature(nd: NormDesign): string {
   const o = nd.ordinary ? `${nd.ordinary.type}:${TINCTURE_CODE[nd.ordinary.tincture]}` : '-';
   const c = nd.charges;
   const chg = c
-    ? `${c.charge}:${c.count}:${c.placement}:${c.arrangement}:${c.posture ?? '-'}:${TINCTURE_CODE[c.tincture]}`
+    ? `${c.charge}:${c.count}:${c.placement}:${c.arrangement}:${c.posture ?? '-'}:${CHARGE_TINCTURE_CODE[c.tincture]}`
     : '-';
   return `v1|F:${fieldSig(nd.field)}|O:${o}|C:${chg}`;
 }

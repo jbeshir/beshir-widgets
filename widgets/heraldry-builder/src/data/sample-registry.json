@@ -8,8 +8,11 @@
     {
       "id": "demo-001",
       "displayName": "Ada Brightwater",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-05T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -28,8 +31,11 @@
     {
       "id": "demo-002",
       "displayName": "Basil Thorne",
-      "contact": "Ask for Basil at the snack table",
+      "contact": {
+        "discord": "basil.snacks"
+      },
       "registeredAt": "2026-01-06T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -55,8 +61,11 @@
     {
       "id": "demo-003",
       "displayName": "Cass Merriweather",
-      "contact": "@cass@example.social",
+      "contact": {
+        "discord": "cass_herald"
+      },
       "registeredAt": "2026-01-07T12:00:00Z",
+      "shape": "banner",
       "design": {
         "v": 1,
         "field": {
@@ -83,8 +92,11 @@
     {
       "id": "demo-004",
       "displayName": "Dev Halloran",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-08T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -110,8 +122,11 @@
     {
       "id": "demo-005",
       "displayName": "Elin Sato",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-09T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -137,8 +152,11 @@
     {
       "id": "demo-006",
       "displayName": "Farah Quist",
-      "contact": "Usually by the garden door",
+      "contact": {
+        "discord": "garden.door"
+      },
       "registeredAt": "2026-01-10T12:00:00Z",
+      "shape": "round",
       "design": {
         "v": 1,
         "field": {
@@ -164,8 +182,11 @@
     {
       "id": "demo-007",
       "displayName": "Gus Pemberton",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-11T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -185,8 +206,11 @@
     {
       "id": "demo-008",
       "displayName": "Hana Roe",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-12T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -209,8 +233,11 @@
     {
       "id": "demo-009",
       "displayName": "Ivo Marsh",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-13T12:00:00Z",
+      "shape": "lozenge",
       "design": {
         "v": 1,
         "field": {
@@ -233,8 +260,11 @@
     {
       "id": "demo-010",
       "displayName": "Jules Okafor",
-      "contact": "@jules@example.social",
+      "contact": {
+        "discord": "jules_"
+      },
       "registeredAt": "2026-01-14T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -261,8 +291,11 @@
     {
       "id": "demo-011",
       "displayName": "Kit Abernathy",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-15T12:00:00Z",
+      "shape": "banner",
       "design": {
         "v": 1,
         "field": {
@@ -271,7 +304,7 @@
         },
         "ordinary": null,
         "charges": {
-          "charge": "laptop",
+          "charge": "anchor",
           "count": 1,
           "placement": "field",
           "arrangement": "single",
@@ -279,14 +312,17 @@
           "tincture": "argent"
         }
       },
-      "signature": "v1|F:plain:pu|O:-|C:laptop:1:field:single:-:ar",
-      "blazon": "Purpure, a laptop Argent"
+      "signature": "v1|F:plain:pu|O:-|C:anchor:1:field:single:-:ar",
+      "blazon": "Purpure, an anchor Argent"
     },
     {
       "id": "demo-012",
       "displayName": "Lior Vance",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-16T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -312,8 +348,11 @@
     {
       "id": "demo-013",
       "displayName": "Mina Castellanos",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-17T12:00:00Z",
+      "shape": "round",
       "design": {
         "v": 1,
         "field": {
@@ -339,8 +378,11 @@
     {
       "id": "demo-014",
       "displayName": "Noor Pike",
-      "contact": "Find me near the kettle",
+      "contact": {
+        "discord": "kettle.keeper"
+      },
       "registeredAt": "2026-01-18T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -366,8 +408,11 @@
     {
       "id": "demo-015",
       "displayName": "Otto Fairbairn",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-19T12:00:00Z",
+      "shape": "heater",
       "design": {
         "v": 1,
         "field": {
@@ -393,8 +438,11 @@
     {
       "id": "demo-016",
       "displayName": "Pia Lindqvist",
-      "contact": null,
+      "contact": {
+        "discord": null
+      },
       "registeredAt": "2026-01-20T12:00:00Z",
+      "shape": "lozenge",
       "design": {
         "v": 1,
         "field": {
@@ -403,7 +451,7 @@
         },
         "ordinary": null,
         "charges": {
-          "charge": "paintbrush",
+          "charge": "bee",
           "count": 3,
           "placement": "field",
           "arrangement": "in-fess",
@@ -411,8 +459,131 @@
           "tincture": "or"
         }
       },
-      "signature": "v1|F:plain:vt|O:-|C:paintbrush:3:field:in-fess:-:or",
-      "blazon": "Vert, three paintbrushes in fess Or"
+      "signature": "v1|F:plain:vt|O:-|C:bee:3:field:in-fess:-:or",
+      "blazon": "Vert, three bees in fess Or"
+    },
+    {
+      "id": "demo-017",
+      "displayName": "Quinn Ashworth",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-21T12:00:00Z",
+      "shape": "heater",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "plain",
+          "tincture": "celestine"
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "crescent",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": null,
+          "tincture": "gules"
+        }
+      },
+      "signature": "v1|F:plain:ce|O:-|C:crescent:1:field:single:-:gu",
+      "blazon": "Celestine, a crescent Gules"
+    },
+    {
+      "id": "demo-018",
+      "displayName": "Wren Halloway",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-22T12:00:00Z",
+      "shape": "heater",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "per-pale",
+          "tinctures": [
+            "or",
+            "azure"
+          ]
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "mullet",
+          "count": 3,
+          "placement": "field",
+          "arrangement": "two-and-one",
+          "posture": null,
+          "tincture": "counterchanged"
+        }
+      },
+      "signature": "v1|F:per-pale:or:az|O:-|C:mullet:3:field:two-and-one:-:cc",
+      "blazon": "Per pale Or and Azure, three mullets counterchanged"
+    },
+    {
+      "id": "demo-019",
+      "displayName": "Tobias Fennimore",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-23T12:00:00Z",
+      "shape": "round",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "per-fess",
+          "tinctures": [
+            "argent",
+            "gules"
+          ]
+        },
+        "ordinary": null,
+        "charges": {
+          "charge": "lion",
+          "count": 1,
+          "placement": "field",
+          "arrangement": "single",
+          "posture": "rampant",
+          "tincture": "counterchanged"
+        }
+      },
+      "signature": "v1|F:per-fess:ar:gu|O:-|C:lion:1:field:single:rampant:cc",
+      "blazon": "Per fess Argent and Gules, a lion rampant counterchanged"
+    },
+    {
+      "id": "demo-020",
+      "displayName": "Mae Okonkwo",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-24T12:00:00Z",
+      "shape": "banner",
+      "design": {
+        "v": 1,
+        "field": {
+          "kind": "divided",
+          "division": "per-bend",
+          "tinctures": [
+            "vert",
+            "or"
+          ]
+        },
+        "ordinary": {
+          "type": "bordure",
+          "tincture": "gules"
+        },
+        "charges": {
+          "charge": "rose",
+          "count": 2,
+          "placement": "field",
+          "arrangement": "in-pale",
+          "posture": null,
+          "tincture": "counterchanged"
+        }
+      },
+      "signature": "v1|F:per-bend:vt:or|O:bordure:gu|C:rose:2:field:in-pale:-:cc",
+      "blazon": "Per bend Vert and Or, two roses counterchanged within a bordure Gules"
     }
   ]
 }

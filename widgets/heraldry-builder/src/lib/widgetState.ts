@@ -1,13 +1,13 @@
-// The one place that decides <html data-widget-state> (PLAN §7), from the active tab and its
+// The one place that decides <html data-widget-state>, from the active tab and its
 // status. Dialogs and sheets never change it: they keep the underlying tab's state.
 
 import type { DesignStatus } from './builder';
 
-export type WidgetState = 'loading' | 'ready' | 'populated' | 'empty' | 'error';
+type WidgetState = 'loading' | 'ready' | 'populated' | 'empty' | 'error';
 export type Tab = 'design' | 'registry' | 'yours';
 export type ListStatus = 'loading' | 'populated' | 'empty' | 'error';
 
-export interface StateInputs {
+interface StateInputs {
   tab: Tab;
   design: DesignStatus;
   /** A check-availability result is on screen (counts as populated). */

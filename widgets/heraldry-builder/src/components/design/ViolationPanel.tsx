@@ -2,7 +2,7 @@
 // one-click fix when a single tincture swap (or a structural refit) clears them.
 
 import { fitCharges, suggestTinctureFix, type Issue, type NormDesign } from '../../lib/heraldry';
-import { LAYER_LABEL, assess, sameDesign } from '../../lib/builder';
+import { LAYER_LABEL, assess, fixText, sameDesign } from '../../lib/builder';
 
 interface Props {
   design: NormDesign;
@@ -36,7 +36,7 @@ export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
       </ul>
       {tinctureFix && (
         <button type="button" class="button-primary button-small" data-testid="violation-fix" onClick={() => onFix(tinctureFix.design)}>
-          Fix: {tinctureFix.label.charAt(0).toLowerCase() + tinctureFix.label.slice(1)}
+          {fixText(tinctureFix.label)}
         </button>
       )}
       {structuralFix && (
