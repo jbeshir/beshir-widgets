@@ -1,7 +1,7 @@
 // Parsing and building the nametag sheet route, and choosing which entries go on the sheet.
 import { describe, it, expect, vi } from 'vitest';
 import { MAX_PRINT_ENTRIES, parseHash, printHash } from '../src/lib/route';
-import { TAGS_PER_PAGE, collectNametags, paginate, type Nametag } from '../src/lib/nametags';
+import { TAGS_PER_PAGE, collectNametags, fillPages, paginate, sheetTags, type Nametag } from '../src/lib/nametags';
 import { DEFAULT_FIELD_SHAPE, type ShapedDesign } from '../src/lib/heraldry';
 import { DEFAULT_DESIGN } from '../src/lib/builder';
 
@@ -73,5 +73,34 @@ describe('paginate', () => {
     expect(paginate([])).toEqual([]);
     expect(paginate([1, 2, 3]).map((p) => p.length)).toEqual([3]);
     expect(paginate(Array.from({ length: 17 }, (_, i) => i)).map((p) => p.length)).toEqual([8, 8, 1]);
+  });
+});
+
+describe('fillPages', () => {
+  it('repeats one entry to fill a page of eight', () => {
+    expect(fillPages(['a'])).toEqual(Array.from({ length: 8 }, () => 'a'));
+  });
+
+  it('shares the places out evenly, copies together, spares to the first tags', () => {
+    expect(fillPages(['a', 'b', 'c'])).toEqual(['a', 'a', 'a', 'b', 'b', 'b', 'c', 'c']);
+    expect(fillPages(Array.from({ length: 8 }, (_, i) => i))).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('fills the last page when there are more tags than one page holds', () => {
+    const filled = fillPages(Array.from({ length: 9 }, (_, i) => i));
+    expect(filled).toHaveLength(16);
+    expect(paginate(filled).map((p) => p.length)).toEqual([8, 8]);
+    expect(new Set(filled).size).toBe(9);
+  });
+
+  it('gives no tags for no entries', () => {
+    expect(fillPages([])).toEqual([]);
+  });
+});
+
+describe('sheetTags', () => {
+  it('prints one of each or fills the sheet', () => {
+    expect(sheetTags(['a', 'b'], 'one')).toEqual(['a', 'b']);
+    expect(sheetTags(['a', 'b'], 'fill')).toHaveLength(8);
   });
 });

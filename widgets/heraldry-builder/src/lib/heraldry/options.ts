@@ -19,21 +19,18 @@ import {
 import {
   CHARGE_TINCTURES, COLOURS, METALS, TINCTURES, TINCTURE_NAME, listTinctureNames, type ChargeTincture, type Tincture,
 } from './tinctures';
+import { capitalise } from './words';
 
-export interface Choice<T> {
-  value: T;
-  allowed: boolean;
-  /** Present exactly when `allowed` is false. */
-  reason?: string;
-}
+export type AllowedChoice<T> = { value: T; allowed: true };
+export type BlockedChoice<T> = { value: T; allowed: false; reason: string };
+export type Choice<T> = AllowedChoice<T> | BlockedChoice<T>;
+
+export const isBlocked = <T>(c: Choice<T>): c is BlockedChoice<T> => !c.allowed;
+export const blockReason = <T>(c: Choice<T>): string | null => (c.allowed ? null : c.reason);
 
 const ok = <T>(value: T): Choice<T> => ({ value, allowed: true });
 const blocked = <T>(value: T, reason: string): Choice<T> => ({ value, allowed: false, reason });
 const choice = <T>(value: T, reason: string | null): Choice<T> => (reason ? blocked(value, reason) : ok(value));
-
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 const METAL_LIST = listTinctureNames(METALS, 'or');
 const COLOUR_LIST = listTinctureNames(COLOURS, 'or');
@@ -50,12 +47,12 @@ function tinctureBlockReason(top: Tincture, contacts: readonly Tincture[], subje
   const lies = plural ? 'lie' : 'lies';
   if (f === 'same') {
     if (contacts.length === 1) return `${T} on ${T} would vanish — ${subject} can't share the tincture ${plural ? 'they lie' : 'it lies'} on.`;
-    return `${cap(subject)} ${plural ? 'touch' : 'touches'} the ${T} part of the field, so ${plural ? 'they' : 'it'} can't be ${T} too.`;
+    return `${capitalise(subject)} ${plural ? 'touch' : 'touches'} the ${T} part of the field, so ${plural ? 'they' : 'it'} can't be ${T} too.`;
   }
   if (contacts.length === 2) {
     return f === 'colour-on-colour'
-      ? `${cap(subject)} ${lies} across ${names[0]} and ${names[1]} — both colours — so ${plural ? 'they' : 'it'} must be a metal (${METAL_LIST}).`
-      : `${cap(subject)} ${lies} across ${names[0]} and ${names[1]} — both metals — so ${plural ? 'they' : 'it'} must be a colour (${COLOUR_LIST}).`;
+      ? `${capitalise(subject)} ${lies} across ${names[0]} and ${names[1]} — both colours — so ${plural ? 'they' : 'it'} must be a metal (${METAL_LIST}).`
+      : `${capitalise(subject)} ${lies} across ${names[0]} and ${names[1]} — both metals — so ${plural ? 'they' : 'it'} must be a colour (${COLOUR_LIST}).`;
   }
   return f === 'colour-on-colour'
     ? `${T} on ${names[0]} would be colour on colour. Colours must sit on metals (${METAL_LIST}).`
@@ -100,7 +97,7 @@ function chargeTinctureReason(nd: NormDesign, g: NormChargeGroup, t: Tincture, s
   const where = cs.map((x) => TINCTURE_NAME[x]).join(' and ');
   const reason = tinctureBlockReason(t, cs, who, group.length > 1)!;
   // A same-tincture reason already names the slots; otherwise say where they lie first.
-  return cs.length === 1 && !cs.includes(t) ? `${cap(who)} ${group.length > 1 ? 'lie' : 'lies'} on ${where}. ${reason}` : reason;
+  return cs.length === 1 && !cs.includes(t) ? `${capitalise(who)} ${group.length > 1 ? 'lie' : 'lies'} on ${where}. ${reason}` : reason;
 }
 
 /** Why the charges can't be counterchanged: not on a divided field, or a field of two metals or two colours. */
@@ -134,8 +131,9 @@ export function chargeTinctureChoices(nd: NormDesign): Choice<ChargeTincture>[] 
 function noTinctureReason(nd: NormDesign): string | null {
   const g = nd.charges;
   const choices = chargeTinctureChoices(nd);
-  if (!g || choices.some((c) => c.allowed)) return null;
-  return `No tincture would work for the ${chargeNoun(g.charge, g.count)} like this. ${choices[0].reason}`;
+  const blockedChoices = choices.filter(isBlocked);
+  if (!g || blockedChoices.length < choices.length) return null;
+  return `No tincture would work for the ${chargeNoun(g.charge, g.count)} like this. ${blockedChoices[0].reason}`;
 }
 
 /** The charge group with one structural attribute changed, as the builder would apply it. */
@@ -174,24 +172,20 @@ export function placementChoices(nd: NormDesign): Choice<Placement>[] {
   });
 }
 
-interface ArrangementChoices {
-  /** single: one charge; forced: placed by the ordinary; choose: pick from `choices`. */
-  mode: 'single' | 'forced' | 'choose';
-  /** Why there is nothing to choose (single/forced). */
-  note?: string;
-  choices: Choice<Arrangement>[];
-}
+/** single: one charge; forced: placed by the ordinary (`note` says why there is nothing to choose); choose: pick from `choices`. */
+type ArrangementChoices =
+  | { mode: 'choose'; choices: Choice<Arrangement>[] }
+  | { mode: 'single' | 'forced'; note: string };
 
 export function arrangementChoices(nd: NormDesign): ArrangementChoices {
   const g = nd.charges;
-  if (!g || g.count === 1) return { mode: 'single', note: 'A single charge sits in the centre.', choices: [] };
+  if (!g || g.count === 1) return { mode: 'single', note: 'A single charge sits in the centre.' };
   const ctx = chargeContext(nd.ordinary, g.placement);
   if ((ctx === 'on' || ctx === 'between') && nd.ordinary) {
     const name = ORDINARY_NAME[nd.ordinary.type];
     return {
       mode: 'forced',
       note: ctx === 'on' ? `Charges on the ${name} follow its line.` : `Charges between a ${name} are placed around it.`,
-      choices: [],
     };
   }
   const legal = legalArrangements(nd.ordinary, g.placement, g.count);
@@ -285,7 +279,7 @@ export function suggestTinctureFix(nd: NormDesign): TinctureFix | null {
     const alternatives = CHARGE_TINCTURES.filter((t) => t !== g.tincture && clears(withChargeTincture(nd, g, t)));
     if (!alternatives.length) return null;
     const t = alternatives[0];
-    return { layer: 'charges', tincture: t, alternatives, label: cap(chargeFixWords(g, t)), design: withChargeTincture(nd, g, t) };
+    return { layer: 'charges', tincture: t, alternatives, label: capitalise(chargeFixWords(g, t)), design: withChargeTincture(nd, g, t) };
   };
   const ordinaryFix = (): TinctureFix | null => {
     if (!o) return null;

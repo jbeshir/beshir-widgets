@@ -1,9 +1,10 @@
 // The committed migrations are the only schema source. These tests apply them to empty databases
 // and prove 0001 reproduces the schema production was created from (test/fixtures/production-schema.sql).
 import { applyD1Migrations, env } from 'cloudflare:test';
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect } from 'vitest';
 import { CHARGE_IDS, DIVISIONS, ORDINARY_TYPES, chargeGroup, divisionGroup, ordinaryGroup } from '../src/lib/heraldry';
 import productionSchema from './fixtures/production-schema.sql?raw';
+import readme from '../README.md?raw';
 
 interface SchemaObject { type: string; name: string; tbl_name: string; sql: string }
 
@@ -175,5 +176,47 @@ describe('migrations', () => {
     expect(results).toEqual(expected);
     expect(results.find((r) => r.id === 'c-gear')!.charge_group).toBe('round');
     expect(results.find((r) => r.id === 'd-per-bend-sinister')!.division_group).toBe('per-bend');
+  });
+});
+
+describe('changing the default registry (README procedure)', () => {
+  const NEW_REGISTRY = `INSERT INTO registries (id, name, is_default, created_at) VALUES ('my-shire', 'The Shire of Example', 0, '2026-11-01T00:00:00Z')`;
+
+  /** The statements of the documented "change the default" command, in the documented order. */
+  function documentedStatements(): string[] {
+    const command = readme.match(/--command "(UPDATE registries SET is_default[^"]*)"/);
+    if (!command) throw new Error('README has no default-registry command');
+    return command[1].split(';').map((statement) => statement.trim()).filter(Boolean);
+  }
+
+  // The database is shared by the tests in this file: put the original registry back as the default.
+  afterEach(async () => {
+    await env.MIGRATION_DB.batch([
+      env.MIGRATION_DB.prepare(`DELETE FROM registries WHERE id = 'my-shire'`),
+      env.MIGRATION_DB.prepare(`UPDATE registries SET is_default = 1 WHERE id = 'default'`),
+    ]);
+  });
+
+  const defaults = async () =>
+    (await env.MIGRATION_DB.prepare(`SELECT id FROM registries WHERE is_default = 1`).all<{ id: string }>()).results.map((r) => r.id);
+
+  it('moves the single default to the new registry when run in the documented order', async () => {
+    await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS);
+    await env.MIGRATION_DB.prepare(NEW_REGISTRY).run();
+    for (const statement of documentedStatements()) await env.MIGRATION_DB.prepare(statement).run();
+    expect(await defaults()).toEqual(['my-shire']);
+  });
+
+  it('is why the order matters: setting the new default first is rejected by the one-default index', async () => {
+    await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS);
+    await env.MIGRATION_DB.prepare(NEW_REGISTRY).run();
+    await expect(env.MIGRATION_DB.prepare(`UPDATE registries SET is_default = 1 WHERE id = 'my-shire'`).run()).rejects.toThrow();
+    expect(await defaults()).toEqual(['default']);
+  });
+
+  it('leaves the current default alone when the new id does not exist', async () => {
+    await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS);
+    for (const statement of documentedStatements()) await env.MIGRATION_DB.prepare(statement).run();
+    expect(await defaults()).toEqual(['default']);
   });
 });

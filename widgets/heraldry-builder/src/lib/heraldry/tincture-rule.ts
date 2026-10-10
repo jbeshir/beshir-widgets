@@ -8,6 +8,7 @@ import {
 } from './design';
 import { chargeSlots, slotColumn, slotContacts, slotRow, type Slot } from './geometry';
 import { CHARGE_TINCTURE_NAME, TINCTURE_CLASS, TINCTURE_NAME, type ChargeTincture, type Tincture } from './tinctures';
+import { capitalise, joinAnd } from './words';
 
 export type ContrastFailure = 'same' | 'colour-on-colour' | 'metal-on-metal';
 
@@ -73,14 +74,6 @@ export function chargeSlotContacts(nd: NormDesign): Tincture[][] {
   const slots = chargeSlots(nd);
   if (chargeContext(nd.ordinary, c.placement) === 'on') return nd.ordinary ? slots.map(() => [nd.ordinary!.tincture]) : [];
   return slots.map((s) => slotContacts(nd.field, s));
-}
-
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function joinAnd(words: string[]): string {
-  return words.length <= 1 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 }
 
 /** "(a two-colour field needs a metal charge)" when both background tinctures share a class. */
@@ -155,7 +148,7 @@ export function tinctureIssues(nd: NormDesign): Issue[] {
         const hint = f === 'same' ? '' : ' (counterchanging needs a field of one metal and one colour)';
         issues.push({
           code: 'tincture', layer: 'charges',
-          message: `${cap(T)} ${noun} on ${a} and ${b}: ${FAILURE_TEXT[f]}${hint}`,
+          message: `${capitalise(T)} ${noun} on ${a} and ${b}: ${FAILURE_TEXT[f]}${hint}`,
           slots: chargeSlots(nd).map((_, i) => i),
         });
       }
@@ -202,7 +195,7 @@ export function tinctureIssues(nd: NormDesign): Issue[] {
             const subject = describeSlots(slots, idx, tincture, charges.charge);
             const plural = idx.length > 1;
             const where = cs.length === 1 ? `on ${names[0]}` : `across ${names[0]} and ${names[1]}`;
-            message = `${cap(subject)} ${plural ? 'lie' : 'lies'} ${where}: ${FAILURE_TEXT[f]}${twoClassHint(f, cs, 'charge')}`;
+            message = `${capitalise(subject)} ${plural ? 'lie' : 'lies'} ${where}: ${FAILURE_TEXT[f]}${twoClassHint(f, cs, 'charge')}`;
           }
           issues.push({ code: 'tincture', layer: 'charges', message, slots: idx });
         }

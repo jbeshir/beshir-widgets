@@ -78,7 +78,7 @@ describe('counterchanged in the design text', () => {
       expect(differences(d, other), t).toEqual([{ attr: 'charge-tincture', weight: 'clear' }]);
       expect(areDistinct(d, other)).toBe(true);
     }
-    expect(explainDifferences(d, mullets(div('per-pale', 'or', 'azure'), 3, 'argent')).map((n) => n.text)).toEqual(['charge tincture (counterchanged ↔ Argent)']);
+    expect(explainDifferences(d, mullets(div('per-pale', 'or', 'azure'), 3, 'argent')).map((n) => n.text)).toEqual(['picture colour (counterchanged ↔ Argent)']);
   });
 
   it('readability: no extra tincture, but charges split by the field line cost a point', () => {

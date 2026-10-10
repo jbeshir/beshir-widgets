@@ -2,8 +2,9 @@
 
 import {
   CATEGORY_LABEL, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, ORDINARY_LABEL, ORDINARY_TYPES, POSTURES, POSTURE_GLOSS,
-  TINCTURES, TINCTURE_LABEL, chargesInCategory, postureLabel, type PlainTerm, type SearchParams,
+  TINCTURES, TINCTURE_LABEL, chargeLabel, chargesInCategory, postureLabel, type PlainTerm, type SearchParams,
 } from '../../lib/heraldry';
+import { capitalise } from '../../lib/heraldry/words';
 
 export const FILTER_KEYS = ['category', 'charge', 'posture', 'ordinary', 'division', 'fieldTincture', 'tincture', 'chargeTincture'] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
@@ -15,8 +16,6 @@ export const PRIMARY_FILTERS: FilterKey[] = ['charge', 'ordinary'];
 export const isTinctureFilter = (k: FilterKey) => k === 'tincture' || k === 'fieldTincture' || k === 'chargeTincture';
 
 export const EMPTY_FILTERS: Filters = { category: '', charge: '', posture: '', ordinary: '', division: '', fieldTincture: '', tincture: '', chargeTincture: '' };
-
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 interface FilterSpec {
   key: FilterKey;
@@ -40,7 +39,7 @@ export const FILTER_SPECS: FilterSpec[] = [
   {
     key: 'charge', testid: 'filter-charge', label: 'Picture', any: 'Any',
     options: CHARGE_CATEGORIES.flatMap((cat) =>
-      chargesInCategory(cat).map((m) => ({ value: m.id, label: cap(m.name), group: CATEGORY_LABEL[cat] })),
+      chargesInCategory(cat).map((m) => ({ value: m.id, label: chargeLabel(m.id), group: CATEGORY_LABEL[cat] })),
     ),
   },
   { key: 'posture', testid: 'filter-posture', label: 'Pose', any: 'Any', options: POSTURES.map((p) => ({ value: p, label: postureLabel(p, POSTURE_GLOSS[p], p) })) },
@@ -57,10 +56,14 @@ export const FILTER_SPECS: FilterSpec[] = [
   },
 ];
 
-export function chipLabel(spec: FilterSpec, value: string): string {
+/** The chosen option in everyday words ("Gold", "Border"), without the heraldic term. */
+export function chipValue(spec: FilterSpec, value: string): string {
   const o = spec.options.find((x) => x.value === value);
-  const text = o ? o.label.replace(/ \(.*\)$/, '') : value;
-  return `${spec.label}: ${text}`;
+  return o ? o.label.replace(/ \(.*\)$/, '') : value;
+}
+
+export function chipLabel(spec: FilterSpec, value: string): string {
+  return `${spec.label}: ${chipValue(spec, value)}`;
 }
 
 export function activeFilters(f: Filters): FilterKey[] {

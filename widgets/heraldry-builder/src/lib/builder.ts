@@ -4,10 +4,10 @@
 // surface and offer a fix — never silently repaired.
 
 import {
-  CHARGES, ORDINARY_LABEL, chargeContext, chargeTinctureChoices, defaultArrangement, fieldTinctures, fitCharges,
+  DEFAULT_FIELD_SHAPE, CHARGES, ORDINARY_LABEL, chargeContext, chargeTinctureChoices, defaultArrangement, fieldTinctures, fitCharges,
   isMetal, legalArrangements, ordinaryTinctureChoices, structuralIssues, tinctureIssues,
   type Arrangement, type ChargeId, type Choice, type Count, type Division, type Issue, type NormDesign,
-  type ChargeTincture, type OrdinaryType, type Placement, type Posture, type Tincture,
+  type ChargeTincture, type OrdinaryType, type Placement, type Posture, type ShapedDesign, type Tincture,
 } from './heraldry';
 
 export const DEFAULT_DESIGN: NormDesign = { v: 1, field: { kind: 'plain', tincture: 'azure' }, ordinary: null, charges: null };
@@ -146,5 +146,30 @@ export function placementLabel(nd: NormDesign, placement: Placement): string {
 
 export function sameDesign(a: NormDesign, b: NormDesign): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function sameShapedDesign(a: ShapedDesign, b: ShapedDesign): boolean {
+  return a.shape === b.shape && sameDesign(a.design, b.design);
+}
+
+/** The starting point: nothing has been designed yet, so nothing is lost by replacing it. */
+export function isUntouched(d: ShapedDesign): boolean {
+  return d.shape === DEFAULT_FIELD_SHAPE && sameDesign(d.design, DEFAULT_DESIGN);
+}
+
+/** A design swapped in for another, and the one to bring back on Undo. */
+export interface Replacement {
+  previous: ShapedDesign;
+  replacement: ShapedDesign;
+}
+
+/** What replacing `current` with `next` would lose: null when current is untouched or identical to next. */
+export function replaceDesign(current: ShapedDesign, next: ShapedDesign): Replacement | null {
+  return isUntouched(current) || sameShapedDesign(current, next) ? null : { previous: current, replacement: next };
+}
+
+/** Undo stays on offer only until the replacement is edited; undoing then would throw that work away too. */
+export function undoStillOffered(r: Replacement, now: ShapedDesign): boolean {
+  return sameShapedDesign(r.replacement, now);
 }
 

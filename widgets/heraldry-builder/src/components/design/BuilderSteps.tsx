@@ -7,8 +7,8 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
   ARRANGEMENT_LABEL, CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, DIVISION_PART_LABEL, NUMBER_WORD,
-  ORDINARY_LABEL, ORDINARY_TYPES, TINCTURE_LABEL, arrangementChoices, chargeNoun, chargePath,
-  chargeTinctureChoices, chargesInCategory, countChoices, fieldTinctureChoices, ordinaryTinctureChoices,
+  ORDINARY_LABEL, ORDINARY_TYPES, TINCTURE_LABEL, arrangementChoices, blockReason, chargeLabel, chargeNoun, chargePath,
+  chargeTinctureChoices, chargesInCategory, countChoices, fieldTinctureChoices, isBlocked, ordinaryTinctureChoices,
   placementChoices, plainFirst, postureChoices, postureGloss, postureLabel, postureTerm,
   type Arrangement, type ChargeCategory, type Division, type FieldShape, type Issue, type NormDesign, type OrdinaryType, type Posture,
   type PlainTerm,
@@ -17,6 +17,7 @@ import {
   placementLabel, setArrangement, setCharge, setChargeTincture, setCount, setDivision, setFieldTincture, setOrdinary,
   setOrdinaryTincture, setPlacement, setPlainField, setPosture,
 } from '../../lib/builder';
+import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { useExplainer } from './Explainer';
@@ -37,8 +38,6 @@ interface StepProps {
 
 /** Field and ordinary choices are never blocked; ChoiceButton still wants a handler. */
 const never = () => {};
-
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Two-line choice text: the everyday word, then the heraldic term in small type. */
 function PlainLabel({ label }: { label: PlainTerm }) {
@@ -233,8 +232,8 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
   const placements = placementChoices(design);
   const arr = arrangementChoices(design);
   const postures = postureChoices(design);
-  const blockedArr = arr.choices.filter((c) => !c.allowed);
-  const blockedPost = postures.filter((c) => !c.allowed);
+  const blockedArr = arr.mode === 'choose' ? arr.choices.filter(isBlocked) : [];
+  const blockedPost = postures.filter(isBlocked);
   const countWhy = useExplainer();
   const placementWhy = useExplainer();
 
@@ -261,17 +260,17 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
             <p class="charge-category-label" aria-hidden="true">{CATEGORY_LABEL[cat]}</p>
             <div class="icon-grid icon-grid-charges">
               {chargesInCategory(cat).map((m) => (
-                <ChoiceButton key={m.id} testid={`charge-${m.id}`} checked={g?.charge === m.id} label={cap(m.name)} onSelect={() => onChange(setCharge(design, m.id))} onBlocked={never} class="icon-choice charge-choice">
+                <ChoiceButton key={m.id} testid={`charge-${m.id}`} checked={g?.charge === m.id} label={chargeLabel(m.id)} onSelect={() => onChange(setCharge(design, m.id))} onBlocked={never} class="icon-choice charge-choice">
                   <ChargeIcon path={chargePath(m.id, m.defaultPosture)} size={30} />
-                  <span class="choice-label">{cap(m.name)}</span>
+                  <span class="choice-label">{chargeLabel(m.id)}</span>
                 </ChoiceButton>
               ))}
             </div>
           </div>
         ))}
       </RadioGroup>
-      <p class="charge-selected" data-testid="charge-selected" aria-live="polite">
-        {g ? <>Selected: <strong>{cap(CHARGES[g.charge].name)}</strong></> : 'No picture selected.'}
+      <p class="charge-selected" data-testid="charge-selected">
+        {g ? <>Selected: <strong>{chargeLabel(g.charge)}</strong></> : 'No picture selected.'}
       </p>
 
       {g && (
@@ -280,7 +279,7 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
             <p class="picker-legend" id="count-label">How many</p>
             <RadioGroup label="How many" class="segmented" testid="count-select">
               {counts.map((c) => (
-                <ChoiceButton key={c.value} testid={`count-${c.value}`} checked={g.count === c.value} reason={c.reason} label={cap(NUMBER_WORD[c.value])} onSelect={() => onChange(setCount(design, c.value))} onBlocked={countWhy.explain} class="segment">
+                <ChoiceButton key={c.value} testid={`count-${c.value}`} checked={g.count === c.value} reason={blockReason(c)} label={capitalise(NUMBER_WORD[c.value])} onSelect={() => onChange(setCount(design, c.value))} onBlocked={countWhy.explain} class="segment">
                   <span aria-hidden="true">{c.value}</span>
                 </ChoiceButton>
               ))}
@@ -294,7 +293,7 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
               {placements.map((c) => {
                 const text = placementLabel(design, c.value);
                 return (
-                  <ChoiceButton key={c.value} testid={`placement-${c.value}`} checked={g.placement === c.value} reason={c.reason} label={text} onSelect={() => onChange(setPlacement(design, c.value))} onBlocked={placementWhy.explain} class="segment">
+                  <ChoiceButton key={c.value} testid={`placement-${c.value}`} checked={g.placement === c.value} reason={blockReason(c)} label={text} onSelect={() => onChange(setPlacement(design, c.value))} onBlocked={placementWhy.explain} class="segment">
                     <span>{text}</span>
                   </ChoiceButton>
                 );
@@ -310,7 +309,7 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
               class="select"
               data-testid="arrangement-select"
               disabled={arr.mode !== 'choose'}
-              aria-describedby={arr.note || blockedArr.length ? 'arrangement-note' : undefined}
+              aria-describedby={arr.mode !== 'choose' || blockedArr.length ? 'arrangement-note' : undefined}
               value={g.arrangement}
               onChange={(e) => onChange(setArrangement(design, (e.currentTarget as HTMLSelectElement).value as Arrangement))}
             >
@@ -322,9 +321,9 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
                   ))
                 : <option value={g.arrangement}>{arr.mode === 'single' ? 'Single, centred' : 'Set by the band or shape'}</option>}
             </select>
-            {(arr.note || blockedArr.length > 0) && (
+            {(arr.mode !== 'choose' || blockedArr.length > 0) && (
               <p class="control-note" id="arrangement-note">
-                {arr.note ?? blockedArr.map((c) => c.reason).filter((r, i, a) => a.indexOf(r) === i).join(' ')}
+                {arr.mode === 'choose' ? blockedArr.map((c) => c.reason).filter((r, i, a) => a.indexOf(r) === i).join(' ') : arr.note}
               </p>
             )}
           </div>

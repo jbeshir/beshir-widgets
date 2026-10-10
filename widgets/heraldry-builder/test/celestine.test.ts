@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   COLOURS, METALS, NON_STANDARD_NOTE, TINCTURES, TINCTURE_CLASS, TINCTURE_CODE, TINCTURE_FILL, TINCTURE_HATCHING,
   blazon, chargeTinctureChoices, contrastFailure, deriveTags, designTinctures, explainDifferences, filtersToTags, gloss,
-  isNonStandard, normalise, ordinaryTinctureChoices, parseSearchParams, readability, resolve, searchEntries, signature,
+  normalise, ordinaryTinctureChoices, parseSearchParams, readability, resolve, searchEntries, signature,
   queryWords, type NormDesign, type Tincture,
 } from '../src/lib/heraldry';
 import { setDivision } from '../src/lib/builder';
@@ -25,7 +25,7 @@ describe('celestine is a non-standard metal', () => {
     expect(METALS).toEqual(['or', 'argent', 'celestine']);
     expect(TINCTURES).toHaveLength(8);
     expect(TINCTURE_CLASS.celestine).toBe('metal');
-    expect(TINCTURES.filter(isNonStandard)).toEqual(['celestine']);
+    expect(TINCTURES.filter((t) => NON_STANDARD_NOTE[t] !== null)).toEqual(['celestine']);
     expect(NON_STANDARD_NOTE.celestine).toMatch(/cyan treated as a metal/);
     expect(NON_STANDARD_NOTE.celestine).toMatch(/new tincture proposed for modern heraldry/);
   });
@@ -150,7 +150,7 @@ describe('celestine in words, signature and tags', () => {
 
   it('names celestine in difference text', () => {
     const argent = nd({ v: 1, field: plain('argent'), charges: { charge: 'crescent', count: 1, placement: 'field', tincture: 'gules' } });
-    expect(explainDifferences(field, argent).map((n) => n.text)).toEqual(['field tincture (Celestine ↔ Argent)']);
+    expect(explainDifferences(field, argent).map((n) => n.text)).toEqual(['background colour (Celestine ↔ Argent)']);
   });
 });
 

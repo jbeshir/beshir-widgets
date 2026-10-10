@@ -7,28 +7,25 @@
 //                        remembered on this device) or "Withdraw this registration". Link scanners
 //                        that merely open the page can't burn the token.
 
+import type { Ref } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { API_ERROR, EMAIL_MAX, cleanEmail, type ApiErrorCode } from '../../lib/heraldry';
-import { RECOVER_HASH, capabilityUrls, ownerHash } from '../../lib/route';
+import { RECOVER_HASH, editUrl, ownerHash } from '../../lib/route';
+import { useFocusOnChange } from '../../lib/useFocusOnChange';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
 import { SecretLinkField } from '../CopyField';
 import { Dialog } from '../overlay';
 import { Shield } from '../Shield';
 
-/** Focus the screen's heading when it opens, so keyboard and screen-reader users land on it. */
-function useHeadingFocus() {
-  const ref = useRef<HTMLHeadingElement>(null);
-  useEffect(() => ref.current?.focus({ preventScroll: true }), []);
-  return ref;
-}
-
 export function RecoverRequest({ onStatus }: { onStatus: (s: ListStatus) => void }) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
-  const heading = useHeadingFocus();
+  // The heading takes focus when the screen opens and when the form comes back; the confirmation takes it when it replaces the form.
+  const heading = useFocusOnChange<HTMLHeadingElement>(sent ? null : 'form');
+  const confirmation = useFocusOnChange<HTMLDivElement>(sent ? 'sent' : null);
   const inputRef = useRef<HTMLInputElement>(null);
   const offline = store.isOffline();
 
@@ -56,10 +53,15 @@ export function RecoverRequest({ onStatus }: { onStatus: (s: ListStatus) => void
       <a class="text-link back-link" href="#/" data-testid="back-to-registry">← Back to the registry</a>
       <h2 class="owner-title recover-heading" tabIndex={-1} ref={heading}>Lost your link? / Withdraw my registration</h2>
       {sent ? (
-        <div class="owner-message" role="status" data-testid="recover-sent">
-          <p><strong>Check your inbox.</strong> {sent}</p>
-          <p>Nothing arrived? Check your spam folder, and that you typed the address you registered with.</p>
-        </div>
+        <>
+          <div class="owner-message recover-sent" role="status" tabIndex={-1} ref={confirmation} data-testid="recover-sent">
+            <p><strong>Check your inbox.</strong> {sent}</p>
+            <p>Nothing arrived? Check your spam folder, and that you typed the address you registered with ({email}). You can send it again, or to a different address.</p>
+          </div>
+          <div class="dialog-actions recover-actions">
+            <button type="button" class="button-secondary" data-testid="recover-retry" onClick={() => setSent(null)}>Send again</button>
+          </div>
+        </>
       ) : (
         <form class="register-form" onSubmit={submit} noValidate>
           <p>
@@ -118,7 +120,10 @@ export function RecoverRedeem({ token, onStatus, hatching, onDeviceChange }: {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const heading = useHeadingFocus();
+  const keepRef = useRef<HTMLButtonElement>(null);
+  // Focus goes to the heading once the entry is shown, and to whatever replaces it afterwards (the new link, the withdrawn note, an error).
+  const heading = useFocusOnChange<HTMLHeadingElement>(state.status === 'ready' ? 'ready' : null);
+  const result = useFocusOnChange<HTMLDivElement>(state.status === 'loading' || state.status === 'ready' ? null : state.status);
 
   useEffect(() => {
     let live = true;
@@ -162,7 +167,7 @@ export function RecoverRedeem({ token, onStatus, hatching, onDeviceChange }: {
       <a class="text-link back-link" href="#/" data-testid="back-to-registry">← Back to the registry</a>
       <h2 class="owner-title recover-heading" tabIndex={-1} ref={heading}>Your registration</h2>
       {state.status === 'loading' && <p class="panel-message" aria-busy="true" role="status">Checking your link…</p>}
-      {state.status === 'error' && <RedeemError failure={state.failure} />}
+      {state.status === 'error' && <RedeemError failure={state.failure} focusRef={result} />}
       {(state.status === 'ready' || state.status === 'recovered') && (
         <div class="register-summary">
           <Shield design={state.entry.design} shape={state.entry.shape} size={96} hatching={hatching} />
@@ -189,35 +194,40 @@ export function RecoverRedeem({ token, onStatus, hatching, onDeviceChange }: {
         </>
       )}
       {state.status === 'recovered' && (
-        <div class="register-success" data-testid="redeem-recovered">
+        <div class="register-success" tabIndex={-1} ref={result} data-testid="redeem-recovered">
           <div class="owner-message" role="status">
             <p><strong>Here’s your new edit link.</strong> The old one no longer works. It’s also saved under “Your arms” on this device.</p>
           </div>
-          <SecretLinkField value={capabilityUrls(state.recovered.id, state.recovered.editSecret).edit ?? ''} testid="redeem-edit-link" />
-          <a class="text-link back-link" href={ownerHash(state.recovered.id, state.recovered.editSecret)} data-testid="redeem-open-owner">Open the edit page</a>
+          <SecretLinkField value={editUrl(state.recovered.id, state.recovered.editSecret)} testid="redeem-edit-link" />
+          <a class="button-primary" href={ownerHash(state.recovered.id, state.recovered.editSecret)} data-testid="redeem-open-owner">Open the edit page</a>
         </div>
       )}
       {state.status === 'withdrawn' && (
-        <div class="panel-message" role="status" data-testid="redeem-withdrawn">
+        <div class="panel-message" role="status" tabIndex={-1} ref={result} data-testid="redeem-withdrawn">
           <p><strong>Withdrawn.</strong> These arms have been removed from the registry, and the design is free to register again.</p>
         </div>
       )}
       {confirming && (
-        <Dialog title="Withdraw this registration?" testid="redeem-withdraw-dialog" onClose={() => !busy && setConfirming(false)}>
-          <div class="register-form">
-            <p>This removes the arms from the registry for everyone, and the design is free to register again — by anyone. The entry and its links will stop working.</p>
+        <Dialog
+          title="Withdraw this registration?"
+          testid="redeem-withdraw-dialog"
+          initialFocus={keepRef}
+          footer={
             <div class="dialog-actions">
-              <button type="button" class="button-secondary" data-testid="redeem-withdraw-cancel" onClick={() => setConfirming(false)}>Keep them</button>
+              <button type="button" ref={keepRef} class="button-secondary" data-testid="redeem-withdraw-cancel" onClick={() => setConfirming(false)}>Keep them</button>
               <button type="button" class="button-danger" data-testid="redeem-withdraw-confirm" disabled={busy} onClick={withdraw}>{busy ? 'Withdrawing…' : 'Withdraw'}</button>
             </div>
-          </div>
+          }
+          onClose={() => !busy && setConfirming(false)}
+        >
+          <p>This removes the arms from the registry for everyone, and the design is free to register again — by anyone. The entry and its links will stop working.</p>
         </Dialog>
       )}
     </div>
   );
 }
 
-function RedeemError({ failure }: { failure: store.Failure }) {
+function RedeemError({ failure, focusRef }: { failure: store.Failure; focusRef: Ref<HTMLDivElement> }) {
   const code = store.failureCode(failure);
   const title =
     code === API_ERROR.tokenUsed ? 'This link has already been used.'
@@ -226,9 +236,9 @@ function RedeemError({ failure }: { failure: store.Failure }) {
     : "Your registration couldn't be loaded.";
   const detail = TOKEN_CODES.includes(code) ? 'Each emailed link works once, for 30 minutes.' : failure.message;
   return (
-    <div class="panel-message panel-error" role="alert" data-testid="redeem-link-error" data-code={code ?? failure.kind}>
+    <div class="panel-message panel-error" role="alert" tabIndex={-1} ref={focusRef} data-testid="redeem-link-error" data-code={code ?? failure.kind}>
       <p><strong>{title}</strong> {detail}</p>
-      <a class="text-link" href={RECOVER_HASH} data-testid="redeem-ask-again">Ask for a new link</a>
+      <a class="text-link text-link-block" href={RECOVER_HASH} data-testid="redeem-ask-again">Ask for a new link</a>
     </div>
   );
 }

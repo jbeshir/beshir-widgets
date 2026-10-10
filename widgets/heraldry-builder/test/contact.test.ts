@@ -67,6 +67,18 @@ describe('cleanEmail', () => {
     }
   });
 
+  it('rejects characters a mail API could read as a name, a quote or a second address', () => {
+    for (const raw of ['x<victim@b.com>', '"x"@b.com', 'a,b@c.com', 'a(b)@c.com', 'a@b.com>', 'a@<b.com', 'a@b,c.com']) {
+      expect(cleanEmail(raw).ok, raw).toBe(false);
+    }
+  });
+
+  it('accepts the usual local-part punctuation', () => {
+    for (const raw of ["o'brien@example.com", 'first.last+tag@example.co.uk', 'a_b-c@example.org', 'a/b=c@example.com']) {
+      expect(cleanEmail(raw).ok, raw).toBe(true);
+    }
+  });
+
   it('caps the length', () => {
     const local = 'a'.repeat(64);
     const domain = `${'b'.repeat(60)}.${'c'.repeat(60)}.${'d'.repeat(60)}.com`;

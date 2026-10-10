@@ -171,6 +171,12 @@ describe('the plain-English queries over the sample registry', () => {
     for (const q of ['cyan', 'sky blue', 'light blue', 'turquoise', 'Celestine']) expect(find(q), q).toEqual(['demo-017']);
   });
 
+  it('keeps plain "blue" for Azure: it does not find celestine, which "sky blue" does', () => {
+    expect(find('blue')).not.toContain('demo-017');
+    expect(find('sky blue')).toContain('demo-017');
+    expect(find('blue sky blue')).toEqual([]);
+  });
+
   it('answers the other everyday words', () => {
     expect(find('moon')).toEqual(['demo-017']);
     expect(find('fire')).toEqual(['demo-015']);

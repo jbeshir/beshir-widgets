@@ -8,14 +8,24 @@ import { ORDINARY_NAME, ORDINARY_TYPES, type NormDesign } from './design';
 import { gloss } from './gloss';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
 
+/**
+ * "sky blue" is one colour word, not "blue" with a modifier: closed up into a single word so that a
+ * search for plain "blue" (Azure) doesn't also find celestine, while "sky blue" still does.
+ */
+function closeUp(text: string): string {
+  return text.replace(/\bsky blue\b/g, 'skyblue');
+}
+
 /** Lowercase words separated by single spaces: accents and punctuation (hyphens included) removed. */
 export function normaliseWords(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/\p{M}+/gu, '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .trim();
+  return closeUp(
+    s
+      .normalize('NFKD')
+      .replace(/\p{M}+/gu, '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim(),
+  );
 }
 
 /**
@@ -64,16 +74,8 @@ function withPlurals(term: string): string[] {
   return pluralForms(term.slice(at)).map((w) => term.slice(0, at) + w);
 }
 
-/** Words and phrases a typed key stands for, exactly as they appear in an entry's text. */
-const SYNONYMS = new Map<string, string[]>();
-
 /** Typing any of `keys` also matches `terms` (and the key itself). */
-function alias(keys: readonly string[], terms: readonly string[]): void {
-  for (const key of keys) {
-    const have = SYNONYMS.get(key) ?? [];
-    SYNONYMS.set(key, [...new Set([...have, key, ...terms])]);
-  }
-}
+type Alias = readonly [keys: readonly string[], terms: readonly string[]];
 
 // Tinctures: the blazon name, the plain colour word the gloss uses and everyday alternatives are
 // interchangeable ("yellow" finds Or, "Or" finds gold). "Or" is a colour here, never the English word.
@@ -81,19 +83,19 @@ const TINCTURE_ALIASES: Record<Tincture, readonly string[]> = {
   or: ['yellow'], argent: ['silver'], celestine: ['cyan', 'light blue', 'turquoise'],
   azure: [], gules: [], vert: [], sable: [], purpure: ['violet'],
 };
-for (const t of TINCTURES) {
-  const names = [TINCTURE_NAME[t].toLowerCase(), TINCTURE_WORD[t], ...TINCTURE_ALIASES[t]];
-  alias(names, names);
-}
-// Counterchanged charges: the blazon term and its spellings (the gloss says "opposite colours").
-alias(['counterchanged', 'counterchange', 'counter changed', 'counter change'], ['counterchanged']);
+const tinctureAliases: Alias[] = TINCTURES.map((t) => {
+  const names = [TINCTURE_NAME[t].toLowerCase(), TINCTURE_WORD[t], ...TINCTURE_ALIASES[t]].map(closeUp);
+  return [names, names];
+});
 
 // Ordinaries: the blazon name; everyday words only reach the ordinaries the picture could be.
-for (const o of ORDINARY_TYPES) alias([ORDINARY_NAME[o]], [ORDINARY_NAME[o]]);
-alias(['border', 'edge'], ['bordure', 'border', 'edge']);
-alias(['stripe', 'band'], ['stripe', 'band', 'fess', 'pale', 'bend', 'bend sinister']);
-alias(['x', 'x shaped', 'cross shaped'], ['saltire', 'x shaped']);
-alias(['v', 'upside down v'], ['chevron']);
+const ordinaryAliases: Alias[] = [
+  ...ORDINARY_TYPES.map((o): Alias => [[ORDINARY_NAME[o]], [ORDINARY_NAME[o]]]),
+  [['border', 'edge'], ['bordure', 'border', 'edge']],
+  [['stripe', 'band'], ['stripe', 'band', 'fess', 'pale', 'bend', 'bend sinister']],
+  [['x', 'x shaped', 'cross shaped'], ['saltire', 'x shaped']],
+  [['v', 'upside down v'], ['chevron']],
+];
 
 // Charges: the name and plural as they appear in the blazon, everyday words, and kinds of charge.
 const CHARGE_ALIASES: Record<ChargeId, readonly string[]> = {
@@ -103,18 +105,20 @@ const CHARGE_ALIASES: Record<ChargeId, readonly string[]> = {
   'musical-note': ['music', 'note'], flame: ['fire'], gear: ['cog'], lightbulb: ['light bulb', 'lamp'],
 };
 const chargeTerms = (id: ChargeId) => [CHARGES[id].name, CHARGES[id].plural].map(normaliseWords);
-for (const id of CHARGE_IDS) {
-  alias([normaliseWords(CHARGES[id].name)], chargeTerms(id));
-  alias(CHARGE_ALIASES[id].map(normaliseWords), chargeTerms(id));
-}
 const namesIn = (...categories: ChargeCategory[]) =>
   categories.flatMap((c) => chargesInCategory(c)).flatMap((m) => chargeTerms(m.id));
-alias(['beast'], namesIn('beast'));
-alias(['monster'], namesIn('monster'));
-alias(['bird'], namesIn('bird'));
-alias(['plant'], namesIn('plant'));
-alias(['animal'], namesIn('beast', 'monster'));
-alias(['creature'], namesIn('beast', 'monster', 'bird'));
+const chargeAliases: Alias[] = [
+  ...CHARGE_IDS.flatMap((id): Alias[] => [
+    [[normaliseWords(CHARGES[id].name)], chargeTerms(id)],
+    [CHARGE_ALIASES[id].map(normaliseWords), chargeTerms(id)],
+  ]),
+  [['beast'], namesIn('beast')],
+  [['monster'], namesIn('monster')],
+  [['bird'], namesIn('bird')],
+  [['plant'], namesIn('plant')],
+  [['animal'], namesIn('beast', 'monster')],
+  [['creature'], namesIn('beast', 'monster', 'bird')],
+];
 
 // Postures: every word for a posture — the blazon term, the plain word, a charge's own wording
 // ("courant", "running") — stands for its whole group, so "passant wolf" finds a statant wolf.
@@ -127,10 +131,25 @@ const postureWords = POSTURES.map((p) => {
   const plain = POSTURE_GLOSS[p];
   return { group: POSTURE_GROUP[p], words: [p, ...(plain ? [firstWord(plain)] : []), ...own] };
 });
-for (const { group } of postureWords) {
+const postureAliases: Alias[] = [...new Set(postureWords.map((p) => p.group))].map((group) => {
   const words = [...new Set(postureWords.filter((p) => p.group === group).flatMap((p) => p.words))];
-  alias(words, words);
-}
+  return [words, words];
+});
+
+const ALIASES: readonly Alias[] = [
+  ...tinctureAliases,
+  // Counterchanged charges: the blazon term and its spellings (the gloss says "opposite colours").
+  [['counterchanged', 'counterchange', 'counter changed', 'counter change'], ['counterchanged']],
+  ...ordinaryAliases,
+  ...chargeAliases,
+  ...postureAliases,
+];
+
+/** Words and phrases a typed key stands for, exactly as they appear in an entry's text. */
+const SYNONYMS: ReadonlyMap<string, readonly string[]> = ALIASES.reduce((table, [keys, terms]) => {
+  for (const key of keys) table.set(key, [...new Set([...(table.get(key) ?? []), key, ...terms])]);
+  return table;
+}, new Map<string, readonly string[]>());
 
 /** The longest phrase in SYNONYMS, in words. */
 const MAX_PHRASE_WORDS = Math.max(...[...SYNONYMS.keys()].map((k) => k.split(' ').length));

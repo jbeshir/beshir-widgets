@@ -500,7 +500,14 @@ npx wrangler d1 execute widget-heraldry-builder --remote \
 ```
 
 Link people to it with `https://heraldry-builder.widgets.beshir.org/?registry=my-shire`. To change
-the default, set `is_default = 1` on the new row and `0` on the old one. Keep exactly one default.
+the default, clear the old default first and then set the new one, in that order — the database
+allows only one default at a time, so setting the new row first is rejected. The first statement
+only clears the old default when the new id exists, so a mistyped id changes nothing:
+
+```bash
+npx wrangler d1 execute widget-heraldry-builder --remote \
+  --command "UPDATE registries SET is_default = 0 WHERE is_default = 1 AND EXISTS (SELECT 1 FROM registries WHERE id = 'my-shire'); UPDATE registries SET is_default = 1 WHERE id = 'my-shire'"
+```
 
 **Rate limiting.** `POST /api/arms` is unauthenticated by design, so registration is rate-limited
 inside the Worker before the body is parsed. It uses the native `ratelimits` binding

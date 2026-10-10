@@ -4,11 +4,13 @@
 // much detail each charge carries.
 
 import { CHARGES } from './charges';
-import { fieldTinctures, NUMBER_WORD, ORDINARY_NAME, chargeContext, chargeNoun, type Count, type NormDesign } from './design';
+import { fieldTinctures, NUMBER_WORD, chargeContext, type Count, type NormDesign } from './design';
 import { chargeSlots, drawnBox } from './geometry';
 import { countChoices } from './options';
+import { chargeWords, ordinaryWords } from './plain-words';
 import { chargeSlotContacts, ordinaryContacts } from './tincture-rule';
 import { TINCTURE_CLASS, TINCTURE_WORD, type Tincture } from './tinctures';
+import { capitalise } from './words';
 
 /**
  * Stored band ids (the registry's readability column and the sample data). They are storage values, not
@@ -74,19 +76,15 @@ function straddle(nd: NormDesign): Straddle | null {
   const { field, ordinary, charges } = nd;
   if (ordinary) {
     const [weak] = lookAlikeContacts(ordinary.tincture, ordinaryContacts(field, ordinary.type));
-    if (weak) return { subject: ORDINARY_NAME[ordinary.type], plural: false, tincture: ordinary.tincture, weak };
+    if (weak) return { subject: ordinaryWords(ordinary.type), plural: false, tincture: ordinary.tincture, weak };
   }
   if (charges && charges.tincture !== 'counterchanged') {
     for (const contacts of chargeSlotContacts(nd)) {
       const [weak] = lookAlikeContacts(charges.tincture, contacts);
-      if (weak) return { subject: chargeNoun(charges.charge, charges.count), plural: charges.count > 1, tincture: charges.tincture, weak };
+      if (weak) return { subject: chargeWords(charges.charge, charges.count), plural: charges.count > 1, tincture: charges.tincture, weak };
     }
   }
   return null;
-}
-
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /** The fewer charges worth suggesting: three if that is allowed here, else the nearest smaller legal count. */
@@ -110,46 +108,46 @@ export function readability(nd: NormDesign): Readability {
 
   const rows: Array<{ factor: ReadabilityFactor; label: string; points: number; advice: string | null }> = [
     {
-      factor: 'tinctures', label: `${n} tinctures`, points: Math.max(0, n - 2),
-      advice: 'Too many tinctures — try using only two',
+      factor: 'tinctures', label: `${n} colours`, points: Math.max(0, n - 2),
+      advice: 'Too many colours — try using only two',
     },
     {
-      factor: 'division', label: f.kind === 'plain' ? 'Plain field' : 'Split field', points: f.kind === 'plain' ? 0 : 1,
-      advice: 'Try a plain field instead of a split one',
+      factor: 'division', label: f.kind === 'plain' ? 'Plain background' : 'Split background', points: f.kind === 'plain' ? 0 : 1,
+      advice: 'Try a plain background instead of a split one',
     },
     {
-      factor: 'touching', label: 'Neighbouring tinctures look alike', points: touching ? 2 : 0,
-      advice: touching ? `${cap(TINCTURE_WORD[t1])} on ${TINCTURE_WORD[t2]} is hard to see — try a ${TINCTURE_CLASS[t1] === 'metal' ? 'colour' : 'metal'}` : null,
+      factor: 'touching', label: 'Neighbouring colours look alike', points: touching ? 2 : 0,
+      advice: touching ? `${capitalise(TINCTURE_WORD[t1])} on ${TINCTURE_WORD[t2]} is hard to see — try a ${TINCTURE_CLASS[t1] === 'metal' ? 'colour' : 'metal'}` : null,
     },
     {
-      factor: 'straddle', label: 'Half of it lies on a look-alike tincture', points: crossing ? 1 : 0,
+      factor: 'straddle', label: 'Half of it lies on a look-alike colour', points: crossing ? 1 : 0,
       advice: crossing
-        ? `The ${TINCTURE_WORD[crossing.tincture]} ${crossing.subject} ${crossing.plural ? 'are' : 'is'} hard to see against the ${TINCTURE_WORD[crossing.weak]} part of the field — try a plain field`
+        ? `The ${TINCTURE_WORD[crossing.tincture]} ${crossing.subject} ${crossing.plural ? 'are' : 'is'} hard to see against the ${TINCTURE_WORD[crossing.weak]} part of the background — try a plain background`
         : null,
     },
     {
-      factor: 'ordinary', label: 'Ordinary', points: nd.ordinary ? 1 : 0,
-      advice: nd.ordinary ? `Try without the ${ORDINARY_NAME[nd.ordinary.type]}` : null,
+      factor: 'ordinary', label: 'Band or shape', points: nd.ordinary ? 1 : 0,
+      advice: nd.ordinary ? `Try without the ${ordinaryWords(nd.ordinary.type)}` : null,
     },
     {
-      factor: 'on-ordinary', label: 'Charges on the ordinary', points: c && c.placement === 'ordinary' ? 1 : 0,
-      advice: nd.ordinary ? `Try putting the ${c ? chargeNoun(c.charge, c.count) : 'charges'} on the field instead of on the ${ORDINARY_NAME[nd.ordinary.type]}` : null,
+      factor: 'on-ordinary', label: 'Pictures on the band', points: c && c.placement === 'ordinary' ? 1 : 0,
+      advice: nd.ordinary ? `Try putting the ${c ? chargeWords(c.charge, c.count) : 'pictures'} on the background instead of on the ${ordinaryWords(nd.ordinary.type)}` : null,
     },
     {
-      factor: 'count', label: c ? `${c.count} ${c.count === 1 ? 'charge' : 'charges'}${smallest < SMALL_CHARGE ? ', drawn small' : ''}` : 'No charges', points: count,
+      factor: 'count', label: c ? `${c.count} ${c.count === 1 ? 'picture' : 'pictures'}${smallest < SMALL_CHARGE ? ', drawn small' : ''}` : 'No pictures', points: count,
       advice: !c || !meta ? null
         : lighter !== null
-          ? `Try ${lighter === 1 ? `a single ${meta.name}` : `${NUMBER_WORD[lighter]} ${meta.plural}`} instead of ${NUMBER_WORD[c.count]}`
-          : chargeContext(nd.ordinary, c.placement) === 'on' ? `The ${meta.name} is small on the ${nd.ordinary ? ORDINARY_NAME[nd.ordinary.type] : 'ordinary'} — try putting it on the field instead`
+          ? `Try ${lighter === 1 ? `a single ${chargeWords(meta.id, 1)}` : `${NUMBER_WORD[lighter]} ${chargeWords(meta.id, lighter)}`} instead of ${NUMBER_WORD[c.count]}`
+          : chargeContext(nd.ordinary, c.placement) === 'on' ? `The ${chargeWords(meta.id, 1)} is small on the ${nd.ordinary ? ordinaryWords(nd.ordinary.type) : 'band'} — try putting it on the background instead`
           : null,
     },
     {
       factor: 'detail', label: 'Detailed picture', points: meta?.detail ?? 0,
-      advice: meta ? `${cap(meta.article)} ${meta.name} has fine detail — a simpler picture reads better at a distance` : null,
+      advice: meta ? `${capitalise(meta.article)} ${chargeWords(meta.id, 1)} has fine detail — a simpler picture reads better at a distance` : null,
     },
     {
-      factor: 'split', label: 'Charges split by the field line', points: splitCharges(nd) ? 1 : 0,
-      advice: 'The field line cuts through the charges — try a plain field or another tincture',
+      factor: 'split', label: 'Pictures split by the background line', points: splitCharges(nd) ? 1 : 0,
+      advice: 'The background line cuts through the pictures — try a plain background or another colour',
     },
   ];
 

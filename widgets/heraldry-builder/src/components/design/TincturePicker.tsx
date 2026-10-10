@@ -73,7 +73,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
         anchor: el,
         kind: 'tincture',
         title: `${plainFirst(TINCTURE_LABEL[t])} isn't allowed here`,
-        reason: c.reason ?? '',
+        reason: c.reason,
       });
       return;
     }
@@ -105,7 +105,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
     const conflicts = blocked && checked;
     const whyId = `why-${group}-${t}`;
     const note = noteOf(t);
-    const describedBy = [blocked && c?.reason ? whyId : null, note ? noteId(t) : null].filter(Boolean).join(' ');
+    const describedBy = [blocked ? whyId : null, note ? noteId(t) : null].filter(Boolean).join(' ');
     // The testid sits on a role-less wrapper box: test drivers (Playwright) refuse to click an
     // aria-disabled control, but a blocked swatch must stay clickable so it can explain itself.
     return (
@@ -134,7 +134,7 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
           {note && <span class="swatch-flag">Non-standard</span>}
         </span>
       </button>
-      {blocked && c?.reason && <span class="sr-only" id={whyId}>{c.reason}</span>}
+      {c && !c.allowed && <span class="sr-only" id={whyId}>{c.reason}</span>}
       </span>
     );
   };
@@ -151,6 +151,9 @@ export function TincturePicker<T extends ChargeTincture>({ group, legend, choice
         <div class="swatch-group">
           <span class="swatch-group-label" aria-hidden="true">Metals</span>
           <div class="swatch-row">{offered(METALS).map(swatch)}</div>
+          {offered(METALS).some((t) => noteOf(t)) && (
+            <p class="swatch-group-hint" data-testid="non-standard-hint">Non-standard means a newer tincture that traditional heraldry does not have. It is treated as a metal.</p>
+          )}
         </div>
         <div class="swatch-group swatch-group-colours">
           <span class="swatch-group-label" aria-hidden="true">Colours</span>

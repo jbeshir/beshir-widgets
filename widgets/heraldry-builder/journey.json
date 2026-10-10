@@ -13,9 +13,22 @@
       "label": "onboarding-gallery",
       "steps": [
         {"waitFor":"[data-testid=welcome-strip]"},
-        {"waitFor":"[data-testid=starting-gallery]"}
+        {"waitFor":"[data-testid=starting-gallery]"},
+        {"eval":"document.querySelector('[data-testid=starting-gallery] .gallery-list > li:nth-child(2)').scrollIntoView({block:'center',inline:'center'})"},
+        {"eval":"document.querySelector('[data-testid=starting-gallery] .gallery-list > li:nth-child(2) button').focus()"}
       ],
-      "expect": {"selector":"[data-testid=starting-gallery]"}
+      "expect": {"selector":"[data-testid=starting-gallery] .gallery-list > li:nth-child(2) button:focus-visible"}
+    },
+    {
+      "label": "replaced-undo",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=starting-gallery] .gallery-list > li:nth-child(2) button"},
+        {"waitFor":"[data-testid=replaced-notice]"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=replaced-undo]"}
     },
     {
       "label": "design-valid",
@@ -285,10 +298,10 @@
     {
       "label": "print-preview",
       "steps": [
-        {"eval":"location.hash = '#/print/demo-001,demo-003,demo-004'"},
+        {"eval":"location.hash = '#/print/demo-001'"},
         {"waitFor":"[data-testid=nametag]"}
       ],
-      "expect": {"selector":"[data-testid=print-view] [data-testid=nametag]"}
+      "expect": {"selector":"[data-testid=print-copies-fill]:checked"}
     },
     {
       "label": "compound-layers",
@@ -299,6 +312,73 @@
         {"click":"[data-testid=public-info-button]"}
       ],
       "expect": {"selector":"[data-testid=public-info-popover]"}
+    },
+    {
+      "label": "register-success-mail-failed",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":201,"body":{"id":"journey-arms-01","editSecret":"journey-secret-01","registry":{"id":"default","name":"Default"},"rev":1,"blazon":"Azure, a bend Or.","signature":"journey-signature","editLinkEmail":"failed"}}},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=open-register]"},
+        {"fill":"[data-testid=register-name]","value":"House Journey"},
+        {"fill":"[data-testid=register-email]","value":"journey@example.com"},
+        {"click":"[data-testid=register-submit]"}
+      ],
+      "expect": {"selector":"[data-testid=register-mail-status][data-outcome=failed]"}
+    },
+    {
+      "label": "register-too-close",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":409,"body":{"error":"too-close","message":"These arms are too close to an existing entry.","conflict":{"id":"demo-001","displayName":"Mae Okonkwo","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or"},"differences":[{"attr":"charge-count","weight":"minor","text":"one picture instead of two","why":"The pictures are alike, so this counts as half a difference."}]}}},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=open-register]"},
+        {"fill":"[data-testid=register-name]","value":"House Journey"},
+        {"fill":"[data-testid=register-email]","value":"journey@example.com"},
+        {"click":"[data-testid=register-submit]"}
+      ],
+      "expect": {"selector":"[data-testid=register-taken]"}
+    },
+    {
+      "label": "recover-confirm",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/lookup$/","method":"POST","status":200,"body":{"entry":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or"},"expiresAt":"2099-01-01T00:00:00Z"}}},
+        {"eval":"location.hash = '#/recover/journey-token'"},
+        {"waitFor":"[data-testid=redeem-new-link]"}
+      ],
+      "expect": {"selector":"[data-testid=redeem-new-link]"}
+    },
+    {
+      "label": "recover-token-expired",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/lookup$/","method":"POST","status":410,"body":{"error":"token_expired","message":"This recovery link has expired."}}},
+        {"eval":"location.hash = '#/recover/journey-token'"}
+      ],
+      "expect": {"selector":"[data-testid=redeem-link-error][data-code=token_expired]"}
+    },
+    {
+      "label": "owner-withdraw-confirm",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01\\/owner$/","method":"GET","status":200,"body":{"id":"journey-arms-01","owner":true}}},
+        {"eval":"location.hash = '#/a/journey-arms-01/journey-secret-01'"},
+        {"waitFor":"[data-testid=owner-withdraw]"},
+        {"click":"[data-testid=owner-withdraw]"}
+      ],
+      "expect": {"selector":"[data-testid=withdraw-dialog]"}
+    },
+    {
+      "label": "withdrawn",
+      "steps": [
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"DELETE","status":200,"body":{"id":"journey-arms-01"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01\\/owner$/","method":"GET","status":200,"body":{"id":"journey-arms-01","owner":true}}},
+        {"eval":"location.hash = '#/a/journey-arms-01/journey-secret-01'"},
+        {"waitFor":"[data-testid=owner-withdraw]"},
+        {"click":"[data-testid=owner-withdraw]"},
+        {"click":"[data-testid=withdraw-confirm]"}
+      ],
+      "expect": {"selector":"[data-testid=withdrawn]"}
     }
   ]
 }

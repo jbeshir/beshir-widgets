@@ -764,6 +764,15 @@ describe('field shape', () => {
     expect(tagsAfter.results.some((t) => JSON.stringify(t).includes('lozenge'))).toBe(false);
   });
 
+  it('keeps the stored shape when an edit sends none', async () => {
+    const design = freshDesign();
+    const c = await register(design, { shape: 'lozenge' });
+    const res = await put(c.id, { displayName: 'Renamed', design }, c.editSecret, 1);
+    expect(res.status).toBe(200);
+    expect(await bodyOf(res)).toMatchObject({ shape: 'lozenge', rev: 2 });
+    expect((await bodyOf(await call('GET', `/api/arms/${c.id}`))).shape).toBe('lozenge');
+  });
+
   it('is constrained to the four shapes in the database itself', async () => {
     const c = await register(freshDesign());
     await expect(env.DB.prepare(`UPDATE arms SET field_shape = 'kite' WHERE id = ?`).bind(c.id).run()).rejects.toThrow(/CHECK/i);
@@ -1081,7 +1090,7 @@ describe('half differences', () => {
     expect(data.error).toBe('too-close');
     expect(data.conflict.id).toBe(first.id);
     expect(data.differences).toEqual([{
-      attr: 'charge-type', weight: 'minor', text: 'charge type (wolf ↔ lion)',
+      attr: 'charge-type', weight: 'minor', text: 'picture (wolf ↔ lion)',
       why: "Wolf and lion count as the same shape at nametag size — that's only half a difference.",
     }]);
   });

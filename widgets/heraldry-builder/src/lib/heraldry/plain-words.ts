@@ -3,12 +3,9 @@
 // design.ts; these are display text only. Pure data — no DOM.
 
 import type { Arrangement, Division, OrdinaryType } from './design';
-import type { Posture } from './charges';
+import { CHARGES, type ChargeId, type Posture } from './charges';
 import type { ChargeTincture } from './tinctures';
-
-function capitalise(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+import { capitalise } from './words';
 
 /** A label in everyday words and the heraldic term for the same thing. */
 export interface PlainTerm {
@@ -70,6 +67,34 @@ export const TINCTURE_LABEL: Record<ChargeTincture, PlainTerm> = {
   purpure: { plain: 'Purple', term: 'Purpure' },
   counterchanged: { plain: 'Swapped colours', term: 'counterchanged' },
 };
+
+/** Charges whose heraldic name isn't an everyday word; the rest are already plain ("lion", "key"). */
+const CHARGE_PLAIN: Readonly<Partial<Record<ChargeId, { one: string; many: string }>>> = {
+  mullet: { one: 'star', many: 'stars' },
+  crescent: { one: 'moon', many: 'moons' },
+  'fleur-de-lis': { one: 'lily', many: 'lilies' },
+};
+
+/** A charge for a picker or filter: "Star · mullet", or just "Lion" where the name is plain already. */
+export function chargeLabel(id: ChargeId): string {
+  const plain = CHARGE_PLAIN[id];
+  return plain ? plainFirst({ plain: capitalise(plain.one), term: CHARGES[id].name }) : capitalise(CHARGES[id].name);
+}
+
+/** A charge in a sentence, plain word first: "a lion", "three stars (mullets)". */
+export function chargeWords(id: ChargeId, count: number): string {
+  const meta = CHARGES[id];
+  const plain = CHARGE_PLAIN[id];
+  const heraldic = count === 1 ? meta.name : meta.plural;
+  return plain ? `${count === 1 ? plain.one : plain.many} (${heraldic})` : heraldic;
+}
+
+/** An ordinary in a sentence, plain first: "horizontal band (fess)", "cross". */
+export function ordinaryWords(type: OrdinaryType): string {
+  const { plain, term } = ORDINARY_LABEL[type];
+  const lower = plain.toLowerCase();
+  return lower === term ? term : `${lower} (${term})`;
+}
 
 /** Posture words, plain first: "Standing (statant)". Displayed has no everyday gloss of its own. */
 export function postureLabel(term: string, gloss: string | null, posture: Posture): string {

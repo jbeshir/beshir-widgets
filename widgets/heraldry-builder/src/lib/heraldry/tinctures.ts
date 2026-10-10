@@ -1,6 +1,7 @@
 // The eight tinctures: three metals and five colours; no furs, stains or custom colours.
 // Celestine, a cyan metal, is the one non-standard tincture. Pure data — no DOM.
 
+import { joinList } from './words';
 export type Colour = 'gules' | 'azure' | 'vert' | 'sable' | 'purpure';
 export type Metal = 'or' | 'argent' | 'celestine';
 export type Tincture = Colour | Metal;
@@ -70,19 +71,13 @@ export function isTincture(value: unknown): value is Tincture {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(TINCTURE_CLASS, value);
 }
 
-export function isNonStandard(t: Tincture): boolean {
-  return NON_STANDARD_NOTE[t] !== null;
-}
-
 export function isMetal(t: Tincture): boolean {
   return TINCTURE_CLASS[t] === 'metal';
 }
 
 /** "Or and Argent" / "Gules, Azure, Vert, Sable or Purpure". */
 export function listTinctureNames(ts: readonly Tincture[], conj: 'and' | 'or' = 'and'): string {
-  const names = ts.map((t) => TINCTURE_NAME[t]);
-  if (names.length <= 1) return names.join('');
-  return `${names.slice(0, -1).join(', ')} ${conj} ${names[names.length - 1]}`;
+  return joinList(ts.map((t) => TINCTURE_NAME[t]), conj);
 }
 
 // ── Charge tinctures ────────────────────────────────────────────────────────

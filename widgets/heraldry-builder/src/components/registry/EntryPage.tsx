@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { API_ERROR, type ShapedDesign } from '../../lib/heraldry';
+import { useFocusOnChange } from '../../lib/useFocusOnChange';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
 import { EntryBody } from './EntryDetail';
@@ -16,6 +17,8 @@ interface Props {
 export function EntryPage({ id, onStatus, hatching, onLoad }: Props) {
   const [state, setState] = useState<{ status: 'loading' } | { status: 'ok'; entry: store.ArmsEntry; sample: boolean } | { status: 'error'; failure: store.Failure }>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const name = useFocusOnChange<HTMLHeadingElement>(state.status === 'ok' ? 'ok' : null);
+  const failure = useFocusOnChange<HTMLDivElement>(state.status === 'error' ? 'error' : null);
 
   useEffect(() => {
     let live = true;
@@ -35,7 +38,7 @@ export function EntryPage({ id, onStatus, hatching, onLoad }: Props) {
       <a class="text-link back-link" href="#/" data-testid="back-to-registry">← Back to the registry</a>
       {state.status === 'loading' && <p class="panel-message" aria-busy="true" role="status">Loading these arms…</p>}
       {state.status === 'error' && (
-        <div class="panel-message panel-error" role="alert" data-testid="entry-error">
+        <div class="panel-message panel-error" role="alert" tabIndex={-1} ref={failure} data-testid="entry-error">
           <p>
             <strong>{notFound ? "These arms aren't in the registry." : "These arms couldn't be loaded."}</strong>{' '}
             {notFound ? 'They may have been withdrawn, or the link is mistyped.' : state.failure.message}
@@ -43,7 +46,7 @@ export function EntryPage({ id, onStatus, hatching, onLoad }: Props) {
           {!notFound && <button type="button" class="button-secondary" onClick={() => setAttempt((n) => n + 1)}>Retry</button>}
         </div>
       )}
-      {state.status === 'ok' && <EntryBody entry={state.entry} sample={state.sample} hatching={hatching} onLoad={onLoad} />}
+      {state.status === 'ok' && <EntryBody entry={state.entry} sample={state.sample} hatching={hatching} onLoad={onLoad} showActions nameRef={name} />}
     </div>
   );
 }

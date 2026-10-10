@@ -84,14 +84,17 @@ export function SecretLinkField({ value, testid }: { value: string; testid: stri
       {revealed ? (
         <input id={id} class="text-input secret-value" readOnly value={value} data-testid={testid} aria-labelledby={`${testid}-title`} onFocus={(e) => (e.currentTarget as HTMLInputElement).select()} />
       ) : (
-        <p class="secret-value secret-masked" data-testid={testid} aria-label="Edit link, hidden">{masked}</p>
+        <p class="secret-value secret-masked" data-testid={testid}>
+          <span class="sr-only">Edit link, hidden</span>
+          <span aria-hidden="true">{masked}</span>
+        </p>
       )}
       <div class="secret-actions">
         <button type="button" class="button-secondary" data-testid={`copy-${testid}`} onClick={copy}>
           {state === 'copied' ? 'Copied' : 'Copy edit link'}
         </button>
-        <button type="button" class="button-secondary" data-testid={`reveal-${testid}`} aria-pressed={revealed ? 'true' : 'false'} onClick={() => setRevealed((v) => !v)}>
-          {revealed ? 'Hide' : 'Show'}
+        <button type="button" class="button-secondary" data-testid={`reveal-${testid}`} onClick={() => setRevealed((v) => !v)}>
+          {revealed ? 'Hide edit link' : 'Show edit link'}
         </button>
       </div>
       <p class="field-hint" role="status">{copyStatus(state, 'edit link')}</p>

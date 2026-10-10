@@ -3,8 +3,9 @@
 -- " word " substring. The Worker writes it on every register and edit; it never holds contact
 -- details, email or field shape.
 --
--- Rows that exist when this runs get the words that are already stored (name and blazon) so they
--- stay findable; the gloss cannot be computed in SQL, and the next edit adds it.
+-- Rows that exist when this runs get an approximation of that text so they stay findable: the stored
+-- name and blazon with only commas and hyphens turned into spaces (accents and other punctuation are
+-- left as they are, and the gloss cannot be computed in SQL). The next edit of a row rewrites it exactly.
 ALTER TABLE arms ADD COLUMN search_text TEXT NOT NULL DEFAULT '';
 
 UPDATE arms

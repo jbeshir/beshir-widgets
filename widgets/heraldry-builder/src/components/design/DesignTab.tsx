@@ -1,5 +1,6 @@
 // Design tab: a welcome strip and starting designs on top, then the live preview + blazon + readability
-// on the left (sticky on wide screens) and the Background / Band or shape / Picture builder on the
+// on the left (sticky on wide screens; when the column is taller than the screen only the shield
+// sticks and the Register bar takes over) and the Background / Band or shape / Picture builder on the
 // right. Register is the main action; Check availability is a secondary one. Both are wired to
 // callbacks owned by App; this component only reports the design and renders what it is given.
 
@@ -74,7 +75,13 @@ function focusControl(selector: string): void {
 }
 
 /** Compact sticky shield + blazon bar for single-column layouts, shown once the main preview scrolls away. */
-function MiniPreview({ design, shape, status, watch, onFix }: { design: NormDesign; shape: FieldShape; status: DesignReport['status']; watch: RefObject<HTMLElement>; onFix: () => void }) {
+function MiniPreview({ design, shape, status, watch, onFix }: {
+  design: NormDesign;
+  shape: FieldShape;
+  status: DesignReport['status'];
+  watch: RefObject<HTMLElement>;
+  onFix: () => void;
+}) {
   const [away, setAway] = useState(false);
   useEffect(() => {
     const el = watch.current;
@@ -86,37 +93,66 @@ function MiniPreview({ design, shape, status, watch, onFix }: { design: NormDesi
   return (
     <div class="mini-anchor" data-away={away ? 'true' : 'false'}>
       <div class="mini-bar" data-testid="mini-preview" data-status={status} aria-hidden={away ? undefined : 'true'}>
-        <Shield design={design} shape={shape} size={40} label={null} />
+        <Shield design={design} shape={shape} size={56} label={null} />
         <p class="mini-blazon">{blazon(design)}</p>
         {status === 'violation' ? (
           <button type="button" class="button-primary button-small mini-fix" tabIndex={away ? 0 : -1} onClick={onFix}>Rule broken · Fix</button>
-        ) : (
-          <span class="mini-status">{status === 'incomplete' ? 'Incomplete' : 'Follows the rules'}</span>
-        )}
+        ) : status === 'incomplete' ? (
+          <span class="mini-status">Incomplete</span>
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+/** Register, always in reach at the bottom of the screen whenever the preview column's own Register
+ * button can scroll away (single-column screens, or a preview column taller than the screen); says
+ * why when it can't be used yet. */
+function RegisterBar({ blockedWhy, onRegister }: { blockedWhy: string | null; onRegister: () => void }) {
+  return (
+    <div class="register-bar" data-testid="register-bar">
+      {blockedWhy && <p class="register-bar-why" id="register-bar-why">{blockedWhy}</p>}
+      <button
+        type="button"
+        class="button-primary"
+        data-testid="sticky-register"
+        disabled={!!blockedWhy}
+        aria-describedby={blockedWhy ? 'register-bar-why' : undefined}
+        onClick={onRegister}
+      >
+        Register this design
+      </button>
     </div>
   );
 }
 
 export function DesignTab(p: Props) {
   const { design, shape, report } = p;
-  // The left column sticks to the top only while it fits the viewport; a taller column (e.g. with
-  // a violation panel and a check result) would otherwise hide its bottom actions.
+  // The whole left column sticks to the top only while it fits the viewport; a taller column (shape
+  // picker, readability, a violation panel, a check result) would otherwise hide its bottom actions.
+  // Then only the shield sticks and the Register bar shows. Its content is measured rather than its
+  // box, which stretches to the row in that mode; runs after every render as the content changes.
+  const layoutRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const figureRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
+    const layout = layoutRef.current;
     const el = previewRef.current;
-    if (!el) return;
-    const update = () => el.setAttribute('data-sticky', el.offsetHeight + 24 <= window.innerHeight ? 'true' : 'false');
+    if (!layout || !el) return;
+    const update = () => {
+      const last = el.lastElementChild;
+      const height = last ? last.getBoundingClientRect().bottom - el.getBoundingClientRect().top : 0;
+      layout.setAttribute('data-preview-sticky', height + 24 <= window.innerHeight ? 'true' : 'false');
+    };
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
+    Array.from(el.children).forEach((c) => ro.observe(c));
     window.addEventListener('resize', update);
     return () => {
       ro.disconnect();
       window.removeEventListener('resize', update);
     };
-  }, []);
+  });
   const compact = useCompact();
   // Phones collapse the steps, each showing what is chosen; a step with a problem opens by itself.
   const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, charges: false });
@@ -147,7 +183,7 @@ export function DesignTab(p: Props) {
     <>
     {p.onDismissWelcome && <WelcomeStrip onDismiss={p.onDismissWelcome} />}
     <StartingGallery onPick={p.onStartFrom} onSurprise={p.onSurprise} />
-    <div class="design-layout">
+    <div class="design-layout" ref={layoutRef}>
       <MiniPreview
         design={design}
         shape={shape}
@@ -161,6 +197,7 @@ export function DesignTab(p: Props) {
           <Shield design={design} shape={shape} hatching={p.hatching} class="shield-large" />
           <figcaption class="sr-only">Preview of your arms</figcaption>
         </figure>
+        <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />
         <div class="preview-toggles">
           <button
             type="button"
@@ -177,7 +214,6 @@ export function DesignTab(p: Props) {
           <span id="hatching-help" class="switch-help">Line patterns show each colour without needing to see it.</span>
         </div>
         <SavePicture design={design} shape={shape} hatching={p.hatching} displayName="" />
-        <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />
 
         <BlazonPanel design={design} />
 
@@ -242,6 +278,7 @@ export function DesignTab(p: Props) {
           <span class="draft-note">Your design is saved on this device as you go.</span>
         </div>
       </div>
+      <RegisterBar blockedWhy={blockedWhy} onRegister={p.onRegister} />
     </div>
     </>
   );

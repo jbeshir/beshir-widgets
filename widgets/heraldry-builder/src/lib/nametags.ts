@@ -49,3 +49,23 @@ export async function collectNametags(
 export function paginate<T>(items: readonly T[], perPage: number = TAGS_PER_PAGE): T[][] {
   return Array.from({ length: Math.ceil(items.length / perPage) }, (_, i) => items.slice(i * perPage, (i + 1) * perPage));
 }
+
+/** How many of each tag go on the sheet: one each, or as many as fill every page. */
+export type Copies = 'one' | 'fill';
+
+/**
+ * Each tag repeated, copies kept together, so the last page is full: one entry gives a page of
+ * eight, three give 3 + 3 + 2. Spare places go to the first tags.
+ */
+export function fillPages<T>(items: readonly T[], perPage: number = TAGS_PER_PAGE): T[] {
+  const places = Math.ceil(items.length / perPage) * perPage;
+  return items.flatMap((item, i) => {
+    const copies = Math.floor(places / items.length) + (i < places % items.length ? 1 : 0);
+    return Array.from({ length: copies }, () => item);
+  });
+}
+
+/** The tags as they go on paper for a choice of copies. */
+export function sheetTags<T>(items: readonly T[], copies: Copies): readonly T[] {
+  return copies === 'fill' ? fillPages(items) : items;
+}

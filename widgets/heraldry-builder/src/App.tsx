@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FIELD_SHAPE, blazon, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
-import { DEFAULT_DESIGN, assess, sameDesign } from './lib/builder';
+import { DEFAULT_DESIGN, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
 import { surpriseDesign } from './lib/presets';
 import { RECOVER_HASH, parseHash, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
@@ -8,6 +8,7 @@ import { computeWidgetState, type ListStatus, type Tab } from './lib/widgetState
 import * as store from './store';
 import { Availability, outcomeMessage, type CheckOutcome } from './components/Availability';
 import { DesignTab } from './components/design/DesignTab';
+import { ReplacedNotice } from './components/design/ReplacedNotice';
 import { RegistryPanel } from './components/registry/RegistryPanel';
 import { YourArmsPanel } from './components/YourArmsPanel';
 import { PrintView } from './components/PrintView';
@@ -45,6 +46,7 @@ export function App() {
   const [announcement, setAnnouncement] = useState('');
   const announce = useCallback((m: string) => setAnnouncement((cur) => (cur === m ? `${m}\u00a0` : m)), []);
   const focusPreview = useRef(false);
+  const [replaced, setReplaced] = useState<Replacement | null>(null);
 
   // The nametag sheet replaces the app on screen (the app stays mounted, hidden, so no state is lost).
   // Back returns to the page it was opened from and puts focus back where the visitor left it.
@@ -89,8 +91,7 @@ export function App() {
   const latest = useRef<ShapedDesign>({ design, shape });
   latest.current = { design, shape };
   useEffect(() => {
-    const untouched = (d: ShapedDesign) => sameDesign(d.design, DEFAULT_DESIGN) && d.shape === DEFAULT_FIELD_SHAPE;
-    const save = () => (untouched(latest.current) ? store.clearDraft() : store.saveDraft(latest.current));
+    const save = () => (isUntouched(latest.current) ? store.clearDraft() : store.saveDraft(latest.current));
     const t = setTimeout(save, DRAFT_DEBOUNCE_MS);
     window.addEventListener('pagehide', save);
     return () => {
@@ -102,11 +103,28 @@ export function App() {
   const startOver = () => {
     setDesign(DEFAULT_DESIGN);
     setShape(DEFAULT_FIELD_SHAPE);
+    setReplaced(null);
     store.clearDraft();
+  };
+
+  // Undo is offered only while the replacement is as it was put there.
+  useEffect(() => {
+    if (replaced && !undoStillOffered(replaced, { design, shape })) setReplaced(null);
+  }, [replaced, design, shape]);
+
+  const undoReplace = () => {
+    if (!replaced) return;
+    setDesign(replaced.previous.design);
+    setShape(replaced.previous.shape);
+    setReplaced(null);
+    setCheck(null);
+    focusPreview.current = true;
+    announce(`Restored your design: ${blazon(replaced.previous.design)}`);
   };
 
   // A starting design replaces the builder's design; focus goes to the preview so the change is seen and heard.
   const startFrom = ({ design: nd, shape: s }: ShapedDesign, caption: string) => {
+    setReplaced(replaceDesign({ design, shape }, { design: nd, shape: s }));
     setDesign(nd);
     setShape(s);
     setCheck(null);
@@ -127,6 +145,7 @@ export function App() {
 
   // "Load into builder" from an entry: adopt its design and shape and go to the Design tab.
   const loadDesign = ({ design: nd, shape: s }: ShapedDesign) => {
+    setReplaced(replaceDesign({ design, shape }, { design: nd, shape: s }));
     setDesign(nd);
     setShape(s);
     setCheck(null);
@@ -243,6 +262,7 @@ export function App() {
         </div>
 
         <div role="tabpanel" id="panel-design" aria-labelledby="tab-design" hidden={tab !== 'design'} class="tab-panel">
+          <ReplacedNotice visible={replaced !== null} onUndo={undoReplace} />
           <DesignTab
             design={design}
             shape={shape}

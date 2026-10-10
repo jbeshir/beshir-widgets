@@ -3,7 +3,7 @@
 // verdict each now gets and the differences behind it.
 import { describe, it, expect } from 'vitest';
 import {
-  TINCTURES, areDistinct, checkUnique, chargeGroup, chargesInGroup, differences, explainDifferences, pointsText,
+  TINCTURES, areDistinct, checkUnique, chargeGroup, chargesInGroup, differences, explainDifferences, pointsLabel, pointsText,
   resolve, score, signature, tallyText, type NormDesign, type Verdict,
 } from '../src/lib/heraldry';
 import { plain, div, nd } from './helpers';
@@ -193,7 +193,7 @@ describe('explanations', () => {
   it('say in plain English why a difference counts half', () => {
     const notes = explainDifferences(arms(az, lion('rampant')), arms(az, ch('wolf', 'or', { posture: 'rampant' })));
     expect(notes).toEqual([{
-      attr: 'charge-type', weight: 'minor', text: 'charge type (lion ↔ wolf)',
+      attr: 'charge-type', weight: 'minor', text: 'picture (lion ↔ wolf)',
       why: "Lion and wolf count as the same shape at nametag size — that's only half a difference.",
     }]);
   });
@@ -221,10 +221,14 @@ describe('explanations', () => {
     ]);
   });
 
+  it('say points in words', () => {
+    expect([0.5, 1, 1.5].map(pointsLabel)).toEqual(['half a point', '1 point', '1½ points']);
+  });
+
   it('tally the points', () => {
-    expect(tallyText([{ weight: 'minor' }, { weight: 'minor' }])).toBe('½ + ½ = 1 — different enough');
-    expect(tallyText([{ weight: 'minor' }])).toBe('½ — not enough (needs 1)');
-    expect(tallyText([{ weight: 'clear' }, { weight: 'minor' }])).toBe('1 + ½ = 1½ — different enough');
-    expect(tallyText([])).toBe('0 — not enough (needs 1)');
+    expect(tallyText([{ weight: 'minor' }, { weight: 'minor' }])).toBe('½ + ½ = 1 point — different enough');
+    expect(tallyText([{ weight: 'minor' }])).toBe('half a point — not enough (needs 1 point)');
+    expect(tallyText([{ weight: 'clear' }, { weight: 'minor' }])).toBe('1 + ½ = 1½ points — different enough');
+    expect(tallyText([])).toBe('0 points — not enough (needs 1 point)');
   });
 });

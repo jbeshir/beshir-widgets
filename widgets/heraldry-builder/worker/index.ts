@@ -360,13 +360,14 @@ async function checkArms(request: Request, env: Env): Promise<Response> {
 
 type EntryInput = { displayName: string; contact: Contact; shape: FieldShape; derived: Derived } | { error: Response };
 
-function validateEntryInput(body: Record<string, unknown>): EntryInput {
+/** `absentShape` is what a request without a shape means: the default on register, the stored shape on edit. */
+function validateEntryInput(body: Record<string, unknown>, absentShape: FieldShape): EntryInput {
   const name = cleanDisplayName(body.displayName);
   if (!name.ok) return { error: fieldError('displayName', name.message) };
   const contact = cleanContact(body.contact);
   if (!contact.ok) return { error: fieldError(contact.field, contact.message) };
-  // A request without a shape (e.g. from an SPA bundle older than field shapes) gets the default.
-  const shape = body.shape === undefined ? DEFAULT_FIELD_SHAPE : body.shape;
+  // A request without a shape (e.g. from an SPA bundle older than field shapes) keeps `absentShape`.
+  const shape = body.shape === undefined ? absentShape : body.shape;
   if (!isFieldShape(shape)) return { error: fieldError('shape', `The field shape must be one of: ${FIELD_SHAPES.join(', ')}.`) };
   const d = deriveDesign(body.design);
   if ('error' in d) return d;
@@ -384,7 +385,7 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
   const body = asObject(parsed.body);
   if (!body) return jsonError(400, API_ERROR.badRequest, 'Body must be a JSON object.');
 
-  const input = validateEntryInput(body);
+  const input = validateEntryInput(body, DEFAULT_FIELD_SHAPE);
   if ('error' in input) return input.error;
   const email = cleanEmail(body.email);
   if (!email.ok) return fieldError('email', email.message);
@@ -544,7 +545,7 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
   if ('error' in parsed) return parsed.error;
   const body = asObject(parsed.body);
   if (!body) return jsonError(400, API_ERROR.badRequest, 'Body must be a JSON object.');
-  const input = validateEntryInput(body);
+  const input = validateEntryInput(body, row.field_shape);
   if ('error' in input) return input.error;
 
   // A design change must still be unique within the registry (ignoring this entry itself).
@@ -787,11 +788,15 @@ async function useToken(request: Request, env: Env): Promise<Redeemed> {
     `UPDATE owner_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ? RETURNING arms_id`
   ).bind(now, t.tokenHash, now).first<{ arms_id: string }>();
   if (used) return { armsId: used.arms_id };
+  return { error: await unusableTokenError(env, t.tokenHash, now) };
+}
+
+/** The response for a token that a conditional write just missed: it is missing, used or expired. */
+async function unusableTokenError(env: Env, tokenHash: string, now: string): Promise<Response> {
   const row = await env.DB.prepare(`SELECT arms_id, expires_at, used_at FROM owner_tokens WHERE token_hash = ?`)
-    .bind(t.tokenHash)
+    .bind(tokenHash)
     .first<TokenRow>();
-  // The UPDATE only misses a missing, used or expired token, so there is always a problem to report.
-  return { error: tokenError(tokenProblem(row, now) ?? API_ERROR.tokenUsed) };
+  return tokenError(tokenProblem(row, now) ?? API_ERROR.tokenUsed);
 }
 
 /**
@@ -799,19 +804,23 @@ async function useToken(request: Request, env: Env): Promise<Redeemed> {
  * stops working; any other outstanding recovery tokens for the entry are used up too.
  */
 async function redeemRecoveryToken(request: Request, env: Env): Promise<Response> {
-  const r = await useToken(request, env);
-  if ('error' in r) return r.error;
+  const t = await readToken(request);
+  if ('error' in t) return t.error;
   const editSecret = randomToken(32);
   const now = new Date().toISOString();
+  // One transaction: the secret is rotated only if the token is unused and unexpired, and using the
+  // entry's tokens up happens with it, so a failure can't burn the token without issuing a new link.
+  const validToken = `(SELECT arms_id FROM owner_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?)`;
   const [rotated] = await env.DB.batch([
     env.DB.prepare(
-      `UPDATE arms SET edit_secret_hash = ?, updated_at = ? WHERE id = ?
+      `UPDATE arms SET edit_secret_hash = ?, updated_at = ? WHERE id = ${validToken}
        RETURNING id, display_name, blazon, rev, registry_id, (SELECT name FROM registries WHERE id = registry_id) AS registry_name`
-    ).bind(await sha256hex(editSecret), now, r.armsId),
-    env.DB.prepare(`UPDATE owner_tokens SET used_at = ? WHERE arms_id = ? AND used_at IS NULL`).bind(now, r.armsId),
+    ).bind(await sha256hex(editSecret), now, t.tokenHash, now),
+    env.DB.prepare(`UPDATE owner_tokens SET used_at = ? WHERE used_at IS NULL AND arms_id = ${validToken}`)
+      .bind(now, t.tokenHash, now),
   ]);
   const row = (rotated.results as Array<Pick<ArmsRow, 'id' | 'display_name' | 'blazon' | 'rev' | 'registry_id'> & { registry_name: string }>)[0];
-  if (!row) return jsonError(404, API_ERROR.notFound, 'No arms with that id.');
+  if (!row) return unusableTokenError(env, t.tokenHash, now);
   return json(200, {
     id: row.id,
     editSecret,

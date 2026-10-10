@@ -5,13 +5,15 @@
 // screens (Dialog handles that). A server 409 duplicate / too-close is shown with the same panel as
 // "Check availability".
 
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { API_ERROR, DISCORD_MAX, DISPLAY_NAME_MAX, EMAIL_MAX, blazon, cleanDiscord, cleanDisplayName, cleanEmail, type FieldShape, type MailOutcome, type NormDesign, type TakenReport } from '../lib/heraldry';
-import { capabilityUrls, printHash, registryParam } from '../lib/route';
+import { useMedia } from '../lib/useCompact';
+import { editUrl, printHash, registryParam, shareUrl } from '../lib/route';
 import * as store from '../store';
 import { TakenPanel } from './Availability';
 import { CopyField, SecretLinkField } from './CopyField';
 import { Dialog, Popover } from './overlay';
+import { pushLayer } from './overlay/layers';
 import { SavePicture } from './SavePicture';
 import { Shield } from './Shield';
 
@@ -26,6 +28,12 @@ interface Props {
 type Field = 'displayName' | 'email' | 'discord';
 type FieldErrors = Record<Field, string | null>;
 const NO_ERRORS: FieldErrors = { displayName: null, email: null, discord: null };
+const FIELD_ORDER: readonly Field[] = ['displayName', 'email', 'discord'];
+const FIELD_INPUT_ID: Record<Field, string> = { displayName: 'reg-name', email: 'reg-email', discord: 'reg-discord' };
+const FIELD_NAME: Record<Field, string> = { displayName: 'Display name', email: 'Email', discord: 'Discord username' };
+
+/** Wide enough for the "What's public?" note to sit beside the dialog (dialog 520px + note 340px each side). */
+const NOTE_BESIDE_QUERY = '(min-width: 1240px)';
 
 function isField(f: string): f is Field {
   return f === 'displayName' || f === 'email' || f === 'discord';
@@ -56,6 +64,8 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
   const [created, setCreated] = useState<{ registered: store.Registered; email: string } | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef<HTMLButtonElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const noteBeside = useMedia(NOTE_BESIDE_QUERY);
   const offline = store.isOffline();
   const refs: Record<Field, { current: HTMLInputElement | null }> = {
     displayName: useRef<HTMLInputElement>(null),
@@ -63,11 +73,16 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
     discord: useRef<HTMLInputElement>(null),
   };
 
-  const showErrors = (next: FieldErrors) => {
-    setErrors(next);
-    const first = (['displayName', 'email', 'discord'] as const).find((f) => next[f] !== null);
-    if (first) refs[first].current?.focus();
-  };
+  const failed = FIELD_ORDER.filter((f) => errors[f] !== null);
+
+  // The outcome of pressing Register (error summary, notice) is brought into view and focused, so it is
+  // seen and heard. Focus alone announces it, so the error summary is not also a live region.
+  useEffect(() => {
+    const result = resultRef.current;
+    if (!result) return;
+    result.focus({ preventScroll: true });
+    result.scrollIntoView({ block: 'start' });
+  }, [errors, taken, formError]);
 
   const submit = async (e: Event) => {
     e.preventDefault();
@@ -75,8 +90,8 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
     const checked = validate(name, email, discord);
     setFormError(null);
     setTaken(null);
-    if (!checked.ok) return showErrors(checked.errors);
     setErrors(NO_ERRORS);
+    if (!checked.ok) return setErrors(checked.errors);
     setBusy(true);
     const r = await store.register({
       registry: registryParam(), displayName: checked.displayName, email: checked.email, contact: { discord: checked.discord }, design, shape,
@@ -90,7 +105,7 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
     } else if (r.kind === 'http' && r.code === API_ERROR.tooClose) {
       setTaken({ verdict: 'too-close', conflict: r.conflict, differences: r.differences });
     } else if (r.kind === 'http' && r.code === API_ERROR.badRequest && r.culprit.kind === 'field' && isField(r.culprit.name)) {
-      showErrors({ ...NO_ERRORS, [r.culprit.name]: r.message });
+      setErrors({ ...NO_ERRORS, [r.culprit.name]: r.message });
     } else {
       setFormError(r.message);
     }
@@ -98,9 +113,21 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
 
   if (created) {
     const { registered } = created;
-    const urls = capabilityUrls(registered.id, registered.editSecret);
     return (
-      <Dialog title="Your arms are registered" onClose={onClose} testid="register-dialog" class="register-dialog">
+      <Dialog
+        key="registered"
+        title="Your arms are registered"
+        onClose={onClose}
+        testid="register-dialog"
+        class="register-dialog"
+        initialFocus="title"
+        footer={
+          <div class="dialog-actions">
+            <a class="button-secondary" href={printHash([registered.id])} data-testid="print-nametag">Print nametag</a>
+            <button type="button" class="button-secondary" data-testid="register-done" onClick={onClose}>Done</button>
+          </div>
+        }
+      >
         <div data-testid="register-success" class="register-success">
           <div class="register-summary">
             <Shield design={design} shape={shape} size={72} />
@@ -109,18 +136,14 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
               <p class="blazon blazon-small">{registered.blazon}</p>
             </div>
           </div>
-          <p>Registered in {registered.registry.name}. Share this link so people can see your arms:</p>
-          <CopyField label="Share link (public)" value={urls.share} testid="share-link" buttonLabel="Copy share link" emphasis="primary" />
-          {urls.edit && <SecretLinkField value={urls.edit} testid="edit-link" />}
+          <p>Registered in the {registered.registry.name} registry. Share this link so people can see your arms:</p>
+          <CopyField label="Share link (public)" value={shareUrl(registered.id)} testid="share-link" buttonLabel="Copy share link" emphasis="primary" />
+          <SecretLinkField value={editUrl(registered.id, registered.editSecret)} testid="edit-link" />
           <MailStatus outcome={registered.editLinkEmail} email={created.email} />
           <p class="field-hint">
             A copy is kept under “Your arms” on this device. Lost it later? Use “Lost your link?” at the top of the page and we’ll email you a new one.
           </p>
           <SavePicture design={design} shape={shape} hatching={hatching} displayName={name} />
-          <div class="dialog-actions">
-            <a class="button-secondary" href={printHash([registered.id])} data-testid="print-nametag">Print nametag</a>
-            <button type="button" class="button-secondary" data-testid="register-done" onClick={onClose}>Done</button>
-          </div>
         </div>
       </Dialog>
     );
@@ -128,12 +151,39 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
 
   const describedBy = (f: Field, hint: string) => (errors[f] ? `${hint} reg-${f}-error` : hint);
   return (
-    <Dialog title="Register your arms" onClose={onClose} testid="register-dialog" class="register-dialog" initialFocus={refs.displayName} owns={infoOpen ? 'public-info-popover-box' : undefined}>
-      <form class="register-form" onSubmit={submit} noValidate>
+    <Dialog
+      key="form"
+      title="Register your arms"
+      onClose={onClose}
+      testid="register-dialog"
+      class="register-dialog"
+      initialFocus={refs.displayName}
+      owns={infoOpen && noteBeside ? 'public-info-popover-box' : undefined}
+      footer={
+        <div class="dialog-actions">
+          <button type="button" class="button-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" form="register-form" class="button-primary" data-testid="register-submit" disabled={busy || offline} aria-describedby={offline ? 'reg-offline' : undefined}>{busy ? 'Registering…' : 'Register'}</button>
+        </div>
+      }
+    >
+      <form id="register-form" class="register-form" onSubmit={submit} noValidate>
         <div class="register-summary">
           <Shield design={design} shape={shape} size={72} />
           <p class="blazon blazon-small">{blazon(design)}</p>
         </div>
+
+        {failed.length > 0 && (
+          <div ref={resultRef} class="error-summary" role="group" aria-labelledby="reg-error-summary-title" tabIndex={-1} data-testid="register-error-summary">
+            <p id="reg-error-summary-title"><strong>{failed.length === 1 ? 'There is 1 thing to fix:' : `There are ${failed.length} things to fix:`}</strong></p>
+            <ul>
+              {failed.map((f) => (
+                <li key={f}>
+                  <a href={`#${FIELD_INPUT_ID[f]}`} onClick={(e) => { e.preventDefault(); refs[f].current?.focus(); }}>{FIELD_NAME[f]}</a>: {errors[f]}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <button
           type="button"
@@ -146,12 +196,13 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
         >
           What's public?
         </button>
-        {infoOpen && (
-          <Popover anchor={infoRef} onClose={() => setInfoOpen(false)} label="What's public?" testid="public-info-popover" id="public-info-popover-box" placement="above" class="info-popover">
-            <p><strong>Public:</strong> the arms (shield and blazon), the display name and the Discord username if you give one. Anyone can search for the arms and read them.</p>
-            <p><strong>Private:</strong> your email address and your edit link. The address is only used to send you the link that lets you change the name or Discord username, or withdraw the entry.</p>
+        {infoOpen && (noteBeside ? (
+          <Popover anchor={infoRef} onClose={() => setInfoOpen(false)} label="What's public?" testid="public-info-popover" id="public-info-popover-box" placement="beside" class="info-popover">
+            <PublicInfo />
           </Popover>
-        )}
+        ) : (
+          <InlineNote onClose={() => { setInfoOpen(false); infoRef.current?.focus(); }} />
+        ))}
 
         {offline && (
           <p class="offline-note" id="reg-offline" data-testid="register-offline" role="note">
@@ -219,18 +270,36 @@ export function RegisterDialog({ design, shape, hatching, onClose, onRegistered 
         <p class="field-hint" id="reg-discord-hint">So people at the party can find you, e.g. alex.smith. Shown as plain text.</p>
         <FieldError field="discord" message={errors.discord} />
 
-        {formError && <p class="form-error" role="alert" data-testid="register-error">{formError}</p>}
+        {formError && <p ref={resultRef} class="form-error" role="alert" tabIndex={-1} data-testid="register-error">{formError}</p>}
         {taken && (
-          <div role="alert" data-testid="register-taken">
+          <div ref={resultRef} role="alert" tabIndex={-1} data-testid="register-taken" class="register-taken">
             <TakenPanel report={taken} registryName={null} onView={onClose} />
+            <button type="button" class="button-secondary" data-testid="register-back-to-design" onClick={onClose}>Back to my design</button>
           </div>
         )}
-        <div class="dialog-actions">
-          <button type="button" class="button-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" class="button-primary" data-testid="register-submit" disabled={busy || offline} aria-describedby={offline ? 'reg-offline' : undefined}>{busy ? 'Registering…' : 'Register'}</button>
-        </div>
       </form>
     </Dialog>
+  );
+}
+
+/** "What's public?" shown in the form's flow; Escape closes just the note, like any other layer. */
+function InlineNote({ onClose }: { onClose: () => void }) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useLayoutEffect(() => pushLayer({ close: () => closeRef.current(), modal: false }), []);
+  return (
+    <div class="info-inline" id="public-info-popover-box" data-testid="public-info-popover" role="note">
+      <PublicInfo />
+    </div>
+  );
+}
+
+function PublicInfo() {
+  return (
+    <>
+      <p><strong>Public:</strong> the arms (shield and blazon), the display name and the Discord username if you give one. Anyone can search for the arms and read them.</p>
+      <p><strong>Private:</strong> your email address and your edit link. The address is only used to send you the link that lets you change the name or Discord username, or withdraw the entry.</p>
+    </>
   );
 }
 

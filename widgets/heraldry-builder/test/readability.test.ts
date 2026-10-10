@@ -108,7 +108,7 @@ describe('readability nudge', () => {
 
   it('names a charge that lies half on a look-alike tincture', () => {
     expect(nudge(arms(div('per-pale', 'or', 'azure'), group('mullet', 1, 'gules'), null)))
-      .toBe('The red mullet is hard to see against the blue part of the field — try a plain field');
+      .toBe('The red star (mullet) is hard to see against the blue part of the background — try a plain background');
   });
 
   it('is present from the middle band onward and for every such design', () => {

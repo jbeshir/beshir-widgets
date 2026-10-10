@@ -23,6 +23,11 @@ declare module '*.sql?raw' {
   export default contents;
 }
 
+declare module '*.md?raw' {
+  const contents: string;
+  export default contents;
+}
+
 declare module '*.json?raw' {
   const contents: string;
   export default contents;

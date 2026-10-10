@@ -5,7 +5,7 @@
 import type { Result, CheckResult } from '../store';
 import { entryHash } from '../lib/route';
 import {
-  CLEAR_CHANGE_HINT, HALF_DIFFERENCE_HINT, POINTS, pointsText, tallyText, type ComparedEntry, type DiffAttr, type DifferenceNote, type TakenReport,
+  CLEAR_CHANGE_HINT, HALF_DIFFERENCE_HINT, POINTS, pointsLabel, tallyText, type ComparedEntry, type DiffAttr, type DifferenceNote, type TakenReport,
 } from '../lib/heraldry';
 import { Shield } from './Shield';
 
@@ -48,7 +48,7 @@ function DifferenceList({ differences }: { differences: readonly DifferenceNote[
       <ul class="differences" data-testid="availability-differences">
         {differences.map((d) => (
           <li key={d.attr}>
-            {d.text} — <strong>{pointsText(POINTS[d.weight])}</strong>
+            {d.text} — <strong>{pointsLabel(POINTS[d.weight])}</strong>
             {d.weight === 'minor' && <span class="difference-why">{d.why}</span>}
           </li>
         ))}
@@ -90,8 +90,8 @@ export function TakenPanel({ report, registryName, onView, onJump }: TakenProps)
   if (report.verdict === 'duplicate') {
     return (
       <div class="availability availability-taken" data-testid="availability-duplicate">
-        <p><strong>Already registered</strong>{where}.</p>
-        <p class="availability-help">These arms are taken. Change at least one of: {CLEAR_CHANGE_HINT}.</p>
+        <p class="taken-verdict"><strong>Already registered{where} — change at least one thing.</strong></p>
+        <p class="availability-help">Change one of: {CLEAR_CHANGE_HINT}.</p>
         {jumps}
         {card}
       </div>
@@ -99,16 +99,19 @@ export function TakenPanel({ report, registryName, onView, onJump }: TakenProps)
   }
   return (
     <div class="availability availability-taken" data-testid="availability-too-close">
-      <p><strong>Too close to existing arms</strong>{where}.</p>
+      <p class="taken-verdict"><strong>Too similar to {c.displayName}’s arms{where} — change one more thing.</strong></p>
       {report.differences.length > 0 && (
         <div>
-          <p class="availability-help">It only differs by:</p>
+          <p class="availability-help">What is different so far (you need 1 point):</p>
           <DifferenceList differences={report.differences} />
         </div>
       )}
-      <p class="availability-help">Change at least one of: {CLEAR_CHANGE_HINT}.</p>
-      <p class="availability-help" data-testid="availability-half-rule">{HALF_DIFFERENCE_HINT}</p>
+      <p class="availability-help">To clear it, change one of: {CLEAR_CHANGE_HINT}.</p>
       {jumps}
+      <details class="half-rule" data-testid="availability-half-rule">
+        <summary>Why do some changes only count as half a point?</summary>
+        <p class="availability-help">{HALF_DIFFERENCE_HINT}</p>
+      </details>
       {card}
     </div>
   );

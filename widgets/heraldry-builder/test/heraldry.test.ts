@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ARRANGEMENTS, CHARGES, CHARGE_IDS, CHARGE_ART, COUNTS, FIELD_SHAPES, ORDINARY_TYPES, TINCTURES, isChargeId, isFieldShape, postureGloss, postureTerm,
-  arrangementChoices, blazon, chargePath, chargeSlotContacts, chargeSlots, chargeStructureIssue, chargeTinctureChoices,
+  arrangementChoices, blazon, blockReason, chargePath, chargeSlotContacts, chargeSlots, chargeStructureIssue, chargeTinctureChoices,
   checkUnique, countChoices, deriveTags, differences, explainDifferences, fieldTinctureChoices, filtersToTags, fitCharges,
   gloss, areDistinct, matchesTags, normalise, ordinaryTinctureChoices, placementChoices, postureChoices,
   BETWEEN_GLOSS, BETWEEN_SLOTS, cleanDiscord, readability, resolve, signature, slotsFor, suggestTinctureFix, validate,
@@ -429,35 +429,35 @@ describe('options helper', () => {
     expect(byValue(ch, 'argent').allowed).toBe(true);
     const az = byValue(ch, 'azure');
     expect(az.allowed).toBe(false);
-    expect(az.reason).toBe('Azure on Gules would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
-    expect(byValue(ch, 'gules').reason).toBe("Gules on Gules would vanish — the lion can't share the tincture it lies on.");
+    expect(blockReason(az)).toBe('Azure on Gules would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
+    expect(blockReason(byValue(ch, 'gules'))).toBe("Gules on Gules would vanish — the lion can't share the tincture it lies on.");
   });
 
   it('names the slots when only some of them clash', () => {
     const d = nd(V.find((v) => v.id === 'V9')!.design);
     const gu = byValue(chargeTinctureChoices(d), 'gules');
     expect(gu.allowed).toBe(false);
-    expect(gu.reason).toBe('The two upper mullets lie on Azure. Gules on Azure would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
+    expect(blockReason(gu)).toBe('The two upper mullets lie on Azure. Gules on Azure would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
     // Upper mullets on Azure need a metal, the lower one on Or needs a colour: no single tincture
     // fits, but counterchanged gives each the opposite of what it lies on.
     expect(chargeTinctureChoices(d).filter((c) => c.allowed).map((c) => c.value)).toEqual(['counterchanged']);
-    expect(byValue(chargeTinctureChoices(d), 'argent').reason)
+    expect(blockReason(byValue(chargeTinctureChoices(d), 'argent')))
       .toBe('The lower mullet lies on Or. Argent on Or would be metal on metal. Metals must sit on colours (Gules, Azure, Vert, Sable or Purpure).');
-    expect(byValue(chargeTinctureChoices(d), 'or').reason)
+    expect(blockReason(byValue(chargeTinctureChoices(d), 'or')))
       .toBe("Or on Or would vanish — the lower mullet can't share the tincture it lies on.");
   });
 
   it('explains straddling a two-colour field', () => {
     const d = nd(V.find((v) => v.id === 'V8')!.design);
-    expect(byValue(chargeTinctureChoices(d), 'gules').reason)
+    expect(blockReason(byValue(chargeTinctureChoices(d), 'gules')))
       .toBe('The wolf lies across Azure and Vert — both colours — so it must be a metal (Or, Argent or Celestine).');
   });
 
   it('blocks ordinary tinctures against the field and charge tinctures against the ordinary they sit on', () => {
     const d = nd(V[1].design); // Azure, on a bend Or three unicorns Vert
-    expect(byValue(ordinaryTinctureChoices(d), 'vert').reason).toBe('Vert on Azure would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
+    expect(blockReason(byValue(ordinaryTinctureChoices(d), 'vert'))).toBe('Vert on Azure would be colour on colour. Colours must sit on metals (Or, Argent or Celestine).');
     expect(byValue(ordinaryTinctureChoices(d), 'argent').allowed).toBe(true);
-    expect(byValue(chargeTinctureChoices(d), 'argent').reason)
+    expect(blockReason(byValue(chargeTinctureChoices(d), 'argent')))
       .toBe('Argent on Or would be metal on metal. Metals must sit on colours (Gules, Azure, Vert, Sable or Purpure).');
     expect(byValue(chargeTinctureChoices(d), 'sable').allowed).toBe(true);
   });
@@ -466,7 +466,7 @@ describe('options helper', () => {
     const d = nd({ v: 1, field: div('per-pale', 'azure', 'vert') });
     const first = fieldTinctureChoices(d, 0);
     expect(byValue(first, 'vert').allowed).toBe(false);
-    expect(byValue(first, 'vert').reason).toMatch(/two different tinctures/);
+    expect(blockReason(byValue(first, 'vert'))).toMatch(/two different tinctures/);
     expect(first.filter((c) => c.allowed)).toHaveLength(7);
     expect(fieldTinctureChoices(gulesLion).every((c) => c.allowed)).toBe(true);
   });
@@ -475,20 +475,20 @@ describe('options helper', () => {
     const onBend = nd(V[1].design);
     const counts = countChoices(onBend);
     expect(counts.filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3]);
-    expect(byValue(counts, 4 as Count).reason).toBe('A bend can carry a single charge, two or three, not four.');
+    expect(blockReason(byValue(counts, 4 as Count))).toBe('A bend can carry a single charge, two or three, not four.');
 
     const between = nd(V.find((v) => v.id === 'V10')!.design);
     expect(countChoices(between).filter((c) => c.allowed).map((c) => c.value)).toEqual([3]);
     expect(byValue(placementChoices(between), 'ordinary').allowed).toBe(true);
 
     const chief = nd(V.find((v) => v.id === 'V11')!.design);
-    expect(byValue(countChoices(chief), 4 as Count).reason).toBe('Under a chief there is room for at most three charges, not four.');
+    expect(blockReason(byValue(countChoices(chief), 4 as Count))).toBe('Under a chief there is room for at most three charges, not four.');
     const arr = arrangementChoices(chief);
-    expect(arr.mode).toBe('choose');
+    if (arr.mode !== 'choose') throw new Error('expected a choice of arrangements');
     expect(arr.choices.filter((c) => c.allowed).map((c) => c.value)).toEqual(['two-and-one', 'in-fess']);
-    expect(byValue(arr.choices, 'in-pale').reason).toBe('Under a chief, three mullets can only be arranged two and one or in fess.');
+    expect(blockReason(byValue(arr.choices, 'in-pale'))).toBe('Under a chief, three mullets can only be arranged two and one or in fess.');
 
-    expect(byValue(placementChoices(gulesLion), 'ordinary').reason).toBe('Add an ordinary first — charges can only sit on an ordinary once there is one.');
+    expect(blockReason(byValue(placementChoices(gulesLion), 'ordinary'))).toBe('Add an ordinary first — charges can only sit on an ordinary once there is one.');
     expect(arrangementChoices(onBend).mode).toBe('forced');
     expect(arrangementChoices(gulesLion).mode).toBe('single');
   });
@@ -498,7 +498,7 @@ describe('options helper', () => {
     const p = postureChoices(boar);
     expect(p.map((c) => c.value)).toEqual(['rampant', 'passant', 'statant', 'sejant']);
     expect(p.filter((c) => c.allowed).map((c) => c.value)).toEqual(['passant']);
-    expect(byValue(p, 'rampant').reason).toBe('The boar is only drawn passant in this builder.');
+    expect(blockReason(byValue(p, 'rampant'))).toBe('The boar is only drawn passant in this builder.');
     const fish = nd({ v: 1, field: plain('azure'), charges: { charge: 'fish', count: 1, placement: 'field', tincture: 'argent' } });
     expect(postureChoices(fish).map((c) => c.value)).toEqual(['naiant', 'haurient']);
     const rose = nd({ v: 1, field: plain('azure'), charges: { charge: 'rose', count: 1, placement: 'field', tincture: 'argent' } });
@@ -510,13 +510,14 @@ describe('options helper', () => {
     const ords: Array<Ordinary | null> = [null, { type: 'chief', tincture: 'argent' }, { type: 'bend', tincture: 'or' }, { type: 'cross', tincture: 'sable' }, { type: 'bordure', tincture: 'vert' }];
     for (const field of fields) for (const ordinary of ords) for (const count of [1, 3, 5] as Count[]) for (const placement of ['field', 'ordinary'] as Placement[]) {
       const d = nd({ v: 1, field, ordinary, charges: { charge: 'lion', count, placement, tincture: 'or' } });
+      const arr = arrangementChoices(d);
       const all: Choice<unknown>[] = [
         ...fieldTinctureChoices(d, 0), ...fieldTinctureChoices(d, 1), ...ordinaryTinctureChoices(d), ...chargeTinctureChoices(d),
-        ...countChoices(d), ...placementChoices(d), ...arrangementChoices(d).choices, ...postureChoices(d),
+        ...countChoices(d), ...placementChoices(d), ...(arr.mode === 'choose' ? arr.choices : []), ...postureChoices(d),
       ];
       for (const c of all) {
-        if (c.allowed) expect(c.reason).toBeUndefined();
-        else expect(c.reason && c.reason.length > 10).toBe(true);
+        if (c.allowed) expect(blockReason(c)).toBeNull();
+        else expect(c.reason.length > 10).toBe(true);
       }
     }
   });

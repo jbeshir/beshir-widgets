@@ -57,13 +57,19 @@ function safeDecode(s: string): string {
   }
 }
 
-/** Absolute capability URLs for sharing/bookmarking, built from the current page (sans fragment). */
-export function capabilityUrls(id: string, secret: string | null): { edit: string | null; share: string } {
-  const base = typeof location !== 'undefined' ? location.origin + location.pathname + location.search : '';
-  return {
-    edit: secret ? base + ownerHash(id, secret) : null,
-    share: base + entryHash(id),
-  };
+/** The current page without its fragment: the base of the absolute capability URLs. */
+function pageBase(): string {
+  return typeof location !== 'undefined' ? location.origin + location.pathname + location.search : '';
+}
+
+/** Absolute public link to an entry, for sharing. */
+export function shareUrl(id: string): string {
+  return pageBase() + entryHash(id);
+}
+
+/** Absolute private link that edits or withdraws an entry. */
+export function editUrl(id: string, secret: string): string {
+  return pageBase() + ownerHash(id, secret);
 }
 
 const REGISTRY_ID = /^[A-Za-z0-9_-]{1,64}$/;

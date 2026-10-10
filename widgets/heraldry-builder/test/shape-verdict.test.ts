@@ -1,9 +1,11 @@
 // The field shape is display only, so every shape must give a design the same verdict. The rule of
 // tincture is judged on the canonical (heater) layout and the verdict functions take only the
-// design; these tests pin that from both sides for the sample registry, the validation examples, a
-// set of rule-breaking designs and a seeded batch of generated designs:
-//   - carried as a draft in each shape (stored, read back, resolved), a design gets the same issues,
-//     builder report, one-click fix and tincture locks as in every other shape;
+// design; these tests cover the sample registry, the validation examples, a set of rule-breaking
+// designs and a seeded batch of generated designs:
+//   - a design carried as a draft in each shape (stored, read back, resolved) comes back unchanged, so
+//     its issues, builder report, one-click fix and tincture locks are the same as in every other
+//     shape. The verdict functions never receive the shape, so this guards the draft round trip and
+//     documents that signature, not the rule itself;
 //   - judged instead on what is actually drawn in each shape (its own slots and partition lines),
 //     every charge gets the same per-slot verdict as the canonical one, so the picture never shows
 //     a clash the verdict missed, nor hides one it reported.
@@ -96,7 +98,7 @@ function drawnContacts(nd: NormDesign, slot: Slot, shape: FieldShape): Tincture[
   return f.tinctures.filter((_, i) => parts.has(i));
 }
 
-describe('every field shape gives the same verdict', () => {
+describe('field shapes and the verdict', () => {
   it('covers valid and rule-breaking designs', () => {
     const verdicts = DESIGNS.map(([, nd]) => verdict(nd).report.status);
     expect(verdicts.filter((s) => s === 'valid').length).toBeGreaterThan(100);
@@ -106,7 +108,7 @@ describe('every field shape gives the same verdict', () => {
   });
 
   for (const [name, nd] of DESIGNS) {
-    it(`${name}: same issues, report, fix and locks in every shape`, () => {
+    it(`${name}: a draft in any shape reads back with the same issues, report, fix and locks`, () => {
       const canonical = verdict(nd);
       for (const shape of FIELD_SHAPES) expect(verdict(throughDraft({ design: nd, shape })), shape).toEqual(canonical);
     });

@@ -4,6 +4,7 @@
 
 import { CHARGES, isChargeId, isPosture, type ChargeId, type Posture } from './charges';
 import { isChargeTincture, isTincture, TINCTURE_NAME, type ChargeTincture, type Tincture } from './tinctures';
+import { capitalise, joinList } from './words';
 
 export type Division = 'per-pale' | 'per-fess' | 'per-bend' | 'per-bend-sinister' | 'per-saltire' | 'per-chevron' | 'quarterly';
 export const DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron', 'quarterly'];
@@ -230,14 +231,9 @@ export function chargeNoun(id: ChargeId, count: number): string {
   return count === 1 ? m.name : m.plural;
 }
 
-function cap(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 function countList(counts: readonly number[]): string {
   const words = counts.map((n) => (n === 1 ? 'a single charge' : NUMBER_WORD[n as Count]));
-  if (words.length <= 1) return words.join('');
-  return `${words.slice(0, -1).join(', ')} or ${words[words.length - 1]}`;
+  return joinList(words, 'or');
 }
 
 // ── Shape parsing + defaults ────────────────────────────────────────────────
@@ -318,10 +314,10 @@ export function resolve(input: unknown): ResolveResult {
         if (meta.postures) {
           posture = given ?? meta.defaultPosture;
           if (posture && !meta.postures.includes(posture)) {
-            err('charges', `${cap(meta.article)} ${meta.name} can't be ${posture} here; choose ${meta.postures.join(' or ')}.`);
+            err('charges', `${capitalise(meta.article)} ${meta.name} can't be ${posture} here; choose ${meta.postures.join(' or ')}.`);
           }
         } else if (given) {
-          err('charges', `${cap(meta.article)} ${meta.name} has no posture.`);
+          err('charges', `${capitalise(meta.article)} ${meta.name} has no posture.`);
         }
         // count 1 → single; on / between → forced (any given value is ignored); else given ?? default.
         const ctx = chargeContext(ordinary, placement);
@@ -397,7 +393,7 @@ export function chargeStructureIssue(
   const legal = FIELD_ARR[count];
   if (!legal.includes(arrangement)) {
     if (count === 1) return 'A single charge sits alone in the centre.';
-    return `${cap(NUMBER_WORD[count])} ${noun} can be arranged ${legal.map((a) => ARRANGEMENT_WORD[a]).join(', ')} — not ${ARRANGEMENT_WORD[arrangement]}.`;
+    return `${capitalise(NUMBER_WORD[count])} ${noun} can be arranged ${legal.map((a) => ARRANGEMENT_WORD[a]).join(', ')} — not ${ARRANGEMENT_WORD[arrangement]}.`;
   }
   return null;
 }

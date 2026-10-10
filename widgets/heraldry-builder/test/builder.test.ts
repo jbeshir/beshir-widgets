@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_DESIGN, assess, placementLabel, setArrangement, setCharge, setChargeTincture, setCount, setDivision,
+  DEFAULT_DESIGN, assess, isUntouched, placementLabel, replaceDesign, sameShapedDesign, undoStillOffered, setArrangement, setCharge, setChargeTincture, setCount, setDivision,
   setFieldTincture, setOrdinary, setOrdinaryTincture, setPlacement, setPlainField, setPosture,
 } from '../src/lib/builder';
 import { computeWidgetState } from '../src/lib/widgetState';
@@ -49,7 +49,7 @@ describe('builder transitions', () => {
     const d = setCharge(setFieldTincture(DEFAULT_DESIGN, 0, 'gules'), 'lion');
     const azure = chargeTinctureChoices(d).find((c) => c.value === 'azure')!;
     expect(azure.allowed).toBe(false);
-    expect(azure.reason).toMatch(/colour on colour/);
+    expect(azure.allowed === false && azure.reason).toMatch(/colour on colour/);
   });
 
   it('too-close journey design: Sable, a wolf statant Or within a bordure Argent', () => {
@@ -115,7 +115,7 @@ describe('builder transitions', () => {
     const d = setCharge(setOrdinary(DEFAULT_DESIGN, 'chief'), 'mullet');
     const four = countChoices(d).find((c) => c.value === 4)!;
     expect(four.allowed).toBe(false);
-    expect(four.reason).toMatch(/at most three/);
+    expect(four.allowed === false && four.reason).toMatch(/at most three/);
   });
 
   it('arrangement edits and placement labels', () => {
@@ -126,6 +126,40 @@ describe('builder transitions', () => {
     expect(placementLabel(setOrdinary(d, 'chief'), 'field')).toBe('Below the top bar');
     expect(placementLabel(setOrdinary(d, 'bordure'), 'field')).toBe('Within the border');
     expect(placementLabel(setOrdinary(d, 'bend'), 'ordinary')).toBe('On the diagonal band ↘');
+  });
+});
+
+describe('replacing a design in progress', () => {
+  const started = { design: setCharge(DEFAULT_DESIGN, 'lion'), shape: 'heater' as const };
+  const example = { design: setCharge(DEFAULT_DESIGN, 'mullet'), shape: 'heater' as const };
+  const untouched = { design: DEFAULT_DESIGN, shape: 'heater' as const };
+
+  it('offers Undo with the design it replaces', () => {
+    expect(replaceDesign(started, example)).toEqual({ previous: started, replacement: example });
+  });
+
+  it('offers Undo when only the shape would be lost', () => {
+    const roundDefault = { design: DEFAULT_DESIGN, shape: 'round' as const };
+    expect(isUntouched(roundDefault)).toBe(false);
+    expect(replaceDesign(roundDefault, example)).toEqual({ previous: roundDefault, replacement: example });
+  });
+
+  it('offers nothing when the current design is the untouched default', () => {
+    expect(isUntouched(untouched)).toBe(true);
+    expect(replaceDesign(untouched, example)).toBeNull();
+  });
+
+  it('offers nothing when the replacement is identical to the current design', () => {
+    expect(replaceDesign(started, { ...started })).toBeNull();
+    expect(sameShapedDesign(started, { design: setCharge(DEFAULT_DESIGN, 'lion'), shape: 'heater' })).toBe(true);
+    expect(sameShapedDesign(started, { ...started, shape: 'banner' })).toBe(false);
+  });
+
+  it('keeps Undo on offer only while the replacement is unedited', () => {
+    const r = replaceDesign(started, example)!;
+    expect(undoStillOffered(r, example)).toBe(true);
+    expect(undoStillOffered(r, { ...example, shape: 'round' })).toBe(false);
+    expect(undoStillOffered(r, { design: setCount(example.design, 2), shape: 'heater' })).toBe(false);
   });
 });
 

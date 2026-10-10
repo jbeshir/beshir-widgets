@@ -7,8 +7,10 @@
 /** The longest address SMTP can deliver to. */
 export const EMAIL_MAX = 254;
 
-// One @, a local part with no spaces or controls, and a dotted domain whose labels are non-empty.
-const EMAIL_PATTERN = /^[^\s@\p{Cc}]{1,64}@[^\s@.\p{Cc}]+(?:\.[^\s@.\p{Cc}]+)+$/u;
+// One @, a local part of RFC 5322 atext characters and dots (so no quotes, angle brackets, commas or
+// spaces that a mail API could read as a display name or a second address), and a dotted domain
+// whose labels are non-empty.
+const EMAIL_PATTERN = /^[a-z0-9!#$%&'*+/=?^_`{|}~.-]{1,64}@[^\s@.\p{Cc}<>,"]+(?:\.[^\s@.\p{Cc}<>,"]+)+$/u;
 
 type EmailResult = { ok: true; value: string } | { ok: false; message: string };
 

@@ -14,7 +14,7 @@ import { EntrySheet } from './EntryDetail';
 import { OwnerView } from './OwnerView';
 import { RecoverRedeem, RecoverRequest } from './RecoverView';
 import {
-  EMPTY_FILTERS, FILTER_SPECS, PRIMARY_FILTERS, activeFilters, chipLabel, isTinctureFilter, toSearchParams, type FilterKey, type Filters,
+  EMPTY_FILTERS, FILTER_SPECS, PRIMARY_FILTERS, activeFilters, chipLabel, chipValue, isTinctureFilter, toSearchParams, type FilterKey, type Filters,
 } from './filters';
 
 interface Props {
@@ -99,9 +99,11 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
 
   const setFilter = (k: FilterKey, v: string) => setFilters((f) => ({ ...f, [k]: v }));
   const active = activeFilters(filters);
+  const extraCount = FILTER_SPECS.length - PRIMARY_FILTERS.length;
   const extraActive = active.filter((k) => !PRIMARY_FILTERS.includes(k)).length;
   const hasQuery = q !== '' || qInput !== '';
   const anyNarrowing = active.length > 0 || hasQuery;
+  const clearLabel = active.length === 0 ? 'Clear search' : hasQuery ? 'Clear search and filters' : 'Clear filters';
   const clearAll = () => {
     setFilters(EMPTY_FILTERS);
     setQInput('');
@@ -114,7 +116,8 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
 
   const head = (
     <div class="registry-head">
-      <h2 class="registry-title" data-testid="registry-name">{meta.registry?.name ?? 'Registry'}</h2>
+      <h2 class="registry-title" data-testid="registry-name">{status === 'error' ? 'Registry' : meta.registry?.name ?? 'Registry'}</h2>
+      <button type="button" class="button-secondary registry-refresh" data-testid="registry-refresh" onClick={refresh}>Refresh</button>
       {status !== 'error' && status !== 'loading' && (
         <span class="registry-count" data-testid="registry-count">
           {meta.total} {anyNarrowing ? (meta.total === 1 ? 'matching arms' : 'matching arms') : meta.total === 1 ? 'entry' : 'entries'}
@@ -122,7 +125,6 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
       )}
       {meta.sample && status !== 'error' && <span class="badge" data-testid="offline-badge">Offline sample</span>}
       {status === 'error' && <span class="badge badge-error" data-testid="error-badge">Couldn't load</span>}
-      <button type="button" class="button-secondary registry-refresh" data-testid="registry-refresh" onClick={refresh}>Refresh</button>
     </div>
   );
 
@@ -145,16 +147,6 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
             onInput={(e) => setQInput((e.currentTarget as HTMLInputElement).value)}
           />
         </div>
-        <button
-          type="button"
-          class="button-secondary more-filters"
-          data-testid="more-filters"
-          aria-expanded={moreFilters ? 'true' : 'false'}
-          aria-controls="filter-grid"
-          onClick={() => setMoreFilters((v) => !v)}
-        >
-          {moreFilters ? 'Fewer filters' : `More filters${extraActive ? ` (${extraActive} active)` : ''}`}
-        </button>
         <div class="filter-grid" id="filter-grid" data-open={moreFilters ? 'true' : 'false'}>
           {FILTER_SPECS.map((s) => {
             const id = `f-${s.key}`;
@@ -187,6 +179,17 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
             );
           })}
         </div>
+        <button
+          type="button"
+          class="button-secondary more-filters"
+          data-testid="more-filters"
+          aria-expanded={moreFilters ? 'true' : 'false'}
+          aria-controls="filter-grid"
+          onClick={() => setMoreFilters((v) => !v)}
+        >
+          <span class="more-filters-chevron" aria-hidden="true" />
+          {moreFilters ? 'Show fewer filters' : `Show ${extraCount} more filters${extraActive ? ` (${extraActive} set)` : ''}`}
+        </button>
         {(active.length > 0 || hasQuery) && (
           <div class="filter-active">
             {active.length > 0 && (
@@ -194,9 +197,10 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
                 {active.map((k) => {
                   const spec = FILTER_SPECS.find((s) => s.key === k)!;
                   const label = chipLabel(spec, filters[k]);
+                  // Narrow screens drop the filter name where the value says it on its own ("Dragon"); colours keep it.
                   return (
                     <li class="chip" key={k} data-testid={`filter-chip-${spec.testid.replace('filter-', '')}`}>
-                      <span>{label}</span>
+                      <span><span class={isTinctureFilter(k) ? 'chip-key' : 'chip-key chip-key-implied'}>{spec.label}: </span>{chipValue(spec, filters[k])}</span>
                       <button type="button" class="chip-remove" aria-label={`Remove filter ${label}`} data-testid={`chip-remove-${spec.testid.replace('filter-', '')}`} onClick={() => setFilter(k, '')}>
                         <span aria-hidden="true">×</span>
                       </button>
@@ -205,7 +209,7 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
                 })}
               </ul>
             )}
-            {status !== 'empty' && <button type="button" class="button-tertiary" data-testid="clear-filters" onClick={clearAll}>Clear filters</button>}
+            {status !== 'empty' && <button type="button" class="button-tertiary" data-testid="clear-filters" onClick={clearAll}>{clearLabel}</button>}
           </div>
         )}
       </div>
@@ -247,7 +251,7 @@ function RegistryBrowser({ onStatus, hatching, onLoadDesign }: Props) {
             <strong>{active.length + (hasQuery ? 1 : 0) > 1 ? `No arms match ${[...active.map((k) => chipLabel(FILTER_SPECS.find((s) => s.key === k)!, filters[k])), ...(hasQuery ? [`search “${q || qInput}”`] : [])].join(' + ')}.` : 'No arms match these components.'}</strong>{' '}
             Try removing one of them, or search for a different word.
           </p>
-          {anyNarrowing && <button type="button" class="button-secondary" data-testid="empty-clear-filters" onClick={clearAll}>Clear filters</button>}
+          {anyNarrowing && <button type="button" class="button-secondary" data-testid="empty-clear-filters" onClick={clearAll}>{clearLabel}</button>}
         </div>
       )}
 

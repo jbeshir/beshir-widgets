@@ -13,6 +13,7 @@ import {
   type Arrangement, type Count, type Division, type Field, type NormDesign, type Ordinary, type OrdinaryType,
 } from './design';
 import { CHARGE_TINCTURE_NAME, TINCTURE_NAME } from './tinctures';
+import { capitalise, joinAnd } from './words';
 
 export type DiffAttr =
   | 'field-division' | 'field-tincture'
@@ -203,37 +204,31 @@ export function candidateKey(nd: NormDesign): CandidateKey {
 // ── Explanations ────────────────────────────────────────────────────────────
 
 const DIFF_LABEL: Record<DiffAttr, string> = {
-  'field-division': 'field division',
-  'field-tincture': 'field tincture',
-  'ordinary-presence': 'ordinary',
-  'ordinary-type': 'ordinary type',
-  'ordinary-tincture': 'ordinary tincture',
-  'charges-presence': 'charges',
-  'charge-type': 'charge type',
-  'charge-tincture': 'charge tincture',
-  'charge-count': 'count',
+  'field-division': 'background split',
+  'field-tincture': 'background colour',
+  'ordinary-presence': 'band or shape',
+  'ordinary-type': 'band or shape',
+  'ordinary-tincture': 'band colour',
+  'charges-presence': 'pictures',
+  'charge-type': 'picture',
+  'charge-tincture': 'picture colour',
+  'charge-count': 'number of pictures',
   'charge-placement': 'placement',
   'charge-arrangement': 'arrangement',
   'charge-posture': 'posture',
 };
 
 /** The attributes a too-close design could change to become clear (UI hint). */
-export const CLEAR_CHANGE_HINT = 'field, ordinary, charge type, tincture, count (1, 2, 3 or 4+), arrangement or posture group';
+export const CLEAR_CHANGE_HINT = 'the background, the band or shape, the picture, a colour, how many pictures there are (1, 2, 3 or 4+), how they are arranged, or the pose';
 
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-function listWords(words: readonly string[]): string {
-  return words.length <= 1 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
-}
-
-const groupWords = (g: SimilarityGroup) => listWords(chargesInGroup(g).map((id) => CHARGES[id].name));
+const groupWords = (g: SimilarityGroup) => joinAnd(chargesInGroup(g).map((id) => CHARGES[id].name));
 
 /** Which changes count only half, in plain English (UI hint under a too-close result). */
 export const HALF_DIFFERENCE_HINT =
-  `At nametag size ${groupWords('quadruped')} count as the same shape, and so do ${groupWords('round')}. ` +
-  'Changing between those, mirroring something (bend ↔ bend sinister), swapping the two field colours, ' +
-  'walking ↔ standing, or changing one number of four-or-more charges for another is half a difference. ' +
-  'Two halves make a full difference.';
+  `At nametag size ${groupWords('quadruped')} look like the same shape, and so do ${groupWords('round')}. ` +
+  'Swapping between those, mirroring something (a band running the other way), swapping the two background colours, ' +
+  'standing ↔ walking, or changing one number of four-or-more pictures for another is half a point. ' +
+  'Two halves make a full point.';
 
 /** A difference in words: what changed, and for a minor one why it counts only half. */
 export type DifferenceNote =
@@ -282,12 +277,12 @@ export function explainDifferences(a: NormDesign, b: NormDesign, diffs: readonly
   const why = (attr: DiffAttr, reason: MinorReason): string => {
     switch (reason) {
       case 'similar-charges':
-        return `${cap(CHARGES[ca!.charge].name)} and ${CHARGES[cb!.charge].name} count as the same shape at nametag size — that's only half a difference.`;
+        return `${capitalise(CHARGES[ca!.charge].name)} and ${CHARGES[cb!.charge].name} count as the same shape at nametag size — that's only half a difference.`;
       case 'similar-postures':
-        return `${cap(postureInWords(ca!.charge, ca!.posture))} and ${postureInWords(cb!.charge, cb!.posture)} look almost the same — that's only half a difference.`;
+        return `${capitalise(postureInWords(ca!.charge, ca!.posture))} and ${postureInWords(cb!.charge, cb!.posture)} look almost the same — that's only half a difference.`;
       case 'mirrored': {
         const [x, y] = mirrored(attr);
-        return `${cap(x)} and ${y} are mirror images; people remember the slant, not which way it runs — that's only half a difference.`;
+        return `${capitalise(x)} and ${y} are mirror images; people remember the slant, not which way it runs — that's only half a difference.`;
       }
       case 'swapped-tinctures':
         return "The same two colours with the sides swapped; people remember the colours, not which side was which — that's only half a difference.";
@@ -310,10 +305,16 @@ export function pointsText(n: number): string {
   return whole ? `${whole}½` : '½';
 }
 
-/** The running tally of a comparison: "½ + ½ = 1 — different enough" or "½ — not enough (needs 1)". */
+/** Points as a phrase: "1 point", "half a point", "1½ points". */
+export function pointsLabel(n: number): string {
+  if (n === 0.5) return 'half a point';
+  return `${pointsText(n)} ${n === 1 ? 'point' : 'points'}`;
+}
+
+/** The running tally of a comparison: "½ + ½ = 1 point — different enough" or "half a point — not enough (needs 1 point)". */
 export function tallyText(diffs: readonly { weight: Weight }[]): string {
   const total = score(diffs);
   const terms = diffs.map((x) => pointsText(POINTS[x.weight]));
-  const sum = terms.length > 1 ? `${terms.join(' + ')} = ${pointsText(total)}` : pointsText(total);
-  return total >= DISTINCT_SCORE ? `${sum} — different enough` : `${sum} — not enough (needs ${pointsText(DISTINCT_SCORE)})`;
+  const sum = terms.length > 1 ? `${terms.join(' + ')} = ${pointsLabel(total)}` : pointsLabel(total);
+  return total >= DISTINCT_SCORE ? `${sum} — different enough` : `${sum} — not enough (needs ${pointsLabel(DISTINCT_SCORE)})`;
 }
