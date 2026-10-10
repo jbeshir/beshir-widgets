@@ -249,7 +249,7 @@ export function App() {
       <section class="card">
         <header class="card-header">
           <h1>Heraldry Builder</h1>
-          <p class="hint">Design a personal coat of arms for your nametag, then register it so nobody else at the event has the same one.</p>
+          <p class="hint">Design a personal coat of arms for your nametag, then register it so nobody else in the registry has the same one.</p>
           <a class="text-link header-recover" href={RECOVER_HASH} data-testid="header-recover-link">Lost your link? / Withdraw my registration</a>
         </header>
 

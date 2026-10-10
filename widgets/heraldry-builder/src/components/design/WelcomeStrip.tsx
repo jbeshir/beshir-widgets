@@ -11,8 +11,8 @@ export function WelcomeStrip({ onDismiss }: { onDismiss: () => void }) {
         </button>
       </div>
       <p>
-        Design a personal coat of arms to wear on your nametag, so people can recognise you from across the room.
-        Then register it, so nobody else at the event uses the same one.
+        Design a personal coat of arms to wear on your nametag, so people can find you.
+        Then register it, so nobody else in the registry uses the same one.
       </p>
     </section>
   );
