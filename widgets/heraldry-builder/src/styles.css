@@ -725,6 +725,7 @@ button, input, select, textarea {
   place-items: center;
   width: 26px;
   height: 26px;
+  margin-right: 5px;
   border-radius: 50%;
   background: var(--accent-fill);
   color: var(--accent-fg);
