@@ -3,12 +3,12 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_DESIGN, adjustDesign, assess, companionNote, isUntouched, placementLabel, replaceDesign, sameShapedDesign, undoStillOffered, setArrangement, setCharge, setChargeTincture, setCount, setDivision,
+  DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched, readabilityTip, placementLabel, replaceDesign, sameShapedDesign, undoStillOffered, setArrangement, setCharge, setChargeTincture, setCount, setDivision,
   setFieldTincture, setOrdinary, setOrdinaryTincture, setPlacement, setPlainField, setPosture,
 } from '../src/lib/builder';
 import { computeWidgetState } from '../src/lib/widgetState';
 import { nd, plain } from './helpers';
-import { blazon, chargeTinctureChoices, countChoices, placementChoices, signature, suggestTinctureFix } from '../src/lib/heraldry';
+import { blazon, chargeTinctureChoices, countChoices, placementChoices, readability, signature, suggestTinctureFix } from '../src/lib/heraldry';
 
 describe('builder transitions', () => {
   it('starts as a plain Azure field: incomplete with the structural hint', () => {
@@ -136,14 +136,59 @@ describe('builder transitions', () => {
     expect(assess(suggestTinctureFix(moved)!.design).status).toBe('valid');
     expect(setPlacement(d, 'field')).toEqual(moved);
     if (!four.allowed || !four.companion || !around.allowed || !around.companion) throw new Error('expected both choices with a companion');
-    expect(companionNote(four.design, four.companion, 'offered')).toBe('Moves the lions around the cross');
-    expect(companionNote(around.design, around.companion, 'offered')).toBe('Changes to four lions');
+    expect(companionNote(four.design, four.companion, 'offered')).toBe('Moves the lions around the cross; the gold lions would then need a new colour');
+    expect(companionNote(around.design, around.companion, 'offered')).toBe('Changes to four lions; the gold lions would then need a new colour');
     const back = countChoices(moved).find((c) => c.value === 1)!;
     if (!back.allowed || !back.companion) throw new Error('expected one lion to go back onto the cross');
     expect(companionNote(back.design, back.companion, 'offered')).toBe('Moves the lion onto the cross');
+    expect(chargesClash(back.design)).toBe(false);
     const adjusted = adjustDesign({ design: d, shape: 'round' }, around.design, around.companion);
-    expect(adjusted).toEqual({ kind: 'adjusted', previous: { design: d, shape: 'round' }, replacement: { design: moved, shape: 'round' }, note: 'Changed to four lions.' });
+    expect(adjusted).toEqual({ kind: 'adjusted', previous: { design: d, shape: 'round' }, replacement: { design: moved, shape: 'round' }, note: "Changed to four lions. The gold lions don't stand out on the gold background — pick a new colour below." });
     expect(undoStillOffered(adjusted, { design: moved, shape: 'round' })).toBe(true);
+  });
+
+  it('a count or placement note says so when the charges\' colour would then break the rule, and only then', () => {
+    // Per pale Or and Gules, a fess Argent between two lions Azure: one lion moves onto the fess,
+    // where blue on white is fine.
+    const between = nd({ v: 1, field: { kind: 'divided', division: 'per-pale', tinctures: ['or', 'gules'] }, ordinary: { type: 'fess', tincture: 'argent' }, charges: { charge: 'lion', count: 2, placement: 'field', tincture: 'azure' } });
+    const one = countChoices(between).find((c) => c.value === 1)!;
+    if (!one.allowed || !one.companion) throw new Error('expected one lion to go onto the fess');
+    expect(chargesClash(one.design)).toBe(false);
+    expect(companionNote(one.design, one.companion, 'offered')).toBe('Moves the lion onto the horizontal band');
+    expect(companionNote(one.design, one.companion, 'done')).toBe('Moved the lion onto the horizontal band.');
+
+    // Or, a cross Gules between four lions Gules: one lion moves onto the cross, red on red.
+    const around = nd({ v: 1, field: plain('or'), ordinary: { type: 'cross', tincture: 'gules' }, charges: { charge: 'lion', count: 4, placement: 'field', tincture: 'gules' } });
+    expect(assess(around).status).toBe('valid');
+    const onto = countChoices(around).find((c) => c.value === 1)!;
+    if (!onto.allowed || !onto.companion) throw new Error('expected one lion to go onto the cross');
+    expect(chargesClash(onto.design)).toBe(true);
+    expect(companionNote(onto.design, onto.companion, 'offered')).toBe('Moves the lion onto the cross; the red lion would then need a new colour');
+    expect(companionNote(onto.design, onto.companion, 'done')).toBe("Moved the lion onto the cross. The red lion doesn't stand out on the red cross — pick a new colour below.");
+    // The fix offered beside Undo is the violation panel's own.
+    expect(fixText(suggestTinctureFix(onto.design)!.label)).toBe('Fix: switch the lion to Or');
+
+    // Swapped colours can't follow the charges onto a band.
+    const swapped = nd({ v: 1, field: { kind: 'divided', division: 'per-pale', tinctures: ['or', 'gules'] }, ordinary: { type: 'fess', tincture: 'argent' }, charges: { charge: 'lion', count: 2, placement: 'field', tincture: 'counterchanged' } });
+    expect(assess(swapped).status).toBe('valid');
+    const single = countChoices(swapped).find((c) => c.value === 1)!;
+    if (!single.allowed || !single.companion) throw new Error('expected one lion to go onto the fess');
+    expect(companionNote(single.design, single.companion, 'offered')).toBe('Moves the lion onto the horizontal band; the lion would then need a new colour');
+    expect(companionNote(single.design, single.companion, 'done')).toBe("Moved the lion onto the horizontal band. The lion can't take swapped colours there — pick a new colour below.");
+  });
+
+  it('holds the readability tip back while the rule of tincture is broken', () => {
+    // Four Or lions moved around a Gules cross on Or: the tip would say to go back to a single lion.
+    const d = nd({ v: 1, field: plain('or'), ordinary: { type: 'cross', tincture: 'gules' }, charges: { charge: 'lion', count: 1, placement: 'ordinary', tincture: 'or' } });
+    const moved = setCount(d, 4);
+    const r = readability(moved);
+    expect(r.nudge).toBe('Try a single lion instead of four');
+    expect(readabilityTip(r, assess(moved))).toBeNull();
+    // Fixed, the same tip comes back.
+    const fixed = suggestTinctureFix(moved)!.design;
+    expect(assess(fixed).status).toBe('valid');
+    expect(readabilityTip(readability(fixed), assess(fixed))).toBe(readability(fixed).nudge);
+    expect(readabilityTip(readability(fixed), assess(fixed))).not.toBeNull();
   });
 
   it('arrangement edits and placement labels', () => {

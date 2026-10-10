@@ -1,13 +1,16 @@
 // Easy to spot / OK / Hard to read meter with a breakdown of what costs points. Hard-to-read designs
-// stay registrable; the meter only nudges, naming the one change that helps most.
+// stay registrable; the meter only nudges, naming the one change that helps most — and holds the
+// nudge back while the rule of tincture is broken, which has to be fixed first.
 
 import { BAND_LABEL, BAND_RANGE, readability, type NormDesign, type ReadabilityBand } from '../../lib/heraldry';
+import { readabilityTip, type DesignReport } from '../../lib/builder';
 
 const BANDS: ReadabilityBand[] = ['bold', 'fine', 'busy'];
 
-export function ReadabilityMeter({ design }: { design: NormDesign }) {
+export function ReadabilityMeter({ design, report }: { design: NormDesign; report: DesignReport }) {
   const r = readability(design);
   const scored = r.breakdown.filter((b) => b.points > 0);
+  const tip = readabilityTip(r, report);
   return (
     <section class="meter" data-testid="readability-meter" data-band={r.band} aria-labelledby="meter-title">
       <div class="meter-head">
@@ -22,7 +25,7 @@ export function ReadabilityMeter({ design }: { design: NormDesign }) {
           </li>
         ))}
       </ol>
-      {r.nudge && <p class="meter-nudge" data-testid="readability-nudge">{r.nudge}</p>}
+      {tip && <p class="meter-nudge" data-testid="readability-nudge">{tip}</p>}
       <details class="meter-details">
         <summary>What makes it harder to read?</summary>
         <ul class="meter-breakdown">

@@ -30,8 +30,8 @@ interface Props {
   onChange: (nd: NormDesign) => void;
   /** Apply a count or placement that brings its partner along (App keeps it for Undo). */
   onAdjust: (nd: ChargedDesign, companion: Companion) => void;
-  /** The note (with Undo) for such a change, shown under the picture controls. */
-  adjusted: ComponentChildren;
+  /** The note (with Undo, and the rule fix when the change broke it) for such a change, shown under the picture controls. */
+  adjusted: (onFix: (nd: NormDesign) => void) => ComponentChildren;
   onShape: (shape: FieldShape) => void;
   onStartOver: () => void;
   /** Load a starting design; `caption` names it for the announcement. */
@@ -171,6 +171,12 @@ export function DesignTab(p: Props) {
     setTimeout(() => focusControl(selector), 0);
   };
   const goToLayer = (layer: Layer) => reveal(STEP_OF_LAYER[layer], STEP_SELECTOR[layer]);
+  // The fix beside Undo recolours the charges and the note goes with it, so focus moves to the new
+  // colour's swatch (named by id: the picker may not have re-rendered its checked swatch yet).
+  const fixFromNotice = (nd: NormDesign) => {
+    p.onChange(nd);
+    reveal('charges', nd.charges ? `#swatch-charge-${nd.charges.tincture}` : JUMP_SELECTOR.tincture);
+  };
   // The dismiss button disappears with the strip, so focus moves on to the starting designs.
   const welcomeShown = p.onDismissWelcome !== null;
   const welcomeWasShown = useRef(welcomeShown);
@@ -237,7 +243,7 @@ export function DesignTab(p: Props) {
           <p class="structural-hint" data-testid="structural-hint" role="status">{report.hint}</p>
         )}
 
-        <ReadabilityMeter design={design} />
+        <ReadabilityMeter design={design} report={report} />
 
         <div class="design-actions">
           <div class="action-row">
@@ -274,7 +280,7 @@ export function DesignTab(p: Props) {
         </p>
         <FieldStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('field')} accordion={accordion('field')} />
         <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('ordinary')} accordion={accordion('ordinary')} />
-        <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted} issues={layerIssues('charges')} accordion={accordion('charges')} compact={compact} />
+        <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={layerIssues('charges')} accordion={accordion('charges')} compact={compact} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over

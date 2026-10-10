@@ -15,7 +15,7 @@ export { BETWEEN_GLOSS, gloss } from './gloss';
 export { asObject } from './json';
 export { fieldTinctureChoices, ordinaryTinctureChoices, chargeTinctureChoices, countChoices, placementChoices, arrangementChoices, postureChoices, fitCharges, suggestTinctureFix, isBlocked, blockReason, type Choice, type ChargedDesign, type Companion, type LayoutChoice } from './options';
 export { plainFirst, chargeLabel, chargeWords, ordinaryWords, DIVISION_LABEL, ORDINARY_LABEL, ARRANGEMENT_LABEL, TINCTURE_LABEL, postureLabel, type PlainTerm } from './plain-words';
-export { BAND_LABEL, isReadabilityBand, BAND_RANGE, designTinctures, readability, type ReadabilityBand } from './readability';
+export { BAND_LABEL, isReadabilityBand, BAND_RANGE, designTinctures, readability, type Readability, type ReadabilityBand } from './readability';
 export { FILTER_PARAMS, NO_SEARCH_PARAMS, parseSearchParams, searchParamsFromUrl, searchParamsToUrl, searchEntries, type SearchParams, type SearchableEntry } from './search';
 export { normaliseWords, buildSearchText, matchesWords, queryWords } from './search-terms';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';

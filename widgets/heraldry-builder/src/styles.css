@@ -903,7 +903,9 @@ button, input, select, textarea {
 }
 .companion-notes strong { color: var(--fg); font-weight: 600; }
 .companion-notes li + li { margin-top: 2px; }
-.charge-options .replaced-notice { margin: 8px 0 0; }
+.charge-options .replaced-notice { margin: 8px 0 0; flex-wrap: wrap; }
+/* With the rule fix beside Undo, the note keeps a readable width and the buttons wrap under it. */
+.charge-options .replaced-notice > span { flex: 1 1 16em; }
 
 /* Tincture picker */
 

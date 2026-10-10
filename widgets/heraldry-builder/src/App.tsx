@@ -268,14 +268,14 @@ export function App() {
         </div>
 
         <div role="tabpanel" id="panel-design" aria-labelledby="tab-design" hidden={tab !== 'design'} class="tab-panel">
-          <ReplacedNotice replacement={replaced} kind="replaced" onUndo={undoReplace} />
+          <ReplacedNotice replacement={replaced} kind="replaced" onUndo={undoReplace} onFix={null} />
           <DesignTab
             design={design}
             shape={shape}
             report={report}
             onChange={setDesign}
             onAdjust={adjust}
-            adjusted={<ReplacedNotice replacement={replaced} kind="adjusted" onUndo={undoReplace} />}
+            adjusted={(onFix) => <ReplacedNotice replacement={replaced} kind="adjusted" onUndo={undoReplace} onFix={onFix} />}
             onShape={setShape}
             onStartOver={startOver}
             onStartFrom={startFrom}

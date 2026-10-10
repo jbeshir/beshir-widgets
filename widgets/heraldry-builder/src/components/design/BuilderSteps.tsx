@@ -221,9 +221,14 @@ function layoutStatus(c: LayoutChoice<unknown>): OptionStatus {
   return c.companion ? { kind: 'with-change', note: companionNote(c.design, c.companion, 'offered') } : { kind: 'open' };
 }
 
+/** A row's options, each with its status worked out once for both the option and the notes under the row. */
+function withStatus<T>(choices: LayoutChoice<T>[]): Array<{ choice: LayoutChoice<T>; status: OptionStatus }> {
+  return choices.map((choice) => ({ choice, status: layoutStatus(choice) }));
+}
+
 /** The options of a row that change something else too, each with what it changes, shown under the row. */
-function CompanionNotes<T>({ choices, name, testid }: { choices: LayoutChoice<T>[]; name: (v: T) => string; testid: string }) {
-  const notes = choices.flatMap((c) => (c.allowed && c.companion ? [{ value: c.value, note: companionNote(c.design, c.companion, 'offered') }] : []));
+function CompanionNotes<T>({ options, name, testid }: { options: Array<{ choice: LayoutChoice<T>; status: OptionStatus }>; name: (v: T) => string; testid: string }) {
+  const notes = options.flatMap(({ choice, status }) => (status.kind === 'with-change' ? [{ value: choice.value, note: status.note }] : []));
   if (!notes.length) return null;
   return (
     <ul class="companion-notes" data-testid={testid}>
@@ -254,8 +259,8 @@ export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, acco
   useEffect(() => {
     if (selectedCategory) setTab(selectedCategory);
   }, [selectedCategory]);
-  const counts = countChoices(design);
-  const placements = placementChoices(design);
+  const counts = withStatus(countChoices(design));
+  const placements = withStatus(placementChoices(design));
   const arr = arrangementChoices(design);
   const postures = postureChoices(design);
   const blockedArr = arr.mode === 'choose' ? arr.choices.filter(isBlocked) : [];
@@ -310,29 +315,29 @@ export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, acco
           <div class="control">
             <p class="picker-legend" id="count-label">How many</p>
             <RadioGroup label="How many" class="segmented" testid="count-select">
-              {counts.map((c) => (
-                <ChoiceButton key={c.value} testid={`count-${c.value}`} checked={g.count === c.value} status={layoutStatus(c)} label={capitalise(NUMBER_WORD[c.value])} onSelect={() => choose(c)} onBlocked={countWhy.explain} class="segment">
+              {counts.map(({ choice: c, status }) => (
+                <ChoiceButton key={c.value} testid={`count-${c.value}`} checked={g.count === c.value} status={status} label={capitalise(NUMBER_WORD[c.value])} onSelect={() => choose(c)} onBlocked={countWhy.explain} class="segment">
                   <span aria-hidden="true">{c.value}</span>
                 </ChoiceButton>
               ))}
             </RadioGroup>
-            <CompanionNotes choices={counts} name={(n) => capitalise(NUMBER_WORD[n])} testid="count-companion-notes" />
+            <CompanionNotes options={counts} name={(n) => capitalise(NUMBER_WORD[n])} testid="count-companion-notes" />
             {countWhy.node}
           </div>
 
           <div class="control">
             <p class="picker-legend">Where it goes</p>
             <RadioGroup label="Where it goes" class="segmented segmented-wide" testid="placement-select">
-              {placements.map((c) => {
+              {placements.map(({ choice: c, status }) => {
                 const text = placementLabel(design, c.value);
                 return (
-                  <ChoiceButton key={c.value} testid={`placement-${c.value}`} checked={g.placement === c.value} status={layoutStatus(c)} label={text} onSelect={() => choose(c)} onBlocked={placementWhy.explain} class="segment">
+                  <ChoiceButton key={c.value} testid={`placement-${c.value}`} checked={g.placement === c.value} status={status} label={text} onSelect={() => choose(c)} onBlocked={placementWhy.explain} class="segment">
                     <span>{text}</span>
                   </ChoiceButton>
                 );
               })}
             </RadioGroup>
-            <CompanionNotes choices={placements} name={(p) => placementLabel(design, p)} testid="placement-companion-notes" />
+            <CompanionNotes options={placements} name={(p) => placementLabel(design, p)} testid="placement-companion-notes" />
             {placementWhy.node}
             {adjusted}
           </div>

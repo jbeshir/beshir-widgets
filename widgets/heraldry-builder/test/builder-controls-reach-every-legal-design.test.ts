@@ -2,7 +2,9 @@
 // different allowed value or genuinely has only one legal value — and every legal charge layout
 // (count, placement, arrangement) can be reached from any valid design by clicking through the
 // count, placement and layout controls. "Legal" is worked out by brute force from the structural
-// tables and assess(), never from the options helper under test.
+// tables and assess(), never from the options helper under test. A sample of designs whose charges
+// break the rule of tincture (a count or placement choice can lead there; only the layout moves) is
+// held to the same two checks.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -84,10 +86,27 @@ function sweep(): Array<{ design: NormDesign; legal: Layout[] }> {
   return out;
 }
 
+/**
+ * One design per second (field, ordinary, layout) of the sweep with its charges in a tincture that
+ * breaks the rule there: the first one that does, keeping the charge and posture.
+ */
+function violationSample(designs: Array<{ design: NormDesign; legal: Layout[] }>): Array<{ design: NormDesign; legal: Layout[] }> {
+  const starts = new Map<string, { design: NormDesign; legal: Layout[] }>();
+  for (const s of designs) {
+    const key = JSON.stringify([s.design.field, s.design.ordinary, layoutKey(s.design.charges!)]);
+    if (!starts.has(key)) starts.set(key, s);
+  }
+  return [...starts.values()].filter((_, i) => i % 2 === 0).flatMap(({ design, legal }) => {
+    const tincture = CHARGE_TINCTURES.find((t) => !legalTinctures(design).includes(t));
+    return tincture ? [{ design: { ...design, charges: { ...design.charges!, tincture } }, legal }] : [];
+  });
+}
+
 const allowedValues = <T>(choices: Array<{ value: T; allowed: boolean }>) => choices.filter((c) => c.allowed).map((c) => c.value);
 
 describe('builder controls never lock a legal value away', () => {
   const designs = sweep();
+  const violations = violationSample(designs);
 
   it('covers a broad sweep of valid designs', () => {
     const contexts = new Set(designs.map(({ design }) => JSON.stringify([design.field, design.ordinary])));
@@ -97,11 +116,14 @@ describe('builder controls never lock a legal value away', () => {
     expect(charges.size).toBe(CHARGE_IDS.length);
     expect(designs.length).toBeGreaterThan(7000);
     expect(designs.every(({ design }) => valid(design))).toBe(true);
+    console.log(`and ${violations.length} designs whose charges break the rule of tincture`);
+    expect(violations.length).toBeGreaterThan(1000);
+    expect(violations.every(({ design }) => tinctureIssues(design).some((i) => i.layer === 'charges'))).toBe(true);
   });
 
   it('every charge control offers exactly the values some completion makes legal, and something other than the current one unless only one is', () => {
     let checked = 0;
-    for (const { design: d, legal } of designs) {
+    for (const { design: d, legal } of [...designs, ...violations]) {
       const g = d.charges!;
       const label = JSON.stringify(d);
       // Count and placement: allowed exactly when some partner, arrangement and tincture make them legal.
@@ -166,5 +188,12 @@ describe('builder controls never lock a legal value away', () => {
       states += reached.size;
     }
     console.log(`searched from ${byStart.size} distinct starting layouts; ${pairs} (design, legal count+placement) pairs and ${states} reached layouts checked`);
+  }, 30_000);
+
+  it('every legal count, placement and layout is reachable from a design whose charges break the rule of tincture', () => {
+    for (const { design: d, legal } of violations) {
+      const reached = reachableLayouts(d);
+      expect(legal.map(layoutKey).filter((k) => !reached.has(k)), JSON.stringify(d)).toEqual([]);
+    }
   }, 30_000);
 });
