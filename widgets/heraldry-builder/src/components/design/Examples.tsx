@@ -1,5 +1,5 @@
 // Example arms in a small box that folds away (open on a device's first visit, folded after), with
-// "Surprise me" in its top corner, outside the fold so it is always in view. Each example loads into the builder; its caption is
+// "Surprise me" in its top corner, outside the fold so it is always in view and first in tab order. Each example loads into the builder; its caption is
 // its accessible name and tooltip.
 
 import type { ShapedDesign } from '../../lib/heraldry';
@@ -17,6 +17,9 @@ interface Props {
 export function Examples({ defaultOpen, onPick, onSurprise }: Props) {
   return (
     <div class="examples">
+      <button type="button" class="button-secondary button-small examples-surprise" data-testid="surprise-me" onClick={onSurprise}>
+        Surprise me
+      </button>
       <details class="examples-box" data-testid="examples" open={defaultOpen}>
         <summary class="examples-summary" data-testid="examples-summary">
           Examples
@@ -39,9 +42,6 @@ export function Examples({ defaultOpen, onPick, onSurprise }: Props) {
           ))}
         </ul>
       </details>
-      <button type="button" class="button-secondary button-small examples-surprise" data-testid="surprise-me" onClick={onSurprise}>
-        Surprise me
-      </button>
     </div>
   );
 }

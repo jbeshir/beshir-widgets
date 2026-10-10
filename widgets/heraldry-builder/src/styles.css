@@ -1891,7 +1891,7 @@ a.button-secondary {
   padding: 0 0 10px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 .example {
   display: flex;
