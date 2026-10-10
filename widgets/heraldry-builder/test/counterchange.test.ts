@@ -243,7 +243,7 @@ describe('the builder never offers a count, placement or arrangement without a l
           }
           for (const count of countChoices(start)) {
             if (!count.allowed) continue;
-            const counted = nd({ v: 1, field, ordinary, charges: { charge: 'mullet', count: count.value, placement, tincture: 'or' } });
+            const counted = count.design;
             const arr = arrangementChoices(counted);
             const designs = arr.mode === 'choose'
               ? arr.choices.flatMap((a) => {

@@ -4,9 +4,9 @@
 // surface and offer a fix — never silently repaired.
 
 import {
-  DEFAULT_FIELD_SHAPE, CHARGES, ORDINARY_LABEL, chargeContext, chargeTinctureChoices, defaultArrangement, fieldTinctures, fitCharges,
-  isMetal, legalArrangements, ordinaryTinctureChoices, structuralIssues, tinctureIssues,
-  type Arrangement, type ChargeId, type Choice, type Count, type Division, type Issue, type NormDesign,
+  DEFAULT_FIELD_SHAPE, CHARGES, NUMBER_WORD, ORDINARY_LABEL, chargeContext, chargeTinctureChoices, countChoices, fieldTinctures, fitCharges,
+  isMetal, ordinaryTinctureChoices, placementChoices, structuralIssues, tinctureIssues,
+  type Arrangement, type ChargedDesign, type ChargeId, type Choice, type Companion, type Count, type Division, type Issue, type LayoutChoice, type NormDesign,
   type ChargeTincture, type OrdinaryType, type Placement, type Posture, type ShapedDesign, type Tincture,
 } from './heraldry';
 
@@ -75,18 +75,35 @@ export function setCharge(nd: NormDesign, id: ChargeId | null): NormDesign {
   return { ...placed, charges: { ...placed.charges!, tincture } };
 }
 
-export function setCount(nd: NormDesign, count: Count): NormDesign {
-  const g = nd.charges;
-  if (!g) return nd;
-  const legal = legalArrangements(nd.ordinary, g.placement, count);
-  const arrangement: Arrangement = legal.includes(g.arrangement) ? g.arrangement : defaultArrangement(nd.ordinary, g.placement, count);
-  return fitCharges({ ...nd, charges: { ...g, count, arrangement } });
+/** The design a count or placement choice leads to; a blocked (or unknown) one changes nothing. */
+function chosenDesign<T>(nd: NormDesign, choices: LayoutChoice<T>[], value: T): NormDesign {
+  const c = choices.find((x) => x.value === value);
+  return c?.allowed ? c.design : nd;
 }
 
+/** A new count, bringing the placement along when only the other placement takes it (see countChoices). */
+export function setCount(nd: NormDesign, count: Count): NormDesign {
+  return chosenDesign(nd, countChoices(nd), count);
+}
+
+/** A new placement, bringing the nearest count it takes along when the current one doesn't fit (see placementChoices). */
 export function setPlacement(nd: NormDesign, placement: Placement): NormDesign {
-  const g = nd.charges;
-  if (!g) return nd;
-  return fitCharges({ ...nd, charges: { ...g, placement, arrangement: defaultArrangement(nd.ordinary, placement, g.count) } });
+  return chosenDesign(nd, placementChoices(nd), placement);
+}
+
+/**
+ * What else a count or placement choice changes, in words, for the design it leads to: offered
+ * ("Moves the lions around the cross", "Changes to four lions") or done ("Moved…", "Changed…").
+ */
+export function companionNote(next: ChargedDesign, companion: Companion, tense: 'offered' | 'done'): string {
+  const g = next.charges;
+  const meta = CHARGES[g.charge];
+  const noun = g.count === 1 ? meta.glossName : meta.glossPlural;
+  if (companion.kind === 'count') return `${tense === 'offered' ? 'Changes' : 'Changed'} to ${NUMBER_WORD[g.count]} ${noun}`;
+  // "On the cross" → "onto the cross"; "Around the cross" → "around the cross".
+  const label = placementLabel(next, companion.placement);
+  const where = companion.placement === 'ordinary' ? label.replace(/^On /, 'onto ') : `${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+  return `${tense === 'offered' ? 'Moves' : 'Moved'} the ${noun} ${where}`;
 }
 
 export function setArrangement(nd: NormDesign, arrangement: Arrangement): NormDesign {
@@ -157,15 +174,23 @@ export function isUntouched(d: ShapedDesign): boolean {
   return d.shape === DEFAULT_FIELD_SHAPE && sameDesign(d.design, DEFAULT_DESIGN);
 }
 
-/** A design swapped in for another, and the one to bring back on Undo. */
-export interface Replacement {
-  previous: ShapedDesign;
-  replacement: ShapedDesign;
-}
+/**
+ * A design swapped in for another, and the one to bring back on Undo: replaced wholesale (a starting
+ * design, Surprise me, a registry entry) or adjusted — a choice that changed something else too,
+ * which `note` says.
+ */
+export type Replacement =
+  | { kind: 'replaced'; previous: ShapedDesign; replacement: ShapedDesign }
+  | { kind: 'adjusted'; previous: ShapedDesign; replacement: ShapedDesign; note: string };
 
 /** What replacing `current` with `next` would lose: null when current is untouched or identical to next. */
 export function replaceDesign(current: ShapedDesign, next: ShapedDesign): Replacement | null {
-  return isUntouched(current) || sameShapedDesign(current, next) ? null : { previous: current, replacement: next };
+  return isUntouched(current) || sameShapedDesign(current, next) ? null : { kind: 'replaced', previous: current, replacement: next };
+}
+
+/** A count or placement choice applied with its companion change, kept so it can be undone. */
+export function adjustDesign(current: ShapedDesign, next: ChargedDesign, companion: Companion): Replacement {
+  return { kind: 'adjusted', previous: current, replacement: { shape: current.shape, design: next }, note: `${companionNote(next, companion, 'done')}.` };
 }
 
 /** Undo stays on offer only until the replacement is edited; undoing then would throw that work away too. */

@@ -140,6 +140,41 @@
       "expect": {"selector":"[data-testid=violation-fix]"}
     },
     {
+      "label": "count-placement-companion",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=swatch-field1-or]"},
+        {"click":"[data-testid=ordinary-cross]"},
+        {"click":"[data-testid=swatch-ordinary-gules]"},
+        {"eval":"document.querySelector('#charge-tab-beast')?.click()"},
+        {"click":"[data-testid=charge-lion]"},
+        {"click":"[data-testid=placement-ordinary]"},
+        {"click":"[data-testid=count-1]"},
+        {"click":"[data-testid=swatch-charge-or]"},
+        {"waitFor":"[data-testid=count-companion-notes]"},
+        {"eval":"document.querySelector('[data-testid=count-select]').scrollIntoView({block:'center'})"}
+      ],
+      "expect": {"selector":"[data-testid=count-4][data-with-change=true]"}
+    },
+    {
+      "label": "count-placement-companion-applied",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=swatch-field1-or]"},
+        {"click":"[data-testid=ordinary-cross]"},
+        {"click":"[data-testid=swatch-ordinary-gules]"},
+        {"eval":"document.querySelector('#charge-tab-beast')?.click()"},
+        {"click":"[data-testid=charge-lion]"},
+        {"click":"[data-testid=placement-ordinary]"},
+        {"click":"[data-testid=count-1]"},
+        {"click":"[data-testid=swatch-charge-or]"},
+        {"click":"[data-testid=count-4]"},
+        {"waitFor":"[data-testid=adjusted-notice]"},
+        {"eval":"document.querySelector('[data-testid=count-select]').scrollIntoView({block:'center'})"}
+      ],
+      "expect": {"selector":"[data-testid=adjusted-undo]"}
+    },
+    {
       "label": "duplicate-detected",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

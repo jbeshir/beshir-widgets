@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { DEFAULT_FIELD_SHAPE, blazon, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
-import { DEFAULT_DESIGN, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
+import { DEFAULT_FIELD_SHAPE, blazon, type ChargedDesign, type Companion, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
+import { DEFAULT_DESIGN, adjustDesign, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
 import { surpriseDesign } from './lib/presets';
 import { RECOVER_HASH, parseHash, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
@@ -130,6 +130,12 @@ export function App() {
     setCheck(null);
     focusPreview.current = true;
     announce(`Started from "${caption}": ${blazon(nd)}`);
+  };
+
+  // A count or placement that brought its partner along: applied, with the note and Undo under the controls.
+  const adjust = (nd: ChargedDesign, companion: Companion) => {
+    setReplaced(adjustDesign({ design, shape }, nd, companion));
+    setDesign(nd);
   };
 
   const dismissWelcome = () => {
@@ -262,12 +268,14 @@ export function App() {
         </div>
 
         <div role="tabpanel" id="panel-design" aria-labelledby="tab-design" hidden={tab !== 'design'} class="tab-panel">
-          <ReplacedNotice visible={replaced !== null} onUndo={undoReplace} />
+          <ReplacedNotice replacement={replaced} kind="replaced" onUndo={undoReplace} />
           <DesignTab
             design={design}
             shape={shape}
             report={report}
             onChange={setDesign}
+            onAdjust={adjust}
+            adjusted={<ReplacedNotice replacement={replaced} kind="adjusted" onUndo={undoReplace} />}
             onShape={setShape}
             onStartOver={startOver}
             onStartFrom={startFrom}

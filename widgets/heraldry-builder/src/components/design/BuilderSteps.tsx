@@ -7,19 +7,19 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
   ARRANGEMENT_LABEL, CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, DIVISION_PART_LABEL, NUMBER_WORD,
-  ORDINARY_LABEL, ORDINARY_TYPES, TINCTURE_LABEL, arrangementChoices, blockReason, chargeLabel, chargeNoun, chargePath,
+  ORDINARY_LABEL, ORDINARY_TYPES, TINCTURE_LABEL, arrangementChoices, chargeLabel, chargeNoun, chargePath,
   chargeTinctureChoices, chargesInCategory, countChoices, fieldTinctureChoices, isBlocked, ordinaryTinctureChoices,
   placementChoices, plainFirst, postureChoices, postureGloss, postureLabel, postureTerm,
-  type Arrangement, type ChargeCategory, type Division, type FieldShape, type Issue, type NormDesign, type OrdinaryType, type Posture,
+  type Arrangement, type ChargedDesign, type Companion, type LayoutChoice, type ChargeCategory, type Division, type FieldShape, type Issue, type NormDesign, type OrdinaryType, type Posture,
   type PlainTerm,
 } from '../../lib/heraldry';
 import {
-  placementLabel, setArrangement, setCharge, setChargeTincture, setCount, setDivision, setFieldTincture, setOrdinary,
-  setOrdinaryTincture, setPlacement, setPlainField, setPosture,
+  companionNote, placementLabel, setArrangement, setCharge, setChargeTincture, setDivision, setFieldTincture, setOrdinary,
+  setOrdinaryTincture, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
-import { ChoiceButton, RadioGroup } from './Choices';
+import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
 import { TincturePicker } from './TincturePicker';
 
@@ -215,12 +215,38 @@ function chargesSummary(design: NormDesign): string {
   return g ? `${g.count} ${chargeNoun(g.charge, g.count)}, ${lower(TINCTURE_LABEL[g.tincture].plain)}` : 'None';
 }
 
+/** A count or placement option: blocked with its reason, or offered saying what else it changes. */
+function layoutStatus(c: LayoutChoice<unknown>): OptionStatus {
+  if (!c.allowed) return { kind: 'blocked', reason: c.reason };
+  return c.companion ? { kind: 'with-change', note: companionNote(c.design, c.companion, 'offered') } : { kind: 'open' };
+}
+
+/** The options of a row that change something else too, each with what it changes, shown under the row. */
+function CompanionNotes<T>({ choices, name, testid }: { choices: LayoutChoice<T>[]; name: (v: T) => string; testid: string }) {
+  const notes = choices.flatMap((c) => (c.allowed && c.companion ? [{ value: c.value, note: companionNote(c.design, c.companion, 'offered') }] : []));
+  if (!notes.length) return null;
+  return (
+    <ul class="companion-notes" data-testid={testid}>
+      {notes.map((n) => (
+        <li key={String(n.value)}><strong>{name(n.value)}:</strong> {n.note.charAt(0).toLowerCase()}{n.note.slice(1)}</li>
+      ))}
+    </ul>
+  );
+}
+
 /** The picture list on phones shows one kind at a time; this is the kind to start on. */
 function categoryOf(design: NormDesign): ChargeCategory {
   return design.charges ? CHARGES[design.charges.charge].category : CHARGE_CATEGORIES[0];
 }
 
-export function ChargesStep({ design, onChange, issues, accordion, compact }: StepProps & { compact: boolean }) {
+interface ChargesStepProps extends StepProps {
+  compact: boolean;
+  onAdjust: (nd: ChargedDesign, companion: Companion) => void;
+  /** The note shown after a count or placement brought its partner along. */
+  adjusted: ComponentChildren;
+}
+
+export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, accordion, compact }: ChargesStepProps) {
   const g = design.charges;
   const [tab, setTab] = useState<ChargeCategory>(() => categoryOf(design));
   // A design loaded from outside (an example, a registry entry) brings its own kind of picture along.
@@ -236,6 +262,12 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
   const blockedPost = postures.filter(isBlocked);
   const countWhy = useExplainer();
   const placementWhy = useExplainer();
+  /** Apply the design a count or placement choice leads to; one that brings its partner along can be undone. */
+  const choose = <T,>(c: LayoutChoice<T>) => {
+    if (!c.allowed) return;
+    if (c.companion) onAdjust(c.design, c.companion);
+    else onChange(c.design);
+  };
 
   return (
     <Step n={3} title="Picture" term="charge" hint="Pick a picture and repeat it up to six times. You need this or a band or shape (or both)." summary={chargesSummary(design)} issues={issues} accordion={accordion} testid="step-charges">
@@ -279,11 +311,12 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
             <p class="picker-legend" id="count-label">How many</p>
             <RadioGroup label="How many" class="segmented" testid="count-select">
               {counts.map((c) => (
-                <ChoiceButton key={c.value} testid={`count-${c.value}`} checked={g.count === c.value} reason={blockReason(c)} label={capitalise(NUMBER_WORD[c.value])} onSelect={() => onChange(setCount(design, c.value))} onBlocked={countWhy.explain} class="segment">
+                <ChoiceButton key={c.value} testid={`count-${c.value}`} checked={g.count === c.value} status={layoutStatus(c)} label={capitalise(NUMBER_WORD[c.value])} onSelect={() => choose(c)} onBlocked={countWhy.explain} class="segment">
                   <span aria-hidden="true">{c.value}</span>
                 </ChoiceButton>
               ))}
             </RadioGroup>
+            <CompanionNotes choices={counts} name={(n) => capitalise(NUMBER_WORD[n])} testid="count-companion-notes" />
             {countWhy.node}
           </div>
 
@@ -293,13 +326,15 @@ export function ChargesStep({ design, onChange, issues, accordion, compact }: St
               {placements.map((c) => {
                 const text = placementLabel(design, c.value);
                 return (
-                  <ChoiceButton key={c.value} testid={`placement-${c.value}`} checked={g.placement === c.value} reason={blockReason(c)} label={text} onSelect={() => onChange(setPlacement(design, c.value))} onBlocked={placementWhy.explain} class="segment">
+                  <ChoiceButton key={c.value} testid={`placement-${c.value}`} checked={g.placement === c.value} status={layoutStatus(c)} label={text} onSelect={() => choose(c)} onBlocked={placementWhy.explain} class="segment">
                     <span>{text}</span>
                   </ChoiceButton>
                 );
               })}
             </RadioGroup>
+            <CompanionNotes choices={placements} name={(p) => placementLabel(design, p)} testid="placement-companion-notes" />
             {placementWhy.node}
+            {adjusted}
           </div>
 
           <div class="control">

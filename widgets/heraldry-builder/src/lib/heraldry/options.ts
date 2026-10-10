@@ -4,7 +4,9 @@
 //
 // Semantics: a choice is blocked only by the layers beneath it (field → ordinary → charges). Changing
 // a lower layer is never blocked; if it invalidates an upper layer the design enters a violation
-// state (validate() reports it) and suggestTinctureFix()/fitCharges() offer repairs.
+// state (validate() reports it) and suggestTinctureFix()/fitCharges() offer repairs. Count and
+// placement depend on each other, so each is offered when some partner makes it legal, carrying the
+// partner change it needs (its companion) and the design choosing it leads to.
 
 import { CHARGES, postureTerm, type ChargeId, type Posture } from './charges';
 import {
@@ -24,6 +26,20 @@ import { capitalise } from './words';
 export type AllowedChoice<T> = { value: T; allowed: true };
 export type BlockedChoice<T> = { value: T; allowed: false; reason: string };
 export type Choice<T> = AllowedChoice<T> | BlockedChoice<T>;
+
+/** The partner a count or placement has to bring along: a new placement for a count, a new count for a placement. */
+export type Companion =
+  | { kind: 'placement'; placement: Placement }
+  | { kind: 'count'; count: Count };
+
+/**
+ * A count or placement choice. An allowed one carries the design choosing it leads to (the builder
+ * applies exactly this) and its companion: null when the current partner works.
+ */
+export type LayoutChoice<T> = (AllowedChoice<T> & { design: ChargedDesign; companion: Companion | null }) | BlockedChoice<T>;
+
+/** A design with its charge group present. */
+export type ChargedDesign = NormDesign & { charges: NormChargeGroup };
 
 export const isBlocked = <T>(c: Choice<T>): c is BlockedChoice<T> => !c.allowed;
 export const blockReason = <T>(c: Choice<T>): string | null => (c.allowed ? null : c.reason);
@@ -141,35 +157,77 @@ function withCharges(nd: NormDesign, g: NormChargeGroup, change: Partial<Pick<No
   return { ...nd, charges: { ...g, ...change } };
 }
 
+/** Why a charge layout can't be chosen — structurally illegal, or no tincture would work — or null when it can. */
+function layoutReason(nd: NormDesign, g: NormChargeGroup): string | null {
+  return chargeStructureIssue(nd.ordinary, g.placement, g.count, g.arrangement, g.charge) ?? noTinctureReason({ ...nd, charges: g });
+}
+
 // ── Charge structure ────────────────────────────────────────────────────────
 
 function keepOrDefaultArrangement(nd: NormDesign, placement: Placement, count: Count, current: Arrangement): Arrangement {
   return legalArrangements(nd.ordinary, placement, count).includes(current) ? current : defaultArrangement(nd.ordinary, placement, count);
 }
 
-/** Counts: blocked when structurally illegal here, or when they would leave no legal tincture. */
-export function countChoices(nd: NormDesign): Choice<Count>[] {
-  const g = nd.charges;
-  if (!g) return COUNTS.map(ok);
-  return COUNTS.map((n) => {
-    const arrangement = keepOrDefaultArrangement(nd, g.placement, n, g.arrangement);
-    return choice(n, chargeStructureIssue(nd.ordinary, g.placement, n, arrangement, g.charge)
-      ?? noTinctureReason(withCharges(nd, g, { count: n, arrangement })));
-  });
+const PLACEMENTS: readonly Placement[] = ['field', 'ordinary'];
+
+/** Every count, nearest to `count` first; equally near ones lower first. */
+function countsByNearness(count: Count): Count[] {
+  return [...COUNTS].sort((a, b) => Math.abs(a - count) - Math.abs(b - count) || a - b);
 }
 
-export function placementChoices(nd: NormDesign): Choice<Placement>[] {
+/** A charge layout that can be chosen, or why the layout tried first can't. */
+type Fit = { fits: true; layout: NormChargeGroup } | { fits: false; reason: string };
+
+/**
+ * The charge group with this count and placement, in the first arrangement that leaves a legal
+ * tincture: the current one if it is legal here, else the default, else any other.
+ */
+function fitLayout(nd: NormDesign, g: NormChargeGroup, count: Count, placement: Placement): Fit {
+  const first = keepOrDefaultArrangement(nd, placement, count, g.arrangement);
+  const [tried, ...others] = [first, ...legalArrangements(nd.ordinary, placement, count).filter((a) => a !== first)]
+    .map((arrangement) => ({ ...g, count, placement, arrangement }));
+  const reason = layoutReason(nd, tried);
+  if (!reason) return { fits: true, layout: tried };
+  const other = others.find((l) => !layoutReason(nd, l));
+  return other ? { fits: true, layout: other } : { fits: false, reason };
+}
+
+/**
+ * One count or placement choice: allowed with the first of `layouts` (count and placement; the
+ * current partner first) that fits, its companion naming the `partner` when that changed; blocked
+ * with the current partner's reason when none fits.
+ */
+function layoutChoice<T>(nd: NormDesign, g: NormChargeGroup, value: T, partner: Companion['kind'], layouts: Array<[Count, Placement]>): LayoutChoice<T> {
+  const fits = layouts.map(([count, placement]) => fitLayout(nd, g, count, placement));
+  const fit = fits.find((f) => f.fits) ?? fits[0];
+  if (!fit.fits) return { value, allowed: false, reason: fit.reason };
+  const { count, placement } = fit.layout;
+  const companion: Companion | null = partner === 'placement'
+    ? (placement === g.placement ? null : { kind: 'placement', placement })
+    : (count === g.count ? null : { kind: 'count', count });
+  return { value, allowed: true, design: { ...nd, charges: fit.layout }, companion };
+}
+
+/**
+ * Counts: each with the current placement if that works, else with the other placement. Blocked only
+ * when neither placement makes it legal (structurally, or with some tincture), with the reason for
+ * the current placement.
+ */
+export function countChoices(nd: NormDesign): LayoutChoice<Count>[] {
   const g = nd.charges;
-  const placements: Placement[] = ['field', 'ordinary'];
-  if (!g) {
-    return placements.map((p) => choice(p, p === 'ordinary' && (!nd.ordinary || nd.ordinary.type === 'bordure')
-      ? chargeStructureIssue(nd.ordinary, 'ordinary', 1, 'single') : null));
-  }
-  return placements.map((p) => {
-    const arrangement = keepOrDefaultArrangement(nd, p, g.count, g.arrangement);
-    return choice(p, chargeStructureIssue(nd.ordinary, p, g.count, arrangement, g.charge)
-      ?? noTinctureReason(withCharges(nd, g, { placement: p, arrangement })));
-  });
+  if (!g) return [];
+  const placements = [g.placement, ...PLACEMENTS.filter((p) => p !== g.placement)];
+  return COUNTS.map((n) => layoutChoice(nd, g, n, 'placement', placements.map((p): [Count, Placement] => [n, p])));
+}
+
+/**
+ * Placements: each with the current count if that works, else with the nearest count that does (ties
+ * to the lower count, as fitCharges ranks them). Blocked only when no count makes it legal.
+ */
+export function placementChoices(nd: NormDesign): LayoutChoice<Placement>[] {
+  const g = nd.charges;
+  if (!g) return [];
+  return PLACEMENTS.map((p) => layoutChoice(nd, g, p, 'count', countsByNearness(g.count).map((n): [Count, Placement] => [n, p])));
 }
 
 /** single: one charge; forced: placed by the ordinary (`note` says why there is nothing to choose); choose: pick from `choices`. */
@@ -233,11 +291,7 @@ export function fitCharges(nd: NormDesign): NormDesign {
   let placement = g.placement;
   if (placement === 'ordinary' && (!nd.ordinary || nd.ordinary.type === 'bordure')) placement = 'field';
   const legalCount = (n: Count) => chargeStructureIssue(nd.ordinary, placement, n, defaultArrangement(nd.ordinary, placement, n)) === null;
-  let count = g.count;
-  if (!legalCount(count)) {
-    const ranked = [...COUNTS].sort((a, b) => Math.abs(a - g.count) - Math.abs(b - g.count) || a - b);
-    count = ranked.find(legalCount) ?? count;
-  }
+  const count = countsByNearness(g.count).find(legalCount) ?? g.count;
   const arrangement = keepOrDefaultArrangement(nd, placement, count, count === g.count ? g.arrangement : defaultArrangement(nd.ordinary, placement, count));
   const meta = CHARGES[g.charge];
   const posture = meta.postures ? (g.posture && meta.postures.includes(g.posture) ? g.posture : meta.defaultPosture) : null;

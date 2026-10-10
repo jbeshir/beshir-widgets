@@ -791,7 +791,8 @@ button, input, select, textarea {
 .choice.is-blocked > span:not(.choice-label) {
   text-decoration: line-through;
 }
-.choice > .lock-glyph {
+.choice > .lock-glyph,
+.choice > .change-glyph {
   position: absolute;
   top: 3px;
   right: 3px;
@@ -868,6 +869,9 @@ button, input, select, textarea {
   justify-content: center;
 }
 
+/* Room for the corner mark (lock or arrows), on both sides so the label stays centred. */
+.segment:has(> .lock-glyph, > .change-glyph) { padding-inline: 20px; }
+
 .select {
   width: 100%;
   min-height: 44px;
@@ -888,6 +892,18 @@ button, input, select, textarea {
   font-size: 14px;
   color: var(--fg-secondary);
 }
+
+/* Options that bring another change along: each listed under its row, marked on the button. */
+.companion-notes {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  color: var(--fg-secondary);
+}
+.companion-notes strong { color: var(--fg); font-weight: 600; }
+.companion-notes li + li { margin-top: 2px; }
+.charge-options .replaced-notice { margin: 8px 0 0; }
 
 /* Tincture picker */
 

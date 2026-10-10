@@ -3,11 +3,12 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_DESIGN, assess, isUntouched, placementLabel, replaceDesign, sameShapedDesign, undoStillOffered, setArrangement, setCharge, setChargeTincture, setCount, setDivision,
+  DEFAULT_DESIGN, adjustDesign, assess, companionNote, isUntouched, placementLabel, replaceDesign, sameShapedDesign, undoStillOffered, setArrangement, setCharge, setChargeTincture, setCount, setDivision,
   setFieldTincture, setOrdinary, setOrdinaryTincture, setPlacement, setPlainField, setPosture,
 } from '../src/lib/builder';
 import { computeWidgetState } from '../src/lib/widgetState';
-import { blazon, chargeTinctureChoices, countChoices, signature, suggestTinctureFix } from '../src/lib/heraldry';
+import { nd, plain } from './helpers';
+import { blazon, chargeTinctureChoices, countChoices, placementChoices, signature, suggestTinctureFix } from '../src/lib/heraldry';
 
 describe('builder transitions', () => {
   it('starts as a plain Azure field: incomplete with the structural hint', () => {
@@ -118,6 +119,33 @@ describe('builder transitions', () => {
     expect(four.allowed === false && four.reason).toMatch(/at most three/);
   });
 
+  it('a lion on a cross can become four lions around it: the count brings the placement along', () => {
+    // Or, on a cross Gules a lion rampant Or. A cross carries one or five charges and is set between
+    // exactly four, so neither "four" (on the cross) nor "around the cross" (one lion) works alone.
+    const d = nd({ v: 1, field: plain('or'), ordinary: { type: 'cross', tincture: 'gules' }, charges: { charge: 'lion', count: 1, placement: 'ordinary', tincture: 'or' } });
+    expect(blazon(d)).toBe('Or, on a cross Gules a lion rampant Or');
+    const four = countChoices(d).find((c) => c.value === 4)!;
+    expect(four).toMatchObject({ allowed: true, companion: { kind: 'placement', placement: 'field' } });
+    const around = placementChoices(d).find((c) => c.value === 'field')!;
+    expect(around).toMatchObject({ allowed: true, companion: { kind: 'count', count: 4 } });
+    const moved = setCount(d, 4);
+    expect(moved.charges).toMatchObject({ count: 4, placement: 'field', arrangement: 'forced', tincture: 'or' });
+    expect(blazon(moved)).toBe('Or, a cross Gules between four lions rampant Or');
+    // Only the layout moves: Or lions now lie on the Or field, which the violation panel offers to fix.
+    expect(assess(moved).problems.map((p) => p.layer)).toEqual(['charges']);
+    expect(assess(suggestTinctureFix(moved)!.design).status).toBe('valid');
+    expect(setPlacement(d, 'field')).toEqual(moved);
+    if (!four.allowed || !four.companion || !around.allowed || !around.companion) throw new Error('expected both choices with a companion');
+    expect(companionNote(four.design, four.companion, 'offered')).toBe('Moves the lions around the cross');
+    expect(companionNote(around.design, around.companion, 'offered')).toBe('Changes to four lions');
+    const back = countChoices(moved).find((c) => c.value === 1)!;
+    if (!back.allowed || !back.companion) throw new Error('expected one lion to go back onto the cross');
+    expect(companionNote(back.design, back.companion, 'offered')).toBe('Moves the lion onto the cross');
+    const adjusted = adjustDesign({ design: d, shape: 'round' }, around.design, around.companion);
+    expect(adjusted).toEqual({ kind: 'adjusted', previous: { design: d, shape: 'round' }, replacement: { design: moved, shape: 'round' }, note: 'Changed to four lions.' });
+    expect(undoStillOffered(adjusted, { design: moved, shape: 'round' })).toBe(true);
+  });
+
   it('arrangement edits and placement labels', () => {
     let d = setCount(setCharge(DEFAULT_DESIGN, 'mullet'), 3);
     d = setArrangement(d, 'in-fess');
@@ -135,13 +163,13 @@ describe('replacing a design in progress', () => {
   const untouched = { design: DEFAULT_DESIGN, shape: 'heater' as const };
 
   it('offers Undo with the design it replaces', () => {
-    expect(replaceDesign(started, example)).toEqual({ previous: started, replacement: example });
+    expect(replaceDesign(started, example)).toEqual({ kind: 'replaced', previous: started, replacement: example });
   });
 
   it('offers Undo when only the shape would be lost', () => {
     const roundDefault = { design: DEFAULT_DESIGN, shape: 'round' as const };
     expect(isUntouched(roundDefault)).toBe(false);
-    expect(replaceDesign(roundDefault, example)).toEqual({ previous: roundDefault, replacement: example });
+    expect(replaceDesign(roundDefault, example)).toEqual({ kind: 'replaced', previous: roundDefault, replacement: example });
   });
 
   it('offers nothing when the current design is the untouched default', () => {

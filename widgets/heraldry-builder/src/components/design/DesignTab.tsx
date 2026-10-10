@@ -6,7 +6,7 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { blazon, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
+import { blazon, type ChargedDesign, type Companion, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
 import type { Issue } from '../../lib/heraldry';
 import { useCompact } from '../../lib/useCompact';
 import type { DesignReport } from '../../lib/builder';
@@ -28,6 +28,10 @@ interface Props {
   shape: FieldShape;
   report: DesignReport;
   onChange: (nd: NormDesign) => void;
+  /** Apply a count or placement that brings its partner along (App keeps it for Undo). */
+  onAdjust: (nd: ChargedDesign, companion: Companion) => void;
+  /** The note (with Undo) for such a change, shown under the picture controls. */
+  adjusted: ComponentChildren;
   onShape: (shape: FieldShape) => void;
   onStartOver: () => void;
   /** Load a starting design; `caption` names it for the announcement. */
@@ -270,7 +274,7 @@ export function DesignTab(p: Props) {
         </p>
         <FieldStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('field')} accordion={accordion('field')} />
         <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('ordinary')} accordion={accordion('ordinary')} />
-        <ChargesStep design={design} onChange={p.onChange} issues={layerIssues('charges')} accordion={accordion('charges')} compact={compact} />
+        <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted} issues={layerIssues('charges')} accordion={accordion('charges')} compact={compact} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over

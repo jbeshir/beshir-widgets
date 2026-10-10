@@ -478,7 +478,12 @@ describe('options helper', () => {
     expect(blockReason(byValue(counts, 4 as Count))).toBe('A bend can carry a single charge, two or three, not four.');
 
     const between = nd(V.find((v) => v.id === 'V10')!.design);
-    expect(countChoices(between).filter((c) => c.allowed).map((c) => c.value)).toEqual([3]);
+    // A chevron is set between exactly three; one or two are offered on the chevron instead.
+    const betweenCounts = countChoices(between);
+    expect(betweenCounts.filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3]);
+    expect(byValue(betweenCounts, 2 as Count)).toMatchObject({ allowed: true, companion: { kind: 'placement', placement: 'ordinary' } });
+    expect(byValue(betweenCounts, 3 as Count)).toMatchObject({ allowed: true, companion: null });
+    expect(blockReason(byValue(betweenCounts, 4 as Count))).toBe('A chevron is set between exactly three charges, not four.');
     expect(byValue(placementChoices(between), 'ordinary').allowed).toBe(true);
 
     const chief = nd(V.find((v) => v.id === 'V11')!.design);
