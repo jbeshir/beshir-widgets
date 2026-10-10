@@ -10,21 +10,29 @@
       "expect": {"state":"ready"}
     },
     {
-      "label": "onboarding-gallery",
+      "label": "onboarding-examples",
       "steps": [
         {"waitFor":"[data-testid=welcome-strip]"},
-        {"waitFor":"[data-testid=starting-gallery]"},
-        {"eval":"document.querySelector('[data-testid=starting-gallery] .gallery-list > li:nth-child(2)').scrollIntoView({block:'center',inline:'center'})"},
-        {"eval":"document.querySelector('[data-testid=starting-gallery] .gallery-list > li:nth-child(2) button').focus()"}
+        {"waitFor":"[data-testid=examples][open] [data-testid=example-white-star-on-red]"},
+        {"eval":"document.querySelector('[data-testid=example-white-star-on-red]').focus()"}
       ],
-      "expect": {"selector":"[data-testid=starting-gallery] .gallery-list > li:nth-child(2) button:focus-visible"}
+      "expect": {"selector":"[data-testid=example-white-star-on-red]:focus-visible"}
+    },
+    {
+      "label": "examples-returning",
+      "steps": [
+        {"waitFor":"[data-testid=examples][open]"},
+        {"eval":"setTimeout(() => location.reload(), 0)"},
+        {"waitFor":"[data-testid=examples]:not([open])"}
+      ],
+      "expect": {"selector":"[data-testid=surprise-me]"}
     },
     {
       "label": "replaced-undo",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
         {"click":"[data-testid=ordinary-bend]"},
-        {"click":"[data-testid=starting-gallery] .gallery-list > li:nth-child(2) button"},
+        {"click":"[data-testid=example-white-star-on-red]"},
         {"waitFor":"[data-testid=replaced-notice]"},
         {"eval":"window.scrollTo(0, 0)"}
       ],

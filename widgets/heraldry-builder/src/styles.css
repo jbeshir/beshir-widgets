@@ -1837,7 +1837,7 @@ a.button-secondary {
   .print-page:last-child { break-after: auto; }
 }
 
-/* ── Onboarding: welcome strip, starting designs ── */
+/* ── Onboarding: welcome strip, examples ── */
 
 .welcome {
   display: flex;
@@ -1860,53 +1860,64 @@ a.button-secondary {
 /* Text colour (not the accent) so the 16px link clears APCA Lc 75 on the strip; the underline keeps the accent. */
 .welcome-dismiss { flex: none; color: var(--fg); text-decoration-color: var(--accent-text); }
 
-.gallery { margin-bottom: 18px; }
-.gallery-head {
+/* A small folding box of examples, with "Surprise me" beside it. */
+.examples {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.examples-box {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+.examples-summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 8px;
+  min-height: 42px;
+  width: fit-content;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 6px;
 }
-.gallery-list {
+.examples-summary::-webkit-details-marker { display: none; }
+.examples-box[open] .step-chevron { transform: rotate(-135deg); }
+.examples-list {
   list-style: none;
   margin: 0;
-  padding: 0 0 4px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
-  gap: 8px;
-}
-.gallery-item {
-  width: 100%;
-  height: 100%;
+  padding: 0 0 10px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  padding: 8px 6px;
+}
+.example {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 52px;
+  padding: 4px;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: 8px;
   cursor: pointer;
 }
-.gallery-item:hover { border-color: var(--focus); background: var(--pill-bg); }
-.gallery-caption { font-size: 14px; line-height: 1.25; text-align: center; }
+.example:hover { border-color: var(--focus); background: var(--pill-bg); }
+.examples-surprise { flex: none; min-height: 44px; }
 
-/* Phones: one scrolling row, so the examples take little height. */
+/* Phones: a tighter welcome strip. */
 @media (max-width: 599px) {
   .welcome { padding: 8px 12px; }
   .welcome-title { font-size: 16px; }
   .welcome-dismiss { min-height: 44px; padding-block: 0; }
-  .gallery { margin-bottom: 12px; }
-  .gallery-list {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: 112px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    overscroll-behavior-x: contain;
-  }
-  .gallery-list > li { scroll-snap-align: start; }
+  .examples { margin-bottom: 12px; }
 }
 
 /* ── Collapsible steps, kinds of picture ── */

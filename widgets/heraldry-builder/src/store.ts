@@ -3,7 +3,7 @@
 // The community armorial lives in Cloudflare D1 behind the Worker's /api/* routes; this module is
 // the ONLY place that calls `fetch`, and the only importer of the localStorage helpers
 // (lib/deviceArms.ts for "Your arms on this device", lib/deviceDraft.ts for the unsaved builder
-// design, lib/deviceWelcome.ts for the dismissed welcome strip). Every call resolves to a typed result and never throws:
+// design, lib/deviceWelcome.ts for the dismissed welcome strip, lib/deviceExamples.ts for the examples box). Every call resolves to a typed result and never throws:
 //   { ok: true, … } | Failure   (see Failure for the ways a call can fail)
 //
 //   search(params)              GET  /api/arms?…           (public; no contact in results)
@@ -37,6 +37,7 @@ import {
 import { forgetDeviceArms, listDeviceArms, rememberDeviceArms, type DeviceArms } from './lib/deviceArms';
 import { clearDraft as clearStoredDraft, readDraft, writeDraft } from './lib/deviceDraft';
 import { readWelcomeDismissed, writeWelcomeDismissed } from './lib/deviceWelcome';
+import { readExamplesSeen, writeExamplesSeen } from './lib/deviceExamples';
 import sampleData from './data/sample-registry.json';
 
 export type { DeviceArms } from './lib/deviceArms';
@@ -572,7 +573,7 @@ export async function withdraw(id: string, secret: string): Promise<Result<{ id:
   return { ok: true, id };
 }
 
-// ── device-local conveniences (localStorage, via lib/deviceArms, deviceDraft + deviceWelcome) ──
+// ── device-local conveniences (localStorage, via lib/deviceArms, deviceDraft, deviceWelcome + deviceExamples) ──
 
 /** "Your arms on this device", most recent first. */
 export function deviceArms(): DeviceArms[] {
@@ -608,6 +609,15 @@ export function welcomeDismissed(): boolean {
 
 export function dismissWelcome(): void {
   writeWelcomeDismissed();
+}
+
+/** Whether the Design tab's examples box has been shown on this device (true when storage is unavailable). */
+export function examplesSeen(): boolean {
+  return readExamplesSeen();
+}
+
+export function markExamplesSeen(): void {
+  writeExamplesSeen();
 }
 
 // ── recovery ("Lost your link? / Withdraw my registration") ─────────────────────────────────
