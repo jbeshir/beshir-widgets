@@ -1,7 +1,8 @@
 // The three builder fieldsets — Background (field), Band or shape (ordinary), Picture (charge) — driven
-// by the options helper so every blocked choice stays visible with its reason. Labels lead with
-// everyday words and give the heraldic term second. On phones the steps collapse into an accordion
-// and the picture list shows one kind of picture at a time.
+// by the options helper so every blocked choice stays visible with its reason. Field and band tiles
+// show the heraldic term under the icon, with the everyday words in the tooltip and accessible name;
+// other labels lead with everyday words. On phones the steps collapse into an accordion and the
+// picture list shows one kind of picture at a time.
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
@@ -39,18 +40,11 @@ interface StepProps {
 /** Field and ordinary choices are never blocked; ChoiceButton still wants a handler. */
 const never = () => {};
 
-/** Two-line choice text: the everyday word, then the heraldic term in small type. */
-function PlainLabel({ label }: { label: PlainTerm }) {
-  return (
-    <span class="choice-label">
-      <span class="choice-plain">{label.plain}</span>
-      <span class="choice-term">{label.term}</span>
-    </span>
-  );
-}
+/** Accessible name of a field or band tile: the term it shows, then the everyday words ("Per pale, split down the middle"). */
+const nameOf = ({ plain, term }: PlainTerm) => (plain.toLowerCase() === term ? capitalise(term) : `${capitalise(term)}, ${plain.charAt(0).toLowerCase()}${plain.slice(1)}`);
 
-/** Accessible name of a choice: "Split down the middle (per pale)". */
-const nameOf = ({ plain, term }: PlainTerm) => `${plain} (${term})`;
+/** The field's plain option, labelled like the divisions. */
+const PLAIN_FIELD_LABEL: PlainTerm = { plain: 'One colour', term: 'plain' };
 
 const ICON_FIELD = (division: Division | null): NormDesign => ({
   v: 1,
@@ -136,14 +130,14 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
   return (
     <Step n={1} title="Background" term="field" hint="One colour, or split in two." summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field">
       <RadioGroup label="Field division" class="icon-grid icon-grid-field" testid="field-division-select">
-        <ChoiceButton testid="field-kind-plain" checked={!division} label="Plain (one colour)" onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
+        <ChoiceButton testid="field-kind-plain" checked={!division} label={nameOf(PLAIN_FIELD_LABEL)} title={PLAIN_FIELD_LABEL.plain} onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
           <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
-          <PlainLabel label={{ plain: 'Plain', term: 'one colour' }} />
+          <span class="choice-label">{capitalise(PLAIN_FIELD_LABEL.term)}</span>
         </ChoiceButton>
         {DIVISIONS.map((d) => (
-          <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={nameOf(DIVISION_LABEL[d])} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
+          <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={nameOf(DIVISION_LABEL[d])} title={DIVISION_LABEL[d].plain} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_FIELD(d)} shape={shape} size={30} label={null} />
-            <PlainLabel label={DIVISION_LABEL[d]} />
+            <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
           </ChoiceButton>
         ))}
       </RadioGroup>
@@ -184,9 +178,9 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
           <span class="choice-label">None</span>
         </ChoiceButton>
         {ORDINARY_TYPES.map((t) => (
-          <ChoiceButton key={t} testid={`ordinary-${t}`} checked={o?.type === t} label={nameOf(ORDINARY_LABEL[t])} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
+          <ChoiceButton key={t} testid={`ordinary-${t}`} checked={o?.type === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_ORDINARY(t)} shape={shape} size={30} label={null} />
-            <PlainLabel label={ORDINARY_LABEL[t]} />
+            <span class="choice-label">{capitalise(ORDINARY_LABEL[t].term)}</span>
           </ChoiceButton>
         ))}
       </RadioGroup>

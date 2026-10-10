@@ -1909,10 +1909,8 @@ a.button-secondary {
   .gallery-list > li { scroll-snap-align: start; }
 }
 
-/* ── Plain-words labels, collapsible steps, kinds of picture ── */
+/* ── Collapsible steps, kinds of picture ── */
 
-.choice-label { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.choice-term { font-size: 14px; color: var(--fg-secondary); }
 .step-term { font-family: var(--widget-font-ui); font-size: 14px; font-weight: 400; color: var(--fg-secondary); }
 
 .step-toggle {
