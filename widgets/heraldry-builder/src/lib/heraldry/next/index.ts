@@ -38,3 +38,16 @@ export { renderLayers, designTinctures, type Layer } from './render';
 export { CHARGE_ART, MODIFIER_ART, chargePath } from './charge-art';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
 export * from '../tinctures';
+export {
+  SENA_RULES, isDiffAttr, isChangeKind, isSenaRule, isClear, differences, checkUnique, candidateKey, explainDifferences, changeLabel, tallyText,
+  CLEAR_CHANGE_HINT, SENA_RULE_HINT,
+  type ChangeKind, type SenaRule, type DiffAttr, type GroupRef, type Diff, type RegistryEntryLike, type Comparison, type Verdict, type CandidateKey, type DifferenceNote,
+} from './difference';
+export {
+  registrationOrder, reportUniqueness, checkResponse,
+  type RegistryRef, type CheckableEntry, type ConflictSummary, type ComparedEntry, type UniquenessReport, type TakenReport, type CheckResponse,
+} from './check';
+export {
+  FILTER_PARAMS, NO_SEARCH_PARAMS, parseSearchParams, searchParamsFromUrl, searchParamsToUrl, searchEntries,
+  type SearchParams, type SearchableEntry,
+} from './search';
