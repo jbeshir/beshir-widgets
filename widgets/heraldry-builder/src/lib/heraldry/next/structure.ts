@@ -1,19 +1,19 @@
 // Structural rules: a legal combination of ids that still isn't a design (SENA A3B3a, A3E3, App I3, Table 7
-// layouts). Capacity and the per-fess chief rule (A3D1c) come with the layout engine. Messages are phrased
+// layouts), room for the charges (layout.ts) and the per-fess chief rule (A3D1c). Messages are phrased
 // so they can double as the reason shown next to a blocked option.
 
 import { TINCTURE_NAME } from '../tinctures';
 import { capitalise, numberWord } from '../words';
-import { CHARGES } from './charges';
-import { walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
+import { CHARGES, chargePhrase } from './charges';
+import { primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
+import { fieldTinctureAt, ordinarySamplePoints, probePoints } from './geometry';
+import { canonicalSlots, capacityIssue } from './layout';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
 import { contextOf, layoutCandidates, layoutKey, layoutWords, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
-  if (g.item.k !== 'charge') return ORDINARY_NAME[g.item.type];
-  const meta = CHARGES[g.item.charge];
-  return g.count === 1 ? `${meta.article} ${meta.name}` : `${numberWord(g.count)} ${meta.plural}`;
+  return g.item.k === 'charge' ? chargePhrase(g.item.charge, g.count) : ORDINARY_NAME[g.item.type];
 }
 
 /** What a group sits on, for "the fess", "the lion". */
@@ -43,6 +43,17 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
   if (g.count === 1) return 'A single charge sits alone in the centre.';
   const noun = capitalise(`${numberWord(g.count)} ${meta.plural}`);
   return `${noun} can be arranged ${candidates.map(layoutWords).join(', ')} — not ${layoutWords(layout)}.`;
+}
+
+/** Whether the primary group lies on both field tinctures on the heater, or has no room to be judged (the capacity rule says so). */
+function crossesTheLine(d: Design, field: Paint): boolean {
+  const primary = primaryGroup(d);
+  if (!primary) return false;
+  const points = primary.group.item.k === 'ordinary'
+    ? ordinarySamplePoints(primary.group.item.type)
+    : canonicalSlots(d, primary.path).flatMap(probePoints);
+  if (points.length === 0) return true;
+  return new Set(points.map(([x, y]) => fieldTinctureAt(field, x, y))).size > 1;
 }
 
 /** Structural problems of a design that resolves, in rule order. */
@@ -85,10 +96,26 @@ export function structuralIssues(d: Design): Issue[] {
   }
 
   // 4. Count, arrangement and position make a layout where the group sits.
+  const illegal = new Set<Group>();
   for (const { path, group, host } of walked) {
     const ctx = contextOf(d, group, host);
     const message = ctx && layoutIssue(d, path, group, ctx);
+    if (message) {
+      illegal.add(group);
+      add({ code: 'structure', at: { k: 'group', path }, message, slots: [] });
+    }
+  }
+
+  // 5. The charges fit where they sit, at a size that reads.
+  for (const { path, group } of walked) {
+    const message = illegal.has(group) ? null : capacityIssue(d, path);
     if (message) add({ code: 'structure', at: { k: 'group', path }, message, slots: [] });
+  }
+
+  // 6. A chief on a field divided per fess needs a primary charge across the line (SENA A3D1c).
+  const chief = walked.find(({ group }) => group.role === 'peripheral' && group.item.k === 'ordinary' && group.item.type === 'chief');
+  if (chief && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && !crossesTheLine(d, d.field)) {
+    add({ code: 'structure', at: { k: 'group', path: chief.path }, message: 'A chief on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
   }
   return issues;
 }

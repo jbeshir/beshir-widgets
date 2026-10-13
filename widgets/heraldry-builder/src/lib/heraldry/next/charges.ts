@@ -2,6 +2,8 @@
 // the vocabulary of charge attributes (postures, facings, orientations, forms, modifiers, parts, holds).
 // Artwork lives in charge-art.ts.
 
+import { numberWord } from '../words';
+
 export const POSTURES = ['rampant', 'passant', 'statant', 'sejant', 'courant', 'salient', 'couchant', 'dormant', 'sejant-erect',
   'statant-erect', 'naiant', 'haurient', 'urinant', 'displayed', 'close', 'rising', 'volant', 'tergiant'] as const;
 export type Posture = (typeof POSTURES)[number];
@@ -193,6 +195,12 @@ export function postureTerm(id: ChargeId, p: Posture): string {
 /** Plain-English word for a posture on a given charge; null for displayed. */
 export function postureGloss(id: ChargeId, p: Posture): string | null {
   return CHARGES[id].postureWording[p]?.gloss ?? POSTURE_GLOSS[p];
+}
+
+/** "a rose" / "three roses": a group of charges in words. */
+export function chargePhrase(id: ChargeId, count: number): string {
+  const meta = CHARGES[id];
+  return count === 1 ? `${meta.article} ${meta.name}` : `${numberWord(count)} ${meta.plural}`;
 }
 
 /** Charges in a category, in table order. */

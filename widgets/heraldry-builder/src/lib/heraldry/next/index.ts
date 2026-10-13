@@ -17,3 +17,13 @@ export {
 } from './arrangement';
 export { contrastFailure, type ContrastFailure } from './tincture-rule';
 export { signature } from './signature';
+export {
+  SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldTinctureAt, inFirstPart, ordinaryPath, ordinaryFillRule, ordinarySamplePoints,
+  drawnBox, slotTransform, probePoints, slotContacts, slotRow, slotColumn, shapeFrame, pathPolygon, pointInPolygon,
+  counterchangedSlotParts, counterchangedOrdinaryParts, type Slot,
+} from './geometry';
+export { MIN_SLOT_SIZE, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
+export { renderLayers, designTinctures, type Layer } from './render';
+export { CHARGE_ART, MODIFIER_ART, chargePath } from './charge-art';
+export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
+export * from '../tinctures';

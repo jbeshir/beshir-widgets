@@ -14,5 +14,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["src", "test/store.test.ts", "test/builder.test.ts"]
+  "include": ["src", "test/store.test.ts", "test/builder.test.ts", "test/next-shield.test.ts"]
 }
