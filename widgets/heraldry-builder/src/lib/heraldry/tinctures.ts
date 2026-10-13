@@ -93,3 +93,31 @@ export const CHARGE_TINCTURE_NAME: Record<ChargeTincture, string> = { ...TINCTUR
 
 /** Signature codes; `cc` is distinct from every tincture code. */
 export const CHARGE_TINCTURE_CODE: Record<ChargeTincture, string> = { ...TINCTURE_CODE, counterchanged: 'cc' };
+
+// ── Stains and furs (vocabulary only; the builder doesn't draw them yet) ───
+
+export const STAINS = ['sanguine', 'murrey', 'tenne'] as const;
+export type Stain = (typeof STAINS)[number];
+
+export const FURS = ['ermine', 'erminois', 'counter-ermine', 'pean', 'vair', 'counter-vair', 'vair-en-point', 'potent', 'counter-potent'] as const;
+export type Fur = (typeof FURS)[number];
+
+/** Blazon words, lower case. */
+export const STAIN_NAME: Record<Stain, string> = { sanguine: 'sanguine', murrey: 'murrey', tenne: 'tenne' };
+export const FUR_NAME: Record<Fur, string> = {
+  ermine: 'ermine', erminois: 'erminois', 'counter-ermine': 'counter-ermine', pean: 'pean', vair: 'vair',
+  'counter-vair': 'counter-vair', 'vair-en-point': 'vair en point', potent: 'potent', 'counter-potent': 'counter-potent',
+};
+
+export function isStain(value: unknown): value is Stain {
+  return typeof value === 'string' && (STAINS as readonly string[]).includes(value);
+}
+
+export function isFur(value: unknown): value is Fur {
+  return typeof value === 'string' && (FURS as readonly string[]).includes(value);
+}
+
+/** The tincture as written in a blazon: "Or" capitalised, every other tincture lower case. */
+export function tinctureWord(t: Tincture): string {
+  return t === 'or' ? 'Or' : t;
+}
