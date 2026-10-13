@@ -1,0 +1,38 @@
+NOTICE:
+
+The database following this notice is Copyright (C) 1995-2025 by the
+Society for Creative Anachronism, Inc.  No part of this work may be
+reproduced, transmitted, or stored by any means without the prior
+written permission of the Society for Creative Anachronism, Inc.
+
+Permission is granted to use this work in the following ways:
+   1) You may make private copies for your own personal use.
+   2) You may create derivative works for your own personal use.
+   3) You may publish short excerpts from the database in the spirit
+      of "fair use" as defined by U.S. copyright law.
+   4) You may distribute this work or make it available for copying by
+      others only if ALL of the following three conditions are met:
+      a) The information content of the database is unchanged.
+         (You may not add, delete, or modify records.  You may,
+         however, reformat and/or reorder the data.)
+      b) The distribution is not made for monetary or material gain.
+      c) A copy of this notice is included with every distributed
+         copy of the database.
+
+Disclaimer:  The database is supplied without any warranty, stated
+  or implied.  In particular, no claim is made that it is accurate,
+  complete, or suitable for any purpose.  Use it at your own risk.
+  In case of disagreement between the database and Laurel's records,
+  Laurel's records should be considered correct.
+
+For further information, or to request corrections, please write to:
+
+     SCA Inc. - Morsulus Herald
+ c/o Michael Houghton
+     9219 Greenwood Lane
+     Lanham, MD 20706
+     USA
+
+     morsulus@heraldry.sca.org
+
+END OF NOTICE.
