@@ -33,17 +33,17 @@ export const GAP_CATEGORIES = [
   { id: 'ordinary', description: 'an ordinary, sub-ordinary or diminutive the widget lacks (canton, orle, bars, flaunches…), or several of one ordinary' },
   { id: 'ordinary-treatment', description: 'an ordinary modified (cotised, fimbriated, voided, couped, inverted, enhanced, issuant…)' },
   { id: 'multiple-groups', description: 'more than one charge group (including charges on charges and held charges counted as groups) or more than one ordinary' },
-  { id: 'placement', description: 'one charge group and one ordinary, but in a count or position the widget does not allow (a bend between three, on a bordure…)' },
+  { id: 'placement', description: 'one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)' },
   { id: 'count', description: 'more than twelve of a charge, or a charge strewn semy on an element' },
   ...CHARGE_BUCKETS.map((b) => ({ id: `charge-${b}` as const, description: `a charge outside the widget's 28: ${BUCKET_DESCRIPTION[b]}` })),
   { id: 'posture', description: 'a posture or attitude the widget lacks, or one its charge can\'t take (guardant, combattant, couchant…)' },
   { id: 'orientation', description: 'a charge turned from its fixed orientation (bendwise, fesswise, inverted, reversed, to sinister…)' },
   { id: 'charge-modifier', description: 'a charge detail the widget can\'t show (crowned, maintaining, winged, erased, slipped, demi-, a head…)' },
-  { id: 'arrangement', description: 'an arrangement or position the widget lacks for that count (in chevron, in dexter chief, one and two…)' },
+  { id: 'arrangement', description: 'an arrangement or position the widget lacks for that count (in chevron, in dexter chief, one and two…), or charges Table 7 forces into one part of a divided field' },
   // Widget findings: never read from the blazon, but set by classify.ts when the matcher has found
   // (or nearly found) the widget's design and the widget disagrees with the SCA about it.
   { id: 'tincture-rule-differs', description: 'the matched design breaks the widget\'s rule of tincture, yet the SCA registered it' },
-  { id: 'widget-structure-rule', description: 'the matched design breaks a widget structure rule (a count, placement or arrangement it forbids, e.g. two swords in saltire)' },
+  { id: 'widget-structure-rule', description: 'the matched design breaks a widget structure rule that SENA does not have (a count, placement or arrangement it forbids)' },
   { id: 'blazon-wording-differs', description: 'the widget can draw the design but blazons it in other words than the SCA (an arrangement stated or left unsaid)' },
   { id: 'other', description: 'not recognised as expressible, but no specific gap found' },
 ] as const;

@@ -92,6 +92,13 @@ describe('the generic engine', () => {
     expect(orle.some((s) => s.y > 95)).toBe(true);
   });
 
+  it('sets two charges and a ring of twelve in annulo at a legible size', () => {
+    expect(slotsOf(field, 2, 'in-annulo').map((s) => s.x)).toEqual([50, 50]);
+    const twelve = slotsOf(field, 12, 'in-annulo');
+    expect(twelve).toHaveLength(12);
+    expect(twelve[0].size).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+  });
+
   it('has no layout for a context or count it does not know', () => {
     expect(slotsOf({ k: 'between', ordinary: 'cross' }, 2, 'host')).toEqual([]);
     expect(slotsOf({ k: 'on', ordinary: 'pile' }, 4, 'host')).toEqual([]);

@@ -334,7 +334,7 @@ describe('extra pictures on the band', () => {
     expect(assess(setOrdinary(setCharge(setDivision(DEFAULT_DESIGN, 'per-fess'), 'picture', 'mullet'), 'chief')).status).toBe('valid');
     // Counts with no room under the chief are blocked.
     const counts = countChoices(picked, picture(picked));
-    expect(counts.filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(counts.filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 });
 

@@ -178,8 +178,9 @@ function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number
           return [at(cx - r, cy - r), at(cx + r, cy - r), ...(count === 5 ? [at(cx, cy)] : []), at(cx - r, cy + r), at(cx + r, cy + r)];
         }
         case 'annulo': {
-          if (count < 3) return null;
-          const r = 0.33 * reach;
+          if (count < 2) return null;
+          // A bigger ring from nine charges on, so twelve still reach the smallest legible size.
+          const r = (count > 8 ? 0.36 : 0.33) * reach;
           return Array.from({ length: count }, (_, i) => {
             const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
             return at(cx + r * Math.cos(angle), cy + r * Math.sin(angle));

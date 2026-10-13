@@ -145,7 +145,7 @@ describe('layout candidates', () => {
 
   it('lists the table default first, then rows, lines, patterns, annulo, orle and positions', () => {
     expect(plain(1)).toEqual(['single', 'in-chief', 'in-base']);
-    expect(plain(2)).toEqual(['in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-chief', 'in-base']);
+    expect(plain(2)).toEqual(['in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-chief', 'in-base']);
     expect(plain(3)).toEqual(['rows-2-1', 'rows-1-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-chief', 'in-base']);
     expect(plain(5)).toEqual(['rows-2-2-1', 'rows-3-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-annulo', 'in-orle', 'in-chief', 'in-base']);
     expect(plain(6)).toEqual(['rows-3-2-1', 'rows-2-2-2', 'rows-3-3', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-orle', 'in-chief', 'in-base']);

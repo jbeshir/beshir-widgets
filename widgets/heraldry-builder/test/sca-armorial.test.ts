@@ -7,9 +7,14 @@
 
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { UNSUPPORTED_GAP_CATEGORIES, blazon, canonicalJson, normalise } from '../src/lib/heraldry';
+import { generatedDesign } from './design-generator';
+import { arms, charge, group, ordinary } from './helpers';
+import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
 import { GAP_CATEGORIES, categoryOf } from './sca/gaps';
 import { readIgnoreList } from './sca/ignore-list';
+import { explainMatch } from './sca/match';
 import { OANDA_SHA256, oandaSha256, readArmory, readCurrentArmory, type ArmoryRecord } from './sca/oanda';
 
 describe('SCA O&A fixture', () => {
@@ -28,9 +33,10 @@ describe('SCA O&A fixture', () => {
 // draws it and lets the Design tab build it. "Blazons as the SCA does" is text equality after
 // normaliseBlazon(), applied to the SCA blazon and the widget's alike. Its rules
 // (NORMALISATION_RULES in test/sca/normalise.ts, each documented there) only bridge differences of
-// convention: case, the final full stop, joining words, and the SCA's implied tinctures and
-// default postures written out. None drops a tincture, count, charge, posture or arrangement, so
-// blazons of two different designs never compare equal.
+// convention: case, the final full stop, spelling, and three conventions the Glossary treats as
+// equivalent (connectors, where placement words go, stated College defaults). None drops a
+// tincture, count, charge or posture the design has, so blazons of two different designs never
+// compare equal.
 describe('SCA armory the widget can express', () => {
   const entries = readIgnoreList().groups.flatMap((g) => Object.entries(g.records).map(([key, tags]) => [key, { primary: g.category, tags }] as const));
   /** Ignored record key → the category of the group it is filed under, and its tags. */
@@ -78,4 +84,89 @@ describe('SCA armory the widget can express', () => {
     }
     expect(problems.length, listing('Ignore-list entries out of date', problems)).toBe(0);
   }, 30_000);
+});
+
+// The matcher reads whatever the widget writes: every construct the widget draws, blazoned by the
+// widget, comes back from explainMatch as the very design it was written from.
+const field = { k: 'divided', division: 'per-pale', parts: ['or', 'gules'] };
+const swords = { v: 2, field: 'azure', groups: [group(charge('sword'), 'or', { count: 2, arrangement: 'crossed' })] };
+const sun = charge('sun', { mods: [{ id: 'in-splendour', count: null, paint: null }] });
+const chiefOf = (...on: object[]) => group(ordinary('chief'), 'argent', { charged: on });
+const mullets = (n: number, extra: object = {}) => group(charge('mullet'), 'gules', { count: n, ...extra });
+const BLAZONED_DESIGNS: Array<[string, unknown]> = [
+  ['a divided field with a charge', arms(field, group(charge('lion', { posture: 'passant' }), 'argent'))],
+  ['rows', arms('azure', group(charge('rose'), 'argent', { count: 5, arrangement: 'rows-3-2' }))],
+  ['counts seven to twelve', arms('azure', group(charge('mullet'), 'or', { count: 7 }))],
+  ['a ring of twelve', arms('azure', group(charge('mullet'), 'or', { count: 12, arrangement: 'in-annulo' }))],
+  ['two in annulo', arms('azure', group(charge('fish'), 'or', { count: 2, arrangement: 'in-annulo' }))],
+  ['an orle of charges', arms('azure', group(charge('rose'), 'or', { count: 8, arrangement: 'in-orle' }))],
+  ['four in cross', arms('azure', group(charge('rose'), 'or', { count: 4, arrangement: 'in-cross' }))],
+  ['five in saltire', arms('azure', group(charge('rose'), 'or', { count: 5, arrangement: 'in-saltire' }))],
+  ['crossed swords', swords],
+  ['in pale', arms('azure', group(charge('key'), 'or', { count: 3, arrangement: 'in-pale' }))],
+  ['in chief', arms('azure', group(charge('mullet'), 'or', { count: 3, arrangement: 'in-chief' }))],
+  ['in base', arms('azure', group(charge('mullet'), 'or', { arrangement: 'in-base' }))],
+  ['a sun in splendor', arms('azure', group(sun, 'or'))],
+  ['cogwheels', arms('azure', group(charge('gear'), 'or', { count: 3 }))],
+  ['a hare courant', arms('azure', group(charge('hare', { posture: 'courant' }), 'or'))],
+  ['an ordinary', arms('azure', group(ordinary('fess'), 'or'))],
+  ['an ordinary between charges', arms('azure', group(ordinary('chevron'), 'or'), group(charge('rose'), 'argent', { count: 3 }))],
+  ['charges on an ordinary', arms('azure', group(ordinary('fess'), 'or', { charged: [mullets(3)] }))],
+  ['charges on an ordinary between charges', arms('azure', group(ordinary('fess'), 'or', { charged: [mullets(3)] }), group(charge('rose'), 'argent', { count: 3 }))],
+  ['charges on a cross', arms('azure', group(ordinary('cross'), 'or', { charged: [mullets(5)] }))],
+  ['an ordinary and a chief', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent'))],
+  ['an ordinary and a bordure', arms('azure', group(ordinary('saltire'), 'or'), group(ordinary('bordure'), 'argent'))],
+  ['a charge and a bordure', arms('azure', group(charge('lion'), 'or'), group(ordinary('bordure'), 'argent'))],
+  ['a charge and a chief with charges', arms('azure', group(charge('lion'), 'or'), chiefOf(mullets(3)))],
+  ['charges and a chief with charges', arms('azure', group(charge('mullet'), 'or', { count: 3 }), chiefOf(mullets(2)))],
+  ['a chief with charges alone', arms('azure', chiefOf(mullets(3)))],
+  ['counterchanged charges', arms(field, group(charge('rose'), 'counterchanged', { count: 2 }))],
+  ['a counterchanged ordinary', arms(field, group(ordinary('fess'), 'counterchanged'))],
+];
+
+describe('the matcher reads what the widget writes', () => {
+  it.each(BLAZONED_DESIGNS)('%s', (_, input) => {
+    const n = normalise(input);
+    expect(n.ok).toBe(true);
+    const design = n.design!;
+    const m = explainMatch(blazon(design));
+    expect(m.status).toBe('match');
+    expect(canonicalJson(m.match!.design!)).toBe(canonicalJson(design));
+  });
+
+  it('reads the blazon of every generated design and every sample entry', () => {
+    const designs = [
+      ...Array.from({ length: 1500 }, (_, seed) => generatedDesign(seed)),
+      ...entries.entries.map((e) => normalise(e.design).design),
+    ].filter((d) => d !== null);
+    expect(designs.length).toBeGreaterThan(400);
+    const unread = designs.filter((d) => {
+      const m = explainMatch(blazon(d));
+      return !m.match || canonicalJson(m.match.design!) !== canonicalJson(d);
+    });
+    expect(unread.map(blazon)).toEqual([]);
+  }, 30_000);
+});
+
+// A construct the matcher parses but the widget doesn't draw is filed under the widget's own gap.
+describe('the matcher files what the widget does not draw under its gap', () => {
+  it.each([
+    ['Azure, a lion couchant Or.', ['posture:couchant']],
+    ['Azure, a wolf Or and in chief three mullets argent.', ['multiple-groups:co-primary']],
+    ['Azure, a lion Or between three roses argent.', ['multiple-groups:co-primary']],
+    ['Azure, a chevron between three mullets and a rose argent.', ['multiple-groups:secondary', 'placement:between-chevron-1']],
+    ['Azure, a fess Or between three roses argent, a bordure gules.', ['multiple-groups:ordinary-and-peripheral']],
+    ['Azure, a rose Or on a bordure argent three mullets gules.', ['multiple-groups:tertiary-on-bordure']],
+    ['Azure, on a lion Or three mullets gules.', ['multiple-groups:tertiary-on-charge']],
+    ['Azure, a cross Or between two roses argent.', ['placement:between-cross-2']],
+  ])('%s', (text, tags) => {
+    const m = explainMatch(text);
+    expect(m.status).toBe('unsupported');
+    expect(m.gaps!.map((g) => `${g.category}:${g.detail}`)).toEqual(tags);
+  });
+
+  it('only ever uses gap categories the ignore list knows', () => {
+    const known = new Set<string>(GAP_CATEGORIES.map((c) => c.id));
+    expect(UNSUPPORTED_GAP_CATEGORIES.filter((c) => !known.has(c))).toEqual([]);
+  });
 });

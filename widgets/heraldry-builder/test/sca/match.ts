@@ -84,30 +84,21 @@ for (const id of CHARGE_IDS) {
   if (m.plural !== m.name) NOUNS.set(m.plural, { id, singular: false, plural: true });
 }
 
-/** Posture word → posture, for a charge: its own term first ("segreant"), else the plain posture id. */
+/** Every posture word the widget's blazons can contain, by the posture it names (for the charge it was written with, else any). */
+const POSTURE_BY_WORD = new Map<string, Posture>();
+for (const id of CHARGE_IDS) for (const p of POSTURES) POSTURE_BY_WORD.set(postureTerm(id, p), p);
+const POSTURE_WORDS = new Set<string>([...POSTURES, ...POSTURE_BY_WORD.keys()]);
+
+/** Posture word → posture: the charge's own term first ("segreant"), else the plain posture id; a posture the charge can't take is still proposed, so the widget reports it. */
 function postureFor(id: ChargeId, word: string): Posture | null {
   const m = CHARGES[id];
   for (const p of m.postures ?? []) if (postureTerm(id, p) === word) return p;
-  for (const p of m.postures ?? []) if (p === word) return p;
-  return null;
+  return POSTURE_BY_WORD.get(word) ?? POSTURES.find((p) => p === word) ?? null;
 }
-const POSTURE_WORDS = new Set<string>(POSTURES);
-for (const id of CHARGE_IDS) for (const p of CHARGES[id].postures ?? []) POSTURE_WORDS.add(postureTerm(id, p));
 
 const T = `(?:${TINCTURES.join('|')})`;
 const CT = `(?:${TINCTURES.join('|')}|counterchanged)`;
-const FIELD = `(?:${T}|(?:${alt(DIVISION_WORDS.keys())}) ${T} and ${T})`;
-const ORD = `(?:${alt(ORDINARY_WORDS.keys())})`;
 const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${alt(NUMBER_WORDS)})`;
-/** A group without its tincture, which a later phrase may supply ("a wolf, a bordure argent"). */
-const UNTINCTURED = `(?:in (?:${alt([...LINE_WORDS, ...POSITION_WORDS])}) )?(?:${alt(COUNT_WORDS.keys())}) (?:${alt(NOUNS.keys())})`
-  + `(?: (?:${alt(POSTURE_WORDS)}))?(?: in splendor)?(?: (?:in (?:${alt(PATTERN_WORDS)})|${ROWS}))?`;
-const GROUP = `${UNTINCTURED} ${CT}`;
-
-const GROUP_PARTS = new RegExp(
-  `^(?:in (?<lead>${alt([...LINE_WORDS, ...POSITION_WORDS])}) )?(?<count>${alt(COUNT_WORDS.keys())}) (?<noun>${alt(NOUNS.keys())})`
-  + `(?: (?<posture>${alt(POSTURE_WORDS)}))?(?<splendor> in splendor)?(?: (?:in (?<pattern>${alt(PATTERN_WORDS)})|(?<rows>${ROWS})))? (?<tincture>${CT})$`,
-);
 
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
@@ -119,77 +110,170 @@ const VOCABULARY = new Set<string>(
 );
 
 // ── Parser ──────────────────────────────────────────────────────────────────
+// A token grammar over the normalised text (words, with commas as tokens of their own):
+//   blazon     := field [',' element (connector element)*]
+//   field      := T | DIVISION T 'and' T
+//   element    := ['on'] ('a'|'an') ordinary [T]   an ordinary, central or peripheral ("on" when a group sits on it)
+//               | 'on' group                        a charge group with a group on it
+//               | 'between'                        the groups that follow are set around the ordinary
+//               | group
+//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['in splendor'] [('in' PATTERN)|ROWS] [T]
+//   connector  := ',' | 'and' | ε
+// A group straight after "between", or joined to one by "and", is set around the ordinary; any other
+// group after an "on" ordinary sits on it. A phrase without a tincture takes the next stated one, except
+// that a tincture never crosses into or out of a group on a host (Bruce). The parser only proposes:
+// `resolve` infers roles, and verify() decides by comparing blazons.
+
+interface Phrase {
+  /** The group input, without its paint. */
+  group: Record<string, unknown>;
+  paint: string | null;
+}
+
+/** A top-level group, with the group that sits on it. */
+interface Node { phrase: Phrase; on: Phrase | null }
+
+const NOUN_PHRASES = [...NOUNS.keys()].map((n) => n.split(' ')).sort((a, b) => b.length - a.length);
+const ORDINARY_PHRASES = [...ORDINARY_WORDS.keys()].map((o) => o.split(' ')).sort((a, b) => b.length - a.length);
+const startsWith = (tokens: string[], i: number, phrase: readonly string[]) => phrase.every((w, j) => tokens[i + j] === w);
+const isNumber = (w: string | undefined): boolean => (NUMBER_WORDS as readonly string[]).includes(w!);
+const numberOf = (w: string) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1;
+const tinctureAt = (tokens: string[], i: number): string | null => (new RegExp(`^${CT}$`).test(tokens[i] ?? '') ? tokens[i] : null);
 
 function parseField(text: string): unknown {
-  const m = new RegExp(`^(?:(?<plain>${T})|(?<division>${alt(DIVISION_WORDS.keys())}) (?<a>${T}) and (?<b>${T}))$`).exec(text)!;
+  const m = new RegExp(`^(?:(?<plain>${T})|(?<division>${alt(DIVISION_WORDS.keys())}) (?<a>${T}) and (?<b>${T}))$`).exec(text);
+  if (!m) return null;
   const g = m.groups!;
   return g.plain ?? { k: 'divided', division: DIVISION_WORDS.get(g.division), parts: [g.a, g.b] };
 }
 
-/** The group input the text words, or null when count and noun disagree or the posture is not the charge's. */
-function parseGroup(text: string): { paint: string } | null {
-  const g = GROUP_PARTS.exec(text)?.groups;
-  if (!g) return null;
-  const n = NOUNS.get(g.noun)!;
-  const count = COUNT_WORDS.get(g.count)!;
-  if (count === 1 ? !n.singular : !n.plural) return null;
-  if (count === 1 && g.count !== CHARGES[n.id].article) return null;
-  const item: Record<string, unknown> = { k: 'charge', charge: n.id };
-  if (g.posture) {
-    const posture = postureFor(n.id, g.posture);
+/** The charge group at `start` with the index after it, or null when count, noun and posture don't agree. */
+function readGroup(tokens: string[], start: number): { phrase: Phrase; end: number } | null {
+  let i = start;
+  let lead: string | null = null;
+  if (tokens[i] === 'in') {
+    lead = [...LINE_WORDS, ...POSITION_WORDS].find((w) => startsWith(tokens, i + 1, w.split(' '))) ?? null;
+    if (!lead) return null;
+    i += 1 + lead.split(' ').length;
+  }
+  const count = COUNT_WORDS.get(tokens[i]);
+  if (count === undefined) return null;
+  const countWord = tokens[i++];
+  const nounWords = NOUN_PHRASES.find((n) => startsWith(tokens, i, n));
+  if (!nounWords) return null;
+  i += nounWords.length;
+  const noun = NOUNS.get(nounWords.join(' '))!;
+  if (count === 1 ? !noun.singular : !noun.plural) return null;
+  if (count === 1 && countWord !== CHARGES[noun.id].article) return null;
+  const item: Record<string, unknown> = { k: 'charge', charge: noun.id };
+  if (POSTURE_WORDS.has(tokens[i])) {
+    const posture = postureFor(noun.id, tokens[i++]);
     if (!posture) return null;
     item.posture = posture;
   }
-  if (g.splendor) item.mods = [{ id: 'in-splendour', count: null, paint: null }];
-  const group: Record<string, unknown> = { item, paint: g.tincture, count };
-  if (g.lead) group.arrangement = `in-${g.lead.replace(' ', '-')}`;
-  if (g.pattern) group.arrangement = g.pattern === 'saltire' && count === 2 && CHARGES[n.id].long ? 'crossed' : `in-${g.pattern}`;
-  if (g.rows) group.arrangement = `rows-${g.rows.split(/, | and /).map((w) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1).join('-')}`;
-  return group as { paint: string };
+  if (startsWith(tokens, i, ['in', 'splendor'])) {
+    item.mods = [{ id: 'in-splendour', count: null, paint: null }];
+    i += 2;
+  }
+  const group: Record<string, unknown> = { item, count };
+  if (lead) group.arrangement = `in-${lead.replace(' ', '-')}`;
+  if (tokens[i] === 'in' && (PATTERN_WORDS as readonly string[]).includes(tokens[i + 1])) {
+    const pattern = tokens[i + 1];
+    group.arrangement = pattern === 'saltire' && count === 2 && CHARGES[noun.id].long ? 'crossed' : `in-${pattern}`;
+    i += 2;
+  } else if (isNumber(tokens[i])) {
+    const rows = [numberOf(tokens[i++])];
+    while ((tokens[i] === ',' || tokens[i] === 'and') && isNumber(tokens[i + 1])) {
+      rows.push(numberOf(tokens[i + 1]));
+      i += 2;
+    }
+    if (rows.length < 2) return null;
+    group.arrangement = `rows-${rows.join('-')}`;
+  }
+  const paint = tinctureAt(tokens, i);
+  return { phrase: { group, paint }, end: paint ? i + 1 : i };
 }
 
-const ordinaryOf = (word: string, paint: string, extra: object = {}) => ({ item: { k: 'ordinary', type: ORDINARY_WORDS.get(word) }, paint, ...extra });
-
-const input = (field: string, groups: Array<object | null>): DesignInput | null =>
-  groups.every((g) => g !== null) ? { v: 2, field: parseField(field), groups: groups as object[] } : null;
-
-/** One body shape per way the widget words a design, each a regexp over the normalised text. */
-const SHAPES: readonly { re: RegExp; build: (m: string[]) => DesignInput | null }[] = [
-  { re: new RegExp(`^(${FIELD})$`), build: ([, f]) => input(f, []) },
-  { re: new RegExp(`^(${FIELD}), a (${ORD}) (${T})$`), build: ([, f, o, t]) => input(f, [ordinaryOf(o, t)]) },
-  { re: new RegExp(`^(${FIELD}), (${GROUP})$`), build: ([, f, g]) => input(f, [parseGroup(g)]) },
-  {
-    re: new RegExp(`^(${FIELD}), on a (${ORD}) (${T}) (${GROUP})$`),
-    build: ([, f, o, t, g]) => input(f, [ordinaryOf(o, t, { charged: [parseGroup(g)] })]),
-  },
-  { re: new RegExp(`^(${FIELD}), a (${ORD}) (${T}) between (${GROUP})$`), build: ([, f, o, t, g]) => input(f, [ordinaryOf(o, t), parseGroup(g)]) },
-  {
-    // "a chevron between three roses argent": the one tincture serves both.
-    re: new RegExp(`^(${FIELD}), a (${ORD}) between (${GROUP})$`),
-    build: ([, f, o, g]) => {
-      const group = parseGroup(g);
-      return input(f, group ? [ordinaryOf(o, group.paint), group] : [null]);
-    },
-  },
-  { re: new RegExp(`^(${FIELD}), (${GROUP}), a (chief|bordure) (${T})$`), build: ([, f, g, o, t]) => input(f, [parseGroup(g), ordinaryOf(o, t)]) },
-  {
-    // "a wolf and a bordure argent": the one tincture serves both.
-    re: new RegExp(`^(${FIELD}), (${UNTINCTURED}), a (chief|bordure) (${T})$`),
-    build: ([, f, g, o, t]) => input(f, [parseGroup(`${g} ${t}`), ordinaryOf(o, t)]),
-  },
-  {
-    re: new RegExp(`^(${FIELD}), (${GROUP}), on a chief (${T}) (${GROUP})$`),
-    build: ([, f, g, t, on]) => input(f, [parseGroup(g), ordinaryOf('chief', t, { charged: [parseGroup(on)] })]),
-  },
-];
+/** The design input's groups for the body of a blazon, or null when it isn't in the grammar. */
+function parseBody(tokens: string[]): object[] | null {
+  const top: Node[] = [];
+  /** Every phrase in blazon order, for factoring tinctures backwards. */
+  const order: { phrase: Phrase; onHost: boolean }[] = [];
+  let host: Node | null = null;       // an "on" ordinary still waiting for its group
+  let between = false;
+  let joined = false;                  // the last connector was "and", or "between" has just been read
+  let i = 0;
+  while (i < tokens.length) {
+    const w = tokens[i];
+    if (w === ',' || w === 'and') {
+      joined = w === 'and';
+      i++;
+    } else if (w === 'between') {
+      between = true;
+      joined = true;
+      i++;
+    } else {
+      const on = w === 'on';
+      const j = on ? i + 1 : i;
+      const ordinary = tokens[j] === 'a' || tokens[j] === 'an' ? ORDINARY_PHRASES.find((o) => startsWith(tokens, j + 1, o)) : undefined;
+      if (ordinary) {
+        const end = j + 1 + ordinary.length;
+        const paint = tinctureAt(tokens, end);
+        const node: Node = { phrase: { group: { item: { k: 'ordinary', type: ORDINARY_WORDS.get(ordinary.join(' ')) } }, paint }, on: null };
+        top.push(node);
+        order.push({ phrase: node.phrase, onHost: false });
+        host = on ? node : null;
+        between = false;
+        i = paint ? end + 1 : end;
+      } else {
+        const g = readGroup(tokens, j);
+        if (!g) return null;
+        if (on) {
+          // "on a lion …": a group on a charge, which the widget reports rather than draws.
+          const node: Node = { phrase: g.phrase, on: null };
+          top.push(node);
+          order.push({ phrase: g.phrase, onHost: false });
+          host = node;
+          between = false;
+        } else if (between && joined) {
+          top.push({ phrase: g.phrase, on: null });
+          order.push({ phrase: g.phrase, onHost: false });
+        } else if (host && !host.on) {
+          host.on = g.phrase;
+          order.push({ phrase: g.phrase, onHost: true });
+          between = false;
+        } else {
+          top.push({ phrase: g.phrase, on: null });
+          order.push({ phrase: g.phrase, onHost: false });
+        }
+        joined = false;
+        i = g.end;
+      }
+    }
+  }
+  let carry: string | null = null;
+  for (const { phrase, onHost } of order.reverse()) {
+    if (onHost) {
+      if (!phrase.paint) return null;
+      carry = null;
+    } else {
+      phrase.paint ??= carry;
+      if (!phrase.paint) return null;
+      carry = phrase.paint;
+    }
+  }
+  const withPaint = (p: Phrase) => ({ ...p.group, paint: p.paint });
+  return top.map((n) => (n.on ? { ...withPaint(n.phrase), charged: [withPaint(n.on)] } : withPaint(n.phrase)));
+}
 
 /** Candidate design inputs for normalised SCA text (usually zero or one). */
 function proposeInputs(normalisedText: string): DesignInput[] {
-  return SHAPES.flatMap(({ re, build }) => {
-    const m = re.exec(normalisedText);
-    const proposed = m && build([...m]);
-    return proposed ? [proposed] : [];
-  });
+  const comma = normalisedText.indexOf(',');
+  const field = parseField(comma < 0 ? normalisedText : normalisedText.slice(0, comma));
+  if (!field) return [];
+  const tokens = comma < 0 ? [] : normalisedText.slice(comma + 1).replace(/,/g, ' , ').split(/ +/).filter(Boolean);
+  const groups = parseBody(tokens);
+  return groups ? [{ v: 2, field, groups }] : [];
 }
 
 /** What the widget makes of a proposed input. */

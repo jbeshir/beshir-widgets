@@ -215,7 +215,7 @@ function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDef
   if (count >= 2) out.push(...LINE_DIRS.map((dir) => line(dir)));
   if (count === 4 || count === 5) out.push(pattern('cross'), pattern('saltire'));
   if (count === 2 && group.item.k === 'charge' && CHARGES[group.item.charge].long) out.push({ arrangement: { k: 'crossed' }, position: null });
-  if (count >= 3) out.push(pattern('annulo'));
+  if (count >= 2) out.push(pattern('annulo'));
   if (count >= 5 && ctx.peripheral === 'none') out.push(pattern('orle'));
   if (ctx.peripheral !== 'chief') {
     for (const position of ['chief', 'base'] as const) out.push(count === 1 ? single(position) : line('fess', position));

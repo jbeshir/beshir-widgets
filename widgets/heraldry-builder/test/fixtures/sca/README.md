@@ -57,6 +57,40 @@ The format is valid JSON, laid out for readable diffs:
 - The armorial test fails in three cases: a listed record now passes (regenerate the list), a listed
   record no longer has its group's gap, or an unlisted record fails.
 
+## How a record is matched
+
+`test/sca/match.ts` reads the normalised blazon with a small token grammar (`blazon := field [',' element (connector element)*]`;
+elements are an ordinary with an optional "on" and tincture, "between", or a charge group with its position,
+count, noun, posture, "in splendor", pattern or rows and tincture; a phrase without a tincture takes the next one
+stated) and proposes the design input it describes, with arrangements left out unless the blazon words them. The
+widget's own `blazon()` of that design, passed through the same normaliser, must equal the SCA text: the parser only
+proposes, the comparison accepts. The outcome is one of:
+
+| status | meaning |
+|---|---|
+| `fieldless` | "(Fieldless) …": the widget always has a field |
+| `vocabulary` | a word the widget does not blazon |
+| `unparsed` | every word is known, but not in a shape the grammar proposes (or the proposal is malformed) |
+| `unsupported` | proposed, but the widget does not draw part of it; the record is filed under the widget's own gaps (`multiple-groups:co-primary`, `posture:couchant`, `placement:between-cross-2`, …) |
+| `near-miss` | proposed and drawable, but the widget words it differently |
+| `match` | the blazons are identical |
+
+A matched design the widget would not register is filed as a widget finding: `tincture-rule-differs` (SENA's
+rule of tincture rejects it as well, being a registration from before the rule or a counterchange over two metals or two colours),
+`widget-structure-rule` (a structure rule SENA does not have), `placement` (charges that cannot be drawn
+legibly where they sit, e.g. six on a chevron), `arrangement:forced-into-one-part` (charges GoT Table 7 forces
+into one part of a divided field, which the widget draws across it) or `multiple-groups:ordinaries` (a band
+with a chief or bordure: the library draws it, the Design tab has one place for a band). A matched design that
+the widget registers but cannot blazon, draw or build is a widget bug (`fails`), never ignored.
+
+### Normalisation
+
+`test/sca/normalise.ts` is applied to the SCA blazon and to the widget's alike. It only bridges spelling and
+punctuation (`final-full-stop`, `case`, `spelling`) and three conventions that the Glossary, Bruce and the LoARs
+treat as equivalent, which the widget's emitter has to pick one of (`equivalent-connectors`,
+`arrangement-placement`, `stated-defaults`). To see how many passing records depend on a rule, replace its
+`apply` with the identity locally and count the records that stop passing (never commit the change).
+
 ## Refreshing the database
 
 1. Re-download https://oanda.sca.org/oanda.db verbatim (no decoding or line-ending changes) over

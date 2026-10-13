@@ -10,7 +10,7 @@
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
 // build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { blazon, canonicalJson, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
+import { blazon, canonicalJson, capacityIssue, groupAt, layoutContext, layoutKey, type Design, type Group, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, type MatchResult } from './match';
@@ -39,6 +39,12 @@ export interface Classification {
 /** The design-only checks, once per distinct design: many records match the same one. */
 const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null>>();
 
+/**
+ * A band and a chief or bordure: the library draws and checks it, but the Design tab has one place for a
+ * band or shape (simpleParts), so no click sequence builds it. That is the builder's limit, filed as a gap.
+ */
+const hasTwoOrdinaries = (design: Design): boolean => design.groups.filter((g) => g.item.k === 'ordinary').length > 1;
+
 function checkDesign(design: Design) {
   const key = canonicalJson(design);
   let found = designChecks.get(key);
@@ -49,7 +55,8 @@ function checkDesign(design: Design) {
     found = {
       assess: a.kind === 'ok' ? null : `${a.kind === 'violation' ? a.status : a.kind}: ${a.issues.map((i) => i.message).join(' ')}`,
       render: rendered.length ? rendered.join('; ') : null,
-      builder: path.problems.length ? path.problems.join('; ') : null,
+      builder: hasTwoOrdinaries(design) ? 'the Design tab has one place for a band or shape, and this has two'
+        : path.problems.length ? path.problems.join('; ') : null,
     };
     designChecks.set(key, found);
   }
@@ -98,6 +105,17 @@ function layoutTag(design: Design, issue: Issue): string {
   }
 }
 
+/**
+ * Charges of a tincture that one part of a divided field shares are, by GoT Table 7, forced into the other
+ * part, where SENA A3B4a lets them lie. The widget draws them across the field (only the chief and base
+ * positions of a per fess or per chevron field force them), so its rule of tincture sees them on that part.
+ */
+function chargesMeetTheirPart(design: Design, g: Group): boolean {
+  const field = design.kind === 'arms' ? design.field : null;
+  const paint = g.paint;
+  return field?.k === 'divided' && paint.k === 'tincture' && field.parts.some((p) => p.k === 'tincture' && p.t === paint.t);
+}
+
 /** The widget's objections to a matched design, as finding tags; [] when it has none. */
 function findingTags(design: Design): string[] {
   const a = assessMatched(design);
@@ -106,8 +124,11 @@ function findingTags(design: Design): string[] {
     if (i.code === 'tincture') {
       if (i.at.k !== 'group') return 'tincture-rule-differs:field';
       const g = groupAt(design, i.at.path);
+      if (g.role !== 'tertiary' && g.item.k === 'charge' && chargesMeetTheirPart(design, g)) return 'arrangement:forced-into-one-part';
       return `tincture-rule-differs:${g.paint.k === 'counterchanged' ? 'counterchanged' : g.item.k === 'ordinary' ? 'ordinary' : 'charges'}`;
     }
+    // Charges that don't fit a host at a legible size are a limit of the drawing, not a rule: a count the widget doesn't lay out.
+    if (i.at.k === 'group' && i.message === capacityIssue(design, i.at.path)) return `placement:${layoutTag(design, i)}-${groupAt(design, i.at.path).count}`;
     return `widget-structure-rule:${i.code === 'generic' ? 'plain-field' : layoutTag(design, i)}`;
   };
   return a.issues.map(tag);
@@ -128,7 +149,11 @@ function arrangementWording(m: MatchResult): string | null {
 }
 
 function gapTags(record: ArmoryRecord, m: MatchResult): string[] {
-  if (m.match) return findingTags(m.match.design!);
+  if (m.match) {
+    const design = m.match.design!;
+    const findings = findingTags(design);
+    return findings.length || !hasTwoOrdinaries(design) ? findings : ['multiple-groups:ordinaries'];
+  }
   const wording = arrangementWording(m);
   if (wording) return [wording];
   // A proposal the widget parsed but doesn't draw names its gaps exactly.
