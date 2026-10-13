@@ -3,8 +3,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  TINCTURES, contrastFailure, groundContacts, normalise, signature, tinctureIssues, validate, type Design, type Tincture,
+  TINCTURES, contrastFailure, groundContacts, groupTinctureIssues, normalise, signature, tinctureIssues, validate, type Design, type Tincture,
 } from '../src/lib/heraldry/next';
+import { walkGroups } from '../src/lib/heraldry/next';
 import { arms, charge, div, group, nd, ordinary } from './next-helpers';
 import { generatedDesigns } from './next-design-generator';
 import { V } from './next-validation-cases';
@@ -179,5 +180,15 @@ describe('the walker against an independent oracle', () => {
       const recoloured: Design = { ...d, groups: [{ ...d.groups[0], paint: { k: 'tincture', t } }, ...d.groups.slice(1)] };
       expect(normalise(recoloured).ok === (validate(recoloured).length === 0)).toBe(true);
     }
+  });
+});
+
+describe('groupTinctureIssues', () => {
+  it('is the slice of tinctureIssues that belongs to one group', () => {
+    const d = nd(arms(div('per-pale', 'or', 'gules'), group(ordinary('fess'), 'argent'), group(charge('lion'), 'or', { count: 2 })));
+    expect(tinctureIssues(d).length).toBeGreaterThan(0);
+    const paths = walkGroups(d).map((w) => w.path);
+    expect(paths.flatMap((p) => groupTinctureIssues(d, p))).toEqual(tinctureIssues(d));
+    expect(groupTinctureIssues(d, paths[0])).toEqual([]);
   });
 });

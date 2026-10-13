@@ -1,0 +1,373 @@
+// Builder transitions (DOM-free), including the journey flows the Design tab must support.
+
+import { describe, expect, it } from 'vitest';
+import {
+  DEFAULT_DESIGN, adjustDesign, addExtraPicture, assess, canAddExtraPicture, chargesClash, companionNote, extraPicturePath, fixText, isUntouched,
+  issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, removeExtraPicture, replaceDesign, sameShapedDesign, setCharge, setCount,
+  setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlacement, setPlainField,
+  setPosture, undoStillOffered,
+} from '../src/lib/next/builder';
+import {
+  blazon, countChoices, groupAt, groupTinctureChoices, layoutChoices, placementChoices, postureChoices, readability, signature, suggestTinctureFix,
+  type Design, type GroupPath,
+} from '../src/lib/heraldry/next';
+import { arms, charge, div, group, nd, ordinary, plain } from './next-helpers';
+
+const picture = (d: Design): GroupPath => picturePath(d)!;
+const extra = (d: Design): GroupPath => extraPicturePath(d)!;
+
+describe('builder transitions', () => {
+  it('starts as a plain Azure field: incomplete with the structural hint', () => {
+    const r = assess(DEFAULT_DESIGN);
+    expect(r.status).toBe('incomplete');
+    expect(r.hint).toMatch(/too generic/);
+    expect(r.problems).toEqual([]);
+  });
+
+  it('design-valid journey: Azure, bend Or, three unicorns on the bend Vert', () => {
+    let d = setOrdinary(DEFAULT_DESIGN, 'bend');
+    expect(groupAt(d, ordinaryPath(d)!).paint).toEqual({ k: 'tincture', t: 'or' });
+    d = setCharge(d, 'picture', 'unicorn');
+    // A single charge can't be set between a bend; the picture is refitted to the nearest legal count.
+    expect(groupAt(d, picture(d))).toMatchObject({ role: 'secondary', relation: 'between', count: 2, arrangement: { k: 'host' }, paint: { k: 'tincture', t: 'or' } });
+    d = setPlacement(d, picture(d), 'ordinary');
+    expect(groupAt(d, picture(d))).toMatchObject({ role: 'tertiary', count: 2 });
+    expect(assess(d).status).toBe('violation'); // Or unicorns on an Or bend
+    d = setCount(d, picture(d), 3);
+    d = setGroupTincture(d, picture(d), 'vert');
+    expect(assess(d).status).toBe('valid');
+    expect(blazon(d)).toBe('Azure, on a bend Or three unicorns vert.');
+  });
+
+  it('tincture-violation journey: a lower-layer field change breaks the picture and a fix is offered', () => {
+    let d = setFieldTincture(DEFAULT_DESIGN, 0, 'gules');
+    d = setCharge(d, 'picture', 'lion');
+    expect(groupAt(d, picture(d)).paint).toEqual({ k: 'tincture', t: 'or' });
+    expect(assess(d).status).toBe('valid');
+    d = setFieldTincture(d, 0, 'or');
+    const r = assess(d);
+    expect(r.status).toBe('violation');
+    expect(r.problems[0]).toMatchObject({ code: 'tincture', at: { k: 'group', path: [0] } });
+    expect(issueStep(d, r.problems[0])).toBe('picture');
+    const fix = suggestTinctureFix(d);
+    expect(fix).toMatchObject({ layer: 'group', path: [0] });
+    expect(assess(fix!.design).status).toBe('valid');
+  });
+
+  it('blocked-swatch journey: Azure is blocked for a lion on Gules, with a reason', () => {
+    const d = setCharge(setFieldTincture(DEFAULT_DESIGN, 0, 'gules'), 'picture', 'lion');
+    const azure = groupTinctureChoices(d, picture(d)).find((c) => c.value === 'azure')!;
+    expect(azure.allowed).toBe(false);
+    expect(azure.allowed === false && azure.reason).toMatch(/colour on colour/);
+  });
+
+  it('too-close journey design: Sable, a wolf statant Or within a bordure Argent', () => {
+    let d = setFieldTincture(DEFAULT_DESIGN, 0, 'sable');
+    d = setOrdinary(d, 'bordure');
+    d = setOrdinaryTincture(d, 'argent');
+    d = setCharge(d, 'picture', 'wolf');
+    d = setPosture(d, picture(d), 'statant');
+    expect(assess(d).status).toBe('valid');
+    expect(blazon(d)).toBe('Sable, a wolf statant Or, a bordure argent.');
+  });
+
+  it('dividing keeps the first tincture and picks a different second one; plain restores the first', () => {
+    const d = setDivision(DEFAULT_DESIGN, 'per-pale');
+    expect(d.kind === 'arms' && d.field).toMatchObject({ k: 'divided', division: 'per-pale', parts: [{ t: 'azure' }, { t: 'or' }] });
+    expect(setPlainField(d).kind === 'arms' && setPlainField(d).field).toEqual({ k: 'tincture', t: 'azure' });
+    const q = setDivision(d, 'quarterly');
+    expect(q.kind === 'arms' && q.field).toMatchObject({ k: 'divided', division: 'quarterly', parts: [{ t: 'azure' }, { t: 'or' }] });
+  });
+
+  it('removing the ordinary moves on-ordinary pictures back to the background', () => {
+    let d = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet');
+    d = setPlacement(d, picture(d), 'ordinary');
+    expect(picture(d)).toHaveLength(2);
+    d = setOrdinary(d, null);
+    expect(picture(d)).toHaveLength(1);
+    expect(groupAt(d, picture(d))).toMatchObject({ role: 'primary', relation: null });
+    expect(signature(d)).toContain('mullet');
+  });
+
+  it('a new ordinary keeps an allowed tincture and replaces a blocked one', () => {
+    const d = setOrdinary(setFieldTincture(DEFAULT_DESIGN, 0, 'or'), 'pale');
+    expect(groupAt(d, ordinaryPath(d)!).paint).toEqual({ k: 'tincture', t: 'gules' });
+    const cross = setOrdinary(d, 'cross');
+    expect(groupAt(cross, ordinaryPath(cross)!).paint).toEqual({ k: 'tincture', t: 'gules' });
+  });
+
+  it('dividing, adding a mullet and asking for three no longer dead-ends: counterchanged is the way out', () => {
+    let d = setDivision(DEFAULT_DESIGN, 'per-pale');
+    expect(blazon(d)).toBe('Per pale azure and Or.');
+    d = setCharge(d, 'picture', 'mullet');
+    expect(blazon(d)).toBe('Per pale azure and Or, a mullet argent.');
+    expect(assess(d).status).toBe('valid');
+    // Three is offered, because counterchanged works for it…
+    expect(countChoices(d, picture(d)).find((c) => c.value === 3)!.allowed).toBe(true);
+    d = setCount(d, picture(d), 3);
+    // …the Argent mullets now clash with the Or half, and every plain tincture would clash somewhere…
+    expect(assess(d).status).toBe('violation');
+    const choices = groupTinctureChoices(d, picture(d));
+    expect(choices.filter((c) => c.allowed).map((c) => c.value)).toEqual(['counterchanged']);
+    // …so the one-click fix counterchanges them.
+    const fix = suggestTinctureFix(d)!;
+    expect(fix.label).toBe('Counterchange the mullets');
+    expect(assess(fix.design).status).toBe('valid');
+    expect(blazon(fix.design)).toBe('Per pale azure and Or, three mullets counterchanged.');
+    expect(blazon(setGroupTincture(d, picture(d), 'counterchanged'))).toBe('Per pale azure and Or, three mullets counterchanged.');
+  });
+
+  it('making the field plain leaves counterchanged pictures in a violation with a fix', () => {
+    let d = setCharge(setDivision(DEFAULT_DESIGN, 'per-pale'), 'picture', 'mullet');
+    d = setGroupTincture(setCount(d, picture(d), 3), picture(d), 'counterchanged');
+    d = setPlainField(d);
+    expect(assess(d).problems.map((p) => p.message)).toEqual(["Counterchanged needs a divided field: each charge takes the field's other tincture, and a plain field has only one."]);
+    expect(assess(suggestTinctureFix(d)!.design).status).toBe('valid');
+  });
+
+  it('count choices block counts that have no layout, with a reason', () => {
+    // A cross carries one, four or five charges, or is set between exactly four.
+    const placed = setCharge(setOrdinary(DEFAULT_DESIGN, 'cross'), 'picture', 'mullet');
+    const d = setPlacement(placed, picture(placed), 'ordinary');
+    const two = countChoices(d, picture(d)).find((c) => c.value === 2)!;
+    expect(two).toMatchObject({ allowed: false });
+    expect(two.allowed === false && two.reason).toMatch(/can carry a single charge, four or five \(.*\), not two/);
+    // Under a chief there is room for only so many.
+    const chief = setCharge(setOrdinary(DEFAULT_DESIGN, 'chief'), 'picture', 'mullet');
+    const crowded = countChoices(chief, picture(chief)).find((c) => c.value === 12)!;
+    expect(crowded.allowed).toBe(false);
+    expect(crowded.allowed === false && crowded.reason).toMatch(/room|can't be set/);
+  });
+
+  it('two lions around a fess can become five on it: the count brings the placement along', () => {
+    // Azure, a fess Gules between two lions Or. A fess is set between two, three, four or six, and carries any number,
+    // so "five" needs the lions on the fess, and "around the fess" needs a count it can be set between.
+    const d = nd(arms(plain('azure'), group(ordinary('fess'), plain('or')), group(charge('lion'), plain('argent'), { count: 2 })));
+    expect(blazon(d)).toBe('Azure, a fess Or between two lions argent.');
+    const path = picture(d);
+    const five = countChoices(d, path).find((c) => c.value === 5)!;
+    expect(five).toMatchObject({ allowed: true, companion: { kind: 'placement', placement: 'ordinary' } });
+    const moved = setCount(d, path, 5);
+    expect(groupAt(moved, picture(moved))).toMatchObject({ role: 'tertiary', count: 5, arrangement: { k: 'host' }, paint: { k: 'tincture', t: 'argent' } });
+    expect(blazon(moved)).toBe('Azure, on a fess Or five lions argent.');
+    // Only the layout moves: white lions on a gold band is metal on metal, which the violation panel offers to fix.
+    expect(chargesClash(moved, picture(moved))).toBe(true);
+    // And back: "around the fess" takes the nearest count it can be set between (ties to the lower count).
+    const around = placementChoices(moved, picture(moved)).find((c) => c.value === 'field')!;
+    expect(around).toMatchObject({ allowed: true, companion: { kind: 'count', count: 4 } });
+    expect(setPlacement(moved, picture(moved), 'field')).toEqual(setCount(d, path, 4));
+    if (!five.allowed || !five.companion || !around.allowed || !around.companion) throw new Error('expected both choices with a companion');
+    expect(companionNote(five.design, five.companion, 'offered')).toBe('Moves the lions onto the horizontal band; the white lions would then need a new colour');
+    expect(companionNote(around.design, around.companion, 'offered')).toBe('Changes to four lions');
+    const adjusted = adjustDesign({ design: moved, shape: 'round' }, around.design, around.companion);
+    expect(adjusted).toEqual({ kind: 'adjusted', previous: { design: moved, shape: 'round' }, replacement: { design: around.design, shape: 'round' }, note: 'Changed to four lions.' });
+    expect(adjustDesign({ design: d, shape: 'round' }, five.design, five.companion)).toMatchObject({ note: "Moved the lions onto the horizontal band. The white lions don't stand out on the gold horizontal band — pick a new colour below." });
+    expect(undoStillOffered(adjusted, { design: around.design, shape: 'round' })).toBe(true);
+    expect(undoStillOffered(adjusted, { design: moved, shape: 'round' })).toBe(false);
+  });
+
+  it("a count or placement note says so when the picture's colour would then break the rule, and only then", () => {
+    // Per pale Or and Gules, a fess Argent between two lions Azure: one lion moves onto the fess,
+    // where blue on white is fine.
+    const between = nd(arms(div('per-pale', 'or', 'gules'), group(ordinary('fess'), plain('argent')), group(charge('lion'), plain('azure'), { count: 2 })));
+    const one = countChoices(between, picture(between)).find((c) => c.value === 1)!;
+    if (!one.allowed || !one.companion) throw new Error('expected one lion to go onto the fess');
+    expect(chargesClash(one.design, picture(one.design))).toBe(false);
+    expect(companionNote(one.design, one.companion, 'offered')).toBe('Moves the lion onto the horizontal band');
+    expect(companionNote(one.design, one.companion, 'done')).toBe('Moved the lion onto the horizontal band.');
+
+    // Or, a cross Gules between four lions Gules: one lion moves onto the cross, red on red.
+    const around = nd(arms(plain('or'), group(ordinary('cross'), plain('gules')), group(charge('lion'), plain('gules'), { count: 4 })));
+    expect(assess(around).status).toBe('valid');
+    const onto = countChoices(around, picture(around)).find((c) => c.value === 1)!;
+    if (!onto.allowed || !onto.companion) throw new Error('expected one lion to go onto the cross');
+    expect(chargesClash(onto.design, picture(onto.design))).toBe(true);
+    expect(companionNote(onto.design, onto.companion, 'offered')).toBe('Moves the lion onto the cross; the red lion would then need a new colour');
+    expect(companionNote(onto.design, onto.companion, 'done')).toBe("Moved the lion onto the cross. The red lion doesn't stand out on the red cross — pick a new colour below.");
+    // The fix offered beside Undo is the violation panel's own.
+    expect(fixText(suggestTinctureFix(onto.design)!.label)).toBe('Fix: switch the lion on the cross to Or');
+
+    // Swapped colours can't follow the pictures onto a band.
+    const swapped = nd(arms(div('per-pale', 'or', 'gules'), group(ordinary('fess'), plain('argent')), group(charge('lion'), { k: 'counterchanged' }, { count: 2 })));
+    expect(assess(swapped).status).toBe('valid');
+    const single = countChoices(swapped, picture(swapped)).find((c) => c.value === 1)!;
+    if (!single.allowed || !single.companion) throw new Error('expected one lion to go onto the fess');
+    expect(companionNote(single.design, single.companion, 'offered')).toBe('Moves the lion onto the horizontal band; the lion would then need a new colour');
+    expect(companionNote(single.design, single.companion, 'done')).toBe("Moved the lion onto the horizontal band. The lion can't take swapped colours there — pick a new colour below.");
+  });
+
+  it('holds the readability tip back while the rule of tincture is broken', () => {
+    // Five white lions moved onto a gold fess: the tip would point away from the colour fix.
+    const d = nd(arms(plain('azure'), group(ordinary('fess'), plain('or')), group(charge('lion'), plain('argent'), { count: 2 })));
+    const moved = setCount(d, picture(d), 5);
+    expect(assess(moved).status).toBe('violation');
+    const r = readability(moved);
+    expect(r.nudge).not.toBeNull();
+    expect(readabilityTip(r, assess(moved))).toBeNull();
+    // Fixed, the same tip comes back.
+    const fixed = suggestTinctureFix(moved)!.design;
+    expect(assess(fixed).status).toBe('valid');
+    expect(readabilityTip(readability(fixed), assess(fixed))).toBe(readability(fixed).nudge);
+    expect(readabilityTip(readability(fixed), assess(fixed))).not.toBeNull();
+  });
+
+  it('layout edits and placement labels', () => {
+    let d = setCount(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), picture(setCharge(DEFAULT_DESIGN, 'picture', 'mullet')), 3);
+    d = setLayout(d, picture(d), 'in-fess');
+    expect(blazon(d)).toBe('Azure, in fess three mullets Or.');
+    expect(placementLabel(setOrdinary(d, 'chevron'), 'field')).toBe('Around the peaked band');
+    expect(placementLabel(setOrdinary(d, 'chief'), 'field')).toBe('Below the top bar');
+    expect(placementLabel(setOrdinary(d, 'bordure'), 'field')).toBe('Within the border');
+    expect(placementLabel(setOrdinary(d, 'bend'), 'ordinary')).toBe('On the diagonal band ↘');
+    expect(placementLabel(d, 'field')).toBe('On the background');
+  });
+
+  it('layout controls list the candidates, host-placed pictures have nothing to choose', () => {
+    const d = setCount(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0], 3);
+    const layouts = layoutChoices(d, picture(d));
+    expect(layouts.mode).toBe('choose');
+    expect(layouts.mode === 'choose' && layouts.choices.map((c) => c.value)).toContain('rows-2-1');
+    const onBand = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet');
+    const onFess = setPlacement(onBand, picture(onBand), 'ordinary');
+    expect(layoutChoices(onFess, picture(onFess))).toMatchObject({ mode: 'host', note: 'Charges on the fess follow its line.' });
+    const single = setCharge(DEFAULT_DESIGN, 'picture', 'mullet');
+    expect(layoutChoices(single, picture(single))).toMatchObject({ mode: 'choose' });
+  });
+
+  it('counts above six come from More…', () => {
+    let d = setCharge(DEFAULT_DESIGN, 'picture', 'mullet');
+    const counts = countChoices(d, picture(d));
+    expect(counts.map((c) => c.value)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(counts.find((c) => c.value === 10)!.allowed).toBe(true);
+    d = setCount(d, picture(d), 10);
+    expect(groupAt(d, picture(d)).count).toBe(10);
+    expect(assess(d).status).toBe('valid');
+    expect(blazon(d)).toBe('Azure, ten mullets Or.');
+  });
+
+  it('postures and the sun in splendour', () => {
+    let d = setCharge(DEFAULT_DESIGN, 'picture', 'hare');
+    expect(postureChoices(d, picture(d)).map((c) => [c.value, c.allowed])).toEqual([
+      ['rampant', false], ['passant', false], ['statant', false], ['sejant', true], ['courant', true],
+    ]);
+    d = setPosture(d, picture(d), 'courant');
+    expect(blazon(d)).toBe('Azure, a hare courant Or.');
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    const choices = postureChoices(lion, picture(lion));
+    expect(choices.find((c) => c.value === 'passant')!.allowed).toBe(true);
+    expect(choices.some((c) => c.value === 'courant')).toBe(false);
+    // Swapping the charge keeps a posture it is drawn in and falls back to the default otherwise.
+    expect(groupAt(setCharge(setPosture(lion, picture(lion), 'passant'), 'picture', 'wolf'), [0]).item).toMatchObject({ charge: 'wolf', posture: 'passant' });
+    expect(groupAt(setCharge(setPosture(lion, picture(lion), 'sejant'), 'picture', 'wolf'), [0]).item).toMatchObject({ charge: 'wolf', posture: 'passant' });
+    let sun = setCharge(DEFAULT_DESIGN, 'picture', 'sun');
+    sun = setModifier(sun, picture(sun), 'in-splendour', true);
+    expect(blazon(sun)).toBe('Azure, a sun in splendor Or.');
+    expect(blazon(setModifier(sun, picture(sun), 'in-splendour', false))).toBe('Azure, a sun Or.');
+  });
+});
+
+describe('extra pictures on the band', () => {
+  it('are offered on a central ordinary or a chief when the picture is on the background', () => {
+    const d = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet');
+    expect(canAddExtraPicture(d)).toBe(true);
+    expect(canAddExtraPicture(setOrdinary(d, 'bordure'))).toBe(false);
+    expect(canAddExtraPicture(setOrdinary(d, null))).toBe(false);
+    expect(canAddExtraPicture(setPlacement(d, picture(d), 'ordinary'))).toBe(false);
+    expect(canAddExtraPicture(setCharge(DEFAULT_DESIGN, 'picture', null))).toBe(false);
+    expect(canAddExtraPicture(addExtraPicture(d, 'rose'))).toBe(false);
+  });
+
+  it('journey: a fess between mullets with roses on it, then a chief', () => {
+    let d = setOrdinary(DEFAULT_DESIGN, 'fess');
+    d = setCharge(d, 'picture', 'mullet');
+    expect(groupAt(d, picture(d))).toMatchObject({ role: 'secondary', count: 2 });
+    d = addExtraPicture(d, 'rose');
+    expect(extra(d)).toEqual([0, 0]);
+    expect(groupAt(d, extra(d))).toMatchObject({ role: 'tertiary', count: 1 });
+    expect(assess(d).status).toBe('valid');
+    expect(blazon(d)).toBe('Azure, on a fess between two mullets Or a rose gules.');
+    // The extra picture has its own count, as many as fit on the band, and no placement.
+    expect(placementChoices(d, extra(d))).toEqual([]);
+    expect(countChoices(d, extra(d)).filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5]);
+    d = setCount(d, extra(d), 3);
+    expect(groupAt(d, extra(d)).count).toBe(3);
+    // Swapping and recolouring either picture leaves the other alone.
+    d = setCharge(d, 'extra', 'heart');
+    expect(groupAt(d, extra(d)).item).toMatchObject({ charge: 'heart' });
+    expect(groupAt(d, picture(d)).item).toMatchObject({ charge: 'mullet' });
+    expect(issueStep(d, { code: 'tincture', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('extra');
+    // Changing the band to a chief keeps both pictures.
+    const chief = setOrdinary(d, 'chief');
+    expect(groupAt(chief, picture(chief))).toMatchObject({ role: 'primary', relation: null });
+    expect(groupAt(chief, extra(chief))).toMatchObject({ role: 'tertiary', count: 3 });
+    // Removing the band takes the extra pictures with it; removing them leaves the rest.
+    expect(extraPicturePath(setOrdinary(d, null))).toBeNull();
+    expect(picturePath(setOrdinary(d, null))).not.toBeNull();
+    const removed = removeExtraPicture(d);
+    expect(extraPicturePath(removed)).toBeNull();
+    expect(groupAt(removed, picture(removed)).item).toMatchObject({ charge: 'mullet' });
+    expect(setCharge(d, 'extra', null)).toEqual(removed);
+  });
+
+  it('the picture cannot move onto a band that already carries extra pictures', () => {
+    const d = addExtraPicture(setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet'), 'rose');
+    const onto = placementChoices(d, picture(d)).find((c) => c.value === 'ordinary')!;
+    expect(onto.allowed).toBe(false);
+    expect(onto.allowed === false && onto.reason).toMatch(/already carries/);
+  });
+
+  it('removing the picture promotes the extra pictures to the picture', () => {
+    const d = addExtraPicture(setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet'), 'rose');
+    const promoted = setCharge(d, 'picture', null);
+    expect(extraPicturePath(promoted)).toBeNull();
+    expect(picture(promoted)).toHaveLength(2);
+    expect(groupAt(promoted, picture(promoted)).item).toMatchObject({ charge: 'rose' });
+  });
+
+  it('a chief on a field divided per fess is valid once a picture crosses the line', () => {
+    const bare = setOrdinary(setDivision(DEFAULT_DESIGN, 'per-fess'), 'chief');
+    expect(assess(bare).problems.map((p) => p.message)).toEqual(['A chief on a field divided per fess needs a charge across the line (SENA A3D1c).']);
+    expect(issueStep(bare, assess(bare).problems[0])).toBe('ordinary');
+    // The picture is refitted to one that crosses the line, whichever order the steps are taken in.
+    const picked = setCharge(bare, 'picture', 'mullet');
+    expect(assess(picked).status).toBe('valid');
+    expect(assess(setOrdinary(setCharge(setDivision(DEFAULT_DESIGN, 'per-fess'), 'picture', 'mullet'), 'chief')).status).toBe('valid');
+    // Counts with no room under the chief are blocked.
+    const counts = countChoices(picked, picture(picked));
+    expect(counts.filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+});
+
+describe('replacing a design in progress', () => {
+  const started = { design: setCharge(DEFAULT_DESIGN, 'picture', 'lion'), shape: 'heater' as const };
+  const example = { design: setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), shape: 'heater' as const };
+  const untouched = { design: DEFAULT_DESIGN, shape: 'heater' as const };
+
+  it('offers Undo with the design it replaces', () => {
+    expect(replaceDesign(started, example)).toEqual({ kind: 'replaced', previous: started, replacement: example });
+  });
+
+  it('offers Undo when only the shape would be lost', () => {
+    const roundDefault = { design: DEFAULT_DESIGN, shape: 'round' as const };
+    expect(isUntouched(roundDefault)).toBe(false);
+    expect(replaceDesign(roundDefault, example)).toEqual({ kind: 'replaced', previous: roundDefault, replacement: example });
+  });
+
+  it('offers nothing when the current design is the untouched default', () => {
+    expect(isUntouched(untouched)).toBe(true);
+    expect(replaceDesign(untouched, example)).toBeNull();
+  });
+
+  it('offers nothing when the replacement is identical to the current design', () => {
+    expect(replaceDesign(started, { ...started })).toBeNull();
+    expect(sameShapedDesign(started, { design: setCharge(DEFAULT_DESIGN, 'picture', 'lion'), shape: 'heater' })).toBe(true);
+    expect(sameShapedDesign(started, { ...started, shape: 'banner' })).toBe(false);
+  });
+
+  it('keeps Undo on offer only while the replacement is unedited', () => {
+    const r = replaceDesign(started, example)!;
+    expect(undoStillOffered(r, example)).toBe(true);
+    expect(undoStillOffered(r, { ...example, shape: 'round' })).toBe(false);
+    expect(undoStillOffered(r, { design: setCount(example.design, picture(example.design), 2), shape: 'heater' })).toBe(false);
+  });
+});

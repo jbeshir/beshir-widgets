@@ -1,10 +1,10 @@
 // Barrel of the new library as it grows; the SPA and the Worker move over to it when it is complete.
 
-export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId } from './charges';
+export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId } from './charges';
 export { ORDINARY_TYPES, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
 export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, partCount, type Division } from './divisions';
 export {
-  canonical, canonicalJson, replaceGroup, fieldTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, isFieldPrimary, tincturePaint, paintOfGroupTincture, groupTinctureOf,
+  canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, isFieldPrimary, tincturePaint, paintOfGroupTincture, groupTinctureOf,
   UNSUPPORTED_GAP_CATEGORIES,
   type Design, type Group, type GroupPath, type GroupTincture, type Paint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type IssueAt,
 } from './design';
@@ -16,7 +16,7 @@ export {
   hostCounts, layoutWords, type Layout, type LayoutKey, type LayoutContext,
 } from './arrangement';
 export { contrastFailure, type ContrastFailure } from './contrast';
-export { FAILURE_TEXT, tinctureIssues, groundContacts, counterchangeUnavailable, describeSlots } from './tincture-rule';
+export { FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundContacts, counterchangeUnavailable, describeSlots } from './tincture-rule';
 export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon } from './blazon';
 export { gloss, betweenWords } from './gloss';
@@ -33,7 +33,12 @@ export {
   drawnBox, slotTransform, probePoints, slotContacts, slotRow, slotColumn, shapeFrame, pathPolygon, pointInPolygon,
   counterchangedSlotParts, counterchangedOrdinaryParts, type Slot,
 } from './geometry';
-export { MIN_SLOT_SIZE, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
+export { MIN_SLOT_SIZE, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
+export {
+  COUNTS, isBlocked, blockReason, simpleParts, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
+  layoutReason, applyLayout, postureChoices, modifierChoices, fitGroup, suggestTinctureFix,
+  type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
+} from './options';
 export { renderLayers, designTinctures, type Layer } from './render';
 export { CHARGE_ART, MODIFIER_ART, chargePath } from './charge-art';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';

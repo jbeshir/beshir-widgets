@@ -190,20 +190,25 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   });
 }
 
+/** The rule-of-tincture violations of the group at `path` alone. */
+export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
+  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
+  const group = groupAt(d, path), host = hostOf(d, path);
+  const at = { k: 'group', path } as const;
+  const unavailable = counterchangeUnavailable(d, path);
+  if (unavailable) {
+    const slots = group.item.k === 'charge' ? slotsOf(d, path).map((_, i) => i) : [];
+    return [{ code: 'tincture', at, message: unavailable, slots }];
+  }
+  const pair = fieldPair(d);
+  const contacts = groundContacts(d, path);
+  if (group.item.k === 'charge') return chargeIssues(d, path, group, host, contacts, pair);
+  const f = contacts[0].length === 0 ? null : failureOf(group.paint, contacts[0], pair);
+  return f ? [{ code: 'tincture', at, message: ordinaryMessage(d, group, f, contacts[0], pair), slots: [] }] : [];
+}
+
 /** Every rule-of-tincture violation, group by group in canonical order. */
 export function tinctureIssues(d: Design): Issue[] {
   if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
-  const pair = fieldPair(d);
-  return walkGroups(d).flatMap(({ path, group, host }): Issue[] => {
-    const at = { k: 'group', path } as const;
-    const unavailable = counterchangeUnavailable(d, path);
-    if (unavailable) {
-      const slots = group.item.k === 'charge' ? slotsOf(d, path).map((_, i) => i) : [];
-      return [{ code: 'tincture', at, message: unavailable, slots }];
-    }
-    const contacts = groundContacts(d, path);
-    if (group.item.k === 'charge') return chargeIssues(d, path, group, host, contacts, pair);
-    const f = contacts[0].length === 0 ? null : failureOf(group.paint, contacts[0], pair);
-    return f ? [{ code: 'tincture', at, message: ordinaryMessage(d, group, f, contacts[0], pair), slots: [] }] : [];
-  });
+  return walkGroups(d).flatMap(({ path }) => groupTinctureIssues(d, path));
 }

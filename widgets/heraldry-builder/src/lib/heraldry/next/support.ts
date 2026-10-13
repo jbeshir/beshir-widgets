@@ -17,6 +17,9 @@ export { notSupported, UnsupportedConstructError } from './design';
 /** The most charges in one group the builder lays out. Whether a count fits is a capacity question. */
 export const MAX_DRAWN_COUNT = 12;
 
+/** The rows that read as a pattern, as `2-1`. */
+const ROW_PATTERN_KEYS: ReadonlySet<string> = new Set(ROW_PATTERNS.map((r) => r.join('-')));
+
 const gap = (category: GapCategory, detail: string): Gap => ({ category, detail });
 
 /** The gaps of a paint: `field` paints are the field and its parts, `owner` names the thing a group paint colours. */
@@ -105,7 +108,7 @@ function layoutGaps(g: Group, hasChief: boolean): Gap[] {
   if (a.k === 'pattern' && a.pattern !== 'cross' && a.pattern !== 'saltire' && a.pattern !== 'orle' && a.pattern !== 'annulo') {
     gaps.push(gap('arrangement', `in-${a.pattern}`));
   }
-  if (a.k === 'rows' && !ROW_PATTERNS.some((r) => r.join('-') === a.rows.join('-'))) gaps.push(gap('arrangement', `rows-${a.rows.join('-')}`));
+  if (a.k === 'rows' && !ROW_PATTERN_KEYS.has(a.rows.join('-'))) gaps.push(gap('arrangement', `rows-${a.rows.join('-')}`));
   if (g.position) {
     const placed = (g.position === 'chief' || g.position === 'base') && g.role === 'primary' && !hasChief
       && (a.k === 'single' || (a.k === 'line' && a.dir === 'fess'));

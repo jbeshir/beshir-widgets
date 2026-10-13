@@ -14,5 +14,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["src", "test/store.test.ts", "test/builder.test.ts", "test/next-shield.test.ts"]
+  "include": ["src", "test/store.test.ts", "test/builder.test.ts", "test/next-shield.test.ts", "test/next-builder.test.ts", "test/next-builder-controls-reach-every-legal-design.test.ts"]
 }

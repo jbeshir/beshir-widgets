@@ -476,14 +476,20 @@ function whereWords(ctx: LayoutContext, layout: Layout): string {
   }
 }
 
+/** Whether a group's charges fit where they sit at a size that reads; false for a layout the count doesn't have. Groups that sit where this builder has no layout have nothing to fit, so they do. */
+export function hasRoom(d: Design, path: GroupPath): boolean {
+  const l = layoutOf(d, path);
+  if (!l) return true;
+  const slots = contextSlots(l.ctx, l.count, l.layout, CANONICAL_SHAPE);
+  return slots.length === l.count && slots[0].size >= MIN_SLOT_SIZE;
+}
+
 /** Why a group's charges don't fit where they sit, or null when they do (or when they sit nowhere this builder lays out). Only meaningful once the layout itself is legal. */
 export function capacityIssue(d: Design, path: GroupPath): string | null {
   const group = groupAt(d, path), host = hostOf(d, path);
   if (contextOf(d, group, host) === null) return null;
   const l = layoutOf(d, path);
-  if (!l) return null;
-  const slots = contextSlots(l.ctx, l.count, l.layout, CANONICAL_SHAPE);
-  if (slots.length === l.count && slots[0].size >= MIN_SLOT_SIZE) return null;
+  if (!l || hasRoom(d, path)) return null;
   const { id } = l;
   const layoutFor = (n: number): Layout => {
     const a = group.arrangement;
