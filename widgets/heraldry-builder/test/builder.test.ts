@@ -5,7 +5,7 @@ import {
   DEFAULT_DESIGN, adjustDesign, addExtraPicture, assess, canAddExtraPicture, chargesClash, companionNote, extraPicturePath, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, removeExtraPicture, replaceDesign, sameShapedDesign, setCharge, setCount,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlacement, setPlainField,
-  setPosture, undoStillOffered,
+  setPosture, undoStillOffered, addPeripheral, canAddPeripheral, peripheralPath, removePeripheral, setPeripheralTincture,
 } from '../src/lib/builder';
 import {
   blazon, countChoices, groupAt, groupTinctureChoices, layoutChoices, placementChoices, postureChoices, readability, signature, suggestTinctureFix,
@@ -263,6 +263,39 @@ describe('builder transitions', () => {
     sun = setModifier(sun, picture(sun), 'in-splendour', true);
     expect(blazon(sun)).toBe('Azure, a sun in splendor Or.');
     expect(blazon(setModifier(sun, picture(sun), 'in-splendour', false))).toBe('Azure, a sun Or.');
+  });
+});
+
+describe('a top band or border beside the band', () => {
+  const band = setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'chevron'), 'argent');
+
+  it('is offered beside a central band with no picture, coloured to work, and removed again', () => {
+    expect(canAddPeripheral(DEFAULT_DESIGN, 'bordure')).toBe(false);
+    expect(canAddPeripheral(band, 'chief')).toBe(true);
+    const chief = addPeripheral(band, 'chief');
+    expect(blazon(chief)).toBe('Azure, a chevron argent, a chief Or.');
+    expect(assess(chief).status).toBe('valid');
+    expect(canAddPeripheral(chief, 'bordure')).toBe(false);
+    expect(issueStep(chief, { code: 'tincture', at: { k: 'group', path: peripheralPath(chief)! }, message: '' } as never)).toBe('peripheral');
+    expect(blazon(setPeripheralTincture(chief, 'gules'))).toContain('chief');
+    expect(removePeripheral(chief)).toEqual(band);
+  });
+
+  it('is not offered beside a pile, a chief or a bordure, or once there is a picture', () => {
+    expect(canAddPeripheral(setOrdinary(DEFAULT_DESIGN, 'pile'), 'chief')).toBe(false);
+    expect(canAddPeripheral(setOrdinary(DEFAULT_DESIGN, 'chief'), 'bordure')).toBe(false);
+    expect(canAddPeripheral(setCharge(band, 'picture', 'lion'), 'bordure')).toBe(false);
+  });
+
+  it('stays through colour changes, goes when a picture is chosen or the band becomes one it cannot sit beside', () => {
+    const bordered = addPeripheral(band, 'bordure');
+    expect(peripheralPath(setOrdinary(bordered, 'fess'))).not.toBeNull();
+    expect(peripheralPath(setOrdinary(bordered, 'pile'))).toBeNull();
+    expect(peripheralPath(setOrdinary(bordered, 'chief'))).toBeNull();
+    expect(peripheralPath(setOrdinary(bordered, null))).toBeNull();
+    const pictured = setCharge(bordered, 'picture', 'lion');
+    expect(peripheralPath(pictured)).toBeNull();
+    expect(pictured.groups).toHaveLength(2);
   });
 });
 

@@ -25,7 +25,7 @@ import {
   type Tincture,
 } from '../../src/lib/heraldry';
 import {
-  DEFAULT_DESIGN, addExtraPicture, assess, canAddExtraPicture, extraPicturePath, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture,
+  DEFAULT_DESIGN, addExtraPicture, addPeripheral, canAddPeripheral, peripheralPath, setPeripheralTincture, type PeripheralType, assess, canAddExtraPicture, extraPicturePath, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture,
   setModifier, setOrdinary, setOrdinaryTincture, setPlainField, setPosture, type DesignStatus,
 } from '../../src/lib/builder';
 import { layoutMoves, type LayoutAction } from '../helpers';
@@ -161,6 +161,8 @@ export type BuilderAction =
   | { kind: 'field-tincture'; part: 0 | 1; tincture: Tincture }
   | { kind: 'ordinary'; type: OrdinaryType | null }
   | { kind: 'ordinary-tincture'; tincture: GroupTincture }
+  | { kind: 'peripheral'; type: PeripheralType }
+  | { kind: 'peripheral-tincture'; tincture: GroupTincture }
   | { kind: 'charge'; which: Which; charge: ChargeId | null }
   | { kind: 'layout'; which: Which; action: LayoutAction; design: Design }
   | { kind: 'posture'; which: Which; posture: Posture }
@@ -195,6 +197,11 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       const path = ordinaryPath(d);
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : 'there is no ordinary to colour';
     }
+    case 'peripheral': return canAddPeripheral(d, a.type) ? null : `a ${a.type} is not offered beside this band`;
+    case 'peripheral-tincture': {
+      const path = peripheralPath(d);
+      return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : 'there is no top band or border to colour';
+    }
     case 'charge':
       if (a.which === 'extra' && a.charge !== null && !canAddExtraPicture(d)) return 'pictures on the band are not offered';
       return a.charge === null || CHARGE_IDS.includes(a.charge) ? null : `${a.charge} is not offered`;
@@ -223,6 +230,8 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'field-tincture': return setFieldTincture(d, a.part, a.tincture);
     case 'ordinary': return setOrdinary(d, a.type);
     case 'ordinary-tincture': return setOrdinaryTincture(d, a.tincture);
+    case 'peripheral': return addPeripheral(d, a.type);
+    case 'peripheral-tincture': return setPeripheralTincture(d, a.tincture);
     case 'charge': return a.which === 'extra' && a.charge && !path ? addExtraPicture(d, a.charge) : setCharge(d, a.which, a.charge);
     case 'layout': return a.design;
     case 'posture': return setPosture(d, path!, a.posture);
@@ -238,6 +247,8 @@ function describeAction(a: BuilderAction): string {
     case 'field-tincture': return `field part ${a.part + 1} ${a.tincture}`;
     case 'ordinary': return `ordinary ${a.type ?? 'none'}`;
     case 'ordinary-tincture': return `ordinary tincture ${a.tincture}`;
+    case 'peripheral': return `add ${a.type}`;
+    case 'peripheral-tincture': return `top band or border tincture ${a.tincture}`;
     case 'charge': return `${a.which} charge ${a.charge ?? 'none'}`;
     case 'layout': return `${a.which} ${a.action.kind} ${a.action.kind === 'count' ? a.action.count : a.action.kind === 'placement' ? a.action.placement : a.action.layout}`;
     case 'posture': return `${a.which} posture ${a.posture}`;
@@ -303,7 +314,7 @@ export interface BuilderPath {
 
 /**
  * Build `goal` in the builder from its starting design, the way a person would: the field (kind,
- * then tinctures), then the ordinary and its tincture, then the picture — its charge, placement and
+ * then tinctures), then the ordinary and its tincture, then a top band or border, then the picture — its charge, placement and
  * layout, pose, face and tincture — then the extra pictures on the band. Each click must be offered
  * and allowed on the design at that moment; the builder's own functions apply it. Stops at the first
  * click it can't make.
@@ -346,6 +357,14 @@ export function builderPath(goal: Design): BuilderPath {
     if (item.k !== 'ordinary' || !click({ kind: 'ordinary', type: item.type })) return done();
     const t = tinctureOf(parts.ordinary.group);
     if (t && tinctureOf(groupAt(d, ordinaryPath(d)!)) !== t && !click({ kind: 'ordinary-tincture', tincture: t })) return done();
+  }
+
+  // The top band or border beside the band.
+  if (parts.peripheral) {
+    const item = parts.peripheral.group.item;
+    if (item.k !== 'ordinary' || (item.type !== 'chief' && item.type !== 'bordure') || !click({ kind: 'peripheral', type: item.type })) return done();
+    const t = tinctureOf(parts.peripheral.group);
+    if (t && tinctureOf(groupAt(d, peripheralPath(d)!)) !== t && !click({ kind: 'peripheral-tincture', tincture: t })) return done();
   }
 
   // The picture, then the extra pictures on the band.

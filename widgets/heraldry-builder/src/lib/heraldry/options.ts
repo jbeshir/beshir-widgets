@@ -10,6 +10,7 @@
 //
 // The builder's "simple space" (PLAN §7.1) is one ordinary, one picture group (on the background or
 // on the ordinary) and, when the picture is on the background, one extra picture group on the ordinary.
+// A central ordinary may instead carry a peripheral (a chief or bordure) when there are no pictures.
 // `simpleParts` finds them in a design and `assembleParts` puts them back with the roles, relations and
 // host layouts the model needs.
 
@@ -66,6 +67,8 @@ interface Located { path: GroupPath; group: Group }
 /** The groups of a design in the builder's terms; `placement` says where the picture sits. */
 export interface SimpleParts {
   ordinary: Located | null;
+  /** The chief or bordure beside a central ordinary. */
+  peripheral: Located | null;
   picture: (Located & { placement: Placement }) | null;
   extra: Located | null;
 }
@@ -80,20 +83,24 @@ const hostsPictures = (g: Group) => g.item.k === 'ordinary' && (isCentral(g) || 
  * is the charge group on the ordinary when the picture is a top-level group.
  */
 export function simpleParts(d: Design): SimpleParts {
-  const oi = d.groups.findIndex((g) => g.item.k === 'ordinary');
+  const central = d.groups.findIndex((g) => isCentral(g));
+  const oi = central >= 0 ? central : d.groups.findIndex((g) => g.item.k === 'ordinary');
   const ordinary = oi < 0 ? null : { path: [oi], group: d.groups[oi] };
+  const pi = central >= 0 ? d.groups.findIndex((g, i) => i !== oi && g.item.k === 'ordinary') : -1;
+  const peripheral = pi < 0 ? null : { path: [pi], group: d.groups[pi] };
   const onOrdinary = (): Located | null => {
     const ti = ordinary ? ordinary.group.charged.findIndex((g) => g.item.k === 'charge') : -1;
     return ordinary && ti >= 0 ? { path: [oi, ti], group: ordinary.group.charged[ti] } : null;
   };
   const ci = d.groups.findIndex((g) => g.item.k === 'charge' && (g.role === 'primary' || g.role === 'secondary'));
-  if (ci >= 0) return { ordinary, picture: { path: [ci], group: d.groups[ci], placement: 'field' }, extra: onOrdinary() };
+  if (ci >= 0) return { ordinary, peripheral, picture: { path: [ci], group: d.groups[ci], placement: 'field' }, extra: onOrdinary() };
   const tertiary = onOrdinary();
-  return { ordinary, picture: tertiary && { ...tertiary, placement: 'ordinary' }, extra: null };
+  return { ordinary, peripheral, picture: tertiary && { ...tertiary, placement: 'ordinary' }, extra: null };
 }
 
 export interface PartsInput {
   ordinary: Group | null;
+  peripheral: Group | null;
   picture: Group | null;
   placement: Placement;
   extra: Group | null;
@@ -106,15 +113,16 @@ const HOST: Arrangement = { k: 'host' };
  * peripheral), the picture on the background (secondary between a central ordinary, else primary) or
  * on the ordinary as its tertiary, the extra picture on the ordinary. A picture that can't sit on the
  * ordinary stays on the background; an extra picture needs the picture on the background and an
- * ordinary to sit on, or is dropped.
+ * ordinary to sit on, or is dropped. A peripheral needs a central ordinary and no pictures, or is dropped.
  */
-export function assembleParts(d: Design, { ordinary, picture, placement, extra }: PartsInput): Design {
+export function assembleParts(d: Design, { ordinary, peripheral, picture, placement, extra }: PartsInput): Design {
   const central = ordinary !== null && isCentral(ordinary);
   const hosts = ordinary !== null && hostsPictures(ordinary);
   const onOrdinary = picture !== null && placement === 'ordinary' && hosts;
   const tertiary = (g: Group): Group => ({ ...g, role: 'tertiary', relation: null, arrangement: HOST, position: null, charged: [] });
   const charged = onOrdinary ? [tertiary(picture)] : picture && extra && hosts ? [tertiary(extra)] : [];
   const groups: Group[] = ordinary ? [{ ...ordinary, role: central ? 'primary' : 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged }] : [];
+  if (central && peripheral && !picture) groups.push({ ...peripheral, role: 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged: [] });
   if (picture && !onOrdinary) {
     const top: Group = { ...picture, role: central ? 'secondary' : 'primary', relation: central ? 'between' : null, charged: [] };
     if (central) groups.push({ ...top, arrangement: HOST, position: null });
@@ -257,6 +265,7 @@ function edit(d: Design, path: GroupPath, change: { count?: number; placement?: 
   const group = { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count };
   const design = assembleParts(d, {
     ordinary: parts.ordinary?.group ?? null,
+    peripheral: null,
     picture: part === 'picture' ? group : parts.picture.group,
     placement,
     extra: part === 'extra' ? group : parts.extra?.group ?? null,

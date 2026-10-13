@@ -15,7 +15,8 @@ import {
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
 import {
-  addExtraPicture, canAddExtraPicture, companionNote, extraPicturePath, ordinaryPath, picturePath, placementLabel, removeExtraPicture, setCharge,
+  PERIPHERAL_TYPES, addExtraPicture, addPeripheral, canAddExtraPicture, canAddPeripheral, companionNote, extraPicturePath, ordinaryPath, peripheralPath, picturePath,
+  placementLabel, removeExtraPicture, removePeripheral, setCharge, setPeripheralTincture,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
@@ -468,6 +469,9 @@ export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, acco
           </div>
         ))}
       </RadioGroup>
+      {peripheralPath(design) && (
+        <p class="control-note" data-testid="peripheral-picture-note">Choosing a picture takes away the top band or border: this builder can't draw them together.</p>
+      )}
       <p class="charge-selected" data-testid="charge-selected">
         {selected ? <>Selected: <strong>{chargeLabel(selected.charge)}</strong></> : 'No picture selected.'}
       </p>
@@ -484,19 +488,59 @@ function hostWord(design: Design): string {
   return item?.k === 'ordinary' && item.type === 'chief' ? 'top bar' : 'band';
 }
 
-/** The button that adds extra pictures on the band (or top bar); null while they can't be added. */
-export function AddExtraPicture({ design, onChange }: { design: Design; onChange: (nd: Design) => void }) {
-  if (extraPicturePath(design) || !canAddExtraPicture(design)) return null;
+const PERIPHERAL_BUTTON: Record<(typeof PERIPHERAL_TYPES)[number], string> = {
+  chief: 'Add a top band (chief)',
+  bordure: 'Add a border (bordure)',
+};
+
+/** The buttons that add a layer beside the picture: extra pictures on the band (or top bar), or a top band or border beside the band; each shown only while it can be drawn. */
+export function AddExtraLayer({ design, onChange }: { design: Design; onChange: (nd: Design) => void }) {
   const path = picturePath(design);
   const item = path && groupAt(design, path).item;
   // Any charge other than the picture's own to start with; the extra card can swap it.
   const start = item?.k === 'charge' && item.charge === 'mullet' ? 'heart' : 'mullet';
+  const pictures = !extraPicturePath(design) && canAddExtraPicture(design);
+  const peripherals = peripheralPath(design) ? [] : PERIPHERAL_TYPES.filter((t) => canAddPeripheral(design, t));
+  if (!pictures && !peripherals.length) return null;
   return (
     <p class="add-extra">
-      <button type="button" class="button-secondary button-small" data-testid="add-extra-picture" onClick={() => onChange(addExtraPicture(design, start))}>
-        + Add pictures on the {hostWord(design)}
-      </button>
+      {pictures && (
+        <button type="button" class="button-secondary button-small" data-testid="add-extra-picture" onClick={() => onChange(addExtraPicture(design, start))}>
+          + Add pictures on the {hostWord(design)}
+        </button>
+      )}
+      {peripherals.map((t) => (
+        <button key={t} type="button" class="button-secondary button-small" data-testid={`add-peripheral-${t}`} onClick={() => onChange(addPeripheral(design, t))}>
+          + {PERIPHERAL_BUTTON[t]}
+        </button>
+      ))}
     </p>
+  );
+}
+
+/** Step 4 when the band has a top band or border beside it: its colour, and removing it. */
+export function PeripheralStep({ design, onChange, issues, accordion }: StepProps) {
+  const path = peripheralPath(design);
+  const item = path && groupAt(design, path).item;
+  if (!path || item?.k !== 'ordinary') return null;
+  const label = ORDINARY_LABEL[item.type];
+  const colour = lower(TINCTURE_LABEL[tinctureOf(design, path)].plain);
+  return (
+    <Step n={4} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; a picture can't be added while it is there." summary={`${colour}`} issues={issues} accordion={accordion} testid="step-peripheral">
+      <TincturePicker
+        group="peripheral"
+        testid="peripheral-tincture"
+        legend={`Colour of the ${lower(label.plain)}`}
+        choices={groupTinctureChoices(design, path)}
+        value={tinctureOf(design, path)}
+        onChange={(t) => onChange(setPeripheralTincture(design, t))}
+      />
+      <p>
+        <button type="button" class="button-tertiary" data-testid="remove-peripheral" onClick={() => onChange(removePeripheral(design))}>
+          Remove the {lower(label.plain)}
+        </button>
+      </p>
+    </Step>
   );
 }
 

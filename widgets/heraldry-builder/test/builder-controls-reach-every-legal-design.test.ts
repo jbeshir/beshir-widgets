@@ -12,7 +12,9 @@ import {
   layoutKey, modifierChoices, normalise, placementChoices, postureChoices, tinctureIssues,
   type ChargeId, type Design, type GroupPath,
 } from '../src/lib/heraldry';
-import { addExtraPicture, canAddExtraPicture, extraPicturePath, ordinaryPath, picturePath, setCharge, setCount } from '../src/lib/builder';
+import {
+  PERIPHERAL_TYPES, addExtraPicture, addPeripheral, canAddExtraPicture, canAddPeripheral, extraPicturePath, ordinaryPath, peripheralPath, picturePath, setCharge, setCount,
+} from '../src/lib/builder';
 import { layoutMoves, nd } from './helpers';
 
 // ── The oracle: the simple space by brute force ─────────────────────────────
@@ -360,6 +362,37 @@ describe('builder controls never lock a legal value away', () => {
       }
     }
     console.log(`extra pictures offered on ${offered} bases and refused on ${refused}`);
+    expect(offered).toBeGreaterThan(100);
+  }, 60_000);
+
+  it('a top band or border is offered exactly when some tincture makes it legal beside a central band, and every legal tincture is reachable', () => {
+    let offered = 0, refused = 0;
+    for (const c of contexts) {
+      if (!centralOrdinary(c.base)) continue;
+      const band = nd(designInput(c.base, null, null));
+      for (const type of PERIPHERAL_TYPES) {
+        // The oracle: the band and a peripheral of this kind in each paint, through normalise alone.
+        const withPaint = (paint: string) => ({ v: 2, field: c.base.field, groups: [
+          { item: { k: 'ordinary', type: c.base.ordinary!.type }, paint: c.base.ordinary!.tincture },
+          { item: { k: 'ordinary', type }, paint },
+        ] });
+        const legalPaintsOf = PAINTS.filter((p) => normalise(withPaint(p)).ok);
+        const label = JSON.stringify([c.base, type]);
+        expect(canAddPeripheral(band, type), label).toBe(legalPaintsOf.length > 0);
+        const added = addPeripheral(band, type);
+        if (!legalPaintsOf.length) {
+          expect(added, label).toBe(band);
+          refused++;
+          continue;
+        }
+        offered++;
+        const path = peripheralPath(added);
+        expect(path, label).not.toBeNull();
+        expect(sameSet(allowedValues(groupTinctureChoices(added, path!))), label).toEqual(sameSet(legalPaintsOf));
+        expect(ordinaryPath(added), label).toEqual(ordinaryPath(band));
+      }
+    }
+    console.log(`top band or border offered on ${offered} bases and refused on ${refused}`);
     expect(offered).toBeGreaterThan(100);
   }, 60_000);
 });

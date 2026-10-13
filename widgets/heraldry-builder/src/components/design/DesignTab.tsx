@@ -14,7 +14,7 @@ import type { JumpTarget } from '../Availability';
 import { SavePicture } from '../SavePicture';
 import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
-import { AddExtraPicture, ChargesStep, ExtraStep, FieldStep, OrdinaryStep, type Accordion } from './BuilderSteps';
+import { AddExtraLayer, ChargesStep, ExtraStep, FieldStep, OrdinaryStep, PeripheralStep, type Accordion } from './BuilderSteps';
 import { Examples } from './Examples';
 import { ReadabilityMeter } from './ReadabilityMeter';
 import { ShapePicker } from './ShapePicker';
@@ -57,6 +57,7 @@ const STEP_OF_JUMP: Record<JumpTarget, StepKey> = {
 
 const STEP_SELECTOR: Record<StepKey, string> = {
   field: '[data-testid=step-field]', ordinary: '[data-testid=step-ordinary]', picture: '[data-testid=step-charges]', extra: '[data-testid=step-extra]',
+  peripheral: '[data-testid=step-peripheral]',
 };
 const JUMP_SELECTOR: Record<JumpTarget, string> = {
   field: STEP_SELECTOR.field, ordinary: STEP_SELECTOR.ordinary, charge: '[data-testid=charge-select]',
@@ -156,7 +157,7 @@ export function DesignTab(p: Props) {
   });
   const compact = useCompact();
   // Phones collapse the steps, each showing what is chosen; a step with a problem opens by itself.
-  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, picture: false, extra: false });
+  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, picture: false, extra: false, peripheral: false });
   useEffect(() => {
     const broken = report.problems.map((i) => issueStep(design, i));
     if (broken.some((k) => !open[k])) setOpen((o) => ({ ...o, ...Object.fromEntries(broken.map((k) => [k, true])) }));
@@ -280,8 +281,9 @@ export function DesignTab(p: Props) {
         <FieldStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('field')} accordion={accordion('field')} />
         <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />
         <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
-        <AddExtraPicture design={design} onChange={p.onChange} />
+        <AddExtraLayer design={design} onChange={p.onChange} />
         <ExtraStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues('extra')} accordion={accordion('extra')} />
+        <PeripheralStep design={design} onChange={p.onChange} issues={stepIssues('peripheral')} accordion={accordion('peripheral')} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over

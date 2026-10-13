@@ -79,8 +79,8 @@ A matched design the widget would not register is filed as a widget finding: `ti
 rule of tincture rejects it as well, being a registration from before the rule or a counterchange over two metals or two colours),
 `widget-structure-rule` (a structure rule SENA does not have), `placement` (charges that cannot be drawn
 legibly where they sit, e.g. six on a chevron), `arrangement:forced-into-one-part` (charges GoT Table 7 forces
-into one part of a divided field, which the widget draws across it) or `multiple-groups:ordinaries` (a band
-with a chief or bordure: the library draws it, the Design tab has one place for a band). A matched design that
+into one part of a divided field, which the widget draws across it). A band with a chief or bordure is
+reachable in the Design tab (the extra layer card) and passes like any other matched design. A matched design that
 the widget registers but cannot blazon, draw or build is a widget bug (`fails`), never ignored.
 
 ### Normalisation

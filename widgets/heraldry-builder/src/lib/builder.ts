@@ -6,7 +6,7 @@
 import {
   CHARGES, DEFAULT_FIELD_SHAPE, ORDINARY_KIND, ORDINARY_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, assembleParts, canonical, contrastFailure,
   countChoices, fieldTinctures, fitGroup, groundContacts, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf, isMetal, replaceGroup,
-  layoutReason, placementChoices, simpleParts, structuralIssues, tincturePaint, tinctureIssues, withTincture, applyLayout,
+  isSupported, layoutReason, placementChoices, simpleParts, structuralIssues, tincturePaint, tinctureIssues, withTincture, applyLayout,
   type ChargeId, type Choice, type Companion, type Design, type Division, type Group, type GroupPath, type GroupTincture, type Issue,
   type LayoutChoice, type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
@@ -14,18 +14,23 @@ import { capitalise, numberWord } from './heraldry/words';
 
 export const DEFAULT_DESIGN: Design = { v: 2, kind: 'arms', field: tincturePaint('azure'), groups: [] };
 
-/** The builder's steps: the background, the band or shape, the picture, and the extra pictures on the band. */
-export type StepKey = 'field' | 'ordinary' | 'picture' | 'extra';
+/** The builder's steps: the background, the band or shape, the picture, and the extra layer (extra pictures on the band, or a top band or border). */
+export type StepKey = 'field' | 'ordinary' | 'picture' | 'extra' | 'peripheral';
 
 export const STEP_LABEL: Record<StepKey, string> = {
-  field: 'Background', ordinary: 'Band or shape', picture: 'Picture', extra: 'Extra pictures',
+  field: 'Background', ordinary: 'Band or shape', picture: 'Picture', extra: 'Extra pictures', peripheral: 'Top band or border',
 };
+
+/** The peripheral ordinaries the builder adds beside a band. */
+export const PERIPHERAL_TYPES = ['chief', 'bordure'] as const satisfies readonly OrdinaryType[];
+export type PeripheralType = (typeof PERIPHERAL_TYPES)[number];
 
 // ── Where things are ────────────────────────────────────────────────────────
 
 export const ordinaryPath = (d: Design): GroupPath | null => simpleParts(d).ordinary?.path ?? null;
 export const picturePath = (d: Design): GroupPath | null => simpleParts(d).picture?.path ?? null;
 export const extraPicturePath = (d: Design): GroupPath | null => simpleParts(d).extra?.path ?? null;
+export const peripheralPath = (d: Design): GroupPath | null => simpleParts(d).peripheral?.path ?? null;
 
 function firstAllowed<T>(choices: Choice<T>[], fallback: T): T {
   return choices.find((c) => c.allowed)?.value ?? fallback;
@@ -88,12 +93,18 @@ function newOrdinary(type: OrdinaryType, t: GroupTincture): Group {
   };
 }
 
-/** The ordinary replaced (null: removed), the pictures kept where they can be: a picture on a vanished ordinary goes to the background, extra pictures are dropped. */
+/**
+ * The ordinary replaced (null: removed), the pictures kept where they can be: a picture on a vanished
+ * ordinary goes to the background, extra pictures are dropped. The top band or border stays when the
+ * builder still draws it beside the new ordinary.
+ */
 function rebuilt(d: Design, ordinary: Group | null): Design {
   const parts = simpleParts(d);
-  return refit(assembleParts(d, {
-    ordinary, picture: parts.picture?.group ?? null, placement: parts.picture?.placement ?? 'field', extra: parts.extra?.group ?? null,
+  const assemble = (peripheral: Group | null) => refit(assembleParts(d, {
+    ordinary, peripheral, picture: parts.picture?.group ?? null, placement: parts.picture?.placement ?? 'field', extra: parts.extra?.group ?? null,
   }));
+  const kept = assemble(parts.peripheral?.group ?? null);
+  return parts.peripheral && !isSupported(kept) ? assemble(null) : kept;
 }
 
 export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
@@ -109,6 +120,41 @@ export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
 
 export function setOrdinaryTincture(d: Design, t: GroupTincture): Design {
   const path = ordinaryPath(d);
+  return path ? setGroupTincture(d, path, t) : d;
+}
+
+// ── Top band or border ──────────────────────────────────────────────────────
+
+/**
+ * The design with a top band (chief) or border (bordure) beside the band, or null when the builder
+ * can't draw that: it needs a central band and no pictures, and some tincture that works for it.
+ */
+function withPeripheral(d: Design, type: PeripheralType): Design | null {
+  const parts = simpleParts(d);
+  if (!parts.ordinary || parts.peripheral || parts.picture) return null;
+  const placed = assembleParts(d, { ordinary: parts.ordinary.group, peripheral: newOrdinary(type, 'or'), picture: null, placement: 'field', extra: null });
+  const path = peripheralPath(placed);
+  if (!path || !isSupported(placed) || structuralIssues(placed).length > 0) return null;
+  const tincture = groupTinctureChoices(placed, path).find((c) => c.allowed)?.value;
+  return tincture ? canonical(withTincture(placed, path, tincture)) : null;
+}
+
+/** Whether a top band or border of this kind can be added beside the band. */
+export function canAddPeripheral(d: Design, type: PeripheralType): boolean {
+  return withPeripheral(d, type) !== null;
+}
+
+export function addPeripheral(d: Design, type: PeripheralType): Design {
+  return withPeripheral(d, type) ?? d;
+}
+
+export function removePeripheral(d: Design): Design {
+  const parts = simpleParts(d);
+  return parts.peripheral ? assembleParts(d, { ordinary: parts.ordinary?.group ?? null, peripheral: null, picture: null, placement: 'field', extra: null }) : d;
+}
+
+export function setPeripheralTincture(d: Design, t: GroupTincture): Design {
+  const path = peripheralPath(d);
   return path ? setGroupTincture(d, path, t) : d;
 }
 
@@ -146,10 +192,10 @@ export function setCharge(d: Design, which: 'picture' | 'extra', id: ChargeId | 
   const parts = simpleParts(d);
   if (!id) {
     const promoted = parts.extra?.group ?? null;
-    return refit(assembleParts(d, { ordinary: parts.ordinary?.group ?? null, picture: promoted, placement: 'ordinary', extra: null }));
+    return refit(assembleParts(d, { ordinary: parts.ordinary?.group ?? null, peripheral: null, picture: promoted, placement: 'ordinary', extra: null }));
   }
   if (parts.picture) return swapCharge(d, 'picture', id);
-  const placed = refit(assembleParts(d, { ordinary: parts.ordinary?.group ?? null, picture: newPicture(id, 'primary'), placement: 'field', extra: null }));
+  const placed = refit(assembleParts(d, { ordinary: parts.ordinary?.group ?? null, peripheral: null, picture: newPicture(id, 'primary'), placement: 'field', extra: null }));
   return canonical(withFirstTincture(placed, picturePath(placed)!));
 }
 
@@ -160,6 +206,7 @@ function swapCharge(d: Design, which: 'picture' | 'extra', id: ChargeId): Design
   const swapped: Group = { ...target.group, item: chargeItem(id, target.group) };
   const placed = assembleParts(d, {
     ordinary: parts.ordinary?.group ?? null,
+    peripheral: null,
     picture: which === 'picture' ? swapped : parts.picture.group,
     placement: parts.picture.placement,
     extra: which === 'extra' ? swapped : parts.extra?.group ?? null,
@@ -172,7 +219,7 @@ function withExtraPicture(d: Design, id: ChargeId): Design | null {
   const parts = simpleParts(d);
   if (!parts.picture || parts.picture.placement !== 'field' || parts.extra || !parts.ordinary) return null;
   const placed = assembleParts(d, {
-    ordinary: parts.ordinary.group, picture: parts.picture.group, placement: 'field', extra: newPicture(id, 'tertiary'),
+    ordinary: parts.ordinary.group, peripheral: null, picture: parts.picture.group, placement: 'field', extra: newPicture(id, 'tertiary'),
   });
   const path = extraPicturePath(placed);
   if (!path) return null;
@@ -193,7 +240,7 @@ export function addExtraPicture(d: Design, id: ChargeId): Design {
 export function removeExtraPicture(d: Design): Design {
   const parts = simpleParts(d);
   if (!parts.extra || !parts.picture) return d;
-  return assembleParts(d, { ordinary: parts.ordinary?.group ?? null, picture: parts.picture.group, placement: parts.picture.placement, extra: null });
+  return assembleParts(d, { ordinary: parts.ordinary?.group ?? null, peripheral: null, picture: parts.picture.group, placement: parts.picture.placement, extra: null });
 }
 
 /** The design a count or placement choice leads to; a blocked (or unknown) one changes nothing. */
@@ -330,12 +377,12 @@ export function assess(d: Design): DesignReport {
   return { status, problems, hint: generic ? 'Add a band or shape, or a picture — a plain background alone is too generic to register.' : null };
 }
 
-/** The step an issue belongs to: the background, the band or shape, the picture or the extra pictures. */
+/** The step an issue belongs to: the background, the band or shape, the picture, the extra pictures or the top band or border. */
 export function issueStep(d: Design, issue: Issue): StepKey {
   if (issue.at.k === 'field') return 'field';
   if (issue.at.k === 'design') return 'picture';
   const { path } = issue.at;
-  if (groupAt(d, path).item.k === 'ordinary') return 'ordinary';
+  if (groupAt(d, path).item.k === 'ordinary') return path.join() === peripheralPath(d)?.join() ? 'peripheral' : 'ordinary';
   const extra = extraPicturePath(d);
   return extra && extra.join() === path.join() ? 'extra' : 'picture';
 }

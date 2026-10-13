@@ -7,19 +7,24 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 ## Overview
 
 - **Builder.** Pick a field (plain or one of seven divisions), an optional ordinary (ten) and an
-  optional group of 1–6 charges (28 charges, 40 drawings with postures). Every option is
-  checked against the **rule of tincture** (metal on colour, colour on metal) and against the
-  structural rules (legal counts, arrangements and placements). Options that would break a rule
-  stay visible but are marked blocked, with an explanation. On a divided field charges can be
-  **counterchanged** (each takes the field's other tincture), so every count and arrangement the
-  builder offers has at least one legal tincture, and a rule-of-tincture violation always comes
-  with a one-click fix.
+  optional group of 1–12 charges (28 charges, 40 drawings with postures; counts above six sit
+  behind **More…**). The default flow is three steps, Background → Band or shape → Picture; a
+  fourth card appears only when it applies: extra pictures on the band (or on a chief), or a
+  top band (chief) or border (bordure) beside a band that has no picture. Every option is
+  checked against the **rule of tincture** (SENA A3B, below) and against the structural rules
+  (legal counts, arrangements and placements, laid out by capacity). Options that would break a
+  rule stay visible but are marked blocked, with an explanation. On a divided field charges can
+  be **counterchanged** (each takes the field's other tincture), so every count and arrangement
+  the builder offers has at least one legal tincture, and a rule-of-tincture violation always
+  comes with a one-click fix.
 - **Blazon.** The formal blazon ("Azure, on a bend Or three unicorns rampant Vert") and a
-  plain-English gloss are generated from the structured design, never typed by hand.
+  plain-English gloss are generated from the structured design, never typed by hand, in
+  SCA house style (Table 7 default arrangements are left unsaid, other arrangements always
+  stated; the SCA's default postures likewise).
 - **Registry.** Each community (a *registry*, e.g. one group of friends) keeps its own
   armorial. Registering checks the design against every entry: an exact duplicate is refused, and so
-  is a design that is "too close" (not different enough: less than one clear difference, where
-  look-alike charges and mirror images count half). Anyone can search the registry by
+  is a design that is "too close": one that conflicts under the SCA's rules (SENA A5), which
+  need one substantial change or two distinct changes from every registered design. Anyone can search the registry by
   component: charge, posture, ordinary, field division, any tincture, charge tincture, or text.
 - **No accounts.** Registering returns a private edit link (a capability URL). Keep it to edit or
   withdraw the entry later.
@@ -37,7 +42,7 @@ code.
 
 Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Design**, **Registry**, **Your arms**.
 
-**Design.** Above the builder sit a dismissable welcome strip, a small folding **Examples** box (example arms as small shields, each named by its caption in the accessible name and tooltip; open on a device's first visit, folded on later ones, remembered in `localStorage` and folded when storage is unavailable) and an always-visible **Surprise me** button. Loading an example or a surprise replaces the design with an Undo notice. The left column (sticky on wide screens while it fits the viewport) holds the live shield, a Hatching switch, the Shape picker (see Field shapes below), the blazon and plain-English gloss, the readability meter and the Check availability / Register… actions. The right column holds the Field, Ordinary and Charges steps. Options that would break the rule of tincture (or are structurally illegal) stay visible but are marked blocked; pressing one opens an explanation instead of applying it. A lower-layer change that breaks the design shows a violation panel (with a one-click fix when one exists) and disables Check and Register. The Field and Band or shape tiles show the heraldic term under the icon ("Per pale", "Fess"), with the everyday words ("Split down the middle") in the tooltip and the accessible name; the collapsed step summaries and other labels lead with the everyday words. On narrow screens the charge picker uses compact icon-only tiles (names are in the accessible name, the tooltip and a "Selected:" line).
+**Design.** Above the builder sit a dismissable welcome strip, a small folding **Examples** box (example arms as small shields, each named by its caption in the accessible name and tooltip; open on a device's first visit, folded on later ones, remembered in `localStorage` and folded when storage is unavailable) and an always-visible **Surprise me** button. Loading an example or a surprise replaces the design with an Undo notice. The left column (sticky on wide screens while it fits the viewport) holds the live shield, a Hatching switch, the Shape picker (see Field shapes below), the blazon and plain-English gloss, the readability meter and the Check availability / Register… actions. The right column holds the builder: step 1 **Background** (field), step 2 **Band or shape** (ordinary) and step 3 **Picture** (charge: kind, count with **More…** above six, where it goes, layout, pose with the SCA's default marked, a **With a face (in splendour)** switch for the sun, colour). Under them a quiet secondary row offers the extra layer when it is legal: **+ Add pictures on the band** (a second group of pictures drawn on the band or top bar, with its own count, layout, pose and colour, and **Remove these pictures**), **+ Add a top band (chief)** and **+ Add a border (bordure)** (a second ordinary beside a central band; only offered while there is no picture, because the builder draws the two together only without pictures, and choosing a picture afterwards takes it away, which the Picture step says). Step 4 is then the card for that layer (**Remove the top band**, its colour). Hosts that cannot carry a layer never offer it. Options that would break the rule of tincture (or are structurally illegal) stay visible but are marked blocked; pressing one opens an explanation instead of applying it. A lower-layer change that breaks the design shows a violation panel (with a one-click fix when one exists) and disables Check and Register. The Field and Band or shape tiles show the heraldic term under the icon ("Per pale", "Fess"), with the everyday words ("Split down the middle") in the tooltip and the accessible name; the collapsed step summaries and other labels lead with the everyday words. On narrow screens the charge picker uses compact icon-only tiles (names are in the accessible name, the tooltip and a "Selected:" line).
 
 **Check availability** shows an inline result: *Available*, *Already registered* or *Too close*, the last two with the conflicting mini shield, its name and blazon, the differences, and what to change. **Register…** opens a dialog (a bottom sheet on mobile) with a display name (public), an email address (required, private: "Used only to send you your edit/withdraw link. Never shown publicly.") and an optional Discord username (public), inline per-field errors using the same validators as the Worker, and a "What's public?" popover. A server 409 (duplicate / too close) is rendered with the same panel; an offline copy says the registry can't be reached. Success puts the share link first with a primary **Copy share link** button; the edit link sits below in a distinct "Secret edit link — don't share" box (lock icon, masked after 20 characters, Show and **Copy edit link** buttons), followed by a line saying whether it was emailed ("We've emailed it to you at the address you gave", or a clear note to save it now when sending failed or isn't configured). The address shown is what the user typed in this dialog; the API never returns it. The entry is also kept under Your arms on this device.
 
@@ -51,7 +56,7 @@ Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Desig
 
 **States** (`data-widget-state` on `<html>`): Design — `ready`, `populated`, `error`; Registry — `loading`, `populated`, `empty`, `error`; Your arms — `populated` or `empty`. Dialogs and sheets keep the underlying tab's state.
 
-**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N`, `placement-*`, `swatch-<part>-<tincture>` (charges also `swatch-charge-counterchanged`), `posture-select`, `arrangement-select`; status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `print-nametag`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`); nametag sheet `print-view`, `print-count`, `print-copies-one|fill`, `nametag`, `print-now`, `print-back`.
+**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N` (above six inside `count-more`, whose options are `count-more-select`), `placement-*`, `swatch-<part>-<tincture>` (charges also `swatch-charge-counterchanged`), `posture-select`, `arrangement-select`, `splendour-toggle`; the extra layer `add-extra-picture`, `add-peripheral-chief`, `add-peripheral-bordure`, `remove-extra-picture`, `remove-peripheral`, the steps `step-field|ordinary|charges|extra|peripheral`, `peripheral-tincture`, `peripheral-picture-note`, and for extra pictures the same controls under an `extra-` prefix (`extra-charge-select`, `extra-count-N`, `extra-arrangement-select`, `extra-posture-select`, `extra-splendour-toggle`, `extra-charge-tincture`, `swatch-extra-charge-<tincture>`); status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `print-nametag`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`); nametag sheet `print-view`, `print-count`, `print-copies-one|fill`, `nametag`, `print-now`, `print-back`.
 
 **Keyboard.** Tab order follows the page; radio-style option groups are one tab stop with arrow keys moving and selecting (blocked options can be focused and explain themselves on Enter/Space). Dialogs and sheets trap focus, Escape closes only the topmost layer (a popover inside a dialog closes first), and focus returns to the opener. Animations are off under `prefers-reduced-motion`.
 
@@ -83,8 +88,15 @@ Old drafts (saved before shapes existed) and requests without a `shape` use the 
 
 ## Tinctures and hatching
 
-Eight tinctures: three metals and five colours. The rule of tincture puts metals on colours and
-colours on metals.
+Eight tinctures: three metals and five colours. The rule of tincture follows the SCA's (SENA A3B,
+RULES §A): everything placed on the field (primary, secondary and peripheral groups) must have
+good contrast with the part of the field it lies on, and a tertiary group with the group it lies
+on. Good contrast is a metal with a colour; metal on metal, colour on colour and the same
+tincture twice are poor contrast. Divided fields follow the same walk part by part: a charge
+that crosses a partition line must contrast with every part it touches, so over a field of two
+metals it needs a colour and over two colours a metal. A bordure and a chief are placed on the
+field like any charge (the only exception SENA makes for peripherals, an augmentation, is not
+built). The builder shows the rule as "a colour goes on a metal and a metal on a colour".
 
 | Tincture | Class | Gloss | Fill | Petra Sancta hatching |
 |---|---|---|---|---|
@@ -120,15 +132,18 @@ the line drawn half in each. Every division in the builder has exactly two tinct
 per saltire alternate them), so "the other tincture" is always defined and counterchanging works on
 all seven divisions; a charge on the centre of a quarterly field is drawn in four parts.
 
-- **Model.** A charge group's tincture is a `ChargeTincture`: one of the eight tinctures or the
-  literal `counterchanged`. Designs, drafts and the API carry it as that one string.
-- **Where it is allowed.** Only for charges lying on a divided field: on the field, between an
-  ordinary, under a chief or within a bordure. On a plain field (nothing to reverse) or on an
-  ordinary (the charges don't lie on the field) it is a rule-of-tincture issue with its own message.
-- **Rule of tincture.** Each part shows the other field tincture over its own, so counterchanging is
-  legal exactly when the two field tinctures are one metal and one colour (celestine counts as a
-  metal). On "Per pale Or and Argent" counterchanged mullets are still metal on metal, and on two
-  colours still colour on colour, so both are illegal: every part is judged like any other charge.
+- **Model.** A group's paint (`Group.paint`) is a `Paint`; the builder uses a plain tincture or
+  `{ "k": "counterchanged" }`, which the API accepts as the shorthand string `"counterchanged"`.
+- **Where it is allowed.** For a group lying on a divided field: charges on the field, between an
+  ordinary, under a chief or within a bordure, and a band or other ordinary on the field. On a
+  plain field (nothing to reverse) or for charges on an ordinary (they don't lie on the field) it
+  is a rule-of-tincture issue with its own message.
+- **Rule of tincture (SENA A3B2).** Each part shows the other field tincture over its own, so
+  every edge that touches is judged like any other: counterchanging is legal exactly when the two
+  field tinctures are one metal and one colour (celestine counts as a metal). On "Per pale Or and
+  Argent" counterchanged mullets are metal on metal, and on two colours colour on colour, so both
+  are refused. This is SENA's text, not the College's practice: a few such arms (2016–2025) were
+  registered anyway, and the SCA armorial test files them as `tincture-rule-differs`.
 - **Text.** Blazon: the word replaces the tincture ("three mullets counterchanged", "a lion rampant
   counterchanged"). Gloss: "three five-pointed stars in the opposite colours of the field (blue on
   gold, gold on blue)". Signature code `cc`; tag `charge-tincture:counterchanged` (and the
@@ -168,6 +183,23 @@ Registrations are **remote**: they live in Cloudflare D1 and are reached through
 - `heraldry-builder:draft:v1`: the unsaved builder design, autosaved so a refresh doesn't lose work.
 
 Both are wrapped in `try/catch`; private mode or a full quota just disables them.
+
+### Design model
+
+A design is `{ v: 2, kind: 'arms', field, groups }` (`src/lib/heraldry/design.ts`). The field is a
+recursive paint (a tincture, or a division with its parts). Each group carries an item (an
+ordinary or a charge), a count, an arrangement and optional position, a paint and, in
+`charged`, the groups sitting on it; its role (primary, secondary, peripheral, overall, tertiary)
+and relation (between, about, position) say how it relates to the field and the other groups.
+There is no cap on groups. `kind: 'badge'` (a fieldless badge) is in the type, as are furs, stains,
+proper, field treatments, lines of partition and charge attributes (form, facing, orientation,
+parts, holds); the builder does not draw those yet, so `resolve` accepts them and `support.ts`
+reports each as an `unsupported` issue naming the gap (the SCA test files records under the same
+tags). Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
+(SENA Table 7 arrangements, the SCA's default postures) and puts the groups in canonical order, so
+equivalent inputs have one JSON form and one signature. The builder's own space is the
+"simple space": one ordinary, one picture group (on the field, between the ordinary, or on it),
+extra pictures on the ordinary, or a chief/bordure beside a central ordinary.
 
 ### Registry-keyed model
 
@@ -617,14 +649,19 @@ pending migrations (see Migrations), then run `npm run build` and `npx wrangler 
 
 ## Deferred features
 
-Not in v1, by design:
+The model already has a place for each of these (see Design model); the builder, blazon and
+drawing do not yet, and `resolve` reports them as `unsupported` rather than guessing:
 
-- **Badges** (fieldless single charges). This is planned for v1.1; the design format reserves
-  `v` and a future `kind` discriminator.
-- **Marshalling** (impalement, quartering of two coats).
-- **Furs** (ermine, vair), **lines of partition** (wavy, indented, …), **multiple charge
-  groups**, **tertiary charges**, and the "of the field" blazon economy.
-- A **strict SCA-style mode** that requires two clear differences.
+- **Fieldless badges** (`kind: 'badge'`). Planned for phase B, following SCA practice.
+- **Marshalling** (impalement, quartering of two coats): out of scope; the model is designed
+  without it.
+- **Furs** (ermine, vair), **stains**, **proper**, **lines of partition** (wavy, indented, …),
+  **field treatments** (barry, checky, semy, …) and charge attributes such as holding or
+  arming, the overall position and half-field positions (dexter, sinister).
+- **More than the supported group combinations**: a band with a picture and a chief or bordure,
+  two charge groups beside the main one, a charge overall, tertiary charges on a charge or
+  bordure. A band with a chief or bordure and no charges is built (the extra layer card).
+- **Art** is original placeholder drawing; traceable art is under discussion.
 - **Moderation:** a moderator token, hidden status and a report link. An owner withdraws their
   own entry, with the edit link or a recovery email.
 - **Changing the owner's email address.** It is set at registration; there is no edit route.

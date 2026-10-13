@@ -39,12 +39,6 @@ export interface Classification {
 /** The design-only checks, once per distinct design: many records match the same one. */
 const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null>>();
 
-/**
- * A band and a chief or bordure: the library draws and checks it, but the Design tab has one place for a
- * band or shape (simpleParts), so no click sequence builds it. That is the builder's limit, filed as a gap.
- */
-const hasTwoOrdinaries = (design: Design): boolean => design.groups.filter((g) => g.item.k === 'ordinary').length > 1;
-
 function checkDesign(design: Design) {
   const key = canonicalJson(design);
   let found = designChecks.get(key);
@@ -55,8 +49,7 @@ function checkDesign(design: Design) {
     found = {
       assess: a.kind === 'ok' ? null : `${a.kind === 'violation' ? a.status : a.kind}: ${a.issues.map((i) => i.message).join(' ')}`,
       render: rendered.length ? rendered.join('; ') : null,
-      builder: hasTwoOrdinaries(design) ? 'the Design tab has one place for a band or shape, and this has two'
-        : path.problems.length ? path.problems.join('; ') : null,
+      builder: path.problems.length ? path.problems.join('; ') : null,
     };
     designChecks.set(key, found);
   }
@@ -151,8 +144,7 @@ function arrangementWording(m: MatchResult): string | null {
 function gapTags(record: ArmoryRecord, m: MatchResult): string[] {
   if (m.match) {
     const design = m.match.design!;
-    const findings = findingTags(design);
-    return findings.length || !hasTwoOrdinaries(design) ? findings : ['multiple-groups:ordinaries'];
+    return findingTags(design);
   }
   const wording = arrangementWording(m);
   if (wording) return [wording];
