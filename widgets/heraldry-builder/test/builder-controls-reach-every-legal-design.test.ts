@@ -12,7 +12,8 @@ import {
   countChoices, fieldTinctureChoices, legalArrangements, ordinaryTinctureChoices, placementChoices, postureChoices, tinctureIssues,
   type Arrangement, type ChargeTincture, type Count, type Field, type NormDesign, type Ordinary, type Placement, type Tincture,
 } from '../src/lib/heraldry';
-import { assess, setArrangement, setCharge, setCount, setPlacement } from '../src/lib/builder';
+import { assess, setCharge } from '../src/lib/builder';
+import { layoutMoves } from './helpers';
 
 const PLACEMENTS: readonly Placement[] = ['field', 'ordinary'];
 
@@ -48,13 +49,7 @@ function reachableLayouts(start: NormDesign): Set<string> {
   const seen = new Map<string, NormDesign>([[layoutKey(start.charges!), start]]);
   const queue = [start];
   for (let d = queue.shift(); d; d = queue.shift()) {
-    const arr = arrangementChoices(d);
-    const next = [
-      ...countChoices(d).filter((c) => c.allowed).map((c) => setCount(d!, c.value)),
-      ...placementChoices(d).filter((c) => c.allowed).map((c) => setPlacement(d!, c.value)),
-      ...(arr.mode === 'choose' ? arr.choices.filter((c) => c.allowed).map((c) => setArrangement(d!, c.value)) : []),
-    ];
-    for (const n of next) {
+    for (const { design: n } of layoutMoves(d)) {
       const k = layoutKey(n.charges!);
       if (!seen.has(k)) {
         seen.set(k, n);

@@ -556,11 +556,15 @@ npm run dev
 # Production build → dist/
 npm run build
 
-# Typecheck the SPA (incl. the store test) and the Worker (incl. the lib and Worker tests)
+# Typecheck the SPA (incl. the store test), the Worker (incl. the lib and Worker tests) and the SCA test tooling
 npm run typecheck
 
-# Run all tests: heraldry library, Worker/D1 (vitest-pool-workers, local Miniflare D1), store seam
+# Run all tests: heraldry library, Worker/D1 (vitest-pool-workers, local Miniflare D1), store seam,
+# and the SCA armorial test (plain Node; `npx vitest run --project sca` alone)
 npm test
+
+# Rewrite the SCA ignore list (test/fixtures/sca/ignored.json) after changing the widget or test/sca/
+npm run sca:ignore
 
 # Regenerate public/favicon.ico from public/favicon.svg
 npm run favicon
@@ -594,6 +598,11 @@ npm run favicon
   owner checks and recovery) and its online result mapping (register with email and Discord,
   owner check, recovery, redeem remembering the new link, withdraw forgetting it), with `fetch`
   stubbed.
+- `test/sca-armorial.test.ts`: the widget against every current armory record in the SCA Ordinary &
+  Armorial (`test/fixtures/sca/oanda.db`, committed unmodified for tests only; it never reaches
+  `dist/`). Each record either matches a design the widget blazons identically, would register,
+  draws and lets the Design tab build, or is on the ignore list with the gaps that stop it. See
+  `test/fixtures/sca/README.md`.
 
 No test touches the network or a real Cloudflare account.
 

@@ -9,7 +9,7 @@
   "dataSources": [
     {
       "name": "Community armorial (user-generated)",
-      "description": "There is no external dataset. The registry is created at runtime by the widget's own users and stored in the Worker's Cloudflare D1 database (display name, optional public contact, and the structured design with its generated blazon). The committed src/data/sample-registry.json holds 16 fictional, hand-authored entries used as the offline/development fallback; no external armorial (SCA O&A, Heraldry of the World, Wikimedia Commons) is imported. Charge artwork is original to this widget.",
+      "description": "There is no external dataset. The registry is created at runtime by the widget's own users and stored in the Worker's Cloudflare D1 database (display name, optional public contact, and the structured design with its generated blazon). The committed src/data/sample-registry.json holds 16 fictional, hand-authored entries used as the offline/development fallback; no external armorial (SCA O&A, Heraldry of the World, Wikimedia Commons) is imported. (A verbatim copy of the SCA O&A is committed under test/fixtures/sca for the test suite only; nothing in src/ reads it and it is not shipped.) Charge artwork is original to this widget.",
       "url": "https://heraldry-builder.widgets.beshir.org"
     }
   ],
