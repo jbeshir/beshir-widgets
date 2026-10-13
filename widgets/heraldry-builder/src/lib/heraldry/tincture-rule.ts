@@ -1,23 +1,17 @@
-// Rule of tincture: contrast predicate, per-layer contacts (incl. the five-point slot
-// probe) and human messages naming the layer and, where relevant, the slots.
+// The rule of tincture (SENA A3B): a ground walker. Every group lies on a ground — the field for primary,
+// secondary and peripheral groups, its host for a tertiary — and must contrast with the part of it that is
+// actually under it. Messages name the element and, where a group is judged slot by slot, the slots.
 
+import { TINCTURE_NAME, type Tincture } from './tinctures';
+import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, type ChargeId } from './charges';
+import { contrastFailure, type ContrastFailure } from './contrast';
 import {
-  NUMBER_WORD, ORDINARY_NAME, chargeContext, chargeNoun, fieldTinctures, type Count, type DividedField, type Field, type Issue, type NormDesign,
-  type OrdinaryType,
+  fieldTinctures, groupAt, hostOf, notSupported, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
 } from './design';
-import { chargeSlots, slotColumn, slotContacts, slotRow, type Slot } from './geometry';
-import { CHARGE_TINCTURE_NAME, TINCTURE_CLASS, TINCTURE_NAME, type ChargeTincture, type Tincture } from './tinctures';
-import { capitalise, joinAnd } from './words';
-
-export type ContrastFailure = 'same' | 'colour-on-colour' | 'metal-on-metal';
-
-/** `contacts` = tinctures the element lies on. Never the same tincture, and at least one opposite class. */
-export function contrastFailure(top: Tincture, contacts: readonly Tincture[]): ContrastFailure | null {
-  if (contacts.includes(top)) return 'same';
-  if (contacts.some((c) => TINCTURE_CLASS[c] !== TINCTURE_CLASS[top])) return null;
-  return TINCTURE_CLASS[top] === 'colour' ? 'colour-on-colour' : 'metal-on-metal';
-}
+import { fieldTinctureAt, ordinarySamplePoints, probePoints, slotColumn, slotRow, type Pt, type Slot } from './geometry';
+import { canonicalSlots } from './layout';
+import { ORDINARY_NAME } from './ordinaries';
 
 export const FAILURE_TEXT: Record<ContrastFailure, string> = {
   same: 'same tincture',
@@ -25,55 +19,79 @@ export const FAILURE_TEXT: Record<ContrastFailure, string> = {
   'metal-on-metal': 'metal on metal',
 };
 
-/** The field's other tincture: what a counterchanged charge is filled with where it lies on `under`. */
-function counterchangeOf(field: DividedField, under: Tincture): Tincture {
-  return field.tinctures[0] === under ? field.tinctures[1] : field.tinctures[0];
+/** The field's two tinctures when it is divided into two plain tinctures, else null: all counterchanging needs. */
+function fieldPair(d: Design): [Tincture, Tincture] | null {
+  const ts = d.kind === 'arms' && d.field.k === 'divided' ? fieldTinctures(d) : [];
+  return ts.length === 2 ? [ts[0], ts[1]] : null;
+}
+
+/** The field tinctures at these points, in the field's part order. */
+function tincturesAt(field: Paint, points: readonly Pt[], partOrder: readonly Tincture[]): Tincture[] {
+  const seen = new Set(points.map(([x, y]) => fieldTinctureAt(field, x, y)));
+  return partOrder.filter((t, i) => seen.has(t) && partOrder.indexOf(t) === i);
+}
+
+/** The heater slots of a charge group, or none when it has no layout (the structure rules say so). */
+function slotsOf(d: Design, path: GroupPath): Slot[] {
+  const slots = canonicalSlots(d, path);
+  return slots.length === groupAt(d, path).count ? slots : [];
 }
 
 /**
- * Why a charge tinctured `t` fails on `contacts` (the field tinctures it lies on), or null. Each part
- * of a counterchanged charge shows the field's other tincture over the part it lies on, so it fails
- * exactly when the two field tinctures share a class; on a plain field there is no other tincture
- * and the charge would vanish into the field.
+ * The tinctures each slot of a charge group lies on (probed at five points), or the one list of an ordinary.
+ * A tertiary lies on its host's paint; a counterchanged host shows the field's other tincture over each part.
+ * Empty when there is nothing to judge: no layout, or a host with no ground to take tinctures from.
  */
-export function chargeContrastFailure(t: ChargeTincture, field: Field, contacts: readonly Tincture[]): ContrastFailure | null {
-  if (t !== 'counterchanged') return contrastFailure(t, contacts);
-  if (field.kind === 'plain') return 'same';
-  return contacts.map((under) => contrastFailure(counterchangeOf(field, under), [under])).find((f) => f !== null) ?? null;
-}
-
-/**
- * Why the charges can't be counterchanged where they are, or null when they can: only charges lying
- * on a divided field can take its tinctures in reverse. Phrased so it can double as a blocked reason.
- */
-export function counterchangeUnavailable(nd: NormDesign): string | null {
-  const c = nd.charges;
-  if (!c) return null;
-  const noun = chargeNoun(c.charge, c.count);
-  if (chargeContext(nd.ordinary, c.placement) === 'on' && nd.ordinary) {
-    const [lie, they] = c.count === 1 ? ['lies', 'it'] : ['lie', 'they'];
-    return `The ${noun} ${lie} on the ${ORDINARY_NAME[nd.ordinary.type]}, not on the field, so ${they} can't be counterchanged — only charges on a divided field can.`;
+export function groundContacts(d: Design, path: GroupPath): Tincture[][] {
+  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
+  const group = groupAt(d, path), host = hostOf(d, path);
+  const parts = fieldTinctures(d);
+  if (host) {
+    if (group.item.k !== 'charge') return notSupported({ category: 'placement', detail: 'tertiary-ordinary' });
+    if (host.paint.k === 'tincture') return slotsOf(d, path).map(() => [(host.paint as { t: Tincture }).t]);
+    const pair = fieldPair(d);
+    if (host.paint.k !== 'counterchanged') return notSupported({ category: 'tincture', detail: host.paint.k });
+    if (!pair) return [];
+    const other = (t: Tincture) => (t === pair[0] ? pair[1] : pair[0]);
+    return slotsOf(d, path).map((s) => tincturesAt(d.field, probePoints(s), parts).map(other));
   }
-  if (nd.field.kind === 'plain') {
-    return 'Counterchanged needs a divided field: each charge takes the field\'s other tincture, and a plain field has only one.';
+  if (group.item.k === 'ordinary') return [tincturesAt(d.field, ordinarySamplePoints(group.item.type), parts)];
+  return slotsOf(d, path).map((s) => tincturesAt(d.field, probePoints(s), parts));
+}
+
+/** What a thing is called in a message: "lion", "mullets", "fess". */
+function nounOf(g: Group): string {
+  return g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : g.count === 1 ? CHARGES[g.item.charge].name : CHARGES[g.item.charge].plural;
+}
+
+/**
+ * Why a counterchanged group can't be, or null when it can: only things lying on a divided field can take
+ * its tinctures in reverse (SENA A3B2). Phrased so it can double as a blocked reason.
+ */
+export function counterchangeUnavailable(d: Design, path: GroupPath): string | null {
+  const group = groupAt(d, path), host = hostOf(d, path);
+  if (group.paint.k !== 'counterchanged') return null;
+  const thing = `${group.item.k === 'ordinary' ? 'the ' : ''}${nounOf(group)}`;
+  if (host) {
+    const [lie, they] = group.item.k === 'charge' && group.count > 1 ? ['lie', 'they'] : ['lies', 'it'];
+    const onto = host.item.k === 'ordinary' ? ORDINARY_NAME[host.item.type] : CHARGES[host.item.charge].name;
+    return `The ${nounOf(group)} ${lie} on the ${onto}, not on the field, so ${they} can't be counterchanged — only charges and bands on a divided field can.`;
+  }
+  if (fieldPair(d) === null) {
+    const each = group.item.k === 'ordinary' ? thing : 'each charge';
+    return `Counterchanged needs a divided field: ${each} takes the field's other tincture, and a plain field has only one.`;
   }
   return null;
 }
 
-/** Field tinctures an ordinary lies on: all of them, except a chief on per fess / per chevron (t1 only). */
-export function ordinaryContacts(field: Field, type: OrdinaryType): Tincture[] {
-  if (field.kind === 'plain') return [field.tincture];
-  if (type === 'chief' && (field.division === 'per-fess' || field.division === 'per-chevron')) return [field.tinctures[0]];
-  return [field.tinctures[0], field.tinctures[1]];
-}
-
-/** What each charge slot lies on: the field (five-point probe) or the ordinary it is charged on. */
-export function chargeSlotContacts(nd: NormDesign): Tincture[][] {
-  const c = nd.charges;
-  if (!c) return [];
-  const slots = chargeSlots(nd);
-  if (chargeContext(nd.ordinary, c.placement) === 'on') return nd.ordinary ? slots.map(() => [nd.ordinary!.tincture]) : [];
-  return slots.map((s) => slotContacts(nd.field, s));
+/**
+ * Why a group with this paint fails on its ground, or null. A counterchanged group shows, over each part
+ * of the field it lies on, the other part's tincture, so it fails exactly when the two share a class.
+ */
+function failureOf(paint: Paint, contacts: readonly Tincture[], pair: readonly [Tincture, Tincture] | null): ContrastFailure | null {
+  if (paint.k === 'tincture') return contrastFailure(paint.t, contacts);
+  if (paint.k === 'counterchanged') return pair ? contrastFailure(pair[1], [pair[0]]) : 'same';
+  return notSupported({ category: 'tincture', detail: paint.k });
 }
 
 /** "(a two-colour field needs a metal charge)" when both background tinctures share a class. */
@@ -86,21 +104,20 @@ function twoClassHint(failure: ContrastFailure, contacts: readonly Tincture[], w
 
 /**
  * Name a subset of slots in words: "the Gules lion", "both Or keys", "the two upper Gules mullets",
- * "the upper-left and lower Gules mullets".
+ * "the upper-left and lower Gules mullets". With no paint the word is dropped: "the two upper mullets".
  */
-export function describeSlots(slots: readonly Slot[], idx: readonly number[], tincture: Tincture | null, charge: ChargeId): string {
+export function describeSlots(slots: readonly Slot[], idx: readonly number[], paint: string | null, charge: ChargeId): string {
   const meta = CHARGES[charge];
-  // With no tincture the word is dropped: "the two upper mullets".
-  const T = tincture ? `${TINCTURE_NAME[tincture]} ` : '';
+  const T = paint ? `${paint} ` : '';
   const count = slots.length;
   if (count <= 1) return `the ${T}${meta.name}`;
-  if (idx.length === count) return count === 2 ? `both ${T}${meta.plural}` : `all ${NUMBER_WORD[count as Count]} ${T}${meta.plural}`;
+  if (idx.length === count) return count === 2 ? `both ${T}${meta.plural}` : `all ${numberWord(count)} ${T}${meta.plural}`;
   const rows = slots.map(slotRow);
   const r0 = rows[idx[0]];
   const sameRow = idx.every((i) => rows[i] === r0);
   const othersInRow = rows.some((r, i) => r === r0 && !idx.includes(i));
   if (sameRow && !othersInRow) {
-    return idx.length === 1 ? `the ${r0} ${T}${meta.name}` : `the ${NUMBER_WORD[idx.length as Count]} ${r0} ${T}${meta.plural}`;
+    return idx.length === 1 ? `the ${r0} ${T}${meta.name}` : `the ${numberWord(idx.length)} ${r0} ${T}${meta.plural}`;
   }
   const oneRow = rows.every((r) => r === rows[0]);
   const labels = idx.map((i) => {
@@ -111,96 +128,87 @@ export function describeSlots(slots: readonly Slot[], idx: readonly number[], ti
   return idx.length === 1 ? `the ${labels[0]} ${T}${meta.name}` : `the ${joinAnd(labels)} ${T}${meta.plural}`;
 }
 
-/** Every rule-of-tincture violation, ordinary first then charges. */
-export function tinctureIssues(nd: NormDesign): Issue[] {
-  const issues: Issue[] = [];
-  const { field, ordinary, charges } = nd;
+const paintName = (p: Paint): string => (p.k === 'tincture' ? TINCTURE_NAME[p.t] : 'Counterchanged');
 
-  if (ordinary) {
-    const contacts = ordinaryContacts(field, ordinary.type);
-    const f = contrastFailure(ordinary.tincture, contacts);
-    if (f) {
-      const T = TINCTURE_NAME[ordinary.tincture];
-      const name = ORDINARY_NAME[ordinary.type];
-      let message: string;
-      if (field.kind === 'plain') message = `${T} ${name} on ${TINCTURE_NAME[field.tincture]} field: ${FAILURE_TEXT[f]}`;
-      else if (f === 'same') message = `${T} ${name} lies on the ${T} part of the field: same tincture`;
-      else if (contacts.length === 1) message = `${T} ${name} lies on ${TINCTURE_NAME[contacts[0]]}: ${FAILURE_TEXT[f]}`;
-      else message = `${T} ${name} on ${TINCTURE_NAME[contacts[0]]} and ${TINCTURE_NAME[contacts[1]]} field: ${FAILURE_TEXT[f]}${twoClassHint(f, contacts, 'ordinary')}`;
-      issues.push({ code: 'tincture', layer: 'ordinary', message });
-    }
+/** The issue of an ordinary that fails on `contacts` of a field. */
+function ordinaryMessage(d: Design, g: Group, f: ContrastFailure, contacts: readonly Tincture[], pair: readonly [Tincture, Tincture] | null): string {
+  const T = paintName(g.paint), name = nounOf(g);
+  if (g.paint.k === 'counterchanged' && pair) {
+    return `${T} ${name} on ${TINCTURE_NAME[pair[0]]} and ${TINCTURE_NAME[pair[1]]}: ${FAILURE_TEXT[f]} (counterchanging needs a field of one metal and one colour)`;
   }
+  const parts = fieldTinctures(d);
+  if (d.kind === 'arms' && d.field.k === 'tincture') return `${T} ${name} on ${TINCTURE_NAME[parts[0]]} field: ${FAILURE_TEXT[f]}`;
+  if (f === 'same') return `${T} ${name} lies on the ${T} part of the field: same tincture`;
+  if (contacts.length === 1) return `${T} ${name} lies on ${TINCTURE_NAME[contacts[0]]}: ${FAILURE_TEXT[f]}`;
+  return `${T} ${name} on ${TINCTURE_NAME[contacts[0]]} and ${TINCTURE_NAME[contacts[1]]} field: ${FAILURE_TEXT[f]}${twoClassHint(f, contacts, 'ordinary')}`;
+}
 
-  if (charges) {
-    const meta = CHARGES[charges.charge];
-    const noun = charges.count === 1 ? meta.name : meta.plural;
-    const tincture = charges.tincture;
-    const T = CHARGE_TINCTURE_NAME[tincture];
-    const unavailable = tincture === 'counterchanged' ? counterchangeUnavailable(nd) : null;
-    if (unavailable) {
-      issues.push({ code: 'tincture', layer: 'charges', message: unavailable, slots: chargeSlots(nd).map((_, i) => i) });
-    } else if (tincture === 'counterchanged') {
-      // Available, so the field is divided. Every part shows the other field tincture over its own,
-      // so all the charges pass or fail together.
-      const f = field.kind === 'divided' ? chargeContrastFailure(tincture, field, field.tinctures) : null;
-      if (f) {
-        const [a, b] = fieldTinctures(field).map((t) => TINCTURE_NAME[t]);
-        const hint = f === 'same' ? '' : ' (counterchanging needs a field of one metal and one colour)';
-        issues.push({
-          code: 'tincture', layer: 'charges',
-          message: `${capitalise(T)} ${noun} on ${a} and ${b}: ${FAILURE_TEXT[f]}${hint}`,
-          slots: chargeSlots(nd).map((_, i) => i),
-        });
-      }
-    } else if (chargeContext(ordinary, charges.placement) === 'on') {
-      if (ordinary && ordinary.type !== 'bordure') {
-        const f = contrastFailure(tincture, [ordinary.tincture]);
-        if (f) {
-          issues.push({
-            code: 'tincture', layer: 'charges',
-            message: `${T} ${noun} on ${TINCTURE_NAME[ordinary.tincture]} ${ORDINARY_NAME[ordinary.type]}: ${FAILURE_TEXT[f]}`,
-            slots: Array.from({ length: charges.count }, (_, i) => i),
-          });
-        }
-      }
-    } else {
-      const slots = chargeSlots(nd);
-      const contacts = slots.map((s) => slotContacts(field, s));
-      const failures = contacts.map((cs) => contrastFailure(tincture, cs));
-      if (field.kind === 'plain') {
-        const f = failures.find((x) => x !== null);
-        if (f) {
-          issues.push({
-            code: 'tincture', layer: 'charges',
-            message: `${T} ${noun} on ${TINCTURE_NAME[field.tincture]} field: ${FAILURE_TEXT[f]}`,
-            slots: slots.map((_, i) => i),
-          });
-        }
-      } else {
-        // Group failing slots that share the same background and failure, in slot order.
-        const groups = new Map<string, number[]>();
-        failures.forEach((f, i) => {
-          if (!f) return;
-          const key = `${f}|${contacts[i].join(',')}`;
-          groups.set(key, [...(groups.get(key) ?? []), i]);
-        });
-        for (const [key, idx] of groups) {
-          const f = key.split('|')[0] as ContrastFailure;
-          const cs = contacts[idx[0]];
-          const names = cs.map((t) => TINCTURE_NAME[t]);
-          let message: string;
-          if (idx.length === slots.length && cs.length === 2) {
-            message = `${T} ${noun} on ${names[0]} and ${names[1]} field: ${FAILURE_TEXT[f]}${twoClassHint(f, cs, 'charge')}`;
-          } else {
-            const subject = describeSlots(slots, idx, tincture, charges.charge);
-            const plural = idx.length > 1;
-            const where = cs.length === 1 ? `on ${names[0]}` : `across ${names[0]} and ${names[1]}`;
-            message = `${capitalise(subject)} ${plural ? 'lie' : 'lies'} ${where}: ${FAILURE_TEXT[f]}${twoClassHint(f, cs, 'charge')}`;
-          }
-          issues.push({ code: 'tincture', layer: 'charges', message, slots: idx });
-        }
-      }
-    }
+/** The issues of a charge group, one per run of failing slots that share a ground and a failure. */
+function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, contacts: Tincture[][], pair: readonly [Tincture, Tincture] | null): Issue[] {
+  if (g.item.k !== 'charge') return [];
+  const { charge } = g.item;
+  const at = { k: 'group', path } as const;
+  const slots = canonicalSlots(d, path);
+  const noun = nounOf(g), T = paintName(g.paint);
+  const all = slots.map((_, i) => i);
+  const failures = contacts.map((cs) => (cs.length === 0 ? null : failureOf(g.paint, cs, pair)));
+  const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', at, message, slots: idx });
+
+  if (g.paint.k === 'counterchanged') {
+    // Every part shows the other field tincture over its own, so all the charges pass or fail together.
+    const f = failures.find((x) => x !== null);
+    if (!f || !pair) return [];
+    const hint = f === 'same' ? '' : ' (counterchanging needs a field of one metal and one colour)';
+    return [issue(`${T} ${noun} on ${TINCTURE_NAME[pair[0]]} and ${TINCTURE_NAME[pair[1]]}: ${FAILURE_TEXT[f]}${hint}`, all)];
   }
-  return issues;
+  if (host?.paint.k === 'tincture') {
+    const f = failures.find((x) => x !== null);
+    const onto = host.item.k === 'ordinary' ? ORDINARY_NAME[host.item.type] : CHARGES[host.item.charge].name;
+    return f ? [issue(`${T} ${noun} on the ${TINCTURE_NAME[host.paint.t]} ${onto}: ${FAILURE_TEXT[f]}`, all)] : [];
+  }
+  if (d.kind === 'arms' && d.field.k === 'tincture') {
+    const f = failures.find((x) => x !== null);
+    return f ? [issue(`${T} ${noun} on ${TINCTURE_NAME[d.field.t]} field: ${FAILURE_TEXT[f]}`, all)] : [];
+  }
+  // Group failing slots that share the same background and failure, in slot order.
+  const groups = new Map<string, number[]>();
+  failures.forEach((f, i) => {
+    if (!f) return;
+    const key = `${f}|${contacts[i].join(',')}`;
+    groups.set(key, [...(groups.get(key) ?? []), i]);
+  });
+  return [...groups].map(([key, idx]) => {
+    const f = key.split('|')[0] as ContrastFailure;
+    const cs = contacts[idx[0]];
+    const names = cs.map((t) => TINCTURE_NAME[t]);
+    if (idx.length === slots.length && cs.length === 2 && !host) {
+      return issue(`${T} ${noun} on ${names[0]} and ${names[1]} field: ${FAILURE_TEXT[f]}${twoClassHint(f, cs, 'charge')}`, idx);
+    }
+    const subject = describeSlots(slots, idx, g.paint.k === 'tincture' ? T : null, charge);
+    const where = cs.length === 1 ? `on ${names[0]}` : `across ${names[0]} and ${names[1]}`;
+    return issue(`${capitalise(subject)} ${idx.length > 1 ? 'lie' : 'lies'} ${where}: ${FAILURE_TEXT[f]}${twoClassHint(f, cs, 'charge')}`, idx);
+  });
+}
+
+/** The rule-of-tincture violations of the group at `path` alone. */
+export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
+  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
+  const group = groupAt(d, path), host = hostOf(d, path);
+  const at = { k: 'group', path } as const;
+  const unavailable = counterchangeUnavailable(d, path);
+  if (unavailable) {
+    const slots = group.item.k === 'charge' ? slotsOf(d, path).map((_, i) => i) : [];
+    return [{ code: 'tincture', at, message: unavailable, slots }];
+  }
+  const pair = fieldPair(d);
+  const contacts = groundContacts(d, path);
+  if (group.item.k === 'charge') return chargeIssues(d, path, group, host, contacts, pair);
+  const f = contacts[0].length === 0 ? null : failureOf(group.paint, contacts[0], pair);
+  return f ? [{ code: 'tincture', at, message: ordinaryMessage(d, group, f, contacts[0], pair), slots: [] }] : [];
+}
+
+/** Every rule-of-tincture violation, group by group in canonical order. */
+export function tinctureIssues(d: Design): Issue[] {
+  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
+  return walkGroups(d).flatMap(({ path }) => groupTinctureIssues(d, path));
 }

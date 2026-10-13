@@ -11,7 +11,7 @@
 import {
   CHARGES, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, hostCounts, postureTerm, resolve, structuralIssues, walkGroups,
   type ChargeId, type OrdinaryType, type Posture,
-} from '../../src/lib/heraldry/next';
+} from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import {
   BUCKET_DESCRIPTION, CHARGE_BUCKETS, CONTAINER_WORDS, CONTEXT_WORDS, CROSS_POST, CROSS_PRE, FUNCTION_WORDS, FURS,

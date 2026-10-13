@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { TAGS_PER_PAGE, sheetTags, type Copies, type Nametag } from '../lib/nametags';
 import * as store from '../store';
-import { Shield } from './next/Shield';
+import { Shield } from './Shield';
 
 interface Props {
   id: string;

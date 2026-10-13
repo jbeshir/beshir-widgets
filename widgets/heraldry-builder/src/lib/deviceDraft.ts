@@ -6,7 +6,7 @@
 // saved before field shapes existed (v: 1) have no shape; the store shows them as heater shields.
 // Only store.ts imports this module.
 
-import type { FieldShape } from './heraldry/next';
+import type { FieldShape } from './heraldry';
 
 const KEY = 'heraldry-builder:draft:v1';
 

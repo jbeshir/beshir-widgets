@@ -10,9 +10,9 @@
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
 // build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { blazon, canonicalJson, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry/next';
+import { blazon, canonicalJson, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
-import type { Gap } from '../../src/lib/heraldry/next';
+import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, type MatchResult } from './match';
 import { normaliseBlazon } from './normalise';
 import type { ArmoryRecord } from './oanda';

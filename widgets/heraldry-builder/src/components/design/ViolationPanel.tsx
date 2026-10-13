@@ -1,8 +1,8 @@
 // The design breaks a rule after a lower-layer change: list the problems by layer and offer a
 // one-click fix when a single tincture swap (or a structural refit) clears them.
 
-import { fitGroup, suggestTinctureFix, type Issue, type Design } from '../../lib/heraldry/next';
-import { STEP_LABEL, assess, extraPicturePath, fixText, issueStep, picturePath, sameDesign, type StepKey } from '../../lib/next/builder';
+import { fitGroup, suggestTinctureFix, type Issue, type Design } from '../../lib/heraldry';
+import { STEP_LABEL, assess, extraPicturePath, fixText, issueStep, picturePath, sameDesign, type StepKey } from '../../lib/builder';
 
 interface Props {
   design: Design;

@@ -6,13 +6,13 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { blazon, groupAt, groupTinctureOf, type Companion, type FieldShape, type Design, type ShapedDesign } from '../../lib/heraldry/next';
+import { blazon, groupAt, groupTinctureOf, type Companion, type FieldShape, type Design, type ShapedDesign } from '../../lib/heraldry';
 import { useCompact } from '../../lib/useCompact';
-import { issueStep, picturePath, type DesignReport, type StepKey } from '../../lib/next/builder';
+import { issueStep, picturePath, type DesignReport, type StepKey } from '../../lib/builder';
 import type { RefObject } from 'preact';
 import type { JumpTarget } from '../Availability';
 import { SavePicture } from '../SavePicture';
-import { Shield } from '../next/Shield';
+import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
 import { AddExtraPicture, ChargesStep, ExtraStep, FieldStep, OrdinaryStep, type Accordion } from './BuilderSteps';
 import { Examples } from './Examples';

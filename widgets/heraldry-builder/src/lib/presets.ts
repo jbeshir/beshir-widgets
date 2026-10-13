@@ -4,8 +4,8 @@
 import {
   CHARGE_IDS, FIELD_SHAPES, TINCTURES, groupTinctureChoices, tincturePaint, postureChoices, readability, resolve,
   type ChargeId, type Design, type FieldShape, type ShapedDesign, type Tincture,
-} from './heraldry/next';
-import { assess, picturePath, setCharge, setGroupTincture, setPosture } from './next/builder';
+} from './heraldry';
+import { assess, picturePath, setCharge, setGroupTincture, setPosture } from './builder';
 
 interface ExampleDesign extends ShapedDesign {
   id: string;

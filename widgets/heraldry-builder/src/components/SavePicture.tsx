@@ -4,9 +4,9 @@
 
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
-import type { FieldShape, Design } from '../lib/heraldry/next';
+import type { FieldShape, Design } from '../lib/heraldry';
 import { pictureFileName, standaloneSvg, type PictureFormat } from '../lib/exportPicture';
-import { Shield } from './next/Shield';
+import { Shield } from './Shield';
 
 const SVG_WIDTH_PX = 512;
 const PNG_WIDTH_PX = 1024;

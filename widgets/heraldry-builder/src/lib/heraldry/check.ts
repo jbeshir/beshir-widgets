@@ -1,7 +1,7 @@
 // The availability check shared by the Worker (POST /api/arms/check, and the checks before a write) and
 // the offline sample in the SPA, so both build the same answer from the same entries.
 
-import type { NormDesign } from './design';
+import type { Design } from './design';
 import { checkUnique, explainDifferences, type Comparison, type DifferenceNote } from './difference';
 import { readability, type ReadabilityBand } from './readability';
 import type { FieldShape } from './shape';
@@ -19,7 +19,7 @@ export interface CheckableEntry {
   displayName: string;
   blazon: string;
   signature: string;
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
 }
 
@@ -28,7 +28,7 @@ export interface ConflictSummary {
   id: string;
   displayName: string;
   blazon: string;
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
 }
 
@@ -39,7 +39,7 @@ export interface ComparedEntry {
 }
 
 export type UniquenessReport =
-  /** `closest`: the first entry the design is different enough from only by adding up minor differences. */
+  /** `closest`: the first entry the design is clear of only by two distinct changes. */
   | { verdict: 'ok'; closest: ComparedEntry | null }
   | { verdict: 'duplicate'; conflict: ConflictSummary }
   | { verdict: 'too-close'; conflict: ConflictSummary; differences: DifferenceNote[] };
@@ -57,14 +57,14 @@ function conflictOf(e: CheckableEntry): ConflictSummary {
   return { id: e.id, displayName: e.displayName, blazon: e.blazon, design: e.design, shape: e.shape };
 }
 
-/** How `nd` fares against `entries` (in registration order); `excludeId` skips the entry being edited. */
-export function reportUniqueness(nd: NormDesign, sig: string, entries: readonly CheckableEntry[], excludeId?: string): UniquenessReport {
+/** How `design` fares against `entries` (in registration order); `excludeId` skips the entry being edited. */
+export function reportUniqueness(design: Design, sig: string, entries: readonly CheckableEntry[], excludeId?: string): UniquenessReport {
   const entry = (id: string) => entries.find((e) => e.id === id)!;
   const compared = (c: Comparison) => {
     const e = entry(c.of);
-    return { conflict: conflictOf(e), differences: explainDifferences(nd, e.design, c.differences) };
+    return { conflict: conflictOf(e), differences: explainDifferences(design, e.design, c.differences) };
   };
-  const v = checkUnique(nd, sig, entries, excludeId);
+  const v = checkUnique(design, sig, entries, excludeId);
   if (v.kind === 'ok') return { verdict: 'ok', closest: v.closest && compared(v.closest) };
   if (v.kind === 'duplicate') return { verdict: 'duplicate', conflict: conflictOf(entry(v.of)) };
   return { verdict: 'too-close', ...compared(v) };
@@ -78,7 +78,7 @@ export type CheckResponse = UniquenessReport & {
   readability: ReadabilityBand;
 };
 
-export function checkResponse(nd: NormDesign, registry: RegistryRef, entries: readonly CheckableEntry[]): CheckResponse {
-  const sig = signature(nd);
-  return { ...reportUniqueness(nd, sig, entries), registry, blazon: blazon(nd), signature: sig, readability: readability(nd).band };
+export function checkResponse(design: Design, registry: RegistryRef, entries: readonly CheckableEntry[]): CheckResponse {
+  const sig = signature(design);
+  return { ...reportUniqueness(design, sig, entries), registry, blazon: blazon(design), signature: sig, readability: readability(design).band };
 }

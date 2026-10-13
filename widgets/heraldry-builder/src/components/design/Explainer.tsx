@@ -3,7 +3,7 @@
 // never applied. Escape or "Got it" closes it and returns focus to the option that opened it.
 
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { COLOURS, METALS, TINCTURE_LABEL, type Tincture } from '../../lib/heraldry/next';
+import { COLOURS, METALS, TINCTURE_LABEL, type Tincture } from '../../lib/heraldry';
 import { pushLayer, restoreFocus } from '../overlay/layers';
 
 export type ExplainKind = 'tincture' | 'structure';

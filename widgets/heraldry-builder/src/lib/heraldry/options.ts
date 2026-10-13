@@ -1,211 +1,329 @@
-// Option helper for the builder UI: which tinctures / counts / placements / arrangements / postures
-// are legal *given the rest of the design*, with a human reason for every blocked choice (the UI
-// keeps blocked options visible and explains them on activation).
+// Option helper for the builder UI: which tinctures / counts / placements / layouts / postures are
+// legal *given the rest of the design*, with a human reason for every blocked choice (the UI keeps
+// blocked options visible and explains them on activation).
 //
-// Semantics: a choice is blocked only by the layers beneath it (field → ordinary → charges). Changing
-// a lower layer is never blocked; if it invalidates an upper layer the design enters a violation
-// state (validate() reports it) and suggestTinctureFix()/fitCharges() offer repairs. Count and
-// placement depend on each other, so each is offered when some partner makes it legal, carrying the
-// partner change it needs (its companion) and the design choosing it leads to.
+// Semantics: a choice is blocked only by the layers beneath it (field → ordinary → picture → extra
+// pictures). Changing a lower layer is never blocked; if it invalidates an upper layer the design
+// enters a violation state (validate() reports it) and suggestTinctureFix()/fitGroup() offer repairs.
+// Count and placement depend on each other, so each is offered when some partner makes it legal,
+// carrying the partner change it needs (its companion) and the design choosing it leads to.
+//
+// The builder's "simple space" (PLAN §7.1) is one ordinary, one picture group (on the background or
+// on the ordinary) and, when the picture is on the background, one extra picture group on the ordinary.
+// `simpleParts` finds them in a design and `assembleParts` puts them back with the roles, relations and
+// host layouts the model needs.
 
-import { CHARGES, postureTerm, type ChargeId, type Posture } from './charges';
+import { TINCTURES, TINCTURE_NAME, type Tincture } from './tinctures';
+import { capitalise, joinList, numberWord } from './words';
 import {
-  COUNTS, FIELD_ARR, ORDINARY_NAME, chargeContext, chargeNoun, chargeStructureIssue, defaultArrangement,
-  legalArrangements, type Arrangement, type Count, type NormChargeGroup, type NormDesign, type Ordinary, type OrdinaryType, type Placement,
+  contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, type LayoutKey,
+} from './arrangement';
+import { CHARGES, postureTerm, type ModifierId, type Posture } from './charges';
+import {
+  canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, paintOfGroupTincture, replaceGroup, walkGroups,
+  type Arrangement, type Design, type Group, type GroupPath, type GroupTincture, type Issue,
 } from './design';
-import { chargeSlots, slotContacts, type Slot } from './geometry';
-import {
-  FAILURE_TEXT, chargeContrastFailure, contrastFailure, counterchangeUnavailable, describeSlots, ordinaryContacts, tinctureIssues,
-  type ContrastFailure,
-} from './tincture-rule';
-import {
-  CHARGE_TINCTURES, COLOURS, METALS, TINCTURES, TINCTURE_NAME, listTinctureNames, type ChargeTincture, type Tincture,
-} from './tinctures';
-import { capitalise } from './words';
+import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
+import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
+import { hasRoom } from './layout';
+import { structuralIssues } from './structure';
+import { groupTinctureIssues, tinctureIssues } from './tincture-rule';
 
 export type AllowedChoice<T> = { value: T; allowed: true };
 export type BlockedChoice<T> = { value: T; allowed: false; reason: string };
 export type Choice<T> = AllowedChoice<T> | BlockedChoice<T>;
 
+export type Placement = 'field' | 'ordinary';
+
 /** The partner a count or placement has to bring along: a new placement for a count, a new count for a placement. */
 export type Companion =
   | { kind: 'placement'; placement: Placement }
-  | { kind: 'count'; count: Count };
+  | { kind: 'count'; count: number };
 
 /**
  * A count or placement choice. An allowed one carries the design choosing it leads to (the builder
  * applies exactly this) and its companion: null when the current partner works.
  */
-export type LayoutChoice<T> = (AllowedChoice<T> & { design: ChargedDesign; companion: Companion | null }) | BlockedChoice<T>;
-
-/** A design with its charge group present. */
-export type ChargedDesign = NormDesign & { charges: NormChargeGroup };
+export type LayoutChoice<T> = (AllowedChoice<T> & { design: Design; companion: Companion | null }) | BlockedChoice<T>;
 
 export const isBlocked = <T>(c: Choice<T>): c is BlockedChoice<T> => !c.allowed;
 export const blockReason = <T>(c: Choice<T>): string | null => (c.allowed ? null : c.reason);
 
 const ok = <T>(value: T): Choice<T> => ({ value, allowed: true });
-const blocked = <T>(value: T, reason: string): Choice<T> => ({ value, allowed: false, reason });
-const choice = <T>(value: T, reason: string | null): Choice<T> => (reason ? blocked(value, reason) : ok(value));
+const choice = <T>(value: T, reason: string | null): Choice<T> => (reason ? { value, allowed: false, reason } : ok(value));
 
-const METAL_LIST = listTinctureNames(METALS, 'or');
-const COLOUR_LIST = listTinctureNames(COLOURS, 'or');
+/** Every count the builder offers. */
+export const COUNTS: readonly number[] = Array.from({ length: MAX_DRAWN_COUNT }, (_, i) => i + 1);
+
+const PLACEMENTS: readonly Placement[] = ['field', 'ordinary'];
+
+const samePath = (a: GroupPath, b: GroupPath) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+// ── The simple space ────────────────────────────────────────────────────────
+
+interface Located { path: GroupPath; group: Group }
+
+/** The groups of a design in the builder's terms; `placement` says where the picture sits. */
+export interface SimpleParts {
+  ordinary: Located | null;
+  picture: (Located & { placement: Placement }) | null;
+  extra: Located | null;
+}
+
+const isCentral = (g: Group) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central';
+/** Whether pictures can sit on this ordinary: a central one or the chief. */
+const hostsPictures = (g: Group) => g.item.k === 'ordinary' && (isCentral(g) || g.item.type === 'chief');
 
 /**
- * Why `top` can't go on `contacts`, phrased hypothetically for an explainer popover.
- * `subject` names the element ("the lion", "the two upper mullets", "the bend"); `plural` picks verbs.
+ * Where the ordinary, the picture and the extra picture are. The picture is the top-level charge group
+ * (primary, or secondary between the ordinary), else the charge group on the ordinary; the extra picture
+ * is the charge group on the ordinary when the picture is a top-level group.
  */
-function tinctureBlockReason(top: Tincture, contacts: readonly Tincture[], subject: string, plural = false): string | null {
-  const f: ContrastFailure | null = contrastFailure(top, contacts);
-  if (!f) return null;
-  const T = TINCTURE_NAME[top];
-  const names = contacts.map((t) => TINCTURE_NAME[t]);
-  const lies = plural ? 'lie' : 'lies';
-  if (f === 'same') {
-    if (contacts.length === 1) return `${T} on ${T} would vanish — ${subject} can't share the tincture ${plural ? 'they lie' : 'it lies'} on.`;
-    return `${capitalise(subject)} ${plural ? 'touch' : 'touches'} the ${T} part of the field, so ${plural ? 'they' : 'it'} can't be ${T} too.`;
+export function simpleParts(d: Design): SimpleParts {
+  const oi = d.groups.findIndex((g) => g.item.k === 'ordinary');
+  const ordinary = oi < 0 ? null : { path: [oi], group: d.groups[oi] };
+  const onOrdinary = (): Located | null => {
+    const ti = ordinary ? ordinary.group.charged.findIndex((g) => g.item.k === 'charge') : -1;
+    return ordinary && ti >= 0 ? { path: [oi, ti], group: ordinary.group.charged[ti] } : null;
+  };
+  const ci = d.groups.findIndex((g) => g.item.k === 'charge' && (g.role === 'primary' || g.role === 'secondary'));
+  if (ci >= 0) return { ordinary, picture: { path: [ci], group: d.groups[ci], placement: 'field' }, extra: onOrdinary() };
+  const tertiary = onOrdinary();
+  return { ordinary, picture: tertiary && { ...tertiary, placement: 'ordinary' }, extra: null };
+}
+
+export interface PartsInput {
+  ordinary: Group | null;
+  picture: Group | null;
+  placement: Placement;
+  extra: Group | null;
+}
+
+const HOST: Arrangement = { k: 'host' };
+
+/**
+ * The canonical design with these groups put where the model wants them: the ordinary primary (or
+ * peripheral), the picture on the background (secondary between a central ordinary, else primary) or
+ * on the ordinary as its tertiary, the extra picture on the ordinary. A picture that can't sit on the
+ * ordinary stays on the background; an extra picture needs the picture on the background and an
+ * ordinary to sit on, or is dropped.
+ */
+export function assembleParts(d: Design, { ordinary, picture, placement, extra }: PartsInput): Design {
+  const central = ordinary !== null && isCentral(ordinary);
+  const hosts = ordinary !== null && hostsPictures(ordinary);
+  const onOrdinary = picture !== null && placement === 'ordinary' && hosts;
+  const tertiary = (g: Group): Group => ({ ...g, role: 'tertiary', relation: null, arrangement: HOST, position: null, charged: [] });
+  const charged = onOrdinary ? [tertiary(picture)] : picture && extra && hosts ? [tertiary(extra)] : [];
+  const groups: Group[] = ordinary ? [{ ...ordinary, role: central ? 'primary' : 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged }] : [];
+  if (picture && !onOrdinary) {
+    const top: Group = { ...picture, role: central ? 'secondary' : 'primary', relation: central ? 'between' : null, charged: [] };
+    if (central) groups.push({ ...top, arrangement: HOST, position: null });
+    else if (picture.arrangement.k !== 'host') groups.push(top);
+    else {
+      // From around or on an ordinary to the background: the layout Table 7 gives it there.
+      const placed = canonical({ ...d, groups: [...groups, top] } as Design);
+      const layout = defaultLayoutOf(placed, top, null);
+      groups.push({ ...top, arrangement: layout.arrangement, position: layout.position });
+    }
   }
-  if (contacts.length === 2) {
-    return f === 'colour-on-colour'
-      ? `${capitalise(subject)} ${lies} across ${names[0]} and ${names[1]} — both colours — so ${plural ? 'they' : 'it'} must be a metal (${METAL_LIST}).`
-      : `${capitalise(subject)} ${lies} across ${names[0]} and ${names[1]} — both metals — so ${plural ? 'they' : 'it'} must be a colour (${COLOUR_LIST}).`;
+  return canonical({ ...d, groups } as Design);
+}
+
+/** The design with the group at `path` painted `t` (not canonicalised: a paint changes no order). */
+export function withTincture(d: Design, path: GroupPath, t: GroupTincture): Design {
+  return replaceGroup(d, path, { ...groupAt(d, path), paint: paintOfGroupTincture(t) });
+}
+
+// ── Reasons ─────────────────────────────────────────────────────────────────
+
+/** Whether an issue is one this group's choices answer for: its own, the field's, an ordinary's — not another picture's. */
+function relevant(d: Design, path: GroupPath, issue: Issue): boolean {
+  if (issue.at.k !== 'group') return true;
+  return samePath(issue.at.path, path) || groupAt(d, issue.at.path).item.k === 'ordinary';
+}
+
+const countWord = (n: number) => (n === 1 ? 'a single charge' : numberWord(n));
+
+/** Why a count has no layout around or on the ordinary, phrased as a blocked reason. */
+function hostCountReason(d: Design, path: GroupPath): string {
+  const g = groupAt(d, path);
+  const ctx = layoutContext(d, path);
+  if (ctx.k === 'field') throw new RangeError('A group on the background has no host counts.');
+  const legal = hostCounts(ctx);
+  const name = ORDINARY_NAME[ctx.ordinary];
+  const list = joinList(legal.map(countWord), 'or');
+  if (ctx.k === 'between') {
+    if (g.count === 1) return `A single charge can't be set between a ${name} — use ${list}, or place it on the ${name}.`;
+    return `A ${name} is set between ${legal.length === 1 ? 'exactly ' : ''}${list} charges, not ${numberWord(g.count)}.`;
   }
-  return f === 'colour-on-colour'
-    ? `${T} on ${names[0]} would be colour on colour. Colours must sit on metals (${METAL_LIST}).`
-    : `${T} on ${names[0]} would be metal on metal. Metals must sit on colours (${COLOUR_LIST}).`;
+  const extra = ctx.ordinary === 'cross' || ctx.ordinary === 'saltire' ? ' (one in the centre, or one on each arm and the centre)' : '';
+  return `A ${name} can carry ${list}${extra}, not ${countWord(g.count)}.`;
+}
+
+/** Why the group at `path` can't be drawn as it is — unsupported, or breaking a structure rule — or null. */
+function structureReason(d: Design, path: GroupPath): string | null {
+  const gap = unsupportedIssues(d).find((i) => relevant(d, path, i));
+  if (gap) return gap.gap.category === 'placement' && /^(between|on)-/.test(gap.gap.detail) ? hostCountReason(d, path) : gap.message;
+  return structuralIssues(d).find((i) => i.code === 'structure' && relevant(d, path, i))?.message ?? null;
+}
+
+/** "the lion", "the three lions", "the fess". */
+function groupNoun(g: Group): string {
+  if (g.item.k === 'ordinary') return `the ${ORDINARY_NAME[g.item.type]}`;
+  const meta = CHARGES[g.item.charge];
+  return `the ${g.count === 1 ? meta.name : meta.plural}`;
+}
+
+/** The reason `t` can't paint the group at `path`: the first rule-of-tincture issue it would have there. */
+function tinctureReason(d: Design, path: GroupPath, t: GroupTincture): string | null {
+  return groupTinctureIssues(withTincture(d, path, t), path)[0]?.message ?? null;
+}
+
+/** On a divided field (or while counterchanged) "counterchanged" is offered too, after the tinctures. */
+function offeredTinctures(d: Design, path: GroupPath): readonly GroupTincture[] {
+  return (d.kind === 'arms' && d.field.k === 'divided') || groupAt(d, path).paint.k === 'counterchanged' ? GROUP_TINCTURES : TINCTURES;
+}
+
+/** Why a layout would leave every tincture blocked, or null when at least one works. */
+function noTinctureReason(d: Design, path: GroupPath): string | null {
+  let first: string | null = null;
+  for (const t of offeredTinctures(d, path)) {
+    const reason = tinctureReason(d, path, t);
+    if (!reason) return null;
+    first ??= reason;
+  }
+  return `No tincture would work for ${groupNoun(groupAt(d, path))} like this. ${first}`;
+}
+
+/** Why a layout of the group can't be chosen — structurally illegal, and with `withTinctures` also when no tincture would work — or null. */
+export function layoutReason(d: Design, path: GroupPath, withTinctures: boolean): string | null {
+  return structureReason(d, path) ?? (withTinctures ? noTinctureReason(d, path) : null);
 }
 
 // ── Tinctures ───────────────────────────────────────────────────────────────
 
-/** Field tinctures: only the other half of a divided field blocks (t1 ≠ t2). Plain fields: all allowed. */
-export function fieldTinctureChoices(nd: NormDesign, part: 0 | 1 = 0): Choice<Tincture>[] {
-  const f = nd.field;
-  if (f.kind === 'plain') return TINCTURES.map(ok);
-  const other = f.tinctures[part === 0 ? 1 : 0];
-  return TINCTURES.map((t) => choice(t, t === other
+/** Field tinctures: only the other half of a divided field blocks (the parts need different tinctures). Plain fields: all allowed. */
+export function fieldTinctureChoices(d: Design, part: 0 | 1 = 0): Choice<Tincture>[] {
+  const other = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts[part === 0 ? 1 : 0] : null;
+  const otherTincture = other?.k === 'tincture' ? other.t : null;
+  return TINCTURES.map((t) => choice(t, t === otherTincture
     ? `The other part is already ${TINCTURE_NAME[t]} — a divided field needs two different tinctures.`
     : null));
 }
 
-/** Ordinary tinctures against the field beneath. `type` defaults to the current ordinary. */
-export function ordinaryTinctureChoices(nd: NormDesign, type: OrdinaryType | undefined = nd.ordinary?.type): Choice<Tincture>[] {
-  if (!type) return TINCTURES.map(ok);
-  const contacts = ordinaryContacts(nd.field, type);
-  return TINCTURES.map((t) => choice(t, tinctureBlockReason(t, contacts, `the ${ORDINARY_NAME[type]}`)));
+/** Tinctures of the group at `path` against what it lies on; blocked reasons are the rule of tincture's own messages. */
+export function groupTinctureChoices(d: Design, path: GroupPath): Choice<GroupTincture>[] {
+  return offeredTinctures(d, path).map((t) => choice(t, tinctureReason(d, path, t)));
 }
 
-function chargeTinctureReason(nd: NormDesign, g: NormChargeGroup, t: Tincture, slots: Slot[]): string | null {
-  const subject = `the ${chargeNoun(g.charge, g.count)}`;
-  const plural = g.count > 1;
-  if (chargeContext(nd.ordinary, g.placement) === 'on') {
-    if (!nd.ordinary) return null;
-    return tinctureBlockReason(t, [nd.ordinary.tincture], subject, plural);
+// ── Layout ──────────────────────────────────────────────────────────────────
+
+interface Edited { design: Design; path: GroupPath }
+type Fit = ({ fits: true; count: number; placement: Placement } & Edited) | { fits: false; reason: string };
+
+const currentKey = (g: Group): LayoutKey => layoutKey({ arrangement: g.arrangement, position: g.position });
+
+/** The design with the group at `path` in the layout `key` (its count already set). */
+function withLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
+  const g = groupAt(d, path);
+  const layout = layoutOfKey(key, g.count);
+  return layout ? canonical(replaceGroup(d, path, { ...g, arrangement: layout.arrangement, position: layout.position })) : d;
+}
+
+/** Why the picture can't go on `placement`, or null. */
+function placementReason(parts: SimpleParts, placement: Placement): string | null {
+  if (placement === 'field') return null;
+  const ordinary = parts.ordinary?.group;
+  if (!ordinary) return 'Add a band or shape first — pictures can only sit on one once there is one.';
+  if (!hostsPictures(ordinary)) return "Pictures can't sit on a border in this builder; put them on the background within it.";
+  if (parts.extra) return 'The band already carries more pictures — remove them to move the main picture onto it.';
+  return null;
+}
+
+/** Which of the picture and extra picture a path is, or null for any other group. */
+function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'extra' | null {
+  if (parts.picture && samePath(parts.picture.path, path)) return 'picture';
+  return parts.extra && samePath(parts.extra.path, path) ? 'extra' : null;
+}
+
+/** The design with the picture (or extra picture) at `path` given a new count and/or placement, and where it is now; its layout is left for the caller. */
+function edit(d: Design, path: GroupPath, change: { count?: number; placement?: Placement }): Edited | { reason: string } {
+  const parts = simpleParts(d);
+  const part = partOf(parts, path);
+  if (!part || !parts.picture) throw new RangeError(`The group at ${path.join('.')} is not a picture.`);
+  const placement = part === 'picture' ? change.placement ?? parts.picture.placement : parts.picture.placement;
+  const reason = placement === parts.picture.placement ? null : placementReason(parts, placement);
+  if (reason) return { reason };
+  const group = { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count };
+  const design = assembleParts(d, {
+    ordinary: parts.ordinary?.group ?? null,
+    picture: part === 'picture' ? group : parts.picture.group,
+    placement,
+    extra: part === 'extra' ? group : parts.extra?.group ?? null,
+  });
+  const moved = simpleParts(design);
+  const at = part === 'picture' ? moved.picture : moved.extra;
+  if (!at) throw new RangeError('The edited group went missing.');
+  return { design, path: at.path };
+}
+
+/** The layout keys to try for `count` in the placed design: the current one first, then the candidates in the builder's order. */
+function keysToTry(placed: Edited, count: number, keep: LayoutKey): LayoutKey[] {
+  const keys = layoutCandidates(placed.design, placed.path, count).map(layoutKey);
+  return keys.includes(keep) ? [keep, ...keys.filter((k) => k !== keep)] : keys;
+}
+
+/**
+ * The group with this count and placement in the first layout that works: the current one if it is
+ * legal here, else Table 7's default, else any other. With `withTinctures` a layout must also leave
+ * some tincture legal.
+ */
+function fitLayout(d: Design, path: GroupPath, count: number, placement: Placement, withTinctures: boolean): Fit {
+  const placed = edit(d, path, { count, placement });
+  if ('reason' in placed) return { fits: false, reason: placed.reason };
+  const designs = function* () {
+    for (const key of keysToTry(placed, count, currentKey(groupAt(d, path)))) yield withLayout(placed.design, placed.path, key);
+  };
+  // Capacity failures dominate and need no message to be skipped, so only the first layout's reason is worded.
+  for (const design of designs()) {
+    if (hasRoom(design, placed.path) && layoutReason(design, placed.path, withTinctures) === null) return { fits: true, count, placement, design, path: placed.path };
   }
-  if (nd.field.kind === 'plain') return tinctureBlockReason(t, [nd.field.tincture], subject, plural);
-  const contacts = slots.map((s) => slotContacts(nd.field, s));
-  const failing = contacts.map((cs, i) => (contrastFailure(t, cs) ? i : -1)).filter((i) => i >= 0);
-  if (!failing.length) return null;
-  // Explain via the first failing slot's background; name the slots when not all of them fail.
-  const cs = contacts[failing[0]];
-  const group = failing.filter((i) => contacts[i].join() === cs.join());
-  if (group.length === slots.length) return tinctureBlockReason(t, cs, subject, plural);
-  const who = describeSlots(slots, group, null, g.charge);
-  const where = cs.map((x) => TINCTURE_NAME[x]).join(' and ');
-  const reason = tinctureBlockReason(t, cs, who, group.length > 1)!;
-  // A same-tincture reason already names the slots; otherwise say where they lie first.
-  return cs.length === 1 && !cs.includes(t) ? `${capitalise(who)} ${group.length > 1 ? 'lie' : 'lies'} on ${where}. ${reason}` : reason;
+  const [first] = designs();
+  return { fits: false, reason: layoutReason(first, placed.path, withTinctures) ?? 'No layout works.' };
 }
-
-/** Why the charges can't be counterchanged: not on a divided field, or a field of two metals or two colours. */
-function counterchangeReason(nd: NormDesign): string | null {
-  const unavailable = counterchangeUnavailable(nd);
-  if (unavailable || nd.field.kind === 'plain') return unavailable;
-  const [a, b] = nd.field.tinctures;
-  const f = chargeContrastFailure('counterchanged', nd.field, [a, b]);
-  if (!f) return null;
-  if (f === 'same') return `Both parts of the field are ${TINCTURE_NAME[a]}, so there is nothing to counterchange.`;
-  const both = f === 'metal-on-metal' ? 'both metals' : 'both colours';
-  return `Counterchanged on ${TINCTURE_NAME[a]} and ${TINCTURE_NAME[b]} — ${both} — would still be ${FAILURE_TEXT[f]}. It needs a field of one metal and one colour.`;
-}
-
-/**
- * Charge tinctures against what each slot lies on (five-point probe, or the ordinary). On a divided
- * field (or while the charges are counterchanged) "counterchanged" is offered too, after the colours.
- */
-export function chargeTinctureChoices(nd: NormDesign): Choice<ChargeTincture>[] {
-  const g = nd.charges;
-  const offered = nd.field.kind === 'divided' || g?.tincture === 'counterchanged' ? CHARGE_TINCTURES : TINCTURES;
-  if (!g) return offered.map(ok);
-  const slots = chargeSlots(nd);
-  return offered.map((t) => choice(t, t === 'counterchanged' ? counterchangeReason(nd) : chargeTinctureReason(nd, g, t, slots)));
-}
-
-/**
- * Why a charge layout would leave every tincture blocked, or null when at least one works — so a
- * count, placement or arrangement that leads nowhere is blocked before the user picks it.
- */
-function noTinctureReason(nd: NormDesign): string | null {
-  const g = nd.charges;
-  const choices = chargeTinctureChoices(nd);
-  const blockedChoices = choices.filter(isBlocked);
-  if (!g || blockedChoices.length < choices.length) return null;
-  return `No tincture would work for the ${chargeNoun(g.charge, g.count)} like this. ${blockedChoices[0].reason}`;
-}
-
-/** The charge group with one structural attribute changed, as the builder would apply it. */
-function withCharges(nd: NormDesign, g: NormChargeGroup, change: Partial<Pick<NormChargeGroup, 'count' | 'placement' | 'arrangement'>>): NormDesign {
-  return { ...nd, charges: { ...g, ...change } };
-}
-
-/** Why a charge layout can't be chosen — structurally illegal, or no tincture would work — or null when it can. */
-function layoutReason(nd: NormDesign, g: NormChargeGroup): string | null {
-  return chargeStructureIssue(nd.ordinary, g.placement, g.count, g.arrangement, g.charge) ?? noTinctureReason({ ...nd, charges: g });
-}
-
-// ── Charge structure ────────────────────────────────────────────────────────
-
-function keepOrDefaultArrangement(nd: NormDesign, placement: Placement, count: Count, current: Arrangement): Arrangement {
-  return legalArrangements(nd.ordinary, placement, count).includes(current) ? current : defaultArrangement(nd.ordinary, placement, count);
-}
-
-const PLACEMENTS: readonly Placement[] = ['field', 'ordinary'];
 
 /** Every count, nearest to `count` first; equally near ones lower first. */
-function countsByNearness(count: Count): Count[] {
+function countsByNearness(count: number): number[] {
   return [...COUNTS].sort((a, b) => Math.abs(a - count) - Math.abs(b - count) || a - b);
 }
 
-/** A charge layout that can be chosen, or why the layout tried first can't. */
-type Fit = { fits: true; layout: NormChargeGroup } | { fits: false; reason: string };
-
 /**
- * The charge group with this count and placement, in the first arrangement that leaves a legal
- * tincture: the current one if it is legal here, else the default, else any other.
+ * One count or placement choice: allowed with the first of `tries` (count and placement; the current
+ * partner first) that fits, its companion naming the `partner` when that changed; blocked with the
+ * current partner's reason when none fits.
  */
-function fitLayout(nd: NormDesign, g: NormChargeGroup, count: Count, placement: Placement): Fit {
-  const first = keepOrDefaultArrangement(nd, placement, count, g.arrangement);
-  const [tried, ...others] = [first, ...legalArrangements(nd.ordinary, placement, count).filter((a) => a !== first)]
-    .map((arrangement) => ({ ...g, count, placement, arrangement }));
-  const reason = layoutReason(nd, tried);
-  if (!reason) return { fits: true, layout: tried };
-  const other = others.find((l) => !layoutReason(nd, l));
-  return other ? { fits: true, layout: other } : { fits: false, reason };
+function layoutChoice<T>(d: Design, path: GroupPath, value: T, partner: Companion['kind'], tries: Array<[number, Placement]>): LayoutChoice<T> {
+  const g = groupAt(d, path);
+  const placement = simpleParts(d).picture?.placement;
+  let first: Fit | null = null;
+  let fit: Fit | null = null;
+  for (const [count, p] of tries) {
+    fit = fitLayout(d, path, count, p, true);
+    first ??= fit;
+    if (fit.fits) break;
+  }
+  if (!fit?.fits) return { value, allowed: false, reason: first!.fits ? 'No layout works.' : first!.reason };
+  const companion: Companion | null = partner === 'placement'
+    ? (fit.placement === placement ? null : { kind: 'placement', placement: fit.placement })
+    : (fit.count === g.count ? null : { kind: 'count', count: fit.count });
+  return { value, allowed: true, design: fit.design, companion };
 }
 
-/**
- * One count or placement choice: allowed with the first of `layouts` (count and placement; the
- * current partner first) that fits, its companion naming the `partner` when that changed; blocked
- * with the current partner's reason when none fits.
- */
-function layoutChoice<T>(nd: NormDesign, g: NormChargeGroup, value: T, partner: Companion['kind'], layouts: Array<[Count, Placement]>): LayoutChoice<T> {
-  const fits = layouts.map(([count, placement]) => fitLayout(nd, g, count, placement));
-  const fit = fits.find((f) => f.fits) ?? fits[0];
-  if (!fit.fits) return { value, allowed: false, reason: fit.reason };
-  const { count, placement } = fit.layout;
-  const companion: Companion | null = partner === 'placement'
-    ? (placement === g.placement ? null : { kind: 'placement', placement })
-    : (count === g.count ? null : { kind: 'count', count });
-  return { value, allowed: true, design: { ...nd, charges: fit.layout }, companion };
+/** The placements to try for a group: the picture may move between them, an extra picture stays where it is. */
+function placementsFor(parts: SimpleParts, path: GroupPath): Placement[] | null {
+  const part = partOf(parts, path);
+  if (!part || !parts.picture) return null;
+  return part === 'extra' ? [parts.picture.placement] : [parts.picture.placement, ...PLACEMENTS.filter((p) => p !== parts.picture!.placement)];
 }
 
 /**
@@ -213,149 +331,146 @@ function layoutChoice<T>(nd: NormDesign, g: NormChargeGroup, value: T, partner: 
  * when neither placement makes it legal (structurally, or with some tincture), with the reason for
  * the current placement.
  */
-export function countChoices(nd: NormDesign): LayoutChoice<Count>[] {
-  const g = nd.charges;
-  if (!g) return [];
-  const placements = [g.placement, ...PLACEMENTS.filter((p) => p !== g.placement)];
-  return COUNTS.map((n) => layoutChoice(nd, g, n, 'placement', placements.map((p): [Count, Placement] => [n, p])));
+export function countChoices(d: Design, path: GroupPath): LayoutChoice<number>[] {
+  const placements = placementsFor(simpleParts(d), path);
+  if (!placements) return [];
+  return COUNTS.map((n) => layoutChoice(d, path, n, 'placement', placements.map((p): [number, Placement] => [n, p])));
 }
 
 /**
- * Placements: each with the current count if that works, else with the nearest count that does (ties
- * to the lower count, as fitCharges ranks them). Blocked only when no count makes it legal.
+ * Placements of the picture: each with the current count if that works, else with the nearest count
+ * that does (ties to the lower count). Blocked only when no count makes it legal.
  */
-export function placementChoices(nd: NormDesign): LayoutChoice<Placement>[] {
-  const g = nd.charges;
-  if (!g) return [];
-  return PLACEMENTS.map((p) => layoutChoice(nd, g, p, 'count', countsByNearness(g.count).map((n): [Count, Placement] => [n, p])));
+export function placementChoices(d: Design, path: GroupPath): LayoutChoice<Placement>[] {
+  const parts = simpleParts(d);
+  if (!parts.picture || partOf(parts, path) !== 'picture') return [];
+  const count = groupAt(d, path).count;
+  return PLACEMENTS.map((p) => layoutChoice(d, path, p, 'count', countsByNearness(count).map((n): [number, Placement] => [n, p])));
 }
 
-/** single: one charge; forced: placed by the ordinary (`note` says why there is nothing to choose); choose: pick from `choices`. */
-type ArrangementChoices =
-  | { mode: 'choose'; choices: Choice<Arrangement>[] }
-  | { mode: 'single' | 'forced'; note: string };
+/** single: one place to put it; host: placed by the ordinary (`note` says why there is nothing to choose); choose: pick from `choices`. */
+export type LayoutChoices =
+  | { mode: 'choose'; choices: Choice<LayoutKey>[] }
+  | { mode: 'single' | 'host'; note: string };
 
-export function arrangementChoices(nd: NormDesign): ArrangementChoices {
-  const g = nd.charges;
-  if (!g || g.count === 1) return { mode: 'single', note: 'A single charge sits in the centre.' };
-  const ctx = chargeContext(nd.ordinary, g.placement);
-  if ((ctx === 'on' || ctx === 'between') && nd.ordinary) {
-    const name = ORDINARY_NAME[nd.ordinary.type];
-    return {
-      mode: 'forced',
-      note: ctx === 'on' ? `Charges on the ${name} follow its line.` : `Charges between a ${name} are placed around it.`,
-    };
+export function layoutChoices(d: Design, path: GroupPath): LayoutChoices {
+  const g = groupAt(d, path);
+  const ctx = contextOf(d, g, hostOf(d, path));
+  if (!ctx) return { mode: 'single', note: 'A single charge sits in the centre.' };
+  if (ctx.k !== 'field') {
+    const name = ORDINARY_NAME[ctx.ordinary];
+    return { mode: 'host', note: ctx.k === 'on' ? `Charges on the ${name} follow its line.` : `Charges between a ${name} are placed around it.` };
   }
-  const legal = legalArrangements(nd.ordinary, g.placement, g.count);
-  return {
-    mode: 'choose',
-    choices: FIELD_ARR[g.count].map((a) => choice(a, legal.includes(a)
-      ? noTinctureReason(withCharges(nd, g, { arrangement: a }))
-      : chargeStructureIssue(nd.ordinary, g.placement, g.count, a, g.charge))),
-  };
+  const keys = layoutCandidates(d, path, g.count).map(layoutKey);
+  if (keys.length === 1) return { mode: 'single', note: 'A single charge sits in the centre.' };
+  return { mode: 'choose', choices: keys.map((key) => choice(key, layoutReason(withLayout(d, path, key), path, true))) };
 }
+
+/** The design with the group at `path` in the layout `key`, as the layout control would apply it. */
+export function applyLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
+  return withLayout(d, path, key);
+}
+
+// ── Postures and modifiers ──────────────────────────────────────────────────
 
 const QUADRUPED_POSTURES: readonly Posture[] = ['rampant', 'passant', 'statant', 'sejant'];
 
 /**
- * Postures for the current charge. Four-legged charges list all four quadruped postures, with the
- * ones this charge isn't drawn in blocked; other posture-bearing charges list their own; posture-less
- * charges return [].
+ * Postures for the group's charge. Four-legged charges list the four quadruped postures (and any other
+ * they are drawn in, like the hare's courant), with the ones this charge isn't drawn in blocked;
+ * other posture-bearing charges list their own; posture-less charges return [].
  */
-export function postureChoices(nd: NormDesign): Choice<Posture>[] {
-  const g = nd.charges;
-  if (!g) return [];
-  return postureChoicesFor(g.charge);
+export function postureChoices(d: Design, path: GroupPath): Choice<Posture>[] {
+  const item = groupAt(d, path).item;
+  if (item.k !== 'charge') return [];
+  const meta = CHARGES[item.charge];
+  const drawn = meta.postures;
+  if (!drawn) return [];
+  const list = drawn.some((p) => QUADRUPED_POSTURES.includes(p)) ? [...QUADRUPED_POSTURES, ...drawn.filter((p) => !QUADRUPED_POSTURES.includes(p))] : drawn;
+  const names = drawn.map((p) => postureTerm(item.charge, p));
+  return list.map((p) => choice(p, drawn.includes(p) ? null : `The ${meta.name} is only drawn ${joinList(names, 'or')} in this builder.`));
 }
 
-function postureChoicesFor(id: ChargeId): Choice<Posture>[] {
-  const meta = CHARGES[id];
-  if (!meta.postures) return [];
-  const quadruped = meta.postures.some((p) => QUADRUPED_POSTURES.includes(p));
-  const list = quadruped ? QUADRUPED_POSTURES : meta.postures;
-  const allowed = meta.postures.map((p) => postureTerm(id, p));
-  return list.map((p) => choice(p, meta.postures!.includes(p) ? null
-    : `The ${meta.name} is only drawn ${allowed.join(' or ')} in this builder.`));
+/** The modifiers the group's charge is drawn with (the sun's "in splendour"); each can be switched on or off. */
+export function modifierChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' ? CHARGES[item.charge].mods.map(ok) : [];
 }
 
 // ── Repairs ─────────────────────────────────────────────────────────────────
 
 /**
- * Make the charge group structurally legal after a lower-layer change: move charges off a missing
- * ordinary, pick the nearest legal count, a legal arrangement and an allowed posture. Tinctures are
- * left alone (a tincture conflict is surfaced, not silently fixed).
+ * Make the picture (or extra picture) at `path` structurally legal after a lower-layer change: the
+ * nearest count that has a layout, in the layout kept or Table 7's. Tinctures are left alone (a tincture
+ * conflict is surfaced, not silently fixed). A design where none works is returned unchanged.
  */
-export function fitCharges(nd: NormDesign): NormDesign {
-  const g = nd.charges;
-  if (!g) return nd;
-  let placement = g.placement;
-  if (placement === 'ordinary' && (!nd.ordinary || nd.ordinary.type === 'bordure')) placement = 'field';
-  const legalCount = (n: Count) => chargeStructureIssue(nd.ordinary, placement, n, defaultArrangement(nd.ordinary, placement, n)) === null;
-  const count = countsByNearness(g.count).find(legalCount) ?? g.count;
-  const arrangement = keepOrDefaultArrangement(nd, placement, count, count === g.count ? g.arrangement : defaultArrangement(nd.ordinary, placement, count));
-  const meta = CHARGES[g.charge];
-  const posture = meta.postures ? (g.posture && meta.postures.includes(g.posture) ? g.posture : meta.defaultPosture) : null;
-  return { ...nd, charges: { ...g, placement, count, arrangement, posture } };
+export function fitGroup(d: Design, path: GroupPath): Design {
+  const parts = simpleParts(d);
+  const g = groupAt(d, path);
+  const placement = parts.picture?.placement;
+  if (g.item.k !== 'charge' || !placement || structureReason(d, path) === null) return d;
+  for (const n of countsByNearness(g.count)) {
+    const fit = fitLayout(d, path, n, placement, false);
+    if (fit.fits) return fit.design;
+  }
+  return d;
 }
 
 /**
- * A one-click repair for rule-of-tincture issues: a new tincture for the charges or the ordinary
- * (every alternative on that layer listed, the suggestion first), or — when no single layer can
- * clear them — new tinctures for both.
+ * A one-click repair for rule-of-tincture issues: a new tincture for one group (every alternative
+ * listed, the suggestion first), or — when no single group can clear them — new tinctures for the
+ * ordinary and the pictures on it or around it together.
  */
-type TinctureFix =
-  | { layer: 'charges'; tincture: ChargeTincture; alternatives: ChargeTincture[]; label: string; design: NormDesign }
-  | { layer: 'ordinary'; tincture: Tincture; alternatives: Tincture[]; label: string; design: NormDesign }
-  | { layer: 'ordinary-and-charges'; ordinary: Tincture; charges: ChargeTincture; label: string; design: NormDesign };
+export type TinctureFix =
+  | { layer: 'group'; path: GroupPath; tincture: GroupTincture; alternatives: GroupTincture[]; label: string; design: Design }
+  | { layer: 'several'; changes: Array<{ path: GroupPath; tincture: GroupTincture }>; label: string; design: Design };
 
-const withChargeTincture = (nd: NormDesign, g: NormChargeGroup, t: ChargeTincture): NormDesign => ({ ...nd, charges: { ...g, tincture: t } });
-const withOrdinaryTincture = (nd: NormDesign, o: Ordinary, t: Tincture): NormDesign => ({ ...nd, ordinary: { ...o, tincture: t } });
-
-/** "Switch the lions to Gules" / "Counterchange the mullets". */
-function chargeFixWords(g: NormChargeGroup, t: ChargeTincture): string {
-  const what = `the ${chargeNoun(g.charge, g.count)}`;
+/** "Switch the lions to Gules" / "Counterchange the mullets" / "Switch the roses on the chief to Or". */
+function fixWords(d: Design, path: GroupPath, t: GroupTincture): string {
+  const g = groupAt(d, path), host = hostOf(d, path);
+  const onto = host?.item.k === 'ordinary' ? ` on the ${ORDINARY_NAME[host.item.type]}` : '';
+  const what = `${groupNoun(g)}${onto}`;
   return t === 'counterchanged' ? `counterchange ${what}` : `switch ${what} to ${TINCTURE_NAME[t]}`;
 }
 
 /**
  * A tincture change that clears every rule-of-tincture issue, or null when there are none. Tries a
- * single layer first — the charges before the ordinary when the charges have an issue, and a plain
- * tincture before counterchanged — then both layers together, which always finds a way out, so a
- * design never sits in a violation with no fix.
+ * single group first — the pictures with an issue before the ordinary, then the others, and a plain
+ * tincture before counterchanged — then the ordinary and the pictures together, which finds a way out
+ * for every design the builder offers, so a design never sits in a violation with no fix.
  */
-export function suggestTinctureFix(nd: NormDesign): TinctureFix | null {
-  const issues = tinctureIssues(nd);
+export function suggestTinctureFix(d: Design): TinctureFix | null {
+  const issues = tinctureIssues(d);
   if (!issues.length) return null;
-  const g = nd.charges, o = nd.ordinary;
-  const clears = (d: NormDesign) => tinctureIssues(d).length === 0;
-  const chargeFix = (): TinctureFix | null => {
-    if (!g) return null;
-    const alternatives = CHARGE_TINCTURES.filter((t) => t !== g.tincture && clears(withChargeTincture(nd, g, t)));
-    if (!alternatives.length) return null;
-    const t = alternatives[0];
-    return { layer: 'charges', tincture: t, alternatives, label: capitalise(chargeFixWords(g, t)), design: withChargeTincture(nd, g, t) };
-  };
-  const ordinaryFix = (): TinctureFix | null => {
-    if (!o) return null;
-    const alternatives = TINCTURES.filter((t) => t !== o.tincture && clears(withOrdinaryTincture(nd, o, t)));
-    if (!alternatives.length) return null;
-    const t = alternatives[0];
-    return { layer: 'ordinary', tincture: t, alternatives, label: `Switch the ${ORDINARY_NAME[o.type]} to ${TINCTURE_NAME[t]}`, design: withOrdinaryTincture(nd, o, t) };
-  };
-  const bothFix = (): TinctureFix | null => {
-    if (!g || !o) return null;
-    for (const ot of TINCTURES) {
-      const base = withOrdinaryTincture(nd, o, ot);
-      const ct = CHARGE_TINCTURES.find((t) => clears(withChargeTincture(base, g, t)));
-      if (ct) {
-        return {
-          layer: 'ordinary-and-charges', ordinary: ot, charges: ct, design: withChargeTincture(base, g, ct),
-          label: `Switch the ${ORDINARY_NAME[o.type]} to ${TINCTURE_NAME[ot]} and ${chargeFixWords(g, ct)}`,
-        };
-      }
+  const clears = (x: Design) => tinctureIssues(x).length === 0;
+  const walked = walkGroups(d);
+  const broken = (path: GroupPath) => issues.some((i) => i.at.k === 'group' && samePath(i.at.path, path));
+  const rank = ({ path, group }: { path: GroupPath; group: Group }) =>
+    (broken(path) ? 0 : 2) + (group.item.k === 'charge' ? 0 : 1);
+  const order = [...walked].sort((a, b) => rank(a) - rank(b));
+
+  for (const { path } of order) {
+    const alternatives = offeredTinctures(d, path).filter((t) => t !== groupTinctureOf(groupAt(d, path).paint) && clears(withTincture(d, path, t)));
+    if (alternatives.length) {
+      const tincture = alternatives[0];
+      return { layer: 'group', path, tincture, alternatives, label: capitalise(fixWords(d, path, tincture)), design: withTincture(d, path, tincture) };
     }
-    return null;
-  };
-  const chargesFirst = issues.some((i) => i.layer === 'charges');
-  return (chargesFirst ? chargeFix() ?? ordinaryFix() : ordinaryFix() ?? chargeFix()) ?? bothFix();
+  }
+  const ordinary = walked.find(({ group }) => group.item.k === 'ordinary');
+  if (!ordinary) return null;
+  for (const ot of TINCTURES) {
+    let design = withTincture(d, ordinary.path, ot);
+    const changes = [{ path: ordinary.path, tincture: ot as GroupTincture }];
+    for (const { path } of walked) {
+      if (path === ordinary.path || groupTinctureIssues(design, path).length === 0) continue;
+      const t = offeredTinctures(design, path).find((x) => groupTinctureIssues(withTincture(design, path, x), path).length === 0);
+      if (!t) break;
+      design = withTincture(design, path, t);
+      changes.push({ path, tincture: t });
+    }
+    if (clears(design)) {
+      return { layer: 'several', changes, design, label: capitalise(changes.map((c) => fixWords(d, c.path, c.tincture)).join(' and ')) };
+    }
+  }
+  return null;
 }

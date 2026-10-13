@@ -10,8 +10,8 @@
 // (NORMALISATION_RULES). Rules 4–6 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, POSTURES, postureTerm } from '../../src/lib/heraldry/next';
-import { TINCTURES } from '../../src/lib/heraldry/next';
+import { CHARGES, CHARGE_IDS, POSTURES, postureTerm } from '../../src/lib/heraldry';
+import { TINCTURES } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;

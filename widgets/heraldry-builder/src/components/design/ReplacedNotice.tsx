@@ -5,8 +5,8 @@
 // it appears. When an adjustment leaves the charges' colour breaking the rule, the violation panel's
 // fix sits beside Undo too, so it is in reach wherever that panel is on screen.
 
-import { suggestTinctureFix, type Design } from '../../lib/heraldry/next';
-import { chargesClash, fixText, picturePath, type Replacement } from '../../lib/next/builder';
+import { suggestTinctureFix, type Design } from '../../lib/heraldry';
+import { chargesClash, fixText, picturePath, type Replacement } from '../../lib/builder';
 
 interface Props {
   replacement: Replacement | null;

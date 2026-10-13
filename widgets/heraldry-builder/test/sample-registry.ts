@@ -2,7 +2,7 @@
 // form, every signature and blazon recomputed from the design. DOM- and node-free so the byte-exact
 // test can run it in workerd; the file itself is written by test/sample-registry-write.ts.
 
-import { blazon, normalise, signature, type FieldShape } from '../src/lib/heraldry/next';
+import { blazon, normalise, signature, type FieldShape } from '../src/lib/heraldry';
 
 export interface SampleEntry {
   id: string;

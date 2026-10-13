@@ -2,9 +2,9 @@
 // "Surprise me" in its top corner: outside the fold, so it is always in view, and first in tab order.
 // Each example loads into the builder; its caption is its accessible name and tooltip.
 
-import type { ShapedDesign } from '../../lib/heraldry/next';
+import type { ShapedDesign } from '../../lib/heraldry';
 import { EXAMPLE_DESIGNS } from '../../lib/presets';
-import { Shield } from '../next/Shield';
+import { Shield } from '../Shield';
 
 interface Props {
   /** Whether the box starts open; the visitor can open or fold it at any time. */

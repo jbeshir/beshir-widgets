@@ -179,7 +179,7 @@ parameter, the API uses the default registry (`is_default = 1`, `default` today)
 | table | contents |
 |---|---|
 | `registries` | `id`, `name`, `is_default`, `created_at`. Seeded with `('default', 'Default', 1, …)`. |
-| `arms` | `id`, `registry_id`, `display_name`, `contact_discord` (nullable, CHECK-constrained to a valid Discord username), the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, the indexed component columns `field_division` / `ordinary` / `charge`, `readability`, `search_text` (blazon + gloss + display name as lowercase words, a space at each end; never contact, email or shape), `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
+| `arms` | `id`, `registry_id`, `display_name`, `contact_discord` (nullable, CHECK-constrained to a valid Discord username), the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, `readability`, the conflict key `partition_key` / `primary_key` (see Uniqueness), `search_text` (blazon + gloss + display name as lowercase words, a space at each end; never contact, email or shape), `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
 | `arms_tags` | `(arms_id, registry_id, tag)`: derived search tags such as `charge:wolf`, `posture:passant`, `ordinary:bordure`, `tincture:or`, indexed on `(registry_id, tag)`. |
 | `owner_emails` | `arms_id` (primary key), `email_hmac` (hex HMAC-SHA-256 of the normalised owner address), `key_version`, `created_at`. Indexed on `(email_hmac, key_version)`. Never the address. |
 | `owner_tokens` | `token_hash` (SHA-256 of a recovery token), `arms_id`, `created_at`, `expires_at`, `used_at`. |
@@ -195,54 +195,27 @@ typed and validated separately and nothing has to parse a JSON blob.
 ### Uniqueness: canonical signature and "too close"
 
 The Worker **never trusts** the client's blazon, signature or tags. On every check, registration
-and edit it re-normalises the submitted design with the shared library. That means filling every
-default (e.g. three charges default to "two and one") and validating the structure and the rule of
+and edit it resolves the submitted design with the shared library: it fills every default (e.g.
+five charges default to "two, two and one"), then validates the structure and the SENA rule of
 tincture. It then computes everything itself:
 
-- **Canonical signature**, e.g. `v1|F:plain:az|O:bend:or|C:unicorn:3:ordinary:forced:rampant:vt`.
-  Equivalent inputs normalise to the same signature, so you can't "blazon your way out" of a
-  duplicate. A `UNIQUE INDEX` on `(registry_id, signature)` makes exact duplicates impossible,
-  even under concurrent registrations (a lost race also answers `409 duplicate`).
-- **"Too close" rule.** A new design must be **different enough** from every entry in the
-  registry: each difference scores **1 point when clear** and **½ when minor**, and it needs a total
-  of **at least 1** — one clear difference, or two minor ones.
-
-  | Change | Points |
-  |---|---|
-  | field division (plain ↔ divided, or another division) | 1 |
-  | per bend ↔ per bend sinister (mirror image) | ½ |
-  | field tincture | 1 |
-  | the same two field tinctures on swapped sides ("Per pale Or and Azure" ↔ "Per pale Azure and Or") | ½ |
-  | ordinary added, removed, another type, or another tincture | 1 |
-  | bend ↔ bend sinister (mirror image) | ½ |
-  | charges added or removed; charge tincture (counterchanged counts as its own tincture); placement (on the ordinary vs around it) | 1 |
-  | charge type | 1 |
-  | charge type within a similarity group: lion ↔ wolf ↔ unicorn ↔ goat, rose ↔ gear ↔ sun | ½ |
-  | count, unless both are 4 or more | 1 |
-  | count, both 4 or more | ½ |
-  | arrangement, same count | 1 |
-  | in bend ↔ in bend sinister (mirror image) | ½ |
-  | arrangement alongside a count change (four in cross ↔ five in saltire) | ½ |
-  | posture in another posture group (also compared across charges of one similarity group) | 1 |
-  | passant ↔ statant | ½ |
-
-  The similarity groups are `SIMILARITY_GROUP` in `src/lib/heraldry/charges.ts`: at nametag size
-  (a shield about 32 px tall) a lion, wolf, unicorn and goat are the same silhouette, and a rose, gear
-  and sun are all a round boss with a ring of points. Across counts, four "two and two" and five "in
-  saltire" are the same pattern (the same four corners plus a centre), just as four and five in cross
-  are. Or ↔ Argent and Celestine ↔ Azure/Argent stay clear: they are different tinctures with
-  different hatching. A single charge or charges placed by an ordinary have no arrangement of their
-  own, so it is not compared. The field shape is never compared.
-
-  A change of division (other than its mirror), of ordinary type (other than its mirror) or of charge
-  outside its similarity group is always a full point, so the check only needs entries that share all
-  three groups. Each row stores them (`division_group`, `ordinary_group`, `charge_group`), and
-  the Worker loads just those candidates through the `arms_registry_similar_groups` index, in
-  registration order, and reports the first entry that is too close, with each difference and why it
-  counts half ("Lion and wolf count as the same shape at nametag size — that's only half a
-  difference") and the tally ("½ — not enough (needs 1)"). An available design also names the first
-  entry it only passed by adding up halves ("½ + ½ = 1 — different enough"). This is deliberately
-  more lenient than the SCA's rules: it is a nametag system for a community, not a kingdom armorial.
+- **Canonical signature**, e.g. `arms|az|P:o.bend:1:single:or`. Equivalent inputs normalise to the
+  same signature, so you can't "blazon your way out" of a duplicate. A `UNIQUE INDEX` on
+  `(registry_id, signature)` makes exact duplicates impossible, even under concurrent
+  registrations (a lost race also answers `409 duplicate`).
+- **"Too close" rule.** A new design must be clear of every entry in the registry under the SCA's
+  rules for conflict (SENA A5): **one substantial change, or two distinct changes**. The library
+  (`src/lib/heraldry/difference.ts`) aligns the two designs group by group and lists the changes:
+  a different field partition, or adding, removing or changing the type of the primary group, is a
+  substantial change; changes of tincture, number, arrangement, secondary and tertiary groups and the
+  like are distinct changes. Each difference comes with the SENA rule it applies, so the panel can say
+  why it counts and what to change. An available design also names the first entry it only passed by
+  two distinct changes. The field shape is never compared.
+- **Conflict key.** A different field partition or primary group is always a substantial change, so
+  the check only needs the entries that share both. Each row stores them (`partition_key`,
+  `primary_key`, NULL when the field is the primary), and the Worker loads just those candidates
+  through the `arms_registry_conflict_keys` index, in registration order, and reports the first entry
+  that is too close.
 - A registry holds at most **2,000 entries** (`409 registry_full`), counted with `COUNT(*)`.
 
 ### API (`worker/index.ts`)
@@ -253,7 +226,7 @@ where noted.
 | Route | Purpose |
 |---|---|
 | `GET /api/arms?…` | Public search (parameters below) → `{ registry: {id,name}, total, offset, limit, items: [{ id, displayName, design, shape, blazon, signature, readability, createdAt }] }`. Never includes the contact. |
-| `POST /api/arms/check` | `{ registry?, design }` → `200 { verdict: 'ok' \| 'duplicate' \| 'too-close', conflict?: {id, displayName, blazon, design, shape}, differences?, closest?, registry, blazon, signature, readability }`. `differences` (too-close) are `[{ attr, weight: 'clear' \| 'minor', text, why? }]` (`why` on minor ones only); `closest` (ok) is `{ conflict, differences }` for the first entry passed only by adding up minor differences, else `null`. Not rate-limited. |
+| `POST /api/arms/check` | `{ registry?, design }` → `200 { verdict: 'ok' \| 'duplicate' \| 'too-close', conflict?: {id, displayName, blazon, design, shape}, differences?, closest?, registry, blazon, signature, readability }`. `differences` (too-close) are `[{ attr, kind: 'sc' \| 'dc', rule, text, why, item }]` (`rule` is the SENA rule, `item` is `'ordinary'`, `'charge'` or null); `closest` (ok) is `{ conflict, differences }` for the first entry passed only by two distinct changes, else `null`. Not rate-limited. |
 | `POST /api/arms` | `{ registry?, displayName, email, contact?: { discord }, design, shape? }` (shape defaults to `heater`) → `201 { id, editSecret, registry: {id,name}, rev: 1, blazon, signature, editLinkEmail: 'sent' \| 'failed' \| 'disabled' }`. The edit link is emailed before answering; the registration stands whatever `editLinkEmail` says. |
 | `GET /api/arms/:id` | One entry: `{ id, registry, displayName, contact: { discord }, design, shape, blazon, signature, readability, rev, createdAt, updatedAt }`. Never the secret hash or the owner's email. |
 | `GET /api/arms/:id/owner` | Owner check. `Authorization: Bearer <secret>` → `200 { id, owner: true }`; otherwise 401/403 (404 unknown entry). |
@@ -294,7 +267,7 @@ produces and the app consumes.
 |---|---|
 | `unknown_param` (400) | A search parameter the API does not define; `param` names it. |
 | `bad_request` (400) | Malformed body, bad search parameter, or bad If-Match. Includes `field` (`displayName`, `email`, `discord`, `shape`, `token`) for field errors and `param` for search errors. |
-| `invalid_design` (400) | The design is malformed, structurally illegal, a plain field alone, or breaks the rule of tincture. Includes `issues: [{ code, layer, message, slots? }]`. |
+| `invalid_design` (400) | The design is malformed, structurally illegal, a plain field alone, or breaks the rule of tincture. Includes `issues: [{ code, at, message, slots }]` (`at` is `{ k: 'design' }`, `{ k: 'field' }` or `{ k: 'group', path }`; `code` is `shape`, `structure`, `tincture`, `generic`, or `unsupported` with a `gap` for a construct the builder doesn't draw yet). |
 | `unauthorized` (401) | No edit secret. |
 | `forbidden` (403) | Wrong edit secret. |
 | `not_found` (404) | Unknown entry, registry or route. |
@@ -467,8 +440,12 @@ migration: add the next-numbered file.
 - `0005_search_text.sql`: the `search_text` column free-text search runs over. Existing rows get their
   name and blazon words; the Worker writes the full text (with the gloss) on every register and edit.
 - `0006_similarity_groups.sql`: the `division_group`, `ordinary_group` and `charge_group` columns
-  (filled in for existing rows) and the `arms_registry_similar_groups` index the too-close lookup
-  uses, replacing 0002's index on the exact columns.
+  and an index over them (superseded by 0007).
+- `0007_design_model.sql`: resets the registry for the current design model. It drops and recreates
+  `arms`, `arms_tags`, `owner_emails` and `owner_tokens` (every registered entry is discarded; the
+  production registry was deliberately thrown away) and keeps `registries`. `arms` gets
+  `partition_key` and `primary_key` in place of the six component and group columns, and the
+  `arms_registry_conflict_keys` index the too-close lookup uses. **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
 
 Local database (used by `wrangler dev`):
 
@@ -542,7 +519,7 @@ and bypass withdrawal.
   registry can't be reached from an offline copy.
 - **Sample data:** `src/data/sample-registry.json` holds 20 fictional, hand-authored entries in the
   registry `sample` ("Sample armorial (offline demo)"). A unit test checks that their blazons and
-  signatures equal the generator's output byte for byte.
+  signatures equal the generator's output byte for byte (`npm run sample:write` regenerates the file).
 
 ## Testing
 
@@ -570,8 +547,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
-- `test/heraldry.test.ts`: the pure library. Covers every validation example, the uniqueness
-  examples, the sample fixture byte check, tags and the options helper.
+- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps, Discord normalisation and the `contact_discord` CHECK
@@ -590,9 +566,9 @@ npm run favicon
   - withdraw, which frees the signature
   - the 429 rate-limit path
   - response headers, the 16 KB body cap, the structured error log, one default registry, tag cascade
-  - the too-close candidate lookup giving the same verdicts as a full registry scan
-- `test/prefilter.test.ts`: the candidate key never changes a `checkUnique` verdict, over generated designs.
-- `test/migrations.test.ts`: migrations apply from empty, `0001` matches the production schema (`test/fixtures/production-schema.sql`, the original `schema.sql`), re-running it is harmless, `0002` preserves rows, and `0004` swaps the contact column and cascades to the owner tables.
+  - the too-close candidate lookup giving the same verdicts as a full registry scan, and distinct-change verdicts
+- `test/prefilter.test.ts`: the conflict key never changes a `checkUnique` verdict, over generated designs.
+- `test/migrations.test.ts`: migrations apply from empty, `0001` matches the production schema (`test/fixtures/production-schema.sql`, the original `schema.sql`), re-running it is harmless, `0002`–`0006` carry rows across, and `0007` empties the arms and owner tables, keeps the registries, checks the Discord username, cascades deletes to tags and owner tables, and serves the candidate lookup from its index.
 - `test/contact.test.ts`: the shared Discord and email validators.
 - `test/store.test.ts`: the store's offline mode (sample search/check, offline refusal of writes,
   owner checks and recovery) and its online result mapping (register with email and Discord,

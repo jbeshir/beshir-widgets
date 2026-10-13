@@ -2,8 +2,8 @@
 // thumbnail of the current design. The shape is display only — it never changes the arms, their
 // blazon or whether they are available — and the picker says so.
 
-import { FIELD_SHAPES, FIELD_SHAPE_NAME, type FieldShape, type Design } from '../../lib/heraldry/next';
-import { Shield } from '../next/Shield';
+import { FIELD_SHAPES, FIELD_SHAPE_NAME, type FieldShape, type Design } from '../../lib/heraldry';
+import { Shield } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
 
 interface Props {

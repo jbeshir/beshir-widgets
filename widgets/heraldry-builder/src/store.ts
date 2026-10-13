@@ -33,7 +33,7 @@ import {
   isReadabilityBand, normalise, parseSearchParams, readability, registrationOrder, resolve, searchEntries, searchParamsToUrl,
   type ApiErrorCode, type CheckResponse, type ComparedEntry, type ConflictSummary, type Contact, type Design, type DifferenceNote, type FieldShape, type Issue,
   type MailOutcome, type ReadabilityBand, type RegistryRef, type SearchParams, type ShapedDesign, type UniquenessReport,
-} from './lib/heraldry/next';
+} from './lib/heraldry';
 import { forgetDeviceArms, listDeviceArms, rememberDeviceArms, type DeviceArms } from './lib/deviceArms';
 import { clearDraft as clearStoredDraft, readDraft, writeDraft } from './lib/deviceDraft';
 import { readWelcomeDismissed, writeWelcomeDismissed } from './lib/deviceWelcome';

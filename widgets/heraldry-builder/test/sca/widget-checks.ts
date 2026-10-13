@@ -16,19 +16,19 @@
 
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
-import { Shield } from '../../src/components/next/Shield';
+import { Shield } from '../../src/components/Shield';
 import {
   CHARGE_IDS, DEFAULT_FIELD_SHAPE, DIVISIONS, DRAWN_ORDINARIES, OUTLINE_COLOUR, TINCTURES, TINCTURE_FILL,
   canonicalJson, fieldTinctureChoices, groupAt, groupTinctureOf, groupTinctureChoices, modifierChoices, pathKey, postureChoices, renderLayers, simpleParts, slotTransform,
   validate,
   type ChargeId, type Choice, type Design, type Division, type FieldShape, type Group, type GroupPath, type GroupTincture, type Issue, type Layer, type OrdinaryType, type Posture,
   type Tincture,
-} from '../../src/lib/heraldry/next';
+} from '../../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, addExtraPicture, assess, canAddExtraPicture, extraPicturePath, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture,
   setModifier, setOrdinary, setOrdinaryTincture, setPlainField, setPosture, type DesignStatus,
-} from '../../src/lib/next/builder';
-import { layoutMoves, type LayoutAction } from '../next-helpers';
+} from '../../src/lib/builder';
+import { layoutMoves, type LayoutAction } from '../helpers';
 
 // ── Assessment ──────────────────────────────────────────────────────────────
 

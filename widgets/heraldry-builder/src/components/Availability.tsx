@@ -6,8 +6,8 @@ import type { Result, CheckResult } from '../store';
 import { entryHash } from '../lib/route';
 import {
   CLEAR_CHANGE_HINT, SENA_RULE_HINT, changeLabel, tallyText, type ComparedEntry, type DiffAttr, type DifferenceNote, type TakenReport,
-} from '../lib/heraldry/next';
-import { Shield } from './next/Shield';
+} from '../lib/heraldry';
+import { Shield } from './Shield';
 
 export type CheckOutcome = Result<{ result: CheckResult }>;
 

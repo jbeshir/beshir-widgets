@@ -1,18 +1,113 @@
-// Charge slot tables for the non-heater shapes, fitted from the heater's tables (geometry.ts): each
-// group keeps its heater arrangement, spread and shifted about the shape's fess point and sized as
-// large as the shape allows, so that every drawing stays inside the shape (and on, or clear of, its
-// ordinary), neighbours never overlap, and each slot lies on the same parts of a divided field as its
-// heater slot (so what is drawn matches the canonical rule-of-tincture verdict).
-// test/geometry-fit.test.ts checks all of this against the real artwork.
+// Hand-fitted charge slot rows: the heater shield's tables and, for the other shapes, rows fitted from
+// them. Each group keeps its heater arrangement, spread and shifted about the shape's fess point and
+// sized as large as the shape allows, so that every drawing stays inside the shape (and on, or clear of,
+// its ordinary), neighbours never overlap, and each slot lies on the same parts of a divided field as
+// its heater slot (so what is drawn matches the canonical rule-of-tincture verdict). Layouts without a
+// row here come from the generic engine in layout.ts. test/geometry-fit.test.ts checks all of it
+// against the real artwork.
 //
-// Each row is [size, ...centres]; keys as in geometry.ts SlotTables.
+// Each row is [size, ...centres]. Keys: field/bordure/underChief `${count}:${layoutKey}`, between/on
+// `${ordinary}:${count}`.
 
 import type { FieldShape } from './shape';
 
 export type SlotRow = readonly [size: number, ...centres: Array<readonly [number, number]>];
 export type SlotContext = 'field' | 'bordure' | 'underChief' | 'between' | 'on';
+export type SlotRows = Record<SlotContext, Record<string, SlotRow>>;
 
-export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, Record<SlotContext, Record<string, SlotRow>>> = {
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const row = (size: number, ...xy: Array<readonly [number, number]>): SlotRow => [size, ...xy];
+
+/** Charges with no ordinary, no peripheral. */
+const FIELD: Record<string, SlotRow> = {
+  '1:single': row(90, [50, 54]),
+  '2:in-pale': row(48, [50, 29], [50, 81]),
+  '2:in-fess': row(48, [27, 52], [73, 52]),
+  '2:in-bend': row(42, [30, 31], [70, 72]),
+  '2:in-bend-sinister': row(42, [70, 31], [30, 72]),
+  '3:rows-2-1': row(44, [27, 29], [73, 29], [50, 77]),
+  '3:in-pale': row(35, [50, 20], [50, 56], [50, 92]),
+  '3:in-fess': row(32, [18, 52], [50, 52], [82, 52]),
+  '3:in-bend': row(31, [24, 24], [50, 50], [75, 75]),
+  '3:in-bend-sinister': row(31, [76, 24], [50, 50], [25, 75]),
+  '4:rows-2-2': row(40, [27, 29], [73, 29], [31, 73], [69, 73]),
+  '4:in-cross': row(34, [50, 21], [20, 55], [80, 55], [50, 89]),
+  '5:in-saltire': row(30, [23, 25], [77, 25], [50, 55], [31, 85], [69, 85]),
+  '5:in-cross': row(30, [50, 18], [18, 51], [50, 51], [82, 51], [50, 86]),
+  '6:rows-3-2-1': row(31, [19, 21], [50, 21], [81, 21], [34, 52], [66, 52], [50, 84]),
+};
+
+/** Under a chief. The single charge sits across the partition lines, so a chief on a divided field has a charge to share its tinctures. */
+const UNDER_CHIEF: Record<string, SlotRow> = {
+  '1:single': row(60, [50, 62]),
+  '2:in-fess': row(42, [27, 67], [73, 67]),
+  '3:rows-2-1': row(35, [27, 53], [73, 53], [50, 89]),
+  '3:in-fess': row(32, [18, 66], [50, 66], [82, 66]),
+};
+
+const BETWEEN: Record<string, SlotRow> = {
+  'fess:2': row(30, [50, 19], [50, 86]),
+  'fess:3': row(30, [28, 19], [72, 19], [50, 86]),
+  'pale:2': row(30, [20, 50], [80, 50]),
+  'bend:2': row(30, [76, 24], [24, 80]),
+  'bend-sinister:2': row(29, [24, 24], [76, 80]),
+  'chevron:3': row(32, [25, 22], [75, 22], [50, 94]),
+  'cross:4': row(24, [20, 20], [80, 20], [21, 81], [79, 81]),
+  'saltire:4': row(25, [50, 18], [16, 50], [84, 50], [50, 90]),
+  'pile:2': row(26, [19, 76], [81, 76]),
+};
+
+const BORDURE_SCALE = 0.86;
+const BORDURE_ORIGIN = { x: 50, y: 55 };
+
+function withinBordure([size, ...xy]: SlotRow): SlotRow {
+  return row(
+    r2(size * BORDURE_SCALE),
+    ...xy.map(([x, y]) => [r2(BORDURE_ORIGIN.x + (x - BORDURE_ORIGIN.x) * BORDURE_SCALE), r2(BORDURE_ORIGIN.y + (y - BORDURE_ORIGIN.y) * BORDURE_SCALE)] as const),
+  );
+}
+
+/** Positions along an ordinary's axis: 1 centred, 2 at ±15, 3 at 0 and ±28. */
+function alongAxis(cx: number, cy: number, dx: number, dy: number, count: 1 | 2 | 3, size: number): SlotRow {
+  const offsets = count === 1 ? [0] : count === 2 ? [-15, 15] : [-28, 0, 28];
+  return row(size, ...offsets.map((o) => [r2(cx + o * dx), r2(cy + o * dy)] as const));
+}
+
+const DIAG = Math.SQRT1_2;
+const CHEVRON_MID = 40 + (22 * Math.SQRT2) / 2; // centre line of the heater's chevron at its apex
+
+/** Charges on an ordinary, upright (layout.ts turns them to follow a bend or a chevron's limbs). */
+const ON: Record<string, SlotRow> = {
+  ...Object.fromEntries(([1, 2, 3] as const).flatMap((n) => [
+    [`fess:${n}`, alongAxis(50, 50, 1, 0, n, 27)],
+    [`pale:${n}`, alongAxis(50, 50, 0, 1, n, 27)],
+    [`chief:${n}`, alongAxis(50, 15, 1, 0, n, 26)],
+    [`bend:${n}`, alongAxis(50, 50, DIAG, DIAG, n, 25.5)],
+    [`bend-sinister:${n}`, alongAxis(50, 50, DIAG, -DIAG, n, 25.5)],
+  ])),
+  // The pile narrows towards its point, so its slots are tuned rather than evenly spaced.
+  'pile:1': row(24, [50, 34]),
+  'pile:2': row(22, [50, 22], [50, 48]),
+  'pile:3': row(20, [50, 14], [50, 36], [50, 58]),
+  'chevron:1': row(24, [50, r2(CHEVRON_MID)]),
+  'chevron:2': row(24, [24, r2(CHEVRON_MID + 26)], [76, r2(CHEVRON_MID + 26)]),
+  'chevron:3': row(24, [50, r2(CHEVRON_MID)], [24, r2(CHEVRON_MID + 26)], [76, r2(CHEVRON_MID + 26)]),
+  'cross:1': row(26, [50, 50]),
+  'cross:5': row(24, [50, 19], [19, 50], [50, 50], [81, 50], [50, 88]),
+  'saltire:1': row(28, [50, 50]),
+  'saltire:5': row(24, [24, 24], [76, 24], [50, 50], [24, 76], [76, 76]),
+};
+
+export const HEATER_SLOT_ROWS: SlotRows = {
+  field: FIELD,
+  bordure: Object.fromEntries(Object.entries(FIELD).map(([k, r]) => [k, withinBordure(r)])),
+  underChief: UNDER_CHIEF,
+  between: BETWEEN,
+  on: ON,
+};
+
+/** Rows for the other shapes: the same keys, in the same order, as the heater's. */
+export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, SlotRows> = {
   banner: {
     field: {
       '1:single': [90, [50, 63.75]],
@@ -20,16 +115,16 @@ export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, Record<Slot
       '2:in-fess': [48, [23.32, 62.4], [76.68, 62.4]],
       '2:in-bend': [42, [26, 37.2], [74, 86.4]],
       '2:in-bend-sinister': [42, [74, 37.2], [26, 86.4]],
-      '3:two-and-one': [44, [22.4, 33.4], [77.6, 33.4], [50, 86.2]],
+      '3:rows-2-1': [44, [22.4, 33.4], [77.6, 33.4], [50, 86.2]],
       '3:in-pale': [31.33, [50, 27.2], [50, 59.96], [50, 92.72]],
       '3:in-fess': [32, [16.08, 62.4], [50, 62.4], [83.92, 62.4]],
       '3:in-bend': [31, [18.8, 28.8], [50, 60], [80, 90]],
       '3:in-bend-sinister': [31, [81.2, 28.8], [50, 60], [20, 90]],
-      '4:two-and-two': [40, [22.4, 34.8], [77.6, 34.8], [27.2, 87.6], [72.8, 87.6]],
+      '4:rows-2-2': [40, [22.4, 34.8], [77.6, 34.8], [27.2, 87.6], [72.8, 87.6]],
       '4:in-cross': [34, [50, 28.82], [17, 60.1], [83, 60.1], [50, 91.38]],
       '5:in-saltire': [30, [17.6, 26.75], [82.4, 26.75], [50, 60.05], [27.2, 93.35], [72.8, 93.35]],
       '5:in-cross': [29.1, [50, 26], [14.8, 59], [50, 59], [85.2, 59], [50, 94]],
-      '6:three-two-one': [31, [15.9, 27.34], [50, 27.34], [84.1, 27.34], [32.4, 59.58], [67.6, 59.58], [50, 92.86]],
+      '6:rows-3-2-1': [31, [15.9, 27.34], [50, 27.34], [84.1, 27.34], [32.4, 59.58], [67.6, 59.58], [50, 92.86]],
     },
     bordure: {
       '1:single': [77.4, [50, 60.89]],
@@ -37,21 +132,21 @@ export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, Record<Slot
       '2:in-fess': [40.87, [29.23, 62.9], [70.77, 62.9]],
       '2:in-bend': [36.12, [29.36, 38.73], [70.64, 81.04]],
       '2:in-bend-sinister': [36.12, [70.64, 38.73], [29.36, 81.04]],
-      '3:two-and-one': [37.84, [27.85, 39.81], [72.15, 39.81], [50, 80.68]],
+      '3:rows-2-1': [37.84, [27.85, 39.81], [72.15, 39.81], [50, 80.68]],
       '3:in-pale': [25.43, [50, 33.41], [50, 60.04], [50, 86.67]],
       '3:in-fess': [26.01, [22.48, 62.9], [50, 62.9], [77.52, 62.9]],
       '3:in-bend': [26.66, [23.17, 34.66], [50, 60.82], [75.8, 85.97]],
       '3:in-bend-sinister': [26.66, [76.83, 34.66], [50, 60.82], [24.2, 85.97]],
-      '4:two-and-two': [34.4, [26.26, 37.69], [73.74, 37.69], [30.39, 81.96], [69.61, 81.96]],
+      '4:rows-2-2': [34.4, [26.26, 37.69], [73.74, 37.69], [30.39, 81.96], [69.61, 81.96]],
       '4:in-cross': [28.95, [50, 41.05], [23.68, 62.1], [76.32, 62.1], [50, 83.15]],
       '5:in-saltire': [25.8, [23.53, 33.78], [76.47, 33.78], [50, 60.1], [31.37, 86.42], [68.63, 86.42]],
       '5:in-cross': [24.77, [50, 33.33], [21.93, 59.44], [50, 59.44], [78.07, 59.44], [50, 87.13]],
-      '6:three-two-one': [26.53, [22.81, 34.23], [50, 34.23], [77.19, 34.23], [35.96, 59.82], [64.04, 59.82], [50, 86.24]],
+      '6:rows-3-2-1': [26.53, [22.81, 34.23], [50, 34.23], [77.19, 34.23], [35.96, 59.82], [64.04, 59.82], [50, 86.24]],
     },
     underChief: {
       '1:single': [62, [50, 77.5]],
       '2:in-fess': [42, [22.4, 80.4], [77.6, 80.4]],
-      '3:two-and-one': [35, [22.4, 57.76], [77.6, 57.76], [50, 90.88]],
+      '3:rows-2-1': [35, [22.4, 57.76], [77.6, 57.76], [50, 90.88]],
       '3:in-fess': [32, [16.08, 79.2], [50, 79.2], [83.92, 79.2]],
     },
     between: {
@@ -79,8 +174,8 @@ export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, Record<Slot
       'bend-sinister:2': [25.25, [37.27, 72.73], [62.73, 47.27]],
       'bend-sinister:3': [25.25, [26.24, 83.76], [50, 60], [73.76, 36.24]],
       'chevron:1': [24, [50, 65.56]],
-      'chevron:2': [24, [18.8, 96.37], [81.2, 96.37]],
-      'chevron:3': [24, [50, 65.17], [18.8, 96.37], [81.2, 96.37]],
+      'chevron:2': [24, [18.8, 94.77], [81.2, 94.77]],
+      'chevron:3': [24, [50, 65.17], [18.8, 94.77], [81.2, 94.77]],
       'cross:1': [26, [50, 60]],
       'cross:5': [23.64, [50, 30.24], [12.8, 60], [50, 60], [87.2, 60], [50, 96.48]],
       'saltire:1': [28, [50, 60]],
@@ -100,16 +195,16 @@ export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, Record<Slot
       '2:in-fess': [48, [25.39, 60.4], [74.61, 60.4]],
       '2:in-bend': [42, [31.2, 44.94], [68.8, 75.28]],
       '2:in-bend-sinister': [42, [67.4, 42.16], [32.6, 77.42]],
-      '3:two-and-one': [40.48, [29.07, 45.94], [70.93, 45.94], [50, 87.22]],
+      '3:rows-2-1': [40.48, [29.07, 45.94], [70.93, 45.94], [50, 87.22]],
       '3:in-pale': [31.15, [50, 27.5], [50, 59.9], [50, 92.3]],
       '3:in-fess': [32, [16.72, 60.4], [50, 60.4], [83.28, 60.4]],
       '3:in-bend': [29.61, [24.78, 41.5], [50, 61], [74.25, 79.75]],
       '3:in-bend-sinister': [30.23, [76.26, 42.54], [50, 61], [24.75, 78.75]],
-      '4:two-and-two': [35, [28.15, 42.31], [71.85, 42.31], [31.95, 81.47], [68.05, 81.47]],
+      '4:rows-2-2': [35, [28.15, 42.31], [71.85, 42.31], [31.95, 81.47], [68.05, 81.47]],
       '4:in-cross': [34, [50, 29.4], [17.9, 60], [82.1, 60], [50, 90.6]],
       '5:in-saltire': [28.2, [30.02, 35], [69.98, 35], [50, 62], [35.94, 89], [64.06, 89]],
       '5:in-cross': [28.65, [50, 26.32], [15.76, 58.99], [50, 58.99], [84.24, 58.99], [50, 93.64]],
-      '6:three-two-one': [25.26, [23.03, 39.56], [50, 39.56], [76.97, 39.56], [36.08, 66.22], [63.92, 66.22], [50, 93.74]],
+      '6:rows-3-2-1': [25.26, [23.03, 39.56], [50, 39.56], [76.97, 39.56], [36.08, 66.22], [63.92, 66.22], [50, 93.74]],
     },
     bordure: {
       '1:single': [68.11, [50, 60.39]],
@@ -117,21 +212,21 @@ export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, Record<Slot
       '2:in-fess': [39.22, [30.02, 60.4], [69.98, 60.4]],
       '2:in-bend': [35.04, [33.83, 49.46], [66.17, 70.97]],
       '2:in-bend-sinister': [35.58, [66.17, 49.3], [33.83, 71.16]],
-      '3:two-and-one': [32.54, [32.99, 48.26], [67.01, 48.26], [50, 82.11]],
+      '3:rows-2-1': [32.54, [32.99, 48.26], [67.01, 48.26], [50, 82.11]],
       '3:in-pale': [24.98, [50, 33.67], [50, 59.98], [50, 86.3]],
       '3:in-fess': [27.52, [23.58, 60.28], [50, 60.28], [76.42, 60.28]],
       '3:in-bend': [23.19, [33.45, 40.07], [50, 60.64], [65.91, 80.42]],
       '3:in-bend-sinister': [24.26, [69.9, 43.54], [50, 60.53], [30.87, 76.87]],
-      '4:two-and-two': [28.21, [32, 45.74], [68, 45.74], [35.13, 77.91], [64.87, 77.91]],
+      '4:rows-2-2': [28.21, [32, 45.74], [68, 45.74], [35.13, 77.91], [64.87, 77.91]],
       '4:in-cross': [28.51, [50, 40.03], [24.2, 60.5], [75.8, 60.5], [50, 80.97]],
       '5:in-saltire': [22.83, [33.98, 39.82], [66.02, 39.82], [50, 61.75], [38.73, 83.68], [61.27, 83.68]],
       '5:in-cross': [24.51, [50, 32.83], [22.48, 58.94], [50, 58.94], [77.52, 58.94], [50, 86.63]],
-      '6:three-two-one': [21.46, [28.94, 43.35], [50, 43.35], [71.06, 43.35], [39.13, 64.41], [60.87, 64.41], [50, 86.15]],
+      '6:rows-3-2-1': [21.46, [28.94, 43.35], [50, 43.35], [71.06, 43.35], [39.13, 64.41], [60.87, 64.41], [50, 86.15]],
     },
     underChief: {
       '1:single': [62, [50, 74.75]],
       '2:in-fess': [41.79, [28.84, 72.85], [71.16, 72.85]],
-      '3:two-and-one': [35, [22.4, 57.7], [77.6, 57.7], [50, 90.1]],
+      '3:rows-2-1': [35, [22.4, 57.7], [77.6, 57.7], [50, 90.1]],
       '3:in-fess': [30.88, [20.56, 72.04], [50, 72.04], [79.44, 72.04]],
     },
     between: {
@@ -180,16 +275,16 @@ export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, Record<Slot
       '2:in-fess': [37.92, [30.45, 60.4], [69.55, 60.4]],
       '2:in-bend': [32.55, [35, 50], [65, 70.5]],
       '2:in-bend-sinister': [33.18, [65, 49.81], [35, 70.72]],
-      '3:two-and-one': [31.46, [33.67, 50.54], [66.33, 50.54], [50, 87.02]],
+      '3:rows-2-1': [31.46, [33.67, 50.54], [66.33, 50.54], [50, 87.02]],
       '3:in-pale': [28, [50, 28.3], [50, 60.34], [50, 92.38]],
       '3:in-fess': [28, [23.12, 60.3], [50, 60.3], [76.88, 60.3]],
       '3:in-bend': [22.32, [30.5, 46.18], [50, 61], [68.75, 75.25]],
       '3:in-bend-sinister': [22.79, [70.02, 46.46], [50, 60.5], [30.75, 74]],
-      '4:two-and-two': [25.8, [33.44, 45.88], [66.56, 45.88], [36.32, 77.56], [63.68, 77.56]],
+      '4:rows-2-2': [25.8, [33.44, 45.88], [66.56, 45.88], [36.32, 77.56], [63.68, 77.56]],
       '4:in-cross': [31.62, [50, 31.35], [26.9, 60.25], [73.1, 60.25], [50, 89.15]],
       '5:in-saltire': [22.35, [34.61, 41.5], [65.39, 41.5], [50, 63.1], [39.17, 84.7], [60.83, 84.7]],
       '5:in-cross': [28.05, [50, 30.06], [23.12, 60.42], [50, 60.42], [76.88, 60.42], [50, 92.62]],
-      '6:three-two-one': [18.76, [29.23, 44.36], [50, 44.36], [70.77, 44.36], [39.28, 64.82], [60.72, 64.82], [50, 85.94]],
+      '6:rows-3-2-1': [18.76, [29.23, 44.36], [50, 44.36], [70.77, 44.36], [39.28, 64.82], [60.72, 64.82], [50, 85.94]],
     },
     bordure: {
       '1:single': [51.86, [50, 60.64]],
@@ -197,21 +292,21 @@ export const SHAPED_SLOT_ROWS: Record<Exclude<FieldShape, 'heater'>, Record<Slot
       '2:in-fess': [30.55, [33.98, 60.28], [66.02, 60.28]],
       '2:in-bend': [26.01, [38.13, 51.68], [61.87, 69.31]],
       '2:in-bend-sinister': [26.55, [61.35, 50.24], [38.65, 69.99]],
-      '3:two-and-one': [24.97, [36.35, 52.48], [63.65, 52.48], [50, 83.44]],
+      '3:rows-2-1': [24.97, [36.35, 52.48], [63.65, 52.48], [50, 83.44]],
       '3:in-pale': [23.78, [50, 35.17], [50, 60.25], [50, 85.32]],
       '3:in-fess': [22.57, [27.98, 60.18], [50, 60.18], [72.02, 60.18]],
       '3:in-bend': [17.86, [34.35, 48.3], [50, 60.38], [65.05, 71.99]],
       '3:in-bend-sinister': [18.13, [65.43, 47.87], [50, 60.39], [35.17, 72.43]],
-      '4:two-and-two': [20.98, [36.15, 49.04], [63.85, 49.04], [38.56, 74.02], [61.44, 74.02]],
+      '4:rows-2-2': [20.98, [36.15, 49.04], [63.85, 49.04], [38.56, 74.02], [61.44, 74.02]],
       '4:in-cross': [25.44, [50, 36.37], [30.91, 60.05], [69.09, 60.05], [50, 83.73]],
       '5:in-saltire': [17.67, [37, 45.06], [63, 45.06], [50, 62.35], [40.85, 79.64], [59.15, 79.64]],
       '5:in-cross': [22.45, [50, 34.63], [28.26, 59.89], [50, 59.89], [71.74, 59.89], [50, 86.68]],
-      '6:three-two-one': [14, [33.74, 45.71], [50, 45.71], [66.26, 45.71], [41.61, 61.98], [58.39, 61.98], [50, 78.76]],
+      '6:rows-3-2-1': [14, [33.74, 45.71], [50, 45.71], [66.26, 45.71], [41.61, 61.98], [58.39, 61.98], [50, 78.76]],
     },
     underChief: {
       '1:single': [51.46, [50, 71.75]],
       '2:in-fess': [31.71, [33.44, 69.55], [66.56, 69.55]],
-      '3:two-and-one': [30.98, [26.77, 61.37], [73.23, 61.37], [50, 89.81]],
+      '3:rows-2-1': [30.98, [26.77, 61.37], [73.23, 61.37], [50, 89.81]],
       '3:in-fess': [24.48, [26.32, 67.4], [50, 67.4], [73.68, 67.4]],
     },
     between: {

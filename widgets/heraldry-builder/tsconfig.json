@@ -14,5 +14,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["src", "test/builder.test.ts", "test/next-shield.test.ts", "test/next-builder.test.ts", "test/next-builder-controls-reach-every-legal-design.test.ts", "test/next-store.test.ts", "test/next-search.test.ts", "test/next-presets.test.ts", "test/next-celestine.test.ts", "test/next-builder-steps.test.ts", "test/next-helpers.ts", "test/next-sample-search-entries.ts"]
+  "include": ["src", "test/builder.test.ts", "test/shield.test.ts", "test/builder-controls-reach-every-legal-design.test.ts", "test/store.test.ts", "test/search.test.ts", "test/presets.test.ts", "test/celestine.test.ts", "test/builder-steps.test.ts", "test/helpers.ts", "test/sample-search-entries.ts"]
 }

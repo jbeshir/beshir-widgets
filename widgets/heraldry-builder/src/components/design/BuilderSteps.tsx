@@ -12,14 +12,14 @@ import {
   groupTinctureOf, isBlocked, layoutChoices, layoutKey, layoutLabel, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   groupLabel, type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type GroupTincture, type Issue,
   type LayoutChoice, type LayoutKey, type OrdinaryType, type PlainTerm, type Posture,
-} from '../../lib/heraldry/next';
+} from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
 import {
   addExtraPicture, canAddExtraPicture, companionNote, extraPicturePath, ordinaryPath, picturePath, placementLabel, removeExtraPicture, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField, setPosture,
-} from '../../lib/next/builder';
+} from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
-import { ChargeIcon, Shield } from '../next/Shield';
+import { ChargeIcon, Shield } from '../Shield';
 import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
 import { TincturePicker } from './TincturePicker';

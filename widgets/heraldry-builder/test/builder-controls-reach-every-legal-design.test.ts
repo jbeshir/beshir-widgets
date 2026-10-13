@@ -1,194 +1,365 @@
-// Every builder control, from every valid design in a broad deterministic sweep, either offers a
-// different allowed value or genuinely has only one legal value — and every legal charge layout
-// (count, placement, arrangement) can be reached from any valid design by clicking through the
-// count, placement and layout controls. "Legal" is worked out by brute force from the structural
-// tables and assess(), never from the options helper under test. A sample of designs whose charges
-// break the rule of tincture (a count or placement choice can lead there; only the layout moves) is
-// held to the same two checks.
+// Every builder control, from valid designs in a broad deterministic sweep, offers exactly the values
+// some completion makes legal — and every legal charge layout (count, placement, layout) can be reached
+// by clicking through the count, placement and layout controls only. The oracle never touches the
+// option helpers or the builder: for each field × ordinary × picture it builds the design from loose
+// input, brute-forces the phase-A simple space (count 1–12 × placement × every layout key) through
+// `normalise` and the rule of tincture, and calls a layout legal when the design resolves, is
+// supported, passes the structure rules and some tincture satisfies the rule of tincture.
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, CHARGE_IDS, CHARGE_TINCTURES, COUNTS, DIVISIONS, ORDINARY_TYPES, TINCTURES, arrangementChoices, chargeTinctureChoices,
-  countChoices, fieldTinctureChoices, legalArrangements, ordinaryTinctureChoices, placementChoices, postureChoices, tinctureIssues,
-  type Arrangement, type ChargeTincture, type Count, type Field, type NormDesign, type Ordinary, type Placement, type Tincture,
+  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, countChoices, fieldTinctureChoices, groupTinctureChoices, layoutChoices,
+  layoutKey, modifierChoices, normalise, placementChoices, postureChoices, tinctureIssues,
+  type ChargeId, type Design, type GroupPath,
 } from '../src/lib/heraldry';
-import { assess, setCharge } from '../src/lib/builder';
-import { layoutMoves } from './helpers';
+import { addExtraPicture, canAddExtraPicture, extraPicturePath, ordinaryPath, picturePath, setCharge, setCount } from '../src/lib/builder';
+import { layoutMoves, nd } from './helpers';
 
-const PLACEMENTS: readonly Placement[] = ['field', 'ordinary'];
+// ── The oracle: the simple space by brute force ─────────────────────────────
 
-// Plain fields of a metal, a colour and celestine; every division in metal/colour, colour/metal,
-// colour/colour and metal/metal pairs. Ordinaries in a metal and a colour.
-const FIELDS: Field[] = [
-  ...(['or', 'azure', 'celestine'] as Tincture[]).map((tincture): Field => ({ kind: 'plain', tincture })),
-  ...DIVISIONS.flatMap((division) => ([['or', 'azure'], ['gules', 'argent'], ['azure', 'vert'], ['or', 'argent']] as [Tincture, Tincture][])
-    .map((tinctures): Field => ({ kind: 'divided', division, tinctures }))),
+type Placement = 'field' | 'ordinary';
+
+/** Every layout key a group of up to twelve can have (`host` stands for "leave the arrangement out"). */
+const ALL_LAYOUT_KEYS: readonly string[] = [
+  'single', 'in-chief', 'in-base', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-orle', 'in-annulo', 'crossed',
+  'rows-2-1', 'rows-2-2', 'rows-2-2-1', 'rows-3-2-1', 'rows-3-3-1', 'rows-3-3-2', 'rows-3-3-3', 'rows-4-3-2-1', 'rows-4-4-3', 'rows-4-4-4',
+  'rows-1-2', 'rows-3-2', 'rows-2-2-2', 'rows-3-3', 'rows-4-4', 'rows-4-3-2', 'rows-1-1-1',
 ];
-const ORDINARIES: Array<Ordinary | null> = [null, ...ORDINARY_TYPES.flatMap((type) => (['argent', 'gules'] as Tincture[]).map((tincture) => ({ type, tincture })))];
+const PAINTS: readonly string[] = [...TINCTURES, 'counterchanged'];
 
-type Layout = { count: Count; placement: Placement; arrangement: Arrangement };
-const layoutKey = (l: Layout) => `${l.count}/${l.placement}/${l.arrangement}`;
-
-const valid = (d: NormDesign) => assess(d).status !== 'violation';
-const sameSet = <T>(a: T[]) => [...new Set(a)].map(String).sort();
-
-/** Charge tinctures that leave the design without a rule-of-tincture problem, by trying each one. */
-function legalTinctures(d: NormDesign): ChargeTincture[] {
-  return CHARGE_TINCTURES.filter((tincture) => tinctureIssues({ ...d, charges: { ...d.charges!, tincture } }).length === 0);
+interface Base {
+  field: unknown;
+  /** The field's division, or 'plain'. */
+  division: string;
+  ordinary: { type: string; tincture: string } | null;
+  charge: ChargeId;
+  posture: string | null;
 }
 
-/** Every structurally legal layout on this field and ordinary that some charge tincture makes valid. */
-function legalLayouts(base: NormDesign): Layout[] {
-  return COUNTS.flatMap((count) => PLACEMENTS.flatMap((placement) => legalArrangements(base.ordinary, placement, count)
-    .map((arrangement) => ({ count, placement, arrangement }))
-    .filter((l) => CHARGE_TINCTURES.some((tincture) => valid({ ...base, charges: { ...base.charges!, ...l, tincture } })))));
+interface Triple { count: number; placement: Placement; key: string }
+
+const tripleKey = (t: Triple) => `${t.count}/${t.placement}/${t.key}`;
+
+/** Whether the count can possibly have this layout key: the rows add up, a cross has four or five, and so on. */
+function countFits(key: string, n: number): boolean {
+  if (key === 'single') return n === 1;
+  if (key === 'in-cross' || key === 'in-saltire') return n === 4 || n === 5;
+  if (key === 'crossed') return n === 2;
+  const rows = /^rows-(.*)$/.exec(key)?.[1];
+  return rows ? rows.split('-').map(Number).reduce((a, b) => a + b, 0) === n : true;
 }
 
-/** Layouts reachable from `start` through the count, placement and layout controls, applied by the builder. */
-function reachableLayouts(start: NormDesign): Set<string> {
-  const seen = new Map<string, NormDesign>([[layoutKey(start.charges!), start]]);
-  const queue = [start];
-  for (let d = queue.shift(); d; d = queue.shift()) {
-    for (const { design: n } of layoutMoves(d)) {
-      const k = layoutKey(n.charges!);
-      if (!seen.has(k)) {
-        seen.set(k, n);
-        queue.push(n);
-      }
-    }
+const centralOrdinary = (b: Base) => b.ordinary !== null && !['chief', 'bordure'].includes(b.ordinary.type);
+
+/** The layout keys to try: charges around or on an ordinary are placed by it (the arrangement is left out), the rest are arranged. */
+function keysFor(b: Base, placement: Placement): readonly string[] {
+  return placement === 'ordinary' || centralOrdinary(b) ? ['host'] : ALL_LAYOUT_KEYS;
+}
+
+function pictureInput(b: Base, count: number, key: string, paint: string): object {
+  const item = { k: 'charge', charge: b.charge, ...(b.posture ? { posture: b.posture } : {}) };
+  return { item, paint, count, ...(key === 'host' ? {} : { arrangement: key }) };
+}
+
+/** Loose design input: the ordinary carries `onOrdinary` when given, and the top-level picture is `onField`. */
+function designInput(b: Base, onField: object | null, onOrdinary: object | null): object {
+  const groups: object[] = [];
+  if (b.ordinary) groups.push({ item: { k: 'ordinary', type: b.ordinary.type }, paint: b.ordinary.tincture, ...(onOrdinary ? { charged: [onOrdinary] } : {}) });
+  if (onField) groups.push(onField);
+  return { v: 2, field: b.field, groups };
+}
+
+function triple(b: Base, t: Triple, paint: string): object {
+  const picture = pictureInput(b, t.count, t.key, paint);
+  return t.placement === 'ordinary' ? designInput(b, null, picture) : designInput(b, picture, null);
+}
+
+/** Structure verdicts don't depend on tinctures, so they are shared by every base of the same shape. */
+const structureMemo = new Map<string, boolean>();
+
+function structureVerdict(b: Base, t: Triple): boolean {
+  const input = triple(b, t, 'or');
+  const r = normalise(input);
+  return r.ok || (r.design !== null && r.errors.every((e) => e.code === 'tincture'));
+}
+
+function structureLegal(b: Base, t: Triple): boolean {
+  const k = JSON.stringify([b.division, b.ordinary?.type, t.placement, t.count, t.key, t.key === 'crossed' && CHARGES[b.charge].long]);
+  let v = structureMemo.get(k);
+  if (v === undefined) {
+    v = structureVerdict(b, t);
+    structureMemo.set(k, v);
   }
-  return new Set(seen.keys());
+  return v;
 }
 
-/** Valid designs of the sweep: every field × ordinary × legal layout × legal charge tincture, the charge and posture rotating. */
-function sweep(): Array<{ design: NormDesign; legal: Layout[] }> {
-  const out: Array<{ design: NormDesign; legal: Layout[] }> = [];
-  let n = 0;
-  for (const field of FIELDS) for (const ordinary of ORDINARIES) {
-    const base: NormDesign = { v: 1, field, ordinary, charges: null };
-    // An ordinary that breaks the rule of tincture on this field never makes a valid design.
-    if (tinctureIssues(base).length) continue;
-    const charge = CHARGE_IDS[n++ % CHARGE_IDS.length];
-    const meta = CHARGES[charge];
-    const posture = meta.postures ? meta.postures[n % meta.postures.length] : null;
-    const withCharge: NormDesign = { ...base, charges: { charge, count: 1, placement: 'field', arrangement: 'single', posture, tincture: 'or' } };
-    const legal = legalLayouts(withCharge);
-    for (const l of legal) {
-      const laid: NormDesign = { ...withCharge, charges: { ...withCharge.charges!, ...l } };
-      for (const tincture of legalTinctures(laid)) out.push({ design: { ...laid, charges: { ...laid.charges!, tincture } }, legal });
+const resolved = (b: Base, t: Triple, paint: string): Design => nd(triple(b, t, paint));
+
+/** The picture paints that satisfy the rule of tincture in a layout that is structurally legal. */
+const legalPaints = (b: Base, t: Triple): string[] => PAINTS.filter((p) => tinctureIssues(resolved(b, t, p)).length === 0);
+
+/** Every (count, placement, layout) that makes a legal design with some picture tincture. */
+function legalTriples(b: Base): Triple[] {
+  const out: Triple[] = [];
+  for (const placement of b.ordinary ? (['field', 'ordinary'] as const) : (['field'] as const)) {
+    for (let count = 1; count <= 12; count++) {
+      for (const key of keysFor(b, placement)) {
+        const t = { count, placement, key };
+        if (countFits(key, count) && structureLegal(b, t) && PAINTS.some((p) => tinctureIssues(resolved(b, t, p)).length === 0)) out.push(t);
+      }
     }
   }
   return out;
 }
 
-/**
- * One design per second (field, ordinary, layout) of the sweep with its charges in a tincture that
- * breaks the rule there: the first one that does, keeping the charge and posture.
- */
-function violationSample(designs: Array<{ design: NormDesign; legal: Layout[] }>): Array<{ design: NormDesign; legal: Layout[] }> {
-  const starts = new Map<string, { design: NormDesign; legal: Layout[] }>();
-  for (const s of designs) {
-    const key = JSON.stringify([s.design.field, s.design.ordinary, layoutKey(s.design.charges!)]);
-    if (!starts.has(key)) starts.set(key, s);
+// ── The sweep ───────────────────────────────────────────────────────────────
+
+// Three plain fields (a metal, a colour, celestine) and every division in metal/colour, colour/metal, colour/colour and
+// metal/metal pairs; no ordinary, or each of the ten in argent and gules.
+const FIELDS: Array<{ field: unknown; division: string }> = [
+  ...['or', 'azure', 'celestine'].map((t) => ({ field: t, division: 'plain' })),
+  ...DRAWN_DIVISIONS.flatMap((division) => [['or', 'azure'], ['gules', 'argent'], ['azure', 'vert'], ['or', 'argent']]
+    .map((parts) => ({ field: { k: 'divided', division, parts }, division }))),
+];
+const ORDINARIES: Array<Base['ordinary']> = [null, ...DRAWN_ORDINARIES.flatMap((type) => ['argent', 'gules'].map((tincture) => ({ type, tincture })))];
+
+interface Context { base: Base; legal: Triple[] }
+
+/** The bases that are legal designs once a picture is added, the charge and its posture rotating. */
+function sweep(): Context[] {
+  const out: Context[] = [];
+  let n = 0;
+  for (const { field, division } of FIELDS) for (const ordinary of ORDINARIES) {
+    const charge = CHARGE_IDS[n % CHARGE_IDS.length];
+    const postures = CHARGES[charge].postures;
+    const base: Base = { field, division, ordinary, charge, posture: postures ? postures[n % postures.length] : null };
+    // An ordinary that breaks the rule of tincture on this field never makes a valid design.
+    if (tinctureIssues(nd(designInput(base, null, null))).length) continue;
+    out.push({ base, legal: legalTriples(base) });
+    n++;
   }
-  return [...starts.values()].filter((_, i) => i % 2 === 0).flatMap(({ design, legal }) => {
-    const tincture = CHARGE_TINCTURES.find((t) => !legalTinctures(design).includes(t));
-    return tincture ? [{ design: { ...design, charges: { ...design.charges!, tincture } }, legal }] : [];
-  });
+  return out;
+}
+
+const contexts = sweep();
+
+/** A few legal layouts spread over the list, the first among them. */
+function spread<T>(xs: readonly T[], n: number): T[] {
+  return [...new Set(Array.from({ length: Math.min(n, xs.length) }, (_, i) => Math.floor((i * xs.length) / Math.min(n, xs.length))))].map((i) => xs[i]);
+}
+
+interface State { design: Design; path: GroupPath; triple: Triple; paint: string }
+
+/** Where the picture is, found from the loose structure alone. */
+function pictureAt(d: Design, placement: Placement): GroupPath {
+  const oi = d.groups.findIndex((g) => g.item.k === 'ordinary');
+  return placement === 'ordinary' ? [oi, 0] : [d.groups.findIndex((g) => g.item.k === 'charge')];
+}
+
+function stateOf(b: Base, t: Triple, paint: string): State {
+  const design = resolved(b, t, paint);
+  return { design, path: pictureAt(design, t.placement), triple: t, paint };
+}
+
+/** Valid states: the layouts of `spread`, each in its first legal tincture. */
+function validStates({ base, legal }: Context, n: number): State[] {
+  return spread(legal, n).map((t) => stateOf(base, t, legalPaints(base, t)[0]));
+}
+
+/** A state whose picture breaks the rule of tincture: the first layout with an illegal tincture, in that tincture. */
+function violationState({ base, legal }: Context): State | null {
+  for (const t of legal) {
+    const bad = PAINTS.find((p) => !legalPaints(base, t).includes(p));
+    if (bad) return stateOf(base, t, bad);
+  }
+  return null;
 }
 
 const allowedValues = <T>(choices: Array<{ value: T; allowed: boolean }>) => choices.filter((c) => c.allowed).map((c) => c.value);
+const sameSet = <T>(a: T[]) => [...new Set(a)].map(String).sort();
+
+/** A state's (count, placement, layout key) as the design says it. */
+function tripleOf(d: Design, path: GroupPath): Triple {
+  let g = d.groups[path[0]];
+  for (const i of path.slice(1)) g = g.charged[i];
+  const key = g.arrangement.k === 'host' ? 'host' : layoutKey({ arrangement: g.arrangement, position: g.position });
+  return { count: g.count, placement: path.length > 1 ? 'ordinary' : 'field', key };
+}
 
 describe('builder controls never lock a legal value away', () => {
-  const designs = sweep();
-  const violations = violationSample(designs);
+  const valid = contexts.flatMap((c) => validStates(c, 4).map((s) => ({ c, s })));
+  const violations = contexts.flatMap((c) => { const s = violationState(c); return s ? [{ c, s }] : []; });
 
-  it('covers a broad sweep of valid designs', () => {
-    const contexts = new Set(designs.map(({ design }) => JSON.stringify([design.field, design.ordinary])));
-    const charges = new Set(designs.map(({ design }) => design.charges!.charge));
-    console.log(`swept ${designs.length} valid designs over ${contexts.size} field × ordinary combinations, ${charges.size} charges`);
-    expect(contexts.size).toBeGreaterThan(300);
-    expect(charges.size).toBe(CHARGE_IDS.length);
-    expect(designs.length).toBeGreaterThan(7000);
-    expect(designs.every(({ design }) => valid(design))).toBe(true);
-    console.log(`and ${violations.length} designs whose charges break the rule of tincture`);
-    expect(violations.length).toBeGreaterThan(1000);
-    expect(violations.every(({ design }) => tinctureIssues(design).some((i) => i.layer === 'charges'))).toBe(true);
+  it('covers a broad sweep of the simple space', () => {
+    const perCount = new Map<number, number[]>();
+    for (const { legal } of contexts) {
+      for (let n = 1; n <= 12; n++) {
+        const at = legal.filter((t) => t.count === n).length;
+        perCount.set(n, [...(perCount.get(n) ?? []), at]);
+      }
+    }
+    const summary = [...perCount].map(([n, xs]) => `${n}: ${Math.min(...xs)}–${Math.max(...xs)}`).join(', ');
+    console.log(`${contexts.length} field × ordinary contexts, ${valid.length} valid designs, ${violations.length} rule-of-tincture violations`);
+    console.log(`legal layouts per count (placements together): ${summary}`);
+    expect(contexts.length).toBeGreaterThan(300);
+    expect(new Set(valid.map(({ c }) => c.base.charge)).size).toBe(CHARGE_IDS.length);
+    expect(violations.length).toBeGreaterThan(300);
+    // The oracle is not vacuous: every count is legal somewhere.
+    for (let n = 1; n <= 12; n++) expect(contexts.some(({ legal }) => legal.some((t) => t.count === n)), `count ${n}`).toBe(true);
+    // The oracle is not vacuous: every layout key but a few is legal somewhere.
+    const never = ALL_LAYOUT_KEYS.filter((key) => !contexts.some(({ legal }) => legal.some((t) => t.key === key)));
+    console.log(`layout keys that are legal nowhere: ${never.join(', ')}`);
+    // Eight in two rows of four, nine and twelve in rows of three and four are too wide for any shield; three singles in rows isn't a pattern.
+    expect(never).toEqual(['rows-3-3-3', 'rows-4-4-4', 'rows-4-4', 'rows-1-1-1']);
+    // Sampled structure verdicts don't depend on the tinctures they were memoised from.
+    for (const { base, legal } of contexts.filter((_, i) => i % 40 === 0)) {
+      for (const t of spread(legal, 3)) expect(structureVerdict(base, t), JSON.stringify([base, t])).toBe(true);
+    }
   });
 
-  it('every charge control offers exactly the values some completion makes legal, and something other than the current one unless only one is', () => {
+  it('every control offers exactly the values some completion makes legal, and something other than the current one unless only one is', () => {
     let checked = 0;
-    for (const { design: d, legal } of [...designs, ...violations]) {
-      const g = d.charges!;
-      const label = JSON.stringify(d);
-      // Count and placement: allowed exactly when some partner, arrangement and tincture make them legal.
-      const counts = allowedValues(countChoices(d));
-      expect(sameSet(counts), label).toEqual(sameSet(legal.map((l) => l.count)));
-      const placements = allowedValues(placementChoices(d));
-      expect(sameSet(placements), label).toEqual(sameSet(legal.map((l) => l.placement)));
+    for (const { c, s } of [...valid, ...violations]) {
+      const { design: d, path, triple: here } = s;
+      const label = JSON.stringify([c.base, s.triple, s.paint]);
+      expect(picturePath(d), label).toEqual(path);
+      expect(tripleOf(d, path), label).toEqual(here);
+      // Count and placement: allowed exactly when some partner, layout and tincture make them legal.
+      const counts = allowedValues(countChoices(d, path));
+      expect(sameSet(counts), label).toEqual(sameSet(c.legal.map((t) => t.count)));
+      const placements = allowedValues(placementChoices(d, path));
+      expect(sameSet(placements), label).toEqual(sameSet(c.legal.map((t) => t.placement)));
       // Layout: allowed exactly when some tincture makes it legal at this count and placement.
-      const here = legal.filter((l) => l.count === g.count && l.placement === g.placement).map((l) => l.arrangement);
-      const arr = arrangementChoices(d);
-      expect(sameSet(arr.mode === 'choose' ? allowedValues(arr.choices) : [g.arrangement]), label).toEqual(sameSet(here));
-      // Posture: the ones the charge is drawn in. Tincture: the ones the rule of tincture allows here.
-      const postures = allowedValues(postureChoices(d));
-      expect(sameSet(postures), label).toEqual(sameSet([...(CHARGES[g.charge].postures ?? [])]));
-      const tinctures = allowedValues(chargeTinctureChoices(d));
-      expect(sameSet(tinctures), label).toEqual(sameSet(legalTinctures(d)));
-      for (const [values, current] of [[counts, g.count], [placements, g.placement], [here, g.arrangement], [tinctures, g.tincture]] as const) {
+      const legalHere = c.legal.filter((t) => t.count === here.count && t.placement === here.placement).map((t) => t.key);
+      const layouts = layoutChoices(d, path);
+      const offered = layouts.mode === 'choose' ? allowedValues(layouts.choices) : [here.key];
+      expect(sameSet(offered), label).toEqual(sameSet(legalHere));
+      if (layouts.mode !== 'choose') expect(legalHere, label).toEqual([here.key]);
+      // Posture: the ones the charge is drawn in. Modifiers: the ones it is drawn with.
+      expect(sameSet(allowedValues(postureChoices(d, path))), label).toEqual(sameSet([...(CHARGES[c.base.charge].postures ?? [])]));
+      expect(sameSet(allowedValues(modifierChoices(d, path))), label).toEqual(sameSet([...CHARGES[c.base.charge].mods]));
+      // Tincture: the ones the rule of tincture allows here.
+      const paints = allowedValues(groupTinctureChoices(d, path));
+      expect(sameSet(paints), label).toEqual(sameSet(legalPaints(c.base, here)));
+      for (const [values, current] of [[counts, here.count], [placements, here.placement], [offered, here.key], [paints, s.paint]] as const) {
         const others = (values as readonly unknown[]).filter((v) => v !== current);
         expect(others.length > 0 || (values as readonly unknown[]).length === 1, label).toBe(true);
       }
       checked++;
     }
-    console.log(`checked count, placement, layout, pose and tincture options on ${checked} designs`);
-  }, 30_000);
+    console.log(`checked count, placement, layout, pose, modifier and tincture options on ${checked} designs`);
+  }, 60_000);
 
-  it('the lower layers always offer another value, and the charge can always be swapped', () => {
-    for (const { design: d } of designs) {
-      const label = JSON.stringify(d);
-      const f = d.field;
-      const parts = f.kind === 'divided' ? [0, 1] as const : [0] as const;
+  it('the lower layers always offer another value, and the picture can always be swapped', () => {
+    for (const { c, s } of valid) {
+      const { design: d } = s;
+      const label = JSON.stringify([c.base, s.triple, s.paint]);
+      const parts = c.base.division === 'plain' ? ([0] as const) : ([0, 1] as const);
       for (const part of parts) {
-        const current = f.kind === 'plain' ? f.tincture : f.tinctures[part];
-        const other = f.kind === 'divided' ? f.tinctures[part === 0 ? 1 : 0] : null;
+        const current = c.base.division === 'plain' ? String(c.base.field) : (c.base.field as { parts: string[] }).parts[part];
+        const other = c.base.division === 'plain' ? null : (c.base.field as { parts: string[] }).parts[part === 0 ? 1 : 0];
         const allowed = allowedValues(fieldTinctureChoices(d, part));
         expect(sameSet(allowed), label).toEqual(sameSet(TINCTURES.filter((t) => t !== other)));
         expect(allowed.some((t) => t !== current), label).toBe(true);
       }
-      if (d.ordinary) {
-        const o = d.ordinary;
-        const allowed = allowedValues(ordinaryTinctureChoices(d));
-        const legal = TINCTURES.filter((t) => !tinctureIssues({ ...d, ordinary: { ...o, tincture: t }, charges: null }).some((i) => i.layer === 'ordinary'));
-        expect(sameSet(allowed), label).toEqual(sameSet(legal));
-        expect(allowed.some((t) => t !== o.tincture), label).toBe(true);
+      const ordinary = ordinaryPath(d);
+      if (c.base.ordinary && ordinary) {
+        const alone = (paint: string) => tinctureIssues(nd(designInput({ ...c.base, ordinary: { ...c.base.ordinary!, tincture: paint } }, null, null))).length === 0;
+        const allowed = allowedValues(groupTinctureChoices(d, ordinary));
+        expect(sameSet(allowed), label).toEqual(sameSet(PAINTS.filter(alone)));
+        expect(allowed.some((t) => t !== c.base.ordinary!.tincture), label).toBe(true);
       }
-      const other = CHARGE_IDS.find((id) => id !== d.charges!.charge)!;
-      expect(setCharge(d, other).charges?.charge, label).toBe(other);
-    }
-  });
-
-  it('every legal count, placement and layout is reachable from every valid design through the controls', () => {
-    let pairs = 0, states = 0;
-    const byStart = new Map<string, Set<string>>();
-    for (const { design: d, legal } of designs) {
-      // The options don't depend on the charge's own tincture, pose or kind, so designs that differ
-      // only there share one search.
-      const key = JSON.stringify([d.field, d.ordinary, layoutKey(d.charges!)]);
-      const reached = byStart.get(key) ?? reachableLayouts(d);
-      byStart.set(key, reached);
-      const missing = legal.map(layoutKey).filter((k) => !reached.has(k));
-      expect(missing, JSON.stringify(d)).toEqual([]);
-      pairs += new Set(legal.map((l) => `${l.count}/${l.placement}`)).size;
-      states += reached.size;
-    }
-    console.log(`searched from ${byStart.size} distinct starting layouts; ${pairs} (design, legal count+placement) pairs and ${states} reached layouts checked`);
-  }, 90_000);
-
-  it('every legal count, placement and layout is reachable from a design whose charges break the rule of tincture', () => {
-    for (const { design: d, legal } of violations) {
-      const reached = reachableLayouts(d);
-      expect(legal.map(layoutKey).filter((k) => !reached.has(k)), JSON.stringify(d)).toEqual([]);
+      const other = CHARGE_IDS.find((id) => id !== c.base.charge)!;
+      const swapped = setCharge(d, 'picture', other);
+      const at = picturePath(swapped);
+      expect(at ? tripleOf(swapped, at).placement : null, label).toBe(s.triple.placement);
+      expect(at && JSON.stringify(swapped.groups).includes(`"charge":"${other}"`), label).toBeTruthy();
     }
   }, 30_000);
+
+  /** Layouts reachable from `start` through the count, placement and layout controls, as far as `legal` needs; a move to an illegal layout is a failure. */
+  function reach(start: State, legal: ReadonlySet<string>): { seen: Set<string>; expanded: number; stray: string[] } {
+    const seen = new Set([tripleKey(tripleOf(start.design, start.path))]);
+    const queue: Array<{ design: Design; path: GroupPath }> = [start];
+    const stray: string[] = [];
+    let expanded = 0;
+    for (let s = queue.shift(); s && [...legal].some((k) => !seen.has(k)); s = queue.shift()) {
+      expanded++;
+      for (const { design } of layoutMoves(s.design, s.path)) {
+        const path = picturePath(design);
+        if (!path) {
+          stray.push('the picture went missing');
+          continue;
+        }
+        const k = tripleKey(tripleOf(design, path));
+        if (!legal.has(k)) stray.push(k);
+        if (!seen.has(k)) {
+          seen.add(k);
+          queue.push({ design, path });
+        }
+      }
+    }
+    return { seen, expanded, stray };
+  }
+
+  it('every legal count, placement and layout is reachable through the controls from valid designs', () => {
+    let expanded = 0, starts = 0;
+    for (const c of contexts) {
+      const legal = new Set(c.legal.map(tripleKey));
+      for (const s of validStates(c, 3)) {
+        const r = reach(s, legal);
+        expect([...legal].filter((k) => !r.seen.has(k)), JSON.stringify([c.base, s.triple])).toEqual([]);
+        expect(r.stray, JSON.stringify([c.base, s.triple])).toEqual([]);
+        expanded += r.expanded;
+        starts++;
+      }
+    }
+    console.log(`searched from ${starts} starting layouts, expanding ${expanded} designs`);
+  }, 60_000);
+
+  it('every legal count, placement and layout is reachable from a design whose picture breaks the rule of tincture', () => {
+    for (const { c, s } of violations) {
+      const legal = new Set(c.legal.map(tripleKey));
+      const r = reach(s, legal);
+      expect([...legal].filter((k) => !r.seen.has(k)), JSON.stringify([c.base, s.triple, s.paint])).toEqual([]);
+      expect(r.stray, JSON.stringify([c.base, s.triple])).toEqual([]);
+    }
+  }, 60_000);
+
+  it('extra pictures are offered exactly when some group on the band is legal, and every legal count is reachable', () => {
+    let offered = 0, refused = 0;
+    for (const c of contexts) {
+      if (!c.base.ordinary || !['chief', 'pale', 'fess', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'].includes(c.base.ordinary.type)) continue;
+      const onField = c.legal.find((t) => t.placement === 'field');
+      if (!onField) continue;
+      const s = stateOf(c.base, onField, legalPaints(c.base, onField)[0]);
+      // The oracle: a group of this charge on the ordinary, beside the picture, with some count and tincture.
+      const extra = (count: number, paint: string) => ({ item: { k: 'charge', charge: 'rose' }, paint, count });
+      const legalCounts = Array.from({ length: 12 }, (_, i) => i + 1).filter((count) => {
+        const r = (paint: string) => designInput(c.base, pictureInput(c.base, onField.count, onField.key, s.paint), extra(count, paint));
+        const structure = normalise(r('or'));
+        return (structure.ok || (structure.design !== null && structure.errors.every((e) => e.code === 'tincture')))
+          && PAINTS.some((p) => normalise(r(p)).ok);
+      });
+      const label = JSON.stringify([c.base, onField]);
+      expect(canAddExtraPicture(s.design), label).toBe(legalCounts.length > 0);
+      const added = addExtraPicture(s.design, 'rose');
+      if (!legalCounts.length) {
+        expect(added, label).toBe(s.design);
+        refused++;
+        continue;
+      }
+      offered++;
+      const path = extraPicturePath(added);
+      expect(path, label).not.toBeNull();
+      expect(sameSet(allowedValues(countChoices(added, path!))), label).toEqual(sameSet(legalCounts));
+      for (const count of legalCounts) {
+        const moved = setCount(added, extraPicturePath(added)!, count);
+        const at = extraPicturePath(moved);
+        expect(at && moved.groups[at[0]].charged[at[1]].count, `${label} → ${count}`).toBe(count);
+      }
+    }
+    console.log(`extra pictures offered on ${offered} bases and refused on ${refused}`);
+    expect(offered).toBeGreaterThan(100);
+  }, 60_000);
 });

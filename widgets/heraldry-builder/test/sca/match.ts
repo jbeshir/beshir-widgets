@@ -12,7 +12,7 @@
 import {
   CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, POSTURES, TINCTURES,
   blazon, normalise, postureTerm, type ChargeId, type Design, type Division, type Gap, type Issue, type OrdinaryType, type Posture,
-} from '../../src/lib/heraldry/next';
+} from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
 
 /** A design input as `resolve` reads it. */

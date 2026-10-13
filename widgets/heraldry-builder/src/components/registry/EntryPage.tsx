@@ -1,7 +1,7 @@
 // Public entry view for #/a/<id>.
 
 import { useEffect, useState } from 'preact/hooks';
-import { API_ERROR, type ShapedDesign } from '../../lib/heraldry/next';
+import { API_ERROR, type ShapedDesign } from '../../lib/heraldry';
 import { useFocusOnChange } from '../../lib/useFocusOnChange';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';

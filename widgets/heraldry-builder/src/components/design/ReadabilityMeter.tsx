@@ -2,8 +2,8 @@
 // stay registrable; the meter only nudges, naming the one change that helps most — and holds the
 // nudge back while the rule of tincture is broken, which has to be fixed first.
 
-import { BAND_LABEL, BAND_RANGE, readability, type Design, type ReadabilityBand } from '../../lib/heraldry/next';
-import { readabilityTip, type DesignReport } from '../../lib/next/builder';
+import { BAND_LABEL, BAND_RANGE, readability, type Design, type ReadabilityBand } from '../../lib/heraldry';
+import { readabilityTip, type DesignReport } from '../../lib/builder';
 
 const BANDS: ReadabilityBand[] = ['bold', 'fine', 'busy'];
 

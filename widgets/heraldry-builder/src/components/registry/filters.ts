@@ -3,7 +3,7 @@
 import {
   CATEGORY_LABEL, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, ORDINARY_LABEL, ORDINARY_TYPES, POSTURES, POSTURE_GLOSS,
   TINCTURES, TINCTURE_LABEL, chargeLabel, chargesInCategory, type PlainTerm, type Posture, type SearchParams,
-} from '../../lib/heraldry/next';
+} from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 
 export const FILTER_KEYS = ['category', 'charge', 'posture', 'ordinary', 'division', 'fieldTincture', 'tincture', 'chargeTincture'] as const;

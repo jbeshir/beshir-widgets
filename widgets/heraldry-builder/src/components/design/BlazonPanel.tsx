@@ -1,7 +1,7 @@
 // The blazon (display serif) with its plain-English gloss and a copy button.
 
 import { useEffect, useState } from 'preact/hooks';
-import { blazon, gloss, type Design } from '../../lib/heraldry/next';
+import { blazon, gloss, type Design } from '../../lib/heraldry';
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -10,7 +10,7 @@ async function copyText(text: string): Promise<boolean> {
       return true;
     }
   } catch {
-    // fall through to the legacy path
+    // fall through to the textarea fallback
   }
   try {
     const ta = document.createElement('textarea');

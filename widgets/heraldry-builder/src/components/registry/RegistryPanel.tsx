@@ -4,11 +4,11 @@
 // entry page and the owner view; #/recover and #/recover/<token> with the recovery screens.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, gloss, type ShapedDesign, type Tincture } from '../../lib/heraldry/next';
+import { SHIELD_PATH, SHIELD_VIEWBOX, TINCTURE_FILL, gloss, type ShapedDesign, type Tincture } from '../../lib/heraldry';
 import { registryParam, type Route } from '../../lib/route';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
-import { Shield } from '../next/Shield';
+import { Shield } from '../Shield';
 import { EntryPage } from './EntryPage';
 import { EntrySheet } from './EntryDetail';
 import { OwnerView } from './OwnerView';

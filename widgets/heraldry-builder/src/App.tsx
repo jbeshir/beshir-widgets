@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { DEFAULT_FIELD_SHAPE, blazon, type Companion, type FieldShape, type Design, type ShapedDesign } from './lib/heraldry/next';
-import { DEFAULT_DESIGN, adjustDesign, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/next/builder';
+import { DEFAULT_FIELD_SHAPE, blazon, type Companion, type FieldShape, type Design, type ShapedDesign } from './lib/heraldry';
+import { DEFAULT_DESIGN, adjustDesign, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
 import { surpriseDesign } from './lib/presets';
 import { RECOVER_HASH, entryHash, parseHash, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
