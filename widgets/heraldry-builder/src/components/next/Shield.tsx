@@ -16,7 +16,7 @@
 
 import { useRef } from 'preact/hooks';
 import {
-  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING, designTinctures, pathKey, renderLayers, shapeFrame, slotTransform,
+  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING, designTinctures, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
   type Design, type FieldShape, type Hatching, type Layer, type Slot, type Tincture,
 } from '../../lib/heraldry/next';
 
@@ -27,7 +27,7 @@ interface Props {
   /** Rendered width in px (height is 1.2×). Omit to size with CSS (class). */
   size?: number;
   hatching?: boolean;
-  /** Accessible name. Omit it (or pass null) for a decorative shield (aria-hidden). */
+  /** Accessible name; defaults to the plain-English gloss of the design. Pass null for a decorative shield (aria-hidden). */
   label?: string | null;
   class?: string;
   testid?: string;
@@ -186,7 +186,7 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
   const clip = `shield-clip-${uid}`;
   const frame = shapeFrame(shape);
   const layers = renderLayers(design, shape);
-  const name = label ?? null;
+  const name = label === undefined ? gloss(design) : label;
   const hatched = hatching ? designTinctures(design).filter((t) => TINCTURE_HATCHING[t] !== 'plain') : [];
   const small = isSmallShield(size);
   const stroke = { stroke: OUTLINE_COLOUR, 'stroke-width': small ? 0.5 : 1, 'vector-effect': 'non-scaling-stroke' as const, 'stroke-linejoin': 'round' as const };

@@ -110,6 +110,13 @@ export function groupAt(d: Design, path: GroupPath): Group {
   return group;
 }
 
+/** The design with the group at `path` replaced (the groups above it are rebuilt, everything else is shared). */
+export function replaceGroup(d: Design, path: GroupPath, group: Group): Design {
+  const swap = (groups: readonly Group[], rest: GroupPath): Group[] =>
+    groups.map((g, i) => (i !== rest[0] ? g : rest.length === 1 ? group : { ...g, charged: swap(g.charged, rest.slice(1)) }));
+  return { ...d, groups: swap(d.groups, path) } as Design;
+}
+
 /** The group `path` is nested in, or null for a top-level group. */
 export function hostOf(d: Design, path: GroupPath): Group | null {
   return path.length > 1 ? groupAt(d, path.slice(0, -1)) : null;
@@ -144,6 +151,13 @@ export function primaryGroup(d: Design): { path: GroupPath; group: Group } | nul
 /** True when no group is primary: the field carries the design (RULES §B.3). */
 export function isFieldPrimary(d: Design): boolean {
   return primaryGroup(d) === null;
+}
+
+/** The plain tinctures of the field, in part order; a part that isn't a plain tincture adds none. */
+export function fieldTinctures(d: Design): Tincture[] {
+  if (d.kind !== 'arms') return [];
+  const parts = d.field.k === 'divided' ? d.field.parts : [d.field];
+  return parts.flatMap((p) => (p.k === 'tincture' ? [p.t] : []));
 }
 
 export function itemKey(item: Item): string {

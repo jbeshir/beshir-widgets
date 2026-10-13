@@ -8,7 +8,7 @@ import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
-import { contextOf, defaultLayoutOf, hostCounts, layoutContext, layoutKey, type Layout, type LayoutContext } from './arrangement';
+import { contextOf, defaultLayoutOf, hostCounts, layoutKey, type Layout, type LayoutContext } from './arrangement';
 import {
   CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
 } from './geometry';
@@ -440,11 +440,12 @@ export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, 
 
 function layoutOf(d: Design, path: GroupPath): { id: ChargeId; ctx: LayoutContext; count: number; layout: Layout } | null {
   const group = groupAt(d, path);
-  if (group.item.k !== 'charge') return null;
-  return { id: group.item.charge, ctx: layoutContext(d, path), count: group.count, layout: { arrangement: group.arrangement, position: group.position } };
+  const ctx = contextOf(d, group, hostOf(d, path));
+  if (group.item.k !== 'charge' || ctx === null) return null;
+  return { id: group.item.charge, ctx, count: group.count, layout: { arrangement: group.arrangement, position: group.position } };
 }
 
-/** Where a group's charges are drawn in a shape; [] for an ordinary. */
+/** Where a group's charges are drawn in a shape; [] for an ordinary or a group that sits where this builder has no layout. */
 export function groupSlots(d: Design, path: GroupPath, shape: FieldShape): Slot[] {
   const l = layoutOf(d, path);
   return l ? contextSlots(l.ctx, l.count, l.layout, shape) : [];

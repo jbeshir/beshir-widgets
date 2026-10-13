@@ -8,7 +8,7 @@ import {
 import { CHARGES } from './charges';
 import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
 import type { Tincture } from '../tinctures';
-import { contrastFailure } from './tincture-rule';
+import { contrastFailure } from './contrast';
 
 export interface Layout { arrangement: Arrangement; position: Position | null }
 

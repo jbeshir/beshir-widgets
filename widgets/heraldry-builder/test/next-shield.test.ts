@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { Shield, nextShieldUid } from '../src/components/next/Shield';
-import { groupSlots, renderLayers, slotTransform, type Design, type FieldShape } from '../src/lib/heraldry/next';
+import { gloss, groupSlots, renderLayers, slotTransform, type Design, type FieldShape } from '../src/lib/heraldry/next';
 import { arms, charge, div, group, nd, ordinary } from './next-helpers';
 
 const render = (design: Design, props: { shape?: FieldShape; hatching?: boolean; size?: number; label?: string | null } = {}) =>
@@ -67,8 +67,11 @@ describe('Shield layers', () => {
 });
 
 describe('Shield labels and sizes', () => {
-  it('is decorative without a label and labelled with one', () => {
-    expect(render(two)).toContain('aria-hidden="true"');
+  it('is named by its gloss unless given a label, and decorative with a null label', () => {
+    const named = render(two);
+    expect(named).toContain(`aria-label="${gloss(two)}"`);
+    expect(named).toContain('role="img"');
+    expect(render(two, { label: null })).toContain('aria-hidden="true"');
     const labelled = render(two, { label: 'Gules, three roses' });
     expect(labelled).toContain('aria-label="Gules, three roses"');
     expect(labelled).toContain('role="img"');

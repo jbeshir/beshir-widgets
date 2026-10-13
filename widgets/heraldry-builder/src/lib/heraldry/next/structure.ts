@@ -5,9 +5,9 @@
 import { TINCTURE_NAME } from '../tinctures';
 import { capitalise, numberWord } from '../words';
 import { CHARGES, chargePhrase } from './charges';
-import { primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
-import { fieldTinctureAt, ordinarySamplePoints, probePoints } from './geometry';
-import { canonicalSlots, capacityIssue } from './layout';
+import { primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
+import { capacityIssue } from './layout';
+import { groundContacts } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
 import { contextOf, layoutCandidates, layoutKey, layoutWords, type LayoutContext } from './arrangement';
 
@@ -46,14 +46,11 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
 }
 
 /** Whether the primary group lies on both field tinctures on the heater, or has no room to be judged (the capacity rule says so). */
-function crossesTheLine(d: Design, field: Paint): boolean {
+function crossesTheLine(d: Design): boolean {
   const primary = primaryGroup(d);
   if (!primary) return false;
-  const points = primary.group.item.k === 'ordinary'
-    ? ordinarySamplePoints(primary.group.item.type)
-    : canonicalSlots(d, primary.path).flatMap(probePoints);
-  if (points.length === 0) return true;
-  return new Set(points.map(([x, y]) => fieldTinctureAt(field, x, y))).size > 1;
+  const contacts = groundContacts(d, primary.path);
+  return contacts.every((c) => c.length === 0) || new Set(contacts.flat()).size > 1;
 }
 
 /** Structural problems of a design that resolves, in rule order. */
@@ -114,7 +111,7 @@ export function structuralIssues(d: Design): Issue[] {
 
   // 6. A chief on a field divided per fess needs a primary charge across the line (SENA A3D1c).
   const chief = walked.find(({ group }) => group.role === 'peripheral' && group.item.k === 'ordinary' && group.item.type === 'chief');
-  if (chief && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && !crossesTheLine(d, d.field)) {
+  if (chief && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && !crossesTheLine(d)) {
     add({ code: 'structure', at: { k: 'group', path: chief.path }, message: 'A chief on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
   }
   return issues;

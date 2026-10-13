@@ -1,10 +1,8 @@
 // Seeded random designs in the new format, for sweeping the model: the same seeds make the same designs.
-// Designs are kept when they resolve and have no unsupported construct and no structural issue; the layout
-// is Table 7's or a random one of the group's candidates.
+// Designs are kept when they normalise (supported, structurally legal and obeying the rule of tincture); the
+// layout is Table 7's or a random one of the group's candidates.
 
-import {
-  layoutCandidates, layoutKey, resolve, structuralIssues, unsupportedIssues, type Design,
-} from '../src/lib/heraldry/next';
+import { layoutCandidates, layoutKey, normalise, resolve, type Design } from '../src/lib/heraldry/next';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -24,7 +22,7 @@ const ORDINARIES = ['fess', 'bend', 'bend-sinister', 'chief', 'bordure'];
 const CHARGES = ['lion', 'wolf', 'mullet', 'rose', 'sword', 'gear'];
 const POSTURES: Record<string, readonly string[]> = { lion: ['rampant', 'passant', 'statant'], wolf: ['passant', 'statant', 'rampant'] };
 
-/** The design for `seed`, or null when the random pick isn't a supported, structurally legal design. */
+/** The design for `seed`, or null when the random pick isn't a registrable design. */
 export function generatedDesign(seed: number): Design | null {
   const next = prng(seed);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
@@ -57,7 +55,8 @@ export function generatedDesign(seed: number): Design | null {
     if (!second.ok) return null;
     design = second.design;
   }
-  return unsupportedIssues(design).length === 0 && structuralIssues(design).length === 0 ? design : null;
+  const n = normalise(design);
+  return n.ok ? n.design : null;
 }
 
 /** The first `count` designs from `generatedDesign`, trying seeds from `seed` upwards. */
