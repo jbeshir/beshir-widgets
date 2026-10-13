@@ -1,61 +1,60 @@
-// SCA blazon → widget Design, by propose-and-verify. A small, loose parser of the part of SCA blazon
-// the widget can express proposes candidate designs; a candidate is accepted only when the widget's
-// own blazon() of it (after the widget's own normalise()) equals the SCA blazon, both passed through
-// normaliseBlazon. The text comparison is what accepts: the parser only proposes, so a design the
-// widget words differently from the SCA can never be matched, however the parser reads it.
+// SCA blazon → widget design, by propose-and-verify. A small, loose parser of the part of SCA blazon
+// the widget can express proposes candidate design *inputs* (the format `resolve` reads, with the
+// arrangement left out unless the blazon words one, so the library's Table 7 defaults apply); a
+// candidate is accepted only when the widget's own blazon() of it equals the SCA blazon, both passed
+// through normaliseBlazon. The text comparison is what accepts: the parser only proposes, so a design
+// the widget words differently from the SCA can never be matched, however the parser reads it.
 //
-// Text equality alone is not quite enough, though, because the two conventions sometimes use the
-// same words for different designs: the widget writes "Or, two mullets Gules" for two mullets in
-// pale, but to the SCA "two mullets" alone on a plain field is unspecified, and on a field per pale
-// they stand one in each half — in fess. So the parser reads SCA conventions, not the widget's:
-// where an SCA blazon leaves an arrangement unstated, the candidate takes the SCA default
-// (scaDefaultArrangement, after SCA Glossary of Terms Table 7), and where the SCA has no default
-// (or one the widget can't draw) no candidate is proposed at all (status 'unstated'). A candidate
-// whose SCA reading differs from the widget's then blazons differently and fails the comparison.
-import { CHARGES, CHARGE_IDS, type ChargeId, type Posture } from '../../src/lib/heraldry/charges';
+// Because the widget words arrangements the way the College does (Table 7 defaults are left unsaid,
+// everything else is stated), an SCA blazon that leaves out an arrangement gets the College's default
+// from the library, and one that states a different arrangement from the default gets exactly that
+// one; a blazon the widget cannot reproduce word for word is a near-miss, not a match.
 import {
-  ORDINARY_NAME, ORDINARY_TYPES, chargeContext, type Arrangement, type ChargeGroup, type Count, type Design, type Division, type Issue, type NormDesign,
-  type Ordinary, type OrdinaryType, type Placement,
-} from '../../src/lib/heraldry/design';
-import { blazon } from '../../src/lib/heraldry/blazon';
-import { normalise } from '../../src/lib/heraldry/validate';
-import { contrastFailure } from '../../src/lib/heraldry/tincture-rule';
-import { TINCTURES, type ChargeTincture, type Tincture } from '../../src/lib/heraldry/tinctures';
+  CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, POSTURES, TINCTURES,
+  blazon, normalise, postureTerm, type ChargeId, type Design, type Division, type Gap, type Issue, type OrdinaryType, type Posture,
+} from '../../src/lib/heraldry/next';
 import { normaliseBlazon } from './normalise';
+
+/** A design input as `resolve` reads it. */
+export interface DesignInput {
+  v: 2;
+  field: unknown;
+  groups: unknown[];
+}
 
 /** A proposed design and what the widget makes of it. */
 export interface Candidate {
-  /** The design as proposed (SCA reading, defaults possibly omitted). */
-  raw: Design;
-  /** The widget's resolved design (every default filled), even when it breaks a rule. */
-  design: NormDesign;
-  /** The widget's structural and rule-of-tincture issues for it; [] = registrable in the widget. */
+  /** The input as proposed (SCA reading, defaults omitted). */
+  raw: DesignInput;
+  /** The widget's resolved design (every default filled), even when it breaks a rule; null when the widget can't draw it. */
+  design: Design | null;
+  /** The widget's issues for it; [] = registrable in the widget. */
   issues: Issue[];
-  /** normaliseBlazon(blazon(design)). */
-  normalised: string;
+  /** normaliseBlazon(blazon(design)); null without a design. */
+  normalised: string | null;
 }
 
 /**
- * fieldless  — "(Fieldless) …": the widget always has a field
- * vocabulary — a word outside the widget's blazon vocabulary (`unknownWord`)
- * unparsed   — every word known, but not in a shape the widget writes
- * unstated   — parsed, but the SCA leaves the arrangement unstated and has no default the widget
- *              can draw (e.g. two charges alone on a plain field; five charges, whose default is
- *              two, two and one)
- * near-miss  — candidates proposed, none blazons identically
- * match      — `match` blazons identically
+ * fieldless   — "(Fieldless) …": the widget always has a field
+ * vocabulary  — a word outside the widget's blazon vocabulary (`unknownWord`)
+ * unparsed    — every word known, but not in a shape the matcher proposes
+ * unsupported — proposed, but the widget doesn't draw something in it (`gaps`)
+ * near-miss   — candidates proposed, none blazons identically
+ * match       — `match` blazons identically
  */
-export type MatchStatus = 'fieldless' | 'vocabulary' | 'unparsed' | 'unstated' | 'near-miss' | 'match';
+export type MatchStatus = 'fieldless' | 'vocabulary' | 'unparsed' | 'unsupported' | 'near-miss' | 'match';
 
 export interface MatchResult {
   status: MatchStatus;
   /** normaliseBlazon of the SCA text. */
   normalised: string;
   unknownWord?: string;
+  /** For an unsupported record: the gaps of the first proposal the widget doesn't draw. */
+  gaps?: Gap[];
   /**
    * For a near-miss: 'arrangement-wording' when the blazons differ only in arrangement words — the
-   * widget can draw the SCA design but words its arrangement differently (it omits its own
-   * defaults, which the SCA states, and states arrangements the SCA leaves to a default); else 'other'.
+   * widget can draw the SCA design but words its arrangement differently (it omits Table 7's defaults,
+   * which the SCA states, and states what the SCA leaves to a default); else 'other'.
    */
   nearMiss?: 'arrangement-wording' | 'other';
   /** For an arrangement-wording near-miss: the candidate whose blazon differs only in arrangement words. */
@@ -66,19 +65,18 @@ export interface MatchResult {
 
 // ── Vocabulary ──────────────────────────────────────────────────────────────
 
-const DIVISION_WORDS: Record<string, Division> = {
-  'per pale': 'per-pale', 'per fess': 'per-fess', 'per bend sinister': 'per-bend-sinister', 'per bend': 'per-bend',
-  'per saltire': 'per-saltire', 'per chevron': 'per-chevron', quarterly: 'quarterly',
-};
-const ORDINARY_WORDS: Record<string, OrdinaryType> = Object.fromEntries(ORDINARY_TYPES.map((t) => [ORDINARY_NAME[t], t]));
-const ARRANGEMENT_WORDS: Record<string, Arrangement> = {
-  'in pale': 'in-pale', 'in fess': 'in-fess', 'in bend sinister': 'in-bend-sinister', 'in bend': 'in-bend',
-  'in cross': 'in-cross', 'in saltire': 'in-saltire', 'two and one': 'two-and-one', 'two and two': 'two-and-two',
-  'three, two and one': 'three-two-one', 'three, two, and one': 'three-two-one',
-};
-const COUNT_WORDS: Record<string, Count> = { a: 1, an: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length)
+  .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
 
-/** Charge noun → [charge, count is plural]. "fish" is both. */
+const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
+const ORDINARY_WORDS = new Map<string, OrdinaryType>(DRAWN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
+const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as const;
+const COUNT_WORDS = new Map<string, number>([['a', 1], ['an', 1], ...NUMBER_WORDS.map((w, i): [string, number] => [w, i + 1])]);
+const LINE_WORDS = ['pale', 'fess', 'bend sinister', 'bend'] as const;
+const POSITION_WORDS = ['chief', 'base'] as const;
+const PATTERN_WORDS = ['saltire', 'cross', 'orle', 'annulo'] as const;
+
+/** Charge noun → charge and number. "fish" is both. */
 const NOUNS = new Map<string, { id: ChargeId; plural: boolean; singular: boolean }>();
 for (const id of CHARGE_IDS) {
   const m = CHARGES[id];
@@ -89,170 +87,128 @@ for (const id of CHARGE_IDS) {
 /** Posture word → posture, for a charge: its own term first ("segreant"), else the plain posture id. */
 function postureFor(id: ChargeId, word: string): Posture | null {
   const m = CHARGES[id];
-  for (const p of m.postures ?? []) if ((m.postureWording[p]?.term ?? p) === word) return p;
+  for (const p of m.postures ?? []) if (postureTerm(id, p) === word) return p;
   for (const p of m.postures ?? []) if (p === word) return p;
   return null;
 }
-const POSTURE_WORDS = new Set<string>();
-for (const id of CHARGE_IDS) {
-  for (const p of CHARGES[id].postures ?? []) {
-    POSTURE_WORDS.add(p);
-    POSTURE_WORDS.add(CHARGES[id].postureWording[p]?.term ?? p);
-  }
-}
+const POSTURE_WORDS = new Set<string>(POSTURES);
+for (const id of CHARGE_IDS) for (const p of CHARGES[id].postures ?? []) POSTURE_WORDS.add(postureTerm(id, p));
 
-const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length)
-  .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+const T = `(?:${TINCTURES.join('|')})`;
+const CT = `(?:${TINCTURES.join('|')}|counterchanged)`;
+const FIELD = `(?:${T}|(?:${alt(DIVISION_WORDS.keys())}) ${T} and ${T})`;
+const ORD = `(?:${alt(ORDINARY_WORDS.keys())})`;
+const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${alt(NUMBER_WORDS)})`;
+/** A group without its tincture, which a later phrase may supply ("a wolf, a bordure argent"). */
+const UNTINCTURED = `(?:in (?:${alt([...LINE_WORDS, ...POSITION_WORDS])}) )?(?:${alt(COUNT_WORDS.keys())}) (?:${alt(NOUNS.keys())})`
+  + `(?: (?:${alt(POSTURE_WORDS)}))?(?: in splendor)?(?: (?:in (?:${alt(PATTERN_WORDS)})|${ROWS}))?`;
+const GROUP = `${UNTINCTURED} ${CT}`;
 
-const T = `(${TINCTURES.join('|')})`;
-const CT = `(${TINCTURES.join('|')}|counterchanged)`;
-const FIELD = `(?:${T}|(${alt(Object.keys(DIVISION_WORDS))}) ${T} and ${T})`;
-const ORD = `(${alt(Object.keys(ORDINARY_WORDS))})`;
-const GROUP = `(${alt(Object.keys(COUNT_WORDS))}) (${alt(NOUNS.keys())})(?: (${alt(POSTURE_WORDS)}))?(?: (${alt(Object.keys(ARRANGEMENT_WORDS))}))? ${CT}`;
+const GROUP_PARTS = new RegExp(
+  `^(?:in (?<lead>${alt([...LINE_WORDS, ...POSITION_WORDS])}) )?(?<count>${alt(COUNT_WORDS.keys())}) (?<noun>${alt(NOUNS.keys())})`
+  + `(?: (?<posture>${alt(POSTURE_WORDS)}))?(?<splendor> in splendor)?(?: (?:in (?<pattern>${alt(PATTERN_WORDS)})|(?<rows>${ROWS})))? (?<tincture>${CT})$`,
+);
 
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'within', 'chief', 'bordure', 'one',
-    ...Object.keys(DIVISION_WORDS), ...Object.keys(ORDINARY_WORDS), ...Object.keys(ARRANGEMENT_WORDS),
-    ...Object.keys(COUNT_WORDS), ...NOUNS.keys(), ...POSTURE_WORDS,
+    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base',
+    ...DIVISION_WORDS.keys(), ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
+    ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
-// ── SCA defaults ────────────────────────────────────────────────────────────
-
-/** Two charges, one in each half of a field divided in two (they stand across the line of division). */
-const ONE_IN_EACH_HALF: Partial<Record<Division, Arrangement>> = {
-  'per-pale': 'in-fess', 'per-fess': 'in-pale', 'per-bend': 'in-bend-sinister', 'per-bend-sinister': 'in-bend', 'per-chevron': 'in-pale',
-};
-
-/**
- * The SCA's arrangement for a primary group (on the field, under a chief or within a bordure)
- * blazoned without one — SCA Glossary of Terms, Table 7, whose first applicable row is the default —
- * or null when the SCA has no default or its default is not one the widget can draw:
- *   2: field divided in two → one in each section; divided in four → one in each of the two
- *      sections it contrasts with, none if it contrasts with all four; any other field → none.
- *   3: two and one (per chevron included).
- *   4: field divided in four → one in each section (quarterly: two and two; per saltire: in cross);
- *      any other field → none.
- *   5: identical charges → two, two and one (not a widget arrangement).
- *   6: undivided field → three, two and one; any other field → none.
- * Charges on or between an ordinary are placed by it in both conventions (Table 7's secondary and
- * tertiary rows agree with the widget's slots), so they never need this.
- */
-function scaDefaultArrangement(count: Count, field: Design['field'], tincture: ChargeTincture): Arrangement | null {
-  if (count === 1) return 'single';
-  if (count === 3) return 'two-and-one';
-  if (field.kind === 'plain') return count === 6 ? 'three-two-one' : null;
-  const fourParts = field.division === 'quarterly' || field.division === 'per-saltire';
-  if (count === 2) {
-    if (!fourParts) return ONE_IN_EACH_HALF[field.division] ?? null;
-    if (tincture === 'counterchanged') return null;
-    // Which of the two tinctures (1st/4th quarters or top/bottom; 2nd/3rd or left/right) it shows on.
-    const [onFirst, onSecond] = field.tinctures.map((t) => contrastFailure(tincture, [t]) === null);
-    if (onFirst === onSecond) return null;
-    if (field.division === 'quarterly') return onFirst ? 'in-bend' : 'in-bend-sinister';
-    return onFirst ? 'in-pale' : 'in-fess';
-  }
-  if (count === 4 && fourParts) return field.division === 'quarterly' ? 'two-and-two' : 'in-cross';
-  return null;
-}
-
 // ── Parser ──────────────────────────────────────────────────────────────────
 
-type GroupMatch = [count: string, noun: string, posture: string | undefined, arrangement: string | undefined, tincture: string];
-
-function parseField(m: RegExpExecArray, at: number): Design['field'] {
-  if (m[at]) return { kind: 'plain', tincture: m[at] as Tincture };
-  return { kind: 'divided', division: DIVISION_WORDS[m[at + 1]], tinctures: [m[at + 2] as Tincture, m[at + 3] as Tincture] };
+function parseField(text: string): unknown {
+  const m = new RegExp(`^(?:(?<plain>${T})|(?<division>${alt(DIVISION_WORDS.keys())}) (?<a>${T}) and (?<b>${T}))$`).exec(text)!;
+  const g = m.groups!;
+  return g.plain ?? { k: 'divided', division: DIVISION_WORDS.get(g.division), parts: [g.a, g.b] };
 }
 
-/**
- * The group as the SCA reads it; null when count and noun disagree or the posture is unknown;
- * 'unstated' when the arrangement is left to an SCA default the widget lacks.
- */
-function parseGroup(g: GroupMatch, field: Design['field'], ordinary: Ordinary | null, placement: Placement): ChargeGroup | 'unstated' | null {
-  const [countWord, noun, postureWord, arrWord, tincture] = g;
-  const count = COUNT_WORDS[countWord];
-  const n = NOUNS.get(noun)!;
+/** The group input the text words, or null when count and noun disagree or the posture is not the charge's. */
+function parseGroup(text: string): { paint: string } | null {
+  const g = GROUP_PARTS.exec(text)?.groups;
+  if (!g) return null;
+  const n = NOUNS.get(g.noun)!;
+  const count = COUNT_WORDS.get(g.count)!;
   if (count === 1 ? !n.singular : !n.plural) return null;
-  if (count === 1 && countWord !== CHARGES[n.id].article) return null;
-  let posture: Posture | null = null;
-  if (postureWord) {
-    posture = postureFor(n.id, postureWord);
+  if (count === 1 && g.count !== CHARGES[n.id].article) return null;
+  const item: Record<string, unknown> = { k: 'charge', charge: n.id };
+  if (g.posture) {
+    const posture = postureFor(n.id, g.posture);
     if (!posture) return null;
+    item.posture = posture;
   }
-  const ctx = chargeContext(ordinary, placement);
-  const fixed = count === 1 || ctx === 'on' || ctx === 'between';
-  const arrangement = arrWord ? ARRANGEMENT_WORDS[arrWord] : fixed ? null : scaDefaultArrangement(count, field, tincture as ChargeTincture);
-  if (!fixed && !arrangement) return 'unstated';
-  return { charge: n.id, count, placement, arrangement, posture, tincture: tincture as ChargeTincture };
+  if (g.splendor) item.mods = [{ id: 'in-splendour', count: null, paint: null }];
+  const group: Record<string, unknown> = { item, paint: g.tincture, count };
+  if (g.lead) group.arrangement = `in-${g.lead.replace(' ', '-')}`;
+  if (g.pattern) group.arrangement = g.pattern === 'saltire' && count === 2 && CHARGES[n.id].long ? 'crossed' : `in-${g.pattern}`;
+  if (g.rows) group.arrangement = `rows-${g.rows.split(/, | and /).map((w) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1).join('-')}`;
+  return group as { paint: string };
 }
 
-const ord = (type: string, tincture: string): Ordinary => ({ type: ORDINARY_WORDS[type], tincture: tincture as Tincture });
+const ordinaryOf = (word: string, paint: string, extra: object = {}) => ({ item: { k: 'ordinary', type: ORDINARY_WORDS.get(word) }, paint, ...extra });
 
-/** One body shape per widget blazon form (blazon.ts), each a regexp over the normalised text. */
-const SHAPES: readonly { re: RegExp; build: (m: RegExpExecArray, field: Design['field']) => Design | 'unstated' | null }[] = [
-  { re: new RegExp(`^${FIELD}$`), build: (_m, field) => ({ v: 1, field }) },
-  { re: new RegExp(`^${FIELD}, a ${ORD} ${T}$`), build: (m, field) => ({ v: 1, field, ordinary: ord(m[5], m[6]) }) },
+const input = (field: string, groups: Array<object | null>): DesignInput | null =>
+  groups.every((g) => g !== null) ? { v: 2, field: parseField(field), groups: groups as object[] } : null;
+
+/** One body shape per way the widget words a design, each a regexp over the normalised text. */
+const SHAPES: readonly { re: RegExp; build: (m: string[]) => DesignInput | null }[] = [
+  { re: new RegExp(`^(${FIELD})$`), build: ([, f]) => input(f, []) },
+  { re: new RegExp(`^(${FIELD}), a (${ORD}) (${T})$`), build: ([, f, o, t]) => input(f, [ordinaryOf(o, t)]) },
+  { re: new RegExp(`^(${FIELD}), (${GROUP})$`), build: ([, f, g]) => input(f, [parseGroup(g)]) },
   {
-    re: new RegExp(`^${FIELD}, ${GROUP}$`),
-    build: (m, field) => withGroup(field, null, m.slice(5, 10) as GroupMatch, 'field'),
+    re: new RegExp(`^(${FIELD}), on a (${ORD}) (${T}) (${GROUP})$`),
+    build: ([, f, o, t, g]) => input(f, [ordinaryOf(o, t, { charged: [parseGroup(g)] })]),
+  },
+  { re: new RegExp(`^(${FIELD}), a (${ORD}) (${T}) between (${GROUP})$`), build: ([, f, o, t, g]) => input(f, [ordinaryOf(o, t), parseGroup(g)]) },
+  {
+    // "a chevron between three roses argent": the one tincture serves both.
+    re: new RegExp(`^(${FIELD}), a (${ORD}) between (${GROUP})$`),
+    build: ([, f, o, g]) => {
+      const group = parseGroup(g);
+      return input(f, group ? [ordinaryOf(o, group.paint), group] : [null]);
+    },
+  },
+  { re: new RegExp(`^(${FIELD}), (${GROUP}), a (chief|bordure) (${T})$`), build: ([, f, g, o, t]) => input(f, [parseGroup(g), ordinaryOf(o, t)]) },
+  {
+    // "a wolf and a bordure argent": the one tincture serves both.
+    re: new RegExp(`^(${FIELD}), (${UNTINCTURED}), a (chief|bordure) (${T})$`),
+    build: ([, f, g, o, t]) => input(f, [parseGroup(`${g} ${t}`), ordinaryOf(o, t)]),
   },
   {
-    re: new RegExp(`^${FIELD}, on a ${ORD} ${T} ${GROUP}$`),
-    build: (m, field) => withGroup(field, ord(m[5], m[6]), m.slice(7, 12) as GroupMatch, 'ordinary'),
-  },
-  {
-    re: new RegExp(`^${FIELD}, a ${ORD} ${T} between ${GROUP}$`),
-    build: (m, field) => withGroup(field, ord(m[5], m[6]), m.slice(7, 12) as GroupMatch, 'field'),
-  },
-  {
-    re: new RegExp(`^${FIELD}, ${GROUP}, a chief ${T}$`),
-    build: (m, field) => withGroup(field, ord('chief', m[10]), m.slice(5, 10) as GroupMatch, 'field'),
-  },
-  {
-    re: new RegExp(`^${FIELD}, ${GROUP} within a bordure ${T}$`),
-    build: (m, field) => withGroup(field, ord('bordure', m[10]), m.slice(5, 10) as GroupMatch, 'field'),
+    re: new RegExp(`^(${FIELD}), (${GROUP}), on a chief (${T}) (${GROUP})$`),
+    build: ([, f, g, t, on]) => input(f, [parseGroup(g), ordinaryOf('chief', t, { charged: [parseGroup(on)] })]),
   },
 ];
 
-function withGroup(field: Design['field'], ordinary: Ordinary | null, g: GroupMatch, placement: Placement): Design | 'unstated' | null {
-  const charges = parseGroup(g, field, ordinary, placement);
-  return charges && charges !== 'unstated' ? { v: 1, field, ordinary, charges } : charges;
-}
-
-/**
- * Candidate designs for normalised SCA text (usually zero or one); `unstated` when a parse was
- * dropped because the SCA leaves its arrangement to a default the widget can't draw.
- */
-function proposeDesigns(normalisedText: string): { designs: Design[]; unstated: boolean } {
-  const designs: Design[] = [];
-  let unstated = false;
-  for (const { re, build } of SHAPES) {
+/** Candidate design inputs for normalised SCA text (usually zero or one). */
+function proposeInputs(normalisedText: string): DesignInput[] {
+  return SHAPES.flatMap(({ re, build }) => {
     const m = re.exec(normalisedText);
-    if (!m) continue;
-    const d = build(m, parseField(m, 1));
-    if (d === 'unstated') unstated = true;
-    else if (d) designs.push(d);
-  }
-  return { designs, unstated };
+    const proposed = m && build([...m]);
+    return proposed ? [proposed] : [];
+  });
 }
 
-/** What the widget makes of a proposed design, or null if it rejects its shape outright. */
-function verify(raw: Design): Candidate | null {
+/** What the widget makes of a proposed input. */
+function verify(raw: DesignInput): Candidate {
   const r = normalise(raw);
-  if (!r.design) return null;
-  return { raw, design: r.design, issues: r.ok ? [] : r.errors, normalised: normaliseBlazon(blazon(r.design)) };
+  if (r.ok) return { raw, design: r.design, issues: [], normalised: normaliseBlazon(blazon(r.design)) };
+  return { raw, design: r.design, issues: r.errors, normalised: r.design ? normaliseBlazon(blazon(r.design)) : null };
 }
 
 // ── API ─────────────────────────────────────────────────────────────────────
 
-const ARRANGEMENT_PHRASE = new RegExp(` (?:${alt(Object.keys(ARRANGEMENT_WORDS))})(?= )`, 'g');
-const withoutArrangement = (s: string) => s.replace(ARRANGEMENT_PHRASE, '');
+const ARRANGEMENT_PHRASE = new RegExp(`(?:\\bin (?:${alt([...LINE_WORDS, ...POSITION_WORDS, ...PATTERN_WORDS])}) | ${ROWS}(?= ))`, 'g');
+const withoutArrangement = (s: string) => s.replace(ARRANGEMENT_PHRASE, ' ').replace(/ +/g, ' ');
 
 /** The arrangement phrases ("in pale", "two and one", …) in normalised blazon text. */
 export const arrangementPhrases = (normalisedText: string): string[] => (normalisedText.match(ARRANGEMENT_PHRASE) ?? []).map((p) => p.trim());
+
+/** The gaps of a proposal the widget doesn't draw, when it has no design. */
+const gapsOf = (c: Candidate): Gap[] => c.issues.flatMap((i) => (i.code === 'unsupported' ? [i.gap] : []));
 
 /** Full outcome for one SCA blazon: status, candidates and the matching one. */
 export function explainMatch(scaBlazon: string): MatchResult {
@@ -260,13 +216,18 @@ export function explainMatch(scaBlazon: string): MatchResult {
   if (normalised.startsWith('(fieldless)')) return { status: 'fieldless', normalised, candidates: [], match: null };
   const unknownWord = normalised.split(/[ ,]+/).find((w) => w && !VOCABULARY.has(w));
   if (unknownWord !== undefined) return { status: 'vocabulary', normalised, unknownWord, candidates: [], match: null };
-  const proposed = proposeDesigns(normalised);
-  const candidates = proposed.designs.map(verify).filter((c): c is Candidate => c !== null);
-  if (!candidates.length) return { status: proposed.unstated ? 'unstated' : 'unparsed', normalised, candidates, match: null };
+  const all = proposeInputs(normalised).map(verify);
+  const candidates = all.filter((c) => c.design !== null);
+  if (!candidates.length) {
+    const unsupported = all.find((c) => gapsOf(c).length > 0);
+    return unsupported
+      ? { status: 'unsupported', normalised, gaps: gapsOf(unsupported), candidates, match: null }
+      : { status: 'unparsed', normalised, candidates, match: null };
+  }
   const match = candidates.find((c) => c.normalised === normalised) ?? null;
   if (match) return { status: 'match', normalised, candidates, match };
   const bare = withoutArrangement(normalised);
-  const wordingCandidate = candidates.find((c) => withoutArrangement(c.normalised) === bare);
+  const wordingCandidate = candidates.find((c) => withoutArrangement(c.normalised!) === bare);
   if (wordingCandidate) return { status: 'near-miss', normalised, nearMiss: 'arrangement-wording', wordingCandidate, candidates, match };
   return { status: 'near-miss', normalised, nearMiss: 'other', candidates, match };
 }

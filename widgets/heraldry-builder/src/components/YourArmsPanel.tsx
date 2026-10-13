@@ -3,7 +3,7 @@
 
 import { entryHash, ownerHash } from '../lib/route';
 import type { DeviceArms } from '../store';
-import { Shield } from './Shield';
+import { Shield } from './next/Shield';
 
 export function YourArmsPanel({ items, onBrowse }: { items: DeviceArms[]; onBrowse: () => void }) {
   if (!items.length) {

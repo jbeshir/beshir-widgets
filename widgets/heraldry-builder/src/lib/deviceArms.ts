@@ -6,7 +6,7 @@
 // edit secret so the shortcut links straight into the owner view; treat it as device-local and
 // disposable, never as the source of truth. Only store.ts imports this module.
 
-import { isFieldShape, resolve, type ShapedDesign } from './heraldry';
+import { isFieldShape, resolve, type ShapedDesign } from './heraldry/next';
 
 export interface DeviceArms {
   id: string;

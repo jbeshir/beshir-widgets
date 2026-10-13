@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["test/sca", "test/sca-armorial.test.ts", "vitest.sca-ignore.config.ts"]
+  "include": ["test/sca", "test/sca-armorial.test.ts", "test/sample-registry-write.ts", "vitest.sca-ignore.config.ts", "vitest.sample.config.ts"]
 }

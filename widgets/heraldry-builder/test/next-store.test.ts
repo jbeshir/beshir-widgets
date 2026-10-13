@@ -5,8 +5,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import * as store from '../src/store';
 import sample from '../src/data/sample-registry.json';
-import { NO_CONTACT } from '../src/lib/heraldry';
-import { plain, searchParams } from './helpers';
+import { NO_CONTACT } from '../src/lib/heraldry/next';
+import { arms, group, nd, ordinary, searchParams } from './next-helpers';
 
 
 afterEach(() => {
@@ -50,32 +50,32 @@ describe('store (offline / file://)', () => {
   });
 
   it('checks availability locally against the sample', async () => {
-    const dup = await store.check('', { v: 1, field: plain('azure'), ordinary: { type: 'bend', tincture: 'or' } });
+    const dup = await store.check('', arms('azure', group(ordinary('bend'), 'or')));
     expect(dup.ok && dup.result.verdict).toBe('duplicate');
     expect(dup.ok && dup.result.verdict === 'duplicate' && dup.result.conflict.id).toBe('demo-001');
 
-    const close = await store.check('', {
-      v: 1,
-      field: plain('sable'),
-      ordinary: { type: 'bordure', tincture: 'argent' },
-      charges: { charge: 'wolf', count: 1, placement: 'field', posture: 'statant', tincture: 'or' },
-    });
+    // A wolf statant is no different from a wolf passant, so the arms are too close with nothing to list…
+    const same = await store.check('', arms('sable', group(ordinary('bordure'), 'argent'), group({ k: 'charge', charge: 'wolf', posture: 'statant' }, 'or')));
+    expect(same.ok && same.result.verdict).toBe('too-close');
+    expect(same.ok && same.result.verdict === 'too-close' && same.result.conflict.id).toBe('demo-004');
+    expect(same.ok && same.result.verdict === 'too-close' && same.result.differences).toEqual([]);
+    // …while one change of colour is one distinct change, still not enough.
+    const close = await store.check('', arms('sable', group(ordinary('bordure'), 'argent'), group({ k: 'charge', charge: 'wolf', posture: 'passant' }, 'argent')));
     expect(close.ok && close.result.verdict).toBe('too-close');
     expect(close.ok && close.result.verdict === 'too-close' && close.result.conflict.id).toBe('demo-004');
-    expect(close.ok && close.result.verdict === 'too-close' && close.result.differences).toEqual([{
-      attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)',
-      why: "Standing (statant) and walking (passant) look almost the same — that's only half a difference.",
-    }]);
+    expect(close.ok && close.result.verdict === 'too-close' && close.result.differences).toMatchObject([
+      { attr: 'tincture', kind: 'dc', rule: 'A5G3', item: 'charge', text: 'colour of pictures (Argent ↔ Or)' },
+    ]);
 
-    const ok = await store.check('', { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' } });
-    expect(ok.ok && ok.result).toMatchObject({ verdict: 'ok', blazon: 'Vert, a cross Or', sample: true });
+    const ok = await store.check('', arms('vert', group(ordinary('cross'), 'or')));
+    expect(ok.ok && ok.result).toMatchObject({ verdict: 'ok', blazon: 'Vert, a cross Or.', sample: true });
 
-    const invalid = await store.check('', { v: 1, field: plain('azure'), ordinary: { type: 'bend', tincture: 'gules' } });
+    const invalid = await store.check('', arms('azure', group(ordinary('bend'), 'gules')));
     expect(invalid).toMatchObject({ ok: false, code: 'invalid_design' });
   });
 
   it('refuses writes with a friendly offline message', async () => {
-    const design = { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' } };
+    const design = arms('vert', group(ordinary('cross'), 'or'));
     const offline = { ok: false, kind: 'offline', message: store.OFFLINE_WRITE_MESSAGE };
     expect(await store.register({ registry: '', displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design, shape: 'heater' })).toEqual(offline);
     expect((await store.update('demo-001', 's', 1, { displayName: 'X', contact: NO_CONTACT, design, shape: 'heater' })).ok).toBe(false);
@@ -117,7 +117,7 @@ describe('store (offline / file://)', () => {
     store.markExamplesSeen();
     expect(store.deviceArms()).toEqual([]);
     expect(store.loadDraft()).toBeNull();
-    store.saveDraft({ design: { v: 1, field: { kind: 'plain', tincture: 'or' }, ordinary: null, charges: null }, shape: 'round' });
+    store.saveDraft({ design: nd(arms('or')), shape: 'round' });
     store.rememberArms({ id: 'a', registry: 'r', displayName: 'n', blazon: 'b', shield: null, secret: null });
   });
 });
@@ -153,18 +153,19 @@ describe('store (online)', () => {
         message: 'Too close.',
         conflict: { id: 'demo-004', displayName: 'Dev', blazon: 'b', design: sample.entries[3].design, shape: 'round' },
         differences: [
-          { attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)', why: 'Half.' },
-          { attr: 'not-an-attribute', weight: 'minor', text: 'dropped', why: 'Malformed.' },
-          { attr: 'charge-count', weight: 'minor', text: 'dropped: a minor note needs a reason' },
+          { attr: 'posture', kind: 'dc', rule: 'A5G5', text: 'posture (statant ↔ passant)', why: 'Half.', item: null },
+          { attr: 'not-an-attribute', kind: 'dc', rule: 'A5G5', text: 'dropped', why: 'Malformed.', item: null },
+          { attr: 'number', kind: 'dc', rule: 'not-a-rule', text: 'dropped: unknown rule', why: 'Malformed.', item: null },
+          { attr: 'number', kind: 'dc', rule: 'A5G4', text: 'dropped: a note needs a reason' },
         ],
       })
     );
     const r = await store.register({ registry: '', displayName: 'X', email: 'x@example.com', contact: NO_CONTACT, design: {}, shape: 'heater' });
     expect(r).toMatchObject({ ok: false, kind: 'http', status: 409, code: 'too-close', message: 'Too close.' });
     const tooClose = !r.ok && r.kind === 'http' && r.code === 'too-close' ? r : null;
-    expect(tooClose?.conflict.design.charges?.charge).toBe('wolf');
+    expect(tooClose?.conflict.design.groups[0].item).toMatchObject({ k: 'charge', charge: 'wolf' });
     expect(tooClose?.conflict.shape).toBe('round');
-    expect(tooClose?.differences).toEqual([{ attr: 'charge-posture', weight: 'minor', text: 'posture (statant ↔ passant)', why: 'Half.' }]);
+    expect(tooClose?.differences).toEqual([{ attr: 'posture', kind: 'dc', rule: 'A5G5', text: 'posture (statant ↔ passant)', why: 'Half.', item: null }]);
   });
 
   it('maps network failures to kind network', async () => {
@@ -270,7 +271,7 @@ describe('store device storage (drafts and Your arms)', () => {
       removeItem: (k: string) => void data.delete(k),
     };
   }
-  const design = { v: 1, field: plain('vert'), ordinary: { type: 'cross', tincture: 'or' }, charges: null };
+  const design = nd(arms('vert', group(ordinary('cross'), 'or')));
 
   it('round-trips the design and its shape', () => {
     vi.stubGlobal('localStorage', memoryStorage());
@@ -302,7 +303,7 @@ describe('store device storage (drafts and Your arms)', () => {
 
   it('keeps the arms and shape of a registration for the Your arms thumbnail', async () => {
     vi.stubGlobal('localStorage', memoryStorage());
-    goOnline(async () => jsonResponse(201, { id: 'n1', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'Vert, a cross Or', signature: 's', editLinkEmail: 'sent' }));
+    goOnline(async () => jsonResponse(201, { id: 'n1', editSecret: 'e', registry: { id: 'default', name: 'D' }, rev: 1, blazon: 'Vert, a cross Or.', signature: 's', editLinkEmail: 'sent' }));
     await store.register({ registry: '', displayName: 'N', email: 'n@example.com', contact: NO_CONTACT, design, shape: 'banner' });
     const [saved] = store.deviceArms();
     expect(saved.shield).toEqual({ design, shape: 'banner' });
@@ -323,9 +324,9 @@ describe('store device storage (drafts and Your arms)', () => {
   it('remembers the new edit link from a redeemed recovery link, replacing the old one', async () => {
     const old = [{ id: 'r1', registry: 'default', displayName: 'Old name', blazon: 'b', shield: null, secret: 'old-secret', savedAt: '2026-10-01T00:00:00Z' }];
     vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:device-arms:v1': JSON.stringify(old) }));
-    const spy = goOnline(async () => jsonResponse(200, { id: 'r1', editSecret: 'new-secret', registry: { id: 'default', name: 'D' }, displayName: 'N', blazon: 'Vert, a cross Or', rev: 4 }));
+    const spy = goOnline(async () => jsonResponse(200, { id: 'r1', editSecret: 'new-secret', registry: { id: 'default', name: 'D' }, displayName: 'N', blazon: 'Vert, a cross Or.', rev: 4 }));
     const r = await store.redeemRecovery('tok', { design: store.offlineSample().entries[0].design, shape: 'round' });
-    expect(r.ok && r.recovered).toEqual({ id: 'r1', editSecret: 'new-secret', displayName: 'N', blazon: 'Vert, a cross Or' });
+    expect(r.ok && r.recovered).toEqual({ id: 'r1', editSecret: 'new-secret', displayName: 'N', blazon: 'Vert, a cross Or.' });
     expect(spy.mock.calls[0][0]).toBe('/api/recover/redeem');
     const [saved] = store.deviceArms();
     expect(saved).toMatchObject({ id: 'r1', secret: 'new-secret', displayName: 'N', shield: { design: store.offlineSample().entries[0].design, shape: 'round' } });

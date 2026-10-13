@@ -8,7 +8,7 @@ import { useRef } from 'preact/hooks';
 import {
   CHARGE_TINCTURES, COLOURS, METALS, NON_STANDARD_TINCTURES, TINCTURE_FILL, TINCTURE_LABEL, plainFirst,
   type ChargeTincture, type Choice,
-} from '../../lib/heraldry';
+} from '../../lib/heraldry/next';
 import { LockGlyph, useExplainer } from './Explainer';
 
 interface Props<T extends ChargeTincture> {

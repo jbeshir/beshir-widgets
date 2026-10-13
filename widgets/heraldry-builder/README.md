@@ -540,7 +540,7 @@ and bypass withdrawal.
   shows the bundled sample with an "Offline sample" badge, and filters run locally with the same
   tag logic. "Check availability" runs locally against the sample. "Register" explains that the
   registry can't be reached from an offline copy.
-- **Sample data:** `src/data/sample-registry.json` holds 17 fictional, hand-authored entries in the
+- **Sample data:** `src/data/sample-registry.json` holds 20 fictional, hand-authored entries in the
   registry `sample` ("Sample armorial (offline demo)"). A unit test checks that their blazons and
   signatures equal the generator's output byte for byte.
 

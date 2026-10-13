@@ -332,7 +332,8 @@ export function assess(d: Design): DesignReport {
 
 /** The step an issue belongs to: the background, the band or shape, the picture or the extra pictures. */
 export function issueStep(d: Design, issue: Issue): StepKey {
-  if (issue.at.k !== 'group') return 'field';
+  if (issue.at.k === 'field') return 'field';
+  if (issue.at.k === 'design') return 'picture';
   const { path } = issue.at;
   if (groupAt(d, path).item.k === 'ordinary') return 'ordinary';
   const extra = extraPicturePath(d);

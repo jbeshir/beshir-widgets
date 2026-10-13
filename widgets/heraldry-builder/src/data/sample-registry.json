@@ -1,5 +1,5 @@
 {
-  "schema": "heraldry-builder/registry-sample@1",
+  "schema": "heraldry-builder/registry-sample@2",
   "registry": {
     "id": "sample",
     "name": "Sample armorial (offline demo)"
@@ -14,19 +14,42 @@
       "registeredAt": "2026-01-05T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "azure"
+          "k": "tincture",
+          "t": "azure"
         },
-        "ordinary": {
-          "type": "bend",
-          "tincture": "or"
-        },
-        "charges": null
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "bend",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "or"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:az|O:bend:or|C:-",
-      "blazon": "Azure, a bend Or"
+      "signature": "arms|az|P:o.bend:1:single:or",
+      "blazon": "Azure, a bend Or."
     },
     {
       "id": "demo-002",
@@ -37,26 +60,68 @@
       "registeredAt": "2026-01-06T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "azure"
+          "k": "tincture",
+          "t": "azure"
         },
-        "ordinary": {
-          "type": "bend",
-          "tincture": "or"
-        },
-        "charges": {
-          "charge": "unicorn",
-          "count": 3,
-          "placement": "ordinary",
-          "arrangement": "forced",
-          "posture": "rampant",
-          "tincture": "vert"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "bend",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "argent"
+            },
+            "charged": [
+              {
+                "role": "tertiary",
+                "relation": null,
+                "item": {
+                  "k": "charge",
+                  "charge": "unicorn",
+                  "form": null,
+                  "posture": "rampant",
+                  "facing": "to-dexter",
+                  "orientation": null,
+                  "mods": [],
+                  "parts": [],
+                  "holds": []
+                },
+                "count": 3,
+                "arrangement": {
+                  "k": "host"
+                },
+                "position": null,
+                "paint": {
+                  "k": "tincture",
+                  "t": "vert"
+                },
+                "charged": []
+              }
+            ]
+          }
+        ]
       },
-      "signature": "v1|F:plain:az|O:bend:or|C:unicorn:3:ordinary:forced:rampant:vt",
-      "blazon": "Azure, on a bend Or three unicorns rampant Vert"
+      "signature": "arms|az|P:o.bend:1:single:ar{T:c.unicorn.rampant:3:host:vt}",
+      "blazon": "Azure, on a bend argent three unicorns vert."
     },
     {
       "id": "demo-003",
@@ -67,27 +132,57 @@
       "registeredAt": "2026-01-07T12:00:00Z",
       "shape": "banner",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "divided",
+          "k": "divided",
           "division": "per-pale",
-          "tinctures": [
-            "azure",
-            "vert"
+          "lines": {
+            "a": "plain",
+            "b": "plain"
+          },
+          "pieces": null,
+          "parts": [
+            {
+              "k": "tincture",
+              "t": "azure"
+            },
+            {
+              "k": "tincture",
+              "t": "vert"
+            }
           ]
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "wolf",
-          "count": 1,
-          "placement": "field",
-          "arrangement": "single",
-          "posture": "passant",
-          "tincture": "argent"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "wolf",
+              "form": null,
+              "posture": "passant",
+              "facing": "to-dexter",
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "argent"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:per-pale:az:vt|O:-|C:wolf:1:field:single:passant:ar",
-      "blazon": "Per pale Azure and Vert, a wolf passant Argent"
+      "signature": "arms|per-pale(az,vt)|P:c.wolf.passant:1:single:ar",
+      "blazon": "Per pale azure and vert, a wolf passant argent."
     },
     {
       "id": "demo-004",
@@ -98,26 +193,67 @@
       "registeredAt": "2026-01-08T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "sable"
+          "k": "tincture",
+          "t": "sable"
         },
-        "ordinary": {
-          "type": "bordure",
-          "tincture": "argent"
-        },
-        "charges": {
-          "charge": "wolf",
-          "count": 1,
-          "placement": "field",
-          "arrangement": "single",
-          "posture": "passant",
-          "tincture": "or"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "wolf",
+              "form": null,
+              "posture": "passant",
+              "facing": "to-dexter",
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "or"
+            },
+            "charged": []
+          },
+          {
+            "role": "peripheral",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "bordure",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "argent"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:sa|O:bordure:ar|C:wolf:1:field:single:passant:or",
-      "blazon": "Sable, a wolf passant Or within a bordure Argent"
+      "signature": "arms|sa|P:c.wolf.passant:1:single:or|R:o.bordure:1:single:ar",
+      "blazon": "Sable, a wolf passant Or, a bordure argent."
     },
     {
       "id": "demo-005",
@@ -128,26 +264,97 @@
       "registeredAt": "2026-01-09T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "gules"
+          "k": "tincture",
+          "t": "gules"
         },
-        "ordinary": {
-          "type": "chief",
-          "tincture": "or"
-        },
-        "charges": {
-          "charge": "mullet",
-          "count": 3,
-          "placement": "field",
-          "arrangement": "two-and-one",
-          "posture": null,
-          "tincture": "argent"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "mullet",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 3,
+            "arrangement": {
+              "k": "rows",
+              "rows": [
+                2,
+                1
+              ]
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "argent"
+            },
+            "charged": []
+          },
+          {
+            "role": "peripheral",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "chief",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "or"
+            },
+            "charged": [
+              {
+                "role": "tertiary",
+                "relation": null,
+                "item": {
+                  "k": "charge",
+                  "charge": "rose",
+                  "form": null,
+                  "posture": null,
+                  "facing": null,
+                  "orientation": null,
+                  "mods": [],
+                  "parts": [],
+                  "holds": []
+                },
+                "count": 3,
+                "arrangement": {
+                  "k": "host"
+                },
+                "position": null,
+                "paint": {
+                  "k": "tincture",
+                  "t": "gules"
+                },
+                "charged": []
+              }
+            ]
+          }
+        ]
       },
-      "signature": "v1|F:plain:gu|O:chief:or|C:mullet:3:field:two-and-one:-:ar",
-      "blazon": "Gules, three mullets Argent, a chief Or"
+      "signature": "arms|gu|P:c.mullet:3:rows-2-1:ar|R:o.chief:1:single:or{T:c.rose:3:host:gu}",
+      "blazon": "Gules, three mullets argent, on a chief Or three roses gules."
     },
     {
       "id": "demo-006",
@@ -158,26 +365,67 @@
       "registeredAt": "2026-01-10T12:00:00Z",
       "shape": "round",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "vert"
+          "k": "tincture",
+          "t": "vert"
         },
-        "ordinary": {
-          "type": "chevron",
-          "tincture": "or"
-        },
-        "charges": {
-          "charge": "rose",
-          "count": 3,
-          "placement": "field",
-          "arrangement": "forced",
-          "posture": null,
-          "tincture": "argent"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "chevron",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "or"
+            },
+            "charged": []
+          },
+          {
+            "role": "secondary",
+            "relation": "between",
+            "item": {
+              "k": "charge",
+              "charge": "rose",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 3,
+            "arrangement": {
+              "k": "host"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "argent"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:vt|O:chevron:or|C:rose:3:field:forced:-:ar",
-      "blazon": "Vert, a chevron Or between three roses Argent"
+      "signature": "arms|vt|P:o.chevron:1:single:or|S>:c.rose:3:host:ar",
+      "blazon": "Vert, a chevron Or between three roses argent."
     },
     {
       "id": "demo-007",
@@ -188,20 +436,31 @@
       "registeredAt": "2026-01-11T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "divided",
+          "k": "divided",
           "division": "quarterly",
-          "tinctures": [
-            "purpure",
-            "or"
+          "lines": {
+            "a": "plain",
+            "b": "plain"
+          },
+          "pieces": null,
+          "parts": [
+            {
+              "k": "tincture",
+              "t": "purpure"
+            },
+            {
+              "k": "tincture",
+              "t": "or"
+            }
           ]
         },
-        "ordinary": null,
-        "charges": null
+        "groups": []
       },
-      "signature": "v1|F:quarterly:pu:or|O:-|C:-",
-      "blazon": "Quarterly Purpure and Or"
+      "signature": "arms|quarterly(pu,or)",
+      "blazon": "Quarterly purpure and Or."
     },
     {
       "id": "demo-008",
@@ -212,23 +471,42 @@
       "registeredAt": "2026-01-12T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "or"
+          "k": "tincture",
+          "t": "or"
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "dragon",
-          "count": 1,
-          "placement": "field",
-          "arrangement": "single",
-          "posture": "rampant",
-          "tincture": "gules"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "dragon",
+              "form": null,
+              "posture": "rampant",
+              "facing": "to-dexter",
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "gules"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:or|O:-|C:dragon:1:field:single:rampant:gu",
-      "blazon": "Or, a dragon segreant Gules"
+      "signature": "arms|or|P:c.dragon.rampant:1:single:gu",
+      "blazon": "Or, a dragon gules."
     },
     {
       "id": "demo-009",
@@ -239,23 +517,42 @@
       "registeredAt": "2026-01-13T12:00:00Z",
       "shape": "lozenge",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "argent"
+          "k": "tincture",
+          "t": "argent"
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "key",
-          "count": 2,
-          "placement": "field",
-          "arrangement": "in-fess",
-          "posture": null,
-          "tincture": "sable"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "key",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 2,
+            "arrangement": {
+              "k": "crossed"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "sable"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:ar|O:-|C:key:2:field:in-fess:-:sa",
-      "blazon": "Argent, two keys in fess Sable"
+      "signature": "arms|ar|P:c.key:2:crossed:sa",
+      "blazon": "Argent, two keys in saltire sable."
     },
     {
       "id": "demo-010",
@@ -266,27 +563,57 @@
       "registeredAt": "2026-01-14T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "divided",
+          "k": "divided",
           "division": "per-bend-sinister",
-          "tinctures": [
-            "sable",
-            "gules"
+          "lines": {
+            "a": "plain",
+            "b": "plain"
+          },
+          "pieces": null,
+          "parts": [
+            {
+              "k": "tincture",
+              "t": "sable"
+            },
+            {
+              "k": "tincture",
+              "t": "gules"
+            }
           ]
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "sun",
-          "count": 1,
-          "placement": "field",
-          "arrangement": "single",
-          "posture": null,
-          "tincture": "or"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "sun",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "or"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:per-bend-sinister:sa:gu|O:-|C:sun:1:field:single:-:or",
-      "blazon": "Per bend sinister Sable and Gules, a sun Or"
+      "signature": "arms|per-bend-sinister(sa,gu)|P:c.sun:1:single:or",
+      "blazon": "Per bend sinister sable and gules, a sun Or."
     },
     {
       "id": "demo-011",
@@ -297,23 +624,42 @@
       "registeredAt": "2026-01-15T12:00:00Z",
       "shape": "banner",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "purpure"
+          "k": "tincture",
+          "t": "purpure"
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "anchor",
-          "count": 1,
-          "placement": "field",
-          "arrangement": "single",
-          "posture": null,
-          "tincture": "argent"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "anchor",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "argent"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:pu|O:-|C:anchor:1:field:single:-:ar",
-      "blazon": "Purpure, an anchor Argent"
+      "signature": "arms|pu|P:c.anchor:1:single:ar",
+      "blazon": "Purpure, an anchor argent."
     },
     {
       "id": "demo-012",
@@ -324,26 +670,67 @@
       "registeredAt": "2026-01-16T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "azure"
+          "k": "tincture",
+          "t": "azure"
         },
-        "ordinary": {
-          "type": "fess",
-          "tincture": "argent"
-        },
-        "charges": {
-          "charge": "musical-note",
-          "count": 2,
-          "placement": "field",
-          "arrangement": "forced",
-          "posture": null,
-          "tincture": "or"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "fess",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "argent"
+            },
+            "charged": []
+          },
+          {
+            "role": "secondary",
+            "relation": "between",
+            "item": {
+              "k": "charge",
+              "charge": "musical-note",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 2,
+            "arrangement": {
+              "k": "host"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "or"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:az|O:fess:ar|C:musical-note:2:field:forced:-:or",
-      "blazon": "Azure, a fess Argent between two musical notes Or"
+      "signature": "arms|az|P:o.fess:1:single:ar|S>:c.musical-note:2:host:or",
+      "blazon": "Azure, a fess argent between two musical notes Or."
     },
     {
       "id": "demo-013",
@@ -354,26 +741,68 @@
       "registeredAt": "2026-01-17T12:00:00Z",
       "shape": "round",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "gules"
+          "k": "tincture",
+          "t": "gules"
         },
-        "ordinary": {
-          "type": "saltire",
-          "tincture": "or"
-        },
-        "charges": {
-          "charge": "gear",
-          "count": 1,
-          "placement": "ordinary",
-          "arrangement": "single",
-          "posture": null,
-          "tincture": "azure"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "saltire",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "or"
+            },
+            "charged": [
+              {
+                "role": "tertiary",
+                "relation": null,
+                "item": {
+                  "k": "charge",
+                  "charge": "gear",
+                  "form": null,
+                  "posture": null,
+                  "facing": null,
+                  "orientation": null,
+                  "mods": [],
+                  "parts": [],
+                  "holds": []
+                },
+                "count": 1,
+                "arrangement": {
+                  "k": "host"
+                },
+                "position": null,
+                "paint": {
+                  "k": "tincture",
+                  "t": "azure"
+                },
+                "charged": []
+              }
+            ]
+          }
+        ]
       },
-      "signature": "v1|F:plain:gu|O:saltire:or|C:gear:1:ordinary:single:-:az",
-      "blazon": "Gules, on a saltire Or a gear Azure"
+      "signature": "arms|gu|P:o.saltire:1:single:or{T:c.gear:1:host:az}",
+      "blazon": "Gules, on a saltire Or a cogwheel azure."
     },
     {
       "id": "demo-014",
@@ -384,26 +813,67 @@
       "registeredAt": "2026-01-18T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "argent"
+          "k": "tincture",
+          "t": "argent"
         },
-        "ordinary": {
-          "type": "bordure",
-          "tincture": "gules"
-        },
-        "charges": {
-          "charge": "goat",
-          "count": 1,
-          "placement": "field",
-          "arrangement": "single",
-          "posture": "statant",
-          "tincture": "azure"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "goat",
+              "form": null,
+              "posture": "statant",
+              "facing": "to-dexter",
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "azure"
+            },
+            "charged": []
+          },
+          {
+            "role": "peripheral",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "bordure",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "gules"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:ar|O:bordure:gu|C:goat:1:field:single:statant:az",
-      "blazon": "Argent, a goat statant Azure within a bordure Gules"
+      "signature": "arms|ar|P:c.goat.statant:1:single:az|R:o.bordure:1:single:gu",
+      "blazon": "Argent, a goat statant azure, a bordure gules."
     },
     {
       "id": "demo-015",
@@ -414,26 +884,68 @@
       "registeredAt": "2026-01-19T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "or"
+          "k": "tincture",
+          "t": "or"
         },
-        "ordinary": {
-          "type": "pale",
-          "tincture": "sable"
-        },
-        "charges": {
-          "charge": "flame",
-          "count": 3,
-          "placement": "ordinary",
-          "arrangement": "forced",
-          "posture": null,
-          "tincture": "or"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "pale",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "sable"
+            },
+            "charged": [
+              {
+                "role": "tertiary",
+                "relation": null,
+                "item": {
+                  "k": "charge",
+                  "charge": "flame",
+                  "form": null,
+                  "posture": null,
+                  "facing": null,
+                  "orientation": null,
+                  "mods": [],
+                  "parts": [],
+                  "holds": []
+                },
+                "count": 3,
+                "arrangement": {
+                  "k": "host"
+                },
+                "position": null,
+                "paint": {
+                  "k": "tincture",
+                  "t": "or"
+                },
+                "charged": []
+              }
+            ]
+          }
+        ]
       },
-      "signature": "v1|F:plain:or|O:pale:sa|C:flame:3:ordinary:forced:-:or",
-      "blazon": "Or, on a pale Sable three flames Or"
+      "signature": "arms|or|P:o.pale:1:single:sa{T:c.flame:3:host:or}",
+      "blazon": "Or, on a pale sable three flames Or."
     },
     {
       "id": "demo-016",
@@ -444,23 +956,43 @@
       "registeredAt": "2026-01-20T12:00:00Z",
       "shape": "lozenge",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "vert"
+          "k": "tincture",
+          "t": "vert"
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "bee",
-          "count": 3,
-          "placement": "field",
-          "arrangement": "in-fess",
-          "posture": null,
-          "tincture": "or"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "bee",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 3,
+            "arrangement": {
+              "k": "line",
+              "dir": "fess"
+            },
+            "position": "chief",
+            "paint": {
+              "k": "tincture",
+              "t": "or"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:vt|O:-|C:bee:3:field:in-fess:-:or",
-      "blazon": "Vert, three bees in fess Or"
+      "signature": "arms|vt|P:c.bee:3:in-chief:or",
+      "blazon": "Vert, in chief three bees Or."
     },
     {
       "id": "demo-017",
@@ -471,23 +1003,42 @@
       "registeredAt": "2026-01-21T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "plain",
-          "tincture": "celestine"
+          "k": "tincture",
+          "t": "celestine"
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "crescent",
-          "count": 1,
-          "placement": "field",
-          "arrangement": "single",
-          "posture": null,
-          "tincture": "gules"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "crescent",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "gules"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:plain:ce|O:-|C:crescent:1:field:single:-:gu",
-      "blazon": "Celestine, a crescent Gules"
+      "signature": "arms|ce|P:c.crescent:1:single:gu",
+      "blazon": "Celestine, a crescent gules."
     },
     {
       "id": "demo-018",
@@ -498,27 +1049,60 @@
       "registeredAt": "2026-01-22T12:00:00Z",
       "shape": "heater",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "divided",
+          "k": "divided",
           "division": "per-pale",
-          "tinctures": [
-            "or",
-            "azure"
+          "lines": {
+            "a": "plain",
+            "b": "plain"
+          },
+          "pieces": null,
+          "parts": [
+            {
+              "k": "tincture",
+              "t": "or"
+            },
+            {
+              "k": "tincture",
+              "t": "azure"
+            }
           ]
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "mullet",
-          "count": 3,
-          "placement": "field",
-          "arrangement": "two-and-one",
-          "posture": null,
-          "tincture": "counterchanged"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "mullet",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 3,
+            "arrangement": {
+              "k": "rows",
+              "rows": [
+                2,
+                1
+              ]
+            },
+            "position": null,
+            "paint": {
+              "k": "counterchanged"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:per-pale:or:az|O:-|C:mullet:3:field:two-and-one:-:cc",
-      "blazon": "Per pale Or and Azure, three mullets counterchanged"
+      "signature": "arms|per-pale(or,az)|P:c.mullet:3:rows-2-1:cc",
+      "blazon": "Per pale Or and azure, three mullets counterchanged."
     },
     {
       "id": "demo-019",
@@ -529,27 +1113,56 @@
       "registeredAt": "2026-01-23T12:00:00Z",
       "shape": "round",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "divided",
+          "k": "divided",
           "division": "per-fess",
-          "tinctures": [
-            "argent",
-            "gules"
+          "lines": {
+            "a": "plain",
+            "b": "plain"
+          },
+          "pieces": null,
+          "parts": [
+            {
+              "k": "tincture",
+              "t": "argent"
+            },
+            {
+              "k": "tincture",
+              "t": "gules"
+            }
           ]
         },
-        "ordinary": null,
-        "charges": {
-          "charge": "lion",
-          "count": 1,
-          "placement": "field",
-          "arrangement": "single",
-          "posture": "rampant",
-          "tincture": "counterchanged"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "lion",
+              "form": null,
+              "posture": "rampant",
+              "facing": "to-dexter",
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "counterchanged"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:per-fess:ar:gu|O:-|C:lion:1:field:single:rampant:cc",
-      "blazon": "Per fess Argent and Gules, a lion rampant counterchanged"
+      "signature": "arms|per-fess(ar,gu)|P:c.lion.rampant:1:single:cc",
+      "blazon": "Per fess argent and gules, a lion counterchanged."
     },
     {
       "id": "demo-020",
@@ -560,30 +1173,82 @@
       "registeredAt": "2026-01-24T12:00:00Z",
       "shape": "banner",
       "design": {
-        "v": 1,
+        "v": 2,
+        "kind": "arms",
         "field": {
-          "kind": "divided",
+          "k": "divided",
           "division": "per-bend",
-          "tinctures": [
-            "vert",
-            "or"
+          "lines": {
+            "a": "plain",
+            "b": "plain"
+          },
+          "pieces": null,
+          "parts": [
+            {
+              "k": "tincture",
+              "t": "vert"
+            },
+            {
+              "k": "tincture",
+              "t": "or"
+            }
           ]
         },
-        "ordinary": {
-          "type": "bordure",
-          "tincture": "gules"
-        },
-        "charges": {
-          "charge": "rose",
-          "count": 2,
-          "placement": "field",
-          "arrangement": "in-pale",
-          "posture": null,
-          "tincture": "counterchanged"
-        }
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "rose",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 2,
+            "arrangement": {
+              "k": "line",
+              "dir": "pale"
+            },
+            "position": null,
+            "paint": {
+              "k": "counterchanged"
+            },
+            "charged": []
+          },
+          {
+            "role": "peripheral",
+            "relation": null,
+            "item": {
+              "k": "ordinary",
+              "type": "bordure",
+              "lines": {
+                "a": "plain",
+                "b": "plain"
+              },
+              "mods": [],
+              "cotised": null,
+              "fimbriated": null
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "gules"
+            },
+            "charged": []
+          }
+        ]
       },
-      "signature": "v1|F:per-bend:vt:or|O:bordure:gu|C:rose:2:field:in-pale:-:cc",
-      "blazon": "Per bend Vert and Or, two roses counterchanged within a bordure Gules"
+      "signature": "arms|per-bend(vt,or)|P:c.rose:2:in-pale:cc|R:o.bordure:1:single:gu",
+      "blazon": "Per bend vert and Or, in pale two roses counterchanged, a bordure gules."
     }
   ]
 }

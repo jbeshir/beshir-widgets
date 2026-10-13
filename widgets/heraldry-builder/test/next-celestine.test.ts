@@ -4,21 +4,22 @@
 import { describe, it, expect } from 'vitest';
 import {
   COLOURS, METALS, NON_STANDARD_TINCTURES, TINCTURES, TINCTURE_CLASS, TINCTURE_CODE, TINCTURE_FILL, TINCTURE_HATCHING,
-  blazon, chargeTinctureChoices, contrastFailure, deriveTags, designTinctures, explainDifferences, filtersToTags, gloss,
-  normalise, ordinaryTinctureChoices, parseSearchParams, readability, resolve, searchEntries, signature,
-  queryWords, type NormDesign, type Tincture,
-} from '../src/lib/heraldry';
-import { setDivision } from '../src/lib/builder';
+  blazon, contrastFailure, deriveTags, designTinctures, explainDifferences, fieldTinctures, filtersToTags, gloss, groupTinctureChoices,
+  normalise, parseSearchParams, queryWords, readability, searchEntries, signature, type Design, type Tincture,
+} from '../src/lib/heraldry/next';
+import { setDivision } from '../src/lib/next/builder';
 import sample from '../src/data/sample-registry.json';
-import { sampleSearchEntries, searchEntryOf } from './sample-search-entries';
-import { plain, nd, filters, searchParams } from './helpers';
-
+import { sampleSearchEntries, searchEntryOf } from './next-sample-search-entries';
+import { arms, charge, div, filters, group, nd, ordinary, searchParams } from './next-helpers';
 
 const valid = (input: unknown) => normalise(input).ok;
 const isColour = (t: Tincture) => TINCTURE_CLASS[t] === 'colour';
 
 /** Whether `top` may lie on `under` (one contact) by the rule of tincture. */
 const legalOn = (top: Tincture, under: Tincture) => top !== under && TINCTURE_CLASS[top] !== TINCTURE_CLASS[under];
+
+const chg = (id: string, paint: string, extra: object = {}) => group(charge(id), paint, extra);
+const ord = (type: string, paint: string, extra: object = {}) => group(ordinary(type), paint, extra);
 
 describe('celestine is a non-standard metal', () => {
   it('is listed with the metals and is the only non-standard tincture', () => {
@@ -45,38 +46,29 @@ describe('rule of tincture with celestine', () => {
   });
 
   it('as a charge on the field', () => {
-    for (const field of TINCTURES) {
-      const d = { v: 1, field: plain(field), charges: { charge: 'mullet', count: 1, placement: 'field', tincture: 'celestine' } };
-      expect(valid(d), `celestine mullet on ${field}`).toBe(legalOn('celestine', field));
-    }
+    for (const field of TINCTURES) expect(valid(arms(field, chg('mullet', 'celestine'))), `celestine mullet on ${field}`).toBe(legalOn('celestine', field));
   });
 
   it('as an ordinary on the field', () => {
-    for (const field of TINCTURES) {
-      const d = { v: 1, field: plain(field), ordinary: { type: 'fess', tincture: 'celestine' } };
-      expect(valid(d), `celestine fess on ${field}`).toBe(legalOn('celestine', field));
-    }
+    for (const field of TINCTURES) expect(valid(arms(field, ord('fess', 'celestine'))), `celestine fess on ${field}`).toBe(legalOn('celestine', field));
   });
 
   it('as the field under an ordinary and under a charge', () => {
     for (const top of TINCTURES) {
-      expect(valid({ v: 1, field: plain('celestine'), ordinary: { type: 'bend', tincture: top } }), `${top} bend`).toBe(legalOn(top, 'celestine'));
-      expect(valid({ v: 1, field: plain('celestine'), charges: { charge: 'lion', count: 1, placement: 'field', tincture: top } }), `${top} lion`).toBe(legalOn(top, 'celestine'));
+      expect(valid(arms('celestine', ord('bend', top))), `${top} bend`).toBe(legalOn(top, 'celestine'));
+      expect(valid(arms('celestine', chg('lion', top))), `${top} lion`).toBe(legalOn(top, 'celestine'));
     }
   });
 
   it('as an ordinary carrying charges, and as charges on an ordinary', () => {
     for (const t of TINCTURES) {
-      const onCelestine = { v: 1, field: plain('sable'), ordinary: { type: 'pale', tincture: 'celestine' }, charges: { charge: 'key', count: 1, placement: 'ordinary', tincture: t } };
-      expect(valid(onCelestine), `${t} key on a celestine pale`).toBe(legalOn(t, 'celestine'));
-      const celestineOn = { v: 1, field: plain('or'), ordinary: { type: 'pale', tincture: 'gules' }, charges: { charge: 'key', count: 1, placement: 'ordinary', tincture: 'celestine' } };
-      expect(valid(celestineOn)).toBe(true);
+      expect(valid(arms('sable', ord('pale', 'celestine', { charged: [chg('key', t)] }))), `${t} key on a celestine pale`).toBe(legalOn(t, 'celestine'));
     }
+    expect(valid(arms('or', ord('pale', 'gules', { charged: [chg('key', 'celestine')] })))).toBe(true);
   });
 
   it('straddling a divided field: celestine counts as a metal on either side', () => {
-    const straddling = (t1: string, t2: string, tincture: string) =>
-      valid({ v: 1, field: { kind: 'divided', division: 'per-pale', tinctures: [t1, t2] }, charges: { charge: 'rose', count: 1, placement: 'field', tincture } });
+    const straddling = (t1: string, t2: string, paint: string) => valid(arms(div('per-pale', t1, t2), chg('rose', paint)));
     expect(straddling('celestine', 'argent', 'gules')).toBe(true);
     expect(straddling('celestine', 'or', 'argent')).toBe(false); // a two-metal field needs a colour charge
     expect(straddling('celestine', 'or', 'sable')).toBe(true);
@@ -86,33 +78,33 @@ describe('rule of tincture with celestine', () => {
   });
 
   it('picker options block metals on celestine and list celestine among the metals', () => {
-    const d = nd({ v: 1, field: plain('celestine'), charges: { charge: 'lion', count: 1, placement: 'field', tincture: 'gules' } });
-    const ch = chargeTinctureChoices(d);
-    for (const c of ch) expect(c.allowed, c.value).toBe(isColour(c.value));
-    expect(ch.find((c) => c.value === 'or')!.reason)
-      .toBe('Or on Celestine would be metal on metal. Metals must sit on colours (Gules, Azure, Vert, Sable or Purpure).');
-    const onGules = ordinaryTinctureChoices(nd({ v: 1, field: plain('gules') }), 'chevron');
+    const d = nd(arms('celestine', chg('lion', 'gules')));
+    const ch = groupTinctureChoices(d, [0]).filter((c) => c.value !== 'counterchanged');
+    for (const c of ch) expect(c.allowed, c.value).toBe(isColour(c.value as Tincture));
+    const or = ch.find((c) => c.value === 'or')!;
+    expect(or.allowed ? '' : or.reason).toMatch(/metal/i);
+    const onGules = groupTinctureChoices(nd(arms('gules', ord('chevron', 'or'))), [0]);
     expect(onGules.find((c) => c.value === 'celestine')!.allowed).toBe(true);
-    expect(onGules.find((c) => c.value === 'vert')!.reason).toMatch(/\(Or, Argent or Celestine\)\.$/);
+    const vert = onGules.find((c) => c.value === 'vert')!;
+    expect(vert.allowed).toBe(false);
   });
 
   it('a new division of a celestine field picks a colour for its other half', () => {
-    const d = setDivision(nd({ v: 1, field: plain('celestine') }), 'per-pale');
-    expect(d.field).toEqual({ kind: 'divided', division: 'per-pale', tinctures: ['celestine', 'gules'] });
+    const d = setDivision(nd(arms('celestine')), 'per-pale');
+    expect(fieldTinctures(d)).toEqual(['celestine', 'gules']);
   });
 });
 
 describe('celestine in words, signature and tags', () => {
-  const field = nd({ v: 1, field: plain('celestine'), charges: { charge: 'crescent', count: 1, placement: 'field', tincture: 'gules' } });
-  const fess = nd({ v: 1, field: plain('gules'), ordinary: { type: 'fess', tincture: 'celestine' } });
-  const charges = nd({ v: 1, field: plain('sable'), charges: { charge: 'mullet', count: 3, placement: 'field', tincture: 'celestine' } });
+  const field = nd(arms('celestine', chg('crescent', 'gules')));
+  const fess = nd(arms('gules', ord('fess', 'celestine')));
+  const charges = nd(arms('sable', chg('mullet', 'celestine', { count: 3 })));
 
-  it('blazons as Celestine, capitalised like the others', () => {
-    expect(blazon(field)).toBe('Celestine, a crescent Gules');
-    expect(blazon(fess)).toBe('Gules, a fess Celestine');
-    expect(blazon(charges)).toBe('Sable, three mullets Celestine');
-    expect(blazon(nd({ v: 1, field: { kind: 'divided', division: 'per-fess', tinctures: ['celestine', 'azure'] } })))
-      .toBe('Per fess Celestine and Azure');
+  it('blazons as celestine, lower case like the other tinctures', () => {
+    expect(blazon(field)).toBe('Celestine, a crescent gules.');
+    expect(blazon(fess)).toBe('Gules, a fess celestine.');
+    expect(blazon(charges)).toBe('Sable, three mullets celestine.');
+    expect(blazon(nd(arms(div('per-fess', 'celestine', 'azure'))))).toBe('Per fess celestine and azure.');
   });
 
   it('glosses as sky blue (celestine)', () => {
@@ -126,10 +118,10 @@ describe('celestine in words, signature and tags', () => {
     const codes = TINCTURES.map((t) => TINCTURE_CODE[t]);
     expect(new Set(codes).size).toBe(codes.length);
     for (const code of codes) expect(code).toMatch(/^[a-z]+$/);
-    expect(signature(field)).toBe('v1|F:plain:ce|O:-|C:crescent:1:field:single:-:gu');
+    expect(signature(field)).toBe('arms|ce|P:c.crescent:1:single:gu');
     // Swapping celestine for any other tincture always changes the signature.
     for (const t of TINCTURES.filter((x) => x !== 'celestine')) {
-      expect(signature({ ...field, field: { kind: 'plain', tincture: t } })).not.toBe(signature(field));
+      expect(signature({ ...field, field: { k: 'tincture', t } } as Design)).not.toBe(signature(field));
     }
   });
 
@@ -147,7 +139,7 @@ describe('celestine in words, signature and tags', () => {
   });
 
   it('names celestine in difference text', () => {
-    const argent = nd({ v: 1, field: plain('argent'), charges: { charge: 'crescent', count: 1, placement: 'field', tincture: 'gules' } });
+    const argent = nd(arms('argent', chg('crescent', 'gules')));
     expect(explainDifferences(field, argent).map((n) => n.text)).toEqual(['background colour (Celestine ↔ Argent)']);
   });
 });

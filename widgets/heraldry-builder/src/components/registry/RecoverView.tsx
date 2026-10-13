@@ -9,14 +9,14 @@
 
 import type { Ref } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { API_ERROR, EMAIL_MAX, cleanEmail, type ApiErrorCode } from '../../lib/heraldry';
+import { API_ERROR, EMAIL_MAX, cleanEmail, type ApiErrorCode } from '../../lib/heraldry/next';
 import { RECOVER_HASH, editUrl, ownerHash } from '../../lib/route';
 import { useFocusOnChange } from '../../lib/useFocusOnChange';
 import type { ListStatus } from '../../lib/widgetState';
 import * as store from '../../store';
 import { SecretLinkField } from '../CopyField';
 import { Dialog } from '../overlay';
-import { Shield } from '../Shield';
+import { Shield } from '../next/Shield';
 
 export function RecoverRequest({ onStatus }: { onStatus: (s: ListStatus) => void }) {
   const [email, setEmail] = useState('');

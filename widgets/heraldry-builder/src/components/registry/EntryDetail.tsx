@@ -6,18 +6,18 @@
 
 import type { Ref } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { gloss, type Contact, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
+import { gloss, type Contact, type FieldShape, type Design, type ShapedDesign } from '../../lib/heraldry/next';
 import { RECOVER_HASH, printHash, shareUrl } from '../../lib/route';
 import * as store from '../../store';
 import { CopyField, useCopy } from '../CopyField';
 import { Dialog } from '../overlay';
 import { SavePicture } from '../SavePicture';
-import { Shield } from '../Shield';
+import { Shield } from '../next/Shield';
 
 interface Summary {
   id: string;
   displayName: string;
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
   blazon: string;
 }

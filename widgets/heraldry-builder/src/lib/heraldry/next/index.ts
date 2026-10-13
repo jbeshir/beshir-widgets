@@ -56,3 +56,8 @@ export {
   FILTER_PARAMS, NO_SEARCH_PARAMS, parseSearchParams, searchParamsFromUrl, searchParamsToUrl, searchEntries,
   type SearchParams, type SearchableEntry,
 } from './search';
+export { API_ERROR, isApiErrorCode, type ApiErrorCode, type TokenProblem } from '../api-errors';
+export { NO_CONTACT, DISCORD_MAX, cleanDiscord, cleanContact, type Contact } from '../contact';
+export { EMAIL_MAX, cleanEmail, isMailOutcome, type MailOutcome } from '../email';
+export { asObject } from '../json';
+export { DISPLAY_NAME_MAX, cleanDisplayName } from '../text';

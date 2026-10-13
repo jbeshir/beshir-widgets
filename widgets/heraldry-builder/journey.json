@@ -133,15 +133,14 @@
       "expect": {"selector":"[data-testid=tincture-explainer]"}
     },
     {
-      "label": "dead-end-counterchange-fix",
+      "label": "violation-fix",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
-        {"click":"[data-testid=division-per-pale]"},
-        {"click":"[data-testid=swatch-field1-azure]"},
-        {"click":"[data-testid=swatch-field2-or]"},
+        {"click":"[data-testid=swatch-field1-gules]"},
         {"eval":"document.querySelector('#charge-tab-geometric')?.click()"},
         {"click":"[data-testid=charge-mullet]"},
-        {"click":"[data-testid=count-3]"},
+        {"click":"[data-testid=swatch-charge-or]"},
+        {"click":"[data-testid=swatch-field1-or]"},
         {"waitFor":"[data-testid=violation-panel]"},
         {"eval":"window.scrollTo(0, 0)"}
       ],
@@ -151,32 +150,28 @@
       "label": "count-placement-companion",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
-        {"click":"[data-testid=swatch-field1-or]"},
-        {"click":"[data-testid=ordinary-cross]"},
-        {"click":"[data-testid=swatch-ordinary-gules]"},
+        {"click":"[data-testid=ordinary-fess]"},
+        {"click":"[data-testid=swatch-ordinary-argent]"},
         {"eval":"document.querySelector('#charge-tab-beast')?.click()"},
         {"click":"[data-testid=charge-lion]"},
-        {"click":"[data-testid=placement-ordinary]"},
-        {"click":"[data-testid=count-1]"},
         {"click":"[data-testid=swatch-charge-or]"},
+        {"click":"[data-testid=count-3]"},
         {"waitFor":"[data-testid=count-companion-notes]"},
         {"eval":"document.querySelector('[data-testid=count-select]').scrollIntoView({block:'center'})"}
       ],
-      "expect": {"selector":"[data-testid=count-4][data-with-change=true]"}
+      "expect": {"selector":"[data-testid=count-5][data-with-change=true]"}
     },
     {
       "label": "count-placement-companion-applied",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
-        {"click":"[data-testid=swatch-field1-or]"},
-        {"click":"[data-testid=ordinary-cross]"},
-        {"click":"[data-testid=swatch-ordinary-gules]"},
+        {"click":"[data-testid=ordinary-fess]"},
+        {"click":"[data-testid=swatch-ordinary-argent]"},
         {"eval":"document.querySelector('#charge-tab-beast')?.click()"},
         {"click":"[data-testid=charge-lion]"},
-        {"click":"[data-testid=placement-ordinary]"},
-        {"click":"[data-testid=count-1]"},
         {"click":"[data-testid=swatch-charge-or]"},
-        {"click":"[data-testid=count-4]"},
+        {"click":"[data-testid=count-3]"},
+        {"click":"[data-testid=count-5]"},
         {"waitFor":"[data-testid=adjusted-notice]"},
         {"eval":"document.querySelector('[data-testid=count-select]').scrollIntoView({block:'center'})"}
       ],
@@ -312,8 +307,8 @@
     {
       "label": "recover-redeemed",
       "steps": [
-        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/lookup$/","method":"POST","status":200,"body":{"entry":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or"},"expiresAt":"2099-01-01T00:00:00Z"}}},
-        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/redeem$/","method":"POST","status":200,"body":{"id":"journey-arms-01","editSecret":"journey-secret-02","registry":{"id":"default","name":"Default"},"displayName":"House Journey","blazon":"Azure, a bend Or","rev":1}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/lookup$/","method":"POST","status":200,"body":{"entry":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":2,"kind":"arms","field":{"k":"tincture","t":"azure"},"groups":[{"role":"primary","relation":null,"item":{"k":"ordinary","type":"bend","lines":{"a":"plain","b":"plain"},"mods":[],"cotised":null,"fimbriated":null},"count":1,"arrangement":{"k":"single"},"position":null,"paint":{"k":"tincture","t":"or"},"charged":[]}]},"shape":"heater","blazon":"Azure, a bend Or."},"expiresAt":"2099-01-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/redeem$/","method":"POST","status":200,"body":{"id":"journey-arms-01","editSecret":"journey-secret-02","registry":{"id":"default","name":"Default"},"displayName":"House Journey","blazon":"Azure, a bend Or.","rev":1}}},
         {"eval":"location.hash = '#/recover/journey-token'"},
         {"waitFor":"[data-testid=redeem-new-link]"},
         {"click":"[data-testid=redeem-new-link]"}
@@ -323,7 +318,7 @@
     {
       "label": "owner-view",
       "steps": [
-        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":2,"kind":"arms","field":{"k":"tincture","t":"azure"},"groups":[{"role":"primary","relation":null,"item":{"k":"ordinary","type":"bend","lines":{"a":"plain","b":"plain"},"mods":[],"cotised":null,"fimbriated":null},"count":1,"arrangement":{"k":"single"},"position":null,"paint":{"k":"tincture","t":"or"},"charged":[]}]},"shape":"heater","blazon":"Azure, a bend Or.","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
         {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01\\/owner$/","method":"GET","status":200,"body":{"id":"journey-arms-01","owner":true}}},
         {"eval":"location.hash = '#/a/journey-arms-01/journey-secret-01'"}
       ],
@@ -332,7 +327,7 @@
     {
       "label": "owner-link-denied",
       "steps": [
-        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or","contact":{"discord":null},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":2,"kind":"arms","field":{"k":"tincture","t":"azure"},"groups":[{"role":"primary","relation":null,"item":{"k":"ordinary","type":"bend","lines":{"a":"plain","b":"plain"},"mods":[],"cotised":null,"fimbriated":null},"count":1,"arrangement":{"k":"single"},"position":null,"paint":{"k":"tincture","t":"or"},"charged":[]}]},"shape":"heater","blazon":"Azure, a bend Or.","contact":{"discord":null},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
         {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01\\/owner$/","method":"GET","status":403,"body":{"error":"forbidden","message":"Wrong edit secret."}}},
         {"eval":"location.hash = '#/a/journey-arms-01/journey-secr'"}
       ],
@@ -397,7 +392,7 @@
       "label": "register-too-close",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
-        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":409,"body":{"error":"too-close","message":"These arms are too close to an existing entry.","conflict":{"id":"demo-001","displayName":"Mae Okonkwo","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or"},"differences":[{"attr":"charge-count","weight":"minor","text":"one picture instead of two","why":"The pictures are alike, so this counts as half a difference."}]}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms$/","method":"POST","status":409,"body":{"error":"too-close","message":"These arms are too close to an existing entry.","conflict":{"id":"demo-001","displayName":"Mae Okonkwo","design":{"v":2,"kind":"arms","field":{"k":"tincture","t":"azure"},"groups":[{"role":"primary","relation":null,"item":{"k":"ordinary","type":"bend","lines":{"a":"plain","b":"plain"},"mods":[],"cotised":null,"fimbriated":null},"count":1,"arrangement":{"k":"single"},"position":null,"paint":{"k":"tincture","t":"or"},"charged":[]}]},"shape":"heater","blazon":"Azure, a bend Or."},"differences":[{"attr":"number","kind":"dc","rule":"A5G5","text":"number of pictures (one ↔ two)","why":"One picture and two pictures count as different numbers, a distinct change (SENA A5G5).","item":"charge"}]}}},
         {"click":"[data-testid=ordinary-bend]"},
         {"click":"[data-testid=open-register]"},
         {"fill":"[data-testid=register-name]","value":"House Journey"},
@@ -409,7 +404,7 @@
     {
       "label": "recover-confirm",
       "steps": [
-        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/lookup$/","method":"POST","status":200,"body":{"entry":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or"},"expiresAt":"2099-01-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/recover\\/lookup$/","method":"POST","status":200,"body":{"entry":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":2,"kind":"arms","field":{"k":"tincture","t":"azure"},"groups":[{"role":"primary","relation":null,"item":{"k":"ordinary","type":"bend","lines":{"a":"plain","b":"plain"},"mods":[],"cotised":null,"fimbriated":null},"count":1,"arrangement":{"k":"single"},"position":null,"paint":{"k":"tincture","t":"or"},"charged":[]}]},"shape":"heater","blazon":"Azure, a bend Or."},"expiresAt":"2099-01-01T00:00:00Z"}}},
         {"eval":"location.hash = '#/recover/journey-token'"},
         {"waitFor":"[data-testid=redeem-new-link]"}
       ],
@@ -426,7 +421,7 @@
     {
       "label": "owner-withdraw-confirm",
       "steps": [
-        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":2,"kind":"arms","field":{"k":"tincture","t":"azure"},"groups":[{"role":"primary","relation":null,"item":{"k":"ordinary","type":"bend","lines":{"a":"plain","b":"plain"},"mods":[],"cotised":null,"fimbriated":null},"count":1,"arrangement":{"k":"single"},"position":null,"paint":{"k":"tincture","t":"or"},"charged":[]}]},"shape":"heater","blazon":"Azure, a bend Or.","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
         {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01\\/owner$/","method":"GET","status":200,"body":{"id":"journey-arms-01","owner":true}}},
         {"eval":"location.hash = '#/a/journey-arms-01/journey-secret-01'"},
         {"waitFor":"[data-testid=owner-withdraw]"},
@@ -438,7 +433,7 @@
       "label": "withdrawn",
       "steps": [
         {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"DELETE","status":200,"body":{"id":"journey-arms-01"}}},
-        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":1,"field":{"kind":"plain","tincture":"azure"},"ordinary":{"type":"bend","tincture":"or"},"charges":null},"shape":"heater","blazon":"Azure, a bend Or","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
+        {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01$/","method":"GET","status":200,"body":{"id":"journey-arms-01","registry":{"id":"default","name":"Default"},"displayName":"House Journey","design":{"v":2,"kind":"arms","field":{"k":"tincture","t":"azure"},"groups":[{"role":"primary","relation":null,"item":{"k":"ordinary","type":"bend","lines":{"a":"plain","b":"plain"},"mods":[],"cotised":null,"fimbriated":null},"count":1,"arrangement":{"k":"single"},"position":null,"paint":{"k":"tincture","t":"or"},"charged":[]}]},"shape":"heater","blazon":"Azure, a bend Or.","contact":{"discord":"house.journey"},"signature":"journey-signature","readability":"bold","rev":1,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-01T00:00:00Z"}}},
         {"mockFetch":{"urlPattern":"/\\/api\\/arms\\/journey-arms-01\\/owner$/","method":"GET","status":200,"body":{"id":"journey-arms-01","owner":true}}},
         {"eval":"location.hash = '#/a/journey-arms-01/journey-secret-01'"},
         {"waitFor":"[data-testid=owner-withdraw]"},

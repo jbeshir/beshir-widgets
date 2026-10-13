@@ -15,6 +15,7 @@ import {
   FIELD_SHAPES, blazon, contrastFailure, fieldTinctures, gloss, groundContacts, groupSlots, inFirstPart, probePoints, readability, resolve,
   shapeFrame, signature, validate, walkGroups, type Design, type FieldShape, type ShapedDesign, type Slot, type Tincture,
 } from '../src/lib/heraldry/next';
+import sample from '../src/data/sample-registry.json';
 import { arms, charge, div, group, nd, ordinary } from './next-helpers';
 import { generatedDesigns } from './next-design-generator';
 import { V } from './next-validation-cases';
@@ -61,6 +62,7 @@ const COUNTERCHANGED: Array<[string, unknown]> = [
 ];
 
 const DESIGNS: Array<[string, Design]> = [
+  ...sample.entries.map((e): [string, unknown] => [e.id, e.design]),
   ...V.map((c): [string, unknown] => [c.id, c.design]),
   ...BROKEN,
   ...COUNTERCHANGED,

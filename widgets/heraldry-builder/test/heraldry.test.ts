@@ -11,8 +11,8 @@ import {
   BETWEEN_GLOSS, BETWEEN_SLOTS, cleanDiscord, readability, resolve, signature, slotsFor, suggestTinctureFix, validate,
   type Choice, type Count, type Design, type Issue, type Ordinary, type Placement, type SearchFilters,
 } from '../src/lib/heraldry';
-import sample from '../src/data/sample-registry.json';
-import sampleRaw from '../src/data/sample-registry.json?raw';
+import sample from './fixtures/sample-registry-v1.json';
+import sampleRaw from './fixtures/sample-registry-v1.json?raw';
 import { V } from './validation-cases';
 import { plain, div, nd, filters } from './helpers';
 

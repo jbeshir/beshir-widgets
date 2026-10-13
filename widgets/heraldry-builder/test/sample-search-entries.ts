@@ -1,5 +1,5 @@
 // The bundled sample registry as searchable entries, built the way the offline store builds them.
-import sample from '../src/data/sample-registry.json';
+import sample from './fixtures/sample-registry-v1.json';
 import { buildSearchText, resolve, type NormDesign, type SearchableEntry } from '../src/lib/heraldry';
 
 export interface SampleSearchEntry extends SearchableEntry {

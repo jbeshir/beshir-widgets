@@ -6,7 +6,7 @@
 // editable here — the page says so: change the arms by withdrawing this entry and registering anew.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { API_ERROR, DEFAULT_FIELD_SHAPE, DISCORD_MAX, DISPLAY_NAME_MAX, cleanDiscord, type FieldShape } from '../../lib/heraldry';
+import { API_ERROR, DEFAULT_FIELD_SHAPE, DISCORD_MAX, DISPLAY_NAME_MAX, cleanDiscord, type FieldShape } from '../../lib/heraldry/next';
 import { RECOVER_HASH, editUrl, shareUrl } from '../../lib/route';
 import { useFocusOnChange } from '../../lib/useFocusOnChange';
 import type { ListStatus } from '../../lib/widgetState';
@@ -15,7 +15,7 @@ import { CopyField, SecretLinkField } from '../CopyField';
 import { Dialog } from '../overlay';
 import { ShapePicker } from '../design/ShapePicker';
 import { SavePicture } from '../SavePicture';
-import { Shield } from '../Shield';
+import { Shield } from '../next/Shield';
 
 interface Props {
   id: string;

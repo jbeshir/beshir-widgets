@@ -5,20 +5,22 @@
 // it appears. When an adjustment leaves the charges' colour breaking the rule, the violation panel's
 // fix sits beside Undo too, so it is in reach wherever that panel is on screen.
 
-import { suggestTinctureFix, type NormDesign } from '../../lib/heraldry';
-import { chargesClash, fixText, type Replacement } from '../../lib/builder';
+import { suggestTinctureFix, type Design } from '../../lib/heraldry/next';
+import { chargesClash, fixText, picturePath, type Replacement } from '../../lib/next/builder';
 
 interface Props {
   replacement: Replacement | null;
   kind: Replacement['kind'];
   onUndo: () => void;
   /** Apply the rule fix offered beside Undo; null where none is offered (a replaced design). */
-  onFix: ((nd: NormDesign) => void) | null;
+  onFix: ((nd: Design) => void) | null;
 }
 
 export function ReplacedNotice({ replacement, kind, onUndo, onFix }: Props) {
   const shown = replacement?.kind === kind ? replacement : null;
-  const fix = onFix && shown?.kind === 'adjusted' && chargesClash(shown.replacement.design) ? suggestTinctureFix(shown.replacement.design) : null;
+  const adjustedDesign = shown?.kind === 'adjusted' ? shown.replacement.design : null;
+  const picture = adjustedDesign && picturePath(adjustedDesign);
+  const fix = onFix && adjustedDesign && picture && chargesClash(adjustedDesign, picture) ? suggestTinctureFix(adjustedDesign) : null;
   return (
     <div role="status" data-testid={`${kind}-status`}>
       {shown && (

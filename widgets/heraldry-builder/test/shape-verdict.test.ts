@@ -17,7 +17,7 @@ import {
   suggestTinctureFix, validate, type FieldShape, type NormDesign, type ShapedDesign, type Slot, type Tincture,
 } from '../src/lib/heraldry';
 import { assess } from '../src/lib/builder';
-import sample from '../src/data/sample-registry.json';
+import sample from './fixtures/sample-registry-v1.json';
 import { generatedDesigns } from './design-generator';
 import { V } from './validation-cases';
 import { plain, div } from './helpers';

@@ -5,7 +5,7 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import worker from '../worker/index';
-import sample from '../src/data/sample-registry.json';
+import sample from './fixtures/sample-registry-v1.json';
 import {
   FIELD_SHAPES, blazon, candidateKey, checkUnique, parseSearchParams, resolve, searchEntries, signature,
   type RegistryEntryLike,

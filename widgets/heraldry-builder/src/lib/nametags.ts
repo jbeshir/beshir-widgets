@@ -1,6 +1,6 @@
 // What goes on a nametag sheet: one entry's tag, once or repeated to fill an A4 page.
 
-import type { ShapedDesign } from './heraldry';
+import type { ShapedDesign } from './heraldry/next';
 
 /** Two columns of four on A4. */
 export const TAGS_PER_PAGE = 8;

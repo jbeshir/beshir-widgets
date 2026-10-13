@@ -1,7 +1,7 @@
 // The one place that decides <html data-widget-state>, from the active tab and its
 // status. Dialogs and sheets never change it: they keep the underlying tab's state.
 
-import type { DesignStatus } from './builder';
+import type { DesignStatus } from './next/builder';
 
 type WidgetState = 'loading' | 'ready' | 'populated' | 'empty' | 'error';
 export type Tab = 'design' | 'registry' | 'yours';

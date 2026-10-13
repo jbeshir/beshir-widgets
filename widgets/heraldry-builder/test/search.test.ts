@@ -1,12 +1,11 @@
 // Plain-English search over the sample registry: the query parser, whole-word matching, the search
-// text, the typed URL/param errors, and the offline store answering exactly as the library does.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import sample from '../src/data/sample-registry.json';
+// text, the typed URL/param errors.
+import { describe, expect, it } from 'vitest';
+import sample from './fixtures/sample-registry-v1.json';
 import {
   FILTER_PARAMS, buildSearchText, deriveTags, matchesWords, normaliseWords, parseSearchParams, queryWords, searchEntries,
   searchParamsFromUrl, type SearchParams,
 } from '../src/lib/heraldry';
-import * as store from '../src/store';
 import { designOf, sampleSearchEntries, searchEntryOf } from './sample-search-entries';
 import { searchParams, type SearchArgs } from './helpers';
 
@@ -221,31 +220,5 @@ describe('search parameters', () => {
   it('reports a bad value for a defined parameter as bad_request', () => {
     expect(parseSearchParams(searchParams({ category: 'fish' }))).toMatchObject({ ok: false, code: 'bad_request', param: 'category' });
     expect(parseSearchParams(searchParams({ fieldTincture: 'pink' }))).toMatchObject({ ok: false, code: 'bad_request', param: 'fieldTincture' });
-  });
-});
-
-describe('the offline store answers like the library', () => {
-  beforeEach(() => {
-    vi.stubGlobal('location', { protocol: 'file:', origin: 'null', pathname: '/', search: '' });
-  });
-  afterEach(() => vi.unstubAllGlobals());
-
-  const QUERIES = [
-    'yellow', 'gold lion', 'passant wolf', 'wolf passant', 'bird', 'white border', 'star', 'wolves', 'Or',
-    'yellow animal on black with a white border', 'cyan', 'sky blue', 'walking', 'the', '%', 'Bright',
-  ];
-
-  it('returns the same ids in the same order, for every query', async () => {
-    for (const q of QUERIES) {
-      const r = await store.search(searchParams({ q, limit: 50 }));
-      expect(r.ok && r.page.items.map((i) => i.id), q).toEqual(find(q));
-    }
-  });
-
-  it('filters by category and field tincture, and refuses an unknown value with a typed code', async () => {
-    const r = await store.search(searchParams({ category: 'monster', fieldTincture: 'vert' }));
-    expect(r.ok && r.page.items.map((i) => i.id)).toEqual([]);
-    const bad = await store.search(searchParams({ category: 'fish' }));
-    expect(bad).toMatchObject({ ok: false, status: 400, code: 'bad_request', culprit: { kind: 'param', name: 'category' } });
   });
 });

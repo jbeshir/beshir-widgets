@@ -5,9 +5,9 @@
 import type { Result, CheckResult } from '../store';
 import { entryHash } from '../lib/route';
 import {
-  CLEAR_CHANGE_HINT, HALF_DIFFERENCE_HINT, POINTS, pointsLabel, tallyText, type ComparedEntry, type DiffAttr, type DifferenceNote, type TakenReport,
-} from '../lib/heraldry';
-import { Shield } from './Shield';
+  CLEAR_CHANGE_HINT, SENA_RULE_HINT, changeLabel, tallyText, type ComparedEntry, type DiffAttr, type DifferenceNote, type TakenReport,
+} from '../lib/heraldry/next';
+import { Shield } from './next/Shield';
 
 export type CheckOutcome = Result<{ result: CheckResult }>;
 
@@ -27,28 +27,32 @@ const JUMP_LABEL: Record<JumpTarget, string> = {
 };
 
 /** The builder control behind each kind of difference. */
-const JUMP_FOR: Record<DiffAttr, JumpTarget> = {
-  'field-division': 'field', 'field-tincture': 'tincture',
-  'ordinary-presence': 'ordinary', 'ordinary-type': 'ordinary', 'ordinary-tincture': 'tincture',
-  'charges-presence': 'charge', 'charge-type': 'charge', 'charge-tincture': 'tincture', 'charge-placement': 'charge',
-  'charge-count': 'count', 'charge-arrangement': 'arrangement', 'charge-posture': 'posture',
-};
+function jumpFor(d: DifferenceNote): JumpTarget {
+  switch (d.attr) {
+    case 'field-partition': return 'field';
+    case 'field-tincture': case 'tincture': return 'tincture';
+    case 'primary-presence': case 'group-presence': case 'type': return d.item === 'ordinary' ? 'ordinary' : 'charge';
+    case 'number': return 'count';
+    case 'arrangement': return 'arrangement';
+    case 'posture': return 'posture';
+  }
+}
 
 /** Which controls the listed differences point at (falls back to the three step sections). */
 function jumpTargets(differences: readonly DifferenceNote[]): JumpTarget[] {
-  const hit = [...new Set(differences.map((d) => JUMP_FOR[d.attr]))];
+  const hit = [...new Set(differences.map((d) => jumpFor(d)))];
   return hit.length ? hit : ['field', 'ordinary', 'charge'];
 }
 
-/** Each difference with its points, why a minor one counts half, and the tally. */
+/** Each difference with its kind and the SENA rule behind it, and the tally. */
 function DifferenceList({ differences }: { differences: readonly DifferenceNote[] }) {
   return (
     <>
       <ul class="differences" data-testid="availability-differences">
         {differences.map((d) => (
-          <li key={d.attr}>
-            {d.text} — <strong>{pointsLabel(POINTS[d.weight])}</strong>
-            {d.weight === 'minor' && <span class="difference-why">{d.why}</span>}
+          <li key={`${d.attr}:${d.text}`}>
+            {d.text} — <strong>{changeLabel(d.kind)}</strong>
+            <span class="difference-why">{d.why}</span>
           </li>
         ))}
       </ul>
@@ -100,22 +104,22 @@ export function TakenPanel({ report, onView, onJump }: TakenProps) {
       <p class="taken-verdict"><strong>Too similar to {c.displayName}’s arms — change one more thing.</strong></p>
       {report.differences.length > 0 && (
         <div>
-          <p class="availability-help">What is different so far (you need 1 point):</p>
+          <p class="availability-help">What is different so far (you need two distinct changes or one substantial change):</p>
           <DifferenceList differences={report.differences} />
         </div>
       )}
       <p class="availability-help">To clear it, change one of: {CLEAR_CHANGE_HINT}.</p>
       {jumps}
       <details class="half-rule" data-testid="availability-half-rule">
-        <summary>Why do some changes only count as half a point?</summary>
-        <p class="availability-help">{HALF_DIFFERENCE_HINT}</p>
+        <summary>What counts as a big enough change?</summary>
+        <p class="availability-help">{SENA_RULE_HINT}</p>
       </details>
       {card}
     </div>
   );
 }
 
-/** An available design that only passed an entry by adding up half differences. */
+/** An available design that only cleared an entry by two distinct changes. */
 function ClosestEntry({ closest }: { closest: ComparedEntry }) {
   return (
     <div data-testid="availability-closest">

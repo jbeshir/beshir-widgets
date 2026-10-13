@@ -6,7 +6,7 @@
 // "Check availability".
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { API_ERROR, DISCORD_MAX, DISPLAY_NAME_MAX, EMAIL_MAX, blazon, cleanDiscord, cleanDisplayName, cleanEmail, type FieldShape, type MailOutcome, type NormDesign, type TakenReport } from '../lib/heraldry';
+import { API_ERROR, DISCORD_MAX, DISPLAY_NAME_MAX, EMAIL_MAX, blazon, cleanDiscord, cleanDisplayName, cleanEmail, type FieldShape, type MailOutcome, type Design, type TakenReport } from '../lib/heraldry/next';
 import { useMedia } from '../lib/useCompact';
 import { editUrl, registryParam, shareUrl } from '../lib/route';
 import * as store from '../store';
@@ -15,10 +15,10 @@ import { CopyField, SecretLinkField } from './CopyField';
 import { Dialog, Popover } from './overlay';
 import { pushLayer } from './overlay/layers';
 import { SavePicture } from './SavePicture';
-import { Shield } from './Shield';
+import { Shield } from './next/Shield';
 
 interface Props {
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
   hatching: boolean;
   onClose: () => void;

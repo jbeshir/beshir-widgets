@@ -1,14 +1,17 @@
 // Text normaliser applied identically to an SCA blazon and to the widget's own blazon() before the
-// two are compared (see match.ts). It is deliberately minimal: each rule below removes a difference
-// of *wording* that the SCA's own conventions say carries no meaning, and none of them can make two
-// blazons of different designs compare equal. Tinctures, counts, charge names, postures and
-// arrangements are never dropped — where a convention leaves something implied (a default posture,
-// an omitted tincture) the rule writes it out, so both sides meet at the fully stated form.
+// two are compared (see match.ts). The widget words every design in SCA house style, so this only
+// bridges differences of *spelling and punctuation* and three conventions the SCA and the Glossary
+// of Terms declare equivalent. None of the rules can make two blazons of different designs compare
+// equal: tinctures, counts, charge names, postures and arrangements are never dropped, except where
+// the College's own default makes the stated word redundant (rule 6), and then the match's design is
+// the one with that default, which the widget words the same way.
 //
-// Rules run in the listed order; each is numbered in its comment and carries an id so the report and
-// the armorial test can cite it (NORMALISATION_RULES).
-import { CHARGES, type ChargeId } from '../../src/lib/heraldry/charges';
-import { TINCTURES } from '../../src/lib/heraldry/tinctures';
+// Rules run in the listed order; each carries an id so the report and the armorial test can cite it
+// (NORMALISATION_RULES). Rules 4–6 are conventions, not spellings: the widget's emitter picks one of
+// the equivalent forms and O&A uses both, so without them records the widget can express would not
+// match. Delete a rule here to see how many records depend on it.
+import { CHARGES, CHARGE_IDS, POSTURES, postureTerm } from '../../src/lib/heraldry/next';
+import { TINCTURES } from '../../src/lib/heraldry/next';
 
 export interface NormalisationRule {
   id: string;
@@ -17,155 +20,81 @@ export interface NormalisationRule {
 }
 
 const TINCT = `(?:${TINCTURES.join('|')}|counterchanged)`;
-const NUMBER = '(?:two|three|four|five|six)';
-const ARR = '(?:in pale|in fess|in bend sinister|in bend|in cross|in saltire)';
-
-const nouns = (ids: readonly ChargeId[]) => ids.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]);
-const alt = (words: readonly string[]) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
-
-/**
- * SCA default postures, SCA Glossary of Terms Table 5: lion and unicorn rampant, dragon "segreant
- * (rampant) to dexter", eagle displayed, fish naiant (the O&A index headings agree, filing an
- * unqualified lion, unicorn or dragon as "rampant to dexter"). Table 5 gives no default for a wolf,
- * boar, stag, goat or hare, so those must be blazoned with a posture to match. Only charges the
- * widget can draw are listed. (An owl's default, close guardant, is unblazoned in both.)
- */
-const DEFAULT_POSTURE: readonly { posture: string; nouns: string }[] = [
-  { posture: 'rampant', nouns: alt(nouns(['lion', 'unicorn', 'dragon'])) },
-  { posture: 'displayed', nouns: alt(nouns(['eagle'])) },
-  { posture: 'naiant', nouns: alt(nouns(['fish'])) },
-];
-
-/** Every posture term the widget or the SCA uses directly after a charge name. */
+const NUMBER = '(?:a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)';
 const ORDINARY = '(?:fess|pale|bend sinister|bend|chevron|cross|saltire|pile)';
-const ALL_NOUNS = alt(nouns(Object.keys(CHARGES) as ChargeId[]));
-const POSTURE_WORD = '(?:rampant|passant|statant|sejant|naiant|haurient|displayed|segreant|trippant|courant)';
 
-/** The first tincture word at or after `from`, or null. */
-function nextTincture(text: string, from: number): string | null {
-  const m = new RegExp(`\\b${TINCT}\\b`).exec(text.slice(from));
-  return m ? m[0] : null;
-}
-
-/** Insert the next stated tincture after every match of `re` (whose match ends where the tincture is missing). */
-function supplyTincture(text: string, re: RegExp): string {
-  let out = '', last = 0;
-  for (const m of text.matchAll(re)) {
-    const end = m.index + m[0].length;
-    const t = nextTincture(text, end);
-    if (!t) continue;
-    out += text.slice(last, end) + ' ' + t;
-    last = end;
-  }
-  return out + text.slice(last);
-}
+const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
+const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]));
+const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
+/** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor". */
+const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?(?: in splendor)?`;
 
 export const NORMALISATION_RULES: readonly NormalisationRule[] = [
   {
-    // 1. The SCA ends every blazon with a full stop; the widget never does. A sentence end is not a
-    //    heraldic term.
+    // 1. The SCA ends every blazon with a full stop; so does the widget, but a few records omit it.
     id: 'final-full-stop',
     description: 'Drop a trailing full stop.',
     apply: (s) => s.replace(/\.$/, ''),
   },
   {
-    // 2. Capitalisation carries no heraldic meaning: the widget capitalises every tincture, the SCA
-    //    only "Or" and the first word. ("or" as a conjunction does not occur in either.)
+    // 2. Capitalisation carries no heraldic meaning: the SCA capitalises "Or" and the first word.
     id: 'case',
     description: 'Lower-case everything.',
     apply: (s) => s.toLowerCase(),
   },
   {
-    // 3. A handful of SCA records omit the comma that closes the field ("Per pale Or and gules three
-    //    suns counterchanged"). The field is a complete phrase either way; the comma is restored only
-    //    where a plain or two-tincture field is directly followed by the start of the next element.
-    id: 'field-comma',
-    description: 'Restore a missing comma after the field.',
-    apply: (s) => s.replace(new RegExp(`^((?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}|${TINCT}) (?=(?:a|an|on|${NUMBER}) )`), '$1, '),
-  },
-  {
-    // 4. Spelling variants of one term. "fleur-de-lys" (the usual SCA spelling) and "fleur-de-lis"
-    //    (the widget's) are the same charge; "hauriant" and "haurient" the same posture. Both
-    //    spellings are listed in the SCA Glossary of Terms.
+    // 3. Spelling variants of one term, listed as variants in the Glossary of Terms or the O&A style
+    //    guide: "fleur-de-lis"/"-lys", "hauriant"/"haurient", "splendour"/"splendor" and "in his
+    //    splendor"/"in glory", "combatant"/"combattant", "gray"/"grey", "cog-wheel"/"cogwheel"; and
+    //    the serial comma of a count pattern ("two, two, and one").
     id: 'spelling',
-    description: 'fleur(s)-de-lys → fleur(s)-de-lis; hauriant → haurient.',
-    apply: (s) => s.replace(/\bfleur(s?)-de-lys\b/g, 'fleur$1-de-lis').replace(/\bhauriant\b/g, 'haurient'),
+    description: 'fleur(s)-de-lis → -de-lys, hauriant → haurient, splendour/glory → splendor, combatant → combattant, gray → grey, cog-wheel → cogwheel, no serial comma.',
+    apply: (s) => s
+      .replace(/\bfleur(s?)-de-lis\b/g, 'fleur$1-de-lys')
+      .replace(/\bhauriant\b/g, 'haurient')
+      .replace(/\bsplendour\b/g, 'splendor')
+      .replace(/\bin (?:(?:his|its|their) )?(?:splendor|glory)\b/g, 'in splendor')
+      .replace(/\bcombatant\b/g, 'combattant')
+      .replace(/\bgray\b/g, 'grey')
+      .replace(/\bcog-wheels?\b/g, (m) => m.replace('-', ''))
+      .replace(/\b(one|two|three|four|five|six|seven|eight), (one|two|three|four|five|six|seven|eight), and (one|two|three|four|five|six|seven|eight)\b/g, '$1, $2 and $3'),
   },
   {
-    // 5. "X and a chief Y" and "X, a chief Y" both list a chief beside the field's charges; the SCA
-    //    uses either. Only the joining word changes — every element and tincture stays.
-    id: 'chief-join',
-    description: '"(,) and a chief" → ", a chief".',
-    apply: (s) => s.replace(/,? and a chief\b/g, ', a chief'),
+    // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a
+    //    bordure", "and a bordure", ", a bordure"; "on a bend, three…" and "on a bend three…"; and
+    //    the comma that closes the field, which a few records omit. Every element and tincture stays.
+    id: 'equivalent-connectors',
+    description: '"and a chief/bordure", "within a bordure" → ", a chief/bordure"; no comma after "on a <ordinary> <tincture>"; restore the comma after the field.',
+    apply: (s) => s
+      .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
+      .replace(/,? (?:and|within) (?=a bordure\b)/g, ', ')
+      .replace(new RegExp(`\\b(on a (?:${ORDINARY}|chief) ${TINCT}),`, 'g'), '$1')
+      .replace(new RegExp(`^((?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
   },
   {
-    // 6. "X within a bordure Y", "X and a bordure Y" and "X, a bordure Y" all mean the same
-    //    bordure around the same charges. The comma that ends the field is left alone ("Gules, a
-    //    bordure Or" stays), so a bordure-only design is untouched.
-    id: 'bordure-join',
-    description: '"X, a bordure" / "X and a bordure" / "X, and a bordure" → "X within a bordure" (not after the field).',
-    apply: (s) => {
-      const i = s.indexOf(', ');
-      if (i < 0) return s;
-      return s.slice(0, i + 2) + s.slice(i + 2).replace(/(?:,? and|,) a bordure\b/g, ' within a bordure');
-    },
+    // 5. Where the placement words go: the SCA writes "two keys in pale" as often as "in pale two
+    //    keys" (Bruce); the widget puts lines and positions first and patterns after.
+    id: 'arrangement-placement',
+    description: '"<group> in pale/fess/bend/bend sinister" → "in … <group>"; "in saltire/cross <group>" → "<group> in saltire/cross".',
+    apply: (s) => s
+      .replace(new RegExp(`\\b(${CORE}) in (pale|fess|bend sinister|bend)\\b`, 'g'), 'in $2 $1')
+      .replace(new RegExp(`\\bin (saltire|cross) (${CORE})\\b`, 'g'), '$2 in $1'),
   },
   {
-    // 7. SCA convention: "tinctures factor backward through the blazon" (Laurel, 08/1986) — an
-    //    element blazoned without a tincture takes the next tincture named ("Azure, a chevron
-    //    between three mullets Or": chevron and mullets Or). Writing the implied tincture out makes
-    //    it explicit, as the widget always is; nothing is removed. Applied to an ordinary directly
-    //    followed by "between", and to a charge group directly followed by "and", "within" or a comma.
-    id: 'implied-tincture',
-    description: 'Supply an omitted tincture from the next one stated (SCA: an untinctured element takes the next tincture).',
-    apply: (s) => {
-      const head = s.indexOf(', ');
-      if (head < 0) return s;
-      let body = s.slice(head + 2);
-      body = supplyTincture(body, new RegExp(`\\ba ${ORDINARY}(?= between )`, 'g'));
-      body = supplyTincture(body, new RegExp(`\\b(?:a|an|${NUMBER}) (?:${ALL_NOUNS})(?: ${POSTURE_WORD})?(?: ${ARR})?(?=,| and | within )`, 'g'));
-      return s.slice(0, head + 2) + body;
-    },
-  },
-  {
-    // 8. Word order of an arrangement: the SCA writes "in fess two mullets Or" as often as "two
-    //    mullets in fess Or"; the widget always puts the arrangement after the charge and posture,
-    //    before the tincture. The same words describe the same group; only their order changes.
-    id: 'arrangement-order',
-    description: '"in <arrangement> <n> <charge…> <tincture>" → "<n> <charge…> in <arrangement> <tincture>".',
-    apply: (s) => s.replace(new RegExp(`\\b(${ARR}) (${NUMBER} (?:${ALL_NOUNS})(?: ${POSTURE_WORD})?) (${TINCT})\\b`, 'g'), '$2 $1 $3'),
-  },
-  {
-    // 9. SCA default postures: a lion, unicorn or dragon with no posture is rampant, an eagle
-    //    displayed and a fish naiant (see DEFAULT_POSTURE). The widget always states the posture;
-    //    writing the SCA default out lets "a lion Or" meet "a lion rampant Or". Inserted only where
-    //    the charge name is directly followed by a tincture or an arrangement, i.e. where no posture
-    //    word was given.
-    id: 'default-posture',
-    description: 'Write out the SCA default posture (Glossary Table 5): lion/unicorn/dragon rampant, eagle displayed, fish naiant.',
-    apply: (s) => DEFAULT_POSTURE.reduce(
-      (acc, { posture, nouns: n }) => acc.replace(new RegExp(`(?<![-'\\w])(${n}) (?=(?:${TINCT}|${ARR})\\b)`, 'g'), `$1 ${posture} `),
-      s,
-    ),
-  },
-  {
-    // 10. Posture synonyms by charge: "segreant" is rampant said of a winged monster (SCA Glossary
-    //     Table 5: dragon "segreant (rampant)"), "trippant" is passant said of a deer (the standard
-    //     heraldic term; the widget's own charge table words a passant stag "trippant"). The widget
-    //     writes the charge-specific term; the SCA uses both. Same posture, same charge. (The
-    //     widget's other charge-specific term, a hare "courant", is running, not passant, so it is
-    //     deliberately not a synonym here.)
-    id: 'posture-synonym',
-    description: 'dragon(s) rampant → segreant; stag(s) passant → trippant.',
-    apply: (s) => s.replace(/\b(dragons?) rampant\b/g, '$1 segreant').replace(/\b(stags?) passant\b/g, '$1 trippant'),
-  },
-  {
-    // 11. Some SCA blazons set off charges on an ordinary with a comma ("on a chief argent, three
-    //     mullets"); the widget does not. The comma is punctuation inside one phrase — "on a <X>
-    //     <tincture>" can only be followed by what lies on it.
-    id: 'on-ordinary-comma',
-    description: 'Drop the comma after "on a <ordinary> <tincture>".',
-    apply: (s) => s.replace(new RegExp(`\\b(on a (?:${ORDINARY}|chief) ${TINCT}),`, 'g'), '$1'),
+    // 6. Defaults the College assumes may be stated or left out (Glossary Tables 5 and 7): a lion or
+    //    unicorn rampant, a dragon rampant/segreant, an eagle displayed, a fish naiant; three charges
+    //    two and one, five two, two and one, six three, two and one. Both sides drop them, so only a
+    //    design that has the default can match, and the widget words it the same way.
+    id: 'stated-defaults',
+    description: 'Drop Table 5 default postures and the Table 7 patterns for three, five and six after the charge.',
+    apply: (s) => s
+      .replace(/\b(lions?|unicorns?) rampant\b/g, '$1')
+      .replace(/\b(dragons?) (?:rampant|segreant)\b/g, '$1')
+      .replace(/\b(eagles?) displayed\b/g, '$1')
+      .replace(/\b(fish) naiant\b/g, '$1')
+      .replace(new RegExp(`\\b(three (?:${NOUN})(?: (?:${POSTURE}))?) two and one(?= ${TINCT}\\b)`, 'g'), '$1')
+      .replace(new RegExp(`\\b(five (?:${NOUN})(?: (?:${POSTURE}))?) two, two and one(?= ${TINCT}\\b)`, 'g'), '$1')
+      .replace(new RegExp(`\\b(six (?:${NOUN})(?: (?:${POSTURE}))?) three, two and one(?= ${TINCT}\\b)`, 'g'), '$1'),
   },
 ];
 
