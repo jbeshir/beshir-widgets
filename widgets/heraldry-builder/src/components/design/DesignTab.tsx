@@ -6,16 +6,15 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { blazon, type ChargedDesign, type Companion, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
-import type { Issue } from '../../lib/heraldry';
+import { blazon, groupAt, groupTinctureOf, type Companion, type FieldShape, type Design, type ShapedDesign } from '../../lib/heraldry';
 import { useCompact } from '../../lib/useCompact';
-import type { DesignReport } from '../../lib/builder';
+import { issueStep, picturePath, type DesignReport, type StepKey } from '../../lib/builder';
 import type { RefObject } from 'preact';
 import type { JumpTarget } from '../Availability';
 import { SavePicture } from '../SavePicture';
 import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
-import { ChargesStep, FieldStep, OrdinaryStep, type Accordion } from './BuilderSteps';
+import { AddExtraLayer, ChargesStep, ExtraStep, FieldStep, OrdinaryStep, PeripheralStep, type Accordion } from './BuilderSteps';
 import { Examples } from './Examples';
 import { ReadabilityMeter } from './ReadabilityMeter';
 import { ShapePicker } from './ShapePicker';
@@ -23,15 +22,15 @@ import { ViolationPanel } from './ViolationPanel';
 import { WelcomeStrip } from './WelcomeStrip';
 
 interface Props {
-  design: NormDesign;
+  design: Design;
   /** The shape the preview is drawn in (display only). */
   shape: FieldShape;
   report: DesignReport;
-  onChange: (nd: NormDesign) => void;
+  onChange: (nd: Design) => void;
   /** Apply a count or placement that brings its partner along (App keeps it for Undo). */
-  onAdjust: (nd: ChargedDesign, companion: Companion) => void;
+  onAdjust: (nd: Design, companion: Companion) => void;
   /** The note (with Undo, and the rule fix when the change broke it) for such a change, shown under the picture controls. */
-  adjusted: (onFix: (nd: NormDesign) => void) => ComponentChildren;
+  adjusted: (onFix: (nd: Design) => void) => ComponentChildren;
   onShape: (shape: FieldShape) => void;
   onStartOver: () => void;
   /** Whether the examples box starts open (a device's first visit). */
@@ -52,16 +51,13 @@ interface Props {
   availability?: (onJump: (t: JumpTarget) => void) => ComponentChildren;
 }
 
-type Layer = Issue['layer'];
-type StepKey = 'field' | 'ordinary' | 'charges';
-
-const STEP_OF_LAYER: Record<Layer, StepKey> = { field: 'field', ordinary: 'ordinary', charges: 'charges', design: 'charges' };
 const STEP_OF_JUMP: Record<JumpTarget, StepKey> = {
-  field: 'field', ordinary: 'ordinary', charge: 'charges', count: 'charges', arrangement: 'charges', posture: 'charges', tincture: 'charges',
+  field: 'field', ordinary: 'ordinary', charge: 'picture', count: 'picture', arrangement: 'picture', posture: 'picture', tincture: 'picture',
 };
 
-const STEP_SELECTOR: Record<Layer, string> = {
-  field: '[data-testid=step-field]', ordinary: '[data-testid=step-ordinary]', charges: '[data-testid=step-charges]', design: '[data-testid=step-charges]',
+const STEP_SELECTOR: Record<StepKey, string> = {
+  field: '[data-testid=step-field]', ordinary: '[data-testid=step-ordinary]', picture: '[data-testid=step-charges]', extra: '[data-testid=step-extra]',
+  peripheral: '[data-testid=step-peripheral]',
 };
 const JUMP_SELECTOR: Record<JumpTarget, string> = {
   field: STEP_SELECTOR.field, ordinary: STEP_SELECTOR.ordinary, charge: '[data-testid=charge-select]',
@@ -71,7 +67,7 @@ const JUMP_SELECTOR: Record<JumpTarget, string> = {
 
 /** Scroll a builder control into view and focus it (the checked option of a group, or the control itself). */
 function focusControl(selector: string): void {
-  const el = document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(STEP_SELECTOR.charges);
+  const el = document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(STEP_SELECTOR.picture);
   if (!el) return;
   el.scrollIntoView({ block: 'center' });
   const target = el.matches('select, button, input')
@@ -82,7 +78,7 @@ function focusControl(selector: string): void {
 
 /** Compact sticky shield + blazon bar for single-column layouts, shown once the main preview scrolls away. */
 function MiniPreview({ design, shape, status, watch, onFix }: {
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
   status: DesignReport['status'];
   watch: RefObject<HTMLElement>;
@@ -161,9 +157,9 @@ export function DesignTab(p: Props) {
   });
   const compact = useCompact();
   // Phones collapse the steps, each showing what is chosen; a step with a problem opens by itself.
-  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, charges: false });
+  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, picture: false, extra: false, peripheral: false });
   useEffect(() => {
-    const broken = report.problems.map((i) => STEP_OF_LAYER[i.layer]);
+    const broken = report.problems.map((i) => issueStep(design, i));
     if (broken.some((k) => !open[k])) setOpen((o) => ({ ...o, ...Object.fromEntries(broken.map((k) => [k, true])) }));
   }, [report]);
   const accordion = (k: StepKey): Accordion | null => (compact ? { open: open[k], onToggle: () => setOpen((o) => ({ ...o, [k]: !o[k] })) } : null);
@@ -172,12 +168,14 @@ export function DesignTab(p: Props) {
     setOpen((o) => ({ ...o, [k]: true }));
     setTimeout(() => focusControl(selector), 0);
   };
-  const goToLayer = (layer: Layer) => reveal(STEP_OF_LAYER[layer], STEP_SELECTOR[layer]);
-  // The fix beside Undo recolours the charges and the note goes with it, so focus moves to the new
+  const goToStep = (step: StepKey) => reveal(step, STEP_SELECTOR[step]);
+  // The fix beside Undo recolours the picture and the note goes with it, so focus moves to the new
   // colour's swatch (named by id: the picker may not have re-rendered its checked swatch yet).
-  const fixFromNotice = (nd: NormDesign) => {
+  const fixFromNotice = (nd: Design) => {
     p.onChange(nd);
-    reveal('charges', nd.charges ? `#swatch-charge-${nd.charges.tincture}` : JUMP_SELECTOR.tincture);
+    const path = picturePath(nd);
+    const t = path && groupTinctureOf(groupAt(nd, path).paint);
+    reveal('picture', t ? `#swatch-charge-${t}` : JUMP_SELECTOR.tincture);
   };
   // The dismiss button disappears with the strip, so focus moves on to the examples box.
   const welcomeShown = p.onDismissWelcome !== null;
@@ -186,7 +184,7 @@ export function DesignTab(p: Props) {
     if (welcomeWasShown.current && !welcomeShown) document.querySelector<HTMLElement>('[data-testid=examples-summary]')?.focus();
     welcomeWasShown.current = welcomeShown;
   }, [welcomeShown]);
-  const layerIssues = (layer: 'field' | 'ordinary' | 'charges') => report.problems.filter((i) => i.layer === layer);
+  const stepIssues = (step: StepKey) => report.problems.filter((i) => issueStep(design, i) === step);
   const blockedWhy = report.status === 'violation'
     ? 'Fix the problem above before registering.'
     : report.status === 'incomplete' ? 'Add a band or shape, or a picture, first.' : null;
@@ -201,7 +199,7 @@ export function DesignTab(p: Props) {
         shape={shape}
         status={report.status}
         watch={figureRef}
-        onFix={() => goToLayer(report.problems[0]?.layer ?? 'charges')}
+        onFix={() => goToStep(report.problems[0] ? issueStep(design, report.problems[0]) : 'picture')}
       />
       <div class="design-preview" ref={previewRef}>
         <h2 class="sr-only">Preview</h2>
@@ -234,11 +232,11 @@ export function DesignTab(p: Props) {
             design={design}
             problems={report.problems}
             onFix={(nd) => {
-              const layer = report.problems[0]?.layer ?? 'charges';
+              const step = report.problems[0] ? issueStep(design, report.problems[0]) : 'picture';
               p.onChange(nd);
-              setTimeout(() => goToLayer(layer), 0);
+              setTimeout(() => goToStep(step), 0);
             }}
-            onGoTo={goToLayer}
+            onGoTo={goToStep}
           />
         )}
         {report.hint && (
@@ -280,9 +278,12 @@ export function DesignTab(p: Props) {
         <p class="rule-intro" data-testid="rule-intro">
           The one rule (the rule of tincture): gold, white and sky blue (the metals) go on colours, and colours go on metals — never colour on colour or metal on metal. Locked choices would break it; tap one to see why.
         </p>
-        <FieldStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('field')} accordion={accordion('field')} />
-        <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('ordinary')} accordion={accordion('ordinary')} />
-        <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={layerIssues('charges')} accordion={accordion('charges')} compact={compact} />
+        <FieldStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('field')} accordion={accordion('field')} />
+        <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />
+        <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
+        <AddExtraLayer design={design} onChange={p.onChange} />
+        <ExtraStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues('extra')} accordion={accordion('extra')} />
+        <PeripheralStep design={design} onChange={p.onChange} issues={stepIssues('peripheral')} accordion={accordion('peripheral')} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over

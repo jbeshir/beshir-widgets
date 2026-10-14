@@ -1,399 +1,310 @@
-// Structured design model: types, structural tables, shape parsing with defaults
-// (`resolve`) and the structural rules (`structuralIssues`). The full pipeline including the rule of
-// tincture is `normalise()` in validate.ts.
+// The design model: a field (a recursive paint) and a list of charge groups, each carrying an ordinary
+// or a charge and, in `charged`, the group sitting on it. Tree helpers, canonical form and issue types.
+// Parsing untrusted input is resolve.ts; what the builder draws is support.ts.
 
-import { CHARGES, isChargeId, isPosture, type ChargeId, type Posture } from './charges';
-import { isChargeTincture, isTincture, TINCTURE_NAME, type ChargeTincture, type Tincture } from './tinctures';
-import { capitalise, joinList } from './words';
+import { TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
+import type { Division, Treatment, Variation } from './divisions';
+import type { Line, OrdinaryMod, OrdinaryType } from './ordinaries';
+import {
+  CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
+  type ChargeForm, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
+} from './charges';
+import { ORDINARY_MODS, ORDINARY_NAME } from './ordinaries';
 
-export type Division = 'per-pale' | 'per-fess' | 'per-bend' | 'per-bend-sinister' | 'per-saltire' | 'per-chevron' | 'quarterly';
-export const DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron', 'quarterly'];
+/** Edge lines: `b` is the second edge of a two-edged element ("embattled on the upper edge"); resolved b === a unless given. */
+export interface Lines { a: Line; b: Line }
 
-export type Field =
-  | { kind: 'plain'; tincture: Tincture }
-  | { kind: 'divided'; division: Division; tinctures: [Tincture, Tincture] }; // t1 ≠ t2, order meaningful
-export type DividedField = Extract<Field, { kind: 'divided' }>;
+export const PLAIN_LINES: Lines = Object.freeze({ a: 'plain', b: 'plain' });
 
-export type OrdinaryType = 'fess' | 'pale' | 'bend' | 'bend-sinister' | 'chevron' | 'cross' | 'saltire' | 'chief' | 'bordure' | 'pile';
-export const ORDINARY_TYPES: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'chief', 'bordure', 'pile'];
+export type Paint =
+  | { k: 'tincture'; t: Tincture }
+  | { k: 'stain'; stain: Stain }
+  | { k: 'fur'; fur: Fur; colours: [Tincture, Tincture] | null }            // "vairy Or and gules"
+  | { k: 'divided'; division: Division; lines: Lines; pieces: number | null; parts: Paint[] } // quarterly: 2 alternating parts
+  | { k: 'variation'; variation: Variation; lines: Lines; pieces: number | null; parts: [Paint, Paint] }
+  | { k: 'treated'; treatment: Treatment; ground: Paint; ink: Tincture }
+  | { k: 'semy'; ground: Paint; charge: ChargeRef; ink: Paint }
+  | { k: 'proper' }
+  | { k: 'counterchanged' };                                               // groups only, over a divided ground
 
-export interface Ordinary { type: OrdinaryType; tincture: Tincture }
+export interface ChargeRef { charge: ChargeId; form: ChargeForm | null }
+export interface Cotises { count: 1 | 2 | 3; paint: Paint; line: Line }
 
-export type Arrangement = 'single' | 'forced'
-  | 'in-pale' | 'in-fess' | 'in-bend' | 'in-bend-sinister'
-  | 'two-and-one' | 'two-and-two' | 'in-cross' | 'in-saltire' | 'three-two-one';
-export const ARRANGEMENTS: readonly Arrangement[] = ['single', 'forced', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister',
-  'two-and-one', 'two-and-two', 'in-cross', 'in-saltire', 'three-two-one'];
-
-export type Count = 1 | 2 | 3 | 4 | 5 | 6;
-export const COUNTS: readonly Count[] = [1, 2, 3, 4, 5, 6];
-export type Placement = 'field' | 'ordinary';
-
-/** Input charge group (may omit defaults). */
-export interface ChargeGroup {
-  charge: ChargeId;
-  count: Count;
-  placement: Placement;
-  arrangement?: Arrangement | null;
-  posture?: Posture | null;
-  tincture: ChargeTincture;
+export interface Ordinary {
+  k: 'ordinary';
+  type: OrdinaryType;
+  lines: Lines;
+  mods: OrdinaryMod[];          // sorted by ORDINARY_MODS order
+  cotised: Cotises | null;
+  fimbriated: Paint | null;
 }
 
-/** Input design (may omit defaults). `kind` is reserved for future badges; only 'arms' is accepted. */
-export interface Design {
-  v: 1;
-  kind?: 'arms';
-  field: Field;
-  ordinary?: Ordinary | null;
-  charges?: ChargeGroup | null;
+export interface Modifier { id: ModifierId; count: number | null; paint: Paint | null }   // "of eight points", "slipped and leaved vert"
+export interface PartPaint { part: PartId; paint: Paint }                                // "armed and langued gules"
+export interface Held { how: HoldHow; item: Charge; paint: Paint }
+
+export interface Charge {
+  k: 'charge';
+  charge: ChargeId;
+  form: ChargeForm | null;
+  posture: Posture | null;       // null only for posture-less charges
+  facing: Facing | null;         // null only for charges with defaultFacing null
+  orientation: Orientation | null; // null = the default orientation for where it lies (e.g. following a bend)
+  mods: Modifier[];              // sorted by MODIFIER_IDS order
+  parts: PartPaint[];            // sorted by PART_IDS order
+  holds: Held[];                 // sorted by HOLD_HOWS order, then charge id
 }
 
-export interface NormChargeGroup {
-  charge: ChargeId;
-  count: Count;
-  placement: Placement;
+export type Item = Ordinary | Charge;
+
+/** The singular name of what an item is, in a message: "fess", "lion". */
+export const itemName = (i: Item): string => (i.k === 'ordinary' ? ORDINARY_NAME[i.type] : CHARGES[i.charge].name);
+
+export type LineDir = 'pale' | 'fess' | 'bend' | 'bend-sinister';
+export type Pattern = 'cross' | 'saltire' | 'orle' | 'annulo' | 'chevron' | 'chevron-inverted' | 'pall' | 'pile';
+export type Pair = 'combattant' | 'respectant' | 'addorsed';
+export type Arrangement =
+  | { k: 'single' }
+  | { k: 'line'; dir: LineDir }
+  | { k: 'rows'; rows: number[] }          // top row first; sums to count
+  | { k: 'pattern'; pattern: Pattern }
+  | { k: 'host' }                          // placed by the host/ordinary (between, on)
+  | { k: 'crossed' }                       // two long charges in saltire
+  | { k: 'pair'; pair: Pair };
+
+export type Position = 'chief' | 'base' | 'dexter-chief' | 'sinister-chief' | 'dexter' | 'sinister' | 'canton' | 'flank' | 'fess-point';
+export type Role = 'primary' | 'secondary' | 'peripheral' | 'overall' | 'tertiary';
+export type Relation = 'between' | 'about' | 'position';
+
+export interface Group {
+  role: Role;                    // 'tertiary' exactly for groups nested in `charged`
+  relation: Relation | null;     // secondary groups only; null otherwise
+  item: Item;
+  count: number;                 // integer 1..20 (well-formed); > MAX_DRAWN_COUNT (12) is unsupported
   arrangement: Arrangement;
-  posture: Posture | null;
-  tincture: ChargeTincture;
+  position: Position | null;
+  paint: Paint;
+  charged: Group[];              // tertiaries on this group (≤ 1 is SENA-legal; more is a structure issue)
 }
 
-/** Every optional field resolved; nulls explicit; canonical key order. */
-export interface NormDesign {
-  v: 1;
-  field: Field;
-  ordinary: Ordinary | null;
-  charges: NormChargeGroup | null;
+export type Design =
+  | { v: 2; kind: 'arms'; field: Paint; groups: Group[] }
+  | { v: 2; kind: 'badge'; field: null; groups: Group[] };
+
+/** Index into design.groups, then into charged, …; the canonical group order makes paths stable. */
+export type GroupPath = readonly number[];
+
+/** What a builder tincture picker offers for a group: a tincture, or counterchanged. */
+export type GroupTincture = Tincture | 'counterchanged';
+export const GROUP_TINCTURES: readonly GroupTincture[] = [...TINCTURES, 'counterchanged'];
+
+export function isGroupTincture(value: unknown): value is GroupTincture {
+  return value === 'counterchanged' || isTincture(value);
 }
 
-export type IssueLayer = 'design' | 'field' | 'ordinary' | 'charges';
-/**
- * shape     — malformed input (unknown key/id, wrong type)
- * structure — legal ids, illegal combination (count/arrangement/placement, t1 = t2)
- * generic   — plain field alone: a hint while building, a blocker for registration
- * tincture  — rule-of-tincture violation
- */
-export type IssueCode = 'shape' | 'structure' | 'generic' | 'tincture';
-export interface Issue {
-  code: IssueCode;
-  layer: IssueLayer;
-  message: string;
-  /** Slot indices (into chargeSlots()) involved in a charge tincture violation. */
-  slots?: number[];
-}
+export const ROLE_ORDER: readonly Role[] = ['primary', 'secondary', 'peripheral', 'overall', 'tertiary'];
 
-// ── Structural tables ────────────────────────────────────────────────
+// ── Tree helpers ────────────────────────────────────────────────────────────
 
-const DEFAULT_ARR: Record<2 | 3 | 4 | 5 | 6, Arrangement> = {
-  2: 'in-pale', 3: 'two-and-one', 4: 'two-and-two', 5: 'in-saltire', 6: 'three-two-one',
-};
-
-/** placement 'field', no ordinary or ordinary = bordure. */
-export const FIELD_ARR: Record<Count, readonly Arrangement[]> = {
-  1: ['single'],
-  2: ['in-pale', 'in-fess', 'in-bend', 'in-bend-sinister'],
-  3: ['two-and-one', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister'],
-  4: ['two-and-two', 'in-cross'],
-  5: ['in-saltire', 'in-cross'],
-  6: ['three-two-one'],
-};
-
-/** placement 'field' with a chief (charges sit in the lower field). */
-const UNDER_CHIEF_ARR: Partial<Record<Count, readonly Arrangement[]>> = {
-  1: ['single'], 2: ['in-fess'], 3: ['two-and-one', 'in-fess'],
-};
-
-/** placement 'field' with any other ordinary ("between"), arrangement 'forced'. */
-export const BETWEEN_COUNTS: Record<Exclude<OrdinaryType, 'chief' | 'bordure'>, readonly Count[]> = {
-  fess: [2, 3], pale: [2], bend: [2], 'bend-sinister': [2], chevron: [3], cross: [4], saltire: [4], pile: [2],
-};
-
-/** placement 'ordinary' (on it), arrangement 'forced' (or 'single' if 1). */
-export const ON_COUNTS: Record<OrdinaryType, readonly Count[]> = {
-  fess: [1, 2, 3], pale: [1, 2, 3], bend: [1, 2, 3], 'bend-sinister': [1, 2, 3],
-  chevron: [1, 2, 3], chief: [1, 2, 3], pile: [1, 2, 3],
-  cross: [1, 5], saltire: [1, 5], bordure: [],
-};
-
-// ── Names shared by blazon, gloss and messages ──────────────────────────────
-
-export const DIVISION_NAME: Record<Division, string> = {
-  'per-pale': 'Per pale', 'per-fess': 'Per fess', 'per-bend': 'Per bend', 'per-bend-sinister': 'Per bend sinister',
-  'per-saltire': 'Per saltire', 'per-chevron': 'Per chevron', quarterly: 'Quarterly',
-};
-
-export const ORDINARY_NAME: Record<OrdinaryType, string> = {
-  fess: 'fess', pale: 'pale', bend: 'bend', 'bend-sinister': 'bend sinister', chevron: 'chevron',
-  cross: 'cross', saltire: 'saltire', chief: 'chief', bordure: 'bordure', pile: 'pile',
-};
-
-export const ARRANGEMENT_WORD: Record<Arrangement, string> = {
-  single: 'single', forced: 'placed by the ordinary',
-  'in-pale': 'in pale', 'in-fess': 'in fess', 'in-bend': 'in bend', 'in-bend-sinister': 'in bend sinister',
-  'in-cross': 'in cross', 'in-saltire': 'in saltire', 'two-and-one': 'two and one',
-  'two-and-two': 'two and two', 'three-two-one': 'three, two and one',
-};
-
-export const NUMBER_WORD: Record<Count, string> = { 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six' };
-
-/** Labels for the two tinctures of a divided field, as you look at it. */
-export const DIVISION_PART_LABEL: Record<Division, [string, string]> = {
-  'per-pale': ['Left (dexter)', 'Right (sinister)'],
-  'per-fess': ['Top (chief)', 'Bottom (base)'],
-  'per-bend': ['Upper right', 'Lower left'],
-  'per-bend-sinister': ['Upper left', 'Lower right'],
-  'per-saltire': ['Top and bottom', 'Left and right'],
-  'per-chevron': ['Above the chevron line', 'Below'],
-  quarterly: ['1st and 4th quarters (top-left, bottom-right)', '2nd and 3rd quarters'],
-};
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-export function isDivision(v: unknown): v is Division {
-  return typeof v === 'string' && (DIVISIONS as readonly string[]).includes(v);
-}
-export function isOrdinaryType(v: unknown): v is OrdinaryType {
-  return typeof v === 'string' && (ORDINARY_TYPES as readonly string[]).includes(v);
-}
-function isArrangement(v: unknown): v is Arrangement {
-  return typeof v === 'string' && (ARRANGEMENTS as readonly string[]).includes(v);
-}
-function isCount(v: unknown): v is Count {
-  return typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 6;
-}
-
-/** Field tinctures in positional order: [t] or [t1, t2]. */
-export function fieldTinctures(field: Field): Tincture[] {
-  return field.kind === 'plain' ? [field.tincture] : [field.tinctures[0], field.tinctures[1]];
-}
-
-/** 'plain' or the division id. */
-export function fieldDivision(field: Field): 'plain' | Division {
-  return field.kind === 'plain' ? 'plain' : field.division;
-}
-
-/** Ordinaries that charges on the field are set "between" (everything except chief and bordure). */
-export function isBetweenOrdinary(type: OrdinaryType): type is keyof typeof BETWEEN_COUNTS {
-  return type !== 'chief' && type !== 'bordure';
-}
-
-/**
- * Where a charge group sits, which selects both the legal counts/arrangements and the slot table:
- * field (no ordinary), bordure (within), chief (under), between, on.
- */
-type ChargeContext = 'field' | 'bordure' | 'chief' | 'between' | 'on';
-export function chargeContext(ordinary: Ordinary | null | undefined, placement: Placement): ChargeContext {
-  if (placement === 'ordinary') return 'on';
-  if (!ordinary) return 'field';
-  if (ordinary.type === 'bordure') return 'bordure';
-  if (ordinary.type === 'chief') return 'chief';
-  return 'between';
-}
-
-type BodyKind = 'none' | 'ordOnly' | 'chargesOnly' | 'onOrd' | 'between' | 'withChief' | 'withBordure';
-/** Blazon/gloss body shape. */
-export function bodyKind(nd: NormDesign): BodyKind {
-  const o = nd.ordinary, c = nd.charges;
-  if (!o && !c) return 'none';
-  if (!c) return 'ordOnly';
-  if (!o) return 'chargesOnly';
-  if (c.placement === 'ordinary') return 'onOrd';
-  if (o.type === 'chief') return 'withChief';
-  if (o.type === 'bordure') return 'withBordure';
-  return 'between';
-}
-
-/** Legal arrangements for a placed group (['single'] / ['forced'] when fixed; [] when the count is illegal there). */
-export function legalArrangements(ordinary: Ordinary | null | undefined, placement: Placement, count: Count): readonly Arrangement[] {
-  if (count === 1) return ['single'];
-  const ctx = chargeContext(ordinary, placement);
-  if (ctx === 'on' || ctx === 'between') return ['forced'];
-  if (ctx === 'chief') return UNDER_CHIEF_ARR[count] ?? [];
-  return FIELD_ARR[count];
-}
-
-/** Arrangement used when none is given. */
-export function defaultArrangement(ordinary: Ordinary | null | undefined, placement: Placement, count: Count): Arrangement {
-  if (count === 1) return 'single';
-  const ctx = chargeContext(ordinary, placement);
-  if (ctx === 'on' || ctx === 'between') return 'forced';
-  // Under a chief, two charges default to the only legal arrangement (in fess)
-  // rather than DEFAULT_ARR's in-pale; every other count keeps DEFAULT_ARR.
-  if (ctx === 'chief') {
-    const legal = UNDER_CHIEF_ARR[count];
-    if (legal && !legal.includes(DEFAULT_ARR[count])) return legal[0];
+export function groupAt(d: Design, path: GroupPath): Group {
+  let group: Group | undefined;
+  let list = d.groups;
+  for (const i of path) {
+    group = list[i];
+    if (!group) throw new RangeError(`No group at ${pathKey(path)}.`);
+    list = group.charged;
   }
-  return DEFAULT_ARR[count];
+  if (!group) throw new RangeError('A group path needs at least one index.');
+  return group;
 }
 
-/** Words for a count of charges: "a lion", "three mullets". */
-export function chargeNoun(id: ChargeId, count: number): string {
-  const m = CHARGES[id];
-  return count === 1 ? m.name : m.plural;
+/** The design with the group at `path` replaced (the groups above it are rebuilt, everything else is shared). */
+export function replaceGroup(d: Design, path: GroupPath, group: Group): Design {
+  const swap = (groups: readonly Group[], rest: GroupPath): Group[] =>
+    groups.map((g, i) => (i !== rest[0] ? g : rest.length === 1 ? group : { ...g, charged: swap(g.charged, rest.slice(1)) }));
+  return { ...d, groups: swap(d.groups, path) } as Design;
 }
 
-function countList(counts: readonly number[]): string {
-  const words = counts.map((n) => (n === 1 ? 'a single charge' : NUMBER_WORD[n as Count]));
-  return joinList(words, 'or');
+/** The group `path` is nested in, or null for a top-level group. */
+export function hostOf(d: Design, path: GroupPath): Group | null {
+  return path.length > 1 ? groupAt(d, path.slice(0, -1)) : null;
 }
 
-// ── Shape parsing + defaults ────────────────────────────────────────────────
+export interface WalkedGroup { path: GroupPath; group: Group; host: Group | null }
 
-type ResolveResult = { ok: true; design: NormDesign } | { ok: false; errors: Issue[] };
-
-function isObj(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
+/** Every group in canonical order, each followed by its tertiaries. */
+export function walkGroups(d: Design): WalkedGroup[] {
+  const out: WalkedGroup[] = [];
+  const visit = (groups: readonly Group[], prefix: GroupPath, host: Group | null) => {
+    groups.forEach((group, i) => {
+      const path = [...prefix, i];
+      out.push({ path, group, host });
+      visit(group.charged, path, group);
+    });
+  };
+  visit(d.groups, [], null);
+  return out;
 }
 
-function extraKeys(o: Record<string, unknown>, allowed: readonly string[]): string[] {
-  return Object.keys(o).filter((k) => !allowed.includes(k));
+/** "0.1": a stable string for a path, for keys and messages. */
+export function pathKey(path: GroupPath): string {
+  return path.join('.');
 }
 
-/**
- * Parse an untrusted design and fill every default. Fails only on
- * malformed input; structural and tincture rules are checked separately so the UI can still draw
- * and blazon an illegal-but-well-formed design.
- */
-export function resolve(input: unknown): ResolveResult {
-  const errors: Issue[] = [];
-  const err = (layer: IssueLayer, message: string) => errors.push({ code: 'shape', layer, message });
-  if (!isObj(input)) return { ok: false, errors: [{ code: 'shape', layer: 'design', message: 'The design must be an object.' }] };
-  for (const k of extraKeys(input, ['v', 'kind', 'field', 'ordinary', 'charges'])) err('design', `Unknown design key "${k}".`);
-  if (input.v !== 1) err('design', 'Unsupported design version (expected v: 1).');
-  if (input.kind !== undefined && input.kind !== 'arms') err('design', 'Only arms are supported (badges are not available yet).');
+export function primaryGroup(d: Design): { path: GroupPath; group: Group } | null {
+  const i = d.groups.findIndex((g) => g.role === 'primary');
+  return i < 0 ? null : { path: [i], group: d.groups[i] };
+}
 
-  // field
-  let field: Field | null = null;
-  const f = input.field;
-  if (!isObj(f)) err('field', 'The field is missing.');
-  else if (f.kind === 'plain') {
-    for (const k of extraKeys(f, ['kind', 'tincture'])) err('field', `Unknown field key "${k}".`);
-    if (!isTincture(f.tincture)) err('field', 'The field needs one of the eight tinctures.');
-    else field = { kind: 'plain', tincture: f.tincture };
-  } else if (f.kind === 'divided') {
-    for (const k of extraKeys(f, ['kind', 'division', 'tinctures'])) err('field', `Unknown field key "${k}".`);
-    const ts = f.tinctures;
-    if (!isDivision(f.division)) err('field', 'Unknown field division.');
-    else if (!Array.isArray(ts) || ts.length !== 2 || !isTincture(ts[0]) || !isTincture(ts[1])) err('field', 'A divided field needs exactly two tinctures.');
-    else field = { kind: 'divided', division: f.division, tinctures: [ts[0], ts[1]] };
-  } else err('field', 'The field must be plain or divided.');
+/** True when no group is primary: the field carries the design (RULES §B.3). */
+export function isFieldPrimary(d: Design): boolean {
+  return primaryGroup(d) === null;
+}
 
-  // ordinary
-  let ordinary: Ordinary | null = null;
-  const o = input.ordinary;
-  if (o !== undefined && o !== null) {
-    if (!isObj(o)) err('ordinary', 'The ordinary must be an object or null.');
-    else {
-      for (const k of extraKeys(o, ['type', 'tincture'])) err('ordinary', `Unknown ordinary key "${k}".`);
-      if (!isOrdinaryType(o.type)) err('ordinary', 'Unknown ordinary.');
-      else if (!isTincture(o.tincture)) err('ordinary', 'The ordinary needs one of the eight tinctures.');
-      else ordinary = { type: o.type, tincture: o.tincture };
-    }
+/** The plain tinctures of the field, in part order; a part that isn't a plain tincture adds none. */
+export function fieldTinctures(d: Design): Tincture[] {
+  if (d.kind !== 'arms') return [];
+  const parts = d.field.k === 'divided' ? d.field.parts : [d.field];
+  return parts.flatMap((p) => (p.k === 'tincture' ? [p.t] : []));
+}
+
+export function itemKey(item: Item): string {
+  return item.k === 'ordinary' ? `ordinary:${item.type}` : `charge:${item.charge}`;
+}
+
+export function tincturePaint(t: Tincture): Paint {
+  return { k: 'tincture', t };
+}
+
+export function paintOfGroupTincture(t: GroupTincture): Paint {
+  return t === 'counterchanged' ? { k: 'counterchanged' } : tincturePaint(t);
+}
+
+/** The picker value of a paint, or null when the paint is neither a tincture nor counterchanged. */
+export function groupTinctureOf(p: Paint): GroupTincture | null {
+  return p.k === 'tincture' ? p.t : p.k === 'counterchanged' ? 'counterchanged' : null;
+}
+
+// ── Canonical form ──────────────────────────────────────────────────────────
+
+function canonicalLines(l: Lines): Lines {
+  return { a: l.a, b: l.b };
+}
+
+export function canonicalPaint(p: Paint): Paint {
+  switch (p.k) {
+    case 'tincture': return { k: 'tincture', t: p.t };
+    case 'stain': return { k: 'stain', stain: p.stain };
+    case 'fur': return { k: 'fur', fur: p.fur, colours: p.colours && [p.colours[0], p.colours[1]] };
+    case 'divided':
+      return { k: 'divided', division: p.division, lines: canonicalLines(p.lines), pieces: p.pieces, parts: p.parts.map(canonicalPaint) };
+    case 'variation':
+      return { k: 'variation', variation: p.variation, lines: canonicalLines(p.lines), pieces: p.pieces, parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
+    case 'treated': return { k: 'treated', treatment: p.treatment, ground: canonicalPaint(p.ground), ink: p.ink };
+    case 'semy': return { k: 'semy', ground: canonicalPaint(p.ground), charge: { charge: p.charge.charge, form: p.charge.form }, ink: canonicalPaint(p.ink) };
+    case 'proper': return { k: 'proper' };
+    case 'counterchanged': return { k: 'counterchanged' };
   }
-
-  // charges
-  let charges: NormChargeGroup | null = null;
-  const c = input.charges;
-  if (c !== undefined && c !== null) {
-    if (!isObj(c)) err('charges', 'The charges must be an object or null.');
-    else {
-      for (const k of extraKeys(c, ['charge', 'count', 'placement', 'arrangement', 'posture', 'tincture'])) err('charges', `Unknown charge key "${k}".`);
-      const before = errors.length;
-      if (!isChargeId(c.charge)) err('charges', 'Unknown charge.');
-      if (!isCount(c.count)) err('charges', 'The number of charges must be 1 to 6.');
-      if (c.placement !== 'field' && c.placement !== 'ordinary') err('charges', 'Charges go on the field or on the ordinary.');
-      if (c.arrangement !== undefined && c.arrangement !== null && !isArrangement(c.arrangement)) err('charges', 'Unknown arrangement.');
-      if (c.posture !== undefined && c.posture !== null && !isPosture(c.posture)) err('charges', 'Unknown posture.');
-      if (!isChargeTincture(c.tincture)) err('charges', 'The charges need one of the eight tinctures, or counterchanged.');
-      if (errors.length === before) {
-        const id = c.charge as ChargeId;
-        const meta = CHARGES[id];
-        const count = c.count as Count;
-        const placement = c.placement as Placement;
-        const given = (c.posture ?? null) as Posture | null;
-        let posture: Posture | null = null;
-        if (meta.postures) {
-          posture = given ?? meta.defaultPosture;
-          if (posture && !meta.postures.includes(posture)) {
-            err('charges', `${capitalise(meta.article)} ${meta.name} can't be ${posture} here; choose ${meta.postures.join(' or ')}.`);
-          }
-        } else if (given) {
-          err('charges', `${capitalise(meta.article)} ${meta.name} has no posture.`);
-        }
-        // count 1 → single; on / between → forced (any given value is ignored); else given ?? default.
-        const ctx = chargeContext(ordinary, placement);
-        const fixed = count === 1 || ctx === 'on' || ctx === 'between';
-        const givenArr = (c.arrangement ?? null) as Arrangement | null;
-        const arrangement = fixed || !givenArr ? defaultArrangement(ordinary, placement, count) : givenArr;
-        charges = { charge: id, count, placement, arrangement, posture, tincture: c.tincture as ChargeTincture };
-      }
-    }
-  }
-
-  if (errors.length || !field) return { ok: false, errors };
-  return { ok: true, design: { v: 1, field, ordinary, charges } };
 }
 
-// ── Structural rules ────────────────────────────────────────────────────────
-
-/** Structural problems of a resolved design. */
-export function structuralIssues(nd: NormDesign): Issue[] {
-  const issues: Issue[] = [];
-  const add = (layer: IssueLayer, message: string, code: IssueCode = 'structure') => issues.push({ code, layer, message });
-  const { field, ordinary, charges } = nd;
-
-  if (field.kind === 'divided' && field.tinctures[0] === field.tinctures[1]) {
-    add('field', `A divided field needs two different tinctures — both parts are ${TINCTURE_NAME[field.tinctures[0]]}.`);
+function canonicalArrangement(a: Arrangement): Arrangement {
+  switch (a.k) {
+    case 'line': return { k: 'line', dir: a.dir };
+    case 'rows': return { k: 'rows', rows: [...a.rows] };
+    case 'pattern': return { k: 'pattern', pattern: a.pattern };
+    case 'pair': return { k: 'pair', pair: a.pair };
+    case 'single': case 'host': case 'crossed': return { k: a.k };
   }
-  if (field.kind === 'plain' && !ordinary && !charges) {
-    add('design', 'A plain field on its own is too generic to register — add an ordinary or a charge.', 'generic');
-  }
-  if (charges) {
-    const issue = chargeStructureIssue(ordinary, charges.placement, charges.count, charges.arrangement, charges.charge);
-    if (issue) add('charges', issue);
-  }
-  return issues;
 }
+
+const sortedBy = <T>(xs: readonly T[], rank: (x: T) => number | string): T[] =>
+  [...xs].sort((x, y) => {
+    const a = rank(x), b = rank(y);
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+
+function canonicalCharge(c: Charge): Charge {
+  return {
+    k: 'charge', charge: c.charge, form: c.form, posture: c.posture, facing: c.facing, orientation: c.orientation,
+    mods: sortedBy(c.mods, (m) => MODIFIER_IDS.indexOf(m.id)).map((m) => ({ id: m.id, count: m.count, paint: m.paint && canonicalPaint(m.paint) })),
+    parts: sortedBy(c.parts, (p) => PART_IDS.indexOf(p.part)).map((p) => ({ part: p.part, paint: canonicalPaint(p.paint) })),
+    holds: sortedBy(c.holds, (h) => `${String(HOLD_HOWS.indexOf(h.how)).padStart(2, '0')}${h.item.charge}`)
+      .map((h) => ({ how: h.how, item: canonicalCharge(h.item), paint: canonicalPaint(h.paint) })),
+  };
+}
+
+function canonicalItem(item: Item): Item {
+  if (item.k === 'charge') return canonicalCharge(item);
+  return {
+    k: 'ordinary', type: item.type, lines: canonicalLines(item.lines),
+    mods: sortedBy(item.mods, (m) => ORDINARY_MODS.indexOf(m)),
+    cotised: item.cotised && { count: item.cotised.count, paint: canonicalPaint(item.cotised.paint), line: item.cotised.line },
+    fimbriated: item.fimbriated && canonicalPaint(item.fimbriated),
+  };
+}
+
+function canonicalGroups(groups: readonly Group[]): Group[] {
+  const rebuilt = groups.map((g): Group => ({
+    role: g.role, relation: g.relation, item: canonicalItem(g.item), count: g.count,
+    arrangement: canonicalArrangement(g.arrangement), position: g.position, paint: canonicalPaint(g.paint),
+    charged: canonicalGroups(g.charged),
+  }));
+  return sortedBy(rebuilt, (g) => `${ROLE_ORDER.indexOf(g.role)}${itemKey(g.item)}`);
+}
+
+/** A deep rebuild in fixed key order with groups, modifiers, parts and holds sorted: equal designs have equal JSON. */
+export function canonical(d: Design): Design {
+  return d.kind === 'badge'
+    ? { v: 2, kind: 'badge', field: null, groups: canonicalGroups(d.groups) }
+    : { v: 2, kind: 'arms', field: canonicalPaint(d.field), groups: canonicalGroups(d.groups) };
+}
+
+export function canonicalJson(d: Design): string {
+  return JSON.stringify(canonical(d));
+}
+
+// ── Issues ──────────────────────────────────────────────────────────────────
+
+export type IssueAt = { k: 'design' } | { k: 'field' } | { k: 'group'; path: GroupPath };
+
+/** Gap categories a design can be filed under when the builder can't draw it; a subset of the SCA test's categories. */
+export const UNSUPPORTED_GAP_CATEGORIES = ['fieldless', 'fur', 'tincture', 'proper', 'field-treatment', 'division',
+  'line-of-partition', 'ordinary', 'ordinary-treatment', 'multiple-groups', 'placement', 'count',
+  'charge-modifier', 'posture', 'orientation', 'arrangement'] as const;
+export type GapCategory = (typeof UNSUPPORTED_GAP_CATEGORIES)[number];
+
+/** A construct the builder doesn't draw yet; its tag is `${category}:${detail}`. */
+export interface Gap { category: GapCategory; detail: string }
+
+/** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
+export type TinctureReason = 'contrast' | 'counterchange-unavailable';
+
+/** Which structure rule an issue breaks: the field's tinctures, how groups relate, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line. */
+export type StructureRule = 'field' | 'relation' | 'layout' | 'capacity' | 'crosses-line';
 
 /**
- * Why a charge placement/count/arrangement is structurally illegal, or null when legal. Phrased so
- * it can double as the reason shown next to a blocked option.
+ * shape       — malformed input (unknown key/id, wrong type)
+ * structure   — legal ids, illegal combination (count/arrangement, equal parts, groups that don't fit)
+ * generic     — plain field alone: a hint while building, a blocker for registration
+ * tincture    — rule-of-tincture violation
+ * unsupported — well-formed, but not drawn by this builder yet
  */
-export function chargeStructureIssue(
-  ordinary: Ordinary | null | undefined, placement: Placement, count: Count, arrangement: Arrangement, charge?: ChargeId,
-): string | null {
-  const noun = charge ? chargeNoun(charge, count) : count === 1 ? 'charge' : 'charges';
-  if (placement === 'ordinary') {
-    if (!ordinary) return 'Add an ordinary first — charges can only sit on an ordinary once there is one.';
-    if (ordinary.type === 'bordure') return "Charges can't sit on a bordure in this builder; put them on the field within it.";
-    const legal = ON_COUNTS[ordinary.type];
-    if (!legal.includes(count)) {
-      const extra = ordinary.type === 'cross' || ordinary.type === 'saltire' ? ' (one in the centre, or one on each arm and the centre)' : '';
-      return `A ${ORDINARY_NAME[ordinary.type]} can carry ${countList(legal)}${extra}, not ${NUMBER_WORD[count]}.`;
-    }
-    return null;
+export type Issue =
+  | { code: 'shape' | 'generic'; at: IssueAt; message: string; slots: number[] }
+  | { code: 'tincture'; reason: TinctureReason; at: IssueAt; message: string; slots: number[] }
+  | { code: 'structure'; rule: StructureRule; at: IssueAt; message: string; slots: number[] }
+  | { code: 'unsupported'; at: IssueAt; message: string; gap: Gap };
+export type UnsupportedIssue = Extract<Issue, { code: 'unsupported' }>;
+
+/** Thrown where the pipeline meets a construct it doesn't draw; `normalise` never passes such a design on, so the app never sees it. */
+export class UnsupportedConstructError extends Error {
+  constructor(readonly gap: Gap) {
+    super(`Not supported yet: ${gap.category}:${gap.detail}`);
+    this.name = 'UnsupportedConstructError';
   }
-  const ctx = chargeContext(ordinary, placement);
-  if (ctx === 'between' && ordinary && isBetweenOrdinary(ordinary.type)) {
-    const legal = BETWEEN_COUNTS[ordinary.type];
-    if (!legal.includes(count)) {
-      const name = ORDINARY_NAME[ordinary.type];
-      if (count === 1) return `A single charge can't be set between a ${name} — use ${countList(legal)}, or place it on the ${name}.`;
-      return `A ${name} is set between ${legal.length === 1 ? 'exactly ' : ''}${countList(legal)} charges, not ${NUMBER_WORD[count]}.`;
-    }
-    return null;
-  }
-  if (ctx === 'chief') {
-    const legal = UNDER_CHIEF_ARR[count];
-    if (!legal) return `Under a chief there is room for at most three charges, not ${NUMBER_WORD[count]}.`;
-    if (!legal.includes(arrangement)) {
-      return `Under a chief, ${count === 1 ? 'a single charge sits alone' : `${NUMBER_WORD[count]} ${noun} can only be arranged ${legal.map((a) => ARRANGEMENT_WORD[a]).join(' or ')}`}.`;
-    }
-    return null;
-  }
-  const legal = FIELD_ARR[count];
-  if (!legal.includes(arrangement)) {
-    if (count === 1) return 'A single charge sits alone in the centre.';
-    return `${capitalise(NUMBER_WORD[count])} ${noun} can be arranged ${legal.map((a) => ARRANGEMENT_WORD[a]).join(', ')} — not ${ARRANGEMENT_WORD[arrangement]}.`;
-  }
-  return null;
+}
+
+/** The one "not yet drawable" guard: every switch over paints, arrangements and items calls it for the cases it doesn't handle. */
+export function notSupported(gap: Gap): never {
+  throw new UnsupportedConstructError(gap);
 }

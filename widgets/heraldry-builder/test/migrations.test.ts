@@ -2,7 +2,6 @@
 // and prove 0001 reproduces the schema production was created from (test/fixtures/production-schema.sql).
 import { applyD1Migrations, env } from 'cloudflare:test';
 import { afterEach, describe, it, expect } from 'vitest';
-import { CHARGE_IDS, DIVISIONS, ORDINARY_TYPES, chargeGroup, divisionGroup, ordinaryGroup } from '../src/lib/heraldry';
 import productionSchema from './fixtures/production-schema.sql?raw';
 import readme from '../README.md?raw';
 
@@ -33,13 +32,23 @@ async function execAll(db: D1Database, sql: string) {
 }
 
 const [init, ...laterMigrations] = env.MIGRATIONS;
+const DESIGN_MODEL = env.MIGRATIONS.findIndex((m) => m.name === '0007_design_model.sql');
 
-const insertArms = (id: string) =>
+/** A row as the schema before the design-model reset has it. */
+const insertOldArms = (id: string) =>
   env.MIGRATION_DB.prepare(
     `INSERT INTO arms (id, registry_id, display_name, design, signature, blazon, field_division, readability,
        edit_secret_hash, created_at, updated_at)
      VALUES (?, 'default', 'Name', '{}', ?, 'Vert', 'plain', 'bold', 'h', '2026-10-03T00:00:00Z', '2026-10-03T00:00:00Z')`
   ).bind(id, `sig-${id}`);
+
+/** A row of the current schema. */
+const insertArms = (id: string, discord: string | null = null) =>
+  env.MIGRATION_DB.prepare(
+    `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, signature, blazon, partition_key, primary_key,
+       readability, edit_secret_hash, created_at, updated_at)
+     VALUES (?, 'default', 'Name', ?, '{}', ?, 'Vert', 'plain', NULL, 'bold', 'h', '2026-10-03T00:00:00Z', '2026-10-03T00:00:00Z')`
+  ).bind(id, discord, `sig-${id}`);
 
 describe('migrations', () => {
   it('are numbered consecutively from 0001_init', () => {
@@ -74,13 +83,14 @@ describe('migrations', () => {
     expect(registries!.n).toBe(1);
   });
 
-  it('later migrations carry existing arms and tags across the tags table rebuild', async () => {
+  it('0002–0006 carry existing arms and tags across the tags table rebuild', async () => {
     await env.MIGRATION_DB.batch([
-      insertArms('a1'),
-      insertArms('a2'),
+      insertOldArms('a1'),
+      insertOldArms('a2'),
       env.MIGRATION_DB.prepare(`INSERT INTO arms_tags (arms_id, registry_id, tag) VALUES ('a1', 'default', 'charge:wolf'), ('a1', 'default', 'tincture:or'), ('a2', 'default', 'charge:wolf')`),
     ]);
-    await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS);
+    expect(DESIGN_MODEL).toBe(env.MIGRATIONS.length - 1);
+    await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS.slice(0, DESIGN_MODEL));
     expect(laterMigrations.length).toBeGreaterThan(0);
 
     const tags = await env.MIGRATION_DB.prepare(`SELECT arms_id, tag FROM arms_tags ORDER BY arms_id, tag`).all();
@@ -89,7 +99,6 @@ describe('migrations', () => {
       { arms_id: 'a1', tag: 'tincture:or' },
       { arms_id: 'a2', tag: 'charge:wolf' },
     ]);
-    expect(await schemaObjects(env.MIGRATION_DB)).toEqual(await schemaObjects(env.DB));
   });
 
   it('0005 gives rows that already exist the words they stored, as padded lowercase words', async () => {
@@ -113,12 +122,33 @@ describe('migrations', () => {
     await env.MIGRATION_DB.prepare(`INSERT INTO registries (id, name, is_default, created_at) VALUES ('fourth', 'Fourth', 0, 'now')`).run();
   });
 
-  it('replace the free-text contact with a Discord column and add the owner email and token tables', async () => {
-    const columns = await env.MIGRATION_DB.prepare(`SELECT name FROM pragma_table_info('arms')`).all<{ name: string }>();
-    const names = columns.results.map((c) => c.name);
-    expect(names).toContain('contact_discord');
-    expect(names).toContain('field_shape');
-    expect(names).not.toContain('contact');
+  it('0007 empties the arms, tag and owner tables, keeps the registries, and ends at the schema the Worker runs on', async () => {
+    await env.MIGRATION_DB.batch([
+      env.MIGRATION_DB.prepare(`INSERT INTO owner_emails (arms_id, email_hmac, key_version, created_at) VALUES ('a2', 'h', 1, 'now')`),
+      env.MIGRATION_DB.prepare(`INSERT INTO owner_tokens (token_hash, arms_id, created_at, expires_at) VALUES ('t', 'a2', 'now', 'later')`),
+    ]);
+    await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS);
+    for (const table of ['arms', 'arms_tags', 'owner_emails', 'owner_tokens']) {
+      const n = await env.MIGRATION_DB.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>();
+      expect(n!.n, table).toBe(0);
+    }
+    const registries = await env.MIGRATION_DB.prepare(`SELECT id FROM registries ORDER BY id`).all();
+    expect(registries.results.map((r) => r.id)).toContain('default');
+    expect(await schemaObjects(env.MIGRATION_DB)).toEqual(await schemaObjects(env.DB));
+  });
+
+  it('0007 keys candidates by partition (required) and primary group (nullable) and drops the old columns', async () => {
+    const { results } = await env.MIGRATION_DB.prepare(`SELECT name, "notnull" FROM pragma_table_info('arms')`).all<{ name: string; notnull: number }>();
+    const notNull = new Map(results.map((c) => [c.name, c.notnull === 1]));
+    expect(notNull.get('partition_key')).toBe(true);
+    expect(notNull.get('primary_key')).toBe(false);
+    for (const gone of ['contact', 'field_division', 'ordinary', 'charge', 'division_group', 'ordinary_group', 'charge_group']) {
+      expect(notNull.has(gone), gone).toBe(false);
+    }
+    for (const kept of ['contact_discord', 'field_shape', 'search_text']) expect(notNull.has(kept), kept).toBe(true);
+  });
+
+  it('keeps the owner email and token tables, served by their lookup indexes', async () => {
     const tables = await env.MIGRATION_DB.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'owner_%' ORDER BY name`).all<{ name: string }>();
     expect(tables.results.map((t) => t.name)).toEqual(['owner_emails', 'owner_tokens']);
     const plan = await env.MIGRATION_DB.prepare(
@@ -127,55 +157,38 @@ describe('migrations', () => {
     expect(plan.results.map((r) => r.detail).join('\n')).toContain('owner_emails_lookup');
   });
 
-  it('cascade an arms deletion to its owner email and tokens', async () => {
+  it('checks the Discord username', async () => {
+    await insertArms('d-ok', 'some.user_1').run();
+    for (const bad of ['a..b', 'x', 'y'.repeat(33), 'Upper', 'no spaces']) {
+      await expect(insertArms('d-bad', bad).run(), bad).rejects.toThrow(/CHECK/i);
+    }
+    await env.MIGRATION_DB.prepare(`DELETE FROM arms WHERE id = 'd-ok'`).run();
+  });
+
+  it('cascades an arms deletion to its tags, owner email and tokens', async () => {
     await env.MIGRATION_DB.batch([
-      env.MIGRATION_DB.prepare(`INSERT INTO owner_emails (arms_id, email_hmac, key_version, created_at) VALUES ('a2', 'h', 1, 'now')`),
-      env.MIGRATION_DB.prepare(`INSERT INTO owner_tokens (token_hash, arms_id, created_at, expires_at) VALUES ('t', 'a2', 'now', 'later')`),
+      insertArms('c1'),
+      env.MIGRATION_DB.prepare(`INSERT INTO arms_tags (arms_id, registry_id, tag) VALUES ('c1', 'default', 'charge:wolf')`),
+      env.MIGRATION_DB.prepare(`INSERT INTO owner_emails (arms_id, email_hmac, key_version, created_at) VALUES ('c1', 'h', 1, 'now')`),
+      env.MIGRATION_DB.prepare(`INSERT INTO owner_tokens (token_hash, arms_id, created_at, expires_at) VALUES ('t', 'c1', 'now', 'later')`),
     ]);
-    await env.MIGRATION_DB.prepare(`DELETE FROM arms WHERE id = 'a2'`).run();
-    for (const table of ['owner_emails', 'owner_tokens']) {
+    await env.MIGRATION_DB.prepare(`DELETE FROM arms WHERE id = 'c1'`).run();
+    for (const table of ['arms_tags', 'owner_emails', 'owner_tokens']) {
       const n = await env.MIGRATION_DB.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>();
       expect(n!.n, table).toBe(0);
     }
   });
 
-  it('serve the candidate lookup from the similarity-group index', async () => {
+  it('serves the candidate lookup from the conflict-key index', async () => {
     const plan = await env.MIGRATION_DB.prepare(
       `EXPLAIN QUERY PLAN SELECT id FROM arms
-       WHERE registry_id = ? AND division_group = ? AND ordinary_group IS ? AND charge_group IS ? ORDER BY created_at, id`
-    ).bind('default', 'plain', null, null).all<{ detail: string }>();
+       WHERE registry_id = ? AND partition_key = ? AND primary_key IS ? ORDER BY created_at, id`
+    ).bind('default', 'plain', null).all<{ detail: string }>();
     const detail = plan.results.map((r) => r.detail).join('\n');
-    expect(detail).toContain('arms_registry_similar_groups');
+    expect(detail).toContain('arms_registry_conflict_keys');
     expect(detail).not.toContain('TEMP B-TREE');
-    const index = await env.MIGRATION_DB.prepare(`SELECT name FROM sqlite_master WHERE name = 'arms_registry_similarity'`).first();
-    expect(index).toBeNull();
-  });
-
-  it('0006 fills in the similarity groups of existing rows exactly as the library computes them', async () => {
-    // A database at the production schema with one row per charge, division and ordinary.
-    const rows: [string, string, string | null, string | null][] = [
-      ...CHARGE_IDS.map((c): [string, string, string | null, string | null] => [`c-${c}`, 'plain', null, c]),
-      ...DIVISIONS.map((d): [string, string, string | null, string | null] => [`d-${d}`, d, null, null]),
-      ...ORDINARY_TYPES.map((o): [string, string, string | null, string | null] => [`o-${o}`, 'plain', o, null]),
-    ];
-    await env.BASELINE_DB.batch(rows.map(([id, division, ordinary, charge]) => env.BASELINE_DB.prepare(
-      `INSERT INTO arms (id, registry_id, display_name, design, signature, blazon, field_division, ordinary, charge, readability,
-         edit_secret_hash, created_at, updated_at)
-       VALUES (?, 'default', 'Name', '{}', ?, 'Vert', ?, ?, ?, 'bold', 'h', '2026-10-03T00:00:00Z', '2026-10-03T00:00:00Z')`
-    ).bind(id, `sig-${id}`, division, ordinary, charge)));
-    await applyD1Migrations(env.BASELINE_DB, env.MIGRATIONS);
-
-    const { results } = await env.BASELINE_DB.prepare(`SELECT id, division_group, ordinary_group, charge_group FROM arms ORDER BY id`)
-      .all<{ id: string; division_group: string; ordinary_group: string | null; charge_group: string | null }>();
-    const expected = rows.map(([id, division, ordinary, charge]) => ({
-      id,
-      division_group: division === 'plain' ? 'plain' : divisionGroup({ kind: 'divided', division: division as (typeof DIVISIONS)[number], tinctures: ['or', 'azure'] }),
-      ordinary_group: ordinary && ordinaryGroup({ type: ordinary as (typeof ORDINARY_TYPES)[number], tincture: 'or' }),
-      charge_group: charge && chargeGroup(charge as (typeof CHARGE_IDS)[number]),
-    })).sort((a, b) => (a.id < b.id ? -1 : 1));
-    expect(results).toEqual(expected);
-    expect(results.find((r) => r.id === 'c-gear')!.charge_group).toBe('round');
-    expect(results.find((r) => r.id === 'd-per-bend-sinister')!.division_group).toBe('per-bend');
+    const gone = await env.MIGRATION_DB.prepare(`SELECT name FROM sqlite_master WHERE name IN ('arms_registry_similar_groups', 'arms_registry_similarity')`).all();
+    expect(gone.results).toEqual([]);
   });
 });
 

@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit && tsc -p tsconfig.sca.json --noEmit",
     "test": "vitest run",
     "sca:ignore": "vitest run --config vitest.sca-ignore.config.ts",
+    "sample:write": "vitest run --config vitest.sample.config.ts",
     "favicon": "cd ../../scripts/favicon && npm ci --no-audit --no-fund && node generate-favicon.mjs ../../widgets/heraldry-builder/public/favicon.svg ../../widgets/heraldry-builder/public/favicon.ico"
   },
   "dependencies": {

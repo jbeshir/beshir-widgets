@@ -1,24 +1,37 @@
-// Charge metadata: 28 curated charges, their blazon/gloss names, articles,
-// categories and allowed postures. Artwork lives in charge-art.ts.
+// Charge metadata: 28 curated charges, their blazon/gloss names, articles, categories, drawn postures and
+// the vocabulary of charge attributes (postures, facings, orientations, forms, modifiers, parts, holds).
+// Artwork lives in charge-art.ts.
 
-export type Posture = 'rampant' | 'passant' | 'statant' | 'sejant' | 'naiant' | 'haurient' | 'displayed';
-export const POSTURES: readonly Posture[] = ['rampant', 'passant', 'statant', 'sejant', 'naiant', 'haurient', 'displayed'];
+import { numberWord } from './words';
 
-type PostureGroup = 'G1' | 'G2' | 'G3' | 'G4' | 'G5' | 'G6';
+export const POSTURES = ['rampant', 'passant', 'statant', 'sejant', 'courant', 'salient', 'couchant', 'dormant', 'sejant-erect',
+  'statant-erect', 'naiant', 'haurient', 'urinant', 'displayed', 'close', 'rising', 'volant', 'tergiant'] as const;
+export type Posture = (typeof POSTURES)[number];
 
-/** Posture groups for the "too close" check: passant ↔ statant is the only minor pair. */
-export const POSTURE_GROUP: Record<Posture, PostureGroup> = {
-  rampant: 'G1', passant: 'G2', statant: 'G2', sejant: 'G3', naiant: 'G4', haurient: 'G5', displayed: 'G6',
-};
+export const FACINGS = ['to-dexter', 'to-sinister', 'affronty', 'guardant', 'regardant', 'guardant-regardant'] as const;
+export type Facing = (typeof FACINGS)[number];
 
-export function postureGroup(p: Posture | null | undefined): PostureGroup | null {
-  return p ? POSTURE_GROUP[p] : null;
-}
+export const ORIENTATIONS = ['palewise', 'fesswise', 'bendwise', 'bendwise-sinister', 'inverted', 'reversed'] as const;
+export type Orientation = (typeof ORIENTATIONS)[number];
+
+export const CHARGE_FORMS = ['head', 'demi', 'jambe', 'skull'] as const;
+export type ChargeForm = (typeof CHARGE_FORMS)[number];
+
+export const MODIFIER_IDS = ['in-splendour', 'couped', 'erased', 'slipped', 'leaved', 'fructed', 'enflamed', 'winged', 'voided', 'of-points'] as const;
+export type ModifierId = (typeof MODIFIER_IDS)[number];
+
+export const PART_IDS = ['armed', 'langued', 'crowned', 'collared', 'attired', 'unguled', 'beaked', 'membered', 'seeded', 'barbed'] as const;
+export type PartId = (typeof PART_IDS)[number];
+
+export const HOLD_HOWS = ['maintaining', 'sustaining', 'in-beak', 'in-mouth', 'wearing'] as const;
+export type HoldHow = (typeof HOLD_HOWS)[number];
 
 /** Plain-English posture words for the gloss. Displayed is folded into the eagle's gloss name. */
 export const POSTURE_GLOSS: Record<Posture, string | null> = {
-  rampant: 'rearing up', passant: 'walking', statant: 'standing', sejant: 'sitting',
-  naiant: 'swimming', haurient: 'upright, head up', displayed: null,
+  rampant: 'rearing up', passant: 'walking', statant: 'standing', sejant: 'sitting', courant: 'running', salient: 'leaping',
+  couchant: 'lying down', dormant: 'asleep', 'sejant-erect': 'sitting upright', 'statant-erect': 'standing upright',
+  naiant: 'swimming', haurient: 'upright, head up', urinant: 'diving, head down', displayed: null,
+  close: 'perched, wings folded', rising: 'taking off', volant: 'flying', tergiant: 'seen from above',
 };
 
 export type ChargeCategory = 'beast' | 'monster' | 'bird' | 'plant' | 'geometric' | 'object' | 'modern';
@@ -42,6 +55,50 @@ export const CHARGE_IDS = [
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
 
+/**
+ * SENA A5E2 type classes: a charge of one class is substantially different in type from a charge of any other (a
+ * substantial change for the primary group); two charges of one class differ by at most a distinct change of type
+ * (A5G4). SENA has no complete table (RULES §C.4 SC-2, §G.1), so this is a curated one: each class says why. Classes
+ * marked `guess` are the builder's reading where neither SENA nor a precedent in /workspace/rules names the pair —
+ * herald question H2 (REVIEW.md).
+ */
+export const TYPE_CLASSES = {
+  feline: { source: 'A5C3: a lion is not different from any other natural feline; A5E2: "four wolves … does not conflict with … semy of lions"', guess: false },
+  canine: { source: 'A5C3: dogs, wolves and foxes are one type; A5E2: wolves and lions are substantially different', guess: false },
+  boar: { source: 'A5G4: types distinct in period; no SENA example against the other beasts', guess: true },
+  deer: { source: 'A5G4: types distinct in period; no SENA example against the goat or the unicorn', guess: true },
+  goat: { source: 'A5G4: types distinct in period; no SENA example against the stag or the unicorn', guess: true },
+  hare: { source: 'A5G4: types distinct in period; no SENA example against the other beasts', guess: true },
+  unicorn: { source: 'A5E2: "two unicorns and a raven … does not conflict with … three sea-horses" (monsters by type); not against the goat', guess: true },
+  dragon: { source: 'App M1e names only the near kin of the dragon (wyvern, sea-dragon: a DC); no SENA example against the four-legged beasts', guess: true },
+  fish: { source: 'A5C3/App M1b: most fish are one type; A5E2: clearly unrelated shapes are substantially different', guess: false },
+  bee: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  'regular-bird': { source: 'App M1d: eagle and owl are both regular-shaped birds; LoAR 2024-26: "owls and eagles are both regular-shaped birds, there is a single DC" for their type', guess: false },
+  rose: { source: 'App M1i: few-petaled flowers in affronty view; precedent: "a substantial difference between a roundel and a rose"', guess: false },
+  tree: { source: 'App M1h: trees conflict only with trees (generic vs coniferous a DC)', guess: false },
+  'fleur-de-lys': { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  'mullet-or-sun': { source: 'A5G4: "a DC for the change … from a mullet of five points to a sun"; App M1g', guess: false },
+  crescent: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  heart: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  key: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  book: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  sword: { source: 'A5C3: swords and daggers of all forms are one type', guess: false },
+  crown: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  anchor: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  'musical-note': { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
+  flame: { source: 'A5E2: clearly unrelated shapes; whether a flame is near enough to a sun for only a DC is unsettled', guess: true },
+  cogwheel: { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
+  lightbulb: { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
+} as const satisfies Record<string, { source: string; guess: boolean }>;
+
+export type TypeClass = keyof typeof TYPE_CLASSES;
+
+/** Which postures a charge can be compared across when it changes posture (SENA App M3). */
+export type PostureClass = 'quadruped' | 'bird' | 'fish' | 'insect';
+
+/** A charge-specific posture word: the blazon term and its plain-English gloss ("trippant", "walking"). */
+interface PostureWording { term: string; gloss: string }
+
 interface ChargeMeta {
   id: ChargeId;
   /** Blazon name (singular / plural). */
@@ -50,11 +107,23 @@ interface ChargeMeta {
   /** Stored, never computed from the first letter ("an open book"). */
   article: 'a' | 'an';
   category: ChargeCategory;
-  /** Allowed postures (first is not necessarily the default), or null when posture-less. */
+  /** Drawn postures, or null when posture-less. */
   postures: readonly Posture[] | null;
+  /** The builder's (and resolve's) choice when none is given. */
   defaultPosture: Posture | null;
+  /** The posture SCA practice assumes when none is blazoned (GoT Table 5): it is omitted from the blazon. */
+  scaDefaultPosture: Posture | null;
   /** This charge's own words for a posture, overriding the posture id and POSTURE_GLOSS. */
   postureWording: Partial<Record<Posture, PostureWording>>;
+  /** 'to-dexter' for posture-bearing charges, else null. */
+  defaultFacing: Facing | null;
+  /** Drawn modifiers. */
+  mods: readonly ModifierId[];
+  /** May be 'crossed' (two in saltire). */
+  long: boolean;
+  postureClass: PostureClass | null;
+  /** Charges of different classes are substantially different (SENA A5E2; see TYPE_CLASSES). */
+  typeClass: TypeClass;
   /** Gloss names (singular / plural). */
   glossName: string;
   glossPlural: string;
@@ -69,47 +138,71 @@ interface ChargeMeta {
   detail: 0 | 1 | 2;
 }
 
-/** A charge-specific posture word: the blazon term and its plain-English gloss ("courant", "running"). */
-interface PostureWording { term: string; gloss: string }
+type Fixed = Pick<ChargeMeta, 'id' | 'name' | 'plural' | 'article' | 'category' | 'typeClass' | 'glossName' | 'glossPlural' | 'orientation' | 'scale' | 'detail'>;
+type Variable = Partial<Pick<ChargeMeta, 'postures' | 'defaultPosture' | 'scaDefaultPosture' | 'postureWording' | 'mods' | 'long' | 'postureClass'>>;
 
-function c(
-  id: ChargeId, name: string, plural: string, article: 'a' | 'an', category: ChargeCategory,
-  postures: readonly Posture[] | null, defaultPosture: Posture | null,
-  glossName: string, glossPlural: string, orientation: string, scale: number, detail: 0 | 1 | 2,
-  postureWording: Partial<Record<Posture, PostureWording>> = {},
-): ChargeMeta {
-  return { id, name, plural, article, category, postures, defaultPosture, glossName, glossPlural, orientation, scale, detail, postureWording };
+function c(fixed: Fixed, v: Variable = {}): ChargeMeta {
+  const postures = v.postures ?? null;
+  return {
+    ...fixed,
+    postures,
+    defaultPosture: v.defaultPosture ?? null,
+    scaDefaultPosture: v.scaDefaultPosture ?? null,
+    postureWording: v.postureWording ?? {},
+    defaultFacing: postures ? 'to-dexter' : null,
+    mods: v.mods ?? [],
+    long: v.long ?? false,
+    postureClass: v.postureClass ?? null,
+  };
 }
 
+const quadruped = { postureClass: 'quadruped' } as const;
+
 export const CHARGES: Record<ChargeId, ChargeMeta> = {
-  lion: c('lion', 'lion', 'lions', 'a', 'beast', ['rampant', 'passant', 'statant', 'sejant'], 'rampant', 'lion', 'lions', 'faces dexter', 1, 1),
-  wolf: c('wolf', 'wolf', 'wolves', 'a', 'beast', ['rampant', 'passant', 'statant'], 'passant', 'wolf', 'wolves', 'faces dexter', 1.05, 1),
-  boar: c('boar', 'boar', 'boars', 'a', 'beast', ['passant'], 'passant', 'boar', 'boars', 'faces dexter', 1, 1),
-  stag: c('stag', 'stag', 'stags', 'a', 'beast', ['statant', 'passant'], 'statant', 'stag', 'stags', 'faces dexter', 1.05, 1, { passant: { term: 'trippant', gloss: 'walking' } }),
-  goat: c('goat', 'goat', 'goats', 'a', 'beast', ['statant', 'rampant'], 'statant', 'goat', 'goats', 'faces dexter', 1, 1),
-  hare: c('hare', 'hare', 'hares', 'a', 'beast', ['sejant', 'passant'], 'sejant', 'hare', 'hares', 'faces dexter', 1.05, 1, { passant: { term: 'courant', gloss: 'running' } }),
-  fish: c('fish', 'fish', 'fish', 'a', 'beast', ['naiant', 'haurient'], 'naiant', 'fish', 'fish', 'head to dexter (naiant) / head up (haurient)', 1.05, 0),
-  bee: c('bee', 'bee', 'bees', 'a', 'beast', null, null, 'bee', 'bees', 'head up (tergiant, fixed)', 1.05, 0),
-  unicorn: c('unicorn', 'unicorn', 'unicorns', 'a', 'monster', ['rampant', 'passant', 'sejant'], 'rampant', 'unicorn', 'unicorns', 'faces dexter', 1, 2),
-  dragon: c('dragon', 'dragon', 'dragons', 'a', 'monster', ['rampant', 'passant'], 'rampant', 'dragon', 'dragons', 'faces dexter', 0.9, 2, { rampant: { term: 'segreant', gloss: 'rearing up' } }),
-  eagle: c('eagle', 'eagle', 'eagles', 'an', 'bird', ['displayed'], 'displayed', 'eagle with spread wings', 'eagles with spread wings', 'head to dexter', 0.95, 0),
-  owl: c('owl', 'owl', 'owls', 'an', 'bird', null, null, 'owl', 'owls', 'upright, facing out', 1, 1),
-  rose: c('rose', 'rose', 'roses', 'a', 'plant', null, null, 'rose', 'roses', 'upright', 0.88, 0),
-  tree: c('tree', 'tree', 'trees', 'a', 'plant', null, null, 'tree', 'trees', 'upright', 0.95, 2),
-  'fleur-de-lis': c('fleur-de-lis', 'fleur-de-lis', 'fleurs-de-lis', 'a', 'plant', null, null, 'lily (fleur-de-lis)', 'lilies (fleurs-de-lis)', 'upright', 1, 0),
-  mullet: c('mullet', 'mullet', 'mullets', 'a', 'geometric', null, null, 'five-pointed star', 'five-pointed stars', 'one point up', 1.05, 0),
-  crescent: c('crescent', 'crescent', 'crescents', 'a', 'geometric', null, null, 'crescent moon', 'crescent moons', 'horns up', 1.05, 0),
-  sun: c('sun', 'sun', 'suns', 'a', 'geometric', null, null, 'sun', 'suns', '—', 1, 0),
-  heart: c('heart', 'heart', 'hearts', 'a', 'geometric', null, null, 'heart', 'hearts', 'point down', 0.88, 0),
-  key: c('key', 'key', 'keys', 'a', 'object', null, null, 'key', 'keys', 'wards up, bow down', 1.15, 1),
-  'open-book': c('open-book', 'open book', 'open books', 'an', 'object', null, null, 'open book', 'open books', 'upright', 0.9, 1),
-  sword: c('sword', 'sword', 'swords', 'a', 'object', null, null, 'sword', 'swords', 'point up', 1.15, 1),
-  crown: c('crown', 'crown', 'crowns', 'a', 'object', null, null, 'crown', 'crowns', 'upright', 0.95, 0),
-  anchor: c('anchor', 'anchor', 'anchors', 'an', 'object', null, null, 'anchor', 'anchors', 'ring up', 1.15, 0),
-  'musical-note': c('musical-note', 'musical note', 'musical notes', 'a', 'modern', null, null, 'musical note', 'musical notes', 'stem up, flag to sinister', 1.15, 1),
-  flame: c('flame', 'flame', 'flames', 'a', 'modern', null, null, 'flame', 'flames', 'tongues up', 0.95, 0),
-  gear: c('gear', 'gear', 'gears', 'a', 'modern', null, null, 'gear', 'gears', '—', 0.9, 0),
-  lightbulb: c('lightbulb', 'lightbulb', 'lightbulbs', 'a', 'modern', null, null, 'lightbulb', 'lightbulbs', 'bulb up', 1.1, 1),
+  lion: c({ id: 'lion', name: 'lion', plural: 'lions', article: 'a', category: 'beast', typeClass: 'feline', glossName: 'lion', glossPlural: 'lions', orientation: 'faces dexter', scale: 1, detail: 1 },
+    { postures: ['rampant', 'passant', 'statant', 'sejant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', ...quadruped }),
+  wolf: c({ id: 'wolf', name: 'wolf', plural: 'wolves', article: 'a', category: 'beast', typeClass: 'canine', glossName: 'wolf', glossPlural: 'wolves', orientation: 'faces dexter', scale: 1.05, detail: 1 },
+    { postures: ['rampant', 'passant', 'statant'], defaultPosture: 'passant', ...quadruped }),
+  boar: c({ id: 'boar', name: 'boar', plural: 'boars', article: 'a', category: 'beast', typeClass: 'boar', glossName: 'boar', glossPlural: 'boars', orientation: 'faces dexter', scale: 1, detail: 1 },
+    { postures: ['passant'], defaultPosture: 'passant', ...quadruped }),
+  stag: c({ id: 'stag', name: 'stag', plural: 'stags', article: 'a', category: 'beast', typeClass: 'deer', glossName: 'stag', glossPlural: 'stags', orientation: 'faces dexter', scale: 1.05, detail: 1 },
+    { postures: ['statant', 'passant'], defaultPosture: 'statant', postureWording: { passant: { term: 'trippant', gloss: 'walking' } }, ...quadruped }),
+  goat: c({ id: 'goat', name: 'goat', plural: 'goats', article: 'a', category: 'beast', typeClass: 'goat', glossName: 'goat', glossPlural: 'goats', orientation: 'faces dexter', scale: 1, detail: 1 },
+    { postures: ['statant', 'rampant'], defaultPosture: 'statant', ...quadruped }),
+  hare: c({ id: 'hare', name: 'hare', plural: 'hares', article: 'a', category: 'beast', typeClass: 'hare', glossName: 'hare', glossPlural: 'hares', orientation: 'faces dexter', scale: 1.05, detail: 1 },
+    { postures: ['sejant', 'courant'], defaultPosture: 'sejant', ...quadruped }),
+  fish: c({ id: 'fish', name: 'fish', plural: 'fish', article: 'a', category: 'beast', typeClass: 'fish', glossName: 'fish', glossPlural: 'fish', orientation: 'head to dexter (naiant) / head up (haurient)', scale: 1.05, detail: 0 },
+    { postures: ['naiant', 'haurient'], defaultPosture: 'naiant', scaDefaultPosture: 'naiant', postureClass: 'fish' }),
+  bee: c({ id: 'bee', name: 'bee', plural: 'bees', article: 'a', category: 'beast', typeClass: 'bee', glossName: 'bee', glossPlural: 'bees', orientation: 'head up (tergiant, fixed)', scale: 1.05, detail: 0 },
+    { postureClass: 'insect' }),
+  unicorn: c({ id: 'unicorn', name: 'unicorn', plural: 'unicorns', article: 'a', category: 'monster', typeClass: 'unicorn', glossName: 'unicorn', glossPlural: 'unicorns', orientation: 'faces dexter', scale: 1, detail: 2 },
+    { postures: ['rampant', 'passant', 'sejant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', ...quadruped }),
+  dragon: c({ id: 'dragon', name: 'dragon', plural: 'dragons', article: 'a', category: 'monster', typeClass: 'dragon', glossName: 'dragon', glossPlural: 'dragons', orientation: 'faces dexter', scale: 0.9, detail: 2 },
+    { postures: ['rampant', 'passant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', postureWording: { rampant: { term: 'segreant', gloss: 'rearing up' } }, ...quadruped }),
+  eagle: c({ id: 'eagle', name: 'eagle', plural: 'eagles', article: 'an', category: 'bird', typeClass: 'regular-bird', glossName: 'eagle with spread wings', glossPlural: 'eagles with spread wings', orientation: 'head to dexter', scale: 0.95, detail: 0 },
+    { postures: ['displayed'], defaultPosture: 'displayed', scaDefaultPosture: 'displayed', postureClass: 'bird' }),
+  owl: c({ id: 'owl', name: 'owl', plural: 'owls', article: 'an', category: 'bird', typeClass: 'regular-bird', glossName: 'owl', glossPlural: 'owls', orientation: 'upright, facing out', scale: 1, detail: 1 },
+    { postureClass: 'bird' }),
+  rose: c({ id: 'rose', name: 'rose', plural: 'roses', article: 'a', category: 'plant', typeClass: 'rose', glossName: 'rose', glossPlural: 'roses', orientation: 'upright', scale: 0.88, detail: 0 }),
+  tree: c({ id: 'tree', name: 'tree', plural: 'trees', article: 'a', category: 'plant', typeClass: 'tree', glossName: 'tree', glossPlural: 'trees', orientation: 'upright', scale: 0.95, detail: 2 }),
+  'fleur-de-lis': c({ id: 'fleur-de-lis', name: 'fleur-de-lys', plural: 'fleurs-de-lys', article: 'a', category: 'plant', typeClass: 'fleur-de-lys', glossName: 'lily (fleur-de-lis)', glossPlural: 'lilies (fleurs-de-lis)', orientation: 'upright', scale: 1, detail: 0 }),
+  mullet: c({ id: 'mullet', name: 'mullet', plural: 'mullets', article: 'a', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'five-pointed star', glossPlural: 'five-pointed stars', orientation: 'one point up', scale: 1.05, detail: 0 }),
+  crescent: c({ id: 'crescent', name: 'crescent', plural: 'crescents', article: 'a', category: 'geometric', typeClass: 'crescent', glossName: 'crescent moon', glossPlural: 'crescent moons', orientation: 'horns up', scale: 1.05, detail: 0 }),
+  sun: c({ id: 'sun', name: 'sun', plural: 'suns', article: 'a', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'sun', glossPlural: 'suns', orientation: '—', scale: 1, detail: 0 },
+    { mods: ['in-splendour'] }),
+  heart: c({ id: 'heart', name: 'heart', plural: 'hearts', article: 'a', category: 'geometric', typeClass: 'heart', glossName: 'heart', glossPlural: 'hearts', orientation: 'point down', scale: 0.88, detail: 0 }),
+  key: c({ id: 'key', name: 'key', plural: 'keys', article: 'a', category: 'object', typeClass: 'key', glossName: 'key', glossPlural: 'keys', orientation: 'wards up, bow down', scale: 1.15, detail: 1 },
+    { long: true }),
+  'open-book': c({ id: 'open-book', name: 'open book', plural: 'open books', article: 'an', category: 'object', typeClass: 'book', glossName: 'open book', glossPlural: 'open books', orientation: 'upright', scale: 0.9, detail: 1 }),
+  sword: c({ id: 'sword', name: 'sword', plural: 'swords', article: 'a', category: 'object', typeClass: 'sword', glossName: 'sword', glossPlural: 'swords', orientation: 'point up', scale: 1.15, detail: 1 },
+    { long: true }),
+  crown: c({ id: 'crown', name: 'crown', plural: 'crowns', article: 'a', category: 'object', typeClass: 'crown', glossName: 'crown', glossPlural: 'crowns', orientation: 'upright', scale: 0.95, detail: 0 }),
+  anchor: c({ id: 'anchor', name: 'anchor', plural: 'anchors', article: 'an', category: 'object', typeClass: 'anchor', glossName: 'anchor', glossPlural: 'anchors', orientation: 'ring up', scale: 1.15, detail: 0 },
+    { long: true }),
+  'musical-note': c({ id: 'musical-note', name: 'musical note', plural: 'musical notes', article: 'a', category: 'modern', typeClass: 'musical-note', glossName: 'musical note', glossPlural: 'musical notes', orientation: 'stem up, flag to sinister', scale: 1.15, detail: 1 }),
+  flame: c({ id: 'flame', name: 'flame', plural: 'flames', article: 'a', category: 'modern', typeClass: 'flame', glossName: 'flame', glossPlural: 'flames', orientation: 'tongues up', scale: 0.95, detail: 0 }),
+  gear: c({ id: 'gear', name: 'cogwheel', plural: 'cogwheels', article: 'a', category: 'modern', typeClass: 'cogwheel', glossName: 'gear', glossPlural: 'gears', orientation: '—', scale: 0.9, detail: 0 }),
+  lightbulb: c({ id: 'lightbulb', name: 'lightbulb', plural: 'lightbulbs', article: 'a', category: 'modern', typeClass: 'lightbulb', glossName: 'lightbulb', glossPlural: 'lightbulbs', orientation: 'bulb up', scale: 1.1, detail: 1 }),
 };
 
 export function isChargeId(value: unknown): value is ChargeId {
@@ -120,45 +213,34 @@ export function isChargeCategory(value: unknown): value is ChargeCategory {
   return typeof value === 'string' && (CHARGE_CATEGORIES as readonly string[]).includes(value);
 }
 
-export function isPosture(value: unknown): value is Posture {
-  return typeof value === 'string' && (POSTURES as readonly string[]).includes(value);
-}
+const isIn = <T extends string>(list: readonly T[]) => (value: unknown): value is T =>
+  typeof value === 'string' && (list as readonly string[]).includes(value);
+
+export const isPosture = isIn(POSTURES);
+export const isFacing = isIn(FACINGS);
+export const isOrientation = isIn(ORIENTATIONS);
+export const isChargeForm = isIn(CHARGE_FORMS);
+export const isModifierId = isIn(MODIFIER_IDS);
+export const isPartId = isIn(PART_IDS);
+export const isHoldHow = isIn(HOLD_HOWS);
 
 /** Blazon word for a posture on a given charge ("segreant" for a rampant dragon). */
 export function postureTerm(id: ChargeId, p: Posture): string {
   return CHARGES[id].postureWording[p]?.term ?? p;
 }
 
-/** Plain-English word for a posture on a given charge ("running" for a hare courant); null for displayed. */
+/** Plain-English word for a posture on a given charge; null for displayed. */
 export function postureGloss(id: ChargeId, p: Posture): string | null {
   return CHARGES[id].postureWording[p]?.gloss ?? POSTURE_GLOSS[p];
+}
+
+/** "a rose" / "three roses": a group of charges in words. */
+export function chargePhrase(id: ChargeId, count: number): string {
+  const meta = CHARGES[id];
+  return count === 1 ? `${meta.article} ${meta.name}` : `${numberWord(count)} ${meta.plural}`;
 }
 
 /** Charges in a category, in table order. */
 export function chargesInCategory(cat: ChargeCategory): ChargeMeta[] {
   return CHARGE_IDS.map((id) => CHARGES[id]).filter((m) => m.category === cat);
-}
-
-/**
- * Charges whose shapes look alike at nametag size (a shield about 32 px tall): there the horn, mane
- * and tail that tell a lion from a wolf, unicorn or goat are under a pixel, and a rose, a gear and a
- * sun are all a round boss with a ring of points. Changing a charge for another in the same group is
- * only half a difference. A charge belongs to at most one group, so "looks the same" stays
- * transitive and a charge's group can be stored and indexed.
- */
-export type SimilarityGroup = 'quadruped' | 'round';
-
-const SIMILARITY_GROUP: Partial<Record<ChargeId, SimilarityGroup>> = {
-  lion: 'quadruped', wolf: 'quadruped', unicorn: 'quadruped', goat: 'quadruped',
-  rose: 'round', gear: 'round', sun: 'round',
-};
-
-/** The charge's similarity group, or the charge itself when it looks like no other. */
-export function chargeGroup(id: ChargeId): SimilarityGroup | ChargeId {
-  return SIMILARITY_GROUP[id] ?? id;
-}
-
-/** The charges of a similarity group, in table order. */
-export function chargesInGroup(group: SimilarityGroup): ChargeId[] {
-  return CHARGE_IDS.filter((id) => SIMILARITY_GROUP[id] === group);
 }

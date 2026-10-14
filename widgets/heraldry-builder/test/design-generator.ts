@@ -1,9 +1,8 @@
-// Seeded generator of valid designs drawn from small option sets, so that generated pairs often
-// share most attributes (duplicates, near misses and clear differences all turn up). The sets include
-// look-alike charges (lion, wolf, goat; rose, gear), mirror images (per bend / per bend sinister, bend
-// / bend sinister, in bend / in bend sinister) and the four-or-more counts and patterns, so every kind
-// of half difference is exercised.
-import { normalise, type NormDesign } from '../src/lib/heraldry';
+// Seeded random designs in the new format, for sweeping the model: the same seeds make the same designs.
+// Designs are kept when they normalise (supported, structurally legal and obeying the rule of tincture); the
+// layout is Table 7's or a random one of the group's candidates.
+
+import { layoutCandidates, layoutKey, normalise, resolve, type Design } from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -17,43 +16,52 @@ function prng(seed: number): () => number {
   };
 }
 
-const TINCTURE_IDS = ['or', 'argent', 'azure', 'gules', 'sable', 'vert'];
-const DIVISION_IDS = ['per-pale', 'per-bend', 'per-bend-sinister'];
-const ORDINARY_IDS = ['fess', 'bend', 'bend-sinister', 'bordure'];
-const POSTURES: Record<string, readonly (string | null)[]> = {
-  lion: ['rampant', 'passant', 'statant'],
-  wolf: ['passant', 'statant', 'rampant'],
-  goat: ['statant', 'rampant'],
-  mullet: [null],
-  rose: [null],
-  gear: [null],
-};
-// null = the count's default arrangement; an arrangement the count can't take makes the design invalid.
-const ARRANGEMENT_IDS = [null, null, 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire'];
-const CHARGE_IDS = Object.keys(POSTURES);
+const TINCTURES = ['or', 'argent', 'azure', 'gules', 'sable', 'vert'];
+const DIVISIONS = ['per-pale', 'per-bend', 'per-bend-sinister'];
+const ORDINARIES = ['fess', 'bend', 'bend-sinister', 'chief', 'bordure'];
+const CHARGES = ['lion', 'wolf', 'mullet', 'rose', 'sword', 'gear'];
+const POSTURES: Record<string, readonly string[]> = { lion: ['rampant', 'passant', 'statant'], wolf: ['passant', 'statant', 'rampant'] };
 
-/** The normalised valid design for `seed`, or null when the random pick breaks a rule. */
-export function generatedDesign(seed: number): NormDesign | null {
+/** The design for `seed`, or null when the random pick isn't a registrable design. */
+export function generatedDesign(seed: number): Design | null {
   const next = prng(seed);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
-  const t = () => pick(TINCTURE_IDS);
+  const t = () => pick(TINCTURES);
 
-  const field = next() < 0.4
-    ? { kind: 'plain', tincture: t() }
-    : { kind: 'divided', division: pick(DIVISION_IDS), tinctures: [t(), t()] };
-  const ordinary = next() < 0.5 ? { type: pick(ORDINARY_IDS), tincture: t() } : null;
-  const charge = next() < 0.8 ? pick(CHARGE_IDS) : null;
-  const charges = charge
-    ? { charge, count: 1 + Math.floor(next() * 6), placement: 'field', arrangement: pick(ARRANGEMENT_IDS), posture: pick(POSTURES[charge]), tincture: t() }
-    : null;
+  const field = next() < 0.4 ? t() : { k: 'divided', division: pick(DIVISIONS), parts: [t(), t()] };
+  const type = next() < 0.5 ? pick(ORDINARIES) : null;
+  const id = next() < 0.8 ? pick(CHARGES) : null;
+  const groups: object[] = [];
+  if (type) groups.push({ item: { k: 'ordinary', type }, paint: t() });
+  let onField = false;
+  if (id) {
+    const posture = POSTURES[id] ? pick(POSTURES[id]) : undefined;
+    const onOrdinary = type !== null && type !== 'bordure' && next() < 0.4;
+    const charge = { item: { k: 'charge', charge: id, ...(posture ? { posture } : {}) }, paint: t(), count: 1 + Math.floor(next() * 6) };
+    if (onOrdinary) groups[0] = { ...groups[0], charged: [charge] };
+    else {
+      onField = true;
+      groups.push(charge);
+    }
+  }
 
-  const n = normalise({ v: 1, field, ordinary, charges });
+  const first = resolve({ v: 2, field, groups });
+  if (!first.ok) return null;
+  let design = first.design;
+  if (onField && next() < 0.5) {
+    const path = [design.groups.findIndex((g) => g.item.k === 'charge' && g.role !== 'tertiary')];
+    const candidates = layoutCandidates(design, path, design.groups[path[0]].count);
+    const second = resolve({ v: 2, field, groups: groups.map((g, i) => (i === groups.length - 1 ? { ...g, arrangement: layoutKey(pick(candidates)) } : g)) });
+    if (!second.ok) return null;
+    design = second.design;
+  }
+  const n = normalise(design);
   return n.ok ? n.design : null;
 }
 
-/** The first `count` valid generated designs starting from `seed`. */
-export function generatedDesigns(seed: number, count: number): NormDesign[] {
-  const designs: NormDesign[] = [];
+/** The first `count` designs from `generatedDesign`, trying seeds from `seed` upwards. */
+export function generatedDesigns(seed: number, count: number): Design[] {
+  const designs: Design[] = [];
   for (let s = seed; designs.length < count; s++) {
     const d = generatedDesign(s);
     if (d) designs.push(d);

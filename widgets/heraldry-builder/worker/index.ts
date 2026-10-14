@@ -36,8 +36,8 @@
 
 import {
   API_ERROR, DEFAULT_FIELD_SHAPE, FIELD_SHAPES, asObject, blazon, candidateKey, checkResponse, cleanContact, cleanDisplayName, cleanEmail,
-  buildSearchText, deriveTags, fieldDivision, isFieldShape, normalise, parseSearchParams, readability, reportUniqueness, resolve,
-  searchParamsFromUrl, signature, type ApiErrorCode, type CheckableEntry, type Contact, type FieldShape, type Issue, type NormDesign,
+  buildSearchText, deriveTags, isFieldShape, isSupported, normalise, parseSearchParams, readability, reportUniqueness, resolve,
+  searchParamsFromUrl, signature, type ApiErrorCode, type CandidateKey, type CheckableEntry, type Contact, type Design, type FieldShape, type Issue,
   type RegistryRef, type TakenReport, type TokenProblem,
 } from '../src/lib/heraldry';
 import { RECOVER_HASH, entryHash, ownerHash, recoverTokenHash } from '../src/lib/hashes';
@@ -248,18 +248,19 @@ async function searchArms(env: Env, url: URL): Promise<Response> {
 
 /** Everything the Worker derives from a validated design. Client-sent values are ignored. */
 interface Derived {
-  design: NormDesign;
+  design: Design;
   signature: string;
   blazon: string;
   tags: string[];
   readability: string;
+  key: CandidateKey;
 }
 
 type DesignResult = { derived: Derived } | { error: Response };
 
 function deriveDesign(raw: unknown): DesignResult {
   if (raw === undefined) {
-    return { error: invalidDesign([{ code: 'shape', layer: 'design', message: 'A design is required.' }]) };
+    return { error: invalidDesign([{ code: 'shape', at: { k: 'design' }, message: 'A design is required.', slots: [] }]) };
   }
   const n = normalise(raw);
   if (!n.ok) return { error: invalidDesign(n.errors) };
@@ -271,6 +272,7 @@ function deriveDesign(raw: unknown): DesignResult {
       blazon: blazon(design),
       tags: deriveTags(design),
       readability: readability(design).band,
+      key: candidateKey(design),
     },
   };
 }
@@ -284,30 +286,17 @@ function invalidDesign(issues: Issue[]): Response {
 }
 
 /**
- * The design's columns, in the order INSERT and UPDATE name them: field_division, ordinary, charge
- * (what it is) and division_group, ordinary_group, charge_group (the too-close lookup key).
+ * The registry entries that could be a duplicate of, too close to, or the closest entry to a design
+ * with this key: those sharing its partition and primary group (served by
+ * arms_registry_conflict_keys), in registration order.
  */
-function designColumns(nd: NormDesign): (string | null)[] {
-  const key = candidateKey(nd);
-  return [
-    fieldDivision(nd.field), nd.ordinary?.type ?? null, nd.charges?.charge ?? null,
-    key.divisionGroup, key.ordinaryGroup, key.chargeGroup,
-  ];
-}
-
-/**
- * The registry entries that could be a duplicate of, too close to, or the closest entry to `nd`:
- * those sharing its division, ordinary and charge groups (served by arms_registry_similar_groups),
- * in registration order.
- */
-async function loadCandidates(env: Env, registryId: string, nd: NormDesign): Promise<ScanRow[]> {
-  const key = candidateKey(nd);
+async function loadCandidates(env: Env, registryId: string, key: CandidateKey): Promise<ScanRow[]> {
   const { results } = await env.DB.prepare(
     `SELECT id, display_name, design, field_shape, signature, blazon FROM arms
-     WHERE registry_id = ? AND division_group = ? AND ordinary_group IS ? AND charge_group IS ?
+     WHERE registry_id = ? AND partition_key = ? AND primary_key IS ?
      ORDER BY created_at, id`
   )
-    .bind(registryId, key.divisionGroup, key.ordinaryGroup, key.chargeGroup)
+    .bind(registryId, key.partition, key.primary)
     .all<ScanRow>();
   return results;
 }
@@ -354,7 +343,7 @@ async function checkArms(request: Request, env: Env): Promise<Response> {
   const d = deriveDesign(body.design);
   if ('error' in d) return d.error;
 
-  const candidates = checkableEntries(await loadCandidates(env, reg.registry.id, d.derived.design));
+  const candidates = checkableEntries(await loadCandidates(env, reg.registry.id, d.derived.key));
   return json(200, checkResponse(d.derived.design, reg.registry, candidates));
 }
 
@@ -366,7 +355,7 @@ function validateEntryInput(body: Record<string, unknown>, absentShape: FieldSha
   if (!name.ok) return { error: fieldError('displayName', name.message) };
   const contact = cleanContact(body.contact);
   if (!contact.ok) return { error: fieldError(contact.field, contact.message) };
-  // A request without a shape (e.g. from an SPA bundle older than field shapes) keeps `absentShape`.
+  // A request without a shape keeps `absentShape`.
   const shape = body.shape === undefined ? absentShape : body.shape;
   if (!isFieldShape(shape)) return { error: fieldError('shape', `The field shape must be one of: ${FIELD_SHAPES.join(', ')}.`) };
   const d = deriveDesign(body.design);
@@ -396,7 +385,7 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
     return jsonError(409, API_ERROR.registryFull, 'This registry is full.');
   }
   const u = reportUniqueness(
-    input.derived.design, input.derived.signature, checkableEntries(await loadCandidates(env, reg.registry.id, input.derived.design))
+    input.derived.design, input.derived.signature, checkableEntries(await loadCandidates(env, reg.registry.id, input.derived.key))
   );
   if (u.verdict !== 'ok') return uniquenessError(u);
 
@@ -413,12 +402,11 @@ async function createArms(request: Request, env: Env, url: URL): Promise<Respons
     await env.DB.batch([
       env.DB.prepare(
         `INSERT INTO arms (id, registry_id, display_name, contact_discord, design, field_shape, signature, blazon,
-           field_division, ordinary, charge, division_group, ordinary_group, charge_group, readability, search_text,
-           edit_secret_hash, rev, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+           partition_key, primary_key, readability, search_text, edit_secret_hash, rev, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
       ).bind(
         id, reg.registry.id, input.displayName, input.contact.discord, JSON.stringify(nd), input.shape, d.signature, d.blazon,
-        ...designColumns(nd), d.readability,
+        d.key.partition, d.key.primary, d.readability,
         buildSearchText({ displayName: input.displayName, blazon: d.blazon, design: nd }),
         editSecretHash, now, now
       ),
@@ -552,7 +540,7 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
   const d = input.derived;
   const nd = d.design;
   if (d.signature !== row.signature) {
-    const u = reportUniqueness(nd, d.signature, checkableEntries(await loadCandidates(env, row.registry_id, nd)), id);
+    const u = reportUniqueness(nd, d.signature, checkableEntries(await loadCandidates(env, row.registry_id, d.key)), id);
     if (u.verdict !== 'ok') return uniquenessError(u);
   }
 
@@ -567,12 +555,11 @@ async function updateArms(request: Request, env: Env, id: string): Promise<Respo
       // Conditional UPDATE on rev closes the race between the SELECT above and this write.
       env.DB.prepare(
         `UPDATE arms SET display_name = ?, contact_discord = ?, design = ?, field_shape = ?, signature = ?, blazon = ?,
-           field_division = ?, ordinary = ?, charge = ?, division_group = ?, ordinary_group = ?, charge_group = ?,
-           readability = ?, search_text = ?, rev = rev + 1, updated_at = ?
+           partition_key = ?, primary_key = ?, readability = ?, search_text = ?, rev = rev + 1, updated_at = ?
          WHERE id = ? AND rev = ?`
       ).bind(
         input.displayName, input.contact.discord, JSON.stringify(nd), input.shape, d.signature, d.blazon,
-        ...designColumns(nd), d.readability,
+        d.key.partition, d.key.primary, d.readability,
         buildSearchText({ displayName: input.displayName, blazon: d.blazon, design: nd }),
         now, id, expectedRev
       ),
@@ -891,13 +878,16 @@ function recoveryMailText(entries: Array<{ displayName: string; blazon: string; 
 // ── helpers ──────────────────────────────────────────────────────────────────────────────────
 
 /** Stored designs were normalised on write; re-resolve defensively and return null if unreadable. */
-function parseStoredDesign(raw: string): NormDesign | null {
+function parseStoredDesign(raw: string): Design | null {
+  let json: unknown;
   try {
-    const r = resolve(JSON.parse(raw));
-    return r.ok ? r.design : null;
-  } catch {
-    return null;
+    json = JSON.parse(raw);
+  } catch (e) {
+    if (e instanceof SyntaxError) return null;
+    throw e;
   }
+  const r = resolve(json);
+  return r.ok && isSupported(r.design) ? r.design : null;
 }
 
 function fieldError(field: string, message: string): Response {

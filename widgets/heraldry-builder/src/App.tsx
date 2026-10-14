@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { DEFAULT_FIELD_SHAPE, blazon, type ChargedDesign, type Companion, type FieldShape, type NormDesign, type ShapedDesign } from './lib/heraldry';
+import { DEFAULT_FIELD_SHAPE, blazon, type Companion, type FieldShape, type Design, type ShapedDesign } from './lib/heraldry';
 import { DEFAULT_DESIGN, adjustDesign, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
 import { surpriseDesign } from './lib/presets';
 import { RECOVER_HASH, entryHash, parseHash, registryParam } from './lib/route';
@@ -30,7 +30,7 @@ export function App() {
   const [ready, setReady] = useState(false);
 
   const [draft] = useState(() => store.loadDraft());
-  const [design, setDesign] = useState<NormDesign>(draft?.design ?? DEFAULT_DESIGN);
+  const [design, setDesign] = useState<Design>(draft?.design ?? DEFAULT_DESIGN);
   const [shape, setShape] = useState<FieldShape>(draft?.shape ?? DEFAULT_FIELD_SHAPE);
   const report = useMemo(() => assess(design), [design]);
   const [hatching, setHatching] = useState(false);
@@ -38,7 +38,7 @@ export function App() {
   // The examples box is open on this device's first visit to the Design tab, folded on later ones.
   const [examplesOpen] = useState(() => !store.examplesSeen());
 
-  const [check, setCheck] = useState<{ design: NormDesign; outcome: CheckOutcome } | null>(null);
+  const [check, setCheck] = useState<{ design: Design; outcome: CheckOutcome } | null>(null);
   const [checking, setChecking] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registryStatus, setRegistryStatus] = useState<ListStatus>('loading');
@@ -140,7 +140,7 @@ export function App() {
   };
 
   // A count or placement that brought its partner along: applied, with the note and Undo under the controls.
-  const adjust = (nd: ChargedDesign, companion: Companion) => {
+  const adjust = (nd: Design, companion: Companion) => {
     setReplaced(adjustDesign({ design, shape }, nd, companion));
     setDesign(nd);
   };

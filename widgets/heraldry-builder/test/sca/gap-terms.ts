@@ -300,7 +300,7 @@ export const GAP_DIVISION_WORDS: Record<string, string> = {
 
 /** Posture words the widget has for some charges, with the widget posture they name. */
 export const SUPPORTED_POSTURES: Record<string, string> = {
-  rampant: 'rampant', segreant: 'rampant', passant: 'passant', trippant: 'passant', courant: 'passant',
+  rampant: 'rampant', segreant: 'rampant', passant: 'passant', trippant: 'passant', courant: 'courant',
   statant: 'statant', sejant: 'sejant', naiant: 'naiant', haurient: 'haurient', hauriant: 'haurient',
   displayed: 'displayed',
 };
@@ -400,7 +400,7 @@ export const POSITION_WORDS = w('chief base canton flank point fess-point dexter
 
 /** Arrangement words after "in" the widget has no arrangement for → sub-tag. */
 export const GAP_ARRANGEMENTS: Record<string, string> = {
-  chevron: 'in-chevron', pall: 'in-pall', pile: 'in-pile', orle: 'in-orle', bordure: 'in-orle', annulo: 'in-annulo',
+  chevron: 'in-chevron', pall: 'in-pall', pile: 'in-pile', bordure: 'in-orle',
   circle: 'in-annulo', ring: 'in-annulo', triangle: 'in-triangle', estoile: 'in-estoile', star: 'in-estoile',
   mascle: 'in-mascle', lozenge: 'in-lozenge', square: 'in-square', arch: 'in-arch', triquetra: 'in-triquetra',
 };
@@ -408,6 +408,7 @@ export const GAP_ARRANGEMENTS: Record<string, string> = {
 /** Arrangement words after "in" the widget does have → its Arrangement id (legality depends on the count). */
 export const SUPPORTED_ARRANGEMENT_WORDS: Record<string, string> = {
   pale: 'in-pale', fess: 'in-fess', bend: 'in-bend', 'bend-sinister': 'in-bend-sinister', cross: 'in-cross', saltire: 'in-saltire',
+  orle: 'in-orle', annulo: 'in-annulo', chief: 'in-chief', base: 'in-base',
 };
 
 /** Marshalling and augmentation words → sub-tag. */

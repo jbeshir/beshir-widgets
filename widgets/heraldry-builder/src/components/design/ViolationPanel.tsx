@@ -1,21 +1,25 @@
 // The design breaks a rule after a lower-layer change: list the problems by layer and offer a
 // one-click fix when a single tincture swap (or a structural refit) clears them.
 
-import { fitCharges, suggestTinctureFix, type Issue, type NormDesign } from '../../lib/heraldry';
-import { LAYER_LABEL, assess, fixText, sameDesign } from '../../lib/builder';
+import { fitGroup, suggestTinctureFix, type Issue, type Design } from '../../lib/heraldry';
+import { STEP_LABEL, assess, extraPicturePath, fixText, issueStep, picturePath, sameDesign, type StepKey } from '../../lib/builder';
 
 interface Props {
-  design: NormDesign;
+  design: Design;
   problems: Issue[];
-  onFix: (nd: NormDesign) => void;
+  onFix: (nd: Design) => void;
   /** Scroll to and focus the builder section that holds a problem. */
-  onGoTo: (layer: Issue['layer']) => void;
+  onGoTo: (step: StepKey) => void;
 }
 
 export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
-  const layers = [...new Set(problems.map((p) => LAYER_LABEL[p.layer]))];
+  const steps = problems.map((p) => issueStep(design, p));
+  const layers = [...new Set(steps.map((s) => STEP_LABEL[s]))];
   const tinctureFix = suggestTinctureFix(design);
-  const refit = fitCharges(design);
+  const refit = [picturePath, extraPicturePath].reduce((d, find) => {
+    const path = find(d);
+    return path ? fitGroup(d, path) : d;
+  }, design);
   const structuralFix = !tinctureFix && !sameDesign(refit, design) && assess(refit).status !== 'violation' ? refit : null;
   return (
     <section class="violation" data-testid="violation-panel" aria-labelledby="violation-title">
@@ -28,9 +32,9 @@ export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
       </h2>
       <ul class="violation-list">
         {problems.map((p, i) => (
-          <li key={i} data-layer={p.layer}>
-            <strong>{LAYER_LABEL[p.layer]}:</strong> {p.message}{' '}
-            <button type="button" class="text-button" data-testid="violation-goto" onClick={() => onGoTo(p.layer)}>Go to {LAYER_LABEL[p.layer].toLowerCase()}</button>
+          <li key={i} data-layer={steps[i]}>
+            <strong>{STEP_LABEL[steps[i]]}:</strong> {p.message}{' '}
+            <button type="button" class="text-button" data-testid="violation-goto" onClick={() => onGoTo(steps[i])}>Go to {STEP_LABEL[steps[i]].toLowerCase()}</button>
           </li>
         ))}
       </ul>

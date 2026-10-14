@@ -1,12 +1,13 @@
 // Plain-English gloss. Left/right always mean as you look at the shield.
 
-import { CHARGES, postureGloss } from './charges';
-import {
-  NUMBER_WORD, bodyKind, type Arrangement, type Count, type Field, type NormChargeGroup, type NormDesign, type Ordinary, type OrdinaryType,
-} from './design';
 import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
+import { joinAnd, numberWord } from './words';
+import { CHARGES, postureGloss } from './charges';
+import { fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint } from './design';
+import { type OrdinaryType } from './ordinaries';
+import { betweenWords, type Layout } from './arrangement';
 
-const ORDINARY_GLOSS: Record<OrdinaryType, string> = {
+const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   fess: 'horizontal band across the middle',
   pale: 'vertical band down the middle',
   bend: 'diagonal band from top-left to bottom-right',
@@ -19,46 +20,17 @@ const ORDINARY_GLOSS: Record<OrdinaryType, string> = {
   pile: 'downward-pointing wedge from the top',
 };
 
-const ARRANGEMENT_GLOSS: Partial<Record<Arrangement, string>> = {
-  'in-pale': 'in a vertical line',
-  'in-fess': 'in a row',
-  'in-bend': 'in a diagonal line from top-left',
-  'in-bend-sinister': 'in a diagonal line from top-right',
-  'two-and-one': 'two above one',
-  'two-and-two': 'in two rows of two',
-  'in-cross': 'in a cross pattern',
-  'in-saltire': 'in an X pattern',
-  'three-two-one': 'in rows of three, two and one',
-};
-
-/**
- * Where charges set between an ordinary sit, keyed `${ordinary}:${count}` like the slot tables.
- * "one on each side" / "one in each quarter" read as "a white rose on each side".
- */
-export const BETWEEN_GLOSS: Record<string, string> = {
-  'fess:2': 'one above and one below',
-  'fess:3': 'two above and one below',
-  'pale:2': 'one on each side',
-  'bend:2': 'one above and one below',
-  'bend-sinister:2': 'one above and one below',
-  'chevron:3': 'two above and one below',
-  'cross:4': 'one in each quarter',
-  'saltire:4': 'one above, one below and one on each side',
-  'pile:2': 'one on each side',
-};
-
 /** "a" / "an" chosen from the word that follows (colour words all start with consonants today). */
 function article(next: string): string {
   return /^[aeiou]/i.test(next) ? 'an' : 'a';
 }
 
-function fieldGloss(field: Field): string {
-  if (field.kind === 'plain') {
-    const c = TINCTURE_GLOSS[field.tincture];
-    return `${article(c) === 'an' ? 'An' : 'A'} ${c} shield`;
-  }
-  const [c1, c2] = field.tinctures.map((t) => TINCTURE_GLOSS[t]);
-  switch (field.division) {
+function fieldGloss(d: Design): string {
+  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
+  const [c1, c2] = fieldTinctures(d).map((t) => TINCTURE_GLOSS[t]);
+  if (d.field.k === 'tincture') return `${article(c1) === 'an' ? 'An' : 'A'} ${c1} shield`;
+  if (d.field.k !== 'divided') return notSupported({ category: 'field-treatment', detail: d.field.k });
+  switch (d.field.division) {
     case 'per-pale': return `A shield split vertically, ${c1} on the left and ${c2} on the right`;
     case 'per-fess': return `A shield split horizontally, ${c1} on top and ${c2} below`;
     case 'per-bend': return `A shield split diagonally from top-left to bottom-right, ${c1} above and ${c2} below`;
@@ -66,66 +38,119 @@ function fieldGloss(field: Field): string {
     case 'per-saltire': return `A shield divided by an X, ${c1} top and bottom and ${c2} left and right`;
     case 'per-chevron': return `A shield divided by an upside-down V, ${c1} above and ${c2} below`;
     case 'quarterly': return `A shield divided into four quarters, ${c1} top-left and bottom-right, ${c2} top-right and bottom-left`;
+    default: return notSupported({ category: 'division', detail: d.field.division });
   }
 }
 
-function ordinaryGloss(o: Ordinary): string {
-  const c = TINCTURE_GLOSS[o.tincture];
-  return `${article(c)} ${c} ${ORDINARY_GLOSS[o.type]}`;
-}
-
-/** "in the opposite colours of the field (blue on gold, gold on blue)" for counterchanged charges on a divided field. */
-function counterchangedGloss(field: Field): string {
-  if (field.kind === 'plain') return 'in the opposite colours of the field';
-  const [a, b] = field.tinctures.map((t) => TINCTURE_WORD[t]);
+/** "in the opposite colours of the field (blue on gold, gold on blue)" for counterchanged groups on a divided field. */
+function counterchangedGloss(d: Design): string {
+  const pair = fieldTinctures(d);
+  if (pair.length < 2) return 'in the opposite colours of the field';
+  const [a, b] = pair.map((t) => TINCTURE_WORD[t]);
   return `in the opposite colours of the field (${b} on ${a}, ${a} on ${b})`;
 }
 
-/** The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word). */
-function chargesSubject(g: NormChargeGroup, count: Count): string {
-  const meta = CHARGES[g.charge];
-  const noun = count === 1 ? meta.glossName : meta.glossPlural;
-  const c = g.tincture === 'counterchanged' ? null : TINCTURE_GLOSS[g.tincture];
-  const lead = count === 1 ? article(c ?? noun) : NUMBER_WORD[count];
-  const pg = g.posture ? postureGloss(g.charge, g.posture) : null;
-  return [lead, c, noun, pg].filter(Boolean).join(' ');
+/** A plain colour word for a group's paint, or null for counterchanged (which has its own clause). */
+function colourOf(p: Paint): string | null {
+  if (p.k === 'tincture') return TINCTURE_GLOSS[p.t];
+  if (p.k === 'counterchanged') return null;
+  return notSupported({ category: 'tincture', detail: p.k });
 }
 
-/** "three red five-pointed stars, two above one"; counterchanged: "three five-pointed stars in the opposite colours of the field (…), two above one". */
-function chargesGloss(g: NormChargeGroup, field: Field): string {
-  let s = chargesSubject(g, g.count);
-  if (g.tincture === 'counterchanged') s += ` ${counterchangedGloss(field)}`;
-  const ag = ARRANGEMENT_GLOSS[g.arrangement];
-  if (ag) s += `, ${ag}`;
-  return s;
+function ordinaryGloss(d: Design, g: Group): string {
+  if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
+  const body = ORDINARY_GLOSS[g.item.type] ?? notSupported({ category: 'ordinary', detail: g.item.type });
+  const colour = colourOf(g.paint);
+  return colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${counterchangedGloss(d)}`;
+}
+
+/** The words for a layout, or null when it needs none (a lone charge, or charges placed by their host). */
+function layoutGloss(l: Layout, count: number): string | null {
+  const a: Arrangement = l.arrangement;
+  if (l.position) return l.position === 'chief' ? (count === 1 ? 'near the top' : 'in a row along the top') : count === 1 ? 'near the bottom' : 'in a row along the bottom';
+  switch (a.k) {
+    case 'single': case 'host': return null;
+    case 'line': return { pale: 'in a vertical line', fess: 'in a row', bend: 'in a diagonal line from top-left', 'bend-sinister': 'in a diagonal line from top-right' }[a.dir];
+    case 'rows': {
+      const key = a.rows.join('-');
+      if (key === '2-1') return 'two above one';
+      if (key === '1-2') return 'one above two';
+      if (key === '2-2') return 'in two rows of two';
+      return `in rows of ${joinAnd(a.rows.map(numberWord))}`;
+    }
+    case 'pattern':
+      if (a.pattern === 'cross') return 'in a cross pattern';
+      if (a.pattern === 'saltire') return 'in an X pattern';
+      if (a.pattern === 'orle') return 'in a ring around the edge';
+      if (a.pattern === 'annulo') return 'in a ring';
+      return notSupported({ category: 'arrangement', detail: `in-${a.pattern}` });
+    case 'crossed': return 'crossed like an X';
+    case 'pair': return notSupported({ category: 'posture', detail: a.pair });
+  }
+}
+
+/** The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word). */
+function chargesSubject(g: Group, count: number): string {
+  if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
+  const meta = CHARGES[g.item.charge];
+  const splendour = g.item.mods.some((m) => m.id === 'in-splendour');
+  const noun = (count === 1 ? meta.glossName : meta.glossPlural) + (splendour ? (count === 1 ? ' with a face' : ' with faces') : '');
+  const colour = colourOf(g.paint);
+  const lead = count === 1 ? article(colour ?? noun) : numberWord(count);
+  const posture = g.item.posture ? postureGloss(g.item.charge, g.item.posture) : null;
+  return [lead, colour, noun, posture].filter(Boolean).join(' ');
+}
+
+/** "three red five-pointed stars, two above one"; counterchanged: "…stars in the opposite colours of the field (…), two above one". */
+function chargesGloss(d: Design, g: Group): { text: string; clause: boolean } {
+  let text = chargesSubject(g, g.count);
+  if (g.paint.k === 'counterchanged') text += ` ${counterchangedGloss(d)}`;
+  const where = layoutGloss({ arrangement: g.arrangement, position: g.position }, g.count);
+  return where ? { text: `${text}, ${where}`, clause: true } : { text, clause: false };
 }
 
 /**
  * Charges set between an ordinary, placed around it: "a white rose on each side", "two white roses,
  * one above and one below". A count the ordinary doesn't take (a structural error) is glossed plainly.
  */
-function betweenGloss(g: NormChargeGroup, o: Ordinary, field: Field): string {
-  const where = BETWEEN_GLOSS[`${o.type}:${g.count}`];
-  if (!where) return chargesGloss(g, field);
-  const colour = g.tincture === 'counterchanged' ? `, ${counterchangedGloss(field)}` : '';
-  if (/^one (on|in) each /.test(where)) return `${chargesSubject(g, 1)} ${where.slice('one '.length)}${colour}`;
-  return `${chargesSubject(g, g.count)}${colour}, ${where}`;
+function betweenGloss(d: Design, g: Group, ordinary: OrdinaryType): { text: string; clause: boolean } {
+  const where = betweenWords(ordinary, g.count);
+  if (!where) return chargesGloss(d, g);
+  const colour = g.paint.k === 'counterchanged' ? `, ${counterchangedGloss(d)}` : '';
+  if (/^one (on|in) each /.test(where)) return { text: `${chargesSubject(g, 1)} ${where.slice('one '.length)}${colour}`, clause: false };
+  return { text: `${chargesSubject(g, g.count)}${colour}, ${where}`, clause: false };
 }
 
-export function gloss(nd: NormDesign): string {
-  const field = fieldGloss(nd.field);
-  const joiner = nd.field.kind === 'plain' ? ' with ' : ', with ';
-  const o = nd.ordinary, c = nd.charges;
-  let rest: string;
-  switch (bodyKind(nd)) {
-    case 'none': return `${field}.`;
-    case 'ordOnly': rest = ordinaryGloss(o!); break;
-    case 'chargesOnly': rest = chargesGloss(c!, nd.field); break;
-    case 'onOrd': rest = `${ordinaryGloss(o!)}, carrying ${chargesGloss(c!, nd.field)}`; break;
-    case 'between': rest = `${ordinaryGloss(o!)} and ${betweenGloss(c!, o!, nd.field)}`; break;
-    case 'withChief':
-    // A trailing arrangement clause ("…, two above one") takes a comma before "and".
-    case 'withBordure': rest = `${chargesGloss(c!, nd.field)}${ARRANGEMENT_GLOSS[c!.arrangement] ? ',' : ''} and ${ordinaryGloss(o!)}`; break;
+/** An ordinary with what is set between and on it. `clause`: the text ends in a layout clause that takes a comma before "and". */
+function ordinaryWith(d: Design, g: Group, between: Group[]): { text: string; clause: boolean } {
+  if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
+  const type = g.item.type;
+  let text = ordinaryGloss(d, g);
+  let clause = false;
+  for (const t of g.charged) {
+    const c = chargesGloss(d, t);
+    // A band on the edge reads as a phrase of its own: "a gold band across the top carrying three red roses".
+    text += `${type === 'chief' || type === 'bordure' ? ' ' : ', '}carrying ${c.text}`;
+    clause = c.clause;
   }
-  return `${field}${joiner}${rest}.`;
+  for (const s of between) {
+    const b = betweenGloss(d, s, type);
+    text += `${g.charged.length > 0 ? ', and' : ' and'} ${b.text}`;
+    clause = b.clause;
+  }
+  return { text, clause };
+}
+
+export function gloss(d: Design): string {
+  const field = fieldGloss(d);
+  const between = d.groups.filter((g) => g.role === 'secondary');
+  const primary = d.groups.filter((g) => g.role === 'primary');
+  const peripheral = d.groups.filter((g) => g.role === 'peripheral');
+  if (d.groups.length !== primary.length + between.length + peripheral.length) {
+    return notSupported({ category: 'multiple-groups', detail: 'overall' });
+  }
+  const parts = [...primary, ...peripheral].map((g) => (g.item.k === 'ordinary' ? ordinaryWith(d, g, g.role === 'primary' ? between : []) : chargesGloss(d, g)));
+  if (parts.length === 0) return `${field}.`;
+  const rest = parts.reduce((text, p, i) => (i === 0 ? p.text : `${text}${parts[i - 1].clause ? ',' : ''} and ${p.text}`), '');
+  return `${field}${d.kind === 'arms' && d.field.k === 'tincture' ? ' with ' : ', with '}${rest}.`;
 }

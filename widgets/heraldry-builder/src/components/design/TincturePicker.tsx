@@ -6,12 +6,12 @@
 
 import { useRef } from 'preact/hooks';
 import {
-  CHARGE_TINCTURES, COLOURS, METALS, NON_STANDARD_TINCTURES, TINCTURE_FILL, TINCTURE_LABEL, plainFirst,
-  type ChargeTincture, type Choice,
+  GROUP_TINCTURES, COLOURS, METALS, NON_STANDARD_TINCTURES, TINCTURE_FILL, TINCTURE_LABEL, plainFirst,
+  type Choice, type GroupTincture,
 } from '../../lib/heraldry';
 import { LockGlyph, useExplainer } from './Explainer';
 
-interface Props<T extends ChargeTincture> {
+interface Props<T extends GroupTincture> {
   /** Swatch testid group: swatch-<group>-<tincture>. */
   group: string;
   legend: string;
@@ -25,7 +25,7 @@ interface Props<T extends ChargeTincture> {
 /** Note shown under the picker while counterchanged is selected. */
 const COUNTERCHANGED_NOTE = "Each charge, or each part of one that crosses the field's line, takes the field's other tincture.";
 
-const chipStyle = (t: ChargeTincture) => (t === 'counterchanged' ? undefined : { background: TINCTURE_FILL[t] });
+const chipStyle = (t: GroupTincture) => (t === 'counterchanged' ? undefined : { background: TINCTURE_FILL[t] });
 
 /** The counterchanged swatch: a divided square with a disc in the opposite tinctures. */
 function CounterchangedChip() {
@@ -39,20 +39,20 @@ function CounterchangedChip() {
   );
 }
 
-export function TincturePicker<T extends ChargeTincture>({ group, legend, choices, value, onChange: change, testid }: Props<T>) {
+export function TincturePicker<T extends GroupTincture>({ group, legend, choices, value, onChange: change, testid }: Props<T>) {
   const { explain: onBlocked, close: closeExplainer, node: explainer } = useExplainer();
   const onChange = (t: T) => {
     closeExplainer();
     change(t);
   };
   const rootRef = useRef<HTMLDivElement>(null);
-  const byValue = new Map<ChargeTincture, Choice<T>>(choices.map((c) => [c.value, c]));
-  const order = CHARGE_TINCTURES.filter((t): t is T => byValue.has(t));
-  const offered = (ts: readonly ChargeTincture[]) => ts.filter((t): t is T => byValue.has(t));
+  const byValue = new Map<GroupTincture, Choice<T>>(choices.map((c) => [c.value, c]));
+  const order = GROUP_TINCTURES.filter((t): t is T => byValue.has(t));
+  const offered = (ts: readonly GroupTincture[]) => ts.filter((t): t is T => byValue.has(t));
   const legendId = `tl-${group}`;
   const anyBlocked = choices.some((c) => !c.allowed);
-  const isNonStandard = (t: ChargeTincture) => t !== 'counterchanged' && NON_STANDARD_TINCTURES.has(t);
-  const nameOf = (t: ChargeTincture) => TINCTURE_LABEL[t].plain;
+  const isNonStandard = (t: GroupTincture) => t !== 'counterchanged' && NON_STANDARD_TINCTURES.has(t);
+  const nameOf = (t: GroupTincture) => TINCTURE_LABEL[t].plain;
 
   const activate = (t: T, el: HTMLElement) => {
     const c = byValue.get(t);

@@ -29,10 +29,10 @@
 
 
 import {
-  API_ERROR, DEFAULT_FIELD_SHAPE, NO_CONTACT, asObject, buildSearchText, checkResponse, isApiErrorCode, isDiffAttr, isFieldShape, isMailOutcome,
+  API_ERROR, DEFAULT_FIELD_SHAPE, NO_CONTACT, asObject, buildSearchText, checkResponse, isApiErrorCode, isChangeKind, isDiffAttr, isFieldShape, isMailOutcome, isSenaRule,
   isReadabilityBand, normalise, parseSearchParams, readability, registrationOrder, resolve, searchEntries, searchParamsToUrl,
-  type ApiErrorCode, type CheckResponse, type ComparedEntry, type ConflictSummary, type Contact, type DifferenceNote, type FieldShape, type Issue,
-  type MailOutcome, type NormDesign, type ReadabilityBand, type RegistryRef, type SearchParams, type ShapedDesign, type UniquenessReport,
+  type ApiErrorCode, type CheckResponse, type ComparedEntry, type ConflictSummary, type Contact, type Design, type DifferenceNote, type FieldShape, type Issue,
+  type MailOutcome, type ReadabilityBand, type RegistryRef, type SearchParams, type ShapedDesign, type UniquenessReport,
 } from './lib/heraldry';
 import { forgetDeviceArms, listDeviceArms, rememberDeviceArms, type DeviceArms } from './lib/deviceArms';
 import { clearDraft as clearStoredDraft, readDraft, writeDraft } from './lib/deviceDraft';
@@ -73,7 +73,7 @@ export function failureCode(f: Failure): ApiErrorCode | null {
 export interface ArmsSummary {
   id: string;
   displayName: string;
-  design: NormDesign;
+  design: Design;
   /** The field shape the owner chose to display the arms in (not part of the arms). */
   shape: FieldShape;
   blazon: string;
@@ -135,7 +135,7 @@ interface RegisterInput extends EntryInput {
 export interface RecoveryEntry {
   id: string;
   displayName: string;
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
   blazon: string;
 }
@@ -343,7 +343,7 @@ function toCulprit(b: Record<string, unknown>): Culprit {
   return { kind: 'body' };
 }
 
-function toDesign(v: unknown): NormDesign | null {
+function toDesign(v: unknown): Design | null {
   const r = resolve(v);
   return r.ok ? r.design : null;
 }
@@ -370,10 +370,9 @@ function toDifferenceNotes(vs: unknown): DifferenceNote[] | null {
   if (!Array.isArray(vs)) return null;
   return vs.flatMap((v): DifferenceNote[] => {
     const o = asObject(v);
-    if (!o || !isDiffAttr(o.attr) || typeof o.text !== 'string') return [];
-    if (o.weight === 'clear') return [{ attr: o.attr, weight: 'clear', text: o.text }];
-    if (o.weight === 'minor' && typeof o.why === 'string') return [{ attr: o.attr, weight: 'minor', text: o.text, why: o.why }];
-    return [];
+    if (!o || !isDiffAttr(o.attr) || !isChangeKind(o.kind) || !isSenaRule(o.rule) || typeof o.text !== 'string' || typeof o.why !== 'string') return [];
+    if (o.item !== null && o.item !== 'ordinary' && o.item !== 'charge') return [];
+    return [{ attr: o.attr, kind: o.kind, rule: o.rule, text: o.text, why: o.why, item: o.item }];
   });
 }
 
@@ -584,8 +583,7 @@ export function loadDraft(): ShapedDesign | null {
   const raw = readDraft();
   if (raw == null) return null;
   const r = resolve(raw.design);
-  // A draft saved before field shapes existed has no shape: it shows in the default one.
-  return r.ok ? { design: r.design, shape: isFieldShape(raw.shape) ? raw.shape : DEFAULT_FIELD_SHAPE } : null;
+  return r.ok && isFieldShape(raw.shape) ? { design: r.design, shape: raw.shape } : null;
 }
 
 export function saveDraft(draft: ShapedDesign): void {

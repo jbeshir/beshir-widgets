@@ -4,7 +4,7 @@
 
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
-import type { FieldShape, NormDesign } from '../lib/heraldry';
+import type { FieldShape, Design } from '../lib/heraldry';
 import { pictureFileName, standaloneSvg, type PictureFormat } from '../lib/exportPicture';
 import { Shield } from './Shield';
 
@@ -20,7 +20,7 @@ class PictureSaveError extends Error {
 }
 
 /** The live markup of one shield, drawn offscreen so the picture never depends on what is on screen. */
-function renderedShieldMarkup(design: NormDesign, shape: FieldShape, hatching: boolean): string {
+function renderedShieldMarkup(design: Design, shape: FieldShape, hatching: boolean): string {
   const host = document.createElement('div');
   render(<Shield design={design} shape={shape} hatching={hatching} />, host);
   const svg = host.firstElementChild;
@@ -67,7 +67,7 @@ function download(blob: Blob, fileName: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-async function savePicture(format: PictureFormat, design: NormDesign, shape: FieldShape, hatching: boolean, displayName: string): Promise<string> {
+async function savePicture(format: PictureFormat, design: Design, shape: FieldShape, hatching: boolean, displayName: string): Promise<string> {
   const markup = renderedShieldMarkup(design, shape, hatching);
   const fileName = pictureFileName(displayName, format);
   const blob = format === 'svg'
@@ -78,7 +78,7 @@ async function savePicture(format: PictureFormat, design: NormDesign, shape: Fie
 }
 
 interface Props {
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
   hatching: boolean;
   /** Names the file and the buttons; empty for arms that have no name yet. */

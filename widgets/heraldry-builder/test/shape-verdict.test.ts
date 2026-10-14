@@ -1,141 +1,150 @@
-// The field shape is display only, so every shape must give a design the same verdict. The rule of
-// tincture is judged on the canonical (heater) layout and the verdict functions take only the
-// design; these tests cover the sample registry, the validation examples, a set of rule-breaking
-// designs and a seeded batch of generated designs:
-//   - a design carried as a draft in each shape (stored, read back, resolved) comes back unchanged, so
-//     its issues, builder report, one-click fix and tincture locks are the same as in every other
-//     shape. The verdict functions never receive the shape, so this guards the draft round trip and
-//     documents that signature, not the rule itself;
-//   - judged instead on what is actually drawn in each shape (its own slots and partition lines),
-//     every charge gets the same per-slot verdict as the canonical one, so the picture never shows
-//     a clash the verdict missed, nor hides one it reported.
+// The field shape is display only, so every shape must give a design the same verdict. The rule of tincture
+// is judged on the canonical (heater) layout and the verdict functions take only the design; these tests cover
+// the validation examples, a set of rule-breaking designs and a seeded batch of generated designs:
+//   - a design carried as a draft in each shape (stored, read back, resolved) comes back unchanged, so its
+//     issues, readability and text are the same as in every other shape. The verdict functions never receive
+//     the shape, so this guards the draft round trip and documents that signature, not the rule itself;
+//   - judged instead on what is actually drawn in each shape (its own slots and partition lines), every
+//     charge gets the same per-slot verdict as the canonical one, so the picture never shows a clash the
+//     verdict missed, nor hides one it reported.
+// The one-click fix and the tincture locks depend on the builder's option logic; their shape assertions are in
+// the builder tests.
 
 import { describe, expect, it } from 'vitest';
 import {
-  FIELD_SHAPES, SHAPE_LAYOUT, chargeContext, chargeContrastFailure, chargeSlotContacts, chargeTinctureChoices,
-  fieldTinctureChoices, inFirstPart, ordinaryTinctureChoices, probePoints, resolve, shapedChargeSlots,
-  suggestTinctureFix, validate, type FieldShape, type NormDesign, type ShapedDesign, type Slot, type Tincture,
+  FIELD_SHAPES, blazon, fieldTinctures, gloss, groundFailure, groundPoints, groundShares, groupSlots, inFirstPart, readability, resolve,
+  shapeFrame, signature, validate, walkGroups, type Design, type FieldShape, type Ground, type Group, type ShapedDesign, type Slot,
 } from '../src/lib/heraldry';
-import { assess } from '../src/lib/builder';
 import sample from '../src/data/sample-registry.json';
+import { arms, charge, div, group, nd, ordinary } from './helpers';
 import { generatedDesigns } from './design-generator';
 import { V } from './validation-cases';
-import { plain, div } from './helpers';
 
-const group = (charge: string, count: number, tincture: string, arrangement?: string) =>
-  ({ charge, count, placement: 'field', tincture, ...(arrangement ? { arrangement } : {}) });
+const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
+const ord = (type: string, paint: string, extra: object = {}) => group(ordinary(type), paint, extra);
 
 /** Designs that break the rule of tincture on part of a divided field, in each kind of placement. */
 const BROKEN: Array<[string, unknown]> = [
-  ['per fess, 2-1 mullets', { v: 1, field: div('per-fess', 'azure', 'or'), charges: group('mullet', 3, 'gules') }],
-  ['per pale, 2 roses in fess', { v: 1, field: div('per-pale', 'or', 'gules'), charges: group('rose', 2, 'azure', 'in-fess') }],
-  ['per bend, 3 keys in bend', { v: 1, field: div('per-bend', 'or', 'argent'), charges: group('key', 3, 'argent', 'in-bend') }],
-  ['per saltire, 5 in saltire', { v: 1, field: div('per-saltire', 'vert', 'or'), charges: group('heart', 5, 'gules') }],
-  ['per chevron, 3 in fess', { v: 1, field: div('per-chevron', 'gules', 'argent'), charges: group('crown', 3, 'or', 'in-fess') }],
-  ['quarterly, 4 two and two', { v: 1, field: div('quarterly', 'or', 'azure'), charges: group('anchor', 4, 'gules', 'two-and-two') }],
-  ['quarterly, 5 in cross', { v: 1, field: div('quarterly', 'argent', 'or'), charges: group('anchor', 5, 'or', 'in-cross') }],
-  ['per pale, 6 lions', { v: 1, field: div('per-pale', 'azure', 'argent'), charges: { ...group('lion', 6, 'or'), posture: 'rampant' } }],
-  ['per fess, chief Or, 3 under', { v: 1, field: div('per-fess', 'argent', 'gules'), ordinary: { type: 'chief', tincture: 'azure' }, charges: group('mullet', 3, 'argent') }],
-  ['per bend sinister, bordure, 2', { v: 1, field: div('per-bend-sinister', 'or', 'vert'), ordinary: { type: 'bordure', tincture: 'sable' }, charges: group('rose', 2, 'or', 'in-bend-sinister') }],
-  ['per pale, fess between 3', { v: 1, field: div('per-pale', 'gules', 'or'), ordinary: { type: 'fess', tincture: 'argent' }, charges: group('sun', 3, 'azure') }],
-  ['plain, colour on colour', { v: 1, field: plain('vert'), charges: group('wolf', 2, 'gules') }],
-  ['on a pale, metal on metal', { v: 1, field: plain('azure'), ordinary: { type: 'pale', tincture: 'or' }, charges: { ...group('key', 3, 'argent'), placement: 'ordinary' } }],
-  ['counterchanged on two metals', { v: 1, field: div('per-pale', 'or', 'argent'), charges: group('mullet', 3, 'counterchanged') }],
-  ['counterchanged on two colours', { v: 1, field: div('quarterly', 'gules', 'azure'), charges: group('rose', 4, 'counterchanged') }],
-  ['counterchanged on a plain field', { v: 1, field: plain('vert'), charges: group('mullet', 2, 'counterchanged') }],
-  ['counterchanged on an ordinary', { v: 1, field: div('per-fess', 'or', 'azure'), ordinary: { type: 'fess', tincture: 'gules' }, charges: { ...group('key', 3, 'counterchanged'), placement: 'ordinary' } }],
+  ['per fess, 2-1 mullets', arms(div('per-fess', 'azure', 'or'), chg('mullet', 'gules', { count: 3 }))],
+  ['per pale, 2 roses in fess', arms(div('per-pale', 'or', 'gules'), chg('rose', 'azure', { count: 2, arrangement: 'in-fess' }))],
+  ['per bend, 3 keys in bend', arms(div('per-bend', 'or', 'argent'), chg('key', 'argent', { count: 3, arrangement: 'in-bend' }))],
+  ['per saltire, 5 hearts', arms(div('per-saltire', 'vert', 'or'), chg('heart', 'gules', { count: 5 }))],
+  ['per chevron, 3 in fess', arms(div('per-chevron', 'gules', 'argent'), chg('crown', 'or', { count: 3, arrangement: 'in-fess' }))],
+  ['quarterly, 4 two and two', arms(div('quarterly', 'or', 'azure'), chg('anchor', 'gules', { count: 4, arrangement: 'rows-2-2' }))],
+  ['quarterly, 5 in cross', arms(div('quarterly', 'argent', 'or'), chg('anchor', 'or', { count: 5, arrangement: 'in-cross' }))],
+  ['per pale, 6 lions', arms(div('per-pale', 'azure', 'argent'), chg('lion', 'or', { count: 6 }))],
+  ['per fess, chief, 3 under', arms(div('per-fess', 'argent', 'gules'), ord('chief', 'azure'), chg('mullet', 'argent', { count: 3 }))],
+  ['per bend sinister, bordure, 2', arms(div('per-bend-sinister', 'or', 'vert'), ord('bordure', 'sable'), chg('rose', 'or', { count: 2, arrangement: 'in-bend-sinister' }))],
+  ['per pale, fess between 3', arms(div('per-pale', 'gules', 'or'), ord('fess', 'argent'), chg('sun', 'azure', { count: 3 }))],
+  ['plain, colour on colour', arms('vert', chg('wolf', 'gules', { count: 2 }))],
+  ['on a pale, metal on metal', arms('azure', ord('pale', 'or', { charged: [chg('key', 'argent', { count: 3 })] }))],
+  ['counterchanged on two metals', arms(div('per-pale', 'or', 'argent'), chg('mullet', 'counterchanged', { count: 3 }))],
+  ['counterchanged on two colours', arms(div('quarterly', 'gules', 'azure'), chg('rose', 'counterchanged', { count: 4 }))],
+  ['counterchanged on a plain field', arms('vert', chg('mullet', 'counterchanged', { count: 2 }))],
+  ['counterchanged on an ordinary', arms(div('per-fess', 'or', 'azure'), ord('fess', 'gules', { charged: [chg('key', 'counterchanged', { count: 3 })] }))],
+  ['a chief with a rose across per bend', arms(div('per-bend', 'argent', 'sable'), chg('rose', 'gules'), ord('chief', 'gules'))],
+  ['forced in chief on per chevron', arms(div('per-chevron', 'vert', 'or'), chg('sun', 'or', { count: 2 }))],
 ];
 
 /** Counterchanged charges on a metal-and-colour field, in every division and kind of field placement. */
 const COUNTERCHANGED: Array<[string, unknown]> = [
-  ['per pale, 3 two and one', { v: 1, field: div('per-pale', 'or', 'azure'), charges: group('mullet', 3, 'counterchanged') }],
-  ['per fess, 2 in bend', { v: 1, field: div('per-fess', 'gules', 'argent'), charges: group('rose', 2, 'counterchanged', 'in-bend') }],
-  ['per bend, 3 in fess', { v: 1, field: div('per-bend', 'celestine', 'vert'), charges: group('key', 3, 'counterchanged', 'in-fess') }],
-  ['per bend sinister, single', { v: 1, field: div('per-bend-sinister', 'sable', 'or'), charges: { ...group('lion', 1, 'counterchanged'), posture: 'rampant' } }],
-  ['per saltire, 5 in cross', { v: 1, field: div('per-saltire', 'argent', 'purpure'), charges: group('heart', 5, 'counterchanged', 'in-cross') }],
-  ['per chevron, 6', { v: 1, field: div('per-chevron', 'azure', 'or'), charges: group('crescent', 6, 'counterchanged') }],
-  ['quarterly, 4 two and two', { v: 1, field: div('quarterly', 'or', 'gules'), charges: group('anchor', 4, 'counterchanged') }],
-  ['per pale, chief, 3 under', { v: 1, field: div('per-pale', 'argent', 'vert'), ordinary: { type: 'chief', tincture: 'sable' }, charges: group('mullet', 3, 'counterchanged') }],
-  ['per fess, bordure, 2', { v: 1, field: div('per-fess', 'or', 'sable'), ordinary: { type: 'bordure', tincture: 'gules' }, charges: group('sun', 2, 'counterchanged') }],
-  ['per pale, pile between 2', { v: 1, field: div('per-pale', 'azure', 'argent'), ordinary: { type: 'pile', tincture: 'gules' }, charges: group('fish', 2, 'counterchanged') }],
+  ['per pale, 3 two and one', arms(div('per-pale', 'or', 'azure'), chg('mullet', 'counterchanged', { count: 3 }))],
+  ['per fess, 2 in bend', arms(div('per-fess', 'gules', 'argent'), chg('rose', 'counterchanged', { count: 2, arrangement: 'in-bend' }))],
+  ['per bend, 3 in fess', arms(div('per-bend', 'celestine', 'vert'), chg('key', 'counterchanged', { count: 3, arrangement: 'in-fess' }))],
+  ['per bend sinister, single', arms(div('per-bend-sinister', 'sable', 'or'), chg('lion', 'counterchanged'))],
+  ['per saltire, 5 in cross', arms(div('per-saltire', 'argent', 'purpure'), chg('heart', 'counterchanged', { count: 5, arrangement: 'in-cross' }))],
+  ['per chevron, 6', arms(div('per-chevron', 'azure', 'or'), chg('crescent', 'counterchanged', { count: 6 }))],
+  ['quarterly, 4 two and two', arms(div('quarterly', 'or', 'gules'), chg('anchor', 'counterchanged', { count: 4 }))],
+  ['per pale, chief, 3 under', arms(div('per-pale', 'argent', 'vert'), ord('chief', 'sable'), chg('mullet', 'counterchanged', { count: 3 }))],
+  ['per fess, bordure, 2', arms(div('per-fess', 'or', 'sable'), ord('bordure', 'gules'), chg('sun', 'counterchanged', { count: 2 }))],
+  ['per pale, fess counterchanged', arms(div('per-pale', 'argent', 'gules'), ord('fess', 'counterchanged'))],
+  ['per pale, chief counterchanged', arms(div('per-pale', 'argent', 'gules'), ord('chief', 'counterchanged'), chg('mullet', 'or'))],
 ];
 
-const DESIGNS: Array<[string, NormDesign]> = [
+const DESIGNS: Array<[string, Design]> = [
   ...sample.entries.map((e): [string, unknown] => [e.id, e.design]),
   ...V.map((c): [string, unknown] => [c.id, c.design]),
   ...BROKEN,
   ...COUNTERCHANGED,
 ].flatMap(([name, raw]) => {
   const r = resolve(raw);
-  return r.ok ? [[name, r.design] as [string, NormDesign]] : [];
-}).concat(generatedDesigns(4242, 200).map((d, i): [string, NormDesign] => [`generated ${i}`, d]));
+  return r.ok ? [[name, r.design] as [string, Design]] : [];
+}).concat(generatedDesigns(4242, 200).map((d, i): [string, Design] => [`generated ${i}`, d]));
 
 /** As the builder holds it: written as a draft in a shape, read back and re-resolved. */
-function throughDraft(arms: ShapedDesign): NormDesign {
-  const stored = JSON.parse(JSON.stringify(arms)) as { design: unknown };
+function throughDraft(shaped: ShapedDesign): Design {
+  const stored = JSON.parse(JSON.stringify(shaped)) as { design: unknown };
   const r = resolve(stored.design);
   if (!r.ok) throw new Error('draft did not resolve');
   return r.design;
 }
 
-/** Everything the builder and the Worker decide about a design's validity. */
-function verdict(nd: NormDesign) {
-  const t1 = fieldTinctureChoices(nd, 0);
-  return {
-    issues: validate(nd),
-    report: assess(nd),
-    fix: suggestTinctureFix(nd),
-    locks: [t1, nd.field.kind === 'divided' ? fieldTinctureChoices(nd, 1) : [], nd.ordinary ? ordinaryTinctureChoices(nd) : [], chargeTinctureChoices(nd)],
-  };
+/** Everything that is decided about a design's validity and text. */
+function verdict(d: Design) {
+  return { issues: validate(d), readability: readability(d), blazon: blazon(d), gloss: gloss(d), signature: signature(d) };
 }
 
-/** Field tinctures a slot touches as drawn in a shape: the five-point probe against that shape's lines. */
-function drawnContacts(nd: NormDesign, slot: Slot, shape: FieldShape): Tincture[] {
-  const f = nd.field;
-  if (f.kind === 'plain') return [f.tincture];
-  const fess = SHAPE_LAYOUT[shape].fessPoint;
-  const parts = new Set<number>(probePoints(slot).map(([x, y]) => (inFirstPart(f.division, fess, x, y) ? 0 : 1)));
-  return f.tinctures.filter((_, i) => parts.has(i));
+/**
+ * The ground of a slot as drawn in a shape: its sample points against that shape's lines (a charge alone in the
+ * centre is judged at the shape's fess point, as the canonical verdict judges it at the heater's).
+ */
+function drawnGround(d: Design, g: Group, slot: Slot, shape: FieldShape): Ground {
+  const parts = fieldTinctures(d);
+  if (d.kind !== 'arms' || d.field.k !== 'divided') return parts.map((t) => ({ t, share: 1 }));
+  const division = d.field.division;
+  const fess = shapeFrame(shape).fessPoint;
+  const centred = g.arrangement.k === 'single' && g.position === null ? { ...slot, ...fess } : slot;
+  const points = groundPoints(centred);
+  const inPart = (i: number) => points.filter(([x, y]) => inFirstPart(division, fess, x, y) === (i === 0)).length / points.length;
+  return parts.flatMap((t, i) => (inPart(i) > 0 ? [{ t, share: inPart(i) }] : []));
 }
 
 describe('field shapes and the verdict', () => {
   it('covers valid and rule-breaking designs', () => {
-    const verdicts = DESIGNS.map(([, nd]) => verdict(nd).report.status);
-    expect(verdicts.filter((s) => s === 'valid').length).toBeGreaterThan(100);
-    const counterchanged = DESIGNS.filter(([, nd]) => nd.charges?.tincture === 'counterchanged').map(([, nd]) => verdict(nd).report.status);
-    expect(counterchanged.filter((s) => s === 'valid').length).toBeGreaterThanOrEqual(COUNTERCHANGED.length + 3);
-    expect(verdicts.filter((s) => s === 'violation').length).toBeGreaterThanOrEqual(BROKEN.length + 6);
+    const verdicts = DESIGNS.map(([, d]) => validate(d).length === 0);
+    expect(verdicts.filter(Boolean).length).toBeGreaterThan(100);
+    expect(verdicts.filter((ok) => !ok).length).toBeGreaterThanOrEqual(BROKEN.length + 6);
+    const counterchanged = DESIGNS.filter(([, d]) => walkGroups(d).some(({ group: g }) => g.paint.k === 'counterchanged')).map(([, d]) => validate(d).length === 0);
+    expect(counterchanged.filter(Boolean).length).toBeGreaterThanOrEqual(COUNTERCHANGED.length);
   });
 
-  for (const [name, nd] of DESIGNS) {
-    it(`${name}: a draft in any shape reads back with the same issues, report, fix and locks`, () => {
-      const canonical = verdict(nd);
-      for (const shape of FIELD_SHAPES) expect(verdict(throughDraft({ design: nd, shape })), shape).toEqual(canonical);
+  for (const [name, d] of DESIGNS) {
+    it(`${name}: a draft in any shape reads back with the same verdict and text`, () => {
+      const canonical = verdict(d);
+      for (const shape of FIELD_SHAPES) expect(verdict(throughDraft({ design: d, shape })), shape).toEqual(canonical);
     });
 
-    if (nd.charges && chargeContext(nd.ordinary, nd.charges.placement) !== 'on') {
+    // Charges on the field (primary, or between a band): the slots drawn in each shape get the canonical verdict.
+    // (Where a probe lands within a hair of a partition line the parts may differ; the verdict may not.)
+    const onField = walkGroups(d).filter(({ group: g, host, path }) => g.item.k === 'charge' && host === null && groupSlots(d, path, 'heater').length > 0);
+    if (onField.length > 0) {
       it(`${name}: judged on the drawing in each shape, every charge gets its canonical verdict`, () => {
-        const t = nd.charges!.tincture;
-        const canonical = chargeSlotContacts(nd).map((cs) => chargeContrastFailure(t, nd.field, cs));
-        for (const shape of FIELD_SHAPES) {
-          const drawn = shapedChargeSlots(nd, shape).map((s) => chargeContrastFailure(t, nd.field, drawnContacts(nd, s, shape)));
-          expect(drawn, shape).toEqual(canonical);
+        for (const { path, group: g } of onField) {
+          const judge = (ground: Ground) => (g.paint.k === 'tincture' ? groundFailure(g.paint.t, ground) : null);
+          const canonical = groundShares(d, path).map(judge);
+          for (const shape of FIELD_SHAPES) {
+            expect(groupSlots(d, path, shape).map((s) => judge(drawnGround(d, g, s, shape))), shape).toEqual(canonical);
+          }
         }
       });
     }
   }
 
   it('the shape cannot be smuggled into the design itself', () => {
-    const r = resolve({ v: 1, field: plain('azure'), ordinary: { type: 'bend', tincture: 'or' }, shape: 'round' });
+    const r = resolve({ ...arms('azure', ord('bend', 'or')), shape: 'round' });
     expect(r.ok).toBe(false);
     expect(!r.ok && r.errors.map((e) => e.message)).toEqual(['Unknown design key "shape".']);
   });
 
   it('a chief stays above the per fess and per chevron lines in every shape (it touches only the upper part)', () => {
     for (const shape of FIELD_SHAPES) {
-      const l = SHAPE_LAYOUT[shape];
-      const chiefBase = Math.max(...l.ordinaries.chief.match(/-?\d+(\.\d+)?/g)!.map(Number).filter((_, i) => i % 2 === 1));
-      expect(chiefBase, shape).toBeLessThan(l.fessPoint.y - 10);
+      const l = shapeFrame(shape);
+      expect(l.chiefBase, shape).toBeLessThan(l.fessPoint.y - 10);
     }
+  });
+
+  it('a design built on the sample of the validation cases is the same design whatever shape it is read in', () => {
+    const d = nd(V[1].design);
+    for (const shape of FIELD_SHAPES) expect(throughDraft({ design: d, shape })).toEqual(d);
   });
 });

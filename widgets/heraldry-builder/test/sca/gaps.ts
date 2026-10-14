@@ -8,11 +8,10 @@
 // clauses, pending counts and arrangements) decides which category a word belongs to and how many
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
-import { CHARGES, postureTerm, type ChargeId, type Posture } from '../../src/lib/heraldry/charges';
 import {
-  BETWEEN_COUNTS, ON_COUNTS, isBetweenOrdinary, legalArrangements,
-  type Arrangement, type Count, type Ordinary, type OrdinaryType, type Placement,
-} from '../../src/lib/heraldry/design';
+  CHARGES, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, hostCounts, postureTerm, resolve, structuralIssues, walkGroups,
+  type ChargeId, type OrdinaryType, type Posture,
+} from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import {
   BUCKET_DESCRIPTION, CHARGE_BUCKETS, CONTAINER_WORDS, CONTEXT_WORDS, CROSS_POST, CROSS_PRE, FUNCTION_WORDS, FURS,
@@ -34,19 +33,18 @@ export const GAP_CATEGORIES = [
   { id: 'ordinary', description: 'an ordinary, sub-ordinary or diminutive the widget lacks (canton, orle, bars, flaunches…), or several of one ordinary' },
   { id: 'ordinary-treatment', description: 'an ordinary modified (cotised, fimbriated, voided, couped, inverted, enhanced, issuant…)' },
   { id: 'multiple-groups', description: 'more than one charge group (including charges on charges and held charges counted as groups) or more than one ordinary' },
-  { id: 'placement', description: 'one charge group and one ordinary, but in a count or position the widget does not allow (a bend between three, on a bordure…)' },
-  { id: 'count', description: 'more than six of a charge, or a charge strewn semy on an element' },
+  { id: 'placement', description: 'one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)' },
+  { id: 'count', description: 'more than twelve of a charge, or a charge strewn semy on an element' },
   ...CHARGE_BUCKETS.map((b) => ({ id: `charge-${b}` as const, description: `a charge outside the widget's 28: ${BUCKET_DESCRIPTION[b]}` })),
   { id: 'posture', description: 'a posture or attitude the widget lacks, or one its charge can\'t take (guardant, combattant, couchant…)' },
   { id: 'orientation', description: 'a charge turned from its fixed orientation (bendwise, fesswise, inverted, reversed, to sinister…)' },
   { id: 'charge-modifier', description: 'a charge detail the widget can\'t show (crowned, maintaining, winged, erased, slipped, demi-, a head…)' },
-  { id: 'arrangement', description: 'an arrangement or position the widget lacks for that count (in orle, in annulo, in chief, one and two…)' },
+  { id: 'arrangement', description: 'an arrangement or position the widget lacks for that count (in chevron, in dexter chief, one and two…), or charges Table 7 forces into one part of a divided field' },
   // Widget findings: never read from the blazon, but set by classify.ts when the matcher has found
   // (or nearly found) the widget's design and the widget disagrees with the SCA about it.
   { id: 'tincture-rule-differs', description: 'the matched design breaks the widget\'s rule of tincture, yet the SCA registered it' },
-  { id: 'widget-structure-rule', description: 'the matched design breaks a widget structure rule (a count, placement or arrangement it forbids, e.g. two swords in saltire)' },
-  { id: 'blazon-wording-differs', description: 'the widget can draw the design but blazons it in other words than the SCA (an arrangement stated or left unsaid, a sun in splendour, a cogwheel)' },
-  { id: 'arrangement-unstated', description: 'the SCA leaves the arrangement to a default the widget can\'t draw, or has none (five roses; four charges on a field per pale)' },
+  { id: 'widget-structure-rule', description: 'the matched design breaks a widget structure rule that SENA does not have (a count, placement or arrangement it forbids)' },
+  { id: 'blazon-wording-differs', description: 'the widget can draw the design but blazons it in other words than the SCA (an arrangement stated or left unsaid)' },
   { id: 'other', description: 'not recognised as expressible, but no specific gap found' },
 ] as const;
 
@@ -288,7 +286,8 @@ interface Element {
   count: number;
   ctx: Ctx;
   host: Element | null;
-  arr: Arrangement | null;
+  /** A layout key the blazon words: "in-pale", "rows-2-1", "in-chief". */
+  arr: string | null;
 }
 
 const ARTICLES = new Set(['a', 'an', 'the', 'each', 'one', 'two', 'three', 'four', 'five', 'six', 'its', 'his', 'her']);
@@ -312,7 +311,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let inField = !fieldless; // until the first charge, ordinary or count
   let divisions = 0;
   let pendingCount: number | null = null;
-  let pendingArr: Arrangement | null = null;
+  let pendingArr: string | null = null;
   let last: { kind: 'charge' | 'ord' | 'div'; el: Element | null; name: string } | null = null;
   let onHost: Element | null = null; // "on a fess …": later groups lie on it
   let betweenHost: Element | null = null; // "a fess between …": the next group surrounds it
@@ -334,7 +333,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null };
     if (kind === 'charge' && ctx !== 'held' && ctx !== 'of') {
       if (pendingArr) { el.arr = pendingArr; pendingArr = null; }
-      if (el.count > 6 && el.count < 99) tag('count', String(el.count));
+      if (el.count > MAX_DRAWN_COUNT && el.count < 99) tag('count', String(el.count));
       if (el.count === 99) tag('count', 'many');
       if (ctx === 'semy' && !semyOnField) tag('count', 'semy');
     }
@@ -601,13 +600,12 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   }
 
   function readNumberArrangement(seq: number[]): void {
-    const supported: Record<string, Arrangement> = { '2-1': 'two-and-one', '2-2': 'two-and-two', '3-2-1': 'three-two-one' };
-    const arr = supported[seq.join('-')];
+    const arr = ROW_PATTERNS.some((r) => r.join('-') === seq.join('-')) ? `rows-${seq.join('-')}` : undefined;
     const total = seq.reduce((a, b) => a + b, 0);
     const target = last?.kind === 'charge' && last.el?.ctx !== 'held' ? last.el : null;
     if (arr && target && target.count === total) { if (!target.arr) target.arr = arr; return; }
     if (arr && !target) { pendingArr = arr; return; }
-    const word = ['', 'one', 'two', 'three', 'four', 'five', 'six'];
+    const word = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
     tag('arrangement', seq.map((n) => word[n]).join('-and-'));
   }
 
@@ -667,7 +665,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
     if (SUPPORTED_ARRANGEMENT_WORDS[al]) {
       if (words[i + 2] === 'point' || words[i + 2] === 'fess-point') { tag('arrangement', 'in-fess-point'); return i + 2; }
-      const arr = SUPPORTED_ARRANGEMENT_WORDS[al] as Arrangement;
+      const arr = SUPPORTED_ARRANGEMENT_WORDS[al];
       const prevEl = last?.kind === 'charge' && last.el && last.el.ctx !== 'held' && words[i - 1] !== BREAK && look(i - 1)?.e.k !== 'and' ? last.el : null;
       if (prevEl && !prevEl.arr) prevEl.arr = arr; else pendingArr = arr;
       return i + 1;
@@ -715,34 +713,38 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     return i;
   }
 
+  /**
+   * Whether the widget can lay out the one charge group (with the one ordinary, if any) as the blazon
+   * words it: asks the library, so the tagger can't drift from the layout rules. Judged on a stand-in
+   * design (any charge of the right kind and count); the groups' tinctures are not in question here.
+   */
   function checkPlacement(g: Element, o: Element | null): void {
-    const count = g.count as Count;
-    if (count > 6) return;
-    if (!o) {
-      // an unrecognised word may be a second charge, so only judge the arrangement of a fully read blazon
-      if (g.arr && !unknownOut.length && !legalArrangements(null, 'field', count).includes(g.arr)) tag('arrangement', g.arr);
+    const count = g.count;
+    if (count > MAX_DRAWN_COUNT) return;
+    // an unrecognised word may be a second charge, so only judge the arrangement of a fully read blazon
+    const judged = !unknownOut.length;
+    const type = o?.supported as OrdinaryType | undefined;
+    if (o && (!o.supported || o.count > 1)) return;
+    const on = o && g.ctx === 'on' && g.host === o;
+    const between = o && g.ctx === 'between';
+    if (on && type === 'bordure') { tag('placement', 'on-bordure'); return; }
+    if (on && !hostCounts({ k: 'on', ordinary: type! }).includes(count)) { tag('placement', `on-${type}`); return; }
+    if (between) {
+      if (ORDINARY_KIND[type!] === 'central' && !hostCounts({ k: 'between', ordinary: type! }).includes(count)) tag('placement', `between-${type}`);
       return;
     }
-    if (!o.supported || o.count > 1) return;
-    const type = o.supported as OrdinaryType;
-    const ordinary: Ordinary = { type, tincture: 'or' };
-    if (g.ctx === 'on' && g.host === o) {
-      if (type === 'bordure') tag('placement', 'on-bordure');
-      else if (!ON_COUNTS[type].includes(count)) tag('placement', `on-${type}`);
-      return;
-    }
-    if (g.ctx === 'between') {
-      if (isBetweenOrdinary(type) && !BETWEEN_COUNTS[type].includes(count)) tag('placement', `between-${type}`);
-      return;
-    }
-    const placement: Placement = 'field';
-    if (isBetweenOrdinary(type)) { tag('placement', 'not-between'); return; }
-    if (type === 'chief') {
-      if (count > 3) tag('placement', 'under-chief');
-      else if (g.arr && !unknownOut.length && !legalArrangements(ordinary, placement, count).includes(g.arr)) tag('arrangement', g.arr);
-    } else if (type === 'bordure') {
-      if (g.arr && !unknownOut.length && !legalArrangements(ordinary, placement, count).includes(g.arr)) tag('arrangement', g.arr);
-    }
+    if (o && !on && ORDINARY_KIND[type!] === 'central') { tag('placement', 'not-between'); return; }
+    if (on || !judged && g.arr) return;
+    // A charge group on the field, alone or under a chief or within a bordure: does a layout fit?
+    const charge = { k: 'charge', charge: g.supported ?? 'mullet' };
+    const group = { item: charge, paint: 'or', count, ...(g.arr ? { arrangement: g.arr } : {}) };
+    const r = resolve({ v: 2, field: 'azure', groups: [group, ...(o ? [{ item: { k: 'ordinary', type }, paint: 'argent' }] : [])] });
+    if (!r.ok) { if (g.arr && judged) tag('arrangement', g.arr); return; }
+    const walked = walkGroups(r.design).find((w) => w.group.item.k === 'charge')!;
+    const broken = structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === walked.path.join());
+    if (!broken) return;
+    if (g.arr && judged) tag('arrangement', g.arr);
+    else if (type === 'chief') tag('placement', 'under-chief');
   }
 }
 

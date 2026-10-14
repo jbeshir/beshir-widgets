@@ -1,27 +1,65 @@
-// Public API of the DOM-free heraldry library, shared by the SPA and the Worker. Only what they use is
-// re-exported; modules import each other directly.
+// Barrel of the heraldry library: everything the SPA and the Worker use.
 
-export { API_ERROR, isApiErrorCode, type ApiErrorCode, type TokenProblem } from './api-errors';
-export { blazon } from './blazon';
-export { CHARGE_ART, chargePath } from './charge-art';
-export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, isChargeId, postureTerm, postureGloss, chargesInCategory, chargeGroup, chargesInGroup, type Posture, type ChargeCategory, type ChargeId } from './charges';
-export { registrationOrder, reportUniqueness, checkResponse, type RegistryRef, type CheckableEntry, type ConflictSummary, type ComparedEntry, type UniquenessReport, type TakenReport, type CheckResponse } from './check';
-export { NO_CONTACT, DISCORD_MAX, cleanDiscord, cleanContact, type Contact } from './contact';
-export { DIVISIONS, ORDINARY_TYPES, ARRANGEMENTS, COUNTS, BETWEEN_COUNTS, NUMBER_WORD, DIVISION_PART_LABEL, fieldTinctures, fieldDivision, chargeContext, legalArrangements, defaultArrangement, chargeNoun, resolve, structuralIssues, chargeStructureIssue, type Division, type OrdinaryType, type Ordinary, type Arrangement, type Count, type Placement, type Design, type NormDesign, type Issue } from './design';
-export { isDiffAttr, POINTS, divisionGroup, ordinaryGroup, differences, score, areDistinct, checkUnique, candidateKey, CLEAR_CHANGE_HINT, HALF_DIFFERENCE_HINT, explainDifferences, pointsText, pointsLabel, tallyText, type DiffAttr, type MinorReason, type RegistryEntryLike, type Verdict, type DifferenceNote } from './difference';
-export { EMAIL_MAX, cleanEmail, isMailOutcome, type MailOutcome } from './email';
-export { SHIELD_VIEWBOX, SHIELD_PATH, inFirstPart, ORDINARY_FILL_RULE, drawnBox, BETWEEN_SLOTS, SHAPE_LAYOUT, fieldRegions, slotsFor, chargeSlots, shapedChargeSlots, probePoints, counterchangedParts, type Slot } from './geometry';
-export { BETWEEN_GLOSS, gloss } from './gloss';
-export { asObject } from './json';
-export { fieldTinctureChoices, ordinaryTinctureChoices, chargeTinctureChoices, countChoices, placementChoices, arrangementChoices, postureChoices, fitCharges, suggestTinctureFix, isBlocked, blockReason, type Choice, type ChargedDesign, type Companion, type LayoutChoice } from './options';
-export { plainFirst, chargeLabel, chargeWords, ordinaryWords, DIVISION_LABEL, ORDINARY_LABEL, ARRANGEMENT_LABEL, TINCTURE_LABEL, postureLabel, type PlainTerm } from './plain-words';
-export { BAND_LABEL, isReadabilityBand, BAND_RANGE, designTinctures, readability, type Readability, type ReadabilityBand } from './readability';
-export { FILTER_PARAMS, NO_SEARCH_PARAMS, parseSearchParams, searchParamsFromUrl, searchParamsToUrl, searchEntries, type SearchParams, type SearchableEntry } from './search';
-export { normaliseWords, buildSearchText, matchesWords, queryWords } from './search-terms';
-export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
+export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
+export { ORDINARY_TYPES, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
+export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, partCount, type Division } from './divisions';
+export {
+  canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, isFieldPrimary, tincturePaint, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
+  UNSUPPORTED_GAP_CATEGORIES,
+  type Design, type Group, type GroupPath, type GroupTincture, type Paint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type IssueAt,
+} from './design';
+export { resolve, type ResolveResult } from './resolve';
+export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
+export { structuralIssues } from './structure';
+export {
+  ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, statesLayout,
+  hostCounts, betweenWords, layoutWords, type Layout, type LayoutKey, type LayoutContext,
+} from './arrangement';
+export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
+export {
+  FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownTinctures, counterchangeUnavailable, describeSlots, type ShownTinctures,
+} from './tincture-rule';
+export { validate, normalise, type NormaliseResult } from './validate';
+export { blazon, type BlazonOptions } from './blazon';
+export { gloss } from './gloss';
+export {
+  DIVISION_LABEL, ORDINARY_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  type PlainTerm,
+} from './plain-words';
+export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
+export { deriveTags, filtersToTags, matchesTags, NO_FILTERS, type SearchFilters } from './tags';
+export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchWord } from './search-terms';
 export { signature } from './signature';
-export { deriveTags, NO_FILTERS, filtersToTags, matchesTags, type SearchFilters } from './tags';
+export {
+  SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldTinctureAt, inFirstPart, ordinaryPath, ordinaryFillRule, ordinarySamplePoints,
+  drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pointInPolygon,
+  counterchangedSlotParts, counterchangedOrdinaryParts, type Slot,
+} from './geometry';
+export { MIN_SLOT_SIZE, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
+export {
+  COUNTS, isBlocked, simpleParts, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
+  layoutReason, withLayout, postureChoices, modifierChoices, fitGroup, suggestTinctureFix,
+  type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
+} from './options';
+export { renderLayers, designTinctures, type Layer } from './render';
+export { CHARGE_ART, MODIFIER_ART, chargePath } from './charge-art';
+export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
+export * from './tinctures';
+export {
+  SENA_RULES, isDiffAttr, isChangeKind, isSenaRule, isClear, differences, checkUnique, candidateKey, explainDifferences, changeLabel, tallyText,
+  CLEAR_CHANGE_HINT, SENA_RULE_HINT,
+  type ChangeKind, type SenaRule, type DiffAttr, type GroupRef, type Diff, type RegistryEntryLike, type Comparison, type Verdict, type CandidateKey, type DifferenceNote,
+} from './difference';
+export {
+  registrationOrder, reportUniqueness, checkResponse,
+  type RegistryRef, type CheckableEntry, type ConflictSummary, type ComparedEntry, type UniquenessReport, type TakenReport, type CheckResponse,
+} from './check';
+export {
+  FILTER_PARAMS, NO_SEARCH_PARAMS, parseSearchParams, searchParamsFromUrl, searchParamsToUrl, searchEntries,
+  type SearchParams, type SearchableEntry,
+} from './search';
+export { API_ERROR, isApiErrorCode, type ApiErrorCode, type TokenProblem } from './api-errors';
+export { NO_CONTACT, DISCORD_MAX, cleanDiscord, cleanContact, type Contact } from './contact';
+export { EMAIL_MAX, cleanEmail, isMailOutcome, type MailOutcome } from './email';
+export { asObject } from './json';
 export { DISPLAY_NAME_MAX, cleanDisplayName } from './text';
-export { contrastFailure, chargeContrastFailure, chargeSlotContacts, tinctureIssues } from './tincture-rule';
-export { METALS, COLOURS, TINCTURES, TINCTURE_CLASS, NON_STANDARD_TINCTURES, TINCTURE_CODE, TINCTURE_FILL, OUTLINE_COLOUR, TINCTURE_HATCHING, isMetal, CHARGE_TINCTURES, type Tincture, type Hatching, type ChargeTincture } from './tinctures';
-export { validate, normalise } from './validate';

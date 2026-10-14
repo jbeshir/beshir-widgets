@@ -2,12 +2,12 @@
 // thumbnail of the current design. The shape is display only — it never changes the arms, their
 // blazon or whether they are available — and the picker says so.
 
-import { FIELD_SHAPES, FIELD_SHAPE_NAME, type FieldShape, type NormDesign } from '../../lib/heraldry';
+import { FIELD_SHAPES, FIELD_SHAPE_NAME, type FieldShape, type Design } from '../../lib/heraldry';
 import { Shield } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
 
 interface Props {
-  design: NormDesign;
+  design: Design;
   value: FieldShape;
   onChange: (shape: FieldShape) => void;
   /** Prefix for the option test ids and element ids (`<prefix>-<shape>`), unique on the page. */
