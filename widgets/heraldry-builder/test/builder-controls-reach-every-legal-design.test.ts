@@ -9,16 +9,17 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, countChoices, fieldTinctureChoices, groupTinctureChoices, layoutChoices,
+  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, countChoices, fieldTinctureChoices, groupTinctureChoices, layerChoices, layerPath, layoutChoices,
   layoutKey, modifierChoices, normalise, placementChoices, postureChoices, resolve, structuralIssues, tinctureIssues, unsupportedIssues,
-  type ChargeId, type Design, type GroupPath,
+  type ChargeId, type Design, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
-import {
-  PERIPHERAL_TYPES, addExtraPicture, addPeripheral, canAddExtraPicture, canAddPeripheral, extraPicturePath, ordinaryPath, peripheralPath, picturePath, setCharge,
-} from '../src/lib/builder';
+import { ordinaryPath, picturePath, setCharge } from '../src/lib/builder';
 import { layoutMoves, log, nd, setCount } from './helpers';
 
-// ── The oracle: the simple space by brute force ─────────────────────────────
+// ── The oracle: the level-0 space by brute force ────────────────────────────
+//
+// The space is one ordinary, one picture group and the group on the ordinary, with a chief and/or a bordure
+// beside the ordinary in some of the contexts (`beside`); the oracle builds those from loose input too.
 
 type Placement = 'field' | 'ordinary';
 
@@ -35,6 +36,9 @@ interface Base {
   /** The field's division, or 'plain'. */
   division: string;
   ordinary: { type: string; tincture: string } | null;
+  /** The peripherals set beside the ordinary (all in `besidePaint`), none unless the ordinary is a central one or a chief. */
+  beside: readonly string[];
+  besidePaint: string;
   charge: ChargeId;
   posture: string | null;
 }
@@ -68,6 +72,7 @@ function pictureInput(b: Base, count: number, key: string, paint: string): objec
 function designInput(b: Base, onField: object | null, onOrdinary: object | null): object {
   const groups: object[] = [];
   if (b.ordinary) groups.push({ item: { k: 'ordinary', type: b.ordinary.type }, paint: b.ordinary.tincture, ...(onOrdinary ? { charged: [onOrdinary] } : {}) });
+  for (const type of b.beside) groups.push({ item: { k: 'ordinary', type }, paint: b.besidePaint });
   if (onField) groups.push(onField);
   return { v: 2, field: b.field, groups };
 }
@@ -91,7 +96,7 @@ function structureVerdict(b: Base, t: Triple): boolean {
 }
 
 function structureLegal(b: Base, t: Triple): boolean {
-  const k = JSON.stringify([b.division, b.ordinary?.type, t.placement, t.count, t.key, t.key === 'crossed' && CHARGES[b.charge].long, t.key === 'in-annulo' && CHARGES[b.charge].postureClass === 'fish']);
+  const k = JSON.stringify([b.division, b.ordinary?.type, b.beside, t.placement, t.count, t.key, t.key === 'crossed' && CHARGES[b.charge].long, t.key === 'in-annulo' && CHARGES[b.charge].postureClass === 'fish']);
   let v = structureMemo.get(k);
   if (v === undefined) {
     v = structureVerdict(b, t);
@@ -132,6 +137,15 @@ const ORDINARIES: Array<Base['ordinary']> = [null, ...DRAWN_ORDINARIES.flatMap((
 
 interface Context { base: Base; legal: Triple[] }
 
+/** The peripherals beside a band: a third of the contexts have a chief, a bordure or both beside a central band, or a bordure beside a chief. */
+function besideOf(ordinary: Base['ordinary'], n: number): Pick<Base, 'beside' | 'besidePaint'> {
+  const besidePaint = n % 2 === 0 ? 'argent' : 'gules';
+  if (!ordinary || n % 3 !== 1) return { beside: [], besidePaint };
+  if (ordinary.type === 'chief') return { beside: ['bordure'], besidePaint };
+  if (ordinary.type === 'bordure') return { beside: [], besidePaint };
+  return { beside: [['chief'], ['bordure'], ['chief', 'bordure']][Math.floor(n / 3) % 3], besidePaint };
+}
+
 /** The bases that are legal designs once a picture is added, the charge and its posture rotating. */
 function sweep(): Context[] {
   const out: Context[] = [];
@@ -139,9 +153,11 @@ function sweep(): Context[] {
   for (const { field, division } of FIELDS) for (const ordinary of ORDINARIES) {
     const charge = CHARGE_IDS[n % CHARGE_IDS.length];
     const postures = CHARGES[charge].postures;
-    const base: Base = { field, division, ordinary, charge, posture: postures ? postures[n % postures.length] : null };
-    // An ordinary that breaks the rule of tincture on this field never makes a valid design.
-    if (tinctureIssues(nd(designInput(base, null, null))).length) continue;
+    const plain: Base = { field, division, ordinary, beside: [], besidePaint: 'argent', charge, posture: postures ? postures[n % postures.length] : null };
+    // An ordinary that breaks the rule of tincture on this field never makes a valid design; neither does a peripheral that does (then the context has none).
+    if (tinctureIssues(nd(designInput(plain, null, null))).length) continue;
+    const besides: Base = { ...plain, ...besideOf(ordinary, n) };
+    const base = tinctureIssues(nd(designInput(besides, null, null))).length ? plain : besides;
     out.push({ base, legal: legalTriples(base) });
     n++;
   }
@@ -209,6 +225,7 @@ describe('builder controls never lock a legal value away', () => {
     log(`${contexts.length} field × ordinary contexts, ${valid.length} valid designs, ${violations.length} rule-of-tincture violations`);
     log(`legal layouts per count (placements together): ${summary}`);
     expect(contexts.length).toBeGreaterThan(300);
+    expect(contexts.filter(({ base }) => base.beside.length > 0).length).toBeGreaterThan(50);
     expect(new Set(valid.map(({ c }) => c.base.charge)).size).toBe(CHARGE_IDS.length);
     expect(violations.length).toBeGreaterThan(300);
     // The oracle is not vacuous: every count is legal somewhere.
@@ -347,20 +364,20 @@ describe('builder controls never lock a legal value away', () => {
         return structurallyLegal(r('or')) && PAINTS.some((p) => normalise(r(p)).ok);
       });
       const label = JSON.stringify([c.base, onField]);
-      expect(canAddExtraPicture(s.design), label).toBe(legalCounts.length > 0);
-      const added = addExtraPicture(s.design, 'rose');
+      expect(layerChoices(s.design).find((choice) => choice.value === 'on-ordinary')?.allowed, label).toBe(legalCounts.length > 0);
+      const added = setCharge(s.design, 'on-ordinary', 'rose');
       if (!legalCounts.length) {
         expect(added, label).toBe(s.design);
         refused++;
         continue;
       }
       offered++;
-      const path = extraPicturePath(added);
+      const path = layerPath(added, 'on-ordinary');
       expect(path, label).not.toBeNull();
       expect(sameSet(allowedValues(countChoices(added, path!))), label).toEqual(sameSet(legalCounts));
       for (const count of legalCounts) {
-        const moved = setCount(added, extraPicturePath(added)!, count);
-        const at = extraPicturePath(moved);
+        const moved = setCount(added, layerPath(added, 'on-ordinary')!, count);
+        const at = layerPath(moved, 'on-ordinary');
         expect(at && moved.groups[at[0]].charged[at[1]].count, `${label} → ${count}`).toBe(count);
       }
     }
@@ -371,9 +388,9 @@ describe('builder controls never lock a legal value away', () => {
   it('a top band or border is offered exactly when some tincture makes it legal beside a central band, and every legal tincture is reachable', () => {
     let offered = 0, refused = 0;
     for (const c of contexts) {
-      if (!centralOrdinary(c.base)) continue;
+      if (!centralOrdinary(c.base) || c.base.beside.length > 0) continue;
       const band = nd(designInput(c.base, null, null));
-      for (const type of PERIPHERAL_TYPES) {
+      for (const type of ['chief', 'bordure'] as const satisfies readonly LayerKey[]) {
         // The oracle: the band and a peripheral of this kind in each paint, through normalise alone.
         const withPaint = (paint: string) => ({ v: 2, field: c.base.field, groups: [
           { item: { k: 'ordinary', type: c.base.ordinary!.type }, paint: c.base.ordinary!.tincture },
@@ -381,15 +398,15 @@ describe('builder controls never lock a legal value away', () => {
         ] });
         const legalPaintsOf = PAINTS.filter((p) => normalise(withPaint(p)).ok);
         const label = JSON.stringify([c.base, type]);
-        expect(canAddPeripheral(band, type), label).toBe(legalPaintsOf.length > 0);
-        const added = addPeripheral(band, type);
+        expect(layerChoices(band).find((choice) => choice.value === type)?.allowed, label).toBe(legalPaintsOf.length > 0);
+        const added = addLayer(band, type);
         if (!legalPaintsOf.length) {
           expect(added, label).toBe(band);
           refused++;
           continue;
         }
         offered++;
-        const path = peripheralPath(added);
+        const path = layerPath(added, type);
         expect(path, label).not.toBeNull();
         expect(sameSet(allowedValues(groupTinctureChoices(added, path!))), label).toEqual(sameSet(legalPaintsOf));
         expect(ordinaryPath(added), label).toEqual(ordinaryPath(band));

@@ -62,7 +62,9 @@ function thing(g: Gap): string {
       if (g.detail === 'multiple') return 'More than one band or shape of the same kind';
       return isOrdinaryType(g.detail) ? `${ORDINARY_ARTICLE[g.detail]} ${ORDINARY_NAME[g.detail]}` : `A ${d}`;
     case 'ordinary-treatment': return `A ${d} band or shape`;
-    case 'multiple-groups': return g.detail === 'overall' ? 'A charge overall' : 'Two charge groups beside the main one';
+    case 'multiple-groups':
+      if (g.detail === 'overall') return 'A charge overall';
+      return g.detail === 'tertiary-on-peripheral-beside-ordinary' ? 'Charges on a top band set beside a band or shape' : 'Two charge groups beside the main one';
     case 'placement': return 'That placement of charges';
     case 'count': return 'That many charges';
     case 'charge-modifier': return `A ${d} charge`;
@@ -123,11 +125,11 @@ function placementGaps(d: Design, g: Group, host: Group | null): Gap[] {
   if (host === null) {
     const ordinary = primaryOrdinary(d);
     if (g.role !== 'secondary' || g.relation !== 'between' || !ordinary || !DRAWN_ORDINARIES.includes(ordinary)) return [];
-    return hostCounts({ k: 'between', ordinary }).includes(g.count) ? [] : [gap('placement', `between-${ordinary}-${g.count}`)];
+    return hostCounts('between', ordinary).includes(g.count) ? [] : [gap('placement', `between-${ordinary}-${g.count}`)];
   }
   if (host.item.k !== 'ordinary' || host.item.type === 'bordure' || !DRAWN_ORDINARIES.includes(host.item.type)) return [];
   const type = host.item.type;
-  return hostCounts({ k: 'on', ordinary: type }).includes(g.count) ? [] : [gap('placement', `on-${type}-${g.count}`)];
+  return hostCounts('on', type).includes(g.count) ? [] : [gap('placement', `on-${type}-${g.count}`)];
 }
 
 /** Gaps in how the groups relate: roles beyond the supported combinations. */
@@ -140,7 +142,11 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Gap }> {
   for (const { i } of byRole('overall')) out.push({ at: at([i]), gap: gap('multiple-groups', 'overall') });
   if (primaries.length > 1) out.push({ at: at([primaries[1].i]), gap: gap('multiple-groups', 'co-primary') });
   if (secondaries.length > 1) out.push({ at: at([secondaries[1].i]), gap: gap('multiple-groups', 'secondary') });
-  if (peripherals.length > 1) out.push({ at: at([peripherals[1].i]), gap: gap('multiple-groups', 'peripherals') });
+  // One chief and one bordure may be set together; any other pair is a second of a kind.
+  const peripheralTypes = peripherals.map(({ g }) => (g.item.k === 'ordinary' ? g.item.type : null));
+  if (peripherals.length > 1 && !(peripherals.length === 2 && peripheralTypes.includes('chief') && peripheralTypes.includes('bordure'))) {
+    out.push({ at: at([peripherals[1].i]), gap: gap('multiple-groups', 'peripherals') });
+  }
   for (const { g, i } of secondaries) {
     if (g.relation !== 'between') out.push({ at: at([i]), gap: gap('multiple-groups', `secondary-${g.relation}`) });
     if (g.item.k === 'ordinary') out.push({ at: at([i]), gap: gap('multiple-groups', 'secondary-ordinary') });
@@ -154,11 +160,10 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Gap }> {
       out.push({ at: at([i]), gap: gap('placement', `peripheral-${g.item.type}`) });
     }
   }
-  const main = primaries[0]?.g;
-  if (main?.item.k === 'ordinary' && peripherals.length > 0) {
-    const tertiaries = [...main.charged, ...peripherals.flatMap(({ g }) => g.charged)];
-    if (secondaries.length > 0 || tertiaries.length > 0 || main.item.type === 'pile') {
-      out.push({ at: { k: 'design' }, gap: gap('multiple-groups', 'ordinary-and-peripheral') });
+  // Charges on a chief set beside a central ordinary have no place in the builder yet.
+  if (primaries[0]?.g.item.k === 'ordinary') {
+    for (const { g, i } of peripherals) {
+      if (g.charged.length > 0) out.push({ at: at([i]), gap: gap('multiple-groups', 'tertiary-on-peripheral-beside-ordinary') });
     }
   }
   return out;

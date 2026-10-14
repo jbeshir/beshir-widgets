@@ -109,22 +109,31 @@ describe('Table 7: secondary and tertiary groups', () => {
     expect(layoutKey(tableDefault(d, [0, 0])!)).toBe('host');
     expect(candidates(d, [1], 3)).toEqual(['host']);
     expect(candidates(d, [0, 0], 5)).toEqual(['host']);
-    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: 'fess' });
-    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: 'fess' });
+    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: 'fess', peripheral: 'none' });
+    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: 'fess', peripheral: 'none' });
+  });
+
+  it('knows the chief and bordure beside the group it sits around or on', () => {
+    const d = nd(arms('azure', group(ordinary('pale'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(charge('mullet'), 'argent', { count: 2 }),
+      group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'argent')));
+    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: 'pale', peripheral: 'chief-bordure' });
+    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: 'pale', peripheral: 'chief-bordure' });
+    // A chief is not its own peripheral: charges on it know of the bordure alone.
+    const chiefly = nd(arms('azure', group(ordinary('chief'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(ordinary('bordure'), 'argent')));
+    expect(layoutContext(chiefly, [0, 0])).toEqual({ k: 'on', ordinary: 'chief', peripheral: 'bordure' });
   });
 
   it('has a layout only for the counts of the table', () => {
-    expect(hostCounts({ k: 'between', ordinary: 'fess' })).toEqual([2, 3, 4, 6]);
-    expect(hostCounts({ k: 'between', ordinary: 'pale' })).toEqual([2, 4, 6]);
-    expect(hostCounts({ k: 'between', ordinary: 'chevron' })).toEqual([2, 3, 6]);
-    expect(hostCounts({ k: 'between', ordinary: 'cross' })).toEqual([4]);
-    expect(hostCounts({ k: 'between', ordinary: 'pile' })).toEqual([2]);
-    expect(hostCounts({ k: 'between', ordinary: 'canton' })).toEqual([]);
-    expect(hostCounts({ k: 'on', ordinary: 'chief' })).toHaveLength(12);
-    expect(hostCounts({ k: 'on', ordinary: 'cross' })).toEqual([1, 4, 5]);
-    expect(hostCounts({ k: 'on', ordinary: 'pile' })).toEqual([1, 2, 3]);
-    expect(hostCounts({ k: 'on', ordinary: 'bordure' })).toEqual([]);
-    expect(hostCounts(fieldContext('none'))).toEqual([]);
+    expect(hostCounts('between', 'fess')).toEqual([2, 3, 4, 6]);
+    expect(hostCounts('between', 'pale')).toEqual([2, 4, 6]);
+    expect(hostCounts('between', 'chevron')).toEqual([2, 3, 6]);
+    expect(hostCounts('between', 'cross')).toEqual([4]);
+    expect(hostCounts('between', 'pile')).toEqual([2]);
+    expect(hostCounts('between', 'canton')).toEqual([]);
+    expect(hostCounts('on', 'chief')).toHaveLength(12);
+    expect(hostCounts('on', 'cross')).toEqual([1, 4, 5]);
+    expect(hostCounts('on', 'pile')).toEqual([1, 2, 3]);
+    expect(hostCounts('on', 'bordure')).toEqual([]);
   });
 
   it('has no layout context where the builder has none', () => {

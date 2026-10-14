@@ -15,7 +15,8 @@ import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, wordedAs, type MatchResult } from './match';
 import type { ArmoryRecord } from './oanda';
-import { assessMatched, builderPath, checkRendered, renderShieldSvg } from './widget-checks';
+import { builderPath } from '../builder-path';
+import { assessMatched, checkRendered, renderShieldSvg } from './widget-checks';
 
 export type CheckName = 'match' | 'assess' | 'blazon' | 'render' | 'builder';
 

@@ -7,7 +7,7 @@ import {
   blazon, checkResponse, type CheckableEntry,
   type Design, type Diff, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -41,6 +41,18 @@ describe('worked checks (RULES §C.8, plan §5.9)', () => {
     expect(isClear(differences(charged, plain))).toBe(true);
     const bare = design('sable', lion(), ord('chief', 'or'));
     expect(between(bare, plain)).toEqual(['group-presence:dc:A5G2']);
+  });
+
+  it('a chief and a bordure beside a lion: each is a group of its own, so each added or removed is one distinct change', () => {
+    const both = design('sable', lion(), ord('chief', 'or'), ord('bordure', 'or'));
+    const chiefOnly = design('sable', lion(), ord('chief', 'or'));
+    const bare = design('sable', lion());
+    expect(between(both, chiefOnly)).toEqual(['group-presence:dc:A5G2']);
+    expect(between(both, bare)).toEqual(['group-presence:dc:A5G2', 'group-presence:dc:A5G2']);
+    expect(isClear(differences(both, bare))).toBe(true);
+    expect(isClear(differences(both, chiefOnly))).toBe(false);
+    // The signature lists the chief before the bordure, whichever order they were given in.
+    expect(signature(design('sable', lion(), ord('bordure', 'or'), ord('chief', 'or')))).toBe(signature(both));
   });
 
   it('one mullet against three: a substantial change of number', () => {
@@ -457,7 +469,7 @@ describe('explanations', () => {
 
   it('cites a SENA section in the reason of every rule that can be given', () => {
     const seen = new Set<string>();
-    const designs = generatedDesigns(1, 200);
+    const designs = [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 60)];
     for (const a of designs) for (const b of designs.slice(0, 40)) for (const n of explainDifferences(a, b)) {
       seen.add(n.rule);
       expect(n.why).toContain(`SENA ${n.rule}`);
@@ -514,7 +526,7 @@ describe('tally and vocabulary', () => {
 });
 
 describe('sweeps over generated designs', () => {
-  const designs = generatedDesigns(1, 160);
+  const designs = [...generatedDesigns(1, 160), ...generatedRichDesigns(1, 60)];
   const asMultiset = (diffs: readonly Diff[]) => summary(diffs).sort();
 
   it('a design differs from itself in nothing, and every difference names a group that exists', () => {

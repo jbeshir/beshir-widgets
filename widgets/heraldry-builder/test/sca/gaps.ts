@@ -546,11 +546,12 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
   }
 
-  // Charge groups and ordinaries: the widget has room for one of each.
+  // Charge groups and ordinaries: the widget has room for one charge group, and for a central ordinary with a chief and a bordure beside it.
   const groups = els.filter((el) => el.kind === 'charge' && el.ctx !== 'held' && el.ctx !== 'of' && el.ctx !== 'semy');
   const ords = els.filter((el) => el.kind === 'ord');
   if (groups.length > 1) tag('multiple-groups', 'charges');
-  if (ords.length > 1) tag('multiple-groups', 'ordinaries');
+  const together = drawnTogether(ords);
+  if (ords.length > 1 && !together) tag('multiple-groups', 'ordinaries');
   if (groups.length === 1 && ords.length <= 1) checkPlacement(groups[0], ords[0] ?? null);
 
   if (!tags.size && unknownOut.length) {
@@ -728,9 +729,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const on = o && g.ctx === 'on' && g.host === o;
     const between = o && g.ctx === 'between';
     if (on && type === 'bordure') { tag('placement', 'on-bordure'); return; }
-    if (on && !hostCounts({ k: 'on', ordinary: type! }).includes(count)) { tag('placement', `on-${type}`); return; }
+    if (on && !hostCounts('on', type!).includes(count)) { tag('placement', `on-${type}`); return; }
     if (between) {
-      if (ORDINARY_KIND[type!] === 'central' && !hostCounts({ k: 'between', ordinary: type! }).includes(count)) tag('placement', `between-${type}`);
+      if (ORDINARY_KIND[type!] === 'central' && !hostCounts('between', type!).includes(count)) tag('placement', `between-${type}`);
       return;
     }
     if (o && !on && ORDINARY_KIND[type!] === 'central') { tag('placement', 'not-between'); return; }
@@ -746,6 +747,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     if (g.arr && judged) tag('arrangement', g.arr);
     else if (type === 'chief') tag('placement', 'under-chief');
   }
+}
+
+/** Whether the widget draws these ordinaries together: at most one central one, with at most one chief and one bordure beside it. */
+function drawnTogether(ords: readonly Element[]): boolean {
+  const types = ords.map((o) => o.supported as OrdinaryType | null);
+  if (types.some((t) => t === null) || ords.some((o) => o.count > 1)) return false;
+  const central = types.filter((t) => ORDINARY_KIND[t!] === 'central').length;
+  const count = (type: OrdinaryType) => types.filter((t) => t === type).length;
+  return central <= 1 && count('chief') <= 1 && count('bordure') <= 1 && central + count('chief') + count('bordure') === types.length;
 }
 
 /**

@@ -17,7 +17,7 @@ import {
 } from '../src/lib/heraldry';
 import sample from '../src/data/sample-registry.json';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { V } from './validation-cases';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -69,7 +69,7 @@ const DESIGNS: Array<[string, Design]> = [
 ].flatMap(([name, raw]) => {
   const r = resolve(raw);
   return r.ok ? [[name, r.design] as [string, Design]] : [];
-}).concat(generatedDesigns(4242, 200).map((d, i): [string, Design] => [`generated ${i}`, d]));
+}).concat(generatedDesigns(4242, 200).map((d, i): [string, Design] => [`generated ${i}`, d]), generatedRichDesigns(4242, 150).map((d, i): [string, Design] => [`rich ${i}`, d]));
 
 /** As the builder holds it: written as a draft in a shape, read back and re-resolved. */
 function throughDraft(shaped: ShapedDesign): Design {

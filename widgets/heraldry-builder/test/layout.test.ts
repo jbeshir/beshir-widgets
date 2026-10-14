@@ -21,14 +21,14 @@ describe('hand-fitted rows', () => {
     expect(slotsOf(field, 3, 'rows-2-1').map((s) => [s.x, s.y, s.size])).toEqual([[27, 29, 44], [73, 29, 44], [50, 77, 44]]);
     expect(slotsOf(field, 6, 'rows-3-2-1').map((s) => s.size)).toEqual([31, 31, 31, 31, 31, 31]);
     expect(slotsOf(fieldContext('bordure'), 1, 'single')).toEqual([{ x: 50, y: 55 + (54 - 55) * 0.86, size: 77.4, rotation: 0 }]);
-    expect(slotsOf({ k: 'between', ordinary: 'fess' }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[28, 19, 30], [72, 19, 30], [50, 86, 30]]);
-    expect(slotsOf({ k: 'on', ordinary: 'fess' }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[22, 50, 27], [50, 50, 27], [78, 50, 27]]);
+    expect(slotsOf({ k: 'between', ordinary: 'fess', peripheral: 'none' }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[28, 19, 30], [72, 19, 30], [50, 86, 30]]);
+    expect(slotsOf({ k: 'on', ordinary: 'fess', peripheral: 'none' }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[22, 50, 27], [50, 50, 27], [78, 50, 27]]);
   });
 
   it('are fitted for the other shapes with the same slot counts', () => {
     expect(slotsOf(field, 1, 'single', 'banner')).toEqual([{ x: 50, y: 63.75, size: 90, rotation: 0 }]);
     expect(slotsOf(field, 3, 'rows-2-1', 'lozenge')).toHaveLength(3);
-    expect(slotsOf({ k: 'on', ordinary: 'chief' }, 2, 'host', 'round')).toHaveLength(2);
+    expect(slotsOf({ k: 'on', ordinary: 'chief', peripheral: 'none' }, 2, 'host', 'round')).toHaveLength(2);
   });
 
   it('put the single charge under a chief across the partition lines of a field', () => {
@@ -42,16 +42,16 @@ describe('hand-fitted rows', () => {
   });
 
   it('turn charges to follow a bend or a chevron limb, and not otherwise', () => {
-    expect(slotsOf({ k: 'on', ordinary: 'bend' }, 3, 'host').map((s) => s.rotation)).toEqual([-45, -45, -45]);
-    expect(slotsOf({ k: 'on', ordinary: 'bend-sinister' }, 2, 'host').map((s) => s.rotation)).toEqual([45, 45]);
-    expect(slotsOf({ k: 'on', ordinary: 'chevron' }, 3, 'host').map((s) => [Math.round(s.x), s.rotation])).toEqual([[50, 0], [24, 45], [76, -45]]);
-    expect(slotsOf({ k: 'on', ordinary: 'fess' }, 3, 'host').map((s) => s.rotation)).toEqual([0, 0, 0]);
+    expect(slotsOf({ k: 'on', ordinary: 'bend', peripheral: 'none' }, 3, 'host').map((s) => s.rotation)).toEqual([-45, -45, -45]);
+    expect(slotsOf({ k: 'on', ordinary: 'bend-sinister', peripheral: 'none' }, 2, 'host').map((s) => s.rotation)).toEqual([45, 45]);
+    expect(slotsOf({ k: 'on', ordinary: 'chevron', peripheral: 'none' }, 3, 'host').map((s) => [Math.round(s.x), s.rotation])).toEqual([[50, 0], [24, 45], [76, -45]]);
+    expect(slotsOf({ k: 'on', ordinary: 'fess', peripheral: 'none' }, 3, 'host').map((s) => s.rotation)).toEqual([0, 0, 0]);
     expect(slotsOf(field, 2, 'in-bend').map((s) => s.rotation)).toEqual([0, 0]);
   });
 
   it('give four on a cross or saltire as the five without the centre', () => {
     for (const type of ['cross', 'saltire'] as const) {
-      const four = slotsOf({ k: 'on', ordinary: type }, 4, 'host'), five = slotsOf({ k: 'on', ordinary: type }, 5, 'host');
+      const four = slotsOf({ k: 'on', ordinary: type, peripheral: 'none' }, 4, 'host'), five = slotsOf({ k: 'on', ordinary: type, peripheral: 'none' }, 5, 'host');
       expect(four).toEqual(five.filter((_, i) => i !== 2));
     }
   });
@@ -102,8 +102,8 @@ describe('the generic engine', () => {
   });
 
   it('has no layout for a context or count it does not know', () => {
-    expect(slotsOf({ k: 'between', ordinary: 'cross' }, 2, 'host')).toEqual([]);
-    expect(slotsOf({ k: 'on', ordinary: 'pile' }, 4, 'host')).toEqual([]);
+    expect(slotsOf({ k: 'between', ordinary: 'cross', peripheral: 'none' }, 2, 'host')).toEqual([]);
+    expect(slotsOf({ k: 'on', ordinary: 'pile', peripheral: 'none' }, 4, 'host')).toEqual([]);
     expect(slotsOf(field, 13, 'in-pale')).toEqual([]);
     expect(slotsOf(field, 3, 'rows-2-2')).toEqual([]);
     expect(contextSlots(field, 2, { arrangement: { k: 'host' }, position: null }, 'heater')).toEqual([]);
@@ -119,16 +119,16 @@ describe('capacity', () => {
     const slots = slotsOf(ctx, count, key);
     return slots.length === count && slots[0].size >= MIN_SLOT_SIZE;
   };
-  const between = (ordinary: OrdinaryType): LayoutContext => ({ k: 'between', ordinary });
+  const between = (ordinary: OrdinaryType): LayoutContext => ({ k: 'between', ordinary, peripheral: 'none' });
 
   it('fits six charges around a fess, a bend and a bend sinister', () => {
     for (const type of ['fess', 'bend', 'bend-sinister'] as const) expect(fits(between(type), 6, 'host'), type).toBe(true);
   });
 
   it('fits four on a bend, five on a fess and four on a saltire', () => {
-    expect(fits({ k: 'on', ordinary: 'bend' }, 4, 'host')).toBe(true);
-    expect(fits({ k: 'on', ordinary: 'fess' }, 5, 'host')).toBe(true);
-    expect(fits({ k: 'on', ordinary: 'saltire' }, 4, 'host')).toBe(true);
+    expect(fits({ k: 'on', ordinary: 'bend', peripheral: 'none' }, 4, 'host')).toBe(true);
+    expect(fits({ k: 'on', ordinary: 'fess', peripheral: 'none' }, 5, 'host')).toBe(true);
+    expect(fits({ k: 'on', ordinary: 'saltire', peripheral: 'none' }, 4, 'host')).toBe(true);
   });
 
   it('fits six under a chief in three, two and one', () => {
@@ -252,5 +252,58 @@ describe('grounds', () => {
     expect(both.contain).toEqual(groundFor(fieldContext('bordure'), 'heater').contain);
     expect(both.minTop).toBe(shapeFrame('heater').chiefBase);
     expect(groundFor(fieldContext('none'), 'heater').minTop).toBe(-Infinity);
+  });
+});
+
+describe('around and on an ordinary with a chief and a bordure beside it', () => {
+  const heater = shapeFrame('heater');
+  const inset = pathPolygon(heater.inset);
+  const ctx = (k: 'between' | 'on', ordinary: OrdinaryType, peripheral: 'chief' | 'bordure' | 'chief-bordure'): LayoutContext => ({ k, ordinary, peripheral });
+  const MARGIN = 0;
+
+  it('keep the slots below the chief and inside the bordure, at a size that reads', () => {
+    const cases: Array<[LayoutContext, number]> = [
+      [ctx('between', 'pale', 'chief'), 4], [ctx('between', 'bend', 'chief-bordure'), 2], [ctx('between', 'chevron', 'bordure'), 3],
+      [ctx('between', 'chevron', 'chief'), 3], [ctx('on', 'fess', 'bordure'), 4], [ctx('on', 'bend', 'chief'), 3], [ctx('on', 'chief', 'bordure'), 3],
+    ];
+    for (const [c, count] of cases) {
+      const slots = slotsOf(c, count, 'host');
+      const where = JSON.stringify([c, count]);
+      expect(slots, where).toHaveLength(count);
+      expect(slots[0].size, where).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+      if (c.k === 'field' || c.peripheral === 'none') continue;
+      for (const s of slots) {
+        if (c.peripheral === 'chief' || c.peripheral === 'chief-bordure') expect(s.y - s.size / 2, where).toBeGreaterThanOrEqual(heater.chiefBase - MARGIN);
+        if (c.peripheral === 'bordure' || c.peripheral === 'chief-bordure') expect(pointInPolygon(s.x, s.y, inset), where).toBe(true);
+      }
+    }
+  });
+
+  it('have no room where the ordinary leaves none: a fess between charges under a chief', () => {
+    const slots = slotsOf(ctx('between', 'fess', 'chief'), 3, 'host');
+    expect(slots.length !== 3 || slots[0].size < MIN_SLOT_SIZE).toBe(true);
+  });
+
+  it('are the same as with no peripheral when there is none', () => {
+    const fessBetween = ctx('between', 'fess', 'chief');
+    expect(slotsOf({ ...fessBetween, peripheral: 'none' }, 3, 'host')).toEqual(slotsOf({ k: 'between', ordinary: 'fess', peripheral: 'none' }, 3, 'host'));
+  });
+
+  it('lay out the ordinaries with only hand rows from them: four around a cross, kept off a bordure', () => {
+    const slots = slotsOf(ctx('between', 'cross', 'bordure'), 4, 'host');
+    expect(slots.length === 4 ? slots[0].size : 0).toBeLessThan(slotsOf({ k: 'between', ordinary: 'cross', peripheral: 'none' }, 4, 'host')[0].size);
+  });
+
+  it('compose the ground of a context from its peripheral and the ordinary it sits around or on', () => {
+    const around = groundFor(ctx('between', 'pale', 'chief-bordure'), 'heater');
+    expect(around.minTop).toBe(heater.chiefBase);
+    expect(around.avoid).toHaveLength(1);
+    expect(around.contain.length).toBe(pathPolygon(heater.inset).length);
+    expect(groundFor(ctx('on', 'fess', 'chief'), 'heater').within).not.toBeNull();
+  });
+
+  it('say where charges sit in a capacity message', () => {
+    const d = nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { count: 3 }), group(ordinary('chief'), 'argent')));
+    expect(capacityIssue(d, [1])?.message).toMatch(/around the fess, under the chief/);
   });
 });

@@ -195,6 +195,16 @@ describe('plain tinctures on plain, divided and neutral grounds', () => {
       .toEqual(['Or chief lies on Argent: metal on metal']);
   });
 
+  it('a chief and a bordure each lie on the field, whatever stands beside them (SENA A3B)', () => {
+    expect(messages(arms('azure', ord('fess', 'or'), ord('chief', 'argent'), ord('bordure', 'or')))).toEqual([]);
+    // Each is judged on the field alone, whatever is beside it.
+    expect(messages(arms('gules', ord('fess', 'or'), ord('chief', 'argent'), ord('bordure', 'gules')))).toEqual(['Gules bordure on Gules field: same tincture']);
+    expect(messages(arms('azure', ord('fess', 'or'), ord('chief', 'gules'), ord('bordure', 'argent')))).toEqual(['Gules chief on Azure field: colour on colour']);
+    // Charges set between the band, beside a chief and a bordure, lie on the field too.
+    expect(messages(arms('azure', ord('pale', 'or'), chg('rose', 'argent', { count: 2 }), ord('chief', 'argent'), ord('bordure', 'argent')))).toEqual([]);
+    expect(messages(arms('azure', ord('pale', 'or'), chg('rose', 'gules', { count: 2 }), ord('chief', 'argent'), ord('bordure', 'argent')))).toEqual(['Gules roses on Azure field: colour on colour']);
+  });
+
   it('bordure on per pale Or and gules: azure is fine, gules shares a tincture', () => {
     expect(messages(arms(div('per-pale', 'or', 'gules'), ord('bordure', 'azure')))).toEqual([]);
     expect(messages(arms(div('per-pale', 'or', 'gules'), ord('bordure', 'gules')))).toEqual(['Gules bordure lies on the Gules part of the field: same tincture']);

@@ -105,8 +105,8 @@ export interface Share { index: number; counts: readonly number[] }
 
 export type LayoutContext =
   | { k: 'field'; peripheral: Peripheral; yields: Yield; share: Share | null }   // primary charge group
-  | { k: 'between'; ordinary: OrdinaryType }                                     // secondary 'between'
-  | { k: 'on'; ordinary: OrdinaryType };                                         // tertiary on an ordinary (incl. chief)
+  | { k: 'between'; ordinary: OrdinaryType; peripheral: Peripheral }             // secondary 'between'
+  | { k: 'on'; ordinary: OrdinaryType; peripheral: Peripheral };                 // tertiary on an ordinary (incl. chief)
 
 /** The context of a lone primary charge group: nothing yielded, no co-primary. */
 export const fieldContext = (peripheral: Peripheral): Extract<LayoutContext, { k: 'field' }> => ({ k: 'field', peripheral, yields: 'none', share: null });
@@ -114,9 +114,11 @@ export const fieldContext = (peripheral: Peripheral): Extract<LayoutContext, { k
 export const hasChief = (p: Peripheral): boolean => p === 'chief' || p === 'chief-bordure';
 export const hasBordure = (p: Peripheral): boolean => p === 'bordure' || p === 'chief-bordure';
 
-function peripheralOf(d: Design): Peripheral {
-  const types = d.groups.flatMap((g) => (g.role === 'peripheral' && g.item.k === 'ordinary' ? [g.item.type] : []));
-  return types.includes('chief') ? 'chief' : types.includes('bordure') ? 'bordure' : 'none';
+/** The chief and bordure a design has beside `except` (the host a charge group sits on is not its own peripheral). */
+function peripheralOf(d: Design, except: Group | null = null): Peripheral {
+  const has = (type: OrdinaryType) => d.groups.some((g) => g !== except && g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === type);
+  const chief = has('chief'), bordure = has('bordure');
+  return chief && bordure ? 'chief-bordure' : chief ? 'chief' : bordure ? 'bordure' : 'none';
 }
 
 /** The central ordinary of the primary group, if any: what a secondary group is set between. */
@@ -128,11 +130,11 @@ export function primaryOrdinary(d: Design): OrdinaryType | null {
 /** Where a charge group sits, or null for a group this builder has no layout for (ordinaries, overall, charges on charges, …). */
 export function contextOf(d: Design, group: Group, host: Group | null): LayoutContext | null {
   if (group.item.k !== 'charge') return null;
-  if (host) return host.item.k === 'ordinary' && group.role === 'tertiary' ? { k: 'on', ordinary: host.item.type } : null;
+  if (host) return host.item.k === 'ordinary' && group.role === 'tertiary' ? { k: 'on', ordinary: host.item.type, peripheral: peripheralOf(d, host) } : null;
   if (group.role === 'primary') return fieldContext(peripheralOf(d));
   if (group.role === 'secondary' && group.relation === 'between') {
     const ordinary = primaryOrdinary(d);
-    return ordinary ? { k: 'between', ordinary } : null;
+    return ordinary ? { k: 'between', ordinary, peripheral: peripheralOf(d) } : null;
   }
   return null;
 }
@@ -174,18 +176,14 @@ export function betweenWords(ordinary: OrdinaryType, count: number): string | nu
 }
 
 /** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows. */
-export function hostCounts(ctx: LayoutContext): readonly number[] {
-  const upTo12 = Array.from({ length: 12 }, (_, i) => i + 1);
-  if (ctx.k === 'between') return Object.keys(BETWEEN[ctx.ordinary] ?? {}).map(Number);
-  if (ctx.k === 'on') {
-    switch (ctx.ordinary) {
-      case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': return upTo12;
-      case 'cross': case 'saltire': return [1, 4, 5];
-      case 'pile': return [1, 2, 3];
-      default: return [];
-    }
+export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): readonly number[] {
+  if (kind === 'between') return Object.keys(BETWEEN[ordinary] ?? {}).map(Number);
+  switch (ordinary) {
+    case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': return Array.from({ length: 12 }, (_, i) => i + 1);
+    case 'cross': case 'saltire': return [1, 4, 5];
+    case 'pile': return [1, 2, 3];
+    default: return [];
   }
-  return [];
 }
 
 // ── GoT Table 7 ─────────────────────────────────────────────────────────────

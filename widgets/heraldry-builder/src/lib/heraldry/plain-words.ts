@@ -11,6 +11,7 @@ import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
 import { layoutOfKey, layoutWords } from './arrangement';
+import type { PlaceKey } from './places';
 import type { GroupTincture } from './design';
 import { joinAnd, numberWord, capitalise } from './words';
 
@@ -160,6 +161,15 @@ export function postureLabel(id: ChargeId, posture: Posture, note: string | null
   const plain = postureGloss(id, posture) ?? (posture === 'displayed' ? 'wings spread' : null);
   return plain ? `${capitalise(plain)} (${[term, note].filter(Boolean).join(', ')})` : `${capitalise(term)}${note ? ` (${note})` : ''}`;
 }
+
+/** What each place of the builder is called, in everyday words and as heraldry has it. */
+export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
+  ordinary: { plain: 'Band or shape', term: 'ordinary' },
+  picture: { plain: 'Picture', term: 'charge' },
+  'on-ordinary': { plain: 'Extra pictures', term: 'charges on the ordinary' },
+  chief: ORDINARY_LABEL.chief,
+  bordure: ORDINARY_LABEL.bordure,
+};
 
 /**
  * What the builder calls a group: "Band or shape", "Picture", "Pictures on the band", "Top bar", "Border", or

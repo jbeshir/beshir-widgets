@@ -6,7 +6,7 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { blazon, groupAt, groupTinctureOf, type Companion, type FieldShape, type Design, type ShapedDesign } from '../../lib/heraldry';
+import { LAYER_KEYS, blazon, groupAt, groupTinctureOf, layerPath, simpleParts, type Companion, type FieldShape, type Design, type LayerKey, type ShapedDesign } from '../../lib/heraldry';
 import { useCompact } from '../../lib/useCompact';
 import { issueStep, picturePath, type DesignReport, type StepKey } from '../../lib/builder';
 import type { RefObject } from 'preact';
@@ -56,8 +56,8 @@ const STEP_OF_JUMP: Record<JumpTarget, StepKey> = {
 };
 
 const STEP_SELECTOR: Record<StepKey, string> = {
-  field: '[data-testid=step-field]', ordinary: '[data-testid=step-ordinary]', picture: '[data-testid=step-charges]', extra: '[data-testid=step-extra]',
-  peripheral: '[data-testid=step-peripheral]',
+  field: '[data-testid=step-field]', ordinary: '[data-testid=step-ordinary]', picture: '[data-testid=step-charges]', 'on-ordinary': '[data-testid=step-extra]',
+  chief: '[data-testid=step-peripheral-chief]', bordure: '[data-testid=step-peripheral-bordure]',
 };
 const JUMP_SELECTOR: Record<JumpTarget, string> = {
   field: STEP_SELECTOR.field, ordinary: STEP_SELECTOR.ordinary, charge: '[data-testid=charge-select]',
@@ -157,11 +157,20 @@ export function DesignTab(p: Props) {
   });
   const compact = useCompact();
   // Phones collapse the steps, each showing what is chosen; a step with a problem opens by itself.
-  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, picture: false, extra: false, peripheral: false });
+  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, picture: false, 'on-ordinary': false, chief: false, bordure: false });
   useEffect(() => {
     const broken = report.problems.map((i) => issueStep(design, i));
     if (broken.some((k) => !open[k])) setOpen((o) => ({ ...o, ...Object.fromEntries(broken.map((k) => [k, true])) }));
   }, [report]);
+  // The layers that have a card are numbered from 4, in the order the cards come; a card that has just been added opens by itself.
+  const layerCards = LAYER_KEYS.filter((key) => (key === 'on-ordinary' ? simpleParts(design).extra !== null : layerPath(design, key) !== null));
+  const layerStep = (key: LayerKey) => 4 + layerCards.indexOf(key);
+  const shownCards = useRef(new Set<LayerKey>(layerCards));
+  useEffect(() => {
+    const added = layerCards.filter((key) => !shownCards.current.has(key));
+    shownCards.current = new Set(layerCards);
+    if (added.length > 0) setOpen((o) => ({ ...o, ...Object.fromEntries(added.map((key) => [key, true])) }));
+  }, [layerCards.join()]);
   const accordion = (k: StepKey): Accordion | null => (compact ? { open: open[k], onToggle: () => setOpen((o) => ({ ...o, [k]: !o[k] })) } : null);
   /** Open the step a control lives in, then move to the control once it is on screen. */
   const reveal = (k: StepKey, selector: string) => {
@@ -282,8 +291,9 @@ export function DesignTab(p: Props) {
         <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />
         <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
         <AddExtraLayer design={design} onChange={p.onChange} />
-        <ExtraStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues('extra')} accordion={accordion('extra')} />
-        <PeripheralStep design={design} onChange={p.onChange} issues={stepIssues('peripheral')} accordion={accordion('peripheral')} />
+        <ExtraStep design={design} n={layerStep('on-ordinary')} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues('on-ordinary')} accordion={accordion('on-ordinary')} />
+        <PeripheralStep design={design} place="chief" n={layerStep('chief')} onChange={p.onChange} issues={stepIssues('chief')} accordion={accordion('chief')} />
+        <PeripheralStep design={design} place="bordure" n={layerStep('bordure')} onChange={p.onChange} issues={stepIssues('bordure')} accordion={accordion('bordure')} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over

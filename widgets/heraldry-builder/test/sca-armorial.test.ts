@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { UNSUPPORTED_GAP_CATEGORIES, blazon, canonicalJson, normalise } from '../src/lib/heraldry';
-import { generatedDesign } from './design-generator';
+import { generatedDesign, generatedRichDesign } from './design-generator';
 import { arms, charge, group, ordinary } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -120,6 +120,11 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a charge and a chief with charges', arms('azure', group(charge('lion'), 'or'), chiefOf(mullets(3)))],
   ['charges and a chief with charges', arms('azure', group(charge('mullet'), 'or', { count: 3 }), chiefOf(mullets(2)))],
   ['a chief with charges alone', arms('azure', chiefOf(mullets(3)))],
+  ['a chief and a bordure', arms('azure', group(ordinary('chief'), 'or'), group(ordinary('bordure'), 'argent'))],
+  ['an ordinary, a chief and a bordure', arms('azure', group(ordinary('pale'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'argent'))],
+  ['charges between an ordinary, under a chief', arms('azure', group(ordinary('bend'), 'or'), group(charge('rose'), 'argent', { count: 2 }), group(ordinary('chief'), 'or'))],
+  ['charges on an ordinary, within a bordure', arms('azure', group(ordinary('fess'), 'or', { charged: [mullets(3)] }), group(ordinary('bordure'), 'argent'))],
+  ['a charge, a chief and a bordure', arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'or'))],
   ['counterchanged charges', arms(field, group(charge('rose'), 'counterchanged', { count: 2 }))],
   ['a counterchanged ordinary', arms(field, group(ordinary('fess'), 'counterchanged'))],
 ];
@@ -137,6 +142,7 @@ describe('the matcher reads what the widget writes', () => {
   it('reads the blazon of every generated design and every sample entry', () => {
     const designs = [
       ...Array.from({ length: 1500 }, (_, seed) => generatedDesign(seed)),
+      ...Array.from({ length: 1500 }, (_, seed) => generatedRichDesign(seed)),
       ...entries.entries.map((e) => normalise(e.design).design),
     ].filter((d) => d !== null);
     expect(designs.length).toBeGreaterThan(400);
@@ -179,7 +185,7 @@ describe('the matcher files what the widget does not draw under its gap', () => 
     ['Azure, a wolf Or and in chief three mullets argent.', ['multiple-groups:co-primary']],
     ['Azure, a lion Or between three roses argent.', ['multiple-groups:co-primary']],
     ['Azure, a chevron between three mullets and a rose argent.', ['multiple-groups:secondary', 'placement:between-chevron-1']],
-    ['Azure, a fess Or between three roses argent, a bordure gules.', ['multiple-groups:ordinary-and-peripheral']],
+    ['Azure, a fess Or, on a chief argent three roses gules.', ['multiple-groups:tertiary-on-peripheral-beside-ordinary']],
     ['Azure, a rose Or on a bordure argent three mullets gules.', ['multiple-groups:tertiary-on-bordure']],
     ['Azure, on a lion Or three mullets gules.', ['multiple-groups:tertiary-on-charge']],
     ['Azure, a cross Or between two roses argent.', ['placement:between-cross-2']],

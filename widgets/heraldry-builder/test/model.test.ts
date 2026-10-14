@@ -8,7 +8,7 @@ import {
   type Design, type Issue,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesign, generatedDesigns } from './design-generator';
+import { generatedDesign, generatedDesigns, generatedRichDesigns } from './design-generator';
 import { UNSUPPORTED_CASES } from './unsupported-cases';
 
 const messages = (r: ReturnType<typeof resolve>): string[] => (r.ok ? [] : r.errors.map((e) => e.message));
@@ -57,7 +57,7 @@ describe('resolve: defaults', () => {
   });
 
   it('is idempotent: resolving a resolved design gives it back', () => {
-    for (const d of generatedDesigns(1, 40)) expect(nd(d)).toEqual(d);
+    for (const d of [...generatedDesigns(1, 40), ...generatedRichDesigns(1, 40)]) expect(nd(d)).toEqual(d);
   });
 });
 
@@ -149,6 +149,13 @@ describe('resolve: roles', () => {
     expect(new Set(jsons).size).toBe(1);
     expect(nd(arms('vert', ...items)).groups.map((g) => [g.role, g.item.k === 'ordinary' ? g.item.type : g.item.charge]))
       .toEqual([['primary', 'fess'], ['secondary', 'rose'], ['peripheral', 'chief']]);
+  });
+
+  it('puts a chief before a bordure, so the bordure is painted over it', () => {
+    const chief = group(ordinary('chief'), 'argent'), bordure = group(ordinary('bordure'), 'gules');
+    for (const groups of [[chief, bordure], [bordure, chief]]) {
+      expect(nd(arms('azure', group(ordinary('fess'), 'or'), ...groups)).groups.map((g) => g.item.k === 'ordinary' && g.item.type)).toEqual(['fess', 'chief', 'bordure']);
+    }
   });
 
   it('sorts modifiers, parts and held charges', () => {
@@ -392,6 +399,14 @@ describe('support matrix', () => {
       ['charges on and between a band', arms('azure', group(ordinary('fess'), 'or', { charged: [group(charge('rose'), 'gules', { count: 3 })] }), group(charge('mullet'), 'argent', { count: 3 }))],
       ['a band and a chief', arms('azure', fess, group(ordinary('chief'), 'argent'))],
       ['a band and a bordure', arms('azure', fess, group(ordinary('bordure'), 'argent'))],
+      ['a chief and a bordure', arms('azure', group(ordinary('chief'), 'or'), group(ordinary('bordure'), 'argent'))],
+      ['a band, a chief and a bordure', arms('azure', fess, group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'gules'))],
+      ['a band between charges and a chief', arms('azure', group(ordinary('bend'), 'or'), group(charge('rose'), 'gules', { count: 2 }), group(ordinary('chief'), 'argent'))],
+      ['a pile and a chief', arms('azure', group(ordinary('pile'), 'or'), group(ordinary('chief'), 'argent'))],
+      ['charges on a band and a chief', arms('azure', group(ordinary('bend'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(ordinary('chief'), 'argent'))],
+      ['charges on a band, between charges, and a bordure', arms('azure', group(ordinary('fess'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(charge('mullet'), 'argent', { count: 2 }), group(ordinary('bordure'), 'gules'))],
+      ['a charge, a chief and a bordure', arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'gules'))],
+      ['a chief with charges and a bordure', arms('azure', group(ordinary('chief'), 'argent', { charged: [group(charge('rose'), 'gules', { count: 3 })] }), group(ordinary('bordure'), 'gules'))],
       ['a charge', arms('azure', group(charge('lion'), 'or'))],
       ['a charge and a chief', arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent'))],
       ['a charge and a chief with charges', arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent', { charged: [group(charge('rose'), 'gules', { count: 3 })] }))],
@@ -411,7 +426,7 @@ describe('support matrix', () => {
     }
 
     it('every generated design is supported', () => {
-      for (const d of generatedDesigns(1, 200)) expect(isSupported(d)).toBe(true);
+      for (const d of [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 200)]) expect(isSupported(d)).toBe(true);
     });
   });
 

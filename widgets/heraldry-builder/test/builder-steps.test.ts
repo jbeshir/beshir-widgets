@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { AddExtraLayer, ChargesStep, ExtraStep, FieldStep, OrdinaryStep, PeripheralStep } from '../src/components/design/BuilderSteps';
-import { addExtraPicture, addPeripheral, setCharge, setOrdinary, setGroupTincture, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import type { Design } from '../src/lib/heraldry';
+import { setCharge, setOrdinary, setGroupTincture, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { addLayer, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -80,18 +80,17 @@ describe('controls that appear only when they apply', () => {
     const add = renderToString(h(AddExtraLayer, { design: toned, onChange: noop }));
     expect(add).toContain('data-testid="add-extra-picture"');
     expect(add).toContain('Add pictures on the band');
-    expect(add).not.toContain('add-peripheral');
     expect(renderToString(h(AddExtraLayer, { design: DEFAULT_DESIGN, onChange: noop }))).toBe('');
 
-    const withExtra = addExtraPicture(toned, 'mullet');
-    expect(renderToString(h(AddExtraLayer, { design: withExtra, onChange: noop }))).toBe('');
-    const got = ids(renderToString(h(ExtraStep, { ...base, design: withExtra, onAdjust: noop })));
+    const withExtra = setCharge(toned, 'on-ordinary', 'mullet');
+    expect(renderToString(h(AddExtraLayer, { design: withExtra, onChange: noop }))).not.toContain('add-extra-picture');
+    const got = ids(renderToString(h(ExtraStep, { ...base, design: withExtra, n: 4, onAdjust: noop })));
     for (const id of ['step-extra', 'extra-charge-select', 'extra-count-select', 'extra-count-1', 'extra-arrangement-select', 'extra-charge-tincture', 'remove-extra-picture']) expect(got, id).toContain(id);
     expect(got).not.toContain('extra-placement-select');
-    expect(renderToString(h(ExtraStep, { ...base, design: toned, onAdjust: noop }))).toBe('');
+    expect(renderToString(h(ExtraStep, { ...base, design: toned, n: 4, onAdjust: noop }))).toBe('');
   });
 
-  it('offers a top band or border beside a band that has no picture, with its own controls once added', () => {
+  it('offers a top band and a border beside a band, with their own controls once added', () => {
     const band = setOrdinary(DEFAULT_DESIGN, 'chevron');
     const add = renderToString(h(AddExtraLayer, { design: band, onChange: noop }));
     expect(add).toContain('data-testid="add-peripheral-chief"');
@@ -100,13 +99,15 @@ describe('controls that appear only when they apply', () => {
     expect(add).toContain('Add a border (bordure)');
     expect(add).not.toContain('add-extra-picture');
 
-    const bordered = addPeripheral(band, 'bordure');
-    expect(renderToString(h(AddExtraLayer, { design: bordered, onChange: noop }))).toBe('');
-    const got = ids(renderToString(h(PeripheralStep, { ...base, design: bordered })));
-    for (const id of ['step-peripheral', 'peripheral-tincture', 'remove-peripheral']) expect(got, id).toContain(id);
-    expect(renderToString(h(PeripheralStep, { ...base, design: band }))).toBe('');
-    // A picture and a peripheral can't be drawn together, so the picture step says so and the add buttons stay away from pictured bands.
-    expect(renderToString(h(ChargesStep, { ...base, design: bordered, onAdjust: noop, adjusted: null, compact: false }))).toContain('peripheral-picture-note');
-    expect(renderToString(h(AddExtraLayer, { design: setCharge(band, 'picture', 'lion'), onChange: noop }))).not.toContain('add-peripheral');
+    const bordered = addLayer(band, 'bordure');
+    expect(renderToString(h(AddExtraLayer, { design: bordered, onChange: noop }))).not.toContain('add-peripheral-bordure');
+    expect(renderToString(h(AddExtraLayer, { design: bordered, onChange: noop }))).toContain('add-peripheral-chief');
+    const got = ids(renderToString(h(PeripheralStep, { ...base, design: bordered, place: 'bordure', n: 4 })));
+    for (const id of ['step-peripheral-bordure', 'peripheral-tincture-bordure', 'remove-peripheral-bordure']) expect(got, id).toContain(id);
+    expect(renderToString(h(PeripheralStep, { ...base, design: band, place: 'bordure', n: 4 }))).toBe('');
+    // Pictures and the top band or border go together: the add buttons stay, and the picture step no longer warns.
+    const pictured = setCharge(band, 'picture', 'lion');
+    expect(renderToString(h(AddExtraLayer, { design: pictured, onChange: noop }))).toContain('add-peripheral-bordure');
+    expect(renderToString(h(ChargesStep, { ...base, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null, compact: false }))).not.toContain('peripheral-picture-note');
   });
 });

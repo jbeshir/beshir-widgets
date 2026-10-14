@@ -1,8 +1,8 @@
 // The design breaks a rule after a lower-layer change: list the problems by layer and offer a
 // one-click fix when a single tincture swap (or a structural refit) clears them.
 
-import { fitGroup, suggestTinctureFix, type Issue, type Design } from '../../lib/heraldry';
-import { STEP_LABEL, assess, extraPicturePath, fixText, issueStep, picturePath, sameDesign, type StepKey } from '../../lib/builder';
+import { refitLayers, suggestTinctureFix, type Issue, type Design } from '../../lib/heraldry';
+import { STEP_LABEL, assess, fixText, issueStep, sameDesign, type StepKey } from '../../lib/builder';
 
 interface Props {
   design: Design;
@@ -16,10 +16,7 @@ export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
   const steps = problems.map((p) => issueStep(design, p));
   const layers = [...new Set(steps.map((s) => STEP_LABEL[s]))];
   const tinctureFix = suggestTinctureFix(design);
-  const refit = [picturePath, extraPicturePath].reduce((d, find) => {
-    const path = find(d);
-    return path ? fitGroup(d, path) : d;
-  }, design);
+  const refit = refitLayers(design);
   const structuralFix = !tinctureFix && !sameDesign(refit, design) && assess(refit).status !== 'violation' ? refit : null;
   return (
     <section class="violation" data-testid="violation-panel" aria-labelledby="violation-title">

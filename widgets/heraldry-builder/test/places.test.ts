@@ -1,0 +1,65 @@
+// Places: every group of a design the builder draws has one, and it survives the group order changing.
+
+import { describe, expect, it } from 'vitest';
+import { PLACE_KEYS, pathKey, pathOfPlace, placeOfPath, placesIn, placesOf, walkGroups, type PlaceKey } from '../src/lib/heraldry';
+import { generatedRichDesigns } from './design-generator';
+import { arms, charge, group, nd, ordinary } from './helpers';
+
+const rose = (count = 1, extra: object = {}) => group(charge('rose'), 'gules', { count, ...extra });
+const names = (d: ReturnType<typeof nd>): Array<[PlaceKey, string]> =>
+  placesOf(d).map((p) => [p.place, p.group.item.k === 'ordinary' ? p.group.item.type : p.group.item.charge]);
+
+describe('places of a design', () => {
+  it('cover every group of every generated design exactly once, and map back to their paths', () => {
+    const designs = generatedRichDesigns(7, 400);
+    let layered = 0;
+    for (const d of designs) {
+      const placed = placesOf(d);
+      expect(placed.map((p) => pathKey(p.path)).sort(), JSON.stringify(d)).toEqual(walkGroups(d).map((w) => pathKey(w.path)).sort());
+      expect(new Set(placed.map((p) => p.place)).size).toBe(placed.length);
+      for (const p of placed) {
+        expect(placeOfPath(d, p.path)).toBe(p.place);
+        expect(pathOfPlace(d, p.place)).toEqual(p.path);
+      }
+      expect(placed.map((p) => PLACE_KEYS.indexOf(p.place))).toEqual(placed.map((p) => PLACE_KEYS.indexOf(p.place)).sort((a, b) => a - b));
+      if (placed.some((p) => p.place === 'chief' || p.place === 'bordure')) layered++;
+    }
+    expect(layered).toBeGreaterThan(40);
+  });
+
+  it('names the band, the picture, the pictures on the band, the top band and the border', () => {
+    const d = nd(arms('azure', group(ordinary('fess'), 'or', { charged: [rose(3, { paint: 'gules' })] }), group(charge('mullet'), 'argent', { count: 2 }),
+      group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'gules')));
+    expect(names(d)).toEqual([['ordinary', 'fess'], ['picture', 'mullet'], ['on-ordinary', 'rose'], ['chief', 'chief'], ['bordure', 'bordure']]);
+    expect(pathOfPlace(d, 'on-ordinary')).toEqual([0, 0]);
+  });
+
+  it('keep their names when the input order changes', () => {
+    const parts = [group(ordinary('bend'), 'or'), group(charge('mullet'), 'argent', { count: 2 }), group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'gules')];
+    const orders = [[0, 1, 2, 3], [3, 2, 1, 0], [2, 0, 3, 1]];
+    const results = orders.map((o) => JSON.stringify(names(nd(arms('azure', ...o.map((i) => parts[i]))))));
+    expect(new Set(results).size).toBe(1);
+  });
+
+  it('give the chief, else the bordure, the place of the band when there is no central one', () => {
+    const chief = group(ordinary('chief'), 'argent'), bordure = group(ordinary('bordure'), 'gules');
+    expect(names(nd(arms('azure', bordure)))).toEqual([['ordinary', 'bordure']]);
+    expect(names(nd(arms('azure', chief)))).toEqual([['ordinary', 'chief']]);
+    expect(names(nd(arms('azure', bordure, chief)))).toEqual([['ordinary', 'chief'], ['bordure', 'bordure']]);
+    expect(names(nd(arms('azure', group(charge('lion'), 'or'), bordure, chief)))).toEqual([['ordinary', 'chief'], ['picture', 'lion'], ['bordure', 'bordure']]);
+  });
+
+  it('call a chief with charges on it the band with pictures on it', () => {
+    const d = nd(arms('azure', group(ordinary('chief'), 'argent', { charged: [rose(3)] })));
+    expect(names(d)).toEqual([['ordinary', 'chief'], ['on-ordinary', 'rose']]);
+  });
+
+  it('throw for a group with no place, while placesIn reports it', () => {
+    const overall = nd(arms('azure', group(ordinary('bend'), 'or'), rose(1, { role: 'overall' })));
+    expect(() => placesOf(overall)).toThrow(RangeError);
+    expect(placesIn(overall)).toMatchObject({ unplaced: [[1]] });
+    const crowded = nd(arms('azure', group(ordinary('fess'), 'or', { charged: [rose(2), group(charge('mullet'), 'argent', { count: 2 })] })));
+    expect(placesIn(crowded).unplaced).toEqual([[0, 1]]);
+    expect(placeOfPath(crowded, [0, 1])).toBeNull();
+  });
+});

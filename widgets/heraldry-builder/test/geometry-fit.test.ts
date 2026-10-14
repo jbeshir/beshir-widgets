@@ -10,8 +10,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
-  layoutOfKey, MIN_SLOT_SIZE, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
-  type ChargeId, type Design, type FieldShape, type Layout, type LayoutContext, type OrdinaryType, type Slot,
+  hasBordure, hasChief, layoutOfKey, MIN_SLOT_SIZE, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
+  type ChargeId, type Design, type FieldShape, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { rings, type Pt } from './art-geometry';
@@ -26,6 +26,13 @@ const BETWEEN: OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevr
 const ON: OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'chief'];
 
 const tinctured = (paint: string, item: object, extra: object = {}) => ({ item, paint, ...extra });
+
+const PERIPHERALS: Peripheral[] = ['none', 'chief', 'bordure', 'chief-bordure'];
+/** The chief and bordure groups that make a design's peripheral. */
+const peripheralGroups = (peripheral: Peripheral): object[] => [
+  ...(hasChief(peripheral) ? [tinctured('gules', { k: 'ordinary', type: 'chief' })] : []),
+  ...(hasBordure(peripheral) ? [tinctured('gules', { k: 'ordinary', type: 'bordure' })] : []),
+];
 const chargeItem = (id: string) => ({ k: 'charge', charge: id });
 
 function resolved(input: unknown): Design {
@@ -60,24 +67,29 @@ function catalogue(): { entries: Entry[]; rejected: number } {
       consider(count, fieldContext(peripheral), layoutCandidates(base, path, count), `field/${peripheral}`, make);
     }
   }
-  // Charges around and on an ordinary.
-  for (const type of BETWEEN) {
-    for (const count of COUNTS) {
-      const make = (arrangement?: string) => resolved({
-        v: 2, field: 'azure',
-        groups: [tinctured('or', { k: 'ordinary', type }), tinctured('argent', chargeItem('mullet'), { count, relation: 'between', ...(arrangement ? { arrangement } : {}) })],
-      });
-      const base = make();
-      consider(count, { k: 'between', ordinary: type }, [layoutOfKey('host', count)!], `between ${type}`, make);
+  // Charges around and on an ordinary, alone and with a chief and/or a bordure beside it.
+  for (const peripheral of PERIPHERALS) {
+    const beside = peripheralGroups(peripheral);
+    const suffix = peripheral === 'none' ? '' : `/${peripheral}`;
+    for (const type of BETWEEN) {
+      for (const count of COUNTS) {
+        const make = () => resolved({
+          v: 2, field: 'azure',
+          groups: [tinctured('or', { k: 'ordinary', type }), tinctured('argent', chargeItem('mullet'), { count, relation: 'between' }), ...beside],
+        });
+        consider(count, { k: 'between', ordinary: type, peripheral }, [layoutOfKey('host', count)!], `between ${type}${suffix}`, make);
+      }
     }
-  }
-  for (const type of ON) {
-    for (const count of COUNTS) {
-      const make = () => resolved({
-        v: 2, field: 'azure',
-        groups: [tinctured('or', { k: 'ordinary', type }, { charged: [tinctured('argent', chargeItem('mullet'), { count })] })],
-      });
-      consider(count, { k: 'on', ordinary: type }, [layoutOfKey('host', count)!], `on ${type}`, make);
+    for (const type of ON) {
+      // A chief can't have a chief beside it.
+      if (type === 'chief' && hasChief(peripheral)) continue;
+      for (const count of COUNTS) {
+        const make = () => resolved({
+          v: 2, field: 'azure',
+          groups: [tinctured('or', { k: 'ordinary', type }, { charged: [tinctured('argent', chargeItem('mullet'), { count })] }), ...beside],
+        });
+        consider(count, { k: 'on', ordinary: type, peripheral }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
+      }
     }
   }
   return { entries, rejected };
@@ -140,17 +152,15 @@ const SHAPES = FIELD_SHAPES.map(shapeGeometry);
 /** What a context's slots must stay inside (`fits`) or, for charges around an ordinary, clear of. */
 function groundFits(g: ShapeGeometry, ctx: LayoutContext, margin: number, narrowBands: boolean): (p: Pt) => boolean {
   const onShape = (p: Pt) => pointInPolygon(p[0], p[1], g.outline) && edgeDistance(g.outline, p) >= margin;
-  if (ctx.k === 'field') {
-    if (ctx.peripheral === 'bordure') return (p) => pointInPolygon(p[0], p[1], g.inset);
-    if (ctx.peripheral === 'chief') return (p) => onShape(p) && p[1] >= g.chiefBase;
-    return onShape;
-  }
+  // What the chief and bordure beside the group leave: inside the bordure's inner edge, below the chief.
+  const inFrame = (p: Pt) => (hasBordure(ctx.peripheral) ? pointInPolygon(p[0], p[1], g.inset) : onShape(p)) && (!hasChief(ctx.peripheral) || p[1] >= g.chiefBase);
+  if (ctx.k === 'field') return inFrame;
   const poly = g.poly(ctx.ordinary);
   // Chevron and saltire arms are narrower than a square charge's corners, so only glyph discs are held to them.
   const respect = !narrowBands || ART_RESPECTS.includes(ctx.ordinary);
   return ctx.k === 'between'
-    ? (p) => onShape(p) && !(respect && pointInPolygon(p[0], p[1], poly))
-    : (p) => onShape(p) && (!respect || pointInPolygon(p[0], p[1], poly));
+    ? (p) => inFrame(p) && !(respect && pointInPolygon(p[0], p[1], poly))
+    : (p) => inFrame(p) && (!respect || pointInPolygon(p[0], p[1], poly));
 }
 
 /** Ordinaries whose band is wide enough for the art's corners, so the real art must respect them. */
@@ -161,7 +171,10 @@ const ART_RESPECTS: readonly OrdinaryType[] = ['fess', 'pale', 'chief', 'bend', 
 describe('layout catalogue', () => {
   it('has a legal layout for every context and plenty of them', () => {
     expect(CATALOGUE.length).toBeGreaterThan(150);
-    for (const key of ['field/none', 'field/bordure', 'field/chief', 'between fess', 'between bend', 'on fess', 'on bend', 'on chevron', 'on chief', 'on cross']) {
+    for (const key of [
+      'field/none', 'field/bordure', 'field/chief', 'between fess', 'between bend', 'on fess', 'on bend', 'on chevron', 'on chief', 'on cross',
+      'between chevron/bordure', 'between pale/chief', 'between bend/chief-bordure', 'on fess/bordure', 'on bend/chief', 'on chief/bordure',
+    ]) {
       expect(CATALOGUE.some((e) => e.label.startsWith(key)), key).toBe(true);
     }
   });

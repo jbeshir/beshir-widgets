@@ -23,8 +23,8 @@ export const GOLDEN_CONTEXTS: readonly GoldenContext[] = [
   ...FIELD_PERIPHERALS.map((peripheral): GoldenContext => ({
     key: `field-${peripheral}`, ctx: fieldContext(peripheral), layouts: FIELD_LAYOUTS,
   })),
-  ...BETWEEN.map((ordinary): GoldenContext => ({ key: `between-${ordinary}`, ctx: { k: 'between', ordinary }, layouts: HOST_LAYOUTS })),
-  ...ON.map((ordinary): GoldenContext => ({ key: `on-${ordinary}`, ctx: { k: 'on', ordinary }, layouts: HOST_LAYOUTS })),
+  ...BETWEEN.map((ordinary): GoldenContext => ({ key: `between-${ordinary}`, ctx: { k: 'between', ordinary, peripheral: 'none' }, layouts: HOST_LAYOUTS })),
+  ...ON.map((ordinary): GoldenContext => ({ key: `on-${ordinary}`, ctx: { k: 'on', ordinary, peripheral: 'none' }, layouts: HOST_LAYOUTS })),
 ];
 
 /** FNV-1a, 32 bits, as 8 hex digits. */

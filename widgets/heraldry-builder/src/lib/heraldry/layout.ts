@@ -60,6 +60,7 @@ function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: Fie
     const row = table?.[`${count}:${layoutKey(layout)}`];
     return row ? slotsOf(row, () => 0) : null;
   }
+  if (ctx.peripheral !== 'none') return null;
   const turn = (x: number) => (ctx.k === 'on' ? followRotation(ctx.ordinary, x) : 0);
   if (ctx.k === 'on' && count === 4 && (ctx.ordinary === 'cross' || ctx.ordinary === 'saltire')) {
     // One on each arm: the five-charge rows without the centre.
@@ -207,17 +208,54 @@ function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number
 
 const mirrored = (cs: Centre[]): Centre[] => cs.map((c) => at(100 - c.x, c.y));
 
-function betweenCentres(ordinary: OrdinaryType, count: number): Centre[] | null {
+/** The part of `a` inside `bounds`: an area of no height or width where they don't meet. */
+function within(a: Area, bounds: Area): Area {
+  const x0 = Math.max(a.x0, bounds.x0), y0 = Math.max(a.y0, bounds.y0);
+  return area(x0, y0, Math.max(x0, Math.min(a.x1, bounds.x1)), Math.max(y0, Math.min(a.y1, bounds.y1)));
+}
+
+/** `m` centres evenly along the part of a segment inside `bounds` (none when the segment misses it). */
+function alongWithin(from: Pt, to: Pt, m: number, bounds: Area): Centre[] {
+  let t0 = 0, t1 = 1;
+  for (const [p, d, lo, hi] of [[from[0], to[0] - from[0], bounds.x0, bounds.x1], [from[1], to[1] - from[1], bounds.y0, bounds.y1]] as const) {
+    if (d === 0) {
+      if (p < lo || p > hi) return [];
+      continue;
+    }
+    const [a, b] = [(lo - p) / d, (hi - p) / d].sort((x, y) => x - y);
+    t0 = Math.max(t0, a);
+    t1 = Math.min(t1, b);
+  }
+  if (t0 >= t1) return [];
+  const at01 = (t: number): Pt => [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+  return along(at01(t0), at01(t1), m);
+}
+
+/** What the peripherals leave of the field to set charges in (the whole heater when there are none). */
+const freeArea = (peripheral: Peripheral): Area => FIELD_AREAS[peripheral].straight;
+
+/**
+ * Charges set between a central ordinary. With a chief or bordure the lines they are strung along keep to the
+ * free area; where the ordinary leaves nothing there the slots come out too small and the structure rules say so.
+ */
+function betweenCentres(ordinary: OrdinaryType, count: number, peripheral: Peripheral): Centre[] | null {
   const split = BETWEEN[ordinary]?.[count]?.split;
   if (!split) return null;
   const [first, second] = split;
+  const free = freeArea(peripheral);
+  const zone = (a: Area): Area => (peripheral === 'none' ? a : within(a, free));
+  const slanted = (from: Pt, to: Pt, m: number) => (peripheral === 'none' ? along(from, to, m) : alongWithin(from, to, m, free));
   switch (ordinary) {
-    case 'fess': return [...lineIn(area(4, 4, 96, 33), first, 'fess'), ...lineIn(area(4, 67, 96, 104), second, 'fess')];
-    case 'pale': return [...lineIn(area(4, 4, 33, 96), first, 'pale'), ...lineIn(area(67, 4, 96, 96), second, 'pale')];
+    case 'fess': return [...lineIn(zone(area(4, 4, 96, 33)), first, 'fess'), ...lineIn(zone(area(4, 67, 96, 104)), second, 'fess')];
+    case 'pale': return [...lineIn(zone(area(4, 4, 33, 96)), first, 'pale'), ...lineIn(zone(area(67, 4, 96, 96)), second, 'pale')];
     // Two lines parallel to the bend, 40 above and below it.
-    case 'bend': return [...along([48, 8], [92, 52], first), ...along([8, 48], [52, 92], second)];
-    case 'bend-sinister': return mirrored([...along([48, 8], [92, 52], first), ...along([8, 48], [52, 92], second)]);
-    case 'chevron': return [...lineIn(area(4, 4, 96, 36), first, 'fess'), ...rowsIn(area(30, 84, 70, 116), second === 1 ? [1] : [2, 1])];
+    case 'bend': return [...slanted([48, 8], [92, 52], first), ...slanted([8, 48], [52, 92], second)];
+    case 'bend-sinister': return mirrored([...slanted([48, 8], [92, 52], first), ...slanted([8, 48], [52, 92], second)]);
+    case 'chevron': {
+      // Under a chief the charges beside the apex lie in the band below it.
+      const above = hasChief(peripheral) ? area(4, free.y0, 96, free.y0 + 30) : area(4, 4, 96, 36);
+      return [...lineIn(zone(above), first, 'fess'), ...rowsIn(zone(area(30, 84, 70, 116)), second === 1 ? [1] : [2, 1])];
+    }
     default: return null;
   }
 }
@@ -236,9 +274,12 @@ const CHEVRON_APEX: Pt = [50, 55.56];
 const LIMB_REACH = 46;
 const LIMB_PITCH = 36.8;
 
-function onCentres(ordinary: OrdinaryType, count: number): Centre[] | null {
-  const axis = ON_AXIS[ordinary];
-  if (axis) return along(axis.from, axis.to, count);
+/** The chief's axis moves down to the middle of what a bordure leaves of it. */
+const BORDURED_CHIEF_AXIS: { from: Pt; to: Pt } = { from: [6, 20], to: [94, 20] };
+
+function onCentres(ordinary: OrdinaryType, count: number, peripheral: Peripheral): Centre[] | null {
+  const axis = ordinary === 'chief' && hasBordure(peripheral) ? BORDURED_CHIEF_AXIS : ON_AXIS[ordinary];
+  if (axis) return peripheral === 'none' ? along(axis.from, axis.to, count) : alongWithin(axis.from, axis.to, count, freeArea(peripheral));
   if (ordinary !== 'chevron') return null;
   // The apex takes the middle charge of an odd count; the rest are shared equally along the two limbs.
   const perLimb = Math.floor(count / 2);
@@ -252,10 +293,17 @@ function onCentres(ordinary: OrdinaryType, count: number): Centre[] | null {
   return centres;
 }
 
+/** Where the hand rows of a context without peripherals put its slots: the nominal centres of the ordinaries the engine has no rule for. */
+function handCentres(ctx: Exclude<LayoutContext, { k: 'field' }>, count: number): Centre[] | null {
+  const slots = handSlots({ ...ctx, peripheral: 'none' }, count, HOST_LAYOUT, CANONICAL_SHAPE);
+  return slots && slots.map((s) => at(s.x, s.y, s.rotation));
+}
+
 function nominalCentres(ctx: LayoutContext, count: number, layout: Layout): Centre[] | null {
   if (ctx.k === 'field') return fieldCentres(ctx, count, layout);
-  if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx).includes(count)) return null;
-  return (ctx.k === 'between' ? betweenCentres(ctx.ordinary, count) : onCentres(ctx.ordinary, count));
+  if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx.k, ctx.ordinary).includes(count)) return null;
+  const ruled = ctx.k === 'between' ? betweenCentres(ctx.ordinary, count, ctx.peripheral) : onCentres(ctx.ordinary, count, ctx.peripheral);
+  return ruled ?? (ctx.peripheral === 'none' ? null : handCentres(ctx, count));
 }
 
 // ── Generic engine: fitting ─────────────────────────────────────────────────
@@ -284,7 +332,7 @@ export function groundFor(ctx: LayoutContext, shape: FieldShape): Ground {
   if (ctx.k === 'field') return { ...frameGround(ctx.peripheral, shape), avoid: [], within: null };
   const polygon = pathPolygon(ordinaryPath(ctx.ordinary, shape));
   return {
-    ...frameGround('none', shape),
+    ...frameGround(ctx.peripheral, shape),
     avoid: ctx.k === 'between' ? [polygon] : [],
     within: ctx.k === 'on' ? polygon : null,
   };
@@ -474,12 +522,17 @@ export function largestFittingCount(ctx: LayoutContext, layoutFor: (n: number) =
   return n;
 }
 
+/** What the peripherals beside a group of charges do to where they sit, as a trailing phrase. */
+function peripheralWords(peripheral: Peripheral): string {
+  return peripheral === 'chief-bordure' ? ', within the bordure and under the chief' : hasChief(peripheral) ? ', under the chief' : hasBordure(peripheral) ? ', within the bordure' : '';
+}
+
 function whereWords(ctx: LayoutContext, layout: Layout): string {
   if (layout.position) return `in ${layout.position}`;
   switch (ctx.k) {
     case 'field': return ctx.peripheral === 'chief-bordure' ? 'within the bordure, under the chief' : hasChief(ctx.peripheral) ? 'under the chief' : hasBordure(ctx.peripheral) ? 'within the bordure' : 'on the field';
-    case 'between': return `around the ${ORDINARY_NAME[ctx.ordinary]}`;
-    case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}`;
+    case 'between': return `around the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
+    case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
   }
 }
 

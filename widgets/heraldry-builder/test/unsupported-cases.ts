@@ -47,11 +47,9 @@ export const UNSUPPORTED_CASES: Array<[string, unknown, string]> = [
   ['an overall charge', arms('azure', group(ordinary('bend'), 'or'), rose({ role: 'overall' })), 'multiple-groups:overall'],
   ['two primary charge groups', arms('azure', lion, rose()), 'multiple-groups:co-primary'],
   ['two secondary groups', arms('azure', group(ordinary('bend'), 'or'), rose({ count: 2 }), group(charge('mullet'), 'argent', { count: 2 })), 'multiple-groups:secondary'],
-  ['a chief and a bordure', arms('azure', group(ordinary('chief'), 'or'), group(ordinary('bordure'), 'argent')), 'multiple-groups:peripherals'],
+  ['two chiefs', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('chief'), 'gules')), 'multiple-groups:peripherals'],
+  ['charges on a chief beside a fess', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent', { charged: [rose({ count: 3 })] })), 'multiple-groups:tertiary-on-peripheral-beside-ordinary'],
   ['a secondary group about', arms('azure', group(ordinary('bend'), 'or'), rose({ role: 'secondary', relation: 'about', count: 2 })), 'multiple-groups:secondary-about'],
-  ['charges between and a chief', arms('azure', group(ordinary('bend'), 'or'), rose({ count: 2 }), group(ordinary('chief'), 'argent')), 'multiple-groups:ordinary-and-peripheral'],
-  ['charges on a pile and a chief', arms('azure', group(ordinary('pile'), 'or'), group(ordinary('chief'), 'argent')), 'multiple-groups:ordinary-and-peripheral'],
-  ['charges on a bend and a chief', arms('azure', group(ordinary('bend'), 'or', { charged: [rose({ count: 2 })] }), group(ordinary('chief'), 'argent')), 'multiple-groups:ordinary-and-peripheral'],
   ['charges on a charge', arms('azure', group(charge('lion'), 'or', { charged: [rose({ count: 2 })] })), 'multiple-groups:tertiary-on-charge'],
   ['charges on a bordure', arms('azure', group(ordinary('bordure'), 'or', { charged: [rose({ count: 2 })] })), 'multiple-groups:tertiary-on-bordure'],
 ];

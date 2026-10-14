@@ -23,7 +23,7 @@ export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, ORDINARY_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, ORDINARY_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
@@ -36,8 +36,12 @@ export {
   counterchangedSlotParts, counterchangedOrdinaryParts, type Slot,
 } from './geometry';
 export { MIN_SLOT_SIZE, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
+export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
 export {
-  COUNTS, isBlocked, simpleParts, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
+  LAYER_KEYS, layerPath, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge, type LayerKey,
+} from './layers';
+export {
+  COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
   layoutReason, withLayout, postureChoices, modifierChoices, fitGroup, suggestTinctureFix,
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';

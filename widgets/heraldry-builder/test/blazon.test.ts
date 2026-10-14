@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { CHARGES, CHARGE_IDS, UnsupportedConstructError, postureTerm, blazon, normalise, resolve, type Design } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { N, V } from './validation-cases';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -18,7 +18,7 @@ describe('worked examples', () => {
 
 describe('house style', () => {
   it('capitalises the first word and Or, nothing else, and ends with a full stop', () => {
-    for (const d of generatedDesigns(11, 150)) {
+    for (const d of [...generatedDesigns(11, 150), ...generatedRichDesigns(11, 150)]) {
       const text = blazon(d);
       expect(text, text).toMatch(/^[A-Z][^A-Z]*(Or[^A-Z]*)*\.$/);
       expect(text).not.toMatch(/\d/);
@@ -173,7 +173,7 @@ describe('what it will not write', () => {
   });
 
   it('writes any generated design in one sentence', () => {
-    for (const d of generatedDesigns(31, 200)) expect(blazon(d).split('. ').length, blazon(d)).toBe(1);
+    for (const d of [...generatedDesigns(31, 200), ...generatedRichDesigns(31, 200)]) expect(blazon(d).split('. ').length, blazon(d)).toBe(1);
   });
 });
 

@@ -309,9 +309,20 @@ export const arrangementPhrases = (normalisedText: string): string[] => (normali
 /** The gaps of a proposal the widget doesn't draw, when it has no design. */
 const gapsOf = (c: Candidate): Gap[] => c.issues.flatMap((i) => (i.code === 'unsupported' ? [i.gap] : []));
 
-/** Full outcome for one SCA blazon: status, candidates and the matching one. */
+const explained = new Map<string, MatchResult>();
+
+/** Full outcome for one SCA blazon: status, candidates and the matching one (memoised by normalised text: many records share one). */
 export function explainMatch(scaBlazon: string): MatchResult {
   const normalised = normaliseBlazon(scaBlazon);
+  let result = explained.get(normalised);
+  if (!result) {
+    result = explainNormalised(normalised);
+    explained.set(normalised, result);
+  }
+  return result;
+}
+
+function explainNormalised(normalised: string): MatchResult {
   if (normalised.startsWith('(fieldless)')) return { status: 'fieldless', normalised, candidates: [], match: null };
   const unknownWord = normalised.split(/[ ,]+/).find((w) => w && !VOCABULARY.has(w));
   if (unknownWord !== undefined) return { status: 'vocabulary', normalised, unknownWord, candidates: [], match: null };

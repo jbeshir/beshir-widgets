@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { blazon, deriveTags, gloss, normalise, readability, signature, unsupportedIssues, validate } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 import { UNSUPPORTED_CASES } from './unsupported-cases';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 
 describe('normalise', () => {
   it('returns the canonical design when nothing is wrong', () => {
@@ -52,7 +52,7 @@ describe('normalise', () => {
   });
 
   it('agrees with validate on resolved designs, and passes everything the generator makes', () => {
-    for (const d of generatedDesigns(5, 80)) {
+    for (const d of [...generatedDesigns(5, 80), ...generatedRichDesigns(5, 80)]) {
       expect(validate(d)).toEqual([]);
       expect(unsupportedIssues(d)).toEqual([]);
       expect(normalise(d)).toEqual({ ok: true, design: d });

@@ -243,13 +243,21 @@ function canonicalItem(item: Item): Item {
   };
 }
 
+/** The order of a chief and a bordure among the peripherals: the chief first, so the bordure is painted over it (SENA App M1l). */
+const PERIPHERAL_ORDER = ['ordinary:chief', 'ordinary:bordure'];
+
+function groupOrder(g: Group): string {
+  const peripheral = g.role === 'peripheral' ? PERIPHERAL_ORDER.indexOf(itemKey(g.item)) : -1;
+  return `${ROLE_ORDER.indexOf(g.role)}${peripheral >= 0 ? `0${peripheral}` : `1${itemKey(g.item)}`}`;
+}
+
 function canonicalGroups(groups: readonly Group[]): Group[] {
   const rebuilt = groups.map((g): Group => ({
     role: g.role, relation: g.relation, item: canonicalItem(g.item), count: g.count,
     arrangement: canonicalArrangement(g.arrangement), position: g.position, paint: canonicalPaint(g.paint),
     charged: canonicalGroups(g.charged),
   }));
-  return sortedBy(rebuilt, (g) => `${ROLE_ORDER.indexOf(g.role)}${itemKey(g.item)}`);
+  return sortedBy(rebuilt, groupOrder);
 }
 
 /** A deep rebuild in fixed key order with groups, modifiers, parts and holds sorted: equal designs have equal JSON. */
