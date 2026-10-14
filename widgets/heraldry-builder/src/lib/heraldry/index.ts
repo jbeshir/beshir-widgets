@@ -38,7 +38,7 @@ export {
 export { MIN_SLOT_SIZE, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
 export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
 export {
-  LAYER_KEYS, layerPath, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge, type LayerKey,
+  LAYER_KEYS, layerPath, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge, type LayerKey,
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,

@@ -20,6 +20,12 @@ export const LAYER_KEYS: readonly LayerKey[] = PLACE_KEYS.filter((k): k is Layer
 /** The path of the group in a layer, or null when the design has none. */
 export const layerPath = (d: Design, key: LayerKey): GroupPath | null => pathOfPlace(d, key);
 
+/** The layers a design has a card for, in step order. Pictures set only on the band are the picture step's own, so they are not a layer. */
+export function layersIn(d: Design): LayerKey[] {
+  return LAYER_KEYS.filter((key) => (key === 'on-ordinary' ? simpleParts(d).extra !== null : layerPath(d, key) !== null));
+}
+
+
 /** A new band, or peripheral, in a tincture. */
 export function ordinaryGroup(type: OrdinaryType, t: GroupTincture): Group {
   return {

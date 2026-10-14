@@ -6,7 +6,7 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { LAYER_KEYS, blazon, groupAt, groupTinctureOf, layerPath, simpleParts, type Companion, type FieldShape, type Design, type LayerKey, type ShapedDesign } from '../../lib/heraldry';
+import { blazon, groupAt, groupTinctureOf, layersIn, type Companion, type FieldShape, type Design, type LayerKey, type ShapedDesign } from '../../lib/heraldry';
 import { useCompact } from '../../lib/useCompact';
 import { issueStep, picturePath, type DesignReport, type StepKey } from '../../lib/builder';
 import type { RefObject } from 'preact';
@@ -14,8 +14,10 @@ import type { JumpTarget } from '../Availability';
 import { SavePicture } from '../SavePicture';
 import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
-import { AddExtraLayer, ChargesStep, ExtraStep, FieldStep, OrdinaryStep, PeripheralStep, type Accordion } from './BuilderSteps';
+import { AddLayer } from './AddLayer';
+import { ChargesStep, FieldStep, OrdinaryStep, type Accordion } from './BuilderSteps';
 import { Examples } from './Examples';
+import { LayerStep } from './LayerStep';
 import { ReadabilityMeter } from './ReadabilityMeter';
 import { ShapePicker } from './ShapePicker';
 import { ViolationPanel } from './ViolationPanel';
@@ -55,19 +57,24 @@ const STEP_OF_JUMP: Record<JumpTarget, StepKey> = {
   field: 'field', ordinary: 'ordinary', charge: 'picture', count: 'picture', arrangement: 'picture', posture: 'picture', tincture: 'picture',
 };
 
-const STEP_SELECTOR: Record<StepKey, string> = {
-  field: '[data-testid=step-field]', ordinary: '[data-testid=step-ordinary]', picture: '[data-testid=step-charges]', 'on-ordinary': '[data-testid=step-extra]',
-  chief: '[data-testid=step-peripheral-chief]', bordure: '[data-testid=step-peripheral-bordure]',
+/** The card of a step: the layers are keyed by place, so a card keeps its id as its siblings come and go. */
+const stepSelector = (step: StepKey): string => {
+  switch (step) {
+    case 'field': return '[data-testid=step-field]';
+    case 'ordinary': return '[data-testid=step-ordinary]';
+    case 'picture': return '[data-testid=step-charges]';
+    default: return `[data-testid=step-layer-${step}]`;
+  }
 };
 const JUMP_SELECTOR: Record<JumpTarget, string> = {
-  field: STEP_SELECTOR.field, ordinary: STEP_SELECTOR.ordinary, charge: '[data-testid=charge-select]',
+  field: stepSelector('field'), ordinary: stepSelector('ordinary'), charge: '[data-testid=charge-select]',
   count: '[data-testid=count-select]', arrangement: '#arrangement-select', posture: '#posture-select',
   tincture: '[data-testid=charge-tincture]',
 };
 
 /** Scroll a builder control into view and focus it (the checked option of a group, or the control itself). */
 function focusControl(selector: string): void {
-  const el = document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(STEP_SELECTOR.picture);
+  const el = document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(stepSelector('picture'));
   if (!el) return;
   el.scrollIntoView({ block: 'center' });
   const target = el.matches('select, button, input')
@@ -157,13 +164,13 @@ export function DesignTab(p: Props) {
   });
   const compact = useCompact();
   // Phones collapse the steps, each showing what is chosen; a step with a problem opens by itself.
-  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, picture: false, 'on-ordinary': false, chief: false, bordure: false });
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   useEffect(() => {
     const broken = report.problems.map((i) => issueStep(design, i));
     if (broken.some((k) => !open[k])) setOpen((o) => ({ ...o, ...Object.fromEntries(broken.map((k) => [k, true])) }));
   }, [report]);
   // The layers that have a card are numbered from 4, in the order the cards come; a card that has just been added opens by itself.
-  const layerCards = LAYER_KEYS.filter((key) => (key === 'on-ordinary' ? simpleParts(design).extra !== null : layerPath(design, key) !== null));
+  const layerCards = layersIn(design);
   const layerStep = (key: LayerKey) => 4 + layerCards.indexOf(key);
   const shownCards = useRef(new Set<LayerKey>(layerCards));
   useEffect(() => {
@@ -171,13 +178,13 @@ export function DesignTab(p: Props) {
     shownCards.current = new Set(layerCards);
     if (added.length > 0) setOpen((o) => ({ ...o, ...Object.fromEntries(added.map((key) => [key, true])) }));
   }, [layerCards.join()]);
-  const accordion = (k: StepKey): Accordion | null => (compact ? { open: open[k], onToggle: () => setOpen((o) => ({ ...o, [k]: !o[k] })) } : null);
+  const accordion = (k: StepKey): Accordion | null => (compact ? { open: open[k] ?? false, onToggle: () => setOpen((o) => ({ ...o, [k]: !o[k] })) } : null);
   /** Open the step a control lives in, then move to the control once it is on screen. */
   const reveal = (k: StepKey, selector: string) => {
     setOpen((o) => ({ ...o, [k]: true }));
     setTimeout(() => focusControl(selector), 0);
   };
-  const goToStep = (step: StepKey) => reveal(step, STEP_SELECTOR[step]);
+  const goToStep = (step: StepKey) => reveal(step, stepSelector(step));
   // The fix beside Undo recolours the picture and the note goes with it, so focus moves to the new
   // colour's swatch (named by id: the picker may not have re-rendered its checked swatch yet).
   const fixFromNotice = (nd: Design) => {
@@ -290,10 +297,10 @@ export function DesignTab(p: Props) {
         <FieldStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('field')} accordion={accordion('field')} />
         <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />
         <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
-        <AddExtraLayer design={design} onChange={p.onChange} />
-        <ExtraStep design={design} n={layerStep('on-ordinary')} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues('on-ordinary')} accordion={accordion('on-ordinary')} />
-        <PeripheralStep design={design} place="chief" n={layerStep('chief')} onChange={p.onChange} issues={stepIssues('chief')} accordion={accordion('chief')} />
-        <PeripheralStep design={design} place="bordure" n={layerStep('bordure')} onChange={p.onChange} issues={stepIssues('bordure')} accordion={accordion('bordure')} />
+        <AddLayer design={design} onChange={p.onChange} />
+        {layerCards.map((key) => (
+          <LayerStep key={key} design={design} place={key} n={layerStep(key)} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues(key)} accordion={accordion(key)} />
+        ))}
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over

@@ -7,11 +7,11 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, CHARGE_IDS, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
+  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, fieldTinctures, groupAt, groupTinctureChoices,
   groupTinctureOf, isBlocked, layoutChoices, layoutKey, layoutLabel, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
-  groupLabel, addLayer, layerChoices, layerPath, removeLayer, setLayerTincture, type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type GroupTincture, type Issue,
-  type LayerKey, type LayoutChoice, type LayoutKey, type OrdinaryType, type PlainTerm, type Posture,
+  type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type GroupTincture, type Issue,
+  type LayoutChoice, type LayoutKey, type OrdinaryType, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
 import {
@@ -81,7 +81,7 @@ interface StepFrameProps {
   children: ComponentChildren;
 }
 
-function Step({ n, title, term, hint, summary, issues, accordion, testid, children }: StepFrameProps) {
+export function Step({ n, title, term, hint, summary, issues, accordion, testid, children }: StepFrameProps) {
   const open = accordion?.open ?? true;
   const heading = (
     <>
@@ -118,10 +118,10 @@ interface ShapedStepProps extends StepProps {
   shape: FieldShape;
 }
 
-const lower = (s: string) => s.toLowerCase();
+export const lower = (s: string) => s.toLowerCase();
 
 /** The plain tincture of a simple-space group (every group the builder makes is plainly painted or counterchanged). */
-const tinctureOf = (design: Design, path: GroupPath): GroupTincture => groupTinctureOf(groupAt(design, path).paint) ?? 'or';
+export const tinctureOf = (design: Design, path: GroupPath): GroupTincture => groupTinctureOf(groupAt(design, path).paint) ?? 'or';
 
 function fieldSummary(design: Design): string {
   const [first, second] = fieldTinctures(design);
@@ -223,7 +223,7 @@ const nounOf = (design: Design, path: GroupPath): string => {
   return g.count === 1 ? meta.name : meta.plural;
 };
 
-function picturesSummary(design: Design, path: GroupPath | null): string {
+export function picturesSummary(design: Design, path: GroupPath | null): string {
   if (!path) return 'None';
   return `${groupAt(design, path).count} ${nounOf(design, path)}, ${lower(TINCTURE_LABEL[tinctureOf(design, path)].plain)}`;
 }
@@ -264,11 +264,11 @@ function categoryOf(design: Design): ChargeCategory {
   return item?.k === 'charge' ? CHARGES[item.charge].category : CHARGE_CATEGORIES[0];
 }
 
-interface PictureControlsProps {
+export interface PictureControlsProps {
   design: Design;
   path: GroupPath;
-  /** '' for the picture, 'extra-' for the extra pictures: ids and test ids of the second set are prefixed. */
-  prefix: '' | 'extra-';
+  /** '' for the picture, '<place>-' for the pictures of a layer: their ids and test ids are prefixed. */
+  prefix: string;
   onChange: (nd: Design) => void;
   onAdjust: (nd: Design, companion: Companion) => void;
   /** The note shown after a count or placement brought its partner along. */
@@ -276,7 +276,7 @@ interface PictureControlsProps {
 }
 
 /** How many, where, layout, pose, face and colour of one group of pictures. */
-function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }: PictureControlsProps) {
+export function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }: PictureControlsProps) {
   const g = groupAt(design, path);
   const item = g.item.k === 'charge' ? g.item : null;
   const counts = withStatus(countChoices(design, path));
@@ -466,101 +466,6 @@ export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, acco
       </p>
 
       {path && selected && <PictureControls design={design} path={path} prefix="" onChange={onChange} onAdjust={onAdjust} adjusted={adjusted} />}
-    </Step>
-  );
-}
-
-/** What the extra pictures are sitting on, in the builder's words: "band" or "top bar". */
-function hostWord(design: Design): string {
-  const path = ordinaryPath(design);
-  const item = path && groupAt(design, path).item;
-  return item?.k === 'ordinary' && item.type === 'chief' ? 'top bar' : 'band';
-}
-
-const PERIPHERAL_BUTTON: Record<'chief' | 'bordure', string> = {
-  chief: 'Add a top band (chief)',
-  bordure: 'Add a border (bordure)',
-};
-
-/** The buttons that add a layer beside the picture: pictures on the band (or top bar), a top band, a border; each shown only while it can be drawn. */
-export function AddExtraLayer({ design, onChange }: { design: Design; onChange: (nd: Design) => void }) {
-  const allowed = layerChoices(design).filter((c) => c.allowed).map((c) => c.value);
-  if (!allowed.length) return null;
-  return (
-    <p class="add-extra">
-      {allowed.map((key) => (
-        <button key={key} type="button" class="button-secondary button-small" data-testid={key === 'on-ordinary' ? 'add-extra-picture' : `add-peripheral-${key}`} onClick={() => onChange(addLayer(design, key))}>
-          + {key === 'on-ordinary' ? `Add pictures on the ${hostWord(design)}` : PERIPHERAL_BUTTON[key]}
-        </button>
-      ))}
-    </p>
-  );
-}
-
-interface PeripheralStepProps extends StepProps {
-  place: Extract<LayerKey, 'chief' | 'bordure'>;
-  /** The step's number: the layers are numbered from 4 in the order they are shown. */
-  n: number;
-}
-
-/** The step of a top band or border set beside the band: its colour, and removing it. */
-export function PeripheralStep({ design, place, n, onChange, issues, accordion }: PeripheralStepProps) {
-  const path = layerPath(design, place);
-  const item = path && groupAt(design, path).item;
-  if (!path || item?.k !== 'ordinary') return null;
-  const label = ORDINARY_LABEL[item.type];
-  const colour = lower(TINCTURE_LABEL[tinctureOf(design, path)].plain);
-  return (
-    <Step n={n} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; the pictures keep clear of it." summary={`${colour}`} issues={issues} accordion={accordion} testid={`step-peripheral-${place}`}>
-      <TincturePicker
-        group={`peripheral-${place}`}
-        testid={`peripheral-tincture-${place}`}
-        legend={`Colour of the ${lower(label.plain)}`}
-        choices={groupTinctureChoices(design, path)}
-        value={tinctureOf(design, path)}
-        onChange={(t) => onChange(setLayerTincture(design, place, t))}
-      />
-      <p>
-        <button type="button" class="button-tertiary" data-testid={`remove-peripheral-${place}`} onClick={() => onChange(removeLayer(design, place))}>
-          Remove the {lower(label.plain)}
-        </button>
-      </p>
-    </Step>
-  );
-}
-
-interface ExtraStepProps extends StepProps {
-  n: number;
-  onAdjust: (nd: Design, companion: Companion) => void;
-}
-
-/** The pictures that sit on the band or top bar, when there are some. */
-export function ExtraStep({ design, n, onChange, onAdjust, issues, accordion }: ExtraStepProps) {
-  // Pictures set only on the band are the picture step's own, not these.
-  const path = simpleParts(design).extra?.path ?? null;
-  const item = path && groupAt(design, path).item;
-  if (!path || item?.k !== 'charge') return null;
-  const host = hostWord(design);
-  return (
-    <Step n={n} title={groupLabel(design, path)} term={`charges on the ${host === 'band' ? 'ordinary' : 'chief'}`} hint={`Pictures drawn on the ${host}, as well as the picture above.`} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-extra">
-      <div class="control">
-        <label class="picker-legend" for="extra-charge-select">Picture</label>
-        <select
-          id="extra-charge-select"
-          class="select"
-          data-testid="extra-charge-select"
-          value={item.charge}
-          onChange={(e) => onChange(setCharge(design, 'on-ordinary', (e.currentTarget as HTMLSelectElement).value as (typeof CHARGE_IDS)[number]))}
-        >
-          {CHARGE_IDS.map((id) => <option key={id} value={id}>{chargeLabel(id)}</option>)}
-        </select>
-      </div>
-      <PictureControls design={design} path={path} prefix="extra-" onChange={onChange} onAdjust={onAdjust} adjusted={null} />
-      <p>
-        <button type="button" class="button-tertiary" data-testid="remove-extra-picture" onClick={() => onChange(removeLayer(design, 'on-ordinary'))}>
-          Remove these pictures
-        </button>
-      </p>
     </Step>
   );
 }

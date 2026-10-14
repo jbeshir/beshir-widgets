@@ -4,9 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
-import { AddExtraLayer, ChargesStep, ExtraStep, FieldStep, OrdinaryStep, PeripheralStep } from '../src/components/design/BuilderSteps';
+import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
+import { AddLayer } from '../src/components/design/AddLayer';
+import { LayerStep } from '../src/components/design/LayerStep';
 import { setCharge, setOrdinary, setGroupTincture, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { addLayer, type Design } from '../src/lib/heraldry';
+import { addLayer, layerChoices, layersIn, removeLayer, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -74,40 +76,52 @@ describe('controls that appear only when they apply', () => {
     expect(picture(setCharge(DEFAULT_DESIGN, 'picture', 'lion'))).not.toContain('splendour-toggle');
   });
 
-  it('offers extra pictures on a band, with their own controls once added', () => {
+  it('offers the layer chooser only when some layer can be drawn, with exactly the allowed options', () => {
+    expect(renderToString(h(AddLayer, { design: DEFAULT_DESIGN, onChange: noop }))).toBe('');
     const band = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
     const toned = setGroupTincture(band, picturePath(band)!, 'argent');
-    const add = renderToString(h(AddExtraLayer, { design: toned, onChange: noop }));
-    expect(add).toContain('data-testid="add-extra-picture"');
+    const add = renderToString(h(AddLayer, { design: toned, onChange: noop }));
+    expect(add).toContain('data-testid="add-layer-toggle"');
+    expect(add).toContain('aria-expanded="false"');
+    expect(ids(add)).toEqual(new Set(['add-layer-toggle', ...layerChoices(toned).filter((c) => c.allowed).map((c) => `add-layer-${c.value}`)]));
     expect(add).toContain('Add pictures on the band');
-    expect(renderToString(h(AddExtraLayer, { design: DEFAULT_DESIGN, onChange: noop }))).toBe('');
-
-    const withExtra = setCharge(toned, 'on-ordinary', 'mullet');
-    expect(renderToString(h(AddExtraLayer, { design: withExtra, onChange: noop }))).not.toContain('add-extra-picture');
-    const got = ids(renderToString(h(ExtraStep, { ...base, design: withExtra, n: 4, onAdjust: noop })));
-    for (const id of ['step-extra', 'extra-charge-select', 'extra-count-select', 'extra-count-1', 'extra-arrangement-select', 'extra-charge-tincture', 'remove-extra-picture']) expect(got, id).toContain(id);
-    expect(got).not.toContain('extra-placement-select');
-    expect(renderToString(h(ExtraStep, { ...base, design: toned, n: 4, onAdjust: noop }))).toBe('');
+    expect(add).toContain('Add a border (bordure)');
+    expect(renderToString(h(AddLayer, { design: setOrdinary(DEFAULT_DESIGN, 'chevron'), onChange: noop }))).toContain('Add a top band (chief)');
   });
 
-  it('offers a top band and a border beside a band, with their own controls once added', () => {
-    const band = setOrdinary(DEFAULT_DESIGN, 'chevron');
-    const add = renderToString(h(AddExtraLayer, { design: band, onChange: noop }));
-    expect(add).toContain('data-testid="add-peripheral-chief"');
-    expect(add).toContain('Add a top band (chief)');
-    expect(add).toContain('data-testid="add-peripheral-bordure"');
-    expect(add).toContain('Add a border (bordure)');
-    expect(add).not.toContain('add-extra-picture');
 
+  it('takes a layer out of the chooser once the design has it, and gives it a card', () => {
+    const band = setOrdinary(DEFAULT_DESIGN, 'chevron');
     const bordered = addLayer(band, 'bordure');
-    expect(renderToString(h(AddExtraLayer, { design: bordered, onChange: noop }))).not.toContain('add-peripheral-bordure');
-    expect(renderToString(h(AddExtraLayer, { design: bordered, onChange: noop }))).toContain('add-peripheral-chief');
-    const got = ids(renderToString(h(PeripheralStep, { ...base, design: bordered, place: 'bordure', n: 4 })));
-    for (const id of ['step-peripheral-bordure', 'peripheral-tincture-bordure', 'remove-peripheral-bordure']) expect(got, id).toContain(id);
-    expect(renderToString(h(PeripheralStep, { ...base, design: band, place: 'bordure', n: 4 }))).toBe('');
+    const add = renderToString(h(AddLayer, { design: bordered, onChange: noop }));
+    expect(add).not.toContain('add-layer-bordure');
+    expect(add).toContain('add-layer-chief');
+    const got = ids(renderToString(h(LayerStep, { ...base, design: bordered, place: 'bordure', n: 4, onAdjust: noop })));
+    for (const id of ['step-layer-bordure', 'bordure-tincture', 'remove-layer-bordure']) expect(got, id).toContain(id);
+    expect(renderToString(h(LayerStep, { ...base, design: band, place: 'bordure', n: 4, onAdjust: noop }))).toBe('');
     // Pictures and the top band or border go together: the add buttons stay, and the picture step no longer warns.
     const pictured = setCharge(band, 'picture', 'lion');
-    expect(renderToString(h(AddExtraLayer, { design: pictured, onChange: noop }))).toContain('add-peripheral-bordure');
+    expect(renderToString(h(AddLayer, { design: pictured, onChange: noop }))).toContain('add-layer-bordure');
     expect(renderToString(h(ChargesStep, { ...base, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null, compact: false }))).not.toContain('peripheral-picture-note');
+  });
+
+
+  it('numbers a card per layer, with its title, role and remove button; removing returns to the earlier design', () => {
+    const band = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
+    const toned = setGroupTincture(band, picturePath(band)!, 'argent');
+    const withExtra = setCharge(toned, 'on-ordinary', 'mullet');
+    expect(renderToString(h(AddLayer, { design: withExtra, onChange: noop }))).not.toContain('add-layer-on-ordinary');
+    const html = renderToString(h(LayerStep, { ...base, design: withExtra, place: 'on-ordinary', n: 4, onAdjust: noop }));
+    const got = ids(html);
+    for (const id of ['step-layer-on-ordinary', 'on-ordinary-charge-select', 'on-ordinary-count-select', 'on-ordinary-count-1', 'on-ordinary-arrangement-select', 'on-ordinary-charge-tincture', 'remove-layer-on-ordinary']) expect(got, id).toContain(id);
+    expect(got).not.toContain('on-ordinary-placement-select');
+    expect(html).toContain('Pictures on the band');
+    expect(html).toContain('charges on the ordinary');
+    expect(renderToString(h(LayerStep, { ...base, design: toned, place: 'on-ordinary', n: 4, onAdjust: noop }))).toBe('');
+    expect(layersIn(withExtra)).toEqual(['on-ordinary']);
+    expect(removeLayer(withExtra, 'on-ordinary')).toEqual(toned);
+    const bordered = addLayer(withExtra, 'bordure');
+    expect(layersIn(bordered)).toEqual(['on-ordinary', 'bordure']);
+    expect(removeLayer(bordered, 'bordure')).toEqual(withExtra);
   });
 });
