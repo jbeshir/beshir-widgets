@@ -9,7 +9,7 @@ import { itemName, primaryGroup, walkGroups, type Design, type Group, type Group
 import { capacityIssue } from './layout';
 import { groundShares } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
-import { contextOf, layoutCandidates, layoutKey, layoutWords, type LayoutContext } from './arrangement';
+import { contextOf, hasChief, layoutCandidates, layoutKey, layoutWords, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
@@ -30,7 +30,7 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
       : `Charges ${where} the ${ORDINARY_NAME[ctx.ordinary]} are placed by it — they can't be arranged ${layoutWords(layout)}.`;
   }
   if (a.k === 'host') return `${capitalise(chargesPhrase(g))} on the field can't be placed by an ordinary — choose an arrangement.`;
-  if ((g.position === 'chief' || g.position === 'base') && ctx.peripheral === 'chief') {
+  if ((g.position === 'chief' || g.position === 'base') && hasChief(ctx.peripheral)) {
     return `There is no room to set charges in ${g.position} when the design has a chief.`;
   }
   if (a.k === 'crossed' && !meta.long) return 'Only long charges such as swords, keys and anchors can be crossed.';

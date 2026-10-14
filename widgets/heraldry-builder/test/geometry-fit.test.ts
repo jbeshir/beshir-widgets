@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, contextSlots, drawnBox, inFirstPart, layoutCandidates, layoutKey,
+  CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
   layoutOfKey, MIN_SLOT_SIZE, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ChargeId, type Design, type FieldShape, type Layout, type LayoutContext, type OrdinaryType, type Slot,
 } from '../src/lib/heraldry';
@@ -57,7 +57,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
       });
       const base = make();
       const path = [base.groups.findIndex((g) => g.item.k === 'charge')];
-      consider(count, { k: 'field', peripheral }, layoutCandidates(base, path, count), `field/${peripheral}`, make);
+      consider(count, fieldContext(peripheral), layoutCandidates(base, path, count), `field/${peripheral}`, make);
     }
   }
   // Charges around and on an ordinary.

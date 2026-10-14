@@ -96,12 +96,25 @@ export function layoutWords(l: Layout): string {
 
 // ── Where a group sits ──────────────────────────────────────────────────────
 
-export type LayoutContext =
-  | { k: 'field'; peripheral: 'none' | 'chief' | 'bordure' }   // primary charge group
-  | { k: 'between'; ordinary: OrdinaryType }                 // secondary 'between'
-  | { k: 'on'; ordinary: OrdinaryType };                     // tertiary on an ordinary (incl. chief)
+/** Which peripheral ordinaries a design has, as far as the charges set on its field are concerned. */
+export type Peripheral = 'none' | 'chief' | 'bordure' | 'chief-bordure';
+/** The room a primary leaves for a secondary: the top, the bottom, a corner, or all around. */
+export type Yield = 'none' | 'chief' | 'base' | 'canton' | 'around';
+/** A co-primary group's slice of the slots the total count of primary charges is laid out in. */
+export interface Share { index: number; counts: readonly number[] }
 
-function peripheralOf(d: Design): 'none' | 'chief' | 'bordure' {
+export type LayoutContext =
+  | { k: 'field'; peripheral: Peripheral; yields: Yield; share: Share | null }   // primary charge group
+  | { k: 'between'; ordinary: OrdinaryType }                                     // secondary 'between'
+  | { k: 'on'; ordinary: OrdinaryType };                                         // tertiary on an ordinary (incl. chief)
+
+/** The context of a lone primary charge group: nothing yielded, no co-primary. */
+export const fieldContext = (peripheral: Peripheral): Extract<LayoutContext, { k: 'field' }> => ({ k: 'field', peripheral, yields: 'none', share: null });
+
+export const hasChief = (p: Peripheral): boolean => p === 'chief' || p === 'chief-bordure';
+export const hasBordure = (p: Peripheral): boolean => p === 'bordure' || p === 'chief-bordure';
+
+function peripheralOf(d: Design): Peripheral {
   const types = d.groups.flatMap((g) => (g.role === 'peripheral' && g.item.k === 'ordinary' ? [g.item.type] : []));
   return types.includes('chief') ? 'chief' : types.includes('bordure') ? 'bordure' : 'none';
 }
@@ -116,7 +129,7 @@ export function primaryOrdinary(d: Design): OrdinaryType | null {
 export function contextOf(d: Design, group: Group, host: Group | null): LayoutContext | null {
   if (group.item.k !== 'charge') return null;
   if (host) return host.item.k === 'ordinary' && group.role === 'tertiary' ? { k: 'on', ordinary: host.item.type } : null;
-  if (group.role === 'primary') return { k: 'field', peripheral: peripheralOf(d) };
+  if (group.role === 'primary') return fieldContext(peripheralOf(d));
   if (group.role === 'secondary' && group.relation === 'between') {
     const ordinary = primaryOrdinary(d);
     return ordinary ? { k: 'between', ordinary } : null;
@@ -195,7 +208,7 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count:
   const paint = group.paint;
 
   // Table 7 intro: charges with no contrast with a section go where they contrast.
-  if ((division === 'per-fess' || division === 'per-chevron') && ctx.peripheral !== 'chief' && paint.k === 'tincture' && pair && pair[0] !== pair[1]) {
+  if ((division === 'per-fess' || division === 'per-chevron') && !hasChief(ctx.peripheral) && paint.k === 'tincture' && pair && pair[0] !== pair[1]) {
     const i = pair.indexOf(paint.t);
     if (i >= 0 && contrastFailure(paint.t, [pair[1 - i]]) === null) {
       const position = i === 1 ? 'chief' : 'base';
@@ -241,7 +254,7 @@ function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDef
   // Two in annulo curl round each other: only a fish can (SENA example: two fish in annulo); otherwise a ring starts at three.
   if (count >= 3 || (count === 2 && group.item.k === 'charge' && CHARGES[group.item.charge].postureClass === 'fish')) out.push(pattern('annulo'));
   if (count >= 5 && ctx.peripheral === 'none') out.push(pattern('orle'));
-  if (ctx.peripheral !== 'chief') {
+  if (!hasChief(ctx.peripheral)) {
     for (const position of ['chief', 'base'] as const) out.push(count === 1 ? single(position) : line('fess', position));
   }
   if (count === 1) out.push(single());

@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  defaultLayout, hostCounts, isForced, layoutCandidates, layoutContext, layoutKey, layoutOfKey, layoutWords, ROW_PATTERNS, statesLayout, tableDefault,
+  defaultLayout, fieldContext, hostCounts, isForced, layoutCandidates, layoutContext, layoutKey, layoutOfKey, layoutWords, ROW_PATTERNS, statesLayout, tableDefault,
   UnsupportedConstructError, type Design, type Layout,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -124,7 +124,7 @@ describe('Table 7: secondary and tertiary groups', () => {
     expect(hostCounts({ k: 'on', ordinary: 'cross' })).toEqual([1, 4, 5]);
     expect(hostCounts({ k: 'on', ordinary: 'pile' })).toEqual([1, 2, 3]);
     expect(hostCounts({ k: 'on', ordinary: 'bordure' })).toEqual([]);
-    expect(hostCounts({ k: 'field', peripheral: 'none' })).toEqual([]);
+    expect(hostCounts(fieldContext('none'))).toEqual([]);
   });
 
   it('has no layout context where the builder has none', () => {
@@ -133,7 +133,7 @@ describe('Table 7: secondary and tertiary groups', () => {
     const onCharge = nd(arms('azure', group(charge('lion'), 'or', { charged: [group(charge('rose'), 'gules')] })));
     expect(() => layoutContext(onCharge, [0, 0])).toThrow(UnsupportedConstructError);
     expect(() => tableDefault(onCharge, [0, 0])).toThrow(UnsupportedConstructError);
-    expect(layoutContext(onCharge, [0])).toEqual({ k: 'field', peripheral: 'none' });
+    expect(layoutContext(onCharge, [0])).toEqual(fieldContext('none'));
   });
 });
 

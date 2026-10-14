@@ -3,13 +3,15 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  MIN_SLOT_SIZE, canonicalSlots, contextSlots, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
+  MIN_SLOT_SIZE, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
   capacityIssue, shapeFrame, slotTransform, structuralIssues, type Layout, type LayoutContext, type OrdinaryType,
 } from '../src/lib/heraldry';
+import type { Pt } from '../src/lib/heraldry/geometry';
+import { fits, groundFor, type Ground } from '../src/lib/heraldry/layout';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const layout = (key: string, count: number): Layout => layoutOfKey(key, count)!;
-const field: LayoutContext = { k: 'field', peripheral: 'none' };
+const field = fieldContext('none');
 const slotsOf = (ctx: LayoutContext, count: number, key: string, shape: 'heater' | 'banner' | 'round' | 'lozenge' = 'heater') =>
   contextSlots(ctx, count, layout(key, count), shape);
 
@@ -18,7 +20,7 @@ describe('hand-fitted rows', () => {
     expect(slotsOf(field, 1, 'single')).toEqual([{ x: 50, y: 54, size: 90, rotation: 0 }]);
     expect(slotsOf(field, 3, 'rows-2-1').map((s) => [s.x, s.y, s.size])).toEqual([[27, 29, 44], [73, 29, 44], [50, 77, 44]]);
     expect(slotsOf(field, 6, 'rows-3-2-1').map((s) => s.size)).toEqual([31, 31, 31, 31, 31, 31]);
-    expect(slotsOf({ k: 'field', peripheral: 'bordure' }, 1, 'single')).toEqual([{ x: 50, y: 55 + (54 - 55) * 0.86, size: 77.4, rotation: 0 }]);
+    expect(slotsOf(fieldContext('bordure'), 1, 'single')).toEqual([{ x: 50, y: 55 + (54 - 55) * 0.86, size: 77.4, rotation: 0 }]);
     expect(slotsOf({ k: 'between', ordinary: 'fess' }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[28, 19, 30], [72, 19, 30], [50, 86, 30]]);
     expect(slotsOf({ k: 'on', ordinary: 'fess' }, 3, 'host').map((s) => [s.x, s.y, s.size])).toEqual([[22, 50, 27], [50, 50, 27], [78, 50, 27]]);
   });
@@ -30,7 +32,7 @@ describe('hand-fitted rows', () => {
   });
 
   it('put the single charge under a chief across the partition lines of a field', () => {
-    const [s] = slotsOf({ k: 'field', peripheral: 'chief' }, 1, 'single');
+    const [s] = slotsOf(fieldContext('chief'), 1, 'single');
     expect(s).toEqual({ x: 50, y: 62, size: 60, rotation: 0 });
     const fess = shapeFrame('heater').fessPoint;
     for (const division of ['per-bend', 'per-bend-sinister', 'per-pale', 'per-fess'] as const) {
@@ -130,7 +132,7 @@ describe('capacity', () => {
   });
 
   it('fits six under a chief in three, two and one', () => {
-    expect(fits({ k: 'field', peripheral: 'chief' }, 6, 'rows-3-2-1')).toBe(true);
+    expect(fits(fieldContext('chief'), 6, 'rows-3-2-1')).toBe(true);
   });
 
   it('does not fit twelve in pale', () => {
@@ -230,5 +232,25 @@ describe('a chief on a field divided per fess (SENA A3D1c)', () => {
   it('lets a rose and a chief stand on a field per bend', () => {
     const d = nd(arms(div('per-bend', 'argent', 'sable'), group(charge('rose'), 'gules'), group(ordinary('chief'), 'gules')));
     expect(structuralIssues(d)).toEqual([]);
+  });
+});
+
+describe('grounds', () => {
+  const square = (x: number, y: number): Pt[] => [[x, y], [x + 10, y], [x + 10, y + 10], [x, y + 10]];
+  const base = groundFor(fieldContext('none'), 'heater');
+
+  it('keeps a disc clear of every polygon to avoid', () => {
+    const ground: Ground = { ...base, avoid: [square(30, 40), square(60, 40)] };
+    expect(fits([{ x: 50, y: 45, rotation: 0 }], 10, ground, false)).toBe(true);
+    expect(fits([{ x: 33, y: 45, rotation: 0 }], 10, ground, false)).toBe(false);
+    expect(fits([{ x: 65, y: 45, rotation: 0 }], 10, ground, false)).toBe(false);
+    expect(fits([{ x: 50, y: 45, rotation: 0 }, { x: 66, y: 45, rotation: 0 }], 4, ground, false)).toBe(false);
+  });
+
+  it('puts a chief and a bordure together: inside the bordure inset and below the chief', () => {
+    const both = groundFor(fieldContext('chief-bordure'), 'heater');
+    expect(both.contain).toEqual(groundFor(fieldContext('bordure'), 'heater').contain);
+    expect(both.minTop).toBe(shapeFrame('heater').chiefBase);
+    expect(groundFor(fieldContext('none'), 'heater').minTop).toBe(-Infinity);
   });
 });

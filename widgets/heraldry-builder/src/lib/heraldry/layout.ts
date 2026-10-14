@@ -8,7 +8,9 @@ import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
-import { BETWEEN, HOST_LAYOUT, contextOf, defaultLayoutOf, hostCounts, layoutKey, type Layout, type LayoutContext } from './arrangement';
+import {
+  BETWEEN, HOST_LAYOUT, contextOf, defaultLayoutOf, hasBordure, hasChief, hostCounts, layoutKey, type Layout, type LayoutContext, type Peripheral,
+} from './arrangement';
 import {
   CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
 } from './geometry';
@@ -53,9 +55,9 @@ const handRows = (shape: FieldShape): SlotRows => (shape === 'heater' ? HEATER_S
 function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] | null {
   const rows = handRows(shape);
   if (ctx.k === 'field') {
-    if (layout.position !== null) return null;
-    const table = ctx.peripheral === 'none' ? rows.field : ctx.peripheral === 'bordure' ? rows.bordure : rows.underChief;
-    const row = table[`${count}:${layoutKey(layout)}`];
+    if (layout.position !== null || ctx.yields !== 'none' || ctx.share !== null) return null;
+    const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null }[ctx.peripheral];
+    const row = table?.[`${count}:${layoutKey(layout)}`];
     return row ? slotsOf(row, () => 0) : null;
   }
   const turn = (x: number) => (ctx.k === 'on' ? followRotation(ctx.ordinary, x) : 0);
@@ -83,12 +85,22 @@ const area = (x0: number, y0: number, x1: number, y1: number): Area => ({ x0, y0
 const FIELD_AREA = area(4, 4, 96, 112);
 const BORDURE_AREA = area(12, 12, 88, 104);
 const UNDER_CHIEF_AREA = area(4, 33, 96, 112);
+const BORDURE_UNDER_CHIEF_AREA = area(12, 33, 88, 104);
 const CHIEF_POSITION_AREA = area(4, 4, 96, 36);
 const BASE_POSITION_AREA = area(10, 74, 90, 114);
 /** Lines in bend run corner to corner of a square the shield's narrowing base leaves room for. */
 const BEND_AREA = area(10, 10, 90, 90);
 const BORDURE_BEND_AREA = area(18, 18, 82, 82);
 const UNDER_CHIEF_BEND_AREA = area(14, 40, 86, 112);
+const BORDURE_UNDER_CHIEF_BEND_AREA = area(18, 40, 82, 82);
+
+/** The areas charges set on the field are laid out in, by the peripherals the design has: straight, and for lines in bend. */
+const FIELD_AREAS: Record<Peripheral, { straight: Area; bend: Area }> = {
+  none: { straight: FIELD_AREA, bend: BEND_AREA },
+  chief: { straight: UNDER_CHIEF_AREA, bend: UNDER_CHIEF_BEND_AREA },
+  bordure: { straight: BORDURE_AREA, bend: BORDURE_BEND_AREA },
+  'chief-bordure': { straight: BORDURE_UNDER_CHIEF_AREA, bend: BORDURE_UNDER_CHIEF_BEND_AREA },
+};
 
 const width = (a: Area) => a.x1 - a.x0;
 const height = (a: Area) => a.y1 - a.y0;
@@ -147,9 +159,7 @@ const ORLE_SCALE = 0.92;
 function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number, layout: Layout): Centre[] | null {
   const a = layout.position === 'chief' ? CHIEF_POSITION_AREA
     : layout.position === 'base' ? BASE_POSITION_AREA
-    : ctx.peripheral === 'bordure' ? BORDURE_AREA
-    : ctx.peripheral === 'chief' ? UNDER_CHIEF_AREA
-    : FIELD_AREA;
+    : FIELD_AREAS[ctx.peripheral].straight;
   const [cx, cy] = centreOf(a);
   const reach = Math.min(width(a), height(a));
   const arr = layout.arrangement;
@@ -159,8 +169,7 @@ function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number
     case 'line': {
       if (count < 2) return null;
       const bend = arr.dir === 'bend' || arr.dir === 'bend-sinister';
-      const where = !bend ? a : ctx.peripheral === 'bordure' ? BORDURE_BEND_AREA : ctx.peripheral === 'chief' ? UNDER_CHIEF_BEND_AREA : BEND_AREA;
-      return lineIn(layout.position === null ? where : a, count, arr.dir);
+      return lineIn(layout.position === null && bend ? FIELD_AREAS[ctx.peripheral].bend : a, count, arr.dir);
     }
     case 'rows': return count >= 2 && arr.rows.reduce((x, y) => x + y, 0) === count ? rowsIn(a, arr.rows) : null;
     case 'crossed': return count === 2 ? [at(cx, cy, -45), at(cx, cy, 45)] : null;
@@ -252,24 +261,31 @@ function nominalCentres(ctx: LayoutContext, count: number, layout: Layout): Cent
 // ── Generic engine: fitting ─────────────────────────────────────────────────
 
 /** What the slots must stay inside and clear of, in one shape. */
-interface Ground {
+export interface Ground {
   contain: readonly Pt[];
   /** Slots lie below this line (under a chief). */
   minTop: number;
-  /** Between: the ordinary's polygon, which they stay clear of. */
-  avoid: readonly Pt[] | null;
-  /** On: the ordinary's polygon, which they stay inside. */
+  /** Polygons the slots stay clear of (the ordinary they are set between). */
+  avoid: readonly (readonly Pt[])[];
+  /** A polygon the slots stay inside (the ordinary they are set on), if any. */
   within: readonly Pt[] | null;
 }
 
-function groundFor(ctx: LayoutContext, shape: FieldShape): Ground {
+/** The part of a shape the peripherals leave to the field: inside the bordure, below the chief. */
+function frameGround(peripheral: Peripheral, shape: FieldShape): Pick<Ground, 'contain' | 'minTop'> {
   const frame = shapeFrame(shape);
-  const bordure = ctx.k === 'field' && ctx.peripheral === 'bordure';
-  const polygon = ctx.k === 'field' ? null : pathPolygon(ordinaryPath(ctx.ordinary, shape));
   return {
-    contain: pathPolygon(bordure ? frame.inset : frame.outline),
-    minTop: ctx.k === 'field' && ctx.peripheral === 'chief' ? frame.chiefBase : -Infinity,
-    avoid: ctx.k === 'between' ? polygon : null,
+    contain: pathPolygon(hasBordure(peripheral) ? frame.inset : frame.outline),
+    minTop: hasChief(peripheral) ? frame.chiefBase : -Infinity,
+  };
+}
+
+export function groundFor(ctx: LayoutContext, shape: FieldShape): Ground {
+  if (ctx.k === 'field') return { ...frameGround(ctx.peripheral, shape), avoid: [], within: null };
+  const polygon = pathPolygon(ordinaryPath(ctx.ordinary, shape));
+  return {
+    ...frameGround('none', shape),
+    avoid: ctx.k === 'between' ? [polygon] : [],
     within: ctx.k === 'on' ? polygon : null,
   };
 }
@@ -286,13 +302,13 @@ function edgeDistance(poly: readonly Pt[], x: number, y: number): number {
 }
 
 /** Whether slots of this size at these centres sit on their ground without touching each other. */
-function fits(centres: readonly Centre[], size: number, ground: Ground, crossed: boolean): boolean {
+export function fits(centres: readonly Centre[], size: number, ground: Ground, crossed: boolean): boolean {
   const r = GLYPH_RADIUS * size;
   for (const c of centres) {
     if (!pointInPolygon(c.x, c.y, ground.contain) || edgeDistance(ground.contain, c.x, c.y) < r + MARGIN) return false;
     if (c.y - r - MARGIN < ground.minTop) return false;
     if (ground.within && (!pointInPolygon(c.x, c.y, ground.within) || edgeDistance(ground.within, c.x, c.y) < r)) return false;
-    if (ground.avoid && (pointInPolygon(c.x, c.y, ground.avoid) || edgeDistance(ground.avoid, c.x, c.y) < r + MARGIN)) return false;
+    if (ground.avoid.some((poly) => pointInPolygon(c.x, c.y, poly) || edgeDistance(poly, c.x, c.y) < r + MARGIN)) return false;
   }
   if (!crossed) {
     for (let i = 0; i < centres.length; i++) {
@@ -461,7 +477,7 @@ export function largestFittingCount(ctx: LayoutContext, layoutFor: (n: number) =
 function whereWords(ctx: LayoutContext, layout: Layout): string {
   if (layout.position) return `in ${layout.position}`;
   switch (ctx.k) {
-    case 'field': return ctx.peripheral === 'chief' ? 'under the chief' : ctx.peripheral === 'bordure' ? 'within the bordure' : 'on the field';
+    case 'field': return ctx.peripheral === 'chief-bordure' ? 'within the bordure, under the chief' : hasChief(ctx.peripheral) ? 'under the chief' : hasBordure(ctx.peripheral) ? 'within the bordure' : 'on the field';
     case 'between': return `around the ${ORDINARY_NAME[ctx.ordinary]}`;
     case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}`;
   }

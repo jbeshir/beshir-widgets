@@ -10,7 +10,7 @@
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
 // build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { blazon, canonicalJson, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
+import { blazon, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, wordedAs, type MatchResult } from './match';
@@ -93,7 +93,7 @@ function layoutTag(design: Design, issue: Issue): string {
   switch (ctx.k) {
     case 'on': return `on-${ctx.ordinary}`;
     case 'between': return `between-${ctx.ordinary}`;
-    default: return ctx.peripheral === 'chief' ? 'under-chief' : layoutKey({ arrangement: g.arrangement, position: g.position });
+    default: return hasChief(ctx.peripheral) ? 'under-chief' : layoutKey({ arrangement: g.arrangement, position: g.position });
   }
 }
 

@@ -13,7 +13,7 @@ export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError
 export { structuralIssues } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, statesLayout,
-  hostCounts, betweenWords, layoutWords, type Layout, type LayoutKey, type LayoutContext,
+  hostCounts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share,
 } from './arrangement';
 export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
 export {
