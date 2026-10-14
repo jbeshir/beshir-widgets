@@ -7,7 +7,7 @@ import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase } from './charges';
 import { primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
 import { capacityIssue } from './layout';
-import { groundContacts } from './tincture-rule';
+import { groundShares } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
 import { contextOf, layoutCandidates, layoutKey, layoutWords, type LayoutContext } from './arrangement';
 
@@ -45,12 +45,19 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
   return `${noun} can be arranged ${candidates.map(layoutWords).join(', ')} — not ${layoutWords(layout)}.`;
 }
 
-/** Whether the primary group lies on both field tinctures on the heater, or has no room to be judged (the capacity rule says so). */
+/**
+ * How much of the middle of a charge (its sampled ground) must lie on each side of the line for the charge to overlie
+ * the line (A3D1c) rather than graze it: a tenth puts the line within a fifth of the charge's size of its centre, so
+ * some three tenths of its height lie across. Herald question H7 (REVIEW.md).
+ */
+const OVERLIES_SHARE = 1 / 10;
+
+/** Whether some charge of the primary group overlies the line of division on the heater, or the group has no room to be judged (the capacity rule says so). */
 function crossesTheLine(d: Design): boolean {
   const primary = primaryGroup(d);
   if (!primary) return false;
-  const contacts = groundContacts(d, primary.path);
-  return contacts.every((c) => c.length === 0) || new Set(contacts.flat()).size > 1;
+  const grounds = groundShares(d, primary.path);
+  return grounds.every((g) => g.length === 0) || grounds.some((g) => g.length > 1 && g.every((s) => s.share >= OVERLIES_SHARE));
 }
 
 /** Structural problems of a design that resolves, in rule order. */

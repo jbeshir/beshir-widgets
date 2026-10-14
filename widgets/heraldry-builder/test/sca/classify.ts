@@ -10,7 +10,7 @@
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
 // build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { blazon, canonicalJson, capacityIssue, groupAt, layoutContext, layoutKey, type Design, type Group, type Issue } from '../../src/lib/heraldry';
+import { blazon, canonicalJson, capacityIssue, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, type MatchResult } from './match';
@@ -98,26 +98,16 @@ function layoutTag(design: Design, issue: Issue): string {
   }
 }
 
-/**
- * Charges of a tincture that one part of a divided field shares are, by GoT Table 7, forced into the other
- * part, where SENA A3B4a lets them lie. The widget draws them across the field (only the chief and base
- * positions of a per fess or per chevron field force them), so its rule of tincture sees them on that part.
- */
-function chargesMeetTheirPart(design: Design, g: Group): boolean {
-  const field = design.kind === 'arms' ? design.field : null;
-  const paint = g.paint;
-  return field?.k === 'divided' && paint.k === 'tincture' && field.parts.some((p) => p.k === 'tincture' && p.t === paint.t);
-}
-
 /** The widget's objections to a matched design, as finding tags; [] when it has none. */
 function findingTags(design: Design): string[] {
   const a = assessMatched(design);
   if (a.kind !== 'violation') return [];
   const tag = (i: Issue) => {
+    // A construct the library reports only once the design is judged (charges Table 7 forces into one part).
+    if (i.code === 'unsupported') return gapTag(i.gap);
     if (i.code === 'tincture') {
       if (i.at.k !== 'group') return 'tincture-rule-differs:field';
       const g = groupAt(design, i.at.path);
-      if (g.role !== 'tertiary' && g.item.k === 'charge' && chargesMeetTheirPart(design, g)) return 'arrangement:forced-into-one-part';
       return `tincture-rule-differs:${g.paint.k === 'counterchanged' ? 'counterchanged' : g.item.k === 'ordinary' ? 'ordinary' : 'charges'}`;
     }
     // Charges that don't fit a host at a legible size are a limit of the drawing, not a rule: a count the widget doesn't lay out.

@@ -338,13 +338,25 @@ export function probePoints(slot: Slot): Pt[] {
     .map(([x, y]) => turned(slot, x, y));
 }
 
-/** Field tinctures under a slot, in the field's part order. */
-export function slotContacts(field: Paint, slot: Slot): Tincture[] {
-  const seen = new Set<Tincture>();
-  for (const [x, y] of probePoints(slot)) seen.add(fieldTinctureAt(field, x, y));
-  const f = drawnField(field);
-  if (f.division === null) return [...seen];
-  return f.tinctures.filter((t, i) => seen.has(t) && f.tinctures.indexOf(t) === i);
+/** How far from its centre a slot's ground is sampled, in slot sizes: the reach of its probe points. */
+const GROUND_REACH = 0.3;
+/** How many points a slot's ground is sampled at. */
+const GROUND_SAMPLES = 96;
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+
+/**
+ * Offsets, in slot sizes, of points spread evenly over the disc a slot's ground is sampled in (a sunflower spiral).
+ * A disc needs no turning with the charge, and no point lies on a line through the slot's centre at a multiple of
+ * 45°, where partition lines through a charge set on them run, so such a charge comes out about half and half.
+ */
+const GROUND_OFFSETS: Pt[] = Array.from({ length: GROUND_SAMPLES }, (_, k): Pt => {
+  const r = GROUND_REACH * Math.sqrt((k + 0.5) / GROUND_SAMPLES), a = (k + 0.5) * GOLDEN_ANGLE;
+  return [r * Math.cos(a), r * Math.sin(a)];
+});
+
+/** The points a slot's ground is sampled at, evenly over the middle of the charge: what its area shares are counted on. */
+export function groundPoints(slot: Slot): Pt[] {
+  return GROUND_OFFSETS.map(([dx, dy]) => [slot.x + dx * slot.size, slot.y + dy * slot.size]);
 }
 
 /** Rough vertical/horizontal position words for a slot, used in messages ("upper", "left"). */

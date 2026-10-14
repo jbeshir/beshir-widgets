@@ -4,12 +4,13 @@
 // option helpers or the builder: for each field × ordinary × picture it builds the design from loose
 // input, brute-forces the phase-A simple space (count 1–12 × placement × every layout key) through
 // `normalise` and the rule of tincture, and calls a layout legal when the design resolves, is
-// supported, passes the structure rules and some tincture satisfies the rule of tincture.
+// supported, passes the structure rules and some tincture satisfies the rule of tincture (which also
+// reports charges Table 7 would force into one part of the field as a gap: a tincture-dependent one).
 
 import { describe, expect, it } from 'vitest';
 import {
   CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, countChoices, fieldTinctureChoices, groupTinctureChoices, layoutChoices,
-  layoutKey, modifierChoices, normalise, placementChoices, postureChoices, tinctureIssues,
+  layoutKey, modifierChoices, normalise, placementChoices, postureChoices, resolve, structuralIssues, tinctureIssues, unsupportedIssues,
   type ChargeId, type Design, type GroupPath,
 } from '../src/lib/heraldry';
 import {
@@ -76,13 +77,17 @@ function triple(b: Base, t: Triple, paint: string): object {
   return t.placement === 'ordinary' ? designInput(b, null, picture) : designInput(b, picture, null);
 }
 
+/** Whether input resolves to a supported design that passes the structure rules, whatever the rule of tincture says. */
+function structurallyLegal(input: unknown): boolean {
+  const r = resolve(input);
+  return r.ok && unsupportedIssues(r.design).length === 0 && structuralIssues(r.design).length === 0;
+}
+
 /** Structure verdicts don't depend on tinctures, so they are shared by every base of the same shape. */
 const structureMemo = new Map<string, boolean>();
 
 function structureVerdict(b: Base, t: Triple): boolean {
-  const input = triple(b, t, 'or');
-  const r = normalise(input);
-  return r.ok || (r.design !== null && r.errors.every((e) => e.code === 'tincture'));
+  return structurallyLegal(triple(b, t, 'or'));
 }
 
 function structureLegal(b: Base, t: Triple): boolean {
@@ -339,9 +344,7 @@ describe('builder controls never lock a legal value away', () => {
       const extra = (count: number, paint: string) => ({ item: { k: 'charge', charge: 'rose' }, paint, count });
       const legalCounts = Array.from({ length: 12 }, (_, i) => i + 1).filter((count) => {
         const r = (paint: string) => designInput(c.base, pictureInput(c.base, onField.count, onField.key, s.paint), extra(count, paint));
-        const structure = normalise(r('or'));
-        return (structure.ok || (structure.design !== null && structure.errors.every((e) => e.code === 'tincture')))
-          && PAINTS.some((p) => normalise(r(p)).ok);
+        return structurallyLegal(r('or')) && PAINTS.some((p) => normalise(r(p)).ok);
       });
       const label = JSON.stringify([c.base, onField]);
       expect(canAddExtraPicture(s.design), label).toBe(legalCounts.length > 0);

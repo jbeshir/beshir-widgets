@@ -4,8 +4,8 @@
 // never silently repaired. Every transition returns a canonical design.
 
 import {
-  CHARGES, DEFAULT_FIELD_SHAPE, ORDINARY_KIND, ORDINARY_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, assembleParts, canonical, contrastFailure,
-  countChoices, fieldTinctures, fitGroup, groundContacts, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf, isMetal, replaceGroup,
+  CHARGES, DEFAULT_FIELD_SHAPE, ORDINARY_KIND, ORDINARY_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, assembleParts, canonical,
+  countChoices, fieldTinctures, fitGroup, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf, isMetal, replaceGroup,
   isSupported, layoutReason, placementChoices, simpleParts, structuralIssues, tincturePaint, tinctureIssues, withTincture, applyLayout,
   type ChargeId, type Choice, type Companion, type Design, type Division, type Group, type GroupPath, type GroupTincture, type Issue,
   type LayoutChoice, type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type Posture, type Readability, type ShapedDesign, type Tincture,
@@ -301,9 +301,9 @@ function clashGround(d: Design, path: GroupPath, t: Tincture): string {
     return `${paint ? colourWord(paint) : 'swapped-colour'} ${ORDINARY_LABEL[host.item.type].plain.toLowerCase()}`;
   }
   // The look-alike tinctures under the failing charges: the ones they don't stand out against.
-  const alike = groundContacts(d, path)
-    .filter((cs) => contrastFailure(t, cs))
-    .flatMap((cs) => cs.filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[t]));
+  const alike = groundShares(d, path)
+    .filter((ground) => groundFailure(t, ground))
+    .flatMap((ground) => groundTinctures(ground).filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[t]));
   const words = [...new Set(alike)].map(colourWord);
   if (d.kind === 'arms' && d.field.k === 'tincture') return `${words[0]} background`;
   return words.length === 1 ? `${words[0]} part of the background` : `${words.join(' and ')} parts of the background`;

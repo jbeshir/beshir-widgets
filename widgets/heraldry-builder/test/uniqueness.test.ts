@@ -73,9 +73,17 @@ describe('worked checks (RULES §C.8, plan §5.9)', () => {
     expect(between(design('sable', lion('argent')), design('sable', lion('or')))).toEqual(['tincture:dc:A5G3']);
   });
 
-  it('four mullets against six: no substantial change (4+), one distinct change of number, no arrangement change (two and two is not in App K)', () => {
+  it('four mullets against six: no substantial change of number (4+), but two and two against three, two and one is a substantial change of arrangement (A5E4)', () => {
     const four = design('azure', chg('mullet', 'or', { count: 4 })), six = design('azure', chg('mullet', 'or', { count: 6 }));
-    expect(between(four, six)).toEqual(['number:dc:A5G5']);
+    expect(between(four, six)).toEqual(['arrangement:sc:A5E4', 'number:dc:A5G5']);
+    // In one A5E4 group (two and two, in saltire) the counts alone give a distinct change.
+    expect(between(four, design('azure', chg('mullet', 'or', { count: 5, arrangement: 'in-saltire' })))).toEqual(['number:dc:A5G5']);
+  });
+
+  it('six mullets three, two and one against eight in orle: a substantial change of arrangement across counts (the A5E4 example)', () => {
+    const six = design('argent', chg('mullet', 'gules', { count: 6 })), eight = design('argent', chg('mullet', 'gules', { count: 8, arrangement: 'in-orle' }));
+    expect(between(six, eight)).toEqual(['arrangement:sc:A5E4']);
+    expect(isClear(differences(six, eight))).toBe(true);
   });
 
   it('a fish naiant against haurient is a substantial change of posture; a wolf passant against rampant too', () => {
@@ -142,6 +150,54 @@ describe('the field (A5F, A5G1)', () => {
   });
 });
 
+describe('counterchanged groups compare by the tinctures they show (A5G3a)', () => {
+  const lion = (paint: string, extra: object = {}, attrs: object = {}) => chg('lion', paint, extra, attrs);
+
+  it('X1: a lion counterchanged lying wholly in chief is not offered, and as the gules lion it shows it differs from a gules lion sejant by posture only', () => {
+    const field = div('per-fess', 'argent', 'gules');
+    const counterchanged = nd(arms(field, lion('counterchanged', { position: 'chief' })));
+    expect(normalise(counterchanged).ok).toBe(false);
+    const sejant = design(field, lion('gules', {}, { posture: 'sejant' }));
+    expect(between(counterchanged, sejant)).toEqual(['posture:dc:A5G7']);
+    expect(between(design(field, lion('gules')), sejant)).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('X2: a chief counterchanged on a field per fess shows one tincture: against a gules chief only the lion differs', () => {
+    const field = div('per-fess', 'argent', 'gules');
+    const counterchanged = nd(arms(field, lion('sable'), ord('chief', 'counterchanged')));
+    expect(normalise(counterchanged).ok).toBe(false);
+    const gules = nd(arms(field, lion('azure'), ord('chief', 'gules')));
+    expect(between(counterchanged, gules)).toEqual(['tincture:dc:A5G3']);
+    expect(isClear(differences(counterchanged, gules))).toBe(false);
+  });
+
+  it('P22: changing the field under a counterchanged lion changes half the lion: a distinct change for each', () => {
+    const a = design(div('per-pale', 'argent', 'gules'), lion('counterchanged'));
+    const b = design(div('per-pale', 'or', 'gules'), lion('counterchanged'));
+    expect(between(a, b)).toEqual(['field-tincture:dc:A5G1a', 'tincture:dc:A5G3']);
+    expect(isClear(differences(a, b))).toBe(true);
+  });
+
+  it('P23: swapping the field, and so the counterchanged lion, is a distinct change for each', () => {
+    const a = design(div('per-pale', 'argent', 'gules'), lion('counterchanged'));
+    const b = design(div('per-pale', 'gules', 'argent'), lion('counterchanged'));
+    expect(between(a, b)).toEqual(['field-tincture:dc:A5G1a', 'tincture:dc:A5G3']);
+  });
+
+  it('P38: a counterchanged fess on argent and gules against one on argent and vert', () => {
+    const a = design(div('per-pale', 'argent', 'gules'), ord('fess', 'counterchanged'));
+    const b = design(div('per-pale', 'argent', 'vert'), ord('fess', 'counterchanged'));
+    expect(between(a, b)).toEqual(['field-tincture:dc:A5G1a', 'tincture:dc:A5G3']);
+  });
+
+  it('a counterchanged lion against a plain one differs over the half that changed, and not at all against itself', () => {
+    const field = div('per-pale', 'argent', 'gules');
+    const counterchanged = design(field, lion('counterchanged'));
+    expect(between(counterchanged, nd(arms(field, lion('argent'))))).toEqual(['tincture:dc:A5G3']);
+    expect(between(counterchanged, design(field, lion('counterchanged')))).toEqual([]);
+  });
+});
+
 describe('the primary group (A5E)', () => {
   it('adding or removing it is a substantial change (A5E1), either way round', () => {
     const fieldPrimary = design('sable', ord('chief', 'or'));
@@ -153,8 +209,11 @@ describe('the primary group (A5E)', () => {
   it('a change of type is substantial between unrelated shapes, and only a distinct change between charges of one class (A5E2, A5G4)', () => {
     const on = (id: string, attrs: object = {}) => design('azure', chg(id, 'or', {}, attrs));
     expect(between(on('lion'), on('rose'))).toEqual(['type:sc:A5E2']);
-    expect(between(on('lion', { posture: 'rampant' }), on('wolf', { posture: 'rampant' }))).toEqual(['type:dc:A5G4']);
-    expect(between(on('lion'), on('unicorn'))).toEqual(['type:dc:A5G4']);
+    // SENA A5E2: "four wolves two and two argent does not conflict with … semy of lions argent".
+    expect(between(on('lion', { posture: 'rampant' }), on('wolf', { posture: 'rampant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('lion'), on('unicorn'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('lion'), on('dragon'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('stag', { posture: 'statant' }), on('boar', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
     expect(between(on('mullet'), on('sun'))).toEqual(['type:dc:A5G4']);
     expect(between(on('mullet'), on('rose'))).toEqual(['type:sc:A5E2']);
     expect(between(on('eagle'), on('owl'))).toEqual(['type:dc:A5G4']);
@@ -217,8 +276,8 @@ describe('the primary group (A5E)', () => {
     expect(between(on('hare', 'sejant'), on('hare', 'courant'))).toEqual(['posture:sc:A5E5']);
     expect(between(on('stag', 'statant'), on('stag', 'passant'))).toEqual([]);
     expect(between(on('fish', 'naiant'), on('fish', 'haurient'))).toEqual(['posture:sc:A5E5']);
-    // comparable across charges of the same class
-    expect(between(on('lion', 'rampant'), on('hare', 'courant'))).toEqual(['posture:sc:A5E5', 'type:dc:A5G4']);
+    // comparable across charges of one posture class (App M3), even when their types differ substantially
+    expect(between(on('lion', 'rampant'), on('hare', 'courant'))).toEqual(['type:sc:A5E2', 'posture:sc:A5E5']);
     // never between an animate charge and one without a posture
     expect(between(on('lion', 'rampant'), design('azure', chg('rose', 'or')))).toEqual(['type:sc:A5E2']);
     expect(between(on('eagle', 'displayed'), design('azure', chg('owl', 'or')))).toEqual(['type:dc:A5G4']);
@@ -342,8 +401,8 @@ describe('verdicts and the candidate key', () => {
   });
 
   it('candidateKey: the partition and the primary group’s conflict key', () => {
-    expect(candidateKey(design('azure', chg('lion', 'or')))).toEqual({ partition: 'plain', primary: 'charge:beast' });
-    expect(candidateKey(design(div('per-bend', 'azure', 'vert'), chg('mullet', 'or')))).toEqual({ partition: 'per-bend', primary: 'charge:star' });
+    expect(candidateKey(design('azure', chg('lion', 'or')))).toEqual({ partition: 'plain', primary: 'charge:feline' });
+    expect(candidateKey(design(div('per-bend', 'azure', 'vert'), chg('mullet', 'or')))).toEqual({ partition: 'per-bend', primary: 'charge:mullet-or-sun' });
     expect(candidateKey(design('azure', ord('fess', 'or')))).toEqual({ partition: 'plain', primary: 'ordinary:fess' });
     expect(candidateKey(design('azure', ord('chief', 'or')))).toEqual({ partition: 'plain', primary: null });
   });
@@ -388,10 +447,12 @@ describe('explanations', () => {
     const b = design('sable', chg('wolf', 'or', {}, { posture: 'passant' }));
     const all = notes(a, b);
     expect(all.map((n) => `${n.attr}:${n.kind}:${n.rule}:${n.item}`)).toEqual([
-      'posture:sc:A5E5:charge', 'type:dc:A5G4:charge', 'tincture:dc:A5G3:charge', 'group-presence:dc:A5G2:ordinary',
+      'type:sc:A5E2:charge', 'posture:sc:A5E5:charge', 'tincture:dc:A5G3:charge', 'group-presence:dc:A5G2:ordinary',
     ]);
     for (const n of all) expect(n.why).toMatch(new RegExp(`\\(SENA ${n.rule}\\)\\.$`));
-    expect(all[1].why).toBe('A lion and a wolf are different types — a distinct change (SENA A5G4).');
+    expect(all[0].why).toBe('Changing every main picture or band to something unrelated is a substantial change (SENA A5E2).');
+    const [type] = notes(design('sable', chg('mullet', 'argent')), design('sable', chg('sun', 'argent')));
+    expect(type.why).toBe('A mullet and a sun are different types — a distinct change (SENA A5G4).');
   });
 
   it('cites a SENA section in the reason of every rule that can be given', () => {

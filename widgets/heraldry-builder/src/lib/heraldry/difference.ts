@@ -3,7 +3,7 @@
 // DCs. Each difference carries the SENA rule it comes from; `explainDifferences` words it for the
 // Availability UI. Same code on client (instant feedback) and Worker (authoritative).
 
-import { TINCTURE_NAME } from './tinctures';
+import { TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
@@ -15,6 +15,7 @@ import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
+import { shownTinctures, type ShownTinctures } from './tincture-rule';
 
 export type ChangeKind = 'sc' | 'dc';
 
@@ -63,9 +64,9 @@ export function isClear(diffs: readonly { kind: ChangeKind }[]): boolean {
 
 // ── Classes: what counts as the same type, number group, arrangement group, posture line ────────────────────────
 
-/** What A5E2 compares: ordinaries by type, charges by conflict class (a lion and a wolf are one class, a lion and a rose are not). */
+/** What A5E2 compares: ordinaries by type, charges by type class (an eagle and an owl are one class, a lion and a wolf are not). */
 function conflictKey(item: Item): string {
-  return item.k === 'ordinary' ? `ordinary:${item.type}` : `charge:${CHARGES[item.charge].conflictClass}`;
+  return item.k === 'ordinary' ? `ordinary:${item.type}` : `charge:${CHARGES[item.charge].typeClass}`;
 }
 
 /** A5E3: 1 | 2 | 3 | 4 and more. */
@@ -75,8 +76,9 @@ const countCategory = (n: number): number => Math.min(n, 4);
 const countCategoryFine = (n: number): number => Math.min(n, 6);
 
 /**
- * A5E4: arrangements substantially different from each other, within a group no substantial change. A layout with a
- * position ("in chief") is in none: SENA says such arrangements can't use the rule.
+ * A5E4: arrangements substantially different from each other, within a group no substantial change, whatever the
+ * counts ("six mullets three, two, and one does not conflict with eight mullets in orle"). A layout with a position
+ * ("in chief") is in none: SENA says such arrangements can't use the rule.
  */
 function arrangementGroup(g: Group): string | null {
   const a = g.arrangement;
@@ -183,6 +185,24 @@ function tinctureOf(p: Paint) {
   return groupTinctureOf(p) ?? notSupported(paintGaps(p, false, 'group')[0] ?? { category: 'tincture', detail: p.k });
 }
 
+/** A shown tincture over part `i` of the field, or null where the group doesn't lie. */
+const shownAt = (s: ShownTinctures, i: number): Tincture | null => (s.k === 'plain' ? s.t : s.byPart.get(i) ?? null);
+
+/**
+ * A5G3 (with A5G3a, A5C2d): whether the tinctures a group shows change over at least half of it, compared part of the
+ * field by part where a group is counterchanged — "Per pale argent and gules, a lion counterchanged" shows a gules and
+ * an argent half, so it differs from the same lion on per pale Or and gules by half the lion.
+ */
+function tinctureChanged(x: Side, y: Side): boolean {
+  const a = shownTinctures(x.design, x.path), b = shownTinctures(y.design, y.path);
+  if (a.k === 'plain' && b.k === 'plain') return a.t !== b.t;
+  const parts = new Set([...(a.k === 'parts' ? a.byPart.keys() : []), ...(b.k === 'parts' ? b.byPart.keys() : [])]);
+  // Counterchanged with nothing to show (an invalid design): compare the paints as written.
+  if (parts.size === 0) return a.k !== b.k;
+  const changed = [...parts].filter((i) => shownAt(a, i) !== shownAt(b, i)).length;
+  return changed > 0 && changed * 2 >= parts.size;
+}
+
 // ── Differences ─────────────────────────────────────────────────────────────
 
 const change = (attr: DiffAttr, kind: ChangeKind, rule: SenaRule, group: GroupRef | null): Diff => ({ attr, kind, rule, group });
@@ -211,7 +231,7 @@ function primaryChanges(x: Side, y: Side): Diff[] {
   if (conflictKey(x.group.item) !== conflictKey(y.group.item)) out.push(change('type', 'sc', 'A5E2', ref));
   if (countCategory(x.group.count) !== countCategory(y.group.count)) out.push(change('number', 'sc', 'A5E3', ref));
   const gx = arrangementGroup(x.group), gy = arrangementGroup(y.group);
-  if (x.group.count === y.group.count && gx !== null && gy !== null && gx !== gy && !isForced(x.design, x.path) && !isForced(y.design, y.path)) {
+  if (gx !== null && gy !== null && gx !== gy && !isForced(x.design, x.path) && !isForced(y.design, y.path)) {
     out.push(change('arrangement', 'sc', 'A5E4', ref));
   }
   const postures = comparablePostures(x.group.item, y.group.item);
@@ -232,7 +252,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   // The in-splendour mod of a sun is an artistic detail (RULES §C.3) and is not looked at.
   if (itemKey(gx.item) !== itemKey(gy.item)) dc('type', 'A5G4');
   if (countCategoryFine(gx.count) !== countCategoryFine(gy.count)) dc('number', 'A5G5');
-  if (tinctureOf(gx.paint) !== tinctureOf(gy.paint)) dc('tincture', 'A5G3');
+  if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);
   if (kx !== ky && !isForced(x.design, x.path) && !isForced(y.design, y.path)
     && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky)))) {

@@ -55,9 +55,20 @@ describe('counterchanged and the rule of tincture', () => {
     expect(counterchangeUnavailable(band, [0])).toBe("Counterchanged needs a divided field: the fess takes the field's other tincture, and a plain field has only one.");
     const onBand = nd(arms(div('per-fess', 'or', 'azure'), ord('fess', 'gules', { charged: [chg('key', 'counterchanged', { count: 3 })] })));
     expect(counterchangeUnavailable(onBand, [0, 0]))
-      .toBe("The keys lie on the fess, not on the field, so they can't be counterchanged — only charges and bands on a divided field can.");
+      .toBe("The keys lie on the fess, not on the field — counterchanged charges on a band or charge aren't available in this builder.");
     expect(counterchangeUnavailable(mullets(div('per-pale', 'or', 'azure')), [0])).toBeNull();
     expect(counterchangeUnavailable(nd(arms('vert', chg('mullet', 'or'))), [0])).toBeNull();
+  });
+
+  it('is unavailable for a group lying wholly in one part of the field, which it would simply show in the other tincture (SENA A5G3a)', () => {
+    const inChief = nd(arms(div('per-fess', 'argent', 'gules'), chg('lion', 'counterchanged', { position: 'chief' })));
+    expect(counterchangeUnavailable(inChief, [0]))
+      .toBe('The lion lies wholly on the Argent part of the field, so counterchanged would simply make it Gules — choose Gules instead.');
+    expect(tinctureIssues(inChief).map((i) => i.message)).toEqual([counterchangeUnavailable(inChief, [0])]);
+    const chief = nd(arms(div('per-fess', 'argent', 'gules'), chg('lion', 'sable'), ord('chief', 'counterchanged')));
+    expect(counterchangeUnavailable(chief, [1])).toBe('The chief lies wholly on the Argent part of the field, so counterchanged would simply make it Gules — choose Gules instead.');
+    // One charge in each part is counterchanging proper.
+    expect(counterchangeUnavailable(nd(arms(div('per-pale', 'argent', 'gules'), chg('mullet', 'counterchanged', { count: 2, arrangement: 'in-fess' }))), [0])).toBeNull();
   });
 
   it('allows bands: a counterchanged fess, and a counterchanged chief, on a metal-and-colour field', () => {

@@ -92,11 +92,19 @@ Eight tinctures: three metals and five colours. The rule of tincture follows the
 RULES §A): everything placed on the field (primary, secondary and peripheral groups) must have
 good contrast with the part of the field it lies on, and a tertiary group with the group it lies
 on. Good contrast is a metal with a colour; metal on metal, colour on colour and the same
-tincture twice are poor contrast. Divided fields follow the same walk part by part: a charge
-that crosses a partition line must contrast with every part it touches, so over a field of two
-metals it needs a colour and over two colours a metal. A bordure and a chief are placed on the
-field like any charge (the only exception SENA makes for peripherals, an augmentation, is not
-built). The builder shows the rule as "a colour goes on a metal and a metal on a colour".
+tincture twice are poor contrast. Divided fields follow the same walk part by part, by area (SENA
+A3B1): each charge and band is sampled over the parts it lies on, and a ground counts as metal or
+colour once two thirds of it is (`GROUND_CLASS_SHARE`, a herald question); below that it is neutral
+and contrasts with both. So a bend Or on quarterly argent and gules, 87% on argent, is metal on
+metal, while a charge set across a per pale line is fine in any tincture the field doesn't use
+(touching a part of its own tincture always fails). A charge alone in the centre is judged at the
+fess point however far a chief pushes it down, and a band on a field divided along its own line
+(a chevron on per chevron) lies over the line. A bordure and a chief are placed on the field like
+any charge (the only exception SENA makes for peripherals, an augmentation, is not built).
+Charges that share a tincture with one part of a divided field go into the other part (GoT Table
+7); where the builder has no such layout (per bend, per pale, quarterly…) the design is reported as
+not available yet rather than as a violation. The builder shows the rule as "a colour goes on a
+metal and a metal on a colour".
 
 | Tincture | Class | Gloss | Fill | Petra Sancta hatching |
 |---|---|---|---|---|
@@ -136,7 +144,8 @@ all seven divisions; a charge on the centre of a quarterly field is drawn in fou
   `{ "k": "counterchanged" }`, which the API accepts as the shorthand string `"counterchanged"`.
 - **Where it is allowed.** For a group lying on a divided field: charges on the field, between an
   ordinary, under a chief or within a bordure, and a band or other ordinary on the field. On a
-  plain field (nothing to reverse) or for charges on an ordinary (they don't lie on the field) it
+  plain field (nothing to reverse), for charges on an ordinary (not built), or for a group lying
+  wholly in one part of the field (it would simply show the other tincture: choose that instead) it
   is a rule-of-tincture issue with its own message.
 - **Rule of tincture (SENA A3B2).** Each part shows the other field tincture over its own, so
   every edge that touches is judged like any other: counterchanging is legal exactly when the two
@@ -240,7 +249,10 @@ tincture. It then computes everything itself:
   (`src/lib/heraldry/difference.ts`) aligns the two designs group by group and lists the changes:
   a different field partition, or adding, removing or changing the type of the primary group, is a
   substantial change; changes of tincture, number, arrangement, secondary and tertiary groups and the
-  like are distinct changes. Each difference comes with the SENA rule it applies, so the panel can say
+  like are distinct changes. Types are compared by the curated `TYPE_CLASSES` table in
+  `charges.ts` (each class cites its SENA or precedent source, and flags the builder's own
+  readings): only a mullet and a sun, and an eagle and an owl, are one class. A counterchanged group
+  is compared by the tinctures it shows over each part of the field (SENA A5G3a). Each difference comes with the SENA rule it applies, so the panel can say
   why it counts and what to change. An available design also names the first entry it only passed by
   two distinct changes. The field shape is never compared.
 - **Conflict key.** A different field partition or primary group is always a substantial change, so

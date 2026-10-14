@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   canonical, canonicalJson, resolve, signature, structuralIssues, unsupportedIssues, isSupported, walkGroups, groupAt, hostOf, pathKey,
-  primaryGroup, isFieldPrimary, UNSUPPORTED_GAP_CATEGORIES, CHARGES, CHARGE_IDS, MAX_DRAWN_COUNT, UnsupportedConstructError, notSupported,
+  primaryGroup, isFieldPrimary, UNSUPPORTED_GAP_CATEGORIES, CHARGES, CHARGE_IDS, TYPE_CLASSES, MAX_DRAWN_COUNT, UnsupportedConstructError, notSupported,
   type Design, type Issue,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -339,8 +339,11 @@ describe('charge table', () => {
     expect(CHARGE_IDS.filter((id) => CHARGES[id].scaDefaultPosture).map((id) => [id, CHARGES[id].scaDefaultPosture]))
       .toEqual([['lion', 'rampant'], ['fish', 'naiant'], ['unicorn', 'rampant'], ['dragon', 'rampant'], ['eagle', 'displayed']]);
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
-    expect(CHARGES.lion.conflictClass).toBe('beast');
-    expect(CHARGES.mullet.conflictClass).toBe(CHARGES.sun.conflictClass);
+    // A5E2 type classes: only the documented DC-only pairs share one (mullet and sun, eagle and owl).
+    const shared = CHARGE_IDS.filter((id) => CHARGE_IDS.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
+    expect(shared).toEqual(['eagle', 'owl', 'mullet', 'sun']);
+    expect(CHARGES.lion.typeClass).not.toBe(CHARGES.wolf.typeClass);
+    expect(new Set(CHARGE_IDS.map((id) => CHARGES[id].typeClass))).toEqual(new Set(Object.keys(TYPE_CLASSES)));
   });
 
   it('draws every default posture and facing', () => {

@@ -279,8 +279,23 @@ export function isForced(d: Design, path: GroupPath): boolean {
   if (group.item.k === 'ordinary') return false;
   const ctx = layoutContext(d, path);
   if (ctx.k !== 'field') return true;
+  const ruled = forcedRuleOf(d, group, host);
+  return ruled !== null && sameLayout(ruled, { arrangement: group.arrangement, position: group.position });
+}
+
+/** The layout tincture forces on a field group (the no-contrast row and the four-part contrast row), or null. */
+function forcedRuleOf(d: Design, group: Group, host: Group | null): Layout | null {
   const ruled = ruledDefaultOf(d, group, host);
-  return ruled !== null && (ruled.rule === '0' || ruled.rule === '2-four-part') && sameLayout(ruled.layout, { arrangement: group.arrangement, position: group.position });
+  return ruled !== null && (ruled.rule === '0' || ruled.rule === '2-four-part') ? ruled.layout : null;
+}
+
+/**
+ * The layout the builder knows Table 7 forces this charge group into by tincture, or null when it knows none here
+ * (the forcing into one part of a field divided per bend, per pale, quarterly… is not drawn: a gap).
+ */
+export function forcedLayout(d: Design, path: GroupPath): Layout | null {
+  const { group, host } = groupAndHost(d, path);
+  return group.item.k === 'charge' && layoutContext(d, path).k === 'field' ? forcedRuleOf(d, group, host) : null;
 }
 
 /** Whether the blazon must word the layout: a field group whose layout is not just centred and differs from Table 7. */

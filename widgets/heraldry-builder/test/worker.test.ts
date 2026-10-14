@@ -245,7 +245,7 @@ describe('POST /api/arms', () => {
       [counterchanged(div('per-pale', 'or', 'argent')), /metal on metal/],
       [counterchanged(div('quarterly', 'gules', 'vert')), /colour on colour/],
       [counterchanged('purpure'), /needs a divided field/],
-      [arms(div('per-fess', 'or', 'azure'), group(ordinary('fess'), 'gules', { charged: [group(charge('crown'), 'counterchanged', { count: 3 })] })), /can't be counterchanged/],
+      [arms(div('per-fess', 'or', 'azure'), group(ordinary('fess'), 'gules', { charged: [group(charge('crown'), 'counterchanged', { count: 3 })] })), /counterchanged charges on a band or charge aren't available/],
     ];
     for (const [design, message] of rejected) {
       const res = await call('POST', '/api/arms', { body: { email: OWNER_EMAIL, displayName: 'Counterchange', design } });

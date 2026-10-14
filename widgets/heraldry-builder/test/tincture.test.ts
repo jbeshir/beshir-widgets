@@ -3,7 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  TINCTURES, contrastFailure, groundContacts, groupTinctureIssues, normalise, signature, tinctureIssues, validate, type Design, type Tincture,
+  GROUND_CLASS_SHARE, TINCTURES, contrastFailure, groundContacts, groundFailure, groundShares, groupTinctureIssues, normalise, signature,
+  tinctureIssues, validate, type Design, type Tincture,
 } from '../src/lib/heraldry';
 import { walkGroups } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -62,6 +63,82 @@ describe('what a group lies on', () => {
   it('a tertiary on a counterchanged host lies on the other tincture of each part', () => {
     const d = nd(arms(div('per-pale', 'argent', 'gules'), ord('fess', 'counterchanged', { charged: [chg('rose', 'sable')] })));
     expect(groundContacts(d, [0, 0])).toEqual([['gules', 'argent']]);
+  });
+});
+
+describe('a mixed ground is classed by area (SENA A3B1, A3B4a)', () => {
+  const only = (input: unknown) => tinctureIssues(nd(input)).map((i) => i.message);
+
+  it('a ground counts as one class from GROUND_CLASS_SHARE of it on, and as neutral below that', () => {
+    expect(GROUND_CLASS_SHARE).toBe(2 / 3);
+    expect(groundFailure('or', [{ t: 'argent', share: 0.66 }, { t: 'gules', share: 0.34 }])).toBeNull();
+    expect(groundFailure('or', [{ t: 'argent', share: 0.67 }, { t: 'gules', share: 0.33 }])).toBe('metal-on-metal');
+    // A shared tincture fails however little of it there is (A3B4b).
+    expect(groundFailure('gules', [{ t: 'argent', share: 0.95 }, { t: 'gules', share: 0.05 }])).toBe('same');
+  });
+
+  it('the shares of every ground add up to one', () => {
+    for (const d of generatedDesigns(7, 60)) {
+      for (const { path } of walkGroups(d)) {
+        for (const ground of groundShares(d, path)) expect(ground.reduce((sum, g) => sum + g.share, 0)).toBeCloseTo(1, 9);
+      }
+    }
+  });
+
+  // REVIEW.md B1: one probe point touching the contrasting part no longer makes the ground neutral.
+  it('an ordinary lying mostly on its own class fails', () => {
+    expect(only(arms(div('quarterly', 'argent', 'gules'), ord('bend', 'or')))).toEqual(['Or bend lies mostly on Argent: metal on metal']);
+    expect(only(arms(div('per-fess', 'argent', 'gules'), ord('pile', 'or')))).toEqual(['Or pile lies mostly on Argent: metal on metal']);
+    expect(only(arms(div('per-bend', 'argent', 'gules'), ord('chief', 'or'), chg('mullet', 'sable')))).toEqual(['Or chief lies mostly on Argent: metal on metal']);
+    expect(only(arms(div('per-saltire', 'argent', 'gules'), ord('pale', 'or')))).toEqual(['Or pale lies mostly on Argent: metal on metal']);
+    expect(only(arms(div('per-fess', 'gules', 'argent'), ord('chevron', 'or')))).toEqual(['Or chevron lies mostly on Argent: metal on metal']);
+  });
+
+  it('a charge lying mostly on its own class fails, slot by slot', () => {
+    expect(only(arms(div('per-chevron', 'argent', 'gules'), chg('mullet', 'or', { count: 2 })))).toEqual(['The upper Or mullet lies mostly on Argent: metal on metal']);
+    expect(only(arms(div('per-fess', 'argent', 'gules'), chg('mullet', 'sable', { count: 5 })))).toEqual([
+      'The two middle Sable mullets lie mostly on Gules: colour on colour',
+      'The lower Sable mullet lies on Gules: colour on colour',
+    ]);
+  });
+
+  it('an element set over the line stays neutral', () => {
+    expect(only(arms(div('per-fess', 'argent', 'gules'), ord('fess', 'or')))).toEqual([]);
+    expect(only(arms(div('per-pale', 'argent', 'gules'), chg('mullet', 'or', { count: 3, arrangement: 'in-pale' })))).toEqual([]);
+    expect(only(arms(div('per-pale', 'argent', 'gules'), ord('bordure', 'or')))).toEqual([]);
+  });
+
+  it('a charge alone in the centre is judged at the fess point, wherever a chief pushes the drawing (regid:8075)', () => {
+    const rose = nd(arms(div('per-bend', 'argent', 'sable'), chg('rose', 'gules'), ord('chief', 'gules')));
+    expect(groundShares(rose, [0])[0].map((g) => g.t)).toEqual(['argent', 'sable']);
+    expect(validate(rose)).toEqual([]);
+  });
+
+  // REVIEW.md M3: "Per chevron argent and sable, a chevron gules" has been registered at least twelve times.
+  it('an ordinary on a field divided along its own line lies over the line, half on each part', () => {
+    expect(groundShares(nd(arms(div('per-chevron', 'argent', 'sable'), ord('chevron', 'gules'))), [0]))
+      .toEqual([[{ t: 'argent', share: 0.5 }, { t: 'sable', share: 0.5 }]]);
+    expect(validate(nd(arms(div('per-chevron', 'argent', 'sable'), ord('chevron', 'gules'))))).toEqual([]);
+    expect(only(arms(div('per-chevron', 'argent', 'sable'), ord('chevron', 'argent')))).toEqual(['Argent chevron lies on the Argent part of the field: same tincture']);
+  });
+});
+
+// REVIEW.md M4: GoT Table 7 forces charges with no contrast into the part they contrast with; where the builder
+// doesn't draw that, the design is a gap ("unsupported"), not a violation.
+describe('charges Table 7 forces into one part of the field', () => {
+  it('are an arrangement gap where the builder has no forced layout (regid:92414)', () => {
+    const d = nd(arms(div('per-bend-sinister', 'argent', 'azure'), chg('mullet', 'azure', { count: 3, arrangement: 'rows-1-2' })));
+    expect(tinctureIssues(d)).toEqual([{
+      code: 'unsupported', at: { k: 'group', path: [0] }, gap: { category: 'arrangement', detail: 'forced-into-one-part' },
+      message: 'All three Azure mullets would have to sit only on the Argent part of the field, which isn\'t available in this builder yet.',
+    }]);
+    expect(normalise(d)).toMatchObject({ ok: false, errors: [{ code: 'unsupported' }] });
+  });
+
+  it('are drawn where the builder knows the forced layout, and a real violation stays one', () => {
+    expect(validate(nd(arms(div('per-fess', 'or', 'vert'), chg('mullet', 'vert', { count: 3 }))))).toEqual([]);
+    // Colour on colour on the other part: nothing to force into.
+    expect(tinctureIssues(nd(arms(div('per-pale', 'gules', 'azure'), chg('mullet', 'gules')))).map((i) => i.code)).toEqual(['tincture']);
   });
 });
 

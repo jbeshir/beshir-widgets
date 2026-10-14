@@ -12,8 +12,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  FIELD_SHAPES, blazon, contrastFailure, fieldTinctures, gloss, groundContacts, groupSlots, inFirstPart, probePoints, readability, resolve,
-  shapeFrame, signature, validate, walkGroups, type Design, type FieldShape, type ShapedDesign, type Slot, type Tincture,
+  FIELD_SHAPES, blazon, fieldTinctures, gloss, groundFailure, groundPoints, groundShares, groupSlots, inFirstPart, readability, resolve,
+  shapeFrame, signature, validate, walkGroups, type Design, type FieldShape, type Ground, type Group, type ShapedDesign, type Slot,
 } from '../src/lib/heraldry';
 import sample from '../src/data/sample-registry.json';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -84,14 +84,19 @@ function verdict(d: Design) {
   return { issues: validate(d), readability: readability(d), blazon: blazon(d), gloss: gloss(d), signature: signature(d) };
 }
 
-/** Field tinctures a slot touches as drawn in a shape: the five-point probe against that shape's lines. */
-function drawnContacts(d: Design, slot: Slot, shape: FieldShape): Tincture[] {
+/**
+ * The ground of a slot as drawn in a shape: its sample points against that shape's lines (a charge alone in the
+ * centre is judged at the shape's fess point, as the canonical verdict judges it at the heater's).
+ */
+function drawnGround(d: Design, g: Group, slot: Slot, shape: FieldShape): Ground {
   const parts = fieldTinctures(d);
-  if (d.kind !== 'arms' || d.field.k !== 'divided') return parts;
+  if (d.kind !== 'arms' || d.field.k !== 'divided') return parts.map((t) => ({ t, share: 1 }));
   const division = d.field.division;
   const fess = shapeFrame(shape).fessPoint;
-  const seen = new Set<number>(probePoints(slot).map(([x, y]) => (inFirstPart(division, fess, x, y) ? 0 : 1)));
-  return parts.filter((_, i) => seen.has(i));
+  const centred = g.arrangement.k === 'single' && g.position === null ? { ...slot, ...fess } : slot;
+  const points = groundPoints(centred);
+  const inPart = (i: number) => points.filter(([x, y]) => inFirstPart(division, fess, x, y) === (i === 0)).length / points.length;
+  return parts.flatMap((t, i) => (inPart(i) > 0 ? [{ t, share: inPart(i) }] : []));
 }
 
 describe('field shapes and the verdict', () => {
@@ -115,10 +120,10 @@ describe('field shapes and the verdict', () => {
     if (onField.length > 0) {
       it(`${name}: judged on the drawing in each shape, every charge gets its canonical verdict`, () => {
         for (const { path, group: g } of onField) {
-          const judge = (contacts: Tincture[]) => (g.paint.k === 'tincture' ? contrastFailure(g.paint.t, contacts) : null);
-          const canonical = groundContacts(d, path).map(judge);
+          const judge = (ground: Ground) => (g.paint.k === 'tincture' ? groundFailure(g.paint.t, ground) : null);
+          const canonical = groundShares(d, path).map(judge);
           for (const shape of FIELD_SHAPES) {
-            expect(groupSlots(d, path, shape).map((s) => judge(drawnContacts(d, s, shape))), shape).toEqual(canonical);
+            expect(groupSlots(d, path, shape).map((s) => judge(drawnGround(d, g, s, shape))), shape).toEqual(canonical);
           }
         }
       });
