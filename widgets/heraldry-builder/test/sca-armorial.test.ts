@@ -31,12 +31,12 @@ describe('SCA O&A fixture', () => {
 
 // A record passes when the widget finds a design that blazons as the SCA does, would register it,
 // draws it and lets the Design tab build it. "Blazons as the SCA does" is text equality after
-// normaliseBlazon(), applied to the SCA blazon and the widget's alike. Its rules
+// normaliseBlazon(), applied to the SCA blazon and the widget's alike — the widget's house-style
+// blazon, or its blazon of the same design with the College's defaults stated. The rules
 // (NORMALISATION_RULES in test/sca/normalise.ts, each documented there) only bridge differences of
 // convention: case, the final full stop, spelling, and three conventions the Glossary treats as
-// equivalent (connectors, where placement words go, stated College defaults). None drops a
-// tincture, count, charge or posture the design has, so blazons of two different designs never
-// compare equal.
+// equivalent (connectors, where placement words go, Table 5 default postures). None drops a
+// tincture, count, charge or arrangement, so blazons of two different designs never compare equal.
 describe('SCA armory the widget can express', () => {
   const entries = readIgnoreList().groups.flatMap((g) => Object.entries(g.records).map(([key, tags]) => [key, { primary: g.category, tags }] as const));
   /** Ignored record key → the category of the group it is filed under, and its tags. */
@@ -144,8 +144,32 @@ describe('the matcher reads what the widget writes', () => {
       const m = explainMatch(blazon(d));
       return !m.match || canonicalJson(m.match.design!) !== canonicalJson(d);
     });
-    expect(unread.map(blazon)).toEqual([]);
+    expect(unread.map((d) => blazon(d))).toEqual([]);
   }, 30_000);
+});
+
+// A stated default is a wording of the same design, accepted at design level; never as dropped text.
+describe('the matcher accepts stated defaults only for the design that has them', () => {
+  it.each([
+    ['Quarterly Or and gules, in bend two roses sable.', 'Quarterly Or and gules, two roses sable.'],
+    ['Per chevron argent and gules, in base a fleur-de-lys argent.', 'Per chevron argent and gules, a fleur-de-lys argent.'],
+    ['Argent, three mullets two and one gules.', 'Argent, three mullets gules.'],
+    ['Or, five roses two, two and one gules.', 'Or, five roses gules.'],
+  ])('%s', (stated, house) => {
+    const m = explainMatch(stated);
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  // REVIEW.md M5: the old text rule dropped "two and one" anywhere and matched these to other designs.
+  it.each([
+    'Argent, on a chief gules three mullets two and one Or.',
+    'Or, in chief three mullets two and one gules.',
+    'Argent, on a bend gules three mullets two and one Or.',
+    'Argent, on a cross gules five mullets two, two and one Or.',
+  ])('%s is no match', (text) => {
+    expect(explainMatch(text).status).not.toBe('match');
+  });
 });
 
 // A construct the matcher parses but the widget doesn't draw is filed under the widget's own gap.
@@ -159,6 +183,9 @@ describe('the matcher files what the widget does not draw under its gap', () => 
     ['Azure, a rose Or on a bordure argent three mullets gules.', ['multiple-groups:tertiary-on-bordure']],
     ['Azure, on a lion Or three mullets gules.', ['multiple-groups:tertiary-on-charge']],
     ['Azure, a cross Or between two roses argent.', ['placement:between-cross-2']],
+    // With no comma, the charges "between" are on the host too: one tertiary group of two types (SENA A3D2a).
+    ['Vert, on a cross argent a rose sable between four roses gules.', ['multiple-groups:tertiary-two-types']],
+    ['Sable, on a chief argent a rose purpure between two roses sable.', ['multiple-groups:tertiary-two-types']],
   ])('%s', (text, tags) => {
     const m = explainMatch(text);
     expect(m.status).toBe('unsupported');

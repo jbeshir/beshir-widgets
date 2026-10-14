@@ -3,7 +3,7 @@
 // of the builder — five checks, in order:
 //   match   — the matcher (explainMatch) finds the widget design that blazons as the SCA does;
 //   assess  — the builder would let that design be registered;
-//   blazon  — the widget's blazon() of it equals the SCA blazon under normaliseBlazon();
+//   blazon  — the widget's blazon() of it (in house style, or with its defaults stated) equals the SCA blazon under normaliseBlazon();
 //   render  — <Shield> draws its field, ordinary and charges;
 //   builder — the Design tab's controls build it, every click offered and allowed.
 // A record that doesn't pass is a gap, tagged `<category>` or `<category>:<subtag>` (GAP_CATEGORIES):
@@ -13,8 +13,7 @@
 import { blazon, canonicalJson, capacityIssue, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
-import { arrangementPhrases, explainMatch, type MatchResult } from './match';
-import { normaliseBlazon } from './normalise';
+import { arrangementPhrases, explainMatch, wordedAs, type MatchResult } from './match';
 import type { ArmoryRecord } from './oanda';
 import { assessMatched, builderPath, checkRendered, renderShieldSvg } from './widget-checks';
 
@@ -77,7 +76,7 @@ export function checkBlazon(scaBlazon: string): { match: MatchResult; failures: 
   const ours = blazon(design);
   const failures: CheckFailure[] = [];
   if (found.assess) failures.push({ check: 'assess', detail: found.assess });
-  if (normaliseBlazon(ours) !== match.normalised) failures.push({ check: 'blazon', detail: `the widget blazons it "${ours}"` });
+  if (!wordedAs(match.match, match.normalised)) failures.push({ check: 'blazon', detail: `the widget blazons it "${ours}"` });
   if (found.render) failures.push({ check: 'render', detail: found.render });
   if (found.builder) failures.push({ check: 'builder', detail: found.builder });
   return { match, failures };

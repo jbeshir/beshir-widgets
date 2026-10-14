@@ -8,7 +8,9 @@
 // Because the widget words arrangements the way the College does (Table 7 defaults are left unsaid,
 // everything else is stated), an SCA blazon that leaves out an arrangement gets the College's default
 // from the library, and one that states a different arrangement from the default gets exactly that
-// one; a blazon the widget cannot reproduce word for word is a near-miss, not a match.
+// one. Stating a default is optional (GoT Tables 5 and 7), so a candidate also matches the widget's
+// blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
+// blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
   CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, POSTURES, TINCTURES,
   blazon, normalise, postureTerm, type ChargeId, type Design, type Division, type Gap, type Issue, type OrdinaryType, type Posture,
@@ -32,7 +34,12 @@ export interface Candidate {
   issues: Issue[];
   /** normaliseBlazon(blazon(design)); null without a design. */
   normalised: string | null;
+  /** The same with the College's defaults stated: normaliseBlazon(blazon(design, { stateDefaults: true })); null without a design. */
+  stated: string | null;
 }
+
+/** Whether a candidate's design is worded as the normalised text: in house style, or with its defaults stated. */
+export const wordedAs = (c: Candidate, normalisedText: string): boolean => c.normalised === normalisedText || c.stated === normalisedText;
 
 /**
  * fieldless   — "(Fieldless) …": the widget always has a field
@@ -194,8 +201,11 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
   return { phrase: { group, paint }, end: paint ? i + 1 : i };
 }
 
-/** The design input's groups for the body of a blazon, or null when it isn't in the grammar. */
-function parseBody(tokens: string[]): object[] | null {
+/** What the body of a blazon reads as: the design input's groups, or a construct the widget doesn't draw. */
+type Body = { k: 'groups'; groups: object[] } | { k: 'gap'; gap: Gap };
+
+/** The body of a blazon, or null when it isn't in the grammar. */
+function parseBody(tokens: string[]): Body | null {
   const top: Node[] = [];
   /** Every phrase in blazon order, for factoring tinctures backwards. */
   const order: { phrase: Phrase; onHost: boolean }[] = [];
@@ -209,6 +219,9 @@ function parseBody(tokens: string[]): object[] | null {
       joined = w === 'and';
       i++;
     } else if (w === 'between') {
+      // "on a cross argent a rose sable between four roses gules": with no comma the charges between are on the
+      // host too, a tertiary group of two types (SENA A3D2a) — not secondaries around it.
+      if (host?.on && tokens[i - 1] !== ',') return { k: 'gap', gap: { category: 'multiple-groups', detail: 'tertiary-two-types' } };
       between = true;
       joined = true;
       i++;
@@ -263,24 +276,26 @@ function parseBody(tokens: string[]): object[] | null {
     }
   }
   const withPaint = (p: Phrase) => ({ ...p.group, paint: p.paint });
-  return top.map((n) => (n.on ? { ...withPaint(n.phrase), charged: [withPaint(n.on)] } : withPaint(n.phrase)));
+  return { k: 'groups', groups: top.map((n) => (n.on ? { ...withPaint(n.phrase), charged: [withPaint(n.on)] } : withPaint(n.phrase))) };
 }
 
-/** Candidate design inputs for normalised SCA text (usually zero or one). */
-function proposeInputs(normalisedText: string): DesignInput[] {
+/** Candidate design inputs for normalised SCA text (usually zero or one), or the gap the text reads as. */
+function proposeInputs(normalisedText: string): DesignInput[] | Gap {
   const comma = normalisedText.indexOf(',');
   const field = parseField(comma < 0 ? normalisedText : normalisedText.slice(0, comma));
   if (!field) return [];
   const tokens = comma < 0 ? [] : normalisedText.slice(comma + 1).replace(/,/g, ' , ').split(/ +/).filter(Boolean);
-  const groups = parseBody(tokens);
-  return groups ? [{ v: 2, field, groups }] : [];
+  const body = parseBody(tokens);
+  if (body?.k === 'gap') return body.gap;
+  return body ? [{ v: 2, field, groups: body.groups }] : [];
 }
 
 /** What the widget makes of a proposed input. */
 function verify(raw: DesignInput): Candidate {
   const r = normalise(raw);
-  if (r.ok) return { raw, design: r.design, issues: [], normalised: normaliseBlazon(blazon(r.design)) };
-  return { raw, design: r.design, issues: r.errors, normalised: r.design ? normaliseBlazon(blazon(r.design)) : null };
+  const design = r.design;
+  const wording = (stateDefaults: boolean) => (design ? normaliseBlazon(blazon(design, { stateDefaults })) : null);
+  return { raw, design, issues: r.ok ? [] : r.errors, normalised: wording(false), stated: wording(true) };
 }
 
 // ── API ─────────────────────────────────────────────────────────────────────
@@ -300,7 +315,9 @@ export function explainMatch(scaBlazon: string): MatchResult {
   if (normalised.startsWith('(fieldless)')) return { status: 'fieldless', normalised, candidates: [], match: null };
   const unknownWord = normalised.split(/[ ,]+/).find((w) => w && !VOCABULARY.has(w));
   if (unknownWord !== undefined) return { status: 'vocabulary', normalised, unknownWord, candidates: [], match: null };
-  const all = proposeInputs(normalised).map(verify);
+  const proposed = proposeInputs(normalised);
+  if (!Array.isArray(proposed)) return { status: 'unsupported', normalised, gaps: [proposed], candidates: [], match: null };
+  const all = proposed.map(verify);
   const candidates = all.filter((c) => c.design !== null);
   if (!candidates.length) {
     const unsupported = all.find((c) => gapsOf(c).length > 0);
@@ -308,7 +325,7 @@ export function explainMatch(scaBlazon: string): MatchResult {
       ? { status: 'unsupported', normalised, gaps: gapsOf(unsupported), candidates, match: null }
       : { status: 'unparsed', normalised, candidates, match: null };
   }
-  const match = candidates.find((c) => c.normalised === normalised) ?? null;
+  const match = candidates.find((c) => wordedAs(c, normalised)) ?? null;
   if (match) return { status: 'match', normalised, candidates, match };
   const bare = withoutArrangement(normalised);
   const wordingCandidate = candidates.find((c) => withoutArrangement(c.normalised!) === bare);

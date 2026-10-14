@@ -46830,7 +46830,7 @@
       "regid:8317": ["charge-symbol:letter", "fieldless", "multiple-groups:charges", "orientation:inverted", "proper"],
       "regid:8323": ["charge-bird:crow", "charge-tool:needle", "multiple-groups:charges"],
       "regid:8324": ["charge-bird:crow", "charge-tool:needle", "multiple-groups:charges", "orientation:reversed"],
-      "regid:8335": ["multiple-groups:charges"],
+      "regid:8335": ["multiple-groups:tertiary-two-types"],
       "regid:8349": ["charge-tool:mortar", "charge-tool:pestle", "multiple-groups:charges", "tincture:party"],
       "regid:8357": ["multiple-groups:charges", "proper"],
       "regid:8422": ["charge-cross:celtic", "multiple-groups:charges"],
@@ -49696,7 +49696,7 @@
       "regid:68224": ["charge-building:tower", "multiple-groups:charges"],
       "regid:68295": ["charge-geometric:mascle", "charge-weapon:arrow", "multiple-groups:charges", "orientation:inverted", "orientation:palewise"],
       "regid:68435": ["multiple-groups:charges"],
-      "regid:68469": ["multiple-groups:charges"],
+      "regid:68469": ["multiple-groups:tertiary-two-types"],
       "regid:68472": ["multiple-groups:ordinaries", "ordinary:multiple", "proper"],
       "regid:68493": ["charge-bird:swan", "charge-building:tower", "multiple-groups:charges"],
       "regid:68545": ["charge-tool:grozing", "multiple-groups:charges"],
@@ -51288,7 +51288,7 @@
       "regid:101200": ["charge-household:scroll", "multiple-groups:charges"],
       "regid:101262": ["charge-geometric:goutte", "charge-weapon:pheon", "multiple-groups:charges", "orientation:palewise"],
       "regid:101292": ["charge-cross:celtic", "fieldless", "multiple-groups:charges"],
-      "regid:101305": ["multiple-groups:co-primary"],
+      "regid:101305": ["multiple-groups:tertiary-two-types"],
       "regid:101311": ["charge-weapon:arrow", "multiple-groups:charges"],
       "regid:101321": ["charge-cross:maltese", "charge-weapon:spear", "multiple-groups:charges", "orientation:bendwise-sinister"],
       "regid:101336": ["charge-geometric:fountain", "charge-symbol:ermine-spot", "multiple-groups:charges", "multiple-groups:ordinaries", "tincture:counterchanged-ordinary"],
@@ -51976,7 +51976,7 @@
       "regid:112333": ["charge-monster:phoenix", "multiple-groups:charges"],
       "regid:112334": ["charge-bird:martlet", "charge-weapon:trident", "multiple-groups:charges"],
       "regid:112379": ["charge-bird:raven", "charge-tool:hammer", "multiple-groups:charges"],
-      "regid:112438": ["multiple-groups:charges"],
+      "regid:112438": ["multiple-groups:tertiary-two-types"],
       "regid:112445": ["multiple-groups:co-primary"],
       "regid:112460": ["charge-household:torch", "charge-monster:mermaid", "division:per-chevron-throughout", "multiple-groups:charges", "proper"],
       "regid:112466": ["charge-human:fist", "multiple-groups:charges"],
@@ -52538,7 +52538,7 @@
       "regid:122132": ["charge-bird:hawk", "multiple-groups:charges"],
       "regid:122133": ["charge-symbol:triquetra", "multiple-groups:charges", "orientation:palewise"],
       "regid:122163": ["charge-ship:drakkar", "multiple-groups:ordinaries"],
-      "regid:122166": ["multiple-groups:charges"],
+      "regid:122166": ["multiple-groups:tertiary-two-types"],
       "regid:122215": ["charge-household:scroll", "charge-symbol:letter", "fieldless", "multiple-groups:charges"],
       "regid:122216": ["charge-fish:whelk", "charge-geometric:goutte", "charge-geometric:plate", "multiple-groups:charges", "orientation:fesswise"],
       "regid:122227": ["charge-household:lantern", "charge-weapon:rapier", "multiple-groups:charges"],
@@ -52954,7 +52954,7 @@
       "regid:128936": ["charge-symbol:bowen-knot", "charge-tool:clew", "charge-tool:yarn", "multiple-groups:charges", "orientation:crosswise"],
       "regid:129017": ["charge-bird:raven", "charge-instrument:harp", "multiple-groups:charges"],
       "regid:129036": ["charge-bird:corbie", "charge-household:barrel", "fieldless", "multiple-groups:charges", "orientation:palewise"],
-      "regid:129037": ["multiple-groups:charges"],
+      "regid:129037": ["multiple-groups:tertiary-two-types"],
       "regid:129039": ["charge-instrument:hunting-horn", "multiple-groups:charges"],
       "regid:129068": ["charge-bird:wing", "charge-monster:gorgon-head", "multiple-groups:charges"],
       "regid:129079": ["charge-insect:spider", "charge-tool:needle", "multiple-groups:charges", "orientation:bendwise-sinister", "orientation:inverted"],
@@ -53029,7 +53029,7 @@
       "regid:130144": ["charge-cross:santiago", "fieldless", "multiple-groups:charges"],
       "regid:130152": ["charge-fish:escallop", "charge-geometric:lozenge", "charge-geometric:pellet", "charge-tool:catherine-wheel", "count:semy", "fur:ermine", "multiple-groups:charges", "multiple-groups:ordinaries"],
       "regid:130183": ["charge-tool:tongs", "multiple-groups:charges"],
-      "regid:130210": ["multiple-groups:charges"],
+      "regid:130210": ["multiple-groups:tertiary-two-types"],
       "regid:130251": ["charge-bird:wing", "charge-weapon:trident", "multiple-groups:charges", "ordinary:point"],
       "regid:130252": ["charge-geometric:lozenge", "charge-weapon:trident", "multiple-groups:charges"],
       "regid:130254": ["charge-household:scroll", "charge-tool:spool", "multiple-groups:charges"],
@@ -61119,7 +61119,7 @@
       "regid:1004": ["placement:not-between"],
       "regid:2208": ["placement:not-between"],
       "regid:3469": ["placement:between-saltire"],
-      "regid:6366": ["placement:between-bend-3"],
+      "regid:6366": ["placement:between-bend"],
       "regid:9806": ["placement:not-between"],
       "regid:10587": ["arrangement:in-chief", "placement:not-between"],
       "regid:13222": ["placement:between-saltire"],
@@ -61417,20 +61417,6 @@
       "regid:138973": ["charge-ship:lymphad"],
       "regid:140783": ["charge-ship:drakkar"]
     }},
-    {"category": "blazon-wording-differs", "description": "the widget can draw the design but blazons it in other words than the SCA (an arrangement stated or left unsaid)", "singleGap": 12, "records": {
-      "regid:11624": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:24737": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:48821": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:54843": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:55735": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:81422": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:86432": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:99091": ["blazon-wording-differs:widget-states-arrangement"],
-      "regid:112386": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:114409": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:114974": ["blazon-wording-differs:sca-states-arrangement"],
-      "regid:128931": ["blazon-wording-differs:sca-states-arrangement"]
-    }},
     {"category": "tincture-rule-differs", "description": "the matched design breaks the widget's rule of tincture, yet the SCA registered it", "singleGap": 12, "records": {
       "regid:9655": ["tincture-rule-differs:charges"],
       "regid:38068": ["tincture-rule-differs:ordinary"],
@@ -61456,6 +61442,10 @@
       "regid:110360": ["charge-nature:gurges"],
       "regid:123914": ["charge-nature:gurges"],
       "regid:130980": ["charge-nature:gurges"]
+    }},
+    {"category": "blazon-wording-differs", "description": "the widget can draw the design but blazons it in other words than the SCA (an arrangement stated or left unsaid)", "singleGap": 2, "records": {
+      "regid:99091": ["blazon-wording-differs:widget-states-arrangement"],
+      "regid:116483": ["blazon-wording-differs:widget-states-arrangement"]
     }}
   ]
 }

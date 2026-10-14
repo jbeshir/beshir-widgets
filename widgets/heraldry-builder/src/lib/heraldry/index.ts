@@ -20,7 +20,7 @@ export {
   FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownTinctures, counterchangeUnavailable, describeSlots, type ShownTinctures,
 } from './tincture-rule';
 export { validate, normalise, type NormaliseResult } from './validate';
-export { blazon } from './blazon';
+export { blazon, type BlazonOptions } from './blazon';
 export { gloss, betweenWords } from './gloss';
 export {
   DIVISION_LABEL, ORDINARY_LABEL, LAYOUT_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,

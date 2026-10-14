@@ -176,3 +176,20 @@ describe('what it will not write', () => {
     for (const d of generatedDesigns(31, 200)) expect(blazon(d).split('. ').length, blazon(d)).toBe(1);
   });
 });
+
+describe('stating the defaults (the same design, as a blazon that states them)', () => {
+  const stated = (...input: Parameters<typeof arms>) => blazon(nd(arms(...input)), { stateDefaults: true });
+
+  it('words Table 5 postures and Table 7 layouts, forced positions included', () => {
+    expect(stated('azure', chg('lion', 'or'))).toBe('Azure, a lion rampant Or.');
+    expect(stated('argent', chg('mullet', 'gules', { count: 3 }))).toBe('Argent, three mullets two and one gules.');
+    expect(stated(div('quarterly', 'or', 'gules'), chg('rose', 'sable', { count: 2 }))).toBe('Quarterly Or and gules, in bend two roses sable.');
+    expect(stated(div('per-chevron', 'argent', 'gules'), chg('fleur-de-lis', 'argent'))).toBe('Per chevron argent and gules, in base a fleur-de-lys argent.');
+  });
+
+  it('leaves a lone central charge and charges placed by an ordinary as they are', () => {
+    expect(stated('azure', chg('rose', 'or'))).toBe('Azure, a rose Or.');
+    expect(stated('azure', ord('fess', 'or', { charged: [chg('mullet', 'gules', { count: 3 })] }))).toBe('Azure, on a fess Or three mullets gules.');
+    expect(stated('azure', ord('chevron', 'or'), chg('rose', 'argent', { count: 3 }))).toBe('Azure, a chevron Or between three roses argent.');
+  });
+});

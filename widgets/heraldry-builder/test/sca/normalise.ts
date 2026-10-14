@@ -2,9 +2,11 @@
 // two are compared (see match.ts). The widget words every design in SCA house style, so this only
 // bridges differences of *spelling and punctuation* and three conventions the SCA and the Glossary
 // of Terms declare equivalent. None of the rules can make two blazons of different designs compare
-// equal: tinctures, counts, charge names, postures and arrangements are never dropped, except where
-// the College's own default makes the stated word redundant (rule 6), and then the match's design is
-// the one with that default, which the widget words the same way.
+// equal: tinctures, counts, charge names, arrangements and postures are never dropped, except the
+// name of a posture Table 5 makes the charge's own default (rule 6: "a lion rampant" is "a lion",
+// whatever stands around it). A stated Table 7 arrangement is not text the normaliser drops: the
+// matcher compares the SCA text with the widget's blazon of the same design with its defaults
+// stated as well (match.ts), which is a statement about one design and so can't equate two.
 //
 // Rules run in the listed order; each carries an id so the report and the armorial test can cite it
 // (NORMALISATION_RULES). Rules 4–6 are conventions, not spellings: the widget's emitter picks one of
@@ -84,20 +86,16 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(new RegExp(`\\bin (saltire|cross) (${CORE})\\b`, 'g'), '$2 in $1'),
   },
   {
-    // 6. Defaults the College assumes may be stated or left out (Glossary Tables 5 and 7): a lion or
-    //    unicorn rampant, a dragon rampant/segreant, an eagle displayed, a fish naiant; three charges
-    //    two and one, five two, two and one, six three, two and one. Both sides drop them, so only a
-    //    design that has the default can match, and the widget words it the same way.
-    id: 'stated-defaults',
-    description: 'Drop Table 5 default postures and the Table 7 patterns for three, five and six after the charge.',
+    // 6. Postures the College assumes may be stated or left out (Glossary Table 5): a lion or unicorn
+    //    rampant, a dragon rampant/segreant, an eagle displayed, a fish naiant. Both sides drop them;
+    //    the name always means that posture, so only a design that has it can match.
+    id: 'stated-default-postures',
+    description: 'Drop Table 5 default postures after the charge.',
     apply: (s) => s
       .replace(/\b(lions?|unicorns?) rampant\b/g, '$1')
       .replace(/\b(dragons?) (?:rampant|segreant)\b/g, '$1')
       .replace(/\b(eagles?) displayed\b/g, '$1')
-      .replace(/\b(fish) naiant\b/g, '$1')
-      .replace(new RegExp(`\\b(three (?:${NOUN})(?: (?:${POSTURE}))?) two and one(?= ${TINCT}\\b)`, 'g'), '$1')
-      .replace(new RegExp(`\\b(five (?:${NOUN})(?: (?:${POSTURE}))?) two, two and one(?= ${TINCT}\\b)`, 'g'), '$1')
-      .replace(new RegExp(`\\b(six (?:${NOUN})(?: (?:${POSTURE}))?) three, two and one(?= ${TINCT}\\b)`, 'g'), '$1'),
+      .replace(/\b(fish) naiant\b/g, '$1'),
   },
 ];
 
