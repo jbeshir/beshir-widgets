@@ -7,7 +7,10 @@ import { CHARGES, postureGloss, postureTerm, type ChargeId, type Posture } from 
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import type { Division } from './divisions';
 import type { LayoutKey } from './arrangement';
-import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
+import { DIVISION_NAME } from './divisions';
+import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
+import { layoutOfKey, layoutWords } from './arrangement';
 import type { GroupTincture } from './design';
 import { joinAnd, numberWord, capitalise } from './words';
 
@@ -22,101 +25,104 @@ export function plainFirst({ plain, term }: PlainTerm): string {
   return `${plain} · ${term}`;
 }
 
-export const DIVISION_LABEL: Record<Division, PlainTerm> = {
-  'per-pale': { plain: 'Split down the middle', term: 'per pale' },
-  'per-fess': { plain: 'Split across', term: 'per fess' },
-  'per-bend': { plain: 'Split diagonally ↘', term: 'per bend' },
-  'per-bend-sinister': { plain: 'Split diagonally ↗', term: 'per bend sinister' },
-  'per-saltire': { plain: 'Split in an X', term: 'per saltire' },
-  'per-chevron': { plain: 'Split in a peak', term: 'per chevron' },
-  quarterly: { plain: 'Four quarters', term: 'quarterly' },
-  'per-chevron-inverted': { plain: 'Split in a valley', term: 'per chevron inverted' },
-  'per-pall': { plain: 'Split in a Y', term: 'per pall' },
-  'per-pall-inverted': { plain: 'Split in an upside-down Y', term: 'per pall inverted' },
-  'tierced-per-pale': { plain: 'Three vertical stripes', term: 'tierced per pale' },
-  'tierced-per-fess': { plain: 'Three horizontal stripes', term: 'tierced per fess' },
-  gyronny: { plain: 'Split into wedges', term: 'gyronny' },
+const DIVISION_PLAIN: Record<Division, string> = {
+  'per-pale': 'Split down the middle',
+  'per-fess': 'Split across',
+  'per-bend': 'Split diagonally ↘',
+  'per-bend-sinister': 'Split diagonally ↗',
+  'per-saltire': 'Split in an X',
+  'per-chevron': 'Split in a peak',
+  quarterly: 'Four quarters',
+  'per-chevron-inverted': 'Split in a valley',
+  'per-pall': 'Split in a Y',
+  'per-pall-inverted': 'Split in an upside-down Y',
+  'tierced-per-pale': 'Three vertical stripes',
+  'tierced-per-fess': 'Three horizontal stripes',
+  gyronny: 'Split into wedges',
 };
 
-export const ORDINARY_LABEL: Record<OrdinaryType, PlainTerm> = {
-  fess: { plain: 'Horizontal band', term: 'fess' },
-  pale: { plain: 'Vertical band', term: 'pale' },
-  bend: { plain: 'Diagonal band ↘', term: 'bend' },
-  'bend-sinister': { plain: 'Diagonal band ↗', term: 'bend sinister' },
-  chevron: { plain: 'Peaked band', term: 'chevron' },
-  cross: { plain: 'Cross', term: 'cross' },
-  saltire: { plain: 'X-shaped cross', term: 'saltire' },
-  chief: { plain: 'Top bar', term: 'chief' },
-  bordure: { plain: 'Border', term: 'bordure' },
-  pile: { plain: 'Wedge', term: 'pile' },
-  base: { plain: 'Bottom bar', term: 'base' },
-  canton: { plain: 'Corner square', term: 'canton' },
-  quarter: { plain: 'Corner quarter', term: 'quarter' },
-  orle: { plain: 'Inner border', term: 'orle' },
-  tressure: { plain: 'Thin inner border', term: 'tressure' },
-  flaunches: { plain: 'Side curves', term: 'flaunches' },
-  gore: { plain: 'Curved wedge', term: 'gore' },
-  pall: { plain: 'Y-shaped band', term: 'pall' },
-  'pall-inverted': { plain: 'Upside-down Y band', term: 'pall inverted' },
-  point: { plain: 'Pointed base', term: 'point' },
-  fret: { plain: 'Woven diamond', term: 'fret' },
-  label: { plain: 'Bar with tabs', term: 'label' },
-  gyron: { plain: 'Triangle wedge', term: 'gyron' },
-  mount: { plain: 'Hill', term: 'mount' },
-  trimount: { plain: 'Three hills', term: 'trimount' },
-  bar: { plain: 'Narrow horizontal band', term: 'bar' },
-  barrulet: { plain: 'Thin horizontal band', term: 'barrulet' },
-  pallet: { plain: 'Narrow vertical band', term: 'pallet' },
-  bendlet: { plain: 'Narrow diagonal band ↘', term: 'bendlet' },
-  'bendlet-sinister': { plain: 'Narrow diagonal band ↗', term: 'bendlet sinister' },
-  chevronel: { plain: 'Narrow peaked band', term: 'chevronel' },
-  saltorel: { plain: 'Narrow X-shaped cross', term: 'saltorel' },
-  baton: { plain: 'Short diagonal bar', term: 'baton' },
+const ORDINARY_PLAIN: Record<OrdinaryType, string> = {
+  fess: 'Horizontal band',
+  pale: 'Vertical band',
+  bend: 'Diagonal band ↘',
+  'bend-sinister': 'Diagonal band ↗',
+  chevron: 'Peaked band',
+  cross: 'Cross',
+  saltire: 'X-shaped cross',
+  chief: 'Top bar',
+  bordure: 'Border',
+  pile: 'Wedge',
+  base: 'Bottom bar',
+  canton: 'Corner square',
+  quarter: 'Corner quarter',
+  orle: 'Inner border',
+  tressure: 'Thin inner border',
+  flaunches: 'Side curves',
+  gore: 'Curved wedge',
+  pall: 'Y-shaped band',
+  'pall-inverted': 'Upside-down Y band',
+  point: 'Pointed base',
+  fret: 'Woven diamond',
+  label: 'Bar with tabs',
+  gyron: 'Triangle wedge',
+  mount: 'Hill',
+  trimount: 'Three hills',
+  bar: 'Narrow horizontal band',
+  barrulet: 'Thin horizontal band',
+  pallet: 'Narrow vertical band',
+  bendlet: 'Narrow diagonal band ↘',
+  'bendlet-sinister': 'Narrow diagonal band ↗',
+  chevronel: 'Narrow peaked band',
+  saltorel: 'Narrow X-shaped cross',
+  baton: 'Short diagonal bar',
 };
 
-/** Layouts with a fixed label, by layout key; rows are worded from their numbers (`layoutLabel`). */
-export const LAYOUT_LABEL: Record<string, PlainTerm> = {
-  single: { plain: 'Single, centred', term: 'single' },
-  host: { plain: 'Set by the band or shape', term: 'placed by the ordinary' },
-  'in-pale': { plain: 'Stacked up and down', term: 'in pale' },
-  'in-fess': { plain: 'Side by side', term: 'in fess' },
-  'in-bend': { plain: 'Along a diagonal ↘', term: 'in bend' },
-  'in-bend-sinister': { plain: 'Along a diagonal ↗', term: 'in bend sinister' },
-  'in-cross': { plain: 'In a plus shape', term: 'in cross' },
-  'in-saltire': { plain: 'In an X', term: 'in saltire' },
-  'in-orle': { plain: 'Around the edge', term: 'in orle' },
-  'in-annulo': { plain: 'In a ring', term: 'in annulo' },
-  crossed: { plain: 'Crossed like an X', term: 'in saltire' },
-  'in-chief': { plain: 'Along the top', term: 'in chief' },
-  'in-base': { plain: 'Along the bottom', term: 'in base' },
+/** Pair each key's everyday words with its heraldic name from the model's own table. */
+function withTerms<K extends string>(plain: Record<K, string>, name: Record<K, string>): Record<K, PlainTerm> {
+  return Object.fromEntries((Object.keys(plain) as K[]).map((k) => [k, { plain: plain[k], term: name[k] }])) as Record<K, PlainTerm>;
+}
+
+export const DIVISION_LABEL: Record<Division, PlainTerm> = withTerms(DIVISION_PLAIN, DIVISION_NAME);
+export const ORDINARY_LABEL: Record<OrdinaryType, PlainTerm> = withTerms(ORDINARY_PLAIN, ORDINARY_NAME);
+
+/** Everyday words for the layouts with a fixed label, by layout key; rows are worded from their numbers (`layoutLabel`). */
+const LAYOUT_PLAIN: Record<string, string> = {
+  single: 'Single, centred',
+  host: 'Set by the band or shape',
+  'in-pale': 'Stacked up and down',
+  'in-fess': 'Side by side',
+  'in-bend': 'Along a diagonal ↘',
+  'in-bend-sinister': 'Along a diagonal ↗',
+  'in-cross': 'In a plus shape',
+  'in-saltire': 'In an X',
+  'in-orle': 'Around the edge',
+  'in-annulo': 'In a ring',
+  crossed: 'Crossed like an X',
+  'in-chief': 'Along the top',
+  'in-base': 'Along the bottom',
 };
 
-const ROW_LABEL: Record<string, PlainTerm> = {
-  '2-1': { plain: 'Two above, one below', term: 'two and one' },
-  '2-2': { plain: 'Two above, two below', term: 'two and two' },
-  '3-2-1': { plain: 'Three, two, one', term: 'three, two and one' },
+const ROW_PLAIN: Record<string, string> = {
+  '2-1': 'Two above, one below',
+  '2-2': 'Two above, two below',
+  '3-2-1': 'Three, two, one',
 };
 
-/** The label of a layout key. Rows without a label of their own read "Rows of 2, 2 and 1 · two, two and one". */
+/** The label of a layout key: its everyday words and its blazon words. Rows without words of their own read "Rows of 2, 2 and 1 · two, two and one". */
 export function layoutLabel(key: LayoutKey): PlainTerm {
-  const fixed = LAYOUT_LABEL[key];
-  if (fixed) return fixed;
+  const layout = layoutOfKey(key, 2);
+  if (!layout) throw new RangeError(`No label for the layout "${key}".`);
+  const term = layoutWords(layout);
+  const fixed = LAYOUT_PLAIN[key];
+  if (fixed) return { plain: fixed, term };
   const rows = /^rows-(\d+(?:-\d+)*)$/.exec(key)?.[1];
   if (!rows) throw new RangeError(`No label for the layout "${key}".`);
-  const counts = rows.split('-').map(Number);
-  return ROW_LABEL[rows] ?? { plain: `Rows of ${joinAnd(counts.map(String))}`, term: joinAnd(counts.map(numberWord)) };
+  return { plain: ROW_PLAIN[rows] ?? `Rows of ${joinAnd(rows.split('-'))}`, term };
 }
 
 /** Tinctures: the colour people see first, the heraldic name second ("Gold · Or"). */
 export const TINCTURE_LABEL: Record<GroupTincture, PlainTerm> = {
-  or: { plain: 'Gold', term: 'Or' },
-  argent: { plain: 'White', term: 'Argent' },
-  celestine: { plain: 'Sky blue', term: 'Celestine' },
-  azure: { plain: 'Blue', term: 'Azure' },
-  gules: { plain: 'Red', term: 'Gules' },
-  vert: { plain: 'Green', term: 'Vert' },
-  sable: { plain: 'Black', term: 'Sable' },
-  purpure: { plain: 'Purple', term: 'Purpure' },
+  ...(Object.fromEntries(TINCTURES.map((t) => [t, { plain: capitalise(TINCTURE_WORD[t]), term: TINCTURE_NAME[t] }])) as Record<Tincture, PlainTerm>),
   counterchanged: { plain: 'Swapped colours', term: 'counterchanged' },
 };
 
@@ -149,10 +155,10 @@ export function ordinaryWords(type: OrdinaryType): string {
 }
 
 /** Posture words, plain first: "Standing (statant)". Displayed has no everyday gloss of its own. */
-export function postureLabel(id: ChargeId, posture: Posture): string {
+export function postureLabel(id: ChargeId, posture: Posture, note: string | null = null): string {
   const term = postureTerm(id, posture);
   const plain = postureGloss(id, posture) ?? (posture === 'displayed' ? 'wings spread' : null);
-  return plain ? `${capitalise(plain)} (${term})` : capitalise(term);
+  return plain ? `${capitalise(plain)} (${[term, note].filter(Boolean).join(', ')})` : `${capitalise(term)}${note ? ` (${note})` : ''}`;
 }
 
 /**

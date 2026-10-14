@@ -14,9 +14,9 @@ import {
   type ChargeId, type Design, type GroupPath,
 } from '../src/lib/heraldry';
 import {
-  PERIPHERAL_TYPES, addExtraPicture, addPeripheral, canAddExtraPicture, canAddPeripheral, extraPicturePath, ordinaryPath, peripheralPath, picturePath, setCharge, setCount,
+  PERIPHERAL_TYPES, addExtraPicture, addPeripheral, canAddExtraPicture, canAddPeripheral, extraPicturePath, ordinaryPath, peripheralPath, picturePath, setCharge,
 } from '../src/lib/builder';
-import { layoutMoves, nd } from './helpers';
+import { layoutMoves, log, nd, setCount } from './helpers';
 
 // ── The oracle: the simple space by brute force ─────────────────────────────
 
@@ -91,7 +91,7 @@ function structureVerdict(b: Base, t: Triple): boolean {
 }
 
 function structureLegal(b: Base, t: Triple): boolean {
-  const k = JSON.stringify([b.division, b.ordinary?.type, t.placement, t.count, t.key, t.key === 'crossed' && CHARGES[b.charge].long]);
+  const k = JSON.stringify([b.division, b.ordinary?.type, t.placement, t.count, t.key, t.key === 'crossed' && CHARGES[b.charge].long, t.key === 'in-annulo' && CHARGES[b.charge].postureClass === 'fish']);
   let v = structureMemo.get(k);
   if (v === undefined) {
     v = structureVerdict(b, t);
@@ -206,8 +206,8 @@ describe('builder controls never lock a legal value away', () => {
       }
     }
     const summary = [...perCount].map(([n, xs]) => `${n}: ${Math.min(...xs)}–${Math.max(...xs)}`).join(', ');
-    console.log(`${contexts.length} field × ordinary contexts, ${valid.length} valid designs, ${violations.length} rule-of-tincture violations`);
-    console.log(`legal layouts per count (placements together): ${summary}`);
+    log(`${contexts.length} field × ordinary contexts, ${valid.length} valid designs, ${violations.length} rule-of-tincture violations`);
+    log(`legal layouts per count (placements together): ${summary}`);
     expect(contexts.length).toBeGreaterThan(300);
     expect(new Set(valid.map(({ c }) => c.base.charge)).size).toBe(CHARGE_IDS.length);
     expect(violations.length).toBeGreaterThan(300);
@@ -215,7 +215,7 @@ describe('builder controls never lock a legal value away', () => {
     for (let n = 1; n <= 12; n++) expect(contexts.some(({ legal }) => legal.some((t) => t.count === n)), `count ${n}`).toBe(true);
     // The oracle is not vacuous: every layout key but a few is legal somewhere.
     const never = ALL_LAYOUT_KEYS.filter((key) => !contexts.some(({ legal }) => legal.some((t) => t.key === key)));
-    console.log(`layout keys that are legal nowhere: ${never.join(', ')}`);
+    log(`layout keys that are legal nowhere: ${never.join(', ')}`);
     // Eight in two rows of four, nine and twelve in rows of three and four are too wide for any shield; three singles in rows isn't a pattern.
     expect(never).toEqual(['rows-3-3-3', 'rows-4-4-4', 'rows-4-4', 'rows-1-1-1']);
     // Sampled structure verdicts don't depend on the tinctures they were memoised from.
@@ -254,7 +254,7 @@ describe('builder controls never lock a legal value away', () => {
       }
       checked++;
     }
-    console.log(`checked count, placement, layout, pose, modifier and tincture options on ${checked} designs`);
+    log(`checked count, placement, layout, pose, modifier and tincture options on ${checked} designs`);
   }, 60_000);
 
   it('the lower layers always offer another value, and the picture can always be swapped', () => {
@@ -321,7 +321,7 @@ describe('builder controls never lock a legal value away', () => {
         starts++;
       }
     }
-    console.log(`searched from ${starts} starting layouts, expanding ${expanded} designs`);
+    log(`searched from ${starts} starting layouts, expanding ${expanded} designs`);
   }, 60_000);
 
   it('every legal count, placement and layout is reachable from a design whose picture breaks the rule of tincture', () => {
@@ -364,7 +364,7 @@ describe('builder controls never lock a legal value away', () => {
         expect(at && moved.groups[at[0]].charged[at[1]].count, `${label} → ${count}`).toBe(count);
       }
     }
-    console.log(`extra pictures offered on ${offered} bases and refused on ${refused}`);
+    log(`extra pictures offered on ${offered} bases and refused on ${refused}`);
     expect(offered).toBeGreaterThan(100);
   }, 60_000);
 
@@ -395,7 +395,7 @@ describe('builder controls never lock a legal value away', () => {
         expect(ordinaryPath(added), label).toEqual(ordinaryPath(band));
       }
     }
-    console.log(`top band or border offered on ${offered} bases and refused on ${refused}`);
+    log(`top band or border offered on ${offered} bases and refused on ${refused}`);
     expect(offered).toBeGreaterThan(100);
   }, 60_000);
 });

@@ -10,7 +10,7 @@
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
 // build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { blazon, canonicalJson, capacityIssue, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
+import { blazon, canonicalJson, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, wordedAs, type MatchResult } from './match';
@@ -110,7 +110,7 @@ function findingTags(design: Design): string[] {
       return `tincture-rule-differs:${g.paint.k === 'counterchanged' ? 'counterchanged' : g.item.k === 'ordinary' ? 'ordinary' : 'charges'}`;
     }
     // Charges that don't fit a host at a legible size are a limit of the drawing, not a rule: a count the widget doesn't lay out.
-    if (i.at.k === 'group' && i.message === capacityIssue(design, i.at.path)) return `placement:${layoutTag(design, i)}-${groupAt(design, i.at.path).count}`;
+    if (i.code === 'structure' && i.rule === 'capacity' && i.at.k === 'group') return `placement:${layoutTag(design, i)}-${groupAt(design, i.at.path).count}`;
     return `widget-structure-rule:${i.code === 'generic' ? 'plain-field' : layoutTag(design, i)}`;
   };
   return a.issues.map(tag);

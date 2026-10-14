@@ -110,7 +110,7 @@ export function TakenPanel({ report, onView, onJump }: TakenProps) {
       )}
       <p class="availability-help">To clear it, change one of: {CLEAR_CHANGE_HINT}.</p>
       {jumps}
-      <details class="half-rule" data-testid="availability-half-rule">
+      <details class="sena-rule" data-testid="availability-sena-rule">
         <summary>What counts as a big enough change?</summary>
         <p class="availability-help">{SENA_RULE_HINT}</p>
       </details>

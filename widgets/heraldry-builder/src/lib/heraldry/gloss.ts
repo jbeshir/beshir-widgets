@@ -5,7 +5,7 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint } from './design';
 import { type OrdinaryType } from './ordinaries';
-import type { Layout } from './arrangement';
+import { betweenWords, type Layout } from './arrangement';
 
 const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   fess: 'horizontal band across the middle',
@@ -19,34 +19,6 @@ const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   bordure: 'border around the edge',
   pile: 'downward-pointing wedge from the top',
 };
-
-/** Where charges set between an ordinary sit: how many go where, per ordinary and count (Table 7's secondary rows). */
-const BETWEEN_WORDS: Record<string, string> = {
-  'fess:2': 'one above and one below',
-  'fess:3': 'two above and one below',
-  'fess:4': 'two above and two below',
-  'fess:6': 'three above and three below',
-  'pale:2': 'one on each side',
-  'pale:4': 'two on each side',
-  'pale:6': 'three on each side',
-  'bend:2': 'one above and one below',
-  'bend:4': 'two on each side',
-  'bend:6': 'three on each side',
-  'bend-sinister:2': 'one above and one below',
-  'bend-sinister:4': 'two on each side',
-  'bend-sinister:6': 'three on each side',
-  'chevron:2': 'one above and one below',
-  'chevron:3': 'two above and one below',
-  'chevron:6': 'three above and three below',
-  'cross:4': 'one in each quarter',
-  'saltire:4': 'one above, one below and one on each side',
-  'pile:2': 'one on each side',
-};
-
-/** How charges set between `ordinary` are spread out, or null for a count it has no spread for. */
-export function betweenWords(ordinary: OrdinaryType, count: number): string | null {
-  return BETWEEN_WORDS[`${ordinary}:${count}`] ?? null;
-}
 
 /** "a" / "an" chosen from the word that follows (colour words all start with consonants today). */
 function article(next: string): string {

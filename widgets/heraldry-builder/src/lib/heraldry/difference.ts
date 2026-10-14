@@ -7,7 +7,7 @@ import { TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
-  fieldTinctures, groupAt, groupTinctureOf, hostOf, isFieldPrimary, itemKey, notSupported, primaryGroup,
+  fieldTinctures, groupAt, groupTinctureOf, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroup,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME } from './divisions';
@@ -53,7 +53,8 @@ export function isSenaRule(v: unknown): v is SenaRule {
  * group); `role` and `host` (the role of the group it sits on, for tertiaries) are those of the first design's group,
  * else the second's.
  */
-export interface GroupRef { role: Role; item: 'ordinary' | 'charge'; host: Role | null; a: GroupPath | null; b: GroupPath | null }
+export type GroupRef = { role: Role; item: 'ordinary' | 'charge'; host: Role | null }
+  & ({ a: GroupPath; b: GroupPath } | { a: GroupPath; b: null } | { a: null; b: GroupPath });
 
 export interface Diff { attr: DiffAttr; kind: ChangeKind; rule: SenaRule; group: GroupRef | null }
 
@@ -175,9 +176,13 @@ function pairUp(xs: readonly Side[], ys: readonly Side[]): { pairs: Array<[Side,
   return { pairs, onlyX: restX.slice(n), onlyY: restY.slice(n) };
 }
 
+function refOf(x: Side, y: Side | null): GroupRef;
+function refOf(x: null, y: Side): GroupRef;
 function refOf(x: Side | null, y: Side | null): GroupRef {
-  const s = (x ?? y)!;
-  return { role: s.group.role, item: s.group.item.k, host: s.host?.role ?? null, a: x?.path ?? null, b: y?.path ?? null };
+  const base = (s: Side) => ({ role: s.group.role, item: s.group.item.k, host: s.host?.role ?? null });
+  if (x) return { ...base(x), a: x.path, b: y ? y.path : null };
+  if (y) return { ...base(y), a: null, b: y.path };
+  throw new RangeError('A group reference needs a group.');
 }
 
 /** A paint's tincture or counterchanged; the other paints are not drawn. */
@@ -262,7 +267,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   if (postures) {
     const lines = POSTURE_DC_LINES[postures.cls];
     const lx = lines[postures.px] ?? [], ly = lines[postures.py] ?? [];
-    if (!lx.some((l) => ly.includes(l))) dc('posture', 'A5G7');
+    if (postures.px !== postures.py && !lx.some((l) => ly.includes(l))) dc('posture', 'A5G7');
   }
   return out;
 }
@@ -285,8 +290,10 @@ export function differences(a: Design, b: Design): Diff[] {
   if (pa && pb) {
     const substantial = primaryChanges(pa, pb);
     out.push(...substantial, ...groupChanges(pa, pb, new Set(substantial.map((c) => c.attr))));
-  } else if (pa || pb) {
-    out.push(change('primary-presence', 'sc', 'A5E1', refOf(pa, pb)));
+  } else if (pa) {
+    out.push(change('primary-presence', 'sc', 'A5E1', refOf(pa, null)));
+  } else if (pb) {
+    out.push(change('primary-presence', 'sc', 'A5E1', refOf(null, pb)));
   }
   out.push(...tertiaryChanges(pa, pb));
 
@@ -369,7 +376,6 @@ export function tallyText(diffs: readonly { kind: ChangeKind }[]): string {
 export interface DifferenceNote { attr: DiffAttr; kind: ChangeKind; rule: SenaRule; text: string; why: string; item: 'ordinary' | 'charge' | null }
 
 const partitionWord = (d: Design): string => (d.kind === 'arms' && d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : 'plain');
-const itemName = (i: Item): string => (i.k === 'ordinary' ? ORDINARY_NAME[i.type] : CHARGES[i.charge].name);
 const itemPhrase = (i: Item): string => (i.k === 'ordinary' ? `${ORDINARY_ARTICLE[i.type]} ${ORDINARY_NAME[i.type]}` : `${CHARGES[i.charge].article} ${CHARGES[i.charge].name}`);
 
 /** What the builder calls a group in the middle of a sentence: "band or shape", "top bar", "pictures beside the band". */
@@ -389,13 +395,20 @@ function groupNoun(d: Design, path: GroupPath): { one: string; many: string } {
   return { one: `picture${where}`, many: `pictures${where}` };
 }
 
+/** A change that names no group, or one side only, where a pair of groups is needed to word it. */
+function noGroup(attr: DiffAttr): never {
+  throw new RangeError(`A "${attr}" change is about a pair of groups.`);
+}
+
 /** Each difference between `a` (new) and `b` (existing) in words: "pose of picture (passant ↔ courant)". */
 export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] = differences(a, b)): DifferenceNote[] {
   return diffs.map((diff) => {
     const ref = diff.group;
     const ga = ref?.a ? groupAt(a, ref.a) : null, gb = ref?.b ? groupAt(b, ref.b) : null;
     const nounA = ref?.a ? groupNoun(a, ref.a) : null, nounB = ref?.b ? groupNoun(b, ref.b) : null;
-    const noun = (nounA ?? nounB)!;
+    const noun = () => nounA ?? nounB ?? noGroup(diff.attr);
+    /** The two groups a change between a pair is about. */
+    const both = () => (ga && gb && nounA && nounB ? { ga, gb, nounA, nounB } : noGroup(diff.attr));
     const pair = (label: string, x: string, y: string) => `${label} (${x} ↔ ${y})`;
     const itemOrNone = (g: Group | null) => (g ? (g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural) : 'none');
     const tinctureWord = (g: Group) => { const t = tinctureOf(g.paint); return t === 'counterchanged' ? t : TINCTURE_NAME[t]; };
@@ -418,38 +431,39 @@ export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] 
         break;
       case 'primary-presence':
       case 'group-presence':
-        text = pair(noun.many, itemOrNone(ga), itemOrNone(gb));
+        text = pair(noun().many, itemOrNone(ga), itemOrNone(gb));
         sentence = diff.attr === 'primary-presence'
           ? 'Adding or taking away the main band or picture is a substantial change'
           : 'Adding or taking away a group of pictures or a band is one distinct change';
         break;
       case 'type': {
-        const bothBands = ga!.item.k === 'ordinary' && gb!.item.k === 'ordinary';
-        const label = bothBands ? (nounA!.one === nounB!.one ? nounA!.one : 'band or shape') : ga!.item.k === gb!.item.k ? noun.one : 'picture or band';
-        text = pair(label, itemName(ga!.item), itemName(gb!.item));
+        const s = both();
+        const bothBands = s.ga.item.k === 'ordinary' && s.gb.item.k === 'ordinary';
+        const label = bothBands ? (s.nounA.one === s.nounB.one ? s.nounA.one : 'band or shape') : s.ga.item.k === s.gb.item.k ? noun().one : 'picture or band';
+        text = pair(label, itemName(s.ga.item), itemName(s.gb.item));
         sentence = diff.kind === 'sc'
           ? 'Changing every main picture or band to something unrelated is a substantial change'
-          : `${capitalise(itemPhrase(ga!.item))} and ${itemPhrase(gb!.item)} are different types — a distinct change`;
+          : `${capitalise(itemPhrase(s.ga.item))} and ${itemPhrase(s.gb.item)} are different types — a distinct change`;
         break;
       }
       case 'number':
-        text = pair(`number of ${noun.many}`, String(ga!.count), String(gb!.count));
+        text = pair(`number of ${noun().many}`, String(both().ga.count), String(both().gb.count));
         sentence = diff.kind === 'sc'
           ? 'The number of main pictures falls in a different group (1, 2, 3, or 4 and more) — a substantial change'
           : 'A different number (1, 2, 3, 4, 5, or 6 and more) is a distinct change';
         break;
       case 'tincture':
-        text = pair(`colour of ${noun.many}`, tinctureWord(ga!), tinctureWord(gb!));
+        text = pair(`colour of ${noun().many}`, tinctureWord(both().ga), tinctureWord(both().gb));
         sentence = 'Changing the colour of a group is a distinct change';
         break;
       case 'arrangement':
-        text = pair(`arrangement of ${noun.many}`, layoutWords({ arrangement: ga!.arrangement, position: ga!.position }), layoutWords({ arrangement: gb!.arrangement, position: gb!.position }));
+        text = pair(`arrangement of ${noun().many}`, layoutWords({ arrangement: both().ga.arrangement, position: both().ga.position }), layoutWords({ arrangement: both().gb.arrangement, position: both().gb.position }));
         sentence = diff.kind === 'sc'
           ? 'These arrangements look substantially different — a substantial change'
           : 'A different arrangement is a distinct change, unless the design forces it';
         break;
       case 'posture':
-        text = pair(`pose of ${noun.one}`, postureWord(ga!), postureWord(gb!));
+        text = pair(`pose of ${noun().one}`, postureWord(both().ga), postureWord(both().gb));
         sentence = diff.kind === 'sc' ? 'These poses are substantially different — a substantial change' : 'A different pose is a distinct change';
         break;
     }

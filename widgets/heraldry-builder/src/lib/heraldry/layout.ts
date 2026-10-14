@@ -8,7 +8,7 @@ import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
-import { contextOf, defaultLayoutOf, hostCounts, layoutKey, type Layout, type LayoutContext } from './arrangement';
+import { BETWEEN, HOST_LAYOUT, contextOf, defaultLayoutOf, hostCounts, layoutKey, type Layout, type LayoutContext } from './arrangement';
 import {
   CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
 } from './geometry';
@@ -30,7 +30,6 @@ const GLYPH_RADIUS = 0.5;
 /** Slots are drawn no larger than this share of the distance between neighbours. */
 const PITCH_SHARE = 0.92;
 
-const HOST: Layout = { arrangement: { k: 'host' }, position: null };
 
 // ── Hand-fitted rows ────────────────────────────────────────────────────────
 
@@ -197,19 +196,10 @@ function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number
   }
 }
 
-/** How many charges go on each side of an ordinary they stand around (GoT Table 7, secondary rows). */
-const BETWEEN_SPLIT: Partial<Record<OrdinaryType, Record<number, [number, number]>>> = {
-  fess: { 2: [1, 1], 3: [2, 1], 4: [2, 2], 6: [3, 3] },
-  pale: { 2: [1, 1], 4: [2, 2], 6: [3, 3] },
-  bend: { 2: [1, 1], 4: [2, 2], 6: [3, 3] },
-  'bend-sinister': { 2: [1, 1], 4: [2, 2], 6: [3, 3] },
-  chevron: { 2: [1, 1], 3: [2, 1], 6: [3, 3] },
-};
-
 const mirrored = (cs: Centre[]): Centre[] => cs.map((c) => at(100 - c.x, c.y));
 
 function betweenCentres(ordinary: OrdinaryType, count: number): Centre[] | null {
-  const split = BETWEEN_SPLIT[ordinary]?.[count];
+  const split = BETWEEN[ordinary]?.[count]?.split;
   if (!split) return null;
   const [first, second] = split;
   switch (ordinary) {
@@ -485,8 +475,8 @@ export function hasRoom(d: Design, path: GroupPath): boolean {
   return slots.length === l.count && slots[0].size >= MIN_SLOT_SIZE;
 }
 
-/** Why a group's charges don't fit where they sit, or null when they do (or when they sit nowhere this builder lays out). Only meaningful once the layout itself is legal. */
-export function capacityIssue(d: Design, path: GroupPath): string | null {
+/** Why a group's charges don't fit where they sit (the most that would, and where), or null when they do (or when they sit nowhere this builder lays out). Only meaningful once the layout itself is legal. */
+export function capacityIssue(d: Design, path: GroupPath): { most: number; where: string; message: string } | null {
   const group = groupAt(d, path), host = hostOf(d, path);
   if (contextOf(d, group, host) === null) return null;
   const l = layoutOf(d, path);
@@ -495,14 +485,15 @@ export function capacityIssue(d: Design, path: GroupPath): string | null {
   const layoutFor = (n: number): Layout => {
     const a = group.arrangement;
     if (n === group.count) return l.layout;
-    if (l.ctx.k !== 'field') return HOST;
+    if (l.ctx.k !== 'field') return HOST_LAYOUT;
     if (n === 1) return { arrangement: { k: 'single' }, position: group.position };
     if (a.k === 'line' || a.k === 'single') return { arrangement: { k: 'line', dir: a.k === 'line' ? a.dir : 'fess' }, position: group.position };
     return defaultLayoutOf(d, group, host, n);
   };
   const most = largestFittingCount(l.ctx, layoutFor);
   const where = whereWords(l.ctx, l.layout);
-  return most === 0
+  const message = most === 0
     ? `${capitalise(CHARGES[id].plural)} can't be set ${where} like this.`
     : `There isn't room for ${chargePhrase(id, l.count)} ${where} — at most ${most} fit.`;
+  return { most, where, message };
 }

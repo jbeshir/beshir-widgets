@@ -5,10 +5,10 @@
 
 import {
   CHARGES, DEFAULT_FIELD_SHAPE, ORDINARY_KIND, ORDINARY_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, assembleParts, canonical,
-  countChoices, fieldTinctures, fitGroup, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf, isMetal, replaceGroup,
-  isSupported, layoutReason, placementChoices, simpleParts, structuralIssues, tincturePaint, tinctureIssues, withTincture, applyLayout,
+  fieldTinctures, fitGroup, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf, isMetal, replaceGroup,
+  isSupported, layoutReason, simpleParts, structuralIssues, tincturePaint, tinctureIssues, withTincture, withLayout,
   type ChargeId, type Choice, type Companion, type Design, type Division, type Group, type GroupPath, type GroupTincture, type Issue,
-  type LayoutChoice, type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type Posture, type Readability, type ShapedDesign, type Tincture,
+  type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
@@ -243,24 +243,8 @@ export function removeExtraPicture(d: Design): Design {
   return assembleParts(d, { ordinary: parts.ordinary?.group ?? null, peripheral: null, picture: parts.picture.group, placement: parts.picture.placement, extra: null });
 }
 
-/** The design a count or placement choice leads to; a blocked (or unknown) one changes nothing. */
-function chosenDesign<T>(d: Design, choices: LayoutChoice<T>[], value: T): Design {
-  const c = choices.find((x) => x.value === value);
-  return c?.allowed ? c.design : d;
-}
-
-/** A new count, bringing the placement along when only the other placement takes it (see countChoices). */
-export function setCount(d: Design, path: GroupPath, count: number): Design {
-  return chosenDesign(d, countChoices(d, path), count);
-}
-
-/** A new placement, bringing the nearest count it takes along when the current one doesn't fit (see placementChoices). */
-export function setPlacement(d: Design, path: GroupPath, placement: Placement): Design {
-  return chosenDesign(d, placementChoices(d, path), placement);
-}
-
 export function setLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
-  return applyLayout(d, path, key);
+  return withLayout(d, path, key);
 }
 
 function withItem(d: Design, path: GroupPath, change: (item: Extract<Group['item'], { k: 'charge' }>) => Extract<Group['item'], { k: 'charge' }>): Design {

@@ -2,8 +2,7 @@
 // refresh doesn't lose work in progress.
 //
 // Purely a convenience: the draft never leaves the device and is not a registration. It is stored
-// raw and re-parsed by the store on load (an unreadable or stale draft is simply ignored). Drafts
-// saved before field shapes existed (v: 1) have no shape; the store shows them as heater shields.
+// raw and re-parsed by the store on load (an unreadable or stale draft is simply ignored).
 // Only store.ts imports this module.
 
 import type { FieldShape } from './heraldry';
@@ -17,7 +16,7 @@ interface StoredDraft {
   shape: FieldShape;
 }
 
-/** The stored draft as written; `shape` is undefined for a draft saved before field shapes. */
+/** The stored draft as written. */
 interface RawDraft {
   design: unknown;
   shape: unknown;
@@ -28,8 +27,8 @@ export function readDraft(): RawDraft | null {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as { v?: unknown; design?: unknown; shape?: unknown } | null;
-    if (!v || typeof v !== 'object' || (v.v !== 1 && v.v !== 2) || v.design == null) return null;
-    return { design: v.design, shape: v.v === 2 ? v.shape : undefined };
+    if (!v || typeof v !== 'object' || v.v !== 2 || v.design == null) return null;
+    return { design: v.design, shape: v.shape };
   } catch {
     return null;
   }

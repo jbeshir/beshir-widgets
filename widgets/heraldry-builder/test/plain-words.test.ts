@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, DIVISIONS, DIVISION_LABEL, LAYOUT_LABEL, ORDINARY_LABEL, ORDINARY_TYPES, POSTURES, TINCTURE_LABEL, TINCTURES,
+  CHARGE_IDS, CHARGES, DIVISIONS, DIVISION_LABEL, DIVISION_NAME, ORDINARY_LABEL, ORDINARY_NAME, TINCTURE_NAME, ORDINARY_TYPES, POSTURES, TINCTURE_LABEL, TINCTURES,
   chargeLabel, chargeWords, groupLabel, layoutKey, layoutLabel, layoutCandidates, ordinaryWords, postureLabel, ROW_PATTERNS,
 } from '../src/lib/heraldry';
 import { capitalise, joinAnd, joinList } from '../src/lib/heraldry/words';
@@ -41,6 +41,10 @@ describe('charge and ordinary words in a sentence', () => {
     for (const division of DIVISIONS) expect(DIVISION_LABEL[division].plain, division).toMatch(/\S/);
     for (const t of [...TINCTURES, 'counterchanged' as const]) expect(TINCTURE_LABEL[t].term, t).toMatch(/\S/);
     expect(TINCTURE_LABEL.counterchanged.plain).toBe('Swapped colours');
+    // The terms are the model's own names, not a second copy.
+    for (const type of ORDINARY_TYPES) expect(ORDINARY_LABEL[type].term, type).toBe(ORDINARY_NAME[type]);
+    for (const division of DIVISIONS) expect(DIVISION_LABEL[division].term, division).toBe(DIVISION_NAME[division]);
+    for (const t of TINCTURES) expect(TINCTURE_LABEL[t].term, t).toBe(TINCTURE_NAME[t]);
   });
 });
 
@@ -51,6 +55,7 @@ describe('postures', () => {
     expect(postureLabel('hare', 'courant')).toBe('Running (courant)');
     expect(postureLabel('dragon', 'rampant')).toBe('Rearing up (segreant)');
     expect(postureLabel('eagle', 'displayed')).toBe('Wings spread (displayed)');
+    expect(postureLabel('lion', 'rampant', 'default')).toBe('Rearing up (rampant, default)');
   });
 
   it('label every drawn posture of every charge', () => {
@@ -69,7 +74,7 @@ describe('layout labels', () => {
     expect(layoutLabel('rows-2-1')).toEqual({ plain: 'Two above, one below', term: 'two and one' });
     expect(layoutLabel('rows-3-2-1')).toEqual({ plain: 'Three, two, one', term: 'three, two and one' });
     expect(layoutLabel('rows-2-2-1')).toEqual({ plain: 'Rows of 2, 2 and 1', term: 'two, two and one' });
-    expect(Object.keys(LAYOUT_LABEL)).toContain('in-pale');
+    expect(layoutLabel('in-pale').plain).toBe('Stacked up and down');
     expect(() => layoutLabel('in-mystery')).toThrow(RangeError);
     const d = nd(arms('azure', group(charge('rose'), 'or')));
     for (let n = 1; n <= 12; n++) for (const l of layoutCandidates(d, [0], n)) expect(layoutLabel(layoutKey(l)).plain, `${n} ${layoutKey(l)}`).toMatch(/\S/);

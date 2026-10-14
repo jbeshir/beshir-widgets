@@ -583,8 +583,7 @@ export function loadDraft(): ShapedDesign | null {
   const raw = readDraft();
   if (raw == null) return null;
   const r = resolve(raw.design);
-  // A draft saved before field shapes existed has no shape: it shows in the default one.
-  return r.ok ? { design: r.design, shape: isFieldShape(raw.shape) ? raw.shape : DEFAULT_FIELD_SHAPE } : null;
+  return r.ok && isFieldShape(raw.shape) ? { design: r.design, shape: raw.shape } : null;
 }
 
 export function saveDraft(draft: ShapedDesign): void {

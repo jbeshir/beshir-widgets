@@ -3,15 +3,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_DESIGN, adjustDesign, addExtraPicture, assess, canAddExtraPicture, chargesClash, companionNote, extraPicturePath, fixText, isUntouched,
-  issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, removeExtraPicture, replaceDesign, sameShapedDesign, setCharge, setCount,
-  setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlacement, setPlainField,
+  issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, removeExtraPicture, replaceDesign, sameShapedDesign, setCharge,
+  setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
   setPosture, undoStillOffered, addPeripheral, canAddPeripheral, peripheralPath, removePeripheral, setPeripheralTincture,
 } from '../src/lib/builder';
 import {
   blazon, countChoices, groupAt, groupTinctureChoices, layoutChoices, placementChoices, postureChoices, readability, signature, suggestTinctureFix,
   type Design, type GroupPath,
 } from '../src/lib/heraldry';
-import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
+import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
 
 const picture = (d: Design): GroupPath => picturePath(d)!;
 const extra = (d: Design): GroupPath => extraPicturePath(d)!;
@@ -328,7 +328,7 @@ describe('extra pictures on the band', () => {
     d = setCharge(d, 'extra', 'heart');
     expect(groupAt(d, extra(d)).item).toMatchObject({ charge: 'heart' });
     expect(groupAt(d, picture(d)).item).toMatchObject({ charge: 'mullet' });
-    expect(issueStep(d, { code: 'tincture', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('extra');
+    expect(issueStep(d, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('extra');
     // Changing the band to a chief keeps both pictures.
     const chief = setOrdinary(d, 'chief');
     expect(groupAt(chief, picture(chief))).toMatchObject({ role: 'primary', relation: null });

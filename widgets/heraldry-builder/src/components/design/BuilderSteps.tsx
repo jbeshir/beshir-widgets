@@ -213,7 +213,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
 function postureOption(design: Design, path: GroupPath, p: Posture): string {
   const item = groupAt(design, path).item;
   if (item.k !== 'charge') return capitalise(p);
-  return `${postureLabel(item.charge, p)}${CHARGES[item.charge].scaDefaultPosture === p ? ' (default)' : ''}`;
+  return postureLabel(item.charge, p, CHARGES[item.charge].scaDefaultPosture === p ? 'default' : null);
 }
 
 const countName = (n: number) => (n === 1 ? 'one' : numberWord(n));
@@ -285,7 +285,6 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
   const layouts = layoutChoices(design, path);
   const postures = postureChoices(design, path);
   const mods = modifierChoices(design, path);
-  const blockedLayouts = layouts.mode === 'choose' ? layouts.choices.filter(isBlocked) : [];
   const blockedPostures = postures.filter(isBlocked);
   const countWhy = useExplainer();
   const placementWhy = useExplainer();
@@ -304,6 +303,7 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
   const more = counts.filter((o) => o.choice.value > COUNT_ROW);
   const layoutId = `${prefix}arrangement-select`, postureId = `${prefix}posture-select`;
   const layoutValue = layoutKey(g);
+  const layoutNote = layouts.note;
   const hasSplendour = mods.some((m) => m.value === 'in-splendour');
   const tincture = tinctureOf(design, path);
 
@@ -312,7 +312,7 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
       <div class="control">
         <p class="picker-legend" id={`${prefix}count-label`}>How many</p>
         <RadioGroup label="How many" class="segmented" testid={`${prefix}count-select`}>{row.map(countButton)}</RadioGroup>
-        {more.length > 0 && (
+        {(more.some((o) => o.choice.allowed) || g.count > COUNT_ROW) && (
           <details class="count-more" data-testid={`${prefix}count-more`} open={g.count > COUNT_ROW}>
             <summary>More…</summary>
             <RadioGroup label="More numbers" class="segmented" testid={`${prefix}count-more-select`}>{more.map(countButton)}</RadioGroup>
@@ -349,7 +349,7 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
           class="select"
           data-testid={layoutId}
           disabled={layouts.mode !== 'choose'}
-          aria-describedby={layouts.mode !== 'choose' || blockedLayouts.length ? `${layoutId}-note` : undefined}
+          aria-describedby={layoutNote ? `${layoutId}-note` : undefined}
           value={layoutValue}
           onChange={(e) => onChange(setLayout(design, path, (e.currentTarget as HTMLSelectElement).value as LayoutKey))}
         >
@@ -361,11 +361,7 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
               ))
             : <option value={layoutValue}>{layouts.mode === 'single' ? 'Single, centred' : 'Set by the band or shape'}</option>}
         </select>
-        {(layouts.mode !== 'choose' || blockedLayouts.length > 0) && (
-          <p class="control-note" id={`${layoutId}-note`}>
-            {layouts.mode === 'choose' ? blockedLayouts.map((c) => c.reason).filter((r, i, a) => a.indexOf(r) === i).join(' ') : layouts.note}
-          </p>
-        )}
+        {layoutNote && <p class="control-note" id={`${layoutId}-note`}>{layoutNote}</p>}
       </div>
 
       {postures.length > 0 && item && (
@@ -376,7 +372,8 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
             class="select"
             data-testid={postureId}
             value={item.posture ?? ''}
-            aria-describedby={`${postureId}-note`}
+            title={CHARGES[item.charge].scaDefaultPosture === null ? `The SCA has no default pose for ${CHARGES[item.charge].article} ${CHARGES[item.charge].name}, so the blazon always names it.` : undefined}
+            aria-describedby={blockedPostures.length > 0 ? `${postureId}-note` : undefined}
             onChange={(e) => onChange(setPosture(design, path, (e.currentTarget as HTMLSelectElement).value as Posture))}
           >
             {postures.map((c) => (
@@ -385,11 +382,7 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
               </option>
             ))}
           </select>
-          <p class="control-note" id={`${postureId}-note`} hidden={blockedPostures.length === 0 && CHARGES[item.charge].scaDefaultPosture !== null}>
-            {blockedPostures.length > 0
-              ? blockedPostures[0].reason
-              : CHARGES[item.charge].scaDefaultPosture === null ? `The SCA has no default pose for ${CHARGES[item.charge].article} ${CHARGES[item.charge].name}, so the blazon always names it.` : ''}
-          </p>
+          {blockedPostures.length > 0 && <p class="control-note" id={`${postureId}-note`}>{blockedPostures[0].reason}</p>}
         </div>
       )}
 

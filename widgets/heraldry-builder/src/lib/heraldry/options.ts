@@ -17,9 +17,9 @@
 import { TINCTURES, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinList, numberWord } from './words';
 import {
-  contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, type LayoutKey,
+  HOST_LAYOUT, contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, type LayoutKey,
 } from './arrangement';
-import { CHARGES, postureTerm, type ModifierId, type Posture } from './charges';
+import { CHARGES, chargePhrase, postureTerm, type ModifierId, type Posture } from './charges';
 import {
   canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, paintOfGroupTincture, replaceGroup, walkGroups,
   type Arrangement, type Design, type Group, type GroupPath, type GroupTincture, type Issue,
@@ -48,7 +48,6 @@ export type Companion =
 export type LayoutChoice<T> = (AllowedChoice<T> & { design: Design; companion: Companion | null }) | BlockedChoice<T>;
 
 export const isBlocked = <T>(c: Choice<T>): c is BlockedChoice<T> => !c.allowed;
-export const blockReason = <T>(c: Choice<T>): string | null => (c.allowed ? null : c.reason);
 
 const ok = <T>(value: T): Choice<T> => ({ value, allowed: true });
 const choice = <T>(value: T, reason: string | null): Choice<T> => (reason ? { value, allowed: false, reason } : ok(value));
@@ -106,8 +105,6 @@ export interface PartsInput {
   extra: Group | null;
 }
 
-const HOST: Arrangement = { k: 'host' };
-
 /**
  * The canonical design with these groups put where the model wants them: the ordinary primary (or
  * peripheral), the picture on the background (secondary between a central ordinary, else primary) or
@@ -119,13 +116,13 @@ export function assembleParts(d: Design, { ordinary, peripheral, picture, placem
   const central = ordinary !== null && isCentral(ordinary);
   const hosts = ordinary !== null && hostsPictures(ordinary);
   const onOrdinary = picture !== null && placement === 'ordinary' && hosts;
-  const tertiary = (g: Group): Group => ({ ...g, role: 'tertiary', relation: null, arrangement: HOST, position: null, charged: [] });
+  const tertiary = (g: Group): Group => ({ ...g, role: 'tertiary', relation: null, arrangement: HOST_LAYOUT.arrangement, position: null, charged: [] });
   const charged = onOrdinary ? [tertiary(picture)] : picture && extra && hosts ? [tertiary(extra)] : [];
   const groups: Group[] = ordinary ? [{ ...ordinary, role: central ? 'primary' : 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged }] : [];
   if (central && peripheral && !picture) groups.push({ ...peripheral, role: 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged: [] });
   if (picture && !onOrdinary) {
     const top: Group = { ...picture, role: central ? 'secondary' : 'primary', relation: central ? 'between' : null, charged: [] };
-    if (central) groups.push({ ...top, arrangement: HOST, position: null });
+    if (central) groups.push({ ...top, arrangement: HOST_LAYOUT.arrangement, position: null });
     else if (picture.arrangement.k !== 'host') groups.push(top);
     else {
       // From around or on an ordinary to the background: the layout Table 7 gives it there.
@@ -168,11 +165,15 @@ function hostCountReason(d: Design, path: GroupPath): string {
   return `A ${name} can carry ${list}${extra}, not ${countWord(g.count)}.`;
 }
 
+/** Why a layout is blocked; `capacity` when the charges would not fit at a size that reads. */
+interface Block { reason: string; capacity: boolean }
+
 /** Why the group at `path` can't be drawn as it is — unsupported, or breaking a structure rule — or null. */
-function structureReason(d: Design, path: GroupPath): string | null {
+function structureBlock(d: Design, path: GroupPath): Block | null {
   const gap = unsupportedIssues(d).find((i) => relevant(d, path, i));
-  if (gap) return gap.gap.category === 'placement' && /^(between|on)-/.test(gap.gap.detail) ? hostCountReason(d, path) : gap.message;
-  return structuralIssues(d).find((i) => i.code === 'structure' && relevant(d, path, i))?.message ?? null;
+  if (gap) return { reason: gap.gap.category === 'placement' && /^(between|on)-/.test(gap.gap.detail) ? hostCountReason(d, path) : gap.message, capacity: false };
+  const issue = structuralIssues(d).find((i) => i.code === 'structure' && relevant(d, path, i));
+  return issue ? { reason: issue.message, capacity: issue.code === 'structure' && issue.rule === 'capacity' } : null;
 }
 
 /** "the lion", "the three lions", "the fess". */
@@ -205,7 +206,14 @@ function noTinctureReason(d: Design, path: GroupPath): string | null {
 
 /** Why a layout of the group can't be chosen — structurally illegal, and with `withTinctures` also when no tincture would work — or null. */
 export function layoutReason(d: Design, path: GroupPath, withTinctures: boolean): string | null {
-  return structureReason(d, path) ?? (withTinctures ? noTinctureReason(d, path) : null);
+  return layoutBlock(d, path, withTinctures)?.reason ?? null;
+}
+
+function layoutBlock(d: Design, path: GroupPath, withTinctures: boolean): Block | null {
+  const structure = structureBlock(d, path);
+  if (structure) return structure;
+  const reason = withTinctures ? noTinctureReason(d, path) : null;
+  return reason ? { reason, capacity: false } : null;
 }
 
 // ── Tinctures ───────────────────────────────────────────────────────────────
@@ -232,7 +240,7 @@ type Fit = ({ fits: true; count: number; placement: Placement } & Edited) | { fi
 const currentKey = (g: Group): LayoutKey => layoutKey({ arrangement: g.arrangement, position: g.position });
 
 /** The design with the group at `path` in the layout `key` (its count already set). */
-function withLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
+export function withLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
   const g = groupAt(d, path);
   const layout = layoutOfKey(key, g.count);
   return layout ? canonical(replaceGroup(d, path, { ...g, arrangement: layout.arrangement, position: layout.position })) : d;
@@ -357,27 +365,31 @@ export function placementChoices(d: Design, path: GroupPath): LayoutChoice<Place
   return PLACEMENTS.map((p) => layoutChoice(d, path, p, 'count', countsByNearness(count).map((n): [number, Placement] => [n, p])));
 }
 
-/** single: one place to put it; host: placed by the ordinary (`note` says why there is nothing to choose); choose: pick from `choices`. */
+/** single: one place to put it; host: placed by the ordinary (`note` says why there is nothing to choose); choose: pick from `choices`, with one `note` for the blocked ones (null when none is). */
 export type LayoutChoices =
-  | { mode: 'choose'; choices: Choice<LayoutKey>[] }
+  | { mode: 'choose'; choices: Choice<LayoutKey>[]; note: string | null }
   | { mode: 'single' | 'host'; note: string };
 
 export function layoutChoices(d: Design, path: GroupPath): LayoutChoices {
   const g = groupAt(d, path);
   const ctx = contextOf(d, g, hostOf(d, path));
-  if (!ctx) return { mode: 'single', note: 'A single charge sits in the centre.' };
+  if (!ctx) return { mode: 'single', note: 'There is no layout to choose for this group.' };
   if (ctx.k !== 'field') {
     const name = ORDINARY_NAME[ctx.ordinary];
     return { mode: 'host', note: ctx.k === 'on' ? `Charges on the ${name} follow its line.` : `Charges between a ${name} are placed around it.` };
   }
   const keys = layoutCandidates(d, path, g.count).map(layoutKey);
   if (keys.length === 1) return { mode: 'single', note: 'A single charge sits in the centre.' };
-  return { mode: 'choose', choices: keys.map((key) => choice(key, layoutReason(withLayout(d, path, key), path, true))) };
+  const blocks = keys.map((key) => layoutBlock(withLayout(d, path, key), path, true));
+  return { mode: 'choose', choices: keys.map((key, i) => choice(key, blocks[i]?.reason ?? null)), note: blockedNote(g, blocks) };
 }
 
-/** The design with the group at `path` in the layout `key`, as the layout control would apply it. */
-export function applyLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
-  return withLayout(d, path, key);
+/** One line for the blocked layouts: that none has room for the charges, else each distinct reason. */
+function blockedNote(g: Group, blocks: readonly (Block | null)[]): string | null {
+  const blocked = blocks.filter((b): b is Block => b !== null);
+  if (blocked.length === 0) return null;
+  if (g.item.k === 'charge' && blocked.every((b) => b.capacity)) return `Greyed-out layouts have no room for ${chargePhrase(g.item.charge, g.count)}.`;
+  return [...new Set(blocked.map((b) => b.reason))].join(' ');
 }
 
 // ── Postures and modifiers ──────────────────────────────────────────────────
@@ -417,7 +429,7 @@ export function fitGroup(d: Design, path: GroupPath): Design {
   const parts = simpleParts(d);
   const g = groupAt(d, path);
   const placement = parts.picture?.placement;
-  if (g.item.k !== 'charge' || !placement || structureReason(d, path) === null) return d;
+  if (g.item.k !== 'charge' || !placement || structureBlock(d, path) === null) return d;
   for (const n of countsByNearness(g.count)) {
     const fit = fitLayout(d, path, n, placement, false);
     if (fit.fits) return fit.design;

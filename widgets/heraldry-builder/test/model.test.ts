@@ -489,14 +489,14 @@ describe('structure rules', () => {
       expect(roses(5, 'in-saltire')).toEqual([]);
       expect(roses(5, 'rows-2-2-1')).toEqual([]);
       expect(roses(8, 'in-orle')).toEqual([]);
-      expect(roses(2, 'in-annulo')).toEqual([]);
       expect(roses(3, 'in-annulo')).toEqual([]);
+      expect(roses(2, 'in-annulo')).toHaveLength(1);
       expect(roses(3, 'in-chief')).toEqual([]);
     });
 
     it('rejects a layout the count can not take, naming the ones it can', () => {
       expect(roses(3, 'in-cross')).toEqual(['Three roses can be arranged two and one, one and two, in pale, in fess, in bend, in bend sinister, in annulo, in chief, in base — not in cross.']);
-      expect(roses(2, 'in-saltire')).toEqual(['Two roses can be arranged in pale, in fess, in bend, in bend sinister, in annulo, in chief, in base — not in saltire.']);
+      expect(roses(2, 'in-saltire')).toEqual(['Two roses can be arranged in pale, in fess, in bend, in bend sinister, in chief, in base — not in saltire.']);
       expect(roses(4, 'in-orle')).toEqual(expect.arrayContaining([expect.stringMatching(/^Four roses can be arranged .* — not in orle\.$/)]));
     });
 

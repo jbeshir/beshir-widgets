@@ -29,7 +29,8 @@ const single = (position: Position | null = null): Layout => ({ arrangement: { k
 const line = (dir: LineDir, position: Position | null = null): Layout => ({ arrangement: { k: 'line', dir }, position });
 const rows = (r: readonly number[]): Layout => ({ arrangement: { k: 'rows', rows: [...r] }, position: null });
 const pattern = (p: Pattern): Layout => ({ arrangement: { k: 'pattern', pattern: p }, position: null });
-const HOST: Layout = { arrangement: { k: 'host' }, position: null };
+/** The layout of a group an ordinary places: the one `host` arrangement, no position. */
+export const HOST_LAYOUT: Layout = { arrangement: { k: 'host' }, position: null };
 
 export function sameLayout(a: Layout, b: Layout): boolean {
   return layoutKey(a) === layoutKey(b);
@@ -128,19 +129,41 @@ export function layoutContext(d: Design, path: GroupPath): LayoutContext {
   return contextOf(d, group, hostOf(d, path)) ?? notSupported({ category: 'placement', detail: `${group.role}-${group.item.k}` });
 }
 
+/**
+ * Table 7's secondary rows, the one place they are written: for each ordinary and count of charges set between it,
+ * how many go on each side (`split`, null where the drawing places them by its own rule) and how that is said.
+ */
+export const BETWEEN: Partial<Record<OrdinaryType, Record<number, { split: [number, number] | null; words: string }>>> = {
+  fess: {
+    2: { split: [1, 1], words: 'one above and one below' }, 3: { split: [2, 1], words: 'two above and one below' },
+    4: { split: [2, 2], words: 'two above and two below' }, 6: { split: [3, 3], words: 'three above and three below' },
+  },
+  pale: {
+    2: { split: [1, 1], words: 'one on each side' }, 4: { split: [2, 2], words: 'two on each side' }, 6: { split: [3, 3], words: 'three on each side' },
+  },
+  bend: {
+    2: { split: [1, 1], words: 'one above and one below' }, 4: { split: [2, 2], words: 'two on each side' }, 6: { split: [3, 3], words: 'three on each side' },
+  },
+  'bend-sinister': {
+    2: { split: [1, 1], words: 'one above and one below' }, 4: { split: [2, 2], words: 'two on each side' }, 6: { split: [3, 3], words: 'three on each side' },
+  },
+  chevron: {
+    2: { split: [1, 1], words: 'one above and one below' }, 3: { split: [2, 1], words: 'two above and one below' }, 6: { split: [3, 3], words: 'three above and three below' },
+  },
+  cross: { 4: { split: null, words: 'one in each quarter' } },
+  saltire: { 4: { split: null, words: 'one above, one below and one on each side' } },
+  pile: { 2: { split: null, words: 'one on each side' } },
+};
+
+/** How charges set between `ordinary` are spread out, or null for a count it has no spread for. */
+export function betweenWords(ordinary: OrdinaryType, count: number): string | null {
+  return BETWEEN[ordinary]?.[count]?.words ?? null;
+}
+
 /** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows. */
 export function hostCounts(ctx: LayoutContext): readonly number[] {
   const upTo12 = Array.from({ length: 12 }, (_, i) => i + 1);
-  if (ctx.k === 'between') {
-    switch (ctx.ordinary) {
-      case 'fess': return [2, 3, 4, 6];
-      case 'pale': case 'bend': case 'bend-sinister': return [2, 4, 6];
-      case 'chevron': return [2, 3, 6];
-      case 'cross': case 'saltire': return [4];
-      case 'pile': return [2];
-      default: return [];
-    }
-  }
+  if (ctx.k === 'between') return Object.keys(BETWEEN[ctx.ordinary] ?? {}).map(Number);
   if (ctx.k === 'on') {
     switch (ctx.ordinary) {
       case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': return upTo12;
@@ -166,7 +189,7 @@ function fieldPair(d: Design): [Tincture, Tincture] | null {
 
 /** Table 7 for a charge group of `count` in `ctx`: the first applicable row, or null for "None, must be specified". */
 function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count: number): RuledLayout | null {
-  if (ctx.k !== 'field') return { layout: HOST, rule: 'host' };
+  if (ctx.k !== 'field') return { layout: HOST_LAYOUT, rule: 'host' };
   const division = d.kind === 'arms' && d.field.k === 'divided' ? d.field.division : null;
   const pair = fieldPair(d);
   const paint = group.paint;
@@ -209,13 +232,14 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count:
 
 /** The layouts a charge group of `count` can take, in the order the builder lists them. Capacity is not consulted. */
 function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDefault: Layout | null): Layout[] {
-  if (ctx.k !== 'field') return [HOST];
+  if (ctx.k !== 'field') return [HOST_LAYOUT];
   const out: Layout[] = tableDefault ? [tableDefault] : [];
   out.push(...ROW_PATTERNS.filter((r) => r.reduce((a, b) => a + b, 0) === count).map(rows));
   if (count >= 2) out.push(...LINE_DIRS.map((dir) => line(dir)));
   if (count === 4 || count === 5) out.push(pattern('cross'), pattern('saltire'));
   if (count === 2 && group.item.k === 'charge' && CHARGES[group.item.charge].long) out.push({ arrangement: { k: 'crossed' }, position: null });
-  if (count >= 2) out.push(pattern('annulo'));
+  // Two in annulo curl round each other: only a fish can (SENA example: two fish in annulo); otherwise a ring starts at three.
+  if (count >= 3 || (count === 2 && group.item.k === 'charge' && CHARGES[group.item.charge].postureClass === 'fish')) out.push(pattern('annulo'));
   if (count >= 5 && ctx.peripheral === 'none') out.push(pattern('orle'));
   if (ctx.peripheral !== 'chief') {
     for (const position of ['chief', 'base'] as const) out.push(count === 1 ? single(position) : line('fess', position));
@@ -238,7 +262,7 @@ export function defaultLayoutOf(d: Design, group: Group, host: Group | null, cou
   const ctx = contextOf(d, group, host);
   if (ctx) return tableDefaultRuleFor(d, group, ctx, count)?.layout ?? candidatesFor(group, ctx, count, null)[0];
   if (group.item.k === 'ordinary') return single();
-  if (host || group.role === 'secondary') return HOST;
+  if (host || group.role === 'secondary') return HOST_LAYOUT;
   return count === 1 ? single() : line('pale');
 }
 

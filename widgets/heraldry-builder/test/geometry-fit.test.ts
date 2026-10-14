@@ -15,6 +15,7 @@ import {
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { rings, type Pt } from './art-geometry';
+import { log } from './helpers';
 
 // ── The catalogue ───────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
 
 const t0 = Date.now();
 const { entries: CATALOGUE, rejected: REJECTED } = catalogue();
-console.log(`layout catalogue: ${CATALOGUE.length} legal layouts (${REJECTED} rejected) in ${Date.now() - t0} ms`);
+log(`layout catalogue: ${CATALOGUE.length} legal layouts (${REJECTED} rejected) in ${Date.now() - t0} ms`);
 
 // ── Geometry helpers ────────────────────────────────────────────────────────
 
@@ -217,7 +218,7 @@ const PROBE_TOLERANCE = 2;
 
 /** Layouts that fit the smaller shapes only by missing a part of the field their heater slots reach. */
 const UNFAITHFUL = new Set([
-  'field/chief 2 in-annulo lozenge', 'field/chief 3 in-annulo lozenge', 'field/chief 4 in-annulo lozenge', 'field/chief 6 rows-3-2-1 lozenge',
+  'field/chief 3 in-annulo lozenge', 'field/chief 4 in-annulo lozenge', 'field/chief 6 rows-3-2-1 lozenge',
 ]);
 
 describe('every shape draws each charge on the field parts the canonical verdict judged', () => {

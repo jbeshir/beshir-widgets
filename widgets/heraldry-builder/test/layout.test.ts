@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MIN_SLOT_SIZE, canonicalSlots, contextSlots, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
-  shapeFrame, slotTransform, structuralIssues, type Layout, type LayoutContext, type OrdinaryType,
+  capacityIssue, shapeFrame, slotTransform, structuralIssues, type Layout, type LayoutContext, type OrdinaryType,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
@@ -141,8 +141,11 @@ describe('capacity', () => {
     const d = nd(arms('azure', group(charge('sword'), 'or', { count: 12, arrangement: 'in-pale' })));
     const issues = structuralIssues(d);
     expect(issues).toHaveLength(1);
-    expect(issues[0]).toMatchObject({ code: 'structure', at: { k: 'group', path: [0] }, slots: [] });
-    expect(issues[0].message).toMatch(/^There isn't room for twelve swords on the field — at most \d+ fit\.$/);
+    expect(issues[0]).toMatchObject({ code: 'structure', rule: 'capacity', at: { k: 'group', path: [0] }, slots: [] });
+    const capacity = capacityIssue(d, [0]);
+    expect(capacity).toMatchObject({ where: 'on the field' });
+    expect(capacity!.most).toBeLessThan(12);
+    expect(issues[0].message).toBe(`There isn't room for twelve swords on the field — at most ${capacity!.most} fit.`);
   });
 
   it('says where the charges do not fit', () => {
@@ -205,7 +208,7 @@ describe('a chief on a field divided per fess (SENA A3D1c)', () => {
 
   it('needs a primary group across the line', () => {
     expect(structuralIssues(nd(arms(perFess, group(ordinary('chief'), 'gules'))))).toEqual([
-      { code: 'structure', at: { k: 'group', path: [0] }, message, slots: [] },
+      { code: 'structure', rule: 'crosses-line', at: { k: 'group', path: [0] }, message, slots: [] },
     ]);
   });
 

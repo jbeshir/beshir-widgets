@@ -6,10 +6,10 @@ import { TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './ti
 import type { Division, Treatment, Variation } from './divisions';
 import type { Line, OrdinaryMod, OrdinaryType } from './ordinaries';
 import {
-  HOLD_HOWS, MODIFIER_IDS, PART_IDS,
+  CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
   type ChargeForm, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
-import { ORDINARY_MODS } from './ordinaries';
+import { ORDINARY_MODS, ORDINARY_NAME } from './ordinaries';
 
 /** Edge lines: `b` is the second edge of a two-edged element ("embattled on the upper edge"); resolved b === a unless given. */
 export interface Lines { a: Line; b: Line }
@@ -56,6 +56,9 @@ export interface Charge {
 }
 
 export type Item = Ordinary | Charge;
+
+/** The singular name of what an item is, in a message: "fess", "lion". */
+export const itemName = (i: Item): string => (i.k === 'ordinary' ? ORDINARY_NAME[i.type] : CHARGES[i.charge].name);
 
 export type LineDir = 'pale' | 'fess' | 'bend' | 'bend-sinister';
 export type Pattern = 'cross' | 'saltire' | 'orle' | 'annulo' | 'chevron' | 'chevron-inverted' | 'pall' | 'pile';
@@ -273,6 +276,12 @@ export type GapCategory = (typeof UNSUPPORTED_GAP_CATEGORIES)[number];
 /** A construct the builder doesn't draw yet; its tag is `${category}:${detail}`. */
 export interface Gap { category: GapCategory; detail: string }
 
+/** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
+export type TinctureReason = 'contrast' | 'counterchange-unavailable';
+
+/** Which structure rule an issue breaks: the field's tinctures, how groups relate, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line. */
+export type StructureRule = 'field' | 'relation' | 'layout' | 'capacity' | 'crosses-line';
+
 /**
  * shape       — malformed input (unknown key/id, wrong type)
  * structure   — legal ids, illegal combination (count/arrangement, equal parts, groups that don't fit)
@@ -281,7 +290,9 @@ export interface Gap { category: GapCategory; detail: string }
  * unsupported — well-formed, but not drawn by this builder yet
  */
 export type Issue =
-  | { code: 'shape' | 'structure' | 'generic' | 'tincture'; at: IssueAt; message: string; slots: number[] }
+  | { code: 'shape' | 'generic'; at: IssueAt; message: string; slots: number[] }
+  | { code: 'tincture'; reason: TinctureReason; at: IssueAt; message: string; slots: number[] }
+  | { code: 'structure'; rule: StructureRule; at: IssueAt; message: string; slots: number[] }
   | { code: 'unsupported'; at: IssueAt; message: string; gap: Gap };
 export type UnsupportedIssue = Extract<Issue, { code: 'unsupported' }>;
 

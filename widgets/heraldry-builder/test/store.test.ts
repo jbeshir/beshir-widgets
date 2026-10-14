@@ -295,10 +295,11 @@ describe('store device storage (drafts and Your arms)', () => {
     expect(store.examplesSeen()).toBe(true);
   });
 
-  it('reads a draft saved before field shapes as a heater shield', () => {
-    const old = JSON.stringify({ v: 1, savedAt: '2026-10-01T00:00:00Z', design });
-    vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:draft:v1': old }));
-    expect(store.loadDraft()).toEqual({ design, shape: 'heater' });
+  it('ignores a draft of another format or without a shape', () => {
+    for (const old of [{ v: 1, design }, { v: 2, design }]) {
+      vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:draft:v1': JSON.stringify({ ...old, savedAt: '2026-10-01T00:00:00Z' }) }));
+      expect(store.loadDraft()).toBeNull();
+    }
   });
 
   it('keeps the arms and shape of a registration for the Your arms thumbnail', async () => {
@@ -315,10 +316,10 @@ describe('store device storage (drafts and Your arms)', () => {
     expect(store.deviceArms()).toEqual([{ ...old[0], shield: null }]);
   });
 
-  it('ignores an unknown stored shape', () => {
+  it('ignores a draft with an unknown shape', () => {
     const bad = JSON.stringify({ v: 2, savedAt: '2026-10-01T00:00:00Z', design, shape: 'kite' });
     vi.stubGlobal('localStorage', memoryStorage({ 'heraldry-builder:draft:v1': bad }));
-    expect(store.loadDraft()?.shape).toBe('heater');
+    expect(store.loadDraft()).toBeNull();
   });
 
   it('remembers the new edit link from a redeemed recovery link, replacing the old one', async () => {

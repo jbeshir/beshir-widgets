@@ -355,7 +355,7 @@ function validateEntryInput(body: Record<string, unknown>, absentShape: FieldSha
   if (!name.ok) return { error: fieldError('displayName', name.message) };
   const contact = cleanContact(body.contact);
   if (!contact.ok) return { error: fieldError(contact.field, contact.message) };
-  // A request without a shape (e.g. from an SPA bundle older than field shapes) keeps `absentShape`.
+  // A request without a shape keeps `absentShape`.
   const shape = body.shape === undefined ? absentShape : body.shape;
   if (!isFieldShape(shape)) return { error: fieldError('shape', `The field shape must be one of: ${FIELD_SHAPES.join(', ')}.`) };
   const d = deriveDesign(body.design);
@@ -879,12 +879,15 @@ function recoveryMailText(entries: Array<{ displayName: string; blazon: string; 
 
 /** Stored designs were normalised on write; re-resolve defensively and return null if unreadable. */
 function parseStoredDesign(raw: string): Design | null {
+  let json: unknown;
   try {
-    const r = resolve(JSON.parse(raw));
-    return r.ok && isSupported(r.design) ? r.design : null;
-  } catch {
-    return null;
+    json = JSON.parse(raw);
+  } catch (e) {
+    if (e instanceof SyntaxError) return null;
+    throw e;
   }
+  const r = resolve(json);
+  return r.ok && isSupported(r.design) ? r.design : null;
 }
 
 function fieldError(field: string, message: string): Response {

@@ -82,7 +82,7 @@ describe('counterchanged and the rule of tincture', () => {
     const on = (rose: string) => nd(arms(div('per-pale', 'argent', 'gules'), ord('fess', 'counterchanged', { charged: [chg('rose', rose)] })));
     // The fess shows gules over the argent half and argent over the gules half, so the rose lies across both.
     expect(tinctureIssues(on('sable'))).toEqual([]);
-    expect(tinctureIssues(on('argent')).map((i) => i.message)).toEqual(['The Argent rose lies across Gules and Argent: same tincture']);
+    expect(tinctureIssues(on('argent')).map((i) => i.message)).toEqual(['The Argent rose lies across the Gules and Argent parts of the fess: same tincture']);
   });
 });
 
@@ -144,7 +144,7 @@ describe('counterchanged charges in every placement', () => {
   for (const [name, make] of placements) {
     it(`${name}: the rule depends on the field alone`, () => {
       for (const division of DRAWN_DIVISIONS) {
-        const issues = tinctureIssues(nd(make(division))).filter((i) => i.at.k === 'group' && i.at.path.length === 1 && /ounterchanged/.test(i.message));
+        const issues = tinctureIssues(nd(make(division))).filter((i) => i.at.k === 'group' && i.at.path.length === 1 && i.code === 'tincture' && i.reason === 'counterchange-unavailable');
         expect(issues, division).toEqual([]);
       }
     });

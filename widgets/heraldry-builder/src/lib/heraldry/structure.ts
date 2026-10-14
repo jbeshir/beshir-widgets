@@ -5,7 +5,7 @@
 import { TINCTURE_NAME } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase } from './charges';
-import { primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
+import { itemName, primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
 import { capacityIssue } from './layout';
 import { groundShares } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
@@ -17,10 +17,6 @@ function chargesPhrase(g: Group): string {
 }
 
 /** What a group sits on, for "the fess", "the lion". */
-function hostName(host: Group): string {
-  return host.item.k === 'ordinary' ? ORDINARY_NAME[host.item.type] : CHARGES[host.item.charge].name;
-}
-
 /** Why a charge group's count, arrangement and position don't make a layout, or null when they do. */
 function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): string | null {
   if (g.item.k !== 'charge') return null;
@@ -74,7 +70,7 @@ export function structuralIssues(d: Design): Issue[] {
       const message = d.field.parts.length === 2
         ? `A divided field needs two different tinctures — both parts are ${TINCTURE_NAME[repeated]}.`
         : `A divided field needs different tinctures — two parts are ${TINCTURE_NAME[repeated]}.`;
-      add({ code: 'structure', at: { k: 'field' }, message, slots: [] });
+      add({ code: 'structure', rule: 'field', at: { k: 'field' }, message, slots: [] });
     }
   }
 
@@ -89,12 +85,12 @@ export function structuralIssues(d: Design): Issue[] {
     const at = { k: 'group', path } as const;
     if (group.role === 'secondary' && group.relation === 'between') {
       const central = d.groups.some((g) => g.role === 'primary' && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central');
-      if (!central) add({ code: 'structure', at, message: 'Charges can only be set between a central band or shape.', slots: [] });
+      if (!central) add({ code: 'structure', rule: 'relation', at, message: 'Charges can only be set between a central band or shape.', slots: [] });
     }
     if (host?.role === 'tertiary') {
-      add({ code: 'structure', at, message: "Charges can't sit on charges that are already on something (SENA App I3).", slots: [] });
+      add({ code: 'structure', rule: 'relation', at, message: "Charges can't sit on charges that are already on something (SENA App I3).", slots: [] });
     } else if (host) {
-      if (hostsSeen.has(host)) add({ code: 'structure', at, message: `Only one group of charges can sit on the ${hostName(host)} (SENA App I3).`, slots: [] });
+      if (hostsSeen.has(host)) add({ code: 'structure', rule: 'relation', at, message: `Only one group of charges can sit on the ${itemName(host.item)} (SENA App I3).`, slots: [] });
       hostsSeen.add(host);
     }
   }
@@ -106,20 +102,20 @@ export function structuralIssues(d: Design): Issue[] {
     const message = ctx && layoutIssue(d, path, group, ctx);
     if (message) {
       illegal.add(group);
-      add({ code: 'structure', at: { k: 'group', path }, message, slots: [] });
+      add({ code: 'structure', rule: 'layout', at: { k: 'group', path }, message, slots: [] });
     }
   }
 
   // 5. The charges fit where they sit, at a size that reads.
   for (const { path, group } of walked) {
-    const message = illegal.has(group) ? null : capacityIssue(d, path);
-    if (message) add({ code: 'structure', at: { k: 'group', path }, message, slots: [] });
+    const capacity = illegal.has(group) ? null : capacityIssue(d, path);
+    if (capacity) add({ code: 'structure', rule: 'capacity', at: { k: 'group', path }, message: capacity.message, slots: [] });
   }
 
   // 6. A chief on a field divided per fess needs a primary charge across the line (SENA A3D1c).
   const chief = walked.find(({ group }) => group.role === 'peripheral' && group.item.k === 'ordinary' && group.item.type === 'chief');
   if (chief && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && !crossesTheLine(d)) {
-    add({ code: 'structure', at: { k: 'group', path: chief.path }, message: 'A chief on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
+    add({ code: 'structure', rule: 'crosses-line', at: { k: 'group', path: chief.path }, message: 'A chief on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
   }
   return issues;
 }

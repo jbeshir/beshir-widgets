@@ -2,9 +2,25 @@
 
 import {
   NO_FILTERS, NO_SEARCH_PARAMS, countChoices, layoutChoices, placementChoices, resolve,
-  type Design, type GroupPath, type LayoutKey, type Placement, type SearchFilters, type SearchParams,
+  type Design, type GroupPath, type LayoutChoice, type LayoutKey, type Placement, type SearchFilters, type SearchParams,
 } from '../src/lib/heraldry';
-import { setCount, setLayout, setPlacement } from '../src/lib/builder';
+import { setLayout } from '../src/lib/builder';
+
+/** The design a count or placement choice leads to; a blocked (or unknown) one changes nothing. */
+function chosenDesign<T>(d: Design, choices: LayoutChoice<T>[], value: T): Design {
+  const c = choices.find((x) => x.value === value);
+  return c?.allowed ? c.design : d;
+}
+
+/** A new count, bringing the placement along when only the other placement takes it (see countChoices). */
+export function setCount(d: Design, path: GroupPath, count: number): Design {
+  return chosenDesign(d, countChoices(d, path), count);
+}
+
+/** A new placement, bringing the nearest count it takes along when the current one doesn't fit (see placementChoices). */
+export function setPlacement(d: Design, path: GroupPath, placement: Placement): Design {
+  return chosenDesign(d, placementChoices(d, path), placement);
+}
 
 /** The resolved design of loose input; throws with the reasons if it doesn't resolve. */
 export function nd(input: unknown): Design {
@@ -60,4 +76,10 @@ export function layoutMoves(d: Design, path: GroupPath): Array<{ action: LayoutA
     ...(layouts.mode === 'choose' ? layouts.choices.filter((c) => c.allowed) : [])
       .map((c) => ({ action: { kind: 'layout', layout: c.value } as const, design: setLayout(d, path, c.value) })),
   ];
+}
+
+/** Progress lines of the long sweeps; silent unless VERBOSE is set. */
+export function log(line: string): void {
+  const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
+  if (env?.VERBOSE) console.log(line);
 }

@@ -69,11 +69,6 @@ export function isMetal(t: Tincture): boolean {
   return TINCTURE_CLASS[t] === 'metal';
 }
 
-/** "Or and Argent" / "Gules, Azure, Vert, Sable or Purpure". */
-export function listTinctureNames(ts: readonly Tincture[], conj: 'and' | 'or' = 'and'): string {
-  return joinList(ts.map((t) => TINCTURE_NAME[t]), conj);
-}
-
 // ── Stains and furs (vocabulary only; the builder doesn't draw them yet) ───
 
 export const STAINS = ['sanguine', 'murrey', 'tenne'] as const;

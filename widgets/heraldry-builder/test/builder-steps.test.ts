@@ -5,8 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { AddExtraLayer, ChargesStep, ExtraStep, FieldStep, OrdinaryStep, PeripheralStep } from '../src/components/design/BuilderSteps';
-import { addExtraPicture, addPeripheral, setCharge, setCount, setOrdinary, setGroupTincture, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { addExtraPicture, addPeripheral, setCharge, setOrdinary, setGroupTincture, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
 import type { Design } from '../src/lib/heraldry';
+import { setCount } from './helpers';
 
 const noop = () => {};
 const base = { onChange: noop, issues: [], accordion: null };
@@ -51,6 +52,21 @@ describe('controls that appear only when they apply', () => {
     expect(ids(closed)).toContain('count-12');
     const open = renderToString(h(ChargesStep, { ...base, design: setCount(d, picturePath(d)!, 8), onAdjust: noop, adjusted: null, compact: false }));
     expect(open).toMatch(/<details[^>]*data-testid="count-more"[^>]*\sopen/);
+  });
+
+  it('hides More… when none of its counts is allowed, unless one is chosen', () => {
+    const onBand = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
+    const html = renderToString(h(ChargesStep, { ...base, design: onBand, onAdjust: noop, adjusted: null, compact: false }));
+    expect(ids(html)).toContain('count-6');
+    expect(ids(html)).not.toContain('count-more');
+    expect(ids(html)).not.toContain('count-12');
+  });
+
+  it('says once that the greyed-out layouts have no room', () => {
+    const d = setCount(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0], 8);
+    const html = renderToString(h(ChargesStep, { ...base, design: d, onAdjust: noop, adjusted: null, compact: false }));
+    expect(html.match(/Greyed-out layouts have no room for eight mullets\./g)).toHaveLength(1);
+    expect(html).not.toContain("There isn't room");
   });
 
   it('offers the face of a sun, and nothing for other charges', () => {

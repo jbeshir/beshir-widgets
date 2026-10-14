@@ -13,7 +13,7 @@ export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError
 export { structuralIssues } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, statesLayout,
-  hostCounts, layoutWords, type Layout, type LayoutKey, type LayoutContext,
+  hostCounts, betweenWords, layoutWords, type Layout, type LayoutKey, type LayoutContext,
 } from './arrangement';
 export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
 export {
@@ -21,9 +21,9 @@ export {
 } from './tincture-rule';
 export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon, type BlazonOptions } from './blazon';
-export { gloss, betweenWords } from './gloss';
+export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, ORDINARY_LABEL, LAYOUT_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, ORDINARY_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
@@ -37,8 +37,8 @@ export {
 } from './geometry';
 export { MIN_SLOT_SIZE, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
 export {
-  COUNTS, isBlocked, blockReason, simpleParts, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
-  layoutReason, applyLayout, postureChoices, modifierChoices, fitGroup, suggestTinctureFix,
+  COUNTS, isBlocked, simpleParts, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
+  layoutReason, withLayout, postureChoices, modifierChoices, fitGroup, suggestTinctureFix,
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';
 export { renderLayers, designTinctures, type Layer } from './render';

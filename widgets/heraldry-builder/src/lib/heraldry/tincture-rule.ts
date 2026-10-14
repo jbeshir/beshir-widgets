@@ -8,7 +8,7 @@ import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, type ChargeId } from './charges';
 import { contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground } from './contrast';
 import {
-  fieldTinctures, groupAt, hostOf, notSupported, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
+  fieldTinctures, groupAt, hostOf, itemName, notSupported, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
 } from './design';
 import {
   CANONICAL_SHAPE, fieldTinctureAt, groundPoints, inFirstPart, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Slot,
@@ -159,11 +159,6 @@ function nounOf(g: Group): string {
   return g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : g.count === 1 ? CHARGES[g.item.charge].name : CHARGES[g.item.charge].plural;
 }
 
-/** The thing a group sits on, in a message: "fess", "lion". */
-function hostNoun(host: Group): string {
-  return host.item.k === 'ordinary' ? ORDINARY_NAME[host.item.type] : CHARGES[host.item.charge].name;
-}
-
 /**
  * Why a counterchanged group can't be, or null when it can: only things lying across a divided field can take
  * its tinctures in reverse (SENA A3B2); one lying wholly in one part would simply be the other tincture.
@@ -175,7 +170,7 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
   const thing = `${group.item.k === 'ordinary' ? 'the ' : ''}${nounOf(group)}`;
   const [lie, them] = group.item.k === 'charge' && group.count > 1 ? ['lie', 'them'] : ['lies', 'it'];
   if (host) {
-    return `The ${nounOf(group)} ${lie} on the ${hostNoun(host)}, not on the field — counterchanged charges on a band or charge aren't available in this builder.`;
+    return `The ${nounOf(group)} ${lie} on the ${itemName(host.item)}, not on the field — counterchanged charges on a band or charge aren't available in this builder.`;
   }
   const pair = fieldPair(d);
   if (pair === null) {
@@ -208,13 +203,17 @@ function twoClassHint(failure: ContrastFailure, contacts: readonly Tincture[], w
     : ` (a two-metal field needs a colour ${what})`;
 }
 
-/** Where a failing element lies, in words: "on Argent", "across Argent and Gules", "mostly on Argent". */
-function whereText(f: ContrastFailure, top: Tincture | null, contacts: readonly Tincture[]): string {
+/**
+ * Where a failing element lies, in words: "on Argent", "across Argent and Gules", "mostly on Argent"; on a counterchanged
+ * host the tinctures are those of its parts ("on the Argent part of the pale").
+ */
+function whereText(f: ContrastFailure, top: Tincture | null, contacts: readonly Tincture[], host: Group | null): string {
   const names = contacts.map((t) => TINCTURE_NAME[t]);
-  if (contacts.length === 1) return `on ${names[0]}`;
+  const parts = (ns: readonly string[]) => (host ? `the ${joinAnd(ns)} part${ns.length > 1 ? 's' : ''} of the ${itemName(host.item)}` : joinAnd(ns));
+  if (contacts.length === 1) return `on ${parts(names)}`;
   const mixed = top !== null && f !== 'same' && contacts.some((t) => TINCTURE_CLASS[t] !== TINCTURE_CLASS[top]);
-  if (!mixed) return `across ${joinAnd(names)}`;
-  return `mostly on ${joinAnd(contacts.filter((t) => TINCTURE_CLASS[t] === TINCTURE_CLASS[top]).map((t) => TINCTURE_NAME[t]))}`;
+  if (!mixed) return `across ${parts(names)}`;
+  return `mostly on ${parts(contacts.filter((t) => TINCTURE_CLASS[t] === TINCTURE_CLASS[top]).map((t) => TINCTURE_NAME[t]))}`;
 }
 
 /**
@@ -258,7 +257,7 @@ function ordinaryMessage(d: Design, g: Group, f: ContrastFailure, ground: Ground
   if (contacts.length === 2 && twoClassHint(f, contacts, 'ordinary')) {
     return `${T} ${name} on ${TINCTURE_NAME[contacts[0]]} and ${TINCTURE_NAME[contacts[1]]} field: ${FAILURE_TEXT[f]}${twoClassHint(f, contacts, 'ordinary')}`;
   }
-  return `${T} ${name} lies ${whereText(f, top, contacts)}: ${FAILURE_TEXT[f]}`;
+  return `${T} ${name} lies ${whereText(f, top, contacts, null)}: ${FAILURE_TEXT[f]}`;
 }
 
 /**
@@ -282,7 +281,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   const noun = nounOf(g), T = paintName(g.paint);
   const all = slots.map((_, i) => i);
   const failures = grounds.map((ground) => (ground.length === 0 ? null : failureOf(g.paint, ground, pair)));
-  const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', at, message, slots: idx });
+  const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', reason: 'contrast', at, message, slots: idx });
 
   if (g.paint.k === 'counterchanged' && pair) {
     // Every part shows the other field tincture over its own, so all the charges pass or fail together.
@@ -293,7 +292,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   }
   if (host?.paint.k === 'tincture') {
     const f = failures.find((x) => x !== null);
-    return f ? [issue(`${T} ${noun} on the ${TINCTURE_NAME[host.paint.t]} ${hostNoun(host)}: ${FAILURE_TEXT[f]}`, all)] : [];
+    return f ? [issue(`${T} ${noun} on the ${TINCTURE_NAME[host.paint.t]} ${itemName(host.item)}: ${FAILURE_TEXT[f]}`, all)] : [];
   }
   if (d.kind === 'arms' && d.field.k === 'tincture') {
     const f = failures.find((x) => x !== null);
@@ -323,7 +322,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
       return issue(`${T} ${noun} on ${TINCTURE_NAME[contacts[0]]} and ${TINCTURE_NAME[contacts[1]]} field: ${FAILURE_TEXT[f]}${hint}`, idx);
     }
     const subject = describeSlots(slots, idx, g.paint.k === 'tincture' ? T : null, charge);
-    return issue(`${capitalise(subject)} ${idx.length > 1 ? 'lie' : 'lies'} ${whereText(f, top, contacts)}: ${FAILURE_TEXT[f]}${hint}`, idx);
+    return issue(`${capitalise(subject)} ${idx.length > 1 ? 'lie' : 'lies'} ${whereText(f, top, contacts, host)}: ${FAILURE_TEXT[f]}${hint}`, idx);
   });
 }
 
@@ -335,13 +334,13 @@ export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
   const unavailable = counterchangeUnavailable(d, path);
   if (unavailable) {
     const slots = group.item.k === 'charge' ? slotsOf(d, path).map((_, i) => i) : [];
-    return [{ code: 'tincture', at, message: unavailable, slots }];
+    return [{ code: 'tincture', reason: 'counterchange-unavailable', at, message: unavailable, slots }];
   }
   const pair = fieldPair(d);
   const grounds = groundShares(d, path);
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
   const f = grounds[0].length === 0 ? null : failureOf(group.paint, grounds[0], pair);
-  return f ? [{ code: 'tincture', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
+  return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
 }
 
 /** Every rule-of-tincture violation, group by group in canonical order. */

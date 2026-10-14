@@ -344,32 +344,37 @@ function inferRole(r: RawGroup, siblings: readonly RawGroup[]): Role {
   return siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central') ? 'secondary' : 'primary';
 }
 
+/** The arrangement a group has until `placeGroups` gives it its layout. */
+const UNPLACED: Arrangement = { k: 'single' };
+
 function buildGroup(r: RawGroup, role: Role, E: Errors, at: IssueAt): Group {
   if (r.relation !== null && role !== 'secondary') E.add(at, 'Only a secondary group has a relation to the main one.');
   return {
     role, relation: role === 'secondary' ? (r.relation ?? 'between') : null, item: r.item, count: r.count,
-    arrangement: { k: 'single' }, position: r.position, paint: r.paint,
+    arrangement: UNPLACED, position: r.position, paint: r.paint,
     charged: r.charged.map((c, i) => buildGroup(c, 'tertiary', E, at.k === 'group' ? { k: 'group', path: [...at.path, i] } : at)),
   };
 }
 
-/** Fills each group's arrangement from the input layout, or Table 7 when the input left it out; checks it fits where the group sits. */
-function fillLayouts(d: Design, raws: readonly RawGroup[], groups: readonly Group[], host: Group | null, prefix: GroupPath, E: Errors): void {
-  groups.forEach((g, i) => {
+/**
+ * The groups with each arrangement set from the input layout, or Table 7 when the input left it out (judged against `d`,
+ * the design with every role, item and paint but not yet the layouts); checks it fits where the group sits.
+ */
+function placeGroups(d: Design, raws: readonly RawGroup[], groups: readonly Group[], host: Group | null, prefix: GroupPath, E: Errors): Group[] {
+  return groups.map((g, i) => {
     const r = raws[i];
     const at: IssueAt = { k: 'group', path: [...prefix, i] };
-    if (r.layout) {
-      g.arrangement = r.layout.arrangement;
-      const ctx = contextOf(d, g, host);
-      if (ctx && ctx.k !== 'field' && g.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
-    } else if (r.position) {
-      g.arrangement = g.count === 1 ? { k: 'single' } : { k: 'line', dir: 'fess' };
-    } else {
+    const placed = ((): Group => {
+      if (r.layout) {
+        const ctx = contextOf(d, g, host);
+        if (ctx && ctx.k !== 'field' && r.layout.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
+        return { ...g, arrangement: r.layout.arrangement };
+      }
+      if (r.position) return { ...g, arrangement: g.count === 1 ? { k: 'single' } : { k: 'line', dir: 'fess' } };
       const layout = defaultLayoutOf(d, g, host);
-      g.arrangement = layout.arrangement;
-      g.position = layout.position;
-    }
-    fillLayouts(d, r.charged, g.charged, g, [...prefix, i], E);
+      return { ...g, arrangement: layout.arrangement, position: layout.position };
+    })();
+    return { ...placed, charged: placeGroups(d, r.charged, g.charged, g, [...prefix, i], E) };
   });
 }
 
@@ -398,8 +403,8 @@ export function resolve(input: unknown): ResolveResult {
   if (E.list.length > 0) return { ok: false, errors: E.list };
 
   const groups = raws.map((r, i) => buildGroup(r, r.role ?? inferRole(r, raws), E, { k: 'group', path: [i] }));
-  const d: Design = kind === 'badge' ? { v: 2, kind: 'badge', field: null, groups } : { v: 2, kind: 'arms', field: field as Paint, groups };
-  fillLayouts(d, raws, groups, null, [], E);
+  const unplaced: Design = kind === 'badge' ? { v: 2, kind: 'badge', field: null, groups } : { v: 2, kind: 'arms', field: field as Paint, groups };
+  const d: Design = { ...unplaced, groups: placeGroups(unplaced, raws, groups, null, [], E) };
   return E.list.length > 0 ? { ok: false, errors: E.list } : { ok: true, design: canonical(d) };
 }
 

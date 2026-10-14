@@ -55,13 +55,3 @@ export function isTreatment(v: unknown): v is Treatment {
 export function partCount(d: Division): 2 | 3 {
   return d === 'per-pall' || d === 'per-pall-inverted' || d === 'tierced-per-pale' || d === 'tierced-per-fess' ? 3 : 2;
 }
-
-/** GoT Table 7 "divided in 2": one section each side of a single line. */
-export function isTwoSection(d: Division): boolean {
-  return d === 'per-pale' || d === 'per-fess' || d === 'per-bend' || d === 'per-bend-sinister' || d === 'per-chevron';
-}
-
-/** GoT Table 7 "divided in 4". */
-export function isFourSection(d: Division): boolean {
-  return d === 'quarterly' || d === 'per-saltire';
-}
