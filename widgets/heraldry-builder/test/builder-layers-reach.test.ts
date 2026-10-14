@@ -36,6 +36,18 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Gules, on a chief argent three roses gules, a bordure argent.'],
   ['a divided field with a band and both peripherals', arms(div('per-pale', 'argent', 'sable'), group(ordinary('pale'), 'gules'), group(ordinary('chief'), 'or'), group(ordinary('bordure'), 'or')),
     'Per pale argent and sable, a pale gules, a chief and a bordure Or.'],
+  ['charges on a chief beside a chevron between charges (O&A 51815)', arms('azure', group(ordinary('chevron'), 'argent'), group(charge('sun'), 'or', { count: 3 }), group(ordinary('chief'), 'argent', { charged: [group(charge('crescent'), 'azure', { count: 3 })] })),
+    'Azure, a chevron argent between three suns Or, on a chief argent three crescents azure.'],
+  ['charges on a chief beside a band', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent', { charged: [rose(3)] })),
+    'Azure, a fess Or, on a chief argent three roses gules.'],
+  ['a picture with charges on a bordure', arms('azure', group(charge('lion'), 'or'), group(ordinary('bordure'), 'argent', { charged: [group(charge('mullet'), 'sable', { count: 8 })] })),
+    'Azure, a lion Or, on a bordure argent eight mullets sable.'],
+  ['charges on a bordure alone', arms('gules', group(ordinary('bordure'), 'or', { charged: [rose(6, 'azure')] })),
+    'Gules, on a bordure Or six roses azure.'],
+  ['charges on a chief and on a bordure beside a band', arms('azure', group(ordinary('pale'), 'or'), group(ordinary('chief'), 'argent', { charged: [rose(2)] }), group(ordinary('bordure'), 'argent', { charged: [group(charge('mullet'), 'gules', { count: 10 })] })),
+    'Azure, a pale Or, on a chief argent two roses gules, on a bordure argent ten mullets gules.'],
+  ['charges on a chief within a bordure with charges', arms('gules', group(ordinary('chief'), 'argent', { charged: [rose(3, 'gules')] }), group(ordinary('bordure'), 'or', { charged: [group(charge('mullet'), 'azure', { count: 7 })] })),
+    'Gules, on a chief argent three roses gules, on a bordure Or seven mullets azure.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -77,8 +89,16 @@ const FULL = built(arms('azure',
   group(ordinary('chief'), 'argent'),
   group(ordinary('bordure'), 'argent')));
 
+// The same with pictures on the chief and on the bordure (a little less on the band, which they leave room for).
+const FULLER = built(arms('azure',
+  group(ordinary('pale'), 'or', { charged: [group(charge('mullet'), 'gules', { count: 2 })] }),
+  group(charge('rose'), 'argent', { count: 2 }),
+  group(ordinary('chief'), 'argent', { charged: [group(charge('crescent'), 'azure', { count: 3 })] }),
+  group(ordinary('bordure'), 'argent', { charged: [group(charge('heart'), 'gules', { count: 8 })] })));
+
 describe('layers kept through the edits of the layers beneath them', () => {
   const designs: Array<[string, Design]> = [
+    ['a band with pictures on it and beside it, and a chief and a bordure with pictures on them', FULLER],
     ['a band with pictures on it and beside it, a chief and a bordure', FULL],
     ['a picture on the field with a chief and a bordure', built(arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'argent')))],
     ['a band between charges with a bordure', built(arms('gules', group(ordinary('pale'), 'argent'), group(charge('mullet'), 'or', { count: 2 }), group(ordinary('bordure'), 'argent')))],
@@ -86,6 +106,7 @@ describe('layers kept through the edits of the layers beneath them', () => {
 
   it('the full design has every layer', () => {
     expect([...layersOf(FULL).keys()]).toEqual(['on-ordinary', 'chief', 'bordure']);
+    expect([...layersOf(FULLER).keys()]).toEqual(['on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure']);
   });
 
   for (const [label, d] of designs) {
@@ -132,6 +153,20 @@ describe('layers kept through the edits of the layers beneath them', () => {
     const bordered = layersOf(setOrdinary(FULL, 'bordure'));
     expect(bordered.has('on-ordinary')).toBe(false);
     expect(placesOf(setOrdinary(FULL, null)).map((p) => [p.place, p.group.item.k === 'ordinary' ? p.group.item.type : 'charge'])).toEqual([['ordinary', 'chief'], ['picture', 'charge'], ['bordure', 'bordure']]);
+  });
+
+  it('adds and removes the pictures on a chief and a bordure, and they follow the top band and border away', () => {
+    const base = addLayer(addLayer(built(arms('azure', group(ordinary('pale'), 'argent'), group(charge('mullet'), 'or', { count: 2 }))), 'chief'), 'bordure');
+    expect(layerChoices(base).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'on-bordure']);
+    for (const key of ['on-chief', 'on-bordure'] as const) {
+      const added = addLayer(base, key);
+      expect(pathOfPlace(added, key), key).not.toBeNull();
+      expect(canonicalJson(removeLayer(added, key)), key).toBe(canonicalJson(base));
+    }
+    const carried = addLayer(addLayer(base, 'on-chief'), 'on-bordure');
+    expect([...layersOf(carried).keys()]).toEqual(['chief', 'on-chief', 'bordure', 'on-bordure']);
+    expect(canonicalJson(removeLayer(carried, 'chief'))).toBe(canonicalJson(removeLayer(addLayer(base, 'on-bordure'), 'chief')));
+    expect(layerChoices(removeLayer(carried, 'chief')).find((c) => c.value === 'on-chief')).toMatchObject({ allowed: false });
   });
 
   it('adding and removing a layer undoes itself, and leaves the others exactly as they were', () => {

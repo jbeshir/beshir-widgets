@@ -124,4 +124,22 @@ describe('controls that appear only when they apply', () => {
     expect(layersIn(bordered)).toEqual(['on-ordinary', 'bordure']);
     expect(removeLayer(bordered, 'bordure')).toEqual(withExtra);
   });
+
+  it('gives the pictures on a top band and on a border cards of their own', () => {
+    const framed = addLayer(addLayer(setOrdinary(DEFAULT_DESIGN, 'pale'), 'chief'), 'bordure');
+    const add = renderToString(h(AddLayer, { design: framed, onChange: noop }));
+    expect(add).toContain('Add pictures on the top bar');
+    expect(add).toContain('Add pictures on the border');
+    expect(renderToString(h(LayerStep, { ...base, design: framed, place: 'on-chief', n: 6, onAdjust: noop }))).toBe('');
+    const carried = addLayer(addLayer(framed, 'on-chief'), 'on-bordure');
+    expect(layersIn(carried)).toEqual(['chief', 'on-chief', 'bordure', 'on-bordure']);
+    for (const place of ['on-chief', 'on-bordure'] as const) {
+      const html = renderToString(h(LayerStep, { ...base, design: carried, place, n: 6, onAdjust: noop }));
+      const got = ids(html);
+      for (const id of [`step-layer-${place}`, `${place}-charge-select`, `${place}-count-select`, `${place}-count-1`, `${place}-charge-tincture`, `remove-layer-${place}`]) expect(got, id).toContain(id);
+      expect(got).not.toContain(`${place}-placement-select`);
+      expect(html).toContain(place === 'on-chief' ? 'Pictures on the top bar' : 'Pictures on the border');
+    }
+    expect(removeLayer(removeLayer(carried, 'on-chief'), 'on-bordure')).toEqual(framed);
+  });
 });

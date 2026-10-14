@@ -133,7 +133,7 @@ describe('Table 7: secondary and tertiary groups', () => {
     expect(hostCounts('on', 'chief')).toHaveLength(12);
     expect(hostCounts('on', 'cross')).toEqual([1, 4, 5]);
     expect(hostCounts('on', 'pile')).toEqual([1, 2, 3]);
-    expect(hostCounts('on', 'bordure')).toEqual([]);
+    expect(hostCounts('on', 'bordure')).toHaveLength(12);
   });
 
   it('has no layout context where the builder has none', () => {

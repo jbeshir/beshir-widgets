@@ -1,5 +1,5 @@
 // Builder transitions over places beyond the band and the picture ("layers"): the pictures on the band, a
-// top band (chief) and a border (bordure). Pure Design → Design, like every builder edit: a layer is added
+// top band (chief) and a border (bordure), and the pictures on those. Pure Design → Design, like every builder edit: a layer is added
 // where it can be drawn and given the first tincture that works, the pictures are refitted to the room it
 // leaves, and anything that can't be drawn is blocked with its reason, never silently dropped.
 
@@ -16,6 +16,15 @@ import { unsupportedIssues } from './support';
 /** The places the builder adds and removes on top of the band and the picture. */
 export type LayerKey = Exclude<PlaceKey, 'ordinary' | 'picture'>;
 export const LAYER_KEYS: readonly LayerKey[] = PLACE_KEYS.filter((k): k is LayerKey => k !== 'ordinary' && k !== 'picture');
+
+/** The layers that are a group of pictures, with a charge of their own. */
+export type PicturesKey = Extract<LayerKey, 'on-ordinary' | 'on-chief' | 'on-bordure'>;
+/** The layers that are a top band or a border, with a colour of their own. */
+export type PeripheralKey = Extract<LayerKey, 'chief' | 'bordure'>;
+
+/** The chief or bordure whose pictures a layer is. */
+const hostOfPictures = (key: Exclude<PicturesKey, 'on-ordinary'>): PeripheralKey => (key === 'on-chief' ? 'chief' : 'bordure');
+const peripheralName = (key: PeripheralKey): string => (key === 'chief' ? 'top band' : 'border');
 
 /** The path of the group in a layer, or null when the design has none. */
 export const layerPath = (d: Design, key: LayerKey): GroupPath | null => pathOfPlace(d, key);
@@ -61,7 +70,7 @@ function firstProblem(d: Design): string | null {
 
 /** The pictures refitted to the design they now sit in, in step order. */
 export function refitLayers(d: Design): Design {
-  return (['picture', 'on-ordinary'] as const).reduce((out, key) => {
+  return (['picture', 'on-ordinary', 'on-chief', 'on-bordure'] as const).reduce((out, key) => {
     const path = pathOfPlace(out, key);
     return path ? fitGroup(out, path) : out;
   }, d);
@@ -87,9 +96,6 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
   switch (key) {
     case 'on-ordinary': {
       if (!ordinary) return { reason: 'Add a band or shape first — pictures can only sit on one once there is one.' };
-      if (ordinary.item.k === 'ordinary' && ORDINARY_KIND[ordinary.item.type] === 'peripheral' && ordinary.item.type !== 'chief') {
-        return { reason: "Pictures can't sit on a border in this builder; put them on the background within it." };
-      }
       if (!parts.picture || parts.picture.placement !== 'field') return { reason: 'Pick a picture on the background first — more pictures can then go on the band.' };
       const placed = assembleParts(d, { ...partsOf(d), extra: newCharge(startingCharge(d), 'tertiary') });
       const path = pathOfPlace(placed, 'on-ordinary');
@@ -98,17 +104,33 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       const reason = layoutReason(fitted, path, true);
       return reason === null ? { design: withFirstTincture(fitted, path)! } : { reason };
     }
+    case 'on-chief': case 'on-bordure': {
+      const type = hostOfPictures(key);
+      const host = parts.peripherals.find((p) => p.place === type);
+      if (!host) {
+        return { reason: ordinary?.item.k === 'ordinary' && ordinary.item.type === type
+          ? `The ${peripheralName(type)} is your band or shape — add the pictures on it with the pictures on the band.`
+          : `Add a ${peripheralName(type)} first — pictures can only sit on one once there is one.` };
+      }
+      const peripherals = parts.peripherals.map((p) => (p.place === type ? { ...p.group, charged: [newCharge(startingCharge(d), 'tertiary')] } : p.group));
+      const placed = assembleParts(d, { ...partsOf(d), peripherals });
+      const path = pathOfPlace(placed, key);
+      if (!path) return { reason: `This ${peripheralName(type)} can not carry pictures.` };
+      const fitted = fitGroup(placed, path);
+      const reason = layoutReason(fitted, path, true);
+      return reason === null ? { design: withFirstTincture(fitted, path)! } : { reason };
+    }
     case 'chief': case 'bordure': {
       if (!ordinary) return { reason: 'Add a band or shape first — a top band or border goes beside one.' };
       const type: OrdinaryType = key;
-      if (ordinary.item.k === 'ordinary' && ordinary.item.type === type) return { reason: `The ${type === 'chief' ? 'top band' : 'border'} is already your band or shape.` };
+      if (ordinary.item.k === 'ordinary' && ordinary.item.type === type) return { reason: `The ${peripheralName(key)} is already your band or shape.` };
       const placed = refitLayers(assembleParts(d, { ...partsOf(d), peripherals: [...parts.peripherals.map((p) => p.group), ordinaryGroup(type, 'or')] }));
       const problem = firstProblem(placed);
       if (problem) return { reason: problem };
       // The new group is the chief or border whichever place it ends up in: a chief added beside a border becomes the design's ordinary.
       const path = [placed.groups.findIndex((g) => g.item.k === 'ordinary' && g.item.type === type)];
       const painted = withFirstTincture(placed, path);
-      return painted ? { design: painted } : { reason: `No colour works for a ${type === 'chief' ? 'top band' : 'border'} here.` };
+      return painted ? { design: painted } : { reason: `No colour works for a ${peripheralName(key)} here.` };
     }
   }
 }
@@ -133,17 +155,26 @@ export function removeLayer(d: Design, key: LayerKey): Design {
   const parts = simpleParts(d);
   switch (key) {
     case 'on-ordinary': return parts.extra ? refitLayers(assembleParts(d, { ...partsOf(d), extra: null })) : d;
+    case 'on-chief': case 'on-bordure': {
+      const type = hostOfPictures(key);
+      return refitLayers(assembleParts(d, { ...partsOf(d), peripherals: parts.peripherals.map((p) => (p.place === type ? { ...p.group, charged: [] } : p.group)) }));
+    }
     case 'chief': case 'bordure':
       return refitLayers(assembleParts(d, { ...partsOf(d), peripherals: parts.peripherals.filter((p) => p.place !== key).map((p) => p.group) }));
   }
 }
 
-/** The pictures on the band as this charge (their count, layout and tincture kept where they still work): the one layer with a charge of its own. */
-export function setLayerCharge(d: Design, id: ChargeId): Design {
+/** The pictures of a layer as this charge (their count, layout and tincture kept where they still work). */
+export function setLayerCharge(d: Design, key: PicturesKey, id: ChargeId): Design {
   const parts = simpleParts(d);
-  if (!parts.extra || !parts.picture) return d;
-  const swapped: Group = { ...parts.extra.group, item: chargeItem(id, parts.extra.group) };
-  return refitLayers(assembleParts(d, { ...partsOf(d), extra: swapped }));
+  if (key === 'on-ordinary') {
+    if (!parts.extra || !parts.picture) return d;
+    const swapped: Group = { ...parts.extra.group, item: chargeItem(id, parts.extra.group) };
+    return refitLayers(assembleParts(d, { ...partsOf(d), extra: swapped }));
+  }
+  const type = hostOfPictures(key);
+  const swap = (t: Group): Group => ({ ...t, item: chargeItem(id, t) });
+  return refitLayers(assembleParts(d, { ...partsOf(d), peripherals: parts.peripherals.map((p) => (p.place === type ? { ...p.group, charged: p.group.charged.map(swap) } : p.group)) }));
 }
 
 /** The layer's tincture. */

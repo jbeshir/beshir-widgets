@@ -18,6 +18,12 @@ interface Props {
   accordion: Accordion | null;
 }
 
+const PICTURES_HINT = {
+  'on-ordinary': 'Pictures drawn on the band, as well as the picture above.',
+  'on-chief': 'Pictures drawn on the top bar.',
+  'on-bordure': 'Small pictures drawn along the border.',
+} as const;
+
 /** The step of a layer the design has: pictures on the band, or a top band or border set beside it. */
 export function LayerStep({ design, place, n, onChange, onAdjust, issues, accordion }: Props) {
   const path = layerPath(design, place);
@@ -46,8 +52,9 @@ export function LayerStep({ design, place, n, onChange, onAdjust, issues, accord
       </Step>
     );
   }
+  if (item.k !== 'charge' || (place !== 'on-ordinary' && place !== 'on-chief' && place !== 'on-bordure')) return null;
   return (
-    <Step n={n} title={title} term={PLACE_LABEL[place].term} hint="Pictures drawn on the band, as well as the picture above." summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid={testid}>
+    <Step n={n} title={title} term={PLACE_LABEL[place].term} hint={PICTURES_HINT[place]} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid={testid}>
       <div class="control">
         <label class="picker-legend" for={`${place}-charge-select`}>Picture</label>
         <select
@@ -55,7 +62,7 @@ export function LayerStep({ design, place, n, onChange, onAdjust, issues, accord
           class="select"
           data-testid={`${place}-charge-select`}
           value={item.charge}
-          onChange={(e) => onChange(setCharge(design, 'on-ordinary', (e.currentTarget as HTMLSelectElement).value as ChargeId))}
+          onChange={(e) => onChange(setCharge(design, place, (e.currentTarget as HTMLSelectElement).value as ChargeId))}
         >
           {CHARGE_IDS.map((id) => <option key={id} value={id}>{chargeLabel(id)}</option>)}
         </select>

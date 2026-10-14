@@ -3,7 +3,7 @@
 // layout is Table 7's or a random one of the group's candidates. `generatedDesigns` makes the builder's level-0
 // space (the tests that rely on its distribution never change); `generatedRichDesigns` shares its internals and
 // adds the constructs the builder has gained since: a chief and a bordure beside the band, pictures on the band
-// as well as beside it.
+// as well as beside it, and pictures on the chief and the bordure.
 
 import { layoutCandidates, layoutKey, normalise, resolve, type Design } from '../src/lib/heraldry';
 
@@ -25,7 +25,7 @@ const ORDINARIES = ['fess', 'bend', 'bend-sinister', 'chief', 'bordure'];
 const CHARGES = ['lion', 'wolf', 'mullet', 'rose', 'sword', 'gear'];
 const POSTURES: Record<string, readonly string[]> = { lion: ['rampant', 'passant', 'statant'], wolf: ['passant', 'statant', 'rampant'] };
 
-/** The design for `seed`, or null when the random pick isn't a registrable design. `rich` adds a chief and a bordure beside the band, and pictures on it. */
+/** The design for `seed`, or null when the random pick isn't a registrable design. `rich` adds a chief and a bordure beside the band, and pictures on them. */
 function designFor(seed: number, rich: boolean): Design | null {
   const next = prng(seed);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
@@ -52,9 +52,11 @@ function designFor(seed: number, rich: boolean): Design | null {
     if (type !== null && type !== 'bordure' && pictureAt >= 0 && next() < 0.3) {
       groups[0] = { ...groups[0], charged: [{ item: { k: 'charge', charge: pick(CHARGES.filter((c) => c !== id)) }, paint: t(), count: 1 + Math.floor(next() * 3) }] };
     }
-    // A chief and a bordure beside the band (a chief or bordure that is the band itself gives way).
+    // A chief and a bordure beside the band (a chief or bordure that is the band itself gives way), some with pictures on them.
     for (const peripheral of ['chief', 'bordure']) {
-      if (type !== peripheral && next() < 0.35) groups.push({ item: { k: 'ordinary', type: peripheral }, paint: t() });
+      if (type === peripheral || next() >= 0.35) continue;
+      const carried = next() < 0.35 ? [{ item: { k: 'charge', charge: pick(CHARGES.filter((c) => c !== 'sword')) }, paint: t(), count: 1 + Math.floor(next() * (peripheral === 'chief' ? 4 : 8)) }] : [];
+      groups.push({ item: { k: 'ordinary', type: peripheral }, paint: t(), charged: carried });
     }
   }
 

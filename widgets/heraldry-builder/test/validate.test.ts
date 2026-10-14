@@ -68,7 +68,7 @@ describe('every stage over layouts good and bad', () => {
     for (const field of ['azure', div('per-pale', 'argent', 'sable'), div('quarterly', 'or', 'gules')]) {
       for (const type of [null, 'fess', 'chevron', 'chief', 'bordure']) {
         for (const placement of ['field', 'on'] as const) {
-          if (placement === 'on' && (type === null || type === 'bordure')) continue;
+          if (placement === 'on' && type === null) continue;
           for (let count = 1; count <= 12; count++) {
             for (const key of KEYS) {
               const picture = group(charge('mullet'), 'counterchanged', { count, ...(key ? { arrangement: key } : {}) });

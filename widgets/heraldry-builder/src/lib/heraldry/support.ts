@@ -63,8 +63,7 @@ function thing(g: Gap): string {
       return isOrdinaryType(g.detail) ? `${ORDINARY_ARTICLE[g.detail]} ${ORDINARY_NAME[g.detail]}` : `A ${d}`;
     case 'ordinary-treatment': return `A ${d} band or shape`;
     case 'multiple-groups':
-      if (g.detail === 'overall') return 'A charge overall';
-      return g.detail === 'tertiary-on-peripheral-beside-ordinary' ? 'Charges on a top band set beside a band or shape' : 'Two charge groups beside the main one';
+      return g.detail === 'overall' ? 'A charge overall' : 'Two charge groups beside the main one';
     case 'placement': return 'That placement of charges';
     case 'count': return 'That many charges';
     case 'charge-modifier': return `A ${d} charge`;
@@ -127,7 +126,7 @@ function placementGaps(d: Design, g: Group, host: Group | null): Gap[] {
     if (g.role !== 'secondary' || g.relation !== 'between' || !ordinary || !DRAWN_ORDINARIES.includes(ordinary)) return [];
     return hostCounts('between', ordinary).includes(g.count) ? [] : [gap('placement', `between-${ordinary}-${g.count}`)];
   }
-  if (host.item.k !== 'ordinary' || host.item.type === 'bordure' || !DRAWN_ORDINARIES.includes(host.item.type)) return [];
+  if (host.item.k !== 'ordinary' || !DRAWN_ORDINARIES.includes(host.item.type)) return [];
   const type = host.item.type;
   return hostCounts('on', type).includes(g.count) ? [] : [gap('placement', `on-${type}-${g.count}`)];
 }
@@ -160,12 +159,6 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Gap }> {
       out.push({ at: at([i]), gap: gap('placement', `peripheral-${g.item.type}`) });
     }
   }
-  // Charges on a chief set beside a central ordinary have no place in the builder yet.
-  if (primaries[0]?.g.item.k === 'ordinary') {
-    for (const { g, i } of peripherals) {
-      if (g.charged.length > 0) out.push({ at: at([i]), gap: gap('multiple-groups', 'tertiary-on-peripheral-beside-ordinary') });
-    }
-  }
   return out;
 }
 
@@ -187,7 +180,6 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
     const owner = group.item.k === 'ordinary' ? group.item.type : group.item.charge;
     const gaps = [...itemGaps(group.item), ...paintGaps(group.paint, false, owner), ...layoutGaps(group, hasChief), ...placementGaps(d, group, host)];
     if (host?.item.k === 'charge' && host.role !== 'tertiary') gaps.push(gap('multiple-groups', 'tertiary-on-charge'));
-    if (host?.item.k === 'ordinary' && host.item.type === 'bordure') gaps.push(gap('multiple-groups', 'tertiary-on-bordure'));
     if (host && group.item.k === 'ordinary') gaps.push(gap('placement', 'tertiary-ordinary'));
     for (const g of gaps) add(at, g);
   }

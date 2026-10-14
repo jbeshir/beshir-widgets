@@ -41,6 +41,7 @@ describe('deriveTags', () => {
     const chief = tags('gules', chg('mullet', 'argent', { count: 3 }), ord('chief', 'or', { charged: [chg('rose', 'gules', { count: 3 })] }));
     expect(chief).toContain('placement:on-chief');
     expect(chief).not.toContain('placement:on-ordinary');
+    expect(tags('gules', ord('bordure', 'or', { charged: [chg('rose', 'gules', { count: 8 })] }))).toContain('placement:on-bordure');
     expect(tags('gules', chg('mullet', 'argent', { count: 3 }))).not.toEqual(expect.arrayContaining([expect.stringMatching(/^placement:/)]));
   });
 

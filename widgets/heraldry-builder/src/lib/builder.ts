@@ -7,9 +7,9 @@
 import {
   CHARGES, DEFAULT_FIELD_SHAPE, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   fieldTinctures, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
-  isAllowed, isMetal, isSupported, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  isAllowed, isMetal, isSupported, layerPath, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   tinctureIssues, withTincture, withLayout, chargeItem, newCharge,
-  type ChargeId, type Companion, type Design, type Division, type Group, type GroupPath, type GroupTincture, type Issue,
+  type ChargeId, type Companion, type Design, type Division, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
@@ -104,15 +104,15 @@ function withFirstTincture(d: Design, path: GroupPath): Design {
 }
 
 /**
- * The picture ('picture') or the pictures on the band ('on-ordinary') as this charge; null removes it. A new
+ * The picture ('picture'), the pictures on the band ('on-ordinary') or the pictures on a top band or border ('on-chief', 'on-bordure') as this charge; null removes it. A new
  * picture starts as a single charge on the background in the first tincture that works; a swapped one
  * keeps its count, layout and tincture where they still work. Removing the picture promotes the
  * pictures on the band to the picture.
  */
-export function setCharge(d: Design, at: 'picture' | 'on-ordinary', id: ChargeId | null): Design {
-  if (at === 'on-ordinary') {
-    if (!id) return removeLayer(d, 'on-ordinary');
-    return simpleParts(d).extra ? setLayerCharge(d, id) : setLayerCharge(addLayer(d, 'on-ordinary'), id);
+export function setCharge(d: Design, at: 'picture' | PicturesKey, id: ChargeId | null): Design {
+  if (at !== 'picture') {
+    if (!id) return removeLayer(d, at);
+    return layerPath(d, at) ? setLayerCharge(d, at, id) : setLayerCharge(addLayer(d, at), at, id);
   }
   const parts = partsOf(d);
   if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.extra, placement: 'ordinary', extra: null }));
@@ -182,7 +182,7 @@ export function placementLabel(d: Design, placement: Placement): string {
   const o = simpleParts(d).ordinary?.group.item;
   const name = (type: OrdinaryType) => ORDINARY_LABEL[type].plain.toLowerCase();
   const ordinary = o?.k === 'ordinary' ? o.type : null;
-  if (placement === 'ordinary') return ordinary && ordinary !== 'bordure' ? `On the ${name(ordinary)}` : 'On the band or shape';
+  if (placement === 'ordinary') return ordinary ? `On the ${name(ordinary)}` : 'On the band or shape';
   if (!ordinary) return 'On the background';
   if (ordinary === 'chief') return 'Below the top bar';
   if (ordinary === 'bordure') return 'Within the border';

@@ -278,7 +278,7 @@ describe('a top band and a border beside the band', () => {
     const chief = addLayer(band, 'chief');
     expect(blazon(chief)).toBe('Azure, a chevron argent, a chief Or.');
     expect(assess(chief).status).toBe('valid');
-    expect(layerChoices(chief).map((c) => c.value)).toEqual(['on-ordinary', 'bordure']);
+    expect(layerChoices(chief).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'bordure', 'on-bordure']);
     expect(issueStep(chief, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: layerPath(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
     expect(blazon(setLayerTincture(chief, 'chief', 'gules'))).toContain('chief');
     const both = addLayer(chief, 'bordure');
@@ -320,11 +320,78 @@ describe('a top band and a border beside the band', () => {
   });
 });
 
+describe('pictures on a top band and on a border', () => {
+  const framed = addLayer(addLayer(setOrdinary(DEFAULT_DESIGN, 'pale'), 'chief'), 'bordure');
+  const allowed = (d: Design, key: LayerKey) => layerChoices(d).find((c) => c.value === key)?.allowed;
+
+  it('are offered once the top band or border is there, with a starting charge and the first colour that works', () => {
+    expect(allowed(setOrdinary(DEFAULT_DESIGN, 'pale'), 'on-chief')).toBe(false);
+    expect(allowed(framed, 'on-chief')).toBe(true);
+    expect(allowed(framed, 'on-bordure')).toBe(true);
+    const chief = addLayer(framed, 'on-chief');
+    expect(groupAt(chief, layerPath(chief, 'on-chief')!)).toMatchObject({ role: 'tertiary', count: 1, arrangement: { k: 'host' } });
+    expect(assess(chief).status).toBe('valid');
+    const bordure = addLayer(chief, 'on-bordure');
+    // The band's colour is carried over "and on a chief" when the top band shares it.
+    expect(blazon(bordure)).toMatch(/^Azure, a pale and on a chief Or an? \w+ \w+, on a bordure Or an? \w+ \w+\.$/);
+    expect(assess(bordure).status).toBe('valid');
+  });
+
+  it('take a charge, a count and a colour, and lay out along the border whatever the count', () => {
+    let d = setCharge(framed, 'on-bordure', 'mullet');
+    const path = layerPath(d, 'on-bordure')!;
+    expect(countChoices(d, path).filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    d = setCount(d, path, 8);
+    expect(blazon(d)).toMatch(/on a bordure \w+ eight mullets \w+\.$/);
+    expect(layoutChoices(d, layerPath(d, 'on-bordure')!)).toMatchObject({ mode: 'host' });
+    expect(blazon(setCharge(d, 'on-bordure', 'rose'))).toMatch(/eight roses/);
+    expect(layerPath(setCharge(d, 'on-bordure', null), 'on-bordure')).toBeNull();
+  });
+
+  it('are judged against the colour of the border they sit on, not the background', () => {
+    const d = addLayer(framed, 'on-bordure');
+    const border = groupAt(d, layerPath(d, 'bordure')!).paint;
+    const on = layerPath(d, 'on-bordure')!;
+    const tincture = border.k === 'tincture' ? border.t : null;
+    const same = groupTinctureChoices(d, on).find((c) => c.value === tincture)!;
+    expect(same.allowed).toBe(false);
+    expect(!same.allowed && same.reason).toMatch(/on the .* bordure/);
+    // Azure charges are fine on an Or border though the field behind is azure.
+    expect(groupTinctureChoices(setGroupTincture(d, layerPath(d, 'bordure')!, 'or'), on).find((c) => c.value === 'azure')?.allowed).toBe(true);
+  });
+
+  it('are kept when the band changes, and go with the top band or border they sit on', () => {
+    const carried = setCount(addLayer(addLayer(framed, 'on-chief'), 'on-bordure'), layerPath(addLayer(addLayer(framed, 'on-chief'), 'on-bordure'), 'on-chief')!, 2);
+    for (const type of ['fess', 'bend', 'chevron'] as const) {
+      const changed = setOrdinary(carried, type);
+      expect(layerPath(changed, 'on-chief'), type).not.toBeNull();
+      expect(layerPath(changed, 'on-bordure'), type).not.toBeNull();
+    }
+    expect(layerPath(removeLayer(carried, 'chief'), 'on-chief')).toBeNull();
+    expect(layerPath(removeLayer(carried, 'chief'), 'on-bordure')).not.toBeNull();
+    // With no band, the chief stands in its place and keeps the pictures on it.
+    const alone = setOrdinary(carried, null);
+    expect(simpleParts(alone).ordinary?.group.item).toMatchObject({ type: 'chief' });
+    expect(simpleParts(alone).picture).toMatchObject({ placement: 'ordinary' });
+    expect(layerPath(alone, 'on-bordure')).not.toBeNull();
+  });
+
+  it('are the band\'s own pictures when the top band or border is the band itself', () => {
+    const border = setOrdinary(DEFAULT_DESIGN, 'bordure');
+    expect(allowed(border, 'on-bordure')).toBe(false);
+    const pictured = setCharge(border, 'picture', 'mullet');
+    expect(groupAt(pictured, picture(pictured))).toMatchObject({ role: 'primary' });
+    const on = setPlacement(pictured, picture(pictured), 'ordinary');
+    expect(groupAt(on, picture(on))).toMatchObject({ role: 'tertiary' });
+    expect(placementLabel(on, 'ordinary')).toBe('On the border');
+  });
+});
+
 describe('extra pictures on the band', () => {
   it('are offered on a central ordinary or a chief when the picture is on the background', () => {
     const d = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet');
     expect(canAddExtra(d)).toBe(true);
-    expect(canAddExtra(setOrdinary(d, 'bordure'))).toBe(false);
+    expect(canAddExtra(setOrdinary(d, 'bordure'))).toBe(true);
     expect(canAddExtra(setOrdinary(d, null))).toBe(false);
     expect(canAddExtra(setPlacement(d, picture(d), 'ordinary'))).toBe(false);
     expect(canAddExtra(setCharge(DEFAULT_DESIGN, 'picture', null))).toBe(false);

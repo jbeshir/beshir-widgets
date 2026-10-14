@@ -35,10 +35,10 @@ export {
   drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pointInPolygon,
   counterchangedSlotParts, counterchangedOrdinaryParts, type Slot,
 } from './geometry';
-export { MIN_SLOT_SIZE, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
+export { MIN_SLOT_SIZE, minSlotSize, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
 export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
 export {
-  LAYER_KEYS, layerPath, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge, type LayerKey,
+  LAYER_KEYS, layerPath, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge, type LayerKey, type PeripheralKey, type PicturesKey,
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,

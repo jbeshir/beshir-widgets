@@ -49,6 +49,18 @@ describe('places of a design', () => {
     expect(names(nd(arms('azure', group(charge('lion'), 'or'), bordure, chief)))).toEqual([['ordinary', 'chief'], ['picture', 'lion'], ['bordure', 'bordure']]);
   });
 
+  it('name the pictures on a chief or a bordure beside the band, or the band with pictures on it when that is the chief or bordure itself', () => {
+    const on = (n: number) => ({ charged: [group(charge('mullet'), 'or', { count: n })] });
+    const beside = nd(arms('azure', group(ordinary('fess'), 'argent'), group(ordinary('chief'), 'gules', on(3)), group(ordinary('bordure'), 'gules', on(8))));
+    expect(names(beside)).toEqual([['ordinary', 'fess'], ['chief', 'chief'], ['on-chief', 'mullet'], ['bordure', 'bordure'], ['on-bordure', 'mullet']]);
+    expect(pathOfPlace(beside, 'on-chief')).toEqual([1, 0]);
+    expect(pathOfPlace(beside, 'on-bordure')).toEqual([2, 0]);
+    const standing = nd(arms('azure', group(ordinary('chief'), 'gules', on(3)), group(ordinary('bordure'), 'gules', on(8))));
+    expect(names(standing)).toEqual([['ordinary', 'chief'], ['on-ordinary', 'mullet'], ['bordure', 'bordure'], ['on-bordure', 'mullet']]);
+    const border = nd(arms('azure', group(ordinary('bordure'), 'argent', on(8))));
+    expect(names(border)).toEqual([['ordinary', 'bordure'], ['on-ordinary', 'mullet']]);
+  });
+
   it('call a chief with charges on it the band with pictures on it', () => {
     const d = nd(arms('azure', group(ordinary('chief'), 'argent', { charged: [rose(3)] })));
     expect(names(d)).toEqual([['ordinary', 'chief'], ['on-ordinary', 'rose']]);

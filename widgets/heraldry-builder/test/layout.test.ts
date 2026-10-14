@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  MIN_SLOT_SIZE, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
+  MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
   capacityIssue, shapeFrame, slotTransform, structuralIssues, type Layout, type LayoutContext, type OrdinaryType,
 } from '../src/lib/heraldry';
 import type { Pt } from '../src/lib/heraldry/geometry';
@@ -305,5 +305,51 @@ describe('around and on an ordinary with a chief and a bordure beside it', () =>
   it('say where charges sit in a capacity message', () => {
     const d = nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { count: 3 }), group(ordinary('chief'), 'argent')));
     expect(capacityIssue(d, [1])?.message).toMatch(/around the fess, under the chief/);
+  });
+});
+
+describe('charges on a bordure', () => {
+  const onBordure: LayoutContext = { k: 'on', ordinary: 'bordure', peripheral: 'none' };
+  const SHAPES = ['heater', 'banner', 'round', 'lozenge'] as const;
+
+  it('lie along the middle of the band in every shape: evenly, upright, one size, the first at the top', () => {
+    for (const shape of SHAPES) {
+      const frame = shapeFrame(shape);
+      const ring = pathPolygon(frame.outline), inset = pathPolygon(frame.inset);
+      for (const count of [1, 2, 3, 5, 8, 12]) {
+        const slots = slotsOf(onBordure, count, 'host', shape);
+        expect(slots, `${shape} ${count}`).toHaveLength(count);
+        expect(new Set(slots.map((s) => s.size)).size).toBe(1);
+        for (const s of slots) {
+          expect(s.rotation).toBe(0);
+          expect(pointInPolygon(s.x, s.y, ring), `${shape} ${count} inside`).toBe(true);
+          expect(pointInPolygon(s.x, s.y, inset), `${shape} ${count} outside the inner edge`).toBe(false);
+        }
+        expect(Math.min(...slots.map((s) => s.y))).toBeLessThan(frame.chiefBase / 2);
+      }
+    }
+  });
+
+  it('are as small as the band makes them, and still legible on the heater at every count', () => {
+    for (let count = 1; count <= 12; count++) {
+      const [slot] = slotsOf(onBordure, count, 'host');
+      expect(slot.size, String(count)).toBeLessThan(MIN_SLOT_SIZE);
+      expect(slot.size, String(count)).toBeGreaterThanOrEqual(minSlotSize(onBordure));
+    }
+    expect(minSlotSize(onBordure)).toBeLessThan(minSlotSize(field));
+  });
+
+  it('are not moved by what lies beside the bordure', () => {
+    const d = nd(arms('azure', group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'or', { charged: [group(charge('mullet'), 'gules', { count: 8 })] })));
+    expect(groupSlots(d, [1, 0], 'heater')).toEqual(slotsOf(onBordure, 8, 'host'));
+  });
+
+  it('compose a ground that is the ring: inside the outline, clear of the inner edge', () => {
+    const ground = groundFor(onBordure, 'heater');
+    expect(ground.avoid).toHaveLength(1);
+    expect(ground.within).toBeNull();
+    const [top] = slotsOf(onBordure, 1, 'host');
+    expect(fits([{ x: top.x, y: top.y, rotation: 0 }], top.size, ground, false)).toBe(true);
+    expect(fits([{ x: 50, y: 60, rotation: 0 }], top.size, ground, false)).toBe(false);
   });
 });

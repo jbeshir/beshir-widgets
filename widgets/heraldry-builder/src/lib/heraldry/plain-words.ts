@@ -168,7 +168,9 @@ export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
   picture: { plain: 'Picture', term: 'charge' },
   'on-ordinary': { plain: 'Extra pictures', term: 'charges on the ordinary' },
   chief: ORDINARY_LABEL.chief,
+  'on-chief': { plain: 'Pictures on the top bar', term: 'charges on the chief' },
   bordure: ORDINARY_LABEL.bordure,
+  'on-bordure': { plain: 'Pictures on the border', term: 'charges on the bordure' },
 };
 
 /**

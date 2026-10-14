@@ -12,8 +12,9 @@ import { groupAt, pathKey, type Design, type Group, type GroupPath } from './des
  * picture     — the top-level charges: primary on the field, or set between the band
  * on-ordinary — the charges on the ordinary
  * chief, bordure — a chief or bordure set beside the ordinary
+ * on-chief, on-bordure — the charges on that chief or bordure (on the ordinary itself when it is the chief or bordure the design stands on)
  */
-export const PLACE_KEYS = ['ordinary', 'picture', 'on-ordinary', 'chief', 'bordure'] as const;
+export const PLACE_KEYS = ['ordinary', 'picture', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure'] as const;
 export type PlaceKey = (typeof PLACE_KEYS)[number];
 
 export interface Placed { place: PlaceKey; path: GroupPath; group: Group }
@@ -47,7 +48,7 @@ export function placesIn(d: Design): { placed: Placed[]; unplaced: GroupPath[] }
     else if (type === 'chief' || type === 'bordure') add(type, [i], group);
     else if (group.item.k === 'charge' && (group.role === 'primary' || (group.role === 'secondary' && group.relation === 'between'))) add('picture', [i], group);
     else unplaced.push([i]);
-    if (i !== ordinary) group.charged.forEach((_, j) => unplaced.push([i, j]));
+    if (i !== ordinary) group.charged.forEach((tertiary, j) => (type === 'chief' || type === 'bordure' ? add(`on-${type}`, [i, j], tertiary) : unplaced.push([i, j])));
   });
   if (ordinary >= 0) d.groups[ordinary].charged.forEach((group, j) => add('on-ordinary', [ordinary, j], group));
   return { placed: placed.sort((a, b) => PLACE_KEYS.indexOf(a.place) - PLACE_KEYS.indexOf(b.place)), unplaced };

@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
-  hasBordure, hasChief, layoutOfKey, MIN_SLOT_SIZE, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
+  hasBordure, hasChief, layoutOfKey, minSlotSize, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ChargeId, type Design, type FieldShape, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
@@ -23,7 +23,7 @@ interface Entry { ctx: LayoutContext; count: number; layout: Layout; label: stri
 
 const COUNTS = Array.from({ length: 12 }, (_, i) => i + 1);
 const BETWEEN: OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
-const ON: OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'chief'];
+const ON: OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'chief', 'bordure'];
 
 const tinctured = (paint: string, item: object, extra: object = {}) => ({ item, paint, ...extra });
 
@@ -81,14 +81,16 @@ function catalogue(): { entries: Entry[]; rejected: number } {
       }
     }
     for (const type of ON) {
-      // A chief can't have a chief beside it.
-      if (type === 'chief' && hasChief(peripheral)) continue;
+      // A chief can't have a chief beside it, nor a bordure a bordure.
+      if ((type === 'chief' && hasChief(peripheral)) || (type === 'bordure' && hasBordure(peripheral))) continue;
+      // What lies beside a bordure doesn't change where its charges go.
+      const hostPeripheral: Peripheral = type === 'bordure' ? 'none' : peripheral;
       for (const count of COUNTS) {
         const make = () => resolved({
           v: 2, field: 'azure',
           groups: [tinctured('or', { k: 'ordinary', type }, { charged: [tinctured('argent', chargeItem('mullet'), { count })] }), ...beside],
         });
-        consider(count, { k: 'on', ordinary: type, peripheral }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
+        consider(count, { k: 'on', ordinary: type, peripheral: hostPeripheral }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
       }
     }
   }
@@ -155,6 +157,8 @@ function groundFits(g: ShapeGeometry, ctx: LayoutContext, margin: number, narrow
   // What the chief and bordure beside the group leave: inside the bordure's inner edge, below the chief.
   const inFrame = (p: Pt) => (hasBordure(ctx.peripheral) ? pointInPolygon(p[0], p[1], g.inset) : onShape(p)) && (!hasChief(ctx.peripheral) || p[1] >= g.chiefBase);
   if (ctx.k === 'field') return inFrame;
+  // On the bordure: inside the shape and outside the bordure's inner edge.
+  if (ctx.k === 'on' && ctx.ordinary === 'bordure') return (p) => onShape(p) && !pointInPolygon(p[0], p[1], g.inset);
   const poly = g.poly(ctx.ordinary);
   // Chevron and saltire arms are narrower than a square charge's corners, so only glyph discs are held to them.
   const respect = !narrowBands || ART_RESPECTS.includes(ctx.ordinary);
@@ -173,7 +177,7 @@ describe('layout catalogue', () => {
     expect(CATALOGUE.length).toBeGreaterThan(150);
     for (const key of [
       'field/none', 'field/bordure', 'field/chief', 'between fess', 'between bend', 'on fess', 'on bend', 'on chevron', 'on chief', 'on cross',
-      'between chevron/bordure', 'between pale/chief', 'between bend/chief-bordure', 'on fess/bordure', 'on bend/chief', 'on chief/bordure',
+      'between chevron/bordure', 'between pale/chief', 'between bend/chief-bordure', 'on fess/bordure', 'on bend/chief', 'on chief/bordure', 'on bordure', 'on bordure/chief',
     ]) {
       expect(CATALOGUE.some((e) => e.label.startsWith(key)), key).toBe(true);
     }
@@ -182,7 +186,7 @@ describe('layout catalogue', () => {
   it('slots are inside the legible range on the heater', () => {
     const small = CATALOGUE.filter((e) => {
       const slots = contextSlots(e.ctx, e.count, e.layout, 'heater');
-      return slots.length !== e.count || slots[0].size < MIN_SLOT_SIZE;
+      return slots.length !== e.count || slots[0].size < minSlotSize(e.ctx);
     });
     expect(small.map((e) => e.label)).toEqual([]);
   });

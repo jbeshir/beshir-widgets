@@ -7,8 +7,8 @@
 
 import {
   CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices,
-  modifierChoices, postureChoices, setLayerTincture, simpleParts,
-  type ChargeId, type Choice, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerKey, type OrdinaryType, type Posture, type Tincture,
+  modifierChoices, pathOfPlace, postureChoices, setLayerTincture, simpleParts,
+  type ChargeId, type Choice, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
@@ -16,10 +16,10 @@ import {
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
-/** The places the picture controls belong to: the picture, and the pictures on the band. */
-type At = 'picture' | 'on-ordinary';
-/** The layers with a colour of their own and nothing else: a top band and a border. */
-type Peripheral = Extract<LayerKey, 'chief' | 'bordure'>;
+/** The places the picture controls belong to: the picture, and the pictures on the band, the top band and the border. */
+type At = 'picture' | PicturesKey;
+/** The pictures laid out after the picture, in the order they are added. */
+const EXTRA_PICTURES: readonly PicturesKey[] = ['on-ordinary', 'on-chief', 'on-bordure'];
 
 /** One click in the builder's Design tab. */
 export type BuilderAction =
@@ -29,7 +29,7 @@ export type BuilderAction =
   | { kind: 'ordinary'; type: OrdinaryType | null }
   | { kind: 'ordinary-tincture'; tincture: GroupTincture }
   | { kind: 'add-layer'; place: LayerKey }
-  | { kind: 'layer-tincture'; place: Peripheral; tincture: GroupTincture }
+  | { kind: 'layer-tincture'; place: PeripheralKey; tincture: GroupTincture }
   | { kind: 'charge'; at: At; charge: ChargeId | null }
   | { kind: 'layout'; at: At; action: LayoutAction; design: Design }
   | { kind: 'posture'; at: At; posture: Posture }
@@ -37,8 +37,8 @@ export type BuilderAction =
   | { kind: 'charge-tincture'; at: At; tincture: GroupTincture };
 
 const tinctureOf = (g: Group): GroupTincture | null => groupTinctureOf(g.paint);
-const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? picturePath(d) : simpleParts(d).extra?.path ?? null);
-const peripheralAt = (d: Design, place: Peripheral): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
+const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? picturePath(d) : at === 'on-ordinary' ? simpleParts(d).extra?.path ?? null : pathOfPlace(d, at));
+const peripheralAt = (d: Design, place: PeripheralKey): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
 
 /** Why a choice list doesn't offer and allow `v`, or null when it does. */
 function choiceReason<T>(choices: Choice<T>[], v: T): string | null {
@@ -71,7 +71,10 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : `there is no ${a.place} to colour`;
     }
     case 'charge':
-      if (a.at === 'on-ordinary' && a.charge !== null && choiceReason(layerChoices(d), 'on-ordinary') && !pathAt(d, 'on-ordinary')) return 'pictures on the band are not offered';
+      if (a.at !== 'picture' && a.charge !== null && !pathAt(d, a.at)) {
+        const reason = choiceReason(layerChoices(d), a.at);
+        if (reason) return `pictures ${a.at} are not offered: ${reason}`;
+      }
       return a.charge === null || CHARGE_IDS.includes(a.charge) ? null : `${a.charge} is not offered`;
     case 'layout': return null;
     case 'posture': {
@@ -229,15 +232,15 @@ export function builderPath(goal: Design): BuilderPath {
 
   // The top band and border beside the ordinary, before the pictures they leave room for.
   for (const peripheral of parts.peripherals) {
-    const place = peripheral.place as Peripheral;
+    const place = peripheral.place as PeripheralKey;
     if (!click({ kind: 'add-layer', place })) return done();
     const t = tinctureOf(peripheral.group);
     if (t && tinctureOf(groupAt(d, peripheralAt(d, place)!)) !== t && !click({ kind: 'layer-tincture', place, tincture: t })) return done();
   }
 
-  // The picture, then the extra pictures on the band.
-  for (const at of ['picture', 'on-ordinary'] as const) {
-    const part = at === 'picture' ? parts.picture : parts.extra;
+  // The picture, then the extra pictures on the band, the top band and the border.
+  for (const at of ['picture', ...EXTRA_PICTURES] as const) {
+    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : parts.peripheralPictures.find((p) => p.place === at);
     if (!part) continue;
     const item = part.group.item;
     if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };

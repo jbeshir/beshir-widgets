@@ -32,7 +32,7 @@ export function deriveTags(d: Design): string[] {
       add(`charge-count:${group.count}`);
       if (posture) add(`posture:${posture}`);
       add(`layout:${layoutKey({ arrangement: group.arrangement, position: group.position })}`);
-      if (host) add(host.item.k === 'ordinary' && host.item.type === 'chief' ? 'placement:on-chief' : 'placement:on-ordinary');
+      if (host) add(host.item.k === 'ordinary' && (host.item.type === 'chief' || host.item.type === 'bordure') ? `placement:on-${host.item.type}` : 'placement:on-ordinary');
       else if (group.relation === 'between') add('placement:between');
     }
     if (group.paint.k === 'tincture') all.add(group.paint.t);

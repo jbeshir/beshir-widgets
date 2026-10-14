@@ -10,7 +10,7 @@
 //
 // The builder's level-0 space is one ordinary, one picture group (on the background or on the ordinary)
 // and, when the picture is on the background, one extra picture group on the ordinary; a chief and a
-// bordure may stand beside them. `simpleParts` finds them in a design (by place, places.ts) and
+// bordure may stand beside them, each with a picture group of its own. `simpleParts` finds them in a design (by place, places.ts) and
 // `assembleParts` puts them back with the roles, relations and host layouts the model needs.
 
 import { TINCTURES, TINCTURE_NAME, type Tincture } from './tinctures';
@@ -76,13 +76,13 @@ export interface SimpleParts {
   ordinary: Placed | null;
   /** The chief and the bordure beside the ordinary, in that order. */
   peripherals: Placed[];
+  /** The pictures on the chief and on the bordure beside the ordinary, in that order. */
+  peripheralPictures: Placed[];
   picture: (Placed & { placement: Placement }) | null;
   extra: Placed | null;
 }
 
 const isCentral = (g: Group) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central';
-/** Whether pictures can sit on this ordinary: a central one or the chief. */
-const hostsPictures = (g: Group) => g.item.k === 'ordinary' && (isCentral(g) || g.item.type === 'chief');
 
 /**
  * Where the ordinary, the picture and the extra picture are. The picture is the top-level charge group
@@ -96,6 +96,7 @@ export function simpleParts(d: Design): SimpleParts {
   return {
     ordinary: at('ordinary'),
     peripherals: placed.filter((p) => p.place === 'chief' || p.place === 'bordure'),
+    peripheralPictures: placed.filter((p) => p.place === 'on-chief' || p.place === 'on-bordure'),
     picture: picture ? { ...picture, placement: 'field' } : onOrdinary && { ...onOrdinary, placement: 'ordinary' },
     extra: picture ? onOrdinary : null,
   };
@@ -125,20 +126,20 @@ export function partsOf(d: Design): PartsInput {
 /**
  * The canonical design with these groups put where the model wants them: the ordinary primary (or
  * peripheral), the picture on the background (secondary between a central ordinary, else primary) or
- * on the ordinary as its tertiary, the extra picture on the ordinary, the peripherals beside them. A
- * picture that can't sit on the ordinary stays on the background; an extra picture needs the picture
- * on the background and an ordinary to sit on, or is dropped. With no ordinary, the first peripheral
- * (the chief, else the bordure) stands in its place.
+ * on the ordinary as its tertiary, the extra picture on the ordinary, the peripherals beside them with
+ * the pictures on them. An extra picture needs the picture on the background and an ordinary to sit
+ * on, or is dropped. With no ordinary, the first peripheral (the chief, else the bordure) stands in
+ * its place and keeps the pictures it carried.
  */
 export function assembleParts(d: Design, { ordinary, peripherals, picture, placement, extra }: PartsInput): Design {
-  const hosts = ordinary !== null && hostsPictures(ordinary);
+  const hosts = ordinary !== null;
   const onOrdinary = picture !== null && placement === 'ordinary' && hosts;
   const standing = ordinary ?? peripherals[0] ?? null;
   const beside = ordinary ? peripherals : peripherals.slice(1);
   const central = standing !== null && isCentral(standing);
   const tertiary = (g: Group): Group => ({ ...g, role: 'tertiary', relation: null, arrangement: HOST_LAYOUT.arrangement, position: null, charged: [] });
-  const charged = onOrdinary ? [tertiary(picture)] : picture && extra && hosts ? [tertiary(extra)] : [];
-  const peripheral = (g: Group): Group => ({ ...g, role: 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged: [] });
+  const charged = onOrdinary ? [tertiary(picture)] : picture && extra && hosts ? [tertiary(extra)] : ordinary === null && standing ? standing.charged.map(tertiary) : [];
+  const peripheral = (g: Group): Group => ({ ...g, role: 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged: g.charged.map(tertiary) });
   const groups: Group[] = [
     ...(standing ? [{ ...standing, role: central ? 'primary' as const : 'peripheral' as const, relation: null, arrangement: { k: 'single' } as const, position: null, charged }] : []),
     ...beside.map(peripheral),
@@ -274,21 +275,33 @@ function placementReason(parts: SimpleParts, placement: Placement): string | nul
   if (placement === 'field') return null;
   const ordinary = parts.ordinary?.group;
   if (!ordinary) return 'Add a band or shape first — pictures can only sit on one once there is one.';
-  if (!hostsPictures(ordinary)) return "Pictures can't sit on a border in this builder; put them on the background within it.";
   if (parts.extra) return 'The band already carries more pictures — remove them to move the main picture onto it.';
   return null;
 }
 
-/** Which of the picture and extra picture a path is, or null for any other group. */
-function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'extra' | null {
+/** Which of the picture, the extra picture and the pictures on a chief or bordure a path is, or null for any other group. */
+function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'extra' | 'peripheral' | null {
   if (parts.picture && samePath(parts.picture.path, path)) return 'picture';
-  return parts.extra && samePath(parts.extra.path, path) ? 'extra' : null;
+  if (parts.extra && samePath(parts.extra.path, path)) return 'extra';
+  return parts.peripheralPictures.some((p) => samePath(p.path, path)) ? 'peripheral' : null;
+}
+
+/** The design with the pictures on a chief or bordure at `path` given a new count, and where they are now. */
+function editPeripheralPictures(d: Design, path: GroupPath, count: number): Edited {
+  const parts = simpleParts(d);
+  const place = parts.peripheralPictures.find((p) => samePath(p.path, path))!.place;
+  const peripherals = parts.peripherals.map(({ path: host, group }) => (
+    host[0] === path[0] ? { ...group, charged: group.charged.map((t) => ({ ...t, count })) } : group
+  ));
+  const design = assembleParts(d, { ...partsOf(d), peripherals });
+  return { design, path: simpleParts(design).peripheralPictures.find((p) => p.place === place)!.path };
 }
 
 /** The design with the picture (or extra picture) at `path` given a new count and/or placement, and where it is now; its layout is left for the caller. */
 function edit(d: Design, path: GroupPath, change: { count?: number; placement?: Placement }): Edited | { reason: string } {
   const parts = simpleParts(d);
   const part = partOf(parts, path);
+  if (part === 'peripheral') return editPeripheralPictures(d, path, change.count ?? groupAt(d, path).count);
   if (!part || !parts.picture) throw new RangeError(`The group at ${path.join('.')} is not a picture.`);
   const placement = part === 'picture' ? change.placement ?? parts.picture.placement : parts.picture.placement;
   const reason = placement === parts.picture.placement ? null : placementReason(parts, placement);
@@ -343,7 +356,7 @@ function countsByNearness(count: number): number[] {
  */
 function layoutChoice<T>(d: Design, path: GroupPath, value: T, partner: Companion['kind'], tries: Array<[number, Placement]>): LayoutChoice<T> {
   const g = groupAt(d, path);
-  const placement = simpleParts(d).picture?.placement;
+  const placement = simpleParts(d).picture?.placement ?? 'field';
   let first: Fit | null = null;
   let fit: Fit | null = null;
   for (const [count, p] of tries) {
@@ -358,10 +371,12 @@ function layoutChoice<T>(d: Design, path: GroupPath, value: T, partner: Companio
   return { value, allowed: true, design: fit.design, companion };
 }
 
-/** The placements to try for a group: the picture may move between them, an extra picture stays where it is. */
+/** The placements to try for a group: the picture may move between them, the other pictures stay where they are. */
 function placementsFor(parts: SimpleParts, path: GroupPath): Placement[] | null {
   const part = partOf(parts, path);
-  if (!part || !parts.picture) return null;
+  if (!part) return null;
+  if (part === 'peripheral') return [parts.picture?.placement ?? 'field'];
+  if (!parts.picture) return null;
   return part === 'extra' ? [parts.picture.placement] : [parts.picture.placement, ...PLACEMENTS.filter((p) => p !== parts.picture!.placement)];
 }
 
@@ -443,15 +458,15 @@ export function modifierChoices(d: Design, path: GroupPath): Choice<ModifierId>[
 // ── Repairs ─────────────────────────────────────────────────────────────────
 
 /**
- * Make the picture (or extra picture) at `path` structurally legal after a lower-layer change: the
+ * Make the picture (or extra picture, or the pictures on a chief or bordure) at `path` structurally legal after a lower-layer change: the
  * nearest count that has a layout, in the layout kept or Table 7's. Tinctures are left alone (a tincture
  * conflict is surfaced, not silently fixed). A design where none works is returned unchanged.
  */
 export function fitGroup(d: Design, path: GroupPath): Design {
   const parts = simpleParts(d);
   const g = groupAt(d, path);
-  const placement = parts.picture?.placement;
-  if (g.item.k !== 'charge' || !placement || structureBlock(d, path) === null) return d;
+  const placement = parts.picture?.placement ?? 'field';
+  if (g.item.k !== 'charge' || structureBlock(d, path) === null) return d;
   for (const n of countsByNearness(g.count)) {
     const fit = fitLayout(d, path, n, placement, false);
     if (fit.fits) return fit.design;

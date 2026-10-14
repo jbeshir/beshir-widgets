@@ -20,9 +20,13 @@ import { MAX_DRAWN_COUNT } from './support';
 
 /** The smallest slot (shield units, heater) a charge is drawn in and still reads. */
 export const MIN_SLOT_SIZE = 14;
+/** The smallest slot of a charge on a bordure: the band is ten units wide on the heater, so charges on it are small. */
+const MIN_BORDURE_SLOT_SIZE = 6;
 
 /** Clear space kept between a charge and the shield's edge, and between charges and the band they sit around. */
 const MARGIN = 2;
+/** Charges on a bordure keep this clear of its two edges: the band is too narrow for more. */
+const BORDURE_MARGIN = 1.5;
 /** Charges are drawn no larger than a lone charge on the field. */
 const MAX_SLOT_SIZE = 90;
 /** Two crossed long charges share a centre, so they are kept smaller. */
@@ -306,11 +310,77 @@ function nominalCentres(ctx: LayoutContext, count: number, layout: Layout): Cent
   return ruled ?? (ctx.peripheral === 'none' ? null : handCentres(ctx, count));
 }
 
+// ── Charges on a bordure ────────────────────────────────────────────────────
+
+/** The ring moved outwards by half its distance from `edge` (each corner along its bisector): the middle of the band between them. */
+function midline(path: readonly Pt[], edge: readonly Pt[]): Pt[] {
+  // A flattened closed path ends on its first point; the ring has it once.
+  const ring = path.filter((p, i) => i === 0 || p[0] !== path[i - 1][0] || p[1] !== path[i - 1][1]);
+  if (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
+  const area = ring.reduce((sum, [x, y], i) => { const [nx, ny] = ring[(i + 1) % ring.length]; return sum + x * ny - nx * y; }, 0);
+  const outward = (a: Pt, b: Pt): Pt => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const [dx, dy] = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    return area > 0 ? [dy, -dx] : [-dy, dx];
+  };
+  return ring.map((p, i) => {
+    const before = outward(ring[(i + ring.length - 1) % ring.length], p), after = outward(p, ring[(i + 1) % ring.length]);
+    const sum: Pt = [before[0] + after[0], before[1] + after[1]];
+    const len = Math.hypot(sum[0], sum[1]) || 1;
+    const normal: Pt = [sum[0] / len, sum[1] / len];
+    const half = edgeDistance(edge, p[0], p[1]) / 2;
+    // A corner is moved along its bisector far enough that both sides move by `half`.
+    const reach = half / Math.max(0.5, normal[0] * after[0] + normal[1] * after[1]);
+    return [p[0] + normal[0] * reach, p[1] + normal[1] * reach];
+  });
+}
+
+/** `m` points evenly by arc length along a closed polyline, the first at the top of it on the vertical axis, going clockwise. */
+function evenlyFromTop(ring: readonly Pt[], m: number): Pt[] {
+  const closed = [...ring, ring[0]];
+  const lengths = closed.slice(1).map((p, i) => Math.hypot(p[0] - closed[i][0], p[1] - closed[i][1]));
+  const total = lengths.reduce((a, b) => a + b, 0);
+  const area = ring.reduce((sum, [x, y], i) => { const [nx, ny] = ring[(i + 1) % ring.length]; return sum + x * ny - nx * y; }, 0);
+  // Where the ring crosses x = 50 highest up.
+  let top = { y: Infinity, at: 0 }, before = 0;
+  closed.slice(1).forEach((p, i) => {
+    const [a, b] = [closed[i], p];
+    if ((a[0] - 50) * (b[0] - 50) <= 0 && a[0] !== b[0]) {
+      const t = (50 - a[0]) / (b[0] - a[0]), y = a[1] + (b[1] - a[1]) * t;
+      if (y < top.y) top = { y, at: before + t * lengths[i] };
+    }
+    before += lengths[i];
+  });
+  return Array.from({ length: m }, (_, k) => {
+    // The polylines run clockwise on the page when their signed area is positive.
+    let rest = (((top.at + (area > 0 ? 1 : -1) * (k / m) * total) % total) + total) % total, i = 0;
+    while (rest > lengths[i]) rest -= lengths[i++];
+    const t = rest / lengths[i];
+    return [closed[i][0] + (closed[i + 1][0] - closed[i][0]) * t, closed[i][1] + (closed[i + 1][1] - closed[i][1]) * t];
+  });
+}
+
+/** Upright charges evenly along the middle of the bordure of a shape: the arrangement follows the bordure. */
+function bordureCentres(count: number, shape: FieldShape): Centre[] {
+  const frame = shapeFrame(shape);
+  const centre = midline(pathPolygon(frame.inset), pathPolygon(frame.outline));
+  return evenlyFromTop(centre, count).map(([x, y]) => at(x, y));
+}
+
+/** Charges on a bordure are laid out in each shape's own bordure, not mapped from the heater's. */
+function bordureSlots(count: number, shape: FieldShape): Slot[] {
+  const centres = bordureCentres(count, shape);
+  const size = largestSize(centres, groundFor({ k: 'on', ordinary: 'bordure', peripheral: 'none' }, shape), false);
+  return size < 1 ? [] : toSlots(centres, size);
+}
+
 // ── Generic engine: fitting ─────────────────────────────────────────────────
 
 /** What the slots must stay inside and clear of, in one shape. */
 export interface Ground {
   contain: readonly Pt[];
+  /** How far a slot's glyph disc keeps from the edges of `contain` and from the polygons it avoids. */
+  margin: number;
   /** Slots lie below this line (under a chief). */
   minTop: number;
   /** Polygons the slots stay clear of (the ordinary they are set between). */
@@ -320,16 +390,22 @@ export interface Ground {
 }
 
 /** The part of a shape the peripherals leave to the field: inside the bordure, below the chief. */
-function frameGround(peripheral: Peripheral, shape: FieldShape): Pick<Ground, 'contain' | 'minTop'> {
+function frameGround(peripheral: Peripheral, shape: FieldShape): Pick<Ground, 'contain' | 'margin' | 'minTop'> {
   const frame = shapeFrame(shape);
   return {
     contain: pathPolygon(hasBordure(peripheral) ? frame.inset : frame.outline),
+    margin: MARGIN,
     minTop: hasChief(peripheral) ? frame.chiefBase : -Infinity,
   };
 }
 
 export function groundFor(ctx: LayoutContext, shape: FieldShape): Ground {
   if (ctx.k === 'field') return { ...frameGround(ctx.peripheral, shape), avoid: [], within: null };
+  if (ctx.k === 'on' && ctx.ordinary === 'bordure') {
+    // On the ring: inside the outline, outside the inner edge.
+    const frame = shapeFrame(shape);
+    return { contain: pathPolygon(frame.outline), margin: BORDURE_MARGIN, minTop: -Infinity, avoid: [pathPolygon(frame.inset)], within: null };
+  }
   const polygon = pathPolygon(ordinaryPath(ctx.ordinary, shape));
   return {
     ...frameGround(ctx.peripheral, shape),
@@ -353,10 +429,10 @@ function edgeDistance(poly: readonly Pt[], x: number, y: number): number {
 export function fits(centres: readonly Centre[], size: number, ground: Ground, crossed: boolean): boolean {
   const r = GLYPH_RADIUS * size;
   for (const c of centres) {
-    if (!pointInPolygon(c.x, c.y, ground.contain) || edgeDistance(ground.contain, c.x, c.y) < r + MARGIN) return false;
-    if (c.y - r - MARGIN < ground.minTop) return false;
+    if (!pointInPolygon(c.x, c.y, ground.contain) || edgeDistance(ground.contain, c.x, c.y) < r + ground.margin) return false;
+    if (c.y - r - ground.margin < ground.minTop) return false;
     if (ground.within && (!pointInPolygon(c.x, c.y, ground.within) || edgeDistance(ground.within, c.x, c.y) < r)) return false;
-    if (ground.avoid.some((poly) => pointInPolygon(c.x, c.y, poly) || edgeDistance(poly, c.x, c.y) < r + MARGIN)) return false;
+    if (ground.avoid.some((poly) => pointInPolygon(c.x, c.y, poly) || edgeDistance(poly, c.x, c.y) < r + ground.margin)) return false;
   }
   if (!crossed) {
     for (let i = 0; i < centres.length; i++) {
@@ -487,7 +563,7 @@ export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, 
   const key = `${JSON.stringify(ctx)}|${count}|${layoutKey(layout)}|${shape}`;
   let slots = memo.get(key);
   if (!slots) {
-    slots = handSlots(ctx, count, layout, shape) ?? genericIn(ctx, count, layout, shape);
+    slots = ctx.k === 'on' && ctx.ordinary === 'bordure' ? bordureSlots(count, shape) : handSlots(ctx, count, layout, shape) ?? genericIn(ctx, count, layout, shape);
     memo.set(key, slots);
   }
   return slots;
@@ -511,12 +587,15 @@ export function canonicalSlots(d: Design, path: GroupPath): Slot[] {
   return groupSlots(d, path, CANONICAL_SHAPE);
 }
 
+/** The smallest slot (heater units) the charges of a context are drawn in. */
+export const minSlotSize = (ctx: LayoutContext): number => (ctx.k === 'on' && ctx.ordinary === 'bordure' ? MIN_BORDURE_SLOT_SIZE : MIN_SLOT_SIZE);
+
 /** The most charges, counting up from one, that fit legibly in a context; `layoutFor` says how n charges are laid out. */
 export function largestFittingCount(ctx: LayoutContext, layoutFor: (n: number) => Layout): number {
   let n = 0;
   while (n < MAX_DRAWN_COUNT) {
     const slots = contextSlots(ctx, n + 1, layoutFor(n + 1), CANONICAL_SHAPE);
-    if (slots.length !== n + 1 || slots[0].size < MIN_SLOT_SIZE) break;
+    if (slots.length !== n + 1 || slots[0].size < minSlotSize(ctx)) break;
     n += 1;
   }
   return n;
@@ -541,7 +620,7 @@ export function hasRoom(d: Design, path: GroupPath): boolean {
   const l = layoutOf(d, path);
   if (!l) return true;
   const slots = contextSlots(l.ctx, l.count, l.layout, CANONICAL_SHAPE);
-  return slots.length === l.count && slots[0].size >= MIN_SLOT_SIZE;
+  return slots.length === l.count && slots[0].size >= minSlotSize(l.ctx);
 }
 
 /** Why a group's charges don't fit where they sit (the most that would, and where), or null when they do (or when they sit nowhere this builder lays out). Only meaningful once the layout itself is legal. */

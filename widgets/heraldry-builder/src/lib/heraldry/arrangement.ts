@@ -130,7 +130,11 @@ export function primaryOrdinary(d: Design): OrdinaryType | null {
 /** Where a charge group sits, or null for a group this builder has no layout for (ordinaries, overall, charges on charges, …). */
 export function contextOf(d: Design, group: Group, host: Group | null): LayoutContext | null {
   if (group.item.k !== 'charge') return null;
-  if (host) return host.item.k === 'ordinary' && group.role === 'tertiary' ? { k: 'on', ordinary: host.item.type, peripheral: peripheralOf(d, host) } : null;
+  if (host) {
+    if (host.item.k !== 'ordinary' || group.role !== 'tertiary') return null;
+    // The bordure runs round the whole edge, under no chief of its own: what lies beside it doesn't change where its charges go.
+    return { k: 'on', ordinary: host.item.type, peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
+  }
   if (group.role === 'primary') return fieldContext(peripheralOf(d));
   if (group.role === 'secondary' && group.relation === 'between') {
     const ordinary = primaryOrdinary(d);
@@ -179,7 +183,7 @@ export function betweenWords(ordinary: OrdinaryType, count: number): string | nu
 export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): readonly number[] {
   if (kind === 'between') return Object.keys(BETWEEN[ordinary] ?? {}).map(Number);
   switch (ordinary) {
-    case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': return Array.from({ length: 12 }, (_, i) => i + 1);
+    case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': case 'bordure': return Array.from({ length: 12 }, (_, i) => i + 1);
     case 'cross': case 'saltire': return [1, 4, 5];
     case 'pile': return [1, 2, 3];
     default: return [];

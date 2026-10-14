@@ -5,16 +5,18 @@ import { useState } from 'preact/hooks';
 import { addLayer, groupAt, layerChoices, ORDINARY_LABEL, type Design, type LayerKey } from '../../lib/heraldry';
 import { ordinaryPath } from '../../lib/builder';
 
-/** What the pictures on the band are sitting on, in the builder's words: "band" or "top bar". */
+/** What the pictures on the band are sitting on, in the builder's words: "band", "top bar" or "border". */
 function hostWord(design: Design): string {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
-  return item?.k === 'ordinary' && item.type === 'chief' ? 'top bar' : 'band';
+  return item?.k === 'ordinary' && item.type === 'chief' ? 'top bar' : item?.k === 'ordinary' && item.type === 'bordure' ? 'border' : 'band';
 }
 
 const buttonText = (design: Design, key: LayerKey): string => {
   switch (key) {
     case 'on-ordinary': return `Add pictures on the ${hostWord(design)}`;
+    case 'on-chief': return 'Add pictures on the top bar';
+    case 'on-bordure': return 'Add pictures on the border';
     case 'chief': case 'bordure': return `Add a ${key === 'chief' ? 'top band' : 'border'} (${ORDINARY_LABEL[key].term})`;
   }
 };
