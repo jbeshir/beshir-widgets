@@ -111,6 +111,7 @@ const PLACE_WORDS: Readonly<Record<string, string>> = { chief: 'along the top', 
 const ROW_PLAIN: Record<string, string> = {
   '2-1': 'Two above, one below',
   '2-2': 'Two above, two below',
+  '1-2': 'One above, two below',
   '3-2-1': 'Three, two, one',
 };
 
@@ -178,6 +179,7 @@ export function postureLabel(id: ChargeId, posture: Posture, note: string | null
 export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
   ordinary: { plain: 'Band or shape', term: 'ordinary' },
   picture: { plain: 'Picture', term: 'charge' },
+  'on-picture': { plain: 'Pictures on the picture', term: 'charges on the charge' },
   around: { plain: 'Pictures around the picture', term: 'charges between' },
   'in-chief': { plain: 'Pictures along the top', term: 'charges in chief' },
   'in-base': { plain: 'Pictures along the bottom', term: 'charges in base' },
@@ -204,6 +206,7 @@ export function groupLabel(d: Design, path: GroupPath): string {
     const onto = host.item.type === 'chief' || host.item.type === 'bordure' ? ORDINARY_LABEL[host.item.type].plain.toLowerCase() : 'band';
     return `Pictures on the ${onto}`;
   }
+  if (host?.item.k === 'charge') return PLACE_LABEL['on-picture'].plain;
   if (group.role === 'secondary' && group.relation === 'position' && isSecondaryPosition(group.position)) {
     return PLACE_LABEL[`in-${group.position}`].plain;
   }

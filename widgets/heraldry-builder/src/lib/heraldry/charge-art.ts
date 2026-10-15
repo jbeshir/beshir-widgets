@@ -125,11 +125,61 @@ export const MODIFIER_ART: Partial<Record<ChargeId, Partial<Record<ModifierId, s
 /** Shown only if a charge somehow has no art (never for the shipped table): a plain roundel. */
 const FALLBACK = 'M8 50a42 42 0 1 0 84 0a42 42 0 1 0-84 0Z';
 
+/** The key of the drawing a charge has in a posture: the posture's own, else its default posture's, else the posture-less one. */
+function artKey(id: ChargeId, posture: Posture | null): Posture | '_' {
+  const art = CHARGE_ART[id];
+  const def = CHARGES[id].defaultPosture;
+  return (posture && art[posture] ? posture : null) ?? (def && art[def] ? def : null) ?? '_';
+}
+
 /** Path for a charge in a posture with its modifiers; falls back to the default posture, then '_'. */
 export function chargePath(id: ChargeId, posture: Posture | null, mods: readonly Modifier[]): string {
   const variant = mods.map((m) => MODIFIER_ART[id]?.[m.id]).find((d) => d !== undefined);
-  if (variant) return variant;
-  const art = CHARGE_ART[id];
-  const def = CHARGES[id].defaultPosture;
-  return (posture && art[posture]) || (def && art[def]) || art._ || FALLBACK;
+  return variant ?? CHARGE_ART[id][artKey(id, posture)] ?? FALLBACK;
+}
+
+/** A rectangle in a charge's 100×100 art box. */
+export interface ArtBox { x: number; y: number; w: number; h: number }
+
+const box = (x: number, y: number, w: number, h: number): ArtBox => ({ x, y, w, h });
+
+/**
+ * Where each drawing carries the charges on it (a tertiary group): the largest rectangle, near the middle of the drawn
+ * mass, that lies (to 3%) inside the drawn shape; the rose’s covers its seed hole (to 7%), as its middle is the natural place.
+ * A drawing with no room for a charge on it (a slender or ringed one) has none.
+ */
+export const ART_ON_BOX: Record<ChargeId, Partial<Record<Posture | '_', ArtBox>>> = {
+  lion: { rampant: box(34, 28, 22, 34), passant: box(32, 45, 34, 22), statant: box(27, 36, 22, 34), sejant: box(23, 24, 28, 44) },
+  wolf: { rampant: box(41, 33, 20, 18), passant: box(58, 36, 22, 26), statant: box(58, 36, 22, 26) },
+  boar: { passant: box(27, 30, 52, 32) },
+  stag: { statant: box(33, 44, 34, 22), passant: box(33, 44, 32, 20) },
+  goat: { statant: box(31, 39, 42, 26), rampant: box(48, 47, 20, 30) },
+  hare: { sejant: box(29, 48, 38, 30), courant: box(26, 41, 40, 24) },
+  fish: { naiant: box(25, 37, 42, 28), haurient: box(35, 25, 28, 42) },
+  bee: { _: box(42, 30, 16, 26) },
+  unicorn: { rampant: box(36, 36, 18, 24), passant: box(29, 46, 38, 24), sejant: box(28, 44, 20, 30) },
+  dragon: { rampant: box(34, 31, 38, 24), passant: box(53, 21, 28, 40) },
+  eagle: { displayed: box(35, 37, 28, 20) },
+  owl: { _: box(39, 42, 22, 22) },
+  rose: { _: box(20, 21, 60, 56) },
+  tree: { _: box(21, 18, 58, 38) },
+  'fleur-de-lis': { _: box(36, 28, 28, 42) },
+  mullet: { _: box(33, 38, 34, 36) },
+  crescent: { _: box(29, 53, 40, 24) },
+  sun: { _: box(27, 24, 44, 50) },
+  heart: { _: box(22, 13, 56, 52) },
+  key: {},
+  'open-book': { _: box(14, 52, 34, 22) },
+  sword: {},
+  crown: { _: box(24, 47, 42, 26) },
+  anchor: {},
+  'musical-note': {},
+  flame: { _: box(58, 37, 24, 38) },
+  gear: {},
+  lightbulb: { _: box(29, 17, 42, 30) },
+};
+
+/** The rectangle of a charge's drawing that carries the charges on it, or null for a charge that carries none. */
+export function chargeOnBox(id: ChargeId, posture: Posture | null): ArtBox | null {
+  return ART_ON_BOX[id][artKey(id, posture)] ?? null;
 }

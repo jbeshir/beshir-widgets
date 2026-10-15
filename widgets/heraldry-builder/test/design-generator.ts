@@ -3,8 +3,8 @@
 // layout is Table 7's or a random one of the group's candidates. `generatedDesigns` makes the builder's level-0
 // space (the tests that rely on its distribution never change); `generatedRichDesigns` shares its internals and
 // adds the constructs the builder has gained since: a chief and a bordure beside the band, pictures on the band
-// as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, and pictures
-// set around the picture.
+// as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
+// set around the picture, and pictures on the picture.
 
 import { layoutCandidates, layoutKey, normalise, resolve, type Design } from '../src/lib/heraldry';
 
@@ -28,6 +28,10 @@ const POSTURES: Record<string, readonly string[]> = { lion: ['rampant', 'passant
 
 /** Mixed into a seed for the picks of the pictures set around the picture. */
 const AROUND_SEED = 0x5bd1e995;
+/** Mixed into a seed for the picks of the pictures on the picture. */
+const ON_PICTURE_SEED = 0x2c1b3c6d;
+/** The layouts the pictures on the picture take, by count (Table 7 states them all). */
+const ON_PICTURE_LAYOUTS: Record<number, readonly string[]> = { 1: ['single'], 2: ['in-fess', 'in-pale'], 3: ['rows-2-1', 'rows-1-2', 'in-fess', 'in-pale'], 4: ['rows-2-2', 'in-cross'] };
 
 /** The design for `seed`, or null when the random pick isn't a registrable design. `rich` adds a chief and a bordure beside the band, and pictures on them. */
 function designFor(seed: number, rich: boolean): Design | null {
@@ -73,10 +77,20 @@ function designFor(seed: number, rich: boolean): Design | null {
     // Pictures around the picture on the background (one or two of them), with no band. Drawn from a stream of their own, so
     // the designs before them keep their seeds' picks.
     const around = prng(seed ^ AROUND_SEED);
+    let surrounded = false;
     if (!central && !positioned && pictureAt >= 0 && around() < 0.35) {
       const among = <T>(xs: readonly T[]): T => xs[Math.floor(around() * xs.length)];
       groups[pictureAt] = { ...groups[pictureAt], count: among([1, 1, 2]) };
       groups.push({ item: { k: 'charge', charge: among(CHARGES.filter((c) => c !== id)) }, paint: among(TINCTURES), count: among([2, 3, 3, 4, 6, 8]), relation: 'between' });
+      surrounded = true;
+    }
+    // Pictures on the picture (one to four on each of one to three), from a stream of their own as well.
+    const upon = prng(seed ^ ON_PICTURE_SEED);
+    if (!central && !surrounded && pictureAt >= 0 && upon() < 0.7) {
+      const among = <T>(xs: readonly T[]): T => xs[Math.floor(upon() * xs.length)];
+      const count = among([1, 1, 2, 3, 4]);
+      groups[pictureAt] = { ...groups[pictureAt], count: among([1, 1, 2, 3]) };
+      groups[pictureAt] = { ...groups[pictureAt], charged: [{ item: { k: 'charge', charge: among(CHARGES.filter((c) => c !== id && c !== 'sword')) }, paint: among(TINCTURES), count, arrangement: among(ON_PICTURE_LAYOUTS[count]) }] };
     }
   }
 

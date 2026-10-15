@@ -1,6 +1,6 @@
 // Builder transitions over places beyond the band and the picture ("layers"): the pictures on the band, a
 // top band (chief) and a border (bordure), the pictures on those, pictures set in chief, in base or in
-// canton beside the band or the picture, and pictures set around the picture. Pure Design → Design, like every builder edit: a layer is added
+// canton beside the band or the picture, pictures set around the picture, and pictures on the picture. Pure Design → Design, like every builder edit: a layer is added
 // where it can be drawn and given the first tincture that works, the pictures are refitted to the room it
 // leaves, and anything that can't be drawn is blocked with its reason, never silently dropped.
 
@@ -22,7 +22,7 @@ export const LAYER_KEYS: readonly LayerKey[] = PLACE_KEYS.filter((k): k is Layer
 /** The layers that are pictures set beside the band or the picture, in chief, in base or in canton. */
 export type PositionedKey = Extract<LayerKey, 'in-chief' | 'in-base' | 'in-canton'>;
 /** The layers that are a group of pictures, with a charge of their own. */
-export type PicturesKey = Extract<LayerKey, 'around' | 'on-ordinary' | 'on-chief' | 'on-bordure'> | PositionedKey;
+export type PicturesKey = Extract<LayerKey, 'around' | 'on-picture' | 'on-ordinary' | 'on-chief' | 'on-bordure'> | PositionedKey;
 /** The layers that are a top band or a border, with a colour of their own. */
 export type PeripheralKey = Extract<LayerKey, 'chief' | 'bordure'>;
 
@@ -80,7 +80,7 @@ function firstProblem(d: Design): string | null {
  * order (the pictures around the picture keep clear of it).
  */
 export function refitLayers(d: Design): Design {
-  return (['in-chief', 'in-base', 'in-canton', 'picture', 'around', 'on-ordinary', 'on-chief', 'on-bordure'] as const).reduce((out, key) => {
+  return (['in-chief', 'in-base', 'in-canton', 'picture', 'on-picture', 'around', 'on-ordinary', 'on-chief', 'on-bordure'] as const).reduce((out, key) => {
     const path = pathOfPlace(out, key);
     return path ? fitGroup(out, path) : out;
   }, d);
@@ -118,7 +118,18 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       const reason = layoutReason(placed, path, true) ?? firstProblem(placed);
       return reason === null ? { design: withFirstTincture(placed, path)! } : { reason };
     }
+    case 'on-picture': {
+      if (parts.around) return { reason: 'Pictures stand around the picture — remove them first, or they would read as set on it too.' };
+      if (parts.picture?.placement !== 'field') return { reason: 'Pick a picture on the background first — more pictures can then go on it.' };
+      if (parts.picture.group.role !== 'primary') return { reason: 'Pictures can go on the main picture, not on pictures set around a band — move it off the band first.' };
+      const placed = refitLayers(assembleParts(d, { ...partsOf(d), onPicture: newCharge(startingCharge(d), 'tertiary') }));
+      const path = pathOfPlace(placed, key);
+      if (!path) return { reason: "Pictures can't go on the picture here." };
+      const reason = layoutReason(placed, path, true) ?? firstProblem(placed);
+      return reason === null ? { design: withFirstTincture(placed, path)! } : { reason };
+    }
     case 'around': {
+      if (parts.onPicture) return { reason: 'Pictures stand on the picture — remove them first, or they would read as set around it too.' };
       if (parts.positioned) return { reason: 'Only one group of pictures can stand beside or around the main one — remove the others first.' };
       const central = ordinary?.item.k === 'ordinary' && ORDINARY_KIND[ordinary.item.type] === 'central' ? ordinary.item.type : null;
       if (central) return { reason: `Pictures are set around the ${ORDINARY_NAME[central]} — remove the band to set pictures around a picture instead.` };
@@ -191,6 +202,7 @@ export function removeLayer(d: Design, key: LayerKey): Design {
   const parts = simpleParts(d);
   switch (key) {
     case 'on-ordinary': return parts.extra ? refitLayers(assembleParts(d, { ...partsOf(d), extra: null })) : d;
+    case 'on-picture': return parts.onPicture ? refitLayers(assembleParts(d, { ...partsOf(d), onPicture: null })) : d;
     case 'on-chief': case 'on-bordure': {
       const type = hostOfPictures(key);
       return refitLayers(assembleParts(d, { ...partsOf(d), peripherals: parts.peripherals.map((p) => (p.place === type ? { ...p.group, charged: [] } : p.group)) }));
@@ -211,6 +223,10 @@ export function setLayerCharge(d: Design, key: PicturesKey, id: ChargeId): Desig
     if (!parts.extra || !parts.picture) return d;
     const swapped: Group = { ...parts.extra.group, item: chargeItem(id, parts.extra.group) };
     return refitLayers(assembleParts(d, { ...partsOf(d), extra: swapped }));
+  }
+  if (key === 'on-picture') {
+    if (!parts.onPicture) return d;
+    return refitLayers(assembleParts(d, { ...partsOf(d), onPicture: { ...parts.onPicture.group, item: chargeItem(id, parts.onPicture.group) } }));
   }
   if (key === 'around') {
     if (!parts.around) return d;

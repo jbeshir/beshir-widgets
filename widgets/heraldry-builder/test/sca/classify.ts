@@ -96,6 +96,7 @@ function layoutTag(design: Design, issue: Issue): string {
     case 'between': return `between-${ctx.ordinary}`;
     case 'position': return `in-${ctx.position}`;
     case 'around': return `around-${g.count}`;
+    case 'on-charge': return 'on-charge';
     default: return hasChief(ctx.peripheral) ? 'under-chief' : layoutKey({ arrangement: g.arrangement, position: g.position });
   }
 }

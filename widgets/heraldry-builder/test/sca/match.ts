@@ -110,7 +110,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton',
+    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'each', 'charged', 'with',
     ...DIVISION_WORDS.keys(), ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
@@ -122,6 +122,7 @@ const VOCABULARY = new Set<string>(
 //   field      := T | DIVISION T 'and' T
 //   element    := ['on'] ('a'|'an') ordinary [T]   an ordinary, central or peripheral ("on" when a group sits on it)
 //               | 'on' group                        a charge group with a group on it
+//               | 'each charged with' group          the group before it, a charge group, with the group on each charge
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
 //   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['in splendor'] [('in' PATTERN)|ROWS] [T]
@@ -223,6 +224,14 @@ function parseBody(tokens: string[]): Body | null {
     if (w === ',' || w === 'and') {
       joined = w === 'and';
       i++;
+    } else if (w === 'each' && tokens[i + 1] === 'charged' && tokens[i + 2] === 'with') {
+      // "three flames argent each charged with a heart azure": the group before it carries the next one on every charge.
+      const carrier = top[top.length - 1];
+      if (!carrier || carrier.on || carrier.phrase.group.item === undefined || (carrier.phrase.group.item as { k: string }).k !== 'charge') return null;
+      host = carrier;
+      between = false;
+      joined = false;
+      i += 3;
     } else if (w === 'between') {
       // "on a cross argent a rose sable between four roses gules": with no comma the charges between are on the
       // host too, a tertiary group of two types (SENA A3D2a) — not secondaries around it.

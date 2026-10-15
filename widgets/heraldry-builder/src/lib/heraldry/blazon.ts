@@ -6,7 +6,7 @@
 
 import { tinctureWord } from './tinctures';
 import { capitalise, numberWord } from './words';
-import { CHARGES, postureTerm } from './charges';
+import { CHARGES, postureTerm, type ChargeCategory } from './charges';
 import { hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
 import { DIVISION_NAME } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
@@ -43,8 +43,9 @@ export interface BlazonOptions {
 /** Whether the layout of a group is worded: when it isn't the default, or with `stateDefaults` whenever it isn't alone in the centre. */
 function wordsLayout(d: Design, path: GroupPath, g: Group, { stateDefaults }: BlazonOptions): boolean {
   if (contextOf(d, g, hostOf(d, path)) === null) return false;
-  if (!stateDefaults) return statesLayout(d, path);
   const k = layoutContext(d, path).k;
+  // Charges on the primary charges state every layout but the one charge alone, defaults or not (Table 7: they must be stated).
+  if (!stateDefaults || k === 'on-charge') return statesLayout(d, path);
   return k === 'position' || k === 'around' || (k === 'field' && (g.arrangement.k !== 'single' || g.position !== null));
 }
 
@@ -72,22 +73,36 @@ function ordinaryPhrase(g: Group): string {
   return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[g.item.type]} ${ORDINARY_NAME[g.item.type]}`;
 }
 
+/** The charges whose charges are worded "charged with": animals and birds, which a charge is not "on" (D F.2). */
+const CHARGED_WITH: readonly ChargeCategory[] = ['beast', 'monster', 'bird'];
+
+/**
+ * How the group on a host follows it: "on a fess Or three roses gules", "on a heart argent a lion azure" (the host is then
+ * "on …"), "a unicorn argent charged with a fleur-de-lys purpure", "three flames argent each charged with a heart azure".
+ */
+function carrying(host: Group): { lead: string; on: boolean } {
+  if (host.item.k === 'ordinary') return { lead: ' ', on: false };
+  if (host.count > 1) return { lead: ' each charged with ', on: false };
+  return CHARGED_WITH.includes(CHARGES[host.item.charge].category) ? { lead: ' charged with ', on: false } : { lead: ' ', on: true };
+}
+
 /** `secondary` is set between (or around) the primary, `position` stands beside it ("and in chief …"). */
 type TokenKind = 'primary' | 'secondary' | 'position' | 'peripheral' | 'tertiary';
 
-/** One element of the sentence: its phrase and paint, and whether its paint may be shared with the element before. */
-interface Token { kind: TokenKind; text: string; paint: string; linked: boolean }
+/** One element of the sentence: its phrase and paint, whether its paint may be shared with the element before, and (a tertiary) what joins it to its host. */
+interface Token { kind: TokenKind; text: string; paint: string; linked: boolean; lead: string }
 
 /** The elements in blazon order (RULES §F.2): primary, what is set between, what is on the primary, what stands in chief, base or canton, then each peripheral with what is on it. */
 function tokens(d: Design, options: BlazonOptions): Token[] {
   const out: Token[] = [];
-  const add = (kind: TokenKind, path: GroupPath, g: Group) => {
+  const add = (kind: TokenKind, path: GroupPath, g: Group, lead = ' ') => {
     const prev = out[out.length - 1];
     // Bruce: a tincture carries back over the elements before it, but never into or out of "on a ...".
     const linked = (kind === 'secondary' || kind === 'position' || kind === 'peripheral') && prev !== undefined && prev.kind !== 'tertiary';
-    out.push({ kind, text: g.item.k === 'ordinary' ? ordinaryPhrase(g) : chargePhrase(d, path, g, options), paint: paintWord(g.paint), linked });
+    const phrase = g.item.k === 'ordinary' ? ordinaryPhrase(g) : chargePhrase(d, path, g, options);
+    out.push({ kind, text: g.charged.length > 0 && carrying(g).on ? `on ${phrase}` : phrase, paint: paintWord(g.paint), linked, lead });
   };
-  const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t));
+  const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t, carrying(g).lead));
   const at = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, path: [i] }] : []));
 
   const primaries = at('primary');
@@ -115,7 +130,7 @@ export function blazon(d: Design, options: BlazonOptions = { stateDefaults: fals
   const all = tokens(d, options);
   let pending = false;
   all.forEach((t, i) => {
-    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? ' ' : pending || t.kind === 'position' ? ' and ' : ', ';
+    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'position' ? ' and ' : ', ';
     const next = all[i + 1];
     pending = next !== undefined && next.linked && next.paint === t.paint;
     text += `${lead}${t.text}${pending ? '' : ` ${t.paint}`}`;

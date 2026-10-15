@@ -13,7 +13,7 @@ import {
 import {
   CANONICAL_SHAPE, fieldTinctureAt, groundPoints, inFirstPart, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Slot,
 } from './geometry';
-import { canonicalSlots } from './layout';
+import { canonicalSlots, groupSlotCount } from './layout';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
 import { forcedLayout, layoutContext } from './arrangement';
@@ -85,7 +85,7 @@ const ORDINARY_ON_LINE: Partial<Record<Division, OrdinaryType>> = {
 /** The heater slots of a charge group, or none when it has no layout (the structure rules say so). */
 function slotsOf(d: Design, path: GroupPath): Slot[] {
   const slots = canonicalSlots(d, path);
-  return slots.length === groupAt(d, path).count ? slots : [];
+  return slots.length === groupSlotCount(d, path) ? slots : [];
 }
 
 /**

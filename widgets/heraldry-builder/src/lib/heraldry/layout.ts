@@ -5,12 +5,13 @@
 
 import { capitalise } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
+import { chargeOnBox } from './charge-art';
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, layoutKey, layoutWords, positionLayout, sameLayout,
-  type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Yield,
+  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, layoutKey, layoutWords, onChargeLayouts, positionLayout, sameLayout,
+  type FieldContext, type GroundContext, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Yield,
 } from './arrangement';
 import {
   CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
@@ -21,6 +22,8 @@ import { MAX_DRAWN_COUNT } from './support';
 
 /** The smallest slot (shield units, heater) a charge is drawn in and still reads. */
 export const MIN_SLOT_SIZE = 14;
+/** The smallest slot (heater units) of a charge on a charge: read against the charge it lies on, it can be smaller than one on the field. */
+const MIN_ON_CHARGE_SIZE = 9;
 /** The smallest slot of a charge on a bordure: the band is ten units wide on the heater, so charges on it are small. */
 const MIN_BORDURE_SLOT_SIZE = 6;
 
@@ -59,7 +62,7 @@ const handRows = (shape: FieldShape): SlotRows => (shape === 'heater' ? HEATER_S
 /** The hand-fitted slots for a context, count and layout, or null when they come from the generic engine. */
 function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] | null {
   const rows = handRows(shape);
-  if (ctx.k === 'position' || ctx.k === 'around') return null;
+  if (ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'on-charge') return null;
   if (ctx.k === 'field') {
     if (layout.position !== null || ctx.yields !== 'none' || ctx.share !== null) return null;
     const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null }[ctx.peripheral];
@@ -198,7 +201,7 @@ function aroundBox(peripheral: Peripheral, shape: FieldShape): Area {
 }
 
 /** The areas primary charges are laid out in: what the peripherals leave, less the room left for a secondary group. */
-function primaryAreas(ctx: Extract<LayoutContext, { k: 'field' }>): { straight: Area; bend: Area } {
+function primaryAreas(ctx: FieldContext): { straight: Area; bend: Area } {
   const areas = FIELD_AREAS[ctx.peripheral];
   if (ctx.yields === 'around') {
     const box = aroundBox(ctx.peripheral, CANONICAL_SHAPE);
@@ -210,7 +213,14 @@ function primaryAreas(ctx: Extract<LayoutContext, { k: 'field' }>): { straight: 
   return { straight: within(areas.straight, rest), bend: within(areas.bend, rest) };
 }
 
-function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number, layout: Layout): Centre[] | null {
+/** Four charges, or five with one in the middle: one above, below and to each side of the middle of an area. */
+function crossIn(a: Area, count: number): Centre[] {
+  const [cx, cy] = centreOf(a);
+  const r = 0.36 * Math.min(width(a), height(a));
+  return [at(cx, cy - r), at(cx - r, cy), ...(count === 5 ? [at(cx, cy)] : []), at(cx + r, cy), at(cx, cy + r)];
+}
+
+function fieldCentres(ctx: FieldContext, count: number, layout: Layout): Centre[] | null {
   const areas = primaryAreas(ctx);
   const a = layout.position === 'chief' ? CHIEF_POSITION_AREA
     : layout.position === 'base' ? BASE_POSITION_AREA
@@ -231,9 +241,7 @@ function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number
     case 'pattern': {
       switch (arr.pattern) {
         case 'cross': {
-          if (count !== 4 && count !== 5) return null;
-          const r = 0.36 * reach;
-          return [at(cx, cy - r), at(cx - r, cy), ...(count === 5 ? [at(cx, cy)] : []), at(cx + r, cy), at(cx, cy + r)];
+          return count === 4 || count === 5 ? crossIn(a, count) : null;
         }
         case 'saltire': {
           if (count !== 4 && count !== 5) return null;
@@ -467,12 +475,47 @@ function handCentres(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, count
   return slots && slots.map((s) => at(s.x, s.y, s.rotation));
 }
 
-function nominalCentres(ctx: Exclude<LayoutContext, { k: 'around' }>, count: number, layout: Layout): Centre[] | null {
+function nominalCentres(ctx: Exclude<GroundContext, { k: 'around' }>, count: number, layout: Layout): Centre[] | null {
   if (ctx.k === 'field') return fieldCentres(ctx, count, layout);
   if (ctx.k === 'position') return positionCentres(ctx, count, layout);
   if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx.k, ctx.ordinary).includes(count)) return null;
   const ruled = ctx.k === 'between' ? betweenCentres(ctx.ordinary, count, ctx.peripheral) : onCentres(ctx.ordinary, count, ctx.peripheral);
   return ruled ?? (ctx.peripheral === 'none' ? null : handCentres(ctx, count));
+}
+
+// ── Charges on the primary charges ──────────────────────────────────────────
+
+/** The centres of `count` charges in a layout inside the room a charge's drawing offers. */
+function onChargeCentres(room: Area, count: number, layout: Layout): Centre[] {
+  const arr = layout.arrangement;
+  switch (arr.k) {
+    case 'single': return [at(...centreOf(room))];
+    case 'line': return lineIn(room, count, arr.dir);
+    case 'rows': return rowsIn(room, arr.rows);
+    case 'pattern': return crossIn(room, count);
+    default: throw new RangeError(`No layout on a charge is ${layoutKey(layout)}.`);
+  }
+}
+
+/**
+ * The charges on each of the primary charges: in every host's on-box (the rectangle its drawing offers, as drawn in its slot
+ * in this shape), all at the largest size that fits one host's. The slots are the hosts' in reading order, each with its `count`.
+ */
+function onChargeSlots(ctx: Extract<LayoutContext, { k: 'on-charge' }>, count: number, layout: Layout, shape: FieldShape): Slot[] {
+  const { host } = ctx;
+  const art = chargeOnBox(host.charge, host.posture);
+  const hosts = contextSlots(host.context, host.count, host.layout, shape);
+  if (!art || hosts.length !== host.count || !onChargeLayouts(count).some((l) => sameLayout(l, layout))) return [];
+  const scale = CHARGES[host.charge].scale / 100;
+  const rooms = hosts.map((s) => area(
+    s.x + (art.x - 50) * s.size * scale, s.y + (art.y - 50) * s.size * scale,
+    s.x + (art.x + art.w - 50) * s.size * scale, s.y + (art.y + art.h - 50) * s.size * scale,
+  ));
+  const all = rooms.map((room) => onChargeCentres(room, count, layout));
+  const room = rooms[0];
+  const ground: Ground = { contain: [[room.x0, room.y0], [room.x1, room.y0], [room.x1, room.y1], [room.x0, room.y1]], margin: 0, minTop: -Infinity, avoid: [], within: null };
+  const size = largestSize(all[0], ground, false);
+  return size < 1 ? [] : toSlots(all.flat(), size);
 }
 
 // ── Charges on a bordure ────────────────────────────────────────────────────
@@ -599,7 +642,7 @@ function aroundRoom(peripheral: Peripheral, shape: FieldShape): Pt[] {
   return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 }
 
-export function groundFor(ctx: LayoutContext, shape: FieldShape): Ground {
+export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
   if (ctx.k === 'field') {
     if (ctx.yields === 'around') return { ...frameGround(ctx.peripheral, shape), avoid: [], within: aroundRoom(ctx.peripheral, shape) };
     const yielded = yieldedPosition(ctx.yields);
@@ -682,7 +725,7 @@ const toSlots = (centres: readonly Centre[], size: number): Slot[] =>
     .sort((a, b) => (Math.abs(a.y - b.y) < 0.01 ? a.x - b.x : a.y - b.y))
     .map((c) => ({ x: r2(c.x), y: r2(c.y), size, rotation: c.rotation }));
 
-function heaterGeneric(ctx: Exclude<LayoutContext, { k: 'around' }>, count: number, layout: Layout): Slot[] {
+function heaterGeneric(ctx: Exclude<GroundContext, { k: 'around' }>, count: number, layout: Layout): Slot[] {
   const centres = nominalCentres(ctx, count, layout);
   if (!centres) return [];
   const crossed = layout.arrangement.k === 'crossed';
@@ -727,7 +770,7 @@ const SHIFTS = Array.from({ length: 21 }, (_, i) => -20 + 2 * i);
  * Where even that can't keep the parts (a ring of charges under a chief in a lozenge), the largest fit wins
  * and `reachesHeaterParts` says so.
  */
-function genericIn(ctx: Exclude<LayoutContext, { k: 'around' }>, count: number, layout: Layout, shape: FieldShape): Slot[] {
+function genericIn(ctx: Exclude<GroundContext, { k: 'around' }>, count: number, layout: Layout, shape: FieldShape): Slot[] {
   const heater = heaterGeneric(ctx, count, layout);
   if (shape === CANONICAL_SHAPE || heater.length === 0) return heater;
   return mappedFromHeater(heater, groundFor(ctx, shape), layout.arrangement.k === 'crossed', shape);
@@ -780,6 +823,7 @@ export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, 
   let slots = memo.get(key);
   if (!slots) {
     slots = ctx.k === 'around' ? aroundSlots(ctx, count, layout, shape)
+      : ctx.k === 'on-charge' ? onChargeSlots(ctx, count, layout, shape)
       : ctx.k === 'on' && ctx.ordinary === 'bordure' ? bordureSlots(count, shape)
       : handSlots(ctx, count, layout, shape) ?? genericIn(ctx, count, layout, shape);
     memo.set(key, slots);
@@ -800,20 +844,32 @@ export function groupSlots(d: Design, path: GroupPath, shape: FieldShape): Slot[
   return l ? contextSlots(l.ctx, l.count, l.layout, shape) : [];
 }
 
+/** How many slots the charges of the group at `path` have when they fit. */
+export function groupSlotCount(d: Design, path: GroupPath): number {
+  const l = layoutOf(d, path);
+  return l ? slotCount(l.ctx, l.count) : groupAt(d, path).count;
+}
+
 /** The heater slots of a group: what the rule of tincture probes. */
 export function canonicalSlots(d: Design, path: GroupPath): Slot[] {
   return groupSlots(d, path, CANONICAL_SHAPE);
 }
 
 /** The smallest slot (heater units) the charges of a context are drawn in. */
-export const minSlotSize = (ctx: LayoutContext): number => (ctx.k === 'on' && ctx.ordinary === 'bordure' ? MIN_BORDURE_SLOT_SIZE : MIN_SLOT_SIZE);
+export function minSlotSize(ctx: LayoutContext): number {
+  if (ctx.k === 'on-charge') return MIN_ON_CHARGE_SIZE;
+  return ctx.k === 'on' && ctx.ordinary === 'bordure' ? MIN_BORDURE_SLOT_SIZE : MIN_SLOT_SIZE;
+}
+
+/** How many charges a group of `count` has in a context: on the primary charges it is `count` on each of them. */
+export const slotCount = (ctx: LayoutContext, count: number): number => (ctx.k === 'on-charge' ? ctx.host.count * count : count);
 
 /** The most charges, counting up from one, that fit legibly in a context; `layoutFor` says how n charges are laid out. */
 export function largestFittingCount(ctx: LayoutContext, layoutFor: (n: number) => Layout): number {
   let n = 0;
   while (n < MAX_DRAWN_COUNT) {
     const slots = contextSlots(ctx, n + 1, layoutFor(n + 1), CANONICAL_SHAPE);
-    if (slots.length !== n + 1 || slots[0].size < minSlotSize(ctx)) break;
+    if (slots.length !== slotCount(ctx, n + 1) || slots[0].size < minSlotSize(ctx)) break;
     n += 1;
   }
   return n;
@@ -841,6 +897,7 @@ function whereWords(ctx: LayoutContext, layout: Layout): string {
     case 'position': return `in ${ctx.position}`;
     case 'around': return `around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle${peripheralWords(ctx.peripheral)}`;
     case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
+    case 'on-charge': return ctx.host.count === 1 ? `on the ${CHARGES[ctx.host.charge].name}` : `on each of the ${CHARGES[ctx.host.charge].plural}`;
   }
 }
 
@@ -849,7 +906,7 @@ export function hasRoom(d: Design, path: GroupPath): boolean {
   const l = layoutOf(d, path);
   if (!l) return true;
   const slots = contextSlots(l.ctx, l.count, l.layout, CANONICAL_SHAPE);
-  return slots.length === l.count && slots[0].size >= minSlotSize(l.ctx);
+  return slots.length === slotCount(l.ctx, l.count) && slots[0].size >= minSlotSize(l.ctx);
 }
 
 /** Why a group's charges don't fit where they sit (the most that would, and where), or null when they do (or when they sit nowhere this builder lays out). Only meaningful once the layout itself is legal. */
@@ -865,6 +922,7 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
     const a = group.arrangement;
     if (n === group.count) return l.layout;
     if (l.ctx.k === 'position') return positionLayout(l.ctx.position, n);
+    if (l.ctx.k === 'on-charge') return onChargeLayouts(n)[0] ?? HOST_LAYOUT;
     if (l.ctx.k !== 'field') return HOST_LAYOUT;
     if (n === 1) return { arrangement: { k: 'single' }, position: group.position };
     if (a.k === 'line' || a.k === 'single') return { arrangement: { k: 'line', dir: a.k === 'line' ? a.dir : 'fess' }, position: group.position };

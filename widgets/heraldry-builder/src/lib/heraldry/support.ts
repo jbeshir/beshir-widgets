@@ -4,14 +4,15 @@
 
 import { FUR_NAME, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
-import { CHARGES } from './charges';
+import { CHARGES, isChargeId } from './charges';
+import { chargeOnBox } from './charge-art';
 import { DIVISION_NAME, DRAWN_DIVISIONS } from './divisions';
 import {
   walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, aroundPrimaryLayouts, hostCounts, isSecondaryPosition, layoutKey, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
+  AROUND_COUNTS, ON_CHARGE_COUNTS, aroundPrimaryLayouts, hostCounts, isSecondaryPosition, layoutKey, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
 
 export { notSupported, UnsupportedConstructError } from './design';
@@ -65,8 +66,12 @@ function thing(g: Gap): string {
       return isOrdinaryType(g.detail) ? `${ORDINARY_ARTICLE[g.detail]} ${ORDINARY_NAME[g.detail]}` : `A ${d}`;
     case 'ordinary-treatment': return `A ${d} band or shape`;
     case 'multiple-groups':
-      return g.detail === 'overall' ? 'A charge overall' : 'Two charge groups beside the main one';
-    case 'placement': return 'That placement of charges';
+      if (g.detail === 'overall') return 'A charge overall';
+      return g.detail.startsWith('tertiary') ? 'Charges on that charge' : 'Two charge groups beside the main one';
+    case 'placement': {
+      const host = g.detail.startsWith('on-') ? g.detail.slice('on-'.length) : '';
+      return isChargeId(host) ? `Charges on a ${CHARGES[host].name}` : 'That placement of charges';
+    }
     case 'count': return 'That many charges';
     case 'charge-modifier': return `A ${d} charge`;
     case 'posture': return `The ${d} posture`;
@@ -145,9 +150,24 @@ function placementGaps(d: Design, g: Group, host: Group | null): Gap[] {
     if (!DRAWN_ORDINARIES.includes(ordinary)) return [];
     return hostCounts('between', ordinary).includes(g.count) ? [] : [gap('placement', `between-${ordinary}-${g.count}`)];
   }
-  if (host.item.k !== 'ordinary' || !DRAWN_ORDINARIES.includes(host.item.type)) return [];
+  if (host.item.k === 'charge') return host.role === 'primary' && !ON_CHARGE_COUNTS.includes(g.count) ? [gap('placement', `on-charge-${g.count}`)] : [];
+  if (!DRAWN_ORDINARIES.includes(host.item.type)) return [];
   const type = host.item.type;
   return hostCounts('on', type).includes(g.count) ? [] : [gap('placement', `on-${type}-${g.count}`)];
+}
+
+/**
+ * The gaps of a group on a charge: only the primary charges carry charges, and only where their drawing has room for them
+ * (and not with charges set around them, which would read as the tertiary's).
+ */
+function onChargeGaps(d: Design, host: Group): Gap[] {
+  if (host.item.k !== 'charge' || host.role === 'tertiary') return [];
+  if (host.role !== 'primary') return [gap('multiple-groups', `tertiary-on-${host.role}`)];
+  const gaps: Gap[] = [];
+  if (chargeOnBox(host.item.charge, host.item.posture) === null) gaps.push(gap('placement', `on-${host.item.charge}`));
+  if (host.item.mods.length > 0) gaps.push(gap('multiple-groups', 'tertiary-on-modifier'));
+  if (hasAround(d)) gaps.push(gap('multiple-groups', 'tertiary-on-charge-around'));
+  return gaps;
 }
 
 /** Gaps in how the groups relate: roles beyond the supported combinations. */
@@ -200,7 +220,7 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
     const at: IssueAt = { k: 'group', path };
     const owner = group.item.k === 'ordinary' ? group.item.type : group.item.charge;
     const gaps = [...itemGaps(group.item), ...paintGaps(group.paint, false, owner), ...layoutGaps(group, hasChief), ...placementGaps(d, group, host)];
-    if (host?.item.k === 'charge' && host.role !== 'tertiary') gaps.push(gap('multiple-groups', 'tertiary-on-charge'));
+    if (host) gaps.push(...onChargeGaps(d, host));
     if (host && group.item.k === 'ordinary') gaps.push(gap('placement', 'tertiary-ordinary'));
     for (const g of gaps) add(at, g);
   }

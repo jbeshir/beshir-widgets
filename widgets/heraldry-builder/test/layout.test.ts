@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
-  capacityIssue, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type Layout, type LayoutContext, type OrdinaryType,
+  capacityIssue, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type GroundContext, type Layout, type LayoutContext, type OrdinaryType,
 } from '../src/lib/heraldry';
 import type { Pt } from '../src/lib/heraldry/geometry';
 import { fits, groundFor, type Ground } from '../src/lib/heraldry/layout';
@@ -294,12 +294,12 @@ describe('grounds', () => {
 describe('around and on an ordinary with a chief and a bordure beside it', () => {
   const heater = shapeFrame('heater');
   const inset = pathPolygon(heater.inset);
-  const ctx = (k: 'between' | 'on', ordinary: OrdinaryType, peripheral: 'chief' | 'bordure' | 'chief-bordure'): LayoutContext =>
+  const ctx = (k: 'between' | 'on', ordinary: OrdinaryType, peripheral: 'chief' | 'bordure' | 'chief-bordure'): GroundContext =>
     (k === 'between' ? { k, ordinary, peripheral } : { k, ordinary, peripheral });
   const MARGIN = 0;
 
   it('keep the slots below the chief and inside the bordure, at a size that reads', () => {
-    const cases: Array<[LayoutContext, number]> = [
+    const cases: Array<[GroundContext, number]> = [
       [ctx('between', 'pale', 'chief'), 4], [ctx('between', 'bend', 'chief-bordure'), 2], [ctx('between', 'chevron', 'bordure'), 3],
       [ctx('between', 'chevron', 'chief'), 3], [ctx('on', 'fess', 'bordure'), 4], [ctx('on', 'bend', 'chief'), 3], [ctx('on', 'chief', 'bordure'), 3],
     ];

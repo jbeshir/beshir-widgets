@@ -389,7 +389,9 @@ function groupNoun(d: Design, path: GroupPath): { one: string; many: string } {
     return { one: noun, many: noun };
   }
   let where = '';
-  if (host?.item.k === 'ordinary') {
+  if (host?.item.k === 'charge') {
+    where = ' on the picture';
+  } else if (host?.item.k === 'ordinary') {
     where = ` on the ${host.item.type === 'chief' || host.item.type === 'bordure' ? ORDINARY_LABEL[host.item.type].plain.toLowerCase() : 'band'}`;
   } else if (group.role === 'secondary' && group.relation === 'position') {
     where = ` in ${group.position}`;

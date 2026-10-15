@@ -5,7 +5,7 @@
 // and the picture (pictures on the band, a top band, a border) are heraldry/layers.ts.
 
 import {
-  CHARGES, DEFAULT_FIELD_SHAPE, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
+  CHARGES, DEFAULT_FIELD_SHAPE, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   fieldTinctures, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, layerPath, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   tinctureIssues, withTincture, withLayout, chargeItem, newCharge,
@@ -133,7 +133,10 @@ export function setCharge(d: Design, at: 'picture' | PicturesKey, id: ChargeId |
 function swapPicture(d: Design, id: ChargeId): Design {
   const parts = partsOf(d);
   if (!parts.picture) return d;
-  return refitLayers(assembleParts(d, { ...parts, picture: { ...parts.picture, item: chargeItem(id, parts.picture) } }));
+  const item = chargeItem(id, parts.picture);
+  // The pictures on the picture go with it unless the new one has no room for them.
+  const carries = item.k === 'charge' && chargeOnBox(id, item.posture) !== null && item.mods.length === 0;
+  return refitLayers(assembleParts(d, { ...parts, picture: { ...parts.picture, item }, onPicture: carries ? parts.onPicture : null }));
 }
 
 export function setLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
@@ -147,14 +150,20 @@ function withItem(d: Design, path: GroupPath, change: (item: Extract<Group['item
   return canonical(replaceGroup(d, path, { ...g, item }));
 }
 
+/** The charge at `path` in a posture; the pictures on it are refitted to the room its new drawing leaves them. */
 export function setPosture(d: Design, path: GroupPath, posture: Posture): Design {
-  return withItem(d, path, (item) => ({ ...item, posture }));
+  return refitLayers(withItem(d, path, (item) => ({ ...item, posture })));
 }
 
 export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean): Design {
-  return withItem(d, path, (item) => ({
+  const changed = withItem(d, path, (item) => ({
     ...item, mods: on ? [...item.mods.filter((m) => m.id !== id), { id, count: null, paint: null }] : item.mods.filter((m) => m.id !== id),
   }));
+  // A picture drawn with a modifier has no room for pictures on it (its drawing is changed): they are dropped.
+  const parts = partsOf(changed);
+  return parts.onPicture && parts.picture?.item.k === 'charge' && parts.picture.item.mods.length > 0
+    ? refitLayers(assembleParts(changed, { ...parts, onPicture: null }))
+    : changed;
 }
 
 export function setGroupTincture(d: Design, path: GroupPath, t: GroupTincture): Design {

@@ -386,6 +386,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'skip':
         // "a mullet azure and another gules", "on a cross argent another gules": a second group or ordinary
         if (lem === 'another' && last && last.el) newElement(last.el.kind, last.el.supported);
+        // "a unicorn argent charged with a heart", "three flames each charged with a heart": the groups after lie on the one before
+        else if (lem === 'charged' && words[i + 1] === 'with' && last?.el) onHost = last.el;
         break;
       case 'and':
         // "maintaining a sword and a key" vs "… a sword, and in chief …": a new clause ends a held phrase
@@ -553,7 +555,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const groups = els.filter((el) => el.kind === 'charge' && el.ctx !== 'held' && el.ctx !== 'of' && el.ctx !== 'semy');
   const ords = els.filter((el) => el.kind === 'ord');
   const together = drawnTogether(ords);
-  if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords)))) tag('multiple-groups', 'charges');
+  if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords) || checkOnCharge(groups[0], groups[1], ords)))) {
+    tag('multiple-groups', 'charges');
+  }
   if (ords.length > 1 && !together) tag('multiple-groups', 'ordinaries');
   if (groups.length === 1 && ords.length <= 1) checkPlacement(groups[0], ords[0] ?? null);
 
@@ -781,6 +785,33 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const at = walkGroups(r.design).filter((w) => w.group.role === 'primary' || w.group.role === 'secondary').map((w) => w.path.join());
     if (!gaps.length && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && at.includes(i.at.path.join()))) {
       tag('placement', `around-${second.count}`);
+    }
+    return true;
+  }
+
+  /**
+   * Whether the widget draws the second of two charge groups as set on the first ("on a heart argent a lion azure", SENA App I3),
+   * with a chief or bordure beside them: asks the library, on a stand-in design, and tags the gaps it would have (a charge with
+   * no room for charges on it, a count it has no layout for) or that they have no room. False when the second isn't on the
+   * first, so the two are tagged as two charge groups.
+   */
+  function checkOnCharge(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
+    if (first.ctx !== 'field' || second.ctx !== 'on' || second.host !== first) return false;
+    if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
+    if (first.count > MAX_DRAWN_COUNT || second.count > MAX_DRAWN_COUNT) return true;
+    const host = first.supported ?? 'lion';
+    const carried = { item: { k: 'charge', charge: second.supported ?? 'mullet' }, paint: 'argent', count: second.count, ...(second.arr ? { arrangement: second.arr } : {}) };
+    const groups = [
+      { item: { k: 'charge', charge: host }, paint: 'or', count: first.count, ...(first.arr ? { arrangement: first.arr } : {}), charged: [carried] },
+      ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules' })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) return true;
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    // No room for them on the first (a charge the widget has: room depends on its drawing), or a layout they don't take there (the library's capacity and layout rules).
+    if (!gaps.length && first.supported !== null && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.length === 2)) {
+      tag('placement', `on-charge-${second.count}`);
     }
     return true;
   }

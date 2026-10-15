@@ -9,9 +9,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  AROUND_COUNTS, CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
-  hasBordure, hasChief, layoutOfKey, minSlotSize, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
-  type ChargeId, type Design, type FieldShape, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type SecondaryPosition, type Slot,
+  AROUND_COUNTS, ART_ON_BOX, CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  hasBordure, hasChief, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
+  type ChargeId, type Design, type FieldShape, type GroundContext, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { rings, type Pt } from './art-geometry';
@@ -19,7 +19,7 @@ import { log } from './helpers';
 
 // ── The catalogue ───────────────────────────────────────────────────────────
 
-interface Entry { ctx: LayoutContext; count: number; layout: Layout; label: string }
+interface Entry { ctx: GroundContext; count: number; layout: Layout; label: string }
 
 const COUNTS = Array.from({ length: 12 }, (_, i) => i + 1);
 const BETWEEN: OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
@@ -58,7 +58,7 @@ function resolved(input: unknown): Design {
 function catalogue(): { entries: Entry[]; rejected: number } {
   const entries: Entry[] = [];
   let rejected = 0;
-  const consider = (count: number, ctx: LayoutContext, candidates: Layout[], label: string, rebuild: (key: string) => Design) => {
+  const consider = (count: number, ctx: GroundContext, candidates: Layout[], label: string, rebuild: (key: string) => Design) => {
     for (const layout of candidates) {
       const d = rebuild(layoutKey(layout));
       if (structuralIssues(d).length === 0) entries.push({ ctx, count, layout, label: `${label} ${count} ${layoutKey(layout)}` });
@@ -212,7 +212,7 @@ function shapeGeometry(shape: FieldShape): ShapeGeometry {
 const SHAPES = FIELD_SHAPES.map(shapeGeometry);
 
 /** What a context's slots must stay inside (`fits`) or, for charges around an ordinary, clear of. */
-function groundFits(g: ShapeGeometry, ctx: LayoutContext, margin: number, narrowBands: boolean): (p: Pt) => boolean {
+function groundFits(g: ShapeGeometry, ctx: GroundContext, margin: number, narrowBands: boolean): (p: Pt) => boolean {
   const onShape = (p: Pt) => pointInPolygon(p[0], p[1], g.outline) && edgeDistance(g.outline, p) >= margin;
   // What the chief and bordure beside the group leave: inside the bordure's inner edge, below the chief.
   const inFrame = (p: Pt) => (hasBordure(ctx.peripheral) ? pointInPolygon(p[0], p[1], g.inset) : onShape(p)) && (!hasChief(ctx.peripheral) || p[1] >= g.chiefBase);
@@ -410,4 +410,92 @@ describe('charge artwork fits its ground at its optical scale', () => {
       expect(artProblems(g, generic, drawingsOf(['mullet', 'lion', 'sword'], ['rampant'])).slice(0, 25)).toEqual([]);
     }, 120_000);
   }
+});
+
+// ── Charges on the primary charges ──────────────────────────────────────────
+
+/** The primary charges sampled as hosts: a lone charge, two side by side, and the Table 7 rows of three, five and eight. */
+const HOST_LAYOUTS: Array<[number, string]> = [[1, 'single'], [2, 'in-fess'], [3, 'rows-2-1'], [5, 'rows-2-2-1'], [8, 'rows-3-3-2']];
+/** The charges on each host sampled: the real art of a bold, a detailed and a tall charge. */
+const CARRIED = ['mullet', 'rose', 'lion'] as const;
+
+interface OnChargeEntry { ctx: Extract<LayoutContext, { k: 'on-charge' }>; count: number; layout: Layout; label: string }
+
+/** Every layout the structure rules accept of one to four charges on each of the sampled hosts, for every drawing of every charge that carries charges. */
+function onChargeCatalogue(): OnChargeEntry[] {
+  const entries: OnChargeEntry[] = [];
+  for (const id of CHARGE_IDS) {
+    for (const posture of Object.keys(ART_ON_BOX[id])) {
+      for (const [hostCount, hostKey] of HOST_LAYOUTS) {
+        const host = { charge: id, posture: posture === '_' ? null : (posture as Posture), count: hostCount, layout: layoutOfKey(hostKey, hostCount)!, context: fieldContext('none') };
+        for (const count of [1, 2, 3, 4]) {
+          for (const layout of onChargeLayouts(count)) {
+            const ctx = { k: 'on-charge', host } as const;
+            const slots = contextSlots(ctx, count, layout, 'heater');
+            if (slots.length === hostCount * count && slots[0].size >= minSlotSize(ctx)) entries.push({ ctx, count, layout, label: `${id} ${posture} ×${hostCount} ← ${count} ${layoutKey(layout)}` });
+          }
+        }
+      }
+    }
+  }
+  return entries;
+}
+
+const ON_CHARGE = onChargeCatalogue();
+
+describe('charges on the primary charges fit their hosts', () => {
+  it('have plenty of legal layouts on the heater', () => {
+    expect(ON_CHARGE.length).toBeGreaterThan(240);
+    expect(new Set(ON_CHARGE.map((e) => e.ctx.host.charge)).size).toBe(CHARGE_IDS.length - 5);
+  });
+
+  for (const g of SHAPES) {
+    it(`${g.shape}: every slot lies on its host's drawing, the slots do not touch and are of one size`, () => {
+      const problems: string[] = [];
+      for (const e of ON_CHARGE) {
+        const { host } = e.ctx;
+        const hosts = contextSlots(host.context, host.count, host.layout, g.shape);
+        const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
+        const where = `${e.label} (${g.shape})`;
+        if (slots.length !== hosts.length * e.count) { problems.push(`${where}: ${slots.length} slots`); continue; }
+        if (new Set(slots.map((s) => s.size)).size !== 1 || slots[0].size < 1) { problems.push(`${where}: sizes ${[...new Set(slots.map((s) => s.size))]}`); continue; }
+        const key = host.posture ?? '_';
+        const drawing = rings((CHARGE_ART[host.charge] as Record<string, string>)[key] ?? CHARGE_ART[host.charge][CHARGES[host.charge].defaultPosture ?? '_']!);
+        const drawn = hosts.map((h) => place(drawing, drawnBox(h, host.charge)));
+        for (const s of slots) {
+          // The on-box is mostly inside the drawing (art-onbox.test.ts), so a glyph disc at its edge may reach a gap in it: most of the disc and its centre lie on the host.
+          const inside = disc(s).filter((p) => drawn.some((rs) => inDrawing(rs, p))).length;
+          if (!drawn.some((rs) => inDrawing(rs, [s.x, s.y])) || inside < 9) problems.push(`${where}: slot ${JSON.stringify(s)} has ${inside}/17 points on its host`);
+        }
+        if (e.layout.arrangement.k !== 'crossed') {
+          slots.forEach((a, i) => slots.slice(i + 1).forEach((b, j) => {
+            if (Math.hypot(a.x - b.x, a.y - b.y) < 0.8 * a.size) problems.push(`${where}: slots ${i + 1} and ${i + j + 2} overlap`);
+          }));
+        }
+      }
+      expect(problems.slice(0, 25)).toEqual([]);
+    }, 60_000);
+  }
+
+  it('draw the real artwork of the charges inside the host’s drawing on the heater', () => {
+    const problems: string[] = [];
+    const g = SHAPES[0];
+    for (const e of ON_CHARGE.filter((x) => x.ctx.host.count <= 3)) {
+      const { host } = e.ctx;
+      const hosts = contextSlots(host.context, host.count, host.layout, g.shape);
+      const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
+      const key = host.posture ?? '_';
+      const hostDrawing = rings((CHARGE_ART[host.charge] as Record<string, string>)[key] ?? CHARGE_ART[host.charge][CHARGES[host.charge].defaultPosture ?? '_']!);
+      const drawnHosts = hosts.map((h) => place(hostDrawing, drawnBox(h, host.charge)));
+      for (const id of CARRIED) {
+        const art = rings(CHARGE_ART[id][CHARGES[id].defaultPosture ?? '_']!);
+        for (const s of slots) {
+          const rs = place(art, drawnBox(s, id)).flat();
+          const outside = rs.filter((p) => !drawnHosts.some((h) => inDrawing(h, p) || h.flat().some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.5))).length;
+          if (outside > 0.25 * rs.length) problems.push(`${e.label}: ${id} sticks out of its host (${outside}/${rs.length} points)`);
+        }
+      }
+    }
+    expect(problems.slice(0, 25)).toEqual([]);
+  }, 60_000);
 });

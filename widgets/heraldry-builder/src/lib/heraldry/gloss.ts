@@ -137,6 +137,12 @@ function betweenGloss(d: Design, g: Group, ordinary: OrdinaryType): { text: stri
 /** Primary charges with the charges set around them: "a gold lion between three white roses, two above and one below". */
 function chargesWith(d: Design, g: Group, around: readonly Group[]): { text: string; clause: boolean } {
   let { text, clause } = chargesGloss(d, g);
+  // The charges on each of them: "a gold lion, carrying a blue star", "three white flames, each carrying a blue heart".
+  for (const t of g.charged) {
+    const c = chargesGloss(d, t);
+    text += `, ${g.count === 1 ? '' : 'each '}carrying ${c.text}`;
+    clause = c.clause;
+  }
   for (const s of around) {
     const colour = s.paint.k === 'counterchanged' ? `, ${counterchangedGloss(d)}` : '';
     const where = aroundWords(s.count, { arrangement: s.arrangement, position: s.position }) ?? layoutGloss({ arrangement: s.arrangement, position: s.position }, s.count);

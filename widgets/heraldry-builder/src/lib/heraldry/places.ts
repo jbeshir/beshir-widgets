@@ -11,13 +11,14 @@ import { isSecondaryPosition, primaryCharges } from './arrangement';
  * In step order:
  * ordinary    — the central band or shape; with none, the chief (else the bordure) the design stands on
  * picture     — the top-level charges: primary on the field, or set between the band
+ * on-picture  — the charges on each of the primary charges
  * around      — the charges set around the picture on the field ("a lion between three mullets")
  * in-chief, in-base, in-canton — the charges set beside the band or the picture, along the top, along the bottom or in the top corner
  * on-ordinary — the charges on the ordinary
  * chief, bordure — a chief or bordure set beside the ordinary
  * on-chief, on-bordure — the charges on that chief or bordure (on the ordinary itself when it is the chief or bordure the design stands on)
  */
-export const PLACE_KEYS = ['ordinary', 'picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure'] as const;
+export const PLACE_KEYS = ['ordinary', 'picture', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure'] as const;
 export type PlaceKey = (typeof PLACE_KEYS)[number];
 
 export interface Placed { place: PlaceKey; path: GroupPath; group: Group }
@@ -54,7 +55,13 @@ export function placesIn(d: Design): { placed: Placed[]; unplaced: GroupPath[] }
     else if (group.item.k === 'charge' && (group.role === 'primary' || (group.role === 'secondary' && group.relation === 'between'))) add('picture', [i], group);
     else if (group.item.k === 'charge' && group.role === 'secondary' && group.relation === 'position' && isSecondaryPosition(group.position)) add(`in-${group.position}`, [i], group);
     else unplaced.push([i]);
-    if (i !== ordinary) group.charged.forEach((tertiary, j) => (type === 'chief' || type === 'bordure' ? add(`on-${type}`, [i, j], tertiary) : unplaced.push([i, j])));
+    if (i !== ordinary) {
+      group.charged.forEach((tertiary, j) => {
+        if (type === 'chief' || type === 'bordure') add(`on-${type}`, [i, j], tertiary);
+        else if (group.item.k === 'charge' && group.role === 'primary') add('on-picture', [i, j], tertiary);
+        else unplaced.push([i, j]);
+      });
+    }
   });
   if (ordinary >= 0) d.groups[ordinary].charged.forEach((group, j) => add('on-ordinary', [ordinary, j], group));
   return { placed: placed.sort((a, b) => PLACE_KEYS.indexOf(a.place) - PLACE_KEYS.indexOf(b.place)), unplaced };

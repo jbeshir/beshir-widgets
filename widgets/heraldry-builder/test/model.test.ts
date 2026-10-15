@@ -635,8 +635,8 @@ describe('structure rules', () => {
 
     it('does not judge ordinary groups or groups without a layout', () => {
       expect(structural(arms('azure', group(ordinary('bend'), 'or')))).toEqual([]);
-      const onCharge = nd(arms('azure', group(charge('lion'), 'or', { charged: [group(charge('rose'), 'gules', { count: 3 })] })));
-      expect(structuralIssues(onCharge)).toEqual([]);
+      const onSecondary = nd(arms('azure', group(ordinary('bend'), 'or'), group(charge('mullet'), 'argent', { count: 2, charged: [group(charge('rose'), 'gules', { count: 3 })] })));
+      expect(structuralIssues(onSecondary)).toEqual([]);
     });
 
     it('applies to tertiary groups and names the group', () => {

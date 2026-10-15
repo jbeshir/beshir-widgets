@@ -157,6 +157,19 @@ describe('controls that appear only when they apply', () => {
     expect(removeLayer(d, 'around')).toEqual(lion);
   });
 
+  it('gives pictures on the picture a card of their own, with the layouts they take there', () => {
+    const heart = setCharge(DEFAULT_DESIGN, 'picture', 'heart');
+    expect(renderToString(h(AddLayer, { design: heart, onChange: noop }))).toContain('Add pictures on the picture');
+    const d = addLayer(heart, 'on-picture');
+    expect(layersIn(d)).toEqual(['on-picture']);
+    const html = renderToString(h(LayerStep, { ...base, design: d, place: 'on-picture', n: 4, onAdjust: noop }));
+    const got = ids(html);
+    for (const id of ['step-layer-on-picture', 'on-picture-charge-select', 'on-picture-count-select', 'on-picture-count-1', 'on-picture-arrangement-select', 'on-picture-charge-tincture', 'remove-layer-on-picture']) expect(got, id).toContain(id);
+    expect(got).not.toContain('on-picture-placement-select');
+    expect(html).toContain('Pictures on the picture');
+    expect(removeLayer(d, 'on-picture')).toEqual(heart);
+  });
+
   it('gives pictures in chief, in base or in canton a card of their own, with the one layout they stand in', () => {
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     const add = renderToString(h(AddLayer, { design: lion, onChange: noop }));

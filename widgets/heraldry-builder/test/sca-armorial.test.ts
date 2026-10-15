@@ -203,7 +203,7 @@ describe('the matcher files what the widget does not draw under its gap', () => 
     ['Azure, three lions Or between three roses argent.', ['placement:around-primary-3']],
     ['Azure, a lion Or between ten roses argent.', ['placement:around-10']],
     ['Azure, a chevron between three mullets and a rose argent.', ['multiple-groups:secondary', 'placement:between-chevron-1']],
-    ['Azure, on a lion Or three mullets gules.', ['multiple-groups:tertiary-on-charge']],
+    ['Azure, on a key Or a rose gules.', ['placement:on-key']],
     ['Azure, a cross Or between two roses argent.', ['placement:between-cross-2']],
     // With no comma, the charges "between" are on the host too: one tertiary group of two types (SENA A3D2a).
     ['Vert, on a cross argent a rose sable between four roses gules.', ['multiple-groups:tertiary-two-types']],
@@ -217,5 +217,30 @@ describe('the matcher files what the widget does not draw under its gap', () => 
   it('only ever uses gap categories the ignore list knows', () => {
     const known = new Set<string>(GAP_CATEGORIES.map((c) => c.id));
     expect(UNSUPPORTED_GAP_CATEGORIES.filter((c) => !known.has(c))).toEqual([]);
+  });
+});
+
+// Charges on charges: "on <a charge> <group>", "<a host> charged with <group>" (the same design), and "each charged with".
+describe('the matcher reads charges on the primary charges', () => {
+  it.each([
+    'Azure, on a heart argent a lion rampant azure.',
+    'Azure, on a heart argent, a lion rampant azure.',
+    'Purpure, a unicorn argent charged with a fleur-de-lys purpure.',
+    'Purpure, on a unicorn argent a fleur-de-lys purpure.',
+    'Vert, three flames argent each charged with a heart azure.',
+    'Or, on a sun gules three mullets one and two Or.',
+    'Or, on a sun gules a mullet Or, a bordure argent.',
+    'Gules, a bend Or charged with three roses argent.',
+  ])('%s is a match', (text) => {
+    expect(explainMatch(text).status).toBe('match');
+  });
+
+  it('words a charge on a beast "charged with" and any other host "on", and reads both', () => {
+    expect(blazon(explainMatch('Purpure, on a unicorn argent a fleur-de-lis purpure.').match!.design!)).toBe('Purpure, a unicorn argent charged with a fleur-de-lys purpure.');
+    expect(blazon(explainMatch('Azure, a heart argent charged with a lion azure.').match!.design!)).toBe('Azure, on a heart argent a lion azure.');
+  });
+
+  it('is a near-miss when the College leaves a layout the widget must state', () => {
+    expect(explainMatch('Azure, on a heart argent three mullets gules.')).toMatchObject({ status: 'near-miss', nearMiss: 'arrangement-wording' });
   });
 });

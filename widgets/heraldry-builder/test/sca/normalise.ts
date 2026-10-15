@@ -1,6 +1,6 @@
 // Text normaliser applied identically to an SCA blazon and to the widget's own blazon() before the
 // two are compared (see match.ts). The widget words every design in SCA house style, so this only
-// bridges differences of *spelling and punctuation* and three conventions the SCA and the Glossary
+// bridges differences of *spelling and punctuation* and four conventions the SCA and the Glossary
 // of Terms declare equivalent. None of the rules can make two blazons of different designs compare
 // equal: tinctures, counts, charge names, arrangements and postures are never dropped, except the
 // name of a posture Table 5 makes the charge's own default (rule 6: "a lion rampant" is "a lion",
@@ -9,7 +9,7 @@
 // stated as well (match.ts), which is a statement about one design and so can't equate two.
 //
 // Rules run in the listed order; each carries an id so the report and the armorial test can cite it
-// (NORMALISATION_RULES). Rules 4–6 are conventions, not spellings: the widget's emitter picks one of
+// (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
 import { CHARGES, CHARGE_IDS, POSTURES, postureTerm } from '../../src/lib/heraldry';
@@ -75,12 +75,20 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
       .replace(/,? and (?=in (?:chief|base|canton)\b)/g, ', ')
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
-      .replace(new RegExp(`\\b(on a (?:${ORDINARY}|chief) ${TINCT}),`, 'g'), '$1')
+      .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}|chief)|${CORE}) ${TINCT}),`, 'g'), '$1')
       .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY} (?:${TINCT} )?between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')
       .replace(new RegExp(`^((?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
   },
   {
-    // 5. Where the placement words go: the SCA writes "two keys in pale" as often as "in pale two
+    // 5. A single host carries what is on it as "on <host> <group>" or "<host> charged with <group>": SENA writes both
+    //    ("Azure, on a bend argent a mullet vert", "a lozenge sable charged with a roundel argent"); the widget words a
+    //    charge on a beast, monster or bird the second way and every other host the first.
+    id: 'charged-with',
+    description: '"<a host> <tincture> charged with <group>" → "on <a host> <tincture> <group>".',
+    apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief|${NOUN})(?: (?:${POSTURE}))?(?: in splendor)? ${TINCT}),? charged with `, 'g'), '$1on $2 '),
+  },
+  {
+    // 6. Where the placement words go: the SCA writes "two keys in pale" as often as "in pale two
     //    keys" (Bruce); the widget puts lines and positions first and patterns after.
     id: 'arrangement-placement',
     description: '"<group> in pale/fess/bend/bend sinister" → "in … <group>"; "in saltire/cross <group>" → "<group> in saltire/cross".',
@@ -89,7 +97,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(new RegExp(`\\bin (saltire|cross) (${CORE})\\b`, 'g'), '$2 in $1'),
   },
   {
-    // 6. Postures the College assumes may be stated or left out (Glossary Table 5): a lion or unicorn
+    // 7. Postures the College assumes may be stated or left out (Glossary Table 5): a lion or unicorn
     //    rampant, a dragon rampant/segreant, an eagle displayed, a fish naiant. Both sides drop them;
     //    the name always means that posture, so only a design that has it can match.
     id: 'stated-default-postures',

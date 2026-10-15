@@ -49,5 +49,9 @@ export const UNSUPPORTED_CASES: Array<[string, unknown, string]> = [
   ['two secondary groups', arms('azure', group(ordinary('bend'), 'or'), rose({ count: 2 }), group(charge('mullet'), 'argent', { count: 2 })), 'multiple-groups:secondary'],
   ['two chiefs', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('chief'), 'gules')), 'multiple-groups:peripherals'],
   ['a secondary group about', arms('azure', group(ordinary('bend'), 'or'), rose({ role: 'secondary', relation: 'about', count: 2 })), 'multiple-groups:secondary-about'],
-  ['charges on a charge', arms('azure', group(charge('lion'), 'or', { charged: [rose({ count: 2 })] })), 'multiple-groups:tertiary-on-charge'],
+  ['charges on a secondary charge', arms('azure', group(ordinary('bend'), 'or'), group(charge('mullet'), 'argent', { count: 2, charged: [rose()] })), 'multiple-groups:tertiary-on-secondary'],
+  ['charges on a charge with no room for them', arms('azure', group(charge('key'), 'or', { charged: [rose()] })), 'placement:on-key'],
+  ['charges on a charge drawn in splendour', arms('azure', group(charge('sun', { mods: ['in-splendour'] }), 'or', { charged: [rose()] })), 'multiple-groups:tertiary-on-modifier'],
+  ['charges on a charge that has charges around it', arms('azure', group(charge('lion'), 'or', { charged: [rose()] }), group(charge('mullet'), 'argent', { count: 3, relation: 'between' })), 'multiple-groups:tertiary-on-charge-around'],
+  ['five charges on a charge', arms('azure', group(charge('lion'), 'or', { charged: [rose({ count: 5 })] })), 'placement:on-charge-5'],
 ];

@@ -12,7 +12,7 @@ const names = (d: ReturnType<typeof nd>): Array<[PlaceKey, string]> =>
 describe('places of a design', () => {
   it('cover every group of every generated design exactly once, and map back to their paths', () => {
     const designs = generatedRichDesigns(7, 400);
-    let layered = 0, positioned = 0, around = 0;
+    let layered = 0, positioned = 0, around = 0, onPicture = 0;
     for (const d of designs) {
       const placed = placesOf(d);
       expect(placed.map((p) => pathKey(p.path)).sort(), JSON.stringify(d)).toEqual(walkGroups(d).map((w) => pathKey(w.path)).sort());
@@ -25,10 +25,21 @@ describe('places of a design', () => {
       if (placed.some((p) => p.place === 'chief' || p.place === 'bordure')) layered++;
       if (placed.some((p) => p.place === 'in-chief' || p.place === 'in-base' || p.place === 'in-canton')) positioned++;
       if (placed.some((p) => p.place === 'around')) around++;
+      if (placed.some((p) => p.place === 'on-picture')) onPicture++;
     }
     expect(layered).toBeGreaterThan(35);
     expect(positioned).toBeGreaterThan(20);
     expect(around).toBeGreaterThan(20);
+    expect(onPicture).toBeGreaterThan(20);
+  });
+
+  it('names the picture and the pictures on it, which are not the pictures on the band', () => {
+    const d = nd(arms('azure', group(charge('heart'), 'argent', { charged: [group(charge('lion'), 'azure')] }), group(ordinary('chief'), 'or')));
+    expect(names(d)).toEqual([['ordinary', 'chief'], ['picture', 'heart'], ['on-picture', 'lion']]);
+    expect(pathOfPlace(d, 'on-picture')).toEqual([0, 0]);
+    // Charges on a charge set around a band have no place: the builder draws none.
+    const beside = nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { count: 2, charged: [group(charge('mullet'), 'gules')] })));
+    expect(placesIn(beside).unplaced).toEqual([[1, 0]]);
   });
 
   it('names the band, the picture, the pictures on the band, the top band and the border', () => {

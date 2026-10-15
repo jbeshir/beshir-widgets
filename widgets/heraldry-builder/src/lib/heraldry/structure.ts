@@ -9,7 +9,7 @@ import { itemKey, itemName, primaryGroup, walkGroups, type Design, type Group, t
 import { capacityIssue } from './layout';
 import { groundShares } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
-import { AROUND_COUNTS, contextOf, hasChief, layoutCandidates, layoutKey, layoutWords, primaryCharges, type LayoutContext } from './arrangement';
+import { AROUND_COUNTS, contextOf, hasChief, layoutCandidates, layoutKey, layoutWords, primaryCharges, type HostCharges, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
@@ -17,6 +17,11 @@ function chargesPhrase(g: Group): string {
 }
 
 /** What a group sits on, for "the fess", "the lion". */
+/** "on the heart", "on each of the flames". */
+function whereOnCharge(host: HostCharges): string {
+  return host.count === 1 ? `on the ${CHARGES[host.charge].name}` : `on each of the ${CHARGES[host.charge].plural}`;
+}
+
 /** Why a charge group's count, arrangement and position don't make a layout, or null when they do. */
 function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): string | null {
   if (g.item.k !== 'charge') return null;
@@ -33,6 +38,12 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
     const candidates = layoutCandidates(d, path, g.count);
     if (candidates.some((c) => layoutKey(c) === layoutKey(layout)) || !AROUND_COUNTS.includes(g.count)) return null;
     return `${capitalise(chargesPhrase(g))} around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
+  }
+  if (ctx.k === 'on-charge') {
+    // Every count but one must be stated, and only some layouts are on offer for it.
+    const candidates = layoutCandidates(d, path, g.count);
+    if (candidates.length === 0 || candidates.some((c) => layoutKey(c) === layoutKey(layout))) return null;
+    return `${capitalise(chargesPhrase(g))} ${whereOnCharge(ctx.host)} can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
   }
   if (ctx.k !== 'field') {
     const where = ctx.k === 'on' ? 'on' : 'around';
