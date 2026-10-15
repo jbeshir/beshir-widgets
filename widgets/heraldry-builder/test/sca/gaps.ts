@@ -203,7 +203,7 @@ const JOINS: [RegExp, string][] = [
   [/\ben arriere\b/g, 'volant'],
   [/\b(counter|double|triple)[- ](cotised|cotissed)\b/g, 'cotised'],
   [/\bbleu celeste\b/g, 'bleu-celeste'],
-  [/\bvair en point\b/g, 'vair'],
+  [/\b(vair|potent) en pointe?\b/g, '$1'],
   [/\bpoint pointed\b/g, 'point'],
   [/\b(to|toward|towards) (sinister|dexter|chief|base|center|centre)\b/g, 'to-$2'],
   [/\bst\. /g, 'saint '],
@@ -337,6 +337,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let qualifier: string | null = null; // the first noun of "oak tree"
   let untincturedOrd = false; // an ordinary still awaiting its tincture: a later "counterchanged" covers it too
   let overallNext = false; // after "overall": the next element lies across everything
+  let patternedField = false; // the field is in stripes or checks of two tinctures
 
   const words = tokens.map((t) => t.word);
   const look = (i: number) => (i >= 0 && i < tokens.length && words[i] !== BREAK ? lookup(words[i]) : null);
@@ -373,6 +374,19 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   };
 
 
+
+
+  /**
+   * Whether the fur named `lem` at `words[i]` is written as the widget draws it: the field, a part of it, a band or a picture in a
+   * fur — the named furs, "<tincture> ermined <tincture>", "vairy <tincture> and <tincture>" — but not strewn on a semy or held.
+   */
+  const furDrawn = (i: number, lem: string): boolean => {
+    if (held || last?.el?.ctx === 'semy' || last?.el?.ctx === 'of') return false;
+    if (lem === 'ermined') return look(i - 1)?.e.k === 'tinc' && look(i + 1)?.e.k === 'tinc';
+    if (lem === 'counter-vairy') return false;
+    if (lem === 'vairy' || lem === 'potenty') return look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc';
+    return true;
+  };
 
 
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
@@ -477,7 +491,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'cc':
         // "a bordure counterchanged", "a chevron between three bees counterchanged" (tinctures factor
         // backward): the widget's ordinaries take a single tincture
-        if (untincturedOrd || (last?.kind === 'ord' && last.el === els[els.length - 1] && look(i - 1)?.e.k !== 'tinc')) tag('tincture', 'counterchanged-ordinary');
+        // (drawn on a field of two parts: "Per pale Or and gules, a bend counterchanged")
+        if (divisions === 0 && !patternedField && (untincturedOrd || (last?.kind === 'ord' && last.el === els[els.length - 1] && look(i - 1)?.e.k !== 'tinc'))) tag('tincture', 'counterchanged-ordinary');
         // "a heart counterchanged vert and argent": divided as the field is (the widget draws that on a divided field only)
         if (look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc' && divisions === 0) tag('tincture', 'party');
         untincturedOrd = false;
@@ -496,7 +511,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (lem === 'ermine' && /^(a|an|two|three|four|five|six)$/.test(prev)) { tag('charge-beast', 'ermine'); settleHost(newElement('charge', null)); break; }
         if (lem === 'potenty' && (last?.kind === 'ord' || last?.kind === 'div') && look(i - 1)?.e.k !== 'tinc') tag('line-of-partition', 'potenty');
         else if (lem === 'potent' && /^cross/.test(prev)) break;
-        else tag('fur', e.v);
+        else if (!furDrawn(i, lem)) tag('fur', e.v);
         break;
       case 'line': {
         const next = look(i + 1)?.e.k;
@@ -507,6 +522,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'treat':
         // The field, a band or a picture in stripes or checks of two tinctures is drawn: "barry of eight argent and azure", "a fess checky Or and sable".
         if (variationFollows(e.v, i) && (inField ? divisions === 0 : !held)) {
+          if (inField) patternedField = true;
           if (words[i + 1] === 'of') i += 2; // the count is part of the pattern, not of the group that follows
         } else if (!(treatedFollows(e.v, i) && (inField || !held))) tag('field-treatment', e.v);
         break;

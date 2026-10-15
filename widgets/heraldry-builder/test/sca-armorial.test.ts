@@ -7,7 +7,10 @@
 
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { UNSUPPORTED_GAP_CATEGORIES, blazon, canonicalJson, normalise } from '../src/lib/heraldry';
+import {
+  CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_TREATMENTS, FURS, FUR_NAME, SEMY_NAMES, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
+  blazon, canonicalJson, isCountedVariation, normalise,
+} from '../src/lib/heraldry';
 import { generatedDesign, generatedRichDesign } from './design-generator';
 import { arms, charge, group, ordinary } from './helpers';
 import entries from '../src/data/sample-registry.json';
@@ -249,5 +252,62 @@ describe('the matcher reads charges on the primary charges', () => {
 
   it('is a near-miss when the College leaves a layout the widget must state', () => {
     expect(explainMatch('Azure, on a heart argent three mullets gules.')).toMatchObject({ status: 'near-miss', nearMiss: 'arrangement-wording' });
+  });
+});
+
+
+// A record the widget draws except for one word it can't read has that word as its gap and nothing else: the tagger
+// must not file it under a construct the widget does draw (a fur, a pattern, a semy, a second group, a badge …).
+// Each case is a minimal blazon of one drawn construct, taken from the library's own tables where it has them, plus a
+// noun no lexicon holds; the classifier files it under `other` alone.
+describe('the tagger never files a record under a construct the widget supports', () => {
+  const upper = (text: string) => text.replace(/^./, (c) => c.toUpperCase());
+  const fields: Array<[string, string]> = [
+    ...VARIATIONS.map((v): [string, string] => [`${VARIATION_NAME[v]} field`, `${VARIATION_NAME[v]}${isCountedVariation(v) ? ' of eight' : ''} argent and gules`]),
+    ...FURS.map((f): [string, string] => [`${FUR_NAME[f]} field`, FUR_NAME[f]]),
+    ['ermined colours', 'argent ermined gules'],
+    ['vairy colours', 'vairy Or and gules'],
+    ['potenty colours', 'potenty argent and sable'],
+    ...DRAWN_TREATMENTS.map((t): [string, string] => [`${t} field`, `argent ${t} sable`]),
+    ...SEMY_NAMES.map((n): [string, string] => [`${n.word} field`, `azure ${n.word}${n.tincture === null ? ' Or' : ''}`]),
+    ['semy of charges', 'azure semy of mullets Or'],
+    ['semy on a part', 'per pale gules and argent semy of billets gules'],
+    ...DRAWN_DIVISIONS.map((d): [string, string] => [`${DIVISION_NAME[d]} field`, `${DIVISION_NAME[d]} Or and gules`]),
+  ];
+  const designs: Array<[string, string]> = [
+    ['a fur on a band', 'azure, a bend ermine'],
+    ['a fur on a picture', 'azure, a mullet vair'],
+    ['a pattern on a band', 'azure, a fess checky Or and sable'],
+    ['a treatment on a band', 'azure, a chief argent masoned sable'],
+    ['a semy on a band', 'azure, a chief gules semy of billets Or'],
+    ['a party picture', 'azure, a heart per pale argent and gules'],
+    ...CHARGE_IDS.filter((id) => CHARGES[id].proper).map((id): [string, string] => [`a ${id} proper`, `azure, a ${CHARGES[id].name} proper`]),
+    ['a counterchanged band', 'per pale Or and gules, a bend counterchanged'],
+    ['a counterchanged picture', 'per pale Or and gules, a heart counterchanged'],
+    ['two groups beside each other', 'azure, a lion and a rose argent'],
+    ['a charge between charges', 'azure, a lion Or between three roses argent'],
+    ['charges around a charge', 'azure, a lion Or between four roses argent in saltire'],
+    ['a band and a chief', 'azure, a fess and a chief argent'],
+    ['a chief and a bordure', 'azure, a chief and a bordure Or'],
+    ['charges in chief', 'azure, a bend Or, in chief three roses argent'],
+    ['charges in a corner', 'azure, a bend Or and in dexter chief a rose argent'],
+    ['overall', 'azure, a fess Or and overall a lion argent'],
+    ['charges on a band', 'azure, on a fess Or three roses gules'],
+    ['a charge on a charge', 'azure, on a heart argent a lion azure'],
+    ['charged with', 'azure, a unicorn argent charged with a rose gules'],
+    ['co-primaries', 'azure, two roses and a lion argent'],
+    ['a roundel', 'azure, a bezant'],
+    ['a goutte', 'azure, a goutte de sang'],
+    ['a badge', '(Fieldless) A lion Or'],
+    ['a charged badge', '(Fieldless) A rose argent charged with a heart gules'],
+    ['a badge of crossed charges', '(Fieldless) Two swords in saltire argent'],
+  ];
+  const cases = [...fields.map(([name, field]): [string, string] => [name, upper(field)]), ...designs];
+
+
+  it.each(cases)('%s', (_, text) => {
+    const c = classify({ key: 'regid:0', type: 'd', date: '', blazon: `${upper(text)}, a frobnitz Or.`, headings: [] });
+    expect(c.status).toBe('gap');
+    expect(c.tags.filter((t) => categoryOf(t) !== 'other')).toEqual([]);
   });
 });
