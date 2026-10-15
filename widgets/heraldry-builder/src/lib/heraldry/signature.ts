@@ -13,6 +13,8 @@ function paint(p: Paint): string {
     case 'tincture': return TINCTURE_CODE[p.t];
     case 'fur': return p.colours ? `${p.fur}(${p.colours.map((t) => TINCTURE_CODE[t]).join(',')})` : p.fur;
     case 'counterchanged': return 'cc';
+    case 'proper': return 'proper';
+    case 'treated': return `${p.treatment}(${paint(p.ground)},${TINCTURE_CODE[p.ink]})`;
     case 'divided': return `${p.division}(${p.parts.map(paint).join(',')})`;
     // Checky is the same with either tincture first (Prec #FIELDCheck).
     case 'variation': return `${p.variation}${p.pieces ?? ''}(${(p.variation === 'checky' ? p.parts.map(paint).sort() : p.parts.map(paint)).join(',')})`;

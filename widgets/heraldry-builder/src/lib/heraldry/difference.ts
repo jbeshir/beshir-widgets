@@ -243,7 +243,7 @@ const VARIATION_CATEGORY: Record<Variation, string> = {
 function partition(d: Design): string {
   if (d.kind === 'badge') return notSupported({ category: 'fieldless', detail: 'badge' });
   const f = d.field;
-  return f.k === 'divided' ? f.division : f.k === 'variation' ? VARIATION_CATEGORY[f.variation] : f.k === 'tincture' || f.k === 'fur' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
+  return f.k === 'divided' ? f.division : f.k === 'variation' ? VARIATION_CATEGORY[f.variation] : f.k === 'tincture' || f.k === 'fur' || f.k === 'treated' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
 }
 
 

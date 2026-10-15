@@ -3,13 +3,14 @@
 
 import {
   DIVISION_LABEL, asParty, asVariation, groupAt, groupTinctureChoices, groupTinctureOf, joinGroup, partyDivisionChoices, partyTinctureChoices, splitGroup,
-  setPartyDivision, setPartyTincture, type Design, type GroupPath,
+  properChoice, setPartyDivision, setPartyTincture, setProper, type Design, type GroupPath,
 } from '../../lib/heraldry';
 import { setGroupTincture } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { useExplainer } from './Explainer';
 import { FurPicker } from './FurPicker';
+import { TreatmentPicker } from './TreatmentPicker';
 import { GroupPattern } from './VariationPicker';
 import { TincturePicker } from './TincturePicker';
 
@@ -31,6 +32,7 @@ export function PaintPicker({ design, path, group, testid, legend, onChange }: P
   const varied = asVariation(paint) !== null;
   const split = party || varied ? null : splitGroup(design, path);
   const tincture = groupTinctureOf(paint);
+  const natural = properChoice(design, path);
   return (
     <>
       <TincturePicker
@@ -78,7 +80,18 @@ export function PaintPicker({ design, path, group, testid, legend, onChange }: P
           ))}
         </>
       )}
+      {natural && !party && !varied && (
+        <div class="control">
+          <button
+            type="button" class="button-tertiary" data-testid={`${testid}-proper`} aria-pressed={paint.k === 'proper'} aria-disabled={natural.allowed ? undefined : 'true'}
+            onClick={(e) => (natural.allowed ? onChange(setProper(design, path)) : explain({ anchor: e.currentTarget as HTMLElement, kind: 'tincture', title: "Can't use natural colours here", reason: natural.reason }))}
+          >
+            Natural colours
+          </button>
+        </div>
+      )}
       {!party && !varied && <FurPicker design={design} target={{ k: 'group', path }} group={group} testid={testid} legend="Fur" onChange={onChange} />}
+      {!party && !varied && <TreatmentPicker design={design} target={{ k: 'group', path }} group={group} testid={testid} legend="Brick wall or scales" onChange={onChange} />}
       {!party && <GroupPattern design={design} path={path} group={group} testid={testid} onChange={onChange} />}
       {explainer}
     </>

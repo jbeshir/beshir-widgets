@@ -3,17 +3,18 @@
 // of a colour, so the tincture picker beside it stays as it was.
 
 import {
-  FUR_LABEL, TINCTURE_FILL, furAt, furChoices, furColourChoices, furColours, furKindOf, furPattern, setFur, setFurColour, takesColours,
-  type Design, type FurKind, type FurTarget,
+  FUR_LABEL, furAt, furChoices, furColourChoices, furColours, furKindOf, furPattern, setFur, setFurColour, takesColours,
+  type Design, type FurKind, type PaintTarget,
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChoiceButton, RadioGroup } from './Choices';
+import { FillChip } from './FillChip';
 import { useExplainer } from './Explainer';
 import { TincturePicker } from './TincturePicker';
 
 interface Props {
   design: Design;
-  target: FurTarget;
+  target: PaintTarget;
   /** Swatch testid group: swatch-<group>-fur-1 and -fur-2 for the colours. */
   group: string;
   testid: string;
@@ -24,19 +25,7 @@ interface Props {
 /** A square of the fur, drawn at the scale of a swatch. */
 function FurChip({ kind, uid }: { kind: FurKind; uid: string }) {
   const spec = furPattern({ k: 'fur', fur: kind === 'ermined' ? 'ermine' : kind === 'vairy' ? 'vair' : kind === 'potenty' ? 'potent' : kind, colours: null }, 0.5);
-  const id = `fur-chip-${uid}-${kind}`;
-  const fill = (t: typeof spec.ground) => TINCTURE_FILL[t.t];
-  return (
-    <svg viewBox="0 0 28 28" width="28" height="28" aria-hidden="true" focusable="false">
-      <defs>
-        <pattern id={id} patternUnits="userSpaceOnUse" width={spec.width} height={spec.height} patternTransform={spec.transform ?? undefined}>
-          <rect width={spec.width} height={spec.height} fill={fill(spec.ground)} />
-          {spec.marks.map((m, i) => <path key={i} d={m.d} fill={fill(m.colour)} />)}
-        </pattern>
-      </defs>
-      <rect width="28" height="28" fill={`url(#${id})`} stroke="#222222" stroke-width="1" />
-    </svg>
-  );
+  return <FillChip spec={spec} id={`fur-chip-${uid}-${kind}`} />;
 }
 
 export function FurPicker({ design, target, group, testid, legend, onChange }: Props) {

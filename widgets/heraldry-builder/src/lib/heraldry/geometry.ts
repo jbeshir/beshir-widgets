@@ -8,7 +8,7 @@
 
 import { CHARGES, type ChargeId } from './charges';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
-import { asVariation, notSupported, type Paint, type VariationPaint } from './design';
+import { asTreated, asVariation, notSupported, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import type { OrdinaryType } from './ordinaries';
 import { surfaceOf, type Surface } from './surface';
@@ -146,10 +146,10 @@ export function shapeFrame(shape: FieldShape): ShapeFrame {
 
 // ── Field partitions ────────────────────────────────────────────────────────
 
-/** A paint that is one thing over the part of the field it fills: a tincture or a fur. */
-export type FieldPaint = Extract<Paint, { k: 'tincture' | 'fur' }>;
+/** A paint that is one thing over the part of the field it fills: a tincture, a fur or a treated tincture. */
+export type FieldPaint = Extract<Paint, { k: 'tincture' | 'fur' | 'treated' }>;
 
-const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur';
+const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null;
 
 /** The field as geometry draws it: plain, one of the drawn divisions of two parts, or a variation of two tinctures. */
 type DrawnField =
@@ -174,9 +174,9 @@ function drawnField(field: Paint): DrawnField {
 export function fieldSurfaceAt(field: Paint, x: number, y: number): Surface {
   const f = drawnField(field);
   switch (f.k) {
-    case 'plain': return surfaceOf(f.paint);
-    case 'varied': return surfaceOf(field);
-    case 'divided': return surfaceOf(inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.paints[0] : f.paints[1]);
+    case 'plain': return surfaceOf(f.paint, null);
+    case 'varied': return surfaceOf(field, null);
+    case 'divided': return surfaceOf(inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.paints[0] : f.paints[1], null);
     default: return f satisfies never;
   }
 }

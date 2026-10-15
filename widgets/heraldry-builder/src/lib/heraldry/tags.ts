@@ -17,16 +17,19 @@ export function deriveTags(d: Design): string[] {
   const all = new Set<Tincture>();
 
   if (d.kind === 'arms') add(d.field.k === 'divided' ? `division:${d.field.division}` : d.field.k === 'variation' ? `field:${d.field.variation}` : 'field:plain');
-  const furOf = (p: Paint) => { if (p.k === 'fur') add(`fur:${p.fur}`); };
+  const paintKindTags = (p: Paint) => {
+    if (p.k === 'fur') add(`fur:${p.fur}`);
+    if (p.k === 'treated') add(`treatment:${p.treatment}`);
+  };
   for (const part of fieldParts(d)) {
-    furOf(part);
+    paintKindTags(part);
     for (const t of paintTinctures(part)) { add(`field-tincture:${t}`); all.add(t); }
   }
 
   for (const { group, host } of walkGroups(d)) {
-    furOf(group.paint);
+    paintKindTags(group.paint);
     const tinctures = paintTinctures(group.paint);
-    const paints: string[] = group.paint.k === 'counterchanged' ? ['counterchanged'] : tinctures;
+    const paints: string[] = group.paint.k === 'counterchanged' || group.paint.k === 'proper' ? [group.paint.k] : tinctures;
     if (group.item.k === 'ordinary') {
       add(`ordinary:${group.item.type}`);
       for (const paint of paints) add(`ordinary-tincture:${paint}`);

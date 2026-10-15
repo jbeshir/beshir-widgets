@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ERMINE_SPOT, FURS, FUR_KINDS, blazon, canonicalJson, deriveTags, differences, fillCode, furChoices, furColourChoices, gloss, normalise, renderLayers, setFur, setFurColour,
-  addLayer, layerChoices, pathOfPlace, groupAt, signature, structuralIssues, tinctureIssues, unsupportedIssues, furPattern, type Design, type FurPaint, type FurTarget, fieldSurfaces, sameSurface, surfaceOf,
+  addLayer, layerChoices, pathOfPlace, groupAt, signature, structuralIssues, tinctureIssues, unsupportedIssues, furPattern, type Design, type FurPaint, type PaintTarget, fieldSurfaces, sameSurface, surfaceOf,
 } from '../src/lib/heraldry';
 import { builderPath } from './builder-path';
 import { checkBlazon } from './sca/classify';
@@ -15,7 +15,7 @@ import { arms, charge, div, group, nd, ordinary } from './helpers';
 const fur = (name: string, colours: [string, string] | null = null) => ({ k: 'fur', fur: name, colours });
 const lion = (paint: unknown, extra: object = {}) => group(charge('lion'), paint, extra);
 const messages = (d: Design) => [...structuralIssues(d), ...tinctureIssues(d)].map((i) => i.message);
-const FIELD_0: FurTarget = { k: 'field', part: 0 };
+const FIELD_0: PaintTarget = { k: 'field', part: 0 };
 
 describe('the canonical spelling of a fur', () => {
   const canon = (p: unknown) => (nd(arms(p, lion('gules'))).field as FurPaint);
@@ -103,7 +103,7 @@ describe('the design text', () => {
 });
 
 describe('the surface of a fur', () => {
-  const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field);
+  const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field, null);
 
   it('is the class of the ground for the ermine family and neutral for vair and potent (RB §1.1)', () => {
     expect(surface(fur('ermine'))).toMatchObject({ cls: 'metal', bases: ['argent', 'sable'] });

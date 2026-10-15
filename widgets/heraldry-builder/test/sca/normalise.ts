@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, FURS, FUR_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, FURS, FUR_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -30,7 +30,9 @@ const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.le
 const FUR = `(?:${COLOUR} ermined ${COLOUR}|(?:vairy|potenty) ${COLOUR} and ${COLOUR}|${alt(FURS.map((f) => FUR_NAME[f]))})`;
 /** A variation of the field as the text spells it once its synonyms are settled, with its stripe count when it has one: "barry of eight", "checky". */
 const VARIATION = `(?:${alt(VARIATIONS.map((v) => VARIATION_NAME[v]))})(?: of ${NUMBER})?`;
-const TINCT = `(?:${FUR}|${COLOUR}|counterchanged)`;
+/** A treated tincture as the text spells it: "argent masoned sable". */
+const TREATED = `${COLOUR} (?:${DRAWN_TREATMENTS.join('|')}) ${COLOUR}`;
+const TINCT = `(?:${FUR}|${TREATED}|${COLOUR}|counterchanged|proper)`;
 const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]));
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
 /** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor". */
@@ -98,6 +100,12 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\bfusilly\b/g, 'fusily')
       .replace(/\b(barry|paly)-bendy\b/g, '$1 bendy')
       .replace(new RegExp(`\\b(${alt(VARIATIONS.filter(isCountedVariation).map((v) => VARIATION_NAME[v]))}) of six\\b`, 'g'), '$1'),
+  },
+  {
+    // 3c. Treatments the SCA spells in more than one way: "papelonny" is papellony (the Glossary lists both).
+    id: 'treatment-synonyms',
+    description: 'papelonny → papellony.',
+    apply: (s) => s.replace(/\bpapelonny\b/g, 'papellony'),
   },
   {
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a

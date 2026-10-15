@@ -6,7 +6,7 @@
 
 import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
-  asParty, asVariation, fieldParts, variationPaint, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  asParty, asVariation, fieldParts, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, layerPath, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, withTincture, withLayout, chargeItem, newCharge,
   type ChargeId, type Companion, type Design, type Division, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
@@ -38,7 +38,7 @@ function withField(d: Design, field: Paint): Design {
 /** A second tincture for a newly divided field: contrasting class, sharing none of the first's tinctures. */
 function partner(first: Paint): Paint {
   if (first.k === 'tincture') return tincturePaint(!isMetal(first.t) ? 'or' : first.t === 'or' ? 'azure' : 'gules');
-  const { cls, bases } = surfaceOf(first);
+  const { cls, bases } = surfaceOf(first, null);
   return tincturePaint((cls === 'metal' ? COLOURS : METALS).find((t) => !bases.includes(t)) ?? 'gules');
 }
 
@@ -60,7 +60,7 @@ export function setDivision(d: Design, division: Division): Design {
 }
 
 /** The tincture that stands for a paint in a variation: its own, or the first of the ones it is made of. */
-const tinctureOf = (p: Paint): Tincture => (p.k === 'tincture' ? p.t : surfaceOf(p).bases[0]);
+const tinctureOf = (p: Paint): Tincture => (p.k === 'tincture' ? p.t : surfaceOf(p, null).bases.find(isTincture) ?? 'gules');
 
 /** The two tinctures of a variation made of these: a metal and a colour, so the second keeps its place only when it is the other class. */
 function contrastingPair(first: Tincture, second: Tincture | null): [Tincture, Tincture] {

@@ -1,7 +1,7 @@
 // The contrast predicate of the rule of tincture (SENA A3B). Apart from tincture-rule.ts so the default
 // arrangements, which also need it, don't depend on the module that walks the design.
 
-import type { Tincture } from './tinctures';
+import { isTincture, type Tincture } from './tinctures';
 import { sharesTincture, tinctureSurface, type Surface } from './surface';
 
 export type ContrastFailure = 'same' | 'colour-on-colour' | 'metal-on-metal';
@@ -29,7 +29,7 @@ export type SharedTinctureException = 'none' | 'ordinary-on-multiply-divided';
 export const GROUND_CLASS_SHARE = 2 / 3;
 
 /** The tinctures a ground touches at all. */
-export const groundTinctures = (ground: Ground): Tincture[] => ground.flatMap((g) => g.surface.bases);
+export const groundTinctures = (ground: Ground): Tincture[] => ground.flatMap((g) => g.surface.bases.filter(isTincture));
 
 /**
  * Why `top` fails on `ground`, or null when it contrasts. Where a neutral surface is on either side (or the two are of one class),

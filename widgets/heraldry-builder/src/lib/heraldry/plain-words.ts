@@ -5,7 +5,7 @@
 
 import { CHARGES, postureGloss, postureTerm, type ChargeId, type Posture } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
-import type { Division, Variation } from './divisions';
+import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
@@ -164,6 +164,15 @@ export const VARIATION_LABEL: Record<Variation, PlainTerm> = {
   pily: { plain: 'Three wedges down from the top', term: 'pily' },
   'barry-bendy': { plain: 'Slanted check, across', term: 'barry bendy' },
   'paly-bendy': { plain: 'Slanted check, down', term: 'paly bendy' },
+};
+
+/** Treatments of a colour for their picker: how each looks, and its heraldic name. */
+export const TREATMENT_LABEL: Record<Treatment, PlainTerm> = {
+  masoned: { plain: 'Brick wall', term: 'masoned' },
+  scaly: { plain: 'Fish scales', term: 'scaly' },
+  papellony: { plain: 'Scales with a smaller scale in each', term: 'papellony' },
+  fretty: { plain: 'Lattice', term: 'fretty' },
+  plumetty: { plain: 'Feathers', term: 'plumetty' },
 };
 
 /** Furs for the fur picker: how each looks, and its heraldic name. */

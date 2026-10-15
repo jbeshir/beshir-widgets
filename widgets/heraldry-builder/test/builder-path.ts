@@ -7,8 +7,8 @@
 
 import {
   CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, layerItemChoices,
-  asParty, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type FurKind, type FurPaint, type FurTarget, type Paint, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
+  asParty, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type FurKind, type FurPaint, type PaintTarget, type Paint, type TreatedPaint, type Treatment, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
@@ -39,27 +39,30 @@ export type BuilderAction =
   | { kind: 'posture'; at: At; posture: Posture }
   | { kind: 'splendour'; at: At; on: boolean }
   | { kind: 'charge-tincture'; at: At; tincture: GroupTincture }
-  | { kind: 'split'; target: PaintTarget }
-  | { kind: 'party-division'; target: PaintTarget; division: Division }
-  | { kind: 'party-tincture'; target: PaintTarget; part: 0 | 1; tincture: Tincture }
-  | { kind: 'pattern'; target: PaintTarget; variation: Variation }
-  | { kind: 'pattern-pieces'; target: PaintTarget; pieces: number }
-  | { kind: 'pattern-tincture'; target: PaintTarget; part: 0 | 1; tincture: Tincture }
-  | { kind: 'fur'; target: FurWhere; option: FurKind }
-  | { kind: 'fur-colour'; target: FurWhere; slot: 0 | 1; tincture: Tincture };
+  | { kind: 'split'; target: PaintWhere }
+  | { kind: 'party-division'; target: PaintWhere; division: Division }
+  | { kind: 'party-tincture'; target: PaintWhere; part: 0 | 1; tincture: Tincture }
+  | { kind: 'pattern'; target: PaintWhere; variation: Variation }
+  | { kind: 'pattern-pieces'; target: PaintWhere; pieces: number }
+  | { kind: 'pattern-tincture'; target: PaintWhere; part: 0 | 1; tincture: Tincture }
+  | { kind: 'fur'; target: ColourWhere; option: FurKind }
+  | { kind: 'fur-colour'; target: ColourWhere; slot: 0 | 1; tincture: Tincture }
+  | { kind: 'treatment'; target: ColourWhere; option: Treatment }
+  | { kind: 'treatment-colour'; target: ColourWhere; slot: 0 | 1; tincture: Tincture }
+  | { kind: 'proper'; at: At };
 
 /** What a colour click is about: the band, a top band or border, or one of the pictures. */
-type PaintTarget = 'ordinary' | PeripheralKey | At;
+type PaintWhere = 'ordinary' | PeripheralKey | At;
 
-/** What a fur click is about: a part of the background (a plain background is its first part), or what a colour click is about. */
-type FurWhere = PaintTarget | 'field-1' | 'field-2';
+/** What a fur or treatment click is about: a part of the background (a plain background is its first part), or what a colour click is about. */
+type ColourWhere = PaintWhere | 'field-1' | 'field-2';
 
 const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? picturePath(d) : at === 'on-ordinary' ? simpleParts(d).extra?.path ?? null : pathOfPlace(d, at));
 const peripheralAt = (d: Design, place: PeripheralKey): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
-const paintPathOf = (d: Design, target: PaintTarget): GroupPath | null =>
+const paintPathOf = (d: Design, target: PaintWhere): GroupPath | null =>
   target === 'ordinary' ? ordinaryPath(d) : target === 'chief' || target === 'bordure' ? peripheralAt(d, target) : pathAt(d, target);
 
-const furTargetOf = (d: Design, where: FurWhere): FurTarget | null => {
+const paintTargetOf = (d: Design, where: ColourWhere): PaintTarget | null => {
   if (where === 'field-1' || where === 'field-2') return { k: 'field', part: where === 'field-1' ? 0 : 1 };
   const path = paintPathOf(d, where);
   return path && { k: 'group', path };
@@ -152,14 +155,30 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       return path ? choiceReason(groupVariationTinctureChoices(d, path, a.part), a.tincture) : `there is no ${a.target} to colour`;
     }
     case 'fur': {
-      const target = furTargetOf(d, a.target);
+      const target = paintTargetOf(d, a.target);
       if (!target) return `there is no ${a.target} to put a fur on`;
       if (target.k === 'field' && target.part === 1 && !(d.kind === 'arms' && d.field.k === 'divided')) return 'a plain background has no second part';
       return choiceReason(furChoices(d, target), a.option);
     }
     case 'fur-colour': {
-      const target = furTargetOf(d, a.target);
+      const target = paintTargetOf(d, a.target);
       return target && furAt(d, target) ? choiceReason(furColourChoices(d, target, a.slot), a.tincture) : `there is no fur on the ${a.target}`;
+    }
+    case 'treatment': {
+      const target = paintTargetOf(d, a.target);
+      if (!target) return `there is no ${a.target} to lay a treatment on`;
+      if (target.k === 'field' && target.part === 1 && !(d.kind === 'arms' && d.field.k === 'divided')) return 'a plain background has no second part';
+      return choiceReason(treatmentChoices(d, target), a.option);
+    }
+    case 'treatment-colour': {
+      const target = paintTargetOf(d, a.target);
+      return target && treatmentAt(d, target) ? choiceReason(treatmentColourChoices(d, target, a.slot), a.tincture) : `there is no treatment on the ${a.target}`;
+    }
+    case 'proper': {
+      const path = pathAt(d, a.at);
+      const choice = path ? properChoice(d, path) : null;
+      if (!choice) return `the ${a.at} has no natural colours`;
+      return choice.allowed ? null : `natural colours are blocked: ${choice.reason}`;
     }
   }
 }
@@ -190,8 +209,11 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'pattern': return setGroupVariation(d, paintPathOf(d, a.target)!, a.variation);
     case 'pattern-pieces': return setGroupVariationPieces(d, paintPathOf(d, a.target)!, a.pieces);
     case 'pattern-tincture': return setGroupVariationTincture(d, paintPathOf(d, a.target)!, a.part, a.tincture);
-    case 'fur': return setFur(d, furTargetOf(d, a.target)!, a.option);
-    case 'fur-colour': return setFurColour(d, furTargetOf(d, a.target)!, a.slot, a.tincture);
+    case 'fur': return setFur(d, paintTargetOf(d, a.target)!, a.option);
+    case 'fur-colour': return setFurColour(d, paintTargetOf(d, a.target)!, a.slot, a.tincture);
+    case 'treatment': return setTreatment(d, paintTargetOf(d, a.target)!, a.option);
+    case 'treatment-colour': return setTreatmentColour(d, paintTargetOf(d, a.target)!, a.slot, a.tincture);
+    case 'proper': return setProper(d, path!);
   }
 }
 
@@ -221,6 +243,9 @@ function describeAction(a: BuilderAction): string {
     case 'pattern-tincture': return `${a.target} pattern colour ${a.part + 1} ${a.tincture}`;
     case 'fur': return `${a.target} fur ${a.option}`;
     case 'fur-colour': return `${a.target} fur colour ${a.slot + 1} ${a.tincture}`;
+    case 'treatment': return `${a.target} ${a.option}`;
+    case 'treatment-colour': return `${a.target} treatment colour ${a.slot + 1} ${a.tincture}`;
+    case 'proper': return `${a.at} natural colours`;
   }
 }
 
@@ -307,9 +332,20 @@ export function builderPath(goal: Design): BuilderPath {
     return true;
   });
   const done = () => ({ actions, problems, design: d });
+  /** Make a run of clicks, or none: when one is not allowed yet, the design, the clicks and the problems are as they were. */
+  const attempt = (clicks: () => boolean): boolean => {
+    const before = { design: d, actions: actions.length, problems: problems.length };
+    const made = clicks();
+    if (!made) {
+      d = before.design;
+      actions.length = before.actions;
+      problems.length = before.problems;
+    }
+    return made;
+  };
   /** The clicks that give `where` the fur: its kind, then the colours it names. */
-  const furTo = (where: FurWhere, fur: FurPaint): boolean => {
-    const now = (): Paint => paintAt(d, furTargetOf(d, where)!);
+  const furTo = (where: ColourWhere, fur: FurPaint): boolean => {
+    const now = (): Paint => paintAt(d, paintTargetOf(d, where)!);
     const same = () => JSON.stringify(now()) === JSON.stringify(fur);
     if (same()) return true;
     if (!click({ kind: 'fur', target: where, option: furKindOf(fur) })) return false;
@@ -317,7 +353,7 @@ export function builderPath(goal: Design): BuilderPath {
     const want = furColours(fur);
     // One colour click at a time: setting a colour may move the other, so the next step is worked out from where it landed.
     for (let guard = 0; guard < 6; guard++) {
-      const here = furAt(d, furTargetOf(d, where)!);
+      const here = furAt(d, paintTargetOf(d, where)!);
       if (!here) return false;
       const slot = ([0, 1] as const).find((s) => furColours(here)[s] !== want[s]);
       if (slot === undefined) return true;
@@ -325,8 +361,24 @@ export function builderPath(goal: Design): BuilderPath {
     }
     return !!problems.push(`the ${where} fur colours did not settle`) && false;
   };
+  /** The clicks that give `where` the treated tincture: its treatment, then its two tinctures. */
+  const treatedTo = (where: ColourWhere, treated: TreatedPaint): boolean => {
+    const now = () => treatmentAt(d, paintTargetOf(d, where)!);
+    if (!click({ kind: 'treatment', target: where, option: treated.treatment })) return false;
+    const want: [Tincture, Tincture] = [treated.ground.t, treated.ink];
+    // One colour click at a time: setting the tincture may move the lines, so the next step is worked out from where it landed.
+    for (let guard = 0; guard < 4; guard++) {
+      const here = now();
+      if (!here) return false;
+      const have: [Tincture, Tincture] = [here.ground.t, here.ink];
+      const slot = ([0, 1] as const).find((i) => have[i] !== want[i]);
+      if (slot === undefined) return true;
+      if (!click({ kind: 'treatment-colour', target: where, slot, tincture: want[slot] })) return false;
+    }
+    return !!problems.push(`the ${where} treatment did not settle`) && false;
+  };
   /** The clicks that colour the thing at `target` as `paint`: its tincture, or a split with its division and two tinctures. */
-  const paintTo = (target: PaintTarget, paint: Paint): boolean => {
+  const paintTo = (target: PaintWhere, paint: Paint): boolean => {
     const path = paintPathOf(d, target);
     if (!path) return !!problems.push(`there is no ${target} to colour`) && false;
     const plain = groupTinctureOf(paint);
@@ -336,6 +388,8 @@ export function builderPath(goal: Design): BuilderPath {
       return click(target === 'ordinary' ? { kind: 'ordinary-tincture', tincture: plain } : target === 'chief' || target === 'bordure' ? { kind: 'layer-tincture', place: target, tincture: plain } : { kind: 'charge-tincture', at: target, tincture: plain });
     }
     if (paint.k === 'fur') return furTo(target, paint);
+    if (paint.k === 'proper') return target === 'ordinary' || target === 'chief' || target === 'bordure' ? !!problems.push(`the ${target} cannot be proper`) && false : click({ kind: 'proper', at: target });
+    if (paint.k === 'treated') return paint.ground.k === 'tincture' && treatedTo(target, { ...paint, ground: paint.ground });
     const pattern = asVariation(paint);
     if (pattern) {
       const nowPattern = () => asVariation(groupAt(d, paintPathOf(d, target)!).paint);
@@ -374,7 +428,7 @@ export function builderPath(goal: Design): BuilderPath {
     if (a && b) {
       const now = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts.map((p) => (p.k === 'tincture' ? p.t : a)) as [Tincture, Tincture] : [a, b] as [Tincture, Tincture];
       if (!click(...dividedTinctureSteps(now, [a, b]))) return done();
-    } else if (f.parts.every((p) => p.k === 'tincture' || p.k === 'fur')) {
+    } else if (f.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated')) {
       // A part can be set when the other part leaves it room: each pass sets the parts it can, and the next the ones it couldn't.
       const partNow = (i: 0 | 1) => (d.kind === 'arms' && d.field.k === 'divided' ? JSON.stringify(d.field.parts[i]) : '');
       for (let pass = 0; pass < 3 && ([0, 1] as const).some((i) => partNow(i) !== JSON.stringify(f.parts[i])); pass++) {
@@ -385,12 +439,16 @@ export function builderPath(goal: Design): BuilderPath {
             const set: BuilderAction = { kind: 'field-tincture', part: i, tincture: goalPart.t };
             if (!actionReason(d, set)) click(set);
           } else if (goalPart.k === 'fur' && !actionReason(d, { kind: 'fur', target: i === 0 ? 'field-1' : 'field-2', option: furKindOf(goalPart) })) {
-            if (!furTo(i === 0 ? 'field-1' : 'field-2', goalPart)) return done();
+            if (!attempt(() => furTo(i === 0 ? 'field-1' : 'field-2', goalPart))) continue;
+          } else if (goalPart.k === 'treated' && goalPart.ground.k === 'tincture') {
+            const ground = goalPart.ground;
+            // The other part may hold the tincture for now: try again after it has moved.
+            attempt(() => treatedTo(i === 0 ? 'field-1' : 'field-2', { ...goalPart, ground }));
           }
         }
       }
       if (([0, 1] as const).some((i) => partNow(i) !== JSON.stringify(f.parts[i]))) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
-    } else return { actions, problems: ['a part of the field is neither a tincture nor a fur'], design: d };
+    } else return { actions, problems: ['a part of the field is neither a tincture, a fur nor a treated tincture'], design: d };
   } else if (f.k === 'variation') {
     const want = asVariation(f);
     if (!want) return { actions, problems: ['a stripe of the background is neither a tincture nor a fur'], design: d };
@@ -406,6 +464,8 @@ export function builderPath(goal: Design): BuilderPath {
     }
   } else if (f.k === 'fur') {
     if (!furTo('field-1', f)) return done();
+  } else if (f.k === 'treated') {
+    if (f.ground.k !== 'tincture' || !treatedTo('field-1', { ...f, ground: f.ground })) return done();
   } else if (f.k === 'tincture') {
     if (d.kind === 'arms' && d.field.k === 'tincture' && d.field.t !== f.t && !click({ kind: 'field-tincture', part: 0, tincture: f.t })) return done();
   }

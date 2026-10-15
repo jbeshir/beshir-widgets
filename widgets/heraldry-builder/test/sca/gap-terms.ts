@@ -261,7 +261,7 @@ export const TREATMENTS: Record<string, string> = {
   barry: 'barry', barruly: 'barry', paly: 'paly', bendy: 'bendy', 'bendy-sinister': 'bendy', checky: 'checky',
   chequy: 'checky', lozengy: 'lozengy', fusily: 'fusily', fusilly: 'fusily', chevronny: 'chevronny',
   chevronelly: 'chevronny', 'barry-bendy': 'barry-bendy', 'paly-bendy': 'paly-bendy', masoned: 'masoned',
-  scaly: 'scaly', papelonny: 'papelonny', papellony: 'papelonny', plumetty: 'plumetty', plumety: 'plumetty',
+  scaly: 'scaly', papelonny: 'papellony', papellony: 'papellony', plumetty: 'plumetty', plumety: 'plumetty',
   honeycombed: 'honeycombed', mailly: 'mailly', maily: 'mailly', mailed: 'mailly', fretty: 'fretty',
   grillage: 'fretty', compony: 'compony', gobony: 'compony', 'counter-compony': 'counter-compony',
   countercompony: 'counter-compony', pily: 'pily', masculy: 'masculy', diapered: 'diapered', marbled: 'marbled',

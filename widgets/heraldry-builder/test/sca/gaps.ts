@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type HalfPosition, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -351,6 +351,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   };
 
 
+  /** Whether the treatment named `v` at `words[i]` is written as the widget draws it: laid on a tincture, in the lines of another ("argent masoned sable"). */
+  const treatedFollows = (v: string, i: number): boolean =>
+    (DRAWN_TREATMENTS as readonly string[]).includes(v) && look(i - 1)?.e.k === 'tinc' && look(i + 1)?.e.k === 'tinc';
+
+
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
     const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : overallNext ? 'overall' : betweenHost ? 'between' : onHost ? 'on' : 'field';
     const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null };
@@ -458,7 +463,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc' && divisions === 0) tag('tincture', 'party');
         untincturedOrd = false;
         break;
-      case 'proper': tag('proper'); break;
+      case 'proper': {
+        // A charge that has natural colours, painted in them: "a lion proper", but not "a brown owl proper" (a qualifier says which natural colours).
+        const drawn = last?.kind === 'charge' && !held && last.el?.ctx !== 'of' ? last.el?.supported : null;
+        let noun = i - 1;
+        while (noun >= 0 && look(noun)?.e.k !== 'charge') noun--;
+        const qualified = look(noun - 1)?.e.k === 'qual';
+        if (!(drawn && CHARGES[drawn as ChargeId].proper) || qualified) tag('proper');
+        break;
+      }
       case 'tincGap': tag('tincture', e.v); break;
       case 'fur':
         if (lem === 'ermine' && /^(a|an|two|three|four|five|six)$/.test(prev)) { tag('charge-beast', 'ermine'); settleHost(newElement('charge', null)); break; }
@@ -476,7 +489,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         // The field, a band or a picture in stripes or checks of two tinctures is drawn: "barry of eight argent and azure", "a fess checky Or and sable".
         if (variationFollows(e.v, i) && (inField ? divisions === 0 : !held)) {
           if (words[i + 1] === 'of') i += 2; // the count is part of the pattern, not of the group that follows
-        } else tag('field-treatment', e.v);
+        } else if (!(treatedFollows(e.v, i) && (inField || !held))) tag('field-treatment', e.v);
         break;
       case 'semy':
         if (inField) tag('field-treatment', 'semy'); else tag('count', 'semy');

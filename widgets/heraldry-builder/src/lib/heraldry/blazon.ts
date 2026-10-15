@@ -6,9 +6,10 @@
 
 import { tinctureWord } from './tinctures';
 import { furName } from './fur';
+import { treatedName } from './treatment';
 import { capitalise, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory } from './charges';
-import { asParty, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
+import { asParty, asTreated, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
 import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
@@ -18,12 +19,21 @@ function paintWord(p: Paint): string {
   switch (p.k) {
     case 'tincture': return tinctureWord(p.t);
     case 'fur': return furName(p);
+    case 'treated': return treatedWord(p);
+    case 'proper': return 'proper';
     case 'counterchanged': return 'counterchanged';
     case 'divided': return partyWord(p);
     case 'variation': return variationWord(p);
     default: return notSupported(paintGaps(p, false, 'group')[0]);
   }
 }
+
+/** A treated tincture as written: "argent masoned sable". */
+function treatedWord(p: Paint): string {
+  const treated = asTreated(p);
+  return treated ? treatedName(treated) : notSupported(paintGaps(p, false, 'group')[0]);
+}
+
 
 /** A divided paint as written: "per pale azure and Or". */
 function partyWord(p: Paint): string {
@@ -41,8 +51,8 @@ function variationWord(p: Paint): string {
 
 
 function fieldPhrase(field: Paint): string {
-  if (field.k === 'tincture' || field.k === 'fur') return paintWord(field);
-  if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur')) {
+  if (field.k === 'tincture' || field.k === 'fur' || field.k === 'treated') return paintWord(field);
+  if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated')) {
     return `${DIVISION_NAME[field.division]} ${field.parts.map(paintWord).join(' and ')}`;
   }
   if (field.k === 'variation') return variationWord(field);

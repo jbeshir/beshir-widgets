@@ -7,7 +7,7 @@ import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase } from './charges';
 import { DIVISION_NAME } from './divisions';
 import { divisionCutsOrdinary } from './geometry';
-import { asParty, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
+import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue } from './layout';
 import { posturesClash } from './difference';
 import { groundShares, paintName } from './tincture-rule';
@@ -105,6 +105,16 @@ function variationProblem(p: Paint): string | null {
 }
 
 
+/** Why a treatment is drawn in an ink that does not stand out against its tincture (GoT "Field Treatment": good contrast), or null; null too for any other paint. */
+function treatmentProblem(p: Paint): string | null {
+  const treated = asTreated(p);
+  if (!treated) return null;
+  const [a, b] = [treated.ground.t, treated.ink];
+  if (a === b) return `${paintName(treated)} needs two different tinctures — both are ${TINCTURE_NAME[a]}.`;
+  return TINCTURE_CLASS[a] === TINCTURE_CLASS[b] ? `${paintName(treated)} needs a metal and a colour — both are ${TINCTURE_CLASS[a]}s.` : null;
+}
+
+
 /** The problems of the field's and the groups' paints: parts of a divided field that share a tincture (SENA A3B3a; of a fur, its ground), a variation whose tinctures are not a metal and a colour (A3B3d), a fur in colours that are not a metal and a colour (App F4). */
 export function paintIssues(d: Design): Issue[] {
   const issues: Issue[] = [];
@@ -132,6 +142,9 @@ export function paintIssues(d: Design): Issue[] {
   const fieldVariation = d.kind === 'arms' ? variationProblem(d.field) : null;
   if (fieldVariation) add({ code: 'structure', rule: 'field', at: { k: 'field' }, message: fieldVariation, slots: [] });
 
+  const fieldTreatment = d.kind === 'arms' ? fieldParts(d).map(treatmentProblem).find((m) => m !== null) : undefined;
+  if (fieldTreatment) add({ code: 'structure', rule: 'treatment', at: { k: 'field' }, message: fieldTreatment, slots: [] });
+
 
   // 1a. A fur in colours of its own combines a metal with a colour (SENA App F4).
   const furProblem = (p: Paint): string | null => {
@@ -145,6 +158,8 @@ export function paintIssues(d: Design): Issue[] {
     if (problem) add({ code: 'structure', rule: 'fur', at: { k: 'group', path }, message: problem, slots: [] });
     const varied = variationProblem(group.paint);
     if (varied) add({ code: 'structure', rule: 'divided-paint', at: { k: 'group', path }, message: varied, slots: [] });
+    const treatment = treatmentProblem(group.paint);
+    if (treatment) add({ code: 'structure', rule: 'treatment', at: { k: 'group', path }, message: treatment, slots: [] });
   }
 
   return issues;

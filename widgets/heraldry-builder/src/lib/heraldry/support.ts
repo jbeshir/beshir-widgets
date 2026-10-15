@@ -6,9 +6,9 @@ import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
-import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES } from './divisions';
+import { DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_TREATMENTS, VARIATION_PIECES } from './divisions';
 import {
-  asParty, walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
+  asParty, asTreated, walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
@@ -35,6 +35,13 @@ function variationGaps(p: Extract<Paint, { k: 'variation' }>): Gap[] {
 }
 
 
+/** A treatment is drawn on a plain tincture, for the three that are patterns of lines; fretty is a charge and plumetty a fur-like pattern. */
+function treatedGaps(p: Extract<Paint, { k: 'treated' }>): Gap[] {
+  if (!DRAWN_TREATMENTS.includes(p.treatment)) return [gap('field-treatment', p.treatment)];
+  return asTreated(p) ? [] : [gap('field-treatment', `${p.treatment}-${p.ground.k}`)];
+}
+
+
 /** The gaps of a paint: `field` paints are the field and its parts, `owner` names the thing a group paint colours. */
 export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
   switch (p.k) {
@@ -43,9 +50,10 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
     case 'stain': return [gap('tincture', p.stain)];
     // Colours other than a fur's own are drawn for the plain layouts (argent ermined gules, vairy Or and gules); counter- and en pointe furs keep theirs.
     case 'fur': return p.colours && FUR_SPEC[p.fur].layout !== 'plain' ? [gap('fur', `${p.fur}-colours`)] : [];
-    case 'proper': return [gap('proper', owner)];
+    // Natural colours are drawn for the charges that have a palette; an ordinary or a charge without one keeps its gap.
+    case 'proper': return isChargeId(owner) && CHARGES[owner].proper ? [] : [gap('proper', owner)];
     case 'variation': return variationGaps(p);
-    case 'treated': return [gap('field-treatment', p.treatment)];
+    case 'treated': return treatedGaps(p);
     case 'semy': return [gap('field-treatment', 'semy')];
     case 'divided': {
       const gaps: Gap[] = [];
@@ -53,7 +61,7 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
       for (const l of [p.lines.a, p.lines.b]) if (l !== 'plain' && !gaps.some((g) => g.detail === l)) gaps.push(gap('line-of-partition', l));
       if (p.pieces !== null) gaps.push(gap('division', `${p.division}-pieces`));
       for (const part of p.parts) {
-        gaps.push(...(part.k === 'divided' ? [gap('division', 'nested')] : part.k === 'variation' ? [gap('field-treatment', part.variation)] : paintGaps(part, true, owner)));
+        gaps.push(...(part.k === 'divided' ? [gap('division', 'nested')] : part.k === 'variation' ? [gap('field-treatment', part.variation)] : part.k === 'proper' ? [gap('proper', 'party')] : paintGaps(part, true, owner)));
       }
       // A band or picture is divided into plain tinctures only: a fur on a part of one is not drawn.
       if (!inField && gaps.length === 0 && !asParty(p)) gaps.push(gap('fur', 'party'));
@@ -71,7 +79,7 @@ function thing(g: Gap): string {
       if (g.detail === 'party') return 'A fur on part of a divided band or picture';
       return g.detail.endsWith('-colours') ? `${FUR_NAME[g.detail.slice(0, -'-colours'.length) as keyof typeof FUR_NAME]} in colours of its own` : FUR_NAME[g.detail as keyof typeof FUR_NAME] ?? d;
     case 'tincture': return STAIN_NAME[g.detail as keyof typeof STAIN_NAME] ?? d;
-    case 'proper': return `A ${d} in its natural colours`;
+    case 'proper': return g.detail === 'party' ? 'Natural colours on part of a divided band or picture' : `A ${d} in its natural colours`;
     case 'field-treatment': return `The ${d} treatment`;
     case 'division': return g.detail === 'nested' ? 'A divided part of a divided field' : `A field divided ${DIVISION_NAME[g.detail as keyof typeof DIVISION_NAME] ?? d}`;
     case 'line-of-partition': return `A ${d} line`;

@@ -189,6 +189,7 @@ export function paintTinctures(p: Paint): Tincture[] {
     case 'tincture': return [p.t];
     case 'fur': return [...furColours(p)];
     case 'divided': case 'variation': return p.parts.flatMap(paintTinctures);
+    case 'treated': return [...paintTinctures(p.ground), p.ink];
     default: return [];
   }
 }
@@ -200,6 +201,8 @@ export function paintTinctures(p: Paint): Tincture[] {
  */
 export function bodyTinctures(p: Paint): Tincture[] {
   if (p.k === 'fur' && FUR_SPEC[p.fur].family === 'ermine') return [furColours(p)[0]];
+  // A treatment is part of the tincture it lies on ("gules and gules masoned Or" are one background, A3B3a).
+  if (p.k === 'treated') return bodyTinctures(p.ground);
   return paintTinctures(p);
 }
 
@@ -255,6 +258,26 @@ export function asVariation(p: Paint): VariationPaint | null {
   if (p.k !== 'variation') return null;
   const [a, b] = p.parts;
   return a.k === 'tincture' && b.k === 'tincture' ? { ...p, parts: [a, b] } : null;
+}
+
+
+/** A tincture with a treatment in another ("argent masoned sable", "gules scaly Or"): the only treated paint the builder draws. */
+export interface TreatedPaint {
+  k: 'treated';
+  treatment: Treatment;
+  ground: { k: 'tincture'; t: Tincture };
+  ink: Tincture;
+}
+
+
+export function treatedPaint(treatment: Treatment, ground: Tincture, ink: Tincture): TreatedPaint {
+  return { k: 'treated', treatment, ground: { k: 'tincture', t: ground }, ink };
+}
+
+
+/** The paint as a treated tincture, or null when it is anything else (a treatment on a fur or a division is not drawn). */
+export function asTreated(p: Paint): TreatedPaint | null {
+  return p.k === 'treated' && p.ground.k === 'tincture' ? { ...p, ground: p.ground } : null;
 }
 
 
@@ -367,8 +390,8 @@ export interface Gap { category: GapCategory; detail: string }
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
-export type StructureRule = 'field' | 'fur' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall';
+/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
+export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)

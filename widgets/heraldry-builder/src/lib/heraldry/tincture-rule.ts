@@ -9,8 +9,9 @@ import { CHARGES, type ChargeId } from './charges';
 import { contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type SharedTinctureException } from './contrast';
 import { fieldSurfaces, surfaceOf, tinctureSurface, type Surface } from './surface';
 import { furName } from './fur';
+import { treatedName } from './treatment';
 import {
-  asParty, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
+  asParty, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Item, type Paint,
 } from './design';
 import {
   CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPart, inFirstPartTurned, ordinaryCentre, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Point, type Slot,
@@ -37,8 +38,8 @@ interface Samples { key: string; points: () => readonly Pt[] }
 
 const slotSamples = (s: Slot): Samples => ({ key: `${s.x},${s.y},${s.size}`, points: () => groundPoints(s) });
 
-/** Whether a paint is a tincture or a fur: one thing over the part it fills. */
-const isOneThing = (p: Paint): boolean => p.k === 'tincture' || p.k === 'fur';
+/** Whether a paint is a tincture, a fur or a treated tincture: one thing over the part it fills. */
+const isOneThing = (p: Paint): boolean => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null;
 
 /** The share of each sample set in the first part of each division: it depends on the lines alone, not on the tinctures. */
 const firstShares = new Map<string, number>();
@@ -63,7 +64,7 @@ function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[])
   const [a, b] = field.k === 'divided' ? field.parts : [];
   if (field.k === 'divided' && field.parts.length === 2 && isOneThing(a) && isOneThing(b) && DRAWN_DIVISIONS.includes(field.division)) {
     const first = firstShare(field.division, samples);
-    const [sa, sb] = [surfaceOf(a), surfaceOf(b)];
+    const [sa, sb] = [surfaceOf(a, null), surfaceOf(b, null)];
     counts.set(sa, first);
     counts.set(sb, (counts.get(sb) ?? 0) + 1 - first);
   } else {
@@ -120,7 +121,7 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
     if (group.item.k !== 'charge') return notSupported({ category: 'placement', detail: 'tertiary-ordinary' });
     const hp = host.paint;
     if (hp.k !== 'counterchanged') {
-      const surface = surfaceOf(hp);
+      const surface = surfaceOf(hp, host.item);
       return slotsOf(d, path).map(() => [{ surface, share: 1 }]);
     }
     const pair = fieldPair(d);
@@ -182,7 +183,7 @@ export type ShownSurfaces = { k: 'plain'; surface: Surface } | { k: 'parts'; byP
 
 export function shownSurfaces(d: Design, path: GroupPath): ShownSurfaces {
   const paint = groupAt(d, path).paint;
-  if (paint.k !== 'counterchanged') return { k: 'plain', surface: surfaceOf(paint) };
+  if (paint.k !== 'counterchanged') return { k: 'plain', surface: surfaceOf(paint, groupAt(d, path).item) };
   const pair = fieldPair(d);
   if (!pair || hostOf(d, path)) return { k: 'parts', byPart: new Map() };
   const touched = new Set(groundContacts(d, path).flat());
@@ -255,9 +256,9 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
  * Why a group with this paint fails on its ground, or null. A counterchanged group shows, over each part
  * of the field it lies on, the other part's tincture, so it fails exactly when the two share a class.
  */
-function failureOf(paint: Paint, ground: Ground, pair: readonly [Tincture, Tincture] | null, parts: readonly Ground[] | undefined, exception: SharedTinctureException): ContrastFailure | null {
+function failureOf(paint: Paint, item: Item, ground: Ground, pair: readonly [Tincture, Tincture] | null, parts: readonly Ground[] | undefined, exception: SharedTinctureException): ContrastFailure | null {
   if (paint.k === 'counterchanged' && pair) return contrastFailure(pair[1], [pair[0]]);
-  const failure = groundFailure(surfaceOf(paint), ground, exception);
+  const failure = groundFailure(surfaceOf(paint, item), ground, exception);
   // A divided paint that fails as a whole still stands if each of its parts contrasts with the ground it alone lies on.
   const party = asParty(paint);
   if (failure && party && parts && parts.every((g, k) => g.length === 0 || groundFailure(tinctureSurface(party.parts[k].t), g) === null)) return null;
@@ -318,7 +319,9 @@ export function paintName(p: Paint): string {
   const varied = asVariation(p);
   if (varied) return `${capitalise(VARIATION_NAME[varied.variation])} ${varied.parts.map((x) => TINCTURE_NAME[x.t]).join(' and ')}`;
   if (p.k === 'fur') return capitalise(furName(p));
-  return p.k === 'tincture' ? TINCTURE_NAME[p.t] : 'Counterchanged';
+  const treated = asTreated(p);
+  if (treated) return capitalise(treatedName(treated));
+  return p.k === 'tincture' ? TINCTURE_NAME[p.t] : p.k === 'proper' ? 'Proper' : 'Counterchanged';
 }
 
 /** The issue of an ordinary that fails on `ground` of a field. */
@@ -329,9 +332,9 @@ function ordinaryMessage(d: Design, g: Group, f: ContrastFailure, ground: Ground
   }
   const contacts = groundTinctures(ground);
   if (d.kind === 'arms' && d.field.k === 'tincture') return `${T} ${name} on ${TINCTURE_NAME[contacts[0]]} field: ${FAILURE_TEXT[f]}`;
-  if (d.kind === 'arms' && (d.field.k === 'fur' || d.field.k === 'variation')) return `${T} ${name} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`;
+  if (d.kind === 'arms' && (d.field.k === 'fur' || d.field.k === 'variation' || d.field.k === 'treated')) return `${T} ${name} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`;
   if (f === 'same') {
-    const shared = contacts.find((t) => surfaceOf(g.paint).bases.includes(t)) ?? contacts[0];
+    const shared = contacts.find((t) => surfaceOf(g.paint, g.item).bases.includes(t)) ?? contacts[0];
     const part = fieldParts(d).find((p) => paintTinctures(p).includes(shared));
     return `${T} ${name} lies on the ${part ? paintName(part) : TINCTURE_NAME[shared]} part of the field: same tincture`;
   }
@@ -368,7 +371,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   const slots = canonicalSlots(d, path);
   const noun = nounOf(g), T = paintName(g.paint);
   const all = slots.map((_, i) => i);
-  const failures = grounds.map((ground, i) => (ground.length === 0 ? null : failureOf(g.paint, ground, pair, parts?.[i], 'none')));
+  const failures = grounds.map((ground, i) => (ground.length === 0 ? null : failureOf(g.paint, g.item, ground, pair, parts?.[i], 'none')));
   const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', reason: 'contrast', at, message, slots: idx });
 
   if (g.paint.k === 'counterchanged' && pair) {
@@ -382,7 +385,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
     const f = failures.find((x) => x !== null);
     return f ? [issue(`${T} ${noun} on the ${paintName(host.paint)} ${itemName(host.item)}: ${FAILURE_TEXT[f]}`, all)] : [];
   }
-  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur' || d.field.k === 'variation')) {
+  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur' || d.field.k === 'variation' || d.field.k === 'treated')) {
     const f = failures.find((x) => x !== null);
     return f ? [issue(`${T} ${noun} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`, all)] : [];
   }
@@ -429,7 +432,7 @@ export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
   // Exactly one of the field and the band is in stripes or cells (A3B4b): not both.
   const exception = (d.field.k === 'variation') !== (group.paint.k === 'variation') ? 'ordinary-on-multiply-divided' : 'none';
-  const f = grounds[0].length === 0 ? null : failureOf(group.paint, grounds[0], pair, partGrounds(d, path)?.[0], exception);
+  const f = grounds[0].length === 0 ? null : failureOf(group.paint, group.item, grounds[0], pair, partGrounds(d, path)?.[0], exception);
   return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
 }
 

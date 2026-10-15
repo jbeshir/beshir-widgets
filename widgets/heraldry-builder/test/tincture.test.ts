@@ -71,7 +71,7 @@ describe('what a group lies on', () => {
 });
 
 describe('neutral surfaces (RB 1.2)', () => {
-  const neutral: Surface = { cls: 'neutral', bases: ['argent', 'sable'] };
+  const neutral: Surface = { cls: 'neutral', bases: ['argent', 'sable'], variant: null };
   const pieces = (...grounds: Array<[Surface, number]>) => grounds.map(([surface, s]) => ({ surface, share: s }));
 
   it('a neutral top is never alike to a ground, but still may not share a tincture with it', () => {
@@ -91,15 +91,15 @@ describe('neutral surfaces (RB 1.2)', () => {
     expect(sharesTincture(neutral, tinctureSurface('sable'))).toBe(true);
     expect(sharesTincture(neutral, tinctureSurface('or'))).toBe(false);
     expect(sameSurface(tinctureSurface('or'), tinctureSurface('or'))).toBe(true);
-    expect(sameSurface(neutral, { cls: 'neutral', bases: ['argent', 'sable'] })).toBe(true);
-    expect(sameSurface(neutral, { cls: 'neutral', bases: ['sable', 'argent'] })).toBe(false);
+    expect(sameSurface(neutral, { cls: 'neutral', bases: ['argent', 'sable'], variant: null })).toBe(true);
+    expect(sameSurface(neutral, { cls: 'neutral', bases: ['sable', 'argent'], variant: null })).toBe(false);
     expect(sameSurface(tinctureSurface('or'), tinctureSurface('argent'))).toBe(false);
   });
 
   it('a plain tincture is its own class', () => {
     expect(TINCTURES.map((t) => tinctureSurface(t).cls)).toEqual(TINCTURES.map((t) => TINCTURE_CLASS[t]));
-    expect(surfaceOf({ k: 'tincture', t: 'vert' })).toBe(tinctureSurface('vert'));
-    expect(() => surfaceOf({ k: 'proper' })).toThrow('Not supported yet: tincture:proper');
+    expect(surfaceOf({ k: 'tincture', t: 'vert' }, null)).toBe(tinctureSurface('vert'));
+    expect(() => surfaceOf({ k: 'proper' }, null)).toThrow('Not supported yet: proper:field');
   });
 });
 

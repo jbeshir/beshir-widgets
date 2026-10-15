@@ -17,7 +17,7 @@
 import type { ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 import {
-  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING, designTinctures, fillCode, fillTinctures, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
+  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, colourHex, TINCTURE_HATCHING, designTinctures, fillCode, fillTinctures, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
   type Design, type FieldShape, type Fill, type Hatching, type Layer, type PatternSpec, type Slot, type Tincture,
 } from '../lib/heraldry';
 
@@ -141,20 +141,19 @@ function layerPatterns(layers: readonly Layer[]): PatternSpec[] {
 
 /** The <pattern> a pattern fill is drawn with. */
 export function PatternDef({ spec, ids }: { spec: PatternSpec; ids: Ids }) {
-  const colour = (c: PatternSpec['ground']) => TINCTURE_FILL[c.t];
   return (
     <pattern id={ids.pattern(spec)} patternUnits="userSpaceOnUse" width={spec.width} height={spec.height} patternTransform={spec.transform ?? undefined}>
-      <rect width={spec.width} height={spec.height} fill={colour(spec.ground)} />
-      {spec.marks.map((m, i) => <path key={i} d={m.d} fill={colour(m.colour)} />)}
+      <rect width={spec.width} height={spec.height} fill={colourHex(spec.ground)} />
+      {spec.marks.map((m, i) => <path key={i} d={m.d} fill={colourHex(m.colour)} />)}
     </pattern>
   );
 }
 
 /** How a leaf fill is set on an element: the palette colour, or the pattern it names. */
-const paintOf = (leaf: Leaf, ids: Ids) => (leaf.k === 'solid' ? TINCTURE_FILL[leaf.colour.t] : `url(#${ids.pattern(leaf.spec)})`);
+const paintOf = (leaf: Leaf, ids: Ids) => (leaf.k === 'solid' ? colourHex(leaf.colour) : `url(#${ids.pattern(leaf.spec)})`);
 
 /** The hatching a leaf fill takes, or null: a flat tincture that is being hatched. */
-const hatchOf = (leaf: Leaf, overlay: (t: Tincture) => boolean): Tincture | null => (leaf.k === 'solid' && overlay(leaf.colour.t) ? leaf.colour.t : null);
+const hatchOf = (leaf: Leaf, overlay: (t: Tincture) => boolean): Tincture | null => (leaf.k === 'solid' && leaf.colour.k === 'tincture' && overlay(leaf.colour.t) ? leaf.colour.t : null);
 
 /**
  * A fill drawn in a group per leaf: a split cuts each part to its clip path (a part within a part nests), and

@@ -230,6 +230,29 @@ design; "barry of eight argent and azure" says the count). The other patterns ha
   builder.ts; `groupVariationChoices`, `setGroupVariation` … in options.ts for a band or picture, where a pattern or tincture is
   blocked when no partner makes the pair stand out on what it lies on).
 
+## Treatments and natural colours
+
+**Treatments** are a tincture with a pattern of lines in another: masoned (a brick wall), scaly and papellony (voided scales, papellony with
+a smaller scale inside; `{ "k": "treated", "treatment": "masoned", "ground": "argent", "ink": "sable" }`; `treatment.test.ts`). They cover
+the background, a part of a divided background, or any band or picture. Fretty (a charge), plumetty (fur-like), a treatment on a fur and a
+counterchanged treatment are gaps in `support.ts`.
+
+- **The rule of tincture.** The treatment is part of the tincture it lies on (GoT "Field Treatment"): the surface has the class and base
+  tincture of its ground, and the ink must be a metal against a colour or the other way round (`StructureRule` `treatment`). A charge may not
+  share the ground's tincture. A divided background's parts may not share a ground (A3B3a: "gules and gules masoned Or").
+- **Conflict.** `Surface.variant` makes a treated tincture another tincture from its ground (A5F2: a change of tincture, so a substantial
+  change between field-primary designs): the same treatment on the same tincture in another ink is no change, and papellony and scaly are one
+  ("Argent papellony gules conflicts with Argent scaly sable"). Masoned and scaly are different treatments.
+- **The builder.** "Brick wall or scales" under each colour picker (`TreatmentPicker.tsx`): a chip per treatment, then the tincture it is laid
+  on and the lines' tincture (`treatment-options.ts`; the target is a `PaintTarget` shared with the fur picker).
+
+**Natural colours** (`{ "k": "proper" }`, "a lion proper") are a paint of a picture, for the charges whose `ChargeMeta.proper` has a palette
+(GoT Table 4): lion, boar, stag, hare, owl, bee, rose, tree, open book, sword and flame. Proper is no tincture: its surface takes the
+class and the conflict tincture of its palette's "taken from" part (a lion is Or, a rose gules, a boar brown; brown is a tincture of its own),
+so a rose proper is no different from a rose gules and a boar proper differs from a boar sable. Each palette is one flat fill (the
+flame's two are split per fess); the hatching option leaves it unhatched. The builder shows "Natural colours" under the picture's colour picker
+only when the charge has a palette (`proper-options.ts`). "Brown X proper", a proper ordinary and proper on part of a split picture are gaps.
+
 **Charges on a bend stay upright.** Heraldic convention turns charges on a bend "bendwise", but
 which way depends on the charge and its posture (a beast passant walks up the bend, a sword points
 up it, an upright charge rotates the other way, and a bend sinister has no settled convention), so
@@ -253,12 +276,12 @@ Both are wrapped in `try/catch`; private mode or a full quota just disables them
 ### Design model
 
 A design is `{ v: 2, kind: 'arms', field, groups }` (`src/lib/heraldry/design.ts`). The field is a
-recursive paint (a tincture, a fur, a division with its parts, or a variation of two tinctures). Each group carries an item (an
+recursive paint (a tincture, a fur, a treated tincture, a division with its parts, or a variation of two tinctures). Each group carries an item (an
 ordinary or a charge), a count, an arrangement and optional position, a paint and, in
 `charged`, the groups sitting on it; its role (primary, secondary, peripheral, overall, tertiary)
 and relation (between, about, position) say how it relates to the field and the other groups.
 There is no cap on groups. `kind: 'badge'` (a fieldless badge) is in the type, as are stains,
-proper, the other field treatments, lines of partition and charge attributes (form, facing, orientation,
+proper on charges without a palette, the other field treatments, lines of partition and charge attributes (form, facing, orientation,
 parts, holds); the builder does not draw those yet, so `resolve` accepts them and `support.ts`
 reports each as an `unsupported` issue naming the gap (the SCA test files records under the same
 tags). Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
@@ -649,7 +672,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
-- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
+- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps, Discord normalisation and the `contact_discord` CHECK
@@ -725,8 +748,8 @@ drawing do not yet, and `resolve` reports them as `unsupported` rather than gues
 - **Fieldless badges** (`kind: 'badge'`). Planned for phase B, following SCA practice.
 - **Marshalling** (impalement, quartering of two coats): out of scope; the model is designed
   without it.
-- **Stains**, **proper**, **lines of partition** (wavy, indented, …),
-  **field treatments** (barry, checky, semy, …) and charge attributes such as holding or
+- **Stains**, **lines of partition** (wavy, indented, …),
+  **field treatments** (fretty, plumetty, semy, …), **proper** for charges without a palette and charge attributes such as holding or
   arming.
 - **More than the supported group combinations**: more than three charges in two main groups, three or more main groups, a band and a picture as the main ones together, charges around, on or across two main pictures, two charge groups beside the main one, more than one charge
   overall (or a pile, chief or bordure overall), tertiary charges on a secondary or overall charge (or with charges around the primary), charges in chief beside pictures set around a band, charges

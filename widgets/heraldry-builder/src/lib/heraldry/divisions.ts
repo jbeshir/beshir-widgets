@@ -34,8 +34,12 @@ export const isCountedVariation = (v: Variation): boolean => COUNTED_VARIATIONS.
 export const variationPieces = (v: Variation, pieces: number | null): number | null => (isCountedVariation(v) ? pieces ?? DEFAULT_PIECES : null);
 
 
-export const TREATMENTS =['masoned', 'scaly', 'papellony', 'fretty', 'plumetty'] as const;
+export const TREATMENTS = ['masoned', 'scaly', 'papellony', 'fretty', 'plumetty'] as const;
 export type Treatment = (typeof TREATMENTS)[number];
+
+
+/** The treatments the builder draws: a brick wall and two kinds of voided scales (RULES §3.2). Fretty is a charge and plumetty a fur-like pattern; both stay gapped. */
+export const DRAWN_TREATMENTS: readonly Treatment[] = TREATMENTS.slice(0, 3);
 
 /** Blazon words, lower case. */
 export const DIVISION_NAME: Record<Division, string> = {

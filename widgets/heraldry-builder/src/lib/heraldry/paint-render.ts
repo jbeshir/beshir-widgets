@@ -2,10 +2,11 @@
 // a fill of their own (a divided field, a counterchanged group). DOM-free; Shield.tsx draws the fills.
 
 import { TINCTURE_CODE, type Tincture } from './tinctures';
-import { asParty, asVariation, notSupported, type Design, type Group, type Paint, type PartyPaint, type VariationPaint } from './design';
+import { CHARGES } from './charges';
+import { asParty, asTreated, asVariation, notSupported, type Design, type Group, type Paint, type PartyPaint, type VariationPaint } from './design';
 import { counterchangedOrdinaryParts, counterchangedSlotParts, drawnBox, fieldRegions, ordinaryBox, ordinaryCentre, partitionRegions, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
 import type { OrdinaryType } from './ordinaries';
-import { furPattern, type SolidColour, type PatternSpec } from './patterns';
+import { furPattern, treatmentPattern, type SolidColour, type PatternSpec } from './patterns';
 import type { FieldShape } from './shape';
 import { variationRegions, type Box } from './variation-geometry';
 
@@ -30,8 +31,12 @@ const ORDINARY_FUR_SCALE = 0.35;
 /** A charge's fur scale in its own 100-unit drawing space, where it is 0.5 shield units per unit at most and 0.15 at least. */
 const chargeFurScale = (size: number): number => Math.min(0.5, Math.max(0.15, 0.008 * size)) * (100 / size);
 
-/** The fill of a paint that is one thing over its place: a tincture, or a fur drawn at `scale`. */
-const paintFill = (p: FieldPaint, scale: number): Fill => (p.k === 'tincture' ? solidFill(p.t) : { k: 'pattern', spec: furPattern(p, scale) });
+/** The fill of a paint that is one thing over its place: a tincture, or a fur or treatment drawn at `scale`. */
+function paintFill(p: FieldPaint, scale: number): Fill {
+  if (p.k === 'tincture') return solidFill(p.t);
+  if (p.k === 'fur') return { k: 'pattern', spec: furPattern(p, scale) };
+  return { k: 'pattern', spec: treatmentPattern(asTreated(p) ?? notSupported({ category: 'field-treatment', detail: `${p.treatment}-${p.ground.k}`}), scale) };
+}
 
 const counterchangedFill = (parts: readonly CounterchangePart[], scale: number): Fill =>
   ({ k: 'split', parts: parts.map((p) => ({ clip: p.d, fill: paintFill(p.paint, scale) })) });
@@ -50,6 +55,23 @@ const variationOf = (p: Paint): VariationPaint => asVariation(p) ?? notSupported
 /** The party paint of a group, which only a divided paint of two tinctures is. */
 const partyOf = (p: Paint): PartyPaint => asParty(p) ?? notSupported({ category: 'tincture', detail: p.k });
 
+/**
+ * A charge in its natural colours: its palette's one fill, or its two split per fess through the middle of each charge (the flame's
+ * gules and Or), turned with the charge. `slots` are the drawn boxes.
+ */
+function properFills(group: Group, slots: readonly Slot[]): SlotFill[] {
+  const palette = group.item.k === 'charge' ? CHARGES[group.item.charge].proper : null;
+  if (!palette) return notSupported({ category: 'proper', detail: group.item.k === 'charge' ? group.item.charge : group.item.type });
+  const [whole, lower] = palette.fills;
+  const solid = (hex: string): Fill => ({ k: 'solid', colour: { k: 'proper', hex } });
+  if (lower === undefined) return [{ fill: solid(whole), slots: slots.map((_, i) => i) }];
+  return slots.map((s, i) => ({
+    fill: { k: 'split', parts: partitionRegions('per-fess', s, s.rotation).map((clip, k) => ({ clip, fill: solid(k === 0 ? whole : lower) })) },
+    slots: [i],
+  }));
+}
+
+
 /** The colours a fill is made of, in order of first use. */
 export function fillColours(fill: Fill): SolidColour[] {
   switch (fill.k) {
@@ -61,12 +83,12 @@ export function fillColours(fill: Fill): SolidColour[] {
 }
 
 /** The tinctures a fill is made of, in order of first use. */
-export const fillTinctures = (fill: Fill): Tincture[] => [...new Set(fillColours(fill).map((c) => c.t))];
+export const fillTinctures = (fill: Fill): Tincture[] => [...new Set(fillColours(fill).flatMap((c) => (c.k === 'tincture' ? [c.t] : [])))];
 
 /** A compact code naming a fill, for tests and tools to compare what is drawn without resolving `url(…)` references. */
 export function fillCode(fill: Fill): string {
   switch (fill.k) {
-    case 'solid': return TINCTURE_CODE[fill.colour.t];
+    case 'solid': return fill.colour.k === 'tincture' ? TINCTURE_CODE[fill.colour.t] : `proper:${fill.colour.hex}`;
     case 'pattern': return `pattern:${fill.spec.id}`;
     case 'split': return `split(${fill.parts.map((p) => fillCode(p.fill)).join(',')})`;
     default: return fill satisfies never;
@@ -82,7 +104,7 @@ export function fieldFill(field: Paint, shape: FieldShape): Fill {
 /** An ordinary's fill: nothing for a counterchanged one that can't be (on a plain field, or on a host). */
 export function ordinaryFill(d: Design, group: Group, host: Group | null, type: OrdinaryType, shape: FieldShape): Fill {
   switch (group.paint.k) {
-    case 'tincture': case 'fur': return paintFill(group.paint, ORDINARY_FUR_SCALE);
+    case 'tincture': case 'fur': case 'treated': return paintFill(group.paint, ORDINARY_FUR_SCALE);
     case 'counterchanged':
       return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, type, shape), ORDINARY_FUR_SCALE) : NO_FILL;
     case 'divided': return partyFill(partyOf(group.paint), ordinaryCentre(type, shape), 0);
@@ -98,7 +120,8 @@ export function ordinaryFill(d: Design, group: Group, host: Group | null, type: 
 export function chargeFills(d: Design, group: Group, host: Group | null, slots: readonly Slot[], shape: FieldShape): SlotFill[] {
   const all = slots.map((_, i) => i);
   switch (group.paint.k) {
-    case 'tincture': case 'fur': return [{ fill: paintFill(group.paint, slots.length ? chargeFurScale(slots[0].size) : ORDINARY_FUR_SCALE), slots: all }];
+    case 'tincture': case 'fur': case 'treated': return [{ fill: paintFill(group.paint, slots.length ? chargeFurScale(slots[0].size) : ORDINARY_FUR_SCALE), slots: all }];
+    case 'proper': return properFills(group, slots);
     case 'counterchanged': {
       if (d.kind !== 'arms' || host) return [];
       const parts = slots.map((s) => counterchangedSlotParts(d.field, s, shape));

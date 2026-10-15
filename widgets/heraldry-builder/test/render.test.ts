@@ -16,7 +16,7 @@ const layer = <K extends Layer['k']>(d: Design, i: number, k: K, shape: FieldSha
 
 /** What a flat or split fill paints: each solid part with the clip path it is cut to (null: not cut). */
 const painted = (f: Fill): Array<{ tincture: string; clip: string | null }> => {
-  if (f.k === 'solid') return [{ tincture: f.colour.t, clip: null }];
+  if (f.k === 'solid') return [{ tincture: f.colour.k === 'tincture' ? f.colour.t : f.colour.hex, clip: null }];
   if (f.k === 'split') return f.parts.flatMap((p) => painted(p.fill).map((x) => ({ tincture: x.tincture, clip: p.clip })));
   throw new RangeError('A pattern has no single tincture.');
 };
