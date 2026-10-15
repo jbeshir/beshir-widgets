@@ -1,13 +1,11 @@
 // The scatter of a part of the background or of a band: the picture strewn over it (a semy), its colour and the colour of the
-// pictures. Opt-in, like the fur beside it, so the tincture picker stays as it was.
-
+// pictures. Opt-in, like the fur beside it: folded under the tincture picker until a semy is chosen.
 
 import {
   CHARGES, chargeLabel, clearSemy, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour,
   type ChargeId, type Design, type PaintTarget,
 } from '../../lib/heraldry';
 import { TincturePicker } from './TincturePicker';
-
 
 interface Props {
   design: Design;
@@ -18,7 +16,6 @@ interface Props {
   legend: string;
   onChange: (design: Design) => void;
 }
-
 
 export function SemyPicker({ design, target, group, testid, legend, onChange }: Props) {
   const choices = semyChoices(design, target);

@@ -255,7 +255,6 @@ describe('the matcher reads charges on the primary charges', () => {
   });
 });
 
-
 // A record the widget draws except for one word it can't read has that word as its gap and nothing else: the tagger
 // must not file it under a construct the widget does draw (a fur, a pattern, a semy, a second group, a badge …).
 // Each case is a minimal blazon of one drawn construct, taken from the library's own tables where it has them, plus a
@@ -305,7 +304,6 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a badge of crossed charges', '(Fieldless) Two swords in saltire argent'],
   ];
   const cases = [...fields.map(([name, field]): [string, string] => [name, upper(field)]), ...designs];
-
 
   it.each(cases)('%s', (_, text) => {
     const c = classify({ key: 'regid:0', type: 'd', date: '', blazon: `${upper(text)}, a frobnitz Or.`, headings: [] });

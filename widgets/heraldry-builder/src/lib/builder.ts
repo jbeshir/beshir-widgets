@@ -7,7 +7,7 @@
 import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
-  isAllowed, isMetal, isSupported, layerPath, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  isAllowed, isMetal, isSupported, pathOfPlace, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
   type ChargeId, type Companion, type Design, type Division, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
@@ -57,10 +57,10 @@ export function setBadge(d: Design): Design {
   const parts = partsOf(d);
   const picture = parts.picture && parts.picture.arrangement.k !== 'host' ? parts.picture : null;
   // A badge is one charge, or two long ones crossed, and its picture is its own: no counterchanging, no place on a background.
-  const single = picture && picture.count > 1 && picture.arrangement.k !== 'crossed';
+  const several = picture && picture.count > 1 && picture.arrangement.k !== 'crossed';
   const main: Group | null = picture && {
     ...picture, position: null, paint: picture.paint.k === 'counterchanged' ? tincturePaint('or') : picture.paint,
-    ...(single ? { count: 1, arrangement: { k: 'single' } as const } : {}),
+    ...(several ? { count: 1, arrangement: { k: 'single' } as const } : {}),
   };
   const badge: Design = { v: 2, kind: 'badge', field: null, groups: [] };
   return refitLayers(assembleParts(badge, { ...partsOf(badge), picture: main, onPicture: main && parts.onPicture }));
@@ -167,8 +167,8 @@ export function setOrdinaryTincture(d: Design, t: GroupTincture): Design {
 
 // ── Pictures ────────────────────────────────────────────────────────────────
 
-/** The picture at `path` painted with the first tincture that works there, as a new picture should be. */
-function withFirstTincture(d: Design, path: GroupPath): Design {
+/** The picture at `path` painted with the first tincture that works there (Or when none does), as a new picture should be. */
+function withStartingTincture(d: Design, path: GroupPath): Design {
   return withTincture(d, path, firstAllowed(groupTinctureChoices(d, path), 'or'));
 }
 
@@ -181,15 +181,15 @@ function withFirstTincture(d: Design, path: GroupPath): Design {
 export function setCharge(d: Design, at: 'picture' | PicturesKey, id: ChargeId | null): Design {
   if (at !== 'picture') {
     if (!id) return removeLayer(d, at);
-    return layerPath(d, at) ? setLayerCharge(d, at, id) : setLayerCharge(addLayer(d, at), at, id);
+    return pathOfPlace(d, at) ? setLayerCharge(d, at, id) : setLayerCharge(addLayer(d, at), at, id);
   }
   const parts = partsOf(d);
-  if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.extra ?? parts.around ?? parts.coPrimary, placement: parts.extra ? 'ordinary' : 'field', extra: null, around: null, coPrimary: null }));
+  if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.onOrdinary ?? parts.around ?? parts.coPrimary, placement: parts.onOrdinary ? 'ordinary' : 'field', onOrdinary: null, around: null, coPrimary: null }));
   if (parts.picture) return swapPicture(d, id);
   // A new picture goes on the background, or onto the band when pictures already stand beside it in chief, base or canton (one secondary group).
-  const onField = refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'field', extra: null }));
-  const placed = isSupported(onField) || !parts.ordinary ? onField : refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'ordinary', extra: null }));
-  return canonical(withFirstTincture(placed, picturePath(placed)!));
+  const onField = refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'field', onOrdinary: null }));
+  const placed = isSupported(onField) || !parts.ordinary ? onField : refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'ordinary', onOrdinary: null }));
+  return canonical(withStartingTincture(placed, picturePath(placed)!));
 }
 
 function swapPicture(d: Design, id: ChargeId): Design {
@@ -332,7 +332,7 @@ export function issueStep(d: Design, issue: Issue): StepKey {
   if (issue.at.k === 'design') return 'picture';
   const place = placeOfPath(d, issue.at.path);
   // Pictures set only on the band are the picture step's own.
-  return !place || (place === 'on-ordinary' && simpleParts(d).extra === null) ? 'picture' : place;
+  return !place || (place === 'on-ordinary' && simpleParts(d).onOrdinary === null) ? 'picture' : place;
 }
 
 /**

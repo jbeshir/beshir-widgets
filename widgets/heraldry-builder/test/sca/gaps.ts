@@ -9,21 +9,17 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, SEMY_NAMES, SEMY_SPELLINGS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type HalfPosition, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import {
   BUCKET_DESCRIPTION, CHARGE_BUCKETS, CONTAINER_WORDS, CONTEXT_WORDS, CROSS_POST, CROSS_PRE, FUNCTION_WORDS, FURS,
   GAP_ARRANGEMENTS, GAP_CHARGES, GAP_DIVISION_WORDS, GAP_ORDINARIES, GAP_POSTURES, GAP_TINCTURES, LINES, MARSHALLING,
-  MODIFIERS, NUMBERS, ORIENTATIONS, PART_WORDS, POSITION_WORDS, SEMY_WORDS,
+  DRAWN_SEMY_NAMES, MODIFIERS, NUMBERS, ORIENTATIONS, PART_WORDS, POSITION_WORDS, SEMY_WORDS,
   SUPPORTED_ARRANGEMENT_WORDS, SUPPORTED_CHARGE_BUCKET, SUPPORTED_CHARGE_WORDS, SUPPORTED_ORDINARY_WORDS,
   SUPPORTED_POSTURES, QUALIFIER_WORDS, TREATMENTS, type ChargeBucket,
 } from './gap-terms';
-
-/** The names of a semy the widget words and reads: "semy-de-lys", "crusilly", "bezanty", "goutty" (de sang, d'or …) and their spellings. */
-const DRAWN_SEMY_NAMES: ReadonlySet<string> = new Set([...SEMY_NAMES.map((n) => n.word.split(' ')[0]), ...Object.keys(SEMY_SPELLINGS)].filter((w) => w !== 'semy'));
-
 
 /** The divisions the widget draws, as the tagger names them. */
 const DRAWN_DIVISION_IDS: readonly string[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'];
@@ -85,7 +81,7 @@ for (const [word, n] of entries(NUMBERS)) LEX.set(word, { k: 'num', n });
 add(['or', 'argent', 'azure', 'gules', 'vert', 'sable', 'purpure', 'celestine'], { k: 'tinc' });
 add(['counterchanged', 'counter-changed', 'counterchange'], { k: 'cc' });
 add(['proper', 'ppr'], { k: 'proper' });
-for (const [word, id] of entries(SUPPORTED_CHARGE_WORDS)) LEX.set(word, { k: 'charge', id: id as ChargeId });
+for (const [word, id] of entries(SUPPORTED_CHARGE_WORDS)) LEX.set(word, { k: 'charge', id });
 add(['cross', 'crux'], { k: 'cross' });
 for (const [word, v] of entries(SUPPORTED_ORDINARY_WORDS)) LEX.set(word, { k: 'ord', v: v as OrdinaryType });
 for (const [word, v] of entries(FURS)) LEX.set(word, { k: 'fur', v });
@@ -123,7 +119,7 @@ const CROSS_VARIANT: Record<string, string> = {
 /** Irregular plurals. */
 const IRREGULAR: Record<string, string> = {
   men: 'man', women: 'woman', mice: 'mouse', reremice: 'reremouse', geese: 'goose', teeth: 'tooth', feet: 'foot',
-  forefeet: 'forefoot', oxen: 'ox', children: 'child', staves: 'staff', torteaux: 'torteau', pegasi: 'pegasus',
+  forefeet: 'forefoot', oxen: 'ox', children: 'child', staves: 'staff', pegasi: 'pegasus',
   gladii: 'gladius', triquetrae: 'triquetra', seeblatter: 'seeblatt', dice: 'die', calves: 'calf', halves: 'half',
   lice: 'louse', 'sea-wolves': 'sea-wolf', wolves: 'wolf', hooves: 'hoof', amphorae: 'amphora', polypi: 'polypus',
   cacti: 'cactus', fungi: 'fungus',
@@ -354,11 +350,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     return look(j)?.e.k === 'tinc' && words[j + 1] === 'and' && look(j + 2)?.e.k === 'tinc';
   };
 
-
   /** Whether the treatment named `v` at `words[i]` is written as the widget draws it: laid on a tincture, in the lines of another ("argent masoned sable"). */
   const treatedFollows = (v: string, i: number): boolean =>
     (DRAWN_TREATMENTS as readonly string[]).includes(v) && look(i - 1)?.e.k === 'tinc' && look(i + 1)?.e.k === 'tinc';
-
 
   /**
    * Whether the semy at `words[i]` is written as the widget draws it: laid on a tincture (the field's, its part's, a band's), strewn with a
@@ -373,9 +367,6 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     return strewn && words[after] !== 'of' && look(after)?.e.k !== 'cc' && look(after)?.e.k !== 'proper';
   };
 
-
-
-
   /**
    * Whether the fur named `lem` at `words[i]` is written as the widget draws it: the field, a part of it, a band or a picture in a
    * fur — the named furs, "<tincture> ermined <tincture>", "vairy <tincture> and <tincture>" — but not strewn on a semy or held.
@@ -387,7 +378,6 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     if (lem === 'vairy' || lem === 'potenty') return look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc';
     return true;
   };
-
 
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
     const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : overallNext ? 'overall' : betweenHost ? 'between' : onHost ? 'on' : 'field';

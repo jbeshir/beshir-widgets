@@ -26,7 +26,8 @@ function paintWord(p: Paint): string {
     case 'counterchanged': return 'counterchanged';
     case 'divided': return partyWord(p);
     case 'variation': return variationWord(p);
-    default: return notSupported(paintGaps(p, false, 'group')[0]);
+    case 'stain': return notSupported(paintGaps(p, false, 'group')[0]);
+    default: return p satisfies never;
   }
 }
 
@@ -48,13 +49,11 @@ function treatedWord(p: Paint): string {
   return treated ? treatedName(treated) : notSupported(paintGaps(p, false, 'group')[0]);
 }
 
-
 /** A semy as written: "azure crusilly argent", "sable bezanty", "argent semy of lions gules". */
 function semyWord(p: Paint): string {
   const semy = asSemy(p);
   return semy ? `${tinctureWord(semy.ground.t)} ${semyPhrase(semy.charge.charge, semy.ink.t)}` : notSupported(paintGaps(p, false, 'group')[0]);
 }
-
 
 /** A divided paint as written: "per pale azure and Or". */
 function partyWord(p: Paint): string {
@@ -70,7 +69,6 @@ function variationWord(p: Paint): string {
   return `${VARIATION_NAME[varied.variation]}${count} ${varied.parts.map((x) => tinctureWord(x.t)).join(' and ')}`;
 }
 
-
 /** A divided field strewn all over with one charge: both parts are the same semy, in one tincture or each in the other's ("all semy of roses counterchanged"). */
 function strewnAllOver(field: Paint): { grounds: [Tincture, Tincture]; charge: ChargeId; ink: Tincture | 'counterchanged' } | null {
   const [a, b] = field.k === 'divided' ? field.parts.map(asSemy) : [];
@@ -79,7 +77,6 @@ function strewnAllOver(field: Paint): { grounds: [Tincture, Tincture]; charge: C
   if (a.ink.t === b.ink.t) return { grounds, charge: a.charge.charge, ink: a.ink.t };
   return a.ink.t === b.ground.t && b.ink.t === a.ground.t ? { grounds, charge: a.charge.charge, ink: 'counterchanged' } : null;
 }
-
 
 function fieldPhrase(field: Paint): string {
   const all = strewnAllOver(field);
@@ -213,7 +210,8 @@ export function blazon(d: Design, given: Partial<BlazonOptions> = {}): string {
   all.forEach((t, i) => {
     const lead = i === 0 ? (d.kind === 'arms' ? ', ' : '') : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
     const next = all[i + 1];
-    // What is strewn on a band is stated after its tincture, which then can't be left for the next to say.
+    // What is strewn on a band is stated after its tincture, which then can't be left for the next to say. A band strewn after an element
+    // shares its tincture as the College writes it ("a unicorn, a bordure argent mullety sable", regid 37777).
     pending = !options.stateTinctures && next !== undefined && next.linked && next.paint === t.paint && t.strewn === '';
     text += `${lead}${t.text}${pending ? '' : ` ${t.paint}${t.strewn}`}`;
   });

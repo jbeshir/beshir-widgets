@@ -1,7 +1,6 @@
 // The simple shapes (roundel, annulet, billet, lozenge, goutte, cross crosslet, estoile, spark): how they are drawn, worded and told
 // apart, and the SCA names that stand for them.
 
-
 import { describe, expect, it } from 'vitest';
 import { CHARGES, NAMED_TINCTURE_CHARGES, blazon, buildSearchText, chargesInCategory, differences, matchesWords, queryWords, gloss, structuralIssues, tinctureIssues, unsupportedIssues, type Design } from '../src/lib/heraldry';
 import { explainMatch } from './sca/match';
@@ -12,7 +11,6 @@ const SHAPES = ['roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-cros
 const on = (id: string, paint: string, count = 3) => nd(arms('azure', group(charge(id), paint, { count })));
 const searchText = (design: Design) => buildSearchText({ displayName: '', blazon: blazon(design), design });
 const between = (a: unknown, b: unknown) => differences(nd(a), nd(b)).map((d) => `${d.attr}:${d.kind}:${d.rule}`);
-
 
 describe('the shapes', () => {
   it('are charges in the Shapes category that the builder draws without a gap', () => {
@@ -44,7 +42,6 @@ describe('the shapes', () => {
     expect(CHARGES.estoile.typeClass).toBe(CHARGES.mullet.typeClass);
   });
 });
-
 
 describe('the SCA names', () => {
   it('turn the named roundels and gouttes into the charge and its tincture', () => {

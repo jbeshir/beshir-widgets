@@ -221,7 +221,6 @@ const ALONG_STRIPES: Partial<Record<Variation, readonly OrdinaryType[]>> = {
   barry: ['fess', 'cross'], paly: ['pale', 'cross'], bendy: ['bend', 'saltire'], 'bendy-sinister': ['bend-sinister', 'saltire'], chevronny: ['chevron', 'saltire'],
 };
 
-
 /**
  * Why a group can't be counterchanged over a variation, or null when it can (RULES CC-2, CC-3, CC-9): a central ordinary
  * may be over simple stripes when it runs across them, and a chief or bordure over pily; nothing else, and no charge.
@@ -237,7 +236,6 @@ function counterchangeOverVariation(group: Group, variation: Variation, noun: st
   if (kind !== 'central') return `${whole} a ${noun} can't be counterchanged over stripes — only a band across the middle can (SENA CC-9).`;
   return along.includes(group.item.type) ? `${whole} it runs along the stripes, so counterchanged would only recolour one stripe (SENA CC-2).` : null;
 }
-
 
 /**
  * Why a counterchanged group can't be, or null when it can: only things lying across a divided field can take
@@ -439,7 +437,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   if (g.paint.k === 'tincture' && pair && forcedIntoOnePart(d, path, failures, pair)) {
     const other = TINCTURE_NAME[pair[pair.indexOf(g.paint.t) === 0 ? 1 : 0]];
     return [{
-      code: 'unsupported', at, gap: { category: 'arrangement', detail: 'forced-into-one-part' },
+      code: 'unsupported', at, gap: { category: 'arrangement', detail: 'forced-into-one-part' }, limit: null,
       message: `${capitalise(describeSlots(slots, all, T, charge))} would have to sit only on the ${other} part of the field, which isn't available in this builder yet.`,
     }];
   }
@@ -491,7 +489,6 @@ export function semyIssues(p: Paint, at: IssueAt): Issue[] {
     message: `${capitalise(CHARGES[semy.charge.charge].plural)} ${TINCTURE_NAME[semy.ink.t]} strewn on ${TINCTURE_NAME[semy.ground.t]}: ${FAILURE_TEXT[failure]}`,
   }];
 }
-
 
 /** Every rule-of-tincture violation: the semys of the field, then group by group in canonical order. */
 export function tinctureIssues(d: Design): Issue[] {

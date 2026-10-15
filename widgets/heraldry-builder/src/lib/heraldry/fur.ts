@@ -2,7 +2,7 @@
 // "vairy Or and gules" are a fur plus two colours; a fur whose colours are its own ("ermine" is argent with sable
 // spots) carries none, so equal furs have equal JSON.
 
-import { FURS, FUR_NAME, FUR_SPEC, TINCTURES, TINCTURE_GLOSS, tinctureWord, type Fur, type Tincture } from './tinctures';
+import { FURS, FUR_NAME, FUR_SPEC, TINCTURES, TINCTURE_GLOSS, isFur, tinctureWord, type Fur, type FurSpec, type Tincture } from './tinctures';
 import type { Paint } from './design';
 
 export type FurPaint = Extract<Paint, { k: 'fur' }>;
@@ -46,7 +46,7 @@ export function furName(p: FurPaint): string {
   if (!p.colours) return FUR_NAME[p.fur];
   const [a, b] = p.colours.map(tinctureWord);
   const { family } = FUR_SPEC[p.fur];
-  return family === 'ermine' ? `${a} ermined ${b}` : `${family === 'vair' ? 'vairy' : 'potenty'} ${a} and ${b}`;
+  return family === 'ermine' ? `${a} ermined ${b}` : `${FAMILY_KIND[family]} ${a} and ${b}`;
 }
 
 /** A fur in plain words, its look in brackets: "ermine (white with black spots)", "vair (rows of white and blue bells)". */
@@ -57,16 +57,32 @@ export function furGloss(p: FurPaint): string {
   return `${furName(p)} (${look})`;
 }
 
-/** What a fur picker offers: each named fur, and for each family the same fur in colours of the picker's own choosing. */
-export type FurKind = Fur | 'ermined' | 'vairy' | 'potenty';
+export type FurFamily = FurSpec['family'];
 
-export const FUR_KINDS: readonly FurKind[] = [...FURS, 'ermined', 'vairy', 'potenty'];
+/** A fur family in colours of the picker's own choosing ("argent ermined gules", "vairy Or and gules", "potenty argent and sable"). */
+type OwnColoursKind = 'ermined' | 'vairy' | 'potenty';
+
+/** What a fur picker offers: each named fur, and for each family the same fur in colours of the picker's own choosing. */
+export type FurKind = Fur | OwnColoursKind;
+
+/** Each family's own-colours kind; the word is the blazon's for vair and potent. */
+const FAMILY_KIND: Record<FurFamily, OwnColoursKind> = { ermine: 'ermined', vair: 'vairy', potent: 'potenty' };
+
+/** The fur of each family that names its colours: an own-colours kind is drawn as this fur with colours. */
+export const FAMILY_FUR: Record<FurFamily, Fur> = { ermine: 'ermine', vair: 'vair', potent: 'potent' };
+
+export const FUR_KINDS: readonly FurKind[] = [...FURS, ...Object.values(FAMILY_KIND)];
+
+/** The family a picker kind belongs to. */
+export const familyOfKind = (kind: FurKind): FurFamily =>
+  isFur(kind) ? FUR_SPEC[kind].family : (Object.keys(FAMILY_KIND) as FurFamily[]).find((f) => FAMILY_KIND[f] === kind)!;
+
+/** The fur a picker kind is drawn as: a named fur itself, an own-colours kind its family's fur. */
+export const furOfKind = (kind: FurKind): Fur => (isFur(kind) ? kind : FAMILY_FUR[familyOfKind(kind)]);
 
 /** The picker kind of a fur paint: its own name, or (when it names colours) the family's own-colours kind. */
 export function furKindOf(p: FurPaint): FurKind {
-  if (!p.colours) return p.fur;
-  const { family } = FUR_SPEC[p.fur];
-  return family === 'ermine' ? 'ermined' : family === 'vair' ? 'vairy' : 'potenty';
+  return p.colours ? FAMILY_KIND[FUR_SPEC[p.fur].family] : p.fur;
 }
 
 /** Whether a fur can be drawn in colours of its own: the ermine family and plain vair and potent (counter- and en pointe furs keep theirs). */

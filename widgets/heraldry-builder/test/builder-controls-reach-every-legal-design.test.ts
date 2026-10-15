@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, countChoices, fieldTinctureChoices, groupTinctureChoices, layerChoices, layerPath, layoutChoices,
+  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, countChoices, fieldTinctureChoices, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices,
   layoutKey, modifierChoices, normalise, placementChoices, postureChoices, resolve, structuralIssues, tinctureIssues, unsupportedIssues,
   type ChargeId, type Design, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
@@ -416,12 +416,12 @@ describe('builder controls never lock a legal value away', () => {
         continue;
       }
       offered++;
-      const path = layerPath(added, 'on-ordinary');
+      const path = pathOfPlace(added, 'on-ordinary');
       expect(path, label).not.toBeNull();
       expect(sameSet(allowedValues(countChoices(added, path!))), label).toEqual(sameSet(legalCounts));
       for (const count of legalCounts) {
-        const moved = setCount(added, layerPath(added, 'on-ordinary')!, count);
-        const at = layerPath(moved, 'on-ordinary');
+        const moved = setCount(added, pathOfPlace(added, 'on-ordinary')!, count);
+        const at = pathOfPlace(moved, 'on-ordinary');
         expect(at && moved.groups[at[0]].charged[at[1]].count, `${label} → ${count}`).toBe(count);
       }
     }
@@ -450,7 +450,7 @@ describe('builder controls never lock a legal value away', () => {
           continue;
         }
         offered++;
-        const path = layerPath(added, type);
+        const path = pathOfPlace(added, type);
         expect(path, label).not.toBeNull();
         expect(sameSet(allowedValues(groupTinctureChoices(added, path!))), label).toEqual(sameSet(legalPaintsOf));
         expect(ordinaryPath(added), label).toEqual(ordinaryPath(band));

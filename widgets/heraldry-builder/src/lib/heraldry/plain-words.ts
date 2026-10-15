@@ -14,7 +14,7 @@ import { isSecondaryPosition, layoutOfKey, layoutWords, primaryCharges } from '.
 import type { PlaceKey } from './places';
 import type { GroupTincture } from './design';
 import type { FurKind } from './fur';
-import { joinAnd, numberWord, capitalise } from './words';
+import { joinAnd, capitalise } from './words';
 
 /** A label in everyday words and the heraldic term for the same thing. */
 export interface PlainTerm {

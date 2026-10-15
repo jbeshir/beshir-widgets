@@ -1,6 +1,6 @@
 // Stripes and checks — barry and its kin, checky, lozengy and the rest — of the background or of a band or
 // picture: one option per pattern with a small picture of it, a count for the ones that are counted, and the
-// two tinctures it is made of. Opt-in, like the fur of a part, so the plain and divided colours stay as they were.
+// two tinctures it is made of. Opt-in, like the fur of a part: folded under the plain and divided colours until a pattern is chosen.
 
 import {
   TINCTURES, TINCTURE_FILL, VARIATIONS, VARIATION_LABEL, VARIATION_PIECES, asVariation, groupAt, groupVariationChoices, groupVariationTinctureChoices, isCountedVariation, setGroupVariation,
@@ -13,15 +13,12 @@ import { ChoiceButton, RadioGroup } from './Choices';
 import { useExplainer } from './Explainer';
 import { TincturePicker } from './TincturePicker';
 
-
 /** The patterns of stripes (counted) and of checks, grids and piles, each offered in a group of its own. */
 const STRIPES: readonly Variation[] = VARIATIONS.filter(isCountedVariation);
 const CHECKS: readonly Variation[] = VARIATIONS.filter((v) => !isCountedVariation(v));
 
-
 /** The shield's box, which a chip's pattern is laid out over. */
 const CHIP_BOX = { x0: 0, y0: 0, x1: 100, y1: 120 };
-
 
 /** A small picture of a pattern in gold and azure. */
 function PatternChip({ variation }: { variation: Variation }) {
@@ -34,7 +31,6 @@ function PatternChip({ variation }: { variation: Variation }) {
     </svg>
   );
 }
-
 
 interface Props {
   /** Testid of the disclosure; the options are <testid>-<pattern>, <testid>-pieces-<n> and <testid>-tincture-<1|2>. */
@@ -49,7 +45,6 @@ interface Props {
   onPieces: (pieces: number) => void;
   onTincture: (part: 0 | 1, tincture: Tincture) => void;
 }
-
 
 function VariationPicker({ testid, group, legend, value, variations, tinctures, onVariation, onPieces, onTincture }: Props) {
   const { explain, node: explainer } = useExplainer();
@@ -97,10 +92,8 @@ function VariationPicker({ testid, group, legend, value, variations, tinctures, 
   );
 }
 
-
 /** Every tincture is on offer for the background: choosing one moves the other only to keep a metal with a colour. */
 const ALL_TINCTURES: Choice<Tincture>[] = TINCTURES.map((value) => ({ value, allowed: true }));
-
 
 /** Stripes and checks for the background: nothing is blocked, the rule of tincture is judged on what lies on it. */
 export function FieldPattern({ design, onChange }: { design: Design; onChange: (design: Design) => void }) {
@@ -113,7 +106,6 @@ export function FieldPattern({ design, onChange }: { design: Design; onChange: (
     />
   );
 }
-
 
 /** Stripes and checks for the band or picture at `path`. */
 export function GroupPattern({ design, path, group, testid, onChange }: { design: Design; path: GroupPath; group: string; testid: string; onChange: (design: Design) => void }) {

@@ -70,7 +70,6 @@ const ON_THE_LINE: Array<[string, unknown]> = [false, true].flatMap((bordure) =>
   arms(div(division as 'per-bend', 'vert', 'argent'), chg('rose', 'sable', { count, arrangement }), ...(bordure ? [ord('bordure', 'azure')] : [])),
 ])));
 
-
 const DESIGNS: Array<[string, Design]> = [
   ...sample.entries.map((e): [string, unknown] => [e.id, e.design]),
   ...V.map((c): [string, unknown] => [c.id, c.design]),

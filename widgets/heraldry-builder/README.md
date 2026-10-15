@@ -9,8 +9,8 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 - **Builder.** Pick a field (plain or one of seven divisions), an optional ordinary (ten) and an
   optional group of 1–12 charges (36 charges, 48 drawings with postures; counts above six sit
   behind **More…**). The default flow is three steps, Background → Band or shape → Picture (the Background step also has a **Badge** tile, "No background": see Fieldless badges); a
-  fourth card appears only when it applies: extra pictures on the band (or on a chief), or a
-  top band (chief) and a border (bordure) beside the band, with or without pictures. Every option is
+  further card appears for each layer added on demand from the "+ Add…" row (pictures on the band, a chief or a bordure,
+  around, on or beside the picture, in chief, base or canton, or something overall: see Design below). Every option is
   checked against the **rule of tincture** (SENA A3B, below) and against the structural rules
   (legal counts, arrangements and placements, laid out by capacity). Options that would break a
   rule stay visible but are marked blocked, with an explanation. On a divided field charges can

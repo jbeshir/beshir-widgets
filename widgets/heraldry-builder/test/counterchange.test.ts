@@ -163,10 +163,8 @@ describe('counterchanged charges in every placement', () => {
   }
 });
 
-
 describe('a counterchanged chevron on a field per chevron', () => {
   const chevron = (...rest: object[]) => nd(arms(div('per-chevron', 'or', 'azure'), ord('chevron', 'counterchanged'), ...rest));
-
 
   it('lies astride the line and shows both tinctures, in every shape', () => {
     for (const shape of ['heater', 'banner', 'round', 'lozenge'] as const) {
@@ -174,7 +172,6 @@ describe('a counterchanged chevron on a field per chevron', () => {
       expect(layer?.k === 'ordinary' && layer.fill.k === 'split' && layer.fill.parts.length, shape).toBe(2);
     }
   });
-
 
   it('is drawn in its usual place, and in one tincture, on another division or when it is not counterchanged', () => {
     const fill = (d: unknown) => (renderLayers(nd(d as never), 'heater').find((l) => l.k === 'ordinary') as { fill: { k: string; parts?: unknown[] } }).fill;
@@ -184,7 +181,6 @@ describe('a counterchanged chevron on a field per chevron', () => {
     const astride = renderLayers(chevron(), 'heater').find((l) => l.k === 'ordinary');
     expect(astride && usual && astride.k === 'ordinary' && usual.k === 'ordinary' && astride.d !== usual.d).toBe(true);
   });
-
 
   it('keeps the charges set by it, which would be placed for the usual chevron, a gap', () => {
     const between = chevron(chg('rose', 'argent', { count: 3, relation: 'between' }));

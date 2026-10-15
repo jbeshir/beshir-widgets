@@ -1,7 +1,6 @@
-// The eight tinctures: three metals and five colours; no furs, stains or custom colours.
-// Celestine, a cyan metal, is the one non-standard tincture. Pure data — no DOM.
+// The eight tinctures (three metals and five colours), the furs and what they are made of, and the stains the builder names
+// but does not draw. Celestine, a cyan metal, is the one non-standard tincture. Pure data — no DOM.
 
-import { joinList } from './words';
 export type Colour = 'gules' | 'azure' | 'vert' | 'sable' | 'purpure';
 export type Metal = 'or' | 'argent' | 'celestine';
 export type Tincture = Colour | Metal;

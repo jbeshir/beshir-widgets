@@ -227,7 +227,7 @@ function shareOf(d: Design, group: Group): Share | null {
 export const shareTotal = (share: Share | null, own: number): number => (share ? share.counts.reduce((a, b) => a + b, 0) : own);
 
 /** The same context with this group's count changed (a co-primary group's count changes the total the groups are laid out in). */
-export function withOwnCount(ctx: LayoutContext, count: number): LayoutContext {
+function withOwnCount(ctx: LayoutContext, count: number): LayoutContext {
   if (ctx.k !== 'field' || !ctx.share) return ctx;
   return { ...ctx, share: { index: ctx.share.index, counts: ctx.share.counts.map((n, i) => (i === ctx.share!.index ? count : n)) } };
 }
@@ -374,7 +374,11 @@ export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): read
     case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': case 'bordure': return Array.from({ length: 12 }, (_, i) => i + 1);
     case 'cross': case 'saltire': return [1, 4, 5];
     case 'pile': return [1, 2, 3];
-    default: return [];
+    // Not drawn: no host layouts.
+    case 'base': case 'canton': case 'quarter': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'pall': case 'pall-inverted': case 'point':
+    case 'fret': case 'label': case 'gyron': case 'mount': case 'trimount': case 'bar': case 'barrulet': case 'pallet': case 'bendlet': case 'bendlet-sinister':
+    case 'chevronel': case 'saltorel': case 'baton': return [];
+    default: return ordinary satisfies never;
   }
 }
 
@@ -392,10 +396,14 @@ function fieldPair(d: Design): [Tincture, Tincture] | null {
 
 /** Table 7 for a charge group of `count` in `ctx`: the first applicable row, or null for "None, must be specified". */
 function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: number): RuledLayout | null {
-  if (ctx.k === 'position') return { layout: positionLayout(ctx.position, own), rule: 'position' };
-  if (ctx.k === 'around') return own === 3 ? { layout: rows([2, 1]), rule: 'around' } : null;
-  if (ctx.k === 'on-charge' || ctx.k === 'overall') return own === 1 ? { layout: single(), rule: '1' } : null;
-  if (ctx.k !== 'field') return { layout: HOST_LAYOUT, rule: 'host' };
+  switch (ctx.k) {
+    case 'position': return { layout: positionLayout(ctx.position, own), rule: 'position' };
+    case 'around': return own === 3 ? { layout: rows([2, 1]), rule: 'around' } : null;
+    case 'on-charge': case 'overall': return own === 1 ? { layout: single(), rule: '1' } : null;
+    case 'between': case 'on': return { layout: HOST_LAYOUT, rule: 'host' };
+    case 'field': break;
+    default: return ctx satisfies never;
+  }
   // Co-primary groups are laid out together: Table 7 for all their charges.
   const count = shareTotal(ctx.share, own);
   const division = d.kind === 'arms' && d.field.k === 'divided' ? d.field.division : null;
@@ -457,11 +465,15 @@ function sharedCandidates(ctx: FieldContext, total: number, tableDefault: Layout
 /** The layouts a charge group of `count` can take, in the order the builder lists them. Capacity is not consulted. */
 function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDefault: Layout | null): Layout[] {
   const long = group.item.k === 'charge' && CHARGES[group.item.charge].long;
-  if (ctx.k === 'position') return positionLayouts(ctx.position, count, long);
-  if (ctx.k === 'around') return aroundLayouts(count, ctx.peripheral);
-  if (ctx.k === 'on-charge') return [...onChargeLayouts(count)];
-  if (ctx.k === 'overall') return overallLayouts(count, long);
-  if (ctx.k !== 'field') return [HOST_LAYOUT];
+  switch (ctx.k) {
+    case 'position': return positionLayouts(ctx.position, count, long);
+    case 'around': return aroundLayouts(count, ctx.peripheral);
+    case 'on-charge': return [...onChargeLayouts(count)];
+    case 'overall': return overallLayouts(count, long);
+    case 'between': case 'on': return [HOST_LAYOUT];
+    case 'field': break;
+    default: return ctx satisfies never;
+  }
   if (ctx.share) return sharedCandidates(ctx, shareTotal(ctx.share, count), tableDefault);
   // Primary charges with charges set around them stand alone, or two side by side, one above the other or crossed.
   const around = ctx.yields === 'around' ? aroundPrimaryLayouts(count, long) : [];
@@ -541,8 +553,12 @@ export function isForced(d: Design, path: GroupPath): boolean {
   const ctx = layoutContext(d, path);
   // Where a secondary group stands, how charges stand around the primary charges and on each of them, is chosen, not forced:
   // moving them is a change of arrangement (GoT "Arrangement").
-  if (ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'on-charge' || ctx.k === 'overall') return false;
-  if (ctx.k !== 'field') return true;
+  switch (ctx.k) {
+    case 'position': case 'around': case 'on-charge': case 'overall': return false;
+    case 'between': case 'on': return true;
+    case 'field': break;
+    default: return ctx satisfies never;
+  }
   const ruled = forcedRuleOf(d, group, host);
   return ruled !== null && sameLayout(ruled, { arrangement: group.arrangement, position: group.position });
 }
@@ -588,14 +604,16 @@ export function statesLayout(d: Design, path: GroupPath): boolean {
   const { group } = groupAndHost(d, path);
   if (group.item.k === 'ordinary') return false;
   const ctx = layoutContext(d, path);
-  if (ctx.k === 'position') return true;
   const layout: Layout = { arrangement: group.arrangement, position: group.position };
-  if (ctx.k === 'around' || ctx.k === 'on-charge' || ctx.k === 'overall') {
+  const notTable = () => {
     const table = tableDefault(d, path);
     return table === null || !sameLayout(layout, table);
+  };
+  switch (ctx.k) {
+    case 'position': return true;
+    case 'around': case 'on-charge': case 'overall': return notTable();
+    case 'between': case 'on': return false;
+    case 'field': return !(layout.arrangement.k === 'single' && layout.position === null) && notTable();
+    default: return ctx satisfies never;
   }
-  if (ctx.k !== 'field') return false;
-  if (layout.arrangement.k === 'single' && layout.position === null) return false;
-  const table = tableDefault(d, path);
-  return table === null || !sameLayout(layout, table);
 }

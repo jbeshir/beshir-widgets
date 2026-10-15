@@ -1,8 +1,6 @@
 // A small square of a pattern (a fur, a treatment) for a picker's swatch.
 
-
 import { colourHex, type PatternSpec } from '../../lib/heraldry';
-
 
 export function FillChip({ spec, id }: { spec: PatternSpec; id: string }) {
   return (

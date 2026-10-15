@@ -4,8 +4,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  FIELD_SHAPES, addLayer, blazon, canonicalJson, contextSlots, differences, gloss, groupAt, layerChoices, layerItemChoices, layerPath, normalise, pathOfPlace, placesOf,
-  removeLayer, renderLayers, setLayerItem, signature, structuralIssues, tinctureIssues, unsupportedIssues, walkGroups, MIN_SLOT_SIZE, fieldContext, type Design,
+  FIELD_SHAPES, addLayer, blazon, canonicalJson, contextSlots, differences, gloss, groupAt, layerChoices, overallItemChoices, normalise, pathOfPlace, placesOf,
+  removeLayer, renderLayers, setOverallItem, signature, structuralIssues, tinctureIssues, unsupportedIssues, walkGroups, MIN_SLOT_SIZE, fieldContext, type Design,
 } from '../src/lib/heraldry';
 import { setCharge, setOrdinary } from '../src/lib/builder';
 import { builderPath } from './builder-path';
@@ -179,28 +179,28 @@ describe('the builder layer', () => {
     const empty = built(arms('azure', group(ordinary('chief'), 'argent')));
     expect(layerChoices(empty).find((c) => c.value === 'overall')).toMatchObject({ allowed: false });
     const onBand = addLayer(built(arms('azure', group(ordinary('fess'), 'argent'))), 'overall');
-    expect(groupAt(onBand, layerPath(onBand, 'overall')!).item).toMatchObject({ k: 'charge' });
+    expect(groupAt(onBand, pathOfPlace(onBand, 'overall')!).item).toMatchObject({ k: 'charge' });
     const onPicture = addLayer(built(arms('azure', lion())), 'overall');
-    expect(groupAt(onPicture, layerPath(onPicture, 'overall')!).item).toMatchObject({ k: 'ordinary', type: 'bend' });
+    expect(groupAt(onPicture, pathOfPlace(onPicture, 'overall')!).item).toMatchObject({ k: 'ordinary', type: 'bend' });
     expect(normalise(onBand).ok && normalise(onPicture).ok).toBe(true);
   });
 
   it('starts with a picture the field has none of', () => {
     const d = addLayer(built(arms('azure', group(ordinary('fess'), 'argent'), group(charge('mullet'), 'or', { count: 3, position: 'chief' }))), 'overall');
-    expect(groupAt(d, layerPath(d, 'overall')!).item).toMatchObject({ charge: 'heart' });
+    expect(groupAt(d, pathOfPlace(d, 'overall')!).item).toMatchObject({ charge: 'heart' });
   });
 
   it('can be changed to another band or picture, and blocks what App I4 does not allow, with its reason', () => {
     const d = addLayer(built(arms('azure', lion())), 'overall');
-    const choices = layerItemChoices(d, 'overall');
+    const choices = overallItemChoices(d);
     const find = (item: object) => choices.find((c) => JSON.stringify(c.value) === JSON.stringify(item))!;
     expect(find({ k: 'ordinary', type: 'fess' })).toMatchObject({ allowed: true });
     expect(find({ k: 'charge', charge: 'sword' })).toMatchObject({ allowed: true });
     expect(find({ k: 'charge', charge: 'rose' })).toMatchObject({ allowed: false, reason: expect.stringContaining('must lie over a band') });
     expect(find({ k: 'charge', charge: 'lion' })).toMatchObject({ allowed: false, reason: expect.stringContaining('already the main picture') });
-    const sword = setLayerItem(d, 'overall', { k: 'charge', charge: 'sword' });
+    const sword = setOverallItem(d, { k: 'charge', charge: 'sword' });
     expect(blazon(sword)).toBe('Azure, a lion argent and overall a sword Or.');
-    const fess = setLayerItem(sword, 'overall', { k: 'ordinary', type: 'fess' });
+    const fess = setOverallItem(sword, { k: 'ordinary', type: 'fess' });
     expect(blazon(fess)).toBe('Azure, a lion argent and overall a fess Or.');
   });
 

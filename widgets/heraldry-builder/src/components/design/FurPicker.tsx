@@ -1,9 +1,9 @@
 // The fur of a part of the background or of a band or picture: ermine, vair, potent and their kin, one per option with a
 // small swatch of how it looks, and for the furs that take them the two colours it is made of. Opt-in, like the split
-// of a colour, so the tincture picker beside it stays as it was.
+// of a colour: folded under the tincture picker until a fur is chosen.
 
 import {
-  FUR_LABEL, furAt, furChoices, furColourChoices, furColours, furKindOf, furPattern, setFur, setFurColour, takesColours,
+  FUR_LABEL, furAt, furChoices, furColourChoices, furColours, furKindOf, furOfKind, furPattern, setFur, setFurColour, takesColours,
   type Design, type FurKind, type PaintTarget,
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
@@ -24,7 +24,7 @@ interface Props {
 
 /** A square of the fur, drawn at the scale of a swatch. */
 function FurChip({ kind, uid }: { kind: FurKind; uid: string }) {
-  const spec = furPattern({ k: 'fur', fur: kind === 'ermined' ? 'ermine' : kind === 'vairy' ? 'vair' : kind === 'potenty' ? 'potent' : kind, colours: null }, 0.5);
+  const spec = furPattern({ k: 'fur', fur: furOfKind(kind), colours: null }, 0.5);
   return <FillChip spec={spec} id={`fur-chip-${uid}-${kind}`} />;
 }
 

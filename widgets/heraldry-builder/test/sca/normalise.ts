@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -72,9 +72,16 @@ const SEMY_ALL_COUNTERCHANGED = new RegExp(`^(${DIVISION_START} ${COLOUR} and ${
 const BARE_SEMY = new RegExp(`\\bsemy of (${NOUN})(?![\\w-])(?! (?:${COLOUR}|counterchanged|proper)(?![\\w-]))`, 'g');
 const NEXT_COLOUR = new RegExp(`(?<![\\w-])${COLOUR}(?![\\w-])`);
 
-
 /** The named ermine-family furs by their ground and spots: the tinctures "ermined" spells them with. */
-const FOLDED_ERMINES: Record<string, string> = { 'argent sable': 'ermine', 'or sable': 'erminois', 'sable argent': 'counter-ermine', 'sable or': 'pean' };
+const FOLDED_ERMINES: Record<string, string> = Object.fromEntries(FURS.filter((f) => FUR_SPEC[f].family === 'ermine').map((f) => [`${FUR_SPEC[f].ground} ${FUR_SPEC[f].spots}`, FUR_NAME[f]]));
+
+/** "Ermines" the fur, not several of the beast ("three ermines passant"): any "ermines" not after a count. */
+const ERMINES_FUR = /(?<!\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+) )\bermines\b/g;
+
+/** The SCA's other spellings of a variation, each with the widget's blazon word ("chequy" → "checky", "barry-bendy" → "barry bendy"). */
+const VARIATION_REWRITES = Object.entries(VARIATION_SPELLINGS)
+  .filter(([spelling, v]) => spelling !== VARIATION_NAME[v])
+  .map(([spelling, v]) => ({ spelling, word: VARIATION_NAME[v], pattern: new RegExp(`\\b${spelling}\\b`, 'g') }));
 
 export const NORMALISATION_RULES: readonly NormalisationRule[] = [
   {
@@ -113,28 +120,24 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //     way round (Prec #FUR, 11/2006), so they are put in the palette's order; "en point" is "en pointe". A cross or saltire keeps
     //     "potenty argent and azure": "a cross potent" is the cross type, not the fur (the widget writes the fur so).
     id: 'fur-synonyms',
-    description: 'ermines → counter-ermine; argent/Or ermined sable and sable ermined argent/Or → ermine, erminois, counter-ermine, pean; vairy/potenty argent and azure → vair/potent; potenty A and B in palette order; en point → en pointe.',
+    description: 'ermines (the fur) → counter-ermine; argent/Or ermined sable and sable ermined argent/Or → ermine, erminois, counter-ermine, pean; vairy/potenty argent and azure → vair/potent; potenty A and B in palette order; en point → en pointe.',
     apply: (s) => s
-      .replace(/\bermines\b/g, 'counter-ermine')
-      .replace(/\b(argent|or|sable) ermined (sable|argent|or)\b/g, (m, a: string, b: string) => FOLDED_ERMINES[`${a} ${b}`] ?? m)
-      .replace(/\bvairy argent and azure\b/g, 'vair')
+      .replace(ERMINES_FUR, 'counter-ermine')
+      .replace(new RegExp(`\\b(${COLOUR}) ermined (${COLOUR})\\b`, 'g'), (m, a: string, b: string) => FOLDED_ERMINES[`${a} ${b}`] ?? m)
+      .replace(new RegExp(`\\bvairy ${FUR_SPEC.vair.ground} and ${FUR_SPEC.vair.spots}\\b`, 'g'), 'vair')
       .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
         const [x, y] = TINCTURES.indexOf(a as never) <= TINCTURES.indexOf(b as never) ? [a, b] : [b, a];
-        return x === 'argent' && y === 'azure' ? 'potent' : `potenty ${x} and ${y}`;
+        return x === FUR_SPEC.potent.ground && y === FUR_SPEC.potent.spots ? 'potent' : `potenty ${x} and ${y}`;
       })
       .replace(/\b(vair|potent) en point\b/g, '$1 en pointe'),
   },
   {
-    // 3b. Variations the SCA spells in more than one way. "Chevronny" is chevronelly (the College's word: SENA A5F1b), "chequy" and "fusilly" are checky and fusily; the
-    //     barry-bendy pair is written without a hyphen; and the usual six stripes need not be stated ("barry of six" is barry: the
-    //     emitter leaves out a default it has, SENA A5G1d counts pieces only up to four).
+    // 3b. Variations the SCA spells in more than one way (`VARIATION_SPELLINGS`): "chevronny" is chevronelly (the College's word: SENA A5F1b),
+    //     "chequy" and "fusilly" are checky and fusily, the barry-bendy pair and bendy sinister are written without a hyphen; and the usual
+    //     six stripes need not be stated ("barry of six" is barry: the emitter leaves out a default it has, SENA A5G1d counts pieces only up to four).
     id: 'variation-synonyms',
-    description: 'chevronny → chevronelly; chequy → checky; fusilly → fusily; barry-bendy, paly-bendy → barry bendy, paly bendy; "<counted variation> of six" → "<counted variation>".',
-    apply: (s) => s
-      .replace(/\bchevronny\b/g, 'chevronelly')
-      .replace(/\bchequy\b/g, 'checky')
-      .replace(/\bfusilly\b/g, 'fusily')
-      .replace(/\b(barry|paly)-bendy\b/g, '$1 bendy')
+    description: `${VARIATION_REWRITES.map((r) => `${r.spelling} → ${r.word}`).join('; ')}; "<counted variation> of six" → "<counted variation>".`,
+    apply: (s) => VARIATION_REWRITES.reduce((t, r) => t.replace(r.pattern, r.word), s)
       .replace(new RegExp(`\\b(${alt(VARIATIONS.filter(isCountedVariation).map((v) => VARIATION_NAME[v]))}) of six\\b`, 'g'), '$1'),
   },
   {

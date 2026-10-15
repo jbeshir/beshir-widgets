@@ -21,7 +21,7 @@ export type LayerKey = Exclude<PlaceKey, 'ordinary' | 'picture'>;
 export const LAYER_KEYS: readonly LayerKey[] = PLACE_KEYS.filter((k): k is LayerKey => k !== 'ordinary' && k !== 'picture');
 
 /** The layers that are pictures set beside the band or the picture, in chief, in base or in canton. */
-export type PositionedKey = Extract<LayerKey, 'in-chief' | 'in-base' | 'in-canton'>;
+type PositionedKey = Extract<LayerKey, 'in-chief' | 'in-base' | 'in-canton'>;
 /** The layers that are a group of pictures, with a charge of their own. */
 export type PicturesKey = Extract<LayerKey, 'co-primary' | 'around' | 'on-picture' | 'on-ordinary' | 'on-chief' | 'on-bordure'> | PositionedKey;
 /** The layers that are a top band or a border, with a colour of their own. */
@@ -37,14 +37,10 @@ const peripheralName = (key: PeripheralKey): string => (key === 'chief' ? 'top b
 /** What lies overall: a band or shape across the middle, or a picture. */
 export type LayerItem = { k: 'charge'; charge: ChargeId } | { k: 'ordinary'; type: OrdinaryType };
 
-/** The path of the group in a layer, or null when the design has none. */
-export const layerPath = (d: Design, key: LayerKey): GroupPath | null => pathOfPlace(d, key);
-
 /** The layers a design has a card for, in step order. Pictures set only on the band are the picture step's own, so they are not a layer. */
 export function layersIn(d: Design): LayerKey[] {
-  return LAYER_KEYS.filter((key) => (key === 'on-ordinary' ? simpleParts(d).extra !== null : layerPath(d, key) !== null));
+  return LAYER_KEYS.filter((key) => (key === 'on-ordinary' ? simpleParts(d).onOrdinary !== null : pathOfPlace(d, key) !== null));
 }
-
 
 /** A new band, or peripheral, in a tincture. */
 export function ordinaryGroup(type: OrdinaryType, t: GroupTincture): Group {
@@ -79,12 +75,19 @@ function firstProblem(d: Design): string | null {
   return unsupportedIssues(d)[0]?.message ?? structuralIssues(d)[0]?.message ?? null;
 }
 
+/** The places set by position, and those of the bands (which are not refitted). */
+const SET_BY_POSITION: readonly PlaceKey[] = ['in-chief', 'in-base', 'in-canton'];
+const BAND_PLACES: readonly PlaceKey[] = ['ordinary', 'chief', 'bordure'];
+
+/** The places whose pictures are refitted, in the order they are: those set by position first, then the others in step order. */
+const REFIT_ORDER: readonly PlaceKey[] = [...SET_BY_POSITION, ...PLACE_KEYS.filter((k) => !SET_BY_POSITION.includes(k) && !BAND_PLACES.includes(k))];
+
 /**
  * The pictures refitted to the design they now sit in: those set by position first (the picture keeps clear of them), then in step
  * order (the pictures around the picture keep clear of it).
  */
 export function refitLayers(d: Design): Design {
-  return (['in-chief', 'in-base', 'in-canton', 'picture', 'co-primary', 'on-picture', 'around', 'on-ordinary', 'on-chief', 'on-bordure', 'overall'] as const).reduce((out, key) => {
+  return REFIT_ORDER.reduce((out, key) => {
     const path = pathOfPlace(out, key);
     return path ? fitGroup(out, path) : out;
   }, d);
@@ -183,7 +186,7 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
     case 'on-ordinary': {
       if (!ordinary) return { reason: 'Add a band or shape first — pictures can only sit on one once there is one.' };
       if (!parts.picture || parts.picture.placement !== 'field') return { reason: 'Pick a picture on the background first — more pictures can then go on the band.' };
-      const placed = assembleParts(d, { ...partsOf(d), extra: newCharge(startingCharge(d), 'tertiary') });
+      const placed = assembleParts(d, { ...partsOf(d), onOrdinary: newCharge(startingCharge(d), 'tertiary') });
       const path = pathOfPlace(placed, 'on-ordinary');
       if (!path) return { reason: 'This band can not carry pictures.' };
       const fitted = fitGroup(placed, path);
@@ -252,7 +255,7 @@ export function removeLayer(d: Design, key: LayerKey): Design {
   const parts = simpleParts(d);
   switch (key) {
     case 'co-primary': return parts.coPrimary ? refitLayers(assembleParts(d, { ...partsOf(d), coPrimary: null })) : d;
-    case 'on-ordinary': return parts.extra ? refitLayers(assembleParts(d, { ...partsOf(d), extra: null })) : d;
+    case 'on-ordinary': return parts.onOrdinary ? refitLayers(assembleParts(d, { ...partsOf(d), onOrdinary: null })) : d;
     case 'on-picture': return parts.onPicture ? refitLayers(assembleParts(d, { ...partsOf(d), onPicture: null })) : d;
     case 'on-chief': case 'on-bordure': {
       const type = hostOfPictures(key);
@@ -276,7 +279,7 @@ function overallAs(was: Group, item: LayerItem): Group {
 }
 
 /** The band or picture lying overall as this one; the groups are refitted to the room it leaves. */
-export function setLayerItem(d: Design, key: 'overall', item: LayerItem): Design {
+export function setOverallItem(d: Design, item: LayerItem): Design {
   const parts = simpleParts(d);
   return parts.overall ? refitLayers(assembleParts(d, { ...partsOf(d), overall: overallAs(parts.overall.group, item) })) : d;
 }
@@ -285,13 +288,13 @@ export function setLayerItem(d: Design, key: 'overall', item: LayerItem): Design
  * What can lie overall, each blocked with its reason when the result couldn't be drawn or breaks SENA App I4 (the overall
  * group or the one it lies over must be a band or a long charge). Pictures are judged by one of their kind.
  */
-export function layerItemChoices(d: Design, key: 'overall'): Choice<LayerItem>[] {
+export function overallItemChoices(d: Design): Choice<LayerItem>[] {
   const parts = simpleParts(d);
   if (!parts.overall) return [];
   const was = parts.overall.group;
   // Only what is wrong with the group overall itself blocks a choice, not another problem the design has.
   const reason = (item: LayerItem): string | null => {
-    const set = setLayerItem(d, key, item);
+    const set = setOverallItem(d, item);
     const at = pathOfPlace(set, 'overall')!.join();
     const issue = [...unsupportedIssues(set), ...structuralIssues(set)].find((i) => i.at.k === 'group' && i.at.path.join() === at);
     return issue?.message ?? null;
@@ -319,9 +322,9 @@ export function layerItemChoices(d: Design, key: 'overall'): Choice<LayerItem>[]
 export function setLayerCharge(d: Design, key: PicturesKey, id: ChargeId): Design {
   const parts = simpleParts(d);
   if (key === 'on-ordinary') {
-    if (!parts.extra || !parts.picture) return d;
-    const swapped: Group = { ...parts.extra.group, item: chargeItem(id, parts.extra.group) };
-    return refitLayers(assembleParts(d, { ...partsOf(d), extra: swapped }));
+    if (!parts.onOrdinary || !parts.picture) return d;
+    const swapped: Group = { ...parts.onOrdinary.group, item: chargeItem(id, parts.onOrdinary.group) };
+    return refitLayers(assembleParts(d, { ...partsOf(d), onOrdinary: swapped }));
   }
   if (key === 'co-primary') {
     if (!parts.coPrimary) return d;

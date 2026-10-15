@@ -54,6 +54,8 @@ export function TincturePicker<T extends GroupTincture>({ group, legend, choices
   const anyBlocked = choices.some((c) => !c.allowed);
   const isNonStandard = (t: GroupTincture) => t !== 'counterchanged' && NON_STANDARD_TINCTURES.has(t);
   const nameOf = (t: GroupTincture) => TINCTURE_LABEL[t].plain;
+  // The one swatch Tab lands on: the chosen one, or (when the paint is something else, a fur or a split) the first allowed.
+  const tabStop = value !== null && byValue.has(value) ? value : (order.find((t) => byValue.get(t)?.allowed) ?? order[0]);
 
   const activate = (t: T, el: HTMLElement) => {
     const c = byValue.get(t);
@@ -109,7 +111,7 @@ export function TincturePicker<T extends GroupTincture>({ group, legend, choices
         aria-describedby={blocked ? whyId : undefined}
         data-blocked={blocked ? 'true' : undefined}
         data-tincture={t}
-        tabIndex={checked ? 0 : -1}
+        tabIndex={t === tabStop ? 0 : -1}
         onClick={(e) => activate(t, e.currentTarget as HTMLElement)}
       >
         <span class={`swatch-chip tincture-${t}`} style={chipStyle(t)} aria-hidden="true">

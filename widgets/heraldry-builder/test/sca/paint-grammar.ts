@@ -16,18 +16,12 @@ const COLOURED_FURS: Record<string, Fur> = { vairy: 'vair', potenty: 'potent' };
 /** The variations as the words that spell them ("bendy sinister", "barry bendy"), the longest first. */
 const VARIATION_PHRASES = VARIATIONS.map((variation) => ({ words: VARIATION_NAME[variation].split(' '), variation })).sort((a, b) => b.words.length - a.words.length);
 
-
 /** The charges as the words of their plural ("crosses crosslet"), the longest first: what a semy is "semy of". */
 const STREWN_PHRASES = CHARGE_IDS.map((id) => ({ words: CHARGES[id].plural.split(' '), id })).sort((a, b) => b.words.length - a.words.length);
 
-
-
-
 const isTreatment = (w: string | undefined): w is Treatment => (DRAWN_TREATMENTS as readonly (string | undefined)[]).includes(w);
 
-
 const COUNT_WORDS: Record<string, number> = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
-
 
 const isTincture = (w: string | undefined): w is Tincture => (TINCTURES as readonly string[]).includes(w!);
 
@@ -72,7 +66,6 @@ function readVariation(tokens: readonly string[], i: number): PaintRead | null {
     : null;
 }
 
-
 /** "all semy of roses gules" after a division's two tinctures: both parts strewn alike, or (counterchanged) each with the other's tincture. */
 function readAllSemy(tokens: readonly string[], i: number, a: string, b: string): { parts: unknown[]; end: number } | null {
   if (tokens[i] !== 'all' || tokens[i + 1] !== 'semy' || tokens[i + 2] !== 'of') return null;
@@ -82,9 +75,6 @@ function readAllSemy(tokens: readonly string[], i: number, a: string, b: string)
   const semy = (ground: string, strewn: string) => ({ k: 'semy', ground, charge: { charge: noun.id }, ink: strewn });
   return { parts: ink === 'counterchanged' ? [semy(a, b), semy(b, a)] : [semy(a, ink), semy(b, ink)], end: i + 4 + noun.words.length };
 }
-
-
-
 
 /**
  * The paint starting at `tokens[i]` and the index after it, or null when there is none: a tincture or fur, a division "per pale argent

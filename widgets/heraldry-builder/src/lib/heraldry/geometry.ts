@@ -157,7 +157,6 @@ type DrawnField =
   | { k: 'divided'; division: Division; paints: [FieldPaint, FieldPaint] }
   | { k: 'varied'; variation: VariationPaint; paints: [FieldPaint, FieldPaint] };
 
-
 function drawnField(field: Paint): DrawnField {
   if (isFieldPaint(field)) return { k: 'plain', paint: field };
   if (field.k === 'divided' && DRAWN_DIVISIONS.includes(field.division) && field.parts.length === 2) {
@@ -169,7 +168,6 @@ function drawnField(field: Paint): DrawnField {
   return notSupported({ category: 'field-treatment', detail: field.k });
 }
 
-
 /** The surface of the field at (x,y) in the canonical layout; points exactly on a line count as the second part. A variation is one surface everywhere (SENA A3B1). */
 export function fieldSurfaceAt(field: Paint, x: number, y: number): Surface {
   const f = drawnField(field);
@@ -180,7 +178,6 @@ export function fieldSurfaceAt(field: Paint, x: number, y: number): Surface {
     default: return f satisfies never;
   }
 }
-
 
 /** How far the chevron's apex (and the per-chevron line's) sits above the fess point. */
 const CHEVRON_APEX_RISE = 10;
@@ -245,12 +242,10 @@ function regionsOf(f: Exclude<DrawnField, { k: 'plain' }>, frame: ShapeFrame): [
   return f.k === 'divided' ? partitionRegions(f.division, frame.fessPoint) : variationRegions(f.variation.variation, f.variation.pieces, frame.box);
 }
 
-
 /** Whether (x,y) lies in the first part of a divided or varied field in a shape. */
 function inFirstOf(f: Exclude<DrawnField, { k: 'plain' }>, frame: ShapeFrame, x: number, y: number): boolean {
   return f.k === 'divided' ? inFirstPart(f.division, frame.fessPoint, x, y) : inFirstRegion(f.variation.variation, f.variation.pieces, frame.box, x, y);
 }
-
 
 /** Field as paint-filled regions, in paint order. */
 export function fieldRegions(field: Paint, shape: FieldShape): Array<{ paint: FieldPaint; d: string }> {
@@ -273,7 +268,6 @@ const CHEVRON_THICK = 22 * Math.SQRT2;  // 22-wide band, measured perpendicular 
 
 /** How far a chevron astride a field's per-chevron line is raised: half its thickness, so the line runs down its middle. */
 const CHEVRON_ASTRIDE_LIFT = CHEVRON_THICK / 2;
-
 
 function ordinaryPathIn(type: OrdinaryType, f: ShapeFrame, lift = 0): string {
   const { x: cx, y: cy } = f.fessPoint;
@@ -322,7 +316,6 @@ export function ordinaryPath(type: OrdinaryType, shape: FieldShape): string {
 
 const astrideCache = new Map<FieldShape, string>();
 
-
 /**
  * The path of a counterchanged chevron on a field per chevron in a shape: raised so that the field's line runs down the middle of it
  * (drawn in its usual place the chevron would lie wholly below the line and show one tincture).
@@ -336,11 +329,9 @@ export function chevronAstrideLinePath(shape: FieldShape): string {
   return d;
 }
 
-
 /** Whether an ordinary lies astride its field's line: a counterchanged chevron on a field per chevron. */
 export const astrideLine = (field: Paint, type: OrdinaryType, paint: Paint): boolean =>
   type === 'chevron' && paint.k === 'counterchanged' && field.k === 'divided' && field.division === 'per-chevron';
-
 
 /** The bordure is a ring (outline minus inset) and needs evenodd; everything else is nonzero. */
 export function ordinaryFillRule(type: OrdinaryType): 'nonzero' | 'evenodd' {
@@ -408,7 +399,6 @@ export function drawnBox(slot: Slot, charge: ChargeId): Slot {
 /** How far from the edge of the picture a fieldless badge is kept, in shield units. */
 const BADGE_MARGIN = 8;
 
-
 /**
  * The SVG transform that centres drawn boxes in the 100×120 picture and scales them to fill it, keeping their proportions:
  * a fieldless badge has no shield to fill, so its charges are drawn as large as they go. Empty for no boxes.
@@ -426,7 +416,6 @@ export function badgeTransform(boxes: readonly Slot[]): string {
   const tx = 50 - scale * ((x0 + x1) / 2), ty = 60 - scale * ((y0 + y1) / 2);
   return `translate(${r2(tx)} ${r2(ty)}) scale(${r2(scale)})`;
 }
-
 
 /** The SVG transform that places the 100×100 art in a slot. */
 export function slotTransform(s: Slot): string {
@@ -488,7 +477,6 @@ const PART_GRID = 8;
 
 /** What a counterchanged element shows of a part of the field: its paint, but not the charges strewn on it (a semy is not counterchanged across a charge or band, RULES CC-6). */
 const shownOf = (p: FieldPaint): FieldPaint => asSemy(p)?.ground ?? p;
-
 
 /** The parts of a counterchanged element that covers these points of a divided or varied field in a shape; [] unless the field is one. */
 function partsAt(field: Paint, points: readonly Pt[], shape: FieldShape): CounterchangePart[] {

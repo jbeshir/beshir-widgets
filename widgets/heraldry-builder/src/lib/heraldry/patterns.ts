@@ -4,6 +4,7 @@
 import { FUR_SPEC, TINCTURE_CODE, TINCTURE_FILL, type Tincture } from './tinctures';
 import { furColours, type FurPaint } from './fur';
 import { notSupported, type SemyPaint, type TreatedPaint } from './design';
+import { isDrawnTreatment, type DrawnTreatment } from './divisions';
 import { chargePath } from './charge-art';
 
 /** A flat colour: a tincture of the palette, or a natural colour (a charge's palette, which is no tincture). */
@@ -11,7 +12,6 @@ export type SolidColour = { k: 'tincture'; t: Tincture } | { k: 'proper'; hex: s
 
 /** The colour a flat colour is painted in. */
 export const colourHex = (c: SolidColour): string => (c.k === 'tincture' ? TINCTURE_FILL[c.t] : c.hex);
-
 
 /** One repeating tile: a `width` × `height` ground with marks drawn on it, optionally scaled or turned as a whole; a mark may be placed within the tile by a transform of its own. */
 export interface PatternSpec {
@@ -88,18 +88,14 @@ export function furPattern(fur: FurPaint, scale: number): PatternSpec {
   };
 }
 
-
 /** A line of a treatment, 2 thick, as a filled shape: a horizontal run from (x,y), or a vertical one. */
 const across = (x: number, y: number, length: number): string => `M${x} ${y}h${length}v2h-${length}z`;
 const down = (x: number, y: number, length: number): string => `M${x} ${y}h2v${length}h-2z`;
 
-
 /** A mark of a treatment's tile: drawn in the ink, or in the ground to hide what lies beneath it. */
 interface TreatmentMark { d: string; ink: boolean }
 
-
 const inInk = (d: string): TreatmentMark => ({ d, ink: true });
-
 
 /** A scale hanging from (x,y): a half disc of ground, so it covers the scales beneath it, with a voided ring 2 thick, 20 wide, round it, and in a papellony a smaller ring within. */
 function scale(x: number, y: number, inner: boolean): TreatmentMark[] {
@@ -108,23 +104,20 @@ function scale(x: number, y: number, inner: boolean): TreatmentMark[] {
   return inner ? [disc, ring, inInk(`M${x + 5} ${y}a5 5 0 0 0 10 0h-2a3 3 0 0 1-6 0z`)] : [disc, ring];
 }
 
-
 /** Rows of scales 5 apart, each row half a scale along from the last; the row above overlaps the one below, so it is drawn last (the tile's wrapped-round halves first). */
 const scaleRows = (inner: boolean): TreatmentMark[] =>
   [[10, 5], [-10, 5], [10, -5], [-10, -5], [0, 0]].flatMap(([x, y]) => scale(x, y, inner));
 
-
 /** The treatments' tiles: a wall of bricks 20 × 6 (each row set half a brick along from the last), and rows of voided scales without and with the second ring. */
-const TREATMENT_TILES: Record<string, { width: number; height: number; marks: readonly TreatmentMark[] }> = {
+const TREATMENT_TILES: Record<DrawnTreatment, { width: number; height: number; marks: readonly TreatmentMark[] }> = {
   masoned: { width: 20, height: 12, marks: [across(0, 0, 20), across(0, 6, 20), down(0, 0, 6), down(10, 6, 6)].map(inInk) },
   scaly: { width: 20, height: 10, marks: scaleRows(false) },
   papellony: { width: 20, height: 10, marks: scaleRows(true) },
 };
 
-
 /** The pattern of a treated tincture drawn `scale` times its nominal size (a tile is 20 across at 1): the tincture is the ground, the ink the lines. */
 export function treatmentPattern(p: TreatedPaint, scale: number): PatternSpec {
-  const tile = TREATMENT_TILES[p.treatment] ?? notSupported({ category: 'field-treatment', detail: p.treatment });
+  const tile = isDrawnTreatment(p.treatment) ? TREATMENT_TILES[p.treatment] : notSupported({ category: 'field-treatment', detail: p.treatment });
   const colour = (t: Tincture): SolidColour => ({ k: 'tincture', t });
   return {
     id: `${p.treatment}-${TINCTURE_CODE[p.ground.t]}-${TINCTURE_CODE[p.ink]}-${Math.round(scale * 1000)}`,
@@ -136,17 +129,15 @@ export function treatmentPattern(p: TreatedPaint, scale: number): PatternSpec {
   };
 }
 
-
 /** A semy's tile is a square of this many units, with one charge in its middle. */
 const SEMY_TILE = 28;
 /** How much of the tile's side a strewn charge's drawing (100 units across) spans. */
 const SEMY_CHARGE_SHARE = 0.6;
 
-
 /**
- * The pattern of a semy drawn `scale` times its nominal size: the ground with the charge strewn on it. The tiles are turned a
- * quarter of a turn about the middle of the shield, so the charges stand in rows half a place apart, and each charge is turned back
- * upright. The charge's drawing is in the pattern once, however many are strewn.
+ * The pattern of a semy drawn `scale` times its nominal size: the ground with the charge strewn on it. The tiling is turned 45°
+ * about the origin (the shield's top left corner), so the charges stand in rows half a place apart, and each charge is turned back
+ * upright about the middle of its tile. The charge's drawing is in the pattern once, however many are strewn.
  */
 export function semyPattern(p: SemyPaint, scale: number): PatternSpec {
   const middle = SEMY_TILE / 2;

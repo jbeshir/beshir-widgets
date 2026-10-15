@@ -6,13 +6,13 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, layerItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
   type ChargeId, type Choice, type FurKind, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setPlainField, setPosture, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setPosture, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -24,7 +24,6 @@ const EXTRA_PICTURES: readonly PicturesKey[] = ['co-primary', 'on-picture', 'aro
 /** One click in the builder's Design tab. */
 export type BuilderAction =
   | { kind: 'badge' }
-  | { kind: 'plain-field' }
   | { kind: 'division'; division: Division }
   | { kind: 'field-tincture'; part: 0 | 1; tincture: Tincture }
   | { kind: 'variation'; variation: Variation }
@@ -38,7 +37,7 @@ export type BuilderAction =
   | { kind: 'charge'; at: At; charge: ChargeId | null }
   | { kind: 'layout'; at: At; action: LayoutAction; design: Design }
   | { kind: 'posture'; at: At; posture: Posture }
-  | { kind: 'splendour'; at: At; on: boolean }
+  | { kind: 'splendour'; at: At }
   | { kind: 'charge-tincture'; at: At; tincture: GroupTincture }
   | { kind: 'split'; target: PaintWhere }
   | { kind: 'party-division'; target: PaintWhere; division: Division }
@@ -60,7 +59,7 @@ type PaintWhere = 'ordinary' | PeripheralKey | At;
 /** What a fur or treatment click is about: a part of the background (a plain background is its first part), or what a colour click is about. */
 type ColourWhere = PaintWhere | 'field-1' | 'field-2';
 
-const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? picturePath(d) : at === 'on-ordinary' ? simpleParts(d).extra?.path ?? null : pathOfPlace(d, at));
+const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? picturePath(d) : at === 'on-ordinary' ? simpleParts(d).onOrdinary?.path ?? null : pathOfPlace(d, at));
 const peripheralAt = (d: Design, place: PeripheralKey): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
 const paintPathOf = (d: Design, target: PaintWhere): GroupPath | null =>
   target === 'ordinary' ? ordinaryPath(d) : target === 'chief' || target === 'bordure' ? peripheralAt(d, target) : pathAt(d, target);
@@ -86,7 +85,7 @@ function choiceReason<T>(choices: Choice<T>[], v: T): string | null {
  */
 function actionReason(d: Design, a: BuilderAction): string | null {
   switch (a.kind) {
-    case 'badge': case 'plain-field': return null;
+    case 'badge': return null;
     case 'division': return DIVISIONS.includes(a.division) ? null : `${a.division} is not offered`;
     case 'field-tincture':
       if (a.part === 1 && !(d.kind === 'arms' && d.field.k === 'divided')) return 'a plain field has no second tincture';
@@ -108,7 +107,7 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : `there is no ${a.place} to colour`;
     }
     case 'overall-item': {
-      const choice = layerItemChoices(d, 'overall').find((c) => JSON.stringify(c.value) === JSON.stringify(a.item));
+      const choice = overallItemChoices(d).find((c) => JSON.stringify(c.value) === JSON.stringify(a.item));
       if (!choice) return pathOfPlace(d, 'overall') ? `${JSON.stringify(a.item)} is not offered` : 'there is nothing overall to change';
       return choice.allowed ? null : `${JSON.stringify(a.item)} is blocked: ${choice.reason}`;
     }
@@ -201,7 +200,6 @@ function applyAction(d: Design, a: BuilderAction): Design {
   const path = 'at' in a ? pathAt(d, a.at) : null;
   switch (a.kind) {
     case 'badge': return setBadge(d);
-    case 'plain-field': return setPlainField(d);
     case 'division': return setDivision(d, a.division);
     case 'field-tincture': return setFieldTincture(d, a.part, a.tincture);
     case 'variation': return setVariation(d, a.variation);
@@ -211,11 +209,11 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'ordinary-tincture': return setOrdinaryTincture(d, a.tincture);
     case 'add-layer': return addLayer(d, a.place);
     case 'layer-tincture': return setLayerTincture(d, a.place, a.tincture);
-    case 'overall-item': return setLayerItem(d, 'overall', a.item);
+    case 'overall-item': return setOverallItem(d, a.item);
     case 'charge': return setCharge(d, a.at as 'picture' | PicturesKey, a.charge);
     case 'layout': return a.design;
     case 'posture': return setPosture(d, path!, a.posture);
-    case 'splendour': return setModifier(d, path!, 'in-splendour', a.on);
+    case 'splendour': return setModifier(d, path!, 'in-splendour', true);
     case 'charge-tincture': return setGroupTincture(d, path!, a.tincture);
     case 'split': return splitGroup(d, paintPathOf(d, a.target)!)!;
     case 'party-division': return setPartyDivision(d, paintPathOf(d, a.target)!, a.division);
@@ -236,7 +234,6 @@ function applyAction(d: Design, a: BuilderAction): Design {
 function describeAction(a: BuilderAction): string {
   switch (a.kind) {
     case 'badge': return 'no background (badge)';
-    case 'plain-field': return 'plain field';
     case 'division': return `division ${a.division}`;
     case 'field-tincture': return `field part ${a.part + 1} ${a.tincture}`;
     case 'variation': return `background ${a.variation}`;
@@ -250,7 +247,7 @@ function describeAction(a: BuilderAction): string {
     case 'charge': return `${a.at} charge ${a.charge ?? 'none'}`;
     case 'layout': return `${a.at} ${a.action.kind} ${a.action.kind === 'count' ? a.action.count : a.action.kind === 'placement' ? a.action.placement : a.action.layout}`;
     case 'posture': return `${a.at} posture ${a.posture}`;
-    case 'splendour': return `${a.at} splendour ${a.on ? 'on' : 'off'}`;
+    case 'splendour': return `${a.at} splendour on`;
     case 'charge-tincture': return `${a.at} tincture ${a.tincture}`;
     case 'split': return `split the ${a.target}`;
     case 'party-division': return `${a.target} divided ${a.division}`;
@@ -306,7 +303,6 @@ function movesOf(d: Design, path: GroupPath): ReturnType<typeof layoutMoves> {
   }
   return moves;
 }
-
 
 /**
  * The shortest route through the count, placement and layout controls from `start` to the goal's
@@ -509,7 +505,7 @@ export function builderPath(goal: Design): BuilderPath {
         }
       }
       if (([0, 1] as const).some((i) => partNow(i) !== JSON.stringify(f.parts[i]))) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
-    } else return { actions, problems: ['a part of the field is neither a tincture, a fur nor a treated tincture'], design: d };
+    } else return { actions, problems: ['a part of the field is neither a tincture, a fur, a treated tincture nor a semy'], design: d };
   } else if (f.k === 'variation') {
     const want = asVariation(f);
     if (!want) return { actions, problems: ['a stripe of the background is neither a tincture nor a fur'], design: d };
@@ -552,7 +548,7 @@ export function builderPath(goal: Design): BuilderPath {
 
   // The picture, then the pictures around it or beside it in chief, base or canton, the extra pictures on the band, the top band and the border, and last what lies overall.
   for (const at of ['picture', ...EXTRA_PICTURES, 'overall'] as const) {
-    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : at === 'around' ? parts.around : at === 'co-primary' ? parts.coPrimary : at === 'on-picture' ? parts.onPicture
+    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.onOrdinary : at === 'around' ? parts.around : at === 'co-primary' ? parts.coPrimary : at === 'on-picture' ? parts.onPicture
       : at === 'overall' ? parts.overall : parts.positioned?.place === at ? parts.positioned : parts.peripheralPictures.find((p) => p.place === at);
     if (!part) continue;
     const item = part.group.item;
@@ -581,7 +577,7 @@ export function builderPath(goal: Design): BuilderPath {
       if (group.item.k !== 'charge') continue;
       const { posture, mods } = group.item;
       if (posture && now.k === 'charge' && now.posture !== posture && !click({ kind: 'posture', at: own, posture })) return done();
-      if (mods.some((m) => m.id === 'in-splendour') && now.k === 'charge' && !now.mods.some((m) => m.id === 'in-splendour') && !click({ kind: 'splendour', at: own, on: true })) return done();
+      if (mods.some((m) => m.id === 'in-splendour') && now.k === 'charge' && !now.mods.some((m) => m.id === 'in-splendour') && !click({ kind: 'splendour', at: own })) return done();
       if (!paintTo(own, group.paint)) return done();
     }
   }

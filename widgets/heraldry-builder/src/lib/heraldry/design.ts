@@ -96,6 +96,9 @@ export type Design =
 /** Index into design.groups, then into charged, …; the canonical group order makes paths stable. */
 export type GroupPath = readonly number[];
 
+/** Whether two paths name the same group. */
+export const samePath = (a: GroupPath, b: GroupPath): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
+
 /** What a builder tincture picker offers for a group: a tincture, or counterchanged. */
 export type GroupTincture = Tincture | 'counterchanged';
 export const GROUP_TINCTURES: readonly GroupTincture[] = [...TINCTURES, 'counterchanged'];
@@ -159,7 +162,6 @@ export function primaryGroup(d: Design): { path: GroupPath; group: Group } | nul
   return i < 0 ? null : { path: [i], group: d.groups[i] };
 }
 
-
 /** Every primary group, in canonical order: one, or the co-primary groups ('a lion and a rose') that together are the primary group (SENA App I1). */
 export function primaryGroups(d: Design): Array<{ path: GroupPath; group: Group }> {
   return d.groups.flatMap((group, i) => (group.role === 'primary' ? [{ path: [i] as GroupPath, group }] : []));
@@ -170,7 +172,6 @@ export function fieldSemys(d: Design): SemyPaint[] {
   return fieldParts(d).flatMap((p) => asSemy(p) ?? []);
 }
 
-
 /** True when no group is primary and no semy strews the field: the field carries the design (RULES §B.3). */
 export function isFieldPrimary(d: Design): boolean {
   return primaryGroup(d) === null && fieldSemys(d).length === 0;
@@ -180,7 +181,6 @@ export function isFieldPrimary(d: Design): boolean {
 export function groundTincture(p: Paint): Tincture | null {
   return p.k === 'tincture' ? p.t : asSemy(p)?.ground.t ?? null;
 }
-
 
 /** The plain tinctures of the field, in part order (a semy's, the one it is strewn on); a part that isn't one adds none. */
 export function fieldTinctures(d: Design): Tincture[] {
@@ -203,7 +203,8 @@ export function paintTinctures(p: Paint): Tincture[] {
     case 'divided': case 'variation': return p.parts.flatMap(paintTinctures);
     case 'treated': return [...paintTinctures(p.ground), p.ink];
     case 'semy': return [...paintTinctures(p.ground), ...paintTinctures(p.ink)];
-    default: return [];
+    case 'stain': case 'proper': case 'counterchanged': return [];
+    default: return p satisfies never;
   }
 }
 
@@ -260,11 +261,9 @@ export interface VariationPaint {
   parts: [{ k: 'tincture'; t: Tincture }, { k: 'tincture'; t: Tincture }];
 }
 
-
 export function variationPaint(variation: Variation, a: Tincture, b: Tincture, pieces: number | null = null): VariationPaint {
   return { k: 'variation', variation, lines: { ...PLAIN_LINES }, pieces: variationPieces(variation, pieces), parts: [{ k: 'tincture', t: a }, { k: 'tincture', t: b }] };
 }
-
 
 /** The paint as a variation of two plain tinctures, or null when it is anything else. */
 export function asVariation(p: Paint): VariationPaint | null {
@@ -272,7 +271,6 @@ export function asVariation(p: Paint): VariationPaint | null {
   const [a, b] = p.parts;
   return a.k === 'tincture' && b.k === 'tincture' ? { ...p, parts: [a, b] } : null;
 }
-
 
 /** A tincture with a treatment in another ("argent masoned sable", "gules scaly Or"): the only treated paint the builder draws. */
 export interface TreatedPaint {
@@ -282,17 +280,14 @@ export interface TreatedPaint {
   ink: Tincture;
 }
 
-
 export function treatedPaint(treatment: Treatment, ground: Tincture, ink: Tincture): TreatedPaint {
   return { k: 'treated', treatment, ground: { k: 'tincture', t: ground }, ink };
 }
-
 
 /** The paint as a treated tincture, or null when it is anything else (a treatment on a fur or a division is not drawn). */
 export function asTreated(p: Paint): TreatedPaint | null {
   return p.k === 'treated' && p.ground.k === 'tincture' ? { ...p, ground: p.ground } : null;
 }
-
 
 /** A tincture strewn with a charge in another ("azure semy of mullets Or", "sable bezanty"): the only semy the builder draws. */
 export interface SemyPaint {
@@ -302,23 +297,14 @@ export interface SemyPaint {
   ink: { k: 'tincture'; t: Tincture };
 }
 
-
-
-
 export function semyPaint(ground: Tincture, charge: ChargeId, ink: Tincture): SemyPaint {
   return { k: 'semy', ground: { k: 'tincture', t: ground }, charge: { charge, form: null }, ink: { k: 'tincture', t: ink } };
 }
-
-
-
 
 /** The paint as a plain tincture strewn with a charge, or null when it is anything else (a semy on a fur or a division is not drawn). */
 export function asSemy(p: Paint): SemyPaint | null {
   return p.k === 'semy' && p.ground.k === 'tincture' && p.ink.k === 'tincture' ? { ...p, ground: p.ground, ink: p.ink } : null;
 }
-
-
-
 
 /** The picker value of a paint, or null when the paint is neither a tincture nor counterchanged. */
 export function groupTinctureOf(p: Paint): GroupTincture | null {
@@ -426,6 +412,12 @@ export type GapCategory = (typeof UNSUPPORTED_GAP_CATEGORIES)[number];
 /** A construct the builder doesn't draw yet; its tag is `${category}:${detail}`. */
 export interface Gap { category: GapCategory; detail: string }
 
+/**
+ * When an unsupported group is only a count its place has no Table 7 row for: between or on a band, or on a charge (`host`), around a
+ * picture (`around`), or primary charges in a layout that can't have charges set around them (`around-primary`); null for any other gap.
+ */
+export type CountLimit = 'host' | 'around' | 'around-primary';
+
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
@@ -443,7 +435,7 @@ export type Issue =
   | { code: 'shape' | 'generic'; at: IssueAt; message: string; slots: number[] }
   | { code: 'tincture'; reason: TinctureReason; at: IssueAt; message: string; slots: number[] }
   | { code: 'structure'; rule: StructureRule; at: IssueAt; message: string; slots: number[] }
-  | { code: 'unsupported'; at: IssueAt; message: string; gap: Gap };
+  | { code: 'unsupported'; at: IssueAt; message: string; gap: Gap; limit: CountLimit | null };
 export type UnsupportedIssue = Extract<Issue, { code: 'unsupported' }>;
 
 /** Thrown where the pipeline meets a construct it doesn't draw; `normalise` never passes such a design on, so the app never sees it. */

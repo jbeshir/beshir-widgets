@@ -11,7 +11,7 @@ import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
   AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
-  type FieldContext, type GroundContext, type HalfPosition, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
+  type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
   CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
@@ -40,7 +40,6 @@ const GLYPH_RADIUS = 0.5;
 /** Slots are drawn no larger than this share of the distance between neighbours. */
 const PITCH_SHARE = 0.92;
 
-
 // ── Hand-fitted rows ────────────────────────────────────────────────────────
 
 /** Degrees a charge on an ordinary is turned to follow it (GoT Table 7: oriented to follow). */
@@ -62,13 +61,17 @@ const handRows = (shape: FieldShape): SlotRows => (shape === 'heater' ? HEATER_S
 /** The hand-fitted slots for a context, count and layout, or null when they come from the generic engine. */
 function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] | null {
   const rows = handRows(shape);
-  if (ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'on-charge') return null;
-  if (ctx.k === 'overall') return handSlots(fieldContext(ctx.peripheral), count, layout, shape);
-  if (ctx.k === 'field') {
-    if (layout.position !== null || ctx.yields !== 'none' || ctx.share !== null) return null;
-    const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null }[ctx.peripheral];
-    const row = table?.[`${count}:${layoutKey(layout)}`];
-    return row ? slotsOf(row, () => 0) : null;
+  switch (ctx.k) {
+    case 'position': case 'around': case 'on-charge': return null;
+    case 'overall': return handSlots(fieldContext(ctx.peripheral), count, layout, shape);
+    case 'field': {
+      if (layout.position !== null || ctx.yields !== 'none' || ctx.share !== null) return null;
+      const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null }[ctx.peripheral];
+      const row = table?.[`${count}:${layoutKey(layout)}`];
+      return row ? slotsOf(row, () => 0) : null;
+    }
+    case 'between': case 'on': break;
+    default: return ctx satisfies never;
   }
   if (ctx.peripheral !== 'none') return null;
   const turn = (x: number) => (ctx.k === 'on' ? followRotation(ctx.ordinary, x) : 0);
@@ -536,8 +539,12 @@ function handCentres(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, count
 }
 
 function nominalCentres(ctx: Exclude<GroundContext, { k: 'around' }>, count: number, layout: Layout): Centre[] | null {
-  if (ctx.k === 'field') return fieldCentres(ctx, count, layout);
-  if (ctx.k === 'position') return positionCentres(ctx, count, layout);
+  switch (ctx.k) {
+    case 'field': return fieldCentres(ctx, count, layout);
+    case 'position': return positionCentres(ctx, count, layout);
+    case 'between': case 'on': break;
+    default: return ctx satisfies never;
+  }
   if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx.k, ctx.ordinary).includes(count)) return null;
   const ruled = ctx.k === 'between' ? betweenCentres(ctx.ordinary, count, ctx.peripheral) : onCentres(ctx.ordinary, count, ctx.peripheral);
   return ruled ?? (ctx.peripheral === 'none' ? null : handCentres(ctx, count));
@@ -676,7 +683,6 @@ function positionRoom(position: SecondaryPosition, shape: FieldShape): Pt[] {
   const frame = shapeFrame(shape);
   const chiefLine = frame.chiefBase + CHIEF_POSITION_AREA.y1 - shapeFrame(CANONICAL_SHAPE).chiefBase;
   const baseLine = frame.fessPoint.y + BASE_POSITION_AREA.y0 - shapeFrame(CANONICAL_SHAPE).fessPoint.y;
-  const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
   switch (position) {
     case 'chief': return rect(-10, -10, 110, chiefLine);
     case 'base': return rect(-10, baseLine, 110, 130);
@@ -684,10 +690,12 @@ function positionRoom(position: SecondaryPosition, shape: FieldShape): Pt[] {
   }
 }
 
+/** The rectangle from (x0, y0) to (x1, y1), as a polygon. */
+const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+
 /** The half or quarter of a shape charges set there stand in: the lines of the divisions meet at the shape's fess point. */
 function halfRoom(position: HalfPosition, shape: FieldShape): Pt[] {
   const { x, y } = shapeFrame(shape).fessPoint;
-  const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
   switch (position) {
     case 'dexter': return rect(-10, -10, x, 130);
     case 'sinister': return rect(x, -10, 110, 130);
@@ -712,8 +720,7 @@ function aroundRoom(peripheral: Peripheral, shape: FieldShape): Pt[] {
   const box = aroundBox(peripheral, shape);
   const k = AROUND_ROOM_SCALE[shape];
   const [cx, cy] = centreOf(box);
-  const x0 = cx - (k * width(box)) / 2, x1 = cx + (k * width(box)) / 2, y0 = cy - (k * height(box)) / 2, y1 = cy + (k * height(box)) / 2;
-  return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  return rect(cx - (k * width(box)) / 2, cy - (k * height(box)) / 2, cx + (k * width(box)) / 2, cy + (k * height(box)) / 2);
 }
 
 /** The ground of a layout: its context's, and for charges set in a half or quarter, that part of the shape. */
@@ -807,8 +814,13 @@ const toSlots = (centres: readonly Centre[], size: number): Slot[] =>
 
 /** The other centres a context offers when its nominal ones leave the charges too small to read: the ordinary's axis or limbs spread otherwise, the charges under a chevron in another shape. */
 function alternativeCentres(ctx: Exclude<GroundContext, { k: 'around' }>, layout: Layout, count: number): Centre[][] {
-  if (layout.arrangement.k !== 'host' || layout.position !== null || (ctx.k !== 'between' && ctx.k !== 'on')) return [];
-  return ctx.k === 'between' ? betweenAlternatives(ctx.ordinary, count, ctx.peripheral) : onAlternatives(ctx.ordinary, count, ctx.peripheral);
+  if (layout.arrangement.k !== 'host' || layout.position !== null) return [];
+  switch (ctx.k) {
+    case 'between': return betweenAlternatives(ctx.ordinary, count, ctx.peripheral);
+    case 'on': return onAlternatives(ctx.ordinary, count, ctx.peripheral);
+    case 'field': case 'position': return [];
+    default: return ctx satisfies never;
+  }
 }
 
 /** The largest fitting of some centres; of those equally large, the middle one tried (the least cramped by the extremes). */
@@ -976,10 +988,10 @@ export function minSlotSize(ctx: LayoutContext): number {
 }
 
 /** How many charges a group of `count` has in a context: on the primary charges it is `count` on each of them. */
-export const slotCount = (ctx: LayoutContext, count: number): number => (ctx.k === 'on-charge' ? ctx.host.count * count : count);
+const slotCount = (ctx: LayoutContext, count: number): number => (ctx.k === 'on-charge' ? ctx.host.count * count : count);
 
 /** The most charges, counting up from one, that fit legibly in a context; `layoutFor` says how n charges are laid out. */
-export function largestFittingCount(ctx: LayoutContext, layoutFor: (n: number) => Layout): number {
+function largestFittingCount(ctx: LayoutContext, layoutFor: (n: number) => Layout): number {
   let n = 0;
   while (n < MAX_DRAWN_COUNT) {
     const slots = contextSlots(ctx, n + 1, layoutFor(n + 1), CANONICAL_SHAPE);
@@ -1003,6 +1015,9 @@ function peripheralWords(peripheral: Peripheral): string {
   return peripheral === 'chief-bordure' ? ', within the bordure and under the chief' : hasChief(peripheral) ? ', under the chief' : hasBordure(peripheral) ? ', within the bordure' : '';
 }
 
+/** "on the heart", "on each of the flames". */
+export const onChargeWords = (host: HostCharges): string => (host.count === 1 ? `on the ${CHARGES[host.charge].name}` : `on each of the ${CHARGES[host.charge].plural}`);
+
 function whereWords(ctx: LayoutContext, layout: Layout): string {
   if (layout.position) return `in ${layout.position}`;
   switch (ctx.k) {
@@ -1012,7 +1027,7 @@ function whereWords(ctx: LayoutContext, layout: Layout): string {
     case 'around': return `around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle${peripheralWords(ctx.peripheral)}`;
     case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
     case 'overall': return `overall${peripheralWords(ctx.peripheral)}`;
-    case 'on-charge': return ctx.host.count === 1 ? `on the ${CHARGES[ctx.host.charge].name}` : `on each of the ${CHARGES[ctx.host.charge].plural}`;
+    case 'on-charge': return onChargeWords(ctx.host);
   }
 }
 
@@ -1041,10 +1056,14 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
   const layoutFor = (n: number): Layout => {
     const a = group.arrangement;
     if (n === group.count) return l.layout;
-    if (l.ctx.k === 'position') return positionLayout(l.ctx.position, n);
-    if (l.ctx.k === 'on-charge') return onChargeLayouts(n)[0] ?? HOST_LAYOUT;
-    if (l.ctx.k === 'overall') return overallLayouts(n, CHARGES[id].long)[0] ?? HOST_LAYOUT;
-    if (l.ctx.k !== 'field') return HOST_LAYOUT;
+    switch (l.ctx.k) {
+      case 'position': return positionLayout(l.ctx.position, n);
+      case 'on-charge': return onChargeLayouts(n)[0] ?? HOST_LAYOUT;
+      case 'overall': return overallLayouts(n, CHARGES[id].long)[0] ?? HOST_LAYOUT;
+      case 'between': case 'on': case 'around': return HOST_LAYOUT;
+      case 'field': break;
+      default: return l.ctx satisfies never;
+    }
     if (n === 1) return { arrangement: { k: 'single' }, position: group.position };
     if (a.k === 'line' || a.k === 'single') return { arrangement: { k: 'line', dir: a.k === 'line' ? a.dir : 'fess' }, position: group.position };
     return defaultLayoutOf(d, group, host, n);

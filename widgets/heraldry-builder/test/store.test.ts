@@ -8,7 +8,6 @@ import sample from '../src/data/sample-registry.json';
 import { NO_CONTACT } from '../src/lib/heraldry';
 import { arms, group, nd, ordinary, searchParams } from './helpers';
 
-
 afterEach(() => {
   vi.unstubAllGlobals();
 });

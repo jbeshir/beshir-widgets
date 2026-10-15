@@ -1,7 +1,6 @@
 // Field variations: barry, paly, bendy, checky and the rest on the field — what is drawn, how it is blazoned and judged and
 // told apart from other fields, how the builder offers it, and that the SCA records it unlocks are built.
 
-
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_PIECES, explainDifferences, VARIATIONS, VARIATION_PIECES, asVariation, blazon, deriveTags, differences, fieldRegions, fillCode, gloss, inFirstRegion, pointInPolygon, pathRings,
@@ -14,13 +13,11 @@ import { checkBlazon } from './sca/classify';
 import { explainMatch } from './sca/match';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
-
 const varied = (variation: string, a: string, b: string, pieces: number | null = null) => ({ k: 'variation', variation, pieces, parts: [a, b] });
 const lion = (paint: unknown, extra: object = {}) => group(charge('lion'), paint, extra);
 const messages = (d: Design) => [...structuralIssues(d), ...tinctureIssues(d)].map((i) => i.message);
 const gaps = (d: unknown) => unsupportedIssues(nd(d)).map((i) => `${i.gap.category}:${i.gap.detail}`);
 const between = (a: unknown, b: unknown) => differences(nd(a), nd(b)).map((d) => `${d.attr}:${d.kind}:${d.rule}`);
-
 
 describe('what is supported', () => {
   it('draws every variation of two tinctures on the field, with the counts the builder offers', () => {
@@ -30,7 +27,6 @@ describe('what is supported', () => {
     for (const n of VARIATION_PIECES) expect(gaps(arms(varied('barry', 'argent', 'azure', n), lion('gules')))).toEqual([]);
   });
 
-
   it('leaves other counts, furs in the stripes and a varied part of the field as gaps', () => {
     expect(gaps(arms(varied('barry', 'argent', 'azure', 5), lion('gules')))).toEqual(['field-treatment:barry-pieces']);
     expect(gaps(arms({ k: 'variation', variation: 'paly', parts: [{ k: 'fur', fur: 'ermine' }, 'azure'] }, lion('gules')))).toEqual(['field-treatment:paly-fur']);
@@ -39,11 +35,9 @@ describe('what is supported', () => {
   });
 });
 
-
 describe('the canonical form of a variation', () => {
   const fieldOf = (d: Design) => (d.kind === 'arms' ? asVariation(d.field) : null);
   const field = (v: string, pieces: number | null) => fieldOf(nd(arms(varied(v, 'argent', 'azure', pieces), lion('gules'))))!;
-
 
   it('counts the usual six stripes when none is given, and no stripes for a pattern with no count', () => {
     expect(field('barry', null).pieces).toBe(DEFAULT_PIECES);
@@ -52,7 +46,6 @@ describe('the canonical form of a variation', () => {
     expect(field('checky', 8).pieces).toBeNull();
   });
 });
-
 
 describe('the design text', () => {
   it('blazons each variation as the College writes it, with a count only when it is not six', () => {
@@ -74,7 +67,6 @@ describe('the design text', () => {
     for (const [v, pieces, text] of words) expect(blazon(nd(arms(varied(v, 'argent', 'azure', pieces), lion('gules'))))).toBe(text);
   });
 
-
   it('tags the field, glosses it, and names the tinctures', () => {
     const d = nd(arms(varied('barry', 'argent', 'azure'), lion('gules')));
     expect(deriveTags(d)).toEqual(expect.arrayContaining(['field:barry', 'field-tincture:argent', 'field-tincture:azure']));
@@ -82,14 +74,12 @@ describe('the design text', () => {
   });
 });
 
-
 describe('the rule of tincture', () => {
   it('judges a charge on the whole variation, which is neutral when it has a metal and a colour', () => {
     expect(messages(nd(arms(varied('barry', 'argent', 'azure'), lion('gules'))))).toEqual([]);
     expect(messages(nd(arms(varied('barry', 'argent', 'azure'), lion('or'))))).toEqual([]);
     expect(messages(nd(arms(varied('barry', 'argent', 'azure'), lion('azure'))))).toEqual(['Azure lion on Barry Argent and Azure field: same tincture']);
   });
-
 
   it('lets a band share a tincture with the stripes or cells, a charge not (SENA A3B4b)', () => {
     expect(messages(nd(arms(varied('lozengy', 'or', 'azure'), group(ordinary('chief'), 'azure'))))).toEqual([]);
@@ -99,13 +89,11 @@ describe('the rule of tincture', () => {
     expect(messages(nd(arms(varied('checky', 'or', 'sable'), lion('or'))))).toEqual(['Or lion on Checky Or and Sable field: same tincture']);
   });
 
-
   it('needs a metal and a colour for the stripes (SENA A3B3d)', () => {
     expect(messages(nd(arms(varied('barry', 'argent', 'or'), lion('gules'))))).toEqual(['Barry Argent and Or needs a metal and a colour — both are metals.']);
     expect(messages(nd(arms(varied('paly', 'azure', 'gules'), lion('or'))))).toEqual(['Paly Azure and Gules needs a metal and a colour — both are colours.']);
     expect(messages(nd(arms(varied('paly', 'azure', 'azure'), lion('or'))))).toEqual(['Paly Azure and Azure needs two different tinctures — both are Azure.']);
   });
-
 
   it('lets a central ordinary be counterchanged across simple stripes, and nothing else (CC-2, CC-3)', () => {
     expect(messages(nd(arms(varied('paly', 'sable', 'or'), group(ordinary('bend'), 'counterchanged'))))).toEqual([]);
@@ -117,14 +105,12 @@ describe('the rule of tincture', () => {
     expect(messages(nd(arms(varied('barry', 'sable', 'or'), group(ordinary('bordure'), 'counterchanged'))))[0]).toMatch(/CC-9/);
   });
 
-
   it('draws a counterchanged bend in the other tinctures over each stripe it crosses', () => {
     const d = nd(arms(varied('paly', 'sable', 'or', 6), group(ordinary('bend'), 'counterchanged')));
     const fills = renderLayers(d, 'heater').map((l) => (l.k === 'ordinary' ? fillCode(l.fill) : ''));
     expect(fills.find(Boolean)).toBe('split(or,sa)');
   });
 });
-
 
 describe('regions', () => {
   const box = shapeFrame('heater').box;
@@ -143,14 +129,12 @@ describe('regions', () => {
     return wrong;
   };
 
-
   it('draws the first tincture where the membership test says, and the second everywhere else, for every variation', () => {
     for (const v of VARIATIONS) {
       const pieces = v === 'barry' || v === 'paly' || v === 'bendy' || v === 'bendy-sinister' || v === 'chevronny' ? 6 : null;
       expect(sample(v, pieces), v).toBeLessThanOrEqual(12);
     }
   });
-
 
   it('starts barry with the first tincture at the top and paly at the left', () => {
     expect(inFirstRegion('barry', 6, box, 50, 5)).toBe(true);
@@ -161,7 +145,6 @@ describe('regions', () => {
     expect(inFirstRegion('checky', null, box, 25, 5)).toBe(false);
   });
 
-
   it('fills the field with the two tinctures in one split fill, in every shape', () => {
     const d = nd(arms(varied('barry', 'argent', 'azure'), lion('gules')));
     if (d.kind !== 'arms') throw new Error('arms');
@@ -171,10 +154,8 @@ describe('regions', () => {
   });
 });
 
-
 describe('conflict', () => {
   const lionOn = (field: unknown) => arms(field, lion('gules'));
-
 
   it('puts a variation in the category of the division it multiplies, and the lattices together', () => {
     expect(between(lionOn(varied('barry', 'argent', 'azure')), lionOn(div('per-fess', 'argent', 'azure')))).toEqual(['field-style:dc:A5G1d']);
@@ -186,12 +167,10 @@ describe('conflict', () => {
     expect(candidateKey(nd(lionOn(varied('barry', 'argent', 'azure')))).partition).toBe(candidateKey(nd(lionOn(div('per-fess', 'argent', 'azure')))).partition);
   });
 
-
   it('counts pieces only up to four', () => {
     expect(between(lionOn(varied('barry', 'argent', 'azure', 4)), lionOn(varied('barry', 'argent', 'azure', 6)))).toEqual(['field-style:dc:A5G1d']);
     expect(between(lionOn(varied('barry', 'argent', 'azure', 6)), lionOn(varied('barry', 'argent', 'azure', 8)))).toEqual([]);
   });
-
 
   it('words the difference of a pattern or a count', () => {
     const notes = (a: unknown, b: unknown) => explainDifferences(nd(a), nd(b)).map((n) => `${n.text} — ${n.why}`);
@@ -202,7 +181,6 @@ describe('conflict', () => {
       'background pattern (barry bendy ↔ paly bendy) — A different pattern of the same kind of background (for example barry bendy and paly bendy) is a distinct change (SENA A5G1b).',
     ]);
   });
-
 
   it('tells tinctures apart, but not which of the two comes first beyond four pieces (A5G1a)', () => {
     expect(between(lionOn(varied('barry', 'argent', 'azure')), lionOn(varied('barry', 'argent', 'gules')))).toEqual(['field-tincture:dc:A5G1a']);
@@ -224,11 +202,9 @@ describe('conflict', () => {
   });
 });
 
-
 describe('the builder', () => {
   const start = nd(arms('azure', lion('or')));
   const fieldOf = (d: Design) => (d.kind === 'arms' ? asVariation(d.field) : null);
-
 
   it('covers the background in the tinctures it has, with a metal and a colour', () => {
     expect(fieldOf(setVariation(start, 'barry'))).toMatchObject({ variation: 'barry', pieces: 6, parts: [{ t: 'azure' }, { t: 'or' }] });
@@ -236,7 +212,6 @@ describe('the builder', () => {
     // A colour alone gets a metal to go with it.
     expect(fieldOf(setVariation(nd(arms('gules', lion('or'))), 'paly'))?.parts.map((p) => p.t)).toEqual(['gules', 'or']);
   });
-
 
   it('keeps a metal and a colour when a tincture is set, and the count and the stripes when the pattern changes', () => {
     let d = setVariation(start, 'paly');
@@ -246,13 +221,11 @@ describe('the builder', () => {
     expect(blazon(d)).toBe('Paly of eight Or and sable, a lion Or.');
   });
 
-
   it('returns to a plain background', () => {
     const d = setPlainField(setVariation(start, 'paly'));
     expect(d.kind === 'arms' && d.field).toEqual({ k: 'tincture', t: 'azure' });
   });
 });
-
 
 describe('building variations in the builder', () => {
   it('reaches every variation and count from the starting design by allowed clicks', () => {
@@ -264,12 +237,10 @@ describe('building variations in the builder', () => {
   });
 });
 
-
 describe('SCA records', () => {
   it('builds a barry field from its blazon', () => {
     expect(checkBlazon('Barry argent and azure, a lion gules.').failures).toEqual([]);
   });
-
 
   it('reads the counts and spellings the College uses', () => {
     for (const text of ['Barry of six argent and azure, a lion gules.', 'Chevronny argent and azure, a lion gules.', 'Paly of four azure and Or, a lion gules.', 'Bendy sinister argent and azure, a lion gules.']) {
@@ -279,11 +250,9 @@ describe('SCA records', () => {
   });
 });
 
-
 describe('a band or picture in stripes or checks', () => {
   const fess = (paint: unknown) => nd(arms('azure', group(ordinary('fess'), paint)));
   const fessOn = (field: unknown, paint: unknown) => nd(arms(field, group(ordinary('fess'), paint)));
-
 
   it('draws any band or picture in any pattern of two tinctures', () => {
     for (const v of VARIATIONS) {
@@ -292,13 +261,11 @@ describe('a band or picture in stripes or checks', () => {
     }
   });
 
-
   it('blazons it, factoring nothing: the pattern names its own tinctures', () => {
     expect(blazon(fessOn('vert', varied('checky', 'or', 'gules')))).toBe('Vert, a fess checky Or and gules.');
     expect(blazon(nd(arms('vert', lion(varied('barry', 'or', 'gules', 8)))))).toBe('Vert, a lion barry of eight Or and gules.');
     expect(gloss(fessOn('vert', varied('barry', 'or', 'gules')))).toBe('A green shield with a horizontal band across the middle in 6 horizontal stripes, gold on top alternating with red.');
   });
-
 
   it('judges it as a neutral surface: it needs a tincture neither of its own nor of the ground', () => {
     expect(messages(fessOn('vert', varied('checky', 'or', 'gules')))).toEqual([]);
@@ -309,7 +276,6 @@ describe('a band or picture in stripes or checks', () => {
     expect(messages(fessOn('vert', varied('checky', 'or', 'argent')))).toEqual(['Checky Or and Argent needs a metal and a colour — both are metals.']);
   });
 
-
   it('lays the pattern over the band, in its own frame', () => {
     const box = ordinaryBox('fess', 'heater');
     expect(box).toEqual({ x0: 0, y0: 35, x1: 100, y1: 65 });
@@ -318,13 +284,11 @@ describe('a band or picture in stripes or checks', () => {
     expect(band && fillCode(band.fill)).toBe('split(or,ar)');
   });
 
-
   it('lays the pattern over each charge in its own frame, turned with it', () => {
     const layers = renderLayers(nd(arms('azure', group(charge('mullet'), varied('paly', 'or', 'argent'), { count: 3 }))), 'heater');
     const charges = layers.find((l) => l.k === 'charges');
     expect(charges && charges.fills.map((f) => f.slots.length)).toEqual([1, 1, 1]);
   });
-
 
   it('tells a pattern from another and from a tincture, and checky either way round from itself', () => {
     const on = (paint: unknown) => arms('azure', group(ordinary('fess'), paint));
@@ -332,7 +296,6 @@ describe('a band or picture in stripes or checks', () => {
     expect(between(on(varied('barry', 'or', 'gules')), on(varied('paly', 'or', 'gules')))).toEqual(['tincture:dc:A5G3']);
     expect(between(on(varied('barry', 'or', 'gules')), on(varied('barry', 'or', 'sable')))).toEqual(['tincture:dc:A5G3']);
   });
-
 
   it('offers the patterns and tinctures that work where the group lies', () => {
     const d = fessOn('azure', 'argent');
@@ -352,7 +315,6 @@ describe('a band or picture in stripes or checks', () => {
     expect(blazon(joinGroup(recoloured, [0]))).toBe('Azure, a fess argent.');
   });
 
-
   it('reaches a patterned band and picture from the starting design by allowed clicks', () => {
     for (const input of [
       arms('azure', group(ordinary('fess'), varied('checky', 'or', 'gules'))),
@@ -364,7 +326,6 @@ describe('a band or picture in stripes or checks', () => {
       expect(built.problems, blazon(goal)).toEqual([]);
     }
   });
-
 
   it('builds the records that name them', () => {
     for (const text of ['Vert, a fess checky Or and gules.', 'Azure, a lion barry Or and gules.', 'Azure, a bordure lozengy argent and gules.']) {

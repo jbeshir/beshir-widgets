@@ -5,8 +5,11 @@
 --
 -- A badge may be too close to armory with any field (it differs by one distinct change, SENA A5G1e), and
 -- armory with a field to a badge, so the candidate lookup keeps the primary group as its selective key
--- and treats a NULL partition on either side as a wildcard:
---   registry_id = ? AND (partition_key IS NULL OR partition_key = ?) AND primary_key IN (?, '*')
+-- and treats a NULL partition on either side as a wildcard (worker/index.ts loadCandidates):
+--   registry_id = ? AND (partition_key IS NULL OR partition_key = ?) AND primary_key IN (?, '*')   -- a design with one primary type
+--   registry_id = ? AND (partition_key IS NULL OR partition_key = ?) AND primary_key IS NOT NULL    -- two main pictures ('*'): any primary
+--   registry_id = ? AND (partition_key IS NULL OR partition_key = ?) AND primary_key IS NULL        -- no primary group
+--   registry_id = ? AND primary_key IN (?, '*')                                                     -- a badge (NULL partition): any partition
 DROP TABLE IF EXISTS owner_tokens;
 DROP TABLE IF EXISTS owner_emails;
 DROP TABLE IF EXISTS arms_tags;

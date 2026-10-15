@@ -2,7 +2,7 @@
 // the vocabulary of charge attributes (postures, facings, orientations, forms, modifiers, parts, holds).
 // Artwork lives in charge-art.ts.
 
-import type { Tincture } from './tinctures';
+import type { BaseTincture, ContrastClass } from './surface';
 import { numberWord } from './words';
 
 export const POSTURES = ['rampant', 'passant', 'statant', 'sejant', 'courant', 'salient', 'couchant', 'dormant', 'sejant-erect',
@@ -115,11 +115,10 @@ interface PostureWording { term: string; gloss: string }
  * One fill covers the charge; a second splits it in two, per fess (the flame's gules and Or).
  */
 export interface ProperPalette {
-  cls: 'metal' | 'colour' | 'neutral';
-  conflict: readonly (Tincture | 'brown')[];
+  cls: ContrastClass;
+  conflict: readonly BaseTincture[];
   fills: readonly [string] | readonly [string, string];
 }
-
 
 interface ChargeMeta {
   id: ChargeId;
@@ -163,7 +162,7 @@ interface ChargeMeta {
 }
 
 type Fixed = Pick<ChargeMeta, 'id' | 'name' | 'plural' | 'article' | 'category' | 'typeClass' | 'glossName' | 'glossPlural' | 'orientation' | 'scale' | 'detail'>;
-type Variable = Partial<Pick<ChargeMeta, 'proper' | 'postures' | 'defaultPosture'| 'defaultPosture' | 'scaDefaultPosture' | 'postureWording' | 'mods' | 'long' | 'postureClass'>>;
+type Variable = Partial<Pick<ChargeMeta, 'proper' | 'postures' | 'defaultPosture' | 'scaDefaultPosture' | 'postureWording' | 'mods' | 'long' | 'postureClass'>>;
 
 function c(fixed: Fixed, v: Variable = {}): ChargeMeta {
   const postures = v.postures ?? null;

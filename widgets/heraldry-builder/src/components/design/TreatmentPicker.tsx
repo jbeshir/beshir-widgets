@@ -1,6 +1,6 @@
 // The treatment of a part of the background or of a band or picture: masoned (a brick wall), scaly and papellony (scales),
-// one option per treatment with a small swatch, and the two tinctures it is made of. Opt-in, like the fur beside it, so the
-// tincture picker stays as it was.
+// one option per treatment with a small swatch, and the two tinctures it is made of. Opt-in, like the fur beside it:
+// folded under the tincture picker until a treatment is chosen.
 
 import {
   TREATMENT_LABEL, setTreatment, setTreatmentColour, treatedPaint, treatmentAt, treatmentChoices, treatmentColourChoices, treatmentPattern,

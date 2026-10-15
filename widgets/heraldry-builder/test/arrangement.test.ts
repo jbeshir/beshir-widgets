@@ -307,7 +307,6 @@ describe('forced layouts and worded layouts', () => {
     expect(info(div('per-fess', 'or', 'vert'), 1, 'vert', 'single')).toEqual({ forced: false, states: false });
   });
 
-
   it('always forces secondary and tertiary groups', () => {
     const d = nd(arms('azure', group(ordinary('fess'), 'or', { charged: [group(charge('rose'), 'gules', { count: 3 })] }), group(charge('mullet'), 'argent', { count: 3 })));
     expect(isForced(d, [1])).toBe(true);

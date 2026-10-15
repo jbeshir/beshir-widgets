@@ -45,7 +45,6 @@ function divisionGloss(division: Division, c1: string, c2: string): string {
 /** What a semy is strewn with, in plain words: "gold five-pointed stars". */
 const strewnGloss = (semy: SemyPaint): string => `${TINCTURE_GLOSS[semy.ink.t]} ${CHARGES[semy.charge.charge].glossPlural}`;
 
-
 /** A part of the field in plain words: its colour, its fur, its treatment, or its colour strewn with charges. */
 function partGloss(p: Paint): string {
   const treated = asTreated(p);
@@ -73,7 +72,6 @@ function variationGloss(variation: Variation, pieces: number | null, c1: string,
     default: return variation satisfies never;
   }
 }
-
 
 function fieldGloss(d: Design): string {
   if (d.kind === 'badge') return 'No background';

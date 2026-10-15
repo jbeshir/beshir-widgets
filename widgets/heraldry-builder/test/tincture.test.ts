@@ -173,7 +173,7 @@ describe('charges Table 7 forces into one part of the field', () => {
   it('are an arrangement gap where the builder has no forced layout: more than three in a half', () => {
     const d = nd(arms(div('per-pale', 'argent', 'azure'), chg('mullet', 'azure', { count: 4 })));
     expect(tinctureIssues(d)).toEqual([{
-      code: 'unsupported', at: { k: 'group', path: [0] }, gap: { category: 'arrangement', detail: 'forced-into-one-part' },
+      code: 'unsupported', at: { k: 'group', path: [0] }, gap: { category: 'arrangement', detail: 'forced-into-one-part' }, limit: null,
       message: 'All four Azure mullets would have to sit only on the Argent part of the field, which isn\'t available in this builder yet.',
     }]);
     expect(normalise(d)).toMatchObject({ ok: false, errors: [{ code: 'unsupported' }] });
@@ -336,7 +336,6 @@ describe('groupTinctureIssues', () => {
     expect(groupTinctureIssues(d, paths[0])).toEqual([]);
   });
 });
-
 
 describe('a charge may share a tincture with the field when only one of the two is multiply divided (A3B4b(2))', () => {
   const varied = (variation: string, a: string, b: string) => ({ k: 'variation', variation, pieces: null, parts: [a, b] });

@@ -1,7 +1,6 @@
 // Fieldless badges: what is drawn, how it is blazoned and judged, how the builder offers it (and that it adds nothing to the
 // default flow), and that the SCA records it unlocks are built.
 
-
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,7 +17,6 @@ import { builderPath } from './builder-path';
 import { checkBlazon } from './sca/classify';
 import { arms, charge, group, nd, ordinary } from './helpers';
 
-
 const badge = (...groups: object[]) => ({ v: 2, kind: 'badge', groups });
 const gaps = (d: unknown) => unsupportedIssues(nd(d)).map((i) => `${i.gap.category}:${i.gap.detail}`);
 const rules = (d: unknown) => [...structuralIssues(nd(d)), ...tinctureIssues(nd(d))].map((i) => i.message);
@@ -27,7 +25,6 @@ const built = (d: unknown): Design => {
   if (!r.ok) throw new Error(`not a valid design: ${r.errors.map((e) => e.message).join('; ')}`);
   return r.design;
 };
-
 
 describe('what a badge is', () => {
   const CASES: Array<[string, object, string, string]> = [
@@ -51,7 +48,6 @@ describe('what a badge is', () => {
     });
   }
 
-
   it('is told apart from the same charge on a field, in the signature and the tags', () => {
     const lion = built(badge(group(charge('lion'), 'or')));
     const fielded = built(arms('azure', group(charge('lion'), 'or')));
@@ -63,7 +59,6 @@ describe('what a badge is', () => {
     expect(readability(lion).band).toBe('bold');
   });
 
-
   it('has no blazon of its own when empty, and asks for a picture', () => {
     const empty = nd({ v: 2, kind: 'badge', groups: [] });
     expect(blazon(empty)).toBe('(Fieldless).');
@@ -71,7 +66,6 @@ describe('what a badge is', () => {
     expect(assess(empty)).toMatchObject({ status: 'incomplete', hint: 'Add a picture — a badge is made of its picture alone.' });
   });
 });
-
 
 describe('the structure of a badge (SENA A3A2, A3C)', () => {
   const REJECTED: Array<[string, object, RegExp]> = [
@@ -95,12 +89,10 @@ describe('the structure of a badge (SENA A3A2, A3C)', () => {
     });
   }
 
-
   it('allows a display form in one tincture or a fur, and a long charge divided', () => {
     for (const paint of ['argent', { k: 'fur', fur: 'vair' }, { k: 'fur', fur: 'counter-ermine' }]) expect(rules(badge(group(charge('heart'), paint))), JSON.stringify(paint)).toEqual([]);
     expect(rules(badge(group(charge('sword'), { k: 'divided', division: 'per-fess', parts: ['or', 'sable'] })))).toEqual([]);
   });
-
 
   it('draws no more than its one main charge and what is on it: the rest are gaps', () => {
     const lion = group(charge('lion'), 'or');
@@ -111,29 +103,24 @@ describe('the structure of a badge (SENA A3A2, A3C)', () => {
   });
 });
 
-
 describe('the rule of tincture on a badge', () => {
   it('has no field to contrast with: any tincture stands alone', () => {
     for (const t of ['or', 'argent', 'gules', 'sable']) expect(rules(badge(group(charge('lion'), t))), t).toEqual([]);
   });
-
 
   it('judges what is on a charge against that charge', () => {
     expect(rules(badge(group(charge('lion'), 'or', { charged: [group(charge('rose'), 'gules')] })))).toEqual([]);
     expect(rules(badge(group(charge('lion'), 'or', { charged: [group(charge('rose'), 'argent')] })))).toEqual(['Argent rose on the Or lion: metal on metal']);
   });
 
-
   it('has nothing to counterchange', () => {
     expect(rules(badge(group(charge('lion'), 'counterchanged')))).toEqual(["Counterchanged needs a divided field: each charge takes the field's other tincture, and a plain field has only one."]);
   });
 });
 
-
 describe('drawing a badge', () => {
   const rose = built(badge(group(charge('rose'), 'gules')));
   const crossed = built(badge(group(charge('sword'), 'argent', { count: 2, arrangement: 'crossed' })));
-
 
   it('has no field layer, in any shape', () => {
     for (const shape of ['heater', 'banner', 'round', 'lozenge'] as const) {
@@ -141,7 +128,6 @@ describe('drawing a badge', () => {
       expect(renderLayers(rose, shape)[0]).toEqual(renderLayers(rose, 'heater')[0]);
     }
   });
-
 
   it('is scaled to fill the picture and kept in its middle', () => {
     for (const d of [rose, crossed]) {
@@ -160,7 +146,6 @@ describe('drawing a badge', () => {
     expect(badgeView(nd(arms('azure', group(charge('rose'), 'argent'))), [])).toBeNull();
   });
 
-
   it('is drawn without a shield: no outline, rim or clip', () => {
     const svg = renderToString(h(Shield, { design: rose, shape: 'round', label: null }));
     expect(svg).toContain('data-shape="badge"');
@@ -172,17 +157,14 @@ describe('drawing a badge', () => {
     expect(arms_).toContain('shield-rim');
   });
 
-
   it('keeps its name for a screen reader', () => {
     expect(renderToString(h(Shield, { design: rose, shape: 'heater' }))).toContain('aria-label="No background: a red rose."');
   });
 });
 
-
 describe('the builder offers a badge', () => {
   const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
   const onBend = built(arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent')));
-
 
   it('keeps the picture and what is on it, and drops the background and the bands', () => {
     const withRose = built(arms('argent', group(charge('lion'), 'sable', { charged: [group(charge('rose'), 'argent')] }), group(ordinary('bordure'), 'gules')));
@@ -192,14 +174,12 @@ describe('the builder offers a badge', () => {
     expect(setBadge(onBend).groups).toEqual([]);
   });
 
-
   it('makes one charge of a group the badge cannot hold, and a tincture of counterchanged', () => {
     const three = built(arms(  { k: 'divided', division: 'per-pale', parts: ['or', 'azure'] }, group(charge('rose'), 'counterchanged', { count: 3 })));
     expect(blazon(setBadge(three))).toBe('(Fieldless) A rose Or.');
     const swords = built(arms('azure', group(charge('sword'), 'argent', { count: 2, arrangement: 'crossed' })));
     expect(blazon(setBadge(swords))).toBe('(Fieldless) Two swords in saltire argent.');
   });
-
 
   it('is left by choosing a background, one the picture stands out against', () => {
     const gold = setBadge(lion);
@@ -212,7 +192,6 @@ describe('the builder offers a badge', () => {
     expect(setPlainField(setPlainField(gold))).toEqual(plain);
   });
 
-
   it('has one count, no place to put the picture, and a layout that is fixed', () => {
     const d = setBadge(lion);
     const path = [0];
@@ -223,7 +202,6 @@ describe('the builder offers a badge', () => {
     expect(countChoices(swords, path).filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2]);
   });
 
-
   it('adds only pictures on the picture, and only where its drawing has room for them', () => {
     expect(layerChoices(setBadge(lion)).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-picture']);
     const bare = CHARGE_IDS.find((id) => chargeOnBox(id, CHARGES[id].defaultPosture) === null)!;
@@ -231,13 +209,11 @@ describe('the builder offers a badge', () => {
     expect(layerChoices(setBadge(DEFAULT_DESIGN)).filter((c) => c.allowed)).toEqual([]);
   });
 
-
   it('has two places: the picture and the pictures on it', () => {
     const lionOnLion = built(badge(group(charge('lion'), 'or', { charged: [group(charge('rose'), 'gules')] })));
     expect(placesOf(lionOnLion).map((p) => [p.place, p.path])).toEqual([['picture', [0]], ['on-picture', [0, 0]]]);
     expect(placesOf(setBadge(lion)).map((p) => p.place)).toEqual(['picture']);
   });
-
 
   it('puts the picture first when the badge is assembled from nothing', () => {
     const empty = setBadge(DEFAULT_DESIGN);
@@ -246,12 +222,10 @@ describe('the builder offers a badge', () => {
   });
 });
 
-
 describe('the default flow gains nothing', () => {
   const ids = (markup: string) => new Set([...markup.matchAll(/data-testid="([^"]+)"/g)].map((m) => m[1]));
   const base = { onChange: () => {}, issues: [], accordion: null };
   const field = (d: Design) => ids(renderToString(h(FieldStep, { ...base, design: d, shape: 'heater' })));
-
 
   it('adds one tile to the background step and nothing to the other steps of the arms flow', () => {
     const got = field(DEFAULT_DESIGN);
@@ -264,17 +238,15 @@ describe('the default flow gains nothing', () => {
     expect(without.size).toBe(got.size - 1);
   });
 
-
   // The tab reads the screen size when it renders; there is no window in the test runtime.
   beforeEach(() => { vi.stubGlobal('window', { matchMedia: () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }) }); });
   afterEach(() => { vi.unstubAllGlobals(); });
-
 
   it('shows a badge only its picture: no colours for a background, no pattern, no shape, no band step', () => {
     const d = setBadge(setCharge(DEFAULT_DESIGN, 'picture', 'lion'));
     const got = field(d);
     expect(got).toContain('division-badge');
-    for (const id of ['field-tincture-1', 'field-pattern-toggle']) expect(got, id).not.toContain(id);
+    for (const id of ['field-tincture-1', 'field-pattern']) expect(got, id).not.toContain(id);
     const tab = renderToString(h(DesignTab, {
       design: d, shape: 'heater', report: assess(d), onChange: () => {}, onAdjust: () => {}, adjusted: () => null, onShape: () => {}, onStartOver: () => {},
       examplesOpen: false, onLoadExample: () => {}, onSurprise: () => {}, onDismissWelcome: null, hatching: false, onHatching: () => {}, onCheck: () => {}, checking: false, onRegister: () => {},
@@ -290,7 +262,6 @@ describe('the default flow gains nothing', () => {
     expect(withBand).toContain('data-testid="shape-picker"');
   });
 });
-
 
 describe('badges are built by clicks the builder allows', () => {
   const BADGES: Array<[string, object, string]> = [
@@ -314,7 +285,6 @@ describe('badges are built by clicks the builder allows', () => {
     });
   }
 
-
   it('every charge is a badge by itself, in a tincture it has, and the SCA blazon of it is matched', () => {
     for (const id of CHARGE_IDS) {
       const meta = CHARGES[id];
@@ -327,7 +297,6 @@ describe('badges are built by clicks the builder allows', () => {
       }
     }
   });
-
 
   it('the SCA blazon of a badge is matched to the same design', () => {
     expect(checkBlazon('(Fieldless) A mullet of six points Or.').match.status).toBe('vocabulary');

@@ -1,7 +1,6 @@
 // Treatments (masoned, scaly, papellony) and natural colours (proper): what is drawn, how it is blazoned and judged and told apart
 // from other paints, how the builder offers it, and that the SCA records it unlocks are built.
 
-
 import { describe, expect, it } from 'vitest';
 import {
   CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, TINCTURES, TINCTURE_CLASS, blazon, deriveTags, differences, fieldRegions, fillCode, gloss, hasNaturalColours, properChoice, renderLayers, setProper, setTreatment, setTreatmentColour,
@@ -13,14 +12,12 @@ import { checkBlazon } from './sca/classify';
 import { explainMatch } from './sca/match';
 import { arms, charge, group, nd, ordinary } from './helpers';
 
-
 const treated = (treatment: string, ground: string, ink: string) => ({ k: 'treated', treatment, ground, ink });
 const lion = (paint: unknown, extra: object = {}) => group(charge('lion'), paint, extra);
 const messages = (d: Design) => [...structuralIssues(d), ...tinctureIssues(d)].map((i) => i.message);
 const gaps = (d: unknown) => unsupportedIssues(nd(d)).map((i) => `${i.gap.category}:${i.gap.detail}`);
 const between = (a: unknown, b: unknown) => differences(nd(a), nd(b)).map((d) => `${d.attr}:${d.kind}:${d.rule}`);
 const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field, null);
-
 
 describe('what is supported', () => {
   it('draws the three treatments on the field, on a part of it, and on bands and pictures', () => {
@@ -48,7 +45,6 @@ describe('what is supported', () => {
   });
 });
 
-
 describe('the design text', () => {
   it('blazons a treatment as the College writes it', () => {
     expect(blazon(nd(arms(treated('masoned', 'argent', 'sable'), lion('gules'))))).toBe('Argent masoned sable, a lion gules.');
@@ -75,7 +71,6 @@ describe('the design text', () => {
   });
 });
 
-
 describe('the surface of a treated tincture', () => {
   it('has the class and tincture of its ground, told apart by the treatment and not by the ink (A5F2)', () => {
     expect(surface(treated('masoned', 'argent', 'sable'))).toMatchObject({ cls: 'metal', bases: ['argent'], variant: 'masoned' });
@@ -85,7 +80,6 @@ describe('the surface of a treated tincture', () => {
     expect(sameSurface(surface(treated('masoned', 'argent', 'sable')), surface('argent'))).toBe(false);
   });
 });
-
 
 describe('the rule of tincture and structure', () => {
   it('judges a charge on a treated field as on its ground', () => {
@@ -113,7 +107,6 @@ describe('the rule of tincture and structure', () => {
   });
 });
 
-
 describe('conflict', () => {
   it('counts a treatment as a change of tincture, and the same treatment on the same tincture as none (A5F2)', () => {
     const field = (p: unknown) => arms(p);
@@ -133,10 +126,10 @@ describe('conflict', () => {
   it('gives a rose proper no tincture change from a rose gules, and a boar proper one from a boar sable', () => {
     expect(between(arms('argent', group(charge('rose'), 'proper')), arms('argent', group(charge('rose'), 'gules')))).toEqual([]);
     expect(between(arms('argent', group(charge('boar'), 'proper')), arms('argent', group(charge('boar'), 'sable')))).toEqual(['tincture:dc:A5G3']);
-    expect(candidateKey(nd(arms('argent', group(charge('rose'), 'proper'))))).toBeDefined();
+    // Proper is no tincture: a rose proper is keyed as any rose on a plain field is.
+    expect(candidateKey(nd(arms('argent', group(charge('rose'), 'proper'))))).toEqual({ partition: 'plain', primary: 'charge:rose' });
   });
 });
-
 
 describe('the drawing', () => {
   it('lays a treatment as a pattern in the ground and the ink, each tile under two kilobytes', () => {
@@ -164,7 +157,6 @@ describe('the drawing', () => {
     expect(fills('flame')[0]).toMatch(/^split\(proper:#f2a21b,proper:#d3302b\)$/);
   });
 });
-
 
 describe('the builder', () => {
   const field = (p: unknown) => nd(arms(p, lion('gules')));
@@ -213,7 +205,6 @@ describe('the builder', () => {
     expect(properChoice(nd(arms('azure', group(charge('wolf'), 'or'))), [0])).toBeNull();
   });
 });
-
 
 describe('reaching it from the matcher', () => {
   const built = (text: string) => {

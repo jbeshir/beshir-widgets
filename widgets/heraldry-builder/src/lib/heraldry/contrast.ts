@@ -19,7 +19,6 @@ export type Ground = readonly GroundShare[];
  */
 export type SharedTinctureException = 'none' | 'shape-on-multiply-divided';
 
-
 /**
  * The share of a ground that must be of one class (colour or metal) for the ground to count as that class;
  * below it on both sides the ground is neutral and contrasts with both (SENA A3B1: "over half colour … treated

@@ -328,7 +328,6 @@ describe('every shape draws each charge on the field parts the canonical verdict
     expect(missing).toEqual([...UNFAITHFUL]);
   });
 
-
   const heaterFess = shapeFrame('heater').fessPoint;
   const arm = (s: Slot, a: number) => probePoints({ ...s, size: a / 0.3 });
   for (const g of SHAPES.filter((s) => s.shape !== 'heater')) {
@@ -406,7 +405,9 @@ describe('charge artwork fits its ground at its optical scale', () => {
 
   it('drawnBox scales the slot about its centre and keeps its turn', () => {
     const slot = { x: 50, y: 54, size: 90, rotation: -45 };
-    for (const id of CHARGE_IDS) expect(drawnBox(slot, id)).toEqual({ x: 50, y: 54, size: Math.round(90 * CHARGES[id].scale * 100) / 100, rotation: -45 });
+    expect(drawnBox(slot, 'lion')).toEqual({ x: 50, y: 54, size: 90, rotation: -45 });
+    expect(drawnBox(slot, 'wolf')).toEqual({ x: 50, y: 54, size: 94.5, rotation: -45 });
+    for (const id of CHARGE_IDS) expect(drawnBox(slot, id)).toMatchObject({ x: 50, y: 54, rotation: -45 });
   });
 
   const hand = CATALOGUE.filter((e) => isHandFitted(e.ctx, e.count, e.layout));

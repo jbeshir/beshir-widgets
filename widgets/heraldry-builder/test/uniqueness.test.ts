@@ -637,7 +637,6 @@ describe('the availability check', () => {
   });
 });
 
-
 describe('fieldless badges (A5G1e)', () => {
   /** A badge built directly: badges are not registrable until they are drawn, but they are compared. */
   const badge = (...groups: ReturnType<typeof group>[]): Design => ({ ...nd(arms('azure', ...groups)), kind: 'badge', field: null }) as Design;
@@ -711,7 +710,6 @@ describe('fieldless badges (A5G1e)', () => {
     });
   });
 });
-
 
 describe('counterchanged and the same tinctures written out (A5G3a)', () => {
   const field = div('per-pale', 'argent', 'azure');

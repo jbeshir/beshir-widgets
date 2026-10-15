@@ -160,7 +160,6 @@ const layoutAliases: Alias[] = [
 // Strewn charges: the gloss says "strewn with", the blazon "semy" or the name of the semy; every word finds either.
 const semyAliases: Alias[] = [[['strewn', 'scattered', 'sprinkled', 'semy', 'seme', 'semee'], ['strewn', 'semy']]];
 
-
 const ALIASES: readonly Alias[] = [
   ...tinctureAliases,
   // Counterchanged charges: the blazon term and its spellings (the gloss says "opposite colours").

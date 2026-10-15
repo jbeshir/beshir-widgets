@@ -9,7 +9,7 @@ import {
   asParty, asVariation, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
-import { DIVISION_NAME, VARIATION_NAME, type Variation } from './divisions';
+import { DIVISION_NAME, VARIATION_NAME, type Division, type Variation } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
@@ -246,7 +246,6 @@ const VARIATION_CATEGORY: Record<Variation, string> = {
   checky: 'checky', lozengy: 'lattice', fusily: 'lattice', 'barry-bendy': 'lattice', 'paly-bendy': 'lattice',
 };
 
-
 /** The partition category of a field (A5F1): plain, or the division; a variation is in the category of the division it multiplies. Null for a fieldless badge, which has no field to compare. */
 function partition(d: Design): string | null {
   if (d.kind === 'badge') return null;
@@ -254,11 +253,9 @@ function partition(d: Design): string | null {
   return f.k === 'divided' ? f.division : f.k === 'variation' ? VARIATION_CATEGORY[f.variation] : f.k === 'tincture' || f.k === 'fur' || f.k === 'treated' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
 }
 
-
 /** Pieces beyond four are not told apart (A5G1d); a variation with no count, and pily, have more than that. */
 const MANY_PIECES = 5;
-const DIVISION_PIECES: Partial<Record<string, number>> = { plain: 1, quarterly: 4, 'per-saltire': 4 };
-
+const DIVISION_PIECES: Partial<Record<Division, number>> = { quarterly: 4, 'per-saltire': 4 };
 
 /** How many pieces a field is cut into, up to the count that is no longer told apart (A5G1d). */
 function pieceTier(f: Paint): number {
@@ -266,12 +263,10 @@ function pieceTier(f: Paint): number {
   return f.k === 'divided' ? DIVISION_PIECES[f.division] ?? 2 : 1;
 }
 
-
 /** What else tells two fields of one category apart (A5G1b): lozengy and fusily are one, the other lattices and checky their own. */
 function styleOf(f: Paint): string {
   return f.k === 'variation' ? (f.variation === 'fusily' ? 'lozengy' : f.variation === 'pily' ? 'per-pale' : f.variation) : '';
 }
-
 
 /**
  * The surfaces a field's tinctures make for comparing, part by part; a variation's are its two tinctures, either way round
@@ -284,7 +279,6 @@ function comparedSurfaces(d: Design): Surface[] {
   const surfaces = v.parts.map((p) => tinctureSurface(p.t));
   return pieceTier(v) > 4 ? surfaces.sort((x, y) => (x.bases[0] < y.bases[0] ? -1 : 1)) : surfaces;
 }
-
 
 function fieldChanges(a: Design, b: Design): Diff[] {
   // A5G1e: fieldless armory has no field to compare, and "automatically has one distinct change (DC) from any other armory,
@@ -303,7 +297,6 @@ function fieldChanges(a: Design, b: Design): Diff[] {
     && ta.length === tb.length && ta.every((s, i) => !sameSurface(s, tb[i])) && ta.some((s) => !has(tb, s)) && tb.some((s) => !has(ta, s));
   return [...changes, substantial ? change('field-tincture', 'sc', 'A5F2', null) : change('field-tincture', 'dc', 'A5G1a', null)];
 }
-
 
 /** A5E2–A5E5: the substantial changes between two primary groups. */
 function primaryChanges(x: Side, y: Side): Diff[] {

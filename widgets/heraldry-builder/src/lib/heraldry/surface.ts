@@ -14,7 +14,6 @@ export type ContrastClass = 'metal' | 'colour' | 'neutral';
 /** The tinctures a surface is made of, which another surface may not share (A3B4b). Brown is a tincture in its own right, found only in proper (A3B1). */
 export type BaseTincture = Tincture | 'brown';
 
-
 /** `variant` tells apart surfaces that share a class and bases but are not alike: a treatment is a different tincture from the one it lies on (A5F2: "Argent masoned gules" is not "Argent"). */
 export interface Surface { cls: ContrastClass; bases: readonly BaseTincture[]; variant: string | null }
 
@@ -49,7 +48,6 @@ function furSurface(p: Extract<Paint, { k: 'fur' }>): Surface {
 
 const TREATED_SURFACES = new Map<string, Surface>();
 
-
 /**
  * The surface of a treated tincture: the class and the tincture it lies on (GoT "Field Treatment": the treatment is part of the
  * tincture), told apart from it by its variant. The ink does not count, nor does the difference between scaly and papellony
@@ -66,9 +64,7 @@ function treatedSurface(treatment: Treatment, ground: Tincture): Surface {
   return surface;
 }
 
-
 const PROPER_SURFACES = new Map<string, Surface>();
-
 
 /** The surface of a charge in its natural colours: the class and conflict tinctures its palette names (A3B1, Table 4); one object per charge. */
 function properSurface(item: Item): Surface {
@@ -81,7 +77,6 @@ function properSurface(item: Item): Surface {
   }
   return surface;
 }
-
 
 /**
  * The surface of a paint that is one thing everywhere (a counterchanged paint has a surface per place it lies); `item` is what
@@ -102,9 +97,7 @@ export function surfaceOf(p: Paint, item: Item | null): Surface {
   return twoTinctures(two.parts[0].t, two.parts[1].t);
 }
 
-
 const PAIR_SURFACES = new Map<string, Surface>();
-
 
 /** The surface of a paint of two tinctures (a party, a variation): their class when they agree, neutral when a metal meets a colour, sharing both. One object per pair, so surfaces can be counted by identity. */
 function twoTinctures(a: Tincture, b: Tincture): Surface {

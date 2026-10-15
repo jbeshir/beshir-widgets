@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  addLayer, blazon, candidateKey, contextSlots, deriveTags, differences, gloss, groupAt, isClear, keysMayConflict, layerChoices, layerPath, layoutCandidates, layoutContext, normalise, pathOfPlace, validate,
+  addLayer, blazon, candidateKey, contextSlots, deriveTags, differences, gloss, groupAt, isClear, keysMayConflict, layerChoices, layoutCandidates, layoutContext, normalise, pathOfPlace, validate,
   placesOf, removeLayer, signature, simpleParts, structuralIssues, tinctureIssues, unsupportedIssues, walkGroups, type Design,
 } from '../src/lib/heraldry';
 import { setCharge } from '../src/lib/builder';
@@ -160,7 +160,9 @@ describe('how they differ', () => {
     expect(keysMayConflict(key(two), key(bend))).toBe(true);
     expect(keysMayConflict(key(one), key(bend))).toBe(false);
     expect(keysMayConflict(key(two), key(nd(arms(div('per-pale', 'or', 'azure'), lion('sable')))))).toBe(false);
-    expect(fieldOnly).toBeTruthy();
+    // A chief alone has no primary: it may conflict only with other entries that have none.
+    expect(key(fieldOnly).primary).toBeNull();
+    expect(keysMayConflict(key(two), key(fieldOnly))).toBe(false);
   });
 });
 
@@ -175,7 +177,7 @@ describe('the builder', () => {
     expect(structuralIssues(two)).toEqual([]);
     expect(tinctureIssues(two)).toEqual([]);
     expect(unsupportedIssues(two)).toEqual([]);
-    expect(layerPath(two, 'co-primary')).toEqual([1]);
+    expect(pathOfPlace(two, 'co-primary')).toEqual([1]);
   });
 
   it('keeps the two laid out together when a count changes, and refuses more than three charges', () => {

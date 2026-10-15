@@ -297,13 +297,11 @@ describe('the larger counts on the ordinaries Table 7 gives them', () => {
     return slots.length === count ? slots[0].size : 0;
   };
 
-
   it('draw six between a chevron, four to six on one, and six on a fess or a chief, at a size that reads', () => {
     expect(sizeOf('between', 'chevron', 6)).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
     for (const count of [4, 5, 6]) expect(sizeOf('on', 'chevron', count), `chevron ${count}`).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
     for (const type of ['fess', 'chief'] as const) expect(sizeOf('on', type, 6), type).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
   });
-
 
   it('keep the three under a chevron clear of its limbs and the charges on one off each other', () => {
     const below = slotsOf({ k: 'between', ordinary: 'chevron', peripheral: 'none' }, 6, 'host').filter((s) => s.y > 71);
@@ -314,7 +312,6 @@ describe('the larger counts on the ordinaries Table 7 gives them', () => {
     for (const a of on) for (const b of on) if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(a.size);
   });
 });
-
 
 describe('around and on an ordinary with a chief and a bordure beside it', () => {
   const heater = shapeFrame('heater');

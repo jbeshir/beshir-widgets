@@ -179,12 +179,17 @@ describe('migrations', () => {
     }
   });
 
-  it('serves the candidate lookup from the primary-and-partition index', async () => {
-    const plan = await env.MIGRATION_DB.prepare(
-      `EXPLAIN QUERY PLAN SELECT id FROM arms
-       WHERE registry_id = ? AND (partition_key IS NULL OR partition_key = ?) AND primary_key IN (?, ?)`
-    ).bind('default', 'plain', 'ordinary:pile', '*').all<{ detail: string }>();
-    expect(plan.results.map((r) => r.detail).join('\n')).toContain('arms_registry_primary_partition');
+  it('serves every form of the candidate lookup from the primary-and-partition index', async () => {
+    const forms: Array<[string, string[]]> = [
+      ['(partition_key IS NULL OR partition_key = ?) AND primary_key IN (?, ?)', ['plain', 'ordinary:pile', '*']],
+      ['(partition_key IS NULL OR partition_key = ?) AND primary_key IS NOT NULL', ['plain']],
+      ['(partition_key IS NULL OR partition_key = ?) AND primary_key IS NULL', ['plain']],
+      ['1 AND primary_key IN (?, ?)', ['ordinary:pile', '*']],
+    ];
+    for (const [where, binds] of forms) {
+      const plan = await env.MIGRATION_DB.prepare(`EXPLAIN QUERY PLAN SELECT id FROM arms WHERE registry_id = ? AND ${where}`).bind('default', ...binds).all<{ detail: string }>();
+      expect(plan.results.map((r) => r.detail).join('\n'), where).toContain('arms_registry_primary_partition');
+    }
     const gone = await env.MIGRATION_DB.prepare(`SELECT name FROM sqlite_master WHERE name IN ('arms_registry_conflict_keys', 'arms_registry_similar_groups', 'arms_registry_similarity')`).all();
     expect(gone.results).toEqual([]);
   });

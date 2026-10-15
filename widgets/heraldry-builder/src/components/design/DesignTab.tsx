@@ -63,7 +63,10 @@ const stepSelector = (step: StepKey): string => {
     case 'field': return '[data-testid=step-field]';
     case 'ordinary': return '[data-testid=step-ordinary]';
     case 'picture': return '[data-testid=step-charges]';
-    default: return `[data-testid=step-layer-${step}]`;
+    case 'co-primary': case 'on-picture': case 'around': case 'in-chief': case 'in-base': case 'in-canton': case 'on-ordinary':
+    case 'chief': case 'on-chief': case 'bordure': case 'on-bordure': case 'overall':
+      return `[data-testid=step-layer-${step}]`;
+    default: return step satisfies never;
   }
 };
 const JUMP_SELECTOR: Record<JumpTarget, string> = {
@@ -164,7 +167,7 @@ export function DesignTab(p: Props) {
   });
   const compact = useCompact();
   // Phones collapse the steps, each showing what is chosen; a step with a problem opens by itself.
-  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [open, setOpen] = useState<Partial<Record<StepKey, boolean>>>({});
   useEffect(() => {
     const broken = report.problems.map((i) => issueStep(design, i));
     if (broken.some((k) => !open[k])) setOpen((o) => ({ ...o, ...Object.fromEntries(broken.map((k) => [k, true])) }));

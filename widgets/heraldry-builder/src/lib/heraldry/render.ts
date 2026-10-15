@@ -43,7 +43,6 @@ export function renderLayers(d: Design, shape: FieldShape): Layer[] {
   return layers;
 }
 
-
 /** The SVG transform that scales a fieldless badge's drawing to fill the picture (an empty one is drawn as it lies); null for arms, which sit in their shield. */
 export function badgeView(d: Design, layers: readonly Layer[]): string | null {
   if (d.kind === 'arms') return null;

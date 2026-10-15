@@ -2,7 +2,7 @@
 // (a picture list with the picture controls, or a colour), and a button that removes it.
 
 import {
-  CHARGE_IDS, ORDINARY_LABEL, PLACE_LABEL, chargeLabel, groupAt, groupLabel, layerItemChoices, layerPath, removeLayer, setLayerItem,
+  CHARGE_IDS, ORDINARY_LABEL, PLACE_LABEL, chargeLabel, groupAt, groupLabel, overallItemChoices, pathOfPlace, removeLayer, setOverallItem,
   type ChargeId, type Choice, type Companion, type Design, type Issue, type LayerItem, type LayerKey, type OrdinaryType,
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
@@ -40,11 +40,11 @@ const itemOf = (value: string): LayerItem => (
 
 /** The step of what lies across everything: a band or shape, or a picture, with its colour and (a picture) its count. */
 function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<Props, 'place'>) {
-  const path = layerPath(design, 'overall')!;
+  const path = pathOfPlace(design, 'overall')!;
   const group = groupAt(design, path);
   const item = group.item;
   const current: LayerItem = item.k === 'ordinary' ? { k: 'ordinary', type: item.type } : { k: 'charge', charge: item.charge };
-  const choices = layerItemChoices(design, 'overall');
+  const choices = overallItemChoices(design);
   const option = (c: Choice<LayerItem>) => {
     const label = c.value.k === 'ordinary' ? capitalise(ORDINARY_LABEL[c.value.type].plain) : chargeLabel(c.value.charge);
     return <option key={itemValue(c.value)} value={itemValue(c.value)} disabled={!c.allowed} title={c.allowed ? undefined : c.reason}>{label}{c.allowed ? '' : ' (not here)'}</option>;
@@ -60,7 +60,7 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
           class="select"
           data-testid="overall-item-select"
           value={itemValue(current)}
-          onChange={(e) => onChange(setLayerItem(design, 'overall', itemOf((e.currentTarget as HTMLSelectElement).value)))}
+          onChange={(e) => onChange(setOverallItem(design, itemOf((e.currentTarget as HTMLSelectElement).value)))}
         >
           <optgroup label="Band or shape">{choices.filter((c) => c.value.k === 'ordinary').map(option)}</optgroup>
           <optgroup label="Picture">{choices.filter((c) => c.value.k === 'charge').map(option)}</optgroup>
@@ -81,7 +81,7 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
 
 /** The step of a layer the design has: pictures on the band, or a top band or border set beside it. */
 export function LayerStep({ design, place, n, onChange, onAdjust, issues, accordion }: Props) {
-  const path = layerPath(design, place);
+  const path = pathOfPlace(design, place);
   if (!path) return null;
   if (place === 'overall') return <OverallStep design={design} n={n} onChange={onChange} onAdjust={onAdjust} issues={issues} accordion={accordion} />;
   const item = groupAt(design, path).item;

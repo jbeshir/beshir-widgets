@@ -72,7 +72,6 @@ function properFills(group: Group, slots: readonly Slot[]): SlotFill[] {
   }));
 }
 
-
 /** The colours a fill is made of, in order of first use. */
 export function fillColours(fill: Fill): SolidColour[] {
   switch (fill.k) {
@@ -110,7 +109,9 @@ export function ordinaryFill(d: Design, group: Group, host: Group | null, type: 
       return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, type, shape), ORDINARY_FUR_SCALE) : NO_FILL;
     case 'divided': return partyFill(partyOf(group.paint), ordinaryCentre(type, shape), 0);
     case 'variation': return variationFill(variationOf(group.paint), ordinaryBox(type, shape), 0);
-    default: return notSupported({ category: 'tincture', detail: group.paint.k });
+    case 'stain': return notSupported({ category: 'tincture', detail: group.paint.stain });
+    case 'proper': return notSupported({ category: 'proper', detail: type });
+    default: return group.paint satisfies never;
   }
 }
 
@@ -144,6 +145,9 @@ export function chargeFills(d: Design, group: Group, host: Group | null, slots: 
         return { fill: variationFill(varied, { x0: x - size / 2, y0: y - size / 2, x1: x + size / 2, y1: y + size / 2 }, s.rotation), slots: [i] };
       });
     }
-    default: return notSupported({ category: 'tincture', detail: group.paint.k });
+    case 'stain': return notSupported({ category: 'tincture', detail: group.paint.stain });
+    // A semy on a picture is too small to draw (support.ts files it as a count gap).
+    case 'semy': return notSupported({ category: 'count', detail: 'semy' });
+    default: return group.paint satisfies never;
   }
 }

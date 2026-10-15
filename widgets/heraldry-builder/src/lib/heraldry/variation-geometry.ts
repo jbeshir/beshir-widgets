@@ -3,21 +3,16 @@
 // tincture lies in the dexter chief corner (the top stripe of barry, the left one of paly), and every pattern is
 // anchored there, so a shape's own outline decides what shows. Pure geometry, no tinctures.
 
-
 import { DEFAULT_PIECES, type Variation } from './divisions';
-
 
 /** The bounding box of a shape: what the stripes and the grid are laid out over. */
 export interface Box { x0: number; y0: number; x1: number; y1: number }
 
-
 type Pt = [number, number];
-
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const polygon = (p: readonly Pt[]) => `M${p.map(([x, y]) => `${r2(x)} ${r2(y)}`).join('L')}Z`;
 const rect = (xa: number, ya: number, xb: number, yb: number): Pt[] => [[xa, ya], [xb, ya], [xb, yb], [xa, yb]];
-
 
 /** How far a stripe runs past the box, so a shape's outline and not the stripe ends the picture. */
 const REACH = 60;
@@ -34,7 +29,6 @@ const FUSIL_RATIO = 2.4;
 const PILE_BASE = 1 / 4;
 const PILES = 3;
 
-
 /** A pattern of cells in two tinctures: the polygons of each, and which one a point lies in. */
 interface Pattern {
   /** Polygons of the first and the second tincture. */
@@ -43,13 +37,10 @@ interface Pattern {
   inFirst: (x: number, y: number) => boolean;
 }
 
-
 const even = (n: number): boolean => ((n % 2) + 2) % 2 === 0;
-
 
 /** `n` stripes across [lo, hi): the stripe index of a coordinate, clamped to the stripes. */
 const stripeAt = (v: number, lo: number, hi: number, n: number): number => Math.min(n - 1, Math.max(0, Math.floor(((v - lo) * n) / (hi - lo))));
-
 
 /** Equal stripes along one axis of the box, as polygons made from a band between two coordinates. */
 function stripes(n: number, lo: number, hi: number, band: (a: number, b: number) => Pt[], at: (x: number, y: number) => number): Pattern {
@@ -63,11 +54,9 @@ function stripes(n: number, lo: number, hi: number, band: (a: number, b: number)
   };
 }
 
-
 /** Whether a polygon lies wholly outside a box, so that it can be left out. */
 const missesBox = (p: readonly Pt[], { x0, y0, x1, y1 }: Box): boolean =>
   Math.max(...p.map(([x]) => x)) < x0 || Math.min(...p.map(([x]) => x)) > x1 || Math.max(...p.map(([, y]) => y)) < y0 || Math.min(...p.map(([, y]) => y)) > y1;
-
 
 /**
  * A lattice of cells that alternate in two directions at once: each cell is the polygon of its index pair, left out when it
@@ -87,9 +76,7 @@ function lattice(box: Box, rows: readonly number[], cols: readonly number[], cel
   };
 }
 
-
 const range = (from: number, to: number): number[] => Array.from({ length: Math.max(0, to - from + 1) }, (_, k) => from + k);
-
 
 /** Diamonds centred on a lattice with spacing (a, b) anchored at the box corner; the second tincture fills the diamonds halfway between. */
 function diamonds(box: Box, columns: number, ratio: number): Pattern {
@@ -108,7 +95,6 @@ function diamonds(box: Box, columns: number, ratio: number): Pattern {
   };
 }
 
-
 /** The three piles of pily: the first tincture is the field they stand on, the second the piles from the chief to the base. */
 function piles(box: Box): Pattern {
   const w = box.x1 - box.x0, h = box.y1 - box.y0, half = (w * PILE_BASE) / 2;
@@ -123,7 +109,6 @@ function piles(box: Box): Pattern {
     inFirst: (x, y) => !range(0, PILES - 1).some((i) => Math.abs(x - centre(i)) <= half * (1 - (y - box.y0) / h)),
   };
 }
-
 
 function patternOf(variation: Variation, pieces: number | null, box: Box): Pattern {
   const n = pieces ?? DEFAULT_PIECES;
@@ -172,7 +157,6 @@ function patternOf(variation: Variation, pieces: number | null, box: Box): Patte
   }
 }
 
-
 /**
  * Region paths [first tincture, second tincture] of a variation over a box, turned `turn` degrees clockwise about the box's middle (a
  * charge's own frame); with the shape's outline, or the element's, as a clip they cover it exactly.
@@ -184,7 +168,6 @@ export function variationRegions(variation: Variation, pieces: number | null, bo
   const turned = (p: readonly Pt[]): Pt[] => (turn === 0 ? [...p] : p.map(([x, y]) => [cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos]));
   return [first.map((p) => polygon(turned(p))).join(''), second.map((p) => polygon(turned(p))).join('')];
 }
-
 
 /** Whether (x,y) lies in the first tincture of a variation. Points on a boundary count as the second. */
 export function inFirstRegion(variation: Variation, pieces: number | null, box: Box, x: number, y: number): boolean {

@@ -89,7 +89,6 @@ describe('controls that appear only when they apply', () => {
     expect(renderToString(h(AddLayer, { design: setOrdinary(DEFAULT_DESIGN, 'chevron'), onChange: noop }))).toContain('Add a top band (chief)');
   });
 
-
   it('takes a layer out of the chooser once the design has it, and gives it a card', () => {
     const band = setOrdinary(DEFAULT_DESIGN, 'chevron');
     const bordered = addLayer(band, 'bordure');
@@ -104,7 +103,6 @@ describe('controls that appear only when they apply', () => {
     expect(renderToString(h(AddLayer, { design: pictured, onChange: noop }))).toContain('add-layer-bordure');
     expect(renderToString(h(ChargesStep, { ...base, n: 3, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null, compact: false }))).not.toContain('peripheral-picture-note');
   });
-
 
   it('numbers a card per layer, with its title, role and remove button; removing returns to the earlier design', () => {
     const band = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
@@ -260,12 +258,23 @@ describe('the fur picker', () => {
     expect(html).toMatch(/data-testid="field-1-fur-ermine"[^>]*><button[^>]*aria-checked="true"/);
   });
 
+  it('keeps the plain colours reachable with Tab while a fur is chosen: the first allowed swatch is the tab stop', () => {
+    const d = setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, 'ermine');
+    const html = renderToString(h(FieldStep, { ...base, design: d, shape: 'heater' }));
+    const stops = [...html.matchAll(/<button[^>]*id="swatch-field1-([a-z]+)"[^>]*>/g)].filter((m) => m[0].includes('tabindex="0"')).map((m) => m[1]);
+    expect(stops).toEqual(['or']);
+    // With a tincture chosen, the chosen one is the tab stop.
+    const plain = renderToString(h(FieldStep, { ...base, design: DEFAULT_DESIGN, shape: 'heater' }));
+    const chosen = [...plain.matchAll(/<button[^>]*id="swatch-field1-([a-z]+)"[^>]*>/g)].filter((m) => m[0].includes('tabindex="0"')).map((m) => m[1]);
+    expect(chosen).toHaveLength(1);
+    expect(plain).toMatch(new RegExp(`id="swatch-field1-${chosen[0]}"[^>]*aria-checked="true"`));
+  });
+
   it('gives each part of a divided background its own fur picker', () => {
     const html = renderToString(h(FieldStep, { ...base, design: setDivision(DEFAULT_DESIGN, 'per-pale'), shape: 'heater' }));
     for (const id of ['field-1-fur', 'field-2-fur']) expect(ids(html), id).toContain(id);
   });
 });
-
 
 describe('the stripes and checks picker', () => {
   it('is offered below the background colours and the colours of a band, closed until a pattern is chosen', () => {

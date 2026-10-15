@@ -144,7 +144,6 @@ function designFor(seed: number, rich: boolean): Design | null {
   return plain;
 }
 
-
 /** The first `count` designs from `generatedDesign`, trying seeds from `seed` upwards. */
 export function generatedDesigns(seed: number, count: number): Design[] {
   const designs: Design[] = [];

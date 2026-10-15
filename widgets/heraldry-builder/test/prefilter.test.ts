@@ -132,7 +132,6 @@ describe('too-close pre-filter with two main pictures', () => {
   });
 });
 
-
 describe('too-close pre-filter with a semy', () => {
   // A semy field with nothing in the middle is the primary group, so it keys like its charge; with a picture it is a secondary group and the picture keys.
   const semy = (id: string, ground = 'azure', ink = 'or') => ({ k: 'semy', ground, charge: { charge: id }, ink });
@@ -151,13 +150,11 @@ describe('too-close pre-filter with a semy', () => {
     nd(arms('vert', group(charge('lion'), 'or'), group(ordinary('bordure'), semy('roundel', 'argent', 'sable')))),
   ];
 
-
   it('keys a semy field by its charge, as the primary group it is', () => {
     expect(candidateKey(designs[0])).toEqual(candidateKey(designs[4]));
     expect(candidateKey(designs[0]).primary).not.toBe(candidateKey(designs[1]).primary);
     expect(candidateKey(designs[6])).toEqual(candidateKey(designs[8]));
   });
-
 
   it('finds every entry that is not clear of the probe', () => {
     for (const a of designs) for (const b of designs) {
@@ -166,13 +163,11 @@ describe('too-close pre-filter with a semy', () => {
     }
   });
 
-
   it('keys only on changes that are substantial on their own', () => {
     for (const a of designs) for (const b of designs) {
       if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
     }
   });
-
 
   it('gives the same verdict as scanning the whole registry', () => {
     const registry = registryFrom(designs);
@@ -183,7 +178,6 @@ describe('too-close pre-filter with a semy', () => {
     }
   });
 });
-
 
 describe('too-close pre-filter with fieldless badges', () => {
   const lion = (extra: object = {}) => group(charge('lion'), 'or', extra);

@@ -322,10 +322,8 @@ function parseBody(tokens: string[]): Body | null {
 /** The tincture a paint is laid on: a semy's ground, else the paint itself. */
 const groundOf = (paint: unknown): unknown => (typeof paint === 'object' && paint !== null && 'k' in paint && paint.k === 'semy' && 'ground' in paint ? paint.ground : paint);
 
-
 /** How a normalised fieldless blazon starts. */
 const FIELDLESS = '(fieldless)';
-
 
 /** Candidate design inputs for normalised SCA text (usually zero or one), or the gap the text reads as. */
 function proposeInputs(normalisedText: string): DesignInput[] | Gap {
@@ -357,7 +355,6 @@ function verify(raw: DesignInput): Candidate {
   const [plain, stated] = [wordings(false), wordings(true)];
   return { raw, design, issues: r.ok ? [] : r.errors, normalised: plain.house, stated: stated.house, restated: [...plain.restated, ...stated.restated] };
 }
-
 
 // ── API ─────────────────────────────────────────────────────────────────────
 

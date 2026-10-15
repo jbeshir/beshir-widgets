@@ -1,14 +1,14 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
 export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
-export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase, type NamedCharge, type SemyName } from './aliases';
+export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export { ORDINARY_TYPES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
-export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
+export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, VARIATION_SPELLINGS, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
 export {
   canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, groundTincture, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, variationPaint, asVariation, treatedPaint, asTreated, semyPaint, asSemy, fieldSemys, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
   UNSUPPORTED_GAP_CATEGORIES,
-  type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type TreatedPaint, type SemyPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type IssueAt,
+  type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type TreatedPaint, type SemyPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type CountLimit, type IssueAt,
 } from './design';
 export { resolve, type ResolveResult } from './resolve';
 export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
@@ -40,11 +40,11 @@ export {
   counterchangedSlotParts, counterchangedOrdinaryParts, ordinaryBox, type Slot,
 } from './geometry';
 export { variationRegions, inFirstRegion, type Box } from './variation-geometry';
-export { MIN_SLOT_SIZE, minSlotSize, slotCount, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
+export { MIN_SLOT_SIZE, minSlotSize, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue } from './layout';
 export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
 export {
-  LAYER_KEYS, layerPath, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerItem, layerItemChoices, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
-  type LayerItem, type LayerKey, type PeripheralKey, type PicturesKey, type PositionedKey,
+  LAYER_KEYS, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setOverallItem, overallItemChoices, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
+  type LayerItem, type LayerKey, type PeripheralKey, type PicturesKey,
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
@@ -52,7 +52,7 @@ export {
   partyDivisionChoices, partyTinctureChoices, groupVariationChoices, setGroupVariation, setGroupVariationPieces, groupVariationTinctureChoices, setGroupVariationTincture, setPartyDivision, setPartyTincture, splitGroup, joinGroup,
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';
-export { FUR_KINDS, furColours, furKindOf, furName, furGloss, takesColours, type FurKind, type FurPaint } from './fur';
+export { FUR_KINDS, furColours, furKindOf, furOfKind, furName, furGloss, takesColours, type FurKind, type FurPaint } from './fur';
 export { furChoices, furColourChoices, furAt, setFur, setFurColour } from './fur-options';
 export { paintAt, type PaintTarget } from './paint-target';
 export { treatmentAt, treatmentChoices, setTreatment, treatmentColourChoices, setTreatmentColour } from './treatment-options';

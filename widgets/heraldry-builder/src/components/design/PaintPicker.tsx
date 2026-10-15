@@ -1,5 +1,5 @@
 // The colour of a band or picture: the tincture picker, and on request the same thing split in two ("per pale azure
-// and Or"), with a division and a tincture for each part. Splitting is opt-in so the plain picker stays as it was.
+// and Or"), with a division and a tincture for each part. Splitting is opt-in: the plain picker comes first, the split on request.
 
 import {
   DIVISION_LABEL, asParty, asVariation, groupAt, groupTinctureChoices, groupTinctureOf, joinGroup, partyDivisionChoices, partyTinctureChoices, splitGroup,

@@ -53,7 +53,6 @@ async function bodyOf(res: Response): Promise<Json> {
 
 // ── designs ──────────────────────────────────────────────────────────────────────────────────
 
-
 /** A loose design of one picture on a plain field. */
 const lone = (field: string, id: string, tincture: string, extra: object = {}, itemExtra: object = {}) =>
   arms(field, group(charge(id, itemExtra), tincture, extra));
@@ -268,7 +267,6 @@ describe('POST /api/arms', () => {
     expect(tags).toContain('field:none');
     expect(tags).not.toContain('field:plain');
 
-
     // The same badge is a duplicate; the lion on a field differs by the fieldless change alone (SENA A5G1e), which is too close.
     const again = await call('POST', '/api/arms/check', { body: { registry: 'badges', design: lion } });
     expect((await bodyOf(again)).verdict).toBe('duplicate');
@@ -280,7 +278,6 @@ describe('POST /api/arms', () => {
       expect((await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'badges', design } }))).verdict).toBe('ok');
     }
   });
-
 
   it('rejects malformed designs (400 invalid_design)', async () => {
     const bad: unknown[] = [
