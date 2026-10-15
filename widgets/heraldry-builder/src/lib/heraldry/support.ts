@@ -8,7 +8,7 @@ import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
 import { DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_TREATMENTS, VARIATION_PIECES } from './divisions';
 import {
-  asParty, asTreated, walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
+  asParty, asSemy, asTreated, walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
@@ -42,6 +42,19 @@ function treatedGaps(p: Extract<Paint, { k: 'treated' }>): Gap[] {
 }
 
 
+/**
+ * A semy is a plain tincture strewn with one plain charge in a plain tincture, on the field, a part of it, or a band; the charges of a
+ * semy on a picture are too small to draw (a count gap, as many charges on a charge are).
+ */
+function semyGaps(p: Extract<Paint, { k: 'semy' }>, owner: string): Gap[] {
+  if (!asSemy(p)) return [gap('field-treatment', `semy-${p.ground.k === 'tincture' ? p.ink.k : p.ground.k}`)];
+  if (p.charge.form) return [gap('charge-modifier', p.charge.form)];
+  return isChargeId(owner) ? [gap('count', 'semy')] : [];
+}
+
+
+
+
 /** The gaps of a paint: `field` paints are the field and its parts, `owner` names the thing a group paint colours. */
 export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
   switch (p.k) {
@@ -54,7 +67,7 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
     case 'proper': return isChargeId(owner) && CHARGES[owner].proper ? [] : [gap('proper', owner)];
     case 'variation': return variationGaps(p);
     case 'treated': return treatedGaps(p);
-    case 'semy': return [gap('field-treatment', 'semy')];
+    case 'semy': return semyGaps(p, owner);
     case 'divided': {
       const gaps: Gap[] = [];
       if (!DRAWN_DIVISIONS.includes(p.division)) gaps.push(gap('division', p.division));
@@ -63,8 +76,8 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
       for (const part of p.parts) {
         gaps.push(...(part.k === 'divided' ? [gap('division', 'nested')] : part.k === 'variation' ? [gap('field-treatment', part.variation)] : part.k === 'proper' ? [gap('proper', 'party')] : paintGaps(part, true, owner)));
       }
-      // A band or picture is divided into plain tinctures only: a fur on a part of one is not drawn.
-      if (!inField && gaps.length === 0 && !asParty(p)) gaps.push(gap('fur', 'party'));
+      // A band or picture is divided into plain tinctures only: a fur or a semy on a part of one is not drawn.
+      if (!inField && gaps.length === 0 && !asParty(p)) gaps.push(p.parts.some((part) => part.k === 'semy') ? gap('field-treatment', 'semy-party') : gap('fur', 'party'));
       return gaps;
     }
   }
@@ -80,7 +93,7 @@ function thing(g: Gap): string {
       return g.detail.endsWith('-colours') ? `${FUR_NAME[g.detail.slice(0, -'-colours'.length) as keyof typeof FUR_NAME]} in colours of its own` : FUR_NAME[g.detail as keyof typeof FUR_NAME] ?? d;
     case 'tincture': return STAIN_NAME[g.detail as keyof typeof STAIN_NAME] ?? d;
     case 'proper': return g.detail === 'party' ? 'Natural colours on part of a divided band or picture' : `A ${d} in its natural colours`;
-    case 'field-treatment': return `The ${d} treatment`;
+    case 'field-treatment': return g.detail === 'semy-party' ? 'A semy on part of a divided band or picture' : g.detail.startsWith('semy-') ? 'A semy that is not a plain colour strewn with a plain colour' : `The ${d} treatment`;
     case 'division': return g.detail === 'nested' ? 'A divided part of a divided field' : `A field divided ${DIVISION_NAME[g.detail as keyof typeof DIVISION_NAME] ?? d}`;
     case 'line-of-partition': return `A ${d} line`;
     case 'ordinary':

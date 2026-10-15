@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, SEMY_NAMES, SEMY_SPELLINGS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type HalfPosition, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -21,6 +21,10 @@ import {
   SUPPORTED_POSTURES, QUALIFIER_WORDS, TREATMENTS, type ChargeBucket,
 } from './gap-terms';
 
+/** The names of a semy the widget words and reads: "semy-de-lys", "crusilly", "bezanty", "goutty" (de sang, d'or …) and their spellings. */
+const DRAWN_SEMY_NAMES: ReadonlySet<string> = new Set([...SEMY_NAMES.map((n) => n.word.split(' ')[0]), ...Object.keys(SEMY_SPELLINGS)].filter((w) => w !== 'semy'));
+
+
 /** The divisions the widget draws, as the tagger names them. */
 const DRAWN_DIVISION_IDS: readonly string[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'];
 
@@ -30,14 +34,14 @@ export const GAP_CATEGORIES = [
   { id: 'fur', description: 'a fur (ermine, vair, potent, pean…) anywhere in the arms' },
   { id: 'tincture', description: 'a tincture outside the widget\'s eight, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged' },
   { id: 'proper', description: 'a charge tinctured proper (natural colouring)' },
-  { id: 'field-treatment', description: 'a variegated pattern (barry, checky, compony, masoned…) on the field or any element, or a semy field' },
+  { id: 'field-treatment', description: 'a variegated pattern (barry, checky, compony, masoned…) on the field or any element, or a semy the widget does not draw (a counterchanged or proper strewn charge, an unknown one, a posture or an arrangement of it)' },
   { id: 'division', description: 'a field division the widget lacks (per pall, gyronny, tierced, per chevron inverted, compound…)' },
   { id: 'line-of-partition', description: 'any line other than straight (embattled, wavy, indented, engrailed…), on a division or ordinary' },
   { id: 'ordinary', description: 'an ordinary, sub-ordinary or diminutive the widget lacks (canton, orle, bars, flaunches…), or several of one ordinary' },
   { id: 'ordinary-treatment', description: 'an ordinary modified (cotised, fimbriated, voided, couped, inverted, enhanced, issuant…)' },
   { id: 'multiple-groups', description: 'more than one charge group (including charges on charges and held charges counted as groups) or more than one ordinary' },
   { id: 'placement', description: 'one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)' },
-  { id: 'count', description: 'more than twelve of a charge, or a charge strewn semy on an element' },
+  { id: 'count', description: 'more than twelve of a charge, or a charge strewn semy on a picture' },
   ...CHARGE_BUCKETS.map((b) => ({ id: `charge-${b}` as const, description: `a charge outside the widget's 28: ${BUCKET_DESCRIPTION[b]}` })),
   { id: 'posture', description: 'a posture or attitude the widget lacks, or one its charge can\'t take (guardant, combattant, couchant…)' },
   { id: 'orientation', description: 'a charge turned from its fixed orientation (bendwise, fesswise, inverted, reversed, to sinister…)' },
@@ -328,7 +332,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let held = false; // inside "maintaining …" / "in its beak …"
   let ofNext = false; // "a wreath of laurel": the next noun is material, not a group
   let semyNext = false; // "semy of mullets"
-  let semyOnField = false; // … strewn on the field rather than on a charge
+  let semyQuiet = false; // … and what it strews is no gap: strewn on the field, or drawn where the widget draws it
   let possBase: { lem: string; e: Entry } | null = null;
   let pendingOnHost = false; // after "on a": the next element is the host
   let qualifier: string | null = null; // the first noun of "oak tree"
@@ -356,6 +360,22 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     (DRAWN_TREATMENTS as readonly string[]).includes(v) && look(i - 1)?.e.k === 'tinc' && look(i + 1)?.e.k === 'tinc';
 
 
+  /**
+   * Whether the semy at `words[i]` is written as the widget draws it: laid on a tincture (the field's, its part's, a band's), strewn with a
+   * charge it draws, named or "semy of <charges>", with the tincture of the charges stated or left to the next one. Never on a picture.
+   */
+  const semyDrawn = (i: number): boolean => {
+    const ground = look(i - 1)?.e.k === 'tinc' || (inField && words[i - 1] === BREAK && look(i - 2)?.e.k === 'tinc' && els.length === 0);
+    if (!ground || (!inField && last?.kind !== 'ord')) return false;
+    const generic = words[i] === 'semy';
+    const strewn = generic ? words[i + 1] === 'of' && look(i + 2)?.e.k === 'charge' : DRAWN_SEMY_NAMES.has(words[i]);
+    const after = generic ? i + 3 : i + 1;
+    return strewn && words[after] !== 'of' && look(after)?.e.k !== 'cc' && look(after)?.e.k !== 'proper';
+  };
+
+
+
+
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
     const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : overallNext ? 'overall' : betweenHost ? 'between' : onHost ? 'on' : 'field';
     const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null };
@@ -363,7 +383,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       if (pendingArr) { el.arr = pendingArr; pendingArr = null; }
       if (el.count > MAX_DRAWN_COUNT && el.count < 99) tag('count', String(el.count));
       if (el.count === 99) tag('count', 'many');
-      if (ctx === 'semy' && !semyOnField) tag('count', 'semy');
+      if (ctx === 'semy' && !semyQuiet) tag('count', 'semy');
     }
     if (ctx === 'between') betweenHost = null;
     if (kind === 'ord') untincturedOrd = true;
@@ -491,10 +511,12 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
           if (words[i + 1] === 'of') i += 2; // the count is part of the pattern, not of the group that follows
         } else if (!(treatedFollows(e.v, i) && (inField || !held))) tag('field-treatment', e.v);
         break;
-      case 'semy':
-        if (inField) tag('field-treatment', 'semy'); else tag('count', 'semy');
-        if (words[i + 1] === 'of') { semyNext = true; semyOnField = inField; i++; }
+      case 'semy': {
+        const drawn = semyDrawn(i);
+        if (drawn) { /* a tincture strewn with a charge in another, on the field, a part of it or a band */ } else if (inField) tag('field-treatment', 'semy'); else tag('count', 'semy');
+        if (words[i + 1] === 'of') { semyNext = true; semyQuiet = drawn || inField; i++; }
         break;
+      }
       case 'gapDiv':
         if (!inField) { tag('division', e.v); break; } // "a roundel gyronny"
         tag('division', e.v);

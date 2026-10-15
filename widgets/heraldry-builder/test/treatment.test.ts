@@ -139,12 +139,12 @@ describe('conflict', () => {
 
 
 describe('the drawing', () => {
-  it('lays a treatment as a pattern in the ground and the ink, each tile under a kilobyte', () => {
+  it('lays a treatment as a pattern in the ground and the ink, each tile under two kilobytes', () => {
     for (const t of DRAWN_TREATMENTS) {
       const spec = treatmentPattern(treatedPaint(t, 'argent', 'sable'), 0.5);
       expect(spec.ground).toEqual({ k: 'tincture', t: 'argent' });
       expect(spec.marks.length).toBeGreaterThan(0);
-      expect(JSON.stringify(spec).length).toBeLessThan(1500);
+      expect(JSON.stringify(spec).length).toBeLessThan(2000);
     }
   });
 

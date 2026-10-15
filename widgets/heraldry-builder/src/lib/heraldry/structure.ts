@@ -10,6 +10,7 @@ import { divisionCutsOrdinary } from './geometry';
 import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue } from './layout';
 import { posturesClash } from './difference';
+import { strewnIssues } from './strewn';
 import { groundShares, paintName } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
 import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type HostCharges, type LayoutContext } from './arrangement';
@@ -250,6 +251,10 @@ export function structuralIssues(d: Design): Issue[] {
     const path = [d.groups.indexOf(group)];
     add({ code: 'structure', rule: 'same-type', at: { k: 'group', path }, message: `${capitalise(chargesPhrase(group))} can't be used again in another group on the field (SENA A3D1a) — choose a different picture.`, slots: [] });
   });
+
+  // 3a'. The semys: the charge of one on the field is not used again (A3D1a), and a band carries one group of charges (App I3).
+  issues.push(...strewnIssues(d));
+
 
   // 4. Count, arrangement and position make a layout where the group sits.
   const illegal = new Set<Group>();

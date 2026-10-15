@@ -7,8 +7,8 @@
 
 import {
   CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, layerItemChoices,
-  asParty, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type FurKind, type FurPaint, type PaintTarget, type Paint, type TreatedPaint, type Treatment, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type FurKind, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
@@ -49,6 +49,8 @@ export type BuilderAction =
   | { kind: 'fur-colour'; target: ColourWhere; slot: 0 | 1; tincture: Tincture }
   | { kind: 'treatment'; target: ColourWhere; option: Treatment }
   | { kind: 'treatment-colour'; target: ColourWhere; slot: 0 | 1; tincture: Tincture }
+  | { kind: 'semy'; target: ColourWhere; charge: ChargeId }
+  | { kind: 'semy-colour'; target: ColourWhere; slot: 0 | 1; tincture: Tincture }
   | { kind: 'proper'; at: At };
 
 /** What a colour click is about: the band, a top band or border, or one of the pictures. */
@@ -174,6 +176,16 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       const target = paintTargetOf(d, a.target);
       return target && treatmentAt(d, target) ? choiceReason(treatmentColourChoices(d, target, a.slot), a.tincture) : `there is no treatment on the ${a.target}`;
     }
+    case 'semy': {
+      const target = paintTargetOf(d, a.target);
+      if (!target) return `there is no ${a.target} to strew`;
+      if (target.k === 'field' && target.part === 1 && !(d.kind === 'arms' && d.field.k === 'divided')) return 'a plain background has no second part';
+      return choiceReason(semyChoices(d, target), a.charge);
+    }
+    case 'semy-colour': {
+      const target = paintTargetOf(d, a.target);
+      return target && semyAt(d, target) ? choiceReason(semyColourChoices(d, target, a.slot), a.tincture) : `there is nothing strewn on the ${a.target}`;
+    }
     case 'proper': {
       const path = pathAt(d, a.at);
       const choice = path ? properChoice(d, path) : null;
@@ -213,6 +225,8 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'fur-colour': return setFurColour(d, paintTargetOf(d, a.target)!, a.slot, a.tincture);
     case 'treatment': return setTreatment(d, paintTargetOf(d, a.target)!, a.option);
     case 'treatment-colour': return setTreatmentColour(d, paintTargetOf(d, a.target)!, a.slot, a.tincture);
+    case 'semy': return setSemy(d, paintTargetOf(d, a.target)!, a.charge);
+    case 'semy-colour': return setSemyColour(d, paintTargetOf(d, a.target)!, a.slot, a.tincture);
     case 'proper': return setProper(d, path!);
   }
 }
@@ -245,6 +259,8 @@ function describeAction(a: BuilderAction): string {
     case 'fur-colour': return `${a.target} fur colour ${a.slot + 1} ${a.tincture}`;
     case 'treatment': return `${a.target} ${a.option}`;
     case 'treatment-colour': return `${a.target} treatment colour ${a.slot + 1} ${a.tincture}`;
+    case 'semy': return `${a.target} strewn with ${a.charge}`;
+    case 'semy-colour': return `${a.target} semy colour ${a.slot + 1} ${a.tincture}`;
     case 'proper': return `${a.at} natural colours`;
   }
 }
@@ -276,6 +292,19 @@ function pictureState(d: Design, at: At): string {
 /** The state of one or several pictures that are laid out together (two main pictures). */
 const layoutState = (d: Design, ats: readonly At[]): string => ats.map((at) => pictureState(d, at)).join('|');
 
+/** The moves of a picture's layout controls from a design, which many records' searches share. */
+const movesMemo = new Map<string, ReturnType<typeof layoutMoves>>();
+function movesOf(d: Design, path: GroupPath): ReturnType<typeof layoutMoves> {
+  const key = `${canonicalJson(d)}@${path.join('.')}`;
+  let moves = movesMemo.get(key);
+  if (!moves) {
+    moves = layoutMoves(d, path);
+    movesMemo.set(key, moves);
+  }
+  return moves;
+}
+
+
 /**
  * The shortest route through the count, placement and layout controls from `start` to the goal's
  * layout (breadth-first, as the reachability test searches), or null when there is none.
@@ -290,7 +319,7 @@ function layoutRoute(start: Design, goal: Design, ats: readonly At[]): BuilderAc
     for (const at of ats) {
       const path = pathAt(s, at);
       if (!path) continue;
-      for (const m of layoutMoves(s, path)) {
+      for (const m of movesOf(s, path)) {
         const k = layoutState(m.design, ats);
         if (routes.has(k)) continue;
         const next = [...route, { kind: 'layout', at, action: m.action, design: m.design } as const];
@@ -380,6 +409,22 @@ export function builderPath(goal: Design): BuilderPath {
     }
     return !!problems.push(`the ${where} treatment did not settle`) && false;
   };
+  /** The clicks that strew `where` as the semy: its charge, then its two tinctures. */
+  const strewnTo = (where: ColourWhere, semy: SemyPaint): boolean => {
+    const now = () => semyAt(d, paintTargetOf(d, where)!);
+    if (!click({ kind: 'semy', target: where, charge: semy.charge.charge })) return false;
+    const want: [Tincture, Tincture] = [semy.ground.t, semy.ink.t];
+    // One colour click at a time: setting the tincture may move the charges, so the next step is worked out from where it landed.
+    for (let guard = 0; guard < 4; guard++) {
+      const here = now();
+      if (!here) return false;
+      const have: [Tincture, Tincture] = [here.ground.t, here.ink.t];
+      const slot = ([0, 1] as const).find((i) => have[i] !== want[i]);
+      if (slot === undefined) return true;
+      if (!click({ kind: 'semy-colour', target: where, slot, tincture: want[slot] })) return false;
+    }
+    return !!problems.push(`the ${where} semy did not settle`) && false;
+  };
   /** The clicks that colour the thing at `target` as `paint`: its tincture, or a split with its division and two tinctures. */
   const paintTo = (target: PaintWhere, paint: Paint): boolean => {
     const path = paintPathOf(d, target);
@@ -393,6 +438,8 @@ export function builderPath(goal: Design): BuilderPath {
     if (paint.k === 'fur') return furTo(target, paint);
     if (paint.k === 'proper') return target === 'ordinary' || target === 'chief' || target === 'bordure' ? !!problems.push(`the ${target} cannot be proper`) && false : click({ kind: 'proper', at: target });
     if (paint.k === 'treated') return paint.ground.k === 'tincture' && treatedTo(target, { ...paint, ground: paint.ground });
+    const strewn = asSemy(paint);
+    if (strewn) return strewnTo(target, strewn);
     const pattern = asVariation(paint);
     if (pattern) {
       const nowPattern = () => asVariation(groupAt(d, paintPathOf(d, target)!).paint);
@@ -427,11 +474,16 @@ export function builderPath(goal: Design): BuilderPath {
   const f = goal.field;
   if (f.k === 'divided') {
     if ((d.kind !== 'arms' || d.field.k !== 'divided' || d.field.division !== f.division) && !click({ kind: 'division', division: f.division })) return done();
-    const [a, b] = f.parts.map((p) => (p.k === 'tincture' ? p.t : null));
+    // A part strewn with a charge stands on a tincture: the tinctures are set first (the parts swap through a third), then the charges are strewn.
+    const [a, b] = f.parts.map(groundTincture);
     if (a && b) {
-      const now = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts.map((p) => (p.k === 'tincture' ? p.t : a)) as [Tincture, Tincture] : [a, b] as [Tincture, Tincture];
+      const now = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts.map((p) => groundTincture(p) ?? a) as [Tincture, Tincture] : [a, b] as [Tincture, Tincture];
       if (!click(...dividedTinctureSteps(now, [a, b]))) return done();
-    } else if (f.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated')) {
+      for (const i of [0, 1] as const) {
+        const strewn = asSemy(f.parts[i]);
+        if (strewn && !strewnTo(i === 0 ? 'field-1' : 'field-2', strewn)) return done();
+      }
+    } else if (f.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
       // A part can be set when the other part leaves it room: each pass sets the parts it can, and the next the ones it couldn't.
       const partNow = (i: 0 | 1) => (d.kind === 'arms' && d.field.k === 'divided' ? JSON.stringify(d.field.parts[i]) : '');
       for (let pass = 0; pass < 3 && ([0, 1] as const).some((i) => partNow(i) !== JSON.stringify(f.parts[i])); pass++) {
@@ -443,6 +495,9 @@ export function builderPath(goal: Design): BuilderPath {
             if (!actionReason(d, set)) click(set);
           } else if (goalPart.k === 'fur' && !actionReason(d, { kind: 'fur', target: i === 0 ? 'field-1' : 'field-2', option: furKindOf(goalPart) })) {
             if (!attempt(() => furTo(i === 0 ? 'field-1' : 'field-2', goalPart))) continue;
+          } else if (goalPart.k === 'semy') {
+            const strewn = asSemy(goalPart);
+            if (strewn) attempt(() => strewnTo(i === 0 ? 'field-1' : 'field-2', strewn));
           } else if (goalPart.k === 'treated' && goalPart.ground.k === 'tincture') {
             const ground = goalPart.ground;
             // The other part may hold the tincture for now: try again after it has moved.
@@ -469,6 +524,9 @@ export function builderPath(goal: Design): BuilderPath {
     if (!furTo('field-1', f)) return done();
   } else if (f.k === 'treated') {
     if (f.ground.k !== 'tincture' || !treatedTo('field-1', { ...f, ground: f.ground })) return done();
+  } else if (f.k === 'semy') {
+    const strewn = asSemy(f);
+    if (!strewn || !strewnTo('field-1', strewn)) return done();
   } else if (f.k === 'tincture') {
     if (d.kind === 'arms' && d.field.k === 'tincture' && d.field.t !== f.t && !click({ kind: 'field-tincture', part: 0, tincture: f.t })) return done();
   }

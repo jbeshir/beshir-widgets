@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, VARIATION_LABEL, asParty, asTreated, asVariation, fieldParts, furName, treatedName, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
+  CATEGORY_LABEL, VARIATION_LABEL, asParty, asSemy, asTreated, asVariation, fieldParts, furName, treatedName, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   groupTinctureOf, isBlocked, layoutChoices, layoutKey, layoutLabel, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -24,6 +24,7 @@ import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
 import { FieldPattern } from './VariationPicker';
 import { FurPicker } from './FurPicker';
+import { SemyPicker } from './SemyPicker';
 import { TreatmentPicker } from './TreatmentPicker';
 import { PaintPicker } from './PaintPicker';
 import { TincturePicker } from './TincturePicker';
@@ -133,12 +134,16 @@ export function colourWords(design: Design, path: GroupPath): string {
   if (paint.k === 'proper') return 'natural colours';
   const treated = asTreated(paint);
   if (treated) return treatedName(treated);
+  const semy = asSemy(paint);
+  if (semy) return `${lower(TINCTURE_LABEL[semy.ground.t].plain)}, strewn with ${lower(TINCTURE_LABEL[semy.ink.t].plain)} ${CHARGES[semy.charge.charge].plural}`;
   return lower(TINCTURE_LABEL[groupTinctureOf(paint) ?? 'or'].plain);
 }
 
 /** A part of the background in plain words: its colour, its fur, or its treatment. */
 const partWords = (p: Paint): string => {
   const treated = asTreated(p);
+  const semy = asSemy(p);
+  if (semy) return `${lower(TINCTURE_LABEL[semy.ground.t].plain)} strewn with ${lower(TINCTURE_LABEL[semy.ink.t].plain)} ${CHARGES[semy.charge.charge].plural}`;
   return treated ? treatedName(treated) : p.k === 'fur' ? furName(p) : lower(TINCTURE_LABEL[p.k === 'tincture' ? p.t : 'or'].plain);
 };
 
@@ -187,6 +192,7 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
           />
           <FurPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: fur` : 'Background fur'} onChange={onChange} />
           <TreatmentPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: brick wall or scales` : 'Background brick wall or scales'} onChange={onChange} />
+          <SemyPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: scatter` : 'Background scatter'} onChange={onChange} />
           {division && (
             <TincturePicker
               group="field2"
@@ -199,6 +205,7 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
           )}
           {division && <FurPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: fur`} onChange={onChange} />}
           {division && <TreatmentPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: brick wall or scales`} onChange={onChange} />}
+          {division && <SemyPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: scatter`} onChange={onChange} />}
         </>
       )}
       <FieldPattern design={design} onChange={onChange} />

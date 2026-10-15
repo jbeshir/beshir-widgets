@@ -160,7 +160,7 @@ describe('fills', () => {
   const split: Fill = { k: 'split', parts: [{ clip: 'M0 0', fill: solidFill('azure') }, { clip: 'M1 1', fill: solidFill('or') }] };
   const pattern: Fill = {
     k: 'pattern',
-    spec: { id: 'dots', width: 4, height: 4, transform: null, ground: { k: 'tincture', t: 'argent' }, marks: [{ d: 'M1 1h2v2h-2z', colour: { k: 'tincture', t: 'sable' } }] },
+    spec: { id: 'dots', width: 4, height: 4, transform: null, ground: { k: 'tincture', t: 'argent' }, marks: [{ d: 'M1 1h2v2h-2z', colour: { k: 'tincture', t: 'sable' }, transform: null }] },
   };
 
   it('are named by a compact code that does not depend on how they are drawn', () => {

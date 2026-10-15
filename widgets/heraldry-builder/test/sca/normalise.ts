@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, FURS, FUR_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -46,6 +46,32 @@ const ARRANGEMENT = `(?: in (?:annulo|saltire|cross|orle|pale|fess|bend sinister
 const NAMED_CHARGE = new RegExp(`(?<![\\w-])(${escaped(NAMED_BY_WORD.keys())})(?![\\w-])(${ARRANGEMENT})( ${COLOUR}(?![\\w-]))?`, 'g');
 /** The next tincture a text states, or a named roundel or goutte, whose name states one. */
 const TINCTURE_OR_NAME = new RegExp(`(?<![\\w-])(${escaped([...TINCTURES, 'counterchanged', 'proper', ...FURS.map((f) => FUR_NAME[f]), ...NAMED_BY_WORD.keys()])})(?![\\w-])`);
+
+/** How a divided field starts: "per pale", "quarterly". */
+const DIVISION_START = '(?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly)';
+const wordOf = (name: string) => new RegExp(`(?<![\\w-])${escaped([name])}(?![\\w-])`, 'g');
+/** The semys' names (in lower case, as the text reads), the longest first, each with the pattern for it and a tincture stated after it, and the semy it strews. */
+const SEMY_NAME_PATTERNS = SEMY_NAMES.map((n) => ({ name: n.word.toLowerCase(), semy: n }))
+  .sort((x, y) => y.name.length - x.name.length)
+  .map(({ name, semy }) => ({ semy, pattern: new RegExp(`(?<![\\w-])${escaped([name])}(?![\\w-])( ${COLOUR}(?![\\w-]))?`, 'g') }));
+/** Other spellings of a semy's name, and the other names that read as "semy of <charges>" with no tincture. */
+const SEMY_RESPELT = Object.entries(SEMY_SPELLINGS).filter(([, to]) => !to.startsWith('semy of ')).map(([from, to]) => ({ pattern: wordOf(from), to }));
+const SEMY_PHRASED = Object.entries(SEMY_SPELLINGS).filter(([, to]) => to.startsWith('semy of ')).map(([from, to]) => ({ pattern: wordOf(from), to }));
+/** Anything a semy rule reads: a name or spelling of a semy, or one of the words "semy", "seme", "semee", "semé". */
+const SEMY_WORD = new RegExp(`${escaped([...SEMY_NAMES.map((n) => n.word.toLowerCase()), ...Object.keys(SEMY_SPELLINGS)])}|sem[yeéi]`);
+const SEMY_ACCENTED = /(?<![\w-])sem(?:ee|e|é|ée)(?= of )/g;
+/** A divided field strewn alike on both parts, in one tincture or in each other's. */
+const SEMY_BOTH_ALIKE = new RegExp(`^(${DIVISION_START}) (${COLOUR}) semy of (${NOUN}) (${COLOUR}) and (${COLOUR}) semy of \\3 \\4(?![\\w-])`);
+const SEMY_BOTH_SWAPPED = new RegExp(`^(${DIVISION_START}) (${COLOUR}) semy of (${NOUN}) (${COLOUR}) and (${COLOUR}) semy of \\3 \\2(?![\\w-])`);
+/** The commas between a semy and what it is strewn on, and the "all" a semy over a divided field says. */
+const SEMY_AFTER_FIELD = new RegExp(`^(${COLOUR}), (?=semy of )`);
+const SEMY_AFTER_BAND = new RegExp(`(\\b(?:a|an) (?:${ORDINARY}|chief|bordure) ${TINCT}), (?=semy of )`, 'g');
+const SEMY_ALL_AFTER_COMMA = new RegExp(`^(${DIVISION_START} ${COLOUR} and ${COLOUR}), (?:all )?(?=semy of )`);
+const SEMY_ALL_COUNTERCHANGED = new RegExp(`^(${DIVISION_START} ${COLOUR} and ${COLOUR}) (?=semy of (?:${NOUN}) counterchanged)`);
+/** The strewn charges "semy of <charges>" that no tincture follows, and the next tincture a text states. */
+const BARE_SEMY = new RegExp(`\\bsemy of (${NOUN})(?![\\w-])(?! (?:${COLOUR}|counterchanged|proper)(?![\\w-]))`, 'g');
+const NEXT_COLOUR = new RegExp(`(?<![\\w-])${COLOUR}(?![\\w-])`);
+
 
 /** The named ermine-family furs by their ground and spots: the tinctures "ermined" spells them with. */
 const FOLDED_ERMINES: Record<string, string> = { 'argent sable': 'ermine', 'or sable': 'erminois', 'sable argent': 'counter-ermine', 'sable or': 'pean' };
@@ -137,6 +163,36 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\bcross crosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslet\b/g, 'cross crosslet'),
+  },
+  {
+    // 3e. A semy is "semy of <charges> <tincture>", or one of its names ("crusilly argent", "semy-de-lys Or", "bezanty": a name that
+    //     fixes the tincture states none). The widget words it with the name where there is one; the College writes both ways, with
+    //     the spellings "crusily", "billetty", "mulletty", "semee". All read as "semy of <charges> <tincture>"; a tincture left unsaid is
+    //     the next one stated ("Argent semy-de-lys, a bend sinister azure": fleurs-de-lys azure), and a comma between the field and its
+    //     semy is none.
+    id: 'semy-names',
+    description: 'crusilly, billety, mullety, estencely, semy-de-lys, bezanty, platy, hurty, pellety, goutty de sang … → "semy of <charges> <tincture>"; spellings crusily, billetty, mulletty, semee; the tincture of a semy left unsaid is the next one stated; "Azure, semy of …" → "Azure semy of …".',
+    apply: (s) => {
+      if (!SEMY_WORD.test(s)) return s;
+      let text = s.replace(SEMY_ACCENTED, 'semy');
+      for (const { pattern, to } of SEMY_RESPELT) text = text.replace(pattern, to);
+      for (const { semy, pattern } of SEMY_NAME_PATTERNS) {
+        text = text.replace(pattern, (_m, stated: string | undefined) =>
+          `semy of ${CHARGES[semy.charge].plural}${semy.tincture !== null ? ` ${semy.tincture}${stated && stated.trim() !== semy.tincture ? stated : ''}` : stated ?? ''}`);
+      }
+      for (const { pattern, to } of SEMY_PHRASED) text = text.replace(pattern, to);
+      // Both parts of a divided field strewn alike are one semy over all of it: "per pale A semy of Xs I and B semy of Xs I" is "per pale A and B all semy of Xs I".
+      text = text.replace(SEMY_BOTH_ALIKE, '$1 $2 and $5 all semy of $3 $4')
+        .replace(SEMY_BOTH_SWAPPED, (m, d: string, a: string, c: string, b: string, b2: string) => (b === b2 ? `${d} ${a} and ${b} all semy of ${c} counterchanged` : m))
+        .replace(SEMY_AFTER_FIELD, '$1 ')
+        .replace(SEMY_AFTER_BAND, '$1 ')
+        .replace(SEMY_ALL_AFTER_COMMA, '$1 all ')
+        .replace(SEMY_ALL_COUNTERCHANGED, '$1 all ');
+      return text.replace(BARE_SEMY, (match: string, _charges: string, offset: number) => {
+        const next = NEXT_COLOUR.exec(text.slice(offset + match.length));
+        return next ? `${match} ${next[0]}` : match;
+      });
+    },
   },
   {
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a

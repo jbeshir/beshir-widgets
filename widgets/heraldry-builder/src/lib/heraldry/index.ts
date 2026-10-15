@@ -1,13 +1,14 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
 export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
-export { NAMED_TINCTURE_CHARGES, type NamedCharge } from './aliases';
+export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase, type NamedCharge, type SemyName } from './aliases';
+export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export { ORDINARY_TYPES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
 export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
 export {
-  canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, variationPaint, asVariation, treatedPaint, asTreated, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
+  canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, groundTincture, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, variationPaint, asVariation, treatedPaint, asTreated, semyPaint, asSemy, fieldSemys, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
   UNSUPPORTED_GAP_CATEGORIES,
-  type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type TreatedPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type IssueAt,
+  type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type TreatedPaint, type SemyPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type IssueAt,
 } from './design';
 export { resolve, type ResolveResult } from './resolve';
 export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
@@ -55,6 +56,7 @@ export { FUR_KINDS, furColours, furKindOf, furName, furGloss, takesColours, type
 export { furChoices, furColourChoices, furAt, setFur, setFurColour } from './fur-options';
 export { paintAt, type PaintTarget } from './paint-target';
 export { treatmentAt, treatmentChoices, setTreatment, treatmentColourChoices, setTreatmentColour } from './treatment-options';
+export { semyAt, semyChoices, setSemy, clearSemy, semyColourChoices, setSemyColour } from './semy-options';
 export { treatedName, treatedGloss } from './treatment';
 export { hasNaturalColours, properChoice, setProper } from './proper-options';
 export { furPattern, treatmentPattern, colourHex, ERMINE_SPOT } from './patterns';

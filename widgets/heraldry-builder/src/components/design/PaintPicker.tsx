@@ -10,6 +10,7 @@ import { capitalise } from '../../lib/heraldry/words';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { useExplainer } from './Explainer';
 import { FurPicker } from './FurPicker';
+import { SemyPicker } from './SemyPicker';
 import { TreatmentPicker } from './TreatmentPicker';
 import { GroupPattern } from './VariationPicker';
 import { TincturePicker } from './TincturePicker';
@@ -92,6 +93,7 @@ export function PaintPicker({ design, path, group, testid, legend, onChange }: P
       )}
       {!party && !varied && <FurPicker design={design} target={{ k: 'group', path }} group={group} testid={testid} legend="Fur" onChange={onChange} />}
       {!party && !varied && <TreatmentPicker design={design} target={{ k: 'group', path }} group={group} testid={testid} legend="Brick wall or scales" onChange={onChange} />}
+      {!party && !varied && <SemyPicker design={design} target={{ k: 'group', path }} group={group} testid={testid} legend="Scatter" onChange={onChange} />}
       {!party && <GroupPattern design={design} path={path} group={group} testid={testid} onChange={onChange} />}
       {explainer}
     </>

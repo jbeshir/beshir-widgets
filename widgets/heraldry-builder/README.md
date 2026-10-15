@@ -253,6 +253,33 @@ so a rose proper is no different from a rose gules and a boar proper differs fro
 flame's two are split per fess); the hatching option leaves it unhatched. The builder shows "Natural colours" under the picture's colour picker
 only when the charge has a palette (`proper-options.ts`). "Brown X proper", a proper ordinary and proper on part of a split picture are gaps.
 
+## Semy
+
+
+A **semy** (strewn charges) is a plain tincture with one charge strewn over it in another tincture
+(`{ "k": "semy", "ground": "azure", "charge": { "charge": "mullet" }, "ink": "or" }`; `semy.test.ts`). It covers the background, a part of a divided
+background, or a band (a bordure, a chief, a chevron: "a bordure argent mullety sable"); a field divided in two with the same charge on both parts is
+"all semy of" it, in one tincture or counterchanged ("Per pale azure and argent all semy of roses counterchanged"). A semy on a picture, on a fur or
+of a charge form is a gap in `support.ts`.
+
+
+- **The drawing.** `semyPattern` (`patterns.ts`) is a square tile with the charge's drawing in it once; the tile is turned a quarter of a turn
+  about the shield's middle and the charge is turned back upright, so the charges stand in staggered rows (about five across the background, eight
+  or so round a bordure). Each part of a divided field is drawn with its own pattern, so a charge on the line is cut by it, as "counterchanged" has it.
+- **The names.** `aliases.ts` holds the one table of names the widget words a semy with (`semy-de-lys`, `crusilly`, `billety`, `mullety`, `estencely`,
+  `bezanty`, `platy`, `hurty`, `pellety`, `semy of torteaux`, `goutty de sang` …): a name that fixes the tincture states none. The matcher's
+  normaliser (rule `semy-names`) reads every name and spelling as "semy of <charges> <tincture>", the tincture left unsaid being the next one stated.
+- **The rule of tincture.** What lies on a semy lies on its ground (its surface is the ground's). The strewn charges must contrast with the tincture
+  they are strewn on, a part's semy with that part alone (A3B4a: "Per pale gules and argent semy of billets gules"; D3 judges "all semy of" against
+  each part); they may share the tincture of the main picture (Prec #SEMY). A field divided and strewn alike is judged on each of its parts.
+- **Groups and conflict.** `strewn.ts`: a semy on the field is the primary group when no main picture stands in the middle and a secondary group when
+  one does; a semy on a band is a tertiary group on it. `liftStrewn` states a design with its semys as such groups (six charges, the "6+" number)
+  on plain grounds, which is what `differences` and `candidateKey` compare (A5E1–A5E3, A5G2–A5G5); `strewnIssues` adds the structure rules (A3D1a: the
+  charge of a semy is not used again in another group on the field; App I3: one group of charges on a band).
+- **The builder.** "Scatter" under each background colour and band colour (`SemyPicker.tsx`, `semy-options.ts`): a picture to strew, the colour it
+  is strewn on and the colour of the pictures. Choosing a plain colour for the background, or "None", takes the semy away.
+
+
 **Charges on a bend stay upright.** Heraldic convention turns charges on a bend "bendwise", but
 which way depends on the charge and its posture (a beast passant walks up the bend, a sword points
 up it, an upright charge rotates the other way, and a bend sinister has no settled convention), so
@@ -276,7 +303,7 @@ Both are wrapped in `try/catch`; private mode or a full quota just disables them
 ### Design model
 
 A design is `{ v: 2, kind: 'arms', field, groups }` (`src/lib/heraldry/design.ts`). The field is a
-recursive paint (a tincture, a fur, a treated tincture, a division with its parts, or a variation of two tinctures). Each group carries an item (an
+recursive paint (a tincture, a fur, a treated tincture, a tincture strewn with a charge, a division with its parts, or a variation of two tinctures). Each group carries an item (an
 ordinary or a charge), a count, an arrangement and optional position, a paint and, in
 `charged`, the groups sitting on it; its role (primary, secondary, peripheral, overall, tertiary)
 and relation (between, about, position) say how it relates to the field and the other groups.
@@ -672,7 +699,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
-- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
+- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps, Discord normalisation and the `contact_discord` CHECK
@@ -749,7 +776,7 @@ drawing do not yet, and `resolve` reports them as `unsupported` rather than gues
 - **Marshalling** (impalement, quartering of two coats): out of scope; the model is designed
   without it.
 - **Stains**, **lines of partition** (wavy, indented, …),
-  **field treatments** (fretty, plumetty, semy, …), **proper** for charges without a palette and charge attributes such as holding or
+  **field treatments** (fretty, plumetty, …), a **semy** on a picture, on a fur or of a charge form, **proper** for charges without a palette and charge attributes such as holding or
   arming.
 - **More than the supported group combinations**: more than three charges in two main groups, three or more main groups, a band and a picture as the main ones together, charges around, on or across two main pictures, two charge groups beside the main one, more than one charge
   overall (or a pile, chief or bordure overall), tertiary charges on a secondary or overall charge (or with charges around the primary), charges in chief beside pictures set around a band, charges

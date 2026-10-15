@@ -5,7 +5,7 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
-import { asParty, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
+import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position, type SemyPaint } from './design';
 import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type HalfPosition, type Layout } from './arrangement';
@@ -42,10 +42,16 @@ function divisionGloss(division: Division, c1: string, c2: string): string {
   }
 }
 
-/** A part of the field in plain words: its colour, its fur, or its treatment. */
+/** What a semy is strewn with, in plain words: "gold five-pointed stars". */
+const strewnGloss = (semy: SemyPaint): string => `${TINCTURE_GLOSS[semy.ink.t]} ${CHARGES[semy.charge.charge].glossPlural}`;
+
+
+/** A part of the field in plain words: its colour, its fur, its treatment, or its colour strewn with charges. */
 function partGloss(p: Paint): string {
   const treated = asTreated(p);
   if (treated) return treatedGloss(treated);
+  const semy = asSemy(p);
+  if (semy) return `${TINCTURE_GLOSS[semy.ground.t]} strewn with ${strewnGloss(semy)}`;
   return p.k === 'tincture' ? TINCTURE_GLOSS[p.t] : p.k === 'fur' ? furGloss(p) : notSupported({ category: 'field-treatment', detail: p.k });
 }
 
@@ -75,6 +81,7 @@ function fieldGloss(d: Design): string {
   if (varied) return `A shield of ${variationGloss(varied.variation, varied.pieces, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
   const [c1, c2] = fieldParts(d).map(partGloss);
   if (d.field.k === 'tincture') return `${article(c1) === 'an' ? 'An' : 'A'} ${c1} shield`;
+  if (d.field.k === 'semy') return `A shield of ${c1}`;
   if (d.field.k === 'fur' || d.field.k === 'treated') return `A shield covered in ${c1}`;
   if (d.field.k !== 'divided') return notSupported({ category: 'field-treatment', detail: d.field.k });
   return `A shield ${divisionGloss(d.field.division, c1, c2)}`;
@@ -92,6 +99,8 @@ function counterchangedGloss(d: Design): string {
 function paintClause(d: Design, p: Paint): string | null {
   if (p.k === 'counterchanged') return counterchangedGloss(d);
   if (p.k === 'proper') return 'in its natural colours';
+  const semy = asSemy(p);
+  if (semy) return `in ${TINCTURE_GLOSS[semy.ground.t]}, strewn with ${strewnGloss(semy)}`;
   const varied = asVariation(p);
   if (varied) return `in ${variationGloss(varied.variation, varied.pieces, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
   const party = asParty(p);
@@ -101,7 +110,7 @@ function paintClause(d: Design, p: Paint): string | null {
 /** A plain colour word for a group's paint, or null for a paint with a clause of its own (see `paintClause`). */
 function colourOf(p: Paint): string | null {
   if (p.k === 'tincture' || p.k === 'fur' || p.k === 'treated') return partGloss(p);
-  return p.k === 'counterchanged' || p.k === 'proper' || asParty(p) || asVariation(p) ? null : notSupported({ category: 'tincture', detail: p.k });
+  return p.k === 'counterchanged' || p.k === 'proper' || asSemy(p) || asParty(p) || asVariation(p) ? null : notSupported({ category: 'tincture', detail: p.k });
 }
 
 function ordinaryGloss(d: Design, g: Group): string {

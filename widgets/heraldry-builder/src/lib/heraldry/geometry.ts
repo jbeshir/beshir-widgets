@@ -8,7 +8,7 @@
 
 import { CHARGES, type ChargeId } from './charges';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
-import { asTreated, asVariation, notSupported, type Paint, type VariationPaint } from './design';
+import { asSemy, asTreated, asVariation, notSupported, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import type { OrdinaryType } from './ordinaries';
 import { surfaceOf, type Surface } from './surface';
@@ -146,10 +146,10 @@ export function shapeFrame(shape: FieldShape): ShapeFrame {
 
 // ── Field partitions ────────────────────────────────────────────────────────
 
-/** A paint that is one thing over the part of the field it fills: a tincture, a fur or a treated tincture. */
-export type FieldPaint = Extract<Paint, { k: 'tincture' | 'fur' | 'treated' }>;
+/** A paint that is one thing over the part of the field it fills: a tincture, a fur, a treated tincture or a strewn one. */
+export type FieldPaint = Extract<Paint, { k: 'tincture' | 'fur' | 'treated' | 'semy' }>;
 
-const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null;
+const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null || asSemy(p) !== null;
 
 /** The field as geometry draws it: plain, one of the drawn divisions of two parts, or a variation of two tinctures. */
 type DrawnField =
@@ -437,6 +437,10 @@ export interface CounterchangePart { region: 0 | 1; d: string; paint: FieldPaint
 /** Grid steps across a drawn box when finding the regions it overlaps (corners and edges included). */
 const PART_GRID = 8;
 
+/** What a counterchanged element shows of a part of the field: its paint, but not the charges strewn on it (a semy is not counterchanged across a charge or band, RULES CC-6). */
+const shownOf = (p: FieldPaint): FieldPaint => asSemy(p)?.ground ?? p;
+
+
 /** The parts of a counterchanged element that covers these points of a divided or varied field in a shape; [] unless the field is one. */
 function partsAt(field: Paint, points: readonly Pt[], shape: FieldShape): CounterchangePart[] {
   const f = drawnField(field);
@@ -445,8 +449,8 @@ function partsAt(field: Paint, points: readonly Pt[], shape: FieldShape): Counte
   const [d1, d2] = regionsOf(f, frame);
   const firsts = new Set(points.map(([x, y]) => inFirstOf(f, frame, x, y)));
   const parts: CounterchangePart[] = [];
-  if (firsts.has(true)) parts.push({ region: 0, d: d1, paint: f.paints[1] });
-  if (firsts.has(false)) parts.push({ region: 1, d: d2, paint: f.paints[0] });
+  if (firsts.has(true)) parts.push({ region: 0, d: d1, paint: shownOf(f.paints[1]) });
+  if (firsts.has(false)) parts.push({ region: 1, d: d2, paint: shownOf(f.paints[0]) });
   return parts;
 }
 

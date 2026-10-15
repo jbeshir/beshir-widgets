@@ -6,7 +6,7 @@
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
 import { CHARGES, CHARGE_IDS, POSTURES, POSTURE_GLOSS, chargesInCategory, type ChargeCategory, type ChargeId, type Posture } from './charges';
 import type { Design } from './design';
-import { NAMED_TINCTURE_CHARGES } from './aliases';
+import { NAMED_TINCTURE_CHARGES, SEMY_NAMES } from './aliases';
 import { gloss } from './gloss';
 import { ORDINARY_NAME, ORDINARY_TYPES } from './ordinaries';
 
@@ -111,12 +111,14 @@ const CHARGE_ALIASES: Record<ChargeId, readonly string[]> = {
 /** The SCA's names for a charge of one tincture (bezant, plate, goutte de sang…) also find the charge. */
 const namedWords = (id: ChargeId) => NAMED_TINCTURE_CHARGES.filter((n) => n.charge === id).flatMap((n) => [n.word, n.plural]);
 const chargeTerms = (id: ChargeId) => [CHARGES[id].name, CHARGES[id].plural].map(normaliseWords);
+/** The names of the semy of a charge (crusilly, billety…), which a design strewn with it is blazoned with. */
+const semyWords = (id: ChargeId) => SEMY_NAMES.filter((n) => n.charge === id && !n.word.startsWith('semy of')).map((n) => normaliseWords(n.word));
 const namesIn = (...categories: ChargeCategory[]) =>
   categories.flatMap((c) => chargesInCategory(c)).flatMap((m) => chargeTerms(m.id));
 const chargeAliases: Alias[] = [
   ...CHARGE_IDS.flatMap((id): Alias[] => [
-    [[normaliseWords(CHARGES[id].name)], chargeTerms(id)],
-    [[...CHARGE_ALIASES[id], ...namedWords(id)].map(normaliseWords), chargeTerms(id)],
+    [[normaliseWords(CHARGES[id].name)], [...chargeTerms(id), ...semyWords(id)]],
+    [[...CHARGE_ALIASES[id], ...namedWords(id)].map(normaliseWords), [...chargeTerms(id), ...semyWords(id)]],
   ]),
   [['beast'], namesIn('beast')],
   [['monster'], namesIn('monster')],
@@ -155,6 +157,10 @@ const layoutAliases: Alias[] = [
   [['crossed'], ['crossed', 'saltire']],
 ];
 
+// Strewn charges: the gloss says "strewn with", the blazon "semy" or the name of the semy; every word finds either.
+const semyAliases: Alias[] = [[['strewn', 'scattered', 'sprinkled', 'semy', 'seme', 'semee'], ['strewn', 'semy']]];
+
+
 const ALIASES: readonly Alias[] = [
   ...tinctureAliases,
   // Counterchanged charges: the blazon term and its spellings (the gloss says "opposite colours").
@@ -163,6 +169,7 @@ const ALIASES: readonly Alias[] = [
   ...chargeAliases,
   ...postureAliases,
   ...layoutAliases,
+  ...semyAliases,
 ];
 
 /** Words and phrases a typed key stands for, exactly as they appear in an entry's text. */

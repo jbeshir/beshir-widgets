@@ -20,6 +20,11 @@ export function deriveTags(d: Design): string[] {
   const paintKindTags = (p: Paint) => {
     if (p.k === 'fur') add(`fur:${p.fur}`);
     if (p.k === 'treated') add(`treatment:${p.treatment}`);
+    if (p.k === 'semy') {
+      add(`semy:${p.charge.charge}`);
+      add(`charge:${p.charge.charge}`);
+      add(`charge-category:${CHARGES[p.charge.charge].category}`);
+    }
   };
   for (const part of fieldParts(d)) {
     paintKindTags(part);

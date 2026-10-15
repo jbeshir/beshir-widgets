@@ -226,7 +226,7 @@ function clashGround(d: Design, path: GroupPath, t: Tincture): string {
     .filter((ground) => groundFailure(tinctureSurface(t), ground))
     .flatMap((ground) => groundTinctures(ground).filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[t]));
   const words = [...new Set(alike)].map(colourWord);
-  if (d.kind === 'arms' && d.field.k === 'tincture') return `${words[0]} background`;
+  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'semy')) return `${words[0]} background`;
   return words.length === 1 ? `${words[0]} part of the background` : `${words.join(' and ')} parts of the background`;
 }
 

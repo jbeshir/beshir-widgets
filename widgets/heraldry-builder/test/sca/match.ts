@@ -37,10 +37,12 @@ export interface Candidate {
   normalised: string | null;
   /** The same with the College's defaults stated: normaliseBlazon(blazon(design, { stateDefaults: true })); null without a design. */
   stated: string | null;
+  /** The wordings with the tincture of every element stated, not once for a run of elements that share it, where the widget shares one; [] otherwise. */
+  restated: string[];
 }
 
-/** Whether a candidate's design is worded as the normalised text: in house style, or with its defaults stated. */
-export const wordedAs = (c: Candidate, normalisedText: string): boolean => c.normalised === normalisedText || c.stated === normalisedText;
+/** Whether a candidate's design is worded as the normalised text: in house style, with its defaults stated, or with its tinctures stated. */
+export const wordedAs = (c: Candidate, normalisedText: string): boolean => c.normalised === normalisedText || c.stated === normalisedText || c.restated.includes(normalisedText);
 
 /**
  * fieldless   — "(Fieldless) …": the widget always has a field
@@ -110,7 +112,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall',
+    ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
@@ -314,12 +316,17 @@ function parseBody(tokens: string[]): Body | null {
     } else {
       phrase.paint ??= carry;
       if (!phrase.paint) return null;
-      carry = phrase.paint;
+      // A tincture stated for what follows is the ground of a semy, not the semy: "a lion, a bordure Or semy of mullets sable".
+      carry = groundOf(phrase.paint);
     }
   }
   const withPaint = (p: Phrase) => ({ ...p.group, paint: p.paint });
   return { k: 'groups', groups: top.map((n) => (n.on ? { ...withPaint(n.phrase), charged: [withPaint(n.on)] } : withPaint(n.phrase))) };
 }
+
+/** The tincture a paint is laid on: a semy's ground, else the paint itself. */
+const groundOf = (paint: unknown): unknown => (typeof paint === 'object' && paint !== null && 'k' in paint && paint.k === 'semy' && 'ground' in paint ? paint.ground : paint);
+
 
 /** Candidate design inputs for normalised SCA text (usually zero or one), or the gap the text reads as. */
 function proposeInputs(normalisedText: string): DesignInput[] | Gap {
@@ -336,9 +343,17 @@ function proposeInputs(normalisedText: string): DesignInput[] | Gap {
 function verify(raw: DesignInput): Candidate {
   const r = normalise(raw);
   const design = r.design;
-  const wording = (stateDefaults: boolean) => (design ? normaliseBlazon(blazon(design, { stateDefaults })) : null);
-  return { raw, design, issues: r.ok ? [] : r.errors, normalised: wording(false), stated: wording(true) };
+  // Stating every tincture is a wording of its own only where the widget shares one.
+  const wordings = (stateDefaults: boolean) => {
+    if (!design) return { house: null, restated: [] };
+    const house = blazon(design, { stateDefaults });
+    const all = blazon(design, { stateDefaults, stateTinctures: true });
+    return { house: normaliseBlazon(house), restated: all === house ? [] : [normaliseBlazon(all)] };
+  };
+  const [plain, stated] = [wordings(false), wordings(true)];
+  return { raw, design, issues: r.ok ? [] : r.errors, normalised: plain.house, stated: stated.house, restated: [...plain.restated, ...stated.restated] };
 }
+
 
 // ── API ─────────────────────────────────────────────────────────────────────
 

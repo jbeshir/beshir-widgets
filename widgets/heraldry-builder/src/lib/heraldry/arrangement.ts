@@ -3,7 +3,7 @@
 
 import { numberWord, joinAnd } from './words';
 import {
-  groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position, POSITIONS,
+  groundTincture, groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position, POSITIONS,
 } from './design';
 import { CHARGES, type ChargeId, type Posture } from './charges';
 import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
@@ -383,11 +383,11 @@ export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): read
 export type DefaultRule = '0' | '1' | '2-two-part' | '2-four-part' | '3' | '4' | '5' | '6' | '7' | 'host' | 'position' | 'around';
 export interface RuledLayout { layout: Layout; rule: DefaultRule }
 
-/** The two tinctures of a two-part divided field, or null when the field isn't one or a part isn't a plain tincture. */
+/** The two tinctures of a two-part divided field (a semy's, the one it is strewn on), or null when the field isn't one or a part isn't a tincture. */
 function fieldPair(d: Design): [Tincture, Tincture] | null {
   if (d.kind !== 'arms' || d.field.k !== 'divided' || d.field.parts.length !== 2) return null;
-  const [a, b] = d.field.parts;
-  return a.k === 'tincture' && b.k === 'tincture' ? [a.t, b.t] : null;
+  const [a, b] = d.field.parts.map(groundTincture);
+  return a && b ? [a, b] : null;
 }
 
 /** Table 7 for a charge group of `count` in `ctx`: the first applicable row, or null for "None, must be specified". */

@@ -165,16 +165,28 @@ export function primaryGroups(d: Design): Array<{ path: GroupPath; group: Group 
   return d.groups.flatMap((group, i) => (group.role === 'primary' ? [{ path: [i] as GroupPath, group }] : []));
 }
 
-/** True when no group is primary: the field carries the design (RULES §B.3). */
-export function isFieldPrimary(d: Design): boolean {
-  return primaryGroup(d) === null;
+/** The semys on the field, one per part that has one (SENA App I1: a semy on the field is a charge group of its own). */
+export function fieldSemys(d: Design): SemyPaint[] {
+  return fieldParts(d).flatMap((p) => asSemy(p) ?? []);
 }
 
-/** The plain tinctures of the field, in part order; a part that isn't a plain tincture adds none. */
+
+/** True when no group is primary and no semy strews the field: the field carries the design (RULES §B.3). */
+export function isFieldPrimary(d: Design): boolean {
+  return primaryGroup(d) === null && fieldSemys(d).length === 0;
+}
+
+/** The plain tincture a paint is, or the one a semy is strewn on; null for any other paint. */
+export function groundTincture(p: Paint): Tincture | null {
+  return p.k === 'tincture' ? p.t : asSemy(p)?.ground.t ?? null;
+}
+
+
+/** The plain tinctures of the field, in part order (a semy's, the one it is strewn on); a part that isn't one adds none. */
 export function fieldTinctures(d: Design): Tincture[] {
   if (d.kind !== 'arms') return [];
   const parts = d.field.k === 'divided' || d.field.k === 'variation' ? d.field.parts : [d.field];
-  return parts.flatMap((p) => (p.k === 'tincture' ? [p.t] : []));
+  return parts.flatMap((p) => groundTincture(p) ?? []);
 }
 
 /** The parts of the field in part order: the field itself when it is not divided; none for a fieldless badge. */
@@ -190,6 +202,7 @@ export function paintTinctures(p: Paint): Tincture[] {
     case 'fur': return [...furColours(p)];
     case 'divided': case 'variation': return p.parts.flatMap(paintTinctures);
     case 'treated': return [...paintTinctures(p.ground), p.ink];
+    case 'semy': return [...paintTinctures(p.ground), ...paintTinctures(p.ink)];
     default: return [];
   }
 }
@@ -201,8 +214,8 @@ export function paintTinctures(p: Paint): Tincture[] {
  */
 export function bodyTinctures(p: Paint): Tincture[] {
   if (p.k === 'fur' && FUR_SPEC[p.fur].family === 'ermine') return [furColours(p)[0]];
-  // A treatment is part of the tincture it lies on ("gules and gules masoned Or" are one background, A3B3a).
-  if (p.k === 'treated') return bodyTinctures(p.ground);
+  // A treatment is part of the tincture it lies on ("gules and gules masoned Or" are one background, A3B3a), and strewn charges are not a tincture of the field at all.
+  if (p.k === 'treated' || p.k === 'semy') return bodyTinctures(p.ground);
   return paintTinctures(p);
 }
 
@@ -279,6 +292,32 @@ export function treatedPaint(treatment: Treatment, ground: Tincture, ink: Tinctu
 export function asTreated(p: Paint): TreatedPaint | null {
   return p.k === 'treated' && p.ground.k === 'tincture' ? { ...p, ground: p.ground } : null;
 }
+
+
+/** A tincture strewn with a charge in another ("azure semy of mullets Or", "sable bezanty"): the only semy the builder draws. */
+export interface SemyPaint {
+  k: 'semy';
+  ground: { k: 'tincture'; t: Tincture };
+  charge: ChargeRef;
+  ink: { k: 'tincture'; t: Tincture };
+}
+
+
+
+
+export function semyPaint(ground: Tincture, charge: ChargeId, ink: Tincture): SemyPaint {
+  return { k: 'semy', ground: { k: 'tincture', t: ground }, charge: { charge, form: null }, ink: { k: 'tincture', t: ink } };
+}
+
+
+
+
+/** The paint as a plain tincture strewn with a charge, or null when it is anything else (a semy on a fur or a division is not drawn). */
+export function asSemy(p: Paint): SemyPaint | null {
+  return p.k === 'semy' && p.ground.k === 'tincture' && p.ink.k === 'tincture' ? { ...p, ground: p.ground, ink: p.ink } : null;
+}
+
+
 
 
 /** The picker value of a paint, or null when the paint is neither a tincture nor counterchanged. */

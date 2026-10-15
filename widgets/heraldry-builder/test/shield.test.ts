@@ -68,7 +68,7 @@ describe('Shield layers', () => {
 
 describe('pattern fills', () => {
   it('define a tile of their ground and marks, scaled by the spec, under an id of this shield', () => {
-    const spec = { id: 'dots', width: 4, height: 6, transform: 'scale(2)', ground: { k: 'tincture', t: 'argent' }, marks: [{ d: 'M1 1h2v2h-2z', colour: { k: 'tincture', t: 'sable' } }] } as const;
+    const spec = { id: 'dots', width: 4, height: 6, transform: 'scale(2)', ground: { k: 'tincture', t: 'argent' }, marks: [{ d: 'M1 1h2v2h-2z', colour: { k: 'tincture', t: 'sable' }, transform: null }] } as const;
     const svg = renderToString(h('svg', null, h(PatternDef, { spec, ids: { pattern: (s: typeof spec) => `pattern-s1-${s.id}` } as never })));
     expect(attrs(svg, 'id')).toEqual(['pattern-s1-dots']);
     expect(attrs(svg, 'patternTransform')).toEqual(['scale(2)']);

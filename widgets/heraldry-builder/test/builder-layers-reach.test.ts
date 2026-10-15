@@ -122,6 +122,20 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Vert, on a fess checky Or and gules three roses argent.'],
   ['a barry picture', arms('vert', group(charge('lion'), { k: 'variation', variation: 'barry', pieces: 8, parts: ['or', 'gules'] })),
     'Vert, a lion barry of eight Or and gules.'],
+  ['a field strewn with a charge, and a picture', arms({ k: 'semy', ground: 'azure', charge: { charge: 'cross-crosslet' }, ink: 'argent' }, group(charge('lion'), 'or')),
+    'Azure crusilly argent, a lion Or.'],
+  ['a field strewn with a charge alone (O&A 13531)', arms({ k: 'semy', ground: 'azure', charge: { charge: 'heart' }, ink: 'argent' }),
+    'Azure semy of hearts argent.'],
+  ['a semy of a named tincture on a band (O&A 340)', arms('or', group(charge('sword'), 'sable', { count: 3 }), group(ordinary('bordure'), { k: 'semy', ground: 'sable', charge: { charge: 'roundel' }, ink: 'or' })),
+    'Or, three swords and a bordure sable bezanty.'],
+  ['a semy on a part of a divided field', arms({ k: 'divided', division: 'per-pale', parts: ['gules', { k: 'semy', ground: 'argent', charge: { charge: 'billet' }, ink: 'gules' }] }),
+    'Per pale gules and argent billety gules.'],
+  ['a semy counterchanged over a divided field (O&A 9881)', arms({ k: 'divided', division: 'per-pale', parts: [{ k: 'semy', ground: 'azure', charge: { charge: 'rose' }, ink: 'argent' }, { k: 'semy', ground: 'argent', charge: { charge: 'rose' }, ink: 'azure' }] }),
+    'Per pale azure and argent all semy of roses counterchanged.'],
+  ['a semy over a divided field with a band, strewn in one tincture', arms({ k: 'divided', division: 'per-fess', parts: [{ k: 'semy', ground: 'azure', charge: { charge: 'mullet' }, ink: 'or' }, { k: 'semy', ground: 'vert', charge: { charge: 'mullet' }, ink: 'or' }] }, group(ordinary('pale'), 'argent')),
+    'Per fess azure and vert all mullety Or, a pale argent.'],
+  ['a semy on a chief beside a band', arms('vert', group(ordinary('chevron'), 'argent'), group(ordinary('chief'), { k: 'semy', ground: 'or', charge: { charge: 'mullet' }, ink: 'sable' })),
+    'Vert, a chevron argent, a chief Or mullety sable.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {

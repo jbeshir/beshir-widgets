@@ -3,7 +3,7 @@
 // surfaces, so a paint that is not a plain tincture needs a surface here and nowhere else.
 
 import { FUR_SPEC, TINCTURE_CLASS, TINCTURES, type Tincture } from './tinctures';
-import { asParty, asTreated, asVariation, fieldParts, notSupported, type Design, type Item, type Paint } from './design';
+import { asParty, asSemy, asTreated, asVariation, fieldParts, notSupported, type Design, type Item, type Paint } from './design';
 import { CHARGES } from './charges';
 import { furColours } from './fur';
 import type { Treatment } from './divisions';
@@ -93,6 +93,9 @@ export function surfaceOf(p: Paint, item: Item | null): Surface {
   if (p.k === 'proper') return item ? properSurface(item) : notSupported({ category: 'proper', detail: 'field' });
   const treated = asTreated(p);
   if (treated) return treatedSurface(treated.treatment, treated.ground.t);
+  // The strewn charges are a group of their own (strewn.ts): what lies on a semy lies on its ground.
+  const semy = asSemy(p);
+  if (semy) return tinctureSurface(semy.ground.t);
   const two = asParty(p) ?? asVariation(p);
   if (!two) return notSupported({ category: 'tincture', detail: p.k });
   return twoTinctures(two.parts[0].t, two.parts[1].t);

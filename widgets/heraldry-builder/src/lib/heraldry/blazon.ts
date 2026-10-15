@@ -4,12 +4,13 @@
 // `stateDefaults` words those defaults too: the same design as a blazon that states them, which the
 // SCA tooling compares with registered blazons (stating a default is optional, GoT Tables 5 and 7).
 
-import { tinctureWord } from './tinctures';
+import { tinctureWord, type Tincture } from './tinctures';
 import { furName } from './fur';
 import { treatedName } from './treatment';
+import { semyPhrase } from './aliases';
 import { capitalise, numberWord } from './words';
-import { CHARGES, postureTerm, type ChargeCategory } from './charges';
-import { asParty, asTreated, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
+import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
+import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
 import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
@@ -20,6 +21,7 @@ function paintWord(p: Paint): string {
     case 'tincture': return tinctureWord(p.t);
     case 'fur': return furName(p);
     case 'treated': return treatedWord(p);
+    case 'semy': return semyWord(p);
     case 'proper': return 'proper';
     case 'counterchanged': return 'counterchanged';
     case 'divided': return partyWord(p);
@@ -32,6 +34,13 @@ function paintWord(p: Paint): string {
 function treatedWord(p: Paint): string {
   const treated = asTreated(p);
   return treated ? treatedName(treated) : notSupported(paintGaps(p, false, 'group')[0]);
+}
+
+
+/** A semy as written: "azure crusilly argent", "sable bezanty", "argent semy of lions gules". */
+function semyWord(p: Paint): string {
+  const semy = asSemy(p);
+  return semy ? `${tinctureWord(semy.ground.t)} ${semyPhrase(semy.charge.charge, semy.ink.t)}` : notSupported(paintGaps(p, false, 'group')[0]);
 }
 
 
@@ -50,9 +59,21 @@ function variationWord(p: Paint): string {
 }
 
 
+/** A divided field strewn all over with one charge: both parts are the same semy, in one tincture or each in the other's ("all semy of roses counterchanged"). */
+function strewnAllOver(field: Paint): { grounds: [Tincture, Tincture]; charge: ChargeId; ink: Tincture | 'counterchanged' } | null {
+  const [a, b] = field.k === 'divided' ? field.parts.map(asSemy) : [];
+  if (!a || !b || a.charge.charge !== b.charge.charge) return null;
+  const grounds: [Tincture, Tincture] = [a.ground.t, b.ground.t];
+  if (a.ink.t === b.ink.t) return { grounds, charge: a.charge.charge, ink: a.ink.t };
+  return a.ink.t === b.ground.t && b.ink.t === a.ground.t ? { grounds, charge: a.charge.charge, ink: 'counterchanged' } : null;
+}
+
+
 function fieldPhrase(field: Paint): string {
-  if (field.k === 'tincture' || field.k === 'fur' || field.k === 'treated') return paintWord(field);
-  if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated')) {
+  const all = strewnAllOver(field);
+  if (field.k === 'divided' && all) return `${DIVISION_NAME[field.division]} ${all.grounds.map(tinctureWord).join(' and ')} all ${semyPhrase(all.charge, all.ink)}`;
+  if (field.k === 'tincture' || field.k === 'fur' || field.k === 'treated' || field.k === 'semy') return paintWord(field);
+  if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
     return `${DIVISION_NAME[field.division]} ${field.parts.map(paintWord).join(' and ')}`;
   }
   if (field.k === 'variation') return variationWord(field);
@@ -68,6 +89,8 @@ function modifierWords(m: Modifier): string {
 export interface BlazonOptions {
   /** Word the postures and field layouts the College assumes (Table 5 and 7 defaults, forced positions) as well. */
   stateDefaults: boolean;
+  /** Write the tincture of every element, though the College lets a run of linked elements that share it say it once (Bruce). */
+  stateTinctures: boolean;
 }
 
 /** Whether the layout of a group is worded: when it isn't the default, or with `stateDefaults` whenever it isn't alone in the centre. */
@@ -129,8 +152,8 @@ function carrying(host: Group): { lead: string; on: boolean } {
 /** `co-primary` is the second of two groups that are together the primary ("a unicorn and a rose"), `secondary` is set between (or around) the primary, `position` stands beside it ("and in chief …"), `overall` lies across everything ("and overall a bend"). */
 type TokenKind = 'primary' | 'co-primary' | 'secondary' | 'position' | 'overall' | 'peripheral' | 'tertiary';
 
-/** One element of the sentence: its phrase and paint, whether its paint may be shared with the element before, and (a tertiary) what joins it to its host. */
-interface Token { kind: TokenKind; text: string; paint: string; linked: boolean; lead: string }
+/** One element of the sentence: its phrase and paint (and what is strewn on it), whether its paint may be shared with the element before, and (a tertiary) what joins it to its host. */
+interface Token { kind: TokenKind; text: string; paint: string; strewn: string; linked: boolean; lead: string }
 
 /** The elements in blazon order (RULES §F.2): primary, what is set between, what is on the primary, what stands in chief, base or canton, then each peripheral with what is on it. */
 function tokens(d: Design, options: BlazonOptions): Token[] {
@@ -142,8 +165,9 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     const phrase = g.item.k === 'ordinary' ? ordinaryPhrase(g) : chargePhrase(d, path, g, options);
     const text = g.charged.length > 0 && carrying(g).on ? `on ${phrase}` : phrase;
     // Charges each divided: "three hearts each per pale gules and sable".
-    const paint = g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : paintWord(g.paint);
-    out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, linked, lead });
+    const semy = asSemy(g.paint);
+    const paint = semy ? tinctureWord(semy.ground.t) : g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : paintWord(g.paint);
+    out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, strewn: semy ? ` ${semyPhrase(semy.charge.charge, semy.ink.t)}` : '', linked, lead });
   };
   const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t, carrying(g).lead));
   const at = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, path: [i] }] : []));
@@ -168,7 +192,8 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
   return out;
 }
 
-export function blazon(d: Design, options: BlazonOptions = { stateDefaults: false }): string {
+export function blazon(d: Design, given: Partial<BlazonOptions> = {}): string {
+  const options: BlazonOptions = { stateDefaults: false, stateTinctures: false, ...given };
   if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
   let text = fieldPhrase(d.field);
   const all = tokens(d, options);
@@ -176,8 +201,9 @@ export function blazon(d: Design, options: BlazonOptions = { stateDefaults: fals
   all.forEach((t, i) => {
     const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
     const next = all[i + 1];
-    pending = next !== undefined && next.linked && next.paint === t.paint;
-    text += `${lead}${t.text}${pending ? '' : ` ${t.paint}`}`;
+    // What is strewn on a band is stated after its tincture, which then can't be left for the next to say.
+    pending = !options.stateTinctures && next !== undefined && next.linked && next.paint === t.paint && t.strewn === '';
+    text += `${lead}${t.text}${pending ? '' : ` ${t.paint}${t.strewn}`}`;
   });
   return `${capitalise(text)}.`;
 }

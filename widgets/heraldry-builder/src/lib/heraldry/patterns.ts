@@ -3,7 +3,8 @@
 
 import { FUR_SPEC, TINCTURE_CODE, TINCTURE_FILL, type Tincture } from './tinctures';
 import { furColours, type FurPaint } from './fur';
-import { notSupported, type TreatedPaint } from './design';
+import { notSupported, type SemyPaint, type TreatedPaint } from './design';
+import { chargePath } from './charge-art';
 
 /** A flat colour: a tincture of the palette, or a natural colour (a charge's palette, which is no tincture). */
 export type SolidColour = { k: 'tincture'; t: Tincture } | { k: 'proper'; hex: string };
@@ -12,7 +13,7 @@ export type SolidColour = { k: 'tincture'; t: Tincture } | { k: 'proper'; hex: s
 export const colourHex = (c: SolidColour): string => (c.k === 'tincture' ? TINCTURE_FILL[c.t] : c.hex);
 
 
-/** One repeating tile: a `width` × `height` ground with marks drawn on it, optionally scaled or turned as a whole. */
+/** One repeating tile: a `width` × `height` ground with marks drawn on it, optionally scaled or turned as a whole; a mark may be placed within the tile by a transform of its own. */
 export interface PatternSpec {
   /** Names the tile: equal ids are equal tiles, so a shield defines each once. */
   id: string;
@@ -21,7 +22,7 @@ export interface PatternSpec {
   /** The tile's `patternTransform` (scaling it to the element it paints), or null. */
   transform: string | null;
   ground: SolidColour;
-  marks: ReadonlyArray<{ d: string; colour: SolidColour }>;
+  marks: ReadonlyArray<{ d: string; colour: SolidColour; transform: string | null }>;
 }
 
 /**
@@ -83,7 +84,7 @@ export function furPattern(fur: FurPaint, scale: number): PatternSpec {
     height,
     transform: scale === 1 ? null : `scale(${scale})`,
     ground: colour(ground),
-    marks: marks.map((d) => ({ d, colour: colour(ink) })),
+    marks: marks.map((d) => ({ d, colour: colour(ink), transform: null })),
   };
 }
 
@@ -131,6 +132,35 @@ export function treatmentPattern(p: TreatedPaint, scale: number): PatternSpec {
     height: tile.height,
     transform: scale === 1 ? null : `scale(${scale})`,
     ground: colour(p.ground.t),
-    marks: tile.marks.map((m) => ({ d: m.d, colour: colour(m.ink ? p.ink : p.ground.t) })),
+    marks: tile.marks.map((m) => ({ d: m.d, colour: colour(m.ink ? p.ink : p.ground.t), transform: null })),
+  };
+}
+
+
+/** A semy's tile is a square of this many units, with one charge in its middle. */
+const SEMY_TILE = 28;
+/** How much of the tile's side a strewn charge's drawing (100 units across) spans. */
+const SEMY_CHARGE_SHARE = 0.6;
+
+
+/**
+ * The pattern of a semy drawn `scale` times its nominal size: the ground with the charge strewn on it. The tiles are turned a
+ * quarter of a turn about the middle of the shield, so the charges stand in rows half a place apart, and each charge is turned back
+ * upright. The charge's drawing is in the pattern once, however many are strewn.
+ */
+export function semyPattern(p: SemyPaint, scale: number): PatternSpec {
+  const middle = SEMY_TILE / 2;
+  const colour = (t: Tincture): SolidColour => ({ k: 'tincture', t });
+  return {
+    id: `semy-${p.charge.charge}-${TINCTURE_CODE[p.ground.t]}-${TINCTURE_CODE[p.ink.t]}-${Math.round(scale * 1000)}`,
+    width: SEMY_TILE,
+    height: SEMY_TILE,
+    transform: `rotate(45) scale(${scale})`,
+    ground: colour(p.ground.t),
+    marks: [{
+      d: chargePath(p.charge.charge, null, []),
+      colour: colour(p.ink.t),
+      transform: `rotate(-45 ${middle} ${middle}) translate(${middle} ${middle}) scale(${SEMY_CHARGE_SHARE * SEMY_TILE / 100}) translate(-50 -50)`,
+    }],
   };
 }

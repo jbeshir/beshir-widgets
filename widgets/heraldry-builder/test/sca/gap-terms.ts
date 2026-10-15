@@ -275,7 +275,7 @@ export const TREATMENTS: Record<string, string> = {
   tartan: 'tartan',
 };
 
-/** Strewn ("semy") forms: on the field → field-treatment:semy; on a charge or ordinary → count:semy. */
+/** Strewn ("semy") forms: those the widget draws (a plain tincture strewn with a plain charge, on the field, a part of it or a band: gaps.ts `semyDrawn`) aren't gaps; the rest on the field → field-treatment:semy, on a picture or band → count:semy. */
 export const SEMY_WORDS = w(`
   semy seme semee semy-de-lys semy-de-lis goutty gutty crusilly crusily billety billetty mullety mulletty
   estencely estencelly estencele bezanty platy hurty pellety pelletty torteauxy ogressy golpy annuletty annulety

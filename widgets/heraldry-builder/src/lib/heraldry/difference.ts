@@ -15,6 +15,7 @@ import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
 import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
+import { liftStrewn } from './strewn';
 import { fieldSurfaces, sameSurface, tinctureSurface, type Surface } from './surface';
 
 export type ChangeKind = 'sc' | 'dc';
@@ -369,8 +370,9 @@ function tertiaryChanges(x: Side | null, y: Side | null): Diff[] {
   ];
 }
 
-/** Every SC and DC between two designs (RULES §C.8 `diff`), in field, primary, secondary order. */
-export function differences(a: Design, b: Design): Diff[] {
+/** Every SC and DC between two designs (RULES §C.8 `diff`), in field, primary, secondary order. Their semys are groups (A5C2b; strewn.ts), so the groups of a diff are those of the designs so stated. */
+export function differences(rawA: Design, rawB: Design): Diff[] {
+  const [a, b] = [liftStrewn(rawA), liftStrewn(rawB)];
   const out: Diff[] = fieldChanges(a, b);
 
   const pa = primariesOf(a), pb = primariesOf(b);
@@ -436,7 +438,8 @@ export interface CandidateKey { partition: string; primary: string | null }
 /** The primary of a design with two co-primary groups: they may share a type with entries of any primary. */
 export const MIXED_PRIMARY = '*';
 
-export function candidateKey(d: Design): CandidateKey {
+export function candidateKey(raw: Design): CandidateKey {
+  const d = liftStrewn(raw);
   const primaries = primaryGroups(d);
   const primary = primaries.length === 0 ? null : primaries.length === 1 ? conflictKey(primaries[0].group.item) : MIXED_PRIMARY;
   return { partition: partition(d), primary };
@@ -508,7 +511,8 @@ function noGroup(attr: DiffAttr): never {
 }
 
 /** Each difference between `a` (new) and `b` (existing) in words: "pose of picture (passant ↔ courant)". */
-export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] = differences(a, b)): DifferenceNote[] {
+export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly Diff[] = differences(rawA, rawB)): DifferenceNote[] {
+  const [a, b] = [liftStrewn(rawA), liftStrewn(rawB)];
   return diffs.map((diff) => {
     const ref = diff.group;
     const ga = ref?.a ? groupAt(a, ref.a) : null, gb = ref?.b ? groupAt(b, ref.b) : null;

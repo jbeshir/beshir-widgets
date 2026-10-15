@@ -3,10 +3,10 @@
 
 import { TINCTURE_CODE, type Tincture } from './tinctures';
 import { CHARGES } from './charges';
-import { asParty, asTreated, asVariation, notSupported, type Design, type Group, type Paint, type PartyPaint, type VariationPaint } from './design';
+import { asParty, asSemy, asTreated, asVariation, notSupported, type Design, type Group, type Paint, type PartyPaint, type VariationPaint } from './design';
 import { counterchangedOrdinaryParts, counterchangedSlotParts, drawnBox, fieldRegions, ordinaryBox, ordinaryCentre, partitionRegions, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
 import type { OrdinaryType } from './ordinaries';
-import { furPattern, treatmentPattern, type SolidColour, type PatternSpec } from './patterns';
+import { furPattern, semyPattern, treatmentPattern, type SolidColour, type PatternSpec } from './patterns';
 import type { FieldShape } from './shape';
 import { variationRegions, type Box } from './variation-geometry';
 
@@ -31,10 +31,11 @@ const ORDINARY_FUR_SCALE = 0.35;
 /** A charge's fur scale in its own 100-unit drawing space, where it is 0.5 shield units per unit at most and 0.15 at least. */
 const chargeFurScale = (size: number): number => Math.min(0.5, Math.max(0.15, 0.008 * size)) * (100 / size);
 
-/** The fill of a paint that is one thing over its place: a tincture, or a fur or treatment drawn at `scale`. */
+/** The fill of a paint that is one thing over its place: a tincture, or a fur, treatment or semy drawn at `scale`. */
 function paintFill(p: FieldPaint, scale: number): Fill {
   if (p.k === 'tincture') return solidFill(p.t);
   if (p.k === 'fur') return { k: 'pattern', spec: furPattern(p, scale) };
+  if (p.k === 'semy') return { k: 'pattern', spec: semyPattern(asSemy(p) ?? notSupported({ category: 'field-treatment', detail: 'semy' }), scale) };
   return { k: 'pattern', spec: treatmentPattern(asTreated(p) ?? notSupported({ category: 'field-treatment', detail: `${p.treatment}-${p.ground.k}`}), scale) };
 }
 
@@ -104,7 +105,7 @@ export function fieldFill(field: Paint, shape: FieldShape): Fill {
 /** An ordinary's fill: nothing for a counterchanged one that can't be (on a plain field, or on a host). */
 export function ordinaryFill(d: Design, group: Group, host: Group | null, type: OrdinaryType, shape: FieldShape): Fill {
   switch (group.paint.k) {
-    case 'tincture': case 'fur': case 'treated': return paintFill(group.paint, ORDINARY_FUR_SCALE);
+    case 'tincture': case 'fur': case 'treated': case 'semy': return paintFill(group.paint, ORDINARY_FUR_SCALE);
     case 'counterchanged':
       return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, type, shape), ORDINARY_FUR_SCALE) : NO_FILL;
     case 'divided': return partyFill(partyOf(group.paint), ordinaryCentre(type, shape), 0);

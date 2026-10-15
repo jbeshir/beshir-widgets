@@ -121,3 +121,55 @@ describe('too-close pre-filter with two main pictures', () => {
     }
   });
 });
+
+
+describe('too-close pre-filter with a semy', () => {
+  // A semy field with nothing in the middle is the primary group, so it keys like its charge; with a picture it is a secondary group and the picture keys.
+  const semy = (id: string, ground = 'azure', ink = 'or') => ({ k: 'semy', ground, charge: { charge: id }, ink });
+  const designs = [
+    nd(arms(semy('mullet'))),
+    nd(arms(semy('rose'))),
+    nd(arms(semy('fleur-de-lis'), group(ordinary('chief'), 'argent'))),
+    nd(arms(semy('mullet', 'vert', 'argent'))),
+    nd(arms('azure', group(charge('mullet'), 'or', { count: 3 }))),
+    nd(arms('azure', group(charge('rose'), 'or'))),
+    nd(arms(semy('mullet'), group(charge('lion'), 'argent'))),
+    nd(arms(semy('rose'), group(charge('lion'), 'argent'))),
+    nd(arms('azure', group(charge('lion'), 'argent'))),
+    nd(arms(div('per-pale', 'azure', 'vert'), group(ordinary('fess'), 'or'))),
+    nd(arms({ k: 'divided', division: 'per-pale', parts: ['azure', semy('rose', 'argent', 'sable')] })),
+    nd(arms('vert', group(charge('lion'), 'or'), group(ordinary('bordure'), semy('roundel', 'argent', 'sable')))),
+  ];
+
+
+  it('keys a semy field by its charge, as the primary group it is', () => {
+    expect(candidateKey(designs[0])).toEqual(candidateKey(designs[4]));
+    expect(candidateKey(designs[0]).primary).not.toBe(candidateKey(designs[1]).primary);
+    expect(candidateKey(designs[6])).toEqual(candidateKey(designs[8]));
+  });
+
+
+  it('finds every entry that is not clear of the probe', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(keysMayConflict(candidateKey(a), candidateKey(b)), `${signature(a)} vs ${signature(b)}`).toBe(true);
+      expect(keysMayConflict(candidateKey(a), candidateKey(b))).toBe(keysMayConflict(candidateKey(b), candidateKey(a)));
+    }
+  });
+
+
+  it('keys only on changes that are substantial on their own', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+
+  it('gives the same verdict as scanning the whole registry', () => {
+    const registry = registryFrom(designs);
+    for (const probe of designs) {
+      const sig = signature(probe);
+      const candidates = registry.filter((e) => sameKey(probe, e.design));
+      expect(checkUnique(probe, sig, candidates)).toEqual(checkUnique(probe, sig, registry));
+    }
+  });
+});

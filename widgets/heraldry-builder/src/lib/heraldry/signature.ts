@@ -14,6 +14,7 @@ function paint(p: Paint): string {
     case 'fur': return p.colours ? `${p.fur}(${p.colours.map((t) => TINCTURE_CODE[t]).join(',')})` : p.fur;
     case 'counterchanged': return 'cc';
     case 'proper': return 'proper';
+    case 'semy': return `semy(${paint(p.ground)},${p.charge.charge},${paint(p.ink)})`;
     case 'treated': return `${p.treatment}(${paint(p.ground)},${TINCTURE_CODE[p.ink]})`;
     case 'divided': return `${p.division}(${p.parts.map(paint).join(',')})`;
     // Checky is the same with either tincture first (Prec #FIELDCheck).

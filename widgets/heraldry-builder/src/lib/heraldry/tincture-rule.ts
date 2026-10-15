@@ -11,7 +11,7 @@ import { fieldSurfaces, surfaceOf, tinctureSurface, type Surface } from './surfa
 import { furName } from './fur';
 import { treatedName } from './treatment';
 import {
-  asParty, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Item, type Paint,
+  asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type IssueAt, type Item, type Paint,
 } from './design';
 import {
   CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPart, inFirstPartTurned, ordinaryCentre, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Point, type Slot,
@@ -38,8 +38,8 @@ interface Samples { key: string; points: () => readonly Pt[] }
 
 const slotSamples = (s: Slot): Samples => ({ key: `${s.x},${s.y},${s.size}`, points: () => groundPoints(s) });
 
-/** Whether a paint is a tincture, a fur or a treated tincture: one thing over the part it fills. */
-const isOneThing = (p: Paint): boolean => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null;
+/** Whether a paint is a tincture, a fur, a treated tincture or a strewn one: one thing over the part it fills. */
+const isOneThing = (p: Paint): boolean => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null || asSemy(p) !== null;
 
 /** The share of each sample set in the first part of each division: it depends on the lines alone, not on the tinctures. */
 const firstShares = new Map<string, number>();
@@ -62,7 +62,10 @@ function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[])
   if (field.k === 'variation') return partOrder.map((surface) => ({ surface, share: 1 }));
   const counts = new Map<Surface, number>();
   const [a, b] = field.k === 'divided' ? field.parts : [];
-  if (field.k === 'divided' && field.parts.length === 2 && isOneThing(a) && isOneThing(b) && DRAWN_DIVISIONS.includes(field.division)) {
+  if (field.k !== 'divided') {
+    // One paint all over: its surface lies under everything.
+    counts.set(surfaceOf(field, null), 1);
+  } else if (field.parts.length === 2 && isOneThing(a) && isOneThing(b) && DRAWN_DIVISIONS.includes(field.division)) {
     const first = firstShare(field.division, samples);
     const [sa, sb] = [surfaceOf(a, null), surfaceOf(b, null)];
     counts.set(sa, first);
@@ -312,7 +315,7 @@ export function describeSlots(slots: readonly Slot[], idx: readonly number[], pa
   return idx.length === 1 ? `the ${labels[0]} ${T}${meta.name}` : `the ${joinAnd(labels)} ${T}${meta.plural}`;
 }
 
-/** A paint in a message: a tincture's or fur's name, 'Counterchanged', or a party as written ("Per pale Azure and Or"). */
+/** A paint in a message: a tincture's or fur's name (a semy's, its ground's), 'Counterchanged', or a party as written ("Per pale Azure and Or"). */
 export function paintName(p: Paint): string {
   const party = asParty(p);
   if (party) return `${capitalise(DIVISION_NAME[party.division])} ${party.parts.map((x) => TINCTURE_NAME[x.t]).join(' and ')}`;
@@ -321,6 +324,8 @@ export function paintName(p: Paint): string {
   if (p.k === 'fur') return capitalise(furName(p));
   const treated = asTreated(p);
   if (treated) return capitalise(treatedName(treated));
+  const semy = asSemy(p);
+  if (semy) return TINCTURE_NAME[semy.ground.t];
   return p.k === 'tincture' ? TINCTURE_NAME[p.t] : p.k === 'proper' ? 'Proper' : 'Counterchanged';
 }
 
@@ -332,7 +337,7 @@ function ordinaryMessage(d: Design, g: Group, f: ContrastFailure, ground: Ground
   }
   const contacts = groundTinctures(ground);
   if (d.kind === 'arms' && d.field.k === 'tincture') return `${T} ${name} on ${TINCTURE_NAME[contacts[0]]} field: ${FAILURE_TEXT[f]}`;
-  if (d.kind === 'arms' && (d.field.k === 'fur' || d.field.k === 'variation' || d.field.k === 'treated')) return `${T} ${name} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`;
+  if (d.kind === 'arms' && (d.field.k === 'fur' || d.field.k === 'variation' || d.field.k === 'treated' || d.field.k === 'semy')) return `${T} ${name} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`;
   if (f === 'same') {
     const shared = contacts.find((t) => surfaceOf(g.paint, g.item).bases.includes(t)) ?? contacts[0];
     const part = fieldParts(d).find((p) => paintTinctures(p).includes(shared));
@@ -385,7 +390,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
     const f = failures.find((x) => x !== null);
     return f ? [issue(`${T} ${noun} on the ${paintName(host.paint)} ${itemName(host.item)}: ${FAILURE_TEXT[f]}`, all)] : [];
   }
-  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur' || d.field.k === 'variation' || d.field.k === 'treated')) {
+  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur' || d.field.k === 'variation' || d.field.k === 'treated' || d.field.k === 'semy')) {
     const f = failures.find((x) => x !== null);
     return f ? [issue(`${T} ${noun} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`, all)] : [];
   }
@@ -436,8 +441,23 @@ export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
   return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
 }
 
-/** Every rule-of-tincture violation, group by group in canonical order. */
+/** The issue of a semy whose charges don't stand out against the tincture they are strewn on (SENA A3B4a), or none for any other paint. */
+export function semyIssues(p: Paint, at: IssueAt): Issue[] {
+  const semy = asSemy(p);
+  const failure = semy && contrastFailure(semy.ink.t, [semy.ground.t]);
+  if (!semy || !failure) return [];
+  return [{
+    code: 'tincture', reason: 'contrast', at, slots: [],
+    message: `${capitalise(CHARGES[semy.charge.charge].plural)} ${TINCTURE_NAME[semy.ink.t]} strewn on ${TINCTURE_NAME[semy.ground.t]}: ${FAILURE_TEXT[failure]}`,
+  }];
+}
+
+
+/** Every rule-of-tincture violation: the semys of the field, then group by group in canonical order. */
 export function tinctureIssues(d: Design): Issue[] {
   if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
-  return walkGroups(d).flatMap(({ path }) => groupTinctureIssues(d, path));
+  return [
+    ...fieldParts(d).flatMap((p) => semyIssues(p, { k: 'field' })),
+    ...walkGroups(d).flatMap(({ path, group }) => [...semyIssues(group.paint, { k: 'group', path }), ...groupTinctureIssues(d, path)]),
+  ];
 }

@@ -144,7 +144,7 @@ export function PatternDef({ spec, ids }: { spec: PatternSpec; ids: Ids }) {
   return (
     <pattern id={ids.pattern(spec)} patternUnits="userSpaceOnUse" width={spec.width} height={spec.height} patternTransform={spec.transform ?? undefined}>
       <rect width={spec.width} height={spec.height} fill={colourHex(spec.ground)} />
-      {spec.marks.map((m, i) => <path key={i} d={m.d} fill={colourHex(m.colour)} />)}
+      {spec.marks.map((m, i) => <path key={i} d={m.d} fill={colourHex(m.colour)} transform={m.transform ?? undefined} />)}
     </pattern>
   );
 }

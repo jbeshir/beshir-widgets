@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_TREATMENTS, FURS, FUR_NAME, TINCTURES, VARIATIONS, VARIATION_NAME, type Division, type Fur, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_TREATMENTS, FURS, FUR_NAME, TINCTURES, VARIATIONS, VARIATION_NAME, type Division, type Fur, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -17,6 +17,12 @@ const COLOURED_FURS: Record<string, Fur> = { vairy: 'vair', potenty: 'potent' };
 const VARIATION_PHRASES = VARIATIONS.map((variation) => ({ words: VARIATION_NAME[variation].split(' '), variation })).sort((a, b) => b.words.length - a.words.length);
 
 
+/** The charges as the words of their plural ("crosses crosslet"), the longest first: what a semy is "semy of". */
+const STREWN_PHRASES = CHARGE_IDS.map((id) => ({ words: CHARGES[id].plural.split(' '), id })).sort((a, b) => b.words.length - a.words.length);
+
+
+
+
 const isTreatment = (w: string | undefined): w is Treatment => (DRAWN_TREATMENTS as readonly (string | undefined)[]).includes(w);
 
 
@@ -27,10 +33,15 @@ const isTincture = (w: string | undefined): w is Tincture => (TINCTURES as reado
 
 export interface PaintRead { paint: unknown; end: number }
 
-/** One paint that is one thing: a tincture, "argent ermined gules", "argent masoned sable", a named fur, "vairy Or and gules". */
+/** One paint that is one thing: a tincture, "argent ermined gules", "argent masoned sable", "azure semy of mullets Or", a named fur, "vairy Or and gules". */
 function readOne(tokens: readonly string[], i: number): PaintRead | null {
   const word = tokens[i];
   if (isTincture(word)) {
+    if (tokens[i + 1] === 'semy' && tokens[i + 2] === 'of') {
+      const noun = STREWN_PHRASES.find((p) => p.words.every((w, j) => tokens[i + 3 + j] === w));
+      const ink = noun && tokens[i + 3 + noun.words.length];
+      if (noun && isTincture(ink)) return { paint: { k: 'semy', ground: word, charge: { charge: noun.id }, ink }, end: i + 4 + noun.words.length };
+    }
     const spots = tokens[i + 2];
     if (isTreatment(tokens[i + 1]) && isTincture(spots)) return { paint: { k: 'treated', treatment: tokens[i + 1], ground: word, ink: spots }, end: i + 3 };
     return tokens[i + 1] === 'ermined' && isTincture(spots)
@@ -62,6 +73,19 @@ function readVariation(tokens: readonly string[], i: number): PaintRead | null {
 }
 
 
+/** "all semy of roses gules" after a division's two tinctures: both parts strewn alike, or (counterchanged) each with the other's tincture. */
+function readAllSemy(tokens: readonly string[], i: number, a: string, b: string): { parts: unknown[]; end: number } | null {
+  if (tokens[i] !== 'all' || tokens[i + 1] !== 'semy' || tokens[i + 2] !== 'of') return null;
+  const noun = STREWN_PHRASES.find((p) => p.words.every((w, j) => tokens[i + 3 + j] === w));
+  const ink = noun && tokens[i + 3 + noun.words.length];
+  if (!noun || !(isTincture(ink) || ink === 'counterchanged')) return null;
+  const semy = (ground: string, strewn: string) => ({ k: 'semy', ground, charge: { charge: noun.id }, ink: strewn });
+  return { parts: ink === 'counterchanged' ? [semy(a, b), semy(b, a)] : [semy(a, ink), semy(b, ink)], end: i + 4 + noun.words.length };
+}
+
+
+
+
 /**
  * The paint starting at `tokens[i]` and the index after it, or null when there is none: a tincture or fur, a division "per pale argent
  * and gules" (of the field, or of a band or picture), a variation "barry argent and azure", or for a group 'counterchanged'.
@@ -78,5 +102,7 @@ export function readPaint(tokens: readonly string[], i: number, where: 'field' |
   if (!first || tokens[first.end] !== 'and') return null;
   const second = readOne(tokens, first.end + 1);
   if (!second) return null;
+  const all = typeof first.paint === 'string' && typeof second.paint === 'string' ? readAllSemy(tokens, second.end, first.paint, second.paint) : null;
+  if (all) return { paint: { k: 'divided', division: DIVISION_WORDS.get(phrase.join(' ')), parts: all.parts }, end: all.end };
   return { paint: { k: 'divided', division: DIVISION_WORDS.get(phrase.join(' ')), parts: [first.paint, second.paint] }, end: second.end };
 }
