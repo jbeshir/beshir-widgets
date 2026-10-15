@@ -20,6 +20,7 @@ import { defaultOrdinaryFrame, ordinaryGeometry, specOf, type OrdinarySpec } fro
 import { canonicalSlots, groupSlotCount } from './layout';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, type Division, type Variation } from './divisions';
+import { isStraightLine } from './lines';
 import { coPrimaries, forcedLayout, layoutContext } from './arrangement';
 
 export const FAILURE_TEXT: Record<ContrastFailure, string> = {
@@ -406,7 +407,9 @@ function sharedTinctureException(d: Design, group: Group): SharedTinctureExcepti
   const shape = item.k === 'ordinary' || SIMPLE_GEOMETRIC.has(item.charge);
   const lattice = d.field.k === 'variation' && (d.field.variation === 'lozengy' || d.field.variation === 'fusily');
   const bend = item.k === 'ordinary' && (item.type === 'bend' || item.type === 'bend-sinister');
-  return shape && multiplyDivided(d.field) !== multiplyDivided(group.paint) && !(lattice && bend) ? 'shape-on-multiply-divided' : 'none';
+  // "whether the charge has a complex line" must stay identifiable too: not extended to an ordinary with one (RULES-C §B.6)
+  const lined = item.k === 'ordinary' && (!isStraightLine(item.lines.a) || !isStraightLine(item.lines.b));
+  return shape && !lined && multiplyDivided(d.field) !== multiplyDivided(group.paint) && !(lattice && bend) ? 'shape-on-multiply-divided' : 'none';
 }
 
 /** The issues of a charge group, one per run of failing slots that share a ground and a failure. */

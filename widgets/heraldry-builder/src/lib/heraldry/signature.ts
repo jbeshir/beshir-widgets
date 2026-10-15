@@ -30,7 +30,7 @@ function paint(p: Paint): string {
 }
 
 function item(i: Item): string {
-  return i.k === 'ordinary' ? `o.${i.type}` : `c.${i.charge}${i.posture ? `.${i.posture}` : ''}${i.mods.map((m) => `+${m.id}`).join('')}`;
+  return i.k === 'ordinary' ? `o.${i.type}${linesCode(i.lines)}` : `c.${i.charge}${i.posture ? `.${i.posture}` : ''}${i.mods.map((m) => `+${m.id}`).join('')}`;
 }
 
 function group(g: Group): string {

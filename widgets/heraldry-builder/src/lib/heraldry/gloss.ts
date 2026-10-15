@@ -6,7 +6,7 @@ import { CHARGES, postureGloss } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
 import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Lines, type Paint, type Position, type SemyPaint } from './design';
-import type { ComplexLine, Line } from './lines';
+import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
 import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type HalfPosition, type Layout } from './arrangement';
@@ -131,9 +131,24 @@ function colourOf(p: Paint): string | null {
   return p.k === 'counterchanged' || p.k === 'proper' || asSemy(p) || asParty(p) || asVariation(p) ? null : notSupported({ category: 'tincture', detail: p.k });
 }
 
+/** Where an edge of a band lies, as you look at it. */
+const EDGE_GLOSS: Record<EdgeName, string> = { upper: 'top', lower: 'bottom', dexter: 'left', sinister: 'right', outer: 'outer', inner: 'inner', 'pale-line': 'up-and-down', 'fess-line': 'across' };
+
+/** An ordinary's lines in words: " with wavy edges", " with a battlemented top edge", nothing when plain. */
+function ordinaryLines(type: OrdinaryType, inverted: boolean, { a, b }: Lines): string {
+  const names = edgeNames({ k: 'ordinary', type, inverted });
+  if (a === b || names === null) return a === 'plain' ? '' : ONE_EDGE.includes(type) ? ` with ${article(LINE_GLOSS[a])} ${LINE_GLOSS[a]} edge` : ` with ${LINE_GLOSS[a]} edges`;
+  const edge = (l: ComplexLine, name: EdgeName) => `${article(LINE_GLOSS[l])} ${LINE_GLOSS[l]} ${EDGE_GLOSS[name]} edge`;
+  return ` with ${[a !== 'plain' ? edge(a, names.a) : '', b !== 'plain' ? edge(b, names.b) : ''].filter(Boolean).join(' and ')}`;
+}
+
+/** The ordinaries whose line runs along one edge: the chief's lower edge, the bordure's inner one. */
+const ONE_EDGE: readonly OrdinaryType[] = ['chief', 'bordure'];
+
 function ordinaryGloss(d: Design, g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
-  const body = ORDINARY_GLOSS[g.item.type] ?? notSupported({ category: 'ordinary', detail: g.item.type });
+  const shape = ORDINARY_GLOSS[g.item.type] ?? notSupported({ category: 'ordinary', detail: g.item.type });
+  const body = `${shape}${ordinaryLines(g.item.type, g.item.mods.includes('inverted'), g.item.lines)}`;
   const colour = colourOf(g.paint);
   return colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${paintClause(d, g.paint)}`;
 }

@@ -3,14 +3,15 @@
 // and the points it is sampled at.
 // Every renderer, rule and layout reads an ordinary's shape from here.
 //
-// Lines, treatments, cotises and fimbriation are part of the spec but not drawn yet: support.ts gaps them, and the
-// body is the plain one. The envelopes already allow for the lines, so layout can fit charges to any spec.
+// Lines of partition are drawn on the edges of the ten ordinaries (a band's two edges sharing their periods, a band
+// with a complex line drawn wider); treatments, cotises and fimbriation are part of the spec but not drawn yet:
+// support.ts gaps them, and the body is the plain one.
 
 import { notSupported, type Group, type Lines, type Paint } from './design';
-import { CANONICAL_SHAPE, CHEVRON_APEX_RISE, OVER, counterchangedParts, inFirstPart, pathPolygon, pathRings, pointInPath, shapeFrame, type CounterchangePart, type Point, type Pt } from './geometry';
-import { contourPath, type Contour } from './contour';
+import { CANONICAL_SHAPE, CHEVRON_APEX_RISE, OVER, counterchangedParts, inFirstPart, pathPolygon, pathRings, shapeFrame, type CounterchangePart, type Point, type Pt } from './geometry';
+import { contourPath, type Contour, type ContourEdge } from './contour';
 import type { Division } from './divisions';
-import { LINE_PROFILE, type Line } from './lines';
+import { LINE_PROFILE, PROFILE_REACH, fieldSide, profileSwing, fitPeriod, isStraightLine, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type Line } from './lines';
 import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 import type { FieldShape } from './shape';
 import type { Box } from './variation-geometry';
@@ -91,82 +92,276 @@ const CHEVRON_ASTRIDE_LIFT = CHEVRON_THICK / 2;
 /** Grid step of the points an ordinary is sampled at. */
 const SAMPLE_STEP = 4;
 
-/** A closed outline of straight edges through the points. */
-const straight = ([start, ...rest]: readonly Pt[]): Contour => ({ start, edges: rest.map((to) => ({ via: [], to, run: null })) });
+/** Which of the spec's lines an outline's edge runs along, and the course it is laid on (an index into the outline's courses); null for an edge the shape cuts off. */
+type OutlineEdge = { readonly line: 'a' | 'b'; readonly course: number } | null;
 
-/** Which of the spec's lines an outline's edge runs along: `a`, `b`, or null for an edge the shape cuts off. */
-type EdgeLine = 'a' | 'b' | null;
+/**
+ * A straight line the lined edges along one band, limb or arm are laid on, so that they share their periods (RULES-C §A.4): distances
+ * run from `origin` along the unit `dir`. A band (`junction` null) is laid centred on the chord the shape shows of the line; limbs and
+ * arms are laid out from where they meet, their periods starting `junction` line depths past the inner end of each edge so that the
+ * features of two edges meeting there keep clear of each other. `plus` is the side of `dir` a parallel or single profile puts its +
+ * side on, on every edge of the course (`'outward'`: each edge's own outside, so a pile's sides mirror each other).
+ */
+interface Course { readonly origin: Pt; readonly dir: Pt; readonly junction: number | null; readonly plus: 1 | -1 | 'outward' }
 
-/** An ordinary drawn as a polygon: `lines[i]` is the line of the edge from `points[i]` to the next point (the last one closes it). */
-interface Outline { readonly points: readonly Pt[]; readonly lines: readonly EdgeLine[] }
+/** An ordinary drawn as a polygon: `edges[i]` is the edge from `points[i]` to the next point (the last one closes it). */
+interface Outline { readonly points: readonly Pt[]; readonly edges: readonly OutlineEdge[]; readonly courses: readonly Course[] }
 
-/** How wide each polygon ordinary's band is, across its edges: what caps how deep a line on it is cut (the pile's as a fess's). */
-const BAND_WIDTH = {
+/** The bands and arms drawn wider with a line on an edge: "an ordinary with a complex line … will be somewhat wider" (RULES-C §A.4). */
+const WIDENED: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];
+const WIDENING = 1.2;
+
+/** How wide each polygon ordinary is across its lined edges, drawn plain: what caps how deep a line on it is cut (the pile's as a fess's). */
+const PLAIN_WIDTH = {
   fess: 2 * BAND_HALF, pale: 2 * BAND_HALF, bend: 2 * BAND_HALF, 'bend-sinister': 2 * BAND_HALF, chevron: CHEVRON_THICK / Math.SQRT2,
   cross: 2 * CROSS_HALF, saltire: 2 * SALTIRE_HALF / Math.SQRT2, chief: CHIEF_HEIGHT, pile: 2 * BAND_HALF,
 } as const;
 /** How wide the bordure is (the lozenge's a little narrower). */
 const BORDURE_WIDTH = 10;
 
+/** Whether an edge of the spec carries a line other than a straight one (enarched and ployé bow a band, they don't widen it). */
+const hasComplexLine = (spec: OrdinarySpec): boolean => !isStraightLine(spec.lines.a) || !isStraightLine(spec.lines.b);
+
+/** How much wider than plain the spec is drawn. */
+const widening = (spec: OrdinarySpec): number => (WIDENED.includes(spec.type) && hasComplexLine(spec) ? WIDENING : 1);
+
+/** How wide the ordinary is drawn across its lined edges. */
+function drawnWidth(spec: OrdinarySpec): number {
+  if (spec.type === 'bordure') return BORDURE_WIDTH;
+  const plain = PLAIN_WIDTH[spec.type as keyof typeof PLAIN_WIDTH] ?? notSupported({ category: 'ordinary', detail: spec.type });
+  return plain * widening(spec);
+}
+
+/**
+ * How deep a line is cut on an edge of an ordinary this wide (RULES-C §A.4): its profile's depth, at most 0.3 of its width (a bordure's
+ * too: half its width, as RULES-C suggests, leaves the lozenge's narrower bordure no room for charges). A single feature (enarched, ployé)
+ * bows the whole band by its own depth, both edges alike.
+ */
+function edgeDepth(line: ComplexLine, width: number): number {
+  const p = LINE_PROFILE[line];
+  return p.kind === 'single' ? p.depth : Math.min(p.depth, 0.3 * width);
+}
+
+/** How far a line takes an edge off its straight line, either way at most: its depth times how far its profile swings (`profileSwing`). */
+const edgeReach = (line: Line, width: number): number => (line === 'plain' ? 0 : edgeDepth(line, width) * profileSwing(line));
+
+const unit = ([x, y]: Pt): Pt => {
+  const len = Math.hypot(x, y);
+  return [x / len, y / len];
+};
+
 /** The straight outline of an ordinary, its chevron raised `lift` above its usual place; null for the bordure (a ring with curves). */
 function outlineOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
   const f = shapeFrame(frame.shape);
   const { x: cx, y: cy } = frame.centre;
   const { x0, x1, y0, y1 } = OVER;
-  const d = BEND_HALF, sd = SALTIRE_HALF, c = CROSS_HALF;
+  const k = widening(spec);
+  const h = BAND_HALF * k, d = BEND_HALF * k, sd = SALTIRE_HALF * k, c = CROSS_HALF * k, thick = CHEVRON_THICK * k;
   const bend = (x: number) => cy + (x - cx);
   const sinister = (x: number) => cy - (x - cx);
-  const apexY = cy - CHEVRON_APEX_RISE - lift;
+  // a widened chevron grows both ways from the middle of its band
+  const apexY = cy - CHEVRON_APEX_RISE - lift - (thick - CHEVRON_THICK) / 2;
   const reach = 80; // limbs and saltire arms run this far (horizontally) from their centre
-  const outline = (points: readonly Pt[], lines: readonly EdgeLine[]): Outline => ({ points, lines });
-  // a band's upper edge is `a` and its lower edge `b`; its ends lie outside the shape
-  const band = (points: readonly Pt[]) => outline(points, ['a', null, 'b', null]);
+  const centre: Pt = [cx, cy];
+  const A = (course: number): OutlineEdge => ({ line: 'a', course }), B = (course: number): OutlineEdge => ({ line: 'b', course });
+  // a band is laid centred along its middle line, `plus` toward chief (or dexter): its upper edge is `a` and its lower edge `b`
+  const band = (origin: Pt, dir: Pt): Course => ({ origin, dir, junction: null, plus: fieldSide(dir) });
+  // arms laid out from the centre, `plus` the left of each (so the four arms turn into each other)
+  const arm = (dir: Pt): Course => ({ origin: centre, dir: unit(dir), junction: 1, plus: 1 });
   switch (spec.type) {
-    case 'fess': return band([[x0, cy - BAND_HALF], [x1, cy - BAND_HALF], [x1, cy + BAND_HALF], [x0, cy + BAND_HALF]]);
-    case 'pale': return outline([[cx - BAND_HALF, y0], [cx + BAND_HALF, y0], [cx + BAND_HALF, y1], [cx - BAND_HALF, y1]], [null, 'b', null, 'a']);
-    case 'bend': return band([[cx - reach, bend(cx - reach) - d], [cx + reach, bend(cx + reach) - d], [cx + reach, bend(cx + reach) + d], [cx - reach, bend(cx - reach) + d]]);
-    case 'bend-sinister': return band([[cx - reach, sinister(cx - reach) - d], [cx + reach, sinister(cx + reach) - d], [cx + reach, sinister(cx + reach) + d], [cx - reach, sinister(cx - reach) + d]]);
-    case 'chevron': return outline([
-      [cx - reach, apexY + reach], [cx, apexY], [cx + reach, apexY + reach],
-      [cx + reach, apexY + reach + CHEVRON_THICK], [cx, apexY + CHEVRON_THICK], [cx - reach, apexY + reach + CHEVRON_THICK],
-    ], ['a', 'a', null, 'b', 'b', null]);
-    case 'cross': return outline([
-      [cx - c, y0], [cx + c, y0], [cx + c, cy - c], [x1, cy - c], [x1, cy + c], [cx + c, cy + c],
-      [cx + c, y1], [cx - c, y1], [cx - c, cy + c], [x0, cy + c], [x0, cy - c], [cx - c, cy - c],
-    ], [null, 'a', 'a', null, 'a', 'a', null, 'a', 'a', null, 'a', 'a']);
-    case 'saltire': return outline([
-      [cx, cy - sd], [cx + reach, cy - reach - sd], [cx + reach, cy - reach + sd], [cx + sd, cy], [cx + reach, cy + reach - sd], [cx + reach, cy + reach + sd],
-      [cx, cy + sd], [cx - reach, cy + reach + sd], [cx - reach, cy + reach - sd], [cx - sd, cy], [cx - reach, cy - reach + sd], [cx - reach, cy - reach - sd],
-    ], ['a', null, 'a', 'a', null, 'a', 'a', null, 'a', 'a', null, 'a']);
-    case 'chief': return outline([[x0, y0], [x1, y0], [x1, f.chiefBase], [x0, f.chiefBase]], [null, null, 'a', null]);
-    case 'pile': return outline(f.pile, [null, 'a', 'a']);
+    case 'fess': return {
+      points: [[x0, cy - h], [x1, cy - h], [x1, cy + h], [x0, cy + h]], edges: [A(0), null, B(0), null], courses: [band([x0, cy], [1, 0])],
+    };
+    case 'pale': return {
+      points: [[cx - h, y0], [cx + h, y0], [cx + h, y1], [cx - h, y1]], edges: [null, B(0), null, A(0)], courses: [band([cx, y0], [0, 1])],
+    };
+    case 'bend': return {
+      points: [[cx - reach, bend(cx - reach) - d], [cx + reach, bend(cx + reach) - d], [cx + reach, bend(cx + reach) + d], [cx - reach, bend(cx - reach) + d]],
+      edges: [A(0), null, B(0), null], courses: [band([cx - reach, bend(cx - reach)], unit([1, 1]))],
+    };
+    case 'bend-sinister': return {
+      points: [[cx - reach, sinister(cx - reach) - d], [cx + reach, sinister(cx + reach) - d], [cx + reach, sinister(cx + reach) + d], [cx - reach, sinister(cx - reach) + d]],
+      edges: [A(0), null, B(0), null], courses: [band([cx - reach, sinister(cx - reach)], unit([1, -1]))],
+    };
+    // each limb laid out from the apex; `plus` toward chief on both, so the limbs mirror each other
+    case 'chevron': {
+      const apex: Pt = [cx, apexY];
+      const limb = (dir: Pt): Course => ({ origin: apex, dir: unit(dir), junction: 1, plus: fieldSide(dir) });
+      return {
+        points: [
+          [cx - reach, apexY + reach], apex, [cx + reach, apexY + reach],
+          [cx + reach, apexY + reach + thick], [cx, apexY + thick], [cx - reach, apexY + reach + thick],
+        ],
+        edges: [A(0), A(1), null, B(1), B(0), null], courses: [limb([-1, 1]), limb([1, 1])],
+      };
+    }
+    case 'cross': return {
+      points: [
+        [cx - c, y0], [cx + c, y0], [cx + c, cy - c], [x1, cy - c], [x1, cy + c], [cx + c, cy + c],
+        [cx + c, y1], [cx - c, y1], [cx - c, cy + c], [x0, cy + c], [x0, cy - c], [cx - c, cy - c],
+      ],
+      edges: [null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3), A(0)],
+      courses: [arm([0, -1]), arm([1, 0]), arm([0, 1]), arm([-1, 0])],
+    };
+    case 'saltire': return {
+      points: [
+        [cx, cy - sd], [cx + reach, cy - reach - sd], [cx + reach, cy - reach + sd], [cx + sd, cy], [cx + reach, cy + reach - sd], [cx + reach, cy + reach + sd],
+        [cx, cy + sd], [cx - reach, cy + reach + sd], [cx - reach, cy + reach - sd], [cx - sd, cy], [cx - reach, cy - reach + sd], [cx - reach, cy - reach - sd],
+      ],
+      edges: [A(0), null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3)],
+      courses: [arm([1, -1]), arm([1, 1]), arm([-1, 1]), arm([-1, -1])],
+    };
+    case 'chief': return {
+      points: [[x0, y0], [x1, y0], [x1, f.chiefBase], [x0, f.chiefBase]], edges: [null, null, A(0), null], courses: [band([x0, f.chiefBase], [1, 0])],
+    };
+    // each side laid out from the point, clear of the other by as much as their angle there needs; a lined pile runs off the top
+    case 'pile': {
+      const [left, right, point] = f.pile;
+      const sides = [unit([left[0] - point[0], left[1] - point[1]]), unit([right[0] - point[0], right[1] - point[1]])];
+      const half = Math.acos(sides[0][0] * sides[1][0] + sides[0][1] * sides[1][1]) / 2;
+      const courses = sides.map((dir): Course => ({ origin: point, dir, junction: 1 / Math.tan(half), plus: 'outward' }));
+      const top = (dir: Pt): Pt => [point[0] + (dir[0] * (y0 - point[1])) / dir[1], y0];
+      return { points: spec.lines.a === 'plain' ? [left, right, point] : [top(sides[0]), top(sides[1]), point], edges: [null, A(1), A(0)], courses };
+    }
     case 'bordure': return null;
     default: return notSupported({ category: 'ordinary', detail: spec.type });
   }
 }
 
+/** Twice the signed area of a polygon: positive when it runs clockwise on the page (y down). */
+function signedArea(points: readonly Pt[]): number {
+  let area = 0;
+  for (let i = 0; i < points.length; i++) area += points[i][0] * points[(i + 1) % points.length][1] - points[(i + 1) % points.length][0] * points[i][1];
+  return area;
+}
+
+/** How far along a course a point lies. */
+const along = (course: Course, [x, y]: Pt): number => (x - course.origin[0]) * course.dir[0] + (y - course.origin[1]) * course.dir[1];
+
+/** The longest a course runs: past any shape from any origin. */
+const COURSE_REACH = 400;
+
+/**
+ * The runs each edge of an outline is drawn with (null: straight). The edges along one course share its period and anchor, fitted to the
+ * chord of the course the shape shows (RULES-C §A.4); a band's two edges pair as their profile says (`pairing`: mirrored ones opposed, the
+ * others in phase), each edge's features run off the shape at its ends, and a mirrored profile's + side is the edge's outside.
+ */
+function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[]): (EdgeRun | null)[] {
+  const { points, edges, courses } = outline;
+  const n = points.length;
+  const turn = signedArea(points) > 0 ? 1 : -1;
+  const width = drawnWidth(spec);
+  const ends = (i: number): [Pt, Pt] => [points[i], points[(i + 1) % n]];
+  const laid = new Map<string, { period: number; anchor: number } | null>();
+  /** The period and anchor of a line along a course. */
+  const lay = (index: number, line: ComplexLine, depth: number): { period: number; anchor: number } | null => {
+    const key = `${index}|${line}`;
+    if (laid.has(key)) return laid.get(key) ?? null;
+    const course = courses[index];
+    const [c0, c1] = visibleSpan(course.origin, [course.origin[0] + course.dir[0] * COURSE_REACH, course.origin[1] + course.dir[1] * COURSE_REACH], shape) ?? [0, 0];
+    let out: { period: number; anchor: number } | null = null;
+    if (course.junction === null) {
+      if (c1 > c0) out = { period: fitPeriod(line, c1 - c0, 1), anchor: (c0 + c1) / 2 };
+    } else {
+      // the first period starts clear of the junction on the edge whose inner end lies nearest it
+      const start = Math.min(...edges.flatMap((e, i) => (e?.course === index && spec.lines[e.line] === line ? [Math.min(...ends(i).map((p) => along(course, p)))] : []))) + depth * course.junction;
+      if (c1 > start) {
+        // a profile that overhangs its period (dovetails, nebuly) starts that much further out
+        const overhang = -Math.min(0, PROFILE_REACH[line][0]);
+        const period = fitPeriod(line, (c1 - start) / (1 + overhang), 1);
+        out = { period, anchor: start + (overhang + 0.5) * period };
+      }
+    }
+    laid.set(key, out);
+    return out;
+  };
+  return edges.map((e, i): EdgeRun | null => {
+    if (e === null) return null;
+    const line = spec.lines[e.line];
+    if (line === 'plain') return null;
+    const course = courses[e.course];
+    const [from, to] = ends(i);
+    const visible = visibleSpan(from, to, shape);
+    if (visible === null) return null;
+    const depth = edgeDepth(line, width);
+    const sFrom = along(course, from), sTo = along(course, to), inner = Math.min(sFrom, sTo);
+    const forward = sTo >= sFrom ? 1 : -1;
+    const [v0, v1] = [sFrom + forward * visible[0], sFrom + forward * visible[1]].sort((p, q) => p - q);
+    // a single feature on a limb bows each edge from its own inner end to where it leaves the shape
+    const single = LINE_PROFILE[line].kind === 'single';
+    const fit = single && course.junction !== null ? { period: v1 - inner, anchor: (inner + v1) / 2 } : lay(e.course, line, depth);
+    if (fit === null) return null;
+    const span: [number, number] = course.junction === null ? [v0 - fit.period, v1 + fit.period]
+      : single ? [inner, v1] : [inner + depth * course.junction, v1 + fit.period];
+    // the side of the course's direction the edge's outside lies on: its left when it runs along the course round a clockwise outline
+    const outward: 1 | -1 = turn * forward > 0 ? 1 : -1;
+    const side = LINE_PROFILE[line].pairing === 'mirrored' || course.plus === 'outward' ? outward : course.plus;
+    // a bow on a limb rises as far for its length as a fess's for the shield's width, so a limb's two edges curve alike
+    const drawn = single && course.junction !== null ? (depth * fit.period) / 100 : depth;
+    return runAlong({ origin: course.origin, dir: course.dir, run: { line, side, depth: drawn, period: fit.period, anchor: fit.anchor, span } }, from, to);
+  });
+}
+
+/** A closed outline through the points, its edges drawn with the runs (null: straight); a run on the closing edge makes it an explicit edge. */
+function contourOf(points: readonly Pt[], runs: readonly (EdgeRun | null)[]): Contour {
+  const [start, ...rest] = points;
+  const edges = rest.map((to, i): ContourEdge => ({ via: [], to, run: runs[i] }));
+  const closing = runs[points.length - 1];
+  return { start, edges: closing ? [...edges, { via: [], to: start, run: closing }] : edges };
+}
+
+/** The bordure's inner edge as a ring of points (a flattened curve's repeated last point dropped), clockwise or not as the shape draws it. */
+function insetRing(shape: FieldShape): Pt[] {
+  const inset = pathPolygon(shapeFrame(shape).inset);
+  const ring = inset.filter((p, i) => i === 0 || p[0] !== inset[i - 1][0] || p[1] !== inset[i - 1][1]);
+  if (ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
+  return ring;
+}
+
+/** The ring started at its highest point on the vertical through x (put in when it falls between two points), so its periods are laid out from the top middle. */
+function ringFromTop(ring: readonly Pt[], x: number): Pt[] {
+  let best: { i: number; p: Pt } | null = null;
+  ring.forEach(([ax, ay], i) => {
+    const [bx, by] = ring[(i + 1) % ring.length];
+    if (ax === bx ? ax !== x : (ax - x) * (bx - x) > 0) return;
+    const y = ax === bx ? Math.min(ay, by) : ay + ((by - ay) * (x - ax)) / (bx - ax);
+    if (best === null || y < best.p[1]) best = { i, p: [x, y] };
+  });
+  if (best === null) return [...ring];
+  const { i, p } = best as { i: number; p: Pt };
+  const after = [...ring.slice(i + 1), ...ring.slice(0, i + 1)];
+  return after[after.length - 1][0] === p[0] && after[after.length - 1][1] === p[1] ? [p, ...after.slice(0, -1)] : after[0][0] === p[0] && after[0][1] === p[1] ? after : [p, ...after];
+}
+
+/** A bordure's body: the shape's outline and, inside it, its inset — drawn with the line all the way round, its features toward the field, whole periods from the top middle. */
+function bordureBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
+  const f = shapeFrame(frame.shape);
+  const line = spec.lines.a;
+  if (line === 'plain') return f.outline + f.inset;
+  const ring = ringFromTop(insetRing(frame.shape), frame.centre.x);
+  const closed = [...ring, ring[0]];
+  let length = 0;
+  for (let i = 1; i < closed.length; i++) length += Math.hypot(closed[i][0] - closed[i - 1][0], closed[i][1] - closed[i - 1][1]);
+  const period = fitPeriod(line, length, 1);
+  // toward the field: inside the ring, the right of a ring run clockwise on the page
+  const side = signedArea(ring) > 0 ? -1 : 1;
+  const run: EdgeRun = { line, side, depth: edgeDepth(line, BORDURE_WIDTH), period, anchor: period / 2, span: [0, length] };
+  return f.outline + contourPath({ start: ring[0], edges: [{ via: ring.slice(1), to: ring[0], run }] });
+}
+
 /** The body path of an ordinary, its chevron raised `lift` above its usual place. */
 function bodyOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): string {
   const outline = outlineOf(spec, frame, lift);
-  if (outline) return contourPath(straight(outline.points));
-  // the bordure: the outline and its inset, curves and all, as subpaths of one ring
-  const f = shapeFrame(frame.shape);
-  return f.outline + f.inset;
+  if (!outline) return bordureBody(spec, frame);
+  const plain = spec.lines.a === 'plain' && spec.lines.b === 'plain';
+  return contourPath(contourOf(outline.points, plain ? outline.edges.map(() => null) : edgeRuns(spec, outline, pathPolygon(shapeFrame(frame.shape).outline))));
 }
-
-/**
- * How far a line takes an edge of a band this wide off its straight line, either way at most: its profile's depth, cut to 0.3 of
- * the band (RULES-C §A.4). Every profile keeps within its depth of the line, on whichever side it runs.
- */
-const edgeReach = (line: Line, width: number): number => (line === 'plain' ? 0 : Math.min(LINE_PROFILE[line].depth, 0.3 * width));
 
 /** The polygon (each corner listed once) with edge i moved `by[i]` outward (negative: inward), each corner where its two moved edges meet. */
 function offsetPolygon(points: readonly Pt[], by: readonly number[]): Pt[] {
   const n = points.length;
-  let area = 0;
-  for (let i = 0; i < n; i++) area += points[i][0] * points[(i + 1) % n][1] - points[(i + 1) % n][0] * points[i][1];
   // The outward normal of each edge: the polygon runs clockwise on the page when its signed area is positive.
-  const turn = area > 0 ? 1 : -1;
+  const turn = signedArea(points) > 0 ? 1 : -1;
   const normals = points.map(([ax, ay], i): Pt => {
     const [bx, bY] = points[(i + 1) % n];
     const len = Math.hypot(bx - ax, bY - ay) || 1;
@@ -186,24 +381,47 @@ function offsetPolygon(points: readonly Pt[], by: readonly number[]): Pt[] {
 
 /**
  * The straight polygons a body with lines stays within (`outer`: each lined edge moved out by its reach) and always covers
- * (`inner`: moved in) — what layout keeps charges clear of or inside, never the toothed body. With plain lines, the body's rings.
+ * (`inner`: moved in) — what layout keeps charges clear of or inside, never the toothed body. With straight lines, the body's rings.
  */
 function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number, body: string): OrdinaryGeometry['envelope'] {
-  if (spec.lines.a === 'plain' && spec.lines.b === 'plain') return { outer: pathRings(body), inner: pathRings(body) };
+  // plain, or bowed (enarched, ployé): the body itself, curves flattened — a bow moves the band rather than cutting into it
+  if (isStraightLine(spec.lines.a) && isStraightLine(spec.lines.b)) return { outer: pathRings(body), inner: pathRings(body) };
+  const width = drawnWidth(spec);
   const outline = outlineOf(spec, frame, lift);
   if (!outline) {
     // The bordure's line runs along its inner edge: the inset moves inward (the ring grows) for `outer`, outward for `inner`.
-    const f = shapeFrame(frame.shape);
-    const [ring, inset] = [pathPolygon(f.outline), pathPolygon(f.inset)];
-    const reach = edgeReach(spec.lines.a, BORDURE_WIDTH);
-    // A flattened curve ends on its first point: list it once.
-    const corners = inset.filter((p, i) => i === 0 || p[0] !== inset[i - 1][0] || p[1] !== inset[i - 1][1]);
-    if (corners[0][0] === corners[corners.length - 1][0] && corners[0][1] === corners[corners.length - 1][1]) corners.pop();
+    const ring = pathPolygon(shapeFrame(frame.shape).outline);
+    const corners = insetRing(frame.shape);
+    const reach = edgeReach(spec.lines.a, width);
     return { outer: [ring, offsetPolygon(corners, corners.map(() => -reach))], inner: [ring, offsetPolygon(corners, corners.map(() => reach))] };
   }
-  const width = BAND_WIDTH[spec.type as keyof typeof BAND_WIDTH];
-  const reach = outline.lines.map((l) => (l === null ? 0 : edgeReach(spec.lines[l], width)));
+  const reach = outline.edges.map((e) => (e === null ? 0 : edgeReach(spec.lines[e.line], width)));
   return { outer: [offsetPolygon(outline.points, reach)], inner: [offsetPolygon(outline.points, reach.map((r) => -r))] };
+}
+
+/**
+ * Where the rows of the sample grid cross a set of rings, as `pointInPolygon` computes each crossing: a point of a row lies in the rings
+ * (even-odd over all of them, as `pointInPath`) when an odd number of the crossings lie to its right.
+ */
+function rowCrossings(rings: readonly Pt[][], y: number): number[] {
+  const xs: number[] = [];
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if (yi > y !== yj > y) xs.push(((xj - xi) * (y - yi)) / (yj - yi) + xi);
+    }
+  }
+  return xs;
+}
+
+/** The step-`SAMPLE_STEP` grid points (offset by one) inside both ring sets, column by column: one pass over the rings per row, not per point. */
+function gridInside(a: readonly Pt[][], b: readonly Pt[][]): Pt[] {
+  const rows: Array<{ y: number; a: number[]; b: number[] }> = [];
+  for (let y = 1; y < 120; y += SAMPLE_STEP) rows.push({ y, a: rowCrossings(a, y), b: rowCrossings(b, y) });
+  const inside = (xs: readonly number[], x: number) => xs.filter((c) => x < c).length % 2 === 1;
+  const out: Pt[] = [];
+  for (let x = 1; x < 100; x += SAMPLE_STEP) for (const row of rows) if (inside(row.a, x) && inside(row.b, x)) out.push([x, row.y]);
+  return out;
 }
 
 const geometryCache = new Map<string, OrdinaryGeometry>();
@@ -216,10 +434,7 @@ function build(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Ordinary
     const body = bodyOf(spec, frame, lift);
     const rings = pathRings(body), outline = pathRings(f.outline);
     const points = rings.flat(), xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
-    const samples: Pt[] = [];
-    for (let x = 1; x < 100; x += SAMPLE_STEP) {
-      for (let y = 1; y < 120; y += SAMPLE_STEP) if (pointInPath(outline, x, y) && pointInPath(rings, x, y)) samples.push([x, y]);
-    }
+    const samples = gridInside(outline, rings);
     g = {
       body,
       fillRule: spec.type === 'bordure' ? 'evenodd' : 'nonzero',

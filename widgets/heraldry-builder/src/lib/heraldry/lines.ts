@@ -123,6 +123,22 @@ export function lineAllowed(host: EdgeHost, line: Line): boolean {
   }
 }
 
+/** Which edge of a two-edge host its `a` and `b` lines are: a band's upper and lower (a pale's dexter and sinister, an orle's outer and inner) edges, or quarterly's per pale and per fess lines. */
+export type EdgeName = 'upper' | 'lower' | 'dexter' | 'sinister' | 'outer' | 'inner' | 'pale-line' | 'fess-line';
+
+/** The edges `a` and `b` name on a host with two (RULES-C §0); null on a host with one line or none. */
+export function edgeNames(host: EdgeHost): { a: EdgeName; b: EdgeName } | null {
+  if (edgeCount(host) !== 2) return null;
+  switch (host.k) {
+    case 'division': return { a: 'pale-line', b: 'fess-line' };
+    case 'variation': return null;
+    case 'ordinary':
+      return host.type === 'pale' || host.type === 'pallet' ? { a: 'dexter', b: 'sinister' }
+        : host.type === 'orle' || host.type === 'tressure' ? { a: 'outer', b: 'inner' } : { a: 'upper', b: 'lower' };
+    default: return host satisfies never;
+  }
+}
+
 /** Bands whose bare "embattled" is the upper edge alone (SENA A3D1c: "fesses are embattled to chief default"). */
 const EMBATTLED_UPPER: readonly OrdinaryType[] = ['fess', 'bar', 'barrulet', 'bend', 'bendlet', 'bend-sinister', 'bendlet-sinister', 'baton', 'chevron', 'chevronel'];
 
@@ -139,6 +155,34 @@ export const LINE_WORD: Record<ComplexLine, string> = {
   nebuly: 'nebuly', raguly: 'raguly', rayonny: 'rayonny', dovetailed: 'dovetailed', urdy: 'urdy', potenty: 'potenty',
   bretessed: 'bretessed', grady: 'embattled grady', enarched: 'enarched', ploye: 'ployé',
 };
+
+/** Where an edge named alone is said to carry its line: "wavy on the lower edge"; quarterly's lines are named before theirs ("per fess embattled"). */
+const EDGE_WORDS: Record<EdgeName, string> = {
+  upper: 'on the upper edge', lower: 'on the lower edge', dexter: 'on the dexter edge', sinister: 'on the sinister edge', outer: 'on the outer edge',
+  inner: 'on the inner edge', 'pale-line': 'per pale', 'fess-line': 'per fess',
+};
+
+/**
+ * The words of a host's lines, after its name (RULES-C §0, §G.1): nothing for plain; the line's word when the host's bare meaning of it is
+ * what is drawn ("a fess embattled" — its upper edge — "a pale wavy", "a bordure engrailed"); both edges of a band embattled are
+ * "embattled counter-embattled"; one edge alone, or two different lines, name their edges ("wavy on the lower edge"; a chevron inverted
+ * always does: "embattled on the upper edge"); quarterly names the one line drawn when only one is ("per fess embattled").
+ */
+export function lineWords(host: EdgeHost, lines: Lines): string {
+  const { a, b } = lines;
+  const word = (l: Line) => (l === 'plain' ? '' : LINE_WORD[l]);
+  const names = edgeNames(host);
+  if (names === null) return word(a);
+  if (host.k === 'division') {
+    if (a === b) return word(a);
+    return [a !== 'plain' ? `${EDGE_WORDS[names.a]} ${word(a)}` : '', b !== 'plain' ? `${EDGE_WORDS[names.b]} ${word(b)}` : ''].filter(Boolean).join(' and ');
+  }
+  const bare = (l: Line) => { const m = bareLines(host, l); return m.a === a && m.b === b; };
+  if (a === 'embattled' && b === 'embattled' && !bare('embattled')) return 'embattled counter-embattled';
+  if (a !== 'plain' && bare(a) && !(host.k === 'ordinary' && host.inverted && a !== b)) return word(a);
+  const on = (l: Line, name: EdgeName) => `${word(l)} ${EDGE_WORDS[name]}`;
+  return [a !== 'plain' ? on(a, names.a) : '', b !== 'plain' ? on(b, names.b) : ''].filter(Boolean).join(' and ');
+}
 
 /** What a written line word reads as: a line (its bare meaning depends on the host: `bareLines`), or both edges of a band embattled. */
 export type LineReading = ComplexLine | 'counter-embattled';
@@ -420,12 +464,31 @@ export function edgePoints(a: Pt, b: Pt, run: EdgeRun): Pt[] {
 /** Longest straight piece of a profile mapped onto a curved polyline: longer steps are split so they follow the curve. */
 const POLYLINE_STEP = 2;
 
-/** The same along a polyline (curved base lines): u runs by arc length, so periods stay even round curves and corners. Only L commands. */
+/**
+ * The periods laid all the way round a ring this long: from the anchor's period on, while a whole one fits (with a period that divides
+ * the length, they tile it). Overhangs may cross the start: distances wrap round a ring.
+ */
+function ringStarts(run: EdgeRun, length: number): number[] {
+  const p = run.period;
+  if (!(p > 0)) return [];
+  const first = (((run.anchor - p / 2) % p) + p) % p;
+  const starts: number[] = [];
+  for (let s = first < p - EPS ? first : 0; s + p <= length + EPS; s += p) starts.push(s);
+  return starts;
+}
+
+/**
+ * The same along a polyline (curved base lines): u runs by arc length, so periods stay even round curves and corners. Only L commands.
+ * A closed polyline (its last point its first) is a ring — a bordure's inner edge: distances wrap round it, and periods are laid all the
+ * way round from the anchor (`span` is not used).
+ */
 export function polylineEdgeCommands(points: readonly Pt[], run: EdgeRun): string {
   return memo(JSON.stringify([...runKey(run), points]), () => {
     const cum = [0];
     for (let i = 1; i < points.length; i++) cum.push(cum[i - 1] + Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]));
     const length = cum[cum.length - 1];
+    const last = points[points.length - 1];
+    const ring = points.length > 2 && last[0] === points[0][0] && last[1] === points[0][1];
     const segNormal = (i: number): Pt => {
       const d = cum[i + 1] - cum[i] || 1;
       return [(points[i + 1][1] - points[i][1]) / d, -(points[i + 1][0] - points[i][0]) / d];
@@ -442,7 +505,8 @@ export function polylineEdgeCommands(points: readonly Pt[], run: EdgeRun): strin
       return i;
     };
     const h = (run.side * run.depth) / 2;
-    const at: Frame = (s, v) => {
+    const at: Frame = (along, v) => {
+      const s = ring ? ((along % length) + length) % length : along;
       const i = segmentAt(s);
       const len = cum[i + 1] - cum[i] || 1;
       const t = Math.min(1, Math.max(0, (s - cum[i]) / len));
@@ -462,7 +526,7 @@ export function polylineEdgeCommands(points: readonly Pt[], run: EdgeRun): strin
     const profile = LINE_PROFILE[run.line];
     const out: Segment[] = [];
     let done = 0;
-    for (const start of periodStarts(run, length)) {
+    for (const start of ring ? ringStarts(run, length) : periodStarts(run, length)) {
       if (start > done + EPS) out.push(...straight(done, start));
       // the period in (u, v): cubics flattened and long straight steps split, so every piece follows the curve
       let prev: Pt = [0, 0];
@@ -511,6 +575,17 @@ export function runAlong(laid: LaidLine, a: Pt, b: Pt): EdgeRun {
 /** The side a line of the field puts its features on (RULES-C §A.2): toward chief, or toward dexter on an upright line. `dir` is the way it is drawn. */
 export function fieldSide([dx, dy]: Pt): 1 | -1 {
   return Math.abs(dx) > EPS ? (dx > 0 ? 1 : -1) : dy < 0 ? 1 : -1;
+}
+
+let swings: Record<ComplexLine, number> | null = null;
+
+/**
+ * The furthest a line's drawn points stray from it, in depths: ½ for the antisymmetric profiles (they swing either way), 1 for the
+ * one-sided ones and the single features (enarched, ployé). Lazily computed — module-cycle safe.
+ */
+export function profileSwing(line: ComplexLine): number {
+  swings ??= Object.fromEntries(LINES.filter((l): l is ComplexLine => l !== 'plain').map((l) => [l, Math.max(...flatten([0, 0], LINE_PROFILE[l].period).map(([, v]) => Math.abs(v))) / 2])) as Record<ComplexLine, number>;
+  return swings[line];
 }
 
 let featureMiddles: Record<ComplexLine, number> | null = null;

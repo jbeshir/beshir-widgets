@@ -6,8 +6,8 @@ export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } fro
 export { ORDINARY_TYPES, BUILDER_ORDINARIES, MORE_ORDINARIES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 export {
   LINES, DRAWN_LINES, LINE_GROUP, LINE_PROFILE, LINE_WORD, LINE_SPELLINGS, isLine, isStraightLine, lineDiffers, edgeCount, lineAllowed, bareLines, fitPeriod, visibleSpan, edgeCommands, polylineEdgeCommands, edgePoints, periodStarts,
-  reversedRun, runAlong, fieldSide, featureMiddle,
-  type Line, type ComplexLine, type LineGroup, type LineReading, type EdgeHost, type LineProfile, type ProfileStep, type EdgeRun, type LaidLine,
+  reversedRun, runAlong, fieldSide, featureMiddle, profileSwing, edgeNames, lineWords,
+  type Line, type ComplexLine, type LineGroup, type LineReading, type EdgeHost, type LineProfile, type ProfileStep, type EdgeRun, type LaidLine, type EdgeName,
 } from './lines';
 export { lineChoices, setLine, edgeSideChoices, edgeSideOf, setEdgeSide, keptLines, type EdgeTarget, type EdgeSide } from './shape-options';
 export { contourPath, contoursPath, type Contour, type ContourEdge } from './contour';
@@ -19,7 +19,7 @@ export {
 } from './design';
 export { resolve, type ResolveResult } from './resolve';
 export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
-export { structuralIssues, couldBeOneFess } from './structure';
+export { structuralIssues, couldBeOneFess, coreSteps, type CoreStep } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, forcedPosition, statesLayout, HALF_POSITIONS, isHalfPosition,
   hostCounts, ON_CHARGE_COUNTS, onChargeLayouts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, SECONDARY_POSITIONS, AROUND_COUNTS, aroundLayouts, aroundPrimaryLayouts, primaryCharges, coPrimaries, MAX_CO_PRIMARY_TOTAL, shareTotal,

@@ -6,7 +6,7 @@ import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { DIVISION_NAME, VARIATION_NAME } from './divisions';
-import { LINE_GROUP, LINE_WORD, isStraightLine, lineAllowed, type ComplexLine, type EdgeHost, type Line } from './lines';
+import { LINE_GROUP, LINE_WORD, edgeCount, isStraightLine, lineAllowed, type ComplexLine, type EdgeHost, type Line } from './lines';
 import { surfaceOf } from './surface';
 import { divisionCutsOrdinary, specOf } from './ordinary-geometry';
 import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
@@ -14,7 +14,7 @@ import { capacityIssue, onChargeWords } from './layout';
 import { posturesClash } from './difference';
 import { strewnIssues } from './strewn';
 import { groundShares, paintName } from './tincture-rule';
-import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
 import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
@@ -118,8 +118,10 @@ function lineHostProblem(host: EdgeHost, line: Line, what: string): string | nul
   if (line === 'plain' || lineAllowed(host, line)) return null;
   switch (line) {
     case 'dancetty': return `Dancetty is for two-sided bands; ${what} is drawn indented.`;
-    case 'enarched': return `An arched (enarched) line divides a field per fess, per bend or per chevron only — not ${what}.`;
-    case 'ploye': return `A bowed (ployé) line divides a field per chevron only — not ${what}.`;
+    case 'enarched': return host.k === 'ordinary'
+      ? `An arched (enarched) line is drawn on a fess, a bend, a chevron or a chief only — not ${what}.`
+      : `An arched (enarched) line divides a field per fess, per bend or per chevron only — not ${what}.`;
+    case 'ploye': return host.k === 'ordinary' ? `A bowed (ployé) line is drawn on a chevron only — not ${what}.` : `A bowed (ployé) line divides a field per chevron only — not ${what}.`;
     default: return `${capitalise(what)} can't be drawn ${LINE_WORD[line]}.`;
   }
 }
@@ -132,6 +134,46 @@ function paintLineProblem(p: Paint): string | null {
     return lineHostProblem(host, p.lines.a, what) ?? lineHostProblem(host, p.lines.b, what);
   }
   return p.k === 'variation' ? lineHostProblem({ k: 'variation', variation: p.variation }, p.lines.a, VARIATION_NAME[p.variation]) : null;
+}
+
+/** The host an ordinary's lines are on. */
+const ordinaryHost = (item: Extract<Group['item'], { k: 'ordinary' }>): EdgeHost => ({ k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') });
+
+/** The one line drawn on one edge of a two-edge band, the other edge plain; null otherwise. */
+function oneEdgeLine(g: Group): ComplexLine | null {
+  if (g.item.k !== 'ordinary' || edgeCount(ordinaryHost(g.item)) !== 2) return null;
+  const { a, b } = g.item.lines;
+  return a === 'plain' && b !== 'plain' ? b : b === 'plain' && a !== 'plain' ? a : null;
+}
+
+/**
+ * The line problem of an ordinary's edges (RULES-C §A.3, §A.5), or null: a line its host can't take (dancetty off a two-sided band; enarched,
+ * ployé off theirs), two different lines on one ordinary ("one complex line per charge", LoAR 08/2012), or a jagged line on one edge of a band
+ * alone ("we do not allow a fess to be indented on the upper edge only", SENA A3D1c).
+ */
+function ordinaryLineProblem(g: Group): string | null {
+  if (g.item.k !== 'ordinary') return null;
+  const host = ordinaryHost(g.item), { a, b } = g.item.lines;
+  const what = `${ORDINARY_ARTICLE[g.item.type]} ${ORDINARY_NAME[g.item.type]}`;
+  const hosted = lineHostProblem(host, a, what) ?? lineHostProblem(host, b, what);
+  if (hosted) return hosted;
+  if (a !== 'plain' && b !== 'plain' && a !== b) return `${capitalise(what)} carries one line: it can't be ${LINE_WORD[a]} on one edge and ${LINE_WORD[b]} on the other.`;
+  const one = oneEdgeLine(g);
+  if (one && LINE_GROUP[one] === 'jagged') return `${capitalise(what)} can't be ${LINE_WORD[one]} on one edge only — draw both edges ${LINE_WORD[one]} (SENA A3D1c).`;
+  return null;
+}
+
+/** A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line (refused). */
+export type CoreStep = 'one-edge-line';
+
+const CORE_STEP_WORDS: Record<CoreStep, string> = { 'one-edge-line': 'a line on one edge of a band only' };
+
+/** The steps from core practice the design takes, one per element that takes one (SENA App G). */
+export function coreSteps(d: Design): CoreStep[] {
+  return walkGroups(d).flatMap(({ group }): CoreStep[] => {
+    const one = oneEdgeLine(group);
+    return one !== null && one !== 'embattled' && LINE_GROUP[one] !== 'jagged' ? ['one-edge-line'] : [];
+  });
 }
 
 /** The complex line of a divided field (the first, when it has two); null when its lines are straight — plain, enarched and ployé count as plain for App H. */
@@ -388,6 +430,19 @@ export function structuralIssues(d: Design): Issue[] {
   const chiefLine = chief?.group.item.k === 'ordinary' ? chief.group.item.lines.a : 'plain';
   if (chief && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && couldBeOneFess(chiefLine, d.field.lines.a) && !crossesTheLine(d)) {
     add({ code: 'structure', rule: 'crosses-line', at: { k: 'group', path: chief.path }, message: 'A chief on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
+  }
+
+  // 6b. An ordinary's lines (RULES-C §A.3, §A.5).
+  for (const { path, group } of walked) {
+    const problem = ordinaryLineProblem(group);
+    if (problem) add({ code: 'structure', rule: 'line', at: { k: 'group', path }, message: problem, slots: [] });
+  }
+
+  // 6c. One step from core practice is registrable, two are not (SENA A2B, App G).
+  const steps = coreSteps(d);
+  if (steps.length > 1) {
+    const message = `This design is ${numberWord(steps.length)} steps from core practice (${steps.map((s) => CORE_STEP_WORDS[s]).join(', ')}); SENA allows one (A2B, App G).`;
+    add({ code: 'structure', rule: 'core-practice', at: { k: 'design' }, message, slots: [] });
   }
 
   // 7. Two parts that don't contrast, across a complex line with a charge over it: the line can't be made out (SENA App H).

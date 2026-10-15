@@ -33,7 +33,7 @@ describe('ordinary geometry', () => {
     }
   });
 
-  it('an ordinary\'s envelopes are its body\'s rings when plain, and its band widened and narrowed by the depth of its lines otherwise', () => {
+  it('an ordinary\'s envelopes are its body\'s rings when plain, and its band widened and narrowed by how far its lines swing otherwise', () => {
     for (const shape of FIELD_SHAPES) {
       for (const type of BUILDER_ORDINARIES) {
         const g = ordinaryGeometry(plainSpec(type), defaultOrdinaryFrame(shape));
@@ -43,20 +43,22 @@ describe('ordinary geometry', () => {
     const heater = defaultOrdinaryFrame('heater');
     const ys = (rings: readonly (readonly (readonly [number, number])[])[]) => { const y = rings.flat().map((p) => p[1]); return [Math.min(...y), Math.max(...y)]; };
     const fess = (a: Line, b: Line) => ordinaryGeometry({ ...plainSpec('fess'), lines: { a, b } }, heater).envelope;
-    // the fess runs from 35 to 65 on the heater; wavy is 9 deep, embattled 8
-    expect(ys(fess('wavy', 'wavy').outer)).toEqual([26, 74]);
-    expect(ys(fess('wavy', 'wavy').inner)).toEqual([44, 56]);
-    expect(ys(fess('embattled', 'plain').outer)).toEqual([27, 65]);
-    expect(ys(fess('embattled', 'plain').inner)).toEqual([43, 65]);
-    // a line cuts no deeper than 0.3 of the band: rayonny (12 deep) on the cross's 24-wide arms takes 7.2 off each side
+    // a lined fess is 36 wide (32 to 68 on the heater); wavy is 9 deep and swings 4.5 either way, embattled 8 and 4, indented its full 8 out
+    expect(ys(fess('wavy', 'wavy').outer)).toEqual([27.5, 72.5]);
+    expect(ys(fess('wavy', 'wavy').inner)).toEqual([36.5, 63.5]);
+    expect(ys(fess('embattled', 'plain').outer)).toEqual([28, 68]);
+    expect(ys(fess('embattled', 'plain').inner)).toEqual([36, 68]);
+    expect(ys(fess('indented', 'indented').outer)).toEqual([24, 76]);
+    // a line cuts no deeper than 0.3 of the band: rayonny (12 deep) on the cross's 28.8-wide arms is 8.64 deep and swings 4.32 either way
     const cross = ordinaryGeometry({ ...plainSpec('cross'), lines: { a: 'rayonny', b: 'rayonny' } }, heater).envelope;
-    expect([54.7, 55.1].map((x) => pointInPolygon(x, 5, cross.inner[0]))).toEqual([true, false]);
-    expect([69.1, 69.3].map((x) => pointInPolygon(x, 5, cross.outer[0]))).toEqual([true, false]);
+    expect([59.9, 60.3].map((x) => pointInPolygon(x, 5, cross.inner[0]))).toEqual([true, false]);
+    expect([68.6, 68.9].map((x) => pointInPolygon(x, 5, cross.outer[0]))).toEqual([true, false]);
     // the bordure's line is on its inner edge: the ring is wider in `outer`, narrower in `inner`, its outline unmoved
     const bordure = ordinaryGeometry({ ...plainSpec('bordure'), lines: { a: 'wavy', b: 'wavy' } }, heater).envelope;
     expect(bordure.outer[0]).toEqual(pathPolygon(shapeFrame('heater').outline));
-    expect([pointInPolygon(50, 12, bordure.outer[1]), pointInPolygon(50, 12, bordure.inner[1])]).toEqual([false, true]);
-    expect([pointInPolygon(50, 14, bordure.outer[1]), pointInPolygon(50, 6, bordure.inner[1])]).toEqual([true, false]);
+    // its line is 3 deep (0.3 of its 10) and swings 1.5 either way of the inset (10 from the top)
+    expect([pointInPolygon(50, 11, bordure.outer[1]), pointInPolygon(50, 11, bordure.inner[1])]).toEqual([false, true]);
+    expect([pointInPolygon(50, 12, bordure.outer[1]), pointInPolygon(50, 8, bordure.inner[1])]).toEqual([true, false]);
   });
 
   it('partIndexAt agrees with phase B\'s analytic test on a 101 × 121 heater grid for every phase-B division', () => {

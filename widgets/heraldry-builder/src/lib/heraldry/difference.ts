@@ -6,11 +6,11 @@
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
-  asParty, asVariation, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
+  asParty, asVariation, canonicalLines, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, type Division, type Variation } from './divisions';
-import { LINE_WORD, lineDiffers, type Line } from './lines';
+import { LINE_WORD, edgeCount, lineDiffers, lineWords, type EdgeHost, type Line } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
@@ -375,6 +375,21 @@ function primaryGroupChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
   return [...substantial, ...distinct.filter((c) => !seen.has(c.attr) && !!seen.add(c.attr))];
 }
 
+/** The host of an ordinary's lines; null for a charge. */
+const edgeHostOf = (i: Item): EdgeHost | null => (i.k === 'ordinary' ? { k: 'ordinary', type: i.type, inverted: i.mods.includes('inverted') } : null);
+
+/**
+ * A5G4: the edges of two ordinaries of one type differ — compared edge by edge ("a fess embattled" against "a fess embattled
+ * counter-embattled" differs on the lower edge), a line against a line of another group of App M2 (RULES-C §B.3).
+ */
+function edgesDiffer(x: Item, y: Item): boolean {
+  const host = edgeHostOf(x);
+  if (host === null || x.k !== 'ordinary' || y.k !== 'ordinary' || x.type !== y.type) return false;
+  const [lx, ly] = [canonicalLines(host, x.lines), canonicalLines(host, y.lines)];
+  const twoSided = edgeCount(host) === 2;
+  return lineDiffers(lx.a, ly.a, twoSided) || lineDiffers(lx.b, ly.b, twoSided);
+}
+
 /** A5G3–A5G7: at most one distinct change per attribute of a pair of groups; `skip` holds attributes already substantial. */
 function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   const ref = refOf(x, y);
@@ -382,7 +397,8 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   const dc = (attr: DiffAttr, rule: SenaRule) => { if (!skip.has(attr)) out.push(change(attr, 'dc', rule, ref)); };
   const gx = x.group, gy = y.group;
   // The in-splendour mod of a sun is an artistic detail (RULES §C.3) and is not looked at.
-  if (itemKey(gx.item) !== itemKey(gy.item)) dc('type', 'A5G4');
+  // A change of an ordinary's edge is a change of its type: with a change of type, one change (RULES-C §B.3).
+  if (itemKey(gx.item) !== itemKey(gy.item) || edgesDiffer(gx.item, gy.item)) dc('type', 'A5G4');
   if (countCategoryFine(gx.count) !== countCategoryFine(gy.count)) dc('number', 'A5G5');
   if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);
@@ -522,7 +538,7 @@ export interface DifferenceNote { attr: DiffAttr; kind: ChangeKind; rule: SenaRu
 
 const partitionWord = (d: Design): string => (d.kind === 'badge' ? 'none' : d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : d.field.k === 'variation' ? VARIATION_NAME[d.field.variation] : 'plain');
 /** A field's partition lines in words: "straight", "wavy", "straight and embattled" (quarterly's two). */
-const lineWords = (d: Design): string => (d.kind === 'badge' ? 'none' : [...new Set(partitionLines(d.field).map((l) => (l === 'plain' ? 'straight' : LINE_WORD[l])))].join(' and ') || 'none');
+const partitionLineWords = (d: Design): string => (d.kind === 'badge' ? 'none' : [...new Set(partitionLines(d.field).map((l) => (l === 'plain' ? 'straight' : LINE_WORD[l])))].join(' and ') || 'none');
 const itemPhrase = (i: Item): string => (i.k === 'ordinary' ? `${ORDINARY_ARTICLE[i.type]} ${ORDINARY_NAME[i.type]}` : `${CHARGES[i.charge].article} ${CHARGES[i.charge].name}`);
 
 /** What the builder calls a group in the middle of a sentence: "band or shape", "top bar", "pictures beside the band". */
@@ -590,7 +606,7 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
           : 'A different pattern of the same kind of background (for example barry bendy and paly bendy) is a distinct change';
         break;
       case 'field-line':
-        text = pair('line of division', lineWords(a), lineWords(b));
+        text = pair('line of division', partitionLineWords(a), partitionLineWords(b));
         sentence = 'Changing the style of at least half the lines that split the background — from straight to wavy, say — is a distinct change';
         break;
       case 'field-tincture':
@@ -610,6 +626,12 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         const s = both();
         const bothBands = s.ga.item.k === 'ordinary' && s.gb.item.k === 'ordinary';
         const label = bothBands ? (s.nounA.one === s.nounB.one ? s.nounA.one : 'band or shape') : s.ga.item.k === s.gb.item.k ? noun().one : 'picture or band';
+        const edged = (i: Item) => { const host = edgeHostOf(i); return host && i.k === 'ordinary' ? lineWords(host, i.lines) || 'straight' : ''; };
+        if (itemKey(s.ga.item) === itemKey(s.gb.item)) {
+          text = pair(`edge of ${s.nounA.one}`, edged(s.ga.item), edged(s.gb.item));
+          sentence = `Changing the edge of ${itemPhrase(s.ga.item)} — from straight to embattled, say — changes its type: a distinct change`;
+          break;
+        }
         text = pair(label, itemName(s.ga.item), itemName(s.gb.item));
         sentence = diff.kind === 'sc'
           ? 'Changing every main picture or band to something unrelated is a substantial change'

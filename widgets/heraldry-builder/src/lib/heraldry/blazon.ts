@@ -12,7 +12,7 @@ import { capitalise, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
-import { LINE_WORD, type EdgeHost } from './lines';
+import { lineWords } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
@@ -54,21 +54,6 @@ function treatedWord(p: Paint): string {
 function semyWord(p: Paint): string {
   const semy = asSemy(p);
   return semy ? `${tinctureWord(semy.ground.t)} ${semyPhrase(semy.charge.charge, semy.ink.t)}` : notSupported(paintGaps(p, false, 'group')[0]);
-}
-
-/**
- * The words of a host's lines, after its name (RULES-C §0, §G.1): nothing for plain; the line's word ("wavy", "embattled grady"); quarterly
- * names the one line drawn when only one is ("quarterly per fess embattled"), and both when they differ.
- */
-function lineWords(host: Extract<EdgeHost, { k: 'division' | 'variation' }>, { a, b }: Lines): string {
-  const word = (l: Lines['a']) => (l === 'plain' ? '' : LINE_WORD[l]);
-  switch (host.k) {
-    case 'division':
-      if (host.division !== 'quarterly' || a === b) return word(a);
-      return [a !== 'plain' ? `per pale ${word(a)}` : '', b !== 'plain' ? `per fess ${word(b)}` : ''].filter(Boolean).join(' and ');
-    case 'variation': return word(a);
-    default: return host satisfies never;
-  }
 }
 
 /** A division and its lines as written: "per pale", "per fess embattled", "quarterly per fess indented". */
@@ -162,10 +147,12 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
   return position !== null || g.arrangement.k === 'line' ? `${layout} ${words.join(' ')}` : `${words.join(' ')} ${layout}`;
 }
 
-/** "a bend", or "on a bend" when something sits on it. */
+/** "a bend", "a fess embattled", or "on a pale wavy" when something sits on it. */
 function ordinaryPhrase(g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
-  return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[g.item.type]} ${ORDINARY_NAME[g.item.type]}`;
+  const { type, lines, mods } = g.item;
+  const line = lineWords({ k: 'ordinary', type, inverted: mods.includes('inverted') }, lines);
+  return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[type]} ${ORDINARY_NAME[type]}${line ? ` ${line}` : ''}`;
 }
 
 /** The charges whose charges are worded "charged with": animals and birds, which a charge is not "on" (D F.2). */

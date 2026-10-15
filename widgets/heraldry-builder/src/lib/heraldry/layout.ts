@@ -822,12 +822,21 @@ const toSlots = (centres: readonly Centre[], size: number): Slot[] =>
     .sort((a, b) => (Math.abs(a.y - b.y) < 0.01 ? a.x - b.x : a.y - b.y))
     .map((c) => ({ x: r2(c.x), y: r2(c.y), size, rotation: c.rotation }));
 
-/** The other centres a context offers when its nominal ones leave the charges too small to read: the ordinary's axis or limbs spread otherwise, the charges under a chevron in another shape. */
+/**
+ * The places of the heater's hand rows, for an ordinary that isn't plain with nothing beside it: where a lined band's wider body leaves
+ * no room on the generic lines (charges between a lined bend sit in its corners, as the plain bend's do).
+ */
+function handAlternative(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, count: number): Centre[][] {
+  const hand = ctx.peripheral === 'none' && !isPlainSpec(ctx.ordinary) ? handCentres(ctx, count) : null;
+  return hand ? [hand] : [];
+}
+
+/** The other centres a context offers when its nominal ones leave the charges too small to read: the ordinary's axis or limbs spread otherwise, the charges under a chevron in another shape; a lined ordinary's hand-row places. */
 function alternativeCentres(ctx: Exclude<GroundContext, { k: 'around' }>, layout: Layout, count: number): Centre[][] {
   if (layout.arrangement.k !== 'host' || layout.position !== null) return [];
   switch (ctx.k) {
-    case 'between': return betweenAlternatives(ctx.ordinary.type, count, ctx.peripheral);
-    case 'on': return onAlternatives(ctx.ordinary.type, count, ctx.peripheral);
+    case 'between': return [...betweenAlternatives(ctx.ordinary.type, count, ctx.peripheral), ...handAlternative(ctx, count)];
+    case 'on': return [...onAlternatives(ctx.ordinary.type, count, ctx.peripheral), ...handAlternative(ctx, count)];
     case 'field': case 'position': return [];
     default: return ctx satisfies never;
   }
