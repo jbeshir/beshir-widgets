@@ -13,6 +13,13 @@ export interface GroundShare { surface: Surface; share: number }
 export type Ground = readonly GroundShare[];
 
 /**
+ * Where a top may share a tincture with its ground (SENA A3B4b): never, or when exactly one of the two is multiply divided and the top is an
+ * ordinary drawn so that both stay identifiable ("Pily gules and argent, a bordure per fess argent and gules"; "Lozengy Or and azure, a chief azure").
+ */
+export type SharedTinctureException = 'none' | 'ordinary-on-multiply-divided';
+
+
+/**
  * The share of a ground that must be of one class (colour or metal) for the ground to count as that class;
  * below it on both sides the ground is neutral and contrasts with both (SENA A3B1: "over half colour … treated
  * as colours"; LoARs judge each charge by the section it lies "predominantly" on). Two thirds rather than a bare
@@ -30,11 +37,11 @@ export const groundTinctures = (ground: Ground): Tincture[] => ground.flatMap((g
  * GROUND_CLASS_SHARE of the ground or more (A3B1, A3B4a). A metal and a colour contrast whatever they are made of: sable spots
  * on ermine don't make a sable charge on it "the same tincture" (RULES A.10 goodContrast; the College registers "Sable, a lion
  * ermine" and "Counter-ermine, a bend ermine"). A neutral top has no class to be alike in, and neutral parts of a ground count
- * toward neither class.
+ * toward neither class. With the exception the shared tincture is allowed, and the classes alone decide.
  */
-export function groundFailure(top: Surface, ground: Ground): ContrastFailure | null {
+export function groundFailure(top: Surface, ground: Ground, exception: SharedTinctureException = 'none'): ContrastFailure | null {
   const sameKind = (g: Surface) => top.cls === g.cls || top.cls === 'neutral' || g.cls === 'neutral';
-  if (ground.some((g) => sameKind(g.surface) && sharesTincture(top, g.surface))) return 'same';
+  if (exception === 'none' && ground.some((g) => sameKind(g.surface) && sharesTincture(top, g.surface))) return 'same';
   if (top.cls === 'neutral') return null;
   const alike = ground.reduce((sum, g) => sum + (g.surface.cls === top.cls ? g.share : 0), 0);
   if (alike < GROUND_CLASS_SHARE - 1e-9) return null;

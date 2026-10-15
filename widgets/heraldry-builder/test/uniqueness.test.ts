@@ -496,7 +496,7 @@ describe('explanations', () => {
       expect(n.text.length).toBeGreaterThan(0);
     }
     for (const rule of SENA_RULES) {
-      if (rule === 'A5E4' || rule === 'A5G6' || rule === 'A5F2') continue; // pinned in the tests above; the generator rarely reaches them
+      if (rule === 'A5E4' || rule === 'A5G6' || rule === 'A5F2' || rule === 'A5G1b' || rule === 'A5G1d') continue; // pinned in the tests above and in variation.test.ts; the generator rarely reaches them
       expect(seen, `generated pairs give ${rule}`).toContain(rule);
     }
   }, 30_000);
@@ -540,7 +540,7 @@ describe('tally and vocabulary', () => {
     expect(isChangeKind('dc')).toBe(true);
     expect(isChangeKind('half')).toBe(false);
     expect(isSenaRule('A5G1a')).toBe(true);
-    expect(isSenaRule('A5G1b')).toBe(false);
+    expect(isSenaRule('A5G1c')).toBe(false);
     expect(SENA_RULES.every(isSenaRule)).toBe(true);
   });
 });

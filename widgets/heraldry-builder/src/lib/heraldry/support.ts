@@ -6,7 +6,7 @@ import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
-import { DIVISION_NAME, DRAWN_DIVISIONS } from './divisions';
+import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES } from './divisions';
 import {
   asParty, walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
@@ -25,6 +25,16 @@ const ROW_PATTERN_KEYS: ReadonlySet<string> = new Set(ROW_PATTERNS.map((r) => r.
 
 const gap = (category: GapCategory, detail: string): Gap => ({ category, detail });
 
+/** A variation is drawn over the whole field, or a band or picture, in two plain tinctures and a stripe count the builder offers; as a part of the field it is a gap (see `paintGaps`). */
+function variationGaps(p: Extract<Paint, { k: 'variation' }>): Gap[] {
+  const gaps: Gap[] = [];
+  for (const l of [p.lines.a, p.lines.b]) if (l !== 'plain' && !gaps.some((g) => g.detail === l)) gaps.push(gap('line-of-partition', l));
+  if (p.pieces !== null && !VARIATION_PIECES.includes(p.pieces)) gaps.push(gap('field-treatment', `${p.variation}-pieces`));
+  for (const part of p.parts) if (part.k !== 'tincture') gaps.push(gap('field-treatment', `${p.variation}-${part.k}`));
+  return gaps;
+}
+
+
 /** The gaps of a paint: `field` paints are the field and its parts, `owner` names the thing a group paint colours. */
 export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
   switch (p.k) {
@@ -34,7 +44,7 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
     // Colours other than a fur's own are drawn for the plain layouts (argent ermined gules, vairy Or and gules); counter- and en pointe furs keep theirs.
     case 'fur': return p.colours && FUR_SPEC[p.fur].layout !== 'plain' ? [gap('fur', `${p.fur}-colours`)] : [];
     case 'proper': return [gap('proper', owner)];
-    case 'variation': return [gap('field-treatment', p.variation)];
+    case 'variation': return variationGaps(p);
     case 'treated': return [gap('field-treatment', p.treatment)];
     case 'semy': return [gap('field-treatment', 'semy')];
     case 'divided': {
@@ -43,7 +53,7 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
       for (const l of [p.lines.a, p.lines.b]) if (l !== 'plain' && !gaps.some((g) => g.detail === l)) gaps.push(gap('line-of-partition', l));
       if (p.pieces !== null) gaps.push(gap('division', `${p.division}-pieces`));
       for (const part of p.parts) {
-        gaps.push(...(part.k === 'divided' ? [gap('division', 'nested')] : paintGaps(part, true, owner)));
+        gaps.push(...(part.k === 'divided' ? [gap('division', 'nested')] : part.k === 'variation' ? [gap('field-treatment', part.variation)] : paintGaps(part, true, owner)));
       }
       // A band or picture is divided into plain tinctures only: a fur on a part of one is not drawn.
       if (!inField && gaps.length === 0 && !asParty(p)) gaps.push(gap('fur', 'party'));

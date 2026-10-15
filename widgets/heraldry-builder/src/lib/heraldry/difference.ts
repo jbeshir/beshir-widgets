@@ -6,34 +6,34 @@
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
-  asParty, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
+  asParty, asVariation, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
-import { DIVISION_NAME } from './divisions';
+import { DIVISION_NAME, VARIATION_NAME, type Variation } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
 import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
-import { fieldSurfaces, sameSurface, type Surface } from './surface';
+import { fieldSurfaces, sameSurface, tinctureSurface, type Surface } from './surface';
 
 export type ChangeKind = 'sc' | 'dc';
 
 const CHANGE_KINDS: readonly ChangeKind[] = ['sc', 'dc'];
 
 /**
- * The SENA section each change comes from (RULES §C.4, §C.5). A5G1b–d never appear: every drawn division is
- * its own A5F1b category, so a different direction, style or number of pieces is already a substantial change.
+ * The SENA section each change comes from (RULES §C.4, §C.5). A5G1b and A5G1d appear for fields of one A5F1b category
+ * (a division and its multiple, the lattices): a different direction or style, or a different number of pieces.
  */
-export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
+export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G1b', 'A5G1d', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
 export type SenaRule = (typeof SENA_RULES)[number];
 
 export type DiffAttr =
-  | 'field-partition' | 'field-tincture' | 'primary-presence' | 'group-presence'
+  | 'field-partition' | 'field-style' | 'field-tincture' | 'primary-presence' | 'group-presence'
   | 'type' | 'number' | 'tincture' | 'arrangement' | 'posture';
 
 const DIFF_ATTRS: readonly DiffAttr[] = [
-  'field-partition', 'field-tincture', 'primary-presence', 'group-presence', 'type', 'number', 'tincture', 'arrangement', 'posture',
+  'field-partition', 'field-style', 'field-tincture', 'primary-presence', 'group-presence', 'type', 'number', 'tincture', 'arrangement', 'posture',
 ];
 
 export function isDiffAttr(v: unknown): v is DiffAttr {
@@ -213,6 +213,9 @@ function tinctureChanged(x: Side, y: Side): boolean {
   // Direction counts for a divided group as for a field (A5G3c): a different division is a change of tincture.
   const [px, py] = [asParty(x.group.paint), asParty(y.group.paint)];
   if (px && py && px.division !== py.division) return true;
+  // So is a different pattern (barry for paly); the same pattern in the same tinctures is none (checky either way round, Prec #FIELDCheck).
+  const [vx, vy] = [asVariation(x.group.paint), asVariation(y.group.paint)];
+  if (vx && vy) return vx.variation !== vy.variation || !(vx.parts[0].t === vy.parts[0].t && vx.parts[1].t === vy.parts[1].t || vx.variation === 'checky' && vx.parts[0].t === vy.parts[1].t && vx.parts[1].t === vy.parts[0].t);
   const a = shownSurfaces(x.design, x.path), b = shownSurfaces(y.design, y.path);
   if (a.k === 'plain' && b.k === 'plain') return differs(a.surface, b.surface);
   const parts = new Set([...(a.k === 'parts' ? a.byPart.keys() : []), ...(b.k === 'parts' ? b.byPart.keys() : [])]);
@@ -226,23 +229,67 @@ function tinctureChanged(x: Side, y: Side): boolean {
 
 const change = (attr: DiffAttr, kind: ChangeKind, rule: SenaRule, group: GroupRef | null): Diff => ({ attr, kind, rule, group });
 
-/** The partition category of a field (A5F1): plain, or the division — each drawn division is its own category. */
+/**
+ * The A5F1b category of each variation: the stripes of a division fall with it ("barry" with per fess), pily with per pale (an extreme
+ * per pale indented), the lattices together, checky on its own.
+ */
+const VARIATION_CATEGORY: Record<Variation, string> = {
+  barry: 'per-fess', paly: 'per-pale', bendy: 'per-bend', 'bendy-sinister': 'per-bend-sinister', chevronny: 'per-chevron', pily: 'per-pale',
+  checky: 'checky', lozengy: 'lattice', fusily: 'lattice', 'barry-bendy': 'lattice', 'paly-bendy': 'lattice',
+};
+
+
+/** The partition category of a field (A5F1): plain, or the division; a variation is in the category of the division it multiplies. */
 function partition(d: Design): string {
   if (d.kind === 'badge') return notSupported({ category: 'fieldless', detail: 'badge' });
   const f = d.field;
-  return f.k === 'divided' ? f.division : f.k === 'tincture' || f.k === 'fur' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
+  return f.k === 'divided' ? f.division : f.k === 'variation' ? VARIATION_CATEGORY[f.variation] : f.k === 'tincture' || f.k === 'fur' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
 }
 
+
+/** Pieces beyond four are not told apart (A5G1d); a variation with no count, and pily, have more than that. */
+const MANY_PIECES = 5;
+const DIVISION_PIECES: Partial<Record<string, number>> = { plain: 1, quarterly: 4, 'per-saltire': 4 };
+
+
+/** How many pieces a field is cut into, up to the count that is no longer told apart (A5G1d). */
+function pieceTier(f: Paint): number {
+  if (f.k === 'variation') return Math.min(f.pieces ?? MANY_PIECES, MANY_PIECES);
+  return f.k === 'divided' ? DIVISION_PIECES[f.division] ?? 2 : 1;
+}
+
+
+/** What else tells two fields of one category apart (A5G1b): lozengy and fusily are one, the other lattices and checky their own. */
+function styleOf(f: Paint): string {
+  return f.k === 'variation' ? (f.variation === 'fusily' ? 'lozengy' : f.variation === 'pily' ? 'per-pale' : f.variation) : '';
+}
+
+
+/** The surfaces a field's tinctures make for comparing, part by part; a variation's are its two tinctures (checky either way round, Prec #FIELDCheck). */
+function comparedSurfaces(d: Design): Surface[] {
+  const v = d.kind === 'arms' ? asVariation(d.field) : null;
+  if (!v) return fieldSurfaces(d);
+  const surfaces = v.parts.map((p) => tinctureSurface(p.t));
+  return v.variation === 'checky' ? surfaces.sort((x, y) => (x.bases[0] < y.bases[0] ? -1 : 1)) : surfaces;
+}
+
+
 function fieldChanges(a: Design, b: Design): Diff[] {
+  if (a.kind !== 'arms' || b.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
   if (partition(a) !== partition(b)) return [change('field-partition', 'sc', 'A5F1', null)];
-  const ta = fieldSurfaces(a), tb = fieldSurfaces(b);
+  const changes: Diff[] = [];
+  // A different number of pieces (A5G1d) or a different style within the category (A5G1b) is a distinct change.
+  if (pieceTier(a.field) !== pieceTier(b.field)) changes.push(change('field-style', 'dc', 'A5G1d', null));
+  else if (styleOf(a.field) !== styleOf(b.field)) changes.push(change('field-style', 'dc', 'A5G1b', null));
+  const ta = comparedSurfaces(a), tb = comparedSurfaces(b);
   const has = (xs: readonly Surface[], s: Surface) => xs.some((x) => sameSurface(x, s));
-  if (ta.length === tb.length && ta.every((s, i) => sameSurface(s, tb[i]))) return [];
+  if (ta.length === tb.length && ta.every((s, i) => sameSurface(s, tb[i]))) return changes;
   // A5F2: for field-primary armory a change of every part to a surface (a tincture or fur) the other field lacks is substantial.
   const substantial = isFieldPrimary(a) && isFieldPrimary(b)
-    && ta.every((s, i) => !sameSurface(s, tb[i])) && ta.some((s) => !has(tb, s)) && tb.some((s) => !has(ta, s));
-  return [substantial ? change('field-tincture', 'sc', 'A5F2', null) : change('field-tincture', 'dc', 'A5G1a', null)];
+    && ta.length === tb.length && ta.every((s, i) => !sameSurface(s, tb[i])) && ta.some((s) => !has(tb, s)) && tb.some((s) => !has(ta, s));
+  return [...changes, substantial ? change('field-tincture', 'sc', 'A5F2', null) : change('field-tincture', 'dc', 'A5G1a', null)];
 }
+
 
 /** A5E2–A5E5: the substantial changes between two primary groups. */
 function primaryChanges(x: Side, y: Side): Diff[] {
@@ -429,7 +476,7 @@ export function tallyText(diffs: readonly { kind: ChangeKind }[]): string {
 /** A difference in words: what changed, why it counts as it does, and (for a group) whether it was a band or a picture. */
 export interface DifferenceNote { attr: DiffAttr; kind: ChangeKind; rule: SenaRule; text: string; why: string; item: 'ordinary' | 'charge' | null }
 
-const partitionWord = (d: Design): string => (d.kind === 'arms' && d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : 'plain');
+const partitionWord = (d: Design): string => (d.kind === 'arms' && d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : d.kind === 'arms' && d.field.k === 'variation' ? VARIATION_NAME[d.field.variation] : 'plain');
 const itemPhrase = (i: Item): string => (i.k === 'ordinary' ? `${ORDINARY_ARTICLE[i.type]} ${ORDINARY_NAME[i.type]}` : `${CHARGES[i.charge].article} ${CHARGES[i.charge].name}`);
 
 /** What the builder calls a group in the middle of a sentence: "band or shape", "top bar", "pictures beside the band". */
@@ -472,7 +519,7 @@ export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] 
     const pair = (label: string, x: string, y: string) => `${label} (${x} ↔ ${y})`;
     const itemOrNone = (g: Group | null) => (g ? (g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural) : 'none');
     const tinctureWord = (g: Group) => (g.paint.k === 'counterchanged' ? 'counterchanged' : paintName(g.paint));
-    const fieldWord = (d: Design) => fieldParts(d).map(paintName).join('/');
+    const fieldWord = (d: Design) => (d.kind === 'arms' && d.field.k === 'variation' ? d.field.parts.map(paintName).join('/') : fieldParts(d).map(paintName).join('/'));
     const postureWord = (g: Group) => { const i = g.item; return i.k === 'charge' && i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
 
     let text: string;
@@ -483,6 +530,12 @@ export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] 
         sentence = 'Splitting the background a different way, or splitting it instead of leaving it plain, is a substantial change';
         break;
       }
+      case 'field-style':
+        text = pair('background pattern', partitionWord(a), partitionWord(b));
+        sentence = diff.rule === 'A5G1d'
+          ? 'Backgrounds cut into up to four pieces are told apart by their number of pieces, so a different number is a distinct change'
+          : 'A different pattern of the same kind of background (for example barry bendy and paly bendy) is a distinct change';
+        break;
       case 'field-tincture':
         text = pair('background colour', fieldWord(a), fieldWord(b));
         sentence = diff.kind === 'sc'

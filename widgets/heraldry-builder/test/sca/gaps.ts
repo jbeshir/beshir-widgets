@@ -9,8 +9,8 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, hostCounts, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
-  type ChargeId, type HalfPosition, type OrdinaryType, type Posture,
+  CHARGES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  type ChargeId, type HalfPosition, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import {
@@ -167,6 +167,7 @@ const JOINS: [RegExp, string][] = [
   [/\bin benediction\b/g, 'in-benediction'],
   [/\b(bend|bendlet|scarpe)s? sinister\b/g, '$1-sinister'],
   [/\b(bendwise|bendy|in bend) sinister\b/g, '$1-sinister'],
+  [/\b(barry|paly) bendy\b/g, '$1-bendy'],
   [/\bfacing (to )?sinister\b|\bsinister[- ]facing\b/g, 'to-sinister'],
   [/\b(eastern|antique|celestial|mural|naval|imperial|papal) crowns?\b/g, '$1-crown'],
   [/\b(in|its|his|her) (splendou?r|glory)\b/g, ' '],
@@ -338,6 +339,18 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const look = (i: number) => (i >= 0 && i < tokens.length && words[i] !== BREAK ? lookup(words[i]) : null);
   const isNounEntry = (e: Entry | undefined) => !!e && (e.k === 'charge' || e.k === 'gapCharge' || e.k === 'cross' || e.k === 'ord' || e.k === 'gapOrd');
 
+  /** Whether the variation named `v` at `words[i]` is written as the widget draws it: a count it offers (if it takes one), then two tinctures. */
+  const variationFollows = (v: string, i: number): boolean => {
+    if (!(VARIATIONS as readonly string[]).includes(v)) return false;
+    let j = i + 1;
+    if (words[j] === 'of') {
+      if (!isCountedVariation(v as Variation) || !VARIATION_PIECES.includes(NUMBERS[words[j + 1]])) return false;
+      j += 2;
+    }
+    return look(j)?.e.k === 'tinc' && words[j + 1] === 'and' && look(j + 2)?.e.k === 'tinc';
+  };
+
+
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
     const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : overallNext ? 'overall' : betweenHost ? 'between' : onHost ? 'on' : 'field';
     const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null };
@@ -459,7 +472,12 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         else tag('line-of-partition', e.v);
         break;
       }
-      case 'treat': tag('field-treatment', e.v); break;
+      case 'treat':
+        // The field, a band or a picture in stripes or checks of two tinctures is drawn: "barry of eight argent and azure", "a fess checky Or and sable".
+        if (variationFollows(e.v, i) && (inField ? divisions === 0 : !held)) {
+          if (words[i + 1] === 'of') i += 2; // the count is part of the pattern, not of the group that follows
+        } else tag('field-treatment', e.v);
+        break;
       case 'semy':
         if (inField) tag('field-treatment', 'semy'); else tag('count', 'semy');
         if (words[i + 1] === 'of') { semyNext = true; semyOnField = inField; i++; }

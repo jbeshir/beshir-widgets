@@ -7,7 +7,7 @@ import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase } from './charges';
 import { DIVISION_NAME } from './divisions';
 import { divisionCutsOrdinary } from './geometry';
-import { asParty, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
+import { asParty, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue } from './layout';
 import { posturesClash } from './difference';
 import { groundShares, paintName } from './tincture-rule';
@@ -95,7 +95,17 @@ function crossesTheLine(d: Design): boolean {
   return grounds.every((g) => g.length === 0) || grounds.some((g) => g.length > 1 && g.every((s) => s.share >= OVERLIES_SHARE));
 }
 
-/** The problems of the field's and the groups' paints: parts of a divided field that share a tincture (SENA A3B3a; of a fur, its ground), a fur in colours that are not a metal and a colour (App F4). */
+/** Why a variation's two tinctures don't stand out against each other (SENA A3B3d: adjacent parts of a multiply divided paint contrast), or null; null too for any other paint. */
+function variationProblem(p: Paint): string | null {
+  const varied = asVariation(p);
+  if (!varied) return null;
+  const [a, b] = [varied.parts[0].t, varied.parts[1].t];
+  if (a === b) return `${paintName(varied)} needs two different tinctures — both are ${TINCTURE_NAME[a]}.`;
+  return TINCTURE_CLASS[a] === TINCTURE_CLASS[b] ? `${paintName(varied)} needs a metal and a colour — both are ${TINCTURE_CLASS[a]}s.` : null;
+}
+
+
+/** The problems of the field's and the groups' paints: parts of a divided field that share a tincture (SENA A3B3a; of a fur, its ground), a variation whose tinctures are not a metal and a colour (A3B3d), a fur in colours that are not a metal and a colour (App F4). */
 export function paintIssues(d: Design): Issue[] {
   const issues: Issue[] = [];
   const add = (issue: Issue) => issues.push(issue);
@@ -118,6 +128,11 @@ export function paintIssues(d: Design): Issue[] {
     }
   }
 
+  // The field's stripes or cells lie against each other all over it (SENA A3B3d).
+  const fieldVariation = d.kind === 'arms' ? variationProblem(d.field) : null;
+  if (fieldVariation) add({ code: 'structure', rule: 'field', at: { k: 'field' }, message: fieldVariation, slots: [] });
+
+
   // 1a. A fur in colours of its own combines a metal with a colour (SENA App F4).
   const furProblem = (p: Paint): string | null => {
     if (p.k !== 'fur' || !p.colours || TINCTURE_CLASS[p.colours[0]] !== TINCTURE_CLASS[p.colours[1]]) return null;
@@ -128,6 +143,8 @@ export function paintIssues(d: Design): Issue[] {
   for (const { path, group } of walkGroups(d)) {
     const problem = furProblem(group.paint);
     if (problem) add({ code: 'structure', rule: 'fur', at: { k: 'group', path }, message: problem, slots: [] });
+    const varied = variationProblem(group.paint);
+    if (varied) add({ code: 'structure', rule: 'divided-paint', at: { k: 'group', path }, message: varied, slots: [] });
   }
 
   return issues;

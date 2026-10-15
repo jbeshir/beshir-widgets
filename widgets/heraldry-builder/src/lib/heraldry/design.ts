@@ -3,7 +3,7 @@
 // Parsing untrusted input is resolve.ts; what the builder draws is support.ts.
 
 import { FUR_SPEC, TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
-import type { Division, Treatment, Variation } from './divisions';
+import { variationPieces, type Division, type Treatment, type Variation } from './divisions';
 import { canonicalFur, furColours } from './fur';
 import type { Line, OrdinaryMod, OrdinaryType } from './ordinaries';
 import {
@@ -173,7 +173,7 @@ export function isFieldPrimary(d: Design): boolean {
 /** The plain tinctures of the field, in part order; a part that isn't a plain tincture adds none. */
 export function fieldTinctures(d: Design): Tincture[] {
   if (d.kind !== 'arms') return [];
-  const parts = d.field.k === 'divided' ? d.field.parts : [d.field];
+  const parts = d.field.k === 'divided' || d.field.k === 'variation' ? d.field.parts : [d.field];
   return parts.flatMap((p) => (p.k === 'tincture' ? [p.t] : []));
 }
 
@@ -235,6 +235,29 @@ export function asParty(p: Paint): PartyPaint | null {
   return a.k === 'tincture' && b.k === 'tincture' ? { ...p, parts: [a, b] } : null;
 }
 
+/** A variation of two plain tinctures ("barry argent and azure", "checky Or and sable"): the only varied paint the builder draws. */
+export interface VariationPaint {
+  k: 'variation';
+  variation: Variation;
+  lines: Lines;
+  pieces: number | null;
+  parts: [{ k: 'tincture'; t: Tincture }, { k: 'tincture'; t: Tincture }];
+}
+
+
+export function variationPaint(variation: Variation, a: Tincture, b: Tincture, pieces: number | null = null): VariationPaint {
+  return { k: 'variation', variation, lines: { ...PLAIN_LINES }, pieces: variationPieces(variation, pieces), parts: [{ k: 'tincture', t: a }, { k: 'tincture', t: b }] };
+}
+
+
+/** The paint as a variation of two plain tinctures, or null when it is anything else. */
+export function asVariation(p: Paint): VariationPaint | null {
+  if (p.k !== 'variation') return null;
+  const [a, b] = p.parts;
+  return a.k === 'tincture' && b.k === 'tincture' ? { ...p, parts: [a, b] } : null;
+}
+
+
 /** The picker value of a paint, or null when the paint is neither a tincture nor counterchanged. */
 export function groupTinctureOf(p: Paint): GroupTincture | null {
   return p.k === 'tincture' ? p.t : p.k === 'counterchanged' ? 'counterchanged' : null;
@@ -254,7 +277,7 @@ export function canonicalPaint(p: Paint): Paint {
     case 'divided':
       return { k: 'divided', division: p.division, lines: canonicalLines(p.lines), pieces: p.pieces, parts: p.parts.map(canonicalPaint) };
     case 'variation':
-      return { k: 'variation', variation: p.variation, lines: canonicalLines(p.lines), pieces: p.pieces, parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
+      return { k: 'variation', variation: p.variation, lines: canonicalLines(p.lines), pieces: variationPieces(p.variation, p.pieces), parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
     case 'treated': return { k: 'treated', treatment: p.treatment, ground: canonicalPaint(p.ground), ink: p.ink };
     case 'semy': return { k: 'semy', ground: canonicalPaint(p.ground), charge: { charge: p.charge.charge, form: p.charge.form }, ink: canonicalPaint(p.ink) };
     case 'proper': return { k: 'proper' };
@@ -344,7 +367,7 @@ export interface Gap { category: GapCategory; detail: string }
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a band or picture divided the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
+/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
 export type StructureRule = 'field' | 'fur' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall';
 
 /**

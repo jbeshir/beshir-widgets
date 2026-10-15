@@ -102,6 +102,16 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Vairy Or and gules, a unicorn azure.'],
   ['a fur chief with a picture (O&A 32341)', arms('purpure', group(charge('rose'), 'argent'), group(ordinary('chief'), { k: 'fur', fur: 'ermine' })),
     'Purpure, a rose argent, a chief ermine.'],
+  ['a barry field with a picture', arms({ k: 'variation', variation: 'barry', parts: ['argent', 'azure'] }, group(charge('lion'), 'gules')),
+    'Barry argent and azure, a lion gules.'],
+  ['a paly field of eight with a band counterchanged', arms({ k: 'variation', variation: 'paly', pieces: 8, parts: ['sable', 'or'] }, group(ordinary('bend'), 'counterchanged')),
+    'Paly of eight sable and Or, a bend counterchanged.'],
+  ['a lozengy field with a chief and a bordure sharing its tinctures', arms({ k: 'variation', variation: 'lozengy', parts: ['or', 'azure'] }, group(ordinary('chief'), 'azure'), group(ordinary('bordure'), 'or')),
+    'Lozengy Or and azure, a chief azure, a bordure Or.'],
+  ['a checky band with pictures on it', arms('vert', group(ordinary('fess'), { k: 'variation', variation: 'checky', parts: ['or', 'gules'] }, { charged: [rose(3, 'argent')] })),
+    'Vert, on a fess checky Or and gules three roses argent.'],
+  ['a barry picture', arms('vert', group(charge('lion'), { k: 'variation', variation: 'barry', pieces: 8, parts: ['or', 'gules'] })),
+    'Vert, a lion barry of eight Or and gules.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {

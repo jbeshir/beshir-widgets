@@ -8,8 +8,8 @@ import { tinctureWord } from './tinctures';
 import { furName } from './fur';
 import { capitalise, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory } from './charges';
-import { asParty, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
-import { DIVISION_NAME } from './divisions';
+import { asParty, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
+import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
@@ -20,6 +20,7 @@ function paintWord(p: Paint): string {
     case 'fur': return furName(p);
     case 'counterchanged': return 'counterchanged';
     case 'divided': return partyWord(p);
+    case 'variation': return variationWord(p);
     default: return notSupported(paintGaps(p, false, 'group')[0]);
   }
 }
@@ -30,11 +31,21 @@ function partyWord(p: Paint): string {
   return party ? `${DIVISION_NAME[party.division]} ${party.parts.map(paintWord).join(' and ')}` : notSupported(paintGaps(p, false, 'group')[0]);
 }
 
+/** A variation as written: "barry argent and azure", "paly of eight Or and sable" (the usual six stripes are not blazoned: "barry of six" is a stated default). */
+function variationWord(p: Paint): string {
+  const varied = asVariation(p);
+  if (!varied) return notSupported(paintGaps(p, false, 'group')[0]);
+  const count = varied.pieces === null || varied.pieces === DEFAULT_PIECES ? '' : ` of ${numberWord(varied.pieces)}`;
+  return `${VARIATION_NAME[varied.variation]}${count} ${varied.parts.map((x) => tinctureWord(x.t)).join(' and ')}`;
+}
+
+
 function fieldPhrase(field: Paint): string {
   if (field.k === 'tincture' || field.k === 'fur') return paintWord(field);
   if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur')) {
     return `${DIVISION_NAME[field.division]} ${field.parts.map(paintWord).join(' and ')}`;
   }
+  if (field.k === 'variation') return variationWord(field);
   return notSupported(paintGaps(field, true, 'field')[0]);
 }
 

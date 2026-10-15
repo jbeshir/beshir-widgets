@@ -15,17 +15,17 @@
 // a second main picture may stand beside the picture on the background, laid out together with it.
 // `simpleParts` finds them in a design (by place, places.ts) and `assembleParts` puts them back with the roles, relations and host layouts the model needs.
 
-import { TINCTURES, TINCTURE_NAME, type Tincture } from './tinctures';
+import { TINCTURES, TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinList, numberWord } from './words';
 import {
   AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
 import { CHARGES, chargePhrase, postureTerm, type ModifierId, type Posture } from './charges';
 import {
-  asParty, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, walkGroups,
-  type Arrangement, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Paint, type PartyPaint,
+  asParty, asVariation, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, variationPaint, walkGroups,
+  type Arrangement, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Paint, type PartyPaint, type VariationPaint,
 } from './design';
-import { DRAWN_DIVISIONS, type Division } from './divisions';
+import { DRAWN_DIVISIONS, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
 import { placesIn, type Placed } from './places';
@@ -293,9 +293,9 @@ function tinctureReason(d: Design, path: GroupPath, t: GroupTincture): string | 
   return groupTinctureIssues(withTincture(d, path, t), path)[0]?.message ?? null;
 }
 
-/** On a divided field (or while counterchanged) "counterchanged" is offered too, after the tinctures. */
+/** On a divided or varied field (or while counterchanged) "counterchanged" is offered too, after the tinctures. */
 function offeredTinctures(d: Design, path: GroupPath): readonly GroupTincture[] {
-  return (d.kind === 'arms' && d.field.k === 'divided') || groupAt(d, path).paint.k === 'counterchanged' ? GROUP_TINCTURES : TINCTURES;
+  return (d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation')) || groupAt(d, path).paint.k === 'counterchanged' ? GROUP_TINCTURES : TINCTURES;
 }
 
 /** Why a layout would leave every tincture blocked, or null when at least one works. */
@@ -349,7 +349,7 @@ function divisionReason(d: Design, path: GroupPath): string | null {
   return issue?.message ?? null;
 }
 
-/** Why the group at `path` can't be painted as it is: how it is divided, or the rule of tincture. */
+/** Why the group at `path` can't be painted as it is: how it is divided or varied, or the rule of tincture. */
 function partyReason(d: Design, path: GroupPath): string | null {
   return divisionReason(d, path) ?? groupTinctureIssues(d, path)[0]?.message ?? null;
 }
@@ -421,11 +421,80 @@ export function splitGroup(d: Design, path: GroupPath): Design | null {
 
 /** The group in one tincture again: its first part's when that works, else the first that does. */
 export function joinGroup(d: Design, path: GroupPath): Design {
-  const party = asParty(groupAt(d, path).paint);
+  const two = asParty(groupAt(d, path).paint) ?? asVariation(groupAt(d, path).paint);
   const choices = groupTinctureChoices(d, path);
-  const first = party?.parts[0].t ?? 'or';
+  const first = two?.parts[0].t ?? 'or';
   return canonical(withTincture(d, path, isAllowed(choices, first) ? first : firstAllowed(choices, first)));
 }
+
+// ── Stripes and checks of a band or picture ("a fess checky Or and gules") ──
+
+const variationWith = (v: VariationPaint, part: 0 | 1, t: Tincture, other: Tincture): VariationPaint =>
+  variationPaint(v.variation, part === 0 ? t : other, part === 0 ? other : t, v.pieces);
+
+/** The variation with part `part` set to `t`: the other part as it is when it still stands out against it and works, else the first tincture of the other class that does; null when none does. */
+function variationWithPartner(d: Design, path: GroupPath, v: VariationPaint, part: 0 | 1, t: Tincture): VariationPaint | null {
+  const current = v.parts[part === 0 ? 1 : 0].t;
+  for (const other of [current, ...TINCTURES].filter((o) => TINCTURE_CLASS[o] !== TINCTURE_CLASS[t])) {
+    const trial = variationWith(v, part, t, other);
+    if (!partyReason(withPaint(d, path, trial), path)) return trial;
+  }
+  return null;
+}
+
+/** The group in `variation`: the tinctures and count it has when it is varied already, else the first metal and colour that work (its own tincture first, when it has one). The design, or why none does. */
+function variedGroup(d: Design, path: GroupPath, variation: Variation): { design: Design } | { reason: string } {
+  const paint = groupAt(d, path).paint;
+  const now = asVariation(paint);
+  const pairs: Array<[Tincture, Tincture]> = now ? [[now.parts[0].t, now.parts[1].t]] : [];
+  for (const first of [...(paint.k === 'tincture' ? [paint.t] : []), ...TINCTURES]) {
+    for (const second of TINCTURES) if (TINCTURE_CLASS[first] !== TINCTURE_CLASS[second]) pairs.push([first, second]);
+  }
+  let reason: string | null = null;
+  for (const [a, b] of pairs) {
+    const trial = withPaint(d, path, variationPaint(variation, a, b, now?.pieces ?? null));
+    const why = partyReason(trial, path);
+    if (!why) return { design: canonical(trial) };
+    reason ??= why;
+  }
+  return { reason: reason ?? 'No two colours would stand out here.' };
+}
+
+/** The patterns a band or picture may be striped or checked in, blocked where no two tinctures would stand out on what it lies on. */
+export function groupVariationChoices(d: Design, path: GroupPath): Choice<Variation>[] {
+  return VARIATIONS.map((v) => {
+    const varied = variedGroup(d, path, v);
+    return choice(v, 'reason' in varied ? varied.reason : null);
+  });
+}
+
+/** The group in this pattern; unchanged when none works. */
+export function setGroupVariation(d: Design, path: GroupPath, variation: Variation): Design {
+  const varied = variedGroup(d, path, variation);
+  return 'design' in varied ? varied.design : d;
+}
+
+/** The group's stripes cut into this many; unchanged when it is not in a pattern. */
+export function setGroupVariationPieces(d: Design, path: GroupPath, pieces: number): Design {
+  const v = asVariation(groupAt(d, path).paint);
+  return v ? canonical(withPaint(d, path, variationPaint(v.variation, v.parts[0].t, v.parts[1].t, pieces))) : d;
+}
+
+/** The tinctures for one part of a patterned band or picture: blocked when no tincture for the other part would let the two stand out on what they lie on. Empty unless the group is in a pattern. */
+export function groupVariationTinctureChoices(d: Design, path: GroupPath, part: 0 | 1): Choice<Tincture>[] {
+  const v = asVariation(groupAt(d, path).paint);
+  if (!v) return [];
+  const other = v.parts[part === 0 ? 1 : 0].t;
+  return TINCTURES.map((t) => choice(t, variationWithPartner(d, path, v, part, t) ? null : partyReason(withPaint(d, path, variationWith(v, part, t, other)), path)));
+}
+
+/** Part `part` of the patterned group set to `t`; the other part changes too only when it would no longer stand out. */
+export function setGroupVariationTincture(d: Design, path: GroupPath, part: 0 | 1, t: Tincture): Design {
+  const v = asVariation(groupAt(d, path).paint);
+  if (!v) return d;
+  return canonical(withPaint(d, path, variationWithPartner(d, path, v, part, t) ?? variationWith(v, part, t, v.parts[part === 0 ? 1 : 0].t)));
+}
+
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 

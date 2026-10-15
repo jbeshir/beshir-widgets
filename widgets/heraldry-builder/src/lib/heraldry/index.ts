@@ -2,11 +2,11 @@
 
 export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
 export { ORDINARY_TYPES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
-export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, partCount, type Division } from './divisions';
+export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Variation } from './divisions';
 export {
-  canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
+  canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, variationPaint, asVariation, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
   UNSUPPORTED_GAP_CATEGORIES,
-  type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type IssueAt,
+  type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type IssueAt,
 } from './design';
 export { resolve, type ResolveResult } from './resolve';
 export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
@@ -25,7 +25,7 @@ export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, FUR_LABEL, ORDINARY_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, FUR_LABEL, VARIATION_LABEL, ORDINARY_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
@@ -34,9 +34,10 @@ export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchW
 export { signature } from './signature';
 export {
   SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, ordinaryPath, ordinaryFillRule, ordinarySamplePoints,
-  drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pointInPolygon,
-  counterchangedSlotParts, counterchangedOrdinaryParts, type Slot,
+  drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
+  counterchangedSlotParts, counterchangedOrdinaryParts, ordinaryBox, type Slot,
 } from './geometry';
+export { variationRegions, inFirstRegion, type Box } from './variation-geometry';
 export { MIN_SLOT_SIZE, minSlotSize, slotCount, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
 export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
 export {
@@ -46,7 +47,7 @@ export {
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
   layoutReason, withLayout, postureChoices, modifierChoices, fitGroup, suggestTinctureFix,
-  partyDivisionChoices, partyTinctureChoices, setPartyDivision, setPartyTincture, splitGroup, joinGroup,
+  partyDivisionChoices, partyTinctureChoices, groupVariationChoices, setGroupVariation, setGroupVariationPieces, groupVariationTinctureChoices, setGroupVariationTincture, setPartyDivision, setPartyTincture, splitGroup, joinGroup,
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';
 export { FUR_KINDS, furColours, furKindOf, furName, furGloss, takesColours, type FurKind, type FurPaint } from './fur';

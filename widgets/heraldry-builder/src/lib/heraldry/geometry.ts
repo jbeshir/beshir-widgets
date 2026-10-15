@@ -8,7 +8,8 @@
 
 import { CHARGES, type ChargeId } from './charges';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
-import { notSupported, type Paint } from './design';
+import { asVariation, notSupported, type Paint, type VariationPaint } from './design';
+import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import type { OrdinaryType } from './ordinaries';
 import { surfaceOf, type Surface } from './surface';
 import type { FieldShape } from './shape';
@@ -108,6 +109,8 @@ function pointInPath(rings: readonly Pt[][], x: number, y: number): boolean {
 /** The proportions a shape's layout is built from. */
 export interface ShapeFrame {
   outline: string;
+  /** The bounding box of the outline: what a field variation is laid out over. */
+  box: Box;
   /** Inner edge of the bordure: the outline moved inwards (the lozenge's bordure is a little narrower). */
   inset: string;
   /** Where the partition lines and the arms of a cross or saltire meet. */
@@ -120,19 +123,19 @@ export interface ShapeFrame {
 
 const SHAPE_FRAME: Record<FieldShape, ShapeFrame> = {
   heater: {
-    outline: SHIELD_PATH, inset: SHIELD_INSET_PATH, fessPoint: { x: 50, y: 50 }, chiefBase: 30,
+    outline: SHIELD_PATH, box: { x0: 0, y0: 0, x1: 100, y1: 120 }, inset: SHIELD_INSET_PATH, fessPoint: { x: 50, y: 50 }, chiefBase: 30,
     pile: [[20, 0], [80, 0], [50, 95]],
   },
   banner: {
-    outline: 'M0 10H100V110H0Z', inset: 'M10 20H90V100H10Z', fessPoint: { x: 50, y: 60 }, chiefBase: 40,
+    outline: 'M0 10H100V110H0Z', box: { x0: 0, y0: 10, x1: 100, y1: 110 }, inset: 'M10 20H90V100H10Z', fessPoint: { x: 50, y: 60 }, chiefBase: 40,
     pile: [[20, 10], [80, 10], [50, 105]],
   },
   round: {
-    outline: circlePath(50, 60, 50), inset: circlePath(50, 60, 40), fessPoint: { x: 50, y: 60 }, chiefBase: 40,
+    outline: circlePath(50, 60, 50), box: { x0: 0, y0: 10, x1: 100, y1: 110 }, inset: circlePath(50, 60, 40), fessPoint: { x: 50, y: 60 }, chiefBase: 40,
     pile: [[20, 10], [80, 10], [50, 105]],
   },
   lozenge: {
-    outline: lozengePath(50, 60, 50, 60, 0), inset: lozengePath(50, 60, 50, 60, 8), fessPoint: { x: 50, y: 60 }, chiefBase: 46,
+    outline: lozengePath(50, 60, 50, 60, 0), box: { x0: 0, y0: 0, x1: 100, y1: 120 }, inset: lozengePath(50, 60, 50, 60, 8), fessPoint: { x: 50, y: 60 }, chiefBase: 46,
     pile: [[16, 0], [84, 0], [50, 110]],
   },
 };
@@ -148,24 +151,36 @@ export type FieldPaint = Extract<Paint, { k: 'tincture' | 'fur' }>;
 
 const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur';
 
-/** The field as geometry draws it: plain, or one of the drawn divisions of two parts. */
-type DrawnField = { division: null; paint: FieldPaint } | { division: Division; paints: [FieldPaint, FieldPaint] };
+/** The field as geometry draws it: plain, one of the drawn divisions of two parts, or a variation of two tinctures. */
+type DrawnField =
+  | { k: 'plain'; paint: FieldPaint }
+  | { k: 'divided'; division: Division; paints: [FieldPaint, FieldPaint] }
+  | { k: 'varied'; variation: VariationPaint; paints: [FieldPaint, FieldPaint] };
+
 
 function drawnField(field: Paint): DrawnField {
-  if (isFieldPaint(field)) return { division: null, paint: field };
+  if (isFieldPaint(field)) return { k: 'plain', paint: field };
   if (field.k === 'divided' && DRAWN_DIVISIONS.includes(field.division) && field.parts.length === 2) {
     const [a, b] = field.parts;
-    if (isFieldPaint(a) && isFieldPaint(b)) return { division: field.division, paints: [a, b] };
+    if (isFieldPaint(a) && isFieldPaint(b)) return { k: 'divided', division: field.division, paints: [a, b] };
   }
+  const variation = asVariation(field);
+  if (variation) return { k: 'varied', variation, paints: variation.parts };
   return notSupported({ category: 'field-treatment', detail: field.k });
 }
 
-/** The surface of the field at (x,y) in the canonical layout; points exactly on a line count as the second part. */
+
+/** The surface of the field at (x,y) in the canonical layout; points exactly on a line count as the second part. A variation is one surface everywhere (SENA A3B1). */
 export function fieldSurfaceAt(field: Paint, x: number, y: number): Surface {
   const f = drawnField(field);
-  if (f.division === null) return surfaceOf(f.paint);
-  return surfaceOf(inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.paints[0] : f.paints[1]);
+  switch (f.k) {
+    case 'plain': return surfaceOf(f.paint);
+    case 'varied': return surfaceOf(field);
+    case 'divided': return surfaceOf(inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.paints[0] : f.paints[1]);
+    default: return f satisfies never;
+  }
 }
+
 
 /** How far the chevron's apex (and the per-chevron line's) sits above the fess point. */
 const CHEVRON_APEX_RISE = 10;
@@ -225,12 +240,24 @@ export function partitionRegions(division: Division, fess: Point, turn = 0): [st
   }
 }
 
+/** The region paths [first part, second part] of a divided or varied field in a shape. */
+function regionsOf(f: Exclude<DrawnField, { k: 'plain' }>, frame: ShapeFrame): [string, string] {
+  return f.k === 'divided' ? partitionRegions(f.division, frame.fessPoint) : variationRegions(f.variation.variation, f.variation.pieces, frame.box);
+}
+
+
+/** Whether (x,y) lies in the first part of a divided or varied field in a shape. */
+function inFirstOf(f: Exclude<DrawnField, { k: 'plain' }>, frame: ShapeFrame, x: number, y: number): boolean {
+  return f.k === 'divided' ? inFirstPart(f.division, frame.fessPoint, x, y) : inFirstRegion(f.variation.variation, f.variation.pieces, frame.box, x, y);
+}
+
+
 /** Field as paint-filled regions, in paint order. */
 export function fieldRegions(field: Paint, shape: FieldShape): Array<{ paint: FieldPaint; d: string }> {
   const f = drawnField(field);
   const frame = SHAPE_FRAME[shape];
-  if (f.division === null) return [{ paint: f.paint, d: frame.outline }];
-  const [a, b] = partitionRegions(f.division, frame.fessPoint);
+  if (f.k === 'plain') return [{ paint: f.paint, d: frame.outline }];
+  const [a, b] = regionsOf(f, frame);
   return [{ paint: f.paints[0], d: a }, { paint: f.paints[1], d: b }];
 }
 
@@ -313,6 +340,14 @@ export function ordinarySamplePoints(type: OrdinaryType): Pt[] {
     samplePointCache.set(type, points);
   }
   return points;
+}
+
+/** The box an ordinary's own pattern (barry, checky …) is laid out over: its bounding box within the shape's. */
+export function ordinaryBox(type: OrdinaryType, shape: FieldShape): Box {
+  const frame = SHAPE_FRAME[shape].box;
+  const points = pathRings(ordinaryPath(type, shape)).flat();
+  const xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
+  return { x0: Math.max(frame.x0, Math.min(...xs)), y0: Math.max(frame.y0, Math.min(...ys)), x1: Math.min(frame.x1, Math.max(...xs)), y1: Math.min(frame.y1, Math.max(...ys)) };
 }
 
 /** Whether (x,y) lies in the first part of a division through `centre`, turned `turn` degrees clockwise about it. */
@@ -402,13 +437,13 @@ export interface CounterchangePart { region: 0 | 1; d: string; paint: FieldPaint
 /** Grid steps across a drawn box when finding the regions it overlaps (corners and edges included). */
 const PART_GRID = 8;
 
-/** The parts of a counterchanged element that covers these points of a divided field in a shape; [] unless the field is divided. */
+/** The parts of a counterchanged element that covers these points of a divided or varied field in a shape; [] unless the field is one. */
 function partsAt(field: Paint, points: readonly Pt[], shape: FieldShape): CounterchangePart[] {
   const f = drawnField(field);
-  if (f.division === null) return [];
+  if (f.k === 'plain') return [];
   const frame = SHAPE_FRAME[shape];
-  const [d1, d2] = partitionRegions(f.division, frame.fessPoint);
-  const firsts = new Set(points.map(([x, y]) => inFirstPart(f.division, frame.fessPoint, x, y)));
+  const [d1, d2] = regionsOf(f, frame);
+  const firsts = new Set(points.map(([x, y]) => inFirstOf(f, frame, x, y)));
   const parts: CounterchangePart[] = [];
   if (firsts.has(true)) parts.push({ region: 0, d: d1, paint: f.paints[1] });
   if (firsts.has(false)) parts.push({ region: 1, d: d2, paint: f.paints[0] });

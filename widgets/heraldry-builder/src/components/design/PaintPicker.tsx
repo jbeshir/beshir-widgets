@@ -2,7 +2,7 @@
 // and Or"), with a division and a tincture for each part. Splitting is opt-in so the plain picker stays as it was.
 
 import {
-  DIVISION_LABEL, asParty, groupAt, groupTinctureChoices, groupTinctureOf, joinGroup, partyDivisionChoices, partyTinctureChoices, splitGroup,
+  DIVISION_LABEL, asParty, asVariation, groupAt, groupTinctureChoices, groupTinctureOf, joinGroup, partyDivisionChoices, partyTinctureChoices, splitGroup,
   setPartyDivision, setPartyTincture, type Design, type GroupPath,
 } from '../../lib/heraldry';
 import { setGroupTincture } from '../../lib/builder';
@@ -10,6 +10,7 @@ import { capitalise } from '../../lib/heraldry/words';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { useExplainer } from './Explainer';
 import { FurPicker } from './FurPicker';
+import { GroupPattern } from './VariationPicker';
 import { TincturePicker } from './TincturePicker';
 
 interface Props {
@@ -27,7 +28,8 @@ export function PaintPicker({ design, path, group, testid, legend, onChange }: P
   const { explain, node: explainer } = useExplainer();
   const paint = groupAt(design, path).paint;
   const party = asParty(paint);
-  const split = party ? null : splitGroup(design, path);
+  const varied = asVariation(paint) !== null;
+  const split = party || varied ? null : splitGroup(design, path);
   const tincture = groupTinctureOf(paint);
   return (
     <>
@@ -40,7 +42,7 @@ export function PaintPicker({ design, path, group, testid, legend, onChange }: P
         onChange={(t) => onChange(setGroupTincture(design, path, t))}
       />
       <div class="control">
-        {party
+        {party || varied
           ? <button type="button" class="button-tertiary" data-testid={`${testid}-join`} onClick={() => onChange(joinGroup(design, path))}>Use one colour</button>
           : (
             <button
@@ -76,7 +78,8 @@ export function PaintPicker({ design, path, group, testid, legend, onChange }: P
           ))}
         </>
       )}
-      {!party && <FurPicker design={design} target={{ k: 'group', path }} group={group} testid={testid} legend="Fur" onChange={onChange} />}
+      {!party && !varied && <FurPicker design={design} target={{ k: 'group', path }} group={group} testid={testid} legend="Fur" onChange={onChange} />}
+      {!party && <GroupPattern design={design} path={path} group={group} testid={testid} onChange={onChange} />}
       {explainer}
     </>
   );

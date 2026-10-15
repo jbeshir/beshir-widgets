@@ -203,6 +203,33 @@ sable"; "counterchanged Or and sable" on a divided field is the same party, divi
   some tincture for the other part makes the pair stand out, and the other part moves only when it would no longer do so
   (`splitGroup`, `partyDivisionChoices`, `partyTinctureChoices`, `setPartyTincture` in options.ts).
 
+## Stripes and checks
+
+The background, and any band or picture, may be varied in two plain tinctures: barry, paly, bendy, bendy sinister, chevronelly,
+checky, lozengy, fusily, pily, barry bendy and paly bendy (`{ "k": "variation", "variation": "barry", "pieces": 8, "parts": ["argent", "azure"] }`;
+`variation.test.ts`). The first tincture lies in the dexter chief corner. Barry, paly, bendy, bendy sinister and chevronelly are counted:
+4, 6 or 8 stripes (an odd count is a set of ordinaries, not a field), six when none is given and not blazoned ("barry of six" is the same
+design; "barry of eight argent and azure" says the count). The other patterns have no count. A variation as a *part* of a divided field
+("per pale argent and barry sable and Or"), furs in the stripes, other counts and lines of partition are gaps in `support.ts`.
+
+- **Drawing.** `variation-geometry.ts` lays the cells out over a box (the shape's for the field, the band's own bounding box for a
+  band, the drawn box of each charge, turned with it) and gives the two region paths and the membership test the rule of tincture uses.
+  Pily is the field with three piles cut out of it (drawn turning the other way), the second tincture filling them.
+- **The rule of tincture.** A variation is judged as a whole (SENA A3B1): its class is that of its tinctures when they agree and
+  neutral when a metal meets a colour, and it shares both. Its tinctures must be a metal and a colour (A3B3d). A band may share a tincture
+  with the ground when exactly one of the two is in stripes or cells (A3B4b: "Lozengy Or and azure, a chief azure"; "Pily Or and sable,
+  a bordure per fess sable and Or"); a charge may not. A counterchanged band is available over simple stripes when it runs across them
+  (CC-2: "Paly sable and Or, a bend counterchanged"), a counterchanged chief or bordure over pily (CC-9); a counterchanged charge, or
+  anything over a grid, is not (CC-3).
+- **Conflict.** A variation is in the A5F1b category of the division it multiplies (barry with per fess, paly and pily with per pale,
+  chevronelly with per chevron), the lattices (lozengy, fusily, barry bendy, paly bendy) together and checky on its own; within a
+  category a different number of pieces (1 to 4 are each distinct, more are one) or a different lattice is a distinct change (`field-style`,
+  A5G1d and A5G1b); the tinctures are compared as for any field, checky either way round (Prec #FIELDCheck).
+- **The builder.** "Stripes and checks" under the background colours and under every colour picker (`VariationPicker.tsx`): a chip per
+  pattern, the count for the counted ones, the two tinctures (`setVariation`, `setVariationPieces`, `setVariationTincture` in
+  builder.ts; `groupVariationChoices`, `setGroupVariation` … in options.ts for a band or picture, where a pattern or tincture is
+  blocked when no partner makes the pair stand out on what it lies on).
+
 **Charges on a bend stay upright.** Heraldic convention turns charges on a bend "bendwise", but
 which way depends on the charge and its posture (a beast passant walks up the bend, a sword points
 up it, an upright charge rotates the other way, and a bend sinister has no settled convention), so
@@ -226,12 +253,12 @@ Both are wrapped in `try/catch`; private mode or a full quota just disables them
 ### Design model
 
 A design is `{ v: 2, kind: 'arms', field, groups }` (`src/lib/heraldry/design.ts`). The field is a
-recursive paint (a tincture, a fur, or a division with its parts). Each group carries an item (an
+recursive paint (a tincture, a fur, a division with its parts, or a variation of two tinctures). Each group carries an item (an
 ordinary or a charge), a count, an arrangement and optional position, a paint and, in
 `charged`, the groups sitting on it; its role (primary, secondary, peripheral, overall, tertiary)
 and relation (between, about, position) say how it relates to the field and the other groups.
 There is no cap on groups. `kind: 'badge'` (a fieldless badge) is in the type, as are stains,
-proper, field treatments, lines of partition and charge attributes (form, facing, orientation,
+proper, the other field treatments, lines of partition and charge attributes (form, facing, orientation,
 parts, holds); the builder does not draw those yet, so `resolve` accepts them and `support.ts`
 reports each as an `unsupported` issue naming the gap (the SCA test files records under the same
 tags). Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
@@ -622,7 +649,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
-- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
+- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps, Discord normalisation and the `contact_discord` CHECK

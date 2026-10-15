@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, FURS, FUR_NAME, POSTURES, TINCTURES, postureTerm } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, FURS, FUR_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -28,6 +28,8 @@ const ORDINARY = '(?:fess|pale|bend sinister|bend|chevron|cross|saltire|pile)';
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
 /** A fur as the text spells it once its synonyms are settled: a named fur, "argent ermined gules", "vairy Or and gules". */
 const FUR = `(?:${COLOUR} ermined ${COLOUR}|(?:vairy|potenty) ${COLOUR} and ${COLOUR}|${alt(FURS.map((f) => FUR_NAME[f]))})`;
+/** A variation of the field as the text spells it once its synonyms are settled, with its stripe count when it has one: "barry of eight", "checky". */
+const VARIATION = `(?:${alt(VARIATIONS.map((v) => VARIATION_NAME[v]))})(?: of ${NUMBER})?`;
 const TINCT = `(?:${FUR}|${COLOUR}|counterchanged)`;
 const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]));
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
@@ -85,6 +87,19 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\b(vair|potent) en point\b/g, '$1 en pointe'),
   },
   {
+    // 3b. Variations the SCA spells in more than one way. "Chevronny" is chevronelly (the College's word: SENA A5F1b), "chequy" and "fusilly" are checky and fusily; the
+    //     barry-bendy pair is written without a hyphen; and the usual six stripes need not be stated ("barry of six" is barry: the
+    //     emitter leaves out a default it has, SENA A5G1d counts pieces only up to four).
+    id: 'variation-synonyms',
+    description: 'chevronny → chevronelly; chequy → checky; fusilly → fusily; barry-bendy, paly-bendy → barry bendy, paly bendy; "<counted variation> of six" → "<counted variation>".',
+    apply: (s) => s
+      .replace(/\bchevronny\b/g, 'chevronelly')
+      .replace(/\bchequy\b/g, 'checky')
+      .replace(/\bfusilly\b/g, 'fusily')
+      .replace(/\b(barry|paly)-bendy\b/g, '$1 bendy')
+      .replace(new RegExp(`\\b(${alt(VARIATIONS.filter(isCountedVariation).map((v) => VARIATION_NAME[v]))}) of six\\b`, 'g'), '$1'),
+  },
+  {
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a
     //    bordure", "all within a bordure", "and a bordure", ", a bordure"; "on a bend, three…" and "on a bend three…"; "on a
     //    fess between two crescents argent, three mullets" and "… argent three mullets" (RULES §F.2: no
@@ -100,7 +115,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
       .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}|chief)|${CORE}) ${TINCT}),`, 'g'), '$1')
       .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY} (?:${TINCT} )?between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')
-      .replace(new RegExp(`^((?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
+      .replace(new RegExp(`^((?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}|${VARIATION} ${COLOUR} and ${COLOUR}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
   },
   {
     // 4a. What lies across everything: "a fess and overall a lion", "a fess, overall a lion", "a fess overall a lion" are one blazon

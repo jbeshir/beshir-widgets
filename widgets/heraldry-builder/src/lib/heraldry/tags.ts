@@ -16,7 +16,7 @@ export function deriveTags(d: Design): string[] {
   const add = (t: string) => { if (!tags.includes(t)) tags.push(t); };
   const all = new Set<Tincture>();
 
-  if (d.kind === 'arms') add(d.field.k === 'divided' ? `division:${d.field.division}` : 'field:plain');
+  if (d.kind === 'arms') add(d.field.k === 'divided' ? `division:${d.field.division}` : d.field.k === 'variation' ? `field:${d.field.variation}` : 'field:plain');
   const furOf = (p: Paint) => { if (p.k === 'fur') add(`fur:${p.fur}`); };
   for (const part of fieldParts(d)) {
     furOf(part);

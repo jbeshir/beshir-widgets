@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, 'counterchanged', or a division of those).
 
-import { DIVISION_NAME, DRAWN_DIVISIONS, FURS, FUR_NAME, TINCTURES, type Division, type Fur, type Tincture } from '../../src/lib/heraldry';
+import { DIVISION_NAME, DRAWN_DIVISIONS, FURS, FUR_NAME, TINCTURES, VARIATIONS, VARIATION_NAME, type Division, type Fur, type Tincture, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -12,6 +12,13 @@ const FUR_PHRASES = FURS.map((fur) => ({ words: FUR_NAME[fur].split(' '), fur })
 
 /** The fur of a family that names its colours: "vairy Or and gules", "potenty argent and sable". */
 const COLOURED_FURS: Record<string, Fur> = { vairy: 'vair', potenty: 'potent' };
+
+/** The variations as the words that spell them ("bendy sinister", "barry bendy"), the longest first. */
+const VARIATION_PHRASES = VARIATIONS.map((variation) => ({ words: VARIATION_NAME[variation].split(' '), variation })).sort((a, b) => b.words.length - a.words.length);
+
+
+const COUNT_WORDS: Record<string, number> = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
+
 
 const isTincture = (w: string | undefined): w is Tincture => (TINCTURES as readonly string[]).includes(w!);
 
@@ -34,14 +41,33 @@ function readOne(tokens: readonly string[], i: number): PaintRead | null {
   return named ? { paint: { k: 'fur', fur: named.fur, colours: null }, end: i + named.words.length } : null;
 }
 
+/** A variation of the field, "barry of eight argent and azure", "checky Or and sable": the stripe count is the word after "of", when there is one. */
+function readVariation(tokens: readonly string[], i: number): PaintRead | null {
+  const named = VARIATION_PHRASES.find((p) => p.words.every((w, j) => tokens[i + j] === w));
+  if (!named) return null;
+  let at = i + named.words.length;
+  let pieces: number | null = null;
+  if (tokens[at] === 'of' && tokens[at + 1] in COUNT_WORDS) {
+    pieces = COUNT_WORDS[tokens[at + 1]];
+    at += 2;
+  }
+  const [a, and, b] = [tokens[at], tokens[at + 1], tokens[at + 2]];
+  return isTincture(a) && and === 'and' && isTincture(b)
+    ? { paint: { k: 'variation', variation: named.variation satisfies Variation, pieces, parts: [a, b] }, end: at + 3 }
+    : null;
+}
+
+
 /**
  * The paint starting at `tokens[i]` and the index after it, or null when there is none: a tincture or fur, a division "per pale argent
- * and gules" (of the field, or of a band or picture), or for a group 'counterchanged'.
+ * and gules" (of the field, or of a band or picture), a variation "barry argent and azure", or for a group 'counterchanged'.
  */
 export function readPaint(tokens: readonly string[], i: number, where: 'field' | 'group'): PaintRead | null {
   if (where === 'group' && tokens[i] === 'counterchanged') return { paint: 'counterchanged', end: i + 1 };
   const one = readOne(tokens, i);
   if (one) return one;
+  const varied = readVariation(tokens, i);
+  if (varied) return varied;
   const phrase = DIVISION_PHRASES.find((p) => p.every((w, j) => tokens[i + j] === w));
   if (!phrase) return null;
   const first = readOne(tokens, i + phrase.length);

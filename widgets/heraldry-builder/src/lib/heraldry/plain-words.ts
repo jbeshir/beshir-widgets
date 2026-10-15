@@ -5,7 +5,7 @@
 
 import { CHARGES, postureGloss, postureTerm, type ChargeId, type Posture } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
-import type { Division } from './divisions';
+import type { Division, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
@@ -149,6 +149,21 @@ export function layoutLabel(key: LayoutKey): PlainTerm {
 export const TINCTURE_LABEL: Record<GroupTincture, PlainTerm> = {
   ...(Object.fromEntries(TINCTURES.map((t) => [t, { plain: capitalise(TINCTURE_WORD[t]), term: TINCTURE_NAME[t] }])) as Record<Tincture, PlainTerm>),
   counterchanged: { plain: 'Swapped colours', term: 'counterchanged' },
+};
+
+/** Stripes and checks of the background for their picker: how each looks, and its heraldic name. */
+export const VARIATION_LABEL: Record<Variation, PlainTerm> = {
+  barry: { plain: 'Horizontal stripes', term: 'barry' },
+  paly: { plain: 'Vertical stripes', term: 'paly' },
+  bendy: { plain: 'Diagonal stripes ↘', term: 'bendy' },
+  'bendy-sinister': { plain: 'Diagonal stripes ↗', term: 'bendy sinister' },
+  chevronny: { plain: 'Peaked stripes', term: 'chevronelly' },
+  checky: { plain: 'Chequerboard', term: 'checky' },
+  lozengy: { plain: 'Diamonds', term: 'lozengy' },
+  fusily: { plain: 'Tall narrow diamonds', term: 'fusily' },
+  pily: { plain: 'Three wedges down from the top', term: 'pily' },
+  'barry-bendy': { plain: 'Slanted check, across', term: 'barry bendy' },
+  'paly-bendy': { plain: 'Slanted check, down', term: 'paly bendy' },
 };
 
 /** Furs for the fur picker: how each looks, and its heraldic name. */

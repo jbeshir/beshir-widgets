@@ -6,18 +6,18 @@
 import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, type ChargeId } from './charges';
-import { contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground } from './contrast';
+import { contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type SharedTinctureException } from './contrast';
 import { fieldSurfaces, surfaceOf, tinctureSurface, type Surface } from './surface';
 import { furName } from './fur';
 import {
-  asParty, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
+  asParty, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
 } from './design';
 import {
   CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPart, inFirstPartTurned, ordinaryCentre, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Point, type Slot,
 } from './geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
-import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
-import { DIVISION_NAME, DRAWN_DIVISIONS, type Division } from './divisions';
+import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
+import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, type Division, type Variation } from './divisions';
 import { coPrimaries, forcedLayout, layoutContext } from './arrangement';
 
 export const FAILURE_TEXT: Record<ContrastFailure, string> = {
@@ -26,9 +26,9 @@ export const FAILURE_TEXT: Record<ContrastFailure, string> = {
   'metal-on-metal': 'metal on metal',
 };
 
-/** The field's two tinctures when it is divided into two plain tinctures, else null: all counterchanging needs. */
+/** The field's two tinctures when it is divided or varied into two plain tinctures, else null: all counterchanging needs. */
 function fieldPair(d: Design): [Tincture, Tincture] | null {
-  const ts = d.kind === 'arms' && d.field.k === 'divided' ? fieldTinctures(d) : [];
+  const ts = d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation') ? fieldTinctures(d) : [];
   return ts.length === 2 ? [ts[0], ts[1]] : null;
 }
 
@@ -57,6 +57,8 @@ function firstShare(division: Division, samples: Samples): number {
 
 /** The share of the samples each field surface lies under, in the field's part order. */
 function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[]): Ground {
+  // A variation is judged as a whole (A3B1): the one surface lies under everything.
+  if (field.k === 'variation') return partOrder.map((surface) => ({ surface, share: 1 }));
   const counts = new Map<Surface, number>();
   const [a, b] = field.k === 'divided' ? field.parts : [];
   if (field.k === 'divided' && field.parts.length === 2 && isOneThing(a) && isOneThing(b) && DRAWN_DIVISIONS.includes(field.division)) {
@@ -193,6 +195,32 @@ function nounOf(g: Group): string {
 }
 
 /**
+ * The stripes' own direction, which an ordinary parallel to them can't be counterchanged across: it would only be one stripe
+ * (SENA CC-2: a central ordinary may be counterchanged over barry, paly or bendy when it runs obliquely to the stripes).
+ */
+const ALONG_STRIPES: Partial<Record<Variation, readonly OrdinaryType[]>> = {
+  barry: ['fess', 'cross'], paly: ['pale', 'cross'], bendy: ['bend', 'saltire'], 'bendy-sinister': ['bend-sinister', 'saltire'], chevronny: ['chevron', 'saltire'],
+};
+
+
+/**
+ * Why a group can't be counterchanged over a variation, or null when it can (RULES CC-2, CC-3, CC-9): a central ordinary
+ * may be over simple stripes when it runs across them, and a chief or bordure over pily; nothing else, and no charge.
+ */
+function counterchangeOverVariation(group: Group, variation: Variation, noun: string, lie: string, them: string): string | null {
+  const field = VARIATION_NAME[variation];
+  const whole = `The ${noun} ${lie} across a ${field} field, and`;
+  if (group.item.k === 'charge') return `${whole} a charge can't be counterchanged over stripes or a grid — choose a tincture for ${them} (SENA CC-3).`;
+  const kind = ORDINARY_KIND[group.item.type];
+  if (variation === 'pily') return group.item.type === 'chief' || group.item.type === 'bordure' ? null : `${whole} only a chief or a bordure can be counterchanged over pily.`;
+  const along = ALONG_STRIPES[variation];
+  if (!along) return `${whole} nothing can be counterchanged over a grid of that kind (SENA CC-2).`;
+  if (kind !== 'central') return `${whole} a ${noun} can't be counterchanged over stripes — only a band across the middle can (SENA CC-9).`;
+  return along.includes(group.item.type) ? `${whole} it runs along the stripes, so counterchanged would only recolour one stripe (SENA CC-2).` : null;
+}
+
+
+/**
  * Why a counterchanged group can't be, or null when it can: only things lying across a divided field can take
  * its tinctures in reverse (SENA A3B2); one lying wholly in one part would simply be the other tincture.
  * Phrased so it can double as a blocked reason.
@@ -213,6 +241,8 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
     const each = group.item.k === 'ordinary' ? thing : 'each charge';
     return `Counterchanged needs a divided field: ${each} takes the field's other tincture, and a plain field has only one.`;
   }
+  const varied = d.kind === 'arms' ? asVariation(d.field) : null;
+  if (varied) return counterchangeOverVariation(group, varied.variation, nounOf(group), lie, them);
   const only = oneSection(d, path);
   if (only !== null) {
     const shown = TINCTURE_NAME[only === pair[0] ? pair[1] : pair[0]];
@@ -225,9 +255,9 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
  * Why a group with this paint fails on its ground, or null. A counterchanged group shows, over each part
  * of the field it lies on, the other part's tincture, so it fails exactly when the two share a class.
  */
-function failureOf(paint: Paint, ground: Ground, pair: readonly [Tincture, Tincture] | null, parts: readonly Ground[] | undefined): ContrastFailure | null {
+function failureOf(paint: Paint, ground: Ground, pair: readonly [Tincture, Tincture] | null, parts: readonly Ground[] | undefined, exception: SharedTinctureException): ContrastFailure | null {
   if (paint.k === 'counterchanged' && pair) return contrastFailure(pair[1], [pair[0]]);
-  const failure = groundFailure(surfaceOf(paint), ground);
+  const failure = groundFailure(surfaceOf(paint), ground, exception);
   // A divided paint that fails as a whole still stands if each of its parts contrasts with the ground it alone lies on.
   const party = asParty(paint);
   if (failure && party && parts && parts.every((g, k) => g.length === 0 || groundFailure(tinctureSurface(party.parts[k].t), g) === null)) return null;
@@ -285,6 +315,8 @@ export function describeSlots(slots: readonly Slot[], idx: readonly number[], pa
 export function paintName(p: Paint): string {
   const party = asParty(p);
   if (party) return `${capitalise(DIVISION_NAME[party.division])} ${party.parts.map((x) => TINCTURE_NAME[x.t]).join(' and ')}`;
+  const varied = asVariation(p);
+  if (varied) return `${capitalise(VARIATION_NAME[varied.variation])} ${varied.parts.map((x) => TINCTURE_NAME[x.t]).join(' and ')}`;
   if (p.k === 'fur') return capitalise(furName(p));
   return p.k === 'tincture' ? TINCTURE_NAME[p.t] : 'Counterchanged';
 }
@@ -297,7 +329,7 @@ function ordinaryMessage(d: Design, g: Group, f: ContrastFailure, ground: Ground
   }
   const contacts = groundTinctures(ground);
   if (d.kind === 'arms' && d.field.k === 'tincture') return `${T} ${name} on ${TINCTURE_NAME[contacts[0]]} field: ${FAILURE_TEXT[f]}`;
-  if (d.kind === 'arms' && d.field.k === 'fur') return `${T} ${name} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`;
+  if (d.kind === 'arms' && (d.field.k === 'fur' || d.field.k === 'variation')) return `${T} ${name} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`;
   if (f === 'same') {
     const shared = contacts.find((t) => surfaceOf(g.paint).bases.includes(t)) ?? contacts[0];
     const part = fieldParts(d).find((p) => paintTinctures(p).includes(shared));
@@ -336,7 +368,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   const slots = canonicalSlots(d, path);
   const noun = nounOf(g), T = paintName(g.paint);
   const all = slots.map((_, i) => i);
-  const failures = grounds.map((ground, i) => (ground.length === 0 ? null : failureOf(g.paint, ground, pair, parts?.[i])));
+  const failures = grounds.map((ground, i) => (ground.length === 0 ? null : failureOf(g.paint, ground, pair, parts?.[i], 'none')));
   const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', reason: 'contrast', at, message, slots: idx });
 
   if (g.paint.k === 'counterchanged' && pair) {
@@ -350,7 +382,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
     const f = failures.find((x) => x !== null);
     return f ? [issue(`${T} ${noun} on the ${paintName(host.paint)} ${itemName(host.item)}: ${FAILURE_TEXT[f]}`, all)] : [];
   }
-  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur')) {
+  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur' || d.field.k === 'variation')) {
     const f = failures.find((x) => x !== null);
     return f ? [issue(`${T} ${noun} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`, all)] : [];
   }
@@ -395,7 +427,9 @@ export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
   const pair = fieldPair(d);
   const grounds = groundShares(d, path);
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
-  const f = grounds[0].length === 0 ? null : failureOf(group.paint, grounds[0], pair, partGrounds(d, path)?.[0]);
+  // Exactly one of the field and the band is in stripes or cells (A3B4b): not both.
+  const exception = (d.field.k === 'variation') !== (group.paint.k === 'variation') ? 'ordinary-on-multiply-divided' : 'none';
+  const f = grounds[0].length === 0 ? null : failureOf(group.paint, grounds[0], pair, partGrounds(d, path)?.[0], exception);
   return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
 }
 

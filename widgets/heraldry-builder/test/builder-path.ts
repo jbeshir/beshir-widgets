@@ -6,13 +6,13 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, layerItemChoices,
-  asParty, furAt, paintAt, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type FurKind, type FurPaint, type FurTarget, type Paint, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture,
+  CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, layerItemChoices,
+  asParty, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type FurKind, type FurPaint, type FurTarget, type Paint, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setPlainField, setPosture,
+  setPlainField, setPosture, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -26,6 +26,9 @@ export type BuilderAction =
   | { kind: 'plain-field' }
   | { kind: 'division'; division: Division }
   | { kind: 'field-tincture'; part: 0 | 1; tincture: Tincture }
+  | { kind: 'variation'; variation: Variation }
+  | { kind: 'variation-pieces'; pieces: number }
+  | { kind: 'variation-tincture'; part: 0 | 1; tincture: Tincture }
   | { kind: 'ordinary'; type: OrdinaryType | null }
   | { kind: 'ordinary-tincture'; tincture: GroupTincture }
   | { kind: 'add-layer'; place: LayerKey }
@@ -39,6 +42,9 @@ export type BuilderAction =
   | { kind: 'split'; target: PaintTarget }
   | { kind: 'party-division'; target: PaintTarget; division: Division }
   | { kind: 'party-tincture'; target: PaintTarget; part: 0 | 1; tincture: Tincture }
+  | { kind: 'pattern'; target: PaintTarget; variation: Variation }
+  | { kind: 'pattern-pieces'; target: PaintTarget; pieces: number }
+  | { kind: 'pattern-tincture'; target: PaintTarget; part: 0 | 1; tincture: Tincture }
   | { kind: 'fur'; target: FurWhere; option: FurKind }
   | { kind: 'fur-colour'; target: FurWhere; slot: 0 | 1; tincture: Tincture };
 
@@ -79,6 +85,12 @@ function actionReason(d: Design, a: BuilderAction): string | null {
     case 'field-tincture':
       if (a.part === 1 && !(d.kind === 'arms' && d.field.k === 'divided')) return 'a plain field has no second tincture';
       return choiceReason(fieldTinctureChoices(d, a.part), a.tincture);
+    case 'variation': return VARIATIONS.includes(a.variation) ? null : `${a.variation} is not offered`;
+    case 'variation-pieces': {
+      const varied = d.kind === 'arms' ? asVariation(d.field) : null;
+      return varied && isCountedVariation(varied.variation) && VARIATION_PIECES.includes(a.pieces) ? null : `${a.pieces} stripes are not offered`;
+    }
+    case 'variation-tincture': return d.kind === 'arms' && asVariation(d.field) ? null : 'the background has no stripes to colour';
     case 'ordinary': return a.type === null || DRAWN_ORDINARIES.includes(a.type) ? null : `${a.type} is not offered`;
     case 'ordinary-tincture': {
       const path = ordinaryPath(d);
@@ -126,6 +138,19 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       const path = paintPathOf(d, a.target);
       return path ? choiceReason(partyTinctureChoices(d, path, a.part), a.tincture) : `there is no ${a.target} to colour`;
     }
+    case 'pattern': {
+      const path = paintPathOf(d, a.target);
+      return path ? choiceReason(groupVariationChoices(d, path), a.variation) : `there is no ${a.target} to stripe`;
+    }
+    case 'pattern-pieces': {
+      const path = paintPathOf(d, a.target);
+      const varied = path ? asVariation(groupAt(d, path).paint) : null;
+      return varied && isCountedVariation(varied.variation) && VARIATION_PIECES.includes(a.pieces) ? null : `${a.pieces} stripes are not offered on the ${a.target}`;
+    }
+    case 'pattern-tincture': {
+      const path = paintPathOf(d, a.target);
+      return path ? choiceReason(groupVariationTinctureChoices(d, path, a.part), a.tincture) : `there is no ${a.target} to colour`;
+    }
     case 'fur': {
       const target = furTargetOf(d, a.target);
       if (!target) return `there is no ${a.target} to put a fur on`;
@@ -146,6 +171,9 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'plain-field': return setPlainField(d);
     case 'division': return setDivision(d, a.division);
     case 'field-tincture': return setFieldTincture(d, a.part, a.tincture);
+    case 'variation': return setVariation(d, a.variation);
+    case 'variation-pieces': return setVariationPieces(d, a.pieces);
+    case 'variation-tincture': return setVariationTincture(d, a.part, a.tincture);
     case 'ordinary': return setOrdinary(d, a.type);
     case 'ordinary-tincture': return setOrdinaryTincture(d, a.tincture);
     case 'add-layer': return addLayer(d, a.place);
@@ -159,6 +187,9 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'split': return splitGroup(d, paintPathOf(d, a.target)!)!;
     case 'party-division': return setPartyDivision(d, paintPathOf(d, a.target)!, a.division);
     case 'party-tincture': return setPartyTincture(d, paintPathOf(d, a.target)!, a.part, a.tincture);
+    case 'pattern': return setGroupVariation(d, paintPathOf(d, a.target)!, a.variation);
+    case 'pattern-pieces': return setGroupVariationPieces(d, paintPathOf(d, a.target)!, a.pieces);
+    case 'pattern-tincture': return setGroupVariationTincture(d, paintPathOf(d, a.target)!, a.part, a.tincture);
     case 'fur': return setFur(d, furTargetOf(d, a.target)!, a.option);
     case 'fur-colour': return setFurColour(d, furTargetOf(d, a.target)!, a.slot, a.tincture);
   }
@@ -169,6 +200,9 @@ function describeAction(a: BuilderAction): string {
     case 'plain-field': return 'plain field';
     case 'division': return `division ${a.division}`;
     case 'field-tincture': return `field part ${a.part + 1} ${a.tincture}`;
+    case 'variation': return `background ${a.variation}`;
+    case 'variation-pieces': return `${a.pieces} stripes`;
+    case 'variation-tincture': return `stripe colour ${a.part + 1} ${a.tincture}`;
     case 'ordinary': return `ordinary ${a.type ?? 'none'}`;
     case 'ordinary-tincture': return `ordinary tincture ${a.tincture}`;
     case 'add-layer': return `add ${a.place}`;
@@ -182,6 +216,9 @@ function describeAction(a: BuilderAction): string {
     case 'split': return `split the ${a.target}`;
     case 'party-division': return `${a.target} divided ${a.division}`;
     case 'party-tincture': return `${a.target} part ${a.part + 1} ${a.tincture}`;
+    case 'pattern': return `${a.target} ${a.variation}`;
+    case 'pattern-pieces': return `${a.target} ${a.pieces} stripes`;
+    case 'pattern-tincture': return `${a.target} pattern colour ${a.part + 1} ${a.tincture}`;
     case 'fur': return `${a.target} fur ${a.option}`;
     case 'fur-colour': return `${a.target} fur colour ${a.slot + 1} ${a.tincture}`;
   }
@@ -299,6 +336,20 @@ export function builderPath(goal: Design): BuilderPath {
       return click(target === 'ordinary' ? { kind: 'ordinary-tincture', tincture: plain } : target === 'chief' || target === 'bordure' ? { kind: 'layer-tincture', place: target, tincture: plain } : { kind: 'charge-tincture', at: target, tincture: plain });
     }
     if (paint.k === 'fur') return furTo(target, paint);
+    const pattern = asVariation(paint);
+    if (pattern) {
+      const nowPattern = () => asVariation(groupAt(d, paintPathOf(d, target)!).paint);
+      if (!click({ kind: 'pattern', target, variation: pattern.variation })) return false;
+      if (pattern.pieces !== null && nowPattern()!.pieces !== pattern.pieces && !click({ kind: 'pattern-pieces', target, pieces: pattern.pieces })) return false;
+      // One click at a time: setting a tincture may move the other, so the next is worked out from where it landed.
+      for (let guard = 0; guard < 4; guard++) {
+        const here = nowPattern()!;
+        const part = ([0, 1] as const).find((i) => here.parts[i].t !== pattern.parts[i].t);
+        if (part === undefined) return true;
+        if (!click({ kind: 'pattern-tincture', target, part, tincture: pattern.parts[part].t })) return false;
+      }
+      return !!problems.push(`the ${target} pattern did not settle`) && false;
+    }
     const goal = asParty(paint);
     if (!goal) return !!problems.push(`the ${target} is neither one tincture, a fur nor divided in two`) && false;
     if (!asParty(now()) && !click({ kind: 'split', target })) return false;
@@ -340,6 +391,19 @@ export function builderPath(goal: Design): BuilderPath {
       }
       if (([0, 1] as const).some((i) => partNow(i) !== JSON.stringify(f.parts[i]))) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
     } else return { actions, problems: ['a part of the field is neither a tincture nor a fur'], design: d };
+  } else if (f.k === 'variation') {
+    const want = asVariation(f);
+    if (!want) return { actions, problems: ['a stripe of the background is neither a tincture nor a fur'], design: d };
+    const now = () => (d.kind === 'arms' ? asVariation(d.field) : null);
+    if (!click({ kind: 'variation', variation: want.variation })) return done();
+    if (want.pieces !== null && now()!.pieces !== want.pieces && !click({ kind: 'variation-pieces', pieces: want.pieces })) return done();
+    // One click at a time: setting a tincture may move the other, so the next is worked out from where it landed.
+    for (let guard = 0; guard < 4; guard++) {
+      const here = now()!;
+      const part = ([0, 1] as const).find((i) => here.parts[i].t !== want.parts[i].t);
+      if (part === undefined) break;
+      if (!click({ kind: 'variation-tincture', part, tincture: want.parts[part].t })) return done();
+    }
   } else if (f.k === 'fur') {
     if (!furTo('field-1', f)) return done();
   } else if (f.k === 'tincture') {

@@ -7,8 +7,8 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setDivision, setOrdinary, setGroupTincture, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { addLayer, layerChoices, layersIn, removeLayer, setFur, splitGroup, type Design } from '../src/lib/heraldry';
+import { setCharge, setDivision, setOrdinary, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { addLayer, layerChoices, layersIn, removeLayer, setFur, setGroupVariation, splitGroup, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -263,5 +263,34 @@ describe('the fur picker', () => {
   it('gives each part of a divided background its own fur picker', () => {
     const html = renderToString(h(FieldStep, { ...base, design: setDivision(DEFAULT_DESIGN, 'per-pale'), shape: 'heater' }));
     for (const id of ['field-1-fur', 'field-2-fur']) expect(ids(html), id).toContain(id);
+  });
+});
+
+
+describe('the stripes and checks picker', () => {
+  it('is offered below the background colours and the colours of a band, closed until a pattern is chosen', () => {
+    const background = renderToString(h(FieldStep, { ...base, design: DEFAULT_DESIGN, shape: 'heater' }));
+    for (const id of ['field-pattern', 'field-pattern-barry', 'field-pattern-checky', 'field-pattern-paly-bendy']) expect(background, id).toContain(id);
+    expect(background).not.toContain('field-pattern-pieces');
+    expect(background).not.toMatch(/<details[^>]*data-testid="field-pattern"[^>]*open/);
+    expect(ordinary(setOrdinary(DEFAULT_DESIGN, 'fess'))).toContain('ordinary-tincture-pattern-lozengy');
+  });
+
+  it('opens with the pattern chosen, a count for the counted ones and a picker for each of its two colours', () => {
+    const barry = setVariation(DEFAULT_DESIGN, 'barry');
+    const html = renderToString(h(FieldStep, { ...base, design: barry, shape: 'heater' }));
+    expect(html).toMatch(/<details[^>]*data-testid="field-pattern"[^>]*open/);
+    for (const id of ['field-pattern-pieces-4', 'field-pattern-pieces-6', 'field-pattern-pieces-8', 'field-pattern-tincture-1', 'field-pattern-tincture-2', 'swatch-field-pattern-1-azure', 'swatch-field-pattern-2-or']) expect(html, id).toContain(id);
+    // The plain colour and the divisions are not chosen while a pattern is, and the plain colour picker gives way to the pattern's.
+    expect(html).not.toContain('field-tincture-1');
+    expect(renderToString(h(FieldStep, { ...base, design: setVariation(DEFAULT_DESIGN, 'checky'), shape: 'heater' }))).not.toContain('field-pattern-pieces');
+  });
+
+  it('gives a patterned band its own pickers', () => {
+    const d = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const band = setGroupVariation(d, ordinaryPath(d)!, 'barry');
+    const html = renderToString(h(OrdinaryStep, { ...base, design: band, shape: 'heater' }));
+    for (const id of ['ordinary-tincture-pattern-pieces-8', 'ordinary-tincture-pattern-tincture-1', 'ordinary-tincture-join']) expect(html, id).toContain(id);
+    expect(html).not.toContain('ordinary-tincture-split');
   });
 });

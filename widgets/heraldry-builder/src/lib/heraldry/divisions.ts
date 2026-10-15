@@ -11,7 +11,30 @@ export const DRAWN_DIVISIONS: readonly Division[] = DIVISIONS.slice(0, 7);
 export const VARIATIONS = ['barry', 'paly', 'bendy', 'bendy-sinister', 'chevronny', 'checky', 'lozengy', 'fusily', 'pily', 'barry-bendy', 'paly-bendy'] as const;
 export type Variation = (typeof VARIATIONS)[number];
 
-export const TREATMENTS = ['masoned', 'scaly', 'papellony', 'fretty', 'plumetty'] as const;
+/** Blazon words, lower case: chevronny is blazoned "chevronelly", the barry-bendy pair without a hyphen (RULES D11). */
+export const VARIATION_NAME: Record<Variation, string> = {
+  barry: 'barry', paly: 'paly', bendy: 'bendy', 'bendy-sinister': 'bendy sinister', chevronny: 'chevronelly', checky: 'checky',
+  lozengy: 'lozengy', fusily: 'fusily', pily: 'pily', 'barry-bendy': 'barry bendy', 'paly-bendy': 'paly bendy',
+};
+
+
+/** The stripes of a variation are counted: the others are drawn as a grid or in piles of a size of the artist's choosing. */
+const COUNTED_VARIATIONS: readonly Variation[] = ['barry', 'paly', 'bendy', 'bendy-sinister', 'chevronny'];
+
+
+/** The stripe counts the builder offers (an odd count is a set of ordinaries, not a field), and the count a bare "barry" means. */
+export const VARIATION_PIECES: readonly number[] = [4, 6, 8];
+export const DEFAULT_PIECES = 6;
+
+
+export const isCountedVariation = (v: Variation): boolean => COUNTED_VARIATIONS.includes(v);
+
+
+/** The stripe count a variation is drawn with: its own, the default when none is given, and none for a variation that has no count. */
+export const variationPieces = (v: Variation, pieces: number | null): number | null => (isCountedVariation(v) ? pieces ?? DEFAULT_PIECES : null);
+
+
+export const TREATMENTS =['masoned', 'scaly', 'papellony', 'fretty', 'plumetty'] as const;
 export type Treatment = (typeof TREATMENTS)[number];
 
 /** Blazon words, lower case. */

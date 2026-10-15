@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, asParty, fieldParts, furName, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
+  CATEGORY_LABEL, VARIATION_LABEL, asParty, asVariation, fieldParts, furName, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   groupTinctureOf, isBlocked, layoutChoices, layoutKey, layoutLabel, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -22,6 +22,7 @@ import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
 import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
+import { FieldPattern } from './VariationPicker';
 import { FurPicker } from './FurPicker';
 import { PaintPicker } from './PaintPicker';
 import { TincturePicker } from './TincturePicker';
@@ -142,6 +143,8 @@ const partTincture = (design: Design, i: 0 | 1): Tincture | null => {
 
 function fieldSummary(design: Design): string {
   const [first, second] = fieldParts(design);
+  const varied = design.kind === 'arms' ? asVariation(design.field) : null;
+  if (varied) return `${VARIATION_LABEL[varied.variation].plain}: ${varied.parts.map((p) => lower(TINCTURE_LABEL[p.t].plain)).join(' and ')}`;
   if (design.kind === 'arms' && design.field.k === 'divided') {
     return `${DIVISION_LABEL[design.field.division].plain}: ${partWords(first)} and ${partWords(second)}`;
   }
@@ -150,10 +153,11 @@ function fieldSummary(design: Design): string {
 
 export function FieldStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
   const division = design.kind === 'arms' && design.field.k === 'divided' ? design.field.division : null;
+  const varied = design.kind === 'arms' && design.field.k === 'variation';
   return (
-    <Step n={1} title="Background" term="field" hint="One colour, or split in two." summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field">
+    <Step n={1} title="Background" term="field" hint="One colour, split in two, or striped." summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field">
       <RadioGroup label="Field division" class="icon-grid icon-grid-field" testid="field-division-select">
-        <ChoiceButton testid="field-kind-plain" checked={!division} label={nameOf(PLAIN_FIELD_LABEL)} title={PLAIN_FIELD_LABEL.plain} onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
+        <ChoiceButton testid="field-kind-plain" checked={!division && !varied} label={nameOf(PLAIN_FIELD_LABEL)} title={PLAIN_FIELD_LABEL.plain} onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
           <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
           <span class="choice-label">{capitalise(PLAIN_FIELD_LABEL.term)}</span>
         </ChoiceButton>
@@ -164,26 +168,31 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
           </ChoiceButton>
         ))}
       </RadioGroup>
-      <TincturePicker
-        group="field1"
-        testid="field-tincture-1"
-        legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'}
-        choices={fieldTinctureChoices(design, 0)}
-        value={partTincture(design, 0)}
-        onChange={(t) => onChange(setFieldTincture(design, 0, t))}
-      />
-      <FurPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: fur` : 'Background fur'} onChange={onChange} />
-      {division && (
-        <TincturePicker
-          group="field2"
-          testid="field-tincture-2"
-          legend={DIVISION_PART_LABEL[division][1]}
-          choices={fieldTinctureChoices(design, 1)}
-          value={partTincture(design, 1)}
-          onChange={(t) => onChange(setFieldTincture(design, 1, t))}
-        />
+      {!varied && (
+        <>
+          <TincturePicker
+            group="field1"
+            testid="field-tincture-1"
+            legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'}
+            choices={fieldTinctureChoices(design, 0)}
+            value={partTincture(design, 0)}
+            onChange={(t) => onChange(setFieldTincture(design, 0, t))}
+          />
+          <FurPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: fur` : 'Background fur'} onChange={onChange} />
+          {division && (
+            <TincturePicker
+              group="field2"
+              testid="field-tincture-2"
+              legend={DIVISION_PART_LABEL[division][1]}
+              choices={fieldTinctureChoices(design, 1)}
+              value={partTincture(design, 1)}
+              onChange={(t) => onChange(setFieldTincture(design, 1, t))}
+            />
+          )}
+          {division && <FurPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: fur`} onChange={onChange} />}
+        </>
       )}
-      {division && <FurPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: fur`} onChange={onChange} />}
+      <FieldPattern design={design} onChange={onChange} />
     </Step>
   );
 }

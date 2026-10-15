@@ -2,11 +2,12 @@
 // a fill of their own (a divided field, a counterchanged group). DOM-free; Shield.tsx draws the fills.
 
 import { TINCTURE_CODE, type Tincture } from './tinctures';
-import { asParty, notSupported, type Design, type Group, type Paint, type PartyPaint } from './design';
-import { counterchangedOrdinaryParts, counterchangedSlotParts, fieldRegions, ordinaryCentre, partitionRegions, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
+import { asParty, asVariation, notSupported, type Design, type Group, type Paint, type PartyPaint, type VariationPaint } from './design';
+import { counterchangedOrdinaryParts, counterchangedSlotParts, drawnBox, fieldRegions, ordinaryBox, ordinaryCentre, partitionRegions, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
 import type { OrdinaryType } from './ordinaries';
 import { furPattern, type SolidColour, type PatternSpec } from './patterns';
 import type { FieldShape } from './shape';
+import { variationRegions, type Box } from './variation-geometry';
 
 export type Fill =
   | { k: 'solid'; colour: SolidColour }
@@ -38,6 +39,13 @@ const counterchangedFill = (parts: readonly CounterchangePart[], scale: number):
 /** A party paint split through `centre`, its lines turned `turn` degrees: each part's tincture within its side of the division. */
 const partyFill = (p: PartyPaint, centre: { x: number; y: number }, turn: number): Fill =>
   ({ k: 'split', parts: partitionRegions(p.division, centre, turn).map((clip, i) => ({ clip, fill: solidFill(p.parts[i].t) })) });
+
+/** A variation of two tinctures laid out over `box`, turned `turn` degrees: each tincture within its region. */
+const variationFill = (v: VariationPaint, box: Box, turn: number): Fill =>
+  ({ k: 'split', parts: variationRegions(v.variation, v.pieces, box, turn).map((clip, i) => ({ clip, fill: solidFill(v.parts[i].t) })) });
+
+/** The variation of a group, which only a variation of two tinctures is. */
+const variationOf = (p: Paint): VariationPaint => asVariation(p) ?? notSupported({ category: 'field-treatment', detail: p.k });
 
 /** The party paint of a group, which only a divided paint of two tinctures is. */
 const partyOf = (p: Paint): PartyPaint => asParty(p) ?? notSupported({ category: 'tincture', detail: p.k });
@@ -78,6 +86,7 @@ export function ordinaryFill(d: Design, group: Group, host: Group | null, type: 
     case 'counterchanged':
       return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, type, shape), ORDINARY_FUR_SCALE) : NO_FILL;
     case 'divided': return partyFill(partyOf(group.paint), ordinaryCentre(type, shape), 0);
+    case 'variation': return variationFill(variationOf(group.paint), ordinaryBox(type, shape), 0);
     default: return notSupported({ category: 'tincture', detail: group.paint.k });
   }
 }
@@ -102,6 +111,14 @@ export function chargeFills(d: Design, group: Group, host: Group | null, slots: 
     case 'divided': {
       const party = partyOf(group.paint);
       return slots.map((s, i) => ({ fill: partyFill(party, s, s.rotation), slots: [i] }));
+    }
+    case 'variation': {
+      const varied = variationOf(group.paint);
+      const charge = group.item.k === 'charge' ? group.item.charge : null;
+      return slots.map((s, i) => {
+        const { x, y, size } = charge ? drawnBox(s, charge) : s;
+        return { fill: variationFill(varied, { x0: x - size / 2, y0: y - size / 2, x1: x + size / 2, y1: y + size / 2 }, s.rotation), slots: [i] };
+      });
     }
     default: return notSupported({ category: 'tincture', detail: group.paint.k });
   }

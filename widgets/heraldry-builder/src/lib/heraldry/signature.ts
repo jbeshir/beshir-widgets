@@ -14,6 +14,8 @@ function paint(p: Paint): string {
     case 'fur': return p.colours ? `${p.fur}(${p.colours.map((t) => TINCTURE_CODE[t]).join(',')})` : p.fur;
     case 'counterchanged': return 'cc';
     case 'divided': return `${p.division}(${p.parts.map(paint).join(',')})`;
+    // Checky is the same with either tincture first (Prec #FIELDCheck).
+    case 'variation': return `${p.variation}${p.pieces ?? ''}(${(p.variation === 'checky' ? p.parts.map(paint).sort() : p.parts.map(paint)).join(',')})`;
     default: return notSupported(paintGaps(p, true, 'field')[0]);
   }
 }

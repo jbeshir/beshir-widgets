@@ -4,8 +4,8 @@ import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { furGloss } from './fur';
-import { asParty, fieldParts, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
-import type { Division } from './divisions';
+import { asParty, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
+import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type HalfPosition, type Layout } from './arrangement';
 
@@ -46,8 +46,30 @@ function partGloss(p: Paint): string {
   return p.k === 'tincture' ? TINCTURE_GLOSS[p.t] : p.k === 'fur' ? furGloss(p) : notSupported({ category: 'field-treatment', detail: p.k });
 }
 
+/** How a variation covers a shape, with the plain word of each tincture: "6 horizontal stripes, blue on top alternating with gold". */
+function variationGloss(variation: Variation, pieces: number | null, c1: string, c2: string): string {
+  const n = pieces ?? DEFAULT_PIECES;
+  switch (variation) {
+    case 'barry': return `${n} horizontal stripes, ${c1} on top alternating with ${c2}`;
+    case 'paly': return `${n} vertical stripes, ${c1} on the left alternating with ${c2}`;
+    case 'bendy': return `${n} diagonal stripes running from top-left to bottom-right, ${c1} at the top alternating with ${c2}`;
+    case 'bendy-sinister': return `${n} diagonal stripes running from top-right to bottom-left, ${c1} at the top alternating with ${c2}`;
+    case 'chevronny': return `${n} upside-down V stripes, ${c1} at the top alternating with ${c2}`;
+    case 'checky': return `a chequerboard of ${c1} and ${c2} squares, ${c1} in the top-left corner`;
+    case 'lozengy': return `a lattice of ${c1} and ${c2} diamonds`;
+    case 'fusily': return `a lattice of tall narrow ${c1} and ${c2} diamonds`;
+    case 'pily': return `${c1} with three ${c2} wedges pointing down from the top`;
+    case 'barry-bendy': return `a slanted check of ${c1} and ${c2}, cut by horizontal lines and diagonals`;
+    case 'paly-bendy': return `a slanted check of ${c1} and ${c2}, cut by vertical lines and diagonals`;
+    default: return variation satisfies never;
+  }
+}
+
+
 function fieldGloss(d: Design): string {
   if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
+  const varied = asVariation(d.field);
+  if (varied) return `A shield of ${variationGloss(varied.variation, varied.pieces, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
   const [c1, c2] = fieldParts(d).map(partGloss);
   if (d.field.k === 'tincture') return `${article(c1) === 'an' ? 'An' : 'A'} ${c1} shield`;
   if (d.field.k === 'fur') return `A shield covered in ${c1}`;
@@ -66,6 +88,8 @@ function counterchangedGloss(d: Design): string {
 /** The words that follow a group painted other than one colour: counterchanged, or split in two. Null for one colour. */
 function paintClause(d: Design, p: Paint): string | null {
   if (p.k === 'counterchanged') return counterchangedGloss(d);
+  const varied = asVariation(p);
+  if (varied) return `in ${variationGloss(varied.variation, varied.pieces, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
   const party = asParty(p);
   return party ? divisionGloss(party.division, TINCTURE_GLOSS[party.parts[0].t], TINCTURE_GLOSS[party.parts[1].t]) : null;
 }
@@ -73,7 +97,7 @@ function paintClause(d: Design, p: Paint): string | null {
 /** A plain colour word for a group's paint, or null for a paint with a clause of its own (see `paintClause`). */
 function colourOf(p: Paint): string | null {
   if (p.k === 'tincture' || p.k === 'fur') return partGloss(p);
-  return p.k === 'counterchanged' || asParty(p) ? null : notSupported({ category: 'tincture', detail: p.k });
+  return p.k === 'counterchanged' || asParty(p) || asVariation(p) ? null : notSupported({ category: 'tincture', detail: p.k });
 }
 
 function ordinaryGloss(d: Design, g: Group): string {
