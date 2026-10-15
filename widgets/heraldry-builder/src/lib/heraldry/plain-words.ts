@@ -9,11 +9,13 @@ import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
-import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
+import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
+
+type FurLayout = FurSpec['layout'];
 import { isSecondaryPosition, layoutOfKey, layoutWords, primaryCharges } from './arrangement';
 import type { PlaceKey } from './places';
 import type { GroupTincture } from './design';
-import type { FurKind } from './fur';
+import type { FurFamily } from './fur';
 import { joinAnd, capitalise } from './words';
 
 /** A label in everyday words and the heraldic term for the same thing. */
@@ -175,21 +177,18 @@ export const TREATMENT_LABEL: Record<Treatment, PlainTerm> = {
   plumetty: { plain: 'Feathers', term: 'plumetty' },
 };
 
-/** Furs for the fur picker: how each looks, and its heraldic name. */
-export const FUR_LABEL: Record<FurKind, PlainTerm> = {
-  ermine: { plain: 'White with black spots', term: 'ermine' },
-  erminois: { plain: 'Gold with black spots', term: 'erminois' },
-  'counter-ermine': { plain: 'Black with white spots', term: 'counter-ermine' },
-  pean: { plain: 'Black with gold spots', term: 'pean' },
-  vair: { plain: 'Blue and white bells', term: 'vair' },
-  'counter-vair': { plain: 'Bells base to base', term: 'counter-vair' },
-  'vair-en-pointe': { plain: 'Bells in columns', term: 'vair en pointe' },
-  potent: { plain: 'Blue and white crutch-heads', term: 'potent' },
-  'counter-potent': { plain: 'Crutch-heads, like facing like', term: 'counter-potent' },
-  'potent-en-pointe': { plain: 'Crutch-heads in columns', term: 'potent en pointe' },
-  ermined: { plain: 'Spots, in your colours', term: 'ermined' },
-  vairy: { plain: 'Bells, in your colours', term: 'vairy' },
-  potenty: { plain: 'Crutch-heads, in your colours', term: 'potenty' },
+/** The fur families for the fur picker's first row: what each is made of, and its heraldic name. */
+export const FUR_FAMILY_LABEL: Record<FurFamily, PlainTerm> = {
+  ermine: { plain: 'Spots', term: 'ermine' },
+  vair: { plain: 'Bells', term: 'vair' },
+  potent: { plain: 'Crutch-heads', term: 'potent' },
+};
+
+/** How the bells or crutch-heads of vair and potent are set, for the fur picker's second row. */
+export const FUR_LAYOUT_PLAIN: Record<FurLayout, string> = {
+  plain: 'In rows',
+  counter: 'Base to base',
+  'en-pointe': 'In columns',
 };
 
 /** Charges whose heraldic name isn't an everyday word; the rest are already plain ("lion", "key"). */

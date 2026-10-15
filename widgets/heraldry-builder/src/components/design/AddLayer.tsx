@@ -1,10 +1,12 @@
-// The one "+ Add pictures around / on / above" chooser under the picture step: a button for each layer the
-// design can take (pictures around the picture, on the band, along the top or bottom or in the corner, a top band, a border), shown
-// only while some layer can be drawn.
+// The one "+ Add pictures around, on or above" chooser after the step cards: the layers the design can take, in three
+// small groups (on it, around or beside it, across it), each named after what it goes with ("Around the lion"). A layer
+// that can't be added here stays in the list, greyed, and says why. Adding one closes the chooser and moves to its new card.
 
 import { useState } from 'preact/hooks';
-import { addLayer, groupAt, layerChoices, ORDINARY_LABEL, type Design, type LayerKey } from '../../lib/heraldry';
-import { ordinaryPath } from '../../lib/builder';
+import { addLayer, groupAt, layerChoices, simpleParts, type Choice, type Design, type LayerKey } from '../../lib/heraldry';
+import { ordinaryPath, picturePath } from '../../lib/builder';
+import { nounOf } from './BuilderSteps';
+import { LockGlyph, useExplainer } from './Explainer';
 
 /** What the pictures on the band are sitting on, in the builder's words: "band", "top bar" or "border". */
 function hostWord(design: Design): string {
@@ -13,38 +15,101 @@ function hostWord(design: Design): string {
   return item?.k === 'ordinary' && item.type === 'chief' ? 'top bar' : item?.k === 'ordinary' && item.type === 'bordure' ? 'border' : 'band';
 }
 
-const buttonText = (design: Design, key: LayerKey): string => {
+/** The main picture's name ("lion", "mullets"), or "picture" when there is none yet. */
+export function pictureWord(design: Design): string {
+  const path = picturePath(design);
+  return path ? nounOf(design, path) : 'picture';
+}
+
+const optionText = (design: Design, key: LayerKey): string => {
   switch (key) {
-    case 'on-ordinary': return `Add pictures on the ${hostWord(design)}`;
-    case 'co-primary': return 'Add a second main picture beside the picture';
-    case 'on-picture': return 'Add pictures on the picture';
-    case 'on-chief': return 'Add pictures on the top bar';
-    case 'on-bordure': return 'Add pictures on the border';
-    case 'in-chief': return 'Add pictures along the top (in chief)';
-    case 'in-base': return 'Add pictures along the bottom (in base)';
-    case 'in-canton': return 'Add a picture in the top corner (in canton)';
-    case 'around': return 'Add pictures around the picture';
-    case 'overall': return 'Add a band or picture across everything (overall)';
-    case 'chief': case 'bordure': return `Add a ${key === 'chief' ? 'top band' : 'border'} (${ORDINARY_LABEL[key].term})`;
+    case 'on-picture': return `On the ${pictureWord(design)}`;
+    case 'on-ordinary': return `On the ${hostWord(design)}`;
+    case 'on-chief': return 'On the top bar';
+    case 'on-bordure': return 'On the border';
+    case 'around': return `Around the ${pictureWord(design)}`;
+    case 'co-primary': return `A second picture beside the ${pictureWord(design)}`;
+    case 'in-chief': return 'Along the top (in chief)';
+    case 'in-base': return 'Along the bottom (in base)';
+    case 'in-canton': return 'In the top corner (in canton)';
+    case 'chief': return 'A top band (chief)';
+    case 'bordure': return 'A border (bordure)';
+    case 'overall': return 'Across everything (overall)';
   }
 };
 
-export function AddLayer({ design, onChange }: { design: Design; onChange: (nd: Design) => void }) {
+/**
+ * Whether a layer is about something the design has: pictures on the band, the top bar or the border, and a top band or
+ * border beside the band, are listed only once there is one. The rest are listed greyed when they can't be added here.
+ */
+function applies(design: Design, key: LayerKey): boolean {
+  const parts = simpleParts(design);
+  const has = (type: 'chief' | 'bordure') => parts.peripherals.some((p) => p.place === type);
+  switch (key) {
+    case 'on-ordinary': case 'chief': case 'bordure': return parts.ordinary !== null;
+    case 'on-chief': return has('chief');
+    case 'on-bordure': return has('bordure');
+    default: return true;
+  }
+}
+
+/** The chooser's groups, in order. */
+const GROUPS: ReadonlyArray<{ heading: string; keys: readonly LayerKey[] }> = [
+  { heading: 'On it', keys: ['on-picture', 'on-ordinary', 'on-chief', 'on-bordure'] },
+  { heading: 'Around or beside it', keys: ['around', 'in-chief', 'in-base', 'in-canton', 'co-primary', 'chief', 'bordure'] },
+  { heading: 'Across it', keys: ['overall'] },
+];
+
+interface Props {
+  design: Design;
+  onChange: (nd: Design) => void;
+  /** Called after a layer is added, to move to its card. */
+  onAdded: (key: LayerKey) => void;
+}
+
+export function AddLayer({ design, onChange, onAdded }: Props) {
   const [open, setOpen] = useState(false);
-  const allowed = layerChoices(design).filter((c) => c.allowed).map((c) => c.value);
-  if (!allowed.length) return null;
+  const { explain, node: explainer } = useExplainer();
+  const choices = layerChoices(design).filter((c) => applies(design, c.value));
+  if (!choices.some((c) => c.allowed)) return null;
+  const option = (c: Choice<LayerKey>) => {
+    const text = optionText(design, c.value);
+    return c.allowed
+      ? (
+        <button
+          key={c.value} type="button" class="button-secondary button-small" data-testid={`add-layer-${c.value}`}
+          onClick={() => { onChange(addLayer(design, c.value)); setOpen(false); onAdded(c.value); }}
+        >
+          {text}
+        </button>
+      )
+      : (
+        <button
+          key={c.value} type="button" class="button-secondary button-small is-blocked" data-testid={`add-layer-${c.value}`} aria-disabled="true"
+          onClick={(e) => explain({ anchor: e.currentTarget as HTMLElement, kind: 'structure', title: `${text} isn't available`, reason: c.reason })}
+        >
+          <span>{text}</span>
+          <LockGlyph />
+        </button>
+      );
+  };
   return (
     <div class="add-layer">
       <button type="button" class="button-secondary button-small" aria-expanded={open ? 'true' : 'false'} aria-controls="add-layer-options" data-testid="add-layer-toggle" onClick={() => setOpen(!open)}>
         + Add pictures around, on or above
       </button>
-      <p class="add-layer-options" id="add-layer-options" hidden={!open}>
-        {allowed.map((key) => (
-          <button key={key} type="button" class="button-secondary button-small" data-testid={`add-layer-${key}`} onClick={() => onChange(addLayer(design, key))}>
-            + {buttonText(design, key)}
-          </button>
-        ))}
-      </p>
+      <div class="add-layer-options" id="add-layer-options" hidden={!open}>
+        {GROUPS.map(({ heading, keys }) => {
+          const shown = keys.flatMap((key) => choices.filter((c) => c.value === key));
+          return shown.length > 0 && (
+            <div key={heading} class="add-layer-group" role="group" aria-label={heading}>
+              <p class="add-layer-heading" aria-hidden="true">{heading}</p>
+              <div class="add-layer-row">{shown.map(option)}</div>
+            </div>
+          );
+        })}
+        {explainer}
+      </div>
     </div>
   );
 }

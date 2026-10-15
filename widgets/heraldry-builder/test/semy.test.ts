@@ -6,7 +6,7 @@ import { renderToString } from 'preact-render-to-string';
 import { describe, expect, it } from 'vitest';
 import { SemyPicker } from '../src/components/design/SemyPicker';
 import {
-  CHARGE_IDS, SEMY_NAMES, STREWN_COUNT, blazon, candidateKey, clearSemy, deriveTags, differences, fieldRegions, fillCode, gloss, isFieldPrimary, liftStrewn, renderLayers, semyAt, semyChoices,
+  CHARGE_IDS, SEMY_NAMES, STREWN_COUNT, blazon, canStrew, candidateKey, clearSemy, deriveTags, differences, fieldRegions, fillCode, gloss, isFieldPrimary, liftStrewn, renderLayers, semyAt, semyChoices,
   semyColourChoices, semyPaint, semyPhrase, setSemy, setSemyColour, signature, strewnGroups, structuralIssues, surfaceOf, tinctureIssues, unsupportedIssues,
   type Design,
 } from '../src/lib/heraldry';
@@ -296,22 +296,25 @@ describe('the builder', () => {
 
 describe('the Scatter picker', () => {
   const picker = (d: Design, target: { k: 'field'; part: 0 | 1 } | { k: 'group'; path: number[] }) =>
-    renderToString(h(SemyPicker, { design: d, target, group: 'field1', testid: 'field-1', legend: 'Background scatter', onChange: () => {} }));
+    renderToString(h(SemyPicker, { design: d, target, group: 'field1', testid: 'field-1', noun: 'the background', onChange: () => {} }));
 
-  it('offers every picture in a menu, with the one blocked by the rule saying why, and the two colours once something is strewn', () => {
+  it('offers every picture in a menu, with the one blocked by the rule saying why, and the colour of the pictures once something is strewn', () => {
     const plain = picker(nd(arms('azure', group(charge('mullet'), 'or', { count: 3 }))), { k: 'field', part: 0 });
     expect(plain).toContain('data-testid="field-1-semy-select"');
     expect(plain).toMatch(/<option value="mullet" disabled title="[^"]*A3D1a[^"]*">Star · mullet \(not here\)<\/option>/);
     expect(plain).toMatch(/<option value="rose">Rose<\/option>/);
     expect(plain).not.toContain('field-1-semy-colour-1');
     const strewn = picker(nd(arms(semy('azure', 'rose', 'argent'))), { k: 'field', part: 0 });
-    expect(strewn).toContain('field-1-semy-colour-1');
+    // The colour it is strewn on is the background colour picker's.
+    expect(strewn).not.toContain('field-1-semy-colour-1');
     expect(strewn).toContain('field-1-semy-colour-2');
     expect(strewn).toContain('Colour of the roses');
   });
 
-  it('is not shown for a picture, which cannot be strewn', () => {
-    expect(picker(nd(arms('azure', lion('or'))), { k: 'group', path: [0] })).toBe('');
+  it('is offered for the background and a band, not for a picture, which cannot be strewn', () => {
+    expect(canStrew(nd(arms('azure', lion('or'))), { k: 'group', path: [0] })).toBe(false);
+    expect(canStrew(nd(arms('azure', group(ordinary('fess'), 'or'))), { k: 'group', path: [0] })).toBe(true);
+    expect(canStrew(nd(arms('azure')), { k: 'field', part: 0 })).toBe(true);
   });
 });
 

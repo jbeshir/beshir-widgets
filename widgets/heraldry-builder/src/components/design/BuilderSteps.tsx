@@ -7,11 +7,11 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, VARIATION_LABEL, asParty, asSemy, asTreated, asVariation, fieldParts, furName, treatedName, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
-  groupTinctureOf, isBlocked, layoutChoices, layoutKey, layoutLabel, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
-  type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
-  type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PlainTerm, type Posture, type Tincture,
+  isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
+  type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
+  type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
 import {
@@ -26,6 +26,7 @@ import { FieldPattern } from './VariationPicker';
 import { FurPicker } from './FurPicker';
 import { SemyPicker } from './SemyPicker';
 import { TreatmentPicker } from './TreatmentPicker';
+import { MorePaint, paintMode } from './MorePaint';
 import { PaintPicker } from './PaintPicker';
 import { TincturePicker } from './TincturePicker';
 
@@ -85,10 +86,12 @@ interface StepFrameProps {
   issues: Issue[];
   accordion: Accordion | null;
   testid: string;
+  /** The button in the heading that takes the step's layer out again ("Remove the border"); null for the three main steps. */
+  remove: { label: string; testid: string; onRemove: () => void } | null;
   children: ComponentChildren;
 }
 
-export function Step({ n, title, term, hint, summary, issues, accordion, testid, children }: StepFrameProps) {
+export function Step({ n, title, term, hint, summary, issues, accordion, testid, remove, children }: StepFrameProps) {
   const open = accordion?.open ?? true;
   const heading = (
     <>
@@ -99,7 +102,7 @@ export function Step({ n, title, term, hint, summary, issues, accordion, testid,
   return (
     <fieldset class={`step${issues.length ? ' has-issue' : ''}${open ? '' : ' is-collapsed'}`} data-testid={testid}>
       <legend>
-        <h2 class="step-title">
+        <h2 class="step-title" tabIndex={-1}>
           {accordion ? (
             <button type="button" class="step-toggle" aria-expanded={open ? 'true' : 'false'} aria-controls={`${testid}-body`} data-testid={`${testid}-toggle`} onClick={accordion.onToggle}>
               {heading}
@@ -107,6 +110,11 @@ export function Step({ n, title, term, hint, summary, issues, accordion, testid,
             </button>
           ) : heading}
         </h2>
+        {remove && (
+          <button type="button" class="step-remove" aria-label={remove.label} title={remove.label} data-testid={remove.testid} onClick={remove.onRemove}>
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
       </legend>
       {accordion && !open && (
         <p class="step-summary" data-testid={`${testid}-summary`}>{issues.length ? 'Needs a fix — open to see why' : summary}</p>
@@ -127,50 +135,94 @@ interface ShapedStepProps extends StepProps {
 
 export const lower = (s: string) => s.toLowerCase();
 
-/** A group's colour in plain words, lower case: "gold", "swapped colours", "split blue and gold". */
-export function colourWords(design: Design, path: GroupPath): string {
-  const paint = groupAt(design, path).paint;
-  const party = asParty(paint);
-  if (party) return `split ${party.parts.map((p) => lower(TINCTURE_LABEL[p.t].plain)).join(' and ')}`;
-  if (paint.k === 'fur') return furName(paint);
-  if (paint.k === 'proper') return 'natural colours';
-  const treated = asTreated(paint);
-  if (treated) return treatedName(treated);
-  const semy = asSemy(paint);
-  if (semy) return `${lower(TINCTURE_LABEL[semy.ground.t].plain)}, strewn with ${lower(TINCTURE_LABEL[semy.ink.t].plain)} ${CHARGES[semy.charge.charge].plural}`;
-  return lower(TINCTURE_LABEL[groupTinctureOf(paint) ?? 'or'].plain);
+/** A paint in plain words, lower case: "gold", "split blue and gold", "stripes across: blue and gold", "ermine", "natural colours". */
+function paintWords(p: Paint): string {
+  switch (p.k) {
+    case 'tincture': return lower(TINCTURE_LABEL[p.t].plain);
+    case 'counterchanged': return lower(TINCTURE_LABEL.counterchanged.plain);
+    case 'stain': return p.stain;
+    case 'proper': return 'natural colours';
+    case 'fur': return furName(p);
+    case 'divided': return `split ${p.parts.map(paintWords).join(' and ')}`;
+    case 'variation': return `${lower(VARIATION_LABEL[p.variation].plain)}: ${p.parts.map(paintWords).join(' and ')}`;
+    case 'treated': return `${paintWords(p.ground)} with ${lower(TINCTURE_LABEL[p.ink].plain)} ${lower(TREATMENT_LABEL[p.treatment].plain)}`;
+    case 'semy': return `${paintWords(p.ground)} strewn with ${paintWords(p.ink)} ${CHARGES[p.charge.charge].plural}`;
+    default: return p satisfies never;
+  }
 }
 
-/** A part of the background in plain words: its colour, its fur, or its treatment. */
-const partWords = (p: Paint): string => {
-  const treated = asTreated(p);
-  const semy = asSemy(p);
-  if (semy) return `${lower(TINCTURE_LABEL[semy.ground.t].plain)} strewn with ${lower(TINCTURE_LABEL[semy.ink.t].plain)} ${CHARGES[semy.charge.charge].plural}`;
-  return treated ? treatedName(treated) : p.k === 'fur' ? furName(p) : lower(TINCTURE_LABEL[p.k === 'tincture' ? p.t : 'or'].plain);
-};
+/** A group's colour in plain words, lower case. */
+export const colourWords = (design: Design, path: GroupPath): string => paintWords(groupAt(design, path).paint);
 
-/** The tincture of part `i` of the background, or null when it is a fur. */
-const partTincture = (design: Design, i: 0 | 1): Tincture | null => {
-  const p = fieldParts(design)[i];
-  return p?.k === 'tincture' ? p.t : null;
-};
+/** The tinctures of a part of the background and the picker that sets it: a plain tincture, or the one under a scatter or brick (which stay). */
+function FieldPartPicker({ design, part, legend, onChange }: { design: Design; part: 0 | 1; legend: string; onChange: (nd: Design) => void }) {
+  const target: PaintTarget = { k: 'field', part };
+  const paint = fieldParts(design)[part];
+  const group = `field${part + 1}`, testid = `field-tincture-${part + 1}`;
+  const semy = asSemy(paint), treated = asTreated(paint);
+  if (semy) return <TincturePicker group={group} testid={testid} legend={legend} choices={semyColourChoices(design, target, 0)} value={semy.ground.t} onChange={(t) => onChange(setSemyColour(design, target, 0, t))} />;
+  if (treated) return <TincturePicker group={group} testid={testid} legend={legend} choices={treatmentColourChoices(design, target, 0)} value={treated.ground.t} onChange={(t) => onChange(setTreatmentColour(design, target, 0, t))} />;
+  return <TincturePicker group={group} testid={testid} legend={legend} choices={fieldTinctureChoices(design, part)} value={paint.k === 'tincture' ? paint.t : null} onChange={(t) => onChange(setFieldTincture(design, part, t))} />;
+}
+
+/** "More colours and patterns…" for the background: a fur, a scatter or brick for a part of it (which part, when it is divided), or stripes and checks over it all. */
+function FieldMore({ design, division, onChange }: { design: Design; division: Division | null; onChange: (nd: Design) => void }) {
+  const parts = fieldParts(design);
+  const patterned = parts.findIndex((p) => p.k !== 'tincture');
+  const [part, setPart] = useState<0 | 1>(patterned === 1 ? 1 : 0);
+  const shown: 0 | 1 = division ? part : 0;
+  const target: PaintTarget = { k: 'field', part: shown };
+  const noun = division ? 'this part' : 'the background';
+  const forPart = (body: ComponentChildren) => (
+    <>
+      {division && (
+        <RadioGroup label="Which part of the background" class="segmented segmented-wide" testid="field-more-part">
+          {([0, 1] as const).map((i) => (
+            <ChoiceButton key={i} testid={`field-more-part-${i + 1}`} checked={shown === i} label={DIVISION_PART_LABEL[division][i]} onSelect={() => setPart(i)} onBlocked={never} class="segment">
+              <span>{DIVISION_PART_LABEL[division][i]}</span>
+            </ChoiceButton>
+          ))}
+        </RadioGroup>
+      )}
+      {body}
+    </>
+  );
+  const props = { design, target, group: `field${shown + 1}`, testid: `field-${shown + 1}`, noun, onChange };
+  const varied = design.kind === 'arms' ? asVariation(design.field) : null;
+  return (
+    <MorePaint
+      testid="field"
+      noun="the background"
+      current={varied ? 'pattern' : patterned >= 0 ? paintMode(parts[patterned]) : null}
+      modes={[
+        { mode: 'fur', panel: () => forPart(<FurPicker {...props} />) },
+        { mode: 'pattern', panel: () => <FieldPattern design={design} onChange={onChange} /> },
+        { mode: 'scatter', panel: () => forPart(<SemyPicker {...props} />) },
+        { mode: 'treatment', panel: () => forPart(<TreatmentPicker {...props} />) },
+      ]}
+    />
+  );
+}
 
 function fieldSummary(design: Design): string {
   if (design.kind === 'badge') return 'No background (badge)';
-  const [first, second] = fieldParts(design);
-  const varied = design.kind === 'arms' ? asVariation(design.field) : null;
-  if (varied) return `${VARIATION_LABEL[varied.variation].plain}: ${varied.parts.map((p) => lower(TINCTURE_LABEL[p.t].plain)).join(' and ')}`;
-  if (design.kind === 'arms' && design.field.k === 'divided') {
-    return `${DIVISION_LABEL[design.field.division].plain}: ${partWords(first)} and ${partWords(second)}`;
-  }
-  return `${capitalise(partWords(first))}, plain`;
+  const field = design.field;
+  if (field.k === 'divided') return `${DIVISION_LABEL[field.division].plain}: ${field.parts.map(paintWords).join(' and ')}`;
+  return field.k === 'variation' ? capitalise(paintWords(field)) : `${capitalise(paintWords(field))}, plain`;
 }
 
-export function FieldStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
+interface FieldStepProps extends ShapedStepProps {
+  /** The Badge tile: App applies it and keeps the arms for Undo. */
+  onBadge: (nd: Design) => void;
+  /** The note with Undo after the Badge tile, shown under the tiles. */
+  notice: ComponentChildren;
+}
+
+export function FieldStep({ design, shape, onChange, onBadge, notice, issues, accordion }: FieldStepProps) {
   const division = design.kind === 'arms' && design.field.k === 'divided' ? design.field.division : null;
   const varied = design.kind === 'arms' && design.field.k === 'variation';
   return (
-    <Step n={1} title="Background" term="field" hint="One colour, split in two, or striped." summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field">
+    <Step n={1} title="Background" term="field" hint={design.kind === 'badge' ? 'No background: your badge is its picture alone.' : 'One colour, or split in two.'} summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field" remove={null}>
       <RadioGroup label="Field division" class="icon-grid icon-grid-field" testid="field-division-select">
         <ChoiceButton testid="field-kind-plain" checked={design.kind === 'arms' && !division && !varied} label={nameOf(PLAIN_FIELD_LABEL)} title={PLAIN_FIELD_LABEL.plain} onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
           <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
@@ -182,40 +234,19 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
             <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
           </ChoiceButton>
         ))}
-        <ChoiceButton testid="division-badge" checked={design.kind === 'badge'} label="No background (badge)" title="No shield or background: a badge is just its picture" onSelect={() => onChange(setBadge(design))} onBlocked={never} class="icon-choice">
+        <ChoiceButton testid="division-badge" checked={design.kind === 'badge'} label="No background (badge)" title="No shield or background: a badge is just its picture" onSelect={() => onBadge(setBadge(design))} onBlocked={never} class="icon-choice">
           <Shield design={ICON_BADGE} shape={shape} size={30} label={null} />
           <span class="choice-label">Badge</span>
         </ChoiceButton>
       </RadioGroup>
+      {notice}
       {design.kind === 'arms' && !varied && (
         <>
-          <TincturePicker
-            group="field1"
-            testid="field-tincture-1"
-            legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'}
-            choices={fieldTinctureChoices(design, 0)}
-            value={partTincture(design, 0)}
-            onChange={(t) => onChange(setFieldTincture(design, 0, t))}
-          />
-          <FurPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: fur` : 'Background fur'} onChange={onChange} />
-          <TreatmentPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: brick wall or scales` : 'Background brick wall or scales'} onChange={onChange} />
-          <SemyPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: scatter` : 'Background scatter'} onChange={onChange} />
-          {division && (
-            <TincturePicker
-              group="field2"
-              testid="field-tincture-2"
-              legend={DIVISION_PART_LABEL[division][1]}
-              choices={fieldTinctureChoices(design, 1)}
-              value={partTincture(design, 1)}
-              onChange={(t) => onChange(setFieldTincture(design, 1, t))}
-            />
-          )}
-          {division && <FurPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: fur`} onChange={onChange} />}
-          {division && <TreatmentPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: brick wall or scales`} onChange={onChange} />}
-          {division && <SemyPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: scatter`} onChange={onChange} />}
+          <FieldPartPicker design={design} part={0} legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'} onChange={onChange} />
+          {division && <FieldPartPicker design={design} part={1} legend={DIVISION_PART_LABEL[division][1]} onChange={onChange} />}
         </>
       )}
-      {design.kind === 'arms' && <FieldPattern design={design} onChange={onChange} />}
+      {design.kind === 'arms' && <FieldMore design={design} division={division} onChange={onChange} />}
     </Step>
   );
 }
@@ -231,7 +262,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
   const item = path && groupAt(design, path).item;
   const type = item?.k === 'ordinary' ? item.type : null;
   return (
-    <Step n={2} title="Band or shape" term="ordinary" hint="A bold band, border or shape. You need this or a picture (or both)." summary={ordinarySummary(design)} issues={issues} accordion={accordion} testid="step-ordinary">
+    <Step n={2} title="Band or shape" term="ordinary" hint="A bold band, border or shape. You need this or a picture (or both)." summary={ordinarySummary(design)} issues={issues} accordion={accordion} testid="step-ordinary" remove={null}>
       <RadioGroup label="Ordinary" class="icon-grid icon-grid-ordinary" testid="ordinary-select">
         <ChoiceButton testid="ordinary-none" checked={!type} label="No band or shape" onSelect={() => onChange(setOrdinary(design, null))} onBlocked={never} class="icon-choice">
           <NoneIcon />
@@ -245,7 +276,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
         ))}
       </RadioGroup>
       {path && type && (
-        <PaintPicker design={design} path={path} group="ordinary" testid="ordinary-tincture" legend={`Colour of the ${lower(ORDINARY_LABEL[type].plain)}`} onChange={onChange} />
+        <PaintPicker design={design} path={path} group="ordinary" testid="ordinary-tincture" noun={lower(ORDINARY_LABEL[type].plain)} onChange={onChange} />
       )}
     </Step>
   );
@@ -259,7 +290,8 @@ function postureOption(design: Design, path: GroupPath, p: Posture): string {
 }
 
 const countName = (n: number) => (n === 1 ? 'one' : numberWord(n));
-const nounOf = (design: Design, path: GroupPath): string => {
+/** The pictures at `path` by name, one or many: "lion", "mullets". */
+export const nounOf = (design: Design, path: GroupPath): string => {
   const g = groupAt(design, path);
   if (g.item.k !== 'charge') return g.count === 1 ? 'charge' : 'charges';
   const meta = CHARGES[g.item.charge];
@@ -347,6 +379,13 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
   const layoutValue = layoutKey(g);
   const layoutNote = layouts.note;
   const hasSplendour = mods.some((m) => m.value === 'in-splendour');
+  /** A layout in one half or quarter of the shield (D23): kept apart from the layouts over the whole of it. */
+  const inPart = (key: LayoutKey) => isHalfPosition(layoutOfKey(key, g.count)?.position ?? null);
+  const layoutOption = (c: Choice<LayoutKey>) => (
+    <option key={c.value} value={c.value} disabled={!c.allowed}>
+      {plainFirst(layoutLabel(c.value))}{c.allowed ? '' : ' (not available)'}
+    </option>
+  );
 
   return (
     <div class="charge-options">
@@ -395,11 +434,12 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
           onChange={(e) => onChange(setLayout(design, path, (e.currentTarget as HTMLSelectElement).value as LayoutKey))}
         >
           {layouts.mode === 'choose'
-            ? layouts.choices.map((c) => (
-                <option key={c.value} value={c.value} disabled={!c.allowed}>
-                  {plainFirst(layoutLabel(c.value))}{c.allowed ? '' : ' (not available)'}
-                </option>
-              ))
+            ? (
+              <>
+                {layouts.choices.filter((c) => !inPart(c.value)).map(layoutOption)}
+                {layouts.choices.some((c) => inPart(c.value)) && <optgroup label="In one part of the shield">{layouts.choices.filter((c) => inPart(c.value)).map(layoutOption)}</optgroup>}
+              </>
+            )
             : <option value={layoutValue}>{layouts.mode === 'single' ? 'Single, centred' : layouts.mode === 'fixed' ? plainFirst(layoutLabel(layoutValue)) : 'Set by the band or shape'}</option>}
         </select>
         {layoutNote && <p class="control-note" id={`${layoutId}-note`}>{layoutNote}</p>}
@@ -441,7 +481,7 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
         </div>
       )}
 
-      <PaintPicker design={design} path={path} group={`${prefix}charge`} testid={`${prefix}charge-tincture`} legend={`Colour of the ${nounOf(design, path)}`} onChange={onChange} />
+      <PaintPicker design={design} path={path} group={`${prefix}charge`} testid={`${prefix}charge-tincture`} noun={nounOf(design, path)} onChange={onChange} />
     </div>
   );
 }
@@ -467,7 +507,7 @@ export function ChargesStep({ n, design, onChange, onAdjust, adjusted, issues, a
   }, [selectedCategory]);
 
   return (
-    <Step n={n} title="Picture" term="charge" hint={design.kind === 'badge' ? 'Pick the picture your badge is made of: one charge, or two long ones crossed.' : 'Pick a picture and repeat it up to twelve times. You need this or a band or shape (or both).'} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-charges">
+    <Step n={n} title="Picture" term="charge" hint={design.kind === 'badge' ? 'Pick the picture your badge is made of: one charge, or two long ones crossed.' : 'Pick a picture and repeat it up to twelve times. You need this or a band or shape (or both).'} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-charges" remove={null}>
       {compact && (
         <RadioGroup label="Kind of picture" class="charge-tabs" testid="charge-tabs">
           {CHARGE_CATEGORIES.map((cat) => (

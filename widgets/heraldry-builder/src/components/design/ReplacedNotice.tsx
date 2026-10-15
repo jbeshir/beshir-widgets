@@ -1,7 +1,7 @@
 // A non-modal note shown after the builder changed more than was asked for — an example or
 // "Surprise me" replaced work in progress, or a count or placement brought its partner along — with
-// a one-click way back. Each kind has its own spot (replaced: above the builder; adjusted: under the
-// picture controls); the status region is always mounted so assistive tech announces the note when
+// a one-click way back, or the design made a badge, which leaves out all but its picture. Each kind has its own spot
+// (replaced: above the builder; adjusted: under the picture controls; badge: under the background tiles); the status region is always mounted so assistive tech announces the note when
 // it appears. When an adjustment leaves the charges' colour breaking the rule, the violation panel's
 // fix sits beside Undo too, so it is in reach wherever that panel is on screen.
 
@@ -25,7 +25,7 @@ export function ReplacedNotice({ replacement, kind, onUndo, onFix }: Props) {
     <div role="status" data-testid={`${kind}-status`}>
       {shown && (
         <p class="replaced-notice" data-testid={`${kind}-notice`}>
-          <span>{shown.kind === 'adjusted' ? shown.note : 'Replaced your design.'}</span>
+          <span>{shown.kind === 'replaced' ? 'Replaced your design.' : shown.note}</span>
           {onFix && fix && (
             <button type="button" class="button-primary button-small" data-testid={`${kind}-fix`} onClick={() => onFix(fix.design)}>
               {fixText(fix.label)}

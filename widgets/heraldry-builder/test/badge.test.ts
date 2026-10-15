@@ -12,7 +12,7 @@ import {
   signature, structuralIssues, tinctureIssues, unsupportedIssues,
   type Design,
 } from '../src/lib/heraldry';
-import { DEFAULT_DESIGN, assess, setBadge, setCharge, setDivision, setPlainField } from '../src/lib/builder';
+import { DEFAULT_DESIGN, assess, badgeDesign, setBadge, setCharge, setDivision, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
 import { checkBlazon } from './sca/classify';
 import { arms, charge, group, nd, ordinary } from './helpers';
@@ -174,6 +174,20 @@ describe('the builder offers a badge', () => {
     expect(setBadge(onBend).groups).toEqual([]);
   });
 
+  it('keeps pictures on a band as one picture of its own', () => {
+    const onFess = built(arms('azure', group(ordinary('fess'), 'or', { charged: [group(charge('lion'), 'gules', { count: 2 })] })));
+    expect(blazon(setBadge(onFess))).toBe('(Fieldless) A lion gules.');
+  });
+
+  it('offers Undo when the badge leaves something out, saying what it does', () => {
+    const shaped = (design: Design) => ({ design, shape: 'heater' as const });
+    expect(badgeDesign(shaped(DEFAULT_DESIGN), setBadge(DEFAULT_DESIGN))).toBeNull();
+    const kept = badgeDesign(shaped(lion), setBadge(lion));
+    expect(kept).toMatchObject({ kind: 'badge', previous: shaped(lion), note: 'Made a badge: a badge has no background.' });
+    const banded = setCharge(setOrdinary(DEFAULT_DESIGN, 'bend'), 'picture', 'lion');
+    expect(badgeDesign(shaped(banded), setBadge(banded))?.note).toContain('everything else');
+  });
+
   it('makes one charge of a group the badge cannot hold, and a tincture of counterchanged', () => {
     const three = built(arms(  { k: 'divided', division: 'per-pale', parts: ['or', 'azure'] }, group(charge('rose'), 'counterchanged', { count: 3 })));
     expect(blazon(setBadge(three))).toBe('(Fieldless) A rose Or.');
@@ -224,7 +238,7 @@ describe('the builder offers a badge', () => {
 
 describe('the default flow gains nothing', () => {
   const ids = (markup: string) => new Set([...markup.matchAll(/data-testid="([^"]+)"/g)].map((m) => m[1]));
-  const base = { onChange: () => {}, issues: [], accordion: null };
+  const base = { onChange: () => {}, onBadge: () => {}, notice: null, issues: [], accordion: null };
   const field = (d: Design) => ids(renderToString(h(FieldStep, { ...base, design: d, shape: 'heater' })));
 
   it('adds one tile to the background step and nothing to the other steps of the arms flow', () => {
@@ -248,14 +262,14 @@ describe('the default flow gains nothing', () => {
     expect(got).toContain('division-badge');
     for (const id of ['field-tincture-1', 'field-pattern']) expect(got, id).not.toContain(id);
     const tab = renderToString(h(DesignTab, {
-      design: d, shape: 'heater', report: assess(d), onChange: () => {}, onAdjust: () => {}, adjusted: () => null, onShape: () => {}, onStartOver: () => {},
+      design: d, shape: 'heater', report: assess(d), onChange: () => {}, onAdjust: () => {}, adjusted: () => null, onBadge: () => {}, badgeNotice: null, onShape: () => {}, onStartOver: () => {},
       examplesOpen: false, onLoadExample: () => {}, onSurprise: () => {}, onDismissWelcome: null, hatching: false, onHatching: () => {}, onCheck: () => {}, checking: false, onRegister: () => {},
     }));
     expect(tab).toContain('data-testid="step-charges"');
     expect(tab).not.toContain('data-testid="step-ordinary"');
     expect(tab).not.toContain('data-testid="shape-picker"');
     const withBand = renderToString(h(DesignTab, {
-      design: DEFAULT_DESIGN, shape: 'heater', report: assess(DEFAULT_DESIGN), onChange: () => {}, onAdjust: () => {}, adjusted: () => null, onShape: () => {}, onStartOver: () => {},
+      design: DEFAULT_DESIGN, shape: 'heater', report: assess(DEFAULT_DESIGN), onChange: () => {}, onAdjust: () => {}, adjusted: () => null, onBadge: () => {}, badgeNotice: null, onShape: () => {}, onStartOver: () => {},
       examplesOpen: false, onLoadExample: () => {}, onSurprise: () => {}, onDismissWelcome: null, hatching: false, onHatching: () => {}, onCheck: () => {}, checking: false, onRegister: () => {},
     }));
     expect(withBand).toContain('data-testid="step-ordinary"');

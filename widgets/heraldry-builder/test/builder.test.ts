@@ -432,8 +432,8 @@ describe('pictures on a top band and on a border', () => {
     expect(groupAt(chief, pathOfPlace(chief, 'on-chief')!)).toMatchObject({ role: 'tertiary', count: 1, arrangement: { k: 'host' } });
     expect(assess(chief).status).toBe('valid');
     const bordure = addLayer(chief, 'on-bordure');
-    // The band's colour is carried over "and on a chief" when the top band shares it.
-    expect(blazon(bordure)).toMatch(/^Azure, a pale and on a chief Or an? \w+ \w+, on a bordure Or an? \w+ \w+\.$/);
+    // The top band starts in a metal the band doesn't have, so the two can be told apart; with none left, the border takes the first that works.
+    expect(blazon(bordure)).toMatch(/^Azure, a pale Or, on a chief argent an? \w+ \w+, on a bordure Or an? \w+ \w+\.$/);
     expect(assess(bordure).status).toBe('valid');
   });
 
@@ -590,5 +590,13 @@ describe('replacing a design in progress', () => {
     expect(undoStillOffered(r, example)).toBe(true);
     expect(undoStillOffered(r, { ...example, shape: 'round' })).toBe(false);
     expect(undoStillOffered(r, { design: setCount(example.design, picture(example.design), 2), shape: 'heater' })).toBe(false);
+  });
+});
+
+describe('a new band starts apart from what it meets', () => {
+  it('lies across a gold lion in another metal, and beside a gold band in another metal, while one is left', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(blazon(addLayer(lion, 'overall'))).toBe('Azure, a lion Or and overall a bend argent.');
+    expect(blazon(addLayer(setOrdinary(DEFAULT_DESIGN, 'bend'), 'chief'))).toBe('Azure, a bend Or, a chief argent.');
   });
 });

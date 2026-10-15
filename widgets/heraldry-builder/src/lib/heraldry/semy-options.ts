@@ -16,7 +16,7 @@ export function semyAt(d: Design, target: PaintTarget): SemyPaint | null {
 }
 
 /** Whether the target can be strewn: a part of the background, or a band (the charges on a picture are too small to draw). */
-const canStrew = (d: Design, target: PaintTarget): boolean => target.k === 'field' || groupAt(d, target.path).item.k === 'ordinary';
+export const canStrew = (d: Design, target: PaintTarget): boolean => target.k === 'field' || groupAt(d, target.path).item.k === 'ordinary';
 
 /** Why the target can't be painted with this semy: the rules where it lies, the strewn charges against their ground, the groups it makes. */
 function semyReason(d: Design, target: PaintTarget, paint: SemyPaint): string | null {

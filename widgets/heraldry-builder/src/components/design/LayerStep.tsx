@@ -1,14 +1,15 @@
-// The numbered step card of one layer beyond the band and the picture: its title and role, what it holds
-// (a picture list with the picture controls, or a colour), and a button that removes it.
+// The numbered step card of one layer beyond the band and the picture: its title and role, a button in its heading that
+// removes it, and what it holds (a picture list with the picture controls, or a colour).
 
 import {
-  CHARGE_IDS, ORDINARY_LABEL, PLACE_LABEL, chargeLabel, groupAt, groupLabel, overallItemChoices, pathOfPlace, removeLayer, setOverallItem,
+  CATEGORY_LABEL, CHARGE_CATEGORIES, ORDINARY_LABEL, PLACE_LABEL, chargeLabel, chargesInCategory, groupAt, groupLabel, overallItemChoices, pathOfPlace, removeLayer, setOverallItem,
   type ChargeId, type Choice, type Companion, type Design, type Issue, type LayerItem, type LayerKey, type OrdinaryType,
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { setCharge } from '../../lib/builder';
 import { PictureControls, Step, lower, picturesSummary, colourWords, type Accordion } from './BuilderSteps';
 import { PaintPicker } from './PaintPicker';
+import { pictureWord } from './AddLayer';
 
 interface Props {
   design: Design;
@@ -52,7 +53,10 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
   const blocked = choices.find((c) => !c.allowed && itemValue(c.value) === itemValue(current));
   const summary = item.k === 'ordinary' ? lower(ORDINARY_LABEL[item.type].plain) : picturesSummary(design, path);
   return (
-    <Step n={n} title={groupLabel(design, path)} term={PLACE_LABEL.overall.term} hint="A band or picture drawn across the middle of everything else." summary={summary} issues={issues} accordion={accordion} testid="step-layer-overall">
+    <Step
+      n={n} title={groupLabel(design, path)} term={PLACE_LABEL.overall.term} hint="A band or picture drawn across the middle of everything else." summary={summary} issues={issues} accordion={accordion} testid="step-layer-overall"
+      remove={{ label: 'Remove what goes across everything', testid: 'remove-layer-overall', onRemove: () => onChange(removeLayer(design, 'overall')) }}
+    >
       <div class="control">
         <label class="picker-legend" for="overall-item-select">What goes across</label>
         <select
@@ -69,12 +73,9 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
       </div>
       {item.k === 'ordinary'
         ? (
-          <PaintPicker design={design} path={path} group="overall" testid="overall-tincture" legend={`Colour of the ${lower(ORDINARY_LABEL[item.type].plain)}`} onChange={onChange} />
+          <PaintPicker design={design} path={path} group="overall" testid="overall-tincture" noun={lower(ORDINARY_LABEL[item.type].plain)} onChange={onChange} />
         )
         : <PictureControls design={design} path={path} prefix="overall-" onChange={onChange} onAdjust={onAdjust} adjusted={null} />}
-      <p>
-        <button type="button" class="button-tertiary" data-testid="remove-layer-overall" onClick={() => onChange(removeLayer(design, 'overall'))}>Remove what goes across everything</button>
-      </p>
     </Step>
   );
 }
@@ -85,25 +86,20 @@ export function LayerStep({ design, place, n, onChange, onAdjust, issues, accord
   if (!path) return null;
   if (place === 'overall') return <OverallStep design={design} n={n} onChange={onChange} onAdjust={onAdjust} issues={issues} accordion={accordion} />;
   const item = groupAt(design, path).item;
-  const remove = (label: string) => (
-    <p>
-      <button type="button" class="button-tertiary" data-testid={`remove-layer-${place}`} onClick={() => onChange(removeLayer(design, place))}>{label}</button>
-    </p>
-  );
+  const remove = (label: string) => ({ label, testid: `remove-layer-${place}`, onRemove: () => onChange(removeLayer(design, place)) });
   const testid = `step-layer-${place}`;
-  const title = groupLabel(design, path);
+  const title = place === 'around' ? `Pictures around the ${pictureWord(design)}` : place === 'on-picture' ? `Pictures on the ${pictureWord(design)}` : groupLabel(design, path);
   if (item.k === 'ordinary') {
     const label = ORDINARY_LABEL[item.type];
     return (
-      <Step n={n} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; the pictures keep clear of it." summary={colourWords(design, path)} issues={issues} accordion={accordion} testid={testid}>
-        <PaintPicker design={design} path={path} group={place} testid={`${place}-tincture`} legend={`Colour of the ${lower(label.plain)}`} onChange={onChange} />
-        {remove(`Remove the ${lower(label.plain)}`)}
+      <Step n={n} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; the pictures keep clear of it." summary={colourWords(design, path)} issues={issues} accordion={accordion} testid={testid} remove={remove(`Remove the ${lower(label.plain)}`)}>
+        <PaintPicker design={design} path={path} group={place} testid={`${place}-tincture`} noun={lower(label.plain)} onChange={onChange} />
       </Step>
     );
   }
   if (item.k !== 'charge' || place === 'chief' || place === 'bordure') return null;
   return (
-    <Step n={n} title={title} term={PLACE_LABEL[place].term} hint={PICTURES_HINT[place]} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid={testid}>
+    <Step n={n} title={title} term={PLACE_LABEL[place].term} hint={PICTURES_HINT[place]} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid={testid} remove={remove(`Remove the ${lower(title)}`)}>
       <div class="control">
         <label class="picker-legend" for={`${place}-charge-select`}>Picture</label>
         <select
@@ -113,11 +109,14 @@ export function LayerStep({ design, place, n, onChange, onAdjust, issues, accord
           value={item.charge}
           onChange={(e) => onChange(setCharge(design, place, (e.currentTarget as HTMLSelectElement).value as ChargeId))}
         >
-          {CHARGE_IDS.map((id) => <option key={id} value={id}>{chargeLabel(id)}</option>)}
+          {CHARGE_CATEGORIES.map((cat) => (
+            <optgroup key={cat} label={CATEGORY_LABEL[cat]}>
+              {chargesInCategory(cat).map((m) => <option key={m.id} value={m.id}>{chargeLabel(m.id)}</option>)}
+            </optgroup>
+          ))}
         </select>
       </div>
       <PictureControls design={design} path={path} prefix={`${place}-`} onChange={onChange} onAdjust={onAdjust} adjusted={null} />
-      {remove('Remove these pictures')}
     </Step>
   );
 }

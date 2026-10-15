@@ -3,7 +3,7 @@
 // Treatment"), so what blocks a choice is the lines not standing out against it (A3B3d) and what the tincture would break where it lies.
 
 import { TINCTURES, type Tincture } from './tinctures';
-import { asTreated, treatedPaint, type Design, type TreatedPaint } from './design';
+import { asTreated, tincturePaint, treatedPaint, type Design, type TreatedPaint } from './design';
 import { DRAWN_TREATMENTS, type Treatment } from './divisions';
 import { contrasting, groundAt, ofOtherClass, paintAt, painted, reasonAt, withPartner, type PaintTarget, type Trial } from './paint-target';
 import { choice, type Choice } from './options';
@@ -37,6 +37,12 @@ export function treatmentChoices(d: Design, target: PaintTarget): Choice<Treatme
 /** The target laid with this treatment, on the tincture it has, the lines in the one they have if it contrasts, else the first that works. */
 export function setTreatment(d: Design, target: PaintTarget, treatment: Treatment): Design {
   return painted(d, target, treated(d, target, treatment).paint);
+}
+
+/** The target as the plain tincture it was laid on; unchanged when it is not treated. */
+export function clearTreatment(d: Design, target: PaintTarget): Design {
+  const now = treatmentAt(d, target);
+  return now ? painted(d, target, tincturePaint(now.ground.t)) : d;
 }
 
 /** The treated tincture with `slot` (0 the tincture, 1 the lines) set to `t`: for the tincture, the lines move only when they would no longer contrast. */

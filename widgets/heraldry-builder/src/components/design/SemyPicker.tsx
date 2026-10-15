@@ -1,5 +1,6 @@
-// The scatter of a part of the background or of a band: the picture strewn over it (a semy), its colour and the colour of the
-// pictures. Opt-in, like the fur beside it: folded under the tincture picker until a semy is chosen.
+// The scatter of a part of the background or of a band: the picture strewn over it (a semy) and the colour of the
+// pictures. The colour it is strewn on is the colour picker above, which keeps the scatter. One of the options of
+// "More colours and patterns…", offered only where something can be strewn.
 
 import {
   CHARGES, chargeLabel, clearSemy, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour,
@@ -10,24 +11,23 @@ import { TincturePicker } from './TincturePicker';
 interface Props {
   design: Design;
   target: PaintTarget;
-  /** Swatch testid group: swatch-<group>-semy-1 and -semy-2 for the colours. */
+  /** Swatch testid group: swatch-<group>-semy-2 for the colour of the pictures. */
   group: string;
   testid: string;
-  legend: string;
+  /** What is strewn: "the bend", "the left half". */
+  noun: string;
   onChange: (design: Design) => void;
 }
 
-export function SemyPicker({ design, target, group, testid, legend, onChange }: Props) {
+export function SemyPicker({ design, target, group, testid, noun, onChange }: Props) {
   const choices = semyChoices(design, target);
-  if (choices.length === 0) return null;
   const semy = semyAt(design, target);
   const selectId = `${testid}-semy-select`;
   const blocked = choices.find((c) => !c.allowed && c.value === semy?.charge.charge);
   return (
-    <details class="fur-picker" data-testid={`${testid}-semy`} open={semy !== null}>
-      <summary>{legend}</summary>
+    <div class="fur-picker">
       <div class="control">
-        <label class="picker-legend" for={selectId}>Picture scattered over it</label>
+        <label class="picker-legend" for={selectId}>Picture scattered over {noun}</label>
         <select
           id={selectId}
           class="select"
@@ -47,17 +47,16 @@ export function SemyPicker({ design, target, group, testid, legend, onChange }: 
         </select>
         {blocked && !blocked.allowed && <p class="field-hint">{blocked.reason}</p>}
       </div>
-      {semy && ([0, 1] as const).map((slot) => (
+      {semy && (
         <TincturePicker
-          key={slot}
-          group={`${group}-semy-${slot + 1}`}
-          testid={`${testid}-semy-colour-${slot + 1}`}
-          legend={slot === 0 ? 'Colour it is strewn on' : `Colour of the ${CHARGES[semy.charge.charge].plural}`}
-          choices={semyColourChoices(design, target, slot)}
-          value={slot === 0 ? semy.ground.t : semy.ink.t}
-          onChange={(t) => onChange(setSemyColour(design, target, slot, t))}
+          group={`${group}-semy-2`}
+          testid={`${testid}-semy-colour-2`}
+          legend={`Colour of the ${CHARGES[semy.charge.charge].plural}`}
+          choices={semyColourChoices(design, target, 1)}
+          value={semy.ink.t}
+          onChange={(t) => onChange(setSemyColour(design, target, 1, t))}
         />
-      ))}
-    </details>
+      )}
+    </div>
   );
 }

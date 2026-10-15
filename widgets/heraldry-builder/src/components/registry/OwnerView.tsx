@@ -194,7 +194,7 @@ export function OwnerView({ id, secret, onStatus, hatching, onDeviceChange }: Pr
             />
             <p class="field-hint" id="own-discord-hint">Leave blank to remove it.</p>
             {fieldErrors.discord && <p class="form-error" id="own-discord-error" data-testid="owner-discord-error">{fieldErrors.discord}</p>}
-            <ShapePicker design={load.entry.design} value={shape} onChange={setShape} idPrefix="owner-shape" />
+            {load.entry.design.kind === 'arms' && <ShapePicker design={load.entry.design} value={shape} onChange={setShape} idPrefix="owner-shape" />}
             {message && message.kind !== 'ok' && (
               <div class={`owner-message owner-message-${message.kind}`} role="alert" data-testid={message.kind === 'stale' ? 'owner-stale' : 'owner-message'}>
                 <p>{message.text}</p>

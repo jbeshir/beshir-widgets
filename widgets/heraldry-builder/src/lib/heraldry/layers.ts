@@ -2,11 +2,13 @@
 // top band (chief) and a border (bordure), the pictures on those, pictures set in chief, in base or in
 // canton beside the band or the picture, pictures set around the picture, pictures on the picture, a second main
 // picture beside the picture, and a band or picture lying across everything (overall). Pure Design → Design, like every builder edit: a layer is added
-// where it can be drawn and given the first tincture that works, the pictures are refitted to the room it
+// where it can be drawn and given the first tincture that works (a band across everything, a top band or a border one that
+// sets it apart from the rest), the pictures are refitted to the room it
 // leaves, and anything that can't be drawn is blocked with its reason, never silently dropped.
 
 import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
-import { PLAIN_LINES, canonical, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture } from './design';
+import { NON_STANDARD_TINCTURES } from './tinctures';
+import { PLAIN_LINES, bodyTinctures, canonical, samePath, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture } from './design';
 import { ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
@@ -97,6 +99,18 @@ export function refitLayers(d: Design): Design {
 function withFirstTincture(d: Design, path: GroupPath): Design | null {
   const t = firstAllowed(groupTinctureChoices(d, path), null);
   return t ? canonical(withTincture(d, path, t)) : null;
+}
+
+/**
+ * The design painted with the first standard tincture that works for the group at `path` and is in no other band or picture,
+ * so a band laid across everything, or a top band or border beside the band, can be told from what it crosses or meets;
+ * else the first that works; null when none does.
+ */
+function withTinctureApart(d: Design, path: GroupPath): Design | null {
+  const choices = groupTinctureChoices(d, path);
+  const others = new Set(walkGroups(d).filter((w) => !samePath(w.path, path)).flatMap((w) => bodyTinctures(w.group.paint)));
+  const apart = choices.find((c) => c.allowed && c.value !== 'counterchanged' && !NON_STANDARD_TINCTURES.has(c.value) && !others.has(c.value));
+  return apart ? canonical(withTincture(d, path, apart.value)) : withFirstTincture(d, path);
 }
 
 type Added = { design: Design } | { reason: string };
@@ -217,7 +231,7 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       if (!path) return { reason: "Nothing can lie across everything here." };
       const problem = firstProblem(placed);
       if (problem) return { reason: problem };
-      const painted = withFirstTincture(placed, path);
+      const painted = withTinctureApart(placed, path);
       return painted ? { design: painted } : { reason: 'No colour works for something across everything here.' };
     }
     case 'chief': case 'bordure': {
@@ -229,7 +243,7 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       if (problem) return { reason: problem };
       // The new group is the chief or border whichever place it ends up in: a chief added beside a border becomes the design's ordinary.
       const path = [placed.groups.findIndex((g) => g.item.k === 'ordinary' && g.item.type === type)];
-      const painted = withFirstTincture(placed, path);
+      const painted = withTinctureApart(placed, path);
       return painted ? { design: painted } : { reason: `No colour works for a ${peripheralName(key)} here.` };
     }
   }

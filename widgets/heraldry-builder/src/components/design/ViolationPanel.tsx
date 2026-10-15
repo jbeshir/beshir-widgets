@@ -12,6 +12,13 @@ interface Props {
   onGoTo: (step: StepKey) => void;
 }
 
+/** What to do when no one-click fix clears the problems, by the rule they break. */
+function helpText(problems: Issue[]): string {
+  if (problems.some((p) => p.code === 'structure' && p.rule === 'badge')) return 'A badge is one picture standing alone: change the picture, or remove what is on it or beside it.';
+  if (problems.every((p) => p.code === 'tincture')) return 'Change a tincture above to clear it — blocked swatches explain why.';
+  return 'Change the step named above to clear it — locked choices explain why.';
+}
+
 export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
   const steps = problems.map((p) => issueStep(design, p));
   const layers = [...new Set(steps.map((s) => STEP_LABEL[s]))];
@@ -46,7 +53,7 @@ export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
         </button>
       )}
       {!tinctureFix && !structuralFix && (
-        <p class="violation-help">Change a tincture above to clear it — blocked swatches explain why.</p>
+        <p class="violation-help">{helpText(problems)}</p>
       )}
     </section>
   );

@@ -55,9 +55,9 @@ const BADGE_BACKGROUNDS: readonly Tincture[] = ['azure', 'gules', 'vert', 'sable
 export function setBadge(d: Design): Design {
   if (d.kind === 'badge') return d;
   const parts = partsOf(d);
-  const picture = parts.picture && parts.picture.arrangement.k !== 'host' ? parts.picture : null;
-  // A badge is one charge, or two long ones crossed, and its picture is its own: no counterchanging, no place on a background.
-  const several = picture && picture.count > 1 && picture.arrangement.k !== 'crossed';
+  const picture = parts.picture;
+  // A badge is one charge, or two long ones crossed, and its picture is its own: no counterchanging, no place on a background or a band.
+  const several = picture && (picture.arrangement.k === 'host' || (picture.count > 1 && picture.arrangement.k !== 'crossed'));
   const main: Group | null = picture && {
     ...picture, position: null, paint: picture.paint.k === 'counterchanged' ? tincturePaint('or') : picture.paint,
     ...(several ? { count: 1, arrangement: { k: 'single' } as const } : {}),
@@ -367,7 +367,8 @@ export function isUntouched(d: ShapedDesign): boolean {
  */
 export type Replacement =
   | { kind: 'replaced'; previous: ShapedDesign; replacement: ShapedDesign }
-  | { kind: 'adjusted'; previous: ShapedDesign; replacement: ShapedDesign; note: string };
+  | { kind: 'adjusted'; previous: ShapedDesign; replacement: ShapedDesign; note: string }
+  | { kind: 'badge'; previous: ShapedDesign; replacement: ShapedDesign; note: string };
 
 /** What replacing `current` with `next` would lose: null when current is untouched or identical to next. */
 export function replaceDesign(current: ShapedDesign, next: ShapedDesign): Replacement | null {
@@ -377,6 +378,18 @@ export function replaceDesign(current: ShapedDesign, next: ShapedDesign): Replac
 /** A count or placement choice applied with its companion change, kept so it can be undone. */
 export function adjustDesign(current: ShapedDesign, next: Design, companion: Companion): Replacement {
   return { kind: 'adjusted', previous: current, replacement: { shape: current.shape, design: next }, note: companionNote(next, companion, 'done') };
+}
+
+/** How many charges and bands a design draws, counting each of a group's and those on them. */
+const piecesOf = (groups: readonly Group[]): number => groups.reduce((n, g) => n + g.count + piecesOf(g.charged), 0);
+
+/** The design made a badge, kept so it can be undone; null when there was nothing to lose (the starting design). */
+export function badgeDesign(current: ShapedDesign, next: Design): Replacement | null {
+  if (isUntouched(current) || sameDesign(current.design, next)) return null;
+  const note = piecesOf(next.groups) < piecesOf(current.design.groups)
+    ? 'Made a badge: a badge is its picture alone, so the background and everything else are left out.'
+    : 'Made a badge: a badge has no background.';
+  return { kind: 'badge', previous: current, replacement: { shape: current.shape, design: next }, note };
 }
 
 /** Undo stays on offer only until the replacement is edited; undoing then would throw that work away too. */

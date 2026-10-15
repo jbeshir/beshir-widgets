@@ -33,6 +33,10 @@ interface Props {
   onAdjust: (nd: Design, companion: Companion) => void;
   /** The note (with Undo, and the rule fix when the change broke it) for such a change, shown under the picture controls. */
   adjusted: (onFix: (nd: Design) => void) => ComponentChildren;
+  /** Make the design a badge (App keeps the arms for Undo). */
+  onBadge: (nd: Design) => void;
+  /** The note (with Undo) after the design was made a badge, shown under the background tiles. */
+  badgeNotice: ComponentChildren;
   onShape: (shape: FieldShape) => void;
   onStartOver: () => void;
   /** Whether the examples box starts open (a device's first visit). */
@@ -117,12 +121,31 @@ function MiniPreview({ design, shape, status, watch, onFix }: {
   );
 }
 
-/** Register, always in reach at the bottom of the screen whenever the preview column's own Register
- * button can scroll away (single-column screens, or a preview column taller than the screen); says
- * why when it can't be used yet. */
-function RegisterBar({ blockedWhy, onRegister }: { blockedWhy: string | null; onRegister: () => void }) {
+/** Register, in reach at the bottom of the screen once the preview column's own Register button has
+ * scrolled up out of sight (single-column screens, or a preview column taller than the screen) — not
+ * before, where it would cover the shield; says why when it can't be used yet. */
+function RegisterBar({ blockedWhy, onRegister, watch }: { blockedWhy: string | null; onRegister: () => void; watch: RefObject<HTMLElement> }) {
+  const [passed, setPassed] = useState(false);
+  // Measured on scroll rather than observed: a jump from below the button to the top of the page never crosses it.
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const el = watch.current;
+      setPassed(!!el && el.getBoundingClientRect().bottom < 0);
+    };
+    const schedule = () => { frame ||= requestAnimationFrame(update); };
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, []);
   return (
-    <div class="register-bar" data-testid="register-bar">
+    <div class="register-bar" data-testid="register-bar" data-passed={passed ? 'true' : 'false'}>
       {blockedWhy && <p class="register-bar-why" id="register-bar-why">{blockedWhy}</p>}
       <button
         type="button"
@@ -147,6 +170,7 @@ export function DesignTab(p: Props) {
   const layoutRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const figureRef = useRef<HTMLElement>(null);
+  const registerRef = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
     const layout = layoutRef.current;
     const el = previewRef.current;
@@ -190,6 +214,15 @@ export function DesignTab(p: Props) {
     setTimeout(() => focusControl(selector), 0);
   };
   const goToStep = (step: StepKey) => reveal(step, stepSelector(step));
+  /** A layer just added: open its card, bring it on screen and put focus on its heading. */
+  const revealCard = (key: LayerKey) => {
+    setOpen((o) => ({ ...o, [key]: true }));
+    setTimeout(() => {
+      const heading = document.querySelector<HTMLElement>(`${stepSelector(key)} .step-title`);
+      heading?.scrollIntoView({ block: 'center' });
+      (heading?.querySelector<HTMLElement>('.step-toggle') ?? heading)?.focus({ preventScroll: true });
+    }, 0);
+  };
   // The fix beside Undo recolours the picture and the note goes with it, so focus moves to the new
   // colour's swatch (named by id: the picker may not have re-rendered its checked swatch yet).
   const fixFromNotice = (nd: Design) => {
@@ -272,6 +305,7 @@ export function DesignTab(p: Props) {
               type="button"
               class="button-primary"
               data-testid="open-register"
+              ref={registerRef}
               disabled={!!blockedWhy}
               aria-describedby={blockedWhy ? 'actions-why' : undefined}
               onClick={p.onRegister}
@@ -299,13 +333,13 @@ export function DesignTab(p: Props) {
         <p class="rule-intro" data-testid="rule-intro">
           The one rule (the rule of tincture): gold, white and sky blue (the metals) go on colours, and colours go on metals — never colour on colour or metal on metal. Locked choices would break it; tap one to see why.
         </p>
-        <FieldStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('field')} accordion={accordion('field')} />
+        <FieldStep design={design} shape={shape} onChange={p.onChange} onBadge={p.onBadge} notice={p.badgeNotice} issues={stepIssues('field')} accordion={accordion('field')} />
         {design.kind === 'arms' && <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />}
         <ChargesStep n={pictureStep} design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
-        <AddLayer design={design} onChange={p.onChange} />
         {layerCards.map((key) => (
           <LayerStep key={key} design={design} place={key} n={layerStep(key)} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues(key)} accordion={accordion(key)} />
         ))}
+        <AddLayer design={design} onChange={p.onChange} onAdded={revealCard} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over
@@ -313,7 +347,7 @@ export function DesignTab(p: Props) {
           <span class="draft-note">Your design is saved on this device as you go.</span>
         </div>
       </div>
-      <RegisterBar blockedWhy={blockedWhy} onRegister={p.onRegister} />
+      <RegisterBar blockedWhy={blockedWhy} onRegister={p.onRegister} watch={registerRef} />
     </div>
     </>
   );

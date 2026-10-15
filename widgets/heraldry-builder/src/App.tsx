@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { DEFAULT_FIELD_SHAPE, blazon, type Companion, type FieldShape, type Design, type ShapedDesign } from './lib/heraldry';
-import { DEFAULT_DESIGN, adjustDesign, assess, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
+import { DEFAULT_DESIGN, adjustDesign, assess, badgeDesign, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
 import { surpriseDesign } from './lib/presets';
 import { RECOVER_HASH, entryHash, parseHash, registryParam } from './lib/route';
 import { useRoute } from './lib/useRoute';
@@ -142,6 +142,12 @@ export function App() {
   // A count or placement that brought its partner along: applied, with the note and Undo under the controls.
   const adjust = (nd: Design, companion: Companion) => {
     setReplaced(adjustDesign({ design, shape }, nd, companion));
+    setDesign(nd);
+  };
+
+  // The Badge tile: everything but the picture goes, so the note under the tiles offers Undo.
+  const makeBadge = (nd: Design) => {
+    setReplaced(badgeDesign({ design, shape }, nd));
     setDesign(nd);
   };
 
@@ -287,6 +293,8 @@ export function App() {
             onChange={setDesign}
             onAdjust={adjust}
             adjusted={(onFix) => <ReplacedNotice replacement={replaced} kind="adjusted" onUndo={undoReplace} onFix={onFix} />}
+            onBadge={makeBadge}
+            badgeNotice={<ReplacedNotice replacement={replaced} kind="badge" onUndo={undoReplace} onFix={null} />}
             onShape={setShape}
             onStartOver={startOver}
             examplesOpen={examplesOpen}

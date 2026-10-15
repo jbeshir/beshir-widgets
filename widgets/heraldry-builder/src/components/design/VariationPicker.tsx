@@ -1,6 +1,6 @@
 // Stripes and checks — barry and its kin, checky, lozengy and the rest — of the background or of a band or
 // picture: one option per pattern with a small picture of it, a count for the ones that are counted, and the
-// two tinctures it is made of. Opt-in, like the fur of a part: folded under the plain and divided colours until a pattern is chosen.
+// two tinctures it is made of. One of the options of "More colours and patterns…".
 
 import {
   TINCTURES, TINCTURE_FILL, VARIATIONS, VARIATION_LABEL, VARIATION_PIECES, asVariation, groupAt, groupVariationChoices, groupVariationTinctureChoices, isCountedVariation, setGroupVariation,
@@ -33,11 +33,12 @@ function PatternChip({ variation }: { variation: Variation }) {
 }
 
 interface Props {
-  /** Testid of the disclosure; the options are <testid>-<pattern>, <testid>-pieces-<n> and <testid>-tincture-<1|2>. */
+  /** The options are <testid>-<pattern>, <testid>-pieces-<n> and <testid>-tincture-<1|2>. */
   testid: string;
   /** Swatch testid group of the two tincture pickers. */
   group: string;
-  legend: string;
+  /** What is patterned: "the background", "the bend". */
+  noun: string;
   value: VariationPaint | null;
   variations: Choice<Variation>[];
   tinctures: (part: 0 | 1) => Choice<Tincture>[];
@@ -46,10 +47,12 @@ interface Props {
   onTincture: (part: 0 | 1, tincture: Tincture) => void;
 }
 
-function VariationPicker({ testid, group, legend, value, variations, tinctures, onVariation, onPieces, onTincture }: Props) {
+function VariationPicker({ testid, group, noun, value, variations, tinctures, onVariation, onPieces, onTincture }: Props) {
   const { explain, node: explainer } = useExplainer();
   const section = (label: string, shown: readonly Variation[]) => (
-    <RadioGroup label={label} class="segmented segmented-wide" testid={`${testid}-${label.toLowerCase()}`}>
+    <>
+    <p class="picker-legend">{label} on {noun}</p>
+    <RadioGroup label={`${label} on ${noun}`} class="segmented segmented-wide" testid={`${testid}-${label.toLowerCase()}`}>
       {variations.filter((c) => shown.includes(c.value)).map((c) => (
         <ChoiceButton
           key={c.value} testid={`${testid}-${c.value}`} checked={value?.variation === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
@@ -61,20 +64,23 @@ function VariationPicker({ testid, group, legend, value, variations, tinctures, 
         </ChoiceButton>
       ))}
     </RadioGroup>
+    </>
   );
   return (
-    <details class="fur-picker" data-testid={testid} open={value !== null}>
-      <summary>{legend}</summary>
+    <div class="fur-picker" data-testid={testid}>
       {section('Stripes', STRIPES)}
       {section('Checks', CHECKS)}
       {value && isCountedVariation(value.variation) && (
-        <RadioGroup label="Number of stripes" class="segmented" testid={`${testid}-pieces`}>
+        <>
+        <p class="picker-legend">How many stripes</p>
+        <RadioGroup label="How many stripes" class="segmented" testid={`${testid}-pieces`}>
           {VARIATION_PIECES.map((n) => (
             <ChoiceButton key={n} testid={`${testid}-pieces-${n}`} checked={value.pieces === n} label={`${capitalise(numberWord(n))} stripes`} onSelect={() => onPieces(n)} onBlocked={explain} class="segment">
               <span>{n}</span>
             </ChoiceButton>
           ))}
         </RadioGroup>
+        </>
       )}
       {value && ([0, 1] as const).map((part) => (
         <TincturePicker
@@ -88,7 +94,7 @@ function VariationPicker({ testid, group, legend, value, variations, tinctures, 
         />
       ))}
       {explainer}
-    </details>
+    </div>
   );
 }
 
@@ -100,7 +106,7 @@ export function FieldPattern({ design, onChange }: { design: Design; onChange: (
   const value = design.kind === 'arms' ? asVariation(design.field) : null;
   return (
     <VariationPicker
-      testid="field-pattern" group="field" legend="Stripes and checks" value={value}
+      testid="field-pattern" group="field" noun="the background" value={value}
       variations={VARIATIONS.map((v) => ({ value: v, allowed: true }))} tinctures={() => ALL_TINCTURES}
       onVariation={(v) => onChange(setVariation(design, v))} onPieces={(n) => onChange(setVariationPieces(design, n))} onTincture={(part, t) => onChange(setVariationTincture(design, part, t))}
     />
@@ -108,10 +114,10 @@ export function FieldPattern({ design, onChange }: { design: Design; onChange: (
 }
 
 /** Stripes and checks for the band or picture at `path`. */
-export function GroupPattern({ design, path, group, testid, onChange }: { design: Design; path: GroupPath; group: string; testid: string; onChange: (design: Design) => void }) {
+export function GroupPattern({ design, path, group, testid, noun, onChange }: { design: Design; path: GroupPath; group: string; testid: string; noun: string; onChange: (design: Design) => void }) {
   return (
     <VariationPicker
-      testid={`${testid}-pattern`} group={group} legend="Stripes and checks" value={asVariation(groupAt(design, path).paint)}
+      testid={`${testid}-pattern`} group={group} noun={noun} value={asVariation(groupAt(design, path).paint)}
       variations={groupVariationChoices(design, path)} tinctures={(part) => groupVariationTinctureChoices(design, path, part)}
       onVariation={(v) => onChange(setGroupVariation(design, path, v))} onPieces={(n) => onChange(setGroupVariationPieces(design, path, n))} onTincture={(part, t) => onChange(setGroupVariationTincture(design, path, part, t))}
     />
