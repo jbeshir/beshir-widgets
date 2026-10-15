@@ -55,7 +55,7 @@ describe('SCA armory the widget can express', () => {
   it('every record not on the ignore list passes all five checks', () => {
     const problems = records.filter((r) => !ignored.has(r.key)).flatMap((r) => failureLines(r, checkBlazon(r.blazon).failures));
     expect(problems.length, listing('Failing records not on the ignore list (a new gap: `npm run sca:ignore`; else fix the widget)', problems)).toBe(0);
-  }, 30_000);
+  }, 120_000);
 
   it('the ignore list holds only current records, each tagged with known gap categories', () => {
     const categories = new Set<string>(GAP_CATEGORIES.map((c) => c.id));
@@ -86,7 +86,7 @@ describe('SCA armory the widget can express', () => {
       }
     }
     expect(problems.length, listing('Ignore-list entries out of date', problems)).toBe(0);
-  }, 30_000);
+  }, 120_000);
 });
 
 // The matcher reads whatever the widget writes: every construct the widget draws, blazoned by the

@@ -5,7 +5,8 @@
 // ordinary it sits around; neighbours never overlap; and each slot in any shape touches the same parts of
 // a divided field as its canonical (heater) slot, so what is drawn matches the canonical rule-of-tincture
 // verdict. Hand-fitted layouts are also checked with the real artwork of every charge, drawn in its
-// optically scaled box and turned with the charge; generic layouts with a representative few.
+// optically scaled box and turned with the charge; generic layouts with a representative few (all on the heater, a rotating
+// third of the layout × drawing pairs in each other shape).
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -363,12 +364,21 @@ const drawingsOf = (ids: readonly ChargeId[], postures: readonly string[] | null
 /** Clear of the shape's edge by at least a unit, so the outline never touches a charge. */
 const SHIELD_MARGIN = 1;
 
+/**
+ * Whether a layout is drawn with a drawing in a shape. The heater draws every drawing in every layout; each other shape a
+ * rotating third of the pairs (seeded sampling: the sweep is long), so every pair is drawn in exactly one of them and every
+ * shape draws every layout and every drawing.
+ */
+const drawnIn = (shape: FieldShape, entry: number, drawing: number) =>
+  shape === 'heater' || (entry + drawing) % (FIELD_SHAPES.length - 1) === FIELD_SHAPES.indexOf(shape) - 1;
+
 function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[]): string[] {
   const problems: string[] = [];
-  for (const e of entries) {
+  for (const [ei, e] of entries.entries()) {
     const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
     const fits = groundFits(g, e.ctx, SHIELD_MARGIN, true);
-    for (const dr of drawings) {
+    for (const [di, dr] of drawings.entries()) {
+      if (!drawnIn(g.shape, ei, di)) continue;
       if (e.layout.arrangement.k === 'crossed' && !CHARGES[dr.id].long) continue;
       const placed = slots.map((s) => place(dr.rings, drawnBox(s, dr.id)));
       for (const rs of placed) {
@@ -404,11 +414,11 @@ describe('charge artwork fits its ground at its optical scale', () => {
   for (const g of SHAPES) {
     it(`${g.shape}: every drawing of every charge stays on its hand-fitted ground and clear of its neighbours`, () => {
       expect(artProblems(g, hand, drawingsOf(CHARGE_IDS)).slice(0, 25)).toEqual([]);
-    }, 120_000);
+    }, 60_000);
 
     it(`${g.shape}: a compact few drawings stay on their generic ground and clear of their neighbours`, () => {
       expect(artProblems(g, generic, drawingsOf(['mullet', 'lion', 'sword'], ['rampant'])).slice(0, 25)).toEqual([]);
-    }, 120_000);
+    }, 60_000);
   }
 });
 

@@ -1069,13 +1069,15 @@ describe('too-close candidate lookup', () => {
   it('gives the verdict a full scan of the stored registry gives', async () => {
     await addRegistry('prefilter', 'Prefilter');
     // Designs with two main pictures are keyed '*' and found by entries of any primary.
-    const pairs = (seed: number, count: number) => generatedRichDesigns(seed, 1200).filter((d) => d.groups.filter((g) => g.role === 'primary').length === 2).slice(0, count);
+    // One generation serves both: the first 40 are stored, the next 40 probe.
+    const pairs = generatedRichDesigns(1, 2000).filter((d) => d.groups.filter((g) => g.role === 'primary').length === 2);
+    expect(pairs.length).toBeGreaterThanOrEqual(80);
     // Badges (no partition) are found by entries of every partition, and count the fieldless change against each other too (SENA A5G1e).
     const badges = (seed: number, count: number): Design[] => generatedDesigns(seed, 400)
       .filter((d) => d.groups.length === 1 && d.groups[0].role === 'primary' && d.groups[0].item.k === 'charge')
       .flatMap((d) => { const n = normalise({ v: 2, kind: 'badge', groups: d.groups }); return n.ok ? [n.design] : []; })
       .slice(0, count);
-    const stored = [...generatedDesigns(1, 100), ...pairs(1, 40), ...badges(2, 12)];
+    const stored = [...generatedDesigns(1, 100), ...pairs.slice(0, 40), ...badges(2, 12)];
     const entries: RegistryEntryLike[] = [];
     for (const [i, design] of stored.entries()) {
       const sig = signature(design);
@@ -1091,7 +1093,7 @@ describe('too-close candidate lookup', () => {
     }
 
     const verdicts = new Set<string>();
-    for (const probe of [...generatedDesigns(50_000, 300), ...pairs(60_000, 40), ...badges(70_000, 10)]) {
+    for (const probe of [...generatedDesigns(50_000, 300), ...pairs.slice(40, 80), ...badges(70_000, 10)]) {
       const full = checkUnique(probe, signature(probe), entries);
       const res = await call('POST', '/api/arms/check', { body: { registry: 'prefilter', design: probe } });
       expect(res.status).toBe(200);

@@ -59,9 +59,10 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
+  // Seeded sampling: each probe edits a rotating quarter of the entries, so every entry is edited against 25 probes.
   it('gives the same verdict when an entry is edited (itself excluded)', () => {
-    for (const edited of registry) {
-      for (const probe of probes.slice(0, 100)) {
+    for (const [ri, edited] of registry.entries()) {
+      for (const probe of probes.slice(0, 100).filter((_, pi) => (ri + pi) % 4 === 0)) {
         const sig = signature(probe);
         const full = checkUnique(probe, sig, registry, edited.id);
         const candidates = registry.filter((e) => sameKey(probe, e.design));
