@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, countChoices, fieldTinctureChoices, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices,
+  CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, BUILDER_ORDINARIES, TINCTURES, addLayer, countChoices, fieldTinctureChoices, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices,
   layoutKey, modifierChoices, normalise, placementChoices, postureChoices, resolve, structuralIssues, tinctureIssues, unsupportedIssues,
   type ChargeId, type Design, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
@@ -176,10 +176,10 @@ function legalTriples(b: Base): Triple[] {
 // metal/metal pairs; no ordinary, or each of the ten in argent and gules.
 const FIELDS: Array<{ field: unknown; division: string }> = [
   ...['or', 'azure', 'celestine'].map((t) => ({ field: t, division: 'plain' })),
-  ...DRAWN_DIVISIONS.flatMap((division) => [['or', 'azure'], ['gules', 'argent'], ['azure', 'vert'], ['or', 'argent']]
+  ...BUILDER_DIVISIONS.flatMap((division) => [['or', 'azure'], ['gules', 'argent'], ['azure', 'vert'], ['or', 'argent']]
     .map((parts) => ({ field: { k: 'divided', division, parts }, division }))),
 ];
-const ORDINARIES: Array<Base['ordinary']> = [null, ...DRAWN_ORDINARIES.flatMap((type) => ['argent', 'gules'].map((tincture) => ({ type, tincture })))];
+const ORDINARIES: Array<Base['ordinary']> = [null, ...BUILDER_ORDINARIES.flatMap((type) => ['argent', 'gules'].map((tincture) => ({ type, tincture })))];
 
 interface Context { base: Base; legal: Triple[] }
 

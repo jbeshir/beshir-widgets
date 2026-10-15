@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, ORDINARY_LABEL,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -232,7 +232,7 @@ export function FieldStep({ design, shape, onChange, onBadge, notice, issues, ac
           <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
           <span class="choice-label">{capitalise(PLAIN_FIELD_LABEL.term)}</span>
         </ChoiceButton>
-        {DRAWN_DIVISIONS.map((d) => (
+        {BUILDER_DIVISIONS.map((d) => (
           <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={nameOf(DIVISION_LABEL[d])} title={DIVISION_LABEL[d].plain} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_FIELD(d)} shape={shape} size={30} label={null} />
             <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
@@ -272,7 +272,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
           <NoneIcon />
           <span class="choice-label">None</span>
         </ChoiceButton>
-        {DRAWN_ORDINARIES.map((t) => (
+        {BUILDER_ORDINARIES.map((t) => (
           <ChoiceButton key={t} testid={`ordinary-${t}`} checked={type === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_ORDINARY(t)} shape={shape} size={30} label={null} />
             <span class="choice-label">{capitalise(ORDINARY_LABEL[t].term)}</span>

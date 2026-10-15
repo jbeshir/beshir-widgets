@@ -708,8 +708,10 @@ npm run build
 # Typecheck the SPA (incl. the store test), the Worker (incl. the lib and Worker tests) and the SCA test tooling
 npm run typecheck
 
-# Run all tests: heraldry library, Worker/D1 (vitest-pool-workers, local Miniflare D1), store seam,
-# and the SCA armorial test (plain Node; `npx vitest run --project sca` alone)
+# Run all tests in three vitest projects (vitest.config.ts): `workers` (test/worker.test.ts and test/migrations.test.ts,
+# the only files that use the D1 binding: vitest-pool-workers, local Miniflare D1), `library` (every other test file: the
+# heraldry library and store seam, in plain Node, files in parallel) and `sca` (the SCA armorial test, plain Node;
+# `npx vitest run --project sca` alone)
 npm test
 
 # Rewrite the SCA ignore list (test/fixtures/sca/ignored.json) after changing the widget or test/sca/

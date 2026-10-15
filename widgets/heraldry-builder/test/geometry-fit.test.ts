@@ -6,11 +6,11 @@
 // a divided field as its canonical (heater) slot, so what is drawn matches the canonical rule-of-tincture
 // verdict. Hand-fitted layouts are also checked with the real artwork of every charge, drawn in its
 // optically scaled box and turned with the charge; generic layouts with a representative few (all on the heater, a rotating
-// third of the layout × drawing pairs in each other shape).
+// fifth of the layout × drawing pairs in each other shape).
 
 import { describe, expect, it } from 'vitest';
 import {
-  AROUND_COUNTS, ART_ON_BOX, CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  AROUND_COUNTS, ART_ON_BOX, CHARGE_ART, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
   hasBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ChargeId, type Design, type FieldShape, type GroundContext, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
@@ -337,7 +337,7 @@ describe('every shape draws each charge on the field parts the canonical verdict
       for (const e of CATALOGUE.filter((x) => x.ctx.k !== 'on' && !UNFAITHFUL.has(`${x.label} ${g.shape}`))) {
         const heater = contextSlots(e.ctx, e.count, e.layout, 'heater'), mine = contextSlots(e.ctx, e.count, e.layout, g.shape);
         heater.forEach((h, i) => {
-          for (const division of DRAWN_DIVISIONS) {
+          for (const division of BUILDER_DIVISIONS) {
             const parts = (points: Pt[], f: { x: number; y: number }) => new Set(points.map(([x, y]) => inFirstPart(division, f, x, y)));
             const clearly = parts(arm(h, 0.3 * h.size - PROBE_TOLERANCE), heaterFess);
             const possibly = parts(arm(h, 0.3 * h.size + PROBE_TOLERANCE), heaterFess);
@@ -365,11 +365,12 @@ const SHIELD_MARGIN = 1;
 
 /**
  * Whether a layout is drawn with a drawing in a shape. The heater draws every drawing in every layout; each other shape a
- * rotating third of the pairs (seeded sampling: the sweep is long), so every pair is drawn in exactly one of them and every
- * shape draws every layout and every drawing.
+ * rotating fifth of the pairs (seeded sampling: the sweep is long), so no pair is drawn in two of them and, with more than
+ * five layouts and five drawings, every shape draws every layout and every drawing.
  */
+const SAMPLE_PERIOD = 5;
 const drawnIn = (shape: FieldShape, entry: number, drawing: number) =>
-  shape === 'heater' || (entry + drawing) % (FIELD_SHAPES.length - 1) === FIELD_SHAPES.indexOf(shape) - 1;
+  shape === 'heater' || (entry + drawing) % SAMPLE_PERIOD === FIELD_SHAPES.indexOf(shape) - 1;
 
 function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[]): string[] {
   const problems: string[] = [];

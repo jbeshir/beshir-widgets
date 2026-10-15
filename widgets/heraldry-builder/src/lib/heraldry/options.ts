@@ -25,7 +25,7 @@ import {
   asParty, asVariation, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
   type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type PartyPaint, type VariationPaint,
 } from './design';
-import { DRAWN_DIVISIONS, VARIATIONS, type Division, type Variation } from './divisions';
+import { BUILDER_DIVISIONS, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
 import { ofOtherClass, withPaint, withPartner } from './paint-target';
@@ -370,7 +370,7 @@ function partyWithPartner(d: Design, path: GroupPath, party: PartyPaint, part: 0
 /** The divisions a divided band or picture may be cut by; blocked where the cut would miss it or read as another (per chevron on a long charge). Empty unless the group is divided. */
 export function partyDivisionChoices(d: Design, path: GroupPath): Choice<Division>[] {
   const party = asParty(groupAt(d, path).paint);
-  return party ? DRAWN_DIVISIONS.map((division) => choice(division, divisionReason(withPaint(d, path, { ...party, division }), path))) : [];
+  return party ? BUILDER_DIVISIONS.map((division) => choice(division, divisionReason(withPaint(d, path, { ...party, division }), path))) : [];
 }
 
 /**
@@ -407,7 +407,7 @@ export function setPartyTincture(d: Design, path: GroupPath, part: 0 | 1, t: Tin
 export function splitGroup(d: Design, path: GroupPath): Design | null {
   const paint = groupAt(d, path).paint;
   const own = paint.k === 'tincture' ? [paint.t] : [];
-  for (const division of DRAWN_DIVISIONS) {
+  for (const division of BUILDER_DIVISIONS) {
     for (const first of [...own, ...TINCTURES]) {
       for (const second of TINCTURES) {
         const trial = withPaint(d, path, partyPaint(division, first, second));

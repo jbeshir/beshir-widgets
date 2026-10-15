@@ -5,8 +5,12 @@ export const DIVISIONS = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister
   'per-chevron-inverted', 'per-pall', 'per-pall-inverted', 'tierced-per-pale', 'tierced-per-fess', 'gyronny'] as const;
 export type Division = (typeof DIVISIONS)[number];
 
-/** The divisions the builder draws: the first seven. */
-export const DRAWN_DIVISIONS: readonly Division[] = DIVISIONS.slice(0, 7);
+/** The divisions the builder offers on the field: the first seven. */
+export const BUILDER_DIVISIONS: readonly Division[] = DIVISIONS.slice(0, 7);
+/** Divisions drawn but reached only behind disclosure (none yet). */
+export const MORE_DIVISIONS: readonly Division[] = [];
+/** Every division the library draws. */
+export const DRAWN_DIVISIONS: readonly Division[] = [...BUILDER_DIVISIONS, ...MORE_DIVISIONS];
 
 export const VARIATIONS = ['barry', 'paly', 'bendy', 'bendy-sinister', 'chevronny', 'checky', 'lozengy', 'fusily', 'pily', 'barry-bendy', 'paly-bendy'] as const;
 export type Variation = (typeof VARIATIONS)[number];

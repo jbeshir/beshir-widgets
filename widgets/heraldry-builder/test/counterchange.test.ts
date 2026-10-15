@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DRAWN_DIVISIONS, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
+  BUILDER_DIVISIONS, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
   normalise, queryWords, readability, renderLayers, signature, tinctureIssues, unsupportedIssues, type Division,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -16,7 +16,7 @@ const mullets = (field: unknown, count = 3) => nd(arms(field, chg('mullet', 'cou
 describe('counterchanged and the rule of tincture', () => {
   it('is legal on every division exactly when one field tincture is a metal and the other a colour (celestine included)', () => {
     let legal = 0, illegal = 0;
-    for (const division of DRAWN_DIVISIONS) {
+    for (const division of BUILDER_DIVISIONS) {
       for (const t1 of TINCTURES) {
         for (const t2 of TINCTURES) {
           if (t1 === t2) continue;
@@ -28,7 +28,7 @@ describe('counterchanged and the rule of tincture', () => {
       }
     }
     // 3 metals × 5 colours × 2 orders = 30 legal pairs per division; 3·2 + 5·4 = 26 same-class pairs.
-    expect([legal, illegal]).toEqual([30 * DRAWN_DIVISIONS.length, 26 * DRAWN_DIVISIONS.length]);
+    expect([legal, illegal]).toEqual([30 * BUILDER_DIVISIONS.length, 26 * BUILDER_DIVISIONS.length]);
   });
 
   it('explains a same-class field: still metal on metal, or colour on colour', () => {
@@ -155,7 +155,7 @@ describe('counterchanged charges in every placement', () => {
   ];
   for (const [name, make] of placements) {
     it(`${name}: the rule depends on the field alone`, () => {
-      for (const division of DRAWN_DIVISIONS) {
+      for (const division of BUILDER_DIVISIONS) {
         const issues = tinctureIssues(nd(make(division))).filter((i) => i.at.k === 'group' && i.at.path.length === 1 && i.code === 'tincture' && i.reason === 'counterchange-unavailable');
         expect(issues, division).toEqual([]);
       }

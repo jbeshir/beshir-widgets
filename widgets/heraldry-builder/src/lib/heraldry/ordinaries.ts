@@ -5,8 +5,12 @@ export const ORDINARY_TYPES = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron
   'mount', 'trimount', 'bar', 'barrulet', 'pallet', 'bendlet', 'bendlet-sinister', 'chevronel', 'saltorel', 'baton'] as const;
 export type OrdinaryType = (typeof ORDINARY_TYPES)[number];
 
-/** The ordinaries the builder draws: the first ten. */
-export const DRAWN_ORDINARIES: readonly OrdinaryType[] = ORDINARY_TYPES.slice(0, 10);
+/** The ordinaries the builder offers in its main grid: the first ten. */
+export const BUILDER_ORDINARIES: readonly OrdinaryType[] = ORDINARY_TYPES.slice(0, 10);
+/** Ordinaries drawn but reached only behind disclosure (none yet). */
+export const MORE_ORDINARIES: readonly OrdinaryType[] = [];
+/** Every ordinary the library draws. */
+export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES, ...MORE_ORDINARIES];
 
 /** The ordinaries the builder draws overall (over the primary group): the bands and crosses that cross the middle of the field. */
 export const OVERALL_ORDINARIES: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];

@@ -6,7 +6,7 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
+  CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
   asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
   type ChargeId, type Choice, type FurKind, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
@@ -86,7 +86,7 @@ function choiceReason<T>(choices: Choice<T>[], v: T): string | null {
 function actionReason(d: Design, a: BuilderAction): string | null {
   switch (a.kind) {
     case 'badge': return null;
-    case 'division': return DIVISIONS.includes(a.division) ? null : `${a.division} is not offered`;
+    case 'division': return DRAWN_DIVISIONS.includes(a.division) ? null : `${a.division} is not offered`;
     case 'field-tincture':
       if (a.part === 1 && !(d.kind === 'arms' && d.field.k === 'divided')) return 'a plain field has no second tincture';
       return choiceReason(fieldTinctureChoices(d, a.part), a.tincture);

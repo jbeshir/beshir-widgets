@@ -4,7 +4,7 @@
 // substantial change on its own, which is proven here too. A fieldless badge has no partition, which matches every partition.
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, primaryGroups, signature,
+  CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, BUILDER_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, primaryGroups, signature,
   type Design, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
@@ -84,8 +84,8 @@ describe('too-close pre-filter', () => {
 
   it('keys only on changes that are substantial on their own (every division, ordinary and charge)', () => {
     const field = (division: string | null) => (division ? div(division, 'or', 'azure') : 'azure');
-    const fields = [null, ...DRAWN_DIVISIONS].map((d) => nd(arms(field(d), group(ordinary('pale'), 'gules'))));
-    const ordinaries = [null, ...DRAWN_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'central')]
+    const fields = [null, ...BUILDER_DIVISIONS].map((d) => nd(arms(field(d), group(ordinary('pale'), 'gules'))));
+    const ordinaries = [null, ...BUILDER_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'central')]
       .map((type) => nd(arms(field(null), ...(type ? [group(ordinary(type), 'or')] : [group(ordinary('chief'), 'or')]))));
     const charges = [null, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? [null]).map((posture) => [id, posture] as const))]
       .map((c) => nd(arms(field(null), ...(c ? [group(charge(c[0], c[1] ? { posture: c[1] } : {}), 'or')] : [group(ordinary('chief'), 'or')]))));
