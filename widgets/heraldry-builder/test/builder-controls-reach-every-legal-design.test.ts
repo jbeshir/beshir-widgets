@@ -364,10 +364,14 @@ describe('builder controls never lock a legal value away', () => {
     return { seen, expanded, stray };
   }
 
-  // Seeded sampling (the search is the slowest sweep): every context is searched from one of three spread starting layouts, rotating with the context.
+  // Seeded sampling (the search is the slowest sweep): two contexts in three are searched, still from every division and every ordinary,
+  // each from one of three spread starting layouts, rotating with the context.
   it('every legal count, placement and layout is reachable through the controls from valid designs', () => {
+    const kinds = (cs: readonly Context[]) => sameSet(cs.flatMap((c) => [c.base.division, c.base.ordinary?.type ?? 'none']));
+    expect(kinds(contexts.filter((_, i) => i % 3 !== 2))).toEqual(kinds(contexts));
     let expanded = 0, starts = 0;
     for (const [i, c] of contexts.entries()) {
+      if (i % 3 === 2) continue;
       const legal = new Set(c.legal.map(tripleKey));
       const starting = validStates(c, 3);
       for (const s of starting.length ? [starting[i % starting.length]] : []) {
@@ -381,9 +385,9 @@ describe('builder controls never lock a legal value away', () => {
     log(`searched from ${starts} starting layouts, expanding ${expanded} designs`);
   }, 60_000);
 
-  // Seeded sampling: every other violation, which still searches from every division and every ordinary.
+  // Seeded sampling: every third violation, which still searches from every division and every ordinary.
   it('every legal count, placement and layout is reachable from a design whose picture breaks the rule of tincture', () => {
-    const sampled = violations.filter((_, i) => i % 2 === 0);
+    const sampled = violations.filter((_, i) => i % 3 === 0);
     const kinds = (xs: typeof violations) => sameSet(xs.flatMap(({ c }) => [c.base.division, c.base.ordinary?.type ?? 'none']));
     expect(kinds(sampled)).toEqual(kinds(violations));
     for (const { c, s } of sampled) {

@@ -32,7 +32,7 @@ export const UNSUPPORTED_CASES: Array<[string, unknown, string]> = [
   ['a wavy line on a variation of a band', arms('azure', group(ordinary('fess'), { k: 'variation', variation: 'barry', pieces: 6, lines: { a: 'wavy' }, parts: ['or', 'azure'] })), 'line-of-partition:on-divided-charge'],
   ['a chevronny field with a line', arms({ k: 'variation', variation: 'chevronny', pieces: 6, lines: { a: 'wavy' }, parts: ['or', 'azure'] }, lion), 'line-of-partition:wavy-on-chevronny'],
   ['a quartered field with a different line on each line', arms({ k: 'divided', division: 'quarterly', lines: { a: 'wavy', b: 'embattled' }, parts: ['or', 'azure'] }, lion), 'line-of-partition:quarterly-two-lines'],
-  ['an embattled ordinary line (the upper edge)', arms('azure', group(ordinary('bend', { lines: { a: 'embattled' } }), 'or')), 'line-of-partition:embattled'],
+  ['a lined band lying across everything', arms('azure', lion, group(ordinary('bend', { lines: { a: 'wavy', b: 'wavy' } }), 'argent', { role: 'overall' })), 'line-of-partition:on-overall'],
   ['a canton', arms('azure', group(ordinary('canton'), 'or')), 'ordinary:canton'],
   ['two bends', arms('azure', group(ordinary('bend'), 'or', { count: 2 })), 'ordinary:multiple'],
   ['a voided ordinary', arms('azure', group(ordinary('bend', { mods: ['voided'] }), 'or')), 'ordinary-treatment:voided'],

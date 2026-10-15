@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, LINE_LABEL, ORDINARY_LABEL, edgeSideChoices, edgeSideOf, lineChoices,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, LINE_LABEL, ORDINARY_LABEL, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -25,6 +25,7 @@ import { useExplainer } from './Explainer';
 import { FieldPattern } from './VariationPicker';
 import { EdgePicker } from './EdgePicker';
 import { MoreShapes } from './MoreShapes';
+import { OrdinaryEdges } from './OrdinaryEdges';
 import { FurPicker } from './FurPicker';
 import { SemyPicker } from './SemyPicker';
 import { TreatmentPicker } from './TreatmentPicker';
@@ -232,9 +233,10 @@ function FieldEdges({ design, shape, onChange }: { design: Design; shape: FieldS
     <MoreShapes testid="field" summary="More divisions and edges…" used={current !== 'plain'}>
       {() => (
         <EdgePicker
-          testid="field-edge" noun="the background" iconKey={JSON.stringify(icon)} icon={icon} shape={shape}
+          testid="field-edge" noun="the background" iconKey={JSON.stringify(icon)} icon={(line) => ({ v: 2, field: { ...icon, lines: { a: line, b: line } }, groups: [] })} shape={shape}
           lines={lines} line={current} onLine={(l) => onChange(setFieldLine(design, l))}
-          sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} onSide={(s) => onChange(setFieldEdgeSide(design, s))}
+          sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="lines"
+          sideLabels={{ both: 'Both lines', a: 'Up-and-down line only', b: 'Across line only' }} onSide={(s) => onChange(setFieldEdgeSide(design, s))}
         />
       )}
     </MoreShapes>
@@ -289,10 +291,15 @@ export function FieldStep({ design, shape, onChange, onBadge, notice, issues, ac
   );
 }
 
+/** The line of a band in words ("embattled counter-embattled", "wavy on the lower edge"); empty for a straight one. */
+export function ordinaryLineWords(item: Extract<Design['groups'][number]['item'], { k: 'ordinary' }>): string {
+  return lineWords({ k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') }, item.lines);
+}
+
 function ordinarySummary(design: Design): string {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
-  return path && item?.k === 'ordinary' ? `${ORDINARY_LABEL[item.type].plain}, ${colourWords(design, path)}` : 'None';
+  return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
 }
 
 export function OrdinaryStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
@@ -316,6 +323,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
       {path && type && (
         <PaintPicker design={design} path={path} group="ordinary" testid="ordinary-tincture" noun={lower(ORDINARY_LABEL[type].plain)} onChange={onChange} />
       )}
+      {path && type && <OrdinaryEdges design={design} path={path} testid="ordinary" summary="More shapes and edges…" noun={`the ${lower(ORDINARY_LABEL[type].plain)}`} shape={shape} onChange={onChange} />}
     </Step>
   );
 }

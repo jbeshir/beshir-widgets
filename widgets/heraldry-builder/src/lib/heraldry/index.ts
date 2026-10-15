@@ -9,7 +9,7 @@ export {
   reversedRun, runAlong, fieldSide, featureMiddle, profileSwing, edgeNames, lineWords,
   type Line, type ComplexLine, type LineGroup, type LineReading, type EdgeHost, type LineProfile, type ProfileStep, type EdgeRun, type LaidLine, type EdgeName,
 } from './lines';
-export { lineChoices, setLine, edgeSideChoices, edgeSideOf, setEdgeSide, keptLines, type EdgeTarget, type EdgeSide } from './shape-options';
+export { lineChoices, setLine, edgeSideChoices, edgeSideOf, setEdgeSide, keptLines, keptOrdinaryLines, type EdgeTarget, type EdgeSide } from './shape-options';
 export { contourPath, contoursPath, type Contour, type ContourEdge } from './contour';
 export { DIVISIONS, BUILDER_DIVISIONS, MORE_DIVISIONS, LINED_VARIATIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, VARIATION_SPELLINGS, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
 export {

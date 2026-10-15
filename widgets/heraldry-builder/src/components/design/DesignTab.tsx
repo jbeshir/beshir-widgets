@@ -337,7 +337,7 @@ export function DesignTab(p: Props) {
         {design.kind === 'arms' && <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />}
         <ChargesStep n={pictureStep} design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
         {layerCards.map((key) => (
-          <LayerStep key={key} design={design} place={key} n={layerStep(key)} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues(key)} accordion={accordion(key)} />
+          <LayerStep key={key} design={design} shape={shape} place={key} n={layerStep(key)} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues(key)} accordion={accordion(key)} />
         ))}
         <AddLayer design={design} onChange={p.onChange} onAdded={revealCard} />
         <div class="builder-footer">

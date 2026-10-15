@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Division, type Fur, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Division, type Fur, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -37,6 +37,22 @@ function readDivisionLines(division: Division, tokens: readonly string[], at: nu
   }
   const read = readLine(tokens, at);
   return read ? { lines: bareLines(host, read.line), end: read.end } : { lines: null, end: at };
+}
+
+/** The edges a band's line is named on, to the line (`a` or `b`) that edge is. */
+const EDGE_SIDES: Record<string, 'a' | 'b'> = { upper: 'a', dexter: 'a', lower: 'b', sinister: 'b' };
+
+/**
+ * The lines a band or shape is written with after its name (`at` is the index after it): "embattled" (a band's bare meaning of it: `bareLines`),
+ * "embattled counter-embattled" (both edges), "wavy on the lower edge" (that edge alone). An ordinary without a line has plain lines.
+ */
+export function readOrdinaryLines(type: OrdinaryType, tokens: readonly string[], at: number): { lines: Lines | null; end: number } {
+  if (tokens[at] === 'embattled' && tokens[at + 1] === 'counter-embattled') return { lines: { a: 'embattled', b: 'embattled' }, end: at + 2 };
+  const read = readLine(tokens, at);
+  if (!read) return { lines: null, end: at };
+  const side = tokens[read.end] === 'on' && tokens[read.end + 1] === 'the' && tokens[read.end + 3] === 'edge' ? EDGE_SIDES[tokens[read.end + 2]] : undefined;
+  if (!side) return { lines: bareLines({ k: 'ordinary', type, inverted: false }, read.line), end: read.end };
+  return { lines: side === 'a' ? { a: read.line, b: 'plain' } : { a: 'plain', b: read.line }, end: read.end + 4 };
 }
 
 /** The variations as the words that spell them ("bendy sinister", "barry bendy"), the longest first. */

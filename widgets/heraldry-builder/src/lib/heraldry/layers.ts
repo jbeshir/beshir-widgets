@@ -8,7 +8,7 @@
 
 import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
 import { NON_STANDARD_TINCTURES } from './tinctures';
-import { PLAIN_LINES, bodyTinctures, canonical, samePath, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture } from './design';
+import { PLAIN_LINES, bodyTinctures, canonical, samePath, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture, type Lines } from './design';
 import { ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
@@ -16,6 +16,7 @@ import {
 } from './options';
 import { PLACE_KEYS, pathOfPlace, type PlaceKey } from './places';
 import { structuralIssues } from './structure';
+import { strewnGroups } from './strewn';
 import { unsupportedIssues } from './support';
 
 /** The places the builder adds and removes on top of the band and the picture. */
@@ -50,10 +51,10 @@ export function addedLayerStep(d: Design, key: LayerKey): LayerKey | 'ordinary' 
 }
 
 /** A new band, or peripheral, in a tincture. */
-export function ordinaryGroup(type: OrdinaryType, t: GroupTincture): Group {
+export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines = PLAIN_LINES): Group {
   return {
     role: ORDINARY_KIND[type] === 'central' ? 'primary' : 'peripheral', relation: null,
-    item: { k: 'ordinary', type, lines: { ...PLAIN_LINES }, mods: [], cotised: null, fimbriated: null },
+    item: { k: 'ordinary', type, lines: { ...lines }, mods: [], cotised: null, fimbriated: null },
     count: 1, arrangement: { k: 'single' }, position: null,
     paint: t === 'counterchanged' ? { k: 'counterchanged' } : tincturePaint(t), charged: [],
   };
@@ -120,10 +121,12 @@ function withTinctureApart(d: Design, path: GroupPath): Design | null {
 
 type Added = { design: Design } | { reason: string };
 
-/** Any charge to start a layer of pictures with: not the picture's own, so the two can be told apart. */
+/** Any charge to start a layer of pictures with: not the picture's own, so the two can be told apart, and not one strewn on the field (SENA A3D1a). */
 function startingCharge(d: Design): ChargeId {
   const picture = simpleParts(d).picture?.group.item;
-  return picture?.k === 'charge' && picture.charge === 'mullet' ? 'heart' : 'mullet';
+  const avoided = new Set<ChargeId>(strewnGroups(d).map(({ semy }) => semy.charge.charge));
+  if (picture?.k === 'charge') avoided.add(picture.charge);
+  return (['mullet', 'heart', 'rose'] as const).find((id) => !avoided.has(id)) ?? 'mullet';
 }
 
 /** A charge to start the layer overall with: one no other group of the field has (SENA A3D1a). */

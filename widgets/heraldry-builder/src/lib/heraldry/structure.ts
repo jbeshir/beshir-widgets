@@ -151,7 +151,7 @@ function oneEdgeLine(g: Group): ComplexLine | null {
  * ployé off theirs), two different lines on one ordinary ("one complex line per charge", LoAR 08/2012), or a jagged line on one edge of a band
  * alone ("we do not allow a fess to be indented on the upper edge only", SENA A3D1c).
  */
-function ordinaryLineProblem(g: Group): string | null {
+export function ordinaryLineProblem(g: Group): string | null {
   if (g.item.k !== 'ordinary') return null;
   const host = ordinaryHost(g.item), { a, b } = g.item.lines;
   const what = `${ORDINARY_ARTICLE[g.item.type]} ${ORDINARY_NAME[g.item.type]}`;
@@ -174,6 +174,12 @@ export function coreSteps(d: Design): CoreStep[] {
     const one = oneEdgeLine(group);
     return one !== null && one !== 'embattled' && LINE_GROUP[one] !== 'jagged' ? ['one-edge-line'] : [];
   });
+}
+
+/** Why the design is more than one step from core practice (SENA A2B, App G), or null. */
+export function corePracticeProblem(d: Design): string | null {
+  const steps = coreSteps(d);
+  return steps.length > 1 ? `This design is ${numberWord(steps.length)} steps from core practice (${steps.map((s) => CORE_STEP_WORDS[s]).join(', ')}); SENA allows one (A2B, App G).` : null;
 }
 
 /** The complex line of a divided field (the first, when it has two); null when its lines are straight — plain, enarched and ployé count as plain for App H. */
@@ -439,11 +445,8 @@ export function structuralIssues(d: Design): Issue[] {
   }
 
   // 6c. One step from core practice is registrable, two are not (SENA A2B, App G).
-  const steps = coreSteps(d);
-  if (steps.length > 1) {
-    const message = `This design is ${numberWord(steps.length)} steps from core practice (${steps.map((s) => CORE_STEP_WORDS[s]).join(', ')}); SENA allows one (A2B, App G).`;
-    add({ code: 'structure', rule: 'core-practice', at: { k: 'design' }, message, slots: [] });
-  }
+  const corePractice = corePracticeProblem(d);
+  if (corePractice) add({ code: 'structure', rule: 'core-practice', at: { k: 'design' }, message: corePractice, slots: [] });
 
   // 7. Two parts that don't contrast, across a complex line with a charge over it: the line can't be made out (SENA App H).
   const line = complexFieldLine(d);

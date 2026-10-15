@@ -5,7 +5,7 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, setFieldEdgeSide, setFieldLine, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setPosture, setFieldEdgeSide, setFieldLine, setOrdinaryEdgeSide, setOrdinaryLine, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
   addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
@@ -663,5 +663,57 @@ describe('a new band starts apart from what it meets', () => {
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     expect(blazon(addLayer(lion, 'overall'))).toBe('Azure, a lion Or and overall a bend argent.');
     expect(blazon(addLayer(setOrdinary(DEFAULT_DESIGN, 'bend'), 'chief'))).toBe('Azure, a bend Or, a chief argent.');
+  });
+});
+
+describe('lines on the band, the top band and the border', () => {
+  const lineOf = (d: Design, path: GroupPath) => { const i = groupAt(d, path).item; return i.k === 'ordinary' ? i.lines : null; };
+
+  it('a line is the blazon\'s bare meaning of it, and the side row widens or narrows it', () => {
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const path = ordinaryPath(fess)!;
+    expect(edgeSideChoices(fess, { k: 'group', path })).toEqual([]);
+    const embattled = setOrdinaryLine(fess, path, 'embattled');
+    expect(lineOf(embattled, path)).toEqual({ a: 'embattled', b: 'plain' });
+    expect(blazon(embattled)).toMatch(/a fess embattled /);
+    expect(edgeSideChoices(embattled, { k: 'group', path }).map((c) => c.value)).toEqual(['both', 'a', 'b']);
+    const both = setOrdinaryEdgeSide(embattled, path, 'both');
+    expect(blazon(both)).toMatch(/a fess embattled counter-embattled /);
+    expect(blazon(setOrdinaryEdgeSide(embattled, path, 'b'))).toMatch(/a fess embattled on the lower edge /);
+    expect(lineOf(setOrdinaryLine(both, path, 'wavy'), path)).toEqual({ a: 'wavy', b: 'wavy' });
+    expect(lineOf(setOrdinaryLine(both, path, 'plain'), path)).toEqual({ a: 'plain', b: 'plain' });
+    // A cross has one line.
+    const cross = setOrdinaryLine(setOrdinary(DEFAULT_DESIGN, 'cross'), ordinaryPath(setOrdinary(DEFAULT_DESIGN, 'cross'))!, 'wavy');
+    expect(edgeSideChoices(cross, { k: 'group', path: ordinaryPath(cross)! })).toEqual([]);
+  });
+
+  it('offers a line only to hosts that take it', () => {
+    const chief = setOrdinary(DEFAULT_DESIGN, 'chief');
+    const target = { k: 'group', path: ordinaryPath(chief)! } as const;
+    const byLine = (d: Design, t: typeof target) => new Map(lineChoices(d, t).map((c) => [c.value, c.allowed]));
+    expect(byLine(chief, target).get('dancetty')).toBeUndefined();
+    expect(byLine(chief, target).get('enarched')).toBe(true);
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const fessTarget = { k: 'group', path: ordinaryPath(fess)! } as const;
+    expect(byLine(fess, fessTarget).get('dancetty')).toBe(true);
+  });
+
+  it('setOrdinary keeps an edge the new band takes, and drops one it can\'t', () => {
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const wavy = setOrdinaryLine(fess, ordinaryPath(fess)!, 'wavy');
+    const bend = setOrdinary(wavy, 'bend');
+    expect(lineOf(bend, ordinaryPath(bend)!)).toEqual({ a: 'wavy', b: 'wavy' });
+    const cross = setOrdinary(wavy, 'cross');
+    expect(lineOf(cross, ordinaryPath(cross)!)).toEqual({ a: 'wavy', b: 'wavy' });
+    const enarched = setOrdinaryLine(fess, ordinaryPath(fess)!, 'enarched');
+    const pale = setOrdinary(enarched, 'pale');
+    expect(lineOf(pale, ordinaryPath(pale)!)).toEqual({ a: 'plain', b: 'plain' });
+  });
+
+  it('a top band and a border take a line of their own', () => {
+    const framed = addLayer(addLayer(setOrdinary(DEFAULT_DESIGN, 'fess'), 'chief'), 'bordure');
+    const withChief = setOrdinaryLine(framed, pathOfPlace(framed, 'chief')!, 'embattled');
+    const both = setOrdinaryLine(withChief, pathOfPlace(withChief, 'bordure')!, 'engrailed');
+    expect(blazon(both)).toMatch(/a chief embattled .* a bordure engrailed /);
   });
 });

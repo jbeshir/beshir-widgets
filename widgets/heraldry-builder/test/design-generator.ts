@@ -210,3 +210,36 @@ export function generatedGeometryDesigns(seed: number, count: number): Design[] 
   }
   return designs;
 }
+
+/** Mixed into a seed for the picks of the lined ordinaries. */
+const LINED_ORDINARY_SEED = 0x6a09e667;
+const LINED_ORDINARIES = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'chief', 'bordure'];
+
+/**
+ * The design for `seed` with a band or shape drawn with a line its host takes, on both edges or (a band with two) on one, sometimes
+ * with a picture or a top band beside it. Null when the pick isn't registrable.
+ */
+function linedOrdinaryDesignFor(seed: number): Design | null {
+  const next = prng(seed ^ LINED_ORDINARY_SEED);
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
+  const type = pick(LINED_ORDINARIES);
+  const line = pick(DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: type as never, inverted: false }, l)));
+  const mode = pick(['a', 'b', 'both'] as const);
+  const lines = mode === 'both' ? { a: line, b: line } : mode === 'a' ? { a: line, b: 'plain' } : { a: 'plain', b: line };
+  const groups: object[] = [{ item: { k: 'ordinary', type, lines }, paint: pick(TINCTURES) }];
+  if (next() < 0.4) groups.push({ item: { k: 'charge', charge: pick(CHARGES) }, paint: pick(TINCTURES), count: 1 + Math.floor(next() * 3), relation: next() < 0.5 ? 'between' : null });
+  const r = resolve({ v: 2, field: pick(TINCTURES), groups });
+  if (!r.ok) return null;
+  const n = normalise(r.design);
+  return n.ok ? n.design : null;
+}
+
+/** The first `count` designs from `linedOrdinaryDesignFor`, trying seeds from `seed` upwards. */
+export function generatedLinedOrdinaryDesigns(seed: number, count: number): Design[] {
+  const designs: Design[] = [];
+  for (let s = seed; designs.length < count; s++) {
+    const d = linedOrdinaryDesignFor(s);
+    if (d) designs.push(d);
+  }
+  return designs;
+}

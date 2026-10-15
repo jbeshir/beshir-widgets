@@ -7,17 +7,17 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setDivision, setFieldLine, setOrdinary, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { addLayer, layerChoices, layersIn, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, type Design } from '../src/lib/heraldry';
+import { setCharge, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
-const base = { onChange: noop, issues: [], accordion: null };
+const base = { onChange: noop, issues: [], accordion: null, shape: 'heater' as const };
 const fieldBase = { ...base, onBadge: noop, notice: null };
 const ids = (markup: string) => new Set([...markup.matchAll(/data-testid="([^"]+)"/g)].map((m) => m[1]));
 
-const field = (d: Design) => ids(renderToString(h(FieldStep, { ...fieldBase, design: d, shape: 'heater' })));
-const ordinary = (d: Design) => ids(renderToString(h(OrdinaryStep, { ...base, design: d, shape: 'heater' })));
+const field = (d: Design) => ids(renderToString(h(FieldStep, { ...fieldBase, design: d })));
+const ordinary = (d: Design) => ids(renderToString(h(OrdinaryStep, { ...base, design: d })));
 const picture = (d: Design) => ids(renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false })));
 
 describe('the default flow keeps its test ids', () => {
@@ -232,7 +232,7 @@ const disclosures = (markup: string) => [...markup.matchAll(/<details[^>]*class=
 const shapeDisclosures = (markup: string) => [...markup.matchAll(/<details[^>]*class="more-paint more-shapes"[^>]*>/g)].map((m) => ({ testid: /data-testid="([^"]+)"/.exec(m[0])![1], open: /\sopen/.test(m[0]) }));
 
 describe('"More divisions and edges…"', () => {
-  const render = (d: Design) => renderToString(h(FieldStep, { ...fieldBase, design: d, shape: 'heater' }));
+  const render = (d: Design) => renderToString(h(FieldStep, { ...fieldBase, design: d }));
 
   it('a divided background shows one closed disclosure with the edge row inside; the default background shows none', () => {
     expect(shapeDisclosures(render(DEFAULT_DESIGN))).toEqual([]);
@@ -255,7 +255,7 @@ describe('"More divisions and edges…"', () => {
     expect(got).not.toContain('field-edge-side-both');
     expect(wavy).toMatch(/data-testid="field-edge-wavy"[^>]*><button[^>]*aria-checked="true"/);
     // The collapsed step's summary names the line.
-    const collapsed = renderToString(h(FieldStep, { ...fieldBase, accordion: { open: false, onToggle: noop }, design: setFieldLine(setDivision(DEFAULT_DESIGN, 'per-pale'), 'wavy'), shape: 'heater' }));
+    const collapsed = renderToString(h(FieldStep, { ...fieldBase, accordion: { open: false, onToggle: noop }, design: setFieldLine(setDivision(DEFAULT_DESIGN, 'per-pale'), 'wavy') }));
     expect(collapsed).toMatch(/step-field-summary">Split down the middle, wavy: /i);
   });
 
@@ -268,13 +268,13 @@ describe('"More divisions and edges…"', () => {
 describe('"More colours and patterns…"', () => {
   it('is the one closed disclosure per colour of the default flow, which shows nothing else beyond the colours', () => {
     const lion = setCharge(setOrdinary(DEFAULT_DESIGN, 'bend'), 'picture', 'lion');
-    expect(disclosures(renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN, shape: 'heater' })))).toEqual([{ testid: 'field-more', open: false }]);
-    expect(disclosures(renderToString(h(FieldStep, { ...fieldBase, design: setDivision(DEFAULT_DESIGN, 'per-pale'), shape: 'heater' })))).toEqual([{ testid: 'field-more', open: false }]);
-    expect(disclosures(renderToString(h(OrdinaryStep, { ...base, design: lion, shape: 'heater' })))).toEqual([{ testid: 'ordinary-tincture-more', open: false }]);
+    expect(disclosures(renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN })))).toEqual([{ testid: 'field-more', open: false }]);
+    expect(disclosures(renderToString(h(FieldStep, { ...fieldBase, design: setDivision(DEFAULT_DESIGN, 'per-pale') })))).toEqual([{ testid: 'field-more', open: false }]);
+    expect(disclosures(renderToString(h(OrdinaryStep, { ...base, design: lion })))).toEqual([{ testid: 'ordinary-tincture-more', open: false }]);
     const step3 = renderToString(h(ChargesStep, { ...base, n: 3, design: lion, onAdjust: noop, adjusted: null, compact: false }));
     expect(disclosures(step3)).toEqual([{ testid: 'charge-tincture-more', open: false }]);
     // Nothing of a fur, a pattern, a scatter, brick, a split or natural colours is drawn until it is asked for.
-    for (const html of [step3, renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN, shape: 'heater' }))]) {
+    for (const html of [step3, renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN }))]) {
       expect(html).not.toMatch(/-(fur|pattern|semy|treatment|split|proper|mode)-/);
     }
   });
@@ -282,7 +282,7 @@ describe('"More colours and patterns…"', () => {
   it('opens on what the paint is, offering only the kinds the target can take', () => {
     const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
     const furred = setFur(fess, { k: 'group', path: ordinaryPath(fess)! }, 'ermine');
-    const band = renderToString(h(OrdinaryStep, { ...base, design: furred, shape: 'heater' }));
+    const band = renderToString(h(OrdinaryStep, { ...base, design: furred }));
     expect(disclosures(band)).toEqual([{ testid: 'ordinary-tincture-more', open: true }]);
     const modes = [...band.matchAll(/data-testid="ordinary-tincture-mode-([a-z]+)"/g)].map((m) => m[1]);
     expect(modes).toEqual(['split', 'fur', 'pattern', 'scatter', 'treatment']);
@@ -294,20 +294,20 @@ describe('"More colours and patterns…"', () => {
     expect([...picture.matchAll(/data-testid="charge-tincture-mode-([a-z]+)"/g)].map((m) => m[1])).toEqual(['split', 'fur', 'pattern', 'treatment', 'natural']);
     expect(picture).toMatch(/data-testid="charge-tincture-proper"[^>]*><button[^>]*aria-checked="true"/);
     // The background offers its own kinds: no split (that is the division tiles) and no natural colours.
-    const ermine = renderToString(h(FieldStep, { ...fieldBase, design: setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, 'ermine'), shape: 'heater' }));
+    const ermine = renderToString(h(FieldStep, { ...fieldBase, design: setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, 'ermine') }));
     expect([...ermine.matchAll(/data-testid="field-mode-([a-z]+)"/g)].map((m) => m[1])).toEqual(['fur', 'pattern', 'scatter', 'treatment']);
   });
 
   it('keeps a scatter or brick when a colour is picked above: the picker sets the colour under it', () => {
     const strewn = setSemy(DEFAULT_DESIGN, { k: 'field', part: 0 }, 'mullet');
-    const html = renderToString(h(FieldStep, { ...fieldBase, design: strewn, shape: 'heater' }));
+    const html = renderToString(h(FieldStep, { ...fieldBase, design: strewn }));
     expect(html).toMatch(/data-testid="swatch-field1-azure"[^>]*><button[^>]*aria-checked="true"/);
     // The picker above is the colour it is strewn on, so the scatter offers only the colour of its pictures.
     expect(ids(html)).toContain('field-1-semy-colour-2');
     expect(ids(html)).not.toContain('field-1-semy-colour-1');
     const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
     const masoned = setTreatment(fess, { k: 'group', path: ordinaryPath(fess)! }, 'masoned');
-    const band = renderToString(h(OrdinaryStep, { ...base, design: masoned, shape: 'heater' }));
+    const band = renderToString(h(OrdinaryStep, { ...base, design: masoned }));
     expect(band).toMatch(/data-testid="swatch-ordinary-or"[^>]*><button[^>]*aria-checked="true"/);
     for (const id of ['ordinary-tincture-treatment-colour-2', 'ordinary-tincture-treatment-none']) expect(ids(band), id).toContain(id);
   });
@@ -335,7 +335,7 @@ describe('the split into two colours', () => {
 describe('the fur picker', () => {
   it('offers three kinds of fur in plain words, then the colours, and names the fur they make', () => {
     const d = setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, 'ermine');
-    const html = renderToString(h(FieldStep, { ...fieldBase, design: d, shape: 'heater' }));
+    const html = renderToString(h(FieldStep, { ...fieldBase, design: d }));
     expect(disclosures(html)).toEqual([{ testid: 'field-more', open: true }]);
     expect([...html.matchAll(/data-testid="field-1-fur-(ermine|vair|potent)"/g)].map((m) => m[1])).toEqual(['ermine', 'vair', 'potent']);
     expect(html).toContain('Spots · ermine');
@@ -349,7 +349,7 @@ describe('the fur picker', () => {
 
   it('sets bells and crutch-heads in rows, base to base or in columns', () => {
     const d = setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, 'counter-vair');
-    const html = renderToString(h(FieldStep, { ...fieldBase, design: d, shape: 'heater' }));
+    const html = renderToString(h(FieldStep, { ...fieldBase, design: d }));
     for (const id of ['field-1-fur-layout-plain', 'field-1-fur-layout-counter', 'field-1-fur-layout-en-pointe']) expect(ids(html), id).toContain(id);
     expect(html).toMatch(/data-testid="field-1-fur-layout-counter"[^>]*><button[^>]*aria-checked="true"/);
     expect(html).toContain('Base to base · counter-vair');
@@ -359,11 +359,11 @@ describe('the fur picker', () => {
 
   it('keeps the plain colours reachable with Tab while a fur is chosen: the first allowed swatch is the tab stop', () => {
     const d = setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, 'ermine');
-    const html = renderToString(h(FieldStep, { ...fieldBase, design: d, shape: 'heater' }));
+    const html = renderToString(h(FieldStep, { ...fieldBase, design: d }));
     const stops = [...html.matchAll(/<button[^>]*id="swatch-field1-([a-z]+)"[^>]*>/g)].filter((m) => m[0].includes('tabindex="0"')).map((m) => m[1]);
     expect(stops).toEqual(['or']);
     // With a tincture chosen, the chosen one is the tab stop.
-    const plain = renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN, shape: 'heater' }));
+    const plain = renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN }));
     const chosen = [...plain.matchAll(/<button[^>]*id="swatch-field1-([a-z]+)"[^>]*>/g)].filter((m) => m[0].includes('tabindex="0"')).map((m) => m[1]);
     expect(chosen).toHaveLength(1);
     expect(plain).toMatch(new RegExp(`id="swatch-field1-${chosen[0]}"[^>]*aria-checked="true"`));
@@ -371,7 +371,7 @@ describe('the fur picker', () => {
 
   it('gives each part of a divided background its own fur, the part chosen above it', () => {
     const d = setFur(setDivision(DEFAULT_DESIGN, 'per-pale'), { k: 'field', part: 1 }, 'vair');
-    const html = renderToString(h(FieldStep, { ...fieldBase, design: d, shape: 'heater' }));
+    const html = renderToString(h(FieldStep, { ...fieldBase, design: d }));
     expect(html).toMatch(/data-testid="field-more-part-2"[^>]*><button[^>]*aria-checked="true"/);
     for (const id of ['field-more-part-1', 'field-2-fur-vair', 'field-2-fur-colour-1']) expect(ids(html), id).toContain(id);
     expect(ids(html)).not.toContain('field-1-fur-vair');
@@ -379,7 +379,7 @@ describe('the fur picker', () => {
 
   it('gives every chip its own pattern id: the family row and the arrangement row both draw vair and potent', () => {
     for (const fur of ['vair', 'potent'] as const) {
-      const html = renderToString(h(FieldStep, { ...fieldBase, design: setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, fur), shape: 'heater' }));
+      const html = renderToString(h(FieldStep, { ...fieldBase, design: setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, fur) }));
       const patternIds = [...html.matchAll(/<pattern[^>]*\sid="([^"]+)"/g)].map((m) => m[1]);
       expect(patternIds.filter((id) => id.startsWith('fur-chip-')).length, fur).toBeGreaterThan(3);
       expect(new Set(patternIds).size, fur).toBe(patternIds.length);
@@ -390,20 +390,60 @@ describe('the fur picker', () => {
 describe('the stripes and checks picker', () => {
   it('opens with the pattern chosen, a count for the counted ones and a picker for each of its two colours', () => {
     const barry = setVariation(DEFAULT_DESIGN, 'barry');
-    const html = renderToString(h(FieldStep, { ...fieldBase, design: barry, shape: 'heater' }));
+    const html = renderToString(h(FieldStep, { ...fieldBase, design: barry }));
     expect(disclosures(html)).toEqual([{ testid: 'field-more', open: true }]);
     for (const id of ['field-pattern-barry', 'field-pattern-checky', 'field-pattern-paly-bendy', 'field-pattern-pieces-4', 'field-pattern-pieces-6', 'field-pattern-pieces-8', 'field-pattern-tincture-1', 'field-pattern-tincture-2', 'swatch-field-pattern-1-azure', 'swatch-field-pattern-2-or']) expect(html, id).toContain(id);
     expect(html).toContain('How many stripes');
     // The plain colour and the divisions are not chosen while a pattern is, and the plain colour picker gives way to the pattern's.
     expect(html).not.toContain('field-tincture-1');
-    expect(renderToString(h(FieldStep, { ...fieldBase, design: setVariation(DEFAULT_DESIGN, 'checky'), shape: 'heater' }))).not.toContain('field-pattern-pieces');
+    expect(renderToString(h(FieldStep, { ...fieldBase, design: setVariation(DEFAULT_DESIGN, 'checky') }))).not.toContain('field-pattern-pieces');
   });
 
   it('gives a patterned band its own pickers', () => {
     const d = setOrdinary(DEFAULT_DESIGN, 'fess');
     const band = setGroupVariation(d, ordinaryPath(d)!, 'barry');
-    const html = renderToString(h(OrdinaryStep, { ...base, design: band, shape: 'heater' }));
+    const html = renderToString(h(OrdinaryStep, { ...base, design: band }));
     for (const id of ['ordinary-tincture-mode-pattern', 'ordinary-tincture-pattern-lozengy', 'ordinary-tincture-pattern-pieces-8', 'ordinary-tincture-pattern-tincture-1', 'swatch-ordinary-or']) expect(html, id).toContain(id);
     expect(html).not.toContain('ordinary-tincture-split');
+  });
+});
+
+describe('"More shapes and edges…" under the band', () => {
+  const render = (d: Design) => renderToString(h(OrdinaryStep, { ...base, design: d }));
+
+  it('appears once a band is chosen, closed; a lined band opens it on its lines and edges', () => {
+    expect(shapeDisclosures(render(DEFAULT_DESIGN))).toEqual([]);
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const closed = render(fess);
+    expect(shapeDisclosures(closed)).toEqual([{ testid: 'ordinary-shape-more', open: false }]);
+    expect(closed).toContain('More shapes and edges…');
+    expect(closed).not.toContain('ordinary-edge-select');
+    const embattled = setOrdinaryLine(fess, ordinaryPath(fess)!, 'embattled');
+    const open = render(embattled);
+    expect(shapeDisclosures(open)).toEqual([{ testid: 'ordinary-shape-more', open: true }]);
+    const got = ids(open);
+    for (const id of ['ordinary-edge-select', 'ordinary-edge-plain', 'ordinary-edge-wavy', 'ordinary-edge-embattled', 'ordinary-edge-dancetty', 'ordinary-edge-side-both', 'ordinary-edge-side-a', 'ordinary-edge-side-b']) expect(got, id).toContain(id);
+    expect(open).toContain('Top edge only');
+    const collapsed = renderToString(h(OrdinaryStep, { ...base, accordion: { open: false, onToggle: noop }, design: embattled }));
+    expect(collapsed).toMatch(/step-ordinary-summary">[^<]*, embattled, /);
+    // A chief takes no dancetty and has one edge; a pale names its edges left and right.
+    const chief = ids(render(setOrdinaryLine(setOrdinary(DEFAULT_DESIGN, 'chief'), ordinaryPath(setOrdinary(DEFAULT_DESIGN, 'chief'))!, 'wavy')));
+    expect(chief).not.toContain('ordinary-edge-dancetty');
+    expect(chief).not.toContain('ordinary-edge-side-both');
+    const pale = setOrdinary(DEFAULT_DESIGN, 'pale');
+    expect(render(setOrdinaryLine(pale, ordinaryPath(pale)!, 'wavy'))).toContain('Left edge only');
+  });
+
+  it('a top band and a border have an "Edge…" disclosure', () => {
+    const framed = addLayer(addLayer(setOrdinary(DEFAULT_DESIGN, 'fess'), 'chief'), 'bordure');
+    for (const place of ['chief', 'bordure'] as const) {
+      const html = renderToString(h(LayerStep, { ...base, design: framed, place, n: 4, onAdjust: noop }));
+      expect(shapeDisclosures(html)).toEqual([{ testid: `${place}-shape-more`, open: false }]);
+      expect(html).toContain('Edge…');
+    }
+    const lined = setOrdinaryLine(framed, pathOfPlace(framed, 'bordure')!, 'engrailed');
+    const html = renderToString(h(LayerStep, { ...base, design: lined, place: 'bordure', n: 4, onAdjust: noop }));
+    expect(shapeDisclosures(html)).toEqual([{ testid: 'bordure-shape-more', open: true }]);
+    expect(ids(html)).toContain('bordure-edge-engrailed');
   });
 });

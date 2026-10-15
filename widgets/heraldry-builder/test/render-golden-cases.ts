@@ -74,7 +74,18 @@ const GEOMETRY_CASES: ReadonlyArray<[string, unknown]> = [
   ['line-embattled-quarterly-fess', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] })],
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES].map(([name, input]) => ({ name, design: nd(input) }));
+const band = (type: string, lines: object) => arms('azure', group(ordinary(type, { lines }), 'or'));
+
+/** The lines of the ordinaries: every line a fess takes (a band's bare meaning of it), wavy on each other ordinary, both edges and the lower edge alone. */
+const ORDINARY_LINE_CASES: ReadonlyArray<[string, unknown]> = [
+  ...DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: 'fess', inverted: false }, l)).map((l): [string, unknown] => [`line-${l}-fess`, band('fess', l === 'embattled' ? { a: l } : { a: l, b: l })]),
+  ...['pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'chief', 'bordure'].map((t): [string, unknown] => [`line-wavy-${t}`, band(t, { a: 'wavy', b: 'wavy' })]),
+  ['line-embattled-counter-embattled-fess', band('fess', { a: 'embattled', b: 'embattled' })],
+  ['line-bretessed-fess', band('fess', { a: 'bretessed', b: 'bretessed' })],
+  ['line-embattled-lower-chevron', band('chevron', { a: 'plain', b: 'embattled' })],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {

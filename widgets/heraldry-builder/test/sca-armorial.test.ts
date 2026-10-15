@@ -8,10 +8,10 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, LINED_VARIATIONS, LINE_WORD, FURS, FUR_NAME, SEMY_NAMES, lineAllowed, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
+  CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, DRAWN_LINES, DRAWN_TREATMENTS, LINED_VARIATIONS, LINE_WORD, FURS, FUR_NAME, SEMY_NAMES, lineAllowed, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
   blazon, canonicalJson, isCountedVariation, normalise,
 } from '../src/lib/heraldry';
-import { generatedDesign, generatedGeometryDesigns, generatedRichDesign } from './design-generator';
+import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign } from './design-generator';
 import { arms, charge, group, ordinary } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -159,6 +159,12 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['quarterly with the line across only', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'argent'))],
   ['quarterly with the line up and down only', arms({ k: 'divided', division: 'quarterly', lines: { a: 'indented', b: 'plain' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'argent'))],
   ['a bowed per chevron', arms({ k: 'divided', division: 'per-chevron', lines: { a: 'ploye' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'counterchanged'))],
+  ['a fess embattled (its upper edge)', arms('azure', group(ordinary('fess', { lines: { a: 'embattled' } }), 'or'))],
+  ['a bend embattled counter-embattled', arms('azure', group(ordinary('bend', { lines: { a: 'embattled', b: 'embattled' } }), 'or'))],
+  ['a chevron wavy on the lower edge', arms('gules', group(ordinary('chevron', { lines: { a: 'plain', b: 'wavy' } }), 'argent'))],
+  ['a pale engrailed with charges on it', arms('azure', group(ordinary('pale', { lines: { a: 'engrailed', b: 'engrailed' } }), 'or', { charged: [group(charge('mullet'), 'gules', { count: 3 })] }))],
+  ['a chief indented and a bordure engrailed', arms('sable', group(ordinary('fess'), 'or'), group(ordinary('chief', { lines: { a: 'indented' } }), 'argent'), group(ordinary('bordure', { lines: { a: 'engrailed' } }), 'argent'))],
+  ['a cross embattled grady', arms('vert', group(ordinary('cross', { lines: { a: 'grady' } }), 'or'))],
   ['an embattled grady division', arms({ k: 'divided', division: 'per-bend', lines: { a: 'grady' }, parts: ['argent', 'gules'] }, group(charge('mullet'), 'or'))],
 ];
 
@@ -175,6 +181,7 @@ describe('the matcher reads what the widget writes', () => {
   it('reads the blazon of every generated design and every sample entry', () => {
     const designs = [
       ...generatedGeometryDesigns(1, 300),
+      ...generatedLinedOrdinaryDesigns(1, 200),
       ...Array.from({ length: 1500 }, (_, seed) => generatedDesign(seed)),
       ...Array.from({ length: 1500 }, (_, seed) => generatedRichDesign(seed)),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -324,6 +331,7 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a charge between charges', 'azure, a lion Or between three roses argent'],
     ['charges around a charge', 'azure, a lion Or between four roses argent in saltire'],
     ['a band and a chief', 'azure, a fess and a chief argent'],
+    ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, a ${ORDINARY_NAME[t]} ${LINE_WORD[l]} Or`])),
     ['a chief and a bordure', 'azure, a chief and a bordure Or'],
     ['charges in chief', 'azure, a bend Or, in chief three roses argent'],
     ['charges in a corner', 'azure, a bend Or and in dexter chief a rose argent'],

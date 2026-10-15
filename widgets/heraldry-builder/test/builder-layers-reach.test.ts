@@ -9,7 +9,7 @@ import {
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
-import { generatedGeometryDesigns, generatedRichDesigns } from './design-generator';
+import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns } from './design-generator';
 import { arms, charge, div, group, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
@@ -162,6 +162,14 @@ describe('designs with a chief and a bordure beside the band are built by clicks
 
   it('every generated design with a line on the field is built too', () => {
     const problems = generatedGeometryDesigns(11, 150).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with a line on a band, a top band or a border is built too', () => {
+    const problems = generatedLinedOrdinaryDesigns(11, 60).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });

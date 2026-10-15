@@ -26,7 +26,13 @@ const NUMBER = '(?:a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twel
 const NUMBER_WORD = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
 /** A line of partition as the widget words it ('embattled grady', 'ployé'), the longest first. */
 const LINE = `(?:${[...new Set(DRAWN_LINES.map((l) => LINE_WORD[l]))].sort((a, b) => b.length - a.length).join('|')})`;
-const ORDINARY = '(?:fess|pale|bend sinister|bend|chevron|cross|saltire|pile)';
+const ORDINARY_NAME_WORDS = 'fess|pale|bend sinister|bend|chevron|cross|saltire|pile';
+/** The line a band or shape is written with after its name: "wavy", "embattled counter-embattled", "embattled on the lower edge". */
+const ORDINARY_LINE = ` (?:embattled counter-embattled|${LINE})(?: on the (?:upper|lower|dexter|sinister) edge)?`;
+/** An ordinary as the text spells it once its synonyms are settled: its name and its line, if any (the tincture follows). */
+const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?:${ORDINARY_LINE})?`;
+/** A top band or border, with its line. */
+const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
 
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
 /** A fur as the text spells it once its synonyms are settled: a named fur, "argent ermined gules", "vairy Or and gules". */
@@ -67,7 +73,7 @@ const SEMY_BOTH_ALIKE = new RegExp(`^(${DIVISION_START}) (${COLOUR}) semy of (${
 const SEMY_BOTH_SWAPPED = new RegExp(`^(${DIVISION_START}) (${COLOUR}) semy of (${NOUN}) (${COLOUR}) and (${COLOUR}) semy of \\3 \\2(?![\\w-])`);
 /** The commas between a semy and what it is strewn on, and the "all" a semy over a divided field says. */
 const SEMY_AFTER_FIELD = new RegExp(`^(${COLOUR}), (?=semy of )`);
-const SEMY_AFTER_BAND = new RegExp(`(\\b(?:a|an) (?:${ORDINARY}|chief|bordure) ${TINCT}), (?=semy of )`, 'g');
+const SEMY_AFTER_BAND = new RegExp(`(\\b(?:a|an) (?:${ORDINARY}|${PERIPHERAL}) ${TINCT}), (?=semy of )`, 'g');
 const SEMY_ALL_AFTER_COMMA = new RegExp(`^(${DIVISION_START} ${COLOUR} and ${COLOUR}), (?:all )?(?=semy of )`);
 const SEMY_ALL_COUNTERCHANGED = new RegExp(`^(${DIVISION_START} ${COLOUR} and ${COLOUR}) (?=semy of (?:${NOUN}) counterchanged)`);
 /** The strewn charges "semy of <charges>" that no tincture follows, and the next tincture a text states. */
@@ -134,7 +140,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(ERMINES_FUR, 'counter-ermine')
       .replace(new RegExp(`\\b(${COLOUR}) ermined (${COLOUR})\\b`, 'g'), (m, a: string, b: string) => FOLDED_ERMINES[`${a} ${b}`] ?? m)
       .replace(new RegExp(`\\bvairy ${FUR_SPEC.vair.ground} and ${FUR_SPEC.vair.spots}\\b`, 'g'), 'vair')
-      .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )(?<!\\bper (?:pale|fess|bend sinister|bend|chevron) )(?<!\\b(?:quarterly|barry|paly|bendy|bendy sinister) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
+      .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )(?<!\\bper (?:pale|fess|bend sinister|bend|chevron) )(?<!\\b(?:fess|pale|bend sinister|bend|chevron|pile|chief|bordure) )(?<!\\b(?:quarterly|barry|paly|bendy|bendy sinister) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
         const [x, y] = TINCTURES.indexOf(a as never) <= TINCTURES.indexOf(b as never) ? [a, b] : [b, a];
         return x === FUR_SPEC.potent.ground && y === FUR_SPEC.potent.spots ? 'potent' : `potenty ${x} and ${y}`;
       })
@@ -144,10 +150,13 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     // 3a2. Lines of partition the SCA spells in more than one way (`LINE_SPELLINGS`), and the equivalence of RULES §A.3: a division has one
     //      line, so "per pale dancetty" is "per pale indented" (dancetty is a line of two-sided bands; the College draws a division's as indented).
     id: 'line-synonyms',
-    description: 'undy → wavy, crenellated → embattled, nebulee → nebuly, ployee → ployé … (LINE_SPELLINGS); "per <division> dancetty" and "quarterly (per pale|per fess) dancetty" → "… indented".',
+    description: 'undy → wavy, crenellated → embattled, nebulee → nebuly, ployee → ployé … (LINE_SPELLINGS); "per <division> dancetty", "quarterly (per pale|per fess) dancetty" and dancetty on a chief, bordure, cross, saltire or pile → "… indented"; "a dance" → "a fess dancetty"; counter-embattled and "embattled on both edges" → "embattled counter-embattled".',
     apply: (s) => s
+      .replace(/\b(a|an|on a) dance(?:tte?)?(?![\w-])/g, '$1 fess dancetty')
       .replace(LINE_SPELLING_WORD, (w) => LINE_WORD_OF.get(w)!)
-      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly(?: per (?:pale|fess))?) dancetty\b/g, '$1 indented'),
+      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|cross|saltire|pile)) dancetty\b/g, '$1 indented')
+      .replace(/(?<![\w-])(?<!embattled )counter-?embattled\b/g, 'embattled counter-embattled')
+      .replace(/\bembattled on both edges\b/g, 'embattled counter-embattled'),
   },
   {
     // 3b. Variations the SCA spells in more than one way (`VARIATION_SPELLINGS`): "chevronny" is chevronelly (the College's word: SENA A5F1b),
@@ -230,7 +239,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
       .replace(/,? and (?=in (?:chief|base|canton)\b)/g, ', ')
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
-      .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}|chief)|${CORE}) ${TINCT}),`, 'g'), '$1')
+      .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?)|${CORE}) ${TINCT}),`, 'g'), '$1')
       .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY} (?:${TINCT} )?between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')
       .replace(new RegExp(`^(${DIVISION_START} ${TINCT} and ${TINCT}|${VARIATION} ${COLOUR} and ${COLOUR}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
   },
@@ -247,7 +256,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //    charge on a beast, monster or bird the second way and every other host the first.
     id: 'charged-with',
     description: '"<a host> <tincture> charged with <group>" → "on <a host> <tincture> <group>".',
-    apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief|${NOUN})(?: (?:${POSTURE}))?(?: in splendor)? ${TINCT}),? charged with `, 'g'), '$1on $2 '),
+    apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?|${NOUN})(?: (?:${POSTURE}))?(?: in splendor)? ${TINCT}),? charged with `, 'g'), '$1on $2 '),
   },
   {
     // 6. Where the placement words go: the SCA writes "two keys in pale" as often as "in pale two

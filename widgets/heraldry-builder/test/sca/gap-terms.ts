@@ -228,7 +228,7 @@ export const CONTAINER_WORDS = w('pair sheaf bundle bunch cluster set brace coup
 /** SCA spellings of the widget's ordinaries (the cross is read separately, as it is also a charge). */
 export const SUPPORTED_ORDINARY_WORDS: Record<string, string> = {
   fess: 'fess', fesse: 'fess', pale: 'pale', bend: 'bend', 'bend-sinister': 'bend-sinister', chevron: 'chevron',
-  saltire: 'saltire', chief: 'chief', bordure: 'bordure', pile: 'pile',
+  saltire: 'saltire', chief: 'chief', bordure: 'bordure', pile: 'pile', dance: 'fess',
 };
 
 /** Ordinaries, sub-ordinaries and diminutives the widget lacks → sub-tag. */
@@ -237,7 +237,7 @@ export const GAP_ORDINARIES: Record<string, string> = Object.fromEntries([
     label tierce chape bordurelet flasque voider baton riband fillet endorse bar barrulet bendlet scarpe pallet
     chevronel saltorel cotise bendlet-sinister scarpe-sinister`),
   ['gemel', 'gemel'], ['gemelle', 'gemel'], ['scarp', 'scarpe'], ['palet', 'pallet'], ['chevronelle', 'chevronel'],
-  ['dance', 'dancette'], ['dancette', 'dancette'], ['fess-point', 'point'], ['chief-pale', 'chief-pale'],
+  ['fess-point', 'point'], ['chief-pale', 'chief-pale'],
 ]);
 
 /** Lines of partition → sub-tag. The widget draws only straight lines. */
@@ -248,7 +248,7 @@ export const LINES: Record<string, string> = {
   'embattled-counter-embattled': 'embattled-counter-embattled', bretessed: 'bretessed', bretesse: 'bretessed',
   bretassy: 'bretessed', 'embattled-grady': 'embattled-grady', grady: 'grady', 'indented-grady': 'grady',
   wavy: 'wavy', undy: 'wavy', undee: 'wavy', 'wavy-crested': 'wavy-crested', nebuly: 'nebuly',
-  indented: 'indented', dancetty: 'dancetty', engrailed: 'engrailed', invected: 'invected', invecked: 'invected',
+  indented: 'indented', dancetty: 'dancetty', dancette: 'dancetty', engrailed: 'engrailed', invected: 'invected', invecked: 'invected',
   raguly: 'raguly', rayonny: 'rayonny', urdy: 'urdy', dovetailed: 'dovetailed', bevilled: 'bevilled',
   beviled: 'bevilled', bevelled: 'bevilled', angled: 'angled', enarched: 'enarched', arched: 'enarched',
   'double-arched': 'enarched', 'doubly-enarched': 'enarched', ploye: 'enarched', ployee: 'enarched',

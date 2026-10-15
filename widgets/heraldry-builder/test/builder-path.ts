@@ -7,12 +7,12 @@
 
 import {
   CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setFieldEdgeSide, setFieldLine, setPosture, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setFieldEdgeSide, setFieldLine, setOrdinaryEdgeSide, setOrdinaryLine, setPosture, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -29,8 +29,8 @@ export type BuilderAction =
   | { kind: 'variation'; variation: Variation }
   | { kind: 'variation-pieces'; pieces: number }
   | { kind: 'variation-tincture'; part: 0 | 1; tincture: Tincture }
-  | { kind: 'line'; target: 'field'; line: Line }
-  | { kind: 'edge-side'; target: 'field'; side: EdgeSide }
+  | { kind: 'line'; target: EdgeWhere; line: Line }
+  | { kind: 'edge-side'; target: EdgeWhere; side: EdgeSide }
   | { kind: 'ordinary'; type: OrdinaryType | null }
   | { kind: 'ordinary-tincture'; tincture: GroupTincture }
   | { kind: 'add-layer'; place: LayerKey }
@@ -58,6 +58,9 @@ export type BuilderAction =
 /** What a colour click is about: the band, a top band or border, or one of the pictures. */
 type PaintWhere = 'ordinary' | PeripheralKey | At;
 
+/** What a line or edge click is about: the background, the band, or a top band or border. */
+type EdgeWhere = 'field' | 'ordinary' | PeripheralKey;
+
 /** What a fur or treatment click is about: a part of the background (a plain background is its first part), or what a colour click is about. */
 type ColourWhere = PaintWhere | 'field-1' | 'field-2';
 
@@ -65,6 +68,13 @@ const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? pict
 const peripheralAt = (d: Design, place: PeripheralKey): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
 const paintPathOf = (d: Design, target: PaintWhere): GroupPath | null =>
   target === 'ordinary' ? ordinaryPath(d) : target === 'chief' || target === 'bordure' ? peripheralAt(d, target) : pathAt(d, target);
+
+/** The edge target a line click is about. */
+const edgeTargetOf = (d: Design, where: EdgeWhere): EdgeTarget | null => {
+  if (where === 'field') return { k: 'field' };
+  const path = paintPathOf(d, where);
+  return path && { k: 'group', path };
+};
 
 const paintTargetOf = (d: Design, where: ColourWhere): PaintTarget | null => {
   if (where === 'field-1' || where === 'field-2') return { k: 'field', part: where === 'field-1' ? 0 : 1 };
@@ -98,8 +108,8 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       return varied && isCountedVariation(varied.variation) && VARIATION_PIECES.includes(a.pieces) ? null : `${a.pieces} stripes are not offered`;
     }
     case 'variation-tincture': return d.kind === 'arms' && asVariation(d.field) ? null : 'the background has no stripes to colour';
-    case 'line': return choiceReason(lineChoices(d, { k: 'field' }), a.line);
-    case 'edge-side': return choiceReason(edgeSideChoices(d, { k: 'field' }), a.side);
+    case 'line': { const t = edgeTargetOf(d, a.target); return t ? choiceReason(lineChoices(d, t), a.line) : `there is no ${a.target} to edge`; }
+    case 'edge-side': { const t = edgeTargetOf(d, a.target); return t ? choiceReason(edgeSideChoices(d, t), a.side) : `there is no ${a.target} to edge`; }
     case 'ordinary': return a.type === null || DRAWN_ORDINARIES.includes(a.type) ? null : `${a.type} is not offered`;
     case 'ordinary-tincture': {
       const path = ordinaryPath(d);
@@ -209,8 +219,8 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'variation': return setVariation(d, a.variation);
     case 'variation-pieces': return setVariationPieces(d, a.pieces);
     case 'variation-tincture': return setVariationTincture(d, a.part, a.tincture);
-    case 'line': return setFieldLine(d, a.line);
-    case 'edge-side': return setFieldEdgeSide(d, a.side);
+    case 'line': return a.target === 'field' ? setFieldLine(d, a.line) : setOrdinaryLine(d, paintPathOf(d, a.target)!, a.line);
+    case 'edge-side': return a.target === 'field' ? setFieldEdgeSide(d, a.side) : setOrdinaryEdgeSide(d, paintPathOf(d, a.target)!, a.side);
     case 'ordinary': return setOrdinary(d, a.type);
     case 'ordinary-tincture': return setOrdinaryTincture(d, a.tincture);
     case 'add-layer': return addLayer(d, a.place);
@@ -545,6 +555,16 @@ export function builderPath(goal: Design): BuilderPath {
     const side: EdgeSide = f.lines.a === f.lines.b ? 'both' : f.lines.a === 'plain' ? 'b' : 'a';
     if (side !== 'both' && !click({ kind: 'edge-side', target: 'field', side })) return done();
   }
+  /** The clicks that draw the band, top band or border with its goal lines: its line as the blazon bares it, then the edges if they differ. */
+  const edgesTo = (target: 'ordinary' | PeripheralKey, goalItem: Group['item']): boolean => {
+    if (goalItem.k !== 'ordinary' || (goalItem.lines.a === 'plain' && goalItem.lines.b === 'plain')) return true;
+    const linesNow = () => { const item = groupAt(d, paintPathOf(d, target)!).item; return item.k === 'ordinary' ? item.lines : goalItem.lines; };
+    const { a, b } = goalItem.lines;
+    if (!click({ kind: 'line', target, line: a !== 'plain' ? a : b })) return false;
+    const now = linesNow();
+    if (now.a === a && now.b === b) return true;
+    return click({ kind: 'edge-side', target, side: a === b ? 'both' : a === 'plain' ? 'b' : 'a' });
+  };
 
   const parts = simpleParts(goal);
 
@@ -552,14 +572,14 @@ export function builderPath(goal: Design): BuilderPath {
   if (parts.ordinary) {
     const item = parts.ordinary.group.item;
     if (item.k !== 'ordinary' || !click({ kind: 'ordinary', type: item.type })) return done();
-    if (!paintTo('ordinary', parts.ordinary.group.paint)) return done();
+    if (!paintTo('ordinary', parts.ordinary.group.paint) || !edgesTo('ordinary', item)) return done();
   }
 
   // The top band and border beside the ordinary, before the pictures they leave room for.
   for (const peripheral of parts.peripherals) {
     const place = peripheral.place as PeripheralKey;
     if (!click({ kind: 'add-layer', place })) return done();
-    if (!paintTo(place, peripheral.group.paint)) return done();
+    if (!paintTo(place, peripheral.group.paint) || !edgesTo(place, peripheral.group.item)) return done();
   }
 
   // The picture, then the pictures around it or beside it in chief, base or canton, the extra pictures on the band, the top band and the border, and last what lies overall.

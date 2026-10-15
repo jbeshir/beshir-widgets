@@ -132,7 +132,6 @@ function itemGaps(item: Item): Found[] {
   if (item.k === 'ordinary') {
     const gaps: Found[] = [];
     if (!DRAWN_ORDINARIES.includes(item.type)) gaps.push(gap('ordinary', item.type));
-    for (const l of [item.lines.a, item.lines.b]) if (l !== 'plain' && !gaps.some((g) => g.gap.detail === l)) gaps.push(gap('line-of-partition', l));
     for (const m of item.mods) gaps.push(gap('ordinary-treatment', m));
     if (item.cotised) gaps.push(gap('ordinary-treatment', 'cotised'));
     if (item.fimbriated) gaps.push(gap('ordinary-treatment', 'fimbriated'));
@@ -182,7 +181,11 @@ const hasAround = (d: Design): boolean => primaryCharges(d) !== null && d.groups
 
 /** What the builder can't draw overall: ordinaries that don't cross the middle, and any number of charges but one, or two long charges crossed. */
 function overallGaps(g: Group): Found[] {
-  if (g.item.k === 'ordinary') return OVERALL_ORDINARIES.includes(g.item.type) ? [] : [gap('placement', `overall-${g.item.type}`, 'That group overall')];
+  if (g.item.k === 'ordinary') {
+    if (!OVERALL_ORDINARIES.includes(g.item.type)) return [gap('placement', `overall-${g.item.type}`, 'That group overall')];
+    // The builder's edge rows are on the band, the top band and the border, not on what lies across everything.
+    return g.item.lines.a !== 'plain' || g.item.lines.b !== 'plain' ? [gap('line-of-partition', 'on-overall', 'A line on a band or shape lying across everything')] : [];
+  }
   return overallLayouts(g.count, CHARGES[g.item.charge].long).length > 0 ? [] : [gap('placement', `overall-${g.count}`, 'That group overall')];
 }
 

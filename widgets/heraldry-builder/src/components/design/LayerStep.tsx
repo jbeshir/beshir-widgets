@@ -3,16 +3,18 @@
 
 import {
   CATEGORY_LABEL, CHARGE_CATEGORIES, ORDINARY_LABEL, PLACE_LABEL, chargeLabel, chargesInCategory, groupAt, groupLabel, overallItemChoices, pathOfPlace, removeLayer, setOverallItem,
-  type ChargeId, type Choice, type Companion, type Design, type Issue, type LayerItem, type LayerKey, type OrdinaryType,
+  type ChargeId, type Choice, type Companion, type Design, type FieldShape, type Issue, type LayerItem, type LayerKey, type OrdinaryType,
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { setCharge } from '../../lib/builder';
-import { PictureControls, Step, lower, picturesSummary, colourWords, type Accordion } from './BuilderSteps';
+import { PictureControls, Step, lower, ordinaryLineWords, picturesSummary, colourWords, type Accordion } from './BuilderSteps';
+import { OrdinaryEdges } from './OrdinaryEdges';
 import { PaintPicker } from './PaintPicker';
 import { pictureWord } from './AddLayer';
 
 interface Props {
   design: Design;
+  shape: FieldShape;
   place: LayerKey;
   /** The step's number: the layers are numbered from 4 in the order they are shown. */
   n: number;
@@ -40,7 +42,7 @@ const itemOf = (value: string): LayerItem => (
 );
 
 /** The step of what lies across everything: a band or shape, or a picture, with its colour and (a picture) its count. */
-function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<Props, 'place'>) {
+function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<Props, 'place' | 'shape'>) {
   const path = pathOfPlace(design, 'overall')!;
   const group = groupAt(design, path);
   const item = group.item;
@@ -81,7 +83,7 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
 }
 
 /** The step of a layer the design has: pictures on the band, or a top band or border set beside it. */
-export function LayerStep({ design, place, n, onChange, onAdjust, issues, accordion }: Props) {
+export function LayerStep({ design, shape, place, n, onChange, onAdjust, issues, accordion }: Props) {
   const path = pathOfPlace(design, place);
   if (!path) return null;
   if (place === 'overall') return <OverallStep design={design} n={n} onChange={onChange} onAdjust={onAdjust} issues={issues} accordion={accordion} />;
@@ -92,8 +94,9 @@ export function LayerStep({ design, place, n, onChange, onAdjust, issues, accord
   if (item.k === 'ordinary') {
     const label = ORDINARY_LABEL[item.type];
     return (
-      <Step n={n} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; the pictures keep clear of it." summary={colourWords(design, path)} issues={issues} accordion={accordion} testid={testid} remove={remove(`Remove the ${lower(label.plain)}`)}>
+      <Step n={n} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; the pictures keep clear of it." summary={[ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ')} issues={issues} accordion={accordion} testid={testid} remove={remove(`Remove the ${lower(label.plain)}`)}>
         <PaintPicker design={design} path={path} group={place} testid={`${place}-tincture`} noun={lower(label.plain)} onChange={onChange} />
+        {(place === 'chief' || place === 'bordure') && <OrdinaryEdges design={design} path={path} testid={place} summary="Edge…" noun={`the ${lower(label.plain)}`} shape={shape} onChange={onChange} />}
       </Step>
     );
   }

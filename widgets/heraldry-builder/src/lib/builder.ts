@@ -6,7 +6,7 @@
 
 import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
-  asParty, asVariation, fieldParts, isCountedVariation, keptLines, setEdgeSide, setLine, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptOrdinaryLines, setEdgeSide, setLine, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, pathOfPlace, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
   type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
@@ -167,11 +167,22 @@ export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
   if (!type) return rebuilt(d, null);
   const previous = simpleParts(d).ordinary?.group.paint;
   const kept = previous && groupTinctureOf(previous);
-  const placed = rebuilt(d, ordinaryGroup(type, kept ?? 'or'));
+  const was = simpleParts(d).ordinary?.group.item;
+  const placed = rebuilt(d, ordinaryGroup(type, kept ?? 'or', was?.k === 'ordinary' ? keptOrdinaryLines(was.lines, type) : PLAIN_LINES));
   const path = ordinaryPath(placed)!;
   const choices = groupTinctureChoices(placed, path);
   const tincture = kept && isAllowed(choices, kept) ? kept : firstAllowed(choices, kept ?? 'or');
   return tincture === kept ? placed : setGroupTincture(placed, path, tincture);
+}
+
+/** The band, shape, top band or border at `path` drawn with this line (as its blazon bares it), the pictures refitted to the room it leaves. */
+export function setOrdinaryLine(d: Design, path: GroupPath, line: Line): Design {
+  return refitLayers(setLine(d, { k: 'group', path }, line));
+}
+
+/** The band or shape's line drawn on both its edges, or on its upper (dexter) or lower (sinister) edge only. */
+export function setOrdinaryEdgeSide(d: Design, path: GroupPath, side: EdgeSide): Design {
+  return refitLayers(setEdgeSide(d, { k: 'group', path }, side));
 }
 
 export function setOrdinaryTincture(d: Design, t: GroupTincture): Design {

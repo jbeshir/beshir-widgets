@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -25,14 +25,19 @@ import {
 const DRAWN_DIVISION_IDS: readonly string[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'];
 
 /**
- * Whether the widget draws the line a word spells on this division or variation of the field: any line a division takes ("per pale
- * dancetty" is drawn indented, the College's equivalent), any line the stripes of barry, paly or bendy take.
+ * Whether the widget draws the line a word spells on this division, variation or band: any line a division takes ("per pale dancetty"
+ * is drawn indented, the College's equivalent, as on a chief or a bordure), any line the stripes of barry, paly or bendy take, any line
+ * a band's host takes.
  */
 function drawnOn(host: EdgeHost, word: string): boolean {
   const spelled = LINE_SPELLINGS[word.normalize('NFD').replace(/\p{M}/gu, '')];
-  if (!spelled || spelled === 'counter-embattled') return false;
-  return lineAllowed(host, spelled === 'dancetty' && host.k === 'division' ? 'indented' : spelled);
+  if (!spelled) return false;
+  if (spelled === 'counter-embattled') return host.k === 'ordinary' && edgeCount(host) === 2;
+  return lineAllowed(host, spelled === 'dancetty' && !lineAllowed(host, 'dancetty') ? 'indented' : spelled);
 }
+
+/** The edge a band's line is named on ("wavy on the lower edge"): the words after the line, each host's own names. */
+const EDGE_NAME_WORDS: Readonly<Record<string, 'a' | 'b'>> = { upper: 'a', dexter: 'a', lower: 'b', sinister: 'b' };
 
 export const GAP_CATEGORIES = [
   { id: 'fieldless', description: 'a fieldless badge the widget does not draw: charges conjoined to the main one, something overall, or two main charges' },
@@ -344,6 +349,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let untincturedOrd = false; // an ordinary still awaiting its tincture: a later "counterchanged" covers it too
   let overallNext = false; // after "overall": the next element lies across everything
   let patternedField = false; // the field is in stripes or checks of two tinctures
+  let ordEnd = -1; // the index of the last word of the latest band or shape, whose line may follow
   let divisionEnd = -1; // the index of the last word of the field's division, whose line may follow
   let fieldDivision = ''; // … and the division it divides the field in ("quarterly per fess" is quartered)
 
@@ -512,7 +518,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'fur':
         if (lem === 'ermine' && /^(a|an|two|three|four|five|six)$/.test(prev)) { tag('charge-beast', 'ermine'); settleHost(newElement('charge', null)); break; }
         if (lem === 'potenty' && inField && divisions === 1 && divisionEnd === i - 1 && last?.kind === 'div' && drawnOn({ k: 'division', division: fieldDivision as never }, 'potenty')) break;
-        if (lem === 'potenty' && (last?.kind === 'ord' || last?.kind === 'div') && look(i - 1)?.e.k !== 'tinc') tag('line-of-partition', 'potenty');
+        if (lem === 'potenty' && last?.kind === 'ord' && last.name && ordEnd === i - 1 && drawnOn({ k: 'ordinary', type: last.name as OrdinaryType, inverted: false }, 'potenty')) i = bandLineEnd(i, last.name as OrdinaryType, false);
+        else if (lem === 'potenty' && (last?.kind === 'ord' || last?.kind === 'div') && look(i - 1)?.e.k !== 'tinc') tag('line-of-partition', 'potenty');
         else if (lem === 'potent' && /^cross/.test(prev)) break;
         else if (!furDrawn(i, lem)) tag('fur', e.v);
         break;
@@ -522,6 +529,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (next === 'charge' || next === 'gapCharge') tag('charge-modifier', lem); // "an embattled coronet"
         // The line of the field's division or of its stripes, written as the widget draws it: "per pale wavy", "quarterly per fess embattled", "barry wavy" (the stripes' line is read with them).
         else if (inField && divisions === 1 && divisionEnd === i - 1 && last?.kind === 'div' && drawnOn({ k: 'division', division: fieldDivision as never }, joined ? 'embattled grady' : words[i])) { if (joined) i++; break; }
+        else if (last?.kind === 'ord' && last.name && ordEnd === i - 1 && drawnOn({ k: 'ordinary', type: last.name as OrdinaryType, inverted: false }, joined ? 'embattled grady' : words[i])) i = bandLineEnd(i, last.name as OrdinaryType, joined);
         else tag('line-of-partition', e.v);
         break;
       }
@@ -739,8 +747,18 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     if (/^(to|from|in|dexter|sinister)$/.test(i > 0 ? words[i - 1] : BREAK)) return; // "issuant from (dexter) chief": a place
     const count = pendingCount ?? 1;
     const el = newElement('ord', type);
+    ordEnd = i;
     if (count > 1) tag('ordinary', 'multiple');
     settleHost(el);
+  }
+
+  /** The index of the last word of a band's line as the widget draws it, from the line at `i`: "embattled grady", "embattled counter-embattled", "wavy on the lower edge". */
+  function bandLineEnd(i: number, type: OrdinaryType, joined: boolean): number {
+    let end = joined ? i + 1 : i;
+    if (words[i] === 'embattled' && words[i + 1] === 'counter-embattled' && drawnOn({ k: 'ordinary', type, inverted: false }, 'counter-embattled')) return i + 1;
+    const edge = words[end + 1] === 'on' && words[end + 2] === 'the' && words[end + 4] === 'edge' ? EDGE_NAME_WORDS[words[end + 3]] : undefined;
+    if (edge && edgeCount({ k: 'ordinary', type, inverted: false }) === 2) end += 4;
+    return end;
   }
 
   /** A sub-ordinary the widget lacks, unless it names a place ("in base") or an arrangement ("an orle of …"); returns the last token read. */
@@ -830,6 +848,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       return end;
     }
     settleHost(newElement('ord', 'cross'));
+    ordEnd = i;
     return i;
   }
 
