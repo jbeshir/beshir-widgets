@@ -110,14 +110,15 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     // 3a. Furs the SCA spells in more than one way. "Ermines" is counter-ermine (GoT: the plural is not used for the charge-free fur); the
     //     ermine family "X ermined Y" names the fur whose ground and spots they are (argent ermined sable is ermine); "vairy argent and
     //     azure" and "potenty argent and azure" are vair and potent, whose tinctures those are; potent's two tinctures are one set either
-    //     way round (Prec #FUR, 11/2006), so they are put in the palette's order; "en point" is "en pointe".
+    //     way round (Prec #FUR, 11/2006), so they are put in the palette's order; "en point" is "en pointe". A cross or saltire keeps
+    //     "potenty argent and azure": "a cross potent" is the cross type, not the fur (the widget writes the fur so).
     id: 'fur-synonyms',
     description: 'ermines → counter-ermine; argent/Or ermined sable and sable ermined argent/Or → ermine, erminois, counter-ermine, pean; vairy/potenty argent and azure → vair/potent; potenty A and B in palette order; en point → en pointe.',
     apply: (s) => s
       .replace(/\bermines\b/g, 'counter-ermine')
       .replace(/\b(argent|or|sable) ermined (sable|argent|or)\b/g, (m, a: string, b: string) => FOLDED_ERMINES[`${a} ${b}`] ?? m)
       .replace(/\bvairy argent and azure\b/g, 'vair')
-      .replace(new RegExp(`\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
+      .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
         const [x, y] = TINCTURES.indexOf(a as never) <= TINCTURES.indexOf(b as never) ? [a, b] : [b, a];
         return x === 'argent' && y === 'azure' ? 'potent' : `potenty ${x} and ${y}`;
       })
@@ -249,13 +250,17 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\b(fish) naiant\b/g, '$1'),
   },
   {
-    // 8. Divided groups. "Counterchanged <tincture> and <tincture>" names the tinctures of a group divided as the field is ("Per pale gules and Or,
-    //    a fleur-de-lys counterchanged Or and sable" is a fleur-de-lys per pale Or and sable); the widget words it as the division.
+    // 8. Divided groups. "Counterchanged <tincture> and <tincture>" names the tinctures of a single charge or ordinary divided as the field is
+    //    ("Per pale gules and Or, a fleur-de-lys counterchanged Or and sable" is a fleur-de-lys per pale Or and sable); the widget words it
+    //    as the division. Several charges so blazoned lie each in one part, divided only where one crosses the line (A5G3a), which is not
+    //    each charge divided, so their text is left alone.
     id: 'divided-groups',
-    description: '"counterchanged <tincture> and <tincture>" on a divided field → "<the field\'s division> <tincture> and <tincture>"; no "each" before a division.',
+    description: '"a <charge> counterchanged <tincture> and <tincture>" on a divided field → "a <charge> <the field\'s division> <tincture> and <tincture>"; no "each" before a division.',
     apply: (s) => {
       const field = new RegExp(`^(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}, `).exec(s);
-      const divided = field ? s.replace(new RegExp(`\\bcounterchanged (${TINCT} and ${TINCT})\\b`, 'g'), `${field[1]} $1`) : s;
+      // The group's own number is the last number word before "counterchanged".
+      const single = new RegExp(`\\b(an?) ((?:(?!\\b${NUMBER}\\b)[^,])*?)\\bcounterchanged (${TINCT} and ${TINCT})\\b`, 'g');
+      const divided = field ? s.replace(single, `$1 $2${field[1]} $3`) : s;
       // "Three hearts each per pale gules and sable" and "three hearts per pale gules and sable": each charge is divided either way.
       return divided.replace(/\beach (?=per (?:pale|fess|bend sinister|bend|saltire|chevron) |quarterly )/g, '');
     },

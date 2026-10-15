@@ -38,10 +38,11 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
     return `${capitalise(chargesPhrase(g))} in ${ctx.position} can't be arranged ${layoutWords({ ...layout, position: null })}.`;
   }
   if (ctx.k === 'around') {
-    // A count with no layout around the primary charges at all is a gap (support.ts).
+    // A count with no layout around the primary charges at all is a gap (support.ts). Table 7 asks most of these counts to be
+    // specified, so another stated arrangement may be registrable: the message speaks for this builder, not the rule.
     const candidates = layoutCandidates(d, path, g.count);
     if (candidates.some((c) => layoutKey(c) === layoutKey(layout)) || !AROUND_COUNTS.includes(g.count)) return null;
-    return `${capitalise(chargesPhrase(g))} around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
+    return `${capitalise(chargesPhrase(g))} around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle can be set ${candidates.map(layoutWords).join(' or ')} in this builder — not ${layoutWords(layout)}.`;
   }
   if (ctx.k === 'overall') {
     // One charge alone, or two long charges crossed; any other count is a gap (support.ts).
@@ -50,10 +51,10 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
     return `${capitalise(chargesPhrase(g))} overall can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
   }
   if (ctx.k === 'on-charge') {
-    // Every count but one must be stated, and only some layouts are on offer for it.
+    // Every count but one must be stated (Table 7), and this builder offers only some layouts for it.
     const candidates = layoutCandidates(d, path, g.count);
     if (candidates.length === 0 || candidates.some((c) => layoutKey(c) === layoutKey(layout))) return null;
-    return `${capitalise(chargesPhrase(g))} ${whereOnCharge(ctx.host)} can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
+    return `${capitalise(chargesPhrase(g))} ${whereOnCharge(ctx.host)} can be set ${candidates.map(layoutWords).join(' or ')} in this builder — not ${layoutWords(layout)}.`;
   }
   if (ctx.k !== 'field') {
     const where = ctx.k === 'on' ? 'on' : 'around';
@@ -286,16 +287,21 @@ export function structuralIssues(d: Design): Issue[] {
     if (!bandOrLong(group) && !bandOrLong(primary)) {
       return fail(`${capitalise(chargesPhrase(group))} overall must lie over a band or shape, or be a long charge such as a sword — not over ${chargesPhrase(primary)} (SENA App I4).`);
     }
+    // "An overall charge group may have multiple charges, but only if they surmount a single primary charge."
+    if (group.count > 1 && primaryGroups(d).reduce((n, p) => n + p.group.count, 0) > 1) {
+      return fail(`${capitalise(chargesPhrase(group))} overall can only lie over a single main picture or band — set one overall, or have one main picture (SENA App I4).`);
+    }
     // Two of one charge in two groups is the same-type rule below; two bands of one kind would look like one.
     if (group.item.k === 'ordinary' && itemKey(group.item) === itemKey(primary.item)) {
       fail(`The ${itemName(group.item)} can't lie overall over another ${itemName(primary.item)}.`);
     }
   });
 
-  // 3a. The same type of charge in two groups on the field (SENA A3D1a); a charge on a charge may repeat it.
+  // 3a. The same type of charge in two groups on the field (SENA A3D1a); a charge on a charge may repeat it, and so may co-primaries,
+  // which together are the one primary charge group (App I1); A3D1a forbids the type "in multiple charge groups".
   const fieldGroups = d.groups.filter((g) => g.role !== 'peripheral' && g.item.k === 'charge');
   fieldGroups.forEach((group, i) => {
-    if (!fieldGroups.slice(0, i).some((g) => itemKey(g.item) === itemKey(group.item))) return;
+    if (!fieldGroups.slice(0, i).some((g) => itemKey(g.item) === itemKey(group.item) && !(g.role === 'primary' && group.role === 'primary'))) return;
     const path = [d.groups.indexOf(group)];
     add({ code: 'structure', rule: 'same-type', at: { k: 'group', path }, message: `${capitalise(chargesPhrase(group))} can't be used again in another group on the field (SENA A3D1a) — choose a different picture.`, slots: [] });
   });

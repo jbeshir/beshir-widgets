@@ -14,9 +14,10 @@ export type Ground = readonly GroundShare[];
 
 /**
  * Where a top may share a tincture with its ground (SENA A3B4b): never, or when exactly one of the two is multiply divided and the top is an
- * ordinary drawn so that both stay identifiable ("Pily gules and argent, a bordure per fess argent and gules"; "Lozengy Or and azure, a chief azure").
+ * ordinary or a simple geometric shape drawn so that both stay identifiable ("Pily gules and argent, a bordure per fess argent and gules";
+ * "Vair, a chief argent"; "Checky Or and vert, a lozenge vert").
  */
-export type SharedTinctureException = 'none' | 'ordinary-on-multiply-divided';
+export type SharedTinctureException = 'none' | 'shape-on-multiply-divided';
 
 
 /**
@@ -37,7 +38,10 @@ export const groundTinctures = (ground: Ground): Tincture[] => ground.flatMap((g
  * GROUND_CLASS_SHARE of the ground or more (A3B1, A3B4a). A metal and a colour contrast whatever they are made of: sable spots
  * on ermine don't make a sable charge on it "the same tincture" (RULES A.10 goodContrast; the College registers "Sable, a lion
  * ermine" and "Counter-ermine, a bend ermine"). A neutral top has no class to be alike in, and neutral parts of a ground count
- * toward neither class. With the exception the shared tincture is allowed, and the classes alone decide.
+ * toward neither class: "two neutral tinctures may have good contrast with each other, but identifiability must be maintained"
+ * (A3B2), and the College registers them so ("Bendy sinister argent and sable, a flame proper", "(Fieldless) On a flame proper a
+ * fleur-de-lys per pale argent and azure"); only the shared tincture is judged. With the exception the shared tincture is allowed,
+ * and the classes alone decide.
  */
 export function groundFailure(top: Surface, ground: Ground, exception: SharedTinctureException = 'none'): ContrastFailure | null {
   const sameKind = (g: Surface) => top.cls === g.cls || top.cls === 'neutral' || g.cls === 'neutral';

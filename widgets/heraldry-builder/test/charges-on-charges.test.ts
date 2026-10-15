@@ -119,7 +119,7 @@ describe('charges on the primary charges: layout', () => {
 
   it('names the layouts a count takes when another is asked for', () => {
     const d = nd(arms('azure', on('sun', 'or', tertiary('mullet', 'gules', { count: 2, arrangement: 'in-bend' }))));
-    expect(structuralIssues(d).map((i) => i.message)).toEqual(['Two mullets on the sun can be set in fess or in pale — not in bend.']);
+    expect(structuralIssues(d).map((i) => i.message)).toEqual(['Two mullets on the sun can be set in fess or in pale in this builder — not in bend.']);
     expect(layoutWords({ arrangement: { k: 'rows', rows: [1, 2] }, position: null })).toBe('one and two');
   });
 

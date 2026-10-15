@@ -293,6 +293,8 @@ describe('the tagger never files a record under a construct the widget supports'
     ['charges in a corner', 'azure, a bend Or and in dexter chief a rose argent'],
     ['overall', 'azure, a fess Or and overall a lion argent'],
     ['charges on a band', 'azure, on a fess Or three roses gules'],
+    ['charges on a bordure', 'azure, on a bordure Or eight mullets gules'],
+    ['a band between charges', 'azure, a chevron between three roses Or'],
     ['a charge on a charge', 'azure, on a heart argent a lion azure'],
     ['charged with', 'azure, a unicorn argent charged with a rose gules'],
     ['co-primaries', 'azure, two roses and a lion argent'],

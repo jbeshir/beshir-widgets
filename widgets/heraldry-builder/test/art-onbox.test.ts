@@ -56,3 +56,17 @@ describe('the on-box of a charge', () => {
     expect(chargeOnBox('key', null)).toBeNull();
   });
 });
+
+describe('the cross crosslet', () => {
+  it('crosses each arm short of its end, so the arm runs on past the bar (App M1f; a bar flush with the end is a cross potent)', () => {
+    const [ring] = rings(CHARGE_ART['cross-crosslet']._!);
+    const inside = (x: number, y: number) => pointInPolygon(x, y, ring as Pt[]);
+    // Each arm as seen from the centre, turned a quarter at a time: [along, across] → art coordinates.
+    for (const turn of [([a, c]: Pt): Pt => [50 + c, 50 - a], ([a, c]: Pt): Pt => [50 + a, 50 + c], ([a, c]: Pt): Pt => [50 - c, 50 + a], ([a, c]: Pt): Pt => [50 - a, 50 - c]]) {
+      expect(inside(...turn([40, 0]))).toBe(true);
+      expect(inside(...turn([40, 14]))).toBe(false);
+      expect(inside(...turn([29, 14]))).toBe(true);
+      expect(inside(...turn([15, 14]))).toBe(false);
+    }
+  });
+});

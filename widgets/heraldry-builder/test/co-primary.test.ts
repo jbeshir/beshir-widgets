@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  addLayer, blazon, candidateKey, contextSlots, deriveTags, differences, gloss, groupAt, isClear, keysMayConflict, layerChoices, layerPath, layoutCandidates, layoutContext, normalise, pathOfPlace,
+  addLayer, blazon, candidateKey, contextSlots, deriveTags, differences, gloss, groupAt, isClear, keysMayConflict, layerChoices, layerPath, layoutCandidates, layoutContext, normalise, pathOfPlace, validate,
   placesOf, removeLayer, signature, simpleParts, structuralIssues, tinctureIssues, unsupportedIssues, walkGroups, type Design,
 } from '../src/lib/heraldry';
 import { setCharge } from '../src/lib/builder';
@@ -51,8 +51,13 @@ describe('two groups that are together the main picture', () => {
     expect(structure(pair('azure', beast('lion', 'rampant', 'or'), rose('argent', { arrangement: 'in-fess' })))).toEqual([]);
   });
 
-  it('may not use one charge twice (A3D1a)', () => {
-    expect(structure(pair('azure', lion('or'), lion('argent')))).toEqual([expect.stringMatching(/^same-type: A lion can't be used again/)]);
+  it('may use one charge twice: together they are one charge group, which A3D1a does not split (App I1)', () => {
+    expect(structure(pair('azure', lion('or'), lion('argent')))).toEqual([]);
+    const halves = nd(pair(div('per-pale', 'argent', 'gules'), lion('gules'), lion('argent')));
+    expect(validate(halves)).toEqual([]);
+    expect(blazon(halves)).toBe('Per pale argent and gules, a lion gules and a lion argent.');
+    // Not a secondary group of the primary's own type.
+    expect(structure(arms('azure', lion('or'), lion('argent', { count: 3, relation: 'between' })))).toEqual([expect.stringMatching(/^same-type: Three lions can't be used again/)]);
   });
 });
 

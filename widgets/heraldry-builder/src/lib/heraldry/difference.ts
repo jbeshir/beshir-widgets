@@ -25,7 +25,7 @@ const CHANGE_KINDS: readonly ChangeKind[] = ['sc', 'dc'];
 /**
  * The SENA section each change comes from (RULES §C.4, §C.5). A5G1b and A5G1d appear for fields of one A5F1b category
  * (a division and its multiple, the lattices): a different direction or style, or a different number of pieces.
- * A5G1e is a fieldless badge set against armory with a field.
+ * A5G1e is a fieldless badge set against any other armory, fielded or fieldless.
  */
 export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G1b', 'A5G1d', 'A5G1e', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
 export type SenaRule = (typeof SENA_RULES)[number];
@@ -215,9 +215,15 @@ function tinctureChanged(x: Side, y: Side): boolean {
   // Direction counts for a divided group as for a field (A5G3c): a different division is a change of tincture.
   const [px, py] = [asParty(x.group.paint), asParty(y.group.paint)];
   if (px && py && px.division !== py.division) return true;
-  // So is a different pattern (barry for paly); the same pattern in the same tinctures is none (checky either way round, Prec #FIELDCheck).
+  // So is a different number of pieces up to four (A5G3d: "a mullet per chevron … and a mullet chevronelly").
   const [vx, vy] = [asVariation(x.group.paint), asVariation(y.group.paint)];
-  if (vx && vy) return vx.variation !== vy.variation || !(vx.parts[0].t === vy.parts[0].t && vx.parts[1].t === vy.parts[1].t || vx.variation === 'checky' && vx.parts[0].t === vy.parts[1].t && vx.parts[1].t === vy.parts[0].t);
+  if ((px || vx) && (py || vy) && pieceTier(x.group.paint) !== pieceTier(y.group.paint)) return true;
+  // So is a different pattern (barry for paly); the same pattern in the same tinctures is none, and nor is swapping the tinctures of
+  // more than four pieces (A5G3a: "lions checky argent and azure" and "lions checky azure and argent").
+  if (vx && vy) {
+    const same = (i: number, j: number) => vx.parts[i].t === vy.parts[j].t;
+    return vx.variation !== vy.variation || !(same(0, 0) && same(1, 1) || pieceTier(vx) > 4 && same(0, 1) && same(1, 0));
+  }
   const a = shownSurfaces(x.design, x.path), b = shownSurfaces(y.design, y.path);
   if (a.k === 'plain' && b.k === 'plain') return differs(a.surface, b.surface);
   const parts = new Set([...(a.k === 'parts' ? a.byPart.keys() : []), ...(b.k === 'parts' ? b.byPart.keys() : [])]);
@@ -267,18 +273,23 @@ function styleOf(f: Paint): string {
 }
 
 
-/** The surfaces a field's tinctures make for comparing, part by part; a variation's are its two tinctures (checky either way round, Prec #FIELDCheck). */
+/**
+ * The surfaces a field's tinctures make for comparing, part by part; a variation's are its two tinctures, either way round
+ * beyond four pieces (A5G1a: "There is not a distinct change for swapping the tinctures of a field divided into more than four
+ * parts"; Prec #FIELDCheck).
+ */
 function comparedSurfaces(d: Design): Surface[] {
   const v = d.kind === 'arms' ? asVariation(d.field) : null;
   if (!v) return fieldSurfaces(d);
   const surfaces = v.parts.map((p) => tinctureSurface(p.t));
-  return v.variation === 'checky' ? surfaces.sort((x, y) => (x.bases[0] < y.bases[0] ? -1 : 1)) : surfaces;
+  return pieceTier(v) > 4 ? surfaces.sort((x, y) => (x.bases[0] < y.bases[0] ? -1 : 1)) : surfaces;
 }
 
 
 function fieldChanges(a: Design, b: Design): Diff[] {
-  // A5G1e: fieldless armory has no field to compare; against armory with a field it is one distinct change.
-  if (a.kind === 'badge' || b.kind === 'badge') return a.kind === b.kind ? [] : [change('fieldless', 'dc', 'A5G1e', null)];
+  // A5G1e: fieldless armory has no field to compare, and "automatically has one distinct change (DC) from any other armory,
+  // fielded or fieldless" ("(Fieldless) A mullet purpure" against "(Fieldless) A mullet of six points purpure").
+  if (a.kind === 'badge' || b.kind === 'badge') return [change('fieldless', 'dc', 'A5G1e', null)];
   if (partition(a) !== partition(b)) return [change('field-partition', 'sc', 'A5F1', null)];
   const changes: Diff[] = [];
   // A different number of pieces (A5G1d) or a different style within the category (A5G1b) is a distinct change.
@@ -353,7 +364,10 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   const kx = layoutOf(x), ky = layoutOf(y);
   // Secondary groups set around the primary and beside it ("between three mullets" / "and in chief three mullets") stand in different places.
   const moved = gx.role === 'secondary' && gy.role === 'secondary' && gx.relation !== gy.relation;
-  if (moved || (kx !== ky && !isForced(x.design, x.path) && !isForced(y.design, y.path)
+  // A badge has no field to place its charges on: "placement on the field doesn't count when comparing fielded armory to a
+  // fieldless badge" (LoAR 08/2006, Havre de Glace), and the position decides how charges in chief or base are set.
+  const placedOnField = (x.design.kind === 'badge') !== (y.design.kind === 'badge') && (gx.position !== null || gy.position !== null);
+  if (moved || (kx !== ky && !placedOnField && !isForced(x.design, x.path) && !isForced(y.design, y.path)
     && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky))))) {
     dc('arrangement', 'A5G6');
   }
@@ -533,8 +547,10 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
     let sentence: string;
     switch (diff.attr) {
       case 'fieldless':
-        text = pair('background', a.kind === 'badge' ? 'none' : 'plain or split', b.kind === 'badge' ? 'none' : 'plain or split');
-        sentence = 'No background counts as one distinct change';
+        text = pair('background', partitionWord(a), partitionWord(b));
+        sentence = a.kind === 'badge' && b.kind === 'badge'
+          ? 'A design with no background always counts one distinct change, even against another with none'
+          : 'No background counts as one distinct change';
         break;
       case 'field-partition': {
         text = pair('background split', partitionWord(a), partitionWord(b));

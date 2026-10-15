@@ -543,8 +543,8 @@ describe('structure rules', () => {
 
   it('4: charges around a primary charge take the layouts Table 7 gives them there, and have room to be read', () => {
     const around = (count: number, extra: object, ...more: object[]) => structural(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count, relation: 'between', ...extra }), ...more));
-    expect(around(3, { arrangement: 'in-pale' })).toEqual(['Three roses around the charge in the middle can be set two and one — not in pale.']);
-    expect(around(6, { arrangement: 'in-orle' }, group(ordinary('bordure'), 'gules'))).toEqual(['Six roses around the charge in the middle can be set in annulo — not in orle.']);
+    expect(around(3, { arrangement: 'in-pale' })).toEqual(['Three roses around the charge in the middle can be set two and one in this builder — not in pale.']);
+    expect(around(6, { arrangement: 'in-orle' }, group(ordinary('bordure'), 'gules'))).toEqual(['Six roses around the charge in the middle can be set in annulo in this builder — not in orle.']);
     // Two in pale above and below two swords in pale within a bordure: no room there, though two fit at their sides.
     expect(structural(arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'in-pale' }), group(charge('rose'), 'argent', { count: 2, relation: 'between', arrangement: 'in-pale' }), group(ordinary('bordure'), 'gules'))))
       .toEqual(["There isn't room for two roses in pale around the charges in the middle, within the bordure — choose another layout."]);

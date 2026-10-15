@@ -35,7 +35,8 @@ const FUR_SURFACES = new Map<string, Surface>();
 function furSurface(p: Extract<Paint, { k: 'fur' }>): Surface {
   const [a, b] = furColours(p);
   const ermine = FUR_SPEC[p.fur].family === 'ermine';
-  const key = `${ermine ? 'e' : 'n'}${a}${b}`;
+  // Vair and potent share both tinctures whichever way round, so their key is the tinctures in palette order.
+  const key = ermine ? `e${a}${b}` : `n${TINCTURES.filter((t) => t === a || t === b).join('')}`;
   let surface = FUR_SURFACES.get(key);
   if (!surface) {
     surface = Object.freeze(ermine

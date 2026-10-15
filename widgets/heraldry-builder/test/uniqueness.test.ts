@@ -643,16 +643,17 @@ describe('fieldless badges (A5G1e)', () => {
   const badge = (...groups: ReturnType<typeof group>[]): Design => ({ ...nd(arms('azure', ...groups)), kind: 'badge', field: null }) as Design;
   const mullet = (paint: string, extra: object = {}) => chg('mullet', paint, extra);
 
-  it('two badges are compared by their groups alone', () => {
-    expect(between(badge(mullet('purpure')), badge(mullet('purpure')))).toEqual([]);
-    expect(between(badge(mullet('purpure')), badge(mullet('gules')))).toEqual(['tincture:dc:A5G3']);
-    expect(between(badge(mullet('purpure', { count: 5 })), badge(mullet('purpure', { count: 6 })))).toEqual(['number:dc:A5G5']);
+  it('two badges count the fieldless distinct change against each other too, then their groups', () => {
+    expect(between(badge(mullet('purpure')), badge(mullet('purpure')))).toEqual(['fieldless:dc:A5G1e']);
+    expect(between(badge(mullet('purpure')), badge(mullet('gules')))).toEqual(['fieldless:dc:A5G1e', 'tincture:dc:A5G3']);
+    expect(isClear(differences(badge(mullet('purpure')), badge(mullet('gules'))))).toBe(true);
+    expect(between(badge(mullet('purpure', { count: 5 })), badge(mullet('purpure', { count: 6 })))).toEqual(['fieldless:dc:A5G1e', 'number:dc:A5G5']);
   });
 
-  it('a mullet and a sun are one class: a different type is one distinct change, a conflict (the A5G1e example)', () => {
+  it('a mullet and a sun badge are clear: the fieldless DC and a type DC (SENA A5G1e "even against another fieldless badge")', () => {
     const [a, b] = [badge(mullet('purpure')), badge(chg('sun', 'purpure'))];
-    expect(between(a, b)).toEqual(['type:dc:A5G4']);
-    expect(isClear(differences(a, b))).toBe(false);
+    expect(between(a, b)).toEqual(['fieldless:dc:A5G1e', 'type:dc:A5G4']);
+    expect(isClear(differences(a, b))).toBe(true);
     expect(candidateKey(a)).toEqual(candidateKey(b));
   });
 
@@ -667,6 +668,13 @@ describe('fieldless badges (A5G1e)', () => {
     const recoloured = nd(arms('azure', mullet('gules')));
     expect(between(badgeOf, recoloured)).toEqual(['fieldless:dc:A5G1e', 'tincture:dc:A5G3']);
     expect(isClear(differences(badgeOf, recoloured))).toBe(true);
+  });
+
+  it('does not count placement on the field against a badge (LoAR 08/2006, Havre de Glace)', () => {
+    const badgeOf = badge(mullet('purpure'));
+    expect(between(badgeOf, nd(arms('azure', mullet('purpure', { position: 'chief' }))))).toEqual(['fieldless:dc:A5G1e']);
+    expect(between(nd(arms('azure', mullet('purpure', { count: 3, position: 'chief' }))), badge(mullet('purpure', { count: 3 })))).toEqual(['fieldless:dc:A5G1e']);
+    expect(between(badge(mullet('purpure', { count: 3 })), nd(arms('azure', mullet('purpure', { count: 3, arrangement: 'in-pale' }))))).toEqual(['fieldless:dc:A5G1e', 'arrangement:sc:A5E4']);
   });
 
   it('a badge always has a primary group, so against field-primary armory it differs substantially (A5E1)', () => {
@@ -694,8 +702,28 @@ describe('fieldless badges (A5G1e)', () => {
     const notes = explainDifferences(badge(mullet('purpure')), nd(arms('azure', mullet('purpure'))));
     expect(notes).toEqual([{
       attr: 'fieldless', kind: 'dc', rule: 'A5G1e', item: null,
-      text: 'background (none ↔ plain or split)',
+      text: 'background (none ↔ plain)',
       why: 'No background counts as one distinct change (SENA A5G1e).',
     }]);
+    expect(explainDifferences(badge(mullet('purpure')), badge(mullet('purpure')))[0]).toMatchObject({
+      text: 'background (none ↔ none)',
+      why: 'A design with no background always counts one distinct change, even against another with none (SENA A5G1e).',
+    });
+  });
+});
+
+
+describe('counterchanged and the same tinctures written out (A5G3a)', () => {
+  const field = div('per-pale', 'argent', 'azure');
+  const lion = (paint: unknown) => group(charge('lion'), paint);
+
+  it('are one design: "a lion counterchanged" is shorthand for "a lion per pale azure and argent"', () => {
+    expect(between(nd(arms(field, lion('counterchanged'))), nd(arms(field, lion(div('per-pale', 'azure', 'argent')))))).toEqual([]);
+    expect(between(nd(arms(field, lion('counterchanged'), ord('chief', 'or'))), nd(arms(field, lion(div('per-pale', 'azure', 'argent')), ord('chief', 'gules'))))).toEqual(['tincture:dc:A5G3']);
+  });
+
+  it('but several charges counterchanged lie each in one part, unlike several charges each divided', () => {
+    const three = (paint: unknown) => nd(arms(div('per-pale', 'argent', 'azure'), group(charge('lion'), paint, { count: 3 })));
+    expect(between(three('counterchanged'), three(div('per-pale', 'azure', 'argent')))).toEqual(['tincture:dc:A5G3']);
   });
 });

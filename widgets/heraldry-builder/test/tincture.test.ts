@@ -80,6 +80,13 @@ describe('neutral surfaces (RB 1.2)', () => {
     expect(groundFailure(neutral, pieces([tinctureSurface('azure'), 0.5], [tinctureSurface('vert'), 0.5]))).toBeNull();
   });
 
+  it('a neutral top on a neutral ground is judged by shared tinctures alone (A3B2 "may have good contrast"; registered: 140924, 117175)', () => {
+    const varied = (variation: string, a: string, b: string) => ({ k: 'variation', variation, pieces: null, parts: [a, b] });
+    expect(messages(arms(varied('bendy-sinister', 'argent', 'sable'), chg('flame', 'proper')))).toEqual([]);
+    expect(messages(arms(varied('barry', 'or', 'gules'), group(charge('lion'), { k: 'fur', fur: 'vair', colours: null })))).toEqual([]);
+    expect(messages(arms(varied('barry', 'or', 'gules'), chg('flame', 'proper')))).toEqual(['Proper flame on Barry Or and Gules field: same tincture']);
+  });
+
   it('a neutral part of a ground counts toward neither class', () => {
     expect(groundFailure(tinctureSurface('gules'), pieces([neutral, 1]))).toBeNull();
     expect(groundFailure(tinctureSurface('gules'), pieces([neutral, 0.5], [tinctureSurface('azure'), 0.5]))).toBeNull();
@@ -327,5 +334,26 @@ describe('groupTinctureIssues', () => {
     const paths = walkGroups(d).map((w) => w.path);
     expect(paths.flatMap((p) => groupTinctureIssues(d, p))).toEqual(tinctureIssues(d));
     expect(groupTinctureIssues(d, paths[0])).toEqual([]);
+  });
+});
+
+
+describe('a charge may share a tincture with the field when only one of the two is multiply divided (A3B4b(2))', () => {
+  const varied = (variation: string, a: string, b: string) => ({ k: 'variation', variation, pieces: null, parts: [a, b] });
+  const vair = { k: 'fur', fur: 'vair', colours: null };
+
+  it("allows SENA's own examples: an ordinary or a simple geometric charge over vair, stripes or cells", () => {
+    expect(messages(arms(vair, ord('chief', 'argent')))).toEqual([]);
+    expect(messages(arms(vair, ord('bordure', 'argent')))).toEqual([]);
+    expect(messages(arms(varied('checky', 'or', 'vert'), chg('lozenge', 'vert')))).toEqual([]);
+    expect(messages(arms(varied('barry', 'argent', 'azure'), chg('roundel', 'argent')))).toEqual([]);
+    expect(messages(arms({ k: 'fur', fur: 'vair', colours: ['sable', 'or'] }, ord('chief', 'or')))).toEqual([]);
+  });
+
+  it('not a charge of another kind, nor when both are multiply divided, nor a bend on lozengy (Prec [Juliana of Avon, 03/2006])', () => {
+    expect(messages(arms(vair, chg('lion', 'argent')))).toEqual(['Argent lion on Vair field: same tincture']);
+    expect(messages(arms(varied('checky', 'argent', 'azure'), group(ordinary('bordure'), div('quarterly', 'argent', 'azure'))))).toEqual(['Quarterly Argent and Azure bordure on Checky Argent and Azure field: same tincture']);
+    expect(messages(arms(varied('lozengy', 'argent', 'azure'), ord('bend', 'argent')))).toEqual(['Argent bend on Lozengy Argent and Azure field: same tincture']);
+    expect(messages(arms(varied('lozengy', 'argent', 'azure'), ord('chief', 'argent')))).toEqual([]);
   });
 });

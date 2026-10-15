@@ -7,8 +7,8 @@ import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import worker, { loadCandidates } from '../worker/index';
 import sample from '../src/data/sample-registry.json';
 import {
-  FIELD_SHAPES, MIXED_PRIMARY, blazon, candidateKey, checkUnique, keysMayConflict, parseSearchParams, resolve, searchEntries, signature,
-  type RegistryEntryLike,
+  FIELD_SHAPES, MIXED_PRIMARY, blazon, candidateKey, checkUnique, keysMayConflict, normalise, parseSearchParams, resolve, searchEntries, signature,
+  type Design, type RegistryEntryLike,
 } from '../src/lib/heraldry';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { sampleSearchEntries } from './sample-search-entries';
@@ -274,7 +274,7 @@ describe('POST /api/arms', () => {
     expect((await bodyOf(again)).verdict).toBe('duplicate');
     const fielded = await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'badges', design: lone('azure', 'lion', 'or') } }));
     expect(fielded.verdict).toBe('too-close');
-    expect(fielded.differences.map((n: Json) => n.text)).toEqual(['background (plain or split ↔ none)']);
+    expect(fielded.differences.map((n: Json) => n.text)).toEqual(['background (plain ↔ none)']);
     // A different charge is substantially different, with or without a field.
     for (const design of [lone('argent', 'rose', 'gules'), { v: 2, kind: 'badge', groups: [group(charge('rose'), 'gules')] }]) {
       expect((await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'badges', design } }))).verdict).toBe('ok');
@@ -1070,7 +1070,12 @@ describe('too-close candidate lookup', () => {
     await addRegistry('prefilter', 'Prefilter');
     // Designs with two main pictures are keyed '*' and found by entries of any primary.
     const pairs = (seed: number, count: number) => generatedRichDesigns(seed, 1200).filter((d) => d.groups.filter((g) => g.role === 'primary').length === 2).slice(0, count);
-    const stored = [...generatedDesigns(1, 100), ...pairs(1, 40)];
+    // Badges (no partition) are found by entries of every partition, and count the fieldless change against each other too (SENA A5G1e).
+    const badges = (seed: number, count: number): Design[] => generatedDesigns(seed, 400)
+      .filter((d) => d.groups.length === 1 && d.groups[0].role === 'primary' && d.groups[0].item.k === 'charge')
+      .flatMap((d) => { const n = normalise({ v: 2, kind: 'badge', groups: d.groups }); return n.ok ? [n.design] : []; })
+      .slice(0, count);
+    const stored = [...generatedDesigns(1, 100), ...pairs(1, 40), ...badges(2, 12)];
     const entries: RegistryEntryLike[] = [];
     for (const [i, design] of stored.entries()) {
       const sig = signature(design);
@@ -1086,7 +1091,7 @@ describe('too-close candidate lookup', () => {
     }
 
     const verdicts = new Set<string>();
-    for (const probe of [...generatedDesigns(50_000, 300), ...pairs(60_000, 40)]) {
+    for (const probe of [...generatedDesigns(50_000, 300), ...pairs(60_000, 40), ...badges(70_000, 10)]) {
       const full = checkUnique(probe, signature(probe), entries);
       const res = await call('POST', '/api/arms/check', { body: { registry: 'prefilter', design: probe } });
       expect(res.status).toBe(200);
@@ -1102,6 +1107,7 @@ describe('too-close candidate lookup', () => {
     }
     expect([...verdicts].sort()).toEqual(['duplicate', 'ok', 'ok-on-two-dcs', 'too-close']);
     expect(entries.some((e) => candidateKey(e.design).primary === '*')).toBe(true);
+    expect(entries.filter((e) => e.design.kind === 'badge').length).toBeGreaterThan(5);
   }, 30_000);
 });
 

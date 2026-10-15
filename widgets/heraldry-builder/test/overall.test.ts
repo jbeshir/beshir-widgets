@@ -44,6 +44,15 @@ describe('what lies overall', () => {
     expect(structure(arms('azure', group(ordinary('bend'), 'or'), over(charge('rose'), 'gules')))).toEqual([]);
   });
 
+  it('is one charge over several primary charges: several overall must surmount a single one (App I4)', () => {
+    const swords = over(charge('sword'), 'sable', { count: 2, arrangement: 'crossed' });
+    const several = /^overall: Two swords overall can only lie over a single main picture or band/;
+    expect(structure(arms('argent', group(charge('rose'), 'gules', { count: 3 }), swords))).toEqual([expect.stringMatching(several)]);
+    expect(structure(arms('argent', group(charge('rose'), 'gules'), group(charge('lion'), 'gules'), swords))).toEqual([expect.stringMatching(several)]);
+    expect(structure(arms('argent', group(charge('rose'), 'gules', { count: 3 }), over(charge('sword'), 'sable')))).toEqual([]);
+    expect(structure(arms('argent', group(ordinary('fess'), 'gules'), swords))).toEqual([]);
+  });
+
   it("can't be the main band's own kind, or a charge the field already has", () => {
     expect(structure(arms('azure', group(ordinary('fess'), 'or'), over(ordinary('fess'), 'argent')))).toEqual([expect.stringMatching(/^overall: The fess can't lie overall over another fess/)]);
     expect(structure(arms('azure', group(charge('sword'), 'argent'), over(charge('sword'), 'or')))).toEqual([expect.stringMatching(/^same-type: A sword can't be used again/)]);

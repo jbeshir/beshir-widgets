@@ -5,7 +5,7 @@
 // SCA tooling compares with registered blazons (stating a default is optional, GoT Tables 5 and 7).
 
 import { tinctureWord, type Tincture } from './tinctures';
-import { furName } from './fur';
+import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, numberWord } from './words';
@@ -28,6 +28,18 @@ function paintWord(p: Paint): string {
     case 'variation': return variationWord(p);
     default: return notSupported(paintGaps(p, false, 'group')[0]);
   }
+}
+
+/**
+ * A group's paint as written. A cross or saltire of plain potent is written with its colours: "a cross potent" is a cross type
+ * (App M1f), and "a cross potenty argent and azure" is the fur.
+ */
+function groupPaintWord(g: Group): string {
+  const p = g.paint;
+  const crossLike = g.item.k === 'ordinary' ? g.item.type === 'cross' || g.item.type === 'saltire' : g.item.charge === 'cross-crosslet';
+  if (p.k !== 'fur' || p.fur !== 'potent' || p.colours !== null || !crossLike) return paintWord(p);
+  const [a, b] = furColours(p);
+  return furName({ ...p, colours: [a, b] });
 }
 
 /** A treated tincture as written: "argent masoned sable". */
@@ -166,7 +178,7 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     const text = g.charged.length > 0 && carrying(g).on ? `on ${phrase}` : phrase;
     // Charges each divided: "three hearts each per pale gules and sable".
     const semy = asSemy(g.paint);
-    const paint = semy ? tinctureWord(semy.ground.t) : g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : paintWord(g.paint);
+    const paint = semy ? tinctureWord(semy.ground.t) : g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : groupPaintWord(g);
     out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, strewn: semy ? ` ${semyPhrase(semy.charge.charge, semy.ink.t)}` : '', linked, lead });
   };
   const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t, carrying(g).lead));

@@ -642,8 +642,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const ords = els.filter((el) => el.kind === 'ord' && el.ctx !== 'overall' && !onOverall(el));
   if (els.some(onOverall)) tag('multiple-groups', 'tertiary-on-overall');
   const together = drawnTogether(ords);
-  if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords) || checkOnCharge(groups[0], groups[1], ords) || checkTogether(groups[0], groups[1], ords)))) {
-    if (!checkSeveralTogether(groups, ords)) tag('multiple-groups', 'charges');
+  if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords) || checkOnCharge(groups[0], groups[1], ords))) && !checkTogether(groups, ords)) {
+    tag('multiple-groups', 'charges');
   }
   if (ords.length > 1 && !together) tag('multiple-groups', 'ordinaries');
   if (overalls.length > 0) checkOverall(overalls, groups, ords);
@@ -886,41 +886,33 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   }
 
   /**
-   * Whether the widget draws two charge groups on the field as together the main picture ("a unicorn and a rose", SENA App I1), with
-   * a chief or bordure beside them: asks the library, on a stand-in design, and tags the gaps it would have (more than three charges) or
-   * the arrangement they don't take together. False when either is not a plain group on the field (set between, on or beside something).
+   * Whether the widget draws two or more charge groups on the field as together the main picture ("a unicorn and a rose", SENA App I1),
+   * with a chief or bordure beside them: asks the library, on a stand-in design, and tags the gaps it would have (more than two groups,
+   * more than three charges) or the arrangement they don't take together. False when any is not a plain group on the field (set
+   * between, on or beside something).
    */
-  function checkTogether(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
+  function checkTogether(all: readonly Element[], ordinaries: readonly Element[]): boolean {
     const placed = (g: Element) => g.ctx === 'field' && !(g.arr && SECONDARY_POSITION_OF[g.arr]);
-    if (!placed(first) || !placed(second)) return false;
+    if (!all.every(placed)) return false;
     if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
-    if (first.count > MAX_DRAWN_COUNT || second.count > MAX_DRAWN_COUNT) return true;
-    // Stand-ins of two different charges where the blazon's aren't the widget's (the same charge twice is a rule, not a gap).
-    const a = first.supported ?? 'lion';
-    const b = second.supported && second.supported !== a ? second.supported : a === 'mullet' ? 'rose' : 'mullet';
-    const arrangement = first.arr ?? second.arr;
+    if (all.some((g) => g.count > MAX_DRAWN_COUNT)) return true;
+    // Stand-ins of different charges where the blazon's aren't the widget's, so each group is its own type.
+    const standIns = all.reduce<ChargeId[]>((ids, g) => [...ids, g.supported && !ids.includes(g.supported as ChargeId) ? g.supported as ChargeId : TOGETHER_STAND_INS.find((id) => !ids.includes(id) && !all.some((x) => x.supported === id))!], []);
+    // Two groups take one arrangement together; more than two are a gap whatever their arrangement.
+    const arrangement = all.length === 2 ? all.find((g) => g.arr)?.arr : undefined;
     const groups = [
-      { item: { k: 'charge', charge: a }, paint: 'or', count: first.count, ...(arrangement ? { arrangement } : {}) },
-      { item: { k: 'charge', charge: b }, paint: 'argent', count: second.count, ...(arrangement ? { arrangement } : {}) },
+      ...all.map((g, i) => ({ item: { k: 'charge', charge: standIns[i] }, paint: i % 2 === 0 ? 'or' : 'argent', count: g.count, ...(arrangement ? { arrangement } : {}) })),
       ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules' })),
     ];
     const r = resolve({ v: 2, field: 'azure', groups });
     if (!r.ok) { if (arrangement) tag('arrangement', arrangement); return true; }
     const gaps = unsupportedIssues(r.design);
     for (const i of gaps) tag(i.gap.category, i.gap.detail);
-    // A layout the pair doesn't take together, or no room for them (the library's layout and capacity rules).
+    // A layout the groups don't take together, or no room for them (the library's layout and capacity rules).
     const main = walkGroups(r.design).filter((w) => w.group.role === 'primary').map((w) => w.path.join());
-    if (!gaps.length && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && main.includes(i.at.path.join()) && i.rule !== 'same-type')) {
-      if (arrangement) tag('arrangement', arrangement); else tag('placement', `co-primary-${first.count + second.count}`);
+    if (!gaps.length && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && main.includes(i.at.path.join()))) {
+      if (arrangement) tag('arrangement', arrangement); else tag('placement', `co-primary-${all.reduce((n, g) => n + g.count, 0)}`);
     }
-    return true;
-  }
-
-  /** Three or more charge groups on the field, none set beside or around: more main groups than the widget draws together. */
-  function checkSeveralTogether(all: readonly Element[], ordinaries: readonly Element[]): boolean {
-    if (!all.every((g) => g.ctx === 'field' && !(g.arr && SECONDARY_POSITION_OF[g.arr]))) return false;
-    if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
-    tag('multiple-groups', 'co-primary-3');
     return true;
   }
 
@@ -996,9 +988,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   }
 
   /**
-   * Whether the widget can lay out the one charge group (with the one ordinary, if any) as the blazon
-   * words it: asks the library, so the tagger can't drift from the layout rules. Judged on a stand-in
-   * design (any charge of the right kind and count); the groups' tinctures are not in question here.
+   * Whether the widget can lay out the one charge group (with the one ordinary, if any) as the blazon words it: on the ordinary,
+   * between it, beside it or on the field alone. Asks the library, so the tagger can't drift from its gap, layout and capacity
+   * rules: judged on a stand-in design (any charge of the right kind and count); the groups' tinctures are not in question here.
    */
   function checkPlacement(g: Element, o: Element | null): void {
     const count = g.count;
@@ -1007,30 +999,41 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const judged = !unknownOut.length;
     const type = o?.supported as OrdinaryType | undefined;
     if (o && (!o.supported || o.count > 1)) return;
-    const on = o && g.ctx === 'on' && g.host === o;
-    const between = o && g.ctx === 'between';
-    if (on && type === 'bordure') { tag('placement', 'on-bordure'); return; }
-    if (on && !hostCounts('on', type!).includes(count)) { tag('placement', `on-${type}`); return; }
-    if (between) {
-      if (ORDINARY_KIND[type!] === 'central' && !hostCounts('between', type!).includes(count)) tag('placement', `between-${type}`);
-      return;
-    }
+    const on = o !== null && g.ctx === 'on' && g.host === o;
+    const between = o !== null && g.ctx === 'between';
+    // Charges set "between" a chief or bordure are read wrongly, not a placement the widget lacks.
+    if (between && ORDINARY_KIND[type!] !== 'central') return;
     const position = g.ctx === 'field' && g.arr ? SECONDARY_POSITION_OF[g.arr] ?? HALF_POSITION_OF[g.arr] : undefined;
-    if (o && !on && ORDINARY_KIND[type!] === 'central' && !position) { tag('placement', 'not-between'); return; }
-    if (on || !judged && g.arr) return;
-    // A charge group on the field, alone or under a chief or within a bordure: does a layout fit?
-    const charge = { k: 'charge', charge: g.supported ?? 'mullet' };
-    const group = { item: charge, paint: 'or', count, ...(position ? { position } : g.arr ? { arrangement: g.arr } : {}) };
-    const r = resolve({ v: 2, field: 'azure', groups: [group, ...(o ? [{ item: { k: 'ordinary', type }, paint: 'argent' }] : [])] });
-    if (!r.ok) { if (g.arr && judged) tag('arrangement', g.arr); return; }
+    // Beside a central ordinary with no position the two are co-primary (a gap of the library's own).
+    const beside = o !== null && !on && !between && !position && ORDINARY_KIND[type!] === 'central';
+    // On or between the ordinary the charges take its layout; elsewhere their own arrangement, when the blazon is fully read.
+    const arranged = !on && !between && g.arr !== null && judged;
+    if (!on && !between && !beside && g.arr !== null && !judged) return;
+    const charges = {
+      item: { k: 'charge', charge: g.supported ?? 'mullet' }, paint: 'or', count,
+      ...(position ? { position } : arranged ? { arrangement: g.arr } : {}), ...(between ? { relation: 'between' } : beside ? { role: 'primary' } : {}),
+    };
+    const ordinary = o && { item: { k: 'ordinary', type }, paint: 'argent', ...(on ? { charged: [charges] } : {}), ...(beside ? { role: 'primary' } : {}) };
+    const r = resolve({ v: 2, field: 'azure', groups: on ? [ordinary] : [charges, ...(ordinary ? [ordinary] : [])] });
+    if (!r.ok) { if (arranged) tag('arrangement', g.arr!); return; }
+    // On, between or beside the ordinary: what the library can't draw there. (On the field alone the arrangement is judged below.)
+    if (on || between || beside) {
+      const gaps = unsupportedIssues(r.design);
+      for (const i of gaps) tag(i.gap.category, i.gap.detail);
+      if (gaps.length) return;
+    }
     const walked = walkGroups(r.design).find((w) => w.group.item.k === 'charge')!;
     const broken = structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === walked.path.join());
     if (!broken) return;
-    if (position && o && ORDINARY_KIND[type!] === 'central') tag('placement', `in-${position}-${count}`);
-    else if (g.arr && judged) tag('arrangement', g.arr);
+    if (on || between) tag('placement', `${on ? 'on' : 'between'}-${type}-${count}`);
+    else if (position && o && ORDINARY_KIND[type!] === 'central') tag('placement', `in-${position}-${count}`);
+    else if (arranged) tag('arrangement', g.arr!);
     else if (type === 'chief') tag('placement', 'under-chief');
   }
 }
+
+/** Charges standing in, in this order, for groups set together whose charge the widget lacks: with no posture, so none clash (A3D2c). */
+const TOGETHER_STAND_INS: readonly ChargeId[] = ['mullet', 'rose', 'crescent', 'heart', 'annulet'];
 
 /** Whether the widget draws these ordinaries together: at most one central one, with at most one chief and one bordure beside it. */
 function drawnTogether(ords: readonly Element[]): boolean {

@@ -204,12 +204,23 @@ describe('conflict', () => {
   });
 
 
-  it('tells tinctures apart, but not which of the two checky starts with', () => {
+  it('tells tinctures apart, but not which of the two comes first beyond four pieces (A5G1a)', () => {
     expect(between(lionOn(varied('barry', 'argent', 'azure')), lionOn(varied('barry', 'argent', 'gules')))).toEqual(['field-tincture:dc:A5G1a']);
     expect(between(lionOn(varied('checky', 'argent', 'azure')), lionOn(varied('checky', 'azure', 'argent')))).toEqual([]);
-    expect(between(lionOn(varied('barry', 'argent', 'azure')), lionOn(varied('barry', 'azure', 'argent')))).toEqual(['field-tincture:dc:A5G1a']);
+    expect(between(lionOn(varied('barry', 'argent', 'azure')), lionOn(varied('barry', 'azure', 'argent')))).toEqual([]);
+    expect(between(lionOn(varied('barry', 'argent', 'azure', 4)), lionOn(varied('barry', 'azure', 'argent', 4)))).toEqual(['field-tincture:dc:A5G1a']);
+    // With one real change, the swap must not make a second: still a conflict.
+    const chief = (field: unknown, t: string) => arms(field, lion('gules'), group(ordinary('chief'), t));
+    expect(between(chief(varied('barry', 'argent', 'azure'), 'or'), chief(varied('barry', 'azure', 'argent'), 'sable'))).toEqual(['tincture:dc:A5G3']);
     expect(signature(nd(lionOn(varied('checky', 'argent', 'azure'))))).toBe(signature(nd(lionOn(varied('checky', 'azure', 'argent')))));
     expect(signature(nd(lionOn(varied('barry', 'argent', 'azure'))))).not.toBe(signature(nd(lionOn(varied('barry', 'azure', 'argent')))));
+  });
+
+  it('does the same for charges, and tells the number of pieces apart up to four (A5G3a, A5G3d)', () => {
+    const lions = (paint: unknown) => arms('azure', group(ordinary('chevron'), 'or'), group(charge('lion'), paint, { count: 3, relation: 'between' }));
+    expect(between(lions(varied('barry', 'argent', 'gules')), lions(varied('barry', 'gules', 'argent')))).toEqual([]);
+    expect(between(lions(varied('barry', 'argent', 'gules', 4)), lions(varied('barry', 'gules', 'argent', 4)))).toEqual(['tincture:dc:A5G3']);
+    expect(between(arms('azure', lion(varied('barry', 'argent', 'gules'))), arms('azure', lion(div('per-fess', 'argent', 'gules'))))).toEqual(['tincture:dc:A5G3']);
   });
 });
 

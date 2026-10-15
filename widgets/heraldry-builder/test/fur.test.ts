@@ -80,6 +80,13 @@ describe('the design text', () => {
     expect(blazon(nd(arms('gules', lion(fur('ermine')))))).toBe('Gules, a lion ermine.');
   });
 
+  it('writes the colours of a potent cross or saltire, which "a cross potent" (a cross type, App M1f) would misname', () => {
+    expect(blazon(nd(arms('purpure', group(ordinary('cross'), fur('potent')))))).toBe('Purpure, a cross potenty argent and azure.');
+    expect(blazon(nd(arms('purpure', group(ordinary('saltire'), fur('potent')))))).toBe('Purpure, a saltire potenty argent and azure.');
+    expect(blazon(nd(arms('purpure', group(ordinary('fess'), fur('potent')))))).toBe('Purpure, a fess potent.');
+    expect(explainMatch('Purpure, a cross potent between four crosslets argent').match).toBeNull();
+  });
+
   it('glosses a fur in plain words', () => {
     expect(gloss(nd(arms(fur('ermine'), lion('gules'))))).toMatch(/^A shield covered in ermine \(white with black spots\), with a red lion/);
     expect(gloss(nd(arms('azure', lion(fur('vair')))))).toMatch(/^A blue shield with a vair \(rows of white and blue bells\) lion/);

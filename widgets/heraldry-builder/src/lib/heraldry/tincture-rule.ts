@@ -3,7 +3,7 @@
 // actually under it, judged by area (A3B1). Messages name the element and, where a group is judged slot by
 // slot, the slots.
 
-import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
+import { FUR_SPEC, TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, type ChargeId } from './charges';
 import { contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type SharedTinctureException } from './contrast';
@@ -130,6 +130,8 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
     }
     const pair = fieldPair(d);
     if (!pair || d.kind !== 'arms') return [];
+    // Over a variation, judged as a whole (A3B1), the host is as neutral as the field under it, everywhere.
+    if (asVariation(d.field)) return slotsOf(d, path).map(() => [{ surface: surfaceOf(d.field, null), share: 1 }]);
     const [first, second] = pair.map(tinctureSurface);
     const other = (s: Surface) => (s === first ? second : first);
     return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(s), parts).map((g) => ({ surface: other(g.surface), share: g.share })));
@@ -181,18 +183,29 @@ function oneSection(d: Design, path: GroupPath): Tincture | null {
 
 /**
  * What a group shows over the parts of the field (A5G3a reads "counterchanged" as the tinctures it stands for): a plain
- * tincture shows itself everywhere; a counterchanged group shows, over each part it lies on (by part index), the other
- * part's tincture. Empty for a counterchanged group with no field parts to show (on a host or a plain field: invalid).
+ * tincture shows itself everywhere; a counterchanged group (or one written out in full) shows, over each part it lies on
+ * (by part index), the other part's tincture. Empty for a counterchanged group with no field parts to show (on a host or a plain field: invalid).
  */
 export type ShownSurfaces = { k: 'plain'; surface: Surface } | { k: 'parts'; byPart: ReadonlyMap<number, Surface> };
 
 export function shownSurfaces(d: Design, path: GroupPath): ShownSurfaces {
-  const paint = groupAt(d, path).paint;
-  if (paint.k !== 'counterchanged') return { k: 'plain', surface: surfaceOf(paint, groupAt(d, path).item) };
+  const group = groupAt(d, path), paint = group.paint;
   const pair = fieldPair(d);
+  if (paint.k !== 'counterchanged' && !(pair && writtenOutCounterchange(d, group, pair))) return { k: 'plain', surface: surfaceOf(paint, group.item) };
   if (!pair || hostOf(d, path)) return { k: 'parts', byPart: new Map() };
   const touched = new Set(groundContacts(d, path).flat());
   return { k: 'parts', byPart: new Map(pair.flatMap((t, i) => (touched.has(t) ? [[i, tinctureSurface(pair[1 - i])] as const] : []))) };
+}
+
+/**
+ * Whether a group on the field is counterchanged written out in full: one charge or an ordinary divided by the field's own line
+ * in its tinctures reversed (A5G3a: "an annulet counterchanged … is a shorthand for … an annulet per fess argent and gules").
+ */
+function writtenOutCounterchange(d: Design, group: Group, pair: readonly [Tincture, Tincture]): boolean {
+  const party = asParty(group.paint);
+  return party !== null && group.role !== 'tertiary' && (group.item.k === 'ordinary' || group.count === 1)
+    && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === party.division
+    && party.parts[0].t === pair[1] && party.parts[1].t === pair[0];
 }
 
 /** What a thing is called in a message: "lion", "mullets", "fess". */
@@ -369,6 +382,32 @@ function forcedIntoOnePart(d: Design, path: GroupPath, failures: readonly (Contr
   return i >= 0 && contrastFailure(g.paint.t, [pair[1 - i]]) === null && failures.some((f) => f !== null) && failures.every((f) => f === null || f === 'same');
 }
 
+/** The divisions in two parts (A3B3a): a field or charge so divided has one line of division, not "more than one". */
+const TWO_PART_DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted'];
+
+/** Whether a paint is "multiply divided (that is, has more than one division)" (A3B4b): stripes or cells, vair or potent, quarterly and the like. */
+function multiplyDivided(p: Paint): boolean {
+  if (p.k === 'fur') return FUR_SPEC[p.fur].family !== 'ermine';
+  return p.k === 'variation' || (p.k === 'divided' && !TWO_PART_DIVISIONS.includes(p.division));
+}
+
+/** The charges SENA A3B4b calls "simple geometric shape[s]": they stay identifiable over a field that shares their tincture. */
+const SIMPLE_GEOMETRIC: ReadonlySet<ChargeId> = new Set<ChargeId>(['roundel', 'annulet', 'billet', 'lozenge', 'goutte']);
+
+/**
+ * Whether a group on the field may share a tincture with it (A3B4b(2)): "only one of the two is multiply divided … and the charge(s)
+ * is an ordinary or simple geometric shape" ("Vair, a chief argent"; "Checky Or and vert, a lozenge vert"; not "Checky gules and
+ * argent, a bordure quarterly gules and argent"). A bend may not share a tincture with a lozengy field (Prec [Juliana of Avon, 03/2006]).
+ */
+function sharedTinctureException(d: Design, group: Group): SharedTinctureException {
+  if (d.kind !== 'arms' || group.role === 'tertiary') return 'none';
+  const item = group.item;
+  const shape = item.k === 'ordinary' || SIMPLE_GEOMETRIC.has(item.charge);
+  const lattice = d.field.k === 'variation' && (d.field.variation === 'lozengy' || d.field.variation === 'fusily');
+  const bend = item.k === 'ordinary' && (item.type === 'bend' || item.type === 'bend-sinister');
+  return shape && multiplyDivided(d.field) !== multiplyDivided(group.paint) && !(lattice && bend) ? 'shape-on-multiply-divided' : 'none';
+}
+
 /** The issues of a charge group, one per run of failing slots that share a ground and a failure. */
 function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, grounds: readonly Ground[], pair: readonly [Tincture, Tincture] | null): Issue[] {
   const parts = partGrounds(d, path);
@@ -378,7 +417,8 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   const slots = canonicalSlots(d, path);
   const noun = nounOf(g), T = paintName(g.paint);
   const all = slots.map((_, i) => i);
-  const failures = grounds.map((ground, i) => (ground.length === 0 ? null : failureOf(g.paint, g.item, ground, pair, parts?.[i], 'none')));
+  const exception = sharedTinctureException(d, g);
+  const failures = grounds.map((ground, i) => (ground.length === 0 ? null : failureOf(g.paint, g.item, ground, pair, parts?.[i], exception)));
   const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', reason: 'contrast', at, message, slots: idx });
 
   if (g.paint.k === 'counterchanged' && pair) {
@@ -437,9 +477,7 @@ export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
   const grounds = groundShares(d, path);
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
   if (d.kind !== 'arms') return [];
-  // Exactly one of the field and the band is in stripes or cells (A3B4b): not both.
-  const exception = (d.field.k === 'variation') !== (group.paint.k === 'variation') ? 'ordinary-on-multiply-divided' : 'none';
-  const f = grounds[0].length === 0 ? null : failureOf(group.paint, group.item, grounds[0], pair, partGrounds(d, path)?.[0], exception);
+  const f = grounds[0].length === 0 ? null : failureOf(group.paint, group.item, grounds[0], pair, partGrounds(d, path)?.[0], sharedTinctureException(d, group));
   return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
 }
 
