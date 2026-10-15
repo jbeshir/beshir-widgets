@@ -102,7 +102,8 @@ export function isGroupTincture(value: unknown): value is GroupTincture {
   return value === 'counterchanged' || isTincture(value);
 }
 
-export const ROLE_ORDER: readonly Role[] = ['primary', 'secondary', 'peripheral', 'overall', 'tertiary'];
+/** Canonical and paint order: a group overall lies over the primary and secondary groups but under the chief and bordure, which it may not cross. */
+export const ROLE_ORDER: readonly Role[] = ['primary', 'secondary', 'overall', 'peripheral', 'tertiary'];
 
 // ── Tree helpers ────────────────────────────────────────────────────────────
 
@@ -287,8 +288,8 @@ export interface Gap { category: GapCategory; detail: string }
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line. */
-export type StructureRule = 'field' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line';
+/** Which structure rule an issue breaks: the field's tinctures, how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
+export type StructureRule = 'field' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)

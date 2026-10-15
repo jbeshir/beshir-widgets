@@ -278,7 +278,7 @@ function lookupUncached(word: string): Found | null {
 
 // ── Tagging ───────────────────────────────────────────────────────────────────
 
-type Ctx = 'field' | 'on' | 'between' | 'held' | 'of' | 'semy';
+type Ctx = 'field' | 'on' | 'between' | 'held' | 'of' | 'semy' | 'overall';
 interface Element {
   kind: 'charge' | 'ord';
   /** ChargeId / OrdinaryType when the widget has it, else null. */
@@ -326,13 +326,14 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let pendingOnHost = false; // after "on a": the next element is the host
   let qualifier: string | null = null; // the first noun of "oak tree"
   let untincturedOrd = false; // an ordinary still awaiting its tincture: a later "counterchanged" covers it too
+  let overallNext = false; // after "overall": the next element lies across everything
 
   const words = tokens.map((t) => t.word);
   const look = (i: number) => (i >= 0 && i < tokens.length && words[i] !== BREAK ? lookup(words[i]) : null);
   const isNounEntry = (e: Entry | undefined) => !!e && (e.k === 'charge' || e.k === 'gapCharge' || e.k === 'cross' || e.k === 'ord' || e.k === 'gapOrd');
 
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
-    const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : betweenHost ? 'between' : onHost ? 'on' : 'field';
+    const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : overallNext ? 'overall' : betweenHost ? 'between' : onHost ? 'on' : 'field';
     const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null };
     if (kind === 'charge' && ctx !== 'held' && ctx !== 'of') {
       if (pendingArr) { el.arr = pendingArr; pendingArr = null; }
@@ -342,7 +343,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
     if (ctx === 'between') betweenHost = null;
     if (kind === 'ord') untincturedOrd = true;
-    pendingCount = null; ofNext = false; semyNext = false; inField = false;
+    pendingCount = null; ofNext = false; semyNext = false; overallNext = false; inField = false;
     els.push(el);
     last = { kind, el, name: supported ?? '' };
     return el;
@@ -351,6 +352,10 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i];
     if (tok.word === BREAK) { held = false; pendingCount = null; ofNext = false; possBase = null; pendingOnHost = false; continue; }
+    if (tok.word === 'overall') {
+      overallNext = true; onHost = null; betweenHost = null; pendingOnHost = false; inField = false;
+      continue;
+    }
     const found = lookup(tok.word);
     if (!found && tok.poss) continue; // "a smith's hammer", "Thor's hammer": a qualifier
     if (!found) {
@@ -552,14 +557,19 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   }
 
   // Charge groups and ordinaries: the widget has room for one charge group, and for a central ordinary with a chief and a bordure beside it.
-  const groups = els.filter((el) => el.kind === 'charge' && el.ctx !== 'held' && el.ctx !== 'of' && el.ctx !== 'semy');
-  const ords = els.filter((el) => el.kind === 'ord');
+  const overalls = els.filter((el) => el.ctx === 'overall');
+  // What lies overall is judged on its own, with what is on it (the widget draws no charges on a group overall).
+  const onOverall = (el: Element) => el.ctx === 'on' && el.host?.ctx === 'overall';
+  const groups = els.filter((el) => el.kind === 'charge' && el.ctx !== 'held' && el.ctx !== 'of' && el.ctx !== 'semy' && el.ctx !== 'overall' && !onOverall(el));
+  const ords = els.filter((el) => el.kind === 'ord' && el.ctx !== 'overall' && !onOverall(el));
+  if (els.some(onOverall)) tag('multiple-groups', 'tertiary-on-overall');
   const together = drawnTogether(ords);
   if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords) || checkOnCharge(groups[0], groups[1], ords)))) {
     tag('multiple-groups', 'charges');
   }
   if (ords.length > 1 && !together) tag('multiple-groups', 'ordinaries');
-  if (groups.length === 1 && ords.length <= 1) checkPlacement(groups[0], ords[0] ?? null);
+  if (overalls.length > 0) checkOverall(overalls, groups, ords);
+  else if (groups.length === 1 && ords.length <= 1) checkPlacement(groups[0], ords[0] ?? null);
 
   if (!tags.size && unknownOut.length) {
     const fromHeadings = headingBuckets(headings);
@@ -814,6 +824,50 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       tag('placement', `on-charge-${second.count}`);
     }
     return true;
+  }
+
+  /**
+   * Whether the widget draws a group lying across everything ("a fess and overall a lion", SENA App I4), with a chief or bordure
+   * beside them: asks the library, on a stand-in design, and tags the gaps it would have (an ordinary that doesn't cross the middle,
+   * a count with no layout) or the rule it breaks (the overall group or the one it lies over must be a band or a long charge).
+   * Several overall groups, or none or several to lie over, are tagged as the groups they are.
+   */
+  function checkOverall(over: readonly Element[], onField: readonly Element[], ordinaries: readonly Element[]): void {
+    const central = ordinaries.filter((o) => o.supported && ORDINARY_KIND[o.supported as OrdinaryType] === 'central');
+    // The main group is the charges on the field (those set in chief, base or canton only when nothing else is) or the central ordinary;
+    // charges set between or on it are judged with it (above), not here.
+    const field = onField.filter((g) => g.ctx === 'field');
+    const unpositioned = field.filter((g) => !(g.arr && SECONDARY_POSITION_OF[g.arr]));
+    const mains = [...(unpositioned.length > 0 ? unpositioned : field), ...central];
+    if (over.length > 1) tag('multiple-groups', 'overall');
+    // An ordinary the widget lacks has its own tag; this one is for a design the widget can't draw for its groups.
+    if (over.length > 1 || mains.length !== 1 || ordinaries.some((o) => !o.supported || o.count > 1)) {
+      if (mains.length !== 1 && over.length === 1 && !ordinaries.some((o) => !o.supported)) tag('multiple-groups', mains.length === 0 ? 'overall-no-primary' : 'overall-over-groups');
+      return;
+    }
+    const [o] = over;
+    if (o.count > MAX_DRAWN_COUNT) return;
+    // A single charge in an arrangement ("a dragon in annulo") has none to take.
+    if (o.kind === 'charge' && o.count === 1 && o.arr) { tag('arrangement', o.arr); return; }
+    const [primary] = mains;
+    // A stand-in charge where the blazon's isn't the widget's: a long one if the blazon's is unknown, so the rule is not blamed for a charge we can't judge.
+    const stand = (el: Element, other: Element): { k: string; charge?: string; type?: string } => (el.kind === 'ord'
+      ? { k: 'ordinary', type: el.supported! }
+      : { k: 'charge', charge: el.supported ?? (other.supported === 'sword' ? 'key' : 'sword') });
+    const wrap = (el: Element, other: Element, extra: object) => ({ item: stand(el, other), paint: 'or', count: el.count, ...(el.arr ? { arrangement: el.arr === 'in-saltire' && el.count === 2 ? 'crossed' : el.arr } : {}), ...extra });
+    const groups = [
+      wrap(primary, o, {}),
+      wrap(o, primary, { role: 'overall', paint: 'argent' }),
+      ...ordinaries.filter((x) => !central.includes(x)).map((x) => ({ item: { k: 'ordinary', type: x.supported }, paint: 'gules' })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) return;
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    const at = walkGroups(r.design).find((w) => w.group.role === 'overall')!.path.join();
+    if (!gaps.length && primary.supported && o.supported && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === at)) {
+      tag('placement', 'overall');
+    }
   }
 
   /**

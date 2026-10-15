@@ -137,8 +137,10 @@ describe('Table 7: secondary and tertiary groups', () => {
   });
 
   it('has no layout context where the builder has none', () => {
-    const overall = nd(arms('azure', group(ordinary('bend'), 'or'), group(charge('rose'), 'gules', { role: 'overall' })));
+    const overall = nd(arms('azure', group(charge('lion'), 'or'), group(ordinary('bend'), 'gules', { role: 'overall' })));
     expect(() => layoutContext(overall, [1])).toThrow(UnsupportedConstructError);
+    const nothingUnder = nd(arms('azure', group(charge('rose'), 'gules', { role: 'overall' })));
+    expect(() => layoutContext(nothingUnder, [0])).toThrow(UnsupportedConstructError);
     const onSecondary = nd(arms('azure', group(ordinary('bend'), 'or'), group(charge('lion'), 'gules', { count: 2, charged: [group(charge('rose'), 'argent')] })));
     expect(() => layoutContext(onSecondary, [1, 0])).toThrow(UnsupportedConstructError);
     expect(() => tableDefault(onSecondary, [1, 0])).toThrow(UnsupportedConstructError);

@@ -17,17 +17,18 @@ import { isSecondaryPosition, primaryCharges } from './arrangement';
  * on-ordinary — the charges on the ordinary
  * chief, bordure — a chief or bordure set beside the ordinary
  * on-chief, on-bordure — the charges on that chief or bordure (on the ordinary itself when it is the chief or bordure the design stands on)
+ * overall — the one band or charge lying across the middle of everything else
  */
-export const PLACE_KEYS = ['ordinary', 'picture', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure'] as const;
+export const PLACE_KEYS = ['ordinary', 'picture', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure', 'overall'] as const;
 export type PlaceKey = (typeof PLACE_KEYS)[number];
 
 export interface Placed { place: PlaceKey; path: GroupPath; group: Group }
 
 const typeOf = (g: Group): OrdinaryType | null => (g.item.k === 'ordinary' ? g.item.type : null);
 
-/** The index of the top-level group that is the design's ordinary: the central one, else the chief, else the bordure. */
+/** The index of the top-level group that is the design's ordinary: the central one, else the chief, else the bordure (a group overall is none of these). */
 function ordinaryIndex(groups: readonly Group[]): number {
-  const find = (want: (g: Group) => boolean) => groups.findIndex(want);
+  const find = (want: (g: Group) => boolean) => groups.findIndex((g) => g.role !== 'overall' && want(g));
   const central = find((g) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central');
   if (central >= 0) return central;
   const chief = find((g) => typeOf(g) === 'chief');
@@ -49,7 +50,8 @@ export function placesIn(d: Design): { placed: Placed[]; unplaced: GroupPath[] }
   };
   d.groups.forEach((group, i) => {
     const type = typeOf(group);
-    if (i === ordinary) add('ordinary', [i], group);
+    if (group.role === 'overall') add('overall', [i], group);
+    else if (i === ordinary) add('ordinary', [i], group);
     else if (type === 'chief' || type === 'bordure') add(type, [i], group);
     else if (group.item.k === 'charge' && group.role === 'secondary' && group.relation === 'between' && charges) add('around', [i], group);
     else if (group.item.k === 'charge' && (group.role === 'primary' || (group.role === 'secondary' && group.relation === 'between'))) add('picture', [i], group);
@@ -57,7 +59,8 @@ export function placesIn(d: Design): { placed: Placed[]; unplaced: GroupPath[] }
     else unplaced.push([i]);
     if (i !== ordinary) {
       group.charged.forEach((tertiary, j) => {
-        if (type === 'chief' || type === 'bordure') add(`on-${type}`, [i, j], tertiary);
+        if (group.role === 'overall') unplaced.push([i, j]);
+        else if (type === 'chief' || type === 'bordure') add(`on-${type}`, [i, j], tertiary);
         else if (group.item.k === 'charge' && group.role === 'primary') add('on-picture', [i, j], tertiary);
         else unplaced.push([i, j]);
       });

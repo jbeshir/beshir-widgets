@@ -189,15 +189,17 @@ export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
   'on-chief': { plain: 'Pictures on the top bar', term: 'charges on the chief' },
   bordure: ORDINARY_LABEL.bordure,
   'on-bordure': { plain: 'Pictures on the border', term: 'charges on the bordure' },
+  overall: { plain: 'Across everything', term: 'overall' },
 };
 
 /**
  * What the builder calls a group: "Band or shape", "Picture", "Pictures on the band", "Top bar", "Border",
- * "Pictures on the top bar" for what sits on one, "Pictures along the top" for charges set in chief beside the main picture, or
- * "Pictures around the picture" for charges set around it.
+ * "Pictures on the top bar" for what sits on one, "Pictures along the top" for charges set in chief beside the main picture,
+ * "Pictures around the picture" for charges set around it, or "Across everything" for a band or picture lying overall.
  */
 export function groupLabel(d: Design, path: GroupPath): string {
   const group = groupAt(d, path), host = hostOf(d, path);
+  if (group.role === 'overall') return PLACE_LABEL.overall.plain;
   if (group.item.k === 'ordinary') {
     if (group.item.type === 'chief') return ORDINARY_LABEL.chief.plain;
     return group.item.type === 'bordure' ? ORDINARY_LABEL.bordure.plain : ORDINARY_KIND[group.item.type] === 'central' ? 'Band or shape' : capitalise(ORDINARY_LABEL[group.item.type].plain.toLowerCase());

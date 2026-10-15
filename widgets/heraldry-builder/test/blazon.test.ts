@@ -218,7 +218,7 @@ describe('what it will not write', () => {
     const badge = resolve({ v: 2, kind: 'badge', groups: [chg('lion', 'or')] });
     expect(badge.ok).toBe(true);
     expect(() => blazon((badge as { design: Design }).design)).toThrow(UnsupportedConstructError);
-    const odd = resolve(arms('azure', ord('fess', 'or'), ord('bend', 'argent', { role: 'overall' })));
+    const odd = resolve(arms('azure', ord('fess', 'or'), ord('bend', 'argent', { role: 'overall', charged: [chg('rose', 'gules')] })));
     expect(odd.ok && normalise(odd.design).design).toBeNull();
   });
 

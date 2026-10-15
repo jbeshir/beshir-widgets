@@ -187,4 +187,23 @@ describe('controls that appear only when they apply', () => {
     }
     expect(renderToString(h(LayerStep, { ...base, design: addLayer(lion, 'in-canton'), place: 'in-canton', n: 4, onAdjust: noop }))).toContain('In the top corner');
   });
+
+  it('gives what lies across everything a card of its own: a band with a colour, or a picture with its count', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(renderToString(h(AddLayer, { design: lion, onChange: noop }))).toContain('Add a band or picture across everything (overall)');
+    const band = addLayer(lion, 'overall');
+    expect(layersIn(band)).toEqual(['overall']);
+    const bandHtml = renderToString(h(LayerStep, { ...base, design: band, place: 'overall', n: 4, onAdjust: noop }));
+    for (const id of ['step-layer-overall', 'overall-item-select', 'overall-tincture', 'remove-layer-overall']) expect(ids(bandHtml), id).toContain(id);
+    expect(bandHtml).toContain('Across everything');
+    expect(bandHtml).toContain('Picture');
+    expect(ids(bandHtml)).not.toContain('overall-count-select');
+    expect(removeLayer(band, 'overall')).toEqual(lion);
+    const picture = addLayer(setOrdinary(DEFAULT_DESIGN, 'fess'), 'overall');
+    const pictureHtml = renderToString(h(LayerStep, { ...base, design: picture, place: 'overall', n: 4, onAdjust: noop }));
+    for (const id of ['overall-item-select', 'overall-count-select', 'overall-count-1', 'overall-arrangement-select', 'overall-charge-tincture']) expect(ids(pictureHtml), id).toContain(id);
+    expect(ids(pictureHtml)).not.toContain('overall-tincture');
+    // What App I4 doesn't allow is greyed out in the list, with its reason.
+    expect(bandHtml).toMatch(/<option[^>]*disabled[^>]*>Rose \(not here\)/);
+  });
 });

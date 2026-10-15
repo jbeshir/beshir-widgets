@@ -499,3 +499,25 @@ describe('charges on the primary charges fit their hosts', () => {
     expect(problems.slice(0, 25)).toEqual([]);
   }, 60_000);
 });
+
+describe('charges overall stand as a lone primary charge does', () => {
+  for (const g of SHAPES) {
+    it(`${g.shape}: one charge, or two swords crossed, are the primary's slots and stay on the ground the chief and bordure leave`, () => {
+      const problems: string[] = [];
+      for (const peripheral of PERIPHERALS) {
+        const ctx: LayoutContext = { k: 'overall', peripheral };
+        const on = groundFits(g, fieldContext(peripheral), 0, false);
+        for (const layout of [{ arrangement: { k: 'single' }, position: null }, { arrangement: { k: 'crossed' }, position: null }] as const) {
+          const count = layout.arrangement.k === 'single' ? 1 : 2;
+          const slots = contextSlots(ctx, count, layout, g.shape);
+          const where = `${peripheral} ${layoutKey(layout)}`;
+          if (slots.length !== count) problems.push(`${where}: ${slots.length} slots`);
+          else if (slots[0].size < minSlotSize(ctx)) problems.push(`${where}: too small (${slots[0].size})`);
+          else if (!slots.every((s) => disc(s).every(on))) problems.push(`${where}: off the ground`);
+          if (JSON.stringify(slots) !== JSON.stringify(contextSlots(fieldContext(peripheral), count, layout, g.shape))) problems.push(`${where}: not the primary's slots`);
+        }
+      }
+      expect(problems).toEqual([]);
+    });
+  }
+});

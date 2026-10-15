@@ -10,9 +10,9 @@ import { DIVISION_NAME, DRAWN_DIVISIONS } from './divisions';
 import {
   walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
-import { DRAWN_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
+import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, ON_CHARGE_COUNTS, aroundPrimaryLayouts, hostCounts, isSecondaryPosition, layoutKey, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
+  AROUND_COUNTS, ON_CHARGE_COUNTS, aroundPrimaryLayouts, hostCounts, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
 
 export { notSupported, UnsupportedConstructError } from './design';
@@ -66,9 +66,9 @@ function thing(g: Gap): string {
       return isOrdinaryType(g.detail) ? `${ORDINARY_ARTICLE[g.detail]} ${ORDINARY_NAME[g.detail]}` : `A ${d}`;
     case 'ordinary-treatment': return `A ${d} band or shape`;
     case 'multiple-groups':
-      if (g.detail === 'overall') return 'A charge overall';
       return g.detail.startsWith('tertiary') ? 'Charges on that charge' : 'Two charge groups beside the main one';
     case 'placement': {
+      if (g.detail.startsWith('overall-')) return 'That group overall';
       const host = g.detail.startsWith('on-') ? g.detail.slice('on-'.length) : '';
       return isChargeId(host) ? `Charges on a ${CHARGES[host].name}` : 'That placement of charges';
     }
@@ -132,11 +132,18 @@ function layoutGaps(g: Group, hasChief: boolean): Gap[] {
 /** Whether charges are set around the design's primary charges. */
 const hasAround = (d: Design): boolean => primaryCharges(d) !== null && d.groups.some((g) => g.role === 'secondary' && g.relation === 'between');
 
+/** What the builder can't draw overall: ordinaries that don't cross the middle, and any number of charges but one, or two long charges crossed. */
+function overallGaps(g: Group): Gap[] {
+  if (g.item.k === 'ordinary') return OVERALL_ORDINARIES.includes(g.item.type) ? [] : [gap('placement', `overall-${g.item.type}`)];
+  return overallLayouts(g.count, CHARGES[g.item.charge].long).length > 0 ? [] : [gap('placement', `overall-${g.count}`)];
+}
+
 /**
  * Counts that have no layout around or on the host (Table 7 secondary and tertiary rows), and primary charges that can't
  * have charges set around them (one charge, or two side by side, one above the other or crossed, can).
  */
 function placementGaps(d: Design, g: Group, host: Group | null): Gap[] {
+  if (g.role === 'overall' && host === null) return overallGaps(g);
   if (g.item.k !== 'charge' || g.count > MAX_DRAWN_COUNT) return [];
   if (host === null) {
     if (g.role === 'primary') {
@@ -177,7 +184,6 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Gap }> {
   const byRole = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, i }] : []));
   const primaries = byRole('primary'), secondaries = byRole('secondary'), peripherals = byRole('peripheral');
 
-  for (const { i } of byRole('overall')) out.push({ at: at([i]), gap: gap('multiple-groups', 'overall') });
   if (primaries.length > 1) out.push({ at: at([primaries[1].i]), gap: gap('multiple-groups', 'co-primary') });
   if (secondaries.length > 1) out.push({ at: at([secondaries[1].i]), gap: gap('multiple-groups', 'secondary') });
   // One chief and one bordure may be set together; any other pair is a second of a kind.
@@ -222,6 +228,7 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
     const gaps = [...itemGaps(group.item), ...paintGaps(group.paint, false, owner), ...layoutGaps(group, hasChief), ...placementGaps(d, group, host)];
     if (host) gaps.push(...onChargeGaps(d, host));
     if (host && group.item.k === 'ordinary') gaps.push(gap('placement', 'tertiary-ordinary'));
+    if (host?.role === 'overall' && host.item.k === 'ordinary') gaps.push(gap('multiple-groups', 'tertiary-on-overall'));
     for (const g of gaps) add(at, g);
   }
   return out;

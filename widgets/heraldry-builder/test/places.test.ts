@@ -92,9 +92,9 @@ describe('places of a design', () => {
   });
 
   it('throw for a group with no place, while placesIn reports it', () => {
-    const overall = nd(arms('azure', group(ordinary('bend'), 'or'), rose(1, { role: 'overall' })));
-    expect(() => placesOf(overall)).toThrow(RangeError);
-    expect(placesIn(overall)).toMatchObject({ unplaced: [[1]] });
+    const twoOverall = nd(arms('azure', group(ordinary('bend'), 'or'), rose(1, { role: 'overall' }), group(charge('sword'), 'argent', { role: 'overall' })));
+    expect(() => placesOf(twoOverall)).toThrow(RangeError);
+    expect(placesIn(twoOverall)).toMatchObject({ unplaced: [[2]] });
     const crowded = nd(arms('azure', group(ordinary('fess'), 'or', { charged: [rose(2), group(charge('mullet'), 'argent', { count: 2 })] })));
     expect(placesIn(crowded).unplaced).toEqual([[0, 1]]);
     expect(placeOfPath(crowded, [0, 1])).toBeNull();

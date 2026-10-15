@@ -88,6 +88,8 @@ export interface SimpleParts {
   around: Placed | null;
   /** The pictures on each of the picture's charges (the picture on the background, not set between a band). */
   onPicture: Placed | null;
+  /** The band or picture lying across everything. */
+  overall: Placed | null;
 }
 
 const isCentral = (g: Group) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central';
@@ -105,6 +107,7 @@ export function simpleParts(d: Design): SimpleParts {
     positioned: at('in-chief') ?? at('in-base') ?? at('in-canton'),
     around: at('around'),
     onPicture: at('on-picture'),
+    overall: at('overall'),
     ordinary: at('ordinary'),
     peripherals: placed.filter((p) => p.place === 'chief' || p.place === 'bordure'),
     peripheralPictures: placed.filter((p) => p.place === 'on-chief' || p.place === 'on-bordure'),
@@ -123,6 +126,7 @@ export interface PartsInput {
   positioned: Group | null;
   around: Group | null;
   onPicture: Group | null;
+  overall: Group | null;
 }
 
 /** `simpleParts` without the places: the groups to change one of and assemble again. */
@@ -137,6 +141,7 @@ export function partsOf(d: Design): PartsInput {
     positioned: parts.positioned?.group ?? null,
     around: parts.around?.group ?? null,
     onPicture: parts.onPicture?.group ?? null,
+    overall: parts.overall?.group ?? null,
   };
 }
 
@@ -150,8 +155,9 @@ export function partsOf(d: Design): PartsInput {
  * central ordinary or the picture on the background; with neither they become the picture themselves
  * (SENA App I1), or are dropped where a picture can't stand (in canton). The pictures around the picture need it on
  * the background with no central ordinary, or are dropped. The pictures on the picture stand on it while it is the main picture.
+ * What lies overall stays while there is a main band or picture for it to lie over, else it is dropped.
  */
-export function assembleParts(d: Design, { ordinary, peripherals, picture, placement, extra, positioned, around, onPicture }: PartsInput): Design {
+export function assembleParts(d: Design, { ordinary, peripherals, picture, placement, extra, positioned, around, onPicture, overall }: PartsInput): Design {
   const hosts = ordinary !== null;
   const onOrdinary = picture !== null && placement === 'ordinary' && hosts;
   const standing = ordinary ?? peripherals[0] ?? null;
@@ -196,6 +202,7 @@ export function assembleParts(d: Design, { ordinary, peripherals, picture, place
       groups.push({ ...top, arrangement: layout.arrangement, position: layout.position });
     }
   }
+  if (overall && groups.some((g) => g.role === 'primary')) groups.push({ ...overall, role: 'overall', relation: null, position: null, charged: [] });
   return canonical({ ...d, groups } as Design);
 }
 
@@ -218,7 +225,7 @@ const countWord = (n: number) => (n === 1 ? 'a single charge' : numberWord(n));
 function hostCountReason(d: Design, path: GroupPath): string {
   const g = groupAt(d, path);
   const ctx = layoutContext(d, path);
-  if (ctx.k === 'field' || ctx.k === 'position' || ctx.k === 'around') throw new RangeError('A group on the background has no host counts.');
+  if (ctx.k === 'field' || ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'overall') throw new RangeError('A group on the background has no host counts.');
   if (ctx.k === 'on-charge') return `Charges on a picture come in ${joinList(ON_CHARGE_COUNTS.map(countWord), 'or')}, not ${countWord(g.count)}.`;
   const legal = hostCounts(ctx.k, ctx.ordinary);
   const name = ORDINARY_NAME[ctx.ordinary];
@@ -336,12 +343,13 @@ function placementReason(parts: SimpleParts, placement: Placement): string | nul
 }
 
 /** Which of the picture, the extra picture, the pictures on a chief or bordure and the pictures in chief, base or canton a path is, or null for any other group. */
-function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'extra' | 'peripheral' | 'positioned' | 'around' | 'onPicture' | null {
+function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'extra' | 'peripheral' | 'positioned' | 'around' | 'onPicture' | 'overall' | null {
   if (parts.picture && samePath(parts.picture.path, path)) return 'picture';
   if (parts.extra && samePath(parts.extra.path, path)) return 'extra';
   if (parts.positioned && samePath(parts.positioned.path, path)) return 'positioned';
   if (parts.around && samePath(parts.around.path, path)) return 'around';
   if (parts.onPicture && samePath(parts.onPicture.path, path)) return 'onPicture';
+  if (parts.overall && samePath(parts.overall.path, path)) return 'overall';
   return parts.peripheralPictures.some((p) => samePath(p.path, path)) ? 'peripheral' : null;
 }
 
@@ -372,6 +380,10 @@ function edit(d: Design, path: GroupPath, change: { count?: number; placement?: 
   if (part === 'onPicture') {
     const design = assembleParts(d, { ...partsOf(d), onPicture: { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count } });
     return { design, path: simpleParts(design).onPicture!.path };
+  }
+  if (part === 'overall') {
+    const design = assembleParts(d, { ...partsOf(d), overall: { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count } });
+    return { design, path: simpleParts(design).overall!.path };
   }
   if (!part || !parts.picture) throw new RangeError(`The group at ${path.join('.')} is not a picture.`);
   const placement = part === 'picture' ? change.placement ?? parts.picture.placement : parts.picture.placement;
@@ -447,7 +459,7 @@ function layoutChoice<T>(d: Design, path: GroupPath, value: T, partner: Companio
 function placementsFor(parts: SimpleParts, path: GroupPath): Placement[] | null {
   const part = partOf(parts, path);
   if (!part) return null;
-  if (part === 'peripheral' || part === 'positioned' || part === 'around' || part === 'onPicture') return [parts.picture?.placement ?? 'field'];
+  if (part === 'peripheral' || part === 'positioned' || part === 'around' || part === 'onPicture' || part === 'overall') return [parts.picture?.placement ?? 'field'];
   if (!parts.picture) return null;
   return part === 'extra' ? [parts.picture.placement] : [parts.picture.placement, ...PLACEMENTS.filter((p) => p !== parts.picture!.placement)];
 }
@@ -495,6 +507,7 @@ export function layoutChoices(d: Design, path: GroupPath): LayoutChoices {
   if (keys.length === 1) {
     if (ctx.k === 'position') return { mode: 'fixed', note: g.count === 1 ? `A single charge in ${ctx.position} stands alone there.` : `Charges in ${ctx.position} stand in a row across it.` };
     if (ctx.k === 'around') return { mode: 'fixed', note: `${capitalise(numberWord(g.count))} charges around the picture stand ${aroundWords(g.count, layoutOfKey(keys[0], g.count)!)}.` };
+    if (ctx.k === 'overall') return { mode: 'fixed', note: g.count === 1 ? 'A single charge overall lies across the middle.' : 'Two long charges overall cross each other like an X.' };
     return { mode: 'single', note: 'A single charge sits in the centre.' };
   }
   const blocks = keys.map((key) => layoutBlock(withLayout(d, path, key), path, true));

@@ -1,7 +1,10 @@
 // The numbered step card of one layer beyond the band and the picture: its title and role, what it holds
 // (a picture list with the picture controls, or a colour), and a button that removes it.
 
-import { CHARGE_IDS, ORDINARY_LABEL, PLACE_LABEL, TINCTURE_LABEL, chargeLabel, groupAt, groupLabel, groupTinctureChoices, layerPath, removeLayer, setLayerTincture, type ChargeId, type Companion, type Design, type Issue, type LayerKey } from '../../lib/heraldry';
+import {
+  CHARGE_IDS, ORDINARY_LABEL, PLACE_LABEL, TINCTURE_LABEL, chargeLabel, groupAt, groupLabel, groupTinctureChoices, layerItemChoices, layerPath, removeLayer, setLayerItem, setLayerTincture,
+  type ChargeId, type Choice, type Companion, type Design, type Issue, type LayerItem, type LayerKey, type OrdinaryType,
+} from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { setCharge } from '../../lib/builder';
 import { PictureControls, Step, lower, picturesSummary, tinctureOf, type Accordion } from './BuilderSteps';
@@ -29,10 +32,64 @@ const PICTURES_HINT = {
   'in-canton': 'A picture in the top corner, beside the main picture or band.',
 } as const;
 
+const itemValue = (item: LayerItem): string => (item.k === 'ordinary' ? `ordinary:${item.type}` : `charge:${item.charge}`);
+const itemOf = (value: string): LayerItem => (
+  value.startsWith('ordinary:') ? { k: 'ordinary', type: value.slice('ordinary:'.length) as OrdinaryType } : { k: 'charge', charge: value.slice('charge:'.length) as ChargeId }
+);
+
+/** The step of what lies across everything: a band or shape, or a picture, with its colour and (a picture) its count. */
+function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<Props, 'place'>) {
+  const path = layerPath(design, 'overall')!;
+  const group = groupAt(design, path);
+  const item = group.item;
+  const current: LayerItem = item.k === 'ordinary' ? { k: 'ordinary', type: item.type } : { k: 'charge', charge: item.charge };
+  const choices = layerItemChoices(design, 'overall');
+  const option = (c: Choice<LayerItem>) => {
+    const label = c.value.k === 'ordinary' ? capitalise(ORDINARY_LABEL[c.value.type].plain) : chargeLabel(c.value.charge);
+    return <option key={itemValue(c.value)} value={itemValue(c.value)} disabled={!c.allowed} title={c.allowed ? undefined : c.reason}>{label}{c.allowed ? '' : ' (not here)'}</option>;
+  };
+  const blocked = choices.find((c) => !c.allowed && itemValue(c.value) === itemValue(current));
+  const summary = item.k === 'ordinary' ? lower(ORDINARY_LABEL[item.type].plain) : picturesSummary(design, path);
+  return (
+    <Step n={n} title={groupLabel(design, path)} term={PLACE_LABEL.overall.term} hint="A band or picture drawn across the middle of everything else." summary={summary} issues={issues} accordion={accordion} testid="step-layer-overall">
+      <div class="control">
+        <label class="picker-legend" for="overall-item-select">What goes across</label>
+        <select
+          id="overall-item-select"
+          class="select"
+          data-testid="overall-item-select"
+          value={itemValue(current)}
+          onChange={(e) => onChange(setLayerItem(design, 'overall', itemOf((e.currentTarget as HTMLSelectElement).value)))}
+        >
+          <optgroup label="Band or shape">{choices.filter((c) => c.value.k === 'ordinary').map(option)}</optgroup>
+          <optgroup label="Picture">{choices.filter((c) => c.value.k === 'charge').map(option)}</optgroup>
+        </select>
+        {blocked && !blocked.allowed && <p class="field-hint">{blocked.reason}</p>}
+      </div>
+      {item.k === 'ordinary'
+        ? (
+          <TincturePicker
+            group="overall"
+            testid="overall-tincture"
+            legend={`Colour of the ${lower(ORDINARY_LABEL[item.type].plain)}`}
+            choices={groupTinctureChoices(design, path)}
+            value={tinctureOf(design, path)}
+            onChange={(t) => onChange(setLayerTincture(design, 'overall', t))}
+          />
+        )
+        : <PictureControls design={design} path={path} prefix="overall-" onChange={onChange} onAdjust={onAdjust} adjusted={null} />}
+      <p>
+        <button type="button" class="button-tertiary" data-testid="remove-layer-overall" onClick={() => onChange(removeLayer(design, 'overall'))}>Remove what goes across everything</button>
+      </p>
+    </Step>
+  );
+}
+
 /** The step of a layer the design has: pictures on the band, or a top band or border set beside it. */
 export function LayerStep({ design, place, n, onChange, onAdjust, issues, accordion }: Props) {
   const path = layerPath(design, place);
   if (!path) return null;
+  if (place === 'overall') return <OverallStep design={design} n={n} onChange={onChange} onAdjust={onAdjust} issues={issues} accordion={accordion} />;
   const item = groupAt(design, path).item;
   const remove = (label: string) => (
     <p>

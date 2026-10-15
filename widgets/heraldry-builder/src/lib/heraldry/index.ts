@@ -1,7 +1,7 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
 export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
-export { ORDINARY_TYPES, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
+export { ORDINARY_TYPES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
 export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, partCount, type Division } from './divisions';
 export {
   canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, isFieldPrimary, tincturePaint, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
@@ -39,8 +39,8 @@ export {
 export { MIN_SLOT_SIZE, minSlotSize, slotCount, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
 export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
 export {
-  LAYER_KEYS, layerPath, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
-  type LayerKey, type PeripheralKey, type PicturesKey, type PositionedKey,
+  LAYER_KEYS, layerPath, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerItem, layerItemChoices, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
+  type LayerItem, type LayerKey, type PeripheralKey, type PicturesKey, type PositionedKey,
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,

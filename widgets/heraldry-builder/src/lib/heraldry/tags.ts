@@ -36,6 +36,7 @@ export function deriveTags(d: Design): string[] {
       else if (group.relation === 'between') add(primaryCharges(d) ? 'placement:around' : 'placement:between');
       else if (group.relation === 'position') add(`placement:in-${group.position}`);
     }
+    if (group.role === 'overall') add('placement:overall');
     if (group.paint.k === 'tincture') all.add(group.paint.t);
   }
 

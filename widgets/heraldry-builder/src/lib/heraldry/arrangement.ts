@@ -123,8 +123,8 @@ export type SecondaryPosition = Extract<Position, 'chief' | 'base' | 'canton'>;
 export const SECONDARY_POSITIONS: readonly SecondaryPosition[] = ['chief', 'base', 'canton'];
 export const isSecondaryPosition = (p: Position | null): p is SecondaryPosition => p === 'chief' || p === 'base' || p === 'canton';
 
-/** The contexts whose charges are laid out in the shield's frame: every one but charges on the primary charges, which are laid out in those. */
-export type GroundContext = Exclude<LayoutContext, { k: 'on-charge' }>;
+/** The contexts whose charges are laid out in the shield's frame by the generic engine: not charges on the primary charges, which are laid out in those, nor charges overall, which stand as a lone primary does. */
+export type GroundContext = Exclude<LayoutContext, { k: 'on-charge' | 'overall' }>;
 
 /** The context of a primary charge group. */
 export interface FieldContext { k: 'field'; peripheral: Peripheral; yields: Yield; share: Share | null }
@@ -138,7 +138,8 @@ export type LayoutContext =
   | { k: 'around'; peripheral: Peripheral; primary: { count: number; layout: Layout } } // secondary 'between', around the primary charges
   | { k: 'position'; position: SecondaryPosition; ordinary: OrdinaryType | null; peripheral: Peripheral } // secondary 'position', beside the primary ordinary (or charges)
   | { k: 'on'; ordinary: OrdinaryType; peripheral: Peripheral }                  // tertiary on an ordinary (incl. chief)
-  | { k: 'on-charge'; host: HostCharges };                                       // tertiary on each of the primary charges
+  | { k: 'on-charge'; host: HostCharges }                                        // tertiary on each of the primary charges
+  | { k: 'overall'; peripheral: Peripheral };                                    // overall: one charge, or two crossed, across the middle of the free field
 
 /** The context of a lone primary charge group: nothing yielded, no co-primary. */
 export const fieldContext = (peripheral: Peripheral): FieldContext => ({ k: 'field', peripheral, yields: 'none', share: null });
@@ -190,6 +191,7 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
     // The bordure runs round the whole edge, under no chief of its own: what lies beside it doesn't change where its charges go.
     return { k: 'on', ordinary: host.item.type, peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
   }
+  if (group.role === 'overall') return d.groups.some((g) => g.role === 'primary') ? { k: 'overall', peripheral: peripheralOf(d) } : null;
   if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none') };
   if (group.role === 'secondary' && group.relation === 'position') {
     return isSecondaryPosition(group.position) && d.groups.some((g) => g.role === 'primary')
@@ -299,6 +301,12 @@ export const ON_CHARGE_COUNTS: readonly number[] = Object.keys(ON_CHARGE).map(Nu
 /** The layouts of `count` charges on each of the primary charges, the first the builder's default. */
 export const onChargeLayouts = (count: number): readonly Layout[] => ON_CHARGE[count] ?? [];
 
+/** The layouts of `count` charges overall: one alone, or two long charges crossed. */
+export function overallLayouts(count: number, long: boolean): Layout[] {
+  if (count === 1) return [single()];
+  return count === 2 && long ? [{ arrangement: { k: 'crossed' }, position: null }] : [];
+}
+
 /** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows. */
 export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): readonly number[] {
   if (kind === 'between') return Object.keys(BETWEEN[ordinary] ?? {}).map(Number);
@@ -326,7 +334,7 @@ function fieldPair(d: Design): [Tincture, Tincture] | null {
 function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count: number): RuledLayout | null {
   if (ctx.k === 'position') return { layout: positionLayout(ctx.position, count), rule: 'position' };
   if (ctx.k === 'around') return count === 3 ? { layout: rows([2, 1]), rule: 'around' } : null;
-  if (ctx.k === 'on-charge') return count === 1 ? { layout: single(), rule: '1' } : null;
+  if (ctx.k === 'on-charge' || ctx.k === 'overall') return count === 1 ? { layout: single(), rule: '1' } : null;
   if (ctx.k !== 'field') return { layout: HOST_LAYOUT, rule: 'host' };
   const division = d.kind === 'arms' && d.field.k === 'divided' ? d.field.division : null;
   const pair = fieldPair(d);
@@ -374,6 +382,7 @@ function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDef
   if (ctx.k === 'position') return positionLayouts(ctx.position, count, long);
   if (ctx.k === 'around') return aroundLayouts(count, ctx.peripheral);
   if (ctx.k === 'on-charge') return [...onChargeLayouts(count)];
+  if (ctx.k === 'overall') return overallLayouts(count, long);
   if (ctx.k !== 'field') return [HOST_LAYOUT];
   // Primary charges with charges set around them stand alone, or two side by side, one above the other or crossed.
   const around = ctx.yields === 'around' ? aroundPrimaryLayouts(count, long) : [];
@@ -451,7 +460,7 @@ export function isForced(d: Design, path: GroupPath): boolean {
   const ctx = layoutContext(d, path);
   // Where a secondary group stands, how charges stand around the primary charges and on each of them, is chosen, not forced:
   // moving them is a change of arrangement (GoT "Arrangement").
-  if (ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'on-charge') return false;
+  if (ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'on-charge' || ctx.k === 'overall') return false;
   if (ctx.k !== 'field') return true;
   const ruled = forcedRuleOf(d, group, host);
   return ruled !== null && sameLayout(ruled, { arrangement: group.arrangement, position: group.position });
@@ -482,7 +491,7 @@ export function statesLayout(d: Design, path: GroupPath): boolean {
   const ctx = layoutContext(d, path);
   if (ctx.k === 'position') return true;
   const layout: Layout = { arrangement: group.arrangement, position: group.position };
-  if (ctx.k === 'around' || ctx.k === 'on-charge') {
+  if (ctx.k === 'around' || ctx.k === 'on-charge' || ctx.k === 'overall') {
     const table = tableDefault(d, path);
     return table === null || !sameLayout(layout, table);
   }

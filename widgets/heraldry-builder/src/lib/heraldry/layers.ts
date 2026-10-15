@@ -1,12 +1,13 @@
 // Builder transitions over places beyond the band and the picture ("layers"): the pictures on the band, a
 // top band (chief) and a border (bordure), the pictures on those, pictures set in chief, in base or in
-// canton beside the band or the picture, pictures set around the picture, and pictures on the picture. Pure Design → Design, like every builder edit: a layer is added
+// canton beside the band or the picture, pictures set around the picture, pictures on the picture, and a band or
+// picture lying across everything (overall). Pure Design → Design, like every builder edit: a layer is added
 // where it can be drawn and given the first tincture that works, the pictures are refitted to the room it
 // leaves, and anything that can't be drawn is blocked with its reason, never silently dropped.
 
-import { CHARGES, type ChargeId } from './charges';
-import { PLAIN_LINES, canonical, tincturePaint, type Design, type Group, type GroupPath, type GroupTincture } from './design';
-import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
+import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
+import { PLAIN_LINES, canonical, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture } from './design';
+import { ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryType } from './ordinaries';
 import type { SecondaryPosition } from './arrangement';
 import {
   assembleParts, fitGroup, firstAllowed, groupTinctureChoices, layoutReason, partsOf, simpleParts, withTincture, type Choice,
@@ -32,6 +33,9 @@ const positionOf = (key: PositionedKey): SecondaryPosition => (key === 'in-chief
 /** Where pictures set by position stand, in the builder's words. */
 const POSITION_WORDS: Record<SecondaryPosition, string> = { chief: 'along the top', base: 'along the bottom', canton: 'in the top corner' };
 const peripheralName = (key: PeripheralKey): string => (key === 'chief' ? 'top band' : 'border');
+
+/** What lies overall: a band or shape across the middle, or a picture. */
+export type LayerItem = { k: 'charge'; charge: ChargeId } | { k: 'ordinary'; type: OrdinaryType };
 
 /** The path of the group in a layer, or null when the design has none. */
 export const layerPath = (d: Design, key: LayerKey): GroupPath | null => pathOfPlace(d, key);
@@ -80,7 +84,7 @@ function firstProblem(d: Design): string | null {
  * order (the pictures around the picture keep clear of it).
  */
 export function refitLayers(d: Design): Design {
-  return (['in-chief', 'in-base', 'in-canton', 'picture', 'on-picture', 'around', 'on-ordinary', 'on-chief', 'on-bordure'] as const).reduce((out, key) => {
+  return (['in-chief', 'in-base', 'in-canton', 'picture', 'on-picture', 'around', 'on-ordinary', 'on-chief', 'on-bordure', 'overall'] as const).reduce((out, key) => {
     const path = pathOfPlace(out, key);
     return path ? fitGroup(out, path) : out;
   }, d);
@@ -98,6 +102,20 @@ type Added = { design: Design } | { reason: string };
 function startingCharge(d: Design): ChargeId {
   const picture = simpleParts(d).picture?.group.item;
   return picture?.k === 'charge' && picture.charge === 'mullet' ? 'heart' : 'mullet';
+}
+
+/** A charge to start the layer overall with: one no other group of the field has (SENA A3D1a). */
+function unusedCharge(d: Design): ChargeId {
+  const used = new Set(walkGroups(d).flatMap(({ group }) => (group.item.k === 'charge' ? [group.item.charge] : [])));
+  return (['mullet', 'heart', 'rose'] as const).find((id) => !used.has(id)) ?? 'mullet';
+}
+
+/** A band or picture to start the layer overall with: a picture over a band or shape, a band over a picture. */
+function startingOverall(d: Design): Group | null {
+  const parts = simpleParts(d);
+  const ordinary = parts.ordinary?.group;
+  if (ordinary?.item.k === 'ordinary' && ORDINARY_KIND[ordinary.item.type] === 'central') return newCharge(unusedCharge(d), 'overall');
+  return parts.picture?.placement === 'field' ? ordinaryGroup('bend', 'or') : null;
 }
 
 function tryAddLayer(d: Design, key: LayerKey): Added {
@@ -167,6 +185,17 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       const reason = layoutReason(fitted, path, true);
       return reason === null ? { design: withFirstTincture(fitted, path)! } : { reason };
     }
+    case 'overall': {
+      const overall = startingOverall(d);
+      if (!overall) return { reason: 'Add a band or shape, or a picture on the background, first — something can then lie across it.' };
+      const placed = refitLayers(assembleParts(d, { ...partsOf(d), overall }));
+      const path = pathOfPlace(placed, 'overall');
+      if (!path) return { reason: "Nothing can lie across everything here." };
+      const problem = firstProblem(placed);
+      if (problem) return { reason: problem };
+      const painted = withFirstTincture(placed, path);
+      return painted ? { design: painted } : { reason: 'No colour works for something across everything here.' };
+    }
     case 'chief': case 'bordure': {
       if (!ordinary) return { reason: 'Add a band or shape first — a top band or border goes beside one.' };
       const type: OrdinaryType = key;
@@ -213,7 +242,55 @@ export function removeLayer(d: Design, key: LayerKey): Design {
       return parts.positioned?.place === key ? refitLayers(assembleParts(d, { ...partsOf(d), positioned: null })) : d;
     case 'around':
       return parts.around ? refitLayers(assembleParts(d, { ...partsOf(d), around: null })) : d;
+    case 'overall':
+      return parts.overall ? refitLayers(assembleParts(d, { ...partsOf(d), overall: null })) : d;
   }
+}
+
+/** The group overall as this band or picture: the colour, and for pictures the count and layout, kept where they still work. */
+function overallAs(was: Group, item: LayerItem): Group {
+  if (item.k === 'ordinary') return { ...ordinaryGroup(item.type, 'or'), paint: was.paint };
+  return { ...was, item: chargeItem(item.charge, was), count: was.item.k === 'charge' ? was.count : 1, arrangement: was.item.k === 'charge' ? was.arrangement : { k: 'single' } };
+}
+
+/** The band or picture lying overall as this one; the groups are refitted to the room it leaves. */
+export function setLayerItem(d: Design, key: 'overall', item: LayerItem): Design {
+  const parts = simpleParts(d);
+  return parts.overall ? refitLayers(assembleParts(d, { ...partsOf(d), overall: overallAs(parts.overall.group, item) })) : d;
+}
+
+/**
+ * What can lie overall, each blocked with its reason when the result couldn't be drawn or breaks SENA App I4 (the overall
+ * group or the one it lies over must be a band or a long charge). Pictures are judged by one of their kind.
+ */
+export function layerItemChoices(d: Design, key: 'overall'): Choice<LayerItem>[] {
+  const parts = simpleParts(d);
+  if (!parts.overall) return [];
+  const was = parts.overall.group;
+  // Only what is wrong with the group overall itself blocks a choice, not another problem the design has.
+  const reason = (item: LayerItem): string | null => {
+    const set = setLayerItem(d, key, item);
+    const at = pathOfPlace(set, 'overall')!.join();
+    const issue = [...unsupportedIssues(set), ...structuralIssues(set)].find((i) => i.at.k === 'group' && i.at.path.join() === at);
+    return issue?.message ?? null;
+  };
+  const main = parts.picture?.group.item;
+  const first = (long: boolean) => CHARGE_IDS.find((id) => CHARGES[id].long === long && !(main?.k === 'charge' && main.charge === id))!;
+  const byLong = new Map<boolean, string | null>();
+  const bands = OVERALL_ORDINARIES.map((type): Choice<LayerItem> => {
+    const item: LayerItem = { k: 'ordinary', type };
+    const why = reason(item);
+    return why ? { value: item, allowed: false, reason: why } : { value: item, allowed: true };
+  });
+  const pictures = CHARGE_IDS.map((charge): Choice<LayerItem> => {
+    const item: LayerItem = { k: 'charge', charge };
+    const long = CHARGES[charge].long;
+    if (!byLong.has(long)) byLong.set(long, reason({ k: 'charge', charge: first(long) }));
+    const same = main?.k === 'charge' && main.charge === charge;
+    const why = same ? `The ${CHARGES[charge].name} is already the main picture — choose a different one to lie across it.` : byLong.get(long) ?? null;
+    return why && !(was.item.k === 'charge' && was.item.charge === charge) ? { value: item, allowed: false, reason: why } : { value: item, allowed: true };
+  });
+  return [...bands, ...pictures];
 }
 
 /** The pictures of a layer as this charge (their count, layout and tincture kept where they still work). */

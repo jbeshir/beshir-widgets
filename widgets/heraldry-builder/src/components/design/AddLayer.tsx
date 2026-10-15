@@ -23,6 +23,7 @@ const buttonText = (design: Design, key: LayerKey): string => {
     case 'in-base': return 'Add pictures along the bottom (in base)';
     case 'in-canton': return 'Add a picture in the top corner (in canton)';
     case 'around': return 'Add pictures around the picture';
+    case 'overall': return 'Add a band or picture across everything (overall)';
     case 'chief': case 'bordure': return `Add a ${key === 'chief' ? 'top band' : 'border'} (${ORDINARY_LABEL[key].term})`;
   }
 };

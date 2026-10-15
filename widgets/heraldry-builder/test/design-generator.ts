@@ -4,7 +4,7 @@
 // space (the tests that rely on its distribution never change); `generatedRichDesigns` shares its internals and
 // adds the constructs the builder has gained since: a chief and a bordure beside the band, pictures on the band
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
-// set around the picture, and pictures on the picture.
+// set around the picture, pictures on the picture, and a band or sword across everything.
 
 import { layoutCandidates, layoutKey, normalise, resolve, type Design } from '../src/lib/heraldry';
 
@@ -30,6 +30,9 @@ const POSTURES: Record<string, readonly string[]> = { lion: ['rampant', 'passant
 const AROUND_SEED = 0x5bd1e995;
 /** Mixed into a seed for the picks of the pictures on the picture. */
 const ON_PICTURE_SEED = 0x2c1b3c6d;
+/** Mixed into a seed for the picks of what lies overall. */
+const OVERALL_SEED = 0x7f4a7c15;
+const OVERALL_ORDINARIES = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];
 /** The layouts the pictures on the picture take, by count (Table 7 states them all). */
 const ON_PICTURE_LAYOUTS: Record<number, readonly string[]> = { 1: ['single'], 2: ['in-fess', 'in-pale'], 3: ['rows-2-1', 'rows-1-2', 'in-fess', 'in-pale'], 4: ['rows-2-2', 'in-cross'] };
 
@@ -94,19 +97,41 @@ function designFor(seed: number, rich: boolean): Design | null {
     }
   }
 
-  const first = resolve({ v: 2, field, groups });
-  if (!first.ok) return null;
-  let design = first.design;
-  if (pictureAt >= 0 && next() < 0.5) {
-    const path = [design.groups.findIndex((g) => g.item.k === 'charge' && g.role !== 'tertiary')];
-    const candidates = layoutCandidates(design, path, design.groups[path[0]].count);
-    const second = resolve({ v: 2, field, groups: groups.map((g, i) => (i === pictureAt ? { ...g, arrangement: layoutKey(pick(candidates)) } : g)) });
-    if (!second.ok) return null;
-    design = second.design;
+  /** The design of these groups with a random layout for the picture, if it is a registrable one. */
+  const finish = (all: readonly object[]): Design | null => {
+    const first = resolve({ v: 2, field, groups: all });
+    if (!first.ok) return null;
+    let design = first.design;
+    if (pictureAt >= 0 && next() < 0.5) {
+      const path = [design.groups.findIndex((g) => g.item.k === 'charge' && g.role !== 'tertiary')];
+      const candidates = layoutCandidates(design, path, design.groups[path[0]].count);
+      const second = resolve({ v: 2, field, groups: all.map((g, i) => (i === pictureAt ? { ...g, arrangement: layoutKey(pick(candidates)) } : g)) });
+      if (!second.ok) return null;
+      design = second.design;
+    }
+    const n = normalise(design);
+    return n.ok ? n.design : null;
+  };
+  const plain = finish(groups);
+  // A band or sword lying across the middle of a design with a main band or picture, from a stream of its own; the design without it stands where it doesn't work.
+  if (rich) {
+    const over = prng(seed ^ OVERALL_SEED);
+    const central = type !== null && type !== 'chief' && type !== 'bordure';
+    // The picture is the main group unless a central band is; a chief or bordure alone, with the picture on it, has none.
+    if ((central || pictureAt >= 0) && over() < 0.3) {
+      const among = <T>(xs: readonly T[]): T => xs[Math.floor(over() * xs.length)];
+      const paint = among(TINCTURES);
+      const charge = central ? among(CHARGES.filter((c) => c !== id)) : id !== 'sword' && over() < 0.3 ? 'sword' : null;
+      const lying = charge === null
+        ? { item: { k: 'ordinary', type: among(OVERALL_ORDINARIES) }, paint, role: 'overall' }
+        : { item: { k: 'charge', charge }, paint, role: 'overall', ...(charge === 'sword' && over() < 0.5 ? { count: 2, arrangement: 'crossed' } : {}) };
+      const crossed = finish([...groups, lying]);
+      if (crossed) return crossed;
+    }
   }
-  const n = normalise(design);
-  return n.ok ? n.design : null;
+  return plain;
 }
+
 
 /** The first `count` designs from `generatedDesign`, trying seeds from `seed` upwards. */
 export function generatedDesigns(seed: number, count: number): Design[] {

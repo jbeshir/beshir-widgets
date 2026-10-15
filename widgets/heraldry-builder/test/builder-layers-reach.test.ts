@@ -72,6 +72,20 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Azure, a bee Or between in pale two roses argent, on a chief Or three roses gules.'],
   ['charges and charges in base under a chief with charges', arms('vert', group(charge('mullet'), 'or'), group(charge('heart'), 'or', { position: 'base' }), group(ordinary('chief'), 'argent', { charged: [rose(3)] })),
     'Vert, a mullet and in base a heart Or, on a chief argent three roses gules.'],
+  ['a charge over a saltire (O&A 1004)', arms('argent', group(ordinary('saltire'), 'purpure'), group(charge('lion'), 'sable', { role: 'overall' })),
+    'Argent, a saltire purpure and overall a lion sable.'],
+  ['a charge over a chevron (O&A 2208)', arms('vert', group(ordinary('chevron'), 'argent'), group(charge('fleur-de-lis'), 'or', { role: 'overall' })),
+    'Vert, a chevron argent and overall a fleur-de-lys Or.'],
+  ['a band over a picture on a divided field (O&A 21884)', arms(div('per-pale', 'gules', 'sable'), group(charge('unicorn'), 'argent'), group(ordinary('fess'), 'or', { role: 'overall' })),
+    'Per pale gules and sable, a unicorn argent and overall a fess Or.'],
+  ['a charge over a bend (O&A 26229)', arms('azure', group(ordinary('bend'), 'argent'), group(charge('open-book'), 'or', { role: 'overall' })),
+    'Azure, a bend argent and overall an open book Or.'],
+  ['a charge over a fess, within a bordure (O&A 12138)', arms('gules', group(ordinary('fess'), 'argent'), group(charge('lion'), 'or', { role: 'overall' }), group(ordinary('bordure'), 'argent')),
+    'Gules, a fess argent and overall a lion Or, a bordure argent.'],
+  ['crossed swords over a charge, with charges on a chief (O&A 3804)', arms('argent', group(charge('rose'), 'gules'), group(charge('sword'), 'sable', { role: 'overall', count: 2, arrangement: 'crossed' }), group(ordinary('chief'), 'sable', { charged: [rose(3, 'argent')] })),
+    'Argent, a rose gules and overall two swords in saltire and on a chief sable three roses argent.'],
+  ['a band over a picture with charges in chief', arms('azure', group(charge('lion'), 'argent'), group(charge('mullet'), 'or', { count: 3, position: 'chief' }), group(ordinary('bend-sinister'), 'argent', { role: 'overall' })),
+    'Azure, a lion argent and in chief three mullets Or and overall a bend sinister argent.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -183,7 +197,7 @@ describe('layers kept through the edits of the layers beneath them', () => {
 
   it('adds and removes the pictures on a chief and a bordure, and they follow the top band and border away', () => {
     const base = addLayer(addLayer(built(arms('azure', group(ordinary('pale'), 'argent'), group(charge('mullet'), 'or', { count: 2 }))), 'chief'), 'bordure');
-    expect(layerChoices(base).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'on-bordure']);
+    expect(layerChoices(base).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'on-bordure', 'overall']);
     for (const key of ['on-chief', 'on-bordure'] as const) {
       const added = addLayer(base, key);
       expect(pathOfPlace(added, key), key).not.toBeNull();

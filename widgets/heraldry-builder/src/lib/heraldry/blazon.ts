@@ -44,8 +44,8 @@ export interface BlazonOptions {
 function wordsLayout(d: Design, path: GroupPath, g: Group, { stateDefaults }: BlazonOptions): boolean {
   if (contextOf(d, g, hostOf(d, path)) === null) return false;
   const k = layoutContext(d, path).k;
-  // Charges on the primary charges state every layout but the one charge alone, defaults or not (Table 7: they must be stated).
-  if (!stateDefaults || k === 'on-charge') return statesLayout(d, path);
+  // Charges on the primary charges, and charges overall, state every layout but the one charge alone, defaults or not (Table 7: they must be stated).
+  if (!stateDefaults || k === 'on-charge' || k === 'overall') return statesLayout(d, path);
   return k === 'position' || k === 'around' || (k === 'field' && (g.arrangement.k !== 'single' || g.position !== null));
 }
 
@@ -86,8 +86,8 @@ function carrying(host: Group): { lead: string; on: boolean } {
   return CHARGED_WITH.includes(CHARGES[host.item.charge].category) ? { lead: ' charged with ', on: false } : { lead: ' ', on: true };
 }
 
-/** `secondary` is set between (or around) the primary, `position` stands beside it ("and in chief …"). */
-type TokenKind = 'primary' | 'secondary' | 'position' | 'peripheral' | 'tertiary';
+/** `secondary` is set between (or around) the primary, `position` stands beside it ("and in chief …"), `overall` lies across everything ("and overall a bend"). */
+type TokenKind = 'primary' | 'secondary' | 'position' | 'overall' | 'peripheral' | 'tertiary';
 
 /** One element of the sentence: its phrase and paint, whether its paint may be shared with the element before, and (a tertiary) what joins it to its host. */
 interface Token { kind: TokenKind; text: string; paint: string; linked: boolean; lead: string }
@@ -98,9 +98,10 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
   const add = (kind: TokenKind, path: GroupPath, g: Group, lead = ' ') => {
     const prev = out[out.length - 1];
     // Bruce: a tincture carries back over the elements before it, but never into or out of "on a ...".
-    const linked = (kind === 'secondary' || kind === 'position' || kind === 'peripheral') && prev !== undefined && prev.kind !== 'tertiary';
+    const linked = (kind === 'secondary' || kind === 'position' || kind === 'overall' || kind === 'peripheral') && prev !== undefined && prev.kind !== 'tertiary';
     const phrase = g.item.k === 'ordinary' ? ordinaryPhrase(g) : chargePhrase(d, path, g, options);
-    out.push({ kind, text: g.charged.length > 0 && carrying(g).on ? `on ${phrase}` : phrase, paint: paintWord(g.paint), linked, lead });
+    const text = g.charged.length > 0 && carrying(g).on ? `on ${phrase}` : phrase;
+    out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint: paintWord(g.paint), linked, lead });
   };
   const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t, carrying(g).lead));
   const at = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, path: [i] }] : []));
@@ -114,12 +115,13 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
   for (const { g, path } of relation('between')) add('secondary', path, g);
   for (const { g, path } of primaries) tertiaries(path, g);
   for (const { g, path } of relation('position')) add('position', path, g);
+  for (const { g, path } of at('overall')) add('overall', path, g);
   for (const { g, path } of at('peripheral')) {
     add('peripheral', path, g);
     tertiaries(path, g);
   }
   if (out.length !== d.groups.length + d.groups.reduce((n, g) => n + g.charged.length, 0)) {
-    return notSupported({ category: 'multiple-groups', detail: 'overall' });
+    return notSupported({ category: 'multiple-groups', detail: 'tertiary' });
   }
   return out;
 }
@@ -130,7 +132,7 @@ export function blazon(d: Design, options: BlazonOptions = { stateDefaults: fals
   const all = tokens(d, options);
   let pending = false;
   all.forEach((t, i) => {
-    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'position' ? ' and ' : ', ';
+    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
     const next = all[i + 1];
     pending = next !== undefined && next.linked && next.paint === t.paint;
     text += `${lead}${t.text}${pending ? '' : ` ${t.paint}`}`;

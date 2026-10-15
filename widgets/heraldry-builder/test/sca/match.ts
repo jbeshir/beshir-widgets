@@ -12,7 +12,7 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, POSTURES, TINCTURES,
+  CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, POSTURES, TINCTURES,
   blazon, normalise, postureTerm, type ChargeId, type Design, type Division, type Gap, type Issue, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
@@ -110,7 +110,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'each', 'charged', 'with',
+    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'each', 'charged', 'with', 'overall',
     ...DIVISION_WORDS.keys(), ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
@@ -123,6 +123,7 @@ const VOCABULARY = new Set<string>(
 //   element    := ['on'] ('a'|'an') ordinary [T]   an ordinary, central or peripheral ("on" when a group sits on it)
 //               | 'on' group                        a charge group with a group on it
 //               | 'each charged with' group          the group before it, a charge group, with the group on each charge
+//               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
 //   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['in splendor'] [('in' PATTERN)|ROWS] [T]
@@ -218,6 +219,7 @@ function parseBody(tokens: string[]): Body | null {
   let host: Node | null = null;       // an "on" ordinary still waiting for its group
   let between = false;
   let joined = false;                  // the last connector was "and", or "between" has just been read
+  let overall = false;                 // "overall" has just been read: the next element lies across everything
   let i = 0;
   while (i < tokens.length) {
     const w = tokens[i];
@@ -232,6 +234,16 @@ function parseBody(tokens: string[]): Body | null {
       between = false;
       joined = false;
       i += 3;
+    } else if (w === 'overall') {
+      // With no main band or picture before it (only a chief or bordure), what follows is the main group itself (SENA App I4).
+      overall = top.some(({ phrase }) => {
+        const item = phrase.group.item as { k: string; type?: OrdinaryType };
+        return item.k === 'charge' || ORDINARY_KIND[item.type!] === 'central';
+      });
+      host = null;
+      between = false;
+      joined = false;
+      i++;
     } else if (w === 'between') {
       // "on a cross argent a rose sable between four roses gules": with no comma the charges between are on the
       // host too, a tertiary group of two types (SENA A3D2a) — not secondaries around it.
@@ -246,16 +258,22 @@ function parseBody(tokens: string[]): Body | null {
       if (ordinary) {
         const end = j + 1 + ordinary.length;
         const paint = tinctureAt(tokens, end);
-        const node: Node = { phrase: { group: { item: { k: 'ordinary', type: ORDINARY_WORDS.get(ordinary.join(' ')) } }, paint }, on: null };
+        const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), item: { k: 'ordinary', type: ORDINARY_WORDS.get(ordinary.join(' ')) } }, paint }, on: null };
         top.push(node);
         order.push({ phrase: node.phrase, onHost: false });
         host = on ? node : null;
         between = false;
+        overall = false;
         i = paint ? end + 1 : end;
       } else {
         const g = readGroup(tokens, j);
         if (!g) return null;
-        if (on) {
+        if (overall) {
+          g.phrase.group.role = 'overall';
+          top.push({ phrase: g.phrase, on: null });
+          order.push({ phrase: g.phrase, onHost: false });
+          overall = false;
+        } else if (on) {
           // "on a lion …": a group on a charge, which the widget reports rather than draws.
           const node: Node = { phrase: g.phrase, on: null };
           top.push(node);

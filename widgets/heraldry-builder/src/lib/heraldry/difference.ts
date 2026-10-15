@@ -155,6 +155,9 @@ const primaryOf = (d: Design): Side | null => {
   return p && { design: d, path: p.path, group: p.group, host: null };
 };
 
+/** A5C2: overall groups are compared with overall groups. */
+const overallsOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'overall');
+
 /** A5C2b: SENA treats peripheral ordinaries as secondary charge groups. */
 const secondariesOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'secondary' || g.role === 'peripheral');
 
@@ -299,10 +302,13 @@ export function differences(a: Design, b: Design): Diff[] {
   }
   out.push(...tertiaryChanges(pa, pb));
 
-  const { pairs, onlyX, onlyY } = pairUp(secondariesOf(a), secondariesOf(b));
-  for (const [x, y] of pairs) out.push(...groupChanges(x, y, new Set()), ...tertiaryChanges(x, y));
-  for (const x of onlyX) out.push(change('group-presence', 'dc', 'A5G2', refOf(x, null)), ...tertiaryChanges(x, null));
-  for (const y of onlyY) out.push(change('group-presence', 'dc', 'A5G2', refOf(null, y)), ...tertiaryChanges(null, y));
+  // Secondary and overall groups: those that pair are compared, each one added or removed is one distinct change (A5G2).
+  for (const [xs, ys] of [[secondariesOf(a), secondariesOf(b)], [overallsOf(a), overallsOf(b)]]) {
+    const { pairs, onlyX, onlyY } = pairUp(xs, ys);
+    for (const [x, y] of pairs) out.push(...groupChanges(x, y, new Set()), ...tertiaryChanges(x, y));
+    for (const x of onlyX) out.push(change('group-presence', 'dc', 'A5G2', refOf(x, null)), ...tertiaryChanges(x, null));
+    for (const y of onlyY) out.push(change('group-presence', 'dc', 'A5G2', refOf(null, y)), ...tertiaryChanges(null, y));
+  }
   return out;
 }
 
@@ -389,7 +395,9 @@ function groupNoun(d: Design, path: GroupPath): { one: string; many: string } {
     return { one: noun, many: noun };
   }
   let where = '';
-  if (host?.item.k === 'charge') {
+  if (group.role === 'overall') {
+    where = ' across everything';
+  } else if (host?.item.k === 'charge') {
     where = ' on the picture';
   } else if (host?.item.k === 'ordinary') {
     where = ` on the ${host.item.type === 'chief' || host.item.type === 'bordure' ? ORDINARY_LABEL[host.item.type].plain.toLowerCase() : 'band'}`;

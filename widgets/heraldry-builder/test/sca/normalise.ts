@@ -80,6 +80,13 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(new RegExp(`^((?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
   },
   {
+    // 4a. What lies across everything: "a fess and overall a lion", "a fess, overall a lion", "a fess overall a lion" are one blazon
+    //     (RULES §F.2: the College writes ", overall" and "and overall"; Bruce also runs it on).
+    id: 'overall-connector',
+    description: '", overall", "overall" and "and overall" → "and overall".',
+    apply: (s) => s.replace(/,? (?:and )?overall /g, ' and overall '),
+  },
+  {
     // 5. A single host carries what is on it as "on <host> <group>" or "<host> charged with <group>": SENA writes both
     //    ("Azure, on a bend argent a mullet vert", "a lozenge sable charged with a roundel argent"); the widget words a
     //    charge on a beast, monster or bird the second way and every other host the first.

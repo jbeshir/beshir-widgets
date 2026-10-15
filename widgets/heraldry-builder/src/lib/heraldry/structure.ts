@@ -39,6 +39,12 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
     if (candidates.some((c) => layoutKey(c) === layoutKey(layout)) || !AROUND_COUNTS.includes(g.count)) return null;
     return `${capitalise(chargesPhrase(g))} around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
   }
+  if (ctx.k === 'overall') {
+    // One charge alone, or two long charges crossed; any other count is a gap (support.ts).
+    const candidates = layoutCandidates(d, path, g.count);
+    if (candidates.length === 0 || candidates.some((c) => layoutKey(c) === layoutKey(layout))) return null;
+    return `${capitalise(chargesPhrase(g))} overall can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
+  }
   if (ctx.k === 'on-charge') {
     // Every count but one must be stated, and only some layouts are on offer for it.
     const candidates = layoutCandidates(d, path, g.count);
@@ -121,6 +127,24 @@ export function structuralIssues(d: Design): Issue[] {
       hostsSeen.add(host);
     }
   }
+
+  // 3b. A group overall lies over a primary group (SENA App I4): there is one, it overlies a primary, and one of the two is an ordinary or a long charge.
+  const overalls = walked.filter(({ group, host }) => group.role === 'overall' && host === null);
+  const primary = primaryGroup(d)?.group ?? null;
+  overalls.forEach(({ path, group }, i) => {
+    const at = { k: 'group', path } as const;
+    const fail = (message: string) => add({ code: 'structure', rule: 'overall', at, message, slots: [] });
+    if (i > 0) return fail('There can be only one group overall (SENA App I4).');
+    if (!primary) return fail('Something overall lies over a band, shape or picture in the middle — with none, it is the main picture (SENA App I4).');
+    const bandOrLong = (g: Group) => g.item.k === 'ordinary' || CHARGES[g.item.charge].long;
+    if (!bandOrLong(group) && !bandOrLong(primary)) {
+      return fail(`${capitalise(chargesPhrase(group))} overall must lie over a band or shape, or be a long charge such as a sword — not over ${chargesPhrase(primary)} (SENA App I4).`);
+    }
+    // Two of one charge in two groups is the same-type rule below; two bands of one kind would look like one.
+    if (group.item.k === 'ordinary' && itemKey(group.item) === itemKey(primary.item)) {
+      fail(`The ${itemName(group.item)} can't lie overall over another ${itemName(primary.item)}.`);
+    }
+  });
 
   // 3a. The same type of charge in two groups on the field (SENA A3D1a); a charge on a charge may repeat it.
   const fieldGroups = d.groups.filter((g) => g.role !== 'peripheral' && g.item.k === 'charge');

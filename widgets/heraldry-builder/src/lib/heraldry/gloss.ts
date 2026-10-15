@@ -177,14 +177,15 @@ export function gloss(d: Design): string {
   const between = d.groups.filter((g) => g.role === 'secondary' && g.relation === 'between');
   const positioned = d.groups.filter((g) => g.role === 'secondary' && g.relation === 'position');
   const primary = d.groups.filter((g) => g.role === 'primary');
+  const overall = d.groups.filter((g) => g.role === 'overall');
   const peripheral = d.groups.filter((g) => g.role === 'peripheral');
-  if (d.groups.length !== primary.length + between.length + positioned.length + peripheral.length) {
-    return notSupported({ category: 'multiple-groups', detail: 'overall' });
+  if (d.groups.length !== primary.length + between.length + positioned.length + overall.length + peripheral.length) {
+    return notSupported({ category: 'multiple-groups', detail: 'tertiary' });
   }
   const around = primaryCharges(d) ? between : [];
-  const parts = [...primary, ...positioned, ...peripheral].map((g) => {
-    if (g.item.k === 'ordinary') return ordinaryWith(d, g, g.role === 'primary' ? between : []);
-    return g.role === 'primary' ? chargesWith(d, g, around) : chargesGloss(d, g);
+  const parts = [...primary, ...positioned, ...overall, ...peripheral].map((g) => {
+    const part = g.item.k === 'ordinary' ? ordinaryWith(d, g, g.role === 'primary' ? between : []) : g.role === 'primary' ? chargesWith(d, g, around) : chargesGloss(d, g);
+    return g.role === 'overall' ? { ...part, text: `across all of it, ${part.text}` } : part;
   });
   if (parts.length === 0) return `${field}.`;
   const rest = parts.reduce((text, p, i) => (i === 0 ? p.text : `${text}${parts[i - 1].clause ? ',' : ''} and ${p.text}`), '');

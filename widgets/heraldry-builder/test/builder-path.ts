@@ -6,9 +6,9 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices,
-  modifierChoices, pathOfPlace, postureChoices, setLayerTincture, simpleParts,
-  type ChargeId, type Choice, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture,
+  CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, layerItemChoices,
+  modifierChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, simpleParts,
+  type ChargeId, type Choice, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
@@ -16,8 +16,8 @@ import {
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
-/** The places the picture controls belong to: the picture, the pictures on it, the pictures around it, the pictures in chief, base or canton, and the pictures on the band, the top band and the border. */
-type At = 'picture' | PicturesKey;
+/** The places the picture controls belong to: the picture, the pictures on it, the pictures around it, the pictures in chief, base or canton, the pictures on the band, the top band and the border, and what lies overall. */
+type At = 'picture' | PicturesKey | 'overall';
 /** The pictures laid out after the picture, in the order they are added. */
 const EXTRA_PICTURES: readonly PicturesKey[] = ['on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'on-bordure'];
 
@@ -30,6 +30,7 @@ export type BuilderAction =
   | { kind: 'ordinary-tincture'; tincture: GroupTincture }
   | { kind: 'add-layer'; place: LayerKey }
   | { kind: 'layer-tincture'; place: PeripheralKey; tincture: GroupTincture }
+  | { kind: 'overall-item'; item: LayerItem }
   | { kind: 'charge'; at: At; charge: ChargeId | null }
   | { kind: 'layout'; at: At; action: LayoutAction; design: Design }
   | { kind: 'posture'; at: At; posture: Posture }
@@ -70,8 +71,13 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       const path = peripheralAt(d, a.place);
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : `there is no ${a.place} to colour`;
     }
+    case 'overall-item': {
+      const choice = layerItemChoices(d, 'overall').find((c) => JSON.stringify(c.value) === JSON.stringify(a.item));
+      if (!choice) return pathOfPlace(d, 'overall') ? `${JSON.stringify(a.item)} is not offered` : 'there is nothing overall to change';
+      return choice.allowed ? null : `${JSON.stringify(a.item)} is blocked: ${choice.reason}`;
+    }
     case 'charge':
-      if (a.at !== 'picture' && a.charge !== null && !pathAt(d, a.at)) {
+      if (a.at !== 'picture' && a.at !== 'overall' && a.charge !== null && !pathAt(d, a.at)) {
         const reason = choiceReason(layerChoices(d), a.at);
         if (reason) return `pictures ${a.at} are not offered: ${reason}`;
       }
@@ -103,7 +109,8 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'ordinary-tincture': return setOrdinaryTincture(d, a.tincture);
     case 'add-layer': return addLayer(d, a.place);
     case 'layer-tincture': return setLayerTincture(d, a.place, a.tincture);
-    case 'charge': return setCharge(d, a.at, a.charge);
+    case 'overall-item': return setLayerItem(d, 'overall', a.item);
+    case 'charge': return setCharge(d, a.at as 'picture' | PicturesKey, a.charge);
     case 'layout': return a.design;
     case 'posture': return setPosture(d, path!, a.posture);
     case 'splendour': return setModifier(d, path!, 'in-splendour', a.on);
@@ -120,6 +127,7 @@ function describeAction(a: BuilderAction): string {
     case 'ordinary-tincture': return `ordinary tincture ${a.tincture}`;
     case 'add-layer': return `add ${a.place}`;
     case 'layer-tincture': return `${a.place} tincture ${a.tincture}`;
+    case 'overall-item': return `overall ${a.item.k === 'ordinary' ? a.item.type : a.item.charge}`;
     case 'charge': return `${a.at} charge ${a.charge ?? 'none'}`;
     case 'layout': return `${a.at} ${a.action.kind} ${a.action.kind === 'count' ? a.action.count : a.action.kind === 'placement' ? a.action.placement : a.action.layout}`;
     case 'posture': return `${a.at} posture ${a.posture}`;
@@ -238,14 +246,22 @@ export function builderPath(goal: Design): BuilderPath {
     if (t && tinctureOf(groupAt(d, peripheralAt(d, place)!)) !== t && !click({ kind: 'layer-tincture', place, tincture: t })) return done();
   }
 
-  // The picture, then the pictures around it or beside it in chief, base or canton and the extra pictures on the band, the top band and the border.
-  for (const at of ['picture', ...EXTRA_PICTURES] as const) {
+  // The picture, then the pictures around it or beside it in chief, base or canton, the extra pictures on the band, the top band and the border, and last what lies overall.
+  for (const at of ['picture', ...EXTRA_PICTURES, 'overall'] as const) {
     const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : at === 'around' ? parts.around : at === 'on-picture' ? parts.onPicture
-      : parts.positioned?.place === at ? parts.positioned : parts.peripheralPictures.find((p) => p.place === at);
+      : at === 'overall' ? parts.overall : parts.positioned?.place === at ? parts.positioned : parts.peripheralPictures.find((p) => p.place === at);
     if (!part) continue;
     const item = part.group.item;
-    if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };
-    if (!click({ kind: 'charge', at, charge: item.charge })) return done();
+    if (at === 'overall') {
+      const wanted: LayerItem = item.k === 'ordinary' ? { k: 'ordinary', type: item.type } : { k: 'charge', charge: item.charge };
+      if (!click({ kind: 'add-layer', place: 'overall' }, { kind: 'overall-item', item: wanted })) return done();
+      if (item.k === 'ordinary') {
+        const t = tinctureOf(part.group);
+        if (t && tinctureOf(groupAt(d, pathAt(d, at)!)) !== t && !click({ kind: 'charge-tincture', at, tincture: t })) return done();
+        continue;
+      }
+    } else if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };
+    else if (!click({ kind: 'charge', at, charge: item.charge })) return done();
     const route = layoutRoute(d, goal, at);
     if (!route) {
       problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, at)} from ${layoutState(d, at)}`);

@@ -10,7 +10,7 @@ import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, layoutKey, layoutWords, onChargeLayouts, positionLayout, sameLayout,
+  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
   type FieldContext, type GroundContext, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Yield,
 } from './arrangement';
 import {
@@ -63,6 +63,7 @@ const handRows = (shape: FieldShape): SlotRows => (shape === 'heater' ? HEATER_S
 function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] | null {
   const rows = handRows(shape);
   if (ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'on-charge') return null;
+  if (ctx.k === 'overall') return handSlots(fieldContext(ctx.peripheral), count, layout, shape);
   if (ctx.k === 'field') {
     if (layout.position !== null || ctx.yields !== 'none' || ctx.share !== null) return null;
     const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null }[ctx.peripheral];
@@ -822,7 +823,9 @@ export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, 
   const key = `${JSON.stringify(ctx)}|${count}|${layoutKey(layout)}|${shape}`;
   let slots = memo.get(key);
   if (!slots) {
-    slots = ctx.k === 'around' ? aroundSlots(ctx, count, layout, shape)
+    // Charges overall stand as a lone primary does, in what the chief and bordure leave.
+    slots = ctx.k === 'overall' ? contextSlots(fieldContext(ctx.peripheral), count, layout, shape)
+      : ctx.k === 'around' ? aroundSlots(ctx, count, layout, shape)
       : ctx.k === 'on-charge' ? onChargeSlots(ctx, count, layout, shape)
       : ctx.k === 'on' && ctx.ordinary === 'bordure' ? bordureSlots(count, shape)
       : handSlots(ctx, count, layout, shape) ?? genericIn(ctx, count, layout, shape);
@@ -897,6 +900,7 @@ function whereWords(ctx: LayoutContext, layout: Layout): string {
     case 'position': return `in ${ctx.position}`;
     case 'around': return `around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle${peripheralWords(ctx.peripheral)}`;
     case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
+    case 'overall': return `overall${peripheralWords(ctx.peripheral)}`;
     case 'on-charge': return ctx.host.count === 1 ? `on the ${CHARGES[ctx.host.charge].name}` : `on each of the ${CHARGES[ctx.host.charge].plural}`;
   }
 }
@@ -923,6 +927,7 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
     if (n === group.count) return l.layout;
     if (l.ctx.k === 'position') return positionLayout(l.ctx.position, n);
     if (l.ctx.k === 'on-charge') return onChargeLayouts(n)[0] ?? HOST_LAYOUT;
+    if (l.ctx.k === 'overall') return overallLayouts(n, CHARGES[id].long)[0] ?? HOST_LAYOUT;
     if (l.ctx.k !== 'field') return HOST_LAYOUT;
     if (n === 1) return { arrangement: { k: 'single' }, position: group.position };
     if (a.k === 'line' || a.k === 'single') return { arrangement: { k: 'line', dir: a.k === 'line' ? a.dir : 'fess' }, position: group.position };
