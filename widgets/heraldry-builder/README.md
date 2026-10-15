@@ -95,7 +95,11 @@ same arms (a duplicate). The owner can change it later without a uniqueness re-c
 All four shapes share the 100 × 120 viewBox (`src/lib/heraldry/geometry.ts`). Each shape has its
 own outline, bordure inset (the outline moved inwards), fess point, chief depth and pile; partition
 lines and the fess, pale, bend, chevron, cross and saltire are built the same way around the shape's
-fess point and clipped to its outline. Charge slots for the banner, round and lozenge
+fess point and clipped to its outline. Field regions and ordinaries are closed contours (`contour.ts`): a division's
+parts come from `partitionContours`, and `partIndexAt` says which part a point lies in. An ordinary's drawing comes from
+`ordinaryGeometry(spec, frame)` (`ordinary-geometry.ts`): the spec is everything about the group that changes its drawing (type,
+lines, treatments, count, cotises, fimbriation), the frame is where in the shape it is drawn; it gives the body, fill rule, centre,
+box and the points the ordinary lies on. Render layers carry an ordinary's parts (body today; fimbriation and cotises later). Charge slots for the banner, round and lozenge
 (`shape-slots.ts`) are the heater's tables spread, shifted and sized to fit each shape.
 
 **Validity is shape-independent.** The rule of tincture is judged on the canonical heater layout
@@ -113,7 +117,8 @@ registry (the lines, their SENA App M2 groups and `lineDiffers`, the hosts each 
 what a bare line means on it, and the blazon words and spellings) and one periodic-edge generator: each line has an original
 placeholder profile, one period that is fitted a whole number of times to the visible length of an edge (within SENA A2C1's repeat
 bounds), centred on an anchor and drawn only over a span, straight beyond it. A band's two edges share the period and anchor, so
-wavy, dancetty and counter-embattled edges run in phase and indented, bretessed and engrailed ones mirror. `contour.ts` builds a closed
+wavy, dancetty and counter-embattled edges run in phase and indented, bretessed and engrailed ones mirror. With + away from a band,
+engrailed arcs bite into it and their points face out, invected arcs bulge out. `contour.ts` builds a closed
 outline from straight, curved or lined edges; with every edge plain it gives exactly the polygon paths drawn today.
 
 ## Tinctures and hatching
@@ -729,6 +734,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
+- `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
 - `test/lines.test.ts`: the line registry (SENA App M2 groups, the hosts each line may go on, the edges each host has and what a bare line means on it) and the periodic-edge generator and contours (whole periods within the repeat bounds on every shape, features inside their span, bands' edges in phase or opposed, plain contours byte-identical to the polygons the phase-B shapes draw, captured in `test/fixtures/straight-contours.json`).
 - `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:

@@ -97,13 +97,15 @@ function checkField(layer: Extract<Layer, { k: 'field' }>, block: Block): string
 
 function checkOrdinary(layer: Extract<Layer, { k: 'ordinary' }>, block: Block): string[] {
   const paths = pathTags(block.markup);
-  const want = leafCodes(layer.fill).map((code) => `${layer.d}|${code}|${layer.fillRule}`);
+  const want = layer.parts.flatMap((part) => leafCodes(part.fill).map((code) => `${part.d}|${code}|${part.fillRule}`));
   const got = paths.filter(filled).map((p) => `${p.attrs.d}|${p.attrs['data-paint']}|${p.attrs['fill-rule']}`);
   const problems: string[] = [];
   if (sorted(got).join() !== sorted(want).join()) problems.push(`the ordinary at ${block.group} draws ${got.length} fills, expected ${want.length}`);
-  const outlines = paths.filter((p) => p.attrs.fill === 'none' && p.attrs.d === layer.d);
-  if (outlines.length !== 1) problems.push(`the ordinary at ${block.group} is outlined ${outlines.length} times, expected once`);
-  if (!layer.d) problems.push(`the geometry has no path for the ordinary at ${block.group}`);
+  for (const part of layer.parts) {
+    const outlines = paths.filter((p) => p.attrs.fill === 'none' && p.attrs.d === part.d);
+    if (outlines.length !== 1) problems.push(`the ${part.role} of the ordinary at ${block.group} is outlined ${outlines.length} times, expected once`);
+    if (!part.d) problems.push(`the geometry has no path for the ${part.role} of the ordinary at ${block.group}`);
+  }
   return problems;
 }
 

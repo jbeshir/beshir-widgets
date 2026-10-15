@@ -6,7 +6,7 @@ import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
-import { astrideLine } from './geometry';
+import { liesAstride, specOf } from './ordinary-geometry';
 import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES, isDrawnTreatment } from './divisions';
 import {
   asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
@@ -204,7 +204,7 @@ function placementGaps(d: Design, g: Group, host: Group | null): Found[] {
  */
 function againstAstrideLine(d: Design, g: Group, host: Group | null): boolean {
   const primary = host ?? d.groups.find((x) => x.role === 'primary');
-  if (d.kind !== 'arms' || g.item.k !== 'charge' || primary?.role !== 'primary' || primary.item.k !== 'ordinary' || !astrideLine(d.field, primary.item.type, primary.paint)) return false;
+  if (d.kind !== 'arms' || g.item.k !== 'charge' || primary?.role !== 'primary' || primary.item.k !== 'ordinary' || !liesAstride(d.field, specOf(primary), primary.paint)) return false;
   return host !== null || (g.role === 'secondary' && (g.relation === 'between' || g.position === 'chief'));
 }
 

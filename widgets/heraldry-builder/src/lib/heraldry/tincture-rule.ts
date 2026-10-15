@@ -14,8 +14,9 @@ import {
   asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type IssueAt, type Item, type Paint,
 } from './design';
 import {
-  CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPart, inFirstPartTurned, ordinaryCentre, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Point, type Slot,
+  CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPartTurned, isFieldPaint, partIndexAt, shapeFrame, slotColumn, slotRow, type DividedField, type Pt, type Point, type Slot,
 } from './geometry';
+import { defaultOrdinaryFrame, ordinaryGeometry, specOf, type OrdinarySpec } from './ordinary-geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, type Division, type Variation } from './divisions';
@@ -38,19 +39,19 @@ interface Samples { key: string; points: () => readonly Pt[] }
 
 const slotSamples = (s: Slot): Samples => ({ key: `${s.x},${s.y},${s.size}`, points: () => groundPoints(s) });
 
-/** Whether a paint is a tincture, a fur, a treated tincture or a strewn one: one thing over the part it fills. */
-const isOneThing = (p: Paint): boolean => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null || asSemy(p) !== null;
+/** The points an ordinary lies on in the canonical layout. */
+const ordinarySamples = (spec: OrdinarySpec): Samples =>
+  ({ key: `ordinary:${JSON.stringify(spec)}`, points: () => ordinaryGeometry(spec, defaultOrdinaryFrame(CANONICAL_SHAPE)).samples });
 
 /** The share of each sample set in the first part of each division: it depends on the lines alone, not on the tinctures. */
 const firstShares = new Map<string, number>();
 
-function firstShare(division: Division, samples: Samples): number {
-  const key = `${division}|${samples.key}`;
+function firstShare(f: DividedField, samples: Samples): number {
+  const key = `${f.division}|${f.lines.a}|${f.lines.b}|${samples.key}`;
   let share = firstShares.get(key);
   if (share === undefined) {
     const points = samples.points();
-    const { x, y } = shapeFrame(CANONICAL_SHAPE).fessPoint;
-    share = points.filter(([px, py]) => inFirstPart(division, { x, y }, px, py)).length / points.length;
+    share = points.filter(([px, py]) => partIndexAt(f, CANONICAL_SHAPE, px, py) === 0).length / points.length;
     firstShares.set(key, share);
   }
   return share;
@@ -65,8 +66,8 @@ function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[])
   if (field.k !== 'divided') {
     // One paint all over: its surface lies under everything.
     counts.set(surfaceOf(field, null), 1);
-  } else if (field.parts.length === 2 && isOneThing(a) && isOneThing(b) && DRAWN_DIVISIONS.includes(field.division)) {
-    const first = firstShare(field.division, samples);
+  } else if (field.parts.length === 2 && isFieldPaint(a) && isFieldPaint(b) && DRAWN_DIVISIONS.includes(field.division)) {
+    const first = firstShare({ k: 'divided', division: field.division, lines: field.lines, paints: [a, b] }, samples);
     const [sa, sb] = [surfaceOf(a, null), surfaceOf(b, null)];
     counts.set(sa, first);
     counts.set(sb, (counts.get(sb) ?? 0) + 1 - first);
@@ -138,9 +139,8 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
   }
   if (d.kind === 'badge') return [];
   if (group.item.k === 'ordinary') {
-    const type = group.item.type;
-    if (d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === type) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
-    return [groundAt(d.field, { key: `ordinary:${type}`, points: () => ordinarySamplePoints(type) }, parts)];
+    if (d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === group.item.type) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
+    return [groundAt(d.field, ordinarySamples(specOf(group)), parts)];
   }
   return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(judgedSlot(group, s)), parts));
 }
@@ -160,8 +160,8 @@ function partGrounds(d: Design, path: GroupPath): Ground[][] | null {
     return points.length === 0 ? [] : groundAt(d.field, { key: `${samples.key}@${centre.x},${centre.y}/${turn}/${party.division}/${k}`, points: () => points }, surfaces);
   });
   if (group.item.k === 'ordinary') {
-    const type = group.item.type;
-    return [split({ key: `ordinary:${type}`, points: () => ordinarySamplePoints(type) }, ordinaryCentre(type, CANONICAL_SHAPE), 0)];
+    const spec = specOf(group);
+    return [split(ordinarySamples(spec), ordinaryGeometry(spec, defaultOrdinaryFrame(CANONICAL_SHAPE)).centre, 0)];
   }
   return slotsOf(d, path).map((s) => {
     const judged = judgedSlot(group, s);

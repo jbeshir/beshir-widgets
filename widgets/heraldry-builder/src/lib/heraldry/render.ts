@@ -4,23 +4,29 @@
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
 import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
-import { badgeTransform, CANONICAL_SHAPE, chevronAstrideLinePath, drawnBox, astrideLine, ordinaryFillRule, ordinaryPath, shapeFrame, type Slot } from './geometry';
+import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type Slot } from './geometry';
+import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryGeometry, specOf } from './ordinary-geometry';
 import { groupSlots } from './layout';
 import { chargeFills, fieldFill, ordinaryFill, type Fill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
 
+/** What an ordinary layer paints, in paint order: its fimbriation under its body, the body, then its cotises. */
+export type OrdinaryPartRole = 'fimbriation' | 'body' | 'cotises';
+export interface OrdinaryPart { readonly role: OrdinaryPartRole; readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly fill: Fill }
+
 export type Layer =
   /** `outline` is the field's whole shape; a divided field's `fill` cuts it into parts. */
   | { k: 'field'; outline: string; fill: Fill }
-  | { k: 'ordinary'; path: GroupPath; d: string; fillRule: 'nonzero' | 'evenodd'; fill: Fill }
+  /** The body is always one of the parts. */
+  | { k: 'ordinary'; path: GroupPath; parts: readonly OrdinaryPart[] }
   /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale); each fill paints some of them. */
   | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; fills: SlotFill[] };
 
 function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
   if (group.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
-  const { type } = group.item;
-  const astride = d.kind === 'arms' && !host && astrideLine(d.field, type, group.paint);
-  return { k: 'ordinary', path, d: astride ? chevronAstrideLinePath(shape) : ordinaryPath(type, shape), fillRule: ordinaryFillRule(type), fill: ordinaryFill(d, group, host, type, shape) };
+  const spec = specOf(group), frame = defaultOrdinaryFrame(shape);
+  const geometry = d.kind === 'arms' && !host ? fieldOrdinaryGeometry(d.field, spec, group.paint, frame) : ordinaryGeometry(spec, frame);
+  return { k: 'ordinary', path, parts: [{ role: 'body', d: geometry.body, fillRule: geometry.fillRule, fill: ordinaryFill(d, group, host, spec, frame) }] };
 }
 
 function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {

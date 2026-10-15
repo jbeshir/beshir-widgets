@@ -14,8 +14,9 @@ import {
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
-  CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
+  CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
 } from './geometry';
+import { defaultOrdinaryFrame, ordinaryGeometry, plainSpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';
 import type { FieldShape } from './shape';
 import { MAX_DRAWN_COUNT } from './support';
@@ -736,7 +737,7 @@ export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
     return { ...frameGround(ctx.peripheral, shape), avoid: yielded ? [positionRoom(yielded, shape)] : [], within: null };
   }
   if (ctx.k === 'position') {
-    const avoid = ctx.ordinary ? [pathPolygon(ordinaryPath(ctx.ordinary, shape))] : [];
+    const avoid = ctx.ordinary ? [pathPolygon(ordinaryGeometry(plainSpec(ctx.ordinary), defaultOrdinaryFrame(shape)).body)] : [];
     return { ...frameGround(ctx.peripheral, shape), avoid, within: positionRoom(ctx.position, shape) };
   }
   if (ctx.k === 'around') {
@@ -749,7 +750,7 @@ export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
     const frame = shapeFrame(shape);
     return { contain: pathPolygon(frame.outline), margin: BORDURE_MARGIN, minTop: -Infinity, avoid: [pathPolygon(frame.inset)], within: null };
   }
-  const polygon = pathPolygon(ordinaryPath(ctx.ordinary, shape));
+  const polygon = pathPolygon(ordinaryGeometry(plainSpec(ctx.ordinary), defaultOrdinaryFrame(shape)).body);
   return {
     ...frameGround(ctx.peripheral, shape),
     avoid: ctx.k === 'between' ? [polygon] : [],

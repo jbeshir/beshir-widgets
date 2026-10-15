@@ -4,8 +4,8 @@
 import { TINCTURE_CODE, type Tincture } from './tinctures';
 import { CHARGES } from './charges';
 import { asParty, asSemy, asTreated, asVariation, notSupported, type Design, type Group, type Paint, type PartyPaint, type VariationPaint } from './design';
-import { counterchangedOrdinaryParts, counterchangedSlotParts, drawnBox, fieldRegions, ordinaryBox, ordinaryCentre, partitionRegions, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
-import type { OrdinaryType } from './ordinaries';
+import { counterchangedSlotParts, drawnBox, fieldRegions, partitionRegions, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
+import { counterchangedOrdinaryParts, ordinaryGeometry, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
 import { furPattern, semyPattern, treatmentPattern, type SolidColour, type PatternSpec } from './patterns';
 import type { FieldShape } from './shape';
 import { variationRegions, type Box } from './variation-geometry';
@@ -107,15 +107,15 @@ export function fieldFill(field: Paint, shape: FieldShape): Fill {
 }
 
 /** An ordinary's fill: nothing for a counterchanged one that can't be (on a plain field, or on a host). */
-export function ordinaryFill(d: Design, group: Group, host: Group | null, type: OrdinaryType, shape: FieldShape): Fill {
+export function ordinaryFill(d: Design, group: Group, host: Group | null, spec: OrdinarySpec, frame: OrdinaryFrame): Fill {
   switch (group.paint.k) {
     case 'tincture': case 'fur': case 'treated': case 'semy': return paintFill(group.paint, ORDINARY_FUR_SCALE);
     case 'counterchanged':
-      return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, type, shape), ORDINARY_FUR_SCALE) : NO_FILL;
-    case 'divided': return partyFill(partyOf(group.paint), ordinaryCentre(type, shape), 0);
-    case 'variation': return variationFill(variationOf(group.paint), ordinaryBox(type, shape), 0);
+      return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, spec, frame), ORDINARY_FUR_SCALE) : NO_FILL;
+    case 'divided': return partyFill(partyOf(group.paint), ordinaryGeometry(spec, frame).centre, 0);
+    case 'variation': return variationFill(variationOf(group.paint), ordinaryGeometry(spec, frame).box, 0);
     case 'stain': return notSupported({ category: 'tincture', detail: group.paint.stain });
-    case 'proper': return notSupported({ category: 'proper', detail: type });
+    case 'proper': return notSupported({ category: 'proper', detail: spec.type });
     default: return group.paint satisfies never;
   }
 }
@@ -132,7 +132,8 @@ export function chargeFills(d: Design, group: Group, host: Group | null, slots: 
     case 'counterchanged': {
       if (d.kind !== 'arms' || host) return [];
       const parts = slots.map((s) => counterchangedSlotParts(d.field, s, shape));
-      return ([0, 1] as const).flatMap((region) => {
+      const regions = [...new Set(parts.flat().map((p) => p.region))].sort((a, b) => a - b);
+      return regions.flatMap((region) => {
         const on = all.filter((i) => parts[i].some((p) => p.region === region));
         const part = on.length ? parts[on[0]].find((p) => p.region === region) : undefined;
         return part ? [{ fill: counterchangedFill([part], chargeFurScale(slots[on[0]].size)), slots: on }] : [];

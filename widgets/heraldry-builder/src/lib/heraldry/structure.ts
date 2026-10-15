@@ -6,7 +6,7 @@ import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { DIVISION_NAME } from './divisions';
-import { divisionCutsOrdinary } from './geometry';
+import { divisionCutsOrdinary, specOf } from './ordinary-geometry';
 import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue, onChargeWords } from './layout';
 import { posturesClash } from './difference';
@@ -219,7 +219,7 @@ export function structuralIssues(d: Design): Issue[] {
       const thing = group.item.k === 'ordinary' ? `the ${ORDINARY_NAME[group.item.type]}` : `each ${CHARGES[group.item.charge].name}`;
       const problem = party.parts[0].t === party.parts[1].t
         ? `A divided ${itemName(group.item)} needs two different tinctures — both parts are ${TINCTURE_NAME[party.parts[0].t]}.`
-        : group.item.k === 'ordinary' && !divisionCutsOrdinary(party.division, group.item.type)
+        : group.item.k === 'ordinary' && !divisionCutsOrdinary(party.division, specOf(group))
           ? `${capitalise(DIVISION_NAME[party.division])} doesn't cut across ${thing}, so only one part would show — choose another division.`
           : group.item.k === 'charge' && party.division === 'per-chevron' && CHARGES[group.item.charge].long
             ? `A long ${CHARGES[group.item.charge].name} can't be divided per chevron — it would read as per fess (RULES CC-11).`

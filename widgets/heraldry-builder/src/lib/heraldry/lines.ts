@@ -192,6 +192,17 @@ const single = (depth: number, period: ProfileStep[]): LineProfile =>
 /** A cubic's control height for a peak of 1: a cubic with both controls at height h peaks at ¾h. */
 const PEAK = 4 / 3;
 
+/**
+ * Steps from (0,0) to (½,0) followed by their antisymmetric twin from (½,0) to (1,0) — v(1−u) = −v(u) — so a feature drawn up in the
+ * first half comes back down in the second (the shape of the parallel profiles).
+ */
+function antisymmetric(half: ProfileStep[]): ProfileStep[] {
+  const turn = ([u, v]: Pt): Pt => [1 - u, -v];
+  const starts: Pt[] = [[0, 0], ...half.map((s) => s.to)];
+  const back = half.map((s, i): ProfileStep => (s.k === 'L' ? { k: 'L', to: turn(starts[i]) } : { k: 'C', c1: turn(s.c2), c2: turn(s.c1), to: turn(starts[i]) }));
+  return [...half, ...back.reverse()];
+}
+
 /** Original placeholder profiles (procedural; no third-party drawing consulted). Numbers within RULES-C §A.4's bounds. */
 export const LINE_PROFILE: Record<ComplexLine, LineProfile> = {
   // merlon then crenel: a square wave
@@ -209,21 +220,19 @@ export const LINE_PROFILE: Record<ComplexLine, LineProfile> = {
   )),
   // a crest then a trough
   wavy: periodic(3, 3, 4, 9, 'parallel', [C(0.15, PEAK, 0.35, PEAK, 0.5, 0), C(0.65, -PEAK, 0.85, -PEAK, 1, 0)]),
-  // a bulb-headed lobe up, then one down: the bulbs overhang their necks
-  nebuly: periodic(4, 4, 5, 10, 'parallel', [
-    C(0.2, 0.3, -0.15, 1, 0.25, 1), C(0.65, 1, 0.3, 0.3, 0.5, 0),
-    C(0.7, -0.3, 0.35, -1, 0.75, -1), C(1.15, -1, 0.8, -0.3, 1, 0),
-  ]),
+  // round cloud lobes, one up and one down: each a pinched neck under an oval head that overhangs it on both sides
+  nebuly: periodic(4, 4, 5, 10, 'parallel', antisymmetric([
+    C(0.07, 0.05, 0.13, 0.15, 0.1, 0.25), C(0.06, 0.35, -0.02, 0.42, -0.02, 0.6), C(-0.02, 0.85, 0.1, 1, 0.25, 1),
+    C(0.4, 1, 0.52, 0.85, 0.52, 0.6), C(0.52, 0.42, 0.44, 0.35, 0.4, 0.25), C(0.37, 0.15, 0.43, 0.05, 0.5, 0),
+  ])),
   // pales pointed at both ends
   urdy: periodic(5, 4, 6, 9, 'parallel', steps([0, 0.5], [0.25, 1], [0.5, 0.5], [0.5, -0.5], [0.75, -1], [1, -0.5], [1, 0])),
-  // curved flames, alternately up and down
-  rayonny: periodic(6, 5, 8, 12, 'parallel', [
-    C(0.1, 0.3, 0.1, 0.8, 0.3, 1), C(0.25, 0.6, 0.45, 0.2, 0.5, 0),
-    C(0.55, -0.2, 0.75, -0.6, 0.7, -1), C(0.9, -0.8, 0.9, -0.3, 1, 0),
-  ]),
-  // arcs biting into the carrier: the cusps lie on the line, on the + side of the arcs
-  engrailed: periodic(6, 5, 8, 6, 'mirrored', [C(0.05, -2 * PEAK, 0.95, -2 * PEAK, 1, 0)]),
-  invected: periodic(6, 5, 8, 6, 'mirrored', [C(0.05, 2 * PEAK, 0.95, 2 * PEAK, 1, 0)]),
+  // flames, alternately up and down: each ray's flanks are S-curves meeting in a sharp tip that leans along the line
+  rayonny: periodic(6, 5, 8, 12, 'parallel', antisymmetric([C(0.25, 0.05, 0.05, 0.75, 0.3, 1), C(0.45, 0.75, 0.25, 0.25, 0.5, 0)])),
+  // engrailed: round arcs biting into the carrier (v ≤ 0 with + away from it), so the cusps between them, on the line, point away
+  // from it; invected is the same turned over: the arcs bulge out and the cusps point in
+  engrailed: periodic(6, 5, 8, 4, 'mirrored', [C(0.25, -2 * PEAK, 0.75, -2 * PEAK, 1, 0)]),
+  invected: periodic(6, 5, 8, 4, 'mirrored', [C(0.25, 2 * PEAK, 0.75, 2 * PEAK, 1, 0)]),
   // teeth out of the line
   indented: periodic(7, 6, 9, 8, 'mirrored', steps([0.5, 2], [1, 0])),
   // a large zig-zag

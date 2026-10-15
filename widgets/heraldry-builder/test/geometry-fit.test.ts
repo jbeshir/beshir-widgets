@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AROUND_COUNTS, ART_ON_BOX, CHARGE_ART, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
-  hasBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
+  hasBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryGeometry, plainSpec, defaultOrdinaryFrame, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ChargeId, type Design, type FieldShape, type GroundContext, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
@@ -207,7 +207,7 @@ function shapeGeometry(shape: FieldShape): ShapeGeometry {
   const frame = shapeFrame(shape);
   return {
     shape, outline: pathPolygon(frame.outline), inset: pathPolygon(frame.inset), chiefBase: frame.chiefBase, fessY: frame.fessPoint.y,
-    poly: (t) => pathPolygon(ordinaryPath(t, shape)),
+    poly: (t) => pathPolygon(ordinaryGeometry(plainSpec(t), defaultOrdinaryFrame(shape)).body),
   };
 }
 const SHAPES = FIELD_SHAPES.map(shapeGeometry);

@@ -3,8 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
-  capacityIssue, ordinaryPath, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type GroundContext, type Layout, type LayoutContext, type OrdinaryType,
+  MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinaryGeometry, plainSpec, defaultOrdinaryFrame, pathPolygon, pointInPolygon, probePoints,
+  capacityIssue, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type GroundContext, type Layout, type LayoutContext, type OrdinaryType,
 } from '../src/lib/heraldry';
 import type { Pt } from '../src/lib/heraldry/geometry';
 import { fits, groundFor, type Ground } from '../src/lib/heraldry/layout';
@@ -231,12 +231,12 @@ describe('geometry helpers', () => {
   });
 
   it('an ordinary lies on the field parts under it', () => {
-    const above = (type: OrdinaryType) => ordinarySamplePoints(type).filter(([, y]) => y < 50).length;
-    expect(above('chief')).toBe(ordinarySamplePoints('chief').length);
-    expect(ordinarySamplePoints('bordure').some(([x]) => x < 50)).toBe(true);
-    expect(ordinarySamplePoints('bordure').some(([x]) => x > 50)).toBe(true);
-    expect(ordinarySamplePoints('fess').length).toBeGreaterThan(100);
-    expect(ordinarySamplePoints('fess')).toBe(ordinarySamplePoints('fess'));
+    const above = (type: OrdinaryType) => ordinaryGeometry(plainSpec(type), defaultOrdinaryFrame('heater')).samples.filter(([, y]) => y < 50).length;
+    expect(above('chief')).toBe(ordinaryGeometry(plainSpec('chief'), defaultOrdinaryFrame('heater')).samples.length);
+    expect(ordinaryGeometry(plainSpec('bordure'), defaultOrdinaryFrame('heater')).samples.some(([x]) => x < 50)).toBe(true);
+    expect(ordinaryGeometry(plainSpec('bordure'), defaultOrdinaryFrame('heater')).samples.some(([x]) => x > 50)).toBe(true);
+    expect(ordinaryGeometry(plainSpec('fess'), defaultOrdinaryFrame('heater')).samples.length).toBeGreaterThan(100);
+    expect(ordinaryGeometry(plainSpec('fess'), defaultOrdinaryFrame('heater')).samples).toBe(ordinaryGeometry(plainSpec('fess'), defaultOrdinaryFrame('heater')).samples);
   });
 });
 
@@ -306,7 +306,7 @@ describe('the larger counts on the ordinaries Table 7 gives them', () => {
   it('keep the three under a chevron clear of its limbs and the charges on one off each other', () => {
     const below = slotsOf({ k: 'between', ordinary: 'chevron', peripheral: 'none' }, 6, 'host').filter((s) => s.y > 71);
     expect(below).toHaveLength(3);
-    const chevron = pathPolygon(ordinaryPath('chevron', 'heater'));
+    const chevron = pathPolygon(ordinaryGeometry(plainSpec('chevron'), defaultOrdinaryFrame('heater')).body);
     for (const s of below) expect(pointInPolygon(s.x, s.y, chevron)).toBe(false);
     const on = slotsOf({ k: 'on', ordinary: 'chevron', peripheral: 'none' }, 6, 'host');
     for (const a of on) for (const b of on) if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(a.size);

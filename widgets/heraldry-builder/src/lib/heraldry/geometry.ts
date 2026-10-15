@@ -1,6 +1,7 @@
-// Shield geometry: the outline of every field shape in one shared viewBox (0 0 100 120), partition-line
-// regions, ordinary shapes, slot transforms and the probes the rule of tincture relies on. All paths are
-// SVG path strings; renderers clip everything to the shape's outline. Where charges go is layout.ts.
+// Shield geometry: the outline of every field shape in one shared viewBox (0 0 100 120), the regions of a
+// divided field (built from contours) and which part a point lies in, slot transforms and the probes the rule
+// of tincture relies on. All paths are SVG path strings; renderers clip everything to the shape's outline.
+// Ordinaries are ordinary-geometry.ts; where charges go is layout.ts.
 //
 // The heater shield is the canonical layout: the rule of tincture is judged on it alone, so a design
 // gets the same verdict in every shape. The other shapes reuse the heater's construction (lines
@@ -8,9 +9,10 @@
 
 import { CHARGES, type ChargeId } from './charges';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
-import { asSemy, asTreated, asVariation, notSupported, type Paint, type VariationPaint } from './design';
+import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
-import type { OrdinaryType } from './ordinaries';
+import { contoursPath, type Contour, type ContourEdge } from './contour';
+import type { EdgeRun, Line } from './lines';
 import { surfaceOf, type Surface } from './surface';
 import type { FieldShape } from './shape';
 
@@ -102,7 +104,7 @@ export function pointInPolygon(x: number, y: number, poly: readonly Pt[]): boole
 }
 
 /** Even-odd containment across all subpaths: right for rings (the bordure) and for plain shapes alike. */
-function pointInPath(rings: readonly Pt[][], x: number, y: number): boolean {
+export function pointInPath(rings: readonly Pt[][], x: number, y: number): boolean {
   return rings.filter((r) => pointInPolygon(x, y, r)).length % 2 === 1;
 }
 
@@ -151,38 +153,43 @@ export function shapeFrame(shape: FieldShape): ShapeFrame {
 /** A paint that is one thing over the part of the field it fills: a tincture, a fur, a treated tincture or a strewn one. */
 export type FieldPaint = Extract<Paint, { k: 'tincture' | 'fur' | 'treated' | 'semy' }>;
 
-const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null || asSemy(p) !== null;
+export const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null || asSemy(p) !== null;
 
-/** The field as geometry draws it: plain, one of the drawn divisions of two parts, or a variation of two tinctures. */
-type DrawnField =
+/** The field as geometry draws it: plain, one of the drawn divisions (a paint per part), or a variation of two tinctures. */
+export type DrawnField =
   | { k: 'plain'; paint: FieldPaint }
-  | { k: 'divided'; division: Division; paints: [FieldPaint, FieldPaint] }
-  | { k: 'varied'; variation: VariationPaint; paints: [FieldPaint, FieldPaint] };
+  | { k: 'divided'; division: Division; lines: Lines; paints: readonly FieldPaint[] }
+  | { k: 'varied'; paint: VariationPaint };
+export type DividedField = Extract<DrawnField, { k: 'divided' }>;
+export type VariedField = Extract<DrawnField, { k: 'varied' }>;
 
 function drawnField(field: Paint): DrawnField {
   if (isFieldPaint(field)) return { k: 'plain', paint: field };
   if (field.k === 'divided' && DRAWN_DIVISIONS.includes(field.division) && field.parts.length === 2) {
     const [a, b] = field.parts;
-    if (isFieldPaint(a) && isFieldPaint(b)) return { k: 'divided', division: field.division, paints: [a, b] };
+    if (isFieldPaint(a) && isFieldPaint(b)) return { k: 'divided', division: field.division, lines: field.lines, paints: [a, b] };
   }
   const variation = asVariation(field);
-  if (variation) return { k: 'varied', variation, paints: variation.parts };
+  if (variation) return { k: 'varied', paint: variation };
   return notSupported({ category: 'field-treatment', detail: field.k });
 }
 
-/** The surface of the field at (x,y) in the canonical layout; points exactly on a line count as the second part. A variation is one surface everywhere (SENA A3B1). */
+/** The paint of each part of a divided or varied field, in part order. */
+const partPaints = (f: DividedField | VariedField): readonly FieldPaint[] => (f.k === 'divided' ? f.paints : f.paint.parts);
+
+/** The surface of the field at (x,y) in the canonical layout; points exactly on a line count as the later part. A variation is one surface everywhere (SENA A3B1). */
 export function fieldSurfaceAt(field: Paint, x: number, y: number): Surface {
   const f = drawnField(field);
   switch (f.k) {
     case 'plain': return surfaceOf(f.paint, null);
     case 'varied': return surfaceOf(field, null);
-    case 'divided': return surfaceOf(inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.paints[0] : f.paints[1], null);
+    case 'divided': return surfaceOf(f.paints[partIndexAt(f, CANONICAL_SHAPE, x, y)], null);
     default: return f satisfies never;
   }
 }
 
 /** How far the chevron's apex (and the per-chevron line's) sits above the fess point. */
-const CHEVRON_APEX_RISE = 10;
+export const CHEVRON_APEX_RISE = 10;
 
 /** Whether (x,y) lies in the first part of a division whose lines meet at `fess`. */
 export function inFirstPart(division: Division, fess: Point, x: number, y: number): boolean {
@@ -200,192 +207,126 @@ export function inFirstPart(division: Division, fess: Point, x: number, y: numbe
 }
 
 /** Partition regions and ordinaries run this far past the frame; the outline clips them. */
-const OVER = { x0: -40, x1: 140, y0: -40, y1: 160 };
+export const OVER = { x0: -40, x1: 140, y0: -40, y1: 160 };
 
-/** Region paths [first part, second part] for lines meeting at `fess` (turned `turn` degrees clockwise about it), covering the whole frame. */
-export function partitionRegions(division: Division, fess: Point, turn = 0): [string, string] {
+/** A corner of a region, and the partition line the edge from it to the next corner runs along (null: the edge of the frame). */
+type Corner = readonly [Pt, Line | null];
+
+/** How an edge along a partition line is drawn: null for a plain line. Complex lines on the field are drawn from C4a on. */
+const lineRun = (line: Line | null): EdgeRun | null =>
+  line === null || line === 'plain' ? null : notSupported({ category: 'line-of-partition', detail: line });
+
+/** A closed region through its corners; a line on the closing edge is drawn as an explicit last edge. */
+function region(corners: readonly Corner[]): Contour {
+  const edges = corners.slice(1).map(([to], i): ContourEdge => ({ via: [], to, run: lineRun(corners[i][1]) }));
+  const closing = lineRun(corners[corners.length - 1][1]);
+  return { start: corners[0][0], edges: closing ? [...edges, { via: [], to: corners[0][0], run: closing }] : edges };
+}
+
+/** The contours of each part of a division whose lines meet at `fess`, turned `turn` degrees clockwise about it, covering the whole frame. */
+function partitionAt(division: Division, lines: Lines, fess: Point, turn: number): Contour[][] {
   const { x: cx, y: cy } = fess;
-  const poly = (p: Array<[number, number]>) => pts(turn === 0 ? p : p.map(([x, y]) => turned({ x: cx, y: cy, size: 0, rotation: turn }, x, y)));
+  const at = ([x, y]: Pt): Pt => (turn === 0 ? [x, y] : turned({ x: cx, y: cy, size: 0, rotation: turn }, x, y));
+  const part = (...regions: Array<Array<[Pt, Line | null]>>): Contour[] => regions.map((r) => region(r.map(([p, l]): Corner => [at(p), l])));
   const { x0, x1, y0, y1 } = OVER;
+  const { a, b } = lines;
   const bend = (x: number) => cy + (x - cx);
   const sinister = (x: number) => cy - (x - cx);
   const apexY = cy - CHEVRON_APEX_RISE;
   const limb = apexY + (x1 - cx);
   const k = 100;
   switch (division) {
-    case 'per-pale': return [poly([[x0, y0], [cx, y0], [cx, y1], [x0, y1]]), poly([[cx, y0], [x1, y0], [x1, y1], [cx, y1]])];
-    case 'per-fess': return [poly([[x0, y0], [x1, y0], [x1, cy], [x0, cy]]), poly([[x0, cy], [x1, cy], [x1, y1], [x0, y1]])];
+    case 'per-pale': return [
+      part([[[x0, y0], null], [[cx, y0], a], [[cx, y1], null], [[x0, y1], null]]),
+      part([[[cx, y0], null], [[x1, y0], null], [[x1, y1], null], [[cx, y1], a]]),
+    ];
+    case 'per-fess': return [
+      part([[[x0, y0], null], [[x1, y0], null], [[x1, cy], a], [[x0, cy], null]]),
+      part([[[x0, cy], a], [[x1, cy], null], [[x1, y1], null], [[x0, y1], null]]),
+    ];
     case 'per-bend': return [
-      poly([[x0, y0], [x1, y0], [x1, bend(x1)], [x0, bend(x0)]]),
-      poly([[x0, bend(x0)], [x1, bend(x1)], [x1, y1], [x0, y1]]),
+      part([[[x0, y0], null], [[x1, y0], null], [[x1, bend(x1)], a], [[x0, bend(x0)], null]]),
+      part([[[x0, bend(x0)], a], [[x1, bend(x1)], null], [[x1, y1], null], [[x0, y1], null]]),
     ];
     case 'per-bend-sinister': return [
-      poly([[x0, y0], [x1, y0], [x1, sinister(x1)], [x0, sinister(x0)]]),
-      poly([[x0, sinister(x0)], [x1, sinister(x1)], [x1, y1], [x0, y1]]),
+      part([[[x0, y0], null], [[x1, y0], null], [[x1, sinister(x1)], a], [[x0, sinister(x0)], null]]),
+      part([[[x0, sinister(x0)], a], [[x1, sinister(x1)], null], [[x1, y1], null], [[x0, y1], null]]),
     ];
     case 'per-saltire': return [
-      poly([[cx - k, cy - k], [cx + k, cy - k], [cx, cy]]) + poly([[cx, cy], [cx + k, cy + k], [cx - k, cy + k]]),
-      poly([[cx - k, cy - k], [cx, cy], [cx - k, cy + k]]) + poly([[cx + k, cy - k], [cx + k, cy + k], [cx, cy]]),
+      part([[[cx - k, cy - k], null], [[cx + k, cy - k], a], [[cx, cy], a]], [[[cx, cy], a], [[cx + k, cy + k], null], [[cx - k, cy + k], a]]),
+      part([[[cx - k, cy - k], a], [[cx, cy], a], [[cx - k, cy + k], null]], [[[cx + k, cy - k], null], [[cx + k, cy + k], a], [[cx, cy], a]]),
     ];
     case 'per-chevron': return [
-      poly([[x0, y0], [x1, y0], [x1, limb], [cx, apexY], [x0, limb]]),
-      poly([[x0, limb], [cx, apexY], [x1, limb], [x1, y1], [x0, y1]]),
+      part([[[x0, y0], null], [[x1, y0], null], [[x1, limb], a], [[cx, apexY], a], [[x0, limb], null]]),
+      part([[[x0, limb], a], [[cx, apexY], a], [[x1, limb], null], [[x1, y1], null], [[x0, y1], null]]),
     ];
+    // the per pale line is `a`, the per fess line `b`
     case 'quarterly': return [
-      poly([[x0, y0], [cx, y0], [cx, cy], [x0, cy]]) + poly([[cx, cy], [x1, cy], [x1, y1], [cx, y1]]),
-      poly([[cx, y0], [x1, y0], [x1, cy], [cx, cy]]) + poly([[x0, cy], [cx, cy], [cx, y1], [x0, y1]]),
+      part([[[x0, y0], null], [[cx, y0], a], [[cx, cy], b], [[x0, cy], null]], [[[cx, cy], b], [[x1, cy], null], [[x1, y1], null], [[cx, y1], a]]),
+      part([[[cx, y0], null], [[x1, y0], null], [[x1, cy], b], [[cx, cy], a]], [[[x0, cy], b], [[cx, cy], a], [[cx, y1], null], [[x0, y1], null]]),
     ];
     default: return notSupported({ category: 'division', detail: division });
   }
 }
 
-/** The region paths [first part, second part] of a divided or varied field in a shape. */
-function regionsOf(f: Exclude<DrawnField, { k: 'plain' }>, frame: ShapeFrame): [string, string] {
-  return f.k === 'divided' ? partitionRegions(f.division, frame.fessPoint) : variationRegions(f.variation.variation, f.variation.pieces, frame.box);
+/** Every part of a divided field as its contours (per saltire and quarterly: two for a part), in part order, around the shape's fess point. */
+export function partitionContours(division: Division, lines: Lines, frame: ShapeFrame): readonly (readonly Contour[])[] {
+  return partitionAt(division, lines, frame.fessPoint, 0);
 }
 
-/** Whether (x,y) lies in the first part of a divided or varied field in a shape. */
-function inFirstOf(f: Exclude<DrawnField, { k: 'plain' }>, frame: ShapeFrame, x: number, y: number): boolean {
-  return f.k === 'divided' ? inFirstPart(f.division, frame.fessPoint, x, y) : inFirstRegion(f.variation.variation, f.variation.pieces, frame.box, x, y);
+/** Region paths [first part, second part] for straight lines meeting at `fess` (turned `turn` degrees clockwise about it), covering the whole frame: a party charge's or band's. */
+export function partitionRegions(division: Division, fess: Point, turn = 0): [string, string] {
+  const [first, second] = partitionAt(division, PLAIN_LINES, fess, turn).map(contoursPath);
+  return [first, second];
+}
+
+const divisionCache = new Map<string, readonly string[]>();
+
+/** The region paths of a divided field in a shape, one per part in part order. */
+export function divisionRegions(division: Division, lines: Lines, shape: FieldShape): readonly string[] {
+  const key = `${division}|${lines.a}|${lines.b}|${shape}`;
+  let regions = divisionCache.get(key);
+  if (!regions) {
+    regions = partitionContours(division, lines, SHAPE_FRAME[shape]).map(contoursPath);
+    divisionCache.set(key, regions);
+  }
+  return regions;
+}
+
+/** The region paths of a divided or varied field in a shape, in part order. */
+function regionsOf(f: DividedField | VariedField, shape: FieldShape): readonly string[] {
+  if (f.k === 'divided') return divisionRegions(f.division, f.lines, shape);
+  const v = f.paint;
+  if (v.lines.a !== 'plain') return notSupported({ category: 'line-of-partition', detail: v.lines.a });
+  return variationRegions(v.variation, v.pieces, SHAPE_FRAME[shape].box);
+}
+
+const plainLines = (l: Lines): boolean => l.a === 'plain' && l.b === 'plain';
+
+/**
+ * The part (0-based) of a divided or varied field a point lies in, in a shape: the analytic test for plain lines (points exactly on a
+ * line count as the later part), else the first region whose drawn outline holds it.
+ */
+export function partIndexAt(f: DividedField | VariedField, shape: FieldShape, x: number, y: number): number {
+  const frame = SHAPE_FRAME[shape];
+  if (f.k === 'divided' && plainLines(f.lines)) return inFirstPart(f.division, frame.fessPoint, x, y) ? 0 : 1;
+  if (f.k === 'varied' && plainLines(f.paint.lines)) return inFirstRegion(f.paint.variation, f.paint.pieces, frame.box, x, y) ? 0 : 1;
+  const index = regionsOf(f, shape).findIndex((d) => pointInPath(pathRings(d), x, y));
+  return index < 0 ? partPaints(f).length - 1 : index;
 }
 
 /** Field as paint-filled regions, in paint order. */
 export function fieldRegions(field: Paint, shape: FieldShape): Array<{ paint: FieldPaint; d: string }> {
   const f = drawnField(field);
-  const frame = SHAPE_FRAME[shape];
-  if (f.k === 'plain') return [{ paint: f.paint, d: frame.outline }];
-  const [a, b] = regionsOf(f, frame);
-  return [{ paint: f.paints[0], d: a }, { paint: f.paints[1], d: b }];
-}
-
-// ── Ordinaries ──────────────────────────────────────────────────────────────
-
-const BAND_HALF = 15;                   // fess and pale: 30 wide
-const BEND_HALF = 15 * Math.SQRT2;      // 30-wide band, measured perpendicular to a 45° line
-/** How tall the chief is: its lower edge is `chiefBase`. */
-const CHIEF_HEIGHT = 30;
-const CROSS_HALF = 12;                  // 24-wide arms
-const SALTIRE_HALF = 12 * Math.SQRT2;   // 24-wide arms
-const CHEVRON_THICK = 22 * Math.SQRT2;  // 22-wide band, measured perpendicular to its limbs
-
-/** How far a chevron astride a field's per-chevron line is raised: half its thickness, so the line runs down its middle. */
-const CHEVRON_ASTRIDE_LIFT = CHEVRON_THICK / 2;
-
-function ordinaryPathIn(type: OrdinaryType, f: ShapeFrame, lift = 0): string {
-  const { x: cx, y: cy } = f.fessPoint;
-  const { x0, x1, y0, y1 } = OVER;
-  const d = BEND_HALF, sd = SALTIRE_HALF, c = CROSS_HALF;
-  const bend = (x: number) => cy + (x - cx);
-  const sinister = (x: number) => cy - (x - cx);
-  const apexY = cy - CHEVRON_APEX_RISE - lift;
-  const reach = 80; // limbs and saltire arms run this far (horizontally) from their centre
-  switch (type) {
-    case 'fess': return pts([[x0, cy - BAND_HALF], [x1, cy - BAND_HALF], [x1, cy + BAND_HALF], [x0, cy + BAND_HALF]]);
-    case 'pale': return pts([[cx - BAND_HALF, y0], [cx + BAND_HALF, y0], [cx + BAND_HALF, y1], [cx - BAND_HALF, y1]]);
-    case 'bend': return pts([[cx - reach, bend(cx - reach) - d], [cx + reach, bend(cx + reach) - d], [cx + reach, bend(cx + reach) + d], [cx - reach, bend(cx - reach) + d]]);
-    case 'bend-sinister': return pts([[cx - reach, sinister(cx - reach) - d], [cx + reach, sinister(cx + reach) - d], [cx + reach, sinister(cx + reach) + d], [cx - reach, sinister(cx - reach) + d]]);
-    case 'chevron': return pts([
-      [cx - reach, apexY + reach], [cx, apexY], [cx + reach, apexY + reach],
-      [cx + reach, apexY + reach + CHEVRON_THICK], [cx, apexY + CHEVRON_THICK], [cx - reach, apexY + reach + CHEVRON_THICK],
-    ]);
-    case 'cross': return pts([
-      [cx - c, y0], [cx + c, y0], [cx + c, cy - c], [x1, cy - c], [x1, cy + c], [cx + c, cy + c],
-      [cx + c, y1], [cx - c, y1], [cx - c, cy + c], [x0, cy + c], [x0, cy - c], [cx - c, cy - c],
-    ]);
-    case 'saltire': return pts([
-      [cx, cy - sd], [cx + reach, cy - reach - sd], [cx + reach, cy - reach + sd], [cx + sd, cy], [cx + reach, cy + reach - sd], [cx + reach, cy + reach + sd],
-      [cx, cy + sd], [cx - reach, cy + reach + sd], [cx - reach, cy + reach - sd], [cx - sd, cy], [cx - reach, cy - reach + sd], [cx - reach, cy - reach - sd],
-    ]);
-    case 'chief': return pts([[x0, y0], [x1, y0], [x1, f.chiefBase], [x0, f.chiefBase]]);
-    case 'bordure': return f.outline + f.inset;
-    case 'pile': return pts(f.pile);
-    default: return notSupported({ category: 'ordinary', detail: type });
-  }
-}
-
-const ordinaryCache = new Map<string, string>();
-
-/** The path of an ordinary in a shape. */
-export function ordinaryPath(type: OrdinaryType, shape: FieldShape): string {
-  const key = `${shape}:${type}`;
-  let d = ordinaryCache.get(key);
-  if (d === undefined) {
-    d = ordinaryPathIn(type, SHAPE_FRAME[shape]);
-    ordinaryCache.set(key, d);
-  }
-  return d;
-}
-
-const astrideCache = new Map<FieldShape, string>();
-
-/**
- * The path of a counterchanged chevron on a field per chevron in a shape: raised so that the field's line runs down the middle of it
- * (drawn in its usual place the chevron would lie wholly below the line and show one tincture).
- */
-export function chevronAstrideLinePath(shape: FieldShape): string {
-  let d = astrideCache.get(shape);
-  if (d === undefined) {
-    d = ordinaryPathIn('chevron', SHAPE_FRAME[shape], CHEVRON_ASTRIDE_LIFT);
-    astrideCache.set(shape, d);
-  }
-  return d;
-}
-
-/** Whether an ordinary lies astride its field's line: a counterchanged chevron on a field per chevron. */
-export const astrideLine = (field: Paint, type: OrdinaryType, paint: Paint): boolean =>
-  type === 'chevron' && paint.k === 'counterchanged' && field.k === 'divided' && field.division === 'per-chevron';
-
-/** The bordure is a ring (outline minus inset) and needs evenodd; everything else is nonzero. */
-export function ordinaryFillRule(type: OrdinaryType): 'nonzero' | 'evenodd' {
-  return type === 'bordure' ? 'evenodd' : 'nonzero';
-}
-
-const samplePointCache = new Map<OrdinaryType, Pt[]>();
-
-/** Grid step of the points an ordinary is sampled at (offset by one so none sits on a partition line). */
-const SAMPLE_STEP = 4;
-
-/** A step-4 grid of the heater points inside the ordinary and the shield: what the ordinary lies on. */
-export function ordinarySamplePoints(type: OrdinaryType): Pt[] {
-  let points = samplePointCache.get(type);
-  if (!points) {
-    const outline = pathRings(SHIELD_PATH), ring = pathRings(ordinaryPath(type, CANONICAL_SHAPE));
-    points = [];
-    for (let x = 1; x < 100; x += SAMPLE_STEP) {
-      for (let y = 1; y < 120; y += SAMPLE_STEP) {
-        if (pointInPath(outline, x, y) && pointInPath(ring, x, y)) points.push([x, y]);
-      }
-    }
-    samplePointCache.set(type, points);
-  }
-  return points;
-}
-
-/** The box an ordinary's own pattern (barry, checky …) is laid out over: its bounding box within the shape's. */
-export function ordinaryBox(type: OrdinaryType, shape: FieldShape): Box {
-  const frame = SHAPE_FRAME[shape].box;
-  const points = pathRings(ordinaryPath(type, shape)).flat();
-  const xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
-  return { x0: Math.max(frame.x0, Math.min(...xs)), y0: Math.max(frame.y0, Math.min(...ys)), x1: Math.min(frame.x1, Math.max(...xs)), y1: Math.min(frame.y1, Math.max(...ys)) };
+  if (f.k === 'plain') return [{ paint: f.paint, d: SHAPE_FRAME[shape].outline }];
+  const regions = regionsOf(f, shape);
+  return partPaints(f).map((paint, i) => ({ paint, d: regions[i] }));
 }
 
 /** Whether (x,y) lies in the first part of a division through `centre`, turned `turn` degrees clockwise about it. */
 export function inFirstPartTurned(division: Division, centre: Point, turn: number, x: number, y: number): boolean {
   const [px, py] = turned({ ...centre, size: 0, rotation: -turn }, x, y);
   return inFirstPart(division, centre, px, py);
-}
-
-/** Where a division of an ordinary runs through it: the middle of a chief's band, the fess point for every other ordinary. */
-export function ordinaryCentre(type: OrdinaryType, shape: FieldShape): Point {
-  const { fessPoint, chiefBase } = SHAPE_FRAME[shape];
-  return type === 'chief' ? { x: fessPoint.x, y: chiefBase - CHIEF_HEIGHT / 2 } : fessPoint;
-}
-
-/** Whether a division through the ordinary's centre runs through it, so that both its parts show. */
-export function divisionCutsOrdinary(division: Division, type: OrdinaryType): boolean {
-  const centre = ordinaryCentre(type, CANONICAL_SHAPE);
-  const first = ordinarySamplePoints(type).filter(([x, y]) => inFirstPart(division, centre, x, y)).length;
-  return first > 0 && first < ordinarySamplePoints(type).length;
 }
 
 // ── Charge slots ────────────────────────────────────────────────────────────
@@ -472,7 +413,7 @@ export function slotColumn(slot: Slot): 'left' | 'centre' | 'right' {
 // ── Counterchanged elements ─────────────────────────────────────────────────
 
 /** One part of a counterchanged element: a partition region it overlaps, filled with the field's other paint. */
-export interface CounterchangePart { region: 0 | 1; d: string; paint: FieldPaint }
+export interface CounterchangePart { region: number; d: string; paint: FieldPaint }
 
 /** Grid steps across a drawn box when finding the regions it overlaps (corners and edges included). */
 const PART_GRID = 8;
@@ -480,17 +421,16 @@ const PART_GRID = 8;
 /** What a counterchanged element shows of a part of the field: its paint, but not the charges strewn on it (a semy is not counterchanged across a charge or band, RULES CC-6). */
 const shownOf = (p: FieldPaint): FieldPaint => asSemy(p)?.ground ?? p;
 
-/** The parts of a counterchanged element that covers these points of a divided or varied field in a shape; [] unless the field is one. */
-function partsAt(field: Paint, points: readonly Pt[], shape: FieldShape): CounterchangePart[] {
+/**
+ * The parts of a counterchanged element that covers these points of a divided or varied field in a shape, each filled with the
+ * paint of the field's other part; [] unless the field is one.
+ */
+export function counterchangedParts(field: Paint, points: readonly Pt[], shape: FieldShape): CounterchangePart[] {
   const f = drawnField(field);
   if (f.k === 'plain') return [];
-  const frame = SHAPE_FRAME[shape];
-  const [d1, d2] = regionsOf(f, frame);
-  const firsts = new Set(points.map(([x, y]) => inFirstOf(f, frame, x, y)));
-  const parts: CounterchangePart[] = [];
-  if (firsts.has(true)) parts.push({ region: 0, d: d1, paint: shownOf(f.paints[1]) });
-  if (firsts.has(false)) parts.push({ region: 1, d: d2, paint: shownOf(f.paints[0]) });
-  return parts;
+  const regions = regionsOf(f, shape), paints = partPaints(f);
+  const found = new Set(points.map(([x, y]) => partIndexAt(f, shape, x, y)));
+  return regions.flatMap((d, region) => (found.has(region) ? [{ region, d, paint: shownOf(paints[(region + 1) % paints.length]) }] : []));
 }
 
 /**
@@ -504,16 +444,5 @@ export function counterchangedSlotParts(field: Paint, box: Slot, shape: FieldSha
   for (let i = 0; i <= PART_GRID; i++) {
     for (let j = 0; j <= PART_GRID; j++) grid.push(turned(box, x0 + i * step, y0 + j * step));
   }
-  return partsAt(field, grid, shape);
-}
-
-/** The same for a counterchanged ordinary: the regions it overlaps (a chief on a field per fess lies on one only). */
-export function counterchangedOrdinaryParts(field: Paint, type: OrdinaryType, shape: FieldShape): CounterchangePart[] {
-  const frame = SHAPE_FRAME[shape];
-  const outline = pathRings(frame.outline), ring = pathRings(astrideLine(field, type, { k: 'counterchanged' }) ? chevronAstrideLinePath(shape) : ordinaryPath(type, shape));
-  const points: Pt[] = [];
-  for (let x = 1; x < 100; x += SAMPLE_STEP) {
-    for (let y = 1; y < 120; y += SAMPLE_STEP) if (pointInPath(outline, x, y) && pointInPath(ring, x, y)) points.push([x, y]);
-  }
-  return partsAt(field, points, shape);
+  return counterchangedParts(field, grid, shape);
 }

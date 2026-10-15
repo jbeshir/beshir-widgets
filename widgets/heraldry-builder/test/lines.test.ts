@@ -217,6 +217,30 @@ describe('the periodic-edge generator', () => {
     }
   });
 
+  it('a fess engrailed has its points out of the band and its arcs biting in; invected the reverse', () => {
+    // the fess between y 35 and 65, both edges + outward: engrailed points reach the line (the upper edge's least y, the lower
+    // edge's greatest) and its arcs lie inside the band; invected arcs bulge out of it
+    for (const [line, out] of [['engrailed', false], ['invected', true]] as const) {
+      const upperRun = chordRun(line, [-40, 35], [140, 35]);
+      const lowerRun: EdgeRun = { ...upperRun, anchor: 180 - upperRun.anchor, span: [180 - upperRun.span[1], 180 - upperRun.span[0]] };
+      const upper = edgePoints([-40, 35], [140, 35], upperRun).map(([, y]) => Math.round(y * 1e6) / 1e6);
+      const lower = edgePoints([140, 65], [-40, 65], lowerRun).map(([, y]) => Math.round(y * 1e6) / 1e6);
+      const depth = LINE_PROFILE[line].depth;
+      expect([line, Math.min(...upper), Math.max(...upper)]).toEqual(out ? [line, 35 - depth, 35] : [line, 35, 35 + depth]);
+      expect([line, Math.min(...lower), Math.max(...lower)]).toEqual(out ? [line, 65, 65 + depth] : [line, 65 - depth, 65]);
+    }
+  });
+
+  it('rayonny and nebuly are curved, unlike the straight-stepped indented, dancetty, urdy and dovetailed', () => {
+    const curved = (l: ComplexLine) => LINE_PROFILE[l].period.some((s) => s.k === 'C');
+    expect((['rayonny', 'nebuly', 'wavy'] as const).every(curved)).toBe(true);
+    expect((['indented', 'dancetty', 'urdy', 'dovetailed', 'embattled'] as const).some(curved)).toBe(false);
+    // a nebuly lobe's head overhangs its neck; a rayonny flame's tip leans along the line
+    expect(Math.min(...LINE_PROFILE.nebuly.period.map((s) => s.to[0]))).toBeLessThan(0);
+    const tip = LINE_PROFILE.rayonny.period.find((s) => s.to[1] === 1)!;
+    expect(tip.to[0]).not.toBe(0.25);
+  });
+
   it('edgePoints is edgeCommands flattened', () => {
     for (const line of COMPLEX) {
       for (const [a, b] of [[[-40, 35], [140, 35]], [[-30, -51.21], [130, 108.79]], [[50, 160], [50, -40]]] as Array<[Pt, Pt]>) {

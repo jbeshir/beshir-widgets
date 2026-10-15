@@ -40,10 +40,14 @@ export { deriveTags, filtersToTags, matchesTags, NO_FILTERS, type SearchFilters 
 export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchWord } from './search-terms';
 export { signature } from './signature';
 export {
-  SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, ordinaryPath, ordinaryFillRule, ordinarySamplePoints,
+  SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, divisionRegions, partitionContours, partIndexAt,
   drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
-  counterchangedSlotParts, counterchangedOrdinaryParts, ordinaryBox, type Slot,
+  counterchangedSlotParts, type Slot, type DrawnField, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
+export {
+  specOf, plainSpec, defaultOrdinaryFrame, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, divisionCutsOrdinary,
+  type OrdinarySpec, type OrdinaryFrame, type OrdinaryGeometry,
+} from './ordinary-geometry';
 export { variationRegions, inFirstRegion, type Box } from './variation-geometry';
 export { MIN_SLOT_SIZE, minSlotSize, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue } from './layout';
 export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
@@ -65,7 +69,7 @@ export { canStrew, semyAt, semyChoices, setSemy, clearSemy, semyColourChoices, s
 export { treatedName, treatedGloss } from './treatment';
 export { hasNaturalColours, properChoice, setProper } from './proper-options';
 export { furPattern, treatmentPattern, colourHex, ERMINE_SPOT } from './patterns';
-export { renderLayers, badgeView, designTinctures, type Layer } from './render';
+export { renderLayers, badgeView, designTinctures, type Layer, type OrdinaryPart, type OrdinaryPartRole } from './render';
 export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';
 export { CHARGE_ART, MODIFIER_ART, ART_ON_BOX, chargePath, chargeOnBox, type ArtBox } from './charge-art';

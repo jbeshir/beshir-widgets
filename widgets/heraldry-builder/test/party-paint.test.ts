@@ -115,7 +115,7 @@ describe('the structure of a divided group', () => {
 describe('the drawing', () => {
   it('splits an ordinary through its fess point and each charge through its own centre', () => {
     const fess = renderLayers(nd(arms('gules', group(ordinary('fess'), party('per-pale', 'argent', 'azure')))), 'heater')[1];
-    expect(fess.k === 'ordinary' && fillCode(fess.fill)).toBe('split(ar,az)');
+    expect(fess.k === 'ordinary' && fillCode(fess.parts[0].fill)).toBe('split(ar,az)');
     const hearts = renderLayers(nd(arms('gules', heart(party('per-pale', 'azure', 'or'), { count: 3 }))), 'heater')[1];
     expect(hearts.k === 'charges' && hearts.fills.map((f) => [fillCode(f.fill), f.slots])).toEqual([['split(az,or)', [0]], ['split(az,or)', [1]], ['split(az,or)', [2]]]);
   });
