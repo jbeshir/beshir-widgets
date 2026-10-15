@@ -259,8 +259,10 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   if (countCategoryFine(gx.count) !== countCategoryFine(gy.count)) dc('number', 'A5G5');
   if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);
-  if (kx !== ky && !isForced(x.design, x.path) && !isForced(y.design, y.path)
-    && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky)))) {
+  // Secondary groups set around the primary and beside it ("between three mullets" / "and in chief three mullets") stand in different places.
+  const moved = gx.role === 'secondary' && gy.role === 'secondary' && gx.relation !== gy.relation;
+  if (moved || (kx !== ky && !isForced(x.design, x.path) && !isForced(y.design, y.path)
+    && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky))))) {
     dc('arrangement', 'A5G6');
   }
   const postures = comparablePostures(gx.item, gy.item);
@@ -389,6 +391,8 @@ function groupNoun(d: Design, path: GroupPath): { one: string; many: string } {
   let where = '';
   if (host?.item.k === 'ordinary') {
     where = ` on the ${host.item.type === 'chief' || host.item.type === 'bordure' ? ORDINARY_LABEL[host.item.type].plain.toLowerCase() : 'band'}`;
+  } else if (group.role === 'secondary' && group.relation === 'position') {
+    where = ` in ${group.position}`;
   } else if (group.role === 'secondary') {
     where = ' beside the band';
   }

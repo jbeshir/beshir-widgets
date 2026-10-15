@@ -42,6 +42,8 @@ describe('deriveTags', () => {
     expect(chief).toContain('placement:on-chief');
     expect(chief).not.toContain('placement:on-ordinary');
     expect(tags('gules', ord('bordure', 'or', { charged: [chg('rose', 'gules', { count: 8 })] }))).toContain('placement:on-bordure');
+    expect(tags('gules', chg('lion', 'or'), chg('mullet', 'argent', { count: 3, position: 'chief' }))).toContain('placement:in-chief');
+    expect(tags('gules', ord('fess', 'or'), chg('mullet', 'argent', { position: 'canton' }))).toContain('placement:in-canton');
     expect(tags('gules', chg('mullet', 'argent', { count: 3 }))).not.toEqual(expect.arrayContaining([expect.stringMatching(/^placement:/)]));
   });
 

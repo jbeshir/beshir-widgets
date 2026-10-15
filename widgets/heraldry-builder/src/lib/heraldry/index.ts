@@ -13,7 +13,8 @@ export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError
 export { structuralIssues } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, statesLayout,
-  hostCounts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share,
+  hostCounts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, SECONDARY_POSITIONS,
+  type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share, type SecondaryPosition,
 } from './arrangement';
 export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
 export {
@@ -38,7 +39,8 @@ export {
 export { MIN_SLOT_SIZE, minSlotSize, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, largestFittingCount } from './layout';
 export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
 export {
-  LAYER_KEYS, layerPath, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge, type LayerKey, type PeripheralKey, type PicturesKey,
+  LAYER_KEYS, layerPath, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
+  type LayerKey, type PeripheralKey, type PicturesKey, type PositionedKey,
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,

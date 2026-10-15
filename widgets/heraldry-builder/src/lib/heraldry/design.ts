@@ -287,8 +287,8 @@ export interface Gap { category: GapCategory; detail: string }
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, how groups relate, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line. */
-export type StructureRule = 'field' | 'relation' | 'layout' | 'capacity' | 'crosses-line';
+/** Which structure rule an issue breaks: the field's tinctures, how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line. */
+export type StructureRule = 'field' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)

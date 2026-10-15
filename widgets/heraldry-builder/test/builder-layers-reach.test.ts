@@ -48,6 +48,18 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Azure, a pale Or, on a chief argent two roses gules, on a bordure argent ten mullets gules.'],
   ['charges on a chief within a bordure with charges', arms('gules', group(ordinary('chief'), 'argent', { charged: [rose(3, 'gules')] }), group(ordinary('bordure'), 'or', { charged: [group(charge('mullet'), 'azure', { count: 7 })] })),
     'Gules, on a chief argent three roses gules, on a bordure Or seven mullets azure.'],
+  ['a charge and charges in chief (O&A 2381)', arms('purpure', group(charge('bee'), 'or'), group(charge('mullet'), 'argent', { count: 3, position: 'chief' })),
+    'Purpure, a bee Or and in chief three mullets argent.'],
+  ['a band and charges in chief (O&A 9806, with mullets)', arms('argent', group(ordinary('chevron'), 'sable'), group(charge('mullet'), 'sable', { count: 3, position: 'chief' })),
+    'Argent, a chevron and in chief three mullets sable.'],
+  ['a band on a divided field and a charge in base (O&A 23819)', arms(div('per-pale', 'sable', 'gules'), group(ordinary('chevron'), 'argent'), group(charge('mullet'), 'argent', { position: 'base' })),
+    'Per pale sable and gules, a chevron and in base a mullet argent.'],
+  ['a charge and a charge in canton, within a bordure (O&A 105412)', arms('sable', group(charge('dragon'), 'argent'), group(charge('crescent'), 'argent', { position: 'canton' }), group(ordinary('bordure'), 'argent')),
+    'Sable, a dragon and in canton a crescent and a bordure argent.'],
+  ['charges on a band and charges in base', arms('azure', group(ordinary('fess'), 'or', { charged: [rose(3)] }), group(charge('crescent'), 'argent', { count: 2, position: 'base' })),
+    'Azure, on a fess Or three roses gules and in base two crescents argent.'],
+  ['charges and charges in base under a chief with charges', arms('vert', group(charge('mullet'), 'or'), group(charge('heart'), 'or', { position: 'base' }), group(ordinary('chief'), 'argent', { charged: [rose(3)] })),
+    'Vert, a mullet and in base a heart Or, on a chief argent three roses gules.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -102,6 +114,7 @@ describe('layers kept through the edits of the layers beneath them', () => {
     ['a band with pictures on it and beside it, a chief and a bordure', FULL],
     ['a picture on the field with a chief and a bordure', built(arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'argent')))],
     ['a band between charges with a bordure', built(arms('gules', group(ordinary('pale'), 'argent'), group(charge('mullet'), 'or', { count: 2 }), group(ordinary('bordure'), 'argent')))],
+    ['a picture with pictures in chief and a bordure', built(arms('azure', group(charge('lion'), 'or'), group(charge('crescent'), 'argent', { count: 2, position: 'chief' }), group(ordinary('bordure'), 'argent')))],
   ];
 
   it('the full design has every layer', () => {

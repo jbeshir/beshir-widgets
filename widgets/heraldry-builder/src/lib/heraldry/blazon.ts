@@ -44,7 +44,8 @@ export interface BlazonOptions {
 function wordsLayout(d: Design, path: GroupPath, g: Group, { stateDefaults }: BlazonOptions): boolean {
   if (contextOf(d, g, hostOf(d, path)) === null) return false;
   if (!stateDefaults) return statesLayout(d, path);
-  return layoutContext(d, path).k === 'field' && (g.arrangement.k !== 'single' || g.position !== null);
+  const k = layoutContext(d, path).k;
+  return k === 'position' || (k === 'field' && (g.arrangement.k !== 'single' || g.position !== null));
 }
 
 /** A charge group's phrase: [layout prefix] count noun [posture] [mods] [layout postfix], without its tincture. */
@@ -57,7 +58,11 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
   words.push(...g.item.mods.map(modifierWords));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
   const layout = layoutWords({ arrangement: g.arrangement, position: g.position });
-  // Lines and positions lead ("in pale two keys"); count patterns follow ("five roses two, two and one", RULES §F.3).
+  // Lines and positions lead ("in pale two keys"); count patterns follow ("five roses two, two and one", RULES §F.3), after the
+  // position when there is one ("in chief five mullets three and two", "in base two swords in saltire").
+  if (g.position !== null && (g.arrangement.k === 'rows' || g.arrangement.k === 'crossed')) {
+    return `${layoutWords({ arrangement: { k: 'single' }, position: g.position })} ${words.join(' ')} ${layoutWords({ arrangement: g.arrangement, position: null })}`;
+  }
   return g.position !== null || g.arrangement.k === 'line' ? `${layout} ${words.join(' ')}` : `${words.join(' ')} ${layout}`;
 }
 
@@ -67,30 +72,33 @@ function ordinaryPhrase(g: Group): string {
   return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[g.item.type]} ${ORDINARY_NAME[g.item.type]}`;
 }
 
-type TokenKind = 'primary' | 'secondary' | 'peripheral' | 'tertiary';
+/** `secondary` is set between the primary, `position` stands beside it ("and in chief …"). */
+type TokenKind = 'primary' | 'secondary' | 'position' | 'peripheral' | 'tertiary';
 
 /** One element of the sentence: its phrase and paint, and whether its paint may be shared with the element before. */
 interface Token { kind: TokenKind; text: string; paint: string; linked: boolean }
 
-/** The elements in blazon order (RULES §F.2): primary, what is set between, what is on the primary, then each peripheral with what is on it. */
+/** The elements in blazon order (RULES §F.2): primary, what is set between, what is on the primary, what stands in chief, base or canton, then each peripheral with what is on it. */
 function tokens(d: Design, options: BlazonOptions): Token[] {
   const out: Token[] = [];
   const add = (kind: TokenKind, path: GroupPath, g: Group) => {
     const prev = out[out.length - 1];
     // Bruce: a tincture carries back over the elements before it, but never into or out of "on a ...".
-    const linked = (kind === 'secondary' || kind === 'peripheral') && prev !== undefined && prev.kind !== 'tertiary';
+    const linked = (kind === 'secondary' || kind === 'position' || kind === 'peripheral') && prev !== undefined && prev.kind !== 'tertiary';
     out.push({ kind, text: g.item.k === 'ordinary' ? ordinaryPhrase(g) : chargePhrase(d, path, g, options), paint: paintWord(g.paint), linked });
   };
   const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t));
   const at = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, path: [i] }] : []));
 
   const primaries = at('primary');
+  const secondaries = at('secondary');
+  const relation = (r: Group['relation']) => secondaries.filter(({ g }) => g.relation === r);
+  const other = secondaries.find(({ g }) => g.relation !== 'between' && g.relation !== 'position');
+  if (other) return notSupported({ category: 'multiple-groups', detail: `secondary-${other.g.relation ?? 'none'}` });
   for (const { g, path } of primaries) add('primary', path, g);
-  for (const { g, path } of at('secondary')) {
-    if (g.relation !== 'between') return notSupported({ category: 'multiple-groups', detail: `secondary-${g.relation ?? 'none'}` });
-    add('secondary', path, g);
-  }
+  for (const { g, path } of relation('between')) add('secondary', path, g);
   for (const { g, path } of primaries) tertiaries(path, g);
+  for (const { g, path } of relation('position')) add('position', path, g);
   for (const { g, path } of at('peripheral')) {
     add('peripheral', path, g);
     tertiaries(path, g);
@@ -107,7 +115,7 @@ export function blazon(d: Design, options: BlazonOptions = { stateDefaults: fals
   const all = tokens(d, options);
   let pending = false;
   all.forEach((t, i) => {
-    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? ' ' : pending ? ' and ' : ', ';
+    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? ' ' : pending || t.kind === 'position' ? ' and ' : ', ';
     const next = all[i + 1];
     pending = next !== undefined && next.linked && next.paint === t.paint;
     text += `${lead}${t.text}${pending ? '' : ` ${t.paint}`}`;

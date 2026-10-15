@@ -358,7 +358,7 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
                   {plainFirst(layoutLabel(c.value))}{c.allowed ? '' : ' (not available)'}
                 </option>
               ))
-            : <option value={layoutValue}>{layouts.mode === 'single' ? 'Single, centred' : 'Set by the band or shape'}</option>}
+            : <option value={layoutValue}>{layouts.mode === 'single' ? 'Single, centred' : layouts.mode === 'position' ? plainFirst(layoutLabel(layoutValue)) : 'Set by the band or shape'}</option>}
         </select>
         {layoutNote && <p class="control-note" id={`${layoutId}-note`}>{layoutNote}</p>}
       </div>

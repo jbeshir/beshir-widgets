@@ -135,6 +135,28 @@ describe('capacity', () => {
     expect(fits(fieldContext('chief'), 6, 'rows-3-2-1')).toBe(true);
   });
 
+  it('sets charges in chief, base or canton in their room, clear of the band, and the primary charges in what is left', () => {
+    const d = nd(arms('azure', group(charge('lion'), 'or', { count: 3 }), group(charge('mullet'), 'argent', { count: 3, position: 'chief' })));
+    const chief = groupSlots(d, [1], 'heater'), lions = groupSlots(d, [0], 'heater');
+    expect(chief.map((s) => s.y)).toEqual([20, 20, 20]);
+    expect(chief.every((s) => s.y + s.size / 2 <= 36)).toBe(true);
+    expect(lions.every((s) => s.y - s.size / 2 >= 36)).toBe(true);
+    for (const shape of ['banner', 'round', 'lozenge'] as const) {
+      const top = Math.max(...groupSlots(d, [1], shape).map((s) => s.y + s.size / 2));
+      expect(Math.min(...groupSlots(d, [0], shape).map((s) => s.y - s.size / 2)), shape).toBeGreaterThan(top);
+    }
+    const base = nd(arms('azure', group(ordinary('chevron'), 'or'), group(charge('mullet'), 'argent', { position: 'base' })));
+    expect(groupSlots(base, [1], 'heater')).toEqual([{ x: 50, y: 93, size: 26.5, rotation: 0 }]);
+    const canton = nd(arms('azure', group(charge('lion'), 'or'), group(charge('mullet'), 'argent', { position: 'canton' })));
+    expect(groupSlots(canton, [1], 'heater')).toEqual([{ x: 20, y: 20, size: 31.5, rotation: 0 }]);
+  });
+
+  it('has no room for charges in chief across a pale, and room for three above a fess', () => {
+    const d = nd(arms('azure', group(ordinary('pale'), 'or'), group(charge('mullet'), 'argent', { count: 3, position: 'chief' })));
+    expect(capacityIssue(d, [1])?.message).toBe("Mullets can't be set in chief like this.");
+    expect(structuralIssues(nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('mullet'), 'argent', { count: 3, position: 'chief' }))))).toEqual([]);
+  });
+
   it('does not fit twelve in pale', () => {
     expect(fits(field, 12, 'in-pale')).toBe(false);
   });
@@ -258,7 +280,8 @@ describe('grounds', () => {
 describe('around and on an ordinary with a chief and a bordure beside it', () => {
   const heater = shapeFrame('heater');
   const inset = pathPolygon(heater.inset);
-  const ctx = (k: 'between' | 'on', ordinary: OrdinaryType, peripheral: 'chief' | 'bordure' | 'chief-bordure'): LayoutContext => ({ k, ordinary, peripheral });
+  const ctx = (k: 'between' | 'on', ordinary: OrdinaryType, peripheral: 'chief' | 'bordure' | 'chief-bordure'): LayoutContext =>
+    (k === 'between' ? { k, ordinary, peripheral } : { k, ordinary, peripheral });
   const MARGIN = 0;
 
   it('keep the slots below the chief and inside the bordure, at a size that reads', () => {

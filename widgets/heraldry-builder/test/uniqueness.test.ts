@@ -55,6 +55,16 @@ describe('worked checks (RULES §C.8, plan §5.9)', () => {
     expect(signature(design('sable', lion(), ord('bordure', 'or'), ord('chief', 'or')))).toBe(signature(both));
   });
 
+  it('charges in chief against the same in base, or around the primary: one distinct change of arrangement (an unforced move, RB §5.2)', () => {
+    const at = (position: string) => design('azure', ord('fess', 'or'), chg('mullet', 'argent', { count: 3, position }));
+    expect(between(at('chief'), at('base'))).toEqual(['arrangement:dc:A5G6']);
+    const around = design('azure', ord('fess', 'or'), chg('mullet', 'argent', { count: 3 }));
+    expect(between(at('chief'), around)).toEqual(['arrangement:dc:A5G6']);
+    expect(explainDifferences(at('chief'), around).map((n) => n.text)).toEqual(['arrangement of pictures in chief (in chief ↔ placed by the ordinary)']);
+    // Charges in chief added beside a lion: one more group.
+    expect(between(design('azure', lion('or'), chg('mullet', 'argent', { count: 3, position: 'chief' })), design('azure', lion('or')))).toEqual(['group-presence:dc:A5G2']);
+  });
+
   it('one mullet against three: a substantial change of number', () => {
     expect(between(design('sable', chg('mullet', 'or')), design('sable', chg('mullet', 'or', { count: 3 })))).toEqual(['number:sc:A5E3']);
   });

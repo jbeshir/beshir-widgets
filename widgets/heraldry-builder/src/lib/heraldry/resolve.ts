@@ -19,7 +19,7 @@ import {
 } from './design';
 import { isDivision, isTreatment, isVariation, partCount } from './divisions';
 import { isLine, isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, type OrdinaryMod } from './ordinaries';
-import { contextOf, defaultLayoutOf, layoutOfKey, type Layout } from './arrangement';
+import { contextOf, defaultLayoutOf, isSecondaryPosition, layoutOfKey, type Layout } from './arrangement';
 
 export type ResolveResult = { ok: true; design: Design } | { ok: false; errors: Issue[] };
 
@@ -338,10 +338,16 @@ function parseGroup(v: unknown, path: GroupPath, top: boolean, E: Errors): RawGr
   return { role, relation, item, count, layout, position: position ?? layout?.position ?? null, paint, charged };
 }
 
-/** The role a top-level group has when the input names none (RULES §B.3). */
+/**
+ * The role a top-level group has when the input names none (RULES §B.3, SENA App I1): charges beside a central ordinary
+ * are secondary, and so are charges in chief, in base or in canton beside a central group of charges — "if you removed
+ * the fess the lions would become the primary charge group". Charges in chief with nothing central are primary.
+ */
 function inferRole(r: RawGroup, siblings: readonly RawGroup[]): Role {
   if (r.item.k === 'ordinary') return ORDINARY_KIND[r.item.type] === 'peripheral' ? 'peripheral' : 'primary';
-  return siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central') ? 'secondary' : 'primary';
+  if (siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central')) return 'secondary';
+  const central = (s: RawGroup) => s !== r && s.item.k === 'charge' && s.position === null && s.relation === null && (s.role === null || s.role === 'primary');
+  return isSecondaryPosition(r.position) && siblings.some(central) ? 'secondary' : 'primary';
 }
 
 /** The arrangement a group has until `placeGroups` gives it its layout. */
@@ -350,7 +356,7 @@ const UNPLACED: Arrangement = { k: 'single' };
 function buildGroup(r: RawGroup, role: Role, E: Errors, at: IssueAt): Group {
   if (r.relation !== null && role !== 'secondary') E.add(at, 'Only a secondary group has a relation to the main one.');
   return {
-    role, relation: role === 'secondary' ? (r.relation ?? 'between') : null, item: r.item, count: r.count,
+    role, relation: role === 'secondary' ? (r.relation ?? (isSecondaryPosition(r.position) ? 'position' : 'between')) : null, item: r.item, count: r.count,
     arrangement: UNPLACED, position: r.position, paint: r.paint,
     charged: r.charged.map((c, i) => buildGroup(c, 'tertiary', E, at.k === 'group' ? { k: 'group', path: [...at.path, i] } : at)),
   };
@@ -367,7 +373,7 @@ function placeGroups(d: Design, raws: readonly RawGroup[], groups: readonly Grou
     const placed = ((): Group => {
       if (r.layout) {
         const ctx = contextOf(d, g, host);
-        if (ctx && ctx.k !== 'field' && r.layout.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
+        if (ctx && (ctx.k === 'between' || ctx.k === 'on') && r.layout.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
         return { ...g, arrangement: r.layout.arrangement };
       }
       if (r.position) return { ...g, arrangement: g.count === 1 ? { k: 'single' } : { k: 'line', dir: 'fess' } };

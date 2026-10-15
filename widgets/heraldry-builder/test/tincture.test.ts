@@ -135,6 +135,13 @@ describe('charges Table 7 forces into one part of the field', () => {
     expect(normalise(d)).toMatchObject({ ok: false, errors: [{ code: 'unsupported' }] });
   });
 
+  it('are a violation, not a gap, for charges set in chief, base or canton: the blazon puts them there', () => {
+    const d = nd(arms(div('per-pale', 'argent', 'azure'), chg('lion', 'gules'), chg('mullet', 'argent', { position: 'canton' })));
+    expect(tinctureIssues(d).map((i) => [i.code, i.at])).toEqual([['tincture', { k: 'group', path: [1] }]]);
+    // In canton on per chevron Or and sable the mullet lies on the Or part only.
+    expect(tinctureIssues(nd(arms(div('per-chevron', 'or', 'sable'), chg('sun', 'counterchanged'), chg('mullet', 'sable', { position: 'canton' }))))).toEqual([]);
+  });
+
   it('are drawn where the builder knows the forced layout, and a real violation stays one', () => {
     expect(validate(nd(arms(div('per-fess', 'or', 'vert'), chg('mullet', 'vert', { count: 3 }))))).toEqual([]);
     // Colour on colour on the other part: nothing to force into.

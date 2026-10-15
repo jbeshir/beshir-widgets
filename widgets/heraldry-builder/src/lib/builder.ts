@@ -66,18 +66,25 @@ export function setFieldTincture(d: Design, part: 0 | 1, t: Tincture): Design {
 
 /**
  * The ordinary replaced (null: removed), the pictures kept where they can be: a picture on a vanished
- * ordinary goes to the background, extra pictures are dropped. The top band and border stay when the
- * builder still draws them beside the new ordinary; one of the new ordinary's own kind gives way to it.
+ * ordinary goes to the background, extra pictures are dropped. The top band and border, and the pictures in
+ * chief, base or canton, stay when the builder still draws them beside the new ordinary; one of the new
+ * ordinary's own kind gives way to it.
  */
 function rebuilt(d: Design, ordinary: Group | null): Design {
   const parts = partsOf(d);
   const type = ordinary?.item.k === 'ordinary' ? ordinary.item.type : null;
-  const assemble = (peripherals: readonly Group[]) => refitLayers(assembleParts(d, { ...parts, ordinary, peripherals }));
-  const beside = assemble(parts.peripherals.filter((g) => g.item.k !== 'ordinary' || g.item.type !== type));
-  // Dropped only when they are what the builder can't draw beside the new ordinary; a design that is unsupported either way keeps them.
-  if (isSupported(beside) || parts.peripherals.length === 0) return beside;
-  const without = assemble([]);
-  return isSupported(without) ? without : beside;
+  const assemble = (peripherals: readonly Group[], positioned: Group | null) => refitLayers(assembleParts(d, { ...parts, ordinary, peripherals, positioned }));
+  const beside = parts.peripherals.filter((g) => g.item.k !== 'ordinary' || g.item.type !== type);
+  // Dropped only when they are what the builder can't draw beside the new ordinary (the pictures beside it first); a design that is unsupported either way keeps them.
+  let first: Design | null = null;
+  for (const peripherals of parts.peripherals.length > 0 ? [beside, []] : [beside]) {
+    for (const positioned of parts.positioned ? [parts.positioned, null] : [null]) {
+      const tried = assemble(peripherals, positioned);
+      if (isSupported(tried)) return tried;
+      first ??= tried;
+    }
+  }
+  return first!;
 }
 
 export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
@@ -117,7 +124,9 @@ export function setCharge(d: Design, at: 'picture' | PicturesKey, id: ChargeId |
   const parts = partsOf(d);
   if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.extra, placement: 'ordinary', extra: null }));
   if (parts.picture) return swapPicture(d, id);
-  const placed = refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'field', extra: null }));
+  // A new picture goes on the background, or onto the band when pictures already stand beside it in chief, base or canton (one secondary group).
+  const onField = refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'field', extra: null }));
+  const placed = isSupported(onField) || !parts.ordinary ? onField : refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'ordinary', extra: null }));
   return canonical(withFirstTincture(placed, picturePath(placed)!));
 }
 

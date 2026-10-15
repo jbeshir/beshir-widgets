@@ -9,7 +9,8 @@ import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
-  BETWEEN, HOST_LAYOUT, contextOf, defaultLayoutOf, hasBordure, hasChief, hostCounts, layoutKey, type Layout, type LayoutContext, type Peripheral,
+  BETWEEN, HOST_LAYOUT, contextOf, defaultLayoutOf, hasBordure, hasChief, hostCounts, layoutKey, positionLayout,
+  type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Yield,
 } from './arrangement';
 import {
   CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
@@ -58,6 +59,7 @@ const handRows = (shape: FieldShape): SlotRows => (shape === 'heater' ? HEATER_S
 /** The hand-fitted slots for a context, count and layout, or null when they come from the generic engine. */
 function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] | null {
   const rows = handRows(shape);
+  if (ctx.k === 'position') return null;
   if (ctx.k === 'field') {
     if (layout.position !== null || ctx.yields !== 'none' || ctx.share !== null) return null;
     const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null }[ctx.peripheral];
@@ -93,6 +95,12 @@ const UNDER_CHIEF_AREA = area(4, 33, 96, 112);
 const BORDURE_UNDER_CHIEF_AREA = area(12, 33, 88, 104);
 const CHIEF_POSITION_AREA = area(4, 4, 96, 36);
 const BASE_POSITION_AREA = area(10, 74, 90, 114);
+const CANTON_POSITION_AREA = area(4, 4, 36, 36);
+
+/** Where a secondary group set by position stands on the heater; the primary charges keep to the rest of the field. */
+const POSITION_AREAS: Record<SecondaryPosition, Area> = { chief: CHIEF_POSITION_AREA, base: BASE_POSITION_AREA, canton: CANTON_POSITION_AREA };
+/** What the primary charges keep to on the heater when a secondary group stands in chief, in base or in canton (the canton only takes a corner). */
+const YIELDED_AREAS: Record<SecondaryPosition, Area> = { chief: area(0, 36, 100, 120), base: area(0, 0, 100, 74), canton: area(0, 0, 100, 120) };
 /** Lines in bend run corner to corner of a square the shield's narrowing base leaves room for. */
 const BEND_AREA = area(10, 10, 90, 90);
 const BORDURE_BEND_AREA = area(18, 18, 82, 82);
@@ -161,10 +169,23 @@ const ORLE_RING: Pt[] = (() => {
 })();
 const ORLE_SCALE = 0.92;
 
+/** The room a primary leaves for a secondary group set by position, or null when it leaves none (or all around, which has its own layouts). */
+const yieldedPosition = (y: Yield): SecondaryPosition | null => (y === 'chief' || y === 'base' || y === 'canton' ? y : null);
+
+/** The areas primary charges are laid out in: what the peripherals leave, less the room left for a secondary group. */
+function primaryAreas(ctx: Extract<LayoutContext, { k: 'field' }>): { straight: Area; bend: Area } {
+  const areas = FIELD_AREAS[ctx.peripheral];
+  const yielded = yieldedPosition(ctx.yields);
+  if (!yielded) return areas;
+  const rest = YIELDED_AREAS[yielded];
+  return { straight: within(areas.straight, rest), bend: within(areas.bend, rest) };
+}
+
 function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number, layout: Layout): Centre[] | null {
+  const areas = primaryAreas(ctx);
   const a = layout.position === 'chief' ? CHIEF_POSITION_AREA
     : layout.position === 'base' ? BASE_POSITION_AREA
-    : FIELD_AREAS[ctx.peripheral].straight;
+    : areas.straight;
   const [cx, cy] = centreOf(a);
   const reach = Math.min(width(a), height(a));
   const arr = layout.arrangement;
@@ -174,7 +195,7 @@ function fieldCentres(ctx: Extract<LayoutContext, { k: 'field' }>, count: number
     case 'line': {
       if (count < 2) return null;
       const bend = arr.dir === 'bend' || arr.dir === 'bend-sinister';
-      return lineIn(layout.position === null && bend ? FIELD_AREAS[ctx.peripheral].bend : a, count, arr.dir);
+      return lineIn(layout.position === null && bend ? areas.bend : a, count, arr.dir);
     }
     case 'rows': return count >= 2 && arr.rows.reduce((x, y) => x + y, 0) === count ? rowsIn(a, arr.rows) : null;
     case 'crossed': return count === 2 ? [at(cx, cy, -45), at(cx, cy, 45)] : null;
@@ -264,6 +285,21 @@ function betweenCentres(ordinary: OrdinaryType, count: number, peripheral: Perip
   }
 }
 
+/** A secondary group set by position: one charge in the middle of its place, a row across it, rows, or two crossed, kept within the bordure. */
+function positionCentres(ctx: Extract<LayoutContext, { k: 'position' }>, count: number, layout: Layout): Centre[] | null {
+  if (layout.position !== ctx.position) return null;
+  const a = within(POSITION_AREAS[ctx.position], freeArea(ctx.peripheral));
+  const [cx, cy] = centreOf(a);
+  const arr = layout.arrangement;
+  switch (arr.k) {
+    case 'single': return count === 1 ? [at(cx, cy)] : null;
+    case 'line': return count >= 2 && arr.dir === 'fess' ? lineIn(a, count, 'fess') : null;
+    case 'rows': return arr.rows.reduce((x, y) => x + y, 0) === count ? rowsIn(a, arr.rows) : null;
+    case 'crossed': return count === 2 ? [at(cx, cy, -45), at(cx, cy, 45)] : null;
+    default: return null;
+  }
+}
+
 /** Where along an ordinary's axis charges on it are strung: a centre, a direction and the half-length. */
 const ON_AXIS: Partial<Record<OrdinaryType, { from: Pt; to: Pt }>> = {
   fess: { from: [6, 50], to: [94, 50] },
@@ -298,13 +334,14 @@ function onCentres(ordinary: OrdinaryType, count: number, peripheral: Peripheral
 }
 
 /** Where the hand rows of a context without peripherals put its slots: the nominal centres of the ordinaries the engine has no rule for. */
-function handCentres(ctx: Exclude<LayoutContext, { k: 'field' }>, count: number): Centre[] | null {
+function handCentres(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, count: number): Centre[] | null {
   const slots = handSlots({ ...ctx, peripheral: 'none' }, count, HOST_LAYOUT, CANONICAL_SHAPE);
   return slots && slots.map((s) => at(s.x, s.y, s.rotation));
 }
 
 function nominalCentres(ctx: LayoutContext, count: number, layout: Layout): Centre[] | null {
   if (ctx.k === 'field') return fieldCentres(ctx, count, layout);
+  if (ctx.k === 'position') return positionCentres(ctx, count, layout);
   if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx.k, ctx.ordinary).includes(count)) return null;
   const ruled = ctx.k === 'between' ? betweenCentres(ctx.ordinary, count, ctx.peripheral) : onCentres(ctx.ordinary, count, ctx.peripheral);
   return ruled ?? (ctx.peripheral === 'none' ? null : handCentres(ctx, count));
@@ -399,8 +436,32 @@ function frameGround(peripheral: Peripheral, shape: FieldShape): Pick<Ground, 'c
   };
 }
 
+/**
+ * The room a secondary group set by position stands in, in a shape: above a line across the chief, below one across the
+ * base, or the top corner left of a line down from the chief's. The heater's lines are those of `POSITION_AREAS`; other
+ * shapes move them with their chief and fess point.
+ */
+function positionRoom(position: SecondaryPosition, shape: FieldShape): Pt[] {
+  const frame = shapeFrame(shape);
+  const chiefLine = frame.chiefBase + CHIEF_POSITION_AREA.y1 - shapeFrame(CANONICAL_SHAPE).chiefBase;
+  const baseLine = frame.fessPoint.y + BASE_POSITION_AREA.y0 - shapeFrame(CANONICAL_SHAPE).fessPoint.y;
+  const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  switch (position) {
+    case 'chief': return rect(-10, -10, 110, chiefLine);
+    case 'base': return rect(-10, baseLine, 110, 130);
+    case 'canton': return rect(-10, -10, CANTON_POSITION_AREA.x1, chiefLine);
+  }
+}
+
 export function groundFor(ctx: LayoutContext, shape: FieldShape): Ground {
-  if (ctx.k === 'field') return { ...frameGround(ctx.peripheral, shape), avoid: [], within: null };
+  if (ctx.k === 'field') {
+    const yielded = yieldedPosition(ctx.yields);
+    return { ...frameGround(ctx.peripheral, shape), avoid: yielded ? [positionRoom(yielded, shape)] : [], within: null };
+  }
+  if (ctx.k === 'position') {
+    const avoid = ctx.ordinary ? [pathPolygon(ordinaryPath(ctx.ordinary, shape))] : [];
+    return { ...frameGround(ctx.peripheral, shape), avoid, within: positionRoom(ctx.position, shape) };
+  }
   if (ctx.k === 'on' && ctx.ordinary === 'bordure') {
     // On the ring: inside the outline, outside the inner edge.
     const frame = shapeFrame(shape);
@@ -611,6 +672,7 @@ function whereWords(ctx: LayoutContext, layout: Layout): string {
   switch (ctx.k) {
     case 'field': return ctx.peripheral === 'chief-bordure' ? 'within the bordure, under the chief' : hasChief(ctx.peripheral) ? 'under the chief' : hasBordure(ctx.peripheral) ? 'within the bordure' : 'on the field';
     case 'between': return `around the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
+    case 'position': return `in ${ctx.position}`;
     case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
   }
 }
@@ -633,6 +695,7 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
   const layoutFor = (n: number): Layout => {
     const a = group.arrangement;
     if (n === group.count) return l.layout;
+    if (l.ctx.k === 'position') return positionLayout(l.ctx.position, n);
     if (l.ctx.k !== 'field') return HOST_LAYOUT;
     if (n === 1) return { arrangement: { k: 'single' }, position: group.position };
     if (a.k === 'line' || a.k === 'single') return { arrangement: { k: 'line', dir: a.k === 'line' ? a.dir : 'fess' }, position: group.position };

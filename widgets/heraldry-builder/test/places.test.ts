@@ -12,7 +12,7 @@ const names = (d: ReturnType<typeof nd>): Array<[PlaceKey, string]> =>
 describe('places of a design', () => {
   it('cover every group of every generated design exactly once, and map back to their paths', () => {
     const designs = generatedRichDesigns(7, 400);
-    let layered = 0;
+    let layered = 0, positioned = 0;
     for (const d of designs) {
       const placed = placesOf(d);
       expect(placed.map((p) => pathKey(p.path)).sort(), JSON.stringify(d)).toEqual(walkGroups(d).map((w) => pathKey(w.path)).sort());
@@ -23,8 +23,10 @@ describe('places of a design', () => {
       }
       expect(placed.map((p) => PLACE_KEYS.indexOf(p.place))).toEqual(placed.map((p) => PLACE_KEYS.indexOf(p.place)).sort((a, b) => a - b));
       if (placed.some((p) => p.place === 'chief' || p.place === 'bordure')) layered++;
+      if (placed.some((p) => p.place === 'in-chief' || p.place === 'in-base' || p.place === 'in-canton')) positioned++;
     }
     expect(layered).toBeGreaterThan(40);
+    expect(positioned).toBeGreaterThan(20);
   });
 
   it('names the band, the picture, the pictures on the band, the top band and the border', () => {
@@ -59,6 +61,16 @@ describe('places of a design', () => {
     expect(names(standing)).toEqual([['ordinary', 'chief'], ['on-ordinary', 'mullet'], ['bordure', 'bordure'], ['on-bordure', 'mullet']]);
     const border = nd(arms('azure', group(ordinary('bordure'), 'argent', on(8))));
     expect(names(border)).toEqual([['ordinary', 'bordure'], ['on-ordinary', 'mullet']]);
+  });
+
+  it('name the charges set in chief, in base or in canton beside the band or the picture', () => {
+    expect(names(nd(arms('azure', group(charge('lion'), 'or'), group(charge('mullet'), 'argent', { count: 3, position: 'chief' }), group(ordinary('bordure'), 'gules')))))
+      .toEqual([['ordinary', 'bordure'], ['picture', 'lion'], ['in-chief', 'mullet']]);
+    const banded = nd(arms('azure', group(ordinary('fess'), 'or', { charged: [rose(3)] }), group(charge('mullet'), 'argent', { position: 'canton' })));
+    expect(names(banded)).toEqual([['ordinary', 'fess'], ['in-canton', 'mullet'], ['on-ordinary', 'rose']]);
+    expect(pathOfPlace(banded, 'in-canton')).toEqual([1]);
+    // Charges in chief with nothing central are the picture.
+    expect(names(nd(arms('azure', group(charge('mullet'), 'argent', { count: 3, position: 'chief' }))))).toEqual([['picture', 'mullet']]);
   });
 
   it('call a chief with charges on it the band with pictures on it', () => {

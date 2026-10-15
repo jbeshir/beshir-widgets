@@ -94,6 +94,7 @@ function layoutTag(design: Design, issue: Issue): string {
   switch (ctx.k) {
     case 'on': return `on-${ctx.ordinary}`;
     case 'between': return `between-${ctx.ordinary}`;
+    case 'position': return `in-${ctx.position}`;
     default: return hasChief(ctx.peripheral) ? 'under-chief' : layoutKey({ arrangement: g.arrangement, position: g.position });
   }
 }

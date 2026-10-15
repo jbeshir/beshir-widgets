@@ -10,13 +10,14 @@
 //
 // The builder's level-0 space is one ordinary, one picture group (on the background or on the ordinary)
 // and, when the picture is on the background, one extra picture group on the ordinary; a chief and a
-// bordure may stand beside them, each with a picture group of its own. `simpleParts` finds them in a design (by place, places.ts) and
+// bordure may stand beside them, each with a picture group of its own, and a picture group may stand in
+// chief, in base or in canton beside the ordinary or the picture. `simpleParts` finds them in a design (by place, places.ts) and
 // `assembleParts` puts them back with the roles, relations and host layouts the model needs.
 
 import { TINCTURES, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinList, numberWord } from './words';
 import {
-  HOST_LAYOUT, contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, type LayoutKey,
+  HOST_LAYOUT, contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
 import { CHARGES, chargePhrase, postureTerm, type ModifierId, type Posture } from './charges';
 import {
@@ -26,6 +27,7 @@ import {
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
 import { placesIn, type Placed } from './places';
+import { PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
 import { groupTinctureIssues, tinctureIssues } from './tincture-rule';
@@ -80,6 +82,8 @@ export interface SimpleParts {
   peripheralPictures: Placed[];
   picture: (Placed & { placement: Placement }) | null;
   extra: Placed | null;
+  /** The pictures set in chief, in base or in canton beside the ordinary or the picture. */
+  positioned: Placed | null;
 }
 
 const isCentral = (g: Group) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central';
@@ -94,6 +98,7 @@ export function simpleParts(d: Design): SimpleParts {
   const at = (key: Placed['place']) => placed.find((p) => p.place === key) ?? null;
   const picture = at('picture'), onOrdinary = at('on-ordinary');
   return {
+    positioned: at('in-chief') ?? at('in-base') ?? at('in-canton'),
     ordinary: at('ordinary'),
     peripherals: placed.filter((p) => p.place === 'chief' || p.place === 'bordure'),
     peripheralPictures: placed.filter((p) => p.place === 'on-chief' || p.place === 'on-bordure'),
@@ -109,6 +114,7 @@ export interface PartsInput {
   picture: Group | null;
   placement: Placement;
   extra: Group | null;
+  positioned: Group | null;
 }
 
 /** `simpleParts` without the places: the groups to change one of and assemble again. */
@@ -120,6 +126,7 @@ export function partsOf(d: Design): PartsInput {
     picture: parts.picture?.group ?? null,
     placement: parts.picture?.placement ?? 'field',
     extra: parts.extra?.group ?? null,
+    positioned: parts.positioned?.group ?? null,
   };
 }
 
@@ -129,9 +136,11 @@ export function partsOf(d: Design): PartsInput {
  * on the ordinary as its tertiary, the extra picture on the ordinary, the peripherals beside them with
  * the pictures on them. An extra picture needs the picture on the background and an ordinary to sit
  * on, or is dropped. With no ordinary, the first peripheral (the chief, else the bordure) stands in
- * its place and keeps the pictures it carried.
+ * its place and keeps the pictures it carried. The pictures in chief, in base or in canton stand beside a
+ * central ordinary or the picture on the background; with neither they become the picture themselves
+ * (SENA App I1), or are dropped where a picture can't stand (in canton).
  */
-export function assembleParts(d: Design, { ordinary, peripherals, picture, placement, extra }: PartsInput): Design {
+export function assembleParts(d: Design, { ordinary, peripherals, picture, placement, extra, positioned }: PartsInput): Design {
   const hosts = ordinary !== null;
   const onOrdinary = picture !== null && placement === 'ordinary' && hosts;
   const standing = ordinary ?? peripherals[0] ?? null;
@@ -144,6 +153,16 @@ export function assembleParts(d: Design, { ordinary, peripherals, picture, place
     ...(standing ? [{ ...standing, role: central ? 'primary' as const : 'peripheral' as const, relation: null, arrangement: { k: 'single' } as const, position: null, charged }] : []),
     ...beside.map(peripheral),
   ];
+  const fieldPicture = picture !== null && !onOrdinary;
+  if (positioned) {
+    const position = positioned.position;
+    if (!isSecondaryPosition(position)) throw new RangeError('Pictures beside the main one stand in chief, in base or in canton.');
+    const long = positioned.item.k === 'charge' && CHARGES[positioned.item.charge].long;
+    // The layout it has where it still takes it there, else the row.
+    const layout = positionLayouts(position, positioned.count, long).find((l) => sameLayout(l, { arrangement: positioned.arrangement, position })) ?? positionLayout(position, positioned.count);
+    if (central || fieldPicture) groups.push({ ...positioned, role: 'secondary', relation: 'position', ...layout, charged: [] });
+    else if (position !== 'canton') groups.push({ ...positioned, role: 'primary', relation: null, ...positionLayout(position, positioned.count), charged: [] });
+  }
   if (picture && !onOrdinary) {
     const top: Group = { ...picture, role: central ? 'secondary' : 'primary', relation: central ? 'between' : null, charged: [] };
     if (central) groups.push({ ...top, arrangement: HOST_LAYOUT.arrangement, position: null });
@@ -177,7 +196,7 @@ const countWord = (n: number) => (n === 1 ? 'a single charge' : numberWord(n));
 function hostCountReason(d: Design, path: GroupPath): string {
   const g = groupAt(d, path);
   const ctx = layoutContext(d, path);
-  if (ctx.k === 'field') throw new RangeError('A group on the background has no host counts.');
+  if (ctx.k === 'field' || ctx.k === 'position') throw new RangeError('A group on the background has no host counts.');
   const legal = hostCounts(ctx.k, ctx.ordinary);
   const name = ORDINARY_NAME[ctx.ordinary];
   const list = joinList(legal.map(countWord), 'or');
@@ -276,13 +295,16 @@ function placementReason(parts: SimpleParts, placement: Placement): string | nul
   const ordinary = parts.ordinary?.group;
   if (!ordinary) return 'Add a band or shape first — pictures can only sit on one once there is one.';
   if (parts.extra) return 'The band already carries more pictures — remove them to move the main picture onto it.';
+  // On a chief or bordure the picture would leave the pictures in chief, base or canton with nothing in the middle to stand beside.
+  if (parts.positioned && !isCentral(ordinary)) return `The ${PLACE_LABEL[parts.positioned.place].plain.toLowerCase()} stand beside the picture — remove them to move the picture onto the band.`;
   return null;
 }
 
-/** Which of the picture, the extra picture and the pictures on a chief or bordure a path is, or null for any other group. */
-function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'extra' | 'peripheral' | null {
+/** Which of the picture, the extra picture, the pictures on a chief or bordure and the pictures in chief, base or canton a path is, or null for any other group. */
+function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'extra' | 'peripheral' | 'positioned' | null {
   if (parts.picture && samePath(parts.picture.path, path)) return 'picture';
   if (parts.extra && samePath(parts.extra.path, path)) return 'extra';
+  if (parts.positioned && samePath(parts.positioned.path, path)) return 'positioned';
   return parts.peripheralPictures.some((p) => samePath(p.path, path)) ? 'peripheral' : null;
 }
 
@@ -302,6 +324,10 @@ function edit(d: Design, path: GroupPath, change: { count?: number; placement?: 
   const parts = simpleParts(d);
   const part = partOf(parts, path);
   if (part === 'peripheral') return editPeripheralPictures(d, path, change.count ?? groupAt(d, path).count);
+  if (part === 'positioned') {
+    const design = assembleParts(d, { ...partsOf(d), positioned: { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count } });
+    return { design, path: simpleParts(design).positioned!.path };
+  }
   if (!part || !parts.picture) throw new RangeError(`The group at ${path.join('.')} is not a picture.`);
   const placement = part === 'picture' ? change.placement ?? parts.picture.placement : parts.picture.placement;
   const reason = placement === parts.picture.placement ? null : placementReason(parts, placement);
@@ -375,7 +401,7 @@ function layoutChoice<T>(d: Design, path: GroupPath, value: T, partner: Companio
 function placementsFor(parts: SimpleParts, path: GroupPath): Placement[] | null {
   const part = partOf(parts, path);
   if (!part) return null;
-  if (part === 'peripheral') return [parts.picture?.placement ?? 'field'];
+  if (part === 'peripheral' || part === 'positioned') return [parts.picture?.placement ?? 'field'];
   if (!parts.picture) return null;
   return part === 'extra' ? [parts.picture.placement] : [parts.picture.placement, ...PLACEMENTS.filter((p) => p !== parts.picture!.placement)];
 }
@@ -402,21 +428,25 @@ export function placementChoices(d: Design, path: GroupPath): LayoutChoice<Place
   return PLACEMENTS.map((p) => layoutChoice(d, path, p, 'count', countsByNearness(count).map((n): [number, Placement] => [n, p])));
 }
 
-/** single: one place to put it; host: placed by the ordinary (`note` says why there is nothing to choose); choose: pick from `choices`, with one `note` for the blocked ones (null when none is). */
+/** single: one place to put it; host: placed by the ordinary; position: set in chief, base or canton (`note` says why there is nothing to choose); choose: pick from `choices`, with one `note` for the blocked ones (null when none is). */
 export type LayoutChoices =
   | { mode: 'choose'; choices: Choice<LayoutKey>[]; note: string | null }
-  | { mode: 'single' | 'host'; note: string };
+  | { mode: 'single' | 'host' | 'position'; note: string };
 
 export function layoutChoices(d: Design, path: GroupPath): LayoutChoices {
   const g = groupAt(d, path);
   const ctx = contextOf(d, g, hostOf(d, path));
   if (!ctx) return { mode: 'single', note: 'There is no layout to choose for this group.' };
-  if (ctx.k !== 'field') {
+  if (ctx.k === 'between' || ctx.k === 'on') {
     const name = ORDINARY_NAME[ctx.ordinary];
     return { mode: 'host', note: ctx.k === 'on' ? `Charges on the ${name} follow its line.` : `Charges between a ${name} are placed around it.` };
   }
   const keys = layoutCandidates(d, path, g.count).map(layoutKey);
-  if (keys.length === 1) return { mode: 'single', note: 'A single charge sits in the centre.' };
+  if (keys.length === 1) {
+    return ctx.k === 'position'
+      ? { mode: 'position', note: g.count === 1 ? `A single charge in ${ctx.position} stands alone there.` : `Charges in ${ctx.position} stand in a row across it.` }
+      : { mode: 'single', note: 'A single charge sits in the centre.' };
+  }
   const blocks = keys.map((key) => layoutBlock(withLayout(d, path, key), path, true));
   return { mode: 'choose', choices: keys.map((key, i) => choice(key, blocks[i]?.reason ?? null)), note: blockedNote(g, blocks) };
 }

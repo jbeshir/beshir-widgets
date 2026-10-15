@@ -10,7 +10,7 @@ import {
   walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
-import { hostCounts, layoutKey, primaryOrdinary, ROW_PATTERNS } from './arrangement';
+import { hostCounts, isSecondaryPosition, layoutKey, positionLayouts, primaryOrdinary, ROW_PATTERNS, sameLayout } from './arrangement';
 
 export { notSupported, UnsupportedConstructError } from './design';
 
@@ -111,8 +111,12 @@ function layoutGaps(g: Group, hasChief: boolean): Gap[] {
   }
   if (a.k === 'rows' && !ROW_PATTERN_KEYS.has(a.rows.join('-'))) gaps.push(gap('arrangement', `rows-${a.rows.join('-')}`));
   if (g.position) {
-    const placed = (g.position === 'chief' || g.position === 'base') && g.role === 'primary' && !hasChief
-      && (a.k === 'single' || (a.k === 'line' && a.dir === 'fess'));
+    const layout = { arrangement: a, position: g.position };
+    // A primary group in chief or in base (with no chief), or a secondary group set by position in a layout it takes there.
+    const placed = g.role === 'primary'
+      ? (g.position === 'chief' || g.position === 'base') && !hasChief && (a.k === 'single' || (a.k === 'line' && a.dir === 'fess'))
+      : g.role === 'secondary' && g.relation === 'position' && isSecondaryPosition(g.position)
+        && positionLayouts(g.position, g.count, CHARGES[g.item.charge].long).some((l) => sameLayout(l, layout));
     if (!placed) gaps.push(gap('arrangement', `in-${g.position}`));
   }
   return gaps;
@@ -147,7 +151,9 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Gap }> {
     out.push({ at: at([peripherals[1].i]), gap: gap('multiple-groups', 'peripherals') });
   }
   for (const { g, i } of secondaries) {
-    if (g.relation !== 'between') out.push({ at: at([i]), gap: gap('multiple-groups', `secondary-${g.relation}`) });
+    // Set by position: in chief, in base or in canton (other positions, like in dexter chief, are not drawn yet).
+    const drawn = g.relation === 'between' || (g.relation === 'position' && isSecondaryPosition(g.position));
+    if (!drawn) out.push({ at: at([i]), gap: gap('multiple-groups', `secondary-${g.relation}`) });
     if (g.item.k === 'ordinary') out.push({ at: at([i]), gap: gap('multiple-groups', 'secondary-ordinary') });
   }
   for (const { g, i } of primaries) {

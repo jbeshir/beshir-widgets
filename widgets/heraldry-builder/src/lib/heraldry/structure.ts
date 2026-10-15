@@ -5,7 +5,7 @@
 import { TINCTURE_NAME } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase } from './charges';
-import { itemName, primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
+import { itemKey, itemName, primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
 import { capacityIssue } from './layout';
 import { groundShares } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
@@ -23,6 +23,11 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
   const meta = CHARGES[g.item.charge];
   const a = g.arrangement;
   const layout = { arrangement: a, position: g.position };
+  if (ctx.k === 'position') {
+    if (ctx.position !== 'base' && hasChief(ctx.peripheral)) return `There is no room to set charges in ${ctx.position} when the design has a chief.`;
+    if (layoutCandidates(d, path, g.count).some((c) => layoutKey(c) === layoutKey(layout))) return null;
+    return `${capitalise(chargesPhrase(g))} in ${ctx.position} can't be arranged ${layoutWords({ ...layout, position: null })}.`;
+  }
   if (ctx.k !== 'field') {
     const where = ctx.k === 'on' ? 'on' : 'around';
     return a.k === 'host' && g.position === null
@@ -87,6 +92,10 @@ export function structuralIssues(d: Design): Issue[] {
       const central = d.groups.some((g) => g.role === 'primary' && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central');
       if (!central) add({ code: 'structure', rule: 'relation', at, message: 'Charges can only be set between a central band or shape.', slots: [] });
     }
+    if (group.role === 'secondary' && group.relation === 'position' && !d.groups.some((g) => g.role === 'primary')) {
+      // With nothing in the middle, charges in chief or in base are the primary group themselves (SENA App I1).
+      add({ code: 'structure', rule: 'relation', at, message: `Charges in ${group.position ?? 'a corner'} stand beside a band, shape or picture in the middle — with none, they are the main picture.`, slots: [] });
+    }
     if (host?.role === 'tertiary') {
       add({ code: 'structure', rule: 'relation', at, message: "Charges can't sit on charges that are already on something (SENA App I3).", slots: [] });
     } else if (host) {
@@ -94,6 +103,14 @@ export function structuralIssues(d: Design): Issue[] {
       hostsSeen.add(host);
     }
   }
+
+  // 3a. The same type of charge in two groups on the field (SENA A3D1a); a charge on a charge may repeat it.
+  const fieldGroups = d.groups.filter((g) => g.role !== 'peripheral' && g.item.k === 'charge');
+  fieldGroups.forEach((group, i) => {
+    if (!fieldGroups.slice(0, i).some((g) => itemKey(g.item) === itemKey(group.item))) return;
+    const path = [d.groups.indexOf(group)];
+    add({ code: 'structure', rule: 'same-type', at: { k: 'group', path }, message: `${capitalise(chargesPhrase(group))} can't be used again in another group on the field (SENA A3D1a) — choose a different picture.`, slots: [] });
+  });
 
   // 4. Count, arrangement and position make a layout where the group sits.
   const illegal = new Set<Group>();

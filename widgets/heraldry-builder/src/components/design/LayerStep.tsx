@@ -22,6 +22,9 @@ const PICTURES_HINT = {
   'on-ordinary': 'Pictures drawn on the band, as well as the picture above.',
   'on-chief': 'Pictures drawn on the top bar.',
   'on-bordure': 'Small pictures drawn along the border.',
+  'in-chief': 'Pictures in a row across the top, beside the main picture or band.',
+  'in-base': 'Pictures in a row across the bottom, beside the main picture or band.',
+  'in-canton': 'A picture in the top corner, beside the main picture or band.',
 } as const;
 
 /** The step of a layer the design has: pictures on the band, or a top band or border set beside it. */
@@ -52,7 +55,7 @@ export function LayerStep({ design, place, n, onChange, onAdjust, issues, accord
       </Step>
     );
   }
-  if (item.k !== 'charge' || (place !== 'on-ordinary' && place !== 'on-chief' && place !== 'on-bordure')) return null;
+  if (item.k !== 'charge' || place === 'chief' || place === 'bordure') return null;
   return (
     <Step n={n} title={title} term={PLACE_LABEL[place].term} hint={PICTURES_HINT[place]} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid={testid}>
       <div class="control">

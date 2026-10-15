@@ -16,10 +16,10 @@ import {
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
-/** The places the picture controls belong to: the picture, and the pictures on the band, the top band and the border. */
+/** The places the picture controls belong to: the picture, the pictures in chief, base or canton, and the pictures on the band, the top band and the border. */
 type At = 'picture' | PicturesKey;
 /** The pictures laid out after the picture, in the order they are added. */
-const EXTRA_PICTURES: readonly PicturesKey[] = ['on-ordinary', 'on-chief', 'on-bordure'];
+const EXTRA_PICTURES: readonly PicturesKey[] = ['in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'on-bordure'];
 
 /** One click in the builder's Design tab. */
 export type BuilderAction =
@@ -238,9 +238,9 @@ export function builderPath(goal: Design): BuilderPath {
     if (t && tinctureOf(groupAt(d, peripheralAt(d, place)!)) !== t && !click({ kind: 'layer-tincture', place, tincture: t })) return done();
   }
 
-  // The picture, then the extra pictures on the band, the top band and the border.
+  // The picture, then the pictures beside it in chief, base or canton and the extra pictures on the band, the top band and the border.
   for (const at of ['picture', ...EXTRA_PICTURES] as const) {
-    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : parts.peripheralPictures.find((p) => p.place === at);
+    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : parts.positioned?.place === at ? parts.positioned : parts.peripheralPictures.find((p) => p.place === at);
     if (!part) continue;
     const item = part.group.item;
     if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };
@@ -258,6 +258,16 @@ export function builderPath(goal: Design): BuilderPath {
     if (wantsSplendour && now.k === 'charge' && !now.mods.some((m) => m.id === 'in-splendour') && !click({ kind: 'splendour', at, on: true })) return done();
     const t = tinctureOf(part.group);
     if (t && tinctureOf(groupAt(d, path)) !== t && !click({ kind: 'charge-tincture', at, tincture: t })) return done();
+  }
+
+  // Pictures in chief, base or canton take room from the picture, which may have had to give up charges: lay it out again.
+  if (parts.picture && layoutState(d, 'picture') !== layoutState(goal, 'picture')) {
+    const route = layoutRoute(d, goal, 'picture');
+    if (!route) {
+      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, 'picture')} from ${layoutState(d, 'picture')}`);
+      return done();
+    }
+    if (!click(...route)) return done();
   }
 
   if (canonicalJson(d) !== canonicalJson(goal)) problems.push(`the builder ended on ${canonicalJson(d)}, not ${canonicalJson(goal)}`);

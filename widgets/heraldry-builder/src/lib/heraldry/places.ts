@@ -5,16 +5,18 @@
 
 import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
 import { groupAt, pathKey, type Design, type Group, type GroupPath } from './design';
+import { isSecondaryPosition } from './arrangement';
 
 /**
  * In step order:
  * ordinary    — the central band or shape; with none, the chief (else the bordure) the design stands on
  * picture     — the top-level charges: primary on the field, or set between the band
+ * in-chief, in-base, in-canton — the charges set beside the band or the picture, along the top, along the bottom or in the top corner
  * on-ordinary — the charges on the ordinary
  * chief, bordure — a chief or bordure set beside the ordinary
  * on-chief, on-bordure — the charges on that chief or bordure (on the ordinary itself when it is the chief or bordure the design stands on)
  */
-export const PLACE_KEYS = ['ordinary', 'picture', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure'] as const;
+export const PLACE_KEYS = ['ordinary', 'picture', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure'] as const;
 export type PlaceKey = (typeof PLACE_KEYS)[number];
 
 export interface Placed { place: PlaceKey; path: GroupPath; group: Group }
@@ -47,6 +49,7 @@ export function placesIn(d: Design): { placed: Placed[]; unplaced: GroupPath[] }
     if (i === ordinary) add('ordinary', [i], group);
     else if (type === 'chief' || type === 'bordure') add(type, [i], group);
     else if (group.item.k === 'charge' && (group.role === 'primary' || (group.role === 'secondary' && group.relation === 'between'))) add('picture', [i], group);
+    else if (group.item.k === 'charge' && group.role === 'secondary' && group.relation === 'position' && isSecondaryPosition(group.position)) add(`in-${group.position}`, [i], group);
     else unplaced.push([i]);
     if (i !== ordinary) group.charged.forEach((tertiary, j) => (type === 'chief' || type === 'bordure' ? add(`on-${type}`, [i, j], tertiary) : unplaced.push([i, j])));
   });

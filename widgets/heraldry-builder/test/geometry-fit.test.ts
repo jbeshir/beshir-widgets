@@ -9,9 +9,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
   hasBordure, hasChief, layoutOfKey, minSlotSize, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
-  type ChargeId, type Design, type FieldShape, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Slot,
+  type ChargeId, type Design, type FieldShape, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { rings, type Pt } from './art-geometry';
@@ -28,6 +28,10 @@ const ON: OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 
 const tinctured = (paint: string, item: object, extra: object = {}) => ({ item, paint, ...extra });
 
 const PERIPHERALS: Peripheral[] = ['none', 'chief', 'bordure', 'chief-bordure'];
+/** What charges in chief, in base or in canton stand beside: a primary charge (null), or a central ordinary (a sample of the shapes: the sweep is long). */
+const POSITION_BESIDE: Array<OrdinaryType | null> = [null, 'fess', 'pale', 'bend', 'chevron', 'saltire'];
+/** The counts of primary charges sampled beside them: the small ones and the ends of the range. */
+const YIELD_COUNTS = [1, 2, 3, 5, 8, 12];
 /** The chief and bordure groups that make a design's peripheral. */
 const peripheralGroups = (peripheral: Peripheral): object[] => [
   ...(hasChief(peripheral) ? [tinctured('gules', { k: 'ordinary', type: 'chief' })] : []),
@@ -94,6 +98,33 @@ function catalogue(): { entries: Entry[]; rejected: number } {
       }
     }
   }
+  // Charges set in chief, in base or in canton beside a lion or a central ordinary, and the primary charges that leave them room.
+  for (const [peripheral, extra] of peripherals) {
+    for (const position of SECONDARY_POSITIONS) {
+      if (position !== 'base' && peripheral === 'chief') continue;
+      for (const type of POSITION_BESIDE) {
+        const primary = type ? tinctured('or', { k: 'ordinary', type }) : tinctured('or', chargeItem('lion'));
+        for (const count of COUNTS) {
+          // Swords, so that two crossed are a candidate.
+          const make = (arrangement?: string) => resolved({
+            v: 2, field: 'azure', groups: [primary, tinctured('argent', chargeItem('sword'), { count, position, ...(arrangement ? { arrangement } : {}) }), ...extra],
+          });
+          const base = make();
+          const path = [base.groups.findIndex((g) => g.role === 'secondary')];
+          consider(count, { k: 'position', position, ordinary: type, peripheral }, layoutCandidates(base, path, count), `in ${position} beside ${type ?? 'lion'}/${peripheral}`, make);
+        }
+      }
+      for (const count of YIELD_COUNTS) {
+        const make = (arrangement?: string) => resolved({
+          v: 2, field: 'azure',
+          groups: [tinctured('or', chargeItem('sword'), { count, ...(arrangement ? { arrangement } : {}) }), tinctured('argent', chargeItem('mullet'), { position }), ...extra],
+        });
+        const base = make();
+        const path = [base.groups.findIndex((g) => g.role === 'primary')];
+        consider(count, { ...fieldContext(peripheral), yields: position }, layoutCandidates(base, path, count), `field/${peripheral}/${position}`, make);
+      }
+    }
+  }
   return { entries, rejected };
 }
 
@@ -139,13 +170,14 @@ interface ShapeGeometry {
   outline: Pt[];
   inset: Pt[];
   chiefBase: number;
+  fessY: number;
   poly: (t: OrdinaryType) => Pt[];
 }
 
 function shapeGeometry(shape: FieldShape): ShapeGeometry {
   const frame = shapeFrame(shape);
   return {
-    shape, outline: pathPolygon(frame.outline), inset: pathPolygon(frame.inset), chiefBase: frame.chiefBase,
+    shape, outline: pathPolygon(frame.outline), inset: pathPolygon(frame.inset), chiefBase: frame.chiefBase, fessY: frame.fessPoint.y,
     poly: (t) => pathPolygon(ordinaryPath(t, shape)),
   };
 }
@@ -156,7 +188,19 @@ function groundFits(g: ShapeGeometry, ctx: LayoutContext, margin: number, narrow
   const onShape = (p: Pt) => pointInPolygon(p[0], p[1], g.outline) && edgeDistance(g.outline, p) >= margin;
   // What the chief and bordure beside the group leave: inside the bordure's inner edge, below the chief.
   const inFrame = (p: Pt) => (hasBordure(ctx.peripheral) ? pointInPolygon(p[0], p[1], g.inset) : onShape(p)) && (!hasChief(ctx.peripheral) || p[1] >= g.chiefBase);
-  if (ctx.k === 'field') return inFrame;
+  // The room left for charges in chief, in base or in canton: above a line six below the chief's, below one 24 below the fess point, or the corner left of x = 36.
+  const inRoom = (position: SecondaryPosition) => ([x, y]: Pt) => (position === 'base' ? y >= g.fessY + 24 : y <= g.chiefBase + 6 && (position === 'chief' || x <= 36));
+  if (ctx.k === 'field') {
+    if (ctx.yields !== 'chief' && ctx.yields !== 'base' && ctx.yields !== 'canton') return inFrame;
+    const yielded = inRoom(ctx.yields);
+    return (p) => inFrame(p) && !yielded(p);
+  }
+  if (ctx.k === 'position') {
+    const room = inRoom(ctx.position);
+    const poly = ctx.ordinary && g.poly(ctx.ordinary);
+    const respect = ctx.ordinary !== null && (!narrowBands || ART_RESPECTS.includes(ctx.ordinary));
+    return (p) => inFrame(p) && room(p) && !(respect && poly !== null && pointInPolygon(p[0], p[1], poly));
+  }
   // On the bordure: inside the shape and outside the bordure's inner edge.
   if (ctx.k === 'on' && ctx.ordinary === 'bordure') return (p) => onShape(p) && !pointInPolygon(p[0], p[1], g.inset);
   const poly = g.poly(ctx.ordinary);
@@ -178,6 +222,8 @@ describe('layout catalogue', () => {
     for (const key of [
       'field/none', 'field/bordure', 'field/chief', 'between fess', 'between bend', 'on fess', 'on bend', 'on chevron', 'on chief', 'on cross',
       'between chevron/bordure', 'between pale/chief', 'between bend/chief-bordure', 'on fess/bordure', 'on bend/chief', 'on chief/bordure', 'on bordure', 'on bordure/chief',
+      'in chief beside lion/none', 'in base beside chevron/none', 'in canton beside fess/none', 'in base beside fess/chief', 'in chief beside fess/bordure',
+      'field/none/chief', 'field/none/base', 'field/none/canton', 'field/bordure/chief', 'field/chief/base',
     ]) {
       expect(CATALOGUE.some((e) => e.label.startsWith(key)), key).toBe(true);
     }

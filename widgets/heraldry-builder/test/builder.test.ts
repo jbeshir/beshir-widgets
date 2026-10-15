@@ -278,7 +278,8 @@ describe('a top band and a border beside the band', () => {
     const chief = addLayer(band, 'chief');
     expect(blazon(chief)).toBe('Azure, a chevron argent, a chief Or.');
     expect(assess(chief).status).toBe('valid');
-    expect(layerChoices(chief).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'bordure', 'on-bordure']);
+    expect(layerChoices(chief).map((c) => c.value)).toEqual(['in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure']);
+    expect(['in-chief', 'in-base', 'in-canton'].map((k) => allowed(chief, k as LayerKey))).toEqual([false, true, false]);
     expect(issueStep(chief, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: layerPath(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
     expect(blazon(setLayerTincture(chief, 'chief', 'gules'))).toContain('chief');
     const both = addLayer(chief, 'bordure');
@@ -317,6 +318,62 @@ describe('a top band and a border beside the band', () => {
     const alone = setOrdinary(bordered, null);
     expect(alone.groups.map((g) => g.item.k === 'ordinary' && g.item.type)).toEqual(['bordure']);
     expect(ordinaryPath(alone)).toEqual([0]);
+  });
+});
+
+describe('pictures in chief, in base or in canton beside the band or the picture', () => {
+  const chevron = setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'chevron'), 'argent');
+  const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+  const allowed = (d: Design, key: LayerKey) => layerChoices(d).find((c) => c.value === key);
+
+  it('are offered beside a band or a picture on the background, with a charge of their own and a colour that works', () => {
+    expect(allowed(DEFAULT_DESIGN, 'in-chief')).toMatchObject({ allowed: false, reason: 'Add a band or shape, or a picture on the background, first — pictures along the top stand beside one.' });
+    const chief = addLayer(chevron, 'in-chief');
+    expect(blazon(chief)).toBe('Azure, a chevron argent and in chief a mullet Or.');
+    expect(assess(chief).status).toBe('valid');
+    expect(layerPath(chief, 'in-chief')).not.toBeNull();
+    const base = addLayer(lion, 'in-base');
+    expect(blazon(base)).toBe('Azure, a lion and in base a mullet Or.');
+    expect(assess(base).status).toBe('valid');
+    expect(issueStep(base, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: layerPath(base, 'in-base')! }, message: '', slots: [] })).toBe('in-base');
+    expect(blazon(addLayer(lion, 'in-canton'))).toBe('Azure, a lion and in canton a mullet Or.');
+    expect(removeLayer(base, 'in-base')).toEqual(lion);
+  });
+
+  it('stand alone: one group beside the main one, and not beside pictures around the band', () => {
+    const chief = addLayer(lion, 'in-chief');
+    expect(allowed(chief, 'in-base')).toMatchObject({ allowed: false, reason: 'Only one group of pictures can stand beside the main one — remove the others first.' });
+    const around = setCharge(chevron, 'picture', 'rose');
+    expect(allowed(around, 'in-chief')).toMatchObject({ allowed: false, reason: 'The picture is set around the chevron: pictures can stand around the band or along the top, not both — move the picture onto the band first.' });
+  });
+
+  it('take their count and charge like any pictures, and give the picture beside them the room they leave', () => {
+    let d = addLayer(lion, 'in-chief');
+    const path = () => layerPath(d, 'in-chief')!;
+    const three = countChoices(d, path()).find((c) => c.value === 3)!;
+    expect(three.allowed).toBe(true);
+    d = three.allowed ? three.design : d;
+    d = setCharge(d, 'in-chief', 'crescent');
+    expect(blazon(d)).toBe('Azure, a lion and in chief three crescents Or.');
+    const layouts = layoutChoices(d, path());
+    expect(layouts.mode === 'choose' && layouts.choices.map((c) => c.value)).toEqual(['in-chief', 'rows-2-1@chief', 'rows-1-2@chief']);
+    expect(layoutChoices(addLayer(lion, 'in-canton'), layerPath(addLayer(lion, 'in-canton'), 'in-canton')!)).toEqual({ mode: 'position', note: 'A single charge in canton stands alone there.' });
+    expect(countChoices(d, picture(d)).filter((c) => c.allowed).length).toBeGreaterThan(3);
+  });
+
+  it('stay through changes beneath them, and become the picture when nothing is left for them to stand beside', () => {
+    const chief = addLayer(chevron, 'in-chief');
+    // A new picture goes on the chevron, since pictures around it and in chief can't both be set.
+    const pictured = setCharge(chief, 'picture', 'rose');
+    expect(blazon(pictured)).toMatch(/^Azure, on a chevron argent a rose \w+ and in chief a mullet Or\.$/);
+    expect(layerPath(setOrdinary(chief, 'fess'), 'in-chief')).not.toBeNull();
+    // With no band and no picture, the mullet in chief is the picture itself (SENA App I1).
+    const alone = setOrdinary(chief, null);
+    expect(blazon(alone)).toBe('Azure, in chief a mullet Or.');
+    expect(picturePath(alone)).not.toBeNull();
+    // A band added beside a picture and pictures in chief makes the picture go around it: the pictures in chief give way.
+    const banded = setOrdinary(addLayer(lion, 'in-chief'), 'pale');
+    expect(layerPath(banded, 'in-chief')).toBeNull();
   });
 });
 

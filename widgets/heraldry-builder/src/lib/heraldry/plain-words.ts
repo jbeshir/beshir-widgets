@@ -10,7 +10,7 @@ import type { LayoutKey } from './arrangement';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
-import { layoutOfKey, layoutWords } from './arrangement';
+import { isSecondaryPosition, layoutOfKey, layoutWords } from './arrangement';
 import type { PlaceKey } from './places';
 import type { GroupTincture } from './design';
 import { joinAnd, numberWord, capitalise } from './words';
@@ -101,7 +101,12 @@ const LAYOUT_PLAIN: Record<string, string> = {
   crossed: 'Crossed like an X',
   'in-chief': 'Along the top',
   'in-base': 'Along the bottom',
+  'single@canton': 'In the top corner',
+  'in-fess@canton': 'In a row in the top corner',
 };
+
+/** Where a layout set in chief, in base or in canton stands, by the position in its key. */
+const PLACE_WORDS: Readonly<Record<string, string>> = { chief: 'along the top', base: 'along the bottom', canton: 'in the top corner' };
 
 const ROW_PLAIN: Record<string, string> = {
   '2-1': 'Two above, one below',
@@ -116,6 +121,13 @@ export function layoutLabel(key: LayoutKey): PlainTerm {
   const term = layoutWords(layout);
   const fixed = LAYOUT_PLAIN[key];
   if (fixed) return { plain: fixed, term };
+  // A pattern set in chief, in base or in canton: the pattern's words and where it stands ("Two above, one below, along the top").
+  const [base, at] = key.split('@');
+  const where = at === undefined ? undefined : PLACE_WORDS[at];
+  if (where) {
+    const pattern = layoutLabel(base);
+    return { plain: `${pattern.plain}, ${where}`, term: `in ${at} ${pattern.term}` };
+  }
   const rows = /^rows-(\d+(?:-\d+)*)$/.exec(key)?.[1];
   if (!rows) throw new RangeError(`No label for the layout "${key}".`);
   return { plain: ROW_PLAIN[rows] ?? `Rows of ${joinAnd(rows.split('-'))}`, term };
@@ -166,6 +178,9 @@ export function postureLabel(id: ChargeId, posture: Posture, note: string | null
 export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
   ordinary: { plain: 'Band or shape', term: 'ordinary' },
   picture: { plain: 'Picture', term: 'charge' },
+  'in-chief': { plain: 'Pictures along the top', term: 'charges in chief' },
+  'in-base': { plain: 'Pictures along the bottom', term: 'charges in base' },
+  'in-canton': { plain: 'Pictures in the top corner', term: 'charges in canton' },
   'on-ordinary': { plain: 'Extra pictures', term: 'charges on the ordinary' },
   chief: ORDINARY_LABEL.chief,
   'on-chief': { plain: 'Pictures on the top bar', term: 'charges on the chief' },
@@ -174,8 +189,8 @@ export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
 };
 
 /**
- * What the builder calls a group: "Band or shape", "Picture", "Pictures on the band", "Top bar", "Border", or
- * "Pictures on the top bar" for what sits on one.
+ * What the builder calls a group: "Band or shape", "Picture", "Pictures on the band", "Top bar", "Border",
+ * "Pictures on the top bar" for what sits on one, or "Pictures along the top" for charges set in chief beside the main picture.
  */
 export function groupLabel(d: Design, path: GroupPath): string {
   const group = groupAt(d, path), host = hostOf(d, path);
@@ -186,6 +201,9 @@ export function groupLabel(d: Design, path: GroupPath): string {
   if (host?.item.k === 'ordinary') {
     const onto = host.item.type === 'chief' || host.item.type === 'bordure' ? ORDINARY_LABEL[host.item.type].plain.toLowerCase() : 'band';
     return `Pictures on the ${onto}`;
+  }
+  if (group.role === 'secondary' && group.relation === 'position' && isSecondaryPosition(group.position)) {
+    return PLACE_LABEL[`in-${group.position}`].plain;
   }
   return 'Picture';
 }

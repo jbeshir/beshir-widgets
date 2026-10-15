@@ -3,7 +3,7 @@
 // layout is Table 7's or a random one of the group's candidates. `generatedDesigns` makes the builder's level-0
 // space (the tests that rely on its distribution never change); `generatedRichDesigns` shares its internals and
 // adds the constructs the builder has gained since: a chief and a bordure beside the band, pictures on the band
-// as well as beside it, and pictures on the chief and the bordure.
+// as well as beside it, pictures on the chief and the bordure, and pictures in chief, in base or in canton.
 
 import { layoutCandidates, layoutKey, normalise, resolve, type Design } from '../src/lib/heraldry';
 
@@ -57,6 +57,13 @@ function designFor(seed: number, rich: boolean): Design | null {
       if (type === peripheral || next() >= 0.35) continue;
       const carried = next() < 0.35 ? [{ item: { k: 'charge', charge: pick(CHARGES.filter((c) => c !== 'sword')) }, paint: t(), count: 1 + Math.floor(next() * (peripheral === 'chief' ? 4 : 8)) }] : [];
       groups.push({ item: { k: 'ordinary', type: peripheral }, paint: t(), charged: carried });
+    }
+    // Pictures in chief, in base or in canton beside a central band or the picture (never beside pictures set around the band).
+    const central = type !== null && type !== 'chief' && type !== 'bordure';
+    if ((central ? pictureAt < 0 : pictureAt >= 0) && next() < 0.35) {
+      const position = pick(['chief', 'base', 'canton']);
+      const count = position === 'canton' ? 1 : 1 + Math.floor(next() * 3);
+      groups.push({ item: { k: 'charge', charge: pick(CHARGES.filter((c) => c !== id && c !== 'sword')) }, paint: t(), count, position });
     }
   }
 

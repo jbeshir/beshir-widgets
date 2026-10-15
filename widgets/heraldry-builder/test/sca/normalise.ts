@@ -65,12 +65,15 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a
     //    bordure", "all within a bordure", "and a bordure", ", a bordure"; "on a bend, three…" and "on a bend three…"; "on a
     //    fess between two crescents argent, three mullets" and "… argent three mullets" (RULES §F.2: no
-    //    comma is the house style, a comma is occasionally used for clarity); and the comma that closes
-    //    the field, which a few records omit. Every element and tincture stays.
+    //    comma is the house style, a comma is occasionally used for clarity); "a lion and in chief three
+    //    mullets" and "a lion, in chief three mullets" (RULES §F.2 secondary connectors: the LoARs use both,
+    //    and a tincture is factored across either); and the comma that closes the field, which a few records
+    //    omit. Every element and tincture stays.
     id: 'equivalent-connectors',
-    description: '"and a chief/bordure", "within a bordure", "all within a bordure" → ", a chief/bordure"; no comma after "on a <ordinary> <tincture>" or after the tincture of what is set between it and a group on it; restore the comma after the field.',
+    description: '"and a chief/bordure", "within a bordure", "all within a bordure" → ", a chief/bordure"; "and in chief/base/canton" → ", in chief/base/canton"; no comma after "on a <ordinary> <tincture>" or after the tincture of what is set between it and a group on it; restore the comma after the field.',
     apply: (s) => s
       .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
+      .replace(/,? and (?=in (?:chief|base|canton)\b)/g, ', ')
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
       .replace(new RegExp(`\\b(on a (?:${ORDINARY}|chief) ${TINCT}),`, 'g'), '$1')
       .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY} (?:${TINCT} )?between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')

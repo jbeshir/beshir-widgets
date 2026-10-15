@@ -43,6 +43,15 @@ describe('new constructs', () => {
       .toBe('A red shield with a gold band across the top carrying two red roses.');
   });
 
+  it('words charges in chief, in base or in canton beside the primary', () => {
+    expect(say('purpure', chg('bee', 'or'), chg('mullet', 'argent', { count: 3, position: 'chief' })))
+      .toBe('A purple shield with a gold bee and three white five-pointed stars, in a row along the top.');
+    expect(say('argent', ord('chevron', 'sable'), chg('crescent', 'sable', { position: 'base' })))
+      .toBe('A white shield with a black upside-down V and a black crescent moon, near the bottom.');
+    expect(say('sable', chg('dragon', 'argent'), chg('crescent', 'argent', { position: 'canton' }), ord('bordure', 'argent')))
+      .toBe('A black shield with a white dragon rearing up and a white crescent moon, in the top-left corner, and a white border around the edge.');
+  });
+
   it('words a chief and a bordure beside a band', () => {
     expect(say('gules', ord('fess', 'argent'), ord('chief', 'azure'))).toBe('A red shield with a white horizontal band across the middle and a blue band across the top.');
   });

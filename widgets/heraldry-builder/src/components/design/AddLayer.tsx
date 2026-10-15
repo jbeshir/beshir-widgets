@@ -1,5 +1,6 @@
 // The one "+ Add pictures around / on / above" chooser under the picture step: a button for each layer the
-// design can take (pictures on the band, a top band, a border), shown only while some layer can be drawn.
+// design can take (pictures on the band, along the top or bottom or in the corner, a top band, a border), shown
+// only while some layer can be drawn.
 
 import { useState } from 'preact/hooks';
 import { addLayer, groupAt, layerChoices, ORDINARY_LABEL, type Design, type LayerKey } from '../../lib/heraldry';
@@ -17,6 +18,9 @@ const buttonText = (design: Design, key: LayerKey): string => {
     case 'on-ordinary': return `Add pictures on the ${hostWord(design)}`;
     case 'on-chief': return 'Add pictures on the top bar';
     case 'on-bordure': return 'Add pictures on the border';
+    case 'in-chief': return 'Add pictures along the top (in chief)';
+    case 'in-base': return 'Add pictures along the bottom (in base)';
+    case 'in-canton': return 'Add a picture in the top corner (in canton)';
     case 'chief': case 'bordure': return `Add a ${key === 'chief' ? 'top band' : 'border'} (${ORDINARY_LABEL[key].term})`;
   }
 };

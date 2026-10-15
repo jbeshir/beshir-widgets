@@ -142,4 +142,22 @@ describe('controls that appear only when they apply', () => {
     }
     expect(removeLayer(removeLayer(carried, 'on-chief'), 'on-bordure')).toEqual(framed);
   });
+
+  it('gives pictures in chief, in base or in canton a card of their own, with the one layout they stand in', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    const add = renderToString(h(AddLayer, { design: lion, onChange: noop }));
+    for (const text of ['Add pictures along the top (in chief)', 'Add pictures along the bottom (in base)', 'Add a picture in the top corner (in canton)']) expect(add).toContain(text);
+    for (const place of ['in-chief', 'in-base', 'in-canton'] as const) {
+      const d = addLayer(lion, place);
+      expect(layersIn(d)).toEqual([place]);
+      const html = renderToString(h(LayerStep, { ...base, design: d, place, n: 4, onAdjust: noop }));
+      const got = ids(html);
+      for (const id of [`step-layer-${place}`, `${place}-charge-select`, `${place}-count-select`, `${place}-count-1`, `${place}-arrangement-select`, `${place}-charge-tincture`, `remove-layer-${place}`]) expect(got, id).toContain(id);
+      expect(got).not.toContain(`${place}-placement-select`);
+      expect(html).toContain({ 'in-chief': 'Pictures along the top', 'in-base': 'Pictures along the bottom', 'in-canton': 'Pictures in the top corner' }[place]);
+      expect(html).toMatch(/<select[^>]*data-testid="[a-z-]+-arrangement-select"[^>]*disabled/);
+      expect(removeLayer(d, place)).toEqual(lion);
+    }
+    expect(renderToString(h(LayerStep, { ...base, design: addLayer(lion, 'in-canton'), place: 'in-canton', n: 4, onAdjust: noop }))).toContain('In the top corner');
+  });
 });

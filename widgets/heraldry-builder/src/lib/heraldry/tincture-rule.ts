@@ -267,7 +267,8 @@ function ordinaryMessage(d: Design, g: Group, f: ContrastFailure, ground: Ground
  */
 function forcedIntoOnePart(d: Design, path: GroupPath, failures: readonly (ContrastFailure | null)[], pair: readonly [Tincture, Tincture] | null): boolean {
   const g = groupAt(d, path);
-  if (g.item.k !== 'charge' || g.paint.k !== 'tincture' || !pair || hostOf(d, path) || forcedLayout(d, path) !== null) return false;
+  // Charges set in chief, in base or in canton stand where the blazon puts them: a part they don't contrast with is a violation.
+  if (g.item.k !== 'charge' || g.paint.k !== 'tincture' || !pair || hostOf(d, path) || g.relation === 'position' || forcedLayout(d, path) !== null) return false;
   const i = pair.indexOf(g.paint.t);
   return i >= 0 && contrastFailure(g.paint.t, [pair[1 - i]]) === null && failures.some((f) => f !== null) && failures.every((f) => f === null || f === 'same');
 }

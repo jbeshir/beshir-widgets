@@ -3,7 +3,7 @@
 import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
-import { fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint } from './design';
+import { fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
 import { type OrdinaryType } from './ordinaries';
 import { betweenWords, type Layout } from './arrangement';
 
@@ -64,10 +64,23 @@ function ordinaryGloss(d: Design, g: Group): string {
   return colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${counterchangedGloss(d)}`;
 }
 
+/** Where charges set in chief, base or canton in a pattern stand, before the pattern's own words. */
+const PATTERN_PLACE: Partial<Record<Position, string>> = { chief: 'along the top', base: 'along the bottom', canton: 'in the top-left corner' };
+
 /** The words for a layout, or null when it needs none (a lone charge, or charges placed by their host). */
 function layoutGloss(l: Layout, count: number): string | null {
   const a: Arrangement = l.arrangement;
-  if (l.position) return l.position === 'chief' ? (count === 1 ? 'near the top' : 'in a row along the top') : count === 1 ? 'near the bottom' : 'in a row along the bottom';
+  if (l.position !== null && (a.k === 'rows' || a.k === 'crossed')) {
+    const where = PATTERN_PLACE[l.position] ?? notSupported({ category: 'arrangement', detail: `in-${l.position}` });
+    return `${where}, ${layoutGloss({ arrangement: a, position: null }, count)}`;
+  }
+  switch (l.position) {
+    case null: break;
+    case 'chief': return count === 1 ? 'near the top' : 'in a row along the top';
+    case 'base': return count === 1 ? 'near the bottom' : 'in a row along the bottom';
+    case 'canton': return count === 1 ? 'in the top-left corner' : 'in a row in the top-left corner';
+    default: return notSupported({ category: 'arrangement', detail: `in-${l.position}` });
+  }
   switch (a.k) {
     case 'single': case 'host': return null;
     case 'line': return { pale: 'in a vertical line', fess: 'in a row', bend: 'in a diagonal line from top-left', 'bend-sinister': 'in a diagonal line from top-right' }[a.dir];
@@ -143,13 +156,14 @@ function ordinaryWith(d: Design, g: Group, between: Group[]): { text: string; cl
 
 export function gloss(d: Design): string {
   const field = fieldGloss(d);
-  const between = d.groups.filter((g) => g.role === 'secondary');
+  const between = d.groups.filter((g) => g.role === 'secondary' && g.relation === 'between');
+  const positioned = d.groups.filter((g) => g.role === 'secondary' && g.relation === 'position');
   const primary = d.groups.filter((g) => g.role === 'primary');
   const peripheral = d.groups.filter((g) => g.role === 'peripheral');
-  if (d.groups.length !== primary.length + between.length + peripheral.length) {
+  if (d.groups.length !== primary.length + between.length + positioned.length + peripheral.length) {
     return notSupported({ category: 'multiple-groups', detail: 'overall' });
   }
-  const parts = [...primary, ...peripheral].map((g) => (g.item.k === 'ordinary' ? ordinaryWith(d, g, g.role === 'primary' ? between : []) : chargesGloss(d, g)));
+  const parts = [...primary, ...positioned, ...peripheral].map((g) => (g.item.k === 'ordinary' ? ordinaryWith(d, g, g.role === 'primary' ? between : []) : chargesGloss(d, g)));
   if (parts.length === 0) return `${field}.`;
   const rest = parts.reduce((text, p, i) => (i === 0 ? p.text : `${text}${parts[i - 1].clause ? ',' : ''} and ${p.text}`), '');
   return `${field}${d.kind === 'arms' && d.field.k === 'tincture' ? ' with ' : ', with '}${rest}.`;

@@ -1,11 +1,13 @@
 // Builder transitions over places beyond the band and the picture ("layers"): the pictures on the band, a
-// top band (chief) and a border (bordure), and the pictures on those. Pure Design → Design, like every builder edit: a layer is added
+// top band (chief) and a border (bordure), the pictures on those, and pictures set in chief, in base or in
+// canton beside the band or the picture. Pure Design → Design, like every builder edit: a layer is added
 // where it can be drawn and given the first tincture that works, the pictures are refitted to the room it
 // leaves, and anything that can't be drawn is blocked with its reason, never silently dropped.
 
 import { CHARGES, type ChargeId } from './charges';
 import { PLAIN_LINES, canonical, tincturePaint, type Design, type Group, type GroupPath, type GroupTincture } from './design';
-import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
+import type { SecondaryPosition } from './arrangement';
 import {
   assembleParts, fitGroup, firstAllowed, groupTinctureChoices, layoutReason, partsOf, simpleParts, withTincture, type Choice,
 } from './options';
@@ -17,13 +19,18 @@ import { unsupportedIssues } from './support';
 export type LayerKey = Exclude<PlaceKey, 'ordinary' | 'picture'>;
 export const LAYER_KEYS: readonly LayerKey[] = PLACE_KEYS.filter((k): k is LayerKey => k !== 'ordinary' && k !== 'picture');
 
+/** The layers that are pictures set beside the band or the picture, in chief, in base or in canton. */
+export type PositionedKey = Extract<LayerKey, 'in-chief' | 'in-base' | 'in-canton'>;
 /** The layers that are a group of pictures, with a charge of their own. */
-export type PicturesKey = Extract<LayerKey, 'on-ordinary' | 'on-chief' | 'on-bordure'>;
+export type PicturesKey = Extract<LayerKey, 'on-ordinary' | 'on-chief' | 'on-bordure'> | PositionedKey;
 /** The layers that are a top band or a border, with a colour of their own. */
 export type PeripheralKey = Extract<LayerKey, 'chief' | 'bordure'>;
 
 /** The chief or bordure whose pictures a layer is. */
-const hostOfPictures = (key: Exclude<PicturesKey, 'on-ordinary'>): PeripheralKey => (key === 'on-chief' ? 'chief' : 'bordure');
+const hostOfPictures = (key: 'on-chief' | 'on-bordure'): PeripheralKey => (key === 'on-chief' ? 'chief' : 'bordure');
+const positionOf = (key: PositionedKey): SecondaryPosition => (key === 'in-chief' ? 'chief' : key === 'in-base' ? 'base' : 'canton');
+/** Where pictures set by position stand, in the builder's words. */
+const POSITION_WORDS: Record<SecondaryPosition, string> = { chief: 'along the top', base: 'along the bottom', canton: 'in the top corner' };
 const peripheralName = (key: PeripheralKey): string => (key === 'chief' ? 'top band' : 'border');
 
 /** The path of the group in a layer, or null when the design has none. */
@@ -68,9 +75,9 @@ function firstProblem(d: Design): string | null {
   return unsupportedIssues(d)[0]?.message ?? structuralIssues(d)[0]?.message ?? null;
 }
 
-/** The pictures refitted to the design they now sit in, in step order. */
+/** The pictures refitted to the design they now sit in: those set by position first (the picture keeps clear of them), then in step order. */
 export function refitLayers(d: Design): Design {
-  return (['picture', 'on-ordinary', 'on-chief', 'on-bordure'] as const).reduce((out, key) => {
+  return (['in-chief', 'in-base', 'in-canton', 'picture', 'on-ordinary', 'on-chief', 'on-bordure'] as const).reduce((out, key) => {
     const path = pathOfPlace(out, key);
     return path ? fitGroup(out, path) : out;
   }, d);
@@ -94,6 +101,20 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
   const parts = simpleParts(d);
   const ordinary = parts.ordinary?.group;
   switch (key) {
+    case 'in-chief': case 'in-base': case 'in-canton': {
+      const position = positionOf(key);
+      const where = POSITION_WORDS[position];
+      if (parts.positioned) return { reason: 'Only one group of pictures can stand beside the main one — remove the others first.' };
+      const central = ordinary?.item.k === 'ordinary' && ORDINARY_KIND[ordinary.item.type] === 'central' ? ordinary.item.type : null;
+      const onField = parts.picture?.placement === 'field';
+      if (central && onField) return { reason: `The picture is set around the ${ORDINARY_NAME[central]}: pictures can stand around the band or ${where}, not both — move the picture onto the band first.` };
+      if (!central && !onField) return { reason: `Add a band or shape, or a picture on the background, first — pictures ${where} stand beside one.` };
+      const placed = refitLayers(assembleParts(d, { ...partsOf(d), positioned: { ...newCharge(startingCharge(d), 'secondary'), position } }));
+      const path = pathOfPlace(placed, key);
+      if (!path) return { reason: `Pictures can't stand ${where} here.` };
+      const reason = layoutReason(placed, path, true) ?? firstProblem(placed);
+      return reason === null ? { design: withFirstTincture(placed, path)! } : { reason };
+    }
     case 'on-ordinary': {
       if (!ordinary) return { reason: 'Add a band or shape first — pictures can only sit on one once there is one.' };
       if (!parts.picture || parts.picture.placement !== 'field') return { reason: 'Pick a picture on the background first — more pictures can then go on the band.' };
@@ -161,6 +182,8 @@ export function removeLayer(d: Design, key: LayerKey): Design {
     }
     case 'chief': case 'bordure':
       return refitLayers(assembleParts(d, { ...partsOf(d), peripherals: parts.peripherals.filter((p) => p.place !== key).map((p) => p.group) }));
+    case 'in-chief': case 'in-base': case 'in-canton':
+      return parts.positioned?.place === key ? refitLayers(assembleParts(d, { ...partsOf(d), positioned: null })) : d;
   }
 }
 
@@ -171,6 +194,10 @@ export function setLayerCharge(d: Design, key: PicturesKey, id: ChargeId): Desig
     if (!parts.extra || !parts.picture) return d;
     const swapped: Group = { ...parts.extra.group, item: chargeItem(id, parts.extra.group) };
     return refitLayers(assembleParts(d, { ...partsOf(d), extra: swapped }));
+  }
+  if (key === 'in-chief' || key === 'in-base' || key === 'in-canton') {
+    if (parts.positioned?.place !== key) return d;
+    return refitLayers(assembleParts(d, { ...partsOf(d), positioned: { ...parts.positioned.group, item: chargeItem(id, parts.positioned.group) } }));
   }
   const type = hostOfPictures(key);
   const swap = (t: Group): Group => ({ ...t, item: chargeItem(id, t) });

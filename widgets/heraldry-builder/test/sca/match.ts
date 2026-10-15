@@ -80,7 +80,7 @@ const ORDINARY_WORDS = new Map<string, OrdinaryType>(DRAWN_ORDINARIES.map((t) =>
 const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as const;
 const COUNT_WORDS = new Map<string, number>([['a', 1], ['an', 1], ...NUMBER_WORDS.map((w, i): [string, number] => [w, i + 1])]);
 const LINE_WORDS = ['pale', 'fess', 'bend sinister', 'bend'] as const;
-const POSITION_WORDS = ['chief', 'base'] as const;
+const POSITION_WORDS = ['chief', 'base', 'canton'] as const;
 const PATTERN_WORDS = ['saltire', 'cross', 'orle', 'annulo'] as const;
 
 /** Charge noun → charge and number. "fish" is both. */
@@ -110,7 +110,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base',
+    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton',
     ...DIVISION_WORDS.keys(), ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
@@ -125,6 +125,7 @@ const VOCABULARY = new Set<string>(
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
 //   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['in splendor'] [('in' PATTERN)|ROWS] [T]
+//   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | ε
 // A group straight after "between", or joined to one by "and", is set around the ordinary; any other
 // group after an "on" ordinary sits on it. A phrase without a tincture takes the next stated one, except
@@ -183,7 +184,11 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     i += 2;
   }
   const group: Record<string, unknown> = { item, count };
-  if (lead) group.arrangement = `in-${lead.replace(' ', '-')}`;
+  // "in chief three mullets" places the group (the widget lays it out there); "in pale two keys" arranges it.
+  if (lead) {
+    if ((POSITION_WORDS as readonly string[]).includes(lead)) group.position = lead;
+    else group.arrangement = `in-${lead.replace(' ', '-')}`;
+  }
   if (tokens[i] === 'in' && (PATTERN_WORDS as readonly string[]).includes(tokens[i + 1])) {
     const pattern = tokens[i + 1];
     group.arrangement = pattern === 'saltire' && count === 2 && CHARGES[noun.id].long ? 'crossed' : `in-${pattern}`;

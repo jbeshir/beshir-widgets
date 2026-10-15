@@ -138,6 +138,36 @@ describe('resolve: roles', () => {
     expect(nd(arms('azure', ...base, group(charge('rose'), 'gules', { role: 'secondary', relation: 'about', count: 3 }))).groups[1].relation).toBe('about');
   });
 
+  it('sets charges in chief, in base or in canton beside a central ordinary or charge group as a secondary group (SENA App I1)', () => {
+    const mullets = (extra: object) => group(charge('mullet'), 'argent', { count: 3, ...extra });
+    const roles = (d: Design) => d.groups.map((g) => [g.role, g.relation, g.position]);
+    expect(roles(nd(arms('purpure', group(charge('bee'), 'or'), mullets({ arrangement: 'in-chief' })))))
+      .toEqual([['primary', null, null], ['secondary', 'position', 'chief']]);
+    expect(roles(nd(arms('argent', group(ordinary('chevron'), 'sable'), mullets({ position: 'base' })))))
+      .toEqual([['primary', null, null], ['secondary', 'position', 'base']]);
+    expect(roles(nd(arms('sable', group(charge('dragon'), 'argent'), group(charge('crescent'), 'argent', { position: 'canton' })))))
+      .toEqual([['primary', null, null], ['secondary', 'position', 'canton']]);
+    expect(nd(arms('azure', group(charge('lion'), 'or'), mullets({ position: 'chief' }))).groups[1].arrangement).toEqual({ k: 'line', dir: 'fess' });
+  });
+
+  it('keeps charges in chief primary when nothing is central, or when the other group is set somewhere too', () => {
+    expect(nd(arms('gules', group(charge('lion'), 'or', { count: 3, arrangement: 'in-chief' }))).groups[0]).toMatchObject({ role: 'primary', relation: null, position: 'chief' });
+    expect(nd(arms('gules', group(ordinary('chief'), 'argent'), group(charge('lion'), 'or', { position: 'base' }))).groups.map((g) => g.role)).toEqual(['primary', 'peripheral']);
+    const both = nd(arms('gules', group(charge('lion'), 'or', { position: 'chief' }), group(charge('rose'), 'argent', { position: 'base' })));
+    expect(both.groups.map((g) => g.role)).toEqual(['primary', 'primary']);
+    expect(gapTags(both)).toEqual(['multiple-groups:co-primary']);
+  });
+
+  it('draws charges in chief, base or canton beside the primary, and leaves the other positions a gap', () => {
+    const beside = (position: string) => nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { role: 'secondary', relation: 'position', position })));
+    for (const position of ['chief', 'base', 'canton']) expect(isSupported(beside(position)), position).toBe(true);
+    expect(gapTags(beside('dexter-chief'))).toEqual(['multiple-groups:secondary-position', 'arrangement:in-dexter-chief']);
+    // In a row, rows or (two long charges) crossed — not in pale.
+    const roses = (arrangement: string) => gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3, arrangement, position: 'chief' }))));
+    expect(roses('rows-2-1')).toEqual([]);
+    expect(roses('in-pale')).toEqual(['arrangement:in-chief']);
+  });
+
   it('puts groups in canonical order whatever the input order', () => {
     const items = [
       group(ordinary('chief'), 'argent'),
@@ -481,6 +511,27 @@ describe('structure rules', () => {
     expect(issues[0].at).toEqual({ k: 'group', path: [1] });
     expect(structural(arms('azure', group(ordinary('chief'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 }))))
       .toEqual(['Charges can only be set between a central band or shape.']);
+  });
+
+  it('3: charges in chief, in base or in canton need a primary beside them', () => {
+    const d = nd(arms('azure', group(ordinary('chief'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', relation: 'position', position: 'base' })));
+    expect(structuralIssues(d).map((i) => [i.code === 'structure' && i.rule, i.message]))
+      .toEqual([['relation', 'Charges in base stand beside a band, shape or picture in the middle — with none, they are the main picture.']]);
+  });
+
+  it('3a: the same charge in two groups on the field is not allowed (SENA A3D1a), on a charge it is', () => {
+    const d = nd(arms('or', group(charge('mullet'), 'gules'), group(charge('mullet'), 'azure', { position: 'base' })));
+    const issues = structuralIssues(d);
+    expect(issues.map((i) => [i.code === 'structure' && i.rule, i.message])).toEqual([['same-type', "A mullet can't be used again in another group on the field (SENA A3D1a) — choose a different picture."]]);
+    expect(issues[0].at).toEqual({ k: 'group', path: [1] });
+    expect(structural(arms('or', group(ordinary('fess'), 'gules', { charged: [group(charge('mullet'), 'or', { count: 3 })] }), group(charge('mullet'), 'azure', { count: 3, position: 'chief' })))).toEqual([]);
+  });
+
+  it('4: charges in chief or in canton have no room beside a chief, in base they do', () => {
+    const beside = (position: string) => structural(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { position }), group(ordinary('chief'), 'argent')));
+    expect(beside('chief')).toEqual(['There is no room to set charges in chief when the design has a chief.']);
+    expect(beside('canton')).toEqual(['There is no room to set charges in canton when the design has a chief.']);
+    expect(beside('base')).toEqual([]);
   });
 
   it('3: charges can not sit on charges that are already on something', () => {

@@ -31,6 +31,21 @@ const rows = (r: readonly number[]): Layout => ({ arrangement: { k: 'rows', rows
 const pattern = (p: Pattern): Layout => ({ arrangement: { k: 'pattern', pattern: p }, position: null });
 /** The layout of a group an ordinary places: the one `host` arrangement, no position. */
 export const HOST_LAYOUT: Layout = { arrangement: { k: 'host' }, position: null };
+/** The default layout of a secondary group set by position: a single charge there, or a row of them across it. */
+export const positionLayout = (position: SecondaryPosition, count: number): Layout => (count === 1 ? single(position) : line('fess', position));
+
+/**
+ * The layouts of a secondary group set by position, the default first: in chief or in base also the counts' row
+ * patterns ("in chief five mullets three and two"), and two long charges crossed ("in base two swords in saltire").
+ */
+export function positionLayouts(position: SecondaryPosition, count: number, long: boolean): Layout[] {
+  const patterns = position === 'canton' ? [] : ROW_PATTERNS.filter((r) => r.reduce((a, b) => a + b, 0) === count);
+  return [
+    positionLayout(position, count),
+    ...patterns.map((r): Layout => ({ arrangement: { k: 'rows', rows: [...r] }, position })),
+    ...(count === 2 && long ? [{ arrangement: { k: 'crossed' }, position } satisfies Layout] : []),
+  ];
+}
 
 export function sameLayout(a: Layout, b: Layout): boolean {
   return layoutKey(a) === layoutKey(b);
@@ -103,9 +118,15 @@ export type Yield = 'none' | 'chief' | 'base' | 'canton' | 'around';
 /** A co-primary group's slice of the slots the total count of primary charges is laid out in. */
 export interface Share { index: number; counts: readonly number[] }
 
+/** Where a secondary group set by position stands beside the primary (SENA App I1): along the top, along the bottom, or in the top corner. */
+export type SecondaryPosition = Extract<Position, 'chief' | 'base' | 'canton'>;
+export const SECONDARY_POSITIONS: readonly SecondaryPosition[] = ['chief', 'base', 'canton'];
+export const isSecondaryPosition = (p: Position | null): p is SecondaryPosition => p === 'chief' || p === 'base' || p === 'canton';
+
 export type LayoutContext =
   | { k: 'field'; peripheral: Peripheral; yields: Yield; share: Share | null }   // primary charge group
   | { k: 'between'; ordinary: OrdinaryType; peripheral: Peripheral }             // secondary 'between'
+  | { k: 'position'; position: SecondaryPosition; ordinary: OrdinaryType | null; peripheral: Peripheral } // secondary 'position', beside the primary ordinary (or charges)
   | { k: 'on'; ordinary: OrdinaryType; peripheral: Peripheral };                 // tertiary on an ordinary (incl. chief)
 
 /** The context of a lone primary charge group: nothing yielded, no co-primary. */
@@ -127,6 +148,12 @@ export function primaryOrdinary(d: Design): OrdinaryType | null {
   return g && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central' ? g.item.type : null;
 }
 
+/** The position of the design's one secondary group set by position, if it has one: the room the primary charges leave for it. */
+function positionedSecondary(d: Design): SecondaryPosition | null {
+  const g = d.groups.find((x) => x.role === 'secondary' && x.relation === 'position');
+  return g && g.item.k === 'charge' && isSecondaryPosition(g.position) ? g.position : null;
+}
+
 /** Where a charge group sits, or null for a group this builder has no layout for (ordinaries, overall, charges on charges, …). */
 export function contextOf(d: Design, group: Group, host: Group | null): LayoutContext | null {
   if (group.item.k !== 'charge') return null;
@@ -135,7 +162,12 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
     // The bordure runs round the whole edge, under no chief of its own: what lies beside it doesn't change where its charges go.
     return { k: 'on', ordinary: host.item.type, peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
   }
-  if (group.role === 'primary') return fieldContext(peripheralOf(d));
+  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? 'none' };
+  if (group.role === 'secondary' && group.relation === 'position') {
+    return isSecondaryPosition(group.position) && d.groups.some((g) => g.role === 'primary')
+      ? { k: 'position', position: group.position, ordinary: primaryOrdinary(d), peripheral: peripheralOf(d) }
+      : null;
+  }
   if (group.role === 'secondary' && group.relation === 'between') {
     const ordinary = primaryOrdinary(d);
     return ordinary ? { k: 'between', ordinary, peripheral: peripheralOf(d) } : null;
@@ -192,7 +224,7 @@ export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): read
 
 // ── GoT Table 7 ─────────────────────────────────────────────────────────────
 
-export type DefaultRule = '0' | '1' | '2-two-part' | '2-four-part' | '3' | '4' | '5' | '6' | '7' | 'host';
+export type DefaultRule = '0' | '1' | '2-two-part' | '2-four-part' | '3' | '4' | '5' | '6' | '7' | 'host' | 'position';
 export interface RuledLayout { layout: Layout; rule: DefaultRule }
 
 /** The two tinctures of a two-part divided field, or null when the field isn't one or a part isn't a plain tincture. */
@@ -204,13 +236,14 @@ function fieldPair(d: Design): [Tincture, Tincture] | null {
 
 /** Table 7 for a charge group of `count` in `ctx`: the first applicable row, or null for "None, must be specified". */
 function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count: number): RuledLayout | null {
+  if (ctx.k === 'position') return { layout: positionLayout(ctx.position, count), rule: 'position' };
   if (ctx.k !== 'field') return { layout: HOST_LAYOUT, rule: 'host' };
   const division = d.kind === 'arms' && d.field.k === 'divided' ? d.field.division : null;
   const pair = fieldPair(d);
   const paint = group.paint;
 
-  // Table 7 intro: charges with no contrast with a section go where they contrast.
-  if ((division === 'per-fess' || division === 'per-chevron') && !hasChief(ctx.peripheral) && paint.k === 'tincture' && pair && pair[0] !== pair[1]) {
+  // Table 7 intro: charges with no contrast with a section go where they contrast (not into room left for a secondary group).
+  if ((division === 'per-fess' || division === 'per-chevron') && !hasChief(ctx.peripheral) && ctx.yields === 'none' && paint.k === 'tincture' && pair && pair[0] !== pair[1]) {
     const i = pair.indexOf(paint.t);
     if (i >= 0 && contrastFailure(paint.t, [pair[1 - i]]) === null) {
       const position = i === 1 ? 'chief' : 'base';
@@ -247,6 +280,7 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count:
 
 /** The layouts a charge group of `count` can take, in the order the builder lists them. Capacity is not consulted. */
 function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDefault: Layout | null): Layout[] {
+  if (ctx.k === 'position') return positionLayouts(ctx.position, count, group.item.k === 'charge' && CHARGES[group.item.charge].long);
   if (ctx.k !== 'field') return [HOST_LAYOUT];
   const out: Layout[] = tableDefault ? [tableDefault] : [];
   out.push(...ROW_PATTERNS.filter((r) => r.reduce((a, b) => a + b, 0) === count).map(rows));
@@ -255,8 +289,9 @@ function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDef
   if (count === 2 && group.item.k === 'charge' && CHARGES[group.item.charge].long) out.push({ arrangement: { k: 'crossed' }, position: null });
   // Two in annulo curl round each other: only a fish can (SENA example: two fish in annulo); otherwise a ring starts at three.
   if (count >= 3 || (count === 2 && group.item.k === 'charge' && CHARGES[group.item.charge].postureClass === 'fish')) out.push(pattern('annulo'));
-  if (count >= 5 && ctx.peripheral === 'none') out.push(pattern('orle'));
-  if (!hasChief(ctx.peripheral)) {
+  // A ring round the edge, and charges along the top or bottom, would take the room left for a secondary group.
+  if (count >= 5 && ctx.peripheral === 'none' && ctx.yields === 'none') out.push(pattern('orle'));
+  if (!hasChief(ctx.peripheral) && ctx.yields === 'none') {
     for (const position of ['chief', 'base'] as const) out.push(count === 1 ? single(position) : line('fess', position));
   }
   if (count === 1) out.push(single());
@@ -317,6 +352,8 @@ export function isForced(d: Design, path: GroupPath): boolean {
   const { group, host } = groupAndHost(d, path);
   if (group.item.k === 'ordinary') return false;
   const ctx = layoutContext(d, path);
+  // Where a secondary group stands is chosen, not forced: moving it is a change of arrangement (GoT "Arrangement").
+  if (ctx.k === 'position') return false;
   if (ctx.k !== 'field') return true;
   const ruled = forcedRuleOf(d, group, host);
   return ruled !== null && sameLayout(ruled, { arrangement: group.arrangement, position: group.position });
@@ -337,11 +374,13 @@ export function forcedLayout(d: Design, path: GroupPath): Layout | null {
   return group.item.k === 'charge' && layoutContext(d, path).k === 'field' ? forcedRuleOf(d, group, host) : null;
 }
 
-/** Whether the blazon must word the layout: a field group whose layout is not just centred and differs from Table 7. */
+/** Whether the blazon must word the layout: a field group whose layout is not just centred and differs from Table 7, or a group set by position ("and in chief"). */
 export function statesLayout(d: Design, path: GroupPath): boolean {
   const { group } = groupAndHost(d, path);
   if (group.item.k === 'ordinary') return false;
-  if (layoutContext(d, path).k !== 'field') return false;
+  const ctx = layoutContext(d, path);
+  if (ctx.k === 'position') return true;
+  if (ctx.k !== 'field') return false;
   const layout: Layout = { arrangement: group.arrangement, position: group.position };
   if (layout.arrangement.k === 'single' && layout.position === null) return false;
   const table = tableDefault(d, path);

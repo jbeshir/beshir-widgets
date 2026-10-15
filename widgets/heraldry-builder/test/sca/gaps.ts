@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, hostCounts, postureTerm, resolve, structuralIssues, walkGroups,
+  CHARGES, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, hostCounts, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -286,9 +286,12 @@ interface Element {
   count: number;
   ctx: Ctx;
   host: Element | null;
-  /** A layout key the blazon words: "in-pale", "rows-2-1", "in-chief". */
+  /** A layout key the blazon words: "in-pale", "rows-2-1", "in-chief"; "in-canton" for charges set in canton beside the primary. */
   arr: string | null;
 }
+
+/** Where charges stand when the blazon sets them beside the primary ("and in chief three mullets"), by their `arr`. */
+const SECONDARY_POSITION_OF: Readonly<Record<string, 'chief' | 'base' | 'canton'>> = { 'in-chief': 'chief', 'in-base': 'base', 'in-canton': 'canton' };
 
 const ARTICLES = new Set(['a', 'an', 'the', 'each', 'one', 'two', 'three', 'four', 'five', 'six', 'its', 'his', 'her']);
 
@@ -549,8 +552,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   // Charge groups and ordinaries: the widget has room for one charge group, and for a central ordinary with a chief and a bordure beside it.
   const groups = els.filter((el) => el.kind === 'charge' && el.ctx !== 'held' && el.ctx !== 'of' && el.ctx !== 'semy');
   const ords = els.filter((el) => el.kind === 'ord');
-  if (groups.length > 1) tag('multiple-groups', 'charges');
   const together = drawnTogether(ords);
+  if (groups.length > 1 && !(groups.length === 2 && checkBeside(groups[0], groups[1], ords))) tag('multiple-groups', 'charges');
   if (ords.length > 1 && !together) tag('multiple-groups', 'ordinaries');
   if (groups.length === 1 && ords.length <= 1) checkPlacement(groups[0], ords[0] ?? null);
 
@@ -683,6 +686,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         held = true; tag('charge-modifier', 'maintaining'); return i + 2; // "maintaining in sinister talon a dagger"
       }
       if ((al === 'dexter' || al === 'sinister') && /^(chief|base|canton|flank|point)$/.test(b)) { tag('arrangement', `in-${b}`); return i + 2; }
+      // "a lion and in canton a mullet": charges set in canton beside the primary
+      if (al === 'canton' && look(i - 1)?.e.k === 'and' && last?.el && last.el.ctx === 'field') { pendingArr = 'in-canton'; return i + 1; }
       tag('arrangement', `in-${al === 'centre' ? 'center' : al}`);
       return i + 1;
     }
@@ -715,6 +720,38 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   }
 
   /**
+   * Whether the widget draws the second of two charge groups as set in chief, in base or in canton beside the first
+   * (SENA App I1), with the ordinaries: asks the library, on a stand-in design, and tags the gaps it would have. False when
+   * the second group isn't set by position, so the two are tagged as two charge groups.
+   */
+  function checkBeside(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
+    const position = second.ctx === 'field' && second.arr ? SECONDARY_POSITION_OF[second.arr] : undefined;
+    // The first group lies on the field (alone, or between an ordinary) or on one of the ordinaries.
+    const onOrdinary = first.ctx === 'on' && first.host !== null && ordinaries.includes(first.host);
+    if (!position || (first.ctx !== 'field' && !onOrdinary) || (first.arr && SECONDARY_POSITION_OF[first.arr]) || ordinaries.some((o) => !o.supported || o.count > 1)) return false;
+    if (first.count > MAX_DRAWN_COUNT || second.count > MAX_DRAWN_COUNT) return true;
+    // Stand-ins of two different charges where the blazon's aren't the widget's (the same charge twice is a rule, not a gap).
+    const a = first.supported ?? 'lion';
+    const b = second.supported && second.supported !== a ? second.supported : a === 'mullet' ? 'rose' : 'mullet';
+    const firstGroup = { item: { k: 'charge', charge: a }, paint: 'or', count: first.count, ...(first.arr && !onOrdinary ? { arrangement: first.arr } : {}) };
+    const groups = [
+      ...(onOrdinary ? [] : [firstGroup]),
+      { item: { k: 'charge', charge: b }, paint: 'argent', count: second.count, position },
+      ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules', ...(o === first.host ? { charged: [firstGroup] } : {}) })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) return true;
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    // No room for them beside the first (the library's capacity and layout rules), as the armorial test files a matched design.
+    const at = walkGroups(r.design).find((w) => w.group.relation === 'position');
+    if (!gaps.length && at && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === at.path.join())) {
+      tag('placement', `in-${position}-${second.count}`);
+    }
+    return true;
+  }
+
+  /**
    * Whether the widget can lay out the one charge group (with the one ordinary, if any) as the blazon
    * words it: asks the library, so the tagger can't drift from the layout rules. Judged on a stand-in
    * design (any charge of the right kind and count); the groups' tinctures are not in question here.
@@ -734,17 +771,19 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       if (ORDINARY_KIND[type!] === 'central' && !hostCounts('between', type!).includes(count)) tag('placement', `between-${type}`);
       return;
     }
-    if (o && !on && ORDINARY_KIND[type!] === 'central') { tag('placement', 'not-between'); return; }
+    const position = g.ctx === 'field' && g.arr ? SECONDARY_POSITION_OF[g.arr] : undefined;
+    if (o && !on && ORDINARY_KIND[type!] === 'central' && !position) { tag('placement', 'not-between'); return; }
     if (on || !judged && g.arr) return;
     // A charge group on the field, alone or under a chief or within a bordure: does a layout fit?
     const charge = { k: 'charge', charge: g.supported ?? 'mullet' };
-    const group = { item: charge, paint: 'or', count, ...(g.arr ? { arrangement: g.arr } : {}) };
+    const group = { item: charge, paint: 'or', count, ...(position ? { position } : g.arr ? { arrangement: g.arr } : {}) };
     const r = resolve({ v: 2, field: 'azure', groups: [group, ...(o ? [{ item: { k: 'ordinary', type }, paint: 'argent' }] : [])] });
     if (!r.ok) { if (g.arr && judged) tag('arrangement', g.arr); return; }
     const walked = walkGroups(r.design).find((w) => w.group.item.k === 'charge')!;
     const broken = structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === walked.path.join());
     if (!broken) return;
-    if (g.arr && judged) tag('arrangement', g.arr);
+    if (position && o && ORDINARY_KIND[type!] === 'central') tag('placement', `in-${position}-${count}`);
+    else if (g.arr && judged) tag('arrangement', g.arr);
     else if (type === 'chief') tag('placement', 'under-chief');
   }
 }
