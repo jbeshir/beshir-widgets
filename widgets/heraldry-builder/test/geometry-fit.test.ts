@@ -446,7 +446,7 @@ const ON_CHARGE = onChargeCatalogue();
 describe('charges on the primary charges fit their hosts', () => {
   it('have plenty of legal layouts on the heater', () => {
     expect(ON_CHARGE.length).toBeGreaterThan(240);
-    expect(new Set(ON_CHARGE.map((e) => e.ctx.host.charge)).size).toBe(CHARGE_IDS.length - 5);
+    expect(new Set(ON_CHARGE.map((e) => e.ctx.host.charge)).size).toBe(CHARGE_IDS.length - 9);
   });
 
   for (const g of SHAPES) {

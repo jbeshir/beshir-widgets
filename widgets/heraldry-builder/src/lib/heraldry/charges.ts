@@ -1,4 +1,4 @@
-// Charge metadata: 28 curated charges, their blazon/gloss names, articles, categories, drawn postures and
+// Charge metadata: 36 curated charges, their blazon/gloss names, articles, categories, drawn postures and
 // the vocabulary of charge attributes (postures, facings, orientations, forms, modifiers, parts, holds).
 // Artwork lives in charge-art.ts.
 
@@ -52,6 +52,7 @@ export const CHARGE_IDS = [
   'mullet', 'crescent', 'sun', 'heart',
   'key', 'open-book', 'sword', 'crown', 'anchor',
   'musical-note', 'flame', 'gear', 'lightbulb',
+  'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -90,6 +91,13 @@ export const TYPE_CLASSES = {
   flame: { source: 'A5E2: clearly unrelated shapes; whether a flame is near enough to a sun for only a DC is unsettled', guess: true },
   cogwheel: { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
   lightbulb: { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
+  roundel: { source: 'A3E2: the roundel and goutte families are one type each; precedent: "a substantial difference between a roundel and a rose"', guess: true },
+  annulet: { source: 'A5E2: clearly unrelated shapes are substantially different; an annulet is not read as a voided roundel', guess: true },
+  billet: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: true },
+  lozenge: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: true },
+  goutte: { source: 'A3E2: the roundel and goutte families are one type each', guess: true },
+  'cross-crosslet': { source: 'App M1f: a cross crosslet is in a category of its own among the crosses', guess: false },
+  spark: { source: 'A5E2: clearly unrelated shapes are substantially different; the spark is the charge of estencely', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 
 export type TypeClass = keyof typeof TYPE_CLASSES;
@@ -235,6 +243,14 @@ export const CHARGES: Record<ChargeId, ChargeMeta> = {
   flame: c({ id: 'flame', name: 'flame', plural: 'flames', article: 'a', category: 'modern', typeClass: 'flame', glossName: 'flame', glossPlural: 'flames', orientation: 'tongues up', scale: 0.95, detail: 0 },
     { proper: PROPER.fire }),
   gear: c({ id: 'gear', name: 'cogwheel', plural: 'cogwheels', article: 'a', category: 'modern', typeClass: 'cogwheel', glossName: 'gear', glossPlural: 'gears', orientation: '—', scale: 0.9, detail: 0 }),
+  roundel: c({ id: 'roundel', name: 'roundel', plural: 'roundels', article: 'a', category: 'geometric', typeClass: 'roundel', glossName: 'disc', glossPlural: 'discs', orientation: '—', scale: 0.9, detail: 0 }),
+  annulet: c({ id: 'annulet', name: 'annulet', plural: 'annulets', article: 'an', category: 'geometric', typeClass: 'annulet', glossName: 'ring', glossPlural: 'rings', orientation: '—', scale: 0.92, detail: 0 }),
+  billet: c({ id: 'billet', name: 'billet', plural: 'billets', article: 'a', category: 'geometric', typeClass: 'billet', glossName: 'upright rectangle', glossPlural: 'upright rectangles', orientation: 'tall side up', scale: 1, detail: 0 }),
+  lozenge: c({ id: 'lozenge', name: 'lozenge', plural: 'lozenges', article: 'a', category: 'geometric', typeClass: 'lozenge', glossName: 'diamond', glossPlural: 'diamonds', orientation: 'point up', scale: 1, detail: 0 }),
+  goutte: c({ id: 'goutte', name: 'goutte', plural: 'gouttes', article: 'a', category: 'geometric', typeClass: 'goutte', glossName: 'drop', glossPlural: 'drops', orientation: 'point up', scale: 1, detail: 0 }),
+  'cross-crosslet': c({ id: 'cross-crosslet', name: 'cross crosslet', plural: 'crosses crosslet', article: 'a', category: 'geometric', typeClass: 'cross-crosslet', glossName: 'cross with a small cross-bar at each end', glossPlural: 'crosses with a small cross-bar at each end', orientation: 'upright', scale: 1, detail: 0 }),
+  estoile: c({ id: 'estoile', name: 'estoile', plural: 'estoiles', article: 'an', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'six-rayed star with wavy rays', glossPlural: 'six-rayed stars with wavy rays', orientation: 'one ray up', scale: 1.05, detail: 0 }),
+  spark: c({ id: 'spark', name: 'spark', plural: 'sparks', article: 'a', category: 'geometric', typeClass: 'spark', glossName: 'spark', glossPlural: 'sparks', orientation: 'four points, one up', scale: 1.05, detail: 0 }),
   lightbulb: c({ id: 'lightbulb', name: 'lightbulb', plural: 'lightbulbs', article: 'a', category: 'modern', typeClass: 'lightbulb', glossName: 'lightbulb', glossPlural: 'lightbulbs', orientation: 'bulb up', scale: 1.1, detail: 1 }),
 };
 

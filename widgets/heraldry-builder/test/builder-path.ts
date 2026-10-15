@@ -249,15 +249,18 @@ function describeAction(a: BuilderAction): string {
   }
 }
 
-/** The field tincture clicks from the current divided field to `[a, b]`, never asking for two equal parts. */
-function dividedTinctureSteps([x, y]: [Tincture, Tincture], [a, b]: [Tincture, Tincture]): BuilderAction[] {
+/**
+ * The field tincture clicks from the current divided field to `[a, b]`, never asking for two equal parts. A swap goes through a third
+ * tincture, the first that `offered` (default: any) lets the first part take.
+ */
+function dividedTinctureSteps([x, y]: [Tincture, Tincture], [a, b]: [Tincture, Tincture], offered: (tincture: Tincture) => boolean = () => true): BuilderAction[] {
   const set = (part: 0 | 1, tincture: Tincture): BuilderAction => ({ kind: 'field-tincture', part, tincture });
   if (x === a && y === b) return [];
   if (a !== y) return [...(x === a ? [] : [set(0, a)]), ...(y === b ? [] : [set(1, b)])];
   // The first part's new tincture is the second part's current one: move the second part first,
   // through a third tincture when the parts simply swap.
   if (b !== x) return [set(1, b), set(0, a)];
-  const z = TINCTURES.find((t) => t !== x && t !== y)!;
+  const z = TINCTURES.find((t) => t !== x && t !== y && offered(t)) ?? TINCTURES.find((t) => t !== x && t !== y)!;
   return [set(0, z), set(1, b), set(0, a)];
 }
 
@@ -412,7 +415,7 @@ export function builderPath(goal: Design): BuilderPath {
     const want: [Tincture, Tincture] = [goal.parts[0].t, goal.parts[1].t];
     for (let guard = 0; guard < 4; guard++) {
       const here = asParty(now())!;
-      const [next] = dividedTinctureSteps([here.parts[0].t, here.parts[1].t], want);
+      const [next] = dividedTinctureSteps([here.parts[0].t, here.parts[1].t], want, (t) => !actionReason(d, { kind: 'party-tincture', target, part: 0, tincture: t }));
       if (!next) return true;
       if (next.kind !== 'field-tincture' || !click({ kind: 'party-tincture', target, part: next.part, tincture: next.tincture })) return false;
     }

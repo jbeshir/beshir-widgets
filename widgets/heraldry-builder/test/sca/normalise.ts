@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, FURS, FUR_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, FURS, FUR_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -23,6 +23,7 @@ export interface NormalisationRule {
 const COLOUR = `(?:${TINCTURES.join('|')})`;
 
 const NUMBER = '(?:a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)';
+const NUMBER_WORD = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
 const ORDINARY = '(?:fess|pale|bend sinister|bend|chevron|cross|saltire|pile)';
 
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
@@ -37,6 +38,14 @@ const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plura
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
 /** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor". */
 const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?(?: in splendor)?`;
+
+const NAMED_BY_WORD = new Map(NAMED_TINCTURE_CHARGES.flatMap((n) => [[n.word, n], [n.plural, n]] as const));
+const escaped = (words: Iterable<string>) => alt([...words].map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+const ARRANGEMENT = `(?: in (?:annulo|saltire|cross|orle|pale|fess|bend sinister|bend))?(?: (?:${NUMBER_WORD})(?:, (?:${NUMBER_WORD}))* and (?:${NUMBER_WORD}))?`;
+/** A named roundel or goutte, with what follows it in the group: an arrangement, and a tincture. */
+const NAMED_CHARGE = new RegExp(`(?<![\\w-])(${escaped(NAMED_BY_WORD.keys())})(?![\\w-])(${ARRANGEMENT})( ${COLOUR}(?![\\w-]))?`, 'g');
+/** The next tincture a text states, or a named roundel or goutte, whose name states one. */
+const TINCTURE_OR_NAME = new RegExp(`(?<![\\w-])(${escaped([...TINCTURES, 'counterchanged', 'proper', ...FURS.map((f) => FUR_NAME[f]), ...NAMED_BY_WORD.keys()])})(?![\\w-])`);
 
 /** The named ermine-family furs by their ground and spots: the tinctures "ermined" spells them with. */
 const FOLDED_ERMINES: Record<string, string> = { 'argent sable': 'ermine', 'or sable': 'erminois', 'sable argent': 'counter-ermine', 'sable or': 'pean' };
@@ -106,6 +115,28 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     id: 'treatment-synonyms',
     description: 'papelonny → papellony.',
     apply: (s) => s.replace(/\bpapelonny\b/g, 'papellony'),
+  },
+  {
+    // 3d. Charge names the SCA spells in more than one way, or gives with the tincture in the name. "Estoille" is estoile; "crosslet" is
+    //     the cross crosslet; a bezant is a roundel Or, a plate a roundel argent, a goutte de sang a goutte gules (Glossary of Terms): the
+    //     widget words these as the charge and its tincture, so the name goes, a tincture written after it as well is the same one, and the
+    //     tincture goes where the widget puts it: after the arrangement, and not at all when the next tincture stated is the same one
+    //     (the widget names a tincture shared by groups once, after the last).
+    id: 'charge-synonyms',
+    description: 'estoille → estoile; crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
+    apply: (s) => s
+      .replace(NAMED_CHARGE, (match: string, name: string, arrangement: string, stated: string | undefined, offset: number) => {
+        const named = NAMED_BY_WORD.get(name)!;
+        const noun = name === named.plural ? CHARGES[named.charge].plural : CHARGES[named.charge].name;
+        const after = s.slice(offset + match.length);
+        const shared = TINCTURE_OR_NAME.exec(after);
+        const tincture = shared && (NAMED_BY_WORD.get(shared[1])?.tincture ?? shared[1]) === named.tincture ? '' : ` ${named.tincture}`;
+        return `${noun}${arrangement}${tincture}${stated && stated.trim() !== named.tincture ? stated : ''}`;
+      })
+      .replace(/(?<![\w-])estoille(s?)(?![\w-])/g, 'estoile$1')
+      .replace(/\bcross crosslets\b/g, 'crosses crosslet')
+      .replace(/(?<!cross |crosses )\bcrosslets\b/g, 'crosses crosslet')
+      .replace(/(?<!cross |crosses )\bcrosslet\b/g, 'cross crosslet'),
   },
   {
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a

@@ -7,7 +7,7 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 ## Overview
 
 - **Builder.** Pick a field (plain or one of seven divisions), an optional ordinary (ten) and an
-  optional group of 1–12 charges (28 charges, 40 drawings with postures; counts above six sit
+  optional group of 1–12 charges (36 charges, 48 drawings with postures; counts above six sit
   behind **More…**). The default flow is three steps, Background → Band or shape → Picture; a
   fourth card appears only when it applies: extra pictures on the band (or on a chief), or a
   top band (chief) and a border (bordure) beside the band, with or without pictures. Every option is

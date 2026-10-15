@@ -397,8 +397,8 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 28 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(28);
+  it('has the 36 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(36);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
@@ -408,7 +408,7 @@ describe('charge table', () => {
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
     // A5E2 type classes: only the documented DC-only pairs share one (mullet and sun, eagle and owl).
     const shared = CHARGE_IDS.filter((id) => CHARGE_IDS.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
-    expect(shared).toEqual(['eagle', 'owl', 'mullet', 'sun']);
+    expect(shared).toEqual(['eagle', 'owl', 'mullet', 'sun', 'estoile']);
     expect(CHARGES.lion.typeClass).not.toBe(CHARGES.wolf.typeClass);
     expect(new Set(CHARGE_IDS.map((id) => CHARGES[id].typeClass))).toEqual(new Set(Object.keys(TYPE_CLASSES)));
   });

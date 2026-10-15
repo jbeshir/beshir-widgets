@@ -1,6 +1,7 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
 export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
+export { NAMED_TINCTURE_CHARGES, type NamedCharge } from './aliases';
 export { ORDINARY_TYPES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
 export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
 export {

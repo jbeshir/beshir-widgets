@@ -6,6 +6,7 @@
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
 import { CHARGES, CHARGE_IDS, POSTURES, POSTURE_GLOSS, chargesInCategory, type ChargeCategory, type ChargeId, type Posture } from './charges';
 import type { Design } from './design';
+import { NAMED_TINCTURE_CHARGES } from './aliases';
 import { gloss } from './gloss';
 import { ORDINARY_NAME, ORDINARY_TYPES } from './ordinaries';
 
@@ -104,14 +105,18 @@ const CHARGE_ALIASES: Record<ChargeId, readonly string[]> = {
   unicorn: ['horse'], dragon: ['wyvern'], eagle: [], owl: [], rose: [], tree: [], 'fleur-de-lis': ['lily', 'lilies', 'fleur'],
   mullet: ['star'], crescent: ['moon'], sun: [], heart: [], key: [], 'open-book': ['book'], sword: [], crown: [], anchor: [],
   'musical-note': ['music', 'note'], flame: ['fire'], gear: ['cog', 'gear', 'gearwheel'], lightbulb: ['light bulb', 'lamp'],
+  roundel: ['circle', 'disc', 'disk', 'dot'], annulet: ['ring'], billet: ['rectangle', 'brick'], lozenge: ['diamond'], goutte: ['drop', 'teardrop', 'droplet'],
+  'cross-crosslet': ['crosslet'], estoile: ['star'], spark: ['spark'],
 };
+/** The SCA's names for a charge of one tincture (bezant, plate, goutte de sang…) also find the charge. */
+const namedWords = (id: ChargeId) => NAMED_TINCTURE_CHARGES.filter((n) => n.charge === id).flatMap((n) => [n.word, n.plural]);
 const chargeTerms = (id: ChargeId) => [CHARGES[id].name, CHARGES[id].plural].map(normaliseWords);
 const namesIn = (...categories: ChargeCategory[]) =>
   categories.flatMap((c) => chargesInCategory(c)).flatMap((m) => chargeTerms(m.id));
 const chargeAliases: Alias[] = [
   ...CHARGE_IDS.flatMap((id): Alias[] => [
     [[normaliseWords(CHARGES[id].name)], chargeTerms(id)],
-    [CHARGE_ALIASES[id].map(normaliseWords), chargeTerms(id)],
+    [[...CHARGE_ALIASES[id], ...namedWords(id)].map(normaliseWords), chargeTerms(id)],
   ]),
   [['beast'], namesIn('beast')],
   [['monster'], namesIn('monster')],

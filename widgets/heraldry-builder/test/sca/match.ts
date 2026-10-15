@@ -259,7 +259,10 @@ function parseBody(tokens: string[]): Body | null {
     } else {
       const on = w === 'on';
       const j = on ? i + 1 : i;
-      const ordinary = tokens[j] === 'a' || tokens[j] === 'an' ? ORDINARY_PHRASES.find((o) => startsWith(tokens, j + 1, o)) : undefined;
+      // "a cross crosslet" is a charge, though "a cross" is an ordinary: the longer noun wins.
+      const ordinary = tokens[j] === 'a' || tokens[j] === 'an'
+        ? ORDINARY_PHRASES.find((o) => startsWith(tokens, j + 1, o) && !NOUN_PHRASES.some((n) => n.length > o.length && startsWith(tokens, j + 1, n)))
+        : undefined;
       if (ordinary) {
         const end = j + 1 + ordinary.length;
         const read = readPaint(tokens, end, 'group');

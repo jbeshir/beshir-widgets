@@ -3,6 +3,8 @@
 // endings before lookup); hyphenated terms are single tokens. Where a word is in more than one list,
 // gaps.ts decides by the order it loads them in.
 
+import { NAMED_TINCTURE_CHARGES } from '../../src/lib/heraldry';
+
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
 
@@ -113,9 +115,9 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     seaweed kelp moss
   `),
   celestial: w(`
-    star estoile estoille comet moon decrescent increscent lunel sunburst compass-star cloud rainbow lightning
+    star comet moon decrescent increscent lunel sunburst compass-star cloud rainbow lightning
     thunderbolt snowflake raindrop planet wind sunray ray zephyr boreas aeolus mistral half-moon quarter-sun
-    constellation eclipse spark fireball meteor
+    constellation eclipse fireball meteor
   `),
   weapon: w(`
     arrow arrowhead pheon broad-arrow broadarrow bolt quarrel quiver axe ax battle-axe battleaxe labrys tomahawk bow
@@ -177,10 +179,10 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     mountain hill rock stone crag cave water wave stream river sea lake valley fire ice crystal volcano island
     gurges whirlpool peak cliff waterfall ford
   `),
-  cross: w('crosslet ankh'),
+  cross: w('ankh'),
   geometric: w(`
-    annulet roundel bezant plate torteau hurt pellet ogress pomme golpe guze fountain lozenge fusil mascle
-    masculyn rustre billet delf triangle gout goute goutte drop escutcheon inescutcheon hexagon pentagon octagon
+    guze fountain fusil mascle
+    masculyn rustre delf triangle gout goute drop escutcheon inescutcheon hexagon pentagon octagon
     polygon icosahedron cube sphere annulus penannular cartouche cornice escarbuncle gunstone
   `),
   symbol: w(`
@@ -200,6 +202,9 @@ export const SUPPORTED_CHARGE_WORDS: Record<string, string> = {
   'fleur-de-lys': 'fleur-de-lis', 'fleur-de-lis': 'fleur-de-lis', mullet: 'mullet', crescent: 'crescent',
   sun: 'sun', heart: 'heart', key: 'key', book: 'open-book', sword: 'sword', crown: 'crown', anchor: 'anchor',
   'musical-note': 'musical-note', flame: 'flame', gear: 'gear', lightbulb: 'lightbulb',
+  roundel: 'roundel', annulet: 'annulet', billet: 'billet', lozenge: 'lozenge', goutte: 'goutte', crosslet: 'cross-crosslet',
+  estoile: 'estoile', spark: 'spark',
+  ...Object.fromEntries(NAMED_TINCTURE_CHARGES.filter((n) => !n.word.includes(' ')).flatMap((n) => [[n.word, n.charge], [n.plural, n.charge]])),
 };
 
 /** Bucket for a compound built on one of the widget's charges ("a lion's head" → beast). */
@@ -209,6 +214,8 @@ export const SUPPORTED_CHARGE_BUCKET: Record<string, ChargeBucket> = {
   'fleur-de-lis': 'plant', mullet: 'celestial', crescent: 'celestial', sun: 'celestial', heart: 'symbol',
   key: 'tool', 'open-book': 'household', sword: 'weapon', crown: 'household', anchor: 'ship',
   'musical-note': 'symbol', flame: 'nature', gear: 'tool', lightbulb: 'household',
+  roundel: 'geometric', annulet: 'geometric', billet: 'geometric', lozenge: 'geometric', goutte: 'geometric',
+  'cross-crosslet': 'cross', estoile: 'celestial', spark: 'celestial',
 };
 
 /** Parts that make a compound charge after a possessive ("a wolf's head", "a stag's attires"). */
@@ -383,7 +390,7 @@ export const CONTEXT_WORDS = w(`
 
 /** Cross variants after "cross" ("a cross formy") → sub-tag via gaps.ts' CROSS_VARIANT spellings. */
 export const CROSS_POST = w(`
-  crosslet formy formee pattee patty paty patee patonce patoncy flory fleury moline bottony botonny botony clechy
+  formy formee pattee patty paty patee patonce patoncy flory fleury moline bottony botonny botony clechy
   cleche clechee potent avellane fitchy fitched pommelly pommetty pomelly pommy quadrate fourchy ancree anchored
   anchory recercelly couped humetty nowy voided gringolee gringole degraded double-parted fleuretty barby
   crescented annuletty ringed pierced ansata stellata gurgity anille alisee

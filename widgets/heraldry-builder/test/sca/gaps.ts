@@ -580,13 +580,13 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'cross': i = readCross(i); break;
       case 'charge': {
         if (descriptor(i) || qualifies(i)) break;
+        if (e.id === 'annulet' && words[i + 1] === 'of') { tag('arrangement', 'in-annulo'); i++; break; } // "an annulet of dolphins"
         if (qualifier) { compound(qualifier, lem, SUPPORTED_CHARGE_BUCKET[e.id]); break; }
         settleHost(newElement('charge', e.id));
         break;
       }
       case 'gapCharge': {
         if (descriptor(i) || qualifies(i)) break;
-        if (lem === 'annulet' && words[i + 1] === 'of') { tag('arrangement', 'in-annulo'); i++; break; } // "an annulet of dolphins"
         if (qualifier) { compound(qualifier, lem, e.b); break; }
         tag(`charge-${e.b}`, e.v);
         settleHost(newElement('charge', null));
