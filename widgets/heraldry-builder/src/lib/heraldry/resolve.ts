@@ -18,7 +18,8 @@ import {
   type Lines, type Modifier, type Ordinary, type Paint, type PartPaint, type Position, type Relation, type Role,
 } from './design';
 import { isDivision, isTreatment, isVariation, partCount } from './divisions';
-import { isLine, isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, type OrdinaryMod } from './ordinaries';
+import { isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, type OrdinaryMod } from './ordinaries';
+import { bareLines, edgeCount, isLine, type EdgeHost } from './lines';
 import { contextOf, defaultLayoutOf, halfLayouts, inForcedPart, isHalfPosition, isSecondaryPosition, layoutOfKey, shareTotal, type Layout } from './arrangement';
 
 export type ResolveResult = { ok: true; design: Design } | { ok: false; errors: Issue[] };
@@ -57,13 +58,18 @@ const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => type
 
 // ── Paint ───────────────────────────────────────────────────────────────────
 
-function parseLines(v: unknown, at: IssueAt, E: Errors): Lines | null {
+/** The lines of a host: absent is plain; `{a}` alone is the bare line's meaning on the host ("a fess embattled" is its upper edge); `{a, b}` as given. */
+function parseLines(v: unknown, host: EdgeHost, at: IssueAt, E: Errors): Lines | null {
   if (v === undefined) return { ...PLAIN_LINES };
   const o = asObject(v);
   if (!o) return E.add(at, '"lines" must be an object with the line "a" and optionally "b".');
   const bad = E.unknownKeys(o, ['a', 'b'], at, 'lines');
   if (!isLine(o.a) || (o.b !== undefined && !isLine(o.b))) return E.add(at, 'Unknown line of partition.');
-  return bad ? null : { a: o.a, b: o.b ?? o.a };
+  const lines = o.b === undefined ? bareLines(host, o.a) : { a: o.a, b: o.b };
+  const edges = edgeCount(host);
+  if (edges === 0 && (lines.a !== 'plain' || lines.b !== 'plain')) return E.add(at, 'This element takes no line of partition.');
+  if (edges === 1 && lines.a !== lines.b) return E.add(at, 'This element has one line, so "b" must equal "a".');
+  return bad ? null : lines;
 }
 
 function parsePieces(v: unknown, at: IssueAt, E: Errors): number | null | undefined {
@@ -108,9 +114,9 @@ function parsePaint(v: unknown, at: IssueAt, E: Errors, inField: boolean, depth 
     }
     case 'divided': {
       const bad = E.unknownKeys(o, ['k', 'division', 'lines', 'pieces', 'parts'], at, 'paint');
-      const lines = parseLines(o.lines, at, E);
       const pieces = parsePieces(o.pieces, at, E);
       if (!isDivision(o.division)) return E.add(at, 'Unknown division.');
+      const lines = parseLines(o.lines, { k: 'division', division: o.division }, at, E);
       const n = partCount(o.division);
       if (!Array.isArray(o.parts) || o.parts.length !== n) return E.add(at, `A divided paint needs exactly ${n} parts.`);
       const parts = all(o.parts.map(sub));
@@ -118,9 +124,9 @@ function parsePaint(v: unknown, at: IssueAt, E: Errors, inField: boolean, depth 
     }
     case 'variation': {
       const bad = E.unknownKeys(o, ['k', 'variation', 'lines', 'pieces', 'parts'], at, 'paint');
-      const lines = parseLines(o.lines, at, E);
       const pieces = parsePieces(o.pieces, at, E);
       if (!isVariation(o.variation)) return E.add(at, 'Unknown variation.');
+      const lines = parseLines(o.lines, { k: 'variation', variation: o.variation }, at, E);
       if (!Array.isArray(o.parts) || o.parts.length !== 2) return E.add(at, 'A varied paint needs exactly 2 parts.');
       const parts = all(o.parts.map(sub));
       return !bad && lines && pieces !== undefined && parts ? { k: 'variation', variation: o.variation, lines, pieces, parts: [parts[0], parts[1]] } : null;
@@ -157,11 +163,11 @@ function parsePaint(v: unknown, at: IssueAt, E: Errors, inField: boolean, depth 
 function parseOrdinary(o: Record<string, unknown>, at: IssueAt, E: Errors, depth: number): Ordinary | null {
   const bad = E.unknownKeys(o, ['k', 'type', 'lines', 'mods', 'cotised', 'fimbriated'], at, 'ordinary');
   if (!isOrdinaryType(o.type)) return E.add(at, 'Unknown ordinary.');
-  const lines = parseLines(o.lines, at, E);
   let mods: OrdinaryMod[] | null = [];
   if (o.mods !== undefined) {
     mods = Array.isArray(o.mods) && o.mods.every(isOrdinaryMod) ? [...new Set<OrdinaryMod>(o.mods)] : E.add(at, 'Unknown ordinary modifier.');
   }
+  const lines = parseLines(o.lines, { k: 'ordinary', type: o.type, inverted: mods?.includes('inverted') ?? false }, at, E);
   let cotised: Cotises | null | undefined = null;
   if (o.cotised !== undefined && o.cotised !== null) {
     const c = asObject(o.cotised);

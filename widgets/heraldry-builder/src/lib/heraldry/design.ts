@@ -5,14 +5,20 @@
 import { FUR_SPEC, TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
 import { variationPieces, type Division, type Treatment, type Variation } from './divisions';
 import { canonicalFur, furColours } from './fur';
-import type { Line, OrdinaryMod, OrdinaryType } from './ordinaries';
+import type { OrdinaryMod, OrdinaryType } from './ordinaries';
+import { edgeCount, type EdgeHost, type Line } from './lines';
 import {
   CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
   type ChargeForm, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
 import { ORDINARY_MODS, ORDINARY_NAME } from './ordinaries';
 
-/** Edge lines: `b` is the second edge of a two-edged element ("embattled on the upper edge"); resolved b === a unless given. */
+/**
+ * Edge lines, with blazon meaning (RULES-C §0; the edge table is lines.ts `edgeCount`): on a fess-, bend- or chevron-like band `a` is
+ * the upper edge and `b` the lower; on a pale or pallet dexter and sinister; on an orle or tressure outer and inner; on quarterly
+ * the per pale and the per fess line. Every other host has one line (`b` is `a`) or none (both plain). A bare line is read by
+ * `bareLines`: "a fess embattled" is `{embattled, plain}`.
+ */
 export interface Lines { a: Line; b: Line }
 
 export const PLAIN_LINES: Lines = Object.freeze({ a: 'plain', b: 'plain' });
@@ -313,8 +319,9 @@ export function groupTinctureOf(p: Paint): GroupTincture | null {
 
 // ── Canonical form ──────────────────────────────────────────────────────────
 
-function canonicalLines(l: Lines): Lines {
-  return { a: l.a, b: l.b };
+/** The lines in canonical form: a host with one line has `b = a`. */
+export function canonicalLines(host: EdgeHost, l: Lines): Lines {
+  return { a: l.a, b: edgeCount(host) === 1 ? l.a : l.b };
 }
 
 export function canonicalPaint(p: Paint): Paint {
@@ -323,9 +330,9 @@ export function canonicalPaint(p: Paint): Paint {
     case 'stain': return { k: 'stain', stain: p.stain };
     case 'fur': return canonicalFur(p);
     case 'divided':
-      return { k: 'divided', division: p.division, lines: canonicalLines(p.lines), pieces: p.pieces, parts: p.parts.map(canonicalPaint) };
+      return { k: 'divided', division: p.division, lines: canonicalLines({ k: 'division', division: p.division }, p.lines), pieces: p.pieces, parts: p.parts.map(canonicalPaint) };
     case 'variation':
-      return { k: 'variation', variation: p.variation, lines: canonicalLines(p.lines), pieces: variationPieces(p.variation, p.pieces), parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
+      return { k: 'variation', variation: p.variation, lines: canonicalLines({ k: 'variation', variation: p.variation }, p.lines), pieces: variationPieces(p.variation, p.pieces), parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
     case 'treated': return { k: 'treated', treatment: p.treatment, ground: canonicalPaint(p.ground), ink: p.ink };
     case 'semy': return { k: 'semy', ground: canonicalPaint(p.ground), charge: { charge: p.charge.charge, form: p.charge.form }, ink: canonicalPaint(p.ink) };
     case 'proper': return { k: 'proper' };
@@ -362,7 +369,7 @@ function canonicalCharge(c: Charge): Charge {
 function canonicalItem(item: Item): Item {
   if (item.k === 'charge') return canonicalCharge(item);
   return {
-    k: 'ordinary', type: item.type, lines: canonicalLines(item.lines),
+    k: 'ordinary', type: item.type, lines: canonicalLines({ k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') }, item.lines),
     mods: sortedBy(item.mods, (m) => ORDINARY_MODS.indexOf(m)),
     cotised: item.cotised && { count: item.cotised.count, paint: canonicalPaint(item.cotised.paint), line: item.cotised.line },
     fimbriated: item.fimbriated && canonicalPaint(item.fimbriated),

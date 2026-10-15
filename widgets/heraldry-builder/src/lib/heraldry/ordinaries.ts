@@ -1,4 +1,4 @@
-// Ordinaries (bands and shapes the field is charged with), their edge lines and modifiers. Pure data — no DOM.
+// Ordinaries (bands and shapes the field is charged with) and their modifiers. Pure data — no DOM. Their lines are lines.ts.
 
 export const ORDINARY_TYPES = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'chief', 'bordure', 'pile',
   'base', 'canton', 'quarter', 'orle', 'tressure', 'flaunches', 'gore', 'pall', 'pall-inverted', 'point', 'fret', 'label', 'gyron',
@@ -44,19 +44,11 @@ export const ORDINARY_ARTICLE: Record<OrdinaryType, 'a' | 'an'> = {
   orle: 'an',
 };
 
-export const LINES = ['plain', 'embattled', 'wavy', 'engrailed', 'invected', 'indented', 'dancetty', 'nebuly', 'raguly', 'rayonny',
-  'dovetailed', 'urdy', 'potenty', 'bretessed', 'grady', 'enarched'] as const;
-export type Line = (typeof LINES)[number];
-
 export const ORDINARY_MODS = ['inverted', 'couped', 'voided', 'throughout', 'enhanced', 'abased'] as const;
 export type OrdinaryMod = (typeof ORDINARY_MODS)[number];
 
 export function isOrdinaryType(v: unknown): v is OrdinaryType {
   return typeof v === 'string' && (ORDINARY_TYPES as readonly string[]).includes(v);
-}
-
-export function isLine(v: unknown): v is Line {
-  return typeof v === 'string' && (LINES as readonly string[]).includes(v);
 }
 
 export function isOrdinaryMod(v: unknown): v is OrdinaryMod {

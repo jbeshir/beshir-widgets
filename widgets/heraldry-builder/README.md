@@ -108,6 +108,14 @@ neighbours, and that each slot lies on the same parts of a divided field as its 
 
 Old drafts (saved before shapes existed) and requests without a `shape` use the heater shield.
 
+**Lines of partition** (`lines.ts`, `contour.ts`) are not drawn yet; the library that will draw them is in place. `lines.ts` holds the
+registry (the lines, their SENA App M2 groups and `lineDiffers`, the hosts each may go on, how many independent edges each host has,
+what a bare line means on it, and the blazon words and spellings) and one periodic-edge generator: each line has an original
+placeholder profile, one period that is fitted a whole number of times to the visible length of an edge (within SENA A2C1's repeat
+bounds), centred on an anchor and drawn only over a span, straight beyond it. A band's two edges share the period and anchor, so
+wavy, dancetty and counter-embattled edges run in phase and indented, bretessed and engrailed ones mirror. `contour.ts` builds a closed
+outline from straight, curved or lined edges; with every edge plain it gives exactly the polygon paths drawn today.
+
 ## Tinctures and hatching
 
 Eight tinctures: three metals and five colours. The rule of tincture follows the SCA's (SENA A3B,
@@ -327,7 +335,7 @@ There is no cap on groups. A fieldless badge (`kind: 'badge'`, `field: null`; se
 proper on charges without a palette, the other field treatments, lines of partition and charge attributes (form, facing, orientation,
 parts, holds); the builder does not draw those yet, so `resolve` accepts them and `support.ts`
 reports each as an `unsupported` issue naming the gap (the SCA test files records under the same
-tags). Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
+tags). Lines read as blazon does (`lines.ts`): `{a}` alone is what the bare word means on its host ("a fess embattled" is its upper edge, "a fess wavy" both), `b` is a second edge only on bands, the orle and tressure and quarterly's per fess line, a host with one line must have `b = a`, and a point, label, fret or mount takes none. Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
 (SENA Table 7 arrangements, the SCA's default postures) and puts the groups in canonical order, so
 equivalent inputs have one JSON form and one signature. The builder's own space is the
 "simple space": one ordinary, one picture group (on the field, between the ordinary, or on it),
@@ -721,6 +729,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
+- `test/lines.test.ts`: the line registry (SENA App M2 groups, the hosts each line may go on, the edges each host has and what a bare line means on it) and the periodic-edge generator and contours (whole periods within the repeat bounds on every shape, features inside their span, bands' edges in phase or opposed, plain contours byte-identical to the polygons the phase-B shapes draw, captured in `test/fixtures/straight-contours.json`).
 - `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored

@@ -27,8 +27,10 @@ export const SHIELD_INSET_PATH = 'M10 10H90V60C90 86 70 102 50 110C30 102 10 86 
 /** The layout every verdict is computed on. */
 export const CANONICAL_SHAPE: FieldShape = 'heater';
 
-const r2 = (n: number) => Math.round(n * 100) / 100;
-const pts = (p: Array<[number, number]>) => `M${p.map(([x, y]) => `${r2(x)} ${r2(y)}`).join('L')}Z`;
+/** A coordinate rounded to two decimals: every path number is written with it (no exponents). */
+export const r2 = (n: number) => Math.round(n * 100) / 100;
+/** A closed polygon path through the points. */
+export const pts = (p: readonly Pt[]) => `M${p.map(([x, y]) => `${r2(x)} ${r2(y)}`).join('L')}Z`;
 
 /** A circle as four cubic arcs (so path parsers that know only M/L/C/Z can read it). */
 function circlePath(cx: number, cy: number, r: number): string {
@@ -50,7 +52,7 @@ function lozengePath(cx: number, cy: number, hx: number, hy: number, inset: numb
 const pathCache = new Map<string, Pt[][]>();
 
 /** Steps a cubic is flattened into. */
-const CURVE_STEPS = 16;
+export const CURVE_STEPS = 16;
 
 /** Every subpath of a path made of M, L, H, V, C and Z, flattened into polygons (memoised). */
 export function pathRings(d: string): Pt[][] {
