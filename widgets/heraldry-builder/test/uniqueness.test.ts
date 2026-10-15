@@ -496,7 +496,7 @@ describe('explanations', () => {
       expect(n.text.length).toBeGreaterThan(0);
     }
     for (const rule of SENA_RULES) {
-      if (rule === 'A5E4' || rule === 'A5G6' || rule === 'A5F2' || rule === 'A5G1b' || rule === 'A5G1d') continue; // pinned in the tests above and in variation.test.ts; the generator rarely reaches them
+      if (rule === 'A5E4' || rule === 'A5G6' || rule === 'A5F2' || rule === 'A5G1b' || rule === 'A5G1d' || rule === 'A5G1e') continue; // pinned in the tests above and in variation.test.ts; the generator rarely reaches them
       expect(seen, `generated pairs give ${rule}`).toContain(rule);
     }
   }, 30_000);
@@ -634,5 +634,68 @@ describe('the availability check', () => {
   it('skips the entry being edited', () => {
     const d = lion('argent');
     expect(reportUniqueness(d, signature(d), [entryOf('mine', d)], 'mine')).toEqual({ verdict: 'ok', closest: null });
+  });
+});
+
+
+describe('fieldless badges (A5G1e)', () => {
+  /** A badge built directly: badges are not registrable until they are drawn, but they are compared. */
+  const badge = (...groups: ReturnType<typeof group>[]): Design => ({ ...nd(arms('azure', ...groups)), kind: 'badge', field: null }) as Design;
+  const mullet = (paint: string, extra: object = {}) => chg('mullet', paint, extra);
+
+  it('two badges are compared by their groups alone', () => {
+    expect(between(badge(mullet('purpure')), badge(mullet('purpure')))).toEqual([]);
+    expect(between(badge(mullet('purpure')), badge(mullet('gules')))).toEqual(['tincture:dc:A5G3']);
+    expect(between(badge(mullet('purpure', { count: 5 })), badge(mullet('purpure', { count: 6 })))).toEqual(['number:dc:A5G5']);
+  });
+
+  it('a mullet and a sun are one class: a different type is one distinct change, a conflict (the A5G1e example)', () => {
+    const [a, b] = [badge(mullet('purpure')), badge(chg('sun', 'purpure'))];
+    expect(between(a, b)).toEqual(['type:dc:A5G4']);
+    expect(isClear(differences(a, b))).toBe(false);
+    expect(candidateKey(a)).toEqual(candidateKey(b));
+  });
+
+  it('a badge against armory with a field is one distinct change however the field looks, plus the groups', () => {
+    const badgeOf = badge(mullet('purpure'));
+    for (const field of ['azure', div('per-pale', 'or', 'azure'), { k: 'variation', variation: 'barry', parts: ['or', 'azure'] }]) {
+      const fielded = nd(arms(field, mullet('purpure')));
+      expect(between(badgeOf, fielded), JSON.stringify(field)).toEqual(['fieldless:dc:A5G1e']);
+      expect(between(fielded, badgeOf)).toEqual(['fieldless:dc:A5G1e']);
+      expect(isClear(differences(badgeOf, fielded))).toBe(false);
+    }
+    const recoloured = nd(arms('azure', mullet('gules')));
+    expect(between(badgeOf, recoloured)).toEqual(['fieldless:dc:A5G1e', 'tincture:dc:A5G3']);
+    expect(isClear(differences(badgeOf, recoloured))).toBe(true);
+  });
+
+  it('a badge always has a primary group, so against field-primary armory it differs substantially (A5E1)', () => {
+    const fieldPrimary = nd(arms(div('per-pale', 'or', 'azure'), ord('chief', 'argent')));
+    expect(between(badge(mullet('purpure')), fieldPrimary)).toContain('primary-presence:sc:A5E1');
+    expect(candidateKey(badge(mullet('purpure'))).primary).not.toBe(candidateKey(fieldPrimary).primary);
+  });
+
+  it('the signature tells a badge from armory and equal badges apart from different ones', () => {
+    expect(signature(badge(mullet('purpure')))).toBe(signature(badge(mullet('purpure'))));
+    expect(signature(badge(mullet('purpure')))).not.toBe(signature(nd(arms('azure', mullet('purpure')))));
+    expect(signature(badge(mullet('purpure')))).not.toBe(signature(badge(mullet('gules'))));
+  });
+
+  it('a duplicate badge is found, and a badge is too close to the same picture on a field', () => {
+    const badgeOf = badge(mullet('purpure'));
+    const fielded = nd(arms('azure', mullet('purpure')));
+    const registry: RegistryEntryLike[] = [{ id: 'f', signature: signature(fielded), design: fielded }];
+    expect(checkUnique(badgeOf, signature(badgeOf), registry)).toMatchObject({ kind: 'too-close', of: 'f' });
+    registry.push({ id: 'b', signature: signature(badgeOf), design: badgeOf });
+    expect(checkUnique(badgeOf, signature(badgeOf), registry)).toEqual({ kind: 'duplicate', of: 'b' });
+  });
+
+  it('explains the missing background in words', () => {
+    const notes = explainDifferences(badge(mullet('purpure')), nd(arms('azure', mullet('purpure'))));
+    expect(notes).toEqual([{
+      attr: 'fieldless', kind: 'dc', rule: 'A5G1e', item: null,
+      text: 'background (none ↔ plain or split)',
+      why: 'No background counts as one distinct change (SENA A5G1e).',
+    }]);
   });
 });

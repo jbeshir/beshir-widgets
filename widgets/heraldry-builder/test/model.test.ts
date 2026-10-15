@@ -511,7 +511,6 @@ describe('the not-yet-drawable guard', () => {
   });
 
   it('is what the signature calls for a design it can not sign', () => {
-    expect(() => signature(nd({ v: 2, kind: 'badge', groups: [] }))).toThrow(UnsupportedConstructError);
     expect(() => signature(nd(arms({ k: 'stain', stain: 'murrey' })))).toThrow(UnsupportedConstructError);
   });
 });

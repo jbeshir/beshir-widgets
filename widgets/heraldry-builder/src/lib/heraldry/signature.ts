@@ -33,6 +33,5 @@ function group(g: Group): string {
 }
 
 export function signature(d: Design): string {
-  if (d.kind === 'badge') return notSupported({ category: 'fieldless', detail: 'badge' });
-  return ['arms', paint(d.field), ...d.groups.map(group)].join('|');
+  return [d.kind, ...(d.kind === 'arms' ? [paint(d.field)] : []), ...d.groups.map(group)].join('|');
 }

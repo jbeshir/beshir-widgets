@@ -1,10 +1,10 @@
 // The too-close pre-filter (candidateKey) must never change a verdict: checkUnique over only the entries
 // whose key may conflict with the candidate's equals checkUnique over the whole registry — including which entry an ok design
 // only passed by two distinct changes. That holds because a change of any part of the key is always a
-// substantial change on its own, which is proven here too.
+// substantial change on its own, which is proven here too. A fieldless badge has no partition, which matches every partition.
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, signature,
+  CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, primaryGroups, signature,
   type Design, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
@@ -21,12 +21,21 @@ function registryFrom(designs: Design[]): RegistryEntryLike[] {
   return [...bySignature.values()];
 }
 
+/** The same groups without a field (the generator builds arms; badges are built directly, bypassing normalise). */
+const asBadge = (d: Design): Design => ({ v: 2, kind: 'badge', field: null, groups: d.groups });
+
+/** Arms followed by the badges of every `step`th arms design that has a primary group. */
+const withBadges = (designs: Design[], step: number): Design[] => [
+  ...designs,
+  ...designs.filter((d, i) => i % step === 0 && primaryGroups(d).length > 0).map(asBadge),
+];
+
 /** The verdict's kind, telling apart an ok that only passed an entry on two distinct changes. */
 const outcome = (v: Verdict) => (v.kind === 'ok' && v.closest ? 'ok-on-two-dcs' : v.kind);
 
 describe('too-close pre-filter', () => {
-  const registry = registryFrom(generatedDesigns(1, 120));
-  const probes = generatedDesigns(10_000, 1500);
+  const registry = registryFrom(withBadges(generatedDesigns(1, 120), 3));
+  const probes = withBadges(generatedDesigns(10_000, 1500), 5);
 
   it('gives the same verdict as scanning the whole registry', () => {
     const outcomes = new Set<string>();
@@ -62,7 +71,7 @@ describe('too-close pre-filter', () => {
   }, 30_000);
 
   it('keys only on changes that are substantial on their own (generated pairs)', () => {
-    const designs = generatedDesigns(20_000, 400);
+    const designs = withBadges(generatedDesigns(20_000, 400), 4);
     let keyed = 0;
     for (const a of designs) for (const b of designs) {
       if (sameKey(a, b)) continue;
@@ -170,6 +179,40 @@ describe('too-close pre-filter with a semy', () => {
       const sig = signature(probe);
       const candidates = registry.filter((e) => sameKey(probe, e.design));
       expect(checkUnique(probe, sig, candidates)).toEqual(checkUnique(probe, sig, registry));
+    }
+  });
+});
+
+
+describe('too-close pre-filter with fieldless badges', () => {
+  const lion = (extra: object = {}) => group(charge('lion'), 'or', extra);
+  const fielded = [
+    nd(arms('azure', lion())),
+    nd(arms(div('per-pale', 'or', 'azure'), lion())),
+    nd(arms('azure', group(charge('rose'), 'or'))),
+    nd(arms('azure', group(ordinary('bend'), 'or'))),
+  ];
+  const badges = fielded.slice(0, 3).map(asBadge);
+  const designs = [...fielded, ...badges];
+
+  it('keys a badge by no partition, which may conflict with every partition', () => {
+    expect(candidateKey(badges[0])).toEqual({ partition: null, primary: candidateKey(fielded[0]).primary });
+    expect(sameKey(badges[0], fielded[0])).toBe(true);
+    expect(sameKey(badges[0], fielded[1])).toBe(true);
+    expect(sameKey(badges[1], fielded[0])).toBe(true);
+    expect(sameKey(badges[0], badges[2])).toBe(false);
+    expect(sameKey(badges[0], fielded[3])).toBe(false);
+  });
+
+  it('finds every entry that is not clear of the probe, and gives the same verdict as scanning the registry', () => {
+    const registry = registryFrom(designs);
+    for (const a of designs) {
+      for (const b of designs) {
+        if (!isClear(differences(a, b))) expect(sameKey(a, b), `${signature(a)} vs ${signature(b)}`).toBe(true);
+        expect(sameKey(a, b)).toBe(sameKey(b, a));
+      }
+      const candidates = registry.filter((e) => sameKey(a, e.design));
+      expect(checkUnique(a, signature(a), candidates)).toEqual(checkUnique(a, signature(a), registry));
     }
   });
 });

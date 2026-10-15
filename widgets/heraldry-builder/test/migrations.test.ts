@@ -89,7 +89,7 @@ describe('migrations', () => {
       insertOldArms('a2'),
       env.MIGRATION_DB.prepare(`INSERT INTO arms_tags (arms_id, registry_id, tag) VALUES ('a1', 'default', 'charge:wolf'), ('a1', 'default', 'tincture:or'), ('a2', 'default', 'charge:wolf')`),
     ]);
-    expect(DESIGN_MODEL).toBe(env.MIGRATIONS.length - 1);
+    expect(DESIGN_MODEL).toBe(env.MIGRATIONS.length - 2);
     await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS.slice(0, DESIGN_MODEL));
     expect(laterMigrations.length).toBeGreaterThan(0);
 
@@ -122,7 +122,7 @@ describe('migrations', () => {
     await env.MIGRATION_DB.prepare(`INSERT INTO registries (id, name, is_default, created_at) VALUES ('fourth', 'Fourth', 0, 'now')`).run();
   });
 
-  it('0007 empties the arms, tag and owner tables, keeps the registries, and ends at the schema the Worker runs on', async () => {
+  it('0007 and 0008 empty the arms, tag and owner tables, keeps the registries, and ends at the schema the Worker runs on', async () => {
     await env.MIGRATION_DB.batch([
       env.MIGRATION_DB.prepare(`INSERT INTO owner_emails (arms_id, email_hmac, key_version, created_at) VALUES ('a2', 'h', 1, 'now')`),
       env.MIGRATION_DB.prepare(`INSERT INTO owner_tokens (token_hash, arms_id, created_at, expires_at) VALUES ('t', 'a2', 'now', 'later')`),
@@ -137,10 +137,10 @@ describe('migrations', () => {
     expect(await schemaObjects(env.MIGRATION_DB)).toEqual(await schemaObjects(env.DB));
   });
 
-  it('0007 keys candidates by partition (required) and primary group (nullable) and drops the old columns', async () => {
+  it('0008 keys candidates by partition and primary group (both nullable: a badge has no partition) and 0007 dropped the old columns', async () => {
     const { results } = await env.MIGRATION_DB.prepare(`SELECT name, "notnull" FROM pragma_table_info('arms')`).all<{ name: string; notnull: number }>();
     const notNull = new Map(results.map((c) => [c.name, c.notnull === 1]));
-    expect(notNull.get('partition_key')).toBe(true);
+    expect(notNull.get('partition_key')).toBe(false);
     expect(notNull.get('primary_key')).toBe(false);
     for (const gone of ['contact', 'field_division', 'ordinary', 'charge', 'division_group', 'ordinary_group', 'charge_group']) {
       expect(notNull.has(gone), gone).toBe(false);
@@ -179,15 +179,13 @@ describe('migrations', () => {
     }
   });
 
-  it('serves the candidate lookup from the conflict-key index', async () => {
+  it('serves the candidate lookup from the primary-and-partition index', async () => {
     const plan = await env.MIGRATION_DB.prepare(
       `EXPLAIN QUERY PLAN SELECT id FROM arms
-       WHERE registry_id = ? AND partition_key = ? AND primary_key IS ? ORDER BY created_at, id`
-    ).bind('default', 'plain', null).all<{ detail: string }>();
-    const detail = plan.results.map((r) => r.detail).join('\n');
-    expect(detail).toContain('arms_registry_conflict_keys');
-    expect(detail).not.toContain('TEMP B-TREE');
-    const gone = await env.MIGRATION_DB.prepare(`SELECT name FROM sqlite_master WHERE name IN ('arms_registry_similar_groups', 'arms_registry_similarity')`).all();
+       WHERE registry_id = ? AND (partition_key IS NULL OR partition_key = ?) AND primary_key IN (?, ?)`
+    ).bind('default', 'plain', 'ordinary:pile', '*').all<{ detail: string }>();
+    expect(plan.results.map((r) => r.detail).join('\n')).toContain('arms_registry_primary_partition');
+    const gone = await env.MIGRATION_DB.prepare(`SELECT name FROM sqlite_master WHERE name IN ('arms_registry_conflict_keys', 'arms_registry_similar_groups', 'arms_registry_similarity')`).all();
     expect(gone.results).toEqual([]);
   });
 });

@@ -4,10 +4,10 @@
 // Worker's fetch handler is exercised directly.
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
-import worker from '../worker/index';
+import worker, { loadCandidates } from '../worker/index';
 import sample from '../src/data/sample-registry.json';
 import {
-  FIELD_SHAPES, blazon, candidateKey, checkUnique, parseSearchParams, resolve, searchEntries, signature,
+  FIELD_SHAPES, MIXED_PRIMARY, blazon, candidateKey, checkUnique, keysMayConflict, parseSearchParams, resolve, searchEntries, signature,
   type RegistryEntryLike,
 } from '../src/lib/heraldry';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
@@ -1023,6 +1023,23 @@ describe('withdrawal cascades to tags', () => {
 });
 
 describe('too-close candidate lookup', () => {
+  it('returns exactly the rows whose key may conflict, a fieldless badge (null partition) matching every partition', async () => {
+    await addRegistry('keys', 'Keys');
+    const partitions = [null, 'plain', 'per-pale'];
+    const primaries = [null, 'charge:lion', 'charge:rose', MIXED_PRIMARY];
+    const stored = partitions.flatMap((partition) => primaries.map((primary) => ({ partition, primary })));
+    for (const [i, key] of stored.entries()) {
+      await env.DB.prepare(
+        `INSERT INTO arms (id, registry_id, display_name, design, signature, blazon, partition_key, primary_key, readability, edit_secret_hash, created_at, updated_at)
+         VALUES (?, 'keys', 'Stored', '{}', ?, '', ?, ?, 'bold', 'h', ?, ?)`
+      ).bind(`k-${i}`, `sig-${i}`, key.partition, key.primary, `2026-10-03T00:00:${String(i).padStart(2, '0')}Z`, `2026-10-03T00:00:${String(i).padStart(2, '0')}Z`).run();
+    }
+    for (const probe of stored) {
+      const found = (await loadCandidates(env, 'keys', probe)).map((r) => r.id);
+      expect(found, JSON.stringify(probe)).toEqual(stored.flatMap((key, i) => (keysMayConflict(probe, key) ? [`k-${i}`] : [])));
+    }
+  });
+
   it('gives the verdict a full scan of the stored registry gives', async () => {
     await addRegistry('prefilter', 'Prefilter');
     // Designs with two main pictures are keyed '*' and found by entries of any primary.

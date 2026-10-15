@@ -25,16 +25,17 @@ const CHANGE_KINDS: readonly ChangeKind[] = ['sc', 'dc'];
 /**
  * The SENA section each change comes from (RULES §C.4, §C.5). A5G1b and A5G1d appear for fields of one A5F1b category
  * (a division and its multiple, the lattices): a different direction or style, or a different number of pieces.
+ * A5G1e is a fieldless badge set against armory with a field.
  */
-export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G1b', 'A5G1d', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
+export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G1b', 'A5G1d', 'A5G1e', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
 export type SenaRule = (typeof SENA_RULES)[number];
 
 export type DiffAttr =
-  | 'field-partition' | 'field-style' | 'field-tincture' | 'primary-presence' | 'group-presence'
+  | 'fieldless' | 'field-partition' | 'field-style' | 'field-tincture' | 'primary-presence' | 'group-presence'
   | 'type' | 'number' | 'tincture' | 'arrangement' | 'posture';
 
 const DIFF_ATTRS: readonly DiffAttr[] = [
-  'field-partition', 'field-style', 'field-tincture', 'primary-presence', 'group-presence', 'type', 'number', 'tincture', 'arrangement', 'posture',
+  'fieldless', 'field-partition', 'field-style', 'field-tincture', 'primary-presence', 'group-presence', 'type', 'number', 'tincture', 'arrangement', 'posture',
 ];
 
 export function isDiffAttr(v: unknown): v is DiffAttr {
@@ -240,9 +241,9 @@ const VARIATION_CATEGORY: Record<Variation, string> = {
 };
 
 
-/** The partition category of a field (A5F1): plain, or the division; a variation is in the category of the division it multiplies. */
-function partition(d: Design): string {
-  if (d.kind === 'badge') return notSupported({ category: 'fieldless', detail: 'badge' });
+/** The partition category of a field (A5F1): plain, or the division; a variation is in the category of the division it multiplies. Null for a fieldless badge, which has no field to compare. */
+function partition(d: Design): string | null {
+  if (d.kind === 'badge') return null;
   const f = d.field;
   return f.k === 'divided' ? f.division : f.k === 'variation' ? VARIATION_CATEGORY[f.variation] : f.k === 'tincture' || f.k === 'fur' || f.k === 'treated' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
 }
@@ -276,7 +277,8 @@ function comparedSurfaces(d: Design): Surface[] {
 
 
 function fieldChanges(a: Design, b: Design): Diff[] {
-  if (a.kind !== 'arms' || b.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
+  // A5G1e: fieldless armory has no field to compare; against armory with a field it is one distinct change.
+  if (a.kind === 'badge' || b.kind === 'badge') return a.kind === b.kind ? [] : [change('fieldless', 'dc', 'A5G1e', null)];
   if (partition(a) !== partition(b)) return [change('field-partition', 'sc', 'A5F1', null)];
   const changes: Diff[] = [];
   // A different number of pieces (A5G1d) or a different style within the category (A5G1b) is a distinct change.
@@ -430,10 +432,11 @@ export function checkUnique(d: Design, sig: string, registry: readonly RegistryE
  * verdict: a different field partition (A5F1), adding or removing the primary group (A5E1) or changing its type
  * (A5E2) is always a substantial change; so is the type of the one group of charges that is the primary. A primary
  * of two groups ("a lion and a rose") is one group of both types, so it keys `MIXED_PRIMARY` and is looked up by
- * `keysMayConflict`. Everything else is decided by `checkUnique` on the candidates, so looking a registry up by this
+ * `keysMayConflict`. A fieldless badge has no partition (null): without a field it differs from armory with one by a
+ * distinct change only (A5G1e), so it may conflict with any partition. Everything else is decided by `checkUnique` on the candidates, so looking a registry up by this
  * key returns every entry that matters.
  */
-export interface CandidateKey { partition: string; primary: string | null }
+export interface CandidateKey { partition: string | null; primary: string | null }
 
 /** The primary of a design with two co-primary groups: they may share a type with entries of any primary. */
 export const MIXED_PRIMARY = '*';
@@ -448,7 +451,7 @@ export function candidateKey(raw: Design): CandidateKey {
 /** Whether entries with these keys can be too close: the one rule the registry lookup follows. A design with two primary groups may share a type with any entry that has a primary. */
 export function keysMayConflict(a: CandidateKey, b: CandidateKey): boolean {
   const primaries = a.primary === b.primary || (a.primary !== null && b.primary !== null && (a.primary === MIXED_PRIMARY || b.primary === MIXED_PRIMARY));
-  return a.partition === b.partition && primaries;
+  return (a.partition === b.partition || a.partition === null || b.partition === null) && primaries;
 }
 
 // ── Explanations ────────────────────────────────────────────────────────────
@@ -479,7 +482,7 @@ export function tallyText(diffs: readonly { kind: ChangeKind }[]): string {
 /** A difference in words: what changed, why it counts as it does, and (for a group) whether it was a band or a picture. */
 export interface DifferenceNote { attr: DiffAttr; kind: ChangeKind; rule: SenaRule; text: string; why: string; item: 'ordinary' | 'charge' | null }
 
-const partitionWord = (d: Design): string => (d.kind === 'arms' && d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : d.kind === 'arms' && d.field.k === 'variation' ? VARIATION_NAME[d.field.variation] : 'plain');
+const partitionWord = (d: Design): string => (d.kind === 'badge' ? 'none' : d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : d.field.k === 'variation' ? VARIATION_NAME[d.field.variation] : 'plain');
 const itemPhrase = (i: Item): string => (i.k === 'ordinary' ? `${ORDINARY_ARTICLE[i.type]} ${ORDINARY_NAME[i.type]}` : `${CHARGES[i.charge].article} ${CHARGES[i.charge].name}`);
 
 /** What the builder calls a group in the middle of a sentence: "band or shape", "top bar", "pictures beside the band". */
@@ -529,6 +532,10 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
     let text: string;
     let sentence: string;
     switch (diff.attr) {
+      case 'fieldless':
+        text = pair('background', a.kind === 'badge' ? 'none' : 'plain or split', b.kind === 'badge' ? 'none' : 'plain or split');
+        sentence = 'No background counts as one distinct change';
+        break;
       case 'field-partition': {
         text = pair('background split', partitionWord(a), partitionWord(b));
         sentence = 'Splitting the background a different way, or splitting it instead of leaving it plain, is a substantial change';

@@ -327,7 +327,7 @@ parameter, the API uses the default registry (`is_default = 1`, `default` today)
 | table | contents |
 |---|---|
 | `registries` | `id`, `name`, `is_default`, `created_at`. Seeded with `('default', 'Default', 1, …)`. |
-| `arms` | `id`, `registry_id`, `display_name`, `contact_discord` (nullable, CHECK-constrained to a valid Discord username), the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, `readability`, the conflict key `partition_key` / `primary_key` (see Uniqueness), `search_text` (blazon + gloss + display name as lowercase words, a space at each end; never contact, email or shape), `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
+| `arms` | `id`, `registry_id`, `display_name`, `contact_discord` (nullable, CHECK-constrained to a valid Discord username), the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, `readability`, the conflict key `partition_key` (NULL for a fieldless badge) / `primary_key` (see Uniqueness), `search_text` (blazon + gloss + display name as lowercase words, a space at each end; never contact, email or shape), `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
 | `arms_tags` | `(arms_id, registry_id, tag)`: derived search tags such as `charge:wolf`, `posture:passant`, `ordinary:bordure`, `tincture:or`, indexed on `(registry_id, tag)`. |
 | `owner_emails` | `arms_id` (primary key), `email_hmac` (hex HMAC-SHA-256 of the normalised owner address), `key_version`, `created_at`. Indexed on `(email_hmac, key_version)`. Never the address. |
 | `owner_tokens` | `token_hash` (SHA-256 of a recovery token), `arms_id`, `created_at`, `expires_at`, `used_at`. |
@@ -366,8 +366,9 @@ tincture. It then computes everything itself:
   the check only needs the entries that share both. Each row stores them (`partition_key`,
   `primary_key`, NULL when the field is the primary, `*` when two groups of charges are together the
   primary, which may share a type with any entry that has a primary: `keysMayConflict`), and the Worker loads just those candidates
-  through the `arms_registry_conflict_keys` index, in registration order, and reports the first entry
-  that is too close.
+  through the `arms_registry_primary_partition` index, in registration order, and reports the first entry
+  that is too close. A fieldless badge has a NULL `partition_key`: with no field it differs from armory that has one by
+  one distinct change only (A5G1e), so a NULL partition on either side matches any partition.
 - A registry holds at most **2,000 entries** (`409 registry_full`), counted with `COUNT(*)`.
 
 ### API (`worker/index.ts`)
@@ -597,7 +598,10 @@ migration: add the next-numbered file.
   `arms`, `arms_tags`, `owner_emails` and `owner_tokens` (every registered entry is discarded; the
   production registry was deliberately thrown away) and keeps `registries`. `arms` gets
   `partition_key` and `primary_key` in place of the six component and group columns, and the
-  `arms_registry_conflict_keys` index the too-close lookup uses. **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
+  `arms_registry_conflict_keys` index the too-close lookup uses (superseded by 0008). **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
+- `0008_fieldless_keys.sql`: makes `partition_key` nullable (NULL = fieldless badge) and replaces the lookup index by
+  `arms_registry_primary_partition` (`registry_id, primary_key, partition_key`). Like 0007 it drops and recreates `arms`,
+  `arms_tags`, `owner_emails` and `owner_tokens` (every registered entry is discarded) and keeps `registries`. **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
 
 Local database (used by `wrangler dev`):
 
@@ -720,7 +724,7 @@ npm run favicon
   - response headers, the 16 KB body cap, the structured error log, one default registry, tag cascade
   - the too-close candidate lookup giving the same verdicts as a full registry scan, and distinct-change verdicts
 - `test/prefilter.test.ts`: the conflict key never changes a `checkUnique` verdict, over generated designs.
-- `test/migrations.test.ts`: migrations apply from empty, `0001` matches the production schema (`test/fixtures/production-schema.sql`, the original `schema.sql`), re-running it is harmless, `0002`–`0006` carry rows across, and `0007` empties the arms and owner tables, keeps the registries, checks the Discord username, cascades deletes to tags and owner tables, and serves the candidate lookup from its index.
+- `test/migrations.test.ts`: migrations apply from empty, `0001` matches the production schema (`test/fixtures/production-schema.sql`, the original `schema.sql`), re-running it is harmless, `0002`–`0006` carry rows across, and `0007`/`0008` empty the arms and owner tables, keeps the registries, checks the Discord username, cascades deletes to tags and owner tables, and serves the candidate lookup from its index.
 - `test/contact.test.ts`: the shared Discord and email validators.
 - `test/store.test.ts`: the store's offline mode (sample search/check, offline refusal of writes,
   owner checks and recovery) and its online result mapping (register with email and Discord,
