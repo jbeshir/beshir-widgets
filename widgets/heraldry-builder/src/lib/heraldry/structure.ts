@@ -55,7 +55,7 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
       const where = ctx.k === 'on' ? 'on' : 'around';
       return a.k === 'host' && g.position === null
         ? null
-        : `Charges ${where} the ${ORDINARY_NAME[ctx.ordinary]} are placed by it — they can't be arranged ${layoutWords(layout)}.`;
+        : `Charges ${where} the ${ORDINARY_NAME[ctx.ordinary.type]} are placed by it — they can't be arranged ${layoutWords(layout)}.`;
     }
     case 'field': break;
     default: return ctx satisfies never;

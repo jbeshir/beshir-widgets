@@ -99,8 +99,11 @@ fess point and clipped to its outline. Field regions and ordinaries are closed c
 parts come from `partitionContours`, and `partIndexAt` says which part a point lies in. An ordinary's drawing comes from
 `ordinaryGeometry(spec, frame)` (`ordinary-geometry.ts`): the spec is everything about the group that changes its drawing (type,
 lines, treatments, count, cotises, fimbriation), the frame is where in the shape it is drawn; it gives the body, fill rule, centre,
-box and the points the ordinary lies on. Render layers carry an ordinary's parts (body today; fimbriation and cotises later). Charge slots for the banner, round and lozenge
-(`shape-slots.ts`) are the heater's tables spread, shifted and sized to fit each shape.
+box, the points the ordinary lies on and two straight envelopes — `outer` holds the whole body, lines and all, and `inner` lies
+wholly inside it. Render layers carry an ordinary's parts (body today; fimbriation and cotises later). Layout contexts name the
+ordinary they sit around or on by its spec: a plain ordinary keeps its hand-fitted rows, any other is laid out by the generic
+engine, keeping charges between it clear of `outer` and charges on it inside `inner` (never fitted to the toothed body). Charge
+slots for the banner, round and lozenge (`shape-slots.ts`) are the heater's tables spread, shifted and sized to fit each shape.
 
 **Validity is shape-independent.** The rule of tincture is judged on the canonical heater layout
 only, so every shape gives a design the same verdict, issues, fix suggestions and option locks.
@@ -734,9 +737,9 @@ npm run sca:ignore
 npm run favicon
 ```
 
-- `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
+- `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain, widened and narrowed by its lines' depth otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
 - `test/lines.test.ts`: the line registry (SENA App M2 groups, the hosts each line may go on, the edges each host has and what a bare line means on it) and the periodic-edge generator and contours (whole periods within the repeat bounds on every shape, features inside their span, bands' edges in phase or opposed, plain contours byte-identical to the polygons the phase-B shapes draw, captured in `test/fixtures/straight-contours.json`).
-- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
+- `test/model.test.ts`, `arrangement`, `layout` (including ordinaries that aren't plain: the generic engine keeps their charges clear of or inside the envelopes), `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps, Discord normalisation and the `contact_discord` CHECK

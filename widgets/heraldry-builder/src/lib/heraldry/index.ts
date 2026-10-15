@@ -45,7 +45,7 @@ export {
   counterchangedSlotParts, type Slot, type DrawnField, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
-  specOf, plainSpec, defaultOrdinaryFrame, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, divisionCutsOrdinary,
+  specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, divisionCutsOrdinary,
   type OrdinarySpec, type OrdinaryFrame, type OrdinaryGeometry,
 } from './ordinary-geometry';
 export { variationRegions, inFirstRegion, type Box } from './variation-geometry';

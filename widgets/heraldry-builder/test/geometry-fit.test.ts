@@ -91,7 +91,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           v: 2, field: 'azure',
           groups: [tinctured('or', { k: 'ordinary', type }), tinctured('argent', chargeItem('mullet'), { count, relation: 'between' }), ...beside],
         });
-        consider(count, { k: 'between', ordinary: type, peripheral }, [layoutOfKey('host', count)!], `between ${type}${suffix}`, make);
+        consider(count, { k: 'between', ordinary: plainSpec(type), peripheral }, [layoutOfKey('host', count)!], `between ${type}${suffix}`, make);
       }
     }
     for (const type of ON) {
@@ -104,7 +104,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           v: 2, field: 'azure',
           groups: [tinctured('or', { k: 'ordinary', type }, { charged: [tinctured('argent', chargeItem('mullet'), { count })] }), ...beside],
         });
-        consider(count, { k: 'on', ordinary: type, peripheral: hostPeripheral }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
+        consider(count, { k: 'on', ordinary: plainSpec(type), peripheral: hostPeripheral }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
       }
     }
   }
@@ -121,7 +121,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           });
           const base = make();
           const path = [base.groups.findIndex((g) => g.role === 'secondary')];
-          consider(count, { k: 'position', position, ordinary: type, peripheral }, layoutCandidates(base, path, count), `in ${position} beside ${type ?? 'lion'}/${peripheral}`, make);
+          consider(count, { k: 'position', position, ordinary: type && plainSpec(type), peripheral }, layoutCandidates(base, path, count), `in ${position} beside ${type ?? 'lion'}/${peripheral}`, make);
         }
       }
       for (const count of YIELD_COUNTS) {
@@ -231,15 +231,15 @@ function groundFits(g: ShapeGeometry, ctx: GroundContext, margin: number, narrow
   }
   if (ctx.k === 'position') {
     const room = inRoom(ctx.position);
-    const poly = ctx.ordinary && g.poly(ctx.ordinary);
-    const respect = ctx.ordinary !== null && (!narrowBands || ART_RESPECTS.includes(ctx.ordinary));
+    const poly = ctx.ordinary && g.poly(ctx.ordinary.type);
+    const respect = ctx.ordinary !== null && (!narrowBands || ART_RESPECTS.includes(ctx.ordinary.type));
     return (p) => inFrame(p) && room(p) && !(respect && poly !== null && pointInPolygon(p[0], p[1], poly));
   }
   // On the bordure: inside the shape and outside the bordure's inner edge.
-  if (ctx.k === 'on' && ctx.ordinary === 'bordure') return (p) => onShape(p) && !pointInPolygon(p[0], p[1], g.inset);
-  const poly = g.poly(ctx.ordinary);
+  if (ctx.k === 'on' && ctx.ordinary.type === 'bordure') return (p) => onShape(p) && !pointInPolygon(p[0], p[1], g.inset);
+  const poly = g.poly(ctx.ordinary.type);
   // Chevron and saltire arms are narrower than a square charge's corners, so only glyph discs are held to them.
-  const respect = !narrowBands || ART_RESPECTS.includes(ctx.ordinary);
+  const respect = !narrowBands || ART_RESPECTS.includes(ctx.ordinary.type);
   return ctx.k === 'between'
     ? (p) => inFrame(p) && !(respect && pointInPolygon(p[0], p[1], poly))
     : (p) => inFrame(p) && (!respect || pointInPolygon(p[0], p[1], poly));

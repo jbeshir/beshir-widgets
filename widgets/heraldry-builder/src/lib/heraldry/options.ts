@@ -251,13 +251,13 @@ function hostCountReason(d: Design, path: GroupPath): string {
   if (ctx.k === 'field' || ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'overall') throw new RangeError('A group on the background has no host counts.');
   if (ctx.k === 'on-charge') return `Charges on a picture come in ${joinList(ON_CHARGE_COUNTS.map(countWord), 'or')}, not ${countWord(g.count)}.`;
   const legal = hostCounts(ctx.k, ctx.ordinary);
-  const name = ORDINARY_NAME[ctx.ordinary];
+  const name = ORDINARY_NAME[ctx.ordinary.type];
   const list = joinList(legal.map(countWord), 'or');
   if (ctx.k === 'between') {
     if (g.count === 1) return `A single charge can't be set between a ${name} — use ${list}, or place it on the ${name}.`;
     return `A ${name} is set between ${legal.length === 1 ? 'exactly ' : ''}${list} charges, not ${numberWord(g.count)}.`;
   }
-  const extra = ctx.ordinary === 'cross' || ctx.ordinary === 'saltire' ? ' (one in the centre, or one on each arm and the centre)' : '';
+  const extra = ctx.ordinary.type === 'cross' || ctx.ordinary.type === 'saltire' ? ' (one in the centre, or one on each arm and the centre)' : '';
   return `A ${name} can carry ${list}${extra}, not ${countWord(g.count)}.`;
 }
 
@@ -683,7 +683,7 @@ export function layoutChoices(d: Design, path: GroupPath): LayoutChoices {
     if (g.arrangement.k === 'crossed') return { mode: 'fixed', note: 'Two long charges in a badge cross each other like an X.' };
   }
   if (ctx.k === 'between' || ctx.k === 'on') {
-    const name = ORDINARY_NAME[ctx.ordinary];
+    const name = ORDINARY_NAME[ctx.ordinary.type];
     return { mode: 'host', note: ctx.k === 'on' ? `Charges on the ${name} follow its line.` : `Charges between a ${name} are placed around it.` };
   }
   const keys = layoutCandidates(d, path, g.count).map(layoutKey);

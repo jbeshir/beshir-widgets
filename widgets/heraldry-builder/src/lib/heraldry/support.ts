@@ -189,13 +189,13 @@ function placementGaps(d: Design, g: Group, host: Group | null): Found[] {
     if (g.role !== 'secondary' || g.relation !== 'between') return [];
     const ordinary = primaryOrdinary(d);
     if (!ordinary) return primaryCharges(d) && !AROUND_COUNTS.includes(g.count) ? [countGap(`around-${g.count}`, 'around')] : [];
-    if (!DRAWN_ORDINARIES.includes(ordinary)) return [];
-    return hostCounts('between', ordinary).includes(g.count) ? [] : [countGap(`between-${ordinary}-${g.count}`, 'host')];
+    if (!DRAWN_ORDINARIES.includes(ordinary.type)) return [];
+    return hostCounts('between', ordinary).includes(g.count) ? [] : [countGap(`between-${ordinary.type}-${g.count}`, 'host')];
   }
   if (host.item.k === 'charge') return host.role === 'primary' && !ON_CHARGE_COUNTS.includes(g.count) ? [countGap(`on-charge-${g.count}`, 'host')] : [];
   if (!DRAWN_ORDINARIES.includes(host.item.type)) return [];
   const type = host.item.type;
-  return hostCounts('on', type).includes(g.count) ? [] : [countGap(`on-${type}-${g.count}`, 'host')];
+  return hostCounts('on', specOf(host)).includes(g.count) ? [] : [countGap(`on-${type}-${g.count}`, 'host')];
 }
 
 /**

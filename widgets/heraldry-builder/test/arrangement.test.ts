@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  defaultLayout, fieldContext, hostCounts, isForced, layoutCandidates, layoutContext, layoutKey, layoutOfKey, layoutWords, ROW_PATTERNS, statesLayout, tableDefault,
+  defaultLayout, fieldContext, hostCounts, isForced, plainSpec, layoutCandidates, layoutContext, layoutKey, layoutOfKey, layoutWords, ROW_PATTERNS, statesLayout, tableDefault,
   UnsupportedConstructError, type Design, type Layout,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -111,31 +111,31 @@ describe('Table 7: secondary and tertiary groups', () => {
     expect(layoutKey(tableDefault(d, [0, 0])!)).toBe('host');
     expect(candidates(d, [1], 3)).toEqual(['host']);
     expect(candidates(d, [0, 0], 5)).toEqual(['host']);
-    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: 'fess', peripheral: 'none' });
-    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: 'fess', peripheral: 'none' });
+    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: plainSpec('fess'), peripheral: 'none' });
+    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('fess'), peripheral: 'none' });
   });
 
   it('knows the chief and bordure beside the group it sits around or on', () => {
     const d = nd(arms('azure', group(ordinary('pale'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(charge('mullet'), 'argent', { count: 2 }),
       group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'argent')));
-    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: 'pale', peripheral: 'chief-bordure' });
-    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: 'pale', peripheral: 'chief-bordure' });
+    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: plainSpec('pale'), peripheral: 'chief-bordure' });
+    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('pale'), peripheral: 'chief-bordure' });
     // A chief is not its own peripheral: charges on it know of the bordure alone.
     const chiefly = nd(arms('azure', group(ordinary('chief'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(ordinary('bordure'), 'argent')));
-    expect(layoutContext(chiefly, [0, 0])).toEqual({ k: 'on', ordinary: 'chief', peripheral: 'bordure' });
+    expect(layoutContext(chiefly, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('chief'), peripheral: 'bordure' });
   });
 
   it('has a layout only for the counts of the table', () => {
-    expect(hostCounts('between', 'fess')).toEqual([2, 3, 4, 6]);
-    expect(hostCounts('between', 'pale')).toEqual([2, 4, 6]);
-    expect(hostCounts('between', 'chevron')).toEqual([2, 3, 6]);
-    expect(hostCounts('between', 'cross')).toEqual([4]);
-    expect(hostCounts('between', 'pile')).toEqual([2]);
-    expect(hostCounts('between', 'canton')).toEqual([]);
-    expect(hostCounts('on', 'chief')).toHaveLength(12);
-    expect(hostCounts('on', 'cross')).toEqual([1, 4, 5]);
-    expect(hostCounts('on', 'pile')).toEqual([1, 2, 3]);
-    expect(hostCounts('on', 'bordure')).toHaveLength(12);
+    expect(hostCounts('between', plainSpec('fess'))).toEqual([2, 3, 4, 6]);
+    expect(hostCounts('between', plainSpec('pale'))).toEqual([2, 4, 6]);
+    expect(hostCounts('between', plainSpec('chevron'))).toEqual([2, 3, 6]);
+    expect(hostCounts('between', plainSpec('cross'))).toEqual([4]);
+    expect(hostCounts('between', plainSpec('pile'))).toEqual([2]);
+    expect(hostCounts('between', plainSpec('canton'))).toEqual([]);
+    expect(hostCounts('on', plainSpec('chief'))).toHaveLength(12);
+    expect(hostCounts('on', plainSpec('cross'))).toEqual([1, 4, 5]);
+    expect(hostCounts('on', plainSpec('pile'))).toEqual([1, 2, 3]);
+    expect(hostCounts('on', plainSpec('bordure'))).toHaveLength(12);
   });
 
   it('has no layout context where the builder has none', () => {
@@ -146,7 +146,7 @@ describe('Table 7: secondary and tertiary groups', () => {
     const onSecondary = nd(arms('azure', group(ordinary('bend'), 'or'), group(charge('lion'), 'gules', { count: 2, charged: [group(charge('rose'), 'argent')] })));
     expect(() => layoutContext(onSecondary, [1, 0])).toThrow(UnsupportedConstructError);
     expect(() => tableDefault(onSecondary, [1, 0])).toThrow(UnsupportedConstructError);
-    expect(layoutContext(onSecondary, [1])).toEqual({ k: 'between', ordinary: 'bend', peripheral: 'none' });
+    expect(layoutContext(onSecondary, [1])).toEqual({ k: 'between', ordinary: plainSpec('bend'), peripheral: 'none' });
   });
 });
 

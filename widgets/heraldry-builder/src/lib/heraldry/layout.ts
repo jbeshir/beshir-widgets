@@ -6,7 +6,7 @@
 import { capitalise } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
-import { groupAt, hostOf, type Design, type GroupPath } from './design';
+import { PLAIN_LINES, groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
@@ -14,9 +14,9 @@ import {
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
-  CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
+  CANONICAL_SHAPE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
 } from './geometry';
-import { defaultOrdinaryFrame, ordinaryGeometry, plainSpec } from './ordinary-geometry';
+import { defaultOrdinaryFrame, isPlainSpec, ordinaryGeometry, type OrdinarySpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';
 import type { FieldShape } from './shape';
 import { MAX_DRAWN_COUNT } from './support';
@@ -59,7 +59,18 @@ function slotsOf([size, ...xy]: SlotRow, rotation: (x: number) => number, skip: 
 
 const handRows = (shape: FieldShape): SlotRows => (shape === 'heater' ? HEATER_SLOT_ROWS : SHAPED_SLOT_ROWS[shape]);
 
-/** The hand-fitted slots for a context, count and layout, or null when they come from the generic engine. */
+/** The hand-fitted row of charges around (`between`) or on (`on`) an ordinary of this type, turned to follow it, or null when there is none. */
+function hostRow(kind: 'between' | 'on', type: OrdinaryType, count: number, rows: SlotRows): Slot[] | null {
+  const turn = (x: number) => (kind === 'on' ? followRotation(type, x) : 0);
+  if (kind === 'on' && count === 4 && (type === 'cross' || type === 'saltire')) {
+    // One on each arm: the five-charge rows without the centre.
+    return slotsOf(rows.on[`${type}:5`], turn, 2);
+  }
+  const row = (kind === 'between' ? rows.between : rows.on)[`${type}:${count}`];
+  return row ? slotsOf(row, turn) : null;
+}
+
+/** The hand-fitted slots for a context, count and layout, or null when they come from the generic engine (always, for an ordinary that isn't plain). */
 function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] | null {
   const rows = handRows(shape);
   switch (ctx.k) {
@@ -74,14 +85,8 @@ function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: Fie
     case 'between': case 'on': break;
     default: return ctx satisfies never;
   }
-  if (ctx.peripheral !== 'none') return null;
-  const turn = (x: number) => (ctx.k === 'on' ? followRotation(ctx.ordinary, x) : 0);
-  if (ctx.k === 'on' && count === 4 && (ctx.ordinary === 'cross' || ctx.ordinary === 'saltire')) {
-    // One on each arm: the five-charge rows without the centre.
-    return slotsOf(rows.on[`${ctx.ordinary}:5`], turn, 2);
-  }
-  const row = (ctx.k === 'between' ? rows.between : rows.on)[`${ctx.ordinary}:${count}`];
-  return row ? slotsOf(row, turn) : null;
+  if (ctx.peripheral !== 'none' || !isPlainSpec(ctx.ordinary)) return null;
+  return hostRow(ctx.k, ctx.ordinary.type, count, rows);
 }
 
 /** Whether a layout is placed by a hand-fitted row (those are checked against the real art; the rest against glyph discs). */
@@ -533,9 +538,9 @@ function betweenAlternatives(ordinary: OrdinaryType, count: number, peripheral: 
   return belowChevron().map((below) => [...above, ...below]);
 }
 
-/** Where the hand rows of a context without peripherals put its slots: the nominal centres of the ordinaries the engine has no rule for. */
+/** Where the heater's hand rows for a plain ordinary of this type, without peripherals, put the slots: the nominal centres of the ordinaries the engine has no rule for. */
 function handCentres(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, count: number): Centre[] | null {
-  const slots = handSlots({ ...ctx, peripheral: 'none' }, count, HOST_LAYOUT, CANONICAL_SHAPE);
+  const slots = hostRow(ctx.k, ctx.ordinary.type, count, HEATER_SLOT_ROWS);
   return slots && slots.map((s) => at(s.x, s.y, s.rotation));
 }
 
@@ -547,8 +552,10 @@ function nominalCentres(ctx: Exclude<GroundContext, { k: 'around' }>, count: num
     default: return ctx satisfies never;
   }
   if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx.k, ctx.ordinary).includes(count)) return null;
-  const ruled = ctx.k === 'between' ? betweenCentres(ctx.ordinary, count, ctx.peripheral) : onCentres(ctx.ordinary, count, ctx.peripheral);
-  return ruled ?? (ctx.peripheral === 'none' ? null : handCentres(ctx, count));
+  const { type } = ctx.ordinary;
+  const ruled = ctx.k === 'between' ? betweenCentres(type, count, ctx.peripheral) : onCentres(type, count, ctx.peripheral);
+  // A plain ordinary with no peripherals has its hand rows instead.
+  return ruled ?? (ctx.peripheral === 'none' && isPlainSpec(ctx.ordinary) ? null : handCentres(ctx, count));
 }
 
 // ── Charges on the primary charges ──────────────────────────────────────────
@@ -636,17 +643,17 @@ function evenlyFromTop(ring: readonly Pt[], m: number): Pt[] {
   });
 }
 
-/** Upright charges evenly along the middle of the bordure of a shape: the arrangement follows the bordure. */
-function bordureCentres(count: number, shape: FieldShape): Centre[] {
-  const frame = shapeFrame(shape);
-  const centre = midline(pathPolygon(frame.inset), pathPolygon(frame.outline));
+/** Upright charges evenly along the middle of the bordure of a shape (of what its line always leaves of it): the arrangement follows the bordure. */
+function bordureCentres(bordure: OrdinarySpec, count: number, shape: FieldShape): Centre[] {
+  const [outline, inset] = envelopeIn(bordure, shape).inner;
+  const centre = midline(inset, outline);
   return evenlyFromTop(centre, count).map(([x, y]) => at(x, y));
 }
 
 /** Charges on a bordure are laid out in each shape's own bordure, not mapped from the heater's. */
-function bordureSlots(count: number, shape: FieldShape): Slot[] {
-  const centres = bordureCentres(count, shape);
-  const size = largestSize(centres, groundFor({ k: 'on', ordinary: 'bordure', peripheral: 'none' }, shape), false);
+function bordureSlots(bordure: OrdinarySpec, count: number, shape: FieldShape): Slot[] {
+  const centres = bordureCentres(bordure, count, shape);
+  const size = largestSize(centres, groundFor({ k: 'on', ordinary: bordure, peripheral: 'none' }, shape), false);
   return size < 1 ? [] : toSlots(centres, size);
 }
 
@@ -730,6 +737,9 @@ function groundIn(ctx: GroundContext, layout: Layout, shape: FieldShape): Ground
   return isHalfPosition(layout.position) ? { ...ground, within: halfRoom(layout.position, shape) } : ground;
 }
 
+/** The straight polygons about an ordinary in a shape that charges keep clear of (`outer`) or inside (`inner`). */
+const envelopeIn = (spec: OrdinarySpec, shape: FieldShape) => ordinaryGeometry(spec, defaultOrdinaryFrame(shape)).envelope;
+
 export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
   if (ctx.k === 'field') {
     if (ctx.yields === 'around') return { ...frameGround(ctx.peripheral, shape), avoid: [], within: aroundRoom(ctx.peripheral, shape) };
@@ -737,7 +747,7 @@ export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
     return { ...frameGround(ctx.peripheral, shape), avoid: yielded ? [positionRoom(yielded, shape)] : [], within: null };
   }
   if (ctx.k === 'position') {
-    const avoid = ctx.ordinary ? [pathPolygon(ordinaryGeometry(plainSpec(ctx.ordinary), defaultOrdinaryFrame(shape)).body)] : [];
+    const avoid = ctx.ordinary ? envelopeIn(ctx.ordinary, shape).outer : [];
     return { ...frameGround(ctx.peripheral, shape), avoid, within: positionRoom(ctx.position, shape) };
   }
   if (ctx.k === 'around') {
@@ -745,17 +755,16 @@ export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
     const primary = contextSlots({ ...fieldContext(ctx.peripheral), yields: 'around' }, ctx.primary.count, ctx.primary.layout, shape);
     return { ...frameGround(ctx.peripheral, shape), avoid: primary.map(discPolygon), within: null };
   }
-  if (ctx.k === 'on' && ctx.ordinary === 'bordure') {
-    // On the ring: inside the outline, outside the inner edge.
-    const frame = shapeFrame(shape);
-    return { contain: pathPolygon(frame.outline), margin: BORDURE_MARGIN, minTop: -Infinity, avoid: [pathPolygon(frame.inset)], within: null };
+  const envelope = envelopeIn(ctx.ordinary, shape);
+  if (ctx.k === 'on' && ctx.ordinary.type === 'bordure') {
+    // On the ring: inside the outline, outside the inner edge (and whatever its line takes off the ring).
+    const [outline, inset] = envelope.inner;
+    return { contain: outline, margin: BORDURE_MARGIN, minTop: -Infinity, avoid: [inset], within: null };
   }
-  const polygon = pathPolygon(ordinaryGeometry(plainSpec(ctx.ordinary), defaultOrdinaryFrame(shape)).body);
-  return {
-    ...frameGround(ctx.peripheral, shape),
-    avoid: ctx.k === 'between' ? [polygon] : [],
-    within: ctx.k === 'on' ? polygon : null,
-  };
+  if (ctx.k === 'between') return { ...frameGround(ctx.peripheral, shape), avoid: envelope.outer, within: null };
+  // A polygon ordinary is one piece.
+  const [within] = envelope.inner;
+  return { ...frameGround(ctx.peripheral, shape), avoid: [], within };
 }
 
 function edgeDistance(poly: readonly Pt[], x: number, y: number): number {
@@ -817,8 +826,8 @@ const toSlots = (centres: readonly Centre[], size: number): Slot[] =>
 function alternativeCentres(ctx: Exclude<GroundContext, { k: 'around' }>, layout: Layout, count: number): Centre[][] {
   if (layout.arrangement.k !== 'host' || layout.position !== null) return [];
   switch (ctx.k) {
-    case 'between': return betweenAlternatives(ctx.ordinary, count, ctx.peripheral);
-    case 'on': return onAlternatives(ctx.ordinary, count, ctx.peripheral);
+    case 'between': return betweenAlternatives(ctx.ordinary.type, count, ctx.peripheral);
+    case 'on': return onAlternatives(ctx.ordinary.type, count, ctx.peripheral);
     case 'field': case 'position': return [];
     default: return ctx satisfies never;
   }
@@ -846,15 +855,19 @@ function heaterGeneric(ctx: Exclude<GroundContext, { k: 'around' }>, count: numb
 /** How far a probe arm may differ from the canonical one before the parts it reaches must agree. */
 const PROBE_TOLERANCE = 2;
 
+/** Every drawn division with plain lines: the fields a mapped slot must reach the same parts of (the tinctures don't move the parts). */
+const PLAIN_DIVIDED_FIELDS: readonly DividedField[] = DRAWN_DIVISIONS.map((division) => ({
+  k: 'divided', division, lines: PLAIN_LINES, paints: [{ k: 'tincture', t: 'argent' }, { k: 'tincture', t: 'azure' }],
+}));
+
 /** Whether each slot reaches the same parts of every divided field as its heater slot (to a tolerance at the arms' ends). */
 function samePartsAsHeater(heater: readonly Slot[], mapped: readonly Slot[], shape: FieldShape): boolean {
-  const heaterFess = shapeFrame(CANONICAL_SHAPE).fessPoint, fess = shapeFrame(shape).fessPoint;
   const probesAt = (s: Slot, arm: number): Pt[] => probePoints({ ...s, size: arm / 0.3 });
-  return DRAWN_DIVISIONS.every((division) => heater.every((h, i) => {
-    const parts = (points: Pt[], f: { x: number; y: number }) => new Set(points.map(([x, y]) => inFirstPart(division, f, x, y)));
-    const clearly = parts(probesAt(h, 0.3 * h.size - PROBE_TOLERANCE), heaterFess);
-    const possibly = parts(probesAt(h, 0.3 * h.size + PROBE_TOLERANCE), heaterFess);
-    const drawn = parts(probePoints(mapped[i]), fess);
+  return PLAIN_DIVIDED_FIELDS.every((field) => heater.every((h, i) => {
+    const parts = (points: Pt[], on: FieldShape) => new Set(points.map(([x, y]) => partIndexAt(field, on, x, y)));
+    const clearly = parts(probesAt(h, 0.3 * h.size - PROBE_TOLERANCE), CANONICAL_SHAPE);
+    const possibly = parts(probesAt(h, 0.3 * h.size + PROBE_TOLERANCE), CANONICAL_SHAPE);
+    const drawn = parts(probePoints(mapped[i]), shape);
     return [...clearly].every((p) => drawn.has(p)) && [...drawn].every((p) => possibly.has(p));
   }));
 }
@@ -951,7 +964,7 @@ export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, 
       : ctx.k === 'overall' ? contextSlots(fieldContext(ctx.peripheral), count, layout, shape)
       : ctx.k === 'around' ? aroundSlots(ctx, count, layout, shape)
       : ctx.k === 'on-charge' ? onChargeSlots(ctx, count, layout, shape)
-      : ctx.k === 'on' && ctx.ordinary === 'bordure' ? bordureSlots(count, shape)
+      : ctx.k === 'on' && ctx.ordinary.type === 'bordure' ? bordureSlots(ctx.ordinary, count, shape)
       : handSlots(ctx, count, layout, shape) ?? genericIn(ctx, count, layout, shape);
     memo.set(key, slots);
   }
@@ -985,7 +998,7 @@ export function canonicalSlots(d: Design, path: GroupPath): Slot[] {
 /** The smallest slot (heater units) the charges of a context are drawn in. */
 export function minSlotSize(ctx: LayoutContext): number {
   if (ctx.k === 'on-charge') return MIN_ON_CHARGE_SIZE;
-  return ctx.k === 'on' && ctx.ordinary === 'bordure' ? MIN_BORDURE_SLOT_SIZE : MIN_SLOT_SIZE;
+  return ctx.k === 'on' && ctx.ordinary.type === 'bordure' ? MIN_BORDURE_SLOT_SIZE : MIN_SLOT_SIZE;
 }
 
 /** How many charges a group of `count` has in a context: on the primary charges it is `count` on each of them. */
@@ -1023,10 +1036,10 @@ function whereWords(ctx: LayoutContext, layout: Layout): string {
   if (layout.position) return `in ${layout.position}`;
   switch (ctx.k) {
     case 'field': return ctx.peripheral === 'chief-bordure' ? 'within the bordure, under the chief' : hasChief(ctx.peripheral) ? 'under the chief' : hasBordure(ctx.peripheral) ? 'within the bordure' : 'on the field';
-    case 'between': return `around the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
+    case 'between': return `around the ${ORDINARY_NAME[ctx.ordinary.type]}${peripheralWords(ctx.peripheral)}`;
     case 'position': return `in ${ctx.position}`;
     case 'around': return `around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle${peripheralWords(ctx.peripheral)}`;
-    case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
+    case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary.type]}${peripheralWords(ctx.peripheral)}`;
     case 'overall': return `overall${peripheralWords(ctx.peripheral)}`;
     case 'on-charge': return onChargeWords(ctx.host);
   }

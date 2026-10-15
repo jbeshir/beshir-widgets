@@ -91,8 +91,8 @@ function layoutTag(design: Design, issue: Issue): string {
   if (g.item.k !== 'charge') return 'design';
   const ctx = layoutContext(design, issue.at.path);
   switch (ctx.k) {
-    case 'on': return `on-${ctx.ordinary}`;
-    case 'between': return `between-${ctx.ordinary}`;
+    case 'on': return `on-${ctx.ordinary.type}`;
+    case 'between': return `between-${ctx.ordinary.type}`;
     case 'position': return `in-${ctx.position}`;
     case 'around': return `around-${g.count}`;
     case 'on-charge': return 'on-charge';

@@ -7,6 +7,7 @@ import {
 } from './design';
 import { CHARGES, type ChargeId, type Posture } from './charges';
 import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
+import { specOf, type OrdinarySpec } from './ordinary-geometry';
 import type { Tincture } from './tinctures';
 import { contrastFailure } from './contrast';
 import type { Division } from './divisions';
@@ -168,10 +169,10 @@ export interface HostCharges { charge: ChargeId; posture: Posture | null; count:
 
 export type LayoutContext =
   | FieldContext                                                                 // primary charge group
-  | { k: 'between'; ordinary: OrdinaryType; peripheral: Peripheral }             // secondary 'between'
+  | { k: 'between'; ordinary: OrdinarySpec; peripheral: Peripheral }             // secondary 'between'
   | { k: 'around'; peripheral: Peripheral; primary: { count: number; layout: Layout } } // secondary 'between', around the primary charges
-  | { k: 'position'; position: SecondaryPosition; ordinary: OrdinaryType | null; peripheral: Peripheral } // secondary 'position', beside the primary ordinary (or charges)
-  | { k: 'on'; ordinary: OrdinaryType; peripheral: Peripheral }                  // tertiary on an ordinary (incl. chief)
+  | { k: 'position'; position: SecondaryPosition; ordinary: OrdinarySpec | null; peripheral: Peripheral } // secondary 'position', beside the primary ordinary (or charges)
+  | { k: 'on'; ordinary: OrdinarySpec; peripheral: Peripheral }                  // tertiary on an ordinary (incl. chief)
   | { k: 'on-charge'; host: HostCharges }                                        // tertiary on each of the primary charges
   | { k: 'overall'; peripheral: Peripheral };                                    // overall: one charge, or two crossed, across the middle of the free field
 
@@ -189,9 +190,9 @@ function peripheralOf(d: Design, except: Group | null = null): Peripheral {
 }
 
 /** The central ordinary of the primary group, if any: what a secondary group is set between. */
-export function primaryOrdinary(d: Design): OrdinaryType | null {
+export function primaryOrdinary(d: Design): OrdinarySpec | null {
   const g = d.groups.find((x) => x.role === 'primary');
-  return g && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central' ? g.item.type : null;
+  return g && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central' ? specOf(g) : null;
 }
 
 /** The position of the design's one secondary group set by position, if it has one: the room the primary charges leave for it. */
@@ -249,7 +250,7 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
       return { k: 'on-charge', host: { charge: host.item.charge, posture: host.item.posture, count: host.count, layout: { arrangement: host.arrangement, position: host.position }, context } };
     }
     // The bordure runs round the whole edge, under no chief of its own: what lies beside it doesn't change where its charges go.
-    return { k: 'on', ordinary: host.item.type, peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
+    return { k: 'on', ordinary: specOf(host), peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
   }
   if (group.role === 'overall') return d.groups.some((g) => g.role === 'primary') ? { k: 'overall', peripheral: peripheralOf(d) } : null;
   if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none'), share: shareOf(d, group) };
@@ -367,10 +368,11 @@ export function overallLayouts(count: number, long: boolean): Layout[] {
   return count === 2 && long ? [{ arrangement: { k: 'crossed' }, position: null }] : [];
 }
 
-/** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows. */
-export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): readonly number[] {
-  if (kind === 'between') return Object.keys(BETWEEN[ordinary] ?? {}).map(Number);
-  switch (ordinary) {
+/** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows, by its type. */
+export function hostCounts(kind: 'between' | 'on', spec: OrdinarySpec): readonly number[] {
+  const { type } = spec;
+  if (kind === 'between') return Object.keys(BETWEEN[type] ?? {}).map(Number);
+  switch (type) {
     case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': case 'bordure': return Array.from({ length: 12 }, (_, i) => i + 1);
     case 'cross': case 'saltire': return [1, 4, 5];
     case 'pile': return [1, 2, 3];
@@ -378,7 +380,7 @@ export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): read
     case 'base': case 'canton': case 'quarter': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'pall': case 'pall-inverted': case 'point':
     case 'fret': case 'label': case 'gyron': case 'mount': case 'trimount': case 'bar': case 'barrulet': case 'pallet': case 'bendlet': case 'bendlet-sinister':
     case 'chevronel': case 'saltorel': case 'baton': return [];
-    default: return ordinary satisfies never;
+    default: return type satisfies never;
   }
 }
 
