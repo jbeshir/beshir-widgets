@@ -35,8 +35,8 @@
 //   POST   /api/recover/withdraw  -> { token }; uses the token and withdraws the entry
 
 import {
-  API_ERROR, DEFAULT_FIELD_SHAPE, FIELD_SHAPES, asObject, blazon, candidateKey, checkResponse, cleanContact, cleanDisplayName, cleanEmail,
-  buildSearchText, deriveTags, isFieldShape, isSupported, normalise, parseSearchParams, readability, reportUniqueness, resolve,
+  API_ERROR, DEFAULT_FIELD_SHAPE, FIELD_SHAPES, MIXED_PRIMARY, asObject, blazon, candidateKey, checkResponse, cleanContact, cleanDisplayName, cleanEmail,
+  buildSearchText, deriveTags, isFieldShape, isSupported, normalise, parseSearchParams, readability, registrationOrder, reportUniqueness, resolve,
   searchParamsFromUrl, signature, type ApiErrorCode, type CandidateKey, type CheckableEntry, type Contact, type Design, type FieldShape, type Issue,
   type RegistryRef, type TakenReport, type TokenProblem,
 } from '../src/lib/heraldry';
@@ -287,18 +287,22 @@ function invalidDesign(issues: Issue[]): Response {
 
 /**
  * The registry entries that could be a duplicate of, too close to, or the closest entry to a design
- * with this key: those sharing its partition and primary group (served by
- * arms_registry_conflict_keys), in registration order.
+ * with this key: those `keysMayConflict` with it (served by arms_registry_primary_partition), in registration order.
+ * The order is not asked of SQL: an ORDER BY makes SQLite scan the registry by creation time instead of using the key index.
  */
-async function loadCandidates(env: Env, registryId: string, key: CandidateKey): Promise<ScanRow[]> {
+export async function loadCandidates(env: Pick<Env, 'DB'>, registryId: string, key: CandidateKey): Promise<ScanRow[]> {
+  const [primary, primaryBinds]: [string, string[]] = key.primary === null ? ['primary_key IS NULL', []]
+    : key.primary === MIXED_PRIMARY ? ['primary_key IS NOT NULL', []]
+    : ['primary_key IN (?, ?)', [key.primary, MIXED_PRIMARY]];
+  // A fieldless badge (null partition) may conflict with any field and every field with a badge.
+  const [partition, partitionBinds]: [string, string[]] = key.partition === null ? ['1', []] : ['(partition_key IS NULL OR partition_key = ?)', [key.partition]];
   const { results } = await env.DB.prepare(
-    `SELECT id, display_name, design, field_shape, signature, blazon FROM arms
-     WHERE registry_id = ? AND partition_key = ? AND primary_key IS ?
-     ORDER BY created_at, id`
+    `SELECT id, display_name, design, field_shape, signature, blazon, created_at FROM arms
+     WHERE registry_id = ? AND ${partition} AND ${primary}`
   )
-    .bind(registryId, key.partition, key.primary)
-    .all<ScanRow>();
-  return results;
+    .bind(registryId, ...partitionBinds, ...primaryBinds)
+    .all<ScanRow & Pick<ArmsRow, 'created_at'>>();
+  return results.sort((a, b) => registrationOrder({ createdAt: a.created_at, id: a.id }, { createdAt: b.created_at, id: b.id }));
 }
 
 async function countEntries(env: Env, registryId: string): Promise<number> {

@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  defaultLayout, hostCounts, isForced, layoutCandidates, layoutContext, layoutKey, layoutOfKey, layoutWords, ROW_PATTERNS, statesLayout, tableDefault,
+  defaultLayout, fieldContext, hostCounts, isForced, layoutCandidates, layoutContext, layoutKey, layoutOfKey, layoutWords, ROW_PATTERNS, statesLayout, tableDefault,
   UnsupportedConstructError, type Design, type Layout,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -16,6 +16,7 @@ function table(field: unknown, count: number, paint = 'gules', id = 'rose', ...m
   return layout && layoutKey(layout);
 }
 
+const HALVES = ['dexter', 'sinister', 'dexter-chief', 'sinister-chief', 'dexter-base', 'sinister-base'];
 const candidates = (d: Design, path: number[], count: number) => layoutCandidates(d, path, count).map(layoutKey);
 
 describe('Table 7: primary charges', () => {
@@ -96,7 +97,8 @@ describe('Table 7: no-contrast forcing', () => {
   });
 
   it('does not apply to other divisions, to other tinctures or under a chief', () => {
-    expect(table(div('per-pale', 'or', 'vert'), 1, 'vert')).toBe('single');
+    expect(table(div('per-pale', 'or', 'vert'), 1, 'vert')).toBe('single@dexter');
+    expect(table(div('per-saltire', 'or', 'vert'), 1, 'vert')).toBe('single');
     expect(table(div('per-fess', 'or', 'vert'), 1, 'gules')).toBe('single');
     expect(table(div('per-fess', 'or', 'vert'), 1, 'vert', 'rose', group(ordinary('chief'), 'argent'))).toBe('single');
   });
@@ -109,31 +111,42 @@ describe('Table 7: secondary and tertiary groups', () => {
     expect(layoutKey(tableDefault(d, [0, 0])!)).toBe('host');
     expect(candidates(d, [1], 3)).toEqual(['host']);
     expect(candidates(d, [0, 0], 5)).toEqual(['host']);
-    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: 'fess' });
-    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: 'fess' });
+    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: 'fess', peripheral: 'none' });
+    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: 'fess', peripheral: 'none' });
+  });
+
+  it('knows the chief and bordure beside the group it sits around or on', () => {
+    const d = nd(arms('azure', group(ordinary('pale'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(charge('mullet'), 'argent', { count: 2 }),
+      group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'argent')));
+    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: 'pale', peripheral: 'chief-bordure' });
+    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: 'pale', peripheral: 'chief-bordure' });
+    // A chief is not its own peripheral: charges on it know of the bordure alone.
+    const chiefly = nd(arms('azure', group(ordinary('chief'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(ordinary('bordure'), 'argent')));
+    expect(layoutContext(chiefly, [0, 0])).toEqual({ k: 'on', ordinary: 'chief', peripheral: 'bordure' });
   });
 
   it('has a layout only for the counts of the table', () => {
-    expect(hostCounts({ k: 'between', ordinary: 'fess' })).toEqual([2, 3, 4, 6]);
-    expect(hostCounts({ k: 'between', ordinary: 'pale' })).toEqual([2, 4, 6]);
-    expect(hostCounts({ k: 'between', ordinary: 'chevron' })).toEqual([2, 3, 6]);
-    expect(hostCounts({ k: 'between', ordinary: 'cross' })).toEqual([4]);
-    expect(hostCounts({ k: 'between', ordinary: 'pile' })).toEqual([2]);
-    expect(hostCounts({ k: 'between', ordinary: 'canton' })).toEqual([]);
-    expect(hostCounts({ k: 'on', ordinary: 'chief' })).toHaveLength(12);
-    expect(hostCounts({ k: 'on', ordinary: 'cross' })).toEqual([1, 4, 5]);
-    expect(hostCounts({ k: 'on', ordinary: 'pile' })).toEqual([1, 2, 3]);
-    expect(hostCounts({ k: 'on', ordinary: 'bordure' })).toEqual([]);
-    expect(hostCounts({ k: 'field', peripheral: 'none' })).toEqual([]);
+    expect(hostCounts('between', 'fess')).toEqual([2, 3, 4, 6]);
+    expect(hostCounts('between', 'pale')).toEqual([2, 4, 6]);
+    expect(hostCounts('between', 'chevron')).toEqual([2, 3, 6]);
+    expect(hostCounts('between', 'cross')).toEqual([4]);
+    expect(hostCounts('between', 'pile')).toEqual([2]);
+    expect(hostCounts('between', 'canton')).toEqual([]);
+    expect(hostCounts('on', 'chief')).toHaveLength(12);
+    expect(hostCounts('on', 'cross')).toEqual([1, 4, 5]);
+    expect(hostCounts('on', 'pile')).toEqual([1, 2, 3]);
+    expect(hostCounts('on', 'bordure')).toHaveLength(12);
   });
 
   it('has no layout context where the builder has none', () => {
-    const overall = nd(arms('azure', group(ordinary('bend'), 'or'), group(charge('rose'), 'gules', { role: 'overall' })));
+    const overall = nd(arms('azure', group(charge('lion'), 'or'), group(ordinary('bend'), 'gules', { role: 'overall' })));
     expect(() => layoutContext(overall, [1])).toThrow(UnsupportedConstructError);
-    const onCharge = nd(arms('azure', group(charge('lion'), 'or', { charged: [group(charge('rose'), 'gules')] })));
-    expect(() => layoutContext(onCharge, [0, 0])).toThrow(UnsupportedConstructError);
-    expect(() => tableDefault(onCharge, [0, 0])).toThrow(UnsupportedConstructError);
-    expect(layoutContext(onCharge, [0])).toEqual({ k: 'field', peripheral: 'none' });
+    const nothingUnder = nd(arms('azure', group(charge('rose'), 'gules', { role: 'overall' })));
+    expect(() => layoutContext(nothingUnder, [0])).toThrow(UnsupportedConstructError);
+    const onSecondary = nd(arms('azure', group(ordinary('bend'), 'or'), group(charge('lion'), 'gules', { count: 2, charged: [group(charge('rose'), 'argent')] })));
+    expect(() => layoutContext(onSecondary, [1, 0])).toThrow(UnsupportedConstructError);
+    expect(() => tableDefault(onSecondary, [1, 0])).toThrow(UnsupportedConstructError);
+    expect(layoutContext(onSecondary, [1])).toEqual({ k: 'between', ordinary: 'bend', peripheral: 'none' });
   });
 });
 
@@ -144,9 +157,9 @@ describe('layout candidates', () => {
   };
 
   it('lists the table default first, then rows, lines, patterns, annulo, orle and positions', () => {
-    expect(plain(1)).toEqual(['single', 'in-chief', 'in-base']);
-    expect(plain(2)).toEqual(['in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-chief', 'in-base']);
-    expect(plain(3)).toEqual(['rows-2-1', 'rows-1-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-chief', 'in-base']);
+    expect(plain(1)).toEqual(['single', 'in-chief', 'in-base', ...HALVES.map((p) => `single@${p}`)]);
+    expect(plain(2)).toEqual(['in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-chief', 'in-base', 'in-pale@dexter', 'in-fess@dexter', 'in-pale@sinister', 'in-fess@sinister', 'in-fess@dexter-chief', 'in-pale@dexter-chief', 'in-fess@sinister-chief', 'in-pale@sinister-chief', 'in-fess@dexter-base', 'in-pale@dexter-base', 'in-fess@sinister-base', 'in-pale@sinister-base']);
+    expect(plain(3)).toEqual(['rows-2-1', 'rows-1-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-chief', 'in-base', ...HALVES.flatMap((p) => [`rows-2-1@${p}`, `rows-1-2@${p}`])]);
     expect(plain(5)).toEqual(['rows-2-2-1', 'rows-3-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-annulo', 'in-orle', 'in-chief', 'in-base']);
     expect(plain(6)).toEqual(['rows-3-2-1', 'rows-2-2-2', 'rows-3-3', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-orle', 'in-chief', 'in-base']);
   });
@@ -158,7 +171,7 @@ describe('layout candidates', () => {
   });
 
   it('puts the first row pattern of a count first when the table has no default', () => {
-    expect(plain(4)).toEqual(['rows-2-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-annulo', 'in-chief', 'in-base']);
+    expect(plain(4)).toEqual(['rows-2-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-annulo', 'in-chief', 'in-base', ...HALVES.map((p) => `rows-2-2@${p}`)]);
     expect(plain(12)[0]).toBe('rows-4-4-4');
   });
 
@@ -180,7 +193,7 @@ describe('layout candidates', () => {
 
   it('starts with the forced layout where the table forces one', () => {
     const d = nd(arms(div('per-fess', 'or', 'vert'), group(charge('rose'), 'vert')));
-    expect(candidates(d, [0], 1)).toEqual(['in-chief', 'in-base', 'single']);
+    expect(candidates(d, [0], 1)).toEqual(['in-chief', 'in-base', ...HALVES.map((p) => `single@${p}`), 'single']);
   });
 
   it('offers only single for an ordinary', () => {
@@ -263,7 +276,8 @@ describe('layout keys', () => {
     expect(w('crossed', 2)).toBe('in saltire');
     expect(w('in-chief')).toBe('in chief');
     expect(w('single', 1)).toBe('single');
-    expect(w('in-fess@dexter-chief')).toBe('in dexter chief');
+    expect(w('in-fess@dexter-chief')).toBe('in dexter chief in fess');
+    expect(w('rows-2-1@sinister', 3)).toBe('in sinister two and one');
   });
 
   it('has the row patterns of the table, summing to their counts', () => {

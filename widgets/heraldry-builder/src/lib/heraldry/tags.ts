@@ -5,9 +5,9 @@
 import { isTincture, type Tincture } from './tinctures';
 import { CHARGES, isChargeCategory, isChargeId, isPosture } from './charges';
 import { isDivision } from './divisions';
-import { fieldTinctures, isGroupTincture, walkGroups, type Design } from './design';
+import { fieldParts, isGroupTincture, paintTinctures, walkGroups, type Design, type Paint } from './design';
 import { isOrdinaryType } from './ordinaries';
-import { layoutKey } from './arrangement';
+import { coPrimaries, layoutKey, primaryCharges } from './arrangement';
 import { readability } from './readability';
 
 /** Deterministic, de-duplicated tag list (derivation order). */
@@ -16,26 +16,43 @@ export function deriveTags(d: Design): string[] {
   const add = (t: string) => { if (!tags.includes(t)) tags.push(t); };
   const all = new Set<Tincture>();
 
-  if (d.kind === 'arms') add(d.field.k === 'divided' ? `division:${d.field.division}` : 'field:plain');
-  for (const t of fieldTinctures(d)) { add(`field-tincture:${t}`); all.add(t); }
+  add(d.kind === 'badge' ? 'field:none' : d.field.k === 'divided' ? `division:${d.field.division}` : d.field.k === 'variation' ? `field:${d.field.variation}` : 'field:plain');
+  const paintKindTags = (p: Paint) => {
+    if (p.k === 'fur') add(`fur:${p.fur}`);
+    if (p.k === 'treated') add(`treatment:${p.treatment}`);
+    if (p.k === 'semy') {
+      add(`semy:${p.charge.charge}`);
+      add(`charge:${p.charge.charge}`);
+      add(`charge-category:${CHARGES[p.charge.charge].category}`);
+    }
+  };
+  for (const part of fieldParts(d)) {
+    paintKindTags(part);
+    for (const t of paintTinctures(part)) { add(`field-tincture:${t}`); all.add(t); }
+  }
 
   for (const { group, host } of walkGroups(d)) {
-    const paint = group.paint.k === 'counterchanged' ? 'counterchanged' : group.paint.k === 'tincture' ? group.paint.t : null;
+    paintKindTags(group.paint);
+    const tinctures = paintTinctures(group.paint);
+    const paints: string[] = group.paint.k === 'counterchanged' || group.paint.k === 'proper' ? [group.paint.k] : tinctures;
     if (group.item.k === 'ordinary') {
       add(`ordinary:${group.item.type}`);
-      if (paint) add(`ordinary-tincture:${paint}`);
+      for (const paint of paints) add(`ordinary-tincture:${paint}`);
     } else {
       const { charge, posture } = group.item;
       add(`charge:${charge}`);
       add(`charge-category:${CHARGES[charge].category}`);
-      if (paint) add(`charge-tincture:${paint}`);
+      for (const paint of paints) add(`charge-tincture:${paint}`);
       add(`charge-count:${group.count}`);
       if (posture) add(`posture:${posture}`);
       add(`layout:${layoutKey({ arrangement: group.arrangement, position: group.position })}`);
-      if (host) add(host.item.k === 'ordinary' && host.item.type === 'chief' ? 'placement:on-chief' : 'placement:on-ordinary');
-      else if (group.relation === 'between') add('placement:between');
+      if (host) add(host.item.k === 'charge' ? 'placement:on-charge' : host.item.type === 'chief' || host.item.type === 'bordure' ? `placement:on-${host.item.type}` : 'placement:on-ordinary');
+      else if (group.relation === 'between') add(primaryCharges(d) ? 'placement:around' : 'placement:between');
+      else if (group.relation === 'position') add(`placement:in-${group.position}`);
+      else if (group.role === 'primary' && coPrimaries(d)) add('placement:co-primary');
     }
-    if (group.paint.k === 'tincture') all.add(group.paint.t);
+    if (group.role === 'overall') add('placement:overall');
+    for (const t of tinctures) all.add(t);
   }
 
   for (const t of all) add(`tincture:${t}`);

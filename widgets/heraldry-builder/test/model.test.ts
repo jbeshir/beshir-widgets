@@ -8,7 +8,7 @@ import {
   type Design, type Issue,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesign, generatedDesigns } from './design-generator';
+import { generatedDesign, generatedDesigns, generatedRichDesigns } from './design-generator';
 import { UNSUPPORTED_CASES } from './unsupported-cases';
 
 const messages = (r: ReturnType<typeof resolve>): string[] => (r.ok ? [] : r.errors.map((e) => e.message));
@@ -57,7 +57,7 @@ describe('resolve: defaults', () => {
   });
 
   it('is idempotent: resolving a resolved design gives it back', () => {
-    for (const d of generatedDesigns(1, 40)) expect(nd(d)).toEqual(d);
+    for (const d of [...generatedDesigns(1, 40), ...generatedRichDesigns(1, 40)]) expect(nd(d)).toEqual(d);
   });
 });
 
@@ -138,6 +138,66 @@ describe('resolve: roles', () => {
     expect(nd(arms('azure', ...base, group(charge('rose'), 'gules', { role: 'secondary', relation: 'about', count: 3 }))).groups[1].relation).toBe('about');
   });
 
+  it('sets charges in chief, in base or in canton beside a central ordinary or charge group as a secondary group (SENA App I1)', () => {
+    const mullets = (extra: object) => group(charge('mullet'), 'argent', { count: 3, ...extra });
+    const roles = (d: Design) => d.groups.map((g) => [g.role, g.relation, g.position]);
+    expect(roles(nd(arms('purpure', group(charge('bee'), 'or'), mullets({ arrangement: 'in-chief' })))))
+      .toEqual([['primary', null, null], ['secondary', 'position', 'chief']]);
+    expect(roles(nd(arms('argent', group(ordinary('chevron'), 'sable'), mullets({ position: 'base' })))))
+      .toEqual([['primary', null, null], ['secondary', 'position', 'base']]);
+    expect(roles(nd(arms('sable', group(charge('dragon'), 'argent'), group(charge('crescent'), 'argent', { position: 'canton' })))))
+      .toEqual([['primary', null, null], ['secondary', 'position', 'canton']]);
+    expect(nd(arms('azure', group(charge('lion'), 'or'), mullets({ position: 'chief' }))).groups[1].arrangement).toEqual({ k: 'line', dir: 'fess' });
+  });
+
+  it('keeps charges in chief primary when nothing is central, or when the other group is set somewhere too', () => {
+    expect(nd(arms('gules', group(charge('lion'), 'or', { count: 3, arrangement: 'in-chief' }))).groups[0]).toMatchObject({ role: 'primary', relation: null, position: 'chief' });
+    expect(nd(arms('gules', group(ordinary('chief'), 'argent'), group(charge('lion'), 'or', { position: 'base' }))).groups.map((g) => g.role)).toEqual(['primary', 'peripheral']);
+    const both = nd(arms('gules', group(charge('lion'), 'or', { position: 'chief' }), group(charge('rose'), 'argent', { position: 'base' })));
+    expect(both.groups.map((g) => g.role)).toEqual(['primary', 'primary']);
+    // Two main pictures are arranged together, so one in chief and one in base is not a layout they have.
+    expect(gapTags(both)).toEqual([]);
+    expect(structuralIssues(both).map((i) => i.code === 'structure' && i.rule)).toEqual(['layout', 'capacity', 'capacity']);
+  });
+
+  it('sets charges the input relates "between" a primary charge group around it, as a secondary group (SENA App I1)', () => {
+    const fish = nd(arms('purpure', group(charge('fish'), 'or'), group(charge('crescent'), 'or', { count: 3, relation: 'between' })));
+    expect(fish.groups.map((g) => [g.role, g.relation, g.count, g.arrangement])).toEqual([
+      ['primary', null, 1, { k: 'single' }], ['secondary', 'between', 3, { k: 'rows', rows: [2, 1] }],
+    ]);
+    expect(isSupported(fish)).toBe(true);
+    // Two and one is Table 7's default for three; every other count states its layout, the first it takes by default.
+    const around = (count: number, extra: object = {}) => nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count, relation: 'between', ...extra })));
+    expect([2, 4, 5, 8].map((n) => around(n).groups[1].arrangement)).toEqual([
+      { k: 'line', dir: 'fess' }, { k: 'pattern', pattern: 'saltire' }, { k: 'pattern', pattern: 'orle' }, { k: 'pattern', pattern: 'orle' },
+    ]);
+    expect(around(4, { arrangement: 'in-cross' }).groups[1].arrangement).toEqual({ k: 'pattern', pattern: 'cross' });
+    // Without the relation, two groups of charges are co-primary (up to three charges between them).
+    expect(gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3 }))))).toEqual(['multiple-groups:co-primary-count']);
+    expect(gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 2 }))))).toEqual([]);
+  });
+
+  it('draws charges around one primary charge or two (in fess, in pale or crossed), two to eight of them, and leaves the rest a gap', () => {
+    const around = (primary: object, count = 3) => gapTags(nd(arms('azure', group(charge('sword'), 'or', primary), group(charge('rose'), 'argent', { count, relation: 'between' }))));
+    for (const primary of [{}, { count: 2, arrangement: 'in-fess' }, { count: 2, arrangement: 'in-pale' }, { count: 2, arrangement: 'crossed' }]) expect(around(primary), JSON.stringify(primary)).toEqual([]);
+    expect(around({ count: 2, arrangement: 'in-bend' })).toEqual(['placement:around-primary-2']);
+    expect(around({ count: 3 })).toEqual(['placement:around-primary-3']);
+    expect(around({}, 1)).toEqual(['placement:around-1']);
+    expect(around({}, 9)).toEqual(['placement:around-9']);
+    // "Surrounded by" stays a gap of its own.
+    expect(gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3, role: 'secondary', relation: 'about' }))))).toEqual(['multiple-groups:secondary-about']);
+  });
+
+  it('draws charges in chief, base or canton beside the primary, and leaves the other positions a gap', () => {
+    const beside = (position: string) => nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { role: 'secondary', relation: 'position', position })));
+    for (const position of ['chief', 'base', 'canton']) expect(isSupported(beside(position)), position).toBe(true);
+    expect(gapTags(beside('dexter-chief'))).toEqual(['multiple-groups:secondary-position', 'arrangement:in-dexter-chief']);
+    // In a row, rows or (two long charges) crossed — not in pale.
+    const roses = (arrangement: string) => gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3, arrangement, position: 'chief' }))));
+    expect(roses('rows-2-1')).toEqual([]);
+    expect(roses('in-pale')).toEqual(['arrangement:in-chief']);
+  });
+
   it('puts groups in canonical order whatever the input order', () => {
     const items = [
       group(ordinary('chief'), 'argent'),
@@ -149,6 +209,13 @@ describe('resolve: roles', () => {
     expect(new Set(jsons).size).toBe(1);
     expect(nd(arms('vert', ...items)).groups.map((g) => [g.role, g.item.k === 'ordinary' ? g.item.type : g.item.charge]))
       .toEqual([['primary', 'fess'], ['secondary', 'rose'], ['peripheral', 'chief']]);
+  });
+
+  it('puts a chief before a bordure, so the bordure is painted over it', () => {
+    const chief = group(ordinary('chief'), 'argent'), bordure = group(ordinary('bordure'), 'gules');
+    for (const groups of [[chief, bordure], [bordure, chief]]) {
+      expect(nd(arms('azure', group(ordinary('fess'), 'or'), ...groups)).groups.map((g) => g.item.k === 'ordinary' && g.item.type)).toEqual(['fess', 'chief', 'bordure']);
+    }
   });
 
   it('sorts modifiers, parts and held charges', () => {
@@ -258,7 +325,7 @@ describe('resolve: shape errors', () => {
   });
 
   it('rejects a relation on a group that is not secondary', () => {
-    expect(bad(arms('or', { ...lion, relation: 'between' }))).toEqual(['Only a secondary group has a relation to the main one.']);
+    expect(bad(arms('or', { ...lion, role: 'primary', relation: 'between' }))).toEqual(['Only a secondary group has a relation to the main one.']);
   });
 
   it('rejects a layout other than host for a group around or on an ordinary', () => {
@@ -330,8 +397,8 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 28 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(28);
+  it('has the 36 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(36);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
@@ -341,7 +408,7 @@ describe('charge table', () => {
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
     // A5E2 type classes: only the documented DC-only pairs share one (mullet and sun, eagle and owl).
     const shared = CHARGE_IDS.filter((id) => CHARGE_IDS.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
-    expect(shared).toEqual(['eagle', 'owl', 'mullet', 'sun']);
+    expect(shared).toEqual(['eagle', 'owl', 'mullet', 'sun', 'estoile']);
     expect(CHARGES.lion.typeClass).not.toBe(CHARGES.wolf.typeClass);
     expect(new Set(CHARGE_IDS.map((id) => CHARGES[id].typeClass))).toEqual(new Set(Object.keys(TYPE_CLASSES)));
   });
@@ -372,13 +439,13 @@ describe('support matrix', () => {
     for (const c of categories) expect(UNSUPPORTED_GAP_CATEGORIES).toContain(c);
   });
 
-  it('files a badge under the badge gap alone', () => {
-    expect(gapTags(nd({ v: 2, kind: 'badge', groups: [group(charge('lion', { posture: 'couchant' }), 'or')] }))).toEqual(['fieldless:badge']);
+  it('files a badge under the gaps of its charge, as arms are', () => {
+    expect(gapTags(nd({ v: 2, kind: 'badge', groups: [group(charge('lion', { posture: 'couchant' }), 'or')] }))).toEqual(['posture:couchant']);
   });
 
   it('names a field gap before the group gaps, each at its place', () => {
-    const d = nd(arms({ k: 'fur', fur: 'ermine' }, group(charge('lion', { posture: 'couchant' }), 'or')));
-    expect(unsupportedIssues(d).map((i) => [i.at.k, i.gap.category])).toEqual([['field', 'fur'], ['group', 'posture']]);
+    const d = nd(arms({ k: 'stain', stain: 'murrey' }, group(charge('lion', { posture: 'couchant' }), 'or')));
+    expect(unsupportedIssues(d).map((i) => [i.at.k, i.gap.category])).toEqual([['field', 'tincture'], ['group', 'posture']]);
   });
 
   describe('supported combinations', () => {
@@ -392,6 +459,14 @@ describe('support matrix', () => {
       ['charges on and between a band', arms('azure', group(ordinary('fess'), 'or', { charged: [group(charge('rose'), 'gules', { count: 3 })] }), group(charge('mullet'), 'argent', { count: 3 }))],
       ['a band and a chief', arms('azure', fess, group(ordinary('chief'), 'argent'))],
       ['a band and a bordure', arms('azure', fess, group(ordinary('bordure'), 'argent'))],
+      ['a chief and a bordure', arms('azure', group(ordinary('chief'), 'or'), group(ordinary('bordure'), 'argent'))],
+      ['a band, a chief and a bordure', arms('azure', fess, group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'gules'))],
+      ['a band between charges and a chief', arms('azure', group(ordinary('bend'), 'or'), group(charge('rose'), 'gules', { count: 2 }), group(ordinary('chief'), 'argent'))],
+      ['a pile and a chief', arms('azure', group(ordinary('pile'), 'or'), group(ordinary('chief'), 'argent'))],
+      ['charges on a band and a chief', arms('azure', group(ordinary('bend'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(ordinary('chief'), 'argent'))],
+      ['charges on a band, between charges, and a bordure', arms('azure', group(ordinary('fess'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(charge('mullet'), 'argent', { count: 2 }), group(ordinary('bordure'), 'gules'))],
+      ['a charge, a chief and a bordure', arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'gules'))],
+      ['a chief with charges and a bordure', arms('azure', group(ordinary('chief'), 'argent', { charged: [group(charge('rose'), 'gules', { count: 3 })] }), group(ordinary('bordure'), 'gules'))],
       ['a charge', arms('azure', group(charge('lion'), 'or'))],
       ['a charge and a chief', arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent'))],
       ['a charge and a chief with charges', arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent', { charged: [group(charge('rose'), 'gules', { count: 3 })] }))],
@@ -399,6 +474,10 @@ describe('support matrix', () => {
       ['a chief alone', arms('azure', group(ordinary('chief'), 'argent'))],
       ['a chief with charges', arms('azure', group(ordinary('chief'), 'argent', { charged: [group(charge('rose'), 'gules', { count: 3 })] }))],
       ['a bordure alone', arms('azure', group(ordinary('bordure'), 'argent'))],
+      ['charges on a bordure', arms('azure', group(ordinary('bordure'), 'argent', { charged: [group(charge('mullet'), 'gules', { count: 8 })] }))],
+      ['charges on a chief beside a band', arms('azure', fess, group(ordinary('chief'), 'argent', { charged: [group(charge('rose'), 'gules', { count: 3 })] }))],
+      ['charges on a bordure beside a band and a chief', arms('azure', fess, group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'gules', { charged: [group(charge('mullet'), 'or', { count: 8 })] }))],
+      ['charges on a chief and on a bordure', arms('azure', group(ordinary('bend'), 'or'), group(ordinary('chief'), 'argent', { charged: [group(charge('rose'), 'gules', { count: 3 })] }), group(ordinary('bordure'), 'gules', { charged: [group(charge('mullet'), 'or', { count: 8 })] }))],
       ['charges in chief', arms('azure', group(charge('rose'), 'gules', { count: 3, arrangement: 'in-chief' }))],
       ['charges in orle', arms('azure', group(charge('mullet'), 'or', { count: 8, arrangement: 'in-orle' }))],
       ['crossed swords', arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'crossed' }))],
@@ -411,7 +490,7 @@ describe('support matrix', () => {
     }
 
     it('every generated design is supported', () => {
-      for (const d of generatedDesigns(1, 200)) expect(isSupported(d)).toBe(true);
+      for (const d of [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 200)]) expect(isSupported(d)).toBe(true);
     });
   });
 
@@ -432,8 +511,7 @@ describe('the not-yet-drawable guard', () => {
   });
 
   it('is what the signature calls for a design it can not sign', () => {
-    expect(() => signature(nd({ v: 2, kind: 'badge', groups: [] }))).toThrow(UnsupportedConstructError);
-    expect(() => signature(nd(arms({ k: 'fur', fur: 'ermine' })))).toThrow(UnsupportedConstructError);
+    expect(() => signature(nd(arms({ k: 'stain', stain: 'murrey' })))).toThrow(UnsupportedConstructError);
   });
 });
 
@@ -452,16 +530,49 @@ describe('structure rules', () => {
     const issues = structuralIssues(nd(arms('azure')));
     expect(issues).toEqual([{ code: 'generic', at: { k: 'design' }, message: 'A plain field on its own is too generic to register — add an ordinary or a charge.', slots: [] }]);
     expect(structural(arms(div('per-pale', 'or', 'azure')))).toEqual([]);
-    expect(structural({ v: 2, kind: 'badge', groups: [] })).toEqual([]);
+    expect(structural({ v: 2, kind: 'badge', groups: [] })).toEqual(['A fieldless badge is its picture — add one.']);
   });
 
-  it('3: charges between need a central primary ordinary', () => {
-    const d = nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 })));
+  it('3: charges between need a central primary ordinary, or one group of primary charges to stand around', () => {
+    expect(structuralIssues(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 }))))).toEqual([]);
+    const d = nd(arms('azure', group(ordinary('chief'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 })));
     const issues = structuralIssues(d);
-    expect(issues.map((i) => i.message)).toEqual(['Charges can only be set between a central band or shape.']);
+    expect(issues.map((i) => i.message)).toEqual(['Charges can only be set between a central band or shape, or around a picture in the middle.']);
+    expect(issues[0].at).toEqual({ k: 'group', path: [0] });
+  });
+
+  it('4: charges around a primary charge take the layouts Table 7 gives them there, and have room to be read', () => {
+    const around = (count: number, extra: object, ...more: object[]) => structural(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count, relation: 'between', ...extra }), ...more));
+    expect(around(3, { arrangement: 'in-pale' })).toEqual(['Three roses around the charge in the middle can be set two and one in this builder — not in pale.']);
+    expect(around(6, { arrangement: 'in-orle' }, group(ordinary('bordure'), 'gules'))).toEqual(['Six roses around the charge in the middle can be set in annulo in this builder — not in orle.']);
+    // Two in pale above and below two swords in pale within a bordure: no room there, though two fit at their sides.
+    expect(structural(arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'in-pale' }), group(charge('rose'), 'argent', { count: 2, relation: 'between', arrangement: 'in-pale' }), group(ordinary('bordure'), 'gules'))))
+      .toEqual(["There isn't room for two roses in pale around the charges in the middle, within the bordure — choose another layout."]);
+    expect(structural(arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'in-pale' }), group(charge('rose'), 'argent', { count: 2, relation: 'between', arrangement: 'in-fess' }), group(ordinary('bordure'), 'gules')))).toEqual([]);
+    // A3D1a: the same charge around itself is two groups of one type on the field.
+    expect(structural(arms('azure', group(charge('mullet'), 'or'), group(charge('mullet'), 'argent', { count: 3, relation: 'between' }))))
+      .toEqual(["Three mullets can't be used again in another group on the field (SENA A3D1a) — choose a different picture."]);
+  });
+
+  it('3: charges in chief, in base or in canton need a primary beside them', () => {
+    const d = nd(arms('azure', group(ordinary('chief'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', relation: 'position', position: 'base' })));
+    expect(structuralIssues(d).map((i) => [i.code === 'structure' && i.rule, i.message]))
+      .toEqual([['relation', 'Charges in base stand beside a band, shape or picture in the middle — with none, they are the main picture.']]);
+  });
+
+  it('3a: the same charge in two groups on the field is not allowed (SENA A3D1a), on a charge it is', () => {
+    const d = nd(arms('or', group(charge('mullet'), 'gules'), group(charge('mullet'), 'azure', { position: 'base' })));
+    const issues = structuralIssues(d);
+    expect(issues.map((i) => [i.code === 'structure' && i.rule, i.message])).toEqual([['same-type', "A mullet can't be used again in another group on the field (SENA A3D1a) — choose a different picture."]]);
     expect(issues[0].at).toEqual({ k: 'group', path: [1] });
-    expect(structural(arms('azure', group(ordinary('chief'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 }))))
-      .toEqual(['Charges can only be set between a central band or shape.']);
+    expect(structural(arms('or', group(ordinary('fess'), 'gules', { charged: [group(charge('mullet'), 'or', { count: 3 })] }), group(charge('mullet'), 'azure', { count: 3, position: 'chief' })))).toEqual([]);
+  });
+
+  it('4: charges in chief or in canton have no room beside a chief, in base they do', () => {
+    const beside = (position: string) => structural(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { position }), group(ordinary('chief'), 'argent')));
+    expect(beside('chief')).toEqual(['There is no room to set charges in chief when the design has a chief.']);
+    expect(beside('canton')).toEqual(['There is no room to set charges in canton when the design has a chief.']);
+    expect(beside('base')).toEqual([]);
   });
 
   it('3: charges can not sit on charges that are already on something', () => {
@@ -495,8 +606,8 @@ describe('structure rules', () => {
     });
 
     it('rejects a layout the count can not take, naming the ones it can', () => {
-      expect(roses(3, 'in-cross')).toEqual(['Three roses can be arranged two and one, one and two, in pale, in fess, in bend, in bend sinister, in annulo, in chief, in base — not in cross.']);
-      expect(roses(2, 'in-saltire')).toEqual(['Two roses can be arranged in pale, in fess, in bend, in bend sinister, in chief, in base — not in saltire.']);
+      expect(roses(3, 'in-cross')).toEqual(['Three roses can be arranged two and one, one and two, in pale, in fess, in bend, in bend sinister, in annulo, in chief, in base, or in a half or quarter of the field — not in cross.']);
+      expect(roses(2, 'in-saltire')).toEqual(['Two roses can be arranged in pale, in fess, in bend, in bend sinister, in chief, in base, or in a half or quarter of the field — not in saltire.']);
       expect(roses(4, 'in-orle')).toEqual(expect.arrayContaining([expect.stringMatching(/^Four roses can be arranged .* — not in orle\.$/)]));
     });
 
@@ -526,8 +637,8 @@ describe('structure rules', () => {
 
     it('does not judge ordinary groups or groups without a layout', () => {
       expect(structural(arms('azure', group(ordinary('bend'), 'or')))).toEqual([]);
-      const onCharge = nd(arms('azure', group(charge('lion'), 'or', { charged: [group(charge('rose'), 'gules', { count: 3 })] })));
-      expect(structuralIssues(onCharge)).toEqual([]);
+      const onSecondary = nd(arms('azure', group(ordinary('bend'), 'or'), group(charge('mullet'), 'argent', { count: 2, charged: [group(charge('rose'), 'gules', { count: 3 })] })));
+      expect(structuralIssues(onSecondary)).toEqual([]);
     });
 
     it('applies to tertiary groups and names the group', () => {
@@ -545,7 +656,7 @@ describe('structure rules', () => {
     const wrong = { ...d, groups: [{ ...d.groups[0], arrangement: { k: 'line' as const, dir: 'pale' as const }, count: 1 }] };
     expect(structuralIssues(wrong).map((i) => i.message)).toEqual([
       'A divided field needs two different tinctures — both parts are Or.',
-      'Charges can only be set between a central band or shape.',
+      'Charges can only be set between a central band or shape, or around a picture in the middle.',
     ]);
   });
 

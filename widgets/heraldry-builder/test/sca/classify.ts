@@ -10,12 +10,13 @@
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
 // build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { blazon, canonicalJson, groupAt, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
+import { blazon, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, wordedAs, type MatchResult } from './match';
 import type { ArmoryRecord } from './oanda';
-import { assessMatched, builderPath, checkRendered, renderShieldSvg } from './widget-checks';
+import { builderPath } from '../builder-path';
+import { assessMatched, checkRendered, renderShieldSvg } from './widget-checks';
 
 export type CheckName = 'match' | 'assess' | 'blazon' | 'render' | 'builder';
 
@@ -57,7 +58,6 @@ function checkDesign(design: Design) {
 
 function noMatchDetail(m: MatchResult): string {
   switch (m.status) {
-    case 'fieldless': return 'no widget design: the armory is fieldless';
     case 'vocabulary': return `no widget design: "${m.unknownWord}" is not a word the widget blazons`;
     case 'unparsed': return 'no widget design: not in a form the matcher proposes';
     case 'unsupported': return `no widget design: the widget doesn't draw ${m.gaps!.map(gapTag).join(', ')}`;
@@ -84,7 +84,7 @@ export function checkBlazon(scaBlazon: string): { match: MatchResult; failures: 
 
 // ── Gap tags ────────────────────────────────────────────────────────────────
 
-/** Where a structurally illegal charge group sits: "on-bend", "between-fess", "under-chief", "in-saltire". */
+/** Where a structurally illegal charge group sits: "on-bend", "between-fess", "around-4", "under-chief", "in-saltire". */
 function layoutTag(design: Design, issue: Issue): string {
   if (issue.at.k !== 'group') return issue.at.k;
   const g = groupAt(design, issue.at.path);
@@ -93,7 +93,10 @@ function layoutTag(design: Design, issue: Issue): string {
   switch (ctx.k) {
     case 'on': return `on-${ctx.ordinary}`;
     case 'between': return `between-${ctx.ordinary}`;
-    default: return ctx.peripheral === 'chief' ? 'under-chief' : layoutKey({ arrangement: g.arrangement, position: g.position });
+    case 'position': return `in-${ctx.position}`;
+    case 'around': return `around-${g.count}`;
+    case 'on-charge': return 'on-charge';
+    default: return hasChief(ctx.peripheral) ? 'under-chief' : layoutKey({ arrangement: g.arrangement, position: g.position });
   }
 }
 
@@ -111,6 +114,8 @@ function findingTags(design: Design): string[] {
     }
     // Charges that don't fit a host at a legible size are a limit of the drawing, not a rule: a count the widget doesn't lay out.
     if (i.code === 'structure' && i.rule === 'capacity' && i.at.k === 'group') return `placement:${layoutTag(design, i)}-${groupAt(design, i.at.path).count}`;
+    // A fieldless badge that is not one self-contained charge (a band or border, charges set apart, a charged or divided display form): SENA A3A2, which older registrations predate.
+    if (i.code === 'structure' && i.rule === 'badge') return 'widget-structure-rule:badge';
     return `widget-structure-rule:${i.code === 'generic' ? 'plain-field' : layoutTag(design, i)}`;
   };
   return a.issues.map(tag);

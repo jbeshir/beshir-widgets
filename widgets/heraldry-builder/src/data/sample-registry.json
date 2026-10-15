@@ -1249,6 +1249,92 @@
       },
       "signature": "arms|per-bend(vt,or)|P:c.rose:2:in-pale:cc|R:o.bordure:1:single:gu",
       "blazon": "Per bend vert and Or, in pale two roses counterchanged, a bordure gules."
+    },
+    {
+      "id": "demo-021",
+      "displayName": "Ingrid Vasquez",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-25T12:00:00Z",
+      "shape": "heater",
+      "design": {
+        "v": 2,
+        "kind": "badge",
+        "field": null,
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "sword",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "argent"
+            },
+            "charged": []
+          }
+        ]
+      },
+      "signature": "badge|P:c.sword:1:single:ar",
+      "blazon": "(Fieldless) A sword argent."
+    },
+    {
+      "id": "demo-022",
+      "displayName": "Cormac Reilly",
+      "contact": {
+        "discord": null
+      },
+      "registeredAt": "2026-01-26T12:00:00Z",
+      "shape": "heater",
+      "design": {
+        "v": 2,
+        "kind": "badge",
+        "field": null,
+        "groups": [
+          {
+            "role": "primary",
+            "relation": null,
+            "item": {
+              "k": "charge",
+              "charge": "heart",
+              "form": null,
+              "posture": null,
+              "facing": null,
+              "orientation": null,
+              "mods": [],
+              "parts": [],
+              "holds": []
+            },
+            "count": 1,
+            "arrangement": {
+              "k": "single"
+            },
+            "position": null,
+            "paint": {
+              "k": "tincture",
+              "t": "gules"
+            },
+            "charged": []
+          }
+        ]
+      },
+      "signature": "badge|P:c.heart:1:single:gu",
+      "blazon": "(Fieldless) A heart gules."
     }
   ]
 }

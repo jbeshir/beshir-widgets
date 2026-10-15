@@ -12,12 +12,12 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  FIELD_SHAPES, blazon, fieldTinctures, gloss, groundFailure, groundPoints, groundShares, groupSlots, inFirstPart, readability, resolve,
+  FIELD_SHAPES, blazon, fieldTinctures, tinctureSurface, gloss, groundFailure, groundPoints, groundShares, groupSlots, inFirstPart, readability, resolve,
   shapeFrame, signature, validate, walkGroups, type Design, type FieldShape, type Ground, type Group, type ShapedDesign, type Slot,
 } from '../src/lib/heraldry';
 import sample from '../src/data/sample-registry.json';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { V } from './validation-cases';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -61,15 +61,25 @@ const COUNTERCHANGED: Array<[string, unknown]> = [
   ['per pale, chief counterchanged', arms(div('per-pale', 'argent', 'gules'), ord('chief', 'counterchanged'), chg('mullet', 'or'))],
 ];
 
+/** Charges in bend or in bend sinister lie on the line of a field divided that way, half on each part: in every shape they must stay on it. */
+const ON_THE_LINE: Array<[string, unknown]> = [false, true].flatMap((bordure) => [2, 3].flatMap((count) => [
+  ['bend', 'in-bend', 'per-bend'],
+  ['bend sinister', 'in-bend-sinister', 'per-bend-sinister'],
+].map(([name, arrangement, division]): [string, unknown] => [
+  `per ${name} vert and argent, ${count} roses ${arrangement}${bordure ? ', a bordure' : ''}`,
+  arms(div(division as 'per-bend', 'vert', 'argent'), chg('rose', 'sable', { count, arrangement }), ...(bordure ? [ord('bordure', 'azure')] : [])),
+])));
+
 const DESIGNS: Array<[string, Design]> = [
   ...sample.entries.map((e): [string, unknown] => [e.id, e.design]),
   ...V.map((c): [string, unknown] => [c.id, c.design]),
   ...BROKEN,
+  ...ON_THE_LINE,
   ...COUNTERCHANGED,
 ].flatMap(([name, raw]) => {
   const r = resolve(raw);
   return r.ok ? [[name, r.design] as [string, Design]] : [];
-}).concat(generatedDesigns(4242, 200).map((d, i): [string, Design] => [`generated ${i}`, d]));
+}).concat(generatedDesigns(4242, 200).map((d, i): [string, Design] => [`generated ${i}`, d]), generatedRichDesigns(4242, 150).map((d, i): [string, Design] => [`rich ${i}`, d]));
 
 /** As the builder holds it: written as a draft in a shape, read back and re-resolved. */
 function throughDraft(shaped: ShapedDesign): Design {
@@ -90,13 +100,13 @@ function verdict(d: Design) {
  */
 function drawnGround(d: Design, g: Group, slot: Slot, shape: FieldShape): Ground {
   const parts = fieldTinctures(d);
-  if (d.kind !== 'arms' || d.field.k !== 'divided') return parts.map((t) => ({ t, share: 1 }));
+  if (d.kind !== 'arms' || d.field.k !== 'divided') return parts.map((t) => ({ surface: tinctureSurface(t), share: 1 }));
   const division = d.field.division;
   const fess = shapeFrame(shape).fessPoint;
   const centred = g.arrangement.k === 'single' && g.position === null ? { ...slot, ...fess } : slot;
   const points = groundPoints(centred);
   const inPart = (i: number) => points.filter(([x, y]) => inFirstPart(division, fess, x, y) === (i === 0)).length / points.length;
-  return parts.flatMap((t, i) => (inPart(i) > 0 ? [{ t, share: inPart(i) }] : []));
+  return parts.flatMap((t, i) => (inPart(i) > 0 ? [{ surface: tinctureSurface(t), share: inPart(i) }] : []));
 }
 
 describe('field shapes and the verdict', () => {
@@ -120,7 +130,7 @@ describe('field shapes and the verdict', () => {
     if (onField.length > 0) {
       it(`${name}: judged on the drawing in each shape, every charge gets its canonical verdict`, () => {
         for (const { path, group: g } of onField) {
-          const judge = (ground: Ground) => (g.paint.k === 'tincture' ? groundFailure(g.paint.t, ground) : null);
+          const judge = (ground: Ground) => (g.paint.k === 'tincture' ? groundFailure(tinctureSurface(g.paint.t), ground) : null);
           const canonical = groundShares(d, path).map(judge);
           for (const shape of FIELD_SHAPES) {
             expect(groupSlots(d, path, shape).map((s) => judge(drawnGround(d, g, s, shape))), shape).toEqual(canonical);

@@ -9,32 +9,35 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, hostCounts, postureTerm, resolve, structuralIssues, walkGroups,
-  type ChargeId, type OrdinaryType, type Posture,
+  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  type ChargeId, type HalfPosition, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import {
   BUCKET_DESCRIPTION, CHARGE_BUCKETS, CONTAINER_WORDS, CONTEXT_WORDS, CROSS_POST, CROSS_PRE, FUNCTION_WORDS, FURS,
   GAP_ARRANGEMENTS, GAP_CHARGES, GAP_DIVISION_WORDS, GAP_ORDINARIES, GAP_POSTURES, GAP_TINCTURES, LINES, MARSHALLING,
-  MODIFIERS, NUMBERS, ORIENTATIONS, PART_WORDS, POSITION_WORDS, SEMY_WORDS,
+  DRAWN_SEMY_NAMES, MODIFIERS, NUMBERS, ORIENTATIONS, PART_WORDS, POSITION_WORDS, SEMY_WORDS,
   SUPPORTED_ARRANGEMENT_WORDS, SUPPORTED_CHARGE_BUCKET, SUPPORTED_CHARGE_WORDS, SUPPORTED_ORDINARY_WORDS,
   SUPPORTED_POSTURES, QUALIFIER_WORDS, TREATMENTS, type ChargeBucket,
 } from './gap-terms';
 
+/** The divisions the widget draws, as the tagger names them. */
+const DRAWN_DIVISION_IDS: readonly string[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'];
+
 export const GAP_CATEGORIES = [
-  { id: 'fieldless', description: 'a fieldless badge: no field at all' },
+  { id: 'fieldless', description: 'a fieldless badge the widget does not draw: charges conjoined to the main one, something overall, or two main charges' },
   { id: 'marshalling', description: 'impaling, quartering, dimidiation, an augmentation or other combined arms' },
   { id: 'fur', description: 'a fur (ermine, vair, potent, pean…) anywhere in the arms' },
-  { id: 'tincture', description: 'a tincture outside the widget\'s eight, a charge or ordinary of more than one tincture, or an ordinary counterchanged' },
+  { id: 'tincture', description: 'a tincture outside the widget\'s eight, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged' },
   { id: 'proper', description: 'a charge tinctured proper (natural colouring)' },
-  { id: 'field-treatment', description: 'a variegated pattern (barry, checky, compony, masoned…) on the field or any element, or a semy field' },
+  { id: 'field-treatment', description: 'a variegated pattern (barry, checky, compony, masoned…) on the field or any element, or a semy the widget does not draw (a counterchanged or proper strewn charge, an unknown one, a posture or an arrangement of it)' },
   { id: 'division', description: 'a field division the widget lacks (per pall, gyronny, tierced, per chevron inverted, compound…)' },
   { id: 'line-of-partition', description: 'any line other than straight (embattled, wavy, indented, engrailed…), on a division or ordinary' },
   { id: 'ordinary', description: 'an ordinary, sub-ordinary or diminutive the widget lacks (canton, orle, bars, flaunches…), or several of one ordinary' },
   { id: 'ordinary-treatment', description: 'an ordinary modified (cotised, fimbriated, voided, couped, inverted, enhanced, issuant…)' },
   { id: 'multiple-groups', description: 'more than one charge group (including charges on charges and held charges counted as groups) or more than one ordinary' },
   { id: 'placement', description: 'one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)' },
-  { id: 'count', description: 'more than twelve of a charge, or a charge strewn semy on an element' },
+  { id: 'count', description: 'more than twelve of a charge, or a charge strewn semy on a picture' },
   ...CHARGE_BUCKETS.map((b) => ({ id: `charge-${b}` as const, description: `a charge outside the widget's 28: ${BUCKET_DESCRIPTION[b]}` })),
   { id: 'posture', description: 'a posture or attitude the widget lacks, or one its charge can\'t take (guardant, combattant, couchant…)' },
   { id: 'orientation', description: 'a charge turned from its fixed orientation (bendwise, fesswise, inverted, reversed, to sinister…)' },
@@ -78,7 +81,7 @@ for (const [word, n] of entries(NUMBERS)) LEX.set(word, { k: 'num', n });
 add(['or', 'argent', 'azure', 'gules', 'vert', 'sable', 'purpure', 'celestine'], { k: 'tinc' });
 add(['counterchanged', 'counter-changed', 'counterchange'], { k: 'cc' });
 add(['proper', 'ppr'], { k: 'proper' });
-for (const [word, id] of entries(SUPPORTED_CHARGE_WORDS)) LEX.set(word, { k: 'charge', id: id as ChargeId });
+for (const [word, id] of entries(SUPPORTED_CHARGE_WORDS)) LEX.set(word, { k: 'charge', id });
 add(['cross', 'crux'], { k: 'cross' });
 for (const [word, v] of entries(SUPPORTED_ORDINARY_WORDS)) LEX.set(word, { k: 'ord', v: v as OrdinaryType });
 for (const [word, v] of entries(FURS)) LEX.set(word, { k: 'fur', v });
@@ -116,7 +119,7 @@ const CROSS_VARIANT: Record<string, string> = {
 /** Irregular plurals. */
 const IRREGULAR: Record<string, string> = {
   men: 'man', women: 'woman', mice: 'mouse', reremice: 'reremouse', geese: 'goose', teeth: 'tooth', feet: 'foot',
-  forefeet: 'forefoot', oxen: 'ox', children: 'child', staves: 'staff', torteaux: 'torteau', pegasi: 'pegasus',
+  forefeet: 'forefoot', oxen: 'ox', children: 'child', staves: 'staff', pegasi: 'pegasus',
   gladii: 'gladius', triquetrae: 'triquetra', seeblatter: 'seeblatt', dice: 'die', calves: 'calf', halves: 'half',
   lice: 'louse', 'sea-wolves': 'sea-wolf', wolves: 'wolf', hooves: 'hoof', amphorae: 'amphora', polypi: 'polypus',
   cacti: 'cactus', fungi: 'fungus',
@@ -164,6 +167,7 @@ const JOINS: [RegExp, string][] = [
   [/\bin benediction\b/g, 'in-benediction'],
   [/\b(bend|bendlet|scarpe)s? sinister\b/g, '$1-sinister'],
   [/\b(bendwise|bendy|in bend) sinister\b/g, '$1-sinister'],
+  [/\b(barry|paly) bendy\b/g, '$1-bendy'],
   [/\bfacing (to )?sinister\b|\bsinister[- ]facing\b/g, 'to-sinister'],
   [/\b(eastern|antique|celestial|mural|naval|imperial|papal) crowns?\b/g, '$1-crown'],
   [/\b(in|its|his|her) (splendou?r|glory)\b/g, ' '],
@@ -195,7 +199,7 @@ const JOINS: [RegExp, string][] = [
   [/\ben arriere\b/g, 'volant'],
   [/\b(counter|double|triple)[- ](cotised|cotissed)\b/g, 'cotised'],
   [/\bbleu celeste\b/g, 'bleu-celeste'],
-  [/\bvair en point\b/g, 'vair'],
+  [/\b(vair|potent) en pointe?\b/g, '$1'],
   [/\bpoint pointed\b/g, 'point'],
   [/\b(to|toward|towards) (sinister|dexter|chief|base|center|centre)\b/g, 'to-$2'],
   [/\bst\. /g, 'saint '],
@@ -278,7 +282,7 @@ function lookupUncached(word: string): Found | null {
 
 // ── Tagging ───────────────────────────────────────────────────────────────────
 
-type Ctx = 'field' | 'on' | 'between' | 'held' | 'of' | 'semy';
+type Ctx = 'field' | 'on' | 'between' | 'held' | 'of' | 'semy' | 'overall';
 interface Element {
   kind: 'charge' | 'ord';
   /** ChargeId / OrdinaryType when the widget has it, else null. */
@@ -286,9 +290,15 @@ interface Element {
   count: number;
   ctx: Ctx;
   host: Element | null;
-  /** A layout key the blazon words: "in-pale", "rows-2-1", "in-chief". */
+  /** A layout key the blazon words: "in-pale", "rows-2-1", "in-chief"; "in-canton" for charges set in canton beside the primary. */
   arr: string | null;
 }
+
+/** Where charges stand when the blazon sets them beside the primary ("and in chief three mullets"), by their `arr`. */
+const SECONDARY_POSITION_OF: Readonly<Record<string, 'chief' | 'base' | 'canton'>> = { 'in-chief': 'chief', 'in-base': 'base', 'in-canton': 'canton' };
+
+/** Where charges stand in a half or quarter of the field ("in dexter", "in sinister chief"), by their `arr`. */
+const HALF_POSITION_OF: Readonly<Record<string, HalfPosition>> = Object.fromEntries(HALF_POSITIONS.map((p) => [`in-${p}`, p]));
 
 const ARTICLES = new Set(['a', 'an', 'the', 'each', 'one', 'two', 'three', 'four', 'five', 'six', 'its', 'his', 'her']);
 
@@ -305,7 +315,6 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const tags = new Set<string>();
   const tag = (cat: GapCategory, sub?: string) => tags.add(sub ? `${cat}:${sub}` : cat);
   const { tokens, fieldless } = tokenise(blazon);
-  if (fieldless) tag('fieldless');
 
   const els: Element[] = [];
   let inField = !fieldless; // until the first charge, ordinary or count
@@ -318,28 +327,70 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let held = false; // inside "maintaining …" / "in its beak …"
   let ofNext = false; // "a wreath of laurel": the next noun is material, not a group
   let semyNext = false; // "semy of mullets"
-  let semyOnField = false; // … strewn on the field rather than on a charge
+  let semyQuiet = false; // … and what it strews is no gap: strewn on the field, or drawn where the widget draws it
   let possBase: { lem: string; e: Entry } | null = null;
   let pendingOnHost = false; // after "on a": the next element is the host
   let qualifier: string | null = null; // the first noun of "oak tree"
   let untincturedOrd = false; // an ordinary still awaiting its tincture: a later "counterchanged" covers it too
+  let overallNext = false; // after "overall": the next element lies across everything
+  let patternedField = false; // the field is in stripes or checks of two tinctures
 
   const words = tokens.map((t) => t.word);
   const look = (i: number) => (i >= 0 && i < tokens.length && words[i] !== BREAK ? lookup(words[i]) : null);
   const isNounEntry = (e: Entry | undefined) => !!e && (e.k === 'charge' || e.k === 'gapCharge' || e.k === 'cross' || e.k === 'ord' || e.k === 'gapOrd');
 
+  /** Whether the variation named `v` at `words[i]` is written as the widget draws it: a count it offers (if it takes one), then two tinctures. */
+  const variationFollows = (v: string, i: number): boolean => {
+    if (!(VARIATIONS as readonly string[]).includes(v)) return false;
+    let j = i + 1;
+    if (words[j] === 'of') {
+      if (!isCountedVariation(v as Variation) || !VARIATION_PIECES.includes(NUMBERS[words[j + 1]])) return false;
+      j += 2;
+    }
+    return look(j)?.e.k === 'tinc' && words[j + 1] === 'and' && look(j + 2)?.e.k === 'tinc';
+  };
+
+  /** Whether the treatment named `v` at `words[i]` is written as the widget draws it: laid on a tincture, in the lines of another ("argent masoned sable"). */
+  const treatedFollows = (v: string, i: number): boolean =>
+    (DRAWN_TREATMENTS as readonly string[]).includes(v) && look(i - 1)?.e.k === 'tinc' && look(i + 1)?.e.k === 'tinc';
+
+  /**
+   * Whether the semy at `words[i]` is written as the widget draws it: laid on a tincture (the field's, its part's, a band's), strewn with a
+   * charge it draws, named or "semy of <charges>", with the tincture of the charges stated or left to the next one. Never on a picture.
+   */
+  const semyDrawn = (i: number): boolean => {
+    const ground = look(i - 1)?.e.k === 'tinc' || (inField && words[i - 1] === BREAK && look(i - 2)?.e.k === 'tinc' && els.length === 0);
+    if (!ground || (!inField && last?.kind !== 'ord')) return false;
+    const generic = words[i] === 'semy';
+    const strewn = generic ? words[i + 1] === 'of' && look(i + 2)?.e.k === 'charge' : DRAWN_SEMY_NAMES.has(words[i]);
+    const after = generic ? i + 3 : i + 1;
+    return strewn && words[after] !== 'of' && look(after)?.e.k !== 'cc' && look(after)?.e.k !== 'proper';
+  };
+
+  /**
+   * Whether the fur named `lem` at `words[i]` is written as the widget draws it: the field, a part of it, a band or a picture in a
+   * fur — the named furs, "<tincture> ermined <tincture>", "vairy <tincture> and <tincture>" — but not strewn on a semy or held.
+   */
+  const furDrawn = (i: number, lem: string): boolean => {
+    if (held || last?.el?.ctx === 'semy' || last?.el?.ctx === 'of') return false;
+    if (lem === 'ermined') return look(i - 1)?.e.k === 'tinc' && look(i + 1)?.e.k === 'tinc';
+    if (lem === 'counter-vairy') return false;
+    if (lem === 'vairy' || lem === 'potenty') return look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc';
+    return true;
+  };
+
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
-    const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : betweenHost ? 'between' : onHost ? 'on' : 'field';
+    const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : overallNext ? 'overall' : betweenHost ? 'between' : onHost ? 'on' : 'field';
     const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null };
     if (kind === 'charge' && ctx !== 'held' && ctx !== 'of') {
       if (pendingArr) { el.arr = pendingArr; pendingArr = null; }
       if (el.count > MAX_DRAWN_COUNT && el.count < 99) tag('count', String(el.count));
       if (el.count === 99) tag('count', 'many');
-      if (ctx === 'semy' && !semyOnField) tag('count', 'semy');
+      if (ctx === 'semy' && !semyQuiet) tag('count', 'semy');
     }
     if (ctx === 'between') betweenHost = null;
     if (kind === 'ord') untincturedOrd = true;
-    pendingCount = null; ofNext = false; semyNext = false; inField = false;
+    pendingCount = null; ofNext = false; semyNext = false; overallNext = false; inField = false;
     els.push(el);
     last = { kind, el, name: supported ?? '' };
     return el;
@@ -348,6 +399,10 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i];
     if (tok.word === BREAK) { held = false; pendingCount = null; ofNext = false; possBase = null; pendingOnHost = false; continue; }
+    if (tok.word === 'overall') {
+      overallNext = true; onHost = null; betweenHost = null; pendingOnHost = false; inField = false;
+      continue;
+    }
     const found = lookup(tok.word);
     if (!found && tok.poss) continue; // "a smith's hammer", "Thor's hammer": a qualifier
     if (!found) {
@@ -383,6 +438,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'skip':
         // "a mullet azure and another gules", "on a cross argent another gules": a second group or ordinary
         if (lem === 'another' && last && last.el) newElement(last.el.kind, last.el.supported);
+        // "a unicorn argent charged with a heart", "three flames each charged with a heart": the groups after lie on the one before
+        else if (lem === 'charged' && words[i + 1] === 'with' && last?.el) onHost = last.el;
         break;
       case 'and':
         // "maintaining a sword and a key" vs "… a sword, and in chief …": a new clause ends a held phrase
@@ -424,18 +481,27 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'cc':
         // "a bordure counterchanged", "a chevron between three bees counterchanged" (tinctures factor
         // backward): the widget's ordinaries take a single tincture
-        if (untincturedOrd || (last?.kind === 'ord' && last.el === els[els.length - 1] && look(i - 1)?.e.k !== 'tinc')) tag('tincture', 'counterchanged-ordinary');
-        // "a heart counterchanged vert and argent": each part of the charge its own tincture
-        if (look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc') tag('tincture', 'party');
+        // (drawn on a field of two parts: "Per pale Or and gules, a bend counterchanged")
+        if (divisions === 0 && !patternedField && (untincturedOrd || (last?.kind === 'ord' && last.el === els[els.length - 1] && look(i - 1)?.e.k !== 'tinc'))) tag('tincture', 'counterchanged-ordinary');
+        // "a heart counterchanged vert and argent": divided as the field is (the widget draws that on a divided field only)
+        if (look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc' && divisions === 0) tag('tincture', 'party');
         untincturedOrd = false;
         break;
-      case 'proper': tag('proper'); break;
+      case 'proper': {
+        // A charge that has natural colours, painted in them: "a lion proper", but not "a brown owl proper" (a qualifier says which natural colours).
+        const drawn = last?.kind === 'charge' && !held && last.el?.ctx !== 'of' ? last.el?.supported : null;
+        let noun = i - 1;
+        while (noun >= 0 && look(noun)?.e.k !== 'charge') noun--;
+        const qualified = look(noun - 1)?.e.k === 'qual';
+        if (!(drawn && CHARGES[drawn as ChargeId].proper) || qualified) tag('proper');
+        break;
+      }
       case 'tincGap': tag('tincture', e.v); break;
       case 'fur':
         if (lem === 'ermine' && /^(a|an|two|three|four|five|six)$/.test(prev)) { tag('charge-beast', 'ermine'); settleHost(newElement('charge', null)); break; }
         if (lem === 'potenty' && (last?.kind === 'ord' || last?.kind === 'div') && look(i - 1)?.e.k !== 'tinc') tag('line-of-partition', 'potenty');
         else if (lem === 'potent' && /^cross/.test(prev)) break;
-        else tag('fur', e.v);
+        else if (!furDrawn(i, lem)) tag('fur', e.v);
         break;
       case 'line': {
         const next = look(i + 1)?.e.k;
@@ -443,13 +509,21 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         else tag('line-of-partition', e.v);
         break;
       }
-      case 'treat': tag('field-treatment', e.v); break;
-      case 'semy':
-        if (inField) tag('field-treatment', 'semy'); else tag('count', 'semy');
-        if (words[i + 1] === 'of') { semyNext = true; semyOnField = inField; i++; }
+      case 'treat':
+        // The field, a band or a picture in stripes or checks of two tinctures is drawn: "barry of eight argent and azure", "a fess checky Or and sable".
+        if (variationFollows(e.v, i) && (inField ? divisions === 0 : !held)) {
+          if (inField) patternedField = true;
+          if (words[i + 1] === 'of') i += 2; // the count is part of the pattern, not of the group that follows
+        } else if (!(treatedFollows(e.v, i) && (inField || !held))) tag('field-treatment', e.v);
         break;
+      case 'semy': {
+        const drawn = semyDrawn(i);
+        if (drawn) { /* a tincture strewn with a charge in another, on the field, a part of it or a band */ } else if (inField) tag('field-treatment', 'semy'); else tag('count', 'semy');
+        if (words[i + 1] === 'of') { semyNext = true; semyQuiet = drawn || inField; i++; }
+        break;
+      }
       case 'gapDiv':
-        if (!inField) { tag('tincture', 'party'); break; } // "a roundel gyronny"
+        if (!inField) { tag('division', e.v); break; } // "a roundel gyronny"
         tag('division', e.v);
         divisions++;
         last = { kind: 'div', el: null, name: e.v };
@@ -466,7 +540,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (!parts.length) break;
         const name = `per-${parts.join('-and-')}`;
         i = j - 1;
-        if (!inField && (els.length || fieldless)) { tag('tincture', 'party'); break; } // "a bend per bend azure and argent"
+        // A band or picture divided in two ("a bend per bend azure and argent"): the widget draws the drawn divisions.
+        if (!inField && (els.length || fieldless)) {
+          if (!DRAWN_DIVISION_IDS.includes(name)) tag('division', name);
+          break;
+        }
         if (prev !== 'quarterly') { // "quarterly per fess indented" is one division
           divisions++;
           if (divisions > 1 || parts.length > 1) tag('division', 'compound');
@@ -476,7 +554,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         break;
       }
       case 'quarterly':
-        if (!inField && (els.length || fieldless)) { tag('tincture', 'party'); break; } // "a bordure quarterly"
+        if (!inField && (els.length || fieldless)) break; // "a bordure quarterly"
         divisions++;
         if (divisions > 1) tag('division', 'compound');
         if (/^(i|1|first)$/.test(words[i + 1] ?? '') || /^(i|1|first)$/.test(words[i + 2] ?? '')) tag('marshalling', 'quartering');
@@ -529,13 +607,13 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'cross': i = readCross(i); break;
       case 'charge': {
         if (descriptor(i) || qualifies(i)) break;
+        if (e.id === 'annulet' && words[i + 1] === 'of') { tag('arrangement', 'in-annulo'); i++; break; } // "an annulet of dolphins"
         if (qualifier) { compound(qualifier, lem, SUPPORTED_CHARGE_BUCKET[e.id]); break; }
         settleHost(newElement('charge', e.id));
         break;
       }
       case 'gapCharge': {
         if (descriptor(i) || qualifies(i)) break;
-        if (lem === 'annulet' && words[i + 1] === 'of') { tag('arrangement', 'in-annulo'); i++; break; } // "an annulet of dolphins"
         if (qualifier) { compound(qualifier, lem, e.b); break; }
         tag(`charge-${e.b}`, e.v);
         settleHost(newElement('charge', null));
@@ -546,12 +624,20 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
   }
 
-  // Charge groups and ordinaries: the widget has room for one of each.
-  const groups = els.filter((el) => el.kind === 'charge' && el.ctx !== 'held' && el.ctx !== 'of' && el.ctx !== 'semy');
-  const ords = els.filter((el) => el.kind === 'ord');
-  if (groups.length > 1) tag('multiple-groups', 'charges');
-  if (ords.length > 1) tag('multiple-groups', 'ordinaries');
-  if (groups.length === 1 && ords.length <= 1) checkPlacement(groups[0], ords[0] ?? null);
+  // Charge groups and ordinaries: the widget has room for one charge group, and for a central ordinary with a chief and a bordure beside it.
+  const overalls = els.filter((el) => el.ctx === 'overall');
+  // What lies overall is judged on its own, with what is on it (the widget draws no charges on a group overall).
+  const onOverall = (el: Element) => el.ctx === 'on' && el.host?.ctx === 'overall';
+  const groups = els.filter((el) => el.kind === 'charge' && el.ctx !== 'held' && el.ctx !== 'of' && el.ctx !== 'semy' && el.ctx !== 'overall' && !onOverall(el));
+  const ords = els.filter((el) => el.kind === 'ord' && el.ctx !== 'overall' && !onOverall(el));
+  if (els.some(onOverall)) tag('multiple-groups', 'tertiary-on-overall');
+  const together = drawnTogether(ords);
+  if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords) || checkOnCharge(groups[0], groups[1], ords))) && !checkTogether(groups, ords)) {
+    tag('multiple-groups', 'charges');
+  }
+  if (ords.length > 1 && !together) tag('multiple-groups', 'ordinaries');
+  if (overalls.length > 0) checkOverall(overalls, groups, ords);
+  else if (groups.length === 1 && ords.length <= 1) checkPlacement(groups[0], ords[0] ?? null);
 
   if (!tags.size && unknownOut.length) {
     const fromHeadings = headingBuckets(headings);
@@ -663,11 +749,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       }
       return i;
     }
+    /** The arrangement the words at `i` name goes to the charges before it ("three roses in pale"), or to those after ("and in chief", "between in fess two roses"). */
+    const attach = (arr: string): void => {
+      const before = look(i - 1)?.e.k;
+      const prevEl = last?.kind === 'charge' && last.el && last.el.ctx !== 'held' && words[i - 1] !== BREAK && before !== 'and' && before !== 'between' ? last.el : null;
+      if (prevEl && !prevEl.arr) prevEl.arr = arr; else pendingArr = arr;
+    };
     if (SUPPORTED_ARRANGEMENT_WORDS[al]) {
       if (words[i + 2] === 'point' || words[i + 2] === 'fess-point') { tag('arrangement', 'in-fess-point'); return i + 2; }
-      const arr = SUPPORTED_ARRANGEMENT_WORDS[al];
-      const prevEl = last?.kind === 'charge' && last.el && last.el.ctx !== 'held' && words[i - 1] !== BREAK && look(i - 1)?.e.k !== 'and' ? last.el : null;
-      if (prevEl && !prevEl.arr) prevEl.arr = arr; else pendingArr = arr;
+      attach(SUPPORTED_ARRANGEMENT_WORDS[al]);
       return i + 1;
     }
     if (GAP_ARRANGEMENTS[al]) {
@@ -681,7 +771,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       if ((al === 'dexter' || al === 'sinister') && /^(talon|claw|paw|forepaw|hand|foot|mouth|beak|hoof)s?$/.test(b)) {
         held = true; tag('charge-modifier', 'maintaining'); return i + 2; // "maintaining in sinister talon a dagger"
       }
-      if ((al === 'dexter' || al === 'sinister') && /^(chief|base|canton|flank|point)$/.test(b)) { tag('arrangement', `in-${b}`); return i + 2; }
+      // "in dexter", "in sinister chief": a half or quarter of the field.
+      if (al === 'dexter' || al === 'sinister') {
+        const quarter = /^(chief|base)$/.test(b);
+        if (quarter || !/^(canton|flank|point)$/.test(b)) { attach(`in-${al}${quarter ? `-${b}` : ''}`); return quarter ? i + 2 : i + 1; }
+        tag('arrangement', `in-${b}`);
+        return i + 2;
+      }
+      // "a lion and in canton a mullet": charges set in canton beside the primary
+      if (al === 'canton' && look(i - 1)?.e.k === 'and' && last?.el && last.el.ctx === 'field') { pendingArr = 'in-canton'; return i + 1; }
       tag('arrangement', `in-${al === 'centre' ? 'center' : al}`);
       return i + 1;
     }
@@ -714,9 +812,175 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   }
 
   /**
-   * Whether the widget can lay out the one charge group (with the one ordinary, if any) as the blazon
-   * words it: asks the library, so the tagger can't drift from the layout rules. Judged on a stand-in
-   * design (any charge of the right kind and count); the groups' tinctures are not in question here.
+   * Whether the widget draws the second of two charge groups as set in chief, in base or in canton beside the first
+   * (SENA App I1), with the ordinaries: asks the library, on a stand-in design, and tags the gaps it would have. False when
+   * the second group isn't set by position, so the two are tagged as two charge groups.
+   */
+  function checkBeside(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
+    const position = second.ctx === 'field' && second.arr ? SECONDARY_POSITION_OF[second.arr] : undefined;
+    // The first group lies on the field (alone, or between an ordinary) or on one of the ordinaries.
+    const onOrdinary = first.ctx === 'on' && first.host !== null && ordinaries.includes(first.host);
+    if (!position || (first.ctx !== 'field' && !onOrdinary) || (first.arr && SECONDARY_POSITION_OF[first.arr]) || ordinaries.some((o) => !o.supported || o.count > 1)) return false;
+    if (first.count > MAX_DRAWN_COUNT || second.count > MAX_DRAWN_COUNT) return true;
+    // Stand-ins of two different charges where the blazon's aren't the widget's (the same charge twice is a rule, not a gap).
+    const a = first.supported ?? 'lion';
+    const b = second.supported && second.supported !== a ? second.supported : a === 'mullet' ? 'rose' : 'mullet';
+    const firstGroup = { item: { k: 'charge', charge: a }, paint: 'or', count: first.count, ...(first.arr && !onOrdinary ? { arrangement: first.arr } : {}) };
+    const groups = [
+      ...(onOrdinary ? [] : [firstGroup]),
+      { item: { k: 'charge', charge: b }, paint: 'argent', count: second.count, position },
+      ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules', ...(o === first.host ? { charged: [firstGroup] } : {}) })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) return true;
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    // No room for them beside the first (the library's capacity and layout rules), as the armorial test files a matched design.
+    const at = walkGroups(r.design).find((w) => w.group.relation === 'position');
+    if (!gaps.length && at && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === at.path.join())) {
+      tag('placement', `in-${position}-${second.count}`);
+    }
+    return true;
+  }
+
+  /**
+   * Whether the widget draws the second of two charge groups as set around the first (SENA App I1: "a lion between three
+   * mullets"), with a chief or bordure beside them: asks the library, on a stand-in design, and tags the gaps it would have
+   * (more than two primary charges, a count with no layout around them) or that the charges have no room. False when the
+   * second group isn't set between the first, so the two are tagged as two charge groups.
+   */
+  function checkAround(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
+    if (first.ctx !== 'field' || second.ctx !== 'between' || second.host !== first) return false;
+    if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
+    if (first.count > MAX_DRAWN_COUNT || second.count > MAX_DRAWN_COUNT) return true;
+    // Stand-ins of two different charges where the blazon's aren't the widget's (the same charge twice is a rule, not a gap).
+    const a = first.supported ?? 'sword';
+    const b = second.supported && second.supported !== a ? second.supported : a === 'mullet' ? 'rose' : 'mullet';
+    // "two swords in saltire": two long charges crossed.
+    const arrangement = first.arr === 'in-saltire' && first.count === 2 && CHARGES[a as ChargeId].long ? 'crossed' : first.arr;
+    const groups = [
+      { item: { k: 'charge', charge: a }, paint: 'or', count: first.count, ...(arrangement ? { arrangement } : {}) },
+      { item: { k: 'charge', charge: b }, paint: 'argent', count: second.count, relation: 'between', ...(second.arr ? { arrangement: second.arr } : {}) },
+      ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules' })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) return true;
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    // No room for them around the first, or a layout they don't take there (the library's capacity and layout rules).
+    const at = walkGroups(r.design).filter((w) => w.group.role === 'primary' || w.group.role === 'secondary').map((w) => w.path.join());
+    if (!gaps.length && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && at.includes(i.at.path.join()))) {
+      tag('placement', `around-${second.count}`);
+    }
+    return true;
+  }
+
+  /**
+   * Whether the widget draws two or more charge groups on the field as together the main picture ("a unicorn and a rose", SENA App I1),
+   * with a chief or bordure beside them: asks the library, on a stand-in design, and tags the gaps it would have (more than two groups,
+   * more than three charges) or the arrangement they don't take together. False when any is not a plain group on the field (set
+   * between, on or beside something).
+   */
+  function checkTogether(all: readonly Element[], ordinaries: readonly Element[]): boolean {
+    const placed = (g: Element) => g.ctx === 'field' && !(g.arr && SECONDARY_POSITION_OF[g.arr]);
+    if (!all.every(placed)) return false;
+    if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
+    if (all.some((g) => g.count > MAX_DRAWN_COUNT)) return true;
+    // Stand-ins of different charges where the blazon's aren't the widget's, so each group is its own type.
+    const standIns = all.reduce<ChargeId[]>((ids, g) => [...ids, g.supported && !ids.includes(g.supported as ChargeId) ? g.supported as ChargeId : TOGETHER_STAND_INS.find((id) => !ids.includes(id) && !all.some((x) => x.supported === id))!], []);
+    // Two groups take one arrangement together; more than two are a gap whatever their arrangement.
+    const arrangement = all.length === 2 ? all.find((g) => g.arr)?.arr : undefined;
+    const groups = [
+      ...all.map((g, i) => ({ item: { k: 'charge', charge: standIns[i] }, paint: i % 2 === 0 ? 'or' : 'argent', count: g.count, ...(arrangement ? { arrangement } : {}) })),
+      ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules' })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) { if (arrangement) tag('arrangement', arrangement); return true; }
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    // A layout the groups don't take together, or no room for them (the library's layout and capacity rules).
+    const main = walkGroups(r.design).filter((w) => w.group.role === 'primary').map((w) => w.path.join());
+    if (!gaps.length && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && main.includes(i.at.path.join()))) {
+      if (arrangement) tag('arrangement', arrangement); else tag('placement', `co-primary-${all.reduce((n, g) => n + g.count, 0)}`);
+    }
+    return true;
+  }
+
+  /**
+   * Whether the widget draws the second of two charge groups as set on the first ("on a heart argent a lion azure", SENA App I3),
+   * with a chief or bordure beside them: asks the library, on a stand-in design, and tags the gaps it would have (a charge with
+   * no room for charges on it, a count it has no layout for) or that they have no room. False when the second isn't on the
+   * first, so the two are tagged as two charge groups.
+   */
+  function checkOnCharge(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
+    if (first.ctx !== 'field' || second.ctx !== 'on' || second.host !== first) return false;
+    if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
+    if (first.count > MAX_DRAWN_COUNT || second.count > MAX_DRAWN_COUNT) return true;
+    const host = first.supported ?? 'lion';
+    const carried = { item: { k: 'charge', charge: second.supported ?? 'mullet' }, paint: 'argent', count: second.count, ...(second.arr ? { arrangement: second.arr } : {}) };
+    const groups = [
+      { item: { k: 'charge', charge: host }, paint: 'or', count: first.count, ...(first.arr ? { arrangement: first.arr } : {}), charged: [carried] },
+      ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules' })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) return true;
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    // No room for them on the first (a charge the widget has: room depends on its drawing), or a layout they don't take there (the library's capacity and layout rules).
+    if (!gaps.length && first.supported !== null && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.length === 2)) {
+      tag('placement', `on-charge-${second.count}`);
+    }
+    return true;
+  }
+
+  /**
+   * Whether the widget draws a group lying across everything ("a fess and overall a lion", SENA App I4), with a chief or bordure
+   * beside them: asks the library, on a stand-in design, and tags the gaps it would have (an ordinary that doesn't cross the middle,
+   * a count with no layout) or the rule it breaks (the overall group or the one it lies over must be a band or a long charge).
+   * Several overall groups, or none or several to lie over, are tagged as the groups they are.
+   */
+  function checkOverall(over: readonly Element[], onField: readonly Element[], ordinaries: readonly Element[]): void {
+    const central = ordinaries.filter((o) => o.supported && ORDINARY_KIND[o.supported as OrdinaryType] === 'central');
+    // The main group is the charges on the field (those set in chief, base or canton only when nothing else is) or the central ordinary;
+    // charges set between or on it are judged with it (above), not here.
+    const field = onField.filter((g) => g.ctx === 'field');
+    const unpositioned = field.filter((g) => !(g.arr && SECONDARY_POSITION_OF[g.arr]));
+    const mains = [...(unpositioned.length > 0 ? unpositioned : field), ...central];
+    if (over.length > 1) tag('multiple-groups', 'overall');
+    // An ordinary the widget lacks has its own tag; this one is for a design the widget can't draw for its groups.
+    if (over.length > 1 || mains.length !== 1 || ordinaries.some((o) => !o.supported || o.count > 1)) {
+      if (mains.length !== 1 && over.length === 1 && !ordinaries.some((o) => !o.supported)) tag('multiple-groups', mains.length === 0 ? 'overall-no-primary' : 'overall-over-groups');
+      return;
+    }
+    const [o] = over;
+    if (o.count > MAX_DRAWN_COUNT) return;
+    // A single charge in an arrangement ("a dragon in annulo") has none to take.
+    if (o.kind === 'charge' && o.count === 1 && o.arr) { tag('arrangement', o.arr); return; }
+    const [primary] = mains;
+    // A stand-in charge where the blazon's isn't the widget's: a long one if the blazon's is unknown, so the rule is not blamed for a charge we can't judge.
+    const stand = (el: Element, other: Element): { k: string; charge?: string; type?: string } => (el.kind === 'ord'
+      ? { k: 'ordinary', type: el.supported! }
+      : { k: 'charge', charge: el.supported ?? (other.supported === 'sword' ? 'key' : 'sword') });
+    const wrap = (el: Element, other: Element, extra: object) => ({ item: stand(el, other), paint: 'or', count: el.count, ...(el.arr ? { arrangement: el.arr === 'in-saltire' && el.count === 2 ? 'crossed' : el.arr } : {}), ...extra });
+    const groups = [
+      wrap(primary, o, {}),
+      wrap(o, primary, { role: 'overall', paint: 'argent' }),
+      ...ordinaries.filter((x) => !central.includes(x)).map((x) => ({ item: { k: 'ordinary', type: x.supported }, paint: 'gules' })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) return;
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    const at = walkGroups(r.design).find((w) => w.group.role === 'overall')!.path.join();
+    if (!gaps.length && primary.supported && o.supported && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === at)) {
+      tag('placement', 'overall');
+    }
+  }
+
+  /**
+   * Whether the widget can lay out the one charge group (with the one ordinary, if any) as the blazon words it: on the ordinary,
+   * between it, beside it or on the field alone. Asks the library, so the tagger can't drift from its gap, layout and capacity
+   * rules: judged on a stand-in design (any charge of the right kind and count); the groups' tinctures are not in question here.
    */
   function checkPlacement(g: Element, o: Element | null): void {
     const count = g.count;
@@ -725,27 +989,49 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const judged = !unknownOut.length;
     const type = o?.supported as OrdinaryType | undefined;
     if (o && (!o.supported || o.count > 1)) return;
-    const on = o && g.ctx === 'on' && g.host === o;
-    const between = o && g.ctx === 'between';
-    if (on && type === 'bordure') { tag('placement', 'on-bordure'); return; }
-    if (on && !hostCounts({ k: 'on', ordinary: type! }).includes(count)) { tag('placement', `on-${type}`); return; }
-    if (between) {
-      if (ORDINARY_KIND[type!] === 'central' && !hostCounts({ k: 'between', ordinary: type! }).includes(count)) tag('placement', `between-${type}`);
-      return;
+    const on = o !== null && g.ctx === 'on' && g.host === o;
+    const between = o !== null && g.ctx === 'between';
+    // Charges set "between" a chief or bordure are read wrongly, not a placement the widget lacks.
+    if (between && ORDINARY_KIND[type!] !== 'central') return;
+    const position = g.ctx === 'field' && g.arr ? SECONDARY_POSITION_OF[g.arr] ?? HALF_POSITION_OF[g.arr] : undefined;
+    // Beside a central ordinary with no position the two are co-primary (a gap of the library's own).
+    const beside = o !== null && !on && !between && !position && ORDINARY_KIND[type!] === 'central';
+    // On or between the ordinary the charges take its layout; elsewhere their own arrangement, when the blazon is fully read.
+    const arranged = !on && !between && g.arr !== null && judged;
+    if (!on && !between && !beside && g.arr !== null && !judged) return;
+    const charges = {
+      item: { k: 'charge', charge: g.supported ?? 'mullet' }, paint: 'or', count,
+      ...(position ? { position } : arranged ? { arrangement: g.arr } : {}), ...(between ? { relation: 'between' } : beside ? { role: 'primary' } : {}),
+    };
+    const ordinary = o && { item: { k: 'ordinary', type }, paint: 'argent', ...(on ? { charged: [charges] } : {}), ...(beside ? { role: 'primary' } : {}) };
+    const r = resolve({ v: 2, field: 'azure', groups: on ? [ordinary] : [charges, ...(ordinary ? [ordinary] : [])] });
+    if (!r.ok) { if (arranged) tag('arrangement', g.arr!); return; }
+    // On, between or beside the ordinary: what the library can't draw there. (On the field alone the arrangement is judged below.)
+    if (on || between || beside) {
+      const gaps = unsupportedIssues(r.design);
+      for (const i of gaps) tag(i.gap.category, i.gap.detail);
+      if (gaps.length) return;
     }
-    if (o && !on && ORDINARY_KIND[type!] === 'central') { tag('placement', 'not-between'); return; }
-    if (on || !judged && g.arr) return;
-    // A charge group on the field, alone or under a chief or within a bordure: does a layout fit?
-    const charge = { k: 'charge', charge: g.supported ?? 'mullet' };
-    const group = { item: charge, paint: 'or', count, ...(g.arr ? { arrangement: g.arr } : {}) };
-    const r = resolve({ v: 2, field: 'azure', groups: [group, ...(o ? [{ item: { k: 'ordinary', type }, paint: 'argent' }] : [])] });
-    if (!r.ok) { if (g.arr && judged) tag('arrangement', g.arr); return; }
     const walked = walkGroups(r.design).find((w) => w.group.item.k === 'charge')!;
     const broken = structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === walked.path.join());
     if (!broken) return;
-    if (g.arr && judged) tag('arrangement', g.arr);
+    if (on || between) tag('placement', `${on ? 'on' : 'between'}-${type}-${count}`);
+    else if (position && o && ORDINARY_KIND[type!] === 'central') tag('placement', `in-${position}-${count}`);
+    else if (arranged) tag('arrangement', g.arr!);
     else if (type === 'chief') tag('placement', 'under-chief');
   }
+}
+
+/** Charges standing in, in this order, for groups set together whose charge the widget lacks: with no posture, so none clash (A3D2c). */
+const TOGETHER_STAND_INS: readonly ChargeId[] = ['mullet', 'rose', 'crescent', 'heart', 'annulet'];
+
+/** Whether the widget draws these ordinaries together: at most one central one, with at most one chief and one bordure beside it. */
+function drawnTogether(ords: readonly Element[]): boolean {
+  const types = ords.map((o) => o.supported as OrdinaryType | null);
+  if (types.some((t) => t === null) || ords.some((o) => o.count > 1)) return false;
+  const central = types.filter((t) => ORDINARY_KIND[t!] === 'central').length;
+  const count = (type: OrdinaryType) => types.filter((t) => t === type).length;
+  return central <= 1 && count('chief') <= 1 && count('bordure') <= 1 && central + count('chief') + count('bordure') === types.length;
 }
 
 /**

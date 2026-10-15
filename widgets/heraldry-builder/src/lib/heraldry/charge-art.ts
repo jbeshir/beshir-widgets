@@ -104,6 +104,30 @@ export const CHARGE_ART: Record<ChargeId, Partial<Record<Posture | '_', string>>
   gear: {
     _: 'M7 41L20.4 41 21.4 38.1 23.2 34.5 25.4 31.1 27.4 28.9 20.7 17.3 36.3 8.3 43 19.9 46 19.3 50 19 54 19.3 57 19.9 63.7 8.3 79.3 17.3 72.6 28.9 74.6 31.1 76.8 34.5 78.6 38.1 79.6 41 93 41 93 59 79.6 59 78.6 61.9 76.8 65.5 74.6 68.9 72.6 71.1 79.3 82.7 63.7 91.7 57 80.1 54 80.7 50 81 46 80.7 43 80.1 36.3 91.7 20.7 82.7 27.4 71.1 25.4 68.9 23.2 65.5 21.4 61.9 20.4 59 7 59ZM32 50L32.3 53.5 33.4 56.9 35 60 37.3 62.7 40 65 43.1 66.6 46.5 67.7 50 68 53.5 67.7 56.9 66.6 60 65 62.7 62.7 65 60 66.6 56.9 67.7 53.5 68 50 67.7 46.5 66.6 43.1 65 40 62.7 37.3 60 35 56.9 33.4 53.5 32.3 50 32 46.5 32.3 43.1 33.4 40 35 37.3 37.3 35 40 33.4 43.1 32.3 46.5Z',
   },
+  roundel: {
+    _: 'M92 50L91.2 58.2 88.8 66.1 84.9 73.3 79.7 79.7 73.3 84.9 66.1 88.8 58.2 91.2 50 92 41.8 91.2 33.9 88.8 26.7 84.9 20.3 79.7 15.1 73.3 11.2 66.1 8.8 58.2 8 50 8.8 41.8 11.2 33.9 15.1 26.7 20.3 20.3 26.7 15.1 33.9 11.2 41.8 8.8 50 8 58.2 8.8 66.1 11.2 73.3 15.1 79.7 20.3 84.9 26.7 88.8 33.9 91.2 41.8Z',
+  },
+  annulet: {
+    _: 'M92 50L91.2 58.2 88.8 66.1 84.9 73.3 79.7 79.7 73.3 84.9 66.1 88.8 58.2 91.2 50 92 41.8 91.2 33.9 88.8 26.7 84.9 20.3 79.7 15.1 73.3 11.2 66.1 8.8 58.2 8 50 8.8 41.8 11.2 33.9 15.1 26.7 20.3 20.3 26.7 15.1 33.9 11.2 41.8 8.8 50 8 58.2 8.8 66.1 11.2 73.3 15.1 79.7 20.3 84.9 26.7 88.8 33.9 91.2 41.8ZM76 50L74.7 42 71 34.7 65.3 29 58 25.3 50 24 42 25.3 34.7 29 29 34.7 25.3 42 24 50 25.3 58 29 65.3 34.7 71 42 74.7 50 76 58 74.7 65.3 71 71 65.3 74.7 58Z',
+  },
+  billet: {
+    _: 'M28.5 7L71.5 7 71.5 93 28.5 93Z',
+  },
+  lozenge: {
+    _: 'M50 7L78 50 50 93 22 50Z',
+  },
+  goutte: {
+    _: 'M50 7L52.9 10.6 59.9 20 68.1 33.1 75.1 47.8 78 62 77.3 68.2 75.2 74.1 71.9 79.5 67.5 83.9 62.1 87.2 56.2 89.3 50 90 43.8 89.3 37.9 87.2 32.5 83.9 28.1 79.5 24.8 74.1 22.7 68.2 22 62 24.9 47.8 31.9 33.1 40.1 20 47.1 10.6Z',
+  },
+  'cross-crosslet': {
+    _: 'M44 7L56 7 56 15 68 15 68 27 56 27 56 44 73 44 73 32 85 32 85 44 93 44 93 56 85 56 85 68 73 68 73 56 56 56 56 73 68 73 68 85 56 85 56 93 44 93 44 85 32 85 32 73 44 73 44 56 27 56 27 68 15 68 15 56 7 56 7 44 15 44 15 32 27 32 27 44 44 44 44 27 32 27 32 15 44 15Z',
+  },
+  estoile: {
+    _: 'M43.1 38L45.7 30 44 22 50.9 14 50 6 54.4 14 51 22 56.1 30 57 38 65.2 36.2 71.3 30.8 81.6 32.8 88.1 28 83.4 35.8 74.8 36.8 70.4 45.3 63.9 50 69.5 56.3 77.3 58.8 80.7 68.8 88.1 72 79 71.8 73.8 64.9 64.3 65.3 57 62 54.3 70 56 78 49.1 86 50 94 45.6 86 49 78 43.9 70 43.1 62 34.8 63.8 28.7 69.2 18.4 67.2 11.9 72 16.6 64.2 25.2 63.2 29.6 54.7 36.1 50 30.5 43.7 22.7 41.2 19.3 31.2 11.9 28 21 28.2 26.2 35.1 35.7 34.7Z',
+  },
+  spark: {
+    _: 'M93 50L90.6 50.3 83.9 52.4 74.7 57.4 65.2 65.2 57.4 74.7 52.4 83.9 50.3 90.6 50 93 49.7 90.6 47.6 83.9 42.6 74.7 34.8 65.2 25.3 57.4 16.1 52.4 9.4 50.3 7 50 9.4 49.7 16.1 47.6 25.3 42.6 34.8 34.8 42.6 25.3 47.6 16.1 49.7 9.4 50 7 50.3 9.4 52.4 16.1 57.4 25.3 65.2 34.8 74.7 42.6 83.9 47.6 90.6 49.7Z',
+  },
   lightbulb: {
     _: 'M25.1 31.9L25.4 28.6 26 25.4 27 22.3 28.5 19.4 30.3 16.7 32.4 14.3 34.9 12.1 37.6 10.3 40.5 8.9 43.6 7.8 46.8 7.2 50 7 53.2 7.2 56.4 7.8 59.5 8.9 62.4 10.3 65.1 12.1 67.6 14.3 69.7 16.7 71.5 19.4 73 22.3 74 25.4 74.6 28.6 74.9 31.9 74.6 35.1 74 38.3 73 41.4 71.5 44.3 69.7 47 66.2 50.6 60.9 64.7 60.9 70.6 39.1 70.6 39.1 64.7 33.8 50.6 30.3 47 28.5 44.3 27 41.4 26 38.3 25.4 35.1ZM42 42.8L44 60.7 48 60.7 46 42.8ZM52 60.7L56 60.7 58 42.8 54 42.8ZM40.1 72.6L59.9 72.6 59.9 77.6 40.1 77.6ZM41.1 79.6L58.9 79.6 58.9 84.5 56.1 84.5 56.5 85.5 56.2 86.4 52 92 50.8 92.9 49.2 92.9 48 92 43.8 86.4 43.5 85.5 43.9 84.5 41.1 84.5Z',
   },
@@ -123,13 +147,71 @@ export const MODIFIER_ART: Partial<Record<ChargeId, Partial<Record<ModifierId, s
 };
 
 /** Shown only if a charge somehow has no art (never for the shipped table): a plain roundel. */
-const FALLBACK = 'M8 50a42 42 0 1 0 84 0a42 42 0 1 0-84 0Z';
+const FALLBACK = CHARGE_ART.roundel._!;
+
+/** The key of the drawing a charge has in a posture: the posture's own, else its default posture's, else the posture-less one. */
+function artKey(id: ChargeId, posture: Posture | null): Posture | '_' {
+  const art = CHARGE_ART[id];
+  const def = CHARGES[id].defaultPosture;
+  return (posture && art[posture] ? posture : null) ?? (def && art[def] ? def : null) ?? '_';
+}
 
 /** Path for a charge in a posture with its modifiers; falls back to the default posture, then '_'. */
 export function chargePath(id: ChargeId, posture: Posture | null, mods: readonly Modifier[]): string {
   const variant = mods.map((m) => MODIFIER_ART[id]?.[m.id]).find((d) => d !== undefined);
-  if (variant) return variant;
-  const art = CHARGE_ART[id];
-  const def = CHARGES[id].defaultPosture;
-  return (posture && art[posture]) || (def && art[def]) || art._ || FALLBACK;
+  return variant ?? CHARGE_ART[id][artKey(id, posture)] ?? FALLBACK;
+}
+
+/** A rectangle in a charge's 100×100 art box. */
+export interface ArtBox { x: number; y: number; w: number; h: number }
+
+const box = (x: number, y: number, w: number, h: number): ArtBox => ({ x, y, w, h });
+
+/**
+ * Where each drawing carries the charges on it (a tertiary group): the largest rectangle, near the middle of the drawn
+ * mass, that lies (to 3%) inside the drawn shape; the rose’s covers its seed hole (to 7%), as its middle is the natural place.
+ * A drawing with no room for a charge on it (a slender or ringed one) has none.
+ */
+export const ART_ON_BOX: Record<ChargeId, Partial<Record<Posture | '_', ArtBox>>> = {
+  lion: { rampant: box(34, 28, 22, 34), passant: box(32, 45, 34, 22), statant: box(27, 36, 22, 34), sejant: box(23, 24, 28, 44) },
+  wolf: { rampant: box(41, 33, 20, 18), passant: box(58, 36, 22, 26), statant: box(58, 36, 22, 26) },
+  boar: { passant: box(27, 30, 52, 32) },
+  stag: { statant: box(33, 44, 34, 22), passant: box(33, 44, 32, 20) },
+  goat: { statant: box(31, 39, 42, 26), rampant: box(48, 47, 20, 30) },
+  hare: { sejant: box(29, 48, 38, 30), courant: box(26, 41, 40, 24) },
+  fish: { naiant: box(25, 37, 42, 28), haurient: box(35, 25, 28, 42) },
+  bee: { _: box(42, 30, 16, 26) },
+  unicorn: { rampant: box(36, 36, 18, 24), passant: box(29, 46, 38, 24), sejant: box(28, 44, 20, 30) },
+  dragon: { rampant: box(34, 31, 38, 24), passant: box(53, 21, 28, 40) },
+  eagle: { displayed: box(35, 37, 28, 20) },
+  owl: { _: box(39, 42, 22, 22) },
+  rose: { _: box(20, 21, 60, 56) },
+  tree: { _: box(21, 18, 58, 38) },
+  'fleur-de-lis': { _: box(36, 28, 28, 42) },
+  mullet: { _: box(33, 38, 34, 36) },
+  crescent: { _: box(29, 53, 40, 24) },
+  sun: { _: box(27, 24, 44, 50) },
+  heart: { _: box(22, 13, 56, 52) },
+  key: {},
+  'open-book': { _: box(14, 52, 34, 22) },
+  sword: {},
+  crown: { _: box(24, 47, 42, 26) },
+  anchor: {},
+  'musical-note': {},
+  flame: { _: box(58, 37, 24, 38) },
+  gear: {},
+  lightbulb: { _: box(29, 17, 42, 30) },
+  roundel: { _: box(22, 22, 56, 56) },
+  annulet: {},
+  billet: { _: box(33, 24, 34, 52) },
+  lozenge: { _: box(38, 32, 24, 36) },
+  goutte: { _: box(36, 48, 28, 32) },
+  'cross-crosslet': {},
+  estoile: {},
+  spark: {},
+};
+
+/** The rectangle of a charge's drawing that carries the charges on it, or null for a charge that carries none. */
+export function chargeOnBox(id: ChargeId, posture: Posture | null): ArtBox | null {
+  return ART_ON_BOX[id][artKey(id, posture)] ?? null;
 }

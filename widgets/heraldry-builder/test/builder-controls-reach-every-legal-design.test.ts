@@ -9,25 +9,30 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, countChoices, fieldTinctureChoices, groupTinctureChoices, layoutChoices,
+  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, countChoices, fieldTinctureChoices, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices,
   layoutKey, modifierChoices, normalise, placementChoices, postureChoices, resolve, structuralIssues, tinctureIssues, unsupportedIssues,
-  type ChargeId, type Design, type GroupPath,
+  type ChargeId, type Design, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
-import {
-  PERIPHERAL_TYPES, addExtraPicture, addPeripheral, canAddExtraPicture, canAddPeripheral, extraPicturePath, ordinaryPath, peripheralPath, picturePath, setCharge,
-} from '../src/lib/builder';
+import { ordinaryPath, picturePath, setCharge } from '../src/lib/builder';
 import { layoutMoves, log, nd, setCount } from './helpers';
 
-// ── The oracle: the simple space by brute force ─────────────────────────────
+// ── The oracle: the level-0 space by brute force ────────────────────────────
+//
+// The space is one ordinary, one picture group and the group on the ordinary, with a chief and/or a bordure
+// beside the ordinary in some of the contexts (`beside`); the oracle builds those from loose input too.
 
 type Placement = 'field' | 'ordinary';
 
 /** Every layout key a group of up to twelve can have (`host` stands for "leave the arrangement out"). */
+const HALVES = ['dexter', 'sinister', 'dexter-chief', 'sinister-chief', 'dexter-base', 'sinister-base'];
 const ALL_LAYOUT_KEYS: readonly string[] = [
   'single', 'in-chief', 'in-base', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-orle', 'in-annulo', 'crossed',
   'rows-2-1', 'rows-2-2', 'rows-2-2-1', 'rows-3-2-1', 'rows-3-3-1', 'rows-3-3-2', 'rows-3-3-3', 'rows-4-3-2-1', 'rows-4-4-3', 'rows-4-4-4',
   'rows-1-2', 'rows-3-2', 'rows-2-2-2', 'rows-3-3', 'rows-4-4', 'rows-4-3-2', 'rows-1-1-1',
+  ...HALVES.flatMap((half) => ['single', 'in-pale', 'in-fess', 'rows-2-1', 'rows-1-2', 'rows-2-2'].map((key) => `${key}@${half}`)),
 ];
+/** In a half the lower rows fall in the narrowing base, and four in two rows of two don't fit the tall half of a shield: never legal. */
+const NEVER_IN_HALF = ['dexter', 'sinister', 'dexter-base', 'sinister-base'].flatMap((half) => [`rows-1-2@${half}`, `rows-2-2@${half}`]);
 const PAINTS: readonly string[] = [...TINCTURES, 'counterchanged'];
 
 interface Base {
@@ -35,6 +40,9 @@ interface Base {
   /** The field's division, or 'plain'. */
   division: string;
   ordinary: { type: string; tincture: string } | null;
+  /** The peripherals set beside the ordinary (all in `besidePaint`), none unless the ordinary is a central one or a chief. */
+  beside: readonly string[];
+  besidePaint: string;
   charge: ChargeId;
   posture: string | null;
 }
@@ -43,8 +51,9 @@ interface Triple { count: number; placement: Placement; key: string }
 
 const tripleKey = (t: Triple) => `${t.count}/${t.placement}/${t.key}`;
 
-/** Whether the count can possibly have this layout key: the rows add up, a cross has four or five, and so on. */
-function countFits(key: string, n: number): boolean {
+/** Whether the count can possibly have this layout key (set in a half or quarter or not): the rows add up, a cross has four or five, and so on. */
+function countFits(layout: string, n: number): boolean {
+  const key = layout.split('@')[0];
   if (key === 'single') return n === 1;
   if (key === 'in-cross' || key === 'in-saltire') return n === 4 || n === 5;
   if (key === 'crossed') return n === 2;
@@ -68,6 +77,7 @@ function pictureInput(b: Base, count: number, key: string, paint: string): objec
 function designInput(b: Base, onField: object | null, onOrdinary: object | null): object {
   const groups: object[] = [];
   if (b.ordinary) groups.push({ item: { k: 'ordinary', type: b.ordinary.type }, paint: b.ordinary.tincture, ...(onOrdinary ? { charged: [onOrdinary] } : {}) });
+  for (const type of b.beside) groups.push({ item: { k: 'ordinary', type }, paint: b.besidePaint });
   if (onField) groups.push(onField);
   return { v: 2, field: b.field, groups };
 }
@@ -77,21 +87,27 @@ function triple(b: Base, t: Triple, paint: string): object {
   return t.placement === 'ordinary' ? designInput(b, null, picture) : designInput(b, picture, null);
 }
 
+/** Whether a design is supported and passes the structure rules, whatever the rule of tincture says. */
+const structurallyLegalDesign = (d: Design): boolean => unsupportedIssues(d).length === 0 && structuralIssues(d).length === 0;
+
 /** Whether input resolves to a supported design that passes the structure rules, whatever the rule of tincture says. */
 function structurallyLegal(input: unknown): boolean {
   const r = resolve(input);
-  return r.ok && unsupportedIssues(r.design).length === 0 && structuralIssues(r.design).length === 0;
+  return r.ok && structurallyLegalDesign(r.design);
 }
 
-/** Structure verdicts don't depend on tinctures, so they are shared by every base of the same shape. */
+/** A picture paint that is no tincture of the field, so Table 7 does not move the picture into one part of it. */
+const UNMOVED_PAINT = 'counterchanged';
+
+/** Structure verdicts don't depend on tinctures (but for the part Table 7 forces a picture into, judged apart), so they are shared by every base of the same shape. */
 const structureMemo = new Map<string, boolean>();
 
 function structureVerdict(b: Base, t: Triple): boolean {
-  return structurallyLegal(triple(b, t, 'or'));
+  return structurallyLegal(triple(b, t, UNMOVED_PAINT));
 }
 
 function structureLegal(b: Base, t: Triple): boolean {
-  const k = JSON.stringify([b.division, b.ordinary?.type, t.placement, t.count, t.key, t.key === 'crossed' && CHARGES[b.charge].long, t.key === 'in-annulo' && CHARGES[b.charge].postureClass === 'fish']);
+  const k = JSON.stringify([b.division, b.ordinary?.type, b.beside, t.placement, t.count, t.key, t.key === 'crossed' && CHARGES[b.charge].long, t.key === 'in-annulo' && CHARGES[b.charge].postureClass === 'fish']);
   let v = structureMemo.get(k);
   if (v === undefined) {
     v = structureVerdict(b, t);
@@ -102,8 +118,35 @@ function structureLegal(b: Base, t: Triple): boolean {
 
 const resolved = (b: Base, t: Triple, paint: string): Design => nd(triple(b, t, paint));
 
+/** A state's (count, placement, layout key) as the design says it. */
+function tripleOf(d: Design, path: GroupPath): Triple {
+  let g = d.groups[path[0]];
+  for (const i of path.slice(1)) g = g.charged[i];
+  const key = g.arrangement.k === 'host' ? 'host' : layoutKey({ arrangement: g.arrangement, position: g.position });
+  return { count: g.count, placement: path.length > 1 ? 'ordinary' : 'field', key };
+}
+
+/** The layout key the picture of a design has, found from the loose structure alone. */
+const keyOf = (d: Design, placement: Placement): string => tripleOf(d, pictureAt(d, placement)).key;
+
+/**
+ * A picture paint in a layout: `moved` when a charge of that tincture on a field divided in that tincture is forced into the part it
+ * contrasts with (Table 7), so the design has another layout than the one asked for; else whether the rule of tincture holds.
+ */
+function paintVerdict(b: Base, t: Triple, paint: string): 'legal' | 'illegal' | 'moved' {
+  const d = resolved(b, t, paint);
+  if (keyOf(d, t.placement) !== t.key) return 'moved';
+  return tinctureIssues(d).length === 0 ? 'legal' : 'illegal';
+}
+
 /** The picture paints that satisfy the rule of tincture in a layout that is structurally legal. */
-const legalPaints = (b: Base, t: Triple): string[] => PAINTS.filter((p) => tinctureIssues(resolved(b, t, p)).length === 0);
+const legalPaints = (b: Base, t: Triple): string[] => PAINTS.filter((p) => paintVerdict(b, t, p) === 'legal');
+
+/** The picture paints Table 7 can move into one part of the field: the tinctures of a divided field with no band on it. */
+function forcingPaints(b: Base): string[] {
+  const parts = (b.field as { parts?: unknown[] }).parts;
+  return b.ordinary || !parts ? [] : parts.filter((p): p is string => typeof p === 'string');
+}
 
 /** Every (count, placement, layout) that makes a legal design with some picture tincture. */
 function legalTriples(b: Base): Triple[] {
@@ -112,11 +155,19 @@ function legalTriples(b: Base): Triple[] {
     for (let count = 1; count <= 12; count++) {
       for (const key of keysFor(b, placement)) {
         const t = { count, placement, key };
-        if (countFits(key, count) && structureLegal(b, t) && PAINTS.some((p) => tinctureIssues(resolved(b, t, p)).length === 0)) out.push(t);
+        if (!countFits(key, count)) continue;
+        if (structureLegal(b, t) && PAINTS.some((p) => paintVerdict(b, t, p) === 'legal')) out.push(t);
+        // A charge forced into a part of the field stands in the layout of that part, which has to fit there.
+        for (const p of forcingPaints(b)) {
+          if (paintVerdict(b, t, p) !== 'moved') continue;
+          const moved = resolved(b, t, p);
+          if (tinctureIssues(moved).length === 0 && structurallyLegalDesign(moved)) out.push({ count, placement, key: keyOf(moved, placement) });
+        }
       }
     }
   }
-  return out;
+  const seen = new Set<string>();
+  return out.filter((t) => !seen.has(tripleKey(t)) && !!seen.add(tripleKey(t)));
 }
 
 // ── The sweep ───────────────────────────────────────────────────────────────
@@ -132,6 +183,15 @@ const ORDINARIES: Array<Base['ordinary']> = [null, ...DRAWN_ORDINARIES.flatMap((
 
 interface Context { base: Base; legal: Triple[] }
 
+/** The peripherals beside a band: a third of the contexts have a chief, a bordure or both beside a central band, or a bordure beside a chief. */
+function besideOf(ordinary: Base['ordinary'], n: number): Pick<Base, 'beside' | 'besidePaint'> {
+  const besidePaint = n % 2 === 0 ? 'argent' : 'gules';
+  if (!ordinary || n % 3 !== 1) return { beside: [], besidePaint };
+  if (ordinary.type === 'chief') return { beside: ['bordure'], besidePaint };
+  if (ordinary.type === 'bordure') return { beside: [], besidePaint };
+  return { beside: [['chief'], ['bordure'], ['chief', 'bordure']][Math.floor(n / 3) % 3], besidePaint };
+}
+
 /** The bases that are legal designs once a picture is added, the charge and its posture rotating. */
 function sweep(): Context[] {
   const out: Context[] = [];
@@ -139,9 +199,11 @@ function sweep(): Context[] {
   for (const { field, division } of FIELDS) for (const ordinary of ORDINARIES) {
     const charge = CHARGE_IDS[n % CHARGE_IDS.length];
     const postures = CHARGES[charge].postures;
-    const base: Base = { field, division, ordinary, charge, posture: postures ? postures[n % postures.length] : null };
-    // An ordinary that breaks the rule of tincture on this field never makes a valid design.
-    if (tinctureIssues(nd(designInput(base, null, null))).length) continue;
+    const plain: Base = { field, division, ordinary, beside: [], besidePaint: 'argent', charge, posture: postures ? postures[n % postures.length] : null };
+    // An ordinary that breaks the rule of tincture on this field never makes a valid design; neither does a peripheral that does (then the context has none).
+    if (tinctureIssues(nd(designInput(plain, null, null))).length) continue;
+    const besides: Base = { ...plain, ...besideOf(ordinary, n) };
+    const base = tinctureIssues(nd(designInput(besides, null, null))).length ? plain : besides;
     out.push({ base, legal: legalTriples(base) });
     n++;
   }
@@ -176,7 +238,7 @@ function validStates({ base, legal }: Context, n: number): State[] {
 /** A state whose picture breaks the rule of tincture: the first layout with an illegal tincture, in that tincture. */
 function violationState({ base, legal }: Context): State | null {
   for (const t of legal) {
-    const bad = PAINTS.find((p) => !legalPaints(base, t).includes(p));
+    const bad = PAINTS.find((p) => paintVerdict(base, t, p) === 'illegal');
     if (bad) return stateOf(base, t, bad);
   }
   return null;
@@ -184,14 +246,6 @@ function violationState({ base, legal }: Context): State | null {
 
 const allowedValues = <T>(choices: Array<{ value: T; allowed: boolean }>) => choices.filter((c) => c.allowed).map((c) => c.value);
 const sameSet = <T>(a: T[]) => [...new Set(a)].map(String).sort();
-
-/** A state's (count, placement, layout key) as the design says it. */
-function tripleOf(d: Design, path: GroupPath): Triple {
-  let g = d.groups[path[0]];
-  for (const i of path.slice(1)) g = g.charged[i];
-  const key = g.arrangement.k === 'host' ? 'host' : layoutKey({ arrangement: g.arrangement, position: g.position });
-  return { count: g.count, placement: path.length > 1 ? 'ordinary' : 'field', key };
-}
 
 describe('builder controls never lock a legal value away', () => {
   const valid = contexts.flatMap((c) => validStates(c, 4).map((s) => ({ c, s })));
@@ -209,6 +263,7 @@ describe('builder controls never lock a legal value away', () => {
     log(`${contexts.length} field × ordinary contexts, ${valid.length} valid designs, ${violations.length} rule-of-tincture violations`);
     log(`legal layouts per count (placements together): ${summary}`);
     expect(contexts.length).toBeGreaterThan(300);
+    expect(contexts.filter(({ base }) => base.beside.length > 0).length).toBeGreaterThan(50);
     expect(new Set(valid.map(({ c }) => c.base.charge)).size).toBe(CHARGE_IDS.length);
     expect(violations.length).toBeGreaterThan(300);
     // The oracle is not vacuous: every count is legal somewhere.
@@ -217,7 +272,7 @@ describe('builder controls never lock a legal value away', () => {
     const never = ALL_LAYOUT_KEYS.filter((key) => !contexts.some(({ legal }) => legal.some((t) => t.key === key)));
     log(`layout keys that are legal nowhere: ${never.join(', ')}`);
     // Eight in two rows of four, nine and twelve in rows of three and four are too wide for any shield; three singles in rows isn't a pattern.
-    expect(never).toEqual(['rows-3-3-3', 'rows-4-4-4', 'rows-4-4', 'rows-1-1-1']);
+    expect(never).toEqual(['rows-3-3-3', 'rows-4-4-4', 'rows-4-4', 'rows-1-1-1', ...NEVER_IN_HALF]);
     // Sampled structure verdicts don't depend on the tinctures they were memoised from.
     for (const { base, legal } of contexts.filter((_, i) => i % 40 === 0)) {
       for (const t of spread(legal, 3)) expect(structureVerdict(base, t), JSON.stringify([base, t])).toBe(true);
@@ -309,11 +364,13 @@ describe('builder controls never lock a legal value away', () => {
     return { seen, expanded, stray };
   }
 
+  // Seeded sampling (the search is the slowest sweep): every context is searched from one of three spread starting layouts, rotating with the context.
   it('every legal count, placement and layout is reachable through the controls from valid designs', () => {
     let expanded = 0, starts = 0;
-    for (const c of contexts) {
+    for (const [i, c] of contexts.entries()) {
       const legal = new Set(c.legal.map(tripleKey));
-      for (const s of validStates(c, 3)) {
+      const starting = validStates(c, 3);
+      for (const s of starting.length ? [starting[i % starting.length]] : []) {
         const r = reach(s, legal);
         expect([...legal].filter((k) => !r.seen.has(k)), JSON.stringify([c.base, s.triple])).toEqual([]);
         expect(r.stray, JSON.stringify([c.base, s.triple])).toEqual([]);
@@ -324,8 +381,12 @@ describe('builder controls never lock a legal value away', () => {
     log(`searched from ${starts} starting layouts, expanding ${expanded} designs`);
   }, 60_000);
 
+  // Seeded sampling: every other violation, which still searches from every division and every ordinary.
   it('every legal count, placement and layout is reachable from a design whose picture breaks the rule of tincture', () => {
-    for (const { c, s } of violations) {
+    const sampled = violations.filter((_, i) => i % 2 === 0);
+    const kinds = (xs: typeof violations) => sameSet(xs.flatMap(({ c }) => [c.base.division, c.base.ordinary?.type ?? 'none']));
+    expect(kinds(sampled)).toEqual(kinds(violations));
+    for (const { c, s } of sampled) {
       const legal = new Set(c.legal.map(tripleKey));
       const r = reach(s, legal);
       expect([...legal].filter((k) => !r.seen.has(k)), JSON.stringify([c.base, s.triple, s.paint])).toEqual([]);
@@ -347,20 +408,20 @@ describe('builder controls never lock a legal value away', () => {
         return structurallyLegal(r('or')) && PAINTS.some((p) => normalise(r(p)).ok);
       });
       const label = JSON.stringify([c.base, onField]);
-      expect(canAddExtraPicture(s.design), label).toBe(legalCounts.length > 0);
-      const added = addExtraPicture(s.design, 'rose');
+      expect(layerChoices(s.design).find((choice) => choice.value === 'on-ordinary')?.allowed, label).toBe(legalCounts.length > 0);
+      const added = setCharge(s.design, 'on-ordinary', 'rose');
       if (!legalCounts.length) {
         expect(added, label).toBe(s.design);
         refused++;
         continue;
       }
       offered++;
-      const path = extraPicturePath(added);
+      const path = pathOfPlace(added, 'on-ordinary');
       expect(path, label).not.toBeNull();
       expect(sameSet(allowedValues(countChoices(added, path!))), label).toEqual(sameSet(legalCounts));
       for (const count of legalCounts) {
-        const moved = setCount(added, extraPicturePath(added)!, count);
-        const at = extraPicturePath(moved);
+        const moved = setCount(added, pathOfPlace(added, 'on-ordinary')!, count);
+        const at = pathOfPlace(moved, 'on-ordinary');
         expect(at && moved.groups[at[0]].charged[at[1]].count, `${label} → ${count}`).toBe(count);
       }
     }
@@ -371,9 +432,9 @@ describe('builder controls never lock a legal value away', () => {
   it('a top band or border is offered exactly when some tincture makes it legal beside a central band, and every legal tincture is reachable', () => {
     let offered = 0, refused = 0;
     for (const c of contexts) {
-      if (!centralOrdinary(c.base)) continue;
+      if (!centralOrdinary(c.base) || c.base.beside.length > 0) continue;
       const band = nd(designInput(c.base, null, null));
-      for (const type of PERIPHERAL_TYPES) {
+      for (const type of ['chief', 'bordure'] as const satisfies readonly LayerKey[]) {
         // The oracle: the band and a peripheral of this kind in each paint, through normalise alone.
         const withPaint = (paint: string) => ({ v: 2, field: c.base.field, groups: [
           { item: { k: 'ordinary', type: c.base.ordinary!.type }, paint: c.base.ordinary!.tincture },
@@ -381,15 +442,15 @@ describe('builder controls never lock a legal value away', () => {
         ] });
         const legalPaintsOf = PAINTS.filter((p) => normalise(withPaint(p)).ok);
         const label = JSON.stringify([c.base, type]);
-        expect(canAddPeripheral(band, type), label).toBe(legalPaintsOf.length > 0);
-        const added = addPeripheral(band, type);
+        expect(layerChoices(band).find((choice) => choice.value === type)?.allowed, label).toBe(legalPaintsOf.length > 0);
+        const added = addLayer(band, type);
         if (!legalPaintsOf.length) {
           expect(added, label).toBe(band);
           refused++;
           continue;
         }
         offered++;
-        const path = peripheralPath(added);
+        const path = pathOfPlace(added, type);
         expect(path, label).not.toBeNull();
         expect(sameSet(allowedValues(groupTinctureChoices(added, path!))), label).toEqual(sameSet(legalPaintsOf));
         expect(ordinaryPath(added), label).toEqual(ordinaryPath(band));

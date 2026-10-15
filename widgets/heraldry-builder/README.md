@@ -7,10 +7,10 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 ## Overview
 
 - **Builder.** Pick a field (plain or one of seven divisions), an optional ordinary (ten) and an
-  optional group of 1–12 charges (28 charges, 40 drawings with postures; counts above six sit
-  behind **More…**). The default flow is three steps, Background → Band or shape → Picture; a
-  fourth card appears only when it applies: extra pictures on the band (or on a chief), or a
-  top band (chief) or border (bordure) beside a band that has no picture. Every option is
+  optional group of 1–12 charges (36 charges, 48 drawings with postures; counts above six sit
+  behind **More…**). The default flow is three steps, Background → Band or shape → Picture (the Background step also has a **Badge** tile, "No background": see Fieldless badges); a
+  further card appears for each layer added on demand from the "+ Add…" row (pictures on the band, a chief or a bordure,
+  around, on or beside the picture, in chief, base or canton, or something overall: see Design below). Every option is
   checked against the **rule of tincture** (SENA A3B, below) and against the structural rules
   (legal counts, arrangements and placements, laid out by capacity). Options that would break a
   rule stay visible but are marked blocked, with an explanation. On a divided field charges can
@@ -20,7 +20,13 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 - **Blazon.** The formal blazon ("Azure, on a bend Or three unicorns rampant Vert") and a
   plain-English gloss are generated from the structured design, never typed by hand, in
   SCA house style (Table 7 default arrangements are left unsaid, other arrangements always
-  stated; the SCA's default postures likewise).
+  stated; the SCA's default postures likewise). Charges that have no contrast with one part of a
+  divided field (a mullet azure on per pale argent and azure) stand in the other part, as Table 7
+  forces them to, and the blazon does not say where: a field divided per pale, per bend, per bend
+  sinister or quarterly puts one to three of them in dexter, sinister, or a quarter (sinister chief,
+  dexter base…), as per fess and per chevron put them in chief or in base. Any field without a chief
+  also lets the main charges be set "in dexter", "in sinister chief" and so on (one to four, one
+  alone, two in pale or in fess, or in rows).
 - **Registry.** Each community (a *registry*, e.g. one group of friends) keeps its own
   armorial. Registering checks the design against every entry: an exact duplicate is refused, and so
   is a design that is "too close": one that conflicts under the SCA's rules (SENA A5), which
@@ -42,7 +48,7 @@ code.
 
 Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Design**, **Registry**, **Your arms**.
 
-**Design.** Above the builder sit a dismissable welcome strip, a small folding **Examples** box (example arms as small shields, each named by its caption in the accessible name and tooltip; open on a device's first visit, folded on later ones, remembered in `localStorage` and folded when storage is unavailable) and an always-visible **Surprise me** button. Loading an example or a surprise replaces the design with an Undo notice. The left column (sticky on wide screens while it fits the viewport) holds the live shield, a Hatching switch, the Shape picker (see Field shapes below), the blazon and plain-English gloss, the readability meter and the Check availability / Register… actions. The right column holds the builder: step 1 **Background** (field), step 2 **Band or shape** (ordinary) and step 3 **Picture** (charge: kind, count with **More…** above six, where it goes, layout, pose with the SCA's default marked, a **With a face (in splendour)** switch for the sun, colour). Under them a quiet secondary row offers the extra layer when it is legal: **+ Add pictures on the band** (a second group of pictures drawn on the band or top bar, with its own count, layout, pose and colour, and **Remove these pictures**), **+ Add a top band (chief)** and **+ Add a border (bordure)** (a second ordinary beside a central band; only offered while there is no picture, because the builder draws the two together only without pictures, and choosing a picture afterwards takes it away, which the Picture step says). Step 4 is then the card for that layer (**Remove the top band**, its colour). Hosts that cannot carry a layer never offer it. Options that would break the rule of tincture (or are structurally illegal) stay visible but are marked blocked; pressing one opens an explanation instead of applying it. A lower-layer change that breaks the design shows a violation panel (with a one-click fix when one exists) and disables Check and Register. The Field and Band or shape tiles show the heraldic term under the icon ("Per pale", "Fess"), with the everyday words ("Split down the middle") in the tooltip and the accessible name; the collapsed step summaries and other labels lead with the everyday words. On narrow screens the charge picker uses compact icon-only tiles (names are in the accessible name, the tooltip and a "Selected:" line).
+**Design.** Above the builder sit a dismissable welcome strip, a small folding **Examples** box (example arms as small shields, each named by its caption in the accessible name and tooltip; open on a device's first visit, folded on later ones, remembered in `localStorage` and folded when storage is unavailable) and an always-visible **Surprise me** button. Loading an example or a surprise replaces the design with an Undo notice. The left column (sticky on wide screens while it fits the viewport) holds the live shield, a Hatching switch, the Shape picker (see Field shapes below), the blazon and plain-English gloss, the readability meter and the Check availability / Register… actions. The right column holds the builder: step 1 **Background** (field), step 2 **Band or shape** (ordinary) and step 3 **Picture** (charge: kind, count with **More…** above six, where it goes, layout, pose with the SCA's default marked, a **With a face (in splendour)** switch for the sun, colour). Under each colour picker sits one closed **More colours and patterns…** (`<picker>-more`) for everything beyond a plain colour: a row of kinds (`<picker>-mode-<split|fur|pattern|scatter|treatment|natural>`) — Split in two, Fur, Stripes and checks, Scatter (the background and bands), Brick or scales, Natural colours (pictures that have them) — and under it the options of the kind shown; it opens by itself while the paint is one of them. The background's has no split (the division tiles are that) and, on a divided background, a switch for which part (`field-more-part-1|2`). After the step cards a quiet **+ Add pictures around, on or above** button opens the layer chooser, in three small groups (*On it*, *Around or beside it*, *Across it*), each option named after what it goes with ("Around the lion", "On the band"); one that can't be added here is greyed and says why when pressed, pictures on a top bar or border are listed once there is one, and adding a layer closes the chooser and moves focus to its new card, which has a × in its heading that removes it. The layers: pictures on the band (a second group of pictures drawn on the band, top bar or border, with its own count, layout, pose and colour), **+ Add a top band (chief)** and **+ Add a border (bordure)** (a chief and a bordure beside the band, one of each, together with the pictures: the pictures are refitted to the room they leave, so a layer is offered only when something fits), once a top band or border is there **+ Add pictures on the top bar** and **+ Add pictures on the border** (charges drawn on it: on the border they are small, evenly spaced along its middle, one to twelve, and upright), beside a band or a picture on the background **+ Add pictures along the top (in chief)**, **along the bottom (in base)** or **a picture in the top corner (in canton)** (one such group, never beside pictures set around the band: the picture keeps clear of the room they take; they stand in a row, or in chief and in base also in rows such as two and one, and two long charges crossed), on the picture on the background (not one set around a band) **+ Add pictures on the picture** ("on a heart argent a lion azure", "a unicorn argent charged with a fleur-de-lys", "three flames each charged with a heart": one to four charges on each picture, laid out in the rectangle the picture's drawing offers; one or two on a lion, three or four on a heart or sun; a key, sword, anchor, musical note or cogwheel carries none, and a sun in splendour none), and around a picture on the background with no band **+ Add pictures around the picture** ("a lion between three mullets": two to eight of them — three two above and one below, two on each side or above and below, four in the corners or in a cross, five to eight in a ring round the edge — around one picture, or two side by side, one above the other or crossed, which keep to a box in the middle; one such group beside or around the picture), and beside a band or a picture on the background **+ Add a band or picture across everything (overall)** ("a fess and overall a lion", "a lion and overall a bend", "a rose and overall two swords in saltire": one group, a picture over a band, a band — fess, pale, bend, bend sinister, chevron, cross or saltire — over a picture, or a sword or other long charge over a picture; one charge, or two long charges crossed; drawn over the band or picture but under a top band and a border; its card has a list of what goes across, with the choices SENA App I4 does not allow greyed out and explained), and on the background beside a picture that has no band, pictures around it, or pictures on it **+ Add a second main picture beside the picture** ("a unicorn argent and a rose gules", "two fleurs-de-lys argent and a rose purpure": two groups of pictures that are together the main picture, three pictures at most between them, laid out as one group — one in each part of a field split in two, two and one for three, otherwise side by side, one above the other or along a diagonal; the first picture takes the first place, and the same arrangement applies to both). Step 4 is then a card for each layer (its × labelled "Remove the top band", its colour). A band across everything, a top band or a border starts in a standard tincture no other band or picture has, while one works, so it can be told from what it crosses or meets. A layer that can't be drawn (no room, no colour that works, a host that can't carry it) is greyed in the chooser with its reason; the builder keeps what you have chosen and only drops a top band or border when it is what the builder can't draw beside a new band. Options that would break the rule of tincture (or are structurally illegal) stay visible but are marked blocked; pressing one opens an explanation instead of applying it. A lower-layer change that breaks the design shows a violation panel (with a one-click fix when one exists) and disables Check and Register. The Field and Band or shape tiles show the heraldic term under the icon ("Per pale", "Fess"), with the everyday words ("Split down the middle") in the tooltip and the accessible name; the collapsed step summaries and other labels lead with the everyday words. On narrow screens the charge picker uses compact icon-only tiles (names are in the accessible name, the tooltip and a "Selected:" line).
 
 **Check availability** shows an inline result: *Available*, *Already registered* or *Too close*, the last two with the conflicting mini shield, its name and blazon, the differences, and what to change. **Register…** opens a dialog (a bottom sheet on mobile) with a display name (public), an email address (required, private: "Used only to send you your edit/withdraw link. Never shown publicly.") and an optional Discord username (public), inline per-field errors using the same validators as the Worker, and a "What's public?" popover. A server 409 (duplicate / too close) is rendered with the same panel; an offline copy says the registry can't be reached. Success puts the share link first with a primary **Copy share link** button; the edit link sits below in a distinct "Secret edit link — don't share" box (lock icon, masked after 20 characters, Show and **Copy edit link** buttons), followed by a line saying whether it was emailed ("We've emailed it to you at the address you gave", or a clear note to save it now when sending failed or isn't configured). The address shown is what the user typed in this dialog; the API never returns it. The entry is also kept under Your arms on this device.
 
@@ -56,9 +62,25 @@ Three tabs (`role=tablist`; arrow keys, Home and End move between them): **Desig
 
 **States** (`data-widget-state` on `<html>`): Design — `ready`, `populated`, `error`; Registry — `loading`, `populated`, `empty`, `error`; Your arms — `populated` or `empty`. Dialogs and sheets keep the underlying tab's state.
 
-**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*`, `ordinary-*`, `charge-*`, `count-N` (above six inside `count-more`, whose options are `count-more-select`), `placement-*`, `swatch-<part>-<tincture>` (charges also `swatch-charge-counterchanged`), `posture-select`, `arrangement-select`, `splendour-toggle`; the extra layer `add-extra-picture`, `add-peripheral-chief`, `add-peripheral-bordure`, `remove-extra-picture`, `remove-peripheral`, the steps `step-field|ordinary|charges|extra|peripheral`, `peripheral-tincture`, `peripheral-picture-note`, and for extra pictures the same controls under an `extra-` prefix (`extra-charge-select`, `extra-count-N`, `extra-arrangement-select`, `extra-posture-select`, `extra-splendour-toggle`, `extra-charge-tincture`, `swatch-extra-charge-<tincture>`); status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `print-nametag`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`); nametag sheet `print-view`, `print-count`, `print-copies-one|fill`, `nametag`, `print-now`, `print-back`.
+**Test ids.** Tabs `tab-design|registry|yours`; builder options `shape-heater|banner|round|lozenge` (group `shape-select`), `field-kind-plain`, `division-*` (including `division-badge`), `ordinary-*`, `charge-*`, `count-N` (above six inside `count-more`, whose options are `count-more-select`), `placement-*`, `swatch-<part>-<tincture>` (charges also `swatch-charge-counterchanged`), `posture-select`, `arrangement-select`, `splendour-toggle`; paint `<picker>-more`, `<picker>-mode-<kind>`, `field-more-part-1|2`, furs `<picker>-fur-<ermine|vair|potent>`, `<picker>-fur-layout-<plain|counter|en-pointe>`, `<picker>-fur-colour-1|2`; the layer chooser `add-layer-toggle` and its buttons `add-layer-<co-primary|on-picture|around|in-chief|in-base|in-canton|on-ordinary|chief|on-chief|bordure|on-bordure|overall>`, `remove-layer-<…>`, the steps `step-field|ordinary|charges` and `step-layer-<co-primary|on-picture|around|in-chief|in-base|in-canton|on-ordinary|chief|on-chief|bordure|on-bordure|overall>`, `chief-tincture`, `bordure-tincture`, and for the second main picture, the pictures on the picture, around it, in chief, base or canton, on the band, the top band and the border the same controls under a `co-primary-`, `on-picture-`, `around-`, `in-chief-`, `in-base-`, `in-canton-`, `on-ordinary-`, `on-chief-` or `on-bordure-` prefix (and, for what lies overall, `overall-item-select` with `overall-tincture` for a band, or the picture controls under `overall-` for a picture; for the others `on-ordinary-charge-select`, `on-ordinary-count-N`, `on-ordinary-arrangement-select`, `on-ordinary-posture-select`, `on-ordinary-splendour-toggle`, `on-ordinary-charge-tincture`, `swatch-on-ordinary-charge-<tincture>`); status `blazon`, `gloss`, `violation-panel`, `tincture-explainer`; actions `check-availability`, `open-register`; results `availability-ok|duplicate|too-close|error`; register `register-dialog`, `register-name`, `register-email`, `register-discord`, `register-name-error|email-error|discord-error`, `register-error`, `public-info-button`, `public-info-popover`, `register-submit`, `register-success`, `share-link`, `copy-share-link`, `edit-link` (inside `edit-link-box`, with `copy-edit-link`, `reveal-edit-link`), `register-mail-status` (`data-outcome` sent|failed|disabled); registry `registry-search`, `filter-category|charge|posture|ordinary|division|field-tincture|tincture|charge-tincture`, `clear-filters`, `registry-refresh`, `registry-loading`, `registry-empty`, `registry-error`, `registry-retry`, `registry-show-sample`, `registry-more`, `result-card`, `entry-sheet`, `load-into-builder`, `print-nametag`, `entry-discord`, `copy-entry-discord`, `entry-recover-link`; owner `owner-name`, `owner-discord`, `owner-shape-<shape>`, `owner-save`, `owner-withdraw`, `withdraw-confirm`, `owner-stale`, `owner-denied`, `owner-edit-link`; recovery `header-recover-link`, `recover-view`, `recover-email`, `recover-email-error`, `recover-submit`, `recover-sent`, `recover-offline`, `redeem-view`, `redeem-new-link`, `redeem-withdraw`, `redeem-withdraw-confirm`, `redeem-recovered`, `redeem-edit-link`, `redeem-withdrawn`, `redeem-link-error` (`data-code`); nametag sheet `print-view`, `print-count`, `print-copies-one|fill`, `nametag`, `print-now`, `print-back`.
 
 **Keyboard.** Tab order follows the page; radio-style option groups are one tab stop with arrow keys moving and selecting (blocked options can be focused and explain themselves on Enter/Space). Dialogs and sheets trap focus, Escape closes only the topmost layer (a popover inside a dialog closes first), and focus returns to the opener. Animations are off under `prefers-reduced-motion`.
+
+## Fieldless badges
+
+A badge is armory with no field (`kind: 'badge'`, `field: null`), blazoned "(Fieldless) A wolf argent." and glossed "No background: a white wolf.". It is chosen with the **Badge** tile
+(`division-badge`, "No background (badge)") at the end of the Background step's tiles; the rest of the default flow is unchanged. Choosing it from a design with more than a picture leaves an Undo note under the tiles (`badge-notice`, `badge-undo`); a picture on a band becomes one picture of its own. Choosing it hides what has no meaning without a
+field — the background colours and patterns, the Shape picker and the Band or shape step — so the Picture step is step 2. Choosing a background again (One colour or a division) brings
+the picture back onto a background it stands out against.
+
+SENA A3A2 and A3C are the rules (`structure.ts`, rule `badge`): a badge is one self-contained design, so it is one charge, or two long charges crossed, with the charges on it;
+it has no band or border (a chief or bordure is defined by the edge of the field, and a central band would have to be couped, which is not drawn), no charge set in a place of
+the field, and a form of armorial display (heart, roundel, billet, lozenge) must be plain: one tincture or fur but not plain ermine, with nothing on it and not divided or treated.
+There is no field to contrast with (a main charge stands alone); a charge on a charge is judged against its host as on arms. Charges conjoined to the main one, something overall and
+two main charges are gaps (`fieldless:conjoined`, `fieldless:overall`, `fieldless:co-primary`).
+
+The charges are laid out as on a heater shield and drawn scaled to fill the picture (`badgeTransform` in `geometry.ts`, applied by `Shield`), with no shield outline, rim or clip;
+the field shape the draft keeps is ignored. A badge's conflict key has a NULL partition (see Uniqueness); `signature` starts `badge|`; the search tag is `field:none`.
 
 ## Field shapes
 
@@ -173,6 +195,107 @@ has to fire. When a design is already in a violation, the one-click fix tries a 
 (counterchanged last), then a new ordinary tincture, then both together, which always finds a way
 out.
 
+## Bands and pictures divided in two
+
+Any band or picture may be painted as a party of two plain tinctures, divided by any drawn division (per pale, per fess, per
+bend, per bend sinister, per chevron, per saltire, quarterly): `{ "k": "divided", "division": "per-pale", "parts": ["azure", "or"] }`
+as a group's `paint`. "A heart per pale azure and Or", "a cross quarterly Or and gules", "three hearts each per pale gules and
+sable"; "counterchanged Or and sable" on a divided field is the same party, divided as the field is.
+
+- **Where it is cut.** A band is cut through its middle (the fess point; the middle of a chief's band), each charge through
+  its own centre, in the charge's own frame, so a charge turned on a bend is cut along its own axes. A cut that misses a band
+  (a pile per fess lies wholly below the line) is a structure issue, as is a long charge cut per chevron (RULES CC-11) and two
+  parts of one tincture (SENA A3B3a).
+- **The rule of tincture.** The class of a party is the class of its parts when they agree and neutral when a metal meets a colour
+  (SENA A3B1); it shares both its tinctures. A neutral party stands out on anything it shares no tincture with, so "a heart per pale
+  azure and Or" passes on gules and fails on azure. Where it lies across the parts of a divided field, each part may also be judged
+  against the section under it (A3B4b): "Per pale sable and argent, a bordure per pale argent and azure" passes, cut per fess it
+  does not. A charge on a divided band is judged against the band as a whole.
+- **Text.** Blazon `per pale azure and Or` after the item (`each per pale …` for several charges); the gloss says how the colours
+  are split; the signature has the division and both tinctures; both tinctures are tags (`charge-tincture:azure`, `ordinary-tincture:or`);
+  a different division or different tinctures is a distinct change (A5G3).
+- **The builder.** **Split in two** in every colour picker's More colours and patterns… (`PaintPicker`; test ids `<picker>-mode-split`, `<picker>-split`,
+  `<picker>-division-<division>`, `<picker>-part-1|2`): a button splits the colour, then a division and a tincture for each part. A part is offered when
+  some tincture for the other part makes the pair stand out, and the other part moves only when it would no longer do so
+  (`splitGroup`, `partyDivisionChoices`, `partyTinctureChoices`, `setPartyTincture` in options.ts).
+
+## Stripes and checks
+
+The background, and any band or picture, may be varied in two plain tinctures: barry, paly, bendy, bendy sinister, chevronelly,
+checky, lozengy, fusily, pily, barry bendy and paly bendy (`{ "k": "variation", "variation": "barry", "pieces": 8, "parts": ["argent", "azure"] }`;
+`variation.test.ts`). The first tincture lies in the dexter chief corner. Barry, paly, bendy, bendy sinister and chevronelly are counted:
+4, 6 or 8 stripes (an odd count is a set of ordinaries, not a field), six when none is given and not blazoned ("barry of six" is the same
+design; "barry of eight argent and azure" says the count). The other patterns have no count. A variation as a *part* of a divided field
+("per pale argent and barry sable and Or"), furs in the stripes, other counts and lines of partition are gaps in `support.ts`.
+
+- **Drawing.** `variation-geometry.ts` lays the cells out over a box (the shape's for the field, the band's own bounding box for a
+  band, the drawn box of each charge, turned with it) and gives the two region paths and the membership test the rule of tincture uses.
+  Pily is the field with three piles cut out of it (drawn turning the other way), the second tincture filling them.
+- **The rule of tincture.** A variation is judged as a whole (SENA A3B1): its class is that of its tinctures when they agree and
+  neutral when a metal meets a colour, and it shares both. Its tinctures must be a metal and a colour (A3B3d). A band may share a tincture
+  with the ground when exactly one of the two is in stripes or cells (A3B4b: "Lozengy Or and azure, a chief azure"; "Pily Or and sable,
+  a bordure per fess sable and Or"); a charge may not. A counterchanged band is available over simple stripes when it runs across them
+  (CC-2: "Paly sable and Or, a bend counterchanged"), a counterchanged chief or bordure over pily (CC-9); a counterchanged charge, or
+  anything over a grid, is not (CC-3).
+- **Conflict.** A variation is in the A5F1b category of the division it multiplies (barry with per fess, paly and pily with per pale,
+  chevronelly with per chevron), the lattices (lozengy, fusily, barry bendy, paly bendy) together and checky on its own; within a
+  category a different number of pieces (1 to 4 are each distinct, more are one) or a different lattice is a distinct change (`field-style`,
+  A5G1d and A5G1b); the tinctures are compared as for any field, checky either way round (Prec #FIELDCheck).
+- **The builder.** "Stripes and checks" in More colours and patterns… of the background and of every colour picker (`VariationPicker.tsx`): a chip per
+  pattern, the count for the counted ones, the two tinctures (`setVariation`, `setVariationPieces`, `setVariationTincture` in
+  builder.ts; `groupVariationChoices`, `setGroupVariation` … in options.ts for a band or picture, where a pattern or tincture is
+  blocked when no partner makes the pair stand out on what it lies on).
+
+## Treatments and natural colours
+
+**Treatments** are a tincture with a pattern of lines in another: masoned (a brick wall), scaly and papellony (voided scales, papellony with
+a smaller scale inside; `{ "k": "treated", "treatment": "masoned", "ground": "argent", "ink": "sable" }`; `treatment.test.ts`). They cover
+the background, a part of a divided background, or any band or picture. Fretty (a charge), plumetty (fur-like), a treatment on a fur and a
+counterchanged treatment are gaps in `support.ts`.
+
+- **The rule of tincture.** The treatment is part of the tincture it lies on (GoT "Field Treatment"): the surface has the class and base
+  tincture of its ground, and the ink must be a metal against a colour or the other way round (`StructureRule` `treatment`). A charge may not
+  share the ground's tincture. A divided background's parts may not share a ground (A3B3a: "gules and gules masoned Or").
+- **Conflict.** `Surface.variant` makes a treated tincture another tincture from its ground (A5F2: a change of tincture, so a substantial
+  change between field-primary designs): the same treatment on the same tincture in another ink is no change, and papellony and scaly are one
+  ("Argent papellony gules conflicts with Argent scaly sable"). Masoned and scaly are different treatments.
+- **The builder.** "Brick or scales" in More colours and patterns… (`TreatmentPicker.tsx`): a chip per treatment and the lines' tincture; the colour
+  picker above sets the tincture it is laid on and keeps the treatment, and "No brick or scales" takes it away (`treatment-options.ts`; the target is a `PaintTarget` shared with the fur picker).
+
+**Natural colours** (`{ "k": "proper" }`, "a lion proper") are a paint of a picture, for the charges whose `ChargeMeta.proper` has a palette
+(GoT Table 4): lion, boar, stag, hare, owl, bee, rose, tree, open book, sword and flame. Proper is no tincture: its surface takes the
+class and the conflict tincture of its palette's "taken from" part (a lion is Or, a rose gules, a boar brown; brown is a tincture of its own),
+so a rose proper is no different from a rose gules and a boar proper differs from a boar sable. Each palette is one flat fill (the
+flame's two are split per fess); the hatching option leaves it unhatched. The builder offers "Natural colours" in the picture's More colours and patterns…
+only when the charge has a palette (`proper-options.ts`). "Brown X proper", a proper ordinary and proper on part of a split picture are gaps.
+
+## Semy
+
+
+A **semy** (strewn charges) is a plain tincture with one charge strewn over it in another tincture
+(`{ "k": "semy", "ground": "azure", "charge": { "charge": "mullet" }, "ink": "or" }`; `semy.test.ts`). It covers the background, a part of a divided
+background, or a band (a bordure, a chief, a chevron: "a bordure argent mullety sable"); a field divided in two with the same charge on both parts is
+"all semy of" it, in one tincture or counterchanged ("Per pale azure and argent all semy of roses counterchanged"). A semy on a picture, on a fur or
+of a charge form is a gap in `support.ts`.
+
+
+- **The drawing.** `semyPattern` (`patterns.ts`) is a square tile with the charge's drawing in it once; the tile is turned a quarter of a turn
+  about the shield's middle and the charge is turned back upright, so the charges stand in staggered rows (about five across the background, eight
+  or so round a bordure). Each part of a divided field is drawn with its own pattern, so a charge on the line is cut by it, as "counterchanged" has it.
+- **The names.** `aliases.ts` holds the one table of names the widget words a semy with (`semy-de-lys`, `crusilly`, `billety`, `mullety`, `estencely`,
+  `bezanty`, `platy`, `hurty`, `pellety`, `semy of torteaux`, `goutty de sang` …): a name that fixes the tincture states none. The matcher's
+  normaliser (rule `semy-names`) reads every name and spelling as "semy of <charges> <tincture>", the tincture left unsaid being the next one stated.
+- **The rule of tincture.** What lies on a semy lies on its ground (its surface is the ground's). The strewn charges must contrast with the tincture
+  they are strewn on, a part's semy with that part alone (A3B4a: "Per pale gules and argent semy of billets gules"; D3 judges "all semy of" against
+  each part); they may share the tincture of the main picture (Prec #SEMY). A field divided and strewn alike is judged on each of its parts.
+- **Groups and conflict.** `strewn.ts`: a semy on the field is the primary group when no main picture stands in the middle and a secondary group when
+  one does; a semy on a band is a tertiary group on it. `liftStrewn` states a design with its semys as such groups (six charges, the "6+" number)
+  on plain grounds, which is what `differences` and `candidateKey` compare (A5E1–A5E3, A5G2–A5G5); `strewnIssues` adds the structure rules (A3D1a: the
+  charge of a semy is not used again in another group on the field; App I3: one group of charges on a band).
+- **The builder.** "Scatter" in More colours and patterns… of the background and of a band (`SemyPicker.tsx`, `semy-options.ts`): a picture to strew
+  and the colour of the pictures; the colour picker above sets the colour it is strewn on and keeps the scatter, and "None" takes it away.
+
+
 **Charges on a bend stay upright.** Heraldic convention turns charges on a bend "bendwise", but
 which way depends on the charge and its posture (a beast passant walks up the bend, a sword points
 up it, an upright charge rotates the other way, and a bend sinister has no settled convention), so
@@ -196,19 +319,19 @@ Both are wrapped in `try/catch`; private mode or a full quota just disables them
 ### Design model
 
 A design is `{ v: 2, kind: 'arms', field, groups }` (`src/lib/heraldry/design.ts`). The field is a
-recursive paint (a tincture, or a division with its parts). Each group carries an item (an
+recursive paint (a tincture, a fur, a treated tincture, a tincture strewn with a charge, a division with its parts, or a variation of two tinctures). Each group carries an item (an
 ordinary or a charge), a count, an arrangement and optional position, a paint and, in
 `charged`, the groups sitting on it; its role (primary, secondary, peripheral, overall, tertiary)
 and relation (between, about, position) say how it relates to the field and the other groups.
-There is no cap on groups. `kind: 'badge'` (a fieldless badge) is in the type, as are furs, stains,
-proper, field treatments, lines of partition and charge attributes (form, facing, orientation,
+There is no cap on groups. A fieldless badge (`kind: 'badge'`, `field: null`; see Fieldless badges) is drawn; stains,
+proper on charges without a palette, the other field treatments, lines of partition and charge attributes (form, facing, orientation,
 parts, holds); the builder does not draw those yet, so `resolve` accepts them and `support.ts`
 reports each as an `unsupported` issue naming the gap (the SCA test files records under the same
-tags). Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
+tags). Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
 (SENA Table 7 arrangements, the SCA's default postures) and puts the groups in canonical order, so
 equivalent inputs have one JSON form and one signature. The builder's own space is the
 "simple space": one ordinary, one picture group (on the field, between the ordinary, or on it),
-extra pictures on the ordinary, or a chief/bordure beside a central ordinary.
+extra pictures on the ordinary, a chief and a bordure beside the ordinary, each with pictures of its own, a secondary group set in chief, in base or in canton beside the ordinary or the picture (SENA App I1: beside a central element such charges are secondary; with none they are the primary group), or a secondary group set "between" the picture when it is one group of one or two charges with no band (Table 7's "around any other charge(s)" layouts), a second primary group of charges that is laid out together with the picture (SENA App I1: two groups on the field with no band between are together the primary group; up to three charges between them, in the order they are written, with the one arrangement of all of them), and a tertiary group on the picture when it is the primary charges (Table 7's "on any other charge": one to four on each, each charge's on-box in `charge-art.ts` saying where its drawing carries them; the count is per host charge). `places.ts` names every group of such a design by a structural place (`ordinary`, `picture`, `co-primary`, `on-picture`, `around`, `in-chief`, `in-base`, `in-canton`, `on-ordinary`, `chief`, `on-chief`, `bordure`, `on-bordure`, `overall`) that doesn't change when groups are added or removed, and `layers.ts` adds and removes the layers on top of the band and the picture.
 
 ### Registry-keyed model
 
@@ -220,7 +343,7 @@ parameter, the API uses the default registry (`is_default = 1`, `default` today)
 | table | contents |
 |---|---|
 | `registries` | `id`, `name`, `is_default`, `created_at`. Seeded with `('default', 'Default', 1, …)`. |
-| `arms` | `id`, `registry_id`, `display_name`, `contact_discord` (nullable, CHECK-constrained to a valid Discord username), the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, `readability`, the conflict key `partition_key` / `primary_key` (see Uniqueness), `search_text` (blazon + gloss + display name as lowercase words, a space at each end; never contact, email or shape), `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
+| `arms` | `id`, `registry_id`, `display_name`, `contact_discord` (nullable, CHECK-constrained to a valid Discord username), the normalised `design` JSON, `field_shape` (`heater` \| `banner` \| `round` \| `lozenge`, CHECK-constrained, default `heater`; display only), `signature`, `blazon`, `readability`, the conflict key `partition_key` (NULL for a fieldless badge) / `primary_key` (see Uniqueness), `search_text` (blazon + gloss + display name as lowercase words, a space at each end; never contact, email or shape), `edit_secret_hash`, `rev`, `created_at`, `updated_at`. |
 | `arms_tags` | `(arms_id, registry_id, tag)`: derived search tags such as `charge:wolf`, `posture:passant`, `ordinary:bordure`, `tincture:or`, indexed on `(registry_id, tag)`. |
 | `owner_emails` | `arms_id` (primary key), `email_hmac` (hex HMAC-SHA-256 of the normalised owner address), `key_version`, `created_at`. Indexed on `(email_hmac, key_version)`. Never the address. |
 | `owner_tokens` | `token_hash` (SHA-256 of a recovery token), `arms_id`, `created_at`, `expires_at`, `used_at`. |
@@ -257,9 +380,11 @@ tincture. It then computes everything itself:
   two distinct changes. The field shape is never compared.
 - **Conflict key.** A different field partition or primary group is always a substantial change, so
   the check only needs the entries that share both. Each row stores them (`partition_key`,
-  `primary_key`, NULL when the field is the primary), and the Worker loads just those candidates
-  through the `arms_registry_conflict_keys` index, in registration order, and reports the first entry
-  that is too close.
+  `primary_key`, NULL when the field is the primary, `*` when two groups of charges are together the
+  primary, which may share a type with any entry that has a primary: `keysMayConflict`), and the Worker loads just those candidates
+  through the `arms_registry_primary_partition` index, in registration order, and reports the first entry
+  that is too close. A fieldless badge has a NULL `partition_key`: with no field it differs from armory that has one by
+  one distinct change only (A5G1e), so a NULL partition on either side matches any partition.
 - A registry holds at most **2,000 entries** (`409 registry_full`), counted with `COUNT(*)`.
 
 ### API (`worker/index.ts`)
@@ -489,7 +614,10 @@ migration: add the next-numbered file.
   `arms`, `arms_tags`, `owner_emails` and `owner_tokens` (every registered entry is discarded; the
   production registry was deliberately thrown away) and keeps `registries`. `arms` gets
   `partition_key` and `primary_key` in place of the six component and group columns, and the
-  `arms_registry_conflict_keys` index the too-close lookup uses. **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
+  `arms_registry_conflict_keys` index the too-close lookup uses (superseded by 0008). **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
+- `0008_fieldless_keys.sql`: makes `partition_key` nullable (NULL = fieldless badge) and replaces the lookup index by
+  `arms_registry_primary_partition` (`registry_id, primary_key, partition_key`). Like 0007 it drops and recreates `arms`,
+  `arms_tags`, `owner_emails` and `owner_tokens` (every registered entry is discarded) and keeps `registries`. **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
 
 Local database (used by `wrangler dev`):
 
@@ -591,7 +719,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
-- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
+- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps, Discord normalisation and the `contact_discord` CHECK
@@ -612,7 +740,7 @@ npm run favicon
   - response headers, the 16 KB body cap, the structured error log, one default registry, tag cascade
   - the too-close candidate lookup giving the same verdicts as a full registry scan, and distinct-change verdicts
 - `test/prefilter.test.ts`: the conflict key never changes a `checkUnique` verdict, over generated designs.
-- `test/migrations.test.ts`: migrations apply from empty, `0001` matches the production schema (`test/fixtures/production-schema.sql`, the original `schema.sql`), re-running it is harmless, `0002`–`0006` carry rows across, and `0007` empties the arms and owner tables, keeps the registries, checks the Discord username, cascades deletes to tags and owner tables, and serves the candidate lookup from its index.
+- `test/migrations.test.ts`: migrations apply from empty, `0001` matches the production schema (`test/fixtures/production-schema.sql`, the original `schema.sql`), re-running it is harmless, `0002`–`0006` carry rows across, and `0007`/`0008` empty the arms and owner tables, keeps the registries, checks the Discord username, cascades deletes to tags and owner tables, and serves the candidate lookup from its index.
 - `test/contact.test.ts`: the shared Discord and email validators.
 - `test/store.test.ts`: the store's offline mode (sample search/check, offline refusal of writes,
   owner checks and recovery) and its online result mapping (register with email and Discord,
@@ -664,15 +792,18 @@ pending migrations (see Migrations), then run `npm run build` and `npx wrangler 
 The model already has a place for each of these (see Design model); the builder, blazon and
 drawing do not yet, and `resolve` reports them as `unsupported` rather than guessing:
 
-- **Fieldless badges** (`kind: 'badge'`). Planned for phase B, following SCA practice.
+- **Fieldless badges beyond one charge and what is on it**: charges conjoined to the main one ("within and conjoined to", "surmounted by"), something overall on a badge, two main charges, couped ordinaries, and the display-as-field reading of conflict (LoAR 5614). Each is a `fieldless:<detail>` gap.
 - **Marshalling** (impalement, quartering of two coats): out of scope; the model is designed
   without it.
-- **Furs** (ermine, vair), **stains**, **proper**, **lines of partition** (wavy, indented, …),
-  **field treatments** (barry, checky, semy, …) and charge attributes such as holding or
-  arming, the overall position and half-field positions (dexter, sinister).
-- **More than the supported group combinations**: a band with a picture and a chief or bordure,
-  two charge groups beside the main one, a charge overall, tertiary charges on a charge or
-  bordure. A band with a chief or bordure and no charges is built (the extra layer card).
+- **Stains**, **lines of partition** (wavy, indented, …),
+  **field treatments** (fretty, plumetty, …), a **semy** on a picture, on a fur or of a charge form, **proper** for charges without a palette and charge attributes such as holding or
+  arming.
+- **More than the supported group combinations**: more than three charges in two main groups, three or more main groups, a band and a picture as the main ones together, charges around, on or across two main pictures, two charge groups beside the main one, more than one charge
+  overall (or a pile, chief or bordure overall), tertiary charges on a secondary or overall charge (or with charges around the primary), charges in chief beside pictures set around a band, charges
+  around three or more primary charges or "about" them, and positions other than in chief, in base and
+  in canton for a group beside the main one (the main charges can be set in a half or quarter of the field). A chief and
+  a bordure beside a band, with pictures on them, pictures in chief, base or canton, and pictures
+  around the picture, and pictures on the picture, and a band or picture across everything are built (the extra layer cards).
 - **Art** is original placeholder drawing; traceable art is under discussion.
 - **Moderation:** a moderator token, hidden status and a report link. An owner withdraws their
   own entry, with the edit link or a recovery email.

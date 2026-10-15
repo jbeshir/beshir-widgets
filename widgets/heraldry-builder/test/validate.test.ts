@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { blazon, deriveTags, gloss, normalise, readability, signature, unsupportedIssues, validate } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 import { UNSUPPORTED_CASES } from './unsupported-cases';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 
 describe('normalise', () => {
   it('returns the canonical design when nothing is wrong', () => {
@@ -48,11 +48,11 @@ describe('normalise', () => {
   it('does not judge the tinctures of charges that have no layout, and does not throw', () => {
     // Charges "between" with no central ordinary: the structure rule says so; there is nothing to probe.
     const r = normalise({ v: 2, field: 'azure', groups: [{ item: charge('rose'), paint: 'or', role: 'secondary', relation: 'between', count: 3 }] });
-    expect(!r.ok && r.errors.map((e) => e.message)).toEqual(['Charges can only be set between a central band or shape.']);
+    expect(!r.ok && r.errors.map((e) => e.message)).toEqual(['Charges can only be set between a central band or shape, or around a picture in the middle.']);
   });
 
   it('agrees with validate on resolved designs, and passes everything the generator makes', () => {
-    for (const d of generatedDesigns(5, 80)) {
+    for (const d of [...generatedDesigns(5, 80), ...generatedRichDesigns(5, 80)]) {
       expect(validate(d)).toEqual([]);
       expect(unsupportedIssues(d)).toEqual([]);
       expect(normalise(d)).toEqual({ ok: true, design: d });
@@ -68,7 +68,7 @@ describe('every stage over layouts good and bad', () => {
     for (const field of ['azure', div('per-pale', 'argent', 'sable'), div('quarterly', 'or', 'gules')]) {
       for (const type of [null, 'fess', 'chevron', 'chief', 'bordure']) {
         for (const placement of ['field', 'on'] as const) {
-          if (placement === 'on' && (type === null || type === 'bordure')) continue;
+          if (placement === 'on' && type === null) continue;
           for (let count = 1; count <= 12; count++) {
             for (const key of KEYS) {
               const picture = group(charge('mullet'), 'counterchanged', { count, ...(key ? { arrangement: key } : {}) });

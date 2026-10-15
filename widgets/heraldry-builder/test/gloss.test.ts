@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { CHARGE_IDS, betweenWords, gloss } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { V } from './validation-cases';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -41,6 +41,24 @@ describe('new constructs', () => {
       .toBe('A blue shield with a gold horizontal band across the middle, carrying three red roses, and three gold five-pointed stars, two above and one below.');
     expect(say('gules', ord('chief', 'or', { charged: [chg('rose', 'gules', { count: 2 })] })))
       .toBe('A red shield with a gold band across the top carrying two red roses.');
+  });
+
+  it('words charges set around the primary charges and how they stand', () => {
+    expect(say('azure', chg('lion', 'or'), chg('rose', 'argent', { count: 3, relation: 'between' })))
+      .toBe('A blue shield with a gold lion rearing up between three white roses, two above and one below.');
+    expect(say('sable', chg('sword', 'or', { count: 2, arrangement: 'crossed' }), chg('mullet', 'argent', { count: 4, relation: 'between', arrangement: 'in-cross' })))
+      .toBe('A black shield with two gold swords, crossed like an X, between four white five-pointed stars, one above, one below and one on each side.');
+    expect(say('vert', chg('tree', 'or'), chg('crescent', 'or', { count: 2, relation: 'between', arrangement: 'in-pale' }), ord('bordure', 'argent')))
+      .toBe('A green shield with a gold tree between two gold crescent moons, one above and one below, and a white border around the edge.');
+  });
+
+  it('words charges in chief, in base or in canton beside the primary', () => {
+    expect(say('purpure', chg('bee', 'or'), chg('mullet', 'argent', { count: 3, position: 'chief' })))
+      .toBe('A purple shield with a gold bee and three white five-pointed stars, in a row along the top.');
+    expect(say('argent', ord('chevron', 'sable'), chg('crescent', 'sable', { position: 'base' })))
+      .toBe('A white shield with a black upside-down V and a black crescent moon, near the bottom.');
+    expect(say('sable', chg('dragon', 'argent'), chg('crescent', 'argent', { position: 'canton' }), ord('bordure', 'argent')))
+      .toBe('A black shield with a white dragon rearing up and a white crescent moon, in the top-left corner, and a white border around the edge.');
   });
 
   it('words a chief and a bordure beside a band', () => {
@@ -88,6 +106,6 @@ describe('every charge', () => {
   });
 
   it('never throws on, and always ends a sentence for, generated designs', () => {
-    for (const d of generatedDesigns(9, 200)) expect(gloss(d)).toMatch(/\.$/);
+    for (const d of [...generatedDesigns(9, 200), ...generatedRichDesigns(9, 200)]) expect(gloss(d)).toMatch(/\.$/);
   });
 });

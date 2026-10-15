@@ -12,17 +12,14 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, POSTURES, TINCTURES,
-  blazon, normalise, postureTerm, type ChargeId, type Design, type Division, type Gap, type Issue, type OrdinaryType, type Posture,
+  CHARGES, CHARGE_IDS, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, ORDINARY_KIND, ORDINARY_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME,
+  blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
+import { DIVISION_WORDS, readPaint } from './paint-grammar';
 
-/** A design input as `resolve` reads it. */
-export interface DesignInput {
-  v: 2;
-  field: unknown;
-  groups: unknown[];
-}
+/** A design input as `resolve` reads it: arms with a field, or a fieldless badge. */
+export type DesignInput = { v: 2; field: unknown; groups: unknown[] } | { v: 2; kind: 'badge'; groups: unknown[] };
 
 /** A proposed design and what the widget makes of it. */
 export interface Candidate {
@@ -36,20 +33,21 @@ export interface Candidate {
   normalised: string | null;
   /** The same with the College's defaults stated: normaliseBlazon(blazon(design, { stateDefaults: true })); null without a design. */
   stated: string | null;
+  /** The wordings with the tincture of every element stated, not once for a run of elements that share it, where the widget shares one; [] otherwise. */
+  restated: string[];
 }
 
-/** Whether a candidate's design is worded as the normalised text: in house style, or with its defaults stated. */
-export const wordedAs = (c: Candidate, normalisedText: string): boolean => c.normalised === normalisedText || c.stated === normalisedText;
+/** Whether a candidate's design is worded as the normalised text: in house style, with its defaults stated, or with its tinctures stated. */
+export const wordedAs = (c: Candidate, normalisedText: string): boolean => c.normalised === normalisedText || c.stated === normalisedText || c.restated.includes(normalisedText);
 
 /**
- * fieldless   — "(Fieldless) …": the widget always has a field
  * vocabulary  — a word outside the widget's blazon vocabulary (`unknownWord`)
  * unparsed    — every word known, but not in a shape the matcher proposes
  * unsupported — proposed, but the widget doesn't draw something in it (`gaps`)
  * near-miss   — candidates proposed, none blazons identically
  * match       — `match` blazons identically
  */
-export type MatchStatus = 'fieldless' | 'vocabulary' | 'unparsed' | 'unsupported' | 'near-miss' | 'match';
+export type MatchStatus = 'vocabulary' | 'unparsed' | 'unsupported' | 'near-miss' | 'match';
 
 export interface MatchResult {
   status: MatchStatus;
@@ -75,13 +73,14 @@ export interface MatchResult {
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length)
   .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
 
-const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 const ORDINARY_WORDS = new Map<string, OrdinaryType>(DRAWN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
 const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as const;
 const COUNT_WORDS = new Map<string, number>([['a', 1], ['an', 1], ...NUMBER_WORDS.map((w, i): [string, number] => [w, i + 1])]);
 const LINE_WORDS = ['pale', 'fess', 'bend sinister', 'bend'] as const;
-const POSITION_WORDS = ['chief', 'base'] as const;
+const POSITION_WORDS = ['chief', 'base', 'canton', 'dexter chief', 'sinister chief', 'dexter base', 'sinister base', 'dexter', 'sinister'] as const;
 const PATTERN_WORDS = ['saltire', 'cross', 'orle', 'annulo'] as const;
+/** What can follow "in" before a group, the longest first ("sinister chief" before "sinister"). */
+const LEADS = [...LINE_WORDS, ...POSITION_WORDS].sort((a, b) => b.split(' ').length - a.split(' ').length);
 
 /** Charge noun → charge and number. "fish" is both. */
 const NOUNS = new Map<string, { id: ChargeId; plural: boolean; singular: boolean }>();
@@ -103,30 +102,31 @@ function postureFor(id: ChargeId, word: string): Posture | null {
   return POSTURE_BY_WORD.get(word) ?? POSTURES.find((p) => p === word) ?? null;
 }
 
-const T = `(?:${TINCTURES.join('|')})`;
-const CT = `(?:${TINCTURES.join('|')}|counterchanged)`;
 const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${alt(NUMBER_WORDS)})`;
 
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    ...TINCTURES, 'counterchanged', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base',
-    ...DIVISION_WORDS.keys(), ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
+    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall',
+    ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
 // ── Parser ──────────────────────────────────────────────────────────────────
 // A token grammar over the normalised text (words, with commas as tokens of their own):
-//   blazon     := field [',' element (connector element)*]
+//   blazon     := field [',' element (connector element)*] | '(fieldless)' element (connector element)*
 //   field      := T | DIVISION T 'and' T
 //   element    := ['on'] ('a'|'an') ordinary [T]   an ordinary, central or peripheral ("on" when a group sits on it)
 //               | 'on' group                        a charge group with a group on it
+//               | 'each charged with' group          the group before it, a charge group, with the group on each charge
+//               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
 //   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['in splendor'] [('in' PATTERN)|ROWS] [T]
+//   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | ε
-// A group straight after "between", or joined to one by "and", is set around the ordinary; any other
+// A group straight after "between", or joined to one by "and", is set around the ordinary or the primary charges; any other
 // group after an "on" ordinary sits on it. A phrase without a tincture takes the next stated one, except
 // that a tincture never crosses into or out of a group on a host (Bruce). The parser only proposes:
 // `resolve` infers roles, and verify() decides by comparing blazons.
@@ -134,7 +134,7 @@ const VOCABULARY = new Set<string>(
 interface Phrase {
   /** The group input, without its paint. */
   group: Record<string, unknown>;
-  paint: string | null;
+  paint: unknown;
 }
 
 /** A top-level group, with the group that sits on it. */
@@ -145,23 +145,27 @@ const ORDINARY_PHRASES = [...ORDINARY_WORDS.keys()].map((o) => o.split(' ')).sor
 const startsWith = (tokens: string[], i: number, phrase: readonly string[]) => phrase.every((w, j) => tokens[i + j] === w);
 const isNumber = (w: string | undefined): boolean => (NUMBER_WORDS as readonly string[]).includes(w!);
 const numberOf = (w: string) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1;
-const tinctureAt = (tokens: string[], i: number): string | null => (new RegExp(`^${CT}$`).test(tokens[i] ?? '') ? tokens[i] : null);
 
 function parseField(text: string): unknown {
-  const m = new RegExp(`^(?:(?<plain>${T})|(?<division>${alt(DIVISION_WORDS.keys())}) (?<a>${T}) and (?<b>${T}))$`).exec(text);
-  if (!m) return null;
-  const g = m.groups!;
-  return g.plain ?? { k: 'divided', division: DIVISION_WORDS.get(g.division), parts: [g.a, g.b] };
+  const tokens = text.split(' ');
+  const read = readPaint(tokens, 0, 'field');
+  return read?.end === tokens.length ? read.paint : null;
 }
 
 /** The charge group at `start` with the index after it, or null when count, noun and posture don't agree. */
 function readGroup(tokens: string[], start: number): { phrase: Phrase; end: number } | null {
   let i = start;
   let lead: string | null = null;
+  // "in pale", "in chief", or a line within a half or quarter ("in dexter in pale", the normalised "in dexter two mullets in pale").
+  let line: string | null = null;
   if (tokens[i] === 'in') {
-    lead = [...LINE_WORDS, ...POSITION_WORDS].find((w) => startsWith(tokens, i + 1, w.split(' '))) ?? null;
+    lead = LEADS.find((w) => startsWith(tokens, i + 1, w.split(' '))) ?? null;
     if (!lead) return null;
     i += 1 + lead.split(' ').length;
+    if ((POSITION_WORDS as readonly string[]).includes(lead) && tokens[i] === 'in') {
+      line = LINE_WORDS.find((w) => startsWith(tokens, i + 1, w.split(' '))) ?? null;
+      if (line) i += 1 + line.split(' ').length;
+    }
   }
   const count = COUNT_WORDS.get(tokens[i]);
   if (count === undefined) return null;
@@ -183,7 +187,12 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     i += 2;
   }
   const group: Record<string, unknown> = { item, count };
-  if (lead) group.arrangement = `in-${lead.replace(' ', '-')}`;
+  // "in chief three mullets" places the group (the widget lays it out there); "in pale two keys" arranges it.
+  if (lead) {
+    if ((POSITION_WORDS as readonly string[]).includes(lead)) group.position = lead.replace(' ', '-');
+    else group.arrangement = `in-${lead.replace(' ', '-')}`;
+  }
+  if (line) group.arrangement = `in-${line.replace(' ', '-')}`;
   if (tokens[i] === 'in' && (PATTERN_WORDS as readonly string[]).includes(tokens[i + 1])) {
     const pattern = tokens[i + 1];
     group.arrangement = pattern === 'saltire' && count === 2 && CHARGES[noun.id].long ? 'crossed' : `in-${pattern}`;
@@ -197,8 +206,8 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     if (rows.length < 2) return null;
     group.arrangement = `rows-${rows.join('-')}`;
   }
-  const paint = tinctureAt(tokens, i);
-  return { phrase: { group, paint }, end: paint ? i + 1 : i };
+  const read = readPaint(tokens, i, 'group');
+  return { phrase: { group, paint: read?.paint ?? null }, end: read ? read.end : i };
 }
 
 /** What the body of a blazon reads as: the design input's groups, or a construct the widget doesn't draw. */
@@ -212,11 +221,30 @@ function parseBody(tokens: string[]): Body | null {
   let host: Node | null = null;       // an "on" ordinary still waiting for its group
   let between = false;
   let joined = false;                  // the last connector was "and", or "between" has just been read
+  let overall = false;                 // "overall" has just been read: the next element lies across everything
   let i = 0;
   while (i < tokens.length) {
     const w = tokens[i];
     if (w === ',' || w === 'and') {
       joined = w === 'and';
+      i++;
+    } else if (w === 'each' && tokens[i + 1] === 'charged' && tokens[i + 2] === 'with') {
+      // "three flames argent each charged with a heart azure": the group before it carries the next one on every charge.
+      const carrier = top[top.length - 1];
+      if (!carrier || carrier.on || carrier.phrase.group.item === undefined || (carrier.phrase.group.item as { k: string }).k !== 'charge') return null;
+      host = carrier;
+      between = false;
+      joined = false;
+      i += 3;
+    } else if (w === 'overall') {
+      // With no main band or picture before it (only a chief or bordure), what follows is the main group itself (SENA App I4).
+      overall = top.some(({ phrase }) => {
+        const item = phrase.group.item as { k: string; type?: OrdinaryType };
+        return item.k === 'charge' || ORDINARY_KIND[item.type!] === 'central';
+      });
+      host = null;
+      between = false;
+      joined = false;
       i++;
     } else if (w === 'between') {
       // "on a cross argent a rose sable between four roses gules": with no comma the charges between are on the
@@ -228,20 +256,29 @@ function parseBody(tokens: string[]): Body | null {
     } else {
       const on = w === 'on';
       const j = on ? i + 1 : i;
-      const ordinary = tokens[j] === 'a' || tokens[j] === 'an' ? ORDINARY_PHRASES.find((o) => startsWith(tokens, j + 1, o)) : undefined;
+      // "a cross crosslet" is a charge, though "a cross" is an ordinary: the longer noun wins.
+      const ordinary = tokens[j] === 'a' || tokens[j] === 'an'
+        ? ORDINARY_PHRASES.find((o) => startsWith(tokens, j + 1, o) && !NOUN_PHRASES.some((n) => n.length > o.length && startsWith(tokens, j + 1, n)))
+        : undefined;
       if (ordinary) {
         const end = j + 1 + ordinary.length;
-        const paint = tinctureAt(tokens, end);
-        const node: Node = { phrase: { group: { item: { k: 'ordinary', type: ORDINARY_WORDS.get(ordinary.join(' ')) } }, paint }, on: null };
+        const read = readPaint(tokens, end, 'group');
+        const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), item: { k: 'ordinary', type: ORDINARY_WORDS.get(ordinary.join(' ')) } }, paint: read?.paint ?? null }, on: null };
         top.push(node);
         order.push({ phrase: node.phrase, onHost: false });
         host = on ? node : null;
         between = false;
-        i = paint ? end + 1 : end;
+        overall = false;
+        i = read ? read.end : end;
       } else {
         const g = readGroup(tokens, j);
         if (!g) return null;
-        if (on) {
+        if (overall) {
+          g.phrase.group.role = 'overall';
+          top.push({ phrase: g.phrase, on: null });
+          order.push({ phrase: g.phrase, onHost: false });
+          overall = false;
+        } else if (on) {
           // "on a lion …": a group on a charge, which the widget reports rather than draws.
           const node: Node = { phrase: g.phrase, on: null };
           top.push(node);
@@ -249,6 +286,8 @@ function parseBody(tokens: string[]): Body | null {
           host = node;
           between = false;
         } else if (between && joined) {
+          // Set between what came before: a central ordinary, or the primary charges ("a lion between three mullets").
+          g.phrase.group.relation = 'between';
           top.push({ phrase: g.phrase, on: null });
           order.push({ phrase: g.phrase, onHost: false });
         } else if (host && !host.on) {
@@ -264,7 +303,7 @@ function parseBody(tokens: string[]): Body | null {
       }
     }
   }
-  let carry: string | null = null;
+  let carry: unknown = null;
   for (const { phrase, onHost } of order.reverse()) {
     if (onHost) {
       if (!phrase.paint) return null;
@@ -272,15 +311,27 @@ function parseBody(tokens: string[]): Body | null {
     } else {
       phrase.paint ??= carry;
       if (!phrase.paint) return null;
-      carry = phrase.paint;
+      // A tincture stated for what follows is the ground of a semy, not the semy: "a lion, a bordure Or semy of mullets sable".
+      carry = groundOf(phrase.paint);
     }
   }
   const withPaint = (p: Phrase) => ({ ...p.group, paint: p.paint });
   return { k: 'groups', groups: top.map((n) => (n.on ? { ...withPaint(n.phrase), charged: [withPaint(n.on)] } : withPaint(n.phrase))) };
 }
 
+/** The tincture a paint is laid on: a semy's ground, else the paint itself. */
+const groundOf = (paint: unknown): unknown => (typeof paint === 'object' && paint !== null && 'k' in paint && paint.k === 'semy' && 'ground' in paint ? paint.ground : paint);
+
+/** How a normalised fieldless blazon starts. */
+const FIELDLESS = '(fieldless)';
+
 /** Candidate design inputs for normalised SCA text (usually zero or one), or the gap the text reads as. */
 function proposeInputs(normalisedText: string): DesignInput[] | Gap {
+  if (normalisedText.startsWith(FIELDLESS)) {
+    const body = parseBody(normalisedText.slice(FIELDLESS.length).replace(/,/g, ' , ').split(/ +/).filter(Boolean));
+    if (body?.k === 'gap') return body.gap;
+    return body ? [{ v: 2, kind: 'badge', groups: body.groups }] : [];
+  }
   const comma = normalisedText.indexOf(',');
   const field = parseField(comma < 0 ? normalisedText : normalisedText.slice(0, comma));
   if (!field) return [];
@@ -294,8 +345,15 @@ function proposeInputs(normalisedText: string): DesignInput[] | Gap {
 function verify(raw: DesignInput): Candidate {
   const r = normalise(raw);
   const design = r.design;
-  const wording = (stateDefaults: boolean) => (design ? normaliseBlazon(blazon(design, { stateDefaults })) : null);
-  return { raw, design, issues: r.ok ? [] : r.errors, normalised: wording(false), stated: wording(true) };
+  // Stating every tincture is a wording of its own only where the widget shares one.
+  const wordings = (stateDefaults: boolean) => {
+    if (!design) return { house: null, restated: [] };
+    const house = blazon(design, { stateDefaults });
+    const all = blazon(design, { stateDefaults, stateTinctures: true });
+    return { house: normaliseBlazon(house), restated: all === house ? [] : [normaliseBlazon(all)] };
+  };
+  const [plain, stated] = [wordings(false), wordings(true)];
+  return { raw, design, issues: r.ok ? [] : r.errors, normalised: plain.house, stated: stated.house, restated: [...plain.restated, ...stated.restated] };
 }
 
 // ── API ─────────────────────────────────────────────────────────────────────
@@ -309,10 +367,20 @@ export const arrangementPhrases = (normalisedText: string): string[] => (normali
 /** The gaps of a proposal the widget doesn't draw, when it has no design. */
 const gapsOf = (c: Candidate): Gap[] => c.issues.flatMap((i) => (i.code === 'unsupported' ? [i.gap] : []));
 
-/** Full outcome for one SCA blazon: status, candidates and the matching one. */
+const explained = new Map<string, MatchResult>();
+
+/** Full outcome for one SCA blazon: status, candidates and the matching one (memoised by normalised text: many records share one). */
 export function explainMatch(scaBlazon: string): MatchResult {
   const normalised = normaliseBlazon(scaBlazon);
-  if (normalised.startsWith('(fieldless)')) return { status: 'fieldless', normalised, candidates: [], match: null };
+  let result = explained.get(normalised);
+  if (!result) {
+    result = explainNormalised(normalised);
+    explained.set(normalised, result);
+  }
+  return result;
+}
+
+function explainNormalised(normalised: string): MatchResult {
   const unknownWord = normalised.split(/[ ,]+/).find((w) => w && !VOCABULARY.has(w));
   if (unknownWord !== undefined) return { status: 'vocabulary', normalised, unknownWord, candidates: [], match: null };
   const proposed = proposeInputs(normalised);

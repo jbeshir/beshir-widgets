@@ -27,7 +27,6 @@
 // In production a failed request is reported as `network`/`http` — the store never silently swaps
 // in the sample; the UI offers "Show offline sample" (search/getEntry with `{ sample: true }`).
 
-
 import {
   API_ERROR, DEFAULT_FIELD_SHAPE, NO_CONTACT, asObject, buildSearchText, checkResponse, isApiErrorCode, isChangeKind, isDiffAttr, isFieldShape, isMailOutcome, isSenaRule,
   isReadabilityBand, normalise, parseSearchParams, readability, registrationOrder, resolve, searchEntries, searchParamsToUrl,

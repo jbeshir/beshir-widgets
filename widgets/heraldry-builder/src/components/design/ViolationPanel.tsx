@@ -1,8 +1,8 @@
 // The design breaks a rule after a lower-layer change: list the problems by layer and offer a
 // one-click fix when a single tincture swap (or a structural refit) clears them.
 
-import { fitGroup, suggestTinctureFix, type Issue, type Design } from '../../lib/heraldry';
-import { STEP_LABEL, assess, extraPicturePath, fixText, issueStep, picturePath, sameDesign, type StepKey } from '../../lib/builder';
+import { refitLayers, suggestTinctureFix, type Issue, type Design } from '../../lib/heraldry';
+import { STEP_LABEL, assess, fixText, issueStep, sameDesign, type StepKey } from '../../lib/builder';
 
 interface Props {
   design: Design;
@@ -12,14 +12,18 @@ interface Props {
   onGoTo: (step: StepKey) => void;
 }
 
+/** What to do when no one-click fix clears the problems, by the rule they break. */
+function helpText(problems: Issue[]): string {
+  if (problems.some((p) => p.code === 'structure' && p.rule === 'badge')) return 'A badge is one picture standing alone: change the picture, or remove what is on it or beside it.';
+  if (problems.every((p) => p.code === 'tincture')) return 'Change a tincture above to clear it — blocked swatches explain why.';
+  return 'Change the step named above to clear it — locked choices explain why.';
+}
+
 export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
   const steps = problems.map((p) => issueStep(design, p));
   const layers = [...new Set(steps.map((s) => STEP_LABEL[s]))];
   const tinctureFix = suggestTinctureFix(design);
-  const refit = [picturePath, extraPicturePath].reduce((d, find) => {
-    const path = find(d);
-    return path ? fitGroup(d, path) : d;
-  }, design);
+  const refit = refitLayers(design);
   const structuralFix = !tinctureFix && !sameDesign(refit, design) && assess(refit).status !== 'violation' ? refit : null;
   return (
     <section class="violation" data-testid="violation-panel" aria-labelledby="violation-title">
@@ -49,7 +53,7 @@ export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
         </button>
       )}
       {!tinctureFix && !structuralFix && (
-        <p class="violation-help">Change a tincture above to clear it — blocked swatches explain why.</p>
+        <p class="violation-help">{helpText(problems)}</p>
       )}
     </section>
   );

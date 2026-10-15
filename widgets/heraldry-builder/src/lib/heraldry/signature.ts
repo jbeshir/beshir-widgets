@@ -11,9 +11,16 @@ const ROLE_CODE: Record<Role, string> = { primary: 'P', secondary: 'S', peripher
 function paint(p: Paint): string {
   switch (p.k) {
     case 'tincture': return TINCTURE_CODE[p.t];
+    case 'fur': return p.colours ? `${p.fur}(${p.colours.map((t) => TINCTURE_CODE[t]).join(',')})` : p.fur;
     case 'counterchanged': return 'cc';
+    case 'proper': return 'proper';
+    case 'semy': return `semy(${paint(p.ground)},${p.charge.charge},${paint(p.ink)})`;
+    case 'treated': return `${p.treatment}(${paint(p.ground)},${TINCTURE_CODE[p.ink]})`;
     case 'divided': return `${p.division}(${p.parts.map(paint).join(',')})`;
-    default: return notSupported(paintGaps(p, true, 'field')[0]);
+    // Beyond four pieces (no count is more than four) a variation is the same with either tincture first (A5G1a, A5G3a; Prec #FIELDCheck).
+    case 'variation': return `${p.variation}${p.pieces ?? ''}(${(p.pieces === null || p.pieces > 4 ? p.parts.map(paint).sort() : p.parts.map(paint)).join(',')})`;
+    case 'stain': return notSupported(paintGaps(p, true, 'field')[0]);
+    default: return p satisfies never;
   }
 }
 
@@ -27,6 +34,5 @@ function group(g: Group): string {
 }
 
 export function signature(d: Design): string {
-  if (d.kind === 'badge') return notSupported({ category: 'fieldless', detail: 'badge' });
-  return ['arms', paint(d.field), ...d.groups.map(group)].join('|');
+  return [d.kind, ...(d.kind === 'arms' ? [paint(d.field)] : []), ...d.groups.map(group)].join('|');
 }

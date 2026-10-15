@@ -87,6 +87,15 @@ describe('readability bands', () => {
     expect(points(legal('azure', chg('mullet', 'or')), 'straddle')).toBe(0);
     // A band half on a look-alike tincture counts as well.
     expect(points(nd(arms(div('per-pale', 'or', 'azure'), ord('fess', 'gules'))), 'straddle')).toBe(1);
+    // A fur is one part of the background: a sable lion on ermine lies on a metal, its spots are no look-alike half.
+    expect(points(legal({ k: 'fur', fur: 'ermine', colours: null }, chg('lion', 'sable')), 'straddle')).toBe(0);
+  });
+
+  it('names a background of stripes, checks or fur as patterned, not plain', () => {
+    const label = (d: Design) => readability(d).breakdown.find((b) => b.factor === 'division')!.label;
+    expect(label(legal({ k: 'fur', fur: 'ermine', colours: null }, chg('lion', 'sable')))).toBe('Patterned background');
+    expect(label(legal({ k: 'variation', variation: 'barry', parts: ['or', 'azure'] }, ord('bend', 'gules')))).toBe('Patterned background');
+    expect(label(legal('azure', chg('mullet', 'or')))).toBe('Plain background');
   });
 
   it('treats celestine as a metal', () => {

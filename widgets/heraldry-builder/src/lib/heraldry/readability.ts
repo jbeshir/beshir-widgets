@@ -3,7 +3,7 @@
 // divided, how well neighbouring tinctures contrast, how many and how small the charges are, and how
 // much detail each charge carries.
 
-import { TINCTURE_CLASS, TINCTURE_WORD, type Tincture } from './tinctures';
+import { TINCTURE_CLASS, TINCTURE_WORD, isTincture, type Tincture } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES } from './charges';
 import { defaultLayoutOf } from './arrangement';
@@ -13,7 +13,8 @@ import { canonicalSlots } from './layout';
 import { chargeWords, ordinaryWords } from './plain-words';
 import { designTinctures } from './render';
 import { structuralIssues } from './structure';
-import { groundContacts } from './tincture-rule';
+import { groundContacts, groundShares } from './tincture-rule';
+import { tinctureSurface } from './surface';
 
 /**
  * Stored band ids (the registry's readability column and the sample data). They are storage values, not
@@ -53,21 +54,19 @@ function readabilityBand(score: number): ReadabilityBand {
   return score <= 2 ? 'bold' : score <= 4 ? 'fine' : 'busy';
 }
 
-/** The tinctures `top` is drawn on that are of its own class, when it also lies on some of the other class. */
-function lookAlikeContacts(top: Tincture, contacts: readonly Tincture[]): Tincture[] {
-  const alike = contacts.filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[top]);
-  return alike.length > 0 && alike.length < contacts.length ? alike : [];
-}
-
 interface Straddle { subject: string; plural: boolean; tincture: Tincture; weak: Tincture }
 
-/** The first ordinary or charge that lies half on a tincture of its own class, so only half of it shows up. */
+/**
+ * The first ordinary or charge that lies half on a part of the background of its own class, so only half of it shows up. The
+ * parts are judged as wholes: a sable lion on ermine lies on a metal, its spots are no look-alike half.
+ */
 function straddle(d: Design, entries: readonly WalkedGroup[]): Straddle | null {
   for (const { path, group } of entries) {
     if (group.paint.k !== 'tincture') continue;
     const tincture = group.paint.t;
-    for (const contacts of groundContacts(d, path)) {
-      const [weak] = lookAlikeContacts(tincture, contacts);
+    for (const ground of groundShares(d, path)) {
+      const alike = ground.filter((g) => g.surface.cls === tinctureSurface(tincture).cls);
+      const weak = alike.length < ground.length ? alike[0]?.surface.bases.find(isTincture) : undefined;
       if (weak) {
         return group.item.k === 'ordinary'
           ? { subject: ordinaryWords(group.item.type), plural: false, tincture, weak }
@@ -100,7 +99,9 @@ export function readability(d: Design): Readability {
   const n = designTinctures(d).length;
   const parts = fieldTinctures(d);
   const divided = d.kind === 'arms' && d.field.k === 'divided';
-  const touching = divided && parts.length === 2 && TINCTURE_CLASS[parts[0]] === TINCTURE_CLASS[parts[1]];
+  // Stripes, checks, a fur, brick or a scatter: not split, but not one plain colour either.
+  const patterned = d.kind === 'arms' && d.field.k !== 'tincture';
+  const touching = divided && parts.length === 2 && tinctureSurface(parts[0]).cls === tinctureSurface(parts[1]).cls;
   const crossing = straddle(d, entries);
 
   // The largest charge group sets the count score; each further group adds a point.
@@ -125,7 +126,7 @@ export function readability(d: Design): Readability {
       advice: 'Too many colours — try using only two',
     },
     {
-      factor: 'division', label: divided ? 'Split background' : 'Plain background', points: divided ? 1 : 0,
+      factor: 'division', label: divided ? 'Split background' : patterned ? 'Patterned background' : 'Plain background', points: divided ? 1 : 0,
       advice: 'Try a plain background instead of a split one',
     },
     {

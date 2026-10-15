@@ -2,8 +2,9 @@
 // or a charge and, in `charged`, the group sitting on it. Tree helpers, canonical form and issue types.
 // Parsing untrusted input is resolve.ts; what the builder draws is support.ts.
 
-import { TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
-import type { Division, Treatment, Variation } from './divisions';
+import { FUR_SPEC, TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
+import { variationPieces, type Division, type Treatment, type Variation } from './divisions';
+import { canonicalFur, furColours } from './fur';
 import type { Line, OrdinaryMod, OrdinaryType } from './ordinaries';
 import {
   CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
@@ -72,7 +73,8 @@ export type Arrangement =
   | { k: 'crossed' }                       // two long charges in saltire
   | { k: 'pair'; pair: Pair };
 
-export type Position = 'chief' | 'base' | 'dexter-chief' | 'sinister-chief' | 'dexter' | 'sinister' | 'canton' | 'flank' | 'fess-point';
+export const POSITIONS = ['chief', 'base', 'dexter-chief', 'sinister-chief', 'dexter-base', 'sinister-base', 'dexter', 'sinister', 'canton', 'flank', 'fess-point'] as const;
+export type Position = (typeof POSITIONS)[number];
 export type Role = 'primary' | 'secondary' | 'peripheral' | 'overall' | 'tertiary';
 export type Relation = 'between' | 'about' | 'position';
 
@@ -94,6 +96,9 @@ export type Design =
 /** Index into design.groups, then into charged, …; the canonical group order makes paths stable. */
 export type GroupPath = readonly number[];
 
+/** Whether two paths name the same group. */
+export const samePath = (a: GroupPath, b: GroupPath): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
+
 /** What a builder tincture picker offers for a group: a tincture, or counterchanged. */
 export type GroupTincture = Tincture | 'counterchanged';
 export const GROUP_TINCTURES: readonly GroupTincture[] = [...TINCTURES, 'counterchanged'];
@@ -102,7 +107,8 @@ export function isGroupTincture(value: unknown): value is GroupTincture {
   return value === 'counterchanged' || isTincture(value);
 }
 
-export const ROLE_ORDER: readonly Role[] = ['primary', 'secondary', 'peripheral', 'overall', 'tertiary'];
+/** Canonical and paint order: a group overall lies over the primary and secondary groups but under the chief and bordure, which it may not cross. */
+export const ROLE_ORDER: readonly Role[] = ['primary', 'secondary', 'overall', 'peripheral', 'tertiary'];
 
 // ── Tree helpers ────────────────────────────────────────────────────────────
 
@@ -156,16 +162,62 @@ export function primaryGroup(d: Design): { path: GroupPath; group: Group } | nul
   return i < 0 ? null : { path: [i], group: d.groups[i] };
 }
 
-/** True when no group is primary: the field carries the design (RULES §B.3). */
-export function isFieldPrimary(d: Design): boolean {
-  return primaryGroup(d) === null;
+/** Every primary group, in canonical order: one, or the co-primary groups ('a lion and a rose') that together are the primary group (SENA App I1). */
+export function primaryGroups(d: Design): Array<{ path: GroupPath; group: Group }> {
+  return d.groups.flatMap((group, i) => (group.role === 'primary' ? [{ path: [i] as GroupPath, group }] : []));
 }
 
-/** The plain tinctures of the field, in part order; a part that isn't a plain tincture adds none. */
+/** The semys on the field, one per part that has one (SENA App I1: a semy on the field is a charge group of its own). */
+export function fieldSemys(d: Design): SemyPaint[] {
+  return fieldParts(d).flatMap((p) => asSemy(p) ?? []);
+}
+
+/** True when no group is primary and no semy strews the field: the field carries the design (RULES §B.3). */
+export function isFieldPrimary(d: Design): boolean {
+  return primaryGroup(d) === null && fieldSemys(d).length === 0;
+}
+
+/** The plain tincture a paint is, or the one a semy is strewn on; null for any other paint. */
+export function groundTincture(p: Paint): Tincture | null {
+  return p.k === 'tincture' ? p.t : asSemy(p)?.ground.t ?? null;
+}
+
+/** The plain tinctures of the field, in part order (a semy's, the one it is strewn on); a part that isn't one adds none. */
 export function fieldTinctures(d: Design): Tincture[] {
   if (d.kind !== 'arms') return [];
-  const parts = d.field.k === 'divided' ? d.field.parts : [d.field];
-  return parts.flatMap((p) => (p.k === 'tincture' ? [p.t] : []));
+  const parts = d.field.k === 'divided' || d.field.k === 'variation' ? d.field.parts : [d.field];
+  return parts.flatMap((p) => groundTincture(p) ?? []);
+}
+
+/** The parts of the field in part order: the field itself when it is not divided; none for a fieldless badge. */
+export function fieldParts(d: Design): Paint[] {
+  if (d.kind !== 'arms') return [];
+  return d.field.k === 'divided' ? d.field.parts : [d.field];
+}
+
+/** The plain tinctures a paint is made of, in order: a tincture's own, a fur's two colours, a divided paint's parts'. */
+export function paintTinctures(p: Paint): Tincture[] {
+  switch (p.k) {
+    case 'tincture': return [p.t];
+    case 'fur': return [...furColours(p)];
+    case 'divided': case 'variation': return p.parts.flatMap(paintTinctures);
+    case 'treated': return [...paintTinctures(p.ground), p.ink];
+    case 'semy': return [...paintTinctures(p.ground), ...paintTinctures(p.ink)];
+    case 'stain': case 'proper': case 'counterchanged': return [];
+    default: return p satisfies never;
+  }
+}
+
+/**
+ * The tinctures that make up a paint to the eye, which neighbouring parts of the field may not share (SENA A3B3a; Prec #FUR,
+ * Anastasia von der Wilgenhalle 11/2006: ermine may not lie next to argent, but its spots, sable, are small: "Per fess ermine and
+ * sable" is registered, as is "Per pale pean and erminois"). A fur of the ermine family is its ground; the others are both of theirs.
+ */
+export function bodyTinctures(p: Paint): Tincture[] {
+  if (p.k === 'fur' && FUR_SPEC[p.fur].family === 'ermine') return [furColours(p)[0]];
+  // A treatment is part of the tincture it lies on ("gules and gules masoned Or" are one background, A3B3a), and strewn charges are not a tincture of the field at all.
+  if (p.k === 'treated' || p.k === 'semy') return bodyTinctures(p.ground);
+  return paintTinctures(p);
 }
 
 export function itemKey(item: Item): string {
@@ -178,6 +230,80 @@ export function tincturePaint(t: Tincture): Paint {
 
 export function paintOfGroupTincture(t: GroupTincture): Paint {
   return t === 'counterchanged' ? { k: 'counterchanged' } : tincturePaint(t);
+}
+
+/** A paint divided into two plain tinctures ("per pale azure and Or"): the only divided paint a band or picture takes. */
+export interface PartyPaint {
+  k: 'divided';
+  division: Division;
+  lines: Lines;
+  pieces: number | null;
+  parts: [{ k: 'tincture'; t: Tincture }, { k: 'tincture'; t: Tincture }];
+}
+
+export function partyPaint(division: Division, a: Tincture, b: Tincture): PartyPaint {
+  return { k: 'divided', division, lines: { ...PLAIN_LINES }, pieces: null, parts: [{ k: 'tincture', t: a }, { k: 'tincture', t: b }] };
+}
+
+/** The paint as a party of two plain tinctures, or null when it is anything else. */
+export function asParty(p: Paint): PartyPaint | null {
+  if (p.k !== 'divided' || p.parts.length !== 2) return null;
+  const [a, b] = p.parts;
+  return a.k === 'tincture' && b.k === 'tincture' ? { ...p, parts: [a, b] } : null;
+}
+
+/** A variation of two plain tinctures ("barry argent and azure", "checky Or and sable"): the only varied paint the builder draws. */
+export interface VariationPaint {
+  k: 'variation';
+  variation: Variation;
+  lines: Lines;
+  pieces: number | null;
+  parts: [{ k: 'tincture'; t: Tincture }, { k: 'tincture'; t: Tincture }];
+}
+
+export function variationPaint(variation: Variation, a: Tincture, b: Tincture, pieces: number | null = null): VariationPaint {
+  return { k: 'variation', variation, lines: { ...PLAIN_LINES }, pieces: variationPieces(variation, pieces), parts: [{ k: 'tincture', t: a }, { k: 'tincture', t: b }] };
+}
+
+/** The paint as a variation of two plain tinctures, or null when it is anything else. */
+export function asVariation(p: Paint): VariationPaint | null {
+  if (p.k !== 'variation') return null;
+  const [a, b] = p.parts;
+  return a.k === 'tincture' && b.k === 'tincture' ? { ...p, parts: [a, b] } : null;
+}
+
+/** A tincture with a treatment in another ("argent masoned sable", "gules scaly Or"): the only treated paint the builder draws. */
+export interface TreatedPaint {
+  k: 'treated';
+  treatment: Treatment;
+  ground: { k: 'tincture'; t: Tincture };
+  ink: Tincture;
+}
+
+export function treatedPaint(treatment: Treatment, ground: Tincture, ink: Tincture): TreatedPaint {
+  return { k: 'treated', treatment, ground: { k: 'tincture', t: ground }, ink };
+}
+
+/** The paint as a treated tincture, or null when it is anything else (a treatment on a fur or a division is not drawn). */
+export function asTreated(p: Paint): TreatedPaint | null {
+  return p.k === 'treated' && p.ground.k === 'tincture' ? { ...p, ground: p.ground } : null;
+}
+
+/** A tincture strewn with a charge in another ("azure semy of mullets Or", "sable bezanty"): the only semy the builder draws. */
+export interface SemyPaint {
+  k: 'semy';
+  ground: { k: 'tincture'; t: Tincture };
+  charge: ChargeRef;
+  ink: { k: 'tincture'; t: Tincture };
+}
+
+export function semyPaint(ground: Tincture, charge: ChargeId, ink: Tincture): SemyPaint {
+  return { k: 'semy', ground: { k: 'tincture', t: ground }, charge: { charge, form: null }, ink: { k: 'tincture', t: ink } };
+}
+
+/** The paint as a plain tincture strewn with a charge, or null when it is anything else (a semy on a fur or a division is not drawn). */
+export function asSemy(p: Paint): SemyPaint | null {
+  return p.k === 'semy' && p.ground.k === 'tincture' && p.ink.k === 'tincture' ? { ...p, ground: p.ground, ink: p.ink } : null;
 }
 
 /** The picker value of a paint, or null when the paint is neither a tincture nor counterchanged. */
@@ -195,11 +321,11 @@ export function canonicalPaint(p: Paint): Paint {
   switch (p.k) {
     case 'tincture': return { k: 'tincture', t: p.t };
     case 'stain': return { k: 'stain', stain: p.stain };
-    case 'fur': return { k: 'fur', fur: p.fur, colours: p.colours && [p.colours[0], p.colours[1]] };
+    case 'fur': return canonicalFur(p);
     case 'divided':
       return { k: 'divided', division: p.division, lines: canonicalLines(p.lines), pieces: p.pieces, parts: p.parts.map(canonicalPaint) };
     case 'variation':
-      return { k: 'variation', variation: p.variation, lines: canonicalLines(p.lines), pieces: p.pieces, parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
+      return { k: 'variation', variation: p.variation, lines: canonicalLines(p.lines), pieces: variationPieces(p.variation, p.pieces), parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
     case 'treated': return { k: 'treated', treatment: p.treatment, ground: canonicalPaint(p.ground), ink: p.ink };
     case 'semy': return { k: 'semy', ground: canonicalPaint(p.ground), charge: { charge: p.charge.charge, form: p.charge.form }, ink: canonicalPaint(p.ink) };
     case 'proper': return { k: 'proper' };
@@ -243,13 +369,23 @@ function canonicalItem(item: Item): Item {
   };
 }
 
+/** The order of a chief and a bordure among the peripherals: the chief first, so the bordure is painted over it (SENA App M1l). */
+const PERIPHERAL_ORDER = ['ordinary:chief', 'ordinary:bordure'];
+
+function groupOrder(g: Group): string {
+  const peripheral = g.role === 'peripheral' ? PERIPHERAL_ORDER.indexOf(itemKey(g.item)) : -1;
+  // Primary charges keep the order they were written in: the first of two stands first (to dexter, or above).
+  const key = g.role === 'primary' && g.item.k === 'charge' ? 'charge' : itemKey(g.item);
+  return `${ROLE_ORDER.indexOf(g.role)}${peripheral >= 0 ? `0${peripheral}` : `1${key}`}`;
+}
+
 function canonicalGroups(groups: readonly Group[]): Group[] {
   const rebuilt = groups.map((g): Group => ({
     role: g.role, relation: g.relation, item: canonicalItem(g.item), count: g.count,
     arrangement: canonicalArrangement(g.arrangement), position: g.position, paint: canonicalPaint(g.paint),
     charged: canonicalGroups(g.charged),
   }));
-  return sortedBy(rebuilt, (g) => `${ROLE_ORDER.indexOf(g.role)}${itemKey(g.item)}`);
+  return sortedBy(rebuilt, groupOrder);
 }
 
 /** A deep rebuild in fixed key order with groups, modifiers, parts and holds sorted: equal designs have equal JSON. */
@@ -276,11 +412,17 @@ export type GapCategory = (typeof UNSUPPORTED_GAP_CATEGORIES)[number];
 /** A construct the builder doesn't draw yet; its tag is `${category}:${detail}`. */
 export interface Gap { category: GapCategory; detail: string }
 
+/**
+ * When an unsupported group is only a count its place has no Table 7 row for: between or on a band, or on a charge (`host`), around a
+ * picture (`around`), or primary charges in a layout that can't have charges set around them (`around-primary`); null for any other gap.
+ */
+export type CountLimit = 'host' | 'around' | 'around-primary';
+
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, how groups relate, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line. */
-export type StructureRule = 'field' | 'relation' | 'layout' | 'capacity' | 'crosses-line';
+/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4, a badge's single main charge (`badge`, SENA A3A2: bands, borders, groups of several charges and split display shapes are not fieldless armory). */
+export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)
@@ -293,7 +435,7 @@ export type Issue =
   | { code: 'shape' | 'generic'; at: IssueAt; message: string; slots: number[] }
   | { code: 'tincture'; reason: TinctureReason; at: IssueAt; message: string; slots: number[] }
   | { code: 'structure'; rule: StructureRule; at: IssueAt; message: string; slots: number[] }
-  | { code: 'unsupported'; at: IssueAt; message: string; gap: Gap };
+  | { code: 'unsupported'; at: IssueAt; message: string; gap: Gap; limit: CountLimit | null };
 export type UnsupportedIssue = Extract<Issue, { code: 'unsupported' }>;
 
 /** Thrown where the pipeline meets a construct it doesn't draw; `normalise` never passes such a design on, so the app never sees it. */

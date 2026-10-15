@@ -2,33 +2,38 @@
 // legal *given the rest of the design*, with a human reason for every blocked choice (the UI keeps
 // blocked options visible and explains them on activation).
 //
-// Semantics: a choice is blocked only by the layers beneath it (field → ordinary → picture → extra
-// pictures). Changing a lower layer is never blocked; if it invalidates an upper layer the design
+// Semantics: a choice is blocked only by the layers beneath it (field → ordinary → picture → the pictures on the ordinary
+// and beside it). Changing a lower layer is never blocked; if it invalidates an upper layer the design
 // enters a violation state (validate() reports it) and suggestTinctureFix()/fitGroup() offer repairs.
 // Count and placement depend on each other, so each is offered when some partner makes it legal,
 // carrying the partner change it needs (its companion) and the design choosing it leads to.
 //
-// The builder's "simple space" (PLAN §7.1) is one ordinary, one picture group (on the background or
-// on the ordinary) and, when the picture is on the background, one extra picture group on the ordinary.
-// A central ordinary may instead carry a peripheral (a chief or bordure) when there are no pictures.
-// `simpleParts` finds them in a design and `assembleParts` puts them back with the roles, relations and
-// host layouts the model needs.
+// The builder's level-0 space is one ordinary, one picture group (on the background or on the ordinary)
+// and, when the picture is on the background, one more picture group on the ordinary; a chief and a
+// bordure may stand beside them, each with a picture group of its own, and a picture group may stand in
+// chief, in base or in canton beside the ordinary or the picture, or around the picture when it has no band;
+// a second main picture may stand beside the picture on the background, laid out together with it.
+// `simpleParts` finds them in a design (by place, places.ts) and `assembleParts` puts them back with the roles, relations and host layouts the model needs.
 
-import { TINCTURES, TINCTURE_NAME, type Tincture } from './tinctures';
+import { TINCTURES, TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinList, numberWord } from './words';
 import {
-  HOST_LAYOUT, contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, type LayoutKey,
+  AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
 import { CHARGES, chargePhrase, postureTerm, type ModifierId, type Posture } from './charges';
 import {
-  canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, paintOfGroupTincture, replaceGroup, walkGroups,
-  type Arrangement, type Design, type Group, type GroupPath, type GroupTincture, type Issue,
+  asParty, asVariation, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
+  type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type PartyPaint, type VariationPaint,
 } from './design';
+import { DRAWN_DIVISIONS, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
+import { ofOtherClass, withPaint, withPartner } from './paint-target';
+import { placesIn, type Placed } from './places';
+import { PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
-import { groupTinctureIssues, tinctureIssues } from './tincture-rule';
+import { groupTinctureIssues, paintName, tinctureIssues } from './tincture-rule';
 
 export type AllowedChoice<T> = { value: T; allowed: true };
 export type BlockedChoice<T> = { value: T; allowed: false; reason: string };
@@ -50,80 +55,167 @@ export type LayoutChoice<T> = (AllowedChoice<T> & { design: Design; companion: C
 export const isBlocked = <T>(c: Choice<T>): c is BlockedChoice<T> => !c.allowed;
 
 const ok = <T>(value: T): Choice<T> => ({ value, allowed: true });
-const choice = <T>(value: T, reason: string | null): Choice<T> => (reason ? { value, allowed: false, reason } : ok(value));
+
+/** The first allowed value, or `fallback` when none is. */
+export function firstAllowed<T, F>(choices: readonly Choice<T>[], fallback: F): T | F {
+  return choices.find((c) => c.allowed)?.value ?? fallback;
+}
+
+export function isAllowed<T>(choices: readonly Choice<T>[], v: T): boolean {
+  return choices.some((c) => c.value === v && c.allowed);
+}
+
+/** A choice of `value`, blocked for `reason` when there is one. */
+export const choice = <T>(value: T, reason: string | null): Choice<T> => (reason ? { value, allowed: false, reason } : ok(value));
 
 /** Every count the builder offers. */
 export const COUNTS: readonly number[] = Array.from({ length: MAX_DRAWN_COUNT }, (_, i) => i + 1);
 
 const PLACEMENTS: readonly Placement[] = ['field', 'ordinary'];
 
-const samePath = (a: GroupPath, b: GroupPath) => a.length === b.length && a.every((x, i) => x === b[i]);
-
 // ── The simple space ────────────────────────────────────────────────────────
-
-interface Located { path: GroupPath; group: Group }
 
 /** The groups of a design in the builder's terms; `placement` says where the picture sits. */
 export interface SimpleParts {
-  ordinary: Located | null;
-  /** The chief or bordure beside a central ordinary. */
-  peripheral: Located | null;
-  picture: (Located & { placement: Placement }) | null;
-  extra: Located | null;
+  ordinary: Placed | null;
+  /** The chief and the bordure beside the ordinary, in that order. */
+  peripherals: Placed[];
+  /** The pictures on the chief and on the bordure beside the ordinary, in that order. */
+  peripheralPictures: Placed[];
+  picture: (Placed & { placement: Placement }) | null;
+  /** The second main picture, laid out together with the picture on the background ("a lion and a rose"). */
+  coPrimary: Placed | null;
+  /** The pictures on the ordinary while the picture is on the background. */
+  onOrdinary: Placed | null;
+  /** The pictures set in chief, in base or in canton beside the ordinary or the picture. */
+  positioned: Placed | null;
+  /** The pictures set around the picture on the background. */
+  around: Placed | null;
+  /** The pictures on each of the picture's charges (the picture on the background, not set between a band). */
+  onPicture: Placed | null;
+  /** The band or picture lying across everything. */
+  overall: Placed | null;
 }
 
 const isCentral = (g: Group) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central';
-/** Whether pictures can sit on this ordinary: a central one or the chief. */
-const hostsPictures = (g: Group) => g.item.k === 'ordinary' && (isCentral(g) || g.item.type === 'chief');
 
 /**
- * Where the ordinary, the picture and the extra picture are. The picture is the top-level charge group
- * (primary, or secondary between the ordinary), else the charge group on the ordinary; the extra picture
- * is the charge group on the ordinary when the picture is a top-level group.
+ * Where the ordinary, the picture and the pictures on the ordinary are. The picture is the top-level charge group
+ * (primary, or secondary between the ordinary), else the charge group on the ordinary; the pictures on the ordinary
+ * are the charge group on the ordinary when the picture is a top-level group.
  */
 export function simpleParts(d: Design): SimpleParts {
-  const central = d.groups.findIndex((g) => isCentral(g));
-  const oi = central >= 0 ? central : d.groups.findIndex((g) => g.item.k === 'ordinary');
-  const ordinary = oi < 0 ? null : { path: [oi], group: d.groups[oi] };
-  const pi = central >= 0 ? d.groups.findIndex((g, i) => i !== oi && g.item.k === 'ordinary') : -1;
-  const peripheral = pi < 0 ? null : { path: [pi], group: d.groups[pi] };
-  const onOrdinary = (): Located | null => {
-    const ti = ordinary ? ordinary.group.charged.findIndex((g) => g.item.k === 'charge') : -1;
-    return ordinary && ti >= 0 ? { path: [oi, ti], group: ordinary.group.charged[ti] } : null;
+  const { placed } = placesIn(d);
+  const at = (key: Placed['place']) => placed.find((p) => p.place === key) ?? null;
+  const picture = at('picture'), onBand = at('on-ordinary');
+  return {
+    positioned: at('in-chief') ?? at('in-base') ?? at('in-canton'),
+    around: at('around'),
+    onPicture: at('on-picture'),
+    overall: at('overall'),
+    ordinary: at('ordinary'),
+    peripherals: placed.filter((p) => p.place === 'chief' || p.place === 'bordure'),
+    peripheralPictures: placed.filter((p) => p.place === 'on-chief' || p.place === 'on-bordure'),
+    picture: picture ? { ...picture, placement: 'field' } : onBand && { ...onBand, placement: 'ordinary' },
+    coPrimary: at('co-primary'),
+    onOrdinary: picture ? onBand : null,
   };
-  const ci = d.groups.findIndex((g) => g.item.k === 'charge' && (g.role === 'primary' || g.role === 'secondary'));
-  if (ci >= 0) return { ordinary, peripheral, picture: { path: [ci], group: d.groups[ci], placement: 'field' }, extra: onOrdinary() };
-  const tertiary = onOrdinary();
-  return { ordinary, peripheral, picture: tertiary && { ...tertiary, placement: 'ordinary' }, extra: null };
 }
 
+/** The groups the builder's level-0 controls edit, as `assembleParts` takes them back. */
 export interface PartsInput {
   ordinary: Group | null;
-  peripheral: Group | null;
+  peripherals: readonly Group[];
   picture: Group | null;
   placement: Placement;
-  extra: Group | null;
+  coPrimary: Group | null;
+  onOrdinary: Group | null;
+  positioned: Group | null;
+  around: Group | null;
+  onPicture: Group | null;
+  overall: Group | null;
+}
+
+/** `simpleParts` without the places: the groups to change one of and assemble again. */
+export function partsOf(d: Design): PartsInput {
+  const parts = simpleParts(d);
+  return {
+    ordinary: parts.ordinary?.group ?? null,
+    peripherals: parts.peripherals.map((p) => p.group),
+    picture: parts.picture?.group ?? null,
+    placement: parts.picture?.placement ?? 'field',
+    coPrimary: parts.coPrimary?.group ?? null,
+    onOrdinary: parts.onOrdinary?.group ?? null,
+    positioned: parts.positioned?.group ?? null,
+    around: parts.around?.group ?? null,
+    onPicture: parts.onPicture?.group ?? null,
+    overall: parts.overall?.group ?? null,
+  };
 }
 
 /**
  * The canonical design with these groups put where the model wants them: the ordinary primary (or
  * peripheral), the picture on the background (secondary between a central ordinary, else primary) or
- * on the ordinary as its tertiary, the extra picture on the ordinary. A picture that can't sit on the
- * ordinary stays on the background; an extra picture needs the picture on the background and an
- * ordinary to sit on, or is dropped. A peripheral needs a central ordinary and no pictures, or is dropped.
+ * on the ordinary as its tertiary, the pictures on the ordinary, the peripherals beside them with
+ * the pictures on them. Pictures on the ordinary need the picture on the background and an ordinary to sit
+ * on, or are dropped. With no ordinary, the first peripheral (the chief, else the bordure) stands in
+ * its place and keeps the pictures it carried. The pictures in chief, in base or in canton stand beside a
+ * central ordinary or the picture on the background; with neither they become the picture themselves
+ * (SENA App I1), or are dropped where a picture can't stand (in canton). The pictures around the picture need it on
+ * the background with no central ordinary, or are dropped. The pictures on the picture stand on it while it is the main picture.
+ * What lies overall stays while there is a main band or picture for it to lie over, else it is dropped. The second main
+ * picture stays beside the picture while it is on the background with no band, and with no pictures around it or on it
+ * (the pictures around or on it are kept, the second picture is dropped); the two take one layout, the picture's where
+ * it still fits all their charges, else Table 7's.
  */
-export function assembleParts(d: Design, { ordinary, peripheral, picture, placement, extra }: PartsInput): Design {
-  const central = ordinary !== null && isCentral(ordinary);
-  const hosts = ordinary !== null && hostsPictures(ordinary);
-  const onOrdinary = picture !== null && placement === 'ordinary' && hosts;
+export function assembleParts(d: Design, { ordinary, peripherals, picture, placement, coPrimary, onOrdinary, positioned, around, onPicture, overall }: PartsInput): Design {
+  const hosts = ordinary !== null;
+  const pictureOnOrdinary = picture !== null && placement === 'ordinary' && hosts;
+  const standing = ordinary ?? peripherals[0] ?? null;
+  const beside = ordinary ? peripherals : peripherals.slice(1);
+  const central = standing !== null && isCentral(standing);
   const tertiary = (g: Group): Group => ({ ...g, role: 'tertiary', relation: null, arrangement: HOST_LAYOUT.arrangement, position: null, charged: [] });
-  const charged = onOrdinary ? [tertiary(picture)] : picture && extra && hosts ? [tertiary(extra)] : [];
-  const groups: Group[] = ordinary ? [{ ...ordinary, role: central ? 'primary' : 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged }] : [];
-  if (central && peripheral && !picture) groups.push({ ...peripheral, role: 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged: [] });
-  if (picture && !onOrdinary) {
-    const top: Group = { ...picture, role: central ? 'secondary' : 'primary', relation: central ? 'between' : null, charged: [] };
+  const charged = pictureOnOrdinary ? [tertiary(picture)] : picture && onOrdinary && hosts ? [tertiary(onOrdinary)] : ordinary === null && standing ? standing.charged.map(tertiary) : [];
+  const peripheral = (g: Group): Group => ({ ...g, role: 'peripheral', relation: null, arrangement: { k: 'single' }, position: null, charged: g.charged.map(tertiary) });
+  const groups: Group[] = [
+    ...(standing ? [{ ...standing, role: central ? 'primary' as const : 'peripheral' as const, relation: null, arrangement: { k: 'single' } as const, position: null, charged }] : []),
+    ...beside.map(peripheral),
+  ];
+  const fieldPicture = picture !== null && !pictureOnOrdinary;
+  if (positioned) {
+    const position = positioned.position;
+    if (!isSecondaryPosition(position)) throw new RangeError('Pictures beside the main one stand in chief, in base or in canton.');
+    const long = positioned.item.k === 'charge' && CHARGES[positioned.item.charge].long;
+    // The layout it has where it still takes it there, else the row.
+    const layout = positionLayouts(position, positioned.count, long).find((l) => sameLayout(l, { arrangement: positioned.arrangement, position })) ?? positionLayout(position, positioned.count);
+    if (central || fieldPicture) groups.push({ ...positioned, role: 'secondary', relation: 'position', ...layout, charged: [] });
+    else if (position !== 'canton') groups.push({ ...positioned, role: 'primary', relation: null, ...positionLayout(position, positioned.count), charged: [] });
+  }
+  // Two main pictures need the background to themselves: no pictures around them or on them, and no band between (these are kept, the second picture is dropped).
+  const together = coPrimary !== null && fieldPicture && !central && !around && !onPicture;
+  if (around && picture && !pictureOnOrdinary && !central) {
+    // The layout it has where it still takes it, else Table 7's for its count (two and one for three) or the first it can take.
+    const secondary: Group = { ...around, role: 'secondary', relation: 'between', charged: [] };
+    const placed = canonical({ ...d, groups: [...groups, { ...picture, role: 'primary', relation: null, charged: [] }, secondary] } as Design);
+    const path = [placed.groups.findIndex((g) => g.role === 'secondary' && g.relation === 'between')];
+    const kept = layoutCandidates(placed, path, around.count).find((l) => sameLayout(l, { arrangement: around.arrangement, position: around.position }));
+    const layout = kept ?? defaultLayoutOf(placed, secondary, null);
+    groups.push({ ...secondary, arrangement: layout.arrangement, position: layout.position });
+  }
+  if (picture && !pictureOnOrdinary) {
+    // The pictures on the picture stay on it where it is the main picture; set around a band it carries none.
+    const carried = onPicture && !central ? [{ ...onPicture, role: 'tertiary' as const, relation: null, position: null, charged: [] }] : [];
+    const top: Group = { ...picture, role: central ? 'secondary' : 'primary', relation: central ? 'between' : null, charged: carried };
     if (central) groups.push({ ...top, arrangement: HOST_LAYOUT.arrangement, position: null });
-    else if (picture.arrangement.k !== 'host') groups.push(top);
+    else if (together) {
+      // The two are laid out as one group: the layout the picture has where it still takes it for the new total, else Table 7's for it.
+      const co: Group = { ...coPrimary, role: 'primary', relation: null, position: null, charged: [] };
+      const trial = canonical({ ...d, groups: [...groups, top, co] } as Design);
+      const path = [trial.groups.findIndex((g) => g.role === 'primary' && itemKey(g.item) === itemKey(top.item))];
+      const kept = layoutCandidates(trial, path, top.count).find((l) => sameLayout(l, { arrangement: top.arrangement, position: top.position }));
+      const layout = kept ?? defaultLayoutOf(trial, groupAt(trial, path), null);
+      groups.push({ ...top, arrangement: layout.arrangement, position: layout.position }, { ...co, arrangement: layout.arrangement, position: layout.position });
+    } else if (picture.arrangement.k !== 'host') groups.push(top);
     else {
       // From around or on an ordinary to the background: the layout Table 7 gives it there.
       const placed = canonical({ ...d, groups: [...groups, top] } as Design);
@@ -131,12 +223,13 @@ export function assembleParts(d: Design, { ordinary, peripheral, picture, placem
       groups.push({ ...top, arrangement: layout.arrangement, position: layout.position });
     }
   }
+  if (overall && groups.some((g) => g.role === 'primary')) groups.push({ ...overall, role: 'overall', relation: null, position: null, charged: [] });
   return canonical({ ...d, groups } as Design);
 }
 
 /** The design with the group at `path` painted `t` (not canonicalised: a paint changes no order). */
 export function withTincture(d: Design, path: GroupPath, t: GroupTincture): Design {
-  return replaceGroup(d, path, { ...groupAt(d, path), paint: paintOfGroupTincture(t) });
+  return withPaint(d, path, paintOfGroupTincture(t));
 }
 
 // ── Reasons ─────────────────────────────────────────────────────────────────
@@ -144,7 +237,9 @@ export function withTincture(d: Design, path: GroupPath, t: GroupTincture): Desi
 /** Whether an issue is one this group's choices answer for: its own, the field's, an ordinary's — not another picture's. */
 function relevant(d: Design, path: GroupPath, issue: Issue): boolean {
   if (issue.at.k !== 'group') return true;
-  return samePath(issue.at.path, path) || groupAt(d, issue.at.path).item.k === 'ordinary';
+  // Two main pictures are laid out together: what is wrong with one is wrong with the other.
+  const together = coPrimaries(d) !== null && [path, issue.at.path].every((p) => p.length === 1 && groupAt(d, p).role === 'primary');
+  return samePath(issue.at.path, path) || together || groupAt(d, issue.at.path).item.k === 'ordinary';
 }
 
 const countWord = (n: number) => (n === 1 ? 'a single charge' : numberWord(n));
@@ -153,8 +248,9 @@ const countWord = (n: number) => (n === 1 ? 'a single charge' : numberWord(n));
 function hostCountReason(d: Design, path: GroupPath): string {
   const g = groupAt(d, path);
   const ctx = layoutContext(d, path);
-  if (ctx.k === 'field') throw new RangeError('A group on the background has no host counts.');
-  const legal = hostCounts(ctx);
+  if (ctx.k === 'field' || ctx.k === 'position' || ctx.k === 'around' || ctx.k === 'overall') throw new RangeError('A group on the background has no host counts.');
+  if (ctx.k === 'on-charge') return `Charges on a picture come in ${joinList(ON_CHARGE_COUNTS.map(countWord), 'or')}, not ${countWord(g.count)}.`;
+  const legal = hostCounts(ctx.k, ctx.ordinary);
   const name = ORDINARY_NAME[ctx.ordinary];
   const list = joinList(legal.map(countWord), 'or');
   if (ctx.k === 'between') {
@@ -165,13 +261,27 @@ function hostCountReason(d: Design, path: GroupPath): string {
   return `A ${name} can carry ${list}${extra}, not ${countWord(g.count)}.`;
 }
 
+/** Why a count has no layout where its group stands (or the picture can't have pictures around it), phrased as a blocked reason. */
+function countLimitReason(d: Design, path: GroupPath, limit: CountLimit): string {
+  switch (limit) {
+    case 'host': return hostCountReason(d, path);
+    case 'around': return `Pictures around the picture come in ${joinList(AROUND_COUNTS.map(numberWord), 'or')}, not ${countWord(groupAt(d, path).count)}.`;
+    case 'around-primary': return 'Pictures can be set around one picture, or two side by side, one above the other or crossed — remove the pictures around it for more.';
+    default: return limit satisfies never;
+  }
+}
+
 /** Why a layout is blocked; `capacity` when the charges would not fit at a size that reads. */
 interface Block { reason: string; capacity: boolean }
 
 /** Why the group at `path` can't be drawn as it is — unsupported, or breaking a structure rule — or null. */
 function structureBlock(d: Design, path: GroupPath): Block | null {
   const gap = unsupportedIssues(d).find((i) => relevant(d, path, i));
-  if (gap) return { reason: gap.gap.category === 'placement' && /^(between|on)-/.test(gap.gap.detail) ? hostCountReason(d, path) : gap.message, capacity: false };
+  if (gap) {
+    // A count limit is the limited group's own: explain it from that group.
+    const reason = gap.limit !== null && gap.at.k === 'group' ? countLimitReason(d, gap.at.path, gap.limit) : gap.message;
+    return { reason, capacity: false };
+  }
   const issue = structuralIssues(d).find((i) => i.code === 'structure' && relevant(d, path, i));
   return issue ? { reason: issue.message, capacity: issue.code === 'structure' && issue.rule === 'capacity' } : null;
 }
@@ -188,9 +298,9 @@ function tinctureReason(d: Design, path: GroupPath, t: GroupTincture): string | 
   return groupTinctureIssues(withTincture(d, path, t), path)[0]?.message ?? null;
 }
 
-/** On a divided field (or while counterchanged) "counterchanged" is offered too, after the tinctures. */
+/** On a divided or varied field (or while counterchanged) "counterchanged" is offered too, after the tinctures. */
 function offeredTinctures(d: Design, path: GroupPath): readonly GroupTincture[] {
-  return (d.kind === 'arms' && d.field.k === 'divided') || groupAt(d, path).paint.k === 'counterchanged' ? GROUP_TINCTURES : TINCTURES;
+  return (d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation')) || groupAt(d, path).paint.k === 'counterchanged' ? GROUP_TINCTURES : TINCTURES;
 }
 
 /** Why a layout would leave every tincture blocked, or null when at least one works. */
@@ -218,18 +328,159 @@ function layoutBlock(d: Design, path: GroupPath, withTinctures: boolean): Block 
 
 // ── Tinctures ───────────────────────────────────────────────────────────────
 
-/** Field tinctures: only the other half of a divided field blocks (the parts need different tinctures). Plain fields: all allowed. */
+/** Field tinctures: only the other half of a divided field blocks, for a tincture or fur it shares (the parts need different tinctures). Plain fields: all allowed. */
 export function fieldTinctureChoices(d: Design, part: 0 | 1 = 0): Choice<Tincture>[] {
   const other = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts[part === 0 ? 1 : 0] : null;
-  const otherTincture = other?.k === 'tincture' ? other.t : null;
-  return TINCTURES.map((t) => choice(t, t === otherTincture
-    ? `The other part is already ${TINCTURE_NAME[t]} — a divided field needs two different tinctures.`
-    : null));
+  return TINCTURES.map((t) => {
+    if (!other || !bodyTinctures(other).includes(t)) return choice(t, null);
+    return choice(t, other.k === 'tincture'
+      ? `The other part is already ${TINCTURE_NAME[t]} — a divided field needs two different tinctures.`
+      : `The other part is ${paintName(other)}, which uses ${TINCTURE_NAME[t]} — a divided field needs parts with no tincture in common.`);
+  });
 }
 
 /** Tinctures of the group at `path` against what it lies on; blocked reasons are the rule of tincture's own messages. */
 export function groupTinctureChoices(d: Design, path: GroupPath): Choice<GroupTincture>[] {
   return offeredTinctures(d, path).map((t) => choice(t, tinctureReason(d, path, t)));
+}
+
+// ── Two tinctures ("per pale azure and Or") ────────────────────────────────
+
+/** Why the group at `path` can't be divided as it is (a cut that misses it, a long charge per chevron), or null. */
+function divisionReason(d: Design, path: GroupPath): string | null {
+  const issue = structuralIssues(d).find((i) => i.code === 'structure' && i.rule === 'divided-paint' && i.at.k === 'group' && samePath(i.at.path, path));
+  return issue?.message ?? null;
+}
+
+/** Why the group at `path` can't be painted as it is: how it is divided or varied, or the rule of tincture. */
+function partyReason(d: Design, path: GroupPath): string | null {
+  return divisionReason(d, path) ?? groupTinctureIssues(d, path)[0]?.message ?? null;
+}
+
+const partyWith = (party: PartyPaint, part: 0 | 1, t: Tincture, other: Tincture): PartyPaint =>
+  partyPaint(party.division, part === 0 ? t : other, part === 0 ? other : t);
+
+/** The party with part `part` set to `t`: the other part as it is when that works, else the first tincture that does; null when none does. */
+function partyWithPartner(d: Design, path: GroupPath, party: PartyPaint, part: 0 | 1, t: Tincture): PartyPaint | null {
+  const partners = [...new Set([party.parts[part === 0 ? 1 : 0].t, ...TINCTURES])].filter((o) => o !== t);
+  const trial = withPartner(partners, (other) => partyWith(party, part, t, other), (p) => groupTinctureIssues(withPaint(d, path, p), path)[0]?.message ?? null);
+  return trial.reason ? null : trial.paint;
+}
+
+/** The divisions a divided band or picture may be cut by; blocked where the cut would miss it or read as another (per chevron on a long charge). Empty unless the group is divided. */
+export function partyDivisionChoices(d: Design, path: GroupPath): Choice<Division>[] {
+  const party = asParty(groupAt(d, path).paint);
+  return party ? DRAWN_DIVISIONS.map((division) => choice(division, divisionReason(withPaint(d, path, { ...party, division }), path))) : [];
+}
+
+/**
+ * The tinctures for one part of a divided band or picture: blocked when the other part already has it (A3B3a), or when no
+ * tincture for the other part would let the two stand out on what they lie on. Empty unless the group is divided.
+ */
+export function partyTinctureChoices(d: Design, path: GroupPath, part: 0 | 1): Choice<Tincture>[] {
+  const party = asParty(groupAt(d, path).paint);
+  if (!party) return [];
+  const other = party.parts[part === 0 ? 1 : 0].t;
+  return TINCTURES.map((t) => {
+    if (t === other) return choice(t, `The other part is already ${TINCTURE_NAME[t]} — a divided ${itemName(groupAt(d, path).item)} needs two different tinctures.`);
+    return choice(t, partyWithPartner(d, path, party, part, t) ? null : groupTinctureIssues(withPaint(d, path, partyWith(party, part, t, other)), path)[0]?.message ?? null);
+  });
+}
+
+/** The group divided by `division`, its tinctures as they were. */
+export function setPartyDivision(d: Design, path: GroupPath, division: Division): Design {
+  const party = asParty(groupAt(d, path).paint);
+  return party ? canonical(withPaint(d, path, { ...party, division })) : d;
+}
+
+/** Part `part` of the divided group set to `t`; the other part changes too only when it would no longer stand out. */
+export function setPartyTincture(d: Design, path: GroupPath, part: 0 | 1, t: Tincture): Design {
+  const party = asParty(groupAt(d, path).paint);
+  if (!party) return d;
+  return canonical(withPaint(d, path, partyWithPartner(d, path, party, part, t) ?? partyWith(party, part, t, party.parts[part === 0 ? 1 : 0].t)));
+}
+
+/**
+ * The group divided in two, the first division and tinctures that work (its own tincture first, when it has one); null when
+ * none does.
+ */
+export function splitGroup(d: Design, path: GroupPath): Design | null {
+  const paint = groupAt(d, path).paint;
+  const own = paint.k === 'tincture' ? [paint.t] : [];
+  for (const division of DRAWN_DIVISIONS) {
+    for (const first of [...own, ...TINCTURES]) {
+      for (const second of TINCTURES) {
+        const trial = withPaint(d, path, partyPaint(division, first, second));
+        if (first !== second && !partyReason(trial, path)) return canonical(trial);
+      }
+    }
+  }
+  return null;
+}
+
+// ── Stripes and checks of a band or picture ("a fess checky Or and gules") ──
+
+const variationWith = (v: VariationPaint, part: 0 | 1, t: Tincture, other: Tincture): VariationPaint =>
+  variationPaint(v.variation, part === 0 ? t : other, part === 0 ? other : t, v.pieces);
+
+/** The variation with part `part` set to `t`: the other part as it is when it still stands out against it and works, else the first tincture of the other class that does; null when none does. */
+function variationWithPartner(d: Design, path: GroupPath, v: VariationPaint, part: 0 | 1, t: Tincture): VariationPaint | null {
+  const partners = ofOtherClass(t, [v.parts[part === 0 ? 1 : 0].t, ...TINCTURES]);
+  const trial = withPartner(partners, (other) => variationWith(v, part, t, other), (p) => partyReason(withPaint(d, path, p), path));
+  return trial.reason ? null : trial.paint;
+}
+
+/** The group in `variation`: the tinctures and count it has when it is varied already, else the first metal and colour that work (its own tincture first, when it has one). The design, or why none does. */
+function variedGroup(d: Design, path: GroupPath, variation: Variation): { design: Design } | { reason: string } {
+  const paint = groupAt(d, path).paint;
+  const now = asVariation(paint);
+  const pairs: Array<[Tincture, Tincture]> = now ? [[now.parts[0].t, now.parts[1].t]] : [];
+  for (const first of [...(paint.k === 'tincture' ? [paint.t] : []), ...TINCTURES]) {
+    for (const second of TINCTURES) if (TINCTURE_CLASS[first] !== TINCTURE_CLASS[second]) pairs.push([first, second]);
+  }
+  let reason: string | null = null;
+  for (const [a, b] of pairs) {
+    const trial = withPaint(d, path, variationPaint(variation, a, b, now?.pieces ?? null));
+    const why = partyReason(trial, path);
+    if (!why) return { design: canonical(trial) };
+    reason ??= why;
+  }
+  return { reason: reason ?? 'No two colours would stand out here.' };
+}
+
+/** The patterns a band or picture may be striped or checked in, blocked where no two tinctures would stand out on what it lies on. */
+export function groupVariationChoices(d: Design, path: GroupPath): Choice<Variation>[] {
+  return VARIATIONS.map((v) => {
+    const varied = variedGroup(d, path, v);
+    return choice(v, 'reason' in varied ? varied.reason : null);
+  });
+}
+
+/** The group in this pattern; unchanged when none works. */
+export function setGroupVariation(d: Design, path: GroupPath, variation: Variation): Design {
+  const varied = variedGroup(d, path, variation);
+  return 'design' in varied ? varied.design : d;
+}
+
+/** The group's stripes cut into this many; unchanged when it is not in a pattern. */
+export function setGroupVariationPieces(d: Design, path: GroupPath, pieces: number): Design {
+  const v = asVariation(groupAt(d, path).paint);
+  return v ? canonical(withPaint(d, path, variationPaint(v.variation, v.parts[0].t, v.parts[1].t, pieces))) : d;
+}
+
+/** The tinctures for one part of a patterned band or picture: blocked when no tincture for the other part would let the two stand out on what they lie on. Empty unless the group is in a pattern. */
+export function groupVariationTinctureChoices(d: Design, path: GroupPath, part: 0 | 1): Choice<Tincture>[] {
+  const v = asVariation(groupAt(d, path).paint);
+  if (!v) return [];
+  const other = v.parts[part === 0 ? 1 : 0].t;
+  return TINCTURES.map((t) => choice(t, variationWithPartner(d, path, v, part, t) ? null : partyReason(withPaint(d, path, variationWith(v, part, t, other)), path)));
+}
+
+/** Part `part` of the patterned group set to `t`; the other part changes too only when it would no longer stand out. */
+export function setGroupVariationTincture(d: Design, path: GroupPath, part: 0 | 1, t: Tincture): Design {
+  const v = asVariation(groupAt(d, path).paint);
+  if (!v) return d;
+  return canonical(withPaint(d, path, variationWithPartner(d, path, v, part, t) ?? variationWith(v, part, t, v.parts[part === 0 ? 1 : 0].t)));
 }
 
 // ── Layout ──────────────────────────────────────────────────────────────────
@@ -239,11 +490,14 @@ type Fit = ({ fits: true; count: number; placement: Placement } & Edited) | { fi
 
 const currentKey = (g: Group): LayoutKey => layoutKey({ arrangement: g.arrangement, position: g.position });
 
-/** The design with the group at `path` in the layout `key` (its count already set). */
+/** The design with the group at `path` in the layout `key` (its count already set). Two main pictures are laid out together, so both take it. */
 export function withLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
   const g = groupAt(d, path);
-  const layout = layoutOfKey(key, g.count);
-  return layout ? canonical(replaceGroup(d, path, { ...g, arrangement: layout.arrangement, position: layout.position })) : d;
+  const pair = g.role === 'primary' && path.length === 1 ? coPrimaries(d) : null;
+  const layout = layoutOfKey(key, pair ? pair[0].count + pair[1].count : g.count);
+  if (!layout) return d;
+  const laid = (x: Group): Group => ({ ...x, arrangement: layout.arrangement, position: layout.position });
+  return pair ? canonical({ ...d, groups: d.groups.map((x) => (pair.includes(x) ? laid(x) : x)) } as Design) : canonical(replaceGroup(d, path, laid(g)));
 }
 
 /** Why the picture can't go on `placement`, or null. */
@@ -251,35 +505,76 @@ function placementReason(parts: SimpleParts, placement: Placement): string | nul
   if (placement === 'field') return null;
   const ordinary = parts.ordinary?.group;
   if (!ordinary) return 'Add a band or shape first — pictures can only sit on one once there is one.';
-  if (!hostsPictures(ordinary)) return "Pictures can't sit on a border in this builder; put them on the background within it.";
-  if (parts.extra) return 'The band already carries more pictures — remove them to move the main picture onto it.';
+  if (parts.onOrdinary) return 'The band already carries more pictures — remove them to move the main picture onto it.';
+  if (parts.coPrimary) return 'A second main picture stands beside it — remove that to move the picture onto the band.';
+  // On a chief or bordure the picture would leave the pictures in chief, base or canton with nothing in the middle to stand beside.
+  if (parts.positioned && !isCentral(ordinary)) return `The ${PLACE_LABEL[parts.positioned.place].plain.toLowerCase()} stand beside the picture — remove them to move the picture onto the band.`;
+  if (parts.around) return 'Pictures stand around the picture — remove them to move the picture onto the band.';
+  if (parts.onPicture) return 'The picture carries more pictures — remove them to move it onto the band.';
   return null;
 }
 
-/** Which of the picture and extra picture a path is, or null for any other group. */
-function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'extra' | null {
+/** Which of the picture, the pictures on the ordinary, the pictures on a chief or bordure and the pictures in chief, base or canton a path is, or null for any other group. */
+function partOf(parts: SimpleParts, path: GroupPath): 'picture' | 'coPrimary' | 'onOrdinary' | 'peripheral' | 'positioned' | 'around' | 'onPicture' | 'overall' | null {
   if (parts.picture && samePath(parts.picture.path, path)) return 'picture';
-  return parts.extra && samePath(parts.extra.path, path) ? 'extra' : null;
+  if (parts.coPrimary && samePath(parts.coPrimary.path, path)) return 'coPrimary';
+  if (parts.onOrdinary && samePath(parts.onOrdinary.path, path)) return 'onOrdinary';
+  if (parts.positioned && samePath(parts.positioned.path, path)) return 'positioned';
+  if (parts.around && samePath(parts.around.path, path)) return 'around';
+  if (parts.onPicture && samePath(parts.onPicture.path, path)) return 'onPicture';
+  if (parts.overall && samePath(parts.overall.path, path)) return 'overall';
+  return parts.peripheralPictures.some((p) => samePath(p.path, path)) ? 'peripheral' : null;
 }
 
-/** The design with the picture (or extra picture) at `path` given a new count and/or placement, and where it is now; its layout is left for the caller. */
+/** The design with the pictures on a chief or bordure at `path` given a new count, and where they are now. */
+function editPeripheralPictures(d: Design, path: GroupPath, count: number): Edited {
+  const parts = simpleParts(d);
+  const place = parts.peripheralPictures.find((p) => samePath(p.path, path))!.place;
+  const peripherals = parts.peripherals.map(({ path: host, group }) => (
+    host[0] === path[0] ? { ...group, charged: group.charged.map((t) => ({ ...t, count })) } : group
+  ));
+  const design = assembleParts(d, { ...partsOf(d), peripherals });
+  return { design, path: simpleParts(design).peripheralPictures.find((p) => p.place === place)!.path };
+}
+
+/** The design with the picture (or the pictures on the ordinary) at `path` given a new count and/or placement, and where it is now; its layout is left for the caller. */
 function edit(d: Design, path: GroupPath, change: { count?: number; placement?: Placement }): Edited | { reason: string } {
   const parts = simpleParts(d);
   const part = partOf(parts, path);
+  if (part === 'peripheral') return editPeripheralPictures(d, path, change.count ?? groupAt(d, path).count);
+  if (part === 'positioned') {
+    const design = assembleParts(d, { ...partsOf(d), positioned: { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count } });
+    return { design, path: simpleParts(design).positioned!.path };
+  }
+  if (part === 'coPrimary') {
+    const design = assembleParts(d, { ...partsOf(d), coPrimary: { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count } });
+    return { design, path: simpleParts(design).coPrimary!.path };
+  }
+  if (part === 'around') {
+    const design = assembleParts(d, { ...partsOf(d), around: { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count } });
+    return { design, path: simpleParts(design).around!.path };
+  }
+  if (part === 'onPicture') {
+    const design = assembleParts(d, { ...partsOf(d), onPicture: { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count } });
+    return { design, path: simpleParts(design).onPicture!.path };
+  }
+  if (part === 'overall') {
+    const design = assembleParts(d, { ...partsOf(d), overall: { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count } });
+    return { design, path: simpleParts(design).overall!.path };
+  }
   if (!part || !parts.picture) throw new RangeError(`The group at ${path.join('.')} is not a picture.`);
   const placement = part === 'picture' ? change.placement ?? parts.picture.placement : parts.picture.placement;
   const reason = placement === parts.picture.placement ? null : placementReason(parts, placement);
   if (reason) return { reason };
   const group = { ...groupAt(d, path), count: change.count ?? groupAt(d, path).count };
   const design = assembleParts(d, {
-    ordinary: parts.ordinary?.group ?? null,
-    peripheral: null,
+    ...partsOf(d),
     picture: part === 'picture' ? group : parts.picture.group,
     placement,
-    extra: part === 'extra' ? group : parts.extra?.group ?? null,
+    onOrdinary: part === 'onOrdinary' ? group : parts.onOrdinary?.group ?? null,
   });
   const moved = simpleParts(design);
-  const at = part === 'picture' ? moved.picture : moved.extra;
+  const at = part === 'picture' ? moved.picture : moved.onOrdinary;
   if (!at) throw new RangeError('The edited group went missing.');
   return { design, path: at.path };
 }
@@ -305,7 +600,8 @@ function fitLayout(d: Design, path: GroupPath, count: number, placement: Placeme
   for (const design of designs()) {
     if (hasRoom(design, placed.path) && layoutReason(design, placed.path, withTinctures) === null) return { fits: true, count, placement, design, path: placed.path };
   }
-  const [first] = designs();
+  // A count with no layout there at all (around the picture) is judged as it is placed.
+  const [first = placed.design] = designs();
   return { fits: false, reason: layoutReason(first, placed.path, withTinctures) ?? 'No layout works.' };
 }
 
@@ -321,7 +617,7 @@ function countsByNearness(count: number): number[] {
  */
 function layoutChoice<T>(d: Design, path: GroupPath, value: T, partner: Companion['kind'], tries: Array<[number, Placement]>): LayoutChoice<T> {
   const g = groupAt(d, path);
-  const placement = simpleParts(d).picture?.placement;
+  const placement = simpleParts(d).picture?.placement ?? 'field';
   let first: Fit | null = null;
   let fit: Fit | null = null;
   for (const [count, p] of tries) {
@@ -336,11 +632,13 @@ function layoutChoice<T>(d: Design, path: GroupPath, value: T, partner: Companio
   return { value, allowed: true, design: fit.design, companion };
 }
 
-/** The placements to try for a group: the picture may move between them, an extra picture stays where it is. */
+/** The placements to try for a group: the picture may move between them, the other pictures stay where they are. */
 function placementsFor(parts: SimpleParts, path: GroupPath): Placement[] | null {
   const part = partOf(parts, path);
-  if (!part || !parts.picture) return null;
-  return part === 'extra' ? [parts.picture.placement] : [parts.picture.placement, ...PLACEMENTS.filter((p) => p !== parts.picture!.placement)];
+  if (!part) return null;
+  if (part === 'peripheral' || part === 'positioned' || part === 'around' || part === 'onPicture' || part === 'overall' || part === 'coPrimary') return [parts.picture?.placement ?? 'field'];
+  if (!parts.picture) return null;
+  return part === 'onOrdinary' ? [parts.picture.placement] : [parts.picture.placement, ...PLACEMENTS.filter((p) => p !== parts.picture!.placement)];
 }
 
 /**
@@ -360,26 +658,41 @@ export function countChoices(d: Design, path: GroupPath): LayoutChoice<number>[]
  */
 export function placementChoices(d: Design, path: GroupPath): LayoutChoice<Placement>[] {
   const parts = simpleParts(d);
-  if (!parts.picture || partOf(parts, path) !== 'picture') return [];
+  // A fieldless badge has no band to put its picture on.
+  if (d.kind === 'badge' || !parts.picture || partOf(parts, path) !== 'picture') return [];
   const count = groupAt(d, path).count;
   return PLACEMENTS.map((p) => layoutChoice(d, path, p, 'count', countsByNearness(count).map((n): [number, Placement] => [n, p])));
 }
 
-/** single: one place to put it; host: placed by the ordinary (`note` says why there is nothing to choose); choose: pick from `choices`, with one `note` for the blocked ones (null when none is). */
+/**
+ * single: one place to put it; host: placed by the ordinary; fixed: the one layout it takes where it stands (in chief, base or
+ * canton, or around the picture) (`note` says why there is nothing to choose); choose: pick from `choices`, with one `note`
+ * for the blocked ones (null when none is).
+ */
 export type LayoutChoices =
   | { mode: 'choose'; choices: Choice<LayoutKey>[]; note: string | null }
-  | { mode: 'single' | 'host'; note: string };
+  | { mode: 'single' | 'host' | 'fixed'; note: string };
 
 export function layoutChoices(d: Design, path: GroupPath): LayoutChoices {
   const g = groupAt(d, path);
   const ctx = contextOf(d, g, hostOf(d, path));
   if (!ctx) return { mode: 'single', note: 'There is no layout to choose for this group.' };
-  if (ctx.k !== 'field') {
+  // A fieldless badge has no field to set its charge in: one charge in the middle, or two long ones crossed.
+  if (d.kind === 'badge' && g.role === 'primary') {
+    if (g.count === 1) return { mode: 'single', note: 'A single charge sits in the centre.' };
+    if (g.arrangement.k === 'crossed') return { mode: 'fixed', note: 'Two long charges in a badge cross each other like an X.' };
+  }
+  if (ctx.k === 'between' || ctx.k === 'on') {
     const name = ORDINARY_NAME[ctx.ordinary];
     return { mode: 'host', note: ctx.k === 'on' ? `Charges on the ${name} follow its line.` : `Charges between a ${name} are placed around it.` };
   }
   const keys = layoutCandidates(d, path, g.count).map(layoutKey);
-  if (keys.length === 1) return { mode: 'single', note: 'A single charge sits in the centre.' };
+  if (keys.length === 1) {
+    if (ctx.k === 'position') return { mode: 'fixed', note: g.count === 1 ? `A single charge in ${ctx.position} stands alone there.` : `Charges in ${ctx.position} stand in a row across it.` };
+    if (ctx.k === 'around') return { mode: 'fixed', note: `${capitalise(numberWord(g.count))} charges around the picture stand ${aroundWords(g.count, layoutOfKey(keys[0], g.count)!)}.` };
+    if (ctx.k === 'overall') return { mode: 'fixed', note: g.count === 1 ? 'A single charge overall lies across the middle.' : 'Two long charges overall cross each other like an X.' };
+    return { mode: 'single', note: 'A single charge sits in the centre.' };
+  }
   const blocks = keys.map((key) => layoutBlock(withLayout(d, path, key), path, true));
   return { mode: 'choose', choices: keys.map((key, i) => choice(key, blocks[i]?.reason ?? null)), note: blockedNote(g, blocks) };
 }
@@ -421,15 +734,15 @@ export function modifierChoices(d: Design, path: GroupPath): Choice<ModifierId>[
 // ── Repairs ─────────────────────────────────────────────────────────────────
 
 /**
- * Make the picture (or extra picture) at `path` structurally legal after a lower-layer change: the
+ * Make the picture (or extra picture, or the pictures on a chief or bordure) at `path` structurally legal after a lower-layer change: the
  * nearest count that has a layout, in the layout kept or Table 7's. Tinctures are left alone (a tincture
  * conflict is surfaced, not silently fixed). A design where none works is returned unchanged.
  */
 export function fitGroup(d: Design, path: GroupPath): Design {
   const parts = simpleParts(d);
   const g = groupAt(d, path);
-  const placement = parts.picture?.placement;
-  if (g.item.k !== 'charge' || !placement || structureBlock(d, path) === null) return d;
+  const placement = parts.picture?.placement ?? 'field';
+  if (g.item.k !== 'charge' || structureBlock(d, path) === null) return d;
   for (const n of countsByNearness(g.count)) {
     const fit = fitLayout(d, path, n, placement, false);
     if (fit.fits) return fit.design;
@@ -449,7 +762,7 @@ export type TinctureFix =
 /** "Switch the lions to Gules" / "Counterchange the mullets" / "Switch the roses on the chief to Or". */
 function fixWords(d: Design, path: GroupPath, t: GroupTincture): string {
   const g = groupAt(d, path), host = hostOf(d, path);
-  const onto = host?.item.k === 'ordinary' ? ` on the ${ORDINARY_NAME[host.item.type]}` : '';
+  const onto = host?.item.k === 'ordinary' ? ` on the ${ORDINARY_NAME[host.item.type]}` : host?.item.k === 'charge' ? ` on the ${CHARGES[host.item.charge].name}` : '';
   const what = `${groupNoun(g)}${onto}`;
   return t === 'counterchanged' ? `counterchange ${what}` : `switch ${what} to ${TINCTURE_NAME[t]}`;
 }

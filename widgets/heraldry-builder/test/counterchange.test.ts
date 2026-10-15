@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DRAWN_DIVISIONS, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
-  normalise, queryWords, readability, signature, tinctureIssues, type Division,
+  normalise, queryWords, readability, renderLayers, signature, tinctureIssues, unsupportedIssues, type Division,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
@@ -86,6 +86,18 @@ describe('counterchanged and the rule of tincture', () => {
   });
 });
 
+describe('charges on a band counterchanged over stripes', () => {
+  const paly = { k: 'variation', variation: 'paly', pieces: null, parts: ['sable', 'or'] };
+  const onBend = (paint: string) => nd(arms(paly, ord('bend', 'counterchanged', { charged: [chg('mullet', paint, { count: 3 })] })));
+
+  it('are judged against the band as a whole, as neutral as the field: they may not share either tincture (A3B1, A3B4b)', () => {
+    expect(tinctureIssues(onBend('or')).map((i) => i.message)).toEqual(['Or mullets on Paly Sable and Or field: same tincture']);
+    expect(tinctureIssues(onBend('sable')).map((i) => i.message)).toEqual(['Sable mullets on Paly Sable and Or field: same tincture']);
+    expect(tinctureIssues(onBend('gules'))).toEqual([]);
+    expect(tinctureIssues(onBend('argent'))).toEqual([]);
+  });
+});
+
 describe('counterchanged in the design text', () => {
   const d = mullets(div('per-pale', 'or', 'azure'));
 
@@ -149,4 +161,31 @@ describe('counterchanged charges in every placement', () => {
       }
     });
   }
+});
+
+describe('a counterchanged chevron on a field per chevron', () => {
+  const chevron = (...rest: object[]) => nd(arms(div('per-chevron', 'or', 'azure'), ord('chevron', 'counterchanged'), ...rest));
+
+  it('lies astride the line and shows both tinctures, in every shape', () => {
+    for (const shape of ['heater', 'banner', 'round', 'lozenge'] as const) {
+      const layer = renderLayers(chevron(), shape).find((l) => l.k === 'ordinary');
+      expect(layer?.k === 'ordinary' && layer.fill.k === 'split' && layer.fill.parts.length, shape).toBe(2);
+    }
+  });
+
+  it('is drawn in its usual place, and in one tincture, on another division or when it is not counterchanged', () => {
+    const fill = (d: unknown) => (renderLayers(nd(d as never), 'heater').find((l) => l.k === 'ordinary') as { fill: { k: string; parts?: unknown[] } }).fill;
+    expect(fill(arms(div('per-fess', 'or', 'azure'), ord('chevron', 'counterchanged'))).parts).toHaveLength(2);
+    expect(fill(arms(div('per-chevron', 'or', 'azure'), ord('chevron', 'gules'))).k).toBe('solid');
+    const usual = renderLayers(nd(arms(div('per-chevron', 'or', 'azure'), ord('chevron', 'gules'))), 'heater').find((l) => l.k === 'ordinary');
+    const astride = renderLayers(chevron(), 'heater').find((l) => l.k === 'ordinary');
+    expect(astride && usual && astride.k === 'ordinary' && usual.k === 'ordinary' && astride.d !== usual.d).toBe(true);
+  });
+
+  it('keeps the charges set by it, which would be placed for the usual chevron, a gap', () => {
+    const between = chevron(chg('rose', 'argent', { count: 3, relation: 'between' }));
+    expect(unsupportedIssues(between).map((i) => i.gap)).toEqual([{ category: 'placement', detail: 'counterchanged-chevron' }]);
+    expect(unsupportedIssues(chevron(group(ordinary('chief'), 'gules')))).toEqual([]);
+    expect(unsupportedIssues(nd(arms(div('per-chevron', 'or', 'azure'), ord('chevron', 'gules'), chg('rose', 'argent', { count: 3, relation: 'between' }))))).toEqual([]);
+  });
 });

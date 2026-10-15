@@ -7,7 +7,7 @@ import {
   blazon, checkResponse, type CheckableEntry,
   type Design, type Diff, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -41,6 +41,38 @@ describe('worked checks (RULES §C.8, plan §5.9)', () => {
     expect(isClear(differences(charged, plain))).toBe(true);
     const bare = design('sable', lion(), ord('chief', 'or'));
     expect(between(bare, plain)).toEqual(['group-presence:dc:A5G2']);
+  });
+
+  it('a chief and a bordure beside a lion: each is a group of its own, so each added or removed is one distinct change', () => {
+    const both = design('sable', lion(), ord('chief', 'or'), ord('bordure', 'or'));
+    const chiefOnly = design('sable', lion(), ord('chief', 'or'));
+    const bare = design('sable', lion());
+    expect(between(both, chiefOnly)).toEqual(['group-presence:dc:A5G2']);
+    expect(between(both, bare)).toEqual(['group-presence:dc:A5G2', 'group-presence:dc:A5G2']);
+    expect(isClear(differences(both, bare))).toBe(true);
+    expect(isClear(differences(both, chiefOnly))).toBe(false);
+    // The signature lists the chief before the bordure, whichever order they were given in.
+    expect(signature(design('sable', lion(), ord('bordure', 'or'), ord('chief', 'or')))).toBe(signature(both));
+  });
+
+  it('charges in chief against the same in base, or around the primary: one distinct change of arrangement (an unforced move, RB §5.2)', () => {
+    const at = (position: string) => design('azure', ord('fess', 'or'), chg('mullet', 'argent', { count: 3, position }));
+    expect(between(at('chief'), at('base'))).toEqual(['arrangement:dc:A5G6']);
+    const around = design('azure', ord('fess', 'or'), chg('mullet', 'argent', { count: 3 }));
+    expect(between(at('chief'), around)).toEqual(['arrangement:dc:A5G6']);
+    expect(explainDifferences(at('chief'), around).map((n) => n.text)).toEqual(['arrangement of pictures in chief (in chief ↔ placed by the ordinary)']);
+    // Charges in chief added beside a lion: one more group.
+    expect(between(design('azure', lion('or'), chg('mullet', 'argent', { count: 3, position: 'chief' })), design('azure', lion('or')))).toEqual(['group-presence:dc:A5G2']);
+  });
+
+  it('charges around a primary charge: their layout is chosen (a DC when it changes), and adding them is one more group', () => {
+    const around = (arrangement: string) => design('azure', lion('or'), chg('mullet', 'argent', { count: 4, relation: 'between', arrangement }));
+    expect(between(around('in-saltire'), around('in-cross'))).toEqual(['arrangement:dc:A5G6']);
+    expect(explainDifferences(around('in-saltire'), around('in-cross')).map((n) => n.text)).toEqual(['arrangement of pictures around the picture (in saltire ↔ in cross)']);
+    expect(between(around('in-saltire'), design('azure', lion('or')))).toEqual(['group-presence:dc:A5G2']);
+    // Around the lion or in chief beside it: the same secondary group in another place.
+    expect(between(design('azure', lion('or'), chg('mullet', 'argent', { count: 3, relation: 'between' })), design('azure', lion('or'), chg('mullet', 'argent', { count: 3, position: 'chief' }))))
+      .toEqual(['arrangement:dc:A5G6']);
   });
 
   it('one mullet against three: a substantial change of number', () => {
@@ -457,14 +489,14 @@ describe('explanations', () => {
 
   it('cites a SENA section in the reason of every rule that can be given', () => {
     const seen = new Set<string>();
-    const designs = generatedDesigns(1, 200);
+    const designs = [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 60)];
     for (const a of designs) for (const b of designs.slice(0, 40)) for (const n of explainDifferences(a, b)) {
       seen.add(n.rule);
       expect(n.why).toContain(`SENA ${n.rule}`);
       expect(n.text.length).toBeGreaterThan(0);
     }
     for (const rule of SENA_RULES) {
-      if (rule === 'A5E4' || rule === 'A5G6' || rule === 'A5F2') continue; // pinned in the tests above; the generator rarely reaches them
+      if (rule === 'A5E4' || rule === 'A5G6' || rule === 'A5F2' || rule === 'A5G1b' || rule === 'A5G1d' || rule === 'A5G1e') continue; // pinned in the tests above and in variation.test.ts; the generator rarely reaches them
       expect(seen, `generated pairs give ${rule}`).toContain(rule);
     }
   }, 30_000);
@@ -508,13 +540,13 @@ describe('tally and vocabulary', () => {
     expect(isChangeKind('dc')).toBe(true);
     expect(isChangeKind('half')).toBe(false);
     expect(isSenaRule('A5G1a')).toBe(true);
-    expect(isSenaRule('A5G1b')).toBe(false);
+    expect(isSenaRule('A5G1c')).toBe(false);
     expect(SENA_RULES.every(isSenaRule)).toBe(true);
   });
 });
 
 describe('sweeps over generated designs', () => {
-  const designs = generatedDesigns(1, 160);
+  const designs = [...generatedDesigns(1, 160), ...generatedRichDesigns(1, 60)];
   const asMultiset = (diffs: readonly Diff[]) => summary(diffs).sort();
 
   it('a design differs from itself in nothing, and every difference names a group that exists', () => {
@@ -602,5 +634,94 @@ describe('the availability check', () => {
   it('skips the entry being edited', () => {
     const d = lion('argent');
     expect(reportUniqueness(d, signature(d), [entryOf('mine', d)], 'mine')).toEqual({ verdict: 'ok', closest: null });
+  });
+});
+
+describe('fieldless badges (A5G1e)', () => {
+  /** A badge built directly: badges are not registrable until they are drawn, but they are compared. */
+  const badge = (...groups: ReturnType<typeof group>[]): Design => ({ ...nd(arms('azure', ...groups)), kind: 'badge', field: null }) as Design;
+  const mullet = (paint: string, extra: object = {}) => chg('mullet', paint, extra);
+
+  it('two badges count the fieldless distinct change against each other too, then their groups', () => {
+    expect(between(badge(mullet('purpure')), badge(mullet('purpure')))).toEqual(['fieldless:dc:A5G1e']);
+    expect(between(badge(mullet('purpure')), badge(mullet('gules')))).toEqual(['fieldless:dc:A5G1e', 'tincture:dc:A5G3']);
+    expect(isClear(differences(badge(mullet('purpure')), badge(mullet('gules'))))).toBe(true);
+    expect(between(badge(mullet('purpure', { count: 5 })), badge(mullet('purpure', { count: 6 })))).toEqual(['fieldless:dc:A5G1e', 'number:dc:A5G5']);
+  });
+
+  it('a mullet and a sun badge are clear: the fieldless DC and a type DC (SENA A5G1e "even against another fieldless badge")', () => {
+    const [a, b] = [badge(mullet('purpure')), badge(chg('sun', 'purpure'))];
+    expect(between(a, b)).toEqual(['fieldless:dc:A5G1e', 'type:dc:A5G4']);
+    expect(isClear(differences(a, b))).toBe(true);
+    expect(candidateKey(a)).toEqual(candidateKey(b));
+  });
+
+  it('a badge against armory with a field is one distinct change however the field looks, plus the groups', () => {
+    const badgeOf = badge(mullet('purpure'));
+    for (const field of ['azure', div('per-pale', 'or', 'azure'), { k: 'variation', variation: 'barry', parts: ['or', 'azure'] }]) {
+      const fielded = nd(arms(field, mullet('purpure')));
+      expect(between(badgeOf, fielded), JSON.stringify(field)).toEqual(['fieldless:dc:A5G1e']);
+      expect(between(fielded, badgeOf)).toEqual(['fieldless:dc:A5G1e']);
+      expect(isClear(differences(badgeOf, fielded))).toBe(false);
+    }
+    const recoloured = nd(arms('azure', mullet('gules')));
+    expect(between(badgeOf, recoloured)).toEqual(['fieldless:dc:A5G1e', 'tincture:dc:A5G3']);
+    expect(isClear(differences(badgeOf, recoloured))).toBe(true);
+  });
+
+  it('does not count placement on the field against a badge (LoAR 08/2006, Havre de Glace)', () => {
+    const badgeOf = badge(mullet('purpure'));
+    expect(between(badgeOf, nd(arms('azure', mullet('purpure', { position: 'chief' }))))).toEqual(['fieldless:dc:A5G1e']);
+    expect(between(nd(arms('azure', mullet('purpure', { count: 3, position: 'chief' }))), badge(mullet('purpure', { count: 3 })))).toEqual(['fieldless:dc:A5G1e']);
+    expect(between(badge(mullet('purpure', { count: 3 })), nd(arms('azure', mullet('purpure', { count: 3, arrangement: 'in-pale' }))))).toEqual(['fieldless:dc:A5G1e', 'arrangement:sc:A5E4']);
+  });
+
+  it('a badge always has a primary group, so against field-primary armory it differs substantially (A5E1)', () => {
+    const fieldPrimary = nd(arms(div('per-pale', 'or', 'azure'), ord('chief', 'argent')));
+    expect(between(badge(mullet('purpure')), fieldPrimary)).toContain('primary-presence:sc:A5E1');
+    expect(candidateKey(badge(mullet('purpure'))).primary).not.toBe(candidateKey(fieldPrimary).primary);
+  });
+
+  it('the signature tells a badge from armory and equal badges apart from different ones', () => {
+    expect(signature(badge(mullet('purpure')))).toBe(signature(badge(mullet('purpure'))));
+    expect(signature(badge(mullet('purpure')))).not.toBe(signature(nd(arms('azure', mullet('purpure')))));
+    expect(signature(badge(mullet('purpure')))).not.toBe(signature(badge(mullet('gules'))));
+  });
+
+  it('a duplicate badge is found, and a badge is too close to the same picture on a field', () => {
+    const badgeOf = badge(mullet('purpure'));
+    const fielded = nd(arms('azure', mullet('purpure')));
+    const registry: RegistryEntryLike[] = [{ id: 'f', signature: signature(fielded), design: fielded }];
+    expect(checkUnique(badgeOf, signature(badgeOf), registry)).toMatchObject({ kind: 'too-close', of: 'f' });
+    registry.push({ id: 'b', signature: signature(badgeOf), design: badgeOf });
+    expect(checkUnique(badgeOf, signature(badgeOf), registry)).toEqual({ kind: 'duplicate', of: 'b' });
+  });
+
+  it('explains the missing background in words', () => {
+    const notes = explainDifferences(badge(mullet('purpure')), nd(arms('azure', mullet('purpure'))));
+    expect(notes).toEqual([{
+      attr: 'fieldless', kind: 'dc', rule: 'A5G1e', item: null,
+      text: 'background (none ↔ plain)',
+      why: 'No background counts as one distinct change (SENA A5G1e).',
+    }]);
+    expect(explainDifferences(badge(mullet('purpure')), badge(mullet('purpure')))[0]).toMatchObject({
+      text: 'background (none ↔ none)',
+      why: 'A design with no background always counts one distinct change, even against another with none (SENA A5G1e).',
+    });
+  });
+});
+
+describe('counterchanged and the same tinctures written out (A5G3a)', () => {
+  const field = div('per-pale', 'argent', 'azure');
+  const lion = (paint: unknown) => group(charge('lion'), paint);
+
+  it('are one design: "a lion counterchanged" is shorthand for "a lion per pale azure and argent"', () => {
+    expect(between(nd(arms(field, lion('counterchanged'))), nd(arms(field, lion(div('per-pale', 'azure', 'argent')))))).toEqual([]);
+    expect(between(nd(arms(field, lion('counterchanged'), ord('chief', 'or'))), nd(arms(field, lion(div('per-pale', 'azure', 'argent')), ord('chief', 'gules'))))).toEqual(['tincture:dc:A5G3']);
+  });
+
+  it('but several charges counterchanged lie each in one part, unlike several charges each divided', () => {
+    const three = (paint: unknown) => nd(arms(div('per-pale', 'argent', 'azure'), group(charge('lion'), paint, { count: 3 })));
+    expect(between(three('counterchanged'), three(div('per-pale', 'azure', 'argent')))).toEqual(['tincture:dc:A5G3']);
   });
 });

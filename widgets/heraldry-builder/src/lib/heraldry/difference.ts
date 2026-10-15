@@ -3,37 +3,39 @@
 // DCs. Each difference carries the SENA rule it comes from; `explainDifferences` words it for the
 // Availability UI. Same code on client (instant feedback) and Worker (authoritative).
 
-import { TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
-  fieldTinctures, groupAt, groupTinctureOf, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroup,
+  asParty, asVariation, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
-import { DIVISION_NAME } from './divisions';
+import { DIVISION_NAME, VARIATION_NAME, type Division, type Variation } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
-import { isForced, layoutKey, layoutWords, type LayoutKey } from './arrangement';
+import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
-import { shownTinctures, type ShownTinctures } from './tincture-rule';
+import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
+import { liftStrewn } from './strewn';
+import { fieldSurfaces, sameSurface, tinctureSurface, type Surface } from './surface';
 
 export type ChangeKind = 'sc' | 'dc';
 
 const CHANGE_KINDS: readonly ChangeKind[] = ['sc', 'dc'];
 
 /**
- * The SENA section each change comes from (RULES §C.4, §C.5). A5G1b–d never appear: every drawn division is
- * its own A5F1b category, so a different direction, style or number of pieces is already a substantial change.
+ * The SENA section each change comes from (RULES §C.4, §C.5). A5G1b and A5G1d appear for fields of one A5F1b category
+ * (a division and its multiple, the lattices): a different direction or style, or a different number of pieces.
+ * A5G1e is a fieldless badge set against any other armory, fielded or fieldless.
  */
-export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
+export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G1b', 'A5G1d', 'A5G1e', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
 export type SenaRule = (typeof SENA_RULES)[number];
 
 export type DiffAttr =
-  | 'field-partition' | 'field-tincture' | 'primary-presence' | 'group-presence'
+  | 'fieldless' | 'field-partition' | 'field-style' | 'field-tincture' | 'primary-presence' | 'group-presence'
   | 'type' | 'number' | 'tincture' | 'arrangement' | 'posture';
 
 const DIFF_ATTRS: readonly DiffAttr[] = [
-  'field-partition', 'field-tincture', 'primary-presence', 'group-presence', 'type', 'number', 'tincture', 'arrangement', 'posture',
+  'fieldless', 'field-partition', 'field-style', 'field-tincture', 'primary-presence', 'group-presence', 'type', 'number', 'tincture', 'arrangement', 'posture',
 ];
 
 export function isDiffAttr(v: unknown): v is DiffAttr {
@@ -129,6 +131,19 @@ function comparablePostures(x: Item, y: Item): { cls: PostureClass; px: Posture;
   return cls !== null && cls === CHARGES[y.charge].postureClass ? { cls, px: x.posture, py: y.posture } : null;
 }
 
+/** Whether comparable postures lie in different lines of A5G7's table, so that changing one for the other is a distinct change. */
+function postureLinesApart({ cls, px, py }: { cls: PostureClass; px: Posture; py: Posture }): boolean {
+  const lines = POSTURE_DC_LINES[cls];
+  const lx = lines[px] ?? [], ly = lines[py] ?? [];
+  return px !== py && !lx.some((l) => ly.includes(l));
+}
+
+/** Whether two charges that can be posed alike are posed in different lines (a lion rampant and a wolf passant): SENA A3D2c asks the charges of one group to be posed alike. */
+export function posturesClash(x: Item, y: Item): boolean {
+  const postures = comparablePostures(x, y);
+  return postures !== null && postureLinesApart(postures);
+}
+
 /** RULES §C.6 (App K): the layouts a group of `count` can swap with a group of another count and still differ in arrangement. */
 function appK(count: number): readonly LayoutKey[] {
   switch (count) {
@@ -150,10 +165,11 @@ function sidesWhere(d: Design, keep: (g: Group) => boolean): Side[] {
   return d.groups.flatMap((group, i) => (keep(group) ? [{ design: d, path: [i], group, host: null }] : []));
 }
 
-const primaryOf = (d: Design): Side | null => {
-  const p = primaryGroup(d);
-  return p && { design: d, path: p.path, group: p.group, host: null };
-};
+/** A5C2: the primary group; two co-primary groups ("a lion and a rose") together are one. */
+const primariesOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'primary');
+
+/** A5C2: overall groups are compared with overall groups. */
+const overallsOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'overall');
 
 /** A5C2b: SENA treats peripheral ordinaries as secondary charge groups. */
 const secondariesOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'secondary' || g.role === 'peripheral');
@@ -185,13 +201,10 @@ function refOf(x: Side | null, y: Side | null): GroupRef {
   throw new RangeError('A group reference needs a group.');
 }
 
-/** A paint's tincture or counterchanged; the other paints are not drawn. */
-function tinctureOf(p: Paint) {
-  return groupTinctureOf(p) ?? notSupported(paintGaps(p, false, 'group')[0] ?? { category: 'tincture', detail: p.k });
-}
+/** The surface shown over part `i` of the field, or null where the group doesn't lie. */
+const shownAt = (s: ShownSurfaces, i: number): Surface | null => (s.k === 'plain' ? s.surface : s.byPart.get(i) ?? null);
 
-/** A shown tincture over part `i` of the field, or null where the group doesn't lie. */
-const shownAt = (s: ShownTinctures, i: number): Tincture | null => (s.k === 'plain' ? s.t : s.byPart.get(i) ?? null);
+const differs = (a: Surface | null, b: Surface | null): boolean => (a === null || b === null ? a !== b : !sameSurface(a, b));
 
 /**
  * A5G3 (with A5G3a, A5C2d): whether the tinctures a group shows change over at least half of it, compared part of the
@@ -199,12 +212,24 @@ const shownAt = (s: ShownTinctures, i: number): Tincture | null => (s.k === 'pla
  * an argent half, so it differs from the same lion on per pale Or and gules by half the lion.
  */
 function tinctureChanged(x: Side, y: Side): boolean {
-  const a = shownTinctures(x.design, x.path), b = shownTinctures(y.design, y.path);
-  if (a.k === 'plain' && b.k === 'plain') return a.t !== b.t;
+  // Direction counts for a divided group as for a field (A5G3c): a different division is a change of tincture.
+  const [px, py] = [asParty(x.group.paint), asParty(y.group.paint)];
+  if (px && py && px.division !== py.division) return true;
+  // So is a different number of pieces up to four (A5G3d: "a mullet per chevron … and a mullet chevronelly").
+  const [vx, vy] = [asVariation(x.group.paint), asVariation(y.group.paint)];
+  if ((px || vx) && (py || vy) && pieceTier(x.group.paint) !== pieceTier(y.group.paint)) return true;
+  // So is a different pattern (barry for paly); the same pattern in the same tinctures is none, and nor is swapping the tinctures of
+  // more than four pieces (A5G3a: "lions checky argent and azure" and "lions checky azure and argent").
+  if (vx && vy) {
+    const same = (i: number, j: number) => vx.parts[i].t === vy.parts[j].t;
+    return vx.variation !== vy.variation || !(same(0, 0) && same(1, 1) || pieceTier(vx) > 4 && same(0, 1) && same(1, 0));
+  }
+  const a = shownSurfaces(x.design, x.path), b = shownSurfaces(y.design, y.path);
+  if (a.k === 'plain' && b.k === 'plain') return differs(a.surface, b.surface);
   const parts = new Set([...(a.k === 'parts' ? a.byPart.keys() : []), ...(b.k === 'parts' ? b.byPart.keys() : [])]);
   // Counterchanged with nothing to show (an invalid design): compare the paints as written.
   if (parts.size === 0) return a.k !== b.k;
-  const changed = [...parts].filter((i) => shownAt(a, i) !== shownAt(b, i)).length;
+  const changed = [...parts].filter((i) => differs(shownAt(a, i), shownAt(b, i))).length;
   return changed > 0 && changed * 2 >= parts.size;
 }
 
@@ -212,21 +237,73 @@ function tinctureChanged(x: Side, y: Side): boolean {
 
 const change = (attr: DiffAttr, kind: ChangeKind, rule: SenaRule, group: GroupRef | null): Diff => ({ attr, kind, rule, group });
 
-/** The partition category of a field (A5F1): plain, or the division — each drawn division is its own category. */
-function partition(d: Design): string {
-  if (d.kind === 'badge') return notSupported({ category: 'fieldless', detail: 'badge' });
+/**
+ * The A5F1b category of each variation: the stripes of a division fall with it ("barry" with per fess), pily with per pale (an extreme
+ * per pale indented), the lattices together, checky on its own.
+ */
+const VARIATION_CATEGORY: Record<Variation, string> = {
+  barry: 'per-fess', paly: 'per-pale', bendy: 'per-bend', 'bendy-sinister': 'per-bend-sinister', chevronny: 'per-chevron', pily: 'per-pale',
+  checky: 'checky', lozengy: 'lattice', fusily: 'lattice', 'barry-bendy': 'lattice', 'paly-bendy': 'lattice',
+};
+
+/** The partition category of a field (A5F1): plain, or the division; a variation is in the category of the division it multiplies. Null for a fieldless badge, which has no field to compare. */
+function partition(d: Design): string | null {
+  if (d.kind === 'badge') return null;
   const f = d.field;
-  return f.k === 'divided' ? f.division : f.k === 'tincture' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
+  return f.k === 'divided' ? f.division : f.k === 'variation' ? VARIATION_CATEGORY[f.variation] : f.k === 'tincture' || f.k === 'fur' || f.k === 'treated' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
+}
+
+/** Pieces beyond four are not told apart (A5G1d); a variation with no count, and pily, have more than that. */
+const MANY_PIECES = 5;
+const DIVISION_PIECES: Partial<Record<Division, number>> = { quarterly: 4, 'per-saltire': 4 };
+
+/** How many pieces a field is cut into, up to the count that is no longer told apart (A5G1d). */
+function pieceTier(f: Paint): number {
+  if (f.k === 'variation') return Math.min(f.pieces ?? MANY_PIECES, MANY_PIECES);
+  return f.k === 'divided' ? DIVISION_PIECES[f.division] ?? 2 : 1;
+}
+
+/** What else tells two fields of one category apart (A5G1b): lozengy and fusily are one, the other lattices and checky their own. */
+function styleOf(f: Paint): string {
+  return f.k === 'variation' ? (f.variation === 'fusily' ? 'lozengy' : f.variation === 'pily' ? 'per-pale' : f.variation) : '';
+}
+
+/** The surfaces a field's tinctures make for comparing, part by part; a variation's are its two tinctures. */
+function fieldSurfacesCompared(d: Design): Surface[] {
+  const v = d.kind === 'arms' ? asVariation(d.field) : null;
+  return v ? v.parts.map((p) => tinctureSurface(p.t)) : fieldSurfaces(d);
+}
+
+/**
+ * Both fields' surfaces, part by part. When either field has more than four pieces its two tinctures may be either way round (A5G1a:
+ * "There is not a distinct change for swapping the tinctures of a field divided into more than four parts"; Prec #FIELDCheck), so the
+ * second field's are turned where that pairs more of them with the first's: "Per fess azure and argent" against "Barry argent and
+ * azure" and against "Barry azure and argent" alike changes the number of pieces only (A5G1d).
+ */
+function comparedSurfaces(a: Design, b: Design, swappable: boolean): [Surface[], Surface[]] {
+  const ta = fieldSurfacesCompared(a), tb = fieldSurfacesCompared(b);
+  if (!swappable || ta.length !== 2 || tb.length !== 2) return [ta, tb];
+  const paired = (ys: readonly Surface[]) => ta.filter((s, i) => sameSurface(s, ys[i])).length;
+  const turned = [tb[1], tb[0]];
+  return [ta, paired(turned) > paired(tb) ? turned : tb];
 }
 
 function fieldChanges(a: Design, b: Design): Diff[] {
+  // A5G1e: fieldless armory has no field to compare, and "automatically has one distinct change (DC) from any other armory,
+  // fielded or fieldless" ("(Fieldless) A mullet purpure" against "(Fieldless) A mullet of six points purpure").
+  if (a.kind === 'badge' || b.kind === 'badge') return [change('fieldless', 'dc', 'A5G1e', null)];
   if (partition(a) !== partition(b)) return [change('field-partition', 'sc', 'A5F1', null)];
-  const ta = fieldTinctures(a), tb = fieldTinctures(b);
-  if (ta.join() === tb.join()) return [];
-  // A5F2: for field-primary armory a change of every part to a tincture the other field lacks is substantial.
+  const changes: Diff[] = [];
+  // A different number of pieces (A5G1d) or a different style within the category (A5G1b) is a distinct change.
+  if (pieceTier(a.field) !== pieceTier(b.field)) changes.push(change('field-style', 'dc', 'A5G1d', null));
+  else if (styleOf(a.field) !== styleOf(b.field)) changes.push(change('field-style', 'dc', 'A5G1b', null));
+  const [ta, tb] = comparedSurfaces(a, b, Math.max(pieceTier(a.field), pieceTier(b.field)) > 4);
+  const has = (xs: readonly Surface[], s: Surface) => xs.some((x) => sameSurface(x, s));
+  if (ta.length === tb.length && ta.every((s, i) => sameSurface(s, tb[i]))) return changes;
+  // A5F2: for field-primary armory a change of every part to a surface (a tincture or fur) the other field lacks is substantial.
   const substantial = isFieldPrimary(a) && isFieldPrimary(b)
-    && ta.every((t, i) => t !== tb[i]) && ta.some((t) => !tb.includes(t)) && tb.some((t) => !ta.includes(t));
-  return [substantial ? change('field-tincture', 'sc', 'A5F2', null) : change('field-tincture', 'dc', 'A5G1a', null)];
+    && ta.length === tb.length && ta.every((s, i) => !sameSurface(s, tb[i])) && ta.some((s) => !has(tb, s)) && tb.some((s) => !has(ta, s));
+  return [...changes, substantial ? change('field-tincture', 'sc', 'A5F2', null) : change('field-tincture', 'dc', 'A5G1a', null)];
 }
 
 /** A5E2–A5E5: the substantial changes between two primary groups. */
@@ -248,6 +325,33 @@ function primaryChanges(x: Side, y: Side): Diff[] {
   return out;
 }
 
+/**
+ * The substantial changes between primary groups that are one group of two (co-primaries): they differ in type only when they share no type
+ * (a lion and a rose against a lion and a wolf share the lion), and in number by the total.
+ */
+function pooledPrimaryChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
+  const ref = refOf(xs[0], ys[0]);
+  const out: Diff[] = [];
+  const typesOf = (side: readonly Side[]) => new Set(side.map((s) => conflictKey(s.group.item)));
+  const theirs = typesOf(ys);
+  if (![...typesOf(xs)].some((k) => theirs.has(k))) out.push(change('type', 'sc', 'A5E2', ref));
+  const total = (side: readonly Side[]) => side.reduce((n, s) => n + s.group.count, 0);
+  if (countCategory(total(xs)) !== countCategory(total(ys))) out.push(change('number', 'sc', 'A5E3', ref));
+  const [x, y] = [xs[0], ys[0]];
+  const gx = arrangementGroup(x.group), gy = arrangementGroup(y.group);
+  if (gx !== null && gy !== null && gx !== gy && !isForced(x.design, x.path) && !isForced(y.design, y.path)) out.push(change('arrangement', 'sc', 'A5E4', ref));
+  return out;
+}
+
+/** The substantial and distinct changes between two primary groups, each of one group or of two co-primary groups (a distinct change counts once however many pairs show it). */
+function primaryGroupChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
+  const substantial = xs.length === 1 && ys.length === 1 ? primaryChanges(xs[0], ys[0]) : pooledPrimaryChanges(xs, ys);
+  const skip = new Set(substantial.map((c) => c.attr));
+  const distinct = pairUp(xs, ys).pairs.flatMap(([x, y]) => groupChanges(x, y, skip));
+  const seen = new Set<DiffAttr>();
+  return [...substantial, ...distinct.filter((c) => !seen.has(c.attr) && !!seen.add(c.attr))];
+}
+
 /** A5G3–A5G7: at most one distinct change per attribute of a pair of groups; `skip` holds attributes already substantial. */
 function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   const ref = refOf(x, y);
@@ -259,16 +363,17 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   if (countCategoryFine(gx.count) !== countCategoryFine(gy.count)) dc('number', 'A5G5');
   if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);
-  if (kx !== ky && !isForced(x.design, x.path) && !isForced(y.design, y.path)
-    && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky)))) {
+  // Secondary groups set around the primary and beside it ("between three mullets" / "and in chief three mullets") stand in different places.
+  const moved = gx.role === 'secondary' && gy.role === 'secondary' && gx.relation !== gy.relation;
+  // A badge has no field to place its charges on: "placement on the field doesn't count when comparing fielded armory to a
+  // fieldless badge" (LoAR 08/2006, Havre de Glace), and the position decides how charges in chief or base are set.
+  const placedOnField = (x.design.kind === 'badge') !== (y.design.kind === 'badge') && (gx.position !== null || gy.position !== null);
+  if (moved || (kx !== ky && !placedOnField && !isForced(x.design, x.path) && !isForced(y.design, y.path)
+    && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky))))) {
     dc('arrangement', 'A5G6');
   }
   const postures = comparablePostures(gx.item, gy.item);
-  if (postures) {
-    const lines = POSTURE_DC_LINES[postures.cls];
-    const lx = lines[postures.px] ?? [], ly = lines[postures.py] ?? [];
-    if (postures.px !== postures.py && !lx.some((l) => ly.includes(l))) dc('posture', 'A5G7');
-  }
+  if (postures && postureLinesApart(postures)) dc('posture', 'A5G7');
   return out;
 }
 
@@ -282,25 +387,28 @@ function tertiaryChanges(x: Side | null, y: Side | null): Diff[] {
   ];
 }
 
-/** Every SC and DC between two designs (RULES §C.8 `diff`), in field, primary, secondary order. */
-export function differences(a: Design, b: Design): Diff[] {
+/** Every SC and DC between two designs (RULES §C.8 `diff`), in field, primary, secondary order. Their semys are groups (A5C2b; strewn.ts), so the groups of a diff are those of the designs so stated. */
+export function differences(rawA: Design, rawB: Design): Diff[] {
+  const [a, b] = [liftStrewn(rawA), liftStrewn(rawB)];
   const out: Diff[] = fieldChanges(a, b);
 
-  const pa = primaryOf(a), pb = primaryOf(b);
-  if (pa && pb) {
-    const substantial = primaryChanges(pa, pb);
-    out.push(...substantial, ...groupChanges(pa, pb, new Set(substantial.map((c) => c.attr))));
-  } else if (pa) {
-    out.push(change('primary-presence', 'sc', 'A5E1', refOf(pa, null)));
-  } else if (pb) {
-    out.push(change('primary-presence', 'sc', 'A5E1', refOf(null, pb)));
+  const pa = primariesOf(a), pb = primariesOf(b);
+  if (pa.length > 0 && pb.length > 0) {
+    out.push(...primaryGroupChanges(pa, pb));
+  } else if (pa.length > 0) {
+    out.push(change('primary-presence', 'sc', 'A5E1', refOf(pa[0], null)));
+  } else if (pb.length > 0) {
+    out.push(change('primary-presence', 'sc', 'A5E1', refOf(null, pb[0])));
   }
-  out.push(...tertiaryChanges(pa, pb));
+  out.push(...tertiaryChanges(pa[0] ?? null, pb[0] ?? null));
 
-  const { pairs, onlyX, onlyY } = pairUp(secondariesOf(a), secondariesOf(b));
-  for (const [x, y] of pairs) out.push(...groupChanges(x, y, new Set()), ...tertiaryChanges(x, y));
-  for (const x of onlyX) out.push(change('group-presence', 'dc', 'A5G2', refOf(x, null)), ...tertiaryChanges(x, null));
-  for (const y of onlyY) out.push(change('group-presence', 'dc', 'A5G2', refOf(null, y)), ...tertiaryChanges(null, y));
+  // Secondary and overall groups: those that pair are compared, each one added or removed is one distinct change (A5G2).
+  for (const [xs, ys] of [[secondariesOf(a), secondariesOf(b)], [overallsOf(a), overallsOf(b)]]) {
+    const { pairs, onlyX, onlyY } = pairUp(xs, ys);
+    for (const [x, y] of pairs) out.push(...groupChanges(x, y, new Set()), ...tertiaryChanges(x, y));
+    for (const x of onlyX) out.push(change('group-presence', 'dc', 'A5G2', refOf(x, null)), ...tertiaryChanges(x, null));
+    for (const y of onlyY) out.push(change('group-presence', 'dc', 'A5G2', refOf(null, y)), ...tertiaryChanges(null, y));
+  }
   return out;
 }
 
@@ -337,14 +445,28 @@ export function checkUnique(d: Design, sig: string, registry: readonly RegistryE
 /**
  * The indexed attributes two designs must all share to be a duplicate, too close, or the closest entry of an ok
  * verdict: a different field partition (A5F1), adding or removing the primary group (A5E1) or changing its type
- * (A5E2) is always a substantial change. Everything else is decided by `checkUnique` on the candidates, so looking
- * a registry up by this key returns every entry that matters.
+ * (A5E2) is always a substantial change; so is the type of the one group of charges that is the primary. A primary
+ * of two groups ("a lion and a rose") is one group of both types, so it keys `MIXED_PRIMARY` and is looked up by
+ * `keysMayConflict`. A fieldless badge has no partition (null): without a field it differs from armory with one by a
+ * distinct change only (A5G1e), so it may conflict with any partition. Everything else is decided by `checkUnique` on the candidates, so looking a registry up by this
+ * key returns every entry that matters.
  */
-export interface CandidateKey { partition: string; primary: string | null }
+export interface CandidateKey { partition: string | null; primary: string | null }
 
-export function candidateKey(d: Design): CandidateKey {
-  const p = primaryGroup(d);
-  return { partition: partition(d), primary: p && conflictKey(p.group.item) };
+/** The primary of a design with two co-primary groups: they may share a type with entries of any primary. */
+export const MIXED_PRIMARY = '*';
+
+export function candidateKey(raw: Design): CandidateKey {
+  const d = liftStrewn(raw);
+  const primaries = primaryGroups(d);
+  const primary = primaries.length === 0 ? null : primaries.length === 1 ? conflictKey(primaries[0].group.item) : MIXED_PRIMARY;
+  return { partition: partition(d), primary };
+}
+
+/** Whether entries with these keys can be too close: the one rule the registry lookup follows. A design with two primary groups may share a type with any entry that has a primary. */
+export function keysMayConflict(a: CandidateKey, b: CandidateKey): boolean {
+  const primaries = a.primary === b.primary || (a.primary !== null && b.primary !== null && (a.primary === MIXED_PRIMARY || b.primary === MIXED_PRIMARY));
+  return (a.partition === b.partition || a.partition === null || b.partition === null) && primaries;
 }
 
 // ── Explanations ────────────────────────────────────────────────────────────
@@ -375,7 +497,7 @@ export function tallyText(diffs: readonly { kind: ChangeKind }[]): string {
 /** A difference in words: what changed, why it counts as it does, and (for a group) whether it was a band or a picture. */
 export interface DifferenceNote { attr: DiffAttr; kind: ChangeKind; rule: SenaRule; text: string; why: string; item: 'ordinary' | 'charge' | null }
 
-const partitionWord = (d: Design): string => (d.kind === 'arms' && d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : 'plain');
+const partitionWord = (d: Design): string => (d.kind === 'badge' ? 'none' : d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : d.field.k === 'variation' ? VARIATION_NAME[d.field.variation] : 'plain');
 const itemPhrase = (i: Item): string => (i.k === 'ordinary' ? `${ORDINARY_ARTICLE[i.type]} ${ORDINARY_NAME[i.type]}` : `${CHARGES[i.charge].article} ${CHARGES[i.charge].name}`);
 
 /** What the builder calls a group in the middle of a sentence: "band or shape", "top bar", "pictures beside the band". */
@@ -387,10 +509,16 @@ function groupNoun(d: Design, path: GroupPath): { one: string; many: string } {
     return { one: noun, many: noun };
   }
   let where = '';
-  if (host?.item.k === 'ordinary') {
+  if (group.role === 'overall') {
+    where = ' across everything';
+  } else if (host?.item.k === 'charge') {
+    where = ' on the picture';
+  } else if (host?.item.k === 'ordinary') {
     where = ` on the ${host.item.type === 'chief' || host.item.type === 'bordure' ? ORDINARY_LABEL[host.item.type].plain.toLowerCase() : 'band'}`;
+  } else if (group.role === 'secondary' && group.relation === 'position') {
+    where = ` in ${group.position}`;
   } else if (group.role === 'secondary') {
-    where = ' beside the band';
+    where = primaryCharges(d) ? ' around the picture' : ' beside the band';
   }
   return { one: `picture${where}`, many: `pictures${where}` };
 }
@@ -401,7 +529,8 @@ function noGroup(attr: DiffAttr): never {
 }
 
 /** Each difference between `a` (new) and `b` (existing) in words: "pose of picture (passant ↔ courant)". */
-export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] = differences(a, b)): DifferenceNote[] {
+export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly Diff[] = differences(rawA, rawB)): DifferenceNote[] {
+  const [a, b] = [liftStrewn(rawA), liftStrewn(rawB)];
   return diffs.map((diff) => {
     const ref = diff.group;
     const ga = ref?.a ? groupAt(a, ref.a) : null, gb = ref?.b ? groupAt(b, ref.b) : null;
@@ -411,18 +540,30 @@ export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] 
     const both = () => (ga && gb && nounA && nounB ? { ga, gb, nounA, nounB } : noGroup(diff.attr));
     const pair = (label: string, x: string, y: string) => `${label} (${x} ↔ ${y})`;
     const itemOrNone = (g: Group | null) => (g ? (g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural) : 'none');
-    const tinctureWord = (g: Group) => { const t = tinctureOf(g.paint); return t === 'counterchanged' ? t : TINCTURE_NAME[t]; };
-    const fieldWord = (d: Design) => fieldTinctures(d).map((t) => TINCTURE_NAME[t]).join('/');
+    const tinctureWord = (g: Group) => (g.paint.k === 'counterchanged' ? 'counterchanged' : paintName(g.paint));
+    const fieldWord = (d: Design) => (d.kind === 'arms' && d.field.k === 'variation' ? d.field.parts.map(paintName).join('/') : fieldParts(d).map(paintName).join('/'));
     const postureWord = (g: Group) => { const i = g.item; return i.k === 'charge' && i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
 
     let text: string;
     let sentence: string;
     switch (diff.attr) {
+      case 'fieldless':
+        text = pair('background', partitionWord(a), partitionWord(b));
+        sentence = a.kind === 'badge' && b.kind === 'badge'
+          ? 'A design with no background always counts one distinct change, even against another with none'
+          : 'No background counts as one distinct change';
+        break;
       case 'field-partition': {
         text = pair('background split', partitionWord(a), partitionWord(b));
         sentence = 'Splitting the background a different way, or splitting it instead of leaving it plain, is a substantial change';
         break;
       }
+      case 'field-style':
+        text = pair('background pattern', partitionWord(a), partitionWord(b));
+        sentence = diff.rule === 'A5G1d'
+          ? 'Backgrounds cut into up to four pieces are told apart by their number of pieces, so a different number is a distinct change'
+          : 'A different pattern of the same kind of background (for example barry bendy and paly bendy) is a distinct change';
+        break;
       case 'field-tincture':
         text = pair('background colour', fieldWord(a), fieldWord(b));
         sentence = diff.kind === 'sc'

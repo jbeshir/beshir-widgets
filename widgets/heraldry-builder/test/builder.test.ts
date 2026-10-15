@@ -2,19 +2,21 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_DESIGN, adjustDesign, addExtraPicture, assess, canAddExtraPicture, chargesClash, companionNote, extraPicturePath, fixText, isUntouched,
-  issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, removeExtraPicture, replaceDesign, sameShapedDesign, setCharge,
+  DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
+  issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, undoStillOffered, addPeripheral, canAddPeripheral, peripheralPath, removePeripheral, setPeripheralTincture,
+  setPosture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  blazon, countChoices, groupAt, groupTinctureChoices, layoutChoices, placementChoices, postureChoices, readability, signature, suggestTinctureFix,
-  type Design, type GroupPath,
+  addLayer, addedLayerStep, blazon, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  type Design, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
 
 const picture = (d: Design): GroupPath => picturePath(d)!;
-const extra = (d: Design): GroupPath => extraPicturePath(d)!;
+const onOrdinaryPath = (d: Design): GroupPath | null => simpleParts(d).onOrdinary?.path ?? null;
+const extra = (d: Design): GroupPath => onOrdinaryPath(d)!;
+const canAddExtra = (d: Design): boolean => layerChoices(d).some((c) => c.value === 'on-ordinary' && c.allowed);
 
 describe('builder transitions', () => {
   it('starts as a plain Azure field: incomplete with the structural hint', () => {
@@ -266,93 +268,288 @@ describe('builder transitions', () => {
   });
 });
 
-describe('a top band or border beside the band', () => {
+describe('a top band and a border beside the band', () => {
   const band = setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'chevron'), 'argent');
+  const allowed = (d: Design, key: LayerKey) => layerChoices(d).find((c) => c.value === key)?.allowed;
 
-  it('is offered beside a central band with no picture, coloured to work, and removed again', () => {
-    expect(canAddPeripheral(DEFAULT_DESIGN, 'bordure')).toBe(false);
-    expect(canAddPeripheral(band, 'chief')).toBe(true);
-    const chief = addPeripheral(band, 'chief');
+  it('are offered beside a band, coloured to work, one of each together, and removed again', () => {
+    expect(allowed(DEFAULT_DESIGN, 'bordure')).toBe(false);
+    expect(allowed(band, 'chief')).toBe(true);
+    const chief = addLayer(band, 'chief');
     expect(blazon(chief)).toBe('Azure, a chevron argent, a chief Or.');
     expect(assess(chief).status).toBe('valid');
-    expect(canAddPeripheral(chief, 'bordure')).toBe(false);
-    expect(issueStep(chief, { code: 'tincture', at: { k: 'group', path: peripheralPath(chief)! }, message: '' } as never)).toBe('peripheral');
-    expect(blazon(setPeripheralTincture(chief, 'gules'))).toContain('chief');
-    expect(removePeripheral(chief)).toEqual(band);
+    expect(layerChoices(chief).map((c) => c.value)).toEqual(['co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure', 'overall']);
+    expect(['in-chief', 'in-base', 'in-canton'].map((k) => allowed(chief, k as LayerKey))).toEqual([false, true, false]);
+    expect(issueStep(chief, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
+    expect(blazon(setLayerTincture(chief, 'chief', 'gules'))).toContain('chief');
+    const both = addLayer(chief, 'bordure');
+    expect(blazon(both)).toMatch(/^Azure, a chevron argent, a chief and a bordure Or\.$/);
+    expect(assess(both).status).toBe('valid');
+    expect(both.groups.map((g) => g.item.k === 'ordinary' && g.item.type)).toEqual(['chevron', 'chief', 'bordure']);
+    expect(removeLayer(chief, 'chief')).toEqual(band);
+    expect(removeLayer(both, 'bordure')).toEqual(chief);
   });
 
-  it('is not offered beside a pile, a chief or a bordure, or once there is a picture', () => {
-    expect(canAddPeripheral(setOrdinary(DEFAULT_DESIGN, 'pile'), 'chief')).toBe(false);
-    expect(canAddPeripheral(setOrdinary(DEFAULT_DESIGN, 'chief'), 'bordure')).toBe(false);
-    expect(canAddPeripheral(setCharge(band, 'picture', 'lion'), 'bordure')).toBe(false);
+  it('are offered beside pictures too, which are refitted to the room left', () => {
+    const pictured = setCharge(band, 'picture', 'crescent');
+    expect(groupAt(pictured, picture(pictured))).toMatchObject({ role: 'secondary', count: 2 });
+    const bordered = addLayer(pictured, 'bordure');
+    expect(blazon(bordered)).toMatch(/a bordure/);
+    expect(pathOfPlace(bordered, 'bordure')).not.toBeNull();
+    expect(groupAt(bordered, picture(bordered)).item).toMatchObject({ charge: 'crescent' });
+    expect(removeLayer(bordered, 'bordure')).toEqual(pictured);
   });
 
-  it('stays through colour changes, goes when a picture is chosen or the band becomes one it cannot sit beside', () => {
-    const bordered = addPeripheral(band, 'bordure');
-    expect(peripheralPath(setOrdinary(bordered, 'fess'))).not.toBeNull();
-    expect(peripheralPath(setOrdinary(bordered, 'pile'))).toBeNull();
-    expect(peripheralPath(setOrdinary(bordered, 'chief'))).toBeNull();
-    expect(peripheralPath(setOrdinary(bordered, null))).toBeNull();
-    const pictured = setCharge(bordered, 'picture', 'lion');
-    expect(peripheralPath(pictured)).toBeNull();
-    expect(pictured.groups).toHaveLength(2);
+  it('are not offered when the band is one already, or beside a band that is not there', () => {
+    expect(allowed(setOrdinary(DEFAULT_DESIGN, 'chief'), 'chief')).toBe(false);
+    const chiefBand = setOrdinary(DEFAULT_DESIGN, 'chief');
+    expect(addLayer(chiefBand, 'chief')).toBe(chiefBand);
+    expect(allowed(chiefBand, 'bordure')).toBe(true);
+  });
+
+  it('stay through a change of band; one of the new band\'s kind gives way to it; none is lost without a band', () => {
+    const bordered = addLayer(band, 'bordure');
+    expect(pathOfPlace(setOrdinary(bordered, 'fess'), 'bordure')).not.toBeNull();
+    expect(blazon(setOrdinary(bordered, 'pile'))).toMatch(/pile/);
+    const chiefed = addLayer(band, 'chief');
+    // A chief chosen as the band replaces the top band: one chief only.
+    expect(setOrdinary(chiefed, 'chief').groups.filter((g) => g.item.k === 'ordinary' && g.item.type === 'chief')).toHaveLength(1);
+    // With no band the bordure stands in its place (step 2): re-placed, not dropped.
+    const alone = setOrdinary(bordered, null);
+    expect(alone.groups.map((g) => g.item.k === 'ordinary' && g.item.type)).toEqual(['bordure']);
+    expect(ordinaryPath(alone)).toEqual([0]);
+  });
+
+  it('are shown on their own card, except a top band beside a border alone, which becomes the band (step 2)', () => {
+    const chiefed = addLayer(band, 'chief');
+    expect(addedLayerStep(chiefed, 'chief')).toBe('chief');
+    const border = setOrdinary(DEFAULT_DESIGN, 'bordure');
+    const withChief = addLayer(border, 'chief');
+    expect(ordinaryPath(withChief) && groupAt(withChief, ordinaryPath(withChief)!).item).toMatchObject({ k: 'ordinary', type: 'chief' });
+    expect(addedLayerStep(withChief, 'chief')).toBe('ordinary');
+  });
+});
+
+describe('pictures in chief, in base or in canton beside the band or the picture', () => {
+  const chevron = setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'chevron'), 'argent');
+  const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+  const allowed = (d: Design, key: LayerKey) => layerChoices(d).find((c) => c.value === key);
+
+  it('are offered beside a band or a picture on the background, with a charge of their own and a colour that works', () => {
+    expect(allowed(DEFAULT_DESIGN, 'in-chief')).toMatchObject({ allowed: false, reason: 'Add a band or shape, or a picture on the background, first — pictures along the top stand beside one.' });
+    const chief = addLayer(chevron, 'in-chief');
+    expect(blazon(chief)).toBe('Azure, a chevron argent and in chief a mullet Or.');
+    expect(assess(chief).status).toBe('valid');
+    expect(pathOfPlace(chief, 'in-chief')).not.toBeNull();
+    const base = addLayer(lion, 'in-base');
+    expect(blazon(base)).toBe('Azure, a lion and in base a mullet Or.');
+    expect(assess(base).status).toBe('valid');
+    expect(issueStep(base, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(base, 'in-base')! }, message: '', slots: [] })).toBe('in-base');
+    expect(blazon(addLayer(lion, 'in-canton'))).toBe('Azure, a lion and in canton a mullet Or.');
+    expect(removeLayer(base, 'in-base')).toEqual(lion);
+  });
+
+  it('stand alone: one group beside the main one, and not beside pictures around the band', () => {
+    const chief = addLayer(lion, 'in-chief');
+    expect(allowed(chief, 'in-base')).toMatchObject({ allowed: false, reason: 'Only one group of pictures can stand beside or around the main one — remove the others first.' });
+    const around = setCharge(chevron, 'picture', 'rose');
+    expect(allowed(around, 'in-chief')).toMatchObject({ allowed: false, reason: 'The picture is set around the chevron: pictures can stand around the band or along the top, not both — move the picture onto the band first.' });
+  });
+
+  it('take their count and charge like any pictures, and give the picture beside them the room they leave', () => {
+    let d = addLayer(lion, 'in-chief');
+    const path = () => pathOfPlace(d, 'in-chief')!;
+    const three = countChoices(d, path()).find((c) => c.value === 3)!;
+    expect(three.allowed).toBe(true);
+    d = three.allowed ? three.design : d;
+    d = setCharge(d, 'in-chief', 'crescent');
+    expect(blazon(d)).toBe('Azure, a lion and in chief three crescents Or.');
+    const layouts = layoutChoices(d, path());
+    expect(layouts.mode === 'choose' && layouts.choices.map((c) => c.value)).toEqual(['in-chief', 'rows-2-1@chief', 'rows-1-2@chief']);
+    expect(layoutChoices(addLayer(lion, 'in-canton'), pathOfPlace(addLayer(lion, 'in-canton'), 'in-canton')!)).toEqual({ mode: 'fixed', note: 'A single charge in canton stands alone there.' });
+    expect(countChoices(d, picture(d)).filter((c) => c.allowed).length).toBeGreaterThan(3);
+  });
+
+  it('stay through changes beneath them, and become the picture when nothing is left for them to stand beside', () => {
+    const chief = addLayer(chevron, 'in-chief');
+    // A new picture goes on the chevron, since pictures around it and in chief can't both be set.
+    const pictured = setCharge(chief, 'picture', 'rose');
+    expect(blazon(pictured)).toMatch(/^Azure, on a chevron argent a rose \w+ and in chief a mullet Or\.$/);
+    expect(pathOfPlace(setOrdinary(chief, 'fess'), 'in-chief')).not.toBeNull();
+    // With no band and no picture, the mullet in chief is the picture itself (SENA App I1).
+    const alone = setOrdinary(chief, null);
+    expect(blazon(alone)).toBe('Azure, in chief a mullet Or.');
+    expect(picturePath(alone)).not.toBeNull();
+    // A band added beside a picture and pictures in chief makes the picture go around it: the pictures in chief give way.
+    const banded = setOrdinary(addLayer(lion, 'in-chief'), 'pale');
+    expect(pathOfPlace(banded, 'in-chief')).toBeNull();
+  });
+});
+
+describe('pictures set around the picture', () => {
+  const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+  const allowed = (d: Design, key: LayerKey) => layerChoices(d).find((c) => c.value === key);
+
+  it('are offered beside a picture on the background with no band: three, two and one, in a colour that works', () => {
+    expect(allowed(DEFAULT_DESIGN, 'around')).toMatchObject({ allowed: false, reason: 'Pick a picture on the background first — more pictures can then be set around it.' });
+    expect(allowed(setOrdinary(DEFAULT_DESIGN, 'fess'), 'around')).toMatchObject({ allowed: false, reason: 'Pictures are set around the fess — remove the band to set pictures around a picture instead.' });
+    const around = addLayer(lion, 'around');
+    expect(blazon(around)).toBe('Azure, a lion between three mullets Or.');
+    expect(assess(around).status).toBe('valid');
+    expect(issueStep(around, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(around, 'around')! }, message: '', slots: [] })).toBe('around');
+    expect(blazon(setCharge(around, 'around', 'crescent'))).toBe('Azure, a lion between three crescents Or.');
+    expect(removeLayer(around, 'around')).toEqual(lion);
+    // One group stands around or beside the picture, not both.
+    expect(allowed(around, 'in-chief')).toMatchObject({ allowed: false, reason: 'Only one group of pictures can stand beside or around the main one — remove the others first.' });
+    expect(allowed(addLayer(lion, 'in-chief'), 'around')).toMatchObject({ allowed: false });
+  });
+
+  it('take the counts and layouts Table 7 gives them around a picture, and the picture keeps to one or two', () => {
+    const around = addLayer(lion, 'around');
+    const path = pathOfPlace(around, 'around')!;
+    expect(layoutChoices(around, path)).toEqual({ mode: 'fixed', note: 'Three charges around the picture stand two above and one below.' });
+    const counts = countChoices(around, path);
+    expect(counts.filter((c) => c.allowed).map((c) => c.value)).toEqual([2, 3, 4, 5, 6, 7, 8]);
+    expect(counts[0]).toMatchObject({ allowed: false, reason: 'Pictures around the picture come in two, three, four, five, six, seven or eight, not a single charge.' });
+    const four = counts.find((c) => c.value === 4)!;
+    const fourDesign = four.allowed ? four.design : around;
+    expect(blazon(fourDesign)).toBe('Azure, a lion between four mullets in saltire Or.');
+    const layouts = layoutChoices(fourDesign, pathOfPlace(fourDesign, 'around')!);
+    expect(layouts.mode === 'choose' && layouts.choices.map((c) => c.value)).toEqual(['in-saltire', 'in-cross', 'rows-2-2']);
+    const picture = countChoices(around, picturePath(around)!);
+    expect(picture.filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2]);
+    expect(picture[2]).toMatchObject({ allowed: false, reason: 'Pictures can be set around one picture, or two side by side, one above the other or crossed — remove the pictures around it for more.' });
+  });
+
+  it('give way to a band, and become the picture when it is removed', () => {
+    const around = addLayer(lion, 'around');
+    expect(blazon(setOrdinary(around, 'fess'))).toBe('Azure, a fess between two lions Or.');
+    expect(blazon(setCharge(around, 'picture', null))).toBe('Azure, three mullets Or.');
+    expect(placementChoices(around, picturePath(around)!).find((c) => c.value === 'ordinary')).toMatchObject({ allowed: false });
+  });
+});
+
+describe('pictures on a top band and on a border', () => {
+  const framed = addLayer(addLayer(setOrdinary(DEFAULT_DESIGN, 'pale'), 'chief'), 'bordure');
+  const allowed = (d: Design, key: LayerKey) => layerChoices(d).find((c) => c.value === key)?.allowed;
+
+  it('are offered once the top band or border is there, with a starting charge and the first colour that works', () => {
+    expect(allowed(setOrdinary(DEFAULT_DESIGN, 'pale'), 'on-chief')).toBe(false);
+    expect(allowed(framed, 'on-chief')).toBe(true);
+    expect(allowed(framed, 'on-bordure')).toBe(true);
+    const chief = addLayer(framed, 'on-chief');
+    expect(groupAt(chief, pathOfPlace(chief, 'on-chief')!)).toMatchObject({ role: 'tertiary', count: 1, arrangement: { k: 'host' } });
+    expect(assess(chief).status).toBe('valid');
+    const bordure = addLayer(chief, 'on-bordure');
+    // The top band starts in a metal the band doesn't have, so the two can be told apart; with none left, the border takes the first that works.
+    expect(blazon(bordure)).toMatch(/^Azure, a pale Or, on a chief argent an? \w+ \w+, on a bordure Or an? \w+ \w+\.$/);
+    expect(assess(bordure).status).toBe('valid');
+  });
+
+  it('take a charge, a count and a colour, and lay out along the border whatever the count', () => {
+    let d = setCharge(framed, 'on-bordure', 'mullet');
+    const path = pathOfPlace(d, 'on-bordure')!;
+    expect(countChoices(d, path).filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    d = setCount(d, path, 8);
+    expect(blazon(d)).toMatch(/on a bordure \w+ eight mullets \w+\.$/);
+    expect(layoutChoices(d, pathOfPlace(d, 'on-bordure')!)).toMatchObject({ mode: 'host' });
+    expect(blazon(setCharge(d, 'on-bordure', 'rose'))).toMatch(/eight roses/);
+    expect(pathOfPlace(setCharge(d, 'on-bordure', null), 'on-bordure')).toBeNull();
+  });
+
+  it('are judged against the colour of the border they sit on, not the background', () => {
+    const d = addLayer(framed, 'on-bordure');
+    const border = groupAt(d, pathOfPlace(d, 'bordure')!).paint;
+    const on = pathOfPlace(d, 'on-bordure')!;
+    const tincture = border.k === 'tincture' ? border.t : null;
+    const same = groupTinctureChoices(d, on).find((c) => c.value === tincture)!;
+    expect(same.allowed).toBe(false);
+    expect(!same.allowed && same.reason).toMatch(/on the .* bordure/);
+    // Azure charges are fine on an Or border though the field behind is azure.
+    expect(groupTinctureChoices(setGroupTincture(d, pathOfPlace(d, 'bordure')!, 'or'), on).find((c) => c.value === 'azure')?.allowed).toBe(true);
+  });
+
+  it('are kept when the band changes, and go with the top band or border they sit on', () => {
+    const carried = setCount(addLayer(addLayer(framed, 'on-chief'), 'on-bordure'), pathOfPlace(addLayer(addLayer(framed, 'on-chief'), 'on-bordure'), 'on-chief')!, 2);
+    for (const type of ['fess', 'bend', 'chevron'] as const) {
+      const changed = setOrdinary(carried, type);
+      expect(pathOfPlace(changed, 'on-chief'), type).not.toBeNull();
+      expect(pathOfPlace(changed, 'on-bordure'), type).not.toBeNull();
+    }
+    expect(pathOfPlace(removeLayer(carried, 'chief'), 'on-chief')).toBeNull();
+    expect(pathOfPlace(removeLayer(carried, 'chief'), 'on-bordure')).not.toBeNull();
+    // With no band, the chief stands in its place and keeps the pictures on it.
+    const alone = setOrdinary(carried, null);
+    expect(simpleParts(alone).ordinary?.group.item).toMatchObject({ type: 'chief' });
+    expect(simpleParts(alone).picture).toMatchObject({ placement: 'ordinary' });
+    expect(pathOfPlace(alone, 'on-bordure')).not.toBeNull();
+  });
+
+  it('are the band\'s own pictures when the top band or border is the band itself', () => {
+    const border = setOrdinary(DEFAULT_DESIGN, 'bordure');
+    expect(allowed(border, 'on-bordure')).toBe(false);
+    const pictured = setCharge(border, 'picture', 'mullet');
+    expect(groupAt(pictured, picture(pictured))).toMatchObject({ role: 'primary' });
+    const on = setPlacement(pictured, picture(pictured), 'ordinary');
+    expect(groupAt(on, picture(on))).toMatchObject({ role: 'tertiary' });
+    expect(placementLabel(on, 'ordinary')).toBe('On the border');
   });
 });
 
 describe('extra pictures on the band', () => {
   it('are offered on a central ordinary or a chief when the picture is on the background', () => {
     const d = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet');
-    expect(canAddExtraPicture(d)).toBe(true);
-    expect(canAddExtraPicture(setOrdinary(d, 'bordure'))).toBe(false);
-    expect(canAddExtraPicture(setOrdinary(d, null))).toBe(false);
-    expect(canAddExtraPicture(setPlacement(d, picture(d), 'ordinary'))).toBe(false);
-    expect(canAddExtraPicture(setCharge(DEFAULT_DESIGN, 'picture', null))).toBe(false);
-    expect(canAddExtraPicture(addExtraPicture(d, 'rose'))).toBe(false);
+    expect(canAddExtra(d)).toBe(true);
+    expect(canAddExtra(setOrdinary(d, 'bordure'))).toBe(true);
+    expect(canAddExtra(setOrdinary(d, null))).toBe(false);
+    expect(canAddExtra(setPlacement(d, picture(d), 'ordinary'))).toBe(false);
+    expect(canAddExtra(setCharge(DEFAULT_DESIGN, 'picture', null))).toBe(false);
+    expect(canAddExtra(setCharge(d, 'on-ordinary', 'rose'))).toBe(false);
   });
 
   it('journey: a fess between mullets with roses on it, then a chief', () => {
     let d = setOrdinary(DEFAULT_DESIGN, 'fess');
     d = setCharge(d, 'picture', 'mullet');
     expect(groupAt(d, picture(d))).toMatchObject({ role: 'secondary', count: 2 });
-    d = addExtraPicture(d, 'rose');
+    d = setCharge(d, 'on-ordinary', 'rose');
     expect(extra(d)).toEqual([0, 0]);
     expect(groupAt(d, extra(d))).toMatchObject({ role: 'tertiary', count: 1 });
     expect(assess(d).status).toBe('valid');
     expect(blazon(d)).toBe('Azure, on a fess between two mullets Or a rose gules.');
     // The extra picture has its own count, as many as fit on the band, and no placement.
     expect(placementChoices(d, extra(d))).toEqual([]);
-    expect(countChoices(d, extra(d)).filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5]);
+    expect(countChoices(d, extra(d)).filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5, 6]);
     d = setCount(d, extra(d), 3);
     expect(groupAt(d, extra(d)).count).toBe(3);
     // Swapping and recolouring either picture leaves the other alone.
-    d = setCharge(d, 'extra', 'heart');
+    d = setCharge(d, 'on-ordinary', 'heart');
     expect(groupAt(d, extra(d)).item).toMatchObject({ charge: 'heart' });
     expect(groupAt(d, picture(d)).item).toMatchObject({ charge: 'mullet' });
-    expect(issueStep(d, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('extra');
+    expect(issueStep(d, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('on-ordinary');
     // Changing the band to a chief keeps both pictures.
     const chief = setOrdinary(d, 'chief');
     expect(groupAt(chief, picture(chief))).toMatchObject({ role: 'primary', relation: null });
     expect(groupAt(chief, extra(chief))).toMatchObject({ role: 'tertiary', count: 3 });
     // Removing the band takes the extra pictures with it; removing them leaves the rest.
-    expect(extraPicturePath(setOrdinary(d, null))).toBeNull();
+    expect(onOrdinaryPath(setOrdinary(d, null))).toBeNull();
     expect(picturePath(setOrdinary(d, null))).not.toBeNull();
-    const removed = removeExtraPicture(d);
-    expect(extraPicturePath(removed)).toBeNull();
+    const removed = removeLayer(d, 'on-ordinary');
+    expect(onOrdinaryPath(removed)).toBeNull();
     expect(groupAt(removed, picture(removed)).item).toMatchObject({ charge: 'mullet' });
-    expect(setCharge(d, 'extra', null)).toEqual(removed);
+    expect(setCharge(d, 'on-ordinary', null)).toEqual(removed);
   });
 
   it('the picture cannot move onto a band that already carries extra pictures', () => {
-    const d = addExtraPicture(setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet'), 'rose');
+    const d = setCharge(setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet'), 'on-ordinary', 'rose');
     const onto = placementChoices(d, picture(d)).find((c) => c.value === 'ordinary')!;
     expect(onto.allowed).toBe(false);
     expect(onto.allowed === false && onto.reason).toMatch(/already carries/);
   });
 
   it('removing the picture promotes the extra pictures to the picture', () => {
-    const d = addExtraPicture(setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet'), 'rose');
+    const d = setCharge(setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'mullet'), 'on-ordinary', 'rose');
     const promoted = setCharge(d, 'picture', null);
-    expect(extraPicturePath(promoted)).toBeNull();
+    expect(onOrdinaryPath(promoted)).toBeNull();
     expect(picture(promoted)).toHaveLength(2);
     expect(groupAt(promoted, picture(promoted)).item).toMatchObject({ charge: 'rose' });
   });
@@ -402,5 +599,13 @@ describe('replacing a design in progress', () => {
     expect(undoStillOffered(r, example)).toBe(true);
     expect(undoStillOffered(r, { ...example, shape: 'round' })).toBe(false);
     expect(undoStillOffered(r, { design: setCount(example.design, picture(example.design), 2), shape: 'heater' })).toBe(false);
+  });
+});
+
+describe('a new band starts apart from what it meets', () => {
+  it('lies across a gold lion in another metal, and beside a gold band in another metal, while one is left', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(blazon(addLayer(lion, 'overall'))).toBe('Azure, a lion Or and overall a bend argent.');
+    expect(blazon(addLayer(setOrdinary(DEFAULT_DESIGN, 'bend'), 'chief'))).toBe('Azure, a bend Or, a chief argent.');
   });
 });

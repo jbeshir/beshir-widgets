@@ -13,20 +13,19 @@ import {
   CHARGES, isChargeForm, isChargeId, isFacing, isHoldHow, isModifierId, isOrientation, isPartId, isPosture,
 } from './charges';
 import {
-  canonical, ROLE_ORDER, PLAIN_LINES,
+  canonical, ROLE_ORDER, PLAIN_LINES, POSITIONS,
   type Arrangement, type Charge, type Cotises, type Design, type Group, type GroupPath, type Held, type Issue, type IssueAt, type Item,
   type Lines, type Modifier, type Ordinary, type Paint, type PartPaint, type Position, type Relation, type Role,
 } from './design';
 import { isDivision, isTreatment, isVariation, partCount } from './divisions';
 import { isLine, isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, type OrdinaryMod } from './ordinaries';
-import { contextOf, defaultLayoutOf, layoutOfKey, type Layout } from './arrangement';
+import { contextOf, defaultLayoutOf, halfLayouts, inForcedPart, isHalfPosition, isSecondaryPosition, layoutOfKey, shareTotal, type Layout } from './arrangement';
 
 export type ResolveResult = { ok: true; design: Design } | { ok: false; errors: Issue[] };
 
 /** Deeper nesting than any real design; it keeps hostile input from exhausting the stack. */
 const MAX_DEPTH = 8;
 const MAX_COUNT = 20;
-const POSITIONS: readonly Position[] = ['chief', 'base', 'dexter-chief', 'sinister-chief', 'dexter', 'sinister', 'canton', 'flank', 'fess-point'];
 const RELATIONS: readonly Relation[] = ['between', 'about', 'position'];
 const LINE_DIRS = ['pale', 'fess', 'bend', 'bend-sinister'] as const;
 const PATTERNS = ['cross', 'saltire', 'orle', 'annulo', 'chevron', 'chevron-inverted', 'pall', 'pile'] as const;
@@ -274,9 +273,6 @@ function parseLayout(v: unknown, count: number, at: IssueAt, E: Errors): Layout 
     if (!arrangement) return E.add(at, 'Unknown arrangement.') ?? undefined;
     layout = { arrangement, position: null };
   }
-  if (layout.arrangement.k === 'rows' && layout.arrangement.rows.reduce((a, b) => a + b, 0) !== count) {
-    return E.add(at, `The rows add up to ${layout.arrangement.rows.reduce((a, b) => a + b, 0)}, not ${count}.`) ?? undefined;
-  }
   return layout;
 }
 
@@ -338,10 +334,18 @@ function parseGroup(v: unknown, path: GroupPath, top: boolean, E: Errors): RawGr
   return { role, relation, item, count, layout, position: position ?? layout?.position ?? null, paint, charged };
 }
 
-/** The role a top-level group has when the input names none (RULES §B.3). */
+/**
+ * The role a top-level group has when the input names none (RULES §B.3, SENA App I1): charges beside a central ordinary
+ * are secondary, and so are charges in chief, in base or in canton beside a central group of charges — "if you removed
+ * the fess the lions would become the primary charge group". Charges in chief with nothing central are primary. A group
+ * the input relates to the main one ("between": a lion between three mullets) is secondary.
+ */
 function inferRole(r: RawGroup, siblings: readonly RawGroup[]): Role {
   if (r.item.k === 'ordinary') return ORDINARY_KIND[r.item.type] === 'peripheral' ? 'peripheral' : 'primary';
-  return siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central') ? 'secondary' : 'primary';
+  if (r.relation !== null) return 'secondary';
+  if (siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central' && s.role !== 'overall')) return 'secondary';
+  const central = (s: RawGroup) => s !== r && s.item.k === 'charge' && s.position === null && s.relation === null && (s.role === null || s.role === 'primary');
+  return isSecondaryPosition(r.position) && siblings.some(central) ? 'secondary' : 'primary';
 }
 
 /** The arrangement a group has until `placeGroups` gives it its layout. */
@@ -350,7 +354,7 @@ const UNPLACED: Arrangement = { k: 'single' };
 function buildGroup(r: RawGroup, role: Role, E: Errors, at: IssueAt): Group {
   if (r.relation !== null && role !== 'secondary') E.add(at, 'Only a secondary group has a relation to the main one.');
   return {
-    role, relation: role === 'secondary' ? (r.relation ?? 'between') : null, item: r.item, count: r.count,
+    role, relation: role === 'secondary' ? (r.relation ?? (isSecondaryPosition(r.position) ? 'position' : 'between')) : null, item: r.item, count: r.count,
     arrangement: UNPLACED, position: r.position, paint: r.paint,
     charged: r.charged.map((c, i) => buildGroup(c, 'tertiary', E, at.k === 'group' ? { k: 'group', path: [...at.path, i] } : at)),
   };
@@ -365,12 +369,24 @@ function placeGroups(d: Design, raws: readonly RawGroup[], groups: readonly Grou
     const r = raws[i];
     const at: IssueAt = { k: 'group', path: [...prefix, i] };
     const placed = ((): Group => {
-      if (r.layout) {
-        const ctx = contextOf(d, g, host);
-        if (ctx && ctx.k !== 'field' && r.layout.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
-        return { ...g, arrangement: r.layout.arrangement };
+      const ctx = contextOf(d, g, host);
+      // Two main pictures are laid out as one group: one of them may state the arrangement for both.
+      const mate = ctx?.k === 'field' && ctx.share ? raws.find((_, k) => groups[k] !== g && groups[k].role === 'primary')?.layout ?? null : null;
+      const stated = r.layout ?? mate;
+      if (stated) {
+        if (ctx && (ctx.k === 'between' || ctx.k === 'on') && stated.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
+        if (stated.arrangement.k === 'rows') {
+          const sum = stated.arrangement.rows.reduce((a, b) => a + b, 0), total = ctx?.k === 'field' ? shareTotal(ctx.share, g.count) : g.count;
+          if (sum !== total) E.add(at, `The rows add up to ${sum}, not ${total}.`);
+        }
+        // Charges that Table 7 forces into one part of the field by tincture stand there; the blazon states only how they stand.
+        const forced = stated.position === null && g.position === null ? inForcedPart(d, g, host, stated.arrangement) : null;
+        return { ...g, arrangement: stated.arrangement, position: g.position ?? stated.position ?? forced?.position ?? null };
       }
-      if (r.position) return { ...g, arrangement: g.count === 1 ? { k: 'single' } : { k: 'line', dir: 'fess' } };
+      if (r.position) {
+        const inHalf = isHalfPosition(r.position) ? halfLayouts(r.position, g.count)[0] : undefined;
+        return { ...g, arrangement: inHalf?.arrangement ?? (g.count === 1 ? { k: 'single' } : { k: 'line', dir: 'fess' }) };
+      }
       const layout = defaultLayoutOf(d, g, host);
       return { ...g, arrangement: layout.arrangement, position: layout.position };
     })();

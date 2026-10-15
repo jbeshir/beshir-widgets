@@ -3,6 +3,8 @@
 // endings before lookup); hyphenated terms are single tokens. Where a word is in more than one list,
 // gaps.ts decides by the order it loads them in.
 
+import { CHARGE_IDS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId } from '../../src/lib/heraldry';
+
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
 
@@ -113,9 +115,9 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     seaweed kelp moss
   `),
   celestial: w(`
-    star estoile estoille comet moon decrescent increscent lunel sunburst compass-star cloud rainbow lightning
+    star comet moon decrescent increscent lunel sunburst compass-star cloud rainbow lightning
     thunderbolt snowflake raindrop planet wind sunray ray zephyr boreas aeolus mistral half-moon quarter-sun
-    constellation eclipse spark fireball meteor
+    constellation eclipse fireball meteor
   `),
   weapon: w(`
     arrow arrowhead pheon broad-arrow broadarrow bolt quarrel quiver axe ax battle-axe battleaxe labrys tomahawk bow
@@ -177,10 +179,10 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     mountain hill rock stone crag cave water wave stream river sea lake valley fire ice crystal volcano island
     gurges whirlpool peak cliff waterfall ford
   `),
-  cross: w('crosslet ankh'),
+  cross: w('ankh'),
   geometric: w(`
-    annulet roundel bezant plate torteau hurt pellet ogress pomme golpe guze fountain lozenge fusil mascle
-    masculyn rustre billet delf triangle gout goute goutte drop escutcheon inescutcheon hexagon pentagon octagon
+    guze fountain fusil mascle
+    masculyn rustre delf triangle gout goute drop escutcheon inescutcheon hexagon pentagon octagon
     polygon icosahedron cube sphere annulus penannular cartouche cornice escarbuncle gunstone
   `),
   symbol: w(`
@@ -193,22 +195,22 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   `),
 };
 
-/** SCA words for the widget's own charges → ChargeId. Any other charge noun is a gap. */
-export const SUPPORTED_CHARGE_WORDS: Record<string, string> = {
-  lion: 'lion', wolf: 'wolf', boar: 'boar', stag: 'stag', goat: 'goat', hare: 'hare', fish: 'fish', bee: 'bee',
-  unicorn: 'unicorn', dragon: 'dragon', eagle: 'eagle', owl: 'owl', rose: 'rose', tree: 'tree',
-  'fleur-de-lys': 'fleur-de-lis', 'fleur-de-lis': 'fleur-de-lis', mullet: 'mullet', crescent: 'crescent',
-  sun: 'sun', heart: 'heart', key: 'key', book: 'open-book', sword: 'sword', crown: 'crown', anchor: 'anchor',
-  'musical-note': 'musical-note', flame: 'flame', gear: 'gear', lightbulb: 'lightbulb',
+/** SCA words for the widget's own charges → ChargeId: each id, the College's other words for some, and the charges named for their tincture. Any other charge noun is a gap. */
+export const SUPPORTED_CHARGE_WORDS: Readonly<Record<string, ChargeId>> = {
+  ...Object.fromEntries(CHARGE_IDS.map((id) => [id, id])),
+  'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet',
+  ...Object.fromEntries(NAMED_TINCTURE_CHARGES.filter((n) => !n.word.includes(' ')).flatMap((n) => [[n.word, n.charge], [n.plural, n.charge]])),
 };
 
 /** Bucket for a compound built on one of the widget's charges ("a lion's head" → beast). */
-export const SUPPORTED_CHARGE_BUCKET: Record<string, ChargeBucket> = {
+export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   lion: 'beast', wolf: 'beast', boar: 'beast', stag: 'beast', goat: 'beast', hare: 'beast', fish: 'fish',
   bee: 'insect', unicorn: 'monster', dragon: 'monster', eagle: 'bird', owl: 'bird', rose: 'plant', tree: 'plant',
   'fleur-de-lis': 'plant', mullet: 'celestial', crescent: 'celestial', sun: 'celestial', heart: 'symbol',
   key: 'tool', 'open-book': 'household', sword: 'weapon', crown: 'household', anchor: 'ship',
   'musical-note': 'symbol', flame: 'nature', gear: 'tool', lightbulb: 'household',
+  roundel: 'geometric', annulet: 'geometric', billet: 'geometric', lozenge: 'geometric', goutte: 'geometric',
+  'cross-crosslet': 'cross', estoile: 'celestial', spark: 'celestial',
 };
 
 /** Parts that make a compound charge after a possessive ("a wolf's head", "a stag's attires"). */
@@ -256,24 +258,24 @@ export const LINES: Record<string, string> = {
   denticulada: 'denticulada', escartelly: 'escartelly',
 };
 
-/** Variegated patterns ("field treatments") → sub-tag. */
+/** Variegated patterns ("field treatments") → sub-tag: the variations by every spelling the widget reads (the sub-tag is the variation), and the rest. */
 export const TREATMENTS: Record<string, string> = {
-  barry: 'barry', barruly: 'barry', paly: 'paly', bendy: 'bendy', 'bendy-sinister': 'bendy', checky: 'checky',
-  chequy: 'checky', lozengy: 'lozengy', fusily: 'fusily', fusilly: 'fusily', chevronny: 'chevronny',
-  chevronelly: 'chevronny', 'barry-bendy': 'barry-bendy', 'paly-bendy': 'paly-bendy', masoned: 'masoned',
-  scaly: 'scaly', papelonny: 'papelonny', papellony: 'papelonny', plumetty: 'plumetty', plumety: 'plumetty',
+  ...VARIATION_SPELLINGS, barruly: 'barry', masoned: 'masoned',
+  scaly: 'scaly', papelonny: 'papellony', papellony: 'papellony', plumetty: 'plumetty', plumety: 'plumetty',
   honeycombed: 'honeycombed', mailly: 'mailly', maily: 'mailly', mailed: 'mailly', fretty: 'fretty',
   grillage: 'fretty', compony: 'compony', gobony: 'compony', 'counter-compony': 'counter-compony',
   countercompony: 'counter-compony', pily: 'pily', masculy: 'masculy', diapered: 'diapered', marbled: 'marbled',
   tartan: 'tartan',
 };
 
-/** Strewn ("semy") forms: on the field → field-treatment:semy; on a charge or ordinary → count:semy. */
-export const SEMY_WORDS = w(`
-  semy seme semee semy-de-lys semy-de-lis goutty gutty crusilly crusily billety billetty mullety mulletty
-  estencely estencelly estencele bezanty platy hurty pellety pelletty torteauxy ogressy golpy annuletty annulety
-  estoily estoilly martletty martletted fleurety floretty roundelly crescenty decrescenty delfy aspersed powdered
-`);
+/** The names of a semy the widget words and reads: "semy-de-lys", "crusilly", "bezanty", "goutty" (de sang, d'or …) and their spellings. */
+export const DRAWN_SEMY_NAMES: ReadonlySet<string> = new Set([...SEMY_NAMES.map((n) => n.word.split(' ')[0]), ...Object.keys(SEMY_SPELLINGS)].filter((x) => x !== 'semy'));
+
+/** Strewn ("semy") forms: those the widget draws (a plain tincture strewn with a plain charge, on the field, a part of it or a band: gaps.ts `semyDrawn`) aren't gaps; the rest on the field → field-treatment:semy, on a picture or band → count:semy. */
+export const SEMY_WORDS: readonly string[] = [
+  ...DRAWN_SEMY_NAMES,
+  ...w('semy seme semee torteauxy ogressy martletty martletted fleurety floretty roundelly decrescenty delfy aspersed powdered'),
+];
 
 /** Furs → sub-tag. "potent" and "potenty" are also a cross and a line; gaps.ts tells them apart. */
 export const FURS: Record<string, string> = {
@@ -383,7 +385,7 @@ export const CONTEXT_WORDS = w(`
 
 /** Cross variants after "cross" ("a cross formy") → sub-tag via gaps.ts' CROSS_VARIANT spellings. */
 export const CROSS_POST = w(`
-  crosslet formy formee pattee patty paty patee patonce patoncy flory fleury moline bottony botonny botony clechy
+  formy formee pattee patty paty patee patonce patoncy flory fleury moline bottony botonny botony clechy
   cleche clechee potent avellane fitchy fitched pommelly pommetty pomelly pommy quadrate fourchy ancree anchored
   anchory recercelly couped humetty nowy voided gringolee gringole degraded double-parted fleuretty barby
   crescented annuletty ringed pierced ansata stellata gurgity anille alisee

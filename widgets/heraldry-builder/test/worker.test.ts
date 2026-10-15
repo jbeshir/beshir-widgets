@@ -4,13 +4,13 @@
 // Worker's fetch handler is exercised directly.
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
-import worker from '../worker/index';
+import worker, { loadCandidates } from '../worker/index';
 import sample from '../src/data/sample-registry.json';
 import {
-  FIELD_SHAPES, blazon, candidateKey, checkUnique, parseSearchParams, resolve, searchEntries, signature,
-  type RegistryEntryLike,
+  FIELD_SHAPES, MIXED_PRIMARY, blazon, candidateKey, checkUnique, keysMayConflict, normalise, parseSearchParams, resolve, searchEntries, signature,
+  type Design, type RegistryEntryLike,
 } from '../src/lib/heraldry';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { sampleSearchEntries } from './sample-search-entries';
 import { arms, charge, div, group, nd, ordinary, searchParams, type SearchArgs } from './helpers';
 
@@ -52,7 +52,6 @@ async function bodyOf(res: Response): Promise<Json> {
 }
 
 // ── designs ──────────────────────────────────────────────────────────────────────────────────
-
 
 /** A loose design of one picture on a plain field. */
 const lone = (field: string, id: string, tincture: string, extra: object = {}, itemExtra: object = {}) =>
@@ -256,6 +255,30 @@ describe('POST /api/arms', () => {
     }
   });
 
+  it('registers a fieldless badge, keyed with no partition, and finds the arms and badges it is too close to', async () => {
+    await addRegistry('badges', 'Badges');
+    const lion = { v: 2, kind: 'badge', groups: [group(charge('lion'), 'or')] };
+    const created = await register(lion, { registry: 'badges' });
+    expect(created.blazon).toBe('(Fieldless) A lion Or.');
+    expect(created.signature).toBe('badge|P:c.lion.rampant:1:single:or');
+    const row = await env.DB.prepare(`SELECT partition_key, primary_key FROM arms WHERE id = ?`).bind(created.id).first<Json>();
+    expect(row).toEqual({ partition_key: null, primary_key: 'charge:feline' });
+    const tags = (await env.DB.prepare(`SELECT tag FROM arms_tags WHERE arms_id = ?`).bind(created.id).all<Json>()).results.map((t) => t.tag);
+    expect(tags).toContain('field:none');
+    expect(tags).not.toContain('field:plain');
+
+    // The same badge is a duplicate; the lion on a field differs by the fieldless change alone (SENA A5G1e), which is too close.
+    const again = await call('POST', '/api/arms/check', { body: { registry: 'badges', design: lion } });
+    expect((await bodyOf(again)).verdict).toBe('duplicate');
+    const fielded = await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'badges', design: lone('azure', 'lion', 'or') } }));
+    expect(fielded.verdict).toBe('too-close');
+    expect(fielded.differences.map((n: Json) => n.text)).toEqual(['background (plain ↔ none)']);
+    // A different charge is substantially different, with or without a field.
+    for (const design of [lone('argent', 'rose', 'gules'), { v: 2, kind: 'badge', groups: [group(charge('rose'), 'gules')] }]) {
+      expect((await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'badges', design } }))).verdict).toBe('ok');
+    }
+  });
+
   it('rejects malformed designs (400 invalid_design)', async () => {
     const bad: unknown[] = [
       undefined,
@@ -266,7 +289,7 @@ describe('POST /api/arms', () => {
       lone('vert', 'paintbrush', 'or', { count: 3 }),
       { v: 1, field: 'azure', groups: [group(ordinary('bend'), 'or')] }, // an old format version
       arms('azure'), // plain field alone: too generic
-      { ...arms('azure', group(ordinary('bend'), 'or')), kind: 'badge' }, // badges have no field (and are not drawn yet)
+      { ...arms('azure', group(ordinary('bend'), 'or')), kind: 'badge' }, // a badge has no field
       arms('azure', group(ordinary('bend'), 'gules')), // colour on colour
     ];
     for (const design of bad) {
@@ -440,7 +463,7 @@ describe('GET /api/arms (search)', () => {
 
   beforeAll(async () => {
     await addRegistry(SEARCH, 'Search test');
-    // Register the 20 sample entries in order through the real API.
+    // Register the 22 sample entries in order through the real API.
     for (const e of sample.entries) {
       const res = await call('POST', '/api/arms', {
         body: { registry: SEARCH, email: OWNER_EMAIL, displayName: e.displayName, contact: e.contact, design: e.design, shape: e.shape },
@@ -461,10 +484,10 @@ describe('GET /api/arms (search)', () => {
   it('returns the page shape, newest first, with no contact in results', async () => {
     const page = await find({});
     expect(page.registry).toEqual({ id: SEARCH, name: 'Search test' });
-    expect(page.total).toBe(20);
+    expect(page.total).toBe(22);
     expect(page.offset).toBe(0);
     expect(page.limit).toBe(24);
-    expect(page.items).toHaveLength(20);
+    expect(page.items).toHaveLength(22);
     for (const item of page.items) {
       expect(Object.keys(item).sort()).toEqual(['blazon', 'createdAt', 'design', 'displayName', 'id', 'readability', 'shape', 'signature']);
       expect(item).not.toHaveProperty('contact');
@@ -520,11 +543,11 @@ describe('GET /api/arms (search)', () => {
   it('paginates with bounded limit/offset', async () => {
     const p1 = await find({ limit: 5 });
     const p2 = await find({ limit: 5, offset: 5 });
-    const p4 = await find({ limit: 5, offset: 18 });
+    const p4 = await find({ limit: 5, offset: 20 });
     expect(p1.items).toHaveLength(5);
     expect(p2.items).toHaveLength(5);
     expect(p4.items).toHaveLength(2);
-    expect(p1.total).toBe(20);
+    expect(p1.total).toBe(22);
     const ids = [...p1.items, ...p2.items].map((i: Json) => i.id);
     expect(new Set(ids).size).toBe(10);
     expect((await find({ offset: 5000 })).items).toEqual([]);
@@ -592,7 +615,7 @@ describe('GET /api/arms (search)', () => {
 
   it('stores search text with the gloss and name, and never the contact or email', async () => {
     const { results } = await env.DB.prepare(`SELECT display_name, search_text FROM arms WHERE registry_id = ?`).bind(SEARCH).all<{ display_name: string; search_text: string }>();
-    expect(results).toHaveLength(20);
+    expect(results).toHaveLength(22);
     const cass = results.find((r) => r.display_name === 'Cass Merriweather')!;
     expect(cass.search_text).toBe(' cass merriweather per pale azure and vert a wolf passant argent a shield split vertically blue on the left and green on the right with a white wolf walking ');
     const basil = results.find((r) => r.display_name === 'Basil Thorne')!;
@@ -1023,9 +1046,35 @@ describe('withdrawal cascades to tags', () => {
 });
 
 describe('too-close candidate lookup', () => {
+  it('returns exactly the rows whose key may conflict, a fieldless badge (null partition) matching every partition', async () => {
+    await addRegistry('keys', 'Keys');
+    const partitions = [null, 'plain', 'per-pale'];
+    const primaries = [null, 'charge:lion', 'charge:rose', MIXED_PRIMARY];
+    const stored = partitions.flatMap((partition) => primaries.map((primary) => ({ partition, primary })));
+    for (const [i, key] of stored.entries()) {
+      await env.DB.prepare(
+        `INSERT INTO arms (id, registry_id, display_name, design, signature, blazon, partition_key, primary_key, readability, edit_secret_hash, created_at, updated_at)
+         VALUES (?, 'keys', 'Stored', '{}', ?, '', ?, ?, 'bold', 'h', ?, ?)`
+      ).bind(`k-${i}`, `sig-${i}`, key.partition, key.primary, `2026-10-03T00:00:${String(i).padStart(2, '0')}Z`, `2026-10-03T00:00:${String(i).padStart(2, '0')}Z`).run();
+    }
+    for (const probe of stored) {
+      const found = (await loadCandidates(env, 'keys', probe)).map((r) => r.id);
+      expect(found, JSON.stringify(probe)).toEqual(stored.flatMap((key, i) => (keysMayConflict(probe, key) ? [`k-${i}`] : [])));
+    }
+  });
+
   it('gives the verdict a full scan of the stored registry gives', async () => {
     await addRegistry('prefilter', 'Prefilter');
-    const stored = generatedDesigns(1, 100);
+    // Designs with two main pictures are keyed '*' and found by entries of any primary.
+    // One generation serves both: the first 40 are stored, the next 40 probe.
+    const pairs = generatedRichDesigns(1, 2000).filter((d) => d.groups.filter((g) => g.role === 'primary').length === 2);
+    expect(pairs.length).toBeGreaterThanOrEqual(80);
+    // Badges (no partition) are found by entries of every partition, and count the fieldless change against each other too (SENA A5G1e).
+    const badges = (seed: number, count: number): Design[] => generatedDesigns(seed, 400)
+      .filter((d) => d.groups.length === 1 && d.groups[0].role === 'primary' && d.groups[0].item.k === 'charge')
+      .flatMap((d) => { const n = normalise({ v: 2, kind: 'badge', groups: d.groups }); return n.ok ? [n.design] : []; })
+      .slice(0, count);
+    const stored = [...generatedDesigns(1, 100), ...pairs.slice(0, 40), ...badges(2, 12)];
     const entries: RegistryEntryLike[] = [];
     for (const [i, design] of stored.entries()) {
       const sig = signature(design);
@@ -1041,7 +1090,7 @@ describe('too-close candidate lookup', () => {
     }
 
     const verdicts = new Set<string>();
-    for (const probe of generatedDesigns(50_000, 300)) {
+    for (const probe of [...generatedDesigns(50_000, 300), ...pairs.slice(40, 80), ...badges(70_000, 10)]) {
       const full = checkUnique(probe, signature(probe), entries);
       const res = await call('POST', '/api/arms/check', { body: { registry: 'prefilter', design: probe } });
       expect(res.status).toBe(200);
@@ -1056,6 +1105,8 @@ describe('too-close candidate lookup', () => {
       }
     }
     expect([...verdicts].sort()).toEqual(['duplicate', 'ok', 'ok-on-two-dcs', 'too-close']);
+    expect(entries.some((e) => candidateKey(e.design).primary === '*')).toBe(true);
+    expect(entries.filter((e) => e.design.kind === 'badge').length).toBeGreaterThan(5);
   }, 30_000);
 });
 

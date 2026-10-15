@@ -68,7 +68,7 @@ describe('rule of tincture with celestine', () => {
   });
 
   it('straddling a divided field: celestine counts as a metal on either side', () => {
-    const straddling = (t1: string, t2: string, paint: string) => valid(arms(div('per-pale', t1, t2), chg('rose', paint)));
+    const straddling = (t1: string, t2: string, paint: string) => valid(arms(div('per-saltire', t1, t2), chg('rose', paint)));
     expect(straddling('celestine', 'argent', 'gules')).toBe(true);
     expect(straddling('celestine', 'or', 'argent')).toBe(false); // a two-metal field needs a colour charge
     expect(straddling('celestine', 'or', 'sable')).toBe(true);

@@ -2,43 +2,82 @@
 // layouts), room for the charges (layout.ts) and the per-fess chief rule (A3D1c). Messages are phrased
 // so they can double as the reason shown next to a blocked option.
 
-import { TINCTURE_NAME } from './tinctures';
+import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, numberWord } from './words';
-import { CHARGES, chargePhrase } from './charges';
-import { itemName, primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
-import { capacityIssue } from './layout';
-import { groundShares } from './tincture-rule';
+import { CHARGES, chargePhrase, type ChargeId } from './charges';
+import { DIVISION_NAME } from './divisions';
+import { divisionCutsOrdinary } from './geometry';
+import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
+import { capacityIssue, onChargeWords } from './layout';
+import { posturesClash } from './difference';
+import { strewnIssues } from './strewn';
+import { groundShares, paintName } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
-import { contextOf, layoutCandidates, layoutKey, layoutWords, type LayoutContext } from './arrangement';
+import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
   return g.item.k === 'charge' ? chargePhrase(g.item.charge, g.count) : ORDINARY_NAME[g.item.type];
 }
 
-/** What a group sits on, for "the fess", "the lion". */
 /** Why a charge group's count, arrangement and position don't make a layout, or null when they do. */
 function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): string | null {
   if (g.item.k !== 'charge') return null;
   const meta = CHARGES[g.item.charge];
   const a = g.arrangement;
   const layout = { arrangement: a, position: g.position };
-  if (ctx.k !== 'field') {
-    const where = ctx.k === 'on' ? 'on' : 'around';
-    return a.k === 'host' && g.position === null
-      ? null
-      : `Charges ${where} the ${ORDINARY_NAME[ctx.ordinary]} are placed by it — they can't be arranged ${layoutWords(layout)}.`;
+  switch (ctx.k) {
+    case 'position': {
+      if (ctx.position !== 'base' && hasChief(ctx.peripheral)) return `There is no room to set charges in ${ctx.position} when the design has a chief.`;
+      if (layoutCandidates(d, path, g.count).some((c) => layoutKey(c) === layoutKey(layout))) return null;
+      return `${capitalise(chargesPhrase(g))} in ${ctx.position} can't be arranged ${layoutWords({ ...layout, position: null })}.`;
+    }
+    case 'around': {
+      // A count with no layout around the primary charges at all is a gap (support.ts). Table 7 asks most of these counts to be
+      // specified, so another stated arrangement may be registrable: the message speaks for this builder, not the rule.
+      const candidates = layoutCandidates(d, path, g.count);
+      if (candidates.some((c) => layoutKey(c) === layoutKey(layout)) || !AROUND_COUNTS.includes(g.count)) return null;
+      return `${capitalise(chargesPhrase(g))} around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle can be set ${candidates.map(layoutWords).join(' or ')} in this builder — not ${layoutWords(layout)}.`;
+    }
+    case 'overall': {
+      // One charge alone, or two long charges crossed; any other count is a gap (support.ts).
+      const candidates = layoutCandidates(d, path, g.count);
+      if (candidates.length === 0 || candidates.some((c) => layoutKey(c) === layoutKey(layout))) return null;
+      return `${capitalise(chargesPhrase(g))} overall can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
+    }
+    case 'on-charge': {
+      // Every count but one must be stated (Table 7), and this builder offers only some layouts for it.
+      const candidates = layoutCandidates(d, path, g.count);
+      if (candidates.length === 0 || candidates.some((c) => layoutKey(c) === layoutKey(layout))) return null;
+      return `${capitalise(chargesPhrase(g))} ${onChargeWords(ctx.host)} can be set ${candidates.map(layoutWords).join(' or ')} in this builder — not ${layoutWords(layout)}.`;
+    }
+    case 'between': case 'on': {
+      const where = ctx.k === 'on' ? 'on' : 'around';
+      return a.k === 'host' && g.position === null
+        ? null
+        : `Charges ${where} the ${ORDINARY_NAME[ctx.ordinary]} are placed by it — they can't be arranged ${layoutWords(layout)}.`;
+    }
+    case 'field': break;
+    default: return ctx satisfies never;
   }
   if (a.k === 'host') return `${capitalise(chargesPhrase(g))} on the field can't be placed by an ordinary — choose an arrangement.`;
-  if ((g.position === 'chief' || g.position === 'base') && ctx.peripheral === 'chief') {
+  if ((g.position === 'chief' || g.position === 'base') && hasChief(ctx.peripheral)) {
     return `There is no room to set charges in ${g.position} when the design has a chief.`;
+  }
+  if (ctx.share) {
+    const together = layoutCandidates(d, path, g.count);
+    if (together.some((c) => layoutKey(c) === layoutKey(layout))) return null;
+    return `${capitalise(numberWord(shareTotal(ctx.share, g.count)))} main pictures together can be arranged ${together.map(layoutWords).join(', ')} — not ${layoutWords(layout)}.`;
   }
   if (a.k === 'crossed' && !meta.long) return 'Only long charges such as swords, keys and anchors can be crossed.';
   const candidates = layoutCandidates(d, path, g.count);
   if (candidates.some((c) => layoutKey(c) === layoutKey(layout))) return null;
   if (g.count === 1) return 'A single charge sits alone in the centre.';
   const noun = capitalise(`${numberWord(g.count)} ${meta.plural}`);
-  return `${noun} can be arranged ${candidates.map(layoutWords).join(', ')} — not ${layoutWords(layout)}.`;
+  // In a half or quarter of the field is a way to set any of them; the rest are listed.
+  const here = candidates.filter((c) => !isHalfPosition(c.position));
+  const halves = here.length < candidates.length ? ', or in a half or quarter of the field' : '';
+  return `${noun} can be arranged ${here.map(layoutWords).join(', ')}${halves} — not ${layoutWords(layout)}.`;
 }
 
 /**
@@ -48,12 +87,110 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
  */
 const OVERLIES_SHARE = 1 / 10;
 
-/** Whether some charge of the primary group overlies the line of division on the heater, or the group has no room to be judged (the capacity rule says so). */
+/** Whether some charge of the primary groups overlies the line of division on the heater, or they have no room to be judged (the capacity rule says so). */
 function crossesTheLine(d: Design): boolean {
-  const primary = primaryGroup(d);
-  if (!primary) return false;
-  const grounds = groundShares(d, primary.path);
+  const primaries = primaryGroups(d);
+  if (primaries.length === 0) return false;
+  const grounds = primaries.flatMap((p) => groundShares(d, p.path));
   return grounds.every((g) => g.length === 0) || grounds.some((g) => g.length > 1 && g.every((s) => s.share >= OVERLIES_SHARE));
+}
+
+/** Why a variation's two tinctures don't stand out against each other (SENA A3B3d: adjacent parts of a multiply divided paint contrast), or null; null too for any other paint. */
+function variationProblem(p: Paint): string | null {
+  const varied = asVariation(p);
+  return varied && metalAndColourProblem(paintName(varied), varied.parts[0].t, varied.parts[1].t);
+}
+
+/** Why a treatment is drawn in an ink that does not stand out against its tincture (GoT "Field Treatment": good contrast), or null; null too for any other paint. */
+function treatmentProblem(p: Paint): string | null {
+  const treated = asTreated(p);
+  return treated && metalAndColourProblem(paintName(treated), treated.ground.t, treated.ink);
+}
+
+/** Why a paint named `name` of tinctures `a` and `b` is not of a metal and a colour, or null when it is. */
+function metalAndColourProblem(name: string, a: Tincture, b: Tincture): string | null {
+  if (a === b) return `${name} needs two different tinctures — both are ${TINCTURE_NAME[a]}.`;
+  return TINCTURE_CLASS[a] === TINCTURE_CLASS[b] ? `${name} needs a metal and a colour — both are ${TINCTURE_CLASS[a]}s.` : null;
+}
+
+/** The problems of the field's and the groups' paints: parts of a divided field that share a tincture (SENA A3B3a; of a fur, its ground), a variation whose tinctures are not a metal and a colour (A3B3d), a fur in colours that are not a metal and a colour (App F4). */
+export function paintIssues(d: Design): Issue[] {
+  const issues: Issue[] = [];
+  const add = (issue: Issue) => issues.push(issue);
+
+  // A divided field whose parts share a tincture (SENA A3B3a): of a fur, the ground it is seen against.
+  if (d.kind === 'arms' && d.field.k === 'divided') {
+    const parts = d.field.parts;
+    const shared = parts.flatMap((p, i) => parts.slice(i + 1).flatMap((q) => {
+      const t = bodyTinctures(p).find((x) => bodyTinctures(q).includes(x));
+      return t ? [{ p, q, t }] : [];
+    }))[0];
+    if (shared) {
+      const plain = shared.p.k === 'tincture' && shared.q.k === 'tincture';
+      const message = !plain
+        ? `A divided field's parts can't share a tincture — ${paintName(shared.p)} and ${paintName(shared.q)} both use ${TINCTURE_NAME[shared.t]}.`
+        : parts.length === 2
+          ? `A divided field needs two different tinctures — both parts are ${TINCTURE_NAME[shared.t]}.`
+          : `A divided field needs different tinctures — two parts are ${TINCTURE_NAME[shared.t]}.`;
+      add({ code: 'structure', rule: 'field', at: { k: 'field' }, message, slots: [] });
+    }
+  }
+
+  // The field's stripes or cells lie against each other all over it (SENA A3B3d).
+  const fieldVariation = d.kind === 'arms' ? variationProblem(d.field) : null;
+  if (fieldVariation) add({ code: 'structure', rule: 'field', at: { k: 'field' }, message: fieldVariation, slots: [] });
+
+  const fieldTreatment = d.kind === 'arms' ? fieldParts(d).map(treatmentProblem).find((m) => m !== null) : undefined;
+  if (fieldTreatment) add({ code: 'structure', rule: 'treatment', at: { k: 'field' }, message: fieldTreatment, slots: [] });
+
+  // 1a. A fur in colours of its own combines a metal with a colour (SENA App F4).
+  const furProblem = (p: Paint): string | null => {
+    if (p.k !== 'fur' || !p.colours || TINCTURE_CLASS[p.colours[0]] !== TINCTURE_CLASS[p.colours[1]]) return null;
+    return `${paintName(p)} needs a metal and a colour — both are ${TINCTURE_CLASS[p.colours[0]]}s.`;
+  };
+  const fieldFur = d.kind === 'arms' ? fieldParts(d).map(furProblem).find((m) => m !== null) : undefined;
+  if (fieldFur) add({ code: 'structure', rule: 'fur', at: { k: 'field' }, message: fieldFur, slots: [] });
+  for (const { path, group } of walkGroups(d)) {
+    const problem = furProblem(group.paint);
+    if (problem) add({ code: 'structure', rule: 'fur', at: { k: 'group', path }, message: problem, slots: [] });
+    const varied = variationProblem(group.paint);
+    if (varied) add({ code: 'structure', rule: 'divided-paint', at: { k: 'group', path }, message: varied, slots: [] });
+    const treatment = treatmentProblem(group.paint);
+    if (treatment) add({ code: 'structure', rule: 'treatment', at: { k: 'group', path }, message: treatment, slots: [] });
+  }
+
+  return issues;
+}
+
+/** The charges that are forms of armorial display (SENA A3A2): alone and plain they pass for a shield of arms, so a badge of one may not be charged, divided or ermine. */
+const DISPLAY_FORMS: readonly ChargeId[] = ['heart', 'roundel', 'billet', 'lozenge'];
+
+/**
+ * Why a top-level group is not a fieldless badge (SENA A3A2, A3C; RULES §4.1), or null: a badge is one self-contained design,
+ * so it has no band or border (a badge has no edge to run along, and a central band would have to be couped), no charge set in a
+ * place of the field, and no more charges than touch (one, or two long charges crossed); a form of armorial display is plain.
+ */
+function notABadge(group: Group): string | null {
+  if (group.item.k === 'ordinary') {
+    return ORDINARY_KIND[group.item.type] === 'peripheral'
+      ? `A fieldless badge has no edge for a ${ORDINARY_NAME[group.item.type]} to run along (SENA A3A2).`
+      : `A fieldless badge can't have a ${ORDINARY_NAME[group.item.type]} unless it is couped, which this builder doesn't draw (SENA A3A2).`;
+  }
+  if (group.role !== 'primary') return null;
+  if (group.position !== null) return `A fieldless badge has no field to set a charge in ${group.position} of.`;
+  if (group.count > 1 && group.arrangement.k !== 'crossed') {
+    return `A fieldless badge is one self-contained design, so its charges must touch — ${chargesPhrase(group)} can't be set apart. Use one charge, or two long charges crossed (SENA A3A2).`;
+  }
+  const { charge } = group.item;
+  if (!DISPLAY_FORMS.includes(charge)) return null;
+  const form = CHARGES[charge].name;
+  if (group.charged.length > 0) return `A ${form} with charges on it looks like a shield of arms rather than a badge (SENA A3A2).`;
+  // Plain ermine is the Brittany ermine, protected; the other furs, undivided, are one tincture.
+  const ermine = group.paint.k === 'fur' && group.paint.fur === 'ermine' && !group.paint.colours;
+  if ((group.paint.k !== 'tincture' && group.paint.k !== 'fur') || ermine) {
+    return `A ${form} on its own looks like a shield of arms, so it must be one plain tincture or fur — not ${ermine ? 'plain ermine' : 'divided or treated'} (SENA A3A2).`;
+  }
+  return null;
 }
 
 /** Structural problems of a design that resolves, in rule order. */
@@ -62,21 +199,41 @@ export function structuralIssues(d: Design): Issue[] {
   const add = (issue: Issue) => issues.push(issue);
   const walked = walkGroups(d);
 
-  // 1. A divided field whose parts share a tincture (SENA A3B3a).
-  if (d.kind === 'arms' && d.field.k === 'divided') {
-    const ts = d.field.parts.flatMap((p) => (p.k === 'tincture' ? [p.t] : []));
-    const repeated = ts.find((t, i) => ts.indexOf(t) !== i);
-    if (repeated) {
-      const message = d.field.parts.length === 2
-        ? `A divided field needs two different tinctures — both parts are ${TINCTURE_NAME[repeated]}.`
-        : `A divided field needs different tinctures — two parts are ${TINCTURE_NAME[repeated]}.`;
-      add({ code: 'structure', rule: 'field', at: { k: 'field' }, message, slots: [] });
+  // 0. A fieldless badge is one self-contained charge (SENA A3A2).
+  const notBadges = new Set<Group>();
+  if (d.kind === 'badge') {
+    d.groups.forEach((group, i) => {
+      const message = notABadge(group);
+      if (message === null) return;
+      notBadges.add(group);
+      add({ code: 'structure', rule: 'badge', at: { k: 'group', path: [i] }, message, slots: [] });
+    });
+  }
+
+  issues.push(...paintIssues(d));
+
+  // 1b. A band or picture divided into two like tinctures, or cut by a line that misses it (SENA A3B3a, A3B3; RULES CC-10, CC-11).
+  for (const { path, group } of walked) {
+    const party = asParty(group.paint);
+    if (party) {
+      const thing = group.item.k === 'ordinary' ? `the ${ORDINARY_NAME[group.item.type]}` : `each ${CHARGES[group.item.charge].name}`;
+      const problem = party.parts[0].t === party.parts[1].t
+        ? `A divided ${itemName(group.item)} needs two different tinctures — both parts are ${TINCTURE_NAME[party.parts[0].t]}.`
+        : group.item.k === 'ordinary' && !divisionCutsOrdinary(party.division, group.item.type)
+          ? `${capitalise(DIVISION_NAME[party.division])} doesn't cut across ${thing}, so only one part would show — choose another division.`
+          : group.item.k === 'charge' && party.division === 'per-chevron' && CHARGES[group.item.charge].long
+            ? `A long ${CHARGES[group.item.charge].name} can't be divided per chevron — it would read as per fess (RULES CC-11).`
+            : null;
+      if (problem) add({ code: 'structure', rule: 'divided-paint', at: { k: 'group', path }, message: problem, slots: [] });
     }
   }
 
-  // 2. A plain field alone (SENA A3E3).
-  if (d.kind === 'arms' && d.field.k === 'tincture' && d.groups.length === 0) {
-    add({ code: 'generic', at: { k: 'design' }, message: 'A plain field on its own is too generic to register — add an ordinary or a charge.', slots: [] });
+  // 2. A plain field alone (SENA A3E3); a badge with nothing in it.
+  if (d.kind === 'badge' && d.groups.length === 0) {
+    add({ code: 'generic', at: { k: 'design' }, message: 'A fieldless badge is its picture — add one.', slots: [] });
+  }
+  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur') && d.groups.length === 0) {
+    add({ code: 'generic', at: { k: 'design' }, message: `A plain ${d.field.k === 'fur' ? 'fur' : 'field'} on its own is too generic to register — add an ordinary or a charge.`, slots: [] });
   }
 
   // 3. How groups relate (SENA App I).
@@ -84,8 +241,13 @@ export function structuralIssues(d: Design): Issue[] {
   for (const { path, group, host } of walked) {
     const at = { k: 'group', path } as const;
     if (group.role === 'secondary' && group.relation === 'between') {
+      // Between a central ordinary, or around the one group of primary charges (SENA App I1: "a lion between three mullets").
       const central = d.groups.some((g) => g.role === 'primary' && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central');
-      if (!central) add({ code: 'structure', rule: 'relation', at, message: 'Charges can only be set between a central band or shape.', slots: [] });
+      if (!central && !primaryCharges(d)) add({ code: 'structure', rule: 'relation', at, message: 'Charges can only be set between a central band or shape, or around a picture in the middle.', slots: [] });
+    }
+    if (group.role === 'secondary' && group.relation === 'position' && !d.groups.some((g) => g.role === 'primary')) {
+      // With nothing in the middle, charges in chief or in base are the primary group themselves (SENA App I1).
+      add({ code: 'structure', rule: 'relation', at, message: `Charges in ${group.position ?? 'a corner'} stand beside a band, shape or picture in the middle — with none, they are the main picture.`, slots: [] });
     }
     if (host?.role === 'tertiary') {
       add({ code: 'structure', rule: 'relation', at, message: "Charges can't sit on charges that are already on something (SENA App I3).", slots: [] });
@@ -95,9 +257,54 @@ export function structuralIssues(d: Design): Issue[] {
     }
   }
 
+  // 3c. Two co-primary groups are laid out together, so both are given the one arrangement.
+  const together = coPrimaries(d);
+  if (together && layoutKey({ arrangement: together[0].arrangement, position: together[0].position }) !== layoutKey({ arrangement: together[1].arrangement, position: together[1].position })) {
+    add({ code: 'structure', rule: 'layout', at: { k: 'group', path: [d.groups.indexOf(together[1])] }, message: 'Two main pictures are arranged together — give both the same arrangement.', slots: [] });
+  }
+
+  if (together && posturesClash(together[0].item, together[1].item)) {
+    add({ code: 'structure', rule: 'relation', at: { k: 'group', path: [d.groups.indexOf(together[1])] }, message: 'Two main pictures that can be posed alike must be: a rampant and a passant beast are not one group (SENA A3D2c).', slots: [] });
+  }
+
+  // 3b. A group overall lies over a primary group (SENA App I4): there is one, it overlies a primary, and one of the two is an ordinary or a long charge.
+  const overalls = walked.filter(({ group, host }) => group.role === 'overall' && host === null);
+  const primary = primaryGroup(d)?.group ?? null;
+  overalls.forEach(({ path, group }, i) => {
+    const at = { k: 'group', path } as const;
+    const fail = (message: string) => add({ code: 'structure', rule: 'overall', at, message, slots: [] });
+    if (i > 0) return fail('There can be only one group overall (SENA App I4).');
+    if (!primary) return fail('Something overall lies over a band, shape or picture in the middle — with none, it is the main picture (SENA App I4).');
+    const bandOrLong = (g: Group) => g.item.k === 'ordinary' || CHARGES[g.item.charge].long;
+    if (!bandOrLong(group) && !bandOrLong(primary)) {
+      return fail(`${capitalise(chargesPhrase(group))} overall must lie over a band or shape, or be a long charge such as a sword — not over ${chargesPhrase(primary)} (SENA App I4).`);
+    }
+    // "An overall charge group may have multiple charges, but only if they surmount a single primary charge."
+    if (group.count > 1 && primaryGroups(d).reduce((n, p) => n + p.group.count, 0) > 1) {
+      return fail(`${capitalise(chargesPhrase(group))} overall can only lie over a single main picture or band — set one overall, or have one main picture (SENA App I4).`);
+    }
+    // Two of one charge in two groups is the same-type rule below; two bands of one kind would look like one.
+    if (group.item.k === 'ordinary' && itemKey(group.item) === itemKey(primary.item)) {
+      fail(`The ${itemName(group.item)} can't lie overall over another ${itemName(primary.item)}.`);
+    }
+  });
+
+  // 3a. The same type of charge in two groups on the field (SENA A3D1a); a charge on a charge may repeat it, and so may co-primaries,
+  // which together are the one primary charge group (App I1); A3D1a forbids the type "in multiple charge groups".
+  const fieldGroups = d.groups.filter((g) => g.role !== 'peripheral' && g.item.k === 'charge');
+  fieldGroups.forEach((group, i) => {
+    if (!fieldGroups.slice(0, i).some((g) => itemKey(g.item) === itemKey(group.item) && !(g.role === 'primary' && group.role === 'primary'))) return;
+    const path = [d.groups.indexOf(group)];
+    add({ code: 'structure', rule: 'same-type', at: { k: 'group', path }, message: `${capitalise(chargesPhrase(group))} can't be used again in another group on the field (SENA A3D1a) — choose a different picture.`, slots: [] });
+  });
+
+  // 3a'. The semys: the charge of one on the field is not used again (A3D1a), and a band carries one group of charges (App I3).
+  issues.push(...strewnIssues(d));
+
   // 4. Count, arrangement and position make a layout where the group sits.
-  const illegal = new Set<Group>();
+  const illegal = new Set<Group>(notBadges);
   for (const { path, group, host } of walked) {
+    if (notBadges.has(group)) continue;
     const ctx = contextOf(d, group, host);
     const message = ctx && layoutIssue(d, path, group, ctx);
     if (message) {

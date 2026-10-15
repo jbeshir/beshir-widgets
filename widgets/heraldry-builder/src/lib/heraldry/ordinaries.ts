@@ -8,6 +8,9 @@ export type OrdinaryType = (typeof ORDINARY_TYPES)[number];
 /** The ordinaries the builder draws: the first ten. */
 export const DRAWN_ORDINARIES: readonly OrdinaryType[] = ORDINARY_TYPES.slice(0, 10);
 
+/** The ordinaries the builder draws overall (over the primary group): the bands and crosses that cross the middle of the field. */
+export const OVERALL_ORDINARIES: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];
+
 /** Central ordinaries can be the primary group; peripheral ones never can (SENA App I1). */
 export type OrdinaryKind = 'central' | 'peripheral' | 'other';
 

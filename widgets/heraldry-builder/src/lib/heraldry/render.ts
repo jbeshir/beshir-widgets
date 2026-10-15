@@ -3,78 +3,56 @@
 
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
-import { notSupported, walkGroups, type Design, type Group, type GroupPath } from './design';
-import {
-  counterchangedOrdinaryParts, counterchangedSlotParts, drawnBox, fieldRegions, ordinaryFillRule, ordinaryPath, type Slot,
-} from './geometry';
+import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
+import { badgeTransform, CANONICAL_SHAPE, chevronAstrideLinePath, drawnBox, astrideLine, ordinaryFillRule, ordinaryPath, shapeFrame, type Slot } from './geometry';
 import { groupSlots } from './layout';
+import { chargeFills, fieldFill, ordinaryFill, type Fill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
 
-/** Part of a layer painted in one tincture; `clip` is the partition region it is cut to (null: all of it). */
-interface OrdinaryFill { tincture: Tincture; clip: string | null }
-interface ChargeFill { tincture: Tincture; clip: string | null; slots: number[] }
-
 export type Layer =
-  | { k: 'field'; regions: Array<{ d: string; tincture: Tincture }> }
-  | { k: 'ordinary'; path: GroupPath; d: string; fillRule: 'nonzero' | 'evenodd'; fills: OrdinaryFill[] }
-  /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale). */
-  | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; fills: ChargeFill[] };
+  /** `outline` is the field's whole shape; a divided field's `fill` cuts it into parts. */
+  | { k: 'field'; outline: string; fill: Fill }
+  | { k: 'ordinary'; path: GroupPath; d: string; fillRule: 'nonzero' | 'evenodd'; fill: Fill }
+  /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale); each fill paints some of them. */
+  | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; fills: SlotFill[] };
 
-/** The tinctures a group is painted in, given what it lies on: `fills` of the parts, none when it can't be counterchanged there. */
 function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
   if (group.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type } = group.item;
-  const fills = ((): OrdinaryFill[] => {
-    switch (group.paint.k) {
-      case 'tincture': return [{ tincture: group.paint.t, clip: null }];
-      case 'counterchanged':
-        return d.kind === 'arms' && !host ? counterchangedOrdinaryParts(d.field, type, shape).map((p) => ({ tincture: p.tincture, clip: p.d })) : [];
-      default: return notSupported({ category: 'tincture', detail: group.paint.k });
-    }
-  })();
-  return { k: 'ordinary', path, d: ordinaryPath(type, shape), fillRule: ordinaryFillRule(type), fills };
+  const astride = d.kind === 'arms' && !host && astrideLine(d.field, type, group.paint);
+  return { k: 'ordinary', path, d: astride ? chevronAstrideLinePath(shape) : ordinaryPath(type, shape), fillRule: ordinaryFillRule(type), fill: ordinaryFill(d, group, host, type, shape) };
 }
 
 function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
   if (group.item.k !== 'charge') throw new RangeError('Not a charge.');
   const { charge, posture, mods } = group.item;
   const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, charge));
-  const all = slots.map((_, i) => i);
-  const fills = ((): ChargeFill[] => {
-    switch (group.paint.k) {
-      case 'tincture': return [{ tincture: group.paint.t, clip: null, slots: all }];
-      case 'counterchanged': {
-        if (d.kind !== 'arms' || host) return [];
-        const parts = slots.map((s) => counterchangedSlotParts(d.field, s, shape));
-        return ([0, 1] as const).flatMap((region) => {
-          const on = all.filter((i) => parts[i].some((p) => p.region === region));
-          const part = on.length ? parts[on[0]].find((p) => p.region === region) : undefined;
-          return part ? [{ tincture: part.tincture, clip: part.d, slots: on }] : [];
-        });
-      }
-      default: return notSupported({ category: 'tincture', detail: group.paint.k });
-    }
-  })();
-  return { k: 'charges', path, art: chargePath(charge, posture, mods), slots, fills };
+  return { k: 'charges', path, art: chargePath(charge, posture, mods), slots, fills: chargeFills(d, group, host, slots, shape) };
 }
 
-/** The layers of a design in paint order. A counterchanged group that can't be (plain field, or on a host) has no fills: only its outline shows. */
+/**
+ * The layers of a design in paint order. A counterchanged group that can't be (plain field, or on a host) has no fill: only its outline shows.
+ * A fieldless badge has no field layer: its charges are laid out as on a heater shield (`shape` is not used) and drawn under `badgeView`.
+ */
 export function renderLayers(d: Design, shape: FieldShape): Layer[] {
-  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
-  const layers: Layer[] = [{ k: 'field', regions: fieldRegions(d.field, shape) }];
+  const layers: Layer[] = d.kind === 'arms' ? [{ k: 'field', outline: shapeFrame(shape).outline, fill: fieldFill(d.field, shape) }] : [];
+  const at = d.kind === 'arms' ? shape : CANONICAL_SHAPE;
   for (const { path, group, host } of walkGroups(d)) {
-    layers.push(group.item.k === 'ordinary' ? ordinaryLayer(d, path, group, host, shape) : chargeLayer(d, path, group, host, shape));
+    layers.push(group.item.k === 'ordinary' ? ordinaryLayer(d, path, group, host, at) : chargeLayer(d, path, group, host, at));
   }
   return layers;
+}
+
+/** The SVG transform that scales a fieldless badge's drawing to fill the picture (an empty one is drawn as it lies); null for arms, which sit in their shield. */
+export function badgeView(d: Design, layers: readonly Layer[]): string | null {
+  if (d.kind === 'arms') return null;
+  return badgeTransform(layers.flatMap((l) => (l.k === 'charges' ? l.slots : [])));
 }
 
 /** The tinctures a design uses, in order of first use: what hatching patterns are needed for. Counterchanged adds none. */
 export function designTinctures(d: Design): Tincture[] {
   const seen = new Set<Tincture>();
-  const take = (p: Group['paint']) => {
-    if (p.k === 'tincture') seen.add(p.t);
-    else if (p.k === 'divided') p.parts.forEach(take);
-  };
+  const take = (p: Group['paint']) => paintTinctures(p).forEach((t) => seen.add(t));
   if (d.kind === 'arms') take(d.field);
   walkGroups(d).forEach(({ group }) => take(group.paint));
   return [...seen];

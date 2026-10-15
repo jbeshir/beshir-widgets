@@ -8,7 +8,6 @@ import sample from '../src/data/sample-registry.json';
 import { NO_CONTACT } from '../src/lib/heraldry';
 import { arms, group, nd, ordinary, searchParams } from './helpers';
 
-
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -29,7 +28,7 @@ describe('store (offline / file://)', () => {
     vi.stubGlobal('fetch', spy);
     expect(store.isOffline()).toBe(true);
     const page = await store.search(searchParams({}));
-    expect(page.ok && page.page.total).toBe(20);
+    expect(page.ok && page.page.total).toBe(22);
     expect(page.ok && page.page.sample).toBe(true);
     expect(spy).not.toHaveBeenCalled();
   });
@@ -41,7 +40,7 @@ describe('store (offline / file://)', () => {
     expect(none.ok && none.page.total).toBe(0);
     const q = await store.search(searchParams({ q: 'UNICORN' }));
     expect(q.ok && q.page.items.map((i) => i.id)).toEqual(['demo-002']);
-    const paged = await store.search(searchParams({ limit: 5, offset: 18 }));
+    const paged = await store.search(searchParams({ limit: 5, offset: 20 }));
     expect(paged.ok && paged.page.items.map((i) => i.id)).toEqual(['demo-002', 'demo-001']);
     const bad = await store.search(searchParams({ charge: 'kraken' }));
     expect(bad).toMatchObject({ ok: false, kind: 'http', status: 400, code: 'bad_request', culprit: { kind: 'param', name: 'charge' } });

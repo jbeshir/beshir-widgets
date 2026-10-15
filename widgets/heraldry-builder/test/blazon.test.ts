@@ -2,9 +2,9 @@
 // pins the factoring of tinctures, every layout word, which postures and layouts are left out, and spelling.
 
 import { describe, expect, it } from 'vitest';
-import { CHARGES, CHARGE_IDS, UnsupportedConstructError, postureTerm, blazon, normalise, resolve, type Design } from '../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, postureTerm, blazon, normalise, resolve } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { N, V } from './validation-cases';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -18,7 +18,7 @@ describe('worked examples', () => {
 
 describe('house style', () => {
   it('capitalises the first word and Or, nothing else, and ends with a full stop', () => {
-    for (const d of generatedDesigns(11, 150)) {
+    for (const d of [...generatedDesigns(11, 150), ...generatedRichDesigns(11, 150)]) {
       const text = blazon(d);
       expect(text, text).toMatch(/^[A-Z][^A-Z]*(Or[^A-Z]*)*\.$/);
       expect(text).not.toMatch(/\d/);
@@ -37,6 +37,56 @@ describe('house style', () => {
     expect(say('azure', chg('gear', 'or', { count: 3 }))).toBe('Azure, three cogwheels Or.');
     expect(say('azure', chg('sun', 'or', {}, { mods: [{ id: 'in-splendour' }] }))).toBe('Azure, a sun in splendor Or.');
     expect(say('gules', chg('lightbulb', 'or', { count: 2 }))).toBe('Gules, in pale two lightbulbs Or.');
+  });
+});
+
+describe('charges in chief, in base or in canton beside the primary', () => {
+  it('follow the primary with "and in …", the position always stated', () => {
+    expect(say('purpure', chg('bee', 'or'), chg('mullet', 'argent', { count: 3, position: 'chief' }))).toBe('Purpure, a bee Or and in chief three mullets argent.');
+    expect(say('argent', ord('chevron', 'sable'), chg('mullet', 'sable', { count: 3, position: 'chief' }))).toBe('Argent, a chevron and in chief three mullets sable.');
+    expect(say(div('per-pale', 'sable', 'gules'), ord('chevron', 'argent'), chg('mullet', 'argent', { position: 'base' }))).toBe('Per pale sable and gules, a chevron and in base a mullet argent.');
+    expect(say('sable', chg('dragon', 'argent'), chg('crescent', 'argent', { position: 'canton' }))).toBe('Sable, a dragon and in canton a crescent argent.');
+  });
+
+  it('word a pattern after the charges, the position first', () => {
+    expect(say('azure', chg('anchor', 'argent'), chg('mullet', 'or', { count: 5, position: 'chief', arrangement: 'rows-3-2' }))).toBe('Azure, an anchor argent and in chief five mullets three and two Or.');
+    expect(say('sable', ord('chevron', 'or'), chg('sword', 'or', { count: 2, position: 'base', arrangement: 'crossed' }))).toBe('Sable, a chevron and in base two swords in saltire Or.');
+  });
+
+  it('come after what is on the primary, and before the chief and bordure', () => {
+    expect(say('azure', ord('fess', 'or', { charged: [chg('rose', 'gules', { count: 3 })] }), chg('crescent', 'argent', { count: 2, position: 'base' })))
+      .toBe('Azure, on a fess Or three roses gules and in base two crescents argent.');
+    expect(say('azure', chg('lion', 'or'), chg('crescent', 'or', { count: 2, position: 'chief' }), ord('bordure', 'or'))).toBe('Azure, a lion and in chief two crescents and a bordure Or.');
+    expect(say('vert', chg('mullet', 'or'), chg('heart', 'argent', { position: 'base' }), ord('chief', 'or'))).toBe('Vert, a mullet Or and in base a heart argent, a chief Or.');
+  });
+
+  it('state the position with the defaults stated too, and leave the primary\'s Table 7 default unsaid', () => {
+    const d = nd(arms('azure', chg('lion', 'or', { count: 3 }), chg('mullet', 'argent', { count: 2, position: 'chief' })));
+    expect(blazon(d)).toBe('Azure, three lions Or and in chief two mullets argent.');
+    expect(blazon(d, { stateDefaults: true })).toBe('Azure, three lions rampant two and one Or and in chief two mullets argent.');
+  });
+});
+
+describe('charges set around a primary charge group', () => {
+  it('follow it with "between", two and one unsaid, the tincture shared when it is the same', () => {
+    expect(say('purpure', chg('fish', 'or'), chg('crescent', 'or', { count: 3, relation: 'between' }))).toBe('Purpure, a fish between three crescents Or.');
+    expect(say(div('per-fess', 'vert', 'sable'), chg('eagle', 'argent'), chg('rose', 'argent', { count: 3, relation: 'between' }))).toBe('Per fess vert and sable, an eagle between three roses argent.');
+    expect(say('azure', chg('lion', 'or'), chg('rose', 'argent', { count: 3, relation: 'between' }))).toBe('Azure, a lion Or between three roses argent.');
+  });
+
+  it('word every other layout: lines lead, patterns follow; and the primary\'s own', () => {
+    expect(say('purpure', chg('sword', 'argent', { count: 2, arrangement: 'in-fess' }), chg('anchor', 'or', { count: 3, relation: 'between' })))
+      .toBe('Purpure, in fess two swords argent between three anchors Or.');
+    expect(say('vert', chg('tree', 'or'), chg('crescent', 'or', { count: 2, relation: 'between', arrangement: 'in-pale' }), ord('bordure', 'argent')))
+      .toBe('Vert, a tree between in pale two crescents Or, a bordure argent.');
+    expect(say('sable', chg('sword', 'or', { count: 2, arrangement: 'crossed' }), chg('mullet', 'argent', { count: 4, relation: 'between', arrangement: 'in-cross' })))
+      .toBe('Sable, two swords in saltire Or between four mullets in cross argent.');
+    expect(say('gules', chg('heart', 'argent'), chg('mullet', 'or', { count: 6, relation: 'between', arrangement: 'in-orle' }))).toBe('Gules, a heart argent between six mullets in orle Or.');
+  });
+
+  it('state two and one with the defaults stated too', () => {
+    expect(blazon(nd(arms('azure', chg('lion', 'or'), chg('rose', 'argent', { count: 3, relation: 'between' }))), { stateDefaults: true }))
+      .toBe('Azure, a lion rampant Or between three roses two and one argent.');
   });
 });
 
@@ -164,16 +214,13 @@ describe('every charge', () => {
 });
 
 describe('what it will not write', () => {
-  it('throws the typed error for a badge, and never reaches a design normalise would not pass', () => {
-    const badge = resolve({ v: 2, kind: 'badge', groups: [chg('lion', 'or')] });
-    expect(badge.ok).toBe(true);
-    expect(() => blazon((badge as { design: Design }).design)).toThrow(UnsupportedConstructError);
-    const odd = resolve(arms('azure', ord('fess', 'or'), ord('bend', 'argent', { role: 'overall' })));
+  it('never reaches a design normalise would not pass', () => {
+    const odd = resolve(arms('azure', ord('fess', 'or'), ord('bend', 'argent', { role: 'overall', charged: [chg('rose', 'gules')] })));
     expect(odd.ok && normalise(odd.design).design).toBeNull();
   });
 
   it('writes any generated design in one sentence', () => {
-    for (const d of generatedDesigns(31, 200)) expect(blazon(d).split('. ').length, blazon(d)).toBe(1);
+    for (const d of [...generatedDesigns(31, 200), ...generatedRichDesigns(31, 200)]) expect(blazon(d).split('. ').length, blazon(d)).toBe(1);
   });
 });
 

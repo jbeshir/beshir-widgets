@@ -669,6 +669,19 @@ button, input, select, textarea {
 .availability-error { border-left: 4px solid var(--error); background: var(--error-bg); }
 .availability-help { color: var(--fg-secondary); font-size: 14px; }
 .taken-verdict { font-size: 17px; }
+/* "More colours and patterns…": one row under a colour picker; open, a row of kinds, then the options of the kind shown. */
+.more-paint summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; }
+.more-paint summary::before { content: '+'; width: 1em; font-weight: 700; }
+.more-paint[open] summary::before { content: '−'; }
+.more-paint-body { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 0 5px; padding-left: 12px; border-left: 2px solid var(--card-border); }
+.more-paint-modes.segmented > .option-wrap { flex: 0 1 auto; }
+.more-paint-modes .segment { font-size: 15px; }
+/* The options of one kind (fur, stripes and checks, scatter, brick or scales): each row with its legend, chips on a fixed grid. */
+.fur-picker { display: flex; flex-direction: column; gap: 10px; }
+.fur-picker .picker-legend { margin: 0; }
+.fur-picker .segmented-wide { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.fur-picker .segmented-wide .segment { gap: 8px; justify-content: flex-start; text-align: left; }
+.fur-picker .segment svg { flex: none; }
 .sena-rule summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; }
 .sena-rule summary::before { content: '+'; width: 1em; font-weight: 700; }
 .sena-rule[open] summary::before { content: '−'; }
@@ -898,9 +911,34 @@ button, input, select, textarea {
 .count-more summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; }
 .count-more .segmented { margin-top: 4px; }
 
-/* The "+ Add …" buttons under the steps sit side by side, wrapping on a narrow screen. */
-.add-extra { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
-.add-extra .button-small { min-height: 44px; }
+/* The "+ Add …" chooser after the step cards: a toggle, then its options in small groups, side by side and wrapping on a narrow screen. */
+.add-layer { margin: 12px 0 0; }
+.add-layer .button-small { min-height: 44px; }
+.add-layer-options { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 0; }
+.add-layer-options[hidden] { display: none; }
+.add-layer-heading { margin: 0 0 6px; font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-secondary); }
+.add-layer-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.add-layer .is-blocked { display: inline-flex; align-items: center; gap: 6px; border-style: dashed; color: var(--fg-secondary); cursor: help; }
+.add-layer .is-blocked > span { text-decoration: line-through; }
+
+/* The × in a layer card's heading that takes the layer out again. */
+.step-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-left: 4px;
+  padding: 0;
+  border: 1px solid var(--input-border);
+  border-radius: 50%;
+  background: var(--input-bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.step-remove:hover { border-color: var(--focus); }
 
 /* Options that bring another change along: each listed under its row, marked on the button. */
 .companion-notes {
@@ -1986,6 +2024,8 @@ a.button-secondary {
   .register-bar { display: none; grid-column: 1 / -1; }
   .design-layout[data-preview-sticky='false'] .register-bar { display: flex; }
 }
+/* Until the preview's own Register button has scrolled away the bar would only cover the shield. */
+.design-layout .register-bar[data-passed='false'] { display: none; }
 /* Nothing focused or scrolled to in the builder may end up under the Register bar. */
 .design-layout :is(a, button, input, select, textarea, summary, [tabindex]) { scroll-margin-bottom: 88px; }
 

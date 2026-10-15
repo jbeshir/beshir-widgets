@@ -5,7 +5,7 @@
 import type { Result, CheckResult } from '../store';
 import { entryHash } from '../lib/route';
 import {
-  CLEAR_CHANGE_HINT, SENA_RULE_HINT, changeLabel, tallyText, type ComparedEntry, type DiffAttr, type DifferenceNote, type TakenReport,
+  CLEAR_CHANGE_HINT, SENA_RULE_HINT, changeLabel, tallyText, type ComparedEntry, type DifferenceNote, type TakenReport,
 } from '../lib/heraldry';
 import { Shield } from './Shield';
 
@@ -29,7 +29,7 @@ const JUMP_LABEL: Record<JumpTarget, string> = {
 /** The builder control behind each kind of difference. */
 function jumpFor(d: DifferenceNote): JumpTarget {
   switch (d.attr) {
-    case 'field-partition': return 'field';
+    case 'fieldless': case 'field-partition': case 'field-style': return 'field';
     case 'field-tincture': case 'tincture': return 'tincture';
     case 'primary-presence': case 'group-presence': case 'type': return d.item === 'ordinary' ? 'ordinary' : 'charge';
     case 'number': return 'count';

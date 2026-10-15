@@ -7,22 +7,27 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, CHARGE_IDS, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
-  TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, fieldTinctures, groupAt, groupTinctureChoices,
-  groupTinctureOf, isBlocked, layoutChoices, layoutKey, layoutLabel, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
-  groupLabel, type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type GroupTincture, type Issue,
-  type LayoutChoice, type LayoutKey, type OrdinaryType, type PlainTerm, type Posture,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
+  TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
+  isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
+  type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
+  type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
 import {
-  PERIPHERAL_TYPES, addExtraPicture, addPeripheral, canAddExtraPicture, canAddPeripheral, companionNote, extraPicturePath, ordinaryPath, peripheralPath, picturePath,
-  placementLabel, removeExtraPicture, removePeripheral, setCharge, setPeripheralTincture,
-  setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField, setPosture,
+  companionNote, ordinaryPath, picturePath, placementLabel, setCharge,
+  setBadge, setDivision, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
 import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
+import { FieldPattern } from './VariationPicker';
+import { FurPicker } from './FurPicker';
+import { SemyPicker } from './SemyPicker';
+import { TreatmentPicker } from './TreatmentPicker';
+import { MorePaint, paintMode } from './MorePaint';
+import { PaintPicker } from './PaintPicker';
 import { TincturePicker } from './TincturePicker';
 
 /** How a step collapses on phones: null where steps are always open. */
@@ -56,6 +61,8 @@ function icon(input: unknown): Design {
 
 const ICON_FIELD = (division: Division | null): Design =>
   icon({ v: 2, field: division ? { k: 'divided', division, parts: ['or', 'azure'] } : 'azure', groups: [] });
+/** The badge tile: a star standing alone, with no shield behind it. */
+const ICON_BADGE: Design = icon({ v: 2, kind: 'badge', groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'or' }] });
 const ICON_ORDINARY = (type: OrdinaryType): Design =>
   icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, paint: 'or' }] });
 
@@ -79,10 +86,12 @@ interface StepFrameProps {
   issues: Issue[];
   accordion: Accordion | null;
   testid: string;
+  /** The button in the heading that takes the step's layer out again ("Remove the border"); null for the three main steps. */
+  remove: { label: string; testid: string; onRemove: () => void } | null;
   children: ComponentChildren;
 }
 
-function Step({ n, title, term, hint, summary, issues, accordion, testid, children }: StepFrameProps) {
+export function Step({ n, title, term, hint, summary, issues, accordion, testid, remove, children }: StepFrameProps) {
   const open = accordion?.open ?? true;
   const heading = (
     <>
@@ -93,7 +102,7 @@ function Step({ n, title, term, hint, summary, issues, accordion, testid, childr
   return (
     <fieldset class={`step${issues.length ? ' has-issue' : ''}${open ? '' : ' is-collapsed'}`} data-testid={testid}>
       <legend>
-        <h2 class="step-title">
+        <h2 class="step-title" tabIndex={-1}>
           {accordion ? (
             <button type="button" class="step-toggle" aria-expanded={open ? 'true' : 'false'} aria-controls={`${testid}-body`} data-testid={`${testid}-toggle`} onClick={accordion.onToggle}>
               {heading}
@@ -101,6 +110,11 @@ function Step({ n, title, term, hint, summary, issues, accordion, testid, childr
             </button>
           ) : heading}
         </h2>
+        {remove && (
+          <button type="button" class="step-remove" aria-label={remove.label} title={remove.label} data-testid={remove.testid} onClick={remove.onRemove}>
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
       </legend>
       {accordion && !open && (
         <p class="step-summary" data-testid={`${testid}-summary`}>{issues.length ? 'Needs a fix — open to see why' : summary}</p>
@@ -119,26 +133,102 @@ interface ShapedStepProps extends StepProps {
   shape: FieldShape;
 }
 
-const lower = (s: string) => s.toLowerCase();
+export const lower = (s: string) => s.toLowerCase();
 
-/** The plain tincture of a simple-space group (every group the builder makes is plainly painted or counterchanged). */
-const tinctureOf = (design: Design, path: GroupPath): GroupTincture => groupTinctureOf(groupAt(design, path).paint) ?? 'or';
-
-function fieldSummary(design: Design): string {
-  const [first, second] = fieldTinctures(design);
-  if (design.kind === 'arms' && design.field.k === 'divided') {
-    return `${DIVISION_LABEL[design.field.division].plain}: ${lower(TINCTURE_LABEL[first].plain)} and ${lower(TINCTURE_LABEL[second].plain)}`;
+/** A paint in plain words, lower case: "gold", "split blue and gold", "stripes across: blue and gold", "ermine", "natural colours". */
+function paintWords(p: Paint): string {
+  switch (p.k) {
+    case 'tincture': return lower(TINCTURE_LABEL[p.t].plain);
+    case 'counterchanged': return lower(TINCTURE_LABEL.counterchanged.plain);
+    case 'stain': return p.stain;
+    case 'proper': return 'natural colours';
+    case 'fur': return furName(p);
+    case 'divided': return `split ${p.parts.map(paintWords).join(' and ')}`;
+    case 'variation': return `${lower(VARIATION_LABEL[p.variation].plain)}: ${p.parts.map(paintWords).join(' and ')}`;
+    case 'treated': return `${paintWords(p.ground)} with ${lower(TINCTURE_LABEL[p.ink].plain)} ${lower(TREATMENT_LABEL[p.treatment].plain)}`;
+    case 'semy': return `${paintWords(p.ground)} strewn with ${paintWords(p.ink)} ${CHARGES[p.charge.charge].plural}`;
+    default: return p satisfies never;
   }
-  return `${TINCTURE_LABEL[first].plain}, plain`;
 }
 
-export function FieldStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
-  const division = design.kind === 'arms' && design.field.k === 'divided' ? design.field.division : null;
-  const [first, second] = fieldTinctures(design);
+/** A group's colour in plain words, lower case. */
+export const colourWords = (design: Design, path: GroupPath): string => paintWords(groupAt(design, path).paint);
+
+/** The tinctures of a part of the background and the picker that sets it: a plain tincture, or the one under a scatter or brick (which stay). */
+function FieldPartPicker({ design, part, legend, onChange }: { design: Design; part: 0 | 1; legend: string; onChange: (nd: Design) => void }) {
+  const target: PaintTarget = { k: 'field', part };
+  const paint = fieldParts(design)[part];
+  const group = `field${part + 1}`, testid = `field-tincture-${part + 1}`;
+  const semy = asSemy(paint), treated = asTreated(paint);
+  if (semy) return <TincturePicker group={group} testid={testid} legend={legend} choices={semyColourChoices(design, target, 0)} value={semy.ground.t} onChange={(t) => onChange(setSemyColour(design, target, 0, t))} />;
+  if (treated) return <TincturePicker group={group} testid={testid} legend={legend} choices={treatmentColourChoices(design, target, 0)} value={treated.ground.t} onChange={(t) => onChange(setTreatmentColour(design, target, 0, t))} />;
+  return <TincturePicker group={group} testid={testid} legend={legend} choices={fieldTinctureChoices(design, part)} value={paint.k === 'tincture' ? paint.t : null} onChange={(t) => onChange(setFieldTincture(design, part, t))} />;
+}
+
+/** "More colours and patterns…" for the background: a fur, a scatter or brick for a part of it (which part, when it is divided), or stripes and checks over it all. */
+function FieldMore({ design, division, onChange }: { design: Design; division: Division | null; onChange: (nd: Design) => void }) {
+  const parts = fieldParts(design);
+  const patterned = parts.findIndex((p) => p.k !== 'tincture');
+  const [part, setPart] = useState<0 | 1>(patterned === 1 ? 1 : 0);
+  // A field that comes to have its pattern on the other part (an example loaded, Undo) shows that part.
+  useEffect(() => {
+    if (patterned >= 0) setPart(patterned === 1 ? 1 : 0);
+  }, [patterned]);
+  const shown: 0 | 1 = division ? part : 0;
+  const target: PaintTarget = { k: 'field', part: shown };
+  const noun = division ? 'this part' : 'the background';
+  const forPart = (body: ComponentChildren) => (
+    <>
+      {division && (
+        <RadioGroup label="Which part of the background" class="segmented segmented-wide" testid="field-more-part">
+          {([0, 1] as const).map((i) => (
+            <ChoiceButton key={i} testid={`field-more-part-${i + 1}`} checked={shown === i} label={DIVISION_PART_LABEL[division][i]} onSelect={() => setPart(i)} onBlocked={never} class="segment">
+              <span>{DIVISION_PART_LABEL[division][i]}</span>
+            </ChoiceButton>
+          ))}
+        </RadioGroup>
+      )}
+      {body}
+    </>
+  );
+  const props = { design, target, group: `field${shown + 1}`, testid: `field-${shown + 1}`, noun, onChange };
+  const varied = design.kind === 'arms' ? asVariation(design.field) : null;
   return (
-    <Step n={1} title="Background" term="field" hint="One colour, or split in two." summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field">
+    <MorePaint
+      testid="field"
+      noun="the background"
+      current={varied ? 'pattern' : patterned >= 0 ? paintMode(parts[patterned]) : null}
+      modes={[
+        { mode: 'fur', panel: () => forPart(<FurPicker {...props} />) },
+        { mode: 'pattern', panel: () => <FieldPattern design={design} onChange={onChange} /> },
+        { mode: 'scatter', panel: () => forPart(<SemyPicker {...props} />) },
+        { mode: 'treatment', panel: () => forPart(<TreatmentPicker {...props} />) },
+      ]}
+    />
+  );
+}
+
+function fieldSummary(design: Design): string {
+  if (design.kind === 'badge') return 'No background (badge)';
+  const field = design.field;
+  if (field.k === 'divided') return `${DIVISION_LABEL[field.division].plain}: ${field.parts.map(paintWords).join(' and ')}`;
+  return field.k === 'variation' ? capitalise(paintWords(field)) : `${capitalise(paintWords(field))}, plain`;
+}
+
+interface FieldStepProps extends ShapedStepProps {
+  /** The Badge tile: App applies it and keeps the arms for Undo. */
+  onBadge: (nd: Design) => void;
+  /** The note with Undo after the Badge tile, shown under the tiles. */
+  notice: ComponentChildren;
+}
+
+export function FieldStep({ design, shape, onChange, onBadge, notice, issues, accordion }: FieldStepProps) {
+  const division = design.kind === 'arms' && design.field.k === 'divided' ? design.field.division : null;
+  const varied = design.kind === 'arms' && design.field.k === 'variation';
+  return (
+    <Step n={1} title="Background" term="field" hint={design.kind === 'badge' ? 'No background: your badge is its picture alone.' : 'One colour, or split in two.'} summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field" remove={null}>
       <RadioGroup label="Field division" class="icon-grid icon-grid-field" testid="field-division-select">
-        <ChoiceButton testid="field-kind-plain" checked={!division} label={nameOf(PLAIN_FIELD_LABEL)} title={PLAIN_FIELD_LABEL.plain} onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
+        <ChoiceButton testid="field-kind-plain" checked={design.kind === 'arms' && !division && !varied} label={nameOf(PLAIN_FIELD_LABEL)} title={PLAIN_FIELD_LABEL.plain} onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
           <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
           <span class="choice-label">{capitalise(PLAIN_FIELD_LABEL.term)}</span>
         </ChoiceButton>
@@ -148,25 +238,19 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
             <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
           </ChoiceButton>
         ))}
+        <ChoiceButton testid="division-badge" checked={design.kind === 'badge'} label="No background (badge)" title="No shield or background: a badge is just its picture" onSelect={() => onBadge(setBadge(design))} onBlocked={never} class="icon-choice">
+          <Shield design={ICON_BADGE} shape={shape} size={30} label={null} />
+          <span class="choice-label">Badge</span>
+        </ChoiceButton>
       </RadioGroup>
-      <TincturePicker
-        group="field1"
-        testid="field-tincture-1"
-        legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'}
-        choices={fieldTinctureChoices(design, 0)}
-        value={first}
-        onChange={(t) => onChange(setFieldTincture(design, 0, t))}
-      />
-      {division && (
-        <TincturePicker
-          group="field2"
-          testid="field-tincture-2"
-          legend={DIVISION_PART_LABEL[division][1]}
-          choices={fieldTinctureChoices(design, 1)}
-          value={second}
-          onChange={(t) => onChange(setFieldTincture(design, 1, t))}
-        />
+      {notice}
+      {design.kind === 'arms' && !varied && (
+        <>
+          <FieldPartPicker design={design} part={0} legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'} onChange={onChange} />
+          {division && <FieldPartPicker design={design} part={1} legend={DIVISION_PART_LABEL[division][1]} onChange={onChange} />}
+        </>
       )}
+      {design.kind === 'arms' && <FieldMore design={design} division={division} onChange={onChange} />}
     </Step>
   );
 }
@@ -174,7 +258,7 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
 function ordinarySummary(design: Design): string {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
-  return path && item?.k === 'ordinary' ? `${ORDINARY_LABEL[item.type].plain}, ${lower(TINCTURE_LABEL[tinctureOf(design, path)].plain)}` : 'None';
+  return path && item?.k === 'ordinary' ? `${ORDINARY_LABEL[item.type].plain}, ${colourWords(design, path)}` : 'None';
 }
 
 export function OrdinaryStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
@@ -182,7 +266,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
   const item = path && groupAt(design, path).item;
   const type = item?.k === 'ordinary' ? item.type : null;
   return (
-    <Step n={2} title="Band or shape" term="ordinary" hint="A bold band, border or shape. You need this or a picture (or both)." summary={ordinarySummary(design)} issues={issues} accordion={accordion} testid="step-ordinary">
+    <Step n={2} title="Band or shape" term="ordinary" hint="A bold band, border or shape. You need this or a picture (or both)." summary={ordinarySummary(design)} issues={issues} accordion={accordion} testid="step-ordinary" remove={null}>
       <RadioGroup label="Ordinary" class="icon-grid icon-grid-ordinary" testid="ordinary-select">
         <ChoiceButton testid="ordinary-none" checked={!type} label="No band or shape" onSelect={() => onChange(setOrdinary(design, null))} onBlocked={never} class="icon-choice">
           <NoneIcon />
@@ -196,14 +280,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
         ))}
       </RadioGroup>
       {path && type && (
-        <TincturePicker
-          group="ordinary"
-          testid="ordinary-tincture"
-          legend={`Colour of the ${lower(ORDINARY_LABEL[type].plain)}`}
-          choices={groupTinctureChoices(design, path)}
-          value={tinctureOf(design, path)}
-          onChange={(t) => onChange(setOrdinaryTincture(design, t))}
-        />
+        <PaintPicker design={design} path={path} group="ordinary" testid="ordinary-tincture" noun={lower(ORDINARY_LABEL[type].plain)} onChange={onChange} />
       )}
     </Step>
   );
@@ -217,16 +294,17 @@ function postureOption(design: Design, path: GroupPath, p: Posture): string {
 }
 
 const countName = (n: number) => (n === 1 ? 'one' : numberWord(n));
-const nounOf = (design: Design, path: GroupPath): string => {
+/** The pictures at `path` by name, one or many: "lion", "mullets". */
+export const nounOf = (design: Design, path: GroupPath): string => {
   const g = groupAt(design, path);
   if (g.item.k !== 'charge') return g.count === 1 ? 'charge' : 'charges';
   const meta = CHARGES[g.item.charge];
   return g.count === 1 ? meta.name : meta.plural;
 };
 
-function picturesSummary(design: Design, path: GroupPath | null): string {
+export function picturesSummary(design: Design, path: GroupPath | null): string {
   if (!path) return 'None';
-  return `${groupAt(design, path).count} ${nounOf(design, path)}, ${lower(TINCTURE_LABEL[tinctureOf(design, path)].plain)}`;
+  return `${groupAt(design, path).count} ${nounOf(design, path)}, ${colourWords(design, path)}`;
 }
 
 /** A count or placement option: blocked with its reason, or offered saying what else it changes. */
@@ -265,11 +343,11 @@ function categoryOf(design: Design): ChargeCategory {
   return item?.k === 'charge' ? CHARGES[item.charge].category : CHARGE_CATEGORIES[0];
 }
 
-interface PictureControlsProps {
+export interface PictureControlsProps {
   design: Design;
   path: GroupPath;
-  /** '' for the picture, 'extra-' for the extra pictures: ids and test ids of the second set are prefixed. */
-  prefix: '' | 'extra-';
+  /** '' for the picture, '<place>-' for the pictures of a layer: their ids and test ids are prefixed. */
+  prefix: string;
   onChange: (nd: Design) => void;
   onAdjust: (nd: Design, companion: Companion) => void;
   /** The note shown after a count or placement brought its partner along. */
@@ -277,7 +355,7 @@ interface PictureControlsProps {
 }
 
 /** How many, where, layout, pose, face and colour of one group of pictures. */
-function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }: PictureControlsProps) {
+export function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }: PictureControlsProps) {
   const g = groupAt(design, path);
   const item = g.item.k === 'charge' ? g.item : null;
   const counts = withStatus(countChoices(design, path));
@@ -305,7 +383,13 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
   const layoutValue = layoutKey(g);
   const layoutNote = layouts.note;
   const hasSplendour = mods.some((m) => m.value === 'in-splendour');
-  const tincture = tinctureOf(design, path);
+  /** A layout in one half or quarter of the shield (D23): kept apart from the layouts over the whole of it. */
+  const inPart = (key: LayoutKey) => isHalfPosition(layoutOfKey(key, g.count)?.position ?? null);
+  const layoutOption = (c: Choice<LayoutKey>) => (
+    <option key={c.value} value={c.value} disabled={!c.allowed}>
+      {plainFirst(layoutLabel(c.value))}{c.allowed ? '' : ' (not available)'}
+    </option>
+  );
 
   return (
     <div class="charge-options">
@@ -354,12 +438,13 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
           onChange={(e) => onChange(setLayout(design, path, (e.currentTarget as HTMLSelectElement).value as LayoutKey))}
         >
           {layouts.mode === 'choose'
-            ? layouts.choices.map((c) => (
-                <option key={c.value} value={c.value} disabled={!c.allowed}>
-                  {plainFirst(layoutLabel(c.value))}{c.allowed ? '' : ' (not available)'}
-                </option>
-              ))
-            : <option value={layoutValue}>{layouts.mode === 'single' ? 'Single, centred' : 'Set by the band or shape'}</option>}
+            ? (
+              <>
+                {layouts.choices.filter((c) => !inPart(c.value)).map(layoutOption)}
+                {layouts.choices.some((c) => inPart(c.value)) && <optgroup label="In one part of the shield">{layouts.choices.filter((c) => inPart(c.value)).map(layoutOption)}</optgroup>}
+              </>
+            )
+            : <option value={layoutValue}>{layouts.mode === 'single' ? 'Single, centred' : layouts.mode === 'fixed' ? plainFirst(layoutLabel(layoutValue)) : 'Set by the band or shape'}</option>}
         </select>
         {layoutNote && <p class="control-note" id={`${layoutId}-note`}>{layoutNote}</p>}
       </div>
@@ -400,26 +485,21 @@ function PictureControls({ design, path, prefix, onChange, onAdjust, adjusted }:
         </div>
       )}
 
-      <TincturePicker
-        group={`${prefix}charge`}
-        testid={`${prefix}charge-tincture`}
-        legend={`Colour of the ${nounOf(design, path)}`}
-        choices={groupTinctureChoices(design, path)}
-        value={tincture}
-        onChange={(t) => onChange(setGroupTincture(design, path, t))}
-      />
+      <PaintPicker design={design} path={path} group={`${prefix}charge`} testid={`${prefix}charge-tincture`} noun={nounOf(design, path)} onChange={onChange} />
     </div>
   );
 }
 
 interface ChargesStepProps extends StepProps {
+  /** The step's number: a badge has no band or shape step. */
+  n: number;
   compact: boolean;
   onAdjust: (nd: Design, companion: Companion) => void;
   /** The note shown after a count or placement brought its partner along. */
   adjusted: ComponentChildren;
 }
 
-export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, accordion, compact }: ChargesStepProps) {
+export function ChargesStep({ n, design, onChange, onAdjust, adjusted, issues, accordion, compact }: ChargesStepProps) {
   const path = picturePath(design);
   const item = path && groupAt(design, path).item;
   const selected = item?.k === 'charge' ? item : null;
@@ -431,7 +511,7 @@ export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, acco
   }, [selectedCategory]);
 
   return (
-    <Step n={3} title="Picture" term="charge" hint="Pick a picture and repeat it up to twelve times. You need this or a band or shape (or both)." summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-charges">
+    <Step n={n} title="Picture" term="charge" hint={design.kind === 'badge' ? 'Pick the picture your badge is made of: one charge, or two long ones crossed.' : 'Pick a picture and repeat it up to twelve times. You need this or a band or shape (or both).'} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-charges" remove={null}>
       {compact && (
         <RadioGroup label="Kind of picture" class="charge-tabs" testid="charge-tabs">
           {CHARGE_CATEGORIES.map((cat) => (
@@ -462,111 +542,11 @@ export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, acco
           </div>
         ))}
       </RadioGroup>
-      {peripheralPath(design) && (
-        <p class="control-note" data-testid="peripheral-picture-note">Choosing a picture takes away the top band or border: this builder can't draw them together.</p>
-      )}
       <p class="charge-selected" data-testid="charge-selected">
         {selected ? <>Selected: <strong>{chargeLabel(selected.charge)}</strong></> : 'No picture selected.'}
       </p>
 
       {path && selected && <PictureControls design={design} path={path} prefix="" onChange={onChange} onAdjust={onAdjust} adjusted={adjusted} />}
-    </Step>
-  );
-}
-
-/** What the extra pictures are sitting on, in the builder's words: "band" or "top bar". */
-function hostWord(design: Design): string {
-  const path = ordinaryPath(design);
-  const item = path && groupAt(design, path).item;
-  return item?.k === 'ordinary' && item.type === 'chief' ? 'top bar' : 'band';
-}
-
-const PERIPHERAL_BUTTON: Record<(typeof PERIPHERAL_TYPES)[number], string> = {
-  chief: 'Add a top band (chief)',
-  bordure: 'Add a border (bordure)',
-};
-
-/** The buttons that add a layer beside the picture: extra pictures on the band (or top bar), or a top band or border beside the band; each shown only while it can be drawn. */
-export function AddExtraLayer({ design, onChange }: { design: Design; onChange: (nd: Design) => void }) {
-  const path = picturePath(design);
-  const item = path && groupAt(design, path).item;
-  // Any charge other than the picture's own to start with; the extra card can swap it.
-  const start = item?.k === 'charge' && item.charge === 'mullet' ? 'heart' : 'mullet';
-  const pictures = !extraPicturePath(design) && canAddExtraPicture(design);
-  const peripherals = peripheralPath(design) ? [] : PERIPHERAL_TYPES.filter((t) => canAddPeripheral(design, t));
-  if (!pictures && !peripherals.length) return null;
-  return (
-    <p class="add-extra">
-      {pictures && (
-        <button type="button" class="button-secondary button-small" data-testid="add-extra-picture" onClick={() => onChange(addExtraPicture(design, start))}>
-          + Add pictures on the {hostWord(design)}
-        </button>
-      )}
-      {peripherals.map((t) => (
-        <button key={t} type="button" class="button-secondary button-small" data-testid={`add-peripheral-${t}`} onClick={() => onChange(addPeripheral(design, t))}>
-          + {PERIPHERAL_BUTTON[t]}
-        </button>
-      ))}
-    </p>
-  );
-}
-
-/** Step 4 when the band has a top band or border beside it: its colour, and removing it. */
-export function PeripheralStep({ design, onChange, issues, accordion }: StepProps) {
-  const path = peripheralPath(design);
-  const item = path && groupAt(design, path).item;
-  if (!path || item?.k !== 'ordinary') return null;
-  const label = ORDINARY_LABEL[item.type];
-  const colour = lower(TINCTURE_LABEL[tinctureOf(design, path)].plain);
-  return (
-    <Step n={4} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; a picture can't be added while it is there." summary={`${colour}`} issues={issues} accordion={accordion} testid="step-peripheral">
-      <TincturePicker
-        group="peripheral"
-        testid="peripheral-tincture"
-        legend={`Colour of the ${lower(label.plain)}`}
-        choices={groupTinctureChoices(design, path)}
-        value={tinctureOf(design, path)}
-        onChange={(t) => onChange(setPeripheralTincture(design, t))}
-      />
-      <p>
-        <button type="button" class="button-tertiary" data-testid="remove-peripheral" onClick={() => onChange(removePeripheral(design))}>
-          Remove the {lower(label.plain)}
-        </button>
-      </p>
-    </Step>
-  );
-}
-
-interface ExtraStepProps extends StepProps {
-  onAdjust: (nd: Design, companion: Companion) => void;
-}
-
-/** Step 4: the pictures that sit on the band or top bar, when there are some. */
-export function ExtraStep({ design, onChange, onAdjust, issues, accordion }: ExtraStepProps) {
-  const path = extraPicturePath(design);
-  const item = path && groupAt(design, path).item;
-  if (!path || item?.k !== 'charge') return null;
-  const host = hostWord(design);
-  return (
-    <Step n={4} title={groupLabel(design, path)} term={`charges on the ${host === 'band' ? 'ordinary' : 'chief'}`} hint={`Pictures drawn on the ${host}, as well as the picture above.`} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-extra">
-      <div class="control">
-        <label class="picker-legend" for="extra-charge-select">Picture</label>
-        <select
-          id="extra-charge-select"
-          class="select"
-          data-testid="extra-charge-select"
-          value={item.charge}
-          onChange={(e) => onChange(setCharge(design, 'extra', (e.currentTarget as HTMLSelectElement).value as (typeof CHARGE_IDS)[number]))}
-        >
-          {CHARGE_IDS.map((id) => <option key={id} value={id}>{chargeLabel(id)}</option>)}
-        </select>
-      </div>
-      <PictureControls design={design} path={path} prefix="extra-" onChange={onChange} onAdjust={onAdjust} adjusted={null} />
-      <p>
-        <button type="button" class="button-tertiary" data-testid="remove-extra-picture" onClick={() => onChange(removeExtraPicture(design))}>
-          Remove these pictures
-        </button>
-      </p>
     </Step>
   );
 }
