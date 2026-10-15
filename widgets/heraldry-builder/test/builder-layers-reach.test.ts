@@ -9,7 +9,7 @@ import {
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
-import { generatedRichDesigns } from './design-generator';
+import { generatedGeometryDesigns, generatedRichDesigns } from './design-generator';
 import { arms, charge, div, group, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
@@ -136,6 +136,14 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Per fess azure and vert all mullety Or, a pale argent.'],
   ['a semy on a chief beside a band', arms('vert', group(ordinary('chevron'), 'argent'), group(ordinary('chief'), { k: 'semy', ground: 'or', charge: { charge: 'mullet' }, ink: 'sable' })),
     'Vert, a chevron argent, a chief Or mullety sable.'],
+  ['a division drawn with a wavy line', arms({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['argent', 'azure'] }),
+    'Per pale wavy argent and azure.'],
+  ['a division drawn with an embattled line', arms({ k: 'divided', division: 'per-fess', lines: { a: 'embattled' }, parts: ['gules', 'or'] }),
+    'Per fess embattled gules and Or.'],
+  ['stripes drawn with a wavy line', arms({ k: 'variation', variation: 'barry', pieces: 8, lines: { a: 'wavy' }, parts: ['argent', 'azure'] }),
+    'Barry wavy of eight argent and azure.'],
+  ['a quartered field with its across line embattled', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] }),
+    'Quarterly per fess embattled Or and gules.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -151,6 +159,14 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   it('and the blazons are the ones the College would write', () => {
     for (const [, input, text] of REPRESENTATIVE) expect(blazon(built(input))).toBe(text);
   });
+
+  it('every generated design with a line on the field is built too', () => {
+    const problems = generatedGeometryDesigns(11, 150).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
+  }, 60_000);
 
   it('every generated rich design is built too', () => {
     const designs = generatedRichDesigns(11, 150);

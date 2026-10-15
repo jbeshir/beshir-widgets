@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_TREATMENTS, FURS, FUR_NAME, TINCTURES, VARIATIONS, VARIATION_NAME, type Division, type Fur, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Division, type Fur, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -12,6 +12,32 @@ const FUR_PHRASES = FURS.map((fur) => ({ words: FUR_NAME[fur].split(' '), fur })
 
 /** The fur of a family that names its colours: "vairy Or and gules", "potenty argent and sable". */
 const COLOURED_FURS: Record<string, Fur> = { vairy: 'vair', potenty: 'potent' };
+
+/** The lines of partition as the words that spell them ("embattled grady"), the longest first. */
+const LINE_PHRASES = DRAWN_LINES.map((line) => ({ words: LINE_WORD[line].split(' '), line })).sort((a, b) => b.words.length - a.words.length);
+
+/** The line of partition written at `tokens[i]` and the index after it, or null when none is. */
+function readLine(tokens: readonly string[], i: number): { line: ComplexLine; end: number } | null {
+  const found = LINE_PHRASES.find((p) => p.words.every((w, j) => tokens[i + j] === w));
+  return found ? { line: found.line, end: i + found.words.length } : null;
+}
+
+/**
+ * The lines a division is written with after its name (`at` is the index after it): "per pale wavy", "quarterly per fess embattled" (only
+ * the across line), "quarterly per pale wavy", "quarterly wavy" (both). A division without a line has plain lines.
+ */
+function readDivisionLines(division: Division, tokens: readonly string[], at: number): { lines: Lines | null; end: number } {
+  const host = { k: 'division', division } as const;
+  if (division === 'quarterly') {
+    const side = tokens[at] === 'per' && (tokens[at + 1] === 'pale' || tokens[at + 1] === 'fess') ? tokens[at + 1] : null;
+    const read = readLine(tokens, at + (side ? 2 : 0));
+    if (!read) return { lines: null, end: at };
+    const { line } = read;
+    return { lines: side === 'pale' ? { a: line, b: 'plain' } : side === 'fess' ? { a: 'plain', b: line } : bareLines(host, line), end: read.end };
+  }
+  const read = readLine(tokens, at);
+  return read ? { lines: bareLines(host, read.line), end: read.end } : { lines: null, end: at };
+}
 
 /** The variations as the words that spell them ("bendy sinister", "barry bendy"), the longest first. */
 const VARIATION_PHRASES = VARIATIONS.map((variation) => ({ words: VARIATION_NAME[variation].split(' '), variation })).sort((a, b) => b.words.length - a.words.length);
@@ -24,6 +50,8 @@ const isTreatment = (w: string | undefined): w is Treatment => (DRAWN_TREATMENTS
 const COUNT_WORDS: Record<string, number> = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12 };
 
 const isTincture = (w: string | undefined): w is Tincture => (TINCTURES as readonly string[]).includes(w!);
+
+type Lines = ReturnType<typeof bareLines>;
 
 export interface PaintRead { paint: unknown; end: number }
 
@@ -50,11 +78,13 @@ function readOne(tokens: readonly string[], i: number): PaintRead | null {
   return named ? { paint: { k: 'fur', fur: named.fur, colours: null }, end: i + named.words.length } : null;
 }
 
-/** A variation of the field, "barry of eight argent and azure", "checky Or and sable": the stripe count is the word after "of", when there is one. */
+/** A variation of the field, "barry of eight argent and azure", "barry wavy of eight …", "checky Or and sable": the line follows the name, the stripe count the word after "of", when there is one. */
 function readVariation(tokens: readonly string[], i: number): PaintRead | null {
   const named = VARIATION_PHRASES.find((p) => p.words.every((w, j) => tokens[i + j] === w));
   if (!named) return null;
   let at = i + named.words.length;
+  const read = readLine(tokens, at);
+  if (read) at = read.end;
   let pieces: number | null = null;
   if (tokens[at] === 'of' && tokens[at + 1] in COUNT_WORDS) {
     pieces = COUNT_WORDS[tokens[at + 1]];
@@ -62,7 +92,7 @@ function readVariation(tokens: readonly string[], i: number): PaintRead | null {
   }
   const [a, and, b] = [tokens[at], tokens[at + 1], tokens[at + 2]];
   return isTincture(a) && and === 'and' && isTincture(b)
-    ? { paint: { k: 'variation', variation: named.variation satisfies Variation, pieces, parts: [a, b] }, end: at + 3 }
+    ? { paint: { k: 'variation', variation: named.variation satisfies Variation, pieces, ...(read ? { lines: bareLines({ k: 'variation', variation: named.variation }, read.line) } : {}), parts: [a, b] }, end: at + 3 }
     : null;
 }
 
@@ -88,11 +118,14 @@ export function readPaint(tokens: readonly string[], i: number, where: 'field' |
   if (varied) return varied;
   const phrase = DIVISION_PHRASES.find((p) => p.every((w, j) => tokens[i + j] === w));
   if (!phrase) return null;
-  const first = readOne(tokens, i + phrase.length);
+  const division = DIVISION_WORDS.get(phrase.join(' '))!;
+  const { lines, end } = readDivisionLines(division, tokens, i + phrase.length);
+  const first = readOne(tokens, end);
   if (!first || tokens[first.end] !== 'and') return null;
   const second = readOne(tokens, first.end + 1);
   if (!second) return null;
   const all = typeof first.paint === 'string' && typeof second.paint === 'string' ? readAllSemy(tokens, second.end, first.paint, second.paint) : null;
-  if (all) return { paint: { k: 'divided', division: DIVISION_WORDS.get(phrase.join(' ')), parts: all.parts }, end: all.end };
-  return { paint: { k: 'divided', division: DIVISION_WORDS.get(phrase.join(' ')), parts: [first.paint, second.paint] }, end: second.end };
+  const drawn = lines ? { lines } : {};
+  if (all) return { paint: { k: 'divided', division, ...drawn, parts: all.parts }, end: all.end };
+  return { paint: { k: 'divided', division, ...drawn, parts: [first.paint, second.paint] }, end: second.end };
 }

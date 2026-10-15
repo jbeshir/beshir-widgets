@@ -6,7 +6,7 @@
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
-import { layoutCandidates, layoutKey, normalise, resolve, type Design } from '../src/lib/heraldry';
+import { DRAWN_LINES, layoutCandidates, layoutKey, lineAllowed, normalise, resolve, type Design } from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -164,6 +164,48 @@ export function generatedRichDesigns(seed: number, count: number): Design[] {
   const designs: Design[] = [];
   for (let s = seed; designs.length < count; s++) {
     const d = generatedRichDesign(s);
+    if (d) designs.push(d);
+  }
+  return designs;
+}
+
+/** Mixed into a seed for the picks of the geometry designs (lines on the divisions and stripes of the field). */
+const GEOMETRY_SEED = 0x3c6ef372;
+const GEOMETRY_DIVISIONS = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-saltire', 'quarterly'];
+const GEOMETRY_STRIPES = ['barry', 'paly', 'bendy', 'bendy-sinister'];
+
+/**
+ * The design for `seed` with a division or stripes of the field drawn with a line the host takes (the builder's lines on the
+ * background), a band or a picture on it sometimes; each later phase's constructs go on a new stream below. Null when the pick isn't registrable.
+ */
+function geometryDesignFor(seed: number): Design | null {
+  const next = prng(seed ^ GEOMETRY_SEED);
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
+  const lines = DRAWN_LINES;
+  const parts = [pick(TINCTURES), pick(TINCTURES)];
+  const field = next() < 0.7
+    ? (() => {
+      const division = pick(GEOMETRY_DIVISIONS);
+      const line = pick(lines.filter((l) => lineAllowed({ k: 'division', division: division as never }, l)));
+      return { k: 'divided', division, lines: { a: line }, parts };
+    })()
+    : (() => {
+      const variation = pick(GEOMETRY_STRIPES);
+      const line = pick(lines.filter((l) => lineAllowed({ k: 'variation', variation: variation as never }, l)));
+      return { k: 'variation', variation, pieces: pick([4, 6, 8]), lines: { a: line }, parts };
+    })();
+  const groups = next() < 0.8 ? [{ item: { k: 'charge', charge: pick(CHARGES) }, paint: pick(TINCTURES), count: 1 + Math.floor(next() * 3) }] : [{ item: { k: 'ordinary', type: pick(ORDINARIES) }, paint: pick(TINCTURES) }];
+  const r = resolve({ v: 2, field, groups });
+  if (!r.ok) return null;
+  const n = normalise(r.design);
+  return n.ok ? n.design : null;
+}
+
+/** The first `count` designs from `geometryDesignFor`, trying seeds from `seed` upwards. */
+export function generatedGeometryDesigns(seed: number, count: number): Design[] {
+  const designs: Design[] = [];
+  for (let s = seed; designs.length < count; s++) {
+    const d = geometryDesignFor(s);
     if (d) designs.push(d);
   }
   return designs;

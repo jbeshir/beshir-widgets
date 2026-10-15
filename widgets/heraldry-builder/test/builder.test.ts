@@ -5,11 +5,11 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, undoStillOffered,
+  setPosture, setFieldEdgeSide, setFieldLine, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
-  type Design, type GroupPath, type LayerKey,
+  addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
 
@@ -79,6 +79,62 @@ describe('builder transitions', () => {
     expect(setPlainField(d).kind === 'arms' && setPlainField(d).field).toEqual({ k: 'tincture', t: 'azure' });
     const q = setDivision(d, 'quarterly');
     expect(q.kind === 'arms' && q.field).toMatchObject({ k: 'divided', division: 'quarterly', parts: [{ t: 'azure' }, { t: 'or' }] });
+  });
+
+  it('setDivision keeps a line the new division takes, drops one it doesn\'t', () => {
+    const fieldOf = (d: Design) => (d.kind === 'arms' ? d.field : null);
+    const wavy = setFieldLine(setDivision(DEFAULT_DESIGN, 'per-pale'), 'wavy');
+    expect(fieldOf(wavy)).toMatchObject({ division: 'per-pale', lines: { a: 'wavy', b: 'wavy' } });
+    expect(fieldOf(setDivision(wavy, 'per-chevron'))).toMatchObject({ division: 'per-chevron', lines: { a: 'wavy', b: 'wavy' } });
+    // Enarched is for per fess, per bend and per chevron only; a ployé line for per chevron only.
+    const arched = setFieldLine(setDivision(DEFAULT_DESIGN, 'per-fess'), 'enarched');
+    expect(fieldOf(setDivision(arched, 'per-bend'))).toMatchObject({ lines: { a: 'enarched' } });
+    expect(fieldOf(setDivision(arched, 'per-pale'))).toMatchObject({ lines: { a: 'plain', b: 'plain' } });
+    expect(fieldOf(setDivision(setFieldLine(setDivision(DEFAULT_DESIGN, 'per-chevron'), 'ploye'), 'per-fess'))).toMatchObject({ lines: { a: 'plain' } });
+    expect(blazon(setCharge(wavy, 'picture', 'mullet'))).toMatch(/^Per pale wavy /);
+  });
+
+  it('keeps the line between stripes, through their count and colours, and drops it when a division or plain colour replaces them', () => {
+    const fieldOf = (d: Design) => (d.kind === 'arms' ? d.field : null);
+    const barry = setFieldLine(setVariation(DEFAULT_DESIGN, 'barry'), 'wavy');
+    expect(fieldOf(barry)).toMatchObject({ k: 'variation', variation: 'barry', lines: { a: 'wavy' } });
+    expect(fieldOf(setVariation(barry, 'paly'))).toMatchObject({ variation: 'paly', lines: { a: 'wavy' } });
+    expect(fieldOf(setVariationPieces(barry, 8))).toMatchObject({ pieces: 8, lines: { a: 'wavy' } });
+    expect(fieldOf(setVariationTincture(barry, 0, 'vert'))).toMatchObject({ lines: { a: 'wavy' } });
+    // Chevronny's corners take no line; a division takes the line only where it allows it.
+    expect(fieldOf(setVariation(barry, 'chevronny'))).toMatchObject({ lines: { a: 'plain' } });
+    expect(setFieldLine(setVariation(DEFAULT_DESIGN, 'chevronny'), 'wavy')).toEqual(setVariation(DEFAULT_DESIGN, 'chevronny'));
+    expect(fieldOf(setPlainField(barry))).toMatchObject({ k: 'tincture' });
+  });
+
+  it('a quartered field\'s line goes on both lines, or on one of them', () => {
+    const fieldOf = (d: Design) => (d.kind === 'arms' ? d.field : null);
+    const q = setFieldLine(setDivision(DEFAULT_DESIGN, 'quarterly'), 'embattled');
+    expect(fieldOf(q)).toMatchObject({ lines: { a: 'embattled', b: 'embattled' } });
+    expect(fieldOf(setFieldEdgeSide(q, 'b'))).toMatchObject({ lines: { a: 'plain', b: 'embattled' } });
+    expect(fieldOf(setFieldEdgeSide(q, 'a'))).toMatchObject({ lines: { a: 'embattled', b: 'plain' } });
+    expect(fieldOf(setFieldEdgeSide(setFieldEdgeSide(q, 'b'), 'both'))).toMatchObject({ lines: { a: 'embattled', b: 'embattled' } });
+    // The side stays when the line changes.
+    expect(fieldOf(setFieldLine(setFieldEdgeSide(q, 'b'), 'wavy'))).toMatchObject({ lines: { a: 'plain', b: 'wavy' } });
+    // A division with one line has no sides to choose.
+    expect(edgeSideChoices(setFieldLine(setDivision(DEFAULT_DESIGN, 'per-pale'), 'wavy'), { k: 'field' })).toEqual([]);
+    expect(edgeSideChoices(q, { k: 'field' }).map((c) => c.value)).toEqual(['both', 'a', 'b']);
+  });
+
+  it('offers the lines the division takes, in order, and blocks a line the background itself refuses', () => {
+    const per = (division: Division) => lineChoices(setDivision(DEFAULT_DESIGN, division), { k: 'field' });
+    expect(lineChoices(DEFAULT_DESIGN, { k: 'field' })).toEqual([]);
+    const pale = per('per-pale').map((c) => c.value);
+    expect(pale.slice(0, 3)).toEqual(['plain', 'embattled', 'wavy']);
+    expect(pale).not.toContain('dancetty');
+    expect(pale).not.toContain('enarched');
+    expect(per('per-chevron').map((c) => c.value)).toEqual(expect.arrayContaining(['enarched', 'ploye']));
+    expect(lineChoices(setVariation(DEFAULT_DESIGN, 'barry'), { k: 'field' }).map((c) => c.value)).toContain('dancetty');
+    // Azure and sable across a wavy line is a dark pair (App H); a straight line or a metal is fine.
+    const dark = setFieldTincture(setFieldTincture(setDivision(DEFAULT_DESIGN, 'per-pale'), 0, 'sable'), 1, 'azure');
+    const choices = lineChoices(dark, { k: 'field' });
+    expect(choices.find((c) => c.value === 'plain')).toMatchObject({ allowed: true });
+    expect(choices.find((c) => c.value === 'wavy')).toMatchObject({ allowed: false });
   });
 
   it('removing the ordinary moves on-ordinary pictures back to the background', () => {

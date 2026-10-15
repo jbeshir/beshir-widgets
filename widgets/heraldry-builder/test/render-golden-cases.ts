@@ -9,7 +9,7 @@ import { renderToString } from 'preact-render-to-string';
 import { Shield } from '../src/components/Shield';
 import sample from '../src/data/sample-registry.json';
 import {
-  CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, FIELD_SHAPES, FURS, SEMY_NAMES, VARIATIONS, blazon, canonicalJson, isCountedVariation, type Design, type FieldShape,
+  CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_TREATMENTS, FIELD_SHAPES, FURS, SEMY_NAMES, VARIATIONS, blazon, canonicalJson, isCountedVariation, lineAllowed, type Design, type FieldShape,
 } from '../src/lib/heraldry';
 import { EXAMPLE_DESIGNS } from '../src/lib/presets';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
@@ -60,7 +60,21 @@ const PAINT_CASES: ReadonlyArray<[string, unknown]> = [
   ...CHARGE_IDS.map((id): [string, unknown] => [`charge-${id}`, arms('azure', group(charge(id), 'or'))]),
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = PAINT_CASES.map(([name, input]) => ({ name, design: nd(input) }));
+const lined = (division: string, line: string, a = 'or', b = 'azure') => ({ k: 'divided', division, lines: { a: line }, parts: [a, b] });
+const stripes = (variation: string, line: string, pieces: number) => ({ k: 'variation', variation, pieces, lines: { a: line }, parts: ['argent', 'gules'] });
+
+/** The lines of partition on the field: every line a per pale division takes, the lines only some divisions take, wavy on each other division and on the stripes, and the one-sided line of a quartered field. */
+const GEOMETRY_CASES: ReadonlyArray<[string, unknown]> = [
+  ...DRAWN_LINES.filter((l) => lineAllowed({ k: 'division', division: 'per-pale' }, l)).map((l): [string, unknown] => [`line-${l}-per-pale`, arms(lined('per-pale', l))]),
+  ['line-enarched-per-fess', arms(lined('per-fess', 'enarched', 'argent', 'sable'))],
+  ['line-ploye-per-chevron', arms(lined('per-chevron', 'ploye', 'argent', 'gules'))],
+  ...['per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-saltire', 'quarterly'].map((d): [string, unknown] => [`line-wavy-${d}`, arms(lined(d, 'wavy'))]),
+  ['line-wavy-barry', arms(stripes('barry', 'wavy', 8))],
+  ['line-indented-paly', arms(stripes('paly', 'indented', 6))],
+  ['line-embattled-quarterly-fess', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] })],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {

@@ -89,7 +89,7 @@ the widget registers but cannot blazon, draw or build is a widget bug (`fails`),
 `test/sca/normalise.ts` is applied to the SCA blazon and to the widget's alike. It only bridges spelling and
 punctuation (`final-full-stop`, `case`, `spelling`) and three conventions that the Glossary, Bruce and the LoARs
 treat as equivalent, which the widget's emitter has to pick one of (`equivalent-connectors`,
-`arrangement-placement`, `stated-default-postures`, `divided-groups`), and the names of a semy (`semy-names`: "crusilly argent",
+`arrangement-placement`, `stated-default-postures`, `divided-groups`), the spellings of a line of partition (`line-synonyms`: "undy" is wavy, "crenellated" embattled, "ployee" ployé; and the convention that a division has one line, so "per pale dancetty" is "per pale indented", RULES §A.3), and the names of a semy (`semy-names`: "crusilly argent",
 "bezanty" and "semy of roses argent" are one thing, the tincture left unsaid being the next one stated). A stated Table 7 arrangement is
 not dropped as text: the matcher also compares the SCA blazon with the widget's blazon of the same design with its defaults stated
 (`blazon(design, { stateDefaults: true })`), and with the tincture of every element stated, not once for a run of elements that

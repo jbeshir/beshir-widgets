@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -24,13 +24,15 @@ const COLOUR = `(?:${TINCTURES.join('|')})`;
 
 const NUMBER = '(?:a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)';
 const NUMBER_WORD = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
+/** A line of partition as the widget words it ('embattled grady', 'ployé'), the longest first. */
+const LINE = `(?:${[...new Set(DRAWN_LINES.map((l) => LINE_WORD[l]))].sort((a, b) => b.length - a.length).join('|')})`;
 const ORDINARY = '(?:fess|pale|bend sinister|bend|chevron|cross|saltire|pile)';
 
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
 /** A fur as the text spells it once its synonyms are settled: a named fur, "argent ermined gules", "vairy Or and gules". */
 const FUR = `(?:${COLOUR} ermined ${COLOUR}|(?:vairy|potenty) ${COLOUR} and ${COLOUR}|${alt(FURS.map((f) => FUR_NAME[f]))})`;
 /** A variation of the field as the text spells it once its synonyms are settled, with its stripe count when it has one: "barry of eight", "checky". */
-const VARIATION = `(?:${alt(VARIATIONS.map((v) => VARIATION_NAME[v]))})(?: of ${NUMBER})?`;
+const VARIATION = `(?:${alt(VARIATIONS.map((v) => VARIATION_NAME[v]))})(?: ${LINE})?(?: of ${NUMBER})?`;
 /** A treated tincture as the text spells it: "argent masoned sable". */
 const TREATED = `${COLOUR} (?:${DRAWN_TREATMENTS.join('|')}) ${COLOUR}`;
 const TINCT = `(?:${FUR}|${TREATED}|${COLOUR}|counterchanged|proper)`;
@@ -48,7 +50,7 @@ const NAMED_CHARGE = new RegExp(`(?<![\\w-])(${escaped(NAMED_BY_WORD.keys())})(?
 const TINCTURE_OR_NAME = new RegExp(`(?<![\\w-])(${escaped([...TINCTURES, 'counterchanged', 'proper', ...FURS.map((f) => FUR_NAME[f]), ...NAMED_BY_WORD.keys()])})(?![\\w-])`);
 
 /** How a divided field starts: "per pale", "quarterly". */
-const DIVISION_START = '(?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly)';
+const DIVISION_START = `(?:per (?:pale|fess|bend sinister|bend|saltire|chevron)(?: ${LINE})?|quarterly(?: per (?:pale|fess))?(?: ${LINE})?)`;
 const wordOf = (name: string) => new RegExp(`(?<![\\w-])${escaped([name])}(?![\\w-])`, 'g');
 /** The semys' names (in lower case, as the text reads), the longest first, each with the pattern for it and a tincture stated after it, and the semy it strews. */
 const SEMY_NAME_PATTERNS = SEMY_NAMES.map((n) => ({ name: n.word.toLowerCase(), semy: n }))
@@ -77,6 +79,13 @@ const FOLDED_ERMINES: Record<string, string> = Object.fromEntries(FURS.filter((f
 
 /** "Ermines" the fur, not several of the beast ("three ermines passant"): any "ermines" not after a count. */
 const ERMINES_FUR = /(?<!\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+) )\bermines\b/g;
+
+/** The other spellings of a line (`LINE_SPELLINGS`), each with the widget's word for it: "undy" → "wavy", "ployee" → "ployé"; the spellings that are the line's own word or a counter-embattled edge (a band's, not a division's) are left. */
+const LINE_REWRITES = Object.entries(LINE_SPELLINGS)
+  .flatMap(([spelling, line]) => (line === 'counter-embattled' || spelling === LINE_WORD[line] || spelling === 'grady' ? [] : [{ spelling, word: LINE_WORD[line] }]))
+  .sort((a, b) => b.spelling.length - a.spelling.length);
+const LINE_SPELLING_WORD = new RegExp(`(?<![\\p{L}-])(${LINE_REWRITES.map((r) => r.spelling.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(?![\\p{L}-])`, 'gu');
+const LINE_WORD_OF = new Map(LINE_REWRITES.map((r) => [r.spelling, r.word]));
 
 /** The SCA's other spellings of a variation, each with the widget's blazon word ("chequy" → "checky", "barry-bendy" → "barry bendy"). */
 const VARIATION_REWRITES = Object.entries(VARIATION_SPELLINGS)
@@ -125,11 +134,20 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(ERMINES_FUR, 'counter-ermine')
       .replace(new RegExp(`\\b(${COLOUR}) ermined (${COLOUR})\\b`, 'g'), (m, a: string, b: string) => FOLDED_ERMINES[`${a} ${b}`] ?? m)
       .replace(new RegExp(`\\bvairy ${FUR_SPEC.vair.ground} and ${FUR_SPEC.vair.spots}\\b`, 'g'), 'vair')
-      .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
+      .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )(?<!\\bper (?:pale|fess|bend sinister|bend|chevron) )(?<!\\b(?:quarterly|barry|paly|bendy|bendy sinister) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
         const [x, y] = TINCTURES.indexOf(a as never) <= TINCTURES.indexOf(b as never) ? [a, b] : [b, a];
         return x === FUR_SPEC.potent.ground && y === FUR_SPEC.potent.spots ? 'potent' : `potenty ${x} and ${y}`;
       })
       .replace(/\b(vair|potent) en point\b/g, '$1 en pointe'),
+  },
+  {
+    // 3a2. Lines of partition the SCA spells in more than one way (`LINE_SPELLINGS`), and the equivalence of RULES §A.3: a division has one
+    //      line, so "per pale dancetty" is "per pale indented" (dancetty is a line of two-sided bands; the College draws a division's as indented).
+    id: 'line-synonyms',
+    description: 'undy → wavy, crenellated → embattled, nebulee → nebuly, ployee → ployé … (LINE_SPELLINGS); "per <division> dancetty" and "quarterly (per pale|per fess) dancetty" → "… indented".',
+    apply: (s) => s
+      .replace(LINE_SPELLING_WORD, (w) => LINE_WORD_OF.get(w)!)
+      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly(?: per (?:pale|fess))?) dancetty\b/g, '$1 indented'),
   },
   {
     // 3b. Variations the SCA spells in more than one way (`VARIATION_SPELLINGS`): "chevronny" is chevronelly (the College's word: SENA A5F1b),
@@ -138,7 +156,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     id: 'variation-synonyms',
     description: `${VARIATION_REWRITES.map((r) => `${r.spelling} → ${r.word}`).join('; ')}; "<counted variation> of six" → "<counted variation>".`,
     apply: (s) => VARIATION_REWRITES.reduce((t, r) => t.replace(r.pattern, r.word), s)
-      .replace(new RegExp(`\\b(${alt(VARIATIONS.filter(isCountedVariation).map((v) => VARIATION_NAME[v]))}) of six\\b`, 'g'), '$1'),
+      .replace(new RegExp(`\\b(${alt(VARIATIONS.filter(isCountedVariation).map((v) => VARIATION_NAME[v]))})((?: ${LINE})?) of six\\b`, 'g'), '$1$2'),
   },
   {
     // 3c. Treatments the SCA spells in more than one way: "papelonny" is papellony (the Glossary lists both).
@@ -214,7 +232,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
       .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}|chief)|${CORE}) ${TINCT}),`, 'g'), '$1')
       .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY} (?:${TINCT} )?between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')
-      .replace(new RegExp(`^((?:per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}|${VARIATION} ${COLOUR} and ${COLOUR}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
+      .replace(new RegExp(`^(${DIVISION_START} ${TINCT} and ${TINCT}|${VARIATION} ${COLOUR} and ${COLOUR}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
   },
   {
     // 4a. What lies across everything: "a fess and overall a lion", "a fess, overall a lion", "a fess overall a lion" are one blazon
@@ -260,7 +278,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     id: 'divided-groups',
     description: '"a <charge> counterchanged <tincture> and <tincture>" on a divided field → "a <charge> <the field\'s division> <tincture> and <tincture>"; no "each" before a division.',
     apply: (s) => {
-      const field = new RegExp(`^(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}, `).exec(s);
+      const field = new RegExp(`^(${DIVISION_START}) ${TINCT} and ${TINCT}, `).exec(s);
       // The group's own number is the last number word before "counterchanged".
       const single = new RegExp(`\\b(an?) ((?:(?!\\b${NUMBER}\\b)[^,])*?)\\bcounterchanged (${TINCT} and ${TINCT})\\b`, 'g');
       const divided = field ? s.replace(single, `$1 $2${field[1]} $3`) : s;

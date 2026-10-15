@@ -7,7 +7,7 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setDivision, setOrdinary, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { setCharge, setDivision, setFieldLine, setOrdinary, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
 import { addLayer, layerChoices, layersIn, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
@@ -227,6 +227,43 @@ describe('controls that appear only when they apply', () => {
 
 /** The "More colours and patterns…" disclosures in some markup, and whether each is open. */
 const disclosures = (markup: string) => [...markup.matchAll(/<details[^>]*class="more-paint"[^>]*>/g)].map((m) => ({ testid: /data-testid="([^"]+)"/.exec(m[0])![1], open: /\sopen/.test(m[0]) }));
+
+/** The "More divisions and edges…" disclosures in some markup, and whether each is open. */
+const shapeDisclosures = (markup: string) => [...markup.matchAll(/<details[^>]*class="more-paint more-shapes"[^>]*>/g)].map((m) => ({ testid: /data-testid="([^"]+)"/.exec(m[0])![1], open: /\sopen/.test(m[0]) }));
+
+describe('"More divisions and edges…"', () => {
+  const render = (d: Design) => renderToString(h(FieldStep, { ...fieldBase, design: d, shape: 'heater' }));
+
+  it('a divided background shows one closed disclosure with the edge row inside; the default background shows none', () => {
+    expect(shapeDisclosures(render(DEFAULT_DESIGN))).toEqual([]);
+    const divided = render(setDivision(DEFAULT_DESIGN, 'per-pale'));
+    expect(shapeDisclosures(divided)).toEqual([{ testid: 'field-shape-more', open: false }]);
+    expect(divided).toContain('More divisions and edges…');
+    expect(divided).not.toContain('field-edge-select');
+    expect(shapeDisclosures(render(setVariation(DEFAULT_DESIGN, 'barry')))).toEqual([{ testid: 'field-shape-more', open: false }]);
+    // Chevronny's corners take no line, a pattern without stripes none either.
+    expect(shapeDisclosures(render(setVariation(DEFAULT_DESIGN, 'chevronny')))).toEqual([]);
+    expect(shapeDisclosures(render(setVariation(DEFAULT_DESIGN, 'checky')))).toEqual([]);
+  });
+
+  it('a lined background opens it, on a row of the lines the division takes', () => {
+    const wavy = render(setFieldLine(setDivision(DEFAULT_DESIGN, 'per-pale'), 'wavy'));
+    expect(shapeDisclosures(wavy)).toEqual([{ testid: 'field-shape-more', open: true }]);
+    const got = ids(wavy);
+    for (const id of ['field-edge-select', 'field-edge-plain', 'field-edge-wavy', 'field-edge-embattled']) expect(got, id).toContain(id);
+    expect(got).not.toContain('field-edge-dancetty');
+    expect(got).not.toContain('field-edge-side-both');
+    expect(wavy).toMatch(/data-testid="field-edge-wavy"[^>]*><button[^>]*aria-checked="true"/);
+    // The collapsed step's summary names the line.
+    const collapsed = renderToString(h(FieldStep, { ...fieldBase, accordion: { open: false, onToggle: noop }, design: setFieldLine(setDivision(DEFAULT_DESIGN, 'per-pale'), 'wavy'), shape: 'heater' }));
+    expect(collapsed).toMatch(/step-field-summary">Split down the middle, wavy: /i);
+  });
+
+  it('a quartered background with a line offers which lines carry it', () => {
+    const got = ids(render(setFieldLine(setDivision(DEFAULT_DESIGN, 'quarterly'), 'embattled')));
+    for (const id of ['field-edge-side-both', 'field-edge-side-a', 'field-edge-side-b']) expect(got, id).toContain(id);
+  });
+});
 
 describe('"More colours and patterns…"', () => {
   it('is the one closed disclosure per colour of the default flow, which shows nothing else beyond the colours', () => {

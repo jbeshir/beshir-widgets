@@ -315,13 +315,13 @@ type Segment = { k: 'L'; to: Pt } | { k: 'C'; c1: Pt; c2: Pt; to: Pt };
 const EPS = 1e-9;
 
 /** How far along u each profile reaches, overhangs included (dovetails and nebuly bulbs reach past their period). */
-const PROFILE_REACH = Object.fromEntries(Object.entries(LINE_PROFILE).map(([line, p]) => {
+export const PROFILE_REACH = Object.fromEntries(Object.entries(LINE_PROFILE).map(([line, p]) => {
   const us = p.period.flatMap((s) => (s.k === 'L' ? [s.to[0]] : [s.c1[0], s.c2[0], s.to[0]]));
   return [line, [Math.min(0, ...us), Math.max(1, ...us)]];
 })) as Record<ComplexLine, [number, number]>;
 
 /** The periods drawn: their start distances, a whole number of them inside the span, overhangs included (one, centred on the anchor, for a single feature). */
-function periodStarts(run: EdgeRun, length: number): number[] {
+export function periodStarts(run: EdgeRun, length: number): number[] {
   const { period: p, anchor } = run;
   if (!(p > 0)) return [];
   const lo = Math.max(0, run.span[0]), hi = Math.min(length, run.span[1]);

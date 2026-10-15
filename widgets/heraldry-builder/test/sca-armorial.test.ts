@@ -8,10 +8,10 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_TREATMENTS, FURS, FUR_NAME, SEMY_NAMES, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
+  CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, LINED_VARIATIONS, LINE_WORD, FURS, FUR_NAME, SEMY_NAMES, lineAllowed, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
   blazon, canonicalJson, isCountedVariation, normalise,
 } from '../src/lib/heraldry';
-import { generatedDesign, generatedRichDesign } from './design-generator';
+import { generatedDesign, generatedGeometryDesigns, generatedRichDesign } from './design-generator';
 import { arms, charge, group, ordinary } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -153,6 +153,13 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['two pictures together, counterchanged', arms({ k: 'divided', division: 'per-fess', parts: ['argent', 'sable'] }, group(charge('sun'), 'counterchanged'), group(charge('fleur-de-lis'), 'counterchanged'))],
   ['two pictures together within a bordure', arms('azure', group(charge('lion'), 'or', { arrangement: 'in-pale' }), group(charge('rose'), 'argent', { arrangement: 'in-pale' }), group(ordinary('bordure'), 'argent'))],
   ['a counterchanged ordinary', arms(field, group(ordinary('fess'), 'counterchanged'))],
+  ['a wavy division', arms({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['argent', 'azure'] }, group(charge('mullet'), 'or'))],
+  ['an embattled division with a counterchanged charge', arms({ k: 'divided', division: 'per-fess', lines: { a: 'embattled' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'counterchanged'))],
+  ['barry wavy', arms({ k: 'variation', variation: 'barry', pieces: 8, lines: { a: 'wavy' }, parts: ['argent', 'azure'] }, group(charge('lion'), 'or'))],
+  ['quarterly with the line across only', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'argent'))],
+  ['quarterly with the line up and down only', arms({ k: 'divided', division: 'quarterly', lines: { a: 'indented', b: 'plain' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'argent'))],
+  ['a bowed per chevron', arms({ k: 'divided', division: 'per-chevron', lines: { a: 'ploye' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'counterchanged'))],
+  ['an embattled grady division', arms({ k: 'divided', division: 'per-bend', lines: { a: 'grady' }, parts: ['argent', 'gules'] }, group(charge('mullet'), 'or'))],
 ];
 
 describe('the matcher reads what the widget writes', () => {
@@ -167,6 +174,7 @@ describe('the matcher reads what the widget writes', () => {
 
   it('reads the blazon of every generated design and every sample entry', () => {
     const designs = [
+      ...generatedGeometryDesigns(1, 300),
       ...Array.from({ length: 1500 }, (_, seed) => generatedDesign(seed)),
       ...Array.from({ length: 1500 }, (_, seed) => generatedRichDesign(seed)),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -178,6 +186,31 @@ describe('the matcher reads what the widget writes', () => {
     });
     expect(unread.map((d) => blazon(d))).toEqual([]);
   }, 30_000);
+});
+
+// A line on the field is read from the College's spellings; a division draws one line, so "per pale dancetty" is indented (RULES §A.3).
+describe('the matcher reads the lines of the field', () => {
+  it.each([
+    ['Per pale undy argent and azure, a mullet Or.', 'Per pale wavy argent and azure, a mullet Or.'],
+    ['Per fess crenellated Or and gules, a mullet argent.', 'Per fess embattled Or and gules, a mullet argent.'],
+    ['Per pale dancetty Or and gules, a mullet argent.', 'Per pale indented Or and gules, a mullet argent.'],
+    ['Per chevron ployé argent and gules, a mullet Or.', 'Per chevron ployé argent and gules, a mullet Or.'],
+    ['Per chevron ployee argent and gules, a mullet Or.', 'Per chevron ployé argent and gules, a mullet Or.'],
+    ['Per bend embattled-grady argent and gules, a mullet Or.', 'Per bend embattled grady argent and gules, a mullet Or.'],
+    ['Quarterly per fess indented Or and gules, a mullet argent.', 'Quarterly per fess indented Or and gules, a mullet argent.'],
+    ['Barry wavy of eight argent and azure, a chief Or.', 'Barry wavy of eight argent and azure, a chief Or.'],
+    ['Barry wavy of six argent and azure, a chief Or.', 'Barry wavy argent and azure, a chief Or.'],
+    ['Paly dancetty argent and azure, a chief Or.', 'Paly dancetty argent and azure, a chief Or.'],
+  ])('%s', (text, house) => {
+    const m = explainMatch(text);
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('files a line on the division of a band or on chevronny as the gap the widget names', () => {
+    expect(explainMatch('Azure, a heart per pale wavy argent and gules.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'line-of-partition', detail: 'on-divided-charge' }] });
+    expect(explainMatch('Chevronny wavy argent and azure, a chief Or.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'line-of-partition', detail: 'wavy-on-chevronny' }] });
+  });
 });
 
 // A stated default is a wording of the same design, accepted at design level; never as dropped text.
@@ -272,6 +305,10 @@ describe('the tagger never files a record under a construct the widget supports'
     ['semy of charges', 'azure semy of mullets Or'],
     ['semy on a part', 'per pale gules and argent semy of billets gules'],
     ...DRAWN_DIVISIONS.map((d): [string, string] => [`${DIVISION_NAME[d]} field`, `${DIVISION_NAME[d]} Or and gules`]),
+    ...BUILDER_DIVISIONS.flatMap((d) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'division', division: d }, l)).map((l): [string, string] => [`${DIVISION_NAME[d]} ${l} field`, `${DIVISION_NAME[d]} ${LINE_WORD[l]} Or and gules`])),
+    ...LINED_VARIATIONS.flatMap((v) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'variation', variation: v }, l)).map((l): [string, string] => [`${VARIATION_NAME[v]} ${l} field`, `${VARIATION_NAME[v]} ${LINE_WORD[l]} Or and gules`])),
+    ['per pale dancetty field', 'per pale dancetty Or and gules'],
+    ['quarterly per fess embattled field', 'quarterly per fess embattled Or and gules'],
   ];
   const designs: Array<[string, string]> = [
     ['a fur on a band', 'azure, a bend ermine'],

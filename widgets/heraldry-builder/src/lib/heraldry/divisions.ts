@@ -30,6 +30,9 @@ export const VARIATION_SPELLINGS: Readonly<Record<string, Variation>> = {
 /** The stripes of a variation are counted: the others are drawn as a grid or in piles of a size of the artist's choosing. */
 const COUNTED_VARIATIONS: readonly Variation[] = ['barry', 'paly', 'bendy', 'bendy-sinister', 'chevronny'];
 
+/** The counted variations whose stripes may be drawn with a line (chevronny's corners take none). */
+export const LINED_VARIATIONS: readonly Variation[] = COUNTED_VARIATIONS.filter((v) => v !== 'chevronny');
+
 /** The stripe counts the builder offers (an odd count is a set of ordinaries, not a field), and the count a bare "barry" means. */
 export const VARIATION_PIECES: readonly number[] = [4, 6, 8];
 export const DEFAULT_PIECES = 6;

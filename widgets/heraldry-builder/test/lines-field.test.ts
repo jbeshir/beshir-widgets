@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BUILDER_DIVISIONS, DRAWN_LINES, FIELD_SHAPES, LINES, LINE_LABEL, blazon, couldBeOneFess, counterchangedSlotParts, differences, divisionRegions,
   explainDifferences, featureMiddle, fieldSide, gloss, inFirstPart, lineAllowed, partIndexAt, pathPolygon, pathRings, pointInPolygon, readability,
-  resolve, reversedRun, edgePoints, shapeFrame, signature, structuralIssues, tinctureIssues, validate, variationRegions,
+  resolve, reversedRun, edgePoints, edgeCommands, partitionContours, periodStarts, visibleSpan, LINE_PROFILE, shapeFrame, signature, structuralIssues, tinctureIssues, validate, variationRegions,
   type ComplexLine, type Design, type DividedField, type EdgeRun, type FieldShape, type Line, type VariedField,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -86,6 +86,36 @@ describe('drawing a line on the field', () => {
       });
       expect(wrong).toEqual([]);
     });
+  });
+
+  it('every partition line of every allowed pair on every shape is drawn with its profile, at least two periods of it inside the shape', () => {
+    const failures: string[] = [];
+    for (const shape of FIELD_SHAPES) {
+      const outline = pathPolygon(shapeFrame(shape).outline);
+      for (const { division, line } of divisionCases) {
+        for (const part of partitionContours(division, plainOf(line), shapeFrame(shape))) {
+          for (const c of part) {
+            let at = c.start;
+            for (const e of c.edges) {
+              const from = at;
+              at = e.to;
+              if (!e.run) continue;
+              const name = `${shape} ${division} ${line} ${from}→${e.to}`;
+              const length = Math.hypot(e.to[0] - from[0], e.to[1] - from[1]);
+              const straight = `L${Math.round(e.to[0] * 100) / 100} ${Math.round(e.to[1] * 100) / 100}`;
+              if (edgeCommands(from, e.to, e.run) === straight) failures.push(`${name} is straight`);
+              // an edge that leaves the shape right away (a limb past the outline) has nothing to count
+              const seen = visibleSpan(from, e.to, outline);
+              if (LINE_PROFILE[line as ComplexLine].kind !== 'periodic' || !seen || seen[1] - seen[0] < 20) continue;
+              const along = (d: number): Pt => [from[0] + ((e.to[0] - from[0]) * d) / length, from[1] + ((e.to[1] - from[1]) * d) / length];
+              const shown = periodStarts(e.run, length).filter((st) => [st + 0.1, st + e.run!.period - 0.1].every((d) => { const [x, y] = along(d); return pointInPolygon(x, y, outline); })).length;
+              if (shown < 2) failures.push(`${name} shows ${shown} periods`);
+            }
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([]);
   });
 
   it('a plain line keeps the regions and the analytic part test it always had', () => {

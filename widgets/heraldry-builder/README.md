@@ -115,8 +115,11 @@ neighbours, and that each slot lies on the same parts of a divided field as its 
 
 Old drafts (saved before shapes existed) and requests without a `shape` use the heater shield.
 
-**Lines of partition** (`lines.ts`, `contour.ts`) are drawn by the library on the field's divisions and counted variations (the builder
-doesn't offer them yet: `support.ts` keeps them gapped, and lines on ordinaries come next). `lines.ts` holds the
+**Lines of partition** (`lines.ts`, `contour.ts`) are drawn by the library on the field's divisions and counted variations, and the builder offers them: a divided or striped
+background shows one closed **More divisions and edges…** (`field-shape-more`, `MoreShapes.tsx`) with a row of the lines the host takes
+(`field-edge-<line>`, `field-edge-plain` is "Straight"; `EdgePicker.tsx`, `shape-options.ts`) and, for a quartered field with a line,
+which of its two lines carry it (`field-edge-side-both|a|b`); chevronny's corners take none, and a line on the division or stripes of a band or
+picture stays a gap (`line-of-partition:on-divided-charge`), as does a different line on each of a quartered field's two lines. Lines on ordinaries come next. `lines.ts` holds the
 registry (the lines, their SENA App M2 groups and `lineDiffers`, the hosts each may go on, how many independent edges each host has,
 what a bare line means on it, and the blazon words and spellings) and one periodic-edge generator: each line has an original
 placeholder profile, one period that is fitted a whole number of times to the visible length of an edge (within SENA A2C1's repeat
@@ -751,7 +754,7 @@ npm run favicon
 ```
 
 - `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain, widened and narrowed by its lines' depth otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
-- `test/lines-field.test.ts`: lines on the field — the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating third elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
+- `test/lines-field.test.ts`: lines on the field — every partition line of every allowed pair is drawn with its profile and at least two periods inside each shape; the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating third elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
 - `test/signature.test.ts`: the signature is unchanged for designs phase B could draw (pinned, `test/signature-cases.ts`), one-to-one over lined and generated designs, and every id ends in a letter.
 - `test/lines.test.ts`: the line registry (SENA App M2 groups, the hosts each line may go on, the edges each host has and what a bare line means on it) and the periodic-edge generator and contours (whole periods within the repeat bounds on every shape, features inside their span, bands' edges in phase or opposed, plain contours byte-identical to the polygons the phase-B shapes draw, captured in `test/fixtures/straight-contours.json`).
 - `test/model.test.ts`, `arrangement`, `layout` (including ordinaries that aren't plain: the generic engine keeps their charges clear of or inside the envelopes), `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.

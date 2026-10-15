@@ -12,7 +12,7 @@ import { DRAWN_DIVISIONS, type Division } from './divisions';
 import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import { contoursPath, type Contour, type ContourEdge } from './contour';
-import { LINE_PROFILE, featureMiddle, fieldSide, fitPeriod, runAlong, visibleSpan, type EdgeRun, type LaidLine, type Line } from './lines';
+import { LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, fitPeriod, runAlong, visibleSpan, type EdgeRun, type LaidLine, type Line } from './lines';
 import { surfaceOf, type Surface } from './surface';
 import type { FieldShape } from './shape';
 
@@ -239,8 +239,19 @@ function layOn(outline: readonly Pt[]): Lay {
     const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
     const dir: Pt = [(to[0] - from[0]) / length, (to[1] - from[1]) / length];
     const [c0, c1] = visibleSpan(from, to, outline) ?? [0, length];
-    const period = fitPeriod(line, c1 - c0, 1);
-    const anchor = start === 'centred' ? (c0 + c1) / 2 : start === 'meet' ? period / 2 : period;
+    const chord = c1 - c0;
+    // lines laid out from a junction keep a lead-in straight (half a period at a crossing) plus whatever a period overhangs it by, and
+    // the period is fitted to what is left, so a short arm still shows a whole number of periods (at least two) instead of none
+    const lead = (period: number) => (start === 'centred' ? 0 : (start === 'cross' ? 0.5 : 0) - Math.min(0, PROFILE_REACH[line][0])) * period;
+    let period = fitPeriod(line, chord, 1);
+    // a line across a short chord (the lozenge's diagonals) still shows three periods, the middle one centred
+    if (start === 'centred' && LINE_PROFILE[line].kind === 'periodic') period = Math.min(period, chord / 3);
+    if (start !== 'centred' && LINE_PROFILE[line].kind === 'periodic') {
+      const fitted = fitPeriod(line, chord - lead(period), 1);
+      const turns = Math.max(2, Math.round((chord - lead(fitted)) / fitted));
+      period = chord / (turns + lead(1));
+    }
+    const anchor = start === 'centred' ? (c0 + c1) / 2 : lead(period) + period / 2;
     const span: [number, number] = [start === 'cross' ? period / 2 : c0 - period, c1 + period];
     return { origin: from, dir, run: { line, side: fieldSide(dir), depth: LINE_PROFILE[line].depth, period, anchor, span } };
   };

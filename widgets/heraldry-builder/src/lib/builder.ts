@@ -6,10 +6,10 @@
 
 import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
-  asParty, asVariation, fieldParts, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  asParty, asVariation, fieldParts, isCountedVariation, keptLines, setEdgeSide, setLine, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, pathOfPlace, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
-  type ChargeId, type Companion, type Design, type Division, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
+  type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
@@ -83,7 +83,19 @@ export function setDivision(arms: Design, division: Division): Design {
   const d = arms.kind === 'badge' ? armsOf(arms) : arms;
   const [first, kept] = backgroundParts(d);
   const second = kept && !bodyTinctures(kept).some((t) => bodyTinctures(first).includes(t)) ? kept : partner(first);
-  return refitLayers(canonical(withField(d, { k: 'divided', division, lines: { ...PLAIN_LINES }, pieces: null, parts: [first, second] })));
+  const was = d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation') ? d.field : null;
+  const lines = was ? keptLines(was.lines, division, 'division') : { ...PLAIN_LINES };
+  return refitLayers(canonical(withField(d, { k: 'divided', division, lines, pieces: null, parts: [first, second] })));
+}
+
+/** The background's division or stripes drawn with this line (on the side already chosen, for a quartered field). */
+export function setFieldLine(d: Design, line: Line): Design {
+  return refitLayers(setLine(d, { k: 'field' }, line));
+}
+
+/** The quartered background's line drawn on both of its lines, or on the up-and-down or the across one only. */
+export function setFieldEdgeSide(d: Design, side: EdgeSide): Design {
+  return refitLayers(setEdgeSide(d, { k: 'field' }, side));
 }
 
 /** The tincture that stands for a paint in a variation: its own, or the first of the ones it is made of. */
@@ -99,13 +111,15 @@ export function setVariation(d: Design, variation: Variation): Design {
   if (d.kind !== 'arms') return d;
   const [first, kept] = backgroundParts(d);
   const [a, b] = contrastingPair(tinctureOf(first), kept ? tinctureOf(kept) : null);
-  return refitLayers(canonical(withField(d, variationPaint(variation, a, b, d.field.k === 'variation' ? d.field.pieces : null))));
+  const was = d.field.k === 'variation' ? d.field : null;
+  const varied = variationPaint(variation, a, b, was ? was.pieces : null);
+  return refitLayers(canonical(withField(d, was && isCountedVariation(was.variation) ? { ...varied, lines: keptLines(was.lines, variation, 'variation') } : varied)));
 }
 
 /** The stripes of the varied background cut into this many; unchanged when the background is not a variation. */
 export function setVariationPieces(d: Design, pieces: number): Design {
   const varied = d.kind === 'arms' ? asVariation(d.field) : null;
-  return varied ? refitLayers(canonical(withField(d, variationPaint(varied.variation, varied.parts[0].t, varied.parts[1].t, pieces)))) : d;
+  return varied ? refitLayers(canonical(withField(d, { ...variationPaint(varied.variation, varied.parts[0].t, varied.parts[1].t, pieces), lines: varied.lines }))) : d;
 }
 
 /** One tincture of the varied background; the other changes too only when it would no longer be a metal with a colour. */
@@ -113,7 +127,7 @@ export function setVariationTincture(d: Design, part: 0 | 1, t: Tincture): Desig
   const varied = d.kind === 'arms' ? asVariation(d.field) : null;
   if (!varied) return d;
   const [mine, theirs] = contrastingPair(t, varied.parts[part === 0 ? 1 : 0].t);
-  return canonical(withField(d, variationPaint(varied.variation, part === 0 ? mine : theirs, part === 0 ? theirs : mine, varied.pieces)));
+  return canonical(withField(d, { ...variationPaint(varied.variation, part === 0 ? mine : theirs, part === 0 ? theirs : mine, varied.pieces), lines: varied.lines }));
 }
 
 export function setFieldTincture(d: Design, part: 0 | 1, t: Tincture): Design {

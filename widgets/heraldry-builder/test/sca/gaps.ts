@@ -9,8 +9,8 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, hostCounts, isCountedVariation, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
-  type ChargeId, type HalfPosition, type OrdinaryType, type Posture, type Variation,
+  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import {
@@ -24,6 +24,16 @@ import {
 /** The divisions the widget draws, as the tagger names them. */
 const DRAWN_DIVISION_IDS: readonly string[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'];
 
+/**
+ * Whether the widget draws the line a word spells on this division or variation of the field: any line a division takes ("per pale
+ * dancetty" is drawn indented, the College's equivalent), any line the stripes of barry, paly or bendy take.
+ */
+function drawnOn(host: EdgeHost, word: string): boolean {
+  const spelled = LINE_SPELLINGS[word.normalize('NFD').replace(/\p{M}/gu, '')];
+  if (!spelled || spelled === 'counter-embattled') return false;
+  return lineAllowed(host, spelled === 'dancetty' && host.k === 'division' ? 'indented' : spelled);
+}
+
 export const GAP_CATEGORIES = [
   { id: 'fieldless', description: 'a fieldless badge the widget does not draw: charges conjoined to the main one, something overall, or two main charges' },
   { id: 'marshalling', description: 'impaling, quartering, dimidiation, an augmentation or other combined arms' },
@@ -32,7 +42,7 @@ export const GAP_CATEGORIES = [
   { id: 'proper', description: 'a charge tinctured proper (natural colouring)' },
   { id: 'field-treatment', description: 'a variegated pattern (barry, checky, compony, masoned…) on the field or any element, or a semy the widget does not draw (a counterchanged or proper strewn charge, an unknown one, a posture or an arrangement of it)' },
   { id: 'division', description: 'a field division the widget lacks (per pall, gyronny, tierced, per chevron inverted, compound…)' },
-  { id: 'line-of-partition', description: 'any line other than straight (embattled, wavy, indented, engrailed…), on a division or ordinary' },
+  { id: 'line-of-partition', description: "a line the widget doesn't draw on that element" },
   { id: 'ordinary', description: 'an ordinary, sub-ordinary or diminutive the widget lacks (canton, orle, bars, flaunches…), or several of one ordinary' },
   { id: 'ordinary-treatment', description: 'an ordinary modified (cotised, fimbriated, voided, couped, inverted, enhanced, issuant…)' },
   { id: 'multiple-groups', description: 'more than one charge group (including charges on charges and held charges counted as groups) or more than one ordinary' },
@@ -334,15 +344,17 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let untincturedOrd = false; // an ordinary still awaiting its tincture: a later "counterchanged" covers it too
   let overallNext = false; // after "overall": the next element lies across everything
   let patternedField = false; // the field is in stripes or checks of two tinctures
+  let divisionEnd = -1; // the index of the last word of the field's division, whose line may follow
+  let fieldDivision = ''; // … and the division it divides the field in ("quarterly per fess" is quartered)
 
   const words = tokens.map((t) => t.word);
   const look = (i: number) => (i >= 0 && i < tokens.length && words[i] !== BREAK ? lookup(words[i]) : null);
   const isNounEntry = (e: Entry | undefined) => !!e && (e.k === 'charge' || e.k === 'gapCharge' || e.k === 'cross' || e.k === 'ord' || e.k === 'gapOrd');
 
   /** Whether the variation named `v` at `words[i]` is written as the widget draws it: a count it offers (if it takes one), then two tinctures. */
-  const variationFollows = (v: string, i: number): boolean => {
+  const variationFollows = (v: string, i: number, lined = 0): boolean => {
     if (!(VARIATIONS as readonly string[]).includes(v)) return false;
-    let j = i + 1;
+    let j = i + 1 + lined;
     if (words[j] === 'of') {
       if (!isCountedVariation(v as Variation) || !VARIATION_PIECES.includes(NUMBERS[words[j + 1]])) return false;
       j += 2;
@@ -499,20 +511,27 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'tincGap': tag('tincture', e.v); break;
       case 'fur':
         if (lem === 'ermine' && /^(a|an|two|three|four|five|six)$/.test(prev)) { tag('charge-beast', 'ermine'); settleHost(newElement('charge', null)); break; }
+        if (lem === 'potenty' && inField && divisions === 1 && divisionEnd === i - 1 && last?.kind === 'div' && drawnOn({ k: 'division', division: fieldDivision as never }, 'potenty')) break;
         if (lem === 'potenty' && (last?.kind === 'ord' || last?.kind === 'div') && look(i - 1)?.e.k !== 'tinc') tag('line-of-partition', 'potenty');
         else if (lem === 'potent' && /^cross/.test(prev)) break;
         else if (!furDrawn(i, lem)) tag('fur', e.v);
         break;
       case 'line': {
-        const next = look(i + 1)?.e.k;
+        const joined = words[i] === 'embattled' && words[i + 1] === 'grady';
+        const next = look(i + (joined ? 2 : 1))?.e.k;
         if (next === 'charge' || next === 'gapCharge') tag('charge-modifier', lem); // "an embattled coronet"
+        // The line of the field's division or of its stripes, written as the widget draws it: "per pale wavy", "quarterly per fess embattled", "barry wavy" (the stripes' line is read with them).
+        else if (inField && divisions === 1 && divisionEnd === i - 1 && last?.kind === 'div' && drawnOn({ k: 'division', division: fieldDivision as never }, joined ? 'embattled grady' : words[i])) { if (joined) i++; break; }
         else tag('line-of-partition', e.v);
         break;
       }
       case 'treat':
         // The field, a band or a picture in stripes or checks of two tinctures is drawn: "barry of eight argent and azure", "a fess checky Or and sable".
-        if (variationFollows(e.v, i) && (inField ? divisions === 0 : !held)) {
+        const written = words[i + 1] === 'embattled' && words[i + 2] === 'grady' ? 'embattled grady' : words[i + 1] ?? '';
+        const striped = inField && divisions === 0 && (LINED_VARIATIONS as readonly string[]).includes(e.v) && drawnOn({ k: 'variation', variation: e.v as Variation }, written) ? written.split(' ').length : 0;
+        if (variationFollows(e.v, i, striped) && (inField ? divisions === 0 : !held)) {
           if (inField) patternedField = true;
+          i += striped; // the line is part of the pattern
           if (words[i + 1] === 'of') i += 2; // the count is part of the pattern, not of the group that follows
         } else if (!(treatedFollows(e.v, i) && (inField || !held))) tag('field-treatment', e.v);
         break;
@@ -545,6 +564,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
           if (!DRAWN_DIVISION_IDS.includes(name)) tag('division', name);
           break;
         }
+        if (inField) { divisionEnd = i; fieldDivision = prev === 'quarterly' ? 'quarterly' : name; }
         if (prev !== 'quarterly') { // "quarterly per fess indented" is one division
           divisions++;
           if (divisions > 1 || parts.length > 1) tag('division', 'compound');
@@ -559,6 +579,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (divisions > 1) tag('division', 'compound');
         if (/^(i|1|first)$/.test(words[i + 1] ?? '') || /^(i|1|first)$/.test(words[i + 2] ?? '')) tag('marshalling', 'quartering');
         last = { kind: 'div', el: null, name: 'quarterly' };
+        divisionEnd = i;
+        fieldDivision = 'quarterly';
         break;
       case 'marshal':
         if (lem === 'arms' && words[i + 1] !== 'of') break;

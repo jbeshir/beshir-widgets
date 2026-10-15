@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, ORDINARY_LABEL,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, LINE_LABEL, ORDINARY_LABEL, edgeSideChoices, edgeSideOf, lineChoices,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -16,13 +16,15 @@ import {
 import { numberWord } from '../../lib/heraldry/words';
 import {
   companionNote, ordinaryPath, picturePath, placementLabel, setCharge,
-  setBadge, setDivision, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
+  setBadge, setDivision, setFieldEdgeSide, setFieldLine, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
 import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
 import { FieldPattern } from './VariationPicker';
+import { EdgePicker } from './EdgePicker';
+import { MoreShapes } from './MoreShapes';
 import { FurPicker } from './FurPicker';
 import { SemyPicker } from './SemyPicker';
 import { TreatmentPicker } from './TreatmentPicker';
@@ -208,11 +210,42 @@ function FieldMore({ design, division, onChange }: { design: Design; division: D
   );
 }
 
+/** The line of the background in words after its shape, `, wavy`; nothing for a straight one. */
+function lineSuffix(design: Design): string {
+  const { a, b } = design.kind === 'arms' && (design.field.k === 'divided' || design.field.k === 'variation') ? design.field.lines : { a: 'plain', b: 'plain' } as const;
+  const line = a !== 'plain' ? a : b;
+  return line === 'plain' ? '' : `, ${LINE_LABEL[line].term}`;
+}
+
+/** "More divisions and edges…": how the lines of a divided or striped background are drawn, shown only once it is one of them. */
+function FieldEdges({ design, shape, onChange }: { design: Design; shape: FieldShape; onChange: (nd: Design) => void }) {
+  const target = { k: 'field' } as const;
+  const lines = lineChoices(design, target);
+  if (design.kind !== 'arms' || lines.length === 0) return null;
+  const field = design.field;
+  if (field.k !== 'divided' && field.k !== 'variation') return null;
+  const icon = field.k === 'divided'
+    ? { k: 'divided', division: field.division, parts: ['or', 'azure'] }
+    : { k: 'variation', variation: field.variation, pieces: field.pieces, parts: ['or', 'azure'] };
+  const current = field.lines.a !== 'plain' ? field.lines.a : field.lines.b;
+  return (
+    <MoreShapes testid="field" summary="More divisions and edges…" used={current !== 'plain'}>
+      {() => (
+        <EdgePicker
+          testid="field-edge" noun="the background" iconKey={JSON.stringify(icon)} icon={icon} shape={shape}
+          lines={lines} line={current} onLine={(l) => onChange(setFieldLine(design, l))}
+          sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} onSide={(s) => onChange(setFieldEdgeSide(design, s))}
+        />
+      )}
+    </MoreShapes>
+  );
+}
+
 function fieldSummary(design: Design): string {
   if (design.kind === 'badge') return 'No background (badge)';
   const field = design.field;
-  if (field.k === 'divided') return `${DIVISION_LABEL[field.division].plain}: ${field.parts.map(paintWords).join(' and ')}`;
-  return field.k === 'variation' ? capitalise(paintWords(field)) : `${capitalise(paintWords(field))}, plain`;
+  if (field.k === 'divided') return `${DIVISION_LABEL[field.division].plain}${lineSuffix(design)}: ${field.parts.map(paintWords).join(' and ')}`;
+  return field.k === 'variation' ? `${capitalise(paintWords(field))}${lineSuffix(design)}` : `${capitalise(paintWords(field))}, plain`;
 }
 
 interface FieldStepProps extends ShapedStepProps {
@@ -250,6 +283,7 @@ export function FieldStep({ design, shape, onChange, onBadge, notice, issues, ac
           {division && <FieldPartPicker design={design} part={1} legend={DIVISION_PART_LABEL[division][1]} onChange={onChange} />}
         </>
       )}
+      {design.kind === 'arms' && <FieldEdges design={design} shape={shape} onChange={onChange} />}
       {design.kind === 'arms' && <FieldMore design={design} division={division} onChange={onChange} />}
     </Step>
   );

@@ -12,7 +12,7 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  CHARGES, CHARGE_IDS, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, ORDINARY_KIND, ORDINARY_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME,
+  CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, ORDINARY_KIND, ORDINARY_NAME, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME,
   blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
@@ -76,11 +76,11 @@ const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.le
 const ORDINARY_WORDS = new Map<string, OrdinaryType>(DRAWN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
 const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as const;
 const COUNT_WORDS = new Map<string, number>([['a', 1], ['an', 1], ...NUMBER_WORDS.map((w, i): [string, number] => [w, i + 1])]);
-const LINE_WORDS = ['pale', 'fess', 'bend sinister', 'bend'] as const;
+const ARRANGEMENT_LINE_WORDS = ['pale', 'fess', 'bend sinister', 'bend'] as const;
 const POSITION_WORDS = ['chief', 'base', 'canton', 'dexter chief', 'sinister chief', 'dexter base', 'sinister base', 'dexter', 'sinister'] as const;
 const PATTERN_WORDS = ['saltire', 'cross', 'orle', 'annulo'] as const;
 /** What can follow "in" before a group, the longest first ("sinister chief" before "sinister"). */
-const LEADS = [...LINE_WORDS, ...POSITION_WORDS].sort((a, b) => b.split(' ').length - a.split(' ').length);
+const LEADS = [...ARRANGEMENT_LINE_WORDS, ...POSITION_WORDS].sort((a, b) => b.split(' ').length - a.split(' ').length);
 
 /** Charge noun → charge and number. "fish" is both. */
 const NOUNS = new Map<string, { id: ChargeId; plural: boolean; singular: boolean }>();
@@ -108,7 +108,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 const VOCABULARY = new Set<string>(
   [
     '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall',
-    ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
+    ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
@@ -163,7 +163,7 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     if (!lead) return null;
     i += 1 + lead.split(' ').length;
     if ((POSITION_WORDS as readonly string[]).includes(lead) && tokens[i] === 'in') {
-      line = LINE_WORDS.find((w) => startsWith(tokens, i + 1, w.split(' '))) ?? null;
+      line = ARRANGEMENT_LINE_WORDS.find((w) => startsWith(tokens, i + 1, w.split(' '))) ?? null;
       if (line) i += 1 + line.split(' ').length;
     }
   }
@@ -358,7 +358,7 @@ function verify(raw: DesignInput): Candidate {
 
 // ── API ─────────────────────────────────────────────────────────────────────
 
-const ARRANGEMENT_PHRASE = new RegExp(`(?:\\bin (?:${alt([...LINE_WORDS, ...POSITION_WORDS, ...PATTERN_WORDS])}) | ${ROWS}(?= ))`, 'g');
+const ARRANGEMENT_PHRASE = new RegExp(`(?:\\bin (?:${alt([...ARRANGEMENT_LINE_WORDS, ...POSITION_WORDS, ...PATTERN_WORDS])}) | ${ROWS}(?= ))`, 'g');
 const withoutArrangement = (s: string) => s.replace(ARRANGEMENT_PHRASE, ' ').replace(/ +/g, ' ');
 
 /** The arrangement phrases ("in pale", "two and one", …) in normalised blazon text. */

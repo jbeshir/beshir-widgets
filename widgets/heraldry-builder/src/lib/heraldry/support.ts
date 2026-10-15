@@ -7,9 +7,9 @@ import { capitalise } from './words';
 import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
 import { liesAstride, specOf } from './ordinary-geometry';
-import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES, isDrawnTreatment } from './divisions';
+import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES, isDrawnTreatment, type Division, type Variation } from './divisions';
 import {
-  asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
+  asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
@@ -58,10 +58,23 @@ const ON_THAT_CHARGE = 'Charges on that charge';
 /** A count its place has no Table 7 row for (`limit` says which place), filed as a placement gap. */
 const countGap = (detail: string, limit: CountLimit): Found => ({ gap: { category: 'placement', detail }, what: 'That placement of charges', limit });
 
+/**
+ * The gaps of the lines of a division or variation: a line is drawn on the divisions and stripes of the field itself (the builder's
+ * Background edge row builds them); on the parts of a divided band or picture it is not, chevronny's corners take none, and quarterly's
+ * two lines are one line or a line each only when the second is plain or the same.
+ */
+function partitionLineGaps({ a, b }: Lines, inField: boolean, host: Division | Variation): Found[] {
+  if (a === 'plain' && b === 'plain') return [];
+  if (!inField) return [gap('line-of-partition', 'on-divided-charge', 'A line on the division of a band or picture')];
+  if (host === 'chevronny') return [gap('line-of-partition', `${a === 'plain' ? b : a}-on-chevronny`)];
+  if (host === 'quarterly' && a !== 'plain' && b !== 'plain' && a !== b) return [gap('line-of-partition', 'quarterly-two-lines', 'A different line on each of the two lines of a quartered field')];
+  return [];
+}
+
 /** A variation is drawn over the whole field, or a band or picture, in two plain tinctures and a stripe count the builder offers; as a part of the field it is a gap (see `paintGaps`). */
-function variationGaps(p: Extract<Paint, { k: 'variation' }>): Found[] {
+function variationGaps(p: Extract<Paint, { k: 'variation' }>, inField: boolean): Found[] {
   const gaps: Found[] = [];
-  for (const l of [p.lines.a, p.lines.b]) if (l !== 'plain' && !gaps.some((g) => g.gap.detail === l)) gaps.push(gap('line-of-partition', l));
+  gaps.push(...partitionLineGaps(p.lines, inField, p.variation));
   if (p.pieces !== null && !VARIATION_PIECES.includes(p.pieces)) gaps.push(gap('field-treatment', `${p.variation}-pieces`));
   for (const part of p.parts) if (part.k !== 'tincture') gaps.push(gap('field-treatment', `${p.variation}-${part.k}`));
   return gaps;
@@ -97,13 +110,13 @@ function paintFound(p: Paint, inField: boolean, owner: string): Found[] {
     case 'fur': return p.colours && FUR_SPEC[p.fur].layout !== 'plain' ? [gap('fur', `${p.fur}-colours`, `${FUR_NAME[p.fur]} in colours of its own`)] : [];
     // Natural colours are drawn for the charges that have a palette; an ordinary or a charge without one keeps its gap.
     case 'proper': return isChargeId(owner) && CHARGES[owner].proper ? [] : [gap('proper', owner)];
-    case 'variation': return variationGaps(p);
+    case 'variation': return variationGaps(p, inField);
     case 'treated': return treatedGaps(p);
     case 'semy': return semyGaps(p, owner);
     case 'divided': {
       const gaps: Found[] = [];
       if (!DRAWN_DIVISIONS.includes(p.division)) gaps.push(gap('division', p.division));
-      for (const l of [p.lines.a, p.lines.b]) if (l !== 'plain' && !gaps.some((g) => g.gap.detail === l)) gaps.push(gap('line-of-partition', l));
+      gaps.push(...partitionLineGaps(p.lines, inField, p.division));
       if (p.pieces !== null) gaps.push(gap('division', `${p.division}-pieces`));
       for (const part of p.parts) {
         gaps.push(...(part.k === 'divided' ? [gap('division', 'nested', 'A divided part of a divided field')] : part.k === 'variation' ? [gap('field-treatment', part.variation)] : part.k === 'proper' ? [gap('proper', 'party', 'Natural colours on part of a divided band or picture')] : paintFound(part, true, owner)));

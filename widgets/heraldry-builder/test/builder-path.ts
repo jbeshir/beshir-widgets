@@ -7,12 +7,12 @@
 
 import {
   CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type FurKind, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setPosture, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setFieldEdgeSide, setFieldLine, setPosture, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -29,6 +29,8 @@ export type BuilderAction =
   | { kind: 'variation'; variation: Variation }
   | { kind: 'variation-pieces'; pieces: number }
   | { kind: 'variation-tincture'; part: 0 | 1; tincture: Tincture }
+  | { kind: 'line'; target: 'field'; line: Line }
+  | { kind: 'edge-side'; target: 'field'; side: EdgeSide }
   | { kind: 'ordinary'; type: OrdinaryType | null }
   | { kind: 'ordinary-tincture'; tincture: GroupTincture }
   | { kind: 'add-layer'; place: LayerKey }
@@ -96,6 +98,8 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       return varied && isCountedVariation(varied.variation) && VARIATION_PIECES.includes(a.pieces) ? null : `${a.pieces} stripes are not offered`;
     }
     case 'variation-tincture': return d.kind === 'arms' && asVariation(d.field) ? null : 'the background has no stripes to colour';
+    case 'line': return choiceReason(lineChoices(d, { k: 'field' }), a.line);
+    case 'edge-side': return choiceReason(edgeSideChoices(d, { k: 'field' }), a.side);
     case 'ordinary': return a.type === null || DRAWN_ORDINARIES.includes(a.type) ? null : `${a.type} is not offered`;
     case 'ordinary-tincture': {
       const path = ordinaryPath(d);
@@ -205,6 +209,8 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'variation': return setVariation(d, a.variation);
     case 'variation-pieces': return setVariationPieces(d, a.pieces);
     case 'variation-tincture': return setVariationTincture(d, a.part, a.tincture);
+    case 'line': return setFieldLine(d, a.line);
+    case 'edge-side': return setFieldEdgeSide(d, a.side);
     case 'ordinary': return setOrdinary(d, a.type);
     case 'ordinary-tincture': return setOrdinaryTincture(d, a.tincture);
     case 'add-layer': return addLayer(d, a.place);
@@ -239,6 +245,8 @@ function describeAction(a: BuilderAction): string {
     case 'variation': return `background ${a.variation}`;
     case 'variation-pieces': return `${a.pieces} stripes`;
     case 'variation-tincture': return `stripe colour ${a.part + 1} ${a.tincture}`;
+    case 'line': return `${a.target} line ${a.line}`;
+    case 'edge-side': return `${a.target} edge side ${a.side}`;
     case 'ordinary': return `ordinary ${a.type ?? 'none'}`;
     case 'ordinary-tincture': return `ordinary tincture ${a.tincture}`;
     case 'add-layer': return `add ${a.place}`;
@@ -528,6 +536,14 @@ export function builderPath(goal: Design): BuilderPath {
     if (!strewn || !strewnTo('field-1', strewn)) return done();
   } else if (f.k === 'tincture') {
     if (d.kind === 'arms' && d.field.k === 'tincture' && d.field.t !== f.t && !click({ kind: 'field-tincture', part: 0, tincture: f.t })) return done();
+  }
+
+  // The line of the division or stripes, once its tinctures are set (the dark pairs a line refuses are judged on them), then the side of a quartered field's.
+  if (f && (f.k === 'divided' || f.k === 'variation') && (f.lines.a !== 'plain' || f.lines.b !== 'plain')) {
+    const line = f.lines.a !== 'plain' ? f.lines.a : f.lines.b;
+    if (!click({ kind: 'line', target: 'field', line })) return done();
+    const side: EdgeSide = f.lines.a === f.lines.b ? 'both' : f.lines.a === 'plain' ? 'b' : 'a';
+    if (side !== 'both' && !click({ kind: 'edge-side', target: 'field', side })) return done();
   }
 
   const parts = simpleParts(goal);
