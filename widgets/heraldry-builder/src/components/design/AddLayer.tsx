@@ -3,7 +3,7 @@
 // that can't be added here stays in the list, greyed, and says why. Adding one closes the chooser and moves to its new card.
 
 import { useState } from 'preact/hooks';
-import { addLayer, groupAt, layerChoices, simpleParts, type Choice, type Design, type LayerKey } from '../../lib/heraldry';
+import { addLayer, addedLayerStep, groupAt, layerChoices, simpleParts, type Choice, type Design, type LayerKey } from '../../lib/heraldry';
 import { ordinaryPath, picturePath } from '../../lib/builder';
 import { nounOf } from './BuilderSteps';
 import { LockGlyph, useExplainer } from './Explainer';
@@ -63,8 +63,8 @@ const GROUPS: ReadonlyArray<{ heading: string; keys: readonly LayerKey[] }> = [
 interface Props {
   design: Design;
   onChange: (nd: Design) => void;
-  /** Called after a layer is added, to move to its card. */
-  onAdded: (key: LayerKey) => void;
+  /** Called after a layer is added, to move to the step that shows it (its card, or the band step). */
+  onAdded: (step: LayerKey | 'ordinary') => void;
 }
 
 export function AddLayer({ design, onChange, onAdded }: Props) {
@@ -78,7 +78,7 @@ export function AddLayer({ design, onChange, onAdded }: Props) {
       ? (
         <button
           key={c.value} type="button" class="button-secondary button-small" data-testid={`add-layer-${c.value}`}
-          onClick={() => { onChange(addLayer(design, c.value)); setOpen(false); onAdded(c.value); }}
+          onClick={() => { const nd = addLayer(design, c.value); onChange(nd); setOpen(false); onAdded(addedLayerStep(nd, c.value)); }}
         >
           {text}
         </button>

@@ -70,7 +70,7 @@ export function FurPicker({ design, target, group, testid, noun, onChange }: Pro
               key={f} testid={`${testid}-fur-${f}`} checked={family === f} status={pick.status}
               label={label} onSelect={() => onChange(setFur(design, target, pick.kind))} onBlocked={explain} class="segment"
             >
-              <FurChip kind={f} uid={group} />
+              <FurChip kind={f} uid={`${group}-family`} />
               <span>{label}</span>
             </ChoiceButton>
           );
@@ -89,7 +89,7 @@ export function FurPicker({ design, target, group, testid, noun, onChange }: Pro
                   key={layout} testid={`${testid}-fur-layout-${layout}`} checked={FUR_SPEC[fur.fur].layout === layout} status={pick.status}
                   label={label} onSelect={() => onChange(setFur(design, target, pick.kind))} onBlocked={explain} class="segment"
                 >
-                  <FurChip kind={pick.kind} uid={group} />
+                  <FurChip kind={pick.kind} uid={`${group}-layout`} />
                   <span>{label}</span>
                 </ChoiceButton>
               );

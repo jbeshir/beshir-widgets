@@ -8,7 +8,7 @@ import {
   setPosture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, blazon, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   type Design, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
@@ -318,6 +318,15 @@ describe('a top band and a border beside the band', () => {
     const alone = setOrdinary(bordered, null);
     expect(alone.groups.map((g) => g.item.k === 'ordinary' && g.item.type)).toEqual(['bordure']);
     expect(ordinaryPath(alone)).toEqual([0]);
+  });
+
+  it('are shown on their own card, except a top band beside a border alone, which becomes the band (step 2)', () => {
+    const chiefed = addLayer(band, 'chief');
+    expect(addedLayerStep(chiefed, 'chief')).toBe('chief');
+    const border = setOrdinary(DEFAULT_DESIGN, 'bordure');
+    const withChief = addLayer(border, 'chief');
+    expect(ordinaryPath(withChief) && groupAt(withChief, ordinaryPath(withChief)!).item).toMatchObject({ k: 'ordinary', type: 'chief' });
+    expect(addedLayerStep(withChief, 'chief')).toBe('ordinary');
   });
 });
 

@@ -214,8 +214,8 @@ export function DesignTab(p: Props) {
     setTimeout(() => focusControl(selector), 0);
   };
   const goToStep = (step: StepKey) => reveal(step, stepSelector(step));
-  /** A layer just added: open its card, bring it on screen and put focus on its heading. */
-  const revealCard = (key: LayerKey) => {
+  /** A layer just added: open the step that shows it, bring it on screen and put focus on its heading. */
+  const revealCard = (key: StepKey) => {
     setOpen((o) => ({ ...o, [key]: true }));
     setTimeout(() => {
       const heading = document.querySelector<HTMLElement>(`${stepSelector(key)} .step-title`);

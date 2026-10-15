@@ -3,9 +3,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  asParty, blazon, canonicalJson, deriveTags, differences, fillCode, gloss, groupAt, joinGroup, normalise, partyDivisionChoices, partyTinctureChoices, renderLayers, setPartyDivision,
+  asParty, blazon, canonicalJson, deriveTags, differences, fillCode, gloss, groupAt, normalise, partyDivisionChoices, partyTinctureChoices, renderLayers, setPartyDivision,
   setPartyTincture, signature, splitGroup, structuralIssues, tinctureIssues, unsupportedIssues, type Design,
 } from '../src/lib/heraldry';
+import { setGroupTincture } from '../src/lib/builder';
 import { builderPath } from './builder-path';
 import { checkBlazon } from './sca/classify';
 import { renderShieldSvg } from './sca/widget-checks';
@@ -162,11 +163,10 @@ describe('the builder offers the split', () => {
     expect(partyDivisionChoices(sword, path).find((c) => c.value === 'per-chevron')).toMatchObject({ allowed: false });
   });
 
-  it('changes the division, and joins back into one tincture', () => {
+  it('changes the division, and joins back into one tincture when one colour is picked', () => {
     const split = setPartyDivision(splitGroup(base, path)!, path, 'per-fess');
     expect(asParty(groupAt(split, path).paint)?.division).toBe('per-fess');
-    // Azure would be colour on colour: the first tincture that works is used.
-    expect(blazon(joinGroup(split, path))).toBe('Gules, a heart Or.');
+    expect(blazon(setGroupTincture(split, path, 'or'))).toBe('Gules, a heart Or.');
   });
 });
 

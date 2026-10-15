@@ -170,6 +170,10 @@ function FieldMore({ design, division, onChange }: { design: Design; division: D
   const parts = fieldParts(design);
   const patterned = parts.findIndex((p) => p.k !== 'tincture');
   const [part, setPart] = useState<0 | 1>(patterned === 1 ? 1 : 0);
+  // A field that comes to have its pattern on the other part (an example loaded, Undo) shows that part.
+  useEffect(() => {
+    if (patterned >= 0) setPart(patterned === 1 ? 1 : 0);
+  }, [patterned]);
   const shown: 0 | 1 = division ? part : 0;
   const target: PaintTarget = { k: 'field', part: shown };
   const noun = division ? 'this part' : 'the background';

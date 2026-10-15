@@ -17,8 +17,8 @@ function paint(p: Paint): string {
     case 'semy': return `semy(${paint(p.ground)},${p.charge.charge},${paint(p.ink)})`;
     case 'treated': return `${p.treatment}(${paint(p.ground)},${TINCTURE_CODE[p.ink]})`;
     case 'divided': return `${p.division}(${p.parts.map(paint).join(',')})`;
-    // Checky is the same with either tincture first (Prec #FIELDCheck).
-    case 'variation': return `${p.variation}${p.pieces ?? ''}(${(p.variation === 'checky' ? p.parts.map(paint).sort() : p.parts.map(paint)).join(',')})`;
+    // Beyond four pieces (no count is more than four) a variation is the same with either tincture first (A5G1a, A5G3a; Prec #FIELDCheck).
+    case 'variation': return `${p.variation}${p.pieces ?? ''}(${(p.pieces === null || p.pieces > 4 ? p.parts.map(paint).sort() : p.parts.map(paint)).join(',')})`;
     case 'stain': return notSupported(paintGaps(p, true, 'field')[0]);
     default: return p satisfies never;
   }

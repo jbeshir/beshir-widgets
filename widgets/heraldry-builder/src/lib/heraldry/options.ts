@@ -418,14 +418,6 @@ export function splitGroup(d: Design, path: GroupPath): Design | null {
   return null;
 }
 
-/** The group in one tincture again: its first part's when that works, else the first that does. */
-export function joinGroup(d: Design, path: GroupPath): Design {
-  const two = asParty(groupAt(d, path).paint) ?? asVariation(groupAt(d, path).paint);
-  const choices = groupTinctureChoices(d, path);
-  const first = two?.parts[0].t ?? 'or';
-  return canonical(withTincture(d, path, isAllowed(choices, first) ? first : firstAllowed(choices, first)));
-}
-
 // ── Stripes and checks of a band or picture ("a fess checky Or and gules") ──
 
 const variationWith = (v: VariationPaint, part: 0 | 1, t: Tincture, other: Tincture): VariationPaint =>

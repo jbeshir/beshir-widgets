@@ -43,13 +43,13 @@ export { variationRegions, inFirstRegion, type Box } from './variation-geometry'
 export { MIN_SLOT_SIZE, minSlotSize, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue } from './layout';
 export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
 export {
-  LAYER_KEYS, layersIn, layerChoices, addLayer, removeLayer, setLayerCharge, setOverallItem, overallItemChoices, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
+  LAYER_KEYS, layersIn, addedLayerStep, layerChoices, addLayer, removeLayer, setLayerCharge, setOverallItem, overallItemChoices, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
   type LayerItem, type LayerKey, type PeripheralKey, type PicturesKey,
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
   layoutReason, withLayout, postureChoices, modifierChoices, fitGroup, suggestTinctureFix,
-  partyDivisionChoices, partyTinctureChoices, groupVariationChoices, setGroupVariation, setGroupVariationPieces, groupVariationTinctureChoices, setGroupVariationTincture, setPartyDivision, setPartyTincture, splitGroup, joinGroup,
+  partyDivisionChoices, partyTinctureChoices, groupVariationChoices, setGroupVariation, setGroupVariationPieces, groupVariationTinctureChoices, setGroupVariationTincture, setPartyDivision, setPartyTincture, splitGroup,
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';
 export { FUR_KINDS, familyOfKind, furColours, furKindOf, furOfKind, furName, furGloss, takesColours, type FurFamily, type FurKind, type FurPaint } from './fur';

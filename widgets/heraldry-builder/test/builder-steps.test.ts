@@ -339,6 +339,15 @@ describe('the fur picker', () => {
     for (const id of ['field-more-part-1', 'field-2-fur-vair', 'field-2-fur-colour-1']) expect(ids(html), id).toContain(id);
     expect(ids(html)).not.toContain('field-1-fur-vair');
   });
+
+  it('gives every chip its own pattern id: the family row and the arrangement row both draw vair and potent', () => {
+    for (const fur of ['vair', 'potent'] as const) {
+      const html = renderToString(h(FieldStep, { ...fieldBase, design: setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, fur), shape: 'heater' }));
+      const patternIds = [...html.matchAll(/<pattern[^>]*\sid="([^"]+)"/g)].map((m) => m[1]);
+      expect(patternIds.filter((id) => id.startsWith('fur-chip-')).length, fur).toBeGreaterThan(3);
+      expect(new Set(patternIds).size, fur).toBe(patternIds.length);
+    }
+  });
 });
 
 describe('the stripes and checks picker', () => {

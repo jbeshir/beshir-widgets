@@ -44,6 +44,11 @@ export function layersIn(d: Design): LayerKey[] {
   return LAYER_KEYS.filter((key) => (key === 'on-ordinary' ? simpleParts(d).onOrdinary !== null : pathOfPlace(d, key) !== null));
 }
 
+/** Where a layer just added is shown: its own card, or the band step (2) for a top band added beside a border, which becomes the design's band while the border moves to a card. */
+export function addedLayerStep(d: Design, key: LayerKey): LayerKey | 'ordinary' {
+  return layersIn(d).includes(key) ? key : 'ordinary';
+}
+
 /** A new band, or peripheral, in a tincture. */
 export function ordinaryGroup(type: OrdinaryType, t: GroupTincture): Group {
   return {

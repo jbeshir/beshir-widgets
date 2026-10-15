@@ -268,16 +268,24 @@ function styleOf(f: Paint): string {
   return f.k === 'variation' ? (f.variation === 'fusily' ? 'lozengy' : f.variation === 'pily' ? 'per-pale' : f.variation) : '';
 }
 
-/**
- * The surfaces a field's tinctures make for comparing, part by part; a variation's are its two tinctures, either way round
- * beyond four pieces (A5G1a: "There is not a distinct change for swapping the tinctures of a field divided into more than four
- * parts"; Prec #FIELDCheck).
- */
-function comparedSurfaces(d: Design): Surface[] {
+/** The surfaces a field's tinctures make for comparing, part by part; a variation's are its two tinctures. */
+function fieldSurfacesCompared(d: Design): Surface[] {
   const v = d.kind === 'arms' ? asVariation(d.field) : null;
-  if (!v) return fieldSurfaces(d);
-  const surfaces = v.parts.map((p) => tinctureSurface(p.t));
-  return pieceTier(v) > 4 ? surfaces.sort((x, y) => (x.bases[0] < y.bases[0] ? -1 : 1)) : surfaces;
+  return v ? v.parts.map((p) => tinctureSurface(p.t)) : fieldSurfaces(d);
+}
+
+/**
+ * Both fields' surfaces, part by part. When either field has more than four pieces its two tinctures may be either way round (A5G1a:
+ * "There is not a distinct change for swapping the tinctures of a field divided into more than four parts"; Prec #FIELDCheck), so the
+ * second field's are turned where that pairs more of them with the first's: "Per fess azure and argent" against "Barry argent and
+ * azure" and against "Barry azure and argent" alike changes the number of pieces only (A5G1d).
+ */
+function comparedSurfaces(a: Design, b: Design, swappable: boolean): [Surface[], Surface[]] {
+  const ta = fieldSurfacesCompared(a), tb = fieldSurfacesCompared(b);
+  if (!swappable || ta.length !== 2 || tb.length !== 2) return [ta, tb];
+  const paired = (ys: readonly Surface[]) => ta.filter((s, i) => sameSurface(s, ys[i])).length;
+  const turned = [tb[1], tb[0]];
+  return [ta, paired(turned) > paired(tb) ? turned : tb];
 }
 
 function fieldChanges(a: Design, b: Design): Diff[] {
@@ -289,7 +297,7 @@ function fieldChanges(a: Design, b: Design): Diff[] {
   // A different number of pieces (A5G1d) or a different style within the category (A5G1b) is a distinct change.
   if (pieceTier(a.field) !== pieceTier(b.field)) changes.push(change('field-style', 'dc', 'A5G1d', null));
   else if (styleOf(a.field) !== styleOf(b.field)) changes.push(change('field-style', 'dc', 'A5G1b', null));
-  const ta = comparedSurfaces(a), tb = comparedSurfaces(b);
+  const [ta, tb] = comparedSurfaces(a, b, Math.max(pieceTier(a.field), pieceTier(b.field)) > 4);
   const has = (xs: readonly Surface[], s: Surface) => xs.some((x) => sameSurface(x, s));
   if (ta.length === tb.length && ta.every((s, i) => sameSurface(s, tb[i]))) return changes;
   // A5F2: for field-primary armory a change of every part to a surface (a tincture or fur) the other field lacks is substantial.

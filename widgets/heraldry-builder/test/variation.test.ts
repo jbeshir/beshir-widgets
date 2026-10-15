@@ -4,10 +4,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_PIECES, explainDifferences, VARIATIONS, VARIATION_PIECES, asVariation, blazon, deriveTags, differences, fieldRegions, fillCode, gloss, inFirstRegion, pointInPolygon, pathRings,
-  groupVariationChoices, groupVariationTinctureChoices, joinGroup, ordinaryBox, renderLayers, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, shapeFrame, signature, structuralIssues, tinctureIssues, unsupportedIssues, variationRegions, candidateKey,
+  groupVariationChoices, groupVariationTinctureChoices, ordinaryBox, renderLayers, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, shapeFrame, signature, structuralIssues, tinctureIssues, unsupportedIssues, variationRegions, candidateKey, checkUnique, keysMayConflict,
   type Design, type Variation,
 } from '../src/lib/heraldry';
-import { setPlainField, setVariation, setVariationPieces, setVariationTincture } from '../src/lib/builder';
+import { setGroupTincture, setPlainField, setVariation, setVariationPieces, setVariationTincture } from '../src/lib/builder';
 import { builderPath } from './builder-path';
 import { checkBlazon } from './sca/classify';
 import { explainMatch } from './sca/match';
@@ -190,8 +190,42 @@ describe('conflict', () => {
     // With one real change, the swap must not make a second: still a conflict.
     const chief = (field: unknown, t: string) => arms(field, lion('gules'), group(ordinary('chief'), t));
     expect(between(chief(varied('barry', 'argent', 'azure'), 'or'), chief(varied('barry', 'azure', 'argent'), 'sable'))).toEqual(['tincture:dc:A5G3']);
+    // Either way round is the same design, so the second is a duplicate of the first, not merely too close.
     expect(signature(nd(lionOn(varied('checky', 'argent', 'azure'))))).toBe(signature(nd(lionOn(varied('checky', 'azure', 'argent')))));
-    expect(signature(nd(lionOn(varied('barry', 'argent', 'azure'))))).not.toBe(signature(nd(lionOn(varied('barry', 'azure', 'argent')))));
+    expect(signature(nd(lionOn(varied('barry', 'argent', 'azure'))))).toBe(signature(nd(lionOn(varied('barry', 'azure', 'argent')))));
+    expect(signature(nd(lionOn(varied('barry', 'argent', 'azure', 8))))).toBe(signature(nd(lionOn(varied('barry', 'azure', 'argent', 8)))));
+    expect(signature(nd(lionOn(varied('barry', 'argent', 'azure', 4))))).not.toBe(signature(nd(lionOn(varied('barry', 'azure', 'argent', 4)))));
+    const first = nd(lionOn(varied('barry', 'argent', 'azure')));
+    const second = nd(lionOn(varied('barry', 'azure', 'argent')));
+    expect(checkUnique(second, signature(second), [{ id: 'e', signature: signature(first), design: first }])).toEqual({ kind: 'duplicate', of: 'e' });
+  });
+
+  // Swapping is ignored when either field has more than four pieces, whichever side that is and whichever order the
+  // tinctures are written in: the other field's tinctures are then the same, and only the number of pieces changes (A5G1d).
+  it.each([
+    ['per fess', div('per-fess', 'azure', 'argent'), varied('barry', 'azure', 'argent'), 'or'],
+    ['per pale', div('per-pale', 'azure', 'argent'), varied('paly', 'azure', 'argent'), 'or'],
+    ['barry of four', varied('barry', 'azure', 'argent', 4), varied('barry', 'azure', 'argent'), 'or'],
+    ['per fess vert and Or', div('per-fess', 'vert', 'or'), varied('barry', 'vert', 'or'), 'gules'],
+    ['per fess argent first', div('per-fess', 'argent', 'azure'), varied('barry', 'argent', 'azure'), 'or'],
+    ['per bend', div('per-bend', 'azure', 'argent'), varied('bendy', 'azure', 'argent'), 'or'],
+  ])('a field of up to four pieces (%s) against the same tinctures beyond four conflicts in every order', (_, few, many, t) => {
+    const swap = (f: { parts: unknown[] }) => ({ ...f, parts: [f.parts[1], f.parts[0]] });
+    for (const [x, y] of [[few, many], [few, swap(many)], [swap(few), many], [swap(few), swap(many)]]) {
+      for (const [a, b] of [[x, y], [y, x]]) {
+        const da = nd(arms(a, lion(t))), db = nd(arms(b, lion(t)));
+        expect(between(arms(a, lion(t)), arms(b, lion(t))), `${blazon(da)} ∥ ${blazon(db)}`).toEqual(['field-style:dc:A5G1d']);
+        // The registry lookup finds the entry, and the availability check calls it too close.
+        expect(keysMayConflict(candidateKey(da), candidateKey(db))).toBe(true);
+        expect(checkUnique(da, signature(da), [{ id: 'e', signature: signature(db), design: db }])).toMatchObject({ kind: 'too-close', of: 'e' });
+      }
+    }
+  });
+
+  it('turns the tinctures only where that pairs more of them: half the tinctures changed is still a distinct change', () => {
+    expect(between(lionOn(varied('barry', 'argent', 'azure')), lionOn(varied('barry', 'gules', 'argent')))).toEqual(['field-tincture:dc:A5G1a']);
+    expect(between(lionOn(div('per-fess', 'argent', 'azure')), lionOn(varied('barry', 'gules', 'argent')))).toEqual(['field-style:dc:A5G1d', 'field-tincture:dc:A5G1a']);
+    expect(between(lionOn(varied('barry', 'gules', 'argent')), lionOn(div('per-fess', 'argent', 'azure')))).toEqual(['field-style:dc:A5G1d', 'field-tincture:dc:A5G1a']);
   });
 
   it('does the same for charges, and tells the number of pieces apart up to four (A5G3a, A5G3d)', () => {
@@ -312,7 +346,7 @@ describe('a band or picture in stripes or checks', () => {
     expect(blazon(eight)).toBe('Azure, a fess barry of eight argent and gules.');
     const recoloured = setGroupVariationTincture(eight, [0], 1, 'vert');
     expect(blazon(recoloured)).toBe('Azure, a fess barry of eight argent and vert.');
-    expect(blazon(joinGroup(recoloured, [0]))).toBe('Azure, a fess argent.');
+    expect(blazon(setGroupTincture(recoloured, [0], 'argent'))).toBe('Azure, a fess argent.');
   });
 
   it('reaches a patterned band and picture from the starting design by allowed clicks', () => {
