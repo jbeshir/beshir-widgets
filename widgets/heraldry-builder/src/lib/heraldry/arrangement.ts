@@ -3,12 +3,13 @@
 
 import { numberWord, joinAnd } from './words';
 import {
-  groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position,
+  groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position, POSITIONS,
 } from './design';
 import { CHARGES, type ChargeId, type Posture } from './charges';
 import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
 import type { Tincture } from './tinctures';
 import { contrastFailure } from './contrast';
+import type { Division } from './divisions';
 
 export interface Layout { arrangement: Arrangement; position: Position | null }
 
@@ -23,7 +24,6 @@ export const ROW_PATTERNS: readonly (readonly number[])[] = [
 const LINE_DIRS: readonly LineDir[] = ['pale', 'fess', 'bend', 'bend-sinister'];
 const PATTERNS: readonly Pattern[] = ['cross', 'saltire', 'orle', 'annulo', 'chevron', 'chevron-inverted', 'pall', 'pile'];
 const PAIRS = ['combattant', 'respectant', 'addorsed'] as const;
-const POSITIONS: readonly Position[] = ['chief', 'base', 'dexter-chief', 'sinister-chief', 'dexter', 'sinister', 'canton', 'flank', 'fess-point'];
 
 const single = (position: Position | null = null): Layout => ({ arrangement: { k: 'single' }, position });
 const line = (dir: LineDir, position: Position | null = null): Layout => ({ arrangement: { k: 'line', dir }, position });
@@ -98,13 +98,14 @@ export function layoutOfKey(key: LayoutKey, count: number): Layout | null {
 export function layoutWords(l: Layout): string {
   const a = l.arrangement;
   const where = l.position ? `in ${l.position.replace('-', ' ')}` : null;
+  const at = (words: string) => (where ? `${where} ${words}` : words);
   switch (a.k) {
     case 'single': return where ?? 'single';
-    case 'line': return where ?? `in ${a.dir.replace('-', ' ')}`;
-    case 'rows': return joinAnd(a.rows.map(numberWord));
-    case 'pattern': return `in ${a.pattern.replace('-', ' ')}`;
+    case 'line': return where ? (isHalfPosition(l.position) ? at(`in ${a.dir}`) : where) : `in ${a.dir.replace('-', ' ')}`;
+    case 'rows': return at(joinAnd(a.rows.map(numberWord)));
+    case 'pattern': return at(`in ${a.pattern.replace('-', ' ')}`);
     case 'host': return 'placed by the ordinary';
-    case 'crossed': return 'in saltire';
+    case 'crossed': return at('in saltire');
     case 'pair': return a.pair;
   }
 }
@@ -122,6 +123,39 @@ export interface Share { index: number; counts: readonly number[] }
 export type SecondaryPosition = Extract<Position, 'chief' | 'base' | 'canton'>;
 export const SECONDARY_POSITIONS: readonly SecondaryPosition[] = ['chief', 'base', 'canton'];
 export const isSecondaryPosition = (p: Position | null): p is SecondaryPosition => p === 'chief' || p === 'base' || p === 'canton';
+
+/** Where a primary charge group stands in a part of the field: a half (in dexter), or a quarter (in dexter chief; also the corner a field cut per bend leaves). */
+export const HALF_POSITIONS = ['dexter', 'sinister', 'dexter-chief', 'sinister-chief', 'dexter-base', 'sinister-base'] as const;
+export type HalfPosition = (typeof HALF_POSITIONS)[number];
+export const isHalfPosition = (p: Position | null): p is HalfPosition => (HALF_POSITIONS as readonly (Position | null)[]).includes(p);
+
+/** The layouts of a primary charge group of `count` in a half or quarter: one charge alone, two in pale or in fess, three or four in rows; more don't fit. */
+const MAX_IN_HALF = 4;
+export function halfLayouts(position: HalfPosition, count: number): Layout[] {
+  if (count === 1) return [single(position)];
+  if (count === 2) {
+    const dirs: LineDir[] = position === 'dexter' || position === 'sinister' ? ['pale', 'fess'] : ['fess', 'pale'];
+    return dirs.map((dir) => line(dir, position));
+  }
+  return count > MAX_IN_HALF ? [] : ROW_PATTERNS.filter((r) => r.reduce((a, b) => a + b, 0) === count).map((r): Layout => ({ ...rows(r), position }));
+}
+
+/**
+ * Where charges that have no contrast with one part of a divided field stand, by the part they lie in (GoT Table 7: they are
+ * forced into the part they contrast with): the first part's place, the second's. Per quarterly, the first quarter of each part.
+ */
+const PART_POSITIONS: Partial<Record<Division, readonly [Position, Position]>> = {
+  'per-fess': ['chief', 'base'], 'per-chevron': ['chief', 'base'], 'per-pale': ['dexter', 'sinister'],
+  'per-bend': ['sinister-chief', 'dexter-base'], 'per-bend-sinister': ['dexter-chief', 'sinister-base'], quarterly: ['dexter-chief', 'sinister-chief'],
+};
+
+/** The layout of `count` charges forced into a part of the field, or null for a count the builder doesn't lay out there. */
+function forcedLayoutIn(position: Position, count: number, quarterly: boolean): Layout | null {
+  if (position === 'chief' || position === 'base') return count === 1 ? single(position) : line('fess', position);
+  // Two on a field in four go one in each of the other parts (Table 7's four-part row), not both into one quarter.
+  if (!isHalfPosition(position) || (quarterly && count > 1)) return null;
+  return count <= 3 ? halfLayouts(position, count)[0] : null;
+}
 
 /** The contexts whose charges are laid out in the shield's frame by the generic engine: not charges on the primary charges, which are laid out in those, nor charges overall, which stand as a lone primary does. */
 export type GroundContext = Exclude<LayoutContext, { k: 'on-charge' | 'overall' }>;
@@ -369,11 +403,12 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: n
   const paint = group.paint;
 
   // Table 7 intro: charges with no contrast with a section go where they contrast (not into room left for a secondary group).
-  if ((division === 'per-fess' || division === 'per-chevron') && ctx.share === null && !hasChief(ctx.peripheral) && ctx.yields === 'none' && paint.k === 'tincture' && pair && pair[0] !== pair[1]) {
+  const places = division === null ? undefined : PART_POSITIONS[division];
+  if (places && ctx.share === null && !hasChief(ctx.peripheral) && ctx.yields === 'none' && paint.k === 'tincture' && pair && pair[0] !== pair[1]) {
     const i = pair.indexOf(paint.t);
     if (i >= 0 && contrastFailure(paint.t, [pair[1 - i]]) === null) {
-      const position = i === 1 ? 'chief' : 'base';
-      return { layout: count === 1 ? single(position) : line('fess', position), rule: '0' };
+      const forced = forcedLayoutIn(places[1 - i], count, division === 'quarterly');
+      if (forced) return { layout: forced, rule: '0' };
     }
   }
   if (count === 1) return { layout: single(), rule: '1' };
@@ -442,6 +477,7 @@ function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDef
   if (count >= 5 && ctx.peripheral === 'none' && ctx.yields === 'none') out.push(pattern('orle'));
   if (!hasChief(ctx.peripheral) && ctx.yields === 'none') {
     for (const position of ['chief', 'base'] as const) out.push(count === 1 ? single(position) : line('fess', position));
+    for (const position of HALF_POSITIONS) out.push(...halfLayouts(position, count));
   }
   if (count === 1) out.push(single());
   const seen = new Set<string>();
@@ -517,9 +553,27 @@ function forcedRuleOf(d: Design, group: Group, host: Group | null): Layout | nul
   return ruled !== null && (ruled.rule === '0' || ruled.rule === '2-four-part') ? ruled.layout : null;
 }
 
+/** The place Table 7 forces a field group into by tincture (the blazon leaves it out: the tinctures say it), or null. */
+export function forcedPosition(d: Design, path: GroupPath): Position | null {
+  return forcedLayout(d, path)?.position ?? null;
+}
+
+/**
+ * The layout of a charge group that states an arrangement other than the one Table 7 forces it into: that arrangement in the part
+ * the group is forced into by tincture ("three mullets one and two"), when it can take it there; null when the group isn't forced,
+ * states the forced arrangement (it stands as stated, where the arrangement puts it), or can't take it there.
+ */
+export function inForcedPart(d: Design, group: Group, host: Group | null, arrangement: Arrangement): Layout | null {
+  const ctx = contextOf(d, group, host);
+  const forced = ctx?.k === 'field' ? forcedRuleOf(d, group, host) : null;
+  if (!ctx || !forced?.position || sameLayout({ arrangement, position: null }, { arrangement: forced.arrangement, position: null })) return null;
+  const layout: Layout = { arrangement, position: forced.position };
+  return candidatesFor(group, ctx, group.count, forced).some((l) => sameLayout(l, layout)) ? layout : null;
+}
+
 /**
  * The layout the builder knows Table 7 forces this charge group into by tincture, or null when it knows none here
- * (the forcing into one part of a field divided per bend, per pale, quarterly… is not drawn: a gap).
+ * (the forcing into one part is drawn for few charges, more in a half than a quarter: elsewhere it is a gap).
  */
 export function forcedLayout(d: Design, path: GroupPath): Layout | null {
   const { group, host } = groupAndHost(d, path);

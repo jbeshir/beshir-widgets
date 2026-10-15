@@ -10,7 +10,7 @@ import { CHARGES, postureTerm, type ChargeCategory } from './charges';
 import { hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
 import { DIVISION_NAME } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
-import { contextOf, layoutContext, layoutWords, statesLayout } from './arrangement';
+import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
 
 function paintWord(p: Paint): string {
@@ -58,19 +58,23 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
   if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureTerm(g.item.charge, g.item.posture));
   words.push(...g.item.mods.map(modifierWords));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
-  const layout = layoutWords({ arrangement: g.arrangement, position: g.position });
+  // Charges Table 7 forces into one part of the field by tincture are not said to stand there; how they stand there still is.
+  const forced = !options.stateDefaults && g.position !== null && g.position === forcedPosition(d, path);
+  if (forced && g.arrangement.k === 'single') return words.join(' ');
+  const position = forced ? null : g.position;
+  const layout = layoutWords({ arrangement: g.arrangement, position });
   // Two co-primary groups share one arrangement, said once: a line leads the first ("in pale a crescent and a mullet"), a pattern follows the second.
   const ctx = layoutContext(d, path);
   if (ctx.k === 'field' && ctx.share) {
-    const leads = g.position !== null || g.arrangement.k === 'line';
+    const leads = position !== null || g.arrangement.k === 'line';
     return ctx.share.index === 0 ? (leads ? `${layout} ${words.join(' ')}` : words.join(' ')) : (leads ? words.join(' ') : `${words.join(' ')} ${layout}`);
   }
   // Lines and positions lead ("in pale two keys"); count patterns follow ("five roses two, two and one", RULES §F.3), after the
   // position when there is one ("in chief five mullets three and two", "in base two swords in saltire").
-  if (g.position !== null && (g.arrangement.k === 'rows' || g.arrangement.k === 'crossed')) {
-    return `${layoutWords({ arrangement: { k: 'single' }, position: g.position })} ${words.join(' ')} ${layoutWords({ arrangement: g.arrangement, position: null })}`;
+  if (position !== null && (g.arrangement.k === 'rows' || g.arrangement.k === 'crossed' || (g.arrangement.k === 'line' && isHalfPosition(position)))) {
+    return `${layoutWords({ arrangement: { k: 'single' }, position })} ${words.join(' ')} ${layoutWords({ arrangement: g.arrangement, position: null })}`;
   }
-  return g.position !== null || g.arrangement.k === 'line' ? `${layout} ${words.join(' ')}` : `${words.join(' ')} ${layout}`;
+  return position !== null || g.arrangement.k === 'line' ? `${layout} ${words.join(' ')}` : `${words.join(' ')} ${layout}`;
 }
 
 /** "a bend", or "on a bend" when something sits on it. */

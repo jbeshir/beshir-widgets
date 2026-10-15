@@ -126,11 +126,11 @@ describe('a mixed ground is classed by area (SENA A3B1, A3B4a)', () => {
 // REVIEW.md M4: GoT Table 7 forces charges with no contrast into the part they contrast with; where the builder
 // doesn't draw that, the design is a gap ("unsupported"), not a violation.
 describe('charges Table 7 forces into one part of the field', () => {
-  it('are an arrangement gap where the builder has no forced layout (regid:92414)', () => {
-    const d = nd(arms(div('per-bend-sinister', 'argent', 'azure'), chg('mullet', 'azure', { count: 3, arrangement: 'rows-1-2' })));
+  it('are an arrangement gap where the builder has no forced layout: more than three in a half', () => {
+    const d = nd(arms(div('per-pale', 'argent', 'azure'), chg('mullet', 'azure', { count: 4 })));
     expect(tinctureIssues(d)).toEqual([{
       code: 'unsupported', at: { k: 'group', path: [0] }, gap: { category: 'arrangement', detail: 'forced-into-one-part' },
-      message: 'All three Azure mullets would have to sit only on the Argent part of the field, which isn\'t available in this builder yet.',
+      message: 'All four Azure mullets would have to sit only on the Argent part of the field, which isn\'t available in this builder yet.',
     }]);
     expect(normalise(d)).toMatchObject({ ok: false, errors: [{ code: 'unsupported' }] });
   });
@@ -192,7 +192,7 @@ describe('plain tinctures on plain, divided and neutral grounds', () => {
   it('accepts anything but the grounds’ own tinctures on an evenly divided metal and colour', () => {
     for (const t of TINCTURES) {
       const expectOk = t !== 'argent' && t !== 'sable';
-      expect(validate(nd(arms(div('per-pale', 'argent', 'sable'), chg('lion', t)))).length === 0, t).toBe(expectOk);
+      expect(validate(nd(arms(div('per-saltire', 'argent', 'sable'), chg('lion', t)))).length === 0, t).toBe(expectOk);
     }
   });
 

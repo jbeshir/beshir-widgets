@@ -12,7 +12,7 @@ import {
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, MAX_CO_PRIMARY_TOTAL, ON_CHARGE_COUNTS, coPrimaries, aroundPrimaryLayouts, hostCounts, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
+  AROUND_COUNTS, MAX_CO_PRIMARY_TOTAL, ON_CHARGE_COUNTS, coPrimaries, aroundPrimaryLayouts, halfLayouts, hostCounts, isHalfPosition, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
 
 export { notSupported, UnsupportedConstructError } from './design';
@@ -123,9 +123,9 @@ function layoutGaps(g: Group, hasChief: boolean): Gap[] {
   if (a.k === 'rows' && !ROW_PATTERN_KEYS.has(a.rows.join('-'))) gaps.push(gap('arrangement', `rows-${a.rows.join('-')}`));
   if (g.position) {
     const layout = { arrangement: a, position: g.position };
-    // A primary group in chief or in base (with no chief), or a secondary group set by position in a layout it takes there.
+    // A primary group in chief or in base, or in a half or quarter (with no chief), or a secondary group set by position in a layout it takes there.
     const placed = g.role === 'primary'
-      ? (g.position === 'chief' || g.position === 'base') && !hasChief && (a.k === 'single' || (a.k === 'line' && a.dir === 'fess'))
+      ? !hasChief && (isHalfPosition(g.position) ? halfLayouts(g.position, g.count).some((l) => sameLayout(l, layout)) : (g.position === 'chief' || g.position === 'base') && (a.k === 'single' || (a.k === 'line' && a.dir === 'fess')))
       : g.role === 'secondary' && g.relation === 'position' && isSecondaryPosition(g.position)
         && positionLayouts(g.position, g.count, CHARGES[g.item.charge].long).some((l) => sameLayout(l, layout));
     if (!placed) gaps.push(gap('arrangement', `in-${g.position}`));

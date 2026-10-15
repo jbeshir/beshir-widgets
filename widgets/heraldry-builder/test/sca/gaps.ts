@@ -9,8 +9,8 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, hostCounts, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
-  type ChargeId, type OrdinaryType, type Posture,
+  CHARGES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, hostCounts, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  type ChargeId, type HalfPosition, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import {
@@ -292,6 +292,9 @@ interface Element {
 
 /** Where charges stand when the blazon sets them beside the primary ("and in chief three mullets"), by their `arr`. */
 const SECONDARY_POSITION_OF: Readonly<Record<string, 'chief' | 'base' | 'canton'>> = { 'in-chief': 'chief', 'in-base': 'base', 'in-canton': 'canton' };
+
+/** Where charges stand in a half or quarter of the field ("in dexter", "in sinister chief"), by their `arr`. */
+const HALF_POSITION_OF: Readonly<Record<string, HalfPosition>> = Object.fromEntries(HALF_POSITIONS.map((p) => [`in-${p}`, p]));
 
 const ARTICLES = new Set(['a', 'an', 'the', 'each', 'one', 'two', 'three', 'four', 'five', 'six', 'its', 'his', 'her']);
 
@@ -681,13 +684,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       }
       return i;
     }
-    if (SUPPORTED_ARRANGEMENT_WORDS[al]) {
-      if (words[i + 2] === 'point' || words[i + 2] === 'fess-point') { tag('arrangement', 'in-fess-point'); return i + 2; }
-      const arr = SUPPORTED_ARRANGEMENT_WORDS[al];
-      // "three roses in pale" arranges the charges before; "and in chief", "between in fess two roses" the charges after.
+    /** The arrangement the words at `i` name goes to the charges before it ("three roses in pale"), or to those after ("and in chief", "between in fess two roses"). */
+    const attach = (arr: string): void => {
       const before = look(i - 1)?.e.k;
       const prevEl = last?.kind === 'charge' && last.el && last.el.ctx !== 'held' && words[i - 1] !== BREAK && before !== 'and' && before !== 'between' ? last.el : null;
       if (prevEl && !prevEl.arr) prevEl.arr = arr; else pendingArr = arr;
+    };
+    if (SUPPORTED_ARRANGEMENT_WORDS[al]) {
+      if (words[i + 2] === 'point' || words[i + 2] === 'fess-point') { tag('arrangement', 'in-fess-point'); return i + 2; }
+      attach(SUPPORTED_ARRANGEMENT_WORDS[al]);
       return i + 1;
     }
     if (GAP_ARRANGEMENTS[al]) {
@@ -701,7 +706,13 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       if ((al === 'dexter' || al === 'sinister') && /^(talon|claw|paw|forepaw|hand|foot|mouth|beak|hoof)s?$/.test(b)) {
         held = true; tag('charge-modifier', 'maintaining'); return i + 2; // "maintaining in sinister talon a dagger"
       }
-      if ((al === 'dexter' || al === 'sinister') && /^(chief|base|canton|flank|point)$/.test(b)) { tag('arrangement', `in-${b}`); return i + 2; }
+      // "in dexter", "in sinister chief": a half or quarter of the field.
+      if (al === 'dexter' || al === 'sinister') {
+        const quarter = /^(chief|base)$/.test(b);
+        if (quarter || !/^(canton|flank|point)$/.test(b)) { attach(`in-${al}${quarter ? `-${b}` : ''}`); return quarter ? i + 2 : i + 1; }
+        tag('arrangement', `in-${b}`);
+        return i + 2;
+      }
       // "a lion and in canton a mullet": charges set in canton beside the primary
       if (al === 'canton' && look(i - 1)?.e.k === 'and' && last?.el && last.el.ctx === 'field') { pendingArr = 'in-canton'; return i + 1; }
       tag('arrangement', `in-${al === 'centre' ? 'center' : al}`);
@@ -929,7 +940,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       if (ORDINARY_KIND[type!] === 'central' && !hostCounts('between', type!).includes(count)) tag('placement', `between-${type}`);
       return;
     }
-    const position = g.ctx === 'field' && g.arr ? SECONDARY_POSITION_OF[g.arr] : undefined;
+    const position = g.ctx === 'field' && g.arr ? SECONDARY_POSITION_OF[g.arr] ?? HALF_POSITION_OF[g.arr] : undefined;
     if (o && !on && ORDINARY_KIND[type!] === 'central' && !position) { tag('placement', 'not-between'); return; }
     if (on || !judged && g.arr) return;
     // A charge group on the field, alone or under a chief or within a bordure: does a layout fit?

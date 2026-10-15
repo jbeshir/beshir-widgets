@@ -13,20 +13,19 @@ import {
   CHARGES, isChargeForm, isChargeId, isFacing, isHoldHow, isModifierId, isOrientation, isPartId, isPosture,
 } from './charges';
 import {
-  canonical, ROLE_ORDER, PLAIN_LINES,
+  canonical, ROLE_ORDER, PLAIN_LINES, POSITIONS,
   type Arrangement, type Charge, type Cotises, type Design, type Group, type GroupPath, type Held, type Issue, type IssueAt, type Item,
   type Lines, type Modifier, type Ordinary, type Paint, type PartPaint, type Position, type Relation, type Role,
 } from './design';
 import { isDivision, isTreatment, isVariation, partCount } from './divisions';
 import { isLine, isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, type OrdinaryMod } from './ordinaries';
-import { contextOf, defaultLayoutOf, isSecondaryPosition, layoutOfKey, shareTotal, type Layout } from './arrangement';
+import { contextOf, defaultLayoutOf, halfLayouts, inForcedPart, isHalfPosition, isSecondaryPosition, layoutOfKey, shareTotal, type Layout } from './arrangement';
 
 export type ResolveResult = { ok: true; design: Design } | { ok: false; errors: Issue[] };
 
 /** Deeper nesting than any real design; it keeps hostile input from exhausting the stack. */
 const MAX_DEPTH = 8;
 const MAX_COUNT = 20;
-const POSITIONS: readonly Position[] = ['chief', 'base', 'dexter-chief', 'sinister-chief', 'dexter', 'sinister', 'canton', 'flank', 'fess-point'];
 const RELATIONS: readonly Relation[] = ['between', 'about', 'position'];
 const LINE_DIRS = ['pale', 'fess', 'bend', 'bend-sinister'] as const;
 const PATTERNS = ['cross', 'saltire', 'orle', 'annulo', 'chevron', 'chevron-inverted', 'pall', 'pile'] as const;
@@ -380,9 +379,14 @@ function placeGroups(d: Design, raws: readonly RawGroup[], groups: readonly Grou
           const sum = stated.arrangement.rows.reduce((a, b) => a + b, 0), total = ctx?.k === 'field' ? shareTotal(ctx.share, g.count) : g.count;
           if (sum !== total) E.add(at, `The rows add up to ${sum}, not ${total}.`);
         }
-        return { ...g, arrangement: stated.arrangement, position: g.position ?? stated.position };
+        // Charges that Table 7 forces into one part of the field by tincture stand there; the blazon states only how they stand.
+        const forced = stated.position === null && g.position === null ? inForcedPart(d, g, host, stated.arrangement) : null;
+        return { ...g, arrangement: stated.arrangement, position: g.position ?? stated.position ?? forced?.position ?? null };
       }
-      if (r.position) return { ...g, arrangement: g.count === 1 ? { k: 'single' } : { k: 'line', dir: 'fess' } };
+      if (r.position) {
+        const inHalf = isHalfPosition(r.position) ? halfLayouts(r.position, g.count)[0] : undefined;
+        return { ...g, arrangement: inHalf?.arrangement ?? (g.count === 1 ? { k: 'single' } : { k: 'line', dir: 'fess' }) };
+      }
       const layout = defaultLayoutOf(d, g, host);
       return { ...g, arrangement: layout.arrangement, position: layout.position };
     })();

@@ -20,7 +20,13 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 - **Blazon.** The formal blazon ("Azure, on a bend Or three unicorns rampant Vert") and a
   plain-English gloss are generated from the structured design, never typed by hand, in
   SCA house style (Table 7 default arrangements are left unsaid, other arrangements always
-  stated; the SCA's default postures likewise).
+  stated; the SCA's default postures likewise). Charges that have no contrast with one part of a
+  divided field (a mullet azure on per pale argent and azure) stand in the other part, as Table 7
+  forces them to, and the blazon does not say where: a field divided per pale, per bend, per bend
+  sinister or quarterly puts one to three of them in dexter, sinister, or a quarter (sinister chief,
+  dexter base…), as per fess and per chevron put them in chief or in base. Any field without a chief
+  also lets the main charges be set "in dexter", "in sinister chief" and so on (one to four, one
+  alone, two in pale or in fess, or in rows).
 - **Registry.** Each community (a *registry*, e.g. one group of friends) keeps its own
   armorial. Registering checks the design against every entry: an exact duplicate is refused, and so
   is a design that is "too close": one that conflicts under the SCA's rules (SENA A5), which
@@ -670,11 +676,11 @@ drawing do not yet, and `resolve` reports them as `unsupported` rather than gues
   without it.
 - **Furs** (ermine, vair), **stains**, **proper**, **lines of partition** (wavy, indented, …),
   **field treatments** (barry, checky, semy, …) and charge attributes such as holding or
-  arming and half-field positions (dexter, sinister).
+  arming.
 - **More than the supported group combinations**: more than three charges in two main groups, three or more main groups, a band and a picture as the main ones together, charges around, on or across two main pictures, two charge groups beside the main one, more than one charge
   overall (or a pile, chief or bordure overall), tertiary charges on a secondary or overall charge (or with charges around the primary), charges in chief beside pictures set around a band, charges
   around three or more primary charges or "about" them, and positions other than in chief, in base and
-  in canton for a group beside the main one. A chief and
+  in canton for a group beside the main one (the main charges can be set in a half or quarter of the field). A chief and
   a bordure beside a band, with pictures on them, pictures in chief, base or canton, and pictures
   around the picture, and pictures on the picture, and a band or picture across everything are built (the extra layer cards).
 - **Art** is original placeholder drawing; traceable art is under discussion.

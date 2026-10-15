@@ -10,7 +10,7 @@ import { capacityIssue } from './layout';
 import { posturesClash } from './difference';
 import { groundShares } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
-import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type HostCharges, type LayoutContext } from './arrangement';
+import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type HostCharges, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
@@ -72,7 +72,10 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
   if (candidates.some((c) => layoutKey(c) === layoutKey(layout))) return null;
   if (g.count === 1) return 'A single charge sits alone in the centre.';
   const noun = capitalise(`${numberWord(g.count)} ${meta.plural}`);
-  return `${noun} can be arranged ${candidates.map(layoutWords).join(', ')} — not ${layoutWords(layout)}.`;
+  // In a half or quarter of the field is a way to set any of them; the rest are listed.
+  const here = candidates.filter((c) => !isHalfPosition(c.position));
+  const halves = here.length < candidates.length ? ', or in a half or quarter of the field' : '';
+  return `${noun} can be arranged ${here.map(layoutWords).join(', ')}${halves} — not ${layoutWords(layout)}.`;
 }
 
 /**

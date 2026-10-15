@@ -5,7 +5,7 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
 import { type OrdinaryType } from './ordinaries';
-import { aroundWords, betweenWords, coPrimaries, primaryCharges, type Layout } from './arrangement';
+import { aroundWords, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type HalfPosition, type Layout } from './arrangement';
 
 const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   fess: 'horizontal band across the middle',
@@ -66,10 +66,19 @@ function ordinaryGloss(d: Design, g: Group): string {
 
 /** Where charges set in chief, base or canton in a pattern stand, before the pattern's own words. */
 const PATTERN_PLACE: Partial<Record<Position, string>> = { chief: 'along the top', base: 'along the bottom', canton: 'in the top-left corner' };
+/** Where charges set in a half or quarter of the field stand, as you look at it. */
+const HALF_PLACE: Record<HalfPosition, string> = {
+  dexter: 'on the left half', sinister: 'on the right half',
+  'dexter-chief': 'in the top-left quarter', 'sinister-chief': 'in the top-right quarter', 'dexter-base': 'in the bottom-left quarter', 'sinister-base': 'in the bottom-right quarter',
+};
 
 /** The words for a layout, or null when it needs none (a lone charge, or charges placed by their host). */
 function layoutGloss(l: Layout, count: number): string | null {
   const a: Arrangement = l.arrangement;
+  if (isHalfPosition(l.position)) {
+    const inner = a.k === 'single' ? null : layoutGloss({ arrangement: a, position: null }, count);
+    return inner ? `${HALF_PLACE[l.position]}, ${inner}` : HALF_PLACE[l.position];
+  }
   if (l.position !== null && (a.k === 'rows' || a.k === 'crossed')) {
     const where = PATTERN_PLACE[l.position] ?? notSupported({ category: 'arrangement', detail: `in-${l.position}` });
     return `${where}, ${layoutGloss({ arrangement: a, position: null }, count)}`;

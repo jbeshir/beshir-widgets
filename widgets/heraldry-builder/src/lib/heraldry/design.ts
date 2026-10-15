@@ -72,7 +72,8 @@ export type Arrangement =
   | { k: 'crossed' }                       // two long charges in saltire
   | { k: 'pair'; pair: Pair };
 
-export type Position = 'chief' | 'base' | 'dexter-chief' | 'sinister-chief' | 'dexter' | 'sinister' | 'canton' | 'flank' | 'fess-point';
+export const POSITIONS = ['chief', 'base', 'dexter-chief', 'sinister-chief', 'dexter-base', 'sinister-base', 'dexter', 'sinister', 'canton', 'flank', 'fess-point'] as const;
+export type Position = (typeof POSITIONS)[number];
 export type Role = 'primary' | 'secondary' | 'peripheral' | 'overall' | 'tertiary';
 export type Relation = 'between' | 'about' | 'position';
 

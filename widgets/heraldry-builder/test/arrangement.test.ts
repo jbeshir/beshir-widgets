@@ -16,6 +16,7 @@ function table(field: unknown, count: number, paint = 'gules', id = 'rose', ...m
   return layout && layoutKey(layout);
 }
 
+const HALVES = ['dexter', 'sinister', 'dexter-chief', 'sinister-chief', 'dexter-base', 'sinister-base'];
 const candidates = (d: Design, path: number[], count: number) => layoutCandidates(d, path, count).map(layoutKey);
 
 describe('Table 7: primary charges', () => {
@@ -96,7 +97,8 @@ describe('Table 7: no-contrast forcing', () => {
   });
 
   it('does not apply to other divisions, to other tinctures or under a chief', () => {
-    expect(table(div('per-pale', 'or', 'vert'), 1, 'vert')).toBe('single');
+    expect(table(div('per-pale', 'or', 'vert'), 1, 'vert')).toBe('single@dexter');
+    expect(table(div('per-saltire', 'or', 'vert'), 1, 'vert')).toBe('single');
     expect(table(div('per-fess', 'or', 'vert'), 1, 'gules')).toBe('single');
     expect(table(div('per-fess', 'or', 'vert'), 1, 'vert', 'rose', group(ordinary('chief'), 'argent'))).toBe('single');
   });
@@ -155,9 +157,9 @@ describe('layout candidates', () => {
   };
 
   it('lists the table default first, then rows, lines, patterns, annulo, orle and positions', () => {
-    expect(plain(1)).toEqual(['single', 'in-chief', 'in-base']);
-    expect(plain(2)).toEqual(['in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-chief', 'in-base']);
-    expect(plain(3)).toEqual(['rows-2-1', 'rows-1-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-chief', 'in-base']);
+    expect(plain(1)).toEqual(['single', 'in-chief', 'in-base', ...HALVES.map((p) => `single@${p}`)]);
+    expect(plain(2)).toEqual(['in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-chief', 'in-base', 'in-pale@dexter', 'in-fess@dexter', 'in-pale@sinister', 'in-fess@sinister', 'in-fess@dexter-chief', 'in-pale@dexter-chief', 'in-fess@sinister-chief', 'in-pale@sinister-chief', 'in-fess@dexter-base', 'in-pale@dexter-base', 'in-fess@sinister-base', 'in-pale@sinister-base']);
+    expect(plain(3)).toEqual(['rows-2-1', 'rows-1-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-chief', 'in-base', ...HALVES.flatMap((p) => [`rows-2-1@${p}`, `rows-1-2@${p}`])]);
     expect(plain(5)).toEqual(['rows-2-2-1', 'rows-3-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-annulo', 'in-orle', 'in-chief', 'in-base']);
     expect(plain(6)).toEqual(['rows-3-2-1', 'rows-2-2-2', 'rows-3-3', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-annulo', 'in-orle', 'in-chief', 'in-base']);
   });
@@ -169,7 +171,7 @@ describe('layout candidates', () => {
   });
 
   it('puts the first row pattern of a count first when the table has no default', () => {
-    expect(plain(4)).toEqual(['rows-2-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-annulo', 'in-chief', 'in-base']);
+    expect(plain(4)).toEqual(['rows-2-2', 'in-pale', 'in-fess', 'in-bend', 'in-bend-sinister', 'in-cross', 'in-saltire', 'in-annulo', 'in-chief', 'in-base', ...HALVES.map((p) => `rows-2-2@${p}`)]);
     expect(plain(12)[0]).toBe('rows-4-4-4');
   });
 
@@ -191,7 +193,7 @@ describe('layout candidates', () => {
 
   it('starts with the forced layout where the table forces one', () => {
     const d = nd(arms(div('per-fess', 'or', 'vert'), group(charge('rose'), 'vert')));
-    expect(candidates(d, [0], 1)).toEqual(['in-chief', 'in-base', 'single']);
+    expect(candidates(d, [0], 1)).toEqual(['in-chief', 'in-base', ...HALVES.map((p) => `single@${p}`), 'single']);
   });
 
   it('offers only single for an ordinary', () => {
@@ -274,7 +276,8 @@ describe('layout keys', () => {
     expect(w('crossed', 2)).toBe('in saltire');
     expect(w('in-chief')).toBe('in chief');
     expect(w('single', 1)).toBe('single');
-    expect(w('in-fess@dexter-chief')).toBe('in dexter chief');
+    expect(w('in-fess@dexter-chief')).toBe('in dexter chief in fess');
+    expect(w('rows-2-1@sinister', 3)).toBe('in sinister two and one');
   });
 
   it('has the row patterns of the table, summing to their counts', () => {
@@ -303,6 +306,7 @@ describe('forced layouts and worded layouts', () => {
     expect(info(div('per-fess', 'or', 'vert'), 3, 'vert', 'in-pale')).toEqual({ forced: false, states: true });
     expect(info(div('per-fess', 'or', 'vert'), 1, 'vert', 'single')).toEqual({ forced: false, states: false });
   });
+
 
   it('always forces secondary and tertiary groups', () => {
     const d = nd(arms('azure', group(ordinary('fess'), 'or', { charged: [group(charge('rose'), 'gules', { count: 3 })] }), group(charge('mullet'), 'argent', { count: 3 })));

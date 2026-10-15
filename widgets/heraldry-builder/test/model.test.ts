@@ -157,7 +157,7 @@ describe('resolve: roles', () => {
     expect(both.groups.map((g) => g.role)).toEqual(['primary', 'primary']);
     // Two main pictures are arranged together, so one in chief and one in base is not a layout they have.
     expect(gapTags(both)).toEqual([]);
-    expect(structuralIssues(both).map((i) => i.code === 'structure' && i.rule)).toEqual(['layout']);
+    expect(structuralIssues(both).map((i) => i.code === 'structure' && i.rule)).toEqual(['layout', 'capacity', 'capacity']);
   });
 
   it('sets charges the input relates "between" a primary charge group around it, as a secondary group (SENA App I1)', () => {
@@ -607,8 +607,8 @@ describe('structure rules', () => {
     });
 
     it('rejects a layout the count can not take, naming the ones it can', () => {
-      expect(roses(3, 'in-cross')).toEqual(['Three roses can be arranged two and one, one and two, in pale, in fess, in bend, in bend sinister, in annulo, in chief, in base — not in cross.']);
-      expect(roses(2, 'in-saltire')).toEqual(['Two roses can be arranged in pale, in fess, in bend, in bend sinister, in chief, in base — not in saltire.']);
+      expect(roses(3, 'in-cross')).toEqual(['Three roses can be arranged two and one, one and two, in pale, in fess, in bend, in bend sinister, in annulo, in chief, in base, or in a half or quarter of the field — not in cross.']);
+      expect(roses(2, 'in-saltire')).toEqual(['Two roses can be arranged in pale, in fess, in bend, in bend sinister, in chief, in base, or in a half or quarter of the field — not in saltire.']);
       expect(roses(4, 'in-orle')).toEqual(expect.arrayContaining([expect.stringMatching(/^Four roses can be arranged .* — not in orle\.$/)]));
     });
 

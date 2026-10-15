@@ -10,8 +10,8 @@ import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
-  type FieldContext, type GroundContext, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
+  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
+  type FieldContext, type GroundContext, type HalfPosition, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
   CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
@@ -100,6 +100,12 @@ const BORDURE_UNDER_CHIEF_AREA = area(12, 33, 88, 104);
 const CHIEF_POSITION_AREA = area(4, 4, 96, 36);
 const BASE_POSITION_AREA = area(10, 74, 90, 114);
 const CANTON_POSITION_AREA = area(4, 4, 36, 36);
+/** The halves and quarters of the heater primary charges can be set in: the lines of the divisions meet at the fess point. */
+const HALF_AREAS: Record<HalfPosition, Area> = {
+  dexter: area(4, 4, 50, 112), sinister: area(50, 4, 96, 112),
+  'dexter-chief': area(4, 4, 50, 50), 'sinister-chief': area(50, 4, 96, 50),
+  'dexter-base': area(4, 50, 50, 112), 'sinister-base': area(50, 50, 96, 112),
+};
 
 /** Where a secondary group set by position stands on the heater; the primary charges keep to the rest of the field. */
 const POSITION_AREAS: Record<SecondaryPosition, Area> = { chief: CHIEF_POSITION_AREA, base: BASE_POSITION_AREA, canton: CANTON_POSITION_AREA };
@@ -223,13 +229,16 @@ function crossIn(a: Area, count: number): Centre[] {
 
 function fieldCentres(ctx: FieldContext, count: number, layout: Layout): Centre[] | null {
   const areas = primaryAreas(ctx);
+  const half = isHalfPosition(layout.position) ? within(HALF_AREAS[layout.position], areas.straight) : null;
   const a = layout.position === 'chief' ? CHIEF_POSITION_AREA
     : layout.position === 'base' ? BASE_POSITION_AREA
-    : areas.straight;
+    : half ?? areas.straight;
   const [cx, cy] = centreOf(a);
   const reach = Math.min(width(a), height(a));
   const arr = layout.arrangement;
-  if (layout.position !== null && arr.k !== 'single' && !(arr.k === 'line' && arr.dir === 'fess')) return null;
+  // Along the top or bottom: one charge or a row. In a half or quarter: one charge, two in pale or in fess, or rows.
+  const placedLayout = half ? arr.k === 'single' || arr.k === 'rows' || (arr.k === 'line' && (arr.dir === 'pale' || arr.dir === 'fess')) : arr.k === 'single' || (arr.k === 'line' && arr.dir === 'fess');
+  if (layout.position !== null && !placedLayout) return null;
   switch (arr.k) {
     case 'single': return count === 1 ? [at(cx, cy)] : null;
     case 'line': {
@@ -625,6 +634,20 @@ function positionRoom(position: SecondaryPosition, shape: FieldShape): Pt[] {
   }
 }
 
+/** The half or quarter of a shape charges set there stand in: the lines of the divisions meet at the shape's fess point. */
+function halfRoom(position: HalfPosition, shape: FieldShape): Pt[] {
+  const { x, y } = shapeFrame(shape).fessPoint;
+  const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  switch (position) {
+    case 'dexter': return rect(-10, -10, x, 130);
+    case 'sinister': return rect(x, -10, 110, 130);
+    case 'dexter-chief': return rect(-10, -10, x, y);
+    case 'sinister-chief': return rect(x, -10, 110, y);
+    case 'dexter-base': return rect(-10, y, x, 130);
+    case 'sinister-base': return rect(x, y, 110, 130);
+  }
+}
+
 /** A polygon round a slot's glyph disc (its corners on the circle's outside), for keeping other charges clear of it. */
 function discPolygon(s: Slot): Pt[] {
   const r = (GLYPH_RADIUS * s.size) / Math.cos(Math.PI / 24);
@@ -641,6 +664,12 @@ function aroundRoom(peripheral: Peripheral, shape: FieldShape): Pt[] {
   const [cx, cy] = centreOf(box);
   const x0 = cx - (k * width(box)) / 2, x1 = cx + (k * width(box)) / 2, y0 = cy - (k * height(box)) / 2, y1 = cy + (k * height(box)) / 2;
   return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+}
+
+/** The ground of a layout: its context's, and for charges set in a half or quarter, that part of the shape. */
+function groundIn(ctx: GroundContext, layout: Layout, shape: FieldShape): Ground {
+  const ground = groundFor(ctx, shape);
+  return isHalfPosition(layout.position) ? { ...ground, within: halfRoom(layout.position, shape) } : ground;
 }
 
 export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
@@ -730,7 +759,7 @@ function heaterGeneric(ctx: Exclude<GroundContext, { k: 'around' }>, count: numb
   const centres = nominalCentres(ctx, count, layout);
   if (!centres) return [];
   const crossed = layout.arrangement.k === 'crossed';
-  const size = largestSize(centres, groundFor(ctx, CANONICAL_SHAPE), crossed);
+  const size = largestSize(centres, groundIn(ctx, layout, CANONICAL_SHAPE), crossed);
   if (size < 1) return [];
   return toSlots(centres, size);
 }
@@ -774,7 +803,7 @@ const SHIFTS = Array.from({ length: 21 }, (_, i) => -20 + 2 * i);
 function genericIn(ctx: Exclude<GroundContext, { k: 'around' }>, count: number, layout: Layout, shape: FieldShape): Slot[] {
   const heater = heaterGeneric(ctx, count, layout);
   if (shape === CANONICAL_SHAPE || heater.length === 0) return heater;
-  return mappedFromHeater(heater, groundFor(ctx, shape), layout.arrangement.k === 'crossed', shape);
+  return mappedFromHeater(heater, groundIn(ctx, layout, shape), layout.arrangement.k === 'crossed', shape);
 }
 
 /** The heater's slots drawn in another shape on its ground, as `genericIn` describes. */
@@ -834,7 +863,8 @@ const memo = new Map<string, Slot[]>();
  */
 export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] {
   if (!Number.isInteger(count) || count < 1 || count > MAX_DRAWN_COUNT) return [];
-  const key = `${JSON.stringify(ctx)}|${count}|${layoutKey(layout)}|${shape}`;
+  // The layout's own fields, not its key: one charge in chief and a row of them in chief share a key.
+  const key = `${JSON.stringify(ctx)}|${count}|${JSON.stringify(layout)}|${shape}`;
   let slots = memo.get(key);
   if (!slots) {
     // Charges overall stand as a lone primary does, in what the chief and bordure leave.
@@ -940,7 +970,7 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
   // Two co-primary groups share their room: fewer of either might fit, but which to take away is for the builder to say.
   if (l.ctx.k === 'field' && l.ctx.share) {
     const where = whereWords(l.ctx, l.layout);
-    return { most: 0, where, message: `There isn't room for both main pictures ${layoutWords(l.layout)} ${where} at a size that reads — try fewer, or another arrangement.` };
+    return { most: 0, where, message: `There isn't room for both main pictures ${layoutWords({ ...l.layout, position: null })} ${where} at a size that reads — try fewer, or another arrangement.` };
   }
   const layoutFor = (n: number): Layout => {
     const a = group.arrangement;
@@ -959,7 +989,7 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
   // Around the primary charges as many may fit in another layout of their count.
   const message = most === 0
     ? `${capitalise(CHARGES[id].plural)} can't be set ${where} like this.`
-    : most >= l.count ? `There isn't room for ${chargePhrase(id, l.count)} ${layoutWords(l.layout)} ${where} — choose another layout.`
+    : most >= l.count ? `There isn't room for ${chargePhrase(id, l.count)} ${layoutWords({ ...l.layout, position: null })} ${where} — choose another layout.`
     : `There isn't room for ${chargePhrase(id, l.count)} ${where} — at most ${most} fit.`;
   return { most, where, message };
 }

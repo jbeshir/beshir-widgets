@@ -102,11 +102,21 @@ const LAYOUT_PLAIN: Record<string, string> = {
   'in-chief': 'Along the top',
   'in-base': 'Along the bottom',
   'single@canton': 'In the top corner',
+  'single@dexter': 'In the left half',
+  'single@sinister': 'In the right half',
+  'single@dexter-chief': 'In the top-left quarter',
+  'single@sinister-chief': 'In the top-right quarter',
+  'single@dexter-base': 'In the bottom-left quarter',
+  'single@sinister-base': 'In the bottom-right quarter',
   'in-fess@canton': 'In a row in the top corner',
 };
 
 /** Where a layout set in chief, in base or in canton stands, by the position in its key. */
-const PLACE_WORDS: Readonly<Record<string, string>> = { chief: 'along the top', base: 'along the bottom', canton: 'in the top corner' };
+const PLACE_WORDS: Readonly<Record<string, string>> = {
+  chief: 'along the top', base: 'along the bottom', canton: 'in the top corner',
+  dexter: 'in the left half', sinister: 'in the right half',
+  'dexter-chief': 'in the top-left quarter', 'sinister-chief': 'in the top-right quarter', 'dexter-base': 'in the bottom-left quarter', 'sinister-base': 'in the bottom-right quarter',
+};
 
 const ROW_PLAIN: Record<string, string> = {
   '2-1': 'Two above, one below',
