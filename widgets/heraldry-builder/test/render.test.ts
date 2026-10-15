@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, chargePath, designTinctures, drawnBox, fieldRegions, fillCode, fillColours, fillTinctures, groupSlots, renderLayers, slotTransform, solidFill,
+  CHARGES, chargePath, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
   type Design, type FieldShape, type Fill, type Layer,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -173,11 +173,11 @@ describe('fills', () => {
     expect(fillCode({ k: 'split', parts: [] })).toBe('split()');
   });
 
-  it('list the colours they are made of in order of first use', () => {
-    expect(fillColours(split)).toEqual([{ k: 'tincture', t: 'azure' }, { k: 'tincture', t: 'or' }]);
-    expect(fillTinctures({ k: 'split', parts: [...split.parts, { clip: 'M2 2', fill: solidFill('azure') }] })).toEqual(['azure', 'or']);
-    expect(fillTinctures(pattern)).toEqual(['argent', 'sable']);
-    expect(fillTinctures({ k: 'split', parts: [] })).toEqual([]);
+  it('list the tinctures hatching draws for them in order of first use: a pattern only by its ground', () => {
+    expect(fillHatchTinctures({ k: 'split', parts: [...split.parts, { clip: 'M2 2', fill: solidFill('azure') }] })).toEqual(['azure', 'or']);
+    expect(fillHatchTinctures(pattern)).toEqual(['argent']);
+    expect(fillHatchTinctures({ k: 'split', parts: [] })).toEqual([]);
+    expect(fillHatchTinctures({ k: 'solid', colour: { k: 'proper', hex: '#8b5a2b' } })).toEqual([]);
   });
 });
 

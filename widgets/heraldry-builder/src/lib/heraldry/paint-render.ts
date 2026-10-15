@@ -72,18 +72,23 @@ function properFills(group: Group, slots: readonly Slot[]): SlotFill[] {
   }));
 }
 
-/** The colours a fill is made of, in order of first use. */
-export function fillColours(fill: Fill): SolidColour[] {
-  switch (fill.k) {
-    case 'solid': return [fill.colour];
-    case 'pattern': return [fill.spec.ground, ...fill.spec.marks.map((m) => m.colour)];
-    case 'split': return fill.parts.flatMap((p) => fillColours(p.fill));
-    default: return fill satisfies never;
-  }
+/** A fill that paints one thing: a flat colour or a pattern (a split is cut into these). */
+export type LeafFill = Extract<Fill, { k: 'solid' | 'pattern' }>;
+
+/** The leaves of a fill, in order. */
+const fillLeaves = (fill: Fill): LeafFill[] => (fill.k === 'split' ? fill.parts.flatMap((p) => fillLeaves(p.fill)) : [fill]);
+
+/**
+ * The tincture a leaf is hatched with when the shield is drawn without colour: a flat tincture's own, and a pattern's ground (its
+ * spots, bells, lines or strewn charges stay solid); none for a natural colour.
+ */
+export function hatchTincture(leaf: LeafFill): Tincture | null {
+  const colour = leaf.k === 'solid' ? leaf.colour : leaf.spec.ground;
+  return colour.k === 'tincture' ? colour.t : null;
 }
 
-/** The tinctures a fill is made of, in order of first use. */
-export const fillTinctures = (fill: Fill): Tincture[] => [...new Set(fillColours(fill).flatMap((c) => (c.k === 'tincture' ? [c.t] : [])))];
+/** The tinctures hatching draws for a fill, in order of first use. */
+export const fillHatchTinctures = (fill: Fill): Tincture[] => [...new Set(fillLeaves(fill).flatMap((l) => hatchTincture(l) ?? []))];
 
 /** A compact code naming a fill, for tests and tools to compare what is drawn without resolving `url(…)` references. */
 export function fillCode(fill: Fill): string {

@@ -127,9 +127,50 @@ describe('Shield hatching', () => {
     const svg = render(two, { hatching: true });
     expect(svg).toContain('<pattern');
     expect(attrs(svg, 'id').filter((i) => i.endsWith('-argent'))).toHaveLength(0);
-    expect(attrs(svg, 'id').filter((i) => i.endsWith('-or'))).toHaveLength(3);
+    // One hatch for each group of Or roses at its own pitch; neither the field nor a band is Or, so no shield-wide Or hatch.
+    expect(attrs(svg, 'id').filter((i) => i.endsWith('-or'))).toHaveLength(2);
     const gold = render(nd(arms('or', group(charge('rose'), 'gules', { count: 3 }))), { hatching: true });
     expect(attrs(gold, 'id').some((i) => i.endsWith('-or'))).toBe(true);
     expect(attrs(gold, 'id').some((i) => i.includes('-g0-gules'))).toBe(true);
+  });
+
+  /** The ids of the hatch patterns, tiles and masks a shield defines, and those its elements use. */
+  const hatchIds = (svg: string) => attrs(svg, 'id').filter((i) => /^hatch-/.test(i));
+  const used = (svg: string) => new Set([...svg.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]));
+
+  it('defines only the hatching it draws', () => {
+    for (const d of [two, nd(arms('azure', group(charge('lion'), 'or'))), nd(arms({ k: 'fur', fur: 'vair', colours: ['or', 'gules'] }, group(ordinary('chief'), 'azure')))]) {
+      const svg = render(d, { hatching: true });
+      expect(hatchIds(svg).filter((i) => !used(svg).has(i)), svg).toEqual([]);
+    }
+  });
+
+  it('hatches the ground of a fur, a treatment and a semy through a mask of its tile, its marks left solid', () => {
+    const designs = [
+      nd(arms({ k: 'fur', fur: 'vair', colours: ['or', 'gules'] })),
+      nd(arms({ k: 'treated', treatment: 'masoned', ground: { k: 'tincture', t: 'vert' }, ink: 'or' }, group(charge('lion'), 'argent'))),
+      nd(arms({ k: 'semy', ground: { k: 'tincture', t: 'azure' }, charge: { charge: 'mullet', form: null }, ink: { k: 'tincture', t: 'or' } })),
+      nd(arms('azure', group(charge('lion'), { k: 'fur', fur: 'erminois', colours: null }))),
+      nd(arms('gules', group(ordinary('fess'), { k: 'treated', treatment: 'scaly', ground: { k: 'tincture', t: 'or' }, ink: 'sable' }))),
+    ];
+    const grounds = ['or', 'vert', 'azure', 'or', 'or'];
+    designs.forEach((d, n) => {
+      const svg = render(d, { hatching: true });
+      const masks = attrs(svg, 'id').filter((i) => i.startsWith('hatch-mask-'));
+      expect(masks.length, svg).toBe(1);
+      // The hatch drawn through the mask is the ground's.
+      const masked = new RegExp(`fill="url\\(#(hatch-[^)]+)\\)"[^>]*mask="url\\(#${masks[0]}\\)"`).exec(svg);
+      expect(masked, svg).not.toBeNull();
+      expect(masked![1].endsWith(`-${grounds[n]}`), svg).toBe(true);
+      // The mask's tile: white ground, black marks; no hatch for the marks' tincture.
+      const tile = attrs(svg, 'id').find((i) => i.startsWith('hatch-tile-'))!;
+      expect(svg).toMatch(new RegExp(`<pattern id="${tile}"[^>]*><rect[^>]*fill="#fff"`));
+      expect(svg).toContain('fill="#000"');
+      expect(hatchIds(svg).filter((i) => !used(svg).has(i)), svg).toEqual([]);
+    });
+    // Ermine is argent with sable spots: argent takes no hatching, so the lion has no mask, but the spots stay.
+    const ermine = render(nd(arms('azure', group(charge('lion'), { k: 'fur', fur: 'ermine', colours: null }))), { hatching: true });
+    expect(ermine).not.toContain('hatch-mask-');
+    expect(ermine).toContain('<pattern id="pattern-');
   });
 });

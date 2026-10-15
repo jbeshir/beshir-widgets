@@ -61,7 +61,7 @@ export { treatedName, treatedGloss } from './treatment';
 export { hasNaturalColours, properChoice, setProper } from './proper-options';
 export { furPattern, treatmentPattern, colourHex, ERMINE_SPOT } from './patterns';
 export { renderLayers, badgeView, designTinctures, type Layer } from './render';
-export { fillCode, fillColours, fillTinctures, solidFill, type Fill, type SlotFill } from './paint-render';
+export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';
 export { CHARGE_ART, MODIFIER_ART, ART_ON_BOX, chargePath, chargeOnBox, type ArtBox } from './charge-art';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';

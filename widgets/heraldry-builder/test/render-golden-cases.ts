@@ -31,7 +31,7 @@ function hash(text: string): string {
 }
 
 /** The markup with the per-instance id fragment and the attributes that only describe the fills to the SCA render check removed. */
-const comparable = (svg: string) => svg.replace(/(hatch|region-clip|charge-clip|shield-clip)-s\d+/g, '$1-sN').replace(/ data-(?:paint|charge-tincture)="[^"]*"/g, '');
+const comparable = (svg: string) => svg.replace(/(hatch|hatch-tile|hatch-mask|region-clip|charge-clip|shield-clip)-s\d+/g, '$1-sN').replace(/ data-(?:paint|charge-tincture)="[^"]*"/g, '');
 
 export function goldenRenders(): Record<string, string> {
   const out: Record<string, string> = {};
