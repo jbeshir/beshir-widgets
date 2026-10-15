@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-// `npm run golden:write` only: regenerates test/fixtures/slot-golden.json and render-golden.json (test/*-golden-write.ts) in plain
+// `GOLDEN_REASON="…" npm run golden:write` only: regenerates test/fixtures/slot-golden.json and render-golden.json (test/*-golden-write.ts) in plain
 // Node. Kept out of vitest.config.ts so `npm test` never rewrites the fixture.
 export default defineConfig({
   test: {
