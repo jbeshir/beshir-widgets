@@ -48,7 +48,7 @@ const partyFill = (p: PartyPaint, centre: { x: number; y: number }, turn: number
 
 /** A variation of two tinctures laid out over `box`, turned `turn` degrees: each tincture within its region. */
 const variationFill = (v: VariationPaint, box: Box, turn: number): Fill =>
-  ({ k: 'split', parts: variationRegions(v.variation, v.pieces, box, turn).map((clip, i) => ({ clip, fill: solidFill(v.parts[i].t) })) });
+  ({ k: 'split', parts: variationRegions(v.variation, v.pieces, v.lines, box, turn).map((clip, i) => ({ clip, fill: solidFill(v.parts[i].t) })) });
 
 /** The variation of a group, which only a variation of two tinctures is. */
 const variationOf = (p: Paint): VariationPaint => asVariation(p) ?? notSupported({ category: 'field-treatment', detail: p.k });

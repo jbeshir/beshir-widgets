@@ -240,3 +240,29 @@ describe('stating the defaults (the same design, as a blazon that states them)',
     expect(stated('azure', ord('chevron', 'or'), chg('rose', 'argent', { count: 3 }))).toBe('Azure, a chevron Or between three roses argent.');
   });
 });
+
+describe('lines of the field', () => {
+  const lined = (division: string, a: string, b?: string) => ({ ...div(division, 'or', 'gules'), lines: b ? { a, b } : { a } });
+  const varied = (variation: string, a: string, pieces: number | null = null) => ({ k: 'variation', variation, pieces, lines: { a }, parts: ['argent', 'azure'] });
+
+  it('writes the line after the division and before the tinctures (RULES-C §G.1)', () => {
+    expect(say({ ...div('per-pale', 'argent', 'azure'), lines: { a: 'wavy' } })).toBe('Per pale wavy argent and azure.');
+    expect(say(lined('per-bend-sinister', 'engrailed'))).toBe('Per bend sinister engrailed Or and gules.');
+    expect(say(lined('per-chevron', 'ploye'))).toBe('Per chevron ployé Or and gules.');
+    expect(say(lined('per-fess', 'grady'))).toBe('Per fess embattled grady Or and gules.');
+    expect(say(lined('per-fess', 'embattled'), chg('lion', 'argent'))).toBe('Per fess embattled Or and gules, a lion argent.');
+  });
+
+  it('names the one line of a quarterly field drawn complex, and none when both are', () => {
+    expect(say(lined('quarterly', 'plain', 'embattled'))).toBe('Quarterly per fess embattled Or and gules.');
+    expect(say(lined('quarterly', 'wavy', 'plain'))).toBe('Quarterly per pale wavy Or and gules.');
+    expect(say(lined('quarterly', 'embattled'))).toBe('Quarterly embattled Or and gules.');
+    expect(say(lined('quarterly', 'wavy', 'embattled'))).toBe('Quarterly per pale wavy and per fess embattled Or and gules.');
+  });
+
+  it('writes a variation\'s line before its count', () => {
+    expect(say(varied('barry', 'wavy', 8))).toBe('Barry wavy of eight argent and azure.');
+    expect(say(varied('paly', 'nebuly'))).toBe('Paly nebuly argent and azure.');
+    expect(say(varied('bendy-sinister', 'dancetty', 4))).toBe('Bendy sinister dancetty of four argent and azure.');
+  });
+});

@@ -115,7 +115,8 @@ neighbours, and that each slot lies on the same parts of a divided field as its 
 
 Old drafts (saved before shapes existed) and requests without a `shape` use the heater shield.
 
-**Lines of partition** (`lines.ts`, `contour.ts`) are not drawn yet; the library that will draw them is in place. `lines.ts` holds the
+**Lines of partition** (`lines.ts`, `contour.ts`) are drawn by the library on the field's divisions and counted variations (the builder
+doesn't offer them yet: `support.ts` keeps them gapped, and lines on ordinaries come next). `lines.ts` holds the
 registry (the lines, their SENA App M2 groups and `lineDiffers`, the hosts each may go on, how many independent edges each host has,
 what a bare line means on it, and the blazon words and spellings) and one periodic-edge generator: each line has an original
 placeholder profile, one period that is fitted a whole number of times to the visible length of an edge (within SENA A2C1's repeat
@@ -123,6 +124,18 @@ bounds), centred on an anchor and drawn only over a span, straight beyond it. A 
 wavy, dancetty and counter-embattled edges run in phase and indented, bretessed and engrailed ones mirror. With + away from a band,
 engrailed arcs bite into it and their points face out, invected arcs bulge out. `contour.ts` builds a closed
 outline from straight, curved or lined edges; with every edge plain it gives exactly the polygon paths drawn today.
+A line of the field is laid once along its whole length (`LaidLine`: one run, its period fitted to the chord the shape shows), and
+each region edge on it draws its piece of that run, either way round (`runAlong`, `reversedRun`), so the parts meet exactly. Its
+features face chief, or dexter on an upright line (RULES-C §A.2: per fess engrailed has its points up); a one-sided line (engrailed,
+invected, indented, bretessed) is moved back half its depth so it straddles where the plain line runs; per chevron's limbs, per
+saltire's lines and quarterly's lines break at a period's end where they meet. A barry, paly or bendy field draws every stripe
+boundary with the same line in phase, so the stripes keep one width (the depth at most 0.8 of a stripe). With a complex line,
+`partIndexAt` tests the drawn regions. Rules: a line its host can't take (dancetty on a division, enarched or ployé off their hosts)
+and SENA App H (a complex line between sable and azure or sable and purpure; one between two colours or two metals with a charge over
+it) are structure issues (`line`); per fess with a chief is refused (A3D1c) only when the two lines could be one fess
+(`couldBeOneFess`); a change of style of half the partition lines is a distinct change (`field-line`, A5G1c). The blazon writes the
+line after the division ("Per pale wavy argent and azure", "Quarterly per fess embattled Or and gules", "Barry wavy of eight …"), the
+signature after the division or variation and its pieces (`per-pale~wavy(…)`, `quarterly~plain/embattled(…)`).
 
 ## Tinctures and hatching
 
@@ -738,6 +751,8 @@ npm run favicon
 ```
 
 - `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain, widened and narrowed by its lines' depth otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
+- `test/lines-field.test.ts`: lines on the field — the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating third elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
+- `test/signature.test.ts`: the signature is unchanged for designs phase B could draw (pinned, `test/signature-cases.ts`), one-to-one over lined and generated designs, and every id ends in a letter.
 - `test/lines.test.ts`: the line registry (SENA App M2 groups, the hosts each line may go on, the edges each host has and what a bare line means on it) and the periodic-edge generator and contours (whole periods within the repeat bounds on every shape, features inside their span, bands' edges in phase or opposed, plain contours byte-identical to the polygons the phase-B shapes draw, captured in `test/fixtures/straight-contours.json`).
 - `test/model.test.ts`, `arrangement`, `layout` (including ordinaries that aren't plain: the generic engine keeps their charges clear of or inside the envelopes), `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:

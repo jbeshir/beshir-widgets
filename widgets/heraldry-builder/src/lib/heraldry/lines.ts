@@ -20,6 +20,10 @@ export const LINES = ['plain', 'embattled', 'wavy', 'engrailed', 'invected', 'in
 export type Line = (typeof LINES)[number];
 export type ComplexLine = Exclude<Line, 'plain'>;
 
+/** The lines the edge rows offer, in order of how often the O&A uses them (RULES-C §I.1). */
+export const DRAWN_LINES: readonly ComplexLine[] = ['embattled', 'wavy', 'engrailed', 'indented', 'rayonny', 'invected', 'dovetailed',
+  'raguly', 'nebuly', 'potenty', 'bretessed', 'urdy', 'dancetty', 'enarched', 'ploye', 'grady'];
+
 export function isLine(v: unknown): v is Line {
   return typeof v === 'string' && (LINES as readonly string[]).includes(v);
 }
@@ -475,4 +479,53 @@ export function polylineEdgeCommands(points: readonly Pt[], run: EdgeRun): strin
     if (done < length - EPS) out.push(...straight(done, length));
     return { commands: commands(out), points: flatten(points[0], out) };
   }).commands;
+}
+
+// ── Lines laid across the field ─────────────────────────────────────────────
+
+/** Whether a profile is symmetric about u = ½ (the mirrored and the single profiles); the parallel ones are antisymmetric, v(1−u) = −v(u). */
+const isSymmetric = (line: ComplexLine): boolean => LINE_PROFILE[line].pairing === 'mirrored' || LINE_PROFILE[line].kind === 'single';
+
+/**
+ * The run that draws the same edge from b back to a (an edge two regions share, each drawing it its own way round): anchor and span
+ * measured from the other end; a symmetric profile turns to the other side of travel and an antisymmetric one stays, so the drawn line
+ * is the same.
+ */
+export function reversedRun(run: EdgeRun, length: number): EdgeRun {
+  const side: 1 | -1 = isSymmetric(run.line) ? (run.side === 1 ? -1 : 1) : run.side;
+  return { ...run, side, anchor: length - run.anchor, span: [length - run.span[1], length - run.span[0]] };
+}
+
+/** A complex line laid along a straight line through the field: one run, measured from `origin` along the unit `dir`, that every edge lying on the line draws a piece of, so the regions either side of it meet. */
+export interface LaidLine { readonly origin: Pt; readonly dir: Pt; readonly run: EdgeRun }
+
+/** The run drawing the part a→b of a laid line (a and b on it, either way round). */
+export function runAlong(laid: LaidLine, a: Pt, b: Pt): EdgeRun {
+  const at = ([x, y]: Pt) => (x - laid.origin[0]) * laid.dir[0] + (y - laid.origin[1]) * laid.dir[1];
+  const sa = at(a), sb = at(b);
+  const from = Math.min(sa, sb);
+  const forward: EdgeRun = { ...laid.run, anchor: laid.run.anchor - from, span: [laid.run.span[0] - from, laid.run.span[1] - from] };
+  return sb >= sa ? forward : reversedRun(forward, sa - sb);
+}
+
+/** The side a line of the field puts its features on (RULES-C §A.2): toward chief, or toward dexter on an upright line. `dir` is the way it is drawn. */
+export function fieldSide([dx, dy]: Pt): 1 | -1 {
+  return Math.abs(dx) > EPS ? (dx > 0 ? 1 : -1) : dy < 0 ? 1 : -1;
+}
+
+let featureMiddles: Record<ComplexLine, number> | null = null;
+
+/**
+ * Where a periodic line's features lie across it, in depths along its + side: midway between its peaks and its valleys. 0 for the
+ * antisymmetric profiles, which straddle their line already; ±½ for the one-sided ones (engrailed, invected, indented, bretessed), which
+ * a line of the field is moved back by so that it straddles its nominal line too. 0 for a single feature, which starts and ends on it.
+ */
+export function featureMiddle(line: ComplexLine): number {
+  featureMiddles ??= Object.fromEntries(LINES.filter((l): l is ComplexLine => l !== 'plain').map((l) => {
+    const p = LINE_PROFILE[l];
+    if (p.kind === 'single') return [l, 0];
+    const vs = flatten([0, 0], p.period).map(([, v]) => v);
+    return [l, (Math.min(...vs) + Math.max(...vs)) / 4];
+  })) as Record<ComplexLine, number>;
+  return featureMiddles[line];
 }

@@ -9,6 +9,7 @@ import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
+import { LINE_WORD, type Line } from './lines';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
 
 type FurLayout = FurSpec['layout'];
@@ -88,6 +89,15 @@ function withTerms<K extends string>(plain: Record<K, string>, name: Record<K, s
 
 export const DIVISION_LABEL: Record<Division, PlainTerm> = withTerms(DIVISION_PLAIN, DIVISION_NAME);
 export const ORDINARY_LABEL: Record<OrdinaryType, PlainTerm> = withTerms(ORDINARY_PLAIN, ORDINARY_NAME);
+
+const LINE_PLAIN: Record<Line, string> = {
+  plain: 'Straight', embattled: 'Battlements', wavy: 'Wavy', engrailed: 'Scalloped (points out)', invected: 'Scalloped (points in)',
+  indented: 'Zigzag', dancetty: 'Big zigzag', nebuly: 'Cloudy', raguly: 'Ragged', rayonny: 'Flames', dovetailed: 'Dovetails', urdy: 'Pointed',
+  potenty: 'T-shapes', bretessed: 'Battlements both sides', grady: 'Steps', enarched: 'Arched', ploye: 'Bowed',
+};
+
+/** Lines of partition for chips and summaries: how each looks, and its heraldic word ("Straight · plain"). */
+export const LINE_LABEL: Record<Line, PlainTerm> = withTerms(LINE_PLAIN, { plain: 'plain', ...LINE_WORD });
 
 /** Everyday words for the layouts with a fixed label, by layout key; rows are worded from their numbers (`layoutLabel`). */
 const LAYOUT_PLAIN: Record<string, string> = {

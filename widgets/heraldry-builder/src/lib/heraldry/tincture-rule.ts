@@ -139,8 +139,11 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
   }
   if (d.kind === 'badge') return [];
   if (group.item.k === 'ordinary') {
-    if (d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === group.item.type) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
-    return [groundAt(d.field, ordinarySamples(specOf(group)), parts)];
+    const spec = specOf(group);
+    // On its own division's line only while it is drawn with that line (a fess wavy on per fess wavy); otherwise as sampled.
+    const onLine = d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === spec.type && d.field.lines.a === spec.lines.a && d.field.lines.b === spec.lines.b;
+    if (onLine) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
+    return [groundAt(d.field, ordinarySamples(spec), parts)];
   }
   return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(judgedSlot(group, s)), parts));
 }

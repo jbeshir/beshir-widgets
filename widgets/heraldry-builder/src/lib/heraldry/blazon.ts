@@ -10,8 +10,9 @@ import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
-import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
-import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME } from './divisions';
+import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
+import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
+import { LINE_WORD, type EdgeHost } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
@@ -55,18 +56,40 @@ function semyWord(p: Paint): string {
   return semy ? `${tinctureWord(semy.ground.t)} ${semyPhrase(semy.charge.charge, semy.ink.t)}` : notSupported(paintGaps(p, false, 'group')[0]);
 }
 
+/**
+ * The words of a host's lines, after its name (RULES-C §0, §G.1): nothing for plain; the line's word ("wavy", "embattled grady"); quarterly
+ * names the one line drawn when only one is ("quarterly per fess embattled"), and both when they differ.
+ */
+function lineWords(host: Extract<EdgeHost, { k: 'division' | 'variation' }>, { a, b }: Lines): string {
+  const word = (l: Lines['a']) => (l === 'plain' ? '' : LINE_WORD[l]);
+  switch (host.k) {
+    case 'division':
+      if (host.division !== 'quarterly' || a === b) return word(a);
+      return [a !== 'plain' ? `per pale ${word(a)}` : '', b !== 'plain' ? `per fess ${word(b)}` : ''].filter(Boolean).join(' and ');
+    case 'variation': return word(a);
+    default: return host satisfies never;
+  }
+}
+
+/** A division and its lines as written: "per pale", "per fess embattled", "quarterly per fess indented". */
+function divisionWords(division: Division, lines: Lines): string {
+  const line = lineWords({ k: 'division', division }, lines);
+  return line ? `${DIVISION_NAME[division]} ${line}` : DIVISION_NAME[division];
+}
+
 /** A divided paint as written: "per pale azure and Or". */
 function partyWord(p: Paint): string {
   const party = asParty(p);
-  return party ? `${DIVISION_NAME[party.division]} ${party.parts.map(paintWord).join(' and ')}` : notSupported(paintGaps(p, false, 'group')[0]);
+  return party ? `${divisionWords(party.division, party.lines)} ${party.parts.map(paintWord).join(' and ')}` : notSupported(paintGaps(p, false, 'group')[0]);
 }
 
-/** A variation as written: "barry argent and azure", "paly of eight Or and sable" (the usual six stripes are not blazoned: "barry of six" is a stated default). */
+/** A variation as written: "barry argent and azure", "paly of eight Or and sable", "barry wavy of eight argent and azure" (the usual six stripes are not blazoned: "barry of six" is a stated default). */
 function variationWord(p: Paint): string {
   const varied = asVariation(p);
   if (!varied) return notSupported(paintGaps(p, false, 'group')[0]);
   const count = varied.pieces === null || varied.pieces === DEFAULT_PIECES ? '' : ` of ${numberWord(varied.pieces)}`;
-  return `${VARIATION_NAME[varied.variation]}${count} ${varied.parts.map((x) => tinctureWord(x.t)).join(' and ')}`;
+  const line = lineWords({ k: 'variation', variation: varied.variation }, varied.lines);
+  return `${VARIATION_NAME[varied.variation]}${line ? ` ${line}` : ''}${count} ${varied.parts.map((x) => tinctureWord(x.t)).join(' and ')}`;
 }
 
 /** A divided field strewn all over with one charge: both parts are the same semy, in one tincture or each in the other's ("all semy of roses counterchanged"). */
@@ -80,10 +103,10 @@ function strewnAllOver(field: Paint): { grounds: [Tincture, Tincture]; charge: C
 
 function fieldPhrase(field: Paint): string {
   const all = strewnAllOver(field);
-  if (field.k === 'divided' && all) return `${DIVISION_NAME[field.division]} ${all.grounds.map(tinctureWord).join(' and ')} all ${semyPhrase(all.charge, all.ink)}`;
+  if (field.k === 'divided' && all) return `${divisionWords(field.division, field.lines)} ${all.grounds.map(tinctureWord).join(' and ')} all ${semyPhrase(all.charge, all.ink)}`;
   if (field.k === 'tincture' || field.k === 'fur' || field.k === 'treated' || field.k === 'semy') return paintWord(field);
   if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
-    return `${DIVISION_NAME[field.division]} ${field.parts.map(paintWord).join(' and ')}`;
+    return `${divisionWords(field.division, field.lines)} ${field.parts.map(paintWord).join(' and ')}`;
   }
   if (field.k === 'variation') return variationWord(field);
   return notSupported(paintGaps(field, true, 'field')[0]);

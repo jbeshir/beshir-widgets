@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_PIECES, explainDifferences, VARIATIONS, VARIATION_PIECES, asVariation, blazon, deriveTags, differences, fieldRegions, fillCode, gloss, inFirstRegion, pointInPolygon, pathRings,
+  DEFAULT_PIECES, PLAIN_LINES, explainDifferences, VARIATIONS, VARIATION_PIECES, asVariation, blazon, deriveTags, differences, fieldRegions, fillCode, gloss, inFirstRegion, pointInPolygon, pathRings,
   groupVariationChoices, groupVariationTinctureChoices, ordinaryGeometry, plainSpec, defaultOrdinaryFrame, renderLayers, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, shapeFrame, signature, structuralIssues, tinctureIssues, unsupportedIssues, variationRegions, candidateKey, checkUnique, keysMayConflict,
   type Design, type Variation,
 } from '../src/lib/heraldry';
@@ -115,7 +115,7 @@ describe('the rule of tincture', () => {
 describe('regions', () => {
   const box = shapeFrame('heater').box;
   const sample = (variation: Variation, pieces: number | null) => {
-    const [first, second] = variationRegions(variation, pieces, box).map((d) => pathRings(d));
+    const [first, second] = variationRegions(variation, pieces, PLAIN_LINES, box).map((d) => pathRings(d));
     let wrong = 0;
     for (let x = 0.5; x < 100; x += 4.3) {
       for (let y = 0.5; y < 120; y += 4.7) {

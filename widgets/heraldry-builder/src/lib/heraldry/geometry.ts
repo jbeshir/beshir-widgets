@@ -12,7 +12,7 @@ import { DRAWN_DIVISIONS, type Division } from './divisions';
 import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import { contoursPath, type Contour, type ContourEdge } from './contour';
-import type { EdgeRun, Line } from './lines';
+import { LINE_PROFILE, featureMiddle, fieldSide, fitPeriod, runAlong, visibleSpan, type EdgeRun, type LaidLine, type Line } from './lines';
 import { surfaceOf, type Surface } from './surface';
 import type { FieldShape } from './shape';
 
@@ -209,25 +209,68 @@ export function inFirstPart(division: Division, fess: Point, x: number, y: numbe
 /** Partition regions and ordinaries run this far past the frame; the outline clips them. */
 export const OVER = { x0: -40, x1: 140, y0: -40, y1: 160 };
 
-/** A corner of a region, and the partition line the edge from it to the next corner runs along (null: the edge of the frame). */
-type Corner = readonly [Pt, Line | null];
-
-/** How an edge along a partition line is drawn: null for a plain line. Complex lines on the field are drawn from C4a on. */
-const lineRun = (line: Line | null): EdgeRun | null =>
-  line === null || line === 'plain' ? null : notSupported({ category: 'line-of-partition', detail: line });
+/** A corner of a region, and the partition line the edge from it to the next corner runs along (null: the edge of the frame, or a plain line). */
+type Corner = readonly [Pt, LaidLine | null];
 
 /** A closed region through its corners; a line on the closing edge is drawn as an explicit last edge. */
 function region(corners: readonly Corner[]): Contour {
-  const edges = corners.slice(1).map(([to], i): ContourEdge => ({ via: [], to, run: lineRun(corners[i][1]) }));
-  const closing = lineRun(corners[corners.length - 1][1]);
+  const run = (i: number, to: Pt): EdgeRun | null => {
+    const [from, laid] = corners[i];
+    return laid && runAlong(laid, from, to);
+  };
+  const edges = corners.slice(1).map(([to], i): ContourEdge => ({ via: [], to, run: run(i, to) }));
+  const closing = run(corners.length - 1, corners[0][0]);
   return { start: corners[0][0], edges: closing ? [...edges, { via: [], to: corners[0][0], run: closing }] : edges };
 }
 
+/**
+ * Where a laid line's periods start: centred on the chord the shape shows (a line across the field); at `from` (a chevron's limb, laid
+ * out from the apex); or half a period out from `from`, so that lines laid out from where they cross keep clear of each other there.
+ */
+type LineStart = 'centred' | 'meet' | 'cross';
+
+/** Lays a partition line from `from` to `to`; null for a plain line. */
+type Lay = (line: Line, from: Pt, to: Pt, start: LineStart) => LaidLine | null;
+
+/** Lines of the field: fitted to the chord of the shape's outline each one crosses (RULES-C §A.4), features toward chief or dexter (§A.2). */
+function layOn(outline: readonly Pt[]): Lay {
+  return (line, from, to, start) => {
+    if (line === 'plain') return null;
+    const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    const dir: Pt = [(to[0] - from[0]) / length, (to[1] - from[1]) / length];
+    const [c0, c1] = visibleSpan(from, to, outline) ?? [0, length];
+    const period = fitPeriod(line, c1 - c0, 1);
+    const anchor = start === 'centred' ? (c0 + c1) / 2 : start === 'meet' ? period / 2 : period;
+    const span: [number, number] = [start === 'cross' ? period / 2 : c0 - period, c1 + period];
+    return { origin: from, dir, run: { line, side: fieldSide(dir), depth: LINE_PROFILE[line].depth, period, anchor, span } };
+  };
+}
+
+/** Straight lines only: the party paints of bands and charges. */
+const layPlain: Lay = () => null;
+
+/** How far a line of the field moves toward base or sinister to straddle its nominal line (`featureMiddle`): 0 for plain. */
+const straddleShift = (line: Line): number => (line === 'plain' ? 0 : featureMiddle(line) * LINE_PROFILE[line].depth);
+
+/**
+ * The point a division's lines meet at, moved so that every one-sided line straddles where it would run plain: an upright line moves
+ * sideways, a level one down, and lines at 45° (bends, the chevron's limbs, the saltire) move down by √2 times as much.
+ */
+function straddlingCentre(division: Division, { a, b }: Lines, { x, y }: Point): Point {
+  switch (division) {
+    case 'per-pale': return { x: x + straddleShift(a), y };
+    case 'per-fess': return { x, y: y + straddleShift(a) };
+    case 'per-bend': case 'per-bend-sinister': case 'per-chevron': case 'per-saltire': return { x, y: y + Math.SQRT2 * straddleShift(a) };
+    case 'quarterly': return { x: x + straddleShift(a), y: y + straddleShift(b) };
+    default: return notSupported({ category: 'division', detail: division });
+  }
+}
+
 /** The contours of each part of a division whose lines meet at `fess`, turned `turn` degrees clockwise about it, covering the whole frame. */
-function partitionAt(division: Division, lines: Lines, fess: Point, turn: number): Contour[][] {
+function partitionAt(division: Division, lines: Lines, fess: Point, turn: number, lay: Lay): Contour[][] {
   const { x: cx, y: cy } = fess;
   const at = ([x, y]: Pt): Pt => (turn === 0 ? [x, y] : turned({ x: cx, y: cy, size: 0, rotation: turn }, x, y));
-  const part = (...regions: Array<Array<[Pt, Line | null]>>): Contour[] => regions.map((r) => region(r.map(([p, l]): Corner => [at(p), l])));
+  const part = (...regions: Array<Array<[Pt, LaidLine | null]>>): Contour[] => regions.map((r) => region(r.map(([p, l]): Corner => [at(p), l])));
   const { x0, x1, y0, y1 } = OVER;
   const { a, b } = lines;
   const bend = (x: number) => cy + (x - cx);
@@ -235,48 +278,75 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
   const apexY = cy - CHEVRON_APEX_RISE;
   const limb = apexY + (x1 - cx);
   const k = 100;
+  const centre: Pt = [cx, cy];
   switch (division) {
-    case 'per-pale': return [
-      part([[[x0, y0], null], [[cx, y0], a], [[cx, y1], null], [[x0, y1], null]]),
-      part([[[cx, y0], null], [[x1, y0], null], [[x1, y1], null], [[cx, y1], a]]),
-    ];
-    case 'per-fess': return [
-      part([[[x0, y0], null], [[x1, y0], null], [[x1, cy], a], [[x0, cy], null]]),
-      part([[[x0, cy], a], [[x1, cy], null], [[x1, y1], null], [[x0, y1], null]]),
-    ];
-    case 'per-bend': return [
-      part([[[x0, y0], null], [[x1, y0], null], [[x1, bend(x1)], a], [[x0, bend(x0)], null]]),
-      part([[[x0, bend(x0)], a], [[x1, bend(x1)], null], [[x1, y1], null], [[x0, y1], null]]),
-    ];
-    case 'per-bend-sinister': return [
-      part([[[x0, y0], null], [[x1, y0], null], [[x1, sinister(x1)], a], [[x0, sinister(x0)], null]]),
-      part([[[x0, sinister(x0)], a], [[x1, sinister(x1)], null], [[x1, y1], null], [[x0, y1], null]]),
-    ];
-    case 'per-saltire': return [
-      part([[[cx - k, cy - k], null], [[cx + k, cy - k], a], [[cx, cy], a]], [[[cx, cy], a], [[cx + k, cy + k], null], [[cx - k, cy + k], a]]),
-      part([[[cx - k, cy - k], a], [[cx, cy], a], [[cx - k, cy + k], null]], [[[cx + k, cy - k], null], [[cx + k, cy + k], a], [[cx, cy], a]]),
-    ];
-    case 'per-chevron': return [
-      part([[[x0, y0], null], [[x1, y0], null], [[x1, limb], a], [[cx, apexY], a], [[x0, limb], null]]),
-      part([[[x0, limb], a], [[cx, apexY], a], [[x1, limb], null], [[x1, y1], null], [[x0, y1], null]]),
-    ];
-    // the per pale line is `a`, the per fess line `b`
-    case 'quarterly': return [
-      part([[[x0, y0], null], [[cx, y0], a], [[cx, cy], b], [[x0, cy], null]], [[[cx, cy], b], [[x1, cy], null], [[x1, y1], null], [[cx, y1], a]]),
-      part([[[cx, y0], null], [[x1, y0], null], [[x1, cy], b], [[cx, cy], a]], [[[x0, cy], b], [[cx, cy], a], [[cx, y1], null], [[x0, y1], null]]),
-    ];
+    case 'per-pale': {
+      const A = lay(a, [cx, y0], [cx, y1], 'centred');
+      return [
+        part([[[x0, y0], null], [[cx, y0], A], [[cx, y1], null], [[x0, y1], null]]),
+        part([[[cx, y0], null], [[x1, y0], null], [[x1, y1], null], [[cx, y1], A]]),
+      ];
+    }
+    case 'per-fess': {
+      const A = lay(a, [x0, cy], [x1, cy], 'centred');
+      return [
+        part([[[x0, y0], null], [[x1, y0], null], [[x1, cy], A], [[x0, cy], null]]),
+        part([[[x0, cy], A], [[x1, cy], null], [[x1, y1], null], [[x0, y1], null]]),
+      ];
+    }
+    case 'per-bend': {
+      const A = lay(a, [x0, bend(x0)], [x1, bend(x1)], 'centred');
+      return [
+        part([[[x0, y0], null], [[x1, y0], null], [[x1, bend(x1)], A], [[x0, bend(x0)], null]]),
+        part([[[x0, bend(x0)], A], [[x1, bend(x1)], null], [[x1, y1], null], [[x0, y1], null]]),
+      ];
+    }
+    case 'per-bend-sinister': {
+      const A = lay(a, [x0, sinister(x0)], [x1, sinister(x1)], 'centred');
+      return [
+        part([[[x0, y0], null], [[x1, y0], null], [[x1, sinister(x1)], A], [[x0, sinister(x0)], null]]),
+        part([[[x0, sinister(x0)], A], [[x1, sinister(x1)], null], [[x1, y1], null], [[x0, y1], null]]),
+      ];
+    }
+    // four arms laid out from where the lines cross
+    case 'per-saltire': {
+      const [tl, tr, br, bl]: Pt[] = [[cx - k, cy - k], [cx + k, cy - k], [cx + k, cy + k], [cx - k, cy + k]];
+      const [TL, TR, BR, BL] = [tl, tr, br, bl].map((end) => lay(a, centre, end, 'cross'));
+      return [
+        part([[tl, null], [tr, TR], [centre, TL]], [[centre, BR], [br, null], [bl, BL]]),
+        part([[tl, TL], [centre, BL], [bl, null]], [[tr, null], [br, BR], [centre, TR]]),
+      ];
+    }
+    // the two limbs, laid out from the apex
+    case 'per-chevron': {
+      const apex: Pt = [cx, apexY];
+      const D = lay(a, apex, [x0, limb], 'meet'), S = lay(a, apex, [x1, limb], 'meet');
+      return [
+        part([[[x0, y0], null], [[x1, y0], null], [[x1, limb], S], [apex, D], [[x0, limb], null]]),
+        part([[[x0, limb], D], [apex, S], [[x1, limb], null], [[x1, y1], null], [[x0, y1], null]]),
+      ];
+    }
+    // the per pale line is `a`, the per fess line `b`: four arms laid out from the fess point
+    case 'quarterly': {
+      const [n, e, s, w]: Pt[] = [[cx, y0], [x1, cy], [cx, y1], [x0, cy]];
+      const [N, E, S, W] = [lay(a, centre, n, 'cross'), lay(b, centre, e, 'cross'), lay(a, centre, s, 'cross'), lay(b, centre, w, 'cross')];
+      return [
+        part([[[x0, y0], null], [n, N], [centre, W], [w, null]], [[centre, E], [e, null], [[x1, y1], null], [s, S]]),
+        part([[n, null], [[x1, y0], null], [e, E], [centre, N]], [[w, W], [centre, S], [s, null], [[x0, y1], null]]),
+      ];
+    }
     default: return notSupported({ category: 'division', detail: division });
   }
 }
 
-/** Every part of a divided field as its contours (per saltire and quarterly: two for a part), in part order, around the shape's fess point. */
+/** Every part of a divided field as its contours (per saltire and quarterly: two for a part), in part order, around the shape's fess point; its lines drawn as `lines` say. */
 export function partitionContours(division: Division, lines: Lines, frame: ShapeFrame): readonly (readonly Contour[])[] {
-  return partitionAt(division, lines, frame.fessPoint, 0);
+  return partitionAt(division, lines, straddlingCentre(division, lines, frame.fessPoint), 0, layOn(pathPolygon(frame.outline)));
 }
 
 /** Region paths [first part, second part] for straight lines meeting at `fess` (turned `turn` degrees clockwise about it), covering the whole frame: a party charge's or band's. */
 export function partitionRegions(division: Division, fess: Point, turn = 0): [string, string] {
-  const [first, second] = partitionAt(division, PLAIN_LINES, fess, turn).map(contoursPath);
+  const [first, second] = partitionAt(division, PLAIN_LINES, fess, turn, layPlain).map(contoursPath);
   return [first, second];
 }
 
@@ -297,8 +367,7 @@ export function divisionRegions(division: Division, lines: Lines, shape: FieldSh
 function regionsOf(f: DividedField | VariedField, shape: FieldShape): readonly string[] {
   if (f.k === 'divided') return divisionRegions(f.division, f.lines, shape);
   const v = f.paint;
-  if (v.lines.a !== 'plain') return notSupported({ category: 'line-of-partition', detail: v.lines.a });
-  return variationRegions(v.variation, v.pieces, SHAPE_FRAME[shape].box);
+  return variationRegions(v.variation, v.pieces, v.lines, SHAPE_FRAME[shape].box);
 }
 
 const plainLines = (l: Lines): boolean => l.a === 'plain' && l.b === 'plain';
@@ -311,8 +380,9 @@ export function partIndexAt(f: DividedField | VariedField, shape: FieldShape, x:
   const frame = SHAPE_FRAME[shape];
   if (f.k === 'divided' && plainLines(f.lines)) return inFirstPart(f.division, frame.fessPoint, x, y) ? 0 : 1;
   if (f.k === 'varied' && plainLines(f.paint.lines)) return inFirstRegion(f.paint.variation, f.paint.pieces, frame.box, x, y) ? 0 : 1;
-  const index = regionsOf(f, shape).findIndex((d) => pointInPath(pathRings(d), x, y));
-  return index < 0 ? partPaints(f).length - 1 : index;
+  const regions = regionsOf(f, shape);
+  const index = regions.slice(0, -1).findIndex((d) => pointInPath(pathRings(d), x, y));
+  return index < 0 ? regions.length - 1 : index;
 }
 
 /** Field as paint-filled regions, in paint order. */

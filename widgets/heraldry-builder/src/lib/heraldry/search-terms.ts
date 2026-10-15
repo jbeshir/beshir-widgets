@@ -9,6 +9,7 @@ import type { Design } from './design';
 import { NAMED_TINCTURE_CHARGES, SEMY_NAMES } from './aliases';
 import { gloss } from './gloss';
 import { ORDINARY_NAME, ORDINARY_TYPES } from './ordinaries';
+import { LINE_SPELLINGS, LINE_WORD, LINES, type ComplexLine } from './lines';
 
 /**
  * "sky blue" is one colour word, not "blue" with a modifier: closed up into a single word so that a
@@ -150,6 +151,13 @@ const postureAliases: Alias[] = [
   return [words, words];
 });
 
+// Lines of partition: every spelling of a line finds the word the blazon writes ("undy" finds wavy, "crenellated" embattled, "counter-
+// embattled" embattled).
+const lineAliases: Alias[] = LINES.filter((l): l is ComplexLine => l !== 'plain').map((l): Alias => {
+  const spellings = Object.entries(LINE_SPELLINGS).filter(([, r]) => r === l || (r === 'counter-embattled' && l === 'embattled')).map(([w]) => w);
+  return [spellings.map(normaliseWords), [normaliseWords(LINE_WORD[l])]];
+});
+
 // Layout words: how a group is arranged, as the blazon and the gloss say it.
 const layoutAliases: Alias[] = [
   [['splendour', 'splendor', 'glory'], ['splendor']],
@@ -167,6 +175,7 @@ const ALIASES: readonly Alias[] = [
   ...ordinaryAliases,
   ...chargeAliases,
   ...postureAliases,
+  ...lineAliases,
   ...layoutAliases,
   ...semyAliases,
 ];

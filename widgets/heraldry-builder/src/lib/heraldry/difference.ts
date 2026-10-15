@@ -9,7 +9,8 @@ import {
   asParty, asVariation, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
-import { DIVISION_NAME, VARIATION_NAME, type Division, type Variation } from './divisions';
+import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, type Division, type Variation } from './divisions';
+import { LINE_WORD, lineDiffers, type Line } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
@@ -27,15 +28,15 @@ const CHANGE_KINDS: readonly ChangeKind[] = ['sc', 'dc'];
  * (a division and its multiple, the lattices): a different direction or style, or a different number of pieces.
  * A5G1e is a fieldless badge set against any other armory, fielded or fieldless.
  */
-export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G1b', 'A5G1d', 'A5G1e', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
+export const SENA_RULES = ['A5E1', 'A5E2', 'A5E3', 'A5E4', 'A5E5', 'A5F1', 'A5F2', 'A5G1a', 'A5G1b', 'A5G1c', 'A5G1d', 'A5G1e', 'A5G2', 'A5G3', 'A5G4', 'A5G5', 'A5G6', 'A5G7'] as const;
 export type SenaRule = (typeof SENA_RULES)[number];
 
 export type DiffAttr =
-  | 'fieldless' | 'field-partition' | 'field-style' | 'field-tincture' | 'primary-presence' | 'group-presence'
+  | 'fieldless' | 'field-partition' | 'field-style' | 'field-line' | 'field-tincture' | 'primary-presence' | 'group-presence'
   | 'type' | 'number' | 'tincture' | 'arrangement' | 'posture';
 
 const DIFF_ATTRS: readonly DiffAttr[] = [
-  'fieldless', 'field-partition', 'field-style', 'field-tincture', 'primary-presence', 'group-presence', 'type', 'number', 'tincture', 'arrangement', 'posture',
+  'fieldless', 'field-partition', 'field-style', 'field-line', 'field-tincture', 'primary-presence', 'group-presence', 'type', 'number', 'tincture', 'arrangement', 'posture',
 ];
 
 export function isDiffAttr(v: unknown): v is DiffAttr {
@@ -288,6 +289,27 @@ function comparedSurfaces(a: Design, b: Design, swappable: boolean): [Surface[],
   return [ta, paired(turned) > paired(tb) ? turned : tb];
 }
 
+/**
+ * The lines of a field's partition, as A5G1c weighs them: quarterly's per pale and per fess lines, the one line of any other division
+ * (per saltire's two are styled together), the one line every stripe of a variation is drawn with; none for a plain field or a grid.
+ */
+function partitionLines(f: Paint): Line[] {
+  if (f.k === 'divided') return f.division === 'quarterly' ? [f.lines.a, f.lines.b] : [f.lines.a];
+  return f.k === 'variation' && isCountedVariation(f.variation) ? [f.lines.a] : [];
+}
+
+/**
+ * A5G1c: whether at least half the partition lines change style, as SENA App M2 groups them ("Per pale is a DC from Per pale embattled";
+ * "Quarterly is a DC from Quarterly per fess indented"). Fields of one partition category have as many lines; a line change is never
+ * substantial (RULES-C §B.2).
+ */
+function lineStyleChanged(a: Paint, b: Paint): boolean {
+  const la = partitionLines(a), lb = partitionLines(b);
+  const n = Math.max(la.length, lb.length);
+  const changed = Array.from({ length: n }, (_, i) => lineDiffers(la[i] ?? 'plain', lb[i] ?? 'plain', false)).filter(Boolean).length;
+  return changed > 0 && changed * 2 >= n;
+}
+
 function fieldChanges(a: Design, b: Design): Diff[] {
   // A5G1e: fieldless armory has no field to compare, and "automatically has one distinct change (DC) from any other armory,
   // fielded or fieldless" ("(Fieldless) A mullet purpure" against "(Fieldless) A mullet of six points purpure").
@@ -297,6 +319,7 @@ function fieldChanges(a: Design, b: Design): Diff[] {
   // A different number of pieces (A5G1d) or a different style within the category (A5G1b) is a distinct change.
   if (pieceTier(a.field) !== pieceTier(b.field)) changes.push(change('field-style', 'dc', 'A5G1d', null));
   else if (styleOf(a.field) !== styleOf(b.field)) changes.push(change('field-style', 'dc', 'A5G1b', null));
+  if (lineStyleChanged(a.field, b.field)) changes.push(change('field-line', 'dc', 'A5G1c', null));
   const [ta, tb] = comparedSurfaces(a, b, Math.max(pieceTier(a.field), pieceTier(b.field)) > 4);
   const has = (xs: readonly Surface[], s: Surface) => xs.some((x) => sameSurface(x, s));
   if (ta.length === tb.length && ta.every((s, i) => sameSurface(s, tb[i]))) return changes;
@@ -498,6 +521,8 @@ export function tallyText(diffs: readonly { kind: ChangeKind }[]): string {
 export interface DifferenceNote { attr: DiffAttr; kind: ChangeKind; rule: SenaRule; text: string; why: string; item: 'ordinary' | 'charge' | null }
 
 const partitionWord = (d: Design): string => (d.kind === 'badge' ? 'none' : d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : d.field.k === 'variation' ? VARIATION_NAME[d.field.variation] : 'plain');
+/** A field's partition lines in words: "straight", "wavy", "straight and embattled" (quarterly's two). */
+const lineWords = (d: Design): string => (d.kind === 'badge' ? 'none' : [...new Set(partitionLines(d.field).map((l) => (l === 'plain' ? 'straight' : LINE_WORD[l])))].join(' and ') || 'none');
 const itemPhrase = (i: Item): string => (i.k === 'ordinary' ? `${ORDINARY_ARTICLE[i.type]} ${ORDINARY_NAME[i.type]}` : `${CHARGES[i.charge].article} ${CHARGES[i.charge].name}`);
 
 /** What the builder calls a group in the middle of a sentence: "band or shape", "top bar", "pictures beside the band". */
@@ -563,6 +588,10 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         sentence = diff.rule === 'A5G1d'
           ? 'Backgrounds cut into up to four pieces are told apart by their number of pieces, so a different number is a distinct change'
           : 'A different pattern of the same kind of background (for example barry bendy and paly bendy) is a distinct change';
+        break;
+      case 'field-line':
+        text = pair('line of division', lineWords(a), lineWords(b));
+        sentence = 'Changing the style of at least half the lines that split the background — from straight to wavy, say — is a distinct change';
         break;
       case 'field-tincture':
         text = pair('background colour', fieldWord(a), fieldWord(b));

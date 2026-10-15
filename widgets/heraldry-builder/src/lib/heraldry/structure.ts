@@ -5,7 +5,9 @@
 import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
-import { DIVISION_NAME } from './divisions';
+import { DIVISION_NAME, VARIATION_NAME } from './divisions';
+import { LINE_GROUP, LINE_WORD, isStraightLine, lineAllowed, type ComplexLine, type EdgeHost, type Line } from './lines';
+import { surfaceOf } from './surface';
 import { divisionCutsOrdinary, specOf } from './ordinary-geometry';
 import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue, onChargeWords } from './layout';
@@ -92,8 +94,55 @@ function crossesTheLine(d: Design): boolean {
   const primaries = primaryGroups(d);
   if (primaries.length === 0) return false;
   const grounds = primaries.flatMap((p) => groundShares(d, p.path));
-  return grounds.every((g) => g.length === 0) || grounds.some((g) => g.length > 1 && g.every((s) => s.share >= OVERLIES_SHARE));
+  return grounds.every((g) => g.length === 0) || grounds.some(overlies);
 }
+
+/** Whether a ground lies across a line: more than one part under it, each with a fair share (`OVERLIES_SHARE`). */
+const overlies = (g: readonly { share: number }[]): boolean => g.length > 1 && g.every((s) => s.share >= OVERLIES_SHARE);
+
+/**
+ * Whether a chief over a field per fess could be read as one fess on a plain field, so that the division needs a charge across it (SENA
+ * A3D1c): when the chief's line and the division's could be the upper and lower edges of a registrable fess — the same line, or one edge
+ * plain and the other not jagged ("we do not allow a fess to be indented on the upper edge only"). Straight-group lines count as plain
+ * (RULES-C §A.5.5).
+ */
+export function couldBeOneFess(upper: Line, lower: Line): boolean {
+  const [u, l] = [upper, lower].map((x) => (isStraightLine(x) ? 'plain' : x));
+  if (u === l) return true;
+  const treated = u === 'plain' ? l : l === 'plain' ? u : null;
+  return treated !== null && LINE_GROUP[treated] !== 'jagged';
+}
+
+/** Why a host can't carry this line (RULES-C §A.1, §A.5; PLAN-C §4 L7), or null; `what` names the host in the message. */
+function lineHostProblem(host: EdgeHost, line: Line, what: string): string | null {
+  if (line === 'plain' || lineAllowed(host, line)) return null;
+  switch (line) {
+    case 'dancetty': return `Dancetty is for two-sided bands; ${what} is drawn indented.`;
+    case 'enarched': return `An arched (enarched) line divides a field per fess, per bend or per chevron only — not ${what}.`;
+    case 'ploye': return `A bowed (ployé) line divides a field per chevron only — not ${what}.`;
+    default: return `${capitalise(what)} can't be drawn ${LINE_WORD[line]}.`;
+  }
+}
+
+/** The line problem of a divided or varied paint, or null (any other paint has no line). */
+function paintLineProblem(p: Paint): string | null {
+  if (p.k === 'divided') {
+    const host: EdgeHost = { k: 'division', division: p.division };
+    const what = `a field divided ${DIVISION_NAME[p.division]}`;
+    return lineHostProblem(host, p.lines.a, what) ?? lineHostProblem(host, p.lines.b, what);
+  }
+  return p.k === 'variation' ? lineHostProblem({ k: 'variation', variation: p.variation }, p.lines.a, VARIATION_NAME[p.variation]) : null;
+}
+
+/** The complex line of a divided field (the first, when it has two); null when its lines are straight — plain, enarched and ployé count as plain for App H. */
+function complexFieldLine(d: Design): ComplexLine | null {
+  if (d.kind !== 'arms' || d.field.k !== 'divided') return null;
+  const { a, b } = d.field.lines;
+  return [a, b].find((l): l is ComplexLine => !isStraightLine(l)) ?? null;
+}
+
+/** Tinctures too dark together for any complex line between them (SENA App H: sable and purpure, 08/1992; sable and azure, 09/1997). */
+const DARK_PAIRS: ReadonlyArray<readonly [Tincture, Tincture]> = [['sable', 'purpure'], ['sable', 'azure']];
 
 /** Why a variation's two tinctures don't stand out against each other (SENA A3B3d: adjacent parts of a multiply divided paint contrast), or null; null too for any other paint. */
 function variationProblem(p: Paint): string | null {
@@ -136,6 +185,19 @@ export function paintIssues(d: Design): Issue[] {
     }
   }
 
+  // A line the field's division or stripes can't take (RULES-C §A.1, §A.5).
+  const fieldLine = d.kind === 'arms' ? paintLineProblem(d.field) : null;
+  if (fieldLine) add({ code: 'structure', rule: 'line', at: { k: 'field' }, message: fieldLine, slots: [] });
+
+  // A complex line between sable and purpure, or sable and azure, can't be seen (SENA App H).
+  const complex = complexFieldLine(d), party = d.kind === 'arms' ? asParty(d.field) : null;
+  const pair = party ? party.parts.map((p) => p.t) : [];
+  const dark = DARK_PAIRS.find(([x, y]) => pair.includes(x) && pair.includes(y));
+  if (complex && dark) {
+    const message = `A ${LINE_WORD[complex]} line between ${TINCTURE_NAME[dark[0]]} and ${TINCTURE_NAME[dark[1]]} can't be seen — divide them with a straight line, or choose another tincture (SENA App H).`;
+    add({ code: 'structure', rule: 'line', at: { k: 'field' }, message, slots: [] });
+  }
+
   // The field's stripes or cells lie against each other all over it (SENA A3B3d).
   const fieldVariation = d.kind === 'arms' ? variationProblem(d.field) : null;
   if (fieldVariation) add({ code: 'structure', rule: 'field', at: { k: 'field' }, message: fieldVariation, slots: [] });
@@ -153,6 +215,8 @@ export function paintIssues(d: Design): Issue[] {
   for (const { path, group } of walkGroups(d)) {
     const problem = furProblem(group.paint);
     if (problem) add({ code: 'structure', rule: 'fur', at: { k: 'group', path }, message: problem, slots: [] });
+    const lined = paintLineProblem(group.paint);
+    if (lined) add({ code: 'structure', rule: 'line', at: { k: 'group', path }, message: lined, slots: [] });
     const varied = variationProblem(group.paint);
     if (varied) add({ code: 'structure', rule: 'divided-paint', at: { k: 'group', path }, message: varied, slots: [] });
     const treatment = treatmentProblem(group.paint);
@@ -321,8 +385,21 @@ export function structuralIssues(d: Design): Issue[] {
 
   // 6. A chief on a field divided per fess needs a primary charge across the line (SENA A3D1c).
   const chief = walked.find(({ group }) => group.role === 'peripheral' && group.item.k === 'ordinary' && group.item.type === 'chief');
-  if (chief && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && !crossesTheLine(d)) {
+  const chiefLine = chief?.group.item.k === 'ordinary' ? chief.group.item.lines.a : 'plain';
+  if (chief && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && couldBeOneFess(chiefLine, d.field.lines.a) && !crossesTheLine(d)) {
     add({ code: 'structure', rule: 'crosses-line', at: { k: 'group', path: chief.path }, message: 'A chief on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
+  }
+
+  // 7. Two parts that don't contrast, across a complex line with a charge over it: the line can't be made out (SENA App H).
+  const line = complexFieldLine(d);
+  const sides = line && d.kind === 'arms' && d.field.k === 'divided' && d.field.parts.length === 2 ? d.field.parts.map((p) => surfaceOf(p, null)) : [];
+  if (line && sides.length === 2 && sides[0].cls === sides[1].cls) {
+    const over = walked.find(({ path, group, host }) => host === null && group.role !== 'peripheral' && groundShares(d, path).some(overlies));
+    if (over) {
+      const pair = sides[0].cls === 'metal' ? 'two metals' : sides[0].cls === 'colour' ? 'two colours' : 'two furs';
+      const message = `${capitalise(chargesPhrase(over.group))} over the ${LINE_WORD[line]} line ${over.group.count === 1 ? 'hides' : 'hide'} it: between ${pair} the line must stay clear to be seen — set the charges off it, or divide the field with a straight line (SENA App H).`;
+      add({ code: 'structure', rule: 'line', at: { k: 'group', path: over.path }, message, slots: [] });
+    }
   }
   return issues;
 }
