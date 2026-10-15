@@ -188,6 +188,18 @@ describe('controls that appear only when they apply', () => {
     expect(renderToString(h(LayerStep, { ...base, design: addLayer(lion, 'in-canton'), place: 'in-canton', n: 4, onAdjust: noop }))).toContain('In the top corner');
   });
 
+  it('gives the second main picture a card of its own, laid out with the first', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(renderToString(h(AddLayer, { design: lion, onChange: noop }))).toContain('Add a second main picture beside the picture');
+    const two = addLayer(lion, 'co-primary');
+    expect(layersIn(two)).toEqual(['co-primary']);
+    const html = renderToString(h(LayerStep, { ...base, design: two, place: 'co-primary', n: 4, onAdjust: noop }));
+    const got = ids(html);
+    for (const id of ['step-layer-co-primary', 'co-primary-charge-select', 'co-primary-count-select', 'co-primary-count-1', 'co-primary-arrangement-select', 'co-primary-charge-tincture', 'remove-layer-co-primary']) expect(got, id).toContain(id);
+    expect(html).toContain('Second picture');
+    expect(removeLayer(two, 'co-primary')).toEqual(lion);
+  });
+
   it('gives what lies across everything a card of its own: a band with a colour, or a picture with its count', () => {
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     expect(renderToString(h(AddLayer, { design: lion, onChange: noop }))).toContain('Add a band or picture across everything (overall)');

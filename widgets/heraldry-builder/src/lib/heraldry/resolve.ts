@@ -19,7 +19,7 @@ import {
 } from './design';
 import { isDivision, isTreatment, isVariation, partCount } from './divisions';
 import { isLine, isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, type OrdinaryMod } from './ordinaries';
-import { contextOf, defaultLayoutOf, isSecondaryPosition, layoutOfKey, type Layout } from './arrangement';
+import { contextOf, defaultLayoutOf, isSecondaryPosition, layoutOfKey, shareTotal, type Layout } from './arrangement';
 
 export type ResolveResult = { ok: true; design: Design } | { ok: false; errors: Issue[] };
 
@@ -274,9 +274,6 @@ function parseLayout(v: unknown, count: number, at: IssueAt, E: Errors): Layout 
     if (!arrangement) return E.add(at, 'Unknown arrangement.') ?? undefined;
     layout = { arrangement, position: null };
   }
-  if (layout.arrangement.k === 'rows' && layout.arrangement.rows.reduce((a, b) => a + b, 0) !== count) {
-    return E.add(at, `The rows add up to ${layout.arrangement.rows.reduce((a, b) => a + b, 0)}, not ${count}.`) ?? undefined;
-  }
   return layout;
 }
 
@@ -373,10 +370,17 @@ function placeGroups(d: Design, raws: readonly RawGroup[], groups: readonly Grou
     const r = raws[i];
     const at: IssueAt = { k: 'group', path: [...prefix, i] };
     const placed = ((): Group => {
-      if (r.layout) {
-        const ctx = contextOf(d, g, host);
-        if (ctx && (ctx.k === 'between' || ctx.k === 'on') && r.layout.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
-        return { ...g, arrangement: r.layout.arrangement };
+      const ctx = contextOf(d, g, host);
+      // Two main pictures are laid out as one group: one of them may state the arrangement for both.
+      const mate = ctx?.k === 'field' && ctx.share ? raws.find((_, k) => groups[k] !== g && groups[k].role === 'primary')?.layout ?? null : null;
+      const stated = r.layout ?? mate;
+      if (stated) {
+        if (ctx && (ctx.k === 'between' || ctx.k === 'on') && stated.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
+        if (stated.arrangement.k === 'rows') {
+          const sum = stated.arrangement.rows.reduce((a, b) => a + b, 0), total = ctx?.k === 'field' ? shareTotal(ctx.share, g.count) : g.count;
+          if (sum !== total) E.add(at, `The rows add up to ${sum}, not ${total}.`);
+        }
+        return { ...g, arrangement: stated.arrangement, position: g.position ?? stated.position };
       }
       if (r.position) return { ...g, arrangement: g.count === 1 ? { k: 'single' } : { k: 'line', dir: 'fess' } };
       const layout = defaultLayoutOf(d, g, host);

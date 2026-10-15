@@ -12,7 +12,7 @@ import {
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, ON_CHARGE_COUNTS, aroundPrimaryLayouts, hostCounts, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
+  AROUND_COUNTS, MAX_CO_PRIMARY_TOTAL, ON_CHARGE_COUNTS, coPrimaries, aroundPrimaryLayouts, hostCounts, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
 
 export { notSupported, UnsupportedConstructError } from './design';
@@ -66,6 +66,10 @@ function thing(g: Gap): string {
       return isOrdinaryType(g.detail) ? `${ORDINARY_ARTICLE[g.detail]} ${ORDINARY_NAME[g.detail]}` : `A ${d}`;
     case 'ordinary-treatment': return `A ${d} band or shape`;
     case 'multiple-groups':
+      if (g.detail === 'co-primary-ordinary') return 'A band and a picture as the main ones together';
+      if (g.detail === 'co-primary-around') return 'Pictures set around two main pictures';
+      if (g.detail === 'co-primary-overall') return 'Something across two main pictures';
+      if (g.detail.startsWith('co-primary')) return 'That many main pictures together';
       return g.detail.startsWith('tertiary') ? 'Charges on that charge' : 'Two charge groups beside the main one';
     case 'placement': {
       if (g.detail.startsWith('overall-')) return 'That group overall';
@@ -170,11 +174,27 @@ function placementGaps(d: Design, g: Group, host: Group | null): Gap[] {
 function onChargeGaps(d: Design, host: Group): Gap[] {
   if (host.item.k !== 'charge' || host.role === 'tertiary') return [];
   if (host.role !== 'primary') return [gap('multiple-groups', `tertiary-on-${host.role}`)];
+  if (coPrimaries(d)) return [gap('multiple-groups', 'tertiary-on-co-primary')];
   const gaps: Gap[] = [];
   if (chargeOnBox(host.item.charge, host.item.posture) === null) gaps.push(gap('placement', `on-${host.item.charge}`));
   if (host.item.mods.length > 0) gaps.push(gap('multiple-groups', 'tertiary-on-modifier'));
   if (hasAround(d)) gaps.push(gap('multiple-groups', 'tertiary-on-charge-around'));
   return gaps;
+}
+
+/**
+ * What the builder can't draw of several primary groups: two groups of charges together ('a lion and a rose', three charges at most,
+ * with no charges set around them, on them or overall) are drawn; a third group, a band among them, or more charges are not.
+ */
+function coPrimaryGaps(d: Design, primaries: ReadonlyArray<{ g: Group; i: number }>): Array<{ i: number; detail: string }> {
+  if (primaries.length < 2) return [];
+  const second = primaries[1].i;
+  if (primaries.length > 2) return [{ i: second, detail: 'co-primary-3' }];
+  if (primaries.some(({ g }) => g.item.k === 'ordinary')) return [{ i: second, detail: 'co-primary-ordinary' }];
+  const out: Array<{ i: number; detail: string }> = [];
+  if (primaries[0].g.count + primaries[1].g.count > MAX_CO_PRIMARY_TOTAL) out.push({ i: second, detail: 'co-primary-count' });
+  const against = d.groups.flatMap((g, i) => (g.role === 'overall' ? [{ i, detail: 'co-primary-overall' }] : g.role === 'secondary' && g.relation === 'between' ? [{ i, detail: 'co-primary-around' }] : []));
+  return [...out, ...against];
 }
 
 /** Gaps in how the groups relate: roles beyond the supported combinations. */
@@ -184,7 +204,7 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Gap }> {
   const byRole = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, i }] : []));
   const primaries = byRole('primary'), secondaries = byRole('secondary'), peripherals = byRole('peripheral');
 
-  if (primaries.length > 1) out.push({ at: at([primaries[1].i]), gap: gap('multiple-groups', 'co-primary') });
+  out.push(...coPrimaryGaps(d, primaries.map(({ g, i }) => ({ g, i }))).map(({ i, detail }) => ({ at: at([i]), gap: gap('multiple-groups', detail) })));
   if (secondaries.length > 1) out.push({ at: at([secondaries[1].i]), gap: gap('multiple-groups', 'secondary') });
   // One chief and one bordure may be set together; any other pair is a second of a kind.
   const peripheralTypes = peripherals.map(({ g }) => (g.item.k === 'ordinary' ? g.item.type : null));

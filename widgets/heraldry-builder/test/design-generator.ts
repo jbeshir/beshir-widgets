@@ -4,7 +4,7 @@
 // space (the tests that rely on its distribution never change); `generatedRichDesigns` shares its internals and
 // adds the constructs the builder has gained since: a chief and a bordure beside the band, pictures on the band
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
-// set around the picture, pictures on the picture, and a band or sword across everything.
+// set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
 import { layoutCandidates, layoutKey, normalise, resolve, type Design } from '../src/lib/heraldry';
 
@@ -30,6 +30,8 @@ const POSTURES: Record<string, readonly string[]> = { lion: ['rampant', 'passant
 const AROUND_SEED = 0x5bd1e995;
 /** Mixed into a seed for the picks of the pictures on the picture. */
 const ON_PICTURE_SEED = 0x2c1b3c6d;
+/** Mixed into a seed for the picks of the second main picture. */
+const CO_PRIMARY_SEED = 0x1b873593;
 /** Mixed into a seed for the picks of what lies overall. */
 const OVERALL_SEED = 0x7f4a7c15;
 const OVERALL_ORDINARIES = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];
@@ -87,9 +89,19 @@ function designFor(seed: number, rich: boolean): Design | null {
       groups.push({ item: { k: 'charge', charge: among(CHARGES.filter((c) => c !== id)) }, paint: among(TINCTURES), count: among([2, 3, 3, 4, 6, 8]), relation: 'between' });
       surrounded = true;
     }
+    // A second main picture beside the picture, three charges between them at most, from a stream of its own as well.
+    const second = prng(seed ^ CO_PRIMARY_SEED);
+    let together = false;
+    if (!central && !surrounded && pictureAt >= 0 && second() < 0.3) {
+      const among = <T>(xs: readonly T[]): T => xs[Math.floor(second() * xs.length)];
+      const count = among([1, 1, 2]);
+      groups[pictureAt] = { ...groups[pictureAt], count: 3 - count > 1 ? among([1, 2]) : 1 };
+      groups.push({ item: { k: 'charge', charge: among(CHARGES.filter((c) => c !== id)) }, paint: among(TINCTURES), count: Math.min(count, 3 - (groups[pictureAt] as { count: number }).count) });
+      together = true;
+    }
     // Pictures on the picture (one to four on each of one to three), from a stream of their own as well.
     const upon = prng(seed ^ ON_PICTURE_SEED);
-    if (!central && !surrounded && pictureAt >= 0 && upon() < 0.7) {
+    if (!central && !surrounded && !together && pictureAt >= 0 && upon() < 0.7) {
       const among = <T>(xs: readonly T[]): T => xs[Math.floor(upon() * xs.length)];
       const count = among([1, 1, 2, 3, 4]);
       groups[pictureAt] = { ...groups[pictureAt], count: among([1, 1, 2, 3]) };

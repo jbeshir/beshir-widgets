@@ -10,7 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AROUND_COUNTS, ART_ON_BOX, CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
-  hasBordure, hasChief, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
+  hasBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ChargeId, type Design, type FieldShape, type GroundContext, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
@@ -515,6 +515,31 @@ describe('charges overall stand as a lone primary charge does', () => {
           else if (slots[0].size < minSlotSize(ctx)) problems.push(`${where}: too small (${slots[0].size})`);
           else if (!slots.every((s) => disc(s).every(on))) problems.push(`${where}: off the ground`);
           if (JSON.stringify(slots) !== JSON.stringify(contextSlots(fieldContext(peripheral), count, layout, g.shape))) problems.push(`${where}: not the primary's slots`);
+        }
+      }
+      expect(problems).toEqual([]);
+    });
+  }
+});
+
+describe('two main pictures are laid out as one group', () => {
+  const COUNTS_TOGETHER: ReadonlyArray<readonly [number, number]> = [[1, 1], [2, 1], [1, 2]];
+  for (const g of SHAPES) {
+    it(`${g.shape}: each takes its slice of the slots of all their charges, on the ground the chief and bordure leave`, () => {
+      const problems: string[] = [];
+      for (const peripheral of PERIPHERALS) {
+        const on = groundFits(g, fieldContext(peripheral), 0, false);
+        for (const [a, b] of COUNTS_TOGETHER) {
+          const d = resolved({ v: 2, field: 'azure', groups: [tinctured('or', chargeItem('lion'), { count: a }), tinctured('argent', chargeItem('rose'), { count: b }), ...peripheralGroups(peripheral)] });
+          const first = layoutContext(d, [0]), second = layoutContext(d, [1]);
+          if (first.k !== 'field' || second.k !== 'field') throw new Error('not a field context');
+          for (const layout of layoutCandidates(d, [0], a)) {
+            const where = `${peripheral} ${a}+${b} ${layoutKey(layout)}`;
+            const total = contextSlots({ ...first, share: null }, a + b, layout, g.shape);
+            const slots = [...contextSlots(first, a, layout, g.shape), ...contextSlots(second, b, layout, g.shape)];
+            if (JSON.stringify(slots) !== JSON.stringify(total)) problems.push(`${where}: not the slices of the whole group's slots`);
+            else if (total.length > 0 && !total.every((s) => disc(s).every(on))) problems.push(`${where}: off the ground`);
+          }
         }
       }
       expect(problems).toEqual([]);

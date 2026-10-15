@@ -564,8 +564,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const ords = els.filter((el) => el.kind === 'ord' && el.ctx !== 'overall' && !onOverall(el));
   if (els.some(onOverall)) tag('multiple-groups', 'tertiary-on-overall');
   const together = drawnTogether(ords);
-  if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords) || checkOnCharge(groups[0], groups[1], ords)))) {
-    tag('multiple-groups', 'charges');
+  if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords) || checkOnCharge(groups[0], groups[1], ords) || checkTogether(groups[0], groups[1], ords)))) {
+    if (!checkSeveralTogether(groups, ords)) tag('multiple-groups', 'charges');
   }
   if (ords.length > 1 && !together) tag('multiple-groups', 'ordinaries');
   if (overalls.length > 0) checkOverall(overalls, groups, ords);
@@ -796,6 +796,45 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     if (!gaps.length && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && at.includes(i.at.path.join()))) {
       tag('placement', `around-${second.count}`);
     }
+    return true;
+  }
+
+  /**
+   * Whether the widget draws two charge groups on the field as together the main picture ("a unicorn and a rose", SENA App I1), with
+   * a chief or bordure beside them: asks the library, on a stand-in design, and tags the gaps it would have (more than three charges) or
+   * the arrangement they don't take together. False when either is not a plain group on the field (set between, on or beside something).
+   */
+  function checkTogether(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
+    const placed = (g: Element) => g.ctx === 'field' && !(g.arr && SECONDARY_POSITION_OF[g.arr]);
+    if (!placed(first) || !placed(second)) return false;
+    if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
+    if (first.count > MAX_DRAWN_COUNT || second.count > MAX_DRAWN_COUNT) return true;
+    // Stand-ins of two different charges where the blazon's aren't the widget's (the same charge twice is a rule, not a gap).
+    const a = first.supported ?? 'lion';
+    const b = second.supported && second.supported !== a ? second.supported : a === 'mullet' ? 'rose' : 'mullet';
+    const arrangement = first.arr ?? second.arr;
+    const groups = [
+      { item: { k: 'charge', charge: a }, paint: 'or', count: first.count, ...(arrangement ? { arrangement } : {}) },
+      { item: { k: 'charge', charge: b }, paint: 'argent', count: second.count, ...(arrangement ? { arrangement } : {}) },
+      ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules' })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) { if (arrangement) tag('arrangement', arrangement); return true; }
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    // A layout the pair doesn't take together, or no room for them (the library's layout and capacity rules).
+    const main = walkGroups(r.design).filter((w) => w.group.role === 'primary').map((w) => w.path.join());
+    if (!gaps.length && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && main.includes(i.at.path.join()) && i.rule !== 'same-type')) {
+      if (arrangement) tag('arrangement', arrangement); else tag('placement', `co-primary-${first.count + second.count}`);
+    }
+    return true;
+  }
+
+  /** Three or more charge groups on the field, none set beside or around: more main groups than the widget draws together. */
+  function checkSeveralTogether(all: readonly Element[], ordinaries: readonly Element[]): boolean {
+    if (!all.every((g) => g.ctx === 'field' && !(g.arr && SECONDARY_POSITION_OF[g.arr]))) return false;
+    if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
+    tag('multiple-groups', 'co-primary-3');
     return true;
   }
 

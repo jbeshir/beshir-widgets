@@ -8,7 +8,7 @@ import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, type ChargeId } from './charges';
 import { contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground } from './contrast';
 import {
-  fieldTinctures, groupAt, hostOf, itemName, notSupported, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
+  fieldTinctures, groupAt, hostOf, itemName, notSupported, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
 } from './design';
 import {
   CANONICAL_SHAPE, fieldTinctureAt, groundPoints, inFirstPart, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Slot,
@@ -16,7 +16,7 @@ import {
 import { canonicalSlots, groupSlotCount } from './layout';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
-import { forcedLayout, layoutContext } from './arrangement';
+import { coPrimaries, forcedLayout, layoutContext } from './arrangement';
 
 export const FAILURE_TEXT: Record<ContrastFailure, string> = {
   same: 'same tincture',
@@ -131,9 +131,10 @@ export function groundContacts(d: Design, path: GroupPath): Tincture[][] {
   return groundShares(d, path).map(groundTinctures);
 }
 
-/** The field tincture a group on the field lies wholly on, or null when it touches more than one (or has no ground). */
+/** The field tincture a group on the field lies wholly on, or null when it touches more than one (or has no ground). Co-primary groups are judged together: charges each in one part of the field are counterchanged over it as a whole. */
 function oneSection(d: Design, path: GroupPath): Tincture | null {
-  const touched = new Set(groundContacts(d, path).flat());
+  const paths = groupAt(d, path).role === 'primary' && coPrimaries(d) ? primaryGroups(d).map((p) => p.path) : [path];
+  const touched = new Set(paths.flatMap((p) => groundContacts(d, p).flat()));
   return touched.size === 1 ? [...touched][0] : null;
 }
 
@@ -270,7 +271,9 @@ function forcedIntoOnePart(d: Design, path: GroupPath, failures: readonly (Contr
   // Charges set in chief, in base or in canton, or around the primary charges, stand where the blazon puts them: a part they don't
   // contrast with is a violation (Table 7's forcing is for the primary), and so is a charge overall.
   if (g.item.k !== 'charge' || g.paint.k !== 'tincture' || !pair || hostOf(d, path) || g.relation === 'position' || g.role === 'overall' || forcedLayout(d, path) !== null) return false;
-  if (layoutContext(d, path).k === 'around') return false;
+  const ctx = layoutContext(d, path);
+  // Co-primary groups each go where they contrast, whichever is written first: a clash there is a violation, not a forced position.
+  if (ctx.k === 'around' || (ctx.k === 'field' && ctx.share !== null)) return false;
   const i = pair.indexOf(g.paint.t);
   return i >= 0 && contrastFailure(g.paint.t, [pair[1 - i]]) === null && failures.some((f) => f !== null) && failures.every((f) => f === null || f === 'same');
 }

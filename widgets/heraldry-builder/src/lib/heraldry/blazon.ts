@@ -59,6 +59,12 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
   words.push(...g.item.mods.map(modifierWords));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
   const layout = layoutWords({ arrangement: g.arrangement, position: g.position });
+  // Two co-primary groups share one arrangement, said once: a line leads the first ("in pale a crescent and a mullet"), a pattern follows the second.
+  const ctx = layoutContext(d, path);
+  if (ctx.k === 'field' && ctx.share) {
+    const leads = g.position !== null || g.arrangement.k === 'line';
+    return ctx.share.index === 0 ? (leads ? `${layout} ${words.join(' ')}` : words.join(' ')) : (leads ? words.join(' ') : `${words.join(' ')} ${layout}`);
+  }
   // Lines and positions lead ("in pale two keys"); count patterns follow ("five roses two, two and one", RULES §F.3), after the
   // position when there is one ("in chief five mullets three and two", "in base two swords in saltire").
   if (g.position !== null && (g.arrangement.k === 'rows' || g.arrangement.k === 'crossed')) {
@@ -86,8 +92,8 @@ function carrying(host: Group): { lead: string; on: boolean } {
   return CHARGED_WITH.includes(CHARGES[host.item.charge].category) ? { lead: ' charged with ', on: false } : { lead: ' ', on: true };
 }
 
-/** `secondary` is set between (or around) the primary, `position` stands beside it ("and in chief …"), `overall` lies across everything ("and overall a bend"). */
-type TokenKind = 'primary' | 'secondary' | 'position' | 'overall' | 'peripheral' | 'tertiary';
+/** `co-primary` is the second of two groups that are together the primary ("a unicorn and a rose"), `secondary` is set between (or around) the primary, `position` stands beside it ("and in chief …"), `overall` lies across everything ("and overall a bend"). */
+type TokenKind = 'primary' | 'co-primary' | 'secondary' | 'position' | 'overall' | 'peripheral' | 'tertiary';
 
 /** One element of the sentence: its phrase and paint, whether its paint may be shared with the element before, and (a tertiary) what joins it to its host. */
 interface Token { kind: TokenKind; text: string; paint: string; linked: boolean; lead: string }
@@ -98,7 +104,7 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
   const add = (kind: TokenKind, path: GroupPath, g: Group, lead = ' ') => {
     const prev = out[out.length - 1];
     // Bruce: a tincture carries back over the elements before it, but never into or out of "on a ...".
-    const linked = (kind === 'secondary' || kind === 'position' || kind === 'overall' || kind === 'peripheral') && prev !== undefined && prev.kind !== 'tertiary';
+    const linked = (kind === 'co-primary' || kind === 'secondary' || kind === 'position' || kind === 'overall' || kind === 'peripheral') && prev !== undefined && prev.kind !== 'tertiary';
     const phrase = g.item.k === 'ordinary' ? ordinaryPhrase(g) : chargePhrase(d, path, g, options);
     const text = g.charged.length > 0 && carrying(g).on ? `on ${phrase}` : phrase;
     out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint: paintWord(g.paint), linked, lead });
@@ -111,7 +117,7 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
   const relation = (r: Group['relation']) => secondaries.filter(({ g }) => g.relation === r);
   const other = secondaries.find(({ g }) => g.relation !== 'between' && g.relation !== 'position');
   if (other) return notSupported({ category: 'multiple-groups', detail: `secondary-${other.g.relation ?? 'none'}` });
-  for (const { g, path } of primaries) add('primary', path, g);
+  primaries.forEach(({ g, path }, i) => add(i === 0 ? 'primary' : 'co-primary', path, g));
   for (const { g, path } of relation('between')) add('secondary', path, g);
   for (const { g, path } of primaries) tertiaries(path, g);
   for (const { g, path } of relation('position')) add('position', path, g);
@@ -132,7 +138,7 @@ export function blazon(d: Design, options: BlazonOptions = { stateDefaults: fals
   const all = tokens(d, options);
   let pending = false;
   all.forEach((t, i) => {
-    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
+    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
     const next = all[i + 1];
     pending = next !== undefined && next.linked && next.paint === t.paint;
     text += `${lead}${t.text}${pending ? '' : ` ${t.paint}`}`;

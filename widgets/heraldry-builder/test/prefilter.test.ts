@@ -1,16 +1,16 @@
 // The too-close pre-filter (candidateKey) must never change a verdict: checkUnique over only the entries
-// sharing the candidate key equals checkUnique over the whole registry — including which entry an ok design
+// whose key may conflict with the candidate's equals checkUnique over the whole registry — including which entry an ok design
 // only passed by two distinct changes. That holds because a change of any part of the key is always a
 // substantial change on its own, which is proven here too.
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, signature,
+  CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, signature,
   type Design, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
-const sameKey = (a: Design, b: Design) => JSON.stringify(candidateKey(a)) === JSON.stringify(candidateKey(b));
+const sameKey = (a: Design, b: Design) => keysMayConflict(candidateKey(a), candidateKey(b));
 
 function registryFrom(designs: Design[]): RegistryEntryLike[] {
   const bySignature = new Map<string, RegistryEntryLike>();
@@ -84,6 +84,40 @@ describe('too-close pre-filter', () => {
         if (sameKey(a, b)) continue;
         expect(differences(a, b).filter((d) => d.kind === 'sc').length, `${signature(a)} vs ${signature(b)}`).toBeGreaterThan(0);
       }
+    }
+  });
+});
+
+describe('too-close pre-filter with two main pictures', () => {
+  // Two groups of charges are one primary group: they may share a type with any entry that has a primary.
+  const lion = (extra: object = {}) => group(charge('lion'), 'or', extra);
+  const designs = [
+    nd(arms('azure', lion(), group(charge('rose'), 'argent'))),
+    nd(arms('azure', lion({ count: 2 }), group(charge('rose'), 'argent'))),
+    nd(arms('azure', group(charge('wolf'), 'or'), group(charge('mullet'), 'argent'))),
+    nd(arms('azure', lion())),
+    nd(arms('azure', group(charge('rose'), 'or', { count: 2 }))),
+    nd(arms('azure', group(charge('mullet'), 'or', { count: 3 }))),
+    nd(arms('azure', group(ordinary('bend'), 'or'))),
+    nd(arms('azure', group(ordinary('chief'), 'or'))),
+    nd(arms(div('per-pale', 'or', 'azure'), lion(), group(charge('rose'), 'argent'))),
+    nd(arms(div('per-pale', 'or', 'azure'), lion())),
+  ];
+
+  it('keys a pair of pictures by any primary, and finds every entry that is not clear of it', () => {
+    expect(candidateKey(designs[0]).primary).toBe('*');
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(keysMayConflict(candidateKey(a), candidateKey(b)), `${signature(a)} vs ${signature(b)}`).toBe(true);
+      expect(keysMayConflict(candidateKey(a), candidateKey(b))).toBe(keysMayConflict(candidateKey(b), candidateKey(a)));
+    }
+  });
+
+  it('gives the same verdict as scanning the whole registry', () => {
+    const registry = registryFrom(designs);
+    for (const probe of designs) {
+      const sig = signature(probe);
+      const candidates = registry.filter((e) => sameKey(probe, e.design));
+      expect(checkUnique(probe, sig, candidates)).toEqual(checkUnique(probe, sig, registry));
     }
   });
 });

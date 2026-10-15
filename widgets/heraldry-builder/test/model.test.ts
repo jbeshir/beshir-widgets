@@ -155,7 +155,9 @@ describe('resolve: roles', () => {
     expect(nd(arms('gules', group(ordinary('chief'), 'argent'), group(charge('lion'), 'or', { position: 'base' }))).groups.map((g) => g.role)).toEqual(['primary', 'peripheral']);
     const both = nd(arms('gules', group(charge('lion'), 'or', { position: 'chief' }), group(charge('rose'), 'argent', { position: 'base' })));
     expect(both.groups.map((g) => g.role)).toEqual(['primary', 'primary']);
-    expect(gapTags(both)).toEqual(['multiple-groups:co-primary']);
+    // Two main pictures are arranged together, so one in chief and one in base is not a layout they have.
+    expect(gapTags(both)).toEqual([]);
+    expect(structuralIssues(both).map((i) => i.code === 'structure' && i.rule)).toEqual(['layout']);
   });
 
   it('sets charges the input relates "between" a primary charge group around it, as a secondary group (SENA App I1)', () => {
@@ -170,8 +172,9 @@ describe('resolve: roles', () => {
       { k: 'line', dir: 'fess' }, { k: 'pattern', pattern: 'saltire' }, { k: 'pattern', pattern: 'orle' }, { k: 'pattern', pattern: 'orle' },
     ]);
     expect(around(4, { arrangement: 'in-cross' }).groups[1].arrangement).toEqual({ k: 'pattern', pattern: 'cross' });
-    // Without the relation, two groups of charges are co-primary.
-    expect(gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3 }))))).toEqual(['multiple-groups:co-primary']);
+    // Without the relation, two groups of charges are co-primary (up to three charges between them).
+    expect(gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3 }))))).toEqual(['multiple-groups:co-primary-count']);
+    expect(gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 2 }))))).toEqual([]);
   });
 
   it('draws charges around one primary charge or two (in fess, in pale or crossed), two to eight of them, and leaves the rest a gap', () => {

@@ -35,7 +35,7 @@
 //   POST   /api/recover/withdraw  -> { token }; uses the token and withdraws the entry
 
 import {
-  API_ERROR, DEFAULT_FIELD_SHAPE, FIELD_SHAPES, asObject, blazon, candidateKey, checkResponse, cleanContact, cleanDisplayName, cleanEmail,
+  API_ERROR, DEFAULT_FIELD_SHAPE, FIELD_SHAPES, MIXED_PRIMARY, asObject, blazon, candidateKey, checkResponse, cleanContact, cleanDisplayName, cleanEmail,
   buildSearchText, deriveTags, isFieldShape, isSupported, normalise, parseSearchParams, readability, reportUniqueness, resolve,
   searchParamsFromUrl, signature, type ApiErrorCode, type CandidateKey, type CheckableEntry, type Contact, type Design, type FieldShape, type Issue,
   type RegistryRef, type TakenReport, type TokenProblem,
@@ -287,16 +287,18 @@ function invalidDesign(issues: Issue[]): Response {
 
 /**
  * The registry entries that could be a duplicate of, too close to, or the closest entry to a design
- * with this key: those sharing its partition and primary group (served by
- * arms_registry_conflict_keys), in registration order.
+ * with this key: those `keysMayConflict` with it (served by arms_registry_conflict_keys), in registration order.
  */
 async function loadCandidates(env: Env, registryId: string, key: CandidateKey): Promise<ScanRow[]> {
+  const [primary, binds]: [string, string[]] = key.primary === null ? ['primary_key IS NULL', []]
+    : key.primary === MIXED_PRIMARY ? ['primary_key IS NOT NULL', []]
+    : ['(primary_key = ? OR primary_key = ?)', [key.primary, MIXED_PRIMARY]];
   const { results } = await env.DB.prepare(
     `SELECT id, display_name, design, field_shape, signature, blazon FROM arms
-     WHERE registry_id = ? AND partition_key = ? AND primary_key IS ?
+     WHERE registry_id = ? AND partition_key = ? AND ${primary}
      ORDER BY created_at, id`
   )
-    .bind(registryId, key.partition, key.primary)
+    .bind(registryId, key.partition, ...binds)
     .all<ScanRow>();
   return results;
 }

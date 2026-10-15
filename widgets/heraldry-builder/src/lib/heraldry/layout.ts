@@ -11,7 +11,7 @@ import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
   AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
-  type FieldContext, type GroundContext, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Yield,
+  type FieldContext, type GroundContext, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
   CANONICAL_SHAPE, SHIELD_INSET_PATH, inFirstPart, ordinaryPath, pathPolygon, pointInPolygon, probePoints, shapeFrame, type Pt, type Slot,
@@ -810,6 +810,20 @@ export function reachesHeaterParts(ctx: LayoutContext, count: number, layout: La
   return samePartsAsHeater(heater, contextSlots(ctx, count, layout, shape), shape);
 }
 
+/**
+ * One of two co-primary groups: all their charges laid out together as one group (the layout is the pair's), each group
+ * taking its slice of the slots in reading order, the first group the first slots.
+ */
+function sharedSlots(ctx: FieldContext & { share: Share }, count: number, layout: Layout, shape: FieldShape): Slot[] {
+  const { index, counts } = ctx.share;
+  if (counts[index] !== count) return [];
+  const total = counts.reduce((a, b) => a + b, 0);
+  const all = contextSlots({ ...ctx, share: null }, total, layout, shape);
+  if (all.length !== total) return [];
+  const from = counts.slice(0, index).reduce((a, b) => a + b, 0);
+  return all.slice(from, from + count);
+}
+
 // ── Public ──────────────────────────────────────────────────────────────────
 
 const memo = new Map<string, Slot[]>();
@@ -824,7 +838,8 @@ export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, 
   let slots = memo.get(key);
   if (!slots) {
     // Charges overall stand as a lone primary does, in what the chief and bordure leave.
-    slots = ctx.k === 'overall' ? contextSlots(fieldContext(ctx.peripheral), count, layout, shape)
+    slots = ctx.k === 'field' && ctx.share ? sharedSlots({ ...ctx, share: ctx.share }, count, layout, shape)
+      : ctx.k === 'overall' ? contextSlots(fieldContext(ctx.peripheral), count, layout, shape)
       : ctx.k === 'around' ? aroundSlots(ctx, count, layout, shape)
       : ctx.k === 'on-charge' ? onChargeSlots(ctx, count, layout, shape)
       : ctx.k === 'on' && ctx.ordinary === 'bordure' ? bordureSlots(count, shape)
@@ -922,6 +937,11 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
   // A count with no layout around the primary charges is a gap (support.ts), not a want of room.
   if (l.ctx.k === 'around' && !AROUND_COUNTS.includes(l.count)) return null;
   const { id } = l;
+  // Two co-primary groups share their room: fewer of either might fit, but which to take away is for the builder to say.
+  if (l.ctx.k === 'field' && l.ctx.share) {
+    const where = whereWords(l.ctx, l.layout);
+    return { most: 0, where, message: `There isn't room for both main pictures ${layoutWords(l.layout)} ${where} at a size that reads — try fewer, or another arrangement.` };
+  }
   const layoutFor = (n: number): Layout => {
     const a = group.arrangement;
     if (n === group.count) return l.layout;

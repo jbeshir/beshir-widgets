@@ -22,6 +22,7 @@ interface Props {
 }
 
 const PICTURES_HINT = {
+  'co-primary': 'A second main picture, laid out with the first: side by side, one above the other, or as the shield is split.',
   around: 'Pictures set around the picture: in its corners, at its sides, or in a ring round the edge.',
   'on-picture': 'Small pictures drawn on the main picture, on each one if there are several.',
   'on-ordinary': 'Pictures drawn on the band, as well as the picture above.',

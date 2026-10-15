@@ -3,7 +3,7 @@
 
 import { numberWord, joinAnd } from './words';
 import {
-  groupAt, hostOf, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position,
+  groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position,
 } from './design';
 import { CHARGES, type ChargeId, type Posture } from './charges';
 import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
@@ -172,6 +172,32 @@ export function primaryCharges(d: Design): Group | null {
   return primaries.length === 1 && primaries[0].item.k === 'charge' ? primaries[0] : null;
 }
 
+/** The most charges two co-primary groups have between them: three, or the layouts for more would have to be told apart by their types. */
+export const MAX_CO_PRIMARY_TOTAL = 3;
+
+/** The design's two primary groups when both are groups of charges ("a lion and a rose"): together they are the primary group, laid out as one. */
+export function coPrimaries(d: Design): [Group, Group] | null {
+  const primaries = d.groups.filter((g) => g.role === 'primary');
+  return primaries.length === 2 && primaries.every((g) => g.item.k === 'charge') ? [primaries[0], primaries[1]] : null;
+}
+
+/** The slice of the total a primary charge group takes when it is one of two co-primary groups, else null. Groups are told apart by their charge: one charge never stands in two groups on the field (SENA A3D1a). */
+function shareOf(d: Design, group: Group): Share | null {
+  const pair = coPrimaries(d);
+  if (!pair || group.role !== 'primary') return null;
+  const index = pair[0] === group ? 0 : pair[1] === group ? 1 : pair.findIndex((g) => itemKey(g.item) === itemKey(group.item));
+  return index < 0 ? null : { index, counts: [pair[0].count, pair[1].count] };
+}
+
+/** How many charges the co-primary groups of a context have in all, or the group's own count when it has no co-primary. */
+export const shareTotal = (share: Share | null, own: number): number => (share ? share.counts.reduce((a, b) => a + b, 0) : own);
+
+/** The same context with this group's count changed (a co-primary group's count changes the total the groups are laid out in). */
+export function withOwnCount(ctx: LayoutContext, count: number): LayoutContext {
+  if (ctx.k !== 'field' || !ctx.share) return ctx;
+  return { ...ctx, share: { index: ctx.share.index, counts: ctx.share.counts.map((n, i) => (i === ctx.share!.index ? count : n)) } };
+}
+
 /** Whether charges are set around the primary charges ("a lion between three mullets"): the room the primary leaves them all round. */
 function aroundSecondary(d: Design): boolean {
   return primaryCharges(d) !== null && d.groups.some((g) => g.role === 'secondary' && g.relation === 'between' && g.item.k === 'charge');
@@ -192,7 +218,7 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
     return { k: 'on', ordinary: host.item.type, peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
   }
   if (group.role === 'overall') return d.groups.some((g) => g.role === 'primary') ? { k: 'overall', peripheral: peripheralOf(d) } : null;
-  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none') };
+  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none'), share: shareOf(d, group) };
   if (group.role === 'secondary' && group.relation === 'position') {
     return isSecondaryPosition(group.position) && d.groups.some((g) => g.role === 'primary')
       ? { k: 'position', position: group.position, ordinary: primaryOrdinary(d), peripheral: peripheralOf(d) }
@@ -331,17 +357,19 @@ function fieldPair(d: Design): [Tincture, Tincture] | null {
 }
 
 /** Table 7 for a charge group of `count` in `ctx`: the first applicable row, or null for "None, must be specified". */
-function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count: number): RuledLayout | null {
-  if (ctx.k === 'position') return { layout: positionLayout(ctx.position, count), rule: 'position' };
-  if (ctx.k === 'around') return count === 3 ? { layout: rows([2, 1]), rule: 'around' } : null;
-  if (ctx.k === 'on-charge' || ctx.k === 'overall') return count === 1 ? { layout: single(), rule: '1' } : null;
+function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: number): RuledLayout | null {
+  if (ctx.k === 'position') return { layout: positionLayout(ctx.position, own), rule: 'position' };
+  if (ctx.k === 'around') return own === 3 ? { layout: rows([2, 1]), rule: 'around' } : null;
+  if (ctx.k === 'on-charge' || ctx.k === 'overall') return own === 1 ? { layout: single(), rule: '1' } : null;
   if (ctx.k !== 'field') return { layout: HOST_LAYOUT, rule: 'host' };
+  // Co-primary groups are laid out together: Table 7 for all their charges.
+  const count = shareTotal(ctx.share, own);
   const division = d.kind === 'arms' && d.field.k === 'divided' ? d.field.division : null;
   const pair = fieldPair(d);
   const paint = group.paint;
 
   // Table 7 intro: charges with no contrast with a section go where they contrast (not into room left for a secondary group).
-  if ((division === 'per-fess' || division === 'per-chevron') && !hasChief(ctx.peripheral) && ctx.yields === 'none' && paint.k === 'tincture' && pair && pair[0] !== pair[1]) {
+  if ((division === 'per-fess' || division === 'per-chevron') && ctx.share === null && !hasChief(ctx.peripheral) && ctx.yields === 'none' && paint.k === 'tincture' && pair && pair[0] !== pair[1]) {
     const i = pair.indexOf(paint.t);
     if (i >= 0 && contrastFailure(paint.t, [pair[1 - i]]) === null) {
       const position = i === 1 ? 'chief' : 'base';
@@ -356,7 +384,8 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count:
       case 'per-bend': return { layout: line('bend-sinister'), rule: '2-two-part' };
       case 'per-bend-sinister': return { layout: line('bend'), rule: '2-two-part' };
       case 'quarterly': case 'per-saltire': {
-        if (paint.k !== 'tincture' || !pair) return null;
+        // Two different groups each go where they contrast, whichever they are blazoned first: that is stated.
+        if (ctx.share || paint.k !== 'tincture' || !pair) return null;
         const good = pair.flatMap((p, i) => (contrastFailure(paint.t, [p]) === null ? [i] : []));
         if (good.length !== 1) return null;
         const dirs: LineDir[] = division === 'quarterly' ? ['bend', 'bend-sinister'] : ['pale', 'fess'];
@@ -376,6 +405,20 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count:
   return null;
 }
 
+/**
+ * The layouts two co-primary groups can take together, for all their charges: Table 7's, two side by side first, the row
+ * patterns, the lines, and along the top or the bottom. Not crossed, in a ring or with charges around them: those are for one group.
+ */
+function sharedCandidates(ctx: FieldContext, total: number, tableDefault: Layout | null): Layout[] {
+  const out: Layout[] = tableDefault ? [tableDefault] : [];
+  if (total === 2) out.push(line('fess'));
+  out.push(...ROW_PATTERNS.filter((r) => r.reduce((a, b) => a + b, 0) === total).map(rows));
+  out.push(...LINE_DIRS.map((dir) => line(dir)));
+  if (!hasChief(ctx.peripheral) && ctx.yields === 'none') out.push(line('fess', 'chief'), line('fess', 'base'));
+  const seen = new Set<string>();
+  return out.filter((l) => !seen.has(layoutKey(l)) && !!seen.add(layoutKey(l)));
+}
+
 /** The layouts a charge group of `count` can take, in the order the builder lists them. Capacity is not consulted. */
 function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDefault: Layout | null): Layout[] {
   const long = group.item.k === 'charge' && CHARGES[group.item.charge].long;
@@ -384,6 +427,7 @@ function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDef
   if (ctx.k === 'on-charge') return [...onChargeLayouts(count)];
   if (ctx.k === 'overall') return overallLayouts(count, long);
   if (ctx.k !== 'field') return [HOST_LAYOUT];
+  if (ctx.share) return sharedCandidates(ctx, shareTotal(ctx.share, count), tableDefault);
   // Primary charges with charges set around them stand alone, or two side by side, one above the other or crossed.
   const around = ctx.yields === 'around' ? aroundPrimaryLayouts(count, long) : [];
   if (around.length > 0) return tableDefault && around.some((l) => sameLayout(l, tableDefault)) ? [tableDefault, ...around.filter((l) => !sameLayout(l, tableDefault))] : around;
@@ -414,7 +458,8 @@ function ruledDefaultOf(d: Design, group: Group, host: Group | null): RuledLayou
 
 /** The layout of a group whose arrangement the input leaves out. Never throws: groups with no layout get a plain fallback. */
 export function defaultLayoutOf(d: Design, group: Group, host: Group | null, count: number = group.count): Layout {
-  const ctx = contextOf(d, group, host);
+  const own = contextOf(d, group, host);
+  const ctx = own && withOwnCount(own, count);
   // A count with no layout there (a gap) keeps a plain one.
   if (ctx) return tableDefaultRuleFor(d, group, ctx, count)?.layout ?? candidatesFor(group, ctx, count, null)[0] ?? (count === 1 ? single() : line('fess'));
   if (group.item.k === 'ordinary') return single();
@@ -438,7 +483,7 @@ export function tableDefault(d: Design, path: GroupPath): Layout | null {
 export function layoutCandidates(d: Design, path: GroupPath, count: number): Layout[] {
   const group = groupAt(d, path);
   if (group.item.k === 'ordinary') return [single()];
-  const ctx = layoutContext(d, path);
+  const ctx = withOwnCount(layoutContext(d, path), count);
   return candidatesFor(group, ctx, count, tableDefaultRuleFor(d, group, ctx, count)?.layout ?? null);
 }
 

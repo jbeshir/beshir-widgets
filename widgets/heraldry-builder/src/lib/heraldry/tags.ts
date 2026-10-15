@@ -7,7 +7,7 @@ import { CHARGES, isChargeCategory, isChargeId, isPosture } from './charges';
 import { isDivision } from './divisions';
 import { fieldTinctures, isGroupTincture, walkGroups, type Design } from './design';
 import { isOrdinaryType } from './ordinaries';
-import { layoutKey, primaryCharges } from './arrangement';
+import { coPrimaries, layoutKey, primaryCharges } from './arrangement';
 import { readability } from './readability';
 
 /** Deterministic, de-duplicated tag list (derivation order). */
@@ -35,6 +35,7 @@ export function deriveTags(d: Design): string[] {
       if (host) add(host.item.k === 'charge' ? 'placement:on-charge' : host.item.type === 'chief' || host.item.type === 'bordure' ? `placement:on-${host.item.type}` : 'placement:on-ordinary');
       else if (group.relation === 'between') add(primaryCharges(d) ? 'placement:around' : 'placement:between');
       else if (group.relation === 'position') add(`placement:in-${group.position}`);
+      else if (group.role === 'primary' && coPrimaries(d)) add('placement:co-primary');
     }
     if (group.role === 'overall') add('placement:overall');
     if (group.paint.k === 'tincture') all.add(group.paint.t);

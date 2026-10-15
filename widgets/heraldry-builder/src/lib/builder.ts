@@ -122,7 +122,7 @@ export function setCharge(d: Design, at: 'picture' | PicturesKey, id: ChargeId |
     return layerPath(d, at) ? setLayerCharge(d, at, id) : setLayerCharge(addLayer(d, at), at, id);
   }
   const parts = partsOf(d);
-  if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.extra ?? parts.around, placement: parts.extra ? 'ordinary' : 'field', extra: null, around: null }));
+  if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.extra ?? parts.around ?? parts.coPrimary, placement: parts.extra ? 'ordinary' : 'field', extra: null, around: null, coPrimary: null }));
   if (parts.picture) return swapPicture(d, id);
   // A new picture goes on the background, or onto the band when pictures already stand beside it in chief, base or canton (one secondary group).
   const onField = refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'field', extra: null }));

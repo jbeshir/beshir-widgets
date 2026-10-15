@@ -278,7 +278,7 @@ describe('a top band and a border beside the band', () => {
     const chief = addLayer(band, 'chief');
     expect(blazon(chief)).toBe('Azure, a chevron argent, a chief Or.');
     expect(assess(chief).status).toBe('valid');
-    expect(layerChoices(chief).map((c) => c.value)).toEqual(['on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure', 'overall']);
+    expect(layerChoices(chief).map((c) => c.value)).toEqual(['co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure', 'overall']);
     expect(['in-chief', 'in-base', 'in-canton'].map((k) => allowed(chief, k as LayerKey))).toEqual([false, true, false]);
     expect(issueStep(chief, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: layerPath(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
     expect(blazon(setLayerTincture(chief, 'chief', 'gules'))).toContain('chief');

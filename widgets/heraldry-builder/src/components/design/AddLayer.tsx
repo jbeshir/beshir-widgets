@@ -16,6 +16,7 @@ function hostWord(design: Design): string {
 const buttonText = (design: Design, key: LayerKey): string => {
   switch (key) {
     case 'on-ordinary': return `Add pictures on the ${hostWord(design)}`;
+    case 'co-primary': return 'Add a second main picture beside the picture';
     case 'on-picture': return 'Add pictures on the picture';
     case 'on-chief': return 'Add pictures on the top bar';
     case 'on-bordure': return 'Add pictures on the border';

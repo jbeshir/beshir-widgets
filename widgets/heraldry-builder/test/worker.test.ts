@@ -10,7 +10,7 @@ import {
   FIELD_SHAPES, blazon, candidateKey, checkUnique, parseSearchParams, resolve, searchEntries, signature,
   type RegistryEntryLike,
 } from '../src/lib/heraldry';
-import { generatedDesigns } from './design-generator';
+import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { sampleSearchEntries } from './sample-search-entries';
 import { arms, charge, div, group, nd, ordinary, searchParams, type SearchArgs } from './helpers';
 
@@ -1025,7 +1025,9 @@ describe('withdrawal cascades to tags', () => {
 describe('too-close candidate lookup', () => {
   it('gives the verdict a full scan of the stored registry gives', async () => {
     await addRegistry('prefilter', 'Prefilter');
-    const stored = generatedDesigns(1, 100);
+    // Designs with two main pictures are keyed '*' and found by entries of any primary.
+    const pairs = (seed: number, count: number) => generatedRichDesigns(seed, 1200).filter((d) => d.groups.filter((g) => g.role === 'primary').length === 2).slice(0, count);
+    const stored = [...generatedDesigns(1, 100), ...pairs(1, 40)];
     const entries: RegistryEntryLike[] = [];
     for (const [i, design] of stored.entries()) {
       const sig = signature(design);
@@ -1041,7 +1043,7 @@ describe('too-close candidate lookup', () => {
     }
 
     const verdicts = new Set<string>();
-    for (const probe of generatedDesigns(50_000, 300)) {
+    for (const probe of [...generatedDesigns(50_000, 300), ...pairs(60_000, 40)]) {
       const full = checkUnique(probe, signature(probe), entries);
       const res = await call('POST', '/api/arms/check', { body: { registry: 'prefilter', design: probe } });
       expect(res.status).toBe(200);
@@ -1056,6 +1058,7 @@ describe('too-close candidate lookup', () => {
       }
     }
     expect([...verdicts].sort()).toEqual(['duplicate', 'ok', 'ok-on-two-dcs', 'too-close']);
+    expect(entries.some((e) => candidateKey(e.design).primary === '*')).toBe(true);
   }, 30_000);
 });
 

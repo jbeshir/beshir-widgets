@@ -179,6 +179,7 @@ export function postureLabel(id: ChargeId, posture: Posture, note: string | null
 export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
   ordinary: { plain: 'Band or shape', term: 'ordinary' },
   picture: { plain: 'Picture', term: 'charge' },
+  'co-primary': { plain: 'Second picture', term: 'second main charge' },
   'on-picture': { plain: 'Pictures on the picture', term: 'charges on the charge' },
   around: { plain: 'Pictures around the picture', term: 'charges between' },
   'in-chief': { plain: 'Pictures along the top', term: 'charges in chief' },
@@ -194,7 +195,7 @@ export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
 
 /**
  * What the builder calls a group: "Band or shape", "Picture", "Pictures on the band", "Top bar", "Border",
- * "Pictures on the top bar" for what sits on one, "Pictures along the top" for charges set in chief beside the main picture,
+ * "Second picture" for the second of two main pictures, "Pictures on the top bar" for what sits on one, "Pictures along the top" for charges set in chief beside the main picture,
  * "Pictures around the picture" for charges set around it, or "Across everything" for a band or picture lying overall.
  */
 export function groupLabel(d: Design, path: GroupPath): string {
@@ -213,5 +214,6 @@ export function groupLabel(d: Design, path: GroupPath): string {
     return PLACE_LABEL[`in-${group.position}`].plain;
   }
   if (group.role === 'secondary' && group.relation === 'between' && primaryCharges(d)) return PLACE_LABEL.around.plain;
-  return 'Picture';
+  const mains = d.groups.filter((g) => g.role === 'primary' && g.item.k === 'charge');
+  return group.role === 'primary' && mains.indexOf(group) > 0 ? PLACE_LABEL['co-primary'].plain : 'Picture';
 }

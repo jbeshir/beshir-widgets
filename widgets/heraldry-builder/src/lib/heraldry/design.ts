@@ -157,6 +157,12 @@ export function primaryGroup(d: Design): { path: GroupPath; group: Group } | nul
   return i < 0 ? null : { path: [i], group: d.groups[i] };
 }
 
+
+/** Every primary group, in canonical order: one, or the co-primary groups ('a lion and a rose') that together are the primary group (SENA App I1). */
+export function primaryGroups(d: Design): Array<{ path: GroupPath; group: Group }> {
+  return d.groups.flatMap((group, i) => (group.role === 'primary' ? [{ path: [i] as GroupPath, group }] : []));
+}
+
 /** True when no group is primary: the field carries the design (RULES §B.3). */
 export function isFieldPrimary(d: Design): boolean {
   return primaryGroup(d) === null;
@@ -249,7 +255,9 @@ const PERIPHERAL_ORDER = ['ordinary:chief', 'ordinary:bordure'];
 
 function groupOrder(g: Group): string {
   const peripheral = g.role === 'peripheral' ? PERIPHERAL_ORDER.indexOf(itemKey(g.item)) : -1;
-  return `${ROLE_ORDER.indexOf(g.role)}${peripheral >= 0 ? `0${peripheral}` : `1${itemKey(g.item)}`}`;
+  // Primary charges keep the order they were written in: the first of two stands first (to dexter, or above).
+  const key = g.role === 'primary' && g.item.k === 'charge' ? 'charge' : itemKey(g.item);
+  return `${ROLE_ORDER.indexOf(g.role)}${peripheral >= 0 ? `0${peripheral}` : `1${key}`}`;
 }
 
 function canonicalGroups(groups: readonly Group[]): Group[] {

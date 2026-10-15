@@ -5,11 +5,12 @@
 import { TINCTURE_NAME } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase } from './charges';
-import { itemKey, itemName, primaryGroup, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
+import { itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
 import { capacityIssue } from './layout';
+import { posturesClash } from './difference';
 import { groundShares } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
-import { AROUND_COUNTS, contextOf, hasChief, layoutCandidates, layoutKey, layoutWords, primaryCharges, type HostCharges, type LayoutContext } from './arrangement';
+import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type HostCharges, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
@@ -61,6 +62,11 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
   if ((g.position === 'chief' || g.position === 'base') && hasChief(ctx.peripheral)) {
     return `There is no room to set charges in ${g.position} when the design has a chief.`;
   }
+  if (ctx.share) {
+    const together = layoutCandidates(d, path, g.count);
+    if (together.some((c) => layoutKey(c) === layoutKey(layout))) return null;
+    return `${capitalise(numberWord(shareTotal(ctx.share, g.count)))} main pictures together can be arranged ${together.map(layoutWords).join(', ')} — not ${layoutWords(layout)}.`;
+  }
   if (a.k === 'crossed' && !meta.long) return 'Only long charges such as swords, keys and anchors can be crossed.';
   const candidates = layoutCandidates(d, path, g.count);
   if (candidates.some((c) => layoutKey(c) === layoutKey(layout))) return null;
@@ -76,11 +82,11 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
  */
 const OVERLIES_SHARE = 1 / 10;
 
-/** Whether some charge of the primary group overlies the line of division on the heater, or the group has no room to be judged (the capacity rule says so). */
+/** Whether some charge of the primary groups overlies the line of division on the heater, or they have no room to be judged (the capacity rule says so). */
 function crossesTheLine(d: Design): boolean {
-  const primary = primaryGroup(d);
-  if (!primary) return false;
-  const grounds = groundShares(d, primary.path);
+  const primaries = primaryGroups(d);
+  if (primaries.length === 0) return false;
+  const grounds = primaries.flatMap((p) => groundShares(d, p.path));
   return grounds.every((g) => g.length === 0) || grounds.some((g) => g.length > 1 && g.every((s) => s.share >= OVERLIES_SHARE));
 }
 
@@ -126,6 +132,16 @@ export function structuralIssues(d: Design): Issue[] {
       if (hostsSeen.has(host)) add({ code: 'structure', rule: 'relation', at, message: `Only one group of charges can sit on the ${itemName(host.item)} (SENA App I3).`, slots: [] });
       hostsSeen.add(host);
     }
+  }
+
+  // 3c. Two co-primary groups are laid out together, so both are given the one arrangement.
+  const together = coPrimaries(d);
+  if (together && layoutKey({ arrangement: together[0].arrangement, position: together[0].position }) !== layoutKey({ arrangement: together[1].arrangement, position: together[1].position })) {
+    add({ code: 'structure', rule: 'layout', at: { k: 'group', path: [d.groups.indexOf(together[1])] }, message: 'Two main pictures are arranged together — give both the same arrangement.', slots: [] });
+  }
+
+  if (together && posturesClash(together[0].item, together[1].item)) {
+    add({ code: 'structure', rule: 'relation', at: { k: 'group', path: [d.groups.indexOf(together[1])] }, message: 'Two main pictures that can be posed alike must be: a rampant and a passant beast are not one group (SENA A3D2c).', slots: [] });
   }
 
   // 3b. A group overall lies over a primary group (SENA App I4): there is one, it overlies a primary, and one of the two is an ordinary or a long charge.

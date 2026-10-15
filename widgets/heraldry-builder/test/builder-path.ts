@@ -18,8 +18,8 @@ import { layoutMoves, type LayoutAction } from './helpers';
 
 /** The places the picture controls belong to: the picture, the pictures on it, the pictures around it, the pictures in chief, base or canton, the pictures on the band, the top band and the border, and what lies overall. */
 type At = 'picture' | PicturesKey | 'overall';
-/** The pictures laid out after the picture, in the order they are added. */
-const EXTRA_PICTURES: readonly PicturesKey[] = ['on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'on-bordure'];
+/** The pictures laid out after the picture, in the order they are added (the second main picture first: it takes the room the others are laid out in). */
+const EXTRA_PICTURES: readonly PicturesKey[] = ['co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'on-bordure'];
 
 /** One click in the builder's Design tab. */
 export type BuilderAction =
@@ -149,7 +149,7 @@ function dividedTinctureSteps([x, y]: [Tincture, Tincture], [a, b]: [Tincture, T
 }
 
 /** The count, placement and layout of a picture, as the layout controls see it. */
-function layoutState(d: Design, at: At): string {
+function pictureState(d: Design, at: At): string {
   const path = pathAt(d, at);
   if (!path) return '';
   const g = groupAt(d, path);
@@ -157,26 +157,31 @@ function layoutState(d: Design, at: At): string {
   return `${g.count}/${at === 'picture' ? placement : ''}/${JSON.stringify([g.arrangement, g.position])}`;
 }
 
+/** The state of one or several pictures that are laid out together (two main pictures). */
+const layoutState = (d: Design, ats: readonly At[]): string => ats.map((at) => pictureState(d, at)).join('|');
+
 /**
  * The shortest route through the count, placement and layout controls from `start` to the goal's
  * layout (breadth-first, as the reachability test searches), or null when there is none.
  */
-function layoutRoute(start: Design, goal: Design, at: At): BuilderAction[] | null {
-  const target = layoutState(goal, at);
-  if (layoutState(start, at) === target) return [];
-  const routes = new Map<string, BuilderAction[]>([[layoutState(start, at), []]]);
+function layoutRoute(start: Design, goal: Design, ats: readonly At[]): BuilderAction[] | null {
+  const target = layoutState(goal, ats);
+  if (layoutState(start, ats) === target) return [];
+  const routes = new Map<string, BuilderAction[]>([[layoutState(start, ats), []]]);
   const queue = [start];
   for (let s = queue.shift(); s; s = queue.shift()) {
-    const route = routes.get(layoutState(s, at))!;
-    const path = pathAt(s, at);
-    if (!path) continue;
-    for (const m of layoutMoves(s, path)) {
-      const k = layoutState(m.design, at);
-      if (routes.has(k)) continue;
-      const next = [...route, { kind: 'layout', at, action: m.action, design: m.design } as const];
-      routes.set(k, next);
-      if (k === target) return next;
-      queue.push(m.design);
+    const route = routes.get(layoutState(s, ats))!;
+    for (const at of ats) {
+      const path = pathAt(s, at);
+      if (!path) continue;
+      for (const m of layoutMoves(s, path)) {
+        const k = layoutState(m.design, ats);
+        if (routes.has(k)) continue;
+        const next = [...route, { kind: 'layout', at, action: m.action, design: m.design } as const];
+        routes.set(k, next);
+        if (k === target) return next;
+        queue.push(m.design);
+      }
     }
   }
   return null;
@@ -248,7 +253,7 @@ export function builderPath(goal: Design): BuilderPath {
 
   // The picture, then the pictures around it or beside it in chief, base or canton, the extra pictures on the band, the top band and the border, and last what lies overall.
   for (const at of ['picture', ...EXTRA_PICTURES, 'overall'] as const) {
-    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : at === 'around' ? parts.around : at === 'on-picture' ? parts.onPicture
+    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : at === 'around' ? parts.around : at === 'co-primary' ? parts.coPrimary : at === 'on-picture' ? parts.onPicture
       : at === 'overall' ? parts.overall : parts.positioned?.place === at ? parts.positioned : parts.peripheralPictures.find((p) => p.place === at);
     if (!part) continue;
     const item = part.group.item;
@@ -262,26 +267,33 @@ export function builderPath(goal: Design): BuilderPath {
       }
     } else if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };
     else if (!click({ kind: 'charge', at, charge: item.charge })) return done();
-    const route = layoutRoute(d, goal, at);
+    // Two main pictures are laid out together and judged together: the first waits for the second, then the controls of either lead to the goal's layout of both.
+    if (at === 'picture' && parts.coPrimary) continue;
+    const together: readonly At[] = at === 'co-primary' ? ['picture', 'co-primary'] : [at];
+    const route = layoutRoute(d, goal, together);
     if (!route) {
-      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, at)} from ${layoutState(d, at)}`);
+      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, together)} from ${layoutState(d, together)}`);
       return done();
     }
     if (!click(...route)) return done();
-    const path = pathAt(d, at)!;
-    const now = groupAt(d, path).item;
-    if (item.posture && now.k === 'charge' && now.posture !== item.posture && !click({ kind: 'posture', at, posture: item.posture })) return done();
-    const wantsSplendour = item.mods.some((m) => m.id === 'in-splendour');
-    if (wantsSplendour && now.k === 'charge' && !now.mods.some((m) => m.id === 'in-splendour') && !click({ kind: 'splendour', at, on: true })) return done();
-    const t = tinctureOf(part.group);
-    if (t && tinctureOf(groupAt(d, path)) !== t && !click({ kind: 'charge-tincture', at, tincture: t })) return done();
+    for (const own of together) {
+      const group = (own === at ? part : parts.picture!).group;
+      const path = pathAt(d, own)!;
+      const now = groupAt(d, path).item;
+      if (group.item.k !== 'charge') continue;
+      const { posture, mods } = group.item;
+      if (posture && now.k === 'charge' && now.posture !== posture && !click({ kind: 'posture', at: own, posture })) return done();
+      if (mods.some((m) => m.id === 'in-splendour') && now.k === 'charge' && !now.mods.some((m) => m.id === 'in-splendour') && !click({ kind: 'splendour', at: own, on: true })) return done();
+      const t = tinctureOf(group);
+      if (t && tinctureOf(groupAt(d, path)) !== t && !click({ kind: 'charge-tincture', at: own, tincture: t })) return done();
+    }
   }
 
   // Pictures in chief, base or canton take room from the picture, which may have had to give up charges: lay it out again.
-  if (parts.picture && layoutState(d, 'picture') !== layoutState(goal, 'picture')) {
-    const route = layoutRoute(d, goal, 'picture');
+  if (parts.picture && layoutState(d, ['picture']) !== layoutState(goal, ['picture'])) {
+    const route = layoutRoute(d, goal, ['picture']);
     if (!route) {
-      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, 'picture')} from ${layoutState(d, 'picture')}`);
+      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, ['picture'])} from ${layoutState(d, ['picture'])}`);
       return done();
     }
     if (!click(...route)) return done();

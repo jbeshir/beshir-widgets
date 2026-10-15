@@ -11,6 +11,7 @@ import { isSecondaryPosition, primaryCharges } from './arrangement';
  * In step order:
  * ordinary    — the central band or shape; with none, the chief (else the bordure) the design stands on
  * picture     — the top-level charges: primary on the field, or set between the band
+ * co-primary  — the second main picture, laid out together with the first ("a lion and a rose")
  * on-picture  — the charges on each of the primary charges
  * around      — the charges set around the picture on the field ("a lion between three mullets")
  * in-chief, in-base, in-canton — the charges set beside the band or the picture, along the top, along the bottom or in the top corner
@@ -19,7 +20,7 @@ import { isSecondaryPosition, primaryCharges } from './arrangement';
  * on-chief, on-bordure — the charges on that chief or bordure (on the ordinary itself when it is the chief or bordure the design stands on)
  * overall — the one band or charge lying across the middle of everything else
  */
-export const PLACE_KEYS = ['ordinary', 'picture', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure', 'overall'] as const;
+export const PLACE_KEYS = ['ordinary', 'picture', 'co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'chief', 'on-chief', 'bordure', 'on-bordure', 'overall'] as const;
 export type PlaceKey = (typeof PLACE_KEYS)[number];
 
 export interface Placed { place: PlaceKey; path: GroupPath; group: Group }
@@ -50,18 +51,22 @@ export function placesIn(d: Design): { placed: Placed[]; unplaced: GroupPath[] }
   };
   d.groups.forEach((group, i) => {
     const type = typeOf(group);
+    // The second main picture is the co-primary; a third has no place.
+    const mainPlace: PlaceKey = placed.some((p) => p.place === 'picture') ? 'co-primary' : 'picture';
     if (group.role === 'overall') add('overall', [i], group);
     else if (i === ordinary) add('ordinary', [i], group);
     else if (type === 'chief' || type === 'bordure') add(type, [i], group);
     else if (group.item.k === 'charge' && group.role === 'secondary' && group.relation === 'between' && charges) add('around', [i], group);
-    else if (group.item.k === 'charge' && (group.role === 'primary' || (group.role === 'secondary' && group.relation === 'between'))) add('picture', [i], group);
+    else if (group.item.k === 'charge' && group.role === 'primary') add(mainPlace, [i], group);
+    else if (group.item.k === 'charge' && group.role === 'secondary' && group.relation === 'between') add('picture', [i], group);
     else if (group.item.k === 'charge' && group.role === 'secondary' && group.relation === 'position' && isSecondaryPosition(group.position)) add(`in-${group.position}`, [i], group);
     else unplaced.push([i]);
     if (i !== ordinary) {
       group.charged.forEach((tertiary, j) => {
         if (group.role === 'overall') unplaced.push([i, j]);
         else if (type === 'chief' || type === 'bordure') add(`on-${type}`, [i, j], tertiary);
-        else if (group.item.k === 'charge' && group.role === 'primary') add('on-picture', [i, j], tertiary);
+        // Only the first main picture carries pictures.
+        else if (group.item.k === 'charge' && group.role === 'primary' && mainPlace === 'picture') add('on-picture', [i, j], tertiary);
         else unplaced.push([i, j]);
       });
     }

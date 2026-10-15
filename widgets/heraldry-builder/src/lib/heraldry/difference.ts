@@ -7,7 +7,7 @@ import { TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
-  fieldTinctures, groupAt, groupTinctureOf, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroup,
+  fieldTinctures, groupAt, groupTinctureOf, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME } from './divisions';
@@ -129,6 +129,19 @@ function comparablePostures(x: Item, y: Item): { cls: PostureClass; px: Posture;
   return cls !== null && cls === CHARGES[y.charge].postureClass ? { cls, px: x.posture, py: y.posture } : null;
 }
 
+/** Whether comparable postures lie in different lines of A5G7's table, so that changing one for the other is a distinct change. */
+function postureLinesApart({ cls, px, py }: { cls: PostureClass; px: Posture; py: Posture }): boolean {
+  const lines = POSTURE_DC_LINES[cls];
+  const lx = lines[px] ?? [], ly = lines[py] ?? [];
+  return px !== py && !lx.some((l) => ly.includes(l));
+}
+
+/** Whether two charges that can be posed alike are posed in different lines (a lion rampant and a wolf passant): SENA A3D2c asks the charges of one group to be posed alike. */
+export function posturesClash(x: Item, y: Item): boolean {
+  const postures = comparablePostures(x, y);
+  return postures !== null && postureLinesApart(postures);
+}
+
 /** RULES §C.6 (App K): the layouts a group of `count` can swap with a group of another count and still differ in arrangement. */
 function appK(count: number): readonly LayoutKey[] {
   switch (count) {
@@ -150,10 +163,8 @@ function sidesWhere(d: Design, keep: (g: Group) => boolean): Side[] {
   return d.groups.flatMap((group, i) => (keep(group) ? [{ design: d, path: [i], group, host: null }] : []));
 }
 
-const primaryOf = (d: Design): Side | null => {
-  const p = primaryGroup(d);
-  return p && { design: d, path: p.path, group: p.group, host: null };
-};
+/** A5C2: the primary group; two co-primary groups ("a lion and a rose") together are one. */
+const primariesOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'primary');
 
 /** A5C2: overall groups are compared with overall groups. */
 const overallsOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'overall');
@@ -251,6 +262,33 @@ function primaryChanges(x: Side, y: Side): Diff[] {
   return out;
 }
 
+/**
+ * The substantial changes between primary groups that are one group of two (co-primaries): they differ in type only when they share no type
+ * (a lion and a rose against a lion and a wolf share the lion), and in number by the total.
+ */
+function pooledPrimaryChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
+  const ref = refOf(xs[0], ys[0]);
+  const out: Diff[] = [];
+  const typesOf = (side: readonly Side[]) => new Set(side.map((s) => conflictKey(s.group.item)));
+  const theirs = typesOf(ys);
+  if (![...typesOf(xs)].some((k) => theirs.has(k))) out.push(change('type', 'sc', 'A5E2', ref));
+  const total = (side: readonly Side[]) => side.reduce((n, s) => n + s.group.count, 0);
+  if (countCategory(total(xs)) !== countCategory(total(ys))) out.push(change('number', 'sc', 'A5E3', ref));
+  const [x, y] = [xs[0], ys[0]];
+  const gx = arrangementGroup(x.group), gy = arrangementGroup(y.group);
+  if (gx !== null && gy !== null && gx !== gy && !isForced(x.design, x.path) && !isForced(y.design, y.path)) out.push(change('arrangement', 'sc', 'A5E4', ref));
+  return out;
+}
+
+/** The substantial and distinct changes between two primary groups, each of one group or of two co-primary groups (a distinct change counts once however many pairs show it). */
+function primaryGroupChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
+  const substantial = xs.length === 1 && ys.length === 1 ? primaryChanges(xs[0], ys[0]) : pooledPrimaryChanges(xs, ys);
+  const skip = new Set(substantial.map((c) => c.attr));
+  const distinct = pairUp(xs, ys).pairs.flatMap(([x, y]) => groupChanges(x, y, skip));
+  const seen = new Set<DiffAttr>();
+  return [...substantial, ...distinct.filter((c) => !seen.has(c.attr) && !!seen.add(c.attr))];
+}
+
 /** A5G3–A5G7: at most one distinct change per attribute of a pair of groups; `skip` holds attributes already substantial. */
 function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   const ref = refOf(x, y);
@@ -269,11 +307,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
     dc('arrangement', 'A5G6');
   }
   const postures = comparablePostures(gx.item, gy.item);
-  if (postures) {
-    const lines = POSTURE_DC_LINES[postures.cls];
-    const lx = lines[postures.px] ?? [], ly = lines[postures.py] ?? [];
-    if (postures.px !== postures.py && !lx.some((l) => ly.includes(l))) dc('posture', 'A5G7');
-  }
+  if (postures && postureLinesApart(postures)) dc('posture', 'A5G7');
   return out;
 }
 
@@ -291,16 +325,15 @@ function tertiaryChanges(x: Side | null, y: Side | null): Diff[] {
 export function differences(a: Design, b: Design): Diff[] {
   const out: Diff[] = fieldChanges(a, b);
 
-  const pa = primaryOf(a), pb = primaryOf(b);
-  if (pa && pb) {
-    const substantial = primaryChanges(pa, pb);
-    out.push(...substantial, ...groupChanges(pa, pb, new Set(substantial.map((c) => c.attr))));
-  } else if (pa) {
-    out.push(change('primary-presence', 'sc', 'A5E1', refOf(pa, null)));
-  } else if (pb) {
-    out.push(change('primary-presence', 'sc', 'A5E1', refOf(null, pb)));
+  const pa = primariesOf(a), pb = primariesOf(b);
+  if (pa.length > 0 && pb.length > 0) {
+    out.push(...primaryGroupChanges(pa, pb));
+  } else if (pa.length > 0) {
+    out.push(change('primary-presence', 'sc', 'A5E1', refOf(pa[0], null)));
+  } else if (pb.length > 0) {
+    out.push(change('primary-presence', 'sc', 'A5E1', refOf(null, pb[0])));
   }
-  out.push(...tertiaryChanges(pa, pb));
+  out.push(...tertiaryChanges(pa[0] ?? null, pb[0] ?? null));
 
   // Secondary and overall groups: those that pair are compared, each one added or removed is one distinct change (A5G2).
   for (const [xs, ys] of [[secondariesOf(a), secondariesOf(b)], [overallsOf(a), overallsOf(b)]]) {
@@ -345,14 +378,26 @@ export function checkUnique(d: Design, sig: string, registry: readonly RegistryE
 /**
  * The indexed attributes two designs must all share to be a duplicate, too close, or the closest entry of an ok
  * verdict: a different field partition (A5F1), adding or removing the primary group (A5E1) or changing its type
- * (A5E2) is always a substantial change. Everything else is decided by `checkUnique` on the candidates, so looking
- * a registry up by this key returns every entry that matters.
+ * (A5E2) is always a substantial change; so is the type of the one group of charges that is the primary. A primary
+ * of two groups ("a lion and a rose") is one group of both types, so it keys `MIXED_PRIMARY` and is looked up by
+ * `keysMayConflict`. Everything else is decided by `checkUnique` on the candidates, so looking a registry up by this
+ * key returns every entry that matters.
  */
 export interface CandidateKey { partition: string; primary: string | null }
 
+/** The primary of a design with two co-primary groups: they may share a type with entries of any primary. */
+export const MIXED_PRIMARY = '*';
+
 export function candidateKey(d: Design): CandidateKey {
-  const p = primaryGroup(d);
-  return { partition: partition(d), primary: p && conflictKey(p.group.item) };
+  const primaries = primaryGroups(d);
+  const primary = primaries.length === 0 ? null : primaries.length === 1 ? conflictKey(primaries[0].group.item) : MIXED_PRIMARY;
+  return { partition: partition(d), primary };
+}
+
+/** Whether entries with these keys can be too close: the one rule the registry lookup follows. A design with two primary groups may share a type with any entry that has a primary. */
+export function keysMayConflict(a: CandidateKey, b: CandidateKey): boolean {
+  const primaries = a.primary === b.primary || (a.primary !== null && b.primary !== null && (a.primary === MIXED_PRIMARY || b.primary === MIXED_PRIMARY));
+  return a.partition === b.partition && primaries;
 }
 
 // ── Explanations ────────────────────────────────────────────────────────────
