@@ -17,7 +17,7 @@ import type { Tincture } from './tinctures';
 export const SHIELD_VIEWBOX = '0 0 100 120';
 
 export type Pt = [number, number];
-interface Point { x: number; y: number }
+export interface Point { x: number; y: number }
 
 /** Heater shield: straight top and sides to y=60, then two curves meeting at the base point. */
 export const SHIELD_PATH = 'M0 0H100V60C100 92 76 110 50 120C24 110 0 92 0 60Z';
@@ -184,9 +184,10 @@ export function inFirstPart(division: Division, fess: Point, x: number, y: numbe
 /** Partition regions and ordinaries run this far past the frame; the outline clips them. */
 const OVER = { x0: -40, x1: 140, y0: -40, y1: 160 };
 
-/** Region paths [first part, second part] for lines meeting at `fess`, covering the whole frame. */
-function partitionRegions(division: Division, fess: Point): [string, string] {
+/** Region paths [first part, second part] for lines meeting at `fess` (turned `turn` degrees clockwise about it), covering the whole frame. */
+export function partitionRegions(division: Division, fess: Point, turn = 0): [string, string] {
   const { x: cx, y: cy } = fess;
+  const poly = (p: Array<[number, number]>) => pts(turn === 0 ? p : p.map(([x, y]) => turned({ x: cx, y: cy, size: 0, rotation: turn }, x, y)));
   const { x0, x1, y0, y1 } = OVER;
   const bend = (x: number) => cy + (x - cx);
   const sinister = (x: number) => cy - (x - cx);
@@ -194,27 +195,27 @@ function partitionRegions(division: Division, fess: Point): [string, string] {
   const limb = apexY + (x1 - cx);
   const k = 100;
   switch (division) {
-    case 'per-pale': return [pts([[x0, y0], [cx, y0], [cx, y1], [x0, y1]]), pts([[cx, y0], [x1, y0], [x1, y1], [cx, y1]])];
-    case 'per-fess': return [pts([[x0, y0], [x1, y0], [x1, cy], [x0, cy]]), pts([[x0, cy], [x1, cy], [x1, y1], [x0, y1]])];
+    case 'per-pale': return [poly([[x0, y0], [cx, y0], [cx, y1], [x0, y1]]), poly([[cx, y0], [x1, y0], [x1, y1], [cx, y1]])];
+    case 'per-fess': return [poly([[x0, y0], [x1, y0], [x1, cy], [x0, cy]]), poly([[x0, cy], [x1, cy], [x1, y1], [x0, y1]])];
     case 'per-bend': return [
-      pts([[x0, y0], [x1, y0], [x1, bend(x1)], [x0, bend(x0)]]),
-      pts([[x0, bend(x0)], [x1, bend(x1)], [x1, y1], [x0, y1]]),
+      poly([[x0, y0], [x1, y0], [x1, bend(x1)], [x0, bend(x0)]]),
+      poly([[x0, bend(x0)], [x1, bend(x1)], [x1, y1], [x0, y1]]),
     ];
     case 'per-bend-sinister': return [
-      pts([[x0, y0], [x1, y0], [x1, sinister(x1)], [x0, sinister(x0)]]),
-      pts([[x0, sinister(x0)], [x1, sinister(x1)], [x1, y1], [x0, y1]]),
+      poly([[x0, y0], [x1, y0], [x1, sinister(x1)], [x0, sinister(x0)]]),
+      poly([[x0, sinister(x0)], [x1, sinister(x1)], [x1, y1], [x0, y1]]),
     ];
     case 'per-saltire': return [
-      pts([[cx - k, cy - k], [cx + k, cy - k], [cx, cy]]) + pts([[cx, cy], [cx + k, cy + k], [cx - k, cy + k]]),
-      pts([[cx - k, cy - k], [cx, cy], [cx - k, cy + k]]) + pts([[cx + k, cy - k], [cx + k, cy + k], [cx, cy]]),
+      poly([[cx - k, cy - k], [cx + k, cy - k], [cx, cy]]) + poly([[cx, cy], [cx + k, cy + k], [cx - k, cy + k]]),
+      poly([[cx - k, cy - k], [cx, cy], [cx - k, cy + k]]) + poly([[cx + k, cy - k], [cx + k, cy + k], [cx, cy]]),
     ];
     case 'per-chevron': return [
-      pts([[x0, y0], [x1, y0], [x1, limb], [cx, apexY], [x0, limb]]),
-      pts([[x0, limb], [cx, apexY], [x1, limb], [x1, y1], [x0, y1]]),
+      poly([[x0, y0], [x1, y0], [x1, limb], [cx, apexY], [x0, limb]]),
+      poly([[x0, limb], [cx, apexY], [x1, limb], [x1, y1], [x0, y1]]),
     ];
     case 'quarterly': return [
-      pts([[x0, y0], [cx, y0], [cx, cy], [x0, cy]]) + pts([[cx, cy], [x1, cy], [x1, y1], [cx, y1]]),
-      pts([[cx, y0], [x1, y0], [x1, cy], [cx, cy]]) + pts([[x0, cy], [cx, cy], [cx, y1], [x0, y1]]),
+      poly([[x0, y0], [cx, y0], [cx, cy], [x0, cy]]) + poly([[cx, cy], [x1, cy], [x1, y1], [cx, y1]]),
+      poly([[cx, y0], [x1, y0], [x1, cy], [cx, cy]]) + poly([[x0, cy], [cx, cy], [cx, y1], [x0, y1]]),
     ];
     default: return notSupported({ category: 'division', detail: division });
   }
@@ -233,6 +234,8 @@ export function fieldRegions(field: Paint, shape: FieldShape): Array<{ tincture:
 
 const BAND_HALF = 15;                   // fess and pale: 30 wide
 const BEND_HALF = 15 * Math.SQRT2;      // 30-wide band, measured perpendicular to a 45° line
+/** How tall the chief is: its lower edge is `chiefBase`. */
+const CHIEF_HEIGHT = 30;
 const CROSS_HALF = 12;                  // 24-wide arms
 const SALTIRE_HALF = 12 * Math.SQRT2;   // 24-wide arms
 const CHEVRON_THICK = 22 * Math.SQRT2;  // 22-wide band, measured perpendicular to its limbs
@@ -306,6 +309,25 @@ export function ordinarySamplePoints(type: OrdinaryType): Pt[] {
     samplePointCache.set(type, points);
   }
   return points;
+}
+
+/** Whether (x,y) lies in the first part of a division through `centre`, turned `turn` degrees clockwise about it. */
+export function inFirstPartTurned(division: Division, centre: Point, turn: number, x: number, y: number): boolean {
+  const [px, py] = turned({ ...centre, size: 0, rotation: -turn }, x, y);
+  return inFirstPart(division, centre, px, py);
+}
+
+/** Where a division of an ordinary runs through it: the middle of a chief's band, the fess point for every other ordinary. */
+export function ordinaryCentre(type: OrdinaryType, shape: FieldShape): Point {
+  const { fessPoint, chiefBase } = SHAPE_FRAME[shape];
+  return type === 'chief' ? { x: fessPoint.x, y: chiefBase - CHIEF_HEIGHT / 2 } : fessPoint;
+}
+
+/** Whether a division through the ordinary's centre runs through it, so that both its parts show. */
+export function divisionCutsOrdinary(division: Division, type: OrdinaryType): boolean {
+  const centre = ordinaryCentre(type, CANONICAL_SHAPE);
+  const first = ordinarySamplePoints(type).filter(([x, y]) => inFirstPart(division, centre, x, y)).length;
+  return first > 0 && first < ordinarySamplePoints(type).length;
 }
 
 // ── Charge slots ────────────────────────────────────────────────────────────

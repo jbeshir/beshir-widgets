@@ -188,6 +188,26 @@ export function paintOfGroupTincture(t: GroupTincture): Paint {
   return t === 'counterchanged' ? { k: 'counterchanged' } : tincturePaint(t);
 }
 
+/** A paint divided into two plain tinctures ("per pale azure and Or"): the only divided paint a band or picture takes. */
+export interface PartyPaint {
+  k: 'divided';
+  division: Division;
+  lines: Lines;
+  pieces: number | null;
+  parts: [{ k: 'tincture'; t: Tincture }, { k: 'tincture'; t: Tincture }];
+}
+
+export function partyPaint(division: Division, a: Tincture, b: Tincture): PartyPaint {
+  return { k: 'divided', division, lines: { ...PLAIN_LINES }, pieces: null, parts: [{ k: 'tincture', t: a }, { k: 'tincture', t: b }] };
+}
+
+/** The paint as a party of two plain tinctures, or null when it is anything else. */
+export function asParty(p: Paint): PartyPaint | null {
+  if (p.k !== 'divided' || p.parts.length !== 2) return null;
+  const [a, b] = p.parts;
+  return a.k === 'tincture' && b.k === 'tincture' ? { ...p, parts: [a, b] } : null;
+}
+
 /** The picker value of a paint, or null when the paint is neither a tincture nor counterchanged. */
 export function groupTinctureOf(p: Paint): GroupTincture | null {
   return p.k === 'tincture' ? p.t : p.k === 'counterchanged' ? 'counterchanged' : null;
@@ -297,8 +317,8 @@ export interface Gap { category: GapCategory; detail: string }
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
-export type StructureRule = 'field' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall';
+/** Which structure rule an issue breaks: the field's tinctures, a band or picture divided the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
+export type StructureRule = 'field' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)

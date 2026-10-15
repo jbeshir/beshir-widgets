@@ -7,8 +7,8 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setOrdinary, setGroupTincture, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { addLayer, layerChoices, layersIn, removeLayer, type Design } from '../src/lib/heraldry';
+import { setCharge, setOrdinary, setGroupTincture, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { addLayer, layerChoices, layersIn, removeLayer, splitGroup, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -217,5 +217,25 @@ describe('controls that appear only when they apply', () => {
     expect(ids(pictureHtml)).not.toContain('overall-tincture');
     // What App I4 doesn't allow is greyed out in the list, with its reason.
     expect(bandHtml).toMatch(/<option[^>]*disabled[^>]*>Rose \(not here\)/);
+  });
+});
+
+describe('the split into two colours', () => {
+  it('is offered below the plain picker, which keeps its test ids', () => {
+    const d = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const got = ordinary(d);
+    expect(got).toContain('ordinary-tincture-split');
+    expect(got).toContain('swatch-ordinary-or');
+    expect(got).not.toContain('ordinary-tincture-division');
+  });
+
+  it('opens a division and a picker for each part once the colour is split', () => {
+    const d = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const split = splitGroup(d, ordinaryPath(d)!)!;
+    const got = ordinary(split);
+    for (const id of ['ordinary-tincture-join', 'ordinary-tincture-division', 'ordinary-tincture-division-per-pale', 'ordinary-tincture-part-1', 'ordinary-tincture-part-2', 'swatch-ordinary-part-1-or', 'swatch-ordinary-part-2-argent']) {
+      expect(got, id).toContain(id);
+    }
+    expect(got).not.toContain('ordinary-tincture-split');
   });
 });

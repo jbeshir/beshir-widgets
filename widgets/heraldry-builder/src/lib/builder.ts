@@ -6,7 +6,7 @@
 
 import {
   CHARGES, DEFAULT_FIELD_SHAPE, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
-  fieldTinctures, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  asParty, fieldTinctures, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, layerPath, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   tinctureIssues, tinctureSurface, withTincture, withLayout, chargeItem, newCharge,
   type ChargeId, type Companion, type Design, type Division, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
@@ -184,7 +184,7 @@ function clashGround(d: Design, path: GroupPath, t: Tincture): string {
   const host = hostOf(d, path);
   if (host?.item.k === 'ordinary') {
     const paint = groupTinctureOf(host.paint);
-    return `${paint ? colourWord(paint) : 'swapped-colour'} ${ORDINARY_LABEL[host.item.type].plain.toLowerCase()}`;
+    return `${paint ? colourWord(paint) : asParty(host.paint) ? 'split-colour' : 'swapped-colour'} ${ORDINARY_LABEL[host.item.type].plain.toLowerCase()}`;
   }
   // The look-alike tinctures under the failing charges: the ones they don't stand out against.
   const alike = groundShares(d, path)

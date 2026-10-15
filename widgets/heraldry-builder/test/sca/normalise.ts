@@ -115,6 +115,18 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\b(eagles?) displayed\b/g, '$1')
       .replace(/\b(fish) naiant\b/g, '$1'),
   },
+  {
+    // 8. Divided groups. "Counterchanged <tincture> and <tincture>" names the tinctures of a group divided as the field is ("Per pale gules and Or,
+    //    a fleur-de-lys counterchanged Or and sable" is a fleur-de-lys per pale Or and sable); the widget words it as the division.
+    id: 'divided-groups',
+    description: '"counterchanged <tincture> and <tincture>" on a divided field → "<the field\'s division> <tincture> and <tincture>"; no "each" before a division.',
+    apply: (s) => {
+      const field = new RegExp(`^(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly) ${TINCT} and ${TINCT}, `).exec(s);
+      const divided = field ? s.replace(new RegExp(`\\bcounterchanged (${TINCT} and ${TINCT})\\b`, 'g'), `${field[1]} $1`) : s;
+      // "Three hearts each per pale gules and sable" and "three hearts per pale gules and sable": each charge is divided either way.
+      return divided.replace(/\beach (?=per (?:pale|fess|bend sinister|bend|saltire|chevron) |quarterly )/g, '');
+    },
+  },
 ];
 
 export function normaliseBlazon(text: string): string {

@@ -89,7 +89,7 @@ the widget registers but cannot blazon, draw or build is a widget bug (`fails`),
 `test/sca/normalise.ts` is applied to the SCA blazon and to the widget's alike. It only bridges spelling and
 punctuation (`final-full-stop`, `case`, `spelling`) and three conventions that the Glossary, Bruce and the LoARs
 treat as equivalent, which the widget's emitter has to pick one of (`equivalent-connectors`,
-`arrangement-placement`, `stated-default-postures`). A stated Table 7 arrangement is not dropped as text: the
+`arrangement-placement`, `stated-default-postures`, `divided-groups`). A stated Table 7 arrangement is not dropped as text: the
 matcher also compares the SCA blazon with the widget's blazon of the same design with its defaults stated
 (`blazon(design, { stateDefaults: true })`). To see how many passing records depend on a rule, replace its
 `apply` with the identity locally and count the records that stop passing (never commit the change).

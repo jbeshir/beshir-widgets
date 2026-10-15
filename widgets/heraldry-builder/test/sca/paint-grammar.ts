@@ -12,13 +12,13 @@ const isTincture = (w: string | undefined): w is Tincture => (TINCTURES as reado
 export interface PaintRead { paint: unknown; end: number }
 
 /**
- * The paint starting at `tokens[i]` and the index after it, or null when there is none. A group takes a tincture or
- * 'counterchanged'; the field a tincture or a division "per pale argent and gules".
+ * The paint starting at `tokens[i]` and the index after it, or null when there is none: a tincture, a division "per pale argent
+ * and gules" (of the field, or of a band or picture), or for a group 'counterchanged'.
  */
 export function readPaint(tokens: readonly string[], i: number, where: 'field' | 'group'): PaintRead | null {
   const word = tokens[i];
   if (isTincture(word)) return { paint: word, end: i + 1 };
-  if (where === 'group') return word === 'counterchanged' ? { paint: word, end: i + 1 } : null;
+  if (where === 'group' && word === 'counterchanged') return { paint: word, end: i + 1 };
   const phrase = DIVISION_PHRASES.find((p) => p.every((w, j) => tokens[i + j] === w));
   if (!phrase) return null;
   const at = i + phrase.length;

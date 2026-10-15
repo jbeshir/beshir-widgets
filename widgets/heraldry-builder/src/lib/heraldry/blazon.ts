@@ -7,7 +7,7 @@
 import { tinctureWord } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory } from './charges';
-import { hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
+import { asParty, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
 import { DIVISION_NAME } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
@@ -17,15 +17,20 @@ function paintWord(p: Paint): string {
   switch (p.k) {
     case 'tincture': return tinctureWord(p.t);
     case 'counterchanged': return 'counterchanged';
+    case 'divided': return partyWord(p);
     default: return notSupported(paintGaps(p, false, 'group')[0]);
   }
 }
 
+/** A divided paint as written: "per pale azure and Or". */
+function partyWord(p: Paint): string {
+  const party = asParty(p);
+  return party ? `${DIVISION_NAME[party.division]} ${party.parts.map(paintWord).join(' and ')}` : notSupported(paintGaps(p, false, 'group')[0]);
+}
+
 function fieldPhrase(field: Paint): string {
   if (field.k === 'tincture') return tinctureWord(field.t);
-  if (field.k === 'divided' && field.parts.length === 2) {
-    return `${DIVISION_NAME[field.division]} ${field.parts.map(paintWord).join(' and ')}`;
-  }
+  if (field.k === 'divided' && field.parts.length === 2) return partyWord(field);
   return notSupported(paintGaps(field, true, 'field')[0]);
 }
 
@@ -111,7 +116,9 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     const linked = (kind === 'co-primary' || kind === 'secondary' || kind === 'position' || kind === 'overall' || kind === 'peripheral') && prev !== undefined && prev.kind !== 'tertiary';
     const phrase = g.item.k === 'ordinary' ? ordinaryPhrase(g) : chargePhrase(d, path, g, options);
     const text = g.charged.length > 0 && carrying(g).on ? `on ${phrase}` : phrase;
-    out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint: paintWord(g.paint), linked, lead });
+    // Charges each divided: "three hearts each per pale gules and sable".
+    const paint = g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : paintWord(g.paint);
+    out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, linked, lead });
   };
   const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t, carrying(g).lead));
   const at = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, path: [i] }] : []));

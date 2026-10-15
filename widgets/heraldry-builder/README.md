@@ -179,6 +179,30 @@ has to fire. When a design is already in a violation, the one-click fix tries a 
 (counterchanged last), then a new ordinary tincture, then both together, which always finds a way
 out.
 
+## Bands and pictures divided in two
+
+Any band or picture may be painted as a party of two plain tinctures, divided by any drawn division (per pale, per fess, per
+bend, per bend sinister, per chevron, per saltire, quarterly): `{ "k": "divided", "division": "per-pale", "parts": ["azure", "or"] }`
+as a group's `paint`. "A heart per pale azure and Or", "a cross quarterly Or and gules", "three hearts each per pale gules and
+sable"; "counterchanged Or and sable" on a divided field is the same party, divided as the field is.
+
+- **Where it is cut.** A band is cut through its middle (the fess point; the middle of a chief's band), each charge through
+  its own centre, in the charge's own frame, so a charge turned on a bend is cut along its own axes. A cut that misses a band
+  (a pile per fess lies wholly below the line) is a structure issue, as is a long charge cut per chevron (RULES CC-11) and two
+  parts of one tincture (SENA A3B3a).
+- **The rule of tincture.** The class of a party is the class of its parts when they agree and neutral when a metal meets a colour
+  (SENA A3B1); it shares both its tinctures. A neutral party stands out on anything it shares no tincture with, so "a heart per pale
+  azure and Or" passes on gules and fails on azure. Where it lies across the parts of a divided field, each part may also be judged
+  against the section under it (A3B4b): "Per pale sable and argent, a bordure per pale argent and azure" passes, cut per fess it
+  does not. A charge on a divided band is judged against the band as a whole.
+- **Text.** Blazon `per pale azure and Or` after the item (`each per pale …` for several charges); the gloss says how the colours
+  are split; the signature has the division and both tinctures; both tinctures are tags (`charge-tincture:azure`, `ordinary-tincture:or`);
+  a different division or different tinctures is a distinct change (A5G3).
+- **The builder.** Every colour picker has "Split into two colours" below it (`PaintPicker`; test ids `<picker>-split`,
+  `<picker>-division-<division>`, `<picker>-part-1|2`), which opens a division and a tincture for each part. A part is offered when
+  some tincture for the other part makes the pair stand out, and the other part moves only when it would no longer do so
+  (`splitGroup`, `partyDivisionChoices`, `partyTinctureChoices`, `setPartyTincture` in options.ts).
+
 **Charges on a bend stay upright.** Heraldic convention turns charges on a bend "bendwise", but
 which way depends on the charge and its posture (a beast passant walks up the bend, a sword points
 up it, an upright charge rotates the other way, and a bend sinister has no settled convention), so
@@ -598,7 +622,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
-- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
+- `test/model.test.ts`, `arrangement`, `layout`, `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
   - text sanitisation and caps, Discord normalisation and the `contact_discord` CHECK

@@ -17,7 +17,8 @@ interface Props<T extends GroupTincture> {
   legend: string;
   /** The tinctures offered, in any order; they are shown metals, colours, then counterchanged. */
   choices: Choice<T>[];
-  value: T;
+  /** The tincture chosen, or null when the paint is something the picker does not show (a split in two). */
+  value: T | null;
   onChange: (t: T) => void;
   testid?: string;
 }

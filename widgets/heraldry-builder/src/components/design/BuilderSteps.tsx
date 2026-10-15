@@ -7,21 +7,22 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
-  TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, fieldTinctures, groupAt, groupTinctureChoices,
+  CATEGORY_LABEL, asParty, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
+  TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, fieldTinctures, groupAt,
   groupTinctureOf, isBlocked, layoutChoices, layoutKey, layoutLabel, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
-  type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type GroupTincture, type Issue,
+  type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
   type LayoutChoice, type LayoutKey, type OrdinaryType, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
 import {
   companionNote, ordinaryPath, picturePath, placementLabel, setCharge,
-  setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField, setPosture,
+  setDivision, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
 import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
+import { PaintPicker } from './PaintPicker';
 import { TincturePicker } from './TincturePicker';
 
 /** How a step collapses on phones: null where steps are always open. */
@@ -120,8 +121,13 @@ interface ShapedStepProps extends StepProps {
 
 export const lower = (s: string) => s.toLowerCase();
 
-/** The plain tincture of a simple-space group (every group the builder makes is plainly painted or counterchanged). */
-export const tinctureOf = (design: Design, path: GroupPath): GroupTincture => groupTinctureOf(groupAt(design, path).paint) ?? 'or';
+/** A group's colour in plain words, lower case: "gold", "swapped colours", "split blue and gold". */
+export function colourWords(design: Design, path: GroupPath): string {
+  const paint = groupAt(design, path).paint;
+  const party = asParty(paint);
+  if (party) return `split ${party.parts.map((p) => lower(TINCTURE_LABEL[p.t].plain)).join(' and ')}`;
+  return lower(TINCTURE_LABEL[groupTinctureOf(paint) ?? 'or'].plain);
+}
 
 function fieldSummary(design: Design): string {
   const [first, second] = fieldTinctures(design);
@@ -173,7 +179,7 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
 function ordinarySummary(design: Design): string {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
-  return path && item?.k === 'ordinary' ? `${ORDINARY_LABEL[item.type].plain}, ${lower(TINCTURE_LABEL[tinctureOf(design, path)].plain)}` : 'None';
+  return path && item?.k === 'ordinary' ? `${ORDINARY_LABEL[item.type].plain}, ${colourWords(design, path)}` : 'None';
 }
 
 export function OrdinaryStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
@@ -195,14 +201,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
         ))}
       </RadioGroup>
       {path && type && (
-        <TincturePicker
-          group="ordinary"
-          testid="ordinary-tincture"
-          legend={`Colour of the ${lower(ORDINARY_LABEL[type].plain)}`}
-          choices={groupTinctureChoices(design, path)}
-          value={tinctureOf(design, path)}
-          onChange={(t) => onChange(setOrdinaryTincture(design, t))}
-        />
+        <PaintPicker design={design} path={path} group="ordinary" testid="ordinary-tincture" legend={`Colour of the ${lower(ORDINARY_LABEL[type].plain)}`} onChange={onChange} />
       )}
     </Step>
   );
@@ -225,7 +224,7 @@ const nounOf = (design: Design, path: GroupPath): string => {
 
 export function picturesSummary(design: Design, path: GroupPath | null): string {
   if (!path) return 'None';
-  return `${groupAt(design, path).count} ${nounOf(design, path)}, ${lower(TINCTURE_LABEL[tinctureOf(design, path)].plain)}`;
+  return `${groupAt(design, path).count} ${nounOf(design, path)}, ${colourWords(design, path)}`;
 }
 
 /** A count or placement option: blocked with its reason, or offered saying what else it changes. */
@@ -304,7 +303,6 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
   const layoutValue = layoutKey(g);
   const layoutNote = layouts.note;
   const hasSplendour = mods.some((m) => m.value === 'in-splendour');
-  const tincture = tinctureOf(design, path);
 
   return (
     <div class="charge-options">
@@ -399,14 +397,7 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
         </div>
       )}
 
-      <TincturePicker
-        group={`${prefix}charge`}
-        testid={`${prefix}charge-tincture`}
-        legend={`Colour of the ${nounOf(design, path)}`}
-        choices={groupTinctureChoices(design, path)}
-        value={tincture}
-        onChange={(t) => onChange(setGroupTincture(design, path, t))}
-      />
+      <PaintPicker design={design} path={path} group={`${prefix}charge`} testid={`${prefix}charge-tincture`} legend={`Colour of the ${nounOf(design, path)}`} onChange={onChange} />
     </div>
   );
 }

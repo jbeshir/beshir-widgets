@@ -2,13 +2,13 @@
 // (a picture list with the picture controls, or a colour), and a button that removes it.
 
 import {
-  CHARGE_IDS, ORDINARY_LABEL, PLACE_LABEL, TINCTURE_LABEL, chargeLabel, groupAt, groupLabel, groupTinctureChoices, layerItemChoices, layerPath, removeLayer, setLayerItem, setLayerTincture,
+  CHARGE_IDS, ORDINARY_LABEL, PLACE_LABEL, chargeLabel, groupAt, groupLabel, layerItemChoices, layerPath, removeLayer, setLayerItem,
   type ChargeId, type Choice, type Companion, type Design, type Issue, type LayerItem, type LayerKey, type OrdinaryType,
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { setCharge } from '../../lib/builder';
-import { PictureControls, Step, lower, picturesSummary, tinctureOf, type Accordion } from './BuilderSteps';
-import { TincturePicker } from './TincturePicker';
+import { PictureControls, Step, lower, picturesSummary, colourWords, type Accordion } from './BuilderSteps';
+import { PaintPicker } from './PaintPicker';
 
 interface Props {
   design: Design;
@@ -69,14 +69,7 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
       </div>
       {item.k === 'ordinary'
         ? (
-          <TincturePicker
-            group="overall"
-            testid="overall-tincture"
-            legend={`Colour of the ${lower(ORDINARY_LABEL[item.type].plain)}`}
-            choices={groupTinctureChoices(design, path)}
-            value={tinctureOf(design, path)}
-            onChange={(t) => onChange(setLayerTincture(design, 'overall', t))}
-          />
+          <PaintPicker design={design} path={path} group="overall" testid="overall-tincture" legend={`Colour of the ${lower(ORDINARY_LABEL[item.type].plain)}`} onChange={onChange} />
         )
         : <PictureControls design={design} path={path} prefix="overall-" onChange={onChange} onAdjust={onAdjust} adjusted={null} />}
       <p>
@@ -102,15 +95,8 @@ export function LayerStep({ design, place, n, onChange, onAdjust, issues, accord
   if (item.k === 'ordinary') {
     const label = ORDINARY_LABEL[item.type];
     return (
-      <Step n={n} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; the pictures keep clear of it." summary={lower(TINCTURE_LABEL[tinctureOf(design, path)].plain)} issues={issues} accordion={accordion} testid={testid}>
-        <TincturePicker
-          group={place}
-          testid={`${place}-tincture`}
-          legend={`Colour of the ${lower(label.plain)}`}
-          choices={groupTinctureChoices(design, path)}
-          value={tinctureOf(design, path)}
-          onChange={(t) => onChange(setLayerTincture(design, place, t))}
-        />
+      <Step n={n} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; the pictures keep clear of it." summary={colourWords(design, path)} issues={issues} accordion={accordion} testid={testid}>
+        <PaintPicker design={design} path={path} group={place} testid={`${place}-tincture`} legend={`Colour of the ${lower(label.plain)}`} onChange={onChange} />
         {remove(`Remove the ${lower(label.plain)}`)}
       </Step>
     );

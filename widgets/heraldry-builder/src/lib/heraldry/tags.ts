@@ -5,7 +5,7 @@
 import { isTincture, type Tincture } from './tinctures';
 import { CHARGES, isChargeCategory, isChargeId, isPosture } from './charges';
 import { isDivision } from './divisions';
-import { fieldTinctures, isGroupTincture, walkGroups, type Design } from './design';
+import { asParty, fieldTinctures, isGroupTincture, walkGroups, type Design } from './design';
 import { isOrdinaryType } from './ordinaries';
 import { coPrimaries, layoutKey, primaryCharges } from './arrangement';
 import { readability } from './readability';
@@ -20,15 +20,17 @@ export function deriveTags(d: Design): string[] {
   for (const t of fieldTinctures(d)) { add(`field-tincture:${t}`); all.add(t); }
 
   for (const { group, host } of walkGroups(d)) {
-    const paint = group.paint.k === 'counterchanged' ? 'counterchanged' : group.paint.k === 'tincture' ? group.paint.t : null;
+    const party = asParty(group.paint);
+    const tinctures = group.paint.k === 'tincture' ? [group.paint.t] : party ? party.parts.map((p) => p.t) : [];
+    const paints: string[] = group.paint.k === 'counterchanged' ? ['counterchanged'] : tinctures;
     if (group.item.k === 'ordinary') {
       add(`ordinary:${group.item.type}`);
-      if (paint) add(`ordinary-tincture:${paint}`);
+      for (const paint of paints) add(`ordinary-tincture:${paint}`);
     } else {
       const { charge, posture } = group.item;
       add(`charge:${charge}`);
       add(`charge-category:${CHARGES[charge].category}`);
-      if (paint) add(`charge-tincture:${paint}`);
+      for (const paint of paints) add(`charge-tincture:${paint}`);
       add(`charge-count:${group.count}`);
       if (posture) add(`posture:${posture}`);
       add(`layout:${layoutKey({ arrangement: group.arrangement, position: group.position })}`);
@@ -38,7 +40,7 @@ export function deriveTags(d: Design): string[] {
       else if (group.role === 'primary' && coPrimaries(d)) add('placement:co-primary');
     }
     if (group.role === 'overall') add('placement:overall');
-    if (group.paint.k === 'tincture') all.add(group.paint.t);
+    for (const t of tinctures) all.add(t);
   }
 
   for (const t of all) add(`tincture:${t}`);

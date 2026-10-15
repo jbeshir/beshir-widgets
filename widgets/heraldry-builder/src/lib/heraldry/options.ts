@@ -22,9 +22,10 @@ import {
 } from './arrangement';
 import { CHARGES, chargePhrase, postureTerm, type ModifierId, type Posture } from './charges';
 import {
-  canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, paintOfGroupTincture, replaceGroup, walkGroups,
-  type Arrangement, type Design, type Group, type GroupPath, type GroupTincture, type Issue,
+  asParty, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, paintOfGroupTincture, partyPaint, replaceGroup, walkGroups,
+  type Arrangement, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Paint, type PartyPaint,
 } from './design';
+import { DRAWN_DIVISIONS, type Division } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
 import { placesIn, type Placed } from './places';
@@ -334,6 +335,94 @@ export function fieldTinctureChoices(d: Design, part: 0 | 1 = 0): Choice<Tinctur
 /** Tinctures of the group at `path` against what it lies on; blocked reasons are the rule of tincture's own messages. */
 export function groupTinctureChoices(d: Design, path: GroupPath): Choice<GroupTincture>[] {
   return offeredTinctures(d, path).map((t) => choice(t, tinctureReason(d, path, t)));
+}
+
+// ── Two tinctures ("per pale azure and Or") ────────────────────────────────
+
+const withPaint = (d: Design, path: GroupPath, paint: Paint): Design => replaceGroup(d, path, { ...groupAt(d, path), paint });
+
+/** Why the group at `path` can't be divided as it is (a cut that misses it, a long charge per chevron), or null. */
+function divisionReason(d: Design, path: GroupPath): string | null {
+  const issue = structuralIssues(d).find((i) => i.code === 'structure' && i.rule === 'divided-paint' && i.at.k === 'group' && samePath(i.at.path, path));
+  return issue?.message ?? null;
+}
+
+/** Why the group at `path` can't be painted as it is: how it is divided, or the rule of tincture. */
+function partyReason(d: Design, path: GroupPath): string | null {
+  return divisionReason(d, path) ?? groupTinctureIssues(d, path)[0]?.message ?? null;
+}
+
+const partyWith = (party: PartyPaint, part: 0 | 1, t: Tincture, other: Tincture): PartyPaint =>
+  partyPaint(party.division, part === 0 ? t : other, part === 0 ? other : t);
+
+/** The party with part `part` set to `t`: the other part as it is when that works, else the first tincture that does; null when none does. */
+function withPartner(d: Design, path: GroupPath, party: PartyPaint, part: 0 | 1, t: Tincture): PartyPaint | null {
+  const current = party.parts[part === 0 ? 1 : 0].t;
+  for (const other of [current, ...TINCTURES]) {
+    if (other === t) continue;
+    const trial = partyWith(party, part, t, other);
+    if (!groupTinctureIssues(withPaint(d, path, trial), path).length) return trial;
+  }
+  return null;
+}
+
+/** The divisions a divided band or picture may be cut by; blocked where the cut would miss it or read as another (per chevron on a long charge). Empty unless the group is divided. */
+export function partyDivisionChoices(d: Design, path: GroupPath): Choice<Division>[] {
+  const party = asParty(groupAt(d, path).paint);
+  return party ? DRAWN_DIVISIONS.map((division) => choice(division, divisionReason(withPaint(d, path, { ...party, division }), path))) : [];
+}
+
+/**
+ * The tinctures for one part of a divided band or picture: blocked when the other part already has it (A3B3a), or when no
+ * tincture for the other part would let the two stand out on what they lie on. Empty unless the group is divided.
+ */
+export function partyTinctureChoices(d: Design, path: GroupPath, part: 0 | 1): Choice<Tincture>[] {
+  const party = asParty(groupAt(d, path).paint);
+  if (!party) return [];
+  const other = party.parts[part === 0 ? 1 : 0].t;
+  return TINCTURES.map((t) => {
+    if (t === other) return choice(t, `The other part is already ${TINCTURE_NAME[t]} — a divided ${itemName(groupAt(d, path).item)} needs two different tinctures.`);
+    return choice(t, withPartner(d, path, party, part, t) ? null : groupTinctureIssues(withPaint(d, path, partyWith(party, part, t, other)), path)[0]?.message ?? null);
+  });
+}
+
+/** The group divided by `division`, its tinctures as they were. */
+export function setPartyDivision(d: Design, path: GroupPath, division: Division): Design {
+  const party = asParty(groupAt(d, path).paint);
+  return party ? canonical(withPaint(d, path, { ...party, division })) : d;
+}
+
+/** Part `part` of the divided group set to `t`; the other part changes too only when it would no longer stand out. */
+export function setPartyTincture(d: Design, path: GroupPath, part: 0 | 1, t: Tincture): Design {
+  const party = asParty(groupAt(d, path).paint);
+  if (!party) return d;
+  return canonical(withPaint(d, path, withPartner(d, path, party, part, t) ?? partyWith(party, part, t, party.parts[part === 0 ? 1 : 0].t)));
+}
+
+/**
+ * The group divided in two, the first division and tinctures that work (its own tincture first, when it has one); null when
+ * none does.
+ */
+export function splitGroup(d: Design, path: GroupPath): Design | null {
+  const paint = groupAt(d, path).paint;
+  const own = paint.k === 'tincture' ? [paint.t] : [];
+  for (const division of DRAWN_DIVISIONS) {
+    for (const first of [...own, ...TINCTURES]) {
+      for (const second of TINCTURES) {
+        const trial = withPaint(d, path, partyPaint(division, first, second));
+        if (first !== second && !partyReason(trial, path)) return canonical(trial);
+      }
+    }
+  }
+  return null;
+}
+
+/** The group in one tincture again: its first part's when that works, else the first that does. */
+export function joinGroup(d: Design, path: GroupPath): Design {
+  const party = asParty(groupAt(d, path).paint);
+  const choices = groupTinctureChoices(d, path);
+  const first = party?.parts[0].t ?? 'or';
+  return canonical(withTincture(d, path, isAllowed(choices, first) ? first : firstAllowed(choices, first)));
 }
 
 // ── Layout ──────────────────────────────────────────────────────────────────

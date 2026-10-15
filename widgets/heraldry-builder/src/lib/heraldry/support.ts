@@ -37,7 +37,6 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
     case 'treated': return [gap('field-treatment', p.treatment)];
     case 'semy': return [gap('field-treatment', 'semy')];
     case 'divided': {
-      if (!inField) return [gap('tincture', 'party')];
       const gaps: Gap[] = [];
       if (!DRAWN_DIVISIONS.includes(p.division)) gaps.push(gap('division', p.division));
       for (const l of [p.lines.a, p.lines.b]) if (l !== 'plain' && !gaps.some((g) => g.detail === l)) gaps.push(gap('line-of-partition', l));
@@ -56,7 +55,7 @@ function thing(g: Gap): string {
   switch (g.category) {
     case 'fieldless': return 'A fieldless badge';
     case 'fur': return FUR_NAME[g.detail as keyof typeof FUR_NAME] ?? d;
-    case 'tincture': return g.detail === 'party' ? 'A band or picture divided into two tinctures' : (STAIN_NAME[g.detail as keyof typeof STAIN_NAME] ?? d);
+    case 'tincture': return STAIN_NAME[g.detail as keyof typeof STAIN_NAME] ?? d;
     case 'proper': return `A ${d} in its natural colours`;
     case 'field-treatment': return `The ${d} treatment`;
     case 'division': return g.detail === 'nested' ? 'A divided part of a divided field' : `A field divided ${DIVISION_NAME[g.detail as keyof typeof DIVISION_NAME] ?? d}`;

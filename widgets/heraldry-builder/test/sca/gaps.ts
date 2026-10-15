@@ -21,11 +21,14 @@ import {
   SUPPORTED_POSTURES, QUALIFIER_WORDS, TREATMENTS, type ChargeBucket,
 } from './gap-terms';
 
+/** The divisions the widget draws, as the tagger names them. */
+const DRAWN_DIVISION_IDS: readonly string[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'];
+
 export const GAP_CATEGORIES = [
   { id: 'fieldless', description: 'a fieldless badge: no field at all' },
   { id: 'marshalling', description: 'impaling, quartering, dimidiation, an augmentation or other combined arms' },
   { id: 'fur', description: 'a fur (ermine, vair, potent, pean…) anywhere in the arms' },
-  { id: 'tincture', description: 'a tincture outside the widget\'s eight, a charge or ordinary of more than one tincture, or an ordinary counterchanged' },
+  { id: 'tincture', description: 'a tincture outside the widget\'s eight, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged' },
   { id: 'proper', description: 'a charge tinctured proper (natural colouring)' },
   { id: 'field-treatment', description: 'a variegated pattern (barry, checky, compony, masoned…) on the field or any element, or a semy field' },
   { id: 'division', description: 'a field division the widget lacks (per pall, gyronny, tierced, per chevron inverted, compound…)' },
@@ -438,8 +441,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         // "a bordure counterchanged", "a chevron between three bees counterchanged" (tinctures factor
         // backward): the widget's ordinaries take a single tincture
         if (untincturedOrd || (last?.kind === 'ord' && last.el === els[els.length - 1] && look(i - 1)?.e.k !== 'tinc')) tag('tincture', 'counterchanged-ordinary');
-        // "a heart counterchanged vert and argent": each part of the charge its own tincture
-        if (look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc') tag('tincture', 'party');
+        // "a heart counterchanged vert and argent": divided as the field is (the widget draws that on a divided field only)
+        if (look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc' && divisions === 0) tag('tincture', 'party');
         untincturedOrd = false;
         break;
       case 'proper': tag('proper'); break;
@@ -462,7 +465,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (words[i + 1] === 'of') { semyNext = true; semyOnField = inField; i++; }
         break;
       case 'gapDiv':
-        if (!inField) { tag('tincture', 'party'); break; } // "a roundel gyronny"
+        if (!inField) { tag('division', e.v); break; } // "a roundel gyronny"
         tag('division', e.v);
         divisions++;
         last = { kind: 'div', el: null, name: e.v };
@@ -479,7 +482,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (!parts.length) break;
         const name = `per-${parts.join('-and-')}`;
         i = j - 1;
-        if (!inField && (els.length || fieldless)) { tag('tincture', 'party'); break; } // "a bend per bend azure and argent"
+        // A band or picture divided in two ("a bend per bend azure and argent"): the widget draws the drawn divisions.
+        if (!inField && (els.length || fieldless)) {
+          if (!DRAWN_DIVISION_IDS.includes(name)) tag('division', name);
+          break;
+        }
         if (prev !== 'quarterly') { // "quarterly per fess indented" is one division
           divisions++;
           if (divisions > 1 || parts.length > 1) tag('division', 'compound');
@@ -489,7 +496,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         break;
       }
       case 'quarterly':
-        if (!inField && (els.length || fieldless)) { tag('tincture', 'party'); break; } // "a bordure quarterly"
+        if (!inField && (els.length || fieldless)) break; // "a bordure quarterly"
         divisions++;
         if (divisions > 1) tag('division', 'compound');
         if (/^(i|1|first)$/.test(words[i + 1] ?? '') || /^(i|1|first)$/.test(words[i + 2] ?? '')) tag('marshalling', 'quartering');

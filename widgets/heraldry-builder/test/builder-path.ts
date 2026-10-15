@@ -7,8 +7,8 @@
 
 import {
   CHARGE_IDS, DIVISIONS, DRAWN_ORDINARIES, TINCTURES, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, layerItemChoices,
-  modifierChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, simpleParts,
-  type ChargeId, type Choice, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture,
+  asParty, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setLayerItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type Paint, type Design, type Division, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
@@ -35,11 +35,18 @@ export type BuilderAction =
   | { kind: 'layout'; at: At; action: LayoutAction; design: Design }
   | { kind: 'posture'; at: At; posture: Posture }
   | { kind: 'splendour'; at: At; on: boolean }
-  | { kind: 'charge-tincture'; at: At; tincture: GroupTincture };
+  | { kind: 'charge-tincture'; at: At; tincture: GroupTincture }
+  | { kind: 'split'; target: PaintTarget }
+  | { kind: 'party-division'; target: PaintTarget; division: Division }
+  | { kind: 'party-tincture'; target: PaintTarget; part: 0 | 1; tincture: Tincture };
 
-const tinctureOf = (g: Group): GroupTincture | null => groupTinctureOf(g.paint);
+/** What a colour click is about: the band, a top band or border, or one of the pictures. */
+type PaintTarget = 'ordinary' | PeripheralKey | At;
+
 const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? picturePath(d) : at === 'on-ordinary' ? simpleParts(d).extra?.path ?? null : pathOfPlace(d, at));
 const peripheralAt = (d: Design, place: PeripheralKey): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
+const paintPathOf = (d: Design, target: PaintTarget): GroupPath | null =>
+  target === 'ordinary' ? ordinaryPath(d) : target === 'chief' || target === 'bordure' ? peripheralAt(d, target) : pathAt(d, target);
 
 /** Why a choice list doesn't offer and allow `v`, or null when it does. */
 function choiceReason<T>(choices: Choice<T>[], v: T): string | null {
@@ -95,6 +102,19 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       const path = pathAt(d, a.at);
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : `there is no ${a.at} to colour`;
     }
+    case 'split': {
+      const path = paintPathOf(d, a.target);
+      if (!path) return `there is no ${a.target} to split`;
+      return splitGroup(d, path) && !asParty(groupAt(d, path).paint) ? null : 'splitting the colour is not offered';
+    }
+    case 'party-division': {
+      const path = paintPathOf(d, a.target);
+      return path ? choiceReason(partyDivisionChoices(d, path), a.division) : `there is no ${a.target} to divide`;
+    }
+    case 'party-tincture': {
+      const path = paintPathOf(d, a.target);
+      return path ? choiceReason(partyTinctureChoices(d, path, a.part), a.tincture) : `there is no ${a.target} to colour`;
+    }
   }
 }
 
@@ -115,6 +135,9 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'posture': return setPosture(d, path!, a.posture);
     case 'splendour': return setModifier(d, path!, 'in-splendour', a.on);
     case 'charge-tincture': return setGroupTincture(d, path!, a.tincture);
+    case 'split': return splitGroup(d, paintPathOf(d, a.target)!)!;
+    case 'party-division': return setPartyDivision(d, paintPathOf(d, a.target)!, a.division);
+    case 'party-tincture': return setPartyTincture(d, paintPathOf(d, a.target)!, a.part, a.tincture);
   }
 }
 
@@ -133,6 +156,9 @@ function describeAction(a: BuilderAction): string {
     case 'posture': return `${a.at} posture ${a.posture}`;
     case 'splendour': return `${a.at} splendour ${a.on ? 'on' : 'off'}`;
     case 'charge-tincture': return `${a.at} tincture ${a.tincture}`;
+    case 'split': return `split the ${a.target}`;
+    case 'party-division': return `${a.target} divided ${a.division}`;
+    case 'party-tincture': return `${a.target} part ${a.part + 1} ${a.tincture}`;
   }
 }
 
@@ -219,6 +245,30 @@ export function builderPath(goal: Design): BuilderPath {
     return true;
   });
   const done = () => ({ actions, problems, design: d });
+  /** The clicks that colour the thing at `target` as `paint`: its tincture, or a split with its division and two tinctures. */
+  const paintTo = (target: PaintTarget, paint: Paint): boolean => {
+    const path = paintPathOf(d, target);
+    if (!path) return !!problems.push(`there is no ${target} to colour`) && false;
+    const plain = groupTinctureOf(paint);
+    const now = (): Paint => groupAt(d, paintPathOf(d, target)!).paint;
+    if (plain) {
+      if (groupTinctureOf(now()) === plain) return true;
+      return click(target === 'ordinary' ? { kind: 'ordinary-tincture', tincture: plain } : target === 'chief' || target === 'bordure' ? { kind: 'layer-tincture', place: target, tincture: plain } : { kind: 'charge-tincture', at: target, tincture: plain });
+    }
+    const goal = asParty(paint);
+    if (!goal) return !!problems.push(`the ${target} is neither one tincture nor divided in two`) && false;
+    if (!asParty(now()) && !click({ kind: 'split', target })) return false;
+    if (asParty(now())!.division !== goal.division && !click({ kind: 'party-division', target, division: goal.division })) return false;
+    // One tincture click at a time: setting a part may move the other, so the next step is worked out from where it landed.
+    const want: [Tincture, Tincture] = [goal.parts[0].t, goal.parts[1].t];
+    for (let guard = 0; guard < 4; guard++) {
+      const here = asParty(now())!;
+      const [next] = dividedTinctureSteps([here.parts[0].t, here.parts[1].t], want);
+      if (!next) return true;
+      if (next.kind !== 'field-tincture' || !click({ kind: 'party-tincture', target, part: next.part, tincture: next.tincture })) return false;
+    }
+    return !!problems.push(`the ${target} tinctures did not settle`) && false;
+  };
   if (goal.kind !== 'arms') return { actions, problems: ['a fieldless design has no builder path'], design: d };
 
   // Field.
@@ -239,16 +289,14 @@ export function builderPath(goal: Design): BuilderPath {
   if (parts.ordinary) {
     const item = parts.ordinary.group.item;
     if (item.k !== 'ordinary' || !click({ kind: 'ordinary', type: item.type })) return done();
-    const t = tinctureOf(parts.ordinary.group);
-    if (t && tinctureOf(groupAt(d, ordinaryPath(d)!)) !== t && !click({ kind: 'ordinary-tincture', tincture: t })) return done();
+    if (!paintTo('ordinary', parts.ordinary.group.paint)) return done();
   }
 
   // The top band and border beside the ordinary, before the pictures they leave room for.
   for (const peripheral of parts.peripherals) {
     const place = peripheral.place as PeripheralKey;
     if (!click({ kind: 'add-layer', place })) return done();
-    const t = tinctureOf(peripheral.group);
-    if (t && tinctureOf(groupAt(d, peripheralAt(d, place)!)) !== t && !click({ kind: 'layer-tincture', place, tincture: t })) return done();
+    if (!paintTo(place, peripheral.group.paint)) return done();
   }
 
   // The picture, then the pictures around it or beside it in chief, base or canton, the extra pictures on the band, the top band and the border, and last what lies overall.
@@ -261,8 +309,7 @@ export function builderPath(goal: Design): BuilderPath {
       const wanted: LayerItem = item.k === 'ordinary' ? { k: 'ordinary', type: item.type } : { k: 'charge', charge: item.charge };
       if (!click({ kind: 'add-layer', place: 'overall' }, { kind: 'overall-item', item: wanted })) return done();
       if (item.k === 'ordinary') {
-        const t = tinctureOf(part.group);
-        if (t && tinctureOf(groupAt(d, pathAt(d, at)!)) !== t && !click({ kind: 'charge-tincture', at, tincture: t })) return done();
+        if (!paintTo(at, part.group.paint)) return done();
         continue;
       }
     } else if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };
@@ -284,8 +331,7 @@ export function builderPath(goal: Design): BuilderPath {
       const { posture, mods } = group.item;
       if (posture && now.k === 'charge' && now.posture !== posture && !click({ kind: 'posture', at: own, posture })) return done();
       if (mods.some((m) => m.id === 'in-splendour') && now.k === 'charge' && !now.mods.some((m) => m.id === 'in-splendour') && !click({ kind: 'splendour', at: own, on: true })) return done();
-      const t = tinctureOf(group);
-      if (t && tinctureOf(groupAt(d, path)) !== t && !click({ kind: 'charge-tincture', at: own, tincture: t })) return done();
+      if (!paintTo(own, group.paint)) return done();
     }
   }
 

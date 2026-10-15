@@ -7,7 +7,7 @@ import { TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
-  fieldTinctures, groupAt, groupTinctureOf, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
+  asParty, fieldTinctures, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME } from './divisions';
@@ -15,7 +15,7 @@ import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
-import { shownSurfaces, type ShownSurfaces } from './tincture-rule';
+import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
 import { sameSurface, type Surface } from './surface';
 
 export type ChangeKind = 'sc' | 'dc';
@@ -200,11 +200,6 @@ function refOf(x: Side | null, y: Side | null): GroupRef {
   throw new RangeError('A group reference needs a group.');
 }
 
-/** A paint's tincture or counterchanged; the other paints are not drawn. */
-function tinctureOf(p: Paint) {
-  return groupTinctureOf(p) ?? notSupported(paintGaps(p, false, 'group')[0] ?? { category: 'tincture', detail: p.k });
-}
-
 /** The surface shown over part `i` of the field, or null where the group doesn't lie. */
 const shownAt = (s: ShownSurfaces, i: number): Surface | null => (s.k === 'plain' ? s.surface : s.byPart.get(i) ?? null);
 
@@ -216,6 +211,9 @@ const differs = (a: Surface | null, b: Surface | null): boolean => (a === null |
  * an argent half, so it differs from the same lion on per pale Or and gules by half the lion.
  */
 function tinctureChanged(x: Side, y: Side): boolean {
+  // Direction counts for a divided group as for a field (A5G3c): a different division is a change of tincture.
+  const [px, py] = [asParty(x.group.paint), asParty(y.group.paint)];
+  if (px && py && px.division !== py.division) return true;
   const a = shownSurfaces(x.design, x.path), b = shownSurfaces(y.design, y.path);
   if (a.k === 'plain' && b.k === 'plain') return differs(a.surface, b.surface);
   const parts = new Set([...(a.k === 'parts' ? a.byPart.keys() : []), ...(b.k === 'parts' ? b.byPart.keys() : [])]);
@@ -473,7 +471,7 @@ export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] 
     const both = () => (ga && gb && nounA && nounB ? { ga, gb, nounA, nounB } : noGroup(diff.attr));
     const pair = (label: string, x: string, y: string) => `${label} (${x} ↔ ${y})`;
     const itemOrNone = (g: Group | null) => (g ? (g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural) : 'none');
-    const tinctureWord = (g: Group) => { const t = tinctureOf(g.paint); return t === 'counterchanged' ? t : TINCTURE_NAME[t]; };
+    const tinctureWord = (g: Group) => (g.paint.k === 'counterchanged' ? 'counterchanged' : paintName(g.paint));
     const fieldWord = (d: Design) => fieldTinctures(d).map((t) => TINCTURE_NAME[t]).join('/');
     const postureWord = (g: Group) => { const i = g.item; return i.k === 'charge' && i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
 

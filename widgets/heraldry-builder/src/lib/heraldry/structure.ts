@@ -5,7 +5,9 @@
 import { TINCTURE_NAME } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase } from './charges';
-import { itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
+import { DIVISION_NAME } from './divisions';
+import { divisionCutsOrdinary } from './geometry';
+import { asParty, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
 import { capacityIssue } from './layout';
 import { posturesClash } from './difference';
 import { groundShares } from './tincture-rule';
@@ -108,6 +110,22 @@ export function structuralIssues(d: Design): Issue[] {
         ? `A divided field needs two different tinctures — both parts are ${TINCTURE_NAME[repeated]}.`
         : `A divided field needs different tinctures — two parts are ${TINCTURE_NAME[repeated]}.`;
       add({ code: 'structure', rule: 'field', at: { k: 'field' }, message, slots: [] });
+    }
+  }
+
+  // 1b. A band or picture divided into two like tinctures, or cut by a line that misses it (SENA A3B3a, A3B3; RULES CC-10, CC-11).
+  for (const { path, group } of walked) {
+    const party = asParty(group.paint);
+    if (party) {
+      const thing = group.item.k === 'ordinary' ? `the ${ORDINARY_NAME[group.item.type]}` : `each ${CHARGES[group.item.charge].name}`;
+      const problem = party.parts[0].t === party.parts[1].t
+        ? `A divided ${itemName(group.item)} needs two different tinctures — both parts are ${TINCTURE_NAME[party.parts[0].t]}.`
+        : group.item.k === 'ordinary' && !divisionCutsOrdinary(party.division, group.item.type)
+          ? `${capitalise(DIVISION_NAME[party.division])} doesn't cut across ${thing}, so only one part would show — choose another division.`
+          : group.item.k === 'charge' && party.division === 'per-chevron' && CHARGES[group.item.charge].long
+            ? `A long ${CHARGES[group.item.charge].name} can't be divided per chevron — it would read as per fess (RULES CC-11).`
+            : null;
+      if (problem) add({ code: 'structure', rule: 'divided-paint', at: { k: 'group', path }, message: problem, slots: [] });
     }
   }
 

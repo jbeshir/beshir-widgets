@@ -3,7 +3,8 @@
 import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
-import { fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
+import { asParty, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
+import type { Division } from './divisions';
 import { type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type HalfPosition, type Layout } from './arrangement';
 
@@ -25,21 +26,26 @@ function article(next: string): string {
   return /^[aeiou]/i.test(next) ? 'an' : 'a';
 }
 
+/** How a division splits a shape, with the plain word of each part: "split vertically, blue on the left and gold on the right". */
+function divisionGloss(division: Division, c1: string, c2: string): string {
+  switch (division) {
+    case 'per-pale': return `split vertically, ${c1} on the left and ${c2} on the right`;
+    case 'per-fess': return `split horizontally, ${c1} on top and ${c2} below`;
+    case 'per-bend': return `split diagonally from top-left to bottom-right, ${c1} above and ${c2} below`;
+    case 'per-bend-sinister': return `split diagonally from top-right to bottom-left, ${c1} above and ${c2} below`;
+    case 'per-saltire': return `divided by an X, ${c1} top and bottom and ${c2} left and right`;
+    case 'per-chevron': return `divided by an upside-down V, ${c1} above and ${c2} below`;
+    case 'quarterly': return `divided into four quarters, ${c1} top-left and bottom-right, ${c2} top-right and bottom-left`;
+    default: return notSupported({ category: 'division', detail: division });
+  }
+}
+
 function fieldGloss(d: Design): string {
   if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
   const [c1, c2] = fieldTinctures(d).map((t) => TINCTURE_GLOSS[t]);
   if (d.field.k === 'tincture') return `${article(c1) === 'an' ? 'An' : 'A'} ${c1} shield`;
   if (d.field.k !== 'divided') return notSupported({ category: 'field-treatment', detail: d.field.k });
-  switch (d.field.division) {
-    case 'per-pale': return `A shield split vertically, ${c1} on the left and ${c2} on the right`;
-    case 'per-fess': return `A shield split horizontally, ${c1} on top and ${c2} below`;
-    case 'per-bend': return `A shield split diagonally from top-left to bottom-right, ${c1} above and ${c2} below`;
-    case 'per-bend-sinister': return `A shield split diagonally from top-right to bottom-left, ${c1} above and ${c2} below`;
-    case 'per-saltire': return `A shield divided by an X, ${c1} top and bottom and ${c2} left and right`;
-    case 'per-chevron': return `A shield divided by an upside-down V, ${c1} above and ${c2} below`;
-    case 'quarterly': return `A shield divided into four quarters, ${c1} top-left and bottom-right, ${c2} top-right and bottom-left`;
-    default: return notSupported({ category: 'division', detail: d.field.division });
-  }
+  return `A shield ${divisionGloss(d.field.division, c1, c2)}`;
 }
 
 /** "in the opposite colours of the field (blue on gold, gold on blue)" for counterchanged groups on a divided field. */
@@ -50,18 +56,24 @@ function counterchangedGloss(d: Design): string {
   return `in the opposite colours of the field (${b} on ${a}, ${a} on ${b})`;
 }
 
-/** A plain colour word for a group's paint, or null for counterchanged (which has its own clause). */
+/** The words that follow a group painted other than one colour: counterchanged, or split in two. Null for one colour. */
+function paintClause(d: Design, p: Paint): string | null {
+  if (p.k === 'counterchanged') return counterchangedGloss(d);
+  const party = asParty(p);
+  return party ? divisionGloss(party.division, TINCTURE_GLOSS[party.parts[0].t], TINCTURE_GLOSS[party.parts[1].t]) : null;
+}
+
+/** A plain colour word for a group's paint, or null for a paint with a clause of its own (see `paintClause`). */
 function colourOf(p: Paint): string | null {
   if (p.k === 'tincture') return TINCTURE_GLOSS[p.t];
-  if (p.k === 'counterchanged') return null;
-  return notSupported({ category: 'tincture', detail: p.k });
+  return p.k === 'counterchanged' || asParty(p) ? null : notSupported({ category: 'tincture', detail: p.k });
 }
 
 function ordinaryGloss(d: Design, g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const body = ORDINARY_GLOSS[g.item.type] ?? notSupported({ category: 'ordinary', detail: g.item.type });
   const colour = colourOf(g.paint);
-  return colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${counterchangedGloss(d)}`;
+  return colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${paintClause(d, g.paint)}`;
 }
 
 /** Where charges set in chief, base or canton in a pattern stand, before the pattern's own words. */
@@ -126,7 +138,8 @@ function chargesSubject(g: Group, count: number): string {
 /** "three red five-pointed stars, two above one"; counterchanged: "…stars in the opposite colours of the field (…), two above one". */
 function chargesGloss(d: Design, g: Group): { text: string; clause: boolean } {
   let text = chargesSubject(g, g.count);
-  if (g.paint.k === 'counterchanged') text += ` ${counterchangedGloss(d)}`;
+  const clause = paintClause(d, g.paint);
+  if (clause) text += ` ${clause}`;
   const where = layoutGloss({ arrangement: g.arrangement, position: g.position }, g.count);
   return where ? { text: `${text}, ${where}`, clause: true } : { text, clause: false };
 }
@@ -138,7 +151,8 @@ function chargesGloss(d: Design, g: Group): { text: string; clause: boolean } {
 function betweenGloss(d: Design, g: Group, ordinary: OrdinaryType): { text: string; clause: boolean } {
   const where = betweenWords(ordinary, g.count);
   if (!where) return chargesGloss(d, g);
-  const colour = g.paint.k === 'counterchanged' ? `, ${counterchangedGloss(d)}` : '';
+  const clause = paintClause(d, g.paint);
+  const colour = clause ? `, ${clause}` : '';
   if (/^one (on|in) each /.test(where)) return { text: `${chargesSubject(g, 1)} ${where.slice('one '.length)}${colour}`, clause: false };
   return { text: `${chargesSubject(g, g.count)}${colour}, ${where}`, clause: false };
 }
@@ -153,7 +167,8 @@ function chargesWith(d: Design, g: Group, around: readonly Group[]): { text: str
     clause = c.clause;
   }
   for (const s of around) {
-    const colour = s.paint.k === 'counterchanged' ? `, ${counterchangedGloss(d)}` : '';
+    const words = paintClause(d, s.paint);
+    const colour = words ? `, ${words}` : '';
     const where = aroundWords(s.count, { arrangement: s.arrangement, position: s.position }) ?? layoutGloss({ arrangement: s.arrangement, position: s.position }, s.count);
     text += `${clause ? ',' : ''} between ${chargesSubject(s, s.count)}${colour}${where ? `, ${where}` : ''}`;
     clause = where !== null;
@@ -164,7 +179,10 @@ function chargesWith(d: Design, g: Group, around: readonly Group[]): { text: str
 /** Two co-primary groups, laid out together: "a white unicorn and a red rose, in a row". */
 function togetherGloss(d: Design, [a, b]: [Group, Group]): { text: string; clause: boolean } {
   const bothCounterchanged = a.paint.k === 'counterchanged' && b.paint.k === 'counterchanged';
-  const subject = (g: Group) => `${chargesSubject(g, g.count)}${g.paint.k === 'counterchanged' && !bothCounterchanged ? ` ${counterchangedGloss(d)}` : ''}`;
+  const subject = (g: Group) => {
+    const clause = paintClause(d, g.paint);
+    return `${chargesSubject(g, g.count)}${clause && !bothCounterchanged ? ` ${clause}` : ''}`;
+  };
   const subjects = `${subject(a)} and ${subject(b)}${bothCounterchanged ? ` ${counterchangedGloss(d)}` : ''}`;
   const where = layoutGloss({ arrangement: a.arrangement, position: a.position }, a.count + b.count);
   return where ? { text: `${subjects}, ${where}`, clause: true } : { text: subjects, clause: false };

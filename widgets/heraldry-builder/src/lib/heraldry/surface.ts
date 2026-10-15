@@ -3,7 +3,7 @@
 // surfaces, so a paint that is not a plain tincture needs a surface here and nowhere else.
 
 import { TINCTURE_CLASS, TINCTURES, type Tincture } from './tinctures';
-import { notSupported, type Paint } from './design';
+import { asParty, notSupported, type Paint } from './design';
 
 /** A neutral surface (a pattern of both classes) contrasts with metals and colours alike and is never "alike" to a top. */
 export type ContrastClass = 'metal' | 'colour' | 'neutral';
@@ -20,9 +20,17 @@ const TINCTURE_SURFACES: Record<Tincture, Surface> = Object.fromEntries(
 /** The surface of a plain tincture; one object per tincture, so surfaces can be counted by identity. */
 export const tinctureSurface = (t: Tincture): Surface => TINCTURE_SURFACES[t];
 
-/** The surface of a paint that is one thing everywhere (a divided or counterchanged paint has a surface per place it lies). */
+/**
+ * The surface of a paint that is one thing everywhere (a counterchanged paint has a surface per place it lies). A party of two
+ * tinctures takes the class of its parts when they agree and is neutral when a metal meets a colour (A3B1, CC-10), and
+ * shares both of its tinctures.
+ */
 export function surfaceOf(p: Paint): Surface {
-  return p.k === 'tincture' ? tinctureSurface(p.t) : notSupported({ category: 'tincture', detail: p.k });
+  if (p.k === 'tincture') return tinctureSurface(p.t);
+  const party = asParty(p);
+  if (!party) return notSupported({ category: 'tincture', detail: p.k });
+  const [a, b] = [tinctureSurface(party.parts[0].t), tinctureSurface(party.parts[1].t)];
+  return { cls: a.cls === b.cls ? a.cls : 'neutral', bases: [...a.bases, ...b.bases] };
 }
 
 /** Whether two surfaces have a base tincture in common. */

@@ -19,7 +19,6 @@ export const UNSUPPORTED_CASES: Array<[string, unknown, string]> = [
   ['a gyronny field', arms(div('gyronny', 'or', 'azure'), lion), 'division:gyronny'],
   ['a wavy field line', arms({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['or', 'azure'] }, lion), 'line-of-partition:wavy'],
   ['a wavy ordinary line', arms('azure', group(ordinary('bend', { lines: { a: 'embattled' } }), 'or')), 'line-of-partition:embattled'],
-  ['a divided charge', arms('azure', group(charge('lion'), div('per-pale', 'or', 'gules'))), 'tincture:party'],
   ['a canton', arms('azure', group(ordinary('canton'), 'or')), 'ordinary:canton'],
   ['two bends', arms('azure', group(ordinary('bend'), 'or', { count: 2 })), 'ordinary:multiple'],
   ['a voided ordinary', arms('azure', group(ordinary('bend', { mods: ['voided'] }), 'or')), 'ordinary-treatment:voided'],

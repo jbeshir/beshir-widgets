@@ -2,8 +2,8 @@
 // a fill of their own (a divided field, a counterchanged group). DOM-free; Shield.tsx draws the fills.
 
 import { TINCTURE_CODE, type Tincture } from './tinctures';
-import { notSupported, type Design, type Group, type Paint } from './design';
-import { counterchangedOrdinaryParts, counterchangedSlotParts, fieldRegions, type CounterchangePart, type Slot } from './geometry';
+import { asParty, notSupported, type Design, type Group, type Paint, type PartyPaint } from './design';
+import { counterchangedOrdinaryParts, counterchangedSlotParts, fieldRegions, ordinaryCentre, partitionRegions, type CounterchangePart, type Slot } from './geometry';
 import type { OrdinaryType } from './ordinaries';
 import type { SolidColour, PatternSpec } from './patterns';
 import type { FieldShape } from './shape';
@@ -24,6 +24,13 @@ const NO_FILL: Fill = { k: 'split', parts: [] };
 
 const counterchangedFill = (parts: readonly CounterchangePart[]): Fill =>
   ({ k: 'split', parts: parts.map((p) => ({ clip: p.d, fill: solidFill(p.tincture) })) });
+
+/** A party paint split through `centre`, its lines turned `turn` degrees: each part's tincture within its side of the division. */
+const partyFill = (p: PartyPaint, centre: { x: number; y: number }, turn: number): Fill =>
+  ({ k: 'split', parts: partitionRegions(p.division, centre, turn).map((clip, i) => ({ clip, fill: solidFill(p.parts[i].t) })) });
+
+/** The party paint of a group, which only a divided paint of two tinctures is. */
+const partyOf = (p: Paint): PartyPaint => asParty(p) ?? notSupported({ category: 'tincture', detail: p.k });
 
 /** The colours a fill is made of, in order of first use. */
 export function fillColours(fill: Fill): SolidColour[] {
@@ -60,6 +67,7 @@ export function ordinaryFill(d: Design, group: Group, host: Group | null, type: 
     case 'tincture': return solidFill(group.paint.t);
     case 'counterchanged':
       return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, type, shape)) : NO_FILL;
+    case 'divided': return partyFill(partyOf(group.paint), ordinaryCentre(type, shape), 0);
     default: return notSupported({ category: 'tincture', detail: group.paint.k });
   }
 }
@@ -80,6 +88,10 @@ export function chargeFills(d: Design, group: Group, host: Group | null, slots: 
         const part = on.length ? parts[on[0]].find((p) => p.region === region) : undefined;
         return part ? [{ fill: counterchangedFill([part]), slots: on }] : [];
       });
+    }
+    case 'divided': {
+      const party = partyOf(group.paint);
+      return slots.map((s, i) => ({ fill: partyFill(party, s, s.rotation), slots: [i] }));
     }
     default: return notSupported({ category: 'tincture', detail: group.paint.k });
   }
