@@ -5,7 +5,7 @@
 // - renderShieldSvg + expectedElements + checkRendered: the real <Shield> rendered to SVG markup
 //   in plain Node, checked layer by layer against renderLayers (the geometry Shield draws from):
 //   one field block with a region per part, then for each group in paint order a block with its
-//   ordinary shape or its charges, each drawn at the expected slot, painted its tinctures and
+//   ordinary shape or its charges, each drawn at the expected slot, painted the paint it names (data-paint) and
 //   outlined once, with no stray paint.
 //
 // (builderPath, the clicks that build a design in the builder, is test/builder-path.ts.) The checks return
@@ -16,8 +16,8 @@ import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { Shield } from '../../src/components/Shield';
 import {
-  DEFAULT_FIELD_SHAPE, OUTLINE_COLOUR, TINCTURE_FILL, pathKey, renderLayers, slotTransform, validate,
-  type Design, type FieldShape, type Issue, type Layer,
+  DEFAULT_FIELD_SHAPE, OUTLINE_COLOUR, fillCode, pathKey, renderLayers, slotTransform, validate,
+  type Design, type FieldShape, type Fill, type Issue, type Layer,
 } from '../../src/lib/heraldry';
 import { assess, type DesignStatus } from '../../src/lib/builder';
 
@@ -79,20 +79,26 @@ function layerBlocks(svg: string): Block[] {
   return opens.map((m, i) => ({ layer: m[1], group: m[2] ?? null, markup: svg.slice(m.index, opens[i + 1]?.index ?? svg.length) }));
 }
 
-const filled = (p: PathTag) => p.attrs.fill !== undefined && p.attrs.fill !== 'none' && !p.attrs.fill.startsWith('url(');
+/** A path that paints a fill (not a hatching overlay or an outline) names its paint, so patterns can be compared without resolving `url(…)`. */
+const filled = (p: PathTag) => p.attrs['data-paint'] !== undefined;
+
+/** The codes of the leaves of a fill: what each painted path should name. */
+const leafCodes = (fill: Fill): string[] => (fill.k === 'split' ? fill.parts.flatMap((p) => leafCodes(p.fill)) : [fillCode(fill)]);
 const sorted = (xs: string[]) => [...xs].sort();
 
 function checkField(layer: Extract<Layer, { k: 'field' }>, block: Block): string[] {
   const paths = pathTags(block.markup);
-  const want = layer.regions.map((r) => `${r.d}|${TINCTURE_FILL[r.tincture]}`);
-  const got = paths.filter(filled).map((p) => `${p.attrs.d}|${p.attrs.fill}`);
-  return sorted(got).join() === sorted(want).join() ? [] : [`the field draws ${got.length} regions, expected ${want.length} (${layer.regions.map((r) => TINCTURE_FILL[r.tincture]).join(', ')})`];
+  // A divided field's parts are its regions; a plain field is painted over its outline.
+  const areas = layer.fill.k === 'split' ? layer.fill.parts.map((p) => ({ d: p.clip, fill: p.fill })) : [{ d: layer.outline, fill: layer.fill }];
+  const want = areas.flatMap((a) => leafCodes(a.fill).map((code) => `${a.d}|${code}`));
+  const got = paths.filter(filled).map((p) => `${p.attrs.d}|${p.attrs['data-paint']}`);
+  return sorted(got).join() === sorted(want).join() ? [] : [`the field draws ${got.length} regions, expected ${want.length} (${want.map((w) => w.split('|')[1]).join(', ')})`];
 }
 
 function checkOrdinary(layer: Extract<Layer, { k: 'ordinary' }>, block: Block): string[] {
   const paths = pathTags(block.markup);
-  const want = layer.fills.map((f) => `${layer.d}|${TINCTURE_FILL[f.tincture]}|${layer.fillRule}`);
-  const got = paths.filter(filled).map((p) => `${p.attrs.d}|${p.attrs.fill}|${p.attrs['fill-rule']}`);
+  const want = leafCodes(layer.fill).map((code) => `${layer.d}|${code}|${layer.fillRule}`);
+  const got = paths.filter(filled).map((p) => `${p.attrs.d}|${p.attrs['data-paint']}|${p.attrs['fill-rule']}`);
   const problems: string[] = [];
   if (sorted(got).join() !== sorted(want).join()) problems.push(`the ordinary at ${block.group} draws ${got.length} fills, expected ${want.length}`);
   const outlines = paths.filter((p) => p.attrs.fill === 'none' && p.attrs.d === layer.d);
@@ -104,18 +110,14 @@ function checkOrdinary(layer: Extract<Layer, { k: 'ordinary' }>, block: Block): 
 function checkCharges(layer: Extract<Layer, { k: 'charges' }>, block: Block): string[] {
   const paths = pathTags(block.markup);
   const problems: string[] = [];
-  const want = layer.fills.flatMap((f) => f.slots.map((s) => `${slotTransform(layer.slots[s])}|${TINCTURE_FILL[f.tincture]}`));
-  const got = paths.filter(filled).map((p) => `${p.attrs.transform}|${p.attrs.fill}`);
+  const want = layer.fills.flatMap((f) => leafCodes(f.fill).flatMap((code) => f.slots.map((s) => `${slotTransform(layer.slots[s])}|${code}`)));
+  const got = paths.filter(filled).map((p) => `${p.attrs.transform}|${p.attrs['data-paint']}`);
   if (sorted(got).join() !== sorted(want).join()) problems.push(`the charges at ${block.group} are painted ${sorted(got).join(' ') || 'nothing'}, expected ${sorted(want).join(' ') || 'nothing'}`);
   if (paths.filter(filled).some((p) => p.attrs.d !== layer.art)) problems.push(`the charges at ${block.group} are not drawn with their own art`);
   // (the shield's own frame outline, last in the markup, has no transform)
   const outlines = paths.filter((p) => p.attrs.transform !== undefined && p.attrs.fill === 'none' && p.attrs.stroke === OUTLINE_COLOUR && p.attrs['vector-effect'] === 'non-scaling-stroke');
   if (sorted(outlines.map((p) => p.attrs.transform)).join() !== sorted(layer.slots.map(slotTransform)).join()) {
     problems.push(`${outlines.length} charge outlines are drawn at ${block.group}, expected ${layer.slots.length}`);
-  }
-  const markers = [...block.markup.matchAll(/\sdata-charge-tincture="([^"]*)"/g)].map((m) => m[1]);
-  if (sorted(markers).join() !== sorted(layer.fills.map((f) => f.tincture)).join()) {
-    problems.push(`charge groups at ${block.group} are marked ${markers.join(', ') || 'nothing'}`);
   }
   return problems;
 }

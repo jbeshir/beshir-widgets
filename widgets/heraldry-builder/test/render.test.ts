@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, chargePath, designTinctures, drawnBox, fieldRegions, groupSlots, renderLayers, slotTransform, type Design, type FieldShape, type Layer,
+  CHARGES, chargePath, designTinctures, drawnBox, fieldRegions, fillCode, fillColours, fillTinctures, groupSlots, renderLayers, slotTransform, solidFill,
+  type Design, type FieldShape, type Fill, type Layer,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
@@ -11,6 +12,13 @@ const layer = <K extends Layer['k']>(d: Design, i: number, k: K, shape: FieldSha
   const l = renderLayers(d, shape)[i];
   expect(l.k).toBe(k);
   return l as Extract<Layer, { k: K }>;
+};
+
+/** What a flat or split fill paints: each solid part with the clip path it is cut to (null: not cut). */
+const painted = (f: Fill): Array<{ tincture: string; clip: string | null }> => {
+  if (f.k === 'solid') return [{ tincture: f.colour.t, clip: null }];
+  if (f.k === 'split') return f.parts.flatMap((p) => painted(p.fill).map((x) => ({ tincture: x.tincture, clip: p.clip })));
+  throw new RangeError('A pattern has no single tincture.');
 };
 
 describe('layer order', () => {
@@ -43,31 +51,35 @@ describe('layer order', () => {
 
 describe('the field layer', () => {
   it('has one region for a plain field and two for a divided one', () => {
-    expect(layer(nd(arms('azure')), 0, 'field').regions).toEqual([{ tincture: 'azure', d: fieldRegions({ k: 'tincture', t: 'azure' }, 'heater')[0].d }]);
-    const regions = layer(nd(arms(div('per-bend', 'or', 'sable'))), 0, 'field').regions;
+    const plain = layer(nd(arms('azure')), 0, 'field');
+    expect(plain.fill).toEqual(solidFill('azure'));
+    expect(plain.outline).toBe(fieldRegions({ k: 'tincture', t: 'azure' }, 'heater')[0].d);
+    const bend = layer(nd(arms(div('per-bend', 'or', 'sable'))), 0, 'field');
+    const regions = painted(bend.fill);
     expect(regions.map((r) => r.tincture)).toEqual(['or', 'sable']);
-    expect(regions[0].d).not.toBe(regions[1].d);
+    expect(regions[0].clip).not.toBe(regions[1].clip);
+    expect(bend.outline).toBe(plain.outline);
   });
 });
 
 describe('ordinary layers', () => {
   it('fill a plain ordinary in one tincture', () => {
     const l = layer(nd(arms('azure', group(ordinary('bordure'), 'or'))), 1, 'ordinary');
-    expect(l.fills).toEqual([{ tincture: 'or', clip: null }]);
+    expect(l.fill).toEqual(solidFill('or'));
     expect(l.fillRule).toBe('evenodd');
     expect(layer(nd(arms('azure', group(ordinary('fess'), 'or'))), 1, 'ordinary').fillRule).toBe('nonzero');
   });
 
   it('fill a counterchanged ordinary once for each field region it lies on', () => {
     const fess = layer(nd(arms(div('per-pale', 'or', 'azure'), group(ordinary('fess'), 'counterchanged'))), 1, 'ordinary');
-    expect(fess.fills.map((f) => f.tincture)).toEqual(['azure', 'or']);
-    expect(fess.fills.every((f) => f.clip !== null)).toBe(true);
+    expect(painted(fess.fill).map((f) => f.tincture)).toEqual(['azure', 'or']);
+    expect(painted(fess.fill).every((f) => f.clip !== null)).toBe(true);
     const chief = layer(nd(arms(div('per-fess', 'or', 'azure'), group(ordinary('chief'), 'counterchanged'))), 1, 'ordinary');
-    expect(chief.fills.map((f) => f.tincture)).toEqual(['azure']);
+    expect(painted(chief.fill).map((f) => f.tincture)).toEqual(['azure']);
   });
 
-  it('have no fills when counterchanged on a plain field', () => {
-    expect(layer(nd(arms('or', group(ordinary('fess'), 'counterchanged'))), 1, 'ordinary').fills).toEqual([]);
+  it('paint nothing when counterchanged on a plain field', () => {
+    expect(painted(layer(nd(arms('or', group(ordinary('fess'), 'counterchanged'))), 1, 'ordinary').fill)).toEqual([]);
   });
 });
 
@@ -77,16 +89,16 @@ describe('charge layers', () => {
     const l = layer(d, 1, 'charges');
     expect(l.slots).toEqual(groupSlots(d, [0], 'heater').map((s) => drawnBox(s, 'sword')));
     expect(l.slots.map(slotTransform)).toHaveLength(2);
-    expect(l.fills).toEqual([{ tincture: 'or', clip: null, slots: [0, 1] }]);
+    expect(l.fills).toEqual([{ fill: solidFill('or'), slots: [0, 1] }]);
     expect(l.art).toBe(chargePath('sword', null, []));
   });
 
   it('split counterchanged charges by the region each lies on', () => {
     const d = nd(arms(div('per-pale', 'or', 'azure'), group(charge('mullet'), 'counterchanged', { count: 3 })));
     const l = layer(d, 1, 'charges');
-    expect(l.fills.map((f) => f.tincture).sort()).toEqual(['azure', 'or']);
-    const orFill = l.fills.find((f) => f.tincture === 'or')!;
-    expect(orFill.clip).not.toBeNull();
+    expect(l.fills.flatMap((f) => painted(f.fill).map((p) => p.tincture)).sort()).toEqual(['azure', 'or']);
+    const orFill = l.fills.find((f) => painted(f.fill)[0].tincture === 'or')!;
+    expect(painted(orFill.fill)[0].clip).not.toBeNull();
     expect(orFill.slots.length).toBeGreaterThan(0);
     // Every charge is painted in at least one region.
     expect(new Set(l.fills.flatMap((f) => f.slots))).toEqual(new Set([0, 1, 2]));
@@ -141,6 +153,28 @@ describe('charge art', () => {
   it('falls back to the default posture and then to the posture-less drawing', () => {
     expect(chargePath('lion', 'courant', [])).toBe(chargePath('lion', 'rampant', []));
     expect(chargePath('rose', null, [])).toBe(chargePath('rose', 'rampant', []));
+  });
+});
+
+describe('fills', () => {
+  const split: Fill = { k: 'split', parts: [{ clip: 'M0 0', fill: solidFill('azure') }, { clip: 'M1 1', fill: solidFill('or') }] };
+  const pattern: Fill = {
+    k: 'pattern',
+    spec: { id: 'dots', width: 4, height: 4, transform: null, ground: { k: 'tincture', t: 'argent' }, marks: [{ d: 'M1 1h2v2h-2z', colour: { k: 'tincture', t: 'sable' } }] },
+  };
+
+  it('are named by a compact code that does not depend on how they are drawn', () => {
+    expect(fillCode(solidFill('or'))).toBe('or');
+    expect(fillCode(split)).toBe('split(az,or)');
+    expect(fillCode(pattern)).toBe('pattern:dots');
+    expect(fillCode({ k: 'split', parts: [] })).toBe('split()');
+  });
+
+  it('list the colours they are made of in order of first use', () => {
+    expect(fillColours(split)).toEqual([{ k: 'tincture', t: 'azure' }, { k: 'tincture', t: 'or' }]);
+    expect(fillTinctures({ k: 'split', parts: [...split.parts, { clip: 'M2 2', fill: solidFill('azure') }] })).toEqual(['azure', 'or']);
+    expect(fillTinctures(pattern)).toEqual(['argent', 'sable']);
+    expect(fillTinctures({ k: 'split', parts: [] })).toEqual([]);
   });
 });
 

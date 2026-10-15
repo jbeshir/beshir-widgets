@@ -17,8 +17,9 @@ export {
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share, type SecondaryPosition,
 } from './arrangement';
 export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
+export { tinctureSurface, surfaceOf, sharesTincture, sameSurface, type Surface, type ContrastClass, type BaseTincture } from './surface';
 export {
-  FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownTinctures, counterchangeUnavailable, describeSlots, type ShownTinctures,
+  FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownSurfaces, counterchangeUnavailable, describeSlots, type ShownSurfaces,
 } from './tincture-rule';
 export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon, type BlazonOptions } from './blazon';
@@ -32,7 +33,7 @@ export { deriveTags, filtersToTags, matchesTags, NO_FILTERS, type SearchFilters 
 export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchWord } from './search-terms';
 export { signature } from './signature';
 export {
-  SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldTinctureAt, inFirstPart, ordinaryPath, ordinaryFillRule, ordinarySamplePoints,
+  SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, ordinaryPath, ordinaryFillRule, ordinarySamplePoints,
   drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pointInPolygon,
   counterchangedSlotParts, counterchangedOrdinaryParts, type Slot,
 } from './geometry';
@@ -48,6 +49,8 @@ export {
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';
 export { renderLayers, designTinctures, type Layer } from './render';
+export { fillCode, fillColours, fillTinctures, solidFill, type Fill, type SlotFill } from './paint-render';
+export type { PatternSpec, SolidColour } from './patterns';
 export { CHARGE_ART, MODIFIER_ART, ART_ON_BOX, chargePath, chargeOnBox, type ArtBox } from './charge-art';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
 export * from './tinctures';

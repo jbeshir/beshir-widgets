@@ -1,14 +1,15 @@
 // The contrast predicate of the rule of tincture (SENA A3B). Apart from tincture-rule.ts so the default
 // arrangements, which also need it, don't depend on the module that walks the design.
 
-import { TINCTURE_CLASS, type Tincture } from './tinctures';
+import type { Tincture } from './tinctures';
+import { sharesTincture, tinctureSurface, type Surface } from './surface';
 
 export type ContrastFailure = 'same' | 'colour-on-colour' | 'metal-on-metal';
 
-/** How much of an element's ground one tincture covers (shares of a ground add up to 1). */
-export interface GroundShare { t: Tincture; share: number }
+/** How much of an element's ground one surface covers (shares of a ground add up to 1). */
+export interface GroundShare { surface: Surface; share: number }
 
-/** What an element lies on: the tinctures under it with their shares, in the field's part order. */
+/** What an element lies on: the surfaces under it with their shares, in the field's part order. */
 export type Ground = readonly GroundShare[];
 
 /**
@@ -21,20 +22,22 @@ export type Ground = readonly GroundShare[];
 export const GROUND_CLASS_SHARE = 2 / 3;
 
 /** The tinctures a ground touches at all. */
-export const groundTinctures = (ground: Ground): Tincture[] => ground.map((g) => g.t);
+export const groundTinctures = (ground: Ground): Tincture[] => ground.flatMap((g) => g.surface.bases);
 
 /**
- * Why `top` fails on `ground`, or null when it contrasts. It may never touch its own tincture (SENA A3B4b), and fails
- * when its own class covers GROUND_CLASS_SHARE of the ground or more (A3B1, A3B4a).
+ * Why `top` fails on `ground`, or null when it contrasts. It may never touch a tincture of its own (SENA A3B4b), and fails
+ * when its own class covers GROUND_CLASS_SHARE of the ground or more (A3B1, A3B4a). A neutral top has no class to be alike in,
+ * and neutral parts of a ground count toward neither class.
  */
-export function groundFailure(top: Tincture, ground: Ground): ContrastFailure | null {
-  if (ground.some((g) => g.t === top)) return 'same';
-  const alike = ground.reduce((sum, g) => sum + (TINCTURE_CLASS[g.t] === TINCTURE_CLASS[top] ? g.share : 0), 0);
+export function groundFailure(top: Surface, ground: Ground): ContrastFailure | null {
+  if (ground.some((g) => sharesTincture(top, g.surface))) return 'same';
+  if (top.cls === 'neutral') return null;
+  const alike = ground.reduce((sum, g) => sum + (g.surface.cls === top.cls ? g.share : 0), 0);
   if (alike < GROUND_CLASS_SHARE - 1e-9) return null;
-  return TINCTURE_CLASS[top] === 'colour' ? 'colour-on-colour' : 'metal-on-metal';
+  return top.cls === 'colour' ? 'colour-on-colour' : 'metal-on-metal';
 }
 
-/** `groundFailure` on a ground shared evenly by `contacts`: one plain tincture, or the halves of a two-part field. */
+/** `groundFailure` for a plain tincture on a ground shared evenly by `contacts`: one plain tincture, or the halves of a two-part field. */
 export function contrastFailure(top: Tincture, contacts: readonly Tincture[]): ContrastFailure | null {
-  return groundFailure(top, contacts.map((t) => ({ t, share: 1 / contacts.length })));
+  return groundFailure(tinctureSurface(top), contacts.map((t) => ({ surface: tinctureSurface(t), share: 1 / contacts.length })));
 }

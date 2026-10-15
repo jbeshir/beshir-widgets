@@ -10,6 +10,7 @@ import { CHARGES, type ChargeId } from './charges';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
 import { notSupported, type Paint } from './design';
 import type { OrdinaryType } from './ordinaries';
+import { tinctureSurface, type Surface } from './surface';
 import type { FieldShape } from './shape';
 import type { Tincture } from './tinctures';
 
@@ -155,11 +156,11 @@ function drawnField(field: Paint): DrawnField {
   return notSupported({ category: 'field-treatment', detail: field.k });
 }
 
-/** Which field tincture lies at (x,y) in the canonical layout; points exactly on a line count as the second part. */
-export function fieldTinctureAt(field: Paint, x: number, y: number): Tincture {
+/** The surface of the field at (x,y) in the canonical layout; points exactly on a line count as the second part. */
+export function fieldSurfaceAt(field: Paint, x: number, y: number): Surface {
   const f = drawnField(field);
-  if (f.division === null) return f.tincture;
-  return inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.tinctures[0] : f.tinctures[1];
+  if (f.division === null) return tinctureSurface(f.tincture);
+  return tinctureSurface(inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.tinctures[0] : f.tinctures[1]);
 }
 
 /** How far the chevron's apex (and the per-chevron line's) sits above the fess point. */

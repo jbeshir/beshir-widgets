@@ -15,7 +15,8 @@ import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
-import { shownTinctures, type ShownTinctures } from './tincture-rule';
+import { shownSurfaces, type ShownSurfaces } from './tincture-rule';
+import { sameSurface, type Surface } from './surface';
 
 export type ChangeKind = 'sc' | 'dc';
 
@@ -204,8 +205,10 @@ function tinctureOf(p: Paint) {
   return groupTinctureOf(p) ?? notSupported(paintGaps(p, false, 'group')[0] ?? { category: 'tincture', detail: p.k });
 }
 
-/** A shown tincture over part `i` of the field, or null where the group doesn't lie. */
-const shownAt = (s: ShownTinctures, i: number): Tincture | null => (s.k === 'plain' ? s.t : s.byPart.get(i) ?? null);
+/** The surface shown over part `i` of the field, or null where the group doesn't lie. */
+const shownAt = (s: ShownSurfaces, i: number): Surface | null => (s.k === 'plain' ? s.surface : s.byPart.get(i) ?? null);
+
+const differs = (a: Surface | null, b: Surface | null): boolean => (a === null || b === null ? a !== b : !sameSurface(a, b));
 
 /**
  * A5G3 (with A5G3a, A5C2d): whether the tinctures a group shows change over at least half of it, compared part of the
@@ -213,12 +216,12 @@ const shownAt = (s: ShownTinctures, i: number): Tincture | null => (s.k === 'pla
  * an argent half, so it differs from the same lion on per pale Or and gules by half the lion.
  */
 function tinctureChanged(x: Side, y: Side): boolean {
-  const a = shownTinctures(x.design, x.path), b = shownTinctures(y.design, y.path);
-  if (a.k === 'plain' && b.k === 'plain') return a.t !== b.t;
+  const a = shownSurfaces(x.design, x.path), b = shownSurfaces(y.design, y.path);
+  if (a.k === 'plain' && b.k === 'plain') return differs(a.surface, b.surface);
   const parts = new Set([...(a.k === 'parts' ? a.byPart.keys() : []), ...(b.k === 'parts' ? b.byPart.keys() : [])]);
   // Counterchanged with nothing to show (an invalid design): compare the paints as written.
   if (parts.size === 0) return a.k !== b.k;
-  const changed = [...parts].filter((i) => shownAt(a, i) !== shownAt(b, i)).length;
+  const changed = [...parts].filter((i) => differs(shownAt(a, i), shownAt(b, i))).length;
   return changed > 0 && changed * 2 >= parts.size;
 }
 

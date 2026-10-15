@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
-import { Shield, nextShieldUid } from '../src/components/Shield';
+import { PatternDef, Shield, nextShieldUid } from '../src/components/Shield';
 import { gloss, groupSlots, renderLayers, slotTransform, type Design, type FieldShape } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
@@ -41,9 +41,9 @@ describe('Shield layers', () => {
     expect(render(d)).toContain('transform="rotate(-45 ');
   });
 
-  it('keeps the tincture on each painted charge group and an outline per charge', () => {
+  it('names the paint of every painted shape and draws an outline per charge', () => {
     const svg = render(two);
-    expect(attrs(svg, 'data-charge-tincture')).toEqual(['or', 'or']);
+    expect(attrs(svg, 'data-paint')).toEqual(['gu', 'or', 'or', 'or', 'ar', 'or', 'or']);
     expect((svg.match(/stroke-width="0\.75"/g) ?? []).length).toBe(5);
   });
 
@@ -61,8 +61,18 @@ describe('Shield layers', () => {
     expect(svg).toContain('clip-path="url(#region-clip-');
     expect(attrs(svg, 'id').filter((i) => i.startsWith('region-clip-'))).toHaveLength(2);
     const plain = render(nd(arms('or', group(charge('mullet'), 'counterchanged', { count: 3 }))));
-    expect(plain).not.toContain('data-charge-tincture');
+    expect(attrs(plain, 'data-paint')).toEqual(['or']);
     expect(plain).toContain('data-layer="charges"');
+  });
+});
+
+describe('pattern fills', () => {
+  it('define a tile of their ground and marks, scaled by the spec, under an id of this shield', () => {
+    const spec = { id: 'dots', width: 4, height: 6, transform: 'scale(2)', ground: { k: 'tincture', t: 'argent' }, marks: [{ d: 'M1 1h2v2h-2z', colour: { k: 'tincture', t: 'sable' } }] } as const;
+    const svg = renderToString(h('svg', null, h(PatternDef, { spec, ids: { pattern: (s: typeof spec) => `pattern-s1-${s.id}` } as never })));
+    expect(attrs(svg, 'id')).toEqual(['pattern-s1-dots']);
+    expect(attrs(svg, 'patternTransform')).toEqual(['scale(2)']);
+    expect(attrs(svg, 'fill')).toEqual(['#FFFFFF', '#141414']);
   });
 });
 

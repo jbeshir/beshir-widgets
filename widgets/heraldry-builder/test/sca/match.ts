@@ -12,10 +12,11 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, POSTURES, TINCTURES,
-  blazon, normalise, postureTerm, type ChargeId, type Design, type Division, type Gap, type Issue, type OrdinaryType, type Posture,
+  CHARGES, CHARGE_IDS, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, POSTURES, TINCTURES,
+  blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
+import { DIVISION_WORDS, readPaint } from './paint-grammar';
 
 /** A design input as `resolve` reads it. */
 export interface DesignInput {
@@ -75,7 +76,6 @@ export interface MatchResult {
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length)
   .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
 
-const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 const ORDINARY_WORDS = new Map<string, OrdinaryType>(DRAWN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
 const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as const;
 const COUNT_WORDS = new Map<string, number>([['a', 1], ['an', 1], ...NUMBER_WORDS.map((w, i): [string, number] => [w, i + 1])]);
@@ -105,8 +105,6 @@ function postureFor(id: ChargeId, word: string): Posture | null {
   return POSTURE_BY_WORD.get(word) ?? POSTURES.find((p) => p === word) ?? null;
 }
 
-const T = `(?:${TINCTURES.join('|')})`;
-const CT = `(?:${TINCTURES.join('|')}|counterchanged)`;
 const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${alt(NUMBER_WORDS)})`;
 
 /** Every word the widget's blazons can contain; anything else can't be matched. */
@@ -139,7 +137,7 @@ const VOCABULARY = new Set<string>(
 interface Phrase {
   /** The group input, without its paint. */
   group: Record<string, unknown>;
-  paint: string | null;
+  paint: unknown;
 }
 
 /** A top-level group, with the group that sits on it. */
@@ -150,13 +148,11 @@ const ORDINARY_PHRASES = [...ORDINARY_WORDS.keys()].map((o) => o.split(' ')).sor
 const startsWith = (tokens: string[], i: number, phrase: readonly string[]) => phrase.every((w, j) => tokens[i + j] === w);
 const isNumber = (w: string | undefined): boolean => (NUMBER_WORDS as readonly string[]).includes(w!);
 const numberOf = (w: string) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1;
-const tinctureAt = (tokens: string[], i: number): string | null => (new RegExp(`^${CT}$`).test(tokens[i] ?? '') ? tokens[i] : null);
 
 function parseField(text: string): unknown {
-  const m = new RegExp(`^(?:(?<plain>${T})|(?<division>${alt(DIVISION_WORDS.keys())}) (?<a>${T}) and (?<b>${T}))$`).exec(text);
-  if (!m) return null;
-  const g = m.groups!;
-  return g.plain ?? { k: 'divided', division: DIVISION_WORDS.get(g.division), parts: [g.a, g.b] };
+  const tokens = text.split(' ');
+  const read = readPaint(tokens, 0, 'field');
+  return read?.end === tokens.length ? read.paint : null;
 }
 
 /** The charge group at `start` with the index after it, or null when count, noun and posture don't agree. */
@@ -213,8 +209,8 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     if (rows.length < 2) return null;
     group.arrangement = `rows-${rows.join('-')}`;
   }
-  const paint = tinctureAt(tokens, i);
-  return { phrase: { group, paint }, end: paint ? i + 1 : i };
+  const read = readPaint(tokens, i, 'group');
+  return { phrase: { group, paint: read?.paint ?? null }, end: read ? read.end : i };
 }
 
 /** What the body of a blazon reads as: the design input's groups, or a construct the widget doesn't draw. */
@@ -266,14 +262,14 @@ function parseBody(tokens: string[]): Body | null {
       const ordinary = tokens[j] === 'a' || tokens[j] === 'an' ? ORDINARY_PHRASES.find((o) => startsWith(tokens, j + 1, o)) : undefined;
       if (ordinary) {
         const end = j + 1 + ordinary.length;
-        const paint = tinctureAt(tokens, end);
-        const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), item: { k: 'ordinary', type: ORDINARY_WORDS.get(ordinary.join(' ')) } }, paint }, on: null };
+        const read = readPaint(tokens, end, 'group');
+        const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), item: { k: 'ordinary', type: ORDINARY_WORDS.get(ordinary.join(' ')) } }, paint: read?.paint ?? null }, on: null };
         top.push(node);
         order.push({ phrase: node.phrase, onHost: false });
         host = on ? node : null;
         between = false;
         overall = false;
-        i = paint ? end + 1 : end;
+        i = read ? read.end : end;
       } else {
         const g = readGroup(tokens, j);
         if (!g) return null;
@@ -307,7 +303,7 @@ function parseBody(tokens: string[]): Body | null {
       }
     }
   }
-  let carry: string | null = null;
+  let carry: unknown = null;
   for (const { phrase, onHost } of order.reverse()) {
     if (onHost) {
       if (!phrase.paint) return null;

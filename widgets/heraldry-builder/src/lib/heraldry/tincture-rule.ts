@@ -7,11 +7,12 @@ import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, type ChargeId } from './charges';
 import { contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground } from './contrast';
+import { surfaceOf, tinctureSurface, type Surface } from './surface';
 import {
   fieldTinctures, groupAt, hostOf, itemName, notSupported, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
 } from './design';
 import {
-  CANONICAL_SHAPE, fieldTinctureAt, groundPoints, inFirstPart, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Slot,
+  CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPart, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Slot,
 } from './geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
@@ -50,24 +51,25 @@ function firstShare(division: Division, samples: Samples): number {
   return share;
 }
 
-/** The share of the samples each field tincture lies under, in the field's part order. */
-function groundAt(field: Paint, samples: Samples, partOrder: readonly Tincture[]): Ground {
-  const counts = new Map<Tincture, number>();
+/** The share of the samples each field surface lies under, in the field's part order. */
+function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[]): Ground {
+  const counts = new Map<Surface, number>();
   const [a, b] = field.k === 'divided' ? field.parts : [];
   if (field.k === 'divided' && field.parts.length === 2 && a.k === 'tincture' && b.k === 'tincture' && DRAWN_DIVISIONS.includes(field.division)) {
     const first = firstShare(field.division, samples);
-    counts.set(a.t, first);
-    counts.set(b.t, (counts.get(b.t) ?? 0) + 1 - first);
+    const [sa, sb] = [tinctureSurface(a.t), tinctureSurface(b.t)];
+    counts.set(sa, first);
+    counts.set(sb, (counts.get(sb) ?? 0) + 1 - first);
   } else {
     const points = samples.points();
     for (const [x, y] of points) {
-      const t = fieldTinctureAt(field, x, y);
-      counts.set(t, (counts.get(t) ?? 0) + 1 / points.length);
+      const s = fieldSurfaceAt(field, x, y);
+      counts.set(s, (counts.get(s) ?? 0) + 1 / points.length);
     }
   }
-  return partOrder.flatMap((t, i) => {
-    const share = counts.get(t);
-    return share && partOrder.indexOf(t) === i ? [{ t, share }] : [];
+  return partOrder.flatMap((surface, i) => {
+    const share = counts.get(surface);
+    return share && partOrder.indexOf(surface) === i ? [{ surface, share }] : [];
   });
 }
 
@@ -107,20 +109,23 @@ function judgedSlot(group: Group, slot: Slot): Slot {
 export function groundShares(d: Design, path: GroupPath): Ground[] {
   if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
   const group = groupAt(d, path), host = hostOf(d, path);
-  const parts = fieldTinctures(d);
+  const parts = fieldTinctures(d).map(tinctureSurface);
   if (host) {
     if (group.item.k !== 'charge') return notSupported({ category: 'placement', detail: 'tertiary-ordinary' });
     const hp = host.paint;
-    if (hp.k === 'tincture') return slotsOf(d, path).map(() => [{ t: hp.t, share: 1 }]);
-    if (hp.k !== 'counterchanged') return notSupported({ category: 'tincture', detail: hp.k });
+    if (hp.k !== 'counterchanged') {
+      const surface = surfaceOf(hp);
+      return slotsOf(d, path).map(() => [{ surface, share: 1 }]);
+    }
     const pair = fieldPair(d);
     if (!pair) return [];
-    const other = (t: Tincture) => (t === pair[0] ? pair[1] : pair[0]);
-    return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(s), parts).map((g) => ({ t: other(g.t), share: g.share })));
+    const [first, second] = pair.map(tinctureSurface);
+    const other = (s: Surface) => (s === first ? second : first);
+    return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(s), parts).map((g) => ({ surface: other(g.surface), share: g.share })));
   }
   if (group.item.k === 'ordinary') {
     const type = group.item.type;
-    if (d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === type) return [parts.map((t) => ({ t, share: 1 / parts.length }))];
+    if (d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === type) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
     return [groundAt(d.field, { key: `ordinary:${type}`, points: () => ordinarySamplePoints(type) }, parts)];
   }
   return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(judgedSlot(group, s)), parts));
@@ -143,16 +148,15 @@ function oneSection(d: Design, path: GroupPath): Tincture | null {
  * tincture shows itself everywhere; a counterchanged group shows, over each part it lies on (by part index), the other
  * part's tincture. Empty for a counterchanged group with no field parts to show (on a host or a plain field: invalid).
  */
-export type ShownTinctures = { k: 'plain'; t: Tincture } | { k: 'parts'; byPart: ReadonlyMap<number, Tincture> };
+export type ShownSurfaces = { k: 'plain'; surface: Surface } | { k: 'parts'; byPart: ReadonlyMap<number, Surface> };
 
-export function shownTinctures(d: Design, path: GroupPath): ShownTinctures {
+export function shownSurfaces(d: Design, path: GroupPath): ShownSurfaces {
   const paint = groupAt(d, path).paint;
-  if (paint.k === 'tincture') return { k: 'plain', t: paint.t };
-  if (paint.k !== 'counterchanged') return notSupported({ category: 'tincture', detail: paint.k });
+  if (paint.k !== 'counterchanged') return { k: 'plain', surface: surfaceOf(paint) };
   const pair = fieldPair(d);
   if (!pair || hostOf(d, path)) return { k: 'parts', byPart: new Map() };
   const touched = new Set(groundContacts(d, path).flat());
-  return { k: 'parts', byPart: new Map(pair.flatMap((t, i) => (touched.has(t) ? [[i, pair[1 - i]] as const] : []))) };
+  return { k: 'parts', byPart: new Map(pair.flatMap((t, i) => (touched.has(t) ? [[i, tinctureSurface(pair[1 - i])] as const] : []))) };
 }
 
 /** What a thing is called in a message: "lion", "mullets", "fess". */
@@ -191,9 +195,8 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
  * of the field it lies on, the other part's tincture, so it fails exactly when the two share a class.
  */
 function failureOf(paint: Paint, ground: Ground, pair: readonly [Tincture, Tincture] | null): ContrastFailure | null {
-  if (paint.k === 'tincture') return groundFailure(paint.t, ground);
   if (paint.k === 'counterchanged' && pair) return contrastFailure(pair[1], [pair[0]]);
-  return notSupported({ category: 'tincture', detail: paint.k });
+  return groundFailure(surfaceOf(paint), ground);
 }
 
 /** "(a two-colour field needs a metal charge)" when the background is two tinctures of one class. */

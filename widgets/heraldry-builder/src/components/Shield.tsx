@@ -14,10 +14,11 @@
 // Pattern/clip ids are unique per instance (module counter) and per group, so many shields can share
 // a page, including ones in portals and separate render roots (useId can repeat across roots).
 
+import type { ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 import {
-  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING, designTinctures, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
-  type Design, type FieldShape, type Hatching, type Layer, type Slot, type Tincture,
+  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, TINCTURE_HATCHING, designTinctures, fillCode, fillTinctures, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
+  type Design, type FieldShape, type Fill, type Hatching, type Layer, type PatternSpec, type Slot, type Tincture,
 } from '../lib/heraldry';
 
 interface Props {
@@ -87,6 +88,8 @@ export function nextShieldUid(): string {
 
 type OrdinaryLayer = Extract<Layer, { k: 'ordinary' }>;
 type ChargesLayer = Extract<Layer, { k: 'charges' }>;
+type Leaf = Extract<Fill, { k: 'solid' | 'pattern' }>;
+type Part = Extract<Fill, { k: 'split' }>['parts'][number];
 
 /** The ids one Shield instance gives its patterns and clips; everything per group carries the group's path. */
 interface Ids {
@@ -94,6 +97,7 @@ interface Ids {
   charge: (key: string, t: Tincture) => string;
   region: (key: string, i: number) => string;
   chargeClip: (key: string, i: number) => string;
+  pattern: (spec: PatternSpec) => string;
 }
 
 function makeIds(uid: string): Ids {
@@ -102,23 +106,104 @@ function makeIds(uid: string): Ids {
     charge: (key, t) => `hatch-${uid}-g${key}-${t}`,
     region: (key, i) => `region-clip-${uid}-g${key}-${i}`,
     chargeClip: (key, i) => `charge-clip-${uid}-g${key}-${i}`,
+    pattern: (spec) => `pattern-${uid}-${spec.id}`,
   };
 }
 
+/** The parts of some fills in walk order: each is cut to a clip path of its own, numbered by its place in the order. */
+function partsOf(fills: readonly Fill[]): Part[] {
+  return fills.flatMap((f): Part[] => (f.k === 'split' ? f.parts.flatMap((p) => [p, ...partsOf([p.fill])]) : []));
+}
+
+/** What painting one layer needs to know: where its group sits, and the clip id of each part of its fills. */
+interface Scope { key: string; ids: Ids; overlay: (t: Tincture) => boolean; clipOf: (part: Part) => string }
+
+function scopeOf(key: string, ids: Ids, overlay: (t: Tincture) => boolean, fills: readonly Fill[]): Scope {
+  const parts = partsOf(fills);
+  return { key, ids, overlay, clipOf: (part) => ids.region(key, parts.indexOf(part)) };
+}
+
+/** The fills whose parts a layer clips: for the field, those of its areas. */
+const layerFills = (layer: Layer): Fill[] =>
+  layer.k === 'field' ? fieldAreas(layer).map((a) => a.fill) : layer.k === 'ordinary' ? [layer.fill] : layer.fills.map((f) => f.fill);
+
+/** The clip paths of the parts of a layer's fills. */
+function Clips({ fills, scope }: { fills: readonly Fill[]; scope: Scope }) {
+  return <>{partsOf(fills).map((p, i) => <clipPath key={i} id={scope.clipOf(p)}><path d={p.clip} /></clipPath>)}</>;
+}
+
+/** The patterns the fills of a design's layers are drawn with, each once. */
+function layerPatterns(layers: readonly Layer[]): PatternSpec[] {
+  const fills = layers.flatMap((l) => (l.k === 'charges' ? l.fills.map((f) => f.fill) : [l.fill]));
+  const specs = [...fills, ...partsOf(fills).map((p) => p.fill)].flatMap((f) => (f.k === 'pattern' ? [f.spec] : []));
+  return [...new Map(specs.map((s) => [s.id, s])).values()];
+}
+
+/** The <pattern> a pattern fill is drawn with. */
+export function PatternDef({ spec, ids }: { spec: PatternSpec; ids: Ids }) {
+  const colour = (c: PatternSpec['ground']) => TINCTURE_FILL[c.t];
+  return (
+    <pattern id={ids.pattern(spec)} patternUnits="userSpaceOnUse" width={spec.width} height={spec.height} patternTransform={spec.transform ?? undefined}>
+      <rect width={spec.width} height={spec.height} fill={colour(spec.ground)} />
+      {spec.marks.map((m, i) => <path key={i} d={m.d} fill={colour(m.colour)} />)}
+    </pattern>
+  );
+}
+
+/** How a leaf fill is set on an element: the palette colour, or the pattern it names. */
+const paintOf = (leaf: Leaf, ids: Ids) => (leaf.k === 'solid' ? TINCTURE_FILL[leaf.colour.t] : `url(#${ids.pattern(leaf.spec)})`);
+
+/** The hatching a leaf fill takes, or null: a flat tincture that is being hatched. */
+const hatchOf = (leaf: Leaf, overlay: (t: Tincture) => boolean): Tincture | null => (leaf.k === 'solid' && overlay(leaf.colour.t) ? leaf.colour.t : null);
+
+/**
+ * A fill drawn in a group per leaf: a split cuts each part to its clip path (a part within a part nests), and
+ * `leaf` draws what the leaf paints. `clip` is the clip path already applied to the fill.
+ */
+function Painted({ fill, clip, scope, leaf }: { fill: Fill; clip: string | undefined; scope: Scope; leaf: (leaf: Leaf) => ComponentChildren }) {
+  if (fill.k !== 'split') return <g clip-path={clip}>{leaf(fill)}</g>;
+  const parts = fill.parts.map((part, i) => <Painted key={i} fill={part.fill} clip={`url(#${scope.clipOf(part)})`} scope={scope} leaf={leaf} />);
+  return clip === undefined ? <>{parts}</> : <g clip-path={clip}>{parts}</g>;
+}
+
+type FieldLayer = Extract<Layer, { k: 'field' }>;
+
+/** The areas a field is painted in: a divided field's parts are its regions themselves, a plain field's one fill is its outline. */
+const fieldAreas = (layer: FieldLayer): Array<{ d: string; fill: Fill }> =>
+  layer.fill.k === 'split' ? layer.fill.parts.map((p) => ({ d: p.clip, fill: p.fill })) : [{ d: layer.outline, fill: layer.fill }];
+
+function FieldShape({ layer, scope, stroke }: { layer: FieldLayer; scope: Scope; stroke: object }) {
+  const regions = fieldAreas(layer);
+  return (
+    <g data-layer="field">
+      {regions.map((r, i) => (
+        <Painted key={i} fill={r.fill} clip={undefined} scope={scope} leaf={(f) => {
+          const hatch = hatchOf(f, scope.overlay);
+          return (
+            <>
+              <path d={r.d} fill={paintOf(f, scope.ids)} data-paint={fillCode(f)} {...stroke} />
+              {hatch && <path d={r.d} fill={`url(#${scope.ids.field(hatch)})`} />}
+            </>
+          );
+        }} />
+      ))}
+    </g>
+  );
+}
+
 /** The patterns and clips a layer's fills need. */
-function LayerDefs({ layer, ids, overlay }: { layer: Layer; ids: Ids; overlay: (t: Tincture) => boolean }) {
-  if (layer.k === 'field') return null;
-  const key = pathKey(layer.path);
-  const clips = layer.fills.map((f, i) => (f.clip === null ? null : <clipPath key={`r${i}`} id={ids.region(key, i)}><path d={f.clip} /></clipPath>));
-  if (layer.k === 'ordinary') return <>{clips}</>;
-  const hatchedHere = [...new Set(layer.fills.map((f) => f.tincture))].filter(overlay);
+function LayerDefs({ layer, scope }: { layer: Layer; scope: Scope }) {
+  if (layer.k !== 'charges') return <Clips fills={layerFills(layer)} scope={scope} />;
+  const { ids, key, overlay } = scope;
+  const fills = layer.fills.map((f) => f.fill);
+  const hatchedHere = [...new Set(fills.flatMap(fillTinctures))].filter(overlay);
   return (
     <>
-      {clips}
+      <Clips fills={fills} scope={scope} />
       {hatchedHere.map((t) => (
         <HatchPattern key={t} id={ids.charge(key, t)} kind={TINCTURE_HATCHING[t]} ink={HATCH_INK[t]} pitch={chargeHatchPitch(layer.slots[0])} />
       ))}
-      {layer.fills.map((f, i) => overlay(f.tincture) && (
+      {layer.fills.map((f, i) => fillTinctures(f.fill).some(overlay) && (
         <clipPath key={`c${i}`} id={ids.chargeClip(key, i)}>
           {f.slots.map((s) => <path key={s} d={layer.art} clip-rule="evenodd" transform={slotTransform(layer.slots[s])} />)}
         </clipPath>
@@ -127,23 +212,25 @@ function LayerDefs({ layer, ids, overlay }: { layer: Layer; ids: Ids; overlay: (
   );
 }
 
-function OrdinaryShape({ layer, ids, overlay, stroke }: { layer: OrdinaryLayer; ids: Ids; overlay: (t: Tincture) => boolean; stroke: object }) {
-  const key = pathKey(layer.path);
+function OrdinaryShape({ layer, scope, stroke }: { layer: OrdinaryLayer; scope: Scope; stroke: object }) {
   return (
-    <g data-layer="ordinary" data-group={key}>
-      {layer.fills.map((f, i) => (
-        <g key={i} clip-path={f.clip === null ? undefined : `url(#${ids.region(key, i)})`}>
-          <path d={layer.d} fill={TINCTURE_FILL[f.tincture]} fill-rule={layer.fillRule} />
-          {overlay(f.tincture) && <path d={layer.d} fill={`url(#${ids.field(f.tincture)})`} fill-rule={layer.fillRule} />}
-        </g>
-      ))}
+    <g data-layer="ordinary" data-group={scope.key}>
+      <Painted fill={layer.fill} clip={undefined} scope={scope} leaf={(f) => {
+        const hatch = hatchOf(f, scope.overlay);
+        return (
+          <>
+            <path d={layer.d} fill={paintOf(f, scope.ids)} fill-rule={layer.fillRule} data-paint={fillCode(f)} />
+            {hatch && <path d={layer.d} fill={`url(#${scope.ids.field(hatch)})`} fill-rule={layer.fillRule} />}
+          </>
+        );
+      }} />
       <path d={layer.d} fill="none" fill-rule={layer.fillRule} {...stroke} />
     </g>
   );
 }
 
-function ChargesShape({ layer, ids, overlay, shieldPx }: { layer: ChargesLayer; ids: Ids; overlay: (t: Tincture) => boolean; shieldPx: number | undefined }) {
-  const key = pathKey(layer.path);
+function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: Scope; shieldPx: number | undefined }) {
+  const { ids, key, overlay } = scope;
   // Every charge in a group shares one box size, so the first box sets the outline and hatch pitch.
   const box = layer.slots[0];
   // Without any paint (counterchanged on a plain field) the outline is all there is to see.
@@ -151,22 +238,27 @@ function ChargesShape({ layer, ids, overlay, shieldPx }: { layer: ChargesLayer; 
   return (
     <g data-layer="charges" data-group={key}>
       {layer.fills.map((f, i) => (
-        <g key={i} clip-path={f.clip === null ? undefined : `url(#${ids.region(key, i)})`} data-charge-tincture={f.tincture}>
-          {f.slots.map((s) => (
-            <path key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill={TINCTURE_FILL[f.tincture]} fill-rule="evenodd" />
-          ))}
-          {overlay(f.tincture) && (
-            <g clip-path={`url(#${ids.chargeClip(key, i)})`}>
-              <rect x="0" y="0" width="100" height="120" fill={`url(#${ids.charge(key, f.tincture)})`} />
+        <Painted key={i} fill={f.fill} clip={undefined} scope={scope} leaf={(leaf) => {
+          const hatch = hatchOf(leaf, overlay);
+          return (
+            <>
               {f.slots.map((s) => (
-                <path
-                  key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill="none" stroke={TINCTURE_FILL[f.tincture]}
-                  stroke-width={(2 * hatchEdge(layer.slots[s]) * 100) / layer.slots[s].size} stroke-linejoin="round"
-                />
+                <path key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill={paintOf(leaf, ids)} fill-rule="evenodd" data-paint={fillCode(leaf)} />
               ))}
-            </g>
-          )}
-        </g>
+              {hatch && (
+                <g clip-path={`url(#${ids.chargeClip(key, i)})`}>
+                  <rect x="0" y="0" width="100" height="120" fill={`url(#${ids.charge(key, hatch)})`} />
+                  {f.slots.map((s) => (
+                    <path
+                      key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill="none" stroke={TINCTURE_FILL[hatch]}
+                      stroke-width={(2 * hatchEdge(layer.slots[s]) * 100) / layer.slots[s].size} stroke-linejoin="round"
+                    />
+                  ))}
+                </g>
+              )}
+            </>
+          );
+        }} />
       ))}
       {outlinePx > 0 && layer.slots.map((s, i) => (
         <path
@@ -191,6 +283,7 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
   const small = isSmallShield(size);
   const stroke = { stroke: OUTLINE_COLOUR, 'stroke-width': small ? 0.5 : 1, 'vector-effect': 'non-scaling-stroke' as const, 'stroke-linejoin': 'round' as const };
   const overlay = (t: Tincture) => hatched.includes(t);
+  const scopes = layers.map((layer) => scopeOf(layer.k === 'field' ? 'field' : pathKey(layer.path), ids, overlay, layerFills(layer)));
 
   return (
     <svg
@@ -209,24 +302,16 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
       <defs>
         <clipPath id={clip}><path d={frame.outline} /></clipPath>
         {hatched.map((t) => <HatchPattern key={t} id={ids.field(t)} kind={TINCTURE_HATCHING[t]} ink={HATCH_INK[t]} pitch={HATCH_PITCH} />)}
-        {layers.map((layer, i) => <LayerDefs key={i} layer={layer} ids={ids} overlay={overlay} />)}
+        {layerPatterns(layers).map((spec) => <PatternDef key={spec.id} spec={spec} ids={ids} />)}
+        {scopes.map((scope, i) => <LayerDefs key={i} layer={layers[i]} scope={scope} />)}
       </defs>
       <path class="shield-rim" d={frame.outline} fill="none" stroke-width="3.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
       <g clip-path={`url(#${clip})`}>
         {layers.map((layer, i) => {
           switch (layer.k) {
-            case 'field': return (
-              <g key={i} data-layer="field">
-                {layer.regions.map((r, j) => (
-                  <g key={j}>
-                    <path d={r.d} fill={TINCTURE_FILL[r.tincture]} {...stroke} />
-                    {overlay(r.tincture) && <path d={r.d} fill={`url(#${ids.field(r.tincture)})`} />}
-                  </g>
-                ))}
-              </g>
-            );
-            case 'ordinary': return <OrdinaryShape key={i} layer={layer} ids={ids} overlay={overlay} stroke={stroke} />;
-            case 'charges': return <ChargesShape key={i} layer={layer} ids={ids} overlay={overlay} shieldPx={size} />;
+            case 'field': return <FieldShape key={i} layer={layer} scope={scopes[i]} stroke={stroke} />;
+            case 'ordinary': return <OrdinaryShape key={i} layer={layer} scope={scopes[i]} stroke={stroke} />;
+            case 'charges': return <ChargesShape key={i} layer={layer} scope={scopes[i]} shieldPx={size} />;
           }
         })}
       </g>

@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   GROUND_CLASS_SHARE, TINCTURES, contrastFailure, groundContacts, groundFailure, groundShares, groupTinctureIssues, normalise, signature,
-  tinctureIssues, validate, type Design, type Tincture,
+  TINCTURE_CLASS, sameSurface, sharesTincture, surfaceOf, tinctureIssues, tinctureSurface, validate, type Design, type Surface, type Tincture,
 } from '../src/lib/heraldry';
 import { walkGroups } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -14,6 +14,10 @@ import { V } from './validation-cases';
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
 const ord = (type: string, paint: string, extra: object = {}) => group(ordinary(type), paint, extra);
 const splendour = { mods: [{ id: 'in-splendour' }] };
+
+/** A share of a ground held by a plain tincture. */
+const share = (t: Tincture, s: number) => ({ surface: tinctureSurface(t), share: s });
+const failure = (top: Tincture, ground: ReturnType<typeof share>[]) => groundFailure(tinctureSurface(top), ground);
 
 const messages = (input: unknown): string[] => tinctureIssues(nd(input)).map((i) => i.message);
 
@@ -66,15 +70,48 @@ describe('what a group lies on', () => {
   });
 });
 
+describe('neutral surfaces (RB 1.2)', () => {
+  const neutral: Surface = { cls: 'neutral', bases: ['argent', 'sable'] };
+  const pieces = (...grounds: Array<[Surface, number]>) => grounds.map(([surface, s]) => ({ surface, share: s }));
+
+  it('a neutral top is never alike to a ground, but still may not share a tincture with it', () => {
+    expect(groundFailure(neutral, pieces([tinctureSurface('gules'), 1]))).toBeNull();
+    expect(groundFailure(neutral, pieces([tinctureSurface('argent'), 1]))).toBe('same');
+    expect(groundFailure(neutral, pieces([tinctureSurface('azure'), 0.5], [tinctureSurface('vert'), 0.5]))).toBeNull();
+  });
+
+  it('a neutral part of a ground counts toward neither class', () => {
+    expect(groundFailure(tinctureSurface('gules'), pieces([neutral, 1]))).toBeNull();
+    expect(groundFailure(tinctureSurface('gules'), pieces([neutral, 0.5], [tinctureSurface('azure'), 0.5]))).toBeNull();
+    expect(groundFailure(tinctureSurface('gules'), pieces([neutral, 0.2], [tinctureSurface('azure'), 0.8]))).toBe('colour-on-colour');
+    expect(groundFailure(tinctureSurface('or'), pieces([neutral, 0.2], [tinctureSurface('celestine'), 0.8]))).toBe('metal-on-metal');
+  });
+
+  it('shares a tincture when any base is in common, and is the same only when class and bases match', () => {
+    expect(sharesTincture(neutral, tinctureSurface('sable'))).toBe(true);
+    expect(sharesTincture(neutral, tinctureSurface('or'))).toBe(false);
+    expect(sameSurface(tinctureSurface('or'), tinctureSurface('or'))).toBe(true);
+    expect(sameSurface(neutral, { cls: 'neutral', bases: ['argent', 'sable'] })).toBe(true);
+    expect(sameSurface(neutral, { cls: 'neutral', bases: ['sable', 'argent'] })).toBe(false);
+    expect(sameSurface(tinctureSurface('or'), tinctureSurface('argent'))).toBe(false);
+  });
+
+  it('a plain tincture is its own class', () => {
+    expect(TINCTURES.map((t) => tinctureSurface(t).cls)).toEqual(TINCTURES.map((t) => TINCTURE_CLASS[t]));
+    expect(surfaceOf({ k: 'tincture', t: 'vert' })).toBe(tinctureSurface('vert'));
+    expect(() => surfaceOf({ k: 'proper' })).toThrow('Not supported yet: tincture:proper');
+  });
+});
+
 describe('a mixed ground is classed by area (SENA A3B1, A3B4a)', () => {
   const only = (input: unknown) => tinctureIssues(nd(input)).map((i) => i.message);
 
   it('a ground counts as one class from GROUND_CLASS_SHARE of it on, and as neutral below that', () => {
     expect(GROUND_CLASS_SHARE).toBe(2 / 3);
-    expect(groundFailure('or', [{ t: 'argent', share: 0.66 }, { t: 'gules', share: 0.34 }])).toBeNull();
-    expect(groundFailure('or', [{ t: 'argent', share: 0.67 }, { t: 'gules', share: 0.33 }])).toBe('metal-on-metal');
+    expect(failure('or', [share('argent', 0.66), share('gules', 0.34)])).toBeNull();
+    expect(failure('or', [share('argent', 0.67), share('gules', 0.33)])).toBe('metal-on-metal');
     // A shared tincture fails however little of it there is (A3B4b).
-    expect(groundFailure('gules', [{ t: 'argent', share: 0.95 }, { t: 'gules', share: 0.05 }])).toBe('same');
+    expect(failure('gules', [share('argent', 0.95), share('gules', 0.05)])).toBe('same');
   });
 
   it('the shares of every ground add up to one', () => {
@@ -110,14 +147,14 @@ describe('a mixed ground is classed by area (SENA A3B1, A3B4a)', () => {
 
   it('a charge alone in the centre is judged at the fess point, wherever a chief pushes the drawing (regid:8075)', () => {
     const rose = nd(arms(div('per-bend', 'argent', 'sable'), chg('rose', 'gules'), ord('chief', 'gules')));
-    expect(groundShares(rose, [0])[0].map((g) => g.t)).toEqual(['argent', 'sable']);
+    expect(groundShares(rose, [0])[0].map((g) => g.surface.bases[0])).toEqual(['argent', 'sable']);
     expect(validate(rose)).toEqual([]);
   });
 
   // REVIEW.md M3: "Per chevron argent and sable, a chevron gules" has been registered at least twelve times.
   it('an ordinary on a field divided along its own line lies over the line, half on each part', () => {
     expect(groundShares(nd(arms(div('per-chevron', 'argent', 'sable'), ord('chevron', 'gules'))), [0]))
-      .toEqual([[{ t: 'argent', share: 0.5 }, { t: 'sable', share: 0.5 }]]);
+      .toEqual([[share('argent', 0.5), share('sable', 0.5)]]);
     expect(validate(nd(arms(div('per-chevron', 'argent', 'sable'), ord('chevron', 'gules'))))).toEqual([]);
     expect(only(arms(div('per-chevron', 'argent', 'sable'), ord('chevron', 'argent')))).toEqual(['Argent chevron lies on the Argent part of the field: same tincture']);
   });

@@ -12,7 +12,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  FIELD_SHAPES, blazon, fieldTinctures, gloss, groundFailure, groundPoints, groundShares, groupSlots, inFirstPart, readability, resolve,
+  FIELD_SHAPES, blazon, fieldTinctures, tinctureSurface, gloss, groundFailure, groundPoints, groundShares, groupSlots, inFirstPart, readability, resolve,
   shapeFrame, signature, validate, walkGroups, type Design, type FieldShape, type Ground, type Group, type ShapedDesign, type Slot,
 } from '../src/lib/heraldry';
 import sample from '../src/data/sample-registry.json';
@@ -90,13 +90,13 @@ function verdict(d: Design) {
  */
 function drawnGround(d: Design, g: Group, slot: Slot, shape: FieldShape): Ground {
   const parts = fieldTinctures(d);
-  if (d.kind !== 'arms' || d.field.k !== 'divided') return parts.map((t) => ({ t, share: 1 }));
+  if (d.kind !== 'arms' || d.field.k !== 'divided') return parts.map((t) => ({ surface: tinctureSurface(t), share: 1 }));
   const division = d.field.division;
   const fess = shapeFrame(shape).fessPoint;
   const centred = g.arrangement.k === 'single' && g.position === null ? { ...slot, ...fess } : slot;
   const points = groundPoints(centred);
   const inPart = (i: number) => points.filter(([x, y]) => inFirstPart(division, fess, x, y) === (i === 0)).length / points.length;
-  return parts.flatMap((t, i) => (inPart(i) > 0 ? [{ t, share: inPart(i) }] : []));
+  return parts.flatMap((t, i) => (inPart(i) > 0 ? [{ surface: tinctureSurface(t), share: inPart(i) }] : []));
 }
 
 describe('field shapes and the verdict', () => {
@@ -120,7 +120,7 @@ describe('field shapes and the verdict', () => {
     if (onField.length > 0) {
       it(`${name}: judged on the drawing in each shape, every charge gets its canonical verdict`, () => {
         for (const { path, group: g } of onField) {
-          const judge = (ground: Ground) => (g.paint.k === 'tincture' ? groundFailure(g.paint.t, ground) : null);
+          const judge = (ground: Ground) => (g.paint.k === 'tincture' ? groundFailure(tinctureSurface(g.paint.t), ground) : null);
           const canonical = groundShares(d, path).map(judge);
           for (const shape of FIELD_SHAPES) {
             expect(groupSlots(d, path, shape).map((s) => judge(drawnGround(d, g, s, shape))), shape).toEqual(canonical);

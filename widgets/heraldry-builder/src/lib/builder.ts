@@ -8,7 +8,7 @@ import {
   CHARGES, DEFAULT_FIELD_SHAPE, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   fieldTinctures, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, layerPath, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
-  tinctureIssues, withTincture, withLayout, chargeItem, newCharge,
+  tinctureIssues, tinctureSurface, withTincture, withLayout, chargeItem, newCharge,
   type ChargeId, type Companion, type Design, type Division, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
@@ -188,7 +188,7 @@ function clashGround(d: Design, path: GroupPath, t: Tincture): string {
   }
   // The look-alike tinctures under the failing charges: the ones they don't stand out against.
   const alike = groundShares(d, path)
-    .filter((ground) => groundFailure(t, ground))
+    .filter((ground) => groundFailure(tinctureSurface(t), ground))
     .flatMap((ground) => groundTinctures(ground).filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[t]));
   const words = [...new Set(alike)].map(colourWord);
   if (d.kind === 'arms' && d.field.k === 'tincture') return `${words[0]} background`;

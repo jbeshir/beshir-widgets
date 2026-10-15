@@ -14,6 +14,7 @@ import { chargeWords, ordinaryWords } from './plain-words';
 import { designTinctures } from './render';
 import { structuralIssues } from './structure';
 import { groundContacts } from './tincture-rule';
+import { tinctureSurface } from './surface';
 
 /**
  * Stored band ids (the registry's readability column and the sample data). They are storage values, not
@@ -55,7 +56,7 @@ function readabilityBand(score: number): ReadabilityBand {
 
 /** The tinctures `top` is drawn on that are of its own class, when it also lies on some of the other class. */
 function lookAlikeContacts(top: Tincture, contacts: readonly Tincture[]): Tincture[] {
-  const alike = contacts.filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[top]);
+  const alike = contacts.filter((c) => tinctureSurface(c).cls === tinctureSurface(top).cls);
   return alike.length > 0 && alike.length < contacts.length ? alike : [];
 }
 
@@ -100,7 +101,7 @@ export function readability(d: Design): Readability {
   const n = designTinctures(d).length;
   const parts = fieldTinctures(d);
   const divided = d.kind === 'arms' && d.field.k === 'divided';
-  const touching = divided && parts.length === 2 && TINCTURE_CLASS[parts[0]] === TINCTURE_CLASS[parts[1]];
+  const touching = divided && parts.length === 2 && tinctureSurface(parts[0]).cls === tinctureSurface(parts[1]).cls;
   const crossing = straddle(d, entries);
 
   // The largest charge group sets the count score; each further group adds a point.
