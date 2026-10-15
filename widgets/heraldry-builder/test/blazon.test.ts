@@ -2,7 +2,7 @@
 // pins the factoring of tinctures, every layout word, which postures and layouts are left out, and spelling.
 
 import { describe, expect, it } from 'vitest';
-import { CHARGES, CHARGE_IDS, UnsupportedConstructError, postureTerm, blazon, normalise, resolve, type Design } from '../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, postureTerm, blazon, normalise, resolve } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { N, V } from './validation-cases';
@@ -214,10 +214,7 @@ describe('every charge', () => {
 });
 
 describe('what it will not write', () => {
-  it('throws the typed error for a badge, and never reaches a design normalise would not pass', () => {
-    const badge = resolve({ v: 2, kind: 'badge', groups: [chg('lion', 'or')] });
-    expect(badge.ok).toBe(true);
-    expect(() => blazon((badge as { design: Design }).design)).toThrow(UnsupportedConstructError);
+  it('never reaches a design normalise would not pass', () => {
     const odd = resolve(arms('azure', ord('fess', 'or'), ord('bend', 'argent', { role: 'overall', charged: [chg('rose', 'gules')] })));
     expect(odd.ok && normalise(odd.design).design).toBeNull();
   });

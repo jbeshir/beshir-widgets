@@ -439,8 +439,8 @@ describe('support matrix', () => {
     for (const c of categories) expect(UNSUPPORTED_GAP_CATEGORIES).toContain(c);
   });
 
-  it('files a badge under the badge gap alone', () => {
-    expect(gapTags(nd({ v: 2, kind: 'badge', groups: [group(charge('lion', { posture: 'couchant' }), 'or')] }))).toEqual(['fieldless:badge']);
+  it('files a badge under the gaps of its charge, as arms are', () => {
+    expect(gapTags(nd({ v: 2, kind: 'badge', groups: [group(charge('lion', { posture: 'couchant' }), 'or')] }))).toEqual(['posture:couchant']);
   });
 
   it('names a field gap before the group gaps, each at its place', () => {
@@ -530,7 +530,7 @@ describe('structure rules', () => {
     const issues = structuralIssues(nd(arms('azure')));
     expect(issues).toEqual([{ code: 'generic', at: { k: 'design' }, message: 'A plain field on its own is too generic to register — add an ordinary or a charge.', slots: [] }]);
     expect(structural(arms(div('per-pale', 'or', 'azure')))).toEqual([]);
-    expect(structural({ v: 2, kind: 'badge', groups: [] })).toEqual([]);
+    expect(structural({ v: 2, kind: 'badge', groups: [] })).toEqual(['A fieldless badge is its picture — add one.']);
   });
 
   it('3: charges between need a central primary ordinary, or one group of primary charges to stand around', () => {

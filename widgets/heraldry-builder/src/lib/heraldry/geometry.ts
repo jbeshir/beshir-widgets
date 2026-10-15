@@ -379,6 +379,29 @@ export function drawnBox(slot: Slot, charge: ChargeId): Slot {
   return { x: slot.x, y: slot.y, size: r2(slot.size * CHARGES[charge].scale), rotation: slot.rotation };
 }
 
+/** How far from the edge of the picture a fieldless badge is kept, in shield units. */
+const BADGE_MARGIN = 8;
+
+
+/**
+ * The SVG transform that centres drawn boxes in the 100×120 picture and scales them to fill it, keeping their proportions:
+ * a fieldless badge has no shield to fill, so its charges are drawn as large as they go. Empty for no boxes.
+ */
+export function badgeTransform(boxes: readonly Slot[]): string {
+  if (boxes.length === 0) return '';
+  // Each box is a square turned about its centre, so its reach is half its size times |cos| + |sin|.
+  const reach = (s: Slot) => {
+    const a = (s.rotation * Math.PI) / 180;
+    return (s.size / 2) * (Math.abs(Math.cos(a)) + Math.abs(Math.sin(a)));
+  };
+  const x0 = Math.min(...boxes.map((s) => s.x - reach(s))), x1 = Math.max(...boxes.map((s) => s.x + reach(s)));
+  const y0 = Math.min(...boxes.map((s) => s.y - reach(s))), y1 = Math.max(...boxes.map((s) => s.y + reach(s)));
+  const scale = Math.min((100 - 2 * BADGE_MARGIN) / (x1 - x0), (120 - 2 * BADGE_MARGIN) / (y1 - y0));
+  const tx = 50 - scale * ((x0 + x1) / 2), ty = 60 - scale * ((y0 + y1) / 2);
+  return `translate(${r2(tx)} ${r2(ty)}) scale(${r2(scale)})`;
+}
+
+
 /** The SVG transform that places the 100×100 art in a slot. */
 export function slotTransform(s: Slot): string {
   const place = `translate(${s.x - s.size / 2} ${s.y - s.size / 2}) scale(${s.size / 100})`;

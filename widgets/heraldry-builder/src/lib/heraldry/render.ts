@@ -3,8 +3,8 @@
 
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
-import { notSupported, paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
-import { drawnBox, ordinaryFillRule, ordinaryPath, shapeFrame, type Slot } from './geometry';
+import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
+import { badgeTransform, CANONICAL_SHAPE, drawnBox, ordinaryFillRule, ordinaryPath, shapeFrame, type Slot } from './geometry';
 import { groupSlots } from './layout';
 import { chargeFills, fieldFill, ordinaryFill, type Fill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
@@ -29,14 +29,24 @@ function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | nul
   return { k: 'charges', path, art: chargePath(charge, posture, mods), slots, fills: chargeFills(d, group, host, slots, shape) };
 }
 
-/** The layers of a design in paint order. A counterchanged group that can't be (plain field, or on a host) has no fill: only its outline shows. */
+/**
+ * The layers of a design in paint order. A counterchanged group that can't be (plain field, or on a host) has no fill: only its outline shows.
+ * A fieldless badge has no field layer: its charges are laid out as on a heater shield (`shape` is not used) and drawn under `badgeView`.
+ */
 export function renderLayers(d: Design, shape: FieldShape): Layer[] {
-  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
-  const layers: Layer[] = [{ k: 'field', outline: shapeFrame(shape).outline, fill: fieldFill(d.field, shape) }];
+  const layers: Layer[] = d.kind === 'arms' ? [{ k: 'field', outline: shapeFrame(shape).outline, fill: fieldFill(d.field, shape) }] : [];
+  const at = d.kind === 'arms' ? shape : CANONICAL_SHAPE;
   for (const { path, group, host } of walkGroups(d)) {
-    layers.push(group.item.k === 'ordinary' ? ordinaryLayer(d, path, group, host, shape) : chargeLayer(d, path, group, host, shape));
+    layers.push(group.item.k === 'ordinary' ? ordinaryLayer(d, path, group, host, at) : chargeLayer(d, path, group, host, at));
   }
   return layers;
+}
+
+
+/** The SVG transform that scales a fieldless badge's drawing to fill the picture (an empty one is drawn as it lies); null for arms, which sit in their shield. */
+export function badgeView(d: Design, layers: readonly Layer[]): string | null {
+  if (d.kind === 'arms') return null;
+  return badgeTransform(layers.flatMap((l) => (l.k === 'charges' ? l.slots : [])));
 }
 
 /** The tinctures a design uses, in order of first use: what hatching patterns are needed for. Counterchanged adds none. */

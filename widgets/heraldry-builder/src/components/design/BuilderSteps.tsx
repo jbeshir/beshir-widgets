@@ -16,7 +16,7 @@ import {
 import { numberWord } from '../../lib/heraldry/words';
 import {
   companionNote, ordinaryPath, picturePath, placementLabel, setCharge,
-  setDivision, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
+  setBadge, setDivision, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
@@ -60,6 +60,8 @@ function icon(input: unknown): Design {
 
 const ICON_FIELD = (division: Division | null): Design =>
   icon({ v: 2, field: division ? { k: 'divided', division, parts: ['or', 'azure'] } : 'azure', groups: [] });
+/** The badge tile: a star standing alone, with no shield behind it. */
+const ICON_BADGE: Design = icon({ v: 2, kind: 'badge', groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'or' }] });
 const ICON_ORDINARY = (type: OrdinaryType): Design =>
   icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, paint: 'or' }] });
 
@@ -154,6 +156,7 @@ const partTincture = (design: Design, i: 0 | 1): Tincture | null => {
 };
 
 function fieldSummary(design: Design): string {
+  if (design.kind === 'badge') return 'No background (badge)';
   const [first, second] = fieldParts(design);
   const varied = design.kind === 'arms' ? asVariation(design.field) : null;
   if (varied) return `${VARIATION_LABEL[varied.variation].plain}: ${varied.parts.map((p) => lower(TINCTURE_LABEL[p.t].plain)).join(' and ')}`;
@@ -169,7 +172,7 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
   return (
     <Step n={1} title="Background" term="field" hint="One colour, split in two, or striped." summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field">
       <RadioGroup label="Field division" class="icon-grid icon-grid-field" testid="field-division-select">
-        <ChoiceButton testid="field-kind-plain" checked={!division && !varied} label={nameOf(PLAIN_FIELD_LABEL)} title={PLAIN_FIELD_LABEL.plain} onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
+        <ChoiceButton testid="field-kind-plain" checked={design.kind === 'arms' && !division && !varied} label={nameOf(PLAIN_FIELD_LABEL)} title={PLAIN_FIELD_LABEL.plain} onSelect={() => onChange(setPlainField(design))} onBlocked={never} class="icon-choice">
           <Shield design={ICON_FIELD(null)} shape={shape} size={30} label={null} />
           <span class="choice-label">{capitalise(PLAIN_FIELD_LABEL.term)}</span>
         </ChoiceButton>
@@ -179,8 +182,12 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
             <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
           </ChoiceButton>
         ))}
+        <ChoiceButton testid="division-badge" checked={design.kind === 'badge'} label="No background (badge)" title="No shield or background: a badge is just its picture" onSelect={() => onChange(setBadge(design))} onBlocked={never} class="icon-choice">
+          <Shield design={ICON_BADGE} shape={shape} size={30} label={null} />
+          <span class="choice-label">Badge</span>
+        </ChoiceButton>
       </RadioGroup>
-      {!varied && (
+      {design.kind === 'arms' && !varied && (
         <>
           <TincturePicker
             group="field1"
@@ -208,7 +215,7 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
           {division && <SemyPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: scatter`} onChange={onChange} />}
         </>
       )}
-      <FieldPattern design={design} onChange={onChange} />
+      {design.kind === 'arms' && <FieldPattern design={design} onChange={onChange} />}
     </Step>
   );
 }
@@ -440,13 +447,15 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
 }
 
 interface ChargesStepProps extends StepProps {
+  /** The step's number: a badge has no band or shape step. */
+  n: number;
   compact: boolean;
   onAdjust: (nd: Design, companion: Companion) => void;
   /** The note shown after a count or placement brought its partner along. */
   adjusted: ComponentChildren;
 }
 
-export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, accordion, compact }: ChargesStepProps) {
+export function ChargesStep({ n, design, onChange, onAdjust, adjusted, issues, accordion, compact }: ChargesStepProps) {
   const path = picturePath(design);
   const item = path && groupAt(design, path).item;
   const selected = item?.k === 'charge' ? item : null;
@@ -458,7 +467,7 @@ export function ChargesStep({ design, onChange, onAdjust, adjusted, issues, acco
   }, [selectedCategory]);
 
   return (
-    <Step n={3} title="Picture" term="charge" hint="Pick a picture and repeat it up to twelve times. You need this or a band or shape (or both)." summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-charges">
+    <Step n={n} title="Picture" term="charge" hint={design.kind === 'badge' ? 'Pick the picture your badge is made of: one charge, or two long ones crossed.' : 'Pick a picture and repeat it up to twelve times. You need this or a band or shape (or both).'} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-charges">
       {compact && (
         <RadioGroup label="Kind of picture" class="charge-tabs" testid="charge-tabs">
           {CHARGE_CATEGORIES.map((cat) => (

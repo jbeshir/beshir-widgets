@@ -29,7 +29,7 @@ const DRAWN_SEMY_NAMES: ReadonlySet<string> = new Set([...SEMY_NAMES.map((n) => 
 const DRAWN_DIVISION_IDS: readonly string[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'];
 
 export const GAP_CATEGORIES = [
-  { id: 'fieldless', description: 'a fieldless badge: no field at all' },
+  { id: 'fieldless', description: 'a fieldless badge the widget does not draw: charges conjoined to the main one, something overall, or two main charges' },
   { id: 'marshalling', description: 'impaling, quartering, dimidiation, an augmentation or other combined arms' },
   { id: 'fur', description: 'a fur (ermine, vair, potent, pean…) anywhere in the arms' },
   { id: 'tincture', description: 'a tincture outside the widget\'s eight, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged' },
@@ -319,7 +319,6 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const tags = new Set<string>();
   const tag = (cat: GapCategory, sub?: string) => tags.add(sub ? `${cat}:${sub}` : cat);
   const { tokens, fieldless } = tokenise(blazon);
-  if (fieldless) tag('fieldless');
 
   const els: Element[] = [];
   let inField = !fieldless; // until the first charge, ordinary or count

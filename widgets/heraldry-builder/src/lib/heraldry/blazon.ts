@@ -194,16 +194,16 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
 
 export function blazon(d: Design, given: Partial<BlazonOptions> = {}): string {
   const options: BlazonOptions = { stateDefaults: false, stateTinctures: false, ...given };
-  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
-  let text = fieldPhrase(d.field);
+  // A badge has no field to state: "(Fieldless) A wolf argent" (RULES §F.1).
+  let text = d.kind === 'arms' ? fieldPhrase(d.field) : '';
   const all = tokens(d, options);
   let pending = false;
   all.forEach((t, i) => {
-    const lead = i === 0 ? ', ' : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
+    const lead = i === 0 ? (d.kind === 'arms' ? ', ' : '') : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
     const next = all[i + 1];
     // What is strewn on a band is stated after its tincture, which then can't be left for the next to say.
     pending = !options.stateTinctures && next !== undefined && next.linked && next.paint === t.paint && t.strewn === '';
     text += `${lead}${t.text}${pending ? '' : ` ${t.paint}${t.strewn}`}`;
   });
-  return `${capitalise(text)}.`;
+  return d.kind === 'arms' ? `${capitalise(text)}.` : `(Fieldless) ${capitalise(text)}`.trimEnd() + '.';
 }

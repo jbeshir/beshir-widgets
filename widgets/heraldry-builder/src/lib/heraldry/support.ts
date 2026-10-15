@@ -87,7 +87,10 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
 function thing(g: Gap): string {
   const d = g.detail.replace(/-/g, ' ');
   switch (g.category) {
-    case 'fieldless': return 'A fieldless badge';
+    case 'fieldless':
+      if (g.detail === 'overall') return 'Something overall on a fieldless badge';
+      if (g.detail === 'co-primary') return 'Two main pictures on a fieldless badge';
+      return 'Charges set beside the main charge of a fieldless badge';
     case 'fur':
       if (g.detail === 'party') return 'A fur on part of a divided band or picture';
       return g.detail.endsWith('-colours') ? `${FUR_NAME[g.detail.slice(0, -'-colours'.length) as keyof typeof FUR_NAME]} in colours of its own` : FUR_NAME[g.detail as keyof typeof FUR_NAME] ?? d;
@@ -264,17 +267,36 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Gap }> {
   return out;
 }
 
+/** What a fieldless badge has beyond its one main group (the bands and borders it can't have are structure issues, not gaps). */
+function badgeGaps(d: Design): Array<{ at: IssueAt; gap: Gap }> {
+  const detail = (g: Group): string | null =>
+    g.role === 'secondary' ? 'conjoined' : g.role === 'overall' ? 'overall' : null;
+  const primaries = d.groups.filter((g) => g.role === 'primary' && g.item.k === 'charge');
+  const extra = d.groups.flatMap((g, i) => {
+    const gapDetail = detail(g);
+    return gapDetail ? [{ at: { k: 'group', path: [i] } as IssueAt, gap: gap('fieldless', gapDetail) }] : [];
+  });
+  if (primaries.length > 1) extra.push({ at: { k: 'group', path: [d.groups.indexOf(primaries[1])] }, gap: gap('fieldless', 'co-primary') });
+  return extra;
+}
+
+
 /** Everything in `d` the builder doesn't draw, one issue per construct: the design, the field, then the groups in canonical order. */
 export function unsupportedIssues(d: Design): UnsupportedIssue[] {
   const out: UnsupportedIssue[] = [];
   const add = (at: IssueAt, g: Gap) => out.push({ code: 'unsupported', at, gap: g, message: `${capitalise(thing(g))} isn't available in this builder yet.` });
 
   if (d.kind === 'badge') {
-    add({ k: 'design' }, gap('fieldless', 'badge'));
-    return out;
+    // Charges that touch the main one ("within and conjoined to", "surmounted by") are not drawn: a badge is its one main charge and what is on it.
+    const beside = badgeGaps(d);
+    if (beside.length > 0) {
+      for (const b of beside) add(b.at, b.gap);
+      return out;
+    }
+  } else {
+    for (const c of combinationGaps(d)) add(c.at, c.gap);
+    for (const g of paintGaps(d.field, true, 'field')) add({ k: 'field' }, g);
   }
-  for (const c of combinationGaps(d)) add(c.at, c.gap);
-  for (const g of paintGaps(d.field, true, 'field')) add({ k: 'field' }, g);
 
   const hasChief = d.groups.some((g) => g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === 'chief');
   for (const { path, group, host } of walkGroups(d)) {

@@ -17,7 +17,7 @@ const ids = (markup: string) => new Set([...markup.matchAll(/data-testid="([^"]+
 
 const field = (d: Design) => ids(renderToString(h(FieldStep, { ...base, design: d, shape: 'heater' })));
 const ordinary = (d: Design) => ids(renderToString(h(OrdinaryStep, { ...base, design: d, shape: 'heater' })));
-const picture = (d: Design) => ids(renderToString(h(ChargesStep, { ...base, design: d, onAdjust: noop, adjusted: null, compact: false })));
+const picture = (d: Design) => ids(renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false })));
 
 describe('the default flow keeps its test ids', () => {
   it('Background', () => {
@@ -48,17 +48,17 @@ describe('the default flow keeps its test ids', () => {
 describe('controls that appear only when they apply', () => {
   it('holds counts above six behind More…, open when one is chosen', () => {
     const d = setCharge(DEFAULT_DESIGN, 'picture', 'mullet');
-    const closed = renderToString(h(ChargesStep, { ...base, design: d, onAdjust: noop, adjusted: null, compact: false }));
+    const closed = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false }));
     expect(closed).toContain('data-testid="count-more"');
     expect(closed).toMatch(/<details[^>]*data-testid="count-more"(?![^>]*\sopen)/);
     expect(ids(closed)).toContain('count-12');
-    const open = renderToString(h(ChargesStep, { ...base, design: setCount(d, picturePath(d)!, 8), onAdjust: noop, adjusted: null, compact: false }));
+    const open = renderToString(h(ChargesStep, { ...base, n: 3, design: setCount(d, picturePath(d)!, 8), onAdjust: noop, adjusted: null, compact: false }));
     expect(open).toMatch(/<details[^>]*data-testid="count-more"[^>]*\sopen/);
   });
 
   it('hides More… when none of its counts is allowed, unless one is chosen', () => {
     const onBand = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
-    const html = renderToString(h(ChargesStep, { ...base, design: onBand, onAdjust: noop, adjusted: null, compact: false }));
+    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: onBand, onAdjust: noop, adjusted: null, compact: false }));
     expect(ids(html)).toContain('count-6');
     expect(ids(html)).not.toContain('count-more');
     expect(ids(html)).not.toContain('count-12');
@@ -66,7 +66,7 @@ describe('controls that appear only when they apply', () => {
 
   it('says once that the greyed-out layouts have no room', () => {
     const d = setCount(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0], 8);
-    const html = renderToString(h(ChargesStep, { ...base, design: d, onAdjust: noop, adjusted: null, compact: false }));
+    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false }));
     expect(html.match(/Greyed-out layouts have no room for eight mullets\./g)).toHaveLength(1);
     expect(html).not.toContain("There isn't room");
   });
@@ -102,7 +102,7 @@ describe('controls that appear only when they apply', () => {
     // Pictures and the top band or border go together: the add buttons stay, and the picture step no longer warns.
     const pictured = setCharge(band, 'picture', 'lion');
     expect(renderToString(h(AddLayer, { design: pictured, onChange: noop }))).toContain('add-layer-bordure');
-    expect(renderToString(h(ChargesStep, { ...base, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null, compact: false }))).not.toContain('peripheral-picture-note');
+    expect(renderToString(h(ChargesStep, { ...base, n: 3, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null, compact: false }))).not.toContain('peripheral-picture-note');
   });
 
 

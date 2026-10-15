@@ -6,7 +6,9 @@ const lion = group(charge('lion'), 'or');
 const rose = (extra: object = {}) => group(charge('rose'), 'gules', extra);
 /** One design per row of the plan's support table (§4): what it is, the input, and the gap it is filed under. */
 export const UNSUPPORTED_CASES: Array<[string, unknown, string]> = [
-  ['a badge', { v: 2, kind: 'badge', groups: [rose()] }, 'fieldless:badge'],
+  ['a charge set beside a badge\'s main charge', { v: 2, kind: 'badge', groups: [lion, rose({ relation: 'between', count: 3 })] }, 'fieldless:conjoined'],
+  ['something overall on a badge', { v: 2, kind: 'badge', groups: [lion, group(charge('sword'), 'argent', { role: 'overall' })] }, 'fieldless:overall'],
+  ['two main pictures on a badge', { v: 2, kind: 'badge', groups: [lion, rose()] }, 'fieldless:co-primary'],
   ['a counter-vair field in colours of its own', arms({ k: 'fur', fur: 'counter-vair', colours: ['or', 'gules'] }, lion), 'fur:counter-vair-colours'],
   ['a murrey field', arms({ k: 'stain', stain: 'murrey' }, lion), 'tincture:murrey'],
   ['a split charge with a fur part', arms('azure', group(charge('lion'), { k: 'divided', division: 'per-pale', parts: [{ k: 'fur', fur: 'ermine' }, 'or'] })), 'fur:party'],

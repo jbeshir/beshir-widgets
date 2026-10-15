@@ -18,12 +18,8 @@ import {
 import { normaliseBlazon } from './normalise';
 import { DIVISION_WORDS, readPaint } from './paint-grammar';
 
-/** A design input as `resolve` reads it. */
-export interface DesignInput {
-  v: 2;
-  field: unknown;
-  groups: unknown[];
-}
+/** A design input as `resolve` reads it: arms with a field, or a fieldless badge. */
+export type DesignInput = { v: 2; field: unknown; groups: unknown[] } | { v: 2; kind: 'badge'; groups: unknown[] };
 
 /** A proposed design and what the widget makes of it. */
 export interface Candidate {
@@ -45,14 +41,13 @@ export interface Candidate {
 export const wordedAs = (c: Candidate, normalisedText: string): boolean => c.normalised === normalisedText || c.stated === normalisedText || c.restated.includes(normalisedText);
 
 /**
- * fieldless   — "(Fieldless) …": the widget always has a field
  * vocabulary  — a word outside the widget's blazon vocabulary (`unknownWord`)
  * unparsed    — every word known, but not in a shape the matcher proposes
  * unsupported — proposed, but the widget doesn't draw something in it (`gaps`)
  * near-miss   — candidates proposed, none blazons identically
  * match       — `match` blazons identically
  */
-export type MatchStatus = 'fieldless' | 'vocabulary' | 'unparsed' | 'unsupported' | 'near-miss' | 'match';
+export type MatchStatus = 'vocabulary' | 'unparsed' | 'unsupported' | 'near-miss' | 'match';
 
 export interface MatchResult {
   status: MatchStatus;
@@ -112,7 +107,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall',
+    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...ORDINARY_WORDS.keys(), ...LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
@@ -120,7 +115,7 @@ const VOCABULARY = new Set<string>(
 
 // ── Parser ──────────────────────────────────────────────────────────────────
 // A token grammar over the normalised text (words, with commas as tokens of their own):
-//   blazon     := field [',' element (connector element)*]
+//   blazon     := field [',' element (connector element)*] | '(fieldless)' element (connector element)*
 //   field      := T | DIVISION T 'and' T
 //   element    := ['on'] ('a'|'an') ordinary [T]   an ordinary, central or peripheral ("on" when a group sits on it)
 //               | 'on' group                        a charge group with a group on it
@@ -328,8 +323,17 @@ function parseBody(tokens: string[]): Body | null {
 const groundOf = (paint: unknown): unknown => (typeof paint === 'object' && paint !== null && 'k' in paint && paint.k === 'semy' && 'ground' in paint ? paint.ground : paint);
 
 
+/** How a normalised fieldless blazon starts. */
+const FIELDLESS = '(fieldless)';
+
+
 /** Candidate design inputs for normalised SCA text (usually zero or one), or the gap the text reads as. */
 function proposeInputs(normalisedText: string): DesignInput[] | Gap {
+  if (normalisedText.startsWith(FIELDLESS)) {
+    const body = parseBody(normalisedText.slice(FIELDLESS.length).replace(/,/g, ' , ').split(/ +/).filter(Boolean));
+    if (body?.k === 'gap') return body.gap;
+    return body ? [{ v: 2, kind: 'badge', groups: body.groups }] : [];
+  }
   const comma = normalisedText.indexOf(',');
   const field = parseField(comma < 0 ? normalisedText : normalisedText.slice(0, comma));
   if (!field) return [];
@@ -380,7 +384,6 @@ export function explainMatch(scaBlazon: string): MatchResult {
 }
 
 function explainNormalised(normalised: string): MatchResult {
-  if (normalised.startsWith('(fieldless)')) return { status: 'fieldless', normalised, candidates: [], match: null };
   const unknownWord = normalised.split(/[ ,]+/).find((w) => w && !VOCABULARY.has(w));
   if (unknownWord !== undefined) return { status: 'vocabulary', normalised, unknownWord, candidates: [], match: null };
   const proposed = proposeInputs(normalised);

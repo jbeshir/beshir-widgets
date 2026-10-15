@@ -4,7 +4,7 @@
 
 import { TINCTURE_CLASS, TINCTURE_NAME } from './tinctures';
 import { capitalise, numberWord } from './words';
-import { CHARGES, chargePhrase } from './charges';
+import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { DIVISION_NAME } from './divisions';
 import { divisionCutsOrdinary } from './geometry';
 import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
@@ -166,11 +166,56 @@ export function paintIssues(d: Design): Issue[] {
   return issues;
 }
 
+/** The charges that are forms of armorial display (SENA A3A2): alone and plain they pass for a shield of arms, so a badge of one may not be charged, divided or ermine. */
+const DISPLAY_FORMS: readonly ChargeId[] = ['heart', 'roundel', 'billet', 'lozenge'];
+
+
+/**
+ * Why a top-level group is not a fieldless badge (SENA A3A2, A3C; RULES §4.1), or null: a badge is one self-contained design,
+ * so it has no band or border (a badge has no edge to run along, and a central band would have to be couped), no charge set in a
+ * place of the field, and no more charges than touch (one, or two long charges crossed); a form of armorial display is plain.
+ */
+function notABadge(group: Group): string | null {
+  if (group.item.k === 'ordinary') {
+    return ORDINARY_KIND[group.item.type] === 'peripheral'
+      ? `A fieldless badge has no edge for a ${ORDINARY_NAME[group.item.type]} to run along (SENA A3A2).`
+      : `A fieldless badge can't have a ${ORDINARY_NAME[group.item.type]} unless it is couped, which this builder doesn't draw (SENA A3A2).`;
+  }
+  if (group.role !== 'primary') return null;
+  if (group.position !== null) return `A fieldless badge has no field to set a charge in ${group.position} of.`;
+  if (group.count > 1 && group.arrangement.k !== 'crossed') {
+    return `A fieldless badge is one self-contained design, so its charges must touch — ${chargesPhrase(group)} can't be set apart. Use one charge, or two long charges crossed (SENA A3A2).`;
+  }
+  const { charge } = group.item;
+  if (!DISPLAY_FORMS.includes(charge)) return null;
+  const form = CHARGES[charge].name;
+  if (group.charged.length > 0) return `A ${form} with charges on it looks like a shield of arms rather than a badge (SENA A3A2).`;
+  // Plain ermine is the Brittany ermine, protected; the other furs, undivided, are one tincture.
+  const ermine = group.paint.k === 'fur' && group.paint.fur === 'ermine' && !group.paint.colours;
+  if ((group.paint.k !== 'tincture' && group.paint.k !== 'fur') || ermine) {
+    return `A ${form} on its own looks like a shield of arms, so it must be one plain tincture or fur — not ${ermine ? 'plain ermine' : 'divided or treated'} (SENA A3A2).`;
+  }
+  return null;
+}
+
+
 /** Structural problems of a design that resolves, in rule order. */
 export function structuralIssues(d: Design): Issue[] {
   const issues: Issue[] = [];
   const add = (issue: Issue) => issues.push(issue);
   const walked = walkGroups(d);
+
+
+  // 0. A fieldless badge is one self-contained charge (SENA A3A2).
+  const notBadges = new Set<Group>();
+  if (d.kind === 'badge') {
+    d.groups.forEach((group, i) => {
+      const message = notABadge(group);
+      if (message === null) return;
+      notBadges.add(group);
+      add({ code: 'structure', rule: 'badge', at: { k: 'group', path: [i] }, message, slots: [] });
+    });
+  }
 
   issues.push(...paintIssues(d));
 
@@ -190,7 +235,10 @@ export function structuralIssues(d: Design): Issue[] {
     }
   }
 
-  // 2. A plain field alone (SENA A3E3).
+  // 2. A plain field alone (SENA A3E3); a badge with nothing in it.
+  if (d.kind === 'badge' && d.groups.length === 0) {
+    add({ code: 'generic', at: { k: 'design' }, message: 'A fieldless badge is its picture — add one.', slots: [] });
+  }
   if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur') && d.groups.length === 0) {
     add({ code: 'generic', at: { k: 'design' }, message: `A plain ${d.field.k === 'fur' ? 'fur' : 'field'} on its own is too generic to register — add an ordinary or a charge.`, slots: [] });
   }
@@ -257,8 +305,9 @@ export function structuralIssues(d: Design): Issue[] {
 
 
   // 4. Count, arrangement and position make a layout where the group sits.
-  const illegal = new Set<Group>();
+  const illegal = new Set<Group>(notBadges);
   for (const { path, group, host } of walked) {
+    if (notBadges.has(group)) continue;
     const ctx = contextOf(d, group, host);
     const message = ctx && layoutIssue(d, path, group, ctx);
     if (message) {

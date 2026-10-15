@@ -58,7 +58,6 @@ function checkDesign(design: Design) {
 
 function noMatchDetail(m: MatchResult): string {
   switch (m.status) {
-    case 'fieldless': return 'no widget design: the armory is fieldless';
     case 'vocabulary': return `no widget design: "${m.unknownWord}" is not a word the widget blazons`;
     case 'unparsed': return 'no widget design: not in a form the matcher proposes';
     case 'unsupported': return `no widget design: the widget doesn't draw ${m.gaps!.map(gapTag).join(', ')}`;
@@ -115,6 +114,8 @@ function findingTags(design: Design): string[] {
     }
     // Charges that don't fit a host at a legible size are a limit of the drawing, not a rule: a count the widget doesn't lay out.
     if (i.code === 'structure' && i.rule === 'capacity' && i.at.k === 'group') return `placement:${layoutTag(design, i)}-${groupAt(design, i.at.path).count}`;
+    // A fieldless badge that is not one self-contained charge (a band or border, charges set apart, a charged or divided display form): SENA A3A2, which older registrations predate.
+    if (i.code === 'structure' && i.rule === 'badge') return 'widget-structure-rule:badge';
     return `widget-structure-rule:${i.code === 'generic' ? 'plain-field' : layoutTag(design, i)}`;
   };
   return a.issues.map(tag);

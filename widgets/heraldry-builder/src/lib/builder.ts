@@ -8,7 +8,7 @@ import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, layerPath, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
-  bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, withTincture, withLayout, chargeItem, newCharge,
+  bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
   type ChargeId, type Companion, type Design, type Division, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
@@ -48,12 +48,39 @@ function backgroundParts(d: Design): Paint[] {
   return varied ? varied.parts : fieldParts(d);
 }
 
+/** The backgrounds a badge is put on, plainest first: the first one its picture stands out against. */
+const BADGE_BACKGROUNDS: readonly Tincture[] = ['azure', 'gules', 'vert', 'sable', 'purpure', 'argent', 'or'];
+
+/** The design as a fieldless badge: its main picture and what is on it, alone and at its centre; everything that needs a background is dropped. */
+export function setBadge(d: Design): Design {
+  if (d.kind === 'badge') return d;
+  const parts = partsOf(d);
+  const picture = parts.picture && parts.picture.arrangement.k !== 'host' ? parts.picture : null;
+  // A badge is one charge, or two long ones crossed, and its picture is its own: no counterchanging, no place on a background.
+  const single = picture && picture.count > 1 && picture.arrangement.k !== 'crossed';
+  const main: Group | null = picture && {
+    ...picture, position: null, paint: picture.paint.k === 'counterchanged' ? tincturePaint('or') : picture.paint,
+    ...(single ? { count: 1, arrangement: { k: 'single' } as const } : {}),
+  };
+  const badge: Design = { v: 2, kind: 'badge', field: null, groups: [] };
+  return refitLayers(assembleParts(badge, { ...partsOf(badge), picture: main, onPicture: main && parts.onPicture }));
+}
+
+/** A badge's picture on a background it stands out against, for the first click on a background: arms need one. */
+function armsOf(d: Design): Design {
+  const on = (t: Tincture): Design => ({ v: 2, kind: 'arms', field: tincturePaint(t), groups: d.groups });
+  const fits = (t: Tincture) => validate(on(t)).length === 0;
+  return refitLayers(canonical(on(BADGE_BACKGROUNDS.find(fits) ?? BADGE_BACKGROUNDS[0])));
+}
+
 export function setPlainField(d: Design): Design {
-  if (d.kind !== 'arms' || (d.field.k !== 'divided' && d.field.k !== 'variation')) return d;
+  if (d.kind === 'badge') return armsOf(d);
+  if (d.field.k !== 'divided' && d.field.k !== 'variation') return d;
   return refitLayers(canonical(withField(d, backgroundParts(d)[0])));
 }
 
-export function setDivision(d: Design, division: Division): Design {
+export function setDivision(arms: Design, division: Division): Design {
+  const d = arms.kind === 'badge' ? armsOf(arms) : arms;
   const [first, kept] = backgroundParts(d);
   const second = kept && !bodyTinctures(kept).some((t) => bodyTinctures(first).includes(t)) ? kept : partner(first);
   return refitLayers(canonical(withField(d, { k: 'divided', division, lines: { ...PLAIN_LINES }, pieces: null, parts: [first, second] })));
@@ -295,7 +322,8 @@ export function assess(d: Design): DesignReport {
   const problems = issues.filter((i) => i.code !== 'generic');
   const generic = issues.find((i) => i.code === 'generic');
   const status: DesignStatus = problems.length ? 'violation' : generic ? 'incomplete' : 'valid';
-  return { status, problems, hint: generic ? 'Add a band or shape, or a picture — a plain background alone is too generic to register.' : null };
+  const hint = d.kind === 'badge' ? 'Add a picture — a badge is made of its picture alone.' : 'Add a band or shape, or a picture — a plain background alone is too generic to register.';
+  return { status, problems, hint: generic ? hint : null };
 }
 
 /** The step an issue belongs to: the background, or the place of the group it is about (the picture, when that is all the group is). */

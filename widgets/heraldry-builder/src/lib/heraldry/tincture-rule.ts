@@ -117,8 +117,9 @@ function judgedSlot(group: Group, slot: Slot): Slot {
  * Empty when there is nothing to judge: no layout, or a host with no ground to take tinctures from.
  */
 export function groundShares(d: Design, path: GroupPath): Ground[] {
-  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
   const group = groupAt(d, path), host = hostOf(d, path);
+  // A fieldless badge has no ground under its main charge (SENA A3B1): nothing to contrast with.
+  if (d.kind === 'badge' && !host) return group.item.k === 'ordinary' ? [[]] : slotsOf(d, path).map(() => []);
   const parts = fieldSurfaces(d);
   if (host) {
     if (group.item.k !== 'charge') return notSupported({ category: 'placement', detail: 'tertiary-ordinary' });
@@ -128,11 +129,12 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
       return slotsOf(d, path).map(() => [{ surface, share: 1 }]);
     }
     const pair = fieldPair(d);
-    if (!pair) return [];
+    if (!pair || d.kind !== 'arms') return [];
     const [first, second] = pair.map(tinctureSurface);
     const other = (s: Surface) => (s === first ? second : first);
     return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(s), parts).map((g) => ({ surface: other(g.surface), share: g.share })));
   }
+  if (d.kind === 'badge') return [];
   if (group.item.k === 'ordinary') {
     const type = group.item.type;
     if (d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === type) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
@@ -424,7 +426,6 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
 
 /** The rule-of-tincture violations of the group at `path` alone (and a charge group Table 7 forces into one part, a gap). */
 export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
-  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
   const group = groupAt(d, path), host = hostOf(d, path);
   const at = { k: 'group', path } as const;
   const unavailable = counterchangeUnavailable(d, path);
@@ -435,6 +436,7 @@ export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
   const pair = fieldPair(d);
   const grounds = groundShares(d, path);
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
+  if (d.kind !== 'arms') return [];
   // Exactly one of the field and the band is in stripes or cells (A3B4b): not both.
   const exception = (d.field.k === 'variation') !== (group.paint.k === 'variation') ? 'ordinary-on-multiply-divided' : 'none';
   const f = grounds[0].length === 0 ? null : failureOf(group.paint, group.item, grounds[0], pair, partGrounds(d, path)?.[0], exception);
@@ -455,7 +457,6 @@ export function semyIssues(p: Paint, at: IssueAt): Issue[] {
 
 /** Every rule-of-tincture violation: the semys of the field, then group by group in canonical order. */
 export function tinctureIssues(d: Design): Issue[] {
-  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
   return [
     ...fieldParts(d).flatMap((p) => semyIssues(p, { k: 'field' })),
     ...walkGroups(d).flatMap(({ path, group }) => [...semyIssues(group.paint, { k: 'group', path }), ...groupTinctureIssues(d, path)]),

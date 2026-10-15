@@ -256,6 +256,32 @@ describe('POST /api/arms', () => {
     }
   });
 
+  it('registers a fieldless badge, keyed with no partition, and finds the arms and badges it is too close to', async () => {
+    await addRegistry('badges', 'Badges');
+    const lion = { v: 2, kind: 'badge', groups: [group(charge('lion'), 'or')] };
+    const created = await register(lion, { registry: 'badges' });
+    expect(created.blazon).toBe('(Fieldless) A lion Or.');
+    expect(created.signature).toBe('badge|P:c.lion.rampant:1:single:or');
+    const row = await env.DB.prepare(`SELECT partition_key, primary_key FROM arms WHERE id = ?`).bind(created.id).first<Json>();
+    expect(row).toEqual({ partition_key: null, primary_key: 'charge:feline' });
+    const tags = (await env.DB.prepare(`SELECT tag FROM arms_tags WHERE arms_id = ?`).bind(created.id).all<Json>()).results.map((t) => t.tag);
+    expect(tags).toContain('field:none');
+    expect(tags).not.toContain('field:plain');
+
+
+    // The same badge is a duplicate; the lion on a field differs by the fieldless change alone (SENA A5G1e), which is too close.
+    const again = await call('POST', '/api/arms/check', { body: { registry: 'badges', design: lion } });
+    expect((await bodyOf(again)).verdict).toBe('duplicate');
+    const fielded = await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'badges', design: lone('azure', 'lion', 'or') } }));
+    expect(fielded.verdict).toBe('too-close');
+    expect(fielded.differences.map((n: Json) => n.text)).toEqual(['background (plain or split ↔ none)']);
+    // A different charge is substantially different, with or without a field.
+    for (const design of [lone('argent', 'rose', 'gules'), { v: 2, kind: 'badge', groups: [group(charge('rose'), 'gules')] }]) {
+      expect((await bodyOf(await call('POST', '/api/arms/check', { body: { registry: 'badges', design } }))).verdict).toBe('ok');
+    }
+  });
+
+
   it('rejects malformed designs (400 invalid_design)', async () => {
     const bad: unknown[] = [
       undefined,
@@ -266,7 +292,7 @@ describe('POST /api/arms', () => {
       lone('vert', 'paintbrush', 'or', { count: 3 }),
       { v: 1, field: 'azure', groups: [group(ordinary('bend'), 'or')] }, // an old format version
       arms('azure'), // plain field alone: too generic
-      { ...arms('azure', group(ordinary('bend'), 'or')), kind: 'badge' }, // badges have no field (and are not drawn yet)
+      { ...arms('azure', group(ordinary('bend'), 'or')), kind: 'badge' }, // a badge has no field
       arms('azure', group(ordinary('bend'), 'gules')), // colour on colour
     ];
     for (const design of bad) {
@@ -440,7 +466,7 @@ describe('GET /api/arms (search)', () => {
 
   beforeAll(async () => {
     await addRegistry(SEARCH, 'Search test');
-    // Register the 20 sample entries in order through the real API.
+    // Register the 22 sample entries in order through the real API.
     for (const e of sample.entries) {
       const res = await call('POST', '/api/arms', {
         body: { registry: SEARCH, email: OWNER_EMAIL, displayName: e.displayName, contact: e.contact, design: e.design, shape: e.shape },
@@ -461,10 +487,10 @@ describe('GET /api/arms (search)', () => {
   it('returns the page shape, newest first, with no contact in results', async () => {
     const page = await find({});
     expect(page.registry).toEqual({ id: SEARCH, name: 'Search test' });
-    expect(page.total).toBe(20);
+    expect(page.total).toBe(22);
     expect(page.offset).toBe(0);
     expect(page.limit).toBe(24);
-    expect(page.items).toHaveLength(20);
+    expect(page.items).toHaveLength(22);
     for (const item of page.items) {
       expect(Object.keys(item).sort()).toEqual(['blazon', 'createdAt', 'design', 'displayName', 'id', 'readability', 'shape', 'signature']);
       expect(item).not.toHaveProperty('contact');
@@ -520,11 +546,11 @@ describe('GET /api/arms (search)', () => {
   it('paginates with bounded limit/offset', async () => {
     const p1 = await find({ limit: 5 });
     const p2 = await find({ limit: 5, offset: 5 });
-    const p4 = await find({ limit: 5, offset: 18 });
+    const p4 = await find({ limit: 5, offset: 20 });
     expect(p1.items).toHaveLength(5);
     expect(p2.items).toHaveLength(5);
     expect(p4.items).toHaveLength(2);
-    expect(p1.total).toBe(20);
+    expect(p1.total).toBe(22);
     const ids = [...p1.items, ...p2.items].map((i: Json) => i.id);
     expect(new Set(ids).size).toBe(10);
     expect((await find({ offset: 5000 })).items).toEqual([]);
@@ -592,7 +618,7 @@ describe('GET /api/arms (search)', () => {
 
   it('stores search text with the gloss and name, and never the contact or email', async () => {
     const { results } = await env.DB.prepare(`SELECT display_name, search_text FROM arms WHERE registry_id = ?`).bind(SEARCH).all<{ display_name: string; search_text: string }>();
-    expect(results).toHaveLength(20);
+    expect(results).toHaveLength(22);
     const cass = results.find((r) => r.display_name === 'Cass Merriweather')!;
     expect(cass.search_text).toBe(' cass merriweather per pale azure and vert a wolf passant argent a shield split vertically blue on the left and green on the right with a white wolf walking ');
     const basil = results.find((r) => r.display_name === 'Basil Thorne')!;

@@ -12,7 +12,7 @@ import {
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setPlainField, setPosture, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setPlainField, setPosture, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -23,6 +23,7 @@ const EXTRA_PICTURES: readonly PicturesKey[] = ['co-primary', 'on-picture', 'aro
 
 /** One click in the builder's Design tab. */
 export type BuilderAction =
+  | { kind: 'badge' }
   | { kind: 'plain-field' }
   | { kind: 'division'; division: Division }
   | { kind: 'field-tincture'; part: 0 | 1; tincture: Tincture }
@@ -85,7 +86,7 @@ function choiceReason<T>(choices: Choice<T>[], v: T): string | null {
  */
 function actionReason(d: Design, a: BuilderAction): string | null {
   switch (a.kind) {
-    case 'plain-field': return null;
+    case 'badge': case 'plain-field': return null;
     case 'division': return DIVISIONS.includes(a.division) ? null : `${a.division} is not offered`;
     case 'field-tincture':
       if (a.part === 1 && !(d.kind === 'arms' && d.field.k === 'divided')) return 'a plain field has no second tincture';
@@ -199,6 +200,7 @@ function actionReason(d: Design, a: BuilderAction): string | null {
 function applyAction(d: Design, a: BuilderAction): Design {
   const path = 'at' in a ? pathAt(d, a.at) : null;
   switch (a.kind) {
+    case 'badge': return setBadge(d);
     case 'plain-field': return setPlainField(d);
     case 'division': return setDivision(d, a.division);
     case 'field-tincture': return setFieldTincture(d, a.part, a.tincture);
@@ -233,6 +235,7 @@ function applyAction(d: Design, a: BuilderAction): Design {
 
 function describeAction(a: BuilderAction): string {
   switch (a.kind) {
+    case 'badge': return 'no background (badge)';
     case 'plain-field': return 'plain field';
     case 'division': return `division ${a.division}`;
     case 'field-tincture': return `field part ${a.part + 1} ${a.tincture}`;
@@ -468,11 +471,11 @@ export function builderPath(goal: Design): BuilderPath {
     }
     return !!problems.push(`the ${target} tinctures did not settle`) && false;
   };
-  if (goal.kind !== 'arms') return { actions, problems: ['a fieldless design has no builder path'], design: d };
-
-  // Field.
+  // Field: a badge has none (its tile in the Background step); arms have it set, then the band and the top band and border beside it.
   const f = goal.field;
-  if (f.k === 'divided') {
+  if (f === null) {
+    if (!click({ kind: 'badge' })) return done();
+  } else if (f.k === 'divided') {
     if ((d.kind !== 'arms' || d.field.k !== 'divided' || d.field.division !== f.division) && !click({ kind: 'division', division: f.division })) return done();
     // A part strewn with a charge stands on a tincture: the tinctures are set first (the parts swap through a third), then the charges are strewn.
     const [a, b] = f.parts.map(groundTincture);

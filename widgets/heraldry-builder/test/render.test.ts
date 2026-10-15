@@ -44,8 +44,11 @@ describe('layer order', () => {
     }
   });
 
-  it('refuses a badge', () => {
-    expect(() => renderLayers({ v: 2, kind: 'badge', field: null, groups: [] }, 'heater')).toThrow('Not supported yet: fieldless:badge');
+  it('draws a badge as its charges alone, whatever the shape', () => {
+    for (const shape of ['heater', 'banner', 'round', 'lozenge'] as const) {
+      expect(kinds(nd({ v: 2, kind: 'badge', groups: [group(charge('lion'), 'or', { charged: [group(charge('rose'), 'gules')] })] }), shape), shape).toEqual(['charges:0', 'charges:0.0']);
+    }
+    expect(renderLayers({ v: 2, kind: 'badge', field: null, groups: [] }, 'heater')).toEqual([]);
   });
 });
 

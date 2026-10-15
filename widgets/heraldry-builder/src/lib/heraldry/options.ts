@@ -671,7 +671,8 @@ export function countChoices(d: Design, path: GroupPath): LayoutChoice<number>[]
  */
 export function placementChoices(d: Design, path: GroupPath): LayoutChoice<Placement>[] {
   const parts = simpleParts(d);
-  if (!parts.picture || partOf(parts, path) !== 'picture') return [];
+  // A fieldless badge has no band to put its picture on.
+  if (d.kind === 'badge' || !parts.picture || partOf(parts, path) !== 'picture') return [];
   const count = groupAt(d, path).count;
   return PLACEMENTS.map((p) => layoutChoice(d, path, p, 'count', countsByNearness(count).map((n): [number, Placement] => [n, p])));
 }
@@ -689,6 +690,11 @@ export function layoutChoices(d: Design, path: GroupPath): LayoutChoices {
   const g = groupAt(d, path);
   const ctx = contextOf(d, g, hostOf(d, path));
   if (!ctx) return { mode: 'single', note: 'There is no layout to choose for this group.' };
+  // A fieldless badge has no field to set its charge in: one charge in the middle, or two long ones crossed.
+  if (d.kind === 'badge' && g.role === 'primary') {
+    if (g.count === 1) return { mode: 'single', note: 'A single charge sits in the centre.' };
+    if (g.arrangement.k === 'crossed') return { mode: 'fixed', note: 'Two long charges in a badge cross each other like an X.' };
+  }
   if (ctx.k === 'between' || ctx.k === 'on') {
     const name = ORDINARY_NAME[ctx.ordinary];
     return { mode: 'host', note: ctx.k === 'on' ? `Charges on the ${name} follow its line.` : `Charges between a ${name} are placed around it.` };

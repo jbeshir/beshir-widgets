@@ -17,7 +17,7 @@
 import type { ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 import {
-  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, colourHex, TINCTURE_HATCHING, designTinctures, fillCode, fillTinctures, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
+  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, colourHex, TINCTURE_HATCHING, designTinctures, fillCode, fillTinctures, badgeView, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
   type Design, type FieldShape, type Fill, type Hatching, type Layer, type PatternSpec, type Slot, type Tincture,
 } from '../lib/heraldry';
 
@@ -277,6 +277,8 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
   const clip = `shield-clip-${uid}`;
   const frame = shapeFrame(shape);
   const layers = renderLayers(design, shape);
+  // A fieldless badge is drawn without a shield, its charges scaled to fill the picture.
+  const badge = badgeView(design, layers);
   const name = label === undefined ? gloss(design) : label;
   const hatched = hatching ? designTinctures(design).filter((t) => TINCTURE_HATCHING[t] !== 'plain') : [];
   const small = isSmallShield(size);
@@ -295,17 +297,17 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
       aria-hidden={name ? undefined : 'true'}
       data-testid={testid}
       data-hatching={hatching ? 'on' : 'off'}
-      data-shape={shape}
+      data-shape={design.kind === 'badge' ? 'badge' : shape}
       focusable="false"
     >
       <defs>
-        <clipPath id={clip}><path d={frame.outline} /></clipPath>
+        {design.kind === 'arms' && <clipPath id={clip}><path d={frame.outline} /></clipPath>}
         {hatched.map((t) => <HatchPattern key={t} id={ids.field(t)} kind={TINCTURE_HATCHING[t]} ink={HATCH_INK[t]} pitch={HATCH_PITCH} />)}
         {layerPatterns(layers).map((spec) => <PatternDef key={spec.id} spec={spec} ids={ids} />)}
         {scopes.map((scope, i) => <LayerDefs key={i} layer={layers[i]} scope={scope} />)}
       </defs>
-      <path class="shield-rim" d={frame.outline} fill="none" stroke-width="3.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" />
-      <g clip-path={`url(#${clip})`}>
+      {design.kind === 'arms' && <path class="shield-rim" d={frame.outline} fill="none" stroke-width="3.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" />}
+      <g clip-path={design.kind === 'arms' ? `url(#${clip})` : undefined} transform={badge || undefined}>
         {layers.map((layer, i) => {
           switch (layer.k) {
             case 'field': return <FieldShape key={i} layer={layer} scope={scopes[i]} stroke={stroke} />;
@@ -314,7 +316,7 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
           }
         })}
       </g>
-      <path d={frame.outline} fill="none" stroke={OUTLINE_COLOUR} stroke-width={small ? 1 : 1.5} vector-effect="non-scaling-stroke" />
+      {design.kind === 'arms' && <path d={frame.outline} fill="none" stroke={OUTLINE_COLOUR} stroke-width={small ? 1 : 1.5} vector-effect="non-scaling-stroke" />}
     </svg>
   );
 }

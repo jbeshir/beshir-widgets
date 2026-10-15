@@ -14,7 +14,7 @@ describe('sample registry fixture', () => {
   it('uses the sample registry identity', () => {
     expect(sample.schema).toBe('heraldry-builder/registry-sample@2');
     expect(sample.registry).toEqual({ id: 'sample', name: 'Sample armorial (offline demo)' });
-    expect(sample.entries).toHaveLength(20);
+    expect(sample.entries).toHaveLength(22);
   });
 
   for (const e of sample.entries) {
@@ -39,8 +39,8 @@ describe('sample registry fixture', () => {
   it('is in registration order with unique ids and signatures', () => {
     const times = sample.entries.map((e) => e.registeredAt);
     expect([...times].sort()).toEqual(times);
-    expect(new Set(sample.entries.map((e) => e.id)).size).toBe(20);
-    expect(new Set(sample.entries.map((e) => e.signature)).size).toBe(20);
+    expect(new Set(sample.entries.map((e) => e.id)).size).toBe(22);
+    expect(new Set(sample.entries.map((e) => e.signature)).size).toBe(22);
   });
 
   it('shows the new constructs: crossed keys, bees in chief, roses on a chief', () => {
@@ -50,14 +50,14 @@ describe('sample registry fixture', () => {
     expect(blazons.get('demo-005')).toBe('Gules, three mullets argent, on a chief Or three roses gules.');
   });
 
-  it('all 190 pairs are different enough', () => {
+  it('all 231 pairs are different enough', () => {
     const ds = sample.entries.map((e) => nd(e.design));
     let pairs = 0;
     for (let i = 0; i < ds.length; i++) for (let j = i + 1; j < ds.length; j++) {
       pairs++;
       expect(isClear(differences(ds[i], ds[j])), `${sample.entries[i].id} vs ${sample.entries[j].id}`).toBe(true);
     }
-    expect(pairs).toBe(190);
+    expect(pairs).toBe(231);
   });
 
   it('each entry is unique against all the others', () => {

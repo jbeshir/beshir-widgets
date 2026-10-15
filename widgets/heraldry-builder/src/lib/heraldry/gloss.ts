@@ -76,7 +76,7 @@ function variationGloss(variation: Variation, pieces: number | null, c1: string,
 
 
 function fieldGloss(d: Design): string {
-  if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
+  if (d.kind === 'badge') return 'No background';
   const varied = asVariation(d.field);
   if (varied) return `A shield of ${variationGloss(varied.variation, varied.pieces, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
   const [c1, c2] = fieldParts(d).map(partGloss);
@@ -271,5 +271,5 @@ export function gloss(d: Design): string {
   if (together) parts.unshift(togetherGloss(d, together));
   if (parts.length === 0) return `${field}.`;
   const rest = parts.reduce((text, p, i) => (i === 0 ? p.text : `${text}${parts[i - 1].clause ? ',' : ''} and ${p.text}`), '');
-  return `${field}${d.kind === 'arms' && d.field.k === 'tincture' ? ' with ' : ', with '}${rest}.`;
+  return `${field}${d.kind === 'arms' && d.field.k === 'tincture' ? ' with ' : d.kind === 'badge' ? ': ' : ', with '}${rest}.`;
 }

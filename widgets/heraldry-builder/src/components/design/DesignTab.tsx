@@ -171,7 +171,9 @@ export function DesignTab(p: Props) {
   }, [report]);
   // The layers that have a card are numbered from 4, in the order the cards come; a card that has just been added opens by itself.
   const layerCards = layersIn(design);
-  const layerStep = (key: LayerKey) => 4 + layerCards.indexOf(key);
+  // A badge has no band or shape step, so its picture is step 2.
+  const pictureStep = design.kind === 'badge' ? 2 : 3;
+  const layerStep = (key: LayerKey) => pictureStep + 1 + layerCards.indexOf(key);
   const shownCards = useRef(new Set<LayerKey>(layerCards));
   useEffect(() => {
     const added = layerCards.filter((key) => !shownCards.current.has(key));
@@ -203,7 +205,7 @@ export function DesignTab(p: Props) {
   const stepIssues = (step: StepKey) => report.problems.filter((i) => issueStep(design, i) === step);
   const blockedWhy = report.status === 'violation'
     ? 'Fix the problem above before registering.'
-    : report.status === 'incomplete' ? 'Add a band or shape, or a picture, first.' : null;
+    : report.status === 'incomplete' ? (design.kind === 'badge' ? 'Add a picture first.' : 'Add a band or shape, or a picture, first.') : null;
 
   return (
     <>
@@ -223,7 +225,7 @@ export function DesignTab(p: Props) {
           <Shield design={design} shape={shape} hatching={p.hatching} class="shield-large" />
           <figcaption class="sr-only">Preview of your arms</figcaption>
         </figure>
-        <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />
+        {design.kind === 'arms' && <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />}
         <div class="preview-toggles">
           <button
             type="button"
@@ -295,8 +297,8 @@ export function DesignTab(p: Props) {
           The one rule (the rule of tincture): gold, white and sky blue (the metals) go on colours, and colours go on metals — never colour on colour or metal on metal. Locked choices would break it; tap one to see why.
         </p>
         <FieldStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('field')} accordion={accordion('field')} />
-        <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />
-        <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
+        {design.kind === 'arms' && <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />}
+        <ChargesStep n={pictureStep} design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
         <AddLayer design={design} onChange={p.onChange} />
         {layerCards.map((key) => (
           <LayerStep key={key} design={design} place={key} n={layerStep(key)} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues(key)} accordion={accordion(key)} />
