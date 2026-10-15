@@ -59804,14 +59804,13 @@
       "regid:140762": ["charge-reptile:frog"],
       "regid:142814": ["charge-reptile:sea-tortoise"]
     }},
-    {"category": "placement", "description": "one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)", "singleGap": 60, "records": {
+    {"category": "placement", "description": "one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)", "singleGap": 58, "records": {
       "regid:243": ["placement:around-primary-1"],
       "regid:428": ["placement:between-pile-4"],
       "regid:3469": ["placement:between-saltire"],
       "regid:6366": ["placement:between-bend"],
       "regid:7305": ["placement:around-primary-1"],
       "regid:8756": ["fur:potent", "placement:not-between"],
-      "regid:10939": ["placement:on-bend-sinister-7"],
       "regid:12374": ["placement:on-bend-sinister-6"],
       "regid:13009": ["fur:erminois", "placement:on-bordure"],
       "regid:13222": ["placement:between-saltire"],
@@ -59822,7 +59821,6 @@
       "regid:21594": ["placement:around-primary-1"],
       "regid:21811": ["placement:on-annulet", "placement:on-charge-5"],
       "regid:22049": ["placement:on-charge-3"],
-      "regid:25407": ["placement:on-chevron-3"],
       "regid:30712": ["placement:between-saltire"],
       "regid:31866": ["placement:around-primary-1"],
       "regid:33594": ["placement:between-saltire-4"],
@@ -59837,7 +59835,6 @@
       "regid:62930": ["placement:on-estoile"],
       "regid:64085": ["placement:on-charge-6"],
       "regid:64534": ["placement:between-chevron-1"],
-      "regid:65551": ["placement:on-chevron-6"],
       "regid:65667": ["placement:around-1"],
       "regid:72715": ["placement:between-saltire-1"],
       "regid:73318": ["placement:between-cross"],
@@ -59854,6 +59851,7 @@
       "regid:93813": ["placement:between-saltire"],
       "regid:94971": ["placement:in-chief-1"],
       "regid:95162": ["fur:ermine", "placement:not-between"],
+      "regid:97740": ["placement:counterchanged-chevron"],
       "regid:99769": ["placement:around-1"],
       "regid:100876": ["placement:between-cross"],
       "regid:101652": ["placement:not-between"],
@@ -59938,7 +59936,7 @@
       "regid:142257": ["charge-ship:rudder", "proper"],
       "regid:142871": ["charge-ship:lymphad", "fur:vair", "proper"]
     }},
-    {"category": "tincture-rule-differs", "description": "the matched design breaks the widget's rule of tincture, yet the SCA registered it", "singleGap": 52, "records": {
+    {"category": "tincture-rule-differs", "description": "the matched design breaks the widget's rule of tincture, yet the SCA registered it", "singleGap": 51, "records": {
       "regid:838": ["tincture-rule-differs:charges"],
       "regid:1807": ["tincture-rule-differs:counterchanged"],
       "regid:8730": ["tincture-rule-differs:charges"],
@@ -59974,7 +59972,6 @@
       "regid:90069": ["tincture-rule-differs:charges"],
       "regid:91300": ["tincture-rule-differs:counterchanged"],
       "regid:93510": ["tincture-rule-differs:charges"],
-      "regid:97740": ["tincture-rule-differs:charges"],
       "regid:98072": ["tincture-rule-differs:ordinary"],
       "regid:104939": ["tincture-rule-differs:charges"],
       "regid:107202": ["tincture-rule-differs:counterchanged"],

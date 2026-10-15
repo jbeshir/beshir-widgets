@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
-  capacityIssue, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type GroundContext, type Layout, type LayoutContext, type OrdinaryType,
+  capacityIssue, ordinaryPath, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type GroundContext, type Layout, type LayoutContext, type OrdinaryType,
 } from '../src/lib/heraldry';
 import type { Pt } from '../src/lib/heraldry/geometry';
 import { fits, groundFor, type Ground } from '../src/lib/heraldry/layout';
@@ -190,7 +190,7 @@ describe('capacity', () => {
     const under = nd(arms('azure', group(charge('sword'), 'or', { count: 12, arrangement: 'in-pale' }), group(ordinary('chief'), 'gules')));
     expect(structuralIssues(under)[0].message).toContain('under the chief');
     const on = nd(arms('azure', group(ordinary('fess'), 'or', { charged: [group(charge('mullet'), 'argent', { count: 9 })] })));
-    expect(structuralIssues(on)[0].message).toBe("There isn't room for nine mullets on the fess — at most 5 fit.");
+    expect(structuralIssues(on)[0].message).toBe("There isn't room for nine mullets on the fess — at most 6 fit.");
     const around = nd(arms('azure', group(ordinary('chevron'), 'or'), group(charge('mullet'), 'argent', { count: 4, relation: 'between' })));
     expect(structuralIssues(around)[0].message).toBe("Mullets can't be set around the chevron like this.");
   });
@@ -290,6 +290,31 @@ describe('grounds', () => {
     expect(groundFor(fieldContext('none'), 'heater').minTop).toBe(-Infinity);
   });
 });
+
+describe('the larger counts on the ordinaries Table 7 gives them', () => {
+  const sizeOf = (k: 'between' | 'on', ordinary: OrdinaryType, count: number) => {
+    const slots = slotsOf(k === 'between' ? { k, ordinary, peripheral: 'none' } : { k, ordinary, peripheral: 'none' }, count, 'host');
+    return slots.length === count ? slots[0].size : 0;
+  };
+
+
+  it('draw six between a chevron, four to six on one, and six on a fess or a chief, at a size that reads', () => {
+    expect(sizeOf('between', 'chevron', 6)).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+    for (const count of [4, 5, 6]) expect(sizeOf('on', 'chevron', count), `chevron ${count}`).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+    for (const type of ['fess', 'chief'] as const) expect(sizeOf('on', type, 6), type).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+  });
+
+
+  it('keep the three under a chevron clear of its limbs and the charges on one off each other', () => {
+    const below = slotsOf({ k: 'between', ordinary: 'chevron', peripheral: 'none' }, 6, 'host').filter((s) => s.y > 71);
+    expect(below).toHaveLength(3);
+    const chevron = pathPolygon(ordinaryPath('chevron', 'heater'));
+    for (const s of below) expect(pointInPolygon(s.x, s.y, chevron)).toBe(false);
+    const on = slotsOf({ k: 'on', ordinary: 'chevron', peripheral: 'none' }, 6, 'host');
+    for (const a of on) for (const b of on) if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(a.size);
+  });
+});
+
 
 describe('around and on an ordinary with a chief and a bordure beside it', () => {
   const heater = shapeFrame('heater');

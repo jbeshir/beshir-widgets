@@ -4,7 +4,7 @@
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
 import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
-import { badgeTransform, CANONICAL_SHAPE, drawnBox, ordinaryFillRule, ordinaryPath, shapeFrame, type Slot } from './geometry';
+import { badgeTransform, CANONICAL_SHAPE, chevronAstrideLinePath, drawnBox, astrideLine, ordinaryFillRule, ordinaryPath, shapeFrame, type Slot } from './geometry';
 import { groupSlots } from './layout';
 import { chargeFills, fieldFill, ordinaryFill, type Fill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
@@ -19,7 +19,8 @@ export type Layer =
 function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
   if (group.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type } = group.item;
-  return { k: 'ordinary', path, d: ordinaryPath(type, shape), fillRule: ordinaryFillRule(type), fill: ordinaryFill(d, group, host, type, shape) };
+  const astride = d.kind === 'arms' && !host && astrideLine(d.field, type, group.paint);
+  return { k: 'ordinary', path, d: astride ? chevronAstrideLinePath(shape) : ordinaryPath(type, shape), fillRule: ordinaryFillRule(type), fill: ordinaryFill(d, group, host, type, shape) };
 }
 
 function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {

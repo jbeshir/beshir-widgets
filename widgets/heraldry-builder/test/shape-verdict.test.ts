@@ -61,10 +61,21 @@ const COUNTERCHANGED: Array<[string, unknown]> = [
   ['per pale, chief counterchanged', arms(div('per-pale', 'argent', 'gules'), ord('chief', 'counterchanged'), chg('mullet', 'or'))],
 ];
 
+/** Charges in bend or in bend sinister lie on the line of a field divided that way, half on each part: in every shape they must stay on it. */
+const ON_THE_LINE: Array<[string, unknown]> = [false, true].flatMap((bordure) => [2, 3].flatMap((count) => [
+  ['bend', 'in-bend', 'per-bend'],
+  ['bend sinister', 'in-bend-sinister', 'per-bend-sinister'],
+].map(([name, arrangement, division]): [string, unknown] => [
+  `per ${name} vert and argent, ${count} roses ${arrangement}${bordure ? ', a bordure' : ''}`,
+  arms(div(division as 'per-bend', 'vert', 'argent'), chg('rose', 'sable', { count, arrangement }), ...(bordure ? [ord('bordure', 'azure')] : [])),
+])));
+
+
 const DESIGNS: Array<[string, Design]> = [
   ...sample.entries.map((e): [string, unknown] => [e.id, e.design]),
   ...V.map((c): [string, unknown] => [c.id, c.design]),
   ...BROKEN,
+  ...ON_THE_LINE,
   ...COUNTERCHANGED,
 ].flatMap(([name, raw]) => {
   const r = resolve(raw);

@@ -306,6 +306,9 @@ function alongWithin(from: Pt, to: Pt, m: number, bounds: Area): Centre[] {
 /** What the peripherals leave of the field to set charges in (the whole heater when there are none). */
 const freeArea = (peripheral: Peripheral): Area => FIELD_AREAS[peripheral].straight;
 
+/** Where the charges above a chevron stand: along the top, or under a chief in the band below it. */
+const chevronAbove = (peripheral: Peripheral): Area => (hasChief(peripheral) ? area(4, freeArea(peripheral).y0, 96, freeArea(peripheral).y0 + 30) : area(4, 4, 96, 36));
+
 /**
  * Charges set between a central ordinary. With a chief or bordure the lines they are strung along keep to the
  * free area; where the ordinary leaves nothing there the slots come out too small and the structure rules say so.
@@ -323,11 +326,7 @@ function betweenCentres(ordinary: OrdinaryType, count: number, peripheral: Perip
     // Two lines parallel to the bend, 40 above and below it.
     case 'bend': return [...slanted([48, 8], [92, 52], first), ...slanted([8, 48], [52, 92], second)];
     case 'bend-sinister': return mirrored([...slanted([48, 8], [92, 52], first), ...slanted([8, 48], [52, 92], second)]);
-    case 'chevron': {
-      // Under a chief the charges beside the apex lie in the band below it.
-      const above = hasChief(peripheral) ? area(4, free.y0, 96, free.y0 + 30) : area(4, 4, 96, 36);
-      return [...lineIn(zone(above), first, 'fess'), ...rowsIn(zone(area(30, 84, 70, 116)), second === 1 ? [1] : [2, 1])];
-    }
+    case 'chevron': return [...lineIn(zone(chevronAbove(peripheral)), first, 'fess'), ...rowsIn(zone(area(30, 84, 70, 116)), second === 1 ? [1] : [2, 1])];
     default: return null;
   }
 }
@@ -463,20 +462,71 @@ const LIMB_PITCH = 36.8;
 /** The chief's axis moves down to the middle of what a bordure leaves of it. */
 const BORDURED_CHIEF_AXIS: { from: Pt; to: Pt } = { from: [6, 20], to: [94, 20] };
 
-function onCentres(ordinary: OrdinaryType, count: number, peripheral: Peripheral): Centre[] | null {
-  const axis = ordinary === 'chief' && hasBordure(peripheral) ? BORDURED_CHIEF_AXIS : ON_AXIS[ordinary];
-  if (axis) return peripheral === 'none' ? along(axis.from, axis.to, count) : alongWithin(axis.from, axis.to, count, freeArea(peripheral));
-  if (ordinary !== 'chevron') return null;
-  // The apex takes the middle charge of an odd count; the rest are shared equally along the two limbs.
-  const perLimb = Math.floor(count / 2);
+const axisOf = (ordinary: OrdinaryType, peripheral: Peripheral) => (ordinary === 'chief' && hasBordure(peripheral) ? BORDURED_CHIEF_AXIS : ON_AXIS[ordinary]);
+
+const alongAxis = (axis: { from: Pt; to: Pt }, count: number, peripheral: Peripheral): Centre[] =>
+  peripheral === 'none' ? along(axis.from, axis.to, count) : alongWithin(axis.from, axis.to, count, freeArea(peripheral));
+
+/** Charges on a chevron: `count` centres along its limbs, the first `start` from the apex and then `pitch` apart (the apex takes the middle charge of an odd count). */
+function alongLimbs(count: number, start: number, pitch: number): Centre[] {
   const odd = count % 2 === 1;
-  const pitch = Math.min(LIMB_PITCH, LIMB_REACH / (odd ? perLimb : perLimb - 0.5));
   const centres = odd ? [at(CHEVRON_APEX[0], CHEVRON_APEX[1])] : [];
-  for (let j = 1; j <= perLimb; j++) {
-    const d = (odd ? j : j - 0.5) * pitch * Math.SQRT1_2;
+  for (let j = 0; j < Math.floor(count / 2); j++) {
+    const d = (start + j * pitch) * Math.SQRT1_2;
     centres.push(at(CHEVRON_APEX[0] - d, CHEVRON_APEX[1] + d), at(CHEVRON_APEX[0] + d, CHEVRON_APEX[1] + d));
   }
   return centres;
+}
+
+function onCentres(ordinary: OrdinaryType, count: number, peripheral: Peripheral): Centre[] | null {
+  const axis = axisOf(ordinary, peripheral);
+  if (axis) return alongAxis(axis, count, peripheral);
+  if (ordinary !== 'chevron') return null;
+  const perLimb = Math.floor(count / 2);
+  const odd = count % 2 === 1;
+  const pitch = Math.min(LIMB_PITCH, LIMB_REACH / (odd ? perLimb : perLimb - 0.5));
+  return alongLimbs(count, odd ? pitch : pitch / 2, pitch);
+}
+
+// ── Generic engine: other centres for a group that is too small at its nominal ones ──
+
+/** How far (heater units) the axis of an ordinary is stretched past its ends at most, to give a long row room. */
+const AXIS_STRETCH = 12;
+/** Pitches (heater units) tried for charges along a chevron's limbs. */
+const LIMB_PITCHES = Array.from({ length: 53 }, (_, i) => 14 + i * 0.5);
+/** What share of its pitch the first charge of an even count lies from the apex, at most one pitch (the pair then lie one pitch apart). */
+const LIMB_STARTS = [0.5, 0.6, 0.7, 0.8, 0.9, 1];
+
+/** The centres of `count` charges on an ordinary with the axis or the limbs spread differently. */
+function onAlternatives(ordinary: OrdinaryType, count: number, peripheral: Peripheral): Centre[][] {
+  const axis = axisOf(ordinary, peripheral);
+  if (axis) {
+    const len = Math.hypot(axis.to[0] - axis.from[0], axis.to[1] - axis.from[1]);
+    const [ux, uy] = [(axis.to[0] - axis.from[0]) / len, (axis.to[1] - axis.from[1]) / len];
+    return Array.from({ length: AXIS_STRETCH }, (_, i): Centre[] => {
+      const s = i + 1;
+      return alongAxis({ from: [axis.from[0] - ux * s, axis.from[1] - uy * s], to: [axis.to[0] + ux * s, axis.to[1] + uy * s] }, count, peripheral);
+    });
+  }
+  if (ordinary !== 'chevron') return [];
+  const odd = count % 2 === 1;
+  return LIMB_PITCHES.flatMap((pitch) => (odd ? [1] : LIMB_STARTS).map((share) => alongLimbs(count, odd ? pitch : share * pitch, pitch)));
+}
+
+/** The lower three of six charges between a chevron: two and one, or in a row, in the room under its limbs. */
+function belowChevron(): Centre[][] {
+  const ys = Array.from({ length: 11 }, (_, i) => 76 + i * 3);
+  const gaps = Array.from({ length: 8 }, (_, i) => 6 + i * 3);
+  return ys.flatMap((y) => [
+    ...gaps.flatMap((half) => Array.from({ length: 13 }, (_, k) => y + 6 + k * 3).filter((low) => low <= 116).map((low) => [at(50 - half, y), at(50 + half, y), at(50, low)])),
+    ...gaps.map((half) => [at(50 - 2 * half, y), at(50, y), at(50 + 2 * half, y)]),
+  ]);
+}
+
+function betweenAlternatives(ordinary: OrdinaryType, count: number, peripheral: Peripheral): Centre[][] {
+  if (ordinary !== 'chevron' || count !== 6) return [];
+  const above = lineIn(within(chevronAbove(peripheral), freeArea(peripheral)), 3, 'fess');
+  return belowChevron().map((below) => [...above, ...below]);
 }
 
 /** Where the hand rows of a context without peripherals put its slots: the nominal centres of the ordinaries the engine has no rule for. */
@@ -755,13 +805,29 @@ const toSlots = (centres: readonly Centre[], size: number): Slot[] =>
     .sort((a, b) => (Math.abs(a.y - b.y) < 0.01 ? a.x - b.x : a.y - b.y))
     .map((c) => ({ x: r2(c.x), y: r2(c.y), size, rotation: c.rotation }));
 
+/** The other centres a context offers when its nominal ones leave the charges too small to read: the ordinary's axis or limbs spread otherwise, the charges under a chevron in another shape. */
+function alternativeCentres(ctx: Exclude<GroundContext, { k: 'around' }>, layout: Layout, count: number): Centre[][] {
+  if (layout.arrangement.k !== 'host' || layout.position !== null || (ctx.k !== 'between' && ctx.k !== 'on')) return [];
+  return ctx.k === 'between' ? betweenAlternatives(ctx.ordinary, count, ctx.peripheral) : onAlternatives(ctx.ordinary, count, ctx.peripheral);
+}
+
+/** The largest fitting of some centres; of those equally large, the middle one tried (the least cramped by the extremes). */
+function bestFit(options: readonly Centre[][], ground: Ground): { centres: Centre[]; size: number } {
+  const sized = options.map((centres) => ({ centres, size: largestSize(centres, ground, false) }));
+  const most = Math.max(0, ...sized.map((o) => o.size));
+  const best = sized.filter((o) => o.size === most);
+  return best[Math.floor(best.length / 2)] ?? { centres: [], size: 0 };
+}
+
 function heaterGeneric(ctx: Exclude<GroundContext, { k: 'around' }>, count: number, layout: Layout): Slot[] {
-  const centres = nominalCentres(ctx, count, layout);
-  if (!centres) return [];
-  const crossed = layout.arrangement.k === 'crossed';
-  const size = largestSize(centres, groundIn(ctx, layout, CANONICAL_SHAPE), crossed);
-  if (size < 1) return [];
-  return toSlots(centres, size);
+  const nominal = nominalCentres(ctx, count, layout);
+  if (!nominal) return [];
+  const ground = groundIn(ctx, layout, CANONICAL_SHAPE);
+  const size = largestSize(nominal, ground, layout.arrangement.k === 'crossed');
+  if (size >= minSlotSize(ctx)) return toSlots(nominal, size);
+  const other = bestFit(alternativeCentres(ctx, layout, count), ground);
+  if (other.size >= minSlotSize(ctx)) return toSlots(other.centres, other.size);
+  return size < 1 ? [] : toSlots(nominal, size);
 }
 
 /** How far a probe arm may differ from the canonical one before the parts it reaches must agree. */

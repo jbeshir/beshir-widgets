@@ -6,6 +6,7 @@ import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
+import { astrideLine } from './geometry';
 import { DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_TREATMENTS, VARIATION_PIECES } from './divisions';
 import {
   asParty, asSemy, asTreated, walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
@@ -206,6 +207,17 @@ function placementGaps(d: Design, g: Group, host: Group | null): Gap[] {
 }
 
 /**
+ * Whether a charge group is set against a chevron drawn astride the field's line, between it, on it or in chief: its place is worked out
+ * for the usual chevron, which lies lower. (In base, in canton and overall they stand clear of either.)
+ */
+function againstAstrideLine(d: Design, g: Group, host: Group | null): boolean {
+  const primary = host ?? d.groups.find((x) => x.role === 'primary');
+  if (d.kind !== 'arms' || g.item.k !== 'charge' || primary?.role !== 'primary' || primary.item.k !== 'ordinary' || !astrideLine(d.field, primary.item.type, primary.paint)) return false;
+  return host !== null || (g.role === 'secondary' && (g.relation === 'between' || g.position === 'chief'));
+}
+
+
+/**
  * The gaps of a group on a charge: only the primary charges carry charges, and only where their drawing has room for them
  * (and not with charges set around them, which would read as the tertiary's).
  */
@@ -304,6 +316,7 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
     const owner = group.item.k === 'ordinary' ? group.item.type : group.item.charge;
     const gaps = [...itemGaps(group.item), ...paintGaps(group.paint, false, owner), ...layoutGaps(group, hasChief), ...placementGaps(d, group, host)];
     if (host) gaps.push(...onChargeGaps(d, host));
+    if (againstAstrideLine(d, group, host)) gaps.push(gap('placement', 'counterchanged-chevron'));
     if (host && group.item.k === 'ordinary') gaps.push(gap('placement', 'tertiary-ordinary'));
     if (host?.role === 'overall' && host.item.k === 'ordinary') gaps.push(gap('multiple-groups', 'tertiary-on-overall'));
     for (const g of gaps) add(at, g);

@@ -11,7 +11,7 @@ const names = (d: ReturnType<typeof nd>): Array<[PlaceKey, string]> =>
 
 describe('places of a design', () => {
   it('cover every group of every generated design exactly once, and map back to their paths', () => {
-    const designs = generatedRichDesigns(7, 400);
+    const designs = generatedRichDesigns(7, 500);
     let layered = 0, positioned = 0, around = 0, onPicture = 0;
     for (const d of designs) {
       const placed = placesOf(d);

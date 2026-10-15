@@ -271,13 +271,17 @@ const CROSS_HALF = 12;                  // 24-wide arms
 const SALTIRE_HALF = 12 * Math.SQRT2;   // 24-wide arms
 const CHEVRON_THICK = 22 * Math.SQRT2;  // 22-wide band, measured perpendicular to its limbs
 
-function ordinaryPathIn(type: OrdinaryType, f: ShapeFrame): string {
+/** How far a chevron astride a field's per-chevron line is raised: half its thickness, so the line runs down its middle. */
+const CHEVRON_ASTRIDE_LIFT = CHEVRON_THICK / 2;
+
+
+function ordinaryPathIn(type: OrdinaryType, f: ShapeFrame, lift = 0): string {
   const { x: cx, y: cy } = f.fessPoint;
   const { x0, x1, y0, y1 } = OVER;
   const d = BEND_HALF, sd = SALTIRE_HALF, c = CROSS_HALF;
   const bend = (x: number) => cy + (x - cx);
   const sinister = (x: number) => cy - (x - cx);
-  const apexY = cy - CHEVRON_APEX_RISE;
+  const apexY = cy - CHEVRON_APEX_RISE - lift;
   const reach = 80; // limbs and saltire arms run this far (horizontally) from their centre
   switch (type) {
     case 'fess': return pts([[x0, cy - BAND_HALF], [x1, cy - BAND_HALF], [x1, cy + BAND_HALF], [x0, cy + BAND_HALF]]);
@@ -315,6 +319,28 @@ export function ordinaryPath(type: OrdinaryType, shape: FieldShape): string {
   }
   return d;
 }
+
+const astrideCache = new Map<FieldShape, string>();
+
+
+/**
+ * The path of a counterchanged chevron on a field per chevron in a shape: raised so that the field's line runs down the middle of it
+ * (drawn in its usual place the chevron would lie wholly below the line and show one tincture).
+ */
+export function chevronAstrideLinePath(shape: FieldShape): string {
+  let d = astrideCache.get(shape);
+  if (d === undefined) {
+    d = ordinaryPathIn('chevron', SHAPE_FRAME[shape], CHEVRON_ASTRIDE_LIFT);
+    astrideCache.set(shape, d);
+  }
+  return d;
+}
+
+
+/** Whether an ordinary lies astride its field's line: a counterchanged chevron on a field per chevron. */
+export const astrideLine = (field: Paint, type: OrdinaryType, paint: Paint): boolean =>
+  type === 'chevron' && paint.k === 'counterchanged' && field.k === 'divided' && field.division === 'per-chevron';
+
 
 /** The bordure is a ring (outline minus inset) and needs evenodd; everything else is nonzero. */
 export function ordinaryFillRule(type: OrdinaryType): 'nonzero' | 'evenodd' {
@@ -494,7 +520,7 @@ export function counterchangedSlotParts(field: Paint, box: Slot, shape: FieldSha
 /** The same for a counterchanged ordinary: the regions it overlaps (a chief on a field per fess lies on one only). */
 export function counterchangedOrdinaryParts(field: Paint, type: OrdinaryType, shape: FieldShape): CounterchangePart[] {
   const frame = SHAPE_FRAME[shape];
-  const outline = pathRings(frame.outline), ring = pathRings(ordinaryPath(type, shape));
+  const outline = pathRings(frame.outline), ring = pathRings(astrideLine(field, type, { k: 'counterchanged' }) ? chevronAstrideLinePath(shape) : ordinaryPath(type, shape));
   const points: Pt[] = [];
   for (let x = 1; x < 100; x += SAMPLE_STEP) {
     for (let y = 1; y < 120; y += SAMPLE_STEP) if (pointInPath(outline, x, y) && pointInPath(ring, x, y)) points.push([x, y]);

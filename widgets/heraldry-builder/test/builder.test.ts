@@ -509,7 +509,7 @@ describe('extra pictures on the band', () => {
     expect(blazon(d)).toBe('Azure, on a fess between two mullets Or a rose gules.');
     // The extra picture has its own count, as many as fit on the band, and no placement.
     expect(placementChoices(d, extra(d))).toEqual([]);
-    expect(countChoices(d, extra(d)).filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5]);
+    expect(countChoices(d, extra(d)).filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2, 3, 4, 5, 6]);
     d = setCount(d, extra(d), 3);
     expect(groupAt(d, extra(d)).count).toBe(3);
     // Swapping and recolouring either picture leaves the other alone.
