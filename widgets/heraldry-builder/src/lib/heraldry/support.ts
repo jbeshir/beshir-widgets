@@ -2,13 +2,13 @@
 // construct the builder doesn't offer, with a gap the SCA test files the design under. The one "not yet
 // drawable" guard, `notSupported`, lives in design.ts and is re-exported here.
 
-import { FUR_NAME, STAIN_NAME } from './tinctures';
+import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
 import { DIVISION_NAME, DRAWN_DIVISIONS } from './divisions';
 import {
-  walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
+  asParty, walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
@@ -31,7 +31,8 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
     case 'tincture': return [];
     case 'counterchanged': return inField ? [gap('tincture', 'counterchanged')] : [];
     case 'stain': return [gap('tincture', p.stain)];
-    case 'fur': return [gap('fur', p.fur)];
+    // Colours other than a fur's own are drawn for the plain layouts (argent ermined gules, vairy Or and gules); counter- and en pointe furs keep theirs.
+    case 'fur': return p.colours && FUR_SPEC[p.fur].layout !== 'plain' ? [gap('fur', `${p.fur}-colours`)] : [];
     case 'proper': return [gap('proper', owner)];
     case 'variation': return [gap('field-treatment', p.variation)];
     case 'treated': return [gap('field-treatment', p.treatment)];
@@ -44,6 +45,8 @@ export function paintGaps(p: Paint, inField: boolean, owner: string): Gap[] {
       for (const part of p.parts) {
         gaps.push(...(part.k === 'divided' ? [gap('division', 'nested')] : paintGaps(part, true, owner)));
       }
+      // A band or picture is divided into plain tinctures only: a fur on a part of one is not drawn.
+      if (!inField && gaps.length === 0 && !asParty(p)) gaps.push(gap('fur', 'party'));
       return gaps;
     }
   }
@@ -54,7 +57,9 @@ function thing(g: Gap): string {
   const d = g.detail.replace(/-/g, ' ');
   switch (g.category) {
     case 'fieldless': return 'A fieldless badge';
-    case 'fur': return FUR_NAME[g.detail as keyof typeof FUR_NAME] ?? d;
+    case 'fur':
+      if (g.detail === 'party') return 'A fur on part of a divided band or picture';
+      return g.detail.endsWith('-colours') ? `${FUR_NAME[g.detail.slice(0, -'-colours'.length) as keyof typeof FUR_NAME]} in colours of its own` : FUR_NAME[g.detail as keyof typeof FUR_NAME] ?? d;
     case 'tincture': return STAIN_NAME[g.detail as keyof typeof STAIN_NAME] ?? d;
     case 'proper': return `A ${d} in its natural colours`;
     case 'field-treatment': return `The ${d} treatment`;

@@ -26,7 +26,7 @@ describe('what is supported', () => {
     const gaps = (paint: unknown) => unsupportedIssues(nd(arms('gules', heart(paint)))).map((i) => `${i.gap.category}:${i.gap.detail}`);
     expect(gaps(party('gyronny', 'azure', 'or'))).toEqual(['division:gyronny']);
     expect(gaps({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['azure', 'or'] })).toEqual(['line-of-partition:wavy']);
-    expect(gaps({ k: 'divided', division: 'per-pale', parts: [{ k: 'fur', fur: 'ermine' }, 'or'] })).toEqual(['fur:ermine']);
+    expect(gaps({ k: 'divided', division: 'per-pale', parts: [{ k: 'fur', fur: 'ermine' }, 'or'] })).toEqual(['fur:party']);
     expect(gaps({ k: 'divided', division: 'per-pale', parts: ['azure', 'counterchanged'] })).toEqual(['tincture:counterchanged']);
   });
 });

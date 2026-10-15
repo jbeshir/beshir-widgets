@@ -5,7 +5,7 @@
 import { isTincture, type Tincture } from './tinctures';
 import { CHARGES, isChargeCategory, isChargeId, isPosture } from './charges';
 import { isDivision } from './divisions';
-import { asParty, fieldTinctures, isGroupTincture, walkGroups, type Design } from './design';
+import { fieldParts, isGroupTincture, paintTinctures, walkGroups, type Design, type Paint } from './design';
 import { isOrdinaryType } from './ordinaries';
 import { coPrimaries, layoutKey, primaryCharges } from './arrangement';
 import { readability } from './readability';
@@ -17,11 +17,15 @@ export function deriveTags(d: Design): string[] {
   const all = new Set<Tincture>();
 
   if (d.kind === 'arms') add(d.field.k === 'divided' ? `division:${d.field.division}` : 'field:plain');
-  for (const t of fieldTinctures(d)) { add(`field-tincture:${t}`); all.add(t); }
+  const furOf = (p: Paint) => { if (p.k === 'fur') add(`fur:${p.fur}`); };
+  for (const part of fieldParts(d)) {
+    furOf(part);
+    for (const t of paintTinctures(part)) { add(`field-tincture:${t}`); all.add(t); }
+  }
 
   for (const { group, host } of walkGroups(d)) {
-    const party = asParty(group.paint);
-    const tinctures = group.paint.k === 'tincture' ? [group.paint.t] : party ? party.parts.map((p) => p.t) : [];
+    furOf(group.paint);
+    const tinctures = paintTinctures(group.paint);
     const paints: string[] = group.paint.k === 'counterchanged' ? ['counterchanged'] : tinctures;
     if (group.item.k === 'ordinary') {
       add(`ordinary:${group.item.type}`);

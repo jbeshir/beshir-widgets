@@ -94,6 +94,14 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Per fess vert and Or, a sun and a fleur-de-lys counterchanged.'],
   ['a band over a picture with charges in chief', arms('azure', group(charge('lion'), 'argent'), group(charge('mullet'), 'or', { count: 3, position: 'chief' }), group(ordinary('bend-sinister'), 'argent', { role: 'overall' })),
     'Azure, a lion argent and in chief three mullets Or and overall a bend sinister argent.'],
+  ['a fur field with pictures in pale (O&A 10951)', arms({ k: 'fur', fur: 'ermine' }, group(charge('heart'), 'gules', { count: 3, arrangement: 'in-pale' })),
+    'Ermine, in pale three hearts gules.'],
+  ['a fur band (O&A 31052)', arms('vert', group(ordinary('bend'), { k: 'fur', fur: 'vair' })),
+    'Vert, a bend vair.'],
+  ['a field in colours of its own vairy (O&A 17455)', arms({ k: 'fur', fur: 'vair', colours: ['or', 'gules'] }, group(charge('unicorn'), 'azure')),
+    'Vairy Or and gules, a unicorn azure.'],
+  ['a fur chief with a picture (O&A 32341)', arms('purpure', group(charge('rose'), 'argent'), group(ordinary('chief'), { k: 'fur', fur: 'ermine' })),
+    'Purpure, a rose argent, a chief ermine.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {

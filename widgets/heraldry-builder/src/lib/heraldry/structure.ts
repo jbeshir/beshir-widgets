@@ -2,15 +2,15 @@
 // layouts), room for the charges (layout.ts) and the per-fess chief rule (A3D1c). Messages are phrased
 // so they can double as the reason shown next to a blocked option.
 
-import { TINCTURE_NAME } from './tinctures';
+import { TINCTURE_CLASS, TINCTURE_NAME } from './tinctures';
 import { capitalise, numberWord } from './words';
 import { CHARGES, chargePhrase } from './charges';
 import { DIVISION_NAME } from './divisions';
 import { divisionCutsOrdinary } from './geometry';
-import { asParty, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue } from './design';
+import { asParty, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue } from './layout';
 import { posturesClash } from './difference';
-import { groundShares } from './tincture-rule';
+import { groundShares, paintName } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
 import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type HostCharges, type LayoutContext } from './arrangement';
 
@@ -95,23 +95,51 @@ function crossesTheLine(d: Design): boolean {
   return grounds.every((g) => g.length === 0) || grounds.some((g) => g.length > 1 && g.every((s) => s.share >= OVERLIES_SHARE));
 }
 
+/** The problems of the field's and the groups' paints: parts of a divided field that share a tincture (SENA A3B3a; of a fur, its ground), a fur in colours that are not a metal and a colour (App F4). */
+export function paintIssues(d: Design): Issue[] {
+  const issues: Issue[] = [];
+  const add = (issue: Issue) => issues.push(issue);
+
+  // A divided field whose parts share a tincture (SENA A3B3a): of a fur, the ground it is seen against.
+  if (d.kind === 'arms' && d.field.k === 'divided') {
+    const parts = d.field.parts;
+    const shared = parts.flatMap((p, i) => parts.slice(i + 1).flatMap((q) => {
+      const t = bodyTinctures(p).find((x) => bodyTinctures(q).includes(x));
+      return t ? [{ p, q, t }] : [];
+    }))[0];
+    if (shared) {
+      const plain = shared.p.k === 'tincture' && shared.q.k === 'tincture';
+      const message = !plain
+        ? `A divided field's parts can't share a tincture — ${paintName(shared.p)} and ${paintName(shared.q)} both use ${TINCTURE_NAME[shared.t]}.`
+        : parts.length === 2
+          ? `A divided field needs two different tinctures — both parts are ${TINCTURE_NAME[shared.t]}.`
+          : `A divided field needs different tinctures — two parts are ${TINCTURE_NAME[shared.t]}.`;
+      add({ code: 'structure', rule: 'field', at: { k: 'field' }, message, slots: [] });
+    }
+  }
+
+  // 1a. A fur in colours of its own combines a metal with a colour (SENA App F4).
+  const furProblem = (p: Paint): string | null => {
+    if (p.k !== 'fur' || !p.colours || TINCTURE_CLASS[p.colours[0]] !== TINCTURE_CLASS[p.colours[1]]) return null;
+    return `${paintName(p)} needs a metal and a colour — both are ${TINCTURE_CLASS[p.colours[0]]}s.`;
+  };
+  const fieldFur = d.kind === 'arms' ? fieldParts(d).map(furProblem).find((m) => m !== null) : undefined;
+  if (fieldFur) add({ code: 'structure', rule: 'fur', at: { k: 'field' }, message: fieldFur, slots: [] });
+  for (const { path, group } of walkGroups(d)) {
+    const problem = furProblem(group.paint);
+    if (problem) add({ code: 'structure', rule: 'fur', at: { k: 'group', path }, message: problem, slots: [] });
+  }
+
+  return issues;
+}
+
 /** Structural problems of a design that resolves, in rule order. */
 export function structuralIssues(d: Design): Issue[] {
   const issues: Issue[] = [];
   const add = (issue: Issue) => issues.push(issue);
   const walked = walkGroups(d);
 
-  // 1. A divided field whose parts share a tincture (SENA A3B3a).
-  if (d.kind === 'arms' && d.field.k === 'divided') {
-    const ts = d.field.parts.flatMap((p) => (p.k === 'tincture' ? [p.t] : []));
-    const repeated = ts.find((t, i) => ts.indexOf(t) !== i);
-    if (repeated) {
-      const message = d.field.parts.length === 2
-        ? `A divided field needs two different tinctures — both parts are ${TINCTURE_NAME[repeated]}.`
-        : `A divided field needs different tinctures — two parts are ${TINCTURE_NAME[repeated]}.`;
-      add({ code: 'structure', rule: 'field', at: { k: 'field' }, message, slots: [] });
-    }
-  }
+  issues.push(...paintIssues(d));
 
   // 1b. A band or picture divided into two like tinctures, or cut by a line that misses it (SENA A3B3a, A3B3; RULES CC-10, CC-11).
   for (const { path, group } of walked) {
@@ -130,8 +158,8 @@ export function structuralIssues(d: Design): Issue[] {
   }
 
   // 2. A plain field alone (SENA A3E3).
-  if (d.kind === 'arms' && d.field.k === 'tincture' && d.groups.length === 0) {
-    add({ code: 'generic', at: { k: 'design' }, message: 'A plain field on its own is too generic to register — add an ordinary or a charge.', slots: [] });
+  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur') && d.groups.length === 0) {
+    add({ code: 'generic', at: { k: 'design' }, message: `A plain ${d.field.k === 'fur' ? 'fur' : 'field'} on its own is too generic to register — add an ordinary or a charge.`, slots: [] });
   }
 
   // 3. How groups relate (SENA App I).

@@ -3,7 +3,7 @@
 
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
-import { notSupported, walkGroups, type Design, type Group, type GroupPath } from './design';
+import { notSupported, paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
 import { drawnBox, ordinaryFillRule, ordinaryPath, shapeFrame, type Slot } from './geometry';
 import { groupSlots } from './layout';
 import { chargeFills, fieldFill, ordinaryFill, type Fill, type SlotFill } from './paint-render';
@@ -42,10 +42,7 @@ export function renderLayers(d: Design, shape: FieldShape): Layer[] {
 /** The tinctures a design uses, in order of first use: what hatching patterns are needed for. Counterchanged adds none. */
 export function designTinctures(d: Design): Tincture[] {
   const seen = new Set<Tincture>();
-  const take = (p: Group['paint']) => {
-    if (p.k === 'tincture') seen.add(p.t);
-    else if (p.k === 'divided') p.parts.forEach(take);
-  };
+  const take = (p: Group['paint']) => paintTinctures(p).forEach((t) => seen.add(t));
   if (d.kind === 'arms') take(d.field);
   walkGroups(d).forEach(({ group }) => take(group.paint));
   return [...seen];

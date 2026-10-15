@@ -226,15 +226,15 @@ Both are wrapped in `try/catch`; private mode or a full quota just disables them
 ### Design model
 
 A design is `{ v: 2, kind: 'arms', field, groups }` (`src/lib/heraldry/design.ts`). The field is a
-recursive paint (a tincture, or a division with its parts). Each group carries an item (an
+recursive paint (a tincture, a fur, or a division with its parts). Each group carries an item (an
 ordinary or a charge), a count, an arrangement and optional position, a paint and, in
 `charged`, the groups sitting on it; its role (primary, secondary, peripheral, overall, tertiary)
 and relation (between, about, position) say how it relates to the field and the other groups.
-There is no cap on groups. `kind: 'badge'` (a fieldless badge) is in the type, as are furs, stains,
+There is no cap on groups. `kind: 'badge'` (a fieldless badge) is in the type, as are stains,
 proper, field treatments, lines of partition and charge attributes (form, facing, orientation,
 parts, holds); the builder does not draw those yet, so `resolve` accepts them and `support.ts`
 reports each as an `unsupported` issue naming the gap (the SCA test files records under the same
-tags). Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
+tags). Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
 (SENA Table 7 arrangements, the SCA's default postures) and puts the groups in canonical order, so
 equivalent inputs have one JSON form and one signature. The builder's own space is the
 "simple space": one ordinary, one picture group (on the field, between the ordinary, or on it),
@@ -698,7 +698,7 @@ drawing do not yet, and `resolve` reports them as `unsupported` rather than gues
 - **Fieldless badges** (`kind: 'badge'`). Planned for phase B, following SCA practice.
 - **Marshalling** (impalement, quartering of two coats): out of scope; the model is designed
   without it.
-- **Furs** (ermine, vair), **stains**, **proper**, **lines of partition** (wavy, indented, …),
+- **Stains**, **proper**, **lines of partition** (wavy, indented, …),
   **field treatments** (barry, checky, semy, …) and charge attributes such as holding or
   arming.
 - **More than the supported group combinations**: more than three charges in two main groups, three or more main groups, a band and a picture as the main ones together, charges around, on or across two main pictures, two charge groups beside the main one, more than one charge

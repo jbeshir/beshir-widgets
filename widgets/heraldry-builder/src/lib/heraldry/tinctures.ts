@@ -69,19 +69,48 @@ export function isMetal(t: Tincture): boolean {
   return TINCTURE_CLASS[t] === 'metal';
 }
 
-// ── Stains and furs (vocabulary only; the builder doesn't draw them yet) ───
+// ── Stains (vocabulary only; the builder does not draw them yet) and furs ───
 
 export const STAINS = ['sanguine', 'murrey', 'tenne'] as const;
 export type Stain = (typeof STAINS)[number];
 
-export const FURS = ['ermine', 'erminois', 'counter-ermine', 'pean', 'vair', 'counter-vair', 'vair-en-point', 'potent', 'counter-potent'] as const;
+export const FURS = [
+  'ermine', 'erminois', 'counter-ermine', 'pean', 'vair', 'counter-vair', 'vair-en-pointe', 'potent', 'counter-potent', 'potent-en-pointe',
+] as const;
 export type Fur = (typeof FURS)[number];
 
 /** Blazon words, lower case. */
 export const STAIN_NAME: Record<Stain, string> = { sanguine: 'sanguine', murrey: 'murrey', tenne: 'tenne' };
 export const FUR_NAME: Record<Fur, string> = {
   ermine: 'ermine', erminois: 'erminois', 'counter-ermine': 'counter-ermine', pean: 'pean', vair: 'vair',
-  'counter-vair': 'counter-vair', 'vair-en-point': 'vair en point', potent: 'potent', 'counter-potent': 'counter-potent',
+  'counter-vair': 'counter-vair', 'vair-en-pointe': 'vair en pointe', potent: 'potent', 'counter-potent': 'counter-potent', 'potent-en-pointe': 'potent en pointe',
+};
+
+/**
+ * What a fur is made of. Ermine's family is a ground sprinkled with spots (a metal or colour "ermined" with the other
+ * kind, SENA App F4); the vair and potent families are two tinctures laid in rows of bells or crutch-heads, set `plain`
+ * (each row against the one before), `counter` (like against like) or `en-pointe` (in columns).
+ */
+export interface FurSpec {
+  family: 'ermine' | 'vair' | 'potent';
+  layout: 'plain' | 'counter' | 'en-pointe';
+  /** The ground (ermine family) or the first tincture (vair and potent) when the fur names no other colours. */
+  ground: Tincture;
+  /** The spots (ermine family) or the second tincture (vair and potent). */
+  spots: Tincture;
+}
+
+export const FUR_SPEC: Record<Fur, FurSpec> = {
+  ermine: { family: 'ermine', layout: 'plain', ground: 'argent', spots: 'sable' },
+  erminois: { family: 'ermine', layout: 'plain', ground: 'or', spots: 'sable' },
+  'counter-ermine': { family: 'ermine', layout: 'plain', ground: 'sable', spots: 'argent' },
+  pean: { family: 'ermine', layout: 'plain', ground: 'sable', spots: 'or' },
+  vair: { family: 'vair', layout: 'plain', ground: 'argent', spots: 'azure' },
+  'counter-vair': { family: 'vair', layout: 'counter', ground: 'argent', spots: 'azure' },
+  'vair-en-pointe': { family: 'vair', layout: 'en-pointe', ground: 'argent', spots: 'azure' },
+  potent: { family: 'potent', layout: 'plain', ground: 'argent', spots: 'azure' },
+  'counter-potent': { family: 'potent', layout: 'counter', ground: 'argent', spots: 'azure' },
+  'potent-en-pointe': { family: 'potent', layout: 'en-pointe', ground: 'argent', spots: 'azure' },
 };
 
 export function isStain(value: unknown): value is Stain {

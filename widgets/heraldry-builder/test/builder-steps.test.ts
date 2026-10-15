@@ -7,8 +7,8 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setOrdinary, setGroupTincture, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { addLayer, layerChoices, layersIn, removeLayer, splitGroup, type Design } from '../src/lib/heraldry';
+import { setCharge, setDivision, setOrdinary, setGroupTincture, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { addLayer, layerChoices, layersIn, removeLayer, setFur, splitGroup, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -237,5 +237,31 @@ describe('the split into two colours', () => {
       expect(got, id).toContain(id);
     }
     expect(got).not.toContain('ordinary-tincture-split');
+  });
+});
+
+describe('the fur picker', () => {
+  it('is offered below the background colours and the colours of a band, closed until a fur is chosen', () => {
+    const background = renderToString(h(FieldStep, { ...base, design: DEFAULT_DESIGN, shape: 'heater' }));
+    for (const id of ['field-1-fur', 'field-1-fur-ermine', 'field-1-fur-vair-en-pointe', 'field-1-fur-potenty', 'swatch-field1-azure']) expect(background, id).toContain(id);
+    expect(background).not.toContain('field-1-fur-colour-1');
+    expect(background).not.toMatch(/<details[^>]*data-testid="field-1-fur"[^>]*open/);
+    const band = ordinary(setOrdinary(DEFAULT_DESIGN, 'fess'));
+    expect(band).toContain('ordinary-tincture-fur-ermine');
+  });
+
+  it('opens with the fur chosen and a picker for each of its two colours', () => {
+    const d = setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, 'ermine');
+    const html = renderToString(h(FieldStep, { ...base, design: d, shape: 'heater' }));
+    expect(html).toMatch(/<details[^>]*data-testid="field-1-fur"[^>]*open/);
+    for (const id of ['field-1-fur-colour-1', 'field-1-fur-colour-2', 'swatch-field1-fur-1-argent', 'swatch-field1-fur-2-sable']) expect(html, id).toContain(id);
+    // The plain tinctures stay offered; none is chosen while a fur is.
+    expect(html).toContain('swatch-field1-gules');
+    expect(html).toMatch(/data-testid="field-1-fur-ermine"[^>]*><button[^>]*aria-checked="true"/);
+  });
+
+  it('gives each part of a divided background its own fur picker', () => {
+    const html = renderToString(h(FieldStep, { ...base, design: setDivision(DEFAULT_DESIGN, 'per-pale'), shape: 'heater' }));
+    for (const id of ['field-1-fur', 'field-2-fur']) expect(ids(html), id).toContain(id);
   });
 });

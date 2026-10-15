@@ -8,9 +8,9 @@
 import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
 import { PLAIN_LINES, canonical, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture } from './design';
 import { ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryType } from './ordinaries';
-import type { SecondaryPosition } from './arrangement';
+import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
-  assembleParts, fitGroup, firstAllowed, groupTinctureChoices, layoutReason, partsOf, simpleParts, withTincture, type Choice,
+  assembleParts, fitGroup, firstAllowed, groupTinctureChoices, layoutReason, partsOf, simpleParts, withLayout, withTincture, type Choice,
 } from './options';
 import { PLACE_KEYS, pathOfPlace, type PlaceKey } from './places';
 import { structuralIssues } from './structure';
@@ -166,12 +166,19 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       const central = ordinary?.item.k === 'ordinary' && ORDINARY_KIND[ordinary.item.type] === 'central' ? ordinary.item.type : null;
       if (central) return { reason: `Pictures are set around the ${ORDINARY_NAME[central]} — remove the band to set pictures around a picture instead.` };
       if (parts.picture?.placement !== 'field') return { reason: 'Pick a picture on the background first — more pictures can then be set around it.' };
-      // Three, two and one: Table 7's one layout that needn't be stated.
-      const placed = refitLayers(assembleParts(d, { ...partsOf(d), around: { ...newCharge(startingCharge(d), 'secondary'), count: 3 } }));
-      const path = pathOfPlace(placed, key);
-      if (!path) return { reason: "Pictures can't be set around the picture here." };
-      const reason = layoutReason(placed, path, true) ?? firstProblem(placed);
-      return reason === null ? { design: withFirstTincture(placed, path)! } : { reason };
+      // Three, two and one first: Table 7's one layout that needn't be stated. Where no tincture would work for that (on a field of metal and colour
+      // alike) two, set one way or another, may.
+      let first: string | null = null;
+      for (const [count, layout] of [[3, null] as const, ...aroundLayouts(2, 'none').map((l) => [2, l] as const)]) {
+        const grown = refitLayers(assembleParts(d, { ...partsOf(d), around: { ...newCharge(startingCharge(d), 'secondary'), count } }));
+        const path = pathOfPlace(grown, key);
+        if (!path) return { reason: "Pictures can't be set around the picture here." };
+        const placed = layout ? withLayout(grown, path, layoutKey(layout)) : grown;
+        const reason = layoutReason(placed, path, true) ?? firstProblem(placed);
+        if (reason === null) return { design: withFirstTincture(placed, path)! };
+        first ??= reason;
+      }
+      return { reason: first! };
     }
     case 'on-ordinary': {
       if (!ordinary) return { reason: 'Add a band or shape first — pictures can only sit on one once there is one.' };

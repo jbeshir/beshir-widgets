@@ -3,9 +3,9 @@
 
 import { TINCTURE_CODE, type Tincture } from './tinctures';
 import { asParty, notSupported, type Design, type Group, type Paint, type PartyPaint } from './design';
-import { counterchangedOrdinaryParts, counterchangedSlotParts, fieldRegions, ordinaryCentre, partitionRegions, type CounterchangePart, type Slot } from './geometry';
+import { counterchangedOrdinaryParts, counterchangedSlotParts, fieldRegions, ordinaryCentre, partitionRegions, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
 import type { OrdinaryType } from './ordinaries';
-import type { SolidColour, PatternSpec } from './patterns';
+import { furPattern, type SolidColour, type PatternSpec } from './patterns';
 import type { FieldShape } from './shape';
 
 export type Fill =
@@ -22,8 +22,18 @@ export const solidFill = (t: Tincture): Fill => ({ k: 'solid', colour: { k: 'tin
 /** The fill that paints nothing: only the outline of the element shows. */
 const NO_FILL: Fill = { k: 'split', parts: [] };
 
-const counterchangedFill = (parts: readonly CounterchangePart[]): Fill =>
-  ({ k: 'split', parts: parts.map((p) => ({ clip: p.d, fill: solidFill(p.tincture) })) });
+/** How big a fur is drawn (see `furPattern`): the field's motifs are the largest, a band's smaller, and a charge's follow its size within limits. */
+const FIELD_FUR_SCALE = 0.5;
+const ORDINARY_FUR_SCALE = 0.35;
+
+/** A charge's fur scale in its own 100-unit drawing space, where it is 0.5 shield units per unit at most and 0.15 at least. */
+const chargeFurScale = (size: number): number => Math.min(0.5, Math.max(0.15, 0.008 * size)) * (100 / size);
+
+/** The fill of a paint that is one thing over its place: a tincture, or a fur drawn at `scale`. */
+const paintFill = (p: FieldPaint, scale: number): Fill => (p.k === 'tincture' ? solidFill(p.t) : { k: 'pattern', spec: furPattern(p, scale) });
+
+const counterchangedFill = (parts: readonly CounterchangePart[], scale: number): Fill =>
+  ({ k: 'split', parts: parts.map((p) => ({ clip: p.d, fill: paintFill(p.paint, scale) })) });
 
 /** A party paint split through `centre`, its lines turned `turn` degrees: each part's tincture within its side of the division. */
 const partyFill = (p: PartyPaint, centre: { x: number; y: number }, turn: number): Fill =>
@@ -58,15 +68,15 @@ export function fillCode(fill: Fill): string {
 /** The field's fill in a shape: its tincture, or each part of a divided field in its partition region. */
 export function fieldFill(field: Paint, shape: FieldShape): Fill {
   const regions = fieldRegions(field, shape);
-  return regions.length === 1 ? solidFill(regions[0].tincture) : { k: 'split', parts: regions.map((r) => ({ clip: r.d, fill: solidFill(r.tincture) })) };
+  return regions.length === 1 ? paintFill(regions[0].paint, FIELD_FUR_SCALE) : { k: 'split', parts: regions.map((r) => ({ clip: r.d, fill: paintFill(r.paint, FIELD_FUR_SCALE) })) };
 }
 
 /** An ordinary's fill: nothing for a counterchanged one that can't be (on a plain field, or on a host). */
 export function ordinaryFill(d: Design, group: Group, host: Group | null, type: OrdinaryType, shape: FieldShape): Fill {
   switch (group.paint.k) {
-    case 'tincture': return solidFill(group.paint.t);
+    case 'tincture': case 'fur': return paintFill(group.paint, ORDINARY_FUR_SCALE);
     case 'counterchanged':
-      return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, type, shape)) : NO_FILL;
+      return d.kind === 'arms' && !host ? counterchangedFill(counterchangedOrdinaryParts(d.field, type, shape), ORDINARY_FUR_SCALE) : NO_FILL;
     case 'divided': return partyFill(partyOf(group.paint), ordinaryCentre(type, shape), 0);
     default: return notSupported({ category: 'tincture', detail: group.paint.k });
   }
@@ -79,14 +89,14 @@ export function ordinaryFill(d: Design, group: Group, host: Group | null, type: 
 export function chargeFills(d: Design, group: Group, host: Group | null, slots: readonly Slot[], shape: FieldShape): SlotFill[] {
   const all = slots.map((_, i) => i);
   switch (group.paint.k) {
-    case 'tincture': return [{ fill: solidFill(group.paint.t), slots: all }];
+    case 'tincture': case 'fur': return [{ fill: paintFill(group.paint, slots.length ? chargeFurScale(slots[0].size) : ORDINARY_FUR_SCALE), slots: all }];
     case 'counterchanged': {
       if (d.kind !== 'arms' || host) return [];
       const parts = slots.map((s) => counterchangedSlotParts(d.field, s, shape));
       return ([0, 1] as const).flatMap((region) => {
         const on = all.filter((i) => parts[i].some((p) => p.region === region));
         const part = on.length ? parts[on[0]].find((p) => p.region === region) : undefined;
-        return part ? [{ fill: counterchangedFill([part]), slots: on }] : [];
+        return part ? [{ fill: counterchangedFill([part], chargeFurScale(slots[on[0]].size)), slots: on }] : [];
       });
     }
     case 'divided': {

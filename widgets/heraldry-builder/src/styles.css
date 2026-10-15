@@ -669,6 +669,11 @@ button, input, select, textarea {
 .availability-error { border-left: 4px solid var(--error); background: var(--error-bg); }
 .availability-help { color: var(--fg-secondary); font-size: 14px; }
 .taken-verdict { font-size: 17px; }
+.fur-picker { margin-top: 8px; }
+.fur-picker summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; }
+.fur-picker summary::before { content: '+'; width: 1em; font-weight: 700; }
+.fur-picker[open] summary::before { content: '−'; }
+.fur-picker .segment svg { flex: none; }
 .sena-rule summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; }
 .sena-rule summary::before { content: '+'; width: 1em; font-weight: 700; }
 .sena-rule[open] summary::before { content: '−'; }

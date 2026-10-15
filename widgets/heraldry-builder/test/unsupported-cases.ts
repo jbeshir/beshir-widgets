@@ -7,9 +7,9 @@ const rose = (extra: object = {}) => group(charge('rose'), 'gules', extra);
 /** One design per row of the plan's support table (§4): what it is, the input, and the gap it is filed under. */
 export const UNSUPPORTED_CASES: Array<[string, unknown, string]> = [
   ['a badge', { v: 2, kind: 'badge', groups: [rose()] }, 'fieldless:badge'],
-  ['an ermine field', arms({ k: 'fur', fur: 'ermine' }, lion), 'fur:ermine'],
+  ['a counter-vair field in colours of its own', arms({ k: 'fur', fur: 'counter-vair', colours: ['or', 'gules'] }, lion), 'fur:counter-vair-colours'],
   ['a murrey field', arms({ k: 'stain', stain: 'murrey' }, lion), 'tincture:murrey'],
-  ['a vair charge', arms('azure', group(charge('lion'), { k: 'fur', fur: 'vair' })), 'fur:vair'],
+  ['a split charge with a fur part', arms('azure', group(charge('lion'), { k: 'divided', division: 'per-pale', parts: [{ k: 'fur', fur: 'ermine' }, 'or'] })), 'fur:party'],
   ['a tenne charge', arms('azure', group(charge('lion'), { k: 'stain', stain: 'tenne' })), 'tincture:tenne'],
   ['a charge proper', arms('azure', group(charge('lion'), 'proper')), 'proper:lion'],
   ['an ordinary proper', arms('azure', group(ordinary('bend'), 'proper')), 'proper:bend'],

@@ -3,7 +3,8 @@
 import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
-import { asParty, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
+import { furGloss } from './fur';
+import { asParty, fieldParts, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
 import type { Division } from './divisions';
 import { type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type HalfPosition, type Layout } from './arrangement';
@@ -40,10 +41,16 @@ function divisionGloss(division: Division, c1: string, c2: string): string {
   }
 }
 
+/** A part of the field in plain words: its colour, or its fur. */
+function partGloss(p: Paint): string {
+  return p.k === 'tincture' ? TINCTURE_GLOSS[p.t] : p.k === 'fur' ? furGloss(p) : notSupported({ category: 'field-treatment', detail: p.k });
+}
+
 function fieldGloss(d: Design): string {
   if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
-  const [c1, c2] = fieldTinctures(d).map((t) => TINCTURE_GLOSS[t]);
+  const [c1, c2] = fieldParts(d).map(partGloss);
   if (d.field.k === 'tincture') return `${article(c1) === 'an' ? 'An' : 'A'} ${c1} shield`;
+  if (d.field.k === 'fur') return `A shield covered in ${c1}`;
   if (d.field.k !== 'divided') return notSupported({ category: 'field-treatment', detail: d.field.k });
   return `A shield ${divisionGloss(d.field.division, c1, c2)}`;
 }
@@ -65,7 +72,7 @@ function paintClause(d: Design, p: Paint): string | null {
 
 /** A plain colour word for a group's paint, or null for a paint with a clause of its own (see `paintClause`). */
 function colourOf(p: Paint): string | null {
-  if (p.k === 'tincture') return TINCTURE_GLOSS[p.t];
+  if (p.k === 'tincture' || p.k === 'fur') return partGloss(p);
   return p.k === 'counterchanged' || asParty(p) ? null : notSupported({ category: 'tincture', detail: p.k });
 }
 

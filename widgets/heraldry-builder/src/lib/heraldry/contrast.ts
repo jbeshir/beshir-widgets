@@ -25,12 +25,16 @@ export const GROUND_CLASS_SHARE = 2 / 3;
 export const groundTinctures = (ground: Ground): Tincture[] => ground.flatMap((g) => g.surface.bases);
 
 /**
- * Why `top` fails on `ground`, or null when it contrasts. It may never touch a tincture of its own (SENA A3B4b), and fails
- * when its own class covers GROUND_CLASS_SHARE of the ground or more (A3B1, A3B4a). A neutral top has no class to be alike in,
- * and neutral parts of a ground count toward neither class.
+ * Why `top` fails on `ground`, or null when it contrasts. Where a neutral surface is on either side (or the two are of one class),
+ * it may never touch a tincture of its own (SENA A3B4b; GoT "Neutral Tincture"); and it fails when its own class covers
+ * GROUND_CLASS_SHARE of the ground or more (A3B1, A3B4a). A metal and a colour contrast whatever they are made of: sable spots
+ * on ermine don't make a sable charge on it "the same tincture" (RULES A.10 goodContrast; the College registers "Sable, a lion
+ * ermine" and "Counter-ermine, a bend ermine"). A neutral top has no class to be alike in, and neutral parts of a ground count
+ * toward neither class.
  */
 export function groundFailure(top: Surface, ground: Ground): ContrastFailure | null {
-  if (ground.some((g) => sharesTincture(top, g.surface))) return 'same';
+  const sameKind = (g: Surface) => top.cls === g.cls || top.cls === 'neutral' || g.cls === 'neutral';
+  if (ground.some((g) => sameKind(g.surface) && sharesTincture(top, g.surface))) return 'same';
   if (top.cls === 'neutral') return null;
   const alike = ground.reduce((sum, g) => sum + (g.surface.cls === top.cls ? g.share : 0), 0);
   if (alike < GROUND_CLASS_SHARE - 1e-9) return null;

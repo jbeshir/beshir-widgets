@@ -3,11 +3,10 @@
 // DCs. Each difference carries the SENA rule it comes from; `explainDifferences` words it for the
 // Availability UI. Same code on client (instant feedback) and Worker (authoritative).
 
-import { TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
-  asParty, fieldTinctures, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
+  asParty, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME } from './divisions';
@@ -16,7 +15,7 @@ import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
 import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
-import { sameSurface, type Surface } from './surface';
+import { fieldSurfaces, sameSurface, type Surface } from './surface';
 
 export type ChangeKind = 'sc' | 'dc';
 
@@ -231,16 +230,17 @@ const change = (attr: DiffAttr, kind: ChangeKind, rule: SenaRule, group: GroupRe
 function partition(d: Design): string {
   if (d.kind === 'badge') return notSupported({ category: 'fieldless', detail: 'badge' });
   const f = d.field;
-  return f.k === 'divided' ? f.division : f.k === 'tincture' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
+  return f.k === 'divided' ? f.division : f.k === 'tincture' || f.k === 'fur' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
 }
 
 function fieldChanges(a: Design, b: Design): Diff[] {
   if (partition(a) !== partition(b)) return [change('field-partition', 'sc', 'A5F1', null)];
-  const ta = fieldTinctures(a), tb = fieldTinctures(b);
-  if (ta.join() === tb.join()) return [];
-  // A5F2: for field-primary armory a change of every part to a tincture the other field lacks is substantial.
+  const ta = fieldSurfaces(a), tb = fieldSurfaces(b);
+  const has = (xs: readonly Surface[], s: Surface) => xs.some((x) => sameSurface(x, s));
+  if (ta.length === tb.length && ta.every((s, i) => sameSurface(s, tb[i]))) return [];
+  // A5F2: for field-primary armory a change of every part to a surface (a tincture or fur) the other field lacks is substantial.
   const substantial = isFieldPrimary(a) && isFieldPrimary(b)
-    && ta.every((t, i) => t !== tb[i]) && ta.some((t) => !tb.includes(t)) && tb.some((t) => !ta.includes(t));
+    && ta.every((s, i) => !sameSurface(s, tb[i])) && ta.some((s) => !has(tb, s)) && tb.some((s) => !has(ta, s));
   return [substantial ? change('field-tincture', 'sc', 'A5F2', null) : change('field-tincture', 'dc', 'A5G1a', null)];
 }
 
@@ -472,7 +472,7 @@ export function explainDifferences(a: Design, b: Design, diffs: readonly Diff[] 
     const pair = (label: string, x: string, y: string) => `${label} (${x} ↔ ${y})`;
     const itemOrNone = (g: Group | null) => (g ? (g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural) : 'none');
     const tinctureWord = (g: Group) => (g.paint.k === 'counterchanged' ? 'counterchanged' : paintName(g.paint));
-    const fieldWord = (d: Design) => fieldTinctures(d).map((t) => TINCTURE_NAME[t]).join('/');
+    const fieldWord = (d: Design) => fieldParts(d).map(paintName).join('/');
     const postureWord = (g: Group) => { const i = g.item; return i.k === 'charge' && i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
 
     let text: string;

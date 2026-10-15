@@ -12,8 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, POSTURES, postureTerm } from '../../src/lib/heraldry';
-import { TINCTURES } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, FURS, FUR_NAME, POSTURES, TINCTURES, postureTerm } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -21,15 +20,22 @@ export interface NormalisationRule {
   apply: (text: string) => string;
 }
 
-const TINCT = `(?:${TINCTURES.join('|')}|counterchanged)`;
+const COLOUR = `(?:${TINCTURES.join('|')})`;
+
 const NUMBER = '(?:a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)';
 const ORDINARY = '(?:fess|pale|bend sinister|bend|chevron|cross|saltire|pile)';
 
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
+/** A fur as the text spells it once its synonyms are settled: a named fur, "argent ermined gules", "vairy Or and gules". */
+const FUR = `(?:${COLOUR} ermined ${COLOUR}|(?:vairy|potenty) ${COLOUR} and ${COLOUR}|${alt(FURS.map((f) => FUR_NAME[f]))})`;
+const TINCT = `(?:${FUR}|${COLOUR}|counterchanged)`;
 const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]));
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
 /** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor". */
 const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?(?: in splendor)?`;
+
+/** The named ermine-family furs by their ground and spots: the tinctures "ermined" spells them with. */
+const FOLDED_ERMINES: Record<string, string> = { 'argent sable': 'ermine', 'or sable': 'erminois', 'sable argent': 'counter-ermine', 'sable or': 'pean' };
 
 export const NORMALISATION_RULES: readonly NormalisationRule[] = [
   {
@@ -60,6 +66,23 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\bgray\b/g, 'grey')
       .replace(/\bcog-wheels?\b/g, (m) => m.replace('-', ''))
       .replace(/\b(one|two|three|four|five|six|seven|eight), (one|two|three|four|five|six|seven|eight), and (one|two|three|four|five|six|seven|eight)\b/g, '$1, $2 and $3'),
+  },
+  {
+    // 3a. Furs the SCA spells in more than one way. "Ermines" is counter-ermine (GoT: the plural is not used for the charge-free fur); the
+    //     ermine family "X ermined Y" names the fur whose ground and spots they are (argent ermined sable is ermine); "vairy argent and
+    //     azure" and "potenty argent and azure" are vair and potent, whose tinctures those are; potent's two tinctures are one set either
+    //     way round (Prec #FUR, 11/2006), so they are put in the palette's order; "en point" is "en pointe".
+    id: 'fur-synonyms',
+    description: 'ermines → counter-ermine; argent/Or ermined sable and sable ermined argent/Or → ermine, erminois, counter-ermine, pean; vairy/potenty argent and azure → vair/potent; potenty A and B in palette order; en point → en pointe.',
+    apply: (s) => s
+      .replace(/\bermines\b/g, 'counter-ermine')
+      .replace(/\b(argent|or|sable) ermined (sable|argent|or)\b/g, (m, a: string, b: string) => FOLDED_ERMINES[`${a} ${b}`] ?? m)
+      .replace(/\bvairy argent and azure\b/g, 'vair')
+      .replace(new RegExp(`\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
+        const [x, y] = TINCTURES.indexOf(a as never) <= TINCTURES.indexOf(b as never) ? [a, b] : [b, a];
+        return x === 'argent' && y === 'azure' ? 'potent' : `potenty ${x} and ${y}`;
+      })
+      .replace(/\b(vair|potent) en point\b/g, '$1 en pointe'),
   },
   {
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a

@@ -2,8 +2,9 @@
 // or a charge and, in `charged`, the group sitting on it. Tree helpers, canonical form and issue types.
 // Parsing untrusted input is resolve.ts; what the builder draws is support.ts.
 
-import { TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
+import { FUR_SPEC, TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
 import type { Division, Treatment, Variation } from './divisions';
+import { canonicalFur, furColours } from './fur';
 import type { Line, OrdinaryMod, OrdinaryType } from './ordinaries';
 import {
   CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
@@ -176,6 +177,32 @@ export function fieldTinctures(d: Design): Tincture[] {
   return parts.flatMap((p) => (p.k === 'tincture' ? [p.t] : []));
 }
 
+/** The parts of the field in part order: the field itself when it is not divided; none for a fieldless badge. */
+export function fieldParts(d: Design): Paint[] {
+  if (d.kind !== 'arms') return [];
+  return d.field.k === 'divided' ? d.field.parts : [d.field];
+}
+
+/** The plain tinctures a paint is made of, in order: a tincture's own, a fur's two colours, a divided paint's parts'. */
+export function paintTinctures(p: Paint): Tincture[] {
+  switch (p.k) {
+    case 'tincture': return [p.t];
+    case 'fur': return [...furColours(p)];
+    case 'divided': case 'variation': return p.parts.flatMap(paintTinctures);
+    default: return [];
+  }
+}
+
+/**
+ * The tinctures that make up a paint to the eye, which neighbouring parts of the field may not share (SENA A3B3a; Prec #FUR,
+ * Anastasia von der Wilgenhalle 11/2006: ermine may not lie next to argent, but its spots, sable, are small: "Per fess ermine and
+ * sable" is registered, as is "Per pale pean and erminois"). A fur of the ermine family is its ground; the others are both of theirs.
+ */
+export function bodyTinctures(p: Paint): Tincture[] {
+  if (p.k === 'fur' && FUR_SPEC[p.fur].family === 'ermine') return [furColours(p)[0]];
+  return paintTinctures(p);
+}
+
 export function itemKey(item: Item): string {
   return item.k === 'ordinary' ? `ordinary:${item.type}` : `charge:${item.charge}`;
 }
@@ -223,7 +250,7 @@ export function canonicalPaint(p: Paint): Paint {
   switch (p.k) {
     case 'tincture': return { k: 'tincture', t: p.t };
     case 'stain': return { k: 'stain', stain: p.stain };
-    case 'fur': return { k: 'fur', fur: p.fur, colours: p.colours && [p.colours[0], p.colours[1]] };
+    case 'fur': return canonicalFur(p);
     case 'divided':
       return { k: 'divided', division: p.division, lines: canonicalLines(p.lines), pieces: p.pieces, parts: p.parts.map(canonicalPaint) };
     case 'variation':
@@ -317,8 +344,8 @@ export interface Gap { category: GapCategory; detail: string }
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, a band or picture divided the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
-export type StructureRule = 'field' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall';
+/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a band or picture divided the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4. */
+export type StructureRule = 'field' | 'fur' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)

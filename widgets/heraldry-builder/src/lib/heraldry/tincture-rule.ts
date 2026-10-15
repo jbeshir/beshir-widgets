@@ -7,9 +7,10 @@ import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, type ChargeId } from './charges';
 import { contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground } from './contrast';
-import { surfaceOf, tinctureSurface, type Surface } from './surface';
+import { fieldSurfaces, surfaceOf, tinctureSurface, type Surface } from './surface';
+import { furName } from './fur';
 import {
-  asParty, fieldTinctures, groupAt, hostOf, itemName, notSupported, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
+  asParty, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint,
 } from './design';
 import {
   CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPart, inFirstPartTurned, ordinaryCentre, ordinarySamplePoints, shapeFrame, slotColumn, slotRow, type Pt, type Point, type Slot,
@@ -36,6 +37,9 @@ interface Samples { key: string; points: () => readonly Pt[] }
 
 const slotSamples = (s: Slot): Samples => ({ key: `${s.x},${s.y},${s.size}`, points: () => groundPoints(s) });
 
+/** Whether a paint is a tincture or a fur: one thing over the part it fills. */
+const isOneThing = (p: Paint): boolean => p.k === 'tincture' || p.k === 'fur';
+
 /** The share of each sample set in the first part of each division: it depends on the lines alone, not on the tinctures. */
 const firstShares = new Map<string, number>();
 
@@ -55,9 +59,9 @@ function firstShare(division: Division, samples: Samples): number {
 function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[]): Ground {
   const counts = new Map<Surface, number>();
   const [a, b] = field.k === 'divided' ? field.parts : [];
-  if (field.k === 'divided' && field.parts.length === 2 && a.k === 'tincture' && b.k === 'tincture' && DRAWN_DIVISIONS.includes(field.division)) {
+  if (field.k === 'divided' && field.parts.length === 2 && isOneThing(a) && isOneThing(b) && DRAWN_DIVISIONS.includes(field.division)) {
     const first = firstShare(field.division, samples);
-    const [sa, sb] = [tinctureSurface(a.t), tinctureSurface(b.t)];
+    const [sa, sb] = [surfaceOf(a), surfaceOf(b)];
     counts.set(sa, first);
     counts.set(sb, (counts.get(sb) ?? 0) + 1 - first);
   } else {
@@ -109,7 +113,7 @@ function judgedSlot(group: Group, slot: Slot): Slot {
 export function groundShares(d: Design, path: GroupPath): Ground[] {
   if (d.kind !== 'arms') return notSupported({ category: 'fieldless', detail: 'badge' });
   const group = groupAt(d, path), host = hostOf(d, path);
-  const parts = fieldTinctures(d).map(tinctureSurface);
+  const parts = fieldSurfaces(d);
   if (host) {
     if (group.item.k !== 'charge') return notSupported({ category: 'placement', detail: 'tertiary-ordinary' });
     const hp = host.paint;
@@ -140,7 +144,7 @@ function partGrounds(d: Design, path: GroupPath): Ground[][] | null {
   if (d.kind !== 'arms') return null;
   const group = groupAt(d, path), party = asParty(group.paint);
   if (!party || hostOf(d, path)) return null;
-  const surfaces = fieldTinctures(d).map(tinctureSurface);
+  const surfaces = fieldSurfaces(d);
   const split = (samples: Samples, centre: Point, turn: number): Ground[] => ([0, 1] as const).map((k) => {
     const points = samples.points().filter(([x, y]) => inFirstPartTurned(party.division, centre, turn, x, y) === (k === 0));
     return points.length === 0 ? [] : groundAt(d.field, { key: `${samples.key}@${centre.x},${centre.y}/${turn}/${party.division}/${k}`, points: () => points }, surfaces);
@@ -202,6 +206,9 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
     return `The ${nounOf(group)} ${lie} on the ${itemName(host.item)}, not on the field — counterchanged charges on a band or charge aren't available in this builder.`;
   }
   const pair = fieldPair(d);
+  if (pair === null && d.kind === 'arms' && d.field.k === 'divided') {
+    return `Counterchanged swaps the two tinctures of a field divided in two, and a fur on the field can't be swapped in this builder.`;
+  }
   if (pair === null) {
     const each = group.item.k === 'ordinary' ? thing : 'each charge';
     return `Counterchanged needs a divided field: ${each} takes the field's other tincture, and a plain field has only one.`;
@@ -274,10 +281,11 @@ export function describeSlots(slots: readonly Slot[], idx: readonly number[], pa
   return idx.length === 1 ? `the ${labels[0]} ${T}${meta.name}` : `the ${joinAnd(labels)} ${T}${meta.plural}`;
 }
 
-/** A paint in a message: a tincture's name, 'Counterchanged', or a party as written ("Per pale Azure and Or"). */
+/** A paint in a message: a tincture's or fur's name, 'Counterchanged', or a party as written ("Per pale Azure and Or"). */
 export function paintName(p: Paint): string {
   const party = asParty(p);
   if (party) return `${capitalise(DIVISION_NAME[party.division])} ${party.parts.map((x) => TINCTURE_NAME[x.t]).join(' and ')}`;
+  if (p.k === 'fur') return capitalise(furName(p));
   return p.k === 'tincture' ? TINCTURE_NAME[p.t] : 'Counterchanged';
 }
 
@@ -289,7 +297,12 @@ function ordinaryMessage(d: Design, g: Group, f: ContrastFailure, ground: Ground
   }
   const contacts = groundTinctures(ground);
   if (d.kind === 'arms' && d.field.k === 'tincture') return `${T} ${name} on ${TINCTURE_NAME[contacts[0]]} field: ${FAILURE_TEXT[f]}`;
-  if (f === 'same') return `${T} ${name} lies on the ${TINCTURE_NAME[contacts.find((t) => surfaceOf(g.paint).bases.includes(t)) ?? contacts[0]]} part of the field: same tincture`;
+  if (d.kind === 'arms' && d.field.k === 'fur') return `${T} ${name} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`;
+  if (f === 'same') {
+    const shared = contacts.find((t) => surfaceOf(g.paint).bases.includes(t)) ?? contacts[0];
+    const part = fieldParts(d).find((p) => paintTinctures(p).includes(shared));
+    return `${T} ${name} lies on the ${part ? paintName(part) : TINCTURE_NAME[shared]} part of the field: same tincture`;
+  }
   const top = g.paint.k === 'tincture' ? g.paint.t : null;
   if (contacts.length === 2 && twoClassHint(f, contacts, 'ordinary')) {
     return `${T} ${name} on ${TINCTURE_NAME[contacts[0]]} and ${TINCTURE_NAME[contacts[1]]} field: ${FAILURE_TEXT[f]}${twoClassHint(f, contacts, 'ordinary')}`;
@@ -337,9 +350,9 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
     const f = failures.find((x) => x !== null);
     return f ? [issue(`${T} ${noun} on the ${paintName(host.paint)} ${itemName(host.item)}: ${FAILURE_TEXT[f]}`, all)] : [];
   }
-  if (d.kind === 'arms' && d.field.k === 'tincture') {
+  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'fur')) {
     const f = failures.find((x) => x !== null);
-    return f ? [issue(`${T} ${noun} on ${TINCTURE_NAME[d.field.t]} field: ${FAILURE_TEXT[f]}`, all)] : [];
+    return f ? [issue(`${T} ${noun} on ${paintName(d.field)} field: ${FAILURE_TEXT[f]}`, all)] : [];
   }
   if (g.paint.k === 'tincture' && pair && forcedIntoOnePart(d, path, failures, pair)) {
     const other = TINCTURE_NAME[pair[pair.indexOf(g.paint.t) === 0 ? 1 : 0]];

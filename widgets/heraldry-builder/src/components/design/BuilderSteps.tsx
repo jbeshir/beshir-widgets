@@ -7,11 +7,11 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, asParty, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
-  TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, fieldTinctures, groupAt,
+  CATEGORY_LABEL, asParty, fieldParts, furName, CHARGES, CHARGE_CATEGORIES, COUNTS, DIVISION_LABEL, DIVISION_PART_LABEL, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_LABEL,
+  TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   groupTinctureOf, isBlocked, layoutChoices, layoutKey, layoutLabel, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
-  type LayoutChoice, type LayoutKey, type OrdinaryType, type PlainTerm, type Posture,
+  type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PlainTerm, type Posture, type Tincture,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
 import {
@@ -22,6 +22,7 @@ import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
 import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
+import { FurPicker } from './FurPicker';
 import { PaintPicker } from './PaintPicker';
 import { TincturePicker } from './TincturePicker';
 
@@ -126,20 +127,29 @@ export function colourWords(design: Design, path: GroupPath): string {
   const paint = groupAt(design, path).paint;
   const party = asParty(paint);
   if (party) return `split ${party.parts.map((p) => lower(TINCTURE_LABEL[p.t].plain)).join(' and ')}`;
+  if (paint.k === 'fur') return furName(paint);
   return lower(TINCTURE_LABEL[groupTinctureOf(paint) ?? 'or'].plain);
 }
 
+/** A part of the background in plain words: its colour, or its fur. */
+const partWords = (p: Paint): string => (p.k === 'fur' ? furName(p) : lower(TINCTURE_LABEL[p.k === 'tincture' ? p.t : 'or'].plain));
+
+/** The tincture of part `i` of the background, or null when it is a fur. */
+const partTincture = (design: Design, i: 0 | 1): Tincture | null => {
+  const p = fieldParts(design)[i];
+  return p?.k === 'tincture' ? p.t : null;
+};
+
 function fieldSummary(design: Design): string {
-  const [first, second] = fieldTinctures(design);
+  const [first, second] = fieldParts(design);
   if (design.kind === 'arms' && design.field.k === 'divided') {
-    return `${DIVISION_LABEL[design.field.division].plain}: ${lower(TINCTURE_LABEL[first].plain)} and ${lower(TINCTURE_LABEL[second].plain)}`;
+    return `${DIVISION_LABEL[design.field.division].plain}: ${partWords(first)} and ${partWords(second)}`;
   }
-  return `${TINCTURE_LABEL[first].plain}, plain`;
+  return `${capitalise(partWords(first))}, plain`;
 }
 
 export function FieldStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {
   const division = design.kind === 'arms' && design.field.k === 'divided' ? design.field.division : null;
-  const [first, second] = fieldTinctures(design);
   return (
     <Step n={1} title="Background" term="field" hint="One colour, or split in two." summary={fieldSummary(design)} issues={issues} accordion={accordion} testid="step-field">
       <RadioGroup label="Field division" class="icon-grid icon-grid-field" testid="field-division-select">
@@ -159,19 +169,21 @@ export function FieldStep({ design, shape, onChange, issues, accordion }: Shaped
         testid="field-tincture-1"
         legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'}
         choices={fieldTinctureChoices(design, 0)}
-        value={first}
+        value={partTincture(design, 0)}
         onChange={(t) => onChange(setFieldTincture(design, 0, t))}
       />
+      <FurPicker design={design} target={{ k: 'field', part: 0 }} group="field1" testid="field-1" legend={division ? `${DIVISION_PART_LABEL[division][0]}: fur` : 'Background fur'} onChange={onChange} />
       {division && (
         <TincturePicker
           group="field2"
           testid="field-tincture-2"
           legend={DIVISION_PART_LABEL[division][1]}
           choices={fieldTinctureChoices(design, 1)}
-          value={second}
+          value={partTincture(design, 1)}
           onChange={(t) => onChange(setFieldTincture(design, 1, t))}
         />
       )}
+      {division && <FurPicker design={design} target={{ k: 'field', part: 1 }} group="field2" testid="field-2" legend={`${DIVISION_PART_LABEL[division][1]}: fur`} onChange={onChange} />}
     </Step>
   );
 }

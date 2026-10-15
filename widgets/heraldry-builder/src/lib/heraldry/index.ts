@@ -4,7 +4,7 @@ export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS,
 export { ORDINARY_TYPES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType, type Line } from './ordinaries';
 export { DIVISIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, partCount, type Division } from './divisions';
 export {
-  canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
+  canonical, canonicalJson, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
   UNSUPPORTED_GAP_CATEGORIES,
   type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type IssueAt,
 } from './design';
@@ -17,7 +17,7 @@ export {
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share, type SecondaryPosition,
 } from './arrangement';
 export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
-export { tinctureSurface, surfaceOf, sharesTincture, sameSurface, type Surface, type ContrastClass, type BaseTincture } from './surface';
+export { tinctureSurface, surfaceOf, fieldSurfaces, sharesTincture, sameSurface, type Surface, type ContrastClass, type BaseTincture } from './surface';
 export {
   FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownSurfaces, counterchangeUnavailable, describeSlots, type ShownSurfaces,
 } from './tincture-rule';
@@ -25,7 +25,7 @@ export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, ORDINARY_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, FUR_LABEL, ORDINARY_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
@@ -49,6 +49,9 @@ export {
   partyDivisionChoices, partyTinctureChoices, setPartyDivision, setPartyTincture, splitGroup, joinGroup,
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';
+export { FUR_KINDS, furColours, furKindOf, furName, furGloss, takesColours, type FurKind, type FurPaint } from './fur';
+export { furChoices, furColourChoices, furAt, paintAt, setFur, setFurColour, type FurTarget } from './fur-options';
+export { furPattern, ERMINE_SPOT } from './patterns';
 export { renderLayers, designTinctures, type Layer } from './render';
 export { fillCode, fillColours, fillTinctures, solidFill, type Fill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';

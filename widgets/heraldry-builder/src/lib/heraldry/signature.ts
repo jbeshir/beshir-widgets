@@ -11,6 +11,7 @@ const ROLE_CODE: Record<Role, string> = { primary: 'P', secondary: 'S', peripher
 function paint(p: Paint): string {
   switch (p.k) {
     case 'tincture': return TINCTURE_CODE[p.t];
+    case 'fur': return p.colours ? `${p.fur}(${p.colours.map((t) => TINCTURE_CODE[t]).join(',')})` : p.fur;
     case 'counterchanged': return 'cc';
     case 'divided': return `${p.division}(${p.parts.map(paint).join(',')})`;
     default: return notSupported(paintGaps(p, true, 'field')[0]);

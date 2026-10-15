@@ -5,6 +5,7 @@
 // SCA tooling compares with registered blazons (stating a default is optional, GoT Tables 5 and 7).
 
 import { tinctureWord } from './tinctures';
+import { furName } from './fur';
 import { capitalise, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory } from './charges';
 import { asParty, hostOf, notSupported, type Design, type Group, type GroupPath, type Modifier, type Paint } from './design';
@@ -16,6 +17,7 @@ import { paintGaps } from './support';
 function paintWord(p: Paint): string {
   switch (p.k) {
     case 'tincture': return tinctureWord(p.t);
+    case 'fur': return furName(p);
     case 'counterchanged': return 'counterchanged';
     case 'divided': return partyWord(p);
     default: return notSupported(paintGaps(p, false, 'group')[0]);
@@ -29,8 +31,10 @@ function partyWord(p: Paint): string {
 }
 
 function fieldPhrase(field: Paint): string {
-  if (field.k === 'tincture') return tinctureWord(field.t);
-  if (field.k === 'divided' && field.parts.length === 2) return partyWord(field);
+  if (field.k === 'tincture' || field.k === 'fur') return paintWord(field);
+  if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur')) {
+    return `${DIVISION_NAME[field.division]} ${field.parts.map(paintWord).join(' and ')}`;
+  }
   return notSupported(paintGaps(field, true, 'field')[0]);
 }
 

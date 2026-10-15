@@ -444,8 +444,8 @@ describe('support matrix', () => {
   });
 
   it('names a field gap before the group gaps, each at its place', () => {
-    const d = nd(arms({ k: 'fur', fur: 'ermine' }, group(charge('lion', { posture: 'couchant' }), 'or')));
-    expect(unsupportedIssues(d).map((i) => [i.at.k, i.gap.category])).toEqual([['field', 'fur'], ['group', 'posture']]);
+    const d = nd(arms({ k: 'stain', stain: 'murrey' }, group(charge('lion', { posture: 'couchant' }), 'or')));
+    expect(unsupportedIssues(d).map((i) => [i.at.k, i.gap.category])).toEqual([['field', 'tincture'], ['group', 'posture']]);
   });
 
   describe('supported combinations', () => {
@@ -512,7 +512,7 @@ describe('the not-yet-drawable guard', () => {
 
   it('is what the signature calls for a design it can not sign', () => {
     expect(() => signature(nd({ v: 2, kind: 'badge', groups: [] }))).toThrow(UnsupportedConstructError);
-    expect(() => signature(nd(arms({ k: 'fur', fur: 'ermine' })))).toThrow(UnsupportedConstructError);
+    expect(() => signature(nd(arms({ k: 'stain', stain: 'murrey' })))).toThrow(UnsupportedConstructError);
   });
 });
 

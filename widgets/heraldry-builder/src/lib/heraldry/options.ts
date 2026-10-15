@@ -22,7 +22,7 @@ import {
 } from './arrangement';
 import { CHARGES, chargePhrase, postureTerm, type ModifierId, type Posture } from './charges';
 import {
-  asParty, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, paintOfGroupTincture, partyPaint, replaceGroup, walkGroups,
+  asParty, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, walkGroups,
   type Arrangement, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Paint, type PartyPaint,
 } from './design';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
@@ -32,7 +32,7 @@ import { placesIn, type Placed } from './places';
 import { PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
-import { groupTinctureIssues, tinctureIssues } from './tincture-rule';
+import { groupTinctureIssues, paintName, tinctureIssues } from './tincture-rule';
 
 export type AllowedChoice<T> = { value: T; allowed: true };
 export type BlockedChoice<T> = { value: T; allowed: false; reason: string };
@@ -323,13 +323,15 @@ function layoutBlock(d: Design, path: GroupPath, withTinctures: boolean): Block 
 
 // ── Tinctures ───────────────────────────────────────────────────────────────
 
-/** Field tinctures: only the other half of a divided field blocks (the parts need different tinctures). Plain fields: all allowed. */
+/** Field tinctures: only the other half of a divided field blocks, for a tincture or fur it shares (the parts need different tinctures). Plain fields: all allowed. */
 export function fieldTinctureChoices(d: Design, part: 0 | 1 = 0): Choice<Tincture>[] {
   const other = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts[part === 0 ? 1 : 0] : null;
-  const otherTincture = other?.k === 'tincture' ? other.t : null;
-  return TINCTURES.map((t) => choice(t, t === otherTincture
-    ? `The other part is already ${TINCTURE_NAME[t]} — a divided field needs two different tinctures.`
-    : null));
+  return TINCTURES.map((t) => {
+    if (!other || !bodyTinctures(other).includes(t)) return choice(t, null);
+    return choice(t, other.k === 'tincture'
+      ? `The other part is already ${TINCTURE_NAME[t]} — a divided field needs two different tinctures.`
+      : `The other part is ${paintName(other)}, which uses ${TINCTURE_NAME[t]} — a divided field needs parts with no tincture in common.`);
+  });
 }
 
 /** Tinctures of the group at `path` against what it lies on; blocked reasons are the rule of tincture's own messages. */

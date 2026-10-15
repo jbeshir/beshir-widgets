@@ -9,6 +9,7 @@ import { setGroupTincture } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { useExplainer } from './Explainer';
+import { FurPicker } from './FurPicker';
 import { TincturePicker } from './TincturePicker';
 
 interface Props {
@@ -75,6 +76,7 @@ export function PaintPicker({ design, path, group, testid, legend, onChange }: P
           ))}
         </>
       )}
+      {!party && <FurPicker design={design} target={{ k: 'group', path }} group={group} testid={testid} legend="Fur" onChange={onChange} />}
       {explainer}
     </>
   );

@@ -13,6 +13,7 @@ import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctu
 import { isSecondaryPosition, layoutOfKey, layoutWords, primaryCharges } from './arrangement';
 import type { PlaceKey } from './places';
 import type { GroupTincture } from './design';
+import type { FurKind } from './fur';
 import { joinAnd, numberWord, capitalise } from './words';
 
 /** A label in everyday words and the heraldic term for the same thing. */
@@ -148,6 +149,23 @@ export function layoutLabel(key: LayoutKey): PlainTerm {
 export const TINCTURE_LABEL: Record<GroupTincture, PlainTerm> = {
   ...(Object.fromEntries(TINCTURES.map((t) => [t, { plain: capitalise(TINCTURE_WORD[t]), term: TINCTURE_NAME[t] }])) as Record<Tincture, PlainTerm>),
   counterchanged: { plain: 'Swapped colours', term: 'counterchanged' },
+};
+
+/** Furs for the fur picker: how each looks, and its heraldic name. */
+export const FUR_LABEL: Record<FurKind, PlainTerm> = {
+  ermine: { plain: 'White with black spots', term: 'ermine' },
+  erminois: { plain: 'Gold with black spots', term: 'erminois' },
+  'counter-ermine': { plain: 'Black with white spots', term: 'counter-ermine' },
+  pean: { plain: 'Black with gold spots', term: 'pean' },
+  vair: { plain: 'Blue and white bells', term: 'vair' },
+  'counter-vair': { plain: 'Bells base to base', term: 'counter-vair' },
+  'vair-en-pointe': { plain: 'Bells in columns', term: 'vair en pointe' },
+  potent: { plain: 'Blue and white crutch-heads', term: 'potent' },
+  'counter-potent': { plain: 'Crutch-heads, like facing like', term: 'counter-potent' },
+  'potent-en-pointe': { plain: 'Crutch-heads in columns', term: 'potent en pointe' },
+  ermined: { plain: 'Spots, in your colours', term: 'ermined' },
+  vairy: { plain: 'Bells, in your colours', term: 'vairy' },
+  potenty: { plain: 'Crutch-heads, in your colours', term: 'potenty' },
 };
 
 /** Charges whose heraldic name isn't an everyday word; the rest are already plain ("lion", "key"). */

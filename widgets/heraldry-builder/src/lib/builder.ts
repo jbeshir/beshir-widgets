@@ -5,10 +5,10 @@
 // and the picture (pictures on the band, a top band, a border) are heraldry/layers.ts.
 
 import {
-  CHARGES, DEFAULT_FIELD_SHAPE, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
-  asParty, fieldTinctures, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
+  asParty, fieldParts, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, layerPath, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
-  tinctureIssues, tinctureSurface, withTincture, withLayout, chargeItem, newCharge,
+  bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, withTincture, withLayout, chargeItem, newCharge,
   type ChargeId, type Companion, type Design, type Division, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
@@ -35,23 +35,22 @@ function withField(d: Design, field: Paint): Design {
   return { v: 2, kind: 'arms', field, groups: d.groups };
 }
 
-/** A second tincture for a newly divided field: contrasting class, never equal to the first. */
-function partner(t: Tincture): Tincture {
-  if (!isMetal(t)) return 'or';
-  return t === 'or' ? 'azure' : 'gules';
+/** A second tincture for a newly divided field: contrasting class, sharing none of the first's tinctures. */
+function partner(first: Paint): Paint {
+  if (first.k === 'tincture') return tincturePaint(!isMetal(first.t) ? 'or' : first.t === 'or' ? 'azure' : 'gules');
+  const { cls, bases } = surfaceOf(first);
+  return tincturePaint((cls === 'metal' ? COLOURS : METALS).find((t) => !bases.includes(t)) ?? 'gules');
 }
 
 export function setPlainField(d: Design): Design {
   if (d.kind !== 'arms' || d.field.k !== 'divided') return d;
-  return refitLayers(canonical(withField(d, tincturePaint(fieldTinctures(d)[0]))));
+  return refitLayers(canonical(withField(d, fieldParts(d)[0])));
 }
 
 export function setDivision(d: Design, division: Division): Design {
-  const [t1, t2] = fieldTinctures(d);
-  const second = t2 && t2 !== t1 ? t2 : partner(t1);
-  return refitLayers(canonical(withField(d, {
-    k: 'divided', division, lines: { ...PLAIN_LINES }, pieces: null, parts: [tincturePaint(t1), tincturePaint(second)],
-  })));
+  const [first, kept] = fieldParts(d);
+  const second = kept && !bodyTinctures(kept).some((t) => bodyTinctures(first).includes(t)) ? kept : partner(first);
+  return refitLayers(canonical(withField(d, { k: 'divided', division, lines: { ...PLAIN_LINES }, pieces: null, parts: [first, second] })));
 }
 
 export function setFieldTincture(d: Design, part: 0 | 1, t: Tincture): Design {

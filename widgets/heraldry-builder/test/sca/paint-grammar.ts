@@ -1,28 +1,52 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
-// normalised blazon, as the loose input `resolve` reads (a tincture word, 'counterchanged', or a division of tinctures).
+// normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, 'counterchanged', or a division of those).
 
-import { DIVISION_NAME, DRAWN_DIVISIONS, TINCTURES, type Division, type Tincture } from '../../src/lib/heraldry';
+import { DIVISION_NAME, DRAWN_DIVISIONS, FURS, FUR_NAME, TINCTURES, type Division, type Fur, type Tincture } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
 const DIVISION_PHRASES = [...DIVISION_WORDS.keys()].map((w) => w.split(' ')).sort((a, b) => b.length - a.length);
 
+/** The named furs as the words that spell them ("vair en pointe"), the longest first. */
+const FUR_PHRASES = FURS.map((fur) => ({ words: FUR_NAME[fur].split(' '), fur })).sort((a, b) => b.words.length - a.words.length);
+
+/** The fur of a family that names its colours: "vairy Or and gules", "potenty argent and sable". */
+const COLOURED_FURS: Record<string, Fur> = { vairy: 'vair', potenty: 'potent' };
+
 const isTincture = (w: string | undefined): w is Tincture => (TINCTURES as readonly string[]).includes(w!);
 
 export interface PaintRead { paint: unknown; end: number }
 
+/** One paint that is one thing: a tincture, "argent ermined gules", a named fur, "vairy Or and gules". */
+function readOne(tokens: readonly string[], i: number): PaintRead | null {
+  const word = tokens[i];
+  if (isTincture(word)) {
+    const spots = tokens[i + 2];
+    return tokens[i + 1] === 'ermined' && isTincture(spots)
+      ? { paint: { k: 'fur', fur: 'ermine', colours: [word, spots] }, end: i + 3 }
+      : { paint: word, end: i + 1 };
+  }
+  const [a, and, b] = [tokens[i + 1], tokens[i + 2], tokens[i + 3]];
+  if (word in COLOURED_FURS && isTincture(a) && and === 'and' && isTincture(b)) {
+    return { paint: { k: 'fur', fur: COLOURED_FURS[word], colours: [a, b] }, end: i + 4 };
+  }
+  const named = FUR_PHRASES.find((p) => p.words.every((w, j) => tokens[i + j] === w));
+  return named ? { paint: { k: 'fur', fur: named.fur, colours: null }, end: i + named.words.length } : null;
+}
+
 /**
- * The paint starting at `tokens[i]` and the index after it, or null when there is none: a tincture, a division "per pale argent
+ * The paint starting at `tokens[i]` and the index after it, or null when there is none: a tincture or fur, a division "per pale argent
  * and gules" (of the field, or of a band or picture), or for a group 'counterchanged'.
  */
 export function readPaint(tokens: readonly string[], i: number, where: 'field' | 'group'): PaintRead | null {
-  const word = tokens[i];
-  if (isTincture(word)) return { paint: word, end: i + 1 };
-  if (where === 'group' && word === 'counterchanged') return { paint: word, end: i + 1 };
+  if (where === 'group' && tokens[i] === 'counterchanged') return { paint: 'counterchanged', end: i + 1 };
+  const one = readOne(tokens, i);
+  if (one) return one;
   const phrase = DIVISION_PHRASES.find((p) => p.every((w, j) => tokens[i + j] === w));
   if (!phrase) return null;
-  const at = i + phrase.length;
-  const [a, and, b] = [tokens[at], tokens[at + 1], tokens[at + 2]];
-  if (!isTincture(a) || and !== 'and' || !isTincture(b)) return null;
-  return { paint: { k: 'divided', division: DIVISION_WORDS.get(phrase.join(' ')), parts: [a, b] }, end: at + 3 };
+  const first = readOne(tokens, i + phrase.length);
+  if (!first || tokens[first.end] !== 'and') return null;
+  const second = readOne(tokens, first.end + 1);
+  if (!second) return null;
+  return { paint: { k: 'divided', division: DIVISION_WORDS.get(phrase.join(' ')), parts: [first.paint, second.paint] }, end: second.end };
 }

@@ -10,9 +10,8 @@ import { CHARGES, type ChargeId } from './charges';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
 import { notSupported, type Paint } from './design';
 import type { OrdinaryType } from './ordinaries';
-import { tinctureSurface, type Surface } from './surface';
+import { surfaceOf, type Surface } from './surface';
 import type { FieldShape } from './shape';
-import type { Tincture } from './tinctures';
 
 export const SHIELD_VIEWBOX = '0 0 100 120';
 
@@ -144,14 +143,19 @@ export function shapeFrame(shape: FieldShape): ShapeFrame {
 
 // ── Field partitions ────────────────────────────────────────────────────────
 
-/** The field as geometry draws it: plain, or one of the drawn divisions of two tinctures. */
-type DrawnField = { division: null; tincture: Tincture } | { division: Division; tinctures: [Tincture, Tincture] };
+/** A paint that is one thing over the part of the field it fills: a tincture or a fur. */
+export type FieldPaint = Extract<Paint, { k: 'tincture' | 'fur' }>;
+
+const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur';
+
+/** The field as geometry draws it: plain, or one of the drawn divisions of two parts. */
+type DrawnField = { division: null; paint: FieldPaint } | { division: Division; paints: [FieldPaint, FieldPaint] };
 
 function drawnField(field: Paint): DrawnField {
-  if (field.k === 'tincture') return { division: null, tincture: field.t };
+  if (isFieldPaint(field)) return { division: null, paint: field };
   if (field.k === 'divided' && DRAWN_DIVISIONS.includes(field.division) && field.parts.length === 2) {
     const [a, b] = field.parts;
-    if (a.k === 'tincture' && b.k === 'tincture') return { division: field.division, tinctures: [a.t, b.t] };
+    if (isFieldPaint(a) && isFieldPaint(b)) return { division: field.division, paints: [a, b] };
   }
   return notSupported({ category: 'field-treatment', detail: field.k });
 }
@@ -159,8 +163,8 @@ function drawnField(field: Paint): DrawnField {
 /** The surface of the field at (x,y) in the canonical layout; points exactly on a line count as the second part. */
 export function fieldSurfaceAt(field: Paint, x: number, y: number): Surface {
   const f = drawnField(field);
-  if (f.division === null) return tinctureSurface(f.tincture);
-  return tinctureSurface(inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.tinctures[0] : f.tinctures[1]);
+  if (f.division === null) return surfaceOf(f.paint);
+  return surfaceOf(inFirstPart(f.division, SHAPE_FRAME[CANONICAL_SHAPE].fessPoint, x, y) ? f.paints[0] : f.paints[1]);
 }
 
 /** How far the chevron's apex (and the per-chevron line's) sits above the fess point. */
@@ -221,13 +225,13 @@ export function partitionRegions(division: Division, fess: Point, turn = 0): [st
   }
 }
 
-/** Field as tincture-filled regions, in paint order. */
-export function fieldRegions(field: Paint, shape: FieldShape): Array<{ tincture: Tincture; d: string }> {
+/** Field as paint-filled regions, in paint order. */
+export function fieldRegions(field: Paint, shape: FieldShape): Array<{ paint: FieldPaint; d: string }> {
   const f = drawnField(field);
   const frame = SHAPE_FRAME[shape];
-  if (f.division === null) return [{ tincture: f.tincture, d: frame.outline }];
+  if (f.division === null) return [{ paint: f.paint, d: frame.outline }];
   const [a, b] = partitionRegions(f.division, frame.fessPoint);
-  return [{ tincture: f.tinctures[0], d: a }, { tincture: f.tinctures[1], d: b }];
+  return [{ paint: f.paints[0], d: a }, { paint: f.paints[1], d: b }];
 }
 
 // ── Ordinaries ──────────────────────────────────────────────────────────────
@@ -392,8 +396,8 @@ export function slotColumn(slot: Slot): 'left' | 'centre' | 'right' {
 
 // ── Counterchanged elements ─────────────────────────────────────────────────
 
-/** One part of a counterchanged element: a partition region it overlaps, filled with the field's other tincture. */
-export interface CounterchangePart { region: 0 | 1; d: string; tincture: Tincture }
+/** One part of a counterchanged element: a partition region it overlaps, filled with the field's other paint. */
+export interface CounterchangePart { region: 0 | 1; d: string; paint: FieldPaint }
 
 /** Grid steps across a drawn box when finding the regions it overlaps (corners and edges included). */
 const PART_GRID = 8;
@@ -406,8 +410,8 @@ function partsAt(field: Paint, points: readonly Pt[], shape: FieldShape): Counte
   const [d1, d2] = partitionRegions(f.division, frame.fessPoint);
   const firsts = new Set(points.map(([x, y]) => inFirstPart(f.division, frame.fessPoint, x, y)));
   const parts: CounterchangePart[] = [];
-  if (firsts.has(true)) parts.push({ region: 0, d: d1, tincture: f.tinctures[1] });
-  if (firsts.has(false)) parts.push({ region: 1, d: d2, tincture: f.tinctures[0] });
+  if (firsts.has(true)) parts.push({ region: 0, d: d1, paint: f.paints[1] });
+  if (firsts.has(false)) parts.push({ region: 1, d: d2, paint: f.paints[0] });
   return parts;
 }
 
