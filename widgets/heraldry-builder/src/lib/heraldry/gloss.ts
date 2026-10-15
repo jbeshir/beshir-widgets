@@ -5,7 +5,7 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Paint, type Position } from './design';
 import { type OrdinaryType } from './ordinaries';
-import { betweenWords, type Layout } from './arrangement';
+import { aroundWords, betweenWords, primaryCharges, type Layout } from './arrangement';
 
 const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   fess: 'horizontal band across the middle',
@@ -134,6 +134,18 @@ function betweenGloss(d: Design, g: Group, ordinary: OrdinaryType): { text: stri
   return { text: `${chargesSubject(g, g.count)}${colour}, ${where}`, clause: false };
 }
 
+/** Primary charges with the charges set around them: "a gold lion between three white roses, two above and one below". */
+function chargesWith(d: Design, g: Group, around: readonly Group[]): { text: string; clause: boolean } {
+  let { text, clause } = chargesGloss(d, g);
+  for (const s of around) {
+    const colour = s.paint.k === 'counterchanged' ? `, ${counterchangedGloss(d)}` : '';
+    const where = aroundWords(s.count, { arrangement: s.arrangement, position: s.position }) ?? layoutGloss({ arrangement: s.arrangement, position: s.position }, s.count);
+    text += `${clause ? ',' : ''} between ${chargesSubject(s, s.count)}${colour}${where ? `, ${where}` : ''}`;
+    clause = where !== null;
+  }
+  return { text, clause };
+}
+
 /** An ordinary with what is set between and on it. `clause`: the text ends in a layout clause that takes a comma before "and". */
 function ordinaryWith(d: Design, g: Group, between: Group[]): { text: string; clause: boolean } {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
@@ -163,7 +175,11 @@ export function gloss(d: Design): string {
   if (d.groups.length !== primary.length + between.length + positioned.length + peripheral.length) {
     return notSupported({ category: 'multiple-groups', detail: 'overall' });
   }
-  const parts = [...primary, ...positioned, ...peripheral].map((g) => (g.item.k === 'ordinary' ? ordinaryWith(d, g, g.role === 'primary' ? between : []) : chargesGloss(d, g)));
+  const around = primaryCharges(d) ? between : [];
+  const parts = [...primary, ...positioned, ...peripheral].map((g) => {
+    if (g.item.k === 'ordinary') return ordinaryWith(d, g, g.role === 'primary' ? between : []);
+    return g.role === 'primary' ? chargesWith(d, g, around) : chargesGloss(d, g);
+  });
   if (parts.length === 0) return `${field}.`;
   const rest = parts.reduce((text, p, i) => (i === 0 ? p.text : `${text}${parts[i - 1].clause ? ',' : ''} and ${p.text}`), '');
   return `${field}${d.kind === 'arms' && d.field.k === 'tincture' ? ' with ' : ', with '}${rest}.`;

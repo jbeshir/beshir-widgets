@@ -16,10 +16,10 @@ import {
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
-/** The places the picture controls belong to: the picture, the pictures in chief, base or canton, and the pictures on the band, the top band and the border. */
+/** The places the picture controls belong to: the picture, the pictures around it, the pictures in chief, base or canton, and the pictures on the band, the top band and the border. */
 type At = 'picture' | PicturesKey;
 /** The pictures laid out after the picture, in the order they are added. */
-const EXTRA_PICTURES: readonly PicturesKey[] = ['in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'on-bordure'];
+const EXTRA_PICTURES: readonly PicturesKey[] = ['around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'on-bordure'];
 
 /** One click in the builder's Design tab. */
 export type BuilderAction =
@@ -238,9 +238,10 @@ export function builderPath(goal: Design): BuilderPath {
     if (t && tinctureOf(groupAt(d, peripheralAt(d, place)!)) !== t && !click({ kind: 'layer-tincture', place, tincture: t })) return done();
   }
 
-  // The picture, then the pictures beside it in chief, base or canton and the extra pictures on the band, the top band and the border.
+  // The picture, then the pictures around it or beside it in chief, base or canton and the extra pictures on the band, the top band and the border.
   for (const at of ['picture', ...EXTRA_PICTURES] as const) {
-    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : parts.positioned?.place === at ? parts.positioned : parts.peripheralPictures.find((p) => p.place === at);
+    const part = at === 'picture' ? parts.picture : at === 'on-ordinary' ? parts.extra : at === 'around' ? parts.around
+      : parts.positioned?.place === at ? parts.positioned : parts.peripheralPictures.find((p) => p.place === at);
     if (!part) continue;
     const item = part.group.item;
     if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };

@@ -10,7 +10,7 @@ import type { LayoutKey } from './arrangement';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
-import { isSecondaryPosition, layoutOfKey, layoutWords } from './arrangement';
+import { isSecondaryPosition, layoutOfKey, layoutWords, primaryCharges } from './arrangement';
 import type { PlaceKey } from './places';
 import type { GroupTincture } from './design';
 import { joinAnd, numberWord, capitalise } from './words';
@@ -178,6 +178,7 @@ export function postureLabel(id: ChargeId, posture: Posture, note: string | null
 export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
   ordinary: { plain: 'Band or shape', term: 'ordinary' },
   picture: { plain: 'Picture', term: 'charge' },
+  around: { plain: 'Pictures around the picture', term: 'charges between' },
   'in-chief': { plain: 'Pictures along the top', term: 'charges in chief' },
   'in-base': { plain: 'Pictures along the bottom', term: 'charges in base' },
   'in-canton': { plain: 'Pictures in the top corner', term: 'charges in canton' },
@@ -190,7 +191,8 @@ export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
 
 /**
  * What the builder calls a group: "Band or shape", "Picture", "Pictures on the band", "Top bar", "Border",
- * "Pictures on the top bar" for what sits on one, or "Pictures along the top" for charges set in chief beside the main picture.
+ * "Pictures on the top bar" for what sits on one, "Pictures along the top" for charges set in chief beside the main picture, or
+ * "Pictures around the picture" for charges set around it.
  */
 export function groupLabel(d: Design, path: GroupPath): string {
   const group = groupAt(d, path), host = hostOf(d, path);
@@ -205,5 +207,6 @@ export function groupLabel(d: Design, path: GroupPath): string {
   if (group.role === 'secondary' && group.relation === 'position' && isSecondaryPosition(group.position)) {
     return PLACE_LABEL[`in-${group.position}`].plain;
   }
+  if (group.role === 'secondary' && group.relation === 'between' && primaryCharges(d)) return PLACE_LABEL.around.plain;
   return 'Picture';
 }

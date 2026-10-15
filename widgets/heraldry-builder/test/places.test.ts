@@ -12,7 +12,7 @@ const names = (d: ReturnType<typeof nd>): Array<[PlaceKey, string]> =>
 describe('places of a design', () => {
   it('cover every group of every generated design exactly once, and map back to their paths', () => {
     const designs = generatedRichDesigns(7, 400);
-    let layered = 0, positioned = 0;
+    let layered = 0, positioned = 0, around = 0;
     for (const d of designs) {
       const placed = placesOf(d);
       expect(placed.map((p) => pathKey(p.path)).sort(), JSON.stringify(d)).toEqual(walkGroups(d).map((w) => pathKey(w.path)).sort());
@@ -24,9 +24,11 @@ describe('places of a design', () => {
       expect(placed.map((p) => PLACE_KEYS.indexOf(p.place))).toEqual(placed.map((p) => PLACE_KEYS.indexOf(p.place)).sort((a, b) => a - b));
       if (placed.some((p) => p.place === 'chief' || p.place === 'bordure')) layered++;
       if (placed.some((p) => p.place === 'in-chief' || p.place === 'in-base' || p.place === 'in-canton')) positioned++;
+      if (placed.some((p) => p.place === 'around')) around++;
     }
-    expect(layered).toBeGreaterThan(40);
+    expect(layered).toBeGreaterThan(35);
     expect(positioned).toBeGreaterThan(20);
+    expect(around).toBeGreaterThan(20);
   });
 
   it('names the band, the picture, the pictures on the band, the top band and the border', () => {

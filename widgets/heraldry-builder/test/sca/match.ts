@@ -127,7 +127,7 @@ const VOCABULARY = new Set<string>(
 //   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['in splendor'] [('in' PATTERN)|ROWS] [T]
 //   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | ε
-// A group straight after "between", or joined to one by "and", is set around the ordinary; any other
+// A group straight after "between", or joined to one by "and", is set around the ordinary or the primary charges; any other
 // group after an "on" ordinary sits on it. A phrase without a tincture takes the next stated one, except
 // that a tincture never crosses into or out of a group on a host (Bruce). The parser only proposes:
 // `resolve` infers roles, and verify() decides by comparing blazons.
@@ -254,6 +254,8 @@ function parseBody(tokens: string[]): Body | null {
           host = node;
           between = false;
         } else if (between && joined) {
+          // Set between what came before: a central ordinary, or the primary charges ("a lion between three mullets").
+          g.phrase.group.relation = 'between';
           top.push({ phrase: g.phrase, on: null });
           order.push({ phrase: g.phrase, onHost: false });
         } else if (host && !host.on) {

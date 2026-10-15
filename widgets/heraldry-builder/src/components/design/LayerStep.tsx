@@ -19,6 +19,7 @@ interface Props {
 }
 
 const PICTURES_HINT = {
+  around: 'Pictures set around the picture: in its corners, at its sides, or in a ring round the edge.',
   'on-ordinary': 'Pictures drawn on the band, as well as the picture above.',
   'on-chief': 'Pictures drawn on the top bar.',
   'on-bordure': 'Small pictures drawn along the border.',

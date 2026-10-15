@@ -114,7 +114,7 @@ function withFirstTincture(d: Design, path: GroupPath): Design {
  * The picture ('picture'), the pictures on the band ('on-ordinary') or the pictures on a top band or border ('on-chief', 'on-bordure') as this charge; null removes it. A new
  * picture starts as a single charge on the background in the first tincture that works; a swapped one
  * keeps its count, layout and tincture where they still work. Removing the picture promotes the
- * pictures on the band to the picture.
+ * pictures on the band, else the pictures around it, to the picture.
  */
 export function setCharge(d: Design, at: 'picture' | PicturesKey, id: ChargeId | null): Design {
   if (at !== 'picture') {
@@ -122,7 +122,7 @@ export function setCharge(d: Design, at: 'picture' | PicturesKey, id: ChargeId |
     return layerPath(d, at) ? setLayerCharge(d, at, id) : setLayerCharge(addLayer(d, at), at, id);
   }
   const parts = partsOf(d);
-  if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.extra, placement: 'ordinary', extra: null }));
+  if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.extra ?? parts.around, placement: parts.extra ? 'ordinary' : 'field', extra: null, around: null }));
   if (parts.picture) return swapPicture(d, id);
   // A new picture goes on the background, or onto the band when pictures already stand beside it in chief, base or canton (one secondary group).
   const onField = refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'field', extra: null }));

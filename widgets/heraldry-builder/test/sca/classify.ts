@@ -85,7 +85,7 @@ export function checkBlazon(scaBlazon: string): { match: MatchResult; failures: 
 
 // ── Gap tags ────────────────────────────────────────────────────────────────
 
-/** Where a structurally illegal charge group sits: "on-bend", "between-fess", "under-chief", "in-saltire". */
+/** Where a structurally illegal charge group sits: "on-bend", "between-fess", "around-4", "under-chief", "in-saltire". */
 function layoutTag(design: Design, issue: Issue): string {
   if (issue.at.k !== 'group') return issue.at.k;
   const g = groupAt(design, issue.at.path);
@@ -95,6 +95,7 @@ function layoutTag(design: Design, issue: Issue): string {
     case 'on': return `on-${ctx.ordinary}`;
     case 'between': return `between-${ctx.ordinary}`;
     case 'position': return `in-${ctx.position}`;
+    case 'around': return `around-${g.count}`;
     default: return hasChief(ctx.peripheral) ? 'under-chief' : layoutKey({ arrangement: g.arrangement, position: g.position });
   }
 }

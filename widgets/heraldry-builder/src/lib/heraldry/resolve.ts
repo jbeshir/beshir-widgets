@@ -341,10 +341,12 @@ function parseGroup(v: unknown, path: GroupPath, top: boolean, E: Errors): RawGr
 /**
  * The role a top-level group has when the input names none (RULES §B.3, SENA App I1): charges beside a central ordinary
  * are secondary, and so are charges in chief, in base or in canton beside a central group of charges — "if you removed
- * the fess the lions would become the primary charge group". Charges in chief with nothing central are primary.
+ * the fess the lions would become the primary charge group". Charges in chief with nothing central are primary. A group
+ * the input relates to the main one ("between": a lion between three mullets) is secondary.
  */
 function inferRole(r: RawGroup, siblings: readonly RawGroup[]): Role {
   if (r.item.k === 'ordinary') return ORDINARY_KIND[r.item.type] === 'peripheral' ? 'peripheral' : 'primary';
+  if (r.relation !== null) return 'secondary';
   if (siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central')) return 'secondary';
   const central = (s: RawGroup) => s !== r && s.item.k === 'charge' && s.position === null && s.relation === null && (s.role === null || s.role === 'primary');
   return isSecondaryPosition(r.position) && siblings.some(central) ? 'secondary' : 'primary';

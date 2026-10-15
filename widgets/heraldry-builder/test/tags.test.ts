@@ -44,6 +44,10 @@ describe('deriveTags', () => {
     expect(tags('gules', ord('bordure', 'or', { charged: [chg('rose', 'gules', { count: 8 })] }))).toContain('placement:on-bordure');
     expect(tags('gules', chg('lion', 'or'), chg('mullet', 'argent', { count: 3, position: 'chief' }))).toContain('placement:in-chief');
     expect(tags('gules', ord('fess', 'or'), chg('mullet', 'argent', { position: 'canton' }))).toContain('placement:in-canton');
+    const around = tags('gules', chg('lion', 'or'), chg('mullet', 'argent', { count: 3, relation: 'between' }));
+    expect(around).toContain('placement:around');
+    expect(around).not.toContain('placement:between');
+    expect(tags('gules', ord('fess', 'or'), chg('mullet', 'argent', { count: 2 }))).toContain('placement:between');
     expect(tags('gules', chg('mullet', 'argent', { count: 3 }))).not.toEqual(expect.arrayContaining([expect.stringMatching(/^placement:/)]));
   });
 

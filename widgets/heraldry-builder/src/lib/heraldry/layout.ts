@@ -9,7 +9,7 @@ import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
-  BETWEEN, HOST_LAYOUT, contextOf, defaultLayoutOf, hasBordure, hasChief, hostCounts, layoutKey, positionLayout,
+  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, layoutKey, layoutWords, positionLayout, sameLayout,
   type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Yield,
 } from './arrangement';
 import {
@@ -59,7 +59,7 @@ const handRows = (shape: FieldShape): SlotRows => (shape === 'heater' ? HEATER_S
 /** The hand-fitted slots for a context, count and layout, or null when they come from the generic engine. */
 function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] | null {
   const rows = handRows(shape);
-  if (ctx.k === 'position') return null;
+  if (ctx.k === 'position' || ctx.k === 'around') return null;
   if (ctx.k === 'field') {
     if (layout.position !== null || ctx.yields !== 'none' || ctx.share !== null) return null;
     const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null }[ctx.peripheral];
@@ -101,6 +101,21 @@ const CANTON_POSITION_AREA = area(4, 4, 36, 36);
 const POSITION_AREAS: Record<SecondaryPosition, Area> = { chief: CHIEF_POSITION_AREA, base: BASE_POSITION_AREA, canton: CANTON_POSITION_AREA };
 /** What the primary charges keep to on the heater when a secondary group stands in chief, in base or in canton (the canton only takes a corner). */
 const YIELDED_AREAS: Record<SecondaryPosition, Area> = { chief: area(0, 36, 100, 120), base: area(0, 0, 100, 74), canton: area(0, 0, 100, 120) };
+/**
+ * Primary charges with charges set around them keep to a box in the middle of what the peripherals leave (on the heater
+ * with none, x 25–75 and y 22–82); the charges around stand in its corners and at its sides, above and below it. Both
+ * are written as shares of the free area, so a chief or bordure moves and shrinks them with it. Under a chief the box
+ * starts lower, leaving the charges above it room below the chief.
+ */
+const AROUND_BOX = { x0: 0.23, y0: 0.17, x1: 0.77, y1: 0.72 };
+const AROUND_BOX_TOP_UNDER_CHIEF = 0.27;
+/** Where charges set around the primary charges stand, as shares of the free area: the corners, the sides, above and below the box. */
+type AroundSpot = 'topLeft' | 'topRight' | 'left' | 'right' | 'above' | 'below' | 'bottomLeft' | 'bottomRight';
+const AROUND_SPOTS: Record<AroundSpot, Pt> = {
+  topLeft: [0.13, 0.11], topRight: [0.87, 0.11], left: [0.1, 0.44], right: [0.9, 0.44],
+  above: [0.5, 0.075], below: [0.5, 0.89], bottomLeft: [0.2, 0.78], bottomRight: [0.8, 0.78],
+};
+
 /** Lines in bend run corner to corner of a square the shield's narrowing base leaves room for. */
 const BEND_AREA = area(10, 10, 90, 90);
 const BORDURE_BEND_AREA = area(18, 18, 82, 82);
@@ -172,9 +187,23 @@ const ORLE_SCALE = 0.92;
 /** The room a primary leaves for a secondary group set by position, or null when it leaves none (or all around, which has its own layouts). */
 const yieldedPosition = (y: Yield): SecondaryPosition | null => (y === 'chief' || y === 'base' || y === 'canton' ? y : null);
 
+/** The point at shares (fx, fy) of an area. */
+const share = (a: Area, [fx, fy]: Pt): Pt => [a.x0 + fx * width(a), a.y0 + fy * height(a)];
+
+/** The box primary charges keep to when charges are set around them, in a shape. */
+function aroundBox(peripheral: Peripheral, shape: FieldShape): Area {
+  const free = shapeFreeArea(peripheral, shape);
+  const [x0, y0] = share(free, [AROUND_BOX.x0, hasChief(peripheral) ? AROUND_BOX_TOP_UNDER_CHIEF : AROUND_BOX.y0]), [x1, y1] = share(free, [AROUND_BOX.x1, AROUND_BOX.y1]);
+  return area(x0, y0, x1, y1);
+}
+
 /** The areas primary charges are laid out in: what the peripherals leave, less the room left for a secondary group. */
 function primaryAreas(ctx: Extract<LayoutContext, { k: 'field' }>): { straight: Area; bend: Area } {
   const areas = FIELD_AREAS[ctx.peripheral];
+  if (ctx.yields === 'around') {
+    const box = aroundBox(ctx.peripheral, CANONICAL_SHAPE);
+    return { straight: box, bend: box };
+  }
   const yielded = yieldedPosition(ctx.yields);
   if (!yielded) return areas;
   const rest = YIELDED_AREAS[yielded];
@@ -300,6 +329,105 @@ function positionCentres(ctx: Extract<LayoutContext, { k: 'position' }>, count: 
   }
 }
 
+/** The radius of a ring of charges in annulo round the primary charges, as a share of the free area's width. */
+const AROUND_ANNULO_REACH = 0.42;
+
+/** How far (heater units) a spot around the primary charges may move to where it has the most room. */
+const SETTLE_REACH = 14;
+
+/**
+ * The spot near `c` with the most clear room on a ground: furthest from the field's edge, the chief and the primary charges
+ * (nearest to `c` among equals). A spot off the field (a heater's corner in a lozenge) is first drawn in towards `towards`.
+ * A spot on the middle line moves only up or down; one right of it is the mirror of its partner on the left, so the layout
+ * stays symmetric.
+ */
+function settle(spot: Centre, ground: Ground, towards: Pt): Centre {
+  if (spot.x > 50) {
+    const m = settle(at(100 - spot.x, spot.y), ground, [100 - towards[0], towards[1]]);
+    return at(100 - m.x, m.y);
+  }
+  const room = (x: number, y: number): number => {
+    if (!pointInPolygon(x, y, ground.contain) || ground.avoid.some((poly) => pointInPolygon(x, y, poly))) return -Infinity;
+    return Math.min(edgeDistance(ground.contain, x, y), y - ground.minTop, ...ground.avoid.map((poly) => edgeDistance(poly, x, y)));
+  };
+  let c = spot;
+  for (let t = 0.05; t < 1 && room(c.x, c.y) === -Infinity; t += 0.05) c = at(spot.x + (towards[0] - spot.x) * t, spot.y + (towards[1] - spot.y) * t);
+  let best = { x: c.x, y: c.y, room: room(c.x, c.y), moved: 0 };
+  // Every second unit across the reach, then every unit round the best of those.
+  const search = (x0: number, y0: number, reach: number, step: number) => {
+    const across = c.x === 50 ? 0 : reach;
+    for (let dx = -across; dx <= across; dx += step) {
+      for (let dy = -reach; dy <= reach; dy += step) {
+        const x = x0 + dx, y = y0 + dy;
+        const r = room(x, y), moved = Math.hypot(x - c.x, y - c.y);
+        if (r > best.room || (r === best.room && moved < best.moved)) best = { x, y, room: r, moved };
+      }
+    }
+  };
+  search(c.x, c.y, SETTLE_REACH, 2);
+  search(best.x, best.y, 1, 1);
+  return at(best.x, best.y);
+}
+
+/**
+ * What the peripherals leave of a shape to set charges in, as an area: the bounds of the field (or the bordure's inner
+ * edge) less a margin, below the chief. On the heater these are `FIELD_AREAS`' straight areas.
+ */
+function shapeFreeArea(peripheral: Peripheral, shape: FieldShape): Area {
+  const frame = shapeFrame(shape);
+  const ring = pathPolygon(hasBordure(peripheral) ? frame.inset : frame.outline);
+  const xs = ring.map((p) => p[0]), ys = ring.map((p) => p[1]);
+  const [side, foot] = hasBordure(peripheral) ? [2, 6] : [4, 8];
+  return area(Math.min(...xs) + side, hasChief(peripheral) ? frame.chiefBase + 3 : Math.min(...ys) + side, Math.max(...xs) - side, Math.max(...ys) - foot);
+}
+
+/**
+ * Charges set around the primary charges, laid out in each shape's own field (charges round a box in the middle don't map
+ * well from the heater's corners): in the box's corners, at its sides, above and below it (each settled where it has most
+ * room), or in a ring round the edge; no larger than on the heater. Where that would touch other parts of a divided field
+ * than the heater's slots do, the heater's slots are mapped into the shape instead, as for other generic layouts.
+ */
+function aroundSlots(ctx: Extract<LayoutContext, { k: 'around' }>, count: number, layout: Layout, shape: FieldShape): Slot[] {
+  const own = aroundIn(ctx, count, layout, shape);
+  if (shape === CANONICAL_SHAPE) return own;
+  const heater = contextSlots(ctx, count, layout, CANONICAL_SHAPE);
+  if (heater.length === 0) return [];
+  return own.length === count && samePartsAsHeater(heater, own, shape) ? own : mappedFromHeater(heater, groundFor(ctx, shape), false, shape);
+}
+
+/** The slots of charges set around the primary charges laid out in a shape's own field. */
+function aroundIn(ctx: Extract<LayoutContext, { k: 'around' }>, count: number, layout: Layout, shape: FieldShape): Slot[] {
+  if (!aroundLayouts(count, ctx.peripheral).some((l) => sameLayout(l, layout))) return [];
+  const free = shapeFreeArea(ctx.peripheral, shape);
+  const ground = groundFor(ctx, shape);
+  const spots = (...names: AroundSpot[]): Centre[] => names.map((n) => { const [x, y] = share(free, AROUND_SPOTS[n]); return settle(at(x, y), ground, centreOf(free)); });
+  const arr = layout.arrangement;
+  const centres = ((): Centre[] => {
+    switch (arr.k) {
+      case 'line': return { fess: () => spots('left', 'right'), pale: () => spots('above', 'below'), bend: () => spots('topLeft', 'bottomRight'), 'bend-sinister': () => spots('topRight', 'bottomLeft') }[arr.dir]();
+      // Two and one, or two and two in the box's corners.
+      case 'rows': return arr.rows.length === 2 && arr.rows[1] === 2 ? spots('topLeft', 'topRight', 'bottomLeft', 'bottomRight') : spots('topLeft', 'topRight', 'below');
+      case 'pattern': {
+        if (arr.pattern === 'saltire') return spots('topLeft', 'topRight', 'bottomLeft', 'bottomRight');
+        if (arr.pattern === 'cross') return spots('above', 'left', 'right', 'below');
+        if (arr.pattern === 'annulo') {
+          // In a ring round the box, from the top.
+          const [bx, by] = centreOf(aroundBox(ctx.peripheral, shape));
+          const r = AROUND_ANNULO_REACH * width(free);
+          return Array.from({ length: count }, (_, i) => at(bx + r * Math.sin((2 * Math.PI * i) / count), by - r * Math.cos((2 * Math.PI * i) / count)));
+        }
+        // In orle: evenly round the bordure's line of the shape, drawn in a little.
+        const [cx, cy] = centreOf(free);
+        return evenlyFromTop(pathPolygon(shapeFrame(shape).inset), count).map(([x, y]) => at(cx + ORLE_SCALE * (x - cx), cy + ORLE_SCALE * (y - cy)));
+      }
+      default: throw new RangeError(`No layout around the primary charges is ${layoutKey(layout)}.`);
+    }
+  })();
+  const heater = shape === CANONICAL_SHAPE ? MAX_SLOT_SIZE : contextSlots(ctx, count, layout, CANONICAL_SHAPE)[0]?.size ?? 0;
+  const size = Math.min(heater, largestSize(centres, ground, false));
+  return size < 1 ? [] : toSlots(centres, size);
+}
+
 /** Where along an ordinary's axis charges on it are strung: a centre, a direction and the half-length. */
 const ON_AXIS: Partial<Record<OrdinaryType, { from: Pt; to: Pt }>> = {
   fess: { from: [6, 50], to: [94, 50] },
@@ -339,7 +467,7 @@ function handCentres(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, count
   return slots && slots.map((s) => at(s.x, s.y, s.rotation));
 }
 
-function nominalCentres(ctx: LayoutContext, count: number, layout: Layout): Centre[] | null {
+function nominalCentres(ctx: Exclude<LayoutContext, { k: 'around' }>, count: number, layout: Layout): Centre[] | null {
   if (ctx.k === 'field') return fieldCentres(ctx, count, layout);
   if (ctx.k === 'position') return positionCentres(ctx, count, layout);
   if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx.k, ctx.ordinary).includes(count)) return null;
@@ -453,14 +581,38 @@ function positionRoom(position: SecondaryPosition, shape: FieldShape): Pt[] {
   }
 }
 
+/** A polygon round a slot's glyph disc (its corners on the circle's outside), for keeping other charges clear of it. */
+function discPolygon(s: Slot): Pt[] {
+  const r = (GLYPH_RADIUS * s.size) / Math.cos(Math.PI / 24);
+  return Array.from({ length: 24 }, (_, k): Pt => [s.x + r * Math.cos((k * Math.PI) / 12), s.y + r * Math.sin((k * Math.PI) / 12)]);
+}
+
+/** How much smaller the box of the primary charges is in a shape than on the heater: the shapes with less room in their corners give the charges around more. */
+const AROUND_ROOM_SCALE: Record<FieldShape, number> = { heater: 1, banner: 0.9, round: 0.8, lozenge: 0.65 };
+
+/** The box of `aroundBox` in a shape, shrunk about its centre where the shape has less room in its corners. */
+function aroundRoom(peripheral: Peripheral, shape: FieldShape): Pt[] {
+  const box = aroundBox(peripheral, shape);
+  const k = AROUND_ROOM_SCALE[shape];
+  const [cx, cy] = centreOf(box);
+  const x0 = cx - (k * width(box)) / 2, x1 = cx + (k * width(box)) / 2, y0 = cy - (k * height(box)) / 2, y1 = cy + (k * height(box)) / 2;
+  return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+}
+
 export function groundFor(ctx: LayoutContext, shape: FieldShape): Ground {
   if (ctx.k === 'field') {
+    if (ctx.yields === 'around') return { ...frameGround(ctx.peripheral, shape), avoid: [], within: aroundRoom(ctx.peripheral, shape) };
     const yielded = yieldedPosition(ctx.yields);
     return { ...frameGround(ctx.peripheral, shape), avoid: yielded ? [positionRoom(yielded, shape)] : [], within: null };
   }
   if (ctx.k === 'position') {
     const avoid = ctx.ordinary ? [pathPolygon(ordinaryPath(ctx.ordinary, shape))] : [];
     return { ...frameGround(ctx.peripheral, shape), avoid, within: positionRoom(ctx.position, shape) };
+  }
+  if (ctx.k === 'around') {
+    // Clear of each primary charge as it is drawn in this shape.
+    const primary = contextSlots({ ...fieldContext(ctx.peripheral), yields: 'around' }, ctx.primary.count, ctx.primary.layout, shape);
+    return { ...frameGround(ctx.peripheral, shape), avoid: primary.map(discPolygon), within: null };
   }
   if (ctx.k === 'on' && ctx.ordinary === 'bordure') {
     // On the ring: inside the outline, outside the inner edge.
@@ -530,7 +682,7 @@ const toSlots = (centres: readonly Centre[], size: number): Slot[] =>
     .sort((a, b) => (Math.abs(a.y - b.y) < 0.01 ? a.x - b.x : a.y - b.y))
     .map((c) => ({ x: r2(c.x), y: r2(c.y), size, rotation: c.rotation }));
 
-function heaterGeneric(ctx: LayoutContext, count: number, layout: Layout): Slot[] {
+function heaterGeneric(ctx: Exclude<LayoutContext, { k: 'around' }>, count: number, layout: Layout): Slot[] {
   const centres = nominalCentres(ctx, count, layout);
   if (!centres) return [];
   const crossed = layout.arrangement.k === 'crossed';
@@ -575,11 +727,14 @@ const SHIFTS = Array.from({ length: 21 }, (_, i) => -20 + 2 * i);
  * Where even that can't keep the parts (a ring of charges under a chief in a lozenge), the largest fit wins
  * and `reachesHeaterParts` says so.
  */
-function genericIn(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] {
+function genericIn(ctx: Exclude<LayoutContext, { k: 'around' }>, count: number, layout: Layout, shape: FieldShape): Slot[] {
   const heater = heaterGeneric(ctx, count, layout);
   if (shape === CANONICAL_SHAPE || heater.length === 0) return heater;
-  const ground = groundFor(ctx, shape);
-  const crossed = layout.arrangement.k === 'crossed';
+  return mappedFromHeater(heater, groundFor(ctx, shape), layout.arrangement.k === 'crossed', shape);
+}
+
+/** The heater's slots drawn in another shape on its ground, as `genericIn` describes. */
+function mappedFromHeater(heater: readonly Slot[], ground: Ground, crossed: boolean, shape: FieldShape): Slot[] {
   const search = (spreads: Spread[], keepParts = true): Slot[] => {
     let best: Slot[] = [];
     for (const spread of spreads) {
@@ -624,7 +779,9 @@ export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, 
   const key = `${JSON.stringify(ctx)}|${count}|${layoutKey(layout)}|${shape}`;
   let slots = memo.get(key);
   if (!slots) {
-    slots = ctx.k === 'on' && ctx.ordinary === 'bordure' ? bordureSlots(count, shape) : handSlots(ctx, count, layout, shape) ?? genericIn(ctx, count, layout, shape);
+    slots = ctx.k === 'around' ? aroundSlots(ctx, count, layout, shape)
+      : ctx.k === 'on' && ctx.ordinary === 'bordure' ? bordureSlots(count, shape)
+      : handSlots(ctx, count, layout, shape) ?? genericIn(ctx, count, layout, shape);
     memo.set(key, slots);
   }
   return slots;
@@ -662,6 +819,15 @@ export function largestFittingCount(ctx: LayoutContext, layoutFor: (n: number) =
   return n;
 }
 
+/** The most charges that fit legibly around the primary charges, in some layout of their count. */
+function largestAroundCount(ctx: Extract<LayoutContext, { k: 'around' }>): number {
+  const fitting = AROUND_COUNTS.filter((n) => aroundLayouts(n, ctx.peripheral).some((layout) => {
+    const slots = contextSlots(ctx, n, layout, CANONICAL_SHAPE);
+    return slots.length === n && slots[0].size >= minSlotSize(ctx);
+  }));
+  return Math.max(0, ...fitting);
+}
+
 /** What the peripherals beside a group of charges do to where they sit, as a trailing phrase. */
 function peripheralWords(peripheral: Peripheral): string {
   return peripheral === 'chief-bordure' ? ', within the bordure and under the chief' : hasChief(peripheral) ? ', under the chief' : hasBordure(peripheral) ? ', within the bordure' : '';
@@ -673,6 +839,7 @@ function whereWords(ctx: LayoutContext, layout: Layout): string {
     case 'field': return ctx.peripheral === 'chief-bordure' ? 'within the bordure, under the chief' : hasChief(ctx.peripheral) ? 'under the chief' : hasBordure(ctx.peripheral) ? 'within the bordure' : 'on the field';
     case 'between': return `around the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
     case 'position': return `in ${ctx.position}`;
+    case 'around': return `around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle${peripheralWords(ctx.peripheral)}`;
     case 'on': return `on the ${ORDINARY_NAME[ctx.ordinary]}${peripheralWords(ctx.peripheral)}`;
   }
 }
@@ -691,6 +858,8 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
   if (contextOf(d, group, host) === null) return null;
   const l = layoutOf(d, path);
   if (!l || hasRoom(d, path)) return null;
+  // A count with no layout around the primary charges is a gap (support.ts), not a want of room.
+  if (l.ctx.k === 'around' && !AROUND_COUNTS.includes(l.count)) return null;
   const { id } = l;
   const layoutFor = (n: number): Layout => {
     const a = group.arrangement;
@@ -701,10 +870,13 @@ export function capacityIssue(d: Design, path: GroupPath): { most: number; where
     if (a.k === 'line' || a.k === 'single') return { arrangement: { k: 'line', dir: a.k === 'line' ? a.dir : 'fess' }, position: group.position };
     return defaultLayoutOf(d, group, host, n);
   };
-  const most = largestFittingCount(l.ctx, layoutFor);
+  // Around the primary charges only some counts have a layout: the most is the largest of those that fits.
+  const most = l.ctx.k === 'around' ? largestAroundCount(l.ctx) : largestFittingCount(l.ctx, layoutFor);
   const where = whereWords(l.ctx, l.layout);
+  // Around the primary charges as many may fit in another layout of their count.
   const message = most === 0
     ? `${capitalise(CHARGES[id].plural)} can't be set ${where} like this.`
+    : most >= l.count ? `There isn't room for ${chargePhrase(id, l.count)} ${layoutWords(l.layout)} ${where} — choose another layout.`
     : `There isn't room for ${chargePhrase(id, l.count)} ${where} — at most ${most} fit.`;
   return { most, where, message };
 }

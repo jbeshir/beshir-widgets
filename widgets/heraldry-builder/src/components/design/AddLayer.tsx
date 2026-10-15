@@ -1,5 +1,5 @@
 // The one "+ Add pictures around / on / above" chooser under the picture step: a button for each layer the
-// design can take (pictures on the band, along the top or bottom or in the corner, a top band, a border), shown
+// design can take (pictures around the picture, on the band, along the top or bottom or in the corner, a top band, a border), shown
 // only while some layer can be drawn.
 
 import { useState } from 'preact/hooks';
@@ -21,6 +21,7 @@ const buttonText = (design: Design, key: LayerKey): string => {
     case 'in-chief': return 'Add pictures along the top (in chief)';
     case 'in-base': return 'Add pictures along the bottom (in base)';
     case 'in-canton': return 'Add a picture in the top corner (in canton)';
+    case 'around': return 'Add pictures around the picture';
     case 'chief': case 'bordure': return `Add a ${key === 'chief' ? 'top band' : 'border'} (${ORDINARY_LABEL[key].term})`;
   }
 };

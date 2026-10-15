@@ -10,7 +10,9 @@ import {
   walkGroups, type Design, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
-import { hostCounts, isSecondaryPosition, layoutKey, positionLayouts, primaryOrdinary, ROW_PATTERNS, sameLayout } from './arrangement';
+import {
+  AROUND_COUNTS, aroundPrimaryLayouts, hostCounts, isSecondaryPosition, layoutKey, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
+} from './arrangement';
 
 export { notSupported, UnsupportedConstructError } from './design';
 
@@ -122,12 +124,25 @@ function layoutGaps(g: Group, hasChief: boolean): Gap[] {
   return gaps;
 }
 
-/** Counts that have no layout around or on the host (Table 7 secondary and tertiary rows). */
+/** Whether charges are set around the design's primary charges. */
+const hasAround = (d: Design): boolean => primaryCharges(d) !== null && d.groups.some((g) => g.role === 'secondary' && g.relation === 'between');
+
+/**
+ * Counts that have no layout around or on the host (Table 7 secondary and tertiary rows), and primary charges that can't
+ * have charges set around them (one charge, or two side by side, one above the other or crossed, can).
+ */
 function placementGaps(d: Design, g: Group, host: Group | null): Gap[] {
   if (g.item.k !== 'charge' || g.count > MAX_DRAWN_COUNT) return [];
   if (host === null) {
+    if (g.role === 'primary') {
+      const layout = { arrangement: g.arrangement, position: g.position };
+      const held = !hasAround(d) || aroundPrimaryLayouts(g.count, CHARGES[g.item.charge].long).some((l) => sameLayout(l, layout));
+      return held ? [] : [gap('placement', `around-primary-${g.count}`)];
+    }
+    if (g.role !== 'secondary' || g.relation !== 'between') return [];
     const ordinary = primaryOrdinary(d);
-    if (g.role !== 'secondary' || g.relation !== 'between' || !ordinary || !DRAWN_ORDINARIES.includes(ordinary)) return [];
+    if (!ordinary) return primaryCharges(d) && !AROUND_COUNTS.includes(g.count) ? [gap('placement', `around-${g.count}`)] : [];
+    if (!DRAWN_ORDINARIES.includes(ordinary)) return [];
     return hostCounts('between', ordinary).includes(g.count) ? [] : [gap('placement', `between-${ordinary}-${g.count}`)];
   }
   if (host.item.k !== 'ordinary' || !DRAWN_ORDINARIES.includes(host.item.type)) return [];

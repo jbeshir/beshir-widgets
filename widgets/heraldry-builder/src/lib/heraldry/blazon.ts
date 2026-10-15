@@ -45,7 +45,7 @@ function wordsLayout(d: Design, path: GroupPath, g: Group, { stateDefaults }: Bl
   if (contextOf(d, g, hostOf(d, path)) === null) return false;
   if (!stateDefaults) return statesLayout(d, path);
   const k = layoutContext(d, path).k;
-  return k === 'position' || (k === 'field' && (g.arrangement.k !== 'single' || g.position !== null));
+  return k === 'position' || k === 'around' || (k === 'field' && (g.arrangement.k !== 'single' || g.position !== null));
 }
 
 /** A charge group's phrase: [layout prefix] count noun [posture] [mods] [layout postfix], without its tincture. */
@@ -72,7 +72,7 @@ function ordinaryPhrase(g: Group): string {
   return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[g.item.type]} ${ORDINARY_NAME[g.item.type]}`;
 }
 
-/** `secondary` is set between the primary, `position` stands beside it ("and in chief …"). */
+/** `secondary` is set between (or around) the primary, `position` stands beside it ("and in chief …"). */
 type TokenKind = 'primary' | 'secondary' | 'position' | 'peripheral' | 'tertiary';
 
 /** One element of the sentence: its phrase and paint, and whether its paint may be shared with the element before. */

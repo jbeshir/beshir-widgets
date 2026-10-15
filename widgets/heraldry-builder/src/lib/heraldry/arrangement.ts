@@ -126,6 +126,7 @@ export const isSecondaryPosition = (p: Position | null): p is SecondaryPosition 
 export type LayoutContext =
   | { k: 'field'; peripheral: Peripheral; yields: Yield; share: Share | null }   // primary charge group
   | { k: 'between'; ordinary: OrdinaryType; peripheral: Peripheral }             // secondary 'between'
+  | { k: 'around'; peripheral: Peripheral; primary: { count: number; layout: Layout } } // secondary 'between', around the primary charges
   | { k: 'position'; position: SecondaryPosition; ordinary: OrdinaryType | null; peripheral: Peripheral } // secondary 'position', beside the primary ordinary (or charges)
   | { k: 'on'; ordinary: OrdinaryType; peripheral: Peripheral };                 // tertiary on an ordinary (incl. chief)
 
@@ -154,6 +155,17 @@ function positionedSecondary(d: Design): SecondaryPosition | null {
   return g && g.item.k === 'charge' && isSecondaryPosition(g.position) ? g.position : null;
 }
 
+/** The design's primary group when it is one group of charges (no central ordinary, no co-primary): what charges set between it surround. */
+export function primaryCharges(d: Design): Group | null {
+  const primaries = d.groups.filter((g) => g.role === 'primary');
+  return primaries.length === 1 && primaries[0].item.k === 'charge' ? primaries[0] : null;
+}
+
+/** Whether charges are set around the primary charges ("a lion between three mullets"): the room the primary leaves them all round. */
+function aroundSecondary(d: Design): boolean {
+  return primaryCharges(d) !== null && d.groups.some((g) => g.role === 'secondary' && g.relation === 'between' && g.item.k === 'charge');
+}
+
 /** Where a charge group sits, or null for a group this builder has no layout for (ordinaries, overall, charges on charges, …). */
 export function contextOf(d: Design, group: Group, host: Group | null): LayoutContext | null {
   if (group.item.k !== 'charge') return null;
@@ -162,7 +174,7 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
     // The bordure runs round the whole edge, under no chief of its own: what lies beside it doesn't change where its charges go.
     return { k: 'on', ordinary: host.item.type, peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
   }
-  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? 'none' };
+  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none') };
   if (group.role === 'secondary' && group.relation === 'position') {
     return isSecondaryPosition(group.position) && d.groups.some((g) => g.role === 'primary')
       ? { k: 'position', position: group.position, ordinary: primaryOrdinary(d), peripheral: peripheralOf(d) }
@@ -170,7 +182,9 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
   }
   if (group.role === 'secondary' && group.relation === 'between') {
     const ordinary = primaryOrdinary(d);
-    return ordinary ? { k: 'between', ordinary, peripheral: peripheralOf(d) } : null;
+    if (ordinary) return { k: 'between', ordinary, peripheral: peripheralOf(d) };
+    const primary = primaryCharges(d);
+    return primary && { k: 'around', peripheral: peripheralOf(d), primary: { count: primary.count, layout: { arrangement: primary.arrangement, position: primary.position } } };
   }
   return null;
 }
@@ -211,6 +225,46 @@ export function betweenWords(ordinary: OrdinaryType, count: number): string | nu
   return BETWEEN[ordinary]?.[count]?.words ?? null;
 }
 
+/**
+ * Table 7's row "Around any other charge(s)", the one place it is written: the layouts charges set around a primary
+ * charge group take, by count, and how each is said in plain words. Three stand two and one unless the blazon says
+ * otherwise; every other count must be stated (two in fess, in pale or in bend; four in saltire, in cross or two and two;
+ * five to eight in orle or in annulo).
+ */
+const AROUND: Readonly<Record<number, ReadonlyArray<{ layout: Layout; words: string }>>> = {
+  2: [
+    { layout: line('fess'), words: 'one on each side' }, { layout: line('pale'), words: 'one above and one below' },
+    { layout: line('bend'), words: 'one top left and one bottom right' }, { layout: line('bend-sinister'), words: 'one top right and one bottom left' },
+  ],
+  3: [{ layout: rows([2, 1]), words: 'two above and one below' }],
+  4: [
+    { layout: pattern('saltire'), words: 'one in each corner' }, { layout: pattern('cross'), words: 'one above, one below and one on each side' },
+    { layout: rows([2, 2]), words: 'two above and two below' },
+  ],
+  ...Object.fromEntries([5, 6, 7, 8].map((n) => [n, [
+    { layout: pattern('orle'), words: 'in a ring round the edge' }, { layout: pattern('annulo'), words: 'in a ring around them' },
+  ]])),
+};
+
+/** The counts of charges that can be set around a primary charge group. */
+export const AROUND_COUNTS: readonly number[] = Object.keys(AROUND).map(Number);
+
+/** The layouts of `count` charges set around a primary charge group, Table 7's default first; a ring round the edge only with no chief or bordure. */
+export function aroundLayouts(count: number, peripheral: Peripheral): Layout[] {
+  return (AROUND[count] ?? []).map((a) => a.layout).filter((l) => peripheral === 'none' || l.arrangement.k !== 'pattern' || l.arrangement.pattern !== 'orle');
+}
+
+/** How charges set around a primary charge group in this layout stand, in plain words, or null for a layout they can't take. */
+export function aroundWords(count: number, layout: Layout): string | null {
+  return AROUND[count]?.find((a) => sameLayout(a.layout, layout))?.words ?? null;
+}
+
+/** The layouts of a primary charge group with charges set around it: one charge alone, or two in fess, in pale or (long charges) crossed. */
+export function aroundPrimaryLayouts(count: number, long: boolean): Layout[] {
+  if (count === 1) return [single()];
+  return count === 2 ? [line('fess'), line('pale'), ...(long ? [{ arrangement: { k: 'crossed' }, position: null } satisfies Layout] : [])] : [];
+}
+
 /** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows. */
 export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): readonly number[] {
   if (kind === 'between') return Object.keys(BETWEEN[ordinary] ?? {}).map(Number);
@@ -224,7 +278,7 @@ export function hostCounts(kind: 'between' | 'on', ordinary: OrdinaryType): read
 
 // ── GoT Table 7 ─────────────────────────────────────────────────────────────
 
-export type DefaultRule = '0' | '1' | '2-two-part' | '2-four-part' | '3' | '4' | '5' | '6' | '7' | 'host' | 'position';
+export type DefaultRule = '0' | '1' | '2-two-part' | '2-four-part' | '3' | '4' | '5' | '6' | '7' | 'host' | 'position' | 'around';
 export interface RuledLayout { layout: Layout; rule: DefaultRule }
 
 /** The two tinctures of a two-part divided field, or null when the field isn't one or a part isn't a plain tincture. */
@@ -237,6 +291,7 @@ function fieldPair(d: Design): [Tincture, Tincture] | null {
 /** Table 7 for a charge group of `count` in `ctx`: the first applicable row, or null for "None, must be specified". */
 function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count: number): RuledLayout | null {
   if (ctx.k === 'position') return { layout: positionLayout(ctx.position, count), rule: 'position' };
+  if (ctx.k === 'around') return count === 3 ? { layout: rows([2, 1]), rule: 'around' } : null;
   if (ctx.k !== 'field') return { layout: HOST_LAYOUT, rule: 'host' };
   const division = d.kind === 'arms' && d.field.k === 'divided' ? d.field.division : null;
   const pair = fieldPair(d);
@@ -280,13 +335,18 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, count:
 
 /** The layouts a charge group of `count` can take, in the order the builder lists them. Capacity is not consulted. */
 function candidatesFor(group: Group, ctx: LayoutContext, count: number, tableDefault: Layout | null): Layout[] {
-  if (ctx.k === 'position') return positionLayouts(ctx.position, count, group.item.k === 'charge' && CHARGES[group.item.charge].long);
+  const long = group.item.k === 'charge' && CHARGES[group.item.charge].long;
+  if (ctx.k === 'position') return positionLayouts(ctx.position, count, long);
+  if (ctx.k === 'around') return aroundLayouts(count, ctx.peripheral);
   if (ctx.k !== 'field') return [HOST_LAYOUT];
+  // Primary charges with charges set around them stand alone, or two side by side, one above the other or crossed.
+  const around = ctx.yields === 'around' ? aroundPrimaryLayouts(count, long) : [];
+  if (around.length > 0) return tableDefault && around.some((l) => sameLayout(l, tableDefault)) ? [tableDefault, ...around.filter((l) => !sameLayout(l, tableDefault))] : around;
   const out: Layout[] = tableDefault ? [tableDefault] : [];
   out.push(...ROW_PATTERNS.filter((r) => r.reduce((a, b) => a + b, 0) === count).map(rows));
   if (count >= 2) out.push(...LINE_DIRS.map((dir) => line(dir)));
   if (count === 4 || count === 5) out.push(pattern('cross'), pattern('saltire'));
-  if (count === 2 && group.item.k === 'charge' && CHARGES[group.item.charge].long) out.push({ arrangement: { k: 'crossed' }, position: null });
+  if (count === 2 && long) out.push({ arrangement: { k: 'crossed' }, position: null });
   // Two in annulo curl round each other: only a fish can (SENA example: two fish in annulo); otherwise a ring starts at three.
   if (count >= 3 || (count === 2 && group.item.k === 'charge' && CHARGES[group.item.charge].postureClass === 'fish')) out.push(pattern('annulo'));
   // A ring round the edge, and charges along the top or bottom, would take the room left for a secondary group.
@@ -310,7 +370,8 @@ function ruledDefaultOf(d: Design, group: Group, host: Group | null): RuledLayou
 /** The layout of a group whose arrangement the input leaves out. Never throws: groups with no layout get a plain fallback. */
 export function defaultLayoutOf(d: Design, group: Group, host: Group | null, count: number = group.count): Layout {
   const ctx = contextOf(d, group, host);
-  if (ctx) return tableDefaultRuleFor(d, group, ctx, count)?.layout ?? candidatesFor(group, ctx, count, null)[0];
+  // A count with no layout there (a gap) keeps a plain one.
+  if (ctx) return tableDefaultRuleFor(d, group, ctx, count)?.layout ?? candidatesFor(group, ctx, count, null)[0] ?? (count === 1 ? single() : line('fess'));
   if (group.item.k === 'ordinary') return single();
   if (host || group.role === 'secondary') return HOST_LAYOUT;
   return count === 1 ? single() : line('pale');
@@ -352,8 +413,9 @@ export function isForced(d: Design, path: GroupPath): boolean {
   const { group, host } = groupAndHost(d, path);
   if (group.item.k === 'ordinary') return false;
   const ctx = layoutContext(d, path);
-  // Where a secondary group stands is chosen, not forced: moving it is a change of arrangement (GoT "Arrangement").
-  if (ctx.k === 'position') return false;
+  // Where a secondary group stands, and how charges stand around the primary charges, is chosen, not forced: moving them is a
+  // change of arrangement (GoT "Arrangement").
+  if (ctx.k === 'position' || ctx.k === 'around') return false;
   if (ctx.k !== 'field') return true;
   const ruled = forcedRuleOf(d, group, host);
   return ruled !== null && sameLayout(ruled, { arrangement: group.arrangement, position: group.position });
@@ -374,14 +436,21 @@ export function forcedLayout(d: Design, path: GroupPath): Layout | null {
   return group.item.k === 'charge' && layoutContext(d, path).k === 'field' ? forcedRuleOf(d, group, host) : null;
 }
 
-/** Whether the blazon must word the layout: a field group whose layout is not just centred and differs from Table 7, or a group set by position ("and in chief"). */
+/**
+ * Whether the blazon must word the layout: a field group whose layout is not just centred and differs from Table 7, a group
+ * set by position ("and in chief"), or charges around the primary charges in any layout but Table 7's ("between in fess two mullets").
+ */
 export function statesLayout(d: Design, path: GroupPath): boolean {
   const { group } = groupAndHost(d, path);
   if (group.item.k === 'ordinary') return false;
   const ctx = layoutContext(d, path);
   if (ctx.k === 'position') return true;
-  if (ctx.k !== 'field') return false;
   const layout: Layout = { arrangement: group.arrangement, position: group.position };
+  if (ctx.k === 'around') {
+    const table = tableDefault(d, path);
+    return table === null || !sameLayout(layout, table);
+  }
+  if (ctx.k !== 'field') return false;
   if (layout.arrangement.k === 'single' && layout.position === null) return false;
   const table = tableDefault(d, path);
   return table === null || !sameLayout(layout, table);

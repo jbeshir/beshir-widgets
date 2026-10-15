@@ -137,6 +137,11 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['charges in chief in rows', arms('sable', group(charge('anchor'), 'argent'), group(charge('mullet'), 'or', { count: 5, position: 'chief', arrangement: 'rows-3-2' }))],
   ['two crossed in base', arms('sable', group(ordinary('chevron'), 'or'), group(charge('sword'), 'or', { count: 2, position: 'base', arrangement: 'crossed' }))],
   ['charges on an ordinary and charges in chief', arms('azure', group(ordinary('fess'), 'or', { charged: [mullets(3)] }), group(charge('rose'), 'argent', { count: 2, position: 'chief' }))],
+  ['a charge between charges', arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3, relation: 'between' }))],
+  ['two crossed between four in saltire', arms('sable', group(charge('sword'), 'or', { count: 2, arrangement: 'crossed' }), group(charge('mullet'), 'argent', { count: 4, relation: 'between', arrangement: 'in-saltire' }))],
+  ['a charge between two in fess, within a bordure', arms('vert', group(charge('tree'), 'or'), group(charge('crescent'), 'or', { count: 2, relation: 'between', arrangement: 'in-fess' }), group(ordinary('bordure'), 'argent'))],
+  ['a charge between six in orle', arms('gules', group(charge('heart'), 'argent'), group(charge('mullet'), 'or', { count: 6, relation: 'between', arrangement: 'in-orle' }))],
+  ['a charge between charges under a chief', arms('azure', group(charge('bee'), 'or'), group(charge('rose'), 'argent', { count: 3, relation: 'between' }), group(ordinary('chief'), 'argent'))],
   ['counterchanged charges', arms(field, group(charge('rose'), 'counterchanged', { count: 2 }))],
   ['a counterchanged ordinary', arms(field, group(ordinary('fess'), 'counterchanged'))],
 ];
@@ -195,7 +200,8 @@ describe('the matcher files what the widget does not draw under its gap', () => 
   it.each([
     ['Azure, a lion couchant Or.', ['posture:couchant']],
     ['Azure, a wolf Or and a rose argent.', ['multiple-groups:co-primary']],
-    ['Azure, a lion Or between three roses argent.', ['multiple-groups:co-primary']],
+    ['Azure, three lions Or between three roses argent.', ['placement:around-primary-3']],
+    ['Azure, a lion Or between ten roses argent.', ['placement:around-10']],
     ['Azure, a chevron between three mullets and a rose argent.', ['multiple-groups:secondary', 'placement:between-chevron-1']],
     ['Azure, on a lion Or three mullets gules.', ['multiple-groups:tertiary-on-charge']],
     ['Azure, a cross Or between two roses argent.', ['placement:between-cross-2']],

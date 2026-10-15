@@ -48,7 +48,7 @@ describe('normalise', () => {
   it('does not judge the tinctures of charges that have no layout, and does not throw', () => {
     // Charges "between" with no central ordinary: the structure rule says so; there is nothing to probe.
     const r = normalise({ v: 2, field: 'azure', groups: [{ item: charge('rose'), paint: 'or', role: 'secondary', relation: 'between', count: 3 }] });
-    expect(!r.ok && r.errors.map((e) => e.message)).toEqual(['Charges can only be set between a central band or shape.']);
+    expect(!r.ok && r.errors.map((e) => e.message)).toEqual(['Charges can only be set between a central band or shape, or around a picture in the middle.']);
   });
 
   it('agrees with validate on resolved designs, and passes everything the generator makes', () => {

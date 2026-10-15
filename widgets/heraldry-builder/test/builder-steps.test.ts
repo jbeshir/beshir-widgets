@@ -143,6 +143,20 @@ describe('controls that appear only when they apply', () => {
     expect(removeLayer(removeLayer(carried, 'on-chief'), 'on-bordure')).toEqual(framed);
   });
 
+  it('gives pictures around the picture a card of their own, with the layouts they take there', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(renderToString(h(AddLayer, { design: lion, onChange: noop }))).toContain('Add pictures around the picture');
+    const d = addLayer(lion, 'around');
+    expect(layersIn(d)).toEqual(['around']);
+    const html = renderToString(h(LayerStep, { ...base, design: d, place: 'around', n: 4, onAdjust: noop }));
+    const got = ids(html);
+    for (const id of ['step-layer-around', 'around-charge-select', 'around-count-select', 'around-count-3', 'around-arrangement-select', 'around-charge-tincture', 'remove-layer-around']) expect(got, id).toContain(id);
+    expect(got).not.toContain('around-placement-select');
+    expect(html).toContain('Pictures around the picture');
+    expect(html).toContain('Two above, one below');
+    expect(removeLayer(d, 'around')).toEqual(lion);
+  });
+
   it('gives pictures in chief, in base or in canton a card of their own, with the one layout they stand in', () => {
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     const add = renderToString(h(AddLayer, { design: lion, onChange: noop }));

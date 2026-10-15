@@ -67,6 +67,29 @@ describe('charges in chief, in base or in canton beside the primary', () => {
   });
 });
 
+describe('charges set around a primary charge group', () => {
+  it('follow it with "between", two and one unsaid, the tincture shared when it is the same', () => {
+    expect(say('purpure', chg('fish', 'or'), chg('crescent', 'or', { count: 3, relation: 'between' }))).toBe('Purpure, a fish between three crescents Or.');
+    expect(say(div('per-fess', 'vert', 'sable'), chg('eagle', 'argent'), chg('rose', 'argent', { count: 3, relation: 'between' }))).toBe('Per fess vert and sable, an eagle between three roses argent.');
+    expect(say('azure', chg('lion', 'or'), chg('rose', 'argent', { count: 3, relation: 'between' }))).toBe('Azure, a lion Or between three roses argent.');
+  });
+
+  it('word every other layout: lines lead, patterns follow; and the primary\'s own', () => {
+    expect(say('purpure', chg('sword', 'argent', { count: 2, arrangement: 'in-fess' }), chg('anchor', 'or', { count: 3, relation: 'between' })))
+      .toBe('Purpure, in fess two swords argent between three anchors Or.');
+    expect(say('vert', chg('tree', 'or'), chg('crescent', 'or', { count: 2, relation: 'between', arrangement: 'in-pale' }), ord('bordure', 'argent')))
+      .toBe('Vert, a tree between in pale two crescents Or, a bordure argent.');
+    expect(say('sable', chg('sword', 'or', { count: 2, arrangement: 'crossed' }), chg('mullet', 'argent', { count: 4, relation: 'between', arrangement: 'in-cross' })))
+      .toBe('Sable, two swords in saltire Or between four mullets in cross argent.');
+    expect(say('gules', chg('heart', 'argent'), chg('mullet', 'or', { count: 6, relation: 'between', arrangement: 'in-orle' }))).toBe('Gules, a heart argent between six mullets in orle Or.');
+  });
+
+  it('state two and one with the defaults stated too', () => {
+    expect(blazon(nd(arms('azure', chg('lion', 'or'), chg('rose', 'argent', { count: 3, relation: 'between' }))), { stateDefaults: true }))
+      .toBe('Azure, a lion rampant Or between three roses two and one argent.');
+  });
+});
+
 describe('postures', () => {
   it('leave out the posture GoT Table 5 assumes, and state every other', () => {
     expect(say('gules', chg('lion', 'or', {}, { posture: 'rampant' }))).toBe('Gules, a lion Or.');

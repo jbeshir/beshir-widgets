@@ -142,6 +142,12 @@ describe('charges Table 7 forces into one part of the field', () => {
     expect(tinctureIssues(nd(arms(div('per-chevron', 'or', 'sable'), chg('sun', 'counterchanged'), chg('mullet', 'sable', { position: 'canton' }))))).toEqual([]);
   });
 
+  it('are a violation, not a gap, for charges set around the primary charges: they are judged on the parts they lie on', () => {
+    const around = (paint: string) => nd(arms(div('per-pale', 'argent', 'azure'), chg('lion', 'gules'), chg('mullet', paint, { count: 3, relation: 'between' })));
+    expect(tinctureIssues(around('argent')).map((i) => [i.code, i.at])).toEqual([['tincture', { k: 'group', path: [1] }], ['tincture', { k: 'group', path: [1] }]]);
+    expect(tinctureIssues(around('counterchanged'))).toEqual([]);
+  });
+
   it('are drawn where the builder knows the forced layout, and a real violation stays one', () => {
     expect(validate(nd(arms(div('per-fess', 'or', 'vert'), chg('mullet', 'vert', { count: 3 }))))).toEqual([]);
     // Colour on colour on the other part: nothing to force into.

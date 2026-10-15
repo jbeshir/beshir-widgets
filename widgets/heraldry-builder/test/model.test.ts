@@ -158,6 +158,33 @@ describe('resolve: roles', () => {
     expect(gapTags(both)).toEqual(['multiple-groups:co-primary']);
   });
 
+  it('sets charges the input relates "between" a primary charge group around it, as a secondary group (SENA App I1)', () => {
+    const fish = nd(arms('purpure', group(charge('fish'), 'or'), group(charge('crescent'), 'or', { count: 3, relation: 'between' })));
+    expect(fish.groups.map((g) => [g.role, g.relation, g.count, g.arrangement])).toEqual([
+      ['primary', null, 1, { k: 'single' }], ['secondary', 'between', 3, { k: 'rows', rows: [2, 1] }],
+    ]);
+    expect(isSupported(fish)).toBe(true);
+    // Two and one is Table 7's default for three; every other count states its layout, the first it takes by default.
+    const around = (count: number, extra: object = {}) => nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count, relation: 'between', ...extra })));
+    expect([2, 4, 5, 8].map((n) => around(n).groups[1].arrangement)).toEqual([
+      { k: 'line', dir: 'fess' }, { k: 'pattern', pattern: 'saltire' }, { k: 'pattern', pattern: 'orle' }, { k: 'pattern', pattern: 'orle' },
+    ]);
+    expect(around(4, { arrangement: 'in-cross' }).groups[1].arrangement).toEqual({ k: 'pattern', pattern: 'cross' });
+    // Without the relation, two groups of charges are co-primary.
+    expect(gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3 }))))).toEqual(['multiple-groups:co-primary']);
+  });
+
+  it('draws charges around one primary charge or two (in fess, in pale or crossed), two to eight of them, and leaves the rest a gap', () => {
+    const around = (primary: object, count = 3) => gapTags(nd(arms('azure', group(charge('sword'), 'or', primary), group(charge('rose'), 'argent', { count, relation: 'between' }))));
+    for (const primary of [{}, { count: 2, arrangement: 'in-fess' }, { count: 2, arrangement: 'in-pale' }, { count: 2, arrangement: 'crossed' }]) expect(around(primary), JSON.stringify(primary)).toEqual([]);
+    expect(around({ count: 2, arrangement: 'in-bend' })).toEqual(['placement:around-primary-2']);
+    expect(around({ count: 3 })).toEqual(['placement:around-primary-3']);
+    expect(around({}, 1)).toEqual(['placement:around-1']);
+    expect(around({}, 9)).toEqual(['placement:around-9']);
+    // "Surrounded by" stays a gap of its own.
+    expect(gapTags(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count: 3, role: 'secondary', relation: 'about' }))))).toEqual(['multiple-groups:secondary-about']);
+  });
+
   it('draws charges in chief, base or canton beside the primary, and leaves the other positions a gap', () => {
     const beside = (position: string) => nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { role: 'secondary', relation: 'position', position })));
     for (const position of ['chief', 'base', 'canton']) expect(isSupported(beside(position)), position).toBe(true);
@@ -295,7 +322,7 @@ describe('resolve: shape errors', () => {
   });
 
   it('rejects a relation on a group that is not secondary', () => {
-    expect(bad(arms('or', { ...lion, relation: 'between' }))).toEqual(['Only a secondary group has a relation to the main one.']);
+    expect(bad(arms('or', { ...lion, role: 'primary', relation: 'between' }))).toEqual(['Only a secondary group has a relation to the main one.']);
   });
 
   it('rejects a layout other than host for a group around or on an ordinary', () => {
@@ -504,13 +531,25 @@ describe('structure rules', () => {
     expect(structural({ v: 2, kind: 'badge', groups: [] })).toEqual([]);
   });
 
-  it('3: charges between need a central primary ordinary', () => {
-    const d = nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 })));
+  it('3: charges between need a central primary ordinary, or one group of primary charges to stand around', () => {
+    expect(structuralIssues(nd(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 }))))).toEqual([]);
+    const d = nd(arms('azure', group(ordinary('chief'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 })));
     const issues = structuralIssues(d);
-    expect(issues.map((i) => i.message)).toEqual(['Charges can only be set between a central band or shape.']);
-    expect(issues[0].at).toEqual({ k: 'group', path: [1] });
-    expect(structural(arms('azure', group(ordinary('chief'), 'or'), group(charge('rose'), 'gules', { role: 'secondary', count: 3 }))))
-      .toEqual(['Charges can only be set between a central band or shape.']);
+    expect(issues.map((i) => i.message)).toEqual(['Charges can only be set between a central band or shape, or around a picture in the middle.']);
+    expect(issues[0].at).toEqual({ k: 'group', path: [0] });
+  });
+
+  it('4: charges around a primary charge take the layouts Table 7 gives them there, and have room to be read', () => {
+    const around = (count: number, extra: object, ...more: object[]) => structural(arms('azure', group(charge('lion'), 'or'), group(charge('rose'), 'argent', { count, relation: 'between', ...extra }), ...more));
+    expect(around(3, { arrangement: 'in-pale' })).toEqual(['Three roses around the charge in the middle can be set two and one — not in pale.']);
+    expect(around(6, { arrangement: 'in-orle' }, group(ordinary('bordure'), 'gules'))).toEqual(['Six roses around the charge in the middle can be set in annulo — not in orle.']);
+    // Two in pale above and below two swords in pale within a bordure: no room there, though two fit at their sides.
+    expect(structural(arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'in-pale' }), group(charge('rose'), 'argent', { count: 2, relation: 'between', arrangement: 'in-pale' }), group(ordinary('bordure'), 'gules'))))
+      .toEqual(["There isn't room for two roses in pale around the charges in the middle, within the bordure — choose another layout."]);
+    expect(structural(arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'in-pale' }), group(charge('rose'), 'argent', { count: 2, relation: 'between', arrangement: 'in-fess' }), group(ordinary('bordure'), 'gules')))).toEqual([]);
+    // A3D1a: the same charge around itself is two groups of one type on the field.
+    expect(structural(arms('azure', group(charge('mullet'), 'or'), group(charge('mullet'), 'argent', { count: 3, relation: 'between' }))))
+      .toEqual(["Three mullets can't be used again in another group on the field (SENA A3D1a) — choose a different picture."]);
   });
 
   it('3: charges in chief, in base or in canton need a primary beside them', () => {
@@ -615,7 +654,7 @@ describe('structure rules', () => {
     const wrong = { ...d, groups: [{ ...d.groups[0], arrangement: { k: 'line' as const, dir: 'pale' as const }, count: 1 }] };
     expect(structuralIssues(wrong).map((i) => i.message)).toEqual([
       'A divided field needs two different tinctures — both parts are Or.',
-      'Charges can only be set between a central band or shape.',
+      'Charges can only be set between a central band or shape, or around a picture in the middle.',
     ]);
   });
 

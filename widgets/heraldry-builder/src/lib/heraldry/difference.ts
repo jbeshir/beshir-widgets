@@ -13,7 +13,7 @@ import {
 import { DIVISION_NAME } from './divisions';
 import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
-import { isForced, layoutKey, layoutWords, type LayoutKey } from './arrangement';
+import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
 import { shownTinctures, type ShownTinctures } from './tincture-rule';
 
@@ -394,7 +394,7 @@ function groupNoun(d: Design, path: GroupPath): { one: string; many: string } {
   } else if (group.role === 'secondary' && group.relation === 'position') {
     where = ` in ${group.position}`;
   } else if (group.role === 'secondary') {
-    where = ' beside the band';
+    where = primaryCharges(d) ? ' around the picture' : ' beside the band';
   }
   return { one: `picture${where}`, many: `pictures${where}` };
 }

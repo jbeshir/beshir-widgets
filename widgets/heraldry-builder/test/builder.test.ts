@@ -278,7 +278,7 @@ describe('a top band and a border beside the band', () => {
     const chief = addLayer(band, 'chief');
     expect(blazon(chief)).toBe('Azure, a chevron argent, a chief Or.');
     expect(assess(chief).status).toBe('valid');
-    expect(layerChoices(chief).map((c) => c.value)).toEqual(['in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure']);
+    expect(layerChoices(chief).map((c) => c.value)).toEqual(['around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure']);
     expect(['in-chief', 'in-base', 'in-canton'].map((k) => allowed(chief, k as LayerKey))).toEqual([false, true, false]);
     expect(issueStep(chief, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: layerPath(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
     expect(blazon(setLayerTincture(chief, 'chief', 'gules'))).toContain('chief');
@@ -342,7 +342,7 @@ describe('pictures in chief, in base or in canton beside the band or the picture
 
   it('stand alone: one group beside the main one, and not beside pictures around the band', () => {
     const chief = addLayer(lion, 'in-chief');
-    expect(allowed(chief, 'in-base')).toMatchObject({ allowed: false, reason: 'Only one group of pictures can stand beside the main one — remove the others first.' });
+    expect(allowed(chief, 'in-base')).toMatchObject({ allowed: false, reason: 'Only one group of pictures can stand beside or around the main one — remove the others first.' });
     const around = setCharge(chevron, 'picture', 'rose');
     expect(allowed(around, 'in-chief')).toMatchObject({ allowed: false, reason: 'The picture is set around the chevron: pictures can stand around the band or along the top, not both — move the picture onto the band first.' });
   });
@@ -357,7 +357,7 @@ describe('pictures in chief, in base or in canton beside the band or the picture
     expect(blazon(d)).toBe('Azure, a lion and in chief three crescents Or.');
     const layouts = layoutChoices(d, path());
     expect(layouts.mode === 'choose' && layouts.choices.map((c) => c.value)).toEqual(['in-chief', 'rows-2-1@chief', 'rows-1-2@chief']);
-    expect(layoutChoices(addLayer(lion, 'in-canton'), layerPath(addLayer(lion, 'in-canton'), 'in-canton')!)).toEqual({ mode: 'position', note: 'A single charge in canton stands alone there.' });
+    expect(layoutChoices(addLayer(lion, 'in-canton'), layerPath(addLayer(lion, 'in-canton'), 'in-canton')!)).toEqual({ mode: 'fixed', note: 'A single charge in canton stands alone there.' });
     expect(countChoices(d, picture(d)).filter((c) => c.allowed).length).toBeGreaterThan(3);
   });
 
@@ -374,6 +374,49 @@ describe('pictures in chief, in base or in canton beside the band or the picture
     // A band added beside a picture and pictures in chief makes the picture go around it: the pictures in chief give way.
     const banded = setOrdinary(addLayer(lion, 'in-chief'), 'pale');
     expect(layerPath(banded, 'in-chief')).toBeNull();
+  });
+});
+
+describe('pictures set around the picture', () => {
+  const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+  const allowed = (d: Design, key: LayerKey) => layerChoices(d).find((c) => c.value === key);
+
+  it('are offered beside a picture on the background with no band: three, two and one, in a colour that works', () => {
+    expect(allowed(DEFAULT_DESIGN, 'around')).toMatchObject({ allowed: false, reason: 'Pick a picture on the background first — more pictures can then be set around it.' });
+    expect(allowed(setOrdinary(DEFAULT_DESIGN, 'fess'), 'around')).toMatchObject({ allowed: false, reason: 'Pictures are set around the fess — remove the band to set pictures around a picture instead.' });
+    const around = addLayer(lion, 'around');
+    expect(blazon(around)).toBe('Azure, a lion between three mullets Or.');
+    expect(assess(around).status).toBe('valid');
+    expect(issueStep(around, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: layerPath(around, 'around')! }, message: '', slots: [] })).toBe('around');
+    expect(blazon(setCharge(around, 'around', 'crescent'))).toBe('Azure, a lion between three crescents Or.');
+    expect(removeLayer(around, 'around')).toEqual(lion);
+    // One group stands around or beside the picture, not both.
+    expect(allowed(around, 'in-chief')).toMatchObject({ allowed: false, reason: 'Only one group of pictures can stand beside or around the main one — remove the others first.' });
+    expect(allowed(addLayer(lion, 'in-chief'), 'around')).toMatchObject({ allowed: false });
+  });
+
+  it('take the counts and layouts Table 7 gives them around a picture, and the picture keeps to one or two', () => {
+    const around = addLayer(lion, 'around');
+    const path = layerPath(around, 'around')!;
+    expect(layoutChoices(around, path)).toEqual({ mode: 'fixed', note: 'Three charges around the picture stand two above and one below.' });
+    const counts = countChoices(around, path);
+    expect(counts.filter((c) => c.allowed).map((c) => c.value)).toEqual([2, 3, 4, 5, 6, 7, 8]);
+    expect(counts[0]).toMatchObject({ allowed: false, reason: 'Pictures around the picture come in two, three, four, five, six, seven or eight, not a single charge.' });
+    const four = counts.find((c) => c.value === 4)!;
+    const fourDesign = four.allowed ? four.design : around;
+    expect(blazon(fourDesign)).toBe('Azure, a lion between four mullets in saltire Or.');
+    const layouts = layoutChoices(fourDesign, layerPath(fourDesign, 'around')!);
+    expect(layouts.mode === 'choose' && layouts.choices.map((c) => c.value)).toEqual(['in-saltire', 'in-cross', 'rows-2-2']);
+    const picture = countChoices(around, picturePath(around)!);
+    expect(picture.filter((c) => c.allowed).map((c) => c.value)).toEqual([1, 2]);
+    expect(picture[2]).toMatchObject({ allowed: false, reason: 'Pictures can be set around one picture, or two side by side, one above the other or crossed — remove the pictures around it for more.' });
+  });
+
+  it('give way to a band, and become the picture when it is removed', () => {
+    const around = addLayer(lion, 'around');
+    expect(blazon(setOrdinary(around, 'fess'))).toBe('Azure, a fess between two lions Or.');
+    expect(blazon(setCharge(around, 'picture', null))).toBe('Azure, three mullets Or.');
+    expect(placementChoices(around, picturePath(around)!).find((c) => c.value === 'ordinary')).toMatchObject({ allowed: false });
   });
 });
 

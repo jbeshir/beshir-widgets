@@ -43,6 +43,15 @@ describe('new constructs', () => {
       .toBe('A red shield with a gold band across the top carrying two red roses.');
   });
 
+  it('words charges set around the primary charges and how they stand', () => {
+    expect(say('azure', chg('lion', 'or'), chg('rose', 'argent', { count: 3, relation: 'between' })))
+      .toBe('A blue shield with a gold lion rearing up between three white roses, two above and one below.');
+    expect(say('sable', chg('sword', 'or', { count: 2, arrangement: 'crossed' }), chg('mullet', 'argent', { count: 4, relation: 'between', arrangement: 'in-cross' })))
+      .toBe('A black shield with two gold swords, crossed like an X, between four white five-pointed stars, one above, one below and one on each side.');
+    expect(say('vert', chg('tree', 'or'), chg('crescent', 'or', { count: 2, relation: 'between', arrangement: 'in-pale' }), ord('bordure', 'argent')))
+      .toBe('A green shield with a gold tree between two gold crescent moons, one above and one below, and a white border around the edge.');
+  });
+
   it('words charges in chief, in base or in canton beside the primary', () => {
     expect(say('purpure', chg('bee', 'or'), chg('mullet', 'argent', { count: 3, position: 'chief' })))
       .toBe('A purple shield with a gold bee and three white five-pointed stars, in a row along the top.');

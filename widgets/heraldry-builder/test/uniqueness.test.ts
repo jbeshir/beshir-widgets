@@ -65,6 +65,16 @@ describe('worked checks (RULES §C.8, plan §5.9)', () => {
     expect(between(design('azure', lion('or'), chg('mullet', 'argent', { count: 3, position: 'chief' })), design('azure', lion('or')))).toEqual(['group-presence:dc:A5G2']);
   });
 
+  it('charges around a primary charge: their layout is chosen (a DC when it changes), and adding them is one more group', () => {
+    const around = (arrangement: string) => design('azure', lion('or'), chg('mullet', 'argent', { count: 4, relation: 'between', arrangement }));
+    expect(between(around('in-saltire'), around('in-cross'))).toEqual(['arrangement:dc:A5G6']);
+    expect(explainDifferences(around('in-saltire'), around('in-cross')).map((n) => n.text)).toEqual(['arrangement of pictures around the picture (in saltire ↔ in cross)']);
+    expect(between(around('in-saltire'), design('azure', lion('or')))).toEqual(['group-presence:dc:A5G2']);
+    // Around the lion or in chief beside it: the same secondary group in another place.
+    expect(between(design('azure', lion('or'), chg('mullet', 'argent', { count: 3, relation: 'between' })), design('azure', lion('or'), chg('mullet', 'argent', { count: 3, position: 'chief' }))))
+      .toEqual(['arrangement:dc:A5G6']);
+  });
+
   it('one mullet against three: a substantial change of number', () => {
     expect(between(design('sable', chg('mullet', 'or')), design('sable', chg('mullet', 'or', { count: 3 })))).toEqual(['number:sc:A5E3']);
   });

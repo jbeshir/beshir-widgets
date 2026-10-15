@@ -9,7 +9,7 @@ import { itemKey, itemName, primaryGroup, walkGroups, type Design, type Group, t
 import { capacityIssue } from './layout';
 import { groundShares } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
-import { contextOf, hasChief, layoutCandidates, layoutKey, layoutWords, type LayoutContext } from './arrangement';
+import { AROUND_COUNTS, contextOf, hasChief, layoutCandidates, layoutKey, layoutWords, primaryCharges, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
@@ -27,6 +27,12 @@ function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): 
     if (ctx.position !== 'base' && hasChief(ctx.peripheral)) return `There is no room to set charges in ${ctx.position} when the design has a chief.`;
     if (layoutCandidates(d, path, g.count).some((c) => layoutKey(c) === layoutKey(layout))) return null;
     return `${capitalise(chargesPhrase(g))} in ${ctx.position} can't be arranged ${layoutWords({ ...layout, position: null })}.`;
+  }
+  if (ctx.k === 'around') {
+    // A count with no layout around the primary charges at all is a gap (support.ts).
+    const candidates = layoutCandidates(d, path, g.count);
+    if (candidates.some((c) => layoutKey(c) === layoutKey(layout)) || !AROUND_COUNTS.includes(g.count)) return null;
+    return `${capitalise(chargesPhrase(g))} around the ${ctx.primary.count === 1 ? 'charge' : 'charges'} in the middle can be set ${candidates.map(layoutWords).join(' or ')} — not ${layoutWords(layout)}.`;
   }
   if (ctx.k !== 'field') {
     const where = ctx.k === 'on' ? 'on' : 'around';
@@ -89,8 +95,9 @@ export function structuralIssues(d: Design): Issue[] {
   for (const { path, group, host } of walked) {
     const at = { k: 'group', path } as const;
     if (group.role === 'secondary' && group.relation === 'between') {
+      // Between a central ordinary, or around the one group of primary charges (SENA App I1: "a lion between three mullets").
       const central = d.groups.some((g) => g.role === 'primary' && g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central');
-      if (!central) add({ code: 'structure', rule: 'relation', at, message: 'Charges can only be set between a central band or shape.', slots: [] });
+      if (!central && !primaryCharges(d)) add({ code: 'structure', rule: 'relation', at, message: 'Charges can only be set between a central band or shape, or around a picture in the middle.', slots: [] });
     }
     if (group.role === 'secondary' && group.relation === 'position' && !d.groups.some((g) => g.role === 'primary')) {
       // With nothing in the middle, charges in chief or in base are the primary group themselves (SENA App I1).

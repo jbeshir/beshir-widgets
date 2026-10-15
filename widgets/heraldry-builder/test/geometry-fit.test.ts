@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  AROUND_COUNTS, CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
   hasBordure, hasChief, layoutOfKey, minSlotSize, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ChargeId, type Design, type FieldShape, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
@@ -32,12 +32,21 @@ const PERIPHERALS: Peripheral[] = ['none', 'chief', 'bordure', 'chief-bordure'];
 const POSITION_BESIDE: Array<OrdinaryType | null> = [null, 'fess', 'pale', 'bend', 'chevron', 'saltire'];
 /** The counts of primary charges sampled beside them: the small ones and the ends of the range. */
 const YIELD_COUNTS = [1, 2, 3, 5, 8, 12];
+/** The primaries sampled on the plain field and with a bordure or a chief beside them. */
+const AROUND_SAMPLE: Record<'none' | 'bordure' | 'chief', readonly string[]> = {
+  none: ['lion', 'swords in-pale', 'swords crossed'], bordure: ['lion', 'swords crossed'], chief: ['lion', 'swords in-fess'],
+};
 /** The chief and bordure groups that make a design's peripheral. */
 const peripheralGroups = (peripheral: Peripheral): object[] => [
   ...(hasChief(peripheral) ? [tinctured('gules', { k: 'ordinary', type: 'chief' })] : []),
   ...(hasBordure(peripheral) ? [tinctured('gules', { k: 'ordinary', type: 'bordure' })] : []),
 ];
 const chargeItem = (id: string) => ({ k: 'charge', charge: id });
+/** The primary charges other charges are set around: a lion alone, and two swords in fess, in pale and crossed. */
+const AROUND_PRIMARIES: Array<[string, object]> = [
+  ['lion', tinctured('or', chargeItem('lion'))],
+  ...['in-fess', 'in-pale', 'crossed'].map((arrangement): [string, object] => [`swords ${arrangement}`, tinctured('or', chargeItem('sword'), { count: 2, arrangement })]),
+];
 
 function resolved(input: unknown): Design {
   const r = resolve(input);
@@ -125,6 +134,25 @@ function catalogue(): { entries: Entry[]; rejected: number } {
       }
     }
   }
+  // Charges set around a lion or two swords, and the primary charges in the box they leave.
+  for (const [peripheral, extra] of peripherals) {
+    // A sample of the primaries on each ground (the sweep is long in the round shapes).
+    for (const [name, primary] of AROUND_PRIMARIES.filter(([name]) => AROUND_SAMPLE[peripheral].includes(name))) {
+      for (const count of AROUND_COUNTS) {
+        const make = (arrangement?: string) => resolved({
+          v: 2, field: 'azure', groups: [primary, tinctured('argent', chargeItem('mullet'), { count, relation: 'between', ...(arrangement ? { arrangement } : {}) }), ...extra],
+        });
+        const base = make();
+        const at = base.groups.findIndex((g) => g.role === 'primary');
+        const layout = { arrangement: base.groups[at].arrangement, position: base.groups[at].position };
+        const path = [base.groups.findIndex((g) => g.role === 'secondary')];
+        consider(count, { k: 'around', peripheral, primary: { count: base.groups[at].count, layout } }, layoutCandidates(base, path, count), `around ${name}/${peripheral}`, make);
+      }
+      const base = resolved({ v: 2, field: 'azure', groups: [primary, tinctured('argent', chargeItem('mullet'), { count: 3, relation: 'between' }), ...extra] });
+      const g = base.groups.find((x) => x.role === 'primary')!;
+      consider(g.count, { ...fieldContext(peripheral), yields: 'around' }, [{ arrangement: g.arrangement, position: g.position }], `field/${peripheral}/around ${name}`, () => base);
+    }
+  }
   return { entries, rejected };
 }
 
@@ -195,6 +223,11 @@ function groundFits(g: ShapeGeometry, ctx: LayoutContext, margin: number, narrow
     const yielded = inRoom(ctx.yields);
     return (p) => inFrame(p) && !yielded(p);
   }
+  if (ctx.k === 'around') {
+    // Clear of the primary charges' glyph discs as they are drawn in this shape.
+    const primary = contextSlots({ ...fieldContext(ctx.peripheral), yields: 'around' }, ctx.primary.count, ctx.primary.layout, g.shape);
+    return (p) => inFrame(p) && primary.every((s) => Math.hypot(p[0] - s.x, p[1] - s.y) >= 0.4 * s.size);
+  }
   if (ctx.k === 'position') {
     const room = inRoom(ctx.position);
     const poly = ctx.ordinary && g.poly(ctx.ordinary);
@@ -224,6 +257,8 @@ describe('layout catalogue', () => {
       'between chevron/bordure', 'between pale/chief', 'between bend/chief-bordure', 'on fess/bordure', 'on bend/chief', 'on chief/bordure', 'on bordure', 'on bordure/chief',
       'in chief beside lion/none', 'in base beside chevron/none', 'in canton beside fess/none', 'in base beside fess/chief', 'in chief beside fess/bordure',
       'field/none/chief', 'field/none/base', 'field/none/canton', 'field/bordure/chief', 'field/chief/base',
+      'around lion/none 3 rows-2-1', 'around lion/none 4 in-cross', 'around lion/none 8 in-orle', 'around swords crossed/none 4 in-saltire', 'around swords crossed/bordure 2 in-fess',
+      'around lion/chief 3', 'field/none/around lion', 'field/bordure/around swords crossed', 'field/chief/around swords in-fess',
     ]) {
       expect(CATALOGUE.some((e) => e.label.startsWith(key)), key).toBe(true);
     }
@@ -281,7 +316,9 @@ const PROBE_TOLERANCE = 2;
 
 /** Layouts that fit the smaller shapes only by missing a part of the field their heater slots reach. */
 const UNFAITHFUL = new Set([
+  'around lion/none 8 in-orle banner',
   'field/chief 3 in-annulo lozenge', 'field/chief 4 in-annulo lozenge', 'field/chief 6 rows-3-2-1 lozenge',
+  'around lion/none 8 in-orle lozenge',
 ]);
 
 describe('every shape draws each charge on the field parts the canonical verdict judged', () => {

@@ -553,7 +553,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const groups = els.filter((el) => el.kind === 'charge' && el.ctx !== 'held' && el.ctx !== 'of' && el.ctx !== 'semy');
   const ords = els.filter((el) => el.kind === 'ord');
   const together = drawnTogether(ords);
-  if (groups.length > 1 && !(groups.length === 2 && checkBeside(groups[0], groups[1], ords))) tag('multiple-groups', 'charges');
+  if (groups.length > 1 && !(groups.length === 2 && (checkAround(groups[0], groups[1], ords) || checkBeside(groups[0], groups[1], ords)))) tag('multiple-groups', 'charges');
   if (ords.length > 1 && !together) tag('multiple-groups', 'ordinaries');
   if (groups.length === 1 && ords.length <= 1) checkPlacement(groups[0], ords[0] ?? null);
 
@@ -670,7 +670,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     if (SUPPORTED_ARRANGEMENT_WORDS[al]) {
       if (words[i + 2] === 'point' || words[i + 2] === 'fess-point') { tag('arrangement', 'in-fess-point'); return i + 2; }
       const arr = SUPPORTED_ARRANGEMENT_WORDS[al];
-      const prevEl = last?.kind === 'charge' && last.el && last.el.ctx !== 'held' && words[i - 1] !== BREAK && look(i - 1)?.e.k !== 'and' ? last.el : null;
+      // "three roses in pale" arranges the charges before; "and in chief", "between in fess two roses" the charges after.
+      const before = look(i - 1)?.e.k;
+      const prevEl = last?.kind === 'charge' && last.el && last.el.ctx !== 'held' && words[i - 1] !== BREAK && before !== 'and' && before !== 'between' ? last.el : null;
       if (prevEl && !prevEl.arr) prevEl.arr = arr; else pendingArr = arr;
       return i + 1;
     }
@@ -747,6 +749,38 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const at = walkGroups(r.design).find((w) => w.group.relation === 'position');
     if (!gaps.length && at && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && i.at.path.join() === at.path.join())) {
       tag('placement', `in-${position}-${second.count}`);
+    }
+    return true;
+  }
+
+  /**
+   * Whether the widget draws the second of two charge groups as set around the first (SENA App I1: "a lion between three
+   * mullets"), with a chief or bordure beside them: asks the library, on a stand-in design, and tags the gaps it would have
+   * (more than two primary charges, a count with no layout around them) or that the charges have no room. False when the
+   * second group isn't set between the first, so the two are tagged as two charge groups.
+   */
+  function checkAround(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
+    if (first.ctx !== 'field' || second.ctx !== 'between' || second.host !== first) return false;
+    if (ordinaries.some((o) => !o.supported || o.count > 1 || ORDINARY_KIND[o.supported as OrdinaryType] === 'central')) return false;
+    if (first.count > MAX_DRAWN_COUNT || second.count > MAX_DRAWN_COUNT) return true;
+    // Stand-ins of two different charges where the blazon's aren't the widget's (the same charge twice is a rule, not a gap).
+    const a = first.supported ?? 'sword';
+    const b = second.supported && second.supported !== a ? second.supported : a === 'mullet' ? 'rose' : 'mullet';
+    // "two swords in saltire": two long charges crossed.
+    const arrangement = first.arr === 'in-saltire' && first.count === 2 && CHARGES[a as ChargeId].long ? 'crossed' : first.arr;
+    const groups = [
+      { item: { k: 'charge', charge: a }, paint: 'or', count: first.count, ...(arrangement ? { arrangement } : {}) },
+      { item: { k: 'charge', charge: b }, paint: 'argent', count: second.count, relation: 'between', ...(second.arr ? { arrangement: second.arr } : {}) },
+      ...ordinaries.map((o) => ({ item: { k: 'ordinary', type: o.supported }, paint: 'gules' })),
+    ];
+    const r = resolve({ v: 2, field: 'azure', groups });
+    if (!r.ok) return true;
+    const gaps = unsupportedIssues(r.design);
+    for (const i of gaps) tag(i.gap.category, i.gap.detail);
+    // No room for them around the first, or a layout they don't take there (the library's capacity and layout rules).
+    const at = walkGroups(r.design).filter((w) => w.group.role === 'primary' || w.group.role === 'secondary').map((w) => w.path.join());
+    if (!gaps.length && structuralIssues(r.design).some((i) => i.code === 'structure' && i.at.k === 'group' && at.includes(i.at.path.join()))) {
+      tag('placement', `around-${second.count}`);
     }
     return true;
   }

@@ -16,7 +16,7 @@ import {
 import { canonicalSlots } from './layout';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DRAWN_DIVISIONS, type Division } from './divisions';
-import { forcedLayout } from './arrangement';
+import { forcedLayout, layoutContext } from './arrangement';
 
 export const FAILURE_TEXT: Record<ContrastFailure, string> = {
   same: 'same tincture',
@@ -267,8 +267,10 @@ function ordinaryMessage(d: Design, g: Group, f: ContrastFailure, ground: Ground
  */
 function forcedIntoOnePart(d: Design, path: GroupPath, failures: readonly (ContrastFailure | null)[], pair: readonly [Tincture, Tincture] | null): boolean {
   const g = groupAt(d, path);
-  // Charges set in chief, in base or in canton stand where the blazon puts them: a part they don't contrast with is a violation.
+  // Charges set in chief, in base or in canton, or around the primary charges, stand where the blazon puts them: a part they don't
+  // contrast with is a violation (Table 7's forcing is for the primary).
   if (g.item.k !== 'charge' || g.paint.k !== 'tincture' || !pair || hostOf(d, path) || g.relation === 'position' || forcedLayout(d, path) !== null) return false;
+  if (layoutContext(d, path).k === 'around') return false;
   const i = pair.indexOf(g.paint.t);
   return i >= 0 && contrastFailure(g.paint.t, [pair[1 - i]]) === null && failures.some((f) => f !== null) && failures.every((f) => f === null || f === 'same');
 }

@@ -58,6 +58,18 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Sable, a dragon and in canton a crescent and a bordure argent.'],
   ['charges on a band and charges in base', arms('azure', group(ordinary('fess'), 'or', { charged: [rose(3)] }), group(charge('crescent'), 'argent', { count: 2, position: 'base' })),
     'Azure, on a fess Or three roses gules and in base two crescents argent.'],
+  ['a charge between charges (O&A 1347, the fish naiant)', arms('purpure', group(charge('fish'), 'or'), group(charge('crescent'), 'or', { count: 3, relation: 'between' })),
+    'Purpure, a fish between three crescents Or.'],
+  ['two charges between charges (O&A 2290)', arms('purpure', group(charge('sword'), 'argent', { count: 2, arrangement: 'in-fess' }), group(charge('anchor'), 'or', { count: 3, relation: 'between' })),
+    'Purpure, in fess two swords argent between three anchors Or.'],
+  ['a charge between charges on a divided field (O&A 10536)', arms(div('per-fess', 'vert', 'sable'), group(charge('eagle'), 'argent'), group(charge('rose'), 'argent', { count: 3, relation: 'between' })),
+    'Per fess vert and sable, an eagle between three roses argent.'],
+  ['two crossed between four in saltire, within a bordure', arms('sable', group(charge('sword'), 'or', { count: 2, arrangement: 'crossed' }), group(charge('mullet'), 'argent', { count: 4, relation: 'between', arrangement: 'in-saltire' }), group(ordinary('bordure'), 'or')),
+    'Sable, two swords in saltire Or between four mullets in saltire argent, a bordure Or.'],
+  ['a charge between charges in orle', arms('gules', group(charge('heart'), 'argent'), group(charge('mullet'), 'or', { count: 6, relation: 'between', arrangement: 'in-orle' })),
+    'Gules, a heart argent between six mullets in orle Or.'],
+  ['a charge between two in pale, under a chief with charges', arms('azure', group(charge('bee'), 'or'), group(charge('rose'), 'argent', { count: 2, relation: 'between', arrangement: 'in-pale' }), group(ordinary('chief'), 'or', { charged: [rose(3)] })),
+    'Azure, a bee Or between in pale two roses argent, on a chief Or three roses gules.'],
   ['charges and charges in base under a chief with charges', arms('vert', group(charge('mullet'), 'or'), group(charge('heart'), 'or', { position: 'base' }), group(ordinary('chief'), 'argent', { charged: [rose(3)] })),
     'Vert, a mullet and in base a heart Or, on a chief argent three roses gules.'],
 ];
@@ -115,6 +127,7 @@ describe('layers kept through the edits of the layers beneath them', () => {
     ['a picture on the field with a chief and a bordure', built(arms('azure', group(charge('lion'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'argent')))],
     ['a band between charges with a bordure', built(arms('gules', group(ordinary('pale'), 'argent'), group(charge('mullet'), 'or', { count: 2 }), group(ordinary('bordure'), 'argent')))],
     ['a picture with pictures in chief and a bordure', built(arms('azure', group(charge('lion'), 'or'), group(charge('crescent'), 'argent', { count: 2, position: 'chief' }), group(ordinary('bordure'), 'argent')))],
+    ['a picture with pictures around it and a bordure', built(arms('azure', group(charge('lion'), 'or'), group(charge('crescent'), 'argent', { count: 3, relation: 'between' }), group(ordinary('bordure'), 'argent')))],
   ];
 
   it('the full design has every layer', () => {

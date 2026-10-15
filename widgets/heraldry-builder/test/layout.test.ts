@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinarySamplePoints, pathPolygon, pointInPolygon, probePoints,
-  capacityIssue, shapeFrame, slotTransform, structuralIssues, type Layout, type LayoutContext, type OrdinaryType,
+  capacityIssue, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type Layout, type LayoutContext, type OrdinaryType,
 } from '../src/lib/heraldry';
 import type { Pt } from '../src/lib/heraldry/geometry';
 import { fits, groundFor, type Ground } from '../src/lib/heraldry/layout';
@@ -155,6 +155,20 @@ describe('capacity', () => {
     const d = nd(arms('azure', group(ordinary('pale'), 'or'), group(charge('mullet'), 'argent', { count: 3, position: 'chief' })));
     expect(capacityIssue(d, [1])?.message).toBe("Mullets can't be set in chief like this.");
     expect(structuralIssues(nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('mullet'), 'argent', { count: 3, position: 'chief' }))))).toEqual([]);
+  });
+
+  it('sets charges around a primary charge clear of it, in its corners, at its sides or in a ring, in every shape', () => {
+    const d = (primary: object, count: number, arrangement?: string) => nd(arms('azure', group(charge('sword'), 'or', primary), group(charge('mullet'), 'argent', { count, relation: 'between', ...(arrangement ? { arrangement } : {}) })));
+    const three = d({}, 3);
+    expect(groupSlots(three, [0], 'heater')).toEqual([{ x: 50, y: 52.06, size: 49.5, rotation: 0 }]);
+    expect(groupSlots(three, [1], 'heater').map((s) => [s.x, s.y, s.size])).toEqual([[19.96, 19.88, 34], [80.04, 19.88, 34], [50, 98.12, 34]]);
+    for (const design of [three, d({ count: 2, arrangement: 'in-pale' }, 2, 'in-fess'), d({ count: 2, arrangement: 'crossed' }, 4, 'in-saltire'), d({}, 8, 'in-orle')]) {
+      for (const shape of FIELD_SHAPES) {
+        const primary = groupSlots(design, [0], shape), around = groupSlots(design, [1], shape);
+        expect(around.length, shape).toBe(design.groups[1].count);
+        for (const s of around) for (const p of primary) expect(Math.hypot(s.x - p.x, s.y - p.y), shape).toBeGreaterThan((s.size + p.size) / 2 * 0.5);
+      }
+    }
   });
 
   it('does not fit twelve in pale', () => {
