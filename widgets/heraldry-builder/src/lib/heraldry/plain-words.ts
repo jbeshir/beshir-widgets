@@ -16,7 +16,7 @@ import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } 
 
 type FurLayout = FurSpec['layout'];
 import { isSecondaryPosition, layoutOfKey, layoutWords, primaryCharges } from './arrangement';
-import type { PlaceKey } from './places';
+import type { PlaceKind } from './places';
 import type { GroupTincture } from './design';
 import type { FurFamily } from './fur';
 import { joinAnd, capitalise } from './words';
@@ -107,6 +107,7 @@ export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
   couped: { plain: 'Shortened', term: 'couped' },
   throughout: { plain: 'Touching the edges', term: 'throughout' },
   voided: { plain: 'Hollow', term: 'voided' },
+  sinister: { plain: 'On the right', term: 'sinister' },
 };
 
 /** The outlines of a band or shape: what each looks like, and its heraldic word. */
@@ -263,7 +264,7 @@ export function postureLabel(id: ChargeId, posture: Posture, note: string | null
 }
 
 /** What each place of the builder is called, in everyday words and as heraldry has it. */
-export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
+export const PLACE_LABEL: Record<PlaceKind, PlainTerm> = {
   ordinary: { plain: 'Band or shape', term: 'ordinary' },
   picture: { plain: 'Picture', term: 'charge' },
   'co-primary': { plain: 'Second picture', term: 'second main charge' },
@@ -277,6 +278,7 @@ export const PLACE_LABEL: Record<PlaceKey, PlainTerm> = {
   'on-chief': { plain: 'Pictures on the top bar', term: 'charges on the chief' },
   bordure: ORDINARY_LABEL.bordure,
   'on-bordure': { plain: 'Pictures on the border', term: 'charges on the bordure' },
+  peripheral: { plain: 'Corner or edge shape', term: 'peripheral ordinary' },
   overall: { plain: 'Across everything', term: 'overall' },
 };
 

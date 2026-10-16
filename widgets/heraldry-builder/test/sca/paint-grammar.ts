@@ -65,9 +65,11 @@ const MODS_AFTER_LINE = [['couped'], ['throughout', 'enhanced', 'abased'], ['voi
 export function readOrdinaryForm(type: OrdinaryType, tokens: readonly string[], at: number): { lines: Lines | null; mods: OrdinaryMod[]; end: number } {
   const mods: OrdinaryMod[] = [];
   let i = at;
-  if (tokens[i] === 'inverted') {
-    mods.push('inverted');
-    i++;
+  for (const mod of ['sinister', 'inverted'] as const) {
+    if (tokens[i] === mod) {
+      mods.push(mod);
+      i++;
+    }
   }
   const { lines, end } = readOrdinaryLines(type, mods.includes('inverted'), tokens, i);
   i = end;

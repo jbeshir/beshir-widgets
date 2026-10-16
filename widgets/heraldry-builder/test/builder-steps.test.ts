@@ -411,8 +411,9 @@ describe('the stripes and checks picker', () => {
 describe('"More shapes and edges…" under the band', () => {
   const render = (d: Design) => renderToString(h(OrdinaryStep, { ...base, design: d }));
 
-  it('appears once a band is chosen, closed; a lined band opens it on its lines and edges', () => {
-    expect(shapeDisclosures(render(DEFAULT_DESIGN))).toEqual([]);
+  it('is there closed from the start, with the More shapes row; a lined band opens it on its lines and edges', () => {
+    expect(shapeDisclosures(render(DEFAULT_DESIGN))).toEqual([{ testid: 'ordinary-shape-more', open: false }]);
+    expect(render(DEFAULT_DESIGN)).not.toContain('ordinary-more-select');
     const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
     const closed = render(fess);
     expect(shapeDisclosures(closed)).toEqual([{ testid: 'ordinary-shape-more', open: false }]);
@@ -432,6 +433,17 @@ describe('"More shapes and edges…" under the band', () => {
     expect(chief).not.toContain('ordinary-edge-side-both');
     const pale = setOrdinary(DEFAULT_DESIGN, 'pale');
     expect(render(setOrdinaryLine(pale, ordinaryPath(pale)!, 'wavy'))).toContain('Left edge only');
+  });
+
+  it('is closed by default and opens on a canton, whose tile is in the More shapes row (no main tile checked), with On the right', () => {
+    const canton = setOrdinary(DEFAULT_DESIGN, 'canton');
+    const html = render(canton);
+    expect(shapeDisclosures(html)).toEqual([{ testid: 'ordinary-shape-more', open: true }]);
+    const got = ids(html);
+    for (const id of ['ordinary-more-select', 'ordinary-base', 'ordinary-point', 'ordinary-canton', 'ordinary-quarter', 'ordinary-gyron', 'ordinary-shape-sinister']) expect(got, id).toContain(id);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="ordinary-canton"/);
+    expect(html).not.toMatch(/aria-checked="true"[^>]*id="ordinary-(none|fess|pale|bend|bend-sinister|chevron|cross|saltire|chief|bordure|pile)"/);
+    expect(ids(render(setOrdinary(DEFAULT_DESIGN, 'base')))).not.toContain('ordinary-shape-sinister');
   });
 
   it('the outline row and its colour picker appear inside the closed disclosure; cotises add their edge row', () => {

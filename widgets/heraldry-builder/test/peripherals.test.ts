@@ -176,7 +176,7 @@ describe('peripherals: rules', () => {
       const d = nd(arms('argent', group(ordinary(type), 'azure')));
       expect(isFieldPrimary(d), type).toBe(true);
       expect(structuralIssues(d), type).toEqual([]);
-      expect(unsupportedIssues(d).map((i) => `${i.gap.category}:${i.gap.detail}`), type).toEqual([`ordinary:${type}`]);
+      expect(unsupportedIssues(d), type).toEqual([]);
       // A5F2: every part of the field changed is substantial for field-primary armory
       expect(differences(d, nd(arms('or', group(ordinary(type), 'azure')))).map((x) => `${x.kind}:${x.rule}`), type).toEqual(['sc:A5F2']);
     }

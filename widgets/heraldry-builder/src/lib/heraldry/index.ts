@@ -3,7 +3,7 @@
 export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
-export { ORDINARY_TYPES, BUILDER_ORDINARIES, MORE_ORDINARIES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_MODS, MOD_HOSTS, PERIPHERAL_ORDER, PERIPHERAL_JOINER, modDrawn, type OrdinaryType, type OrdinaryMod } from './ordinaries';
+export { ORDINARY_TYPES, BUILDER_ORDINARIES, MORE_ORDINARIES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_MODS, MOD_HOSTS, PERIPHERAL_ORDER, PERIPHERAL_JOINER, modDrawn, isOrdinaryType, type OrdinaryType, type OrdinaryMod } from './ordinaries';
 export {
   LINES, DRAWN_LINES, LINE_GROUP, LINE_PROFILE, LINE_WORD, LINE_SPELLINGS, isLine, isStraightLine, lineDiffers, edgeCount, lineAllowed, bareLines, fitPeriod, visibleSpan, edgeCommands, polylineEdgeCommands, edgePoints, periodStarts,
   reversedRun, runAlong, fieldSide, featureMiddle, profileSwing, edgeNames, lineWords,
@@ -57,10 +57,13 @@ export {
 } from './ordinary-geometry';
 export { variationRegions, inFirstRegion, type Box } from './variation-geometry';
 export { MIN_SLOT_SIZE, minSlotSize, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue } from './layout';
-export { PLACE_KEYS, placesOf, placesIn, pathOfPlace, placeOfPath, type PlaceKey, type Placed } from './places';
+export {
+  PLACE_KINDS, placesOf, placesIn, pathOfPlace, placeOfPath, peripheralPlace, peripheralPlacesOf, isPeripheralPlace, placeKind, type PlaceKind, type PlaceKey, type PeripheralPlace, type Placed,
+} from './places';
 export {
   LAYER_KEYS, layersIn, addedLayerStep, layerChoices, addLayer, removeLayer, setLayerCharge, setOverallItem, overallItemChoices, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
-  type LayerItem, type LayerKey, type PeripheralKey, type PicturesKey,
+  CORNER_AND_EDGE_TYPES, setPeripheralItem, peripheralItemChoices,
+  type LayerItem, type LayerKey, type LayerPlace, type PeripheralKey, type PicturesKey,
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,

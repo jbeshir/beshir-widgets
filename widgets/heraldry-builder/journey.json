@@ -119,6 +119,18 @@
       "expect": {"selector":"[data-testid=blazon]:has-text(\"cotised argent\")"}
     },
     {
+      "label": "more-shapes-canton",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-canton]"},
+        {"click":"[data-testid=ordinary-canton]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"a canton\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=ordinary-canton] [role=radio][aria-checked=true]"}
+    },
+    {
       "label": "shape-round",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

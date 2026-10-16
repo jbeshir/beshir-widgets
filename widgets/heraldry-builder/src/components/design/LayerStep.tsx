@@ -1,9 +1,10 @@
 // The numbered step card of one layer beyond the band and the picture: its title and role, a button in its heading that
-// removes it, and what it holds (a picture list with the picture controls, or a colour).
+// removes it, and what it holds (a picture list with the picture controls, a colour, or for a corner or edge shape its type too).
 
 import {
-  CATEGORY_LABEL, CHARGE_CATEGORIES, ORDINARY_LABEL, PLACE_LABEL, chargeLabel, chargesInCategory, groupAt, groupLabel, overallItemChoices, pathOfPlace, removeLayer, setOverallItem,
-  type ChargeId, type Choice, type Companion, type Design, type FieldShape, type Issue, type LayerItem, type LayerKey, type OrdinaryType,
+  CATEGORY_LABEL, CHARGE_CATEGORIES, ORDINARY_LABEL, PLACE_LABEL, chargeLabel, chargesInCategory, groupAt, groupLabel, isOrdinaryType, isPeripheralPlace, overallItemChoices, pathOfPlace,
+  peripheralItemChoices, removeLayer, setOverallItem, setPeripheralItem,
+  type ChargeId, type Choice, type Companion, type Design, type FieldShape, type Issue, type LayerItem, type LayerPlace, type OrdinaryType, type PeripheralPlace,
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { setCharge } from '../../lib/builder';
@@ -15,7 +16,7 @@ import { pictureWord } from './AddLayer';
 interface Props {
   design: Design;
   shape: FieldShape;
-  place: LayerKey;
+  place: LayerPlace;
   /** The step's number: the layers are numbered from 4 in the order they are shown. */
   n: number;
   onChange: (nd: Design) => void;
@@ -82,11 +83,50 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
   );
 }
 
-/** The step of a layer the design has: pictures on the band, or a top band or border set beside it. */
+/** The step of a corner or edge shape beside the band: which shape it is, its colour, and its edge (and side, for a corner). */
+function PeripheralStep({ design, shape, place, n, onChange, issues, accordion }: Omit<Props, 'place' | 'onAdjust'> & { place: PeripheralPlace }) {
+  const path = pathOfPlace(design, place)!;
+  const item = groupAt(design, path).item;
+  if (item.k !== 'ordinary') return null;
+  const label = ORDINARY_LABEL[item.type];
+  const choices = peripheralItemChoices(design, place);
+  const blocked = choices.find((c) => !c.allowed && c.value === item.type);
+  return (
+    <Step
+      n={n} title={capitalise(label.plain)} term={label.term} hint="A shape along an edge or in a corner of the field, beside the band; the pictures keep clear of it."
+      summary={[ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ')} issues={issues} accordion={accordion} testid={`step-layer-${place}`}
+      remove={{ label: `Remove the ${lower(label.plain)}`, testid: `remove-layer-${place}`, onRemove: () => onChange(removeLayer(design, place)) }}
+    >
+      <div class="control">
+        <label class="picker-legend" for={`${place}-item-select`}>Shape</label>
+        <select
+          id={`${place}-item-select`}
+          class="select"
+          data-testid={`${place}-item-select`}
+          value={item.type}
+          onChange={(e) => {
+            const type = (e.currentTarget as HTMLSelectElement).value;
+            if (isOrdinaryType(type)) onChange(setPeripheralItem(design, place, type));
+          }}
+        >
+          {choices.map((c: Choice<OrdinaryType>) => (
+            <option key={c.value} value={c.value} disabled={!c.allowed} title={c.allowed ? undefined : c.reason}>{capitalise(ORDINARY_LABEL[c.value].plain)} ({ORDINARY_LABEL[c.value].term}){c.allowed ? '' : ' (not here)'}</option>
+          ))}
+        </select>
+        {blocked && !blocked.allowed && <p class="field-hint">{blocked.reason}</p>}
+      </div>
+      <PaintPicker design={design} path={path} group={place} testid={`${place}-tincture`} noun={lower(label.plain)} onChange={onChange} />
+      <OrdinaryEdges design={design} path={path} testid={place} summary="Edge…" noun={`the ${lower(label.plain)}`} shape={shape} onChange={onChange} />
+    </Step>
+  );
+}
+
+/** The step of a layer the design has: pictures on the band, a top band or border set beside it, or a corner or edge shape. */
 export function LayerStep({ design, shape, place, n, onChange, onAdjust, issues, accordion }: Props) {
   const path = pathOfPlace(design, place);
   if (!path) return null;
   if (place === 'overall') return <OverallStep design={design} n={n} onChange={onChange} onAdjust={onAdjust} issues={issues} accordion={accordion} />;
+  if (isPeripheralPlace(place)) return <PeripheralStep design={design} shape={shape} place={place} n={n} onChange={onChange} issues={issues} accordion={accordion} />;
   const item = groupAt(design, path).item;
   const remove = (label: string) => ({ label, testid: `remove-layer-${place}`, onRemove: () => onChange(removeLayer(design, place)) });
   const testid = `step-layer-${place}`;
@@ -96,7 +136,7 @@ export function LayerStep({ design, shape, place, n, onChange, onAdjust, issues,
     return (
       <Step n={n} title={capitalise(label.plain)} term={label.term} hint="Drawn beside the band; the pictures keep clear of it." summary={[ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ')} issues={issues} accordion={accordion} testid={testid} remove={remove(`Remove the ${lower(label.plain)}`)}>
         <PaintPicker design={design} path={path} group={place} testid={`${place}-tincture`} noun={lower(label.plain)} onChange={onChange} />
-        {(place === 'chief' || place === 'bordure') && <OrdinaryEdges design={design} path={path} testid={place} summary="Edge…" noun={`the ${lower(label.plain)}`} shape={shape} onChange={onChange} />}
+        <OrdinaryEdges design={design} path={path} testid={place} summary="Edge…" noun={`the ${lower(label.plain)}`} shape={shape} onChange={onChange} />
       </Step>
     );
   }

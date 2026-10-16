@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, MORE_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -31,6 +31,8 @@ const ORDINARY_NAME_WORDS = 'fess|pale|bend sinister|bend|chevron|cross|saltire|
 const ORDINARY_LINE = ` (?:embattled counter-embattled|${LINE})(?: on the (?:upper|lower|dexter|sinister) edge)?`;
 /** An ordinary as the text spells it once its synonyms are settled: its name, inverted, its line, couped and where it runs, as far as it has them (the tincture follows). */
 const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?(?: voided)?`;
+/** The corner and edge shapes' names joined by the word the widget writes before them (`PERIPHERAL_JOINER`): ", a quarter", " and a base". */
+const joinedBy = (joiner: string) => MORE_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'peripheral' && PERIPHERAL_JOINER[t] === joiner).map((t) => ORDINARY_NAME[t]).join('|');
 /** A top band or border, with its line. */
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
 
@@ -156,11 +158,11 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     // 3a2. Lines of partition the SCA spells in more than one way (`LINE_SPELLINGS`), and the equivalence of RULES §A.3: a division has one
     //      line, so "per pale dancetty" is "per pale indented" (dancetty is a line of two-sided bands; the College draws a division's as indented).
     id: 'line-synonyms',
-    description: 'undy → wavy, crenellated → embattled, nebulee → nebuly, ployee → ployé … (LINE_SPELLINGS); "per <division> dancetty", "quarterly (per pale|per fess) dancetty" and dancetty on a chief, bordure, cross, saltire or pile → "… indented"; "a dance" → "a fess dancetty"; counter-embattled and "embattled on both edges" → "embattled counter-embattled".',
+    description: 'undy → wavy, crenellated → embattled, nebulee → nebuly, ployee → ployé … (LINE_SPELLINGS); "per <division> dancetty", "quarterly (per pale|per fess) dancetty" and dancetty on a chief, bordure, base, canton, quarter, gyron, cross, saltire or pile → "… indented"; "a dance" → "a fess dancetty"; counter-embattled and "embattled on both edges" → "embattled counter-embattled".',
     apply: (s) => s
       .replace(/\b(a|an|on a) dance(?:tte?)?(?![\w-])/g, '$1 fess dancetty')
       .replace(LINE_SPELLING_WORD, (w) => LINE_WORD_OF.get(w)!)
-      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|cross|saltire|pile)) dancetty\b/g, '$1 indented')
+      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|base|canton|quarter|gyron|cross|saltire|pile)) dancetty\b/g, '$1 indented')
       .replace(/(?<![\w-])(?<!embattled )counter-?embattled\b/g, 'embattled counter-embattled')
       .replace(/\bembattled on both edges\b/g, 'embattled counter-embattled'),
   },
@@ -266,17 +268,30 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     },
   },
   {
+    // 3a5. Corner shapes written more than one way (RULES-C §C.3, §G.2; PLAN-C C8b): a canton, quarter or gyron is in the dexter corner unless
+    //      it is said to be sinister, before its name ("a sinister canton", corpus 14) or after it ("a canton sinister", the widget's words).
+    id: 'corner-shapes',
+    description: '"a sinister canton/quarter/gyron" → "a canton/quarter/gyron sinister"; "a dexter canton/quarter/gyron" → "a canton/quarter/gyron".',
+    apply: (s) => s
+      .replace(/\b(a|an|on a) sinister (canton|quarter|gyron)\b/g, '$1 $2 sinister')
+      .replace(/\b(a|an|on a) dexter (canton|quarter|gyron)\b/g, '$1 $2'),
+  },
+  {
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a
     //    bordure", "all within a bordure", "and a bordure", ", a bordure"; "on a bend, three…" and "on a bend three…"; "on a
     //    fess between two crescents argent, three mullets" and "… argent three mullets" (RULES §F.2: no
     //    comma is the house style, a comma is occasionally used for clarity); "a lion and in chief three
     //    mullets" and "a lion, in chief three mullets" (RULES §F.2 secondary connectors: the LoARs use both,
     //    and a tincture is factored across either); and the comma that closes the field, which a few records
-    //    omit. Every element and tincture stays.
+    //    omit; before a corner or edge shape, ", a base" and "and a base" (each takes the joiner the O&A uses most for it,
+    //    PERIPHERAL_JOINER: counts in ordinaries.ts). Every element and tincture stays.
     id: 'equivalent-connectors',
-    description: '"and a chief/bordure", "within a bordure", "all within a bordure" → ", a chief/bordure"; "and in chief/base/canton" → ", in chief/base/canton"; no comma after "on a <ordinary> <tincture>" or after the tincture of what is set between it and a group on it; restore the comma after the field.',
+    description: '"and a chief/bordure", "within a bordure", "all within a bordure" → ", a chief/bordure"; ", a base/gyron/canton" → " and a …" and "and a point pointed/quarter" → ", a …" (each corner or edge shape takes the joiner the O&A uses most, PERIPHERAL_JOINER); "and in chief/base/canton" → ", in chief/base/canton"; no comma after "on a <ordinary> <tincture>" or after the tincture of what is set between it and a group on it; restore the comma after the field.',
     apply: (s) => s
       .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
+      .replace(new RegExp(`,? and (?=(?:a|on a) (?:${joinedBy(', ')})\\b)`, 'g'), ', ')
+      // The comma that closes the field stays: "Argent, a base azure".
+      .replace(new RegExp(`(?:,? and|,) (?=(?:a|on a) (?:${joinedBy(' and ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === text.indexOf(',') && m === ', ' ? m : ' and '))
       .replace(/,? and (?=in (?:chief|base|canton)\b)/g, ', ')
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
       .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}${BAND_PAINT}|chief(?:${ORDINARY_LINE})? ${TINCT})|${CORE} ${TINCT})),`, 'g'), '$1')

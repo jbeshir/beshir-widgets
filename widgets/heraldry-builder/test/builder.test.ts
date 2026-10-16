@@ -9,6 +9,7 @@ import {
 } from '../src/lib/builder';
 import {
   addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  MORE_ORDINARIES, layersIn, peripheralItemChoices, setPeripheralItem,
   type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
@@ -334,7 +335,7 @@ describe('a top band and a border beside the band', () => {
     const chief = addLayer(band, 'chief');
     expect(blazon(chief)).toBe('Azure, a chevron argent, a chief Or.');
     expect(assess(chief).status).toBe('valid');
-    expect(layerChoices(chief).map((c) => c.value)).toEqual(['co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure', 'overall']);
+    expect(layerChoices(chief).map((c) => c.value)).toEqual(['co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure', 'peripheral', 'overall']);
     expect(['in-chief', 'in-base', 'in-canton'].map((k) => allowed(chief, k as LayerKey))).toEqual([false, true, false]);
     expect(issueStep(chief, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
     expect(blazon(setLayerTincture(chief, 'chief', 'gules'))).toContain('chief');
@@ -378,11 +379,11 @@ describe('a top band and a border beside the band', () => {
 
   it('are shown on their own card, except a top band beside a border alone, which becomes the band (step 2)', () => {
     const chiefed = addLayer(band, 'chief');
-    expect(addedLayerStep(chiefed, 'chief')).toBe('chief');
+    expect(addedLayerStep(band, chiefed, 'chief')).toBe('chief');
     const border = setOrdinary(DEFAULT_DESIGN, 'bordure');
     const withChief = addLayer(border, 'chief');
     expect(ordinaryPath(withChief) && groupAt(withChief, ordinaryPath(withChief)!).item).toMatchObject({ k: 'ordinary', type: 'chief' });
-    expect(addedLayerStep(withChief, 'chief')).toBe('ordinary');
+    expect(addedLayerStep(border, withChief, 'chief')).toBe('ordinary');
   });
 });
 
@@ -795,5 +796,59 @@ describe('the outline of the band: edged, or cotised', () => {
     const edging = outlineChoices(hollow, path).find((c) => c.value === 'fimbriated')!;
     expect(edging).toMatchObject({ allowed: false, reason: expect.stringContaining('voided') });
     expect(outlineChoices(hollow, path).find((c) => c.value === 'cotised')!.allowed).toBe(true);
+  });
+});
+
+describe('corner and edge shapes: the More shapes row and any number of them beside the band', () => {
+  it('setOrdinary to every MORE_ORDINARIES type never throws, alone, beside a picture or a chief, and the band step shows it', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    const chiefed = addLayer(setOrdinary(DEFAULT_DESIGN, 'fess'), 'chief');
+    for (const type of MORE_ORDINARIES) {
+      for (const start of [DEFAULT_DESIGN, lion, chiefed, setOrdinary(DEFAULT_DESIGN, 'chief')]) {
+        const d = setOrdinary(start, type);
+        expect(groupAt(d, ordinaryPath(d)!).item, type).toMatchObject({ k: 'ordinary', type });
+      }
+    }
+    expect(placementLabel(setOrdinary(lion, 'base'), 'field')).toBe('Above the bottom bar');
+  });
+
+  it('adds one after another as their own cards, each a type the shield has none of, and removes each', () => {
+    const band = setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'bend'), 'or');
+    expect(layerChoices(DEFAULT_DESIGN).find((c) => c.value === 'peripheral')).toMatchObject({ allowed: false });
+    const one = addLayer(band, 'peripheral');
+    expect(layersIn(one)).toEqual(['peripheral-0']);
+    expect(addedLayerStep(band, one, 'peripheral')).toBe('peripheral-0');
+    const two = addLayer(one, 'peripheral');
+    const three = addLayer(two, 'peripheral');
+    expect(layersIn(three)).toEqual(['peripheral-0', 'peripheral-1', 'peripheral-2']);
+    const types = three.groups.flatMap((g) => (g.item.k === 'ordinary' && g.role === 'peripheral' ? [g.item.type] : []));
+    expect(new Set(types).size).toBe(3);
+    expect(assess(three).status).toBe('valid');
+    expect(layersIn(removeLayer(three, 'peripheral-1'))).toEqual(['peripheral-0', 'peripheral-1']);
+    expect(removeLayer(three, 'peripheral-1').groups).toHaveLength(3);
+  });
+
+  it('changes a card to another type, blocking the ones the shield already has and those that break a rule', () => {
+    const d = addLayer(setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'fess'), 'or'), 'peripheral');
+    const canton = setPeripheralItem(d, 'peripheral-0', 'canton');
+    expect(blazon(canton)).toMatch(/^Azure, a fess Or and a canton \w+\.$/);
+    const sinister = setOrdinaryToggle(canton, pathOfPlace(canton, 'peripheral-0')!, 'sinister', true);
+    expect(blazon(sinister)).toMatch(/a canton sinister/);
+    expect(toggleChoices(canton, pathOfPlace(canton, 'peripheral-0')!).map((c) => c.value)).toEqual(['sinister']);
+    const both = setPeripheralItem(addLayer(canton, 'peripheral'), 'peripheral-0', 'base');
+    expect(peripheralItemChoices(both, 'peripheral-0').find((c) => c.value === 'canton')).toMatchObject({ allowed: false, reason: expect.stringMatching(/already a canton/) });
+    // Something overall over a corner shape breaks SENA App I4.
+    const overall = addLayer(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), 'overall');
+    expect(layerChoices(overall).find((c) => c.value === 'peripheral')?.allowed).toBe(false);
+  });
+
+  it('a base or canton picked as the band stays the band when another is added, and a chief added beside one is a card', () => {
+    const canton = setOrdinary(DEFAULT_DESIGN, 'quarter');
+    const added = addLayer(canton, 'peripheral');
+    expect(groupAt(added, ordinaryPath(added)!).item).toMatchObject({ type: 'quarter' });
+    expect(addedLayerStep(canton, added, 'peripheral')).toBe('peripheral-0');
+    const chiefed = addLayer(canton, 'chief');
+    expect(groupAt(chiefed, ordinaryPath(chiefed)!).item).toMatchObject({ type: 'quarter' });
+    expect(layersIn(chiefed)).toEqual(['chief']);
   });
 });

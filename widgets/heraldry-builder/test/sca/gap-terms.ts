@@ -3,7 +3,7 @@
 // endings before lookup); hyphenated terms are single tokens. Where a word is in more than one list,
 // gaps.ts decides by the order it loads them in.
 
-import { CHARGE_IDS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId } from '../../src/lib/heraldry';
+import { CHARGE_IDS, DRAWN_ORDINARIES, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId } from '../../src/lib/heraldry';
 
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
@@ -225,20 +225,23 @@ export const CONTAINER_WORDS = w('pair sheaf bundle bunch cluster set brace coup
 
 // ── Field, ordinaries, lines ────────────────────────────────────────────────
 
-/** SCA spellings of the widget's ordinaries (the cross is read separately, as it is also a charge). */
+/**
+ * SCA spellings of the widget's ordinaries (the cross is read separately, as it is also a charge): each drawn ordinary's id is its token
+ * ("bend sinister" is joined to bend-sinister, "point pointed" read as point), and the other spellings.
+ */
 export const SUPPORTED_ORDINARY_WORDS: Record<string, string> = {
-  fess: 'fess', fesse: 'fess', pale: 'pale', bend: 'bend', 'bend-sinister': 'bend-sinister', chevron: 'chevron',
-  saltire: 'saltire', chief: 'chief', bordure: 'bordure', pile: 'pile', dance: 'fess',
+  ...Object.fromEntries(DRAWN_ORDINARIES.filter((t) => t !== 'cross').map((t) => [t, t])),
+  fesse: 'fess', dance: 'fess',
 };
 
-/** Ordinaries, sub-ordinaries and diminutives the widget lacks → sub-tag. */
-export const GAP_ORDINARIES: Record<string, string> = Object.fromEntries([
+/** Ordinaries, sub-ordinaries and diminutives the widget lacks → sub-tag (the drawn ones are left out). */
+export const GAP_ORDINARIES: Record<string, string> = Object.fromEntries(([
   ...same(`canton quarter orle tressure gore gusset flaunch base mount trimount pall shakefork gyron point fret
     label tierce chape bordurelet flasque voider baton riband fillet endorse bar barrulet bendlet scarpe pallet
     chevronel saltorel cotise bendlet-sinister scarpe-sinister`),
   ['gemel', 'gemel'], ['gemelle', 'gemel'], ['scarp', 'scarpe'], ['palet', 'pallet'], ['chevronelle', 'chevronel'],
   ['fess-point', 'point'], ['chief-pale', 'chief-pale'],
-]);
+] as [string, string][]).filter(([word]) => !(word in SUPPORTED_ORDINARY_WORDS)));
 
 /** Lines of partition → sub-tag. The widget draws only straight lines. */
 export const LINES: Record<string, string> = {

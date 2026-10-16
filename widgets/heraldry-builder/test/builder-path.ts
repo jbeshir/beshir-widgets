@@ -7,8 +7,8 @@
 
 import {
   CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, modifierChoices, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PicturesKey, type Posture, type Tincture, type Variation,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
@@ -38,7 +38,8 @@ export type BuilderAction =
   | { kind: 'ordinary'; type: OrdinaryType | null }
   | { kind: 'ordinary-tincture'; tincture: GroupTincture }
   | { kind: 'add-layer'; place: LayerKey }
-  | { kind: 'layer-tincture'; place: PeripheralKey; tincture: GroupTincture }
+  | { kind: 'layer-tincture'; place: Beside; tincture: GroupTincture }
+  | { kind: 'peripheral-item'; place: PeripheralPlace; type: OrdinaryType }
   | { kind: 'overall-item'; item: LayerItem }
   | { kind: 'charge'; at: At; charge: ChargeId | null }
   | { kind: 'layout'; at: At; action: LayoutAction; design: Design }
@@ -59,19 +60,23 @@ export type BuilderAction =
   | { kind: 'semy-colour'; target: ColourWhere; slot: 0 | 1; tincture: Tincture }
   | { kind: 'proper'; at: At };
 
-/** What a colour click is about: the band, a top band or border, or one of the pictures. */
-type PaintWhere = 'ordinary' | PeripheralKey | At;
+/** What is set beside the band: a top band, a border, or a corner or edge shape. */
+type Beside = PeripheralKey | PeripheralPlace;
 
-/** What a line or edge click is about: the background, the band, a top band or border, or the cotises of the band. */
-type EdgeWhere = 'field' | 'ordinary' | 'cotises' | PeripheralKey;
+/** What a colour click is about: the band, a top band, border or corner or edge shape, or one of the pictures. */
+type PaintWhere = 'ordinary' | Beside | At;
+
+/** What a line or edge click is about: the background, the band, a top band, border or corner or edge shape, or the cotises of the band. */
+type EdgeWhere = 'field' | 'ordinary' | 'cotises' | Beside;
 
 /** What a fur or treatment click is about: a part of the background (a plain background is its first part), or what a colour click is about. */
 type ColourWhere = PaintWhere | 'field-1' | 'field-2';
 
 const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? picturePath(d) : at === 'on-ordinary' ? simpleParts(d).onOrdinary?.path ?? null : pathOfPlace(d, at));
-const peripheralAt = (d: Design, place: PeripheralKey): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
+const peripheralAt = (d: Design, place: Beside): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
+const isBeside = (target: PaintWhere): target is Beside => target === 'chief' || target === 'bordure' || isPeripheralPlace(target);
 const paintPathOf = (d: Design, target: PaintWhere): GroupPath | null =>
-  target === 'ordinary' ? ordinaryPath(d) : target === 'chief' || target === 'bordure' ? peripheralAt(d, target) : pathAt(d, target);
+  target === 'ordinary' ? ordinaryPath(d) : isBeside(target) ? peripheralAt(d, target) : pathAt(d, target);
 
 /** The edge target a line click is about. */
 const edgeTargetOf = (d: Design, where: EdgeWhere): EdgeTarget | null => {
@@ -137,6 +142,7 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       const path = peripheralAt(d, a.place);
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : `there is no ${a.place} to colour`;
     }
+    case 'peripheral-item': return peripheralAt(d, a.place) ? choiceReason(peripheralItemChoices(d, a.place), a.type) : `there is no ${a.place} to change`;
     case 'overall-item': {
       const choice = overallItemChoices(d).find((c) => JSON.stringify(c.value) === JSON.stringify(a.item));
       if (!choice) return pathOfPlace(d, 'overall') ? `${JSON.stringify(a.item)} is not offered` : 'there is nothing overall to change';
@@ -246,6 +252,7 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'ordinary-tincture': return setOrdinaryTincture(d, a.tincture);
     case 'add-layer': return addLayer(d, a.place);
     case 'layer-tincture': return setLayerTincture(d, a.place, a.tincture);
+    case 'peripheral-item': return setPeripheralItem(d, a.place, a.type);
     case 'overall-item': return setOverallItem(d, a.item);
     case 'charge': return setCharge(d, a.at as 'picture' | PicturesKey, a.charge);
     case 'layout': return a.design;
@@ -286,6 +293,7 @@ function describeAction(a: BuilderAction): string {
     case 'ordinary-tincture': return `ordinary tincture ${a.tincture}`;
     case 'add-layer': return `add ${a.place}`;
     case 'layer-tincture': return `${a.place} tincture ${a.tincture}`;
+    case 'peripheral-item': return `${a.place} as ${a.type}`;
     case 'overall-item': return `overall ${a.item.k === 'ordinary' ? a.item.type : a.item.charge}`;
     case 'charge': return `${a.at} charge ${a.charge ?? 'none'}`;
     case 'layout': return `${a.at} ${a.action.kind} ${a.action.kind === 'count' ? a.action.count : a.action.kind === 'placement' ? a.action.placement : a.action.layout}`;
@@ -475,10 +483,10 @@ export function builderPath(goal: Design): BuilderPath {
     const now = (): Paint => groupAt(d, paintPathOf(d, target)!).paint;
     if (plain) {
       if (groupTinctureOf(now()) === plain) return true;
-      return click(target === 'ordinary' ? { kind: 'ordinary-tincture', tincture: plain } : target === 'chief' || target === 'bordure' ? { kind: 'layer-tincture', place: target, tincture: plain } : { kind: 'charge-tincture', at: target, tincture: plain });
+      return click(target === 'ordinary' ? { kind: 'ordinary-tincture', tincture: plain } : isBeside(target) ? { kind: 'layer-tincture', place: target, tincture: plain } : { kind: 'charge-tincture', at: target, tincture: plain });
     }
     if (paint.k === 'fur') return furTo(target, paint);
-    if (paint.k === 'proper') return target === 'ordinary' || target === 'chief' || target === 'bordure' ? !!problems.push(`the ${target} cannot be proper`) && false : click({ kind: 'proper', at: target });
+    if (paint.k === 'proper') return target === 'ordinary' || isBeside(target) ? !!problems.push(`the ${target} cannot be proper`) && false : click({ kind: 'proper', at: target });
     if (paint.k === 'treated') return paint.ground.k === 'tincture' && treatedTo(target, { ...paint, ground: paint.ground });
     const strewn = asSemy(paint);
     if (strewn) return strewnTo(target, strewn);
@@ -581,7 +589,7 @@ export function builderPath(goal: Design): BuilderPath {
     if (side !== 'both' && !click({ kind: 'edge-side', target: 'field', side })) return done();
   }
   /** The clicks that draw the band, top band or border with its goal lines: its line as the blazon bares it, then the edges if they differ. */
-  const edgesTo = (target: 'ordinary' | PeripheralKey, goalItem: Group['item']): boolean => {
+  const edgesTo = (target: 'ordinary' | Beside, goalItem: Group['item']): boolean => {
     if (goalItem.k !== 'ordinary' || (goalItem.lines.a === 'plain' && goalItem.lines.b === 'plain')) return true;
     const linesNow = () => { const item = groupAt(d, paintPathOf(d, target)!).item; return item.k === 'ordinary' ? item.lines : goalItem.lines; };
     const { a, b } = goalItem.lines;
@@ -613,25 +621,48 @@ export function builderPath(goal: Design): BuilderPath {
 
   const parts = simpleParts(goal);
 
+  /** The clicks that turn the band or the corner or edge shape at `target` over, shorten it … or set it in the other corner, as the goal is. */
+  const togglesTo = (target: 'ordinary' | Beside, goalItem: Group['item']): boolean => {
+    if (goalItem.k !== 'ordinary') return true;
+    return (['inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).every((toggle) => {
+      const on = goalItem.mods.includes(toggle);
+      return toggledOn(d, paintPathOf(d, target)!, toggle) === on || click({ kind: 'toggle', target, toggle, on });
+    });
+  };
+
   // Ordinary: its type, its shape (toggles, then where a band sits), its tincture, then its edges.
   if (parts.ordinary) {
     const item = parts.ordinary.group.item;
     if (item.k !== 'ordinary' || !click({ kind: 'ordinary', type: item.type })) return done();
     const path = () => paintPathOf(d, 'ordinary')!;
-    for (const toggle of ['inverted', 'couped', 'throughout', 'voided'] as const) {
-      if (toggledOn(d, path(), toggle) !== item.mods.includes(toggle) && !click({ kind: 'toggle', target: 'ordinary', toggle, on: item.mods.includes(toggle) })) return done();
-    }
+    if (!togglesTo('ordinary', item)) return done();
     const position: BandPosition = item.mods.includes('enhanced') ? 'enhanced' : item.mods.includes('abased') ? 'abased' : 'middle';
     if (bandPositionOf(d, path()) !== position && !click({ kind: 'band-position', target: 'ordinary', position })) return done();
     // The outline before the band's colour (an edged band need not stand out against the field), its line once the band's own is set (cotises follow it).
     if (!outlineTo(item) || !paintTo('ordinary', parts.ordinary.group.paint) || !edgesTo('ordinary', item) || !cotiseLineTo(item)) return done();
   }
 
-  // The top band and border beside the ordinary, before the pictures they leave room for.
+  // The top band, border and corner or edge shapes beside the ordinary, before the pictures they leave room for. A corner or edge shape is
+  // added as the first that works, then made the goal's type (each type is on the shield once, so it is found again by its type).
   for (const peripheral of parts.peripherals) {
-    const place = peripheral.place as PeripheralKey;
-    if (!click({ kind: 'add-layer', place })) return done();
-    if (!paintTo(place, peripheral.group.paint) || !edgesTo(place, peripheral.group.item)) return done();
+    const item = peripheral.group.item;
+    if (item.k !== 'ordinary') return { actions, problems: [...problems, `the ${peripheral.place} is not a band or shape`], design: d };
+    let place: Beside;
+    if (isPeripheralPlace(peripheral.place)) {
+      const before = d;
+      if (!click({ kind: 'add-layer', place: 'peripheral' })) return done();
+      const added = addedLayerStep(before, d, 'peripheral');
+      if (added === 'ordinary' || !isPeripheralPlace(added)) return { actions, problems: [...problems, 'the corner or edge shape became the band'], design: d };
+      const now = groupAt(d, peripheralAt(d, added)!).item;
+      if (now.k === 'ordinary' && now.type !== item.type && !click({ kind: 'peripheral-item', place: added, type: item.type })) return done();
+      const found = simpleParts(d).peripherals.find((p) => isPeripheralPlace(p.place) && p.group.item.k === 'ordinary' && p.group.item.type === item.type);
+      if (!found) return { actions, problems: [...problems, `the ${item.type} went missing`], design: d };
+      place = found.place as PeripheralPlace;
+    } else {
+      place = peripheral.place as PeripheralKey;
+      if (!click({ kind: 'add-layer', place })) return done();
+    }
+    if (!togglesTo(place, item) || !paintTo(place, peripheral.group.paint) || !edgesTo(place, item)) return done();
   }
 
   // The picture, then the pictures around it or beside it in chief, base or canton, the extra pictures on the band, the top band and the border, and last what lies overall.

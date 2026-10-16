@@ -2,7 +2,7 @@
 // one-click fix when a single tincture swap (or a structural refit) clears them.
 
 import { refitLayers, suggestTinctureFix, type Issue, type Design } from '../../lib/heraldry';
-import { STEP_LABEL, assess, fixText, issueStep, sameDesign, type StepKey } from '../../lib/builder';
+import { assess, stepLabel, fixText, issueStep, sameDesign, type StepKey } from '../../lib/builder';
 
 interface Props {
   design: Design;
@@ -21,7 +21,7 @@ function helpText(problems: Issue[]): string {
 
 export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
   const steps = problems.map((p) => issueStep(design, p));
-  const layers = [...new Set(steps.map((s) => STEP_LABEL[s]))];
+  const layers = [...new Set(steps.map(stepLabel))];
   const tinctureFix = suggestTinctureFix(design);
   const refit = refitLayers(design);
   const structuralFix = !tinctureFix && !sameDesign(refit, design) && assess(refit).status !== 'violation' ? refit : null;
@@ -37,8 +37,8 @@ export function ViolationPanel({ design, problems, onFix, onGoTo }: Props) {
       <ul class="violation-list">
         {problems.map((p, i) => (
           <li key={i} data-layer={steps[i]}>
-            <strong>{STEP_LABEL[steps[i]]}:</strong> {p.message}{' '}
-            <button type="button" class="text-button" data-testid="violation-goto" onClick={() => onGoTo(steps[i])}>Go to {STEP_LABEL[steps[i]].toLowerCase()}</button>
+            <strong>{stepLabel(steps[i])}:</strong> {p.message}{' '}
+            <button type="button" class="text-button" data-testid="violation-goto" onClick={() => onGoTo(steps[i])}>Go to {stepLabel(steps[i]).toLowerCase()}</button>
           </li>
         ))}
       </ul>

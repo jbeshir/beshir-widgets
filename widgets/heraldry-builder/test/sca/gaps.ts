@@ -655,7 +655,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
   }
 
-  // Charge groups and ordinaries: the widget has room for one charge group, and for a central ordinary with a chief and a bordure beside it.
+  // Charge groups and ordinaries: the widget has room for one charge group, and for a central ordinary with peripheral ones (one of each type) beside it.
   const overalls = els.filter((el) => el.ctx === 'overall');
   // What lies overall is judged on its own, with what is on it (the widget draws no charges on a group overall).
   const onOverall = (el: Element) => el.ctx === 'on' && el.host?.ctx === 'overall';
@@ -751,7 +751,17 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   }
 
   function readOrdinary(i: number, type: OrdinaryType): void {
-    if (/^(to|from|in|dexter|sinister)$/.test(i > 0 ? words[i - 1] : BREAK)) return; // "issuant from (dexter) chief": a place
+    const prev = i > 0 ? words[i - 1] : BREAK;
+    if (ORDINARY_KIND[type] === 'peripheral' && type !== 'chief' && type !== 'bordure') {
+      // "in base", "base" as a place; "a dexter point" and "a sinister point" are not drawn; "a sinister canton" is.
+      const article = ARTICLES.has(prev) || look(i - 1)?.e.k === 'num' || (/^(dexter|sinister)$/.test(prev) && ARTICLES.has(words[i - 2] ?? ''));
+      if (!article || /^(to|from|in)$/.test(prev)) return;
+      if (type === 'point' && /^(dexter|sinister)$/.test(prev)) {
+        tag('ordinary', `point-${prev}`);
+        settleHost(newElement('ord', null));
+        return;
+      }
+    } else if (/^(to|from|in|dexter|sinister)$/.test(prev)) return; // "issuant from (dexter) chief": a place
     const count = pendingCount ?? 1;
     const el = newElement('ord', type);
     ordEnd = i;
@@ -1075,13 +1085,19 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
 /** Charges standing in, in this order, for groups set together whose charge the widget lacks: with no posture, so none clash (A3D2c). */
 const TOGETHER_STAND_INS: readonly ChargeId[] = ['mullet', 'rose', 'crescent', 'heart', 'annulet'];
 
-/** Whether the widget draws these ordinaries together: at most one central one, with at most one chief and one bordure beside it. */
+/** Tinctures for stand-in ordinaries, one each, so no two are alike (a chief and a base alike is a rule, not a gap). */
+const TOGETHER_ORDINARY_TINCTURES = ['or', 'argent', 'gules', 'sable', 'vert', 'purpure'] as const;
+
+/**
+ * Whether the widget draws these ordinaries together: asks the library, on a stand-in design, whether their kinds stand together (at
+ * most one central one, with any number of peripheral ones beside it, one of each type).
+ */
 function drawnTogether(ords: readonly Element[]): boolean {
-  const types = ords.map((o) => o.supported as OrdinaryType | null);
-  if (types.some((t) => t === null) || ords.some((o) => o.count > 1)) return false;
-  const central = types.filter((t) => ORDINARY_KIND[t!] === 'central').length;
-  const count = (type: OrdinaryType) => types.filter((t) => t === type).length;
-  return central <= 1 && count('chief') <= 1 && count('bordure') <= 1 && central + count('chief') + count('bordure') === types.length;
+  if (ords.some((o) => o.supported === null || o.count > 1)) return false;
+  if (ords.length < 2) return true;
+  const groups = ords.map((o, i) => ({ item: { k: 'ordinary', type: o.supported }, paint: TOGETHER_ORDINARY_TINCTURES[i % TOGETHER_ORDINARY_TINCTURES.length] }));
+  const r = resolve({ v: 2, field: 'azure', groups });
+  return r.ok && !unsupportedIssues(r.design).some((i) => i.gap.category === 'multiple-groups');
 }
 
 /**

@@ -1,8 +1,8 @@
 // Places: every group of a design the builder draws has one, and it survives the group order changing.
 
 import { describe, expect, it } from 'vitest';
-import { PLACE_KEYS, pathKey, pathOfPlace, placeOfPath, placesIn, placesOf, walkGroups, type PlaceKey } from '../src/lib/heraldry';
-import { generatedRichDesigns } from './design-generator';
+import { PLACE_KINDS, isPeripheralPlace, pathKey, pathOfPlace, placeKind, placeOfPath, placesIn, placesOf, walkGroups, type PlaceKey } from '../src/lib/heraldry';
+import { generatedPeripheralDesigns, generatedRichDesigns } from './design-generator';
 import { arms, charge, group, nd, ordinary } from './helpers';
 
 const rose = (count = 1, extra: object = {}) => group(charge('rose'), 'gules', { count, ...extra });
@@ -21,7 +21,7 @@ describe('places of a design', () => {
         expect(placeOfPath(d, p.path)).toBe(p.place);
         expect(pathOfPlace(d, p.place)).toEqual(p.path);
       }
-      expect(placed.map((p) => PLACE_KEYS.indexOf(p.place))).toEqual(placed.map((p) => PLACE_KEYS.indexOf(p.place)).sort((a, b) => a - b));
+      expect(placed.map((p) => PLACE_KINDS.indexOf(placeKind(p.place)))).toEqual(placed.map((p) => PLACE_KINDS.indexOf(placeKind(p.place))).sort((a, b) => a - b));
       if (placed.some((p) => p.place === 'chief' || p.place === 'bordure')) layered++;
       if (placed.some((p) => p.place === 'in-chief' || p.place === 'in-base' || p.place === 'in-canton')) positioned++;
       if (placed.some((p) => p.place === 'around')) around++;
@@ -31,6 +31,36 @@ describe('places of a design', () => {
     expect(positioned).toBeGreaterThan(20);
     expect(around).toBeGreaterThan(20);
     expect(onPicture).toBeGreaterThan(20);
+  });
+
+  it('cover every group of designs with corner and edge shapes, which are a list in canonical order', () => {
+    let listed = 0, several = 0;
+    for (const d of generatedPeripheralDesigns(3, 150)) {
+      const placed = placesOf(d);
+      expect(placed.map((p) => pathKey(p.path)).sort(), JSON.stringify(d)).toEqual(walkGroups(d).map((w) => pathKey(w.path)).sort());
+      for (const p of placed) {
+        expect(placeOfPath(d, p.path)).toBe(p.place);
+        expect(pathOfPlace(d, p.place)).toEqual(p.path);
+      }
+      const corners = placed.filter((p) => isPeripheralPlace(p.place));
+      expect(corners.map((p) => p.place)).toEqual(corners.map((_, i) => `peripheral-${i}`));
+      expect(corners.map((p) => p.path[0])).toEqual(corners.map((p) => p.path[0]).sort((a, b) => a - b));
+      if (corners.length > 0) listed++;
+      if (corners.length > 1) several++;
+    }
+    expect(listed).toBeGreaterThan(40);
+    expect(several).toBeGreaterThan(10);
+  });
+
+  it('give a lone corner or edge shape the place of the band, and set one beside a band, a picture, a chief or another as a list', () => {
+    const base = group(ordinary('base'), 'or'), canton = group(ordinary('canton'), 'argent'), chief = group(ordinary('chief'), 'gules');
+    expect(names(nd(arms('azure', base)))).toEqual([['ordinary', 'base']]);
+    expect(names(nd(arms('azure', group(charge('mullet'), 'sable'), base)))).toEqual([['ordinary', 'base'], ['picture', 'mullet']]);
+    expect(names(nd(arms('azure', group(ordinary('bend'), 'or'), canton)))).toEqual([['ordinary', 'bend'], ['peripheral-0', 'canton']]);
+    // A base or canton picked as the band stays the band beside a chief.
+    expect(names(nd(arms('azure', chief, canton)))).toEqual([['ordinary', 'canton'], ['chief', 'chief']]);
+    expect(names(nd(arms('azure', group(ordinary('fess'), 'or'), canton, chief, base, group(ordinary('gyron', { mods: ['sinister'] }), 'gules')))))
+      .toEqual([['ordinary', 'fess'], ['chief', 'chief'], ['peripheral-0', 'base'], ['peripheral-1', 'gyron'], ['peripheral-2', 'canton']]);
   });
 
   it('names the picture and the pictures on it, which are not the pictures on the band', () => {

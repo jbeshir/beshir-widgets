@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -25,7 +25,7 @@ import { useExplainer } from './Explainer';
 import { FieldPattern } from './VariationPicker';
 import { EdgePicker } from './EdgePicker';
 import { MoreShapes } from './MoreShapes';
-import { OrdinaryEdges } from './OrdinaryEdges';
+import { OrdinaryShapeControls, hasShapeControls, usesShapeControls } from './OrdinaryEdges';
 import { FurPicker } from './FurPicker';
 import { SemyPicker } from './SemyPicker';
 import { TreatmentPicker } from './TreatmentPicker';
@@ -68,6 +68,8 @@ const ICON_FIELD = (division: Division | null): Design =>
 const ICON_BADGE: Design = icon({ v: 2, kind: 'badge', groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'or' }] });
 const ICON_ORDINARY = (type: OrdinaryType): Design =>
   icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, paint: 'or' }] });
+/** The "More shapes" tiles' designs, made once. */
+const MORE_ICONS: ReadonlyMap<OrdinaryType, Design> = new Map(MORE_ORDINARIES.map((t) => [t, ICON_ORDINARY(t)]));
 
 function LayerIssues({ issues }: { issues: Issue[] }) {
   if (!issues.length) return null;
@@ -310,7 +312,7 @@ function outlineWords(design: Design, path: GroupPath): string {
 
 /** The shape toggles and position of a band in everyday words ("upside down, raised"); empty when it has none. */
 function ordinaryShapeWords(item: Extract<Design['groups'][number]['item'], { k: 'ordinary' }>): string {
-  const toggles = (['inverted', 'couped', 'throughout', 'voided'] as const).filter((t) => item.mods.includes(t)).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
+  const toggles = (['inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).filter((t) => item.mods.includes(t)).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
   const moved = (['enhanced', 'abased'] as const).filter((p) => item.mods.includes(p)).map((p) => BAND_POSITION_LABEL[p].plain.toLowerCase());
   return [...toggles, ...moved].join(', ');
 }
@@ -336,7 +338,24 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
       {path && type && (
         <PaintPicker design={design} path={path} group="ordinary" testid="ordinary-tincture" noun={lower(ORDINARY_LABEL[type].plain)} onChange={onChange} />
       )}
-      {path && type && <OrdinaryEdges design={design} path={path} testid="ordinary" summary="More shapes and edges…" noun={`the ${lower(ORDINARY_LABEL[type].plain)}`} shape={shape} onChange={onChange} />}
+      <MoreShapes testid="ordinary" summary="More shapes and edges…" used={(type !== null && MORE_ORDINARIES.includes(type)) || (path !== null && usesShapeControls(design, path))}>
+        {() => (
+          <>
+            <p class="picker-legend">More shapes</p>
+            <RadioGroup label="More shapes" class="icon-grid icon-grid-ordinary" testid="ordinary-more-select">
+              {MORE_ORDINARIES.map((t) => (
+                <ChoiceButton key={t} testid={`ordinary-${t}`} checked={type === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
+                  <Shield design={MORE_ICONS.get(t)!} shape={shape} size={30} label={null} />
+                  <span class="choice-label">{capitalise(ORDINARY_LABEL[t].term)}</span>
+                </ChoiceButton>
+              ))}
+            </RadioGroup>
+            {path && type && hasShapeControls(design, path) && (
+              <OrdinaryShapeControls design={design} path={path} testid="ordinary" noun={`the ${lower(ORDINARY_LABEL[type].plain)}`} shape={shape} onChange={onChange} />
+            )}
+          </>
+        )}
+      </MoreShapes>
     </Step>
   );
 }

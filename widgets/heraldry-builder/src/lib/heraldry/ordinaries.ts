@@ -7,8 +7,8 @@ export type OrdinaryType = (typeof ORDINARY_TYPES)[number];
 
 /** The ordinaries the builder offers in its main grid: the first ten. */
 export const BUILDER_ORDINARIES: readonly OrdinaryType[] = ORDINARY_TYPES.slice(0, 10);
-/** Ordinaries drawn but reached only behind disclosure (none yet). */
-export const MORE_ORDINARIES: readonly OrdinaryType[] = [];
+/** Ordinaries drawn but reached only behind disclosure (the band step's "More shapes" row, and the corner or edge shapes beside the band). */
+export const MORE_ORDINARIES: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron'];
 /** Every ordinary the library draws. */
 export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES, ...MORE_ORDINARIES];
 

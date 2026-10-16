@@ -136,9 +136,12 @@ export function keptOrdinaryLines(lines: Lines, type: OrdinaryType, inverted: bo
 
 // ── Shape toggles and band positions ────────────────────────────────────────
 
-/** A treatment the builder turns on or off for a band or shape: upside down (inverted), shortened (couped), touching the edges (throughout), hollow (voided). */
-export type ShapeToggle = 'inverted' | 'couped' | 'throughout' | 'voided';
-const SHAPE_TOGGLES: readonly ShapeToggle[] = ['inverted', 'couped', 'throughout', 'voided'];
+/**
+ * A treatment the builder turns on or off for a band or shape: upside down (inverted), shortened (couped), touching the edges (throughout),
+ * hollow (voided), or a corner shape in the top right corner, as seen, instead of the top left (sinister).
+ */
+export type ShapeToggle = 'inverted' | 'couped' | 'throughout' | 'voided' | 'sinister';
+const SHAPE_TOGGLES: readonly ShapeToggle[] = ['inverted', 'couped', 'throughout', 'voided', 'sinister'];
 
 /** Where a band is set: raised (enhanced), in its usual place, or lowered (abased). */
 export type BandPosition = 'enhanced' | 'middle' | 'abased';

@@ -1,5 +1,5 @@
 // Builder transitions over places beyond the band and the picture ("layers"): the pictures on the band, a
-// top band (chief) and a border (bordure), the pictures on those, pictures set in chief, in base or in
+// top band (chief) and a border (bordure), any number of corner or edge shapes beside the band (a canton, a base …), the pictures on those, pictures set in chief, in base or in
 // canton beside the band or the picture, pictures set around the picture, pictures on the picture, a second main
 // picture beside the picture, and a band or picture lying across everything (overall). Pure Design → Design, like every builder edit: a layer is added
 // where it can be drawn and given the first tincture that works (a band across everything, a top band or a border one that
@@ -8,20 +8,26 @@
 
 import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
 import { NON_STANDARD_TINCTURES } from './tinctures';
-import { PLAIN_LINES, bodyTinctures, canonical, samePath, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture, type Lines } from './design';
-import { ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture, type Lines } from './design';
+import { MORE_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
   assembleParts, fitGroup, firstAllowed, groupTinctureChoices, layoutReason, partsOf, simpleParts, withLayout, withTincture, type Choice,
 } from './options';
-import { PLACE_KEYS, pathOfPlace, type PlaceKey } from './places';
+import { PLACE_KINDS, isPeripheralPlace, pathOfPlace, peripheralPlacesOf, placeOfPath, type PeripheralPlace, type PlaceKey, type PlaceKind } from './places';
+import { keptMods, keptOrdinaryLines } from './shape-options';
 import { structuralIssues } from './structure';
 import { strewnGroups } from './strewn';
 import { unsupportedIssues } from './support';
 
-/** The places the builder adds and removes on top of the band and the picture. */
-export type LayerKey = Exclude<PlaceKey, 'ordinary' | 'picture'>;
-export const LAYER_KEYS: readonly LayerKey[] = PLACE_KEYS.filter((k): k is LayerKey => k !== 'ordinary' && k !== 'picture');
+/** The kinds of place the builder adds on top of the band and the picture (`peripheral` adds one more corner or edge shape each time). */
+export type LayerKey = Exclude<PlaceKind, 'ordinary' | 'picture'>;
+export const LAYER_KEYS: readonly LayerKey[] = PLACE_KINDS.filter((k): k is LayerKey => k !== 'ordinary' && k !== 'picture');
+/** The places the builder shows a card for and removes: one of each kind, and each corner or edge shape. */
+export type LayerPlace = Exclude<PlaceKey, 'ordinary' | 'picture'>;
+
+/** The corner and edge shapes the builder sets beside the band, in the order a new one is tried. */
+export const CORNER_AND_EDGE_TYPES: readonly OrdinaryType[] = MORE_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'peripheral');
 
 /** The layers that are pictures set beside the band or the picture, in chief, in base or in canton. */
 type PositionedKey = Extract<LayerKey, 'in-chief' | 'in-base' | 'in-canton'>;
@@ -41,13 +47,23 @@ const peripheralName = (key: PeripheralKey): string => (key === 'chief' ? 'top b
 export type LayerItem = { k: 'charge'; charge: ChargeId } | { k: 'ordinary'; type: OrdinaryType };
 
 /** The layers a design has a card for, in step order. Pictures set only on the band are the picture step's own, so they are not a layer. */
-export function layersIn(d: Design): LayerKey[] {
-  return LAYER_KEYS.filter((key) => (key === 'on-ordinary' ? simpleParts(d).onOrdinary !== null : pathOfPlace(d, key) !== null));
+export function layersIn(d: Design): LayerPlace[] {
+  return LAYER_KEYS.flatMap((key): LayerPlace[] => {
+    if (key === 'peripheral') return peripheralPlacesOf(d);
+    return (key === 'on-ordinary' ? simpleParts(d).onOrdinary !== null : pathOfPlace(d, key) !== null) ? [key] : [];
+  });
 }
 
-/** Where a layer just added is shown: its own card, or the band step (2) for a top band added beside a border, which becomes the design's band while the border moves to a card. */
-export function addedLayerStep(d: Design, key: LayerKey): LayerKey | 'ordinary' {
-  return layersIn(d).includes(key) ? key : 'ordinary';
+/**
+ * Where a layer just added to `before` is shown in `after`: its own card, or the band step (2) for a top band added beside a border, or a
+ * corner or edge shape added beside a top band or border, which becomes the design's band while the other moves to a card.
+ */
+export function addedLayerStep(before: Design, after: Design, key: LayerKey): LayerPlace | 'ordinary' {
+  if (key !== 'peripheral') return layersIn(after).includes(key) ? key : 'ordinary';
+  const was = new Set(before.groups.map((g) => JSON.stringify(g)));
+  const added = after.groups.findIndex((g) => g.role === 'peripheral' && !was.has(JSON.stringify(g)));
+  const place = added >= 0 ? placeOfPath(after, [added]) : null;
+  return place !== null && isPeripheralPlace(place) ? place : 'ordinary';
 }
 
 /** A new band, or peripheral, in a tincture (with the lines and treatments it keeps from the one it replaces). */
@@ -85,10 +101,13 @@ function firstProblem(d: Design): string | null {
 
 /** The places set by position, and those of the bands (which are not refitted). */
 const SET_BY_POSITION: readonly PlaceKey[] = ['in-chief', 'in-base', 'in-canton'];
-const BAND_PLACES: readonly PlaceKey[] = ['ordinary', 'chief', 'bordure'];
+const BAND_PLACES: readonly PlaceKind[] = ['ordinary', 'chief', 'bordure', 'peripheral'];
 
 /** The places whose pictures are refitted, in the order they are: those set by position first, then the others in step order. */
-const REFIT_ORDER: readonly PlaceKey[] = [...SET_BY_POSITION, ...PLACE_KEYS.filter((k) => !SET_BY_POSITION.includes(k) && !BAND_PLACES.includes(k))];
+const REFIT_ORDER: readonly PlaceKey[] = [
+  ...SET_BY_POSITION,
+  ...PLACE_KINDS.filter((k): k is Exclude<PlaceKind, 'peripheral'> => !SET_BY_POSITION.includes(k as PlaceKey) && !BAND_PLACES.includes(k)),
+];
 
 /**
  * The pictures refitted to the design they now sit in: those set by position first (the picture keeps clear of them), then in step
@@ -254,12 +273,30 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       const painted = withTinctureApart(placed, path);
       return painted ? { design: painted } : { reason: `No colour works for a ${peripheralName(key)} here.` };
     }
+    case 'peripheral': {
+      if (!ordinary) return { reason: 'Add a band or shape first — a corner or edge shape goes beside one.' };
+      // The first type the design has none of that can be drawn here, in a tincture that sets it apart; one that leaves the band where it
+      // is first (a base added beside a canton standing alone would take its place as the band).
+      const present = new Set(d.groups.flatMap((g) => (g.item.k === 'ordinary' ? [g.item.type] : [])));
+      const band = JSON.stringify(ordinary);
+      let first: string | null = null;
+      let moved: Design | null = null;
+      for (const type of CORNER_AND_EDGE_TYPES.filter((t) => !present.has(t))) {
+        const placed = refitLayers(assembleParts(d, { ...partsOf(d), peripherals: [...parts.peripherals.map((p) => p.group), ordinaryGroup(type, 'or')] }));
+        const painted = withTinctureApart(placed, [placed.groups.findIndex((g) => g.item.k === 'ordinary' && g.item.type === type)]);
+        const problem = painted ? firstProblem(painted) : `No colour works for a ${ORDINARY_NAME[type]} here.`;
+        if (problem === null && JSON.stringify(simpleParts(painted!).ordinary?.group) === band) return { design: painted! };
+        if (problem === null) moved ??= painted;
+        else first ??= problem;
+      }
+      return moved ? { design: moved } : { reason: first ?? 'Every corner and edge shape is already on the shield.' };
+    }
   }
 }
 
 /** The layers not in the design yet: allowed when one can be drawn, else blocked with the reason. */
 export function layerChoices(d: Design): Choice<LayerKey>[] {
-  return LAYER_KEYS.filter((key) => pathOfPlace(d, key) === null).map((value): Choice<LayerKey> => {
+  return LAYER_KEYS.filter((key) => key === 'peripheral' || pathOfPlace(d, key) === null).map((value): Choice<LayerKey> => {
     const added = tryAddLayer(d, value);
     return 'reason' in added ? { value, allowed: false, reason: added.reason } : { value, allowed: true };
   });
@@ -267,14 +304,15 @@ export function layerChoices(d: Design): Choice<LayerKey>[] {
 
 /** The design with the layer added in the first tincture that works, or `d` when it can't be drawn (see `layerChoices`). */
 export function addLayer(d: Design, key: LayerKey): Design {
-  if (pathOfPlace(d, key) !== null) return d;
+  if (key !== 'peripheral' && pathOfPlace(d, key) !== null) return d;
   const added = tryAddLayer(d, key);
   return 'design' in added ? added.design : d;
 }
 
 /** The design without the layer; the pictures are refitted to the room it leaves. */
-export function removeLayer(d: Design, key: LayerKey): Design {
+export function removeLayer(d: Design, key: LayerPlace): Design {
   const parts = simpleParts(d);
+  if (isPeripheralPlace(key)) return refitLayers(assembleParts(d, { ...partsOf(d), peripherals: parts.peripherals.filter((p) => p.place !== key).map((p) => p.group) }));
   switch (key) {
     case 'co-primary': return parts.coPrimary ? refitLayers(assembleParts(d, { ...partsOf(d), coPrimary: null })) : d;
     case 'on-ordinary': return parts.onOrdinary ? refitLayers(assembleParts(d, { ...partsOf(d), onOrdinary: null })) : d;
@@ -370,7 +408,34 @@ export function setLayerCharge(d: Design, key: PicturesKey, id: ChargeId): Desig
 }
 
 /** The layer's tincture. */
-export function setLayerTincture(d: Design, key: LayerKey, t: GroupTincture): Design {
+export function setLayerTincture(d: Design, key: LayerPlace, t: GroupTincture): Design {
   const path = pathOfPlace(d, key);
   return path ? canonical(withTincture(d, path, t)) : d;
+}
+
+/** The corner or edge shape at `place` as this type, keeping its tincture, and its line and treatments where the new type takes them; the pictures are refitted to the room it leaves. */
+export function setPeripheralItem(d: Design, place: PeripheralPlace, type: OrdinaryType): Design {
+  const path = pathOfPlace(d, place);
+  const was = path && groupAt(d, path);
+  if (!was || was.item.k !== 'ordinary' || was.item.type === type) return d;
+  const mods = keptMods(was.item.mods, type);
+  const next: Group = { ...ordinaryGroup(type, 'or', keptOrdinaryLines(was.item.lines, type, mods.includes('inverted')), mods), paint: was.paint };
+  return refitLayers(assembleParts(d, { ...partsOf(d), peripherals: simpleParts(d).peripherals.map((p) => (p.place === place ? next : p.group)) }));
+}
+
+/**
+ * The types the corner or edge shape at `place` may take: each blocked with its reason when the design has one already, or when the
+ * design it leads to can't be drawn or breaks a rule (a base like the chief, a canton with something overall).
+ */
+export function peripheralItemChoices(d: Design, place: PeripheralPlace): Choice<OrdinaryType>[] {
+  const path = pathOfPlace(d, place);
+  const was = path && groupAt(d, path);
+  if (!was || was.item.k !== 'ordinary') return [];
+  const current = was.item.type;
+  const others = new Set(d.groups.flatMap((g, i) => (i !== path[0] && g.item.k === 'ordinary' ? [g.item.type] : [])));
+  return CORNER_AND_EDGE_TYPES.map((type): Choice<OrdinaryType> => {
+    if (others.has(type)) return { value: type, allowed: false, reason: `There is already a ${ORDINARY_NAME[type]} — choose a different shape.` };
+    const problem = type === current ? null : firstProblem(setPeripheralItem(d, place, type));
+    return problem ? { value: type, allowed: false, reason: problem } : { value: type, allowed: true };
+  });
 }

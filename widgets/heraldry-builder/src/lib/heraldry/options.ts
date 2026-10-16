@@ -29,7 +29,7 @@ import { BUILDER_DIVISIONS, VARIATIONS, type Division, type Variation } from './
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
 import { ofOtherClass, withPaint, withPartner } from './paint-target';
-import { placesIn, type Placed } from './places';
+import { isPeripheralPlace, placeKind, placesIn, type Placed } from './places';
 import { PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
@@ -79,7 +79,7 @@ const PLACEMENTS: readonly Placement[] = ['field', 'ordinary'];
 /** The groups of a design in the builder's terms; `placement` says where the picture sits. */
 export interface SimpleParts {
   ordinary: Placed | null;
-  /** The chief and the bordure beside the ordinary, in that order. */
+  /** The chief, the bordure and the corner and edge shapes beside the ordinary, in that order. */
   peripherals: Placed[];
   /** The pictures on the chief and on the bordure beside the ordinary, in that order. */
   peripheralPictures: Placed[];
@@ -115,7 +115,7 @@ export function simpleParts(d: Design): SimpleParts {
     onPicture: at('on-picture'),
     overall: at('overall'),
     ordinary: at('ordinary'),
-    peripherals: placed.filter((p) => p.place === 'chief' || p.place === 'bordure'),
+    peripherals: placed.filter((p) => p.place === 'chief' || p.place === 'bordure' || isPeripheralPlace(p.place)),
     peripheralPictures: placed.filter((p) => p.place === 'on-chief' || p.place === 'on-bordure'),
     picture: picture ? { ...picture, placement: 'field' } : onBand && { ...onBand, placement: 'ordinary' },
     coPrimary: at('co-primary'),
@@ -509,7 +509,7 @@ function placementReason(parts: SimpleParts, placement: Placement): string | nul
   if (parts.onOrdinary) return 'The band already carries more pictures — remove them to move the main picture onto it.';
   if (parts.coPrimary) return 'A second main picture stands beside it — remove that to move the picture onto the band.';
   // On a chief or bordure the picture would leave the pictures in chief, base or canton with nothing in the middle to stand beside.
-  if (parts.positioned && !isCentral(ordinary)) return `The ${PLACE_LABEL[parts.positioned.place].plain.toLowerCase()} stand beside the picture — remove them to move the picture onto the band.`;
+  if (parts.positioned && !isCentral(ordinary)) return `The ${PLACE_LABEL[placeKind(parts.positioned.place)].plain.toLowerCase()} stand beside the picture — remove them to move the picture onto the band.`;
   if (parts.around) return 'Pictures stand around the picture — remove them to move the picture onto the band.';
   if (parts.onPicture) return 'The picture carries more pictures — remove them to move it onto the band.';
   return null;

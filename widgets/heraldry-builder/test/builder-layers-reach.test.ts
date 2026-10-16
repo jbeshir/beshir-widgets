@@ -9,7 +9,7 @@ import {
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
-import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns } from './design-generator';
+import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
@@ -164,6 +164,18 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Gules, a cross voided Or.'],
   ['a bend doubly cotised counterchanged on a divided field', arms(div('per-pale', 'argent', 'azure'), group(ordinary('bend', { cotised: { count: 2, paint: 'counterchanged' } }), 'sable')),
     'Per pale argent and azure, a bend sable doubly cotised counterchanged.'],
+  ['a picture above a base (O&A 27352)', arms('argent', group(charge('mullet'), 'sable'), group(ordinary('base'), 'azure')),
+    'Argent, a mullet sable and a base azure.'],
+  ['a canton alone on stripes (O&A 2764)', arms({ k: 'variation', variation: 'bendy-sinister', parts: ['or', 'gules'] }, group(ordinary('canton'), 'sable')),
+    'Bendy sinister Or and gules, a canton sable.'],
+  ['a point pointed on a quartered field (O&A 24555)', arms(div('quarterly', 'azure', 'gules'), group(ordinary('point'), 'or')),
+    'Quarterly azure and gules, a point pointed Or.'],
+  ['a band beside a canton', arms('azure', group(ordinary('bend'), 'or'), group(ordinary('canton'), 'argent')),
+    'Azure, a bend Or and a canton argent.'],
+  ['a canton in the other corner', arms('gules', group(ordinary('canton', { mods: ['sinister'] }), 'argent')),
+    'Gules, a canton sinister argent.'],
+  ['a band with a chief, a wavy base and a canton', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('base', { lines: { a: 'wavy' } }), 'or'), group(ordinary('canton'), 'argent')),
+    'Azure, a fess and a base wavy Or, a chief and a canton argent.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -206,6 +218,14 @@ describe('designs with a chief and a bordure beside the band are built by clicks
 
   it('every generated design with a band edged or cotised, or a cross hollow, is built too', () => {
     const problems = generatedOutlinedOrdinaryDesigns(11, 60).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with corner and edge shapes, alone or several beside a band or a picture, is built too', () => {
+    const problems = generatedPeripheralDesigns(11, 60).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
@@ -307,7 +327,7 @@ describe('layers kept through the edits of the layers beneath them', () => {
 
   it('adds and removes the pictures on a chief and a bordure, and they follow the top band and border away', () => {
     const base = addLayer(addLayer(built(arms('azure', group(ordinary('pale'), 'argent'), group(charge('mullet'), 'or', { count: 2 }))), 'chief'), 'bordure');
-    expect(layerChoices(base).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'on-bordure', 'overall']);
+    expect(layerChoices(base).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'on-bordure', 'peripheral', 'overall']);
     for (const key of ['on-chief', 'on-bordure'] as const) {
       const added = addLayer(base, key);
       expect(pathOfPlace(added, key), key).not.toBeNull();

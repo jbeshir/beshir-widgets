@@ -230,6 +230,10 @@ function placementGaps(d: Design, g: Group, host: Group | null): Found[] {
   if (host.item.k === 'charge') return host.role === 'primary' && !ON_CHARGE_COUNTS.includes(g.count) ? [countGap(`on-charge-${g.count}`, 'host')] : [];
   if (!DRAWN_ORDINARIES.includes(host.item.type)) return [];
   const type = host.item.type;
+  // A charged canton or quarter breaks SENA A6C1 (a structure issue); charges on a base, point or gyron have no layout here.
+  if (ORDINARY_KIND[type] === 'peripheral' && type !== 'chief' && type !== 'bordure') {
+    return type === 'canton' || type === 'quarter' ? [] : [gap('multiple-groups', `tertiary-on-${type}`, ON_THAT_CHARGE)];
+  }
   return hostCounts('on', specOf(host)).includes(g.count) ? [] : [countGap(`on-${type}-${g.count}`, 'host')];
 }
 
@@ -285,10 +289,12 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Found }> {
 
   out.push(...coPrimaryGaps(d, primaries.map(({ g, i }) => ({ g, i }))).map(({ i, gap: g }) => ({ at: at([i]), gap: g })));
   if (secondaries.length > 1) out.push({ at: at([secondaries[1].i]), gap: gap('multiple-groups', 'secondary') });
-  // One chief and one bordure may be set together; any other pair is a second of a kind.
-  const peripheralTypes = peripherals.map(({ g }) => (g.item.k === 'ordinary' ? g.item.type : null));
-  if (peripherals.length > 1 && !(peripherals.length === 2 && peripheralTypes.includes('chief') && peripheralTypes.includes('bordure'))) {
-    out.push({ at: at([peripherals[1].i]), gap: gap('multiple-groups', 'peripherals') });
+  // Any number of peripheral ordinaries stand together, one of each type (the builder has no control for a second of a type: two cantons).
+  const seen = new Set<string>();
+  for (const { g, i } of peripherals) {
+    if (g.item.k !== 'ordinary') continue;
+    if (seen.has(g.item.type)) out.push({ at: at([i]), gap: gap('multiple-groups', 'peripherals', 'Two of the same corner or edge shape') });
+    seen.add(g.item.type);
   }
   for (const { g, i } of secondaries) {
     // Set by position: in chief, in base or in canton (other positions, like in dexter chief, are not drawn yet).
@@ -299,12 +305,7 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Found }> {
   for (const { g, i } of primaries) {
     if (g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] !== 'central') out.push({ at: at([i]), gap: gap('placement', `primary-${g.item.type}`) });
   }
-  for (const { g, i } of peripherals) {
-    if (g.item.k === 'charge') out.push({ at: at([i]), gap: gap('placement', 'peripheral-charge') });
-    else if (DRAWN_ORDINARIES.includes(g.item.type) && g.item.type !== 'chief' && g.item.type !== 'bordure') {
-      out.push({ at: at([i]), gap: gap('placement', `peripheral-${g.item.type}`) });
-    }
-  }
+  for (const { g, i } of peripherals) if (g.item.k === 'charge') out.push({ at: at([i]), gap: gap('placement', 'peripheral-charge') });
   return out;
 }
 

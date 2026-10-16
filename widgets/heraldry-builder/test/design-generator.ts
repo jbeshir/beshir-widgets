@@ -316,3 +316,42 @@ export function generatedOutlinedOrdinaryDesigns(seed: number, count: number): D
   }
   return designs;
 }
+
+/** Mixed into a seed for the picks of the corner and edge shapes. */
+const PERIPHERAL_SEED = 0x9b05688c;
+const CORNER_AND_EDGE = ['base', 'point', 'canton', 'quarter', 'gyron'] as const;
+
+/**
+ * The design for `seed` with one to three corner or edge shapes (a base, point pointed, canton, quarter or gyron, sometimes in the sinister
+ * corner or with a line), alone or beside a band or a picture, sometimes with a chief or a bordure too. Null when the pick isn't registrable.
+ */
+function peripheralDesignFor(seed: number): Design | null {
+  const next = prng(seed ^ PERIPHERAL_SEED);
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
+  const groups: object[] = [];
+  const main = next();
+  if (main < 0.35) groups.push({ item: { k: 'ordinary', type: pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile']) }, paint: pick(TINCTURES) });
+  else if (main < 0.8) groups.push({ item: { k: 'charge', charge: pick(CHARGES) }, paint: pick(TINCTURES), count: 1 + Math.floor(next() * 3) });
+  const shapes = new Set<(typeof CORNER_AND_EDGE)[number]>();
+  for (let n = 1 + Math.floor(next() * next() * 3); shapes.size < n;) shapes.add(pick(CORNER_AND_EDGE));
+  for (const type of shapes) {
+    const mods = modDrawn(type, 'sinister') && next() < 0.3 ? ['sinister'] : [];
+    const line = type !== 'point' && next() < 0.25 ? pick(DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type, inverted: false }, l))) : null;
+    groups.push({ item: { k: 'ordinary', type, mods, ...(line ? { lines: { a: line } } : {}) }, paint: pick(TINCTURES) });
+  }
+  if (next() < 0.25) groups.push({ item: { k: 'ordinary', type: pick(['chief', 'bordure']) }, paint: pick(TINCTURES) });
+  const r = resolve({ v: 2, field: pick(TINCTURES), groups });
+  if (!r.ok) return null;
+  const n = normalise(r.design);
+  return n.ok ? n.design : null;
+}
+
+/** The first `count` designs from `peripheralDesignFor`, trying seeds from `seed` upwards. */
+export function generatedPeripheralDesigns(seed: number, count: number): Design[] {
+  const designs: Design[] = [];
+  for (let s = seed; designs.length < count; s++) {
+    const d = peripheralDesignFor(s);
+    if (d) designs.push(d);
+  }
+  return designs;
+}

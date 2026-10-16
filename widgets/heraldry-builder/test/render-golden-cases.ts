@@ -122,7 +122,15 @@ const OUTLINE_CASES: ReadonlyArray<[string, unknown]> = [
   ['outline-voided-cotised-saltire', outlinedBand('saltire', { mods: ['voided'], ...cotised(1) })],
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
+/** The corner and edge shapes: each alone, the sinister canton, a wavy base, and several beside a band and a picture. */
+const PERIPHERAL_CASES: ReadonlyArray<[string, unknown]> = [
+  ...['base', 'point', 'canton', 'quarter', 'gyron'].map((t): [string, unknown] => [`periph-${t}`, arms('azure', group(ordinary(t), 'or'))]),
+  ['periph-canton-sinister', arms('gules', group(ordinary('canton', { mods: ['sinister'] }), 'argent'))],
+  ['line-wavy-base', arms('argent', group(charge('mullet'), 'sable'), group(ordinary('base', { lines: { a: 'wavy' } }), 'azure'))],
+  ['periph-bend-chief-base-canton', arms('azure', group(ordinary('bend'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('base'), 'or'), group(ordinary('canton'), 'argent'))],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {
