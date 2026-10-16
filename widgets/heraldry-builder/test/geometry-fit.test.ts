@@ -93,7 +93,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           v: 2, field: 'azure',
           groups: [tinctured('or', { k: 'ordinary', type }), tinctured('argent', chargeItem('mullet'), { count, relation: 'between' }), ...beside],
         });
-        consider(count, { k: 'between', ordinary: plainSpec(type), peripheral }, [layoutOfKey('host', count)!], `between ${type}${suffix}`, make);
+        consider(count, { k: 'between', ordinary: plainSpec(type), peripheral, keepOut: [] }, [layoutOfKey('host', count)!], `between ${type}${suffix}`, make);
       }
     }
     for (const type of ON) {
@@ -106,7 +106,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           v: 2, field: 'azure',
           groups: [tinctured('or', { k: 'ordinary', type }, { charged: [tinctured('argent', chargeItem('mullet'), { count })] }), ...beside],
         });
-        consider(count, { k: 'on', ordinary: plainSpec(type), peripheral: hostPeripheral }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
+        consider(count, { k: 'on', ordinary: plainSpec(type), peripheral: hostPeripheral, keepOut: [] }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
       }
     }
   }
@@ -123,7 +123,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           });
           const base = make();
           const path = [base.groups.findIndex((g) => g.role === 'secondary')];
-          consider(count, { k: 'position', position, ordinary: type && plainSpec(type), peripheral }, layoutCandidates(base, path, count), `in ${position} beside ${type ?? 'lion'}/${peripheral}`, make);
+          consider(count, { k: 'position', position, ordinary: type && plainSpec(type), peripheral, keepOut: [] }, layoutCandidates(base, path, count), `in ${position} beside ${type ?? 'lion'}/${peripheral}`, make);
         }
       }
       for (const count of YIELD_COUNTS) {
@@ -149,7 +149,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
         const at = base.groups.findIndex((g) => g.role === 'primary');
         const layout = { arrangement: base.groups[at].arrangement, position: base.groups[at].position };
         const path = [base.groups.findIndex((g) => g.role === 'secondary')];
-        consider(count, { k: 'around', peripheral, primary: { count: base.groups[at].count, layout } }, layoutCandidates(base, path, count), `around ${name}/${peripheral}`, make);
+        consider(count, { k: 'around', peripheral, keepOut: [], primary: { count: base.groups[at].count, layout } }, layoutCandidates(base, path, count), `around ${name}/${peripheral}`, make);
       }
       const base = resolved({ v: 2, field: 'azure', groups: [primary, tinctured('argent', chargeItem('mullet'), { count: 3, relation: 'between' }), ...extra] });
       const g = base.groups.find((x) => x.role === 'primary')!;

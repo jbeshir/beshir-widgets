@@ -16,7 +16,7 @@ import {
 import {
   CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPartTurned, isFieldPaint, partIndexAt, shapeFrame, slotColumn, slotRow, type DividedField, type Pt, type Point, type Slot,
 } from './geometry';
-import { defaultOrdinaryFrame, ordinaryGeometry, specOf, type OrdinarySpec } from './ordinary-geometry';
+import { defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, type Division, type Variation } from './divisions';
@@ -40,17 +40,20 @@ interface Samples { key: string; points: () => readonly Pt[] }
 
 const slotSamples = (s: Slot): Samples => ({ key: `${s.x},${s.y},${s.size}`, points: () => groundPoints(s) });
 
+/** The frame an ordinary group of the design is drawn in, in the canonical layout: a peripheral's the whole shape, the others' above a base. */
+const frameOf = (d: Design, group: Group): OrdinaryFrame => (group.role === 'peripheral' ? defaultOrdinaryFrame(CANONICAL_SHAPE) : ordinaryFrameOf(d, CANONICAL_SHAPE));
+
 /** The points an ordinary lies on in the canonical layout. */
-const ordinarySamples = (spec: OrdinarySpec): Samples =>
-  ({ key: `ordinary:${JSON.stringify(spec)}`, points: () => ordinaryGeometry(spec, defaultOrdinaryFrame(CANONICAL_SHAPE)).samples });
+const ordinarySamples = (spec: OrdinarySpec, frame: OrdinaryFrame): Samples =>
+  ({ key: `ordinary:${JSON.stringify([spec, frame])}`, points: () => ordinaryGeometry(spec, frame).samples });
 
 /** The trims drawn with an ordinary's body, and what they are called in a message. */
 type Trim = 'fimbriation' | 'cotises';
 const TRIM_NOUN: Record<Trim, string> = { fimbriation: 'fimbriation', cotises: 'cotises' };
 
 /** The points an ordinary's trim lies on in the canonical layout. */
-const trimSamples = (spec: OrdinarySpec, trim: Trim): Samples =>
-  ({ key: `${trim}:${JSON.stringify(spec)}`, points: () => ordinaryGeometry(spec, defaultOrdinaryFrame(CANONICAL_SHAPE))[trim]?.samples ?? [] });
+const trimSamples = (spec: OrdinarySpec, frame: OrdinaryFrame, trim: Trim): Samples =>
+  ({ key: `${trim}:${JSON.stringify([spec, frame])}`, points: () => ordinaryGeometry(spec, frame)[trim]?.samples ?? [] });
 
 /** The share of each sample set in the first part of each division: it depends on the lines alone, not on the tinctures. */
 const firstShares = new Map<string, number>();
@@ -152,7 +155,7 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
     // On its own division's line only while it is drawn with that line (a fess wavy on per fess wavy); otherwise as sampled.
     const onLine = d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === spec.type && d.field.lines.a === spec.lines.a && d.field.lines.b === spec.lines.b;
     if (onLine) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
-    return [groundAt(d.field, ordinarySamples(spec), parts)];
+    return [groundAt(d.field, ordinarySamples(spec, frameOf(d, group)), parts)];
   }
   return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(judgedSlot(group, s)), parts));
 }
@@ -173,7 +176,8 @@ function partGrounds(d: Design, path: GroupPath): Ground[][] | null {
   });
   if (group.item.k === 'ordinary') {
     const spec = specOf(group);
-    return [split(ordinarySamples(spec), ordinaryGeometry(spec, defaultOrdinaryFrame(CANONICAL_SHAPE)).centre, 0)];
+    const frame = frameOf(d, group);
+    return [split(ordinarySamples(spec, frame), ordinaryGeometry(spec, frame).centre, 0)];
   }
   return slotsOf(d, path).map((s) => {
     const judged = judgedSlot(group, s);
@@ -523,7 +527,7 @@ function trimIssues(d: Design, path: GroupPath, group: Group, trim: Trim, paint:
   if (paint.k === 'counterchanged' && !pair) {
     return [{ code: 'tincture', reason: 'counterchange-unavailable', at, slots: [], message: `${what} can't be counterchanged: that needs a field divided in two tinctures.` }];
   }
-  const samples = trimSamples(specOf(group), trim);
+  const samples = trimSamples(specOf(group), frameOf(d, group), trim);
   if (samples.points().length === 0) return [];
   const ground = groundAt(d.field, samples, fieldSurfaces(d));
   const f = failureOf(paint, group.item, ground, pair, undefined, 'none');

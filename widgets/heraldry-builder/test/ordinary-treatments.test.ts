@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  FIELD_SHAPES, MOD_HOSTS, blazon, candidateKey, contextSlots, defaultOrdinaryFrame, differences, explainDifferences, gloss, groupAt, isSupported,
+  DRAWN_ORDINARIES, FIELD_SHAPES, MOD_HOSTS, blazon, candidateKey, contextSlots, defaultOrdinaryFrame, differences, explainDifferences, gloss, groupAt,
   layoutOfKey, ordinaryGeometry, pathPolygon, pathRings, plainSpec, pointInPolygon, resolve, setBandPosition, setToggle, shapeFrame, signature,
   structuralIssues, toggleChoices, unsupportedIssues, bandPositionChoices,
   type Design, type FieldShape, type OrdinaryMod, type OrdinarySpec, type OrdinaryType,
@@ -135,7 +135,9 @@ describe('ordinary treatments: rules', () => {
   });
 
   it('draws each treatment on its hosts only; elsewhere it is a gap named for the host', () => {
-    for (const [mod, hosts] of Object.entries(MOD_HOSTS)) for (const type of hosts) expect(isSupported(treatedArms(type, [mod])), `${mod} ${type}`).toBe(true);
+    // on a host the builder doesn't draw yet (the canton sinister, C8b) only the host is a gap
+    const tags = (d: Design) => unsupportedIssues(d).map((i) => `${i.gap.category}:${i.gap.detail}`);
+    for (const [mod, hosts] of Object.entries(MOD_HOSTS)) for (const type of hosts) expect(tags(treatedArms(type, [mod])), `${mod} ${type}`).toEqual(DRAWN_ORDINARIES.includes(type) ? [] : [`ordinary:${type}`]);
     expect(unsupportedIssues(treatedArms('fess', ['inverted'])).map((i) => `${i.gap.category}:${i.gap.detail}`)).toEqual(['ordinary-treatment:inverted-on-fess']);
     expect(unsupportedIssues(treatedArms('pale', ['enhanced'])).map((i) => `${i.gap.category}:${i.gap.detail}`)).toEqual(['ordinary-treatment:enhanced-on-pale']);
   });
@@ -144,7 +146,7 @@ describe('ordinary treatments: rules', () => {
 describe('ordinary treatments: layout', () => {
   it('three charges between a chevron inverted: one inside, two below', () => {
     const d = nd(arms('gules', group(ordinary('chevron', { mods: ['inverted'] }), 'or'), group(charge('roundel'), 'argent', { count: 3 })));
-    const ctx = { k: 'between', ordinary: spec('chevron', ['inverted']), peripheral: 'none' } as const;
+    const ctx = { k: 'between', ordinary: spec('chevron', ['inverted']), peripheral: 'none', keepOut: [] } as const;
     const slots = contextSlots(ctx, 3, layoutOfKey('host', 3)!, 'heater');
     expect(slots).toHaveLength(3);
     const inner = geometryOf(spec('chevron', ['inverted'])).envelope.outer[0];
@@ -162,7 +164,7 @@ describe('ordinary treatments: layout', () => {
     for (const [type, mods, count] of [['fess', ['couped'], 3], ['fess', ['enhanced'], 3], ['chevron', ['inverted'], 3], ['bend', ['abased'], 2], ['cross', ['couped'], 5]] as const) {
       for (const shape of FIELD_SHAPES) {
         const s = spec(type, [...mods]);
-        const slots = contextSlots({ k: 'on', ordinary: s, peripheral: 'none' }, count, layoutOfKey('host', count)!, shape);
+        const slots = contextSlots({ k: 'on', ordinary: s, peripheral: 'none', keepOut: [] }, count, layoutOfKey('host', count)!, shape);
         expect(slots, `${count} on a ${type} ${mods.join(' ')} in a ${shape}`).toHaveLength(count);
         const rings = pathRings(geometryOf(s, shape).body);
         for (const slot of slots) expect(rings.some((r) => pointInPolygon(slot.x, slot.y, r)), `${type} ${mods.join(' ')} ${shape}`).toBe(true);

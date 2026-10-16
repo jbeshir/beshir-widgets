@@ -24,8 +24,8 @@ const GOLDEN_CONTEXTS: readonly GoldenContext[] = [
   ...FIELD_PERIPHERALS.map((peripheral): GoldenContext => ({
     key: `field-${peripheral}`, ctx: fieldContext(peripheral), layouts: FIELD_LAYOUTS,
   })),
-  ...BETWEEN.map((ordinary): GoldenContext => ({ key: `between-${ordinary}`, ctx: { k: 'between', ordinary: plainSpec(ordinary), peripheral: 'none' }, layouts: HOST_LAYOUTS })),
-  ...ON.map((ordinary): GoldenContext => ({ key: `on-${ordinary}`, ctx: { k: 'on', ordinary: plainSpec(ordinary), peripheral: 'none' }, layouts: HOST_LAYOUTS })),
+  ...BETWEEN.map((ordinary): GoldenContext => ({ key: `between-${ordinary}`, ctx: { k: 'between', ordinary: plainSpec(ordinary), peripheral: 'none', keepOut: [] }, layouts: HOST_LAYOUTS })),
+  ...ON.map((ordinary): GoldenContext => ({ key: `on-${ordinary}`, ctx: { k: 'on', ordinary: plainSpec(ordinary), peripheral: 'none', keepOut: [] }, layouts: HOST_LAYOUTS })),
 ];
 
 const round = (n: number) => Math.round(n * 1000) / 1000;

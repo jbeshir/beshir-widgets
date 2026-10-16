@@ -3,7 +3,7 @@
 export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
-export { ORDINARY_TYPES, BUILDER_ORDINARIES, MORE_ORDINARIES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_MODS, MOD_HOSTS, modDrawn, type OrdinaryType, type OrdinaryMod } from './ordinaries';
+export { ORDINARY_TYPES, BUILDER_ORDINARIES, MORE_ORDINARIES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_MODS, MOD_HOSTS, PERIPHERAL_ORDER, PERIPHERAL_JOINER, modDrawn, type OrdinaryType, type OrdinaryMod } from './ordinaries';
 export {
   LINES, DRAWN_LINES, LINE_GROUP, LINE_PROFILE, LINE_WORD, LINE_SPELLINGS, isLine, isStraightLine, lineDiffers, edgeCount, lineAllowed, bareLines, fitPeriod, visibleSpan, edgeCommands, polylineEdgeCommands, edgePoints, periodStarts,
   reversedRun, runAlong, fieldSide, featureMiddle, profileSwing, edgeNames, lineWords,
@@ -28,7 +28,7 @@ export { structuralIssues, couldBeOneFess, coreSteps, COTISED_HOSTS, type CoreSt
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, forcedPosition, statesLayout, HALF_POSITIONS, isHalfPosition,
   hostCounts, ON_CHARGE_COUNTS, onChargeLayouts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, SECONDARY_POSITIONS, AROUND_COUNTS, aroundLayouts, aroundPrimaryLayouts, primaryCharges, coPrimaries, MAX_CO_PRIMARY_TOTAL, shareTotal,
-  type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share, type SecondaryPosition,
+  type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type KeepOut, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share, type SecondaryPosition,
 } from './arrangement';
 export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
 export { tinctureSurface, surfaceOf, fieldSurfaces, sharesTincture, sameSurface, type Surface, type ContrastClass, type BaseTincture } from './surface';
@@ -52,7 +52,7 @@ export {
   counterchangedSlotParts, type Slot, type DrawnField, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
-  specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, counterchangedTrimParts, divisionCutsOrdinary,
+  specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, counterchangedTrimParts, divisionCutsOrdinary,
   type OrdinarySpec, type OrdinaryFrame, type OrdinaryGeometry, type OrdinaryTrim,
 } from './ordinary-geometry';
 export { variationRegions, inFirstRegion, type Box } from './variation-geometry';

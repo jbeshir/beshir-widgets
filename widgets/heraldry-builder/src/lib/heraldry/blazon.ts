@@ -13,7 +13,7 @@ import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './char
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
 import { lineWords } from './lines';
-import { ORDINARY_ARTICLE, ORDINARY_NAME, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_NAME, PERIPHERAL_JOINER, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
 
@@ -147,18 +147,20 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
   return position !== null || g.arrangement.k === 'line' ? `${layout} ${words.join(' ')}` : `${words.join(' ')} ${layout}`;
 }
 
-/** The treatments written after an ordinary's line, in their order. */
+/** The treatments written before an ordinary's line, and after it, in their order. */
+const MODS_BEFORE_LINE: readonly OrdinaryMod[] = ['sinister', 'inverted'];
 const MODS_AFTER_LINE: readonly OrdinaryMod[] = ['couped', 'throughout', 'enhanced', 'abased', 'voided'];
 
 /**
  * "a bend", "a fess embattled", "a chevron inverted embattled on the upper edge", "a saltire raguly couped", "a chevron ployé throughout",
- * or "on a pale wavy" when something sits on it: inverted before the line, the other treatments after it (RULES-C §G.1, PLAN-C §4).
+ * "a canton sinister", or "on a pale wavy" when something sits on it: sinister and inverted before the line, the other treatments after
+ * it (RULES-C §G.1, §G.2, PLAN-C §4).
  */
 function ordinaryPhrase(g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type, lines, mods } = g.item;
   const line = lineWords({ k: 'ordinary', type, inverted: mods.includes('inverted') }, lines);
-  const words = [ORDINARY_NAME[type], ...(mods.includes('inverted') ? ['inverted'] : []), ...(line ? [line] : []), ...MODS_AFTER_LINE.filter((m) => mods.includes(m))];
+  const words = [ORDINARY_NAME[type], ...MODS_BEFORE_LINE.filter((m) => mods.includes(m)), ...(line ? [line] : []), ...MODS_AFTER_LINE.filter((m) => mods.includes(m))];
   return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[type]} ${words.join(' ')}`;
 }
 
@@ -195,8 +197,11 @@ function carrying(host: Group): { lead: string; on: boolean } {
  */
 type TokenKind = 'primary' | 'co-primary' | 'secondary' | 'position' | 'overall' | 'peripheral' | 'tertiary' | 'trim';
 
-/** One element of the sentence: its phrase and paint (and what is strewn on it), whether its paint may be shared with the element before, and (a tertiary) what joins it to its host. */
-interface Token { kind: TokenKind; text: string; paint: string; strewn: string; linked: boolean; lead: string }
+/**
+ * One element of the sentence: its phrase and paint (and what is strewn on it), whether its paint may be shared with the element before,
+ * (a tertiary) what joins it to its host, and (a peripheral) what joins it to the element before when that says its own tincture.
+ */
+interface Token { kind: TokenKind; text: string; paint: string; strewn: string; linked: boolean; lead: string; joiner: ', ' | ' and ' }
 
 /** The elements in blazon order (RULES §F.2): primary, what is set between, what is on the primary, what stands in chief, base or canton, then each peripheral with what is on it. */
 function tokens(d: Design, options: BlazonOptions): Token[] {
@@ -210,13 +215,14 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     // Charges each divided: "three hearts each per pale gules and sable".
     const semy = asSemy(g.paint);
     const paint = semy ? tinctureWord(semy.ground.t) : g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : groupPaintWord(g);
-    out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, strewn: semy ? ` ${semyPhrase(semy.charge.charge, semy.ink.t)}` : '', linked, lead });
+    const joiner = kind === 'peripheral' && g.item.k === 'ordinary' ? PERIPHERAL_JOINER[g.item.type] : ', ';
+    out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, strewn: semy ? ` ${semyPhrase(semy.charge.charge, semy.ink.t)}` : '', linked, lead, joiner });
     // The fimbriation follows the ordinary's own tincture, always written; cotises may share the ordinary's ("a bend cotised azure"). What
     // follows may share the trim's ("a chevron gules fimbriated between three lions argent").
     if (g.item.k !== 'ordinary') return;
     const { type, lines, fimbriated, cotised } = g.item;
-    if (fimbriated) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriated), strewn: '', linked: false, lead: ' ' });
-    if (cotised) out.push({ kind: 'trim', text: cotisedWords(type, lines, cotised), paint: paintWord(cotised.paint), strewn: '', linked: true, lead: ' ' });
+    if (fimbriated) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriated), strewn: '', linked: false, lead: ' ', joiner: ', ' });
+    if (cotised) out.push({ kind: 'trim', text: cotisedWords(type, lines, cotised), paint: paintWord(cotised.paint), strewn: '', linked: true, lead: ' ', joiner: ', ' });
   };
   const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t, carrying(g).lead));
   const at = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, path: [i] }] : []));
@@ -248,7 +254,7 @@ export function blazon(d: Design, given: Partial<BlazonOptions> = {}): string {
   const all = tokens(d, options);
   let pending = false;
   all.forEach((t, i) => {
-    const lead = i === 0 ? (d.kind === 'arms' ? ', ' : '') : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' || t.kind === 'trim' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
+    const lead = i === 0 ? (d.kind === 'arms' ? ', ' : '') : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' || t.kind === 'trim' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : t.joiner;
     const next = all[i + 1];
     // What is strewn on a band is stated after its tincture, which then can't be left for the next to say. A band strewn after an element
     // shares its tincture as the College writes it ("a unicorn, a bordure argent mullety sable", regid 37777).

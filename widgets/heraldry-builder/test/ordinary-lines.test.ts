@@ -156,11 +156,11 @@ describe('charges around and on a lined ordinary', () => {
     const embattled = spec('fess', { a: 'embattled', b: 'plain' }), wavy = spec('bend', both('wavy'));
     for (const shape of FIELD_SHAPES) {
       const merlons = pathRings(ordinaryGeometry(embattled, defaultOrdinaryFrame(shape)).body);
-      for (const s of contextSlots({ k: 'between', ordinary: embattled, peripheral: 'none' }, 2, layoutOfKey('host', 2)!, shape)) {
+      for (const s of contextSlots({ k: 'between', ordinary: embattled, peripheral: 'none', keepOut: [] }, 2, layoutOfKey('host', 2)!, shape)) {
         for (const p of disc(s)) expect(inRings(merlons, p), `${shape} ${JSON.stringify(s)}`).toBe(false);
       }
       const bend = pathRings(ordinaryGeometry(wavy, defaultOrdinaryFrame(shape)).body);
-      const slots = contextSlots({ k: 'on', ordinary: wavy, peripheral: 'none' }, 3, layoutOfKey('host', 3)!, shape);
+      const slots = contextSlots({ k: 'on', ordinary: wavy, peripheral: 'none', keepOut: [] }, 3, layoutOfKey('host', 3)!, shape);
       expect(slots, shape).toHaveLength(3);
       for (const s of slots) for (const p of disc(s)) expect(inRings(bend, p), `${shape} ${JSON.stringify(s)}`).toBe(true);
     }
@@ -180,7 +180,7 @@ describe('charges around and on a lined ordinary', () => {
             const body = pathRings(ordinaryGeometry(s, defaultOrdinaryFrame(shape)).body);
             // Three charges on a chevron enarched: its bowed limbs leave the straight limbs' places — no room (a capacity issue, PROGRESS-C C5a).
             for (const count of hostCounts(kind, s).filter((n) => n <= 3 && !(kind === 'on' && type === 'chevron' && line === 'enarched' && n === 3))) {
-              const slots = contextSlots({ k: kind, ordinary: s, peripheral: 'none' }, count, layoutOfKey('host', count)!, shape);
+              const slots = contextSlots({ k: kind, ordinary: s, peripheral: 'none', keepOut: [] }, count, layoutOfKey('host', count)!, shape);
               const where = `${shape} ${kind} ${type} ${line} ${count}`;
               if (slots.length !== count) { problems.push(`${where}: ${slots.length} slots`); continue; }
               for (const slot of slots) {

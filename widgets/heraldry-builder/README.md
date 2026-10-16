@@ -159,6 +159,25 @@ tincture with the ordinary on it). Blazon: "a fess gules cotised Or", "a bend co
 purpure cotised plain sable", "a pale endorsed", "a pale wavy sable fimbriated Or", "a chevron gules fimbriated between three lions argent",
 "a cross voided Or".
 
+**Peripherals beside the chief and bordure** — a base, a point pointed, a canton, a quarter and a gyron, and the canton, quarter and gyron
+sinister (the mod `sinister`, mirrored about the shape's middle: an ordinary's own form, not a place of the field) — are drawn, ruled,
+compared and blazoned by the library; the builder doesn't offer them yet, so each stays the gap `ordinary:<type>`. The base is 28 tall on the
+heater (taller in a shape with a taller chief) and takes a line on its upper edge; the point pointed rises from the box's lower corners to
+80 on the heater with its sides bowed toward the base, and takes no line; the canton is a third of the box from its dexter chief corner
+(the lozenge's 0.4, or its sloping edge leaves a sliver), the quarter a half; the gyron runs from that corner to the fess point and across
+to the flank. A line on a canton, quarter or gyron is laid on both inner edges out from where they meet. Any number of them may stand
+together, in `PERIPHERAL_ORDER` (paint and blazon order: base, point, gyron, chief, bordure, quarter, canton). Charges on the field, between
+or on an ordinary, in chief or base and around the primary charges keep clear of them all: each layout context carries them as
+`keepOut` (the specs, `[]` when there are none), whose envelopes the ground avoids; their hand-fitted rows then don't apply, and the
+generic engine moves the charges up to 24 and draws them together a little where that lets them grow, on the heater and in each shape.
+A base or point ends the free field for the other ordinaries (`ordinaryFrameOf`: the frame's `bottom`): they are drawn on under it,
+but the points they lie on stop there. Rules: a chief and a base alike in tincture and line are refused (RULES-C §C.3); a canton or
+quarter stays uncharged (SENA A6C1); nothing lies overall with one of them (App I4); a field per fess with a base needs a charge across the
+line when the two lines could be one fess (A3D1c at the foot). Conflict: a quarter is a canton (one type, L9), a base and a point
+pointed differ by a DC, and the canton sinister is a DC of position (A5G6). Blazon joins each by its majority joiner in the O&A
+(`PERIPHERAL_JOINER`: "and a base", ", a point pointed", "and a canton", ", a quarter", "and a gyron"; the chief and bordure keep
+", "): "Argent, a mullet sable and a base azure", "Quarterly azure and gules, a point pointed Or", "Argent, a canton sinister gules".
+
 The builder reaches them from **More shapes and edges…** on a central band or shape (`OutlineControls.tsx`, `outline.ts`, `shape-options.ts`):
 `ordinary-outline-none|fimbriated|cotised|doubly-cotised|triply-cotised` ("None · Edged · Cotised · Doubly · Triply"; one outline at a time, so
 fimbriated and cotised together stays the gap `ordinary-treatment:fimbriated-and-cotised`), then `ordinary-outline-tincture` (swatches
@@ -829,6 +848,7 @@ npm run favicon
 - `test/ordinary-lines.test.ts`: lines on ordinaries — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.
 - `test/builder.test.ts` "the outline of the band" and `test/builder-steps.test.ts`: the outline, its tincture and its cotise line, "Hollow", and the controls inside the closed disclosure.
 - `test/ordinary-outlines.test.ts`: cotises, fimbriation and voiding — the geometry on every shape (cotises parallel at a quarter of the band and a cotise apart, one to three a side, their own line following the band's; fimbriation round the body under it; voiding evenodd), render and hatching of the parts, the rules (A3C hosts and roles, contrast of the trims, the field's tincture under fimbriation, the core-practice step), the conflict readings (cotises as a group, RULES-C §B.7, voided and fimbriated read two ways), words, gloss and signature.
+- `test/peripherals.test.ts`: the base, point pointed, canton, quarter and gyron (and sinister forms) — drawn inside every shape, the sinister forms mirrored, the frame a base leaves the other ordinaries; charges on the field, between, in chief or base kept out of them (alone and several at once; heater exhaustive, other shapes in turn) and still legible beside them; the contexts filled from the design; the rules (field-primary, chief and base alike, A6C1, App I4, A3D1c at the foot), conflict (canton ≡ quarter, base vs point pointed, sinister a DC of position), blazon joiners, gloss and signature.
 - `test/ordinary-treatments.test.ts`: inverted, couped, throughout, enhanced and abased — the geometry on every shape (reflection, couped ends inside the shape and straight on lined bands, throughout touching the edge, a band moved not widened), the conflict readings (A5E5c, A5G7, A5G4, none for position), the rules (contradictions, hosts, a charged chevron inverted abased), the layouts around and on them, the words, the toggles and `setOrdinary`.
 - `test/lines-field.test.ts`: lines on the field — every partition line of every allowed pair is drawn with its profile and at least two periods inside each shape; the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating third elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
 - `test/signature.test.ts`: the signature is unchanged for designs phase B could draw (pinned, `test/signature-cases.ts`), one-to-one over lined and generated designs, and every id ends in a letter.

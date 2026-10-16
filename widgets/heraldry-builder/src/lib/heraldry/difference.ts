@@ -11,7 +11,7 @@ import {
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, type Division, type Variation } from './divisions';
 import { LINE_WORD, edgeCount, lineDiffers, lineWords, type EdgeHost, type Line } from './lines';
-import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryMod } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
@@ -74,8 +74,17 @@ export function isClear(diffs: readonly { kind: ChangeKind }[]): boolean {
  */
 function conflictKey(item: Item): string {
   if (item.k === 'charge') return `charge:${CHARGES[item.charge].typeClass}`;
-  return item.type === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : `ordinary:${item.type}`;
+  return item.type === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : typeKey(item);
 }
+
+/** RULES-C §C.3, L9: a quarter is a canton drawn larger, one type for conflict. Its `sinister` form changes no key. */
+const ALIKE_TYPE: Partial<Record<OrdinaryType, OrdinaryType>> = { quarter: 'canton' };
+
+/** An item's type as conflict compares it: a charge's own, an ordinary's with the types that are one (a quarter is a canton). */
+const typeKey = (item: Item): string => (item.k === 'ordinary' ? `ordinary:${ALIKE_TYPE[item.type] ?? item.type}` : itemKey(item));
+
+/** A5G6 (RULES-C §C.3): a canton, quarter or gyron against the same in the other top corner is a change of its position. */
+const sidesSwapped = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.mods.includes('sinister') !== y.mods.includes('sinister');
 
 /** A5G4 (RULES-C §D.2): a couped ordinary against one throughout — the same ordinary otherwise — is a change of its type. */
 const coupingDiffers = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.mods.includes('couped') !== y.mods.includes('couped');
@@ -395,7 +404,7 @@ const edgeHostOf = (i: Item): EdgeHost | null => (i.k === 'ordinary' ? { k: 'ord
  */
 function edgesDiffer(x: Item, y: Item): boolean {
   const host = edgeHostOf(x);
-  if (host === null || x.k !== 'ordinary' || y.k !== 'ordinary' || x.type !== y.type) return false;
+  if (host === null || x.k !== 'ordinary' || y.k !== 'ordinary' || typeKey(x) !== typeKey(y)) return false;
   const [lx, ly] = [canonicalLines(host, x.lines), canonicalLines(host, y.lines)];
   const twoSided = edgeCount(host) === 2;
   return lineDiffers(lx.a, ly.a, twoSided) || lineDiffers(lx.b, ly.b, twoSided);
@@ -410,7 +419,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   // The in-splendour mod of a sun is an artistic detail (RULES §C.3) and is not looked at.
   // A change of an ordinary's edge, or couping it, is a change of its type: with a change of type, one change (RULES-C §B.3, §D.2); a chevron
   // against a chevron inverted, substantial between primaries, is a distinct change elsewhere (A5G). Enhanced and abased are artistic (§D.6).
-  if (itemKey(gx.item) !== itemKey(gy.item) || conflictKey(gx.item) !== conflictKey(gy.item) || edgesDiffer(gx.item, gy.item) || coupingDiffers(gx.item, gy.item)) dc('type', 'A5G4');
+  if (typeKey(gx.item) !== typeKey(gy.item) || conflictKey(gx.item) !== conflictKey(gy.item) || edgesDiffer(gx.item, gy.item) || coupingDiffers(gx.item, gy.item)) dc('type', 'A5G4');
   if (countCategoryFine(gx.count) !== countCategoryFine(gy.count)) dc('number', 'A5G5');
   if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);
@@ -419,7 +428,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   // A badge has no field to place its charges on: "placement on the field doesn't count when comparing fielded armory to a
   // fieldless badge" (LoAR 08/2006, Havre de Glace), and the position decides how charges in chief or base are set.
   const placedOnField = (x.design.kind === 'badge') !== (y.design.kind === 'badge') && (gx.position !== null || gy.position !== null);
-  if (moved || (kx !== ky && !placedOnField && !isForced(x.design, x.path) && !isForced(y.design, y.path)
+  if (moved || sidesSwapped(gx.item, gy.item) || (kx !== ky && !placedOnField && !isForced(x.design, x.path) && !isForced(y.design, y.path)
     && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky))))) {
     dc('arrangement', 'A5G6');
   }
@@ -715,14 +724,14 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         const bothBands = s.ga.item.k === 'ordinary' && s.gb.item.k === 'ordinary';
         const label = bothBands ? (s.nounA.one === s.nounB.one ? s.nounA.one : 'band or shape') : s.ga.item.k === s.gb.item.k ? noun().one : 'picture or band';
         const edged = (i: Item) => { const host = edgeHostOf(i); return host && i.k === 'ordinary' ? lineWords(host, i.lines) || 'straight' : ''; };
-        if (itemKey(s.ga.item) === itemKey(s.gb.item) && edgesDiffer(s.ga.item, s.gb.item)) {
+        if (typeKey(s.ga.item) === typeKey(s.gb.item) && edgesDiffer(s.ga.item, s.gb.item)) {
           text = pair(`edge of ${s.nounA.one}`, edged(s.ga.item), edged(s.gb.item));
           sentence = isCotiseGroup(a, s.ga)
             ? 'Changing the edge of the cotises — from straight to wavy, say — changes their type: a distinct change'
             : `Changing the edge of ${itemPhrase(s.ga.item)} — from straight to embattled, say — changes its type: a distinct change`;
           break;
         }
-        if (itemKey(s.ga.item) === itemKey(s.gb.item)) {
+        if (typeKey(s.ga.item) === typeKey(s.gb.item)) {
           // the treatments that differ, as each has them
           const has = (i: Item, m: OrdinaryMod) => i.k === 'ordinary' && i.mods.includes(m);
           const shown = (['inverted', 'couped'] as const).filter((m) => has(s.ga.item, m) !== has(s.gb.item, m));
@@ -750,6 +759,12 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         sentence = 'Changing the colour of a group is a distinct change';
         break;
       case 'arrangement':
+        if (sidesSwapped(both().ga.item, both().gb.item)) {
+          const corner = (g: Group) => (g.item.k === 'ordinary' && g.item.mods.includes('sinister') ? 'top right' : 'top left');
+          text = pair(`position of ${noun().one}`, corner(both().ga), corner(both().gb));
+          sentence = `Moving ${itemPhrase(both().ga.item)} to the other top corner is a distinct change`;
+          break;
+        }
         text = pair(`arrangement of ${noun().many}`, layoutWords({ arrangement: both().ga.arrangement, position: both().ga.position }), layoutWords({ arrangement: both().gb.arrangement, position: both().gb.position }));
         sentence = diff.kind === 'sc'
           ? 'These arrangements look substantially different — a substantial change'

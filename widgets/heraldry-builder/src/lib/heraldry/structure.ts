@@ -360,6 +360,35 @@ function notABadge(group: Group): string | null {
   return null;
 }
 
+/** The peripherals that must stay uncharged: a canton or quarter charged is an augmentation (SENA A6C1, RULES-C §C.3). */
+const UNCHARGED: readonly OrdinaryType[] = ['canton', 'quarter'];
+
+/**
+ * What the peripherals beside the chief and bordure rule out: a chief and a base alike in tincture and line ("non-period heraldic style,
+ * and grounds for return": RULES-C §C.3, Cynwrig de Montain 11/2006); a charged canton or quarter (SENA A6C1); a group overall, which may
+ * not lie over a peripheral other than a chief or bordure it stands under (SENA App I4).
+ */
+function peripheralIssues(d: Design): Issue[] {
+  const out: Issue[] = [];
+  const peripherals = d.groups.flatMap((group, i) => (group.role === 'peripheral' && group.item.k === 'ordinary' ? [{ group, item: group.item, path: [i] as GroupPath }] : []));
+  const chief = peripherals.find((p) => p.item.type === 'chief');
+  const base = peripherals.find((p) => p.item.type === 'base');
+  if (chief && base && JSON.stringify(chief.group.paint) === JSON.stringify(base.group.paint) && chief.item.lines.a === base.item.lines.a) {
+    out.push({ code: 'structure', rule: 'relation', at: { k: 'group', path: base.path }, message: 'A chief and a base alike in tincture and line are refused: make them differ in one (RULES-C §C.3).', slots: [] });
+  }
+  for (const { group, item, path } of peripherals) {
+    if (UNCHARGED.includes(item.type) && group.charged.length > 0) {
+      out.push({ code: 'structure', rule: 'relation', at: { k: 'group', path: [...path, 0] }, message: `A ${ORDINARY_NAME[item.type]} must stay uncharged: a charged one is an augmentation (SENA A6C1).`, slots: [] });
+    }
+  }
+  const beside = peripherals.find((p) => p.item.type !== 'chief' && p.item.type !== 'bordure');
+  const overall = d.groups.findIndex((g) => g.role === 'overall');
+  if (beside && overall >= 0) {
+    out.push({ code: 'structure', rule: 'overall', at: { k: 'group', path: [overall] }, message: `Nothing can lie overall with a ${ORDINARY_NAME[beside.item.type]} on the field (SENA App I4).`, slots: [] });
+  }
+  return out;
+}
+
 /** Structural problems of a design that resolves, in rule order. */
 export function structuralIssues(d: Design): Issue[] {
   const issues: Issue[] = [];
@@ -492,6 +521,16 @@ export function structuralIssues(d: Design): Issue[] {
   if (chief && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && couldBeOneFess(chiefLine, d.field.lines.a) && !crossesTheLine(d)) {
     add({ code: 'structure', rule: 'crosses-line', at: { k: 'group', path: chief.path }, message: 'A chief on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
   }
+
+  // 6'. The mirror at the foot: a base on a field divided per fess (RULES-C §A.5.5).
+  const base = walked.find(({ group }) => group.role === 'peripheral' && group.item.k === 'ordinary' && group.item.type === 'base');
+  const baseLine = base?.group.item.k === 'ordinary' ? base.group.item.lines.a : 'plain';
+  if (base && d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-fess' && couldBeOneFess(d.field.lines.a, baseLine) && !crossesTheLine(d)) {
+    add({ code: 'structure', rule: 'crosses-line', at: { k: 'group', path: base.path }, message: 'A base on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
+  }
+
+  // 6a. What the peripherals rule out (RULES-C §C.3, SENA A6C1, App I4).
+  issues.push(...peripheralIssues(d));
 
   // 6b. An ordinary's lines (RULES-C §A.3, §A.5).
   for (const { path, group } of walked) {

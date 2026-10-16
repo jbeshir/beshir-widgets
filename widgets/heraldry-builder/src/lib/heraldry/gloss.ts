@@ -8,7 +8,7 @@ import { treatedGloss } from './treatment';
 import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
 import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
-import { type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenHost, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout } from './arrangement';
 import { specOf } from './ordinary-geometry';
 
@@ -23,6 +23,18 @@ const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   chief: 'band across the top',
   bordure: 'border around the edge',
   pile: 'downward-pointing wedge from the top',
+  base: 'band across the bottom',
+  point: 'curved point rising from the bottom',
+  canton: 'square in the top-left corner',
+  quarter: 'quarter of the shield in the top-left corner',
+  gyron: 'triangle from the top-left corner to the middle',
+};
+
+/** The ordinaries in the other top corner (sinister), in everyday words. */
+const SINISTER_GLOSS: Partial<Record<OrdinaryType, string>> = {
+  canton: 'square in the top-right corner',
+  quarter: 'quarter of the shield in the top-right corner',
+  gyron: 'triangle from the top-right corner to the middle',
 };
 
 /** The ordinaries turned upside down, in everyday words. */
@@ -149,14 +161,14 @@ function ordinaryLines(type: OrdinaryType, inverted: boolean, { a, b }: Lines): 
   return ` with ${[a !== 'plain' ? edge(a, names.a) : '', b !== 'plain' ? edge(b, names.b) : ''].filter(Boolean).join(' and ')}`;
 }
 
-/** The ordinaries whose line runs along one edge: the chief's lower edge, the bordure's inner one. */
-const ONE_EDGE: readonly OrdinaryType[] = ['chief', 'bordure'];
+/** The ordinaries whose line runs along one edge: the chief's lower edge, the bordure's inner one, the base's upper one. */
+const ONE_EDGE: readonly OrdinaryType[] = ['chief', 'bordure', 'base'];
 
 function ordinaryGloss(d: Design, g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type, mods } = g.item;
   const inverted = mods.includes('inverted');
-  const shape = (inverted ? INVERTED_GLOSS[type] : ORDINARY_GLOSS[type]) ?? notSupported({ category: 'ordinary', detail: type });
+  const shape = (inverted ? INVERTED_GLOSS[type] : mods.includes('sinister') ? SINISTER_GLOSS[type] : ORDINARY_GLOSS[type]) ?? notSupported({ category: 'ordinary', detail: type });
   // "a gold shortened cross", "a blue raised horizontal band …", "a white upside-down V reaching the edges"
   const before = [mods.includes('couped') ? 'shortened ' : '', mods.includes('enhanced') ? 'raised ' : '', mods.includes('abased') ? 'lowered ' : '', mods.includes('voided') ? 'hollow ' : ''].join('');
   const body = `${before}${shape}${mods.includes('throughout') ? ' reaching the edges' : ''}${ordinaryLines(type, inverted, g.item.lines)}`;
@@ -294,7 +306,7 @@ function ordinaryWith(d: Design, g: Group, between: Group[]): { text: string; cl
   for (const t of g.charged) {
     const c = chargesGloss(d, t);
     // A band on the edge reads as a phrase of its own: "a gold band across the top carrying three red roses".
-    text += `${type === 'chief' || type === 'bordure' ? ' ' : ', '}carrying ${c.text}`;
+    text += `${ORDINARY_KIND[type] === 'peripheral' ? ' ' : ', '}carrying ${c.text}`;
     clause = c.clause;
   }
   for (const s of between) {

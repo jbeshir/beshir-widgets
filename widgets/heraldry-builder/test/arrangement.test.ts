@@ -111,18 +111,18 @@ describe('Table 7: secondary and tertiary groups', () => {
     expect(layoutKey(tableDefault(d, [0, 0])!)).toBe('host');
     expect(candidates(d, [1], 3)).toEqual(['host']);
     expect(candidates(d, [0, 0], 5)).toEqual(['host']);
-    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: plainSpec('fess'), peripheral: 'none' });
-    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('fess'), peripheral: 'none' });
+    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: plainSpec('fess'), peripheral: 'none', keepOut: [] });
+    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('fess'), peripheral: 'none', keepOut: [] });
   });
 
   it('knows the chief and bordure beside the group it sits around or on', () => {
     const d = nd(arms('azure', group(ordinary('pale'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(charge('mullet'), 'argent', { count: 2 }),
       group(ordinary('chief'), 'argent'), group(ordinary('bordure'), 'argent')));
-    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: plainSpec('pale'), peripheral: 'chief-bordure' });
-    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('pale'), peripheral: 'chief-bordure' });
+    expect(layoutContext(d, [1])).toEqual({ k: 'between', ordinary: plainSpec('pale'), peripheral: 'chief-bordure', keepOut: [] });
+    expect(layoutContext(d, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('pale'), peripheral: 'chief-bordure', keepOut: [] });
     // A chief is not its own peripheral: charges on it know of the bordure alone.
     const chiefly = nd(arms('azure', group(ordinary('chief'), 'or', { charged: [group(charge('rose'), 'gules', { count: 2 })] }), group(ordinary('bordure'), 'argent')));
-    expect(layoutContext(chiefly, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('chief'), peripheral: 'bordure' });
+    expect(layoutContext(chiefly, [0, 0])).toEqual({ k: 'on', ordinary: plainSpec('chief'), peripheral: 'bordure', keepOut: [] });
   });
 
   it('has a layout only for the counts of the table', () => {
@@ -146,7 +146,7 @@ describe('Table 7: secondary and tertiary groups', () => {
     const onSecondary = nd(arms('azure', group(ordinary('bend'), 'or'), group(charge('lion'), 'gules', { count: 2, charged: [group(charge('rose'), 'argent')] })));
     expect(() => layoutContext(onSecondary, [1, 0])).toThrow(UnsupportedConstructError);
     expect(() => tableDefault(onSecondary, [1, 0])).toThrow(UnsupportedConstructError);
-    expect(layoutContext(onSecondary, [1])).toEqual({ k: 'between', ordinary: plainSpec('bend'), peripheral: 'none' });
+    expect(layoutContext(onSecondary, [1])).toEqual({ k: 'between', ordinary: plainSpec('bend'), peripheral: 'none', keepOut: [] });
   });
 });
 

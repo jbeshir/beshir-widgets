@@ -11,7 +11,7 @@ import {
   CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
   type ChargeForm, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
-import { ORDINARY_MODS, ORDINARY_NAME } from './ordinaries';
+import { ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER } from './ordinaries';
 
 /**
  * Edge lines, with blazon meaning (RULES-C §0; the edge table is lines.ts `edgeCount`): on a fess-, bend- or chevron-like band `a` is
@@ -379,14 +379,12 @@ function canonicalItem(item: Item): Item {
   };
 }
 
-/** The order of a chief and a bordure among the peripherals: the chief first, so the bordure is painted over it (SENA App M1l). */
-const PERIPHERAL_ORDER = ['ordinary:chief', 'ordinary:bordure'];
-
 function groupOrder(g: Group): string {
-  const peripheral = g.role === 'peripheral' ? PERIPHERAL_ORDER.indexOf(itemKey(g.item)) : -1;
+  // Peripheral ordinaries in their paint order (the bordure over the chief, SENA App M1l; the canton over both).
+  const peripheral = g.role === 'peripheral' && g.item.k === 'ordinary' ? PERIPHERAL_ORDER.indexOf(g.item.type) : -1;
   // Primary charges keep the order they were written in: the first of two stands first (to dexter, or above).
   const key = g.role === 'primary' && g.item.k === 'charge' ? 'charge' : itemKey(g.item);
-  return `${ROLE_ORDER.indexOf(g.role)}${peripheral >= 0 ? `0${peripheral}` : `1${key}`}`;
+  return `${ROLE_ORDER.indexOf(g.role)}${peripheral >= 0 ? `0${String(peripheral).padStart(2, '0')}` : `1${key}`}`;
 }
 
 function canonicalGroups(groups: readonly Group[]): Group[] {

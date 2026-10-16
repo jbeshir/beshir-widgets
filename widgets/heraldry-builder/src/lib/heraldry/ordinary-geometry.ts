@@ -9,9 +9,14 @@
 // enhanced and abased (moved toward chief or base), voided (its middle cut out, straight-edged inside its lines). Cotises (thin bands
 // beside each long edge, with a line of their own) and fimbriation (a narrow band round the body, under it) are trims drawn as parts of
 // their own, each with the points it lies on.
+//
+// The peripherals beside the chief and bordure — base, point pointed, canton, quarter, gyron (sinister: mirrored) — are drawn here too;
+// a base or point leaves the ordinaries in the field a frame whose bottom is its top.
 
-import { notSupported, type Group, type Lines, type Paint } from './design';
-import { CANONICAL_SHAPE, CHEVRON_APEX_RISE, OVER, counterchangedParts, inFirstPart, pathPolygon, pathRings, pts, shapeFrame, type CounterchangePart, type Point, type Pt } from './geometry';
+import { notSupported, type Design, type Group, type Lines, type Paint } from './design';
+import {
+  CANONICAL_SHAPE, CHEVRON_APEX_RISE, CURVE_STEPS, OVER, counterchangedParts, inFirstPart, pathPolygon, pathRings, pts, shapeFrame, type CounterchangePart, type Point, type Pt, type ShapeFrame,
+} from './geometry';
 import { contourPath, type Contour, type ContourEdge } from './contour';
 import type { Division } from './divisions';
 import { LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, profileSwing, fitPeriod, isStraightLine, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type Line } from './lines';
@@ -51,15 +56,32 @@ export function plainSpec(type: OrdinaryType): OrdinarySpec {
 export const isPlainSpec = (s: OrdinarySpec): boolean =>
   s.lines.a === 'plain' && s.lines.b === 'plain' && s.mods.length === 0 && s.count === 1 && s.cotised === null && !s.fimbriated;
 
-/** What the rest of the field leaves for an ordinary: today the whole shape, its lines crossing at the fess point. */
+/** What the rest of the field leaves for an ordinary: the whole shape, its lines crossing at the fess point, above any base. */
 export interface OrdinaryFrame {
   readonly shape: FieldShape;
   /** Where fess, pale, bend and cross lines cross: the shape's fess point. */
   readonly centre: Point;
+  /**
+   * Where the free field ends below: the foot of the shape's box, or the top of a base or point pointed. An ordinary is drawn on under
+   * the base (which is painted over it) but lies only above it: its samples stop here.
+   */
+  readonly bottom: number;
 }
 
 export function defaultOrdinaryFrame(shape: FieldShape): OrdinaryFrame {
-  return { shape, centre: shapeFrame(shape).fessPoint };
+  const f = shapeFrame(shape);
+  return { shape, centre: f.fessPoint, bottom: f.box.y1 };
+}
+
+/** The peripherals that rise from the base of the shield and so end the free field below. */
+const FROM_BASE: readonly OrdinaryType[] = ['base', 'point'];
+
+/** The frame the design's peripherals leave its other ordinaries in a shape: its bottom the highest line a base or point pointed always covers. */
+export function ordinaryFrameOf(d: Design, shape: FieldShape): OrdinaryFrame {
+  const frame = defaultOrdinaryFrame(shape);
+  const tops = d.groups.flatMap((g) => (g.role === 'peripheral' && g.item.k === 'ordinary' && FROM_BASE.includes(g.item.type)
+    ? ordinaryGeometry(specOf(g), frame).envelope.inner.flat().map(([, y]) => y) : []));
+  return tops.length === 0 ? frame : { ...frame, bottom: Math.min(frame.bottom, ...tops) };
 }
 
 /** A trim drawn with an ordinary's body (its fimbriation, its cotises): its path, and the step-2 grid of the shape's points that show it — what it lies on. */
@@ -95,6 +117,18 @@ const CHIEF_HEIGHT = 30;
 const CROSS_HALF = 12;                  // 24-wide arms
 const SALTIRE_HALF = 12 * Math.SQRT2;   // 24-wide arms
 const CHEVRON_THICK = 22 * Math.SQRT2;  // 22-wide band, measured perpendicular to its limbs
+
+/** How tall the base is on the heater (whose narrowing foot leaves little of a lower one); in another shape as much taller as its chief is. */
+const BASE_HEIGHT = 28;
+/** How high the point pointed rises on the heater (its apex); in another shape the same share of its box above its foot. */
+const POINT_TOP = 80;
+/** How far the sides of the point pointed bow toward the base in their middles: it is ployé by default (RULES-C §C.3). */
+const POINT_SAG = 5;
+/**
+ * How much of the shape's box, across and down, a canton and a quarter take from its dexter chief corner (RULES-C §C.3: a third and a
+ * half); the lozenge's canton more, or its sloping top edge would leave a sliver of it.
+ */
+const cornerShare = (type: OrdinaryType, shape: FieldShape): number => (type === 'quarter' ? 1 / 2 : shape === 'lozenge' ? 0.4 : 1 / 3);
 
 /** How far a chevron astride a field's per-chevron line is raised: half its thickness, so the line runs down its middle. */
 const CHEVRON_ASTRIDE_LIFT = CHEVRON_THICK / 2;
@@ -132,6 +166,7 @@ const WIDENING = 1.2;
 const PLAIN_WIDTH = {
   fess: 2 * BAND_HALF, pale: 2 * BAND_HALF, bend: 2 * BAND_HALF, 'bend-sinister': 2 * BAND_HALF, chevron: CHEVRON_THICK / Math.SQRT2,
   cross: 2 * CROSS_HALF, saltire: 2 * SALTIRE_HALF / Math.SQRT2, chief: CHIEF_HEIGHT, pile: 2 * BAND_HALF,
+  base: BASE_HEIGHT, canton: 100 / 3, quarter: 50, gyron: 2 * BAND_HALF,
 } as const;
 /** How wide the bordure is (the lozenge's a little narrower). */
 const BORDURE_WIDTH = 10;
@@ -247,11 +282,47 @@ function reflected(outline: Outline, axis: number): Outline {
   };
 }
 
+/** The outline mirrored left to right about x = `axis`: a canton, quarter or gyron sinister. Its edges keep their lines. */
+function mirrored(outline: Outline, axis: number): Outline {
+  const flip = ([x, y]: Pt): Pt => [2 * axis - x, y];
+  return {
+    ...outline,
+    points: outline.points.map(flip),
+    courses: outline.courses.map((c) => {
+      const dir: Pt = [-c.dir[0], c.dir[1]];
+      return { ...c, origin: flip(c.origin), dir, plus: c.plus === 'outward' ? 'outward' : fieldSide(dir) };
+    }),
+  };
+}
+
 /** The straight outline of an ordinary, its chevron raised `lift` above its usual place; null for the bordure (a ring with curves). */
 function outlineOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
   const inverted = spec.mods.includes('inverted');
   const upright = uprightOutline(spec, frame, lift);
-  return upright && inverted ? reflected(upright, flipAxis(frame)) : upright;
+  const turned = upright && inverted ? reflected(upright, flipAxis(frame)) : upright;
+  return turned && spec.mods.includes('sinister') ? mirrored(turned, frame.centre.x) : turned;
+}
+
+/** The top of the base in a shape: BASE_HEIGHT above the foot of its box on the heater, as much more as the shape's chief is taller. */
+const baseTop = (f: ShapeFrame): number => f.box.y1 - (BASE_HEIGHT * (f.chiefBase - f.box.y0)) / CHIEF_HEIGHT;
+
+/**
+ * The point pointed in a shape: from the lower corners of its box up to an apex in the middle, POINT_TOP high on the heater, its sides
+ * bowed toward the base (each a quadratic curve, flattened), and closed below the shape.
+ */
+function pointPoints(f: ShapeFrame): Pt[] {
+  const { x0, x1, y0, y1 } = f.box;
+  const apex: Pt = [(x0 + x1) / 2, y1 - ((120 - POINT_TOP) * (y1 - y0)) / 120];
+  const side = (foot: Pt): Pt[] => {
+    // the control point twice the sag below the chord's middle bows the curve's middle by the sag
+    const control: Pt = [(apex[0] + foot[0]) / 2, (apex[1] + foot[1]) / 2 + 2 * POINT_SAG];
+    return Array.from({ length: CURVE_STEPS * 2 }, (_, i) => {
+      const t = (i + 1) / (CURVE_STEPS * 2), u = 1 - t;
+      return [u * u * apex[0] + 2 * u * t * control[0] + t * t * foot[0], u * u * apex[1] + 2 * u * t * control[1] + t * t * foot[1]];
+    });
+  };
+  const right = side([x1, y1]), left = side([x0, y1]).reverse();
+  return [apex, ...right, [x1, OVER.y1], [x0, OVER.y1], ...left];
 }
 
 /** The outline before it is turned upside down (`reflected`): a band moved up or down, a band or arm couped, a chevron or pile throughout. */
@@ -389,6 +460,32 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
       return { points: [corners[0], corners[1], point], edges: [null, A(1), A(0)], courses };
     }
     case 'bordure': return null;
+    // its upper edge laid like a chief's lower one
+    case 'base': {
+      const top = baseTop(f);
+      return { points: [[x0, top], [x1, top], [x1, y1], [x0, y1]], edges: [A(0), null, null, null], courses: [band([x0, top], [1, 0])] };
+    }
+    // ployé, and it takes no line
+    case 'point': {
+      const points = pointPoints(f);
+      return { points, edges: points.map(() => null), courses: [] };
+    }
+    // its two inner edges laid out from the corner where they meet, each with its features outward (as a pile's sides)
+    case 'canton': case 'quarter': {
+      const share = cornerShare(spec.type, frame.shape);
+      const corner: Pt = [f.box.x0 + share * (f.box.x1 - f.box.x0), f.box.y0 + share * (f.box.y1 - f.box.y0)];
+      const from = (dir: Pt): Course => ({ origin: corner, dir, junction: 1, plus: 'outward', cut: null });
+      return { points: [[x0, y0], [corner[0], y0], corner, [x0, corner[1]]], edges: [null, A(0), A(1), null], courses: [from([0, -1]), from([-1, 0])] };
+    }
+    // from the dexter chief corner of the box to the fess point, and across to the dexter flank: both edges laid out from the fess point
+    case 'gyron': {
+      const point: Pt = [frame.centre.x, frame.centre.y];
+      const up = unit([f.box.x0 - point[0], f.box.y0 - point[1]]);
+      const far: Pt = [x0, point[1] + (up[1] * (x0 - point[0])) / up[0]];
+      const half = Math.acos(-up[0]) / 2;
+      const from = (dir: Pt): Course => ({ origin: point, dir, junction: 1 / Math.tan(half), plus: 'outward', cut: null });
+      return { points: [far, point, [x0, point[1]]], edges: [A(0), A(1), null], courses: [from(up), from([-1, 0])] };
+    }
     default: return notSupported({ category: 'ordinary', detail: spec.type });
   }
 }
@@ -688,6 +785,12 @@ const TRIM_SAMPLE_STEP = 2;
 
 const geometryCache = new Map<string, OrdinaryGeometry>();
 
+/** The peripherals whose centre (where a division of one runs through it) is the middle of what the shape shows of them. */
+const IN_A_CORNER_OR_BASE: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron'];
+
+/** The mean of some points. */
+const middleOf = (points: readonly Pt[]): Point => ({ x: points.reduce((a, [x]) => a + x, 0) / points.length, y: points.reduce((a, [, y]) => a + y, 0) / points.length });
+
 function build(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): OrdinaryGeometry {
   const key = JSON.stringify([spec, frame, lift]);
   let g = geometryCache.get(key);
@@ -698,17 +801,21 @@ function build(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Ordinary
     const body = bodyOf(spec, frame, drawn, shape);
     const rings = pathRings(body), outline = pathRings(f.outline);
     const points = rings.flat(), xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
-    const samples = gridInside(outline, rings);
+    // what lies under a base or point pointed doesn't show
+    const above = (grid: Pt[]) => grid.filter(([, y]) => y < frame.bottom);
+    const samples = above(gridInside(outline, rings));
     const fimbriation = drawn && fimbriationOf(spec, drawn, body), cotises = drawn && cotisesOf(spec, drawn, shape);
+    const box = { x0: Math.max(f.box.x0, Math.min(...xs)), y0: Math.max(f.box.y0, Math.min(...ys)), x1: Math.min(f.box.x1, Math.max(...xs)), y1: Math.min(f.box.y1, Math.max(...ys)) };
     g = {
       body,
       fillRule: spec.type === 'bordure' || spec.mods.includes('voided') ? 'evenodd' : 'nonzero',
       // the fimbriation shows where it lies outside the body
-      fimbriation: fimbriation ? { d: fimbriation, fillRule: 'nonzero', samples: gridInside(outline, [...pathRings(fimbriation), ...rings], TRIM_SAMPLE_STEP) } : null,
-      cotises: cotises ? { d: cotises, fillRule: 'evenodd', samples: gridInside(outline, pathRings(cotises), TRIM_SAMPLE_STEP) } : null,
+      fimbriation: fimbriation ? { d: fimbriation, fillRule: 'nonzero', samples: above(gridInside(outline, [...pathRings(fimbriation), ...rings], TRIM_SAMPLE_STEP)) } : null,
+      cotises: cotises ? { d: cotises, fillRule: 'evenodd', samples: above(gridInside(outline, pathRings(cotises), TRIM_SAMPLE_STEP)) } : null,
       envelope: envelopeOf(spec, frame, drawn, body),
-      centre: spec.type === 'chief' ? { x: frame.centre.x, y: f.chiefBase - CHIEF_HEIGHT / 2 } : ordinaryCentre(spec, frame),
-      box: { x0: Math.max(f.box.x0, Math.min(...xs)), y0: Math.max(f.box.y0, Math.min(...ys)), x1: Math.min(f.box.x1, Math.max(...xs)), y1: Math.min(f.box.y1, Math.max(...ys)) },
+      centre: spec.type === 'chief' ? { x: frame.centre.x, y: f.chiefBase - CHIEF_HEIGHT / 2 }
+        : IN_A_CORNER_OR_BASE.includes(spec.type) ? middleOf(samples) : ordinaryCentre(spec, frame),
+      box,
       samples,
     };
     geometryCache.set(key, g);

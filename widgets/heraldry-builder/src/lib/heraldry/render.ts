@@ -5,7 +5,7 @@ import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
 import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
 import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type Slot } from './geometry';
-import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
+import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
 import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
@@ -26,7 +26,8 @@ const trimPart = (role: OrdinaryPartRole, trim: OrdinaryTrim, fill: Fill): Ordin
 
 function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
   if (group.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
-  const spec = specOf(group), frame = defaultOrdinaryFrame(shape);
+  // a peripheral is drawn in the whole shape; the other ordinaries in what the peripherals rising from the base leave
+  const spec = specOf(group), frame = group.role === 'peripheral' || host ? defaultOrdinaryFrame(shape) : ordinaryFrameOf(d, shape);
   const geometry = d.kind === 'arms' && !host ? fieldOrdinaryGeometry(d.field, spec, group.paint, frame) : ordinaryGeometry(spec, frame);
   const { fimbriation, cotises } = geometry;
   const { fimbriated, cotised } = group.item;

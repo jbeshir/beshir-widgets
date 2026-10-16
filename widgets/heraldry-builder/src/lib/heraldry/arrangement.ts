@@ -161,23 +161,29 @@ function forcedLayoutIn(position: Position, count: number, quarterly: boolean): 
 /** The contexts whose charges are laid out in the shield's frame by the generic engine: not charges on the primary charges, which are laid out in those, nor charges overall, which stand as a lone primary does. */
 export type GroundContext = Exclude<LayoutContext, { k: 'on-charge' | 'overall' }>;
 
+/**
+ * The peripherals beside the chief and bordure that charges set on the field (or on a band) keep clear of — a base, a point pointed, a
+ * canton, a quarter, a gyron, any number of them — as specs, in the design's order; [] when there are none.
+ */
+export type KeepOut = readonly OrdinarySpec[];
+
 /** The context of a primary charge group. */
-export interface FieldContext { k: 'field'; peripheral: Peripheral; yields: Yield; share: Share | null }
+export interface FieldContext { k: 'field'; peripheral: Peripheral; keepOut: KeepOut; yields: Yield; share: Share | null }
 
 /** The primary charges a group of charges is on, as they are drawn: what `contextSlots` needs to find each of them and the room its drawing offers. */
 export interface HostCharges { charge: ChargeId; posture: Posture | null; count: number; layout: Layout; context: FieldContext }
 
 export type LayoutContext =
   | FieldContext                                                                 // primary charge group
-  | { k: 'between'; ordinary: OrdinarySpec; peripheral: Peripheral }             // secondary 'between'
-  | { k: 'around'; peripheral: Peripheral; primary: { count: number; layout: Layout } } // secondary 'between', around the primary charges
-  | { k: 'position'; position: SecondaryPosition; ordinary: OrdinarySpec | null; peripheral: Peripheral } // secondary 'position', beside the primary ordinary (or charges)
-  | { k: 'on'; ordinary: OrdinarySpec; peripheral: Peripheral }                  // tertiary on an ordinary (incl. chief)
+  | { k: 'between'; ordinary: OrdinarySpec; peripheral: Peripheral; keepOut: KeepOut } // secondary 'between'
+  | { k: 'around'; peripheral: Peripheral; keepOut: KeepOut; primary: { count: number; layout: Layout } } // secondary 'between', around the primary charges
+  | { k: 'position'; position: SecondaryPosition; ordinary: OrdinarySpec | null; peripheral: Peripheral; keepOut: KeepOut } // secondary 'position', beside the primary ordinary (or charges)
+  | { k: 'on'; ordinary: OrdinarySpec; peripheral: Peripheral; keepOut: KeepOut } // tertiary on an ordinary (incl. chief)
   | { k: 'on-charge'; host: HostCharges }                                        // tertiary on each of the primary charges
   | { k: 'overall'; peripheral: Peripheral };                                    // overall: one charge, or two crossed, across the middle of the free field
 
-/** The context of a lone primary charge group: nothing yielded, no co-primary. */
-export const fieldContext = (peripheral: Peripheral): FieldContext => ({ k: 'field', peripheral, yields: 'none', share: null });
+/** The context of a lone primary charge group: nothing yielded, no co-primary, no peripherals but a chief or bordure. */
+export const fieldContext = (peripheral: Peripheral): FieldContext => ({ k: 'field', peripheral, keepOut: [], yields: 'none', share: null });
 
 export const hasChief = (p: Peripheral): boolean => p === 'chief' || p === 'chief-bordure';
 export const hasBordure = (p: Peripheral): boolean => p === 'bordure' || p === 'chief-bordure';
@@ -187,6 +193,11 @@ function peripheralOf(d: Design, except: Group | null = null): Peripheral {
   const has = (type: OrdinaryType) => d.groups.some((g) => g !== except && g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === type);
   const chief = has('chief'), bordure = has('bordure');
   return chief && bordure ? 'chief-bordure' : chief ? 'chief' : bordure ? 'bordure' : 'none';
+}
+
+/** The design's peripherals other than a chief or bordure, but `except` (the host a charge group sits on is not in its way): what its charges keep clear of. */
+function keepOutOf(d: Design, except: Group | null = null): KeepOut {
+  return d.groups.flatMap((g) => (g !== except && g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type !== 'chief' && g.item.type !== 'bordure' ? [specOf(g)] : []));
 }
 
 /** The central ordinary of the primary group, if any: what a secondary group is set between. */
@@ -250,20 +261,20 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
       return { k: 'on-charge', host: { charge: host.item.charge, posture: host.item.posture, count: host.count, layout: { arrangement: host.arrangement, position: host.position }, context } };
     }
     // The bordure runs round the whole edge, under no chief of its own: what lies beside it doesn't change where its charges go.
-    return { k: 'on', ordinary: specOf(host), peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host) };
+    return { k: 'on', ordinary: specOf(host), peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host), keepOut: keepOutOf(d, host) };
   }
   if (group.role === 'overall') return d.groups.some((g) => g.role === 'primary') ? { k: 'overall', peripheral: peripheralOf(d) } : null;
-  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none'), share: shareOf(d, group) };
+  if (group.role === 'primary') return { ...fieldContext(peripheralOf(d)), keepOut: keepOutOf(d), yields: positionedSecondary(d) ?? (aroundSecondary(d) ? 'around' : 'none'), share: shareOf(d, group) };
   if (group.role === 'secondary' && group.relation === 'position') {
     return isSecondaryPosition(group.position) && d.groups.some((g) => g.role === 'primary')
-      ? { k: 'position', position: group.position, ordinary: primaryOrdinary(d), peripheral: peripheralOf(d) }
+      ? { k: 'position', position: group.position, ordinary: primaryOrdinary(d), peripheral: peripheralOf(d), keepOut: keepOutOf(d) }
       : null;
   }
   if (group.role === 'secondary' && group.relation === 'between') {
     const ordinary = primaryOrdinary(d);
-    if (ordinary) return { k: 'between', ordinary, peripheral: peripheralOf(d) };
+    if (ordinary) return { k: 'between', ordinary, peripheral: peripheralOf(d), keepOut: keepOutOf(d) };
     const primary = primaryCharges(d);
-    return primary && { k: 'around', peripheral: peripheralOf(d), primary: { count: primary.count, layout: { arrangement: primary.arrangement, position: primary.position } } };
+    return primary && { k: 'around', peripheral: peripheralOf(d), keepOut: keepOutOf(d), primary: { count: primary.count, layout: { arrangement: primary.arrangement, position: primary.position } } };
   }
   return null;
 }
