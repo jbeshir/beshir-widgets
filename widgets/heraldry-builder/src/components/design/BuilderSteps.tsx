@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ORDINARY_COUNT_LABEL, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, THIN_ORDINARIES, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -311,11 +311,12 @@ function outlineWords(design: Design, path: GroupPath): string {
   return outline === 'none' ? '' : OUTLINE_LABEL[outline].term;
 }
 
-/** The shape toggles, position and number of a band or shape in everyday words ("upside down, raised", "double"); empty when it has none. */
+/** The shape toggles, position and number of a band or shape in everyday words ("upside down, raised", "double", "three, thin"); empty when it has none. */
 export function ordinaryShapeWords({ item, count }: Design['groups'][number]): string {
   if (item.k !== 'ordinary') return '';
-  const number = ORDINARY_COUNTS[item.type]?.includes(count) ? [ORDINARY_COUNT_LABEL[count].plain.toLowerCase()] : [];
-  const toggles = (['inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).filter((t) => item.mods.includes(t) || (t === 'inverted' && item.type === 'pall-inverted')).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
+  const number = ORDINARY_COUNTS[item.type]?.includes(count) ? [ordinaryCountLabel(item.type, count).plain.toLowerCase()] : [];
+  const toggles = (['thin', 'inverted', 'couped', 'throughout', 'voided', 'sinister'] as const)
+    .filter((t) => (t === 'thin' ? THIN_ORDINARIES.includes(item.type) : item.mods.includes(t) || (t === 'inverted' && item.type === 'pall-inverted'))).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
   const moved = (['enhanced', 'abased'] as const).filter((p) => item.mods.includes(p)).map((p) => BAND_POSITION_LABEL[p].plain.toLowerCase());
   return [...number, ...toggles, ...moved].join(', ');
 }
@@ -334,7 +335,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
           <span class="choice-label">None</span>
         </ChoiceButton>
         {BUILDER_ORDINARIES.map((t) => (
-          <ChoiceButton key={t} testid={`ordinary-${t}`} checked={type === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
+          <ChoiceButton key={t} testid={`ordinary-${t}`} checked={tile === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
             <Shield design={ICON_ORDINARY(t)} shape={shape} size={30} label={null} />
             <span class="choice-label">{capitalise(ORDINARY_LABEL[t].term)}</span>
           </ChoiceButton>

@@ -205,6 +205,44 @@ describe('too-close pre-filter with treated ordinaries', () => {
   });
 });
 
+describe('too-close pre-filter with diminutives', () => {
+  // Bars are the fess's type; three or more identical diminutives are also the variation (A5C1), so they key to every partition and
+  // primary (ANY_PRIMARY): "three bars ↔ barry", "three bendlets ↔ bendy" compare, though their partitions and primaries differ.
+  const dims = (type: string, count: number, extra: object = {}) => group(ordinary(type, extra), 'or', { count });
+  const stripes = (variation: string, lines = 'plain') => ({ k: 'variation', variation, lines: { a: lines, b: lines }, parts: ['azure', 'or'] });
+  const between = group(charge('roundel'), 'argent', { count: 2 });
+  const designs = [
+    nd(arms('azure', dims('bar', 3))), nd(arms(stripes('barry'))), nd(arms(stripes('barry', 'wavy'))), nd(arms('azure', dims('bar', 3, { lines: { a: 'wavy' } }))),
+    nd(arms('azure', dims('bendlet', 3))), nd(arms(stripes('bendy'))), nd(arms('azure', dims('bendlet', 2))), nd(arms('azure', group(ordinary('bend'), 'or'))),
+    nd(arms('azure', dims('bar', 2))), nd(arms('azure', group(ordinary('fess'), 'or'))), nd(arms('azure', dims('chevronel', 3))), nd(arms(stripes('chevronny'))),
+    nd(arms('azure', dims('chevronel', 2, { mods: ['inverted'] }))), nd(arms('azure', dims('pallet', 4))), nd(arms(stripes('paly'))), nd(arms('azure', dims('bar', 2), between)),
+    nd(arms('azure', dims('baton', 1))), nd(arms('azure', group(ordinary('bend-sinister', { mods: ['couped'] }), 'or'))), nd(arms('azure', group(charge('lion'), 'or'))),
+  ];
+
+  it('finds every entry that is not clear of the probe ("three bars ↔ barry", "three bendlets ↔ bendy")', () => {
+    expect(differences(designs[0], designs[1])).toEqual([]);
+    expect(differences(designs[4], designs[5])).toEqual([]);
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(keysMayConflict(candidateKey(a), candidateKey(b)), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('keys only on changes that are substantial on their own', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('gives the same verdict as scanning the whole registry', () => {
+    const registry = registryFrom(designs);
+    for (const probe of designs) {
+      const sig = signature(probe);
+      const candidates = registry.filter((e) => keysMayConflict(candidateKey(probe), candidateKey(e.design)));
+      expect(outcome(checkUnique(probe, sig, candidates)), sig).toBe(outcome(checkUnique(probe, sig, registry)));
+    }
+  });
+});
+
 describe('too-close pre-filter with fieldless badges', () => {
   const lion = (extra: object = {}) => group(charge('lion'), 'or', extra);
   const fielded = [

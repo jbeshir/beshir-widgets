@@ -398,6 +398,38 @@ describe('the matcher reads the orle, tressure, flaunches, gore and the dexter a
   });
 });
 
+describe('the matcher reads diminutives, counted and spelt either way', () => {
+  it.each([
+    ['Gules, three bars Or.', 'Gules, three bars Or.'],
+    ['Azure, two chevronels ermine.', 'Azure, two chevronels ermine.'],
+    ['Purpure, three bendlets argent.', 'Purpure, three bendlets argent.'],
+    ['Or, four palets gules.', 'Or, four pallets gules.'],
+    ['Sable, two scarpes Or.', 'Sable, two bendlets sinister Or.'],
+    ['Sable, two chevronelles inverted Or.', 'Sable, two chevronels inverted Or.'],
+    ['Azure, three barrulets Or.', 'Azure, three bars Or.'],
+    ['Gules, a baton argent.', 'Gules, a baton argent.'],
+    ['Azure, three bars wavy argent.', 'Azure, three bars wavy argent.'],
+    ['Purpure, three bendlets enhanced argent.', 'Purpure, three bendlets enhanced argent.'],
+    ['Gules, two chevronels between three roses Or.', 'Gules, two chevronels between three roses Or.'],
+    ['Or, two pallets purpure and a bordure gules.', 'Or, two pallets purpure, a bordure gules.'],
+    ['Gules, a bar Or.', 'Gules, a fess Or.'],
+    ['Azure, a bendlet enhanced Or.', 'Azure, a bend enhanced Or.'],
+    ['Argent, a saltorel gules.', 'Argent, a saltire couped gules.'],
+  ])('%s', (text, house) => {
+    const m = explainMatch(text);
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('files several saltorels, five bars, a single one in chief and bands set between a charge under their gaps', () => {
+    expect(explainMatch('Argent, three saltorels gules.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'ordinary', detail: 'saltorel-multiple' }] });
+    expect(explainMatch('Argent, five bars gules.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'ordinary', detail: 'multiple' }] });
+    expect(explainMatch('Or, a fleur-de-lys vert between two pallets azure.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'multiple-groups', detail: 'secondary-ordinary' }] });
+    expect(explainMatch('Azure, on two bendlets Or six mullets azure.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'multiple-groups', detail: 'tertiary-on-diminutives' }] });
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Argent, a futatsutomoe, in chief a bar sable.', headings: [] }).status).toBe('gap');
+  });
+});
+
 describe('the matcher accepts stated defaults only for the design that has them', () => {
   it.each([
     ['Quarterly Or and gules, in bend two roses sable.', 'Quarterly Or and gules, two roses sable.'],
@@ -570,6 +602,15 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a pair of flaunches', 'azure, a pair of flaunches Or'],
     ['a sinister gore', 'azure, a sinister gore Or'],
     ['a dexter point', 'azure, a dexter point Or'],
+    ['bars', 'azure, three bars Or'],
+    ['bendlets sinister', 'azure, two bendlets sinister Or'],
+    ['scarpes', 'azure, two scarpes Or'],
+    ['palets', 'azure, four palets Or'],
+    ['chevronels inverted', 'azure, two chevronels inverted Or'],
+    ['barrulets', 'azure, three barrulets Or'],
+    ['a baton', 'azure, a baton Or'],
+    ['diminutives and a bordure', 'azure, two chevronels and a bordure Or'],
+    ['diminutives between charges', 'azure, two bars between three roses Or'],
     ['charges in chief', 'azure, a bend Or, in chief three roses argent'],
     ['charges in a corner', 'azure, a bend Or and in dexter chief a rose argent'],
     ['overall', 'azure, a fess Or and overall a lion argent'],

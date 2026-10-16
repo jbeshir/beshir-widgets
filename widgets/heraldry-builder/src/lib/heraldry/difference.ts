@@ -11,7 +11,7 @@ import {
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, type Division, type Variation } from './divisions';
 import { LINE_WORD, edgeCount, lineDiffers, lineWords, type EdgeHost, type Line } from './lines';
-import { ORDINARY_KIND, ORDINARY_NAME, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, familyOf, isDiminutive, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
@@ -69,28 +69,32 @@ export function isClear(diffs: readonly { kind: ChangeKind }[]): boolean {
 // ── Classes: what counts as the same type, number group, arrangement group, posture line ────────────────────────
 
 /**
- * What A5E2 compares: ordinaries by type — a chevron inverted is a type of its own (A5E5c pairs it with the chevron), a pile inverted is
- * the pile turned (A5G7) — and charges by type class (an eagle and an owl are one class, a lion and a wolf are not).
+ * What A5E2 compares: ordinaries by type — a chevron inverted (and chevronels inverted) is a type of its own (A5E5c pairs it with the
+ * chevron), a pile inverted is the pile turned (A5G7) — and charges by type class (an eagle and an owl are one class, a lion and a wolf are not).
  */
 function conflictKey(item: Item): string {
   if (item.k === 'charge') return `charge:${CHARGES[item.charge].typeClass}`;
-  return item.type === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : typeKey(item);
+  return familyOf(item.type) === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : typeKey(item);
 }
 
 /**
  * RULES-C §C.3, L9: a quarter is a canton drawn larger, one type for conflict; a tressure is a narrow orle (a single tressure is one, a double
- * tressure differs from it only in number, Prec Gwynaeth 04/2004). A `sinister` form changes no key.
+ * tressure differs from it only in number, Prec Gwynaeth 04/2004). A `sinister` form changes no key. A diminutive is its ordinary's type
+ * (RULES-C §C.2: bars are fesses; a baton a bend sinister couped).
  */
 const ALIKE_TYPE: Partial<Record<OrdinaryType, OrdinaryType>> = { quarter: 'canton', tressure: 'orle' };
 
-/** An item's type as conflict compares it: a charge's own, an ordinary's with the types that are one (a quarter is a canton, a tressure an orle). */
-const typeKey = (item: Item): string => (item.k === 'ordinary' ? `ordinary:${ALIKE_TYPE[item.type] ?? item.type}` : itemKey(item));
+/** An item's type as conflict compares it: a charge's own, an ordinary's with the types that are one (a quarter is a canton, a tressure an orle, bars a fess). */
+const typeKey = (item: Item): string => (item.k === 'ordinary' ? `ordinary:${ALIKE_TYPE[familyOf(item.type)] ?? familyOf(item.type)}` : itemKey(item));
 
 /** A5G6 (RULES-C §C.3, L16): a canton, quarter or gyron against the same in the other top corner, a gore against one from the other side, is a change of its position. */
 const sidesSwapped = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.mods.includes('sinister') !== y.mods.includes('sinister');
 
+/** Whether an ordinary is couped: with the treatment, or a baton (a bendlet sinister couped). */
+const isCouped = (x: Item): boolean => x.k === 'ordinary' && (x.mods.includes('couped') || x.type === 'baton');
+
 /** A5G4 (RULES-C §D.2): a couped ordinary against one throughout — the same ordinary otherwise — is a change of its type. */
-const coupingDiffers = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.mods.includes('couped') !== y.mods.includes('couped');
+const coupingDiffers = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && isCouped(x) !== isCouped(y);
 
 /** A5G7 (RULES-C §D.1, L14): a pile against a pile inverted is a change of orientation. */
 const pileTurned = (x: Item, y: Item): boolean =>
@@ -479,13 +483,37 @@ export function liftCotises(d: Design): Design {
   return canonical({ ...d, groups });
 }
 
+/** The variation three or more of each diminutive's ordinary make: bars barry, pallets paly, bendlets bendy, chevronels chevronny (RULES-C §C.2). */
+const STRIPES_OF: Partial<Record<OrdinaryType, Variation>> = { fess: 'barry', pale: 'paly', bend: 'bendy', 'bend-sinister': 'bendy-sinister', chevron: 'chevronny' };
+
 /**
- * The ways conflict reads a design (SENA A5C1; RULES-C §D.3, §D.4), each to be compared, the least different taken: a voided primary
+ * A design whose only main or overall group is three or more identical diminutives, upright, in their place, on a plain field (nothing on
+ * them, nothing around them; peripherals beside them stay), read as the field striped that way: "three fesses must also be considered as
+ * barry … whenever armory uses three or more identical ordinaries" (SENA A5C1; RULES-C §C.2) — "Gules, three bars Or" as barry of seven Or and
+ * gules, its stripes with the bars' line. Null for any other design (two are never a variation).
+ */
+function asStripes(d: Design): Design | null {
+  if (d.kind !== 'arms' || d.field.k !== 'tincture') return null;
+  const central = d.groups.filter((g) => g.role !== 'peripheral');
+  const g = central[0];
+  if (central.length !== 1 || g.role !== 'primary' || g.item.k !== 'ordinary' || !isDiminutive(g.item.type) || g.count < 3 || g.charged.length > 0) return null;
+  const { item } = g;
+  const variation = STRIPES_OF[familyOf(item.type)];
+  if (!variation || item.mods.length > 0 || item.lines.a !== item.lines.b || g.paint.k !== 'tincture') return null;
+  const field: Paint = { k: 'variation', variation, lines: { a: item.lines.a, b: item.lines.a }, pieces: 2 * g.count + 1, parts: [d.field, g.paint] };
+  return canonical({ ...d, field, groups: d.groups.filter((x) => x !== g) });
+}
+
+/**
+ * The ways conflict reads a design (SENA A5C1; RULES-C §C.2, §D.3, §D.4), each to be compared, the least different taken: a voided primary
  * ordinary as the ordinary with one of its shape in the field's tincture on it, and as the ordinary of the field's tincture fimbriated (the
  * fimbriation worth nothing); a fimbriated one as the ordinary alone, and as one of the fimbriation's tincture with the ordinary on it
- * (not when something lies on it already: that would make quaternaries). Every other design is read as it is.
+ * (not when something lies on it already: that would make quaternaries); three or more diminutives also as the variation (`asStripes`).
+ * Every other design is read as it is.
  */
 function readings(d: Design): Design[] {
+  const stripes = asStripes(d);
+  if (stripes) return [d, stripes];
   const i = d.groups.findIndex((g) => g.role === 'primary' && g.item.k === 'ordinary' && (g.item.fimbriated !== null || g.item.mods.includes('voided')));
   const g = d.groups[i];
   if (!g || g.item.k !== 'ordinary') return [d];
@@ -597,16 +625,27 @@ export interface CandidateKey { partition: string | null; primary: string | null
 /** The primary of a design with two co-primary groups: they may share a type with entries of any primary. */
 export const MIXED_PRIMARY = '*';
 
+/**
+ * The primary of a design that conflict also reads with another partition and primary (`asStripes`: three bars are barry, with no primary):
+ * it may conflict with entries of any primary, or none, and (its partition null) of any partition.
+ */
+export const ANY_PRIMARY = '**';
+
 export function candidateKey(raw: Design): CandidateKey {
   const d = liftStrewn(raw);
+  if (asStripes(d)) return { partition: null, primary: ANY_PRIMARY };
   const primaries = primaryGroups(d);
   const primary = primaries.length === 0 ? null : primaries.length === 1 ? conflictKey(primaries[0].group.item) : MIXED_PRIMARY;
   return { partition: partition(d), primary };
 }
 
-/** Whether entries with these keys can be too close: the one rule the registry lookup follows. A design with two primary groups may share a type with any entry that has a primary. */
+/**
+ * Whether entries with these keys can be too close: the one rule the registry lookup follows. A design with two primary groups may share a
+ * type with any entry that has a primary; one read as stripes too (`ANY_PRIMARY`) with any entry at all.
+ */
 export function keysMayConflict(a: CandidateKey, b: CandidateKey): boolean {
-  const primaries = a.primary === b.primary || (a.primary !== null && b.primary !== null && (a.primary === MIXED_PRIMARY || b.primary === MIXED_PRIMARY));
+  const primaries = a.primary === b.primary || a.primary === ANY_PRIMARY || b.primary === ANY_PRIMARY
+    || (a.primary !== null && b.primary !== null && (a.primary === MIXED_PRIMARY || b.primary === MIXED_PRIMARY));
   return (a.partition === b.partition || a.partition === null || b.partition === null) && primaries;
 }
 

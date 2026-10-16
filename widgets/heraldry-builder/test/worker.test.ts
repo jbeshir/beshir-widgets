@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import worker, { loadCandidates } from '../worker/index';
 import sample from '../src/data/sample-registry.json';
 import {
-  FIELD_SHAPES, MIXED_PRIMARY, blazon, candidateKey, checkUnique, keysMayConflict, normalise, parseSearchParams, resolve, searchEntries, signature,
+  FIELD_SHAPES, MIXED_PRIMARY, ANY_PRIMARY, blazon, candidateKey, checkUnique, keysMayConflict, normalise, parseSearchParams, resolve, searchEntries, signature,
   type Design, type RegistryEntryLike,
 } from '../src/lib/heraldry';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
@@ -1046,10 +1046,10 @@ describe('withdrawal cascades to tags', () => {
 });
 
 describe('too-close candidate lookup', () => {
-  it('returns exactly the rows whose key may conflict, a fieldless badge (null partition) matching every partition', async () => {
+  it('returns exactly the rows whose key may conflict, a fieldless badge (null partition) matching every partition, a design read as stripes (ANY_PRIMARY) every primary', async () => {
     await addRegistry('keys', 'Keys');
     const partitions = [null, 'plain', 'per-pale'];
-    const primaries = [null, 'charge:lion', 'charge:rose', MIXED_PRIMARY];
+    const primaries = [null, 'charge:lion', 'charge:rose', MIXED_PRIMARY, ANY_PRIMARY];
     const stored = partitions.flatMap((partition) => primaries.map((primary) => ({ partition, primary })));
     for (const [i, key] of stored.entries()) {
       await env.DB.prepare(
@@ -1074,7 +1074,12 @@ describe('too-close candidate lookup', () => {
       .filter((d) => d.groups.length === 1 && d.groups[0].role === 'primary' && d.groups[0].item.k === 'charge')
       .flatMap((d) => { const n = normalise({ v: 2, kind: 'badge', groups: d.groups }); return n.ok ? [n.design] : []; })
       .slice(0, count);
-    const stored = [...generatedDesigns(1, 100), ...pairs.slice(0, 40), ...badges(2, 12)];
+    // Three bars are also barry (A5C1): stored either way, each is found by the other.
+    const stripes = (variation: string) => normalise(arms({ k: 'variation', variation, parts: ['azure', 'or'] }));
+    const bars = (type: string) => normalise(arms('azure', group(ordinary(type), 'or', { count: 3 })));
+    const read = [bars('bar'), stripes('bendy'), stripes('barry'), bars('bendlet')].flatMap((r) => (r.ok ? [r.design] : []));
+    expect(read).toHaveLength(4);
+    const stored = [...generatedDesigns(1, 100), ...pairs.slice(0, 40), ...badges(2, 12), ...read.slice(0, 2)];
     const entries: RegistryEntryLike[] = [];
     for (const [i, design] of stored.entries()) {
       const sig = signature(design);
@@ -1090,7 +1095,7 @@ describe('too-close candidate lookup', () => {
     }
 
     const verdicts = new Set<string>();
-    for (const probe of [...generatedDesigns(50_000, 140), ...pairs.slice(40, 80), ...badges(70_000, 10)]) {
+    for (const probe of [...generatedDesigns(50_000, 140), ...pairs.slice(40, 80), ...badges(70_000, 10), ...read.slice(2)]) {
       const full = checkUnique(probe, signature(probe), entries);
       const res = await call('POST', '/api/arms/check', { body: { registry: 'prefilter', design: probe } });
       expect(res.status).toBe(200);

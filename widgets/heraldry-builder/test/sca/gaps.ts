@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, COTISED_HOSTS, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  CHARGES, COTISED_HOSTS, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -775,7 +775,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const count = pendingCount ?? 1;
     const el = newElement('ord', type);
     ordEnd = i;
-    if (count > 1) tag('ordinary', 'multiple');
+    // a tressure double or triple, two to four bars, pallets, bendlets or chevronels are drawn (`ORDINARY_COUNTS`)
+    if (count > 1 && !ORDINARY_COUNTS[type]?.includes(count)) tag('ordinary', 'multiple');
     settleHost(el);
   }
 
@@ -1103,9 +1104,9 @@ const TOGETHER_ORDINARY_TINCTURES = ['or', 'argent', 'gules', 'sable', 'vert', '
  * most one central one, with any number of peripheral ones beside it, one of each type).
  */
 function drawnTogether(ords: readonly Element[]): boolean {
-  if (ords.some((o) => o.supported === null || o.count > 1)) return false;
-  if (ords.length < 2) return true;
-  const groups = ords.map((o, i) => ({ item: { k: 'ordinary', type: o.supported }, paint: TOGETHER_ORDINARY_TINCTURES[i % TOGETHER_ORDINARY_TINCTURES.length] }));
+  if (ords.some((o) => o.supported === null)) return false;
+  if (ords.length < 2) return ords.every((o) => o.count === 1 || ORDINARY_COUNTS[o.supported as OrdinaryType]?.includes(o.count));
+  const groups = ords.map((o, i) => ({ item: { k: 'ordinary', type: o.supported }, count: o.count, paint: TOGETHER_ORDINARY_TINCTURES[i % TOGETHER_ORDINARY_TINCTURES.length] }));
   const r = resolve({ v: 2, field: 'azure', groups });
   return r.ok && !unsupportedIssues(r.design).some((i) => i.gap.category === 'multiple-groups');
 }

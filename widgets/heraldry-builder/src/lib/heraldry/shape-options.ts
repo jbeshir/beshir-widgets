@@ -9,7 +9,7 @@ import { choice, type Choice } from './options';
 import { corePracticeProblem, ordinaryLineProblem, structuralIssues } from './structure';
 import { trimTinctureIssues } from './tincture-rule';
 import { TINCTURES, type Tincture } from './tinctures';
-import { DRAWN_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { DRAWN_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, THIN, THIN_ORDINARIES, familyOf, isDiminutive, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { OUTLINES, outlineOf, outlinePaintOf, withOutline, withOutlinePaint, type Outline } from './outline';
 import { modsClash } from './resolve';
 import { LINED_VARIATIONS, type Division, type Variation } from './divisions';
@@ -137,7 +137,7 @@ export function keptOrdinaryLines(lines: Lines, type: OrdinaryType, inverted: bo
 
 // ── Counts ──────────────────────────────────────────────────────────────────
 
-/** The counts the band or shape at `path` may be drawn with: a tressure double or triple (a single one is an orle); none for any other. */
+/** The counts the band or shape at `path` may be drawn with: a tressure double or triple (a single one is an orle), thin bands two to four; none for any other. */
 export function ordinaryCountChoices(d: Design, path: GroupPath): Choice<number>[] {
   const item = drawnOrdinaryAt(d, path);
   return (item ? ORDINARY_COUNTS[item.type] ?? [] : []).map((count) => choice(count, null));
@@ -154,10 +154,11 @@ export function setOrdinaryCount(d: Design, path: GroupPath, count: number): Des
 
 /**
  * A treatment the builder turns on or off for a band or shape: upside down (inverted), shortened (couped), touching the edges (throughout),
- * hollow (voided), or a corner shape in the top right corner, as seen, instead of the top left (sinister).
+ * hollow (voided), a corner shape in the top right corner, as seen, instead of the top left (sinister), or a band drawn as two or more thin
+ * ones (its diminutive: bars, pallets, bendlets, chevronels).
  */
-export type ShapeToggle = 'inverted' | 'couped' | 'throughout' | 'voided' | 'sinister';
-const SHAPE_TOGGLES: readonly ShapeToggle[] = ['inverted', 'couped', 'throughout', 'voided', 'sinister'];
+export type ShapeToggle = 'inverted' | 'couped' | 'throughout' | 'voided' | 'sinister' | 'thin';
+const SHAPE_TOGGLES: readonly ShapeToggle[] = ['inverted', 'couped', 'throughout', 'voided', 'sinister', 'thin'];
 
 /** Where a band is set: raised (enhanced), in its usual place, or lowered (abased). */
 export type BandPosition = 'enhanced' | 'middle' | 'abased';
@@ -201,11 +202,31 @@ function pallTurned(d: Design, path: GroupPath, upsideDown: boolean): Design {
   return canonical(replaceGroup(d, path, { ...group, item: { ...group.item, type, lines: keptOrdinaryLines(group.item.lines, type, false) } }));
 }
 
+/** Whether a band of this type takes the Thin toggle: a fess, pale, bend (sinister) or chevron, or the thin bands it makes. */
+const thinnable = (type: OrdinaryType): boolean => THIN[type] !== undefined || THIN_ORDINARIES.includes(type);
+
+/**
+ * The band at `path` drawn as two thin bands of its kind (`thin`), keeping the line and treatments they may have, or thin bands back as one
+ * band (RULES-C §C.2: a single diminutive is the ordinary). An outline goes: thin bands have none here.
+ */
+function thinned(d: Design, path: GroupPath, thin: boolean): Design {
+  const group = groupAt(d, path);
+  if (group.item.k !== 'ordinary') return d;
+  const type = thin ? THIN[group.item.type] ?? group.item.type : familyOf(group.item.type);
+  const mods = keptMods(group.item.mods, type);
+  const item: Ordinary = { ...group.item, type, mods, lines: keptOrdinaryLines(group.item.lines, type, mods.includes('inverted')), cotised: null, fimbriated: null };
+  return canonical(replaceGroup(d, path, { ...group, item, count: thin ? ORDINARY_COUNTS[type]![0] : 1 }));
+}
+
 /** The toggles the band or shape at `path` takes (none for a top band, a border or a charge), blocked where turning one over breaks a rule. */
 export function toggleChoices(d: Design, path: GroupPath): Choice<ShapeToggle>[] {
   const item = drawnOrdinaryAt(d, path);
   if (!item) return [];
-  return SHAPE_TOGGLES.filter((t) => modDrawn(item.type, t)).map((t) => {
+  return SHAPE_TOGGLES.filter((t) => (t === 'thin' ? thinnable(item.type) : modDrawn(item.type, t))).map((t) => {
+    if (t === 'thin') {
+      const next = thinned(d, path, !THIN_ORDINARIES.includes(item.type));
+      return choice(t, ordinaryLineProblem(groupAt(next, path)) ?? treatmentRuleProblem(next, path) ?? corePracticeProblem(next));
+    }
     if (t === 'inverted' && isPall(item.type)) {
       const turned = pallTurned(d, path, item.type === 'pall');
       return choice(t, ordinaryLineProblem(groupAt(turned, path)) ?? treatmentRuleProblem(turned, path));
@@ -218,6 +239,7 @@ export function toggleChoices(d: Design, path: GroupPath): Choice<ShapeToggle>[]
 /** Whether the toggle is on. */
 export function toggledOn(d: Design, path: GroupPath, t: ShapeToggle): boolean {
   const item = drawnOrdinaryAt(d, path);
+  if (t === 'thin') return item !== null && THIN_ORDINARIES.includes(item.type);
   return t === 'inverted' && item?.type === 'pall-inverted' ? true : item?.mods.includes(t) ?? false;
 }
 
@@ -225,6 +247,7 @@ export function toggledOn(d: Design, path: GroupPath, t: ShapeToggle): boolean {
 export function setToggle(d: Design, path: GroupPath, t: ShapeToggle, on: boolean): Design {
   const item = drawnOrdinaryAt(d, path);
   if (!item || toggledOn(d, path, t) === on) return d;
+  if (t === 'thin') return thinned(d, path, on);
   if (t === 'inverted' && isPall(item.type)) return pallTurned(d, path, on);
   return withMods(d, path, on ? [...item.mods, t] : item.mods.filter((m) => m !== t));
 }
@@ -260,10 +283,10 @@ export function keptMods(mods: readonly OrdinaryMod[], type: OrdinaryType): Ordi
 
 // ── Outline ─────────────────────────────────────────────────────────────────
 
-/** The band or shape at `path` when it is a central one: those alone have an outline. */
+/** The band or shape at `path` when it is a central one other than thin bands: those alone have an outline. */
 function outlinedAt(d: Design, path: GroupPath): Ordinary | null {
   const item = drawnOrdinaryAt(d, path);
-  return item && ORDINARY_KIND[item.type] === 'central' ? item : null;
+  return item && ORDINARY_KIND[item.type] === 'central' && !isDiminutive(item.type) ? item : null;
 }
 
 /** The outline the band or shape at `path` has. */

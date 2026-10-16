@@ -196,6 +196,17 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
   ['a trimount alone', arms('vert', group(ordinary('trimount'), 'or')), 'Vert, a trimount Or.'],
   ['a picture and a mount', arms('or', group(charge('lion'), 'gules'), group(ordinary('mount'), 'vert')), 'Or, a lion gules and a mount vert.'],
   ['a fret counterchanged', arms(div('per-pale', 'gules', 'or'), group(ordinary('fret'), { k: 'counterchanged' })), 'Per pale gules and Or, a fret counterchanged.'],
+  ['three bars (O&A 18129)', arms('gules', group(ordinary('bar'), 'or', { count: 3 })), 'Gules, three bars Or.'],
+  ['two chevronels (O&A 7093)', arms('azure', group(ordinary('chevronel'), { k: 'fur', fur: 'ermine' }, { count: 2 })), 'Azure, two chevronels ermine.'],
+  ['three bendlets (O&A 24045)', arms('purpure', group(ordinary('bendlet'), 'argent', { count: 3 })), 'Purpure, three bendlets argent.'],
+  ['four pallets (O&A 9460, "four palets")', arms('or', group(ordinary('pallet'), 'gules', { count: 4 })), 'Or, four pallets gules.'],
+  ['a baton', arms('gules', group(ordinary('baton'), 'argent')), 'Gules, a baton argent.'],
+  ['three bars wavy', arms('azure', group(ordinary('bar', { lines: { a: 'wavy' } }), 'argent', { count: 3 })), 'Azure, three bars wavy argent.'],
+  ['three bendlets enhanced', arms('purpure', group(ordinary('bendlet', { mods: ['enhanced'] }), 'argent', { count: 3 })), 'Purpure, three bendlets enhanced argent.'],
+  ['two bendlets sinister between two charges', arms('argent', group(ordinary('bendlet-sinister'), 'vert', { count: 2 }), group(charge('mullet'), 'sable', { count: 2, relation: 'between' })),
+    'Argent, two bendlets sinister vert between two mullets sable.'],
+  ['two chevronels inverted and a chief', arms('sable', group(ordinary('chevronel', { mods: ['inverted'] }), 'or', { count: 2 }), group(ordinary('chief'), 'argent')),
+    'Sable, two chevronels inverted Or, a chief argent.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {

@@ -161,6 +161,21 @@
       "expect": {"selector":"[data-testid=blazon]:has-text(\"pall inverted\")"}
     },
     {
+      "label": "thin-bendlets",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-bend]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-shape-thin]"},
+        {"click":"[data-testid=ordinary-shape-thin]"},
+        {"waitFor":"[data-testid=ordinary-number-3]"},
+        {"click":"[data-testid=ordinary-number-3]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"three bendlets\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"three bendlets\")"}
+    },
+    {
       "label": "shape-round",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

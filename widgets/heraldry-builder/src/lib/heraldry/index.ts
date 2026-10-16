@@ -4,7 +4,7 @@ export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS,
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
-  ORDINARY_TYPES, TILE_OF, BUILDER_ORDINARIES, MORE_ORDINARIES, TURNED_ORDINARIES, REFUSED_ORDINARIES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_MODS, MOD_HOSTS,
+  ORDINARY_TYPES, TILE_OF, BUILDER_ORDINARIES, MORE_ORDINARIES, TURNED_ORDINARIES, THIN_ORDINARIES, REFUSED_ORDINARIES, DRAWN_ORDINARIES, THIN, DIMINUTIVE_COUNTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, familyOf, isDiminutive, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_MODS, MOD_HOSTS,
   PERIPHERAL_ORDER, PERIPHERAL_JOINER, modDrawn, isOrdinaryType, ordinaryWithArticle, type OrdinaryType, type OrdinaryMod, type PeripheralJoiner,
 } from './ordinaries';
 export {
@@ -42,7 +42,7 @@ export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, ORDINARY_COUNT_LABEL, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, ordinaryCountLabel, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
@@ -89,7 +89,7 @@ export { CHARGE_ART, MODIFIER_ART, ART_ON_BOX, chargePath, chargeOnBox, type Art
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
 export * from './tinctures';
 export {
-  SENA_RULES, isDiffAttr, isChangeKind, isSenaRule, isClear, differences, liftCotises, checkUnique, candidateKey, keysMayConflict, MIXED_PRIMARY, explainDifferences, changeLabel, tallyText,
+  SENA_RULES, isDiffAttr, isChangeKind, isSenaRule, isClear, differences, liftCotises, checkUnique, candidateKey, keysMayConflict, MIXED_PRIMARY, ANY_PRIMARY, explainDifferences, changeLabel, tallyText,
   CLEAR_CHANGE_HINT, SENA_RULE_HINT,
   type ChangeKind, type SenaRule, type DiffAttr, type GroupRef, type Diff, type RegistryEntryLike, type Comparison, type Verdict, type CandidateKey, type DifferenceNote,
 } from './difference';

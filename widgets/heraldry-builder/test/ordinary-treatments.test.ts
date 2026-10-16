@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DRAWN_ORDINARIES, FIELD_SHAPES, MOD_HOSTS, blazon, candidateKey, contextSlots, defaultOrdinaryFrame, differences, explainDifferences, gloss, groupAt,
+  DRAWN_ORDINARIES, FIELD_SHAPES, MOD_HOSTS, isDiminutive, blazon, candidateKey, contextSlots, defaultOrdinaryFrame, differences, explainDifferences, gloss, groupAt,
   layoutOfKey, ordinaryGeometry, pathPolygon, pathRings, plainSpec, pointInPolygon, resolve, setBandPosition, setToggle, shapeFrame, signature,
   structuralIssues, toggleChoices, unsupportedIssues, bandPositionChoices,
   type Design, type FieldShape, type OrdinaryMod, type OrdinarySpec, type OrdinaryType,
@@ -74,7 +74,8 @@ describe('ordinary treatments: geometry', () => {
 
   it('enhanced and abased move the band, not its width', () => {
     for (const shape of FIELD_SHAPES) {
-      for (const type of MOD_HOSTS.enhanced) {
+      // the bands; diminutives move as a group (diminutives.test.ts)
+      for (const type of MOD_HOSTS.enhanced.filter((t) => !isDiminutive(t))) {
         const plain = geometryOf(spec(type, []), shape), up = geometryOf(spec(type, ['enhanced']), shape), down = geometryOf(spec(type, ['abased']), shape);
         const shift = type === 'fess' ? 12 : 12 * Math.SQRT2;
         const [p, u, d] = [plain, up, down].map((g) => g.envelope.outer[0]);
@@ -194,10 +195,10 @@ describe('ordinary treatments: words and the builder', () => {
 
   it('offers the toggles a band takes, blocks those that contradict, and moves a band up or down', () => {
     const chevron = treatedArms('chevron', []);
-    expect(toggleChoices(chevron, [0]).map((c) => [c.value, c.allowed])).toEqual([['inverted', true], ['couped', true], ['throughout', true]]);
+    expect(toggleChoices(chevron, [0]).map((c) => [c.value, c.allowed])).toEqual([['inverted', true], ['couped', true], ['throughout', true], ['thin', true]]);
     const couped = setToggle(chevron, [0], 'couped', true);
     expect(toggleChoices(couped, [0]).find((c) => c.value === 'throughout')?.allowed).toBe(false);
-    expect(toggleChoices(treatedArms('fess', []), [0]).map((c) => c.value)).toEqual(['couped']);
+    expect(toggleChoices(treatedArms('fess', []), [0]).map((c) => c.value)).toEqual(['couped', 'thin']);
     expect(bandPositionChoices(treatedArms('pale', []), [0])).toEqual([]);
     const raised = setBandPosition(chevron, [0], 'enhanced');
     expect(blazon(raised)).toBe('Azure, a chevron enhanced Or.');

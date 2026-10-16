@@ -7,7 +7,7 @@ import { CHARGES, postureGloss, postureTerm, type ChargeId, type Posture } from 
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
-import { ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
+import { ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, isDiminutive, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
 import { LINE_WORD, type Line } from './lines';
 import type { BandPosition, ShapeToggle } from './shape-options';
@@ -19,7 +19,7 @@ import { isSecondaryPosition, layoutOfKey, layoutWords, primaryCharges } from '.
 import type { PlaceKind } from './places';
 import type { GroupTincture } from './design';
 import type { FurFamily } from './fur';
-import { joinAnd, capitalise } from './words';
+import { joinAnd, capitalise, numberWord } from './words';
 
 /** A label in everyday words and the heraldic term for the same thing. */
 export interface PlainTerm {
@@ -110,10 +110,20 @@ export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
   throughout: { plain: 'Touching the edges', term: 'throughout' },
   voided: { plain: 'Hollow', term: 'voided' },
   sinister: { plain: 'On the right', term: 'sinister' },
+  thin: { plain: 'Thin', term: 'diminutive' },
 };
 
-/** How many times over a band or shape is drawn (a tressure double or triple), and the heraldic word. */
-export const ORDINARY_COUNT_LABEL: Readonly<Record<number, PlainTerm>> = { 2: { plain: 'Double', term: ORDINARY_COUNT_WORD[2] }, 3: { plain: 'Triple', term: ORDINARY_COUNT_WORD[3] } };
+/** How many times over a tressure is drawn, double or triple, and the heraldic word. */
+const TRESSURE_COUNT_LABEL: Readonly<Record<number, PlainTerm>> = { 2: { plain: 'Double', term: ORDINARY_COUNT_WORD[2] }, 3: { plain: 'Triple', term: ORDINARY_COUNT_WORD[3] } };
+
+/** How many times over a band or shape is drawn — a tressure double or triple, thin bands two, three or four — and the heraldic word. */
+export function ordinaryCountLabel(type: OrdinaryType, count: number): PlainTerm {
+  if (isDiminutive(type)) {
+    const word = numberWord(count);
+    return { plain: capitalise(word), term: `${word} ${ORDINARY_PLURAL[type]}` };
+  }
+  return TRESSURE_COUNT_LABEL[count];
+}
 
 /** The outlines of a band or shape: what each looks like, and its heraldic word. */
 export const OUTLINE_LABEL: Record<Outline, PlainTerm> = {

@@ -210,14 +210,19 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
 
 /**
  * A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line
- * (refused); a charge overall over a fimbriated ordinary.
+ * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6).
  */
-export type CoreStep = 'one-edge-line' | 'overall-over-fimbriated';
+export type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges';
 
 const CORE_STEP_WORDS: Record<CoreStep, string> = {
   'one-edge-line': 'a line on one edge of a band only',
   'overall-over-fimbriated': 'a charge overall over a fimbriated ordinary',
+  'enhanced-bendlets-with-charges': 'bendlets enhanced with other charges',
 };
+
+/** Bendlets (or bendlets sinister) enhanced, two or more of them. */
+const isBendletsEnhanced = (g: Group): boolean =>
+  g.item.k === 'ordinary' && (g.item.type === 'bendlet' || g.item.type === 'bendlet-sinister') && g.count > 1 && g.item.mods.includes('enhanced');
 
 /** The steps from core practice the design takes, one per element that takes one (SENA App G). */
 export function coreSteps(d: Design): CoreStep[] {
@@ -226,7 +231,9 @@ export function coreSteps(d: Design): CoreStep[] {
     return one !== null && one !== 'embattled' && LINE_GROUP[one] !== 'jagged' ? ['one-edge-line'] : [];
   });
   const fimbriated = d.groups.some((g) => g.role === 'primary' && g.item.k === 'ordinary' && g.item.fimbriated !== null);
-  return fimbriated && d.groups.some((g) => g.role === 'overall') ? [...lines, 'overall-over-fimbriated'] : lines;
+  const overFimbriated: CoreStep[] = fimbriated && d.groups.some((g) => g.role === 'overall') ? ['overall-over-fimbriated'] : [];
+  const bendlets: CoreStep[] = d.groups.some(isBendletsEnhanced) && walkGroups(d).some(({ group }) => group.item.k === 'charge') ? ['enhanced-bendlets-with-charges'] : [];
+  return [...lines, ...overFimbriated, ...bendlets];
 }
 
 /** Why the design is more than one step from core practice (SENA A2B, App G), or null. */

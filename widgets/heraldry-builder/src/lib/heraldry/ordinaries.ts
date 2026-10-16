@@ -10,7 +10,7 @@ export type OrdinaryType = (typeof ORDINARY_TYPES)[number];
 export const BUILDER_ORDINARIES: readonly OrdinaryType[] = ORDINARY_TYPES.slice(0, 10);
 /** Ordinaries drawn but reached only behind disclosure (the band step's "More shapes" row, and the corner or edge shapes beside the band). */
 export const MORE_ORDINARIES: readonly OrdinaryType[] = [
-  'base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore', 'pall', 'label', 'fret', 'mount', 'trimount',
+  'base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore', 'pall', 'label', 'fret', 'mount', 'trimount', 'baton',
 ];
 /** Ordinaries drawn and reached through a toggle of another's, not a tile of their own: the pall inverted (`TILE_OF`). */
 export const TURNED_ORDINARIES: readonly OrdinaryType[] = ['pall-inverted'];
@@ -19,10 +19,28 @@ export const TURNED_ORDINARIES: readonly OrdinaryType[] = ['pall-inverted'];
  * dexter and sinister points, which "were [not] actually used in period armory" (RULES-C §C.3, L21; structure.ts refuses them).
  */
 export const REFUSED_ORDINARIES: readonly OrdinaryType[] = ['point-dexter', 'point-sinister'];
-/** The ordinary whose tile in the builder's grids picks this one, where it has none of its own: the pall inverted is the pall turned over. */
-export const TILE_OF: Partial<Record<OrdinaryType, OrdinaryType>> = { 'pall-inverted': 'pall' };
+/**
+ * The ordinary each diminutive is a narrower form of (RULES-C §C.2): one type with it for conflict (bars ≡ the fess, and so on); a baton is
+ * a bendlet sinister couped, a saltorel a saltire couped.
+ */
+export const DIMINUTIVE_OF: Partial<Record<OrdinaryType, OrdinaryType>> = {
+  bar: 'fess', barrulet: 'fess', pallet: 'pale', bendlet: 'bend', 'bendlet-sinister': 'bend-sinister', baton: 'bend-sinister', chevronel: 'chevron', saltorel: 'saltire',
+};
+/** The diminutive the builder's Thin toggle draws an ordinary as: two to four bars, pallets, bendlets (sinister) or chevronels. */
+export const THIN: Partial<Record<OrdinaryType, OrdinaryType>> = { fess: 'bar', pale: 'pallet', bend: 'bendlet', 'bend-sinister': 'bendlet-sinister', chevron: 'chevronel' };
+/** Ordinaries drawn and reached through the Thin toggle of their ordinary, not a tile of their own (`TILE_OF`). */
+export const THIN_ORDINARIES: readonly OrdinaryType[] = ['bar', 'pallet', 'bendlet', 'bendlet-sinister', 'chevronel'];
+/** The ordinary whose tile in the builder's grids picks this one, where it has none of its own: the pall inverted is the pall turned over, bars a thin fess. */
+export const TILE_OF: Partial<Record<OrdinaryType, OrdinaryType>> = {
+  'pall-inverted': 'pall', bar: 'fess', pallet: 'pale', bendlet: 'bend', 'bendlet-sinister': 'bend-sinister', chevronel: 'chevron',
+};
 /** Every ordinary the library draws. */
-export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES, ...MORE_ORDINARIES, ...TURNED_ORDINARIES, ...REFUSED_ORDINARIES];
+export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES, ...MORE_ORDINARIES, ...TURNED_ORDINARIES, ...THIN_ORDINARIES, ...REFUSED_ORDINARIES];
+
+/** The ordinary a type is, or is a diminutive of: what its drawing, Table 7's rows and conflict follow. */
+export const familyOf = (type: OrdinaryType): OrdinaryType => DIMINUTIVE_OF[type] ?? type;
+/** Whether the type is a diminutive: drawn narrow, as many as its group counts. */
+export const isDiminutive = (type: OrdinaryType): boolean => DIMINUTIVE_OF[type] !== undefined;
 
 /** The ordinaries the builder draws overall (over the primary group): the bands and crosses that cross the middle of the field. */
 export const OVERALL_ORDINARIES: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];
@@ -66,30 +84,53 @@ export const ORDINARY_ARTICLE: Record<OrdinaryType, 'a' | 'an' | null> = {
 export const ordinaryWithArticle = (type: OrdinaryType): string => [ORDINARY_ARTICLE[type], ORDINARY_NAME[type]].filter(Boolean).join(' ');
 
 /**
- * The counts an ordinary is drawn with beyond one: a tressure double or triple (a single tressure is an orle: RULES-C §C.3, Prec Gwynaeth
- * 04/2004). Any other count of an ordinary is a gap.
+ * Other spellings of ordinaries the College writes, each to the type it spells (one word each; never a different ordinary): the matcher,
+ * normaliser and tagger read them. A scarpe is a bendlet sinister (RULES-C §C.2).
  */
-export const ORDINARY_COUNTS: Partial<Record<OrdinaryType, readonly number[]>> = { tressure: [2, 3] };
-/** How such a count is written before the ordinary's name: "a double tressure". */
+export const ORDINARY_SPELLINGS: Readonly<Record<string, OrdinaryType>> = {
+  fesse: 'fess', palet: 'pallet', chevronelle: 'chevronel', scarpe: 'bendlet-sinister', scarp: 'bendlet-sinister',
+};
+
+/** Blazon names of more than one, lower case: "two bars", "three bendlets sinister". */
+export const ORDINARY_PLURAL: Record<OrdinaryType, string> = {
+  fess: 'fesses', pale: 'pales', bend: 'bends', 'bend-sinister': 'bends sinister', chevron: 'chevrons', cross: 'crosses', saltire: 'saltires',
+  chief: 'chiefs', bordure: 'bordures', pile: 'piles', base: 'bases', canton: 'cantons', quarter: 'quarters', orle: 'orles', tressure: 'tressures',
+  flaunches: 'flaunches', gore: 'gores', pall: 'palls', 'pall-inverted': 'palls inverted', point: 'points pointed', fret: 'frets', label: 'labels',
+  gyron: 'gyrons', mount: 'mounts', trimount: 'trimounts', bar: 'bars', barrulet: 'barrulets', pallet: 'pallets', bendlet: 'bendlets',
+  'bendlet-sinister': 'bendlets sinister', chevronel: 'chevronels', saltorel: 'saltorels', baton: 'batons', 'point-dexter': 'points dexter',
+  'point-sinister': 'points sinister',
+};
+
+/** How many diminutives the builder draws in a group: SCA armory never uses a single one (RULES-C §C.2), so one is the ordinary itself. */
+export const DIMINUTIVE_COUNTS: readonly number[] = [2, 3, 4];
+
+/**
+ * The counts an ordinary is drawn with beyond one: a tressure double or triple (a single tressure is an orle: RULES-C §C.3, Prec Gwynaeth
+ * 04/2004), bars, pallets, bendlets (sinister) and chevronels two to four. Any other count of an ordinary is a gap.
+ */
+export const ORDINARY_COUNTS: Partial<Record<OrdinaryType, readonly number[]>> = {
+  tressure: [2, 3], bar: DIMINUTIVE_COUNTS, pallet: DIMINUTIVE_COUNTS, bendlet: DIMINUTIVE_COUNTS, 'bendlet-sinister': DIMINUTIVE_COUNTS, chevronel: DIMINUTIVE_COUNTS,
+};
+/** How a tressure's count is written before its name: "a double tressure" (diminutives are counted in numbers: "three bars"). */
 export const ORDINARY_COUNT_WORD: Readonly<Record<number, string>> = { 2: 'double', 3: 'triple' };
 
 export const ORDINARY_MODS = ['inverted', 'couped', 'voided', 'throughout', 'enhanced', 'abased', 'sinister'] as const;
 export type OrdinaryMod = (typeof ORDINARY_MODS)[number];
 
 /**
- * The ordinaries each treatment is drawn on (RULES-C §D): a chevron, pile or pall upside down (a pall inverted is a type of its own, the
- * pall so treated); a band, chevron, cross or saltire shortened (couped); a chevron or pile reaching the edges (throughout — crosses,
- * saltires and palls are throughout already); a band or chevron raised or lowered; a cross, saltire or pall voided; a canton, quarter or gyron in the sinister chief corner instead of the dexter, a gore issuing from
+ * The ordinaries each treatment is drawn on (RULES-C §D, §C.2): a chevron, chevronels, pile or pall upside down (a pall inverted is a type of its own, the
+ * pall so treated); a band, chevron, cross or saltire shortened (couped; a baton is couped already); a chevron or pile reaching the edges (throughout — crosses,
+ * saltires and palls are throughout already); a band or chevron, and bars, bendlets and chevronels, raised or lowered; a cross, saltire or pall voided; a canton, quarter or gyron in the sinister chief corner instead of the dexter, a gore issuing from
  * the sinister flank ("a canton sinister", "a gore sinister": RULES-C §C.3, a form of the ordinary, not a place of the field). On any
  * other ordinary a treatment is a gap.
  */
 export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
-  inverted: ['chevron', 'pile', 'pall', 'pall-inverted'],
+  inverted: ['chevron', 'pile', 'pall', 'pall-inverted', 'chevronel'],
   couped: ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'],
   voided: ['cross', 'saltire', 'pall', 'pall-inverted'],
   throughout: ['chevron', 'pile'],
-  enhanced: ['fess', 'bend', 'bend-sinister', 'chevron'],
-  abased: ['fess', 'bend', 'bend-sinister', 'chevron'],
+  enhanced: ['fess', 'bend', 'bend-sinister', 'chevron', 'bar', 'bendlet', 'bendlet-sinister', 'chevronel'],
+  abased: ['fess', 'bend', 'bend-sinister', 'chevron', 'bar', 'bendlet', 'bendlet-sinister', 'chevronel'],
   sinister: ['canton', 'quarter', 'gyron', 'gore'],
 };
 

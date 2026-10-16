@@ -8,7 +8,7 @@ import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
 import { PLAIN_LINES, groupAt, hostOf, type Design, type GroupPath } from './design';
 import { DRAWN_DIVISIONS } from './divisions';
-import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
+import { ORDINARY_NAME, familyOf, type OrdinaryType } from './ordinaries';
 import {
   AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, betweenHost, type BetweenHost, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type KeepOut, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
@@ -16,7 +16,7 @@ import {
 import {
   CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
 } from './geometry';
-import { bandShift, defaultOrdinaryFrame, isPlainSpec, ordinaryGeometry, trimGrowth, turnAxis, upsideDown, type OrdinarySpec } from './ordinary-geometry';
+import { bandShift, defaultOrdinaryFrame, isPlainSpec, ordinaryGeometry, trimGrowth, turnAxis, underChiefFrame, upsideDown, type OrdinarySpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';
 import type { FieldShape } from './shape';
 import { MAX_DRAWN_COUNT } from './support';
@@ -568,7 +568,7 @@ function nominalCentres(ctx: Exclude<GroundContext, { k: 'around' }>, count: num
   // A plain ordinary with no peripherals has its hand rows instead.
   const centres = ruled ?? (ctx.peripheral === 'none' && ctx.keepOut.length === 0 && isPlainSpec(ctx.ordinary) ? null : handCentres(ctx, count));
   // Table 7's chevron inverted row is already the other way up
-  return centres && treatedCentres(ctx.ordinary, ctx.k, centres, ruled !== null && ctx.k === 'between' && betweenHost(ctx.ordinary) !== type);
+  return centres && treatedCentres(ctx.ordinary, ctx.k, centres, ruled !== null && ctx.k === 'between' && betweenHost(ctx.ordinary) !== familyOf(type));
 }
 
 /** The share of their distance from the fess point (on a chevron, from its apex) the charges on a couped ordinary keep: its arms are shorter. */
@@ -602,7 +602,7 @@ function treatedCentres(spec: OrdinarySpec, kind: 'between' | 'on', centres: Cen
   if (kind === 'on' || inverted) return out.map((c) => at(c.x, c.y + shift, c.rotation));
   const { y0: top, y1: foot } = heater.box;
   return out.map((c) => {
-    const m = bandMiddle(spec.type, c.x);
+    const m = bandMiddle(familyOf(spec.type), c.x);
     const y = c.y < m ? top + ((c.y - top) * (m + shift - top)) / (m - top) : foot - ((foot - c.y) * (foot - m - shift)) / (foot - m);
     return at(c.x, y, c.rotation);
   });
@@ -627,9 +627,10 @@ function clearOfTrims(spec: OrdinarySpec, centres: Centre[]): Centre[] {
     v < m ? lo + ((v - lo) * Math.max(0, m - by - lo)) / (m - lo) : hi - ((hi - v) * Math.max(0, hi - m - by)) / (hi - m);
   const across = (c: Centre, by: number) => at(squeeze(c.x, fx, x0, x1, by), c.y, c.rotation);
   const up = (c: Centre, m: number, by: number) => at(c.x, squeeze(c.y, m, y0, y1, by), c.rotation);
-  switch (spec.type) {
+  const type = familyOf(spec.type);
+  switch (type) {
     case 'fess': return centres.map((c) => up(c, fy, g));
-    case 'bend': case 'bend-sinister': case 'chevron': return centres.map((c) => up(c, bandMiddle(spec.type, c.x), slant));
+    case 'bend': case 'bend-sinister': case 'chevron': return centres.map((c) => up(c, bandMiddle(type, c.x), slant));
     case 'pale': case 'pile': return centres.map((c) => across(c, g));
     case 'cross': return centres.map((c) => up(across(c, g), fy, g));
     case 'saltire': return centres.map((c) => (Math.abs(c.x - fx) > Math.abs(c.y - fy) ? across(c, slant) : up(c, fy, slant)));
@@ -724,7 +725,7 @@ function evenlyFromTop(ring: readonly Pt[], m: number): Pt[] {
 
 /** Upright charges evenly along the middle of the bordure of a shape (of what its line always leaves of it): the arrangement follows the bordure. */
 function bordureCentres(bordure: OrdinarySpec, count: number, shape: FieldShape): Centre[] {
-  const [outline, inset] = envelopeIn(bordure, shape).inner;
+  const [outline, inset] = envelopeIn(bordure, shape, 'none').inner;
   const centre = midline(inset, outline);
   return evenlyFromTop(centre, count).map(([x, y]) => at(x, y));
 }
@@ -817,10 +818,11 @@ function groundIn(ctx: GroundContext, layout: Layout, shape: FieldShape): Ground
 }
 
 /** The straight polygons about an ordinary in a shape that charges keep clear of (`outer`) or inside (`inner`). */
-const envelopeIn = (spec: OrdinarySpec, shape: FieldShape) => ordinaryGeometry(spec, defaultOrdinaryFrame(shape)).envelope;
+const envelopeIn = (spec: OrdinarySpec, shape: FieldShape, peripheral: Peripheral) =>
+  ordinaryGeometry(spec, hasChief(peripheral) ? underChiefFrame(shape) : defaultOrdinaryFrame(shape)).envelope;
 
 /** The straight polygons about the peripherals charges keep clear of, in a shape (each as `envelope.outer`: lines and all). */
-const keptOut = (keepOut: KeepOut, shape: FieldShape): Pt[][] => keepOut.flatMap((spec) => envelopeIn(spec, shape).outer);
+const keptOut = (keepOut: KeepOut, shape: FieldShape): Pt[][] => keepOut.flatMap((spec) => envelopeIn(spec, shape, 'none').outer);
 
 export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
   const clear = keptOut(ctx.keepOut, shape);
@@ -830,7 +832,7 @@ export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
     return { ...frameGround(ctx.peripheral, shape), avoid: yielded ? [positionRoom(yielded, shape), ...clear] : clear, within: null };
   }
   if (ctx.k === 'position') {
-    const avoid = ctx.ordinary ? envelopeIn(ctx.ordinary, shape).outer : [];
+    const avoid = ctx.ordinary ? envelopeIn(ctx.ordinary, shape, ctx.peripheral).outer : [];
     return { ...frameGround(ctx.peripheral, shape), avoid: [...avoid, ...clear], within: positionRoom(ctx.position, shape) };
   }
   if (ctx.k === 'around') {
@@ -838,7 +840,7 @@ export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
     const primary = contextSlots({ ...fieldContext(ctx.peripheral), keepOut: ctx.keepOut, yields: 'around' }, ctx.primary.count, ctx.primary.layout, shape);
     return { ...frameGround(ctx.peripheral, shape), avoid: [...primary.map(discPolygon), ...clear], within: null };
   }
-  const envelope = envelopeIn(ctx.ordinary, shape);
+  const envelope = envelopeIn(ctx.ordinary, shape, ctx.peripheral);
   if (ctx.k === 'on' && ctx.ordinary.type === 'bordure') {
     // On the ring: inside the outline, outside the inner edge (and whatever its line takes off the ring).
     const [outline, inset] = envelope.inner;
@@ -918,7 +920,7 @@ function handAlternative(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, c
 function alternativeCentres(ctx: Exclude<GroundContext, { k: 'around' }>, layout: Layout, count: number): Centre[][] {
   if (layout.arrangement.k !== 'host' || layout.position !== null) return [];
   switch (ctx.k) {
-    case 'between': return [...(betweenHost(ctx.ordinary) === 'chevron' ? betweenAlternatives(ctx.ordinary.type, count, ctx.peripheral).map((cs) => treatedCentres(ctx.ordinary, ctx.k, cs, false)) : []), ...handAlternative(ctx, count)];
+    case 'between': return [...(betweenHost(ctx.ordinary) === 'chevron' ? betweenAlternatives(familyOf(ctx.ordinary.type), count, ctx.peripheral).map((cs) => treatedCentres(ctx.ordinary, ctx.k, cs, false)) : []), ...handAlternative(ctx, count)];
     case 'on': return [...onAlternatives(ctx.ordinary.type, count, ctx.peripheral).map((cs) => treatedCentres(ctx.ordinary, ctx.k, cs, false)), ...handAlternative(ctx, count)];
     case 'field': case 'position': return [];
     default: return ctx satisfies never;

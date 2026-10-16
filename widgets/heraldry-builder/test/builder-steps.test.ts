@@ -457,6 +457,18 @@ describe('"More shapes and edges…" under the band', () => {
     expect(gore).not.toContain('ordinary-number-2');
   });
 
+  it('draws a band thin from its Thin toggle, with a Two · Three · Four row; its tile stays checked and the disclosure open, and the baton has a tile', () => {
+    const bend = setOrdinary(DEFAULT_DESIGN, 'bend');
+    expect(ids(render(bend))).not.toContain('ordinary-number-2');
+    const thin = setOrdinaryToggle(bend, ordinaryPath(bend)!, 'thin', true);
+    const html = render(thin);
+    expect(shapeDisclosures(html)).toEqual([{ testid: 'ordinary-shape-more', open: true }]);
+    for (const id of ['ordinary-shape-thin', 'ordinary-number-2', 'ordinary-number-3', 'ordinary-number-4', 'ordinary-baton']) expect(ids(html), id).toContain(id);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="ordinary-bend"/);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="ordinary-number-2"/);
+    expect(html).not.toContain('ordinary-outline-cotised');
+  });
+
   it('offers the pall, label, fret, mount and trimount in the More shapes row (no tile for the pall inverted); a pall has its Upside down and Hollow toggles, which a pall inverted keeps checked on the pall tile', () => {
     const pall = setOrdinary(DEFAULT_DESIGN, 'pall');
     const got = ids(render(pall));

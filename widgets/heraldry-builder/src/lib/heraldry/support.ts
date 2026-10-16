@@ -11,7 +11,7 @@ import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES, isDrawnTreatment, typ
 import {
   asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
-import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isOrdinaryType, ordinaryWithArticle } from './ordinaries';
+import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isDiminutive, isOrdinaryType, ordinaryWithArticle } from './ordinaries';
 import {
   AROUND_COUNTS, MAX_CO_PRIMARY_TOTAL, ON_CHARGE_COUNTS, coPrimaries, aroundPrimaryLayouts, halfLayouts, hostCounts, isHalfPosition, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
@@ -144,11 +144,14 @@ function trimGaps(p: Paint, cotises: boolean): Found[] {
 function itemGaps(item: Item): Found[] {
   if (item.k === 'ordinary') {
     const gaps: Found[] = [];
-    if (!DRAWN_ORDINARIES.includes(item.type)) gaps.push(gap('ordinary', item.type));
+    // several saltorels have their own gap (`layoutGaps`); one is a saltire couped
+    if (!DRAWN_ORDINARIES.includes(item.type) && item.type !== 'saltorel') gaps.push(gap('ordinary', item.type));
     // A treatment drawn on another ordinary keeps its own gap ("inverted-on-fess"); voided has one for every ordinary but a cross or saltire.
     for (const m of item.mods) if (!modDrawn(item.type, m)) gaps.push(gap('ordinary-treatment', m === 'voided' ? m : `${m}-on-${item.type}`));
     // The builder's outline is one choice: fimbriated and cotised together can't be made (the hosts that can't take either are structure issues).
     if (item.cotised && item.fimbriated) gaps.push(gap('ordinary-treatment', 'fimbriated-and-cotised', 'A band or shape both fimbriated and cotised'));
+    // Narrow bands are never outlined here (PLAN-C C11, the C7a hosts).
+    else if (isDiminutive(item.type) && (item.cotised || item.fimbriated)) gaps.push(gap('ordinary-treatment', 'outline-on-diminutives', 'Narrow bands fimbriated or cotised'));
     if (item.cotised) gaps.push(...trimGaps(item.cotised.paint, true));
     if (item.fimbriated) gaps.push(...trimGaps(item.fimbriated, false));
     return gaps;
@@ -165,14 +168,23 @@ function itemGaps(item: Item): Found[] {
   return gaps;
 }
 
+/** A single diminutive other than the main or overall band (which is its ordinary: `canonical`), "in canton a scarpe" (RULES-C §C.2); a baton is one by itself. */
+const isSingleDiminutive = (g: Group): boolean =>
+  g.item.k === 'ordinary' && g.count === 1 && isDiminutive(g.item.type) && g.item.type !== 'baton' && g.role !== 'primary' && g.role !== 'overall';
+
 function layoutGaps(g: Group, hasChief: boolean): Found[] {
   const gaps: Found[] = [];
   const a = g.arrangement;
   if (g.item.k === 'ordinary') {
-    // A tressure is drawn double or triple; two gores are one SFCP (SENA App G) the builder has no control for; any other count is a gap.
+    // A tressure is drawn double or triple and bars, pallets, bendlets and chevronels two to four; two gores are one SFCP (SENA App G) the builder
+    // has no control for; several saltorels are laid out like charges, not drawn here; any other count is a gap. A single diminutive the main
+    // or overall band is its ordinary (`canonical`); a single one beside them ("in canton a scarpe", RULES-C §C.2) is not drawn.
     if (g.count > 1 && !ORDINARY_COUNTS[g.item.type]?.includes(g.count)) {
-      gaps.push(g.item.type === 'gore' && g.count === 2 ? gap('multiple-groups', 'two-gores', 'Two gores') : gap('ordinary', 'multiple', 'More than one band or shape of the same kind'));
+      gaps.push(g.item.type === 'gore' && g.count === 2 ? gap('multiple-groups', 'two-gores', 'Two gores')
+        : g.item.type === 'saltorel' ? gap('ordinary', 'saltorel-multiple', 'Several saltorels')
+          : gap('ordinary', 'multiple', 'More than one band or shape of the same kind'));
     }
+    if (isSingleDiminutive(g)) gaps.push(gap('ordinary', 'single-diminutive', 'A single narrow band set beside the main ones'));
     if (a.k !== 'single') gaps.push(gap('arrangement', layoutKey({ arrangement: a, position: null })));
     if (g.position) gaps.push(gap('arrangement', `in-${g.position}`));
     return gaps;
@@ -237,6 +249,7 @@ function placementGaps(d: Design, g: Group, host: Group | null): Found[] {
   if (ORDINARY_KIND[type] !== 'central' && type !== 'chief' && type !== 'bordure') {
     return type === 'canton' || type === 'quarter' ? [] : [gap('multiple-groups', `tertiary-on-${type}`, ON_THAT_CHARGE)];
   }
+  if (isDiminutive(type)) return [gap('multiple-groups', 'tertiary-on-diminutives', ON_THAT_CHARGE)];
   return hostCounts('on', specOf(host)).includes(g.count) ? [] : [countGap(`on-${type}-${g.count}`, 'host')];
 }
 
@@ -305,7 +318,8 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Found }> {
     // Set by position: in chief, in base or in canton (other positions, like in dexter chief, are not drawn yet).
     const drawn = g.relation === 'between' || (g.relation === 'position' && isSecondaryPosition(g.position));
     if (!drawn) out.push({ at: at([i]), gap: gap('multiple-groups', `secondary-${g.relation}`) });
-    if (g.item.k === 'ordinary') out.push({ at: at([i]), gap: gap('multiple-groups', 'secondary-ordinary') });
+    // (a single diminutive beside the main group has a gap of its own: `layoutGaps`)
+    if (g.item.k === 'ordinary' && !isSingleDiminutive(g)) out.push({ at: at([i]), gap: gap('multiple-groups', 'secondary-ordinary') });
   }
   for (const { g, i } of primaries) {
     if (g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] !== 'central') out.push({ at: at([i]), gap: gap('placement', `primary-${g.item.type}`) });

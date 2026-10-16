@@ -146,7 +146,26 @@ const MORE_SHAPE_CASES: ReadonlyArray<[string, unknown]> = [
   ['ord-label-lion', arms('azure', group(charge('lion'), 'or'), group(ordinary('label'), 'argent'))],
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
+/** Diminutives two to four at a time, lined, raised, turned over, with charges between, under a chief; the baton. */
+const DIMINUTIVE_CASES: ReadonlyArray<[string, unknown]> = [
+  ['dim-bar-2', arms('gules', group(ordinary('bar'), 'or', { count: 2 }))],
+  ['dim-bar-3', arms('gules', group(ordinary('bar'), 'or', { count: 3 }))],
+  ['dim-bar-4', arms('azure', group(ordinary('bar'), 'argent', { count: 4 }))],
+  ['dim-pallet-2', arms('or', group(ordinary('pallet'), 'gules', { count: 2 }))],
+  ['dim-pallet-4', arms('or', group(ordinary('pallet'), 'gules', { count: 4 }))],
+  ['dim-bendlet-3', arms('purpure', group(ordinary('bendlet'), 'argent', { count: 3 }))],
+  ['dim-bendlet-3-enhanced', arms('purpure', group(ordinary('bendlet', { mods: ['enhanced'] }), 'argent', { count: 3 }))],
+  ['dim-bendlet-sinister-2', arms('azure', group(ordinary('bendlet-sinister'), 'or', { count: 2 }))],
+  ['dim-chevronel-2', arms('azure', group(ordinary('chevronel'), 'or', { count: 2 }))],
+  ['dim-chevronel-3', arms('vert', group(ordinary('chevronel'), 'argent', { count: 3 }))],
+  ['dim-chevronel-2-inverted', arms('sable', group(ordinary('chevronel', { mods: ['inverted'] }), 'or', { count: 2 }))],
+  ['dim-chevronel-2-between', arms('gules', group(ordinary('chevronel'), 'or', { count: 2 }), group(charge('rose'), 'argent', { count: 3, relation: 'between' }))],
+  ['dim-bar-3-chief', arms('argent', group(ordinary('bar'), 'azure', { count: 3 }), group(ordinary('chief'), 'gules'))],
+  ['dim-baton', arms('gules', group(ordinary('baton'), 'argent'))],
+  ['dim-bars-wavy-3', arms('azure', group(ordinary('bar', { lines: { a: 'wavy' } }), 'argent', { count: 3 }))],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {

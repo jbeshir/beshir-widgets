@@ -6,7 +6,7 @@
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
-import { DRAWN_LINES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, type Design } from '../src/lib/heraldry';
+import { DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, type Design } from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -248,18 +248,19 @@ export function generatedLinedOrdinaryDesigns(seed: number, count: number): Desi
 const TREATED_ORDINARY_SEED = 0x3c6ef373;
 
 /**
- * The design for `seed` with a band or shape upside down, shortened, touching the edges, raised or lowered (as its host takes them), with
- * a line sometimes, and sometimes a picture set around it or on it. Null when the pick isn't registrable.
+ * The design for `seed` with a band or shape upside down, shortened, touching the edges, raised or lowered (as its host takes them), or two
+ * to four thin bands (treated or not), with a line sometimes, and sometimes a picture set around it or on it. Null when the pick isn't registrable.
  */
 function treatedOrdinaryDesignFor(seed: number): Design | null {
   const next = prng(seed ^ TREATED_ORDINARY_SEED);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
-  const type = pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'pall'] as const);
+  const type = pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'pall', ...THIN_ORDINARIES] as const);
   const mods = (['inverted', 'couped', 'throughout', 'enhanced', 'abased'] as const).filter((m) => modDrawn(type, m) && next() < 0.45);
-  if (mods.length === 0) return null;
+  const thin = THIN_ORDINARIES.includes(type);
+  if (mods.length === 0 && !thin) return null;
   const inverted = mods.includes('inverted');
   const line = next() < 0.3 ? pick(DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type, inverted }, l))) : null;
-  const groups: object[] = [{ item: { k: 'ordinary', type, mods, ...(line ? { lines: { a: line } } : {}) }, paint: pick(TINCTURES) }];
+  const groups: object[] = [{ item: { k: 'ordinary', type, mods, ...(line ? { lines: { a: line } } : {}) }, paint: pick(TINCTURES), count: thin ? pick(DIMINUTIVE_COUNTS) : 1 }];
   if (next() < 0.4) groups.push({ item: { k: 'charge', charge: pick(CHARGES) }, paint: pick(TINCTURES), count: 1 + Math.floor(next() * 3), relation: next() < 0.5 ? 'between' : null });
   const r = resolve({ v: 2, field: pick(TINCTURES), groups });
   if (!r.ok) return null;

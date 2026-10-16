@@ -5,7 +5,7 @@
 // and the picture (pictures on the band, a top band, a border) are heraldry/layers.ts.
 
 import {
-  CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
+  CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
@@ -161,11 +161,14 @@ function rebuilt(d: Design, ordinary: Group | null): Design {
   return first!;
 }
 
-export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
-  if (!type) return rebuilt(d, null);
+export function setOrdinary(d: Design, picked: OrdinaryType | null): Design {
+  if (!picked) return rebuilt(d, null);
   const previous = simpleParts(d).ordinary?.group.paint;
   const kept = previous && groupTinctureOf(previous);
   const was = simpleParts(d).ordinary?.group.item;
+  // thin bands stay thin, as many of them, where the new band has a thin form
+  const thin = was?.k === 'ordinary' && THIN_ORDINARIES.includes(was.type) ? THIN[picked] : undefined;
+  const type = thin ?? picked;
   const mods = was?.k === 'ordinary' ? keptMods(was.mods, type) : [];
   const lines = was?.k === 'ordinary' ? keptOrdinaryLines(was.lines, type, mods.includes('inverted')) : PLAIN_LINES;
   const rebuiltDesign = rebuilt(d, ordinaryGroup(type, kept ?? 'or', lines, mods));
@@ -174,7 +177,9 @@ export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
   const path = ordinaryPath(placed)!;
   const choices = groupTinctureChoices(placed, path);
   const tincture = kept && isAllowed(choices, kept) ? kept : firstAllowed(choices, kept ?? 'or');
-  return tincture === kept ? placed : setGroupTincture(placed, path, tincture);
+  const painted = tincture === kept ? placed : setGroupTincture(placed, path, tincture);
+  const count = simpleParts(d).ordinary?.group.count ?? 1;
+  return thin && count !== groupAt(painted, path).count ? setOrdinaryNumber(painted, path, count) : painted;
 }
 
 /** The band, shape, top band or border at `path` drawn with this line (as its blazon bares it), the pictures refitted to the room it leaves. */

@@ -23,7 +23,7 @@ import {
 import { contourPath, type Contour, type ContourEdge } from './contour';
 import type { Division } from './divisions';
 import { LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, profileSwing, fitPeriod, isStraightLine, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type Line } from './lines';
-import type { OrdinaryMod, OrdinaryType } from './ordinaries';
+import { familyOf, isDiminutive, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import type { FieldShape } from './shape';
 import type { Box } from './variation-geometry';
 
@@ -64,6 +64,8 @@ export interface OrdinaryFrame {
   readonly shape: FieldShape;
   /** Where fess, pale, bend and cross lines cross: the shape's fess point. */
   readonly centre: Point;
+  /** Where the free field starts above: the top of the shape's box, or the lower edge of a chief. Only a group of diminutives keeps below it. */
+  readonly top: number;
   /**
    * Where the free field ends below: the foot of the shape's box, or the top of a base or point pointed. An ordinary is drawn on under
    * the base (which is painted over it) but lies only above it: its samples stop here.
@@ -73,15 +75,21 @@ export interface OrdinaryFrame {
 
 export function defaultOrdinaryFrame(shape: FieldShape): OrdinaryFrame {
   const f = shapeFrame(shape);
-  return { shape, centre: f.fessPoint, bottom: f.box.y1 };
+  return { shape, centre: f.fessPoint, top: f.box.y0, bottom: f.box.y1 };
+}
+
+/** The frame a chief leaves its ordinaries in a shape: the free field starts at the chief's lower edge. */
+export function underChiefFrame(shape: FieldShape): OrdinaryFrame {
+  return { ...defaultOrdinaryFrame(shape), top: shapeFrame(shape).chiefBase };
 }
 
 /** The peripherals that rise from the base of the shield and so end the free field below. */
 const FROM_BASE: readonly OrdinaryType[] = ['base', 'point'];
 
-/** The frame the design's peripherals leave its other ordinaries in a shape: its bottom the highest line a base or point pointed always covers. */
+/** The frame the design's peripherals leave its other ordinaries in a shape: its top under a chief, its bottom the highest line a base or point pointed always covers. */
 export function ordinaryFrameOf(d: Design, shape: FieldShape): OrdinaryFrame {
-  const frame = defaultOrdinaryFrame(shape);
+  const chief = d.groups.some((g) => g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === 'chief');
+  const frame = chief ? underChiefFrame(shape) : defaultOrdinaryFrame(shape);
   const tops = d.groups.flatMap((g) => (g.role === 'peripheral' && g.item.k === 'ordinary' && FROM_BASE.includes(g.item.type)
     ? ordinaryGeometry(specOf(g), frame).envelope.inner.flat().map(([, y]) => y) : []));
   return tops.length === 0 ? frame : { ...frame, bottom: Math.min(frame.bottom, ...tops) };
@@ -171,6 +179,19 @@ const PLAIN_WIDTH = {
   cross: 2 * CROSS_HALF, saltire: 2 * SALTIRE_HALF / Math.SQRT2, chief: CHIEF_HEIGHT, pile: 2 * BAND_HALF,
   base: BASE_HEIGHT, canton: 100 / 3, quarter: 50, gyron: 2 * BAND_HALF, pall: 2 * CROSS_HALF, 'pall-inverted': 2 * CROSS_HALF,
 } as const;
+/**
+ * How wide each diminutive is drawn across its edges (RULES-C §C.2: narrower forms of their ordinary, a third to a half of it), and how far
+ * apart the middles of a group of two, three or four lie, across them: bars stacked in pale, pallets in fess, bendlets side by side across
+ * the bend, chevronels nested.
+ */
+const DIMINUTIVE_WIDTH: Partial<Record<OrdinaryType, number>> = { bar: 10, pallet: 10, bendlet: 10, 'bendlet-sinister': 10, baton: 10, chevronel: 9 };
+const DIMINUTIVE_PITCH: Partial<Record<OrdinaryType, Readonly<Record<number, number>>>> = {
+  fess: { 2: 32, 3: 26, 4: 21 }, pale: { 2: 32, 3: 26, 4: 21 }, bend: { 2: 24, 3: 20, 4: 16 }, 'bend-sinister': { 2: 24, 3: 20, 4: 16 }, chevron: { 2: 16, 3: 14, 4: 12 },
+};
+/** How far up the page a group of chevronels is set, in its pitches: nested below the chevron's place, the lowest would run off the narrowing foot. */
+const CHEVRONELS_LIFT = 1 / 4;
+/** How far a group of diminutives enhanced or abased moves, across it: further than a band (BAND_SHIFT), or a group would hardly seem moved. */
+const DIMINUTIVES_SHIFT = 20;
 /** How wide the bordure is (the lozenge's a little narrower). */
 const BORDURE_WIDTH = 10;
 
@@ -192,7 +213,14 @@ const COTISED_ARMS = 0.75;
  * How much wider than plain the spec is drawn: a band with a complex line wider; a band doubly or triply cotised narrower, so that it and
  * its cotises take as much of the field as a band cotised once.
  */
-const bandScale = (spec: OrdinarySpec): number => (WIDENED.includes(spec.type) && hasComplexLine(spec) ? WIDENING : 1) * cotisedScale(spec);
+const bandScale = (spec: OrdinarySpec): number =>
+  (WIDENED.includes(familyOf(spec.type)) && hasComplexLine(spec) ? WIDENING : 1) * cotisedScale(spec) * diminishedScale(spec.type);
+
+/** How much narrower than its ordinary a diminutive is drawn (1 for any other type). */
+function diminishedScale(type: OrdinaryType): number {
+  const width = DIMINUTIVE_WIDTH[type];
+  return width === undefined ? 1 : width / PLAIN_WIDTH[familyOf(type) as keyof typeof PLAIN_WIDTH];
+}
 
 /** How much narrower a cotised band is drawn (a cross's and a saltire's arms narrower still). */
 const cotisedScale = (spec: OrdinarySpec): number =>
@@ -201,7 +229,7 @@ const cotisedScale = (spec: OrdinarySpec): number =>
 /** How wide the ordinary is drawn across its lined edges. */
 function drawnWidth(spec: OrdinarySpec): number {
   if (spec.type === 'bordure') return BORDURE_WIDTH;
-  const plain = PLAIN_WIDTH[spec.type as keyof typeof PLAIN_WIDTH] ?? notSupported({ category: 'ordinary', detail: spec.type });
+  const plain = PLAIN_WIDTH[familyOf(spec.type) as keyof typeof PLAIN_WIDTH] ?? notSupported({ category: 'ordinary', detail: spec.type });
   return plain * bandScale(spec);
 }
 
@@ -241,7 +269,7 @@ const BAND_SHIFT = 12;
 /** How far down the page an enhanced (up: negative) or abased band is moved: BAND_SHIFT across a fess, the same across a bend or a chevron's limbs. */
 export function bandShift(spec: OrdinarySpec): number {
   const sign = spec.mods.includes('enhanced') ? -1 : spec.mods.includes('abased') ? 1 : 0;
-  return sign * BAND_SHIFT * (spec.type === 'fess' ? 1 : Math.SQRT2);
+  return sign * (isDiminutive(spec.type) ? DIMINUTIVES_SHIFT : BAND_SHIFT) * (familyOf(spec.type) === 'fess' ? 1 : Math.SQRT2);
 }
 
 /** How far below the fess point a band or shape is turned upside down about: on the heater, the middle of its box (a pile inverted rises as far as a pile falls). */
@@ -304,13 +332,67 @@ function mirrored(outline: Outline, axis: number): Outline {
   };
 }
 
-/** The straight outline of an ordinary, its chevron raised `lift` above its usual place; null for the ordinaries drawn as rings (`RINGS`) or curves (the flaunches, the gore). */
-function outlineOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
-  const inverted = spec.mods.includes('inverted');
-  const upright = uprightOutline(spec, frame, lift);
-  const turned = upright && inverted ? reflected(upright, flipAxis(frame)) : upright;
+/** An upright outline turned over (inverted) and into the other corner (sinister) as the spec says. */
+function placed(spec: OrdinarySpec, frame: OrdinaryFrame, upright: Outline | null): Outline | null {
+  const turned = upright && spec.mods.includes('inverted') ? reflected(upright, flipAxis(frame)) : upright;
   return turned && spec.mods.includes('sinister') ? mirrored(turned, frame.centre.x) : turned;
 }
+
+/**
+ * The straight outline of an ordinary, its chevron raised `lift` above its usual place; null for the ordinaries drawn as rings (`RINGS`) or
+ * curves (the flaunches, the gore), and for diminutives, drawn as pieces (`diminutivePieces`).
+ */
+function outlineOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
+  return isDiminutive(spec.type) ? null : placed(spec, frame, uprightOutline(spec, frame, lift));
+}
+
+/** The outline moved by (dx, dy), its courses with it. */
+function translated(outline: Outline, dx: number, dy: number): Outline {
+  const move = ([x, y]: Pt): Pt => [x + dx, y + dy];
+  return { ...outline, points: outline.points.map(move), courses: outline.courses.map((c) => ({ ...c, origin: move(c.origin) })) };
+}
+
+/** How far apart across them the middles of a group of diminutives lie (0 for one): as much further apart as they are drawn wider with a complex line, so the field between them keeps its width. */
+const diminutivePitch = (spec: OrdinarySpec): number =>
+  (spec.count > 1 ? (DIMINUTIVE_PITCH[familyOf(spec.type)]?.[spec.count] ?? notSupported({ category: 'ordinary', detail: 'multiple' })) + drawnWidth(spec) - DIMINUTIVE_WIDTH[spec.type]! : 0);
+
+/**
+ * A group of diminutives, one outline each: its ordinary's outline drawn as narrow as the diminutive, set `count` times evenly across the
+ * place of the ordinary — bars one above another, pallets side by side, bendlets across the bend, chevronels nested — the group moved and
+ * turned over as a whole (enhanced, inverted). A baton is one bendlet sinister couped.
+ */
+function diminutivePieces(spec: OrdinarySpec, frame: OrdinaryFrame): Outline[] {
+  const step = diminutiveStep(spec), first = firstStep(spec, frame);
+  return Array.from({ length: spec.count }, (_, i) => diminutivePiece(spec, frame, first + i, step));
+}
+
+/** How far a group of diminutives keeps below a chief over it (bars and chevronels: bendlets and pallets run on under it, as a bend does). */
+const UNDER_CHIEF_GAP = 4;
+
+/**
+ * How many steps from the ordinary's place the first diminutive of a group lies: the group centred on it (chevronels lifted), then moved
+ * down until bars or chevronels clear a chief (`frame.top`).
+ */
+function firstStep(spec: OrdinarySpec, frame: OrdinaryFrame): number {
+  const family = familyOf(spec.type);
+  const first = -(spec.count - 1) / 2 - (family === 'chevron' ? (spec.count - 1) * CHEVRONELS_LIFT : 0);
+  const step = diminutiveStep(spec);
+  if ((family !== 'fess' && family !== 'chevron') || spec.mods.includes('inverted') || step[1] === 0) return first;
+  const reach = Math.max(edgeReach(spec.lines.a, drawnWidth(spec)), edgeReach(spec.lines.b, drawnWidth(spec)));
+  const highest = Math.min(...diminutivePiece(spec, frame, first, step).points.map(([, y]) => y)) - reach;
+  const below = frame.top + UNDER_CHIEF_GAP - highest;
+  return below > 0 ? first + below / step[1] : first;
+}
+
+/** How far one diminutive of a group lies from the next: across a pale sideways; across a fess, a bend or a chevron's limbs up and down the page (a bend's pitch is measured square to it). */
+function diminutiveStep(spec: OrdinarySpec): Pt {
+  const family = familyOf(spec.type), pitch = diminutivePitch(spec);
+  return family === 'pale' ? [pitch, 0] : [0, family === 'fess' ? pitch : pitch * Math.SQRT2];
+}
+
+/** The diminutive `k` steps from the ordinary's place (fractions of a step allowed: the middle of an even group), turned as the spec says. */
+const diminutivePiece = (spec: OrdinarySpec, frame: OrdinaryFrame, k: number, step: Pt): Outline =>
+  placed(spec, frame, translated(uprightOutline(spec, frame, 0)!, k * step[0], k * step[1]))!;
 
 /** The top of the base in a shape: BASE_HEIGHT above the foot of its box on the heater, as much more as the shape's chief is taller. */
 const baseTop = (f: ShapeFrame): number => f.box.y1 - (BASE_HEIGHT * (f.chiefBase - f.box.y0)) / CHIEF_HEIGHT;
@@ -501,7 +583,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
   const { x: cx } = frame.centre;
   // an inverted shape is moved the other way before it is turned over
   const cy = frame.centre.y + (spec.mods.includes('inverted') ? -1 : 1) * bandShift(spec);
-  const couped = spec.mods.includes('couped'), throughout = spec.mods.includes('throughout');
+  const couped = spec.mods.includes('couped') || spec.type === 'baton', throughout = spec.mods.includes('throughout');
   // the edge a shape throughout reaches, where it lies before an inverted one is turned over: the top, or (once turned) the base
   const edgeAt = (y: number) => (spec.mods.includes('inverted') ? 2 * flipAxis(frame) - y : y);
   const { x0, x1, y0, y1 } = OVER;
@@ -524,7 +606,9 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
     const [s0, s1] = cut;
     return { points: [at(origin, dir, s0, half), at(origin, dir, s1, half), at(origin, dir, s1, -half), at(origin, dir, s0, -half)], edges: [A(0), null, B(0), null], courses: [band(origin, dir, cut)] };
   };
-  switch (spec.type) {
+  // a diminutive is drawn as its ordinary, narrower
+  const type = familyOf(spec.type);
+  switch (type) {
     case 'fess':
       if (couped) return coupedBand([x0, cy], [1, 0], h);
       return { points: [[x0, cy - h], [x1, cy - h], [x1, cy + h], [x0, cy + h]], edges: [A(0), null, B(0), null], courses: [band([x0, cy], [1, 0])] };
@@ -631,7 +715,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
     case 'bordure': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'fret': return null;
     case 'pall': case 'pall-inverted': return pallOutline(spec, frame);
     case 'label': return labelOutline(frame);
-    case 'mount': case 'trimount': return moundOutline(spec.type, frame);
+    case 'mount': case 'trimount': return moundOutline(type, frame);
     // its upper edge laid like a chief's lower one
     case 'base': {
       const top = baseTop(f);
@@ -957,8 +1041,9 @@ function curvedBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
 /** The ordinaries drawn as rings, filled even-odd: the bordure, the orle and the tressure. */
 const RINGS: readonly OrdinaryType[] = ['bordure', 'orle', 'tressure'];
 
-/** The body of an ordinary with no straight outline (the fret's is pieces woven together). */
-function curvedOrdinaryBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
+/** The body of an ordinary with no straight outline: diminutives' pieces, a ring, curves, the fret's pieces woven together. */
+function curvedOrdinaryBody(spec: OrdinarySpec, frame: OrdinaryFrame, shape: readonly Pt[]): string {
+  if (isDiminutive(spec.type)) return diminutivePieces(spec, frame).map((piece) => linedPath(spec, piece, shape)).join('');
   if (spec.type === 'bordure') return bordureBody(spec, frame);
   if (spec.type === 'fret') return fretBody(frame);
   return spec.type === 'orle' || spec.type === 'tressure' ? ringBandsBody(spec, frame) : curvedBody(spec, frame);
@@ -979,7 +1064,7 @@ const moved = (outline: Outline, by: readonly number[]): Outline => ({ ...outlin
  * that followed a square or overhanging line would break at its risers).
  */
 function bodyOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline | null, shape: readonly Pt[]): string {
-  if (!outline) return curvedOrdinaryBody(spec, frame);
+  if (!outline) return curvedOrdinaryBody(spec, frame, shape);
   const body = linedPath(spec, outline, shape);
   if (!spec.mods.includes('voided')) return body;
   const width = drawnWidth(spec);
@@ -1012,12 +1097,17 @@ const cotiseWidth = (spec: OrdinarySpec): number => drawnWidth(spec) * COTISE_SH
  * across its band (a cotised band is narrower, which gives some back): what charges set beside it make room for. 0 untrimmed.
  */
 export function trimGrowth(spec: OrdinarySpec): number {
+  if (isDiminutive(spec.type)) return Math.max(0, diminutiveReach(spec) - PLAIN_WIDTH[familyOf(spec.type) as keyof typeof PLAIN_WIDTH] / 2);
   const plain = PLAIN_WIDTH[spec.type as keyof typeof PLAIN_WIDTH];
   if (plain === undefined) return 0;
   const { cotised } = spec;
   const cotises = cotised ? plain * cotisedScale(spec) / 2 + edgeReach(spec.lines.a, drawnWidth(spec)) + 2 * cotised.count * cotiseWidth(spec) - plain / 2 : 0;
   return Math.max(0, cotises) + (spec.fimbriated ? FIMBRIATION_WIDTH : 0);
 }
+
+/** How far from the middle of a group of diminutives its outermost edges reach, across the group, lines and all. */
+const diminutiveReach = (spec: OrdinarySpec): number =>
+  ((spec.count - 1) / 2) * diminutivePitch(spec) + drawnWidth(spec) / 2 + Math.max(edgeReach(spec.lines.a, drawnWidth(spec)), edgeReach(spec.lines.b, drawnWidth(spec)));
 
 /**
  * The cotises of a band: `count` thin bands beside each long edge, a cotise's width apart and from the band, each with the cotises' line on
@@ -1079,6 +1169,7 @@ function offsetPolygon(points: readonly Pt[], by: readonly number[]): Pt[] {
  */
 function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline | null, body: string): OrdinaryGeometry['envelope'] {
   if (spec.type === 'orle' || spec.type === 'tressure') return ringBandsEnvelope(spec, frame, body);
+  if (isDiminutive(spec.type)) return diminutiveEnvelope(spec, frame);
   // plain, or bowed (enarched, ployé): the body itself, curves flattened — a bow moves the band rather than cutting into it
   const straight = isStraightLine(spec.lines.a) && isStraightLine(spec.lines.b);
   const trimmed = outline !== null && (spec.cotised !== null || spec.fimbriated);
@@ -1101,6 +1192,24 @@ function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline |
     cotised && base && e !== null ? base[i] + 2 * cotised.count * cotiseWidth(spec) + edgeReach(cotised.line, cotiseWidth(spec)) : 0,
   ));
   return { outer: [offsetPolygon(outline.points, outer)], inner: straight ? pathRings(body) : [offsetPolygon(outline.points, reach.map((r) => -r))] };
+}
+
+/**
+ * A group of diminutives' envelopes: `outer` one polygon over the whole group, from the outer edge of the first piece to that of the last and
+ * as far as their lines reach (charges set between the group stand clear of all of it, never between its pieces); `inner` each piece moved
+ * in by its lines.
+ */
+function diminutiveEnvelope(spec: OrdinarySpec, frame: OrdinaryFrame): OrdinaryGeometry['envelope'] {
+  const pieces = diminutivePieces(spec, frame);
+  const width = drawnWidth(spec);
+  const reach = (o: Outline) => o.edges.map((e) => (e === null ? 0 : edgeReach(spec.lines[e.line], width)));
+  // a piece in the middle of the group, widened to the whole group
+  const middle = diminutivePiece(spec, frame, firstStep(spec, frame) + (spec.count - 1) / 2, diminutiveStep(spec));
+  const grown = diminutiveReach(spec) - width / 2;
+  return {
+    outer: [offsetPolygon(middle.points, middle.edges.map((e) => (e === null ? 0 : grown)))],
+    inner: pieces.map((piece) => offsetPolygon(piece.points, reach(piece).map((r) => -r))),
+  };
 }
 
 /**

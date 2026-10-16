@@ -4,8 +4,8 @@
 // its own disclosure, under its "More shapes" row (`OrdinaryShapeControls`).
 
 import {
-  bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, ordinaryCountChoices, outlineAt, outlineChoices, outlineTinctureChoices,
-  outlineTinctureOf, setOutlineTincture, toggleChoices, toggledOn,
+  bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, ordinaryCountChoices, ordinaryCountLabel, outlineAt, outlineChoices, outlineTinctureChoices,
+  outlineTinctureOf, setOutlineTincture, toggleChoices, toggledOn, THIN_ORDINARIES,
   type Design, type EdgeName, type EdgeSide, type FieldShape, type GroupPath, type Line,
 } from '../../lib/heraldry';
 import { setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle } from '../../lib/builder';
@@ -43,10 +43,10 @@ export function hasShapeControls(design: Design, path: GroupPath): boolean {
       || ordinaryCountChoices(design, path).length > 0);
 }
 
-/** Whether the band or shape at `path` uses one of them: a line, a treatment or an outline. */
+/** Whether the band or shape at `path` uses one of them: a line, a treatment, an outline, or thin bands. */
 export function usesShapeControls(design: Design, path: GroupPath): boolean {
   const item = groupAt(design, path).item;
-  return item.k === 'ordinary' && (item.lines.a !== 'plain' || item.lines.b !== 'plain' || item.mods.length > 0 || outlineAt(design, path) !== 'none');
+  return item.k === 'ordinary' && (item.lines.a !== 'plain' || item.lines.b !== 'plain' || item.mods.length > 0 || outlineAt(design, path) !== 'none' || THIN_ORDINARIES.includes(item.type));
 }
 
 /** The shape toggles, edge row and outline of the band or shape at `path`, those it takes. */
@@ -71,7 +71,7 @@ export function OrdinaryShapeControls({ design, path, testid, noun, shape, onCha
         <ShapeToggles
           testid={testid} noun={noun} toggles={toggles} isOn={(t) => toggledOn(design, path, t)} onToggle={(t, on) => onChange(setOrdinaryToggle(design, path, t, on))}
           positions={positions} position={bandPositionOf(design, path)} onPosition={(p) => onChange(setOrdinaryBandPosition(design, path, p))}
-          counts={counts} count={count} onCount={(n) => onChange(setOrdinaryNumber(design, path, n))}
+          counts={counts} count={count} countLabel={(n) => ordinaryCountLabel(type, n)} onCount={(n) => onChange(setOrdinaryNumber(design, path, n))}
         />
       )}
       {lines.length > 0 && (

@@ -12,7 +12,7 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME,
+  CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
   blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
@@ -74,6 +74,8 @@ const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.le
   .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
 
 const ORDINARY_WORDS = new Map<string, OrdinaryType>(DRAWN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
+/** The diminutives a blazon counts, by their plural, to the type: "three bars", "two bendlets sinister" (a baton is one; barrulets are bars, `normalise`). */
+const COUNTED_ORDINARIES = new Map<string, OrdinaryType>(ORDINARY_TYPES.filter((t) => isDiminutive(t) && t !== 'baton' && t !== 'barrulet').map((t) => [ORDINARY_PLURAL[t], t]));
 /** The words that draw an ordinary more than once, before its name ("a double tressure"), to the count. */
 const ORDINARY_COUNT_WORDS = new Map<string, number>(Object.entries(ORDINARY_COUNT_WORD).map(([n, w]) => [w, Number(n)]));
 const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as const;
@@ -111,7 +113,7 @@ const VOCABULARY = new Set<string>(
   [
     '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', 'upper', 'lower', 'outer', 'inner', 'sinister', 'counter-embattled', 'inverted', 'couped', 'throughout', 'enhanced', 'abased', 'voided', 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
-    ...NOUNS.keys(), ...POSTURE_WORDS, ...ORDINARY_COUNT_WORDS.keys(),
+    ...NOUNS.keys(), ...POSTURE_WORDS, ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
@@ -121,6 +123,7 @@ const VOCABULARY = new Set<string>(
 //   field      := T | DIVISION T 'and' T
 //   element    := ['on'] [('a'|'an') ['double'|'triple']] ordinary FORM [T] [OUTLINE]   an ordinary, central or peripheral ("on" when a group sits on it;
 //                                                    flaunches without an article, a tressure double or triple)
+//               | ['on'] COUNT PLURAL FORM [T] [OUTLINE]   diminutives counted ("three bars wavy argent", "two bendlets sinister")
 //   OUTLINE    := 'fimbriated' [T] | ['doubly'|'triply'] ('cotised'|'endorsed') ['plain'|LINE] [T]
 //   FORM       := ['inverted'] [LINE [edge]] ['couped'] ['throughout'|'enhanced'|'abased'] ['voided']
 //               | 'on' group                        a charge group with a group on it
@@ -157,6 +160,7 @@ interface Node { phrase: Phrase; on: Phrase | null }
 
 const NOUN_PHRASES = [...NOUNS.keys()].map((n) => n.split(' ')).sort((a, b) => b.length - a.length);
 const ORDINARY_PHRASES = [...ORDINARY_WORDS.keys()].map((o) => o.split(' ')).sort((a, b) => b.length - a.length);
+const COUNTED_PHRASES = [...COUNTED_ORDINARIES.keys()].map((o) => o.split(' ')).sort((a, b) => b.length - a.length);
 /** How the ordinaries the widget joins with "within" start: "an orle", "a double tressure". */
 const WITHIN_PHRASES = DRAWN_ORDINARIES.filter((t) => PERIPHERAL_JOINER[t] === ' within ').flatMap((t) => [1, ...(ORDINARY_COUNTS[t] ?? [])].map((n) => [ORDINARY_ARTICLE[t] ?? '', ...(n > 1 ? [ORDINARY_COUNT_WORD[n]] : []), ...ORDINARY_NAME[t].split(' ')].filter(Boolean)));
 const startsWith = (tokens: string[], i: number, phrase: readonly string[]) => phrase.every((w, j) => tokens[i + j] === w);
@@ -278,16 +282,20 @@ function parseBody(tokens: string[]): Body | null {
       // "a cross crosslet" is a charge, though "a cross" is an ordinary: the longer noun wins. Flaunches have no article; a tressure may be
       // double or triple.
       const articled = tokens[j] === 'a' || tokens[j] === 'an';
-      const count = articled ? ORDINARY_COUNT_WORDS.get(tokens[j + 1]) ?? 1 : 1;
-      const at = j + (articled ? 1 : 0) + (count > 1 ? 1 : 0);
-      const ordinary = ORDINARY_PHRASES.find((o) => {
+      const doubled = articled ? ORDINARY_COUNT_WORDS.get(tokens[j + 1]) ?? 1 : 1;
+      const at = j + (articled ? 1 : 0) + (doubled > 1 ? 1 : 0);
+      const named = ORDINARY_PHRASES.find((o) => {
         const t = ORDINARY_WORDS.get(o.join(' '))!;
-        return startsWith(tokens, at, o) && (articled ? ORDINARY_ARTICLE[t] !== null : ORDINARY_ARTICLE[t] === null) && (count === 1 || ORDINARY_COUNTS[t]?.includes(count))
+        return startsWith(tokens, at, o) && (articled ? ORDINARY_ARTICLE[t] !== null : ORDINARY_ARTICLE[t] === null) && (doubled === 1 || ORDINARY_COUNTS[t]?.includes(doubled))
           && !NOUN_PHRASES.some((n) => n.length > o.length && startsWith(tokens, at, n));
       });
+      // diminutives counted: "three bars", any number of them (the widget says which it draws)
+      const plural = !named && isNumber(tokens[j]) ? COUNTED_PHRASES.find((o) => startsWith(tokens, j + 1, o)) : undefined;
+      const ordinary = named ? { type: ORDINARY_WORDS.get(named.join(' '))!, count: doubled, end: at + named.length }
+        : plural ? { type: COUNTED_ORDINARIES.get(plural.join(' '))!, count: numberOf(tokens[j]), end: j + 1 + plural.length } : null;
       if (ordinary) {
-        const type = ORDINARY_WORDS.get(ordinary.join(' '))!;
-        const { lines, mods, end } = readOrdinaryForm(type, tokens, at + ordinary.length);
+        const { type, count } = ordinary;
+        const { lines, mods, end } = readOrdinaryForm(type, tokens, ordinary.end);
         const read = readPaint(tokens, end, 'group');
         // Its fimbriation and cotises, "fimbriated Or and cotised argent", each with the tincture it states.
         const outlines: Array<{ phrase: Phrase; read: OutlineRead }> = [];
@@ -299,7 +307,9 @@ function parseBody(tokens: string[]): Body | null {
           after = trimmed ? trimmed.end : outline.end;
           outline = tokens[after] === 'and' ? readOutline(tokens, after + 1) : null;
         }
-        const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), item: { k: 'ordinary', type, ...(lines ? { lines } : {}), ...(mods.length > 0 ? { mods } : {}) }, ...(count > 1 ? { count } : {}) }, paint: read?.paint ?? null }, on: null };
+        // a band set around charges before it ("a fleur-de-lys between two pallets") is a secondary group, which the widget files as a gap
+        const around = between && joined && !host && ORDINARY_KIND[type] === 'central' && top.length > 0 ? { role: 'secondary', relation: 'between' } : {};
+        const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), ...around, item: { k: 'ordinary', type, ...(lines ? { lines } : {}), ...(mods.length > 0 ? { mods } : {}) }, ...(count > 1 ? { count } : {}) }, paint: read?.paint ?? null }, on: null };
         top.push(node);
         order.push({ phrase: node.phrase, onHost: false });
         if (outlines.length > 0) {

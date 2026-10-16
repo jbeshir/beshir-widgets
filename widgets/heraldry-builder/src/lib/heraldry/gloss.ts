@@ -8,7 +8,7 @@ import { treatedGloss } from './treatment';
 import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
 import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
-import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenHost, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout } from './arrangement';
 import { specOf } from './ordinary-geometry';
 
@@ -39,7 +39,18 @@ const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   trimount: 'three hills rising from the bottom',
   'point-dexter': 'triangle in the bottom-left corner',
   'point-sinister': 'triangle in the bottom-right corner',
+  baton: 'short thin diagonal band from top-right to bottom-left',
 };
+
+/** Two to four narrow bands, in everyday words (`DIMINUTIVE_INVERTED_GLOSS` the other way up). */
+const DIMINUTIVE_GLOSS: Partial<Record<OrdinaryType, string>> = {
+  bar: 'thin horizontal bands',
+  pallet: 'thin vertical bands',
+  bendlet: 'thin diagonal bands from top-left to bottom-right',
+  'bendlet-sinister': 'thin diagonal bands from top-right to bottom-left',
+  chevronel: 'thin upside-down V shapes, one inside another',
+};
+const DIMINUTIVE_INVERTED_GLOSS: Partial<Record<OrdinaryType, string>> = { chevronel: 'thin V shapes, one inside another' };
 
 /** The ordinaries in the other top corner or on the other side (sinister), in everyday words. */
 const SINISTER_GLOSS: Partial<Record<OrdinaryType, string>> = {
@@ -183,7 +194,9 @@ function ordinaryGloss(d: Design, g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type, mods } = g.item;
   const inverted = mods.includes('inverted');
-  const shape = (type === 'tressure' ? TRESSURE_GLOSS[g.count] : inverted ? INVERTED_GLOSS[type] : mods.includes('sinister') ? SINISTER_GLOSS[type] : ORDINARY_GLOSS[type])
+  const counted = isDiminutive(type) && g.count > 1;
+  const shape = (counted ? (inverted ? DIMINUTIVE_INVERTED_GLOSS : DIMINUTIVE_GLOSS)[type]
+    : type === 'tressure' ? TRESSURE_GLOSS[g.count] : inverted ? INVERTED_GLOSS[type] : mods.includes('sinister') ? SINISTER_GLOSS[type] : ORDINARY_GLOSS[type])
     ?? notSupported({ category: 'ordinary', detail: type });
   // "a gold shortened cross", "a blue raised horizontal band …", "a white upside-down V reaching the edges"
   const before = [mods.includes('couped') ? 'shortened ' : '', mods.includes('enhanced') ? 'raised ' : '', mods.includes('abased') ? 'lowered ' : '', mods.includes('voided') ? 'hollow ' : ''].join('');
@@ -191,7 +204,8 @@ function ordinaryGloss(d: Design, g: Group): string {
   const colour = colourOf(g.paint);
   const { fimbriated, cotised } = g.item;
   const edged = fimbriated ? `, edged in ${colourOf(fimbriated) ?? paintClause(d, fimbriated)}` : '';
-  return `${colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${paintClause(d, g.paint)}`}${edged}${cotised ? cotisesGloss(d, cotised) : ''}`;
+  const lead = (first: string) => (counted ? numberWord(g.count) : article(first));
+  return `${colour ? `${lead(colour)} ${colour} ${body}` : `${lead(body)} ${body} ${paintClause(d, g.paint)}`}${edged}${cotised ? cotisesGloss(d, cotised) : ''}`;
 }
 
 /** An ordinary's cotises: ", with a thin gold stripe on each side", ", with two thin wavy blue stripes on each side". */

@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, isCountedVariation, postureTerm, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, isCountedVariation, postureTerm, type PeripheralJoiner } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -37,6 +37,9 @@ const joinedBy = (joiner: PeripheralJoiner) => DRAWN_ORDINARIES.filter((t) => OR
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
 
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
+/** The diminutives the College never uses alone as the main band (RULES-C §C.2), by name, the longest first: what "a <name>" is the ordinary of. */
+const DIMINUTIVE_BY_NAME = new Map(THIN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
+const SINGLE_DIMINUTIVES = alt(DIMINUTIVE_BY_NAME.keys());
 /** A fur as the text spells it once its synonyms are settled: a named fur, "argent ermined gules", "vairy Or and gules". */
 const FUR = `(?:${COLOUR} ermined ${COLOUR}|(?:vairy|potenty) ${COLOUR} and ${COLOUR}|${alt(FURS.map((f) => FUR_NAME[f]))})`;
 /** A variation of the field as the text spells it once its synonyms are settled, with its stripe count when it has one: "barry of eight", "checky". */
@@ -167,21 +170,38 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\bembattled on both edges\b/g, 'embattled counter-embattled'),
   },
   {
+    // 3a2b. Diminutives written more than one way (RULES-C §C.2, §D.2, §G.2; PLAN-C C11): the other spellings of their names
+    //      (`ORDINARY_SPELLINGS`: a scarpe is a bendlet sinister, a palet a pallet, a chevronelle a chevronel), barrulets are bars (no
+    //      difference, §G.2); SCA armory uses no single diminutive as the main or overall band, so "a bar", "a pallet", "a bendlet (sinister)"
+    //      and "a chevronel" are the ordinary (§C.2: "a bendlet enhanced" is a bend enhanced, Emma Barfoot) — but not a single one set
+    //      in chief, base or canton, which the widget doesn't draw (`ordinary:single-diminutive`) — and "a saltorel" is a saltire couped (§D.2).
+    id: 'diminutives',
+    description: 'scarpe → bendlet sinister, palet → pallet, chevronelle → chevronel (and their plurals); barrulet(s) → bar(s); a bar, a pallet, a bendlet (sinister), a chevronel → a fess, a pale, a bend (sinister), a chevron (not in chief, base or canton, nor a bar gemel); a saltorel → a saltire couped.',
+    apply: (s) => {
+      const spelt = Object.entries(ORDINARY_SPELLINGS).filter(([, t]) => isDiminutive(t)).reduce((text, [word, t]) => text
+        .replace(new RegExp(`\\b${word}s\\b`, 'g'), ORDINARY_PLURAL[t])
+        .replace(new RegExp(`\\b${word}\\b`, 'g'), ORDINARY_NAME[t]), s);
+      return spelt
+        .replace(/\bbarrulets\b/g, 'bars').replace(/\bbarrulet\b/g, 'bar')
+        .replace(new RegExp(`(?<!\\bin (?:chief|base|canton) )\\ba (${SINGLE_DIMINUTIVES})\\b(?! gemel)`, 'g'), (_, name: string) => `a ${ORDINARY_NAME[familyOf(DIMINUTIVE_BY_NAME.get(name)!)]}`)
+        .replace(new RegExp(`\\ba saltorel((?:${ORDINARY_LINE})?)(?: couped)?\\b`, 'g'), 'a saltire$1 couped');
+    },
+  },
+  {
     // 3a3. Ordinary treatments written more than one way (RULES-C §D, §G.2; PLAN-C C6). "Humetty" is couped (Glossary of Terms), "chevron
     //      reversed" is a chevron inverted (RULES-C §G.2); the widget writes "inverted" before a line and "couped" after it (corpus 12 vs 5,
     //      "saltire raguly couped" 3 vs 1: PLAN-C §4), so "a pile wavy inverted" is "a pile inverted wavy" and "a fess couped embattled" is "a
-    //      fess embattled couped"; a bare "chevron inverted embattled" is its upper edge (PLAN-C §4 L2), which the widget names; "a bendlet
-    //      enhanced" is a bend enhanced (Emma Barfoot: a single band enhanced may take its diminutive's name, RULES-C §D.6); a cross or
-    //      saltire is throughout already, so "throughout" after one says nothing (RULES-C §D.2).
+    //      fess embattled couped"; a bare "chevron inverted embattled" is its upper edge (PLAN-C §4 L2), which the widget names; a cross or
+    //      saltire is throughout already, so "throughout" after one says nothing (RULES-C §D.2). ("A bendlet enhanced" is a bend enhanced:
+    //      rule `diminutives`.)
     id: 'ordinary-treatments',
-    description: 'humetty → couped after an ordinary; chevron reversed → chevron inverted; "<chevron|pile> <line> inverted" → "… inverted <line>"; "<ordinary> couped <line>" → "<ordinary> <line> couped"; "chevron inverted embattled" → "… embattled on the upper edge"; a bendlet (sinister) enhanced/abased → a bend (sinister) …; "throughout" after a cross or saltire dropped.',
+    description: 'humetty → couped after an ordinary; chevron reversed → chevron inverted; "<chevron|pile> <line> inverted" → "… inverted <line>"; "<ordinary> couped <line>" → "<ordinary> <line> couped"; "chevron inverted embattled" → "… embattled on the upper edge"; "throughout" after a cross or saltire dropped.',
     apply: (s) => s
       .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?) humett(?:y|ee|é)(?![\\w-])`, 'g'), '$1 couped')
       .replace(/\b(chevrons?) reversed\b/g, '$1 inverted')
       .replace(new RegExp(`\\b(chevron|pile)(${ORDINARY_LINE}) inverted\\b`, 'g'), '$1 inverted$2')
       .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?) couped(${ORDINARY_LINE})(?![\\w-])`, 'g'), '$1$2 couped')
       .replace(/\bchevron inverted embattled(?! counter-embattled| on the| grady)\b/g, 'chevron inverted embattled on the upper edge')
-      .replace(/\b(a|an) bendlet( sinister)? (enhanced|abased)\b/g, '$1 bend$2 $3')
       .replace(new RegExp(`\\b((?:a|an|on a) (?:cross|saltire|pall|pall inverted|fret|label)(?:${ORDINARY_LINE})?(?: voided)?) throughout\\b`, 'g'), '$1'),
   },
   {

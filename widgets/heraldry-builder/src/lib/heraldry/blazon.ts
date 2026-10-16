@@ -13,7 +13,7 @@ import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './char
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
 import { lineWords } from './lines';
-import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, PERIPHERAL_JOINER, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
 
@@ -154,14 +154,18 @@ const MODS_AFTER_LINE: readonly OrdinaryMod[] = ['couped', 'throughout', 'enhanc
 /**
  * "a bend", "a fess embattled", "a chevron inverted embattled on the upper edge", "a saltire raguly couped", "a chevron ployé throughout",
  * "a canton sinister", "a double tressure", "flaunches", or "on a pale wavy" when something sits on it: sinister and inverted before the
- * line, the other treatments after it (RULES-C §G.1, §G.2, PLAN-C §4); a tressure's count before its name, flaunches with no article.
+ * line, the other treatments after it (RULES-C §G.1, §G.2, PLAN-C §4); a tressure's count before its name, flaunches with no article;
+ * diminutives counted ("three bars wavy", "two chevronels inverted", "two bendlets sinister").
  */
 function ordinaryPhrase(g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type, lines, mods } = g.item;
   const line = lineWords({ k: 'ordinary', type, inverted: mods.includes('inverted') }, lines);
+  const counted = isDiminutive(type) && g.count > 1;
+  const name = counted ? [numberWord(g.count), ORDINARY_PLURAL[type]]
+    : [ORDINARY_ARTICLE[type], ...(ORDINARY_COUNTS[type]?.includes(g.count) ? [ORDINARY_COUNT_WORD[g.count]] : []), ORDINARY_NAME[type]];
   const words = [
-    ORDINARY_ARTICLE[type], ...(ORDINARY_COUNTS[type]?.includes(g.count) ? [ORDINARY_COUNT_WORD[g.count]] : []), ORDINARY_NAME[type], ...MODS_BEFORE_LINE.filter((m) => mods.includes(m)),
+    ...name, ...MODS_BEFORE_LINE.filter((m) => mods.includes(m)),
     ...(line ? [line] : []), ...MODS_AFTER_LINE.filter((m) => mods.includes(m)),
   ];
   return `${g.charged.length > 0 ? 'on ' : ''}${words.filter(Boolean).join(' ')}`;

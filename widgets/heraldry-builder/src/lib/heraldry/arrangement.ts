@@ -6,7 +6,7 @@ import {
   groundTincture, groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position, POSITIONS,
 } from './design';
 import { CHARGES, type ChargeId, type Posture } from './charges';
-import { ORDINARY_KIND, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, familyOf, type OrdinaryType } from './ordinaries';
 import { specOf, type OrdinarySpec } from './ordinary-geometry';
 import type { Tincture } from './tinctures';
 import { contrastFailure } from './contrast';
@@ -287,8 +287,11 @@ export function layoutContext(d: Design, path: GroupPath): LayoutContext {
 /** What Table 7's secondary rows are kept by: an ordinary's type, and a chevron inverted, whose charges stand the other way up. */
 export type BetweenHost = OrdinaryType | 'chevron-inverted';
 
-/** The row of Table 7 charges set between an ordinary follow. */
-export const betweenHost = (spec: OrdinarySpec): BetweenHost => (spec.type === 'chevron' && spec.mods.includes('inverted') ? 'chevron-inverted' : spec.type);
+/** The row of Table 7 charges set between an ordinary follow: its own, or its ordinary's for a group of diminutives (two bars as a fess). */
+export const betweenHost = (spec: OrdinarySpec): BetweenHost => {
+  const family = familyOf(spec.type);
+  return family === 'chevron' && spec.mods.includes('inverted') ? 'chevron-inverted' : family;
+};
 
 /**
  * Table 7's secondary rows, the one place they are written: for each ordinary and count of charges set between it,

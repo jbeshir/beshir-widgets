@@ -1,8 +1,8 @@
 // The shape of a band or shape inside "More shapes and edges…": toggles that turn it upside down, shorten it or make it touch the edges,
-// where a band is set (raised, in the middle, lowered), and how many times over a tressure is drawn (double, triple). A toggle is a pressed or unpressed button; a blocked one stays focusable and
+// where a band is set (raised, in the middle, lowered), and how many times over a tressure (double, triple) or thin bands (two to four) are drawn. A toggle is a pressed or unpressed button; a blocked one stays focusable and
 // explains itself instead of changing anything.
 
-import { BAND_POSITION_LABEL, ORDINARY_COUNT_LABEL, SHAPE_TOGGLE_LABEL, type BandPosition, type Choice, type ShapeToggle } from '../../lib/heraldry';
+import { BAND_POSITION_LABEL, SHAPE_TOGGLE_LABEL, type BandPosition, type Choice, type PlainTerm, type ShapeToggle } from '../../lib/heraldry';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { LockGlyph, useExplainer } from './Explainer';
 
@@ -19,10 +19,12 @@ interface Props {
   onPosition: (p: BandPosition) => void;
   counts: Choice<number>[];
   count: number;
+  /** How each count is named: "Double", "Three". */
+  countLabel: (n: number) => PlainTerm;
   onCount: (n: number) => void;
 }
 
-export function ShapeToggles({ testid, noun, toggles, isOn, onToggle, positions, position, onPosition, counts, count, onCount }: Props) {
+export function ShapeToggles({ testid, noun, toggles, isOn, onToggle, positions, position, onPosition, counts, count, countLabel, onCount }: Props) {
   const { explain, node: explainer } = useExplainer();
   return (
     <div class="fur-picker" data-testid={`${testid}-shape`}>
@@ -78,9 +80,9 @@ export function ShapeToggles({ testid, noun, toggles, isOn, onToggle, positions,
             {counts.map((c) => (
               <ChoiceButton
                 key={c.value} testid={`${testid}-number-${c.value}`} checked={count === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
-                label={ORDINARY_COUNT_LABEL[c.value].plain} title={ORDINARY_COUNT_LABEL[c.value].term} onSelect={() => onCount(c.value)} onBlocked={explain} class="segment"
+                label={countLabel(c.value).plain} title={countLabel(c.value).term} onSelect={() => onCount(c.value)} onBlocked={explain} class="segment"
               >
-                <span>{ORDINARY_COUNT_LABEL[c.value].plain}</span>
+                <span>{countLabel(c.value).plain}</span>
               </ChoiceButton>
             ))}
           </RadioGroup>

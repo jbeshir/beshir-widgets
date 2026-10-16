@@ -97,6 +97,15 @@ The pall, pall inverted (read as one phrase), fret, label, mount and trimount ar
 the O&A uses most (`PERIPHERAL_JOINER`). "a label of five points" is `ordinary:label-points`, a label overall `placement:overall-label`, a pall cotised
 is read and filed as the widget's refusal (`widget-structure-rule`, L20), a fret between charges `placement:between-fret-<n>`.
 
+Diminutives are read counted: a number word and a plural (`ORDINARY_PLURAL`: "three bars", "two bendlets sinister", "four pallets") is one
+ordinary group of that count, any number of them (the widget files five bars as `ordinary:multiple` and several saltorels as
+`ordinary:saltorel-multiple`); a central band read after "between" and a group before it ("a fleur-de-lys between two pallets") is a
+secondary group, `multiple-groups:secondary-ordinary`. The normaliser rule `diminutives` folds the other spellings (`ORDINARY_SPELLINGS`:
+scarpe → bendlet sinister, palet → pallet, chevronelle → chevronel) and barrulets into bars (no difference, RULES-C §G.2), and — SCA armory
+using no single diminutive as the main band (RULES-C §C.2) — "a bar", "a pallet", "a bendlet (sinister)" and "a chevronel" into their
+ordinary (not after "in chief/base/canton", nor "a bar gemel") and "a saltorel" into "a saltire couped" (§D.2), as the widget canonicalises
+them. The tagger counts them the same way (`ORDINARY_COUNTS`), so a drawn group is never tagged `ordinary:multiple`.
+
 ### Normalisation
 
 `test/sca/normalise.ts` is applied to the SCA blazon and to the widget's alike. It only bridges spelling and

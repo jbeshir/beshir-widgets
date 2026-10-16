@@ -6,7 +6,7 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DRAWN_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
+  CHARGE_IDS, DRAWN_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
   asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
   type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
@@ -625,17 +625,17 @@ export function builderPath(goal: Design): BuilderPath {
 
   const parts = simpleParts(goal);
 
-  /** The clicks that turn the band or the corner or edge shape at `target` over, shorten it … or set it in the other corner, as the goal is. */
+  /** The clicks that draw the band thin, turn the band or the corner or edge shape at `target` over, shorten it … or set it in the other corner, as the goal is. */
   const togglesTo = (target: 'ordinary' | Beside, goalItem: Group['item']): boolean => {
     if (goalItem.k !== 'ordinary') return true;
-    return (['inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).every((toggle) => {
-      // the pall inverted is the pall turned over: no treatment of its own
-      const on = goalItem.mods.includes(toggle) || (toggle === 'inverted' && goalItem.type === 'pall-inverted');
+    return (['thin', 'inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).every((toggle) => {
+      // the pall inverted is the pall turned over, bars a thin fess: no treatment of their own
+      const on = toggle === 'thin' ? THIN_ORDINARIES.includes(goalItem.type) : goalItem.mods.includes(toggle) || (toggle === 'inverted' && goalItem.type === 'pall-inverted');
       return toggledOn(d, paintPathOf(d, target)!, toggle) === on || click({ kind: 'toggle', target, toggle, on });
     });
   };
 
-  /** The click that draws the band or the corner or edge shape at `target` double or triple, as the goal is (a tressure). */
+  /** The click that draws the band or the corner or edge shape at `target` as many times over as the goal is (a tressure double or triple, two to four thin bands). */
   const countTo = (target: 'ordinary' | Beside, goal: Group): boolean =>
     groupAt(d, paintPathOf(d, target)!).count === goal.count || click({ kind: 'ordinary-count', target, count: goal.count });
 

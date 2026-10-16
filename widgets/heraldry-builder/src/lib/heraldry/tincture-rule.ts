@@ -18,7 +18,7 @@ import {
 } from './geometry';
 import { defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
-import { ORDINARY_KIND, ORDINARY_NAME, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, familyOf, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, type Division, type Variation } from './divisions';
 import { isStraightLine } from './lines';
 import { coPrimaries, forcedLayout, layoutContext } from './arrangement';
@@ -250,7 +250,7 @@ function counterchangeOverVariation(group: Group, variation: Variation, noun: st
   const along = ALONG_STRIPES[variation];
   if (!along) return `${whole} nothing can be counterchanged over a grid of that kind (SENA CC-2).`;
   if (kind !== 'central') return `${whole} a ${noun} can't be counterchanged over stripes — only a band across the middle can (SENA CC-9).`;
-  return along.includes(group.item.type) ? `${whole} it runs along the stripes, so counterchanged would only recolour one stripe (SENA CC-2).` : null;
+  return along.includes(familyOf(group.item.type)) ? `${whole} it runs along the stripes, so counterchanged would only recolour one stripe (SENA CC-2).` : null;
 }
 
 /**
@@ -421,7 +421,7 @@ function sharedTinctureException(d: Design, group: Group): SharedTinctureExcepti
   const item = group.item;
   const shape = item.k === 'ordinary' || SIMPLE_GEOMETRIC.has(item.charge);
   const lattice = d.field.k === 'variation' && (d.field.variation === 'lozengy' || d.field.variation === 'fusily');
-  const bend = item.k === 'ordinary' && (item.type === 'bend' || item.type === 'bend-sinister');
+  const bend = item.k === 'ordinary' && (familyOf(item.type) === 'bend' || familyOf(item.type) === 'bend-sinister');
   // "whether the charge has a complex line" must stay identifiable too: not extended to an ordinary with one (RULES-C §B.6)
   const lined = item.k === 'ordinary' && (!isStraightLine(item.lines.a) || !isStraightLine(item.lines.b));
   return shape && !lined && multiplyDivided(d.field) !== multiplyDivided(group.paint) && !(lattice && bend) ? 'shape-on-multiply-divided' : 'none';
