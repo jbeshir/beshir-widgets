@@ -12,6 +12,10 @@ import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-worker
 //    false), so the geometry and layout caches and the imports are paid once per fork, not once per file; the tests hold no
 //    state between files (each builds its own designs).
 //  - sca: the SCA armorial test reads the 21 MB Latin-1 O&A dump from disk, so it runs in plain Node as its own project.
+//    It runs the cheap per-record checks on every record and the expensive ones (builder replay, gap tagger on ignored
+//    records) on a seeded, rotating sample (test/sca/sample.ts), so its time stays flat as records start passing. `npm run
+//    sca:ignore` (vitest.sca-ignore.config.ts) is the authoritative full sweep; the final gate runs it. SCA_FULL=1 makes
+//    this project do the full sweep too.
 const migrations = await readD1Migrations(path.join(import.meta.dirname, 'migrations'));
 const SCA_TEST = 'test/sca-armorial.test.ts';
 const WORKER_TESTS = ['test/worker.test.ts', 'test/migrations.test.ts'];

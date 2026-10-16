@@ -6,7 +6,8 @@
 // a divided field as its canonical (heater) slot, so what is drawn matches the canonical rule-of-tincture
 // verdict. Hand-fitted layouts are also checked with the real artwork of every charge, drawn in its
 // optically scaled box and turned with the charge; generic layouts with a representative few (all on the heater, a rotating
-// fifth of the layout × drawing pairs in each other shape).
+// fifth of the layout × drawing pairs in each other shape). The slot-on-ground sweep is likewise exhaustive on the heater and
+// a seeded rotating half of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape; SCA_FULL=1 runs every layout in every shape.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -17,6 +18,7 @@ import {
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { rings, type Pt } from './art-geometry';
 import { log } from './helpers';
+import { rotatesIn } from './rotation';
 
 // ── The catalogue ───────────────────────────────────────────────────────────
 
@@ -274,11 +276,15 @@ describe('layout catalogue', () => {
   });
 });
 
+/** The share of layouts the slot-on-ground sweep checks in each shape other than the heater on a given run (seeded rotation; heater exhaustive). */
+const SLOT_SWEEP_RATE = 0.5;
+
 for (const g of SHAPES) {
   describe(`${g.shape}: charge slots fit their ground`, () => {
     it('every legal layout has slots of one size that stay on the ground and do not overlap', () => {
       const problems: string[] = [];
       for (const e of CATALOGUE) {
+        if (g.shape !== 'heater' && !rotatesIn(`${g.shape}|${e.label}`, SLOT_SWEEP_RATE)) continue;
         const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
         const where = `${e.label} (${g.shape})`;
         if (slots.length !== e.count) { problems.push(`${where}: ${slots.length} slots`); continue; }

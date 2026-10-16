@@ -786,7 +786,8 @@ npm run typecheck
 # `npx vitest run --project sca` alone)
 npm test
 
-# Rewrite the SCA ignore list (test/fixtures/sca/ignored.json) after changing the widget or test/sca/
+# Rewrite the SCA ignore list (test/fixtures/sca/ignored.json) after changing the widget or test/sca/. This is also the
+# authoritative FULL sweep: every check on every record, nothing sampled (`npm test` samples the expensive ones, below)
 npm run sca:ignore
 
 # Regenerate public/favicon.ico from public/favicon.svg
@@ -831,7 +832,15 @@ npm run favicon
   Armorial (`test/fixtures/sca/oanda.db`, committed unmodified for tests only; it never reaches
   `dist/`). Each record either matches a design the widget blazons identically, would register,
   draws and lets the Design tab build, or is on the ignore list with the gaps that stop it. See
-  `test/fixtures/sca/README.md`.
+  `test/fixtures/sca/README.md`. To keep `npm test` fast as records start passing, it runs the cheap checks (match,
+  assess, blazon, render) on every record but the expensive ones on a seeded, rotating sample (`test/sca/sample.ts`):
+  the builder-click replay (`builderPath`, ~11 ms a design) on every design with a feature no earlier design has (so
+  every ordinary, charge, division, line, treatment and layout is replayed on every run) plus ~300 designs picked by a hash
+  of the UTC date (or `SCA_SAMPLE_SEED`), and the gap tagger's re-run on the ignored records (the ratchet's "still has the
+  gap it is filed under") for the first record of each gap category plus one in eight. "An ignored record that now passes"
+  and "a new failure" are still checked on every record, by the match and the cheap checks. **`npm run sca:ignore` is the
+  authoritative full sweep** (it never samples, and fails on any widget bug in any record); the final gate runs it, and
+  `SCA_FULL=1 npx vitest run --project sca` makes the test do the same. Sampled failures print the seed to reproduce.
 
 No test touches the network or a real Cloudflare account.
 

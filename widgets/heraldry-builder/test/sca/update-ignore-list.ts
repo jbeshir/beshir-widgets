@@ -7,6 +7,7 @@ import { classify, failureLines, listing } from './classify';
 import { IGNORED_PATH, buildIgnoreList, serialiseIgnoreList } from './ignore-list';
 import { readCurrentArmory } from './oanda';
 
+// The authoritative full sweep: classify() without sampling options runs every check on every record (`npm test` samples; sample.ts).
 it('writes the ignore list', () => {
   const entries: { key: string; tags: string[] }[] = [];
   const bugs: string[] = [];
