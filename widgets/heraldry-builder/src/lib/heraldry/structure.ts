@@ -14,7 +14,7 @@ import { capacityIssue, onChargeWords } from './layout';
 import { posturesClash } from './difference';
 import { strewnIssues } from './strewn';
 import { groundShares, paintName } from './tincture-rule';
-import { ORDINARY_ARTICLE, ORDINARY_NAME, ORDINARY_KIND, type OrdinaryType } from './ordinaries';
+import { ORDINARY_NAME, ORDINARY_KIND, REFUSED_ORDINARIES, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
@@ -154,7 +154,7 @@ function oneEdgeLine(g: Group): ComplexLine | null {
 export function ordinaryLineProblem(g: Group): string | null {
   if (g.item.k !== 'ordinary') return null;
   const host = ordinaryHost(g.item), { a, b } = g.item.lines;
-  const what = `${ORDINARY_ARTICLE[g.item.type]} ${ORDINARY_NAME[g.item.type]}`;
+  const what = ordinaryWithArticle(g.item.type);
   const hosted = lineHostProblem(host, a, what) ?? lineHostProblem(host, b, what)
     ?? (g.item.cotised && lineHostProblem({ k: 'cotises', type: g.item.type }, g.item.cotised.line, `the cotises of ${what}`));
   if (hosted) return hosted;
@@ -188,7 +188,7 @@ const VOIDED_HOSTS: readonly OrdinaryType[] = ['cross', 'saltire'];
 function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
   const { item } = g;
   if (item.k !== 'ordinary') return null;
-  const name = ORDINARY_NAME[item.type], what = `${ORDINARY_ARTICLE[item.type]} ${name}`;
+  const name = ORDINARY_NAME[item.type], what = ordinaryWithArticle(item.type);
   const voided = item.mods.includes('voided');
   if (voided && !VOIDED_HOSTS.includes(item.type)) {
     return `${capitalise(what)} can't be voided: only a cross or a saltire, with more than two ends, can (SENA A3C) — ${ORDINARY_KIND[item.type] === 'central' ? 'two narrower bands are blazoned instead' : 'choose a solid one'}.`;
@@ -340,7 +340,7 @@ function notABadge(group: Group): string | null {
     // A couped band is a badge (SENA A3A2), one this builder doesn't draw yet: support.ts says so.
     if (ORDINARY_KIND[group.item.type] !== 'peripheral' && group.item.mods.includes('couped')) return null;
     return ORDINARY_KIND[group.item.type] === 'peripheral'
-      ? `A fieldless badge has no edge for a ${ORDINARY_NAME[group.item.type]} to run along (SENA A3A2).`
+      ? `A fieldless badge has no edge for ${ordinaryWithArticle(group.item.type)} to run along (SENA A3A2).`
       : `A fieldless badge can't have a ${ORDINARY_NAME[group.item.type]} unless it is couped (SENA A3A2).`;
   }
   if (group.role !== 'primary') return null;
@@ -384,9 +384,19 @@ function peripheralIssues(d: Design): Issue[] {
   const beside = peripherals.find((p) => p.item.type !== 'chief' && p.item.type !== 'bordure');
   const overall = d.groups.findIndex((g) => g.role === 'overall');
   if (beside && overall >= 0) {
-    out.push({ code: 'structure', rule: 'overall', at: { k: 'group', path: [overall] }, message: `Nothing can lie overall with a ${ORDINARY_NAME[beside.item.type]} on the field (SENA App I4).`, slots: [] });
+    out.push({ code: 'structure', rule: 'overall', at: { k: 'group', path: [overall] }, message: `Nothing can lie overall with ${ordinaryWithArticle(beside.item.type)} on the field (SENA App I4).`, slots: [] });
   }
   return out;
+}
+
+/**
+ * The dexter and sinister points wherever they are: drawn, but never registered — "neither the dexter nor sinister point were actually used
+ * in period armory" (PicDic; RULES-C §C.3, L21; LoAR 24–26 reblazoned an old one as a field division).
+ */
+function sidePointIssues(d: Design): Issue[] {
+  return walkGroups(d).flatMap(({ path, group }): Issue[] => (group.item.k === 'ordinary' && REFUSED_ORDINARIES.includes(group.item.type)
+    ? [{ code: 'structure', rule: 'side-point', at: { k: 'group', path }, message: `${capitalise(ordinaryWithArticle(group.item.type))} is refused: neither the dexter nor the sinister point was used in period armory (RULES-C §C.3, L21) — use a point pointed or a base.`, slots: [] }]
+    : []));
 }
 
 /** Structural problems of a design that resolves, in rule order. */
@@ -529,8 +539,8 @@ export function structuralIssues(d: Design): Issue[] {
     add({ code: 'structure', rule: 'crosses-line', at: { k: 'group', path: base.path }, message: 'A base on a field divided per fess needs a charge across the line (SENA A3D1c).', slots: [] });
   }
 
-  // 6a. What the peripherals rule out (RULES-C §C.3, SENA A6C1, App I4).
-  issues.push(...peripheralIssues(d));
+  // 6a. What the peripherals rule out (RULES-C §C.3, SENA A6C1, App I4), and the dexter and sinister points (RULES-C §C.3, L21).
+  issues.push(...peripheralIssues(d), ...sidePointIssues(d));
 
   // 6b. An ordinary's lines (RULES-C §A.3, §A.5).
   for (const { path, group } of walked) {

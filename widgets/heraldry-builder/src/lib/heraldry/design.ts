@@ -366,10 +366,11 @@ function canonicalCharge(c: Charge): Charge {
   };
 }
 
-function canonicalItem(item: Item): Item {
+function canonicalItem(item: Item, count: number): Item {
   if (item.k === 'charge') return canonicalCharge(item);
-  // A pall inverted is a type of its own: the pall with the mod is that type, so the two spellings are one design.
-  const type = item.type === 'pall' && item.mods.includes('inverted') ? 'pall-inverted' : item.type;
+  // A pall inverted is a type of its own: the pall with the mod is that type, so the two spellings are one design. A single tressure is
+  // an orle (RULES-C §C.3, Prec Gwynaeth 04/2004).
+  const type = item.type === 'pall' && item.mods.includes('inverted') ? 'pall-inverted' : item.type === 'tressure' && count === 1 ? 'orle' : item.type;
   const mods = type === item.type ? item.mods : item.mods.filter((m) => m !== 'inverted');
   return {
     k: 'ordinary', type, lines: canonicalLines({ k: 'ordinary', type, inverted: mods.includes('inverted') }, item.lines),
@@ -389,7 +390,7 @@ function groupOrder(g: Group): string {
 
 function canonicalGroups(groups: readonly Group[]): Group[] {
   const rebuilt = groups.map((g): Group => ({
-    role: g.role, relation: g.relation, item: canonicalItem(g.item), count: g.count,
+    role: g.role, relation: g.relation, item: canonicalItem(g.item, g.count), count: g.count,
     arrangement: canonicalArrangement(g.arrangement), position: g.position, paint: canonicalPaint(g.paint),
     charged: canonicalGroups(g.charged),
   }));
@@ -429,8 +430,8 @@ export type CountLimit = 'host' | 'around' | 'around-primary';
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
-/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4, a badge's single main charge (`badge`, SENA A3A2: bands, borders, groups of several charges and split display shapes are not fieldless armory). */
-export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge' | 'line' | 'core-practice' | 'ordinary-treatment';
+/** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4, a badge's single main charge (`badge`, SENA A3A2: bands, borders, groups of several charges and split display shapes are not fieldless armory), a dexter or sinister point (`side-point`: never registered, RULES-C §C.3, L21). */
+export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge' | 'line' | 'core-practice' | 'ordinary-treatment' | 'side-point';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)

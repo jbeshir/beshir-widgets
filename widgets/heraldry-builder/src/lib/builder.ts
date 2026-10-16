@@ -6,7 +6,7 @@
 
 import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
-  asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
   type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
@@ -192,6 +192,11 @@ export function setOrdinaryToggle(d: Design, path: GroupPath, t: ShapeToggle, on
   return refitLayers(setToggle(d, path, t, on));
 }
 
+/** The band or shape drawn double or triple (a tressure), the pictures refitted to the room it leaves. */
+export function setOrdinaryNumber(d: Design, path: GroupPath, count: number): Design {
+  return refitLayers(setOrdinaryCount(d, path, count));
+}
+
 /** The band or shape edged, or cotised once, twice or three times, the pictures refitted to the room it leaves. */
 export function setOrdinaryOutline(d: Design, path: GroupPath, outline: Outline): Design {
   return refitLayers(setOutline(d, path, outline));
@@ -304,7 +309,7 @@ function clashGround(d: Design, path: GroupPath, t: Tincture): string {
   return words.length === 1 ? `${words[0]} part of the background` : `${words.join(' and ')} parts of the background`;
 }
 
-/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border" / "Above the bottom bar". */
+/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border" / "Above the bottom bar" / "Within the inner border" / "Between the side curves". */
 export function placementLabel(d: Design, placement: Placement): string {
   const o = simpleParts(d).ordinary?.group.item;
   const name = (type: OrdinaryType) => ORDINARY_LABEL[type].plain.toLowerCase();
@@ -314,6 +319,8 @@ export function placementLabel(d: Design, placement: Placement): string {
   if (ordinary === 'chief') return 'Below the top bar';
   if (ordinary === 'bordure') return 'Within the border';
   if (ordinary === 'base' || ordinary === 'point') return `Above the ${name(ordinary)}`;
+  if (ordinary === 'orle' || ordinary === 'tressure') return `Within the ${name(ordinary)}`;
+  if (ordinary === 'flaunches') return `Between the ${name(ordinary)}`;
   return ORDINARY_KIND[ordinary] === 'central' ? `Around the ${name(ordinary)}` : 'On the background';
 }
 

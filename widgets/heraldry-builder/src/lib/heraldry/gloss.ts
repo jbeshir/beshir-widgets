@@ -28,14 +28,23 @@ const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   canton: 'square in the top-left corner',
   quarter: 'quarter of the shield in the top-left corner',
   gyron: 'triangle from the top-left corner to the middle',
+  orle: 'inner border',
+  flaunches: 'pair of curved side pieces',
+  gore: 'curved wedge from the left',
+  'point-dexter': 'triangle in the bottom-left corner',
+  'point-sinister': 'triangle in the bottom-right corner',
 };
 
-/** The ordinaries in the other top corner (sinister), in everyday words. */
+/** The ordinaries in the other top corner or on the other side (sinister), in everyday words. */
 const SINISTER_GLOSS: Partial<Record<OrdinaryType, string>> = {
   canton: 'square in the top-right corner',
   quarter: 'quarter of the shield in the top-right corner',
   gyron: 'triangle from the top-right corner to the middle',
+  gore: 'curved wedge from the right',
 };
+
+/** A double or triple tressure, in everyday words. */
+const TRESSURE_GLOSS: Readonly<Record<number, string>> = { 2: 'pair of thin inner borders', 3: 'set of three thin inner borders' };
 
 /** The ordinaries turned upside down, in everyday words. */
 const INVERTED_GLOSS: Partial<Record<OrdinaryType, string>> = {
@@ -161,14 +170,15 @@ function ordinaryLines(type: OrdinaryType, inverted: boolean, { a, b }: Lines): 
   return ` with ${[a !== 'plain' ? edge(a, names.a) : '', b !== 'plain' ? edge(b, names.b) : ''].filter(Boolean).join(' and ')}`;
 }
 
-/** The ordinaries whose line runs along one edge: the chief's lower edge, the bordure's inner one, the base's upper one. */
-const ONE_EDGE: readonly OrdinaryType[] = ['chief', 'bordure', 'base'];
+/** The ordinaries whose line runs along one edge: the chief's lower edge, the bordure's inner one, the base's upper one, the gore's curve. */
+const ONE_EDGE: readonly OrdinaryType[] = ['chief', 'bordure', 'base', 'gore'];
 
 function ordinaryGloss(d: Design, g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type, mods } = g.item;
   const inverted = mods.includes('inverted');
-  const shape = (inverted ? INVERTED_GLOSS[type] : mods.includes('sinister') ? SINISTER_GLOSS[type] : ORDINARY_GLOSS[type]) ?? notSupported({ category: 'ordinary', detail: type });
+  const shape = (type === 'tressure' ? TRESSURE_GLOSS[g.count] : inverted ? INVERTED_GLOSS[type] : mods.includes('sinister') ? SINISTER_GLOSS[type] : ORDINARY_GLOSS[type])
+    ?? notSupported({ category: 'ordinary', detail: type });
   // "a gold shortened cross", "a blue raised horizontal band …", "a white upside-down V reaching the edges"
   const before = [mods.includes('couped') ? 'shortened ' : '', mods.includes('enhanced') ? 'raised ' : '', mods.includes('abased') ? 'lowered ' : '', mods.includes('voided') ? 'hollow ' : ''].join('');
   const body = `${before}${shape}${mods.includes('throughout') ? ' reaching the edges' : ''}${ordinaryLines(type, inverted, g.item.lines)}`;

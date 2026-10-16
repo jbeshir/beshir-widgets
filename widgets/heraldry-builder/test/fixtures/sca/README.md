@@ -83,7 +83,13 @@ into one part of a divided field where the library has no such layout; the libra
 `unsupported` issue). A band with a chief or bordure, or with any number of corner and edge shapes (a base, point pointed, canton, quarter, gyron, and the
 sinister corner forms), is reachable in the Design tab (the extra layer cards, the band step's More shapes row) and passes like any other matched
 design; "a canton sinister" and "a sinister canton" are read alike (`corner-shapes`), and the tagger asks the library, on a stand-in design, whether
-the ordinaries it read stand together (`drawnTogether`), so a second of one type stays `multiple-groups:peripherals`. A matched design that
+the ordinaries it read stand together (`drawnTogether`), so a second of one type stays `multiple-groups:peripherals`. The orle, the double
+and triple tressure, flaunches and the gore (and gore sinister) are read too: "a double tressure" is the tressure drawn twice, flaunches
+take no article, and "within" joins only an orle or tressure (the widget's words: "a heart within an orle gules", "between flaunches");
+`peripheral-forms` reads "a tressure" as an orle (a single tressure is one, Prec Gwynaeth 04/2004), "two flaunches" and "a pair of
+flaunches" as flaunches, "a sinister gore" as "a gore sinister" and "a dexter point" as "a point dexter", and the connectors rule
+puts " within " before an orle or tressure and " between " before flaunches (O&A counts in `PERIPHERAL_JOINER`). A dexter or sinister
+point matches and is filed as the widget's refusal (`widget-structure-rule`, RULES-C §C.3, L21), not as a gap. A matched design that
 the widget registers but cannot blazon, draw or build is a widget bug (`fails`), never ignored.
 
 ### Normalisation

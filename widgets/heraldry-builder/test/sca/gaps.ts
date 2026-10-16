@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, COTISED_HOSTS, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  CHARGES, COTISED_HOSTS, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -37,7 +37,7 @@ function drawnOn(host: EdgeHost, word: string): boolean {
 }
 
 /** The edge a band's line is named on ("wavy on the lower edge"): the words after the line, each host's own names. */
-const EDGE_NAME_WORDS: Readonly<Record<string, 'a' | 'b'>> = { upper: 'a', dexter: 'a', lower: 'b', sinister: 'b' };
+const EDGE_NAME_WORDS: Readonly<Record<string, 'a' | 'b'>> = { upper: 'a', dexter: 'a', outer: 'a', lower: 'b', sinister: 'b', inner: 'b' };
 
 export const GAP_CATEGORIES = [
   { id: 'fieldless', description: 'a fieldless badge the widget does not draw: charges conjoined to the main one, something overall, or two main charges' },
@@ -217,6 +217,9 @@ const JOINS: [RegExp, string][] = [
   [/\bbleu celeste\b/g, 'bleu-celeste'],
   [/\b(vair|potent) en pointe?\b/g, '$1'],
   [/\bpoint pointed\b/g, 'point'],
+  // flaunches are a pair however many the text says; a double or triple tressure is one tressure drawn so
+  [/\b(?:two|a pair of) flaunch(?:es)?\b/g, 'flaunches'],
+  [/\b(?:double|triple) tressure\b/g, 'tressure'],
   [/\b(to|toward|towards) (sinister|dexter|chief|base|center|centre)\b/g, 'to-$2'],
   [/\bst\. /g, 'saint '],
   [/\bhand of fatima\b/g, 'hand-of-fatima'],
@@ -753,12 +756,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   function readOrdinary(i: number, type: OrdinaryType): void {
     const prev = i > 0 ? words[i - 1] : BREAK;
     if (ORDINARY_KIND[type] === 'peripheral' && type !== 'chief' && type !== 'bordure') {
-      // "in base", "base" as a place; "a dexter point" and "a sinister point" are not drawn; "a sinister canton" is.
-      const article = ARTICLES.has(prev) || look(i - 1)?.e.k === 'num' || (/^(dexter|sinister)$/.test(prev) && ARTICLES.has(words[i - 2] ?? ''));
+      // "in base", "base" as a place; "a sinister canton", "a dexter point" and "a sinister point" (drawn, and refused) are shapes; flaunches
+      // take no article; "an orle of …" is an arrangement.
+      const article = ORDINARY_ARTICLE[type] === null || ARTICLES.has(prev) || look(i - 1)?.e.k === 'num' || (/^(dexter|sinister)$/.test(prev) && ARTICLES.has(words[i - 2] ?? ''));
       if (!article || /^(to|from|in)$/.test(prev)) return;
+      if ((type === 'orle' || type === 'tressure') && words[i + 1] === 'of') { tag('arrangement', 'in-orle'); return; }
+      // "between flaunches argent each flaunch charged with a sword": the flaunches named again, to carry charges the widget doesn't lay out
+      if (prev === 'each' && els.some((el) => el.kind === 'ord' && el.supported === type)) { tag('multiple-groups', `tertiary-on-${type}`); return; }
       if (type === 'point' && /^(dexter|sinister)$/.test(prev)) {
-        tag('ordinary', `point-${prev}`);
-        settleHost(newElement('ord', null));
+        settleHost(newElement('ord', `point-${prev}`));
         return;
       }
     } else if (/^(to|from|in|dexter|sinister)$/.test(prev)) return; // "issuant from (dexter) chief": a place

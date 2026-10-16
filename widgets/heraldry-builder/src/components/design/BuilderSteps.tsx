@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, ORDINARY_COUNTS, ORDINARY_COUNT_LABEL, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -66,8 +66,9 @@ const ICON_FIELD = (division: Division | null): Design =>
   icon({ v: 2, field: division ? { k: 'divided', division, parts: ['or', 'azure'] } : 'azure', groups: [] });
 /** The badge tile: a star standing alone, with no shield behind it. */
 const ICON_BADGE: Design = icon({ v: 2, kind: 'badge', groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'or' }] });
+/** A band or shape tile: as the builder first draws it (a tressure double). */
 const ICON_ORDINARY = (type: OrdinaryType): Design =>
-  icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, paint: 'or' }] });
+  icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, count: ORDINARY_COUNTS[type]?.[0] ?? 1, paint: 'or' }] });
 /** The "More shapes" tiles' designs, made once. */
 const MORE_ICONS: ReadonlyMap<OrdinaryType, Design> = new Map(MORE_ORDINARIES.map((t) => [t, ICON_ORDINARY(t)]));
 
@@ -301,7 +302,7 @@ export function ordinaryLineWords(item: Extract<Design['groups'][number]['item']
 function ordinarySummary(design: Design): string {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
-  return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryShapeWords(item), outlineWords(design, path), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
+  return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryShapeWords(groupAt(design, path)), outlineWords(design, path), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
 }
 
 /** The outline of a band in everyday words ("cotised", "doubly cotised"); empty when it has none. */
@@ -310,11 +311,13 @@ function outlineWords(design: Design, path: GroupPath): string {
   return outline === 'none' ? '' : OUTLINE_LABEL[outline].term;
 }
 
-/** The shape toggles and position of a band in everyday words ("upside down, raised"); empty when it has none. */
-function ordinaryShapeWords(item: Extract<Design['groups'][number]['item'], { k: 'ordinary' }>): string {
+/** The shape toggles, position and number of a band or shape in everyday words ("upside down, raised", "double"); empty when it has none. */
+export function ordinaryShapeWords({ item, count }: Design['groups'][number]): string {
+  if (item.k !== 'ordinary') return '';
+  const number = ORDINARY_COUNTS[item.type]?.includes(count) ? [ORDINARY_COUNT_LABEL[count].plain.toLowerCase()] : [];
   const toggles = (['inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).filter((t) => item.mods.includes(t)).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
   const moved = (['enhanced', 'abased'] as const).filter((p) => item.mods.includes(p)).map((p) => BAND_POSITION_LABEL[p].plain.toLowerCase());
-  return [...toggles, ...moved].join(', ');
+  return [...number, ...toggles, ...moved].join(', ');
 }
 
 export function OrdinaryStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {

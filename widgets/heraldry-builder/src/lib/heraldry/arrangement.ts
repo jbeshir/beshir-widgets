@@ -400,7 +400,7 @@ export function hostCounts(kind: 'between' | 'on', spec: OrdinarySpec): readonly
     // Not drawn: no host layouts.
     case 'base': case 'canton': case 'quarter': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'pall': case 'pall-inverted': case 'point':
     case 'fret': case 'label': case 'gyron': case 'mount': case 'trimount': case 'bar': case 'barrulet': case 'pallet': case 'bendlet': case 'bendlet-sinister':
-    case 'chevronel': case 'saltorel': case 'baton': return [];
+    case 'chevronel': case 'saltorel': case 'baton': case 'point-dexter': case 'point-sinister': return [];
     default: return type satisfies never;
   }
 }

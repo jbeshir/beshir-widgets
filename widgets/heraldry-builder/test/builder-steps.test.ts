@@ -446,6 +446,17 @@ describe('"More shapes and edges…" under the band', () => {
     expect(ids(render(setOrdinary(DEFAULT_DESIGN, 'base')))).not.toContain('ordinary-shape-sinister');
   });
 
+  it('offers the orle, tressure, flaunches and gore in the More shapes row; a tressure has its Double · Triple row, a gore its On the right', () => {
+    const tressure = setOrdinary(DEFAULT_DESIGN, 'tressure');
+    const got = ids(render(tressure));
+    for (const id of ['ordinary-orle', 'ordinary-tressure', 'ordinary-flaunches', 'ordinary-gore', 'ordinary-number', 'ordinary-number-2', 'ordinary-number-3']) expect(got, id).toContain(id);
+    expect(render(tressure)).toMatch(/aria-checked="true"[^>]*id="ordinary-number-2"/);
+    expect(got).not.toContain('ordinary-point-dexter');
+    const gore = ids(render(setOrdinary(DEFAULT_DESIGN, 'gore')));
+    expect(gore).toContain('ordinary-shape-sinister');
+    expect(gore).not.toContain('ordinary-number-2');
+  });
+
   it('the outline row and its colour picker appear inside the closed disclosure; cotises add their edge row', () => {
     const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
     const path = ordinaryPath(fess)!;

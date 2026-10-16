@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, MORE_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, isCountedVariation, postureTerm } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, isCountedVariation, postureTerm, type PeripheralJoiner } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -31,8 +31,8 @@ const ORDINARY_NAME_WORDS = 'fess|pale|bend sinister|bend|chevron|cross|saltire|
 const ORDINARY_LINE = ` (?:embattled counter-embattled|${LINE})(?: on the (?:upper|lower|dexter|sinister) edge)?`;
 /** An ordinary as the text spells it once its synonyms are settled: its name, inverted, its line, couped and where it runs, as far as it has them (the tincture follows). */
 const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?(?: voided)?`;
-/** The corner and edge shapes' names joined by the word the widget writes before them (`PERIPHERAL_JOINER`): ", a quarter", " and a base". */
-const joinedBy = (joiner: string) => MORE_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'peripheral' && PERIPHERAL_JOINER[t] === joiner).map((t) => ORDINARY_NAME[t]).join('|');
+/** The corner and edge shapes' names joined by the word the widget writes before them (`PERIPHERAL_JOINER`): ", a quarter", " and a base", " within an orle". */
+const joinedBy = (joiner: PeripheralJoiner) => DRAWN_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'peripheral' && t !== 'chief' && t !== 'bordure' && PERIPHERAL_JOINER[t] === joiner).map((t) => ORDINARY_NAME[t]).join('|');
 /** A top band or border, with its line. */
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
 
@@ -277,21 +277,39 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\b(a|an|on a) dexter (canton|quarter|gyron)\b/g, '$1 $2'),
   },
   {
+    // 3a6. The orle, tressure, flaunches, gore and the dexter and sinister points written more than one way (RULES-C §C.3, §G.2; PLAN-C C9): a
+    //      single tressure is an orle (Prec Gwynaeth 04/2004; corpus "a tressure" 27); flaunches are always a pair ("two flaunches" 95, "a pair
+    //      of flaunches" 24: RULES-C §C.3, the widget writes "flaunches"); a gore issues from dexter unless it is said to be sinister, before its
+    //      name ("a sinister gore" 34) or after it ("a gore sinister" 65, the widget's words); "a dexter point" is the widget's "a point dexter".
+    id: 'peripheral-forms',
+    description: '"a tressure" and "a orle" → "an orle"; "two flaunches", "a pair of flaunches" → "flaunches"; "a sinister gore" → "a gore sinister", "a dexter gore" → "a gore"; "a dexter/sinister point" → "a point dexter/sinister".',
+    apply: (s) => s
+      .replace(/\b(a|on a) (?:tressure|orle)\b/g, '$1n orle')
+      .replace(/\b(?:two|a pair of) flaunches\b/g, 'flaunches')
+      .replace(/\b(a|on a) sinister gore\b/g, '$1 gore sinister')
+      .replace(/\b(a|on a) dexter gore\b/g, '$1 gore')
+      .replace(/\b(a|on a) (dexter|sinister) point\b/g, '$1 point $2'),
+  },
+  {
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a
     //    bordure", "all within a bordure", "and a bordure", ", a bordure"; "on a bend, three…" and "on a bend three…"; "on a
     //    fess between two crescents argent, three mullets" and "… argent three mullets" (RULES §F.2: no
     //    comma is the house style, a comma is occasionally used for clarity); "a lion and in chief three
     //    mullets" and "a lion, in chief three mullets" (RULES §F.2 secondary connectors: the LoARs use both,
     //    and a tincture is factored across either); and the comma that closes the field, which a few records
-    //    omit; before a corner or edge shape, ", a base" and "and a base" (each takes the joiner the O&A uses most for it,
-    //    PERIPHERAL_JOINER: counts in ordinaries.ts). Every element and tincture stays.
+    //    omit; before a corner or edge shape, ", a base" and "and a base", ", an orle", "and an orle" and "within an orle", ", flaunches"
+    //    and "between flaunches" (each takes the joiner the O&A uses most for it, PERIPHERAL_JOINER: counts in ordinaries.ts). Every
+    //    element and tincture stays.
     id: 'equivalent-connectors',
-    description: '"and a chief/bordure", "within a bordure", "all within a bordure" → ", a chief/bordure"; ", a base/gyron/canton" → " and a …" and "and a point pointed/quarter" → ", a …" (each corner or edge shape takes the joiner the O&A uses most, PERIPHERAL_JOINER); "and in chief/base/canton" → ", in chief/base/canton"; no comma after "on a <ordinary> <tincture>" or after the tincture of what is set between it and a group on it; restore the comma after the field.',
+    description: '"and a chief/bordure", "within a bordure", "all within a bordure" → ", a chief/bordure"; ", a base/gyron/canton" → " and a …" and "and a point pointed/quarter" → ", a …", ", an orle/a double tressure" → " within …", ", flaunches" → " between flaunches" (each corner or edge shape takes the joiner the O&A uses most, PERIPHERAL_JOINER); "and in chief/base/canton" → ", in chief/base/canton"; no comma after "on a <ordinary> <tincture>" or after the tincture of what is set between it and a group on it; restore the comma after the field.',
     apply: (s) => s
       .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
       .replace(new RegExp(`,? and (?=(?:a|on a) (?:${joinedBy(', ')})\\b)`, 'g'), ', ')
       // The comma that closes the field stays: "Argent, a base azure".
       .replace(new RegExp(`(?:,? and|,) (?=(?:a|on a) (?:${joinedBy(' and ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === text.indexOf(',') && m === ', ' ? m : ' and '))
+      // "within an orle", "within a double tressure", "between flaunches" (a tressure double or triple, flaunches without an article)
+      .replace(new RegExp(`(?:,? and|,|,? (?:all )?within) (?=(?:on )?an? (?:(?:double|triple) )?(?:${joinedBy(' within ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === text.indexOf(',') && m === ', ' ? m : ' within '))
+      .replace(new RegExp(`(?:,? and|,|,? between) (?=(?:on )?(?:${joinedBy(' between ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === text.indexOf(',') && m === ', ' ? m : ' between '))
       .replace(/,? and (?=in (?:chief|base|canton)\b)/g, ', ')
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
       .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}${BAND_PAINT}|chief(?:${ORDINARY_LINE})? ${TINCT})|${CORE} ${TINCT})),`, 'g'), '$1')

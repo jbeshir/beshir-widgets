@@ -9,7 +9,7 @@
 import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
 import { NON_STANDARD_TINCTURES } from './tinctures';
 import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture, type Lines } from './design';
-import { MORE_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { MORE_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
   assembleParts, fitGroup, firstAllowed, groupTinctureChoices, layoutReason, partsOf, simpleParts, withLayout, withTincture, type Choice,
@@ -66,12 +66,12 @@ export function addedLayerStep(before: Design, after: Design, key: LayerKey): La
   return place !== null && isPeripheralPlace(place) ? place : 'ordinary';
 }
 
-/** A new band, or peripheral, in a tincture (with the lines and treatments it keeps from the one it replaces). */
+/** A new band, or peripheral, in a tincture (with the lines and treatments it keeps from the one it replaces); a tressure double, the first of its counts. */
 export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines = PLAIN_LINES, mods: readonly OrdinaryMod[] = []): Group {
   return {
     role: ORDINARY_KIND[type] === 'central' ? 'primary' : 'peripheral', relation: null,
     item: { k: 'ordinary', type, lines: { ...lines }, mods: [...mods], cotised: null, fimbriated: null },
-    count: 1, arrangement: { k: 'single' }, position: null,
+    count: ORDINARY_COUNTS[type]?.[0] ?? 1, arrangement: { k: 'single' }, position: null,
     paint: t === 'counterchanged' ? { k: 'counterchanged' } : tincturePaint(t), charged: [],
   };
 }
@@ -284,7 +284,7 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       for (const type of CORNER_AND_EDGE_TYPES.filter((t) => !present.has(t))) {
         const placed = refitLayers(assembleParts(d, { ...partsOf(d), peripherals: [...parts.peripherals.map((p) => p.group), ordinaryGroup(type, 'or')] }));
         const painted = withTinctureApart(placed, [placed.groups.findIndex((g) => g.item.k === 'ordinary' && g.item.type === type)]);
-        const problem = painted ? firstProblem(painted) : `No colour works for a ${ORDINARY_NAME[type]} here.`;
+        const problem = painted ? firstProblem(painted) : `No colour works for ${ordinaryWithArticle(type)} here.`;
         if (problem === null && JSON.stringify(simpleParts(painted!).ordinary?.group) === band) return { design: painted! };
         if (problem === null) moved ??= painted;
         else first ??= problem;
@@ -434,7 +434,7 @@ export function peripheralItemChoices(d: Design, place: PeripheralPlace): Choice
   const current = was.item.type;
   const others = new Set(d.groups.flatMap((g, i) => (i !== path[0] && g.item.k === 'ordinary' ? [g.item.type] : [])));
   return CORNER_AND_EDGE_TYPES.map((type): Choice<OrdinaryType> => {
-    if (others.has(type)) return { value: type, allowed: false, reason: `There is already a ${ORDINARY_NAME[type]} — choose a different shape.` };
+    if (others.has(type)) return { value: type, allowed: false, reason: `There is already ${ordinaryWithArticle(type)} — choose a different shape.` };
     const problem = type === current ? null : firstProblem(setPeripheralItem(d, place, type));
     return problem ? { value: type, allowed: false, reason: problem } : { value: type, allowed: true };
   });

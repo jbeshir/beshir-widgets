@@ -131,6 +131,20 @@
       "expect": {"selector":"[data-testid=ordinary-canton] [role=radio][aria-checked=true]"}
     },
     {
+      "label": "orle-within",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"eval":"document.querySelector('#charge-tab-beast')?.click()"},
+        {"click":"[data-testid=charge-lion]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-orle]"},
+        {"click":"[data-testid=ordinary-orle]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"within an orle\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"within an orle\")"}
+    },
+    {
       "label": "shape-round",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

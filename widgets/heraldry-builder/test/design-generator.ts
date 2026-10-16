@@ -319,11 +319,11 @@ export function generatedOutlinedOrdinaryDesigns(seed: number, count: number): D
 
 /** Mixed into a seed for the picks of the corner and edge shapes. */
 const PERIPHERAL_SEED = 0x9b05688c;
-const CORNER_AND_EDGE = ['base', 'point', 'canton', 'quarter', 'gyron'] as const;
+const CORNER_AND_EDGE = ['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore'] as const;
 
 /**
- * The design for `seed` with one to three corner or edge shapes (a base, point pointed, canton, quarter or gyron, sometimes in the sinister
- * corner or with a line), alone or beside a band or a picture, sometimes with a chief or a bordure too. Null when the pick isn't registrable.
+ * The design for `seed` with one to three corner or edge shapes (a base, point pointed, canton, quarter, gyron, orle, double or triple
+ * tressure, flaunches or gore, sometimes in the sinister corner or on the sinister side, or with a line), alone or beside a band or a picture, sometimes with a chief or a bordure too. Null when the pick isn't registrable.
  */
 function peripheralDesignFor(seed: number): Design | null {
   const next = prng(seed ^ PERIPHERAL_SEED);
@@ -333,11 +333,15 @@ function peripheralDesignFor(seed: number): Design | null {
   if (main < 0.35) groups.push({ item: { k: 'ordinary', type: pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile']) }, paint: pick(TINCTURES) });
   else if (main < 0.8) groups.push({ item: { k: 'charge', charge: pick(CHARGES) }, paint: pick(TINCTURES), count: 1 + Math.floor(next() * 3) });
   const shapes = new Set<(typeof CORNER_AND_EDGE)[number]>();
-  for (let n = 1 + Math.floor(next() * next() * 3); shapes.size < n;) shapes.add(pick(CORNER_AND_EDGE));
+  for (let n = 1 + Math.floor(next() * next() * 3); shapes.size < n;) {
+    const type = pick(CORNER_AND_EDGE);
+    // an orle and a tressure lie in one place: one of them at most
+    if (!((type === 'orle' && shapes.has('tressure')) || (type === 'tressure' && shapes.has('orle')))) shapes.add(type);
+  }
   for (const type of shapes) {
     const mods = modDrawn(type, 'sinister') && next() < 0.3 ? ['sinister'] : [];
     const line = type !== 'point' && next() < 0.25 ? pick(DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type, inverted: false }, l))) : null;
-    groups.push({ item: { k: 'ordinary', type, mods, ...(line ? { lines: { a: line } } : {}) }, paint: pick(TINCTURES) });
+    groups.push({ item: { k: 'ordinary', type, mods, ...(line ? { lines: { a: line } } : {}) }, ...(type === 'tressure' ? { count: 2 + Math.floor(next() * 2) } : {}), paint: pick(TINCTURES) });
   }
   if (next() < 0.25) groups.push({ item: { k: 'ordinary', type: pick(['chief', 'bordure']) }, paint: pick(TINCTURES) });
   const r = resolve({ v: 2, field: pick(TINCTURES), groups });

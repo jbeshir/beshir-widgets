@@ -11,7 +11,7 @@ import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES, isDrawnTreatment, typ
 import {
   asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
-import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, modDrawn, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
+import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isOrdinaryType, ordinaryWithArticle } from './ordinaries';
 import {
   AROUND_COUNTS, MAX_CO_PRIMARY_TOTAL, ON_CHARGE_COUNTS, coPrimaries, aroundPrimaryLayouts, halfLayouts, hostCounts, isHalfPosition, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
@@ -36,7 +36,7 @@ function genericThing(category: GapCategory, detail: string): string {
     case 'field-treatment': return `The ${d} treatment`;
     case 'division': return `A field divided ${DIVISION_NAME[detail as keyof typeof DIVISION_NAME] ?? d}`;
     case 'line-of-partition': return `A ${d} line`;
-    case 'ordinary': return isOrdinaryType(detail) ? `${ORDINARY_ARTICLE[detail]} ${ORDINARY_NAME[detail]}` : `A ${d}`;
+    case 'ordinary': return isOrdinaryType(detail) ? ordinaryWithArticle(detail) : `A ${d}`;
     case 'ordinary-treatment': return `A ${d} band or shape`;
     case 'multiple-groups': return 'Two charge groups beside the main one';
     case 'placement': return 'That placement of charges';
@@ -169,7 +169,10 @@ function layoutGaps(g: Group, hasChief: boolean): Found[] {
   const gaps: Found[] = [];
   const a = g.arrangement;
   if (g.item.k === 'ordinary') {
-    if (g.count > 1) gaps.push(gap('ordinary', 'multiple', 'More than one band or shape of the same kind'));
+    // A tressure is drawn double or triple; two gores are one SFCP (SENA App G) the builder has no control for; any other count is a gap.
+    if (g.count > 1 && !ORDINARY_COUNTS[g.item.type]?.includes(g.count)) {
+      gaps.push(g.item.type === 'gore' && g.count === 2 ? gap('multiple-groups', 'two-gores', 'Two gores') : gap('ordinary', 'multiple', 'More than one band or shape of the same kind'));
+    }
     if (a.k !== 'single') gaps.push(gap('arrangement', layoutKey({ arrangement: a, position: null })));
     if (g.position) gaps.push(gap('arrangement', `in-${g.position}`));
     return gaps;
@@ -289,12 +292,14 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Found }> {
 
   out.push(...coPrimaryGaps(d, primaries.map(({ g, i }) => ({ g, i }))).map(({ i, gap: g }) => ({ at: at([i]), gap: g })));
   if (secondaries.length > 1) out.push({ at: at([secondaries[1].i]), gap: gap('multiple-groups', 'secondary') });
-  // Any number of peripheral ordinaries stand together, one of each type (the builder has no control for a second of a type: two cantons).
+  // Any number of peripheral ordinaries stand together, one of each type (the builder has no control for a second of a type: two cantons, an
+  // orle and a tressure, which lie in one place).
   const seen = new Set<string>();
   for (const { g, i } of peripherals) {
     if (g.item.k !== 'ordinary') continue;
-    if (seen.has(g.item.type)) out.push({ at: at([i]), gap: gap('multiple-groups', 'peripherals', 'Two of the same corner or edge shape') });
-    seen.add(g.item.type);
+    const type = g.item.type === 'tressure' ? 'orle' : g.item.type;
+    if (seen.has(type)) out.push({ at: at([i]), gap: type === 'gore' ? gap('multiple-groups', 'two-gores', 'Two gores') : gap('multiple-groups', 'peripherals', 'Two of the same corner or edge shape') });
+    seen.add(type);
   }
   for (const { g, i } of secondaries) {
     // Set by position: in chief, in base or in canton (other positions, like in dexter chief, are not drawn yet).

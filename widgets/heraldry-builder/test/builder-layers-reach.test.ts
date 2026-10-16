@@ -176,6 +176,16 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Gules, a canton sinister argent.'],
   ['a band with a chief, a wavy base and a canton', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('base', { lines: { a: 'wavy' } }), 'or'), group(ordinary('canton'), 'argent')),
     'Azure, a fess and a base wavy Or, a chief and a canton argent.'],
+  ['a picture within an orle (O&A 8201)', arms(div('per-bend', 'argent', 'vert'), group(charge('heart'), 'gules'), group(ordinary('orle'), 'gules')),
+    'Per bend argent and vert, a heart within an orle gules.'],
+  ['flaunches alone (O&A 8601)', arms('or', group(ordinary('flaunches'), 'azure')), 'Or, flaunches azure.'],
+  ['pictures between flaunches (O&A 3189)', arms('sable', group(charge('roundel'), 'or', { count: 3, arrangement: 'in-pale' }), group(ordinary('flaunches'), 'or')),
+    'Sable, in pale three roundels between flaunches Or.'],
+  ['a gore sinister', arms('argent', group(ordinary('gore', { mods: ['sinister'] }), 'azure')), 'Argent, a gore sinister azure.'],
+  ['a picture within a triple tressure', arms('gules', group(charge('lion'), 'or'), group(ordinary('tressure'), 'or', { count: 3 })), 'Gules, a lion within a triple tressure Or.'],
+  ['a band within a double tressure, on a card beside it', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('tressure'), 'argent', { count: 2 })), 'Azure, a fess Or within a double tressure argent.'],
+  ['an orle engrailed beside a chief', arms('argent', group(charge('lion'), 'gules'), group(ordinary('orle', { lines: { a: 'engrailed' } }), 'azure'), group(ordinary('chief'), 'gules')),
+    'Argent, a lion gules within an orle engrailed azure, a chief gules.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {

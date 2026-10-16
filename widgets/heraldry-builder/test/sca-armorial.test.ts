@@ -15,10 +15,10 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, DRAWN_LINES, DRAWN_TREATMENTS, LINED_VARIATIONS, LINE_WORD, FURS, FUR_NAME, SEMY_NAMES, lineAllowed, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
-  blazon, canonicalJson, isCountedVariation, normalise,
+  blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, structuralIssues,
 } from '../src/lib/heraldry';
 import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
-import { arms, charge, group, ordinary } from './helpers';
+import { arms, charge, div, group, ordinary } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
 import { GAP_CATEGORIES, categoryOf } from './sca/gaps';
@@ -202,6 +202,17 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a band and a canton', arms('azure', group(ordinary('bend'), 'or'), group(ordinary('canton'), 'argent'))],
   ['a base wavy beside a chief', arms('azure', group(ordinary('chief'), 'or'), group(ordinary('base', { lines: { a: 'wavy' } }), 'argent'))],
   ['a band, a chief, a base and a canton', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('base'), 'or'), group(ordinary('canton'), 'argent'))],
+  ['a charge within an orle', arms(div('per-bend', 'argent', 'vert'), group(charge('heart'), 'gules'), group(ordinary('orle'), 'gules'))],
+  ['an orle alone', arms('gules', group(ordinary('orle'), 'argent'))],
+  ['an orle embattled on its outer edge', arms('azure', group(ordinary('orle', { lines: { a: 'embattled', b: 'plain' } }), 'or'))],
+  ['an orle wavy and a chief', arms('argent', group(charge('lion'), 'gules'), group(ordinary('orle', { lines: { a: 'wavy' } }), 'azure'), group(ordinary('chief'), 'gules'))],
+  ['a charge within a double tressure', arms('gules', group(charge('lion'), 'or'), group(ordinary('tressure'), 'or', { count: 2 }))],
+  ['a triple tressure', arms('gules', group(ordinary('tressure'), 'or', { count: 3 }))],
+  ['flaunches alone', arms('or', group(ordinary('flaunches'), 'azure'))],
+  ['charges between flaunches', arms('sable', group(charge('roundel'), 'or', { count: 3, arrangement: 'in-pale' }), group(ordinary('flaunches'), 'or'))],
+  ['flaunches engrailed', arms('argent', group(ordinary('flaunches', { lines: { a: 'engrailed' } }), 'vert'))],
+  ['a gore sinister', arms('argent', group(ordinary('gore', { mods: ['sinister'] }), 'azure'))],
+  ['a charge and a gore', arms('gules', group(charge('dragon'), 'argent'), group(ordinary('gore'), 'or'))],
 ];
 
 describe('the matcher reads what the widget writes', () => {
@@ -308,6 +319,45 @@ describe('the matcher reads corner and edge shapes, with the joiner the widget w
 });
 
 // A stated default is a wording of the same design, accepted at design level; never as dropped text.
+describe('the matcher reads the orle, tressure, flaunches, gore and the dexter and sinister points, written either way', () => {
+  it.each([
+    ['Per bend argent and vert, a heart within an orle gules.', 'Per bend argent and vert, a heart within an orle gules.'],
+    ['Vert, a sun and an orle Or.', 'Vert, a sun within an orle Or.'],
+    ['Vert, a sun, an orle Or.', 'Vert, a sun within an orle Or.'],
+    ['Gules, a rose all within an orle Or.', 'Gules, a rose within an orle Or.'],
+    ['Gules, an orle argent.', 'Gules, an orle argent.'],
+    ['Sable, a sheaf of arrows within a orle Or.', null],
+    ['Gules, a lion within a tressure Or.', 'Gules, a lion within an orle Or.'],
+    ['Gules, a lion within a double tressure Or.', 'Gules, a lion within a double tressure Or.'],
+    ['Gules, a triple tressure Or.', 'Gules, a triple tressure Or.'],
+    ['Sable, three bezants in pale between two flaunches Or.', 'Sable, in pale three roundels between flaunches Or.'],
+    ['Argent, in pale three roses gules between a pair of flaunches sable.', 'Argent, in pale three roses gules between flaunches sable.'],
+    ['Or, flaunches azure.', 'Or, flaunches azure.'],
+    ['Argent, a sinister gore azure.', 'Argent, a gore sinister azure.'],
+    ['Gules, a dragon argent, a gore Or.', 'Gules, a dragon argent and a gore Or.'],
+  ])('%s', (text, house) => {
+    const m = explainMatch(text);
+    if (house === null) {
+      expect(m.status).not.toBe('match');
+      return;
+    }
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('reads a dexter and a sinister point, and the widget refuses them by their own rule (RULES-C §C.3, L21)', () => {
+    const m = explainMatch('Azure, a mullet, a dexter point and a sinister point argent.');
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe('Azure, a mullet and a point dexter and a point sinister argent.');
+    expect(structuralIssues(m.match!.design!).map((i) => (i.code === 'structure' ? i.rule : i.code))).toEqual(['side-point', 'side-point']);
+  });
+
+  it('files charges on a gore and on flaunches, and two gores, under their gaps', () => {
+    expect(explainMatch('Erminois, on a gore sinister gules a lion Or.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'multiple-groups', detail: 'tertiary-on-gore' }] });
+    expect(explainMatch('Or, two gores sable.').status).not.toBe('match');
+  });
+});
+
 describe('the matcher accepts stated defaults only for the design that has them', () => {
   it.each([
     ['Quarterly Or and gules, in bend two roses sable.', 'Quarterly Or and gules, two roses sable.'],
@@ -466,13 +516,20 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a pale endorsed', 'azure, a pale endorsed argent'],
     ['a chevron fimbriated', 'azure, a chevron Or fimbriated argent'],
     ['a cross voided', 'azure, a cross voided Or'],
-    ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, a ${ORDINARY_NAME[t]} ${LINE_WORD[l]} Or`])),
+    ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, ${ordinaryWithArticle(t)} ${LINE_WORD[l]} Or`])),
     ['a chief and a bordure', 'azure, a chief and a bordure Or'],
     ['a band and a canton', 'azure, a bend Or and a canton argent'],
     ['a sinister canton', 'azure, a sinister canton argent'],
     ['a point pointed', 'azure, a point pointed Or'],
     ['several corner and edge shapes', 'azure, a fess Or, a chief argent, a base Or and a canton argent'],
     ['a charge and a quarter', 'azure, a lion Or and a quarter argent'],
+    ['an orle', 'azure, a lion argent within an orle Or'],
+    ['an orle of the arrangement', 'azure, a lion argent and an orle Or'],
+    ['a double tressure', 'azure, a lion argent within a double tressure Or'],
+    ['two flaunches', 'azure, a lion argent between two flaunches Or'],
+    ['a pair of flaunches', 'azure, a pair of flaunches Or'],
+    ['a sinister gore', 'azure, a sinister gore Or'],
+    ['a dexter point', 'azure, a dexter point Or'],
     ['charges in chief', 'azure, a bend Or, in chief three roses argent'],
     ['charges in a corner', 'azure, a bend Or and in dexter chief a rose argent'],
     ['overall', 'azure, a fess Or and overall a lion argent'],

@@ -3,7 +3,10 @@
 export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
-export { ORDINARY_TYPES, BUILDER_ORDINARIES, MORE_ORDINARIES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_MODS, MOD_HOSTS, PERIPHERAL_ORDER, PERIPHERAL_JOINER, modDrawn, isOrdinaryType, type OrdinaryType, type OrdinaryMod } from './ordinaries';
+export {
+  ORDINARY_TYPES, BUILDER_ORDINARIES, MORE_ORDINARIES, REFUSED_ORDINARIES, DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_MODS, MOD_HOSTS,
+  PERIPHERAL_ORDER, PERIPHERAL_JOINER, modDrawn, isOrdinaryType, ordinaryWithArticle, type OrdinaryType, type OrdinaryMod, type PeripheralJoiner,
+} from './ordinaries';
 export {
   LINES, DRAWN_LINES, LINE_GROUP, LINE_PROFILE, LINE_WORD, LINE_SPELLINGS, isLine, isStraightLine, lineDiffers, edgeCount, lineAllowed, bareLines, fitPeriod, visibleSpan, edgeCommands, polylineEdgeCommands, edgePoints, periodStarts,
   reversedRun, runAlong, fieldSide, featureMiddle, profileSwing, edgeNames, lineWords,
@@ -11,7 +14,7 @@ export {
 } from './lines';
 export {
   lineChoices, setLine, edgeSideChoices, edgeSideOf, setEdgeSide, keptLines, keptOrdinaryLines, toggleChoices, toggledOn, setToggle, bandPositionOf,
-  bandPositionChoices, setBandPosition, keptMods, outlineAt, outlineChoices, setOutline, keptOutline, outlineTinctureOf, outlineTinctureChoices, setOutlineTincture,
+  bandPositionChoices, setBandPosition, keptMods, outlineAt, outlineChoices, setOutline, keptOutline, outlineTinctureOf, outlineTinctureChoices, setOutlineTincture, ordinaryCountChoices, setOrdinaryCount,
   type EdgeTarget, type EdgeSide, type ShapeToggle, type BandPosition,
 } from './shape-options';
 export { OUTLINES, type Outline } from './outline';
@@ -39,7 +42,7 @@ export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, ORDINARY_COUNT_LABEL, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';

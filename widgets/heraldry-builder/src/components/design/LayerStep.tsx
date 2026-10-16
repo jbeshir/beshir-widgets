@@ -8,7 +8,7 @@ import {
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { setCharge } from '../../lib/builder';
-import { PictureControls, Step, lower, ordinaryLineWords, picturesSummary, colourWords, type Accordion } from './BuilderSteps';
+import { PictureControls, Step, lower, ordinaryLineWords, ordinaryShapeWords, picturesSummary, colourWords, type Accordion } from './BuilderSteps';
 import { OrdinaryEdges } from './OrdinaryEdges';
 import { PaintPicker } from './PaintPicker';
 import { pictureWord } from './AddLayer';
@@ -94,7 +94,7 @@ function PeripheralStep({ design, shape, place, n, onChange, issues, accordion }
   return (
     <Step
       n={n} title={capitalise(label.plain)} term={label.term} hint="A shape along an edge or in a corner of the field, beside the band; the pictures keep clear of it."
-      summary={[ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ')} issues={issues} accordion={accordion} testid={`step-layer-${place}`}
+      summary={[ordinaryShapeWords(groupAt(design, path)), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ')} issues={issues} accordion={accordion} testid={`step-layer-${place}`}
       remove={{ label: `Remove the ${lower(label.plain)}`, testid: `remove-layer-${place}`, onRemove: () => onChange(removeLayer(design, place)) }}
     >
       <div class="control">

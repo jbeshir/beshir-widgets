@@ -40,7 +40,7 @@ function readDivisionLines(division: Division, tokens: readonly string[], at: nu
 }
 
 /** The edges a band's line is named on, to the line (`a` or `b`) that edge is. */
-const EDGE_SIDES: Record<string, 'a' | 'b'> = { upper: 'a', dexter: 'a', lower: 'b', sinister: 'b' };
+const EDGE_SIDES: Record<string, 'a' | 'b'> = { upper: 'a', dexter: 'a', outer: 'a', lower: 'b', sinister: 'b', inner: 'b' };
 
 /**
  * The lines a band or shape is written with after its name (`at` is the index after it): "embattled" (a band's bare meaning of it: `bareLines`),

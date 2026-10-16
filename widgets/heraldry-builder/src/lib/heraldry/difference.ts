@@ -11,7 +11,7 @@ import {
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, type Division, type Variation } from './divisions';
 import { LINE_WORD, edgeCount, lineDiffers, lineWords, type EdgeHost, type Line } from './lines';
-import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
@@ -77,13 +77,16 @@ function conflictKey(item: Item): string {
   return item.type === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : typeKey(item);
 }
 
-/** RULES-C §C.3, L9: a quarter is a canton drawn larger, one type for conflict. Its `sinister` form changes no key. */
-const ALIKE_TYPE: Partial<Record<OrdinaryType, OrdinaryType>> = { quarter: 'canton' };
+/**
+ * RULES-C §C.3, L9: a quarter is a canton drawn larger, one type for conflict; a tressure is a narrow orle (a single tressure is one, a double
+ * tressure differs from it only in number, Prec Gwynaeth 04/2004). A `sinister` form changes no key.
+ */
+const ALIKE_TYPE: Partial<Record<OrdinaryType, OrdinaryType>> = { quarter: 'canton', tressure: 'orle' };
 
-/** An item's type as conflict compares it: a charge's own, an ordinary's with the types that are one (a quarter is a canton). */
+/** An item's type as conflict compares it: a charge's own, an ordinary's with the types that are one (a quarter is a canton, a tressure an orle). */
 const typeKey = (item: Item): string => (item.k === 'ordinary' ? `ordinary:${ALIKE_TYPE[item.type] ?? item.type}` : itemKey(item));
 
-/** A5G6 (RULES-C §C.3): a canton, quarter or gyron against the same in the other top corner is a change of its position. */
+/** A5G6 (RULES-C §C.3, L16): a canton, quarter or gyron against the same in the other top corner, a gore against one from the other side, is a change of its position. */
 const sidesSwapped = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.mods.includes('sinister') !== y.mods.includes('sinister');
 
 /** A5G4 (RULES-C §D.2): a couped ordinary against one throughout — the same ordinary otherwise — is a change of its type. */
@@ -410,6 +413,9 @@ function edgesDiffer(x: Item, y: Item): boolean {
   return lineDiffers(lx.a, ly.a, twoSided) || lineDiffers(lx.b, ly.b, twoSided);
 }
 
+/** How many a group counts as for A5G5: flaunches are always a pair ("two DCs between Argent, a chief azure and Argent, flaunches azure", SENA A5G5). */
+const numberOf = (g: Group): number => (g.item.k === 'ordinary' && g.item.type === 'flaunches' ? 2 : g.count);
+
 /** A5G3–A5G7: at most one distinct change per attribute of a pair of groups; `skip` holds attributes already substantial. */
 function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   const ref = refOf(x, y);
@@ -420,7 +426,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   // A change of an ordinary's edge, or couping it, is a change of its type: with a change of type, one change (RULES-C §B.3, §D.2); a chevron
   // against a chevron inverted, substantial between primaries, is a distinct change elsewhere (A5G). Enhanced and abased are artistic (§D.6).
   if (typeKey(gx.item) !== typeKey(gy.item) || conflictKey(gx.item) !== conflictKey(gy.item) || edgesDiffer(gx.item, gy.item) || coupingDiffers(gx.item, gy.item)) dc('type', 'A5G4');
-  if (countCategoryFine(gx.count) !== countCategoryFine(gy.count)) dc('number', 'A5G5');
+  if (countCategoryFine(numberOf(gx)) !== countCategoryFine(numberOf(gy))) dc('number', 'A5G5');
   if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);
   // Secondary groups set around the primary and beside it ("between three mullets" / "and in chief three mullets") stand in different places.
@@ -635,7 +641,7 @@ export interface DifferenceNote { attr: DiffAttr; kind: ChangeKind; rule: SenaRu
 const partitionWord = (d: Design): string => (d.kind === 'badge' ? 'none' : d.field.k === 'divided' ? DIVISION_NAME[d.field.division] : d.field.k === 'variation' ? VARIATION_NAME[d.field.variation] : 'plain');
 /** A field's partition lines in words: "straight", "wavy", "straight and embattled" (quarterly's two). */
 const partitionLineWords = (d: Design): string => (d.kind === 'badge' ? 'none' : [...new Set(partitionLines(d.field).map((l) => (l === 'plain' ? 'straight' : LINE_WORD[l])))].join(' and ') || 'none');
-const itemPhrase = (i: Item): string => (i.k === 'ordinary' ? `${ORDINARY_ARTICLE[i.type]} ${ORDINARY_NAME[i.type]}` : `${CHARGES[i.charge].article} ${CHARGES[i.charge].name}`);
+const itemPhrase = (i: Item): string => (i.k === 'ordinary' ? ordinaryWithArticle(i.type) : `${CHARGES[i.charge].article} ${CHARGES[i.charge].name}`);
 
 /** What the builder calls a group in the middle of a sentence: "band or shape", "top bar", "pictures beside the band". */
 function groupNoun(d: Design, path: GroupPath): { one: string; many: string } {
@@ -749,7 +755,7 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         break;
       }
       case 'number':
-        text = pair(`number of ${noun().many}`, String(both().ga.count), String(both().gb.count));
+        text = pair(`number of ${noun().many}`, String(numberOf(both().ga)), String(numberOf(both().gb)));
         sentence = diff.kind === 'sc'
           ? 'The number of main pictures falls in a different group (1, 2, 3, or 4 and more) — a substantial change'
           : 'A different number (1, 2, 3, 4, 5, or 6 and more) is a distinct change';
@@ -760,9 +766,12 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         break;
       case 'arrangement':
         if (sidesSwapped(both().ga.item, both().gb.item)) {
-          const corner = (g: Group) => (g.item.k === 'ordinary' && g.item.mods.includes('sinister') ? 'top right' : 'top left');
+          // a gore issues from a side; the others lie in a top corner
+          const { item } = both().ga;
+          const side = item.k === 'ordinary' && item.type === 'gore';
+          const corner = (g: Group) => `${side ? '' : 'top '}${g.item.k === 'ordinary' && g.item.mods.includes('sinister') ? 'right' : 'left'}${side ? ' side' : ''}`;
           text = pair(`position of ${noun().one}`, corner(both().ga), corner(both().gb));
-          sentence = `Moving ${itemPhrase(both().ga.item)} to the other top corner is a distinct change`;
+          sentence = `Moving ${itemPhrase(both().ga.item)} to the other ${side ? 'side' : 'top corner'} is a distinct change`;
           break;
         }
         text = pair(`arrangement of ${noun().many}`, layoutWords({ arrangement: both().ga.arrangement, position: both().ga.position }), layoutWords({ arrangement: both().gb.arrangement, position: both().gb.position }));

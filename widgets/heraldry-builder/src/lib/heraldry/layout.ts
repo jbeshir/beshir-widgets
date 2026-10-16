@@ -930,13 +930,16 @@ function bestFit(options: readonly Centre[][], ground: Ground): { centres: Centr
 /** How far (heater units) charges beside a peripheral they keep out of may be moved each way, and drawn together about their middle, to grow: a coarse grid, then every half step round the best of it. */
 const KEEP_OUT_SHIFTS = [0, -8, 8, -16, 16, -24, 24];
 const KEEP_OUT_STEP = 4;
-const KEEP_OUT_SPREADS = [1, 0.9, 0.8];
+const KEEP_OUT_SPREADS = [1, 0.9, 0.8, 0.7, 0.6];
+/** In the other shapes, from the heater's places, drawn together further still: an orle's ring in a round or lozenge shape leaves less room inside than the heater's. */
+const KEEP_OUT_SPREADS_IN_SHAPES = [...KEEP_OUT_SPREADS, 0.5];
 
 /**
- * Charges kept out of a canton, quarter, gyron, base or point: their nominal centres, or those moved a little and drawn together, whichever
+ * Charges kept out of a canton, quarter, gyron, base, point, flaunches or gore, or inside an orle or tressure: their nominal centres, or those
+ * moved a little and drawn together (inside a ring, a good deal), whichever
  * is largest (the nominal ones among equals) — a lone charge beside a quarter moves down and to the side rather than shrink into the corner.
  */
-function clearOfKeptOut(nominal: readonly Centre[], ground: Ground, crossed: boolean): { centres: Centre[]; size: number } {
+function clearOfKeptOut(nominal: readonly Centre[], ground: Ground, crossed: boolean, spreads: readonly number[] = KEEP_OUT_SPREADS): { centres: Centre[]; size: number } {
   const mx = nominal.reduce((a, c) => a + c.x, 0) / nominal.length, my = nominal.reduce((a, c) => a + c.y, 0) / nominal.length;
   let best = { centres: [...nominal], size: largestSize(nominal, ground, crossed) }, move = { k: 1, dx: 0, dy: 0 };
   const tryAt = (k: number, dx: number, dy: number) => {
@@ -948,7 +951,7 @@ function clearOfKeptOut(nominal: readonly Centre[], ground: Ground, crossed: boo
     best = { centres, size };
     move = { k, dx, dy };
   };
-  for (const k of KEEP_OUT_SPREADS) for (const dx of KEEP_OUT_SHIFTS) for (const dy of KEEP_OUT_SHIFTS) tryAt(k, dx, dy);
+  for (const k of spreads) for (const dx of KEEP_OUT_SHIFTS) for (const dy of KEEP_OUT_SHIFTS) tryAt(k, dx, dy);
   const { k, dx, dy } = move;
   for (const ex of [-1, 0, 1]) for (const ey of [-1, 0, 1]) tryAt(k, dx + ex * KEEP_OUT_STEP, dy + ey * KEEP_OUT_STEP);
   return best;
@@ -1013,7 +1016,7 @@ function genericIn(ctx: Exclude<GroundContext, { k: 'around' }>, count: number, 
   if (ctx.keepOut.length > 0) {
     // Beside a peripheral, the room it leaves in this shape (its base or corner is the shape's own) is searched as on the heater, from the
     // heater's places: none there is no room; the heater's spread mapped in is the fallback only where the search reaches other parts of the field.
-    const moved = clearOfKeptOut(centresIn(heater, [1, 1, 0], shape), ground, crossed);
+    const moved = clearOfKeptOut(centresIn(heater, [1, 1, 0], shape), ground, crossed, KEEP_OUT_SPREADS_IN_SHAPES);
     const size = Math.min(heater[0].size, moved.size);
     if (size < 1) return [];
     const slots = toSlots(moved.centres, size);

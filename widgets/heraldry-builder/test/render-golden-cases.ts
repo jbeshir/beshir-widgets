@@ -122,12 +122,18 @@ const OUTLINE_CASES: ReadonlyArray<[string, unknown]> = [
   ['outline-voided-cotised-saltire', outlinedBand('saltire', { mods: ['voided'], ...cotised(1) })],
 ];
 
-/** The corner and edge shapes: each alone, the sinister canton, a wavy base, and several beside a band and a picture. */
+/** The corner and edge shapes: each alone, the sinister canton, a wavy base, several beside a band and a picture; the orle, double tressure, flaunches and gore (and gore sinister) with what they hold, and an orle embattled on its outer edge. */
 const PERIPHERAL_CASES: ReadonlyArray<[string, unknown]> = [
   ...['base', 'point', 'canton', 'quarter', 'gyron'].map((t): [string, unknown] => [`periph-${t}`, arms('azure', group(ordinary(t), 'or'))]),
   ['periph-canton-sinister', arms('gules', group(ordinary('canton', { mods: ['sinister'] }), 'argent'))],
   ['line-wavy-base', arms('argent', group(charge('mullet'), 'sable'), group(ordinary('base', { lines: { a: 'wavy' } }), 'azure'))],
   ['periph-bend-chief-base-canton', arms('azure', group(ordinary('bend'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('base'), 'or'), group(ordinary('canton'), 'argent'))],
+  ['periph-orle', arms(div('per-bend', 'argent', 'vert'), group(charge('heart'), 'gules'), group(ordinary('orle'), 'gules'))],
+  ['periph-tressure-2', arms('gules', group(charge('lion'), 'or'), group(ordinary('tressure'), 'or', { count: 2 }))],
+  ['periph-flaunches', arms('sable', group(charge('roundel'), 'or', { count: 3, arrangement: 'in-pale' }), group(ordinary('flaunches'), 'or'))],
+  ['periph-gore', arms('gules', group(charge('dragon'), 'argent'), group(ordinary('gore'), 'or'))],
+  ['periph-gore-sinister', arms('argent', group(ordinary('gore', { mods: ['sinister'] }), 'azure'))],
+  ['line-embattled-outer-orle', arms('azure', group(ordinary('orle', { lines: { a: 'embattled', b: 'plain' } }), 'or'))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES].map(([name, input]) => ({ name, design: nd(input) }));

@@ -13,7 +13,7 @@ import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './char
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
 import { lineWords } from './lines';
-import { ORDINARY_ARTICLE, ORDINARY_NAME, PERIPHERAL_JOINER, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, PERIPHERAL_JOINER, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
 
@@ -153,15 +153,18 @@ const MODS_AFTER_LINE: readonly OrdinaryMod[] = ['couped', 'throughout', 'enhanc
 
 /**
  * "a bend", "a fess embattled", "a chevron inverted embattled on the upper edge", "a saltire raguly couped", "a chevron ployé throughout",
- * "a canton sinister", or "on a pale wavy" when something sits on it: sinister and inverted before the line, the other treatments after
- * it (RULES-C §G.1, §G.2, PLAN-C §4).
+ * "a canton sinister", "a double tressure", "flaunches", or "on a pale wavy" when something sits on it: sinister and inverted before the
+ * line, the other treatments after it (RULES-C §G.1, §G.2, PLAN-C §4); a tressure's count before its name, flaunches with no article.
  */
 function ordinaryPhrase(g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type, lines, mods } = g.item;
   const line = lineWords({ k: 'ordinary', type, inverted: mods.includes('inverted') }, lines);
-  const words = [ORDINARY_NAME[type], ...MODS_BEFORE_LINE.filter((m) => mods.includes(m)), ...(line ? [line] : []), ...MODS_AFTER_LINE.filter((m) => mods.includes(m))];
-  return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[type]} ${words.join(' ')}`;
+  const words = [
+    ORDINARY_ARTICLE[type], ...(ORDINARY_COUNTS[type]?.includes(g.count) ? [ORDINARY_COUNT_WORD[g.count]] : []), ORDINARY_NAME[type], ...MODS_BEFORE_LINE.filter((m) => mods.includes(m)),
+    ...(line ? [line] : []), ...MODS_AFTER_LINE.filter((m) => mods.includes(m)),
+  ];
+  return `${g.charged.length > 0 ? 'on ' : ''}${words.filter(Boolean).join(' ')}`;
 }
 
 /** "cotised", "doubly cotised", "triply cotised" — a pale's single pair "endorsed" (RULES-C §G.1). */
@@ -201,7 +204,7 @@ type TokenKind = 'primary' | 'co-primary' | 'secondary' | 'position' | 'overall'
  * One element of the sentence: its phrase and paint (and what is strewn on it), whether its paint may be shared with the element before,
  * (a tertiary) what joins it to its host, and (a peripheral) what joins it to the element before when that says its own tincture.
  */
-interface Token { kind: TokenKind; text: string; paint: string; strewn: string; linked: boolean; lead: string; joiner: ', ' | ' and ' }
+interface Token { kind: TokenKind; text: string; paint: string; strewn: string; linked: boolean; lead: string; joiner: PeripheralJoiner }
 
 /** The elements in blazon order (RULES §F.2): primary, what is set between, what is on the primary, what stands in chief, base or canton, then each peripheral with what is on it. */
 function tokens(d: Design, options: BlazonOptions): Token[] {
@@ -254,7 +257,9 @@ export function blazon(d: Design, given: Partial<BlazonOptions> = {}): string {
   const all = tokens(d, options);
   let pending = false;
   all.forEach((t, i) => {
-    const lead = i === 0 ? (d.kind === 'arms' ? ', ' : '') : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' || t.kind === 'trim' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : t.joiner;
+    // An element sharing the tincture of the one before is joined by "and" ("a fess and a base Or"), unless its joiner is a word of its own ("a heart within an orle gules").
+    const shares = pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall';
+    const lead = i === 0 ? (d.kind === 'arms' ? ', ' : '') : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' || t.kind === 'trim' ? t.lead : shares && t.joiner === ', ' ? ' and ' : t.joiner;
     const next = all[i + 1];
     // What is strewn on a band is stated after its tincture, which then can't be left for the next to say. A band strewn after an element
     // shares its tincture as the College writes it ("a unicorn, a bordure argent mullety sable", regid 37777).

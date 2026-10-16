@@ -2,15 +2,21 @@
 
 export const ORDINARY_TYPES = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'chief', 'bordure', 'pile',
   'base', 'canton', 'quarter', 'orle', 'tressure', 'flaunches', 'gore', 'pall', 'pall-inverted', 'point', 'fret', 'label', 'gyron',
-  'mount', 'trimount', 'bar', 'barrulet', 'pallet', 'bendlet', 'bendlet-sinister', 'chevronel', 'saltorel', 'baton'] as const;
+  'mount', 'trimount', 'bar', 'barrulet', 'pallet', 'bendlet', 'bendlet-sinister', 'chevronel', 'saltorel', 'baton', 'point-dexter',
+  'point-sinister'] as const;
 export type OrdinaryType = (typeof ORDINARY_TYPES)[number];
 
 /** The ordinaries the builder offers in its main grid: the first ten. */
 export const BUILDER_ORDINARIES: readonly OrdinaryType[] = ORDINARY_TYPES.slice(0, 10);
 /** Ordinaries drawn but reached only behind disclosure (the band step's "More shapes" row, and the corner or edge shapes beside the band). */
-export const MORE_ORDINARIES: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron'];
+export const MORE_ORDINARIES: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore'];
+/**
+ * Ordinaries drawn and blazoned, so that a design with one shows itself and says why it is refused, but never offered by the builder: the
+ * dexter and sinister points, which "were [not] actually used in period armory" (RULES-C §C.3, L21; structure.ts refuses them).
+ */
+export const REFUSED_ORDINARIES: readonly OrdinaryType[] = ['point-dexter', 'point-sinister'];
 /** Every ordinary the library draws. */
-export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES, ...MORE_ORDINARIES];
+export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES, ...MORE_ORDINARIES, ...REFUSED_ORDINARIES];
 
 /** The ordinaries the builder draws overall (over the primary group): the bands and crosses that cross the middle of the field. */
 export const OVERALL_ORDINARIES: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];
@@ -25,6 +31,7 @@ export const ORDINARY_KIND: Record<OrdinaryType, OrdinaryKind> = {
   baton: 'central', fret: 'central',
   chief: 'peripheral', bordure: 'peripheral', base: 'peripheral', canton: 'peripheral', quarter: 'peripheral',
   orle: 'peripheral', tressure: 'peripheral', flaunches: 'peripheral', gore: 'peripheral', point: 'peripheral', gyron: 'peripheral',
+  'point-dexter': 'peripheral', 'point-sinister': 'peripheral',
   label: 'other', mount: 'other', trimount: 'other',
 };
 
@@ -35,14 +42,25 @@ export const ORDINARY_NAME: Record<OrdinaryType, string> = {
   orle: 'orle', tressure: 'tressure', flaunches: 'flaunches', gore: 'gore', pall: 'pall', 'pall-inverted': 'pall inverted',
   point: 'point pointed', fret: 'fret', label: 'label', gyron: 'gyron', mount: 'mount', trimount: 'trimount', bar: 'bar',
   barrulet: 'barrulet', pallet: 'pallet', bendlet: 'bendlet', 'bendlet-sinister': 'bendlet sinister', chevronel: 'chevronel',
-  saltorel: 'saltorel', baton: 'baton',
+  saltorel: 'saltorel', baton: 'baton', 'point-dexter': 'point dexter', 'point-sinister': 'point sinister',
 };
 
-/** Stored, never computed from the first letter. */
-export const ORDINARY_ARTICLE: Record<OrdinaryType, 'a' | 'an'> = {
-  ...(Object.fromEntries(ORDINARY_TYPES.map((t) => [t, 'a'])) as Record<OrdinaryType, 'a' | 'an'>),
-  orle: 'an',
+/** Stored, never computed from the first letter; null for flaunches, always a pair and written without one ("flaunches azure", RULES-C §C.3). */
+export const ORDINARY_ARTICLE: Record<OrdinaryType, 'a' | 'an' | null> = {
+  ...(Object.fromEntries(ORDINARY_TYPES.map((t) => [t, 'a'])) as Record<OrdinaryType, 'a' | 'an' | null>),
+  orle: 'an', flaunches: null,
 };
+
+/** The ordinary named as a sentence names one of it: "a canton", "an orle", "flaunches". */
+export const ordinaryWithArticle = (type: OrdinaryType): string => [ORDINARY_ARTICLE[type], ORDINARY_NAME[type]].filter(Boolean).join(' ');
+
+/**
+ * The counts an ordinary is drawn with beyond one: a tressure double or triple (a single tressure is an orle: RULES-C §C.3, Prec Gwynaeth
+ * 04/2004). Any other count of an ordinary is a gap.
+ */
+export const ORDINARY_COUNTS: Partial<Record<OrdinaryType, readonly number[]>> = { tressure: [2, 3] };
+/** How such a count is written before the ordinary's name: "a double tressure". */
+export const ORDINARY_COUNT_WORD: Readonly<Record<number, string>> = { 2: 'double', 3: 'triple' };
 
 export const ORDINARY_MODS = ['inverted', 'couped', 'voided', 'throughout', 'enhanced', 'abased', 'sinister'] as const;
 export type OrdinaryMod = (typeof ORDINARY_MODS)[number];
@@ -50,8 +68,9 @@ export type OrdinaryMod = (typeof ORDINARY_MODS)[number];
 /**
  * The ordinaries each treatment is drawn on (RULES-C §D): a chevron or pile upside down; a band, chevron, cross or saltire shortened
  * (couped); a chevron or pile reaching the edges (throughout — crosses and saltires are throughout already); a band or chevron raised or
- * lowered; a cross or saltire voided; a canton, quarter or gyron in the sinister chief corner instead of the dexter ("a canton
- * sinister": RULES-C §C.3, a form of the ordinary, not a place of the field). On any other ordinary a treatment is a gap.
+ * lowered; a cross or saltire voided; a canton, quarter or gyron in the sinister chief corner instead of the dexter, a gore issuing from
+ * the sinister flank ("a canton sinister", "a gore sinister": RULES-C §C.3, a form of the ordinary, not a place of the field). On any
+ * other ordinary a treatment is a gap.
  */
 export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
   inverted: ['chevron', 'pile'],
@@ -60,24 +79,32 @@ export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
   throughout: ['chevron', 'pile'],
   enhanced: ['fess', 'bend', 'bend-sinister', 'chevron'],
   abased: ['fess', 'bend', 'bend-sinister', 'chevron'],
-  sinister: ['canton', 'quarter', 'gyron'],
+  sinister: ['canton', 'quarter', 'gyron', 'gore'],
 };
 
 /**
- * The peripheral ordinaries in paint and blazon order: what lies along the base first, then the gyron, the chief, the bordure (painted
- * over the chief, SENA App M1l), and last the quarter or canton, which lies over a bordure. Any number of them may stand together.
+ * The peripheral ordinaries in paint and blazon order: what lies along the base first (the dexter and sinister points with the point
+ * pointed), then the gyron, the flaunches, the gore, the orle and tressure, the chief, the bordure (painted over the chief, SENA App M1l),
+ * and last the quarter or canton, which lies over a bordure. Any number of them may stand together.
  */
-export const PERIPHERAL_ORDER: readonly OrdinaryType[] = ['base', 'point', 'gyron', 'chief', 'bordure', 'quarter', 'canton'];
+export const PERIPHERAL_ORDER: readonly OrdinaryType[] = [
+  'base', 'point', 'point-dexter', 'point-sinister', 'gyron', 'flaunches', 'gore', 'orle', 'tressure', 'chief', 'bordure', 'quarter', 'canton',
+];
+
+/** How a peripheral ordinary is joined to the element blazoned before it (`PERIPHERAL_JOINER`). */
+export type PeripheralJoiner = ', ' | ' and ' | ' within ' | ' between ';
 
 /**
- * How a peripheral ordinary is joined to the element blazoned before it: ", a chief azure", " and a base azure". Each new type takes its
- * majority joiner in the O&A ("<joiner> a <type> <tincture>", PLAN-C C8a): base " and " 245 to ", " 222; point pointed ", " 72 to
- * " and " 60; canton " and " 6 to ", " 5; quarter ", " 2 to " and " 1; gyron " and " 1 to none. The chief (" and " 1,001 to ", " 811)
- * and the bordure (" within " 3,858 to ", " 2,512) keep the comma this builder has always written.
+ * How a peripheral ordinary is joined to the element blazoned before it: ", a chief azure", " and a base azure", " within an orle Or",
+ * " between flaunches argent". Each new type takes its majority joiner in the O&A ("<joiner> a <type> <tincture>", PLAN-C C8a, C9):
+ * base " and " 245 to ", " 222; point pointed ", " 72 to " and " 60; canton " and " 6 to ", " 5; quarter ", " 2 to " and " 1; gyron
+ * " and " 1 to none; orle " within " 845 to ", " 202 and " and " 140; double tressure " within " 84 to ", " 22; flaunches " between "
+ * 300 to ", " 25; gore " and " 80 to ", " 56; the dexter and sinister points one record each (", " as the point pointed's). The chief
+ * (" and " 1,001 to ", " 811) and the bordure (" within " 3,858 to ", " 2,512) keep the comma this builder has always written.
  */
-export const PERIPHERAL_JOINER: Record<OrdinaryType, ', ' | ' and '> = {
-  ...(Object.fromEntries(ORDINARY_TYPES.map((t) => [t, ', '])) as Record<OrdinaryType, ', ' | ' and '>),
-  base: ' and ', gyron: ' and ', canton: ' and ',
+export const PERIPHERAL_JOINER: Record<OrdinaryType, PeripheralJoiner> = {
+  ...(Object.fromEntries(ORDINARY_TYPES.map((t) => [t, ', '])) as Record<OrdinaryType, PeripheralJoiner>),
+  base: ' and ', gyron: ' and ', canton: ' and ', gore: ' and ', orle: ' within ', tressure: ' within ', flaunches: ' between ',
 };
 
 /** Whether the treatment is drawn on this ordinary. */

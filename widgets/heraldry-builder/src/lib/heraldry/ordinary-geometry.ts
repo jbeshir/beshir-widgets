@@ -10,8 +10,9 @@
 // beside each long edge, with a line of their own) and fimbriation (a narrow band round the body, under it) are trims drawn as parts of
 // their own, each with the points it lies on.
 //
-// The peripherals beside the chief and bordure — base, point pointed, canton, quarter, gyron (sinister: mirrored) — are drawn here too;
-// a base or point leaves the ordinaries in the field a frame whose bottom is its top.
+// The peripherals beside the chief and bordure — base, point pointed, canton, quarter, gyron (sinister: mirrored), the orle and tressure
+// (rings inside each shape's own inset), the flaunches and gore (curves), and the dexter and sinister points (drawn to be refused) — are
+// drawn here too; a base or point leaves the ordinaries in the field a frame whose bottom is its top.
 
 import { notSupported, type Design, type Group, type Lines, type Paint } from './design';
 import {
@@ -295,7 +296,7 @@ function mirrored(outline: Outline, axis: number): Outline {
   };
 }
 
-/** The straight outline of an ordinary, its chevron raised `lift` above its usual place; null for the bordure (a ring with curves). */
+/** The straight outline of an ordinary, its chevron raised `lift` above its usual place; null for the ordinaries drawn as rings (`RINGS`) or curves (the flaunches, the gore). */
 function outlineOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
   const inverted = spec.mods.includes('inverted');
   const upright = uprightOutline(spec, frame, lift);
@@ -323,6 +324,21 @@ function pointPoints(f: ShapeFrame): Pt[] {
   };
   const right = side([x1, y1]), left = side([x0, y1]).reverse();
   return [apex, ...right, [x1, OVER.y1], [x0, OVER.y1], ...left];
+}
+
+/** Where the line of a dexter point leaves the dexter side of the shape's box (a share of its height down) and meets its foot (a share of its width across). */
+const SIDE_POINT_TOP = 0.6;
+const SIDE_POINT_FOOT = 0.7;
+
+/**
+ * The point dexter: the dexter base of the shape cut off by a straight line from the dexter side of its box, SIDE_POINT_TOP down, to its
+ * foot past the middle (RULES-C §C.3 says no more of it: it was not used in period, and is drawn only to be refused).
+ */
+function sidePoint(f: ShapeFrame): Outline {
+  const { x0, x1, y0, y1 } = f.box;
+  const top: Pt = [x0, y0 + SIDE_POINT_TOP * (y1 - y0)], foot: Pt = [x0 + SIDE_POINT_FOOT * (x1 - x0), y1];
+  const points: Pt[] = [top, foot, [foot[0], OVER.y1], [OVER.x0, OVER.y1], [OVER.x0, top[1]]];
+  return { points, edges: points.map(() => null), courses: [] };
 }
 
 /** The outline before it is turned upside down (`reflected`): a band moved up or down, a band or arm couped, a chevron or pile throughout. */
@@ -459,7 +475,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
       const corners = spec.lines.a !== 'plain' || spec.mods.includes('inverted') ? sides.map(past) : [left, right];
       return { points: [corners[0], corners[1], point], edges: [null, A(1), A(0)], courses };
     }
-    case 'bordure': return null;
+    case 'bordure': case 'orle': case 'tressure': case 'flaunches': case 'gore': return null;
     // its upper edge laid like a chief's lower one
     case 'base': {
       const top = baseTop(f);
@@ -486,6 +502,9 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
       const from = (dir: Pt): Course => ({ origin: point, dir, junction: 1 / Math.tan(half), plus: 'outward', cut: null });
       return { points: [far, point, [x0, point[1]]], edges: [A(0), A(1), null], courses: [from(up), from([-1, 0])] };
     }
+    // cut off by a straight line from the dexter flank to the base beyond its middle; it takes no line
+    case 'point-dexter': return sidePoint(f);
+    case 'point-sinister': return mirrored(sidePoint(f), frame.centre.x);
     default: return notSupported({ category: 'ordinary', detail: spec.type });
   }
 }
@@ -602,20 +621,190 @@ function ringFromTop(ring: readonly Pt[], x: number): Pt[] {
   return after[after.length - 1][0] === p[0] && after[after.length - 1][1] === p[1] ? [p, ...after.slice(0, -1)] : after[0][0] === p[0] && after[0][1] === p[1] ? after : [p, ...after];
 }
 
+/** How long a polyline is (a ring: with its closing edge). */
+function polylineLength(points: readonly Pt[], ring: boolean): number {
+  const all = ring ? [...points, points[0]] : points;
+  let length = 0;
+  for (let i = 1; i < all.length; i++) length += Math.hypot(all[i][0] - all[i - 1][0], all[i][1] - all[i - 1][1]);
+  return length;
+}
+
+/** The side of a ring's way round that is its outside: the left of a ring run clockwise on the page. */
+const outsideOf = (ring: readonly Pt[]): 1 | -1 => (signedArea(ring) > 0 ? 1 : -1);
+
+/**
+ * A ring drawn with a line all the way round from its first point, its + side on `side` of the way it runs, whole periods: `periods` of
+ * them when given (so two rings of one band keep in step), else as many as fit its length. Straight when the line is plain.
+ */
+function ringPath(ring: readonly Pt[], line: Line, side: 1 | -1, depth: number, periods: number | null): string {
+  if (line === 'plain') return pts(ring);
+  const length = polylineLength(ring, true);
+  const period = periods === null ? fitPeriod(line, length, 1) : length / periods;
+  const run: EdgeRun = { line, side, depth, period, anchor: period / 2, span: [0, length] };
+  return contourPath({ start: ring[0], edges: [{ via: ring.slice(1), to: ring[0], run }] });
+}
+
 /** A bordure's body: the shape's outline and, inside it, its inset — drawn with the line all the way round, its features toward the field, whole periods from the top middle. */
 function bordureBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
   const f = shapeFrame(frame.shape);
   const line = spec.lines.a;
   if (line === 'plain') return f.outline + f.inset;
   const ring = ringFromTop(insetRing(frame.shape), frame.centre.x);
-  const closed = [...ring, ring[0]];
-  let length = 0;
-  for (let i = 1; i < closed.length; i++) length += Math.hypot(closed[i][0] - closed[i - 1][0], closed[i][1] - closed[i - 1][1]);
-  const period = fitPeriod(line, length, 1);
-  // toward the field: inside the ring, the right of a ring run clockwise on the page
-  const side = signedArea(ring) > 0 ? -1 : 1;
-  const run: EdgeRun = { line, side, depth: edgeDepth(line, BORDURE_WIDTH), period, anchor: period / 2, span: [0, length] };
-  return f.outline + contourPath({ start: ring[0], edges: [{ via: ring.slice(1), to: ring[0], run }] });
+  return f.outline + ringPath(ring, line, outsideOf(ring) === 1 ? -1 : 1, edgeDepth(line, BORDURE_WIDTH), null);
+}
+
+/**
+ * How far inside the bordure's inner edge (the shape's inset: 10 in from the outline, the lozenge's 8) an orle's outer and inner edges lie:
+ * on the heater 12 and 20 in from the outline, so that the orle and the field either side of it are about as wide (RULES-C §C.3, Draco de
+ * Euruic 09/2006). Every shape's orle follows its own inset.
+ */
+const ORLE_EDGES = [2, 10] as const;
+/** A tressure is a narrow orle: each of its rings this wide, the first this far inside the bordure's inner edge, the next (double, triple) as far again inside it. */
+const TRESSURE_WIDTH = 3;
+const TRESSURE_START = 3;
+
+/** Where segments p→q and r→s cross (not at their ends), or null. */
+function crossing(p: Pt, q: Pt, r: Pt, s: Pt): Pt | null {
+  const d = (q[0] - p[0]) * (s[1] - r[1]) - (q[1] - p[1]) * (s[0] - r[0]);
+  if (Math.abs(d) < 1e-12) return null;
+  const t = ((r[0] - p[0]) * (s[1] - r[1]) - (r[1] - p[1]) * (s[0] - r[0])) / d, u = ((r[0] - p[0]) * (q[1] - p[1]) - (r[1] - p[1]) * (q[0] - p[0])) / d;
+  return t > 1e-9 && t < 1 - 1e-9 && u > 1e-9 && u < 1 - 1e-9 ? [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])] : null;
+}
+
+/**
+ * A ring with the small loops cut out that moving a curved ring inward makes where it bends more sharply than it is moved (the heater's
+ * foot): each loop between two edges that cross is replaced by the point where they cross, the shorter way round.
+ */
+function withoutLoops(ring: readonly Pt[]): Pt[] {
+  let out = [...ring];
+  for (let changed = true; changed;) {
+    changed = false;
+    const n = out.length;
+    for (let i = 0; i < n && !changed; i++) {
+      for (let j = i + 2; j < n && !changed; j++) {
+        if (i === 0 && j === n - 1) continue;
+        const at = crossing(out[i], out[(i + 1) % n], out[j], out[(j + 1) % n]);
+        if (!at) continue;
+        // the loop is the run of points between the two edges, or the rest of the ring, whichever is shorter
+        out = j - i <= n / 2 ? [...out.slice(0, i + 1), at, ...out.slice(j + 1)] : [at, ...out.slice(i + 1, j + 1)];
+        changed = true;
+      }
+    }
+  }
+  return out;
+}
+
+/** The bands of an orle (one) or a tressure (one, two or three), each as its outer and inner edge: the shape's inset moved in, rings started at the top middle. */
+function ringBands(spec: OrdinarySpec, frame: OrdinaryFrame): Array<{ outer: Pt[]; inner: Pt[]; width: number }> {
+  const inset = insetRing(frame.shape);
+  const inBy = (by: number) => ringFromTop(withoutLoops(offsetPolygon(inset, inset.map(() => -by))), frame.centre.x);
+  if (spec.type === 'orle') return [{ outer: inBy(ORLE_EDGES[0]), inner: inBy(ORLE_EDGES[1]), width: ORLE_EDGES[1] - ORLE_EDGES[0] }];
+  return Array.from({ length: spec.count }, (_, k) => {
+    const from = TRESSURE_START + 2 * k * TRESSURE_WIDTH;
+    return { outer: inBy(from), inner: inBy(from + TRESSURE_WIDTH), width: TRESSURE_WIDTH };
+  });
+}
+
+/**
+ * An orle's or tressure's body: each band's outer edge with line `a`, its inner edge with `b` (RULES-C §0, L3), both edges of a band laid
+ * from the top middle with as many periods as its outer edge takes; a mirrored profile's features out of the band on both edges, the
+ * others in step (a wavy orle snakes).
+ */
+function ringBandsBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
+  return ringBands(spec, frame).map(({ outer, inner, width }) => {
+    const { a, b } = spec.lines;
+    const out = outsideOf(outer);
+    const side = (line: Line, edge: 'outer' | 'inner'): 1 | -1 => (line !== 'plain' && LINE_PROFILE[line].pairing === 'mirrored' && edge === 'inner' ? (out === 1 ? -1 : 1) : out);
+    const periods = a === 'plain' ? null : Math.max(1, Math.round(polylineLength(outer, true) / fitPeriod(a, polylineLength(outer, true), 1)));
+    const depth = (line: Line) => (line === 'plain' ? 0 : edgeDepth(line, width));
+    return ringPath(outer, a, side(a, 'outer'), depth(a), periods) + ringPath(inner, b, side(b, 'inner'), depth(b), b === a ? periods : null);
+  }).join('');
+}
+
+/** How far each flaunch bulges into the field, at the middle of its height: a quarter of the shape's box across. */
+const FLAUNCH_REACH = 1 / 4;
+/** How many straight pieces a flaunch's arc, and each curve of a gore, is flattened into. */
+const ARC_STEPS = 32;
+
+/**
+ * A piece of the flaunches or gore: its curves, each flattened from its first point to its last (the next starting where it ends), and
+ * the points round the field's edge that close it.
+ */
+interface CurvedPiece { readonly curves: readonly (readonly Pt[])[]; readonly closing: readonly Pt[] }
+
+/** The dexter flaunch: a circular arc from the top corner of the shape's box to its foot, bulging FLAUNCH_REACH of its width at mid-height, closed beyond the dexter flank. */
+function flaunchPiece(f: ShapeFrame): CurvedPiece {
+  const { x0, y0, x1, y1 } = f.box;
+  const half = (y1 - y0) / 2, sag = FLAUNCH_REACH * (x1 - x0);
+  const r = (half * half + sag * sag) / (2 * sag), cx = x0 + sag - r, cy = (y0 + y1) / 2, swing = Math.asin(half / r);
+  const arc = Array.from({ length: ARC_STEPS + 1 }, (_, i): Pt => {
+    const t = -swing + (2 * swing * i) / ARC_STEPS;
+    return i === 0 ? [x0, y0] : i === ARC_STEPS ? [x0, y1] : [cx + r * Math.cos(t), cy + r * Math.sin(t)];
+  });
+  return { curves: [arc], closing: [[OVER.x0, y1], [OVER.x0, y0]] };
+}
+
+/** A quadratic curve from `a` to `b` bowed toward `control`, flattened. */
+function quadratic(a: Pt, control: Pt, b: Pt): Pt[] {
+  return Array.from({ length: ARC_STEPS + 1 }, (_, i) => {
+    const t = i / ARC_STEPS, u = 1 - t;
+    return [u * u * a[0] + 2 * u * t * control[0] + t * t * b[0], u * u * a[1] + 2 * u * t * control[1] + t * t * b[1]];
+  });
+}
+
+/**
+ * The dexter gore: a curve from the dexter chief corner of the shape's box to the fess point, bowed toward the dexter base, and another
+ * from there to the foot of the shape under it, bowed toward the dexter flank — a curved wedge from the dexter side, closed beyond it.
+ */
+function gorePiece(f: ShapeFrame, frame: OrdinaryFrame): CurvedPiece {
+  const { x0, y0, y1 } = f.box;
+  const { x: cx, y: cy } = frame.centre;
+  const corner: Pt = [x0, y0], point: Pt = [cx, cy], foot: Pt = [cx, y1];
+  const curves = [quadratic(corner, [x0 + 0.55 * (cx - x0), y0 + 0.9 * (cy - y0)], point), quadratic(point, [cx - 0.4 * (cx - x0), (cy + y1) / 2], foot)];
+  return { curves, closing: [[cx, OVER.y1], [OVER.x0, OVER.y1], [OVER.x0, y0]] };
+}
+
+/** How wide a flaunch and a gore are at most, across their curved edges: what caps how deep a line on them is cut. */
+const CURVED_WIDTH: Partial<Record<OrdinaryType, number>> = { flaunches: 100 * FLAUNCH_REACH, gore: 2 * BAND_HALF };
+
+/** The pieces of the flaunches (both) or the gore (dexter, or sinister: mirrored about the middle of the shape), each with the side of its curves' way that faces the field. */
+function curvedPieces(spec: OrdinarySpec, frame: OrdinaryFrame): Array<{ piece: CurvedPiece; side: 1 | -1 }> {
+  const f = shapeFrame(frame.shape);
+  const dexter = spec.type === 'flaunches' ? flaunchPiece(f) : gorePiece(f, frame);
+  const flip = ([x, y]: Pt): Pt => [2 * frame.centre.x - x, y];
+  // each curve runs down the shape: the field lies to its left on the dexter side, to its right once mirrored
+  const sinister = { piece: { curves: dexter.curves.map((c) => c.map(flip)), closing: dexter.closing.map(flip) }, side: -1 as const };
+  if (spec.type === 'flaunches') return [{ piece: dexter, side: 1 }, sinister];
+  return spec.mods.includes('sinister') ? [sinister] : [{ piece: dexter, side: 1 }];
+}
+
+/** A piece's points in order round it: its curves (each one's first point dropped after the first) and its closing points. */
+const piecePoints = ({ curves, closing }: CurvedPiece): Pt[] => [...curves.flatMap((c, i) => (i === 0 ? c : c.slice(1))), ...closing];
+
+/**
+ * The flaunches' or gore's body: each curve drawn with the line (RULES-C §C.3: on the flaunches' inner curves, on both of the gore's), whole
+ * periods fitted to it, its features turned toward the field for a mirrored profile and mirrored from one flaunch to the other.
+ */
+function curvedBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
+  const line = spec.lines.a;
+  return curvedPieces(spec, frame).map(({ piece, side }) => {
+    if (line === 'plain') return pts(piecePoints(piece));
+    const edges = piece.curves.map((curve): ContourEdge => {
+      const length = polylineLength(curve, false), period = fitPeriod(line, length, 1);
+      const run: EdgeRun = { line, side, depth: edgeDepth(line, CURVED_WIDTH[spec.type]!), period, anchor: length / 2, span: [0, length] };
+      return { via: curve.slice(1, -1), to: curve[curve.length - 1], run };
+    });
+    return contourPath({ start: piece.curves[0][0], edges: [...edges, ...piece.closing.map((to): ContourEdge => ({ via: [], to, run: null }))] });
+  }).join('');
+}
+
+/** The ordinaries drawn as rings, filled even-odd: the bordure, the orle and the tressure. */
+const RINGS: readonly OrdinaryType[] = ['bordure', 'orle', 'tressure'];
+
+/** The body of an ordinary with no straight outline. */
+function curvedOrdinaryBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
+  if (spec.type === 'bordure') return bordureBody(spec, frame);
+  return spec.type === 'orle' || spec.type === 'tressure' ? ringBandsBody(spec, frame) : curvedBody(spec, frame);
 }
 
 /** An outline drawn as one contour, its edges with the spec's lines (laid as `laying` says); straight when the spec's lines are plain. */
@@ -633,7 +822,7 @@ const moved = (outline: Outline, by: readonly number[]): Outline => ({ ...outlin
  * that followed a square or overhanging line would break at its risers).
  */
 function bodyOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline | null, shape: readonly Pt[]): string {
-  if (!outline) return bordureBody(spec, frame);
+  if (!outline) return curvedOrdinaryBody(spec, frame);
   const body = linedPath(spec, outline, shape);
   if (!spec.mods.includes('voided')) return body;
   const width = drawnWidth(spec);
@@ -732,10 +921,12 @@ function offsetPolygon(points: readonly Pt[], by: readonly number[]): Pt[] {
  * (`inner`: moved in) — what layout keeps charges clear of or inside, never the toothed body. With straight lines, the body's rings.
  */
 function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline | null, body: string): OrdinaryGeometry['envelope'] {
+  if (spec.type === 'orle' || spec.type === 'tressure') return ringBandsEnvelope(spec, frame, body);
   // plain, or bowed (enarched, ployé): the body itself, curves flattened — a bow moves the band rather than cutting into it
   const straight = isStraightLine(spec.lines.a) && isStraightLine(spec.lines.b);
   const trimmed = outline !== null && (spec.cotised !== null || spec.fimbriated);
   if (straight && !trimmed) return { outer: pathRings(body), inner: pathRings(body) };
+  if (!outline && spec.type !== 'bordure') return curvedEnvelope(spec, frame);
   const width = drawnWidth(spec);
   if (!outline) {
     // The bordure's line runs along its inner edge: the inset moves inward (the ring grows) for `outer`, outward for `inner`.
@@ -785,8 +976,38 @@ const TRIM_SAMPLE_STEP = 2;
 
 const geometryCache = new Map<string, OrdinaryGeometry>();
 
+/** How far out a frame round the field is drawn: past every shape. */
+const FAR = 1000;
+
+/** The field outside a ring as one polygon: a frame far round the shape with the ring cut out of it, through a slit down from the top to the ring's first point (its top middle). */
+function outsideRing(ring: readonly Pt[]): Pt[] {
+  const [x] = ring[0];
+  return [[x, -FAR], [FAR, -FAR], [FAR, FAR], [-FAR, FAR], [-FAR, -FAR], [x, -FAR], ring[0], ...ring.slice(1).reverse(), ring[0]];
+}
+
+/**
+ * An orle's or tressure's envelopes: `outer` all of the field outside its innermost edge (moved in by what that edge's line reaches), as
+ * one polygon (`outsideRing`), so that charges keep inside the orle; `inner` each band's rings, moved into the band by their lines.
+ */
+function ringBandsEnvelope(spec: OrdinarySpec, frame: OrdinaryFrame, body: string): OrdinaryGeometry['envelope'] {
+  const bands = ringBands(spec, frame);
+  const moved = (ring: readonly Pt[], by: number) => withoutLoops(offsetPolygon(ring, ring.map(() => by)));
+  const last = bands[bands.length - 1];
+  const outer = [outsideRing(moved(last.inner, -edgeReach(spec.lines.b, last.width)))];
+  if (isStraightLine(spec.lines.a) && isStraightLine(spec.lines.b)) return { outer, inner: pathRings(body) };
+  return { outer, inner: bands.flatMap(({ outer: o, inner: i, width }) => [moved(o, -edgeReach(spec.lines.a, width)), moved(i, edgeReach(spec.lines.b, width))]) };
+}
+
+/** The flaunches' or gore's envelopes with a line: each piece with its curve moved out toward the field (`outer`) or into the piece (`inner`) by what the line reaches. */
+function curvedEnvelope(spec: OrdinarySpec, frame: OrdinaryFrame): OrdinaryGeometry['envelope'] {
+  const reach = edgeReach(spec.lines.a, CURVED_WIDTH[spec.type]!);
+  const pieces = curvedPieces(spec, frame).map(({ piece }) => ({ points: piecePoints(piece), curved: piecePoints(piece).length - piece.closing.length - 1 }));
+  const grown = (by: number) => pieces.map(({ points, curved }) => offsetPolygon(points, points.map((_, i) => (i < curved ? by : 0))));
+  return { outer: grown(reach), inner: grown(-reach) };
+}
+
 /** The peripherals whose centre (where a division of one runs through it) is the middle of what the shape shows of them. */
-const IN_A_CORNER_OR_BASE: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron'];
+const IN_A_CORNER_OR_BASE: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron', 'gore', 'point-dexter', 'point-sinister'];
 
 /** The mean of some points. */
 const middleOf = (points: readonly Pt[]): Point => ({ x: points.reduce((a, [x]) => a + x, 0) / points.length, y: points.reduce((a, [, y]) => a + y, 0) / points.length });
@@ -808,7 +1029,7 @@ function build(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Ordinary
     const box = { x0: Math.max(f.box.x0, Math.min(...xs)), y0: Math.max(f.box.y0, Math.min(...ys)), x1: Math.min(f.box.x1, Math.max(...xs)), y1: Math.min(f.box.y1, Math.max(...ys)) };
     g = {
       body,
-      fillRule: spec.type === 'bordure' || spec.mods.includes('voided') ? 'evenodd' : 'nonzero',
+      fillRule: RINGS.includes(spec.type) || spec.mods.includes('voided') ? 'evenodd' : 'nonzero',
       // the fimbriation shows where it lies outside the body
       fimbriation: fimbriation ? { d: fimbriation, fillRule: 'nonzero', samples: above(gridInside(outline, [...pathRings(fimbriation), ...rings], TRIM_SAMPLE_STEP)) } : null,
       cotises: cotises ? { d: cotises, fillRule: 'evenodd', samples: above(gridInside(outline, pathRings(cotises), TRIM_SAMPLE_STEP)) } : null,

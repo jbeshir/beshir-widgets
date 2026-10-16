@@ -83,7 +83,7 @@ const ORDINARY_EDGES: Record<OrdinaryType, 0 | 1 | 2> = {
   pale: 2, pallet: 2, orle: 2, tressure: 2,
   cross: 1, saltire: 1, saltorel: 1, pall: 1, 'pall-inverted': 1, pile: 1, chief: 1, bordure: 1, base: 1, canton: 1, quarter: 1,
   gyron: 1, flaunches: 1, gore: 1,
-  point: 0, label: 0, fret: 0, mount: 0, trimount: 0,
+  point: 0, 'point-dexter': 0, 'point-sinister': 0, label: 0, fret: 0, mount: 0, trimount: 0,
 };
 
 /** The two-sided bands: the ordinaries whose `b` is a second edge running the length of the band (fess-like, pale-like, bend-like, chevrons). */

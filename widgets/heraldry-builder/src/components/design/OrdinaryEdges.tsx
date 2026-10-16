@@ -1,22 +1,23 @@
 // "More shapes and edges…" under a band or shape (and "Edge…" on a top band or border): its shape — upside down, shortened, touching the
-// edges, hollow, raised or lowered, where it takes them — the line its edges are drawn with, and for a band with two edges, which of them carries
+// edges, hollow, raised or lowered, double or triple, where it takes them — the line its edges are drawn with, and for a band with two edges, which of them carries
 // it, and for a central band or shape its outline (edged or cotised). Shown once the band is chosen. The band step puts these controls in
 // its own disclosure, under its "More shapes" row (`OrdinaryShapeControls`).
 
 import {
-  bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf,
-  setOutlineTincture, toggleChoices, toggledOn,
-  type Design, type EdgeSide, type FieldShape, type GroupPath, type Line,
+  bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, ordinaryCountChoices, outlineAt, outlineChoices, outlineTinctureChoices,
+  outlineTinctureOf, setOutlineTincture, toggleChoices, toggledOn,
+  type Design, type EdgeName, type EdgeSide, type FieldShape, type GroupPath, type Line,
 } from '../../lib/heraldry';
-import { setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle } from '../../lib/builder';
+import { setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle } from '../../lib/builder';
 import { EdgePicker } from './EdgePicker';
 import { MoreShapes } from './MoreShapes';
 import { OutlineControls } from './OutlineControls';
 import { ShapeToggles } from './ShapeToggles';
 
-/** What each side of a band's edges is called: a pale's are its left and right edges, any other band's its top and bottom. */
-function sideLabels(across: boolean): Record<EdgeSide, string> {
-  return { both: 'Both edges', a: across ? 'Left edge only' : 'Top edge only', b: across ? 'Right edge only' : 'Bottom edge only' };
+/** What each side of a band's edges is called: a pale's are its left and right edges, an orle's its outer and inner, any other band's its top and bottom. */
+function sideLabels(a: EdgeName | undefined): Record<EdgeSide, string> {
+  const [one, other] = a === 'dexter' ? ['Left', 'Right'] : a === 'outer' ? ['Outer', 'Inner'] : ['Top', 'Bottom'];
+  return { both: 'Both edges', a: `${one} edge only`, b: `${other} edge only` };
 }
 
 interface ControlsProps {
@@ -38,7 +39,8 @@ interface Props extends ControlsProps {
 export function hasShapeControls(design: Design, path: GroupPath): boolean {
   const target = { k: 'group', path } as const;
   return groupAt(design, path).item.k === 'ordinary'
-    && (lineChoices(design, target).length > 0 || toggleChoices(design, path).length > 0 || bandPositionChoices(design, path).length > 0 || outlineChoices(design, path).length > 0);
+    && (lineChoices(design, target).length > 0 || toggleChoices(design, path).length > 0 || bandPositionChoices(design, path).length > 0 || outlineChoices(design, path).length > 0
+      || ordinaryCountChoices(design, path).length > 0);
 }
 
 /** Whether the band or shape at `path` uses one of them: a line, a treatment or an outline. */
@@ -50,12 +52,13 @@ export function usesShapeControls(design: Design, path: GroupPath): boolean {
 /** The shape toggles, edge row and outline of the band or shape at `path`, those it takes. */
 export function OrdinaryShapeControls({ design, path, testid, noun, shape, onChange }: ControlsProps) {
   const target = { k: 'group', path } as const;
-  const item = groupAt(design, path).item;
+  const { item, count } = groupAt(design, path);
   if (item.k !== 'ordinary') return null;
   const lines = lineChoices(design, target);
   const toggles = toggleChoices(design, path);
   const positions = bandPositionChoices(design, path);
   const outlines = outlineChoices(design, path);
+  const counts = ordinaryCountChoices(design, path);
   const type = item.type;
   const inverted = item.mods.includes('inverted');
   // The edge previews are drawn turned as the band or shape is: upside down, or in the other corner.
@@ -64,18 +67,19 @@ export function OrdinaryShapeControls({ design, path, testid, noun, shape, onCha
   const names = edgeNames({ k: 'ordinary', type, inverted });
   return (
     <>
-      {(toggles.length > 0 || positions.length > 0) && (
+      {(toggles.length > 0 || positions.length > 0 || counts.length > 0) && (
         <ShapeToggles
           testid={testid} noun={noun} toggles={toggles} isOn={(t) => toggledOn(design, path, t)} onToggle={(t, on) => onChange(setOrdinaryToggle(design, path, t, on))}
           positions={positions} position={bandPositionOf(design, path)} onPosition={(p) => onChange(setOrdinaryBandPosition(design, path, p))}
+          counts={counts} count={count} onCount={(n) => onChange(setOrdinaryNumber(design, path, n))}
         />
       )}
       {lines.length > 0 && (
         <EdgePicker
-          testid={`${testid}-edge`} noun={noun} iconKey={[type, ...turned].join('-')}
-          icon={(line) => ({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type, mods: turned, lines: bareLines({ k: 'ordinary', type, inverted }, line) }, paint: 'or' }] })}
+          testid={`${testid}-edge`} noun={noun} iconKey={[type, ...turned, ...(count > 1 ? [count] : [])].join('-')}
+          icon={(line) => ({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type, mods: turned, lines: bareLines({ k: 'ordinary', type, inverted }, line) }, count, paint: 'or' }] })}
           shape={shape} lines={lines} line={current} onLine={(l) => onChange(setOrdinaryLine(design, path, l))}
-          sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="edges" sideLabels={sideLabels(names?.a === 'dexter')}
+          sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="edges" sideLabels={sideLabels(names?.a)}
           onSide={(s) => onChange(setOrdinaryEdgeSide(design, path, s))}
         />
       )}

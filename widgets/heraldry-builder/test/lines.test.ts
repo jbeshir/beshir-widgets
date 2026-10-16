@@ -70,7 +70,7 @@ describe('the line registry', () => {
 
   it('gives every host its edges and the lines it may carry', () => {
     const two: OrdinaryType[] = ['fess', 'bar', 'barrulet', 'bend', 'bendlet', 'bend-sinister', 'bendlet-sinister', 'baton', 'chevron', 'chevronel', 'pale', 'pallet', 'orle', 'tressure'];
-    const none: OrdinaryType[] = ['point', 'label', 'fret', 'mount', 'trimount'];
+    const none: OrdinaryType[] = ['point', 'point-dexter', 'point-sinister', 'label', 'fret', 'mount', 'trimount'];
     for (const t of ORDINARY_TYPES) expect([t, edgeCount(fess(t))]).toEqual([t, two.includes(t) ? 2 : none.includes(t) ? 0 : 1]);
     for (const d of DIVISIONS) expect([d, edgeCount({ k: 'division', division: d })]).toEqual([d, d === 'quarterly' ? 2 : 1]);
     expect(VARIATIONS.filter((v) => edgeCount({ k: 'variation', variation: v }) === 1)).toEqual(['barry', 'paly', 'bendy', 'bendy-sinister', 'chevronny']);

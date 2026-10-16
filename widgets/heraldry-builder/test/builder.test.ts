@@ -5,11 +5,11 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setPosture, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
   addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
-  MORE_ORDINARIES, layersIn, peripheralItemChoices, setPeripheralItem,
+  MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
   type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
@@ -810,6 +810,31 @@ describe('corner and edge shapes: the More shapes row and any number of them bes
       }
     }
     expect(placementLabel(setOrdinary(lion, 'base'), 'field')).toBe('Above the bottom bar');
+    expect(placementLabel(setOrdinary(lion, 'orle'), 'field')).toBe('Within the inner border');
+    expect(placementLabel(setOrdinary(lion, 'flaunches'), 'field')).toBe('Between the side curves');
+  });
+
+  it('a tressure is drawn double, then triple at a click (a single one is an orle); a gore turns to the right; the dexter and sinister points are never offered', () => {
+    const lion = setGroupTincture(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), picturePath(setCharge(DEFAULT_DESIGN, 'picture', 'lion'))!, 'or');
+    const tressure = setOrdinary(lion, 'tressure');
+    const path = ordinaryPath(tressure)!;
+    expect(groupAt(tressure, path).count).toBe(2);
+    expect(blazon(tressure)).toMatch(/^Azure, a lion (Or )?within a double tressure \w+\.$/);
+    expect(ordinaryCountChoices(tressure, path)).toEqual([{ value: 2, allowed: true }, { value: 3, allowed: true }]);
+    const triple = setOrdinaryNumber(tressure, path, 3);
+    expect(blazon(triple)).toMatch(/within a triple tressure/);
+    expect(setOrdinaryNumber(triple, ordinaryPath(triple)!, 1)).toBe(triple);
+    const orle = setOrdinary(triple, 'orle');
+    expect(groupAt(orle, ordinaryPath(orle)!).count).toBe(1);
+    expect(ordinaryCountChoices(orle, ordinaryPath(orle)!)).toEqual([]);
+    const gore = setOrdinary(lion, 'gore');
+    expect(toggleChoices(gore, ordinaryPath(gore)!).map((c) => c.value)).toEqual(['sinister']);
+    expect(blazon(setOrdinaryToggle(gore, ordinaryPath(gore)!, 'sinister', true))).toMatch(/and a gore sinister \w+\.$/);
+    expect(MORE_ORDINARIES.some((t) => REFUSED_ORDINARIES.includes(t))).toBe(false);
+    const card = addLayer(setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'fess'), 'or'), 'peripheral');
+    expect(peripheralItemChoices(card, 'peripheral-0').map((c) => c.value)).toEqual(['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore']);
+    const asTressure = setPeripheralItem(card, 'peripheral-0', 'tressure');
+    expect(groupAt(asTressure, pathOfPlace(asTressure, 'peripheral-0')!).count).toBe(2);
   });
 
   it('adds one after another as their own cards, each a type the shield has none of, and removes each', () => {

@@ -9,7 +9,7 @@ import { choice, type Choice } from './options';
 import { corePracticeProblem, ordinaryLineProblem, structuralIssues } from './structure';
 import { trimTinctureIssues } from './tincture-rule';
 import { TINCTURES, type Tincture } from './tinctures';
-import { DRAWN_ORDINARIES, ORDINARY_KIND, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { DRAWN_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { OUTLINES, outlineOf, outlinePaintOf, withOutline, withOutlinePaint, type Outline } from './outline';
 import { modsClash } from './resolve';
 import { LINED_VARIATIONS, type Division, type Variation } from './divisions';
@@ -132,6 +132,21 @@ export function keptOrdinaryLines(lines: Lines, type: OrdinaryType, inverted: bo
   const host: EdgeHost = { k: 'ordinary', type, inverted };
   const line = currentLine(lines);
   return line !== 'plain' && lineAllowed(host, line) ? bareLines(host, line) : { ...PLAIN_LINES };
+}
+
+// ── Counts ──────────────────────────────────────────────────────────────────
+
+/** The counts the band or shape at `path` may be drawn with: a tressure double or triple (a single one is an orle); none for any other. */
+export function ordinaryCountChoices(d: Design, path: GroupPath): Choice<number>[] {
+  const item = drawnOrdinaryAt(d, path);
+  return (item ? ORDINARY_COUNTS[item.type] ?? [] : []).map((count) => choice(count, null));
+}
+
+/** The band or shape at `path` drawn this many times over (one the type takes; any other count leaves it as it is). */
+export function setOrdinaryCount(d: Design, path: GroupPath, count: number): Design {
+  const group = groupAt(d, path);
+  if (!ordinaryCountChoices(d, path).some((c) => c.value === count) || group.count === count) return d;
+  return canonical(replaceGroup(d, path, { ...group, count }));
 }
 
 // ── Shape toggles and band positions ────────────────────────────────────────

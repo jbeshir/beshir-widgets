@@ -231,7 +231,7 @@ export const CONTAINER_WORDS = w('pair sheaf bundle bunch cluster set brace coup
  */
 export const SUPPORTED_ORDINARY_WORDS: Record<string, string> = {
   ...Object.fromEntries(DRAWN_ORDINARIES.filter((t) => t !== 'cross').map((t) => [t, t])),
-  fesse: 'fess', dance: 'fess',
+  fesse: 'fess', dance: 'fess', flaunch: 'flaunches',
 };
 
 /** Ordinaries, sub-ordinaries and diminutives the widget lacks → sub-tag (the drawn ones are left out). */

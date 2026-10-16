@@ -1,7 +1,8 @@
-// The peripherals beside the chief and bordure (PLAN-C C8a): base, point pointed, canton, quarter and gyron, and the canton, quarter and
-// gyron sinister. Their geometry on every shape, the charges that keep out of them (any number of them: the context's `keepOut` list),
-// the frame a base leaves the ordinaries, the rules (RULES-C §C.3, SENA A6C1, App I4, A3D1c at the foot), conflict (canton ≡ quarter,
-// base vs point pointed, the sinister form a change of position) and the words. The five stay gapped until the builder offers them (C8b).
+// The peripherals beside the chief and bordure (PLAN-C C8a, C9): base, point pointed, canton, quarter and gyron (the canton, quarter and gyron
+// sinister), the orle, the tressure (double, triple), the flaunches, the gore (and gore sinister), and the dexter and sinister points, drawn to
+// be refused. Their geometry on every shape, the charges that keep out of them (any number of them: the context's `keepOut` list), the frame a
+// base leaves the ordinaries, the rules (RULES-C §C.3, SENA A6C1, App I4, A3D1c at the foot, L21), conflict (canton ≡ quarter, orle ≡
+// tressure, base vs point pointed, flaunches a pair, the sinister form a change of position) and the words.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -265,5 +266,190 @@ describe('peripherals: words and signature', () => {
     const sig = (type: string, mods: string[] = []) => signature(canonical(nd(arms('argent', group(ordinary(type, { mods }), 'azure')))));
     expect(sig('canton', ['sinister'])).toBe(sig('canton').replace('o.canton', 'o.canton+sinister'));
     expect(new Set([sig('canton'), sig('canton', ['sinister']), sig('quarter'), sig('quarter', ['sinister']), sig('gyron'), sig('gyron', ['sinister']), sig('base'), sig('point')]).size).toBe(8);
+  });
+});
+
+// ── Peripherals II (PLAN-C C9): the orle, the tressure (a single one is an orle; double, triple), the flaunches, the gore (and gore sinister),
+// and the dexter and sinister points, which are drawn and blazoned only to be refused (RULES-C §C.3, L21).
+
+const RINGED = [spec('orle'), spec('tressure', { count: 2 }), spec('tressure', { count: 3 })];
+const CURVED = [spec('flaunches'), spec('gore'), sinister('gore')];
+const SIDE_POINTS = [spec('point-dexter'), spec('point-sinister')];
+
+describe('peripherals II: geometry', () => {
+  it('orle, tressure, flaunches, gore and the dexter and sinister points stay inside every shape, lined or not', () => {
+    const lined = [
+      spec('orle', { lines: { a: 'wavy', b: 'wavy' } }), spec('orle', { lines: { a: 'embattled', b: 'plain' } }), spec('orle', { lines: { a: 'engrailed', b: 'engrailed' } }),
+      spec('tressure', { count: 2, lines: { a: 'indented', b: 'indented' } }), spec('flaunches', { lines: { a: 'nebuly', b: 'nebuly' } }),
+      spec('gore', { lines: { a: 'raguly', b: 'raguly' } }), spec('gore', { mods: ['sinister'], lines: { a: 'wavy', b: 'wavy' } }),
+    ];
+    for (const shape of FIELD_SHAPES) {
+      const f = shapeFrame(shape);
+      const outline = pathRings(f.outline)[0];
+      for (const s of [...RINGED, ...CURVED, ...SIDE_POINTS, ...lined]) {
+        const g = geometryOf(s, shape);
+        const where = `${shape} ${JSON.stringify(s)}`;
+        expect(g.body, where).toMatch(/^M[\d.\- MLCZ]+Z$/);
+        expect(g.samples.length, where).toBeGreaterThan(s.type === 'tressure' || s.type.startsWith('point-') ? 10 : 30);
+        for (const [x, y] of g.samples) expect(pointInPolygon(x, y, outline), where).toBe(true);
+        expect(g.box.x0 >= f.box.x0 && g.box.x1 <= f.box.x1 && g.box.y0 >= f.box.y0 && g.box.y1 <= f.box.y1, where).toBe(true);
+        expect(g.fillRule, where).toBe(s.type === 'orle' || s.type === 'tressure' ? 'evenodd' : 'nonzero');
+      }
+    }
+  });
+
+  it('an orle and a tressure follow each shape\'s own inset: the orle 12 to 20 in from the edge (the lozenge\'s, inside its narrower bordure, 10 to 18), a tressure\'s rings 3 wide and 3 apart', () => {
+    for (const shape of FIELD_SHAPES) {
+      const outline = pathRings(shapeFrame(shape).outline)[0];
+      const inset = shape === 'lozenge' ? 8 : 10;
+      const within = (s: OrdinarySpec, from: number, to: number) => {
+        for (const [x, y] of geometryOf(s, shape).samples) {
+          const d = edgeDistance(outline, x, y);
+          expect(d >= from - 1.5 && d <= to + 1.5, `${shape} ${s.type}${s.count} ${x},${y} at ${d}`).toBe(true);
+        }
+      };
+      within(spec('orle'), inset + 2, inset + 10);
+      within(spec('tressure', { count: 3 }), inset + 3, inset + 18);
+      for (const count of [2, 3]) expect(pathRings(geometryOf(spec('tressure', { count }), shape).body), `${shape} ${count}`).toHaveLength(2 * count);
+      // no ring of the triple tressure crosses itself where the heater's foot narrows
+      for (const ring of pathRings(geometryOf(spec('tressure', { count: 3 }), shape).body)) expect(ring.length, shape).toBeGreaterThan(3);
+    }
+  });
+
+  it('the flaunches mirror each other, the gore sinister mirrors the gore, the point sinister the point dexter', () => {
+    for (const shape of FIELD_SHAPES) {
+      const cx = shapeFrame(shape).fessPoint.x;
+      const rounded = (d: string, flip: boolean) => pathRings(d).flat().map(([x, y]) => `${Math.round(flip ? 2 * cx - x : x)},${Math.round(y)}`).sort();
+      for (const lines of [{ a: 'plain', b: 'plain' }, { a: 'wavy', b: 'wavy' }] as const) {
+        const flaunches = geometryOf(spec('flaunches', { lines }), shape).body;
+        expect(rounded(flaunches, true), `${shape} flaunches ${lines.a}`).toEqual(rounded(flaunches, false));
+        expect(rounded(geometryOf(spec('gore', { lines, mods: ['sinister'] }), shape).body, false), `${shape} gore ${lines.a}`)
+          .toEqual(rounded(geometryOf(spec('gore', { lines }), shape).body, true));
+      }
+      expect(rounded(geometryOf(spec('point-sinister'), shape).body, false), shape).toEqual(rounded(geometryOf(spec('point-dexter'), shape).body, true));
+    }
+  });
+
+  it('a line on an orle runs round both its edges, on flaunches and a gore along their curves only', () => {
+    for (const shape of FIELD_SHAPES) {
+      for (const type of ['orle', 'flaunches', 'gore'] as const) {
+        const plain = geometryOf(spec(type), shape), wavy = geometryOf(spec(type, { lines: { a: 'wavy', b: 'wavy' } }), shape);
+        expect(wavy.body, `${shape} ${type}`).not.toBe(plain.body);
+        expect(pathRings(wavy.body), `${shape} ${type}`).toHaveLength(pathRings(plain.body).length);
+        expect(Math.abs(wavy.samples.length - plain.samples.length), `${shape} ${type}`).toBeLessThan(plain.samples.length * 0.25);
+      }
+      // the outer edge alone: the inner ring is the plain orle's
+      const outer = pathRings(geometryOf(spec('orle', { lines: { a: 'embattled', b: 'plain' } }), shape).body);
+      expect(outer[1], shape).toEqual(pathRings(geometryOf(spec('orle'), shape).body)[1]);
+    }
+  });
+});
+
+describe('peripherals II: charges keep inside an orle or tressure and out of flaunches and a gore', () => {
+  it('in every context and count (heater exhaustive, other shapes in turn), and at a size that reads alone', () => {
+    const keepOuts: OrdinarySpec[][] = [...RINGED.map((s) => [s]), ...CURVED.map((s) => [s]), [spec('orle', { lines: { a: 'wavy', b: 'wavy' } })], [spec('flaunches', { lines: { a: 'engrailed', b: 'engrailed' } })], [spec('orle'), spec('canton')]];
+    const layouts = (n: number) => (n === 1 ? [layoutOfKey('single', 1)!] : n === 2 ? [layoutOfKey('in-pale', 2)!, layoutOfKey('in-fess', 2)!] : [layoutOfKey('rows-2-1', 3)!, layoutOfKey('in-pale', 3)!]);
+    let k = 0, checked = 0;
+    for (const keepOut of keepOuts) {
+      for (const peripheral of ['none', 'chief'] as const) {
+        for (const count of [1, 2, 3]) {
+          for (const layout of layouts(count)) {
+            for (const shape of FIELD_SHAPES) {
+              if (shape !== 'heater' && k++ % 5 !== FIELD_SHAPES.indexOf(shape)) continue;
+              const avoid = keepOut.flatMap((s) => geometryOf(s, shape).envelope.outer);
+              for (const s of contextSlots({ ...fieldContext(peripheral), keepOut }, count, layout, shape)) {
+                const where = `${shape} ${keepOut.map((x) => x.type + x.count).join('+')} ${peripheral} ${count} ${s.x},${s.y} ${s.size}`;
+                for (const poly of avoid) {
+                  expect(pointInPolygon(s.x, s.y, poly), where).toBe(false);
+                  expect(edgeDistance(poly, s.x, s.y), where).toBeGreaterThanOrEqual(s.size / 2 - 0.01);
+                }
+                checked++;
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(150);
+    for (const keepOut of [...RINGED.slice(0, 2), ...CURVED].map((s) => [s])) {
+      for (const shape of FIELD_SHAPES) {
+        const [s] = contextSlots({ ...fieldContext('none'), keepOut }, 1, layoutOfKey('single', 1)!, shape);
+        expect(s?.size ?? 0, `${shape} ${keepOut[0].type}`).toBeGreaterThanOrEqual(30);
+      }
+    }
+  }, 20_000);
+});
+
+describe('peripherals II: rules', () => {
+  it('an orle, a double tressure, flaunches or a gore alone make field-primary armory, drawn and registrable', () => {
+    for (const [type, count] of [['orle', 1], ['tressure', 2], ['tressure', 3], ['flaunches', 1], ['gore', 1]] as const) {
+      const d = nd(arms('argent', group(ordinary(type), 'azure', { count })));
+      expect(isFieldPrimary(d), type).toBe(true);
+      expect(structuralIssues(d), type).toEqual([]);
+      expect(unsupportedIssues(d), type).toEqual([]);
+    }
+  });
+
+  it('a dexter or sinister point is drawn and blazoned, but refused by a rule of its own (RULES-C §C.3, L21)', () => {
+    for (const type of ['point-dexter', 'point-sinister'] as const) {
+      const d = nd(arms('azure', group(charge('mullet'), 'argent'), group(ordinary(type), 'argent')));
+      expect(unsupportedIssues(d), type).toEqual([]);
+      const refused = rule(d, 'side-point');
+      expect(refused.map((i) => i.at), type).toEqual([{ k: 'group', path: [d.groups.findIndex((g) => g.item.k === 'ordinary')] }]);
+      expect(refused[0].message, type).toContain('RULES-C §C.3, L21');
+    }
+    expect(blazon(nd(arms('azure', group(ordinary('point-dexter'), 'argent'))))).toBe('Azure, a point dexter argent.');
+    expect(blazon(nd(arms('azure', group(ordinary('point-sinister'), 'argent'))))).toBe('Azure, a point sinister argent.');
+  });
+
+  it('a single tressure is an orle', () => {
+    expect(nd(arms('gules', group(ordinary('tressure'), 'or')))).toEqual(nd(arms('gules', group(ordinary('orle'), 'or'))));
+  });
+});
+
+describe('peripherals II: conflict', () => {
+  const lone = (type: string, extra: object = {}, count = 1) => nd(arms('argent', group(charge('lion'), 'gules'), group(ordinary(type, extra), 'azure', { count })));
+  const tally = (a: Design, b: Design) => differences(a, b).map((x) => `${x.kind}:${x.attr}:${x.rule}`);
+
+  it('a double tressure differs from an orle in number alone, a triple from a double; an orle from a bordure in type (RULES-C §C.3)', () => {
+    expect(tally(lone('orle'), lone('tressure', {}, 2))).toEqual(['dc:number:A5G5']);
+    expect(tally(lone('tressure', {}, 2), lone('tressure', {}, 3))).toEqual(['dc:number:A5G5']);
+    expect(tally(lone('orle'), lone('bordure'))).toEqual(['dc:type:A5G4']);
+  });
+
+  it('flaunches are a pair: two DCs from a chief (SENA A5G5); a gore and the gore sinister differ in position (L16)', () => {
+    expect(tally(lone('chief'), lone('flaunches'))).toEqual(['dc:type:A5G4', 'dc:number:A5G5']);
+    expect(tally(lone('gore'), lone('gore', { mods: ['sinister'] }))).toEqual(['dc:arrangement:A5G6']);
+    expect(explainDifferences(lone('gore'), lone('gore', { mods: ['sinister'] })).map((n) => n.text)).toEqual(['position of curved wedge (left side ↔ right side)']);
+  });
+});
+
+describe('peripherals II: words and signature', () => {
+  const words = (input: unknown) => blazon(nd(input));
+  it('blazons "within an orle", "within a double tressure", "between flaunches", "flaunches" alone and "a gore sinister"', () => {
+    expect(words(arms(div('per-bend', 'argent', 'vert'), group(charge('heart'), 'gules'), group(ordinary('orle'), 'gules')))).toBe('Per bend argent and vert, a heart within an orle gules.');
+    expect(words(arms('gules', group(charge('lion'), 'or'), group(ordinary('tressure'), 'or', { count: 2 })))).toBe('Gules, a lion within a double tressure Or.');
+    expect(words(arms('gules', group(ordinary('tressure'), 'or', { count: 3 })))).toBe('Gules, a triple tressure Or.');
+    expect(words(arms('or', group(ordinary('flaunches'), 'azure')))).toBe('Or, flaunches azure.');
+    expect(words(arms('sable', group(charge('roundel'), 'or', { count: 3, arrangement: 'in-pale' }), group(ordinary('flaunches'), 'or')))).toBe('Sable, in pale three roundels between flaunches Or.');
+    expect(words(arms('argent', group(ordinary('gore', { mods: ['sinister'] }), 'azure')))).toBe('Argent, a gore sinister azure.');
+    expect(words(arms('argent', group(charge('lion'), 'gules'), group(ordinary('gore'), 'azure')))).toBe('Argent, a lion gules and a gore azure.');
+    expect(words(arms('azure', group(ordinary('orle', { lines: { a: 'embattled', b: 'plain' } }), 'or')))).toBe('Azure, an orle embattled on the outer edge Or.');
+    expect(words(arms('argent', group(charge('lion'), 'gules'), group(ordinary('orle'), 'azure'), group(ordinary('chief'), 'gules')))).toBe('Argent, a lion gules within an orle azure, a chief gules.');
+  });
+
+  it('glosses them in everyday words', () => {
+    expect(gloss(nd(arms('argent', group(ordinary('orle'), 'azure'))))).toBe('A white shield with a blue inner border.');
+    expect(gloss(nd(arms('gules', group(ordinary('tressure'), 'or', { count: 2 }))))).toBe('A red shield with a gold pair of thin inner borders.');
+    expect(gloss(nd(arms('or', group(ordinary('flaunches', { lines: { a: 'wavy' } }), 'azure'))))).toBe('A gold shield with a blue pair of curved side pieces with wavy edges.');
+    expect(gloss(nd(arms('argent', group(ordinary('gore', { mods: ['sinister'] }), 'azure'))))).toBe('A white shield with a blue curved wedge from the right.');
+    expect(gloss(nd(arms('azure', group(ordinary('point-dexter'), 'argent'))))).toBe('A blue shield with a white triangle in the bottom-left corner.');
+  });
+
+  it('signs the tressure\'s count and the gore\'s side: no two of them share a signature', () => {
+    const sig = (type: string, count = 1, mods: string[] = []) => signature(canonical(nd(arms('argent', group(ordinary(type, { mods }), 'azure', { count })))));
+    const all = [sig('orle'), sig('tressure', 2), sig('tressure', 3), sig('flaunches'), sig('gore'), sig('gore', 1, ['sinister']), sig('point-dexter'), sig('point-sinister')];
+    expect(new Set(all).size).toBe(all.length);
+    expect(sig('tressure', 1)).toBe(sig('orle'));
   });
 });

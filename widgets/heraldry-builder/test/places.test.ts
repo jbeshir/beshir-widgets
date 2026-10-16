@@ -35,7 +35,7 @@ describe('places of a design', () => {
 
   it('cover every group of designs with corner and edge shapes, which are a list in canonical order', () => {
     let listed = 0, several = 0;
-    for (const d of generatedPeripheralDesigns(3, 150)) {
+    for (const d of generatedPeripheralDesigns(3, 200)) {
       const placed = placesOf(d);
       expect(placed.map((p) => pathKey(p.path)).sort(), JSON.stringify(d)).toEqual(walkGroups(d).map((w) => pathKey(w.path)).sort());
       for (const p of placed) {

@@ -7,7 +7,7 @@ import { CHARGES, postureGloss, postureTerm, type ChargeId, type Posture } from 
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
-import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
+import { ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
 import { LINE_WORD, type Line } from './lines';
 import type { BandPosition, ShapeToggle } from './shape-options';
@@ -63,7 +63,7 @@ const ORDINARY_PLAIN: Record<OrdinaryType, string> = {
   canton: 'Corner square',
   quarter: 'Corner quarter',
   orle: 'Inner border',
-  tressure: 'Thin inner border',
+  tressure: 'Thin inner borders',
   flaunches: 'Side curves',
   gore: 'Curved wedge',
   pall: 'Y-shaped band',
@@ -82,6 +82,8 @@ const ORDINARY_PLAIN: Record<OrdinaryType, string> = {
   chevronel: 'Narrow peaked band',
   saltorel: 'Narrow X-shaped cross',
   baton: 'Short diagonal bar',
+  'point-dexter': 'Bottom-left corner point',
+  'point-sinister': 'Bottom-right corner point',
 };
 
 /** Pair each key's everyday words with its heraldic name from the model's own table. */
@@ -109,6 +111,9 @@ export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
   voided: { plain: 'Hollow', term: 'voided' },
   sinister: { plain: 'On the right', term: 'sinister' },
 };
+
+/** How many times over a band or shape is drawn (a tressure double or triple), and the heraldic word. */
+export const ORDINARY_COUNT_LABEL: Readonly<Record<number, PlainTerm>> = { 2: { plain: 'Double', term: ORDINARY_COUNT_WORD[2] }, 3: { plain: 'Triple', term: ORDINARY_COUNT_WORD[3] } };
 
 /** The outlines of a band or shape: what each looks like, and its heraldic word. */
 export const OUTLINE_LABEL: Record<Outline, PlainTerm> = {

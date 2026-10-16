@@ -6,13 +6,13 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DRAWN_DIVISIONS, DRAWN_ORDINARIES, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
+  CHARGE_IDS, DRAWN_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
   asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
   type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setPosture, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -33,6 +33,7 @@ export type BuilderAction =
   | { kind: 'edge-side'; target: Exclude<EdgeWhere, 'cotises'>; side: EdgeSide }
   | { kind: 'toggle'; target: PaintWhere; toggle: ShapeToggle; on: boolean }
   | { kind: 'band-position'; target: PaintWhere; position: BandPosition }
+  | { kind: 'ordinary-count'; target: PaintWhere; count: number }
   | { kind: 'outline'; outline: Outline }
   | { kind: 'outline-tincture'; tincture: GroupTincture }
   | { kind: 'ordinary'; type: OrdinaryType | null }
@@ -130,9 +131,10 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       return choiceReason(toggleChoices(d, path), a.toggle);
     }
     case 'band-position': { const path = paintPathOf(d, a.target); return path ? choiceReason(bandPositionChoices(d, path), a.position) : `there is no ${a.target} to move`; }
+    case 'ordinary-count': { const path = paintPathOf(d, a.target); return path ? choiceReason(ordinaryCountChoices(d, path), a.count) : `there is no ${a.target} to draw again`; }
     case 'outline': { const path = ordinaryPath(d); return path ? choiceReason(outlineChoices(d, path), a.outline) : 'there is no ordinary to outline'; }
     case 'outline-tincture': { const path = ordinaryPath(d); return path ? choiceReason(outlineTinctureChoices(d, path), a.tincture) : 'there is no ordinary to outline'; }
-    case 'ordinary': return a.type === null || DRAWN_ORDINARIES.includes(a.type) ? null : `${a.type} is not offered`;
+    case 'ordinary': return a.type === null || BUILDER_ORDINARIES.includes(a.type) || MORE_ORDINARIES.includes(a.type) ? null : `${a.type} is not offered`;
     case 'ordinary-tincture': {
       const path = ordinaryPath(d);
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : 'there is no ordinary to colour';
@@ -246,6 +248,7 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'edge-side': return a.target === 'field' ? setFieldEdgeSide(d, a.side) : setOrdinaryEdgeSide(d, paintPathOf(d, a.target)!, a.side);
     case 'toggle': return setOrdinaryToggle(d, paintPathOf(d, a.target)!, a.toggle, a.on);
     case 'band-position': return setOrdinaryBandPosition(d, paintPathOf(d, a.target)!, a.position);
+    case 'ordinary-count': return setOrdinaryNumber(d, paintPathOf(d, a.target)!, a.count);
     case 'outline': return setOrdinaryOutline(d, ordinaryPath(d)!, a.outline);
     case 'outline-tincture': return setOutlineTincture(d, ordinaryPath(d)!, a.tincture);
     case 'ordinary': return setOrdinary(d, a.type);
@@ -287,6 +290,7 @@ function describeAction(a: BuilderAction): string {
     case 'edge-side': return `${a.target} edge side ${a.side}`;
     case 'toggle': return `${a.target} ${a.toggle} ${a.on ? 'on' : 'off'}`;
     case 'band-position': return `${a.target} position ${a.position}`;
+    case 'ordinary-count': return `${a.target} drawn ${a.count} times over`;
     case 'outline': return `outline ${a.outline}`;
     case 'outline-tincture': return `outline tincture ${a.tincture}`;
     case 'ordinary': return `ordinary ${a.type ?? 'none'}`;
@@ -630,7 +634,11 @@ export function builderPath(goal: Design): BuilderPath {
     });
   };
 
-  // Ordinary: its type, its shape (toggles, then where a band sits), its tincture, then its edges.
+  /** The click that draws the band or the corner or edge shape at `target` double or triple, as the goal is (a tressure). */
+  const countTo = (target: 'ordinary' | Beside, goal: Group): boolean =>
+    groupAt(d, paintPathOf(d, target)!).count === goal.count || click({ kind: 'ordinary-count', target, count: goal.count });
+
+  // Ordinary: its type, its shape (toggles, then where a band sits, then how many times over), its tincture, then its edges.
   if (parts.ordinary) {
     const item = parts.ordinary.group.item;
     if (item.k !== 'ordinary' || !click({ kind: 'ordinary', type: item.type })) return done();
@@ -638,6 +646,7 @@ export function builderPath(goal: Design): BuilderPath {
     if (!togglesTo('ordinary', item)) return done();
     const position: BandPosition = item.mods.includes('enhanced') ? 'enhanced' : item.mods.includes('abased') ? 'abased' : 'middle';
     if (bandPositionOf(d, path()) !== position && !click({ kind: 'band-position', target: 'ordinary', position })) return done();
+    if (!countTo('ordinary', parts.ordinary.group)) return done();
     // The outline before the band's colour (an edged band need not stand out against the field), its line once the band's own is set (cotises follow it).
     if (!outlineTo(item) || !paintTo('ordinary', parts.ordinary.group.paint) || !edgesTo('ordinary', item) || !cotiseLineTo(item)) return done();
   }
@@ -662,7 +671,7 @@ export function builderPath(goal: Design): BuilderPath {
       place = peripheral.place as PeripheralKey;
       if (!click({ kind: 'add-layer', place })) return done();
     }
-    if (!togglesTo(place, item) || !paintTo(place, peripheral.group.paint) || !edgesTo(place, item)) return done();
+    if (!togglesTo(place, item) || !countTo(place, peripheral.group) || !paintTo(place, peripheral.group.paint) || !edgesTo(place, item)) return done();
   }
 
   // The picture, then the pictures around it or beside it in chief, base or canton, the extra pictures on the band, the top band and the border, and last what lies overall.
