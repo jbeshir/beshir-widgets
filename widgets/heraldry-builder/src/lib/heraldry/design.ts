@@ -368,9 +368,12 @@ function canonicalCharge(c: Charge): Charge {
 
 function canonicalItem(item: Item): Item {
   if (item.k === 'charge') return canonicalCharge(item);
+  // A pall inverted is a type of its own: the pall with the mod is that type, so the two spellings are one design.
+  const type = item.type === 'pall' && item.mods.includes('inverted') ? 'pall-inverted' : item.type;
+  const mods = type === item.type ? item.mods : item.mods.filter((m) => m !== 'inverted');
   return {
-    k: 'ordinary', type: item.type, lines: canonicalLines({ k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') }, item.lines),
-    mods: sortedBy(item.mods, (m) => ORDINARY_MODS.indexOf(m)),
+    k: 'ordinary', type, lines: canonicalLines({ k: 'ordinary', type, inverted: mods.includes('inverted') }, item.lines),
+    mods: sortedBy(mods, (m) => ORDINARY_MODS.indexOf(m)),
     cotised: item.cotised && { count: item.cotised.count, paint: canonicalPaint(item.cotised.paint), line: item.cotised.line },
     fimbriated: item.fimbriated && canonicalPaint(item.fimbriated),
   };

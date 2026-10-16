@@ -179,6 +179,32 @@ describe('too-close pre-filter with a semy', () => {
   });
 });
 
+describe('too-close pre-filter with treated ordinaries', () => {
+  // A chevron inverted keys apart from the chevron (A5E5c); every other treatment keys as its ordinary.
+  const band = (type: string, mods: string[] = [], extra: object = {}) => group(ordinary(type, { mods, ...extra }), 'or');
+  const between = group(charge('roundel'), 'argent', { count: 3 });
+  const designs = [
+    nd(arms('azure', band('chevron'))), nd(arms('azure', band('chevron', ['inverted']))), nd(arms('azure', band('chevron', ['inverted', 'couped']))),
+    nd(arms('azure', band('chevron', ['couped']))), nd(arms('azure', band('chevron', ['enhanced']))), nd(arms('azure', band('chevron', ['throughout']))),
+    nd(arms('azure', band('chevron'), between)), nd(arms('azure', band('chevron', ['inverted']), between)), nd(arms('azure', band('chevron', ['inverted'], { lines: { a: 'wavy' } }), between)),
+    nd(arms('azure', band('pile'))), nd(arms('azure', band('pile', ['inverted']))), nd(arms('azure', band('cross'))), nd(arms('azure', band('cross', ['couped']))),
+    nd(arms('azure', band('saltire', ['couped']))), nd(arms('azure', band('fess', ['abased']))), nd(arms('gules', band('chevron', ['inverted']))),
+  ];
+
+  it('finds every entry that is not clear of the probe', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(keysMayConflict(candidateKey(a), candidateKey(b)), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('keys only on changes that are substantial on their own', () => {
+    expect(sameKey(designs[0], designs[1])).toBe(false);
+    for (const a of designs) for (const b of designs) {
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+});
+
 describe('too-close pre-filter with fieldless badges', () => {
   const lion = (extra: object = {}) => group(charge('lion'), 'or', extra);
   const fielded = [

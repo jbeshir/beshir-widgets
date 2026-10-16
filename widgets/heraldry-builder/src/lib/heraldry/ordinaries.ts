@@ -47,6 +47,23 @@ export const ORDINARY_ARTICLE: Record<OrdinaryType, 'a' | 'an'> = {
 export const ORDINARY_MODS = ['inverted', 'couped', 'voided', 'throughout', 'enhanced', 'abased'] as const;
 export type OrdinaryMod = (typeof ORDINARY_MODS)[number];
 
+/**
+ * The ordinaries each treatment is drawn on (RULES-C §D): a chevron or pile upside down; a band, chevron, cross or saltire shortened
+ * (couped); a chevron or pile reaching the edges (throughout — crosses and saltires are throughout already); a band or chevron raised or
+ * lowered. Voided is not drawn yet. On any other ordinary a treatment is a gap.
+ */
+export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
+  inverted: ['chevron', 'pile'],
+  couped: ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'],
+  voided: [],
+  throughout: ['chevron', 'pile'],
+  enhanced: ['fess', 'bend', 'bend-sinister', 'chevron'],
+  abased: ['fess', 'bend', 'bend-sinister', 'chevron'],
+};
+
+/** Whether the treatment is drawn on this ordinary. */
+export const modDrawn = (type: OrdinaryType, mod: OrdinaryMod): boolean => MOD_HOSTS[mod].includes(type);
+
 export function isOrdinaryType(v: unknown): v is OrdinaryType {
   return typeof v === 'string' && (ORDINARY_TYPES as readonly string[]).includes(v);
 }

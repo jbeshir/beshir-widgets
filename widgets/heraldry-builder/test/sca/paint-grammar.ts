@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Division, type Fur, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -46,13 +46,39 @@ const EDGE_SIDES: Record<string, 'a' | 'b'> = { upper: 'a', dexter: 'a', lower: 
  * The lines a band or shape is written with after its name (`at` is the index after it): "embattled" (a band's bare meaning of it: `bareLines`),
  * "embattled counter-embattled" (both edges), "wavy on the lower edge" (that edge alone). An ordinary without a line has plain lines.
  */
-export function readOrdinaryLines(type: OrdinaryType, tokens: readonly string[], at: number): { lines: Lines | null; end: number } {
+function readOrdinaryLines(type: OrdinaryType, inverted: boolean, tokens: readonly string[], at: number): { lines: Lines | null; end: number } {
   if (tokens[at] === 'embattled' && tokens[at + 1] === 'counter-embattled') return { lines: { a: 'embattled', b: 'embattled' }, end: at + 2 };
   const read = readLine(tokens, at);
   if (!read) return { lines: null, end: at };
   const side = tokens[read.end] === 'on' && tokens[read.end + 1] === 'the' && tokens[read.end + 3] === 'edge' ? EDGE_SIDES[tokens[read.end + 2]] : undefined;
-  if (!side) return { lines: bareLines({ k: 'ordinary', type, inverted: false }, read.line), end: read.end };
+  if (!side) return { lines: bareLines({ k: 'ordinary', type, inverted }, read.line), end: read.end };
   return { lines: side === 'a' ? { a: read.line, b: 'plain' } : { a: 'plain', b: read.line }, end: read.end + 4 };
+}
+
+/** The treatments written after an ordinary's line, in the order the widget writes them; voided is not read until it is drawn. */
+const MODS_AFTER_LINE = [['couped'], ['throughout', 'enhanced', 'abased']] as const satisfies ReadonlyArray<ReadonlyArray<OrdinaryMod>>;
+
+/**
+ * The form of a band or shape after its name (`at` is the index after it): "inverted", its lines (`readOrdinaryLines`), then "couped" and
+ * one of "throughout", "enhanced", "abased" (RULES-C §G.1 as PLAN-C §4 orders it: "a chevron inverted embattled", "a saltire raguly couped").
+ */
+export function readOrdinaryForm(type: OrdinaryType, tokens: readonly string[], at: number): { lines: Lines | null; mods: OrdinaryMod[]; end: number } {
+  const mods: OrdinaryMod[] = [];
+  let i = at;
+  if (tokens[i] === 'inverted') {
+    mods.push('inverted');
+    i++;
+  }
+  const { lines, end } = readOrdinaryLines(type, mods.includes('inverted'), tokens, i);
+  i = end;
+  for (const slot of MODS_AFTER_LINE) {
+    const mod = slot.find((m) => m === tokens[i]);
+    if (mod) {
+      mods.push(mod);
+      i++;
+    }
+  }
+  return { lines, mods, end: i };
 }
 
 /** The variations as the words that spell them ("bendy sinister", "barry bendy"), the longest first. */

@@ -6,10 +6,10 @@
 
 import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
-  asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptOrdinaryLines, setEdgeSide, setLine, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, setBandPosition, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, pathOfPlace, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
-  type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
+  type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
@@ -168,7 +168,9 @@ export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
   const previous = simpleParts(d).ordinary?.group.paint;
   const kept = previous && groupTinctureOf(previous);
   const was = simpleParts(d).ordinary?.group.item;
-  const placed = rebuilt(d, ordinaryGroup(type, kept ?? 'or', was?.k === 'ordinary' ? keptOrdinaryLines(was.lines, type) : PLAIN_LINES));
+  const mods = was?.k === 'ordinary' ? keptMods(was.mods, type) : [];
+  const lines = was?.k === 'ordinary' ? keptOrdinaryLines(was.lines, type, mods.includes('inverted')) : PLAIN_LINES;
+  const placed = rebuilt(d, ordinaryGroup(type, kept ?? 'or', lines, mods));
   const path = ordinaryPath(placed)!;
   const choices = groupTinctureChoices(placed, path);
   const tincture = kept && isAllowed(choices, kept) ? kept : firstAllowed(choices, kept ?? 'or');
@@ -183,6 +185,16 @@ export function setOrdinaryLine(d: Design, path: GroupPath, line: Line): Design 
 /** The band or shape's line drawn on both its edges, or on its upper (dexter) or lower (sinister) edge only. */
 export function setOrdinaryEdgeSide(d: Design, path: GroupPath, side: EdgeSide): Design {
   return refitLayers(setEdgeSide(d, { k: 'group', path }, side));
+}
+
+/** The band or shape turned upside down, shortened or touching the edges (or not), the pictures refitted to the room it leaves. */
+export function setOrdinaryToggle(d: Design, path: GroupPath, t: ShapeToggle, on: boolean): Design {
+  return refitLayers(setToggle(d, path, t, on));
+}
+
+/** The band raised, lowered or in its usual place, the pictures refitted to the room it leaves. */
+export function setOrdinaryBandPosition(d: Design, path: GroupPath, position: BandPosition): Design {
+  return refitLayers(setBandPosition(d, path, position));
 }
 
 export function setOrdinaryTincture(d: Design, t: GroupTincture): Design {

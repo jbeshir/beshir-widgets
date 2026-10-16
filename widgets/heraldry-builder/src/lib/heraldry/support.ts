@@ -11,7 +11,7 @@ import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES, isDrawnTreatment, typ
 import {
   asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
-import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
+import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, modDrawn, ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, isOrdinaryType } from './ordinaries';
 import {
   AROUND_COUNTS, MAX_CO_PRIMARY_TOTAL, ON_CHARGE_COUNTS, coPrimaries, aroundPrimaryLayouts, halfLayouts, hostCounts, isHalfPosition, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
@@ -132,7 +132,8 @@ function itemGaps(item: Item): Found[] {
   if (item.k === 'ordinary') {
     const gaps: Found[] = [];
     if (!DRAWN_ORDINARIES.includes(item.type)) gaps.push(gap('ordinary', item.type));
-    for (const m of item.mods) gaps.push(gap('ordinary-treatment', m));
+    // A treatment drawn on another ordinary keeps its own gap ("inverted-on-fess"); voided is not drawn on any.
+    for (const m of item.mods) if (!modDrawn(item.type, m)) gaps.push(gap('ordinary-treatment', m === 'voided' ? m : `${m}-on-${item.type}`));
     if (item.cotised) gaps.push(gap('ordinary-treatment', 'cotised'));
     if (item.fimbriated) gaps.push(gap('ordinary-treatment', 'fimbriated'));
     return gaps;
@@ -183,8 +184,11 @@ const hasAround = (d: Design): boolean => primaryCharges(d) !== null && d.groups
 function overallGaps(g: Group): Found[] {
   if (g.item.k === 'ordinary') {
     if (!OVERALL_ORDINARIES.includes(g.item.type)) return [gap('placement', `overall-${g.item.type}`, 'That group overall')];
-    // The builder's edge rows are on the band, the top band and the border, not on what lies across everything.
-    return g.item.lines.a !== 'plain' || g.item.lines.b !== 'plain' ? [gap('line-of-partition', 'on-overall', 'A line on a band or shape lying across everything')] : [];
+    // The builder's edge rows and shape toggles are on the band, the top band and the border, not on what lies across everything.
+    return [
+      ...(g.item.lines.a !== 'plain' || g.item.lines.b !== 'plain' ? [gap('line-of-partition', 'on-overall', 'A line on a band or shape lying across everything')] : []),
+      ...(g.item.mods.length > 0 ? [gap('ordinary-treatment', 'on-overall', 'A band or shape lying across everything turned, shortened or moved')] : []),
+    ];
   }
   return overallLayouts(g.count, CHARGES[g.item.charge].long).length > 0 ? [] : [gap('placement', `overall-${g.count}`, 'That group overall')];
 }
@@ -293,7 +297,8 @@ function combinationGaps(d: Design): Array<{ at: IssueAt; gap: Found }> {
 function badgeGaps(d: Design): Array<{ at: IssueAt; gap: Found }> {
   const found = (g: Group): Found | null =>
     g.role === 'secondary' ? gap('fieldless', 'conjoined', 'Charges set beside the main charge of a fieldless badge')
-      : g.role === 'overall' ? gap('fieldless', 'overall', 'Something overall on a fieldless badge') : null;
+      : g.role === 'overall' ? gap('fieldless', 'overall', 'Something overall on a fieldless badge')
+      : g.item.k === 'ordinary' && g.item.mods.includes('couped') ? gap('fieldless', 'couped-ordinary', 'A couped band or shape as a fieldless badge') : null;
   const primaries = d.groups.filter((g) => g.role === 'primary' && g.item.k === 'charge');
   const extra = d.groups.flatMap((g, i) => {
     const f = found(g);

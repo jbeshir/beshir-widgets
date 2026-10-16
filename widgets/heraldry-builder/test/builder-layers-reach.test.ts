@@ -9,7 +9,7 @@ import {
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
-import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns } from './design-generator';
+import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns } from './design-generator';
 import { arms, charge, div, group, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
@@ -144,6 +144,16 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Barry wavy of eight argent and azure.'],
   ['a quartered field with its across line embattled', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] }),
     'Quarterly per fess embattled Or and gules.'],
+  ['a chevron turned upside down', arms('argent', group(ordinary('chevron', { mods: ['inverted'] }), 'sable')),
+    'Argent, a chevron inverted sable.'],
+  ['a saltire shortened between four pictures', arms('vert', group(ordinary('saltire', { mods: ['couped'] }), 'or'), group(charge('roundel'), 'or', { count: 4 })),
+    'Vert, a saltire couped between four roundels Or.'],
+  ['a band raised', arms('azure', group(ordinary('fess', { mods: ['enhanced'] }), 'or')),
+    'Azure, a fess enhanced Or.'],
+  ['a chevron touching the edges', arms('gules', group(ordinary('chevron', { mods: ['throughout'] }), 'argent')),
+    'Gules, a chevron throughout argent.'],
+  ['a chevron upside down and embattled on its upper edge', arms('azure', group(ordinary('chevron', { mods: ['inverted'], lines: { a: 'embattled' } }), 'or')),
+    'Azure, a chevron inverted embattled on the upper edge Or.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -170,6 +180,14 @@ describe('designs with a chief and a bordure beside the band are built by clicks
 
   it('every generated design with a line on a band, a top band or a border is built too', () => {
     const problems = generatedLinedOrdinaryDesigns(11, 60).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with a band upside down, shortened, touching the edges, raised or lowered is built too', () => {
+    const problems = generatedTreatedOrdinaryDesigns(11, 40).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });

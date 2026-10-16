@@ -85,7 +85,24 @@ const ORDINARY_LINE_CASES: ReadonlyArray<[string, unknown]> = [
   ['line-embattled-lower-chevron', band('chevron', { a: 'plain', b: 'embattled' })],
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
+const treatedBand = (type: string, mods: string[], extra: object = {}) => arms('azure', group(ordinary(type, { mods, ...extra }), 'or'));
+
+/** The treatments of the ordinaries: each on every host it is drawn on once at least, a line with one, charges around a chevron inverted. */
+const TREATMENT_CASES: ReadonlyArray<[string, unknown]> = [
+  ['treat-inverted-chevron', treatedBand('chevron', ['inverted'])],
+  ['treat-inverted-embattled-chevron', treatedBand('chevron', ['inverted'], { lines: { a: 'embattled' } })],
+  ['treat-inverted-pile', treatedBand('pile', ['inverted'])],
+  ['treat-inverted-chevron-between', arms('gules', group(ordinary('chevron', { mods: ['inverted'] }), 'or'), group(charge('roundel'), 'argent', { count: 3 }))],
+  ...['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'].map((t): [string, unknown] => [`treat-couped-${t}`, treatedBand(t, ['couped'])]),
+  ['treat-couped-raguly-saltire', treatedBand('saltire', ['couped'], { lines: { a: 'raguly' } })],
+  ['treat-throughout-chevron', treatedBand('chevron', ['throughout'])],
+  ['treat-throughout-pile', treatedBand('pile', ['throughout'])],
+  ['treat-enhanced-fess', treatedBand('fess', ['enhanced'])],
+  ['treat-abased-bend', treatedBand('bend', ['abased'])],
+  ['treat-enhanced-chevron', treatedBand('chevron', ['enhanced'])],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {

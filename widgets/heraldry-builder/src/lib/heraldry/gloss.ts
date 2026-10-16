@@ -9,7 +9,8 @@ import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, no
 import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
 import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { type OrdinaryType } from './ordinaries';
-import { aroundWords, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type HalfPosition, type Layout } from './arrangement';
+import { aroundWords, betweenHost, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout } from './arrangement';
+import { specOf } from './ordinary-geometry';
 
 const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   fess: 'horizontal band across the middle',
@@ -22,6 +23,12 @@ const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   chief: 'band across the top',
   bordure: 'border around the edge',
   pile: 'downward-pointing wedge from the top',
+};
+
+/** The ordinaries turned upside down, in everyday words. */
+const INVERTED_GLOSS: Partial<Record<OrdinaryType, string>> = {
+  chevron: 'V shape',
+  pile: 'upward-pointing wedge from the bottom',
 };
 
 /** "a" / "an" chosen from the word that follows (colour words all start with consonants today). */
@@ -147,8 +154,12 @@ const ONE_EDGE: readonly OrdinaryType[] = ['chief', 'bordure'];
 
 function ordinaryGloss(d: Design, g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
-  const shape = ORDINARY_GLOSS[g.item.type] ?? notSupported({ category: 'ordinary', detail: g.item.type });
-  const body = `${shape}${ordinaryLines(g.item.type, g.item.mods.includes('inverted'), g.item.lines)}`;
+  const { type, mods } = g.item;
+  const inverted = mods.includes('inverted');
+  const shape = (inverted ? INVERTED_GLOSS[type] : ORDINARY_GLOSS[type]) ?? notSupported({ category: 'ordinary', detail: type });
+  // "a gold shortened cross", "a blue raised horizontal band …", "a white upside-down V reaching the edges"
+  const before = [mods.includes('couped') ? 'shortened ' : '', mods.includes('enhanced') ? 'raised ' : '', mods.includes('abased') ? 'lowered ' : ''].join('');
+  const body = `${before}${shape}${mods.includes('throughout') ? ' reaching the edges' : ''}${ordinaryLines(type, inverted, g.item.lines)}`;
   const colour = colourOf(g.paint);
   return colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${paintClause(d, g.paint)}`;
 }
@@ -225,7 +236,7 @@ function chargesGloss(d: Design, g: Group): { text: string; clause: boolean } {
  * Charges set between an ordinary, placed around it: "a white rose on each side", "two white roses,
  * one above and one below". A count the ordinary doesn't take (a structural error) is glossed plainly.
  */
-function betweenGloss(d: Design, g: Group, ordinary: OrdinaryType): { text: string; clause: boolean } {
+function betweenGloss(d: Design, g: Group, ordinary: BetweenHost): { text: string; clause: boolean } {
   const where = betweenWords(ordinary, g.count);
   if (!where) return chargesGloss(d, g);
   const clause = paintClause(d, g.paint);
@@ -278,7 +289,7 @@ function ordinaryWith(d: Design, g: Group, between: Group[]): { text: string; cl
     clause = c.clause;
   }
   for (const s of between) {
-    const b = betweenGloss(d, s, type);
+    const b = betweenGloss(d, s, betweenHost(specOf(g)));
     text += `${g.charged.length > 0 ? ', and' : ' and'} ${b.text}`;
     clause = b.clause;
   }

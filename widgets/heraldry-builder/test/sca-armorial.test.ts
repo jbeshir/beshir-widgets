@@ -11,7 +11,7 @@ import {
   CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, DRAWN_LINES, DRAWN_TREATMENTS, LINED_VARIATIONS, LINE_WORD, FURS, FUR_NAME, SEMY_NAMES, lineAllowed, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
   blazon, canonicalJson, isCountedVariation, normalise,
 } from '../src/lib/heraldry';
-import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign } from './design-generator';
+import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns } from './design-generator';
 import { arms, charge, group, ordinary } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -182,6 +182,7 @@ describe('the matcher reads what the widget writes', () => {
     const designs = [
       ...generatedGeometryDesigns(1, 300),
       ...generatedLinedOrdinaryDesigns(1, 200),
+      ...generatedTreatedOrdinaryDesigns(1, 120),
       ...Array.from({ length: 1500 }, (_, seed) => generatedDesign(seed)),
       ...Array.from({ length: 1500 }, (_, seed) => generatedRichDesign(seed)),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -217,6 +218,33 @@ describe('the matcher reads the lines of the field', () => {
   it('files a line on the division of a band or on chevronny as the gap the widget names', () => {
     expect(explainMatch('Azure, a heart per pale wavy argent and gules.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'line-of-partition', detail: 'on-divided-charge' }] });
     expect(explainMatch('Chevronny wavy argent and azure, a chief Or.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'line-of-partition', detail: 'wavy-on-chevronny' }] });
+  });
+});
+
+// The treatments of an ordinary, in the College's orders and spellings (normaliser rule 'ordinary-treatments').
+describe('the matcher reads the treatments of an ordinary', () => {
+  it.each([
+    ['Argent, a chevron inverted sable.', 'Argent, a chevron inverted sable.'],
+    ['Argent, a chevron reversed sable.', 'Argent, a chevron inverted sable.'],
+    ['Azure, a chevron inverted embattled Or.', 'Azure, a chevron inverted embattled on the upper edge Or.'],
+    ['Azure, a pile wavy inverted Or.', 'Azure, a pile inverted wavy Or.'],
+    ['Gules, a cross couped argent.', 'Gules, a cross couped argent.'],
+    ['Gules, a cross humetty argent.', 'Gules, a cross couped argent.'],
+    ['Vert, a saltire couped raguly Or.', 'Vert, a saltire raguly couped Or.'],
+    ['Azure, a fess couped between three roses Or.', 'Azure, a fess couped between three roses Or.'],
+    ['Gules, a chevron ployé throughout argent.', 'Gules, a chevron ployé throughout argent.'],
+    ['Gules, a cross throughout argent.', 'Gules, a cross argent.'],
+    ['Azure, a fess enhanced Or.', 'Azure, a fess enhanced Or.'],
+    ['Azure, a bendlet enhanced Or.', 'Azure, a bend enhanced Or.'],
+    ['Azure, a bend sinister abased argent.', 'Azure, a bend sinister abased argent.'],
+  ])('%s', (text, house) => {
+    const m = explainMatch(text);
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('files a treatment on an ordinary it is not drawn on as the gap the widget names', () => {
+    expect(explainMatch('Azure, a fess inverted Or.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'ordinary-treatment', detail: 'inverted-on-fess' }] });
   });
 });
 
@@ -331,6 +359,13 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a charge between charges', 'azure, a lion Or between three roses argent'],
     ['charges around a charge', 'azure, a lion Or between four roses argent in saltire'],
     ['a band and a chief', 'azure, a fess and a chief argent'],
+    ['a chevron inverted', 'azure, a chevron inverted Or'],
+    ['a cross couped', 'azure, a cross couped Or'],
+    ['a cross humetty', 'azure, a cross humetty Or'],
+    ['a fess enhanced', 'azure, a fess enhanced Or'],
+    ['a bend abased', 'azure, a bend abased Or'],
+    ['a pile throughout', 'azure, a pile throughout Or'],
+    ['a pile inverted', 'azure, a pile inverted Or'],
     ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, a ${ORDINARY_NAME[t]} ${LINE_WORD[l]} Or`])),
     ['a chief and a bordure', 'azure, a chief and a bordure Or'],
     ['charges in chief', 'azure, a bend Or, in chief three roses argent'],

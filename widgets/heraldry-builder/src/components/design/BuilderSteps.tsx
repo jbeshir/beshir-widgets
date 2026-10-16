@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, LINE_LABEL, ORDINARY_LABEL, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, LINE_LABEL, ORDINARY_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -299,7 +299,14 @@ export function ordinaryLineWords(item: Extract<Design['groups'][number]['item']
 function ordinarySummary(design: Design): string {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
-  return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
+  return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryShapeWords(item), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
+}
+
+/** The shape toggles and position of a band in everyday words ("upside down, raised"); empty when it has none. */
+function ordinaryShapeWords(item: Extract<Design['groups'][number]['item'], { k: 'ordinary' }>): string {
+  const toggles = (['inverted', 'couped', 'throughout'] as const).filter((t) => item.mods.includes(t)).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
+  const moved = (['enhanced', 'abased'] as const).filter((p) => item.mods.includes(p)).map((p) => BAND_POSITION_LABEL[p].plain.toLowerCase());
+  return [...toggles, ...moved].join(', ');
 }
 
 export function OrdinaryStep({ design, shape, onChange, issues, accordion }: ShapedStepProps) {

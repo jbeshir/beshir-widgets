@@ -123,7 +123,26 @@ picture stays a gap (`line-of-partition:on-divided-charge`), as does a different
 top band and the border (**Edge…**, `chief-shape-more`, `bordure-shape-more`): a line is offered as its blazon bares it (a fess embattled is its upper edge alone,
 a fess wavy both, a chief engrailed its one edge), and a band with two edges and a line also shows `<ordinary>-edge-side-both|a|b` ("Both edges", "Top edge only" /
 "Bottom edge only", "Left edge only" / "Right edge only" for a pale) so "embattled counter-embattled" and "wavy on the lower edge" are reachable. `setOrdinary` keeps the line
-a new band takes. A line on a band lying across everything stays a gap (`line-of-partition:on-overall`). `lines.ts` holds the
+a new band takes. A line on a band lying across everything stays a gap (`line-of-partition:on-overall`).
+
+**Treatments** that change an ordinary's outline are drawn by `ordinary-geometry.ts` from the spec's `mods` and offered in the same
+**More shapes and edges…** disclosure above the edge row (`ShapeToggles.tsx`, `shape-options.ts`): toggles `ordinary-shape-inverted`
+("Upside down": a chevron or pile reflected about a line 10 below the fess point, so a chevron inverted's limbs rise to the sides and a
+pile inverted issues from the base), `ordinary-shape-couped` ("Shortened": a fess, pale, bend, bend sinister, chevron, cross or saltire cut
+12 inside the shape on its middle line and both edges, its ends straight even when lined) and `ordinary-shape-throughout` ("Touching the
+edges": a chevron's apex on the top, a pile's point on the base), pressed buttons (`aria-pressed`) that explain when blocked; and for a
+fess, a bend (sinister) or a chevron `ordinary-position-enhanced|middle|abased` ("Raised · Middle · Lowered": moved 12 across the band). The
+hosts are `MOD_HOSTS` (`ordinaries.ts`); a treatment on any other ordinary keeps the gap `ordinary-treatment:<mod>-on-<type>`, couped and
+throughout, enhanced and abased, throughout and either, and a cross or saltire throughout don't resolve, a treated band lying across
+everything is `ordinary-treatment:on-overall` and a couped band as a fieldless badge `fieldless:couped-ordinary`. A chevron inverted is its
+own conflict key (SC against the chevron, A5E5c; a DC when not primary), a pile inverted a DC of orientation (A5G7), couping a DC folded
+into the change of type (A5G4), enhanced, abased and throughout no difference; a charged chevron inverted abased is refused. Charges set
+between or on a treated ordinary start from the plain one's places moved with it (Table 7's own row for a chevron inverted: one inside
+the V, two below), then the generic engine sizes them against its envelope. `setOrdinary` keeps the treatments a new band takes. The
+blazon writes "inverted" before the line and the others after it ("a chevron inverted embattled on the upper edge", "a saltire raguly
+couped", "a chevron ployé throughout").
+
+`lines.ts` holds the
 registry (the lines, their SENA App M2 groups and `lineDiffers`, the hosts each may go on, how many independent edges each host has,
 what a bare line means on it, and the blazon words and spellings) and one periodic-edge generator: each line has an original
 placeholder profile, one period that is fitted a whole number of times to the visible length of an edge (within SENA A2C1's repeat
@@ -777,6 +796,7 @@ npm run favicon
 - `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain or bowed, widened and narrowed by how far its lines swing otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
 - `test/builder.test.ts` "lines on the band, the top band and the border" and `test/builder-steps.test.ts` "More shapes and edges…": the band's line and edge-side transitions, the lines each host offers, `setOrdinary` keeping a line, and the closed disclosures.
 - `test/ordinary-lines.test.ts`: lines on ordinaries — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.
+- `test/ordinary-treatments.test.ts`: inverted, couped, throughout, enhanced and abased — the geometry on every shape (reflection, couped ends inside the shape and straight on lined bands, throughout touching the edge, a band moved not widened), the conflict readings (A5E5c, A5G7, A5G4, none for position), the rules (contradictions, hosts, a charged chevron inverted abased), the layouts around and on them, the words, the toggles and `setOrdinary`.
 - `test/lines-field.test.ts`: lines on the field — every partition line of every allowed pair is drawn with its profile and at least two periods inside each shape; the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating third elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
 - `test/signature.test.ts`: the signature is unchanged for designs phase B could draw (pinned, `test/signature-cases.ts`), one-to-one over lined and generated designs, and every id ends in a letter.
 - `test/lines.test.ts`: the line registry (SENA App M2 groups, the hosts each line may go on, the edges each host has and what a bare line means on it) and the periodic-edge generator and contours (whole periods within the repeat bounds on every shape, features inside their span, bands' edges in phase or opposed, plain contours byte-identical to the polygons the phase-B shapes draw, captured in `test/fixtures/straight-contours.json`).

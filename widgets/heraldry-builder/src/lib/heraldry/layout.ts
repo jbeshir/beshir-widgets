@@ -10,13 +10,13 @@ import { PLAIN_LINES, groupAt, hostOf, type Design, type GroupPath } from './des
 import { DRAWN_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
+  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, betweenHost, type BetweenHost, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
-  CANONICAL_SHAPE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
+  CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
 } from './geometry';
-import { defaultOrdinaryFrame, isPlainSpec, ordinaryGeometry, type OrdinarySpec } from './ordinary-geometry';
+import { bandShift, defaultOrdinaryFrame, flipAxis, isPlainSpec, ordinaryGeometry, type OrdinarySpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';
 import type { FieldShape } from './shape';
 import { MAX_DRAWN_COUNT } from './support';
@@ -322,7 +322,7 @@ const chevronAbove = (peripheral: Peripheral): Area => (hasChief(peripheral) ? a
  * Charges set between a central ordinary. With a chief or bordure the lines they are strung along keep to the
  * free area; where the ordinary leaves nothing there the slots come out too small and the structure rules say so.
  */
-function betweenCentres(ordinary: OrdinaryType, count: number, peripheral: Peripheral): Centre[] | null {
+function betweenCentres(ordinary: BetweenHost, count: number, peripheral: Peripheral): Centre[] | null {
   const split = BETWEEN[ordinary]?.[count]?.split;
   if (!split) return null;
   const [first, second] = split;
@@ -336,6 +336,11 @@ function betweenCentres(ordinary: OrdinaryType, count: number, peripheral: Perip
     case 'bend': return [...slanted([48, 8], [92, 52], first), ...slanted([8, 48], [52, 92], second)];
     case 'bend-sinister': return mirrored([...slanted([48, 8], [92, 52], first), ...slanted([8, 48], [52, 92], second)]);
     case 'chevron': return [...lineIn(zone(chevronAbove(peripheral)), first, 'fess'), ...rowsIn(zone(area(30, 84, 70, 116)), second === 1 ? [1] : [2, 1])];
+    // Inside the V (one, or two and one), and below its limbs: one under the point, or a row on either side of it.
+    case 'chevron-inverted': return [
+      ...rowsIn(zone(area(25, 4, 75, 38)), first === 1 ? [1] : [2, 1]),
+      ...(second === 1 ? rowsIn(zone(area(30, 90, 70, 116)), [1]) : second === 2 ? lineIn(zone(area(4, 72, 96, 100)), 2, 'fess') : rowsIn(zone(area(4, 70, 96, 114)), [2, 1])),
+    ];
     default: return null;
   }
 }
@@ -553,9 +558,49 @@ function nominalCentres(ctx: Exclude<GroundContext, { k: 'around' }>, count: num
   }
   if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx.k, ctx.ordinary).includes(count)) return null;
   const { type } = ctx.ordinary;
-  const ruled = ctx.k === 'between' ? betweenCentres(type, count, ctx.peripheral) : onCentres(type, count, ctx.peripheral);
+  const ruled = ctx.k === 'between' ? betweenCentres(betweenHost(ctx.ordinary), count, ctx.peripheral) : onCentres(type, count, ctx.peripheral);
   // A plain ordinary with no peripherals has its hand rows instead.
-  return ruled ?? (ctx.peripheral === 'none' && isPlainSpec(ctx.ordinary) ? null : handCentres(ctx, count));
+  const centres = ruled ?? (ctx.peripheral === 'none' && isPlainSpec(ctx.ordinary) ? null : handCentres(ctx, count));
+  // Table 7's chevron inverted row is already the other way up
+  return centres && treatedCentres(ctx.ordinary, ctx.k, centres, ruled !== null && ctx.k === 'between' && betweenHost(ctx.ordinary) !== type);
+}
+
+/** The share of their distance from the fess point (on a chevron, from its apex) the charges on a couped ordinary keep: its arms are shorter. */
+const COUPED_DRAW_IN = 0.8;
+
+/**
+ * The centres for an upright, full-length ordinary in its usual place (on the heater) moved with its treatments: drawn in along a couped
+ * ordinary, turned over with an inverted one (unless they are `turned` already), and moved with a band enhanced or abased, or a chevron
+ * throughout — on it, by as much as it moves; beside it, the room on the side it moves to shrinking toward the edge and the room on the
+ * other side growing.
+ */
+function treatedCentres(spec: OrdinarySpec, kind: 'between' | 'on', centres: Centre[], turned: boolean): Centre[] {
+  if (spec.mods.length === 0) return centres;
+  const heater = shapeFrame(CANONICAL_SHAPE);
+  const { x: fx, y: fy } = heater.fessPoint;
+  const inverted = spec.mods.includes('inverted');
+  let out = centres;
+  if (kind === 'on' && spec.mods.includes('couped')) {
+    const [ax, ay] = spec.type === 'chevron' ? CHEVRON_APEX : [fx, fy];
+    out = out.map((c) => at(ax + COUPED_DRAW_IN * (c.x - ax), ay + COUPED_DRAW_IN * (c.y - ay), c.rotation));
+  }
+  if (inverted && !turned) {
+    const axis = flipAxis(defaultOrdinaryFrame(CANONICAL_SHAPE));
+    out = out.map((c) => at(c.x, 2 * axis - c.y, -c.rotation || 0));
+  }
+  // a chevron throughout is moved up (turned over, down) until its apex reaches the edge
+  const rise = spec.type === 'chevron' && spec.mods.includes('throughout') ? heater.box.y0 - (fy - CHEVRON_APEX_RISE) : 0;
+  const shift = bandShift(spec) + (inverted ? -rise : rise);
+  if (shift === 0) return out;
+  if (kind === 'on' || inverted) return out.map((c) => at(c.x, c.y + shift, c.rotation));
+  // the band's middle line over each centre, in its usual place
+  const middle = (x: number): number => (spec.type === 'bend' ? fy + (x - fx) : spec.type === 'bend-sinister' ? fy - (x - fx) : spec.type === 'chevron' ? CHEVRON_APEX[1] + Math.abs(x - fx) : fy);
+  const { y0: top, y1: foot } = heater.box;
+  return out.map((c) => {
+    const m = middle(c.x);
+    const y = c.y < m ? top + ((c.y - top) * (m + shift - top)) / (m - top) : foot - ((foot - c.y) * (foot - m - shift)) / (foot - m);
+    return at(c.x, y, c.rotation);
+  });
 }
 
 // ── Charges on the primary charges ──────────────────────────────────────────
@@ -828,15 +873,15 @@ const toSlots = (centres: readonly Centre[], size: number): Slot[] =>
  */
 function handAlternative(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, count: number): Centre[][] {
   const hand = ctx.peripheral === 'none' && !isPlainSpec(ctx.ordinary) ? handCentres(ctx, count) : null;
-  return hand ? [hand] : [];
+  return hand ? [treatedCentres(ctx.ordinary, ctx.k, hand, false)] : [];
 }
 
 /** The other centres a context offers when its nominal ones leave the charges too small to read: the ordinary's axis or limbs spread otherwise, the charges under a chevron in another shape; a lined ordinary's hand-row places. */
 function alternativeCentres(ctx: Exclude<GroundContext, { k: 'around' }>, layout: Layout, count: number): Centre[][] {
   if (layout.arrangement.k !== 'host' || layout.position !== null) return [];
   switch (ctx.k) {
-    case 'between': return [...betweenAlternatives(ctx.ordinary.type, count, ctx.peripheral), ...handAlternative(ctx, count)];
-    case 'on': return [...onAlternatives(ctx.ordinary.type, count, ctx.peripheral), ...handAlternative(ctx, count)];
+    case 'between': return [...(betweenHost(ctx.ordinary) === 'chevron' ? betweenAlternatives(ctx.ordinary.type, count, ctx.peripheral).map((cs) => treatedCentres(ctx.ordinary, ctx.k, cs, false)) : []), ...handAlternative(ctx, count)];
+    case 'on': return [...onAlternatives(ctx.ordinary.type, count, ctx.peripheral).map((cs) => treatedCentres(ctx.ordinary, ctx.k, cs, false)), ...handAlternative(ctx, count)];
     case 'field': case 'position': return [];
     default: return ctx satisfies never;
   }

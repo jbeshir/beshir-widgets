@@ -91,6 +91,19 @@
       "expect": {"selector":"[data-testid=blazon]:has-text(\"embattled\")"}
     },
     {
+      "label": "chevron-upside-down",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-chevron]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-shape-inverted]"},
+        {"click":"[data-testid=ordinary-shape-inverted]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"inverted\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=ordinary-shape-inverted] [aria-pressed=true]"}
+    },
+    {
       "label": "shape-round",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

@@ -10,6 +10,7 @@ import type { LayoutKey } from './arrangement';
 import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
 import { LINE_WORD, type Line } from './lines';
+import type { BandPosition, ShapeToggle } from './shape-options';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
 
 type FurLayout = FurSpec['layout'];
@@ -98,6 +99,20 @@ const LINE_PLAIN: Record<Line, string> = {
 
 /** Lines of partition for chips and summaries: how each looks, and its heraldic word ("Straight · plain"). */
 export const LINE_LABEL: Record<Line, PlainTerm> = withTerms(LINE_PLAIN, { plain: 'plain', ...LINE_WORD });
+
+/** The shape toggles of a band or shape: what each does to it, and its heraldic word. */
+export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
+  inverted: { plain: 'Upside down', term: 'inverted' },
+  couped: { plain: 'Shortened', term: 'couped' },
+  throughout: { plain: 'Touching the edges', term: 'throughout' },
+};
+
+/** Where a band is set, and its heraldic word (the usual place has none). */
+export const BAND_POSITION_LABEL: Record<BandPosition, PlainTerm> = {
+  enhanced: { plain: 'Raised', term: 'enhanced' },
+  middle: { plain: 'Middle', term: 'in its usual place' },
+  abased: { plain: 'Lowered', term: 'abased' },
+};
 
 /** Everyday words for the layouts with a fixed label, by layout key; rows are worded from their numbers (`layoutLabel`). */
 const LAYOUT_PLAIN: Record<string, string> = {

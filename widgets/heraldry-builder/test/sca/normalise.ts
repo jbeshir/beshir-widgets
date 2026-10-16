@@ -29,8 +29,8 @@ const LINE = `(?:${[...new Set(DRAWN_LINES.map((l) => LINE_WORD[l]))].sort((a, b
 const ORDINARY_NAME_WORDS = 'fess|pale|bend sinister|bend|chevron|cross|saltire|pile';
 /** The line a band or shape is written with after its name: "wavy", "embattled counter-embattled", "embattled on the lower edge". */
 const ORDINARY_LINE = ` (?:embattled counter-embattled|${LINE})(?: on the (?:upper|lower|dexter|sinister) edge)?`;
-/** An ordinary as the text spells it once its synonyms are settled: its name and its line, if any (the tincture follows). */
-const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?:${ORDINARY_LINE})?`;
+/** An ordinary as the text spells it once its synonyms are settled: its name, inverted, its line, couped and where it runs, as far as it has them (the tincture follows). */
+const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?`;
 /** A top band or border, with its line. */
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
 
@@ -157,6 +157,24 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|cross|saltire|pile)) dancetty\b/g, '$1 indented')
       .replace(/(?<![\w-])(?<!embattled )counter-?embattled\b/g, 'embattled counter-embattled')
       .replace(/\bembattled on both edges\b/g, 'embattled counter-embattled'),
+  },
+  {
+    // 3a3. Ordinary treatments written more than one way (RULES-C §D, §G.2; PLAN-C C6). "Humetty" is couped (Glossary of Terms), "chevron
+    //      reversed" is a chevron inverted (RULES-C §G.2); the widget writes "inverted" before a line and "couped" after it (corpus 12 vs 5,
+    //      "saltire raguly couped" 3 vs 1: PLAN-C §4), so "a pile wavy inverted" is "a pile inverted wavy" and "a fess couped embattled" is "a
+    //      fess embattled couped"; a bare "chevron inverted embattled" is its upper edge (PLAN-C §4 L2), which the widget names; "a bendlet
+    //      enhanced" is a bend enhanced (Emma Barfoot: a single band enhanced may take its diminutive's name, RULES-C §D.6); a cross or
+    //      saltire is throughout already, so "throughout" after one says nothing (RULES-C §D.2).
+    id: 'ordinary-treatments',
+    description: 'humetty → couped after an ordinary; chevron reversed → chevron inverted; "<chevron|pile> <line> inverted" → "… inverted <line>"; "<ordinary> couped <line>" → "<ordinary> <line> couped"; "chevron inverted embattled" → "… embattled on the upper edge"; a bendlet (sinister) enhanced/abased → a bend (sinister) …; "throughout" after a cross or saltire dropped.',
+    apply: (s) => s
+      .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?) humett(?:y|ee|é)(?![\\w-])`, 'g'), '$1 couped')
+      .replace(/\b(chevrons?) reversed\b/g, '$1 inverted')
+      .replace(new RegExp(`\\b(chevron|pile)(${ORDINARY_LINE}) inverted\\b`, 'g'), '$1 inverted$2')
+      .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?) couped(${ORDINARY_LINE})(?![\\w-])`, 'g'), '$1$2 couped')
+      .replace(/\bchevron inverted embattled(?! counter-embattled| on the| grady)\b/g, 'chevron inverted embattled on the upper edge')
+      .replace(/\b(a|an) bendlet( sinister)? (enhanced|abased)\b/g, '$1 bend$2 $3')
+      .replace(new RegExp(`\\b((?:a|an|on a) (?:cross|saltire)(?:${ORDINARY_LINE})?) throughout\\b`, 'g'), '$1'),
   },
   {
     // 3b. Variations the SCA spells in more than one way (`VARIATION_SPELLINGS`): "chevronny" is chevronelly (the College's word: SENA A5F1b),

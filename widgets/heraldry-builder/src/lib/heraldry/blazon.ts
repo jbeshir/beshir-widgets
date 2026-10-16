@@ -13,7 +13,7 @@ import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './char
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
 import { lineWords } from './lines';
-import { ORDINARY_ARTICLE, ORDINARY_NAME } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_NAME, type OrdinaryMod } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
 
@@ -147,12 +147,19 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
   return position !== null || g.arrangement.k === 'line' ? `${layout} ${words.join(' ')}` : `${words.join(' ')} ${layout}`;
 }
 
-/** "a bend", "a fess embattled", or "on a pale wavy" when something sits on it. */
+/** The treatments written after an ordinary's line, in their order. */
+const MODS_AFTER_LINE: readonly OrdinaryMod[] = ['couped', 'throughout', 'enhanced', 'abased', 'voided'];
+
+/**
+ * "a bend", "a fess embattled", "a chevron inverted embattled on the upper edge", "a saltire raguly couped", "a chevron ployé throughout",
+ * or "on a pale wavy" when something sits on it: inverted before the line, the other treatments after it (RULES-C §G.1, PLAN-C §4).
+ */
 function ordinaryPhrase(g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type, lines, mods } = g.item;
   const line = lineWords({ k: 'ordinary', type, inverted: mods.includes('inverted') }, lines);
-  return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[type]} ${ORDINARY_NAME[type]}${line ? ` ${line}` : ''}`;
+  const words = [ORDINARY_NAME[type], ...(mods.includes('inverted') ? ['inverted'] : []), ...(line ? [line] : []), ...MODS_AFTER_LINE.filter((m) => mods.includes(m))];
+  return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[type]} ${words.join(' ')}`;
 }
 
 /** The charges whose charges are worded "charged with": animals and birds, which a charge is not "on" (D F.2). */

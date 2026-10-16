@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { BUILDER_DIVISIONS, DIVISIONS, DRAWN_LINES, LINES, ORDINARY_TYPES, VARIATIONS, canonicalJson, lineAllowed, signature, type Design } from '../src/lib/heraldry';
 import { ORDINARY_MODS } from '../src/lib/heraldry/ordinaries';
 import { arms, charge, div, group, nd } from './helpers';
-import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns } from './design-generator';
+import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns } from './design-generator';
 import { PINNED } from './signature-cases';
 
 /** What each pinned design's signature was when phase B shipped. */
@@ -55,7 +55,7 @@ describe('the signature', () => {
   });
 
   it('different canonical designs never share a signature; equal ones always do', () => {
-    const designs = [...PINNED.map(([, input]) => nd(input)), ...linedDesigns(), ...generatedRichDesigns(808, 300), ...generatedGeometryDesigns(808, 150), ...generatedLinedOrdinaryDesigns(808, 80)];
+    const designs = [...PINNED.map(([, input]) => nd(input)), ...linedDesigns(), ...generatedRichDesigns(808, 300), ...generatedGeometryDesigns(808, 150), ...generatedLinedOrdinaryDesigns(808, 80), ...generatedTreatedOrdinaryDesigns(808, 60)];
     const bySignature = new Map<string, Design>();
     // Beyond four pieces a variation's tinctures may be either way round (A5G1a): the one way two canonical designs share a signature.
     const swapped = (d: Design): string => canonicalJson(d.kind === 'arms' && d.field.k === 'variation' ? { ...d, field: { ...d.field, parts: [d.field.parts[1], d.field.parts[0]] } } : d);

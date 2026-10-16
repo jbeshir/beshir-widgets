@@ -163,6 +163,16 @@ export function ordinaryLineProblem(g: Group): string | null {
   return null;
 }
 
+/**
+ * What an ordinary's treatments rule out, or null: a chevron inverted and abased carries nothing — charged, it is "at least two steps
+ * removed" from what is registrable (RULES-C §D.1, LoAR 11/2005 Voron).
+ */
+function ordinaryTreatmentProblem(g: Group): string | null {
+  const { item } = g;
+  if (item.k !== 'ordinary' || item.type !== 'chevron' || !item.mods.includes('inverted') || !item.mods.includes('abased') || g.charged.length === 0) return null;
+  return 'A chevron inverted and abased can\'t carry charges: it is too far from how a chevron is drawn to be read with them (LoAR 11/2005, Voron).';
+}
+
 /** A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line (refused). */
 export type CoreStep = 'one-edge-line';
 
@@ -284,9 +294,11 @@ const DISPLAY_FORMS: readonly ChargeId[] = ['heart', 'roundel', 'billet', 'lozen
  */
 function notABadge(group: Group): string | null {
   if (group.item.k === 'ordinary') {
+    // A couped band is a badge (SENA A3A2), one this builder doesn't draw yet: support.ts says so.
+    if (ORDINARY_KIND[group.item.type] !== 'peripheral' && group.item.mods.includes('couped')) return null;
     return ORDINARY_KIND[group.item.type] === 'peripheral'
       ? `A fieldless badge has no edge for a ${ORDINARY_NAME[group.item.type]} to run along (SENA A3A2).`
-      : `A fieldless badge can't have a ${ORDINARY_NAME[group.item.type]} unless it is couped, which this builder doesn't draw (SENA A3A2).`;
+      : `A fieldless badge can't have a ${ORDINARY_NAME[group.item.type]} unless it is couped (SENA A3A2).`;
   }
   if (group.role !== 'primary') return null;
   if (group.position !== null) return `A fieldless badge has no field to set a charge in ${group.position} of.`;
@@ -442,6 +454,12 @@ export function structuralIssues(d: Design): Issue[] {
   for (const { path, group } of walked) {
     const problem = ordinaryLineProblem(group);
     if (problem) add({ code: 'structure', rule: 'line', at: { k: 'group', path }, message: problem, slots: [] });
+  }
+
+  // 6b'. What an ordinary's treatments rule out (RULES-C §D).
+  for (const { path, group } of walked) {
+    const problem = ordinaryTreatmentProblem(group);
+    if (problem) add({ code: 'structure', rule: 'relation', at: { k: 'group', path }, message: problem, slots: [] });
   }
 
   // 6c. One step from core practice is registrable, two are not (SENA A2B, App G).

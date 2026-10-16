@@ -1,12 +1,14 @@
-// The builder's edge controls: which lines a divided or striped background, or a band or shape, may be drawn with, which of a quartered
-// field's two lines (or a band's two edges) carry it, and the designs they lead to. A line is blocked only by what is wrong with the host
-// itself (a line it can't take, a dark pair across a wavy line, App H, a second step from core practice); never by what lies on it.
+// The builder's edge and shape controls: which lines a divided or striped background, or a band or shape, may be drawn with, which of a
+// quartered field's two lines (or a band's two edges) carry it; which treatments a band or shape takes (upside down, shortened, touching the
+// edges, raised or lowered); and the designs they lead to. A choice is blocked only by what is wrong with the host itself (a line it can't
+// take, a dark pair across a wavy line, App H, a second step from core practice, two treatments that contradict); never by what lies on it.
 
 import { DRAWN_LINES, bareLines, edgeCount, lineAllowed, type EdgeHost, type Line } from './lines';
-import { PLAIN_LINES, canonical, groupAt, replaceGroup, type Design, type GroupPath, type Lines, type Paint } from './design';
+import { PLAIN_LINES, canonical, groupAt, replaceGroup, type Design, type GroupPath, type Lines, type Ordinary, type Paint } from './design';
 import { choice, type Choice } from './options';
 import { corePracticeProblem, ordinaryLineProblem, structuralIssues } from './structure';
-import { DRAWN_ORDINARIES, type OrdinaryType } from './ordinaries';
+import { DRAWN_ORDINARIES, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { modsClash } from './resolve';
 import { LINED_VARIATIONS, type Division, type Variation } from './divisions';
 
 /** What an edge control edits: the background, or the band, shape, top band or border at `path`. */
@@ -114,9 +116,91 @@ export function keptLines(lines: Lines, host: Division | Variation, kind: 'divis
   return carried(lines.a) && carried(lines.b) ? { ...lines } : { ...PLAIN_LINES };
 }
 
-/** The lines a band or shape keeps when it is replaced by another type: its line where the new type may carry it (as that type's blazon bares it), else plain. */
-export function keptOrdinaryLines(lines: Lines, type: OrdinaryType): Lines {
-  const host: EdgeHost = { k: 'ordinary', type, inverted: false };
+/** The lines a band or shape keeps when it is replaced by another type (upside down or not): its line where the new type may carry it (as that type's blazon bares it), else plain. */
+export function keptOrdinaryLines(lines: Lines, type: OrdinaryType, inverted: boolean): Lines {
+  const host: EdgeHost = { k: 'ordinary', type, inverted };
   const line = currentLine(lines);
   return line !== 'plain' && lineAllowed(host, line) ? bareLines(host, line) : { ...PLAIN_LINES };
+}
+
+// ── Shape toggles and band positions ────────────────────────────────────────
+
+/** A treatment the builder turns on or off for a band or shape: upside down (inverted), shortened (couped), touching the edges (throughout). */
+export type ShapeToggle = 'inverted' | 'couped' | 'throughout';
+const SHAPE_TOGGLES: readonly ShapeToggle[] = ['inverted', 'couped', 'throughout'];
+
+/** Where a band is set: raised (enhanced), in its usual place, or lowered (abased). */
+export type BandPosition = 'enhanced' | 'middle' | 'abased';
+const BAND_POSITIONS: readonly BandPosition[] = ['enhanced', 'middle', 'abased'];
+
+/** The band or shape at `path`, when it is one the builder draws. */
+function drawnOrdinaryAt(d: Design, path: GroupPath): Ordinary | null {
+  const item = groupAt(d, path).item;
+  return item.k === 'ordinary' && DRAWN_ORDINARIES.includes(item.type) ? item : null;
+}
+
+/** The band or shape with these treatments (kept in canonical order). */
+function withMods(d: Design, path: GroupPath, mods: readonly OrdinaryMod[]): Design {
+  const group = groupAt(d, path);
+  return group.item.k === 'ordinary' ? canonical(replaceGroup(d, path, { ...group, item: { ...group.item, mods: [...mods] } })) : d;
+}
+
+/** Why the band or shape can't have these treatments, or null: two that contradict each other, or a line its new form can't take (never what lies on it). */
+function modsProblem(d: Design, path: GroupPath, mods: readonly OrdinaryMod[]): string | null {
+  const item = drawnOrdinaryAt(d, path);
+  if (!item) return null;
+  const clash = modsClash(item.type, mods);
+  if (clash) return clash;
+  return ordinaryLineProblem(groupAt(withMods(d, path, mods), path));
+}
+
+/** The toggles the band or shape at `path` takes (none for a top band, a border or a charge), blocked where turning one over breaks a rule. */
+export function toggleChoices(d: Design, path: GroupPath): Choice<ShapeToggle>[] {
+  const item = drawnOrdinaryAt(d, path);
+  if (!item) return [];
+  return SHAPE_TOGGLES.filter((t) => modDrawn(item.type, t)).map((t) => {
+    const mods = item.mods.includes(t) ? item.mods.filter((m) => m !== t) : [...item.mods, t];
+    return choice(t, modsProblem(d, path, mods));
+  });
+}
+
+/** Whether the toggle is on. */
+export function toggledOn(d: Design, path: GroupPath, t: ShapeToggle): boolean {
+  return drawnOrdinaryAt(d, path)?.mods.includes(t) ?? false;
+}
+
+/** The band or shape with the toggle on or off. */
+export function setToggle(d: Design, path: GroupPath, t: ShapeToggle, on: boolean): Design {
+  const item = drawnOrdinaryAt(d, path);
+  if (!item || item.mods.includes(t) === on) return d;
+  return withMods(d, path, on ? [...item.mods, t] : item.mods.filter((m) => m !== t));
+}
+
+/** Where the band at `path` is set, raised or lowered (a band that can't be is in its usual place). */
+export function bandPositionOf(d: Design, path: GroupPath): BandPosition {
+  const mods = drawnOrdinaryAt(d, path)?.mods ?? [];
+  return mods.includes('enhanced') ? 'enhanced' : mods.includes('abased') ? 'abased' : 'middle';
+}
+
+/** The places a fess, a bend or a chevron may be set (nothing for any other band or shape), blocked where moving it breaks a rule. */
+export function bandPositionChoices(d: Design, path: GroupPath): Choice<BandPosition>[] {
+  const item = drawnOrdinaryAt(d, path);
+  if (!item || !modDrawn(item.type, 'enhanced')) return [];
+  return BAND_POSITIONS.map((p) => choice(p, modsProblem(d, path, modsAt(item.mods, p))));
+}
+
+/** The treatments with the band set at `position`. */
+const modsAt = (mods: readonly OrdinaryMod[], position: BandPosition): OrdinaryMod[] =>
+  [...mods.filter((m) => m !== 'enhanced' && m !== 'abased'), ...(position === 'middle' ? [] : [position])];
+
+/** The band set at `position`. */
+export function setBandPosition(d: Design, path: GroupPath, position: BandPosition): Design {
+  const item = drawnOrdinaryAt(d, path);
+  return item ? withMods(d, path, modsAt(item.mods, position)) : d;
+}
+
+/** The treatments a band or shape keeps when it is replaced by another type: those the new type takes, unless together they can't be. */
+export function keptMods(mods: readonly OrdinaryMod[], type: OrdinaryType): OrdinaryMod[] {
+  const kept = mods.filter((m) => modDrawn(type, m));
+  return modsClash(type, kept) ? [] : kept;
 }

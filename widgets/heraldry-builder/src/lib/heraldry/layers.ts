@@ -9,7 +9,7 @@
 import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
 import { NON_STANDARD_TINCTURES } from './tinctures';
 import { PLAIN_LINES, bodyTinctures, canonical, samePath, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture, type Lines } from './design';
-import { ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
   assembleParts, fitGroup, firstAllowed, groupTinctureChoices, layoutReason, partsOf, simpleParts, withLayout, withTincture, type Choice,
@@ -50,11 +50,11 @@ export function addedLayerStep(d: Design, key: LayerKey): LayerKey | 'ordinary' 
   return layersIn(d).includes(key) ? key : 'ordinary';
 }
 
-/** A new band, or peripheral, in a tincture. */
-export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines = PLAIN_LINES): Group {
+/** A new band, or peripheral, in a tincture (with the lines and treatments it keeps from the one it replaces). */
+export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines = PLAIN_LINES, mods: readonly OrdinaryMod[] = []): Group {
   return {
     role: ORDINARY_KIND[type] === 'central' ? 'primary' : 'peripheral', relation: null,
-    item: { k: 'ordinary', type, lines: { ...lines }, mods: [], cotised: null, fimbriated: null },
+    item: { k: 'ordinary', type, lines: { ...lines }, mods: [...mods], cotised: null, fimbriated: null },
     count: 1, arrangement: { k: 'single' }, position: null,
     paint: t === 'counterchanged' ? { k: 'counterchanged' } : tincturePaint(t), charged: [],
   };

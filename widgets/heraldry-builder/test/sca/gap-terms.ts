@@ -38,7 +38,7 @@ export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
   building: 'a building or architectural element',
   ship: 'a ship, boat or part of one',
   nature: 'a landform, rock, water, fire or other natural feature',
-  cross: 'a cross used as a charge (couped, crosslet, formy, Maltese…) rather than the cross ordinary',
+  cross: 'a cross used as a charge (crosslet, formy, Maltese, several couped…) rather than the cross ordinary',
   geometric: 'a geometric charge or sub-ordinary used as a charge (annulet, roundel, lozenge, billet…)',
   symbol: 'a knot, letter, rune, triskelion or other abstract symbol',
 };

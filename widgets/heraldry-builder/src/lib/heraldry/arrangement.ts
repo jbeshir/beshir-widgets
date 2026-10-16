@@ -273,11 +273,17 @@ export function layoutContext(d: Design, path: GroupPath): LayoutContext {
   return contextOf(d, group, hostOf(d, path)) ?? notSupported({ category: 'placement', detail: `${group.role}-${group.item.k}` });
 }
 
+/** What Table 7's secondary rows are kept by: an ordinary's type, and a chevron inverted, whose charges stand the other way up. */
+export type BetweenHost = OrdinaryType | 'chevron-inverted';
+
+/** The row of Table 7 charges set between an ordinary follow. */
+export const betweenHost = (spec: OrdinarySpec): BetweenHost => (spec.type === 'chevron' && spec.mods.includes('inverted') ? 'chevron-inverted' : spec.type);
+
 /**
  * Table 7's secondary rows, the one place they are written: for each ordinary and count of charges set between it,
  * how many go on each side (`split`, null where the drawing places them by its own rule) and how that is said.
  */
-export const BETWEEN: Partial<Record<OrdinaryType, Record<number, { split: [number, number] | null; words: string }>>> = {
+export const BETWEEN: Partial<Record<BetweenHost, Record<number, { split: [number, number] | null; words: string }>>> = {
   fess: {
     2: { split: [1, 1], words: 'one above and one below' }, 3: { split: [2, 1], words: 'two above and one below' },
     4: { split: [2, 2], words: 'two above and two below' }, 6: { split: [3, 3], words: 'three above and three below' },
@@ -294,13 +300,17 @@ export const BETWEEN: Partial<Record<OrdinaryType, Record<number, { split: [numb
   chevron: {
     2: { split: [1, 1], words: 'one above and one below' }, 3: { split: [2, 1], words: 'two above and one below' }, 6: { split: [3, 3], words: 'three above and three below' },
   },
+  // the other way up: one inside the V and two below it
+  'chevron-inverted': {
+    2: { split: [1, 1], words: 'one above and one below' }, 3: { split: [1, 2], words: 'one above and two below' }, 6: { split: [3, 3], words: 'three above and three below' },
+  },
   cross: { 4: { split: null, words: 'one in each quarter' } },
   saltire: { 4: { split: null, words: 'one above, one below and one on each side' } },
   pile: { 2: { split: null, words: 'one on each side' } },
 };
 
 /** How charges set between `ordinary` are spread out, or null for a count it has no spread for. */
-export function betweenWords(ordinary: OrdinaryType, count: number): string | null {
+export function betweenWords(ordinary: BetweenHost, count: number): string | null {
   return BETWEEN[ordinary]?.[count]?.words ?? null;
 }
 
@@ -371,7 +381,7 @@ export function overallLayouts(count: number, long: boolean): Layout[] {
 /** The counts that have a layout around (`between`) or on (`on`) an ordinary: Table 7's secondary and tertiary rows, by its type. */
 export function hostCounts(kind: 'between' | 'on', spec: OrdinarySpec): readonly number[] {
   const { type } = spec;
-  if (kind === 'between') return Object.keys(BETWEEN[type] ?? {}).map(Number);
+  if (kind === 'between') return Object.keys(BETWEEN[betweenHost(spec)] ?? {}).map(Number);
   switch (type) {
     case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': case 'bordure': return Array.from({ length: 12 }, (_, i) => i + 1);
     case 'cross': case 'saltire': return [1, 4, 5];

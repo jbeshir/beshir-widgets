@@ -11,7 +11,7 @@ import {
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, type Division, type Variation } from './divisions';
 import { LINE_WORD, edgeCount, lineDiffers, lineWords, type EdgeHost, type Line } from './lines';
-import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryMod } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
@@ -68,10 +68,21 @@ export function isClear(diffs: readonly { kind: ChangeKind }[]): boolean {
 
 // ── Classes: what counts as the same type, number group, arrangement group, posture line ────────────────────────
 
-/** What A5E2 compares: ordinaries by type, charges by type class (an eagle and an owl are one class, a lion and a wolf are not). */
+/**
+ * What A5E2 compares: ordinaries by type — a chevron inverted is a type of its own (A5E5c pairs it with the chevron), a pile inverted is
+ * the pile turned (A5G7) — and charges by type class (an eagle and an owl are one class, a lion and a wolf are not).
+ */
 function conflictKey(item: Item): string {
-  return item.k === 'ordinary' ? `ordinary:${item.type}` : `charge:${CHARGES[item.charge].typeClass}`;
+  if (item.k === 'charge') return `charge:${CHARGES[item.charge].typeClass}`;
+  return item.type === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : `ordinary:${item.type}`;
 }
+
+/** A5G4 (RULES-C §D.2): a couped ordinary against one throughout — the same ordinary otherwise — is a change of its type. */
+const coupingDiffers = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.mods.includes('couped') !== y.mods.includes('couped');
+
+/** A5G7 (RULES-C §D.1, L14): a pile against a pile inverted is a change of orientation. */
+const pileTurned = (x: Item, y: Item): boolean =>
+  x.k === 'ordinary' && y.k === 'ordinary' && x.type === 'pile' && y.type === 'pile' && x.mods.includes('inverted') !== y.mods.includes('inverted');
 
 /** A5E3: 1 | 2 | 3 | 4 and more. */
 const countCategory = (n: number): number => Math.min(n, 4);
@@ -397,8 +408,9 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   const dc = (attr: DiffAttr, rule: SenaRule) => { if (!skip.has(attr)) out.push(change(attr, 'dc', rule, ref)); };
   const gx = x.group, gy = y.group;
   // The in-splendour mod of a sun is an artistic detail (RULES §C.3) and is not looked at.
-  // A change of an ordinary's edge is a change of its type: with a change of type, one change (RULES-C §B.3).
-  if (itemKey(gx.item) !== itemKey(gy.item) || edgesDiffer(gx.item, gy.item)) dc('type', 'A5G4');
+  // A change of an ordinary's edge, or couping it, is a change of its type: with a change of type, one change (RULES-C §B.3, §D.2); a chevron
+  // against a chevron inverted, substantial between primaries, is a distinct change elsewhere (A5G). Enhanced and abased are artistic (§D.6).
+  if (itemKey(gx.item) !== itemKey(gy.item) || conflictKey(gx.item) !== conflictKey(gy.item) || edgesDiffer(gx.item, gy.item) || coupingDiffers(gx.item, gy.item)) dc('type', 'A5G4');
   if (countCategoryFine(gx.count) !== countCategoryFine(gy.count)) dc('number', 'A5G5');
   if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);
@@ -412,7 +424,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
     dc('arrangement', 'A5G6');
   }
   const postures = comparablePostures(gx.item, gy.item);
-  if (postures && postureLinesApart(postures)) dc('posture', 'A5G7');
+  if ((postures && postureLinesApart(postures)) || pileTurned(gx.item, gy.item)) dc('posture', 'A5G7');
   return out;
 }
 
@@ -583,7 +595,7 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
     const itemOrNone = (g: Group | null) => (g ? (g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural) : 'none');
     const tinctureWord = (g: Group) => (g.paint.k === 'counterchanged' ? 'counterchanged' : paintName(g.paint));
     const fieldWord = (d: Design) => (d.kind === 'arms' && d.field.k === 'variation' ? d.field.parts.map(paintName).join('/') : fieldParts(d).map(paintName).join('/'));
-    const postureWord = (g: Group) => { const i = g.item; return i.k === 'charge' && i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
+    const postureWord = (g: Group) => { const i = g.item; return i.k === 'ordinary' ? (i.mods.includes('inverted') ? 'inverted' : 'upright') : i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
 
     let text: string;
     let sentence: string;
@@ -627,9 +639,20 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         const bothBands = s.ga.item.k === 'ordinary' && s.gb.item.k === 'ordinary';
         const label = bothBands ? (s.nounA.one === s.nounB.one ? s.nounA.one : 'band or shape') : s.ga.item.k === s.gb.item.k ? noun().one : 'picture or band';
         const edged = (i: Item) => { const host = edgeHostOf(i); return host && i.k === 'ordinary' ? lineWords(host, i.lines) || 'straight' : ''; };
-        if (itemKey(s.ga.item) === itemKey(s.gb.item)) {
+        if (itemKey(s.ga.item) === itemKey(s.gb.item) && edgesDiffer(s.ga.item, s.gb.item)) {
           text = pair(`edge of ${s.nounA.one}`, edged(s.ga.item), edged(s.gb.item));
           sentence = `Changing the edge of ${itemPhrase(s.ga.item)} — from straight to embattled, say — changes its type: a distinct change`;
+          break;
+        }
+        if (itemKey(s.ga.item) === itemKey(s.gb.item)) {
+          // the treatments that differ, as each has them
+          const has = (i: Item, m: OrdinaryMod) => i.k === 'ordinary' && i.mods.includes(m);
+          const shown = (['inverted', 'couped'] as const).filter((m) => has(s.ga.item, m) !== has(s.gb.item, m));
+          const form = (i: Item) => shown.map((m) => (m === 'inverted' ? (has(i, m) ? 'inverted' : 'upright') : has(i, m) ? 'couped' : 'throughout')).join(', ');
+          text = pair(`form of ${itemName(s.ga.item)}`, form(s.ga.item), form(s.gb.item));
+          sentence = diff.kind === 'sc'
+            ? `${capitalise(itemPhrase(s.ga.item))} and the same turned upside down are different types — a substantial change`
+            : `Shortening ${itemPhrase(s.ga.item)} (couping it), or turning it upside down, changes its type: a distinct change`;
           break;
         }
         text = pair(label, itemName(s.ga.item), itemName(s.gb.item));

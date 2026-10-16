@@ -16,7 +16,7 @@ import {
   blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
-import { DIVISION_WORDS, readOrdinaryLines, readPaint } from './paint-grammar';
+import { DIVISION_WORDS, readOrdinaryForm, readPaint } from './paint-grammar';
 
 /** A design input as `resolve` reads it: arms with a field, or a fieldless badge. */
 export type DesignInput = { v: 2; field: unknown; groups: unknown[] } | { v: 2; kind: 'badge'; groups: unknown[] };
@@ -107,7 +107,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'the', 'edge', 'upper', 'lower', 'sinister', 'counter-embattled',
+    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'the', 'edge', 'upper', 'lower', 'sinister', 'counter-embattled', 'inverted', 'couped', 'throughout', 'enhanced', 'abased',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
@@ -117,7 +117,8 @@ const VOCABULARY = new Set<string>(
 // A token grammar over the normalised text (words, with commas as tokens of their own):
 //   blazon     := field [',' element (connector element)*] | '(fieldless)' element (connector element)*
 //   field      := T | DIVISION T 'and' T
-//   element    := ['on'] ('a'|'an') ordinary [T]   an ordinary, central or peripheral ("on" when a group sits on it)
+//   element    := ['on'] ('a'|'an') ordinary FORM [T]   an ordinary, central or peripheral ("on" when a group sits on it)
+//   FORM       := ['inverted'] [LINE [edge]] ['couped'] ['throughout'|'enhanced'|'abased']
 //               | 'on' group                        a charge group with a group on it
 //               | 'each charged with' group          the group before it, a charge group, with the group on each charge
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
@@ -262,9 +263,9 @@ function parseBody(tokens: string[]): Body | null {
         : undefined;
       if (ordinary) {
         const type = ORDINARY_WORDS.get(ordinary.join(' '))!;
-        const { lines, end } = readOrdinaryLines(type, tokens, j + 1 + ordinary.length);
+        const { lines, mods, end } = readOrdinaryForm(type, tokens, j + 1 + ordinary.length);
         const read = readPaint(tokens, end, 'group');
-        const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), item: { k: 'ordinary', type, ...(lines ? { lines } : {}) } }, paint: read?.paint ?? null }, on: null };
+        const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), item: { k: 'ordinary', type, ...(lines ? { lines } : {}), ...(mods.length > 0 ? { mods } : {}) } }, paint: read?.paint ?? null }, on: null };
         top.push(node);
         order.push({ phrase: node.phrase, onHost: false });
         host = on ? node : null;

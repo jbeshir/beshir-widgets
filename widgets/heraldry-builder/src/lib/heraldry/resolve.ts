@@ -18,7 +18,7 @@ import {
   type Lines, type Modifier, type Ordinary, type Paint, type PartPaint, type Position, type Relation, type Role,
 } from './design';
 import { isDivision, isTreatment, isVariation, partCount } from './divisions';
-import { isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, type OrdinaryMod } from './ordinaries';
+import { isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { bareLines, edgeCount, isLine, type EdgeHost } from './lines';
 import { contextOf, defaultLayoutOf, halfLayouts, inForcedPart, isHalfPosition, isSecondaryPosition, layoutOfKey, shareTotal, type Layout } from './arrangement';
 
@@ -160,6 +160,22 @@ function parsePaint(v: unknown, at: IssueAt, E: Errors, inField: boolean, depth 
 
 // ── Items ───────────────────────────────────────────────────────────────────
 
+/**
+ * Why an ordinary's treatments can't go together, or null: shortened and reaching the edges, raised and lowered, reaching the edges and
+ * raised or lowered contradict each other; a cross, saltire, pall, label or fret reaches the edges already (RULES-C §D.2).
+ */
+export function modsClash(type: OrdinaryType, mods: readonly OrdinaryMod[]): string | null {
+  const has = (m: OrdinaryMod) => mods.includes(m);
+  if (has('couped') && has('throughout')) return 'An ordinary can\'t be both couped and throughout.';
+  if (has('enhanced') && has('abased')) return 'An ordinary can\'t be both enhanced and abased.';
+  if (has('throughout') && (has('enhanced') || has('abased'))) return 'An ordinary throughout reaches the edge, so it can\'t be enhanced or abased too.';
+  if (has('throughout') && THROUGHOUT_ALREADY.includes(type)) return `A ${ORDINARY_NAME[type]} is throughout already.`;
+  return null;
+}
+
+/** The ordinaries that reach the edges of the field by default. */
+const THROUGHOUT_ALREADY: readonly OrdinaryType[] = ['cross', 'saltire', 'pall', 'pall-inverted', 'label', 'fret'];
+
 function parseOrdinary(o: Record<string, unknown>, at: IssueAt, E: Errors, depth: number): Ordinary | null {
   const bad = E.unknownKeys(o, ['k', 'type', 'lines', 'mods', 'cotised', 'fimbriated'], at, 'ordinary');
   if (!isOrdinaryType(o.type)) return E.add(at, 'Unknown ordinary.');
@@ -167,6 +183,8 @@ function parseOrdinary(o: Record<string, unknown>, at: IssueAt, E: Errors, depth
   if (o.mods !== undefined) {
     mods = Array.isArray(o.mods) && o.mods.every(isOrdinaryMod) ? [...new Set<OrdinaryMod>(o.mods)] : E.add(at, 'Unknown ordinary modifier.');
   }
+  const clash = mods && modsClash(o.type, mods);
+  if (clash) mods = E.add(at, clash);
   const lines = parseLines(o.lines, { k: 'ordinary', type: o.type, inverted: mods?.includes('inverted') ?? false }, at, E);
   let cotised: Cotises | null | undefined = null;
   if (o.cotised !== undefined && o.cotised !== null) {

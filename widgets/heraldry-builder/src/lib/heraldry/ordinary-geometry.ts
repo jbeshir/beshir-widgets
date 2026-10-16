@@ -4,8 +4,10 @@
 // Every renderer, rule and layout reads an ordinary's shape from here.
 //
 // Lines of partition are drawn on the edges of the ten ordinaries (a band's two edges sharing their periods, a band
-// with a complex line drawn wider); treatments, cotises and fimbriation are part of the spec but not drawn yet:
-// support.ts gaps them, and the body is the plain one.
+// with a complex line drawn wider), and the treatments that change their outline: inverted (reflected top to bottom),
+// couped (cut short inside the shape, ends straight), throughout (a chevron's apex or a pile's point on the edge),
+// enhanced and abased (moved toward chief or base). Voiding, cotises and fimbriation are part of the spec but not
+// drawn yet: support.ts gaps them, and the body is the plain one.
 
 import { notSupported, type Group, type Lines, type Paint } from './design';
 import { CANONICAL_SHAPE, CHEVRON_APEX_RISE, OVER, counterchangedParts, inFirstPart, pathPolygon, pathRings, shapeFrame, type CounterchangePart, type Point, type Pt } from './geometry';
@@ -100,9 +102,16 @@ type OutlineEdge = { readonly line: 'a' | 'b'; readonly course: number } | null;
  * run from `origin` along the unit `dir`. A band (`junction` null) is laid centred on the chord the shape shows of the line; limbs and
  * arms are laid out from where they meet, their periods starting `junction` line depths past the inner end of each edge so that the
  * features of two edges meeting there keep clear of each other. `plus` is the side of `dir` a parallel or single profile puts its +
- * side on, on every edge of the course (`'outward'`: each edge's own outside, so a pile's sides mirror each other).
+ * side on, on every edge of the course (`'outward'`: each edge's own outside, so a pile's sides mirror each other). `cut` is where a
+ * couped band or arm starts and stops along it (null: it runs off the shape): its lines are laid between those ends alone.
  */
-interface Course { readonly origin: Pt; readonly dir: Pt; readonly junction: number | null; readonly plus: 1 | -1 | 'outward' }
+interface Course {
+  readonly origin: Pt;
+  readonly dir: Pt;
+  readonly junction: number | null;
+  readonly plus: 1 | -1 | 'outward';
+  readonly cut: readonly [number, number] | null;
+}
 
 /** An ordinary drawn as a polygon: `edges[i]` is the edge from `points[i]` to the next point (the last one closes it). */
 interface Outline { readonly points: readonly Pt[]; readonly edges: readonly OutlineEdge[]; readonly courses: readonly Course[] }
@@ -150,78 +159,198 @@ const unit = ([x, y]: Pt): Pt => {
   return [x / len, y / len];
 };
 
+/** How far inside the shape a couped band or arm stops (RULES-C §D.2): its ends are cut straight, lines and all. */
+const COUPED_INSET = 12;
+/** How far an enhanced or abased band moves toward chief or base, across its length (RULES-C §D.6). */
+const BAND_SHIFT = 12;
+
+/** How far down the page an enhanced (up: negative) or abased band is moved: BAND_SHIFT across a fess, the same across a bend or a chevron's limbs. */
+export function bandShift(spec: OrdinarySpec): number {
+  const sign = spec.mods.includes('enhanced') ? -1 : spec.mods.includes('abased') ? 1 : 0;
+  return sign * BAND_SHIFT * (spec.type === 'fess' ? 1 : Math.SQRT2);
+}
+
+/** How far below the fess point a band or shape is turned upside down about: on the heater, the middle of its box (a pile inverted rises as far as a pile falls). */
+const FLIP_DROP = 10;
+
+/** The line a band or shape turned upside down is reflected about; every shape's sits as far below its fess point as the heater's, so layouts map from the heater's. */
+export const flipAxis = (frame: OrdinaryFrame): number => frame.centre.y + FLIP_DROP;
+
+/** The ordinary's own centre: the fess point, moved with an enhanced or abased band and reflected with an inverted shape. */
+function ordinaryCentre(spec: OrdinarySpec, frame: OrdinaryFrame): Point {
+  const y = spec.mods.includes('inverted') ? 2 * flipAxis(frame) - frame.centre.y : frame.centre.y;
+  return { x: frame.centre.x, y: y + bandShift(spec) };
+}
+
+/**
+ * Where a couped band or arm laid along `dir` from `origin` starts and stops: COUPED_INSET inside the shape on its middle line and on both its
+ * edges (`half` either side), so its straight ends lie inside the shape (each shape is convex). Distances from `origin`.
+ */
+function coupedCut(origin: Pt, dir: Pt, half: number, shape: readonly Pt[]): [number, number] {
+  const n: Pt = [-dir[1], dir[0]];
+  const spans = [-half, 0, half].map((o) => {
+    const from: Pt = [origin[0] + n[0] * o, origin[1] + n[1] * o];
+    return visibleSpan(from, [from[0] + dir[0] * COURSE_REACH, from[1] + dir[1] * COURSE_REACH], shape) ?? [0, 0];
+  });
+  return [Math.max(...spans.map(([a]) => a)) + COUPED_INSET, Math.min(...spans.map(([, b]) => b)) - COUPED_INSET];
+}
+
+/** A point `s` along a course from its origin and `o` to the left of it (in page coordinates). */
+const at = (origin: Pt, dir: Pt, s: number, o: number): Pt => [origin[0] + dir[0] * s + dir[1] * o, origin[1] + dir[1] * s - dir[0] * o];
+
+/** The outline reflected top to bottom about y = `axis`: its edges keep their lines, `a` and `b` swapping (a chevron inverted's upper edge is its inner one). */
+function reflected(outline: Outline, axis: number): Outline {
+  const flip = ([x, y]: Pt): Pt => [x, 2 * axis - y];
+  return {
+    points: outline.points.map(flip),
+    edges: outline.edges.map((e) => e && { line: e.line === 'a' ? 'b' : 'a', course: e.course }),
+    courses: outline.courses.map((c) => {
+      const dir: Pt = [c.dir[0], -c.dir[1]];
+      return { ...c, origin: flip(c.origin), dir, plus: c.plus === 'outward' ? 'outward' : fieldSide(dir) };
+    }),
+  };
+}
+
 /** The straight outline of an ordinary, its chevron raised `lift` above its usual place; null for the bordure (a ring with curves). */
 function outlineOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
+  const inverted = spec.mods.includes('inverted');
+  const upright = uprightOutline(spec, frame, lift);
+  return upright && inverted ? reflected(upright, flipAxis(frame)) : upright;
+}
+
+/** The outline before it is turned upside down (`reflected`): a band moved up or down, a band or arm couped, a chevron or pile throughout. */
+function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
   const f = shapeFrame(frame.shape);
-  const { x: cx, y: cy } = frame.centre;
+  const shape = pathPolygon(f.outline);
+  const { x: cx } = frame.centre;
+  // an inverted shape is moved the other way before it is turned over
+  const cy = frame.centre.y + (spec.mods.includes('inverted') ? -1 : 1) * bandShift(spec);
+  const couped = spec.mods.includes('couped'), throughout = spec.mods.includes('throughout');
+  // the edge a shape throughout reaches, where it lies before an inverted one is turned over: the top, or (once turned) the base
+  const edgeAt = (y: number) => (spec.mods.includes('inverted') ? 2 * flipAxis(frame) - y : y);
   const { x0, x1, y0, y1 } = OVER;
   const k = widening(spec);
   const h = BAND_HALF * k, d = BEND_HALF * k, sd = SALTIRE_HALF * k, c = CROSS_HALF * k, thick = CHEVRON_THICK * k;
   const bend = (x: number) => cy + (x - cx);
   const sinister = (x: number) => cy - (x - cx);
-  // a widened chevron grows both ways from the middle of its band
-  const apexY = cy - CHEVRON_APEX_RISE - lift - (thick - CHEVRON_THICK) / 2;
+  // a widened chevron grows both ways from the middle of its band; one throughout has its apex on the top of the shape
+  const apexY = throughout ? edgeAt(spec.mods.includes('inverted') ? f.box.y1 : f.box.y0) : cy - CHEVRON_APEX_RISE - lift - (thick - CHEVRON_THICK) / 2;
   const reach = 80; // limbs and saltire arms run this far (horizontally) from their centre
   const centre: Pt = [cx, cy];
   const A = (course: number): OutlineEdge => ({ line: 'a', course }), B = (course: number): OutlineEdge => ({ line: 'b', course });
   // a band is laid centred along its middle line, `plus` toward chief (or dexter): its upper edge is `a` and its lower edge `b`
-  const band = (origin: Pt, dir: Pt): Course => ({ origin, dir, junction: null, plus: fieldSide(dir) });
+  const band = (origin: Pt, dir: Pt, cut: [number, number] | null = null): Course => ({ origin, dir, junction: null, plus: fieldSide(dir), cut });
   // arms laid out from the centre, `plus` the left of each (so the four arms turn into each other)
-  const arm = (dir: Pt): Course => ({ origin: centre, dir: unit(dir), junction: 1, plus: 1 });
+  const arm = (dir: Pt, cut: [number, number] | null = null): Course => ({ origin: centre, dir: unit(dir), junction: 1, plus: 1, cut });
+  /** A band couped across its length: its corners `half` either side of its middle line, its ends straight. */
+  const coupedBand = (origin: Pt, dir: Pt, half: number): Outline => {
+    const cut = coupedCut(origin, dir, half, shape);
+    const [s0, s1] = cut;
+    return { points: [at(origin, dir, s0, half), at(origin, dir, s1, half), at(origin, dir, s1, -half), at(origin, dir, s0, -half)], edges: [A(0), null, B(0), null], courses: [band(origin, dir, cut)] };
+  };
   switch (spec.type) {
-    case 'fess': return {
-      points: [[x0, cy - h], [x1, cy - h], [x1, cy + h], [x0, cy + h]], edges: [A(0), null, B(0), null], courses: [band([x0, cy], [1, 0])],
-    };
-    case 'pale': return {
-      points: [[cx - h, y0], [cx + h, y0], [cx + h, y1], [cx - h, y1]], edges: [null, B(0), null, A(0)], courses: [band([cx, y0], [0, 1])],
-    };
-    case 'bend': return {
-      points: [[cx - reach, bend(cx - reach) - d], [cx + reach, bend(cx + reach) - d], [cx + reach, bend(cx + reach) + d], [cx - reach, bend(cx - reach) + d]],
-      edges: [A(0), null, B(0), null], courses: [band([cx - reach, bend(cx - reach)], unit([1, 1]))],
-    };
-    case 'bend-sinister': return {
-      points: [[cx - reach, sinister(cx - reach) - d], [cx + reach, sinister(cx + reach) - d], [cx + reach, sinister(cx + reach) + d], [cx - reach, sinister(cx - reach) + d]],
-      edges: [A(0), null, B(0), null], courses: [band([cx - reach, sinister(cx - reach)], unit([1, -1]))],
-    };
+    case 'fess':
+      if (couped) return coupedBand([x0, cy], [1, 0], h);
+      return { points: [[x0, cy - h], [x1, cy - h], [x1, cy + h], [x0, cy + h]], edges: [A(0), null, B(0), null], courses: [band([x0, cy], [1, 0])] };
+    case 'pale': {
+      if (!couped) return { points: [[cx - h, y0], [cx + h, y0], [cx + h, y1], [cx - h, y1]], edges: [null, B(0), null, A(0)], courses: [band([cx, y0], [0, 1])] };
+      // laid downward, its left (on the page) is the sinister edge: the dexter edge `a` is on the right of the course
+      const cut = coupedCut([cx, y0], [0, 1], h, shape);
+      const [s0, s1] = cut;
+      return { points: [[cx - h, y0 + s0], [cx + h, y0 + s0], [cx + h, y0 + s1], [cx - h, y0 + s1]], edges: [null, B(0), null, A(0)], courses: [band([cx, y0], [0, 1], cut)] };
+    }
+    case 'bend': {
+      const origin: Pt = [cx - reach, bend(cx - reach)];
+      if (couped) return coupedBand(origin, unit([1, 1]), h);
+      return {
+        points: [[cx - reach, bend(cx - reach) - d], [cx + reach, bend(cx + reach) - d], [cx + reach, bend(cx + reach) + d], [cx - reach, bend(cx - reach) + d]],
+        edges: [A(0), null, B(0), null], courses: [band(origin, unit([1, 1]))],
+      };
+    }
+    case 'bend-sinister': {
+      const origin: Pt = [cx - reach, sinister(cx - reach)];
+      if (couped) return coupedBand(origin, unit([1, -1]), h);
+      return {
+        points: [[cx - reach, sinister(cx - reach) - d], [cx + reach, sinister(cx + reach) - d], [cx + reach, sinister(cx + reach) + d], [cx - reach, sinister(cx - reach) + d]],
+        edges: [A(0), null, B(0), null], courses: [band(origin, unit([1, -1]))],
+      };
+    }
     // each limb laid out from the apex; `plus` toward chief on both, so the limbs mirror each other
     case 'chevron': {
       const apex: Pt = [cx, apexY];
-      const limb = (dir: Pt): Course => ({ origin: apex, dir: unit(dir), junction: 1, plus: fieldSide(dir) });
+      const dirs: [Pt, Pt] = [unit([-1, 1]), unit([1, 1])];
+      // a couped limb stops short of the shape on its outer and its inner edge, both cut square across the limb
+      const t = thick / Math.SQRT2;
+      const cuts = dirs.map((dir): [number, number] | null => (couped ? [0, coupedCut(at(apex, dir, 0, (dir[0] < 0 ? 1 : -1) * t / 2), dir, t / 2, shape)[1]] : null));
+      const limb = (i: number): Course => ({ origin: apex, dir: dirs[i], junction: 1, plus: fieldSide(dirs[i]), cut: cuts[i] });
+      const ends = dirs.map((dir, i): [Pt, Pt] => {
+        const cut = cuts[i];
+        // the inner edge lies to the right of the left limb and to the left of the right one (on the page)
+        const inward = dir[0] < 0 ? t : -t;
+        return cut ? [at(apex, dir, cut[1], 0), at(apex, dir, cut[1], inward)] : [[cx + Math.sign(dir[0]) * reach, apexY + reach], [cx + Math.sign(dir[0]) * reach, apexY + reach + thick]];
+      });
       return {
-        points: [
-          [cx - reach, apexY + reach], apex, [cx + reach, apexY + reach],
-          [cx + reach, apexY + reach + thick], [cx, apexY + thick], [cx - reach, apexY + reach + thick],
-        ],
-        edges: [A(0), A(1), null, B(1), B(0), null], courses: [limb([-1, 1]), limb([1, 1])],
+        points: [ends[0][0], apex, ends[1][0], ends[1][1], [cx, apexY + thick], ends[0][1]],
+        edges: [A(0), A(1), null, B(1), B(0), null], courses: [limb(0), limb(1)],
       };
     }
-    case 'cross': return {
-      points: [
-        [cx - c, y0], [cx + c, y0], [cx + c, cy - c], [x1, cy - c], [x1, cy + c], [cx + c, cy + c],
-        [cx + c, y1], [cx - c, y1], [cx - c, cy + c], [x0, cy + c], [x0, cy - c], [cx - c, cy - c],
-      ],
-      edges: [null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3), A(0)],
-      courses: [arm([0, -1]), arm([1, 0]), arm([0, 1]), arm([-1, 0])],
-    };
-    case 'saltire': return {
-      points: [
-        [cx, cy - sd], [cx + reach, cy - reach - sd], [cx + reach, cy - reach + sd], [cx + sd, cy], [cx + reach, cy + reach - sd], [cx + reach, cy + reach + sd],
-        [cx, cy + sd], [cx - reach, cy + reach + sd], [cx - reach, cy + reach - sd], [cx - sd, cy], [cx - reach, cy - reach + sd], [cx - reach, cy - reach - sd],
-      ],
-      edges: [A(0), null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3)],
-      courses: [arm([1, -1]), arm([1, 1]), arm([-1, 1]), arm([-1, -1])],
-    };
+    case 'cross': {
+      if (!couped) {
+        return {
+          points: [
+            [cx - c, y0], [cx + c, y0], [cx + c, cy - c], [x1, cy - c], [x1, cy + c], [cx + c, cy + c],
+            [cx + c, y1], [cx - c, y1], [cx - c, cy + c], [x0, cy + c], [x0, cy - c], [cx - c, cy - c],
+          ],
+          edges: [null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3), A(0)],
+          courses: [arm([0, -1]), arm([1, 0]), arm([0, 1]), arm([-1, 0])],
+        };
+      }
+      // each arm's end, then the corner where its right edge meets the next arm's left one
+      const dirs: Pt[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+      const cuts = dirs.map((dir): [number, number] => [0, coupedCut(centre, dir, c, shape)[1]]);
+      return {
+        points: dirs.flatMap((dir, i): Pt[] => [at(centre, dir, cuts[i][1], c), at(centre, dir, cuts[i][1], -c), at(centre, dir, c, -c)]),
+        edges: [null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3), A(0)],
+        courses: dirs.map((dir, i) => arm(dir, cuts[i])),
+      };
+    }
+    case 'saltire': {
+      if (!couped) {
+        return {
+          points: [
+            [cx, cy - sd], [cx + reach, cy - reach - sd], [cx + reach, cy - reach + sd], [cx + sd, cy], [cx + reach, cy + reach - sd], [cx + reach, cy + reach + sd],
+            [cx, cy + sd], [cx - reach, cy + reach + sd], [cx - reach, cy + reach - sd], [cx - sd, cy], [cx - reach, cy - reach + sd], [cx - reach, cy - reach - sd],
+          ],
+          edges: [A(0), null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3)],
+          courses: [arm([1, -1]), arm([1, 1]), arm([-1, 1]), arm([-1, -1])],
+        };
+      }
+      // the corner where the last arm's right edge meets this one's left edge, then this arm's end; arms 12 wide each side across them
+      const w = sd / Math.SQRT2;
+      const dirs: Pt[] = [unit([1, -1]), unit([1, 1]), unit([-1, 1]), unit([-1, -1])];
+      const cuts = dirs.map((dir): [number, number] => [0, coupedCut(centre, dir, w, shape)[1]]);
+      const notches: Pt[] = [[cx, cy - sd], [cx + sd, cy], [cx, cy + sd], [cx - sd, cy]];
+      return {
+        points: dirs.flatMap((dir, i): Pt[] => [notches[i], at(centre, dir, cuts[i][1], w), at(centre, dir, cuts[i][1], -w)]),
+        edges: [A(0), null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3)],
+        courses: dirs.map((dir, i) => arm(dir, cuts[i])),
+      };
+    }
     case 'chief': return {
       points: [[x0, y0], [x1, y0], [x1, f.chiefBase], [x0, f.chiefBase]], edges: [null, null, A(0), null], courses: [band([x0, f.chiefBase], [1, 0])],
     };
-    // each side laid out from the point, clear of the other by as much as their angle there needs; a lined pile runs off the top
+    // each side laid out from the point, clear of the other by as much as their angle there needs; a lined pile, one throughout and one
+    // to be turned upside down run off the top (an inverted pile issues from the base, whatever its shape)
     case 'pile': {
-      const [left, right, point] = f.pile;
+      const [left, right, drawnPoint] = f.pile;
+      const point: Pt = throughout ? [drawnPoint[0], edgeAt(spec.mods.includes('inverted') ? f.box.y0 : f.box.y1)] : drawnPoint;
       const sides = [unit([left[0] - point[0], left[1] - point[1]]), unit([right[0] - point[0], right[1] - point[1]])];
       const half = Math.acos(sides[0][0] * sides[1][0] + sides[0][1] * sides[1][1]) / 2;
-      const courses = sides.map((dir): Course => ({ origin: point, dir, junction: 1 / Math.tan(half), plus: 'outward' }));
-      const top = (dir: Pt): Pt => [point[0] + (dir[0] * (y0 - point[1])) / dir[1], y0];
-      return { points: spec.lines.a === 'plain' ? [left, right, point] : [top(sides[0]), top(sides[1]), point], edges: [null, A(1), A(0)], courses };
+      const courses = sides.map((dir): Course => ({ origin: point, dir, junction: 1 / Math.tan(half), plus: 'outward', cut: null }));
+      // its corners on the top of the shape, or past it (far enough to lie past the base once turned over)
+      const past = (dir: Pt): Pt => [point[0] + (dir[0] * (y0 - point[1])) / dir[1], y0];
+      const corners = spec.lines.a !== 'plain' || spec.mods.includes('inverted') ? sides.map(past) : [left, right];
+      return { points: [corners[0], corners[1], point], edges: [null, A(1), A(0)], courses };
     }
     case 'bordure': return null;
     default: return notSupported({ category: 'ordinary', detail: spec.type });
@@ -258,7 +387,7 @@ function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[]): (
     const key = `${index}|${line}`;
     if (laid.has(key)) return laid.get(key) ?? null;
     const course = courses[index];
-    const [c0, c1] = visibleSpan(course.origin, [course.origin[0] + course.dir[0] * COURSE_REACH, course.origin[1] + course.dir[1] * COURSE_REACH], shape) ?? [0, 0];
+    const [c0, c1] = course.cut ?? visibleSpan(course.origin, [course.origin[0] + course.dir[0] * COURSE_REACH, course.origin[1] + course.dir[1] * COURSE_REACH], shape) ?? [0, 0];
     let out: { period: number; anchor: number } | null = null;
     if (course.junction === null) {
       if (c1 > c0) out = { period: fitPeriod(line, c1 - c0, 1), anchor: (c0 + c1) / 2 };
@@ -291,8 +420,9 @@ function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[]): (
     const single = LINE_PROFILE[line].kind === 'single';
     const fit = single && course.junction !== null ? { period: v1 - inner, anchor: (inner + v1) / 2 } : lay(e.course, line, depth);
     if (fit === null) return null;
-    const span: [number, number] = course.junction === null ? [v0 - fit.period, v1 + fit.period]
-      : single ? [inner, v1] : [inner + depth * course.junction, v1 + fit.period];
+    // a couped edge's features stop at its straight ends; elsewhere they run off the shape
+    const span: [number, number] = course.junction === null ? (course.cut ? [v0, v1] : [v0 - fit.period, v1 + fit.period])
+      : single ? [inner, v1] : [inner + depth * course.junction, course.cut ? course.cut[1] : v1 + fit.period];
     // the side of the course's direction the edge's outside lies on: its left when it runs along the course round a clockwise outline
     const outward: 1 | -1 = turn * forward > 0 ? 1 : -1;
     const side = LINE_PROFILE[line].pairing === 'mirrored' || course.plus === 'outward' ? outward : course.plus;
@@ -439,7 +569,7 @@ function build(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Ordinary
       body,
       fillRule: spec.type === 'bordure' ? 'evenodd' : 'nonzero',
       envelope: envelopeOf(spec, frame, lift, body),
-      centre: spec.type === 'chief' ? { x: frame.centre.x, y: f.chiefBase - CHIEF_HEIGHT / 2 } : frame.centre,
+      centre: spec.type === 'chief' ? { x: frame.centre.x, y: f.chiefBase - CHIEF_HEIGHT / 2 } : ordinaryCentre(spec, frame),
       box: { x0: Math.max(f.box.x0, Math.min(...xs)), y0: Math.max(f.box.y0, Math.min(...ys)), x1: Math.min(f.box.x1, Math.max(...xs)), y1: Math.min(f.box.y1, Math.max(...ys)) },
       samples,
     };
@@ -453,9 +583,9 @@ export function ordinaryGeometry(spec: OrdinarySpec, frame: OrdinaryFrame): Ordi
   return build(spec, frame, 0);
 }
 
-/** Whether an ordinary of this paint lies astride its field's line: a counterchanged chevron on a field per chevron. */
+/** Whether an ordinary of this paint lies astride its field's line: a counterchanged chevron, neither turned, shortened nor moved, on a field per chevron. */
 export const liesAstride = (field: Paint, spec: OrdinarySpec, paint: Paint): boolean =>
-  spec.type === 'chevron' && paint.k === 'counterchanged' && field.k === 'divided' && field.division === 'per-chevron';
+  spec.type === 'chevron' && spec.mods.length === 0 && paint.k === 'counterchanged' && field.k === 'divided' && field.division === 'per-chevron';
 
 /**
  * What an ordinary of this paint draws on the field: a chevron astride the field's line is raised so that the line runs down the

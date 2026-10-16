@@ -9,8 +9,8 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
-  type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryType, type Posture, type Variation,
+  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import {
@@ -736,6 +736,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
     if (last?.kind === 'ord' && last.el === els[els.length - 1]) {
       if (base === 'throughout' && last.el?.supported) return; // the widget's ordinaries are throughout
+      // a treatment the widget draws on that ordinary ("a chevron inverted", "a cross couped", "a fess enhanced")
+      const type = last.el?.supported as OrdinaryType | null | undefined;
+      if (type && (ORDINARY_MODS as readonly string[]).includes(base) && modDrawn(type, base as OrdinaryMod)) return;
       tag('ordinary-treatment', base);
       return;
     }
@@ -834,7 +837,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     let end = i;
     if (CROSS_BEFORE.has(prev)) variant = CROSS_VARIANT[prev] ?? prev;
     const next = words[i + 1] ?? BREAK;
-    if (!variant && CROSS_AFTER.has(next)) { variant = CROSS_VARIANT[next] ?? next; end = i + 1; }
+    // "a cross couped", "a cross humetty", "a cross voided" (one, with its article) is the ordinary so treated; "crosses couped" are charges
+    const ordinaryForm = /^(couped|humetty|voided)$/.test(next) && (pendingCount ?? 1) === 1 && (prev === 'a' || prev === 'an');
+    if (!variant && CROSS_AFTER.has(next) && !ordinaryForm) { variant = CROSS_VARIANT[next] ?? next; end = i + 1; }
     if (!variant && next === 'of' && words[i + 2] && words[i + 2] !== BREAK) {
       const what = words[i + 2];
       if (NUMBERS[what]) variant = 'composed'; // "a cross of four lozenges"
