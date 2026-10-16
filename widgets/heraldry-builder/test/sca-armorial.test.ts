@@ -17,7 +17,7 @@ import {
   CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, DRAWN_LINES, DRAWN_TREATMENTS, LINED_VARIATIONS, LINE_WORD, FURS, FUR_NAME, SEMY_NAMES, lineAllowed, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
   blazon, canonicalJson, isCountedVariation, normalise,
 } from '../src/lib/heraldry';
-import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns } from './design-generator';
+import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns } from './design-generator';
 import { arms, charge, group, ordinary } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -181,6 +181,18 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a chief indented and a bordure engrailed', arms('sable', group(ordinary('fess'), 'or'), group(ordinary('chief', { lines: { a: 'indented' } }), 'argent'), group(ordinary('bordure', { lines: { a: 'engrailed' } }), 'argent'))],
   ['a cross embattled grady', arms('vert', group(ordinary('cross', { lines: { a: 'grady' } }), 'or'))],
   ['an embattled grady division', arms({ k: 'divided', division: 'per-bend', lines: { a: 'grady' }, parts: ['argent', 'gules'] }, group(charge('mullet'), 'or'))],
+  ['a bend cotised in its own tincture', arms('azure', group(ordinary('bend', { cotised: { count: 1, paint: 'argent' } }), 'argent'))],
+  ['a bend cotised in another tincture', arms('azure', group(ordinary('bend', { cotised: { count: 1, paint: 'argent' } }), 'or'))],
+  ['a chevron cotised between charges', arms('azure', group(ordinary('chevron', { cotised: { count: 1, paint: 'argent' } }), 'argent'), group(charge('mullet'), 'argent', { count: 3 }))],
+  ['a pale endorsed with charges on it', arms('or', group(ordinary('pale', { cotised: { count: 1, paint: 'azure' } }), 'azure', { charged: [group(charge('sun'), 'argent')] }))],
+  ['a fess doubly cotised wavy', arms('azure', group(ordinary('fess', { cotised: { count: 2, paint: 'argent', line: 'wavy' } }), 'or'))],
+  ['a wavy bend cotised plain', arms('argent', group(ordinary('bend', { lines: { a: 'wavy', b: 'wavy' }, cotised: { count: 1, paint: 'sable', line: 'plain' } }), 'purpure'))],
+  ['a saltire triply cotised, hollow', arms('azure', group(ordinary('saltire', { mods: ['voided'], cotised: { count: 3, paint: 'argent' } }), 'or'))],
+  ['a bend cotised counterchanged', arms(field, group(ordinary('bend', { cotised: { count: 1, paint: 'counterchanged' } }), 'sable'))],
+  ['a pale fimbriated', arms('azure', group(ordinary('pale', { fimbriated: 'argent' }), 'sable'))],
+  ['a chevron fimbriated between charges', arms('sable', group(ordinary('chevron', { fimbriated: 'argent' }), 'gules'), group(charge('lion'), 'argent', { count: 3 }))],
+  ['a cross voided', arms('gules', group(ordinary('cross', { mods: ['voided'] }), 'or'))],
+  ['a saltire voided and couped', arms('gules', group(ordinary('saltire', { mods: ['couped', 'voided'] }), 'or'))],
 ];
 
 describe('the matcher reads what the widget writes', () => {
@@ -198,6 +210,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedGeometryDesigns(1, 300),
       ...generatedLinedOrdinaryDesigns(1, 200),
       ...generatedTreatedOrdinaryDesigns(1, 120),
+      ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...Array.from({ length: 1500 }, (_, seed) => generatedDesign(seed)),
       ...Array.from({ length: 1500 }, (_, seed) => generatedRichDesign(seed)),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -338,6 +351,42 @@ describe('the matcher reads charges on the primary charges', () => {
   });
 });
 
+// Cotises, fimbriation and voiding, in the College's spellings and orders (normaliser rule 'ordinary-outlines').
+describe('the matcher reads the outline of an ordinary', () => {
+  it.each([
+    ['Azure, a bend cotised argent.', 'Azure, a bend cotised argent.'],
+    ['Azure, a bend cotissed argent.', 'Azure, a bend cotised argent.'],
+    ['Azure, a bend double cotised argent.', 'Azure, a bend doubly cotised argent.'],
+    ['Azure, a bend triple-cotised argent.', 'Azure, a bend triply cotised argent.'],
+    ['Azure, a bend Or cotised argent.', 'Azure, a bend Or cotised argent.'],
+    ['Azure, a bend, cotised Or.', 'Azure, a bend cotised Or.'],
+    ['Azure, a pale cotised Or.', 'Azure, a pale endorsed Or.'],
+    ['Azure, a pale Or cotised argent.', 'Azure, a pale Or endorsed argent.'],
+    ['Azure, a pale doubly cotised Or.', 'Azure, a pale doubly cotised Or.'],
+    ['Azure, a bend wavy cotised Or.', 'Azure, a bend wavy cotised Or.'],
+    ['Azure, a bend wavy cotised plain Or.', 'Azure, a bend wavy cotised plain Or.'],
+    ['Azure, a bend cotised wavy Or.', 'Azure, a bend cotised wavy Or.'],
+    ['Azure, a bend between two cotises Or.', 'Azure, a bend cotised Or.'],
+    ['Azure, a chevron cotised throughout argent.', 'Azure, a chevron throughout cotised argent.'],
+    ['Azure, a chevron cotised between three mullets argent.', 'Azure, a chevron cotised between three mullets argent.'],
+    ['Azure, a chevron Or cotised between three mullets argent.', 'Azure, a chevron Or cotised between three mullets argent.'],
+    ['Sable, a chevron gules fimbriated between three lions argent.', 'Sable, a chevron gules fimbriated between three lions argent.'],
+    ['Sable, a chevron gules, fimbriated, and a bordure Or.', 'Sable, a chevron gules fimbriated and a bordure Or.'],
+    ['Gules, a cross voided Or.', 'Gules, a cross voided Or.'],
+    ['Gules, a saltire voided throughout Or.', 'Gules, a saltire voided Or.'],
+    ['Gules, a cross couped voided Or.', 'Gules, a cross couped voided Or.'],
+  ])('%s', (text, house) => {
+    const m = explainMatch(text);
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('files what the widget can not draw of an outline as the gap the library names', () => {
+    expect(explainMatch('Azure, a bend Or fimbriated and cotised argent.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'ordinary-treatment', detail: 'fimbriated-and-cotised' }] });
+    expect(explainMatch('Azure, a bend cotised ermine.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'ordinary-treatment', detail: 'trim-fur' }] });
+  });
+});
+
 // A record the widget draws except for one word it can't read has that word as its gap and nothing else: the tagger
 // must not file it under a construct the widget does draw (a fur, a pattern, a semy, a second group, a badge …).
 // Each case is a minimal blazon of one drawn construct, taken from the library's own tables where it has them, plus a
@@ -381,6 +430,11 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a bend abased', 'azure, a bend abased Or'],
     ['a pile throughout', 'azure, a pile throughout Or'],
     ['a pile inverted', 'azure, a pile inverted Or'],
+    ['a bend cotised', 'azure, a bend cotised argent'],
+    ['a bend doubly cotised', 'azure, a bend doubly cotised argent'],
+    ['a pale endorsed', 'azure, a pale endorsed argent'],
+    ['a chevron fimbriated', 'azure, a chevron Or fimbriated argent'],
+    ['a cross voided', 'azure, a cross voided Or'],
     ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, a ${ORDINARY_NAME[t]} ${LINE_WORD[l]} Or`])),
     ['a chief and a bordure', 'azure, a chief and a bordure Or'],
     ['charges in chief', 'azure, a bend Or, in chief three roses argent'],

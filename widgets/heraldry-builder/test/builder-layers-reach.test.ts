@@ -9,7 +9,7 @@ import {
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
-import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns } from './design-generator';
+import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns } from './design-generator';
 import { arms, charge, div, group, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
@@ -154,6 +154,16 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Gules, a chevron throughout argent.'],
   ['a chevron upside down and embattled on its upper edge', arms('azure', group(ordinary('chevron', { mods: ['inverted'], lines: { a: 'embattled' } }), 'or')),
     'Azure, a chevron inverted embattled on the upper edge Or.'],
+  ['a pale cotised with a picture on it (O&A 941)', arms('or', group(ordinary('pale', { cotised: { count: 1, paint: 'azure' } }), 'azure', { charged: [group(charge('sun'), 'argent')] })),
+    'Or, on a pale endorsed azure a sun argent.'],
+  ['a wavy bend with plain cotises of its own tincture (O&A 24669)', arms('argent', group(ordinary('bend', { lines: { a: 'wavy', b: 'wavy' }, cotised: { count: 1, paint: 'sable', line: 'plain' } }), 'purpure')),
+    'Argent, a bend wavy purpure cotised plain sable.'],
+  ['a chevron fimbriated between charges (O&A 125)', arms('sable', group(ordinary('chevron', { fimbriated: 'argent' }), 'gules'), group(charge('lion'), 'argent', { count: 3 })),
+    'Sable, a chevron gules fimbriated between three lions argent.'],
+  ['a cross voided', arms('gules', group(ordinary('cross', { mods: ['voided'] }), 'or')),
+    'Gules, a cross voided Or.'],
+  ['a bend doubly cotised counterchanged on a divided field', arms(div('per-pale', 'argent', 'azure'), group(ordinary('bend', { cotised: { count: 2, paint: 'counterchanged' } }), 'sable')),
+    'Per pale argent and azure, a bend sable doubly cotised counterchanged.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -188,6 +198,14 @@ describe('designs with a chief and a bordure beside the band are built by clicks
 
   it('every generated design with a band upside down, shortened, touching the edges, raised or lowered is built too', () => {
     const problems = generatedTreatedOrdinaryDesigns(11, 40).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with a band edged or cotised, or a cross hollow, is built too', () => {
+    const problems = generatedOutlinedOrdinaryDesigns(11, 60).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });

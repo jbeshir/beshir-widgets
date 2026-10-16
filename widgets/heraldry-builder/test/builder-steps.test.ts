@@ -7,7 +7,7 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { setCharge, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
 import { addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
@@ -432,6 +432,37 @@ describe('"More shapes and edges…" under the band', () => {
     expect(chief).not.toContain('ordinary-edge-side-both');
     const pale = setOrdinary(DEFAULT_DESIGN, 'pale');
     expect(render(setOrdinaryLine(pale, ordinaryPath(pale)!, 'wavy'))).toContain('Left edge only');
+  });
+
+  it('the outline row and its colour picker appear inside the closed disclosure; cotises add their edge row', () => {
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const path = ordinaryPath(fess)!;
+    const closed = render(fess);
+    expect(shapeDisclosures(closed)).toEqual([{ testid: 'ordinary-shape-more', open: false }]);
+    expect(ids(closed)).not.toContain('ordinary-outline-cotised');
+    const edged = ids(render(setOrdinaryOutline(fess, path, 'fimbriated')));
+    for (const id of ['ordinary-outline-select', 'ordinary-outline-none', 'ordinary-outline-fimbriated', 'ordinary-outline-cotised', 'ordinary-outline-doubly-cotised', 'ordinary-outline-triply-cotised', 'ordinary-outline-tincture', 'swatch-outline-argent']) expect(edged, id).toContain(id);
+    expect(edged).not.toContain('ordinary-cotise-edge-select');
+    expect(edged).not.toContain('swatch-outline-counterchanged');
+    const cotised = setOrdinaryOutline(fess, path, 'cotised');
+    const open = render(cotised);
+    expect(shapeDisclosures(open)).toEqual([{ testid: 'ordinary-shape-more', open: true }]);
+    const got = ids(open);
+    for (const id of ['ordinary-outline-tincture', 'swatch-outline-argent', 'ordinary-cotise-edge-select', 'ordinary-cotise-edge-plain', 'ordinary-cotise-edge-wavy']) expect(got, id).toContain(id);
+    expect(renderToString(h(OrdinaryStep, { ...base, accordion: { open: false, onToggle: noop }, design: cotised }))).toMatch(/step-ordinary-summary">[^<]*, cotised, /);
+    // On a divided field the cotises may be counterchanged.
+    const divided = setOrdinary(setDivision(DEFAULT_DESIGN, 'per-pale'), 'fess');
+    expect(ids(render(setOrdinaryOutline(divided, ordinaryPath(divided)!, 'cotised')))).toContain('swatch-outline-counterchanged');
+    // A top band or border has no outline.
+    const chief = setOrdinary(DEFAULT_DESIGN, 'chief');
+    expect(ids(render(setOrdinaryLine(chief, ordinaryPath(chief)!, 'wavy')))).not.toContain('ordinary-outline-select');
+  });
+
+  it('Hollow is a toggle of a cross, and opens the disclosure', () => {
+    const cross = setOrdinary(DEFAULT_DESIGN, 'cross');
+    expect(ids(render(setOrdinaryToggle(cross, ordinaryPath(cross)!, 'voided', true)))).toContain('ordinary-shape-voided');
+    const fess = setOrdinaryToggle(setOrdinary(DEFAULT_DESIGN, 'fess'), ordinaryPath(setOrdinary(DEFAULT_DESIGN, 'fess'))!, 'couped', true);
+    expect(ids(render(fess))).not.toContain('ordinary-shape-voided');
   });
 
   it('a top band and a border have an "Edge…" disclosure', () => {

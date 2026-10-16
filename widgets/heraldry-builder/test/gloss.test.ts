@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { CHARGE_IDS, betweenWords, gloss } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns } from './design-generator';
+import { generatedDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns } from './design-generator';
 import { V } from './validation-cases';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -106,6 +106,6 @@ describe('every charge', () => {
   });
 
   it('never throws on, and always ends a sentence for, generated designs', () => {
-    for (const d of [...generatedDesigns(9, 200), ...generatedRichDesigns(9, 200), ...generatedGeometryDesigns(9, 100), ...generatedLinedOrdinaryDesigns(9, 60), ...generatedTreatedOrdinaryDesigns(9, 40)]) expect(gloss(d)).toMatch(/\.$/);
+    for (const d of [...generatedDesigns(9, 200), ...generatedRichDesigns(9, 200), ...generatedGeometryDesigns(9, 100), ...generatedLinedOrdinaryDesigns(9, 60), ...generatedTreatedOrdinaryDesigns(9, 40), ...generatedOutlinedOrdinaryDesigns(9, 40)]) expect(gloss(d)).toMatch(/\.$/);
   });
 });

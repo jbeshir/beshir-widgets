@@ -276,3 +276,43 @@ export function generatedTreatedOrdinaryDesigns(seed: number, count: number): De
   }
   return designs;
 }
+
+/** Mixed into a seed for the picks of the outlined ordinaries. */
+const OUTLINED_ORDINARY_SEED = 0x510e527f;
+
+/**
+ * The design for `seed` with a central band or shape edged or cotised once to three times (the cotises sometimes with a line of their own, or
+ * counterchanged on a divided field), a cross or saltire sometimes hollow, with a line sometimes and sometimes a picture beside it. Null
+ * when the pick isn't registrable.
+ */
+function outlinedOrdinaryDesignFor(seed: number): Design | null {
+  const next = prng(seed ^ OUTLINED_ORDINARY_SEED);
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
+  const type = pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'] as const);
+  const divided = next() < 0.3;
+  const field = divided ? { k: 'divided', division: pick(['per-pale', 'per-fess', 'per-bend'] as const), parts: [pick(['or', 'argent']), pick(['azure', 'gules', 'sable', 'vert'])] } : pick(TINCTURES);
+  const hollow = (type === 'cross' || type === 'saltire') && next() < 0.4;
+  const mods = hollow ? ['voided'] : [];
+  const line = next() < 0.3 ? pick(DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type, inverted: false }, l))) : null;
+  const cotisedLine = next() < 0.25 ? pick(['plain', ...DRAWN_LINES.filter((l) => lineAllowed({ k: 'cotises', type }, l))]) : null;
+  const edged = !hollow && next() < 0.4;
+  const trim = edged
+    ? { fimbriated: pick(TINCTURES) }
+    : { cotised: { count: 1 + Math.floor(next() * 3), paint: divided && next() < 0.3 ? 'counterchanged' : pick(TINCTURES), ...(cotisedLine ? { line: cotisedLine } : {}) } };
+  const groups: object[] = [{ item: { k: 'ordinary', type, mods, ...trim, ...(line ? { lines: { a: line } } : {}) }, paint: pick(TINCTURES) }];
+  if (next() < 0.4) groups.push({ item: { k: 'charge', charge: pick(CHARGES) }, paint: pick(TINCTURES), count: 1 + Math.floor(next() * 3), relation: next() < 0.5 ? 'between' : null });
+  const r = resolve({ v: 2, field, groups });
+  if (!r.ok) return null;
+  const n = normalise(r.design);
+  return n.ok ? n.design : null;
+}
+
+/** The first `count` designs from `outlinedOrdinaryDesignFor`, trying seeds from `seed` upwards. */
+export function generatedOutlinedOrdinaryDesigns(seed: number, count: number): Design[] {
+  const designs: Design[] = [];
+  for (let s = seed; designs.length < count; s++) {
+    const d = outlinedOrdinaryDesignFor(s);
+    if (d) designs.push(d);
+  }
+  return designs;
+}

@@ -16,7 +16,7 @@ import {
   blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
-import { DIVISION_WORDS, readOrdinaryForm, readPaint } from './paint-grammar';
+import { DIVISION_WORDS, readOrdinaryForm, readOutline, readPaint, type OutlineRead } from './paint-grammar';
 
 /** A design input as `resolve` reads it: arms with a field, or a fieldless badge. */
 export type DesignInput = { v: 2; field: unknown; groups: unknown[] } | { v: 2; kind: 'badge'; groups: unknown[] };
@@ -107,7 +107,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'the', 'edge', 'upper', 'lower', 'sinister', 'counter-embattled', 'inverted', 'couped', 'throughout', 'enhanced', 'abased',
+    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'the', 'edge', 'upper', 'lower', 'sinister', 'counter-embattled', 'inverted', 'couped', 'throughout', 'enhanced', 'abased', 'voided', 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS,
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
@@ -117,8 +117,9 @@ const VOCABULARY = new Set<string>(
 // A token grammar over the normalised text (words, with commas as tokens of their own):
 //   blazon     := field [',' element (connector element)*] | '(fieldless)' element (connector element)*
 //   field      := T | DIVISION T 'and' T
-//   element    := ['on'] ('a'|'an') ordinary FORM [T]   an ordinary, central or peripheral ("on" when a group sits on it)
-//   FORM       := ['inverted'] [LINE [edge]] ['couped'] ['throughout'|'enhanced'|'abased']
+//   element    := ['on'] ('a'|'an') ordinary FORM [T] [OUTLINE]   an ordinary, central or peripheral ("on" when a group sits on it)
+//   OUTLINE    := 'fimbriated' [T] | ['doubly'|'triply'] ('cotised'|'endorsed') ['plain'|LINE] [T]
+//   FORM       := ['inverted'] [LINE [edge]] ['couped'] ['throughout'|'enhanced'|'abased'] ['voided']
 //               | 'on' group                        a charge group with a group on it
 //               | 'each charged with' group          the group before it, a charge group, with the group on each charge
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
@@ -136,6 +137,16 @@ interface Phrase {
   /** The group input, without its paint. */
   group: Record<string, unknown>;
   paint: unknown;
+  /** An ordinary's fimbriation and cotises: each a phrase of its own for the tincture it states, or takes from what follows (a cotised band that says one tincture has it for both). */
+  outlines?: Array<{ phrase: Phrase; read: OutlineRead }>;
+}
+
+/** The ordinary's item input with its outlines in the paints their phrases came to have. */
+function outlinedItem(p: Phrase): unknown {
+  const outlined = (p.outlines ?? []).map(({ phrase, read }) => (read.k === 'fimbriated'
+    ? { fimbriated: phrase.paint }
+    : { cotised: { count: read.count, paint: phrase.paint, ...(read.line ? { line: read.line } : {}) } }));
+  return Object.assign({}, p.group.item, ...outlined);
 }
 
 /** A top-level group, with the group that sits on it. */
@@ -265,13 +276,27 @@ function parseBody(tokens: string[]): Body | null {
         const type = ORDINARY_WORDS.get(ordinary.join(' '))!;
         const { lines, mods, end } = readOrdinaryForm(type, tokens, j + 1 + ordinary.length);
         const read = readPaint(tokens, end, 'group');
+        // Its fimbriation and cotises, "fimbriated Or and cotised argent", each with the tincture it states.
+        const outlines: Array<{ phrase: Phrase; read: OutlineRead }> = [];
+        let after = read ? read.end : end;
+        let outline = readOutline(tokens, after);
+        while (outline) {
+          const trimmed = readPaint(tokens, outline.end, 'group');
+          outlines.push({ phrase: { group: {}, paint: trimmed?.paint ?? null }, read: outline });
+          after = trimmed ? trimmed.end : outline.end;
+          outline = tokens[after] === 'and' ? readOutline(tokens, after + 1) : null;
+        }
         const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), item: { k: 'ordinary', type, ...(lines ? { lines } : {}), ...(mods.length > 0 ? { mods } : {}) } }, paint: read?.paint ?? null }, on: null };
         top.push(node);
         order.push({ phrase: node.phrase, onHost: false });
+        if (outlines.length > 0) {
+          node.phrase.outlines = outlines;
+          order.push(...outlines.map(({ phrase }) => ({ phrase, onHost: false })));
+        }
         host = on ? node : null;
         between = false;
         overall = false;
-        i = read ? read.end : end;
+        i = after;
       } else {
         const g = readGroup(tokens, j);
         if (!g) return null;
@@ -317,7 +342,7 @@ function parseBody(tokens: string[]): Body | null {
       carry = groundOf(phrase.paint);
     }
   }
-  const withPaint = (p: Phrase) => ({ ...p.group, paint: p.paint });
+  const withPaint = (p: Phrase) => ({ ...p.group, ...(p.outlines ? { item: outlinedItem(p) } : {}), paint: p.paint });
   return { k: 'groups', groups: top.map((n) => (n.on ? { ...withPaint(n.phrase), charged: [withPaint(n.on)] } : withPaint(n.phrase))) };
 }
 

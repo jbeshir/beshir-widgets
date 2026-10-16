@@ -30,7 +30,7 @@ const ORDINARY_NAME_WORDS = 'fess|pale|bend sinister|bend|chevron|cross|saltire|
 /** The line a band or shape is written with after its name: "wavy", "embattled counter-embattled", "embattled on the lower edge". */
 const ORDINARY_LINE = ` (?:embattled counter-embattled|${LINE})(?: on the (?:upper|lower|dexter|sinister) edge)?`;
 /** An ordinary as the text spells it once its synonyms are settled: its name, inverted, its line, couped and where it runs, as far as it has them (the tincture follows). */
-const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?`;
+const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?(?: voided)?`;
 /** A top band or border, with its line. */
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
 
@@ -42,6 +42,12 @@ const VARIATION = `(?:${alt(VARIATIONS.map((v) => VARIATION_NAME[v]))})(?: ${LIN
 /** A treated tincture as the text spells it: "argent masoned sable". */
 const TREATED = `${COLOUR} (?:${DRAWN_TREATMENTS.join('|')}) ${COLOUR}`;
 const TINCT = `(?:${FUR}|${TREATED}|${COLOUR}|counterchanged|proper)`;
+/** A band's fimbriation or cotises as the text spells them once its synonyms are settled: " fimbriated", " doubly cotised", " endorsed", " cotised wavy". */
+const COTISES = '(?:doubly |triply )?cotised';
+const OUTLINE_WORD = `(?:fimbriated|endorsed|${COTISES})`;
+const OUTLINE = `(?: ${OUTLINE_WORD}(?: plain| ${LINE})?)`;
+/** What a band is painted with: its tincture, then its outline and the tincture of that, or its outline and its tincture (" gules fimbriated Or", " cotised azure"). */
+const BAND_PAINT = `(?: ${TINCT}(?:${OUTLINE}(?: ${TINCT})?)?|${OUTLINE}(?: ${TINCT})?)`;
 const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]));
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
 /** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor". */
@@ -174,7 +180,23 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?) couped(${ORDINARY_LINE})(?![\\w-])`, 'g'), '$1$2 couped')
       .replace(/\bchevron inverted embattled(?! counter-embattled| on the| grady)\b/g, 'chevron inverted embattled on the upper edge')
       .replace(/\b(a|an) bendlet( sinister)? (enhanced|abased)\b/g, '$1 bend$2 $3')
-      .replace(new RegExp(`\\b((?:a|an|on a) (?:cross|saltire)(?:${ORDINARY_LINE})?) throughout\\b`, 'g'), '$1'),
+      .replace(new RegExp(`\\b((?:a|an|on a) (?:cross|saltire)(?:${ORDINARY_LINE})?(?: voided)?) throughout\\b`, 'g'), '$1'),
+  },
+  {
+    // 3a4. Cotises and fimbriation written more than one way (RULES-C §G.1, §G.2; PLAN-C C7b). "Cotissed" and "cottised" are cotised, "double" and
+    //      "triple" cotised are "doubly" and "triply" (also "cotised twice/thrice"); a pale's single pair is "endorsed" in the widget's words
+    //      ("a pale cotised" is "a pale endorsed"), and "between two cotises" is cotised.
+    id: 'ordinary-outlines',
+    description: 'cotissed, cottised → cotised; double/triple(-)cotised, cotised twice/thrice → doubly/triply cotised; no comma before a band\'s fimbriation or cotises, nor between them and "between"; "cotised couped" → "couped cotised"; "a pale … cotised" → "… endorsed"; "between two cotises" → "cotised".',
+    apply: (s) => s
+      .replace(/\b(?:cotissed|cottised)\b/g, 'cotised')
+      .replace(/\bdouble[- ]cotised\b|\bcotised twice\b/g, 'doubly cotised')
+      .replace(/\btriple[- ]cotised\b|\bcotised thrice\b/g, 'triply cotised')
+      .replace(/\bbetween two cotises\b/g, 'cotised')
+      .replace(new RegExp(`(\\b(?:a|an) ${ORDINARY}(?: ${TINCT})?), (?=${OUTLINE_WORD}\\b)`, 'g'), '$1 ')
+      .replace(new RegExp(`(\\b(?:a|an) ${ORDINARY}(?: ${TINCT})?${OUTLINE}(?: ${TINCT})?), (?=between\\b)`, 'g'), '$1 ')
+      .replace(new RegExp(`\\b(${ORDINARY_NAME_WORDS})((?: inverted)?(?:${ORDINARY_LINE})?) (${COTISES}(?: plain| ${LINE})?) (couped|throughout|enhanced|abased|voided)\\b`, 'g'), '$1$2 $4 $3')
+      .replace(new RegExp(`(?<!per )\\b((?:a|an) pale(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?(?: ${TINCT})?) cotised\\b`, 'g'), '$1 endorsed'),
   },
   {
     // 3b. Variations the SCA spells in more than one way (`VARIATION_SPELLINGS`): "chevronny" is chevronelly (the College's word: SENA A5F1b),
@@ -257,8 +279,8 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
       .replace(/,? and (?=in (?:chief|base|canton)\b)/g, ', ')
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
-      .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?)|${CORE}) ${TINCT}),`, 'g'), '$1')
-      .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY} (?:${TINCT} )?between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')
+      .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}${BAND_PAINT}|chief(?:${ORDINARY_LINE})? ${TINCT})|${CORE} ${TINCT})),`, 'g'), '$1')
+      .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY}(?:${BAND_PAINT})? between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')
       .replace(new RegExp(`^(${DIVISION_START} ${TINCT} and ${TINCT}|${VARIATION} ${COLOUR} and ${COLOUR}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
   },
   {

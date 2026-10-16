@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  CHARGES, COTISED_HOSTS, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -212,7 +212,8 @@ const JOINS: [RegExp, string][] = [
   [/\b(an? )?escutcheon of pretence\b/g, 'pretence'],
   [/\bvolant en arriere\b/g, 'volant'],
   [/\ben arriere\b/g, 'volant'],
-  [/\b(counter|double|triple)[- ](cotised|cotissed)\b/g, 'cotised'],
+  [/\b(?:(?:counter|double|triple)[- ]|doubly |triply )(?:cotised|cotissed)\b/g, 'cotised'],
+  [/\bpale endorsed\b/g, 'pale cotised'],
   [/\bbleu celeste\b/g, 'bleu-celeste'],
   [/\b(vair|potent) en pointe?\b/g, '$1'],
   [/\bpoint pointed\b/g, 'point'],
@@ -736,6 +737,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
     if (last?.kind === 'ord' && last.el === els[els.length - 1]) {
       if (base === 'throughout' && last.el?.supported) return; // the widget's ordinaries are throughout
+      // cotised and fimbriated, where the widget draws them
+      const drawn = last.el?.supported as OrdinaryType | null | undefined;
+      if (drawn && ((base === 'cotised' && COTISED_HOSTS.includes(drawn)) || (base === 'fimbriated' && ORDINARY_KIND[drawn] === 'central'))) return;
       // a treatment the widget draws on that ordinary ("a chevron inverted", "a cross couped", "a fess enhanced")
       const type = last.el?.supported as OrdinaryType | null | undefined;
       if (type && (ORDINARY_MODS as readonly string[]).includes(base) && modDrawn(type, base as OrdinaryMod)) return;

@@ -11,8 +11,10 @@ export {
 } from './lines';
 export {
   lineChoices, setLine, edgeSideChoices, edgeSideOf, setEdgeSide, keptLines, keptOrdinaryLines, toggleChoices, toggledOn, setToggle, bandPositionOf,
-  bandPositionChoices, setBandPosition, keptMods, type EdgeTarget, type EdgeSide, type ShapeToggle, type BandPosition,
+  bandPositionChoices, setBandPosition, keptMods, outlineAt, outlineChoices, setOutline, keptOutline, outlineTinctureOf, outlineTinctureChoices, setOutlineTincture,
+  type EdgeTarget, type EdgeSide, type ShapeToggle, type BandPosition,
 } from './shape-options';
+export { OUTLINES, type Outline } from './outline';
 export { contourPath, contoursPath, type Contour, type ContourEdge } from './contour';
 export { DIVISIONS, BUILDER_DIVISIONS, MORE_DIVISIONS, LINED_VARIATIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, VARIATION_SPELLINGS, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
 export {
@@ -22,7 +24,7 @@ export {
 } from './design';
 export { resolve, type ResolveResult } from './resolve';
 export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
-export { structuralIssues, couldBeOneFess, coreSteps, type CoreStep } from './structure';
+export { structuralIssues, couldBeOneFess, coreSteps, COTISED_HOSTS, type CoreStep } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, forcedPosition, statesLayout, HALF_POSITIONS, isHalfPosition,
   hostCounts, ON_CHARGE_COUNTS, onChargeLayouts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, SECONDARY_POSITIONS, AROUND_COUNTS, aroundLayouts, aroundPrimaryLayouts, primaryCharges, coPrimaries, MAX_CO_PRIMARY_TOTAL, shareTotal,
@@ -37,7 +39,7 @@ export { validate, normalise, type NormaliseResult } from './validate';
 export { blazon, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';

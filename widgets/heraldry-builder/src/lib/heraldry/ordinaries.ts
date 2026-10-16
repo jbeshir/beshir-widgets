@@ -50,12 +50,12 @@ export type OrdinaryMod = (typeof ORDINARY_MODS)[number];
 /**
  * The ordinaries each treatment is drawn on (RULES-C §D): a chevron or pile upside down; a band, chevron, cross or saltire shortened
  * (couped); a chevron or pile reaching the edges (throughout — crosses and saltires are throughout already); a band or chevron raised or
- * lowered. Voided is not drawn yet. On any other ordinary a treatment is a gap.
+ * lowered; a cross or saltire voided. On any other ordinary a treatment is a gap.
  */
 export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
   inverted: ['chevron', 'pile'],
   couped: ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'],
-  voided: [],
+  voided: ['cross', 'saltire'],
   throughout: ['chevron', 'pile'],
   enhanced: ['fess', 'bend', 'bend-sinister', 'chevron'],
   abased: ['fess', 'bend', 'bend-sinister', 'chevron'],

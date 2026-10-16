@@ -128,14 +128,29 @@ function paintFound(p: Paint, inField: boolean, owner: string): Found[] {
   }
 }
 
+/** The gaps of the paint of an ordinary's cotises or fimbriation: a plain tincture, and for cotises (counterchanged) the field's two tinctures swapped, are drawn and chosen in the builder. */
+function trimGaps(p: Paint, cotises: boolean): Found[] {
+  const other = (detail: string) => gap('ordinary-treatment', detail, 'A band or shape edged or cotised in more than a plain tincture');
+  switch (p.k) {
+    case 'tincture': return [];
+    case 'counterchanged': return cotises ? [] : [gap('ordinary-treatment', 'fimbriated-counterchanged', 'A band or shape edged in swapped colours')];
+    case 'stain': return [gap('tincture', p.stain)];
+    case 'proper': return [gap('proper', 'trim')];
+    case 'fur': case 'treated': case 'semy': case 'divided': case 'variation': return [other(`trim-${p.k}`)];
+    default: return p satisfies never;
+  }
+}
+
 function itemGaps(item: Item): Found[] {
   if (item.k === 'ordinary') {
     const gaps: Found[] = [];
     if (!DRAWN_ORDINARIES.includes(item.type)) gaps.push(gap('ordinary', item.type));
-    // A treatment drawn on another ordinary keeps its own gap ("inverted-on-fess"); voided is not drawn on any.
+    // A treatment drawn on another ordinary keeps its own gap ("inverted-on-fess"); voided has one for every ordinary but a cross or saltire.
     for (const m of item.mods) if (!modDrawn(item.type, m)) gaps.push(gap('ordinary-treatment', m === 'voided' ? m : `${m}-on-${item.type}`));
-    if (item.cotised) gaps.push(gap('ordinary-treatment', 'cotised'));
-    if (item.fimbriated) gaps.push(gap('ordinary-treatment', 'fimbriated'));
+    // The builder's outline is one choice: fimbriated and cotised together can't be made (the hosts that can't take either are structure issues).
+    if (item.cotised && item.fimbriated) gaps.push(gap('ordinary-treatment', 'fimbriated-and-cotised', 'A band or shape both fimbriated and cotised'));
+    if (item.cotised) gaps.push(...trimGaps(item.cotised.paint, true));
+    if (item.fimbriated) gaps.push(...trimGaps(item.fimbriated, false));
     return gaps;
   }
   const meta = CHARGES[item.charge];
@@ -184,10 +199,10 @@ const hasAround = (d: Design): boolean => primaryCharges(d) !== null && d.groups
 function overallGaps(g: Group): Found[] {
   if (g.item.k === 'ordinary') {
     if (!OVERALL_ORDINARIES.includes(g.item.type)) return [gap('placement', `overall-${g.item.type}`, 'That group overall')];
-    // The builder's edge rows and shape toggles are on the band, the top band and the border, not on what lies across everything.
+    // The builder's edge rows, shape toggles and outline are on the band, the top band and the border, not on what lies across everything.
     return [
       ...(g.item.lines.a !== 'plain' || g.item.lines.b !== 'plain' ? [gap('line-of-partition', 'on-overall', 'A line on a band or shape lying across everything')] : []),
-      ...(g.item.mods.length > 0 ? [gap('ordinary-treatment', 'on-overall', 'A band or shape lying across everything turned, shortened or moved')] : []),
+      ...(g.item.mods.length > 0 || g.item.cotised || g.item.fimbriated ? [gap('ordinary-treatment', 'on-overall', 'A band or shape lying across everything turned, shortened, moved or outlined')] : []),
     ];
   }
   return overallLayouts(g.count, CHARGES[g.item.charge].long).length > 0 ? [] : [gap('placement', `overall-${g.count}`, 'That group overall')];

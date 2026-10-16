@@ -143,8 +143,7 @@ the V, two below), then the generic engine sizes them against its envelope. `set
 blazon writes "inverted" before the line and the others after it ("a chevron inverted embattled on the upper edge", "a saltire raguly
 couped", "a chevron ployé throughout").
 
-**Cotises, fimbriation and voiding** are drawn by the library and stay gaps (`ordinary-treatment:cotised|fimbriated|voided`) until the
-builder offers them. Cotises (`item.cotised`: one to three a side, a paint and a line, which follows the ordinary's `lines.a` unless given)
+**Cotises, fimbriation and voiding** are drawn by the library and offered in the same disclosure. Cotises (`item.cotised`: one to three a side, a paint and a line, which follows the ordinary's `lines.a` unless given)
 are thin bands beside each long edge, a quarter of the band wide and a cotise's width apart and from it, mitred where a chevron's, cross's,
 saltire's or pile's edges meet; a doubly or triply cotised band is drawn narrower so that it and its cotises take the field a band cotised
 once does (a cross's and a saltire's arms narrower still), and their line is laid on the band's periods. Fimbriation is the body grown 2
@@ -159,6 +158,19 @@ voided = with one of the field's tincture on it, or of the field's tincture fimb
 tincture with the ordinary on it). Blazon: "a fess gules cotised Or", "a bend cotised azure" (a shared tincture said once), "a bend wavy
 purpure cotised plain sable", "a pale endorsed", "a pale wavy sable fimbriated Or", "a chevron gules fimbriated between three lions argent",
 "a cross voided Or".
+
+The builder reaches them from **More shapes and edges…** on a central band or shape (`OutlineControls.tsx`, `outline.ts`, `shape-options.ts`):
+`ordinary-outline-none|fimbriated|cotised|doubly-cotised|triply-cotised` ("None · Edged · Cotised · Doubly · Triply"; one outline at a time, so
+fimbriated and cotised together stays the gap `ordinary-treatment:fimbriated-and-cotised`), then `ordinary-outline-tincture` (swatches
+`swatch-outline-<tincture>`, and `swatch-outline-counterchanged` for cotises on a divided or striped background; the other paints of a trim
+are the gaps `ordinary-treatment:trim-<kind>`, `tincture:<stain>`, `proper:trim` and `ordinary-treatment:fimbriated-counterchanged`), and for
+cotises their own edge row `ordinary-cotise-edge-<line>` (small strips drawn from the line's profile, not shields; `lineChoices` with the target
+`{ k: 'cotises', path }`). `ordinary-shape-voided` ("Hollow") is a toggle of a cross or saltire (`MOD_HOSTS`). `outlineChoices` blocks an outline
+only by a rule of the band itself (A3C: a raised or lowered band, or a hollow one, can't be edged; a cotised pile and the rest are hosts), `outlineTinctureChoices`
+by the trim's own contrast with the field (`trimTinctureIssues`; a band's own tincture is judged apart, `groupBodyTinctureIssues`), and a violation's one-click
+fix may change a trim's tincture. A new outline starts in the band's own tincture for cotises (an edging in another), the first that stands out where it
+lies; `setOrdinaryLine` carries cotises that had followed the band's line, and `setOrdinary` keeps an outline the new band may have. An outlined band
+lying across everything is the gap `ordinary-treatment:on-overall`.
 
 `lines.ts` holds the
 registry (the lines, their SENA App M2 groups and `lineDiffers`, the hosts each may go on, how many independent edges each host has,
@@ -815,6 +827,7 @@ npm run favicon
 - `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain or bowed, widened and narrowed by how far its lines swing otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
 - `test/builder.test.ts` "lines on the band, the top band and the border" and `test/builder-steps.test.ts` "More shapes and edges…": the band's line and edge-side transitions, the lines each host offers, `setOrdinary` keeping a line, and the closed disclosures.
 - `test/ordinary-lines.test.ts`: lines on ordinaries — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.
+- `test/builder.test.ts` "the outline of the band" and `test/builder-steps.test.ts`: the outline, its tincture and its cotise line, "Hollow", and the controls inside the closed disclosure.
 - `test/ordinary-outlines.test.ts`: cotises, fimbriation and voiding — the geometry on every shape (cotises parallel at a quarter of the band and a cotise apart, one to three a side, their own line following the band's; fimbriation round the body under it; voiding evenodd), render and hatching of the parts, the rules (A3C hosts and roles, contrast of the trims, the field's tincture under fimbriation, the core-practice step), the conflict readings (cotises as a group, RULES-C §B.7, voided and fimbriated read two ways), words, gloss and signature.
 - `test/ordinary-treatments.test.ts`: inverted, couped, throughout, enhanced and abased — the geometry on every shape (reflection, couped ends inside the shape and straight on lined bands, throughout touching the edge, a band moved not widened), the conflict readings (A5E5c, A5G7, A5G4, none for position), the rules (contradictions, hosts, a charged chevron inverted abased), the layouts around and on them, the words, the toggles and `setOrdinary`.
 - `test/lines-field.test.ts`: lines on the field — every partition line of every allowed pair is drawn with its profile and at least two periods inside each shape; the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating third elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.

@@ -175,7 +175,7 @@ function ordinaryTreatmentProblem(g: Group): string | null {
 }
 
 /** The ordinaries that may be cotised (RULES-C §D.5): the bands, the chevron and the pile (upright or inverted), the cross and the saltire. */
-const COTISED_HOSTS: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
+export const COTISED_HOSTS: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
 /** The ordinaries that may be voided: those with more than two ends (SENA A3C; the pall is drawn later). */
 const VOIDED_HOSTS: readonly OrdinaryType[] = ['cross', 'saltire'];
 

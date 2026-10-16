@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -55,12 +55,12 @@ function readOrdinaryLines(type: OrdinaryType, inverted: boolean, tokens: readon
   return { lines: side === 'a' ? { a: read.line, b: 'plain' } : { a: 'plain', b: read.line }, end: read.end + 4 };
 }
 
-/** The treatments written after an ordinary's line, in the order the widget writes them; voided is not read until it is drawn. */
-const MODS_AFTER_LINE = [['couped'], ['throughout', 'enhanced', 'abased']] as const satisfies ReadonlyArray<ReadonlyArray<OrdinaryMod>>;
+/** The treatments written after an ordinary's line, in the order the widget writes them. */
+const MODS_AFTER_LINE = [['couped'], ['throughout', 'enhanced', 'abased'], ['voided']] as const satisfies ReadonlyArray<ReadonlyArray<OrdinaryMod>>;
 
 /**
  * The form of a band or shape after its name (`at` is the index after it): "inverted", its lines (`readOrdinaryLines`), then "couped" and
- * one of "throughout", "enhanced", "abased" (RULES-C §G.1 as PLAN-C §4 orders it: "a chevron inverted embattled", "a saltire raguly couped").
+ * one of "throughout", "enhanced", "abased", then "voided" (RULES-C §G.1 as PLAN-C §4 orders it: "a chevron inverted embattled", "a saltire raguly couped").
  */
 export function readOrdinaryForm(type: OrdinaryType, tokens: readonly string[], at: number): { lines: Lines | null; mods: OrdinaryMod[]; end: number } {
   const mods: OrdinaryMod[] = [];
@@ -79,6 +79,20 @@ export function readOrdinaryForm(type: OrdinaryType, tokens: readonly string[], 
     }
   }
   return { lines, mods, end: i };
+}
+
+/** What follows a band's tincture: its fimbriation, or its cotises with the line they are drawn with when it is stated ("cotised plain", "doubly cotised wavy"). */
+export type OutlineRead = { k: 'fimbriated'; end: number } | { k: 'cotised'; count: 1 | 2 | 3; line: Line | null; end: number };
+
+/** The fimbriation or cotises written at `tokens[at]`, or null: "fimbriated", "cotised", "endorsed" (one pair), "doubly cotised", "triply cotised", and for cotises a line (`plain` is one). */
+export function readOutline(tokens: readonly string[], at: number): OutlineRead | null {
+  if (tokens[at] === 'fimbriated') return { k: 'fimbriated', end: at + 1 };
+  const count = tokens[at] === 'doubly' ? 2 : tokens[at] === 'triply' ? 3 : 1;
+  const word = at + (count === 1 ? 0 : 1);
+  if (tokens[word] !== 'cotised' && !(count === 1 && tokens[word] === 'endorsed')) return null;
+  if (tokens[word + 1] === 'plain') return { k: 'cotised', count, line: 'plain', end: word + 2 };
+  const line = readLine(tokens, word + 1);
+  return { k: 'cotised', count, line: line?.line ?? null, end: line ? line.end : word + 1 };
 }
 
 /** The variations as the words that spell them ("bendy sinister", "barry bendy"), the longest first. */

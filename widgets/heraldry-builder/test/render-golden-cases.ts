@@ -102,7 +102,27 @@ const TREATMENT_CASES: ReadonlyArray<[string, unknown]> = [
   ['treat-enhanced-chevron', treatedBand('chevron', ['enhanced'])],
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES].map(([name, input]) => ({ name, design: nd(input) }));
+const outlinedBand = (type: string, extra: object, paint = 'or') => arms('azure', group(ordinary(type, extra), paint));
+const cotised = (count: 1 | 2 | 3, line?: string) => ({ cotised: { count, paint: 'argent', ...(line ? { line } : {}) } });
+
+/** The outlines of the central ordinaries: cotised on each host, doubly and triply, with lines, counterchanged; edged on each host that takes it; hollow. */
+const OUTLINE_CASES: ReadonlyArray<[string, unknown]> = [
+  ...['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'].map((t): [string, unknown] => [`outline-cotised-${t}`, outlinedBand(t, cotised(1))]),
+  ['outline-doubly-cotised-fess', outlinedBand('fess', cotised(2))],
+  ['outline-triply-cotised-bend', outlinedBand('bend', cotised(3))],
+  ['outline-cotised-wavy-bend', outlinedBand('bend', { lines: { a: 'wavy', b: 'wavy' }, ...cotised(1, 'wavy') })],
+  ['outline-cotised-plain-on-wavy-fess', outlinedBand('fess', { lines: { a: 'wavy', b: 'wavy' }, ...cotised(1, 'plain') })],
+  ['outline-cotised-chevron-between', arms('azure', group(ordinary('chevron', cotised(1)), 'or'), group(charge('roundel'), 'argent', { count: 3 }))],
+  ['outline-cotised-counterchanged-bend', arms({ k: 'divided', division: 'per-pale', parts: ['argent', 'azure'] }, group(ordinary('bend', { cotised: { count: 1, paint: 'counterchanged' } }), 'sable'))],
+  ...['fess', 'pale', 'bend', 'chevron', 'cross', 'saltire'].map((t): [string, unknown] => [`outline-fimbriated-${t}`, outlinedBand(t, { fimbriated: 'argent' })]),
+  ['outline-fimbriated-embattled-fess', outlinedBand('fess', { lines: { a: 'embattled', b: 'embattled' }, fimbriated: 'argent' })],
+  ['outline-voided-cross', outlinedBand('cross', { mods: ['voided'] })],
+  ['outline-voided-saltire', outlinedBand('saltire', { mods: ['voided'] })],
+  ['outline-voided-wavy-cross', outlinedBand('cross', { mods: ['voided'], lines: { a: 'wavy', b: 'wavy' } })],
+  ['outline-voided-cotised-saltire', outlinedBand('saltire', { mods: ['voided'], ...cotised(1) })],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {

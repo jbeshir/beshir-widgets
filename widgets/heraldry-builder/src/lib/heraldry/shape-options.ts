@@ -1,27 +1,32 @@
 // The builder's edge and shape controls: which lines a divided or striped background, or a band or shape, may be drawn with, which of a
 // quartered field's two lines (or a band's two edges) carry it; which treatments a band or shape takes (upside down, shortened, touching the
-// edges, raised or lowered); and the designs they lead to. A choice is blocked only by what is wrong with the host itself (a line it can't
+// edges, hollow, raised or lowered); its outline (edged, or cotised) and the tincture of that, and the line of its cotises; and the designs they lead to. A choice is blocked only by what is wrong with the host itself (a line it can't
 // take, a dark pair across a wavy line, App H, a second step from core practice, two treatments that contradict); never by what lies on it.
 
 import { DRAWN_LINES, bareLines, edgeCount, lineAllowed, type EdgeHost, type Line } from './lines';
-import { PLAIN_LINES, canonical, groupAt, replaceGroup, type Design, type GroupPath, type Lines, type Ordinary, type Paint } from './design';
+import { GROUP_TINCTURES, PLAIN_LINES, canonical, groupAt, groupTinctureOf, paintOfGroupTincture, replaceGroup, samePath, type Design, type GroupPath, type GroupTincture, type Lines, type Ordinary, type Paint } from './design';
 import { choice, type Choice } from './options';
 import { corePracticeProblem, ordinaryLineProblem, structuralIssues } from './structure';
-import { DRAWN_ORDINARIES, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { trimTinctureIssues } from './tincture-rule';
+import { TINCTURES, type Tincture } from './tinctures';
+import { DRAWN_ORDINARIES, ORDINARY_KIND, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { OUTLINES, outlineOf, outlinePaintOf, withOutline, withOutlinePaint, type Outline } from './outline';
 import { modsClash } from './resolve';
 import { LINED_VARIATIONS, type Division, type Variation } from './divisions';
 
-/** What an edge control edits: the background, or the band, shape, top band or border at `path`. */
-export type EdgeTarget = { k: 'field' } | { k: 'group'; path: GroupPath };
+/** What an edge control edits: the background, the band, shape, top band or border at `path`, or the cotises of the band or shape at `path`. */
+export type EdgeTarget = { k: 'field' } | { k: 'group'; path: GroupPath } | { k: 'cotises'; path: GroupPath };
 
 /** Which of a two-edge host's lines carry the line: both, the first (the per pale line of a quartered field, a band's upper or dexter edge), or the second (the per fess line, the lower or sinister edge). */
 export type EdgeSide = 'both' | 'a' | 'b';
 
 /** The host the target's lines belong to, or null when it has none the builder draws a line on. */
 function hostAt(d: Design, target: EdgeTarget): EdgeHost | null {
-  if (target.k === 'group') {
+  if (target.k !== 'field') {
     const item = groupAt(d, target.path).item;
-    return item.k === 'ordinary' && DRAWN_ORDINARIES.includes(item.type) ? { k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') } : null;
+    if (item.k !== 'ordinary' || !DRAWN_ORDINARIES.includes(item.type)) return null;
+    if (target.k === 'cotises') return item.cotised ? { k: 'cotises', type: item.type } : null;
+    return { k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') };
   }
   if (d.kind !== 'arms') return null;
   if (d.field.k === 'divided') return { k: 'division', division: d.field.division };
@@ -30,27 +35,33 @@ function hostAt(d: Design, target: EdgeTarget): EdgeHost | null {
 
 /** The lines of the target (plain for any that has none). */
 function linesAt(d: Design, target: EdgeTarget): Lines {
-  if (target.k === 'group') {
+  if (target.k !== 'field') {
     const item = groupAt(d, target.path).item;
-    return item.k === 'ordinary' ? item.lines : PLAIN_LINES;
+    if (item.k !== 'ordinary') return PLAIN_LINES;
+    return target.k === 'cotises' ? { a: item.cotised?.line ?? 'plain', b: item.cotised?.line ?? 'plain' } : item.lines;
   }
   return d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation') ? d.field.lines : PLAIN_LINES;
 }
 
 /** The design with the target drawn with these lines; a target without any is unchanged. */
 function withLinesAt(d: Design, target: EdgeTarget, lines: Lines): Design {
-  if (target.k === 'group') {
+  if (target.k !== 'field') {
     const group = groupAt(d, target.path);
-    return group.item.k === 'ordinary' ? canonical(replaceGroup(d, target.path, { ...group, item: { ...group.item, lines: { ...lines } } })) : d;
+    const item = group.item;
+    if (item.k !== 'ordinary') return d;
+    if (target.k === 'cotises') return item.cotised ? canonical(replaceGroup(d, target.path, { ...group, item: { ...item, cotised: { ...item.cotised, line: lines.a } } })) : d;
+    // Cotises that followed the band's line follow it to the new one.
+    const follow = item.cotised && item.cotised.line === item.lines.a ? { cotised: { ...item.cotised, line: lines.a } } : {};
+    return canonical(replaceGroup(d, target.path, { ...group, item: { ...item, ...follow, lines: { ...lines } } }));
   }
   if (d.kind !== 'arms' || (d.field.k !== 'divided' && d.field.k !== 'variation')) return d;
   const field: Paint = { ...d.field, lines: { ...lines } };
   return canonical({ ...d, field });
 }
 
-/** What is wrong with the lines of the target, or null: the rule of its own they break, or (for a band) a second step from core practice. */
+/** What is wrong with the lines of the target, or null: the rule of its own they break, or (for a band or its cotises) a second step from core practice. */
 function lineProblem(d: Design, target: EdgeTarget): string | null {
-  if (target.k === 'group') return ordinaryLineProblem(groupAt(d, target.path)) ?? corePracticeProblem(d);
+  if (target.k !== 'field') return ordinaryLineProblem(groupAt(d, target.path)) ?? corePracticeProblem(d);
   return structuralIssues(d).find((i) => i.code === 'structure' && i.rule === 'line' && i.at.k === 'field')?.message ?? null;
 }
 
@@ -125,9 +136,9 @@ export function keptOrdinaryLines(lines: Lines, type: OrdinaryType, inverted: bo
 
 // ── Shape toggles and band positions ────────────────────────────────────────
 
-/** A treatment the builder turns on or off for a band or shape: upside down (inverted), shortened (couped), touching the edges (throughout). */
-export type ShapeToggle = 'inverted' | 'couped' | 'throughout';
-const SHAPE_TOGGLES: readonly ShapeToggle[] = ['inverted', 'couped', 'throughout'];
+/** A treatment the builder turns on or off for a band or shape: upside down (inverted), shortened (couped), touching the edges (throughout), hollow (voided). */
+export type ShapeToggle = 'inverted' | 'couped' | 'throughout' | 'voided';
+const SHAPE_TOGGLES: readonly ShapeToggle[] = ['inverted', 'couped', 'throughout', 'voided'];
 
 /** Where a band is set: raised (enhanced), in its usual place, or lowered (abased). */
 export type BandPosition = 'enhanced' | 'middle' | 'abased';
@@ -145,13 +156,19 @@ function withMods(d: Design, path: GroupPath, mods: readonly OrdinaryMod[]): Des
   return group.item.k === 'ordinary' ? canonical(replaceGroup(d, path, { ...group, item: { ...group.item, mods: [...mods] } })) : d;
 }
 
-/** Why the band or shape can't have these treatments, or null: two that contradict each other, or a line its new form can't take (never what lies on it). */
+/** What SENA A3C says against the outline or hollowness of the band or shape at `path`, or null. */
+function treatmentRuleProblem(d: Design, path: GroupPath): string | null {
+  return structuralIssues(d).find((i) => i.code === 'structure' && i.rule === 'ordinary-treatment' && i.at.k === 'group' && samePath(i.at.path, path))?.message ?? null;
+}
+
+/** Why the band or shape can't have these treatments, or null: two that contradict each other, a line its new form can't take, or the rules of voiding and fimbriation (never what lies on it). */
 function modsProblem(d: Design, path: GroupPath, mods: readonly OrdinaryMod[]): string | null {
   const item = drawnOrdinaryAt(d, path);
   if (!item) return null;
   const clash = modsClash(item.type, mods);
   if (clash) return clash;
-  return ordinaryLineProblem(groupAt(withMods(d, path, mods), path));
+  const next = withMods(d, path, mods);
+  return ordinaryLineProblem(groupAt(next, path)) ?? treatmentRuleProblem(next, path);
 }
 
 /** The toggles the band or shape at `path` takes (none for a top band, a border or a charge), blocked where turning one over breaks a rule. */
@@ -203,4 +220,84 @@ export function setBandPosition(d: Design, path: GroupPath, position: BandPositi
 export function keptMods(mods: readonly OrdinaryMod[], type: OrdinaryType): OrdinaryMod[] {
   const kept = mods.filter((m) => modDrawn(type, m));
   return modsClash(type, kept) ? [] : kept;
+}
+
+// ── Outline ─────────────────────────────────────────────────────────────────
+
+/** The band or shape at `path` when it is a central one: those alone have an outline. */
+function outlinedAt(d: Design, path: GroupPath): Ordinary | null {
+  const item = drawnOrdinaryAt(d, path);
+  return item && ORDINARY_KIND[item.type] === 'central' ? item : null;
+}
+
+/** The outline the band or shape at `path` has. */
+export function outlineAt(d: Design, path: GroupPath): Outline {
+  const item = drawnOrdinaryAt(d, path);
+  return item ? outlineOf(item) : 'none';
+}
+
+/** Why the band or shape at `path` can't be as it is, or null: the rules of its own line, of voiding, fimbriation and cotises (SENA A3C) and a second step from core practice — never the tinctures. */
+function outlineProblem(d: Design, path: GroupPath): string | null {
+  return ordinaryLineProblem(groupAt(d, path)) ?? treatmentRuleProblem(d, path) ?? corePracticeProblem(d);
+}
+
+/** The paints to try for an outline, best first: the one it had, the band's own tincture for cotises (which usually share it), then each tincture (the band's own last for an edging). */
+function outlinePaints(own: Tincture | null, outline: Outline, preferred: Paint | null): Paint[] {
+  const tinctures = own === null ? TINCTURES : outline === 'fimbriated' ? [...TINCTURES.filter((t) => t !== own), own] : [own, ...TINCTURES.filter((t) => t !== own)];
+  const edging = outline === 'fimbriated';
+  const kept = preferred && ((preferred.k === 'tincture' && !(edging && preferred.t === own)) || (preferred.k === 'counterchanged' && !edging)) ? [preferred] : [];
+  return [...kept, ...tinctures.map((t) => paintOfGroupTincture(t))];
+}
+
+/** The design with the band or shape at `path` given this outline, based on the cotises or edging `base` had; its paint is `preferred` or the first that stands out where it lies. */
+function outlined(d: Design, path: GroupPath, base: Ordinary, outline: Outline, preferred: Paint | null): Design {
+  const group = groupAt(d, path);
+  const make = (paint: Paint): Design => canonical(replaceGroup(d, path, { ...group, item: withOutline(base, outline, paint) }));
+  if (outline === 'none') return make(paintOfGroupTincture('or'));
+  const own = group.paint.k === 'tincture' ? group.paint.t : null;
+  const paints = outlinePaints(own, outline, preferred);
+  return make(paints.find((p) => trimTinctureIssues(make(p), path).length === 0) ?? paints[0]);
+}
+
+/** The outlines a central band or shape may have (none for a top band, a border or a picture), blocked where one breaks a rule of its own; never by what lies on it. */
+export function outlineChoices(d: Design, path: GroupPath): Choice<Outline>[] {
+  const item = outlinedAt(d, path);
+  if (!item) return [];
+  return OUTLINES.map((o) => choice(o, o === 'none' ? null : outlineProblem(outlined(d, path, item, o, outlinePaintOf(item)), path)));
+}
+
+/** The band or shape with this outline, its tincture kept where it works there, else the first that does (a cotised one in its own, to begin with). */
+export function setOutline(d: Design, path: GroupPath, outline: Outline): Design {
+  const item = outlinedAt(d, path);
+  return item && outlineOf(item) !== outline ? outlined(d, path, item, outline, outlinePaintOf(item)) : d;
+}
+
+/** The band or shape at `path` with the outline `from` had, when it may have it; else as it is. */
+export function keptOutline(d: Design, path: GroupPath, from: Ordinary): Design {
+  const item = outlinedAt(d, path);
+  const outline = outlineOf(from);
+  if (!item || outline === 'none') return d;
+  const next = outlined(d, path, { ...item, cotised: from.cotised, fimbriated: from.fimbriated }, outline, outlinePaintOf(from));
+  return outlineProblem(next, path) ? d : next;
+}
+
+/** The tincture of the outline, or null when there is none. */
+export function outlineTinctureOf(d: Design, path: GroupPath): GroupTincture | null {
+  const item = outlinedAt(d, path);
+  const paint = item && outlinePaintOf(item);
+  return paint ? groupTinctureOf(paint) : null;
+}
+
+/** The tinctures of the outline (the field's swapped colours too, for cotises on a divided or striped background), blocked where they don't stand out against what the outline lies on. */
+export function outlineTinctureChoices(d: Design, path: GroupPath): Choice<GroupTincture>[] {
+  const item = outlinedAt(d, path);
+  const outline = item ? outlineOf(item) : 'none';
+  if (!item || outline === 'none') return [];
+  const swapped = outline !== 'fimbriated' && ((d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation')) || outlineTinctureOf(d, path) === 'counterchanged');
+  return (swapped ? GROUP_TINCTURES : TINCTURES).map((t) => choice(t, trimTinctureIssues(withOutlinePaint(d, path, paintOfGroupTincture(t)), path)[0]?.message ?? null));
+}
+
+/** The band or shape's outline in this tincture. */
+export function setOutlineTincture(d: Design, path: GroupPath, t: GroupTincture): Design {
+  return withOutlinePaint(d, path, paintOfGroupTincture(t));
 }

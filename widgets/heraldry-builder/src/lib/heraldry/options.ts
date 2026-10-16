@@ -33,7 +33,8 @@ import { placesIn, type Placed } from './places';
 import { PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
-import { groupTinctureIssues, paintName, tinctureIssues } from './tincture-rule';
+import { groupBodyTinctureIssues, groupTinctureIssues, paintName, tinctureIssues, trimTinctureIssues } from './tincture-rule';
+import { outlinePaintOf, withOutlinePaint } from './outline';
 
 export type AllowedChoice<T> = { value: T; allowed: true };
 export type BlockedChoice<T> = { value: T; allowed: false; reason: string };
@@ -293,9 +294,9 @@ function groupNoun(g: Group): string {
   return `the ${g.count === 1 ? meta.name : meta.plural}`;
 }
 
-/** The reason `t` can't paint the group at `path`: the first rule-of-tincture issue it would have there. */
+/** The reason `t` can't paint the group at `path`: the first rule-of-tincture issue its own paint would have there (an ordinary's outline is judged by its own choices). */
 function tinctureReason(d: Design, path: GroupPath, t: GroupTincture): string | null {
-  return groupTinctureIssues(withTincture(d, path, t), path)[0]?.message ?? null;
+  return groupBodyTinctureIssues(withTincture(d, path, t), path)[0]?.message ?? null;
 }
 
 /** On a divided or varied field (or while counterchanged) "counterchanged" is offered too, after the tinctures. */
@@ -354,7 +355,7 @@ function divisionReason(d: Design, path: GroupPath): string | null {
 
 /** Why the group at `path` can't be painted as it is: how it is divided or varied, or the rule of tincture. */
 function partyReason(d: Design, path: GroupPath): string | null {
-  return divisionReason(d, path) ?? groupTinctureIssues(d, path)[0]?.message ?? null;
+  return divisionReason(d, path) ?? groupBodyTinctureIssues(d, path)[0]?.message ?? null;
 }
 
 const partyWith = (party: PartyPaint, part: 0 | 1, t: Tincture, other: Tincture): PartyPaint =>
@@ -363,7 +364,7 @@ const partyWith = (party: PartyPaint, part: 0 | 1, t: Tincture, other: Tincture)
 /** The party with part `part` set to `t`: the other part as it is when that works, else the first tincture that does; null when none does. */
 function partyWithPartner(d: Design, path: GroupPath, party: PartyPaint, part: 0 | 1, t: Tincture): PartyPaint | null {
   const partners = [...new Set([party.parts[part === 0 ? 1 : 0].t, ...TINCTURES])].filter((o) => o !== t);
-  const trial = withPartner(partners, (other) => partyWith(party, part, t, other), (p) => groupTinctureIssues(withPaint(d, path, p), path)[0]?.message ?? null);
+  const trial = withPartner(partners, (other) => partyWith(party, part, t, other), (p) => groupBodyTinctureIssues(withPaint(d, path, p), path)[0]?.message ?? null);
   return trial.reason ? null : trial.paint;
 }
 
@@ -383,7 +384,7 @@ export function partyTinctureChoices(d: Design, path: GroupPath, part: 0 | 1): C
   const other = party.parts[part === 0 ? 1 : 0].t;
   return TINCTURES.map((t) => {
     if (t === other) return choice(t, `The other part is already ${TINCTURE_NAME[t]} — a divided ${itemName(groupAt(d, path).item)} needs two different tinctures.`);
-    return choice(t, partyWithPartner(d, path, party, part, t) ? null : groupTinctureIssues(withPaint(d, path, partyWith(party, part, t, other)), path)[0]?.message ?? null);
+    return choice(t, partyWithPartner(d, path, party, part, t) ? null : groupBodyTinctureIssues(withPaint(d, path, partyWith(party, part, t, other)), path)[0]?.message ?? null);
   });
 }
 
@@ -757,7 +758,7 @@ export function fitGroup(d: Design, path: GroupPath): Design {
  */
 export type TinctureFix =
   | { layer: 'group'; path: GroupPath; tincture: GroupTincture; alternatives: GroupTincture[]; label: string; design: Design }
-  | { layer: 'several'; changes: Array<{ path: GroupPath; tincture: GroupTincture }>; label: string; design: Design };
+  | { layer: 'several'; changes: Array<{ path: GroupPath; tincture: GroupTincture; part: 'body' | 'outline' }>; label: string; design: Design };
 
 /** "Switch the lions to Gules" / "Counterchange the mullets" / "Switch the roses on the chief to Or". */
 function fixWords(d: Design, path: GroupPath, t: GroupTincture): string {
@@ -765,6 +766,21 @@ function fixWords(d: Design, path: GroupPath, t: GroupTincture): string {
   const onto = host?.item.k === 'ordinary' ? ` on the ${ORDINARY_NAME[host.item.type]}` : host?.item.k === 'charge' ? ` on the ${CHARGES[host.item.charge].name}` : '';
   const what = `${groupNoun(g)}${onto}`;
   return t === 'counterchanged' ? `counterchange ${what}` : `switch ${what} to ${TINCTURE_NAME[t]}`;
+}
+
+/** "Switch the cotises of the bend to Gules". */
+function outlineFixWords(d: Design, path: GroupPath, t: GroupTincture): string {
+  const g = groupAt(d, path);
+  const trim = g.item.k === 'ordinary' && g.item.fimbriated ? 'fimbriation' : 'cotises';
+  return t === 'counterchanged' ? `counterchange the ${trim} of ${groupNoun(g)}` : `switch the ${trim} of ${groupNoun(g)} to ${TINCTURE_NAME[t]}`;
+}
+
+/** The tinctures the outline of the ordinary at `path` could have instead, the swapped colours too for cotises, that satisfy `works`. */
+function outlineAlternatives(d: Design, path: GroupPath, works: (x: Design) => boolean): GroupTincture[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'ordinary' || outlinePaintOf(g.item) === null) return [];
+  const now = groupTinctureOf(outlinePaintOf(g.item)!);
+  return (g.item.fimbriated ? TINCTURES : GROUP_TINCTURES).filter((t) => t !== now && works(withOutlinePaint(d, path, paintOfGroupTincture(t))));
 }
 
 /**
@@ -790,20 +806,35 @@ export function suggestTinctureFix(d: Design): TinctureFix | null {
       return { layer: 'group', path, tincture, alternatives, label: capitalise(fixWords(d, path, tincture)), design: withTincture(d, path, tincture) };
     }
   }
+  for (const { path } of order) {
+    const alternatives = outlineAlternatives(d, path, clears);
+    if (alternatives.length) {
+      const tincture = alternatives[0];
+      return { layer: 'group', path, tincture, alternatives, label: capitalise(outlineFixWords(d, path, tincture)), design: withOutlinePaint(d, path, paintOfGroupTincture(tincture)) };
+    }
+  }
   const ordinary = walked.find(({ group }) => group.item.k === 'ordinary');
   if (!ordinary) return null;
   for (const ot of TINCTURES) {
     let design = withTincture(d, ordinary.path, ot);
-    const changes = [{ path: ordinary.path, tincture: ot as GroupTincture }];
+    const changes: Array<{ path: GroupPath; tincture: GroupTincture; part: 'body' | 'outline' }> = [{ path: ordinary.path, tincture: ot, part: 'body' }];
+    // The outline of the ordinary, when it clashes with the background, takes the first tincture that stands out.
+    if (trimTinctureIssues(design, ordinary.path).length > 0) {
+      const trimFix = outlineAlternatives(design, ordinary.path, (x) => trimTinctureIssues(x, ordinary.path).length === 0)[0];
+      if (trimFix) {
+        design = withOutlinePaint(design, ordinary.path, paintOfGroupTincture(trimFix));
+        changes.push({ path: ordinary.path, tincture: trimFix, part: 'outline' });
+      }
+    }
     for (const { path } of walked) {
       if (path === ordinary.path || groupTinctureIssues(design, path).length === 0) continue;
       const t = offeredTinctures(design, path).find((x) => groupTinctureIssues(withTincture(design, path, x), path).length === 0);
       if (!t) break;
       design = withTincture(design, path, t);
-      changes.push({ path, tincture: t });
+      changes.push({ path, tincture: t, part: 'body' });
     }
     if (clears(design)) {
-      return { layer: 'several', changes, design, label: capitalise(changes.map((c) => fixWords(d, c.path, c.tincture)).join(' and ')) };
+      return { layer: 'several', changes, design, label: capitalise(changes.map((c) => (c.part === 'body' ? fixWords(d, c.path, c.tincture) : outlineFixWords(d, c.path, c.tincture))).join(' and ')) };
     }
   }
   return null;

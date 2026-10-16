@@ -476,8 +476,13 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   });
 }
 
-/** The rule-of-tincture violations of the group at `path` alone (and a charge group Table 7 forces into one part, a gap). */
+/** The rule-of-tincture violations of the group at `path` alone, its trims' included (and a charge group Table 7 forces into one part, a gap). */
 export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
+  return [...groupBodyTinctureIssues(d, path), ...trimTinctureIssues(d, path)];
+}
+
+/** The violations of the group at `path` in its own paint: for an ordinary its body, not its fimbriation or cotises. */
+export function groupBodyTinctureIssues(d: Design, path: GroupPath): Issue[] {
   const group = groupAt(d, path), host = hostOf(d, path);
   const at = { k: 'group', path } as const;
   const unavailable = counterchangeUnavailable(d, path);
@@ -490,18 +495,24 @@ export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
   if (d.kind !== 'arms') return [];
   const f = grounds[0].length === 0 ? null : failureOf(group.paint, group.item, grounds[0], pair, partGrounds(d, path)?.[0], sharedTinctureException(d, group));
+  if (!group.item.fimbriated) return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
+  // Within its fimbriation an ordinary need not contrast with the field (GoT "Fimbriation"), but of the field's own tincture it reads as two thin bands.
+  const name = ORDINARY_NAME[group.item.type];
+  return f === 'same'
+    ? [{ code: 'tincture', reason: 'contrast', at, slots: [], message: `A fimbriated ${name} of the field's tincture reads as two thin bands — give the ${name} another tincture (RULES-C §D.4; Prec Odolf Liafwin, 05/2007).` }]
+    : [];
+}
+
+/** The violations of the fimbriation and the cotises of the ordinary at `path` against what they lie on. */
+export function trimTinctureIssues(d: Design, path: GroupPath): Issue[] {
+  const group = groupAt(d, path);
+  if (group.item.k !== 'ordinary' || d.kind !== 'arms') return [];
+  const pair = fieldPair(d);
   const { fimbriated, cotised } = group.item;
-  const issues: Issue[] = [];
-  if (!fimbriated) {
-    if (f) issues.push({ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] });
-  } else if (f === 'same') {
-    // Within its fimbriation an ordinary need not contrast with the field (GoT "Fimbriation"), but of the field's own tincture it reads as two thin bands.
-    const name = ORDINARY_NAME[group.item.type];
-    issues.push({ code: 'tincture', reason: 'contrast', at, slots: [], message: `A fimbriated ${name} of the field's tincture reads as two thin bands — give the ${name} another tincture (RULES-C §D.4; Prec Odolf Liafwin, 05/2007).` });
-  }
-  if (fimbriated) issues.push(...trimIssues(d, path, group, 'fimbriation', fimbriated, pair));
-  if (cotised) issues.push(...trimIssues(d, path, group, 'cotises', cotised.paint, pair));
-  return issues;
+  return [
+    ...(fimbriated ? trimIssues(d, path, group, 'fimbriation', fimbriated, pair) : []),
+    ...(cotised ? trimIssues(d, path, group, 'cotises', cotised.paint, pair) : []),
+  ];
 }
 
 /** The issue of an ordinary's fimbriation or cotises that don't contrast with the field they lie on (RULES-C §D.4, §D.5: SENA A3B4a). */

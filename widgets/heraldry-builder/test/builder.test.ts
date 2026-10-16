@@ -5,10 +5,10 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, setFieldEdgeSide, setFieldLine, setOrdinaryEdgeSide, setOrdinaryLine, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setPosture, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
@@ -715,5 +715,85 @@ describe('lines on the band, the top band and the border', () => {
     const withChief = setOrdinaryLine(framed, pathOfPlace(framed, 'chief')!, 'embattled');
     const both = setOrdinaryLine(withChief, pathOfPlace(withChief, 'bordure')!, 'engrailed');
     expect(blazon(both)).toMatch(/a chief embattled .* a bordure engrailed /);
+  });
+});
+
+describe('the outline of the band: edged, or cotised', () => {
+  const itemOf = (d: Design) => { const i = groupAt(d, ordinaryPath(d)!).item; if (i.k !== 'ordinary') throw new Error('not an ordinary'); return i; };
+  const bend = (): Design => setOrdinary(DEFAULT_DESIGN, 'bend');
+
+  it('setOrdinaryOutline keeps the band and gives it cotises, in its own tincture to begin with', () => {
+    const d = bend();
+    const path = ordinaryPath(d)!;
+    const cotised = setOrdinaryOutline(d, path, 'cotised');
+    expect(outlineAt(cotised, path)).toBe('cotised');
+    expect(itemOf(cotised)).toMatchObject({ type: 'bend', cotised: { count: 1, paint: { k: 'tincture', t: 'or' }, line: 'plain' }, fimbriated: null });
+    expect(blazon(cotised)).toBe('Azure, a bend cotised Or.');
+    expect(blazon(setOrdinaryOutline(cotised, path, 'doubly-cotised'))).toBe('Azure, a bend doubly cotised Or.');
+    // Edged is the other outline, in a tincture other than the band's own.
+    const edged = setOrdinaryOutline(cotised, path, 'fimbriated');
+    expect(itemOf(edged)).toMatchObject({ cotised: null, fimbriated: { k: 'tincture' } });
+    expect(itemOf(edged).fimbriated).not.toEqual({ k: 'tincture', t: 'or' });
+    expect(setOrdinaryOutline(edged, path, 'none')).toEqual(d);
+  });
+
+  it('offers the outline to a central band only, and blocks what the rules refuse', () => {
+    const d = bend();
+    expect(outlineChoices(d, ordinaryPath(d)!).map((c) => [c.value, c.allowed])).toEqual([['none', true], ['fimbriated', true], ['cotised', true], ['doubly-cotised', true], ['triply-cotised', true]]);
+    const chief = addLayer(d, 'chief');
+    expect(outlineChoices(chief, pathOfPlace(chief, 'chief')!)).toEqual([]);
+    // A band raised can't be edged (LoAR 06/2005, Mathild), though it can be cotised.
+    const raised = setOrdinaryBandPosition(d, ordinaryPath(d)!, 'enhanced');
+    const choices = new Map(outlineChoices(raised, ordinaryPath(raised)!).map((c) => [c.value, c]));
+    expect(choices.get('fimbriated')).toMatchObject({ allowed: false, reason: expect.stringContaining('Mathild') });
+    expect(choices.get('cotised')!.allowed).toBe(true);
+  });
+
+  it('the outline tincture picks the first that stands out, and blocks the ones that do not', () => {
+    const d = setOrdinaryOutline(bend(), ordinaryPath(bend())!, 'cotised');
+    const path = ordinaryPath(d)!;
+    // Cotises of the colour of the field lie on it: azure on azure.
+    const choices = new Map(outlineTinctureChoices(d, path).map((c) => [c.value, c.allowed]));
+    expect(choices.get('azure')).toBe(false);
+    expect(choices.get('argent')).toBe(true);
+    expect(choices.has('counterchanged')).toBe(false);
+    expect(outlineTinctureOf(setOutlineTincture(d, path, 'argent'), path)).toBe('argent');
+    // On a divided field the cotises may be counterchanged.
+    const divided = setOrdinaryOutline(setOrdinary(setDivision(DEFAULT_DESIGN, 'per-pale'), 'bend'), ordinaryPath(setOrdinary(setDivision(DEFAULT_DESIGN, 'per-pale'), 'bend'))!, 'cotised');
+    expect(outlineTinctureChoices(divided, ordinaryPath(divided)!).some((c) => c.value === 'counterchanged')).toBe(true);
+  });
+
+  it('the cotises have a line of their own, and follow the band\'s line when they had followed it', () => {
+    const d = setOrdinaryOutline(bend(), ordinaryPath(bend())!, 'cotised');
+    const path = ordinaryPath(d)!;
+    const wavy = setOrdinaryLine(d, path, 'wavy');
+    expect(itemOf(wavy)).toMatchObject({ lines: { a: 'wavy', b: 'wavy' }, cotised: { line: 'wavy' } });
+    expect(blazon(wavy)).toBe('Azure, a bend wavy cotised Or.');
+    // Plain cotises beside a wavy band.
+    const plainCotises = setCotiseLine(wavy, path, 'plain');
+    expect(blazon(plainCotises)).toBe('Azure, a bend wavy cotised plain Or.');
+    // A band's new line leaves the cotises that had their own.
+    expect(itemOf(setOrdinaryLine(plainCotises, path, 'embattled')).cotised).toMatchObject({ line: 'plain' });
+    expect(lineChoices(d, { k: 'cotises', path }).map((c) => c.value)).toContain('dancetty');
+    expect(lineChoices(bend(), { k: 'cotises', path: ordinaryPath(bend())! })).toEqual([]);
+  });
+
+  it('setOrdinary carries the outline to a band that may have it, and drops it otherwise', () => {
+    const d = setOrdinaryOutline(bend(), ordinaryPath(bend())!, 'doubly-cotised');
+    expect(outlineAt(setOrdinary(d, 'fess'), ordinaryPath(setOrdinary(d, 'fess'))!)).toBe('doubly-cotised');
+    const chief = setOrdinary(d, 'chief');
+    expect(chief.groups.every((g) => g.item.k !== 'ordinary' || (g.item.cotised === null && g.item.fimbriated === null))).toBe(true);
+  });
+
+  it('Hollow is offered to a cross and a saltire only, and not with an edging', () => {
+    const cross = setOrdinary(DEFAULT_DESIGN, 'cross');
+    const path = ordinaryPath(cross)!;
+    expect(toggleChoices(cross, path).map((c) => c.value)).toContain('voided');
+    expect(toggleChoices(bend(), ordinaryPath(bend())!).map((c) => c.value)).not.toContain('voided');
+    const hollow = setOrdinaryToggle(cross, path, 'voided', true);
+    expect(blazon(hollow)).toBe('Azure, a cross voided Or.');
+    const edging = outlineChoices(hollow, path).find((c) => c.value === 'fimbriated')!;
+    expect(edging).toMatchObject({ allowed: false, reason: expect.stringContaining('voided') });
+    expect(outlineChoices(hollow, path).find((c) => c.value === 'cotised')!.allowed).toBe(true);
   });
 });

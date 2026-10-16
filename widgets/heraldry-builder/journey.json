@@ -104,6 +104,21 @@
       "expect": {"selector":"[data-testid=ordinary-shape-inverted] [aria-pressed=true]"}
     },
     {
+      "label": "ordinary-cotised",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=ordinary-fess]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-outline-cotised]"},
+        {"click":"[data-testid=ordinary-outline-cotised]"},
+        {"waitFor":"[data-testid=swatch-outline-argent]"},
+        {"click":"[data-testid=swatch-outline-argent]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"cotised argent\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"cotised argent\")"}
+    },
+    {
       "label": "shape-round",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

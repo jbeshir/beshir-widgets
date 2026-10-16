@@ -261,11 +261,16 @@ describe('cotises, fimbriation and voiding: rules', () => {
     ]);
   });
 
-  it('all three stay gaps until the builder offers them', () => {
+  it('cotised, fimbriated and voided are drawn; what no builder control reaches stays a gap', () => {
     const tags = (d: Design) => unsupportedIssues(d).map((i) => `${i.gap.category}:${i.gap.detail}`);
-    expect(tags(lone('argent', ordinary('fess', { cotised: { count: 1, paint: 'sable' } }), 'gules'))).toEqual(['ordinary-treatment:cotised']);
-    expect(tags(lone('argent', ordinary('pale', { fimbriated: 'or' }), 'sable'))).toEqual(['ordinary-treatment:fimbriated']);
-    expect(tags(lone('gules', ordinary('cross', { mods: ['voided'] }), 'or'))).toEqual(['ordinary-treatment:voided']);
+    expect(tags(lone('argent', ordinary('fess', { cotised: { count: 1, paint: 'sable' } }), 'gules'))).toEqual([]);
+    expect(tags(lone('argent', ordinary('pale', { fimbriated: 'or' }), 'sable'))).toEqual([]);
+    expect(tags(lone('gules', ordinary('cross', { mods: ['voided'] }), 'or'))).toEqual([]);
+    // One outline at a time, in a plain tincture (the swapped colours for cotises), on the main band.
+    expect(tags(lone('argent', ordinary('fess', { fimbriated: 'or', cotised: { count: 1, paint: 'sable' } }), 'gules'))).toEqual(['ordinary-treatment:fimbriated-and-cotised']);
+    expect(tags(lone('argent', ordinary('fess', { cotised: { count: 1, paint: { k: 'fur', fur: 'ermine' } } }), 'gules'))).toEqual(['ordinary-treatment:trim-fur']);
+    expect(tags(lone(div('per-pale', 'argent', 'azure'), ordinary('fess', { fimbriated: 'counterchanged' }), 'gules'))).toEqual(['ordinary-treatment:fimbriated-counterchanged']);
+    expect(tags(lone('argent', ordinary('bend', { mods: ['voided'] }), 'gules'))).toEqual(['ordinary-treatment:voided']);
   });
 });
 

@@ -11,6 +11,7 @@ import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
 import { LINE_WORD, type Line } from './lines';
 import type { BandPosition, ShapeToggle } from './shape-options';
+import type { Outline } from './outline';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
 
 type FurLayout = FurSpec['layout'];
@@ -105,6 +106,16 @@ export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
   inverted: { plain: 'Upside down', term: 'inverted' },
   couped: { plain: 'Shortened', term: 'couped' },
   throughout: { plain: 'Touching the edges', term: 'throughout' },
+  voided: { plain: 'Hollow', term: 'voided' },
+};
+
+/** The outlines of a band or shape: what each looks like, and its heraldic word. */
+export const OUTLINE_LABEL: Record<Outline, PlainTerm> = {
+  none: { plain: 'None', term: 'plain' },
+  fimbriated: { plain: 'Edged', term: 'fimbriated' },
+  cotised: { plain: 'Cotised', term: 'cotised' },
+  'doubly-cotised': { plain: 'Doubly', term: 'doubly cotised' },
+  'triply-cotised': { plain: 'Triply', term: 'triply cotised' },
 };
 
 /** Where a band is set, and its heraldic word (the usual place has none). */
