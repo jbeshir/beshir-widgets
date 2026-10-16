@@ -5,7 +5,7 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
-import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Design, type Group, type Lines, type Paint, type Position, type SemyPaint } from './design';
+import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
 import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { type OrdinaryType } from './ordinaries';
@@ -158,10 +158,19 @@ function ordinaryGloss(d: Design, g: Group): string {
   const inverted = mods.includes('inverted');
   const shape = (inverted ? INVERTED_GLOSS[type] : ORDINARY_GLOSS[type]) ?? notSupported({ category: 'ordinary', detail: type });
   // "a gold shortened cross", "a blue raised horizontal band …", "a white upside-down V reaching the edges"
-  const before = [mods.includes('couped') ? 'shortened ' : '', mods.includes('enhanced') ? 'raised ' : '', mods.includes('abased') ? 'lowered ' : ''].join('');
+  const before = [mods.includes('couped') ? 'shortened ' : '', mods.includes('enhanced') ? 'raised ' : '', mods.includes('abased') ? 'lowered ' : '', mods.includes('voided') ? 'hollow ' : ''].join('');
   const body = `${before}${shape}${mods.includes('throughout') ? ' reaching the edges' : ''}${ordinaryLines(type, inverted, g.item.lines)}`;
   const colour = colourOf(g.paint);
-  return colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${paintClause(d, g.paint)}`;
+  const { fimbriated, cotised } = g.item;
+  const edged = fimbriated ? `, edged in ${colourOf(fimbriated) ?? paintClause(d, fimbriated)}` : '';
+  return `${colour ? `${article(colour)} ${colour} ${body}` : `${article(body)} ${body} ${paintClause(d, g.paint)}`}${edged}${cotised ? cotisesGloss(d, cotised) : ''}`;
+}
+
+/** An ordinary's cotises: ", with a thin gold stripe on each side", ", with two thin wavy blue stripes on each side". */
+function cotisesGloss(d: Design, { count, paint, line }: Cotises): string {
+  const colour = colourOf(paint);
+  const stripes = `${count === 1 ? 'a' : numberWord(count)} thin${line === 'plain' ? '' : ` ${LINE_GLOSS[line]}`}${colour ? ` ${colour}` : ''} stripe${count === 1 ? '' : 's'} on each side`;
+  return `, with ${stripes}${colour ? '' : ` ${paintClause(d, paint)}`}`;
 }
 
 /** Where charges set in chief, base or canton in a pattern stand, before the pattern's own words. */

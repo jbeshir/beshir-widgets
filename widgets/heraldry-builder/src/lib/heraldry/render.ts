@@ -5,9 +5,9 @@ import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
 import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
 import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type Slot } from './geometry';
-import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryGeometry, specOf } from './ordinary-geometry';
+import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
-import { chargeFills, fieldFill, ordinaryFill, type Fill, type SlotFill } from './paint-render';
+import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
 
 /** What an ordinary layer paints, in paint order: its fimbriation under its body, the body, then its cotises. */
@@ -22,11 +22,23 @@ export type Layer =
   /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale); each fill paints some of them. */
   | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; fills: SlotFill[] };
 
+const trimPart = (role: OrdinaryPartRole, trim: OrdinaryTrim, fill: Fill): OrdinaryPart => ({ role, d: trim.d, fillRule: trim.fillRule, fill });
+
 function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
   if (group.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const spec = specOf(group), frame = defaultOrdinaryFrame(shape);
   const geometry = d.kind === 'arms' && !host ? fieldOrdinaryGeometry(d.field, spec, group.paint, frame) : ordinaryGeometry(spec, frame);
-  return { k: 'ordinary', path, parts: [{ role: 'body', d: geometry.body, fillRule: geometry.fillRule, fill: ordinaryFill(d, group, host, spec, frame) }] };
+  const { fimbriation, cotises } = geometry;
+  const { fimbriated, cotised } = group.item;
+  const body: OrdinaryPart = { role: 'body', d: geometry.body, fillRule: geometry.fillRule, fill: ordinaryFill(d, group, host, spec, frame) };
+  return {
+    k: 'ordinary', path,
+    parts: [
+      ...(fimbriation && fimbriated ? [trimPart('fimbriation', fimbriation, trimFill(d, fimbriated, host, fimbriation, shape))] : []),
+      body,
+      ...(cotises && cotised ? [trimPart('cotises', cotises, trimFill(d, cotised.paint, host, cotises, shape))] : []),
+    ],
+  };
 }
 
 function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
@@ -60,6 +72,9 @@ export function designTinctures(d: Design): Tincture[] {
   const seen = new Set<Tincture>();
   const take = (p: Group['paint']) => paintTinctures(p).forEach((t) => seen.add(t));
   if (d.kind === 'arms') take(d.field);
-  walkGroups(d).forEach(({ group }) => take(group.paint));
+  walkGroups(d).forEach(({ group }) => {
+    take(group.paint);
+    if (group.item.k === 'ordinary') [group.item.fimbriated, group.item.cotised?.paint].forEach((p) => p && take(p));
+  });
   return [...seen];
 }

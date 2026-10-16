@@ -14,7 +14,7 @@ import { capacityIssue, onChargeWords } from './layout';
 import { posturesClash } from './difference';
 import { strewnIssues } from './strewn';
 import { groundShares, paintName } from './tincture-rule';
-import { ORDINARY_ARTICLE, ORDINARY_NAME, ORDINARY_KIND } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_NAME, ORDINARY_KIND, type OrdinaryType } from './ordinaries';
 import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
@@ -118,10 +118,10 @@ function lineHostProblem(host: EdgeHost, line: Line, what: string): string | nul
   if (line === 'plain' || lineAllowed(host, line)) return null;
   switch (line) {
     case 'dancetty': return `Dancetty is for two-sided bands; ${what} is drawn indented.`;
-    case 'enarched': return host.k === 'ordinary'
+    case 'enarched': return host.k === 'ordinary' || host.k === 'cotises'
       ? `An arched (enarched) line is drawn on a fess, a bend, a chevron or a chief only — not ${what}.`
       : `An arched (enarched) line divides a field per fess, per bend or per chevron only — not ${what}.`;
-    case 'ploye': return host.k === 'ordinary' ? `A bowed (ployé) line is drawn on a chevron only — not ${what}.` : `A bowed (ployé) line divides a field per chevron only — not ${what}.`;
+    case 'ploye': return host.k === 'ordinary' || host.k === 'cotises' ? `A bowed (ployé) line is drawn on a chevron only — not ${what}.` : `A bowed (ployé) line divides a field per chevron only — not ${what}.`;
     default: return `${capitalise(what)} can't be drawn ${LINE_WORD[line]}.`;
   }
 }
@@ -155,7 +155,8 @@ export function ordinaryLineProblem(g: Group): string | null {
   if (g.item.k !== 'ordinary') return null;
   const host = ordinaryHost(g.item), { a, b } = g.item.lines;
   const what = `${ORDINARY_ARTICLE[g.item.type]} ${ORDINARY_NAME[g.item.type]}`;
-  const hosted = lineHostProblem(host, a, what) ?? lineHostProblem(host, b, what);
+  const hosted = lineHostProblem(host, a, what) ?? lineHostProblem(host, b, what)
+    ?? (g.item.cotised && lineHostProblem({ k: 'cotises', type: g.item.type }, g.item.cotised.line, `the cotises of ${what}`));
   if (hosted) return hosted;
   if (a !== 'plain' && b !== 'plain' && a !== b) return `${capitalise(what)} carries one line: it can't be ${LINE_WORD[a]} on one edge and ${LINE_WORD[b]} on the other.`;
   const one = oneEdgeLine(g);
@@ -173,17 +174,59 @@ function ordinaryTreatmentProblem(g: Group): string | null {
   return 'A chevron inverted and abased can\'t carry charges: it is too far from how a chevron is drawn to be read with them (LoAR 11/2005, Voron).';
 }
 
-/** A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line (refused). */
-export type CoreStep = 'one-edge-line';
+/** The ordinaries that may be cotised (RULES-C §D.5): the bands, the chevron and the pile (upright or inverted), the cross and the saltire. */
+const COTISED_HOSTS: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
+/** The ordinaries that may be voided: those with more than two ends (SENA A3C; the pall is drawn later). */
+const VOIDED_HOSTS: readonly OrdinaryType[] = ['cross', 'saltire'];
 
-const CORE_STEP_WORDS: Record<CoreStep, string> = { 'one-edge-line': 'a line on one edge of a band only' };
+/**
+ * What SENA A3C allows of voiding, fimbriation and cotises (RULES-C §D.3–§D.5), or null: voided only a cross or saltire, fimbriated only a
+ * central ordinary, both only in the primary group (and voided not in a fieldless badge, which has no field to show through); fimbriated not
+ * moved up or down (LoAR 06/2005, Mathild), nor voided as well; cotised only a band, chevron, pile, cross or saltire, and never on a tertiary
+ * (Eoforwic 10/2007: two tertiary groups).
+ */
+function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
+  const { item } = g;
+  if (item.k !== 'ordinary') return null;
+  const name = ORDINARY_NAME[item.type], what = `${ORDINARY_ARTICLE[item.type]} ${name}`;
+  const voided = item.mods.includes('voided');
+  if (voided && !VOIDED_HOSTS.includes(item.type)) {
+    return `${capitalise(what)} can't be voided: only a cross or a saltire, with more than two ends, can (SENA A3C) — ${ORDINARY_KIND[item.type] === 'central' ? 'two narrower bands are blazoned instead' : 'choose a solid one'}.`;
+  }
+  if (item.fimbriated && ORDINARY_KIND[item.type] !== 'central') return `${capitalise(what)} can't be fimbriated: only a band or shape in the middle of the field can (SENA A3C).`;
+  if ((voided || item.fimbriated) && g.role !== 'primary') {
+    const where = g.role === 'tertiary' ? 'lying on another charge' : g.role === 'overall' ? 'lying overall' : 'set beside it';
+    return `Only the main band or shape can be ${voided ? 'voided' : 'fimbriated'}, not one ${where} (SENA A3C).`;
+  }
+  if (voided && d.kind === 'badge') return 'A fieldless badge has no field to show through a voided charge (SENA A3C).';
+  if (item.fimbriated && (item.mods.includes('enhanced') || item.mods.includes('abased'))) {
+    return `${capitalise(what)} ${item.mods.includes('enhanced') ? 'enhanced' : 'abased'} can't be fimbriated (LoAR 06/2005, Mathild).`;
+  }
+  if (item.fimbriated && voided) return `${capitalise(what)} can't be both voided and fimbriated: voided, it is read as fimbriated already (SENA A5C1).`;
+  if (item.cotised && !COTISED_HOSTS.includes(item.type)) return `${capitalise(what)} can't be cotised: only a band, a chevron, a pile, a cross or a saltire can (RULES-C §D.5).`;
+  if (item.cotised && g.role === 'tertiary') return `A cotised ${name} can't lie on another charge: with its cotises it would be two groups on it (LoAR 10/2007, Eoforwic).`;
+  return null;
+}
+
+/**
+ * A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line
+ * (refused); a charge overall over a fimbriated ordinary.
+ */
+export type CoreStep = 'one-edge-line' | 'overall-over-fimbriated';
+
+const CORE_STEP_WORDS: Record<CoreStep, string> = {
+  'one-edge-line': 'a line on one edge of a band only',
+  'overall-over-fimbriated': 'a charge overall over a fimbriated ordinary',
+};
 
 /** The steps from core practice the design takes, one per element that takes one (SENA App G). */
 export function coreSteps(d: Design): CoreStep[] {
-  return walkGroups(d).flatMap(({ group }): CoreStep[] => {
+  const lines = walkGroups(d).flatMap(({ group }): CoreStep[] => {
     const one = oneEdgeLine(group);
     return one !== null && one !== 'embattled' && LINE_GROUP[one] !== 'jagged' ? ['one-edge-line'] : [];
   });
+  const fimbriated = d.groups.some((g) => g.role === 'primary' && g.item.k === 'ordinary' && g.item.fimbriated !== null);
+  return fimbriated && d.groups.some((g) => g.role === 'overall') ? [...lines, 'overall-over-fimbriated'] : lines;
 }
 
 /** Why the design is more than one step from core practice (SENA A2B, App G), or null. */
@@ -456,10 +499,12 @@ export function structuralIssues(d: Design): Issue[] {
     if (problem) add({ code: 'structure', rule: 'line', at: { k: 'group', path }, message: problem, slots: [] });
   }
 
-  // 6b'. What an ordinary's treatments rule out (RULES-C §D).
+  // 6b'. What an ordinary's treatments rule out (RULES-C §D), and where voiding, fimbriation and cotises may be (SENA A3C).
   for (const { path, group } of walked) {
     const problem = ordinaryTreatmentProblem(group);
     if (problem) add({ code: 'structure', rule: 'relation', at: { k: 'group', path }, message: problem, slots: [] });
+    const treated = ordinaryTreatmentRuleProblem(d, group);
+    if (treated) add({ code: 'structure', rule: 'ordinary-treatment', at: { k: 'group', path }, message: treated, slots: [] });
   }
 
   // 6c. One step from core practice is registrable, two are not (SENA A2B, App G).

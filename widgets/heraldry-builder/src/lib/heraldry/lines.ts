@@ -64,11 +64,15 @@ export function lineDiffers(x: Line, y: Line, twoSidedBand: boolean): boolean {
 
 // ── Hosts and edges ─────────────────────────────────────────────────────────
 
-/** What carries a line. `inverted` matters for a chevron: its bare "embattled" is worded with the edge (RULES-C §0, L2). */
+/**
+ * What carries a line. `inverted` matters for a chevron: its bare "embattled" is worded with the edge (RULES-C §0, L2). An ordinary's
+ * cotises are a host of their own: one line on every cotise edge.
+ */
 export type EdgeHost =
   | { k: 'division'; division: Division }
   | { k: 'variation'; variation: Variation }
-  | { k: 'ordinary'; type: OrdinaryType; inverted: boolean };
+  | { k: 'ordinary'; type: OrdinaryType; inverted: boolean }
+  | { k: 'cotises'; type: OrdinaryType };
 
 /**
  * How many independent lines each ordinary has (RULES-C §0): 2 = upper/lower (dexter/sinister, outer/inner) edges of a band;
@@ -94,6 +98,7 @@ export function edgeCount(host: EdgeHost): 0 | 1 | 2 {
     case 'division': return host.division === 'quarterly' ? 2 : 1;
     case 'variation': return isCountedVariation(host.variation) ? 1 : 0;
     case 'ordinary': return ORDINARY_EDGES[host.type];
+    case 'cotises': return 1;
     default: return host satisfies never;
   }
 }
@@ -104,18 +109,20 @@ const PLOYE_DIVISIONS: readonly Division[] = ['per-chevron', 'per-chevron-invert
 
 /**
  * Whether the host may carry the line at all (RULES-C §A.1, §A.5; PLAN-C §4): dancetty only on two-sided bands and counted
- * variations; enarched only on per fess, per bend (sinister), per chevron, fess, bend (sinister), chevron and chief; ployé only on
- * per chevron (inverted) and chevron (inverted); a host with no edge takes none. Not allowed is a structure issue, never a gap.
+ * variations (and cotises, thin bands themselves: "a bend cotised dancetty", PicDic Clopton); enarched only on per fess, per bend
+ * (sinister), per chevron, fess, bend (sinister), chevron and chief; ployé only on per chevron (inverted) and chevron (inverted) — on
+ * cotises as on their ordinary; a host with no edge takes none. Not allowed is a structure issue, never a gap.
  */
 export function lineAllowed(host: EdgeHost, line: Line): boolean {
   if (line === 'plain') return true;
   if (edgeCount(host) === 0) return false;
   switch (line) {
-    case 'dancetty': return host.k === 'variation' || (host.k === 'ordinary' && isTwoSidedBand(host.type));
+    case 'dancetty': return host.k === 'variation' || host.k === 'cotises' || (host.k === 'ordinary' && isTwoSidedBand(host.type));
     case 'enarched':
       return host.k === 'division' ? ENARCHED_DIVISIONS.includes(host.division)
-        : host.k === 'ordinary' && ENARCHED_ORDINARIES.includes(host.type) && !(host.type === 'chevron' && host.inverted);
-    case 'ploye': return host.k === 'division' ? PLOYE_DIVISIONS.includes(host.division) : host.k === 'ordinary' && host.type === 'chevron';
+        : host.k === 'cotises' ? ENARCHED_ORDINARIES.includes(host.type)
+          : host.k === 'ordinary' && ENARCHED_ORDINARIES.includes(host.type) && !(host.type === 'chevron' && host.inverted);
+    case 'ploye': return host.k === 'division' ? PLOYE_DIVISIONS.includes(host.division) : (host.k === 'ordinary' || host.k === 'cotises') && host.type === 'chevron';
     case 'embattled': case 'wavy': case 'engrailed': case 'invected': case 'indented': case 'nebuly': case 'raguly': case 'rayonny':
     case 'dovetailed': case 'urdy': case 'potenty': case 'bretessed': case 'grady':
       return true;
@@ -131,7 +138,7 @@ export function edgeNames(host: EdgeHost): { a: EdgeName; b: EdgeName } | null {
   if (edgeCount(host) !== 2) return null;
   switch (host.k) {
     case 'division': return { a: 'pale-line', b: 'fess-line' };
-    case 'variation': return null;
+    case 'variation': case 'cotises': return null;
     case 'ordinary':
       return host.type === 'pale' || host.type === 'pallet' ? { a: 'dexter', b: 'sinister' }
         : host.type === 'orle' || host.type === 'tressure' ? { a: 'outer', b: 'inner' } : { a: 'upper', b: 'lower' };

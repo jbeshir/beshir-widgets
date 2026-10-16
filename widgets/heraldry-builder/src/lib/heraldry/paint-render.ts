@@ -5,7 +5,7 @@ import { TINCTURE_CODE, type Tincture } from './tinctures';
 import { CHARGES } from './charges';
 import { asParty, asSemy, asTreated, asVariation, notSupported, type Design, type Group, type Paint, type PartyPaint, type VariationPaint } from './design';
 import { counterchangedSlotParts, drawnBox, fieldRegions, partitionRegions, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
-import { counterchangedOrdinaryParts, ordinaryGeometry, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
+import { counterchangedOrdinaryParts, counterchangedTrimParts, ordinaryGeometry, type OrdinaryFrame, type OrdinarySpec, type OrdinaryTrim } from './ordinary-geometry';
 import { furPattern, semyPattern, treatmentPattern, type SolidColour, type PatternSpec } from './patterns';
 import type { FieldShape } from './shape';
 import { variationRegions, type Box } from './variation-geometry';
@@ -117,6 +117,21 @@ export function ordinaryFill(d: Design, group: Group, host: Group | null, spec: 
     case 'stain': return notSupported({ category: 'tincture', detail: group.paint.stain });
     case 'proper': return notSupported({ category: 'proper', detail: spec.type });
     default: return group.paint satisfies never;
+  }
+}
+
+/**
+ * The fill of an ordinary's trim (its fimbriation, its cotises) in its own paint: a counterchanged one takes the field's tinctures in reverse
+ * over the regions it lies on, and paints nothing on a plain field or a host.
+ */
+export function trimFill(d: Design, paint: Paint, host: Group | null, trim: OrdinaryTrim, shape: FieldShape): Fill {
+  switch (paint.k) {
+    case 'tincture': case 'fur': case 'treated': case 'semy': return paintFill(paint, ORDINARY_FUR_SCALE);
+    case 'counterchanged': return d.kind === 'arms' && !host ? counterchangedFill(counterchangedTrimParts(d.field, trim, shape), ORDINARY_FUR_SCALE) : NO_FILL;
+    case 'divided': case 'variation': return notSupported({ category: 'ordinary-treatment', detail: `trim-${paint.k}` });
+    case 'stain': return notSupported({ category: 'tincture', detail: paint.stain });
+    case 'proper': return notSupported({ category: 'proper', detail: 'trim' });
+    default: return paint satisfies never;
   }
 }
 

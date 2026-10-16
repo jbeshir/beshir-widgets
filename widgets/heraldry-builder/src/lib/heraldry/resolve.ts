@@ -193,7 +193,8 @@ function parseOrdinary(o: Record<string, unknown>, at: IssueAt, E: Errors, depth
     const paint = c && parsePaint(c.paint, at, E, false, depth + 1);
     if (!c || (c.count !== 1 && c.count !== 2 && c.count !== 3)) E.add(at, 'Cotises come in ones, twos or threes.');
     else if (c.line !== undefined && !isLine(c.line)) E.add(at, 'Unknown line of partition.');
-    else cotised = paint && !badCotises ? { count: c.count, paint, line: c.line ?? 'plain' } : undefined;
+    // Cotises follow the ordinary's line unless they are given one of their own (RULES-C §B.4, §D.5: "a bend wavy cotised" has wavy cotises).
+    else cotised = paint && lines && !badCotises ? { count: c.count, paint, line: c.line ?? lines.a } : undefined;
     if (cotised === null) cotised = undefined;
   }
   let fimbriated: Paint | null | undefined = null;

@@ -30,7 +30,11 @@ function paint(p: Paint): string {
 }
 
 function item(i: Item): string {
-  return i.k === 'ordinary' ? `o.${i.type}${linesCode(i.lines)}${i.mods.map((m) => `+${m}`).join('')}` : `c.${i.charge}${i.posture ? `.${i.posture}` : ''}${i.mods.map((m) => `+${m.id}`).join('')}`;
+  if (i.k === 'charge') return `c.${i.charge}${i.posture ? `.${i.posture}` : ''}${i.mods.map((m) => `+${m.id}`).join('')}`;
+  // cotises: their number of pairs, their line (one on every cotise edge) and their paint; then the fimbriation's paint
+  const cotised = i.cotised ? `#c${i.cotised.count}${linesCode({ a: i.cotised.line, b: i.cotised.line })}(${paint(i.cotised.paint)})` : '';
+  const fimbriated = i.fimbriated ? `#f(${paint(i.fimbriated)})` : '';
+  return `o.${i.type}${linesCode(i.lines)}${i.mods.map((m) => `+${m}`).join('')}${cotised}${fimbriated}`;
 }
 
 function group(g: Group): string {

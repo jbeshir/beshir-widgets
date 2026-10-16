@@ -10,10 +10,10 @@ import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
-import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
+import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
 import { lineWords } from './lines';
-import { ORDINARY_ARTICLE, ORDINARY_NAME, type OrdinaryMod } from './ordinaries';
+import { ORDINARY_ARTICLE, ORDINARY_NAME, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
 
@@ -162,6 +162,19 @@ function ordinaryPhrase(g: Group): string {
   return `${g.charged.length > 0 ? 'on ' : ''}${ORDINARY_ARTICLE[type]} ${words.join(' ')}`;
 }
 
+/** "cotised", "doubly cotised", "triply cotised" — a pale's single pair "endorsed" (RULES-C §G.1). */
+const COTISED_WORD: Record<1 | 2 | 3, string> = { 1: 'cotised', 2: 'doubly cotised', 3: 'triply cotised' };
+
+/**
+ * An ordinary's cotises as written after its tincture: "cotised", "a pale endorsed", "doubly cotised wavy". Their line is written only when it
+ * isn't the ordinary's own (cotises follow it: RULES-C §B.4): "a bend wavy cotised plain", "a bend cotised wavy".
+ */
+function cotisedWords(type: OrdinaryType, lines: Lines, cotised: Cotises): string {
+  const name = type === 'pale' && cotised.count === 1 ? 'endorsed' : COTISED_WORD[cotised.count];
+  if (cotised.line === lines.a) return name;
+  return `${name} ${cotised.line === 'plain' ? 'plain' : lineWords({ k: 'cotises', type }, { a: cotised.line, b: cotised.line })}`;
+}
+
 /** The charges whose charges are worded "charged with": animals and birds, which a charge is not "on" (D F.2). */
 const CHARGED_WITH: readonly ChargeCategory[] = ['beast', 'monster', 'bird'];
 
@@ -175,8 +188,12 @@ function carrying(host: Group): { lead: string; on: boolean } {
   return CHARGED_WITH.includes(CHARGES[host.item.charge].category) ? { lead: ' charged with ', on: false } : { lead: ' ', on: true };
 }
 
-/** `co-primary` is the second of two groups that are together the primary ("a unicorn and a rose"), `secondary` is set between (or around) the primary, `position` stands beside it ("and in chief …"), `overall` lies across everything ("and overall a bend"). */
-type TokenKind = 'primary' | 'co-primary' | 'secondary' | 'position' | 'overall' | 'peripheral' | 'tertiary';
+/**
+ * `co-primary` is the second of two groups that are together the primary ("a unicorn and a rose"), `secondary` is set between (or around)
+ * the primary, `position` stands beside it ("and in chief …"), `overall` lies across everything ("and overall a bend"); a `trim` is an
+ * ordinary's fimbriation or cotises, written after its tincture ("a pale sable fimbriated Or", "a bend cotised azure").
+ */
+type TokenKind = 'primary' | 'co-primary' | 'secondary' | 'position' | 'overall' | 'peripheral' | 'tertiary' | 'trim';
 
 /** One element of the sentence: its phrase and paint (and what is strewn on it), whether its paint may be shared with the element before, and (a tertiary) what joins it to its host. */
 interface Token { kind: TokenKind; text: string; paint: string; strewn: string; linked: boolean; lead: string }
@@ -194,6 +211,12 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     const semy = asSemy(g.paint);
     const paint = semy ? tinctureWord(semy.ground.t) : g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : groupPaintWord(g);
     out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, strewn: semy ? ` ${semyPhrase(semy.charge.charge, semy.ink.t)}` : '', linked, lead });
+    // The fimbriation follows the ordinary's own tincture, always written; cotises may share the ordinary's ("a bend cotised azure"). What
+    // follows may share the trim's ("a chevron gules fimbriated between three lions argent").
+    if (g.item.k !== 'ordinary') return;
+    const { type, lines, fimbriated, cotised } = g.item;
+    if (fimbriated) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriated), strewn: '', linked: false, lead: ' ' });
+    if (cotised) out.push({ kind: 'trim', text: cotisedWords(type, lines, cotised), paint: paintWord(cotised.paint), strewn: '', linked: true, lead: ' ' });
   };
   const tertiaries = (path: GroupPath, g: Group) => g.charged.forEach((t, j) => add('tertiary', [...path, j], t, carrying(g).lead));
   const at = (role: Group['role']) => d.groups.flatMap((g, i) => (g.role === role ? [{ g, path: [i] }] : []));
@@ -212,7 +235,7 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     add('peripheral', path, g);
     tertiaries(path, g);
   }
-  if (out.length !== d.groups.length + d.groups.reduce((n, g) => n + g.charged.length, 0)) {
+  if (out.filter((t) => t.kind !== 'trim').length !== d.groups.length + d.groups.reduce((n, g) => n + g.charged.length, 0)) {
     return notSupported({ category: 'multiple-groups', detail: 'tertiary' });
   }
   return out;
@@ -225,7 +248,7 @@ export function blazon(d: Design, given: Partial<BlazonOptions> = {}): string {
   const all = tokens(d, options);
   let pending = false;
   all.forEach((t, i) => {
-    const lead = i === 0 ? (d.kind === 'arms' ? ', ' : '') : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
+    const lead = i === 0 ? (d.kind === 'arms' ? ', ' : '') : t.kind === 'secondary' ? ' between ' : t.kind === 'tertiary' || t.kind === 'trim' ? t.lead : pending || t.kind === 'co-primary' || t.kind === 'position' || t.kind === 'overall' ? ' and ' : ', ';
     const next = all[i + 1];
     // What is strewn on a band is stated after its tincture, which then can't be left for the next to say. A band strewn after an element
     // shares its tincture as the College writes it ("a unicorn, a bordure argent mullety sable", regid 37777).

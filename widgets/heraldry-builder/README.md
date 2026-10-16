@@ -99,8 +99,9 @@ fess point and clipped to its outline. Field regions and ordinaries are closed c
 parts come from `partitionContours`, and `partIndexAt` says which part a point lies in. An ordinary's drawing comes from
 `ordinaryGeometry(spec, frame)` (`ordinary-geometry.ts`): the spec is everything about the group that changes its drawing (type,
 lines, treatments, count, cotises, fimbriation), the frame is where in the shape it is drawn; it gives the body, fill rule, centre,
-box, the points the ordinary lies on and two straight envelopes — `outer` holds the whole body, lines and all, and `inner` lies
-wholly inside it. Render layers carry an ordinary's parts (body today; fimbriation and cotises later). Layout contexts name the
+box, the points the ordinary lies on, its trims (fimbriation and cotises, each a path with the points it lies on) and two straight
+envelopes — `outer` holds the whole body, lines, fimbriation and cotises and all, and `inner` lies wholly inside the body. Render
+layers carry an ordinary's parts in paint order: fimbriation, body, cotises. Layout contexts name the
 ordinary they sit around or on by its spec: a plain ordinary keeps its hand-fitted rows, any other is laid out by the generic
 engine, keeping charges between it clear of `outer` and charges on it inside `inner` (never fitted to the toothed body). Charge
 slots for the banner, round and lozenge (`shape-slots.ts`) are the heater's tables spread, shifted and sized to fit each shape.
@@ -141,6 +142,23 @@ between or on a treated ordinary start from the plain one's places moved with it
 the V, two below), then the generic engine sizes them against its envelope. `setOrdinary` keeps the treatments a new band takes. The
 blazon writes "inverted" before the line and the others after it ("a chevron inverted embattled on the upper edge", "a saltire raguly
 couped", "a chevron ployé throughout").
+
+**Cotises, fimbriation and voiding** are drawn by the library and stay gaps (`ordinary-treatment:cotised|fimbriated|voided`) until the
+builder offers them. Cotises (`item.cotised`: one to three a side, a paint and a line, which follows the ordinary's `lines.a` unless given)
+are thin bands beside each long edge, a quarter of the band wide and a cotise's width apart and from it, mitred where a chevron's, cross's,
+saltire's or pile's edges meet; a doubly or triply cotised band is drawn narrower so that it and its cotises take the field a band cotised
+once does (a cross's and a saltire's arms narrower still), and their line is laid on the band's periods. Fimbriation is the body grown 2
+all round, following its line, drawn under it; voiding cuts the middle out of a cross or saltire, its straight edges 4 inside the
+arms' (past what their line cuts in), filled evenodd. The rules (SENA A3C, structure rule `ordinary-treatment`): voided only a cross or
+saltire, fimbriated only a central ordinary, both only in the primary group, not fimbriated when enhanced or abased or voided, cotised only a
+fess, pale, bend (sinister), chevron, pile, cross or saltire and never on a tertiary; cotises and fimbriation lie on the field and contrast
+with it, the body within its fimbriation need not, but may not be the field's tincture; a charge overall over a fimbriated ordinary is a
+step from core practice. For conflict the cotises are a secondary group of the ordinary's type (`liftCotises`: presence, number of pairs,
+tincture and line each count), and a voided or fimbriated ordinary is read two ways and the least different reading counts (SENA A5C1:
+voided = with one of the field's tincture on it, or of the field's tincture fimbriated; fimbriated = alone, or of the fimbriation's
+tincture with the ordinary on it). Blazon: "a fess gules cotised Or", "a bend cotised azure" (a shared tincture said once), "a bend wavy
+purpure cotised plain sable", "a pale endorsed", "a pale wavy sable fimbriated Or", "a chevron gules fimbriated between three lions argent",
+"a cross voided Or".
 
 `lines.ts` holds the
 registry (the lines, their SENA App M2 groups and `lineDiffers`, the hosts each may go on, how many independent edges each host has,
@@ -797,6 +815,7 @@ npm run favicon
 - `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain or bowed, widened and narrowed by how far its lines swing otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
 - `test/builder.test.ts` "lines on the band, the top band and the border" and `test/builder-steps.test.ts` "More shapes and edges…": the band's line and edge-side transitions, the lines each host offers, `setOrdinary` keeping a line, and the closed disclosures.
 - `test/ordinary-lines.test.ts`: lines on ordinaries — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.
+- `test/ordinary-outlines.test.ts`: cotises, fimbriation and voiding — the geometry on every shape (cotises parallel at a quarter of the band and a cotise apart, one to three a side, their own line following the band's; fimbriation round the body under it; voiding evenodd), render and hatching of the parts, the rules (A3C hosts and roles, contrast of the trims, the field's tincture under fimbriation, the core-practice step), the conflict readings (cotises as a group, RULES-C §B.7, voided and fimbriated read two ways), words, gloss and signature.
 - `test/ordinary-treatments.test.ts`: inverted, couped, throughout, enhanced and abased — the geometry on every shape (reflection, couped ends inside the shape and straight on lined bands, throughout touching the edge, a band moved not widened), the conflict readings (A5E5c, A5G7, A5G4, none for position), the rules (contradictions, hosts, a charged chevron inverted abased), the layouts around and on them, the words, the toggles and `setOrdinary`.
 - `test/lines-field.test.ts`: lines on the field — every partition line of every allowed pair is drawn with its profile and at least two periods inside each shape; the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating third elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
 - `test/signature.test.ts`: the signature is unchanged for designs phase B could draw (pinned, `test/signature-cases.ts`), one-to-one over lined and generated designs, and every id ends in a letter.

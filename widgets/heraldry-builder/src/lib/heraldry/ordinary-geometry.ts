@@ -6,14 +6,15 @@
 // Lines of partition are drawn on the edges of the ten ordinaries (a band's two edges sharing their periods, a band
 // with a complex line drawn wider), and the treatments that change their outline: inverted (reflected top to bottom),
 // couped (cut short inside the shape, ends straight), throughout (a chevron's apex or a pile's point on the edge),
-// enhanced and abased (moved toward chief or base). Voiding, cotises and fimbriation are part of the spec but not
-// drawn yet: support.ts gaps them, and the body is the plain one.
+// enhanced and abased (moved toward chief or base), voided (its middle cut out, straight-edged inside its lines). Cotises (thin bands
+// beside each long edge, with a line of their own) and fimbriation (a narrow band round the body, under it) are trims drawn as parts of
+// their own, each with the points it lies on.
 
 import { notSupported, type Group, type Lines, type Paint } from './design';
-import { CANONICAL_SHAPE, CHEVRON_APEX_RISE, OVER, counterchangedParts, inFirstPart, pathPolygon, pathRings, shapeFrame, type CounterchangePart, type Point, type Pt } from './geometry';
+import { CANONICAL_SHAPE, CHEVRON_APEX_RISE, OVER, counterchangedParts, inFirstPart, pathPolygon, pathRings, pts, shapeFrame, type CounterchangePart, type Point, type Pt } from './geometry';
 import { contourPath, type Contour, type ContourEdge } from './contour';
 import type { Division } from './divisions';
-import { LINE_PROFILE, PROFILE_REACH, fieldSide, profileSwing, fitPeriod, isStraightLine, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type Line } from './lines';
+import { LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, profileSwing, fitPeriod, isStraightLine, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type Line } from './lines';
 import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 import type { FieldShape } from './shape';
 import type { Box } from './variation-geometry';
@@ -61,15 +62,22 @@ export function defaultOrdinaryFrame(shape: FieldShape): OrdinaryFrame {
   return { shape, centre: shapeFrame(shape).fessPoint };
 }
 
+/** A trim drawn with an ordinary's body (its fimbriation, its cotises): its path, and the step-2 grid of the shape's points that show it — what it lies on. */
+export interface OrdinaryTrim { readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly samples: readonly Pt[] }
+
 /** What an ordinary draws in a frame. */
 export interface OrdinaryGeometry {
-  /** All its pieces as subpaths. */
+  /** All its pieces as subpaths; a voided one, its outline and its voiding. */
   readonly body: string;
-  /** evenodd for a ring (the bordure); nonzero otherwise. */
+  /** evenodd for a ring (the bordure) and a voided ordinary; nonzero otherwise. */
   readonly fillRule: 'nonzero' | 'evenodd';
+  /** The body grown by FIMBRIATION_WIDTH with its lines, drawn under it; its samples lie in the band that shows round the body. */
+  readonly fimbriation: OrdinaryTrim | null;
+  /** Every cotise beside each long edge, as subpaths. */
+  readonly cotises: OrdinaryTrim | null;
   /**
-   * Straight polygons about the body (rings in the body's fill rule): `outer` holds all of it, lines and all, and `inner` lies wholly
-   * in it. Layout keeps charges between an ordinary clear of `outer` and charges on it inside `inner`.
+   * Straight polygons about the body (rings in the body's fill rule): `outer` holds all of it, lines, fimbriation and cotises and all,
+   * and `inner` lies wholly in the body. Layout keeps charges between an ordinary clear of `outer` and charges on it inside `inner`.
    */
   readonly envelope: { readonly outer: readonly Pt[][]; readonly inner: readonly Pt[][] };
   /** Where a division of the ordinary runs through it: the middle of a chief's band, the fess point for every other ordinary. */
@@ -131,14 +139,32 @@ const BORDURE_WIDTH = 10;
 /** Whether an edge of the spec carries a line other than a straight one (enarched and ployé bow a band, they don't widen it). */
 const hasComplexLine = (spec: OrdinarySpec): boolean => !isStraightLine(spec.lines.a) || !isStraightLine(spec.lines.b);
 
-/** How much wider than plain the spec is drawn. */
-const widening = (spec: OrdinarySpec): number => (WIDENED.includes(spec.type) && hasComplexLine(spec) ? WIDENING : 1);
+/** How wide a cotise is beside its band — about a quarter of it — and how far it lies from the band and from the next cotise: its own width (RULES-C §D.5). */
+const COTISE_SHARE = 1 / 4;
+/** How wide the fimbriation round a fimbriated ordinary is (RULES-C §D.4). */
+const FIMBRIATION_WIDTH = 2;
+/** How wide a voided ordinary's border round its voiding is at least: the voiding's straight edges lie this far inside the body's, past what its lines take in. */
+const VOIDED_BORDER = 4;
+/** How far past a corner of a grown outline its mitre may reach, in widths grown: a sharp point (an engrailed cusp, a flame's tip) is cut off there. */
+const MITRE_LIMIT = 2;
+/** Cross and saltire arms cotised are drawn narrower still than bands: with four arms, their cotises would take the field. */
+const COTISED_ARMS = 0.75;
+
+/**
+ * How much wider than plain the spec is drawn: a band with a complex line wider; a band doubly or triply cotised narrower, so that it and
+ * its cotises take as much of the field as a band cotised once.
+ */
+const bandScale = (spec: OrdinarySpec): number => (WIDENED.includes(spec.type) && hasComplexLine(spec) ? WIDENING : 1) * cotisedScale(spec);
+
+/** How much narrower a cotised band is drawn (a cross's and a saltire's arms narrower still). */
+const cotisedScale = (spec: OrdinarySpec): number =>
+  (spec.cotised ? (2 / (1 + spec.cotised.count)) * (spec.type === 'cross' || spec.type === 'saltire' ? COTISED_ARMS : 1) : 1);
 
 /** How wide the ordinary is drawn across its lined edges. */
 function drawnWidth(spec: OrdinarySpec): number {
   if (spec.type === 'bordure') return BORDURE_WIDTH;
   const plain = PLAIN_WIDTH[spec.type as keyof typeof PLAIN_WIDTH] ?? notSupported({ category: 'ordinary', detail: spec.type });
-  return plain * widening(spec);
+  return plain * bandScale(spec);
 }
 
 /**
@@ -153,6 +179,16 @@ function edgeDepth(line: ComplexLine, width: number): number {
 
 /** How far a line takes an edge off its straight line, either way at most: its depth times how far its profile swings (`profileSwing`). */
 const edgeReach = (line: Line, width: number): number => (line === 'plain' ? 0 : edgeDepth(line, width) * profileSwing(line));
+
+/**
+ * How far a line on an ordinary's edge cuts into the body (its + side outward, as a one-sided profile's is): none for the lines whose features
+ * stand out of it (indented, invected, bretessed), its whole depth for engrailed, half for the lines that swing either way.
+ */
+function inwardReach(line: Line, width: number): number {
+  if (line === 'plain') return 0;
+  const middle = featureMiddle(line);
+  return edgeDepth(line, width) * (profileSwing(line) - Math.abs(middle) - middle);
+}
 
 const unit = ([x, y]: Pt): Pt => {
   const len = Math.hypot(x, y);
@@ -229,7 +265,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
   // the edge a shape throughout reaches, where it lies before an inverted one is turned over: the top, or (once turned) the base
   const edgeAt = (y: number) => (spec.mods.includes('inverted') ? 2 * flipAxis(frame) - y : y);
   const { x0, x1, y0, y1 } = OVER;
-  const k = widening(spec);
+  const k = bandScale(spec);
   const h = BAND_HALF * k, d = BEND_HALF * k, sd = SALTIRE_HALF * k, c = CROSS_HALF * k, thick = CHEVRON_THICK * k;
   const bend = (x: number) => cy + (x - cx);
   const sinister = (x: number) => cy - (x - cx);
@@ -371,16 +407,22 @@ const along = (course: Course, [x, y]: Pt): number => (x - course.origin[0]) * c
 const COURSE_REACH = 400;
 
 /**
+ * How an outline other than the body's (a cotise's edge) draws its lines: laid on the body's outline
+ * (`laidOn`), so that its periods line up with the body's; cut as deep as on a band `width` wide; a mirrored profile's + side turned
+ * in (`facing` −1) on a cotise's edge toward the body, so that both edges of the cotise point out of it.
+ */
+interface Laying { readonly laidOn: Outline; readonly width: number; readonly facing: 1 | -1 }
+
+/**
  * The runs each edge of an outline is drawn with (null: straight). The edges along one course share its period and anchor, fitted to the
  * chord of the course the shape shows (RULES-C §A.4); a band's two edges pair as their profile says (`pairing`: mirrored ones opposed, the
  * others in phase), each edge's features run off the shape at its ends, and a mirrored profile's + side is the edge's outside.
  */
-function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[]): (EdgeRun | null)[] {
+function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[], laying: Laying = { laidOn: outline, width: drawnWidth(spec), facing: 1 }): (EdgeRun | null)[] {
   const { points, edges, courses } = outline;
-  const n = points.length;
+  const { laidOn, width, facing } = laying;
   const turn = signedArea(points) > 0 ? 1 : -1;
-  const width = drawnWidth(spec);
-  const ends = (i: number): [Pt, Pt] => [points[i], points[(i + 1) % n]];
+  const ends = (o: Outline, i: number): [Pt, Pt] => [o.points[i], o.points[(i + 1) % o.points.length]];
   const laid = new Map<string, { period: number; anchor: number } | null>();
   /** The period and anchor of a line along a course. */
   const lay = (index: number, line: ComplexLine, depth: number): { period: number; anchor: number } | null => {
@@ -392,8 +434,8 @@ function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[]): (
     if (course.junction === null) {
       if (c1 > c0) out = { period: fitPeriod(line, c1 - c0, 1), anchor: (c0 + c1) / 2 };
     } else {
-      // the first period starts clear of the junction on the edge whose inner end lies nearest it
-      const start = Math.min(...edges.flatMap((e, i) => (e?.course === index && spec.lines[e.line] === line ? [Math.min(...ends(i).map((p) => along(course, p)))] : []))) + depth * course.junction;
+      // the first period starts clear of the junction on the edge (of the outline it is laid on) whose inner end lies nearest it
+      const start = Math.min(...laidOn.edges.flatMap((e, i) => (e?.course === index && spec.lines[e.line] === line ? [Math.min(...ends(laidOn, i).map((p) => along(course, p)))] : []))) + depth * course.junction;
       if (c1 > start) {
         // a profile that overhangs its period (dovetails, nebuly) starts that much further out
         const overhang = -Math.min(0, PROFILE_REACH[line][0]);
@@ -409,7 +451,7 @@ function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[]): (
     const line = spec.lines[e.line];
     if (line === 'plain') return null;
     const course = courses[e.course];
-    const [from, to] = ends(i);
+    const [from, to] = ends(outline, i);
     const visible = visibleSpan(from, to, shape);
     if (visible === null) return null;
     const depth = edgeDepth(line, width);
@@ -425,7 +467,7 @@ function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[]): (
       : single ? [inner, v1] : [inner + depth * course.junction, course.cut ? course.cut[1] : v1 + fit.period];
     // the side of the course's direction the edge's outside lies on: its left when it runs along the course round a clockwise outline
     const outward: 1 | -1 = turn * forward > 0 ? 1 : -1;
-    const side = LINE_PROFILE[line].pairing === 'mirrored' || course.plus === 'outward' ? outward : course.plus;
+    const side = LINE_PROFILE[line].pairing === 'mirrored' || course.plus === 'outward' ? (outward * facing > 0 ? 1 : -1) : course.plus;
     // a bow on a limb rises as far for its length as a fess's for the shield's width, so a limb's two edges curve alike
     const drawn = single && course.junction !== null ? (depth * fit.period) / 100 : depth;
     return runAlong({ origin: course.origin, dir: course.dir, run: { line, side, depth: drawn, period: fit.period, anchor: fit.anchor, span } }, from, to);
@@ -479,12 +521,91 @@ function bordureBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
   return f.outline + contourPath({ start: ring[0], edges: [{ via: ring.slice(1), to: ring[0], run }] });
 }
 
-/** The body path of an ordinary, its chevron raised `lift` above its usual place. */
-function bodyOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): string {
-  const outline = outlineOf(spec, frame, lift);
-  if (!outline) return bordureBody(spec, frame);
+/** An outline drawn as one contour, its edges with the spec's lines (laid as `laying` says); straight when the spec's lines are plain. */
+function linedPath(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[], laying?: Laying): string {
   const plain = spec.lines.a === 'plain' && spec.lines.b === 'plain';
-  return contourPath(contourOf(outline.points, plain ? outline.edges.map(() => null) : edgeRuns(spec, outline, pathPolygon(shapeFrame(frame.shape).outline))));
+  return contourPath(contourOf(outline.points, plain ? outline.edges.map(() => null) : edgeRuns(spec, outline, shape, laying)));
+}
+
+/** The outline with each edge moved `by[i]` outward (negative: inward), keeping its lines and the courses they are laid on. */
+const moved = (outline: Outline, by: readonly number[]): Outline => ({ ...outline, points: offsetPolygon(outline.points, by) });
+
+/**
+ * The body path of an ordinary, its chevron raised `lift` above its usual place. A voided one is its outline and its voiding, straight-edged,
+ * VOIDED_BORDER inside every edge the shape shows and past what the edge's line cuts in (RULES-C §D.3: the outline stays unbroken; a border
+ * that followed a square or overhanging line would break at its risers).
+ */
+function bodyOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline | null, shape: readonly Pt[]): string {
+  if (!outline) return bordureBody(spec, frame);
+  const body = linedPath(spec, outline, shape);
+  if (!spec.mods.includes('voided')) return body;
+  const width = drawnWidth(spec);
+  const inset = outline.points.map((p, i) => {
+    const e = outline.edges[i];
+    return visibleSpan(p, outline.points[(i + 1) % outline.points.length], shape) ? -VOIDED_BORDER - (e ? inwardReach(spec.lines[e.line], width) : 0) : 0;
+  });
+  return body + pts(offsetPolygon(outline.points, inset));
+}
+
+/** How far out from each edge's straight line the body's lines reach (none on the edges the shape cuts off). */
+const bodyReach = (spec: OrdinarySpec, outline: Outline): number[] =>
+  outline.edges.map((e) => (e === null ? 0 : edgeReach(spec.lines[e.line], drawnWidth(spec))));
+
+/** Where each cotise starts: a cotise's width beyond the reach of the body's line, or beyond the straight edge when the cotise bows with the band. */
+function cotiseBase(spec: OrdinarySpec, outline: Outline, cotised: NonNullable<OrdinarySpec['cotised']>): number[] {
+  const reach = bodyReach(spec, outline);
+  return outline.edges.map((e, i) => {
+    if (e === null) return 0;
+    const line = spec.lines[e.line];
+    return line !== 'plain' && line === cotised.line && LINE_PROFILE[line].kind === 'single' ? 0 : reach[i];
+  });
+}
+
+/** How wide each cotise is: a quarter of the band. */
+const cotiseWidth = (spec: OrdinarySpec): number => drawnWidth(spec) * COTISE_SHARE;
+
+/**
+ * How much further from its middle line than a plain one's edges a trimmed ordinary reaches — its outermost cotise, or its fimbriation —
+ * across its band (a cotised band is narrower, which gives some back): what charges set beside it make room for. 0 untrimmed.
+ */
+export function trimGrowth(spec: OrdinarySpec): number {
+  const plain = PLAIN_WIDTH[spec.type as keyof typeof PLAIN_WIDTH];
+  if (plain === undefined) return 0;
+  const { cotised } = spec;
+  const cotises = cotised ? plain * cotisedScale(spec) / 2 + edgeReach(spec.lines.a, drawnWidth(spec)) + 2 * cotised.count * cotiseWidth(spec) - plain / 2 : 0;
+  return Math.max(0, cotises) + (spec.fimbriated ? FIMBRIATION_WIDTH : 0);
+}
+
+/**
+ * The cotises of a band: `count` thin bands beside each long edge, a cotise's width apart and from the band, each with the cotises' line on
+ * both its edges (laid on the band's courses, so its periods line up with the band's; a mirrored profile pointing out of the cotise on both
+ * edges), mitred where the edges of a chevron, cross, saltire or pile meet (RULES-C §D.5). Null when the spec isn't cotised.
+ */
+function cotisesOf(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[]): string | null {
+  const { cotised } = spec;
+  if (!cotised) return null;
+  const lined: OrdinarySpec = { ...spec, lines: { a: cotised.line, b: cotised.line } };
+  const base = cotiseBase(spec, outline, cotised), w = cotiseWidth(spec);
+  const at = (k: number) => outline.edges.map((e, i) => (e === null ? 0 : base[i] + k * w));
+  return Array.from({ length: cotised.count }, (_, i) =>
+    linedPath(lined, moved(outline, at(2 * i + 2)), shape, { laidOn: outline, width: w, facing: 1 })
+    + linedPath(lined, moved(outline, at(2 * i + 1)), shape, { laidOn: outline, width: w, facing: -1 })).join('');
+}
+
+/**
+ * The fimbriation of an ordinary: its body grown FIMBRIATION_WIDTH all round, following its lines (RULES-C §D.4) — every edge of the drawn
+ * outline, battlements' sides and all, moved out; null when it isn't fimbriated.
+ */
+function fimbriationOf(spec: OrdinarySpec, outline: Outline, body: string): string | null {
+  if (!spec.fimbriated) return null;
+  if (spec.lines.a === 'plain' && spec.lines.b === 'plain') return pts(offsetPolygon(outline.points, outline.points.map(() => FIMBRIATION_WIDTH)));
+  const ring = pathRings(body)[0].filter((p, i, all) => { const q = all[(i + 1) % all.length]; return p[0] !== q[0] || p[1] !== q[1]; });
+  const grown = offsetPolygon(ring, ring.map(() => FIMBRIATION_WIDTH));
+  const limit = MITRE_LIMIT * FIMBRIATION_WIDTH;
+  return pts(grown.map(([x, y], i): Pt => {
+    const [px, py] = ring[i], far = Math.hypot(x - px, y - py);
+    return far > limit ? [px + ((x - px) * limit) / far, py + ((y - py) * limit) / far] : [x, y];
+  }));
 }
 
 /** The polygon (each corner listed once) with edge i moved `by[i]` outward (negative: inward), each corner where its two moved edges meet. */
@@ -513,11 +634,12 @@ function offsetPolygon(points: readonly Pt[], by: readonly number[]): Pt[] {
  * The straight polygons a body with lines stays within (`outer`: each lined edge moved out by its reach) and always covers
  * (`inner`: moved in) — what layout keeps charges clear of or inside, never the toothed body. With straight lines, the body's rings.
  */
-function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number, body: string): OrdinaryGeometry['envelope'] {
+function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline | null, body: string): OrdinaryGeometry['envelope'] {
   // plain, or bowed (enarched, ployé): the body itself, curves flattened — a bow moves the band rather than cutting into it
-  if (isStraightLine(spec.lines.a) && isStraightLine(spec.lines.b)) return { outer: pathRings(body), inner: pathRings(body) };
+  const straight = isStraightLine(spec.lines.a) && isStraightLine(spec.lines.b);
+  const trimmed = outline !== null && (spec.cotised !== null || spec.fimbriated);
+  if (straight && !trimmed) return { outer: pathRings(body), inner: pathRings(body) };
   const width = drawnWidth(spec);
-  const outline = outlineOf(spec, frame, lift);
   if (!outline) {
     // The bordure's line runs along its inner edge: the inset moves inward (the ring grows) for `outer`, outward for `inner`.
     const ring = pathPolygon(shapeFrame(frame.shape).outline);
@@ -525,8 +647,15 @@ function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number, body
     const reach = edgeReach(spec.lines.a, width);
     return { outer: [ring, offsetPolygon(corners, corners.map(() => -reach))], inner: [ring, offsetPolygon(corners, corners.map(() => reach))] };
   }
-  const reach = outline.edges.map((e) => (e === null ? 0 : edgeReach(spec.lines[e.line], width)));
-  return { outer: [offsetPolygon(outline.points, reach)], inner: [offsetPolygon(outline.points, reach.map((r) => -r))] };
+  const reach = bodyReach(spec, outline);
+  // the fimbriation round every edge, the outermost cotise and its line beside each long edge
+  const { cotised } = spec;
+  const base = cotised && cotiseBase(spec, outline, cotised);
+  const outer = outline.edges.map((e, i) => Math.max(
+    reach[i] + (spec.fimbriated ? FIMBRIATION_WIDTH : 0),
+    cotised && base && e !== null ? base[i] + 2 * cotised.count * cotiseWidth(spec) + edgeReach(cotised.line, cotiseWidth(spec)) : 0,
+  ));
+  return { outer: [offsetPolygon(outline.points, outer)], inner: straight ? pathRings(body) : [offsetPolygon(outline.points, reach.map((r) => -r))] };
 }
 
 /**
@@ -544,15 +673,18 @@ function rowCrossings(rings: readonly Pt[][], y: number): number[] {
   return xs;
 }
 
-/** The step-`SAMPLE_STEP` grid points (offset by one) inside both ring sets, column by column: one pass over the rings per row, not per point. */
-function gridInside(a: readonly Pt[][], b: readonly Pt[][]): Pt[] {
+/** The grid points `step` apart (offset by one) inside both ring sets, column by column: one pass over the rings per row, not per point. */
+function gridInside(a: readonly Pt[][], b: readonly Pt[][], step: number = SAMPLE_STEP): Pt[] {
   const rows: Array<{ y: number; a: number[]; b: number[] }> = [];
-  for (let y = 1; y < 120; y += SAMPLE_STEP) rows.push({ y, a: rowCrossings(a, y), b: rowCrossings(b, y) });
+  for (let y = 1; y < 120; y += step) rows.push({ y, a: rowCrossings(a, y), b: rowCrossings(b, y) });
   const inside = (xs: readonly number[], x: number) => xs.filter((c) => x < c).length % 2 === 1;
   const out: Pt[] = [];
-  for (let x = 1; x < 100; x += SAMPLE_STEP) for (const row of rows) if (inside(row.a, x) && inside(row.b, x)) out.push([x, row.y]);
+  for (let x = 1; x < 100; x += step) for (const row of rows) if (inside(row.a, x) && inside(row.b, x)) out.push([x, row.y]);
   return out;
 }
+
+/** Grid step of the points a trim is sampled at: fine enough to catch the 2-wide fimbriation and the narrowest cotise. */
+const TRIM_SAMPLE_STEP = 2;
 
 const geometryCache = new Map<string, OrdinaryGeometry>();
 
@@ -561,14 +693,20 @@ function build(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Ordinary
   let g = geometryCache.get(key);
   if (!g) {
     const f = shapeFrame(frame.shape);
-    const body = bodyOf(spec, frame, lift);
+    const shape = pathPolygon(f.outline);
+    const drawn = outlineOf(spec, frame, lift);
+    const body = bodyOf(spec, frame, drawn, shape);
     const rings = pathRings(body), outline = pathRings(f.outline);
     const points = rings.flat(), xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
     const samples = gridInside(outline, rings);
+    const fimbriation = drawn && fimbriationOf(spec, drawn, body), cotises = drawn && cotisesOf(spec, drawn, shape);
     g = {
       body,
-      fillRule: spec.type === 'bordure' ? 'evenodd' : 'nonzero',
-      envelope: envelopeOf(spec, frame, lift, body),
+      fillRule: spec.type === 'bordure' || spec.mods.includes('voided') ? 'evenodd' : 'nonzero',
+      // the fimbriation shows where it lies outside the body
+      fimbriation: fimbriation ? { d: fimbriation, fillRule: 'nonzero', samples: gridInside(outline, [...pathRings(fimbriation), ...rings], TRIM_SAMPLE_STEP) } : null,
+      cotises: cotises ? { d: cotises, fillRule: 'evenodd', samples: gridInside(outline, pathRings(cotises), TRIM_SAMPLE_STEP) } : null,
+      envelope: envelopeOf(spec, frame, drawn, body),
       centre: spec.type === 'chief' ? { x: frame.centre.x, y: f.chiefBase - CHIEF_HEIGHT / 2 } : ordinaryCentre(spec, frame),
       box: { x0: Math.max(f.box.x0, Math.min(...xs)), y0: Math.max(f.box.y0, Math.min(...ys)), x1: Math.min(f.box.x1, Math.max(...xs)), y1: Math.min(f.box.y1, Math.max(...ys)) },
       samples,
@@ -583,9 +721,9 @@ export function ordinaryGeometry(spec: OrdinarySpec, frame: OrdinaryFrame): Ordi
   return build(spec, frame, 0);
 }
 
-/** Whether an ordinary of this paint lies astride its field's line: a counterchanged chevron, neither turned, shortened nor moved, on a field per chevron. */
+/** Whether an ordinary of this paint lies astride its field's line: a counterchanged chevron, neither turned, shortened, moved nor trimmed, on a field per chevron. */
 export const liesAstride = (field: Paint, spec: OrdinarySpec, paint: Paint): boolean =>
-  spec.type === 'chevron' && spec.mods.length === 0 && paint.k === 'counterchanged' && field.k === 'divided' && field.division === 'per-chevron';
+  spec.type === 'chevron' && spec.mods.length === 0 && spec.cotised === null && !spec.fimbriated && paint.k === 'counterchanged' && field.k === 'divided' && field.division === 'per-chevron';
 
 /**
  * What an ordinary of this paint draws on the field: a chevron astride the field's line is raised so that the line runs down the
@@ -598,6 +736,11 @@ export function fieldOrdinaryGeometry(field: Paint, spec: OrdinarySpec, paint: P
 /** The parts of a counterchanged ordinary on the field: the regions it overlaps (a chief on a field per fess lies on one only). */
 export function counterchangedOrdinaryParts(field: Paint, spec: OrdinarySpec, frame: OrdinaryFrame): CounterchangePart[] {
   return counterchangedParts(field, fieldOrdinaryGeometry(field, spec, { k: 'counterchanged' }, frame).samples, frame.shape);
+}
+
+/** The parts of a counterchanged trim of an ordinary on the field (its fimbriation, its cotises): the regions it lies on. */
+export function counterchangedTrimParts(field: Paint, trim: OrdinaryTrim, shape: FieldShape): CounterchangePart[] {
+  return counterchangedParts(field, trim.samples, shape);
 }
 
 /** Whether a division through the ordinary's centre runs through it, so that both its parts show. */

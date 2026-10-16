@@ -50,8 +50,8 @@ export {
   counterchangedSlotParts, type Slot, type DrawnField, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
-  specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, divisionCutsOrdinary,
-  type OrdinarySpec, type OrdinaryFrame, type OrdinaryGeometry,
+  specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, counterchangedTrimParts, divisionCutsOrdinary,
+  type OrdinarySpec, type OrdinaryFrame, type OrdinaryGeometry, type OrdinaryTrim,
 } from './ordinary-geometry';
 export { variationRegions, inFirstRegion, type Box } from './variation-geometry';
 export { MIN_SLOT_SIZE, minSlotSize, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue } from './layout';
@@ -81,7 +81,7 @@ export { CHARGE_ART, MODIFIER_ART, ART_ON_BOX, chargePath, chargeOnBox, type Art
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
 export * from './tinctures';
 export {
-  SENA_RULES, isDiffAttr, isChangeKind, isSenaRule, isClear, differences, checkUnique, candidateKey, keysMayConflict, MIXED_PRIMARY, explainDifferences, changeLabel, tallyText,
+  SENA_RULES, isDiffAttr, isChangeKind, isSenaRule, isClear, differences, liftCotises, checkUnique, candidateKey, keysMayConflict, MIXED_PRIMARY, explainDifferences, changeLabel, tallyText,
   CLEAR_CHANGE_HINT, SENA_RULE_HINT,
   type ChangeKind, type SenaRule, type DiffAttr, type GroupRef, type Diff, type RegistryEntryLike, type Comparison, type Verdict, type CandidateKey, type DifferenceNote,
 } from './difference';

@@ -44,6 +44,14 @@ const slotSamples = (s: Slot): Samples => ({ key: `${s.x},${s.y},${s.size}`, poi
 const ordinarySamples = (spec: OrdinarySpec): Samples =>
   ({ key: `ordinary:${JSON.stringify(spec)}`, points: () => ordinaryGeometry(spec, defaultOrdinaryFrame(CANONICAL_SHAPE)).samples });
 
+/** The trims drawn with an ordinary's body, and what they are called in a message. */
+type Trim = 'fimbriation' | 'cotises';
+const TRIM_NOUN: Record<Trim, string> = { fimbriation: 'fimbriation', cotises: 'cotises' };
+
+/** The points an ordinary's trim lies on in the canonical layout. */
+const trimSamples = (spec: OrdinarySpec, trim: Trim): Samples =>
+  ({ key: `${trim}:${JSON.stringify(spec)}`, points: () => ordinaryGeometry(spec, defaultOrdinaryFrame(CANONICAL_SHAPE))[trim]?.samples ?? [] });
+
 /** The share of each sample set in the first part of each division: it depends on the lines alone, not on the tinctures. */
 const firstShares = new Map<string, number>();
 
@@ -482,7 +490,36 @@ export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
   if (d.kind !== 'arms') return [];
   const f = grounds[0].length === 0 ? null : failureOf(group.paint, group.item, grounds[0], pair, partGrounds(d, path)?.[0], sharedTinctureException(d, group));
-  return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
+  const { fimbriated, cotised } = group.item;
+  const issues: Issue[] = [];
+  if (!fimbriated) {
+    if (f) issues.push({ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] });
+  } else if (f === 'same') {
+    // Within its fimbriation an ordinary need not contrast with the field (GoT "Fimbriation"), but of the field's own tincture it reads as two thin bands.
+    const name = ORDINARY_NAME[group.item.type];
+    issues.push({ code: 'tincture', reason: 'contrast', at, slots: [], message: `A fimbriated ${name} of the field's tincture reads as two thin bands — give the ${name} another tincture (RULES-C §D.4; Prec Odolf Liafwin, 05/2007).` });
+  }
+  if (fimbriated) issues.push(...trimIssues(d, path, group, 'fimbriation', fimbriated, pair));
+  if (cotised) issues.push(...trimIssues(d, path, group, 'cotises', cotised.paint, pair));
+  return issues;
+}
+
+/** The issue of an ordinary's fimbriation or cotises that don't contrast with the field they lie on (RULES-C §D.4, §D.5: SENA A3B4a). */
+function trimIssues(d: Design, path: GroupPath, group: Group, trim: Trim, paint: Paint, pair: readonly [Tincture, Tincture] | null): Issue[] {
+  if (group.item.k !== 'ordinary' || d.kind !== 'arms') return [];
+  const at = { k: 'group', path } as const;
+  const what = `The ${TRIM_NOUN[trim]} of the ${ORDINARY_NAME[group.item.type]}`;
+  if (paint.k === 'counterchanged' && !pair) {
+    return [{ code: 'tincture', reason: 'counterchange-unavailable', at, slots: [], message: `${what} can't be counterchanged: that needs a field divided in two tinctures.` }];
+  }
+  const samples = trimSamples(specOf(group), trim);
+  if (samples.points().length === 0) return [];
+  const ground = groundAt(d.field, samples, fieldSurfaces(d));
+  const f = failureOf(paint, group.item, ground, pair, undefined, 'none');
+  if (!f) return [];
+  const contacts = groundTinctures(ground);
+  const where = paint.k === 'counterchanged' && pair ? `on ${TINCTURE_NAME[pair[0]]} and ${TINCTURE_NAME[pair[1]]}` : whereText(f, paint.k === 'tincture' ? paint.t : null, contacts, null);
+  return [{ code: 'tincture', reason: 'contrast', at, slots: [], message: `${what} (${paintName(paint)}) ${trim === 'cotises' ? 'lie' : 'lies'} ${where}: ${FAILURE_TEXT[f]}` }];
 }
 
 /** The issue of a semy whose charges don't stand out against the tincture they are strewn on (SENA A3B4a), or none for any other paint. */

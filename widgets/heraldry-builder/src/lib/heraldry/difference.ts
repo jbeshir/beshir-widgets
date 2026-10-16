@@ -6,7 +6,7 @@
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
 import {
-  asParty, asVariation, canonicalLines, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
+  asParty, asVariation, canonical, canonicalLines, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, type Division, type Variation } from './divisions';
@@ -438,9 +438,84 @@ function tertiaryChanges(x: Side | null, y: Side | null): Diff[] {
   ];
 }
 
-/** Every SC and DC between two designs (RULES §C.8 `diff`), in field, primary, secondary order. Their semys are groups (A5C2b; strewn.ts), so the groups of a diff are those of the designs so stated. */
+// ── Cotises and readings ────────────────────────────────────────────────────
+
+/** Whether a group is an ordinary's cotises lifted into a group of their own (`liftCotises`): ordinaries set between a primary ordinary of their type. */
+const isCotiseGroup = (d: Design, g: Group): boolean =>
+  g.item.k === 'ordinary' && g.role === 'secondary' && g.relation === 'between'
+  && d.groups.some((p) => p.role === 'primary' && p.item.k === 'ordinary' && g.item.k === 'ordinary' && p.item.type === g.item.type);
+
+/**
+ * The design with each ordinary's cotises as the secondary group they are (SENA App I2c; RULES-C §B.4): ordinaries of its type, one per
+ * pair of cotises, in their tincture, their edges in their line (so that presence, number, tincture and line each count as for a group:
+ * A5G2, A5G5, A5G3, A5G4), and the ordinary without them.
+ */
+export function liftCotises(d: Design): Design {
+  if (!d.groups.some((g) => g.item.k === 'ordinary' && g.item.cotised)) return d;
+  const groups = d.groups.flatMap((g): Group[] => {
+    if (g.item.k !== 'ordinary' || !g.item.cotised) return [g];
+    const { count, paint, line } = g.item.cotised;
+    const cotises: Group = {
+      role: 'secondary', relation: 'between', item: { k: 'ordinary', type: g.item.type, lines: { a: line, b: line }, mods: [], cotised: null, fimbriated: null },
+      count, arrangement: { k: 'host' }, position: null, paint, charged: [],
+    };
+    return [{ ...g, item: { ...g.item, cotised: null } }, cotises];
+  });
+  return canonical({ ...d, groups });
+}
+
+/**
+ * The ways conflict reads a design (SENA A5C1; RULES-C §D.3, §D.4), each to be compared, the least different taken: a voided primary
+ * ordinary as the ordinary with one of its shape in the field's tincture on it, and as the ordinary of the field's tincture fimbriated (the
+ * fimbriation worth nothing); a fimbriated one as the ordinary alone, and as one of the fimbriation's tincture with the ordinary on it
+ * (not when something lies on it already: that would make quaternaries). Every other design is read as it is.
+ */
+function readings(d: Design): Design[] {
+  const i = d.groups.findIndex((g) => g.role === 'primary' && g.item.k === 'ordinary' && (g.item.fimbriated !== null || g.item.mods.includes('voided')));
+  const g = d.groups[i];
+  if (!g || g.item.k !== 'ordinary') return [d];
+  const item = { ...g.item, mods: g.item.mods.filter((m) => m !== 'voided'), fimbriated: null };
+  const on = (paint: Paint): Group => ({ role: 'tertiary', relation: null, item, count: 1, arrangement: { k: 'single' }, position: null, paint, charged: [] });
+  const read = (group: Group) => canonical({ ...d, groups: d.groups.map((x, j) => (j === i ? group : x)) });
+  const unloaded = g.charged.length === 0;
+  if (g.item.mods.includes('voided')) {
+    if (d.kind !== 'arms') return [d];
+    return [...(unloaded ? [read({ ...g, item, charged: [on(d.field)] })] : []), read({ ...g, item, paint: d.field })];
+  }
+  const fimbriation = g.item.fimbriated;
+  return [read({ ...g, item }), ...(fimbriation && unloaded ? [read({ ...g, item, paint: fimbriation, charged: [on(g.paint)] })] : [])];
+}
+
+/** A design as conflict compares it: its semys and cotises as groups, in each of its readings. */
+const conflictReadings = (d: Design): Design[] => readings(liftCotises(liftStrewn(d)));
+
+/** The least of some lists of changes: the fewest substantial changes, then the fewest distinct ones (the first of equals). */
+function least(options: readonly Diff[][]): Diff[] {
+  const score = (ds: readonly Diff[]) => ds.filter((x) => x.kind === 'sc').length * 1000 + ds.length;
+  return options.reduce((best, ds) => (score(ds) < score(best) ? ds : best));
+}
+
+/** The readings of two designs whose comparison gave `diffs` (the first pair when none did): what the groups of a diff are paths into. */
+function readingsCompared(rawA: Design, rawB: Design, diffs: readonly Diff[]): [Design, Design] {
+  const as = conflictReadings(rawA), bs = conflictReadings(rawB);
+  const pairs = as.flatMap((a) => bs.map((b): [Design, Design] => [a, b]));
+  if (pairs.length === 1) return pairs[0];
+  const key = JSON.stringify(diffs);
+  return pairs.find(([a, b]) => JSON.stringify(compare(a, b)) === key) ?? pairs[0];
+}
+
+/**
+ * Every SC and DC between two designs (RULES §C.8 `diff`), in field, primary, secondary order. Their semys and cotises are groups (A5C2b;
+ * strewn.ts, `liftCotises`), so the groups of a diff are those of the designs so stated; a voided or fimbriated design is compared in each
+ * of its readings and the least different pair counts.
+ */
 export function differences(rawA: Design, rawB: Design): Diff[] {
-  const [a, b] = [liftStrewn(rawA), liftStrewn(rawB)];
+  const as = conflictReadings(rawA), bs = conflictReadings(rawB);
+  return least(as.flatMap((a) => bs.map((b) => compare(a, b))));
+}
+
+/** Every SC and DC between two designs as stated for conflict. */
+function compare(a: Design, b: Design): Diff[] {
   const out: Diff[] = fieldChanges(a, b);
 
   const pa = primariesOf(a), pb = primariesOf(b);
@@ -558,7 +633,7 @@ function groupNoun(d: Design, path: GroupPath): { one: string; many: string } {
   const group = groupAt(d, path), host = hostOf(d, path);
   if (group.item.k === 'ordinary') {
     const type = group.item.type;
-    const noun = ORDINARY_KIND[type] === 'central' ? 'band or shape' : ORDINARY_LABEL[type].plain.toLowerCase();
+    const noun = isCotiseGroup(d, group) ? 'cotises' : ORDINARY_KIND[type] === 'central' ? 'band or shape' : ORDINARY_LABEL[type].plain.toLowerCase();
     return { one: noun, many: noun };
   }
   let where = '';
@@ -583,7 +658,7 @@ function noGroup(attr: DiffAttr): never {
 
 /** Each difference between `a` (new) and `b` (existing) in words: "pose of picture (passant ↔ courant)". */
 export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly Diff[] = differences(rawA, rawB)): DifferenceNote[] {
-  const [a, b] = [liftStrewn(rawA), liftStrewn(rawB)];
+  const [a, b] = readingsCompared(rawA, rawB, diffs);
   return diffs.map((diff) => {
     const ref = diff.group;
     const ga = ref?.a ? groupAt(a, ref.a) : null, gb = ref?.b ? groupAt(b, ref.b) : null;
@@ -592,7 +667,8 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
     /** The two groups a change between a pair is about. */
     const both = () => (ga && gb && nounA && nounB ? { ga, gb, nounA, nounB } : noGroup(diff.attr));
     const pair = (label: string, x: string, y: string) => `${label} (${x} ↔ ${y})`;
-    const itemOrNone = (g: Group | null) => (g ? (g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural) : 'none');
+    // cotises by how many a side
+    const itemOrNone = (d: Design, g: Group | null) => (!g ? 'none' : isCotiseGroup(d, g) ? `${g.count} a side` : g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural);
     const tinctureWord = (g: Group) => (g.paint.k === 'counterchanged' ? 'counterchanged' : paintName(g.paint));
     const fieldWord = (d: Design) => (d.kind === 'arms' && d.field.k === 'variation' ? d.field.parts.map(paintName).join('/') : fieldParts(d).map(paintName).join('/'));
     const postureWord = (g: Group) => { const i = g.item; return i.k === 'ordinary' ? (i.mods.includes('inverted') ? 'inverted' : 'upright') : i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
@@ -629,7 +705,7 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         break;
       case 'primary-presence':
       case 'group-presence':
-        text = pair(noun().many, itemOrNone(ga), itemOrNone(gb));
+        text = pair(noun().many, itemOrNone(a, ga), itemOrNone(b, gb));
         sentence = diff.attr === 'primary-presence'
           ? 'Adding or taking away the main band or picture is a substantial change'
           : 'Adding or taking away a group of pictures or a band is one distinct change';
@@ -641,7 +717,9 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         const edged = (i: Item) => { const host = edgeHostOf(i); return host && i.k === 'ordinary' ? lineWords(host, i.lines) || 'straight' : ''; };
         if (itemKey(s.ga.item) === itemKey(s.gb.item) && edgesDiffer(s.ga.item, s.gb.item)) {
           text = pair(`edge of ${s.nounA.one}`, edged(s.ga.item), edged(s.gb.item));
-          sentence = `Changing the edge of ${itemPhrase(s.ga.item)} — from straight to embattled, say — changes its type: a distinct change`;
+          sentence = isCotiseGroup(a, s.ga)
+            ? 'Changing the edge of the cotises — from straight to wavy, say — changes their type: a distinct change'
+            : `Changing the edge of ${itemPhrase(s.ga.item)} — from straight to embattled, say — changes its type: a distinct change`;
           break;
         }
         if (itemKey(s.ga.item) === itemKey(s.gb.item)) {

@@ -16,7 +16,7 @@ import {
 import {
   CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
 } from './geometry';
-import { bandShift, defaultOrdinaryFrame, flipAxis, isPlainSpec, ordinaryGeometry, type OrdinarySpec } from './ordinary-geometry';
+import { bandShift, defaultOrdinaryFrame, flipAxis, isPlainSpec, ordinaryGeometry, trimGrowth, type OrdinarySpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';
 import type { FieldShape } from './shape';
 import { MAX_DRAWN_COUNT } from './support';
@@ -575,32 +575,60 @@ const COUPED_DRAW_IN = 0.8;
  * other side growing.
  */
 function treatedCentres(spec: OrdinarySpec, kind: 'between' | 'on', centres: Centre[], turned: boolean): Centre[] {
-  if (spec.mods.length === 0) return centres;
+  const trimmed = kind === 'between' && trimGrowth(spec) > 0;
+  if (spec.mods.length === 0 && !trimmed) return centres;
   const heater = shapeFrame(CANONICAL_SHAPE);
   const { x: fx, y: fy } = heater.fessPoint;
   const inverted = spec.mods.includes('inverted');
-  let out = centres;
+  const axis = flipAxis(defaultOrdinaryFrame(CANONICAL_SHAPE));
+  const flip = (cs: Centre[]) => cs.map((c) => at(c.x, 2 * axis - c.y, -c.rotation || 0));
+  // clear of its cotises or fimbriation where it stands upright (Table 7's chevron inverted row is turned back for that)
+  let out = !trimmed ? centres : inverted && turned ? flip(clearOfTrims(spec, flip(centres))) : clearOfTrims(spec, centres);
   if (kind === 'on' && spec.mods.includes('couped')) {
     const [ax, ay] = spec.type === 'chevron' ? CHEVRON_APEX : [fx, fy];
     out = out.map((c) => at(ax + COUPED_DRAW_IN * (c.x - ax), ay + COUPED_DRAW_IN * (c.y - ay), c.rotation));
   }
-  if (inverted && !turned) {
-    const axis = flipAxis(defaultOrdinaryFrame(CANONICAL_SHAPE));
-    out = out.map((c) => at(c.x, 2 * axis - c.y, -c.rotation || 0));
-  }
+  if (inverted && !turned) out = flip(out);
   // a chevron throughout is moved up (turned over, down) until its apex reaches the edge
   const rise = spec.type === 'chevron' && spec.mods.includes('throughout') ? heater.box.y0 - (fy - CHEVRON_APEX_RISE) : 0;
   const shift = bandShift(spec) + (inverted ? -rise : rise);
   if (shift === 0) return out;
   if (kind === 'on' || inverted) return out.map((c) => at(c.x, c.y + shift, c.rotation));
-  // the band's middle line over each centre, in its usual place
-  const middle = (x: number): number => (spec.type === 'bend' ? fy + (x - fx) : spec.type === 'bend-sinister' ? fy - (x - fx) : spec.type === 'chevron' ? CHEVRON_APEX[1] + Math.abs(x - fx) : fy);
   const { y0: top, y1: foot } = heater.box;
   return out.map((c) => {
-    const m = middle(c.x);
+    const m = bandMiddle(spec.type, c.x);
     const y = c.y < m ? top + ((c.y - top) * (m + shift - top)) / (m - top) : foot - ((foot - c.y) * (foot - m - shift)) / (foot - m);
     return at(c.x, y, c.rotation);
   });
+}
+
+/** The middle line of a band, a bend or a chevron's limbs over `x`, in its usual place on the heater. */
+function bandMiddle(type: OrdinaryType, x: number): number {
+  const { x: fx, y: fy } = shapeFrame(CANONICAL_SHAPE).fessPoint;
+  return type === 'bend' ? fy + (x - fx) : type === 'bend-sinister' ? fy - (x - fx) : type === 'chevron' ? CHEVRON_APEX[1] + Math.abs(x - fx) : fy;
+}
+
+/**
+ * The centres beside an upright ordinary (on the heater) moved clear of its cotises or fimbriation: the room between the ordinary and
+ * the edge of the shield shrinks by as much as they reach past a plain one's edge, each centre keeping its share of the room left — across
+ * a band, a bend or a chevron's limbs (up and down), beside a pale or a pile, a cross's arms both ways, a saltire's away from the arms.
+ */
+function clearOfTrims(spec: OrdinarySpec, centres: Centre[]): Centre[] {
+  const g = trimGrowth(spec), slant = g * Math.SQRT2;
+  const { fessPoint: { x: fx, y: fy }, box: { x0, y0, x1, y1 } } = shapeFrame(CANONICAL_SHAPE);
+  /** `v` in the room from `lo` to the ordinary's middle `m` (or from `m` to `hi`), that room's inner edge moved out by `by`. */
+  const squeeze = (v: number, m: number, lo: number, hi: number, by: number): number =>
+    v < m ? lo + ((v - lo) * Math.max(0, m - by - lo)) / (m - lo) : hi - ((hi - v) * Math.max(0, hi - m - by)) / (hi - m);
+  const across = (c: Centre, by: number) => at(squeeze(c.x, fx, x0, x1, by), c.y, c.rotation);
+  const up = (c: Centre, m: number, by: number) => at(c.x, squeeze(c.y, m, y0, y1, by), c.rotation);
+  switch (spec.type) {
+    case 'fess': return centres.map((c) => up(c, fy, g));
+    case 'bend': case 'bend-sinister': case 'chevron': return centres.map((c) => up(c, bandMiddle(spec.type, c.x), slant));
+    case 'pale': case 'pile': return centres.map((c) => across(c, g));
+    case 'cross': return centres.map((c) => up(across(c, g), fy, g));
+    case 'saltire': return centres.map((c) => (Math.abs(c.x - fx) > Math.abs(c.y - fy) ? across(c, slant) : up(c, fy, slant)));
+    default: return centres;
+  }
 }
 
 // ── Charges on the primary charges ──────────────────────────────────────────
