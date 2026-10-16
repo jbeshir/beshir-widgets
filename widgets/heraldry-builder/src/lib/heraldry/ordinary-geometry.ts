@@ -12,7 +12,9 @@
 //
 // The peripherals beside the chief and bordure — base, point pointed, canton, quarter, gyron (sinister: mirrored), the orle and tressure
 // (rings inside each shape's own inset), the flaunches and gore (curves), and the dexter and sinister points (drawn to be refused) — are
-// drawn here too; a base or point leaves the ordinaries in the field a frame whose bottom is its top.
+// drawn here too; a base or point leaves the ordinaries in the field a frame whose bottom is its top. So are the pall (three arms from the
+// chief corners and the middle, or turned over), the fret (a mascle woven with a bendlet and a bendlet sinister) and the edge charges: the
+// label across the chief and the mount and trimount issuant from base.
 
 import { notSupported, type Design, type Group, type Lines, type Paint } from './design';
 import {
@@ -160,14 +162,14 @@ interface Course {
 interface Outline { readonly points: readonly Pt[]; readonly edges: readonly OutlineEdge[]; readonly courses: readonly Course[] }
 
 /** The bands and arms drawn wider with a line on an edge: "an ordinary with a complex line … will be somewhat wider" (RULES-C §A.4). */
-const WIDENED: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];
+const WIDENED: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pall', 'pall-inverted'];
 const WIDENING = 1.2;
 
 /** How wide each polygon ordinary is across its lined edges, drawn plain: what caps how deep a line on it is cut (the pile's as a fess's). */
 const PLAIN_WIDTH = {
   fess: 2 * BAND_HALF, pale: 2 * BAND_HALF, bend: 2 * BAND_HALF, 'bend-sinister': 2 * BAND_HALF, chevron: CHEVRON_THICK / Math.SQRT2,
   cross: 2 * CROSS_HALF, saltire: 2 * SALTIRE_HALF / Math.SQRT2, chief: CHIEF_HEIGHT, pile: 2 * BAND_HALF,
-  base: BASE_HEIGHT, canton: 100 / 3, quarter: 50, gyron: 2 * BAND_HALF,
+  base: BASE_HEIGHT, canton: 100 / 3, quarter: 50, gyron: 2 * BAND_HALF, pall: 2 * CROSS_HALF, 'pall-inverted': 2 * CROSS_HALF,
 } as const;
 /** How wide the bordure is (the lozenge's a little narrower). */
 const BORDURE_WIDTH = 10;
@@ -248,9 +250,15 @@ const FLIP_DROP = 10;
 /** The line a band or shape turned upside down is reflected about; every shape's sits as far below its fess point as the heater's, so layouts map from the heater's. */
 export const flipAxis = (frame: OrdinaryFrame): number => frame.centre.y + FLIP_DROP;
 
+/** Whether the ordinary is drawn upside down: with the treatment, or as the pall inverted (a type of its own). */
+export const upsideDown = (spec: OrdinarySpec): boolean => spec.mods.includes('inverted') || spec.type === 'pall-inverted';
+
+/** The line an upside-down ordinary is reflected about: the flip axis, but the pall inverted turns about its middle, the fess point, so that its arms still meet there. */
+export const turnAxis = (spec: OrdinarySpec, frame: OrdinaryFrame): number => (spec.type === 'pall-inverted' ? frame.centre.y : flipAxis(frame));
+
 /** The ordinary's own centre: the fess point, moved with an enhanced or abased band and reflected with an inverted shape. */
 function ordinaryCentre(spec: OrdinarySpec, frame: OrdinaryFrame): Point {
-  const y = spec.mods.includes('inverted') ? 2 * flipAxis(frame) - frame.centre.y : frame.centre.y;
+  const y = upsideDown(spec) ? 2 * turnAxis(spec, frame) - frame.centre.y : frame.centre.y;
   return { x: frame.centre.x, y: y + bandShift(spec) };
 }
 
@@ -341,7 +349,152 @@ function sidePoint(f: ShapeFrame): Outline {
   return { points, edges: points.map(() => null), courses: [] };
 }
 
-/** The outline before it is turned upside down (`reflected`): a band moved up or down, a band or arm couped, a chevron or pile throughout. */
+/** How far a pall's arms run from its centre: past any shape. */
+const PALL_REACH = 150;
+
+/**
+ * The pall: three arms of a cross's width from the centre of the shape, two to the chief corners of its box and one down (the pall inverted:
+ * the same turned over about the flip axis). Each arm is laid out from the centre like a saltire's, so that the lines of its edges turn into
+ * one another round the three notches; the first period of a line starts clear of the sharpest of them (the angle between the upper arms).
+ */
+function pallOutline(spec: OrdinarySpec, frame: OrdinaryFrame): Outline {
+  const f = shapeFrame(frame.shape);
+  const turned = spec.type === 'pall-inverted';
+  const cx = frame.centre.x, cy = frame.centre.y;
+  const half = CROSS_HALF * bandScale(spec);
+  const upper = [unit([f.box.x0 - frame.centre.x, f.box.y0 - frame.centre.y]), unit([f.box.x1 - frame.centre.x, f.box.y0 - frame.centre.y]), [0, 1] as Pt];
+  // clockwise on the page, from the arm that points up (or from the dexter chief one)
+  const dirs: Pt[] = turned ? [[0, -1], [upper[1][0], -upper[1][1]], [upper[0][0], -upper[0][1]]] : upper;
+  const sharpest = Math.acos(upper[0][0] * upper[1][0] + upper[0][1] * upper[1][1]) / 2;
+  const junction = 1 / Math.tan(sharpest);
+  const centre: Pt = [cx, cy];
+  // the left normal of each arm, and the corner where an arm's right edge meets the next one's left
+  const normal = ([x, y]: Pt): Pt => [y, -x];
+  const notch = (i: number): Pt => {
+    const [a1, b1] = normal(dirs[i]), [a2, b2] = normal(dirs[(i + 1) % 3]);
+    const det = a1 * b2 - a2 * b1;
+    return [cx + (-half * b2 - b1 * half) / det, cy + (a1 * half + a2 * half) / det];
+  };
+  const points = dirs.flatMap((dir, i): Pt[] => [at(centre, dir, PALL_REACH, half), at(centre, dir, PALL_REACH, -half), notch(i)]);
+  const edges = dirs.flatMap((_, i): OutlineEdge[] => [null, { line: 'a', course: i }, { line: 'a', course: (i + 1) % 3 }]);
+  return { points, edges, courses: dirs.map((dir) => ({ origin: centre, dir, junction, plus: 1, cut: null })) };
+}
+
+/** The label: a bar across the chief, this far down it (a share of the chief's height) and this thick, with its three points this long. */
+const LABEL_TOP = 0.3;
+const LABEL_BAR = 9;
+const LABEL_POINT_LENGTH = 20;
+/** How wide each pendant of the label is where it hangs from the bar and at its foot. */
+const LABEL_POINT_ROOT = 10;
+const LABEL_POINT_FOOT = 6;
+/** How far the outer pendants hang from the middle one: the lozenge's chief is narrow. */
+const labelSpread = (shape: FieldShape): number => (shape === 'lozenge' ? 16 : 28);
+
+/** The label throughout: a bar from edge to edge of the chief, three tapering pendants hanging from it. */
+function labelOutline(frame: OrdinaryFrame): Outline {
+  const f = shapeFrame(frame.shape);
+  const top = f.box.y0 + LABEL_TOP * (f.chiefBase - f.box.y0), bottom = top + LABEL_BAR;
+  const spread = labelSpread(frame.shape), { x0, x1 } = OVER;
+  // along the bar's lower edge from the sinister end, each pendant down and back up
+  const pendants = [spread, 0, -spread].flatMap((dx): Pt[] => {
+    const x = frame.centre.x + dx;
+    return [[x + LABEL_POINT_ROOT / 2, bottom], [x + LABEL_POINT_FOOT / 2, bottom + LABEL_POINT_LENGTH], [x - LABEL_POINT_FOOT / 2, bottom + LABEL_POINT_LENGTH], [x - LABEL_POINT_ROOT / 2, bottom]];
+  });
+  const points: Pt[] = [[x0, top], [x1, top], [x1, bottom], ...pendants, [x0, bottom]];
+  return { points, edges: points.map(() => null), courses: [] };
+}
+
+/** A hill: where its foot is on the base of the shape's box, how wide (half-width) and how high it rises, as shares of the box. */
+interface Mound { readonly dx: number; readonly half: number; readonly rise: number }
+const MOUNDS: Readonly<Record<'mount' | 'trimount', readonly Mound[]>> = {
+  mount: [{ dx: 0, half: 0.38, rise: 0.3 }],
+  trimount: [{ dx: -0.26, half: 0.23, rise: 0.22 }, { dx: 0, half: 0.23, rise: 0.3 }, { dx: 0.26, half: 0.23, rise: 0.22 }],
+};
+/** How far above the foot of the shape's box the hills stand on. */
+const MOUND_FOOT = 0.06;
+
+/** The mount or trimount: half-ellipses on a line a little above the foot of the shape's box, the highest of them showing, closed below the shape. */
+function moundOutline(type: 'mount' | 'trimount', frame: OrdinaryFrame): Outline {
+  const { x0, x1, y0, y1 } = shapeFrame(frame.shape).box;
+  const width = x1 - x0, height = y1 - y0, foot = y1 - MOUND_FOOT * height;
+  const mounds = MOUNDS[type].map((m) => ({ x: frame.centre.x + m.dx * width, half: m.half * width, rise: m.rise * height }));
+  const left = Math.min(...mounds.map((m) => m.x - m.half)), right = Math.max(...mounds.map((m) => m.x + m.half));
+  const steps = 48;
+  const skyline = Array.from({ length: steps + 1 }, (_, i): Pt => {
+    const x = left + ((right - left) * i) / steps;
+    return [x, foot - Math.max(0, ...mounds.map((m) => (Math.abs(x - m.x) < m.half ? m.rise * Math.sqrt(1 - ((x - m.x) / m.half) ** 2) : 0)))];
+  });
+  const points: Pt[] = [[left, OVER.y1], ...skyline, [right, OVER.y1]];
+  return { points, edges: points.map(() => null), courses: [] };
+}
+
+/** The part of a convex polygon where n·p ≤ c. */
+function clipHalf(poly: readonly Pt[], n: Pt, c: number): Pt[] {
+  const out: Pt[] = [];
+  poly.forEach((p, i) => {
+    const q = poly[(i + 1) % poly.length];
+    const dp = n[0] * p[0] + n[1] * p[1] - c, dq = n[0] * q[0] + n[1] * q[1] - c;
+    if (dp <= 0) out.push(p);
+    if ((dp < 0 && dq > 0) || (dp > 0 && dq < 0)) {
+      const t = dp / (dp - dq);
+      out.push([p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])]);
+    }
+  });
+  return out;
+}
+
+/** What of the convex polygons lies outside the strip within `half` of the line through `through` with unit normal `n`: each polygon in up to two convex pieces. */
+function outsideStrip(polys: readonly (readonly Pt[])[], n: Pt, through: Pt, half: number): Pt[][] {
+  const k = n[0] * through[0] + n[1] * through[1];
+  return polys.flatMap((poly) => [clipHalf(poly, n, k - half), clipHalf(poly, [-n[0], -n[1]], -(k + half))].filter((p) => p.length >= 3));
+}
+
+/** The polygon in clockwise order on the page. */
+const clockwise = (poly: readonly Pt[]): Pt[] => (signedArea(poly) > 0 ? [...poly] : [...poly].reverse());
+
+/** The mascle's half-diagonals and how wide its sides are; the bendlets' half-width; the gap the weave leaves where one member passes under another. */
+const FRET_MASCLE = { rx: 32, ry: 40, side: 10 } as const;
+const FRET_BENDLET_HALF = 4.5;
+const FRET_GAP = 1.5;
+
+/**
+ * The fret: a mascle (a voided lozenge) with a bendlet and a bendlet sinister through its middle, running off the shape (throughout), woven
+ * the way a fret is — each member passes over one side of the mascle and under the next, and the bendlet over the bendlet sinister in the
+ * middle. One tincture can show a weave only as gaps, so the member that goes under is cut short of the one that goes over; the pieces
+ * (convex, clockwise, disjoint) are the subpaths of one body.
+ */
+function fretBody(frame: OrdinaryFrame): string {
+  const { x, y } = frame.centre;
+  const { rx, ry, side } = FRET_MASCLE;
+  const corner = ([dx, dy]: Pt, k: number): Pt => [x + dx * k, y + dy * k];
+  const shrink = 1 - (side * Math.hypot(rx, ry)) / (rx * ry);
+  // the corners of the mascle in order round it (top, right, bottom, left), outer and inner; side i joins corner i to the next
+  const tips: Pt[] = [[0, -ry], [rx, 0], [0, ry], [-rx, 0]];
+  const sides = tips.map((tip, i) => {
+    const next = tips[(i + 1) % 4];
+    return [corner(tip, 1), corner(next, 1), corner(next, shrink), corner(tip, shrink)];
+  });
+  // the line through the middle of side i, and its unit normal
+  const middle = (i: number): Pt => { const s = sides[i]; return [(s[0][0] + s[1][0] + s[2][0] + s[3][0]) / 4, (s[0][1] + s[1][1] + s[2][1] + s[3][1]) / 4]; };
+  const normal = (i: number): Pt => { const [a, b] = sides[i]; const len = Math.hypot(b[0] - a[0], b[1] - a[1]); return [(b[1] - a[1]) / len, -(b[0] - a[0]) / len]; };
+  // a bendlet along `dir` through the middle of the shape, as a quadrilateral
+  const band = (dir: Pt): Pt[] => {
+    const n: Pt = [dir[1], -dir[0]];
+    const point = (s: number, o: number): Pt => [x + dir[0] * s + n[0] * o, y + dir[1] * s + n[1] * o];
+    return [point(-PALL_REACH, FRET_BENDLET_HALF), point(PALL_REACH, FRET_BENDLET_HALF), point(PALL_REACH, -FRET_BENDLET_HALF), point(-PALL_REACH, -FRET_BENDLET_HALF)];
+  };
+  const down: Pt = [Math.SQRT1_2, Math.SQRT1_2], up: Pt = [Math.SQRT1_2, -Math.SQRT1_2];
+  const downNormal: Pt = [down[1], -down[0]], upNormal: Pt = [up[1], -up[0]];
+  const over = FRET_BENDLET_HALF + FRET_GAP, under = side / 2 + FRET_GAP;
+  const centre: Pt = [x, y];
+  // The bendlet passes over the mascle at its top left (side 3) and under it at the bottom right (side 1); the bendlet sinister over at the
+  // bottom left (side 2) and under at the top right (side 0), and under the bendlet in the middle.
+  const mascle = [sides[0], sides[1], ...outsideStrip([sides[2]], upNormal, centre, over), ...outsideStrip([sides[3]], downNormal, centre, over)];
+  const bendlet = outsideStrip([band(down)], normal(1), middle(1), under);
+  const bendletSinister = outsideStrip(outsideStrip([band(up)], normal(0), middle(0), under), downNormal, centre, over);
+  return [...mascle, ...bendlet, ...bendletSinister].map((poly) => pts(clockwise(poly))).join('');
+}
+
 function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
   const f = shapeFrame(frame.shape);
   const shape = pathPolygon(f.outline);
@@ -475,7 +628,10 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
       const corners = spec.lines.a !== 'plain' || spec.mods.includes('inverted') ? sides.map(past) : [left, right];
       return { points: [corners[0], corners[1], point], edges: [null, A(1), A(0)], courses };
     }
-    case 'bordure': case 'orle': case 'tressure': case 'flaunches': case 'gore': return null;
+    case 'bordure': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'fret': return null;
+    case 'pall': case 'pall-inverted': return pallOutline(spec, frame);
+    case 'label': return labelOutline(frame);
+    case 'mount': case 'trimount': return moundOutline(spec.type, frame);
     // its upper edge laid like a chief's lower one
     case 'base': {
       const top = baseTop(f);
@@ -801,9 +957,10 @@ function curvedBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
 /** The ordinaries drawn as rings, filled even-odd: the bordure, the orle and the tressure. */
 const RINGS: readonly OrdinaryType[] = ['bordure', 'orle', 'tressure'];
 
-/** The body of an ordinary with no straight outline. */
+/** The body of an ordinary with no straight outline (the fret's is pieces woven together). */
 function curvedOrdinaryBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
   if (spec.type === 'bordure') return bordureBody(spec, frame);
+  if (spec.type === 'fret') return fretBody(frame);
   return spec.type === 'orle' || spec.type === 'tressure' ? ringBandsBody(spec, frame) : curvedBody(spec, frame);
 }
 
@@ -1007,7 +1164,7 @@ function curvedEnvelope(spec: OrdinarySpec, frame: OrdinaryFrame): OrdinaryGeome
 }
 
 /** The peripherals whose centre (where a division of one runs through it) is the middle of what the shape shows of them. */
-const IN_A_CORNER_OR_BASE: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron', 'gore', 'point-dexter', 'point-sinister'];
+const IN_A_CORNER_OR_BASE: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron', 'gore', 'point-dexter', 'point-sinister', 'label', 'mount', 'trimount'];
 
 /** The mean of some points. */
 const middleOf = (points: readonly Pt[]): Point => ({ x: points.reduce((a, [x]) => a + x, 0) / points.length, y: points.reduce((a, [, y]) => a + y, 0) / points.length });

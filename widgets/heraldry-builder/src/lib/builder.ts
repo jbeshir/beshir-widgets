@@ -309,7 +309,7 @@ function clashGround(d: Design, path: GroupPath, t: Tincture): string {
   return words.length === 1 ? `${words[0]} part of the background` : `${words.join(' and ')} parts of the background`;
 }
 
-/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border" / "Above the bottom bar" / "Within the inner border" / "Between the side curves". */
+/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border" / "Above the bottom bar" / "Within the inner border" / "Between the side curves" / "Above the hill" / "Below the bar with tabs". */
 export function placementLabel(d: Design, placement: Placement): string {
   const o = simpleParts(d).ordinary?.group.item;
   const name = (type: OrdinaryType) => ORDINARY_LABEL[type].plain.toLowerCase();
@@ -318,7 +318,8 @@ export function placementLabel(d: Design, placement: Placement): string {
   if (!ordinary) return 'On the background';
   if (ordinary === 'chief') return 'Below the top bar';
   if (ordinary === 'bordure') return 'Within the border';
-  if (ordinary === 'base' || ordinary === 'point') return `Above the ${name(ordinary)}`;
+  if (ordinary === 'base' || ordinary === 'point' || ordinary === 'mount' || ordinary === 'trimount') return `Above the ${name(ordinary)}`;
+  if (ordinary === 'label') return `Below the ${name(ordinary)}`;
   if (ordinary === 'orle' || ordinary === 'tressure') return `Within the ${name(ordinary)}`;
   if (ordinary === 'flaunches') return `Between the ${name(ordinary)}`;
   return ORDINARY_KIND[ordinary] === 'central' ? `Around the ${name(ordinary)}` : 'On the background';

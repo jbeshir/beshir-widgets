@@ -92,6 +92,11 @@ puts " within " before an orle or tressure and " between " before flaunches (O&A
 point matches and is filed as the widget's refusal (`widget-structure-rule`, RULES-C §C.3, L21), not as a gap. A matched design that
 the widget registers but cannot blazon, draw or build is a widget bug (`fails`), never ignored.
 
+The pall, pall inverted (read as one phrase), fret, label, mount and trimount are read too. `label-forms` drops "of three points" (the default) and
+"in chief" before a label, "throughout" after a pall, fret or label is dropped as it is after a cross, and a label, mount or trimount takes the joiner
+the O&A uses most (`PERIPHERAL_JOINER`). "a label of five points" is `ordinary:label-points`, a label overall `placement:overall-label`, a pall cotised
+is read and filed as the widget's refusal (`widget-structure-rule`, L20), a fret between charges `placement:between-fret-<n>`.
+
 ### Normalisation
 
 `test/sca/normalise.ts` is applied to the SCA blazon and to the widget's alike. It only bridges spelling and

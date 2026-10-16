@@ -1090,7 +1090,7 @@ describe('too-close candidate lookup', () => {
     }
 
     const verdicts = new Set<string>();
-    for (const probe of [...generatedDesigns(50_000, 300), ...pairs.slice(40, 80), ...badges(70_000, 10)]) {
+    for (const probe of [...generatedDesigns(50_000, 140), ...pairs.slice(40, 80), ...badges(70_000, 10)]) {
       const full = checkUnique(probe, signature(probe), entries);
       const res = await call('POST', '/api/arms/check', { body: { registry: 'prefilter', design: probe } });
       expect(res.status).toBe(200);

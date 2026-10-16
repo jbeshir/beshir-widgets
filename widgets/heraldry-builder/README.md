@@ -214,6 +214,23 @@ so that a design with one shows itself, but the structure rule `side-point` alwa
 point was used in period armory" (RULES-C §C.3, L21). The builder never offers them; the matcher reads "a dexter point" and files the
 record as that refusal.
 
+**The pall, fret, label, mount and trimount** (C10; tiles `ordinary-pall|label|fret|mount|trimount` in the More shapes row, and the label, mount
+and trimount also in a card's list). The pall is three arms of a cross's width from the fess point — to the chief corners of the shape's box
+and down — with a line on every edge, laid out from the centre like a saltire's; it may be voided and fimbriated, never cotised (L20: not
+offered). The pall inverted is a type of its own (`pall-inverted`, the pall turned over about the fess point, so the arms still meet
+there): the Upside down toggle of a pall changes its type (`TILE_OF`: the pall's tile is checked for both, `TURNED_ORDINARIES` are drawn
+but have no tile) and a pall carrying the `inverted` mod canonicalises to it. Charges: three between a pall stand one in each section
+(between the chief arms, either side of the foot — turned over for the inverted), one or three on it (one at the middle, or one on each arm,
+turned to follow it). The fret (`ORDINARY_KIND` central here though SENA calls it a charge: alone it is the main picture) is a mascle
+woven with a bendlet and a bendlet sinister running off the shape: pieces cut short where one member passes under another (convex,
+disjoint, one body); it takes no line, voiding or fimbriation, and as a charge it can't be counterchanged over an ordinary or stripes
+(CC-8, CC-3). The label (a bar across the chief with three tapering pendants, throughout), the mount and the trimount (one hill, three) are
+`'other'` ordinaries that always stand as peripherals (role `peripheral`: beside a picture, or alone with the field as the main group, SENA
+A5F) and keep charges out of them like a base; they take no line or treatment; the label is always drawn in chief (the plan's "alone, centred"
+is not drawn). Joiners from the O&A: ", a label", " and a mount", " and a trimount". Conflict: a pall against a pall inverted is a
+substantial change of type (A5E5c), a mount against a trimount one DC, a label of three points the only label drawn ("of five points",
+`ordinary:label-points`, and a label overall, App I4, `placement:overall-label`, stay gaps).
+
 The builder reaches them from **More shapes and edges…** on a central band or shape (`OutlineControls.tsx`, `outline.ts`, `shape-options.ts`):
 `ordinary-outline-none|fimbriated|cotised|doubly-cotised|triply-cotised` ("None · Edged · Cotised · Doubly · Triply"; one outline at a time, so
 fimbriated and cotised together stays the gap `ordinary-treatment:fimbriated-and-cotised`), then `ordinary-outline-tincture` (swatches
@@ -884,6 +901,7 @@ npm run favicon
 - `test/ordinary-lines.test.ts`: lines on ordinaries — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.
 - `test/builder.test.ts` "the outline of the band" and `test/builder-steps.test.ts`: the outline, its tincture and its cotise line, "Hollow", and the controls inside the closed disclosure.
 - `test/ordinary-outlines.test.ts`: cotises, fimbriation and voiding — the geometry on every shape (cotises parallel at a quarter of the band and a cotise apart, one to three a side, their own line following the band's; fimbriation round the body under it; voiding evenodd), render and hatching of the parts, the rules (A3C hosts and roles, contrast of the trims, the field's tincture under fimbriation, the core-practice step), the conflict readings (cotises as a group, RULES-C §B.7, voided and fimbriated read two ways), words, gloss and signature.
+- `test/central-and-edge-shapes.test.ts`: the pall, pall inverted, fret, label, mount and trimount — drawn inside every shape (lined, voided and fimbriated too), the pall's arms reaching the chief corners and the inverted one's the base, three between and one or three on a pall, the fret's woven pieces never overlapping, the roles, the rules (voided and fimbriated pall, a cotised pall and a fret refused, CC-8), conflict (pall against pall inverted, mount against trimount), the words and the toggle that turns a pall over.
 - `test/peripherals.test.ts`: the base, point pointed, canton, quarter and gyron (and sinister forms), and (C9) the orle, double and triple tressure, flaunches, gore (and gore sinister) and the refused dexter and sinister points — each shape's own inset for the rings, mirrored forms, charges kept inside an orle and out of flaunches and a gore, the `side-point` rule, orle ≡ tressure, flaunches a pair, the words — drawn inside every shape, the sinister forms mirrored, the frame a base leaves the other ordinaries; charges on the field, between, in chief or base kept out of them (alone and several at once; heater exhaustive, other shapes in turn) and still legible beside them; the contexts filled from the design; the rules (field-primary, chief and base alike, A6C1, App I4, A3D1c at the foot), conflict (canton ≡ quarter, base vs point pointed, sinister a DC of position), blazon joiners, gloss and signature. The builder side (the More shapes row, `peripheral-<i>` places and cards) is in `places.test.ts`, `builder.test.ts`, `builder-steps.test.ts` and `builder-layers-reach.test.ts` (`generatedPeripheralDesigns`).
 - `test/ordinary-treatments.test.ts`: inverted, couped, throughout, enhanced and abased — the geometry on every shape (reflection, couped ends inside the shape and straight on lined bands, throughout touching the edge, a band moved not widened), the conflict readings (A5E5c, A5G7, A5G4, none for position), the rules (contradictions, hosts, a charged chevron inverted abased), the layouts around and on them, the words, the toggles and `setOrdinary`.
 - `test/lines-field.test.ts`: lines on the field — every partition line of every allowed pair is drawn with its profile and at least two periods inside each shape; the regions of every allowed line on every phase-B division and striped variation tile each shape (heater exhaustively, a rotating third elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
@@ -922,10 +940,10 @@ npm run favicon
   draws and lets the Design tab build, or is on the ignore list with the gaps that stop it. See
   `test/fixtures/sca/README.md`. To keep `npm test` fast as records start passing, it runs the cheap checks (match,
   assess, blazon, render) on every record but the expensive ones on a seeded, rotating sample (`test/sca/sample.ts`):
-  the builder-click replay (`builderPath`, ~11 ms a design) on every design with a feature no earlier design has (so
-  every ordinary, charge, division, line, treatment and layout is replayed on every run) plus ~300 designs picked by a hash
+  the builder-click replay (`builderPath`, ~30 ms a design) on every design with a feature no earlier design has (so
+  every ordinary, charge, division, line, treatment and layout is replayed on every run) plus ~120 designs picked by a hash
   of the UTC date (or `SCA_SAMPLE_SEED`), and the gap tagger's re-run on the ignored records (the ratchet's "still has the
-  gap it is filed under") for the first record of each gap category plus one in eight. "An ignored record that now passes"
+  gap it is filed under") for the first record of each gap category plus one in twelve. "An ignored record that now passes"
   and "a new failure" are still checked on every record, by the match and the cheap checks. **`npm run sca:ignore` is the
   authoritative full sweep** (it never samples, and fails on any widget bug in any record); the final gate runs it, and
   `SCA_FULL=1 npx vitest run --project sca` makes the test do the same. Sampled failures print the seed to reproduce.

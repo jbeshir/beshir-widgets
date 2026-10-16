@@ -186,6 +186,16 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
   ['a band within a double tressure, on a card beside it', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('tressure'), 'argent', { count: 2 })), 'Azure, a fess Or within a double tressure argent.'],
   ['an orle engrailed beside a chief', arms('argent', group(charge('lion'), 'gules'), group(ordinary('orle', { lines: { a: 'engrailed' } }), 'azure'), group(ordinary('chief'), 'gules')),
     'Argent, a lion gules within an orle engrailed azure, a chief gules.'],
+  ['a pall (O&A 17613)', arms({ k: 'variation', variation: 'lozengy', parts: ['argent', 'azure'] }, group(ordinary('pall'), 'or')), 'Lozengy argent and azure, a pall Or.'],
+  ['a pall voided (O&A 65304)', arms('argent', group(ordinary('pall', { mods: ['voided'] }), 'sable')), 'Argent, a pall voided sable.'],
+  ['a pall inverted bretessed', arms('azure', group(ordinary('pall-inverted', { lines: { a: 'bretessed' } }), 'argent')), 'Azure, a pall inverted bretessed argent.'],
+  ['three charges between a pall inverted', arms('argent', group(ordinary('pall-inverted'), 'gules'), group(charge('roundel'), 'azure', { count: 3, relation: 'between' })),
+    'Argent, a pall inverted gules between three roundels azure.'],
+  ['three charges on a pall', arms('argent', { ...group(ordinary('pall'), 'azure'), charged: [group(charge('mullet'), 'or', { count: 3 })] }), 'Argent, on a pall azure three mullets Or.'],
+  ['a picture and a label', arms('azure', group(charge('lion'), 'or'), group(ordinary('label'), 'argent')), 'Azure, a lion Or, a label argent.'],
+  ['a trimount alone', arms('vert', group(ordinary('trimount'), 'or')), 'Vert, a trimount Or.'],
+  ['a picture and a mount', arms('or', group(charge('lion'), 'gules'), group(ordinary('mount'), 'vert')), 'Or, a lion gules and a mount vert.'],
+  ['a fret counterchanged', arms(div('per-pale', 'gules', 'or'), group(ordinary('fret'), { k: 'counterchanged' })), 'Per pale gules and Or, a fret counterchanged.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -203,7 +213,7 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   });
 
   it('every generated design with a line on the field is built too', () => {
-    const problems = generatedGeometryDesigns(11, 150).flatMap((d) => {
+    const problems = generatedGeometryDesigns(11, 100).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });

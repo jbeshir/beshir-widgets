@@ -145,6 +145,22 @@
       "expect": {"selector":"[data-testid=blazon]:has-text(\"within an orle\")"}
     },
     {
+      "label": "more-shapes-pall",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"eval":"document.querySelector('#charge-tab-beast')?.click()"},
+        {"click":"[data-testid=charge-lion]"},
+        {"click":"[data-testid=ordinary-shape-more] summary"},
+        {"waitFor":"[data-testid=ordinary-pall]"},
+        {"click":"[data-testid=ordinary-pall]"},
+        {"waitFor":"[data-testid=ordinary-shape-inverted]"},
+        {"click":"[data-testid=ordinary-shape-inverted]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"pall inverted\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"pall inverted\")"}
+    },
+    {
       "label": "shape-round",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

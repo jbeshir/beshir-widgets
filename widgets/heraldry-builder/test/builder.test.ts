@@ -832,7 +832,7 @@ describe('corner and edge shapes: the More shapes row and any number of them bes
     expect(blazon(setOrdinaryToggle(gore, ordinaryPath(gore)!, 'sinister', true))).toMatch(/and a gore sinister \w+\.$/);
     expect(MORE_ORDINARIES.some((t) => REFUSED_ORDINARIES.includes(t))).toBe(false);
     const card = addLayer(setOrdinaryTincture(setOrdinary(DEFAULT_DESIGN, 'fess'), 'or'), 'peripheral');
-    expect(peripheralItemChoices(card, 'peripheral-0').map((c) => c.value)).toEqual(['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore']);
+    expect(peripheralItemChoices(card, 'peripheral-0').map((c) => c.value)).toEqual(['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore', 'label', 'mount', 'trimount']);
     const asTressure = setPeripheralItem(card, 'peripheral-0', 'tressure');
     expect(groupAt(asTressure, pathOfPlace(asTressure, 'peripheral-0')!).count).toBe(2);
   });

@@ -366,7 +366,7 @@ function parseGroup(v: unknown, path: GroupPath, top: boolean, E: Errors): RawGr
  * the input relates to the main one ("between": a lion between three mullets) is secondary.
  */
 function inferRole(r: RawGroup, siblings: readonly RawGroup[]): Role {
-  if (r.item.k === 'ordinary') return ORDINARY_KIND[r.item.type] === 'peripheral' ? 'peripheral' : 'primary';
+  if (r.item.k === 'ordinary') return ORDINARY_KIND[r.item.type] === 'central' ? 'primary' : 'peripheral';
   if (r.relation !== null) return 'secondary';
   if (siblings.some((s) => s.item.k === 'ordinary' && ORDINARY_KIND[s.item.type] === 'central' && s.role !== 'overall')) return 'secondary';
   const central = (s: RawGroup) => s !== r && s.item.k === 'charge' && s.position === null && s.relation === null && (s.role === null || s.role === 'primary');

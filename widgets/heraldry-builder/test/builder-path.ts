@@ -6,7 +6,7 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DRAWN_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
+  CHARGE_IDS, DRAWN_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
   asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
   type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
@@ -629,7 +629,8 @@ export function builderPath(goal: Design): BuilderPath {
   const togglesTo = (target: 'ordinary' | Beside, goalItem: Group['item']): boolean => {
     if (goalItem.k !== 'ordinary') return true;
     return (['inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).every((toggle) => {
-      const on = goalItem.mods.includes(toggle);
+      // the pall inverted is the pall turned over: no treatment of its own
+      const on = goalItem.mods.includes(toggle) || (toggle === 'inverted' && goalItem.type === 'pall-inverted');
       return toggledOn(d, paintPathOf(d, target)!, toggle) === on || click({ kind: 'toggle', target, toggle, on });
     });
   };
@@ -641,7 +642,7 @@ export function builderPath(goal: Design): BuilderPath {
   // Ordinary: its type, its shape (toggles, then where a band sits, then how many times over), its tincture, then its edges.
   if (parts.ordinary) {
     const item = parts.ordinary.group.item;
-    if (item.k !== 'ordinary' || !click({ kind: 'ordinary', type: item.type })) return done();
+    if (item.k !== 'ordinary' || !click({ kind: 'ordinary', type: TILE_OF[item.type] ?? item.type })) return done();
     const path = () => paintPathOf(d, 'ordinary')!;
     if (!togglesTo('ordinary', item)) return done();
     const position: BandPosition = item.mods.includes('enhanced') ? 'enhanced' : item.mods.includes('abased') ? 'abased' : 'middle';

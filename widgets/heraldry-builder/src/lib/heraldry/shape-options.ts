@@ -88,7 +88,8 @@ function keptSide(d: Design, target: EdgeTarget): EdgeSide | null {
 /** Every line the target's host may carry, in the order the builder offers them, blocked where the result breaks a rule of the host itself. */
 export function lineChoices(d: Design, target: EdgeTarget): Choice<Line>[] {
   const host = hostAt(d, target);
-  if (!host) return [];
+  // a host with no edge to draw a line on (the point pointed, the fret, the label, the mount) has no row
+  if (!host || edgeCount(host) === 0) return [];
   const side = keptSide(d, target);
   return (['plain', ...DRAWN_LINES] as const).filter((l) => l === 'plain' || lineAllowed(host, l)).map((line) => choice(line, lineProblem(withLinesAt(d, target, linesOn(host, line, side)), target)));
 }
@@ -189,11 +190,26 @@ function modsProblem(d: Design, path: GroupPath, mods: readonly OrdinaryMod[]): 
   return ordinaryLineProblem(groupAt(next, path)) ?? treatmentRuleProblem(next, path);
 }
 
+/** The pall and the pall inverted, which are one band or shape upside down or not: turning one over is a change of type, not a treatment. */
+const isPall = (type: OrdinaryType): boolean => type === 'pall' || type === 'pall-inverted';
+
+/** The pall at `path` turned upside down (or back), keeping its line where the other can carry it. */
+function pallTurned(d: Design, path: GroupPath, upsideDown: boolean): Design {
+  const group = groupAt(d, path);
+  if (group.item.k !== 'ordinary') return d;
+  const type = upsideDown ? 'pall-inverted' : 'pall';
+  return canonical(replaceGroup(d, path, { ...group, item: { ...group.item, type, lines: keptOrdinaryLines(group.item.lines, type, false) } }));
+}
+
 /** The toggles the band or shape at `path` takes (none for a top band, a border or a charge), blocked where turning one over breaks a rule. */
 export function toggleChoices(d: Design, path: GroupPath): Choice<ShapeToggle>[] {
   const item = drawnOrdinaryAt(d, path);
   if (!item) return [];
   return SHAPE_TOGGLES.filter((t) => modDrawn(item.type, t)).map((t) => {
+    if (t === 'inverted' && isPall(item.type)) {
+      const turned = pallTurned(d, path, item.type === 'pall');
+      return choice(t, ordinaryLineProblem(groupAt(turned, path)) ?? treatmentRuleProblem(turned, path));
+    }
     const mods = item.mods.includes(t) ? item.mods.filter((m) => m !== t) : [...item.mods, t];
     return choice(t, modsProblem(d, path, mods));
   });
@@ -201,13 +217,15 @@ export function toggleChoices(d: Design, path: GroupPath): Choice<ShapeToggle>[]
 
 /** Whether the toggle is on. */
 export function toggledOn(d: Design, path: GroupPath, t: ShapeToggle): boolean {
-  return drawnOrdinaryAt(d, path)?.mods.includes(t) ?? false;
+  const item = drawnOrdinaryAt(d, path);
+  return t === 'inverted' && item?.type === 'pall-inverted' ? true : item?.mods.includes(t) ?? false;
 }
 
 /** The band or shape with the toggle on or off. */
 export function setToggle(d: Design, path: GroupPath, t: ShapeToggle, on: boolean): Design {
   const item = drawnOrdinaryAt(d, path);
-  if (!item || item.mods.includes(t) === on) return d;
+  if (!item || toggledOn(d, path, t) === on) return d;
+  if (t === 'inverted' && isPall(item.type)) return pallTurned(d, path, on);
   return withMods(d, path, on ? [...item.mods, t] : item.mods.filter((m) => m !== t));
 }
 

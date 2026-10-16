@@ -19,9 +19,9 @@ import { fullSweep, sampleSeed, unit } from '../rotation';
 import type { ArmoryRecord } from './oanda';
 
 /** About this many designs are replayed through the builder by the rotating stratum, however many records pass. */
-export const BUILDER_SAMPLE = 300;
+export const BUILDER_SAMPLE = 120;
 /** One in this many ignored records has the gap tagger re-run by the rotating stratum. */
-export const TAGGER_RATE = 8;
+export const TAGGER_RATE = 12;
 
 /** The features of a design: the tokens of its signature (ordinaries `o.fess`, charges `c.lion`, lines, mods, divisions, layouts, tinctures). */
 const features = (d: Design): string[] => signature(d).split(/[|:(),{}/+~.>]/).filter(Boolean);

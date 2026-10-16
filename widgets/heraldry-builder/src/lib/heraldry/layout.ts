@@ -16,7 +16,7 @@ import {
 import {
   CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
 } from './geometry';
-import { bandShift, defaultOrdinaryFrame, flipAxis, isPlainSpec, ordinaryGeometry, trimGrowth, type OrdinarySpec } from './ordinary-geometry';
+import { bandShift, defaultOrdinaryFrame, isPlainSpec, ordinaryGeometry, trimGrowth, turnAxis, upsideDown, type OrdinarySpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';
 import type { FieldShape } from './shape';
 import { MAX_DRAWN_COUNT } from './support';
@@ -49,6 +49,8 @@ function followRotation(ordinary: OrdinaryType, x: number): number {
     case 'bend': return -45;
     case 'bend-sinister': return 45;
     case 'chevron': return x < 50 ? 45 : x > 50 ? -45 : 0;
+    // the pall's chief arms run like a bend and a bend sinister, its foot upright
+    case 'pall': return x < 50 ? -45 : x > 50 ? 45 : 0;
     default: return 0;
   }
 }
@@ -324,6 +326,8 @@ const chevronAbove = (peripheral: Peripheral): Area => (hasChief(peripheral) ? a
  */
 function betweenCentres(ordinary: BetweenHost, count: number, peripheral: Peripheral): Centre[] | null {
   const split = BETWEEN[ordinary]?.[count]?.split;
+  // one between the chief arms, one each side of the foot (the pall inverted's are turned over with it)
+  if (ordinary === 'pall' || ordinary === 'pall-inverted') return count === 3 ? [at(50, 14), at(20, 72), at(80, 72)] : null;
   if (!split) return null;
   const [first, second] = split;
   const free = freeArea(peripheral);
@@ -493,6 +497,8 @@ function alongLimbs(count: number, start: number, pitch: number): Centre[] {
 }
 
 function onCentres(ordinary: OrdinaryType, count: number, peripheral: Peripheral): Centre[] | null {
+  // one where the arms meet, or one on each arm (the pall inverted's are turned over with it)
+  if (ordinary === 'pall' || ordinary === 'pall-inverted') return count === 1 ? [at(50, 50)] : count === 3 ? [at(27, 27, followRotation('pall', 27)), at(73, 27, followRotation('pall', 73)), at(50, 82)] : null;
   const axis = axisOf(ordinary, peripheral);
   if (axis) return alongAxis(axis, count, peripheral);
   if (ordinary !== 'chevron') return null;
@@ -576,11 +582,11 @@ const COUPED_DRAW_IN = 0.8;
  */
 function treatedCentres(spec: OrdinarySpec, kind: 'between' | 'on', centres: Centre[], turned: boolean): Centre[] {
   const trimmed = kind === 'between' && trimGrowth(spec) > 0;
-  if (spec.mods.length === 0 && !trimmed) return centres;
+  if (spec.mods.length === 0 && !trimmed && spec.type !== 'pall-inverted') return centres;
   const heater = shapeFrame(CANONICAL_SHAPE);
   const { x: fx, y: fy } = heater.fessPoint;
-  const inverted = spec.mods.includes('inverted');
-  const axis = flipAxis(defaultOrdinaryFrame(CANONICAL_SHAPE));
+  const inverted = upsideDown(spec);
+  const axis = turnAxis(spec, defaultOrdinaryFrame(CANONICAL_SHAPE));
   const flip = (cs: Centre[]) => cs.map((c) => at(c.x, 2 * axis - c.y, -c.rotation || 0));
   // clear of its cotises or fimbriation where it stands upright (Table 7's chevron inverted row is turned back for that)
   let out = !trimmed ? centres : inverted && turned ? flip(clearOfTrims(spec, flip(centres))) : clearOfTrims(spec, centres);

@@ -213,7 +213,7 @@ export function generatedGeometryDesigns(seed: number, count: number): Design[] 
 
 /** Mixed into a seed for the picks of the lined ordinaries. */
 const LINED_ORDINARY_SEED = 0x6a09e667;
-const LINED_ORDINARIES = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'chief', 'bordure'];
+const LINED_ORDINARIES = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'chief', 'bordure', 'pall'];
 
 /**
  * The design for `seed` with a band or shape drawn with a line its host takes, on both edges or (a band with two) on one, sometimes
@@ -254,7 +254,7 @@ const TREATED_ORDINARY_SEED = 0x3c6ef373;
 function treatedOrdinaryDesignFor(seed: number): Design | null {
   const next = prng(seed ^ TREATED_ORDINARY_SEED);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
-  const type = pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'] as const);
+  const type = pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'pall'] as const);
   const mods = (['inverted', 'couped', 'throughout', 'enhanced', 'abased'] as const).filter((m) => modDrawn(type, m) && next() < 0.45);
   if (mods.length === 0) return null;
   const inverted = mods.includes('inverted');
@@ -288,10 +288,10 @@ const OUTLINED_ORDINARY_SEED = 0x510e527f;
 function outlinedOrdinaryDesignFor(seed: number): Design | null {
   const next = prng(seed ^ OUTLINED_ORDINARY_SEED);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
-  const type = pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'] as const);
+  const type = pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'pall'] as const);
   const divided = next() < 0.3;
   const field = divided ? { k: 'divided', division: pick(['per-pale', 'per-fess', 'per-bend'] as const), parts: [pick(['or', 'argent']), pick(['azure', 'gules', 'sable', 'vert'])] } : pick(TINCTURES);
-  const hollow = (type === 'cross' || type === 'saltire') && next() < 0.4;
+  const hollow = (type === 'cross' || type === 'saltire' || type === 'pall') && next() < 0.4;
   const mods = hollow ? ['voided'] : [];
   const line = next() < 0.3 ? pick(DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type, inverted: false }, l))) : null;
   const cotisedLine = next() < 0.25 ? pick(['plain', ...DRAWN_LINES.filter((l) => lineAllowed({ k: 'cotises', type }, l))]) : null;
@@ -319,18 +319,18 @@ export function generatedOutlinedOrdinaryDesigns(seed: number, count: number): D
 
 /** Mixed into a seed for the picks of the corner and edge shapes. */
 const PERIPHERAL_SEED = 0x9b05688c;
-const CORNER_AND_EDGE = ['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore'] as const;
+const CORNER_AND_EDGE = ['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore', 'label', 'mount', 'trimount'] as const;
 
 /**
  * The design for `seed` with one to three corner or edge shapes (a base, point pointed, canton, quarter, gyron, orle, double or triple
- * tressure, flaunches or gore, sometimes in the sinister corner or on the sinister side, or with a line), alone or beside a band or a picture, sometimes with a chief or a bordure too. Null when the pick isn't registrable.
+ * tressure, flaunches, gore, label, mount or trimount, sometimes in the sinister corner or on the sinister side, or with a line), alone or beside a band or a picture, sometimes with a chief or a bordure too. Null when the pick isn't registrable.
  */
 function peripheralDesignFor(seed: number): Design | null {
   const next = prng(seed ^ PERIPHERAL_SEED);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
   const groups: object[] = [];
   const main = next();
-  if (main < 0.35) groups.push({ item: { k: 'ordinary', type: pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile']) }, paint: pick(TINCTURES) });
+  if (main < 0.35) groups.push({ item: { k: 'ordinary', type: pick(['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'pall', 'fret']) }, paint: pick(TINCTURES) });
   else if (main < 0.8) groups.push({ item: { k: 'charge', charge: pick(CHARGES) }, paint: pick(TINCTURES), count: 1 + Math.floor(next() * 3) });
   const shapes = new Set<(typeof CORNER_AND_EDGE)[number]>();
   for (let n = 1 + Math.floor(next() * next() * 3); shapes.size < n;) {
@@ -340,7 +340,7 @@ function peripheralDesignFor(seed: number): Design | null {
   }
   for (const type of shapes) {
     const mods = modDrawn(type, 'sinister') && next() < 0.3 ? ['sinister'] : [];
-    const line = type !== 'point' && next() < 0.25 ? pick(DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type, inverted: false }, l))) : null;
+    const line = type !== 'point' && !['label', 'mount', 'trimount'].includes(type) && next() < 0.25 ? pick(DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type, inverted: false }, l))) : null;
     groups.push({ item: { k: 'ordinary', type, mods, ...(line ? { lines: { a: line } } : {}) }, ...(type === 'tressure' ? { count: 2 + Math.floor(next() * 2) } : {}), paint: pick(TINCTURES) });
   }
   if (next() < 0.25) groups.push({ item: { k: 'ordinary', type: pick(['chief', 'bordure']) }, paint: pick(TINCTURES) });

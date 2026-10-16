@@ -18,7 +18,7 @@ import {
 } from './geometry';
 import { defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
-import { ORDINARY_KIND, ORDINARY_NAME, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, type Division, type Variation } from './divisions';
 import { isStraightLine } from './lines';
 import { coPrimaries, forcedLayout, layoutContext } from './arrangement';
@@ -244,7 +244,7 @@ const ALONG_STRIPES: Partial<Record<Variation, readonly OrdinaryType[]>> = {
 function counterchangeOverVariation(group: Group, variation: Variation, noun: string, lie: string, them: string): string | null {
   const field = VARIATION_NAME[variation];
   const whole = `The ${noun} ${lie} across a ${field} field, and`;
-  if (group.item.k === 'charge') return `${whole} a charge can't be counterchanged over stripes or a grid — choose a tincture for ${them} (SENA CC-3).`;
+  if (group.item.k === 'charge' || group.item.type === 'fret') return `${whole} a ${noun} can't be counterchanged over stripes or a grid — choose a tincture for ${them} (SENA CC-3).`;
   const kind = ORDINARY_KIND[group.item.type];
   if (variation === 'pily') return group.item.type === 'chief' || group.item.type === 'bordure' ? null : `${whole} only a chief or a bordure can be counterchanged over pily.`;
   const along = ALONG_STRIPES[variation];
@@ -266,6 +266,9 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
   if (host) {
     return `The ${nounOf(group)} ${lie} on the ${itemName(host.item)}, not on the field — counterchanged charges on a band or charge aren't available in this builder.`;
   }
+  // A fret is a charge, not an ordinary, and no charge is counterchanged over an ordinary (SENA CC-8, Grainne Dhonn 07/2008)
+  const under = group.item.k === 'ordinary' && group.item.type === 'fret' ? d.groups.find((g) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central' && g.item.type !== 'fret') : undefined;
+  if (under && under.item.k === 'ordinary') return `A fret can't be counterchanged over ${ordinaryWithArticle(under.item.type)}: a fret is a charge, and a charge can't be (SENA CC-8).`;
   const pair = fieldPair(d);
   if (pair === null && d.kind === 'arms' && d.field.k === 'divided') {
     return `Counterchanged swaps the two tinctures of a field divided in two, and a fur on the field can't be swapped in this builder.`;

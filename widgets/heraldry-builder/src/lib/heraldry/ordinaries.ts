@@ -9,19 +9,30 @@ export type OrdinaryType = (typeof ORDINARY_TYPES)[number];
 /** The ordinaries the builder offers in its main grid: the first ten. */
 export const BUILDER_ORDINARIES: readonly OrdinaryType[] = ORDINARY_TYPES.slice(0, 10);
 /** Ordinaries drawn but reached only behind disclosure (the band step's "More shapes" row, and the corner or edge shapes beside the band). */
-export const MORE_ORDINARIES: readonly OrdinaryType[] = ['base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore'];
+export const MORE_ORDINARIES: readonly OrdinaryType[] = [
+  'base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore', 'pall', 'label', 'fret', 'mount', 'trimount',
+];
+/** Ordinaries drawn and reached through a toggle of another's, not a tile of their own: the pall inverted (`TILE_OF`). */
+export const TURNED_ORDINARIES: readonly OrdinaryType[] = ['pall-inverted'];
 /**
  * Ordinaries drawn and blazoned, so that a design with one shows itself and says why it is refused, but never offered by the builder: the
  * dexter and sinister points, which "were [not] actually used in period armory" (RULES-C §C.3, L21; structure.ts refuses them).
  */
 export const REFUSED_ORDINARIES: readonly OrdinaryType[] = ['point-dexter', 'point-sinister'];
+/** The ordinary whose tile in the builder's grids picks this one, where it has none of its own: the pall inverted is the pall turned over. */
+export const TILE_OF: Partial<Record<OrdinaryType, OrdinaryType>> = { 'pall-inverted': 'pall' };
 /** Every ordinary the library draws. */
-export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES, ...MORE_ORDINARIES, ...REFUSED_ORDINARIES];
+export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES, ...MORE_ORDINARIES, ...TURNED_ORDINARIES, ...REFUSED_ORDINARIES];
 
 /** The ordinaries the builder draws overall (over the primary group): the bands and crosses that cross the middle of the field. */
 export const OVERALL_ORDINARIES: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'];
 
-/** Central ordinaries can be the primary group; peripheral ones never can (SENA App I1). */
+/**
+ * Central ordinaries can be the primary group; peripheral ones never can (SENA App I1). The label, mount and trimount ('other') lie
+ * along an edge of the field (the label in chief, the mount and trimount issuant from base) and stand as a peripheral does; a design of nothing else has the field as its primary
+ * group (SENA A5F). The fret is central here though SENA calls it a charge: alone it is the main picture, and the rules that
+ * differ for a charge are written on it by type.
+ */
 export type OrdinaryKind = 'central' | 'peripheral' | 'other';
 
 export const ORDINARY_KIND: Record<OrdinaryType, OrdinaryKind> = {
@@ -66,16 +77,16 @@ export const ORDINARY_MODS = ['inverted', 'couped', 'voided', 'throughout', 'enh
 export type OrdinaryMod = (typeof ORDINARY_MODS)[number];
 
 /**
- * The ordinaries each treatment is drawn on (RULES-C §D): a chevron or pile upside down; a band, chevron, cross or saltire shortened
- * (couped); a chevron or pile reaching the edges (throughout — crosses and saltires are throughout already); a band or chevron raised or
- * lowered; a cross or saltire voided; a canton, quarter or gyron in the sinister chief corner instead of the dexter, a gore issuing from
+ * The ordinaries each treatment is drawn on (RULES-C §D): a chevron, pile or pall upside down (a pall inverted is a type of its own, the
+ * pall so treated); a band, chevron, cross or saltire shortened (couped); a chevron or pile reaching the edges (throughout — crosses,
+ * saltires and palls are throughout already); a band or chevron raised or lowered; a cross, saltire or pall voided; a canton, quarter or gyron in the sinister chief corner instead of the dexter, a gore issuing from
  * the sinister flank ("a canton sinister", "a gore sinister": RULES-C §C.3, a form of the ordinary, not a place of the field). On any
  * other ordinary a treatment is a gap.
  */
 export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
-  inverted: ['chevron', 'pile'],
+  inverted: ['chevron', 'pile', 'pall', 'pall-inverted'],
   couped: ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire'],
-  voided: ['cross', 'saltire'],
+  voided: ['cross', 'saltire', 'pall', 'pall-inverted'],
   throughout: ['chevron', 'pile'],
   enhanced: ['fess', 'bend', 'bend-sinister', 'chevron'],
   abased: ['fess', 'bend', 'bend-sinister', 'chevron'],
@@ -84,11 +95,12 @@ export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
 
 /**
  * The peripheral ordinaries in paint and blazon order: what lies along the base first (the dexter and sinister points with the point
- * pointed), then the gyron, the flaunches, the gore, the orle and tressure, the chief, the bordure (painted over the chief, SENA App M1l),
- * and last the quarter or canton, which lies over a bordure. Any number of them may stand together.
+ * pointed, the mount and trimount), then the gyron, the flaunches, the gore, the orle and tressure, the chief, the bordure (painted over the
+ * chief, SENA App M1l), the label across them, and last the quarter or canton, which lies over a bordure. Any number of them may stand together.
  */
 export const PERIPHERAL_ORDER: readonly OrdinaryType[] = [
-  'base', 'point', 'point-dexter', 'point-sinister', 'gyron', 'flaunches', 'gore', 'orle', 'tressure', 'chief', 'bordure', 'quarter', 'canton',
+  'base', 'mount', 'trimount', 'point', 'point-dexter', 'point-sinister', 'gyron', 'flaunches', 'gore', 'orle', 'tressure', 'chief', 'bordure', 'label',
+  'quarter', 'canton',
 ];
 
 /** How a peripheral ordinary is joined to the element blazoned before it (`PERIPHERAL_JOINER`). */
@@ -99,12 +111,12 @@ export type PeripheralJoiner = ', ' | ' and ' | ' within ' | ' between ';
  * " between flaunches argent". Each new type takes its majority joiner in the O&A ("<joiner> a <type> <tincture>", PLAN-C C8a, C9):
  * base " and " 245 to ", " 222; point pointed ", " 72 to " and " 60; canton " and " 6 to ", " 5; quarter ", " 2 to " and " 1; gyron
  * " and " 1 to none; orle " within " 845 to ", " 202 and " and " 140; double tressure " within " 84 to ", " 22; flaunches " between "
- * 300 to ", " 25; gore " and " 80 to ", " 56; the dexter and sinister points one record each (", " as the point pointed's). The chief
+ * 300 to ", " 25; gore " and " 80 to ", " 56; the dexter and sinister points one record each (", " as the point pointed's); label ", " 28 to " and " 16; mount " and " 23 to ", " 17; trimount " and " 17 to ", " 9. The chief
  * (" and " 1,001 to ", " 811) and the bordure (" within " 3,858 to ", " 2,512) keep the comma this builder has always written.
  */
 export const PERIPHERAL_JOINER: Record<OrdinaryType, PeripheralJoiner> = {
   ...(Object.fromEntries(ORDINARY_TYPES.map((t) => [t, ', '])) as Record<OrdinaryType, PeripheralJoiner>),
-  base: ' and ', gyron: ' and ', canton: ' and ', gore: ' and ', orle: ' within ', tressure: ' within ', flaunches: ' between ',
+  base: ' and ', gyron: ' and ', canton: ' and ', gore: ' and ', mount: ' and ', trimount: ' and ', orle: ' within ', tressure: ' within ', flaunches: ' between ',
 };
 
 /** Whether the treatment is drawn on this ordinary. */

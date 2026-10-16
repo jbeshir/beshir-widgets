@@ -13,8 +13,8 @@ const FIELD_LAYOUTS: readonly string[] = [
   'crossed', 'pair-combattant', 'host', ...ROW_PATTERNS.map((r) => `rows-${r.join('-')}`),
 ];
 const HOST_LAYOUTS: readonly string[] = ['host', 'single'];
-const BETWEEN: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
-const ON: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'chief', 'cross', 'saltire', 'pile'];
+const BETWEEN: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile', 'pall', 'pall-inverted'];
+const ON: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'chief', 'cross', 'saltire', 'pile', 'pall', 'pall-inverted'];
 
 const FIELD_PERIPHERALS = ['none', 'chief', 'bordure'] as const;
 

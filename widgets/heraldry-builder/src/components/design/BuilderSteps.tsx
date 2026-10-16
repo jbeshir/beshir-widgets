@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, ORDINARY_COUNTS, ORDINARY_COUNT_LABEL, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ORDINARY_COUNT_LABEL, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -315,7 +315,7 @@ function outlineWords(design: Design, path: GroupPath): string {
 export function ordinaryShapeWords({ item, count }: Design['groups'][number]): string {
   if (item.k !== 'ordinary') return '';
   const number = ORDINARY_COUNTS[item.type]?.includes(count) ? [ORDINARY_COUNT_LABEL[count].plain.toLowerCase()] : [];
-  const toggles = (['inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).filter((t) => item.mods.includes(t)).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
+  const toggles = (['inverted', 'couped', 'throughout', 'voided', 'sinister'] as const).filter((t) => item.mods.includes(t) || (t === 'inverted' && item.type === 'pall-inverted')).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
   const moved = (['enhanced', 'abased'] as const).filter((p) => item.mods.includes(p)).map((p) => BAND_POSITION_LABEL[p].plain.toLowerCase());
   return [...number, ...toggles, ...moved].join(', ');
 }
@@ -324,6 +324,8 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
   const type = item?.k === 'ordinary' ? item.type : null;
+  // the tile that picks it (the pall inverted is the pall's)
+  const tile = type && (TILE_OF[type] ?? type);
   return (
     <Step n={2} title="Band or shape" term="ordinary" hint="A bold band, border or shape. You need this or a picture (or both)." summary={ordinarySummary(design)} issues={issues} accordion={accordion} testid="step-ordinary" remove={null}>
       <RadioGroup label="Ordinary" class="icon-grid icon-grid-ordinary" testid="ordinary-select">
@@ -341,13 +343,13 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
       {path && type && (
         <PaintPicker design={design} path={path} group="ordinary" testid="ordinary-tincture" noun={lower(ORDINARY_LABEL[type].plain)} onChange={onChange} />
       )}
-      <MoreShapes testid="ordinary" summary="More shapes and edges…" used={(type !== null && MORE_ORDINARIES.includes(type)) || (path !== null && usesShapeControls(design, path))}>
+      <MoreShapes testid="ordinary" summary="More shapes and edges…" used={(tile !== null && MORE_ORDINARIES.includes(tile)) || (path !== null && usesShapeControls(design, path))}>
         {() => (
           <>
             <p class="picker-legend">More shapes</p>
             <RadioGroup label="More shapes" class="icon-grid icon-grid-ordinary" testid="ordinary-more-select">
               {MORE_ORDINARIES.map((t) => (
-                <ChoiceButton key={t} testid={`ordinary-${t}`} checked={type === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
+                <ChoiceButton key={t} testid={`ordinary-${t}`} checked={tile === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
                   <Shield design={MORE_ICONS.get(t)!} shape={shape} size={30} label={null} />
                   <span class="choice-label">{capitalise(ORDINARY_LABEL[t].term)}</span>
                 </ChoiceButton>

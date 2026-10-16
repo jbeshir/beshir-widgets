@@ -233,8 +233,8 @@ function placementGaps(d: Design, g: Group, host: Group | null): Found[] {
   if (host.item.k === 'charge') return host.role === 'primary' && !ON_CHARGE_COUNTS.includes(g.count) ? [countGap(`on-charge-${g.count}`, 'host')] : [];
   if (!DRAWN_ORDINARIES.includes(host.item.type)) return [];
   const type = host.item.type;
-  // A charged canton or quarter breaks SENA A6C1 (a structure issue); charges on a base, point or gyron have no layout here.
-  if (ORDINARY_KIND[type] === 'peripheral' && type !== 'chief' && type !== 'bordure') {
+  // A charged canton or quarter breaks SENA A6C1 (a structure issue); charges on any other shape beside the field's edges have no layout here.
+  if (ORDINARY_KIND[type] !== 'central' && type !== 'chief' && type !== 'bordure') {
     return type === 'canton' || type === 'quarter' ? [] : [gap('multiple-groups', `tertiary-on-${type}`, ON_THAT_CHARGE)];
   }
   return hostCounts('on', specOf(host)).includes(g.count) ? [] : [countGap(`on-${type}-${g.count}`, 'host')];

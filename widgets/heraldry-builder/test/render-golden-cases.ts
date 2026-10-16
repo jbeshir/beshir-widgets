@@ -136,7 +136,17 @@ const PERIPHERAL_CASES: ReadonlyArray<[string, unknown]> = [
   ['line-embattled-outer-orle', arms('azure', group(ordinary('orle', { lines: { a: 'embattled', b: 'plain' } }), 'or'))],
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES].map(([name, input]) => ({ name, design: nd(input) }));
+/** The pall (and inverted, hollow, lined), the fret, the label across the chief, the mount and the trimount, alone and with what they hold or keep clear of. */
+const MORE_SHAPE_CASES: ReadonlyArray<[string, unknown]> = [
+  ...['pall', 'pall-inverted', 'label', 'fret', 'mount', 'trimount'].map((t): [string, unknown] => [`ord-${t}`, arms('azure', group(ordinary(t), t === 'label' ? 'argent' : 'or'))]),
+  ['outline-voided-pall', outlinedBand('pall', { mods: ['voided'] })],
+  ['line-wavy-pall-inverted', arms('argent', group(ordinary('pall-inverted', { lines: { a: 'wavy', b: 'wavy' } }), 'gules'))],
+  ['ord-pall-between', arms('argent', group(ordinary('pall'), 'gules'), group(charge('roundel'), 'azure', { count: 3, relation: 'between' }))],
+  ['ord-pall-charged', arms('argent', { ...group(ordinary('pall'), 'azure'), charged: [group(charge('mullet'), 'or', { count: 3 })] })],
+  ['ord-label-lion', arms('azure', group(charge('lion'), 'or'), group(ordinary('label'), 'argent'))],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {

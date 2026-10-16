@@ -33,7 +33,7 @@ export const UNSUPPORTED_CASES: Array<[string, unknown, string]> = [
   ['a chevronny field with a line', arms({ k: 'variation', variation: 'chevronny', pieces: 6, lines: { a: 'wavy' }, parts: ['or', 'azure'] }, lion), 'line-of-partition:wavy-on-chevronny'],
   ['a quartered field with a different line on each line', arms({ k: 'divided', division: 'quarterly', lines: { a: 'wavy', b: 'embattled' }, parts: ['or', 'azure'] }, lion), 'line-of-partition:quarterly-two-lines'],
   ['a lined band lying across everything', arms('azure', lion, group(ordinary('bend', { lines: { a: 'wavy', b: 'wavy' } }), 'argent', { role: 'overall' })), 'line-of-partition:on-overall'],
-  ['a pall', arms('azure', group(ordinary('pall'), 'or')), 'ordinary:pall'],
+  ['a couped trimount', arms('azure', group(ordinary('trimount', { mods: ['couped'] }), 'or')), 'ordinary-treatment:couped-on-trimount'],
   ['a tressure four times over', arms('azure', group(ordinary('tressure'), 'or', { count: 4 })), 'ordinary:multiple'],
   ['two bends', arms('azure', group(ordinary('bend'), 'or', { count: 2 })), 'ordinary:multiple'],
   ['a voided ordinary', arms('azure', group(ordinary('bend', { mods: ['voided'] }), 'or')), 'ordinary-treatment:voided'],

@@ -217,6 +217,8 @@ const JOINS: [RegExp, string][] = [
   [/\bbleu celeste\b/g, 'bleu-celeste'],
   [/\b(vair|potent) en pointe?\b/g, '$1'],
   [/\bpoint pointed\b/g, 'point'],
+  // the ordinary, not the division ("per pall inverted") or the arrangement ("in pall inverted")
+  [/(?<!\b(?:per|in) )\bpall inverted\b/g, 'pall-inverted'],
   // flaunches are a pair however many the text says; a double or triple tressure is one tressure drawn so
   [/\b(?:two|a pair of) flaunch(?:es)?\b/g, 'flaunches'],
   [/\b(?:double|triple) tressure\b/g, 'tressure'],
@@ -490,6 +492,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
           // "a mullet of five greater and five lesser points"
           const pointsSoon = words.slice(i + 1, i + 6).some((x) => /^(points|rays)$/.test(x));
           if (last.kind === 'charge' && pointsSoon) tag('charge-modifier', 'points');
+          // "a label of five points": the widget draws three (RULES-C §C.3)
+          if (last.kind === 'ord' && last.name === 'label' && next && /^points?$/.test(next.lem)) { tag('ordinary', 'label-points'); i++; break; }
           if (next && /^(point|ray|arm|petal|spoke|lobe|tine|piece|tower|head|leaf|link|step|arch|span|peak)s?$/.test(next.lem)) {
             if (last.kind === 'charge') tag('charge-modifier', /^(point|ray)s?$/.test(next.lem) ? 'points' : next.lem.replace(/s$/, ''));
             i++;
@@ -755,7 +759,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
 
   function readOrdinary(i: number, type: OrdinaryType): void {
     const prev = i > 0 ? words[i - 1] : BREAK;
-    if (ORDINARY_KIND[type] === 'peripheral' && type !== 'chief' && type !== 'bordure') {
+    if (ORDINARY_KIND[type] !== 'central' && type !== 'chief' && type !== 'bordure') {
       // "in base", "base" as a place; "a sinister canton", "a dexter point" and "a sinister point" (drawn, and refused) are shapes; flaunches
       // take no article; "an orle of …" is an arrangement.
       const article = ORDINARY_ARTICLE[type] === null || ARTICLES.has(prev) || look(i - 1)?.e.k === 'num' || (/^(dexter|sinister)$/.test(prev) && ARTICLES.has(words[i - 2] ?? ''));

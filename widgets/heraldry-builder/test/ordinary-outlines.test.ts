@@ -197,7 +197,7 @@ describe('cotises, fimbriation and voiding: rules', () => {
 
   it('a fess voided is refused; a cross or saltire voided is not', () => {
     expect(treatmentIssues(lone('azure', ordinary('fess', { mods: ['voided'] }), 'or'))).toEqual([
-      "A fess can't be voided: only a cross or a saltire, with more than two ends, can (SENA A3C) — two narrower bands are blazoned instead.",
+      "A fess can't be voided: only a cross, a saltire or a pall, with more than two ends, can (SENA A3C) — two narrower bands are blazoned instead.",
     ]);
     expect(treatmentIssues(lone('gules', ordinary('cross', { mods: ['voided'] }), 'or'))).toEqual([]);
     expect(treatmentIssues(lone('gules', ordinary('saltire', { mods: ['couped', 'voided'], lines: { a: 'wavy' } }), 'or'))).toEqual([]);

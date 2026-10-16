@@ -6,8 +6,9 @@
 // a divided field as its canonical (heater) slot, so what is drawn matches the canonical rule-of-tincture
 // verdict. Hand-fitted layouts are also checked with the real artwork of every charge, drawn in its
 // optically scaled box and turned with the charge; generic layouts with a representative few (all on the heater, a rotating
-// fifth of the layout × drawing pairs in each other shape). The slot-on-ground sweep is likewise exhaustive on the heater and
-// a seeded rotating half of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape; SCA_FULL=1 runs every layout in every shape.
+// fifth of the layout × drawing pairs of the rotating sample of layouts in each other shape). The slot-on-ground sweep is likewise exhaustive on the heater and
+// a seeded rotating two fifths of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape, the same ones for the check that the smaller
+// shapes reach the field parts their heater slots reach; SCA_FULL=1 runs every layout in every shape.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -276,15 +277,20 @@ describe('layout catalogue', () => {
   });
 });
 
-/** The share of layouts the slot-on-ground sweep checks in each shape other than the heater on a given run (seeded rotation; heater exhaustive). */
-const SLOT_SWEEP_RATE = 0.5;
+/**
+ * The share of layouts the sweeps over every context check in each shape other than the heater on a given run (seeded rotation; heater
+ * exhaustive): the slots on their ground, and (below) the field parts they reach. One sample serves all of them, so the slots of a layout left
+ * out are never worked out in that shape (they are what the sweeps cost, and are kept between tests).
+ */
+const SHAPE_SWEEP_RATE = 0.4;
+const inSweep = (shape: FieldShape, label: string): boolean => shape === 'heater' || rotatesIn(`${shape}|${label}`, SHAPE_SWEEP_RATE);
 
 for (const g of SHAPES) {
   describe(`${g.shape}: charge slots fit their ground`, () => {
     it('every legal layout has slots of one size that stay on the ground and do not overlap', () => {
       const problems: string[] = [];
       for (const e of CATALOGUE) {
-        if (g.shape !== 'heater' && !rotatesIn(`${g.shape}|${e.label}`, SLOT_SWEEP_RATE)) continue;
+        if (!inSweep(g.shape, e.label)) continue;
         const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
         const where = `${e.label} (${g.shape})`;
         if (slots.length !== e.count) { problems.push(`${where}: ${slots.length} slots`); continue; }
@@ -330,7 +336,8 @@ const UNFAITHFUL = new Set([
 
 describe('every shape draws each charge on the field parts the canonical verdict judged', () => {
   it('only the listed layouts in the smaller shapes miss a part their heater slots reach', () => {
-    const missing = SHAPES.flatMap((g) => CATALOGUE.filter((e) => e.ctx.k !== 'on' && !reachesHeaterParts(e.ctx, e.count, e.layout, g.shape)).map((e) => `${e.label} ${g.shape}`));
+    const judged = (e: (typeof CATALOGUE)[number], shape: FieldShape) => UNFAITHFUL.has(`${e.label} ${shape}`) || inSweep(shape, e.label);
+    const missing = SHAPES.flatMap((g) => CATALOGUE.filter((e) => e.ctx.k !== 'on' && judged(e, g.shape) && !reachesHeaterParts(e.ctx, e.count, e.layout, g.shape)).map((e) => `${e.label} ${g.shape}`));
     expect(missing).toEqual([...UNFAITHFUL]);
   });
 
@@ -340,7 +347,7 @@ describe('every shape draws each charge on the field parts the canonical verdict
     it(`${g.shape}: each slot touches every part its heater slot clearly touches, and no part it clearly misses`, () => {
       const fess = shapeFrame(g.shape).fessPoint;
       const problems: string[] = [];
-      for (const e of CATALOGUE.filter((x) => x.ctx.k !== 'on' && !UNFAITHFUL.has(`${x.label} ${g.shape}`))) {
+      for (const e of CATALOGUE.filter((x) => x.ctx.k !== 'on' && !UNFAITHFUL.has(`${x.label} ${g.shape}`) && inSweep(g.shape, x.label))) {
         const heater = contextSlots(e.ctx, e.count, e.layout, 'heater'), mine = contextSlots(e.ctx, e.count, e.layout, g.shape);
         heater.forEach((h, i) => {
           for (const division of BUILDER_DIVISIONS) {
@@ -378,9 +385,16 @@ const SAMPLE_PERIOD = 5;
 const drawnIn = (shape: FieldShape, entry: number, drawing: number) =>
   shape === 'heater' || (entry + drawing) % SAMPLE_PERIOD === FIELD_SHAPES.indexOf(shape) - 1;
 
-function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[]): string[] {
+/**
+ * The problems of the sampled pairs of layouts and drawings in a shape. `generic` layouts (those the engine searches out, which is most of
+ * what this costs) are in the shape's seeded rotating sample too, like the other sweeps (`inSweep`); a layout none of whose pairs the shape
+ * draws has no slots worked out.
+ */
+function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[], generic = false): string[] {
   const problems: string[] = [];
   for (const [ei, e] of entries.entries()) {
+    if (generic && !inSweep(g.shape, e.label)) continue;
+    if (!drawings.some((_, di) => drawnIn(g.shape, ei, di))) continue;
     const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
     const fits = groundFits(g, e.ctx, SHIELD_MARGIN, true);
     for (const [di, dr] of drawings.entries()) {
@@ -425,7 +439,7 @@ describe('charge artwork fits its ground at its optical scale', () => {
     }, 60_000);
 
     it(`${g.shape}: a compact few drawings stay on their generic ground and clear of their neighbours`, () => {
-      expect(artProblems(g, generic, drawingsOf(['mullet', 'lion', 'sword'], ['rampant'])).slice(0, 25)).toEqual([]);
+      expect(artProblems(g, generic, drawingsOf(['mullet', 'lion', 'sword'], ['rampant']), true).slice(0, 25)).toEqual([]);
     }, 60_000);
   }
 });

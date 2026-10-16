@@ -457,6 +457,23 @@ describe('"More shapes and edges…" under the band', () => {
     expect(gore).not.toContain('ordinary-number-2');
   });
 
+  it('offers the pall, label, fret, mount and trimount in the More shapes row (no tile for the pall inverted); a pall has its Upside down and Hollow toggles, which a pall inverted keeps checked on the pall tile', () => {
+    const pall = setOrdinary(DEFAULT_DESIGN, 'pall');
+    const got = ids(render(pall));
+    for (const id of ['ordinary-pall', 'ordinary-label', 'ordinary-fret', 'ordinary-mount', 'ordinary-trimount', 'ordinary-shape-inverted', 'ordinary-shape-voided']) expect(got, id).toContain(id);
+    expect(got).not.toContain('ordinary-pall-inverted');
+    expect(got).not.toContain('ordinary-shape-couped');
+    expect(render(pall)).toMatch(/aria-checked="true"[^>]*id="ordinary-pall"/);
+    const turned = setOrdinaryToggle(pall, ordinaryPath(pall)!, 'inverted', true);
+    expect(shapeDisclosures(render(turned))).toEqual([{ testid: 'ordinary-shape-more', open: true }]);
+    expect(render(turned)).toMatch(/aria-checked="true"[^>]*id="ordinary-pall"/);
+    expect(render(turned)).toMatch(/aria-pressed="true"[^>]*id="ordinary-shape-inverted"|id="ordinary-shape-inverted"[^>]*aria-pressed="true"/);
+    expect(renderToString(h(OrdinaryStep, { ...base, accordion: { open: false, onToggle: noop }, design: turned }))).toMatch(/step-ordinary-summary">[^<]*upside down/);
+    // a fret or a mount takes no toggle and no edge
+    expect(ids(render(setOrdinary(DEFAULT_DESIGN, 'fret')))).not.toContain('ordinary-shape-inverted');
+    expect(ids(render(setOrdinary(DEFAULT_DESIGN, 'mount')))).not.toContain('ordinary-edge-select');
+  });
+
   it('the outline row and its colour picker appear inside the closed disclosure; cotises add their edge row', () => {
     const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
     const path = ordinaryPath(fess)!;

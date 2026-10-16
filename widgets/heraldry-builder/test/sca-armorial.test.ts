@@ -213,6 +213,16 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['flaunches engrailed', arms('argent', group(ordinary('flaunches', { lines: { a: 'engrailed' } }), 'vert'))],
   ['a gore sinister', arms('argent', group(ordinary('gore', { mods: ['sinister'] }), 'azure'))],
   ['a charge and a gore', arms('gules', group(charge('dragon'), 'argent'), group(ordinary('gore'), 'or'))],
+  ['a pall', arms('azure', group(ordinary('pall'), 'or'))],
+  ['a pall inverted bretessed', arms('azure', group(ordinary('pall-inverted', { lines: { a: 'bretessed' } }), 'argent'))],
+  ['a pall voided', arms('argent', group(ordinary('pall', { mods: ['voided'] }), 'sable'))],
+  ['a pall inverted fimbriated', arms('azure', group(ordinary('pall-inverted', { fimbriated: 'argent' }), 'gules'))],
+  ['three charges between a pall', arms('argent', group(ordinary('pall'), 'gules'), group(charge('roundel'), 'azure', { count: 3, relation: 'between' }))],
+  ['three charges on a pall inverted', arms('argent', { ...group(ordinary('pall-inverted'), 'azure'), charged: [group(charge('mullet'), 'or', { count: 3 })] })],
+  ['a fret counterchanged', arms(div('per-pale', 'gules', 'or'), group(ordinary('fret'), { k: 'counterchanged' }))],
+  ['a charge and a label', arms('azure', group(charge('lion'), 'or'), group(ordinary('label'), 'argent'))],
+  ['a trimount alone', arms('vert', group(ordinary('trimount'), 'or'))],
+  ['a charge and a mount', arms('or', group(charge('lion'), 'gules'), group(ordinary('mount'), 'vert'))],
 ];
 
 describe('the matcher reads what the widget writes', () => {
@@ -319,6 +329,36 @@ describe('the matcher reads corner and edge shapes, with the joiner the widget w
 });
 
 // A stated default is a wording of the same design, accepted at design level; never as dropped text.
+describe('the matcher reads the pall, fret, label, mount and trimount, written either way', () => {
+  it.each([
+    ['Azure, a pall Or.', 'Azure, a pall Or.'],
+    ['Azure, a pall throughout Or.', 'Azure, a pall Or.'],
+    ['Lozengy argent and azure, a pall Or.', 'Lozengy argent and azure, a pall Or.'],
+    ['Argent, a pall inverted bretessed sable.', 'Argent, a pall inverted bretessed sable.'],
+    ['Argent, a pall voided sable.', 'Argent, a pall voided sable.'],
+    ['Argent, a pall gules between three roses Or.', 'Argent, a pall gules between three roses Or.'],
+    ['Azure, a fret Or.', 'Azure, a fret Or.'],
+    ['Azure, a fret throughout Or.', 'Azure, a fret Or.'],
+    ['Azure, a lion Or and a label argent.', 'Azure, a lion Or, a label argent.'],
+    ['Azure, a lion Or, a label of three points argent.', 'Azure, a lion Or, a label argent.'],
+    ['Azure, a lion Or and in chief a label argent.', 'Azure, a lion Or, a label argent.'],
+    ['Per pale pean and erminois, in chief a label gules.', 'Per pale pean and erminois, a label gules.'],
+    ['Vert, a trimount Or.', 'Vert, a trimount Or.'],
+    ['Or, a lion gules, a mount vert.', 'Or, a lion gules and a mount vert.'],
+  ])('%s', (text, house) => {
+    const m = explainMatch(text);
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('files a label of five points, a label overall, charges on a mount and a pall cotised under their own gaps or rules', () => {
+    expect(explainMatch('Azure, a lion Or, a label of five points argent.').status).not.toBe('match');
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Azure, a lion Or, a label of five points argent.', headings: [] }).tags).toContain('ordinary:label-points');
+    expect(explainMatch('Gules, a fleur-de-lys Or, overall a label sable.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'placement', detail: 'overall-label' }] });
+    expect(explainMatch('Argent, a pall azure cotised vert.').match?.design).toBeDefined();
+  });
+});
+
 describe('the matcher reads the orle, tressure, flaunches, gore and the dexter and sinister points, written either way', () => {
   it.each([
     ['Per bend argent and vert, a heart within an orle gules.', 'Per bend argent and vert, a heart within an orle gules.'],

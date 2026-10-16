@@ -27,7 +27,7 @@ export const LAYER_KEYS: readonly LayerKey[] = PLACE_KINDS.filter((k): k is Laye
 export type LayerPlace = Exclude<PlaceKey, 'ordinary' | 'picture'>;
 
 /** The corner and edge shapes the builder sets beside the band, in the order a new one is tried. */
-export const CORNER_AND_EDGE_TYPES: readonly OrdinaryType[] = MORE_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'peripheral');
+export const CORNER_AND_EDGE_TYPES: readonly OrdinaryType[] = MORE_ORDINARIES.filter((t) => ORDINARY_KIND[t] !== 'central');
 
 /** The layers that are pictures set beside the band or the picture, in chief, in base or in canton. */
 type PositionedKey = Extract<LayerKey, 'in-chief' | 'in-base' | 'in-canton'>;

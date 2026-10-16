@@ -176,8 +176,8 @@ function ordinaryTreatmentProblem(g: Group): string | null {
 
 /** The ordinaries that may be cotised (RULES-C §D.5): the bands, the chevron and the pile (upright or inverted), the cross and the saltire. */
 export const COTISED_HOSTS: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
-/** The ordinaries that may be voided: those with more than two ends (SENA A3C; the pall is drawn later). */
-const VOIDED_HOSTS: readonly OrdinaryType[] = ['cross', 'saltire'];
+/** The ordinaries that may be voided: those with more than two ends (SENA A3C). */
+const VOIDED_HOSTS: readonly OrdinaryType[] = ['cross', 'saltire', 'pall', 'pall-inverted'];
 
 /**
  * What SENA A3C allows of voiding, fimbriation and cotises (RULES-C §D.3–§D.5), or null: voided only a cross or saltire, fimbriated only a
@@ -191,9 +191,9 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
   const name = ORDINARY_NAME[item.type], what = ordinaryWithArticle(item.type);
   const voided = item.mods.includes('voided');
   if (voided && !VOIDED_HOSTS.includes(item.type)) {
-    return `${capitalise(what)} can't be voided: only a cross or a saltire, with more than two ends, can (SENA A3C) — ${ORDINARY_KIND[item.type] === 'central' ? 'two narrower bands are blazoned instead' : 'choose a solid one'}.`;
+    return `${capitalise(what)} can't be voided: only a cross, a saltire or a pall, with more than two ends, can (SENA A3C) — ${ORDINARY_KIND[item.type] === 'central' ? 'two narrower bands are blazoned instead' : 'choose a solid one'}.`;
   }
-  if (item.fimbriated && ORDINARY_KIND[item.type] !== 'central') return `${capitalise(what)} can't be fimbriated: only a band or shape in the middle of the field can (SENA A3C).`;
+  if (item.fimbriated && (ORDINARY_KIND[item.type] !== 'central' || item.type === 'fret')) return `${capitalise(what)} can't be fimbriated: only a band or shape in the middle of the field can (SENA A3C).`;
   if ((voided || item.fimbriated) && g.role !== 'primary') {
     const where = g.role === 'tertiary' ? 'lying on another charge' : g.role === 'overall' ? 'lying overall' : 'set beside it';
     return `Only the main band or shape can be ${voided ? 'voided' : 'fimbriated'}, not one ${where} (SENA A3C).`;
@@ -338,8 +338,8 @@ const DISPLAY_FORMS: readonly ChargeId[] = ['heart', 'roundel', 'billet', 'lozen
 function notABadge(group: Group): string | null {
   if (group.item.k === 'ordinary') {
     // A couped band is a badge (SENA A3A2), one this builder doesn't draw yet: support.ts says so.
-    if (ORDINARY_KIND[group.item.type] !== 'peripheral' && group.item.mods.includes('couped')) return null;
-    return ORDINARY_KIND[group.item.type] === 'peripheral'
+    if (ORDINARY_KIND[group.item.type] === 'central' && group.item.mods.includes('couped')) return null;
+    return ORDINARY_KIND[group.item.type] !== 'central'
       ? `A fieldless badge has no edge for ${ordinaryWithArticle(group.item.type)} to run along (SENA A3A2).`
       : `A fieldless badge can't have a ${ORDINARY_NAME[group.item.type]} unless it is couped (SENA A3A2).`;
   }

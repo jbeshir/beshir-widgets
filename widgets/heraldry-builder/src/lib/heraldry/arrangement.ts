@@ -318,6 +318,9 @@ export const BETWEEN: Partial<Record<BetweenHost, Record<number, { split: [numbe
   cross: { 4: { split: null, words: 'one in each quarter' } },
   saltire: { 4: { split: null, words: 'one above, one below and one on each side' } },
   pile: { 2: { split: null, words: 'one on each side' } },
+  // one in each of the three sections the arms leave
+  pall: { 3: { split: null, words: 'one in each section' } },
+  'pall-inverted': { 3: { split: null, words: 'one in each section' } },
 };
 
 /** How charges set between `ordinary` are spread out, or null for a count it has no spread for. */
@@ -397,8 +400,10 @@ export function hostCounts(kind: 'between' | 'on', spec: OrdinarySpec): readonly
     case 'fess': case 'pale': case 'bend': case 'bend-sinister': case 'chevron': case 'chief': case 'bordure': return Array.from({ length: 12 }, (_, i) => i + 1);
     case 'cross': case 'saltire': return [1, 4, 5];
     case 'pile': return [1, 2, 3];
+    // one on each arm, or one at the middle
+    case 'pall': case 'pall-inverted': return [1, 3];
     // Not drawn: no host layouts.
-    case 'base': case 'canton': case 'quarter': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'pall': case 'pall-inverted': case 'point':
+    case 'base': case 'canton': case 'quarter': case 'orle': case 'tressure': case 'flaunches': case 'gore': case 'point':
     case 'fret': case 'label': case 'gyron': case 'mount': case 'trimount': case 'bar': case 'barrulet': case 'pallet': case 'bendlet': case 'bendlet-sinister':
     case 'chevronel': case 'saltorel': case 'baton': case 'point-dexter': case 'point-sinister': return [];
     default: return type satisfies never;

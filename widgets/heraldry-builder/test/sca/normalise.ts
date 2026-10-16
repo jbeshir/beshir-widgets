@@ -26,13 +26,13 @@ const NUMBER = '(?:a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twel
 const NUMBER_WORD = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
 /** A line of partition as the widget words it ('embattled grady', 'ployé'), the longest first. */
 const LINE = `(?:${[...new Set(DRAWN_LINES.map((l) => LINE_WORD[l]))].sort((a, b) => b.length - a.length).join('|')})`;
-const ORDINARY_NAME_WORDS = 'fess|pale|bend sinister|bend|chevron|cross|saltire|pile';
+const ORDINARY_NAME_WORDS = 'fess|pale|bend sinister|bend|chevron|cross|saltire|pile|pall';
 /** The line a band or shape is written with after its name: "wavy", "embattled counter-embattled", "embattled on the lower edge". */
 const ORDINARY_LINE = ` (?:embattled counter-embattled|${LINE})(?: on the (?:upper|lower|dexter|sinister) edge)?`;
 /** An ordinary as the text spells it once its synonyms are settled: its name, inverted, its line, couped and where it runs, as far as it has them (the tincture follows). */
 const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?(?: voided)?`;
 /** The corner and edge shapes' names joined by the word the widget writes before them (`PERIPHERAL_JOINER`): ", a quarter", " and a base", " within an orle". */
-const joinedBy = (joiner: PeripheralJoiner) => DRAWN_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'peripheral' && t !== 'chief' && t !== 'bordure' && PERIPHERAL_JOINER[t] === joiner).map((t) => ORDINARY_NAME[t]).join('|');
+const joinedBy = (joiner: PeripheralJoiner) => DRAWN_ORDINARIES.filter((t) => ORDINARY_KIND[t] !== 'central' && t !== 'chief' && t !== 'bordure' && PERIPHERAL_JOINER[t] === joiner).map((t) => ORDINARY_NAME[t]).join('|');
 /** A top band or border, with its line. */
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
 
@@ -182,7 +182,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?) couped(${ORDINARY_LINE})(?![\\w-])`, 'g'), '$1$2 couped')
       .replace(/\bchevron inverted embattled(?! counter-embattled| on the| grady)\b/g, 'chevron inverted embattled on the upper edge')
       .replace(/\b(a|an) bendlet( sinister)? (enhanced|abased)\b/g, '$1 bend$2 $3')
-      .replace(new RegExp(`\\b((?:a|an|on a) (?:cross|saltire)(?:${ORDINARY_LINE})?(?: voided)?) throughout\\b`, 'g'), '$1'),
+      .replace(new RegExp(`\\b((?:a|an|on a) (?:cross|saltire|pall|pall inverted|fret|label)(?:${ORDINARY_LINE})?(?: voided)?) throughout\\b`, 'g'), '$1'),
   },
   {
     // 3a4. Cotises and fimbriation written more than one way (RULES-C §G.1, §G.2; PLAN-C C7b). "Cotissed" and "cottised" are cotised, "double" and
@@ -289,6 +289,15 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\b(a|on a) sinister gore\b/g, '$1 gore sinister')
       .replace(/\b(a|on a) dexter gore\b/g, '$1 gore')
       .replace(/\b(a|on a) (dexter|sinister) point\b/g, '$1 point $2'),
+  },
+  {
+    // 3a7. The label written more than one way (RULES-C §C.3): it is of three points and in chief by default ("a label of three points", "in chief
+    //      a label": 5 and 12 in the corpus), so the widget writes "a label".
+    id: 'label-forms',
+    description: '"a label of three points" → "a label"; ", in chief a label", "and in chief a label" → ", a label".',
+    apply: (s) => s
+      .replace(/\ba label of three points\b/g, 'a label')
+      .replace(/,? (?:and )?in chief (?=a label\b)/g, ', '),
   },
   {
     // 4. Connectors the Glossary treats as the same: "X and a chief Y", "X, a chief Y"; "within a

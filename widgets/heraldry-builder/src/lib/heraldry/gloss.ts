@@ -31,6 +31,12 @@ const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   orle: 'inner border',
   flaunches: 'pair of curved side pieces',
   gore: 'curved wedge from the left',
+  pall: 'Y-shaped band',
+  'pall-inverted': 'upside-down Y-shaped band',
+  label: 'bar across the top with three hanging tabs',
+  fret: 'diamond woven with two crossing stripes',
+  mount: 'hill rising from the bottom',
+  trimount: 'three hills rising from the bottom',
   'point-dexter': 'triangle in the bottom-left corner',
   'point-sinister': 'triangle in the bottom-right corner',
 };
