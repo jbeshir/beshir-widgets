@@ -156,10 +156,10 @@ const step = (id: string, title: string, body: string, target: LessonStep['targe
 export const LESSONS = [
   {
     id: 'front.foundations.v1', version: 1,
-    title: 'Understand and configure the astrolabe front',
-    summary: 'Identify the fixed and moving parts, then choose the latitude plate used for a reading.',
+    title: 'Understand and configure the astrolabe',
+    summary: 'Identify the fixed and moving parts on both faces, then choose the latitude plate used for a reading.',
     steps: [
-      step('meet-instrument', 'Meet the instrument', 'The mater holds the working parts. On the front, a latitude plate supplies local coordinates, the rete carries the star map, and the rule provides a straight reading edge.', 'instrument', base('front'), 'The front is set for London at noon on July 14, 2026.'),
+      step('meet-instrument', 'Meet the instrument', 'The mater holds the working parts. On the front, a latitude plate supplies local coordinates, the rete carries the star map, and the rule provides a straight reading edge.', 'instrument', base('front'), 'The front shows London’s 51.5° plate with the rete and rule at reference positions; no date or time has been set.'),
       step('fixed-plate', 'Find the fixed plate', 'The plate carries the horizon, altitude circles, and azimuths for 51.5° north.', 'front.plate', base('front'), 'The plate remains fixed while the sky turns.'),
       step('moving-rete', 'Turn the moving sky', 'Rotate the rete to 45°. The star map turns over the fixed latitude plate, placing the sky in a new orientation.', 'front.rete', base('front', { reteRotation: 45 }), 'The rete is at 45° while the plate remains fixed.', { demonstration: { field: 'reteRotation', from: 0, to: 45, durationMs: 700 }, check: { kind: 'angleNear', field: 'reteRotation', value: 45, tolerance: 2 } }),
       step('reading-rule', 'Use the reading rule', 'Rotate the rule to 90°. It provides a reading edge across the plate and rete without moving either engraving.', 'front.rule', base('front', { reteRotation: 45, ruleRotation: 90 }), 'The rule is at 90°, independently of the rete.', { demonstration: { field: 'ruleRotation', from: 0, to: 90, durationMs: 700 }, check: { kind: 'angleNear', field: 'ruleRotation', value: 90, tolerance: 2 } }),
@@ -167,7 +167,10 @@ export const LESSONS = [
       step('choose-plate', 'Choose the latitude plate', 'Select Exact 51.5° for London. A plate’s horizon and coordinate curves are constructed for one latitude, so this choice controls how the rete is read.', 'setup.plate', plateSnapshot(51.5), 'The exact 51.5° plate matches London.'),
       step('compare-mismatch', 'See what a nearby plate changes', 'Now compare the 50° plate. Its star map is unchanged, but its local horizon, altitude, and azimuth curves are 1.5° away from London’s latitude.', 'setup.plate-mismatch', plateSnapshot(50), 'The mismatch warning quantifies the 1.5° latitude difference.'),
       step('restore-plate', 'Restore the exact plate', 'Return to Exact 51.5° before making observations for London.', 'setup.plate', plateSnapshot(51.5), 'The plate and observation latitude match again.'),
-      step('foundations-result', 'Foundations complete', 'You can distinguish the fixed local-coordinate plate from the independently moving rete and rule, and choose a plate appropriate to the observer’s latitude.', 'instrument', base('front'), 'Result: the instrument is configured with London’s exact latitude plate.'),
+      step('turn-to-back', 'Turn to the back', 'The back carries fixed scales for dates, ecliptic longitude, altitude, proportional measurement, equation of time, and temporal hours.', 'back.calendar', base('back'), 'The fixed calendar and ecliptic-longitude rings are visible on the back.'),
+      step('read-back-scales', 'Distinguish the fixed back scales', 'The outer degree scale, zodiac band, and calendar ring share radial lines. The shadow square, equation-of-time loop, and double horary quadrant occupy the central field.', 'back.ecliptic-longitude', base('back'), 'These engravings remain fixed in the mater while a reading is made.'),
+      step('move-alidade', 'Move the alidade', 'Rotate the alidade to 35°. Its straight inner edge crosses the fixed engravings so observations and values can be transferred between scales.', 'back.alidade', base('back'), 'The alidade moves independently over the fixed back scales.', { demonstration: { field: 'alidadeRotation', from: 0, to: 35, durationMs: 700 }, check: { kind: 'angleNear', field: 'alidadeRotation', value: 35, tolerance: 1 } }),
+      step('foundations-result', 'Foundations complete', 'You can distinguish the front plate, rete, and rule; choose a latitude plate; identify the fixed back engravings; and move the back alidade independently.', 'back.calendar', base('back'), 'Result: both faces and their independently moving parts have been identified; no observational date or time setting is implied.'),
     ],
   },
   {

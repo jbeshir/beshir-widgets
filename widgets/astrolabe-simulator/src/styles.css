@@ -264,6 +264,11 @@ button, input, select {
 .lesson-result { padding: 10px; border-left: 4px solid var(--accent); background: var(--card-bg); }
 .lesson-actions, .interruption, .completion { display: flex; flex-wrap: wrap; gap: 8px; }
 .lesson-actions button:last-child { margin-left: auto; }
+.lesson-actions button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  border-style: dashed;
+}
 .interruption { padding: 10px; border: 2px solid var(--widget-warning); }
 .interruption p { flex: 1 1 100%; margin: 0; }
 .sr-status { min-height: 1.5em; color: var(--fg-secondary); }

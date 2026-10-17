@@ -169,7 +169,9 @@ export function AstrolabeGuide(): JSX.Element {
             setStatus(passed ? `Checkpoint passed. ${step.result}` : 'Not yet. Recreate the visible alignment described in this step and check again.');
           }}>Check</button>}
           {stepIndex < lesson.steps.length - 1
-            ? <button disabled={Boolean(step.check) && !checkpointPassed} onClick={() => runStep(lesson, stepIndex + 1, true)}>Next</button>
+            ? <button disabled={Boolean(step.check) && !checkpointPassed}
+                aria-disabled={Boolean(step.check) && !checkpointPassed}
+                onClick={() => runStep(lesson, stepIndex + 1, true)}>Next</button>
             : <button onClick={() => { setComplete(true); setStatus(`Lesson complete. ${step.result}`); }}>Finish</button>}
           <button onClick={() => exit(false)}>Exit</button>
         </div>}
