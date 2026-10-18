@@ -49,10 +49,10 @@ export const GAP_CATEGORIES = [
   { id: 'tincture', description: 'a tincture outside the widget\'s eight, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged' },
   { id: 'proper', description: 'a charge tinctured proper (natural colouring)' },
   { id: 'field-treatment', description: 'a variegated pattern (barry, checky, compony, masoned…) on the field or any element, or a semy the widget does not draw (a counterchanged or proper strewn charge, an unknown one, a posture or an arrangement of it)' },
-  { id: 'division', description: 'a field division the widget lacks (per pall, gyronny, tierced, per chevron inverted, compound…)' },
-  { id: 'line-of-partition', description: "a line the widget doesn't draw on that element" },
-  { id: 'ordinary', description: 'an ordinary, sub-ordinary or diminutive the widget lacks (canton, orle, bars, flaunches…), or several of one ordinary' },
-  { id: 'ordinary-treatment', description: 'an ordinary modified (cotised, fimbriated, voided, couped, inverted, enhanced, issuant…)' },
+  { id: 'division', description: 'a field division the widget lacks (compound, vêtu, chaussé, party of N, per saltire arrondi, gyronny of 10 or 16, per chevron enhanced…), or a drawn one where the widget does not draw it (gyronny or per pall on a band or charge, counterchanged over three parts)' },
+  { id: 'line-of-partition', description: "a line the widget lacks (flory-counterflory, denticulada, trefly…), or one it doesn't draw on that element (ployé on a fess, wavy on a charge, a line on a divided band or on chevronny)" },
+  { id: 'ordinary', description: 'an ordinary, sub-ordinary or diminutive the widget lacks (tierce, shakefork, bar gemel, gusset, chief-pale…), several of one ordinary, several saltorels, or a label of other than three points' },
+  { id: 'ordinary-treatment', description: 'an ordinary modified in a way the widget does not draw on it (parted, fretted, issuant, a cross flory or formy, couped on a diminutive, cotised or fimbriated on a host that takes neither, both fimbriated and cotised…)' },
   { id: 'multiple-groups', description: 'more than one charge group (including charges on charges and held charges counted as groups) or more than one ordinary' },
   { id: 'placement', description: 'one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)' },
   { id: 'count', description: 'more than twelve of a charge, or a charge strewn semy on a picture' },
@@ -216,7 +216,6 @@ const JOINS: [RegExp, string][] = [
   [/\bvolant en arriere\b/g, 'volant'],
   [/\ben arriere\b/g, 'volant'],
   [/\b(?:(?:counter|double|triple)[- ]|doubly |triply )(?:cotised|cotissed)\b/g, 'cotised'],
-  [/\bpale endorsed\b/g, 'pale cotised'],
   [/\bbleu celeste\b/g, 'bleu-celeste'],
   [/\b(vair|potent) en pointe?\b/g, '$1'],
   [/\bpoint pointed\b/g, 'point'],
@@ -650,6 +649,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         break;
       }
       case 'gapPosture':
+        // "a pale (wavy) Or endorsed argent": a pale's cotises
+        if (words[i] === 'endorsed' && last?.kind === 'ord' && last.el === els[els.length - 1]) { contextWord('cotised', i); break; }
         if (e.v === 'close' && /^(couped|erased)$/.test(prev)) break; // "couped close"
         tag('posture', e.v);
         break;
@@ -838,9 +839,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   function bandLineEnd(i: number, type: OrdinaryType, joined: boolean): number {
     let end = joined ? i + 1 : i;
     if (words[i] === 'embattled' && words[i + 1] === 'counter-embattled' && drawnOn({ k: 'ordinary', type, inverted: false }, 'counter-embattled')) return i + 1;
-    const edge = words[end + 1] === 'on' && words[end + 2] === 'the' && words[end + 4] === 'edge' ? EDGE_NAME_WORDS[words[end + 3]] : undefined;
-    if (edge && edgeCount({ k: 'ordinary', type, inverted: false }) === 2) end += 4;
-    return end;
+    const host = { k: 'ordinary', type, inverted: false } as const;
+    const edged = (from: number) => words[from + 1] === 'on' && words[from + 2] === 'the' && words[from + 4] === 'edge' && EDGE_NAME_WORDS[words[from + 3]] !== undefined;
+    if (!edged(end) || edgeCount(host) !== 2) return end;
+    end += 4;
+    // the other edge's line: "embattled on the upper edge and embattled grady on the lower edge"
+    if (words[end + 1] !== 'and' || look(end + 2)?.e.k !== 'line') return end;
+    const other = words[end + 2] === 'embattled' && words[end + 3] === 'grady' ? 'embattled grady' : words[end + 2];
+    const otherEnd = end + 1 + other.split(' ').length;
+    return edged(otherEnd) && drawnOn(host, other) ? otherEnd + 4 : end;
   }
 
   /** A sub-ordinary the widget lacks, unless it names a place ("in base") or an arrangement ("an orle of …"); returns the last token read. */

@@ -15,10 +15,11 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, DRAWN_LINES, DRAWN_TREATMENTS, LINED_VARIATIONS, LINE_WORD, FURS, FUR_NAME, SEMY_NAMES, lineAllowed, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
+  COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
 import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
-import { arms, charge, div, group, ordinary } from './helpers';
+import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
 import { GAP_CATEGORIES, categoryOf } from './sca/gaps';
@@ -729,7 +730,35 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a charged badge', '(Fieldless) A rose argent charged with a heart gules'],
     ['a badge of crossed charges', '(Fieldless) Two swords in saltire argent'],
   ];
-  const cases = [...fields.map(([name, field]): [string, string] => [name, upper(field)]), ...designs];
+  // The phase-C constructs as the widget itself writes them (`blazon`), from the library's tables: every ordinary at each count it is drawn
+  // with; every treatment on each ordinary it is drawn on; cotised once, twice and thrice, and with each line a cotise takes; fimbriated; a
+  // band with a line on one edge or two different lines; gyronny of each count and arrondi.
+  const written = (input: object): string => blazon(nd(input)).replace(/\.$/, '');
+  const on = (item: object, count = 1) => arms(plain('azure'), group(item, plain('or'), { count }));
+  const firstCount = (t: OrdinaryType) => ORDINARY_COUNTS[t]?.[0] ?? 1;
+  const cotisedLines = COTISED_HOSTS.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'cotises', type: t }, l)).map((line) => [t, line] as const));
+  const constructs: Array<[string, object]> = [
+    ...DRAWN_ORDINARIES.flatMap((t) => (ORDINARY_COUNTS[t] ?? [1]).map((n): [string, object] => [`${n} ${t}`, on(ordinary(t), n)])),
+    ...ORDINARY_MODS.flatMap((m) => MOD_HOSTS[m].map((t): [string, object] => [`${t} ${m}`, on(ordinary(t, { mods: [m] }), firstCount(t))])),
+    ...COTISED_HOSTS.flatMap((t) => ([1, 2, 3] as const).map((count): [string, object] => [`${t} cotised ${count}`, on(ordinary(t, { cotised: { count, paint: plain('argent'), line: 'plain' } }))])),
+    // each line a cotise takes once, on the hosts in turn (every pair would cost a classify each for little more)
+    ...DRAWN_LINES.flatMap((line, i) => cotisedLines.filter(([, l]) => l === line).filter((_, j, xs) => j === i % xs.length))
+      .map(([t, line]): [string, object] => [`${t} cotised ${line}`, on(ordinary(t, { lines: { a: line }, cotised: { count: 1, paint: plain('argent'), line } }))]),
+    ...DRAWN_ORDINARIES.filter((t) => ORDINARY_KIND[t] === 'central' && t !== 'fret' && !isDiminutive(t))
+      .map((t): [string, object] => [`${t} fimbriated`, on(ordinary(t, { fimbriated: plain('argent') }))]),
+    ...(['fess', 'pale', 'bend', 'chevron', 'orle'] as const).flatMap((t): Array<[string, object]> => [
+      [`${t} embattled below`, on(ordinary(t, { lines: { a: 'plain', b: 'embattled' } }))],
+      [`${t} wavy above`, on(ordinary(t, { lines: { a: 'wavy', b: 'plain' } }))],
+      [`${t} counter-embattled`, on(ordinary(t, { lines: { a: 'embattled', b: 'embattled' } }))],
+      [`${t} embattled grady`, on(ordinary(t, { lines: { a: 'embattled', b: 'grady' } }))],
+    ]),
+    ...GYRONNY_PIECES.map((pieces): [string, object] => [`gyronny of ${pieces}`, arms({ ...div('gyronny', 'or', 'gules'), pieces })]),
+    ['gyronny arrondi', arms({ ...div('gyronny', 'or', 'gules'), lines: { a: 'arrondi' } })],
+  ];
+  const cases = [
+    ...fields.map(([name, field]): [string, string] => [name, upper(field)]), ...designs,
+    ...constructs.map(([name, input]): [string, string] => [`as written: ${name}`, written(input)]),
+  ];
 
   it.each(cases)('%s', (_, text) => {
     const c = classify({ key: 'regid:0', type: 'd', date: '', blazon: `${upper(text)}, a frobnitz Or.`, headings: [] });

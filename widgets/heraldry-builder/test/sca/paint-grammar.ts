@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, partCount, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, lineAllowed, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, partCount, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, lineAllowed, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type EdgeHost, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -23,6 +23,15 @@ function readLine(tokens: readonly string[], i: number): { line: ComplexLine; en
 }
 
 /**
+ * The line at `i` written after the host's name, unless it is "arrondi" on a host other than the gyronny: "quarterly arrondi", "per saltire
+ * arrondi", "a cross arrondi" are forms of their own the widget does not draw, so they are not read and the blazon stays the gap it is.
+ */
+function readHostLine(host: EdgeHost, tokens: readonly string[], i: number): { line: ComplexLine; end: number } | null {
+  const read = readLine(tokens, i);
+  return read && (read.line !== 'arrondi' || lineAllowed(host, 'arrondi')) ? read : null;
+}
+
+/**
  * The lines a division is written with after its name (`at` is the index after it): "per pale wavy", "quarterly per fess embattled" (only
  * the across line), "quarterly per pale wavy", "quarterly wavy" (both). A division without a line has plain lines.
  */
@@ -30,14 +39,13 @@ function readDivisionLines(division: Division, tokens: readonly string[], at: nu
   const host = { k: 'division', division } as const;
   if (division === 'quarterly') {
     const side = tokens[at] === 'per' && (tokens[at + 1] === 'pale' || tokens[at + 1] === 'fess') ? tokens[at + 1] : null;
-    const read = readLine(tokens, at + (side ? 2 : 0));
+    const read = readHostLine(host, tokens, at + (side ? 2 : 0));
     if (!read) return { lines: null, end: at };
     const { line } = read;
     return { lines: side === 'pale' ? { a: line, b: 'plain' } : side === 'fess' ? { a: 'plain', b: line } : bareLines(host, line), end: read.end };
   }
-  const read = readLine(tokens, at);
-  // arrondi on a division but the gyronny (quarterly, per saltire) is not drawn: it is not read, and the blazon stays the gap it is
-  return read && (read.line !== 'arrondi' || lineAllowed(host, 'arrondi')) ? { lines: bareLines(host, read.line), end: read.end } : { lines: null, end: at };
+  const read = readHostLine(host, tokens, at);
+  return read ? { lines: bareLines(host, read.line), end: read.end } : { lines: null, end: at };
 }
 
 /** The edges a band's line is named on, to the line (`a` or `b`) that edge is. */
@@ -49,10 +57,11 @@ const EDGE_SIDES: Record<string, 'a' | 'b'> = { upper: 'a', dexter: 'a', outer: 
  */
 function readOrdinaryLines(type: OrdinaryType, inverted: boolean, tokens: readonly string[], at: number): { lines: Lines | null; end: number } {
   if (tokens[at] === 'embattled' && tokens[at + 1] === 'counter-embattled') return { lines: { a: 'embattled', b: 'embattled' }, end: at + 2 };
-  const read = readLine(tokens, at);
+  const host = { k: 'ordinary', type, inverted } as const;
+  const read = readHostLine(host, tokens, at);
   if (!read) return { lines: null, end: at };
   const side = tokens[read.end] === 'on' && tokens[read.end + 1] === 'the' && tokens[read.end + 3] === 'edge' ? EDGE_SIDES[tokens[read.end + 2]] : undefined;
-  if (!side) return { lines: bareLines({ k: 'ordinary', type, inverted }, read.line), end: read.end };
+  if (!side) return { lines: bareLines(host, read.line), end: read.end };
   return { lines: side === 'a' ? { a: read.line, b: 'plain' } : { a: 'plain', b: read.line }, end: read.end + 4 };
 }
 
@@ -142,7 +151,7 @@ function readVariation(tokens: readonly string[], i: number): PaintRead | null {
   const named = VARIATION_PHRASES.find((p) => p.words.every((w, j) => tokens[i + j] === w));
   if (!named) return null;
   let at = i + named.words.length;
-  const read = readLine(tokens, at);
+  const read = readHostLine({ k: 'variation', variation: named.variation }, tokens, at);
   if (read) at = read.end;
   let pieces: number | null = null;
   if (tokens[at] === 'of' && tokens[at + 1] in COUNT_WORDS) {
