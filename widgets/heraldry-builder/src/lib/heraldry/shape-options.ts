@@ -224,15 +224,47 @@ function thinned(d: Design, path: GroupPath, thin: boolean): Design {
   return canonical(replaceGroup(d, path, { ...group, item, count: thin ? ORDINARY_COUNTS[type]![0] : 1 }));
 }
 
-/** The toggles the band or shape at `path` takes (none for a top band, a border or a charge), blocked where turning one over breaks a rule. */
+/** What a treatment makes of a band, as the reasons below say it: "Thin bands can't be shortened". */
+const TREATED: Record<OrdinaryMod, string> = {
+  inverted: 'turned upside down', couped: 'shortened', voided: 'hollow', throughout: 'made to touch the edges', enhanced: 'raised', abased: 'lowered', sinister: 'turned to the other side',
+};
+
+/** The bands that can't be hollow but show the toggle blocked, with SENA A3C's reason (PLAN-C §1.9): a solid band with two ends. */
+const SOLID_BANDS: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron'];
+
+/** Whether a treatment the band or shape doesn't take is shown, blocked (`untakenProblem`): thin bands show their band's; a solid band shows Hollow. */
+const showsUntaken = (item: Ordinary, t: OrdinaryMod): boolean =>
+  (THIN_ORDINARIES.includes(item.type) && modDrawn(familyOf(item.type), t)) || (t === 'voided' && SOLID_BANDS.includes(item.type));
+
+/** Why a treatment shown though the band or shape at `path` doesn't take it is blocked: "Thin bands can't be shortened: turn Thin off first."; a solid band is never hollow (SENA A3C). */
+function untakenProblem(d: Design, path: GroupPath, item: Ordinary, t: OrdinaryMod): string | null {
+  if (THIN_ORDINARIES.includes(item.type)) return `Thin bands can't be ${TREATED[t]}: turn Thin off first.`;
+  const group = groupAt(d, path);
+  return treatmentRuleProblem(replaceGroup(d, path, { ...group, item: { ...item, mods: [...item.mods, t] } }), path);
+}
+
+/** Why the band at `path` can't be made thin as it is: treatments its thin form doesn't take would go unnoticed ("turn Shortened off first"), or null. */
+function thinDropsProblem(item: Ordinary): string | null {
+  const thin = THIN[item.type];
+  if (!thin) return null;
+  const kept = keptMods(item.mods, thin), dropped = item.mods.filter((m) => !kept.includes(m));
+  return dropped.length === 0 ? null : `Thin bands can't be ${dropped.map((m) => TREATED[m]).join(' or ')}: undo that first.`;
+}
+
+/**
+ * The toggles the band or shape at `path` takes (none for a top band, a border or a charge), blocked where turning one over breaks a rule; and,
+ * blocked with the reason, those it can't take that a band like it does (`showsUntaken`), so that a toggle never just vanishes.
+ */
 export function toggleChoices(d: Design, path: GroupPath): Choice<ShapeToggle>[] {
   const item = drawnOrdinaryAt(d, path);
   if (!item) return [];
-  return SHAPE_TOGGLES.filter((t) => (t === 'thin' ? thinnable(item.type) : modDrawn(item.type, t))).map((t) => {
+  const shown = (t: ShapeToggle): boolean => (t === 'thin' ? thinnable(item.type) : modDrawn(item.type, t) || showsUntaken(item, t));
+  return SHAPE_TOGGLES.filter(shown).map((t) => {
     if (t === 'thin') {
       const next = thinned(d, path, !THIN_ORDINARIES.includes(item.type));
-      return choice(t, ordinaryLineProblem(groupAt(next, path)) ?? treatmentRuleProblem(next, path) ?? corePracticeProblem(next));
+      return choice(t, thinDropsProblem(item) ?? ordinaryLineProblem(groupAt(next, path)) ?? treatmentRuleProblem(next, path) ?? corePracticeProblem(next));
     }
+    if (!modDrawn(item.type, t)) return choice(t, untakenProblem(d, path, item, t));
     if (t === 'inverted' && isPall(item.type)) {
       const turned = pallTurned(d, path, item.type === 'pall');
       return choice(t, ordinaryLineProblem(groupAt(turned, path)) ?? treatmentRuleProblem(turned, path));

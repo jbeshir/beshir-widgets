@@ -6,7 +6,7 @@
 import { capitalise } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
-import { PLAIN_LINES, groupAt, hostOf, type Design, type GroupPath } from './design';
+import { PLAIN_LINES, groupAt, hostOf, walkGroups, type Design, type GroupPath } from './design';
 import { BUILDER_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, familyOf, familyOfTreated, type OrdinaryType } from './ordinaries';
 import {
@@ -1301,6 +1301,25 @@ export function hasRoom(d: Design, path: GroupPath): boolean {
   if (!l) return true;
   const slots = contextSlots(l.ctx, l.count, l.layout, CANONICAL_SHAPE);
   return slots.length === slotCount(l.ctx, l.count) && slots[0].size >= minSlotSize(l.ctx);
+}
+
+/** Below this share of the smallest slot that reads, a shape other than the heater draws charges too small to see (`crampedInShape`). */
+const CRAMPED_SHARE = 0.75;
+
+/**
+ * What a shape other than the heater can't draw at a size that reads where the heater can (a fess between three roses and a base in the
+ * lozenge): one sentence per group, for the builder to say beside the shape. The shape is display only, so this is no issue of the design's —
+ * its verdict, room included, is the heater's (`hasRoom`).
+ */
+export function crampedInShape(d: Design, shape: FieldShape): string[] {
+  if (shape === CANONICAL_SHAPE) return [];
+  return walkGroups(d).flatMap(({ path }) => {
+    const l = layoutOf(d, path);
+    if (!l || !hasRoom(d, path)) return [];
+    const mine = contextSlots(l.ctx, l.count, l.layout, shape);
+    if (mine.length === slotCount(l.ctx, l.count) && mine[0].size >= CRAMPED_SHARE * minSlotSize(l.ctx)) return [];
+    return [`There isn't room in this shape to draw ${chargePhrase(l.id, l.count)} ${whereWords(l.ctx, l.layout)} at a size that reads — the heater shield shows them in full.`];
+  });
 }
 
 /** Why a group's charges don't fit where they sit (the most that would, and where), or null when they do (or when they sit nowhere this builder lays out). Only meaningful once the layout itself is legal. */

@@ -188,6 +188,16 @@ const DIMINUTIVE_CASES: ReadonlyArray<[string, unknown]> = [
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
+/** The drawings the UI review fixed (U-3, U-5, U-6, K-22), each pinned in the shape it was worst in. */
+const REVIEW_VISUAL_CASES: ReadonlyArray<[string, unknown, FieldShape]> = [
+  ['review-grady-bordure', band('bordure', { a: 'grady' }), 'heater'],
+  ['review-potenty-bordure', band('bordure', { a: 'potenty' }), 'round'],
+  ['review-indented-canton', arms('or', group(ordinary('canton', { lines: { a: 'indented' } }), 'azure')), 'lozenge'],
+  ['review-embattled-canton', arms('argent', group(ordinary('canton', { lines: { a: 'embattled' } }), 'azure')), 'round'],
+  ['review-indented-cross', band('cross', { a: 'indented', b: 'indented' }), 'banner'],
+  ['review-couped-dovetailed-saltire', treatedBand('saltire', ['couped'], { lines: { a: 'dovetailed' } }), 'heater'],
+];
+
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {
   const byKey = new Map(designs.map((design) => [`${kind}-${hash(canonicalJson(design))}`, design]));
@@ -199,6 +209,7 @@ export function goldenShields(): GoldenShield[] {
     ...EXAMPLE_DESIGNS.map((p): GoldenShield => ({ key: `example-${p.id}`, design: p.design, shape: 'heater' })),
     ...(sample as unknown as SampleFile).entries.map((e): GoldenShield => ({ key: `sample-${e.id}`, design: e.design as Design, shape: e.shape })),
     ...PAINT_CASE_DESIGNS.map(({ name, design }): GoldenShield => ({ key: `case-${name}`, design, shape: shapeFor(name) })),
+    ...REVIEW_VISUAL_CASES.map(([name, input, shape]): GoldenShield => ({ key: `case-${name}`, design: nd(input), shape })),
     ...generated('level0', generatedDesigns(1, 300)),
     ...generated('rich', generatedRichDesigns(1, 100)),
   ];

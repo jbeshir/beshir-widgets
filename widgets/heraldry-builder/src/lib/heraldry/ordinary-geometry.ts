@@ -24,7 +24,7 @@ import {
 } from './geometry';
 import { contourPath, type Contour, type ContourEdge } from './contour';
 import type { Division } from './divisions';
-import { LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, profileSwing, fitPeriod, isStraightLine, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type Line } from './lines';
+import { LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, laidSide, profileSides, profileSwing, fitPeriod, isStraightLine, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type Line } from './lines';
 import { familyOf, isDiminutive, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import type { FieldShape } from './shape';
 import type { Box } from './variation-geometry';
@@ -238,6 +238,13 @@ interface Course {
   readonly junction: number | null;
   readonly plus: 1 | -1 | 'outward';
   readonly cut: readonly [number, number] | null;
+  /**
+   * Whether the features stop clear of where the course leaves the shape when it leaves at a slant (a canton's or a quarter's inner edges in
+   * the round and the lozenge): run off it, they would cut the corner piece's sharp tip off and hang loose past the shape (`exitClearance`).
+   */
+  readonly clearExit?: boolean;
+  /** The fewest whole periods a fine-grained line shows on it (a cross's, saltire's or pall's arms: MIN_ARM_PERIODS), shorter and as much shallower on a short arm. */
+  readonly minPeriods?: number;
 }
 
 /** An ordinary drawn as a polygon: `edges[i]` is the edge from `points[i]` to the next point (the last one closes it). */
@@ -271,7 +278,7 @@ const BORDURE_WIDTH = 10;
 const CHARGED_BORDURE_WIDTH = 15;
 
 /** Whether an edge of the spec carries a line other than a straight one (enarched and ployé bow a band, they don't widen it). */
-const hasComplexLine = (spec: OrdinarySpec): boolean => !isStraightLine(spec.lines.a) || !isStraightLine(spec.lines.b);
+const hasComplexLine = (spec: OrdinarySpec): boolean => !isRompu(spec) && (!isStraightLine(spec.lines.a) || !isStraightLine(spec.lines.b));
 
 /** How wide a cotise is beside its band — about a quarter of it — and how far it lies from the band and from the next cotise: its own width (RULES-C §D.5). */
 const COTISE_SHARE = 1 / 4;
@@ -534,7 +541,7 @@ function pallOutline(spec: OrdinarySpec, frame: OrdinaryFrame): Outline {
   };
   const points = dirs.flatMap((dir, i): Pt[] => [at(centre, dir, PALL_REACH, half), at(centre, dir, PALL_REACH, -half), notch(i)]);
   const edges = dirs.flatMap((_, i): OutlineEdge[] => [null, { line: 'a', course: i }, { line: 'a', course: (i + 1) % 3 }]);
-  return { points, edges, courses: dirs.map((dir) => ({ origin: centre, dir, junction, plus: 1, cut: null })) };
+  return { points, edges, courses: dirs.map((dir) => ({ origin: centre, dir, junction, plus: 1, cut: null, minPeriods: MIN_ARM_PERIODS })) };
 }
 
 /** The label: a bar across the chief, this far down it (a share of the chief's height) and this thick, with its three points this long. */
@@ -652,6 +659,38 @@ function fretBody(frame: OrdinaryFrame): string {
   return [...mascle, ...bendlet, ...bendletSinister].map((poly) => pts(clockwise(poly))).join('');
 }
 
+/** Whether the spec is a chevron rompu: drawn by its outline, broken (`broken`), not by a profile on its edges. */
+const isRompu = (spec: OrdinarySpec): boolean => spec.lines.a === 'rompu' || spec.lines.b === 'rompu';
+
+/** How far across from its apex a chevron rompu's limbs are broken, and how far its point is raised there, in its thickness down the pale. */
+const ROMPU_BREAK = 18;
+const ROMPU_RAISE = 0.4;
+
+/**
+ * A chevron rompu (RULES-C §A.1: "its point sliced off and raised to chief"): the outline cut palewise across both limbs ROMPU_BREAK either
+ * side of the apex and the point between the cuts raised by `raise` (less than the limb's depth down the pale, so the pieces still meet), each
+ * limb broken by a step on both its edges. One outline still; the steps keep the line of the edge they break, so cotises step with them.
+ */
+function broken(outline: Outline, cx: number, raise: number): Outline {
+  const points: Pt[] = [], edges: OutlineEdge[] = [];
+  const inside = ([x]: Pt) => Math.abs(x - cx) < ROMPU_BREAK;
+  const lifted = (p: Pt): Pt => (inside(p) ? [p[0], p[1] - raise] : p);
+  outline.points.forEach((p, i) => {
+    const q = outline.points[(i + 1) % outline.points.length], e = outline.edges[i];
+    points.push(lifted(p));
+    edges.push(e);
+    // where the edge crosses a cut, in order along it: the step from one side's height to the other's
+    const cuts = [cx - ROMPU_BREAK, cx + ROMPU_BREAK].map((x) => (x - p[0]) / (q[0] - p[0])).filter((t) => t > 0 && t < 1).sort((s, t) => s - t);
+    for (const t of cuts) {
+      const at: Pt = [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])];
+      const fromInside = inside([p[0] + (t / 2) * (q[0] - p[0]), 0]);
+      points.push(fromInside ? [at[0], at[1] - raise] : at, fromInside ? at : [at[0], at[1] - raise]);
+      edges.push(e, e);
+    }
+  });
+  return { points, edges, courses: outline.courses };
+}
+
 function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): Outline | null {
   const f = shapeFrame(frame.shape);
   const shape = pathPolygon(f.outline);
@@ -674,7 +713,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
   // a band is laid centred along its middle line, `plus` toward chief (or dexter): its upper edge is `a` and its lower edge `b`
   const band = (origin: Pt, dir: Pt, cut: [number, number] | null = null): Course => ({ origin, dir, junction: null, plus: fieldSide(dir), cut });
   // arms laid out from the centre, `plus` the left of each (so the four arms turn into each other)
-  const arm = (dir: Pt, cut: [number, number] | null = null): Course => ({ origin: centre, dir: unit(dir), junction: 1, plus: 1, cut });
+  const arm = (dir: Pt, cut: [number, number] | null = null): Course => ({ origin: centre, dir: unit(dir), junction: 1, plus: 1, cut, minPeriods: MIN_ARM_PERIODS });
   /** A band couped across its length: its corners `half` either side of its middle line, its ends straight. */
   const coupedBand = (origin: Pt, dir: Pt, half: number): Outline => {
     const cut = coupedCut(origin, dir, half, shape);
@@ -724,10 +763,11 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
         const inward = dir[0] < 0 ? t : -t;
         return cut ? [at(apex, dir, cut[1], 0), at(apex, dir, cut[1], inward)] : [[cx + Math.sign(dir[0]) * reach, apexY + reach], [cx + Math.sign(dir[0]) * reach, apexY + reach + thick]];
       });
-      return {
+      const chevron: Outline = {
         points: [ends[0][0], apex, ends[1][0], ends[1][1], [cx, apexY + thick], ends[0][1]],
         edges: [A(0), A(1), null, B(1), B(0), null], courses: [limb(0), limb(1)],
       };
+      return isRompu(spec) ? broken(chevron, cx, ROMPU_RAISE * thick) : chevron;
     }
     case 'cross': {
       if (!couped) {
@@ -805,7 +845,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
     case 'canton': case 'quarter': {
       const share = cornerShare(spec.type, frame.shape);
       const corner: Pt = [f.box.x0 + share * (f.box.x1 - f.box.x0), f.box.y0 + share * (f.box.y1 - f.box.y0)];
-      const from = (dir: Pt): Course => ({ origin: corner, dir, junction: 1, plus: 'outward', cut: null });
+      const from = (dir: Pt): Course => ({ origin: corner, dir, junction: 1, plus: 'outward', cut: null, clearExit: true });
       return { points: [[x0, y0], [corner[0], y0], corner, [x0, corner[1]]], edges: [null, A(0), A(1), null], courses: [from([0, -1]), from([-1, 0])] };
     }
     // from the dexter chief corner of the box to the fess point, and across to the dexter flank: both edges laid out from the fess point
@@ -838,11 +878,52 @@ const along = (course: Course, [x, y]: Pt): number => (x - course.origin[0]) * c
 const COURSE_REACH = 400;
 
 /**
+ * How many periods a fine-grained line (one with FINE_REPEATS or more across the shield: indented, engrailed, invected, rayonny) shows on each
+ * arm of a cross, saltire or pall at least: two big teeth on a short arm read as a ragged blob. The coarser lines read with two.
+ */
+const MIN_ARM_PERIODS = 3;
+const FINE_REPEATS = 6;
+/** Below this, two lengths are the same. */
+const EPSILON = 1e-9;
+
+/** How far inside a couped end a line's features stop: a riser or an overhang on the straight end would leave a spike or a sliver past it. */
+const coupedEndClear = (depth: number): number => depth / 2;
+
+/** How much deeper for its period than on a band a line stopped short of a slanting exit may be cut: its few features stay legible. */
+const SHORT_RUN_DEPTH = 1.5;
+
+/** A course leaving the shape at an angle below this (radians) leaves it at a slant (`Course.clearExit`); a canton's edges in the heater and the banner leave square. */
+const SLANT = (80 * Math.PI) / 180;
+
+/**
+ * How far short of where a course leaves the shape (`s` along it) its features stop when it leaves at a slant: far enough that a feature
+ * reaching across it no further than the line does keeps inside the narrow angle between the course and the shape's edge, plus half a depth;
+ * 0 where it leaves square.
+ */
+function exitClearance(course: Course, s: number, shape: readonly Pt[], line: ComplexLine, depth: number): number {
+  const p: Pt = [course.origin[0] + course.dir[0] * s, course.origin[1] + course.dir[1] * s];
+  let nearest = { d: Infinity, t: [1, 0] as Pt };
+  shape.forEach((a, i) => {
+    const b = shape[(i + 1) % shape.length], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+    if (len === 0) return;
+    const u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (len * len)));
+    const d = Math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dy);
+    if (d < nearest.d) nearest = { d, t: [dx / len, dy / len] };
+  });
+  const angle = Math.acos(Math.min(1, Math.abs(course.dir[0] * nearest.t[0] + course.dir[1] * nearest.t[1])));
+  if (angle >= SLANT) return 0;
+  return (Math.max(...profileSides(line)) * depth) / Math.tan(angle) + depth / 2;
+}
+
+/**
  * How an outline other than the body's (a cotise's edge) draws its lines: laid on the body's outline
  * (`laidOn`), so that its periods line up with the body's; cut as deep as on a band `width` wide; a mirrored profile's + side turned
  * in (`facing` −1) on a cotise's edge toward the body, so that both edges of the cotise point out of it.
  */
 interface Laying { readonly laidOn: Outline; readonly width: number; readonly facing: 1 | -1 }
+
+/** How a line is laid along a course: its period and anchor, how deep it is cut there, and where its features stop (null: they run off the shape). */
+interface Laid { readonly period: number; readonly anchor: number; readonly depth: number; readonly end: number | null }
 
 /**
  * The runs each edge of an outline is drawn with (null: straight). The edges along one course share its period and anchor, fitted to the
@@ -854,24 +935,32 @@ function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[], la
   const { laidOn, width, facing } = laying;
   const turn = signedArea(points) > 0 ? 1 : -1;
   const ends = (o: Outline, i: number): [Pt, Pt] => [o.points[i], o.points[(i + 1) % o.points.length]];
-  const laid = new Map<string, { period: number; anchor: number } | null>();
-  /** The period and anchor of a line along a course. */
-  const lay = (index: number, line: ComplexLine, depth: number): { period: number; anchor: number } | null => {
+  const laid = new Map<string, Laid | null>();
+  /** The period and anchor of a line along a course, how deep it is cut there and where its features stop (null: they run off the shape). */
+  const lay = (index: number, line: ComplexLine, depth: number): Laid | null => {
     const key = `${index}|${line}`;
     if (laid.has(key)) return laid.get(key) ?? null;
     const course = courses[index];
     const [c0, c1] = course.cut ?? visibleSpan(course.origin, [course.origin[0] + course.dir[0] * COURSE_REACH, course.origin[1] + course.dir[1] * COURSE_REACH], shape) ?? [0, 0];
-    let out: { period: number; anchor: number } | null = null;
+    let out: Laid | null = null;
     if (course.junction === null) {
-      if (c1 > c0) out = { period: fitPeriod(line, c1 - c0, 1), anchor: (c0 + c1) / 2 };
+      const clear = course.cut ? coupedEndClear(depth) : 0;
+      if (c1 - c0 > 2 * clear) out = { period: fitPeriod(line, c1 - c0 - 2 * clear, 1), anchor: (c0 + c1) / 2, depth, end: null };
     } else {
       // the first period starts clear of the junction on the edge (of the outline it is laid on) whose inner end lies nearest it
       const start = Math.min(...laidOn.edges.flatMap((e, i) => (e?.course === index && spec.lines[e.line] === line ? [Math.min(...ends(laidOn, i).map((p) => along(course, p)))] : []))) + depth * course.junction;
-      if (c1 > start) {
+      // the features stop short of a couped end, and of a slanting exit (on what that leaves, a line is cut no deeper for its period than
+      // SHORT_RUN_DEPTH times as on a band)
+      const end = course.cut ? c1 - coupedEndClear(depth) : course.clearExit ? c1 - exitClearance(course, c1, shape, line, depth) : c1;
+      if (end > start) {
         // a profile that overhangs its period (dovetails, nebuly) starts that much further out
         const overhang = -Math.min(0, PROFILE_REACH[line][0]);
-        const period = fitPeriod(line, (c1 - start) / (1 + overhang), 1);
-        out = { period, anchor: start + (overhang + 0.5) * period };
+        // a fine-grained line on a short arm shows `minPeriods` at least, each cut no deeper for its period than on a band
+        const { depth: natural, repeats } = LINE_PROFILE[line];
+        const room = (end - start) / (1 + overhang), fitted = fitPeriod(line, room, 1), fewest = repeats.target >= FINE_REPEATS ? course.minPeriods ?? 0 : 0;
+        const period = room / fitted < fewest - EPSILON ? room / fewest : fitted;
+        const deepest = course.clearExit === true && end < c1 ? SHORT_RUN_DEPTH : period < fitted ? 1 : Infinity;
+        out = { period, anchor: start + (overhang + 0.5) * period, depth: Math.min(depth, (deepest * natural * repeats.target * period) / 100), end: end < c1 ? end : null };
       }
     }
     laid.set(key, out);
@@ -891,16 +980,16 @@ function edgeRuns(spec: OrdinarySpec, outline: Outline, shape: readonly Pt[], la
     const [v0, v1] = [sFrom + forward * visible[0], sFrom + forward * visible[1]].sort((p, q) => p - q);
     // a single feature on a limb bows each edge from its own inner end to where it leaves the shape
     const single = LINE_PROFILE[line].kind === 'single';
-    const fit = single && course.junction !== null ? { period: v1 - inner, anchor: (inner + v1) / 2 } : lay(e.course, line, depth);
+    const fit = single && course.junction !== null ? { period: v1 - inner, anchor: (inner + v1) / 2, depth, end: null } : lay(e.course, line, depth);
     if (fit === null) return null;
-    // a couped edge's features stop at its straight ends; elsewhere they run off the shape
-    const span: [number, number] = course.junction === null ? (course.cut ? [v0, v1] : [v0 - fit.period, v1 + fit.period])
-      : single ? [inner, v1] : [inner + depth * course.junction, course.cut ? course.cut[1] : v1 + fit.period];
+    // a couped edge's features stop at its straight ends, and those of an edge leaving the shape at a slant short of it; elsewhere they run off it
+    const span: [number, number] = course.junction === null ? (course.cut ? [v0 + coupedEndClear(depth), v1 - coupedEndClear(depth)] : [v0 - fit.period, v1 + fit.period])
+      : single ? [inner, v1] : [inner + depth * course.junction, fit.end ?? v1 + fit.period];
     // the side of the course's direction the edge's outside lies on: its left when it runs along the course round a clockwise outline
     const outward: 1 | -1 = turn * forward > 0 ? 1 : -1;
-    const side = LINE_PROFILE[line].pairing === 'mirrored' || course.plus === 'outward' ? (outward * facing > 0 ? 1 : -1) : course.plus;
+    const side = LINE_PROFILE[line].pairing === 'mirrored' || course.plus === 'outward' ? (outward * facing > 0 ? 1 : -1) : laidSide(line, course.dir, course.plus);
     // a bow on a limb rises as far for its length as a fess's for the shield's width, so a limb's two edges curve alike
-    const drawn = single && course.junction !== null ? (depth * fit.period) / 100 : depth;
+    const drawn = single && course.junction !== null ? (depth * fit.period) / 100 : fit.depth;
     return runAlong({ origin: course.origin, dir: course.dir, run: { line, side, depth: drawn, period: fit.period, anchor: fit.anchor, span } }, from, to);
   });
 }
@@ -962,13 +1051,30 @@ function ringPath(ring: readonly Pt[], line: Line, side: 1 | -1, depth: number, 
   return contourPath({ start: ring[0], edges: [{ via: ring.slice(1), to: ring[0], run }] });
 }
 
+/**
+ * The lines whose detail — steps, T-heads, cloud lobes, dovetails, stumps — a bordure's narrow ring loses when cut 0.3 of its width deep
+ * (`edgeDepth`): cut BORDURE_DEPTH_SHARE of its width deep there (RULES-C §A.4: "on bordures, depth ≈ 1/2 of the bordure width"), their
+ * periods as much shorter than on a band as they are shallower, so that they keep their shape.
+ */
+const DETAILED_ON_BORDURE: readonly ComplexLine[] = ['grady', 'potenty', 'nebuly', 'dovetailed', 'raguly'];
+const BORDURE_DEPTH_SHARE = 0.5;
+
+/** How deep a line is cut on a bordure this wide, and the length of the periods laid round it (null: fitted as on a band). */
+function bordureLine(line: ComplexLine, width: number): { depth: number; pitch: number | null } {
+  if (!DETAILED_ON_BORDURE.includes(line)) return { depth: edgeDepth(line, width), pitch: null };
+  const p = LINE_PROFILE[line], depth = Math.min(p.depth, BORDURE_DEPTH_SHARE * width);
+  return { depth, pitch: (100 / p.repeats.target) * (depth / p.depth) };
+}
+
 /** A bordure's body: the shape's outline and, inside it, its inset (its charged inset when it carries charges) — drawn with the line all the way round, its features toward the field, whole periods from the top middle. */
 function bordureBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
   const f = shapeFrame(frame.shape);
   const line = spec.lines.a;
   if (line === 'plain') return f.outline + bordureInset(spec, frame.shape);
   const ring = ringFromTop(insetRing(bordureInset(spec, frame.shape)), frame.centre.x);
-  return f.outline + ringPath(ring, line, outsideOf(ring) === 1 ? -1 : 1, edgeDepth(line, drawnWidth(spec)), null);
+  const { depth, pitch } = bordureLine(line, drawnWidth(spec));
+  const periods = pitch === null ? null : Math.max(1, Math.round(polylineLength(ring, true) / pitch));
+  return f.outline + ringPath(ring, line, outsideOf(ring) === 1 ? -1 : 1, depth, periods);
 }
 
 /**
@@ -1258,7 +1364,7 @@ function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline |
     // The bordure's line runs along its inner edge: the inset moves inward (the ring grows) for `outer`, outward for `inner`.
     const ring = pathPolygon(shapeFrame(frame.shape).outline);
     const corners = insetRing(bordureInset(spec, frame.shape));
-    const reach = edgeReach(spec.lines.a, width);
+    const line = spec.lines.a, reach = line === 'plain' ? 0 : bordureLine(line, width).depth * profileSwing(line);
     return { outer: [ring, offsetPolygon(corners, corners.map(() => -reach))], inner: [ring, offsetPolygon(corners, corners.map(() => reach))] };
   }
   const reach = bodyReach(spec, outline);
@@ -1399,13 +1505,15 @@ function build(spec: OrdinarySpec, given: OrdinaryFrame, lift: number): Ordinary
     const f = shapeFrame(frame.shape);
     const shape = pathPolygon(f.outline);
     const drawn = outlineOf(spec, frame, lift);
-    const body = bodyOf(spec, frame, drawn, shape);
+    // a chevron rompu's outline is broken already: its edges are drawn straight
+    const look: OrdinarySpec = isRompu(spec) ? { ...spec, lines: { a: 'plain', b: 'plain' } } : spec;
+    const body = bodyOf(look, frame, drawn, shape);
     const rings = pathRings(body), outline = pathRings(f.outline);
     const points = rings.flat(), xs = points.map(([x]) => x), ys = points.map(([, y]) => y);
     // what lies under a base or point pointed doesn't show
     const above = (grid: Pt[]) => grid.filter(([, y]) => y < frame.bottom);
     const samples = above(gridInside(outline, rings));
-    const fimbriation = drawn && fimbriationOf(spec, drawn, body), cotises = drawn && cotisesOf(spec, drawn, shape);
+    const fimbriation = drawn && fimbriationOf(look, drawn, body), cotises = drawn && cotisesOf(look, drawn, shape);
     const box = { x0: Math.max(f.box.x0, Math.min(...xs)), y0: Math.max(f.box.y0, Math.min(...ys)), x1: Math.min(f.box.x1, Math.max(...xs)), y1: Math.min(f.box.y1, Math.max(...ys)) };
     g = {
       body,
@@ -1413,7 +1521,7 @@ function build(spec: OrdinarySpec, given: OrdinaryFrame, lift: number): Ordinary
       // the fimbriation shows where it lies outside the body
       fimbriation: fimbriation ? { d: fimbriation, fillRule: 'nonzero', samples: above(gridInside(outline, [...pathRings(fimbriation), ...rings], TRIM_SAMPLE_STEP)) } : null,
       cotises: cotises && drawn ? cotiseTrim(cotises, drawn, above(gridInside(outline, pathRings(cotises), TRIM_SAMPLE_STEP))) : null,
-      envelope: envelopeOf(spec, frame, drawn, body),
+      envelope: envelopeOf(look, frame, drawn, body),
       centre: spec.type === 'chief' ? { x: frame.centre.x, y: f.chiefBase - CHIEF_HEIGHT / 2 }
         : IN_A_CORNER_OR_BASE.includes(spec.type) ? middleOf(samples) : ordinaryCentre(spec, frame),
       box,

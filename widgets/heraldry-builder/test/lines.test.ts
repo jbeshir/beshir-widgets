@@ -191,12 +191,12 @@ describe('the periodic-edge generator', () => {
 
   it('a band\'s two edges share period and anchor: parallel lines stay parallel, mirrored ones mirror', () => {
     // a fess from x -40 to 140 between y 35 and 65: the upper edge left to right, the lower right to left, both + outward
-    // (single profiles take + toward chief on both edges)
+    // (single profiles take + toward chief on both edges: a symmetric one turns to the other side of the lower edge's way, bevilled's doesn't)
     const length = 180;
     for (const line of COMPLEX) {
       const upper = chordRun(line, [-40, 35], [140, 35]);
       const single = LINE_PROFILE[line].kind === 'single';
-      const lower: EdgeRun = { ...upper, side: single ? -1 : 1, anchor: length - upper.anchor, span: [length - upper.span[1], length - upper.span[0]] };
+      const lower: EdgeRun = { ...upper, side: single && LINE_PROFILE[line].symmetric ? -1 : 1, anchor: length - upper.anchor, span: [length - upper.span[1], length - upper.span[0]] };
       const top = edgePoints([-40, 35], [140, 35], upper).slice().reverse();
       const bottom = edgePoints([140, 65], [-40, 65], lower);
       expect([line, bottom.length]).toEqual([line, top.length]);

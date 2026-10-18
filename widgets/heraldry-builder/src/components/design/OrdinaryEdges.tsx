@@ -5,11 +5,14 @@
 
 import {
   bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, ordinaryCountChoices, ordinaryCountLabel, outlineAt, outlineChoices, outlineTinctureChoices,
-  outlineTinctureOf, setOutlineTincture, toggleChoices, toggledOn, THIN_ORDINARIES,
-  type Design, type EdgeName, type EdgeSide, type FieldShape, type GroupPath, type Line,
+  outlineTinctureOf, setOutlineTincture, toggleChoices, toggledOn, familyOf, THIN_ORDINARIES,
+  type Design, type OrdinaryType, type EdgeName, type EdgeSide, type FieldShape, type GroupPath, type Line,
 } from '../../lib/heraldry';
 import { setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle } from '../../lib/builder';
 import { EdgePicker } from './EdgePicker';
+
+/** The bands and shapes whose lines run through the middle of the field, where the edge chips zoom in (`EdgePicker`'s `zoom`); a chief, bordure, canton … lies at its edge. */
+const THROUGH_THE_MIDDLE: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pall', 'pall-inverted', 'pile'];
 import { MoreShapes } from './MoreShapes';
 import { OutlineControls } from './OutlineControls';
 import { ShapeToggles } from './ShapeToggles';
@@ -76,7 +79,7 @@ export function OrdinaryShapeControls({ design, path, testid, noun, shape, onCha
       )}
       {lines.length > 0 && (
         <EdgePicker
-          testid={`${testid}-edge`} noun={noun} iconKey={[type, ...turned, ...(count > 1 ? [count] : [])].join('-')}
+          testid={`${testid}-edge`} noun={noun} iconKey={[type, ...turned, ...(count > 1 ? [count] : [])].join('-')} zoom={THROUGH_THE_MIDDLE.includes(familyOf(type))}
           icon={(line) => ({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type, mods: turned, lines: bareLines({ k: 'ordinary', type, inverted }, line) }, count, paint: 'or' }] })}
           shape={shape} lines={lines} line={current} onLine={(l) => onChange(setOrdinaryLine(design, path, l))}
           sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="edges" sideLabels={sideLabels(names?.a)}

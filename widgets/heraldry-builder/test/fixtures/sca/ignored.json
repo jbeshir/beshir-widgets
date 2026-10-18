@@ -57300,7 +57300,7 @@
       "regid:142069": ["charge-human:eye"],
       "regid:142108": ["charge-human:savage-head"]
     }},
-    {"category": "placement", "description": "one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)", "singleGap": 167, "records": {
+    {"category": "placement", "description": "one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)", "singleGap": 164, "records": {
       "regid:243": ["placement:around-primary-1"],
       "regid:428": ["placement:between-pile-4"],
       "regid:2033": ["placement:on-chief-3"],
@@ -57389,7 +57389,6 @@
       "regid:53482": ["placement:between-bend-1"],
       "regid:53678": ["placement:on-chief-3"],
       "regid:53711": ["arrangement:in-chief", "placement:between-cross-2"],
-      "regid:55068": ["placement:in-base-1"],
       "regid:57188": ["ordinary-treatment:fretted", "ordinary-treatment:parted", "placement:overall-orle"],
       "regid:58945": ["placement:on-chief-1"],
       "regid:59165": ["placement:between-fess-2"],
@@ -57470,7 +57469,6 @@
       "regid:104968": ["placement:between-pale-6"],
       "regid:107275": ["division:quarterly-arrondi", "placement:on-charge-2"],
       "regid:107504": ["placement:in-base-3"],
-      "regid:107908": ["placement:in-base-1"],
       "regid:109356": ["placement:on-bend-3"],
       "regid:109634": ["placement:between-bend-3"],
       "regid:109864": ["placement:in-chief-3"],
@@ -57490,7 +57488,6 @@
       "regid:121279": ["placement:on-charge-3"],
       "regid:122894": ["placement:between-cross-1"],
       "regid:124337": ["placement:on-gear"],
-      "regid:124582": ["placement:in-base-1"],
       "regid:126380": ["placement:in-base-3"],
       "regid:126634": ["placement:in-canton-1", "widget-structure-rule:design"],
       "regid:126870": ["placement:between-fess-3"],

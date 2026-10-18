@@ -786,11 +786,11 @@ describe('the outline of the band: edged, or cotised', () => {
     expect(chief.groups.every((g) => g.item.k !== 'ordinary' || (g.item.cotised === null && g.item.fimbriated === null))).toBe(true);
   });
 
-  it('Hollow is offered to a cross and a saltire only, and not with an edging', () => {
+  it('Hollow is offered to a cross and a saltire only (a bend shows it blocked, with SENA A3C), and not with an edging', () => {
     const cross = setOrdinary(DEFAULT_DESIGN, 'cross');
     const path = ordinaryPath(cross)!;
     expect(toggleChoices(cross, path).map((c) => c.value)).toContain('voided');
-    expect(toggleChoices(bend(), ordinaryPath(bend())!).map((c) => c.value)).not.toContain('voided');
+    expect(toggleChoices(bend(), ordinaryPath(bend())!).find((c) => c.value === 'voided')).toMatchObject({ allowed: false, reason: expect.stringContaining("can't be voided") });
     const hollow = setOrdinaryToggle(cross, path, 'voided', true);
     expect(blazon(hollow)).toBe('Azure, a cross voided Or.');
     const edging = outlineChoices(hollow, path).find((c) => c.value === 'fimbriated')!;

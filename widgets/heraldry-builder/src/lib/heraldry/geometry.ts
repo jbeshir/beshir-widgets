@@ -12,7 +12,7 @@ import { DEFAULT_GYRONNY_PIECES, DRAWN_DIVISIONS, partCount, type Division } fro
 import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import { contoursPath, type Contour, type ContourEdge } from './contour';
-import { ARRONDI_SAGITTA, LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, fitPeriod, profileSides, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type LaidLine, type Line } from './lines';
+import { ARRONDI_SAGITTA, LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, fitPeriod, laidSide, profileSides, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type LaidLine, type Line } from './lines';
 import { surfaceOf, type Surface } from './surface';
 import type { FieldShape } from './shape';
 
@@ -329,7 +329,7 @@ function layOn(outline: readonly Pt[]): Lay {
     const [c0, c1] = visibleSpan(from, to, outline) ?? [0, length];
     const chord = c1 - c0;
     // every arrondi line curves the same rotational way (to the left as it runs outward from where the lines meet), by a tenth of its length
-    const [side, depth] = line === 'arrondi' ? [1 as const, ARRONDI_SAGITTA * chord] : [fieldSide(dir), LINE_PROFILE[line].depth];
+    const [side, depth] = line === 'arrondi' ? [1 as const, ARRONDI_SAGITTA * chord] : [laidSide(line, dir, fieldSide(dir)), LINE_PROFILE[line].depth];
     const periodic = LINE_PROFILE[line].kind === 'periodic', junction = typeof start === 'object';
     // lines laid out from a junction keep a lead-in straight (half a period, or what keeps their features clear of the lines beside them)
     // plus whatever a period overhangs it by, and the period is fitted to what is left, so a short arm still shows a whole number of

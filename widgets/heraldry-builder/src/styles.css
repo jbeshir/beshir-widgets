@@ -443,6 +443,17 @@ button, input, select, textarea {
   gap: 6px;
 }
 
+/* What the chosen shape can't draw at a size that reads (the heater can) */
+.shape-cramped {
+  margin: 0;
+  padding: 6px 10px 6px 26px;
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--warning-bg);
+  border-left: 3px solid var(--warning);
+  border-radius: 4px;
+}
+
 .shape-choice {
   min-height: 68px;
   padding: 6px 2px;

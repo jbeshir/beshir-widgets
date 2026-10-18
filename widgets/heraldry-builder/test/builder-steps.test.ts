@@ -8,7 +8,7 @@ import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/B
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
 import { setCharge, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, type Design } from '../src/lib/heraldry';
+import { addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -548,11 +548,12 @@ describe('"More shapes and edges…" under the band', () => {
     expect(ids(render(setOrdinaryLine(chief, ordinaryPath(chief)!, 'wavy')))).not.toContain('ordinary-outline-select');
   });
 
-  it('Hollow is a toggle of a cross, and opens the disclosure', () => {
+  it('Hollow is a toggle of a cross, and opens the disclosure; a fess shows it blocked (review U-9)', () => {
     const cross = setOrdinary(DEFAULT_DESIGN, 'cross');
     expect(ids(render(setOrdinaryToggle(cross, ordinaryPath(cross)!, 'voided', true)))).toContain('ordinary-shape-voided');
     const fess = setOrdinaryToggle(setOrdinary(DEFAULT_DESIGN, 'fess'), ordinaryPath(setOrdinary(DEFAULT_DESIGN, 'fess'))!, 'couped', true);
-    expect(ids(render(fess))).not.toContain('ordinary-shape-voided');
+    expect(ids(render(fess))).toContain('ordinary-shape-voided');
+    expect(toggleChoices(fess, ordinaryPath(fess)!).find((c) => c.value === 'voided')).toMatchObject({ allowed: false, reason: expect.stringContaining('SENA A3C') });
   });
 
   it('a top band and a border have an "Edge…" disclosure', () => {

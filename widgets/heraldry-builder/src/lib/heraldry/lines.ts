@@ -242,15 +242,17 @@ export interface LineProfile {
   readonly depth: number;
   /** How a band's second edge relates to its first at the same place along it (see the header): antisymmetric profiles are parallel, symmetric ones mirrored. */
   readonly pairing: 'parallel' | 'mirrored';
+  /** Whether v(1−u) = v(u): the mirrored profiles and the single features but bevilled; the others are antisymmetric, v(1−u) = −v(u). */
+  readonly symmetric: boolean;
 }
 
 const L = (u: number, v: number): ProfileStep => ({ k: 'L', to: [u, v] });
 const C = (c1u: number, c1v: number, c2u: number, c2v: number, u: number, v: number): ProfileStep => ({ k: 'C', c1: [c1u, c1v], c2: [c2u, c2v], to: [u, v] });
 const steps = (...points: Pt[]): ProfileStep[] => points.map(([u, v]) => L(u, v));
 const periodic = (target: number, min: number, max: number, depth: number, pairing: LineProfile['pairing'], period: ProfileStep[]): LineProfile =>
-  ({ kind: 'periodic', period, repeats: { target, min, max }, depth, pairing });
-const single = (depth: number, period: ProfileStep[]): LineProfile =>
-  ({ kind: 'single', period, repeats: { target: 1, min: 1, max: 1 }, depth, pairing: 'parallel' });
+  ({ kind: 'periodic', period, repeats: { target, min, max }, depth, pairing, symmetric: pairing === 'mirrored' });
+const single = (depth: number, period: ProfileStep[], symmetric = true): LineProfile =>
+  ({ kind: 'single', period, repeats: { target: 1, min: 1, max: 1 }, depth, pairing: 'parallel', symmetric });
 
 /** A cubic's control height for a peak of 1: a cubic with both controls at height h peaks at ¾h. */
 const PEAK = 4 / 3;
@@ -316,10 +318,13 @@ export const LINE_PROFILE: Record<ComplexLine, LineProfile> = {
   arrondi: single(10, [C(0.3, 2 * PEAK, 0.7, 2 * PEAK, 1, 0)]),
   // two straight lines meeting in a point toward base, midway along the chord (a chief's lower edge)
   triangular: single(12, steps([0.5, -2], [1, 0])),
-  // a limb broken midway, a piece of it raised toward chief by a step (symmetric, like every single feature) (a model Line, drawn as one feature along a chevron's limb)
-  rompu: single(8, steps([0.35, 0], [0.35, 2], [0.65, 2], [0.65, 0], [1, 0])),
-  // the line broken at its middle by a short step (a bend's edge, or the line of a field per bend)
-  bevilled: single(6, steps([0.45, 0], [0.45, 2], [0.55, 2], [0.55, 0], [1, 0])),
+  // a chevron's limbs broken and its point raised: drawn by the chevron's outline (`broken` in ordinary-geometry), never as a profile; this one
+  // stands for it where a line's reach is read (the point stands its depth higher)
+  rompu: single(12, steps([0.35, 0], [0.35, 2], [0.65, 2], [0.65, 0], [1, 0])),
+  // the line broken at its middle by a short palewise step, the half beyond it offset by the step (RULES-C §A.1): each half leans a
+  // little, from where the line meets the shape to the step, so that it starts and ends on the line (antisymmetric; `laidSide` turns the
+  // step palewise) — a bend's two edges in step, so the lower half of the bend is moved by it, or the line of a field per bend
+  bevilled: single(8, steps([0.47, 1], [0.53, -1], [1, 0]), false),
 };
 
 // ── The periodic-edge generator ─────────────────────────────────────────────
@@ -573,8 +578,8 @@ export function polylineEdgeCommands(points: readonly Pt[], run: EdgeRun): strin
 
 // ── Lines laid across the field ─────────────────────────────────────────────
 
-/** Whether a profile is symmetric about u = ½ (the mirrored and the single profiles); the parallel ones are antisymmetric, v(1−u) = −v(u). */
-const isSymmetric = (line: ComplexLine): boolean => LINE_PROFILE[line].pairing === 'mirrored' || LINE_PROFILE[line].kind === 'single';
+/** Whether a profile is symmetric about u = ½ (`LineProfile.symmetric`). */
+const isSymmetric = (line: ComplexLine): boolean => LINE_PROFILE[line].symmetric;
 
 /**
  * The run that draws the same edge from b back to a (an edge two regions share, each drawing it its own way round): anchor and span
@@ -601,6 +606,14 @@ export function runAlong(laid: LaidLine, a: Pt, b: Pt): EdgeRun {
 /** The side a line of the field puts its features on (RULES-C §A.2): toward chief, or toward dexter on an upright line. `dir` is the way it is drawn. */
 export function fieldSide([dx, dy]: Pt): 1 | -1 {
   return Math.abs(dx) > EPS ? (dx > 0 ? 1 : -1) : dy < 0 ? 1 : -1;
+}
+
+/**
+ * The side a line laid along `dir` puts its features on, given the side its host lays lines on (`side`: toward chief, or dexter): bevilled's
+ * whichever way it is laid, so that its step is palewise, the line dropping by it as it runs toward base — on a bend as on a bend sinister.
+ */
+export function laidSide(line: ComplexLine, dir: Pt, side: 1 | -1): 1 | -1 {
+  return line === 'bevilled' ? (dir[0] * dir[1] >= 0 ? 1 : -1) : side;
 }
 
 let swings: Record<ComplexLine, number> | null = null;

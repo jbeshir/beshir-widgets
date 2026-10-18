@@ -253,6 +253,23 @@ rompu or bend bevilled); a fess under a chief is lowered until its lines and tri
 the shape stays wide); a per chevron throughout ↔ pile inverted throughout reading keeps the peripherals, and either is keyed to every
 registry entry; changing a corner shape's type is refused when adding it would be.
 
+**Drawing fixes after the phase-C review** (findings U-1 … U-9, K-22; `test/review-visual.test.ts`): bevilled is an antisymmetric single
+profile (`LineProfile.symmetric` false): each half of the line leans a little from where it meets the shape to a short step at the middle, so
+the half beyond the step is offset by it, and `laidSide` turns the step palewise on a bend and a bend sinister alike (a bend's two edges step
+together, so its lower half moves). A chevron rompu is cut palewise across both limbs `ROMPU_BREAK` either side of the apex and the point
+between the cuts raised by 0.4 of its thickness (PicDic: "its point sliced off and raised"); it is drawn straight-edged and not widened, its
+cotises step with it. On a bordure, grady, potenty, nebuly, dovetailed and raguly are cut half its width deep, their periods as much shorter as
+they are shallower (`bordureLine`). A canton's or quarter's lined edges stop short of where they leave the round or the lozenge at a slant, cut
+no deeper for their few periods than 1.5 times as on a band (`Course.clearExit`, `exitClearance`). The line of a couped band or arm stops half
+a depth inside its straight ends (`coupedEndClear`), so no riser or dovetail sticks out past them. A fine-grained line (six repeats or more
+across the shield: indented, engrailed, invected, rayonny) shows three periods at least on each arm of a cross, saltire or pall, as much
+shallower as they are shorter (`Course.minPeriods`). The shape picker says when the chosen shape can't draw a group's charges at a size that
+reads though the heater can (`crampedInShape`, e.g. a fess between three roses and a base on the lozenge): the shape is display only and the
+verdict stays the heater's (`test/shape-verdict.test.ts`). The edge chips of a division and of a band through the middle of the field picture
+the middle of the field only (`Shield`'s `view`, `EdgePicker`'s `zoom`), and a gyronny's chips draw the line on a field per fess. Hollow shows,
+blocked with SENA A3C's reason, on a fess, pale, bend or chevron; thin bands show their band's treatments they can't take, blocked ("Thin bands
+can't be shortened: turn Thin off first."); and Thin is blocked while such a treatment is on, instead of dropping it.
+
 **Divisions in three** (C13; RULES-C §E.1–E.2): per pall, per pall inverted, tierced in pale and tierced in fess join `MORE_DIVISIONS` (tiles `division-per-pall|per-pall-inverted|tierced-per-pale|tierced-per-fess`). A field so divided has three parts (`partCount`), in blazon order: per pall the chief part between the arms, then dexter and sinister; per pall inverted dexter, sinister, then the base part; tierced dexter to sinister, chief to base. The per pall's arms run from the fess point to the box's top corners (the inverted one's mirrored below it) and straight down (up); a tierced field's two lines bound a middle third of the box centred on the fess point. A line on one is drawn on every line ("per pall wavy"), laid out from the centre for a per pall. Words: "Per pall A, B and C" (no serial comma), "Tierced in pale A, B and C" (`DIVISION_NAME`; the ids keep `per`); `divisionGloss` takes every part's colour. Rules: no two parts share a tincture (A3B3a); per pall needs one part contrasting with both others (A3B3b); tierced needs its middle part to contrast with both outer ones (the strictest reading, L11), and with its outer parts alike it is refused as "a pale"/"a fess" (L24); App H holds across every pair of parts a complex line divides (`adjacentParts`, L12); a chief on a per pall lies on its chief part alone (A3B4a's example); Table 7 sets two charges on a per pall in fess and three one in each part (tierced: in fess / in pale). Counterchanging over three parts is the gap `division:counterchanged-over-three-parts` (the builder doesn't offer it), and as the paint of a band or charge they stay `division:<d>-on-charge`. Conflict: per pall and per pall inverted are each their own category; tierced in pale is in per pale's and tierced in fess in per fess's (L11), three pieces (A5G1d); a field in three changes tincture (A5G1a) only when at least half its area does, measured point by point on the heater (`divisionPartGrid`), so one part of three is no change and two swapped are. The builder's `setDivision` fills a third part that contrasts with the second (`partner`), and the Background shows a third picker (`setFieldTincture(d, 0 | 1 | 2, t)`, `fieldTinctureChoices` blocking what the other two parts have).
 
 **Diminutives** (C11; RULES-C §C.2): bars, pallets, bendlets, bendlets sinister and chevronels two to four at a time (`THIN_ORDINARIES`,
@@ -328,9 +345,10 @@ an ordinary with a complex line may not share a multiply divided field's tinctur
 
 **The lines tail** (C14; RULES-C §A.1, §A.5, F2): `triangular`, `rompu` and `bevilled` are lines of group `other` (each differs from every other line)
 and *single* profiles, one feature across the whole edge like enarched and ployé. `lineAllowed` restricts them to one kind of host each:
-triangular to a chief (its lower edge two straight lines meeting at a point toward base), rompu to a chevron (upright or upside down; each limb
-is broken midway by a step toward chief — `rompu` is a model `Line`, one edge value, drawn by the limb's edge profile rather than by a special
-chevron shape), bevilled to a bend, a bend sinister, per bend and per bend sinister (the line broken at its middle by a short step). So the
+triangular to a chief (its lower edge two straight lines meeting at a point toward base), rompu to a chevron (upright or upside down; `rompu`
+is a model `Line`, one edge value; since the UI review the chevron's outline is broken — `broken` in `ordinary-geometry.ts` — not an edge
+profile), bevilled to a bend, a bend sinister, per bend and per bend sinister (the line broken at its middle by a short palewise step, the
+half beyond it offset). So the
 edge row (`lineChoices`, which lists only the lines the host may carry) shows `ordinary-edge-triangular` (a chief card: `chief-edge-triangular`),
 `ordinary-edge-rompu`, `ordinary-edge-bevilled` and `field-edge-bevilled` on those hosts and nowhere else; ployé is now also a pile's
 (`ordinary-edge-ploye`). Rules (`structure.ts`): triangular and rompu take no further line, so a rompu chevron's cotises can't carry one
@@ -990,6 +1008,7 @@ npm run favicon
 - `test/divisions-three.test.ts`: per pall, per pall inverted and the tierced divisions tile every shape in three (plain, wavy, embattled) with `partIndexAt` following the regions, part order, the three-part tincture rules (A3B3b, tierced, "that is a pale", a chief on per pall, App H, counterchanging a gap), Table 7, words, gloss, signature, conflict by area and categories, the builder's three parts and their swatches.
 - `test/divisions-more.test.ts`: per chevron inverted, per chevron throughout and gyronny (6, 8, 12, arrondi) tile every shape and `partIndexAt` follows the regions, a gyronny's wedges alternate from the dexter fess line, words and signatures, the builder's `setDivision`/`setDivisionPieces` and the lines kept, conflict (per chevron throughout = per chevron, the pile reading, pieces, arrondi), counterchange over gyronny.
 - `test/review-rules.test.ts`: the SENA corrections after the phase-C review (R-1 … R-11), each read from a blazon by the SCA matcher.
+- `test/review-visual.test.ts`: the drawing fixes after the phase-C review (U-1 … U-6, K-22) on every shape, and the shape picker's note (U-4).
 - `test/review-code.test.ts`: the code fixes after the phase-C review (K-1 … K-27); the meeting lines of the phase-C divisions are tiled and checked for self-crossing in `test/lines-field.test.ts`.
 - `test/diminutives.test.ts`: bars, pallets, bendlets (sinister) and chevronels two to four at a time and the baton — evenly spaced and inside every shape, enhanced and turned groups, below a chief; a single one canonicalised to its ordinary (a saltorel a saltire couped), the gaps kept; words and signature; conflict (number, the ordinary's type, three or more read as the variation with the `ANY_PRIMARY` key, two never); bendlets enhanced with charges a step from core practice; charges between a group; the Thin toggle and count row.
 - `test/central-and-edge-shapes.test.ts`: the pall, pall inverted, fret, label, mount and trimount — drawn inside every shape (lined, voided and fimbriated too), the pall's arms reaching the chief corners and the inverted one's the base, three between and one or three on a pall, the fret's woven pieces never overlapping, the roles, the rules (voided and fimbriated pall, a cotised pall and a fret refused, CC-8), conflict (pall against pall inverted, mount against trimount), the words and the toggle that turns a pall over.

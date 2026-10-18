@@ -10,7 +10,7 @@ import {
   resolve, reversedRun, edgePoints, edgeCommands, partitionContours, periodStarts, visibleSpan, LINE_PROFILE, shapeFrame, signature, structuralIssues, tinctureIssues, validate, variationRegions,
   type ComplexLine, type Design, type DividedField, type EdgeRun, type FieldShape, type Line, type VariedField,
 } from '../src/lib/heraldry';
-import { arms, charge, div, group, nd, ordinary } from './helpers';
+import { arms, charge, div, group, nd, ordinary, selfCrossings } from './helpers';
 import { rotatesIn } from './rotation';
 
 type Pt = [number, number];
@@ -57,32 +57,6 @@ function checkTiling(regions: readonly string[], partAt: (x: number, y: number) 
 }
 
 const plainOf = (l: Line) => ({ a: l, b: l });
-
-/** Where two edges of a ring that don't share a corner cross (edges binned by a coarse grid, so a ring of thousands of points stays cheap). */
-function selfCrossings(ring: readonly Pt[]): Pt[] {
-  const n = ring.length, cell = 4, bins = new Map<string, number[]>();
-  for (let i = 0; i < n; i++) {
-    const [a, b] = [ring[i], ring[(i + 1) % n]];
-    for (let gx = Math.floor(Math.min(a[0], b[0]) / cell); gx <= Math.floor(Math.max(a[0], b[0]) / cell); gx++) {
-      for (let gy = Math.floor(Math.min(a[1], b[1]) / cell); gy <= Math.floor(Math.max(a[1], b[1]) / cell); gy++) {
-        const key = `${gx},${gy}`;
-        bins.set(key, [...(bins.get(key) ?? []), i]);
-      }
-    }
-  }
-  const seen = new Set<string>(), out: Pt[] = [];
-  for (const ids of bins.values()) for (let p = 0; p < ids.length; p++) for (let q = p + 1; q < ids.length; q++) {
-    const [i, j] = ids[p] < ids[q] ? [ids[p], ids[q]] : [ids[q], ids[p]];
-    if (j - i <= 1 || (i === 0 && j === n - 1) || seen.has(`${i}:${j}`)) continue;
-    seen.add(`${i}:${j}`);
-    const [[px, py], [qx, qy]] = [ring[i], ring[(i + 1) % n]], [[rx, ry], [sx, sy]] = [ring[j], ring[(j + 1) % n]];
-    const d = (qx - px) * (sy - ry) - (qy - py) * (sx - rx);
-    if (Math.abs(d) < 1e-12) continue;
-    const t = ((rx - px) * (sy - ry) - (ry - py) * (sx - rx)) / d, u = ((rx - px) * (qy - py) - (ry - py) * (qx - px)) / d;
-    if (t > 1e-6 && t < 1 - 1e-6 && u > 1e-6 && u < 1 - 1e-6) out.push([px + t * (qx - px), py + t * (qy - py)]);
-  }
-  return out;
-}
 
 describe('drawing a line on the field', () => {
   const divisionCases = BUILDER_DIVISIONS.flatMap((division) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'division', division }, l)).map((line) => ({ division, line })));

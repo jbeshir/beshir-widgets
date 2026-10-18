@@ -195,10 +195,15 @@ describe('ordinary treatments: words and the builder', () => {
 
   it('offers the toggles a band takes, blocks those that contradict, and moves a band up or down', () => {
     const chevron = treatedArms('chevron', []);
-    expect(toggleChoices(chevron, [0]).map((c) => [c.value, c.allowed])).toEqual([['inverted', true], ['couped', true], ['throughout', true], ['thin', true]]);
+    // Hollow is shown on a solid band, blocked (SENA A3C); Thin is blocked while a treatment thin bands don't take is on (review U-9)
+    expect(toggleChoices(chevron, [0]).map((c) => [c.value, c.allowed])).toEqual([['inverted', true], ['couped', true], ['throughout', true], ['voided', false], ['thin', true]]);
     const couped = setToggle(chevron, [0], 'couped', true);
     expect(toggleChoices(couped, [0]).find((c) => c.value === 'throughout')?.allowed).toBe(false);
-    expect(toggleChoices(treatedArms('fess', []), [0]).map((c) => c.value)).toEqual(['couped', 'thin']);
+    expect(toggleChoices(couped, [0]).find((c) => c.value === 'thin')).toMatchObject({ allowed: false, reason: "Thin bands can't be shortened: undo that first." });
+    expect(toggleChoices(treatedArms('fess', []), [0]).map((c) => c.value)).toEqual(['couped', 'voided', 'thin']);
+    // thin bands show their band's treatments they can't take, blocked, rather than dropping them from the row
+    const bars = setToggle(treatedArms('fess', []), [0], 'thin', true);
+    expect(toggleChoices(bars, [0]).map((c) => [c.value, c.allowed ? null : c.reason])).toEqual([['couped', "Thin bands can't be shortened: turn Thin off first."], ['thin', null]]);
     expect(bandPositionChoices(treatedArms('pale', []), [0])).toEqual([]);
     const raised = setBandPosition(chevron, [0], 'enhanced');
     expect(blazon(raised)).toBe('Azure, a chevron enhanced Or.');

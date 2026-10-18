@@ -34,6 +34,8 @@ interface Props {
   label?: string | null;
   class?: string;
   testid?: string;
+  /** Draws only this part of it (an SVG viewBox, 1 : 1.2 like the whole): the edge chips zoom in on the middle of the field, where the line they picture runs. */
+  view?: string;
 }
 
 /**
@@ -322,7 +324,7 @@ function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: 
   );
 }
 
-export function Shield({ design, shape, size, hatching = false, label, class: cls, testid }: Props) {
+export function Shield({ design, shape, size, hatching = false, label, class: cls, testid, view }: Props) {
   const uidRef = useRef<string>();
   if (!uidRef.current) uidRef.current = nextShieldUid();
   const uid = uidRef.current;
@@ -345,7 +347,7 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
   return (
     <svg
       class={`shield${cls ? ` ${cls}` : ''}`}
-      viewBox={SHIELD_VIEWBOX}
+      viewBox={view ?? SHIELD_VIEWBOX}
       width={size}
       height={size ? size * 1.2 : undefined}
       role={name ? 'img' : undefined}

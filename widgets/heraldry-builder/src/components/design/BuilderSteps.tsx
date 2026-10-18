@@ -8,9 +8,9 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
   CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, THIN_ORDINARIES, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
-  TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
+  TINCTURE_LABEL, chargeLabel, chargePath, lineAllowed, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
-  type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
+  type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue, type Line,
   partCount, type FieldPart, type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
 import { joinAnd, numberWord } from '../../lib/heraldry/words';
@@ -231,6 +231,15 @@ function lineSuffix(design: Design): string {
   return line === 'plain' ? '' : `, ${LINE_LABEL[line].term}`;
 }
 
+/**
+ * What an edge chip of a field pictures its line on: the field, but a gyronny's lines on a field per fess (eight lines in a 30 px chip read as a
+ * star whichever line they are drawn with: the line, not the division, is what is chosen), save one only a gyronny takes (arrondi).
+ */
+function lineHost<T extends { k: string }>(icon: T, line: Line): T | { k: 'divided'; division: Division; parts: readonly string[] } {
+  const gyronny = icon.k === 'divided' && (icon as { division?: Division }).division === 'gyronny';
+  return gyronny && lineAllowed({ k: 'division', division: 'per-fess' }, line) ? { k: 'divided', division: 'per-fess', parts: iconParts('per-fess') } : icon;
+}
+
 /** "More divisions and edges…": the divisions beyond the first seven, how many wedges a gyronny has, and how the lines of a divided or striped background are drawn. */
 function FieldEdges({ design, division, shape, onChange }: { design: Design; division: Division | null; shape: FieldShape; onChange: (nd: Design) => void }) {
   if (design.kind !== 'arms') return null;
@@ -269,7 +278,7 @@ function FieldEdges({ design, division, shape, onChange }: { design: Design; div
           )}
           {icon && lines.length > 0 && (
             <EdgePicker
-              testid="field-edge" noun="the background" iconKey={JSON.stringify(icon)} icon={(line) => ({ v: 2, field: { ...icon, lines: { a: line, b: line } }, groups: [] })} shape={shape}
+              testid="field-edge" noun="the background" iconKey={JSON.stringify(icon)} icon={(line) => ({ v: 2, field: { ...lineHost(icon, line), lines: { a: line, b: line } }, groups: [] })} zoom shape={shape}
               lines={lines} line={current} onLine={(l) => onChange(setFieldLine(design, l))}
               sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="lines"
               sideLabels={{ both: 'Both lines', a: 'Up-and-down line only', b: 'Across line only' }} onSide={(s) => onChange(setFieldEdgeSide(design, s))}

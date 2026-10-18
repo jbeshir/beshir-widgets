@@ -8,6 +8,12 @@ import { Shield } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { useExplainer } from './Explainer';
 
+/**
+ * The middle of the field, 70 wide (a 1 : 1.2 viewBox, as the shield's): what a chip pictures when its line runs through the middle, so that
+ * a line's features show half as large again at a chip's size (review U-7).
+ */
+const MIDDLE_VIEW = '15 18 70 84';
+
 /** The icon designs already drawn, by `${key}|${line}|${shape}`: a chip's picture only changes with the shape it is drawn for. */
 const ICONS = new Map<string, Design>();
 
@@ -41,6 +47,8 @@ interface Props {
   /** Names the shape the chips picture (the division, stripes or band and its count) and builds its loose design input drawn with a line. */
   iconKey: string;
   icon: (line: Line) => object;
+  /** Whether the chips picture the middle of the field only (`MIDDLE_VIEW`): the line runs through it. */
+  zoom?: boolean;
   shape: FieldShape;
   lines: Choice<Line>[];
   line: Line;
@@ -53,7 +61,7 @@ interface Props {
   onSide: (side: EdgeSide) => void;
 }
 
-export function EdgePicker({ testid, noun, iconKey, icon, shape, lines, line, onLine, sides, side, sideNoun, sideLabels, onSide }: Props) {
+export function EdgePicker({ testid, noun, iconKey, icon, zoom = false, shape, lines, line, onLine, sides, side, sideNoun, sideLabels, onSide }: Props) {
   const { explain, node: explainer } = useExplainer();
   return (
     <div class="fur-picker" data-testid={testid}>
@@ -69,7 +77,7 @@ export function EdgePicker({ testid, noun, iconKey, icon, shape, lines, line, on
                 testid={`${testid}-${c.value}`} checked={line === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
                 label={`${name}, ${label.plain.toLowerCase()}`} title={label.plain} onSelect={() => onLine(c.value)} onBlocked={explain} class="icon-choice"
               >
-                <Shield design={lineIcon(iconKey, icon, c.value, shape)} shape={shape} size={30} label={null} />
+                <Shield design={lineIcon(iconKey, icon, c.value, shape)} shape={shape} size={30} label={null} view={zoom ? MIDDLE_VIEW : undefined} />
                 <span class="choice-label">{name}</span>
               </ChoiceButton>
             </Fragment>
