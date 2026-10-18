@@ -98,7 +98,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   `),
   plant: w(`
     laurel oak wreath garland chaplet bouquet leaf thistle lily lily-of-the-valley lotus water-lily ivy holly vine
-    grapevine grape acorn sprig slip branch bough blossom flower floret cinquefoil quatrefoil trefoil sexfoil
+    grapevine grape acorn sprig slip branch bough blossom flower floret sexfoil
     septfoil octofoil foil shamrock clover garb sheaf wheat rye barley oat rice reed bulrush cattail rush fern palm
     pine fir spruce cedar cypress yew ash elm birch beech alder aspen poplar willow linden rowan hazel hawthorn
     maple olive bay mistletoe elder crequier juniper dogwood madrone sycamore ginkgo acanthus bamboo cactus saguaro
@@ -115,7 +115,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     seaweed kelp moss
   `),
   celestial: w(`
-    star comet moon decrescent increscent lunel sunburst compass-star cloud rainbow lightning
+    star comet moon decrescent increscent lunel sunburst compass-rose cloud rainbow lightning
     thunderbolt snowflake raindrop planet wind sunray ray zephyr boreas aeolus mistral half-moon quarter-sun
     constellation eclipse fireball meteor
   `),
@@ -181,14 +181,13 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   `),
   cross: w('ankh'),
   geometric: w(`
-    guze fountain fusil mascle
-    masculyn rustre delf triangle gout goute drop escutcheon inescutcheon hexagon pentagon octagon
+    guze fountain masculyn gout goute drop escutcheon inescutcheon hexagon pentagon octagon
     polygon icosahedron cube sphere annulus penannular cartouche cornice escarbuncle gunstone
   `),
   symbol: w(`
-    knot triquetra triskelion triskele pentaskelion valknut yin-yang t'ai-chi tomoe mitsutomoe umebachi mon chi-rho
+    knot triskelion triskele pentaskelion valknut yin-yang t'ai-chi tomoe mitsutomoe umebachi mon chi-rho
     letter rune algiz tiwaz sowilo theow othala beorc tyr futhark lambda numeral word kanji glyph sigil monogram
-    labyrinth spiral swirl schnecke koru xicalcoliuhqui pentacle pentagram hexagram star-of-david awen ermine-spot
+    labyrinth spiral swirl schnecke koru xicalcoliuhqui pentacle pentagram hexagram star-of-david awen
     pawprint caduceus staff-of-aesculapius hand-of-fatima hamsa infinity symbol lacy-knot bowen-knot
     stafford-knot wake-knot bourchier-knot cavendish-knot heneage-knot hungerford-knot dacre-knot harrington-knot
     savoy-knot joscelyn-knot
@@ -217,6 +216,11 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   'cross-flory': 'cross', 'cross-patonce': 'cross', 'cross-potent': 'cross', 'cross-maltese': 'cross', 'cross-celtic': 'cross',
   'cross-tau': 'cross',
 };
+
+/** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */
+export const DRAWN_CROSS_VARIANT: Readonly<Record<string, ChargeId>> = Object.fromEntries(
+  CHARGE_IDS.filter((id) => id.startsWith('cross-') && id !== 'cross-crosslet').map((id) => [id.slice('cross-'.length), id]));
+
 
 /** Parts that make a compound charge after a possessive ("a wolf's head", "a stag's attires"). */
 export const PART_WORDS = w(`

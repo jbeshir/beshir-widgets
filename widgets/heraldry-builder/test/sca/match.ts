@@ -12,8 +12,8 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
-  blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
+  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
+  blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type ModifierId, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
 import { EDGE_NAMES } from './words';
@@ -87,12 +87,13 @@ const PATTERN_WORDS = ['saltire', 'cross', 'orle', 'annulo'] as const;
 /** What can follow "in" before a group, the longest first ("sinister chief" before "sinister"). */
 const LEADS = [...ARRANGEMENT_LINE_WORDS, ...POSITION_WORDS].sort((a, b) => b.split(' ').length - a.split(' ').length);
 
-/** Charge noun → charge and number. "fish" is both. */
+/** Charge noun (lower case, as the normalised text reads: "latin cross") → charge and number. "fish" is both. */
 const NOUNS = new Map<string, { id: ChargeId; plural: boolean; singular: boolean }>();
 for (const id of CHARGE_IDS) {
   const m = CHARGES[id];
-  NOUNS.set(m.name, { id, singular: true, plural: m.plural === m.name });
-  if (m.plural !== m.name) NOUNS.set(m.plural, { id, singular: false, plural: true });
+  const [name, plural] = [m.name.toLowerCase(), m.plural.toLowerCase()];
+  NOUNS.set(name, { id, singular: true, plural: plural === name });
+  if (plural !== name) NOUNS.set(plural, { id, singular: false, plural: true });
 }
 
 /** Every posture word the widget's blazons can contain, by the posture it names (for the charge it was written with, else any). */
@@ -107,14 +108,18 @@ function postureFor(id: ChargeId, word: string): Posture | null {
   return POSTURE_BY_WORD.get(word) ?? POSTURES.find((p) => p === word) ?? null;
 }
 
+/** The modifiers the widget words after a noun ("in splendor", "fitchy"), each with the tokens of its phrase. */
+const MODIFIER_PHRASES = Object.entries(MODIFIER_WORDS).map(([id, phrase]) => ({ id: id as ModifierId, words: phrase!.split(' ') }));
+
+
 const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${alt(NUMBER_WORDS)})`;
 
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
+    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
-    ...NOUNS.keys(), ...POSTURE_WORDS, ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
+    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...POSTURE_WORDS, ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
@@ -132,7 +137,7 @@ const VOCABULARY = new Set<string>(
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
-//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['in splendor'] [('in' PATTERN)|ROWS] [T]
+//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] [MODIFIER] [('in' PATTERN)|ROWS] [T]
 //   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | 'within' | ε
 // A group straight after "between", or joined to one by "and", is set around the ordinary or the primary charges; any other
@@ -170,6 +175,9 @@ const startsWith = (tokens: string[], i: number, phrase: readonly string[]) => p
 const isNumber = (w: string | undefined): boolean => (NUMBER_WORDS as readonly string[]).includes(w!);
 const numberOf = (w: string) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1;
 
+const modifierAt = (tokens: string[], i: number) => MODIFIER_PHRASES.find((m) => startsWith(tokens, i, m.words));
+
+
 /** The charge group at `start` with the index after it, or null when count, noun and posture don't agree. */
 function readGroup(tokens: string[], start: number): { phrase: Phrase; end: number } | null {
   let i = start;
@@ -200,10 +208,12 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     if (!posture) return null;
     item.posture = posture;
   }
-  if (startsWith(tokens, i, ['in', 'splendor'])) {
-    item.mods = [{ id: 'in-splendour', count: null, paint: null }];
-    i += 2;
+  const mods: Array<{ id: ModifierId; count: null; paint: null }> = [];
+  for (let m = modifierAt(tokens, i); m; m = modifierAt(tokens, i)) {
+    mods.push({ id: m.id, count: null, paint: null });
+    i += m.words.length;
   }
+  if (mods.length > 0) item.mods = mods;
   const group: Record<string, unknown> = { item, count };
   // "in chief three mullets" places the group (the widget lays it out there); "in pale two keys" arranges it.
   if (lead) {

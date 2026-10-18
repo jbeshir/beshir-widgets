@@ -114,6 +114,7 @@ describe('SCA armory the widget can express', () => {
 const field = { k: 'divided', division: 'per-pale', parts: ['or', 'gules'] };
 const swords = { v: 2, field: 'azure', groups: [group(charge('sword'), 'or', { count: 2, arrangement: 'crossed' })] };
 const sun = charge('sun', { mods: [{ id: 'in-splendour', count: null, paint: null }] });
+const fitchy = { id: 'fitchy', count: null, paint: null };
 const chiefOf = (...on: object[]) => group(ordinary('chief'), 'argent', { charged: on });
 const mullets = (n: number, extra: object = {}) => group(charge('mullet'), 'gules', { count: n, ...extra });
 const BLAZONED_DESIGNS: Array<[string, unknown]> = [
@@ -235,6 +236,13 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a charge and a mount', arms('or', group(charge('lion'), 'gules'), group(ordinary('mount'), 'vert'))],
   ['a charge in the corner beside a bend', arms('argent', group(ordinary('bend'), 'sable'), group(charge('rose'), 'gules', { position: 'chief' }))],
   ['a fess between charges under a chief', arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'or', { count: 3, relation: 'between' }), group(ordinary('chief'), 'or'))],
+  // every charge alone and in threes (the crosses in their plurals: "crosses formy"), and every charge that is drawn fitchy; a lone
+  // cross couped is the ordinary of that name (App M1f), so the charge is read in threes only
+  ...CHARGE_IDS.flatMap((id): Array<[string, unknown]> => [
+    ...(id === 'cross-couped' ? [] : [[`a ${id}`, arms('azure', group(charge(id), 'or'))] as [string, unknown]]),
+    [`three ${id}`, arms('azure', group(charge(id), 'or', { count: 3 }))],
+    ...(CHARGES[id].details.includes('fitchy') ? [[`three ${id} fitchy`, arms('azure', group(charge(id, { mods: [fitchy] }), 'or', { count: 3 }))] as [string, unknown]] : []),
+  ]),
 ];
 
 describe('the matcher reads what the widget writes', () => {
@@ -269,6 +277,64 @@ describe('the matcher reads what the widget writes', () => {
     expect(unread.map((d) => blazon(d)), `sample seed ${sampleSeed()}`).toEqual([]);
   }, 30_000);
 });
+
+// The drawn crosses and shapes as the SCA spells them: each reads as the widget's own design.
+describe('the matcher reads the drawn crosses and shapes in the College\'s spellings', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  const same = (text: string, widget: string) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!), text).toBe(canonicalJson(read(widget)!));
+  };
+  it.each([
+    ['Azure, a cross fleury Or.', 'Azure, a cross flory Or.'],
+    ['Azure, three crosses fleury Or.', 'Azure, three crosses flory Or.'],
+    ['Azure, a cross fleurie Or.', 'Azure, a cross flory Or.'],
+    ['Azure, a cross pattee Or.', 'Azure, a cross formy Or.'],
+    ['Azure, a cross patty Or.', 'Azure, a cross formy Or.'],
+    ['Azure, a cross paty Or.', 'Azure, a cross formy Or.'],
+    ['Azure, a cross pattée Or.', 'Azure, a cross formy Or.'],
+    ['Azure, three crosses formée Or.', 'Azure, three crosses formy Or.'],
+    ['Azure, a cross botonny Or.', 'Azure, a cross bottony Or.'],
+    ['Azure, three crosses bottonny Or.', 'Azure, three crosses bottony Or.'],
+    ['Azure, a cross pattonce Or.', 'Azure, a cross patonce Or.'],
+    ['Azure, a cross formy fitched Or.', 'Azure, a cross formy fitchy Or.'],
+    ['Azure, a cross formy fitchée Or.', 'Azure, a cross formy fitchy Or.'],
+    ['Azure, a cross formy fitchy at the foot Or.', 'Azure, a cross formy fitchy Or.'],
+    ['Azure, three crosses fleury fitched Or.', 'Azure, three crosses flory fitchy Or.'],
+    ['Azure, a cross crosslet fitched Or.', 'Azure, a cross crosslet fitchy Or.'],
+    ['Azure, a crosslet fitchy Or.', 'Azure, a cross crosslet fitchy Or.'],
+    ['Azure, a compass-star Or.', 'Azure, a compass star Or.'],
+    ['Azure, three compass-stars Or.', 'Azure, three compass stars Or.'],
+    ['Azure, three triquetrae Or.', 'Azure, three triquetras Or.'],
+    ['Azure, a Maltese cross Or.', 'Azure, a maltese cross Or.'],
+    ['Azure, three Latin crosses Or.', 'Azure, three latin crosses Or.'],
+  ])('%s', (text, widget) => same(text, widget));
+
+
+  it('reads "cross flory" and "cross fleury" as the one charge, and a cross couped with its article as the ordinary', () => {
+    expect(read('Azure, a cross flory Or.')!.groups[0].item).toMatchObject({ k: 'charge', charge: 'cross-flory' });
+    expect(read('Azure, a cross couped Or.')!.groups[0].item).toMatchObject({ k: 'ordinary', type: 'cross' });
+  });
+
+
+  it('leaves the ordinary cross fitchy, a cross fitchy at all points and the equal-armed Celtic cross unmatched, under their gaps', () => {
+    for (const text of ['Azure, a cross fitchy Or.', 'Azure, a cross formy fitchy at all points Or.', 'Azure, an equal-armed Celtic cross Or.']) {
+      expect(explainMatch(text).match, text).toBeNull();
+    }
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a cross formy fitchy at all points Or.')).toEqual(['charge-modifier:fitchy-at-all-points']);
+    expect(tags('Azure, an equal-armed Celtic cross Or.')).toEqual(['charge-cross:equal-armed-celtic']);
+  });
+
+
+  // The library draws and blazons a fitchy cross, but the Design tab has no control for a detail yet (D6b): a matched design
+  // that needs one is a gap, not a widget bug.
+  it('files a fitchy cross under its modifier until the builder has a control for it', () => {
+    const c = classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Azure, three crosses formy fitchy Or.', headings: [] });
+    expect([c.status, c.tags, c.failures.map((f) => f.check)]).toEqual(['gap', ['charge-modifier:fitchy'], ['builder']]);
+  });
+});
+
 
 // A line on the field is read from the College's spellings; a division draws one line, so "per pale dancetty" is indented (RULES §A.3).
 describe('the matcher reads the lines of the field', () => {
@@ -699,6 +765,17 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a pale endorsed', 'azure, a pale endorsed argent'],
     ['a chevron fimbriated', 'azure, a chevron Or fimbriated argent'],
     ['a cross voided', 'azure, a cross voided Or'],
+    // every charge the widget draws, and the spellings and details of the drawn crosses and shapes
+    ...CHARGE_IDS.map((id): [string, string] => [`a ${id}`, `azure, ${CHARGES[id].article} ${CHARGES[id].name} Or`]),
+    ...CHARGE_IDS.filter((id) => CHARGES[id].details.includes('fitchy')).map((id): [string, string] => [`${id} fitchy`, `azure, three ${CHARGES[id].plural} fitchy Or`]),
+    ['crosses fleury', 'azure, three crosses fleury Or'],
+    ['crosses pattee fitched', 'azure, three crosses pattee fitched Or'],
+    ['a cross botonny', 'azure, a cross botonny Or'],
+    ['crosses couped', 'azure, three crosses couped Or'],
+    ['compass stars', 'azure, three compass-stars Or'],
+    ['a crosslet fitchy', 'azure, a crosslet fitchy Or'],
+    ['triquetrae', 'azure, three triquetrae Or'],
+    ['ermine spots', 'azure, three ermine spots Or'],
     ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, ${ordinaryWithArticle(t)} ${LINE_WORD[l]} Or`])),
     ['a chief and a bordure', 'azure, a chief and a bordure Or'],
     ['a band and a canton', 'azure, a bend Or and a canton argent'],

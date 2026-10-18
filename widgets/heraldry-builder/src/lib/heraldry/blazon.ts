@@ -100,7 +100,7 @@ function fieldPhrase(field: Paint): string {
 }
 
 /** The modifiers the builder words, after the noun: "a sun in splendor", "a cross formy fitchy". */
-const MODIFIER_WORDS: Partial<Record<ModifierId, string>> = { 'in-splendour': 'in splendor', fitchy: 'fitchy' };
+export const MODIFIER_WORDS: Partial<Record<ModifierId, string>> = { 'in-splendour': 'in splendor', fitchy: 'fitchy' };
 
 function modifierWords(m: Modifier): string {
   const words = MODIFIER_WORDS[m.id];
