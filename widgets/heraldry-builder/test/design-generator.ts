@@ -6,7 +6,7 @@
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
-import { DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, type Design } from '../src/lib/heraldry';
+import { CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, walkGroups, type ChargeId, type Design } from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -366,11 +366,14 @@ const ATTRIBUTE_SEED = 0x85ebca6b;
 /** The charges the attribute designs use: beasts, a bird and a fish that face (and turn), and two charges that don't. */
 const ATTRIBUTE_CHARGES = ['lion', 'wolf', 'eagle', 'fish', 'rose', 'mullet'];
 const FACING_CHARGES = ['lion', 'wolf', 'eagle', 'fish'];
+/** Charges that turn (§1.3): long, with a top, radial and an insect. */
+const TURNING_CHARGES: readonly ChargeId[] = ['sword', 'key', 'crescent', 'billet', 'mullet', 'bee'];
 
 /**
  * The design for `seed` with a charge group whose charges carry the phase-D attributes (PLAN-D §0.3.9): about one design in three faces
  * to sinister (contourny) or is a pair (combattant, respectant or addorsed) on the field or around a pale; the rest are a charge group as
- * drawn, sometimes with a pale or a fess. Each later attribute step adds its picks after these. Null when the pick isn't registrable.
+ * drawn, sometimes with a pale or a fess, and about a third of those are a charge that turns, set one of the ways it may be (§1.3). Each
+ * later attribute step adds its picks after these. Null when the pick isn't registrable.
  */
 function attributeDesignFor(seed: number): Design | null {
   const next = prng(seed ^ ATTRIBUTE_SEED);
@@ -387,7 +390,9 @@ function attributeDesignFor(seed: number): Design | null {
     ...(pair ? { arrangement: { k: 'pair', pair: pick(['combattant', 'respectant', 'addorsed']) } } : {}),
     ...(band ? { relation: 'between' } : {}),
   };
-  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, group] : [group];
+  const turning = attribute >= 0.33 && next() < 0.35 ? pick(TURNING_CHARGES) : null;
+  const turned = turning ? { ...group, item: { k: 'charge', charge: turning, orientation: pick(CHARGE_META[turning].orient.allowed.filter((o) => o !== 'to-center' || group.count > 1)) } } : group;
+  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, turned] : [turned];
   const r = resolve({ v: 2, field, groups });
   if (!r.ok) return null;
   const n = normalise(r.design);
@@ -403,3 +408,7 @@ export function generatedChargeAttributeDesigns(seed: number, count: number): De
   }
   return designs;
 }
+
+/** Designs none of whose charges is turned: the builder and the SCA matcher turn charges from D5b on. */
+export const unturned = (designs: readonly Design[]): Design[] =>
+  designs.filter((d) => walkGroups(d).every(({ group }) => group.item.k !== 'charge' || group.item.orientation === null));

@@ -41,6 +41,12 @@ export interface Provenance { origin: 'original'; author: string; date: string; 
 export interface PostureWording { term: string; gloss: string }
 
 /**
+ * A charge's own words for an orientation (§1.3 O-W): words after the noun in place of the orientation's ("a crescent pendant", "horns to
+ * center"), or a noun in place of the charge's ("an increscent").
+ */
+export type OrientWording = { k: 'words'; words: string } | { k: 'noun'; name: string; plural: string; article: 'a' | 'an' };
+
+/**
  * The natural colouring of a charge (SENA A3B1; GoT Table 4): what is painted, and what it is for contrast and conflict. Proper is
  * not a tincture: the class and the conflict tinctures come from the table row, which names the part they are taken from
  * (a lion is "considered Or", a tree takes its tincture from its leaves). Brown is a tincture in its own right.
@@ -83,8 +89,8 @@ export interface ChargeMeta {
   facingCounts: 'normal' | 'never' | 'always';
   /** 'to-dexter' for a charge that faces, else null. */
   defaultFacing: Facing | null;
-  /** The way the art is drawn, how it turns, and the orientations it may be turned to. */
-  orient: { drawn: Orientation; cls: OrientClass; allowed: readonly Orientation[] };
+  /** The way the art is drawn, how it turns, the orientations it may be turned to, and its own words for some of them. */
+  orient: { drawn: Exclude<Orientation, 'to-center'>; cls: OrientClass; allowed: readonly Orientation[]; wording: Partial<Record<Orientation, OrientWording>> };
   /** Drawn forms (a head, a demi charge…). */
   forms: readonly ChargeForm[];
   /** Drawn modifiers chosen with the charge itself (the sun in splendour). */

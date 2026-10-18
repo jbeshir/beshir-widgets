@@ -815,3 +815,61 @@ describe('facing, gaze and pairs (PLAN-D §1.1 F1–F10)', () => {
     expect(paired.why).toBe('Turning the two lions to face each other, back to back or the same way is a distinct change (SENA A5G7).');
   });
 });
+
+describe('orientation (PLAN-D §1.3 O1–O10)', () => {
+  const turned = (id: string, orientation: string | null, extra: object = {}, paint = 'or') => chg(id, paint, extra, orientation ? { orientation } : {});
+
+  it('O1: long primary charges along different axes are a substantial change; to center against an axis only a distinct one (O7)', () => {
+    expect(between(design('azure', turned('sword', 'fesswise')), design('azure', turned('sword', 'bendwise-inverted')))).toEqual(['posture:sc:A5E5']);
+    expect(between(design('azure', turned('sword', null)), design('azure', turned('sword', 'fesswise')))).toEqual(['posture:sc:A5E5']);
+    const four = { count: 4, arrangement: 'in-cross' };
+    expect(between(design('azure', turned('sword', 'to-center', four)), design('azure', turned('sword', 'palewise', four)))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('O2: long charges of any types along different axes are a distinct change as secondaries', () => {
+    const around = (id: string, orientation: string) => design('azure', ord('fess', 'argent'), turned(id, orientation, { count: 2 }));
+    expect(between(around('key', 'palewise'), around('sword', 'fesswise'))).toEqual(['type:dc:A5G4', 'posture:dc:A5G7']);
+    expect(between(around('sword', 'palewise'), around('sword', 'bendwise'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('O3: a long charge with ends turned the other way along one axis is a distinct change, never substantial; across types nothing', () => {
+    expect(between(design('azure', turned('sword', null)), design('azure', turned('sword', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('sword', 'fesswise')), design('azure', turned('sword', 'fesswise-reversed')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('key', 'inverted')), design('azure', turned('sword', null)))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('O5: a crescent, an increscent and a decrescent are a distinct change apart; charges of different types are not (O6)', () => {
+    expect(between(design('azure', turned('crescent', null)), design('azure', turned('crescent', 'fesswise')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('crescent', 'fesswise')), design('azure', turned('crescent', 'fesswise-reversed')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('crescent', null)), design('azure', turned('heart', 'inverted')))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('O6, O9, O10: no difference for turning a radial charge, for reversing, or for an insect', () => {
+    expect(between(design('azure', turned('mullet', null)), design('azure', turned('mullet', 'inverted')))).toEqual([]);
+    expect(between(design('azure', turned('billet', null)), design('azure', turned('billet', 'fesswise')))).toEqual([]);
+    expect(between(design('azure', turned('key', null)), design('azure', turned('key', 'reversed')))).toEqual([]);
+    expect(between(design('azure', turned('bee', null)), design('azure', turned('bee', 'bendwise')))).toEqual([]);
+  });
+
+  it('O7: long charges to center against the same palewise are a distinct change', () => {
+    const four = (orientation: string | null) => design('azure', ord('fess', 'argent'), turned('sword', orientation, { count: 4 }));
+    expect(between(four('to-center'), four(null))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('charges on a bend lie along it: set bendwise there they are as they were, set palewise they are turned', () => {
+    const onBend = (orientation: string | null) => design('azure', group(ordinary('bend'), 'argent', { charged: [turned('sword', orientation, { count: 3 }, 'gules')] }));
+    expect(between(onBend(null), onBend('bendwise'))).toEqual([]);
+    expect(between(onBend(null), onBend('palewise'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('F9: a change of axis and of direction together on one group are one distinct change', () => {
+    const around = (orientation: string | null) => design('azure', ord('fess', 'argent'), turned('sword', orientation, { count: 2 }));
+    expect(between(around('inverted'), around('fesswise-reversed'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('explains an orientation in words', () => {
+    const [note] = explainDifferences(design('azure', turned('crescent', 'fesswise')), design('azure', turned('crescent', null)));
+    expect(note.text).toBe('pose of picture (increscent ↔ none)');
+    expect(note.why).toBe('Pointing the crescents another way is a distinct change (SENA A5G7).');
+  });
+});

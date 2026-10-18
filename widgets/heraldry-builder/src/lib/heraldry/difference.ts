@@ -4,7 +4,7 @@
 // Availability UI. Same code on client (instant feedback) and Worker (authoritative).
 
 import { capitalise } from './words';
-import { CHARGES, postureTerm, type ChargeId, type Posture, type PostureClass, type TypeClass } from './charges';
+import { CHARGES, postureTerm, type ChargeId, type Orientation, type Posture, type PostureClass, type TypeClass } from './charges';
 import {
   asParty, asVariation, canonical, canonicalLines, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
@@ -15,7 +15,7 @@ import { LINE_WORD, edgeCount, lineDiffers, lineWords, ordinaryEdgeHost, type Ed
 import { ORDINARY_KIND, ORDINARY_NAME, familyOf, familyOfTreated, isDiminutive, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { contextOf, drawnLayout, isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
-import { turnWords } from './blazon';
+import { orientationTerms, turnWords } from './blazon';
 import { paintGaps } from './support';
 import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
 import { liftStrewn } from './strewn';
@@ -232,6 +232,55 @@ function poseClass(g: Group): PoseClass | null {
 function poseClassesApart(x: Group, y: Group): boolean {
   const cx = poseClass(x), cy = poseClass(y);
   return cx !== null && cy !== null && cx !== cy;
+}
+
+/** §1.3: the axis each orientation lies along (a sword palewise and a sword inverted lie along one; to center is a way of its own). */
+const ORIENTATION_AXIS: Record<Orientation, 'pale' | 'fess' | 'bend' | 'bend-sinister' | 'to-center'> = {
+  palewise: 'pale', inverted: 'pale', reversed: 'pale', fesswise: 'fess', 'fesswise-reversed': 'fess', bendwise: 'bend', 'bendwise-inverted': 'bend',
+  'bendwise-sinister': 'bend-sinister', 'bendwise-sinister-inverted': 'bend-sinister', 'to-center': 'to-center',
+};
+
+/** §1.3 O9: which way an orientation points; reversed is the drawing mirrored, "an optionally blazonable detail not worth difference". */
+const pointing = (o: Orientation): Orientation => (o === 'reversed' ? 'palewise' : o);
+
+/** Charges on a bend lie along it (GoT Table 7): the way a charge with no orientation of its own points on these hosts. */
+const FOLLOWED: Partial<Record<OrdinaryType, Orientation>> = { bend: 'bendwise', 'bend-sinister': 'bendwise-sinister' };
+
+/** A group's orientation as conflict reads it: as set, else the way it lies (along the bend it is on, or palewise); null for two crossed. */
+function orientationOf(s: Side): Orientation | null {
+  if (s.group.item.k !== 'charge' || s.group.arrangement.k === 'crossed') return null;
+  const host = s.host?.item;
+  return s.group.item.orientation ?? (host?.k === 'ordinary' ? FOLLOWED[host.type] : undefined) ?? 'palewise';
+}
+
+/** Whether two groups' charges are of one type: the same class and type tokens. */
+const sameType = (x: Item, y: Item): boolean => conflictKey(x) === conflictKey(y) && typeTokens(x).join() === typeTokens(y).join();
+
+const isLong = (item: Item): boolean => item.k === 'charge' && CHARGES[item.charge].orient.cls.startsWith('long-');
+
+/** §1.3 O1 (A5E5b): two primary groups of long charges lying along different axes (to center is a distinct change only, O7). */
+function axesApart(x: Side, y: Side): boolean {
+  const ox = orientationOf(x), oy = orientationOf(y);
+  return ox !== null && oy !== null && isLong(x.group.item) && isLong(y.group.item) && ORIENTATION_AXIS[ox] !== ORIENTATION_AXIS[oy]
+    && ox !== 'to-center' && oy !== 'to-center';
+}
+
+/**
+ * §1.3 O2–O10 (A5G7b, A5G7c, App L2, GoT Table 5): whether two groups point differently enough for a distinct change. Long charges along
+ * different axes, whatever their types (O2, O7); along one axis, the same type with ends that differ pointing the other way (O3; a staff or
+ * bow, `long-plain`, not: O4, herald question D4). Charges with a top, of one type, pointing another way (O5, O7); leaves only along another
+ * axis (O5b, O5c). Never for radial charges, animate charges or charges of different types (O6, O10), nor for reversing (O9).
+ */
+function orientationsApart(x: Side, y: Side): boolean {
+  const ox = orientationOf(x), oy = orientationOf(y), ix = x.group.item, iy = y.group.item;
+  if (ox === null || oy === null || ix.k !== 'charge' || iy.k !== 'charge') return false;
+  const cx = CHARGES[ix.charge].orient.cls, cy = CHARGES[iy.charge].orient.cls;
+  if (isLong(ix) && isLong(iy)) {
+    return ORIENTATION_AXIS[ox] !== ORIENTATION_AXIS[oy] || (cx === 'long-ends' && cy === 'long-ends' && sameType(ix, iy) && pointing(ox) !== pointing(oy));
+  }
+  if (cx !== cy || !sameType(ix, iy)) return false;
+  if (cx === 'compact-top') return pointing(ox) !== pointing(oy);
+  return cx === 'compact-axis' && ORIENTATION_AXIS[ox] !== ORIENTATION_AXIS[oy];
 }
 
 /** Whether two charges that can be posed alike are posed in different lines (a lion rampant and a wolf passant): SENA A3D2c asks the charges of one group to be posed alike. */
@@ -468,7 +517,7 @@ function primaryChanges(x: Side, y: Side): Diff[] {
     const affronty = postures.cls === 'quadruped' && x.group.item.k === 'charge' && y.group.item.k === 'charge'
       && (x.group.item.facing === 'affronty') !== (y.group.item.facing === 'affronty');
     if ((lx !== undefined && ly !== undefined && lx !== ly) || affronty) out.push(change('posture', 'sc', 'A5E5', ref));
-  }
+  } else if (axesApart(x, y)) out.push(change('posture', 'sc', 'A5E5', ref));
   return out;
 }
 
@@ -539,8 +588,8 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
     && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky))))) {
     dc('arrangement', 'A5G6');
   }
-  // §1.1 F9: posture, facing and the pose of a pair together give at most one distinct change.
-  if (posesApart(gx, gy)) dc('posture', 'A5G7');
+  // §1.1 F9: posture, facing, the pose of a pair and orientation together give at most one distinct change.
+  if (posesApart(gx, gy) || orientationsApart(x, y)) dc('posture', 'A5G7');
   return out;
 }
 
@@ -550,13 +599,14 @@ function posesApart(x: Group, y: Group): boolean {
   return (postures !== null && postureLinesApart(postures)) || facingApart(x, y) || poseClassesApart(x, y) || pileTurned(x.item, y.item);
 }
 
-/** Why two groups' poses differ by a distinct change, in words: the posture first, then a pair's pose, then the facing. */
+/** Why two groups' poses differ by a distinct change, in words: the posture first, then a pair's pose, the facing, then the orientation. */
 function poseSentence(x: Group, y: Group): string {
   const postures = comparablePostures(x.item, y.item);
   if ((postures !== null && postureLinesApart(postures)) || pileTurned(x.item, y.item)) return 'A different pose is a distinct change';
   const plural = x.item.k === 'charge' ? CHARGES[x.item.charge].plural : itemName(x.item);
   if (poseClassesApart(x, y)) return `Turning the two ${plural} to face each other, back to back or the same way is a distinct change`;
-  return `Turning ${itemPhrase(x.item)} to face the other way is a distinct change`;
+  if (facingApart(x, y)) return `Turning ${itemPhrase(x.item)} to face the other way is a distinct change`;
+  return `Pointing the ${plural} another way is a distinct change`;
 }
 
 /** A5C2c: tertiaries compare only when their hosts are paired; on an unpaired host (`null` opposite) each is an added or removed group. */
@@ -870,7 +920,7 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
     const postureWord = (g: Group) => {
       const i = g.item;
       if (i.k === 'ordinary') return i.mods.includes('inverted') ? 'inverted' : 'upright';
-      const words = [...(i.posture ? [postureTerm(i.charge, i.posture)] : []), ...turnWords(i), ...(g.arrangement.k === 'pair' ? [g.arrangement.pair] : [])];
+      const words = [...(i.posture ? [postureTerm(i.charge, i.posture)] : []), ...turnWords(i), ...orientationTerms(i), ...(g.arrangement.k === 'pair' ? [g.arrangement.pair] : [])];
       return words.join(' ') || 'none';
     };
 

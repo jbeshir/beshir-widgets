@@ -8,7 +8,7 @@ import {
   type Design, type Issue,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedChargeAttributeDesigns, generatedDesign, generatedDesigns, generatedRichDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedDesigns, generatedRichDesigns, unturned } from './design-generator';
 import { UNSUPPORTED_CASES } from './unsupported-cases';
 
 const messages = (r: ReturnType<typeof resolve>): string[] => (r.ok ? [] : r.errors.map((e) => e.message));
@@ -563,6 +563,11 @@ describe('support matrix', () => {
       ['two lions combattant', arms('azure', group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))],
       ['two wolves addorsed within a bordure', arms('azure', group(charge('wolf'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }), group(ordinary('bordure'), 'argent'))],
       ['a pale between two eagles respectant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('eagle'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
+      ['an inverted sword', arms('azure', group(charge('sword', { orientation: 'inverted' }), 'or'))],
+      ['three increscents', arms('azure', group(charge('crescent', { orientation: 'fesswise' }), 'argent', { count: 3 }))],
+      ['four swords to center in cross', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'or', { count: 4, arrangement: 'in-cross' }))],
+      ['three swords palewise on a bend', arms('azure', group(ordinary('bend'), 'or', { charged: [group(charge('sword', { orientation: 'palewise' }), 'gules', { count: 3 })] }))],
+      ['a bee bendwise', arms('or', group(charge('bee', { orientation: 'bendwise' }), 'sable'))],
     ];
     for (const [label, input] of supported) {
       it(`${label} has no gap`, () => expect(gapTags(nd(input))).toEqual([]));
@@ -572,11 +577,12 @@ describe('support matrix', () => {
       for (const d of [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 200)]) expect(isSupported(d)).toBe(true);
     });
 
-    it('every generated charge attribute design is supported and legal, and about a third face or pair', () => {
+    it('every generated charge attribute design is supported and legal, about a third face or pair, and some turn', () => {
       const designs = generatedChargeAttributeDesigns(1, 200);
       for (const d of designs) expect([isSupported(d), structuralIssues(d)]).toEqual([true, []]);
       const turned = designs.filter((d) => d.groups.some((g) => g.arrangement.k === 'pair' || (g.item.k === 'charge' && g.item.facing === 'to-sinister')));
       expect(turned.length).toBeGreaterThan(40);
+      expect(designs.length - unturned(designs).length).toBeGreaterThan(20);
     });
 
     it('draws a pair only of two charges that face, each its own way, alone on the field or around a pale', () => {

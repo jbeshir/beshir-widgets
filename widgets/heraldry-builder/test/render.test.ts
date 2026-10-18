@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, MIRRORED, UPRIGHT, chargePath, chargeTransform, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
+  CHARGES, MIRRORED, ORIENTATION_ANGLE, UPRIGHT, artPose, chargePath, chargeTransform, orientationTurns, turnFit, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
   type Design, type FieldShape, type Fill, type Layer,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -104,6 +104,48 @@ describe('charge layers', () => {
   it('draw the art mirrored about the middle of its box, inside the slot\'s own placing and turn', () => {
     const s = { x: 30, y: 40, size: 20, rotation: -45 };
     expect(chargeTransform(s, MIRRORED)).toBe(`${slotTransform(s)} translate(50 50) scale(-1 1) translate(-50 -50)`);
+  });
+
+  it('turn the art about the middle of its box and scale it, inside the slot\'s own placing and turn, mirrored first', () => {
+    const s = { x: 30, y: 40, size: 20, rotation: -45 };
+    expect(chargeTransform(s, { mirror: false, turn: 90, fit: 1 })).toBe(`${slotTransform(s)} rotate(90 50 50)`);
+    expect(chargeTransform(s, { mirror: true, turn: -45, fit: 0.8 })).toBe(`${slotTransform(s)} rotate(-45 50 50) translate(50 50) scale(-0.8 0.8) translate(-50 -50)`);
+  });
+
+  it('refit a turned drawing so that its bounding box is no longer than upright, and turned off its axis within its slot\'s disc', () => {
+    const blade = 'M40 7L60 7L60 93L40 93Z', square = 'M7 7L93 7L93 93L7 93Z';
+    expect([turnFit(blade, 0), turnFit(blade, 90), turnFit(blade, 180)]).toEqual([1, 1, 1]);
+    expect(turnFit(blade, 45)).toBe(1);
+    expect(turnFit(square, -45)).toBe(0.707);
+    expect(artPose(square, true, 45, 1)).toEqual({ mirror: true, turn: 45, fit: 0.707 });
+    expect(artPose(blade, false, 90, 1.15)).toEqual({ mirror: false, turn: 90, fit: Math.floor(45_000 / (Math.hypot(10, 43) * 1.15)) / 1000 });
+    expect(artPose(blade, false, 180, 1.15).fit).toBe(1);
+  });
+
+  it('turn each charge by its orientation less the slot\'s own turn, and to center slot by slot', () => {
+    const slots = [{ x: 50, y: 30, size: 20, rotation: 0 }, { x: 30, y: 50, size: 20, rotation: 0 }, { x: 70, y: 50, size: 20, rotation: 0 }, { x: 50, y: 70, size: 20, rotation: 0 }];
+    expect(orientationTurns('to-center', 'palewise', slots)).toEqual([180, 90, -90, 0]);
+    expect(orientationTurns('fesswise', 'palewise', [{ x: 50, y: 50, size: 20, rotation: -45 }])).toEqual([-45]);
+    expect(orientationTurns('bendwise-sinister-inverted', 'palewise', slots.slice(0, 1))).toEqual([ORIENTATION_ANGLE['bendwise-sinister-inverted']]);
+    expect(orientationTurns(null, 'palewise', slots)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('pose a turned or reversed charge, and leave the follow turn of charges on a bend as it was', () => {
+    const poses = (item: object, extra: object = {}) => layer(nd(arms('azure', group(charge('sword', item), 'or', extra))), 1, 'charges').poses;
+    expect(poses({ orientation: 'fesswise' })).toEqual([artPose(chargePath('sword', null, []), false, -90, CHARGES.sword.scale)]);
+    expect(poses({ orientation: 'reversed' })).toEqual([MIRRORED]);
+    expect(poses({ orientation: 'to-center' }, { count: 4, arrangement: 'in-cross' }).map((p) => p.turn)).toEqual([180, 90, -90, 0]);
+    const onBend = (item: object) => layer(nd(arms('azure', group(ordinary('bend'), 'argent', { charged: [group(charge('sword', item), 'gules', { count: 3 })] }))), 2, 'charges').poses;
+    expect(onBend({})).toEqual([UPRIGHT, UPRIGHT, UPRIGHT]);
+    expect(onBend({ orientation: 'bendwise' }).map((p) => p.turn)).toEqual([0, 0, 0]);
+    expect(onBend({ orientation: 'palewise' }).map((p) => p.turn)).toEqual([45, 45, 45]);
+  });
+
+  it('turn the division of a turned charge and the split of a proper one with it', () => {
+    const fills = (paint: unknown, item: object) => layer(nd(arms('azure', group(charge('sword', item), paint))), 1, 'charges').fills;
+    expect(fills(div('per-pale', 'or', 'argent'), { orientation: 'fesswise' })).not.toEqual(fills(div('per-pale', 'or', 'argent'), {}));
+    const flame = (item: object) => layer(nd(arms('azure', group(charge('flame', item), 'proper'))), 1, 'charges').fills;
+    expect(flame({ orientation: 'inverted' })).not.toEqual(flame({}));
   });
 
   it('mirror every charge facing to sinister (contourny), and nothing else', () => {

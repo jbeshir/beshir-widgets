@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { HAND_DRAWN, PROPER } from './common';
+import { EVERY_WAY, HAND_DRAWN, PROPER } from './common';
 
 export const META_MODERN = {
   'musical-note': {
@@ -10,7 +10,7 @@ export const META_MODERN = {
     typeClass: 'musical-note', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [...EVERY_WAY, 'reversed'], wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.15, detail: 1, proper: null,
     glossName: 'musical note', glossPlural: 'musical notes', plain: null, search: ['music', 'note'],
@@ -25,7 +25,7 @@ export const META_MODERN = {
     typeClass: 'flame', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: PROPER.fire,
     glossName: 'flame', glossPlural: 'flames', plain: null, search: ['fire'],
@@ -40,7 +40,7 @@ export const META_MODERN = {
     typeClass: 'cogwheel', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [], wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.9, detail: 0, proper: null,
     glossName: 'gear', glossPlural: 'gears', plain: null, search: ['cog', 'gear', 'gearwheel'],
@@ -55,7 +55,7 @@ export const META_MODERN = {
     typeClass: 'lightbulb', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.1, detail: 1, proper: null,
     glossName: 'lightbulb', glossPlural: 'lightbulbs', plain: null, search: ['light bulb', 'lamp'],

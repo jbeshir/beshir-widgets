@@ -209,6 +209,15 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-lion-contourny-counterchanged', arms(div('per-pale', 'argent', 'gules'), group(charge('lion', contourny), 'counterchanged'))],
   ['attr-lion-contourny-charged', arms('azure', group(charge('lion', contourny), 'or', { charged: [group(charge('mullet'), 'gules')] }))],
   ['attr-pale-between-lions-combattant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('lion'), 'or', pair('combattant')))],
+  ['attr-sword-fesswise', arms('azure', group(charge('sword', { orientation: 'fesswise' }), 'argent'))],
+  ['attr-swords-palewise-on-bend', arms('azure', group(ordinary('bend'), 'or', { charged: [group(charge('sword', { orientation: 'palewise' }), 'gules', { count: 3 })] }))],
+  ['attr-increscent', arms('gules', group(charge('crescent', { orientation: 'fesswise' }), 'argent'))],
+  ['attr-decrescents', arms('or', group(charge('crescent', { orientation: 'fesswise-reversed' }), 'azure', { count: 3 }))],
+  ['attr-mullet-inverted', arms('azure', group(charge('mullet', { orientation: 'inverted' }), 'or'))],
+  ['attr-bee-bendwise', arms('or', group(charge('bee', { orientation: 'bendwise' }), 'sable'))],
+  ['attr-swords-to-center', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'argent', { count: 4, arrangement: 'in-cross' }))],
+  ['attr-sword-bendwise-sinister', arms('azure', group(charge('sword', { orientation: 'bendwise-sinister' }), 'or'))],
+  ['attr-billet-fesswise', arms('vert', group(charge('billet', { orientation: 'fesswise' }), 'argent'))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));

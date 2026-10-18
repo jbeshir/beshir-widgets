@@ -624,21 +624,27 @@ export function slotTransform(s: Slot): string {
   return s.rotation === 0 ? place : `rotate(${s.rotation} ${s.x} ${s.y}) ${place}`;
 }
 
-/** How a charge's art is posed in its slot, on top of the slot's own turn. */
+/** How a charge's art is posed in its slot, on top of the slot's own turn: mirrored first, then scaled and turned about the middle of its box. */
 export interface ArtPose {
-  /** Drawn mirrored about the art's upright middle line: a charge facing to sinister (contourny), or one of a pair. */
+  /** Drawn mirrored about the art's upright middle line: a charge facing to sinister (contourny), one of a pair, or reversed. */
   mirror: boolean;
+  /** Degrees clockwise the art is turned within its slot (a charge fesswise, bendwise, inverted…). */
+  turn: number;
+  /** The scale that keeps the turned art's long side as upright (`turnFit`); 1 unturned. */
+  fit: number;
 }
 
 /** The art as it is drawn. */
-export const UPRIGHT: ArtPose = { mirror: false };
+export const UPRIGHT: ArtPose = { mirror: false, turn: 0, fit: 1 };
 
 /** The art mirrored: facing the other way. */
-export const MIRRORED: ArtPose = { mirror: true };
+export const MIRRORED: ArtPose = { mirror: true, turn: 0, fit: 1 };
 
 /** The SVG transform that draws a charge's art in a slot in a pose: the slot's, then the pose about the middle of the art's box. */
 export function chargeTransform(s: Slot, pose: ArtPose): string {
-  return pose.mirror ? `${slotTransform(s)} translate(50 50) scale(-1 1) translate(-50 -50)` : slotTransform(s);
+  const turn = pose.turn === 0 ? '' : ` rotate(${pose.turn} 50 50)`;
+  const scale = pose.mirror || pose.fit !== 1 ? ` translate(50 50) scale(${pose.mirror ? -pose.fit : pose.fit} ${pose.fit}) translate(-50 -50)` : '';
+  return `${slotTransform(s)}${turn}${scale}`;
 }
 
 /** Rotate a point about a slot's centre by the slot's rotation. */

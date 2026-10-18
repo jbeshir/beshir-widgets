@@ -13,9 +13,9 @@ export function rings(d: string): Pt[][] {
 
 /** A drawing's rings placed in a drawn box on the shield, turned with the charge and posed as `chargeTransform` poses it. */
 export function placePosed(rs: Pt[][], box: Slot, pose: ArtPose): Pt[][] {
-  const a = (box.rotation * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+  const a = ((box.rotation + pose.turn) * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a), k = (pose.fit * box.size) / 100;
   return rs.map((r) => r.map(([x, y]): Pt => {
-    const dx = (pose.mirror ? 50 - x : x - 50) * box.size / 100, dy = (y - 50) * box.size / 100;
+    const dx = (pose.mirror ? 50 - x : x - 50) * k, dy = (y - 50) * k;
     return [box.x + dx * cos - dy * sin, box.y + dx * sin + dy * cos];
   }));
 }

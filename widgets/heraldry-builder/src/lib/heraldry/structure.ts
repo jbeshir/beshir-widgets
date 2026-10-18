@@ -225,9 +225,10 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
 /**
  * A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line
  * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6); charges around a bend bevilled (F2);
- * any compass star (App G "Compass star", 06/2007 CL).
+ * any compass star (App G "Compass star", 06/2007 CL); charges in annulo or in orle turned from their default palewise (S2).
  */
-type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges' | 'compass-star';
+type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges' | 'compass-star'
+  | 'non-default-orientation-in-annulo-or-orle';
 
 const CORE_STEP_WORDS: Record<CoreStep, string> = {
   'one-edge-line': 'a line on one edge of a band only',
@@ -235,11 +236,21 @@ const CORE_STEP_WORDS: Record<CoreStep, string> = {
   'enhanced-bendlets-with-charges': 'bendlets enhanced with other charges',
   'bevilled-with-charges': 'charges around a bend bevilled',
   'compass-star': 'a compass star',
+  'non-default-orientation-in-annulo-or-orle': 'charges in annulo or in orle turned from upright',
 };
 
 /** Bendlets (or bendlets sinister) enhanced, two or more of them. */
 const isBendletsEnhanced = (g: Group): boolean =>
   g.item.k === 'ordinary' && (g.item.type === 'bendlet' || g.item.type === 'bendlet-sinister') && g.count > 1 && g.item.mods.includes('enhanced');
+
+/**
+ * §1.7 S2, App G: "Charges oriented in annulo instead of their default palewise orientation" and "Charges in orle not in their default
+ * orientation" — any orientation but palewise, and in annulo but to center (read as following the annulus: herald question D27). Charges set around a
+ * bordure follow it, which is no step: they are charges on the bordure, not in orle.
+ */
+const turnedInRing = (g: Group): boolean => g.item.k === 'charge' && g.arrangement.k === 'pattern'
+  && (g.arrangement.pattern === 'annulo' || g.arrangement.pattern === 'orle') && g.item.orientation !== null && g.item.orientation !== 'palewise'
+  && (g.item.orientation !== 'to-center' || g.arrangement.pattern === 'orle');
 
 /** The steps from core practice the design takes, one per element that takes one (SENA App G). */
 export function coreSteps(d: Design): CoreStep[] {
@@ -252,7 +263,8 @@ export function coreSteps(d: Design): CoreStep[] {
   const bendlets: CoreStep[] = d.groups.some(isBendletsEnhanced) && walkGroups(d).some(({ group }) => group.item.k === 'charge') ? ['enhanced-bendlets-with-charges'] : [];
   const bevilled: CoreStep[] = d.groups.some((g) => g.item.k === 'ordinary' && g.item.lines.a === 'bevilled') && d.groups.some((g) => g.role === 'secondary') ? ['bevilled-with-charges'] : [];
   const compassStar: CoreStep[] = walkGroups(d).some(({ group }) => group.item.k === 'charge' && group.item.charge === 'compass-star') ? ['compass-star'] : [];
-  return [...lines, ...overFimbriated, ...bendlets, ...bevilled, ...compassStar];
+  const ring: CoreStep[] = walkGroups(d).some(({ group }) => turnedInRing(group)) ? ['non-default-orientation-in-annulo-or-orle'] : [];
+  return [...lines, ...overFimbriated, ...bendlets, ...bevilled, ...compassStar, ...ring];
 }
 
 /** Why the design is more than one step from core practice (SENA A2B, App G), or null. */

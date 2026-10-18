@@ -14,14 +14,14 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  AROUND_COUNTS, CHARGE_ART, MIRRORED, UPRIGHT, artKeyOf, mirroredSlots, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  AROUND_COUNTS, CHARGE_ART, MIRRORED, UPRIGHT, artKeyOf, artPose, orientationTurns, mirroredSlots, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
   cornerBesideBend, frameBeside, hasBordure, hasChargedBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryGeometry, plainSpec, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
-  type ArtPose, type ChargeId, type Design, type FieldShape, type GroundContext, type KeepOut, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
+  type ArtPose, type ChargeId, type Orientation, type Design, type FieldShape, type GroundContext, type KeepOut, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { placePosed, rings, type Pt } from './art-geometry';
 import { log } from './helpers';
-import { rotatesIn, sampleSeed } from './rotation';
+import { fullSweep, rotatesIn, sampleSeed, unit } from './rotation';
 
 // ── The catalogue ───────────────────────────────────────────────────────────
 
@@ -405,7 +405,10 @@ const drawnIn = (shape: FieldShape, entry: number, drawing: number) =>
  * what this costs) are in the shape's seeded rotating sample too, like the other sweeps (`inSweep`); a layout none of whose pairs the shape
  * draws has no slots worked out.
  */
-function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[], generic = false, poses = (e: Entry): ArtPose[] => Array.from({ length: e.count }, () => UPRIGHT)): string[] {
+function artProblems(
+  g: ShapeGeometry, entries: Entry[], drawings: Drawing[], generic = false,
+  poses = (e: Entry, _slots: readonly Slot[], _dr: Drawing): ArtPose[] => Array.from({ length: e.count }, () => UPRIGHT),
+): string[] {
   const problems: string[] = [];
   for (const [ei, e] of entries.entries()) {
     if (generic && !inSweep(g.shape, e.label)) continue;
@@ -415,7 +418,7 @@ function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[], ge
     for (const [di, dr] of drawings.entries()) {
       if (!drawnIn(g.shape, ei, di)) continue;
       if (e.layout.arrangement.k === 'crossed' && !CHARGES[dr.id].long) continue;
-      const posed = poses(e);
+      const posed = poses(e, slots, dr);
       const placed = slots.map((s, i) => placePosed(dr.rings, drawnBox(s, dr.id), posed[i]));
       for (const rs of placed) {
         const off = rs.flat().find((p) => !fits(p));
@@ -477,6 +480,26 @@ describe('charge artwork fits its ground at its optical scale', () => {
       expect(artProblems(SHAPES[0], entries, facing, false, posed).slice(0, 25), `sample seed ${sampleSeed()}, SCA_FULL=1 for every drawing`).toEqual([]);
     }, 60_000);
   }
+
+  // A turned drawing, refitted within its slot (pose.ts), reaches parts of its ground it does not reach upright. Each sampled
+  // drawing that turns is checked one of its ways, by rotation (SCA_FULL=1, as the art gate runs it: every way; every drawing every way passes).
+  const turning = SAMPLED_DRAWINGS.filter((d) => CHARGES[d.id].orient.allowed.some((o) => o !== 'palewise'));
+  const waysOf = (d: Drawing): Orientation[] => {
+    const allowed = CHARGES[d.id].orient.allowed.filter((o) => o !== 'palewise');
+    return fullSweep() ? allowed : [allowed[Math.floor(unit(`${sampleSeed()}|turned|${d.label}`) * allowed.length)]];
+  };
+  it('heater: the sampled drawings that turn stay on their hand-fitted ground and clear of their neighbours turned one of the ways they may be', () => {
+    // one sweep of every drawing each way it turns, so each layout's slots and ground are worked out once
+    const way = new Map(turning.flatMap((d) => waysOf(d).map((o): [Drawing, Orientation] => [{ ...d, label: `${d.label} ${o}` }, o])));
+    // two crossed charges lie as their saltire does, and one charge has no middle to point to (support.ts): those are drawn upright
+    const posed = (e: Entry, slots: readonly Slot[], dr: Drawing) => {
+      const o = way.get(dr)!;
+      if (e.layout.arrangement.k === 'crossed' || (o === 'to-center' && e.count < 2)) return slots.map(() => UPRIGHT);
+      return orientationTurns(o, CHARGES[dr.id].orient.drawn, slots).map((turn) => artPose(CHARGE_ART[dr.id][dr.key]!, o === 'reversed', turn, CHARGES[dr.id].scale));
+    };
+    expect(turning.length).toBeGreaterThan(1);
+    expect(artProblems(SHAPES[0], hand, [...way.keys()], false, posed).slice(0, 25), `sample seed ${sampleSeed()}, SCA_FULL=1 for every drawing and way`).toEqual([]);
+  }, 60_000);
 });
 
 // ── Charges on the primary charges ──────────────────────────────────────────

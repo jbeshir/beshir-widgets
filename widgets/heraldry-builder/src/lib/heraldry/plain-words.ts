@@ -3,7 +3,7 @@
 // the term and keep the words for their tooltip. The blazon keeps the heraldic names in blazon.ts;
 // these are display text only. Pure data — no DOM.
 
-import { CHARGES, postureGloss, postureTerm, type ChargeId, type Facing, type Gaze, type Posture } from './charges';
+import { CHARGES, postureGloss, postureTerm, type ChargeId, type Facing, type Gaze, type Orientation, type Posture } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath, type Pair } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
@@ -132,6 +132,20 @@ export const GAZE_LABEL: Record<Gaze, PlainTerm> = {
   guardant: { plain: 'Looking out', term: 'guardant' },
   regardant: { plain: 'Looking back', term: 'regardant' },
   'guardant-regardant': { plain: 'Looking out and back', term: 'guardant regardant' },
+};
+
+/** Which way a charge points, as the viewer sees it, and the heraldic words ("Slanting · bendwise"). */
+export const ORIENTATION_LABEL: Record<Orientation, PlainTerm> = {
+  palewise: { plain: 'Upright', term: 'palewise' },
+  fesswise: { plain: 'Lying flat', term: 'fesswise' },
+  'fesswise-reversed': { plain: 'Lying flat the other way', term: 'fesswise reversed' },
+  bendwise: { plain: 'Slanting', term: 'bendwise' },
+  'bendwise-inverted': { plain: 'Slanting, upside down', term: 'bendwise inverted' },
+  'bendwise-sinister': { plain: 'Slanting the other way', term: 'bendwise sinister' },
+  'bendwise-sinister-inverted': { plain: 'Slanting the other way, upside down', term: 'bendwise sinister inverted' },
+  inverted: { plain: 'Upside down', term: 'inverted' },
+  reversed: { plain: 'Mirrored', term: 'reversed' },
+  'to-center': { plain: 'Pointing to the middle', term: 'to center' },
 };
 
 /** How two charges are set to each other, and the heraldic word ("Facing each other · combattant"). */

@@ -9,7 +9,8 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, postureTerm, type ChargeCategory, type ChargeId, type Facing, type ModifierId } from './charges';
+import { CHARGES, postureTerm, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation } from './charges';
+import type { OrientWording } from './art/types';
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
 import { lineWords, ordinaryEdgeHost } from './lines';
@@ -122,6 +123,35 @@ export function turnWords(c: Charge): string[] {
   return c.gaze === 'regardant' ? [...facing, gaze] : [gaze, ...facing];
 }
 
+/**
+ * The words for which way a charge points (§1.3), after its facing: "bendwise inverted" (the SCA armorial's 177 against 127 for
+ * "inverted bendwise"), "points to center" (152; said after the layout: "in cross points to center").
+ */
+export const ORIENTATION_WORDS: Record<Orientation, string> = {
+  palewise: 'palewise', fesswise: 'fesswise', 'fesswise-reversed': 'fesswise reversed', bendwise: 'bendwise', 'bendwise-inverted': 'bendwise inverted',
+  'bendwise-sinister': 'bendwise sinister', 'bendwise-sinister-inverted': 'bendwise sinister inverted', inverted: 'inverted', reversed: 'reversed',
+  'to-center': 'points to center',
+};
+
+/** A charge's own words for its orientation, if it has some (its sidecar's `orient.wording`). */
+const ownWording = (c: Charge): OrientWording | undefined => (c.orientation ? CHARGES[c.charge].orient.wording[c.orientation] : undefined);
+
+/**
+ * The words for which way a charge points (§1.3 O-W): its own ("a crescent pendant": 133 records against 96 "crescent inverted"; "horns to
+ * center") or the orientation's; none when its noun says it ("an increscent").
+ */
+export function orientationWords(c: Charge): string[] {
+  if (!c.orientation) return [];
+  const own = ownWording(c);
+  return own?.k === 'noun' ? [] : [own?.words ?? ORIENTATION_WORDS[c.orientation]];
+}
+
+/** Which way a charge points in a word or two, a noun that says it included ("increscent"), as a conflict note names it. */
+export function orientationTerms(c: Charge): string[] {
+  const own = ownWording(c);
+  return own?.k === 'noun' ? [own.name] : orientationWords(c);
+}
+
 export interface BlazonOptions {
   /** Word the postures and field layouts the College assumes (Table 5 and 7 defaults, forced positions) as well. */
   stateDefaults: boolean;
@@ -140,14 +170,24 @@ function wordsLayout(d: Design, path: GroupPath, g: Group, { stateDefaults }: Bl
   return k === 'position' || k === 'around' || (k === 'field' && (g.arrangement.k !== 'single' || g.position !== null));
 }
 
-/** A charge group's phrase: [layout prefix] count noun [posture] [gaze and facing] [mods] [layout postfix], without its tincture. */
+/**
+ * A charge group's phrase: [layout prefix] count noun [posture] [gaze and facing] [orientation] [mods] [layout postfix] [to center], without
+ * its tincture. A noun of the charge's own for its orientation replaces its name ("three decrescents").
+ */
 function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptions): string {
+  const laid = laidChargePhrase(d, path, g, options);
+  return g.item.k === 'charge' && g.item.orientation === 'to-center' ? [laid, ...orientationWords(g.item)].join(' ') : laid;
+}
+
+function laidChargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptions): string {
   if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
   const meta = CHARGES[g.item.charge];
-  const words = [g.count === 1 ? meta.article : numberWord(g.count), g.count === 1 ? meta.name : meta.plural];
+  const own = ownWording(g.item);
+  const noun = own?.k === 'noun' ? own : meta;
+  const words = [g.count === 1 ? noun.article : numberWord(g.count), g.count === 1 ? noun.name : noun.plural];
   // GoT Table 5: a posture the College assumes is left out (RULES §F.8).
   if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureTerm(g.item.charge, g.item.posture));
-  words.push(...turnWords(g.item), ...g.item.mods.map(modifierWords));
+  words.push(...turnWords(g.item), ...(g.item.orientation === 'to-center' ? [] : orientationWords(g.item)), ...g.item.mods.map(modifierWords));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
   // Charges Table 7 forces into one part of the field by tincture are not said to stand there; how they stand there still is.
   const forced = !options.stateDefaults && g.position !== null && g.position === forcedPosition(d, path);
