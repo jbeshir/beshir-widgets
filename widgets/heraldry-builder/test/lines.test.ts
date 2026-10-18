@@ -35,7 +35,7 @@ describe('the line registry', () => {
   it('groups every line as SENA App M2 does', () => {
     const groups: Record<LineGroup, Line[]> = {
       straight: ['plain', 'enarched', 'ploye', 'arrondi'], square: ['embattled', 'bretessed', 'dovetailed', 'raguly'], wavy: ['wavy', 'nebuly', 'urdy'],
-      long: ['rayonny'], jagged: ['indented', 'engrailed', 'invected', 'dancetty'], grady: ['grady'], other: ['potenty'],
+      long: ['rayonny'], jagged: ['indented', 'engrailed', 'invected', 'dancetty'], grady: ['grady'], other: ['potenty', 'triangular', 'rompu', 'bevilled'],
     };
     for (const [group, lines] of Object.entries(groups)) for (const l of lines) expect([l, LINE_GROUP[l]]).toEqual([l, group]);
     expect(Object.values(groups).flat().sort()).toEqual([...LINES].sort());
@@ -50,6 +50,7 @@ describe('the line registry', () => {
       ['plain', 'enarched', true, false], ['plain', 'ploye', false, false], ['embattled', 'bretessed', true, false],
       ['grady', 'urdy', true, false], ['grady', 'indented', true, false], ['grady', 'embattled', true, true], ['grady', 'plain', false, true],
       ['rayonny', 'wavy', false, true], ['embattled', 'embattled', true, false],
+      ['triangular', 'indented', false, true], ['rompu', 'bevilled', false, true], ['bevilled', 'plain', false, true], ['triangular', 'triangular', false, false],
     ];
     for (const [x, y, band, differs] of cases) {
       expect([x, y, band, lineDiffers(x, y, band)]).toEqual([x, y, band, differs]);
@@ -81,7 +82,10 @@ describe('the line registry', () => {
       ...VARIATIONS.map((v) => (lineAllowed({ k: 'variation', variation: v }, line) ? v : null)),
     ].filter((h): h is string => h !== null);
     expect(hosts('enarched')).toEqual(['fess', 'fess inverted', 'bend', 'bend inverted', 'bend-sinister', 'bend-sinister inverted', 'chevron', 'chief', 'chief inverted', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout']);
-    expect(hosts('ploye')).toEqual(['chevron', 'chevron inverted', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout']);
+    expect(hosts('triangular')).toEqual(['chief', 'chief inverted']);
+    expect(hosts('rompu')).toEqual(['chevron', 'chevron inverted']);
+    expect(hosts('bevilled')).toEqual(['bend', 'bend inverted', 'bend-sinister', 'bend-sinister inverted', 'per-bend', 'per-bend-sinister']);
+    expect(hosts('ploye')).toEqual(['chevron', 'chevron inverted', 'pile', 'pile inverted', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout']);
     expect(hosts('arrondi')).toEqual(['gyronny']);
     expect(hosts('dancetty').filter((h) => !h.endsWith(' inverted'))).toEqual([
       'fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'bar', 'barrulet', 'pallet', 'bendlet', 'bendlet-sinister', 'chevronel', 'baton',
@@ -98,6 +102,7 @@ describe('the line registry', () => {
     }
     expect([LINE_SPELLINGS.undy, LINE_SPELLINGS.crenellated, LINE_SPELLINGS['embattled-grady'], LINE_SPELLINGS.ployee, LINE_SPELLINGS.arched])
       .toEqual(['wavy', 'embattled', 'grady', 'ploye', 'enarched']);
+    expect([LINE_SPELLINGS.beviled, LINE_SPELLINGS.bevelled]).toEqual(['bevilled', 'bevilled']);
     expect(LINE_SPELLINGS['counter-embattled']).toBe('counter-embattled');
     expect(LINE_SPELLINGS['indented grady']).toBeUndefined();
     expect(Object.keys(LINE_SPELLINGS).every((k) => k === k.toLowerCase())).toBe(true);

@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  BUILDER_ORDINARIES, DRAWN_LINES, FIELD_SHAPES, blazon, contextSlots, coreSteps, defaultOrdinaryFrame, differences, explainDifferences, gloss, hostCounts,
+  BUILDER_ORDINARIES, DRAWN_LINES, FIELD_SHAPES, blazon, contextSlots, lineChoices, coreSteps, defaultOrdinaryFrame, differences, explainDifferences, gloss, hostCounts,
   layoutOfKey, lineAllowed, ordinaryGeometry, pathPolygon, pathRings, plainSpec, pointInPolygon, shapeFrame, signature, structuralIssues, tinctureIssues,
   type ComplexLine, type FieldShape, type OrdinarySpec, type OrdinaryType, type Slot,
 } from '../src/lib/heraldry';
@@ -315,5 +315,97 @@ describe('the words for lined ordinaries', () => {
       return (two ? [both(line), { a: line, b: 'plain' }, { a: 'plain', b: line }] : [both(line)]).map((lines) => signature(nd(arms('argent', ord(type, 'or', lines)))));
     }));
     expect(new Set(sigs).size).toBe(sigs.length);
+  });
+});
+
+describe('the lines tail: triangular, rompu, bevilled and a pile ployé (C14)', () => {
+  const per = (division: string, line: string, a = 'argent', b = 'gules') => ({ k: 'divided', division, parts: [a, b], lines: { a: line, b: line } });
+  const problems = (d: ReturnType<typeof nd>) => structuralIssues(d).filter((i) => i.code === 'structure').map((i) => `${i.rule}: ${i.message}`);
+
+  it('triangular draws a chief\'s lower edge as two straight lines meeting below its middle, on every shape', () => {
+    for (const shape of FIELD_SHAPES) {
+      const frame = defaultOrdinaryFrame(shape);
+      const plain = ordinaryGeometry(spec('chief', { a: 'plain', b: 'plain' }), frame).body, pointed = ordinaryGeometry(spec('chief', both('triangular')), frame).body;
+      const [, plainLow] = extentAt(plain, 50), [, low] = extentAt(pointed, 50.01), [, side] = extentAt(pointed, 30);
+      expect([shape, low > plainLow + 4]).toEqual([shape, true]);
+      expect(low).toBeGreaterThan(side + 1);
+      // straight: the lower edge between the middle and the flank climbs by a constant slope
+      const [, q1] = extentAt(pointed, 20), [, q2] = extentAt(pointed, 30), [, q3] = extentAt(pointed, 40);
+      expect(Math.abs((q3 - q2) - (q2 - q1))).toBeLessThan(0.05);
+    }
+  });
+
+  it('rompu breaks a chevron\'s limbs and bevilled a bend\'s edges by a step: the body differs from the plain one and stays in the shield', () => {
+    for (const shape of FIELD_SHAPES) {
+      const frame = defaultOrdinaryFrame(shape);
+      for (const [type, line] of [['chevron', 'rompu'], ['bend', 'bevilled'], ['bend-sinister', 'bevilled'], ['pile', 'ploye']] as const) {
+        const plain = ordinaryGeometry(spec(type, { a: 'plain', b: 'plain' }), frame).body, lined = ordinaryGeometry(spec(type, both(line)), frame).body;
+        expect([shape, type, lined === plain]).toEqual([shape, type, false]);
+        const [ring] = pathRings(lined), [plainRing] = pathRings(plain);
+        expect(ring.length).toBeGreaterThan(plainRing.length);
+      }
+    }
+  });
+
+  it('is offered only on the hosts that carry it, never as a blocked chip elsewhere', () => {
+    const offered = (input: unknown, target: Parameters<typeof lineChoices>[1]) => lineChoices(nd(input), target).map((c) => c.value);
+    const at = { k: 'group', path: [0] } as const;
+    expect(offered(arms('argent', ord('chief', 'azure')), at)).toContain('triangular');
+    expect(offered(arms('argent', ord('fess', 'azure')), at)).not.toContain('triangular');
+    expect(offered(arms('argent', ord('chevron', 'azure')), at)).toContain('rompu');
+    expect(offered(arms('argent', ord('chief', 'azure')), at)).not.toContain('rompu');
+    for (const type of ['bend', 'bend-sinister']) expect(offered(arms('argent', ord(type, 'azure')), at)).toContain('bevilled');
+    expect(offered(arms('argent', ord('fess', 'azure')), at)).not.toContain('bevilled');
+    expect(offered(arms('argent', ord('pile', 'azure')), at)).toContain('ploye');
+    for (const division of ['per-bend', 'per-bend-sinister']) expect(offered(arms(per(division, 'plain')), { k: 'field' })).toContain('bevilled');
+    expect(offered(arms(per('per-pale', 'plain')), { k: 'field' })).not.toContain('bevilled');
+    expect(problems(nd(arms('argent', ord('fess', 'azure', { a: 'triangular' }))))).toEqual(['line: A triangular line is drawn on a chief only — not a fess.']);
+    expect(problems(nd(arms(per('per-pale', 'bevilled'))))).toEqual(['line: A bevilled line divides a field per bend or per bend sinister only — not a field divided per pale.']);
+  });
+
+  it('takes no further line, no cotise line, and no fimbriation (rompu, bevilled)', () => {
+    expect(problems(nd(arms('argent', ord('chevron', 'azure', { a: 'rompu', b: 'embattled' }))))).toEqual(['line: A chevron carries one line: it can\'t be rompu on one edge and embattled on the other.']);
+    expect(problems(nd(arms('argent', group(ordinary('chevron', { lines: both('rompu'), cotised: { count: 1, paint: 'or', line: 'wavy' } }), 'azure'))))[0])
+      .toBe('line: A chevron rompu takes no further line, so its cotises can\'t be wavy (RULES-C §A.5).');
+    expect(problems(nd(arms('argent', group(ordinary('chevron', { lines: both('rompu'), fimbriated: 'or' }), 'sable'))))).toEqual([
+      "ordinary-treatment: A chevron rompu can't be fimbriated: its outline is broken (SENA A3C).",
+    ]);
+    expect(problems(nd(arms('argent', group(ordinary('bend', { lines: both('bevilled'), fimbriated: 'or' }), 'sable'))))).toEqual([
+      "ordinary-treatment: A bend bevilled can't be fimbriated: its outline is broken (SENA A3C).",
+    ]);
+    expect(problems(nd(arms('argent', ord('chevron', 'azure', both('rompu')))))).toEqual([]);
+  });
+
+  it('a bend bevilled with charges around it is one step from core practice, alone none; with a one-edge line, two', () => {
+    const around = arms('argent', ord('bend', 'gules', both('bevilled')), group(charge('roundel'), 'azure', { role: 'secondary', count: 2 }));
+    expect(coreSteps(nd(around))).toEqual(['bevilled-with-charges']);
+    expect(coreSteps(nd(arms('argent', ord('bend', 'gules', both('bevilled')))))).toEqual([]);
+    expect(problems(nd(around)).filter((p) => p.startsWith('core-practice'))).toEqual([]);
+    const two = arms('argent', group(ordinary('bend', { lines: { a: 'bevilled', b: 'plain' } }), 'gules'), group(charge('roundel'), 'azure', { role: 'secondary', count: 2 }));
+    expect(coreSteps(nd(two))).toEqual(['one-edge-line', 'bevilled-with-charges']);
+  });
+
+  it('a field per bend bevilled is exempt from App H until a charge overlies the line', () => {
+    const dark = (...groups: object[]) => problems(nd(arms(per('per-bend', 'bevilled', 'sable', 'azure'), ...groups)));
+    expect(dark()).toEqual([]);
+    expect(dark(group(charge('lion'), 'or')).some((p) => p.includes('App H'))).toBe(true);
+    expect(problems(nd(arms(per('per-bend', 'wavy', 'sable', 'azure')))).some((p) => p.includes('App H'))).toBe(true);
+  });
+
+  it('words, signs and tells apart the lines', () => {
+    const rows: Array<[unknown, string]> = [
+      [arms('argent', ord('chief', 'azure', both('triangular'))), 'Argent, a chief triangular azure.'],
+      [arms('or', ord('chevron', 'sable', both('rompu'))), 'Or, a chevron rompu sable.'],
+      [arms('argent', ord('bend', 'gules', both('bevilled'))), 'Argent, a bend bevilled gules.'],
+      [arms(per('per-bend', 'bevilled')), 'Per bend bevilled argent and gules.'],
+      [arms('argent', ord('pile', 'azure', both('ploye'))), 'Argent, a pile ployé azure.'],
+    ];
+    for (const [input, text] of rows) expect(blazon(nd(input))).toBe(text);
+    const between = (x: unknown, y: unknown) => differences(nd(x), nd(y)).map((d) => `${d.attr}:${d.kind}:${d.rule}`);
+    expect(between(arms('argent', ord('chief', 'azure', both('triangular'))), arms('argent', ord('chief', 'azure', both('indented'))))).toEqual(['type:dc:A5G4']);
+    expect(between(arms('or', ord('chevron', 'sable', both('rompu'))), arms('or', ord('chevron', 'sable')))).toEqual(['type:dc:A5G4']);
+    expect(between(arms('argent', ord('bend', 'gules', both('bevilled'))), arms('argent', ord('bend', 'gules')))).toEqual(['type:dc:A5G4']);
+    expect(signature(nd(arms('argent', ord('bend', 'gules', both('bevilled')))))).toBe('arms|ar|P:o.bend~bevilled:1:single:gu');
+    expect(gloss(nd(arms('argent', ord('chief', 'azure', both('triangular')))))).toContain('pointed downward');
   });
 });

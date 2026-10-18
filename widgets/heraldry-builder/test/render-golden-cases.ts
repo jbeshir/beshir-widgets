@@ -83,6 +83,7 @@ const GEOMETRY_CASES: ReadonlyArray<[string, unknown]> = [
   ['div-per-pall-inverted', arms(div('per-pall-inverted', 'argent', 'sable', 'gules'))],
   ['div-tierced-per-pale', arms(div('tierced-per-pale', 'azure', 'argent', 'gules'))],
   ['div-tierced-per-fess', arms(div('tierced-per-fess', 'gules', 'argent', 'vert'))],
+  ['line-bevilled-per-bend', arms(lined('per-bend', 'bevilled', 'argent', 'gules'))],
   ['line-wavy-per-pall', arms({ k: 'divided', division: 'per-pall', lines: { a: 'wavy' }, parts: [{ k: 'fur', fur: 'ermine', colours: null }, 'azure', 'gules'] })],
 ];
 
@@ -95,6 +96,11 @@ const ORDINARY_LINE_CASES: ReadonlyArray<[string, unknown]> = [
   ['line-embattled-counter-embattled-fess', band('fess', { a: 'embattled', b: 'embattled' })],
   ['line-bretessed-fess', band('fess', { a: 'bretessed', b: 'bretessed' })],
   ['line-embattled-lower-chevron', band('chevron', { a: 'plain', b: 'embattled' })],
+  // the lines tail: each on the one host kind that carries it, and a bowed pile
+  ['line-triangular-chief', band('chief', { a: 'triangular', b: 'triangular' })],
+  ['line-rompu-chevron', band('chevron', { a: 'rompu', b: 'rompu' })],
+  ['line-bevilled-bend', band('bend', { a: 'bevilled', b: 'bevilled' })],
+  ['line-ploye-pile', band('pile', { a: 'ploye', b: 'ploye' })],
 ];
 
 const treatedBand = (type: string, mods: string[], extra: object = {}) => arms('azure', group(ordinary(type, { mods, ...extra }), 'or'));

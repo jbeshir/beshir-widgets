@@ -16,13 +16,13 @@ import { r2, pointInPolygon, CURVE_STEPS, type Pt } from './geometry';
 import type { OrdinaryType } from './ordinaries';
 
 export const LINES = ['plain', 'embattled', 'wavy', 'engrailed', 'invected', 'indented', 'dancetty', 'nebuly', 'raguly', 'rayonny',
-  'dovetailed', 'urdy', 'potenty', 'bretessed', 'grady', 'enarched', 'ploye', 'arrondi'] as const;
+  'dovetailed', 'urdy', 'potenty', 'bretessed', 'grady', 'enarched', 'ploye', 'arrondi', 'triangular', 'rompu', 'bevilled'] as const;
 export type Line = (typeof LINES)[number];
 export type ComplexLine = Exclude<Line, 'plain'>;
 
 /** The lines the edge rows offer, in order of how often the O&A uses them (RULES-C §I.1). */
 export const DRAWN_LINES: readonly ComplexLine[] = ['embattled', 'wavy', 'engrailed', 'indented', 'rayonny', 'invected', 'dovetailed',
-  'raguly', 'nebuly', 'potenty', 'bretessed', 'urdy', 'dancetty', 'enarched', 'ploye', 'grady', 'arrondi'];
+  'raguly', 'nebuly', 'potenty', 'bretessed', 'urdy', 'dancetty', 'enarched', 'ploye', 'grady', 'arrondi', 'triangular', 'rompu', 'bevilled'];
 
 export function isLine(v: unknown): v is Line {
   return typeof v === 'string' && (LINES as readonly string[]).includes(v);
@@ -40,7 +40,7 @@ export const LINE_GROUP: Record<Line, LineGroup> = {
   rayonny: 'long',
   indented: 'jagged', engrailed: 'jagged', invected: 'jagged', dancetty: 'jagged',
   grady: 'grady',
-  potenty: 'other',
+  potenty: 'other', triangular: 'other', rompu: 'other', bevilled: 'other',
 };
 
 /** Straight-group lines (plain, enarched, ployé) count as "plain" for App H, marshalling and A3D1c. */
@@ -106,12 +106,15 @@ export function edgeCount(host: EdgeHost): 0 | 1 | 2 {
 const ENARCHED_DIVISIONS: readonly Division[] = ['per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout'];
 const ENARCHED_ORDINARIES: readonly OrdinaryType[] = ['fess', 'bend', 'bend-sinister', 'chevron', 'chief'];
 const PLOYE_DIVISIONS: readonly Division[] = ['per-chevron', 'per-chevron-inverted', 'per-chevron-throughout'];
+const BEVILLED_DIVISIONS: readonly Division[] = ['per-bend', 'per-bend-sinister'];
+const BEVILLED_ORDINARIES: readonly OrdinaryType[] = ['bend', 'bend-sinister'];
 
 /**
  * Whether the host may carry the line at all (RULES-C §A.1, §A.5; PLAN-C §4): dancetty only on two-sided bands and counted
  * variations (and cotises, thin bands themselves: "a bend cotised dancetty", PicDic Clopton); enarched only on per fess, per bend
- * (sinister), per chevron, fess, bend (sinister), chevron and chief; ployé only on per chevron (inverted, throughout) and chevron (inverted); arrondi only on gyronny — on
- * cotises as on their ordinary; a host with no edge takes none. Not allowed is a structure issue, never a gap.
+ * (sinister), per chevron, fess, bend (sinister), chevron and chief; ployé only on per chevron (inverted, throughout), chevron (inverted) and pile (inverted); arrondi only on gyronny; triangular only on a chief,
+ * rompu only on a chevron (inverted) and bevilled only on per bend (sinister), bend and bend sinister (RULES-C §A.1, F2) — on
+ * cotises as on their ordinary, except those three, which are never a cotise's; a host with no edge takes none. Not allowed is a structure issue, never a gap.
  */
 export function lineAllowed(host: EdgeHost, line: Line): boolean {
   if (line === 'plain') return true;
@@ -122,7 +125,10 @@ export function lineAllowed(host: EdgeHost, line: Line): boolean {
       return host.k === 'division' ? ENARCHED_DIVISIONS.includes(host.division)
         : host.k === 'cotises' ? ENARCHED_ORDINARIES.includes(host.type)
           : host.k === 'ordinary' && ENARCHED_ORDINARIES.includes(host.type) && !(host.type === 'chevron' && host.inverted);
-    case 'ploye': return host.k === 'division' ? PLOYE_DIVISIONS.includes(host.division) : (host.k === 'ordinary' || host.k === 'cotises') && host.type === 'chevron';
+    case 'ploye': return host.k === 'division' ? PLOYE_DIVISIONS.includes(host.division) : (host.k === 'ordinary' || host.k === 'cotises') && (host.type === 'chevron' || host.type === 'pile');
+    case 'triangular': return host.k === 'ordinary' && host.type === 'chief';
+    case 'rompu': return host.k === 'ordinary' && host.type === 'chevron';
+    case 'bevilled': return host.k === 'division' ? BEVILLED_DIVISIONS.includes(host.division) : host.k === 'ordinary' && BEVILLED_ORDINARIES.includes(host.type);
     case 'arrondi': return host.k === 'division' && host.division === 'gyronny';
     case 'embattled': case 'wavy': case 'engrailed': case 'invected': case 'indented': case 'nebuly': case 'raguly': case 'rayonny':
     case 'dovetailed': case 'urdy': case 'potenty': case 'bretessed': case 'grady':
@@ -161,7 +167,8 @@ export function bareLines(host: EdgeHost, line: Line): Lines {
 export const LINE_WORD: Record<ComplexLine, string> = {
   embattled: 'embattled', wavy: 'wavy', engrailed: 'engrailed', invected: 'invected', indented: 'indented', dancetty: 'dancetty',
   nebuly: 'nebuly', raguly: 'raguly', rayonny: 'rayonny', dovetailed: 'dovetailed', urdy: 'urdy', potenty: 'potenty',
-  bretessed: 'bretessed', grady: 'embattled grady', enarched: 'enarched', ploye: 'ployé', arrondi: 'arrondi',
+  bretessed: 'bretessed', grady: 'embattled grady', enarched: 'enarched', ploye: 'ployé', arrondi: 'arrondi', triangular: 'triangular', rompu: 'rompu',
+  bevilled: 'bevilled',
 };
 
 /** Where an edge named alone is said to carry its line: "wavy on the lower edge"; quarterly's lines are named before theirs ("per fess embattled"). */
@@ -201,12 +208,12 @@ export type LineReading = ComplexLine | 'counter-embattled';
  */
 export const LINE_SPELLINGS: Readonly<Record<string, LineReading>> = {
   ...Object.fromEntries(LINES.filter((l): l is ComplexLine => l !== 'plain').flatMap((l) => [[l, l], [LINE_WORD[l], l]])),
-  undy: 'wavy', undee: 'wavy', arrondy: 'arrondi',
+  undy: 'wavy', undee: 'wavy', arrondy: 'arrondi', beviled: 'bevilled', bevelled: 'bevilled',
   crenellated: 'embattled', crenelated: 'embattled', crenelly: 'embattled', battled: 'embattled',
   invecked: 'invected',
   bretesse: 'bretessed', 'bretessé': 'bretessed', bretassy: 'bretessed',
   ragully: 'raguly',
-  'rayonné': 'rayonny',
+  'rayonné': 'rayonny', 'rompú': 'rompu',
   'dove-tailed': 'dovetailed',
   'urdée': 'urdy',
   nebulee: 'nebuly', 'nebulé': 'nebuly',
@@ -307,6 +314,12 @@ export const LINE_PROFILE: Record<ComplexLine, LineProfile> = {
   ploye: single(6, [C(0.3, -2 * PEAK, 0.7, -2 * PEAK, 1, 0)]),
   // every gyronny line an arc, all curving the same rotational way; its depth is laid at a tenth of the line (`layOn`)
   arrondi: single(10, [C(0.3, 2 * PEAK, 0.7, 2 * PEAK, 1, 0)]),
+  // two straight lines meeting in a point toward base, midway along the chord (a chief's lower edge)
+  triangular: single(12, steps([0.5, -2], [1, 0])),
+  // a limb broken midway, a piece of it raised toward chief by a step (symmetric, like every single feature) (a model Line, drawn as one feature along a chevron's limb)
+  rompu: single(8, steps([0.35, 0], [0.35, 2], [0.65, 2], [0.65, 0], [1, 0])),
+  // the line broken at its middle by a short step (a bend's edge, or the line of a field per bend)
+  bevilled: single(6, steps([0.45, 0], [0.45, 2], [0.55, 2], [0.55, 0], [1, 0])),
 };
 
 // ── The periodic-edge generator ─────────────────────────────────────────────

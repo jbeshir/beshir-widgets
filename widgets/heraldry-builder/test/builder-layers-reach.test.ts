@@ -224,6 +224,11 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Per pall inverted wavy azure, gules and argent, two mullets Or.'],
   ['tierced in pale', arms(div('tierced-per-pale', 'azure', 'argent', 'gules')), 'Tierced in pale azure, argent and gules.'],
   ['tierced in fess with the parts swapped round', arms(div('tierced-per-fess', 'or', 'azure', 'argent')), 'Tierced in fess Or, azure and argent.'],
+  ['a chief triangular', arms('argent', group(ordinary('chief', { lines: { a: 'triangular', b: 'triangular' } }), 'azure')), 'Argent, a chief triangular azure.'],
+  ['a chevron rompu', arms('or', group(ordinary('chevron', { lines: { a: 'rompu', b: 'rompu' } }), 'sable')), 'Or, a chevron rompu sable.'],
+  ['a field per bend bevilled', arms({ ...div('per-bend', 'argent', 'gules'), lines: { a: 'bevilled' } }), 'Per bend bevilled argent and gules.'],
+  ['a bend bevilled between two roundels', arms('argent', group(ordinary('bend', { lines: { a: 'bevilled', b: 'bevilled' } }), 'gules'), group(charge('roundel'), 'azure', { count: 2 })), 'Argent, a bend bevilled gules between two roundels azure.'],
+  ['a pile ployé', arms('argent', group(ordinary('pile', { lines: { a: 'ploye', b: 'ploye' } }), 'azure')), 'Argent, a pile ployé azure.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {

@@ -122,7 +122,10 @@ function lineHostProblem(host: EdgeHost, line: Line, what: string): string | nul
     case 'enarched': return host.k === 'ordinary' || host.k === 'cotises'
       ? `An arched (enarched) line is drawn on a fess, a bend, a chevron or a chief only — not ${what}.`
       : `An arched (enarched) line divides a field per fess, per bend or per chevron only — not ${what}.`;
-    case 'ploye': return host.k === 'ordinary' || host.k === 'cotises' ? `A bowed (ployé) line is drawn on a chevron only — not ${what}.` : `A bowed (ployé) line divides a field per chevron only — not ${what}.`;
+    case 'ploye': return host.k === 'ordinary' || host.k === 'cotises' ? `A bowed (ployé) line is drawn on a chevron or a pile only — not ${what}.` : `A bowed (ployé) line divides a field per chevron only — not ${what}.`;
+    case 'triangular': return `A triangular line is drawn on a chief only — not ${what}.`;
+    case 'rompu': return `A broken (rompu) line is drawn on a chevron only — not ${what}.`;
+    case 'bevilled': return host.k === 'ordinary' ? `A bevilled line is drawn on a bend or a bend sinister only — not ${what}.` : `A bevilled line divides a field per bend or per bend sinister only — not ${what}.`;
     default: return `${capitalise(what)} can't be drawn ${LINE_WORD[line]}.`;
   }
 }
@@ -147,6 +150,9 @@ function oneEdgeLine(g: Group): ComplexLine | null {
   return a === 'plain' && b !== 'plain' ? b : b === 'plain' && a !== 'plain' ? a : null;
 }
 
+/** Lines that take no further line with them — not on the ordinary's other edge, nor on its cotises (RULES-C §A.5: "a chief triangular embattled"). */
+const NO_FURTHER_LINE: readonly Line[] = ['triangular', 'rompu'];
+
 /**
  * The line problem of an ordinary's edges (RULES-C §A.3, §A.5), or null: a line its host can't take (dancetty off a two-sided band; enarched,
  * ployé off theirs), two different lines on one ordinary ("one complex line per charge", LoAR 08/2012), or a jagged line on one edge of a band
@@ -160,6 +166,9 @@ export function ordinaryLineProblem(g: Group): string | null {
     ?? (g.item.cotised && lineHostProblem({ k: 'cotises', type: g.item.type }, g.item.cotised.line, `the cotises of ${what}`));
   if (hosted) return hosted;
   if (a !== 'plain' && b !== 'plain' && a !== b) return `${capitalise(what)} carries one line: it can't be ${LINE_WORD[a]} on one edge and ${LINE_WORD[b]} on the other.`;
+  const lone = [a, b].find((l): l is ComplexLine => NO_FURTHER_LINE.includes(l));
+  const cotised = g.item.cotised?.line;
+  if (lone && cotised && cotised !== 'plain') return `${capitalise(what)} ${LINE_WORD[lone]} takes no further line, so its cotises can't be ${LINE_WORD[cotised]} (RULES-C §A.5).`;
   const one = oneEdgeLine(g);
   if (one && LINE_GROUP[one] === 'jagged') return `${capitalise(what)} can't be ${LINE_WORD[one]} on one edge only — draw both edges ${LINE_WORD[one]} (SENA A3D1c).`;
   return null;
@@ -200,6 +209,8 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
     return `Only the main band or shape can be ${voided ? 'voided' : 'fimbriated'}, not one ${where} (SENA A3C).`;
   }
   if (voided && d.kind === 'badge') return 'A fieldless badge has no field to show through a voided charge (SENA A3C).';
+  const broken = [item.lines.a, item.lines.b].find((l) => l === 'rompu' || l === 'bevilled');
+  if (item.fimbriated && broken) return `${capitalise(what)} ${LINE_WORD[broken]} can't be fimbriated: its outline is broken (SENA A3C).`;
   if (item.fimbriated && (item.mods.includes('enhanced') || item.mods.includes('abased'))) {
     return `${capitalise(what)} ${item.mods.includes('enhanced') ? 'enhanced' : 'abased'} can't be fimbriated (LoAR 06/2005, Mathild).`;
   }
@@ -211,14 +222,15 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
 
 /**
  * A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line
- * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6).
+ * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6); charges around a bend bevilled (F2).
  */
-export type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges';
+export type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges';
 
 const CORE_STEP_WORDS: Record<CoreStep, string> = {
   'one-edge-line': 'a line on one edge of a band only',
   'overall-over-fimbriated': 'a charge overall over a fimbriated ordinary',
   'enhanced-bendlets-with-charges': 'bendlets enhanced with other charges',
+  'bevilled-with-charges': 'charges around a bend bevilled',
 };
 
 /** Bendlets (or bendlets sinister) enhanced, two or more of them. */
@@ -234,7 +246,8 @@ export function coreSteps(d: Design): CoreStep[] {
   const fimbriated = d.groups.some((g) => g.role === 'primary' && g.item.k === 'ordinary' && g.item.fimbriated !== null);
   const overFimbriated: CoreStep[] = fimbriated && d.groups.some((g) => g.role === 'overall') ? ['overall-over-fimbriated'] : [];
   const bendlets: CoreStep[] = d.groups.some(isBendletsEnhanced) && walkGroups(d).some(({ group }) => group.item.k === 'charge') ? ['enhanced-bendlets-with-charges'] : [];
-  return [...lines, ...overFimbriated, ...bendlets];
+  const bevilled: CoreStep[] = d.groups.some((g) => g.item.k === 'ordinary' && g.item.lines.a === 'bevilled') && d.groups.some((g) => g.role === 'secondary') ? ['bevilled-with-charges'] : [];
+  return [...lines, ...overFimbriated, ...bendlets, ...bevilled];
 }
 
 /** Why the design is more than one step from core practice (SENA A2B, App G), or null. */
@@ -332,7 +345,8 @@ export function paintIssues(d: Design): Issue[] {
   const divided = d.kind === 'arms' && d.field.k === 'divided' ? d.field : null;
   const sides = divided ? adjacentParts(divided.division).map(([i, j]) => [divided.parts[i], divided.parts[j]] as const) : [];
   const dark = DARK_PAIRS.find(([x, y]) => sides.some(([p, q]) => p.k === 'tincture' && q.k === 'tincture' && ((p.t === x && q.t === y) || (p.t === y && q.t === x))));
-  if (complex && dark) {
+  // a field per bend bevilled is exempt from it so long as no charge overlies the line (rule 7 below takes up the charge)
+  if (complex && complex !== 'bevilled' && dark) {
     const message = `A ${LINE_WORD[complex]} line between ${TINCTURE_NAME[dark[0]]} and ${TINCTURE_NAME[dark[1]]} can't be seen — divide them with a straight line, or choose another tincture (SENA App H).`;
     add({ code: 'structure', rule: 'line', at: { k: 'field' }, message, slots: [] });
   }

@@ -50,8 +50,9 @@ function withLinesAt(d: Design, target: EdgeTarget, lines: Lines): Design {
     const item = group.item;
     if (item.k !== 'ordinary') return d;
     if (target.k === 'cotises') return item.cotised ? canonical(replaceGroup(d, target.path, { ...group, item: { ...item, cotised: { ...item.cotised, line: lines.a } } })) : d;
-    // Cotises that followed the band's line follow it to the new one.
-    const follow = item.cotised && item.cotised.line === item.lines.a ? { cotised: { ...item.cotised, line: lines.a } } : {};
+    // Cotises that followed the band's line follow it to the new one, plain when they can't carry it (triangular, rompu, bevilled are never a cotise's).
+    const followed = lineAllowed({ k: 'cotises', type: item.type }, lines.a) ? lines.a : 'plain';
+    const follow = item.cotised && item.cotised.line === item.lines.a ? { cotised: { ...item.cotised, line: followed } } : {};
     return canonical(replaceGroup(d, target.path, { ...group, item: { ...item, ...follow, lines: { ...lines } } }));
   }
   if (d.kind !== 'arms' || (d.field.k !== 'divided' && d.field.k !== 'variation')) return d;

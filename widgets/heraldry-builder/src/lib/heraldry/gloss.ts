@@ -79,6 +79,7 @@ const LINE_GLOSS: Record<ComplexLine, string> = {
   embattled: 'battlemented', wavy: 'wavy', engrailed: 'scalloped', invected: 'reverse-scalloped', indented: 'zigzag', dancetty: 'large zigzag',
   nebuly: 'cloud-shaped', raguly: 'ragged', rayonny: 'flame-shaped', dovetailed: 'dovetailed', urdy: 'pointed', potenty: 'T-shaped',
   bretessed: 'double-battlemented', grady: 'stepped', enarched: 'arched', ploye: 'bowed', arrondi: 'curved',
+  triangular: 'pointed downward', rompu: 'broken', bevilled: 'broken by a step',
 };
 
 /** " by a wavy line" for a complex line, nothing for a plain one. */

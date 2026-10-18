@@ -305,6 +305,20 @@ an ordinary with a complex line may not share a multiply divided field's tinctur
 "a fess embattled counter-embattled", "a fess wavy on the lower edge", "on a pale wavy sable three roses argent"); signature
 `o.fess~embattled/plain`.
 
+**The lines tail** (C14; RULES-C §A.1, §A.5, F2): `triangular`, `rompu` and `bevilled` are lines of group `other` (each differs from every other line)
+and *single* profiles, one feature across the whole edge like enarched and ployé. `lineAllowed` restricts them to one kind of host each:
+triangular to a chief (its lower edge two straight lines meeting at a point toward base), rompu to a chevron (upright or upside down; each limb
+is broken midway by a step toward chief — `rompu` is a model `Line`, one edge value, drawn by the limb's edge profile rather than by a special
+chevron shape), bevilled to a bend, a bend sinister, per bend and per bend sinister (the line broken at its middle by a short step). So the
+edge row (`lineChoices`, which lists only the lines the host may carry) shows `ordinary-edge-triangular` (a chief card: `chief-edge-triangular`),
+`ordinary-edge-rompu`, `ordinary-edge-bevilled` and `field-edge-bevilled` on those hosts and nowhere else; ployé is now also a pile's
+(`ordinary-edge-ploye`). Rules (`structure.ts`): triangular and rompu take no further line, so a rompu chevron's cotises can't carry one
+(`NO_FURTHER_LINE`); rompu and bevilled ordinaries are never fimbriated (a broken outline, A3C); a bend bevilled with charges set around it is a
+step from core practice (`bevilled-with-charges`, App G); a field per bend bevilled is exempt from the App H dark pairs until a charge overlies
+the line (the charge rule 7 still applies). Cotises that followed the band's line go plain when the band takes one of these. The SCA tooling
+derives the tagger's line words from `LINE_SPELLINGS` (`LINES` in `gap-terms.ts`, apart from the words `gaps.ts` reads by context: potenty,
+arrondi); "beviled" and "bevelled" are bevilled, "rompú" rompu.
+
 ## Tinctures and hatching
 
 Eight tinctures: three metals and five colours. The rule of tincture follows the SCA's (SENA A3B,
@@ -922,7 +936,7 @@ npm run favicon
 
 - `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain or bowed, widened and narrowed by how far its lines swing otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
 - `test/builder.test.ts` "lines on the band, the top band and the border" and `test/builder-steps.test.ts` "More shapes and edges…": the band's line and edge-side transitions, the lines each host offers, `setOrdinary` keeping a line, and the closed disclosures.
-- `test/ordinary-lines.test.ts`: lines on ordinaries — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.
+- `test/ordinary-lines.test.ts`: lines on ordinaries (the lines tail — triangular, rompu, bevilled, a pile ployé: geometry, hosts, rules, words, conflict — too) — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.
 - `test/builder.test.ts` "the outline of the band" and `test/builder-steps.test.ts`: the outline, its tincture and its cotise line, "Hollow", and the controls inside the closed disclosure.
 - `test/ordinary-outlines.test.ts`: cotises, fimbriation and voiding — the geometry on every shape (cotises parallel at a quarter of the band and a cotise apart, one to three a side, their own line following the band's; fimbriation round the body under it; voiding evenodd), render and hatching of the parts, the rules (A3C hosts and roles, contrast of the trims, the field's tincture under fimbriation, the core-practice step), the conflict readings (cotises as a group, RULES-C §B.7, voided and fimbriated read two ways), words, gloss and signature.
 - `test/divisions-three.test.ts`: per pall, per pall inverted and the tierced divisions tile every shape in three (plain, wavy, embattled) with `partIndexAt` following the regions, part order, the three-part tincture rules (A3B3b, tierced, "that is a pale", a chief on per pall, App H, counterchanging a gap), Table 7, words, gloss, signature, conflict by area and categories, the builder's three parts and their swatches.

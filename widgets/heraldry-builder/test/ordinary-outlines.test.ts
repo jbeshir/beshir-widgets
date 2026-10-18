@@ -225,7 +225,7 @@ describe('cotises, fimbriation and voiding: rules', () => {
     // the cotises' line is checked on its host: a chevron's may bow, a fess's may not
     const lineIssues = (type: string, line: string) => structuralIssues(lone('argent', ordinary(type, { cotised: { count: 1, paint: 'sable', line } }), 'sable')).filter((i) => i.code === 'structure' && i.rule === 'line');
     expect(lineIssues('chevron', 'ploye')).toEqual([]);
-    expect(lineIssues('fess', 'ploye').map((i) => i.message)).toEqual(['A bowed (ployé) line is drawn on a chevron only — not the cotises of a fess.']);
+    expect(lineIssues('fess', 'ploye').map((i) => i.message)).toEqual(['A bowed (ployé) line is drawn on a chevron or a pile only — not the cotises of a fess.']);
     expect(lineIssues('bend', 'dancetty')).toEqual([]);
   });
 

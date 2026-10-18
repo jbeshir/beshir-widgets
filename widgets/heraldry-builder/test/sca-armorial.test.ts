@@ -173,6 +173,11 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['barry wavy', arms({ k: 'variation', variation: 'barry', pieces: 8, lines: { a: 'wavy' }, parts: ['argent', 'azure'] }, group(charge('lion'), 'or'))],
   ['quarterly with the line across only', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'argent'))],
   ['quarterly with the line up and down only', arms({ k: 'divided', division: 'quarterly', lines: { a: 'indented', b: 'plain' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'argent'))],
+  ['a chief triangular', arms('argent', group(ordinary('chief', { lines: { a: 'triangular' } }), 'azure'))],
+  ['a chevron rompu between charges', arms('or', group(ordinary('chevron', { lines: { a: 'rompu', b: 'rompu' } }), 'sable'), group(charge('mullet'), 'sable', { count: 3 }))],
+  ['a bend bevilled', arms('argent', group(ordinary('bend', { lines: { a: 'bevilled', b: 'bevilled' } }), 'gules'))],
+  ['a field per bend bevilled', arms({ k: 'divided', division: 'per-bend', lines: { a: 'bevilled' }, parts: ['argent', 'gules'] })],
+  ['a pile ployé', arms('argent', group(ordinary('pile', { lines: { a: 'ploye', b: 'ploye' } }), 'azure'))],
   ['a bowed per chevron', arms({ k: 'divided', division: 'per-chevron', lines: { a: 'ploye' }, parts: ['or', 'gules'] }, group(charge('mullet'), 'counterchanged'))],
   ['a fess embattled (its upper edge)', arms('azure', group(ordinary('fess', { lines: { a: 'embattled' } }), 'or'))],
   ['a bend embattled counter-embattled', arms('azure', group(ordinary('bend', { lines: { a: 'embattled', b: 'embattled' } }), 'or'))],
@@ -263,6 +268,8 @@ describe('the matcher reads the lines of the field', () => {
     ['Per pale dancetty Or and gules, a mullet argent.', 'Per pale indented Or and gules, a mullet argent.'],
     ['Per chevron ployé argent and gules, a mullet Or.', 'Per chevron ployé argent and gules, a mullet Or.'],
     ['Per chevron ployee argent and gules, a mullet Or.', 'Per chevron ployé argent and gules, a mullet Or.'],
+    ['Per bend beviled argent and gules.', 'Per bend bevilled argent and gules.'],
+    ['Per bend sinister bevelled argent and gules, a mullet Or.', 'Per bend sinister bevilled argent and gules, a mullet Or.'],
     ['Per bend embattled-grady argent and gules, a mullet Or.', 'Per bend embattled grady argent and gules, a mullet Or.'],
     ['Quarterly per fess indented Or and gules, a mullet argent.', 'Quarterly per fess indented Or and gules, a mullet argent.'],
     ['Barry wavy of eight argent and azure, a chief Or.', 'Barry wavy of eight argent and azure, a chief Or.'],
@@ -292,6 +299,12 @@ describe('the matcher reads the treatments of an ordinary', () => {
     ['Vert, a saltire couped raguly Or.', 'Vert, a saltire raguly couped Or.'],
     ['Azure, a fess couped between three roses Or.', 'Azure, a fess couped between three roses Or.'],
     ['Gules, a chevron ployé throughout argent.', 'Gules, a chevron ployé throughout argent.'],
+    ['Argent, a chief triangular azure.', 'Argent, a chief triangular azure.'],
+    ['Or, a chevron rompú sable between three mullets argent.', 'Or, a chevron rompu sable between three mullets argent.'],
+    ['Sable, a chevron rompu inverted Or.', 'Sable, a chevron inverted rompu Or.'],
+    ['Argent, a bend bevilled gules.', 'Argent, a bend bevilled gules.'],
+    ['Argent, a bend sinister bevilled gules.', 'Argent, a bend sinister bevilled gules.'],
+    ['Azure, a pile ployé argent.', 'Azure, a pile ployé argent.'],
     ['Gules, a cross throughout argent.', 'Gules, a cross argent.'],
     ['Azure, a fess enhanced Or.', 'Azure, a fess enhanced Or.'],
     ['Azure, a bendlet enhanced Or.', 'Azure, a bend enhanced Or.'],
@@ -300,6 +313,12 @@ describe('the matcher reads the treatments of an ordinary', () => {
     const m = explainMatch(text);
     expect(m.status).toBe('match');
     expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('reads rompu, triangular and bevilled off their hosts and leaves the host rule to refuse them; a second line on them is not read', () => {
+    const refused = (text: string) => { const m = explainMatch(text); return m.status === 'match' ? structuralIssues(m.match!.design!).filter((i) => i.code === 'structure' && i.rule === 'line').length : -1; };
+    expect([refused('Azure, a fess triangular Or.'), refused('Azure, a chief rompu Or.'), refused('Azure, a fess bevilled Or.'), refused('Azure, a chief triangular Or.')]).toEqual([1, 1, 1, 0]);
+    expect(explainMatch('Azure, a chief triangular embattled Or.').status).not.toBe('match');
   });
 
   it('files a treatment on an ordinary it is not drawn on as the gap the widget names', () => {

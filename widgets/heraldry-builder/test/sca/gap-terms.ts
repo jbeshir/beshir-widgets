@@ -3,7 +3,7 @@
 // endings before lookup); hyphenated terms are single tokens. Where a word is in more than one list,
 // gaps.ts decides by the order it loads them in.
 
-import { CHARGE_IDS, DRAWN_ORDINARIES, NAMED_TINCTURE_CHARGES, ORDINARY_SPELLINGS, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId } from '../../src/lib/heraldry';
+import { CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_SPELLINGS, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId } from '../../src/lib/heraldry';
 
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
@@ -243,18 +243,19 @@ export const GAP_ORDINARIES: Record<string, string> = Object.fromEntries(([
   ['fess-point', 'point'], ['chief-pale', 'chief-pale'],
 ] as [string, string][]).filter(([word]) => !(word in SUPPORTED_ORDINARY_WORDS)));
 
-/** Lines of partition → sub-tag. The widget draws only straight lines. */
+/** Spellings of drawn lines that gaps.ts reads by what they follow: "potenty" (a cross and a fur too), "arrondi" (after a division, or a charge). */
+const CONTEXT_LINE_WORDS: readonly string[] = ['potenty', 'arrondi', 'arrondy'];
+
+/**
+ * Lines of partition → sub-tag, the one a word is filed under when the widget doesn't draw it on that element: the library's own spellings of its lines
+ * (`LINE_SPELLINGS`, one word each, except `CONTEXT_LINE_WORDS`: the sub-tag is the line, "embattled-counter-embattled" for a counter-embattled edge) and the words of lines it lacks.
+ */
 export const LINES: Record<string, string> = {
-  embattled: 'embattled', crenellated: 'embattled', crenelated: 'embattled', battled: 'embattled',
-  embattlement: 'embattled', 'counter-embattled': 'embattled-counter-embattled',
-  counterembattled: 'embattled-counter-embattled', 'embattled-counterembattled': 'embattled-counter-embattled',
-  'embattled-counter-embattled': 'embattled-counter-embattled', bretessed: 'bretessed', bretesse: 'bretessed',
-  bretassy: 'bretessed', 'embattled-grady': 'embattled-grady', grady: 'grady', 'indented-grady': 'grady',
-  wavy: 'wavy', undy: 'wavy', undee: 'wavy', 'wavy-crested': 'wavy-crested', nebuly: 'nebuly',
-  indented: 'indented', dancetty: 'dancetty', dancette: 'dancetty', engrailed: 'engrailed', invected: 'invected', invecked: 'invected',
-  raguly: 'raguly', rayonny: 'rayonny', urdy: 'urdy', dovetailed: 'dovetailed', bevilled: 'bevilled',
-  beviled: 'bevilled', bevelled: 'bevilled', angled: 'angled', enarched: 'enarched', arched: 'enarched',
-  'double-arched': 'enarched', 'doubly-enarched': 'enarched', ploye: 'enarched', ployee: 'enarched',
+  ...Object.fromEntries(Object.entries(LINE_SPELLINGS).filter(([word]) => !word.includes(' ') && !CONTEXT_LINE_WORDS.includes(word))
+    .map(([word, line]) => [word, line === 'counter-embattled' ? 'embattled-counter-embattled' : line])),
+  embattlement: 'embattled', counterembattled: 'embattled-counter-embattled', 'embattled-counterembattled': 'embattled-counter-embattled',
+  'embattled-grady': 'embattled-grady', 'indented-grady': 'grady', 'wavy-crested': 'wavy-crested', angled: 'angled',
+  'double-arched': 'enarched', 'doubly-enarched': 'enarched',
   'flory-counterflory': 'flory-counterflory', 'counter-flory': 'flory-counterflory',
   counterflory: 'flory-counterflory', 'fleury-counterfleury': 'flory-counterflory',
   'counter-fleury': 'flory-counterflory', counterfleury: 'flory-counterflory', trefly: 'trefly',
@@ -380,8 +381,8 @@ export const MODIFIERS: Record<string, string> = Object.fromEntries([
  * charge-modifier or orientation ("a sword inverted").
  */
 export const CONTEXT_WORDS = w(`
-  couped humetty inverted fimbriated fimbriate voided cotised cotissed enhanced abased throughout rompu fracted
-  nowy pointed triangular double fitchy fitched issuant conjoined pierced quarter-pierced interlaced embowed
+  couped humetty inverted fimbriated fimbriate voided cotised cotissed enhanced abased throughout fracted
+  nowy pointed double fitchy fitched issuant conjoined pierced quarter-pierced interlaced embowed
   parted fretted offset shortened flory fleury formy bottony botonny bottonny clechy pommetty fourchy quadrate
   pointe moline patonce arrondi arrondy
 `);

@@ -552,4 +552,22 @@ describe('"More shapes and edges…" under the band', () => {
     expect(shapeDisclosures(html)).toEqual([{ testid: 'bordure-shape-more', open: true }]);
     expect(ids(html)).toContain('bordure-edge-engrailed');
   });
+
+  it('lists triangular on a chief, rompu on a chevron and bevilled on a bend and a field per bend — and on no other host', () => {
+    const edged = (type: Parameters<typeof setOrdinary>[1]) => { const d = setOrdinary(DEFAULT_DESIGN, type); return ids(render(setOrdinaryLine(d, ordinaryPath(d)!, 'wavy'))); };
+    expect(edged('chief')).toContain('ordinary-edge-triangular');
+    expect(edged('chevron')).toContain('ordinary-edge-rompu');
+    expect(edged('bend')).toContain('ordinary-edge-bevilled');
+    expect(edged('bend-sinister')).toContain('ordinary-edge-bevilled');
+    for (const type of ['fess', 'pale', 'cross', 'bordure'] as const) for (const id of ['triangular', 'rompu', 'bevilled']) expect(edged(type), `${type} ${id}`).not.toContain(`ordinary-edge-${id}`);
+    expect(edged('chief')).not.toContain('ordinary-edge-rompu');
+    expect(edged('chevron')).toContain('ordinary-edge-ploye');
+    expect(edged('pile')).toContain('ordinary-edge-ploye');
+    const chiefCard = renderToString(h(LayerStep, { ...base, design: setOrdinaryLine(addLayer(setOrdinary(DEFAULT_DESIGN, 'fess'), 'chief'), pathOfPlace(addLayer(setOrdinary(DEFAULT_DESIGN, 'fess'), 'chief'), 'chief')!, 'wavy'), place: 'chief', n: 4, onAdjust: noop }));
+    expect(ids(chiefCard)).toContain('chief-edge-triangular');
+    const background = (division: Parameters<typeof setDivision>[1]) => ids(renderToString(h(FieldStep, { ...fieldBase, design: setFieldLine(setDivision(DEFAULT_DESIGN, division), 'wavy') })));
+    expect(background('per-bend')).toContain('field-edge-bevilled');
+    expect(background('per-bend-sinister')).toContain('field-edge-bevilled');
+    expect(background('per-pale')).not.toContain('field-edge-bevilled');
+  });
 });

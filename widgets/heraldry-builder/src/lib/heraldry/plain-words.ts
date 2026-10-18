@@ -99,6 +99,7 @@ const LINE_PLAIN: Record<Line, string> = {
   plain: 'Straight', embattled: 'Battlements', wavy: 'Wavy', engrailed: 'Scalloped (points out)', invected: 'Scalloped (points in)',
   indented: 'Zigzag', dancetty: 'Big zigzag', nebuly: 'Cloudy', raguly: 'Ragged', rayonny: 'Flames', dovetailed: 'Dovetails', urdy: 'Pointed',
   potenty: 'T-shapes', bretessed: 'Battlements both sides', grady: 'Steps', enarched: 'Arched', ploye: 'Bowed', arrondi: 'Curved',
+  triangular: 'Pointed down', rompu: 'Broken', bevilled: 'Step in line',
 };
 
 /** Lines of partition for chips and summaries: how each looks, and its heraldic word ("Straight · plain"). */
