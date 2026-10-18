@@ -4,14 +4,14 @@
 
 import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
-import { CHARGES, isChargeId } from './charges';
+import { CHARGES, isChargeId, type Gaze } from './charges';
 import { chargeOnBox } from './charge-art';
 import { liesAstride, specOf } from './ordinary-geometry';
 import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, partCount, type Division, type Variation } from './divisions';
 import {
-  asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
+  asParty, asSemy, asTreated, walkGroups, type Charge, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
-import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isDiminutive, isOrdinaryType, ordinaryWithArticle } from './ordinaries';
+import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isDiminutive, isOrdinaryType, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import {
   AROUND_COUNTS, MAX_CO_PRIMARY_TOTAL, ON_CHARGE_COUNTS, coPrimaries, aroundPrimaryLayouts, halfLayouts, hostCounts, isHalfPosition, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
@@ -166,12 +166,37 @@ function itemGaps(item: Item): Found[] {
   const gaps: Found[] = [];
   if (item.form) gaps.push(gap('charge-modifier', item.form));
   if (item.posture && !meta.postures?.includes(item.posture)) gaps.push(gap('posture', item.posture));
-  if (item.facing && item.facing !== meta.defaultFacing) gaps.push(gap('orientation', item.facing));
+  // Facing to sinister is the drawing mirrored; facing out of the shield has no drawing (PLAN-D §0.2.2: filed as a posture word).
+  if (item.facing === 'affronty') gaps.push(gap('posture', 'affronty'));
+  if (item.gaze && !gazeDrawn(item, item.gaze)) gaps.push(gap('posture', item.gaze));
   if (item.orientation) gaps.push(gap('orientation', item.orientation));
   for (const m of item.mods) if (!(meta.mods.includes(m.id) || meta.details.includes(m.id)) || m.count !== null || m.paint !== null) gaps.push(gap('charge-modifier', m.id));
   for (const p of item.parts) gaps.push(gap('charge-modifier', p.part));
   for (const h of item.holds) gaps.push(gap('charge-modifier', h.how));
   return gaps;
+}
+
+/** Whether a charge has a drawing of its posture with the head turned that way. */
+const gazeDrawn = (item: Charge, gaze: Gaze): boolean =>
+  gaze !== 'guardant-regardant' && item.posture !== null && CHARGES[item.charge].drawings[`${item.posture}~${gaze}`] !== undefined;
+
+/**
+ * The ordinaries that set two charges around them side by side, the dexter one first: where a pair is drawn around an ordinary. A pile
+ * sets them low in the flanks, where a beast turned to face it no longer fits (geometry-fit.test.ts).
+ */
+const PAIR_HOSTS: readonly OrdinaryType[] = ['pale'];
+
+/**
+ * A pair (two charges combattant, respectant or addorsed) is drawn of two charges that face, each its own way, as the primary group alone
+ * on the field or set around an ordinary that has them side by side (§1.1 F6, F8); anything else is a posture gap.
+ */
+function pairGaps(d: Design, g: Group, host: Group | null): Found[] {
+  if (g.arrangement.k !== 'pair' || g.item.k !== 'charge') return [];
+  const meta = CHARGES[g.item.charge];
+  const ordinary = primaryOrdinary(d);
+  const placed = host === null && g.position === null && (g.role === 'primary' ? coPrimaries(d) === null
+    : g.role === 'secondary' && g.relation === 'between' && ordinary !== null && PAIR_HOSTS.includes(ordinary.type));
+  return meta.faces && g.count === 2 && g.item.facing === meta.defaultFacing && placed ? [] : [gap('posture', g.arrangement.pair)];
 }
 
 /** A single diminutive other than the main or overall band (which is its ordinary: `canonical`), "in canton a scarpe" (RULES-C §C.2); a baton is one by itself. */
@@ -196,7 +221,6 @@ function layoutGaps(g: Group, hasChief: boolean): Found[] {
     return gaps;
   }
   if (g.count > MAX_DRAWN_COUNT) gaps.push(gap('count', String(g.count)));
-  if (a.k === 'pair') gaps.push(gap('posture', a.pair));
   if (a.k === 'pattern' && a.pattern !== 'cross' && a.pattern !== 'saltire' && a.pattern !== 'orle' && a.pattern !== 'annulo') {
     gaps.push(gap('arrangement', `in-${a.pattern}`));
   }
@@ -385,7 +409,7 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
   for (const { path, group, host } of walkGroups(d)) {
     const at: IssueAt = { k: 'group', path };
     const owner = group.item.k === 'ordinary' ? group.item.type : group.item.charge;
-    const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...placementGaps(d, group, host)];
+    const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...pairGaps(d, group, host), ...placementGaps(d, group, host)];
     if (host) gaps.push(...onChargeGaps(d, host));
     if (againstAstrideLine(d, group, host)) gaps.push(gap('placement', 'counterchanged-chevron'));
     if (inThree && (group.paint.k === 'counterchanged' || (group.item.k === 'ordinary' && group.item.cotised?.paint.k === 'counterchanged'))) {

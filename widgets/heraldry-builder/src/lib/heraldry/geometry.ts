@@ -625,14 +625,20 @@ export function slotTransform(s: Slot): string {
 }
 
 /** How a charge's art is posed in its slot, on top of the slot's own turn. */
-export interface ArtPose {}
+export interface ArtPose {
+  /** Drawn mirrored about the art's upright middle line: a charge facing to sinister (contourny), or one of a pair. */
+  mirror: boolean;
+}
 
 /** The art as it is drawn. */
-export const UPRIGHT: ArtPose = {};
+export const UPRIGHT: ArtPose = { mirror: false };
 
-/** The SVG transform that draws a charge's art in a slot in a pose. */
-export function chargeTransform(s: Slot, _pose: ArtPose): string {
-  return slotTransform(s);
+/** The art mirrored: facing the other way. */
+export const MIRRORED: ArtPose = { mirror: true };
+
+/** The SVG transform that draws a charge's art in a slot in a pose: the slot's, then the pose about the middle of the art's box. */
+export function chargeTransform(s: Slot, pose: ArtPose): string {
+  return pose.mirror ? `${slotTransform(s)} translate(50 50) scale(-1 1) translate(-50 -50)` : slotTransform(s);
 }
 
 /** Rotate a point about a slot's centre by the slot's rotation. */

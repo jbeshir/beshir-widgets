@@ -83,7 +83,7 @@ export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] 
   const was = previous?.item.k === 'charge' ? previous.item : null;
   const posture = meta.postures ? (was?.posture && meta.postures.includes(was.posture) ? was.posture : meta.defaultPosture) : null;
   return {
-    k: 'charge', charge: id, form: null, posture, facing: meta.defaultFacing, orientation: null,
+    k: 'charge', charge: id, form: null, posture, gaze: null, facing: meta.defaultFacing, orientation: null,
     mods: was ? was.mods.filter((m) => meta.mods.includes(m.id)) : [], parts: [], holds: [],
   };
 }

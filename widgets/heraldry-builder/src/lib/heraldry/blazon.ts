@@ -10,7 +10,7 @@ import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory, type ChargeId, type ModifierId } from './charges';
-import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
+import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
 import { lineWords, ordinaryEdgeHost } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
@@ -107,6 +107,17 @@ function modifierWords(m: Modifier): string {
   return words !== undefined && m.count === null && m.paint === null ? words : notSupported({ category: 'charge-modifier', detail: m.id });
 }
 
+/**
+ * How a charge's head and body are turned, after its posture (R§F.3): "contourny" (no final -e), and the gaze before it or after it as the
+ * SCA armorial most often has it — "guardant contourny" (98 records against 35), "contourny regardant" (41 against 12).
+ */
+export function turnWords(c: Charge): string[] {
+  const facing = c.facing === 'to-sinister' ? ['contourny'] : c.facing === 'affronty' ? ['affronty'] : [];
+  if (c.gaze === null) return facing;
+  const gaze = c.gaze.replace('-', ' ');
+  return c.gaze === 'regardant' ? [...facing, gaze] : [gaze, ...facing];
+}
+
 export interface BlazonOptions {
   /** Word the postures and field layouts the College assumes (Table 5 and 7 defaults, forced positions) as well. */
   stateDefaults: boolean;
@@ -117,20 +128,22 @@ export interface BlazonOptions {
 /** Whether the layout of a group is worded: when it isn't the default, or with `stateDefaults` whenever it isn't alone in the centre. */
 function wordsLayout(d: Design, path: GroupPath, g: Group, { stateDefaults }: BlazonOptions): boolean {
   if (contextOf(d, g, hostOf(d, path)) === null) return false;
+  // A pair is always worded: the College assumes charges face to dexter.
+  if (g.arrangement.k === 'pair') return true;
   const k = layoutContext(d, path).k;
   // Charges on the primary charges, and charges overall, state every layout but the one charge alone, defaults or not (Table 7: they must be stated).
   if (!stateDefaults || k === 'on-charge' || k === 'overall') return statesLayout(d, path);
   return k === 'position' || k === 'around' || (k === 'field' && (g.arrangement.k !== 'single' || g.position !== null));
 }
 
-/** A charge group's phrase: [layout prefix] count noun [posture] [mods] [layout postfix], without its tincture. */
+/** A charge group's phrase: [layout prefix] count noun [posture] [gaze and facing] [mods] [layout postfix], without its tincture. */
 function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptions): string {
   if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
   const meta = CHARGES[g.item.charge];
   const words = [g.count === 1 ? meta.article : numberWord(g.count), g.count === 1 ? meta.name : meta.plural];
   // GoT Table 5: a posture the College assumes is left out (RULES §F.8).
   if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureTerm(g.item.charge, g.item.posture));
-  words.push(...g.item.mods.map(modifierWords));
+  words.push(...turnWords(g.item), ...g.item.mods.map(modifierWords));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
   // Charges Table 7 forces into one part of the field by tincture are not said to stand there; how they stand there still is.
   const forced = !options.stateDefaults && g.position !== null && g.position === forcedPosition(d, path);

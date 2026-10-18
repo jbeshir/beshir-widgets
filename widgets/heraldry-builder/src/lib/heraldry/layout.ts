@@ -10,7 +10,7 @@ import { PLAIN_LINES, groupAt, hostOf, walkGroups, type Design, type GroupPath }
 import { BUILDER_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, familyOf, familyOfTreated, type OrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, betweenHost, type BetweenHost, contextOf, cornerBesideBend, defaultLayoutOf, fieldContext, hasBordure, hasChargedBordure, hasChief, hostCounts, withoutChief, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
+  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, betweenHost, type BetweenHost, contextOf, cornerBesideBend, defaultLayoutOf, drawnLayout, fieldContext, hasBordure, hasChargedBordure, hasChief, hostCounts, withoutChief, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type QuarterPosition, type KeepOut, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
@@ -709,10 +709,14 @@ function onChargeSlots(ctx: Extract<LayoutContext, { k: 'on-charge' }>, count: n
   const hosts = contextSlots(host.context, host.count, host.layout, shape);
   if (!art || hosts.length !== host.count || !onChargeLayouts(count).some((l) => sameLayout(l, layout))) return [];
   const scale = CHARGES[host.charge].scale / 100;
-  const rooms = hosts.map((s) => area(
-    s.x + (art.x - 50) * s.size * scale, s.y + (art.y - 50) * s.size * scale,
-    s.x + (art.x + art.w - 50) * s.size * scale, s.y + (art.y + art.h - 50) * s.size * scale,
-  ));
+  // A host drawn mirrored has the room of its drawing mirrored, so the charges on it sit on its body.
+  const rooms = hosts.map((s, i) => {
+    const x = host.mirrored[i] ? 100 - art.x - art.w : art.x;
+    return area(
+      s.x + (x - 50) * s.size * scale, s.y + (art.y - 50) * s.size * scale,
+      s.x + (x + art.w - 50) * s.size * scale, s.y + (art.y + art.h - 50) * s.size * scale,
+    );
+  });
   const all = rooms.map((room) => onChargeCentres(room, count, layout));
   const room = rooms[0];
   const ground: Ground = { contain: [[room.x0, room.y0], [room.x1, room.y0], [room.x1, room.y1], [room.x0, room.y1]], margin: 0, minTop: -Infinity, avoid: [], within: null };
@@ -1202,8 +1206,10 @@ const memo = new Map<string, Slot[]>();
  * The slots of a group of `count` charges in a layout in a shape, in reading order; [] when the
  * combination has no layout (structure.ts says why). The arrays are shared: don't change them.
  */
-export function contextSlots(ctx: LayoutContext, count: number, layout: Layout, shape: FieldShape): Slot[] {
-  if (!Number.isInteger(count) || count < 1 || count > MAX_DRAWN_COUNT) return [];
+export function contextSlots(ctx: LayoutContext, count: number, given: Layout, shape: FieldShape): Slot[] {
+  // A pair is two charges.
+  if (!Number.isInteger(count) || count < 1 || count > MAX_DRAWN_COUNT || (given.arrangement.k === 'pair' && count !== 2)) return [];
+  const layout = drawnLayout(ctx, given);
   // The layout's own fields, not its key: one charge in chief and a row of them in chief share a key.
   const key = `${JSON.stringify(ctx)}|${count}|${JSON.stringify(layout)}|${shape}`;
   let slots = memo.get(key);

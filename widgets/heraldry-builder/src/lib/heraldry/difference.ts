@@ -14,7 +14,8 @@ import { divisionPartGrid } from './geometry';
 import { LINE_WORD, edgeCount, lineDiffers, lineWords, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import { ORDINARY_KIND, ORDINARY_NAME, familyOf, familyOfTreated, isDiminutive, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
-import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
+import { contextOf, drawnLayout, isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
+import { turnWords } from './blazon';
 import { paintGaps } from './support';
 import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
 import { liftStrewn } from './strewn';
@@ -143,6 +144,8 @@ function arrangementGroup(g: Group): string | null {
   switch (a.k) {
     case 'line': return `line-${a.dir}`;
     case 'crossed': return 'saltire';
+    // §1.1 F8 (App K): a pair is two charges in fess, whichever way they face.
+    case 'pair': return 'line-fess';
     case 'pattern':
       return a.pattern === 'saltire' ? 'saltire' : a.pattern === 'cross' ? 'cross' : a.pattern === 'orle' || a.pattern === 'annulo' ? 'ring' : null;
     case 'rows': {
@@ -192,6 +195,45 @@ function postureLinesApart({ cls, px, py }: { cls: PostureClass; px: Posture; py
   return px !== py && !lx.some((l) => ly.includes(l));
 }
 
+/**
+ * §1.1 F1–F3, F5: whether a group's facing counts for conflict. Not for an owl (`facingCounts: 'never'`), a fish haurient or urinant (its head
+ * is up or down), or charges in annulo (F2); a dolphin's counts in every posture (`'always'`, F3). Facing forced by counterchanging (F2,
+ * Rœrekr á Úlfhamre 07/2013) is not told apart: herald question D25.
+ */
+function facingCounts(g: Group): boolean {
+  if (g.item.k !== 'charge' || (g.arrangement.k === 'pattern' && g.arrangement.pattern === 'annulo')) return false;
+  const meta = CHARGES[g.item.charge];
+  const upOrDown = meta.postureClass === 'fish' && (g.item.posture === 'haurient' || g.item.posture === 'urinant');
+  return meta.facingCounts === 'always' || (meta.facingCounts === 'normal' && !upOrDown);
+}
+
+/**
+ * §1.1 F1 (A5G7a, App L1): two charges that can be posed alike facing different ways — to dexter, to sinister (contourny) or affronty (F10).
+ * A fish naiant is read by L1d's general clause (herald question D18).
+ */
+function facingApart(x: Group, y: Group): boolean {
+  return comparablePostures(x.item, y.item) !== null && x.item.k === 'charge' && y.item.k === 'charge' && x.item.facing !== y.item.facing
+    && facingCounts(x) && facingCounts(y);
+}
+
+/** How a group of two charges that can face each other stands (§1.1 F6): facing each other (combattant is respectant), back to back, or the same way. */
+type PoseClass = 'respectant' | 'addorsed' | 'same';
+
+/** The pose class of a group of two charges that face (heads included); null for any other group. F7: affronty is no group posture. */
+function poseClass(g: Group): PoseClass | null {
+  if (g.count !== 2 || g.item.k !== 'charge' || !CHARGES[g.item.charge].faces || g.item.facing === 'affronty') return null;
+  return g.arrangement.k !== 'pair' ? 'same' : g.arrangement.pair === 'addorsed' ? 'addorsed' : 'respectant';
+}
+
+/**
+ * §1.1 F6 (A5G7a): two groups of two in different pose classes, whatever their types ("two lions combatant" against "two hawks addorsed"); a
+ * pair against the same two both to dexter is read as such a change (herald question D19).
+ */
+function poseClassesApart(x: Group, y: Group): boolean {
+  const cx = poseClass(x), cy = poseClass(y);
+  return cx !== null && cy !== null && cx !== cy;
+}
+
 /** Whether two charges that can be posed alike are posed in different lines (a lion rampant and a wolf passant): SENA A3D2c asks the charges of one group to be posed alike. */
 export function posturesClash(x: Item, y: Item): boolean {
   const postures = comparablePostures(x, y);
@@ -213,7 +255,12 @@ function appK(count: number): readonly LayoutKey[] {
 /** A group with the design it is in and where (isForced needs the design and the path). */
 interface Side { design: Design; path: GroupPath; group: Group; host: Group | null }
 
-const layoutOf = (s: Side): LayoutKey => layoutKey({ arrangement: s.group.arrangement, position: s.group.position });
+/** A group's layout as conflict compares it: a pair as the layout it is drawn in (§1.1 F8: facing within a pair is no change of arrangement). */
+function layoutOf(s: Side): LayoutKey {
+  const ctx = contextOf(s.design, s.group, s.host);
+  const layout = { arrangement: s.group.arrangement, position: s.group.position };
+  return layoutKey(ctx ? drawnLayout(ctx, layout) : layout);
+}
 
 function sidesWhere(d: Design, keep: (g: Group) => boolean): Side[] {
   return d.groups.flatMap((group, i) => (keep(group) ? [{ design: d, path: [i], group, host: null }] : []));
@@ -417,7 +464,10 @@ function primaryChanges(x: Side, y: Side): Diff[] {
   if (postures) {
     const lines = POSTURE_SC_LINES[postures.cls];
     const lx = lines[postures.px], ly = lines[postures.py];
-    if (lx !== undefined && ly !== undefined && lx !== ly) out.push(change('posture', 'sc', 'A5E5', ref));
+    // §1.1 F10 (A5E5a): a beast affronty is a line of its own.
+    const affronty = postures.cls === 'quadruped' && x.group.item.k === 'charge' && y.group.item.k === 'charge'
+      && (x.group.item.facing === 'affronty') !== (y.group.item.facing === 'affronty');
+    if ((lx !== undefined && ly !== undefined && lx !== ly) || affronty) out.push(change('posture', 'sc', 'A5E5', ref));
   }
   return out;
 }
@@ -489,9 +539,24 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
     && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky))))) {
     dc('arrangement', 'A5G6');
   }
-  const postures = comparablePostures(gx.item, gy.item);
-  if ((postures && postureLinesApart(postures)) || pileTurned(gx.item, gy.item)) dc('posture', 'A5G7');
+  // §1.1 F9: posture, facing and the pose of a pair together give at most one distinct change.
+  if (posesApart(gx, gy)) dc('posture', 'A5G7');
   return out;
+}
+
+/** A5G7: postures in different lines, facings or pair poses that differ (§1.1 F1–F6), or a pile against a pile inverted. */
+function posesApart(x: Group, y: Group): boolean {
+  const postures = comparablePostures(x.item, y.item);
+  return (postures !== null && postureLinesApart(postures)) || facingApart(x, y) || poseClassesApart(x, y) || pileTurned(x.item, y.item);
+}
+
+/** Why two groups' poses differ by a distinct change, in words: the posture first, then a pair's pose, then the facing. */
+function poseSentence(x: Group, y: Group): string {
+  const postures = comparablePostures(x.item, y.item);
+  if ((postures !== null && postureLinesApart(postures)) || pileTurned(x.item, y.item)) return 'A different pose is a distinct change';
+  const plural = x.item.k === 'charge' ? CHARGES[x.item.charge].plural : itemName(x.item);
+  if (poseClassesApart(x, y)) return `Turning the two ${plural} to face each other, back to back or the same way is a distinct change`;
+  return `Turning ${itemPhrase(x.item)} to face the other way is a distinct change`;
 }
 
 /** A5C2c: tertiaries compare only when their hosts are paired; on an unpaired host (`null` opposite) each is an added or removed group. */
@@ -802,7 +867,12 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
     const itemOrNone = (d: Design, g: Group | null) => (!g ? 'none' : isCotiseGroup(d, g) ? `${g.count} a side` : g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural);
     const tinctureWord = (g: Group) => (g.paint.k === 'counterchanged' ? 'counterchanged' : paintName(g.paint));
     const fieldWord = (d: Design) => (d.kind === 'arms' && d.field.k === 'variation' ? d.field.parts.map(paintName).join('/') : fieldParts(d).map(paintName).join('/'));
-    const postureWord = (g: Group) => { const i = g.item; return i.k === 'ordinary' ? (i.mods.includes('inverted') ? 'inverted' : 'upright') : i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
+    const postureWord = (g: Group) => {
+      const i = g.item;
+      if (i.k === 'ordinary') return i.mods.includes('inverted') ? 'inverted' : 'upright';
+      const words = [...(i.posture ? [postureTerm(i.charge, i.posture)] : []), ...turnWords(i), ...(g.arrangement.k === 'pair' ? [g.arrangement.pair] : [])];
+      return words.join(' ') || 'none';
+    };
 
     let text: string;
     let sentence: string;
@@ -899,7 +969,7 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         break;
       case 'posture':
         text = pair(`pose of ${noun().one}`, postureWord(both().ga), postureWord(both().gb));
-        sentence = diff.kind === 'sc' ? 'These poses are substantially different — a substantial change' : 'A different pose is a distinct change';
+        sentence = diff.kind === 'sc' ? 'These poses are substantially different — a substantial change' : poseSentence(both().ga, both().gb);
         break;
     }
     return { attr: diff.attr, kind: diff.kind, rule: diff.rule, text, why: `${sentence} (SENA ${diff.rule}).`, item: ref?.item ?? null };

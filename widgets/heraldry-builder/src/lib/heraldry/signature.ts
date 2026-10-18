@@ -2,7 +2,8 @@
 // out" of a duplicate, and different for any two different canonical designs.
 
 import { TINCTURE_CODE } from './tinctures';
-import { notSupported, type Design, type Group, type Item, type Lines, type Paint, type Role } from './design';
+import { CHARGES } from './charges';
+import { notSupported, type Charge, type Design, type Group, type Item, type Lines, type Paint, type Role } from './design';
 import { layoutKey } from './arrangement';
 import { paintGaps } from './support';
 
@@ -29,8 +30,15 @@ function paint(p: Paint): string {
   }
 }
 
+/** A charge: its id, posture and modifiers, then only the attributes that are not its default (PLAN-D §0.3.7), so older signatures hold. */
+function charge(c: Charge): string {
+  const gaze = c.gaze ? `~gaze-${c.gaze}` : '';
+  const facing = c.facing !== CHARGES[c.charge].defaultFacing ? `~facing-${c.facing}` : '';
+  return `c.${c.charge}${c.posture ? `.${c.posture}` : ''}${c.mods.map((m) => `+${m.id}`).join('')}${gaze}${facing}`;
+}
+
 function item(i: Item): string {
-  if (i.k === 'charge') return `c.${i.charge}${i.posture ? `.${i.posture}` : ''}${i.mods.map((m) => `+${m.id}`).join('')}`;
+  if (i.k === 'charge') return charge(i);
   // cotises: their number of pairs, their line (one on every cotise edge) and their paint; then the fimbriation's paint
   const cotised = i.cotised ? `#c${i.cotised.count}${linesCode({ a: i.cotised.line, b: i.cotised.line })}(${paint(i.cotised.paint)})` : '';
   const fimbriated = i.fimbriated ? `#f(${paint(i.fimbriated)})` : '';

@@ -1,4 +1,4 @@
-// Charge vocabulary: the charge ids and categories, the type classes, and the charge attributes (postures, facings,
+// Charge vocabulary: the charge ids and categories, the type classes, and the charge attributes (postures, facings, gazes,
 // orientations, forms, modifiers, parts, holds). Each charge's metadata is its sidecar row in art/meta; its art is in art/paths.
 
 import type { ChargeMeta, ChargeMetaRow } from './art/types';
@@ -16,8 +16,13 @@ export const POSTURES = ['rampant', 'passant', 'statant', 'sejant', 'courant', '
   'statant-erect', 'naiant', 'haurient', 'urinant', 'displayed', 'close', 'rising', 'volant', 'tergiant'] as const;
 export type Posture = (typeof POSTURES)[number];
 
-export const FACINGS = ['to-dexter', 'to-sinister', 'affronty', 'guardant', 'regardant', 'guardant-regardant'] as const;
+/** Which way a charge's body faces: to dexter (as drawn), to sinister (contourny: the drawing mirrored), or out of the shield. */
+export const FACINGS = ['to-dexter', 'to-sinister', 'affronty'] as const;
 export type Facing = (typeof FACINGS)[number];
+
+/** Which way a beast's head is turned, whatever its body does: out of the shield, back over its shoulder, or both. */
+export const GAZES = ['guardant', 'regardant', 'guardant-regardant'] as const;
+export type Gaze = (typeof GAZES)[number];
 
 export const ORIENTATIONS = ['palewise', 'fesswise', 'bendwise', 'bendwise-sinister', 'inverted', 'reversed'] as const;
 export type Orientation = (typeof ORIENTATIONS)[number];
@@ -157,6 +162,7 @@ const isIn = <T extends string>(list: readonly T[]) => (value: unknown): value i
 
 export const isPosture = isIn(POSTURES);
 export const isFacing = isIn(FACINGS);
+export const isGaze = isIn(GAZES);
 export const isOrientation = isIn(ORIENTATIONS);
 export const isChargeForm = isIn(CHARGE_FORMS);
 export const isModifierId = isIn(MODIFIER_IDS);

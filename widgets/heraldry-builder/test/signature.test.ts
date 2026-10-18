@@ -3,10 +3,10 @@
 // written `~line` (`~a/b` for two different ones) after the division or variation and its pieces.
 
 import { describe, expect, it } from 'vitest';
-import { BUILDER_DIVISIONS, DIVISIONS, DRAWN_LINES, LINES, ORDINARY_TYPES, VARIATIONS, canonicalJson, lineAllowed, signature, type Design } from '../src/lib/heraldry';
+import { BUILDER_DIVISIONS, CHARGE_IDS, DIVISIONS, DRAWN_LINES, FACINGS, GAZES, LINES, ORDINARY_TYPES, VARIATIONS, canonicalJson, lineAllowed, signature, type Design } from '../src/lib/heraldry';
 import { ORDINARY_MODS } from '../src/lib/heraldry/ordinaries';
 import { arms, charge, div, group, nd } from './helpers';
-import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { PINNED } from './signature-cases';
 
 /** What each pinned design's signature was when phase B shipped. */
@@ -55,7 +55,7 @@ describe('the signature', () => {
   });
 
   it('different canonical designs never share a signature; equal ones always do', () => {
-    const designs = [...PINNED.map(([, input]) => nd(input)), ...linedDesigns(), ...generatedRichDesigns(808, 300), ...generatedGeometryDesigns(808, 150), ...generatedLinedOrdinaryDesigns(808, 80), ...generatedTreatedOrdinaryDesigns(808, 60), ...generatedOutlinedOrdinaryDesigns(808, 60), ...generatedPeripheralDesigns(808, 60)];
+    const designs = [...PINNED.map(([, input]) => nd(input)), ...linedDesigns(), ...generatedRichDesigns(808, 300), ...generatedGeometryDesigns(808, 150), ...generatedLinedOrdinaryDesigns(808, 80), ...generatedTreatedOrdinaryDesigns(808, 60), ...generatedOutlinedOrdinaryDesigns(808, 60), ...generatedPeripheralDesigns(808, 60), ...generatedChargeAttributeDesigns(808, 200)];
     const bySignature = new Map<string, Design>();
     // Beyond four pieces a variation's tinctures may be either way round (A5G1a): the one way two canonical designs share a signature.
     const swapped = (d: Design): string => canonicalJson(d.kind === 'arms' && d.field.k === 'variation' ? { ...d, field: { ...d.field, parts: [d.field.parts[1], d.field.parts[0]] } } : d);
@@ -71,6 +71,16 @@ describe('the signature', () => {
   });
 
   it('every id ends in a letter, so a piece count or a separator after it reads unambiguously', () => {
-    for (const id of [...LINES, ...ORDINARY_TYPES, ...DIVISIONS, ...VARIATIONS, ...ORDINARY_MODS]) expect(id).toMatch(/^[a-z][a-z0-9-]*[a-z]$/);
+    for (const id of [...LINES, ...ORDINARY_TYPES, ...DIVISIONS, ...VARIATIONS, ...ORDINARY_MODS, ...FACINGS, ...GAZES, ...CHARGE_IDS]) expect(id).toMatch(/^[a-z][a-z0-9-]*[a-z]$/);
+  });
+
+  it('writes a facing other than the charge\'s own and a gaze after the modifiers; a pair is its layout', () => {
+    const lion = (item: object, extra: object = {}) => signature(nd(arms('azure', group(charge('lion', item), 'or', extra))));
+    expect(lion({})).toBe('arms|az|P:c.lion.rampant:1:single:or');
+    expect(lion({ facing: 'to-dexter' })).toBe('arms|az|P:c.lion.rampant:1:single:or');
+    expect(lion({ facing: 'to-sinister' })).toBe('arms|az|P:c.lion.rampant~facing-to-sinister:1:single:or');
+    expect(lion({ gaze: 'guardant', facing: 'to-sinister' })).toBe('arms|az|P:c.lion.rampant~gaze-guardant~facing-to-sinister:1:single:or');
+    expect(lion({}, { count: 2, arrangement: { k: 'pair', pair: 'respectant' } })).toBe('arms|az|P:c.lion.rampant:2:pair-combattant:or');
+    expect(lion({}, { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } })).toBe('arms|az|P:c.lion.rampant:2:pair-addorsed:or');
   });
 });

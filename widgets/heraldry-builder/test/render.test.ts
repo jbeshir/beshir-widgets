@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, UPRIGHT, chargePath, chargeTransform, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
+  CHARGES, MIRRORED, UPRIGHT, chargePath, chargeTransform, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
   type Design, type FieldShape, type Fill, type Layer,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -99,6 +99,40 @@ describe('charge layers', () => {
 
   it('draw the art upright as the slot places it', () => {
     for (const s of [{ x: 50, y: 54, size: 90, rotation: 0 }, { x: 30, y: 40, size: 20, rotation: -45 }]) expect(chargeTransform(s, UPRIGHT)).toBe(slotTransform(s));
+  });
+
+  it('draw the art mirrored about the middle of its box, inside the slot\'s own placing and turn', () => {
+    const s = { x: 30, y: 40, size: 20, rotation: -45 };
+    expect(chargeTransform(s, MIRRORED)).toBe(`${slotTransform(s)} translate(50 50) scale(-1 1) translate(-50 -50)`);
+  });
+
+  it('mirror every charge facing to sinister (contourny), and nothing else', () => {
+    expect(layer(nd(arms('azure', group(charge('lion', { facing: 'to-sinister' }), 'or', { count: 3 }))), 1, 'charges').poses).toEqual([MIRRORED, MIRRORED, MIRRORED]);
+    expect(layer(nd(arms('azure', group(charge('lion'), 'or', { count: 2 }))), 1, 'charges').poses).toEqual([UPRIGHT, UPRIGHT]);
+  });
+
+  it('lay a pair out as two in fess, the dexter one first, and mirror the dexter one facing in, the sinister one addorsed', () => {
+    const pair = (word: string, ...before: object[]) => nd(arms('azure', ...before, group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: word } })));
+    const fess = nd(arms('azure', group(charge('lion'), 'or', { count: 2, arrangement: 'in-fess' })));
+    for (const word of ['combattant', 'addorsed']) expect(groupSlots(pair(word), [0], 'heater')).toEqual(groupSlots(fess, [0], 'heater'));
+    const [dexter, sinister] = groupSlots(pair('combattant'), [0], 'heater');
+    expect(dexter.x).toBeLessThan(sinister.x);
+    expect(layer(pair('combattant'), 1, 'charges').poses).toEqual([MIRRORED, UPRIGHT]);
+    expect(layer(pair('addorsed'), 1, 'charges').poses).toEqual([UPRIGHT, MIRRORED]);
+    // around a pale, too: the dexter one first
+    const pale = pair('addorsed', group(ordinary('pale'), 'argent'));
+    const [left, right] = groupSlots(pale, [1], 'heater');
+    expect(left.x).toBeLessThan(right.x);
+    expect(layer(pale, 2, 'charges').poses).toEqual([UPRIGHT, MIRRORED]);
+  });
+
+  it('mirror the line of a divided or striped charge with it, its tinctures dexter or chief first', () => {
+    const fills = (paint: unknown, item: object = {}) => layer(nd(arms('azure', group(charge('lion', item), paint))), 1, 'charges').fills;
+    const contourny = { facing: 'to-sinister' };
+    expect(fills(div('per-bend', 'or', 'argent'), contourny)).toEqual(fills(div('per-bend-sinister', 'or', 'argent')));
+    expect(fills(div('per-pale', 'or', 'argent'), contourny)).toEqual(fills(div('per-pale', 'or', 'argent')));
+    const bendy = (variation: string) => ({ k: 'variation', variation, parts: ['or', 'argent'] });
+    expect(fills(bendy('bendy'), contourny)).toEqual(fills(bendy('bendy-sinister')));
   });
 
   it('split counterchanged charges by the region each lies on', () => {
