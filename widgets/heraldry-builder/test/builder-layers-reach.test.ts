@@ -9,8 +9,9 @@ import {
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
-import { generatedRichDesigns } from './design-generator';
-import { arms, charge, div, group, ordinary } from './helpers';
+import { rotatesIn, sampleSeed } from './rotation';
+import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
   const r = normalise(input);
@@ -58,6 +59,14 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Sable, a dragon and in canton a crescent and a bordure argent.'],
   ['charges on a band and charges in base', arms('azure', group(ordinary('fess'), 'or', { charged: [rose(3)] }), group(charge('crescent'), 'argent', { count: 2, position: 'base' })),
     'Azure, on a fess Or three roses gules and in base two crescents argent.'],
+  ['a bend and a charge in the corner it leaves (O&A 94971, 41640)', arms('argent', group(ordinary('bend'), 'sable'), group(charge('rose'), 'gules', { position: 'chief' })),
+    'Argent, a bend sable and in sinister chief a rose gules.'],
+  ['a bend sinister and a charge in the corner it leaves', arms('vert', group(ordinary('bend-sinister'), 'or'), group(charge('mullet'), 'argent', { position: 'chief' })),
+    'Vert, a bend sinister Or and in dexter chief a mullet argent.'],
+  ['a fess between charges under a chief', arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'or', { count: 3 }), group(ordinary('chief'), 'or')),
+    'Azure, a fess between three roses and a chief Or.'],
+  ['a charge within a bordure with charges', arms('gules', group(charge('lion'), 'or'), group(ordinary('bordure'), 'or', { charged: [group(charge('roundel'), 'azure', { count: 8 })] })),
+    'Gules, a lion and on a bordure Or eight roundels azure.'],
   ['a charge between charges (O&A 1347, the fish naiant)', arms('purpure', group(charge('fish'), 'or'), group(charge('crescent'), 'or', { count: 3, relation: 'between' })),
     'Purpure, a fish between three crescents Or.'],
   ['two charges between charges (O&A 2290)', arms('purpure', group(charge('sword'), 'argent', { count: 2, arrangement: 'in-fess' }), group(charge('anchor'), 'or', { count: 3, relation: 'between' })),
@@ -136,6 +145,105 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Per fess azure and vert all mullety Or, a pale argent.'],
   ['a semy on a chief beside a band', arms('vert', group(ordinary('chevron'), 'argent'), group(ordinary('chief'), { k: 'semy', ground: 'or', charge: { charge: 'mullet' }, ink: 'sable' })),
     'Vert, a chevron argent, a chief Or mullety sable.'],
+  ['a division drawn with a wavy line', arms({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['argent', 'azure'] }),
+    'Per pale wavy argent and azure.'],
+  ['a division drawn with an embattled line', arms({ k: 'divided', division: 'per-fess', lines: { a: 'embattled' }, parts: ['gules', 'or'] }),
+    'Per fess embattled gules and Or.'],
+  ['stripes drawn with a wavy line', arms({ k: 'variation', variation: 'barry', pieces: 8, lines: { a: 'wavy' }, parts: ['argent', 'azure'] }),
+    'Barry wavy of eight argent and azure.'],
+  ['a quartered field with its across line embattled', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] }),
+    'Quarterly per fess embattled Or and gules.'],
+  ['a chevron turned upside down', arms('argent', group(ordinary('chevron', { mods: ['inverted'] }), 'sable')),
+    'Argent, a chevron inverted sable.'],
+  ['a saltire shortened between four pictures', arms('vert', group(ordinary('saltire', { mods: ['couped'] }), 'or'), group(charge('roundel'), 'or', { count: 4 })),
+    'Vert, a saltire couped between four roundels Or.'],
+  ['a band raised', arms('azure', group(ordinary('fess', { mods: ['enhanced'] }), 'or')),
+    'Azure, a fess enhanced Or.'],
+  ['a chevron touching the edges', arms('gules', group(ordinary('chevron', { mods: ['throughout'] }), 'argent')),
+    'Gules, a chevron throughout argent.'],
+  ['a chevron upside down and embattled on its upper edge', arms('azure', group(ordinary('chevron', { mods: ['inverted'], lines: { a: 'embattled' } }), 'or')),
+    'Azure, a chevron inverted embattled on the upper edge Or.'],
+  ['a pale cotised with a picture on it (O&A 941)', arms('or', group(ordinary('pale', { cotised: { count: 1, paint: 'azure' } }), 'azure', { charged: [group(charge('sun'), 'argent')] })),
+    'Or, on a pale endorsed azure a sun argent.'],
+  ['a wavy bend with plain cotises of its own tincture (O&A 24669)', arms('argent', group(ordinary('bend', { lines: { a: 'wavy', b: 'wavy' }, cotised: { count: 1, paint: 'sable', line: 'plain' } }), 'purpure')),
+    'Argent, a bend wavy purpure cotised plain sable.'],
+  ['a chevron fimbriated between charges (O&A 125)', arms('sable', group(ordinary('chevron', { fimbriated: 'argent' }), 'gules'), group(charge('lion'), 'argent', { count: 3 })),
+    'Sable, a chevron gules fimbriated between three lions argent.'],
+  ['a cross voided', arms('gules', group(ordinary('cross', { mods: ['voided'] }), 'or')),
+    'Gules, a cross voided Or.'],
+  ['a bend doubly cotised counterchanged on a divided field', arms(div('per-pale', 'argent', 'azure'), group(ordinary('bend', { cotised: { count: 2, paint: 'counterchanged' } }), 'sable')),
+    'Per pale argent and azure, a bend sable doubly cotised counterchanged.'],
+  ['a picture above a base (O&A 27352)', arms('argent', group(charge('mullet'), 'sable'), group(ordinary('base'), 'azure')),
+    'Argent, a mullet sable and a base azure.'],
+  ['a canton alone on stripes (O&A 2764)', arms({ k: 'variation', variation: 'bendy-sinister', parts: ['or', 'gules'] }, group(ordinary('canton'), 'sable')),
+    'Bendy sinister Or and gules, a canton sable.'],
+  ['a point pointed on a quartered field (O&A 24555)', arms(div('quarterly', 'azure', 'gules'), group(ordinary('point'), 'or')),
+    'Quarterly azure and gules, a point pointed Or.'],
+  ['a band beside a canton', arms('azure', group(ordinary('bend'), 'or'), group(ordinary('canton'), 'argent')),
+    'Azure, a bend Or and a canton argent.'],
+  ['a canton in the other corner', arms('gules', group(ordinary('canton', { mods: ['sinister'] }), 'argent')),
+    'Gules, a canton sinister argent.'],
+  ['a band with a chief, a wavy base and a canton', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('chief'), 'argent'), group(ordinary('base', { lines: { a: 'wavy' } }), 'or'), group(ordinary('canton'), 'argent')),
+    'Azure, a fess and a base wavy Or, a chief and a canton argent.'],
+  ['a picture within an orle (O&A 8201)', arms(div('per-bend', 'argent', 'vert'), group(charge('heart'), 'gules'), group(ordinary('orle'), 'gules')),
+    'Per bend argent and vert, a heart within an orle gules.'],
+  ['flaunches alone (O&A 8601)', arms('or', group(ordinary('flaunches'), 'azure')), 'Or, flaunches azure.'],
+  ['pictures between flaunches (O&A 3189)', arms('sable', group(charge('roundel'), 'or', { count: 3, arrangement: 'in-pale' }), group(ordinary('flaunches'), 'or')),
+    'Sable, in pale three roundels between flaunches Or.'],
+  ['a gore sinister', arms('argent', group(ordinary('gore', { mods: ['sinister'] }), 'azure')), 'Argent, a gore sinister azure.'],
+  ['a picture within a triple tressure', arms('gules', group(charge('lion'), 'or'), group(ordinary('tressure'), 'or', { count: 3 })), 'Gules, a lion within a triple tressure Or.'],
+  ['a band within a double tressure, on a card beside it', arms('azure', group(ordinary('fess'), 'or'), group(ordinary('tressure'), 'argent', { count: 2 })), 'Azure, a fess Or within a double tressure argent.'],
+  ['an orle engrailed beside a chief', arms('argent', group(charge('lion'), 'gules'), group(ordinary('orle', { lines: { a: 'engrailed' } }), 'azure'), group(ordinary('chief'), 'gules')),
+    'Argent, a lion gules within an orle engrailed azure, a chief gules.'],
+  ['a pall (O&A 17613)', arms({ k: 'variation', variation: 'lozengy', parts: ['argent', 'azure'] }, group(ordinary('pall'), 'or')), 'Lozengy argent and azure, a pall Or.'],
+  ['a pall voided (O&A 65304)', arms('argent', group(ordinary('pall', { mods: ['voided'] }), 'sable')), 'Argent, a pall voided sable.'],
+  ['a pall inverted bretessed', arms('azure', group(ordinary('pall-inverted', { lines: { a: 'bretessed' } }), 'argent')), 'Azure, a pall inverted bretessed argent.'],
+  ['three charges between a pall inverted', arms('argent', group(ordinary('pall-inverted'), 'gules'), group(charge('roundel'), 'azure', { count: 3, relation: 'between' })),
+    'Argent, a pall inverted gules between three roundels azure.'],
+  ['three charges on a pall', arms('argent', { ...group(ordinary('pall'), 'azure'), charged: [group(charge('mullet'), 'or', { count: 3 })] }), 'Argent, on a pall azure three mullets Or.'],
+  ['a picture and a label', arms('azure', group(charge('lion'), 'or'), group(ordinary('label'), 'argent')), 'Azure, a lion Or, a label argent.'],
+  ['a trimount alone', arms('vert', group(ordinary('trimount'), 'or')), 'Vert, a trimount Or.'],
+  ['a picture and a mount', arms('or', group(charge('lion'), 'gules'), group(ordinary('mount'), 'vert')), 'Or, a lion gules and a mount vert.'],
+  ['a fret counterchanged', arms(div('per-pale', 'gules', 'or'), group(ordinary('fret'), { k: 'counterchanged' })), 'Per pale gules and Or, a fret counterchanged.'],
+  ['three bars (O&A 18129)', arms('gules', group(ordinary('bar'), 'or', { count: 3 })), 'Gules, three bars Or.'],
+  ['two chevronels (O&A 7093)', arms('azure', group(ordinary('chevronel'), { k: 'fur', fur: 'ermine' }, { count: 2 })), 'Azure, two chevronels ermine.'],
+  ['three bendlets (O&A 24045)', arms('purpure', group(ordinary('bendlet'), 'argent', { count: 3 })), 'Purpure, three bendlets argent.'],
+  ['four pallets (O&A 9460, "four palets")', arms('or', group(ordinary('pallet'), 'gules', { count: 4 })), 'Or, four pallets gules.'],
+  ['a baton', arms('gules', group(ordinary('baton'), 'argent')), 'Gules, a baton argent.'],
+  ['three bars wavy', arms('azure', group(ordinary('bar', { lines: { a: 'wavy' } }), 'argent', { count: 3 })), 'Azure, three bars wavy argent.'],
+  ['three bendlets enhanced', arms('purpure', group(ordinary('bendlet', { mods: ['enhanced'] }), 'argent', { count: 3 })), 'Purpure, three bendlets enhanced argent.'],
+  ['two bendlets sinister between two charges', arms('argent', group(ordinary('bendlet-sinister'), 'vert', { count: 2 }), group(charge('mullet'), 'sable', { count: 2, relation: 'between' })),
+    'Argent, two bendlets sinister vert between two mullets sable.'],
+  ['two chevronels inverted and a chief', arms('sable', group(ordinary('chevronel', { mods: ['inverted'] }), 'or', { count: 2 }), group(ordinary('chief'), 'argent')),
+    'Sable, two chevronels inverted Or, a chief argent.'],
+  ['gyronny of furs (O&A 530)', arms(div('gyronny', { k: 'fur', fur: 'erminois' }, { k: 'fur', fur: 'pean' })), 'Gyronny erminois and pean.'],
+  ['gyronny with a picture (O&A 7486, a wolf statant)', arms(div('gyronny', 'or', 'purpure'), group(charge('wolf'), 'vert')), 'Gyronny Or and purpure, a wolf passant vert.'],
+  ['gyronny of six', arms({ ...div('gyronny', 'argent', 'gules'), pieces: 6 }), 'Gyronny of six argent and gules.'],
+  ['gyronny arrondi of twelve with a picture counterchanged', arms({ ...div('gyronny', 'argent', 'sable'), pieces: 12, lines: { a: 'arrondi' } }, group(charge('mullet'), 'counterchanged')),
+    'Gyronny arrondi of twelve argent and sable, a mullet counterchanged.'],
+  ['per chevron inverted with a picture counterchanged (O&A 3037, constructed)', arms(div('per-chevron-inverted', 'purpure', 'argent'), group(charge('eagle'), 'counterchanged')),
+    'Per chevron inverted purpure and argent, an eagle counterchanged.'],
+  ['per chevron inverted embattled', arms({ k: 'divided', division: 'per-chevron-inverted', lines: { a: 'embattled' }, parts: ['argent', 'sable'] }), 'Per chevron inverted embattled argent and sable.'],
+  ['per chevron throughout with three pictures counterchanged (O&A 18819)', arms(div('per-chevron-throughout', 'argent', 'purpure'), group(charge('dragon', { posture: 'rampant' }), 'counterchanged', { count: 3 })),
+    'Per chevron throughout argent and purpure, three dragons counterchanged.'],
+  ['per pall with a fur on the first part (O&A 26132)', arms(div('per-pall', { k: 'fur', fur: 'ermine' }, 'sable', 'gules')), 'Per pall ermine, sable and gules.'],
+  ['per pall with a chief (O&A 34585)', arms(div('per-pall', 'or', 'sable', 'purpure'), group(ordinary('chief'), 'vert')), 'Per pall Or, sable and purpure, a chief vert.'],
+  ['per pall with a fur on the third part', arms(div('per-pall', 'gules', 'or', { k: 'fur', fur: 'ermine' })), 'Per pall gules, Or and ermine.'],
+  ['per pall inverted wavy with two pictures in fess', arms({ ...div('per-pall-inverted', 'azure', 'gules', 'argent'), lines: { a: 'wavy' } }, group(charge('mullet'), 'or', { count: 2 })),
+    'Per pall inverted wavy azure, gules and argent, two mullets Or.'],
+  ['tierced in pale', arms(div('tierced-per-pale', 'azure', 'argent', 'gules')), 'Tierced in pale azure, argent and gules.'],
+  ['tierced in fess with the parts swapped round', arms(div('tierced-per-fess', 'or', 'azure', 'argent')), 'Tierced in fess Or, azure and argent.'],
+  ['a chief triangular', arms('argent', group(ordinary('chief', { lines: { a: 'triangular', b: 'triangular' } }), 'azure')), 'Argent, a chief triangular azure.'],
+  ['a chevron rompu', arms('or', group(ordinary('chevron', { lines: { a: 'rompu', b: 'rompu' } }), 'sable')), 'Or, a chevron rompu sable.'],
+  ['a field per bend bevilled', arms({ ...div('per-bend', 'argent', 'gules'), lines: { a: 'bevilled' } }), 'Per bend bevilled argent and gules.'],
+  ['a bend bevilled between two roundels', arms('argent', group(ordinary('bend', { lines: { a: 'bevilled', b: 'bevilled' } }), 'gules'), group(charge('roundel'), 'azure', { count: 2 })), 'Argent, a bend bevilled gules between two roundels azure.'],
+  ['a pile ployé', arms('argent', group(ordinary('pile', { lines: { a: 'ploye', b: 'ploye' } }), 'azure')), 'Argent, a pile ployé azure.'],
+  ['a fess counter-embattled and cotised', arms('or', group(ordinary('fess', { lines: { a: 'embattled', b: 'embattled' }, cotised: { count: 1, paint: 'sable' } }), 'gules')),
+    'Or, a fess embattled counter-embattled gules cotised sable.'],
+  ['per pale wavy with a chevron inverted counterchanged', arms({ ...div('per-pale', 'argent', 'azure'), lines: { a: 'wavy' } }, group(ordinary('chevron', { mods: ['inverted'] }), 'counterchanged')),
+    'Per pale wavy argent and azure, a chevron inverted counterchanged.'],
+  ['three bars wavy and a canton', arms('gules', group(ordinary('bar', { lines: { a: 'wavy' } }), 'argent', { count: 3 }), group(ordinary('canton'), 'or')),
+    'Gules, three bars wavy argent and a canton Or.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
@@ -152,13 +260,55 @@ describe('designs with a chief and a bordure beside the band are built by clicks
     for (const [, input, text] of REPRESENTATIVE) expect(blazon(built(input))).toBe(text);
   });
 
-  it('every generated rich design is built too', () => {
-    const designs = generatedRichDesigns(11, 150);
-    const problems = designs.flatMap((d) => {
+  // The two slowest of these sweeps build a seeded, rotating half of their designs (`rotatesIn`; SCA_FULL=1 for all).
+  const half = (designs: readonly Design[]) => designs.filter((d) => rotatesIn(canonicalJson(d), 1 / 2));
+
+  it('every generated design with a line on the field is built too', () => {
+    const problems = half(generatedGeometryDesigns(11, 100)).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with a line on a band, a top band or a border is built too', () => {
+    const problems = generatedLinedOrdinaryDesigns(11, 60).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
     expect(problems).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with a band upside down, shortened, touching the edges, raised or lowered is built too', () => {
+    const problems = generatedTreatedOrdinaryDesigns(11, 40).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with a band edged or cotised, or a cross hollow, is built too', () => {
+    const problems = generatedOutlinedOrdinaryDesigns(11, 60).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with corner and edge shapes, alone or several beside a band or a picture, is built too', () => {
+    const problems = half(generatedPeripheralDesigns(11, 60)).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
+  }, 60_000);
+
+  it('every generated rich design is built too', () => {
+    const problems = generatedRichDesigns(11, 150).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
   }, 60_000);
 });
 
@@ -247,7 +397,7 @@ describe('layers kept through the edits of the layers beneath them', () => {
 
   it('adds and removes the pictures on a chief and a bordure, and they follow the top band and border away', () => {
     const base = addLayer(addLayer(built(arms('azure', group(ordinary('pale'), 'argent'), group(charge('mullet'), 'or', { count: 2 }))), 'chief'), 'bordure');
-    expect(layerChoices(base).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'on-bordure', 'overall']);
+    expect(layerChoices(base).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-ordinary', 'on-chief', 'on-bordure', 'peripheral', 'overall']);
     for (const key of ['on-chief', 'on-bordure'] as const) {
       const added = addLayer(base, key);
       expect(pathOfPlace(added, key), key).not.toBeNull();
@@ -273,9 +423,20 @@ describe('layers kept through the edits of the layers beneath them', () => {
   });
 
   it('refuses a layer it cannot draw, with the reason, and never drops one silently', () => {
-    const choices = layerChoices(built(arms('azure', group(ordinary('fess'), 'or'), group(charge('mullet'), 'argent', { count: 2 }))));
+    const choices = layerChoices(built(arms('azure', group(ordinary('pall'), 'or'), group(charge('mullet'), 'argent', { count: 3 }))));
     const chief = choices.find((c) => c.value === 'chief')!;
     expect(chief.allowed).toBe(false);
-    expect(!chief.allowed && chief.reason).toMatch(/can't be set around the fess/);
+    expect(!chief.allowed && chief.reason).toMatch(/can't be set around the pall/);
+  });
+});
+
+describe('a layer that gives a band that already breaks the rule of tincture a new problem is refused (verify V-2)', () => {
+  it('refuses a chief that moves a fimbriated band of the field\'s tincture so its fimbriation lies on a colour', () => {
+    for (const [division, type] of [['per-bend', 'fess'], ['per-fess', 'cross']] as const) {
+      const d = nd(arms(div(division, 'argent', 'azure'), group(ordinary(type, { fimbriated: { k: 'tincture', t: 'gules' } }), 'argent')));
+      const chief = layerChoices(d).find((c) => c.value === 'chief')!;
+      expect(chief.allowed, `${division} ${type}`).toBe(false);
+      expect(!chief.allowed && chief.reason).toMatch(/^The fimbriation of the \w+ \(Gules\) lies mostly on Azure/);
+    }
   });
 });

@@ -3,7 +3,7 @@
 // endings before lookup); hyphenated terms are single tokens. Where a word is in more than one list,
 // gaps.ts decides by the order it loads them in.
 
-import { CHARGE_IDS, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId } from '../../src/lib/heraldry';
+import { CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_NAME, ORDINARY_SPELLINGS, SAME_ORDINARY, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId, type OrdinaryType } from '../../src/lib/heraldry';
 
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
@@ -38,7 +38,7 @@ export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
   building: 'a building or architectural element',
   ship: 'a ship, boat or part of one',
   nature: 'a landform, rock, water, fire or other natural feature',
-  cross: 'a cross used as a charge (couped, crosslet, formy, Maltese…) rather than the cross ordinary',
+  cross: 'a cross used as a charge (crosslet, formy, Maltese, several couped…) rather than the cross ordinary',
   geometric: 'a geometric charge or sub-ordinary used as a charge (annulet, roundel, lozenge, billet…)',
   symbol: 'a knot, letter, rune, triskelion or other abstract symbol',
 };
@@ -225,33 +225,37 @@ export const CONTAINER_WORDS = w('pair sheaf bundle bunch cluster set brace coup
 
 // ── Field, ordinaries, lines ────────────────────────────────────────────────
 
-/** SCA spellings of the widget's ordinaries (the cross is read separately, as it is also a charge). */
+/**
+ * SCA spellings of the widget's ordinaries (the cross is read separately, as it is also a charge): each drawn ordinary's id is its token
+ * ("bend sinister" is joined to bend-sinister, "point pointed" read as point), and the other spellings.
+ */
 export const SUPPORTED_ORDINARY_WORDS: Record<string, string> = {
-  fess: 'fess', fesse: 'fess', pale: 'pale', bend: 'bend', 'bend-sinister': 'bend-sinister', chevron: 'chevron',
-  saltire: 'saltire', chief: 'chief', bordure: 'bordure', pile: 'pile',
+  ...Object.fromEntries(DRAWN_ORDINARIES.filter((t) => t !== 'cross').map((t) => [t, t])),
+  ...ORDINARY_SPELLINGS, ...Object.fromEntries(Object.entries(SAME_ORDINARY).map(([t, same]) => [ORDINARY_NAME[t as OrdinaryType], same])), dance: 'fess', flaunch: 'flaunches',
 };
 
-/** Ordinaries, sub-ordinaries and diminutives the widget lacks → sub-tag. */
-export const GAP_ORDINARIES: Record<string, string> = Object.fromEntries([
+/** Ordinaries, sub-ordinaries and diminutives the widget lacks → sub-tag (the drawn ones are left out). */
+export const GAP_ORDINARIES: Record<string, string> = Object.fromEntries(([
   ...same(`canton quarter orle tressure gore gusset flaunch base mount trimount pall shakefork gyron point fret
     label tierce chape bordurelet flasque voider baton riband fillet endorse bar barrulet bendlet scarpe pallet
     chevronel saltorel cotise bendlet-sinister scarpe-sinister`),
   ['gemel', 'gemel'], ['gemelle', 'gemel'], ['scarp', 'scarpe'], ['palet', 'pallet'], ['chevronelle', 'chevronel'],
-  ['dance', 'dancette'], ['dancette', 'dancette'], ['fess-point', 'point'], ['chief-pale', 'chief-pale'],
-]);
+  ['fess-point', 'point'], ['chief-pale', 'chief-pale'],
+] as [string, string][]).filter(([word]) => !(word in SUPPORTED_ORDINARY_WORDS)));
 
-/** Lines of partition → sub-tag. The widget draws only straight lines. */
+/** Spellings of drawn lines that gaps.ts reads by what they follow: "potenty" (a cross and a fur too), "arrondi" (after a division, or a charge). */
+const CONTEXT_LINE_WORDS: readonly string[] = ['potenty', 'arrondi', 'arrondy'];
+
+/**
+ * Lines of partition → sub-tag, the one a word is filed under when the widget doesn't draw it on that element: the library's own spellings of its lines
+ * (`LINE_SPELLINGS`, one word each, except `CONTEXT_LINE_WORDS`: the sub-tag is the line, "embattled-counter-embattled" for a counter-embattled edge) and the words of lines it lacks.
+ */
 export const LINES: Record<string, string> = {
-  embattled: 'embattled', crenellated: 'embattled', crenelated: 'embattled', battled: 'embattled',
-  embattlement: 'embattled', 'counter-embattled': 'embattled-counter-embattled',
-  counterembattled: 'embattled-counter-embattled', 'embattled-counterembattled': 'embattled-counter-embattled',
-  'embattled-counter-embattled': 'embattled-counter-embattled', bretessed: 'bretessed', bretesse: 'bretessed',
-  bretassy: 'bretessed', 'embattled-grady': 'embattled-grady', grady: 'grady', 'indented-grady': 'grady',
-  wavy: 'wavy', undy: 'wavy', undee: 'wavy', 'wavy-crested': 'wavy-crested', nebuly: 'nebuly',
-  indented: 'indented', dancetty: 'dancetty', engrailed: 'engrailed', invected: 'invected', invecked: 'invected',
-  raguly: 'raguly', rayonny: 'rayonny', urdy: 'urdy', dovetailed: 'dovetailed', bevilled: 'bevilled',
-  beviled: 'bevilled', bevelled: 'bevilled', angled: 'angled', enarched: 'enarched', arched: 'enarched',
-  'double-arched': 'enarched', 'doubly-enarched': 'enarched', ploye: 'enarched', ployee: 'enarched',
+  ...Object.fromEntries(Object.entries(LINE_SPELLINGS).filter(([word]) => !word.includes(' ') && !CONTEXT_LINE_WORDS.includes(word))
+    .map(([word, line]) => [word, line === 'counter-embattled' ? 'embattled-counter-embattled' : line])),
+  embattlement: 'embattled', counterembattled: 'embattled-counter-embattled', 'embattled-counterembattled': 'embattled-counter-embattled',
+  'embattled-grady': 'embattled-grady', 'indented-grady': 'grady', 'wavy-crested': 'wavy-crested', angled: 'angled',
+  'double-arched': 'enarched', 'doubly-enarched': 'enarched',
   'flory-counterflory': 'flory-counterflory', 'counter-flory': 'flory-counterflory',
   counterflory: 'flory-counterflory', 'fleury-counterfleury': 'flory-counterflory',
   'counter-fleury': 'flory-counterflory', counterfleury: 'flory-counterflory', trefly: 'trefly',
@@ -294,7 +298,7 @@ export const GAP_TINCTURES: Record<string, string> = {
 
 /** Words that are a division the widget lacks by themselves → sub-tag ("per …" is read in gaps.ts). */
 export const GAP_DIVISION_WORDS: Record<string, string> = {
-  gyronny: 'gyronny', tierced: 'tierced', chape: 'chape', chappe: 'chape', chausse: 'chausse', vetu: 'vetu',
+  tierced: 'tierced', chape: 'chape', chappe: 'chape', chausse: 'chausse', vetu: 'vetu',
   party: 'party-of-n',
 };
 
@@ -377,8 +381,8 @@ export const MODIFIERS: Record<string, string> = Object.fromEntries([
  * charge-modifier or orientation ("a sword inverted").
  */
 export const CONTEXT_WORDS = w(`
-  couped humetty inverted fimbriated fimbriate voided cotised cotissed enhanced abased throughout rompu fracted
-  nowy pointed triangular double fitchy fitched issuant conjoined pierced quarter-pierced interlaced embowed
+  couped humetty inverted fimbriated fimbriate voided cotised cotissed enhanced abased throughout fracted
+  nowy pointed double fitchy fitched issuant conjoined pierced quarter-pierced interlaced embowed
   parted fretted offset shortened flory fleury formy bottony botonny bottonny clechy pommetty fourchy quadrate
   pointe moline patonce arrondi arrondy
 `);

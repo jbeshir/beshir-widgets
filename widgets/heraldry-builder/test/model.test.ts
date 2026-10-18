@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  canonical, canonicalJson, resolve, signature, structuralIssues, unsupportedIssues, isSupported, walkGroups, groupAt, hostOf, pathKey,
+  canonical, canonicalJson, canonicalLines, resolve, signature, structuralIssues, unsupportedIssues, isSupported, walkGroups, groupAt, hostOf, pathKey,
   primaryGroup, isFieldPrimary, UNSUPPORTED_GAP_CATEGORIES, CHARGES, CHARGE_IDS, TYPE_CLASSES, MAX_DRAWN_COUNT, UnsupportedConstructError, notSupported,
   type Design, type Issue,
 } from '../src/lib/heraldry';
@@ -39,11 +39,45 @@ describe('resolve: defaults', () => {
     expect(wolf).toMatchObject({ posture: 'passant', facing: 'to-dexter' });
   });
 
-  it('sets b of the lines to a unless given', () => {
-    const d = nd(arms({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['or', 'azure'] }));
-    expect(d.field).toMatchObject({ lines: { a: 'wavy', b: 'wavy' }, pieces: null });
-    const two = nd(arms({ k: 'divided', division: 'per-pale', lines: { a: 'wavy', b: 'plain' }, parts: ['or', 'azure'] }));
-    expect(two.field).toMatchObject({ lines: { a: 'wavy', b: 'plain' } });
+  it('resolve reads {a} as the bare SCA meaning for its host', () => {
+    const field = nd(arms({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['or', 'azure'] }));
+    expect(field.field).toMatchObject({ lines: { a: 'wavy', b: 'wavy' }, pieces: null });
+    const lines = (item: object) => (nd(arms('azure', group(item, 'or'))).groups[0].item as { lines: unknown }).lines;
+    expect(lines(ordinary('fess', { lines: { a: 'embattled' } }))).toEqual({ a: 'embattled', b: 'plain' });
+    expect(lines(ordinary('chevron', { mods: ['inverted'], lines: { a: 'embattled' } }))).toEqual({ a: 'embattled', b: 'plain' });
+    expect(lines(ordinary('fess', { lines: { a: 'wavy' } }))).toEqual({ a: 'wavy', b: 'wavy' });
+    expect(lines(ordinary('pale', { lines: { a: 'embattled' } }))).toEqual({ a: 'embattled', b: 'embattled' });
+    expect(lines(ordinary('chief', { lines: { a: 'embattled' } }))).toEqual({ a: 'embattled', b: 'embattled' });
+    expect(nd(arms({ k: 'variation', variation: 'barry', lines: { a: 'dancetty' }, parts: ['or', 'azure'] })).field).toMatchObject({ lines: { a: 'dancetty', b: 'dancetty' } });
+  });
+
+  it('rejects b ≠ a on a one-line host and any line on a no-line host', () => {
+    expect(messages(resolve(arms({ k: 'divided', division: 'per-pale', lines: { a: 'wavy', b: 'plain' }, parts: ['or', 'azure'] }))))
+      .toEqual(['This element has one line, so "b" must equal "a".']);
+    expect(messages(resolve(arms('azure', group(ordinary('cross', { lines: { a: 'plain', b: 'wavy' } }), 'or')))))
+      .toEqual(['This element has one line, so "b" must equal "a".']);
+    expect(messages(resolve(arms('azure', group(ordinary('point', { lines: { a: 'wavy' } }), 'or')))))
+      .toEqual(['This element takes no line of partition.']);
+    expect(messages(resolve(arms({ k: 'variation', variation: 'checky', lines: { a: 'wavy' }, parts: ['or', 'azure'] }))))
+      .toEqual(['This element takes no line of partition.']);
+    expect(resolve(arms('azure', group(ordinary('label', { lines: { a: 'plain', b: 'plain' } }), 'or'))).ok).toBe(true);
+  });
+
+  it('keeps both edges a draft stores', () => {
+    const lines = (item: object) => (nd(arms('azure', group(item, 'or'))).groups[0].item as { lines: unknown }).lines;
+    expect(lines(ordinary('fess', { lines: { a: 'plain', b: 'embattled' } }))).toEqual({ a: 'plain', b: 'embattled' });
+    expect(lines(ordinary('fess', { lines: { a: 'embattled', b: 'embattled' } }))).toEqual({ a: 'embattled', b: 'embattled' });
+    expect(lines(ordinary('bend', { lines: { a: 'plain', b: 'plain' } }))).toEqual({ a: 'plain', b: 'plain' });
+    const quarterly = nd(arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'azure'] }));
+    expect(quarterly.field).toMatchObject({ lines: { a: 'plain', b: 'embattled' } });
+    // a stored design resolves to itself
+    for (const d of [quarterly, nd(arms('azure', group(ordinary('fess', { lines: { a: 'wavy', b: 'plain' } }), 'or')))]) expect(nd(d)).toEqual(d);
+  });
+
+  it('canonical lines give a one-line host b = a', () => {
+    expect(canonicalLines({ k: 'division', division: 'per-bend' }, { a: 'wavy', b: 'plain' })).toEqual({ a: 'wavy', b: 'wavy' });
+    expect(canonicalLines({ k: 'ordinary', type: 'fess', inverted: false }, { a: 'wavy', b: 'plain' })).toEqual({ a: 'wavy', b: 'plain' });
+    expect(canonicalLines({ k: 'division', division: 'quarterly' }, { a: 'plain', b: 'wavy' })).toEqual({ a: 'plain', b: 'wavy' });
   });
 
   it('defaults kind to arms and accepts a badge without a field', () => {

@@ -6,7 +6,7 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { blazon, groupAt, groupTinctureOf, layersIn, type Companion, type FieldShape, type Design, type LayerKey, type ShapedDesign } from '../../lib/heraldry';
+import { blazon, groupAt, groupTinctureOf, isPeripheralPlace, layersIn, type Companion, type FieldShape, type Design, type LayerPlace, type ShapedDesign } from '../../lib/heraldry';
 import { useCompact } from '../../lib/useCompact';
 import { issueStep, picturePath, type DesignReport, type StepKey } from '../../lib/builder';
 import type { RefObject } from 'preact';
@@ -63,6 +63,7 @@ const STEP_OF_JUMP: Record<JumpTarget, StepKey> = {
 
 /** The card of a step: the layers are keyed by place, so a card keeps its id as its siblings come and go. */
 const stepSelector = (step: StepKey): string => {
+  if (step !== 'field' && isPeripheralPlace(step)) return `[data-testid=step-layer-${step}]`;
   switch (step) {
     case 'field': return '[data-testid=step-field]';
     case 'ordinary': return '[data-testid=step-ordinary]';
@@ -200,8 +201,8 @@ export function DesignTab(p: Props) {
   const layerCards = layersIn(design);
   // A badge has no band or shape step, so its picture is step 2.
   const pictureStep = design.kind === 'badge' ? 2 : 3;
-  const layerStep = (key: LayerKey) => pictureStep + 1 + layerCards.indexOf(key);
-  const shownCards = useRef(new Set<LayerKey>(layerCards));
+  const layerStep = (key: LayerPlace) => pictureStep + 1 + layerCards.indexOf(key);
+  const shownCards = useRef(new Set<LayerPlace>(layerCards));
   useEffect(() => {
     const added = layerCards.filter((key) => !shownCards.current.has(key));
     shownCards.current = new Set(layerCards);
@@ -337,7 +338,7 @@ export function DesignTab(p: Props) {
         {design.kind === 'arms' && <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />}
         <ChargesStep n={pictureStep} design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
         {layerCards.map((key) => (
-          <LayerStep key={key} design={design} place={key} n={layerStep(key)} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues(key)} accordion={accordion(key)} />
+          <LayerStep key={key} design={design} shape={shape} place={key} n={layerStep(key)} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues(key)} accordion={accordion(key)} />
         ))}
         <AddLayer design={design} onChange={p.onChange} onAdded={revealCard} />
         <div class="builder-footer">

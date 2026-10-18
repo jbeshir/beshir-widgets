@@ -3,8 +3,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_PIECES, explainDifferences, VARIATIONS, VARIATION_PIECES, asVariation, blazon, deriveTags, differences, fieldRegions, fillCode, gloss, inFirstRegion, pointInPolygon, pathRings,
-  groupVariationChoices, groupVariationTinctureChoices, ordinaryBox, renderLayers, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, shapeFrame, signature, structuralIssues, tinctureIssues, unsupportedIssues, variationRegions, candidateKey, checkUnique, keysMayConflict,
+  DEFAULT_PIECES, PLAIN_LINES, explainDifferences, VARIATIONS, VARIATION_PIECES, asVariation, blazon, deriveTags, differences, fieldRegions, fillCode, gloss, inFirstRegion, pointInPolygon, pathRings,
+  groupVariationChoices, groupVariationTinctureChoices, ordinaryGeometry, plainSpec, defaultOrdinaryFrame, renderLayers, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, shapeFrame, signature, structuralIssues, tinctureIssues, unsupportedIssues, variationRegions, candidateKey, checkUnique, keysMayConflict,
   type Design, type Variation,
 } from '../src/lib/heraldry';
 import { setGroupTincture, setPlainField, setVariation, setVariationPieces, setVariationTincture } from '../src/lib/builder';
@@ -107,7 +107,7 @@ describe('the rule of tincture', () => {
 
   it('draws a counterchanged bend in the other tinctures over each stripe it crosses', () => {
     const d = nd(arms(varied('paly', 'sable', 'or', 6), group(ordinary('bend'), 'counterchanged')));
-    const fills = renderLayers(d, 'heater').map((l) => (l.k === 'ordinary' ? fillCode(l.fill) : ''));
+    const fills = renderLayers(d, 'heater').map((l) => (l.k === 'ordinary' ? fillCode(l.parts[0].fill) : ''));
     expect(fills.find(Boolean)).toBe('split(or,sa)');
   });
 });
@@ -115,7 +115,7 @@ describe('the rule of tincture', () => {
 describe('regions', () => {
   const box = shapeFrame('heater').box;
   const sample = (variation: Variation, pieces: number | null) => {
-    const [first, second] = variationRegions(variation, pieces, box).map((d) => pathRings(d));
+    const [first, second] = variationRegions(variation, pieces, PLAIN_LINES, box).map((d) => pathRings(d));
     let wrong = 0;
     for (let x = 0.5; x < 100; x += 4.3) {
       for (let y = 0.5; y < 120; y += 4.7) {
@@ -311,11 +311,11 @@ describe('a band or picture in stripes or checks', () => {
   });
 
   it('lays the pattern over the band, in its own frame', () => {
-    const box = ordinaryBox('fess', 'heater');
+    const box = ordinaryGeometry(plainSpec('fess'), defaultOrdinaryFrame('heater')).box;
     expect(box).toEqual({ x0: 0, y0: 35, x1: 100, y1: 65 });
     const layers = renderLayers(fessOn('azure', varied('barry', 'or', 'argent', 6)), 'heater');
     const band = layers.find((l) => l.k === 'ordinary');
-    expect(band && fillCode(band.fill)).toBe('split(or,ar)');
+    expect(band && fillCode(band.parts[0].fill)).toBe('split(or,ar)');
   });
 
   it('lays the pattern over each charge in its own frame, turned with it', () => {

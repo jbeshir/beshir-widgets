@@ -2,11 +2,16 @@
 // out" of a duplicate, and different for any two different canonical designs.
 
 import { TINCTURE_CODE } from './tinctures';
-import { notSupported, type Design, type Group, type Item, type Paint, type Role } from './design';
+import { notSupported, type Design, type Group, type Item, type Lines, type Paint, type Role } from './design';
 import { layoutKey } from './arrangement';
 import { paintGaps } from './support';
 
 const ROLE_CODE: Record<Role, string> = { primary: 'P', secondary: 'S', peripheral: 'R', overall: 'O', tertiary: 'T' };
+
+/** The lines of a host (in canonical form): nothing when plain, `~a` when both edges are alike, `~a/b` otherwise (PLAN-C §3.1). */
+function linesCode({ a, b }: Lines): string {
+  return a === 'plain' && b === 'plain' ? '' : a === b ? `~${a}` : `~${a}/${b}`;
+}
 
 function paint(p: Paint): string {
   switch (p.k) {
@@ -16,16 +21,20 @@ function paint(p: Paint): string {
     case 'proper': return 'proper';
     case 'semy': return `semy(${paint(p.ground)},${p.charge.charge},${paint(p.ink)})`;
     case 'treated': return `${p.treatment}(${paint(p.ground)},${TINCTURE_CODE[p.ink]})`;
-    case 'divided': return `${p.division}(${p.parts.map(paint).join(',')})`;
+    case 'divided': return `${p.division}${p.pieces ?? ''}${linesCode(p.lines)}(${p.parts.map(paint).join(',')})`;
     // Beyond four pieces (no count is more than four) a variation is the same with either tincture first (A5G1a, A5G3a; Prec #FIELDCheck).
-    case 'variation': return `${p.variation}${p.pieces ?? ''}(${(p.pieces === null || p.pieces > 4 ? p.parts.map(paint).sort() : p.parts.map(paint)).join(',')})`;
+    case 'variation': return `${p.variation}${p.pieces ?? ''}${linesCode(p.lines)}(${(p.pieces === null || p.pieces > 4 ? p.parts.map(paint).sort() : p.parts.map(paint)).join(',')})`;
     case 'stain': return notSupported(paintGaps(p, true, 'field')[0]);
     default: return p satisfies never;
   }
 }
 
 function item(i: Item): string {
-  return i.k === 'ordinary' ? `o.${i.type}` : `c.${i.charge}${i.posture ? `.${i.posture}` : ''}${i.mods.map((m) => `+${m.id}`).join('')}`;
+  if (i.k === 'charge') return `c.${i.charge}${i.posture ? `.${i.posture}` : ''}${i.mods.map((m) => `+${m.id}`).join('')}`;
+  // cotises: their number of pairs, their line (one on every cotise edge) and their paint; then the fimbriation's paint
+  const cotised = i.cotised ? `#c${i.cotised.count}${linesCode({ a: i.cotised.line, b: i.cotised.line })}(${paint(i.cotised.paint)})` : '';
+  const fimbriated = i.fimbriated ? `#f(${paint(i.fimbriated)})` : '';
+  return `o.${i.type}${linesCode(i.lines)}${i.mods.map((m) => `+${m}`).join('')}${cotised}${fimbriated}`;
 }
 
 function group(g: Group): string {

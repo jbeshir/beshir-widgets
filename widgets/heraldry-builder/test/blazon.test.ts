@@ -41,6 +41,15 @@ describe('house style', () => {
 });
 
 describe('charges in chief, in base or in canton beside the primary', () => {
+  it('say one charge beside a bend stands in the corner the bend leaves (RULES-C §F.3): sinister chief and dexter base, beside a bend sinister dexter chief and sinister base; two or more are in chief', () => {
+    expect(say('argent', ord('bend', 'sable'), chg('rose', 'gules', { position: 'chief' }))).toBe('Argent, a bend sable and in sinister chief a rose gules.');
+    expect(say('argent', ord('bend', 'sable'), chg('rose', 'gules', { position: 'base' }))).toBe('Argent, a bend sable and in dexter base a rose gules.');
+    expect(say('argent', ord('bend-sinister', 'sable'), chg('rose', 'gules', { position: 'chief' }))).toBe('Argent, a bend sinister sable and in dexter chief a rose gules.');
+    expect(say('argent', ord('bend-sinister', 'sable'), chg('rose', 'gules', { position: 'base' }))).toBe('Argent, a bend sinister sable and in sinister base a rose gules.');
+    expect(say('argent', ord('bend', 'sable'), chg('rose', 'gules', { count: 2, position: 'chief' }))).toBe('Argent, a bend sable and in chief two roses gules.');
+    expect(say('argent', ord('pale', 'sable'), chg('rose', 'gules', { position: 'base' }))).toBe('Argent, a pale sable and in base a rose gules.');
+  });
+
   it('follow the primary with "and in …", the position always stated', () => {
     expect(say('purpure', chg('bee', 'or'), chg('mullet', 'argent', { count: 3, position: 'chief' }))).toBe('Purpure, a bee Or and in chief three mullets argent.');
     expect(say('argent', ord('chevron', 'sable'), chg('mullet', 'sable', { count: 3, position: 'chief' }))).toBe('Argent, a chevron and in chief three mullets sable.');
@@ -238,5 +247,31 @@ describe('stating the defaults (the same design, as a blazon that states them)',
     expect(stated('azure', chg('rose', 'or'))).toBe('Azure, a rose Or.');
     expect(stated('azure', ord('fess', 'or', { charged: [chg('mullet', 'gules', { count: 3 })] }))).toBe('Azure, on a fess Or three mullets gules.');
     expect(stated('azure', ord('chevron', 'or'), chg('rose', 'argent', { count: 3 }))).toBe('Azure, a chevron Or between three roses argent.');
+  });
+});
+
+describe('lines of the field', () => {
+  const lined = (division: string, a: string, b?: string) => ({ ...div(division, 'or', 'gules'), lines: b ? { a, b } : { a } });
+  const varied = (variation: string, a: string, pieces: number | null = null) => ({ k: 'variation', variation, pieces, lines: { a }, parts: ['argent', 'azure'] });
+
+  it('writes the line after the division and before the tinctures (RULES-C §G.1)', () => {
+    expect(say({ ...div('per-pale', 'argent', 'azure'), lines: { a: 'wavy' } })).toBe('Per pale wavy argent and azure.');
+    expect(say(lined('per-bend-sinister', 'engrailed'))).toBe('Per bend sinister engrailed Or and gules.');
+    expect(say(lined('per-chevron', 'ploye'))).toBe('Per chevron ployé Or and gules.');
+    expect(say(lined('per-fess', 'grady'))).toBe('Per fess embattled grady Or and gules.');
+    expect(say(lined('per-fess', 'embattled'), chg('lion', 'argent'))).toBe('Per fess embattled Or and gules, a lion argent.');
+  });
+
+  it('names the one line of a quarterly field drawn complex, and none when both are', () => {
+    expect(say(lined('quarterly', 'plain', 'embattled'))).toBe('Quarterly per fess embattled Or and gules.');
+    expect(say(lined('quarterly', 'wavy', 'plain'))).toBe('Quarterly per pale wavy Or and gules.');
+    expect(say(lined('quarterly', 'embattled'))).toBe('Quarterly embattled Or and gules.');
+    expect(say(lined('quarterly', 'wavy', 'embattled'))).toBe('Quarterly per pale wavy and per fess embattled Or and gules.');
+  });
+
+  it('writes a variation\'s line before its count', () => {
+    expect(say(varied('barry', 'wavy', 8))).toBe('Barry wavy of eight argent and azure.');
+    expect(say(varied('paly', 'nebuly'))).toBe('Paly nebuly argent and azure.');
+    expect(say(varied('bendy-sinister', 'dancetty', 4))).toBe('Bendy sinister dancetty of four argent and azure.');
   });
 });

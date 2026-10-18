@@ -100,7 +100,7 @@ describe('the design text', () => {
 
 describe('the surface of a semy', () => {
   it('is that of the tincture it is strewn on', () => {
-    const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field, null);
+    const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field!, null);
     expect(surface(semy('azure', 'mullet', 'or'))).toBe(surface('azure'));
   });
 });
@@ -234,20 +234,20 @@ describe('the drawing', () => {
   });
 
   it('paints a semy on a part of the field in that part, and each part of one over all of it', () => {
-    const regions = fieldRegions(nd(arms(pale('gules', semy('argent', 'billet', 'gules')))).field, 'heater');
+    const regions = fieldRegions(nd(arms(pale('gules', semy('argent', 'billet', 'gules')))).field!, 'heater');
     expect(regions.map((r) => r.paint.k)).toEqual(['tincture', 'semy']);
   });
 
   it('paints a semy on a band with the same pattern', () => {
     const layers = renderLayers(nd(arms('vert', group(ordinary('bordure'), semy('argent', 'roundel', 'sable')))), 'heater');
     const bordure = layers.find((l) => l.k === 'ordinary');
-    expect(bordure?.k === 'ordinary' && fillCode(bordure.fill)).toMatch(/^pattern:semy-roundel-/);
+    expect(bordure?.k === 'ordinary' && fillCode(bordure.parts[0].fill)).toMatch(/^pattern:semy-roundel-/);
   });
 
   it('draws a counterchanged element over a semy part as the tincture it is strewn on', () => {
     const d = nd(arms(pale('gules', semy('argent', 'billet', 'gules')), group(ordinary('fess'), 'counterchanged')));
     const fess = renderLayers(d, 'heater').find((l) => l.k === 'ordinary');
-    expect(fess?.k === 'ordinary' && fillCode(fess.fill)).toBe('split(ar,gu)');
+    expect(fess?.k === 'ordinary' && fillCode(fess.parts[0].fill)).toBe('split(ar,gu)');
   });
 });
 

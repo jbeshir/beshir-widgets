@@ -2,7 +2,7 @@
 // thumbnail of the current design. The shape is display only — it never changes the arms, their
 // blazon or whether they are available — and the picker says so.
 
-import { FIELD_SHAPES, FIELD_SHAPE_NAME, type FieldShape, type Design } from '../../lib/heraldry';
+import { FIELD_SHAPES, FIELD_SHAPE_NAME, crampedInShape, type FieldShape, type Design } from '../../lib/heraldry';
 import { Shield } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
 
@@ -19,6 +19,8 @@ const never = () => {};
 
 export function ShapePicker({ design, value, onChange, idPrefix }: Props) {
   const noteId = `${idPrefix}-note`;
+  // what the chosen shape can't draw at a size that reads, though the heater can: said here, as the design's verdict is the heater's
+  const cramped = crampedInShape(design, value);
   return (
     <div class="shape-picker" data-testid={`${idPrefix}-picker`}>
       <p class="shape-title" id={noteId}>
@@ -32,6 +34,11 @@ export function ShapePicker({ design, value, onChange, idPrefix }: Props) {
           </ChoiceButton>
         ))}
       </RadioGroup>
+      {cramped.length > 0 && (
+        <ul class="shape-cramped" data-testid={`${idPrefix}-cramped`}>
+          {cramped.map((m) => <li key={m}>{m}</li>)}
+        </ul>
+      )}
     </div>
   );
 }

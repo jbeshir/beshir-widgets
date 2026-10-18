@@ -20,7 +20,7 @@ import type { ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 import {
   OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, colourHex, TINCTURE_HATCHING, fillCode, fillHatchTinctures, hatchTincture, badgeView, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
-  type Design, type FieldShape, type Fill, type Hatching, type Layer, type LeafFill, type PatternSpec, type Slot, type Tincture,
+  type Design, type FieldShape, type Fill, type Hatching, type Layer, type LeafFill, type OrdinaryPart, type PatternSpec, type Slot, type Tincture,
 } from '../lib/heraldry';
 
 interface Props {
@@ -34,6 +34,8 @@ interface Props {
   label?: string | null;
   class?: string;
   testid?: string;
+  /** Draws only this part of it (an SVG viewBox, 1 : 1.2 like the whole): the edge chips zoom in on the middle of the field, where the line they picture runs. */
+  view?: string;
 }
 
 /**
@@ -132,7 +134,7 @@ function scopeOf(key: string, ids: Ids, overlay: (t: Tincture) => boolean, fills
 
 /** The fills whose parts a layer clips: for the field, those of its areas. */
 const layerFills = (layer: Layer): Fill[] =>
-  layer.k === 'field' ? fieldAreas(layer).map((a) => a.fill) : layer.k === 'ordinary' ? [layer.fill] : layer.fills.map((f) => f.fill);
+  layer.k === 'field' ? fieldAreas(layer).map((a) => a.fill) : layer.k === 'ordinary' ? layer.parts.map((p) => p.fill) : layer.fills.map((f) => f.fill);
 
 /** The clip paths of the parts of a layer's fills. */
 function Clips({ fills, scope }: { fills: readonly Fill[]; scope: Scope }) {
@@ -141,7 +143,7 @@ function Clips({ fills, scope }: { fills: readonly Fill[]; scope: Scope }) {
 
 /** The patterns the fills of a design's layers are drawn with, each once. */
 function layerPatterns(layers: readonly Layer[]): PatternSpec[] {
-  const fills = layers.flatMap((l) => (l.k === 'charges' ? l.fills.map((f) => f.fill) : [l.fill]));
+  const fills = layers.flatMap((l) => (l.k === 'charges' ? l.fills.map((f) => f.fill) : l.k === 'ordinary' ? l.parts.map((p) => p.fill) : [l.fill]));
   const specs = [...fills, ...partsOf(fills).map((p) => p.fill)].flatMap((f) => (f.k === 'pattern' ? [f.spec] : []));
   return [...new Map(specs.map((s) => [s.id, s])).values()];
 }
@@ -244,22 +246,34 @@ function LayerDefs({ layer, scope }: { layer: Layer; scope: Scope }) {
   );
 }
 
-function OrdinaryShape({ layer, scope, stroke }: { layer: OrdinaryLayer; scope: Scope; stroke: object }) {
+/** One part of an ordinary, painted and outlined. Its leaves' mask ids carry the part's role, except the body's (`at` "0"). */
+function OrdinaryPartShape({ part, scope, stroke }: { part: OrdinaryPart; scope: Scope; stroke: object }) {
   return (
-    <g data-layer="ordinary" data-group={scope.key}>
-      <Painted fill={layer.fill} clip={undefined} scope={scope} at="0" leaf={(f, at) => {
+    <>
+      <Painted fill={part.fill} clip={undefined} scope={scope} at={part.role === 'body' ? '0' : `0-${part.role}`} leaf={(f, at) => {
         const hatch = hatchOf(f, scope.overlay);
         return (
           <>
-            <path d={layer.d} fill={paintOf(f, scope.ids)} fill-rule={layer.fillRule} data-paint={fillCode(f)} />
+            <path d={part.d} fill={paintOf(f, scope.ids)} fill-rule={part.fillRule} data-paint={fillCode(f)} />
             {hatch && f.k === 'pattern' && (
-              <LeafMask leaf={f} scope={scope} at={at} shapes={<path d={layer.d} fill={`url(#${scope.ids.hatchMask(f.spec)})`} fill-rule={layer.fillRule} />} />
+              <LeafMask leaf={f} scope={scope} at={at} shapes={<path d={part.d} fill={`url(#${scope.ids.hatchMask(f.spec)})`} fill-rule={part.fillRule} />} />
             )}
-            {hatch && <path d={layer.d} fill={`url(#${scope.ids.field(hatch)})`} fill-rule={layer.fillRule} mask={maskOf(f, scope, at)} />}
+            {hatch && <path d={part.d} fill={`url(#${scope.ids.field(hatch)})`} fill-rule={part.fillRule} mask={maskOf(f, scope, at)} />}
           </>
         );
       }} />
-      <path d={layer.d} fill="none" fill-rule={layer.fillRule} {...stroke} />
+      <path d={part.d} fill="none" fill-rule={part.fillRule} {...stroke} />
+    </>
+  );
+}
+
+/** An ordinary's parts in paint order; parts other than the body are marked with their role. */
+function OrdinaryShape({ layer, scope, stroke }: { layer: OrdinaryLayer; scope: Scope; stroke: object }) {
+  return (
+    <g data-layer="ordinary" data-group={scope.key}>
+      {layer.parts.map((part) => (part.role === 'body'
+        ? <OrdinaryPartShape key={part.role} part={part} scope={scope} stroke={stroke} />
+        : <g key={part.role} data-part={part.role}><OrdinaryPartShape part={part} scope={scope} stroke={stroke} /></g>))}
     </g>
   );
 }
@@ -310,7 +324,7 @@ function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: 
   );
 }
 
-export function Shield({ design, shape, size, hatching = false, label, class: cls, testid }: Props) {
+export function Shield({ design, shape, size, hatching = false, label, class: cls, testid, view }: Props) {
   const uidRef = useRef<string>();
   if (!uidRef.current) uidRef.current = nextShieldUid();
   const uid = uidRef.current;
@@ -333,7 +347,7 @@ export function Shield({ design, shape, size, hatching = false, label, class: cl
   return (
     <svg
       class={`shield${cls ? ` ${cls}` : ''}`}
-      viewBox={SHIELD_VIEWBOX}
+      viewBox={view ?? SHIELD_VIEWBOX}
       width={size}
       height={size ? size * 1.2 : undefined}
       role={name ? 'img' : undefined}

@@ -1,0 +1,95 @@
+// The edge of a division, stripes, band or shape: one option per line, each with a small picture of the shape drawn with it, and, for a
+// quartered field or a two-edged band, which of its lines or edges carries it. The content of "More … and edges…".
+
+import { Fragment } from 'preact';
+import { COMMON_LINES, LINE_LABEL, resolve, type Choice, type Design, type EdgeSide, type FieldShape, type Line } from '../../lib/heraldry';
+import { capitalise } from '../../lib/heraldry/words';
+import { Shield } from '../Shield';
+import { ChoiceButton, RadioGroup } from './Choices';
+import { useExplainer } from './Explainer';
+
+/**
+ * The middle of the field, 70 wide (a 1 : 1.2 viewBox, as the shield's): what a chip pictures when its line runs through the middle, so that
+ * a line's features show half as large again at a chip's size (review U-7).
+ */
+const MIDDLE_VIEW = '15 18 70 84';
+
+/** The icon designs already drawn, by `${key}|${line}|${shape}`: a chip's picture only changes with the shape it is drawn for. */
+const ICONS = new Map<string, Design>();
+
+/** A shape in gold and azure drawn with a line; `make` is the loose design input of the shape with that line. */
+function lineIcon(key: string, make: (line: Line) => object, line: Line, shape: FieldShape): Design {
+  const id = `${key}|${line}|${shape}`;
+  let design = ICONS.get(id);
+  if (!design) {
+    const r = resolve(make(line) as Parameters<typeof resolve>[0]);
+    if (!r.ok) throw new Error(`edge icon does not resolve: ${r.errors.map((e) => e.message).join('; ')}`);
+    design = r.design;
+    ICONS.set(id, design);
+  }
+  return design;
+}
+
+interface Props {
+  /** The options are <testid>-select, <testid>-<line> and <testid>-side-<side>. */
+  testid: string;
+  /** What is edged: "the background", "the band". */
+  noun: string;
+  /** Names the shape the chips picture (the division, stripes or band and its count) and builds its loose design input drawn with a line. */
+  iconKey: string;
+  icon: (line: Line) => object;
+  /** Whether the chips picture the middle of the field only (`MIDDLE_VIEW`): the line runs through it. */
+  zoom?: boolean;
+  shape: FieldShape;
+  lines: Choice<Line>[];
+  line: Line;
+  onLine: (line: Line) => void;
+  sides: Choice<EdgeSide>[];
+  side: EdgeSide;
+  /** What the sides are ("lines" of a quartered field, "edges" of a band) and what each is called: "Both lines", "Top edge only". */
+  sideNoun: 'lines' | 'edges';
+  sideLabels: Record<EdgeSide, string>;
+  onSide: (side: EdgeSide) => void;
+}
+
+export function EdgePicker({ testid, noun, iconKey, icon, zoom = false, shape, lines, line, onLine, sides, side, sideNoun, sideLabels, onSide }: Props) {
+  const { explain, node: explainer } = useExplainer();
+  // the lines come in the library's order (`lineChoices`), the most used first: a break follows the common ones this host takes
+  const common = lines.filter((c) => COMMON_LINES.includes(c.value)).length;
+  return (
+    <div class="fur-picker" data-testid={testid}>
+      <p class="picker-legend">Edge of {noun}</p>
+      <RadioGroup label={`Edge of ${noun}`} class="icon-grid icon-grid-field" testid={`${testid}-select`}>
+        {lines.map((c, n) => {
+          const label = LINE_LABEL[c.value];
+          const name = c.value === 'plain' ? 'Straight' : capitalise(label.term);
+          return (
+            <Fragment key={c.value}>
+              {n > 0 && n === common && <span class="icon-grid-break" role="presentation" />}
+              <ChoiceButton
+                testid={`${testid}-${c.value}`} checked={line === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
+                label={`${name}, ${label.plain.toLowerCase()}`} title={label.plain} onSelect={() => onLine(c.value)} onBlocked={explain} class="icon-choice"
+              >
+                <Shield design={lineIcon(iconKey, icon, c.value, shape)} shape={shape} size={30} label={null} view={zoom ? MIDDLE_VIEW : undefined} />
+                <span class="choice-label">{name}</span>
+              </ChoiceButton>
+            </Fragment>
+          );
+        })}
+      </RadioGroup>
+      {sides.length > 0 && (
+        <>
+          <p class="picker-legend">Which {sideNoun}</p>
+          <RadioGroup label={`Which ${sideNoun} of ${noun}`} class="segmented segmented-wide" testid={`${testid}-side`}>
+            {sides.map((c) => (
+              <ChoiceButton key={c.value} testid={`${testid}-side-${c.value}`} checked={side === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }} label={sideLabels[c.value]} onSelect={() => onSide(c.value)} onBlocked={explain} class="segment">
+                <span>{sideLabels[c.value]}</span>
+              </ChoiceButton>
+            ))}
+          </RadioGroup>
+        </>
+      )}
+      {explainer}
+    </div>
+  );
+}

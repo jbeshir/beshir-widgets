@@ -2,7 +2,7 @@
 // changes group by group with their SENA rules, the explanation texts, the tally, and checkUnique's order.
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, CLEAR_CHANGE_HINT, DRAWN_DIVISIONS, SENA_RULES, SENA_RULE_HINT, candidateKey, changeLabel, checkUnique, differences,
+  CHARGE_IDS, CHARGES, CLEAR_CHANGE_HINT, BUILDER_DIVISIONS, SENA_RULES, SENA_RULE_HINT, candidateKey, changeLabel, checkUnique, differences,
   explainDifferences, isChangeKind, isClear, isDiffAttr, isSenaRule, normalise, registrationOrder, reportUniqueness, signature, tallyText, walkGroups,
   blazon, checkResponse, type CheckableEntry,
   type Design, type Diff, type RegistryEntryLike, type Verdict,
@@ -140,7 +140,7 @@ describe('the field (A5F, A5G1)', () => {
 
   it('plain against divided is a substantial change, and so is each pair of drawn divisions', () => {
     expect(between(withLion('azure'), withLion(div('per-pale', 'azure', 'vert')))).toEqual(['field-partition:sc:A5F1']);
-    for (const a of DRAWN_DIVISIONS) for (const b of DRAWN_DIVISIONS) {
+    for (const a of BUILDER_DIVISIONS) for (const b of BUILDER_DIVISIONS) {
       const expected = a === b ? [] : ['field-partition:sc:A5F1'];
       expect(between(design(div(a, 'azure', 'vert'), chg('mullet', 'argent')), design(div(b, 'azure', 'vert'), chg('mullet', 'argent'))), `${a} vs ${b}`).toEqual(expected);
     }
@@ -496,7 +496,7 @@ describe('explanations', () => {
       expect(n.text.length).toBeGreaterThan(0);
     }
     for (const rule of SENA_RULES) {
-      if (rule === 'A5E4' || rule === 'A5G6' || rule === 'A5F2' || rule === 'A5G1b' || rule === 'A5G1d' || rule === 'A5G1e') continue; // pinned in the tests above and in variation.test.ts; the generator rarely reaches them
+      if (rule === 'A5E4' || rule === 'A5G6' || rule === 'A5F2' || rule === 'A5G1b' || rule === 'A5G1d' || rule === 'A5G1e' || rule === 'A5G1c') continue; // pinned in the tests above, in variation.test.ts and (lines) lines-field.test.ts; the generator rarely reaches them
       expect(seen, `generated pairs give ${rule}`).toContain(rule);
     }
   }, 30_000);
@@ -540,7 +540,7 @@ describe('tally and vocabulary', () => {
     expect(isChangeKind('dc')).toBe(true);
     expect(isChangeKind('half')).toBe(false);
     expect(isSenaRule('A5G1a')).toBe(true);
-    expect(isSenaRule('A5G1c')).toBe(false);
+    expect(isSenaRule('A5G1f')).toBe(false);
     expect(SENA_RULES.every(isSenaRule)).toBe(true);
   });
 });

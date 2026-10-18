@@ -4,6 +4,10 @@
 // anchored there, so a shape's own outline decides what shows. Pure geometry, no tinctures.
 
 import { DEFAULT_PIECES, type Variation } from './divisions';
+import { boundedMemo } from './memo';
+import { notSupported, type Lines } from './design';
+import { contourPath, type Contour } from './contour';
+import { LINE_PROFILE, featureMiddle, fieldSide, fitPeriod, runAlong, visibleSpan, type ComplexLine, type LaidLine } from './lines';
 
 /** The bounding box of a shape: what the stripes and the grid are laid out over. */
 export interface Box { x0: number; y0: number; x1: number; y1: number }
@@ -154,19 +158,91 @@ function patternOf(variation: Variation, pieces: number | null, box: Box): Patte
         },
         (x, y) => [Math.floor((x - x0) / pale), Math.floor((y - x - t0) / band)]);
     }
+    default: return variation satisfies never;
   }
 }
 
-/**
- * Region paths [first tincture, second tincture] of a variation over a box, turned `turn` degrees clockwise about the box's middle (a
- * charge's own frame); with the shape's outline, or the element's, as a clip they cover it exactly.
- */
-export function variationRegions(variation: Variation, pieces: number | null, box: Box, turn = 0): [string, string] {
-  const [first, second] = patternOf(variation, pieces, box).polygons();
+/** A rotation by `turn` degrees clockwise about the box's middle. */
+function turnAbout(box: Box, turn: number): (p: Pt) => Pt {
   const [cx, cy] = [(box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2];
   const a = (turn * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
-  const turned = (p: readonly Pt[]): Pt[] => (turn === 0 ? [...p] : p.map(([x, y]) => [cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos]));
-  return [first.map((p) => polygon(turned(p))).join(''), second.map((p) => polygon(turned(p))).join('')];
+  return ([x, y]) => (turn === 0 ? [x, y] : [cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos]);
+}
+
+/**
+ * Region paths [first tincture, second tincture] of a variation over a box, its stripes' boundaries drawn with the variation's line,
+ * turned `turn` degrees clockwise about the box's middle (a charge's own frame); with the shape's outline, or the element's, as a clip
+ * they cover it exactly.
+ */
+export function variationRegions(variation: Variation, pieces: number | null, lines: Lines, box: Box, turn = 0): [string, string] {
+  if (lines.a !== 'plain') return linedRegions(variation, pieces ?? DEFAULT_PIECES, lines.a, box, turn);
+  const [first, second] = patternOf(variation, pieces, box).polygons();
+  const turned = turnAbout(box, turn);
+  return [first.map((p) => polygon(p.map(turned))).join(''), second.map((p) => polygon(p.map(turned))).join('')];
+}
+
+/** The stripes a line is drawn on: each boundary, at offset `t` across them, as its two far ends; and the range of `t` over the box. */
+interface StripeLines { ends: (t: number) => [Pt, Pt]; lo: number; hi: number; centre: number }
+
+function stripeLines(variation: Variation, line: ComplexLine, { x0, y0, x1, y1 }: Box): StripeLines {
+  const [cx, cy] = [(x0 + x1) / 2, (y0 + y1) / 2];
+  switch (variation) {
+    case 'barry': return { ends: (t) => [[x0 - REACH, t], [x1 + REACH, t]], lo: y0, hi: y1, centre: cy };
+    case 'paly': return { ends: (t) => [[t, y0 - REACH], [t, y1 + REACH]], lo: x0, hi: x1, centre: cx };
+    case 'bendy': return { ends: (t) => [[x0 - REACH, x0 - REACH + t], [x1 + REACH, x1 + REACH + t]], lo: y0 - x1, hi: y1 - x0, centre: cy - cx };
+    case 'bendy-sinister': return { ends: (t) => [[x0 - REACH, t - x0 + REACH], [x1 + REACH, t - x1 - REACH]], lo: y0 + x0, hi: y1 + x1, centre: cy + cx };
+    // Stripes that turn a corner (chevronny) take no line yet; the others have no stripes.
+    default: return notSupported({ category: 'line-of-partition', detail: `${line}-on-${variation}` });
+  }
+}
+
+/** A stripe's line may take this share of the stripe's width at most, so that a narrow stripe still reads. */
+const LINE_SHARE_OF_STRIPE = 0.8;
+
+const linedMemo = boundedMemo<[string, string]>(2000);
+
+/**
+ * Stripes whose boundaries are drawn with a complex line: every boundary the same line, fitted to the chord of the middle one and in
+ * phase across the box, so the stripes keep one width (both edges of a stripe pair as `parallel` edges do).
+ */
+function linedRegions(variation: Variation, n: number, line: ComplexLine, box: Box, turn: number): [string, string] {
+  return linedMemo(JSON.stringify([variation, n, line, box, turn]), () => drawnLinedRegions(variation, n, line, box, turn));
+}
+
+function drawnLinedRegions(variation: Variation, n: number, line: ComplexLine, box: Box, turn: number): [string, string] {
+  const { ends, lo, hi, centre } = stripeLines(variation, line, box);
+  const turned = turnAbout(box, turn);
+  const outline = rect(box.x0, box.y0, box.x1, box.y1).map(turned);
+  const middle = turned([(box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2]);
+  const at = (t: number): [Pt, Pt] => { const [p, q] = ends(t); return [turned(p), turned(q)]; };
+  const unit = ([p, q]: [Pt, Pt]): Pt => { const l = Math.hypot(q[0] - p[0], q[1] - p[1]); return [(q[0] - p[0]) / l, (q[1] - p[1]) / l]; };
+  const dir = unit(at(centre)), side = fieldSide(dir);
+  const normal: Pt = [side * dir[1], -side * dir[0]];
+  const ts = Array.from({ length: n + 1 }, (_, i) => lo + ((hi - lo) * i) / n);
+  const across = (p: Pt) => p[0] * normal[0] + p[1] * normal[1];
+  const width = Math.abs(across(at(ts[1])[0]) - across(at(ts[0])[0]));
+  const depth = Math.min(LINE_PROFILE[line].depth, LINE_SHARE_OF_STRIPE * width);
+  const [m0, m1] = visibleSpan(...at(centre), outline) ?? [0, 1];
+  const period = fitPeriod(line, m1 - m0, 1);
+  // each boundary moved back by where its features lie, so that it straddles the line it is on (as a division's line does)
+  const shift = featureMiddle(line) * depth;
+  const boundary = (t: number): { ends: [Pt, Pt]; laid: LaidLine } => {
+    const [p, q] = at(t).map(([x, y]): Pt => [x - shift * normal[0], y - shift * normal[1]]);
+    const [s0, s1] = visibleSpan(p, q, outline) ?? [0, 0];
+    const anchor = (middle[0] - p[0]) * dir[0] + (middle[1] - p[1]) * dir[1];
+    return { ends: [p, q], laid: { origin: p, dir, run: { line, side, depth, period, anchor, span: [s0 - period, s1 + period] } } };
+  };
+  const bounds = ts.map((t, i) => (i === 0 || i === n ? { ends: at(t), laid: null } : boundary(t)));
+  const stripe = (i: number): Contour => {
+    const [[p0, q0], l0] = [bounds[i].ends, bounds[i].laid], [[p1, q1], l1] = [bounds[i + 1].ends, bounds[i + 1].laid];
+    return { start: p0, edges: [
+      { via: [], to: q0, run: l0 && runAlong(l0, p0, q0) },
+      { via: [], to: q1, run: null },
+      { via: [], to: p1, run: l1 && runAlong(l1, q1, p1) },
+    ] };
+  };
+  const stripes = Array.from({ length: n }, (_, i) => contourPath(stripe(i)));
+  return [stripes.filter((_, i) => even(i)).join(''), stripes.filter((_, i) => !even(i)).join('')];
 }
 
 /** Whether (x,y) lies in the first tincture of a variation. Points on a boundary count as the second. */

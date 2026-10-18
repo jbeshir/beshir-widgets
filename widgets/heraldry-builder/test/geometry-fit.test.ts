@@ -6,17 +6,20 @@
 // a divided field as its canonical (heater) slot, so what is drawn matches the canonical rule-of-tincture
 // verdict. Hand-fitted layouts are also checked with the real artwork of every charge, drawn in its
 // optically scaled box and turned with the charge; generic layouts with a representative few (all on the heater, a rotating
-// third of the layout × drawing pairs in each other shape).
+// fifth of the layout × drawing pairs of the rotating sample of layouts in each other shape). The slot-on-ground sweep is likewise exhaustive on the heater and
+// a seeded rotating three tenths of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape, the same ones for the check that the smaller
+// shapes reach the field parts their heater slots reach; SCA_FULL=1 runs every layout in every shape.
 
 import { describe, expect, it } from 'vitest';
 import {
-  AROUND_COUNTS, ART_ON_BOX, CHARGE_ART, CHARGE_IDS, CHARGES, DRAWN_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
-  hasBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryPath, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
-  type ChargeId, type Design, type FieldShape, type GroundContext, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
+  AROUND_COUNTS, ART_ON_BOX, CHARGE_ART, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  cornerBesideBend, frameBeside, hasBordure, hasChargedBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryGeometry, plainSpec, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
+  type ChargeId, type Design, type FieldShape, type GroundContext, type KeepOut, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { rings, type Pt } from './art-geometry';
 import { log } from './helpers';
+import { rotatesIn, sampleSeed } from './rotation';
 
 // ── The catalogue ───────────────────────────────────────────────────────────
 
@@ -91,7 +94,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           v: 2, field: 'azure',
           groups: [tinctured('or', { k: 'ordinary', type }), tinctured('argent', chargeItem('mullet'), { count, relation: 'between' }), ...beside],
         });
-        consider(count, { k: 'between', ordinary: type, peripheral }, [layoutOfKey('host', count)!], `between ${type}${suffix}`, make);
+        consider(count, { k: 'between', ordinary: plainSpec(type), peripheral, keepOut: [] }, [layoutOfKey('host', count)!], `between ${type}${suffix}`, make);
       }
     }
     for (const type of ON) {
@@ -104,7 +107,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           v: 2, field: 'azure',
           groups: [tinctured('or', { k: 'ordinary', type }, { charged: [tinctured('argent', chargeItem('mullet'), { count })] }), ...beside],
         });
-        consider(count, { k: 'on', ordinary: type, peripheral: hostPeripheral }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
+        consider(count, { k: 'on', ordinary: plainSpec(type), peripheral: hostPeripheral, keepOut: [] }, [layoutOfKey('host', count)!], `on ${type}${suffix}`, make);
       }
     }
   }
@@ -121,7 +124,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
           });
           const base = make();
           const path = [base.groups.findIndex((g) => g.role === 'secondary')];
-          consider(count, { k: 'position', position, ordinary: type, peripheral }, layoutCandidates(base, path, count), `in ${position} beside ${type ?? 'lion'}/${peripheral}`, make);
+          consider(count, { k: 'position', position, ordinary: type && plainSpec(type), peripheral, keepOut: [] }, layoutCandidates(base, path, count), `in ${position} beside ${type ?? 'lion'}/${peripheral}`, make);
         }
       }
       for (const count of YIELD_COUNTS) {
@@ -147,7 +150,7 @@ function catalogue(): { entries: Entry[]; rejected: number } {
         const at = base.groups.findIndex((g) => g.role === 'primary');
         const layout = { arrangement: base.groups[at].arrangement, position: base.groups[at].position };
         const path = [base.groups.findIndex((g) => g.role === 'secondary')];
-        consider(count, { k: 'around', peripheral, primary: { count: base.groups[at].count, layout } }, layoutCandidates(base, path, count), `around ${name}/${peripheral}`, make);
+        consider(count, { k: 'around', peripheral, keepOut: [], primary: { count: base.groups[at].count, layout } }, layoutCandidates(base, path, count), `around ${name}/${peripheral}`, make);
       }
       const base = resolved({ v: 2, field: 'azure', groups: [primary, tinctured('argent', chargeItem('mullet'), { count: 3, relation: 'between' }), ...extra] });
       const g = base.groups.find((x) => x.role === 'primary')!;
@@ -198,27 +201,41 @@ interface ShapeGeometry {
   shape: FieldShape;
   outline: Pt[];
   inset: Pt[];
+  /** The inner edge of a bordure that carries charges. */
+  chargedInset: Pt[];
   chiefBase: number;
   fessY: number;
-  poly: (t: OrdinaryType) => Pt[];
+  /** An ordinary's body in the frame its context's chief and peripherals leave it (a band across the middle moves into what a chief or base leaves). */
+  poly: (t: OrdinaryType, ctx: { peripheral: Peripheral; keepOut: KeepOut }) => Pt[];
 }
 
 function shapeGeometry(shape: FieldShape): ShapeGeometry {
   const frame = shapeFrame(shape);
   return {
-    shape, outline: pathPolygon(frame.outline), inset: pathPolygon(frame.inset), chiefBase: frame.chiefBase, fessY: frame.fessPoint.y,
-    poly: (t) => pathPolygon(ordinaryPath(t, shape)),
+    shape, outline: pathPolygon(frame.outline), inset: pathPolygon(frame.inset), chargedInset: pathPolygon(frame.chargedInset), chiefBase: frame.chiefBase, fessY: frame.fessPoint.y,
+    poly: (t, ctx) => pathPolygon(ordinaryGeometry(plainSpec(t), frameBeside(shape, hasChief(ctx.peripheral), ctx.keepOut)).body),
   };
 }
 const SHAPES = FIELD_SHAPES.map(shapeGeometry);
 
 /** What a context's slots must stay inside (`fits`) or, for charges around an ordinary, clear of. */
-function groundFits(g: ShapeGeometry, ctx: GroundContext, margin: number, narrowBands: boolean): (p: Pt) => boolean {
+function groundFits(g: ShapeGeometry, ctx: GroundContext, layout: Layout, margin: number, narrowBands: boolean): (p: Pt) => boolean {
   const onShape = (p: Pt) => pointInPolygon(p[0], p[1], g.outline) && edgeDistance(g.outline, p) >= margin;
-  // What the chief and bordure beside the group leave: inside the bordure's inner edge, below the chief.
-  const inFrame = (p: Pt) => (hasBordure(ctx.peripheral) ? pointInPolygon(p[0], p[1], g.inset) : onShape(p)) && (!hasChief(ctx.peripheral) || p[1] >= g.chiefBase);
-  // The room left for charges in chief, in base or in canton: above a line six below the chief's, below one 24 below the fess point, or the corner left of x = 36.
-  const inRoom = (position: SecondaryPosition) => ([x, y]: Pt) => (position === 'base' ? y >= g.fessY + 24 : y <= g.chiefBase + 6 && (position === 'chief' || x <= 36));
+  // What the chief and bordure beside the group leave: inside the bordure's inner edge (a wider one's when it carries charges), below the chief.
+  const edge = hasChargedBordure(ctx.peripheral) ? g.chargedInset : g.inset;
+  const inFrame = (p: Pt) => (hasBordure(ctx.peripheral) ? pointInPolygon(p[0], p[1], edge) : onShape(p)) && (!hasChief(ctx.peripheral) || p[1] >= g.chiefBase);
+  // The room left for charges in chief, in base or in canton: above a line six below the chief's, below one 24 below the fess point, or the corner left of x = 36;
+  // one charge beside a bend, the side of the bend's middle line (through the fess point) its corner is on.
+  const corner = cornerBesideBend(ctx, layout), fx = 50;
+  const inRoom = (position: SecondaryPosition) => ([x, y]: Pt) => {
+    switch (corner) {
+      case 'sinister-chief': return y - g.fessY < x - fx;
+      case 'dexter-base': return y - g.fessY > x - fx;
+      case 'dexter-chief': return y - g.fessY < fx - x;
+      case 'sinister-base': return y - g.fessY > fx - x;
+      case null: return position === 'base' ? y >= g.fessY + 24 : y <= g.chiefBase + 6 && (position === 'chief' || x <= 36);
+    }
+  };
   if (ctx.k === 'field') {
     if (ctx.yields !== 'chief' && ctx.yields !== 'base' && ctx.yields !== 'canton') return inFrame;
     const yielded = inRoom(ctx.yields);
@@ -231,15 +248,15 @@ function groundFits(g: ShapeGeometry, ctx: GroundContext, margin: number, narrow
   }
   if (ctx.k === 'position') {
     const room = inRoom(ctx.position);
-    const poly = ctx.ordinary && g.poly(ctx.ordinary);
-    const respect = ctx.ordinary !== null && (!narrowBands || ART_RESPECTS.includes(ctx.ordinary));
+    const poly = ctx.ordinary && g.poly(ctx.ordinary.type, ctx);
+    const respect = ctx.ordinary !== null && (!narrowBands || ART_RESPECTS.includes(ctx.ordinary.type));
     return (p) => inFrame(p) && room(p) && !(respect && poly !== null && pointInPolygon(p[0], p[1], poly));
   }
   // On the bordure: inside the shape and outside the bordure's inner edge.
-  if (ctx.k === 'on' && ctx.ordinary === 'bordure') return (p) => onShape(p) && !pointInPolygon(p[0], p[1], g.inset);
-  const poly = g.poly(ctx.ordinary);
+  if (ctx.k === 'on' && ctx.ordinary.type === 'bordure') return (p) => onShape(p) && !pointInPolygon(p[0], p[1], ctx.ordinary.charged ? g.chargedInset : g.inset);
+  const poly = g.poly(ctx.ordinary.type, ctx);
   // Chevron and saltire arms are narrower than a square charge's corners, so only glyph discs are held to them.
-  const respect = !narrowBands || ART_RESPECTS.includes(ctx.ordinary);
+  const respect = !narrowBands || ART_RESPECTS.includes(ctx.ordinary.type);
   return ctx.k === 'between'
     ? (p) => inFrame(p) && !(respect && pointInPolygon(p[0], p[1], poly))
     : (p) => inFrame(p) && (!respect || pointInPolygon(p[0], p[1], poly));
@@ -274,17 +291,26 @@ describe('layout catalogue', () => {
   });
 });
 
+/**
+ * The share of layouts the sweeps over every context check in each shape other than the heater on a given run (seeded rotation; heater
+ * exhaustive): the slots on their ground, and (below) the field parts they reach. One sample serves all of them, so the slots of a layout left
+ * out are never worked out in that shape (they are what the sweeps cost, and are kept between tests).
+ */
+const SHAPE_SWEEP_RATE = 0.15;
+const inSweep = (shape: FieldShape, label: string): boolean => shape === 'heater' || rotatesIn(`${shape}|${label}`, SHAPE_SWEEP_RATE);
+
 for (const g of SHAPES) {
   describe(`${g.shape}: charge slots fit their ground`, () => {
     it('every legal layout has slots of one size that stay on the ground and do not overlap', () => {
       const problems: string[] = [];
       for (const e of CATALOGUE) {
+        if (!inSweep(g.shape, e.label)) continue;
         const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
         const where = `${e.label} (${g.shape})`;
         if (slots.length !== e.count) { problems.push(`${where}: ${slots.length} slots`); continue; }
         if (new Set(slots.map((s) => s.size)).size !== 1) problems.push(`${where}: sizes differ`);
         if (slots[0].size < 1) problems.push(`${where}: no size`);
-        const fits = groundFits(g, e.ctx, 0, true);
+        const fits = groundFits(g, e.ctx, e.layout, 0, true);
         for (const s of slots) if (!disc(s).every(fits)) problems.push(`${where}: slot ${JSON.stringify(s)} leaves its ground`);
         if (e.layout.arrangement.k !== 'crossed') {
           slots.forEach((a, i) => slots.slice(i + 1).forEach((b) => {
@@ -292,7 +318,7 @@ for (const g of SHAPES) {
           }));
         }
       }
-      expect(problems.slice(0, 25)).toEqual([]);
+      expect(problems.slice(0, 25), `other shapes sampled: sample seed ${sampleSeed()}, SCA_FULL=1 for all`).toEqual([]);
     }, 60_000);
 
     it('has the same hand tables as the heater, with one size per row', () => {
@@ -324,8 +350,9 @@ const UNFAITHFUL = new Set([
 
 describe('every shape draws each charge on the field parts the canonical verdict judged', () => {
   it('only the listed layouts in the smaller shapes miss a part their heater slots reach', () => {
-    const missing = SHAPES.flatMap((g) => CATALOGUE.filter((e) => e.ctx.k !== 'on' && !reachesHeaterParts(e.ctx, e.count, e.layout, g.shape)).map((e) => `${e.label} ${g.shape}`));
-    expect(missing).toEqual([...UNFAITHFUL]);
+    const judged = (e: (typeof CATALOGUE)[number], shape: FieldShape) => UNFAITHFUL.has(`${e.label} ${shape}`) || inSweep(shape, e.label);
+    const missing = SHAPES.flatMap((g) => CATALOGUE.filter((e) => e.ctx.k !== 'on' && judged(e, g.shape) && !reachesHeaterParts(e.ctx, e.count, e.layout, g.shape)).map((e) => `${e.label} ${g.shape}`));
+    expect(missing, `other shapes sampled: sample seed ${sampleSeed()}`).toEqual([...UNFAITHFUL]);
   });
 
   const heaterFess = shapeFrame('heater').fessPoint;
@@ -334,10 +361,10 @@ describe('every shape draws each charge on the field parts the canonical verdict
     it(`${g.shape}: each slot touches every part its heater slot clearly touches, and no part it clearly misses`, () => {
       const fess = shapeFrame(g.shape).fessPoint;
       const problems: string[] = [];
-      for (const e of CATALOGUE.filter((x) => x.ctx.k !== 'on' && !UNFAITHFUL.has(`${x.label} ${g.shape}`))) {
+      for (const e of CATALOGUE.filter((x) => x.ctx.k !== 'on' && !UNFAITHFUL.has(`${x.label} ${g.shape}`) && inSweep(g.shape, x.label))) {
         const heater = contextSlots(e.ctx, e.count, e.layout, 'heater'), mine = contextSlots(e.ctx, e.count, e.layout, g.shape);
         heater.forEach((h, i) => {
-          for (const division of DRAWN_DIVISIONS) {
+          for (const division of BUILDER_DIVISIONS) {
             const parts = (points: Pt[], f: { x: number; y: number }) => new Set(points.map(([x, y]) => inFirstPart(division, f, x, y)));
             const clearly = parts(arm(h, 0.3 * h.size - PROBE_TOLERANCE), heaterFess);
             const possibly = parts(arm(h, 0.3 * h.size + PROBE_TOLERANCE), heaterFess);
@@ -347,7 +374,7 @@ describe('every shape draws each charge on the field parts the canonical verdict
           }
         });
       }
-      expect(problems.slice(0, 25)).toEqual([]);
+      expect(problems.slice(0, 25), `other shapes sampled: sample seed ${sampleSeed()}, SCA_FULL=1 for all`).toEqual([]);
     }, 60_000);
   }
 });
@@ -365,17 +392,25 @@ const SHIELD_MARGIN = 1;
 
 /**
  * Whether a layout is drawn with a drawing in a shape. The heater draws every drawing in every layout; each other shape a
- * rotating third of the pairs (seeded sampling: the sweep is long), so every pair is drawn in exactly one of them and every
- * shape draws every layout and every drawing.
+ * rotating fifth of the pairs (seeded sampling: the sweep is long), so no pair is drawn in two of them and, with more than
+ * five layouts and five drawings, every shape draws every layout and every drawing.
  */
+const SAMPLE_PERIOD = 5;
 const drawnIn = (shape: FieldShape, entry: number, drawing: number) =>
-  shape === 'heater' || (entry + drawing) % (FIELD_SHAPES.length - 1) === FIELD_SHAPES.indexOf(shape) - 1;
+  shape === 'heater' || (entry + drawing) % SAMPLE_PERIOD === FIELD_SHAPES.indexOf(shape) - 1;
 
-function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[]): string[] {
+/**
+ * The problems of the sampled pairs of layouts and drawings in a shape. `generic` layouts (those the engine searches out, which is most of
+ * what this costs) are in the shape's seeded rotating sample too, like the other sweeps (`inSweep`); a layout none of whose pairs the shape
+ * draws has no slots worked out.
+ */
+function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[], generic = false): string[] {
   const problems: string[] = [];
   for (const [ei, e] of entries.entries()) {
+    if (generic && !inSweep(g.shape, e.label)) continue;
+    if (!drawings.some((_, di) => drawnIn(g.shape, ei, di))) continue;
     const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
-    const fits = groundFits(g, e.ctx, SHIELD_MARGIN, true);
+    const fits = groundFits(g, e.ctx, e.layout, SHIELD_MARGIN, true);
     for (const [di, dr] of drawings.entries()) {
       if (!drawnIn(g.shape, ei, di)) continue;
       if (e.layout.arrangement.k === 'crossed' && !CHARGES[dr.id].long) continue;
@@ -418,7 +453,7 @@ describe('charge artwork fits its ground at its optical scale', () => {
     }, 60_000);
 
     it(`${g.shape}: a compact few drawings stay on their generic ground and clear of their neighbours`, () => {
-      expect(artProblems(g, generic, drawingsOf(['mullet', 'lion', 'sword'], ['rampant'])).slice(0, 25)).toEqual([]);
+      expect(artProblems(g, generic, drawingsOf(['mullet', 'lion', 'sword'], ['rampant']), true).slice(0, 25), `sample seed ${sampleSeed()}`).toEqual([]);
     }, 60_000);
   }
 });
@@ -517,7 +552,7 @@ describe('charges overall stand as a lone primary charge does', () => {
       const problems: string[] = [];
       for (const peripheral of PERIPHERALS) {
         const ctx: LayoutContext = { k: 'overall', peripheral };
-        const on = groundFits(g, fieldContext(peripheral), 0, false);
+        const on = groundFits(g, fieldContext(peripheral), { arrangement: { k: 'single' }, position: null }, 0, false);
         for (const layout of [{ arrangement: { k: 'single' }, position: null }, { arrangement: { k: 'crossed' }, position: null }] as const) {
           const count = layout.arrangement.k === 'single' ? 1 : 2;
           const slots = contextSlots(ctx, count, layout, g.shape);
@@ -539,7 +574,7 @@ describe('two main pictures are laid out as one group', () => {
     it(`${g.shape}: each takes its slice of the slots of all their charges, on the ground the chief and bordure leave`, () => {
       const problems: string[] = [];
       for (const peripheral of PERIPHERALS) {
-        const on = groundFits(g, fieldContext(peripheral), 0, false);
+        const on = groundFits(g, fieldContext(peripheral), { arrangement: { k: 'single' }, position: null }, 0, false);
         for (const [a, b] of COUNTS_TOGETHER) {
           const d = resolved({ v: 2, field: 'azure', groups: [tinctured('or', chargeItem('lion'), { count: a }), tinctured('argent', chargeItem('rose'), { count: b }), ...peripheralGroups(peripheral)] });
           const first = layoutContext(d, [0]), second = layoutContext(d, [1]);

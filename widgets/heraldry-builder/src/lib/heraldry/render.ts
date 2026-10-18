@@ -4,23 +4,42 @@
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
 import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
-import { badgeTransform, CANONICAL_SHAPE, chevronAstrideLinePath, drawnBox, astrideLine, ordinaryFillRule, ordinaryPath, shapeFrame, type Slot } from './geometry';
+import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type Slot } from './geometry';
+import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
-import { chargeFills, fieldFill, ordinaryFill, type Fill, type SlotFill } from './paint-render';
+import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
+
+/** What an ordinary layer paints, in paint order: its fimbriation under its body, the body, then its cotises. */
+type OrdinaryPartRole = 'fimbriation' | 'body' | 'cotises';
+export interface OrdinaryPart { readonly role: OrdinaryPartRole; readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly fill: Fill }
 
 export type Layer =
   /** `outline` is the field's whole shape; a divided field's `fill` cuts it into parts. */
   | { k: 'field'; outline: string; fill: Fill }
-  | { k: 'ordinary'; path: GroupPath; d: string; fillRule: 'nonzero' | 'evenodd'; fill: Fill }
+  /** The body is always one of the parts. */
+  | { k: 'ordinary'; path: GroupPath; parts: readonly OrdinaryPart[] }
   /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale); each fill paints some of them. */
   | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; fills: SlotFill[] };
 
+const trimPart = (role: OrdinaryPartRole, trim: OrdinaryTrim, fill: Fill): OrdinaryPart => ({ role, d: trim.d, fillRule: trim.fillRule, fill });
+
 function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
   if (group.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
-  const { type } = group.item;
-  const astride = d.kind === 'arms' && !host && astrideLine(d.field, type, group.paint);
-  return { k: 'ordinary', path, d: astride ? chevronAstrideLinePath(shape) : ordinaryPath(type, shape), fillRule: ordinaryFillRule(type), fill: ordinaryFill(d, group, host, type, shape) };
+  // a peripheral is drawn in the whole shape; the other ordinaries in what the peripherals rising from the base leave
+  const spec = specOf(group), frame = group.role === 'peripheral' || host ? defaultOrdinaryFrame(shape) : ordinaryFrameOf(d, shape);
+  const geometry = d.kind === 'arms' && !host ? fieldOrdinaryGeometry(d.field, spec, group.paint, frame) : ordinaryGeometry(spec, frame);
+  const { fimbriation, cotises } = geometry;
+  const { fimbriated, cotised } = group.item;
+  const body: OrdinaryPart = { role: 'body', d: geometry.body, fillRule: geometry.fillRule, fill: ordinaryFill(d, group, host, spec, frame) };
+  return {
+    k: 'ordinary', path,
+    parts: [
+      ...(fimbriation && fimbriated ? [trimPart('fimbriation', fimbriation, trimFill(d, fimbriated, host, fimbriation, shape))] : []),
+      body,
+      ...(cotises && cotised ? [trimPart('cotises', cotises, trimFill(d, cotised.paint, host, cotises, shape))] : []),
+    ],
+  };
 }
 
 function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
@@ -54,6 +73,9 @@ export function designTinctures(d: Design): Tincture[] {
   const seen = new Set<Tincture>();
   const take = (p: Group['paint']) => paintTinctures(p).forEach((t) => seen.add(t));
   if (d.kind === 'arms') take(d.field);
-  walkGroups(d).forEach(({ group }) => take(group.paint));
+  walkGroups(d).forEach(({ group }) => {
+    take(group.paint);
+    if (group.item.k === 'ordinary') [group.item.fimbriated, group.item.cotised?.paint].forEach((p) => p && take(p));
+  });
   return [...seen];
 }

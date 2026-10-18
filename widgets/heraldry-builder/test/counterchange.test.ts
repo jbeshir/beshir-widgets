@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DRAWN_DIVISIONS, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
+  BUILDER_DIVISIONS, MORE_DIVISIONS, partCount, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
   normalise, queryWords, readability, renderLayers, signature, tinctureIssues, unsupportedIssues, type Division,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -16,7 +16,7 @@ const mullets = (field: unknown, count = 3) => nd(arms(field, chg('mullet', 'cou
 describe('counterchanged and the rule of tincture', () => {
   it('is legal on every division exactly when one field tincture is a metal and the other a colour (celestine included)', () => {
     let legal = 0, illegal = 0;
-    for (const division of DRAWN_DIVISIONS) {
+    for (const division of BUILDER_DIVISIONS) {
       for (const t1 of TINCTURES) {
         for (const t2 of TINCTURES) {
           if (t1 === t2) continue;
@@ -28,7 +28,24 @@ describe('counterchanged and the rule of tincture', () => {
       }
     }
     // 3 metals × 5 colours × 2 orders = 30 legal pairs per division; 3·2 + 5·4 = 26 same-class pairs.
-    expect([legal, illegal]).toEqual([30 * DRAWN_DIVISIONS.length, 26 * DRAWN_DIVISIONS.length]);
+    expect([legal, illegal]).toEqual([30 * BUILDER_DIVISIONS.length, 26 * BUILDER_DIVISIONS.length]);
+  });
+
+  it('is legal on the divisions behind "More divisions" by the same test; a gyronny takes a single charge, or one to each gyron in annulo', () => {
+    for (const division of MORE_DIVISIONS.filter((d) => d !== 'per-chevron-throughout' && partCount(d) === 2)) {
+      for (const [t1, t2] of [['or', 'azure'], ['gules', 'argent'], ['or', 'argent'], ['vert', 'sable']] as const) {
+        const expectLegal = TINCTURE_CLASS[t1] !== TINCTURE_CLASS[t2];
+        expect(tinctureIssues(mullets(div(division, t1, t2), 1)).length === 0, `${division} ${t1}/${t2}`).toBe(expectLegal);
+      }
+    }
+    // a single charge on a per chevron throughout lies wholly in its triangle, where counterchanged only repaints it; several spread across both parts
+    expect(tinctureIssues(mullets(div('per-chevron-throughout', 'or', 'azure'), 1)).map((i) => i.message)).toEqual(['The mullet lies wholly on the Azure part of the field, so counterchanged would simply make it Or — choose Or instead.']);
+    expect(tinctureIssues(mullets(div('per-chevron-throughout', 'or', 'azure'), 3))).toEqual([]);
+    expect(counterchangeUnavailable(mullets(div('per-chevron-inverted', 'or', 'azure'), 3), [0])).toBeNull();
+    expect(counterchangeUnavailable(mullets(div('gyronny', 'or', 'azure'), 3), [0])).toMatch(/only a single charge, or eight in annulo, one to each gyron, can be counterchanged over gyronny/);
+    expect(counterchangeUnavailable(mullets(div('gyronny', 'or', 'azure'), 1), [0])).toBeNull();
+    const saltire = nd(arms(div('gyronny', 'or', 'azure'), ord('saltire', 'counterchanged')));
+    expect(counterchangeUnavailable(saltire, [0])).toMatch(/gyronny/);
   });
 
   it('explains a same-class field: still metal on metal, or colour on colour', () => {
@@ -155,7 +172,7 @@ describe('counterchanged charges in every placement', () => {
   ];
   for (const [name, make] of placements) {
     it(`${name}: the rule depends on the field alone`, () => {
-      for (const division of DRAWN_DIVISIONS) {
+      for (const division of BUILDER_DIVISIONS) {
         const issues = tinctureIssues(nd(make(division))).filter((i) => i.at.k === 'group' && i.at.path.length === 1 && i.code === 'tincture' && i.reason === 'counterchange-unavailable');
         expect(issues, division).toEqual([]);
       }
@@ -169,17 +186,17 @@ describe('a counterchanged chevron on a field per chevron', () => {
   it('lies astride the line and shows both tinctures, in every shape', () => {
     for (const shape of ['heater', 'banner', 'round', 'lozenge'] as const) {
       const layer = renderLayers(chevron(), shape).find((l) => l.k === 'ordinary');
-      expect(layer?.k === 'ordinary' && layer.fill.k === 'split' && layer.fill.parts.length, shape).toBe(2);
+      expect(layer?.k === 'ordinary' && layer.parts[0].fill.k === 'split' && layer.parts[0].fill.parts.length, shape).toBe(2);
     }
   });
 
   it('is drawn in its usual place, and in one tincture, on another division or when it is not counterchanged', () => {
-    const fill = (d: unknown) => (renderLayers(nd(d as never), 'heater').find((l) => l.k === 'ordinary') as { fill: { k: string; parts?: unknown[] } }).fill;
+    const fill = (d: unknown) => (renderLayers(nd(d as never), 'heater').find((l) => l.k === 'ordinary') as { parts: ReadonlyArray<{ fill: { k: string; parts?: readonly unknown[] } }> }).parts[0].fill;
     expect(fill(arms(div('per-fess', 'or', 'azure'), ord('chevron', 'counterchanged'))).parts).toHaveLength(2);
     expect(fill(arms(div('per-chevron', 'or', 'azure'), ord('chevron', 'gules'))).k).toBe('solid');
     const usual = renderLayers(nd(arms(div('per-chevron', 'or', 'azure'), ord('chevron', 'gules'))), 'heater').find((l) => l.k === 'ordinary');
     const astride = renderLayers(chevron(), 'heater').find((l) => l.k === 'ordinary');
-    expect(astride && usual && astride.k === 'ordinary' && usual.k === 'ordinary' && astride.d !== usual.d).toBe(true);
+    expect(astride && usual && astride.k === 'ordinary' && usual.k === 'ordinary' && astride.parts[0].d !== usual.parts[0].d).toBe(true);
   });
 
   it('keeps the charges set by it, which would be placed for the usual chevron, a gap', () => {

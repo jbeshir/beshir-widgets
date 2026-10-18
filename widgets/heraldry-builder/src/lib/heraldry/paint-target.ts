@@ -4,10 +4,13 @@
 import { COLOURS, METALS, TINCTURE_CLASS, type Tincture } from './tinctures';
 import { canonical, groupAt, paintTinctures, replaceGroup, samePath, type Design, type GroupPath, type Paint } from './design';
 import { paintIssues } from './structure';
-import { groupTinctureIssues } from './tincture-rule';
+import { groupBodyTinctureIssues } from './tincture-rule';
+
+/** A part of the field by its index: a field divided in three has a third. */
+export type FieldPart = 0 | 1 | 2;
 
 /** The part of the design a paint is chosen for: a part of the field (the whole field when it is not divided is part 0), or a band or picture. */
-export type PaintTarget = { k: 'field'; part: 0 | 1 } | { k: 'group'; path: GroupPath };
+export type PaintTarget = { k: 'field'; part: FieldPart } | { k: 'group'; path: GroupPath };
 
 /** The paint at the target. */
 export function paintAt(d: Design, target: PaintTarget): Paint {
@@ -37,7 +40,7 @@ export function reasonAt(d: Design, target: PaintTarget): string | null {
   const issues = paintIssues(d);
   if (target.k === 'field') return issues.find((i) => i.at.k === 'field')?.message ?? null;
   const own = issues.find((i) => i.at.k === 'group' && samePath(i.at.path, target.path));
-  return own?.message ?? groupTinctureIssues(d, target.path)[0]?.message ?? null;
+  return own?.message ?? groupBodyTinctureIssues(d, target.path)[0]?.message ?? null;
 }
 
 // ── Two colours, set one at a time ──────────────────────────────────────────

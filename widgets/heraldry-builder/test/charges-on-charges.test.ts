@@ -175,7 +175,7 @@ describe('charges on the primary charges: the rule of tincture', () => {
 
   it('blocks counterchanged on a host, which lies on a charge and not on the field', () => {
     const cc = nd(arms(div('per-pale', 'argent', 'sable'), on('sun', 'counterchanged', tertiary('mullet', 'counterchanged'))));
-    expect(tinctureIssues(cc).map((i) => i.reason)).toEqual(['counterchange-unavailable']);
+    expect(tinctureIssues(cc).map((i) => i.code === 'tincture' && i.reason)).toEqual(['counterchange-unavailable']);
   });
 });
 

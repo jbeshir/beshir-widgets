@@ -25,8 +25,8 @@ describe('what is supported', () => {
 
   it('leaves a division, line, piece count or part the builder does not draw as a gap', () => {
     const gaps = (paint: unknown) => unsupportedIssues(nd(arms('gules', heart(paint)))).map((i) => `${i.gap.category}:${i.gap.detail}`);
-    expect(gaps(party('gyronny', 'azure', 'or'))).toEqual(['division:gyronny']);
-    expect(gaps({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['azure', 'or'] })).toEqual(['line-of-partition:wavy']);
+    expect(gaps(party('gyronny', 'azure', 'or'))).toEqual(['division:gyronny-on-charge']);
+    expect(gaps({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['azure', 'or'] })).toEqual(['line-of-partition:on-divided-charge']);
     expect(gaps({ k: 'divided', division: 'per-pale', parts: [{ k: 'fur', fur: 'ermine' }, 'or'] })).toEqual(['fur:party']);
     expect(gaps({ k: 'divided', division: 'per-pale', parts: ['azure', 'counterchanged'] })).toEqual(['tincture:counterchanged']);
   });
@@ -115,7 +115,7 @@ describe('the structure of a divided group', () => {
 describe('the drawing', () => {
   it('splits an ordinary through its fess point and each charge through its own centre', () => {
     const fess = renderLayers(nd(arms('gules', group(ordinary('fess'), party('per-pale', 'argent', 'azure')))), 'heater')[1];
-    expect(fess.k === 'ordinary' && fillCode(fess.fill)).toBe('split(ar,az)');
+    expect(fess.k === 'ordinary' && fillCode(fess.parts[0].fill)).toBe('split(ar,az)');
     const hearts = renderLayers(nd(arms('gules', heart(party('per-pale', 'azure', 'or'), { count: 3 }))), 'heater')[1];
     expect(hearts.k === 'charges' && hearts.fills.map((f) => [fillCode(f.fill), f.slots])).toEqual([['split(az,or)', [0]], ['split(az,or)', [1]], ['split(az,or)', [2]]]);
   });
