@@ -4,10 +4,10 @@
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
 import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
-import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, MIRRORED, UPRIGHT, type ArtPose, type Slot } from './geometry';
+import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type ArtPose, type Slot } from './geometry';
 import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
-import { mirroredSlots } from './arrangement';
+import { chargePoses } from './pose';
 import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
 
@@ -45,10 +45,11 @@ function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | n
 
 function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
   if (group.item.k !== 'charge') throw new RangeError('Not a charge.');
-  const { charge, posture, facing, mods } = group.item;
+  const { charge, posture, mods } = group.item;
   const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, charge));
-  const poses = mirroredSlots(facing, group.arrangement, slots.length).map((mirror) => (mirror ? MIRRORED : UPRIGHT));
-  return { k: 'charges', path, art: chargePath(charge, posture, mods), slots, poses, fills: chargeFills(d, group, host, slots, poses, shape) };
+  const art = chargePath(charge, posture, mods);
+  const poses = chargePoses(group.item, group.arrangement, slots, art);
+  return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape) };
 }
 
 /**

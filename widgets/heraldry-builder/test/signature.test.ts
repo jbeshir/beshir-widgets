@@ -3,7 +3,7 @@
 // written `~line` (`~a/b` for two different ones) after the division or variation and its pieces.
 
 import { describe, expect, it } from 'vitest';
-import { BUILDER_DIVISIONS, CHARGE_IDS, DIVISIONS, DRAWN_LINES, FACINGS, GAZES, LINES, ORDINARY_TYPES, VARIATIONS, canonicalJson, lineAllowed, signature, type Design } from '../src/lib/heraldry';
+import { BUILDER_DIVISIONS, CHARGE_IDS, DIVISIONS, DRAWN_LINES, FACINGS, GAZES, LINES, ORIENTATIONS, ORDINARY_TYPES, VARIATIONS, canonicalJson, lineAllowed, signature, type Design } from '../src/lib/heraldry';
 import { ORDINARY_MODS } from '../src/lib/heraldry/ordinaries';
 import { arms, charge, div, group, nd } from './helpers';
 import { generatedChargeAttributeDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
@@ -71,7 +71,7 @@ describe('the signature', () => {
   });
 
   it('every id ends in a letter, so a piece count or a separator after it reads unambiguously', () => {
-    for (const id of [...LINES, ...ORDINARY_TYPES, ...DIVISIONS, ...VARIATIONS, ...ORDINARY_MODS, ...FACINGS, ...GAZES, ...CHARGE_IDS]) expect(id).toMatch(/^[a-z][a-z0-9-]*[a-z]$/);
+    for (const id of [...LINES, ...ORDINARY_TYPES, ...DIVISIONS, ...VARIATIONS, ...ORDINARY_MODS, ...FACINGS, ...GAZES, ...ORIENTATIONS, ...CHARGE_IDS]) expect(id).toMatch(/^[a-z][a-z0-9-]*[a-z]$/);
   });
 
   it('writes a facing other than the charge\'s own and a gaze after the modifiers; a pair is its layout', () => {

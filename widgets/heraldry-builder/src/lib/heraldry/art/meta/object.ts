@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { HAND_DRAWN, PROPER } from './common';
+import { EVERY_WAY, HAND_DRAWN, PROPER } from './common';
 
 export const META_OBJECT = {
   key: {
@@ -10,7 +10,7 @@ export const META_OBJECT = {
     typeClass: 'key', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'long-ends', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'long-ends', allowed: [...EVERY_WAY, 'reversed'], wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: true, scale: 1.15, detail: 1, proper: null,
     glossName: 'key', glossPlural: 'keys', plain: null, search: [],
@@ -25,7 +25,7 @@ export const META_OBJECT = {
     typeClass: 'book', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.9, detail: 1, proper: PROPER.pages,
     glossName: 'open book', glossPlural: 'open books', plain: null, search: ['book'],
@@ -40,7 +40,7 @@ export const META_OBJECT = {
     typeClass: 'sword', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'long-ends', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'long-ends', allowed: [...EVERY_WAY, 'to-center'], wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: true, scale: 1.15, detail: 1, proper: PROPER.steel,
     glossName: 'sword', glossPlural: 'swords', plain: null, search: [],
@@ -55,7 +55,7 @@ export const META_OBJECT = {
     typeClass: 'crown', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'crown', glossPlural: 'crowns', plain: null, search: [],
@@ -70,7 +70,7 @@ export const META_OBJECT = {
     typeClass: 'anchor', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'long-ends', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'long-ends', allowed: EVERY_WAY, wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: true, scale: 1.15, detail: 0, proper: null,
     glossName: 'anchor', glossPlural: 'anchors', plain: null, search: [],

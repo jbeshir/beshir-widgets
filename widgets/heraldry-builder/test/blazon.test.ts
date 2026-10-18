@@ -63,6 +63,18 @@ describe('house style', () => {
     expect(say('azure', chg('eagle', 'or', pair('combattant')))).toBe('Azure, two eagles respectant Or.');
     expect(say('azure', ord('pale', 'argent'), chg('lion', 'or', pair('combattant')))).toBe('Azure, a pale argent between two lions combattant Or.');
   });
+
+  it('words an orientation after the facing, a crescent fesswise as an increscent, and to center after the layout (§1.3, O-W)', () => {
+    const turned = (id: string, orientation: string, extra: object = {}) => chg(id, 'argent', extra, { orientation });
+    expect(say('azure', turned('sword', 'fesswise'))).toBe('Azure, a sword fesswise argent.');
+    expect(say('azure', turned('sword', 'bendwise-sinister-inverted'))).toBe('Azure, a sword bendwise sinister inverted argent.');
+    expect(say('gules', turned('crescent', 'fesswise'))).toBe('Gules, an increscent argent.');
+    expect(say('or', turned('crescent', 'fesswise-reversed', { count: 3 }))).toBe('Or, three decrescents argent.');
+    expect(say('vert', turned('crescent', 'inverted'))).toBe('Vert, a crescent pendant argent.');
+    expect(say('azure', turned('sword', 'to-center', { count: 4, arrangement: 'in-cross' }))).toBe('Azure, four swords in cross points to center argent.');
+    expect(say('azure', turned('crescent', 'to-center', { count: 4, arrangement: 'in-cross' }))).toBe('Azure, four crescents in cross horns to center argent.');
+    expect(say('azure', turned('sword', 'fesswise', { count: 2, arrangement: 'in-pale' }))).toBe('Azure, in pale two swords fesswise argent.');
+  });
 });
 
 describe('charges in chief, in base or in canton beside the primary', () => {

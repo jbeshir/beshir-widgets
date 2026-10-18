@@ -1,7 +1,9 @@
-// Geometry of charge drawings as point rings (`pathRings`): their bounding box, whether they draw cleanly under even-odd, and the
-// kit the procedural charges are traced with (circles, arcs and stars as polylines, fitted to the box and written as a path).
+// Geometry of charge drawings as point rings (`pathRings`): their bounding box, whether they draw cleanly under even-odd, how much one is
+// scaled to fit its box turned, and the kit the procedural charges are traced with (circles, arcs and stars as polylines, fitted to the box
+// and written as a path).
 
-import { pointInPolygon, type Pt } from '../geometry';
+import { boundedMemo } from '../memo';
+import { pathRings, pointInPolygon, type Pt } from '../geometry';
 
 export interface Bbox { x0: number; y0: number; x1: number; y1: number }
 
@@ -100,4 +102,30 @@ export function ringsPath(rings: readonly (readonly Pt[])[]): string {
     const pts = ring.map(([x, y]) => `${decimal(x)} ${decimal(y)}`).filter((p, i, all) => p !== all[(i + all.length - 1) % all.length]);
     return `M${pts[0]}L${pts.slice(1).join(' ')}Z`;
   }).join('');
+}
+
+/** The larger side of the bounding box of points turned `turn` degrees (clockwise) about the middle of the box. */
+function longSide(points: readonly Pt[], turn: number): number {
+  const a = (turn * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+  const box = bboxOf(points.map(([x, y]): Pt => [(x - 50) * cos - (y - 50) * sin, (x - 50) * sin + (y - 50) * cos]));
+  return Math.max(box.x1 - box.x0, box.y1 - box.y0);
+}
+
+const fitMemo = boundedMemo<number>(2000);
+
+/**
+ * How much a drawing turned `turn` degrees is scaled so that its bounding box is no longer than upright (PLAN-D §0.3.4): it stays
+ * within its slot's square whichever way it is turned. Three decimals; 1 for no turn.
+ */
+export function turnFit(d: string, turn: number): number {
+  if (turn % 360 === 0) return 1;
+  return fitMemo(`${turn}|${d}`, () => {
+    const points = pathRings(d).flat();
+    return Math.min(1, Math.round((1000 * longSide(points, 0)) / longSide(points, turn)) / 1000);
+  });
+}
+
+/** How far a drawing reaches from the middle of its box: the radius of the smallest disc about (50, 50) that holds it. */
+export function reachOf(d: string): number {
+  return Math.max(...pathRings(d).flat().map(([x, y]) => Math.hypot(x - 50, y - 50)));
 }

@@ -169,7 +169,8 @@ function itemGaps(item: Item): Found[] {
   // Facing to sinister is the drawing mirrored; facing out of the shield has no drawing (PLAN-D §0.2.2: filed as a posture word).
   if (item.facing === 'affronty') gaps.push(gap('posture', 'affronty'));
   if (item.gaze && !gazeDrawn(item, item.gaze)) gaps.push(gap('posture', item.gaze));
-  if (item.orientation) gaps.push(gap('orientation', item.orientation));
+  // An orientation is drawn by turning the art (pose.ts) for the charges whose sidecar allows it; anything else keeps its gap.
+  if (item.orientation && !meta.orient.allowed.includes(item.orientation)) gaps.push(gap('orientation', item.orientation));
   for (const m of item.mods) if (!(meta.mods.includes(m.id) || meta.details.includes(m.id)) || m.count !== null || m.paint !== null) gaps.push(gap('charge-modifier', m.id));
   for (const p of item.parts) gaps.push(gap('charge-modifier', p.part));
   for (const h of item.holds) gaps.push(gap('charge-modifier', h.how));
@@ -201,6 +202,17 @@ function pairGaps(d: Design, g: Group, host: Group | null): Found[] {
   if (g.arrangement.k !== 'pair' || g.item.k !== 'charge') return [];
   const meta = CHARGES[g.item.charge];
   return meta.faces && g.count === 2 && g.item.facing === meta.defaultFacing && pairPlaced(d, g, host) ? [] : [gap('posture', g.arrangement.pair)];
+}
+
+/**
+ * A group's orientation is drawn charge by charge, except that two crossed charges lie as their saltire lies, and to center needs a group of
+ * charges to point at the middle of (§1.3).
+ */
+function orientationGaps(g: Group): Found[] {
+  // (an orientation the charge doesn't take is a gap of the item's: `itemGaps`)
+  if (g.item.k !== 'charge' || g.item.orientation === null || !CHARGES[g.item.charge].orient.allowed.includes(g.item.orientation)) return [];
+  if (g.arrangement.k === 'crossed') return [gap('orientation', g.item.orientation)];
+  return g.item.orientation === 'to-center' && g.count < 2 ? [gap('orientation', 'to-center', 'One charge pointing to the middle')] : [];
 }
 
 /** A single diminutive other than the main or overall band (which is its ordinary: `canonical`), "in canton a scarpe" (RULES-C §C.2); a baton is one by itself. */
@@ -310,6 +322,8 @@ function onChargeGaps(d: Design, host: Group): Found[] {
   const gaps: Found[] = [];
   if (chargeOnBox(host.item.charge, host.item.posture) === null) gaps.push(gap('placement', `on-${host.item.charge}`, `Charges on a ${CHARGES[host.item.charge].name}`));
   if (host.item.mods.length > 0) gaps.push(gap('multiple-groups', 'tertiary-on-modifier', ON_THAT_CHARGE));
+  // A turned charge's on-box is not turned with it.
+  if (host.item.orientation !== null && host.item.orientation !== 'palewise') gaps.push(gap('placement', 'on-turned-charge', ON_THAT_CHARGE));
   if (hasAround(d)) gaps.push(gap('multiple-groups', 'tertiary-on-charge-around', ON_THAT_CHARGE));
   return gaps;
 }
@@ -413,7 +427,7 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
   for (const { path, group, host } of walkGroups(d)) {
     const at: IssueAt = { k: 'group', path };
     const owner = group.item.k === 'ordinary' ? group.item.type : group.item.charge;
-    const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...pairGaps(d, group, host), ...placementGaps(d, group, host)];
+    const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...pairGaps(d, group, host), ...orientationGaps(group), ...placementGaps(d, group, host)];
     if (host) gaps.push(...onChargeGaps(d, host));
     if (againstAstrideLine(d, group, host)) gaps.push(gap('placement', 'counterchanged-chevron'));
     if (inThree && (group.paint.k === 'counterchanged' || (group.item.k === 'ordinary' && group.item.cotised?.paint.k === 'counterchanged'))) {

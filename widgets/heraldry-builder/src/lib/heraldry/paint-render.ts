@@ -69,14 +69,14 @@ const partyOf = (p: Paint): PartyPaint => asParty(p) ?? notSupported({ category:
  * A charge in its natural colours: its palette's one fill, or its two split per fess through the middle of each charge (the flame's
  * gules and Or), turned with the charge. `slots` are the drawn boxes.
  */
-function properFills(group: Group, slots: readonly Slot[]): SlotFill[] {
+function properFills(group: Group, slots: readonly Slot[], poses: readonly ArtPose[]): SlotFill[] {
   const palette = group.item.k === 'charge' ? CHARGES[group.item.charge].proper : null;
   if (!palette) return notSupported({ category: 'proper', detail: group.item.k === 'charge' ? group.item.charge : group.item.type });
   const [whole, lower] = palette.fills;
   const solid = (hex: string): Fill => ({ k: 'solid', colour: { k: 'proper', hex } });
   if (lower === undefined) return [{ fill: solid(whole), slots: slots.map((_, i) => i) }];
   return slots.map((s, i) => ({
-    fill: { k: 'split', parts: partitionRegions('per-fess', s, s.rotation).map((clip, k) => ({ clip, fill: solid(k === 0 ? whole : lower) })) },
+    fill: { k: 'split', parts: partitionRegions('per-fess', s, s.rotation + poses[i].turn).map((clip, k) => ({ clip, fill: solid(k === 0 ? whole : lower) })) },
     slots: [i],
   }));
 }
@@ -152,7 +152,7 @@ export function chargeFills(d: Design, group: Group, host: Group | null, slots: 
   const all = slots.map((_, i) => i);
   switch (group.paint.k) {
     case 'tincture': case 'fur': case 'treated': return [{ fill: paintFill(group.paint, slots.length ? chargeFurScale(slots[0].size) : ORDINARY_FUR_SCALE), slots: all }];
-    case 'proper': return properFills(group, slots);
+    case 'proper': return properFills(group, slots, poses);
     case 'counterchanged': {
       if (d.kind !== 'arms' || host) return [];
       const parts = slots.map((s) => counterchangedSlotParts(d.field, s, shape));
@@ -166,7 +166,7 @@ export function chargeFills(d: Design, group: Group, host: Group | null, slots: 
     case 'divided': {
       const party = partyOf(group.paint);
       const mirrored: PartyPaint = { ...party, division: MIRRORED_DIVISION[party.division] ?? party.division };
-      return slots.map((s, i) => ({ fill: partyFill(poses[i].mirror ? mirrored : party, s, s.rotation), slots: [i] }));
+      return slots.map((s, i) => ({ fill: partyFill(poses[i].mirror ? mirrored : party, s, s.rotation + poses[i].turn), slots: [i] }));
     }
     case 'variation': {
       const varied = variationOf(group.paint);
@@ -174,7 +174,7 @@ export function chargeFills(d: Design, group: Group, host: Group | null, slots: 
       const charge = group.item.k === 'charge' ? group.item.charge : null;
       return slots.map((s, i) => {
         const { x, y, size } = charge ? drawnBox(s, charge) : s;
-        return { fill: variationFill(poses[i].mirror ? mirrored : varied, { x0: x - size / 2, y0: y - size / 2, x1: x + size / 2, y1: y + size / 2 }, s.rotation), slots: [i] };
+        return { fill: variationFill(poses[i].mirror ? mirrored : varied, { x0: x - size / 2, y0: y - size / 2, x1: x + size / 2, y1: y + size / 2 }, s.rotation + poses[i].turn), slots: [i] };
       });
     }
     case 'stain': return notSupported({ category: 'tincture', detail: group.paint.stain });

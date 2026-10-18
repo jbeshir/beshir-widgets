@@ -34,7 +34,8 @@ function paint(p: Paint): string {
 function charge(c: Charge): string {
   const gaze = c.gaze ? `~gaze-${c.gaze}` : '';
   const facing = c.facing !== CHARGES[c.charge].defaultFacing ? `~facing-${c.facing}` : '';
-  return `c.${c.charge}${c.posture ? `.${c.posture}` : ''}${c.mods.map((m) => `+${m.id}`).join('')}${gaze}${facing}`;
+  const orientation = c.orientation ? `~orient-${c.orientation}` : '';
+  return `c.${c.charge}${c.posture ? `.${c.posture}` : ''}${c.mods.map((m) => `+${m.id}`).join('')}${gaze}${facing}${orientation}`;
 }
 
 function item(i: Item): string {

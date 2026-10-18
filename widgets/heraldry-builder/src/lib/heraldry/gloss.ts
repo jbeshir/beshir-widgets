@@ -7,7 +7,7 @@ import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
 import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Pair, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, ordinaryEdgeHost, type ComplexLine, type EdgeName, type Line } from './lines';
-import { FACING_LABEL, GAZE_LABEL, LINE_LOOK } from './plain-words';
+import { FACING_LABEL, GAZE_LABEL, LINE_LOOK, ORIENTATION_LABEL } from './plain-words';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenHost, betweenWords, contextOf, coPrimaries, cornerBesideBend, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout, type QuarterPosition } from './arrangement';
@@ -288,7 +288,8 @@ function chargesSubject(g: Group, count: number): string {
   // Facing to dexter is how pictures face: only another way is said ("facing right", "looking back").
   const gaze = g.item.gaze && GAZE_LABEL[g.item.gaze].plain.toLowerCase();
   const facing = g.item.facing && g.item.facing !== 'to-dexter' ? FACING_LABEL[g.item.facing].plain.toLowerCase() : null;
-  return [lead, colour, noun, posture, gaze, facing].filter(Boolean).join(' ');
+  const orientation = g.item.orientation && ORIENTATION_LABEL[g.item.orientation].plain.toLowerCase();
+  return [lead, colour, noun, posture, gaze, facing, orientation].filter(Boolean).join(' ');
 }
 
 /** "three red five-pointed stars, two above one"; counterchanged: "…stars in the opposite colours of the field (…), two above one". */

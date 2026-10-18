@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { GENERATED, HAND_DRAWN, PROPER } from './common';
+import { EVERY_WAY, GENERATED, HAND_DRAWN, PROPER } from './common';
 
 export const META_PLANT = {
   rose: {
@@ -10,7 +10,7 @@ export const META_PLANT = {
     typeClass: 'rose', typeOf: null, typeToken: 'flower-4-6', postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'radial', allowed: ['palewise', 'inverted'], wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.88, detail: 0, proper: PROPER.rose,
     glossName: 'rose', glossPlural: 'roses', plain: null, search: [],
@@ -25,7 +25,7 @@ export const META_PLANT = {
     typeClass: 'tree', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 2, proper: PROPER.foliage,
     glossName: 'tree', glossPlural: 'trees', plain: null, search: [],
@@ -40,7 +40,7 @@ export const META_PLANT = {
     typeClass: 'fleur-de-lys', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'lily (fleur-de-lis)', glossPlural: 'lilies (fleurs-de-lis)', plain: { word: 'lily', plural: 'lilies' }, search: ['lily', 'lilies', 'fleur'],
@@ -55,7 +55,7 @@ export const META_PLANT = {
     typeClass: 'rose', typeOf: null, typeToken: 'flower-3', postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'radial', allowed: ['palewise', 'inverted'], wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'three-lobed clover leaf', glossPlural: 'three-lobed clover leaves', plain: { word: 'clover', plural: 'clovers' }, search: ['shamrock'],
@@ -70,7 +70,7 @@ export const META_PLANT = {
     typeClass: 'rose', typeOf: null, typeToken: 'flower-4-6', postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [], wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'four-petalled flower', glossPlural: 'four-petalled flowers', plain: null, search: ['flower'],
@@ -85,7 +85,7 @@ export const META_PLANT = {
     typeClass: 'rose', typeOf: null, typeToken: 'flower-4-6', postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    orient: { drawn: 'palewise', cls: 'radial', allowed: ['palewise', 'inverted'], wording: {} },
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'five-petalled flower', glossPlural: 'five-petalled flowers', plain: null, search: ['flower'],

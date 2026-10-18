@@ -24,7 +24,13 @@ export type Facing = (typeof FACINGS)[number];
 export const GAZES = ['guardant', 'regardant', 'guardant-regardant'] as const;
 export type Gaze = (typeof GAZES)[number];
 
-export const ORIENTATIONS = ['palewise', 'fesswise', 'bendwise', 'bendwise-sinister', 'inverted', 'reversed'] as const;
+/**
+ * Which way an inanimate charge (or an insect) points, as directions on the shield for art drawn palewise top up (PLAN-D §1.3): fesswise
+ * has its top to dexter, bendwise to dexter chief, bendwise sinister to sinister chief, and each reversed or inverted the other way;
+ * reversed is the drawing mirrored; to center turns the top of each charge to the middle of its group.
+ */
+export const ORIENTATIONS = ['palewise', 'fesswise', 'fesswise-reversed', 'bendwise', 'bendwise-inverted', 'bendwise-sinister',
+  'bendwise-sinister-inverted', 'inverted', 'reversed', 'to-center'] as const;
 export type Orientation = (typeof ORIENTATIONS)[number];
 
 export const CHARGE_FORMS = ['head', 'demi', 'jambe', 'skull'] as const;
