@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, THIN_ORDINARIES, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, THIN_ORDINARIES, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -64,17 +64,20 @@ function icon(input: unknown): Design {
 
 /** The tinctures a division's icon is drawn in, one per part. */
 const iconParts = (division: Division): string[] => ['or', 'azure', 'gules'].slice(0, partCount(division));
+/** The tile designs already made, by tile: a re-render never resolves a picture again (the previews draw in the shape the page is showing, so no key needs one). */
+const TILE_ICONS = new Map<string, Design>();
+const tileIcon = (key: string, make: () => Design): Design => {
+  let design = TILE_ICONS.get(key);
+  if (!design) TILE_ICONS.set(key, (design = make()));
+  return design;
+};
 const ICON_FIELD = (division: Division | null): Design =>
-  icon({ v: 2, field: division ? { k: 'divided', division, parts: iconParts(division) } : 'azure', groups: [] });
-/** The "More divisions" tiles' designs, made once. */
-const MORE_DIVISION_ICONS: ReadonlyMap<Division, Design> = new Map(MORE_DIVISIONS.map((d) => [d, ICON_FIELD(d)]));
+  tileIcon(`field|${division}`, () => icon({ v: 2, field: division ? { k: 'divided', division, parts: iconParts(division) } : 'azure', groups: [] }));
 /** The badge tile: a star standing alone, with no shield behind it. */
 const ICON_BADGE: Design = icon({ v: 2, kind: 'badge', groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'or' }] });
 /** A band or shape tile: as the builder first draws it (a tressure double). */
 const ICON_ORDINARY = (type: OrdinaryType): Design =>
-  icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, count: ORDINARY_COUNTS[type]?.[0] ?? 1, paint: 'or' }] });
-/** The "More shapes" tiles' designs, made once. */
-const MORE_ICONS: ReadonlyMap<OrdinaryType, Design> = new Map(MORE_ORDINARIES.map((t) => [t, ICON_ORDINARY(t)]));
+  tileIcon(`ordinary|${type}`, () => icon({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type }, count: ORDINARY_COUNTS[type]?.[0] ?? 1, paint: 'or' }] }));
 
 function LayerIssues({ issues }: { issues: Issue[] }) {
   if (!issues.length) return null;
@@ -247,7 +250,7 @@ function FieldEdges({ design, division, shape, onChange }: { design: Design; div
           <RadioGroup label="More divisions" class="icon-grid icon-grid-field" testid="field-more-division-select">
             {MORE_DIVISIONS.map((d) => (
               <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={nameOf(DIVISION_LABEL[d])} title={DIVISION_LABEL[d].plain} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
-                <Shield design={MORE_DIVISION_ICONS.get(d)!} shape={shape} size={30} label={null} />
+                <Shield design={ICON_FIELD(d)} shape={shape} size={30} label={null} />
                 <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
               </ChoiceButton>
             ))}
@@ -338,10 +341,13 @@ function ordinarySummary(design: Design): string {
   return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryShapeWords(groupAt(design, path)), outlineWords(design, path), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
 }
 
-/** The outline of a band in everyday words ("cotised", "doubly cotised"); empty when it has none. */
+/** The outline of a band in everyday words ("edged in gold", "doubly cotised in silver"); empty when it has none. */
 function outlineWords(design: Design, path: GroupPath): string {
   const outline = outlineAt(design, path);
-  return outline === 'none' ? '' : OUTLINE_LABEL[outline].term;
+  if (outline === 'none') return '';
+  const tincture = outlineTinctureOf(design, path);
+  const name = outline === 'fimbriated' ? 'edged' : OUTLINE_LABEL[outline].term;
+  return tincture ? `${name} in ${lower(TINCTURE_LABEL[tincture].plain)}` : name;
 }
 
 /** The shape toggles, position and number of a band or shape in everyday words ("upside down, raised", "double", "three, thin"); empty when it has none. */
@@ -384,7 +390,7 @@ export function OrdinaryStep({ design, shape, onChange, issues, accordion }: Sha
             <RadioGroup label="More shapes" class="icon-grid icon-grid-ordinary" testid="ordinary-more-select">
               {MORE_ORDINARIES.map((t) => (
                 <ChoiceButton key={t} testid={`ordinary-${t}`} checked={tile === t} label={nameOf(ORDINARY_LABEL[t])} title={ORDINARY_LABEL[t].plain} onSelect={() => onChange(setOrdinary(design, t))} onBlocked={never} class="icon-choice">
-                  <Shield design={MORE_ICONS.get(t)!} shape={shape} size={30} label={null} />
+                  <Shield design={ICON_ORDINARY(t)} shape={shape} size={30} label={null} />
                   <span class="choice-label">{capitalise(ORDINARY_LABEL[t].term)}</span>
                 </ChoiceButton>
               ))}

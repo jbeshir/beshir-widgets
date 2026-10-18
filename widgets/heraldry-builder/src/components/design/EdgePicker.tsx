@@ -1,6 +1,7 @@
 // The edge of a division, stripes, band or shape: one option per line, each with a small picture of the shape drawn with it, and, for a
 // quartered field or a two-edged band, which of its lines or edges carries it. The content of "More … and edges…".
 
+import { Fragment } from 'preact';
 import { LINE_LABEL, resolve, type Choice, type Design, type EdgeSide, type FieldShape, type Line } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { Shield } from '../Shield';
@@ -23,6 +24,14 @@ function lineIcon(key: string, make: (line: Line) => object, line: Line, shape: 
   return design;
 }
 
+/** The lines in the order the Society's blazons use them (Laurel's armorial: embattled, wavy, indented, engrailed, …); the rest follow in the library's order. */
+const COMMON_LINES: readonly Line[] = ['plain', 'embattled', 'wavy', 'indented', 'engrailed', 'rayonny', 'enarched', 'invected'];
+
+/** The chips in that order, the lines before the break first. */
+function byFrequency(lines: Choice<Line>[]): Choice<Line>[] {
+  const rank = (c: Choice<Line>) => { const i = COMMON_LINES.indexOf(c.value); return i < 0 ? COMMON_LINES.length : i; };
+  return lines.map((c, n) => ({ c, n })).sort((a, b) => rank(a.c) - rank(b.c) || a.n - b.n).map(({ c }) => c);
+}
 
 interface Props {
   /** The options are <testid>-select, <testid>-<line> and <testid>-side-<side>. */
@@ -50,17 +59,20 @@ export function EdgePicker({ testid, noun, iconKey, icon, shape, lines, line, on
     <div class="fur-picker" data-testid={testid}>
       <p class="picker-legend">Edge of {noun}</p>
       <RadioGroup label={`Edge of ${noun}`} class="icon-grid icon-grid-field" testid={`${testid}-select`}>
-        {lines.map((c) => {
+        {byFrequency(lines).map((c, n) => {
           const label = LINE_LABEL[c.value];
           const name = c.value === 'plain' ? 'Straight' : capitalise(label.term);
           return (
-            <ChoiceButton
-              key={c.value} testid={`${testid}-${c.value}`} checked={line === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
-              label={`${name}, ${label.plain.toLowerCase()}`} title={label.plain} onSelect={() => onLine(c.value)} onBlocked={explain} class="icon-choice"
-            >
-              <Shield design={lineIcon(iconKey, icon, c.value, shape)} shape={shape} size={30} label={null} />
-              <span class="choice-label">{name}</span>
-            </ChoiceButton>
+            <Fragment key={c.value}>
+              {n === COMMON_LINES.length && <span class="icon-grid-break" role="presentation" />}
+              <ChoiceButton
+                testid={`${testid}-${c.value}`} checked={line === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
+                label={`${name}, ${label.plain.toLowerCase()}`} title={label.plain} onSelect={() => onLine(c.value)} onBlocked={explain} class="icon-choice"
+              >
+                <Shield design={lineIcon(iconKey, icon, c.value, shape)} shape={shape} size={30} label={null} />
+                <span class="choice-label">{name}</span>
+              </ChoiceButton>
+            </Fragment>
           );
         })}
       </RadioGroup>

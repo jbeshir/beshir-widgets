@@ -1,5 +1,5 @@
 // Radio-style option buttons shared by the builder's icon grids and segmented controls.
-// A RadioGroup keeps exactly one option tabbable (the checked one, else the first) and moves focus
+// A RadioGroup keeps exactly one option tabbable (the checked one, else the first allowed one) and moves focus
 // with the arrow keys, selecting allowed options as it goes. Blocked options stay focusable and
 // visible; activating one explains it instead of applying it. An option that changes something else
 // too says so in its accessible description and shows a small arrows mark.
@@ -22,7 +22,7 @@ export function RadioGroup({ label, describedBy, testid, class: cls, children }:
 
   useLayoutEffect(() => {
     const items = Array.from(ref.current?.querySelectorAll<HTMLElement>('[role=radio]') ?? []);
-    const checked = items.find((el) => el.getAttribute('aria-checked') === 'true') ?? items[0];
+    const checked = items.find((el) => el.getAttribute('aria-checked') === 'true') ?? items.find((el) => el.getAttribute('aria-disabled') !== 'true') ?? items[0];
     for (const el of items) el.tabIndex = el === checked ? 0 : -1;
   });
 

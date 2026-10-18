@@ -434,6 +434,21 @@ describe('the stripes and checks picker', () => {
 describe('"More shapes and edges…" under the band', () => {
   const render = (d: Design) => renderToString(h(OrdinaryStep, { ...base, design: d }));
 
+  it('draws no preview inside a closed disclosure, and the edge chips come the commonest first with a break after the eighth', () => {
+    const closed = render(setOrdinary(DEFAULT_DESIGN, 'fess'));
+    const inside = (markup: string) => /<details[^>]*class="more-paint more-shapes"[\s\S]*?<\/details>/.exec(markup)![0];
+    expect(inside(closed)).not.toContain('<svg');
+    expect(inside(closed)).not.toContain('icon-choice');
+    const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
+    const open = render(setOrdinaryLine(fess, ordinaryPath(fess)!, 'embattled'));
+    const chips = [...open.matchAll(/\sid="ordinary-edge-([a-z]+)"/g)].map((m) => m[1]).filter((id) => id !== 'select' && !id.startsWith('side'));
+    expect(chips.slice(0, 8)).toEqual(['plain', 'embattled', 'wavy', 'indented', 'engrailed', 'rayonny', 'enarched', 'invected']);
+    expect(chips.length).toBeGreaterThan(8);
+    const before = open.slice(0, open.indexOf('id="ordinary-edge-' + chips[8] + '"'));
+    expect(before.lastIndexOf('icon-grid-break')).toBeGreaterThan(before.lastIndexOf('id="ordinary-edge-' + chips[7] + '"'));
+    expect(open.match(/icon-grid-break/g)).toHaveLength(1);
+  });
+
   it('is there closed from the start, with the More shapes row; a lined band opens it on its lines and edges', () => {
     expect(shapeDisclosures(render(DEFAULT_DESIGN))).toEqual([{ testid: 'ordinary-shape-more', open: false }]);
     expect(render(DEFAULT_DESIGN)).not.toContain('ordinary-more-select');
@@ -524,7 +539,7 @@ describe('"More shapes and edges…" under the band', () => {
     expect(shapeDisclosures(open)).toEqual([{ testid: 'ordinary-shape-more', open: true }]);
     const got = ids(open);
     for (const id of ['ordinary-outline-tincture', 'swatch-outline-argent', 'ordinary-cotise-edge-select', 'ordinary-cotise-edge-plain', 'ordinary-cotise-edge-wavy']) expect(got, id).toContain(id);
-    expect(renderToString(h(OrdinaryStep, { ...base, accordion: { open: false, onToggle: noop }, design: cotised }))).toMatch(/step-ordinary-summary">[^<]*, cotised, /);
+    expect(renderToString(h(OrdinaryStep, { ...base, accordion: { open: false, onToggle: noop }, design: cotised }))).toMatch(/step-ordinary-summary">[^<]*, cotised in [a-z ]+, /);
     // On a divided field the cotises may be counterchanged.
     const divided = setOrdinary(setDivision(DEFAULT_DESIGN, 'per-pale'), 'fess');
     expect(ids(render(setOrdinaryOutline(divided, ordinaryPath(divided)!, 'cotised')))).toContain('swatch-outline-counterchanged');

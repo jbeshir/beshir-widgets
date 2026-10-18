@@ -319,6 +319,18 @@ the line (the charge rule 7 still applies). Cotises that followed the band's lin
 derives the tagger's line words from `LINE_SPELLINGS` (`LINES` in `gap-terms.ts`, apart from the words `gaps.ts` reads by context: potenty,
 arrondi); "beviled" and "bevelled" are bevilled, "rompú" rompu.
 
+**Polish of the phase-C controls** (C15): the default flow is unchanged (three steps; the Background and Band steps each gain one closed row,
+**More divisions and edges…** / **More shapes and edges…**, `field-shape-more` / `ordinary-shape-more`, whose body, previews included, is drawn only
+while it is open). The tile pictures are resolved once (`BuilderSteps.tsx` `tileIcon`, `EdgePicker.tsx` `lineIcon`) so a re-render never resolves
+one again. The edge chips (`<testid>-edge-<line>`) come in the order the Society's blazons use the lines (plain, embattled, wavy, indented,
+engrailed, rayonny, enarched, invected), then a dashed break (`icon-grid-break`, no nested disclosure) and the rest. A collapsed step's summary says the
+line, toggles and outline in words ("Diagonal band ↘, upside down, cotised in white, embattled, gold"). Every radio group has exactly one tab stop —
+the checked option, else the first allowed one — and arrow keys move through them; toggles are `aria-pressed` buttons; a blocked option opens
+the explainer instead of applying. `test/builder-edges.test.ts` is the reachability oracle for the edge row (every drawn line × every drawn
+division, counted variation, ordinary, and a chief or bordure beside a fess: offered, allowed exactly when some tincture makes the design pass
+`unsupportedIssues`, `structuralIssues` and `tinctureIssues`, and choosing it gives that design; edges survive a change of division or band; toggles,
+outlines and counts held to the same oracle). The journey has the state `ordinary-embattled-cotised`.
+
 ## Tinctures and hatching
 
 Eight tinctures: three metals and five colours. The rule of tincture follows the SCA's (SENA A3B,
@@ -934,6 +946,7 @@ npm run sca:ignore
 npm run favicon
 ```
 
+- `test/builder-edges.test.ts`: the edge-row reachability oracle (see "Polish of the phase-C controls").
 - `test/ordinary-geometry.test.ts`: ordinaries and division regions built from contours draw exactly what phase B drew (body, fill rule, centre, box and samples of every ordinary in every shape, captured in `test/fixtures/ordinary-geometry.json`), an ordinary's envelopes (the body's rings when plain or bowed, widened and narrowed by how far its lines swing otherwise), `partIndexAt` agrees with the analytic test, a division's regions partition the field, and an ordinary layer with only a body renders the phase-B markup.
 - `test/builder.test.ts` "lines on the band, the top band and the border" and `test/builder-steps.test.ts` "More shapes and edges…": the band's line and edge-side transitions, the lines each host offers, `setOrdinary` keeping a line, and the closed disclosures.
 - `test/ordinary-lines.test.ts`: lines on ordinaries (the lines tail — triangular, rompu, bevilled, a pile ployé: geometry, hosts, rules, words, conflict — too) — widened bands whose two edges align; counter-embattled vs bretessed; one-edge lines; symmetric cross and saltire arms; the bordure's ring in every shape; every allowed line on every drawn ordinary within its envelopes; charges between and on lined ordinaries (counts 1–3; heater, a rotating fifth elsewhere); the rules (one line per ordinary, jagged lines on both edges, dancetty, core-practice steps, A3D1c, A3B4b); A5G4 (RULES-C §B.7); words, gloss and signature.

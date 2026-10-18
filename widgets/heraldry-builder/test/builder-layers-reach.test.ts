@@ -229,6 +229,12 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
   ['a field per bend bevilled', arms({ ...div('per-bend', 'argent', 'gules'), lines: { a: 'bevilled' } }), 'Per bend bevilled argent and gules.'],
   ['a bend bevilled between two roundels', arms('argent', group(ordinary('bend', { lines: { a: 'bevilled', b: 'bevilled' } }), 'gules'), group(charge('roundel'), 'azure', { count: 2 })), 'Argent, a bend bevilled gules between two roundels azure.'],
   ['a pile ployé', arms('argent', group(ordinary('pile', { lines: { a: 'ploye', b: 'ploye' } }), 'azure')), 'Argent, a pile ployé azure.'],
+  ['a fess counter-embattled and cotised', arms('or', group(ordinary('fess', { lines: { a: 'embattled', b: 'embattled' }, cotised: { count: 1, paint: 'sable' } }), 'gules')),
+    'Or, a fess embattled counter-embattled gules cotised sable.'],
+  ['per pale wavy with a chevron inverted counterchanged', arms({ ...div('per-pale', 'argent', 'azure'), lines: { a: 'wavy' } }, group(ordinary('chevron', { mods: ['inverted'] }), 'counterchanged')),
+    'Per pale wavy argent and azure, a chevron inverted counterchanged.'],
+  ['three bars wavy and a canton', arms('gules', group(ordinary('bar', { lines: { a: 'wavy' } }), 'argent', { count: 3 }), group(ordinary('canton'), 'or')),
+    'Gules, three bars wavy argent and a canton Or.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {
