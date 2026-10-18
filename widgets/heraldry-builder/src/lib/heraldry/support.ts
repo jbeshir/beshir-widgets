@@ -7,7 +7,7 @@ import { capitalise } from './words';
 import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
 import { liesAstride, specOf } from './ordinary-geometry';
-import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_PIECES, isDrawnTreatment, type Division, type Variation } from './divisions';
+import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, type Division, type Variation } from './divisions';
 import {
   asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
@@ -115,9 +115,13 @@ function paintFound(p: Paint, inField: boolean, owner: string): Found[] {
     case 'semy': return semyGaps(p, owner);
     case 'divided': {
       const gaps: Found[] = [];
+      // the divisions beyond the builder's first seven are cut only across the field: as the paint of a band or a charge they are not drawn
       if (!DRAWN_DIVISIONS.includes(p.division)) gaps.push(gap('division', p.division));
+      else if (!inField && !BUILDER_DIVISIONS.includes(p.division)) gaps.push(gap('division', `${p.division}-on-charge`));
       gaps.push(...partitionLineGaps(p.lines, inField, p.division));
-      if (p.pieces !== null) gaps.push(gap('division', `${p.division}-pieces`));
+      if (p.division === 'gyronny' ? p.pieces !== null && !GYRONNY_PIECES.includes(p.pieces) : p.pieces !== null) {
+        gaps.push(gap('division', p.division === 'gyronny' ? `gyronny-pieces-${p.pieces}` : `${p.division}-pieces`));
+      }
       for (const part of p.parts) {
         gaps.push(...(part.k === 'divided' ? [gap('division', 'nested', 'A divided part of a divided field')] : part.k === 'variation' ? [gap('field-treatment', part.variation)] : part.k === 'proper' ? [gap('proper', 'party', 'Natural colours on part of a divided band or picture')] : paintFound(part, true, owner)));
       }

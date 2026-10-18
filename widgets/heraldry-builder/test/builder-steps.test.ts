@@ -25,10 +25,10 @@ describe('the default flow keeps its test ids', () => {
     const got = field(DEFAULT_DESIGN);
     for (const id of ['step-field', 'field-division-select', 'field-kind-plain', 'division-per-pale', 'division-quarterly', 'field-tincture-1', 'swatch-field1-azure']) expect(got, id).toContain(id);
     expect(got).not.toContain('field-tincture-2');
-    // Beyond phase A's tiles and colours, only the Badge tile and the one closed "More colours and patterns…".
-    const phaseA = [...got].filter((id) => !/^(division-badge|field-more)$/.test(id));
+    // Beyond phase A's tiles and colours, only the Badge tile and the two closed disclosures: "More colours and patterns…" and (phase C) "More divisions and edges…".
+    const phaseA = [...got].filter((id) => !/^(division-badge|field-more|field-shape-more)$/.test(id));
     expect(phaseA.every((id) => /^(step-field|field-division-select|field-kind-plain|division-[a-z-]+|field-tincture-1|swatch-field1-[a-z]+|tl-field1)$/.test(id)), phaseA.join()).toBe(true);
-    expect(got.size - phaseA.length).toBe(2);
+    expect(got.size - phaseA.length).toBe(3);
   });
 
   it('Band or shape', () => {
@@ -234,16 +234,28 @@ const shapeDisclosures = (markup: string) => [...markup.matchAll(/<details[^>]*c
 describe('"More divisions and edges…"', () => {
   const render = (d: Design) => renderToString(h(FieldStep, { ...fieldBase, design: d }));
 
-  it('a divided background shows one closed disclosure with the edge row inside; the default background shows none', () => {
-    expect(shapeDisclosures(render(DEFAULT_DESIGN))).toEqual([]);
+  it('every background shows one closed disclosure with the division and edge rows inside', () => {
+    expect(shapeDisclosures(render(DEFAULT_DESIGN))).toEqual([{ testid: 'field-shape-more', open: false }]);
     const divided = render(setDivision(DEFAULT_DESIGN, 'per-pale'));
     expect(shapeDisclosures(divided)).toEqual([{ testid: 'field-shape-more', open: false }]);
     expect(divided).toContain('More divisions and edges…');
     expect(divided).not.toContain('field-edge-select');
     expect(shapeDisclosures(render(setVariation(DEFAULT_DESIGN, 'barry')))).toEqual([{ testid: 'field-shape-more', open: false }]);
-    // Chevronny's corners take no line, a pattern without stripes none either.
-    expect(shapeDisclosures(render(setVariation(DEFAULT_DESIGN, 'chevronny')))).toEqual([]);
-    expect(shapeDisclosures(render(setVariation(DEFAULT_DESIGN, 'checky')))).toEqual([]);
+    // Chevronny's corners take no line, a pattern without stripes none either: the disclosure is still there, for the divisions.
+    expect(shapeDisclosures(render(setVariation(DEFAULT_DESIGN, 'chevronny')))).toEqual([{ testid: 'field-shape-more', open: false }]);
+    expect(shapeDisclosures(render(setVariation(DEFAULT_DESIGN, 'checky')))).toEqual([{ testid: 'field-shape-more', open: false }]);
+  });
+
+  it('opens on a division behind it, with its tiles; a gyronny also offers its wedge counts and its arrondi line', () => {
+    const inverted = render(setDivision(DEFAULT_DESIGN, 'per-chevron-inverted'));
+    expect(shapeDisclosures(inverted)).toEqual([{ testid: 'field-shape-more', open: true }]);
+    const got = ids(inverted);
+    for (const id of ['field-more-division-select', 'division-per-chevron-inverted', 'division-per-chevron-throughout', 'division-gyronny', 'field-edge-ploye']) expect(got, id).toContain(id);
+    expect(got).not.toContain('field-pieces-6');
+    expect(inverted).toMatch(/data-testid="division-per-chevron-inverted"[^>]*><button[^>]*aria-checked="true"/);
+    const gyronny = ids(render(setDivision(DEFAULT_DESIGN, 'gyronny')));
+    for (const id of ['field-pieces-6', 'field-pieces-8', 'field-pieces-12', 'field-edge-arrondi']) expect(gyronny, id).toContain(id);
+    expect(ids(render(setDivision(DEFAULT_DESIGN, 'per-pale')))).not.toContain('field-edge-arrondi');
   });
 
   it('a lined background opens it, on a row of the lines the division takes', () => {

@@ -7,7 +7,7 @@ import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
 import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
-import { DEFAULT_PIECES, type Division, type Variation } from './divisions';
+import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenHost, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout } from './arrangement';
 import { specOf } from './ordinary-geometry';
@@ -78,7 +78,7 @@ function article(next: string): string {
 const LINE_GLOSS: Record<ComplexLine, string> = {
   embattled: 'battlemented', wavy: 'wavy', engrailed: 'scalloped', invected: 'reverse-scalloped', indented: 'zigzag', dancetty: 'large zigzag',
   nebuly: 'cloud-shaped', raguly: 'ragged', rayonny: 'flame-shaped', dovetailed: 'dovetailed', urdy: 'pointed', potenty: 'T-shaped',
-  bretessed: 'double-battlemented', grady: 'stepped', enarched: 'arched', ploye: 'bowed',
+  bretessed: 'double-battlemented', grady: 'stepped', enarched: 'arched', ploye: 'bowed', arrondi: 'curved',
 };
 
 /** " by a wavy line" for a complex line, nothing for a plain one. */
@@ -92,7 +92,7 @@ function quarterlyLines({ a, b }: Lines): string {
 }
 
 /** How a division splits a shape, with the plain word of each part: "split vertically by a wavy line, blue on the left and gold on the right". */
-function divisionGloss(division: Division, lines: Lines, c1: string, c2: string): string {
+function divisionGloss(division: Division, lines: Lines, pieces: number | null, c1: string, c2: string): string {
   const by = byLine(lines.a), of = lines.a === 'plain' ? '' : ` of ${LINE_GLOSS[lines.a]} lines`;
   switch (division) {
     case 'per-pale': return `split vertically${by}, ${c1} on the left and ${c2} on the right`;
@@ -101,6 +101,9 @@ function divisionGloss(division: Division, lines: Lines, c1: string, c2: string)
     case 'per-bend-sinister': return `split diagonally from top-right to bottom-left${by}, ${c1} above and ${c2} below`;
     case 'per-saltire': return `divided by an X${of}, ${c1} top and bottom and ${c2} left and right`;
     case 'per-chevron': return `divided by an upside-down V${of}, ${c1} above and ${c2} below`;
+    case 'per-chevron-inverted': return `divided by a V${of}, ${c1} above and ${c2} below`;
+    case 'per-chevron-throughout': return `divided by an upside-down V${of} reaching the top edge, ${c1} above and ${c2} below`;
+    case 'gyronny': return `divided into ${pieces ?? DEFAULT_GYRONNY_PIECES} wedges meeting in the middle${lines.a === 'plain' ? '' : ` (the dividing lines are ${LINE_GLOSS[lines.a]})`}, alternately ${c1} and ${c2}, with ${c1} in the wedge above the middle line on the left`;
     case 'quarterly': return `divided into four quarters${quarterlyLines(lines)}, ${c1} top-left and bottom-right, ${c2} top-right and bottom-left`;
     default: return notSupported({ category: 'division', detail: division });
   }
@@ -147,7 +150,7 @@ function fieldGloss(d: Design): string {
   if (d.field.k === 'semy') return `A shield of ${c1}`;
   if (d.field.k === 'fur' || d.field.k === 'treated') return `A shield covered in ${c1}`;
   if (d.field.k !== 'divided') return notSupported({ category: 'field-treatment', detail: d.field.k });
-  return `A shield ${divisionGloss(d.field.division, d.field.lines, c1, c2)}`;
+  return `A shield ${divisionGloss(d.field.division, d.field.lines, d.field.pieces, c1, c2)}`;
 }
 
 /** "in the opposite colours of the field (blue on gold, gold on blue)" for counterchanged groups on a divided field. */
@@ -167,7 +170,7 @@ function paintClause(d: Design, p: Paint): string | null {
   const varied = asVariation(p);
   if (varied) return `in ${variationGloss(varied.variation, varied.pieces, varied.lines.a, TINCTURE_GLOSS[varied.parts[0].t], TINCTURE_GLOSS[varied.parts[1].t])}`;
   const party = asParty(p);
-  return party ? divisionGloss(party.division, party.lines, TINCTURE_GLOSS[party.parts[0].t], TINCTURE_GLOSS[party.parts[1].t]) : null;
+  return party ? divisionGloss(party.division, party.lines, null, TINCTURE_GLOSS[party.parts[0].t], TINCTURE_GLOSS[party.parts[1].t]) : null;
 }
 
 /** A plain colour word for a group's paint, or null for a paint with a clause of its own (see `paintClause`). */

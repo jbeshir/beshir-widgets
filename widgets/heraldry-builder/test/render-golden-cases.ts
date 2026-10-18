@@ -72,6 +72,12 @@ const GEOMETRY_CASES: ReadonlyArray<[string, unknown]> = [
   ['line-wavy-barry', arms(stripes('barry', 'wavy', 8))],
   ['line-indented-paly', arms(stripes('paly', 'indented', 6))],
   ['line-embattled-quarterly-fess', arms({ k: 'divided', division: 'quarterly', lines: { a: 'plain', b: 'embattled' }, parts: ['or', 'gules'] })],
+  // the divisions behind "More divisions": the two chevron forms, gyronny of six, eight and twelve, and a gyronny arrondi
+  ['div-per-chevron-inverted', arms(div('per-chevron-inverted', 'purpure', 'argent'))],
+  ['div-per-chevron-throughout', arms(div('per-chevron-throughout', 'argent', 'gules'))],
+  ...[6, 8, 12].map((n): [string, unknown] => [`div-gyronny-${n}`, arms({ ...div('gyronny', 'or', 'purpure'), pieces: n })]),
+  ['div-gyronny-arrondi', arms({ ...div('gyronny', 'argent', 'gules'), pieces: 8, lines: { a: 'arrondi' } })],
+  ['line-embattled-per-chevron-inverted', arms(lined('per-chevron-inverted', 'embattled', 'argent', 'sable'))],
 ];
 
 const band = (type: string, lines: object) => arms('azure', group(ordinary(type, { lines }), 'or'));

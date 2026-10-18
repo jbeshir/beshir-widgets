@@ -86,6 +86,12 @@ export function setDivision(arms: Design, division: Division): Design {
   return refitLayers(canonical(withField(d, { k: 'divided', division, lines, pieces: null, parts: [first, second] })));
 }
 
+/** The gyronny background cut into this many wedges; unchanged when the background is not a gyronny. */
+export function setDivisionPieces(d: Design, pieces: number): Design {
+  if (d.kind !== 'arms' || d.field.k !== 'divided' || d.field.division !== 'gyronny') return d;
+  return refitLayers(canonical(withField(d, { ...d.field, pieces })));
+}
+
 /** The background's division or stripes drawn with this line (on the side already chosen, for a quartered field). */
 export function setFieldLine(d: Design, line: Line): Design {
   return refitLayers(setLine(d, { k: 'field' }, line));

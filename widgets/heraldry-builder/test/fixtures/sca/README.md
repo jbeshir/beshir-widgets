@@ -97,6 +97,8 @@ The pall, pall inverted (read as one phrase), fret, label, mount and trimount ar
 the O&A uses most (`PERIPHERAL_JOINER`). "a label of five points" is `ordinary:label-points`, a label overall `placement:overall-label`, a pall cotised
 is read and filed as the widget's refusal (`widget-structure-rule`, L20), a fret between charges `placement:between-fret-<n>`.
 
+Gyronny, per chevron inverted and per chevron throughout are drawn divisions (`DIVISION_WORDS` follows `DRAWN_DIVISIONS`; the tagger's `gyronny` entry, `DRAWN_DIVISION_FORMS` for "inverted", "throughout" and "arrondi" after the division): "gyronny [arrondi|arrondy] [of six|twelve]" is read with its count (`readPaint`), "gyronny of eight" is a near-miss like any stated default, other counts are `division:gyronny-pieces-<n>`, and a band or picture so divided `division:<d>-on-charge`.
+
 Diminutives are read counted: a number word and a plural (`ORDINARY_PLURAL`: "three bars", "two bendlets sinister", "four pallets") is one
 ordinary group of that count, any number of them (the widget files five bars as `ordinary:multiple` and several saltorels as
 `ordinary:saltorel-multiple`); a central band read after "between" and a group before it ("a fleur-de-lys between two pallets") is a

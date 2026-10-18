@@ -7,7 +7,7 @@ import { capitalise } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
 import { PLAIN_LINES, groupAt, hostOf, type Design, type GroupPath } from './design';
-import { DRAWN_DIVISIONS } from './divisions';
+import { BUILDER_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, familyOf, type OrdinaryType } from './ordinaries';
 import {
   AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, betweenHost, type BetweenHost, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
@@ -980,9 +980,9 @@ function heaterGeneric(ctx: Exclude<GroundContext, { k: 'around' }>, count: numb
 /** How far a probe arm may differ from the canonical one before the parts it reaches must agree. */
 const PROBE_TOLERANCE = 2;
 
-/** Every drawn division with plain lines: the fields a mapped slot must reach the same parts of (the tinctures don't move the parts). */
-const PLAIN_DIVIDED_FIELDS: readonly DividedField[] = DRAWN_DIVISIONS.map((division) => ({
-  k: 'divided', division, lines: PLAIN_LINES, paints: [{ k: 'tincture', t: 'argent' }, { k: 'tincture', t: 'azure' }],
+/** Every division the builder first offers, with plain lines: the fields a mapped slot must reach the same parts of (the tinctures don't move the parts). The divisions behind "More divisions" are not held to it: it would move the slots pinned for the first seven. */
+const PLAIN_DIVIDED_FIELDS: readonly DividedField[] = BUILDER_DIVISIONS.map((division) => ({
+  k: 'divided', division, lines: PLAIN_LINES, pieces: null, paints: [{ k: 'tincture', t: 'argent' }, { k: 'tincture', t: 'azure' }],
 }));
 
 /** Whether each slot reaches the same parts of every divided field as its heater slot (to a tolerance at the arms' ends). */

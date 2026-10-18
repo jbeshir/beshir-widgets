@@ -7,7 +7,7 @@ import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { Shield } from '../src/components/Shield';
 import {
-  BUILDER_ORDINARIES, DRAWN_DIVISIONS, FIELD_SHAPES, PLAIN_LINES, defaultOrdinaryFrame, divisionRegions, fieldOrdinaryGeometry, inFirstPart, inFirstRegion,
+  BUILDER_DIVISIONS, BUILDER_ORDINARIES, DRAWN_DIVISIONS, FIELD_SHAPES, PLAIN_LINES, defaultOrdinaryFrame, divisionRegions, fieldOrdinaryGeometry, inFirstPart, inFirstRegion,
   ordinaryGeometry, partIndexAt, partyPaint, pathPolygon, pathRings, plainSpec, pointInPolygon, shapeFrame, variationPaint,
   type DividedField, type Design, type Line,
 } from '../src/lib/heraldry';
@@ -15,7 +15,7 @@ import { arms, div, group, nd, ordinary } from './helpers';
 import phaseB from './fixtures/ordinary-geometry.json';
 
 const OR = { k: 'tincture', t: 'or' } as const, AZURE = { k: 'tincture', t: 'azure' } as const;
-const divided = (division: (typeof DRAWN_DIVISIONS)[number]): DividedField => ({ k: 'divided', division, lines: PLAIN_LINES, paints: [OR, AZURE] });
+const divided = (division: (typeof DRAWN_DIVISIONS)[number]): DividedField => ({ k: 'divided', division, lines: PLAIN_LINES, pieces: null, paints: [OR, AZURE] });
 const inRegion = (d: string, x: number, y: number) => pathRings(d).filter((r) => pointInPolygon(x, y, r)).length % 2 === 1;
 
 describe('ordinary geometry', () => {
@@ -61,9 +61,9 @@ describe('ordinary geometry', () => {
     expect([pointInPolygon(50, 12, bordure.outer[1]), pointInPolygon(50, 8, bordure.inner[1])]).toEqual([true, false]);
   });
 
-  it('partIndexAt agrees with phase B\'s analytic test on a 101 × 121 heater grid for every phase-B division', () => {
+  it('partIndexAt agrees with phase B\'s analytic test on a 101 × 121 heater grid for every phase-B division and per chevron inverted', () => {
     const fess = shapeFrame('heater').fessPoint;
-    for (const division of DRAWN_DIVISIONS) {
+    for (const division of [...BUILDER_DIVISIONS, 'per-chevron-inverted'] as const) {
       const f = divided(division);
       for (let x = 0; x <= 100; x++) {
         for (let y = 0; y <= 120; y++) {
@@ -82,7 +82,7 @@ describe('ordinary geometry', () => {
     for (const shape of FIELD_SHAPES) {
       const outline = pathPolygon(shapeFrame(shape).outline);
       for (const division of DRAWN_DIVISIONS) {
-        const regions = divisionRegions(division, PLAIN_LINES, shape);
+        const regions = divisionRegions(division, PLAIN_LINES, null, shape);
         expect(regions).toHaveLength(2);
         for (let x = 0.5; x < 100; x += 2) {
           for (let y = 0.25; y < 120; y += 2) {

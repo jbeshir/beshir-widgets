@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, COTISED_HOSTS, DRAWN_TREATMENTS, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  CHARGES, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -22,7 +22,10 @@ import {
 } from './gap-terms';
 
 /** The divisions the widget draws, as the tagger names them. */
-const DRAWN_DIVISION_IDS: readonly string[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'];
+const DRAWN_DIVISION_IDS: readonly string[] = DRAWN_DIVISIONS;
+
+/** The words after a division's name that make another drawn division ("per chevron inverted"), or a line it is drawn with ("gyronny arrondi"), by the division they follow. */
+const DRAWN_DIVISION_FORMS: Readonly<Record<string, string>> = { 'per-chevron-inverted': 'per-chevron-inverted', 'per-chevron-throughout': 'per-chevron-throughout', 'gyronny-arrondi': 'gyronny', 'gyronny-arrondy': 'gyronny' };
 
 /**
  * Whether the widget draws the line a word spells on this division, variation or band: any line a division takes ("per pale dancetty"
@@ -78,7 +81,7 @@ type Entry =
   | { k: 'tincGap'; v: string } | { k: 'fur'; v: string } | { k: 'charge'; id: ChargeId }
   | { k: 'gapCharge'; b: ChargeBucket; v: string } | { k: 'cross' }
   | { k: 'ord'; v: OrdinaryType } | { k: 'gapOrd'; v: string } | { k: 'line'; v: string }
-  | { k: 'per' } | { k: 'quarterly' } | { k: 'gapDiv'; v: string } | { k: 'treat'; v: string } | { k: 'semy' }
+  | { k: 'per' } | { k: 'quarterly' } | { k: 'gyronny' } | { k: 'gapDiv'; v: string } | { k: 'treat'; v: string } | { k: 'semy' }
   | { k: 'posture'; v: Posture } | { k: 'gapPosture'; v: string } | { k: 'orient'; v: string }
   | { k: 'mod'; v: string } | { k: 'ctx'; v: string } | { k: 'marshal'; v: string }
   | { k: 'in' } | { k: 'on' } | { k: 'between' } | { k: 'of' } | { k: 'and' } | { k: 'container' };
@@ -91,7 +94,7 @@ function add(words: Iterable<string>, e: Entry | ((word: string) => Entry)): voi
 const entries = <T>(r: Record<string, T>) => Object.entries(r);
 
 add(['in'], { k: 'in' }); add(['on'], { k: 'on' }); add(['between', 'betwixt'], { k: 'between' });
-add(['of'], { k: 'of' }); add(['and', '&'], { k: 'and' }); add(['per'], { k: 'per' }); add(['quarterly'], { k: 'quarterly' });
+add(['of'], { k: 'of' }); add(['and', '&'], { k: 'and' }); add(['per'], { k: 'per' }); add(['quarterly'], { k: 'quarterly' }); add(['gyronny'], { k: 'gyronny' });
 for (const [word, n] of entries(NUMBERS)) LEX.set(word, { k: 'num', n });
 add(['or', 'argent', 'azure', 'gules', 'vert', 'sable', 'purpure', 'celestine'], { k: 'tinc' });
 add(['counterchanged', 'counter-changed', 'counterchange'], { k: 'cc' });
@@ -177,7 +180,6 @@ const JOINS: [RegExp, string][] = [
   [/\blightning (flash|flashes|bolts?)\b/g, 'lightning'],
   [/\bmorning[- ]?stars?\b/g, 'morningstar'],
   [/\b(east asian|eastern|oriental|chinese|japanese) dragon/g, 'east-asian-dragon'],
-  [/\bgyronny arrond[iy]\b/g, 'gyronny'],
   [/\bin (its|his|her) (vigilance|vanity)\b/g, 'in-vigilance'],
   [/\bin benediction\b/g, 'in-benediction'],
   [/\b(bend|bendlet|scarpe)s? sinister\b/g, '$1-sinister'],
@@ -489,6 +491,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
           ofNext = false;
           const next = look(i + 1);
           if (last.kind === 'div' && last.name === 'quarterly' && !next) tag('division', 'quarterly-of-n');
+          // "gyronny of six": the pieces the widget draws are six, eight and twelve
+          if (last.kind === 'div' && last.name === 'gyronny') {
+            if (!GYRONNY_PIECES.includes(e.n)) tag('division', `gyronny-pieces-${e.n}`);
+            break;
+          }
           // "a mullet of five greater and five lesser points"
           const pointsSoon = words.slice(i + 1, i + 6).some((x) => /^(points|rays)$/.test(x));
           if (last.kind === 'charge' && pointsSoon) tag('charge-modifier', 'points');
@@ -584,11 +591,20 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (prev !== 'quarterly') { // "quarterly per fess indented" is one division
           divisions++;
           if (divisions > 1 || parts.length > 1) tag('division', 'compound');
-          else if (!['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron'].includes(name)) tag('division', name);
+          else if (!DRAWN_DIVISION_IDS.includes(name)) tag('division', name);
         }
         last = { kind: 'div', el: null, name };
         break;
       }
+      case 'gyronny':
+        // a band or picture so divided is not drawn
+        if (!inField && (els.length || fieldless)) { tag('division', 'gyronny-on-charge'); break; }
+        divisions++;
+        if (divisions > 1) tag('division', 'compound');
+        last = { kind: 'div', el: null, name: 'gyronny' };
+        divisionEnd = i;
+        fieldDivision = 'gyronny';
+        break;
       case 'quarterly':
         if (!inField && (els.length || fieldless)) break; // "a bordure quarterly"
         divisions++;
@@ -738,7 +754,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       .replace(/^humetty$/, 'couped').replace(/^(fitched)$/, 'fitchy');
     // only straight after the division's own words: "per chevron (embattled) inverted"
     const p = look(i - 1)?.e.k;
-    if (last?.kind === 'div' && (p === 'ord' || p === 'gapOrd' || p === 'gapDiv' || p === 'cross' || p === 'line' || p === 'ctx' || p === 'quarterly')) {
+    if (last?.kind === 'div' && (p === 'ord' || p === 'gapOrd' || p === 'gapDiv' || p === 'gyronny' || p === 'cross' || p === 'line' || p === 'ctx' || p === 'quarterly')) {
+      // "per chevron inverted", "per chevron throughout" and "gyronny arrondi" are drawn on the field
+      const drawn = DRAWN_DIVISION_FORMS[`${last.name}-${base}`];
+      if (drawn && inField) {
+        last = { ...last, name: drawn };
+        divisionEnd = i;
+        fieldDivision = drawn;
+        return;
+      }
       tag('division', `${last.name}-${base.replace(/^arrondy$/, 'arrondi')}`); // "per chevron inverted", "per saltire arrondi"
       return;
     }

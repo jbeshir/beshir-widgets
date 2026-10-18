@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, lineAllowed, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -36,7 +36,8 @@ function readDivisionLines(division: Division, tokens: readonly string[], at: nu
     return { lines: side === 'pale' ? { a: line, b: 'plain' } : side === 'fess' ? { a: 'plain', b: line } : bareLines(host, line), end: read.end };
   }
   const read = readLine(tokens, at);
-  return read ? { lines: bareLines(host, read.line), end: read.end } : { lines: null, end: at };
+  // arrondi on a division but the gyronny (quarterly, per saltire) is not drawn: it is not read, and the blazon stays the gap it is
+  return read && (read.line !== 'arrondi' || lineAllowed(host, 'arrondi')) ? { lines: bareLines(host, read.line), end: read.end } : { lines: null, end: at };
 }
 
 /** The edges a band's line is named on, to the line (`a` or `b`) that edge is. */
@@ -177,13 +178,18 @@ export function readPaint(tokens: readonly string[], i: number, where: 'field' |
   const phrase = DIVISION_PHRASES.find((p) => p.every((w, j) => tokens[i + j] === w));
   if (!phrase) return null;
   const division = DIVISION_WORDS.get(phrase.join(' '))!;
-  const { lines, end } = readDivisionLines(division, tokens, i + phrase.length);
+  const read = readDivisionLines(division, tokens, i + phrase.length);
+  const { lines } = read;
+  // "gyronny of six": the piece count follows the line
+  const counted = division === 'gyronny' && tokens[read.end] === 'of' && tokens[read.end + 1] in COUNT_WORDS;
+  const pieces = counted ? COUNT_WORDS[tokens[read.end + 1]] : null;
+  const end = read.end + (counted ? 2 : 0);
   const first = readOne(tokens, end);
   if (!first || tokens[first.end] !== 'and') return null;
   const second = readOne(tokens, first.end + 1);
   if (!second) return null;
   const all = typeof first.paint === 'string' && typeof second.paint === 'string' ? readAllSemy(tokens, second.end, first.paint, second.paint) : null;
-  const drawn = lines ? { lines } : {};
+  const drawn = { ...(lines ? { lines } : {}), ...(pieces ? { pieces } : {}) };
   if (all) return { paint: { k: 'divided', division, ...drawn, parts: all.parts }, end: all.end };
   return { paint: { k: 'divided', division, ...drawn, parts: [first.paint, second.paint] }, end: second.end };
 }

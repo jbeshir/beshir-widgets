@@ -59,7 +59,7 @@ const trimSamples = (spec: OrdinarySpec, frame: OrdinaryFrame, trim: Trim): Samp
 const firstShares = new Map<string, number>();
 
 function firstShare(f: DividedField, samples: Samples): number {
-  const key = `${f.division}|${f.lines.a}|${f.lines.b}|${samples.key}`;
+  const key = `${f.division}|${f.pieces}|${f.lines.a}|${f.lines.b}|${samples.key}`;
   let share = firstShares.get(key);
   if (share === undefined) {
     const points = samples.points();
@@ -79,7 +79,7 @@ function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[])
     // One paint all over: its surface lies under everything.
     counts.set(surfaceOf(field, null), 1);
   } else if (field.parts.length === 2 && isFieldPaint(a) && isFieldPaint(b) && DRAWN_DIVISIONS.includes(field.division)) {
-    const first = firstShare({ k: 'divided', division: field.division, lines: field.lines, paints: [a, b] }, samples);
+    const first = firstShare({ k: 'divided', division: field.division, lines: field.lines, pieces: field.pieces, paints: [a, b] }, samples);
     const [sa, sb] = [surfaceOf(a, null), surfaceOf(b, null)];
     counts.set(sa, first);
     counts.set(sb, (counts.get(sb) ?? 0) + 1 - first);
@@ -269,6 +269,11 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
   // A fret is a charge, not an ordinary, and no charge is counterchanged over an ordinary (SENA CC-8, Grainne Dhonn 07/2008)
   const under = group.item.k === 'ordinary' && group.item.type === 'fret' ? d.groups.find((g) => g.item.k === 'ordinary' && ORDINARY_KIND[g.item.type] === 'central' && g.item.type !== 'fret') : undefined;
   if (under && under.item.k === 'ordinary') return `A fret can't be counterchanged over ${ordinaryWithArticle(under.item.type)}: a fret is a charge, and a charge can't be (SENA CC-8).`;
+  // Over a gyronny only a single charge (or a semy) can be counterchanged; a cross or saltire is returned (RULES-C §E.2; Wilhelm von Düsseldorf 01/2002, Maximillian 02/2007);
+  // a bordure or chief counterchanged is not one of them (Primus 09/2005: only a complex line on one is case by case)
+  if (d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'gyronny' && ((group.item.k === 'ordinary' && ORDINARY_KIND[group.item.type] === 'central') || group.count > 1)) {
+    return `The ${nounOf(group)} ${lie} across a gyronny field, and only a single charge can be counterchanged over gyronny — choose a tincture for ${them} (RULES-C §E.2).`;
+  }
   const pair = fieldPair(d);
   if (pair === null && d.kind === 'arms' && d.field.k === 'divided') {
     return `Counterchanged swaps the two tinctures of a field divided in two, and a fur on the field can't be swapped in this builder.`;
@@ -400,7 +405,7 @@ function forcedIntoOnePart(d: Design, path: GroupPath, failures: readonly (Contr
 }
 
 /** The divisions in two parts (A3B3a): a field or charge so divided has one line of division, not "more than one". */
-const TWO_PART_DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted'];
+const TWO_PART_DIVISIONS: readonly Division[] = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout'];
 
 /** Whether a paint is "multiply divided (that is, has more than one division)" (A3B4b): stripes or cells, vair or potent, quarterly and the like. */
 function multiplyDivided(p: Paint): boolean {

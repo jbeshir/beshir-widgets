@@ -34,12 +34,12 @@ function along(a: Pt, b: Pt, p: Pt): { s: number; off: number } {
 describe('the line registry', () => {
   it('groups every line as SENA App M2 does', () => {
     const groups: Record<LineGroup, Line[]> = {
-      straight: ['plain', 'enarched', 'ploye'], square: ['embattled', 'bretessed', 'dovetailed', 'raguly'], wavy: ['wavy', 'nebuly', 'urdy'],
+      straight: ['plain', 'enarched', 'ploye', 'arrondi'], square: ['embattled', 'bretessed', 'dovetailed', 'raguly'], wavy: ['wavy', 'nebuly', 'urdy'],
       long: ['rayonny'], jagged: ['indented', 'engrailed', 'invected', 'dancetty'], grady: ['grady'], other: ['potenty'],
     };
     for (const [group, lines] of Object.entries(groups)) for (const l of lines) expect([l, LINE_GROUP[l]]).toEqual([l, group]);
     expect(Object.values(groups).flat().sort()).toEqual([...LINES].sort());
-    expect(LINES.filter(isStraightLine)).toEqual(['plain', 'enarched', 'ploye']);
+    expect(LINES.filter(isStraightLine)).toEqual(['plain', 'enarched', 'ploye', 'arrondi']);
   });
 
   it('lineDiffers gives the RULES-C §B.7 verdicts', () => {
@@ -80,8 +80,9 @@ describe('the line registry', () => {
       ...DIVISIONS.map((d) => (lineAllowed({ k: 'division', division: d }, line) ? d : null)),
       ...VARIATIONS.map((v) => (lineAllowed({ k: 'variation', variation: v }, line) ? v : null)),
     ].filter((h): h is string => h !== null);
-    expect(hosts('enarched')).toEqual(['fess', 'fess inverted', 'bend', 'bend inverted', 'bend-sinister', 'bend-sinister inverted', 'chevron', 'chief', 'chief inverted', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron']);
-    expect(hosts('ploye')).toEqual(['chevron', 'chevron inverted', 'per-chevron', 'per-chevron-inverted']);
+    expect(hosts('enarched')).toEqual(['fess', 'fess inverted', 'bend', 'bend inverted', 'bend-sinister', 'bend-sinister inverted', 'chevron', 'chief', 'chief inverted', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout']);
+    expect(hosts('ploye')).toEqual(['chevron', 'chevron inverted', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout']);
+    expect(hosts('arrondi')).toEqual(['gyronny']);
     expect(hosts('dancetty').filter((h) => !h.endsWith(' inverted'))).toEqual([
       'fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'bar', 'barrulet', 'pallet', 'bendlet', 'bendlet-sinister', 'chevronel', 'baton',
       'barry', 'paly', 'bendy', 'bendy-sinister', 'chevronny',

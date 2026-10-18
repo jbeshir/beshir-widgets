@@ -430,6 +430,38 @@ describe('the matcher reads diminutives, counted and spelt either way', () => {
   });
 });
 
+// The divisions behind "More divisions": per chevron inverted and throughout, gyronny with its count and arrondi line.
+describe('the matcher reads per chevron inverted, per chevron throughout and gyronny', () => {
+  it.each([
+    ['Per chevron inverted purpure and argent.', 'Per chevron inverted purpure and argent.'],
+    ['Per chevron reversed argent and sable.', 'Per chevron inverted argent and sable.'],
+    ['Per chevron inverted embattled argent and sable, a rose gules.', 'Per chevron inverted embattled argent and sable, a rose gules.'],
+    ['Per chevron inverted dancetty argent and sable.', 'Per chevron inverted indented argent and sable.'],
+    ['Per chevron throughout argent and gules, an eagle counterchanged.', 'Per chevron throughout argent and gules, an eagle counterchanged.'],
+    ['Gyronny Or and purpure, a wolf statant vert.', 'Gyronny Or and purpure, a wolf statant vert.'],
+    ['Gyronny of six argent and gules.', 'Gyronny of six argent and gules.'],
+    ['Gyronny of twelve sable and argent.', 'Gyronny of twelve sable and argent.'],
+    ['Gyronny arrondi argent and gules, a lion Or.', 'Gyronny arrondi argent and gules, a lion Or.'],
+    ['Gyronny arrondy of six gules and argent.', 'Gyronny arrondi of six gules and argent.'],
+    ['Gyronny wavy ermine and azure.', 'Gyronny wavy ermine and azure.'],
+  ])('%s', (text, house) => {
+    const m = explainMatch(text);
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('reads a gyronny of eight as the default it is, and files other counts, and a band or picture so divided, under their gaps', () => {
+    expect(explainMatch('Gyronny of eight Or and sable.').status).toBe('near-miss');
+    expect(explainMatch('Gyronny of ten Or and sable.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'gyronny-pieces-10' }] });
+    expect(explainMatch('Gyronny of three Or and sable.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'gyronny-pieces-3' }] });
+    expect(explainMatch('Azure, a lion per chevron inverted argent and gules.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'per-chevron-inverted-on-charge' }] });
+    // arrondi is drawn on a gyronny only: elsewhere it is not read, and the tagger files it under its division
+    expect(explainMatch('Per saltire arrondi argent and gules.').status).toBe('unparsed');
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Per saltire arrondi argent and gules.', headings: [] })).toMatchObject({ status: 'gap', tags: ['division:per-saltire-arrondi'] });
+    expect(explainMatch('Azure, a bend gyronny Or and sable.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'gyronny-on-charge' }] });
+  });
+});
+
 describe('the matcher accepts stated defaults only for the design that has them', () => {
   it.each([
     ['Quarterly Or and gules, in bend two roses sable.', 'Quarterly Or and gules, two roses sable.'],
@@ -557,7 +589,7 @@ describe('the tagger never files a record under a construct the widget supports'
     ['semy of charges', 'azure semy of mullets Or'],
     ['semy on a part', 'per pale gules and argent semy of billets gules'],
     ...DRAWN_DIVISIONS.map((d): [string, string] => [`${DIVISION_NAME[d]} field`, `${DIVISION_NAME[d]} Or and gules`]),
-    ...BUILDER_DIVISIONS.flatMap((d) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'division', division: d }, l)).map((l): [string, string] => [`${DIVISION_NAME[d]} ${l} field`, `${DIVISION_NAME[d]} ${LINE_WORD[l]} Or and gules`])),
+    ...DRAWN_DIVISIONS.flatMap((d) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'division', division: d }, l)).map((l): [string, string] => [`${DIVISION_NAME[d]} ${l} field`, `${DIVISION_NAME[d]} ${LINE_WORD[l]} Or and gules`])),
     ...LINED_VARIATIONS.flatMap((v) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'variation', variation: v }, l)).map((l): [string, string] => [`${VARIATION_NAME[v]} ${l} field`, `${VARIATION_NAME[v]} ${LINE_WORD[l]} Or and gules`])),
     ['per pale dancetty field', 'per pale dancetty Or and gules'],
     ['quarterly per fess embattled field', 'quarterly per fess embattled Or and gules'],

@@ -243,6 +243,43 @@ describe('too-close pre-filter with diminutives', () => {
   });
 });
 
+describe('too-close pre-filter with the divisions behind "More divisions"', () => {
+  // Per chevron throughout is per chevron (A5F1), and a bare one is also a pile inverted throughout (RULES-C §E.1): it keys to every partition and primary,
+  // and a bare pile inverted throughout to every partition. Gyronny keeps its own partition whatever its count or line.
+  const lion = group(charge('lion'), 'or');
+  const pile = group(ordinary('pile', { mods: ['inverted', 'throughout'] }), 'gules');
+  const designs = [
+    nd(arms(div('per-chevron', 'argent', 'gules'))), nd(arms(div('per-chevron-throughout', 'argent', 'gules'))), nd(arms(div('per-chevron-throughout', 'argent', 'gules'), lion)),
+    nd(arms(div('per-chevron', 'argent', 'gules'), lion)), nd(arms(div('per-chevron-inverted', 'argent', 'gules'))), nd(arms(div('per-chevron-inverted', 'argent', 'gules'), lion)),
+    nd(arms('argent', pile)), nd(arms('argent', pile, lion)), nd(arms('argent', group(ordinary('pile', { mods: ['inverted'] }), 'gules'))), nd(arms('argent', group(ordinary('chevron'), 'gules'))),
+    nd(arms({ ...div('gyronny', 'argent', 'gules'), pieces: 6 }, lion)), nd(arms({ ...div('gyronny', 'argent', 'gules'), pieces: 12 }, lion)),
+    nd(arms({ ...div('gyronny', 'argent', 'gules'), lines: { a: 'arrondi' } }, lion)), nd(arms({ ...div('gyronny', 'argent', 'gules'), lines: { a: 'wavy' } }, lion)),
+    nd(arms(div('per-saltire', 'argent', 'gules'), lion)), nd(arms('gules', lion)),
+  ];
+
+  it('finds every entry that is not clear of the probe', () => {
+    expect(differences(designs[1], designs[6])).toEqual([]);
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(keysMayConflict(candidateKey(a), candidateKey(b)), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('keys only on changes that are substantial on their own', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+  });
+
+  it('gives the same verdict as scanning the whole registry', () => {
+    const registry = registryFrom(designs);
+    for (const probe of designs) {
+      const sig = signature(probe);
+      const candidates = registry.filter((e) => keysMayConflict(candidateKey(probe), candidateKey(e.design)));
+      expect(outcome(checkUnique(probe, sig, candidates)), sig).toBe(outcome(checkUnique(probe, sig, registry)));
+    }
+  });
+});
+
 describe('too-close pre-filter with fieldless badges', () => {
   const lion = (extra: object = {}) => group(charge('lion'), 'or', extra);
   const fielded = [

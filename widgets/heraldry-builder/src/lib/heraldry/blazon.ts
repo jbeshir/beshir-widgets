@@ -11,7 +11,7 @@ import { semyPhrase } from './aliases';
 import { capitalise, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
-import { DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
+import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
 import { lineWords } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
@@ -56,16 +56,17 @@ function semyWord(p: Paint): string {
   return semy ? `${tinctureWord(semy.ground.t)} ${semyPhrase(semy.charge.charge, semy.ink.t)}` : notSupported(paintGaps(p, false, 'group')[0]);
 }
 
-/** A division and its lines as written: "per pale", "per fess embattled", "quarterly per fess indented". */
-function divisionWords(division: Division, lines: Lines): string {
+/** A division and its lines as written: "per pale", "per fess embattled", "quarterly per fess indented", "gyronny arrondi of six" (a gyronny of eight is not counted: a stated default). */
+function divisionWords(division: Division, lines: Lines, pieces: number | null): string {
   const line = lineWords({ k: 'division', division }, lines);
-  return line ? `${DIVISION_NAME[division]} ${line}` : DIVISION_NAME[division];
+  const count = division === 'gyronny' && pieces !== null && pieces !== DEFAULT_GYRONNY_PIECES ? ` of ${numberWord(pieces)}` : '';
+  return `${DIVISION_NAME[division]}${line ? ` ${line}` : ''}${count}`;
 }
 
 /** A divided paint as written: "per pale azure and Or". */
 function partyWord(p: Paint): string {
   const party = asParty(p);
-  return party ? `${divisionWords(party.division, party.lines)} ${party.parts.map(paintWord).join(' and ')}` : notSupported(paintGaps(p, false, 'group')[0]);
+  return party ? `${divisionWords(party.division, party.lines, null)} ${party.parts.map(paintWord).join(' and ')}` : notSupported(paintGaps(p, false, 'group')[0]);
 }
 
 /** A variation as written: "barry argent and azure", "paly of eight Or and sable", "barry wavy of eight argent and azure" (the usual six stripes are not blazoned: "barry of six" is a stated default). */
@@ -88,10 +89,10 @@ function strewnAllOver(field: Paint): { grounds: [Tincture, Tincture]; charge: C
 
 function fieldPhrase(field: Paint): string {
   const all = strewnAllOver(field);
-  if (field.k === 'divided' && all) return `${divisionWords(field.division, field.lines)} ${all.grounds.map(tinctureWord).join(' and ')} all ${semyPhrase(all.charge, all.ink)}`;
+  if (field.k === 'divided' && all) return `${divisionWords(field.division, field.lines, field.pieces)} ${all.grounds.map(tinctureWord).join(' and ')} all ${semyPhrase(all.charge, all.ink)}`;
   if (field.k === 'tincture' || field.k === 'fur' || field.k === 'treated' || field.k === 'semy') return paintWord(field);
   if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
-    return `${divisionWords(field.division, field.lines)} ${field.parts.map(paintWord).join(' and ')}`;
+    return `${divisionWords(field.division, field.lines, field.pieces)} ${field.parts.map(paintWord).join(' and ')}`;
   }
   if (field.k === 'variation') return variationWord(field);
   return notSupported(paintGaps(field, true, 'field')[0]);

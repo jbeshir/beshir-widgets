@@ -146,7 +146,7 @@ export function halfLayouts(position: HalfPosition, count: number): Layout[] {
  * forced into the part they contrast with): the first part's place, the second's. Per quarterly, the first quarter of each part.
  */
 const PART_POSITIONS: Partial<Record<Division, readonly [Position, Position]>> = {
-  'per-fess': ['chief', 'base'], 'per-chevron': ['chief', 'base'], 'per-pale': ['dexter', 'sinister'],
+  'per-fess': ['chief', 'base'], 'per-chevron': ['chief', 'base'], 'per-chevron-inverted': ['chief', 'base'], 'per-pale': ['dexter', 'sinister'],
   'per-bend': ['sinister-chief', 'dexter-base'], 'per-bend-sinister': ['dexter-chief', 'sinister-base'], quarterly: ['dexter-chief', 'sinister-chief'],
 };
 
@@ -454,7 +454,7 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: n
   if (count === 2) {
     switch (division) {
       case 'per-pale': return { layout: line('fess'), rule: '2-two-part' };
-      case 'per-fess': case 'per-chevron': return { layout: line('pale'), rule: '2-two-part' };
+      case 'per-fess': case 'per-chevron': case 'per-chevron-inverted': return { layout: line('pale'), rule: '2-two-part' };
       case 'per-bend': return { layout: line('bend-sinister'), rule: '2-two-part' };
       case 'per-bend-sinister': return { layout: line('bend'), rule: '2-two-part' };
       case 'quarterly': case 'per-saltire': {

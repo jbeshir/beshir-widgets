@@ -71,8 +71,8 @@ describe('drawing a line on the field', () => {
     it(`the regions of a lined division tile the ${shape} and partIndexAt follows the drawn line`, () => {
       const points = gridIn(shape, 4);
       const wrong = divisionCases.filter((_, i) => shape === 'heater' || i % 3 === s % 3).flatMap(({ division, line }) => {
-        const field: DividedField = { k: 'divided', division, lines: plainOf(line), paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
-        return checkTiling(divisionRegions(division, field.lines, shape), (x, y) => partIndexAt(field, shape, x, y), points).map((w) => `${division} ${line} ${w}`);
+        const field: DividedField = { k: 'divided', division, lines: plainOf(line), pieces: null, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
+        return checkTiling(divisionRegions(division, field.lines, null, shape), (x, y) => partIndexAt(field, shape, x, y), points).map((w) => `${division} ${line} ${w}`);
       });
       expect(wrong).toEqual([]);
     });
@@ -93,7 +93,7 @@ describe('drawing a line on the field', () => {
     for (const shape of FIELD_SHAPES) {
       const outline = pathPolygon(shapeFrame(shape).outline);
       for (const { division, line } of divisionCases) {
-        for (const part of partitionContours(division, plainOf(line), shapeFrame(shape))) {
+        for (const part of partitionContours(division, plainOf(line), null, shapeFrame(shape))) {
           for (const c of part) {
             let at = c.start;
             for (const e of c.edges) {
@@ -121,7 +121,7 @@ describe('drawing a line on the field', () => {
   it('a plain line keeps the regions and the analytic part test it always had', () => {
     for (const shape of FIELD_SHAPES) {
       for (const division of BUILDER_DIVISIONS) {
-        const field: DividedField = { k: 'divided', division, lines: plainOf('plain'), paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
+        const field: DividedField = { k: 'divided', division, lines: plainOf('plain'), pieces: null, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
         const fess = shapeFrame(shape).fessPoint;
         for (const [x, y] of gridIn(shape, 7)) expect(partIndexAt(field, shape, x, y)).toBe(inFirstPart(division, fess, x, y) ? 0 : 1);
       }
@@ -147,7 +147,7 @@ describe('drawing a line on the field', () => {
     expect((['engrailed', 'invected', 'indented', 'bretessed'] as const).map(middle)).toEqual([-0.5, 0.5, 0.5, 0.5]);
     expect((['wavy', 'embattled', 'rayonny', 'enarched', 'ploye'] as const).map(middle)).toEqual([0, 0, 0, 0, 0]);
     // Per fess engrailed: the points toward chief, the arcs toward base, straddling the fess line (RULES-C §A.2).
-    const field: DividedField = { k: 'divided', division: 'per-fess', lines: plainOf('engrailed'), paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
+    const field: DividedField = { k: 'divided', division: 'per-fess', lines: plainOf('engrailed'), pieces: null, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
     const column = (x: number) => Array.from({ length: 200 }, (_, i) => 40 + i * 0.1).find((y) => partIndexAt(field, 'heater', x, y) === 1)!;
     const ys = Array.from({ length: 80 }, (_, i) => column(10 + i));
     expect(Math.min(...ys)).toBeGreaterThan(47);
@@ -159,12 +159,12 @@ describe('drawing a line on the field', () => {
   it('a charge counterchanged over a wavy line splits on the wave', () => {
     const d = nd(arms(lined('per-pale', 'azure', 'or', 'wavy'), chg('roundel', 'counterchanged')));
     const parts = counterchangedSlotParts(d.kind === 'arms' ? d.field : { k: 'tincture', t: 'or' }, { x: 50, y: 60, size: 30, rotation: 0 }, 'heater');
-    const regions = divisionRegions('per-pale', plainOf('wavy'), 'heater');
+    const regions = divisionRegions('per-pale', plainOf('wavy'), null, 'heater');
     expect(parts.map((p) => p.d)).toEqual(regions);
     expect(parts.map((p) => p.paint)).toEqual([{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'azure' }]);
     expect(regions[0]).toMatch(/C/);
     // Somewhere the wave puts a point on the other side of the straight line.
-    const field: DividedField = { k: 'divided', division: 'per-pale', lines: plainOf('wavy'), paints: [{ k: 'tincture', t: 'azure' }, { k: 'tincture', t: 'or' }] };
+    const field: DividedField = { k: 'divided', division: 'per-pale', lines: plainOf('wavy'), pieces: null, paints: [{ k: 'tincture', t: 'azure' }, { k: 'tincture', t: 'or' }] };
     expect(gridIn('heater', 1).some(([x, y]) => partIndexAt(field, 'heater', x, y) !== (inFirstPart('per-pale', { x: 50, y: 50 }, x, y) ? 0 : 1))).toBe(true);
   });
 });

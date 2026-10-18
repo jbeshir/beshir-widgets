@@ -16,13 +16,13 @@ import { r2, pointInPolygon, CURVE_STEPS, type Pt } from './geometry';
 import type { OrdinaryType } from './ordinaries';
 
 export const LINES = ['plain', 'embattled', 'wavy', 'engrailed', 'invected', 'indented', 'dancetty', 'nebuly', 'raguly', 'rayonny',
-  'dovetailed', 'urdy', 'potenty', 'bretessed', 'grady', 'enarched', 'ploye'] as const;
+  'dovetailed', 'urdy', 'potenty', 'bretessed', 'grady', 'enarched', 'ploye', 'arrondi'] as const;
 export type Line = (typeof LINES)[number];
 export type ComplexLine = Exclude<Line, 'plain'>;
 
 /** The lines the edge rows offer, in order of how often the O&A uses them (RULES-C §I.1). */
 export const DRAWN_LINES: readonly ComplexLine[] = ['embattled', 'wavy', 'engrailed', 'indented', 'rayonny', 'invected', 'dovetailed',
-  'raguly', 'nebuly', 'potenty', 'bretessed', 'urdy', 'dancetty', 'enarched', 'ploye', 'grady'];
+  'raguly', 'nebuly', 'potenty', 'bretessed', 'urdy', 'dancetty', 'enarched', 'ploye', 'grady', 'arrondi'];
 
 export function isLine(v: unknown): v is Line {
   return typeof v === 'string' && (LINES as readonly string[]).includes(v);
@@ -34,7 +34,7 @@ export function isLine(v: unknown): v is Line {
 export type LineGroup = 'straight' | 'square' | 'wavy' | 'long' | 'jagged' | 'grady' | 'other';
 
 export const LINE_GROUP: Record<Line, LineGroup> = {
-  plain: 'straight', enarched: 'straight', ploye: 'straight',
+  plain: 'straight', enarched: 'straight', ploye: 'straight', arrondi: 'straight',
   embattled: 'square', bretessed: 'square', dovetailed: 'square', raguly: 'square',
   wavy: 'wavy', nebuly: 'wavy', urdy: 'wavy',
   rayonny: 'long',
@@ -103,14 +103,14 @@ export function edgeCount(host: EdgeHost): 0 | 1 | 2 {
   }
 }
 
-const ENARCHED_DIVISIONS: readonly Division[] = ['per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron'];
+const ENARCHED_DIVISIONS: readonly Division[] = ['per-fess', 'per-bend', 'per-bend-sinister', 'per-chevron', 'per-chevron-inverted', 'per-chevron-throughout'];
 const ENARCHED_ORDINARIES: readonly OrdinaryType[] = ['fess', 'bend', 'bend-sinister', 'chevron', 'chief'];
-const PLOYE_DIVISIONS: readonly Division[] = ['per-chevron', 'per-chevron-inverted'];
+const PLOYE_DIVISIONS: readonly Division[] = ['per-chevron', 'per-chevron-inverted', 'per-chevron-throughout'];
 
 /**
  * Whether the host may carry the line at all (RULES-C §A.1, §A.5; PLAN-C §4): dancetty only on two-sided bands and counted
  * variations (and cotises, thin bands themselves: "a bend cotised dancetty", PicDic Clopton); enarched only on per fess, per bend
- * (sinister), per chevron, fess, bend (sinister), chevron and chief; ployé only on per chevron (inverted) and chevron (inverted) — on
+ * (sinister), per chevron, fess, bend (sinister), chevron and chief; ployé only on per chevron (inverted, throughout) and chevron (inverted); arrondi only on gyronny — on
  * cotises as on their ordinary; a host with no edge takes none. Not allowed is a structure issue, never a gap.
  */
 export function lineAllowed(host: EdgeHost, line: Line): boolean {
@@ -123,6 +123,7 @@ export function lineAllowed(host: EdgeHost, line: Line): boolean {
         : host.k === 'cotises' ? ENARCHED_ORDINARIES.includes(host.type)
           : host.k === 'ordinary' && ENARCHED_ORDINARIES.includes(host.type) && !(host.type === 'chevron' && host.inverted);
     case 'ploye': return host.k === 'division' ? PLOYE_DIVISIONS.includes(host.division) : (host.k === 'ordinary' || host.k === 'cotises') && host.type === 'chevron';
+    case 'arrondi': return host.k === 'division' && host.division === 'gyronny';
     case 'embattled': case 'wavy': case 'engrailed': case 'invected': case 'indented': case 'nebuly': case 'raguly': case 'rayonny':
     case 'dovetailed': case 'urdy': case 'potenty': case 'bretessed': case 'grady':
       return true;
@@ -160,7 +161,7 @@ export function bareLines(host: EdgeHost, line: Line): Lines {
 export const LINE_WORD: Record<ComplexLine, string> = {
   embattled: 'embattled', wavy: 'wavy', engrailed: 'engrailed', invected: 'invected', indented: 'indented', dancetty: 'dancetty',
   nebuly: 'nebuly', raguly: 'raguly', rayonny: 'rayonny', dovetailed: 'dovetailed', urdy: 'urdy', potenty: 'potenty',
-  bretessed: 'bretessed', grady: 'embattled grady', enarched: 'enarched', ploye: 'ployé',
+  bretessed: 'bretessed', grady: 'embattled grady', enarched: 'enarched', ploye: 'ployé', arrondi: 'arrondi',
 };
 
 /** Where an edge named alone is said to carry its line: "wavy on the lower edge"; quarterly's lines are named before theirs ("per fess embattled"). */
@@ -200,7 +201,7 @@ export type LineReading = ComplexLine | 'counter-embattled';
  */
 export const LINE_SPELLINGS: Readonly<Record<string, LineReading>> = {
   ...Object.fromEntries(LINES.filter((l): l is ComplexLine => l !== 'plain').flatMap((l) => [[l, l], [LINE_WORD[l], l]])),
-  undy: 'wavy', undee: 'wavy',
+  undy: 'wavy', undee: 'wavy', arrondy: 'arrondi',
   crenellated: 'embattled', crenelated: 'embattled', crenelly: 'embattled', battled: 'embattled',
   invecked: 'invected',
   bretesse: 'bretessed', 'bretessé': 'bretessed', bretassy: 'bretessed',
@@ -258,6 +259,9 @@ function antisymmetric(half: ProfileStep[]): ProfileStep[] {
   return [...half, ...back.reverse()];
 }
 
+/** How far an arrondi line bows, as a share of its length (the sagitta of its arc). */
+export const ARRONDI_SAGITTA = 0.1;
+
 /** Original placeholder profiles (procedural; no third-party drawing consulted). Numbers within RULES-C §A.4's bounds. */
 export const LINE_PROFILE: Record<ComplexLine, LineProfile> = {
   // merlon then crenel: a square wave
@@ -301,6 +305,8 @@ export const LINE_PROFILE: Record<ComplexLine, LineProfile> = {
   enarched: single(12.5, [C(0.3, 2 * PEAK, 0.7, 2 * PEAK, 1, 0)]),
   // each limb bowed 6 toward base
   ploye: single(6, [C(0.3, -2 * PEAK, 0.7, -2 * PEAK, 1, 0)]),
+  // every gyronny line an arc, all curving the same rotational way; its depth is laid at a tenth of the line (`layOn`)
+  arrondi: single(10, [C(0.3, 2 * PEAK, 0.7, 2 * PEAK, 1, 0)]),
 };
 
 // ── The periodic-edge generator ─────────────────────────────────────────────

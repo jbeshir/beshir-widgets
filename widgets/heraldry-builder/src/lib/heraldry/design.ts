@@ -3,7 +3,7 @@
 // Parsing untrusted input is resolve.ts; what the builder draws is support.ts.
 
 import { FUR_SPEC, TINCTURES, isTincture, type Stain, type Fur, type Tincture } from './tinctures';
-import { variationPieces, type Division, type Treatment, type Variation } from './divisions';
+import { divisionPieces, variationPieces, type Division, type Treatment, type Variation } from './divisions';
 import { canonicalFur, furColours } from './fur';
 import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 import { edgeCount, type EdgeHost, type Line } from './lines';
@@ -330,7 +330,7 @@ export function canonicalPaint(p: Paint): Paint {
     case 'stain': return { k: 'stain', stain: p.stain };
     case 'fur': return canonicalFur(p);
     case 'divided':
-      return { k: 'divided', division: p.division, lines: canonicalLines({ k: 'division', division: p.division }, p.lines), pieces: p.pieces, parts: p.parts.map(canonicalPaint) };
+      return { k: 'divided', division: p.division, lines: canonicalLines({ k: 'division', division: p.division }, p.lines), pieces: divisionPieces(p.division, p.pieces), parts: p.parts.map(canonicalPaint) };
     case 'variation':
       return { k: 'variation', variation: p.variation, lines: canonicalLines({ k: 'variation', variation: p.variation }, p.lines), pieces: variationPieces(p.variation, p.pieces), parts: [canonicalPaint(p.parts[0]), canonicalPaint(p.parts[1])] };
     case 'treated': return { k: 'treated', treatment: p.treatment, ground: canonicalPaint(p.ground), ink: p.ink };

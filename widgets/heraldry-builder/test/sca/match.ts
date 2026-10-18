@@ -120,7 +120,7 @@ const VOCABULARY = new Set<string>(
 // ── Parser ──────────────────────────────────────────────────────────────────
 // A token grammar over the normalised text (words, with commas as tokens of their own):
 //   blazon     := field [',' element (connector element)*] | '(fieldless)' element (connector element)*
-//   field      := T | DIVISION T 'and' T
+//   field      := T | DIVISION [LINE] T 'and' T | 'gyronny' [LINE] ['of' COUNT] T 'and' T
 //   element    := ['on'] [('a'|'an') ['double'|'triple']] ordinary FORM [T] [OUTLINE]   an ordinary, central or peripheral ("on" when a group sits on it;
 //                                                    flaunches without an article, a tressure double or triple)
 //               | ['on'] COUNT PLURAL FORM [T] [OUTLINE]   diminutives counted ("three bars wavy argent", "two bendlets sinister")

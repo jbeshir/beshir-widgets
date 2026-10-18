@@ -25,7 +25,7 @@ describe('what is supported', () => {
 
   it('leaves a division, line, piece count or part the builder does not draw as a gap', () => {
     const gaps = (paint: unknown) => unsupportedIssues(nd(arms('gules', heart(paint)))).map((i) => `${i.gap.category}:${i.gap.detail}`);
-    expect(gaps(party('gyronny', 'azure', 'or'))).toEqual(['division:gyronny']);
+    expect(gaps(party('gyronny', 'azure', 'or'))).toEqual(['division:gyronny-on-charge']);
     expect(gaps({ k: 'divided', division: 'per-pale', lines: { a: 'wavy' }, parts: ['azure', 'or'] })).toEqual(['line-of-partition:on-divided-charge']);
     expect(gaps({ k: 'divided', division: 'per-pale', parts: [{ k: 'fur', fur: 'ermine' }, 'or'] })).toEqual(['fur:party']);
     expect(gaps({ k: 'divided', division: 'per-pale', parts: ['azure', 'counterchanged'] })).toEqual(['tincture:counterchanged']);

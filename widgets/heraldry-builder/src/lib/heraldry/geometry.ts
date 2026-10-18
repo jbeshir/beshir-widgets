@@ -8,11 +8,11 @@
 // through the fess point, bands of the same width) around their own fess point and outline.
 
 import { CHARGES, type ChargeId } from './charges';
-import { DRAWN_DIVISIONS, type Division } from './divisions';
+import { DEFAULT_GYRONNY_PIECES, DRAWN_DIVISIONS, type Division } from './divisions';
 import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import { contoursPath, type Contour, type ContourEdge } from './contour';
-import { LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, fitPeriod, runAlong, visibleSpan, type EdgeRun, type LaidLine, type Line } from './lines';
+import { ARRONDI_SAGITTA, LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, fitPeriod, runAlong, visibleSpan, type EdgeRun, type LaidLine, type Line } from './lines';
 import { surfaceOf, type Surface } from './surface';
 import type { FieldShape } from './shape';
 
@@ -123,24 +123,26 @@ export interface ShapeFrame {
   chiefBase: number;
   /** The pile: two corners on the top edge and its point. */
   pile: [[number, number], [number, number], [number, number]];
+  /** How steep a per chevron throughout's limbs fall from its apex on the top of the box: 45° (1), steeper than the edges of the lozenge's point. */
+  throughoutSlope: number;
 }
 
 const SHAPE_FRAME: Record<FieldShape, ShapeFrame> = {
   heater: {
     outline: SHIELD_PATH, box: { x0: 0, y0: 0, x1: 100, y1: 120 }, inset: SHIELD_INSET_PATH, fessPoint: { x: 50, y: 50 }, chiefBase: 30,
-    pile: [[20, 0], [80, 0], [50, 95]],
+    pile: [[20, 0], [80, 0], [50, 95]], throughoutSlope: 1,
   },
   banner: {
     outline: 'M0 10H100V110H0Z', box: { x0: 0, y0: 10, x1: 100, y1: 110 }, inset: 'M10 20H90V100H10Z', fessPoint: { x: 50, y: 60 }, chiefBase: 40,
-    pile: [[20, 10], [80, 10], [50, 105]],
+    pile: [[20, 10], [80, 10], [50, 105]], throughoutSlope: 1,
   },
   round: {
     outline: circlePath(50, 60, 50), box: { x0: 0, y0: 10, x1: 100, y1: 110 }, inset: circlePath(50, 60, 40), fessPoint: { x: 50, y: 60 }, chiefBase: 40,
-    pile: [[20, 10], [80, 10], [50, 105]],
+    pile: [[20, 10], [80, 10], [50, 105]], throughoutSlope: 1,
   },
   lozenge: {
     outline: lozengePath(50, 60, 50, 60, 0), box: { x0: 0, y0: 0, x1: 100, y1: 120 }, inset: lozengePath(50, 60, 50, 60, 8), fessPoint: { x: 50, y: 60 }, chiefBase: 46,
-    pile: [[16, 0], [84, 0], [50, 110]],
+    pile: [[16, 0], [84, 0], [50, 110]], throughoutSlope: 1.72,
   },
 };
 
@@ -158,7 +160,7 @@ export const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' ||
 /** The field as geometry draws it: plain, one of the drawn divisions (a paint per part), or a variation of two tinctures. */
 export type DrawnField =
   | { k: 'plain'; paint: FieldPaint }
-  | { k: 'divided'; division: Division; lines: Lines; paints: readonly FieldPaint[] }
+  | { k: 'divided'; division: Division; lines: Lines; pieces: number | null; paints: readonly FieldPaint[] }
   | { k: 'varied'; paint: VariationPaint };
 export type DividedField = Extract<DrawnField, { k: 'divided' }>;
 export type VariedField = Extract<DrawnField, { k: 'varied' }>;
@@ -167,7 +169,7 @@ function drawnField(field: Paint): DrawnField {
   if (isFieldPaint(field)) return { k: 'plain', paint: field };
   if (field.k === 'divided' && DRAWN_DIVISIONS.includes(field.division) && field.parts.length === 2) {
     const [a, b] = field.parts;
-    if (isFieldPaint(a) && isFieldPaint(b)) return { k: 'divided', division: field.division, lines: field.lines, paints: [a, b] };
+    if (isFieldPaint(a) && isFieldPaint(b)) return { k: 'divided', division: field.division, lines: field.lines, pieces: field.pieces, paints: [a, b] };
   }
   const variation = asVariation(field);
   if (variation) return { k: 'varied', paint: variation };
@@ -202,7 +204,26 @@ export function inFirstPart(division: Division, fess: Point, x: number, y: numbe
     case 'per-saltire': return (dy < dx && dy < -dx) || (dy > dx && dy > -dx);
     case 'quarterly': return dx < 0 === dy < 0;
     case 'per-chevron': return dy < Math.abs(dx) - CHEVRON_APEX_RISE;
+    case 'per-chevron-inverted': return dy < CHEVRON_APEX_RISE - Math.abs(dx);
     default: return notSupported({ category: 'division', detail: division });
+  }
+}
+
+/** Where a gyronny's first line lies, as the SVG angle runs (clockwise on the page, in degrees): due dexter, so one line is always fesswise (Prec 02/2003). */
+const GYRONNY_START = 180;
+
+/** The sector (0-based, clockwise from the dexter fess line) of a gyronny of `pieces` that (x,y) lies in, around its centre. */
+function gyronnySector(pieces: number, centre: Point, x: number, y: number): number {
+  const turn = ((Math.atan2(y - centre.y, x - centre.x) * 180) / Math.PI - GYRONNY_START + 720) % 360;
+  return Math.floor(turn / (360 / pieces));
+}
+
+/** Whether (x,y) lies in the first part of a divided field with plain lines in a shape: `inFirstPart`, and the divisions that need the shape's proportions or a piece count. */
+function inFirstPartIn(f: DividedField, frame: ShapeFrame, x: number, y: number): boolean {
+  switch (f.division) {
+    case 'per-chevron-throughout': return y < frame.box.y0 + frame.throughoutSlope * Math.abs(x - frame.fessPoint.x);
+    case 'gyronny': return gyronnySector(f.pieces ?? DEFAULT_GYRONNY_PIECES, frame.fessPoint, x, y) % 2 === 0;
+    default: return inFirstPart(f.division, frame.fessPoint, x, y);
   }
 }
 
@@ -253,7 +274,9 @@ function layOn(outline: readonly Pt[]): Lay {
     }
     const anchor = start === 'centred' ? (c0 + c1) / 2 : lead(period) + period / 2;
     const span: [number, number] = [start === 'cross' ? period / 2 : c0 - period, c1 + period];
-    return { origin: from, dir, run: { line, side: fieldSide(dir), depth: LINE_PROFILE[line].depth, period, anchor, span } };
+    // every arrondi line curves the same rotational way (to the left as it runs outward from where the lines meet), by a tenth of its length
+    const [side, depth] = line === 'arrondi' ? [1 as const, ARRONDI_SAGITTA * chord] : [fieldSide(dir), LINE_PROFILE[line].depth];
+    return { origin: from, dir, run: { line, side, depth, period, anchor, span } };
   };
 }
 
@@ -271,14 +294,25 @@ function straddlingCentre(division: Division, { a, b }: Lines, { x, y }: Point):
   switch (division) {
     case 'per-pale': return { x: x + straddleShift(a), y };
     case 'per-fess': return { x, y: y + straddleShift(a) };
-    case 'per-bend': case 'per-bend-sinister': case 'per-chevron': case 'per-saltire': return { x, y: y + Math.SQRT2 * straddleShift(a) };
+    case 'per-bend': case 'per-bend-sinister': case 'per-chevron': case 'per-chevron-inverted': case 'per-saltire': return { x, y: y + Math.SQRT2 * straddleShift(a) };
     case 'quarterly': return { x: x + straddleShift(a), y: y + straddleShift(b) };
+    // the apex is on the edge of the shape, and a gyronny's lines meet in every direction: neither can be moved to straddle
+    case 'per-chevron-throughout': case 'gyronny': return { x, y };
     default: return notSupported({ category: 'division', detail: division });
   }
 }
 
+/** What a division is cut by beyond its lines and centre: a gyronny's piece count, and the apex and slope of a per chevron throughout. */
+interface Cut { pieces: number; apexTop: number; slope: number }
+
+/** The cut of the party paints of bands and charges, which are never a gyronny or throughout. */
+const PARTY_CUT: Cut = { pieces: DEFAULT_GYRONNY_PIECES, apexTop: 0, slope: 1 };
+
+/** How far from its centre a gyronny's lines run: past every shape, so a sector reaches the whole frame. */
+const GYRONNY_REACH = 300;
+
 /** The contours of each part of a division whose lines meet at `fess`, turned `turn` degrees clockwise about it, covering the whole frame. */
-function partitionAt(division: Division, lines: Lines, fess: Point, turn: number, lay: Lay): Contour[][] {
+function partitionAt(division: Division, lines: Lines, fess: Point, turn: number, lay: Lay, cut: Cut): Contour[][] {
   const { x: cx, y: cy } = fess;
   const at = ([x, y]: Pt): Pt => (turn === 0 ? [x, y] : turned({ x: cx, y: cy, size: 0, rotation: turn }, x, y));
   const part = (...regions: Array<Array<[Pt, LaidLine | null]>>): Contour[] => regions.map((r) => region(r.map(([p, l]): Corner => [at(p), l])));
@@ -287,7 +321,6 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
   const bend = (x: number) => cy + (x - cx);
   const sinister = (x: number) => cy - (x - cx);
   const apexY = cy - CHEVRON_APEX_RISE;
-  const limb = apexY + (x1 - cx);
   const k = 100;
   const centre: Pt = [cx, cy];
   switch (division) {
@@ -328,14 +361,27 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
         part([[tl, TL], [centre, BL], [bl, null]], [[tr, null], [br, BR], [centre, TR]]),
       ];
     }
-    // the two limbs, laid out from the apex
-    case 'per-chevron': {
-      const apex: Pt = [cx, apexY];
-      const D = lay(a, apex, [x0, limb], 'meet'), S = lay(a, apex, [x1, limb], 'meet');
+    // the two limbs, laid out from the apex: below the centre for the inverted one (the upper part first), on the top edge for the one throughout
+    case 'per-chevron': case 'per-chevron-inverted': case 'per-chevron-throughout': {
+      const throughout = division === 'per-chevron-throughout', fall = division === 'per-chevron-inverted' ? -1 : 1;
+      const apex: Pt = [cx, throughout ? cut.apexTop : fall === 1 ? apexY : cy + CHEVRON_APEX_RISE];
+      const end = (x: number): Pt => [x, apex[1] + fall * (throughout ? cut.slope : 1) * Math.abs(x - cx)];
+      const D = lay(a, apex, end(x0), 'meet'), S = lay(a, apex, end(x1), 'meet');
       return [
-        part([[[x0, y0], null], [[x1, y0], null], [[x1, limb], S], [apex, D], [[x0, limb], null]]),
-        part([[[x0, limb], D], [apex, S], [[x1, limb], null], [[x1, y1], null], [[x0, y1], null]]),
+        part([[[x0, y0], null], [[x1, y0], null], [end(x1), S], [apex, D], [end(x0), null]]),
+        part([[end(x0), D], [apex, S], [end(x1), null], [[x1, y1], null], [[x0, y1], null]]),
       ];
+    }
+    // the lines run out from the centre, each laid out from where they meet (an arrondi one on its own chord); the sectors alternate
+    case 'gyronny': {
+      const step = 360 / cut.pieces;
+      const rays = Array.from({ length: cut.pieces }, (_, k): [Pt, LaidLine | null] => {
+        const angle = ((GYRONNY_START + k * step) * Math.PI) / 180;
+        const out: Pt = [cx + GYRONNY_REACH * Math.cos(angle), cy + GYRONNY_REACH * Math.sin(angle)];
+        return [out, lay(a, centre, out, a === 'arrondi' ? 'centred' : 'cross')];
+      });
+      const sectors = rays.map(([out, laid], j): Array<[Pt, LaidLine | null]> => [[centre, laid], [out, null], rays[(j + 1) % rays.length]]);
+      return [part(...sectors.filter((_, j) => j % 2 === 0)), part(...sectors.filter((_, j) => j % 2 === 1))];
     }
     // the per pale line is `a`, the per fess line `b`: four arms laid out from the fess point
     case 'quarterly': {
@@ -351,24 +397,25 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
 }
 
 /** Every part of a divided field as its contours (per saltire and quarterly: two for a part), in part order, around the shape's fess point; its lines drawn as `lines` say. */
-export function partitionContours(division: Division, lines: Lines, frame: ShapeFrame): readonly (readonly Contour[])[] {
-  return partitionAt(division, lines, straddlingCentre(division, lines, frame.fessPoint), 0, layOn(pathPolygon(frame.outline)));
+export function partitionContours(division: Division, lines: Lines, pieces: number | null, frame: ShapeFrame): readonly (readonly Contour[])[] {
+  const cut: Cut = { pieces: pieces ?? DEFAULT_GYRONNY_PIECES, apexTop: frame.box.y0, slope: frame.throughoutSlope };
+  return partitionAt(division, lines, straddlingCentre(division, lines, frame.fessPoint), 0, layOn(pathPolygon(frame.outline)), cut);
 }
 
 /** Region paths [first part, second part] for straight lines meeting at `fess` (turned `turn` degrees clockwise about it), covering the whole frame: a party charge's or band's. */
 export function partitionRegions(division: Division, fess: Point, turn = 0): [string, string] {
-  const [first, second] = partitionAt(division, PLAIN_LINES, fess, turn, layPlain).map(contoursPath);
+  const [first, second] = partitionAt(division, PLAIN_LINES, fess, turn, layPlain, PARTY_CUT).map(contoursPath);
   return [first, second];
 }
 
 const divisionCache = new Map<string, readonly string[]>();
 
 /** The region paths of a divided field in a shape, one per part in part order. */
-export function divisionRegions(division: Division, lines: Lines, shape: FieldShape): readonly string[] {
-  const key = `${division}|${lines.a}|${lines.b}|${shape}`;
+export function divisionRegions(division: Division, lines: Lines, pieces: number | null, shape: FieldShape): readonly string[] {
+  const key = `${division}|${lines.a}|${lines.b}|${pieces}|${shape}`;
   let regions = divisionCache.get(key);
   if (!regions) {
-    regions = partitionContours(division, lines, SHAPE_FRAME[shape]).map(contoursPath);
+    regions = partitionContours(division, lines, pieces, SHAPE_FRAME[shape]).map(contoursPath);
     divisionCache.set(key, regions);
   }
   return regions;
@@ -376,7 +423,7 @@ export function divisionRegions(division: Division, lines: Lines, shape: FieldSh
 
 /** The region paths of a divided or varied field in a shape, in part order. */
 function regionsOf(f: DividedField | VariedField, shape: FieldShape): readonly string[] {
-  if (f.k === 'divided') return divisionRegions(f.division, f.lines, shape);
+  if (f.k === 'divided') return divisionRegions(f.division, f.lines, f.pieces, shape);
   const v = f.paint;
   return variationRegions(v.variation, v.pieces, v.lines, SHAPE_FRAME[shape].box);
 }
@@ -389,7 +436,7 @@ const plainLines = (l: Lines): boolean => l.a === 'plain' && l.b === 'plain';
  */
 export function partIndexAt(f: DividedField | VariedField, shape: FieldShape, x: number, y: number): number {
   const frame = SHAPE_FRAME[shape];
-  if (f.k === 'divided' && plainLines(f.lines)) return inFirstPart(f.division, frame.fessPoint, x, y) ? 0 : 1;
+  if (f.k === 'divided' && plainLines(f.lines)) return inFirstPartIn(f, frame, x, y) ? 0 : 1;
   if (f.k === 'varied' && plainLines(f.paint.lines)) return inFirstRegion(f.paint.variation, f.paint.pieces, frame.box, x, y) ? 0 : 1;
   const regions = regionsOf(f, shape);
   const index = regions.slice(0, -1).findIndex((d) => pointInPath(pathRings(d), x, y));

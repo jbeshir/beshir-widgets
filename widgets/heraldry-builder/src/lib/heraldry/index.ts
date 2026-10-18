@@ -19,7 +19,7 @@ export {
 } from './shape-options';
 export { OUTLINES, type Outline } from './outline';
 export { contourPath, contoursPath, type Contour, type ContourEdge } from './contour';
-export { DIVISIONS, BUILDER_DIVISIONS, MORE_DIVISIONS, LINED_VARIATIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, VARIATION_SPELLINGS, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
+export { DIVISIONS, BUILDER_DIVISIONS, MORE_DIVISIONS, LINED_VARIATIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, GYRONNY_PIECES, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, VARIATION_SPELLINGS, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
 export {
   canonical, canonicalJson, canonicalLines, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, groundTincture, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, variationPaint, asVariation, treatedPaint, asTreated, semyPaint, asSemy, fieldSemys, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
   UNSUPPORTED_GAP_CATEGORIES,

@@ -176,6 +176,34 @@
       "expect": {"selector":"[data-testid=blazon]:has-text(\"three bendlets\")"}
     },
     {
+      "label": "gyronny-six",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=field-shape-more] summary"},
+        {"waitFor":"[data-testid=division-gyronny]"},
+        {"click":"[data-testid=division-gyronny]"},
+        {"waitFor":"[data-testid=field-pieces-6]"},
+        {"click":"[data-testid=field-pieces-6]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"Gyronny of six\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"Gyronny of six\")"}
+    },
+    {
+      "label": "per-chevron-inverted-embattled",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=field-shape-more] summary"},
+        {"waitFor":"[data-testid=division-per-chevron-inverted]"},
+        {"click":"[data-testid=division-per-chevron-inverted]"},
+        {"waitFor":"[data-testid=field-edge-embattled]"},
+        {"click":"[data-testid=field-edge-embattled]"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"Per chevron inverted embattled\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"Per chevron inverted embattled\")"}
+    },
+    {
       "label": "shape-round",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

@@ -46,6 +46,7 @@ const DIVISION_PLAIN: Record<Division, string> = {
   'tierced-per-pale': 'Three vertical stripes',
   'tierced-per-fess': 'Three horizontal stripes',
   gyronny: 'Split into wedges',
+  'per-chevron-throughout': 'Split in a peak to the top',
 };
 
 const ORDINARY_PLAIN: Record<OrdinaryType, string> = {
@@ -97,7 +98,7 @@ export const ORDINARY_LABEL: Record<OrdinaryType, PlainTerm> = withTerms(ORDINAR
 const LINE_PLAIN: Record<Line, string> = {
   plain: 'Straight', embattled: 'Battlements', wavy: 'Wavy', engrailed: 'Scalloped (points out)', invected: 'Scalloped (points in)',
   indented: 'Zigzag', dancetty: 'Big zigzag', nebuly: 'Cloudy', raguly: 'Ragged', rayonny: 'Flames', dovetailed: 'Dovetails', urdy: 'Pointed',
-  potenty: 'T-shapes', bretessed: 'Battlements both sides', grady: 'Steps', enarched: 'Arched', ploye: 'Bowed',
+  potenty: 'T-shapes', bretessed: 'Battlements both sides', grady: 'Steps', enarched: 'Arched', ploye: 'Bowed', arrondi: 'Curved',
 };
 
 /** Lines of partition for chips and summaries: how each looks, and its heraldic word ("Straight · plain"). */

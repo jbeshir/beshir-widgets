@@ -297,7 +297,7 @@ export const GAP_TINCTURES: Record<string, string> = {
 
 /** Words that are a division the widget lacks by themselves → sub-tag ("per …" is read in gaps.ts). */
 export const GAP_DIVISION_WORDS: Record<string, string> = {
-  gyronny: 'gyronny', tierced: 'tierced', chape: 'chape', chappe: 'chape', chausse: 'chausse', vetu: 'vetu',
+  tierced: 'tierced', chape: 'chape', chappe: 'chape', chausse: 'chausse', vetu: 'vetu',
   party: 'party-of-n',
 };
 

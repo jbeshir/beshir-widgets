@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  BUILDER_DIVISIONS, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
+  BUILDER_DIVISIONS, MORE_DIVISIONS, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
   normalise, queryWords, readability, renderLayers, signature, tinctureIssues, unsupportedIssues, type Division,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -29,6 +29,23 @@ describe('counterchanged and the rule of tincture', () => {
     }
     // 3 metals × 5 colours × 2 orders = 30 legal pairs per division; 3·2 + 5·4 = 26 same-class pairs.
     expect([legal, illegal]).toEqual([30 * BUILDER_DIVISIONS.length, 26 * BUILDER_DIVISIONS.length]);
+  });
+
+  it('is legal on the divisions behind "More divisions" by the same test; a gyronny takes a single charge only', () => {
+    for (const division of MORE_DIVISIONS.filter((d) => d !== 'per-chevron-throughout')) {
+      for (const [t1, t2] of [['or', 'azure'], ['gules', 'argent'], ['or', 'argent'], ['vert', 'sable']] as const) {
+        const expectLegal = TINCTURE_CLASS[t1] !== TINCTURE_CLASS[t2];
+        expect(tinctureIssues(mullets(div(division, t1, t2), 1)).length === 0, `${division} ${t1}/${t2}`).toBe(expectLegal);
+      }
+    }
+    // a single charge on a per chevron throughout lies wholly in its triangle, where counterchanged only repaints it; several spread across both parts
+    expect(tinctureIssues(mullets(div('per-chevron-throughout', 'or', 'azure'), 1)).map((i) => i.message)).toEqual(['The mullet lies wholly on the Azure part of the field, so counterchanged would simply make it Or — choose Or instead.']);
+    expect(tinctureIssues(mullets(div('per-chevron-throughout', 'or', 'azure'), 3))).toEqual([]);
+    expect(counterchangeUnavailable(mullets(div('per-chevron-inverted', 'or', 'azure'), 3), [0])).toBeNull();
+    expect(counterchangeUnavailable(mullets(div('gyronny', 'or', 'azure'), 3), [0])).toMatch(/only a single charge can be counterchanged over gyronny/);
+    expect(counterchangeUnavailable(mullets(div('gyronny', 'or', 'azure'), 1), [0])).toBeNull();
+    const saltire = nd(arms(div('gyronny', 'or', 'azure'), ord('saltire', 'counterchanged')));
+    expect(counterchangeUnavailable(saltire, [0])).toMatch(/gyronny/);
   });
 
   it('explains a same-class field: still metal on metal, or colour on colour', () => {

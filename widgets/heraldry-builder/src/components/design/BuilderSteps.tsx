@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, THIN_ORDINARIES, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, THIN_ORDINARIES, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
@@ -16,7 +16,7 @@ import {
 import { numberWord } from '../../lib/heraldry/words';
 import {
   companionNote, ordinaryPath, picturePath, placementLabel, setCharge,
-  setBadge, setDivision, setFieldEdgeSide, setFieldLine, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
+  setBadge, setDivision, setDivisionPieces, setFieldEdgeSide, setFieldLine, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
 import { ChargeIcon, Shield } from '../Shield';
@@ -64,6 +64,8 @@ function icon(input: unknown): Design {
 
 const ICON_FIELD = (division: Division | null): Design =>
   icon({ v: 2, field: division ? { k: 'divided', division, parts: ['or', 'azure'] } : 'azure', groups: [] });
+/** The "More divisions" tiles' designs, made once. */
+const MORE_DIVISION_ICONS: ReadonlyMap<Division, Design> = new Map(MORE_DIVISIONS.map((d) => [d, ICON_FIELD(d)]));
 /** The badge tile: a star standing alone, with no shield behind it. */
 const ICON_BADGE: Design = icon({ v: 2, kind: 'badge', groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'or' }] });
 /** A band or shape tile: as the builder first draws it (a tressure double). */
@@ -221,26 +223,51 @@ function lineSuffix(design: Design): string {
   return line === 'plain' ? '' : `, ${LINE_LABEL[line].term}`;
 }
 
-/** "More divisions and edges…": how the lines of a divided or striped background are drawn, shown only once it is one of them. */
-function FieldEdges({ design, shape, onChange }: { design: Design; shape: FieldShape; onChange: (nd: Design) => void }) {
+/** "More divisions and edges…": the divisions beyond the first seven, how many wedges a gyronny has, and how the lines of a divided or striped background are drawn. */
+function FieldEdges({ design, division, shape, onChange }: { design: Design; division: Division | null; shape: FieldShape; onChange: (nd: Design) => void }) {
+  if (design.kind !== 'arms') return null;
   const target = { k: 'field' } as const;
   const lines = lineChoices(design, target);
-  if (design.kind !== 'arms' || lines.length === 0) return null;
   const field = design.field;
-  if (field.k !== 'divided' && field.k !== 'variation') return null;
   const icon = field.k === 'divided'
-    ? { k: 'divided', division: field.division, parts: ['or', 'azure'] }
-    : { k: 'variation', variation: field.variation, pieces: field.pieces, parts: ['or', 'azure'] };
-  const current = field.lines.a !== 'plain' ? field.lines.a : field.lines.b;
+    ? { k: 'divided', division: field.division, pieces: field.pieces, parts: ['or', 'azure'] }
+    : field.k === 'variation' ? { k: 'variation', variation: field.variation, pieces: field.pieces, parts: ['or', 'azure'] } : null;
+  const lined = field.k === 'divided' || field.k === 'variation' ? field.lines : null;
+  const current = lined ? (lined.a !== 'plain' ? lined.a : lined.b) : 'plain';
   return (
-    <MoreShapes testid="field" summary="More divisions and edges…" used={current !== 'plain'}>
+    <MoreShapes testid="field" summary="More divisions and edges…" used={(division !== null && MORE_DIVISIONS.includes(division)) || current !== 'plain'}>
       {() => (
-        <EdgePicker
-          testid="field-edge" noun="the background" iconKey={JSON.stringify(icon)} icon={(line) => ({ v: 2, field: { ...icon, lines: { a: line, b: line } }, groups: [] })} shape={shape}
-          lines={lines} line={current} onLine={(l) => onChange(setFieldLine(design, l))}
-          sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="lines"
-          sideLabels={{ both: 'Both lines', a: 'Up-and-down line only', b: 'Across line only' }} onSide={(s) => onChange(setFieldEdgeSide(design, s))}
-        />
+        <>
+          <p class="picker-legend">More divisions</p>
+          <RadioGroup label="More divisions" class="icon-grid icon-grid-field" testid="field-more-division-select">
+            {MORE_DIVISIONS.map((d) => (
+              <ChoiceButton key={d} testid={`division-${d}`} checked={division === d} label={nameOf(DIVISION_LABEL[d])} title={DIVISION_LABEL[d].plain} onSelect={() => onChange(setDivision(design, d))} onBlocked={never} class="icon-choice">
+                <Shield design={MORE_DIVISION_ICONS.get(d)!} shape={shape} size={30} label={null} />
+                <span class="choice-label">{capitalise(DIVISION_LABEL[d].term)}</span>
+              </ChoiceButton>
+            ))}
+          </RadioGroup>
+          {field.k === 'divided' && field.division === 'gyronny' && (
+            <>
+              <p class="picker-legend">How many wedges</p>
+              <RadioGroup label="How many wedges" class="segmented" testid="field-pieces">
+                {GYRONNY_PIECES.map((n) => (
+                  <ChoiceButton key={n} testid={`field-pieces-${n}`} checked={field.pieces === n} label={`${capitalise(numberWord(n))} wedges`} onSelect={() => onChange(setDivisionPieces(design, n))} onBlocked={never} class="segment">
+                    <span>{n}</span>
+                  </ChoiceButton>
+                ))}
+              </RadioGroup>
+            </>
+          )}
+          {icon && lines.length > 0 && (
+            <EdgePicker
+              testid="field-edge" noun="the background" iconKey={JSON.stringify(icon)} icon={(line) => ({ v: 2, field: { ...icon, lines: { a: line, b: line } }, groups: [] })} shape={shape}
+              lines={lines} line={current} onLine={(l) => onChange(setFieldLine(design, l))}
+              sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="lines"
+              sideLabels={{ both: 'Both lines', a: 'Up-and-down line only', b: 'Across line only' }} onSide={(s) => onChange(setFieldEdgeSide(design, s))}
+            />
+          )}
+        </>
       )}
     </MoreShapes>
   );
@@ -288,7 +315,7 @@ export function FieldStep({ design, shape, onChange, onBadge, notice, issues, ac
           {division && <FieldPartPicker design={design} part={1} legend={DIVISION_PART_LABEL[division][1]} onChange={onChange} />}
         </>
       )}
-      {design.kind === 'arms' && <FieldEdges design={design} shape={shape} onChange={onChange} />}
+      {design.kind === 'arms' && <FieldEdges design={design} division={division} shape={shape} onChange={onChange} />}
       {design.kind === 'arms' && <FieldMore design={design} division={division} onChange={onChange} />}
     </Step>
   );

@@ -207,6 +207,16 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Argent, two bendlets sinister vert between two mullets sable.'],
   ['two chevronels inverted and a chief', arms('sable', group(ordinary('chevronel', { mods: ['inverted'] }), 'or', { count: 2 }), group(ordinary('chief'), 'argent')),
     'Sable, two chevronels inverted Or, a chief argent.'],
+  ['gyronny of furs (O&A 530)', arms(div('gyronny', { k: 'fur', fur: 'erminois' }, { k: 'fur', fur: 'pean' })), 'Gyronny erminois and pean.'],
+  ['gyronny with a picture (O&A 7486, a wolf statant)', arms(div('gyronny', 'or', 'purpure'), group(charge('wolf'), 'vert')), 'Gyronny Or and purpure, a wolf passant vert.'],
+  ['gyronny of six', arms({ ...div('gyronny', 'argent', 'gules'), pieces: 6 }), 'Gyronny of six argent and gules.'],
+  ['gyronny arrondi of twelve with a picture counterchanged', arms({ ...div('gyronny', 'argent', 'sable'), pieces: 12, lines: { a: 'arrondi' } }, group(charge('mullet'), 'counterchanged')),
+    'Gyronny arrondi of twelve argent and sable, a mullet counterchanged.'],
+  ['per chevron inverted with a picture counterchanged (O&A 3037, constructed)', arms(div('per-chevron-inverted', 'purpure', 'argent'), group(charge('eagle'), 'counterchanged')),
+    'Per chevron inverted purpure and argent, an eagle counterchanged.'],
+  ['per chevron inverted embattled', arms({ k: 'divided', division: 'per-chevron-inverted', lines: { a: 'embattled' }, parts: ['argent', 'sable'] }), 'Per chevron inverted embattled argent and sable.'],
+  ['per chevron throughout with three pictures counterchanged (O&A 18819)', arms(div('per-chevron-throughout', 'argent', 'purpure'), group(charge('dragon', { posture: 'rampant' }), 'counterchanged', { count: 3 })),
+    'Per chevron throughout argent and purpure, three dragons counterchanged.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {

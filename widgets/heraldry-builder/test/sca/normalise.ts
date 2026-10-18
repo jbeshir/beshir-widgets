@@ -67,7 +67,7 @@ const NAMED_CHARGE = new RegExp(`(?<![\\w-])(${escaped(NAMED_BY_WORD.keys())})(?
 const TINCTURE_OR_NAME = new RegExp(`(?<![\\w-])(${escaped([...TINCTURES, 'counterchanged', 'proper', ...FURS.map((f) => FUR_NAME[f]), ...NAMED_BY_WORD.keys()])})(?![\\w-])`);
 
 /** How a divided field starts: "per pale", "quarterly". */
-const DIVISION_START = `(?:per (?:pale|fess|bend sinister|bend|saltire|chevron)(?: ${LINE})?|quarterly(?: per (?:pale|fess))?(?: ${LINE})?)`;
+const DIVISION_START = `(?:per (?:pale|fess|bend sinister|bend|saltire|chevron(?: inverted| throughout)?)(?: ${LINE})?|gyronny(?: ${LINE})?(?: of (?:six|eight|twelve))?|quarterly(?: per (?:pale|fess))?(?: ${LINE})?)`;
 const wordOf = (name: string) => new RegExp(`(?<![\\w-])${escaped([name])}(?![\\w-])`, 'g');
 /** The semys' names (in lower case, as the text reads), the longest first, each with the pattern for it and a tincture stated after it, and the semy it strews. */
 const SEMY_NAME_PATTERNS = SEMY_NAMES.map((n) => ({ name: n.word.toLowerCase(), semy: n }))
@@ -165,7 +165,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     apply: (s) => s
       .replace(/\b(a|an|on a) dance(?:tte?)?(?![\w-])/g, '$1 fess dancetty')
       .replace(LINE_SPELLING_WORD, (w) => LINE_WORD_OF.get(w)!)
-      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron)|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|base|canton|quarter|gyron|cross|saltire|pile)) dancetty\b/g, '$1 indented')
+      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron(?: inverted| throughout)?)|gyronny|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|base|canton|quarter|gyron|cross|saltire|pile)) dancetty\b/g, '$1 indented')
       .replace(/(?<![\w-])(?<!embattled )counter-?embattled\b/g, 'embattled counter-embattled')
       .replace(/\bembattled on both edges\b/g, 'embattled counter-embattled'),
   },
@@ -201,7 +201,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\b(chevrons?) reversed\b/g, '$1 inverted')
       .replace(new RegExp(`\\b(chevron|pile)(${ORDINARY_LINE}) inverted\\b`, 'g'), '$1 inverted$2')
       .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?) couped(${ORDINARY_LINE})(?![\\w-])`, 'g'), '$1$2 couped')
-      .replace(/\bchevron inverted embattled(?! counter-embattled| on the| grady)\b/g, 'chevron inverted embattled on the upper edge')
+      .replace(/(?<!per )\bchevron inverted embattled(?! counter-embattled| on the| grady)\b/g, 'chevron inverted embattled on the upper edge')
       .replace(new RegExp(`\\b((?:a|an|on a) (?:cross|saltire|pall|pall inverted|fret|label)(?:${ORDINARY_LINE})?(?: voided)?) throughout\\b`, 'g'), '$1'),
   },
   {

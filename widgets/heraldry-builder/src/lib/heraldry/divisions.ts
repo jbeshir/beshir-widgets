@@ -2,13 +2,13 @@
 // Pure data — no DOM.
 
 export const DIVISIONS = ['per-pale', 'per-fess', 'per-bend', 'per-bend-sinister', 'per-saltire', 'per-chevron', 'quarterly',
-  'per-chevron-inverted', 'per-pall', 'per-pall-inverted', 'tierced-per-pale', 'tierced-per-fess', 'gyronny'] as const;
+  'per-chevron-inverted', 'per-pall', 'per-pall-inverted', 'tierced-per-pale', 'tierced-per-fess', 'gyronny', 'per-chevron-throughout'] as const;
 export type Division = (typeof DIVISIONS)[number];
 
 /** The divisions the builder offers on the field: the first seven. */
 export const BUILDER_DIVISIONS: readonly Division[] = DIVISIONS.slice(0, 7);
-/** Divisions drawn but reached only behind disclosure (none yet). */
-export const MORE_DIVISIONS: readonly Division[] = [];
+/** Divisions drawn but reached only behind disclosure ("More divisions and edges…"). */
+export const MORE_DIVISIONS: readonly Division[] = ['per-chevron-inverted', 'per-chevron-throughout', 'gyronny'];
 /** Every division the library draws. */
 export const DRAWN_DIVISIONS: readonly Division[] = [...BUILDER_DIVISIONS, ...MORE_DIVISIONS];
 
@@ -37,6 +37,13 @@ export const LINED_VARIATIONS: readonly Variation[] = COUNTED_VARIATIONS.filter(
 export const VARIATION_PIECES: readonly number[] = [4, 6, 8];
 export const DEFAULT_PIECES = 6;
 
+/** The gyronny piece counts the builder offers, and the count a bare "gyronny" means (blazoned only when it is another). */
+export const GYRONNY_PIECES: readonly number[] = [6, 8, 12];
+export const DEFAULT_GYRONNY_PIECES = 8;
+
+/** The piece count a division is drawn with: a gyronny's own (the default when none is given), and none for any other division. */
+export const divisionPieces = (d: Division, pieces: number | null): number | null => (d === 'gyronny' ? pieces ?? DEFAULT_GYRONNY_PIECES : null);
+
 export const isCountedVariation = (v: Variation): boolean => COUNTED_VARIATIONS.includes(v);
 
 /** The stripe count a variation is drawn with: its own, the default when none is given, and none for a variation that has no count. */
@@ -56,6 +63,7 @@ export const DIVISION_NAME: Record<Division, string> = {
   'per-saltire': 'per saltire', 'per-chevron': 'per chevron', quarterly: 'quarterly',
   'per-chevron-inverted': 'per chevron inverted', 'per-pall': 'per pall', 'per-pall-inverted': 'per pall inverted',
   'tierced-per-pale': 'tierced per pale', 'tierced-per-fess': 'tierced per fess', gyronny: 'gyronny',
+  'per-chevron-throughout': 'per chevron throughout',
 };
 
 /** Labels for the parts of a divided paint, as you look at it. Quarterly and per saltire name their two alternating parts. */
@@ -67,12 +75,13 @@ export const DIVISION_PART_LABEL: Record<Division, readonly string[]> = {
   'per-saltire': ['Top and bottom', 'Left and right'],
   'per-chevron': ['Above the chevron line', 'Below'],
   quarterly: ['1st and 4th quarters (top-left, bottom-right)', '2nd and 3rd quarters'],
-  'per-chevron-inverted': ['Below the chevron line', 'Above'],
+  'per-chevron-inverted': ['Above the inverted chevron line', 'Below'],
   'per-pall': ['Top left', 'Top right', 'Bottom'],
   'per-pall-inverted': ['Bottom left', 'Bottom right', 'Top'],
   'tierced-per-pale': ['Left', 'Middle', 'Right'],
   'tierced-per-fess': ['Top', 'Middle', 'Bottom'],
-  gyronny: ['First part', 'Second part'],
+  gyronny: ['First part (the gyron above the middle line, on the left)', 'Second part'],
+  'per-chevron-throughout': ['Above the chevron line', 'Below (the point reaches the top)'],
 };
 
 export function isDivision(v: unknown): v is Division {
