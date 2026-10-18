@@ -53,7 +53,7 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
     const label = c.value.k === 'ordinary' ? capitalise(ORDINARY_LABEL[c.value.type].plain) : chargeLabel(c.value.charge);
     return <option key={itemValue(c.value)} value={itemValue(c.value)} disabled={!c.allowed} title={c.allowed ? undefined : c.reason}>{label}{c.allowed ? '' : ' (not here)'}</option>;
   };
-  const blocked = choices.find((c) => !c.allowed && itemValue(c.value) === itemValue(current));
+  const blocked = choices.find((c): c is Extract<typeof c, { allowed: false }> => !c.allowed && itemValue(c.value) === itemValue(current));
   const summary = item.k === 'ordinary' ? lower(ORDINARY_LABEL[item.type].plain) : picturesSummary(design, path);
   return (
     <Step
@@ -72,7 +72,7 @@ function OverallStep({ design, n, onChange, onAdjust, issues, accordion }: Omit<
           <optgroup label="Band or shape">{choices.filter((c) => c.value.k === 'ordinary').map(option)}</optgroup>
           <optgroup label="Picture">{choices.filter((c) => c.value.k === 'charge').map(option)}</optgroup>
         </select>
-        {blocked && !blocked.allowed && <p class="field-hint">{blocked.reason}</p>}
+        {blocked && <p class="field-hint">{blocked.reason}</p>}
       </div>
       {item.k === 'ordinary'
         ? (
@@ -90,11 +90,11 @@ function PeripheralStep({ design, shape, place, n, onChange, issues, accordion }
   if (item.k !== 'ordinary') return null;
   const label = ORDINARY_LABEL[item.type];
   const choices = peripheralItemChoices(design, place);
-  const blocked = choices.find((c) => !c.allowed && c.value === item.type);
+  const blocked = choices.find((c): c is Extract<typeof c, { allowed: false }> => !c.allowed && c.value === item.type);
   return (
     <Step
       n={n} title={capitalise(label.plain)} term={label.term} hint="A shape along an edge or in a corner of the field, beside the band; the pictures keep clear of it."
-      summary={[ordinaryShapeWords(groupAt(design, path)), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ')} issues={issues} accordion={accordion} testid={`step-layer-${place}`}
+      summary={[ordinaryShapeWords(design, path), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ')} issues={issues} accordion={accordion} testid={`step-layer-${place}`}
       remove={{ label: `Remove the ${lower(label.plain)}`, testid: `remove-layer-${place}`, onRemove: () => onChange(removeLayer(design, place)) }}
     >
       <div class="control">
@@ -113,7 +113,7 @@ function PeripheralStep({ design, shape, place, n, onChange, issues, accordion }
             <option key={c.value} value={c.value} disabled={!c.allowed} title={c.allowed ? undefined : c.reason}>{capitalise(ORDINARY_LABEL[c.value].plain)} ({ORDINARY_LABEL[c.value].term}){c.allowed ? '' : ' (not here)'}</option>
           ))}
         </select>
-        {blocked && !blocked.allowed && <p class="field-hint">{blocked.reason}</p>}
+        {blocked && <p class="field-hint">{blocked.reason}</p>}
       </div>
       <PaintPicker design={design} path={path} group={place} testid={`${place}-tincture`} noun={lower(label.plain)} onChange={onChange} />
       <OrdinaryEdges design={design} path={path} testid={place} summary="Edge…" noun={`the ${lower(label.plain)}`} shape={shape} onChange={onChange} />

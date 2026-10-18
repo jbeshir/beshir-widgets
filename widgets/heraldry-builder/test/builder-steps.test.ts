@@ -442,7 +442,7 @@ describe('"More shapes and edges…" under the band', () => {
     const fess = setOrdinary(DEFAULT_DESIGN, 'fess');
     const open = render(setOrdinaryLine(fess, ordinaryPath(fess)!, 'embattled'));
     const chips = [...open.matchAll(/\sid="ordinary-edge-([a-z]+)"/g)].map((m) => m[1]).filter((id) => id !== 'select' && !id.startsWith('side'));
-    expect(chips.slice(0, 8)).toEqual(['plain', 'embattled', 'wavy', 'indented', 'engrailed', 'rayonny', 'enarched', 'invected']);
+    expect(chips.slice(0, 8)).toEqual(['plain', 'embattled', 'wavy', 'engrailed', 'indented', 'rayonny', 'invected', 'dovetailed']);
     expect(chips.length).toBeGreaterThan(8);
     const before = open.slice(0, open.indexOf('id="ordinary-edge-' + chips[8] + '"'));
     expect(before.lastIndexOf('icon-grid-break')).toBeGreaterThan(before.lastIndexOf('id="ordinary-edge-' + chips[7] + '"'));

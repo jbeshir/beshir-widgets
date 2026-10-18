@@ -12,7 +12,8 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, DIVISIONS, DIVISION_NAME, lineAllowed, isCountedVariation, postureTerm, type Line, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, LINE, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
 
 export interface NormalisationRule {
   id: string;
@@ -24,32 +25,28 @@ const COLOUR = `(?:${TINCTURES.join('|')})`;
 
 const NUMBER = '(?:a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)';
 const NUMBER_WORD = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
-/** A line of partition as the widget words it ('embattled grady', 'ployé'), the longest first. */
-const LINE = `(?:${[...new Set(DRAWN_LINES.map((l) => LINE_WORD[l]))].sort((a, b) => b.length - a.length).join('|')})`;
-const ORDINARY_NAME_WORDS = 'fess|pale|bend sinister|bend|chevron|cross|saltire|pile|pall';
 /** The line a band or shape is written with after its name: "wavy", "embattled counter-embattled", "embattled on the lower edge". */
-const ORDINARY_LINE = ` (?:embattled counter-embattled|${LINE})(?: on the (?:upper|lower|dexter|sinister) edge)?`;
+const ORDINARY_LINE = ` (?:${COUNTER_EMBATTLED_WORDS}|${LINE})(?: on the (?:${EDGE_NAMES}) edge)?`;
 /** An ordinary as the text spells it once its synonyms are settled: its name, inverted, its line, couped and where it runs, as far as it has them (the tincture follows). */
-const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?(?: voided)?`;
+const ORDINARY = `(?:${BAND_NAMES})(?: inverted)?(?:${ORDINARY_LINE})?${MODS_AFTER_LINE.map((m) => `(?: ${m})?`).join('')}`;
 /** The corner and edge shapes' names joined by the word the widget writes before them (`PERIPHERAL_JOINER`): ", a quarter", " and a base", " within an orle". */
 const joinedBy = (joiner: PeripheralJoiner) => DRAWN_ORDINARIES.filter((t) => ORDINARY_KIND[t] !== 'central' && t !== 'chief' && t !== 'bordure' && PERIPHERAL_JOINER[t] === joiner).map((t) => ORDINARY_NAME[t]).join('|');
 /** A top band or border, with its line. */
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
-/** A bend, bendlets or a baton, and a bend sinister, bendlets sinister or a baton sinister: what a lone charge in chief or base stands beside in a corner. */
-const BEND = '\\b(?:(?:a|two|three|four) bend(?:lets)?|a baton)(?! sinister\\b)\\b';
-const BEND_SINISTER = '\\b(?:(?:a|two|three|four) bend(?:lets)?|a baton) sinister\\b';
-
-const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
 /** The drawn bands and shapes, by name, the longest first, whose lines pass `test` (`lineAllowed` on the band or shape). */
 const ordinariesWhere = (test: (allowed: (line: Line) => boolean) => boolean) =>
   alt(DRAWN_ORDINARIES.filter((type) => test((line) => lineAllowed({ k: 'ordinary', type, inverted: false }, line))).map((t) => ORDINARY_NAME[t]));
-/** Every division's and variation's name: "potenty" after one is its line, not the fur. */
-const DIVISION_NAMES = alt(DIVISIONS.map((d) => DIVISION_NAME[d]));
+/** Every variation's name: "potenty" after one (or a division's) is its line, not the fur. */
 const VARIATION_NAMES = alt(VARIATIONS.map((v) => VARIATION_NAME[v]));
 /** The bands and shapes a potenty line is drawn on: "potenty" after one is its line. */
 const POTENTY_HOSTS = ordinariesWhere((allowed) => allowed('potenty'));
 /** The bands and shapes on which "dancetty" is drawn as indented: they take indented, not dancetty (RULES §A.3; dancetty is a line of two-sided bands). */
 const DANCETTY_AS_INDENTED = ordinariesWhere((allowed) => !allowed('dancetty') && allowed('indented'));
+/** The other names of an ordinary that is another (`SAME_ORDINARY`: barrulets are bars), singular and plural, each to its type. */
+const NAME_OF = new Map(Object.keys(SAME_ORDINARY).map((t) => [ORDINARY_NAME[t as OrdinaryType], t as OrdinaryType]));
+const PLURAL_OF = new Map(Object.keys(SAME_ORDINARY).map((t) => [ORDINARY_PLURAL[t as OrdinaryType], t as OrdinaryType]));
+const SAME_ORDINARY_NAMES = new RegExp(`\\b(?:${alt(NAME_OF.keys())})\\b`, 'g');
+const SAME_ORDINARY_PLURALS = new RegExp(`\\b(?:${alt(PLURAL_OF.keys())})\\b`, 'g');
 /** The diminutives the College never uses alone as the main band (RULES-C §C.2), by name, the longest first: what "a <name>" is the ordinary of. */
 const DIMINUTIVE_BY_NAME = new Map(THIN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
 const SINGLE_DIMINUTIVES = alt(DIMINUTIVE_BY_NAME.keys());
@@ -79,10 +76,6 @@ const NAMED_CHARGE = new RegExp(`(?<![\\w-])(${escaped(NAMED_BY_WORD.keys())})(?
 /** The next tincture a text states, or a named roundel or goutte, whose name states one. */
 const TINCTURE_OR_NAME = new RegExp(`(?<![\\w-])(${escaped([...TINCTURES, 'counterchanged', 'proper', ...FURS.map((f) => FUR_NAME[f]), ...NAMED_BY_WORD.keys()])})(?![\\w-])`);
 
-/** How a divided field starts: "per pale", "quarterly". */
-const DIVISION_START = `(?:per (?:pale|fess|bend sinister|bend|saltire|chevron(?: inverted| throughout)?|pall(?: inverted)?)(?: ${LINE})?|gyronny(?: ${LINE})?(?: of (?:six|eight|twelve))?|quarterly(?: per (?:pale|fess))?(?: ${LINE})?|tierced in (?:pale|fess)(?: ${LINE})?)`;
-/** How a field divided in three starts: "per pall", "tierced in pale". */
-const THREE_PART_START = `(?:per pall(?: inverted)?|tierced in (?:pale|fess))(?: ${LINE})?`;
 const THREE_PART_FIELD = new RegExp(`^${THREE_PART_START} ${TINCT}, `);
 /** Where the comma that closes the field is: the first, or the second after a field divided in three ("per pall argent, sable and gules, a …"). */
 const fieldComma = (text: string): number => text.indexOf(',', THREE_PART_FIELD.exec(text)?.[0].length ?? 0);
@@ -184,8 +177,8 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\b(a|an|on a) dance(?:tte?)?(?![\w-])/g, '$1 fess dancetty')
       .replace(LINE_SPELLING_WORD, (w) => LINE_WORD_OF.get(w)!)
       .replace(new RegExp(`\\b(${DIVISION_NAMES}|quarterly per (?:pale|fess)|(?:(?:a|an) )?(?:${DANCETTY_AS_INDENTED})) dancetty\\b`, 'g'), '$1 indented')
-      .replace(/(?<![\w-])(?<!embattled )counter-?embattled\b/g, 'embattled counter-embattled')
-      .replace(/\bembattled on both edges\b/g, 'embattled counter-embattled'),
+      .replace(/(?<![\w-])(?<!embattled )counter-?embattled\b/g, COUNTER_EMBATTLED_WORDS)
+      .replace(/\bembattled on both edges\b/g, COUNTER_EMBATTLED_WORDS),
   },
   {
     // 3a2a. Fields divided in three (RULES-C §E.1, §G.2; PLAN-C C13): "tierced per pale" is the widget's "tierced in pale" (the College writes
@@ -195,8 +188,8 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     id: 'three-part-fields',
     description: 'tierced per pale/fess → tierced in pale/fess; tierced per/in pall, gyronny of three → per pall; "per pall A, B, and C" and "per pall A B and C" → "per pall A, B and C".',
     apply: (s) => s
-      .replace(/\btierced (?:per|in) (pale|fess)e?\b/g, 'tierced in $1')
-      .replace(/\b(?:tierced (?:per|in) pall|gyronny of three)\b/g, 'per pall')
+      .replace(TIERCED_IN, 'tierced in $1')
+      .replace(PER_PALL_SPELLED, 'per pall')
       .replace(new RegExp(`^(${THREE_PART_START} ${TINCT}),? (${TINCT}),? and `), '$1, $2 and '),
   },
   {
@@ -212,7 +205,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
         .replace(new RegExp(`\\b${word}s\\b`, 'g'), ORDINARY_PLURAL[t])
         .replace(new RegExp(`\\b${word}\\b`, 'g'), ORDINARY_NAME[t]), s);
       return spelt
-        .replace(/\bbarrulets\b/g, 'bars').replace(/\bbarrulet\b/g, 'bar')
+        .replace(SAME_ORDINARY_PLURALS, (w) => ORDINARY_PLURAL[SAME_ORDINARY[PLURAL_OF.get(w)!]!]).replace(SAME_ORDINARY_NAMES, (w) => ORDINARY_NAME[SAME_ORDINARY[NAME_OF.get(w)!]!])
         .replace(new RegExp(`(?<!\\bin (?:chief|base|canton) )\\ba (${SINGLE_DIMINUTIVES})\\b(?! gemel)`, 'g'), (_, name: string) => `a ${ORDINARY_NAME[familyOf(DIMINUTIVE_BY_NAME.get(name)!)]}`)
         .replace(new RegExp(`\\ba saltorel((?:${ORDINARY_LINE})?)(?: couped)?\\b`, 'g'), 'a saltire$1 couped');
     },
@@ -227,12 +220,12 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     id: 'ordinary-treatments',
     description: 'humetty → couped after an ordinary; chevron reversed → chevron inverted; "<chevron|pile> <line> inverted" → "… inverted <line>"; "<ordinary> couped <line>" → "<ordinary> <line> couped"; "chevron inverted embattled" → "… embattled on the upper edge"; "throughout" after a cross or saltire dropped.',
     apply: (s) => s
-      .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?) humett(?:y|ee|é)(?![\\w-])`, 'g'), '$1 couped')
+      .replace(new RegExp(`\\b((?:${BAND_NAMES})(?: inverted)?(?:${ORDINARY_LINE})?) humett(?:y|ee|é)(?![\\w-])`, 'g'), '$1 couped')
       .replace(/\b(chevrons?) reversed\b/g, '$1 inverted')
       .replace(new RegExp(`\\b(chevron|pile)(${ORDINARY_LINE}) inverted\\b`, 'g'), '$1 inverted$2')
-      .replace(new RegExp(`\\b((?:${ORDINARY_NAME_WORDS})(?: inverted)?) couped(${ORDINARY_LINE})(?![\\w-])`, 'g'), '$1$2 couped')
+      .replace(new RegExp(`\\b((?:${BAND_NAMES})(?: inverted)?) couped(${ORDINARY_LINE})(?![\\w-])`, 'g'), '$1$2 couped')
       .replace(/(?<!per )\bchevron inverted embattled(?! counter-embattled| on the| grady)\b/g, 'chevron inverted embattled on the upper edge')
-      .replace(new RegExp(`\\b((?:a|an|on a) (?:cross|saltire|pall|pall inverted|fret|label)(?:${ORDINARY_LINE})?(?: voided)?) throughout\\b`, 'g'), '$1'),
+      .replace(new RegExp(`\\b((?:a|an|on a) (?:${alt(THROUGHOUT_ALREADY.map((t) => ORDINARY_NAME[t]))})(?:${ORDINARY_LINE})?(?: voided)?) throughout\\b`, 'g'), '$1'),
   },
   {
     // 3a4. Cotises and fimbriation written more than one way (RULES-C §G.1, §G.2; PLAN-C C7b). "Cotissed" and "cottised" are cotised, "double" and
@@ -247,7 +240,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\bbetween two cotises\b/g, 'cotised')
       .replace(new RegExp(`(\\b(?:a|an) ${ORDINARY}(?: ${TINCT})?), (?=${OUTLINE_WORD}\\b)`, 'g'), '$1 ')
       .replace(new RegExp(`(\\b(?:a|an) ${ORDINARY}(?: ${TINCT})?${OUTLINE}(?: ${TINCT})?), (?=between\\b)`, 'g'), '$1 ')
-      .replace(new RegExp(`\\b(${ORDINARY_NAME_WORDS})((?: inverted)?(?:${ORDINARY_LINE})?) (${COTISES}(?: plain| ${LINE})?) (couped|throughout|enhanced|abased|voided)\\b`, 'g'), '$1$2 $4 $3')
+      .replace(new RegExp(`\\b(${BAND_NAMES})((?: inverted)?(?:${ORDINARY_LINE})?) (${COTISES}(?: plain| ${LINE})?) (${alt(MODS_AFTER_LINE)})\\b`, 'g'), '$1$2 $4 $3')
       .replace(new RegExp(`(?<!per )\\b((?:a|an) pale(?: inverted)?(?:${ORDINARY_LINE})?(?: couped)?(?: (?:throughout|enhanced|abased))?(?: ${TINCT})?) cotised\\b`, 'g'), '$1 endorsed'),
   },
   {
@@ -318,26 +311,25 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     },
   },
   {
-    // 3a5. Corner shapes written more than one way (RULES-C §C.3, §G.2; PLAN-C C8b): a canton, quarter or gyron is in the dexter corner unless
-    //      it is said to be sinister, before its name ("a sinister canton", corpus 14) or after it ("a canton sinister", the widget's words).
+    // 3a5. Corner shapes written more than one way (RULES-C §C.3, §G.2; PLAN-C C8b, C9): a canton, quarter, gyron or gore — any that takes
+    //      "sinister" (`MOD_HOSTS.sinister`) — is dexter unless it is said to be sinister, before its name ("a sinister canton", corpus 14; "a
+    //      sinister gore" 34) or after it ("a canton sinister", "a gore sinister" 65, the widget's words).
     id: 'corner-shapes',
-    description: '"a sinister canton/quarter/gyron" → "a canton/quarter/gyron sinister"; "a dexter canton/quarter/gyron" → "a canton/quarter/gyron".',
+    description: '"a sinister canton/quarter/gyron/gore/baton" → "a canton/quarter/gyron/gore/baton sinister"; "a dexter canton/…" → "a canton/…".',
     apply: (s) => s
-      .replace(/\b(a|an|on a) sinister (canton|quarter|gyron)\b/g, '$1 $2 sinister')
-      .replace(/\b(a|an|on a) dexter (canton|quarter|gyron)\b/g, '$1 $2'),
+      .replace(new RegExp(`\\b(a|an|on a) sinister (${SINISTER_HOSTS})\\b`, 'g'), '$1 $2 sinister')
+      .replace(new RegExp(`\\b(a|an|on a) dexter (${SINISTER_HOSTS})\\b`, 'g'), '$1 $2'),
   },
   {
-    // 3a6. The orle, tressure, flaunches, gore and the dexter and sinister points written more than one way (RULES-C §C.3, §G.2; PLAN-C C9): a
+    // 3a6. The orle, tressure, flaunches and the dexter and sinister points written more than one way (RULES-C §C.3, §G.2; PLAN-C C9): a
     //      single tressure is an orle (Prec Gwynaeth 04/2004; corpus "a tressure" 27); flaunches are always a pair ("two flaunches" 95, "a pair
-    //      of flaunches" 24: RULES-C §C.3, the widget writes "flaunches"); a gore issues from dexter unless it is said to be sinister, before its
-    //      name ("a sinister gore" 34) or after it ("a gore sinister" 65, the widget's words); "a dexter point" is the widget's "a point dexter".
+    //      of flaunches" 24: RULES-C §C.3, the widget writes "flaunches"); "a dexter point" is the widget's "a point dexter" (a sinister gore:
+    //      rule `corner-shapes`).
     id: 'peripheral-forms',
-    description: '"a tressure" and "a orle" → "an orle"; "two flaunches", "a pair of flaunches" → "flaunches"; "a sinister gore" → "a gore sinister", "a dexter gore" → "a gore"; "a dexter/sinister point" → "a point dexter/sinister".',
+    description: '"a tressure" and "a orle" → "an orle"; "two flaunches", "a pair of flaunches" → "flaunches"; "a dexter/sinister point" → "a point dexter/sinister".',
     apply: (s) => s
       .replace(/\b(a|on a) (?:tressure|orle)\b/g, '$1n orle')
       .replace(/\b(?:two|a pair of) flaunches\b/g, 'flaunches')
-      .replace(/\b(a|on a) sinister gore\b/g, '$1 gore sinister')
-      .replace(/\b(a|on a) dexter gore\b/g, '$1 gore')
       .replace(/\b(a|on a) (dexter|sinister) point\b/g, '$1 point $2'),
   },
   {
@@ -434,7 +426,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       const single = new RegExp(`\\b(an?) ((?:(?!\\b${NUMBER}\\b)[^,])*?)\\bcounterchanged (${TINCT} and ${TINCT})\\b`, 'g');
       const divided = field ? s.replace(single, `$1 $2${field[1]} $3`) : s;
       // "Three hearts each per pale gules and sable" and "three hearts per pale gules and sable": each charge is divided either way.
-      return divided.replace(/\beach (?=per (?:pale|fess|bend sinister|bend|saltire|chevron) |quarterly )/g, '');
+      return divided.replace(new RegExp(`\\beach (?=(?:${DIVISION_NAMES}) )`, 'g'), '');
     },
   },
 ];

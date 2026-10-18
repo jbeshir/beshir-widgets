@@ -7,7 +7,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, THIN_ORDINARIES, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, ordinaryEdgeHost, SHAPE_TOGGLES, toggledOn, bandPositionOf, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, chargePath, lineAllowed, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue, type Line,
@@ -341,13 +341,13 @@ export function FieldStep({ design, shape, onChange, onBadge, notice, issues, ac
 
 /** The line of a band in words ("embattled counter-embattled", "wavy on the lower edge"); empty for a straight one. */
 export function ordinaryLineWords(item: Extract<Design['groups'][number]['item'], { k: 'ordinary' }>): string {
-  return lineWords({ k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') }, item.lines);
+  return lineWords(ordinaryEdgeHost(item), item.lines);
 }
 
 function ordinarySummary(design: Design): string {
   const path = ordinaryPath(design);
   const item = path && groupAt(design, path).item;
-  return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryShapeWords(groupAt(design, path)), outlineWords(design, path), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
+  return path && item?.k === 'ordinary' ? [ORDINARY_LABEL[item.type].plain, ordinaryShapeWords(design, path), outlineWords(design, path), ordinaryLineWords(item), colourWords(design, path)].filter(Boolean).join(', ') : 'None';
 }
 
 /** The outline of a band in everyday words ("edged in gold", "doubly cotised in silver"); empty when it has none. */
@@ -359,13 +359,14 @@ function outlineWords(design: Design, path: GroupPath): string {
   return tincture ? `${name} in ${lower(TINCTURE_LABEL[tincture].plain)}` : name;
 }
 
-/** The shape toggles, position and number of a band or shape in everyday words ("upside down, raised", "double", "three, thin"); empty when it has none. */
-export function ordinaryShapeWords({ item, count }: Design['groups'][number]): string {
+/** The number, shape toggles and position of the band or shape at `path` in everyday words ("upside down, raised", "double", "three, thin"); empty when it has none. */
+export function ordinaryShapeWords(design: Design, path: GroupPath): string {
+  const { item, count } = groupAt(design, path);
   if (item.k !== 'ordinary') return '';
   const number = ORDINARY_COUNTS[item.type]?.includes(count) ? [ordinaryCountLabel(item.type, count).plain.toLowerCase()] : [];
-  const toggles = (['thin', 'inverted', 'couped', 'throughout', 'voided', 'sinister'] as const)
-    .filter((t) => (t === 'thin' ? THIN_ORDINARIES.includes(item.type) : item.mods.includes(t) || (t === 'inverted' && item.type === 'pall-inverted'))).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
-  const moved = (['enhanced', 'abased'] as const).filter((p) => item.mods.includes(p)).map((p) => BAND_POSITION_LABEL[p].plain.toLowerCase());
+  const toggles = SHAPE_TOGGLES.filter((t) => toggledOn(design, path, t)).map((t) => SHAPE_TOGGLE_LABEL[t].plain.toLowerCase());
+  const position = bandPositionOf(design, path);
+  const moved = position === 'middle' ? [] : [BAND_POSITION_LABEL[position].plain.toLowerCase()];
   return [...number, ...toggles, ...moved].join(', ');
 }
 

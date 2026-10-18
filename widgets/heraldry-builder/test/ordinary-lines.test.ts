@@ -2,8 +2,7 @@
 // or opposed as the line's profile pairs them), a band with a complex line is drawn wider, arms and limbs carry the
 // line from where they meet, a bordure's line runs round its inner edge; the rules (one line per ordinary, jagged
 // lines on both edges, dancetty on two-sided bands, one step from core practice), the conflict check (A5G4), the
-// words and the signature. The builder doesn't offer these yet (support.ts gaps them), so the tests call the library
-// on resolved designs.
+// words and the signature, called on resolved designs (the builder's edge rows are test/builder-edges.test.ts).
 
 import { describe, expect, it } from 'vitest';
 import {

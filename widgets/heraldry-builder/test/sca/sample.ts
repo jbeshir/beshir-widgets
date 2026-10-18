@@ -64,4 +64,4 @@ export function createSampler(seed: string, designs: number, full = false): Samp
   };
 }
 
-export { fullSweep, sampleSeed, rotatesIn } from '../rotation';
+export { fullSweep, sampleSeed } from '../rotation';

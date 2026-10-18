@@ -3,7 +3,7 @@
 // edges, hollow, raised or lowered); its outline (edged, or cotised) and the tincture of that, and the line of its cotises; and the designs they lead to. A choice is blocked only by what is wrong with the host itself (a line it can't
 // take, a dark pair across a wavy line, App H, a second step from core practice, two treatments that contradict); never by what lies on it.
 
-import { DRAWN_LINES, bareLines, edgeCount, lineAllowed, type EdgeHost, type Line } from './lines';
+import { DRAWN_LINES, bareLines, edgeCount, lineAllowed, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import { GROUP_TINCTURES, PLAIN_LINES, canonical, groupAt, groupTinctureOf, paintOfGroupTincture, replaceGroup, samePath, type Design, type GroupPath, type GroupTincture, type Lines, type Ordinary, type Paint } from './design';
 import { choice, type Choice } from './options';
 import { corePracticeProblem, ordinaryLineProblem, structuralIssues } from './structure';
@@ -27,7 +27,7 @@ function hostAt(d: Design, target: EdgeTarget): EdgeHost | null {
     const item = groupAt(d, target.path).item;
     if (item.k !== 'ordinary' || !DRAWN_ORDINARIES.includes(item.type)) return null;
     if (target.k === 'cotises') return item.cotised ? { k: 'cotises', type: item.type } : null;
-    return { k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') };
+    return ordinaryEdgeHost(item);
   }
   if (d.kind !== 'arms') return null;
   if (d.field.k === 'divided') return { k: 'division', division: d.field.division };
@@ -122,10 +122,9 @@ export function setEdgeSide(d: Design, target: EdgeTarget, side: EdgeSide): Desi
 }
 
 /** The lines a division or stripes in the background keeps when it replaces the one it had: those the new host may carry, else plain. */
-export function keptLines(lines: Lines, host: Division | Variation, kind: 'division' | 'variation'): Lines {
-  const edgeHost: EdgeHost = kind === 'division' ? { k: 'division', division: host as Division } : { k: 'variation', variation: host as Variation };
-  if (kind === 'variation' && !LINED_VARIATIONS.includes(host as Variation)) return { ...PLAIN_LINES };
-  const carried = (l: Line) => l === 'plain' || lineAllowed(edgeHost, l);
+export function keptLines(lines: Lines, host: Extract<EdgeHost, { k: 'division' | 'variation' }>): Lines {
+  if (host.k === 'variation' && !LINED_VARIATIONS.includes(host.variation)) return { ...PLAIN_LINES };
+  const carried = (l: Line) => l === 'plain' || lineAllowed(host, l);
   return carried(lines.a) && carried(lines.b) ? { ...lines } : { ...PLAIN_LINES };
 }
 
@@ -158,12 +157,12 @@ export function setOrdinaryCount(d: Design, path: GroupPath, count: number): Des
  * hollow (voided), a corner shape in the top right corner, as seen, instead of the top left (sinister), or a band drawn as two or more thin
  * ones (its diminutive: bars, pallets, bendlets, chevronels).
  */
-export type ShapeToggle = 'inverted' | 'couped' | 'throughout' | 'voided' | 'sinister' | 'thin';
-const SHAPE_TOGGLES: readonly ShapeToggle[] = ['inverted', 'couped', 'throughout', 'voided', 'sinister', 'thin'];
+export const SHAPE_TOGGLES = ['inverted', 'couped', 'throughout', 'voided', 'sinister', 'thin'] as const;
+export type ShapeToggle = (typeof SHAPE_TOGGLES)[number];
 
 /** Where a band is set: raised (enhanced), in its usual place, or lowered (abased). */
-export type BandPosition = 'enhanced' | 'middle' | 'abased';
-const BAND_POSITIONS: readonly BandPosition[] = ['enhanced', 'middle', 'abased'];
+const BAND_POSITIONS = ['enhanced', 'middle', 'abased'] as const;
+export type BandPosition = (typeof BAND_POSITIONS)[number];
 
 /** The band or shape at `path`, when it is one the builder draws. */
 function drawnOrdinaryAt(d: Design, path: GroupPath): Ordinary | null {
@@ -213,7 +212,7 @@ const thinnable = (type: OrdinaryType): boolean => THIN[type] !== undefined || T
 
 /**
  * The band at `path` drawn as two thin bands of its kind (`thin`), keeping the line and treatments they may have, or thin bands back as one
- * band (RULES-C §C.2: a single diminutive is the ordinary). An outline goes: thin bands have none here.
+ * band (RULES-C §C.2: a single diminutive is the ordinary). Thin bands have no outline (the toggle is blocked while one is set: `thinDropsProblem`).
  */
 function thinned(d: Design, path: GroupPath, thin: boolean): Design {
   const group = groupAt(d, path);
@@ -243,12 +242,16 @@ function untakenProblem(d: Design, path: GroupPath, item: Ordinary, t: OrdinaryM
   return treatmentRuleProblem(replaceGroup(d, path, { ...group, item: { ...item, mods: [...item.mods, t] } }), path);
 }
 
-/** Why the band at `path` can't be made thin as it is: treatments its thin form doesn't take would go unnoticed ("turn Shortened off first"), or null. */
+/**
+ * Why the band at `path` can't be made thin as it is, or null: treatments its thin form doesn't take, or its outline (thin bands have none),
+ * would go unnoticed ("undo that first").
+ */
 function thinDropsProblem(item: Ordinary): string | null {
   const thin = THIN[item.type];
   if (!thin) return null;
   const kept = keptMods(item.mods, thin), dropped = item.mods.filter((m) => !kept.includes(m));
-  return dropped.length === 0 ? null : `Thin bands can't be ${dropped.map((m) => TREATED[m]).join(' or ')}: undo that first.`;
+  if (dropped.length > 0) return `Thin bands can't be ${dropped.map((m) => TREATED[m]).join(' or ')}: undo that first.`;
+  return item.cotised || item.fimbriated ? 'Thin bands have no outline: set the outline to None first.' : null;
 }
 
 /**

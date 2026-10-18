@@ -1,7 +1,7 @@
 // Lines of partition on the field: a divided field or a counted variation drawn with a complex line. The regions still
 // tile the shape and point-in-region follows the drawn line; the rules (App H, A3D1c, the hosts a line may go on),
-// the conflict check (A5G1c), the words and the verdict in every shape. The builder doesn't offer these yet
-// (support.ts gaps them), so the tests call the library on resolved designs.
+// the conflict check (A5G1c), the words and the verdict through a draft, called on resolved designs (the builder's edge rows are
+// test/builder-edges.test.ts).
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -107,6 +107,7 @@ describe('drawing a line on the field', () => {
 
   it('every partition line of every allowed pair on every shape is drawn with its profile, at least two periods of it inside the shape', () => {
     const failures: string[] = [];
+    const runs = new Map<FieldShape, number>();
     for (const shape of FIELD_SHAPES) {
       const outline = pathPolygon(shapeFrame(shape).outline);
       for (const { division, line } of divisionCases) {
@@ -117,6 +118,7 @@ describe('drawing a line on the field', () => {
               const from = at;
               at = e.to;
               if (!e.run) continue;
+              runs.set(shape, (runs.get(shape) ?? 0) + 1);
               const name = `${shape} ${division} ${line} ${from}→${e.to}`;
               const length = Math.hypot(e.to[0] - from[0], e.to[1] - from[1]);
               const straight = `L${Math.round(e.to[0] * 100) / 100} ${Math.round(e.to[1] * 100) / 100}`;
@@ -133,6 +135,8 @@ describe('drawing a line on the field', () => {
       }
     }
     expect(failures).toEqual([]);
+    // every division takes some line on every shape: the edges drawn with one are counted, so the sweep can't pass on none
+    for (const shape of FIELD_SHAPES) expect(runs.get(shape) ?? 0, shape).toBeGreaterThan(300);
   });
 
   it('a plain line keeps the regions and the analytic part test it always had', () => {
@@ -186,9 +190,9 @@ describe('drawing a line on the field', () => {
   });
 });
 
-/** As the builder holds it: written as a draft in a shape, read back and re-resolved. */
-function throughDraft(design: Design, shape: FieldShape): Design {
-  const r = resolve(JSON.parse(JSON.stringify({ design, shape })).design);
+/** As the builder holds it: written as a draft, read back and re-resolved. */
+function throughDraft(design: Design): Design {
+  const r = resolve(JSON.parse(JSON.stringify({ design, shape: 'heater' })).design);
   if (!r.ok) throw new Error('draft did not resolve');
   return r.design;
 }
@@ -204,11 +208,12 @@ describe('the verdict on a lined field', () => {
   ];
 
   for (const [name, input] of LINED) {
-    it(`${name}: gets the same verdict and words in every shape`, () => {
+    // The verdict functions take no shape (every shape gets the heater's verdict: test/shape-verdict.test.ts), so one draft round trip covers them all.
+    it(`${name}: keeps its verdict and words through a draft`, () => {
       const d = nd(input);
       const verdict = (x: Design) => ({ issues: validate(x), readability: readability(x), blazon: blazon(x), gloss: gloss(x), signature: signature(x) });
       const canonical = verdict(d);
-      for (const shape of FIELD_SHAPES) expect(verdict(throughDraft(d, shape)), shape).toEqual(canonical);
+      expect(verdict(throughDraft(d))).toEqual(canonical);
     });
   }
 });
@@ -317,6 +322,6 @@ describe('words for a lined field', () => {
   it('labels every line for the builder', () => {
     expect(LINES.map((l) => LINE_LABEL[l].plain).every(Boolean)).toBe(true);
     expect(LINE_LABEL.plain).toEqual({ plain: 'Straight', term: 'plain' });
-    expect(LINE_LABEL.grady).toEqual({ plain: 'Steps', term: 'embattled grady' });
+    expect(LINE_LABEL.grady).toEqual({ plain: 'Stepped', term: 'embattled grady' });
   });
 });

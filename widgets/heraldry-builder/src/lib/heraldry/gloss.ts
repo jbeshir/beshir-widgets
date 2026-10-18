@@ -7,6 +7,7 @@ import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
 import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
+import { LINE_LOOK } from './plain-words';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenHost, betweenWords, contextOf, coPrimaries, cornerBesideBend, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout, type QuarterPosition } from './arrangement';
@@ -75,27 +76,19 @@ function article(next: string): string {
   return /^[aeiou]/i.test(next) ? 'an' : 'a';
 }
 
-/** How a line of partition looks, as an adjective: "a wavy line", "battlemented edges". */
-const LINE_GLOSS: Record<ComplexLine, string> = {
-  embattled: 'battlemented', wavy: 'wavy', engrailed: 'scalloped', invected: 'reverse-scalloped', indented: 'zigzag', dancetty: 'large zigzag',
-  nebuly: 'cloud-shaped', raguly: 'ragged', rayonny: 'flame-shaped', dovetailed: 'dovetailed', urdy: 'pointed', potenty: 'T-shaped',
-  bretessed: 'double-battlemented', grady: 'stepped', enarched: 'arched', ploye: 'bowed', arrondi: 'curved',
-  triangular: 'pointed downward', rompu: 'broken', bevilled: 'step-broken',
-};
-
 /** " by a wavy line" for a complex line, nothing for a plain one. */
-const byLine = (l: Line): string => (l === 'plain' ? '' : ` by ${article(LINE_GLOSS[l])} ${LINE_GLOSS[l]} line`);
+const byLine = (l: Line): string => (l === 'plain' ? '' : ` by ${article(LINE_LOOK[l])} ${LINE_LOOK[l]} line`);
 
 /** Quarterly's lines in words: " by wavy lines", ", the up-and-down line wavy", nothing when both are plain. */
 function quarterlyLines({ a, b }: Lines): string {
-  if (a === b) return a === 'plain' ? '' : ` by ${LINE_GLOSS[a]} lines`;
-  const parts = [a !== 'plain' ? `the up-and-down line ${LINE_GLOSS[a]}` : '', b !== 'plain' ? `the across line ${LINE_GLOSS[b]}` : ''].filter(Boolean);
+  if (a === b) return a === 'plain' ? '' : ` by ${LINE_LOOK[a]} lines`;
+  const parts = [a !== 'plain' ? `the up-and-down line ${LINE_LOOK[a]}` : '', b !== 'plain' ? `the across line ${LINE_LOOK[b]}` : ''].filter(Boolean);
   return `, ${parts.join(' and ')}`;
 }
 
 /** How a division splits a shape, with the plain word of each part in part order: "split vertically by a wavy line, blue on the left and gold on the right". */
 function divisionGloss(division: Division, lines: Lines, pieces: number | null, colours: readonly string[]): string {
-  const by = byLine(lines.a), of = lines.a === 'plain' ? '' : ` of ${LINE_GLOSS[lines.a]} lines`, byLines = lines.a === 'plain' ? '' : ` by ${LINE_GLOSS[lines.a]} lines`;
+  const by = byLine(lines.a), of = lines.a === 'plain' ? '' : ` of ${LINE_LOOK[lines.a]} lines`, byLines = lines.a === 'plain' ? '' : ` by ${LINE_LOOK[lines.a]} lines`;
   const [c1, c2, c3] = colours;
   switch (division) {
     case 'per-pale': return `split vertically${by}, ${c1} on the left and ${c2} on the right`;
@@ -106,7 +99,7 @@ function divisionGloss(division: Division, lines: Lines, pieces: number | null, 
     case 'per-chevron': return `divided by an upside-down V${of}, ${c1} above and ${c2} below`;
     case 'per-chevron-inverted': return `divided by a V${of}, ${c1} above and ${c2} below`;
     case 'per-chevron-throughout': return `divided by an upside-down V${of} reaching the top edge, ${c1} above and ${c2} below`;
-    case 'gyronny': return `divided into ${pieces ?? DEFAULT_GYRONNY_PIECES} wedges meeting in the middle${lines.a === 'plain' ? '' : ` (the dividing lines are ${LINE_GLOSS[lines.a]})`}, alternately ${c1} and ${c2}, with ${c1} in the wedge above the middle line on the left`;
+    case 'gyronny': return `divided into ${pieces ?? DEFAULT_GYRONNY_PIECES} wedges meeting in the middle${lines.a === 'plain' ? '' : ` (the dividing lines are ${LINE_LOOK[lines.a]})`}, alternately ${c1} and ${c2}, with ${c1} in the wedge above the middle line on the left`;
     case 'quarterly': return `divided into four quarters${quarterlyLines(lines)}, ${c1} top-left and bottom-right, ${c2} top-right and bottom-left`;
     case 'per-pall': return `divided in three by a Y${of}, ${c1} at the top, ${c2} on the left and ${c3} on the right`;
     case 'per-pall-inverted': return `divided in three by an upside-down Y${of}, ${c1} on the left, ${c2} on the right and ${c3} at the bottom`;
@@ -131,7 +124,7 @@ function partGloss(p: Paint): string {
 /** How a variation covers a shape, with the plain word of each tincture: "6 horizontal stripes, blue on top alternating with gold". */
 function variationGloss(variation: Variation, pieces: number | null, line: Line, c1: string, c2: string): string {
   const n = pieces ?? DEFAULT_PIECES;
-  const edged = line === 'plain' ? '' : ` with ${LINE_GLOSS[line]} edges`;
+  const edged = line === 'plain' ? '' : ` with ${LINE_LOOK[line]} edges`;
   switch (variation) {
     case 'barry': return `${n} horizontal stripes${edged}, ${c1} on top alternating with ${c2}`;
     case 'paly': return `${n} vertical stripes${edged}, ${c1} on the left alternating with ${c2}`;
@@ -193,8 +186,8 @@ const EDGE_GLOSS: Record<EdgeName, string> = { upper: 'top', lower: 'bottom', de
 /** An ordinary's lines in words: " with wavy edges", " with a battlemented top edge", nothing when plain. */
 function ordinaryLines(type: OrdinaryType, inverted: boolean, { a, b }: Lines): string {
   const names = edgeNames({ k: 'ordinary', type, inverted });
-  if (a === b || names === null) return a === 'plain' ? '' : ONE_EDGE.includes(type) ? ` with ${article(LINE_GLOSS[a])} ${LINE_GLOSS[a]} edge` : ` with ${LINE_GLOSS[a]} edges`;
-  const edge = (l: ComplexLine, name: EdgeName) => `${article(LINE_GLOSS[l])} ${LINE_GLOSS[l]} ${EDGE_GLOSS[name]} edge`;
+  if (a === b || names === null) return a === 'plain' ? '' : ONE_EDGE.includes(type) ? ` with ${article(LINE_LOOK[a])} ${LINE_LOOK[a]} edge` : ` with ${LINE_LOOK[a]} edges`;
+  const edge = (l: ComplexLine, name: EdgeName) => `${article(LINE_LOOK[l])} ${LINE_LOOK[l]} ${EDGE_GLOSS[name]} edge`;
   return ` with ${[a !== 'plain' ? edge(a, names.a) : '', b !== 'plain' ? edge(b, names.b) : ''].filter(Boolean).join(' and ')}`;
 }
 
@@ -222,7 +215,7 @@ function ordinaryGloss(d: Design, g: Group): string {
 /** An ordinary's cotises: ", with a thin gold stripe on each side", ", with two thin wavy blue stripes on each side". */
 function cotisesGloss(d: Design, { count, paint, line }: Cotises): string {
   const colour = colourOf(paint);
-  const stripes = `${count === 1 ? 'a' : numberWord(count)} thin${line === 'plain' ? '' : ` ${LINE_GLOSS[line]}`}${colour ? ` ${colour}` : ''} stripe${count === 1 ? '' : 's'} on each side`;
+  const stripes = `${count === 1 ? 'a' : numberWord(count)} thin${line === 'plain' ? '' : ` ${LINE_LOOK[line]}`}${colour ? ` ${colour}` : ''} stripe${count === 1 ? '' : 's'} on each side`;
   return `, with ${stripes}${colour ? '' : ` ${paintClause(d, paint)}`}`;
 }
 

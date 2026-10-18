@@ -53,7 +53,8 @@ describe('builder transitions', () => {
     expect(r.problems[0]).toMatchObject({ code: 'tincture', at: { k: 'group', path: [0] } });
     expect(issueStep(d, r.problems[0])).toBe('picture');
     const fix = suggestTinctureFix(d);
-    expect(fix).toMatchObject({ layer: 'group', path: [0] });
+    // it changes the tincture of the group with the issue alone
+    expect(fix!.design.groups.map((g) => g.paint)).toEqual([expect.not.objectContaining(d.groups[0].paint), ...d.groups.slice(1).map((g) => g.paint)]);
     expect(assess(fix!.design).status).toBe('valid');
   });
 

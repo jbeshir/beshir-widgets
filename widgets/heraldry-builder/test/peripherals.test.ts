@@ -11,6 +11,7 @@ import {
   type Design, type FieldShape, type LayoutContext, type OrdinarySpec, type OrdinaryType,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
+import { rotatesIn, sampleSeed } from './rotation';
 
 type Pt = [number, number];
 
@@ -123,17 +124,17 @@ describe('peripherals: charges keep out of them', () => {
       [spec('base', { lines: { a: 'wavy', b: 'wavy' } })], [spec('canton', { lines: { a: 'embattled', b: 'embattled' } })],
       [spec('base'), spec('canton')], [spec('point'), sinister('gyron'), spec('quarter')],
     ];
-    let k = 0, checked = 0;
+    let checked = 0;
     for (const keepOut of keepOuts) {
       for (const { ctx, layouts } of contexts(keepOut)) {
         for (const count of [1, 2, 3]) {
           for (const layout of layouts(count)) {
             if (!layout) continue;
             for (const shape of FIELD_SHAPES) {
-              if (shape !== 'heater' && k++ % 7 !== FIELD_SHAPES.indexOf(shape) - 1) continue;
+              if (shape !== 'heater' && !rotatesIn(`${shape}|${JSON.stringify(ctx)}|${count}|${JSON.stringify(layout)}`, 1 / 7)) continue;
               const avoid = keepOut.flatMap((s) => geometryOf(s, shape).envelope.outer);
               for (const s of contextSlots(ctx, count, layout, shape)) {
-                const where = `${shape} ${ctx.k} ${keepOut.map((x) => x.type + x.mods.join('')).join('+')} ${count} ${s.x},${s.y} ${s.size}`;
+                const where = `${shape} ${ctx.k} ${keepOut.map((x) => x.type + x.mods.join('')).join('+')} ${count} ${s.x},${s.y} ${s.size} (sample seed ${sampleSeed()})`;
                 for (const poly of avoid) {
                   expect(pointInPolygon(s.x, s.y, poly), where).toBe(false);
                   expect(edgeDistance(poly, s.x, s.y), where).toBeGreaterThanOrEqual(s.size / 2 - 0.01);
@@ -330,7 +331,7 @@ describe('peripherals II: geometry', () => {
     }
   });
 
-  it('a line on an orle runs round both its edges, on flaunches and a gore along their curves only', () => {
+  it('a line on an orle runs round both its edges, on its outer edge alone when so given, and flaunches and a gore take one', () => {
     for (const shape of FIELD_SHAPES) {
       for (const type of ['orle', 'flaunches', 'gore'] as const) {
         const plain = geometryOf(spec(type), shape), wavy = geometryOf(spec(type, { lines: { a: 'wavy', b: 'wavy' } }), shape);
@@ -349,16 +350,16 @@ describe('peripherals II: charges keep inside an orle or tressure and out of fla
   it('in every context and count (heater exhaustive, other shapes in turn), and at a size that reads alone', () => {
     const keepOuts: OrdinarySpec[][] = [...RINGED.map((s) => [s]), ...CURVED.map((s) => [s]), [spec('orle', { lines: { a: 'wavy', b: 'wavy' } })], [spec('flaunches', { lines: { a: 'engrailed', b: 'engrailed' } })], [spec('orle'), spec('canton')]];
     const layouts = (n: number) => (n === 1 ? [layoutOfKey('single', 1)!] : n === 2 ? [layoutOfKey('in-pale', 2)!, layoutOfKey('in-fess', 2)!] : [layoutOfKey('rows-2-1', 3)!, layoutOfKey('in-pale', 3)!]);
-    let k = 0, checked = 0;
+    let checked = 0;
     for (const keepOut of keepOuts) {
       for (const peripheral of ['none', 'chief'] as const) {
         for (const count of [1, 2, 3]) {
           for (const layout of layouts(count)) {
             for (const shape of FIELD_SHAPES) {
-              if (shape !== 'heater' && k++ % 5 !== FIELD_SHAPES.indexOf(shape)) continue;
+              if (shape !== 'heater' && !rotatesIn(`${shape}|${JSON.stringify(keepOut)}|${peripheral}|${count}|${JSON.stringify(layout)}`, 1 / 5)) continue;
               const avoid = keepOut.flatMap((s) => geometryOf(s, shape).envelope.outer);
               for (const s of contextSlots({ ...fieldContext(peripheral), keepOut }, count, layout, shape)) {
-                const where = `${shape} ${keepOut.map((x) => x.type + x.count).join('+')} ${peripheral} ${count} ${s.x},${s.y} ${s.size}`;
+                const where = `${shape} ${keepOut.map((x) => x.type + x.count).join('+')} ${peripheral} ${count} ${s.x},${s.y} ${s.size} (sample seed ${sampleSeed()})`;
                 for (const poly of avoid) {
                   expect(pointInPolygon(s.x, s.y, poly), where).toBe(false);
                   expect(edgeDistance(poly, s.x, s.y), where).toBeGreaterThanOrEqual(s.size / 2 - 0.01);

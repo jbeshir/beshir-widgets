@@ -110,7 +110,7 @@ describe('the design text', () => {
 });
 
 describe('the surface of a fur', () => {
-  const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field, null);
+  const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field!, null);
 
   it('is the class of the ground for the ermine family and neutral for vair and potent (RB §1.1)', () => {
     expect(surface(fur('ermine'))).toMatchObject({ cls: 'metal', bases: ['argent', 'sable'] });

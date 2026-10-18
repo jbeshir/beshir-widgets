@@ -124,7 +124,8 @@ describe('ordinary treatments: conflict', () => {
 describe('ordinary treatments: rules', () => {
   it('a charged chevron inverted abased is refused', () => {
     const d = nd(arms('azure', group(ordinary('chevron', { mods: ['inverted', 'abased'] }), 'or', { charged: [group(charge('roundel'), 'gules', { count: 3 })] })));
-    expect(structuralIssues(d).some((i) => i.code === 'structure' && i.rule === 'relation' && /inverted and abased/.test(i.message))).toBe(true);
+    // the one issue is the charges on it: the same chevron uncharged passes
+    expect(structuralIssues(d).map((i) => i.code === 'structure' && i.rule)).toEqual(['relation']);
     expect(structuralIssues(treatedArms('chevron', ['inverted', 'abased']))).toEqual([]);
   });
 

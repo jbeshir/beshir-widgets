@@ -11,7 +11,7 @@ import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type SlotFil
 import type { FieldShape } from './shape';
 
 /** What an ordinary layer paints, in paint order: its fimbriation under its body, the body, then its cotises. */
-export type OrdinaryPartRole = 'fimbriation' | 'body' | 'cotises';
+type OrdinaryPartRole = 'fimbriation' | 'body' | 'cotises';
 export interface OrdinaryPart { readonly role: OrdinaryPartRole; readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly fill: Fill }
 
 export type Layer =

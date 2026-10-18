@@ -1,8 +1,8 @@
 // The treatments that trim an ordinary's outline (RULES-C §D.3–§D.5): cotises (thin bands beside each long edge, one to three a side, a
 // line of their own that follows the ordinary's by default), fimbriation (a narrow band round the body, under it) and voiding (the
 // middle cut out). Their geometry on every shape and the parts render draws, the rules (SENA A3C, A3B4a, the fimbriated ordinary of the
-// field's tincture), the conflict readings (App I2c cotises as a group; A5C1 voided and fimbriated read two ways), words and signature.
-// All three are still gaps in support.ts: these tests call the library on resolved designs.
+// field's tincture), the conflict readings (App I2c cotises as a group; A5C1 voided and fimbriated read two ways), words and signature,
+// and the builder's outline controls.
 
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
@@ -73,8 +73,12 @@ describe('cotises, fimbriation and voiding: geometry', () => {
     expect(wavy.body).not.toMatch(/C/);
     // on a band wavy with wavy cotises the cotises keep in step with the band: the same period along it
     const both = geometryOf(cotisedSpec('fess', 1, 'wavy', { a: 'wavy', b: 'wavy' }));
-    const crests = (d: string) => pathRings(d)[0].filter(([x]) => x > 20 && x < 80).map(([x]) => x);
-    expect(crests(both.cotises!.d).length).toBeGreaterThan(0);
+    // where each ring rises highest along its edges, across the middle of the field
+    const crests = (ring: ReadonlyArray<readonly [number, number]>) => ring.flatMap(([x, y], i) =>
+      i > 0 && i < ring.length - 1 && x > 15 && x < 85 && y < ring[i - 1][1] && y < ring[i + 1][1] ? [x.toFixed(1)] : []);
+    const bodyCrests = crests(pathRings(both.body)[0]);
+    expect(bodyCrests.length).toBeGreaterThan(1);
+    for (const ring of pathRings(both.cotises!.d)) expect(crests(ring)).toEqual(bodyCrests);
     // engrailed cotises bite into each cotise from both sides: every point of the cotise's rings lies within its band, between its straight edges
     const engrailed = geometryOf(cotisedSpec('fess', 1, 'engrailed'));
     const { y } = defaultOrdinaryFrame('heater').centre;

@@ -6,7 +6,7 @@ import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { DIVISION_NAME, VARIATION_NAME, adjacentParts, partCount, type Division } from './divisions';
-import { LINE_GROUP, LINE_WORD, edgeCount, isStraightLine, lineAllowed, type ComplexLine, type EdgeHost, type Line } from './lines';
+import { LINE_GROUP, LINE_WORD, edgeCount, isStraightLine, lineAllowed, ordinaryEdgeHost, type ComplexLine, type EdgeHost, type Line } from './lines';
 import { surfaceOf, type Surface } from './surface';
 import type { Ground } from './contrast';
 import { divisionCutsOrdinary, specOf } from './ordinary-geometry';
@@ -15,7 +15,7 @@ import { capacityIssue, onChargeWords } from './layout';
 import { posturesClash } from './difference';
 import { strewnIssues } from './strewn';
 import { TWO_PART_DIVISIONS, groundShares, onDivisionLine, paintName } from './tincture-rule';
-import { ORDINARY_NAME, ORDINARY_KIND, REFUSED_ORDINARIES, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
+import { MOD_HOSTS, ORDINARY_NAME, ORDINARY_KIND, REFUSED_ORDINARIES, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
@@ -126,7 +126,10 @@ function lineHostProblem(host: EdgeHost, line: Line, what: string): string | nul
     case 'triangular': return `A triangular line is drawn on a chief only — not ${what}.`;
     case 'rompu': return `A broken (rompu) line is drawn on a chevron only — not ${what}.`;
     case 'bevilled': return host.k === 'ordinary' ? `A bevilled line is drawn on a bend or a bend sinister only — not ${what}.` : `A bevilled line divides a field per bend or per bend sinister only — not ${what}.`;
-    default: return `${capitalise(what)} can't be drawn ${LINE_WORD[line]}.`;
+    case 'embattled': case 'wavy': case 'engrailed': case 'invected': case 'indented': case 'nebuly': case 'raguly': case 'rayonny': case 'dovetailed':
+    case 'urdy': case 'potenty': case 'bretessed': case 'grady': case 'arrondi':
+      return `${capitalise(what)} can't be drawn ${LINE_WORD[line]}.`;
+    default: return line satisfies never;
   }
 }
 
@@ -141,11 +144,10 @@ function paintLineProblem(p: Paint): string | null {
 }
 
 /** The host an ordinary's lines are on. */
-const ordinaryHost = (item: Extract<Group['item'], { k: 'ordinary' }>): EdgeHost => ({ k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') });
 
 /** The one line drawn on one edge of a two-edge band, the other edge plain; null otherwise. */
 function oneEdgeLine(g: Group): ComplexLine | null {
-  if (g.item.k !== 'ordinary' || edgeCount(ordinaryHost(g.item)) !== 2) return null;
+  if (g.item.k !== 'ordinary' || edgeCount(ordinaryEdgeHost(g.item)) !== 2) return null;
   const { a, b } = g.item.lines;
   return a === 'plain' && b !== 'plain' ? b : b === 'plain' && a !== 'plain' ? a : null;
 }
@@ -160,7 +162,7 @@ const NO_FURTHER_LINE: readonly Line[] = ['triangular', 'rompu'];
  */
 export function ordinaryLineProblem(g: Group): string | null {
   if (g.item.k !== 'ordinary') return null;
-  const host = ordinaryHost(g.item), { a, b } = g.item.lines;
+  const host = ordinaryEdgeHost(g.item), { a, b } = g.item.lines;
   const what = ordinaryWithArticle(g.item.type);
   const hosted = lineHostProblem(host, a, what) ?? lineHostProblem(host, b, what)
     ?? (g.item.cotised && lineHostProblem({ k: 'cotises', type: g.item.type }, g.item.cotised.line, `the cotises of ${what}`));
@@ -186,8 +188,6 @@ function ordinaryTreatmentProblem(g: Group): string | null {
 
 /** The ordinaries that may be cotised (RULES-C §D.5): the bands, the chevron and the pile (upright or inverted), the cross and the saltire. */
 export const COTISED_HOSTS: readonly OrdinaryType[] = ['fess', 'pale', 'bend', 'bend-sinister', 'chevron', 'cross', 'saltire', 'pile'];
-/** The ordinaries that may be voided: those with more than two ends (SENA A3C). */
-const VOIDED_HOSTS: readonly OrdinaryType[] = ['cross', 'saltire', 'pall', 'pall-inverted'];
 
 /**
  * What SENA A3C allows of voiding, fimbriation and cotises (RULES-C §D.3–§D.5), or null: voided only a cross or saltire, fimbriated only a
@@ -200,7 +200,7 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
   if (item.k !== 'ordinary') return null;
   const name = ORDINARY_NAME[item.type], what = ordinaryWithArticle(item.type);
   const voided = item.mods.includes('voided');
-  if (voided && !VOIDED_HOSTS.includes(item.type)) {
+  if (voided && !MOD_HOSTS.voided.includes(item.type)) {
     return `${capitalise(what)} can't be voided: only a cross, a saltire or a pall, with more than two ends, can (SENA A3C) — ${ORDINARY_KIND[item.type] === 'central' ? 'two narrower bands are blazoned instead' : 'choose a solid one'}.`;
   }
   if (item.fimbriated && (ORDINARY_KIND[item.type] !== 'central' || item.type === 'fret')) return `${capitalise(what)} can't be fimbriated: only a band or shape in the middle of the field can (SENA A3C).`;
@@ -224,7 +224,7 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
  * A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line
  * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6); charges around a bend bevilled (F2).
  */
-export type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges';
+type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges';
 
 const CORE_STEP_WORDS: Record<CoreStep, string> = {
   'one-edge-line': 'a line on one edge of a band only',

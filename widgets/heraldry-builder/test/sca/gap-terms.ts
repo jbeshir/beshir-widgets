@@ -3,7 +3,7 @@
 // endings before lookup); hyphenated terms are single tokens. Where a word is in more than one list,
 // gaps.ts decides by the order it loads them in.
 
-import { CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_SPELLINGS, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId } from '../../src/lib/heraldry';
+import { CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_NAME, ORDINARY_SPELLINGS, SAME_ORDINARY, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId, type OrdinaryType } from '../../src/lib/heraldry';
 
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
@@ -231,7 +231,7 @@ export const CONTAINER_WORDS = w('pair sheaf bundle bunch cluster set brace coup
  */
 export const SUPPORTED_ORDINARY_WORDS: Record<string, string> = {
   ...Object.fromEntries(DRAWN_ORDINARIES.filter((t) => t !== 'cross').map((t) => [t, t])),
-  ...ORDINARY_SPELLINGS, barrulet: 'bar', dance: 'fess', flaunch: 'flaunches',
+  ...ORDINARY_SPELLINGS, ...Object.fromEntries(Object.entries(SAME_ORDINARY).map(([t, same]) => [ORDINARY_NAME[t as OrdinaryType], same])), dance: 'fess', flaunch: 'flaunches',
 };
 
 /** Ordinaries, sub-ordinaries and diminutives the widget lacks → sub-tag (the drawn ones are left out). */

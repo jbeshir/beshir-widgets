@@ -4,16 +4,16 @@ export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS,
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
-  ORDINARY_TYPES, TILE_OF, BUILDER_ORDINARIES, MORE_ORDINARIES, TURNED_ORDINARIES, THIN_ORDINARIES, REFUSED_ORDINARIES, DRAWN_ORDINARIES, THIN, DIMINUTIVE_COUNTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, familyOf, isDiminutive, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_MODS, MOD_HOSTS,
+  ORDINARY_TYPES, TILE_OF, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, REFUSED_ORDINARIES, DRAWN_ORDINARIES, THIN, DIMINUTIVE_COUNTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, familyOf, isDiminutive, OVERALL_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_MODS, MOD_HOSTS, SAME_ORDINARY, THROUGHOUT_ALREADY,
   PERIPHERAL_ORDER, PERIPHERAL_JOINER, modDrawn, isOrdinaryType, ordinaryWithArticle, type OrdinaryType, type OrdinaryMod, type PeripheralJoiner,
 } from './ordinaries';
 export {
-  LINES, DRAWN_LINES, LINE_GROUP, LINE_PROFILE, LINE_WORD, LINE_SPELLINGS, isLine, isStraightLine, lineDiffers, edgeCount, lineAllowed, bareLines, fitPeriod, visibleSpan, edgeCommands, polylineEdgeCommands, edgePoints, periodStarts,
-  reversedRun, runAlong, fieldSide, laidSide, featureMiddle, profileSwing, profileSides, edgeNames, lineWords,
-  type Line, type ComplexLine, type LineGroup, type LineReading, type EdgeHost, type LineProfile, type ProfileStep, type EdgeRun, type LaidLine, type EdgeName,
+  LINES, DRAWN_LINES, COMMON_LINES, LINE_GROUP, LINE_PROFILE, LINE_WORD, LINE_SPELLINGS, isLine, isStraightLine, ordinaryEdgeHost, lineDiffers, edgeCount, lineAllowed, bareLines, fitPeriod, visibleSpan, edgeCommands, polylineEdgeCommands, edgePoints, periodStarts,
+  reversedRun, runAlong, fieldSide, laidSide, featureMiddle, profileSwing, profileSides, edgeNames, lineWords, COUNTER_EMBATTLED_WORDS,
+  type Line, type ComplexLine, type LineGroup, type EdgeHost, type EdgeRun, type LaidLine, type EdgeName,
 } from './lines';
 export {
-  lineChoices, setLine, edgeSideChoices, edgeSideOf, setEdgeSide, keptLines, keptOrdinaryLines, toggleChoices, toggledOn, setToggle, bandPositionOf,
+  lineChoices, setLine, edgeSideChoices, edgeSideOf, setEdgeSide, keptLines, keptOrdinaryLines, SHAPE_TOGGLES, toggleChoices, toggledOn, setToggle, bandPositionOf,
   bandPositionChoices, setBandPosition, keptMods, outlineAt, outlineChoices, setOutline, keptOutline, outlineTinctureOf, outlineTinctureChoices, setOutlineTincture, ordinaryCountChoices, setOrdinaryCount,
   type EdgeTarget, type EdgeSide, type ShapeToggle, type BandPosition,
 } from './shape-options';
@@ -27,7 +27,7 @@ export {
 } from './design';
 export { resolve, type ResolveResult } from './resolve';
 export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
-export { structuralIssues, couldBeOneFess, coreSteps, COTISED_HOSTS, type CoreStep } from './structure';
+export { structuralIssues, couldBeOneFess, coreSteps, COTISED_HOSTS } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, forcedPosition, statesLayout, HALF_POSITIONS, isHalfPosition,
   hostCounts, ON_CHARGE_COUNTS, onChargeLayouts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, hasChargedBordure, withoutChief, cornerBesideBend, SECONDARY_POSITIONS, AROUND_COUNTS, aroundLayouts, aroundPrimaryLayouts, primaryCharges, coPrimaries, MAX_CO_PRIMARY_TOTAL, shareTotal,
@@ -39,10 +39,10 @@ export {
   FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownSurfaces, counterchangeUnavailable, describeSlots, type ShownSurfaces,
 } from './tincture-rule';
 export { validate, normalise, type NormaliseResult } from './validate';
-export { blazon, type BlazonOptions } from './blazon';
+export { blazon, MODS_BEFORE_LINE, MODS_AFTER_LINE, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, ordinaryCountLabel, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, ordinaryCountLabel, ordinaryCountLegend, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
@@ -52,20 +52,20 @@ export { signature } from './signature';
 export {
   SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, divisionRegions, partitionContours, partIndexAt,
   drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
-  counterchangedSlotParts, type Slot, type DrawnField, type DividedField, type VariedField, type CounterchangePart,
+  counterchangedSlotParts, type Slot, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
   specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, frameBeside, ordinaryFrameOf, bandPlace, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, counterchangedTrimParts, divisionCutsOrdinary,
-  type OrdinarySpec, type OrdinaryFrame, type OrdinaryGeometry, type OrdinaryTrim,
+  type OrdinarySpec, type OrdinaryFrame, type OrdinaryTrim,
 } from './ordinary-geometry';
 export { variationRegions, inFirstRegion, type Box } from './variation-geometry';
 export { MIN_SLOT_SIZE, minSlotSize, groupSlotCount, hasRoom, contextSlots, groupSlots, canonicalSlots, capacityIssue, crampedInShape } from './layout';
 export {
-  PLACE_KINDS, placesOf, placesIn, pathOfPlace, placeOfPath, peripheralPlace, peripheralPlacesOf, isPeripheralPlace, placeKind, type PlaceKind, type PlaceKey, type PeripheralPlace, type Placed,
+  PLACE_KINDS, placesOf, placesIn, pathOfPlace, placeOfPath, peripheralPlacesOf, isPeripheralPlace, placeKind, type PlaceKind, type PlaceKey, type PeripheralPlace, type Placed,
 } from './places';
 export {
   LAYER_KEYS, layersIn, addedLayerStep, layerChoices, addLayer, removeLayer, setLayerCharge, setOverallItem, overallItemChoices, setLayerTincture, refitLayers, ordinaryGroup, chargeItem, newCharge,
-  CORNER_AND_EDGE_TYPES, setPeripheralItem, peripheralItemChoices,
+  setPeripheralItem, peripheralItemChoices,
   type LayerItem, type LayerKey, type LayerPlace, type PeripheralKey, type PicturesKey,
 } from './layers';
 export {
@@ -82,7 +82,7 @@ export { canStrew, semyAt, semyChoices, setSemy, clearSemy, semyColourChoices, s
 export { treatedName, treatedGloss } from './treatment';
 export { hasNaturalColours, properChoice, setProper } from './proper-options';
 export { furPattern, treatmentPattern, colourHex, ERMINE_SPOT } from './patterns';
-export { renderLayers, badgeView, designTinctures, type Layer, type OrdinaryPart, type OrdinaryPartRole } from './render';
+export { renderLayers, badgeView, designTinctures, type Layer, type OrdinaryPart } from './render';
 export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';
 export { CHARGE_ART, MODIFIER_ART, ART_ON_BOX, chargePath, chargeOnBox, type ArtBox } from './charge-art';

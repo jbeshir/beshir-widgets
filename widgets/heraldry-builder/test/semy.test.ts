@@ -100,7 +100,7 @@ describe('the design text', () => {
 
 describe('the surface of a semy', () => {
   it('is that of the tincture it is strewn on', () => {
-    const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field, null);
+    const surface = (p: unknown) => surfaceOf(nd(arms(p, lion('gules'))).field!, null);
     expect(surface(semy('azure', 'mullet', 'or'))).toBe(surface('azure'));
   });
 });
@@ -234,7 +234,7 @@ describe('the drawing', () => {
   });
 
   it('paints a semy on a part of the field in that part, and each part of one over all of it', () => {
-    const regions = fieldRegions(nd(arms(pale('gules', semy('argent', 'billet', 'gules')))).field, 'heater');
+    const regions = fieldRegions(nd(arms(pale('gules', semy('argent', 'billet', 'gules')))).field!, 'heater');
     expect(regions.map((r) => r.paint.k)).toEqual(['tincture', 'semy']);
   });
 

@@ -13,7 +13,7 @@ export const MORE_ORDINARIES: readonly OrdinaryType[] = [
   'base', 'point', 'canton', 'quarter', 'gyron', 'orle', 'tressure', 'flaunches', 'gore', 'pall', 'label', 'fret', 'mount', 'trimount', 'baton',
 ];
 /** Ordinaries drawn and reached through a toggle of another's, not a tile of their own: the pall inverted (`TILE_OF`). */
-export const TURNED_ORDINARIES: readonly OrdinaryType[] = ['pall-inverted'];
+const TURNED_ORDINARIES: readonly OrdinaryType[] = ['pall-inverted'];
 /**
  * Ordinaries drawn and blazoned, so that a design with one shows itself and says why it is refused, but never offered by the builder: the
  * dexter and sinister points, which "were [not] actually used in period armory" (RULES-C §C.3, L21; structure.ts refuses them).
@@ -26,6 +26,8 @@ export const REFUSED_ORDINARIES: readonly OrdinaryType[] = ['point-dexter', 'poi
 export const DIMINUTIVE_OF: Partial<Record<OrdinaryType, OrdinaryType>> = {
   bar: 'fess', barrulet: 'fess', pallet: 'pale', bendlet: 'bend', 'bendlet-sinister': 'bend-sinister', baton: 'bend', chevronel: 'chevron', saltorel: 'saltire',
 };
+/** Ordinaries that are another under a second name, to it: barrulets are bars (no difference: RULES-C §G.2). */
+export const SAME_ORDINARY: Partial<Record<OrdinaryType, OrdinaryType>> = { barrulet: 'bar' };
 /** The diminutive the builder's Thin toggle draws an ordinary as: two to four bars, pallets, bendlets (sinister) or chevronels. */
 export const THIN: Partial<Record<OrdinaryType, OrdinaryType>> = { fess: 'bar', pale: 'pallet', bend: 'bendlet', 'bend-sinister': 'bendlet-sinister', chevron: 'chevronel' };
 /** Ordinaries drawn and reached through the Thin toggle of their ordinary, not a tile of their own (`TILE_OF`). */
@@ -136,6 +138,9 @@ export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
   abased: ['fess', 'bend', 'bend-sinister', 'chevron', 'bar', 'bendlet', 'bendlet-sinister', 'chevronel'],
   sinister: ['canton', 'quarter', 'gyron', 'gore', 'baton'],
 };
+
+/** The ordinaries drawn reaching the edges of the field already, so that "throughout" says nothing of them (RULES-C §D.2): they take no such treatment. */
+export const THROUGHOUT_ALREADY: readonly OrdinaryType[] = ['cross', 'saltire', 'pall', 'pall-inverted', 'fret', 'label'];
 
 /**
  * The peripheral ordinaries in paint and blazon order: what lies along the base first (the dexter and sinister points with the point

@@ -331,7 +331,7 @@ function layoutBlock(d: Design, path: GroupPath, withTinctures: boolean): Block 
 // ── Tinctures ───────────────────────────────────────────────────────────────
 
 /** Field tinctures: only the other parts of a divided field block, for a tincture or fur one of them shares (the parts need different tinctures). Plain fields: all allowed. */
-export function fieldTinctureChoices(d: Design, part: FieldPart = 0): Choice<Tincture>[] {
+export function fieldTinctureChoices(d: Design, part: FieldPart): Choice<Tincture>[] {
   const field = d.kind === 'arms' && d.field.k === 'divided' ? d.field : null;
   const others = field ? field.parts.flatMap((p, i) => (i === part ? [] : [{ p, i }])) : [];
   return TINCTURES.map((t) => {
@@ -756,13 +756,10 @@ export function fitGroup(d: Design, path: GroupPath): Design {
 }
 
 /**
- * A one-click repair for rule-of-tincture issues: a new tincture for one group (every alternative
- * listed, the suggestion first), or — when no single group can clear them — new tinctures for the
- * ordinary and the pictures on it or around it together.
+ * A one-click repair for rule-of-tincture issues, what it does in words and the design it makes: a new tincture for one group or for the
+ * outline of one, or — when no single change can clear them — new tinctures for the ordinary and the pictures on it or around it together.
  */
-export type TinctureFix =
-  | { layer: 'group'; path: GroupPath; tincture: GroupTincture; alternatives: GroupTincture[]; label: string; design: Design }
-  | { layer: 'several'; changes: Array<{ path: GroupPath; tincture: GroupTincture; part: 'body' | 'outline' }>; label: string; design: Design };
+export interface TinctureFix { label: string; design: Design }
 
 /** "Switch the lions to Gules" / "Counterchange the mullets" / "Switch the roses on the chief to Or". */
 function fixWords(d: Design, path: GroupPath, t: GroupTincture): string {
@@ -804,18 +801,12 @@ export function suggestTinctureFix(d: Design): TinctureFix | null {
   const order = [...walked].sort((a, b) => rank(a) - rank(b));
 
   for (const { path } of order) {
-    const alternatives = offeredTinctures(d, path).filter((t) => t !== groupTinctureOf(groupAt(d, path).paint) && clears(withTincture(d, path, t)));
-    if (alternatives.length) {
-      const tincture = alternatives[0];
-      return { layer: 'group', path, tincture, alternatives, label: capitalise(fixWords(d, path, tincture)), design: withTincture(d, path, tincture) };
-    }
+    const tincture = offeredTinctures(d, path).find((t) => t !== groupTinctureOf(groupAt(d, path).paint) && clears(withTincture(d, path, t)));
+    if (tincture) return { label: capitalise(fixWords(d, path, tincture)), design: withTincture(d, path, tincture) };
   }
   for (const { path } of order) {
-    const alternatives = outlineAlternatives(d, path, clears);
-    if (alternatives.length) {
-      const tincture = alternatives[0];
-      return { layer: 'group', path, tincture, alternatives, label: capitalise(outlineFixWords(d, path, tincture)), design: withOutlinePaint(d, path, paintOfGroupTincture(tincture)) };
-    }
+    const [tincture] = outlineAlternatives(d, path, clears);
+    if (tincture) return { label: capitalise(outlineFixWords(d, path, tincture)), design: withOutlinePaint(d, path, paintOfGroupTincture(tincture)) };
   }
   const ordinary = walked.find(({ group }) => group.item.k === 'ordinary');
   if (!ordinary) return null;
@@ -838,7 +829,7 @@ export function suggestTinctureFix(d: Design): TinctureFix | null {
       changes.push({ path, tincture: t, part: 'body' });
     }
     if (clears(design)) {
-      return { layer: 'several', changes, design, label: capitalise(changes.map((c) => (c.part === 'body' ? fixWords(d, c.path, c.tincture) : outlineFixWords(d, c.path, c.tincture))).join(' and ')) };
+      return { design, label: capitalise(changes.map((c) => (c.part === 'body' ? fixWords(d, c.path, c.tincture) : outlineFixWords(d, c.path, c.tincture))).join(' and ')) };
     }
   }
   return null;

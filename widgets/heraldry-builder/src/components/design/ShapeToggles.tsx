@@ -4,7 +4,7 @@
 
 import { BAND_POSITION_LABEL, SHAPE_TOGGLE_LABEL, type BandPosition, type Choice, type PlainTerm, type ShapeToggle } from '../../lib/heraldry';
 import { ChoiceButton, RadioGroup } from './Choices';
-import { LockGlyph, useExplainer } from './Explainer';
+import { useExplainer } from './Explainer';
 
 interface Props {
   /** The toggles are <testid>-shape-<toggle>, the positions <testid>-position-<position>, the counts <testid>-number-<n>. */
@@ -19,12 +19,13 @@ interface Props {
   onPosition: (p: BandPosition) => void;
   counts: Choice<number>[];
   count: number;
-  /** How each count is named: "Double", "Three". */
+  /** What the row of counts asks ("How many thin bands"), and how each count is named: "Double", "Three". */
+  countLegend: string;
   countLabel: (n: number) => PlainTerm;
   onCount: (n: number) => void;
 }
 
-export function ShapeToggles({ testid, noun, toggles, isOn, onToggle, positions, position, onPosition, counts, count, countLabel, onCount }: Props) {
+export function ShapeToggles({ testid, noun, toggles, isOn, onToggle, positions, position, onPosition, counts, count, countLegend, countLabel, onCount }: Props) {
   const { explain, node: explainer } = useExplainer();
   return (
     <div class="fur-picker" data-testid={`${testid}-shape`}>
@@ -35,24 +36,13 @@ export function ShapeToggles({ testid, noun, toggles, isOn, onToggle, positions,
             {toggles.map((c) => {
               const on = isOn(c.value);
               const { plain, term } = SHAPE_TOGGLE_LABEL[c.value];
-              const id = `${testid}-shape-${c.value}`;
-              const label = `${plain} (${term})`;
               return (
-                <span key={c.value} class="option-wrap wrap-choice" data-testid={id} data-blocked={c.allowed ? undefined : 'true'}>
-                  <button
-                    type="button" id={id} aria-pressed={on ? 'true' : 'false'} aria-disabled={c.allowed ? undefined : 'true'}
-                    aria-label={c.allowed ? label : `${label}, not available`} aria-describedby={c.allowed ? undefined : `${id}-why`}
-                    class={`choice segment${on ? ' is-checked' : ''}${c.allowed ? '' : ' is-blocked'}`}
-                    onClick={(e) => {
-                      if (!c.allowed) explain({ anchor: e.currentTarget as HTMLElement, kind: 'structure', title: `${plain} isn't available`, reason: c.reason });
-                      else onToggle(c.value, !on);
-                    }}
-                  >
-                    <span>{plain}</span>
-                    {!c.allowed && <LockGlyph />}
-                  </button>
-                  {!c.allowed && <span class="sr-only" id={`${id}-why`}>{c.reason}</span>}
-                </span>
+                <ChoiceButton
+                  key={c.value} toggle testid={`${testid}-shape-${c.value}`} checked={on} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
+                  label={`${plain} (${term})`} onSelect={() => onToggle(c.value, !on)} onBlocked={explain} class="segment"
+                >
+                  <span>{plain}</span>
+                </ChoiceButton>
               );
             })}
           </div>
@@ -75,8 +65,8 @@ export function ShapeToggles({ testid, noun, toggles, isOn, onToggle, positions,
       )}
       {counts.length > 0 && (
         <>
-          <p class="picker-legend">How many times over</p>
-          <RadioGroup label={`How many times over ${noun} is drawn`} class="segmented" testid={`${testid}-number`}>
+          <p class="picker-legend">{countLegend}</p>
+          <RadioGroup label={`${countLegend}: ${noun}`} class="segmented" testid={`${testid}-number`}>
             {counts.map((c) => (
               <ChoiceButton
                 key={c.value} testid={`${testid}-number-${c.value}`} checked={count === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}

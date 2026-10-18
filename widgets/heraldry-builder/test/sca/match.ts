@@ -12,10 +12,11 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
+  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
   blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
+import { EDGE_NAMES } from './words';
 import { DIVISION_WORDS, readOrdinaryForm, readOutline, readPaint, type OutlineRead } from './paint-grammar';
 
 /** A design input as `resolve` reads it: arms with a field, or a fieldless badge. */
@@ -75,7 +76,7 @@ const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.le
 
 const ORDINARY_WORDS = new Map<string, OrdinaryType>(DRAWN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
 /** The diminutives a blazon counts, by their plural, to the type: "three bars", "two bendlets sinister" (a baton is one; barrulets are bars, `normalise`). */
-const COUNTED_ORDINARIES = new Map<string, OrdinaryType>(ORDINARY_TYPES.filter((t) => isDiminutive(t) && t !== 'baton' && t !== 'barrulet').map((t) => [ORDINARY_PLURAL[t], t]));
+const COUNTED_ORDINARIES = new Map<string, OrdinaryType>(ORDINARY_TYPES.filter((t) => isDiminutive(t) && t !== 'baton' && !SAME_ORDINARY[t]).map((t) => [ORDINARY_PLURAL[t], t]));
 /** The words that draw an ordinary more than once, before its name ("a double tressure"), to the count. */
 const ORDINARY_COUNT_WORDS = new Map<string, number>(Object.entries(ORDINARY_COUNT_WORD).map(([n, w]) => [w, Number(n)]));
 const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'] as const;
@@ -111,7 +112,7 @@ const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${a
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', 'upper', 'lower', 'outer', 'inner', 'sinister', 'counter-embattled', 'inverted', 'couped', 'throughout', 'enhanced', 'abased', 'voided', 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
+    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...POSTURE_WORDS, ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),

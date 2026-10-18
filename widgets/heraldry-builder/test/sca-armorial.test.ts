@@ -94,14 +94,17 @@ describe('SCA armory the widget can express', () => {
       const record = byKey.get(key);
       if (!record) continue;
       const c = classify(record, options());
-      if (c.status === 'passes') problems.push(`${key} "${record.blazon}" now passes: remove it from ignored.json (\`npm run sca:ignore\`)`);
-      else if (c.status === 'fails') problems.push(...failureLines(record, c.failures));
-      else if (c.tagsSkipped) continue;
-      else if (!c.tags.some((t) => categoryOf(t) === primary)) {
-        problems.push(`${key} "${record.blazon}" no longer has a ${primary} gap (now ${c.tags.join(', ')}): \`npm run sca:ignore\``);
+      switch (c.status) {
+        case 'passes': problems.push(`${key} "${record.blazon}" now passes: remove it from ignored.json (\`npm run sca:ignore\`)`); break;
+        case 'fails': problems.push(...failureLines(record, c.failures)); break;
+        case 'gap-unchecked': break;
+        case 'gap':
+          if (!c.tags.some((t) => categoryOf(t) === primary)) problems.push(`${key} "${record.blazon}" no longer has a ${primary} gap (now ${c.tags.join(', ')}): \`npm run sca:ignore\``);
+          break;
+        default: throw new Error(c.status satisfies never);
       }
     }
-    expect(problems.length, listing('Ignore-list entries out of date', problems)).toBe(0);
+    expect(problems.length, listing(`Ignore-list entries out of date (the gap tagger is sampled: sample seed ${sampleSeed()}, SCA_FULL=1 for the full sweep)`, problems)).toBe(0);
   }, 120_000);
 });
 

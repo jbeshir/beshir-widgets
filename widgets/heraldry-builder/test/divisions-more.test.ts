@@ -5,12 +5,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   FIELD_SHAPES, MORE_DIVISIONS, blazon, candidateKey, differences, divisionRegions, gloss, partIndexAt, pathPolygon, pathRings, pointInPolygon, resolve, shapeFrame,
-  signature, structuralIssues, validate, type Design, type DividedField, type FieldShape, type Line,
+  signature, structuralIssues, unsupportedIssues, validate, type Design, type DividedField, type FieldShape, type Issue, type Line, type UnsupportedIssue,
 } from '../src/lib/heraldry';
 import { setDivision, setDivisionPieces, setFieldLine } from '../src/lib/builder';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 type Pt = [number, number];
+
+const gapTag = (i: UnsupportedIssue) => `${i.gap.category}:${i.gap.detail}`;
+const counterchangeReason = (i: Issue) => (i.code === 'tincture' ? i.reason : i.code);
 
 const gyronny = (pieces: number | null, a = 'argent', b = 'gules', lines: object = { a: 'plain' }) => ({ ...div('gyronny', a, b), pieces, lines });
 const field = (division: string, pieces: number | null, line: Line): DividedField => ({
@@ -48,7 +51,7 @@ describe('the divisions behind "More divisions"', () => {
           const hit = regions.map((r) => inside(r, x, y));
           const near = (dx: number, dy: number) => regions.some((r) => inside(r, x + dx, y + dy) !== hit[regions.indexOf(r)]);
           if (hit.filter(Boolean).length !== 1 && !(near(0.2, 0) || near(-0.2, 0) || near(0, 0.2) || near(0, -0.2))) wrong.push(`${division}${pieces ?? ''} ${line} (${x}, ${y}) in ${hit.filter(Boolean).length}`);
-          else if (line === 'plain' && hit.filter(Boolean).length === 1 && partIndexAt(f, shape, x, y) !== hit.indexOf(true) && !near(0.2, 0) && !near(0, 0.2)) wrong.push(`${division}${pieces ?? ''} (${x}, ${y}) partIndexAt`);
+          else if (hit.filter(Boolean).length === 1 && partIndexAt(f, shape, x, y) !== hit.indexOf(true) && !near(0.2, 0) && !near(0, 0.2)) wrong.push(`${division}${pieces ?? ''} (${x}, ${y}) partIndexAt`);
         }
       }
       expect(wrong.slice(0, 8)).toEqual([]);
@@ -127,8 +130,10 @@ describe('gyronny pieces', () => {
 
   it('beyond six, eight and twelve are not drawn (a gap), and two-part divisions have none', () => {
     const r = resolve(arms(gyronny(10), group(charge('wolf'), 'vert')));
-    expect(r.ok && r.design.field.k === 'divided' && r.design.field.pieces).toBe(10);
-    expect(resolve(arms({ ...div('per-fess', 'or', 'azure'), pieces: 4 })).ok).toBe(true);
+    expect(r.ok && r.design.field?.k === 'divided' && r.design.field.pieces).toBe(10);
+    expect(r.ok && unsupportedIssues(r.design).map(gapTag)).toEqual(['division:gyronny-pieces-10']);
+    const perFess = resolve(arms({ ...div('per-fess', 'or', 'azure'), pieces: 4 }));
+    expect(perFess.ok && perFess.design.field?.k === 'divided' && perFess.design.field.pieces).toBeNull();
   });
 });
 
@@ -163,16 +168,16 @@ describe('conflict over the new divisions', () => {
 describe('what may lie on a gyronny', () => {
   it('refuses a saltire counterchanged over a gyronny, and allows a single charge', () => {
     const saltire = nd(arms(gyronny(8), group(ordinary('saltire'), 'counterchanged')));
-    expect([...structuralIssues(saltire), ...validate(saltire)].some((i) => /gyronny/i.test(i.message))).toBe(true);
+    expect([...structuralIssues(saltire), ...validate(saltire)].map(counterchangeReason)).toEqual(['counterchange-unavailable']);
     const bordure = nd(arms(gyronny(8), group(ordinary('bordure'), 'counterchanged')));
-    expect(validate(bordure).filter((i) => /gyronny/i.test(i.message))).toEqual([]);
+    expect([...structuralIssues(bordure), ...validate(bordure)]).toEqual([]);
     const wolf = nd(arms(gyronny(8), group(charge('wolf'), 'counterchanged')));
-    expect(validate(wolf).filter((i) => /gyronny/i.test(i.message))).toEqual([]);
+    expect([...structuralIssues(wolf), ...validate(wolf)]).toEqual([]);
   });
 
   it('are a gap as the party paint of a band or a charge', () => {
     const d = resolve(arms('azure', group(ordinary('fess'), { ...div('gyronny', 'or', 'gules'), pieces: null })));
-    expect(d.ok === false || true).toBe(true);
+    expect(d.ok && unsupportedIssues(d.design).map(gapTag)).toEqual(['division:gyronny-on-charge']);
   });
 });
 

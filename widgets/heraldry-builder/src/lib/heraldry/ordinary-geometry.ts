@@ -19,6 +19,7 @@
 // label across the chief and the mount and trimount issuant from base.
 
 import { notSupported, type Design, type Group, type Lines, type Paint } from './design';
+import { boundedMemo } from './memo';
 import {
   CANONICAL_SHAPE, CHEVRON_APEX_RISE, CURVE_STEPS, OVER, counterchangedParts, inFirstPart, pathPolygon, pathRings, pts, shapeFrame, type CounterchangePart, type Point, type Pt, type ShapeFrame,
 } from './geometry';
@@ -173,7 +174,7 @@ function fessReach(spec: OrdinarySpec, scale: number): number {
 export interface OrdinaryTrim { readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly samples: readonly Pt[]; readonly pieces?: readonly (readonly Pt[])[] }
 
 /** What an ordinary draws in a frame. */
-export interface OrdinaryGeometry {
+interface OrdinaryGeometry {
   /** All its pieces as subpaths; a voided one, its outline and its voiding. */
   readonly body: string;
   /** evenodd for a ring (the bordure) and a voided ordinary; nonzero otherwise. */
@@ -358,7 +359,7 @@ export function bandShift(spec: OrdinarySpec): number {
 const FLIP_DROP = 10;
 
 /** The line a band or shape turned upside down is reflected about; every shape's sits as far below its fess point as the heater's, so layouts map from the heater's. */
-export const flipAxis = (frame: OrdinaryFrame): number => frame.centre.y + FLIP_DROP;
+const flipAxis = (frame: OrdinaryFrame): number => frame.centre.y + FLIP_DROP;
 
 /** Whether the ordinary is drawn upside down: with the treatment, or as the pall inverted (a type of its own). */
 export const upsideDown = (spec: OrdinarySpec): boolean => spec.mods.includes('inverted') || spec.type === 'pall-inverted';
@@ -710,13 +711,17 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
   const reach = 80; // limbs and saltire arms run this far (horizontally) from their centre
   const centre: Pt = [cx, cy];
   const A = (course: number): OutlineEdge => ({ line: 'a', course }), B = (course: number): OutlineEdge => ({ line: 'b', course });
+  // a couped band's or arm's cotises are couped with it, on the same straight ends: those are cut where the outermost cotise still lies
+  // COUPED_INSET inside the shape, as far beyond the band's edge as its lines and cotises reach
+  const cotiseReach = couped && spec.cotised ? fessReach(spec, bandPlace(spec, frame).scale) - h : 0;
+  const cutOf = (origin: Pt, dir: Pt, half: number) => coupedCut(origin, dir, half + cotiseReach, shape);
   // a band is laid centred along its middle line, `plus` toward chief (or dexter): its upper edge is `a` and its lower edge `b`
   const band = (origin: Pt, dir: Pt, cut: [number, number] | null = null): Course => ({ origin, dir, junction: null, plus: fieldSide(dir), cut });
   // arms laid out from the centre, `plus` the left of each (so the four arms turn into each other)
   const arm = (dir: Pt, cut: [number, number] | null = null): Course => ({ origin: centre, dir: unit(dir), junction: 1, plus: 1, cut, minPeriods: MIN_ARM_PERIODS });
   /** A band couped across its length: its corners `half` either side of its middle line, its ends straight. */
   const coupedBand = (origin: Pt, dir: Pt, half: number): Outline => {
-    const cut = coupedCut(origin, dir, half, shape);
+    const cut = cutOf(origin, dir, half);
     const [s0, s1] = cut;
     return { points: [at(origin, dir, s0, half), at(origin, dir, s1, half), at(origin, dir, s1, -half), at(origin, dir, s0, -half)], edges: [A(0), null, B(0), null], courses: [band(origin, dir, cut)] };
   };
@@ -729,7 +734,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
     case 'pale': {
       if (!couped) return { points: [[cx - h, y0], [cx + h, y0], [cx + h, y1], [cx - h, y1]], edges: [null, B(0), null, A(0)], courses: [band([cx, y0], [0, 1])] };
       // laid downward, its left (on the page) is the sinister edge: the dexter edge `a` is on the right of the course
-      const cut = coupedCut([cx, y0], [0, 1], h, shape);
+      const cut = cutOf([cx, y0], [0, 1], h);
       const [s0, s1] = cut;
       return { points: [[cx - h, y0 + s0], [cx + h, y0 + s0], [cx + h, y0 + s1], [cx - h, y0 + s1]], edges: [null, B(0), null, A(0)], courses: [band([cx, y0], [0, 1], cut)] };
     }
@@ -755,7 +760,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
       const dirs: [Pt, Pt] = [unit([-1, 1]), unit([1, 1])];
       // a couped limb stops short of the shape on its outer and its inner edge, both cut square across the limb
       const t = thick / Math.SQRT2;
-      const cuts = dirs.map((dir): [number, number] | null => (couped ? [0, coupedCut(at(apex, dir, 0, (dir[0] < 0 ? 1 : -1) * t / 2), dir, t / 2, shape)[1]] : null));
+      const cuts = dirs.map((dir): [number, number] | null => (couped ? [0, cutOf(at(apex, dir, 0, (dir[0] < 0 ? 1 : -1) * t / 2), dir, t / 2)[1]] : null));
       const limb = (i: number): Course => ({ origin: apex, dir: dirs[i], junction: 1, plus: fieldSide(dirs[i]), cut: cuts[i] });
       const ends = dirs.map((dir, i): [Pt, Pt] => {
         const cut = cuts[i];
@@ -782,7 +787,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
       }
       // each arm's end, then the corner where its right edge meets the next arm's left one
       const dirs: Pt[] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-      const cuts = dirs.map((dir): [number, number] => [0, coupedCut(centre, dir, c, shape)[1]]);
+      const cuts = dirs.map((dir): [number, number] => [0, cutOf(centre, dir, c)[1]]);
       return {
         points: dirs.flatMap((dir, i): Pt[] => [at(centre, dir, cuts[i][1], c), at(centre, dir, cuts[i][1], -c), at(centre, dir, c, -c)]),
         edges: [null, A(0), A(1), null, A(1), A(2), null, A(2), A(3), null, A(3), A(0)],
@@ -803,7 +808,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
       // the corner where the last arm's right edge meets this one's left edge, then this arm's end; arms 12 wide each side across them
       const w = sd / Math.SQRT2;
       const dirs: Pt[] = [unit([1, -1]), unit([1, 1]), unit([-1, 1]), unit([-1, -1])];
-      const cuts = dirs.map((dir): [number, number] => [0, coupedCut(centre, dir, w, shape)[1]]);
+      const cuts = dirs.map((dir): [number, number] => [0, cutOf(centre, dir, w)[1]]);
       const notches: Pt[] = [[cx, cy - sd], [cx + sd, cy], [cx, cy + sd], [cx - sd, cy]];
       return {
         points: dirs.flatMap((dir, i): Pt[] => [notches[i], at(centre, dir, cuts[i][1], w), at(centre, dir, cuts[i][1], -w)]),
@@ -1455,7 +1460,7 @@ function besideEdges(outline: Outline, points: readonly Pt[]): Pt[][] {
 /** Grid step of the points a trim is sampled at: fine enough to catch the 2-wide fimbriation and the narrowest cotise. */
 const TRIM_SAMPLE_STEP = 2;
 
-const geometryCache = new Map<string, OrdinaryGeometry>();
+const geometryMemo = boundedMemo<OrdinaryGeometry>(10_000);
 
 /** How far out a frame round the field is drawn: past every shape. */
 const FAR = 1000;
@@ -1497,9 +1502,7 @@ const middleOf = (points: readonly Pt[]): Point => ({ x: points.reduce((a, [x]) 
 const cotiseTrim = (d: string, outline: Outline, samples: readonly Pt[]): OrdinaryTrim => ({ d, fillRule: 'evenodd', samples, pieces: besideEdges(outline, samples) });
 
 function build(spec: OrdinarySpec, given: OrdinaryFrame, lift: number): OrdinaryGeometry {
-  const key = JSON.stringify([spec, given, lift]);
-  let g = geometryCache.get(key);
-  if (!g) {
+  return geometryMemo(JSON.stringify([spec, given, lift]), () => {
     // a band across the middle of the field centred in what a chief or base leaves of it
     const frame: OrdinaryFrame = { ...given, centre: bandPlace(spec, given).centre };
     const f = shapeFrame(frame.shape);
@@ -1515,7 +1518,7 @@ function build(spec: OrdinarySpec, given: OrdinaryFrame, lift: number): Ordinary
     const samples = above(gridInside(outline, rings));
     const fimbriation = drawn && fimbriationOf(look, drawn, body), cotises = drawn && cotisesOf(look, drawn, shape);
     const box = { x0: Math.max(f.box.x0, Math.min(...xs)), y0: Math.max(f.box.y0, Math.min(...ys)), x1: Math.min(f.box.x1, Math.max(...xs)), y1: Math.min(f.box.y1, Math.max(...ys)) };
-    g = {
+    return {
       body,
       fillRule: RINGS.includes(spec.type) || spec.mods.includes('voided') ? 'evenodd' : 'nonzero',
       // the fimbriation shows where it lies outside the body
@@ -1527,9 +1530,7 @@ function build(spec: OrdinarySpec, given: OrdinaryFrame, lift: number): Ordinary
       box,
       samples,
     };
-    geometryCache.set(key, g);
-  }
-  return g;
+  });
 }
 
 /** What an ordinary draws in a frame (memoised by spec and frame). */

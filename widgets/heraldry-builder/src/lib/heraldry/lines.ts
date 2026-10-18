@@ -10,10 +10,11 @@
 // runs one way from the line ([0,2] or [−2,0]); an antisymmetric one runs [−1,1].
 
 import type { Division, Variation } from './divisions';
+import { boundedMemo } from './memo';
 import { isCountedVariation } from './divisions';
 import type { Lines } from './design';
 import { r2, pointInPolygon, CURVE_STEPS, type Pt } from './geometry';
-import type { OrdinaryType } from './ordinaries';
+import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 
 export const LINES = ['plain', 'embattled', 'wavy', 'engrailed', 'invected', 'indented', 'dancetty', 'nebuly', 'raguly', 'rayonny',
   'dovetailed', 'urdy', 'potenty', 'bretessed', 'grady', 'enarched', 'ploye', 'arrondi', 'triangular', 'rompu', 'bevilled'] as const;
@@ -23,6 +24,8 @@ export type ComplexLine = Exclude<Line, 'plain'>;
 /** The lines the edge rows offer, in order of how often the O&A uses them (RULES-C §I.1). */
 export const DRAWN_LINES: readonly ComplexLine[] = ['embattled', 'wavy', 'engrailed', 'indented', 'rayonny', 'invected', 'dovetailed',
   'raguly', 'nebuly', 'potenty', 'bretessed', 'urdy', 'dancetty', 'enarched', 'ploye', 'grady', 'arrondi', 'triangular', 'rompu', 'bevilled'];
+/** The lines an edge row shows before a break: straight and the seven the O&A uses most. */
+export const COMMON_LINES: readonly Line[] = ['plain', ...DRAWN_LINES.slice(0, 7)];
 
 export function isLine(v: unknown): v is Line {
   return typeof v === 'string' && (LINES as readonly string[]).includes(v);
@@ -73,6 +76,9 @@ export type EdgeHost =
   | { k: 'variation'; variation: Variation }
   | { k: 'ordinary'; type: OrdinaryType; inverted: boolean }
   | { k: 'cotises'; type: OrdinaryType };
+
+/** The edges of a band or shape: its type, turned upside down or not. */
+export const ordinaryEdgeHost = (item: { type: OrdinaryType; mods: readonly OrdinaryMod[] }): EdgeHost => ({ k: 'ordinary', type: item.type, inverted: item.mods.includes('inverted') });
 
 /**
  * How many independent lines each ordinary has (RULES-C §0): 2 = upper/lower (dexter/sinister, outer/inner) edges of a band;
@@ -193,14 +199,17 @@ export function lineWords(host: EdgeHost, lines: Lines): string {
     return [a !== 'plain' ? `${EDGE_WORDS[names.a]} ${word(a)}` : '', b !== 'plain' ? `${EDGE_WORDS[names.b]} ${word(b)}` : ''].filter(Boolean).join(' and ');
   }
   const bare = (l: Line) => { const m = bareLines(host, l); return m.a === a && m.b === b; };
-  if (a === 'embattled' && b === 'embattled' && !bare('embattled')) return 'embattled counter-embattled';
+  if (a === 'embattled' && b === 'embattled' && !bare('embattled')) return COUNTER_EMBATTLED_WORDS;
   if (a !== 'plain' && bare(a) && !(host.k === 'ordinary' && host.inverted && a !== b)) return word(a);
   const on = (l: Line, name: EdgeName) => `${word(l)} ${EDGE_WORDS[name]}`;
   return [a !== 'plain' ? on(a, names.a) : '', b !== 'plain' ? on(b, names.b) : ''].filter(Boolean).join(' and ');
 }
 
+/** How both edges of a band embattled are written where "embattled" alone would be one edge (`bareLines`). */
+export const COUNTER_EMBATTLED_WORDS = 'embattled counter-embattled';
+
 /** What a written line word reads as: a line (its bare meaning depends on the host: `bareLines`), or both edges of a band embattled. */
-export type LineReading = ComplexLine | 'counter-embattled';
+type LineReading = ComplexLine | 'counter-embattled';
 
 /**
  * Every spelling of a line the College writes (lower case), each to the line it spells: the ids, the emitted words and the other
@@ -223,15 +232,15 @@ export const LINE_SPELLINGS: Readonly<Record<string, LineReading>> = {
   ployee: 'ploye',
   arched: 'enarched',
   'counter-embattled': 'counter-embattled', counterembattled: 'counter-embattled',
-  'embattled counter-embattled': 'counter-embattled', 'embattled-counter-embattled': 'counter-embattled',
+  [COUNTER_EMBATTLED_WORDS]: 'counter-embattled', 'embattled-counter-embattled': 'counter-embattled',
 };
 
 // ── Profiles ────────────────────────────────────────────────────────────────
 
 /** One step of a profile: a straight line or a cubic to `to`, in (u, v). */
-export type ProfileStep = { k: 'L'; to: Pt } | { k: 'C'; c1: Pt; c2: Pt; to: Pt };
+type ProfileStep = { k: 'L'; to: Pt } | { k: 'C'; c1: Pt; c2: Pt; to: Pt };
 
-export interface LineProfile {
+interface LineProfile {
   /** 'single': one feature across the whole chord (enarched, ployé); 'periodic': whole periods fitted to the chord. */
   readonly kind: 'periodic' | 'single';
   /** One period from (0,0) to (1,0); for 'single', the one feature. */
@@ -454,18 +463,7 @@ function flatten(from: Pt, segments: readonly Segment[]): Pt[] {
 
 interface DrawnEdge { readonly commands: string; readonly points: Pt[] }
 
-const edgeCache = new Map<string, DrawnEdge>();
-const EDGE_CACHE_MAX = 20_000;
-
-function memo(key: string, draw: () => DrawnEdge): DrawnEdge {
-  let e = edgeCache.get(key);
-  if (!e) {
-    if (edgeCache.size >= EDGE_CACHE_MAX) edgeCache.clear();
-    e = draw();
-    edgeCache.set(key, e);
-  }
-  return e;
-}
+const memo = boundedMemo<DrawnEdge>(20_000);
 
 const runKey = (run: EdgeRun): unknown[] => [run.line, run.side, run.depth, run.period, run.anchor, run.span];
 

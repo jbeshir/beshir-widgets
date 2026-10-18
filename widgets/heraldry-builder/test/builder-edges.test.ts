@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_ORDINARIES, REFUSED_ORDINARIES, isCountedVariation, FIELD_SHAPES, LINED_VARIATIONS, TINCTURES, VARIATION_PIECES, addLayer, groupAt, lineAllowed, lineChoices, outlineChoices,
+  DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_ORDINARIES, ORDINARY_COUNTS, REFUSED_ORDINARIES, isCountedVariation, FIELD_SHAPES, LINED_VARIATIONS, VARIATION_PIECES, addLayer, groupAt, lineAllowed, lineChoices, outlineChoices,
   ordinaryCountChoices, partCount, pathOfPlace, renderLayers, resolve, structuralIssues, tinctureIssues, toggleChoices, unsupportedIssues,
   type Design, type FieldShape, type GroupPath, type Line, type Outline, type ShapeToggle,
 } from '../src/lib/heraldry';
@@ -40,8 +40,8 @@ interface Host {
   linesOf: (d: Design) => { a: Line; b: Line };
 }
 
-const band = (type: string, extra: object = {}): Make => ([f, p], lines) => ({
-  v: 2, field: f, groups: [{ item: { k: 'ordinary', type, lines, ...extra }, paint: p }],
+const band = (type: string, extra: object = {}, count = 1): Make => ([f, p], lines) => ({
+  v: 2, field: f, groups: [{ item: { k: 'ordinary', type, lines, ...extra }, paint: p, ...(count > 1 ? { count } : {}) }],
 });
 
 /** A plain fess with a chief or bordure beside it, the layer carrying the lines. */
@@ -195,13 +195,16 @@ describe('the toggles, outlines and counts of a band are held to the same oracle
 
   it('offers a toggle exactly when some tincture makes it legal, and sets it', () => {
     const wrong: string[] = [];
+    let offered = 0, hosts = 0;
     for (const type of HOST_ORDINARIES.filter((t) => t !== 'chief' && t !== 'bordure')) {
       const host = groupHost(`a ${type}`, band(type), 'primary');
       const base = start(host);
       if (!base) continue;
+      hosts++;
       const path = ordinaryPath(base)!;
       for (const c of toggleChoices(base, path)) {
         if (!MODS.includes(c.value)) continue;
+        offered++;
         const ok = legalWith(type, { mods: [c.value] });
         if (c.allowed !== ok) { wrong.push(`${type} ${c.value}: ${c.allowed ? 'allowed' : `blocked (${c.reason})`}, oracle ${ok}`); continue; }
         if (c.allowed) {
@@ -210,18 +213,23 @@ describe('the toggles, outlines and counts of a band are held to the same oracle
         }
       }
     }
+    expect(hosts).toBeGreaterThan(25);
+    expect(offered).toBeGreaterThan(30);
     expect(wrong).toEqual([]);
   });
 
   it('offers an outline exactly when some tincture makes it legal, and sets it', () => {
     const wrong: string[] = [];
+    let offered = 0, hosts = 0;
     for (const type of HOST_ORDINARIES.filter((t) => t !== 'chief' && t !== 'bordure')) {
       const host = groupHost(`a ${type}`, band(type), 'primary');
       const base = start(host);
       if (!base) continue;
+      hosts++;
       const path = ordinaryPath(base)!;
       for (const c of outlineChoices(base, path)) {
         if (c.value === 'none') continue;
+        offered++;
         const ok = PAIRS.some((pair) => {
           const r = resolve(band(type, OUTLINES[c.value])(pair, { a: 'plain', b: 'plain' }) as never);
           return r.ok && legal(r.design);
@@ -234,22 +242,29 @@ describe('the toggles, outlines and counts of a band are held to the same oracle
         if (!c.allowed && ok) wrong.push(`${type} ${c.value}: blocked (${c.reason}), oracle accepts`);
       }
     }
+    expect(hosts).toBeGreaterThan(25);
+    expect(offered).toBeGreaterThan(50);
     expect(wrong).toEqual([]);
   });
 
   it('every count a band offers is a sound design with that count', () => {
+    let hosts = 0, counts = 0;
     for (const type of HOST_ORDINARIES) {
-      const host = groupHost(`a ${type}`, band(type), 'primary');
+      // bars, bendlets and the like, and a double tressure, are drawn more than once: one alone is its ordinary or an orle
+      const host = groupHost(`a ${type}`, band(type, {}, ORDINARY_COUNTS[type]?.[0] ?? 1), 'primary');
       const base = start(host);
       if (!base) continue;
+      hosts++;
       const path = ordinaryPath(base)!;
       for (const c of ordinaryCountChoices(base, path)) {
+        counts++;
         const set = setOrdinaryNumber(base, path, c.value);
         expect(sound(set), `${type} ×${c.value}`).toBe(true);
         expect(groupAt(set, ordinaryPath(set)!).count, `${type} ×${c.value}`).toBe(c.value);
       }
     }
-    expect(TINCTURES.length).toBeGreaterThan(0);
+    expect(hosts).toBeGreaterThan(25);
+    expect(counts).toBeGreaterThan(12);
   });
 });
 

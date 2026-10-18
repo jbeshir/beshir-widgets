@@ -4,6 +4,7 @@
 // anchored there, so a shape's own outline decides what shows. Pure geometry, no tinctures.
 
 import { DEFAULT_PIECES, type Variation } from './divisions';
+import { boundedMemo } from './memo';
 import { notSupported, type Lines } from './design';
 import { contourPath, type Contour } from './contour';
 import { LINE_PROFILE, featureMiddle, fieldSide, fitPeriod, runAlong, visibleSpan, type ComplexLine, type LaidLine } from './lines';
@@ -157,6 +158,7 @@ function patternOf(variation: Variation, pieces: number | null, box: Box): Patte
         },
         (x, y) => [Math.floor((x - x0) / pale), Math.floor((y - x - t0) / band)]);
     }
+    default: return variation satisfies never;
   }
 }
 
@@ -197,17 +199,17 @@ function stripeLines(variation: Variation, line: ComplexLine, { x0, y0, x1, y1 }
 /** A stripe's line may take this share of the stripe's width at most, so that a narrow stripe still reads. */
 const LINE_SHARE_OF_STRIPE = 0.8;
 
-const linedCache = new Map<string, [string, string]>();
-const LINED_CACHE_MAX = 2000;
+const linedMemo = boundedMemo<[string, string]>(2000);
 
 /**
  * Stripes whose boundaries are drawn with a complex line: every boundary the same line, fitted to the chord of the middle one and in
  * phase across the box, so the stripes keep one width (both edges of a stripe pair as `parallel` edges do).
  */
 function linedRegions(variation: Variation, n: number, line: ComplexLine, box: Box, turn: number): [string, string] {
-  const key = JSON.stringify([variation, n, line, box, turn]);
-  const cached = linedCache.get(key);
-  if (cached) return cached;
+  return linedMemo(JSON.stringify([variation, n, line, box, turn]), () => drawnLinedRegions(variation, n, line, box, turn));
+}
+
+function drawnLinedRegions(variation: Variation, n: number, line: ComplexLine, box: Box, turn: number): [string, string] {
   const { ends, lo, hi, centre } = stripeLines(variation, line, box);
   const turned = turnAbout(box, turn);
   const outline = rect(box.x0, box.y0, box.x1, box.y1).map(turned);
@@ -240,10 +242,7 @@ function linedRegions(variation: Variation, n: number, line: ComplexLine, box: B
     ] };
   };
   const stripes = Array.from({ length: n }, (_, i) => contourPath(stripe(i)));
-  const regions: [string, string] = [stripes.filter((_, i) => even(i)).join(''), stripes.filter((_, i) => !even(i)).join('')];
-  if (linedCache.size >= LINED_CACHE_MAX) linedCache.clear();
-  linedCache.set(key, regions);
-  return regions;
+  return [stripes.filter((_, i) => even(i)).join(''), stripes.filter((_, i) => !even(i)).join('')];
 }
 
 /** Whether (x,y) lies in the first tincture of a variation. Points on a boundary count as the second. */

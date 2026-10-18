@@ -188,7 +188,7 @@ const DIMINUTIVE_CASES: ReadonlyArray<[string, unknown]> = [
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
-/** The drawings the UI review fixed (U-3, U-5, U-6, K-22), each pinned in the shape it was worst in. */
+/** The drawings the reviews fixed (U-3, U-5, U-6, K-22; the cotises of a couped band couped with it), each pinned in the shape it was worst in. */
 const REVIEW_VISUAL_CASES: ReadonlyArray<[string, unknown, FieldShape]> = [
   ['review-grady-bordure', band('bordure', { a: 'grady' }), 'heater'],
   ['review-potenty-bordure', band('bordure', { a: 'potenty' }), 'round'],
@@ -196,6 +196,8 @@ const REVIEW_VISUAL_CASES: ReadonlyArray<[string, unknown, FieldShape]> = [
   ['review-embattled-canton', arms('argent', group(ordinary('canton', { lines: { a: 'embattled' } }), 'azure')), 'round'],
   ['review-indented-cross', band('cross', { a: 'indented', b: 'indented' }), 'banner'],
   ['review-couped-dovetailed-saltire', treatedBand('saltire', ['couped'], { lines: { a: 'dovetailed' } }), 'heater'],
+  ['review-couped-doubly-cotised-bend', treatedBand('bend', ['couped'], cotised(2)), 'heater'],
+  ['review-couped-cotised-wavy-saltire', treatedBand('saltire', ['couped'], cotised(1, 'wavy')), 'round'],
 ];
 
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */

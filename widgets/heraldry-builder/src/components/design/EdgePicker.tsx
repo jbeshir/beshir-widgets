@@ -2,7 +2,7 @@
 // quartered field or a two-edged band, which of its lines or edges carries it. The content of "More … and edges…".
 
 import { Fragment } from 'preact';
-import { LINE_LABEL, resolve, type Choice, type Design, type EdgeSide, type FieldShape, type Line } from '../../lib/heraldry';
+import { COMMON_LINES, LINE_LABEL, resolve, type Choice, type Design, type EdgeSide, type FieldShape, type Line } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 import { Shield } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
@@ -30,15 +30,6 @@ function lineIcon(key: string, make: (line: Line) => object, line: Line, shape: 
   return design;
 }
 
-/** The lines in the order the Society's blazons use them (Laurel's armorial: embattled, wavy, indented, engrailed, …); the rest follow in the library's order. */
-const COMMON_LINES: readonly Line[] = ['plain', 'embattled', 'wavy', 'indented', 'engrailed', 'rayonny', 'enarched', 'invected'];
-
-/** The chips in that order, the lines before the break first. */
-function byFrequency(lines: Choice<Line>[]): Choice<Line>[] {
-  const rank = (c: Choice<Line>) => { const i = COMMON_LINES.indexOf(c.value); return i < 0 ? COMMON_LINES.length : i; };
-  return lines.map((c, n) => ({ c, n })).sort((a, b) => rank(a.c) - rank(b.c) || a.n - b.n).map(({ c }) => c);
-}
-
 interface Props {
   /** The options are <testid>-select, <testid>-<line> and <testid>-side-<side>. */
   testid: string;
@@ -63,16 +54,18 @@ interface Props {
 
 export function EdgePicker({ testid, noun, iconKey, icon, zoom = false, shape, lines, line, onLine, sides, side, sideNoun, sideLabels, onSide }: Props) {
   const { explain, node: explainer } = useExplainer();
+  // the lines come in the library's order (`lineChoices`), the most used first: a break follows the common ones this host takes
+  const common = lines.filter((c) => COMMON_LINES.includes(c.value)).length;
   return (
     <div class="fur-picker" data-testid={testid}>
       <p class="picker-legend">Edge of {noun}</p>
       <RadioGroup label={`Edge of ${noun}`} class="icon-grid icon-grid-field" testid={`${testid}-select`}>
-        {byFrequency(lines).map((c, n) => {
+        {lines.map((c, n) => {
           const label = LINE_LABEL[c.value];
           const name = c.value === 'plain' ? 'Straight' : capitalise(label.term);
           return (
             <Fragment key={c.value}>
-              {n === COMMON_LINES.length && <span class="icon-grid-break" role="presentation" />}
+              {n > 0 && n === common && <span class="icon-grid-break" role="presentation" />}
               <ChoiceButton
                 testid={`${testid}-${c.value}`} checked={line === c.value} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
                 label={`${name}, ${label.plain.toLowerCase()}`} title={label.plain} onSelect={() => onLine(c.value)} onBlocked={explain} class="icon-choice"

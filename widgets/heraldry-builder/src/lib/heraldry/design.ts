@@ -6,12 +6,12 @@ import { FUR_SPEC, TINCTURES, isTincture, type Stain, type Fur, type Tincture } 
 import { divisionPieces, variationPieces, type Division, type Treatment, type Variation } from './divisions';
 import { canonicalFur, furColours } from './fur';
 import type { OrdinaryMod, OrdinaryType } from './ordinaries';
-import { edgeCount, type EdgeHost, type Line } from './lines';
+import { edgeCount, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import {
   CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
   type ChargeForm, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
-import { DIMINUTIVE_OF, ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER } from './ordinaries';
+import { DIMINUTIVE_OF, ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER, SAME_ORDINARY } from './ordinaries';
 
 /**
  * Edge lines, with blazon meaning (RULES-C §0; the edge table is lines.ts `edgeCount`): on a fess-, bend- or chevron-like band `a` is
@@ -376,7 +376,7 @@ function canonicalOrdinary(item: Ordinary, count: number, alone: boolean): { typ
   if (item.type === 'pall' && item.mods.includes('inverted')) return { type: 'pall-inverted', mods: item.mods.filter((m) => m !== 'inverted') };
   if (item.type === 'pall-inverted' && item.mods.includes('inverted')) return { type: 'pall', mods: item.mods.filter((m) => m !== 'inverted') };
   if (item.type === 'tressure' && count === 1) return { type: 'orle', mods: item.mods };
-  const type = item.type === 'barrulet' ? 'bar' : item.type;
+  const type = SAME_ORDINARY[item.type] ?? item.type;
   if (!alone || count !== 1 || type === 'baton' || !DIMINUTIVE_OF[type]) return { type, mods: item.mods };
   return type === 'saltorel' ? { type: 'saltire', mods: [...new Set<OrdinaryMod>([...item.mods, 'couped'])] } : { type: DIMINUTIVE_OF[type], mods: item.mods };
 }
@@ -385,7 +385,7 @@ function canonicalItem(item: Item, count: number, alone: boolean): Item {
   if (item.k === 'charge') return canonicalCharge(item);
   const { type, mods } = canonicalOrdinary(item, count, alone);
   return {
-    k: 'ordinary', type, lines: canonicalLines({ k: 'ordinary', type, inverted: mods.includes('inverted') }, item.lines),
+    k: 'ordinary', type, lines: canonicalLines(ordinaryEdgeHost({ type, mods }), item.lines),
     mods: sortedBy(mods, (m) => ORDINARY_MODS.indexOf(m)),
     cotised: item.cotised && { count: item.cotised.count, paint: canonicalPaint(item.cotised.paint), line: item.cotised.line },
     fimbriated: item.fimbriated && canonicalPaint(item.fimbriated),

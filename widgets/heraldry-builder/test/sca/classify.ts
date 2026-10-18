@@ -26,14 +26,15 @@ export interface CheckFailure {
 }
 
 export interface Classification {
-  /** passes — every check passed; gap — `tags` say why not; fails — a widget bug (`failures`). */
-  status: 'passes' | 'gap' | 'fails';
+  /**
+   * passes — every check passed; gap — `tags` say why not; gap-unchecked — it fails, but the gap tagger was skipped (a sampled run), so
+   * which gap is not known; fails — a widget bug (`failures`).
+   */
+  status: 'passes' | 'gap' | 'gap-unchecked' | 'fails';
   /** The failed checks, in check order; [] when it passes. */
   failures: CheckFailure[];
   /** Sorted gap tags; non-empty exactly when the status is 'gap'. */
   tags: string[];
-  /** The gap tagger was skipped (a sampled run): the record fails, but which gap is not known. */
-  tagsSkipped?: boolean;
 }
 
 // ── Checks ──────────────────────────────────────────────────────────────────
@@ -78,7 +79,7 @@ const gapTag = (g: Gap): string => `${g.category}:${g.detail}`;
 export interface ClassifyOptions {
   /** Whether to replay the builder's clicks for this matched design (the 'builder' check); skipped, it reads as passing. */
   builder?: (design: Design) => boolean;
-  /** Whether to re-run the gap tagger for an unmatched record; skipped, the classification has `tagsSkipped` and no tags. */
+  /** Whether to re-run the gap tagger for an unmatched record; skipped, the classification is 'gap-unchecked', with no tags. */
   tagger?: (record: ArmoryRecord) => boolean;
 }
 
@@ -168,7 +169,7 @@ export function classify(record: ArmoryRecord, options: ClassifyOptions = {}): C
   const { match, failures } = checkBlazon(record.blazon, options);
   if (!failures.length) return { status: 'passes', failures, tags: [] };
   const found = gapTags(record, match, options);
-  if (!found) return { status: 'gap', failures, tags: [], tagsSkipped: true };
+  if (!found) return { status: 'gap-unchecked', failures, tags: [] };
   const tags = [...new Set(found)].sort();
   return { status: tags.length ? 'gap' : 'fails', failures, tags };
 }

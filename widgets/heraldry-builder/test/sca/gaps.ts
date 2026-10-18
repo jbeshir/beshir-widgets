@@ -9,10 +9,11 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  BUILDER_DIVISIONS, CHARGES, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
+import { DRAWN_DIVISION_FORMS, PER_PALL_SPELLED, TIERCED_IN, edgeSide } from './words';
 import {
   BUCKET_DESCRIPTION, CHARGE_BUCKETS, CONTAINER_WORDS, CONTEXT_WORDS, CROSS_POST, CROSS_PRE, FUNCTION_WORDS, FURS,
   GAP_ARRANGEMENTS, GAP_CHARGES, GAP_DIVISION_WORDS, GAP_ORDINARIES, GAP_POSTURES, GAP_TINCTURES, LINES, MARSHALLING,
@@ -24,8 +25,6 @@ import {
 /** The divisions the widget draws, as the tagger names them. */
 const DRAWN_DIVISION_IDS: readonly string[] = DRAWN_DIVISIONS;
 
-/** The words after a division's name that make another drawn division ("per chevron inverted"), or a line it is drawn with ("gyronny arrondi"), by the division they follow. */
-const DRAWN_DIVISION_FORMS: Readonly<Record<string, string>> = { 'per-chevron-inverted': 'per-chevron-inverted', 'per-chevron-throughout': 'per-chevron-throughout', 'per-pall-inverted': 'per-pall-inverted', 'gyronny-arrondi': 'gyronny', 'gyronny-arrondy': 'gyronny' };
 
 /**
  * Whether the widget draws the line a word spells on this division, variation or band: any line a division takes ("per pale dancetty"
@@ -39,8 +38,6 @@ function drawnOn(host: EdgeHost, word: string): boolean {
   return lineAllowed(host, spelled === 'dancetty' && !lineAllowed(host, 'dancetty') ? 'indented' : spelled);
 }
 
-/** The edge a band's line is named on ("wavy on the lower edge"): the words after the line, each host's own names. */
-const EDGE_NAME_WORDS: Readonly<Record<string, 'a' | 'b'>> = { upper: 'a', dexter: 'a', outer: 'a', lower: 'b', sinister: 'b', inner: 'b' };
 
 export const GAP_CATEGORIES = [
   { id: 'fieldless', description: 'a fieldless badge the widget does not draw: charges conjoined to the main one, something overall, or two main charges' },
@@ -220,8 +217,8 @@ const JOINS: [RegExp, string][] = [
   [/\b(vair|potent) en pointe?\b/g, '$1'],
   [/\bpoint pointed\b/g, 'point'],
   // a field tierced in pale or in fess is drawn ("tierced per pale" is one), tierced per pall and gyronny of three are per pall; a bare "tierced" stays its gap
-  [/\btierced (?:per|in) (pale|fess)e?\b/g, 'tierced-per-$1'],
-  [/\b(?:tierced (?:per|in) pall|gyronny of three)\b/g, 'per pall'],
+  [TIERCED_IN, 'tierced-per-$1'],
+  [PER_PALL_SPELLED, 'per pall'],
   // the ordinary, not the division ("per pall inverted") or the arrangement ("in pall inverted")
   [/(?<!\b(?:per|in) )\bpall inverted\b/g, 'pall-inverted'],
   // flaunches are a pair however many the text says; a double or triple tressure is one tressure drawn so
@@ -838,9 +835,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   /** The index of the last word of a band's line as the widget draws it, from the line at `i`: "embattled grady", "embattled counter-embattled", "wavy on the lower edge". */
   function bandLineEnd(i: number, type: OrdinaryType, joined: boolean): number {
     let end = joined ? i + 1 : i;
-    if (words[i] === 'embattled' && words[i + 1] === 'counter-embattled' && drawnOn({ k: 'ordinary', type, inverted: false }, 'counter-embattled')) return i + 1;
-    const host = { k: 'ordinary', type, inverted: false } as const;
-    const edged = (from: number) => words[from + 1] === 'on' && words[from + 2] === 'the' && words[from + 4] === 'edge' && EDGE_NAME_WORDS[words[from + 3]] !== undefined;
+    const host = ordinaryEdgeHost({ type, mods: [] });
+    if (COUNTER_EMBATTLED_WORDS.split(' ').every((w, j) => words[i + j] === w) && drawnOn(host, 'counter-embattled')) return i + 1;
+    const edged = (from: number) => words[from + 1] === 'on' && words[from + 2] === 'the' && words[from + 4] === 'edge' && edgeSide(host, words[from + 3]) !== null;
     if (!edged(end) || edgeCount(host) !== 2) return end;
     end += 4;
     // the other edge's line: "embattled on the upper edge and embattled grady on the lower edge"

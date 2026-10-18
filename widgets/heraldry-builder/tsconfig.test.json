@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["test/**/*.ts", "vitest.sca-ignore.config.ts", "vitest.sample.config.ts"],
+  // Every test file and test script is type-checked, as they run: in Node (the library and SCA projects of vitest.config.ts), except
+  // the files that need the Workers runtime's types or its `?raw` imports (tsconfig.worker.json).
+  "exclude": ["test/worker.test.ts", "test/migrations.test.ts", "test/apply-migrations.ts", "test/worker-env.d.ts", "test/sample-registry.test.ts"]
+}

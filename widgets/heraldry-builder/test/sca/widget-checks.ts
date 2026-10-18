@@ -100,6 +100,7 @@ function checkOrdinary(layer: Extract<Layer, { k: 'ordinary' }>, block: Block): 
   const want = layer.parts.flatMap((part) => leafCodes(part.fill).map((code) => `${part.d}|${code}|${part.fillRule}`));
   const got = paths.filter(filled).map((p) => `${p.attrs.d}|${p.attrs['data-paint']}|${p.attrs['fill-rule']}`);
   const problems: string[] = [];
+  if (!layer.parts.length) problems.push(`the ordinary at ${block.group} has no parts to draw`);
   if (sorted(got).join() !== sorted(want).join()) problems.push(`the ordinary at ${block.group} draws ${got.length} fills, expected ${want.length}`);
   for (const part of layer.parts) {
     const outlines = paths.filter((p) => p.attrs.fill === 'none' && p.attrs.d === part.d);

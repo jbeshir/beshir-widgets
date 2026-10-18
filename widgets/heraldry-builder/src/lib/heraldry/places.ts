@@ -30,7 +30,7 @@ export type PeripheralPlace = `peripheral-${number}`;
 /** A place of a design: one of each kind, but any number of corner and edge shapes. */
 export type PlaceKey = Exclude<PlaceKind, 'peripheral'> | PeripheralPlace;
 
-export const peripheralPlace = (n: number): PeripheralPlace => `peripheral-${n}`;
+const peripheralPlace = (n: number): PeripheralPlace => `peripheral-${n}`;
 export const isPeripheralPlace = (key: PlaceKey): key is PeripheralPlace => key.startsWith('peripheral-');
 /** The kind of a place: `peripheral` for every corner or edge shape. */
 export const placeKind = (key: PlaceKey): PlaceKind => (isPeripheralPlace(key) ? 'peripheral' : key);

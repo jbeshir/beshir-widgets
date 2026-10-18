@@ -9,7 +9,7 @@ import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
 import { ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, isDiminutive, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME } from './divisions';
-import { LINE_WORD, type Line } from './lines';
+import { LINE_WORD, type ComplexLine, type Line } from './lines';
 import type { BandPosition, ShapeToggle } from './shape-options';
 import type { Outline } from './outline';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
@@ -95,11 +95,16 @@ function withTerms<K extends string>(plain: Record<K, string>, name: Record<K, s
 export const DIVISION_LABEL: Record<Division, PlainTerm> = withTerms(DIVISION_PLAIN, DIVISION_NAME);
 export const ORDINARY_LABEL: Record<OrdinaryType, PlainTerm> = withTerms(ORDINARY_PLAIN, ORDINARY_NAME);
 
+/** How a line of partition looks, in everyday words, as an adjective: "a wavy line", "battlemented edges" (the gloss), "Battlemented" (a chip). */
+export const LINE_LOOK: Record<ComplexLine, string> = {
+  embattled: 'battlemented', wavy: 'wavy', engrailed: 'scalloped', invected: 'reverse-scalloped', indented: 'zigzag', dancetty: 'large zigzag',
+  nebuly: 'cloud-shaped', raguly: 'ragged', rayonny: 'flame-shaped', dovetailed: 'dovetailed', urdy: 'pointed', potenty: 'T-shaped',
+  bretessed: 'double-battlemented', grady: 'stepped', enarched: 'arched', ploye: 'bowed', arrondi: 'curved',
+  triangular: 'pointed downward', rompu: 'broken', bevilled: 'step-broken',
+};
+
 const LINE_PLAIN: Record<Line, string> = {
-  plain: 'Straight', embattled: 'Battlements', wavy: 'Wavy', engrailed: 'Scalloped (points out)', invected: 'Scalloped (points in)',
-  indented: 'Zigzag', dancetty: 'Big zigzag', nebuly: 'Cloudy', raguly: 'Ragged', rayonny: 'Flames', dovetailed: 'Dovetails', urdy: 'Pointed',
-  potenty: 'T-shapes', bretessed: 'Battlements both sides', grady: 'Steps', enarched: 'Arched', ploye: 'Bowed', arrondi: 'Curved',
-  triangular: 'Pointed down', rompu: 'Broken', bevilled: 'Step in line',
+  plain: 'Straight', ...(Object.fromEntries(Object.entries(LINE_LOOK).map(([line, look]) => [line, capitalise(look)])) as Record<ComplexLine, string>),
 };
 
 /** Lines of partition for chips and summaries: how each looks, and its heraldic word ("Straight · plain"). */
@@ -116,7 +121,7 @@ export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
 };
 
 /** How many times over a tressure is drawn, double or triple, and the heraldic word. */
-const TRESSURE_COUNT_LABEL: Readonly<Record<number, PlainTerm>> = { 2: { plain: 'Double', term: ORDINARY_COUNT_WORD[2] }, 3: { plain: 'Triple', term: ORDINARY_COUNT_WORD[3] } };
+const TRESSURE_COUNT_LABEL: Readonly<Record<2 | 3, PlainTerm>> = { 2: { plain: 'Double', term: ORDINARY_COUNT_WORD[2] }, 3: { plain: 'Triple', term: ORDINARY_COUNT_WORD[3] } };
 
 /** How many times over a band or shape is drawn — a tressure double or triple, thin bands two, three or four — and the heraldic word. */
 export function ordinaryCountLabel(type: OrdinaryType, count: number): PlainTerm {
@@ -124,16 +129,20 @@ export function ordinaryCountLabel(type: OrdinaryType, count: number): PlainTerm
     const word = numberWord(count);
     return { plain: capitalise(word), term: `${word} ${ORDINARY_PLURAL[type]}` };
   }
-  return TRESSURE_COUNT_LABEL[count];
+  if (count === 2 || count === 3) return TRESSURE_COUNT_LABEL[count];
+  throw new RangeError(`A ${type} is not drawn ${count} times over.`);
 }
+
+/** What the row of counts of a band or shape asks: how many thin bands, or how many times over a tressure is drawn. */
+export const ordinaryCountLegend = (type: OrdinaryType): string => (isDiminutive(type) ? 'How many thin bands' : 'How many times over');
 
 /** The outlines of a band or shape: what each looks like, and its heraldic word. */
 export const OUTLINE_LABEL: Record<Outline, PlainTerm> = {
   none: { plain: 'None', term: 'plain' },
   fimbriated: { plain: 'Edged', term: 'fimbriated' },
-  cotised: { plain: 'Cotised', term: 'cotised' },
-  'doubly-cotised': { plain: 'Doubly', term: 'doubly cotised' },
-  'triply-cotised': { plain: 'Triply', term: 'triply cotised' },
+  cotised: { plain: 'Stripe each side', term: 'cotised' },
+  'doubly-cotised': { plain: 'Two stripes each side', term: 'doubly cotised' },
+  'triply-cotised': { plain: 'Three stripes each side', term: 'triply cotised' },
 };
 
 /** Where a band is set, and its heraldic word (the usual place has none). */

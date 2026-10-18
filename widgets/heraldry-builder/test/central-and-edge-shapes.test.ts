@@ -77,9 +77,10 @@ describe('pall, fret, label, mount, trimount: geometry', () => {
       const pall = geometryOf(spec('pall'), shape), turned = geometryOf(spec('pall-inverted'), shape);
       const ring = pathRings(turned.body)[0];
       // whatever of the pall's samples lie inside the shape once turned lie on the pall inverted
-      const shown = pall.samples.map(([x, y]): Pt => [x, 2 * cy - y]).filter(([, y]) => y > 3 && y < 117 && shapeFrame(shape).outline.length > 0);
+      const shown = pall.samples.map(([x, y]): Pt => [x, 2 * cy - y]).filter(([, y]) => y > 3 && y < 117);
       const inside = shown.filter(([x, y]) => pointInPolygon(x, y, pathRings(shapeFrame(shape).outline)[0]));
       const covered = inside.filter(([x, y]) => pointInPolygon(x, y, ring)).length;
+      expect(inside.length, shape).toBeGreaterThan(20);
       expect(covered / inside.length, shape).toBeGreaterThan(0.9);
       expect(Math.abs(turned.centre.x - cx), shape).toBe(0);
     }
@@ -253,7 +254,6 @@ describe('pall, fret, label, mount, trimount: rules and roles', () => {
   it('a mount and a trimount keep charges out of their hills, as a base does', () => {
     for (const type of ['mount', 'trimount', 'label'] as const) {
       const d = nd(arms('azure', group(charge('lion'), 'or'), group(ordinary(type), 'argent')));
-      const g = geometryOf(spec(type), 'heater');
       for (const shape of FIELD_SHAPES) {
         const slots = contextSlots({ k: 'field', peripheral: 'none', keepOut: [spec(type)], yields: 'none', share: null }, 1, layoutOfKey('single', 1)!, shape);
         expect(slots.length, `${shape} ${type}`).toBe(1);
@@ -262,7 +262,6 @@ describe('pall, fret, label, mount, trimount: rules and roles', () => {
         for (let i = 0; i < 12; i++) expect(pointInPolygon(s.x + (s.size / 2) * Math.cos((i * Math.PI) / 6), s.y + (s.size / 2) * Math.sin((i * Math.PI) / 6), ring), `${shape} ${type}`).toBe(false);
       }
       expect(validate(d).filter((i) => i.code !== 'tincture'), type).toEqual([]);
-      expect(g.samples.length).toBeGreaterThan(0);
     }
   });
 });

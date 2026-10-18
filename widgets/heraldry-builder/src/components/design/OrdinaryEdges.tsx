@@ -4,7 +4,7 @@
 // its own disclosure, under its "More shapes" row (`OrdinaryShapeControls`).
 
 import {
-  bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, ordinaryCountChoices, ordinaryCountLabel, outlineAt, outlineChoices, outlineTinctureChoices,
+  bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, ordinaryCountChoices, ordinaryCountLabel, ordinaryCountLegend, outlineAt, outlineChoices, outlineTinctureChoices,
   outlineTinctureOf, setOutlineTincture, toggleChoices, toggledOn, familyOf, THIN_ORDINARIES,
   type Design, type OrdinaryType, type EdgeName, type EdgeSide, type FieldShape, type GroupPath, type Line,
 } from '../../lib/heraldry';
@@ -74,7 +74,7 @@ export function OrdinaryShapeControls({ design, path, testid, noun, shape, onCha
         <ShapeToggles
           testid={testid} noun={noun} toggles={toggles} isOn={(t) => toggledOn(design, path, t)} onToggle={(t, on) => onChange(setOrdinaryToggle(design, path, t, on))}
           positions={positions} position={bandPositionOf(design, path)} onPosition={(p) => onChange(setOrdinaryBandPosition(design, path, p))}
-          counts={counts} count={count} countLabel={(n) => ordinaryCountLabel(type, n)} onCount={(n) => onChange(setOrdinaryNumber(design, path, n))}
+          counts={counts} count={count} countLegend={ordinaryCountLegend(type)} countLabel={(n) => ordinaryCountLabel(type, n)} onCount={(n) => onChange(setOrdinaryNumber(design, path, n))}
         />
       )}
       {lines.length > 0 && (

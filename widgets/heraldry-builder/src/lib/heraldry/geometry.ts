@@ -8,6 +8,7 @@
 // through the fess point, bands of the same width) around their own fess point and outline.
 
 import { CHARGES, type ChargeId } from './charges';
+import { boundedMemo } from './memo';
 import { DEFAULT_GYRONNY_PIECES, DRAWN_DIVISIONS, partCount, type Division } from './divisions';
 import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
@@ -53,15 +54,17 @@ function lozengePath(cx: number, cy: number, hx: number, hy: number, inset: numb
 
 // ── Paths as polygons ───────────────────────────────────────────────────────
 
-const pathCache = new Map<string, Pt[][]>();
+const pathMemo = boundedMemo<Pt[][]>(50_000);
 
 /** Steps a cubic is flattened into. */
 export const CURVE_STEPS = 16;
 
 /** Every subpath of a path made of M, L, H, V, C and Z, flattened into polygons (memoised). */
 export function pathRings(d: string): Pt[][] {
-  const cached = pathCache.get(d);
-  if (cached) return cached;
+  return pathMemo(d, () => flattenedPath(d));
+}
+
+function flattenedPath(d: string): Pt[][] {
   const tok = d.match(/[MLHVCZ]|-?\d+(?:\.\d+)?/g) ?? [];
   const rings: Pt[][] = [];
   let ring: Pt[] = [];
@@ -87,7 +90,6 @@ export function pathRings(d: string): Pt[][] {
     }
   }
   if (ring.length) rings.push(ring);
-  pathCache.set(d, rings);
   return rings;
 }
 
@@ -162,7 +164,7 @@ export type FieldPaint = Extract<Paint, { k: 'tincture' | 'fur' | 'treated' | 's
 export const isFieldPaint = (p: Paint): p is FieldPaint => p.k === 'tincture' || p.k === 'fur' || asTreated(p) !== null || asSemy(p) !== null;
 
 /** The field as geometry draws it: plain, one of the drawn divisions (a paint per part), or a variation of two tinctures. */
-export type DrawnField =
+type DrawnField =
   | { k: 'plain'; paint: FieldPaint }
   | { k: 'divided'; division: Division; lines: Lines; pieces: number | null; paints: readonly FieldPaint[] }
   | { k: 'varied'; paint: VariationPaint };
@@ -252,7 +254,9 @@ function partIndexIn(f: DividedField, frame: ShapeFrame, x: number, y: number): 
       const at = f.division === 'tierced-per-pale' ? x : y;
       return at < first ? 0 : at < second ? 1 : 2;
     }
-    default: return inFirstPart(f.division, frame.fessPoint, x, y) ? 0 : 1;
+    case 'per-pale': case 'per-fess': case 'per-bend': case 'per-bend-sinister': case 'per-saltire': case 'quarterly': case 'per-chevron': case 'per-chevron-inverted':
+      return inFirstPart(f.division, frame.fessPoint, x, y) ? 0 : 1;
+    default: return f.division satisfies never;
   }
 }
 
@@ -375,7 +379,7 @@ function straddlingCentre(division: Division, { a, b }: Lines, { x, y }: Point):
     case 'tierced-per-fess': return { x, y: y + straddleShift(a) };
     // the apex is on the edge of the shape, and the lines of a gyronny or a per pall meet in several directions: none can be moved to straddle
     case 'per-chevron-throughout': case 'gyronny': case 'per-pall': case 'per-pall-inverted': return { x, y };
-    default: return notSupported({ category: 'division', detail: division });
+    default: return division satisfies never;
   }
 }
 
@@ -505,7 +509,7 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
         part([[n, null], [[x1, y0], null], [e, E], [centre, N]], [[w, W], [centre, S], [s, null], [[x0, y1], null]]),
       ];
     }
-    default: return notSupported({ category: 'division', detail: division });
+    default: return division satisfies never;
   }
 }
 
@@ -521,17 +525,11 @@ export function partitionRegions(division: Division, fess: Point, turn = 0): [st
   return [first, second];
 }
 
-const divisionCache = new Map<string, readonly string[]>();
+const divisionMemo = boundedMemo<readonly string[]>(5_000);
 
 /** The region paths of a divided field in a shape, one per part in part order. */
 export function divisionRegions(division: Division, lines: Lines, pieces: number | null, shape: FieldShape): readonly string[] {
-  const key = `${division}|${lines.a}|${lines.b}|${pieces}|${shape}`;
-  let regions = divisionCache.get(key);
-  if (!regions) {
-    regions = partitionContours(division, lines, pieces, SHAPE_FRAME[shape]).map(contoursPath);
-    divisionCache.set(key, regions);
-  }
-  return regions;
+  return divisionMemo(`${division}|${lines.a}|${lines.b}|${pieces}|${shape}`, () => partitionContours(division, lines, pieces, SHAPE_FRAME[shape]).map(contoursPath));
 }
 
 /** The region paths of a divided or varied field in a shape, in part order. */
@@ -560,23 +558,19 @@ export function partIndexAt(f: DividedField | VariedField, shape: FieldShape, x:
 let areaPoints: readonly Pt[] | null = null;
 const AREA_STEP = 2;
 
-const partGrids = new Map<string, readonly number[]>();
+const partGridMemo = boundedMemo<readonly number[]>(1_000);
 
 /**
  * The part (0-based) of a division with plain lines that each of the heater's area points lies in, in one fixed order of points, so that
  * two divisions' grids compare point by point: what the share of a field whose tincture changes is measured on (RULES-C §E.2).
  */
 export function divisionPartGrid(division: Division, pieces: number | null): readonly number[] {
-  const key = `${division}|${pieces}`;
-  let grid = partGrids.get(key);
-  if (!grid) {
+  return partGridMemo(`${division}|${pieces}`, () => {
     const outline = pathPolygon(SHIELD_PATH);
     areaPoints ??= Array.from({ length: 50 }, (_, i) => Array.from({ length: 60 }, (__, j): Pt => [AREA_STEP * (i + 0.5), AREA_STEP * (j + 0.5)])).flat().filter(([x, y]) => pointInPolygon(x, y, outline));
     const f: DividedField = { k: 'divided', division, lines: PLAIN_LINES, pieces, paints: [] };
-    grid = areaPoints.map(([x, y]) => partIndexAt(f, CANONICAL_SHAPE, x, y));
-    partGrids.set(key, grid);
-  }
-  return grid;
+    return areaPoints.map(([x, y]) => partIndexAt(f, CANONICAL_SHAPE, x, y));
+  });
 }
 
 /** Field as paint-filled regions, in paint order. */

@@ -8,7 +8,7 @@
 
 import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
 import { NON_STANDARD_TINCTURES } from './tinctures';
-import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Design, type Group, type GroupPath, type GroupTincture, type Lines } from './design';
+import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Design, type Group, type Issue, type GroupPath, type GroupTincture, type Lines } from './design';
 import { MORE_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
@@ -28,7 +28,7 @@ export const LAYER_KEYS: readonly LayerKey[] = PLACE_KINDS.filter((k): k is Laye
 export type LayerPlace = Exclude<PlaceKey, 'ordinary' | 'picture'>;
 
 /** The corner and edge shapes the builder sets beside the band, in the order a new one is tried. */
-export const CORNER_AND_EDGE_TYPES: readonly OrdinaryType[] = MORE_ORDINARIES.filter((t) => ORDINARY_KIND[t] !== 'central');
+const CORNER_AND_EDGE_TYPES: readonly OrdinaryType[] = MORE_ORDINARIES.filter((t) => ORDINARY_KIND[t] !== 'central');
 
 /** The layers that are pictures set beside the band or the picture, in chief, in base or in canton. */
 type PositionedKey = Extract<LayerKey, 'in-chief' | 'in-base' | 'in-canton'>;
@@ -105,8 +105,17 @@ function firstProblem(d: Design): string | null {
  * pall into the field it leaves (`bandPlace`), where the band may lie on another part of a divided field.
  */
 function newTinctureProblem(before: Design, after: Design): string | null {
-  const had = new Set(tinctureIssues(before).map((i) => i.message));
-  return tinctureIssues(after).find((i) => !had.has(i.message))?.message ?? null;
+  const had = new Set(tinctureIssues(before).map((i) => tinctureIssueKey(before, i)));
+  return tinctureIssues(after).find((i) => !had.has(tinctureIssueKey(after, i)))?.message ?? null;
+}
+
+/**
+ * What a rule-of-tincture issue is about, whatever its wording and the order of the design's groups: the rule, where the group stands (or the
+ * field), and which of its charges. A band moved onto another part that still breaks the rule is the problem it had, not a new one.
+ */
+function tinctureIssueKey(d: Design, i: Issue): string {
+  const where = i.at.k === 'group' ? placeOfPath(d, i.at.path) ?? i.at.path.join('.') : i.at.k;
+  return `${i.code === 'tincture' ? i.reason : i.code}|${where}|${i.code === 'unsupported' ? '' : i.slots.join(' ')}`;
 }
 
 /** The places set by position, and those of the bands (which are not refitted). */

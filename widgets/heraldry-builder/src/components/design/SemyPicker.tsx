@@ -23,7 +23,7 @@ export function SemyPicker({ design, target, group, testid, noun, onChange }: Pr
   const choices = semyChoices(design, target);
   const semy = semyAt(design, target);
   const selectId = `${testid}-semy-select`;
-  const blocked = choices.find((c) => !c.allowed && c.value === semy?.charge.charge);
+  const blocked = choices.find((c): c is Extract<typeof c, { allowed: false }> => !c.allowed && c.value === semy?.charge.charge);
   return (
     <div class="fur-picker">
       <div class="control">
@@ -45,7 +45,7 @@ export function SemyPicker({ design, target, group, testid, noun, onChange }: Pr
             </option>
           ))}
         </select>
-        {blocked && !blocked.allowed && <p class="field-hint">{blocked.reason}</p>}
+        {blocked && <p class="field-hint">{blocked.reason}</p>}
       </div>
       {semy && (
         <TincturePicker

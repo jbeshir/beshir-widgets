@@ -12,7 +12,7 @@ import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
-import { lineWords } from './lines';
+import { lineWords, ordinaryEdgeHost } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
 import { contextOf, cornerBesideBend, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
@@ -151,8 +151,8 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
 }
 
 /** The treatments written before an ordinary's line, and after it, in their order. */
-const MODS_BEFORE_LINE: readonly OrdinaryMod[] = ['sinister', 'inverted'];
-const MODS_AFTER_LINE: readonly OrdinaryMod[] = ['couped', 'throughout', 'enhanced', 'abased', 'voided'];
+export const MODS_BEFORE_LINE: readonly OrdinaryMod[] = ['sinister', 'inverted'];
+export const MODS_AFTER_LINE: readonly OrdinaryMod[] = ['couped', 'throughout', 'enhanced', 'abased', 'voided'];
 
 /**
  * "a bend", "a fess embattled", "a chevron inverted embattled on the upper edge", "a saltire raguly couped", "a chevron ployé throughout",
@@ -163,7 +163,7 @@ const MODS_AFTER_LINE: readonly OrdinaryMod[] = ['couped', 'throughout', 'enhanc
 function ordinaryPhrase(g: Group): string {
   if (g.item.k !== 'ordinary') throw new RangeError('Not an ordinary.');
   const { type, lines, mods } = g.item;
-  const line = lineWords({ k: 'ordinary', type, inverted: mods.includes('inverted') }, lines);
+  const line = lineWords(ordinaryEdgeHost(g.item), lines);
   const counted = isDiminutive(type) && g.count > 1;
   const name = counted ? [numberWord(g.count), ORDINARY_PLURAL[type]]
     : [ORDINARY_ARTICLE[type], ...(ORDINARY_COUNTS[type]?.includes(g.count) ? [ORDINARY_COUNT_WORD[g.count]] : []), ORDINARY_NAME[type]];

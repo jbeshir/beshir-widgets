@@ -11,7 +11,7 @@ import {
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, partCount, type Division, type Variation } from './divisions';
 import { divisionPartGrid } from './geometry';
-import { LINE_WORD, edgeCount, lineDiffers, lineWords, type EdgeHost, type Line } from './lines';
+import { LINE_WORD, edgeCount, lineDiffers, lineWords, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import { ORDINARY_KIND, ORDINARY_NAME, familyOf, familyOfTreated, isDiminutive, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
@@ -290,12 +290,13 @@ function partition(d: Design): string | null {
 
 /** Pieces beyond four are not told apart (A5G1d); a variation with no count, and pily, have more than that. */
 const MANY_PIECES = 5;
-const DIVISION_PIECES: Partial<Record<Division, number>> = { quarterly: 4, 'per-saltire': 4, gyronny: MANY_PIECES, 'per-pall': 3, 'per-pall-inverted': 3, 'tierced-per-pale': 3, 'tierced-per-fess': 3 };
+/** The divisions cut into more pieces than they have parts (tinctures): the rest have as many as their parts (`partCount`). */
+const DIVISION_PIECES: Partial<Record<Division, number>> = { quarterly: 4, 'per-saltire': 4, gyronny: MANY_PIECES };
 
 /** How many pieces a field is cut into, up to the count that is no longer told apart (A5G1d). */
 function pieceTier(f: Paint): number {
   if (f.k === 'variation') return Math.min(f.pieces ?? MANY_PIECES, MANY_PIECES);
-  return f.k === 'divided' ? DIVISION_PIECES[f.division] ?? 2 : 1;
+  return f.k === 'divided' ? DIVISION_PIECES[f.division] ?? partCount(f.division) : 1;
 }
 
 /** What else tells two fields of one category apart (A5G1b): lozengy and fusily are one, the other lattices and checky their own. */
@@ -424,7 +425,7 @@ function primaryGroupChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
 }
 
 /** The host of an ordinary's lines; null for a charge. */
-const edgeHostOf = (i: Item): EdgeHost | null => (i.k === 'ordinary' ? { k: 'ordinary', type: i.type, inverted: i.mods.includes('inverted') } : null);
+const edgeHostOf = (i: Item): EdgeHost | null => (i.k === 'ordinary' ? ordinaryEdgeHost(i) : null);
 
 /**
  * A5G4: the edges of two ordinaries of one type differ — compared edge by edge ("a fess embattled" against "a fess embattled

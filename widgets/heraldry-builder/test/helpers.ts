@@ -44,7 +44,7 @@ export function filters(args: Partial<SearchFilters> = {}): SearchFilters {
 export const plain = (tincture: string) => ({ k: 'tincture', t: tincture });
 
 /** A divided paint of two tinctures given as shorthand names. */
-export const div = (division: string, ...parts: string[]) => ({ k: 'divided', division, parts });
+export const div = (division: string, ...parts: unknown[]) => ({ k: 'divided', division, parts });
 
 export const ordinary = (type: string, extra: object = {}) => ({ k: 'ordinary', type, ...extra });
 

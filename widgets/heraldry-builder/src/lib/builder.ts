@@ -92,7 +92,7 @@ export function setDivision(arms: Design, division: Division): Design {
   const apart = (p: Paint, others: readonly Paint[]) => !bodyTinctures(p).some((t) => others.flatMap(bodyTinctures).includes(t));
   const second = kept && apart(kept, [first]) ? kept : partner(first);
   const was = d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation') ? d.field : null;
-  const lines = was ? keptLines(was.lines, division, 'division') : { ...PLAIN_LINES };
+  const lines = was ? keptLines(was.lines, { k: 'division', division }) : { ...PLAIN_LINES };
   const divided = (parts: Paint[]) => refitLayers(canonical(withField(d, { k: 'divided', division, lines, pieces: null, parts })));
   if (partCount(division) === 2) return divided([first, second]);
   const kept3 = keptThird && apart(keptThird, [first, second]) ? divided([first, second, keptThird]) : null;
@@ -130,7 +130,7 @@ export function setVariation(d: Design, variation: Variation): Design {
   const [a, b] = contrastingPair(tinctureOf(first), kept ? tinctureOf(kept) : null);
   const was = d.field.k === 'variation' ? d.field : null;
   const varied = variationPaint(variation, a, b, was ? was.pieces : null);
-  return refitLayers(canonical(withField(d, was && isCountedVariation(was.variation) ? { ...varied, lines: keptLines(was.lines, variation, 'variation') } : varied)));
+  return refitLayers(canonical(withField(d, was && isCountedVariation(was.variation) ? { ...varied, lines: keptLines(was.lines, { k: 'variation', variation }) } : varied)));
 }
 
 /** The stripes of the varied background cut into this many; unchanged when the background is not a variation. */

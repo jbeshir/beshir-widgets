@@ -19,7 +19,7 @@ import {
 } from './design';
 import { isDivision, isTreatment, isVariation, partCount } from './divisions';
 import { isOrdinaryMod, isOrdinaryType, ORDINARY_KIND, ORDINARY_NAME, type OrdinaryMod, type OrdinaryType } from './ordinaries';
-import { bareLines, edgeCount, isLine, type EdgeHost } from './lines';
+import { bareLines, edgeCount, isLine, ordinaryEdgeHost, type EdgeHost } from './lines';
 import { contextOf, defaultLayoutOf, halfLayouts, inForcedPart, isHalfPosition, isSecondaryPosition, layoutOfKey, shareTotal, type Layout } from './arrangement';
 
 export type ResolveResult = { ok: true; design: Design } | { ok: false; errors: Issue[] };
@@ -185,7 +185,7 @@ function parseOrdinary(o: Record<string, unknown>, at: IssueAt, E: Errors, depth
   }
   const clash = mods && modsClash(o.type, mods);
   if (clash) mods = E.add(at, clash);
-  const lines = parseLines(o.lines, { k: 'ordinary', type: o.type, inverted: mods?.includes('inverted') ?? false }, at, E);
+  const lines = parseLines(o.lines, ordinaryEdgeHost({ type: o.type, mods: mods ?? [] }), at, E);
   let cotised: Cotises | null | undefined = null;
   if (o.cotised !== undefined && o.cotised !== null) {
     const c = asObject(o.cotised);

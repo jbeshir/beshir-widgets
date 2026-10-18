@@ -1,5 +1,5 @@
 // Lines of partition: the registry (SENA App M2 groups, hosts, edges, bare meanings), the periodic-edge generator
-// and the contour. Nothing draws a complex line yet; these pin the contracts geometry builds on.
+// and the contour: the contracts the drawing of every lined field, band and shape builds on.
 
 import { describe, expect, it } from 'vitest';
 import {

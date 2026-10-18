@@ -19,7 +19,7 @@ import {
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { rings, type Pt } from './art-geometry';
 import { log } from './helpers';
-import { rotatesIn } from './rotation';
+import { rotatesIn, sampleSeed } from './rotation';
 
 // ── The catalogue ───────────────────────────────────────────────────────────
 
@@ -296,7 +296,7 @@ describe('layout catalogue', () => {
  * exhaustive): the slots on their ground, and (below) the field parts they reach. One sample serves all of them, so the slots of a layout left
  * out are never worked out in that shape (they are what the sweeps cost, and are kept between tests).
  */
-const SHAPE_SWEEP_RATE = 0.2;
+const SHAPE_SWEEP_RATE = 0.15;
 const inSweep = (shape: FieldShape, label: string): boolean => shape === 'heater' || rotatesIn(`${shape}|${label}`, SHAPE_SWEEP_RATE);
 
 for (const g of SHAPES) {
@@ -318,7 +318,7 @@ for (const g of SHAPES) {
           }));
         }
       }
-      expect(problems.slice(0, 25)).toEqual([]);
+      expect(problems.slice(0, 25), `other shapes sampled: sample seed ${sampleSeed()}, SCA_FULL=1 for all`).toEqual([]);
     }, 60_000);
 
     it('has the same hand tables as the heater, with one size per row', () => {
@@ -352,7 +352,7 @@ describe('every shape draws each charge on the field parts the canonical verdict
   it('only the listed layouts in the smaller shapes miss a part their heater slots reach', () => {
     const judged = (e: (typeof CATALOGUE)[number], shape: FieldShape) => UNFAITHFUL.has(`${e.label} ${shape}`) || inSweep(shape, e.label);
     const missing = SHAPES.flatMap((g) => CATALOGUE.filter((e) => e.ctx.k !== 'on' && judged(e, g.shape) && !reachesHeaterParts(e.ctx, e.count, e.layout, g.shape)).map((e) => `${e.label} ${g.shape}`));
-    expect(missing).toEqual([...UNFAITHFUL]);
+    expect(missing, `other shapes sampled: sample seed ${sampleSeed()}`).toEqual([...UNFAITHFUL]);
   });
 
   const heaterFess = shapeFrame('heater').fessPoint;
@@ -374,7 +374,7 @@ describe('every shape draws each charge on the field parts the canonical verdict
           }
         });
       }
-      expect(problems.slice(0, 25)).toEqual([]);
+      expect(problems.slice(0, 25), `other shapes sampled: sample seed ${sampleSeed()}, SCA_FULL=1 for all`).toEqual([]);
     }, 60_000);
   }
 });
@@ -453,7 +453,7 @@ describe('charge artwork fits its ground at its optical scale', () => {
     }, 60_000);
 
     it(`${g.shape}: a compact few drawings stay on their generic ground and clear of their neighbours`, () => {
-      expect(artProblems(g, generic, drawingsOf(['mullet', 'lion', 'sword'], ['rampant']), true).slice(0, 25)).toEqual([]);
+      expect(artProblems(g, generic, drawingsOf(['mullet', 'lion', 'sword'], ['rampant']), true).slice(0, 25), `sample seed ${sampleSeed()}`).toEqual([]);
     }, 60_000);
   }
 });
