@@ -211,6 +211,11 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   'musical-note': 'symbol', flame: 'nature', gear: 'tool', lightbulb: 'household',
   roundel: 'geometric', annulet: 'geometric', billet: 'geometric', lozenge: 'geometric', goutte: 'geometric',
   'cross-crosslet': 'cross', estoile: 'celestial', spark: 'celestial',
+  'compass-star': 'celestial', mascle: 'geometric', rustre: 'geometric', fusil: 'geometric', delf: 'geometric', triangle: 'geometric',
+  triquetra: 'symbol', trefoil: 'plant', quatrefoil: 'plant', cinquefoil: 'plant', 'ermine-spot': 'symbol',
+  'cross-couped': 'cross', 'cross-latin': 'cross', 'cross-formy': 'cross', 'cross-bottony': 'cross', 'cross-moline': 'cross',
+  'cross-flory': 'cross', 'cross-patonce': 'cross', 'cross-potent': 'cross', 'cross-maltese': 'cross', 'cross-celtic': 'cross',
+  'cross-tau': 'cross',
 };
 
 /** Parts that make a compound charge after a possessive ("a wolf's head", "a stag's attires"). */

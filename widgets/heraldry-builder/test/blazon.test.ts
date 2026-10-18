@@ -38,6 +38,17 @@ describe('house style', () => {
     expect(say('azure', chg('sun', 'or', {}, { mods: [{ id: 'in-splendour' }] }))).toBe('Azure, a sun in splendor Or.');
     expect(say('gules', chg('lightbulb', 'or', { count: 2 }))).toBe('Gules, in pale two lightbulbs Or.');
   });
+
+  it('names the generated charges, a cross fitchy after its noun', () => {
+    expect(say('azure', chg('compass-star', 'or'))).toBe('Azure, a compass star Or.');
+    expect(say('vert', chg('ermine-spot', 'argent', { count: 3 }))).toBe('Vert, three ermine spots argent.');
+    expect(say('gules', chg('delf', 'or', { count: 3 }))).toBe('Gules, three delfs Or.');
+    expect(say('azure', chg('cross-maltese', 'argent', { count: 3 }))).toBe('Azure, three Maltese crosses argent.');
+    expect(say('azure', chg('cross-formy', 'or', { count: 3 }))).toBe('Azure, three crosses formy Or.');
+    expect(say('azure', chg('cross-latin', 'or', {}, { mods: [{ id: 'fitchy' }] }))).toBe('Azure, a Latin cross fitchy Or.');
+    expect(say('azure', chg('cross-crosslet', 'or', { count: 3 }, { mods: [{ id: 'fitchy' }] }))).toBe('Azure, three crosses crosslet fitchy Or.');
+    expect(say('argent', chg('triquetra', 'vert'))).toBe('Argent, a triquetra vert.');
+  });
 });
 
 describe('charges in chief, in base or in canton beside the primary', () => {

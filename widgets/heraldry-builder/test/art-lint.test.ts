@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, bboxOf, pathRings, ringDepths, ringProblems,
+  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, bboxOf, pathRings, ringDepths, ringProblems,
   type ArtKey, type ChargeId, type DrawingMeta,
 } from '../src/lib/heraldry';
 import { rings } from './art-geometry';
@@ -71,6 +71,12 @@ describe('the charge art', () => {
     const problems: Problem[] = CHARGE_IDS.flatMap((id) => drawingKeys(id).flatMap((key) =>
       drawingProblems(CHARGE_ART[id][key]!, CHARGES[id].drawings[key]!).map((rule) => ({ id, key, rule }))));
     expect(problems).toEqual(LEGACY_ART_EXEMPT);
+  });
+
+  it('keeps it in the art drawn for a modifier too: the sun in splendour, the crosses fitchy', () => {
+    const problems = Object.entries(MODIFIER_ART).flatMap(([id, byModifier]) => Object.entries(byModifier!).flatMap(([modifier, d]) =>
+      drawingProblems(d!, CHARGES[id as ChargeId].drawings._!).map((rule) => `${id} ${modifier} ${rule}`)));
+    expect(problems).toEqual([]);
   });
 
   it('stays within the byte budget of a charge', () => {

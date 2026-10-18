@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { HAND_DRAWN } from './common';
+import { GENERATED, HAND_DRAWN } from './common';
 
 export const META_GEOMETRIC = {
   mullet: {
@@ -82,7 +82,7 @@ export const META_GEOMETRIC = {
   },
   annulet: {
     name: 'annulet', plural: 'annulets', article: 'an', category: 'geometric',
-    typeClass: 'annulet', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    typeClass: 'roundel', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
@@ -140,21 +140,6 @@ export const META_GEOMETRIC = {
     },
     provenance: HAND_DRAWN,
   },
-  'cross-crosslet': {
-    name: 'cross crosslet', plural: 'crosses crosslet', article: 'a', category: 'geometric',
-    typeClass: 'cross-crosslet', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
-    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
-    faces: false, facingCounts: 'normal',
-    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
-    forms: [], mods: [], details: [], parts: [], holds: [],
-    demiCut: null, long: false, scale: 1, detail: 0, proper: null,
-    glossName: 'cross with a small cross-bar at each end', glossPlural: 'crosses with a small cross-bar at each end', plain: null, search: ['crosslet'],
-    headName: null, holdable: false,
-    drawings: {
-      _: { onBox: null, anchors: {}, neck: null },
-    },
-    provenance: HAND_DRAWN,
-  },
   estoile: {
     name: 'estoile', plural: 'estoiles', article: 'an', category: 'geometric',
     typeClass: 'mullet-or-sun', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
@@ -184,5 +169,125 @@ export const META_GEOMETRIC = {
       _: { onBox: null, anchors: {}, neck: null },
     },
     provenance: HAND_DRAWN,
+  },
+  'compass-star': {
+    name: 'compass star', plural: 'compass stars', article: 'a', category: 'geometric',
+    typeClass: 'mullet-or-sun', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
+    glossName: 'star with eight points, four of them long', glossPlural: 'stars with eight points, four of them long', plain: null, search: ['star', 'compass'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  mascle: {
+    name: 'mascle', plural: 'mascles', article: 'a', category: 'geometric',
+    typeClass: 'lozenge', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 1, detail: 0, proper: null,
+    glossName: 'hollow diamond', glossPlural: 'hollow diamonds', plain: null, search: ['diamond'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  rustre: {
+    name: 'rustre', plural: 'rustres', article: 'a', category: 'geometric',
+    typeClass: 'lozenge', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 1, detail: 0, proper: null,
+    glossName: 'diamond with a round hole', glossPlural: 'diamonds with a round hole', plain: null, search: ['diamond'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  fusil: {
+    name: 'fusil', plural: 'fusils', article: 'a', category: 'geometric',
+    typeClass: 'lozenge', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 1, detail: 0, proper: null,
+    glossName: 'narrow diamond', glossPlural: 'narrow diamonds', plain: null, search: ['diamond'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: { x: 42, y: 32, w: 16, h: 36 }, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  delf: {
+    name: 'delf', plural: 'delfs', article: 'a', category: 'geometric',
+    typeClass: 'billet', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.88, detail: 0, proper: null,
+    glossName: 'square', glossPlural: 'squares', plain: null, search: ['square'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: { x: 26, y: 26, w: 48, h: 48 }, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  triangle: {
+    name: 'triangle', plural: 'triangles', article: 'a', category: 'geometric',
+    typeClass: 'billet', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    glossName: 'triangle', glossPlural: 'triangles', plain: null, search: [],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: { x: 34, y: 46, w: 32, h: 32 }, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  triquetra: {
+    name: 'triquetra', plural: 'triquetras', article: 'a', category: 'geometric',
+    typeClass: 'triquetra', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 1, detail: 0, proper: null,
+    glossName: 'three-looped knot', glossPlural: 'three-looped knots', plain: null, search: ['knot', 'trinity'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  'ermine-spot': {
+    name: 'ermine spot', plural: 'ermine spots', article: 'an', category: 'geometric',
+    typeClass: 'ermine-spot', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 1, detail: 0, proper: null,
+    glossName: 'ermine tail', glossPlural: 'ermine tails', plain: null, search: ['ermine'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
   },
 } satisfies Record<string, ChargeMetaRow>;

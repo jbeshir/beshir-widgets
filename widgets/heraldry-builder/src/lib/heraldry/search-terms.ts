@@ -117,6 +117,7 @@ const chargeAliases: Alias[] = [
   [['monster'], namesIn('monster')],
   [['bird'], namesIn('bird')],
   [['plant'], namesIn('plant')],
+  [['cross'], namesIn('cross')],
   [['animal'], namesIn('beast', 'monster')],
   [['creature'], namesIn('beast', 'monster', 'bird')],
 ];

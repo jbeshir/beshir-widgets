@@ -19,7 +19,11 @@ import { rotatesIn } from './rotation';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 import type { SampleFile } from './sample-registry';
 
-export interface GoldenShield { key: string; design: Design; shape: FieldShape }
+export const HATCHINGS = ['plain', 'hatched'] as const;
+type Hatching = (typeof HATCHINGS)[number];
+
+/** A pinned shield and the hatchings it is rendered in. */
+export interface GoldenShield { key: string; design: Design; shape: FieldShape; hatchings: readonly Hatching[] }
 
 /** A shape chosen by a key's hash, so the four shapes share the shields evenly whatever else is pinned. */
 const shapeFor = (key: string): FieldShape => FIELD_SHAPES[parseInt(hash(key), 16) % FIELD_SHAPES.length];
@@ -205,15 +209,18 @@ const REVIEW_VISUAL_CASES: ReadonlyArray<[string, unknown, FieldShape]> = [
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {
   const byKey = new Map(designs.map((design) => [`${kind}-${hash(canonicalJson(design))}`, design]));
-  return [...byKey].map(([key, design]) => ({ key, design, shape: shapeFor(key) }));
+  return [...byKey].map(([key, design]) => ({ key, design, shape: shapeFor(key), hatchings: HATCHINGS }));
 }
+
+/** The charge cases of the charges after the first 36 (phase D on), pinned plain only: their hatching is the one the 36 already pin. */
+const PLAIN_ONLY_CASES: ReadonlySet<string> = new Set(CHARGE_IDS.slice(36).map((id) => `charge-${id}`));
 
 export function goldenShields(): GoldenShield[] {
   return [
-    ...EXAMPLE_DESIGNS.map((p): GoldenShield => ({ key: `example-${p.id}`, design: p.design, shape: 'heater' })),
-    ...(sample as unknown as SampleFile).entries.map((e): GoldenShield => ({ key: `sample-${e.id}`, design: e.design as Design, shape: e.shape })),
-    ...PAINT_CASE_DESIGNS.map(({ name, design }): GoldenShield => ({ key: `case-${name}`, design, shape: shapeFor(name) })),
-    ...REVIEW_VISUAL_CASES.map(([name, input, shape]): GoldenShield => ({ key: `case-${name}`, design: nd(input), shape })),
+    ...EXAMPLE_DESIGNS.map((p): GoldenShield => ({ key: `example-${p.id}`, design: p.design, shape: 'heater', hatchings: HATCHINGS })),
+    ...(sample as unknown as SampleFile).entries.map((e): GoldenShield => ({ key: `sample-${e.id}`, design: e.design as Design, shape: e.shape, hatchings: HATCHINGS })),
+    ...PAINT_CASE_DESIGNS.map(({ name, design }): GoldenShield => ({ key: `case-${name}`, design, shape: shapeFor(name), hatchings: PLAIN_ONLY_CASES.has(name) ? ['plain'] : HATCHINGS })),
+    ...REVIEW_VISUAL_CASES.map(([name, input, shape]): GoldenShield => ({ key: `case-${name}`, design: nd(input), shape, hatchings: HATCHINGS })),
     ...generated('level0', generatedDesigns(1, 300)),
     ...generated('rich', generatedRichDesigns(1, 100)),
   ];
@@ -222,10 +229,8 @@ export function goldenShields(): GoldenShield[] {
 /** The markup with the per-instance id fragment and the attributes that only describe the fills to the SCA render check removed. */
 const comparable = (svg: string) => svg.replace(/(hatch|hatch-tile|hatch-mask|region-clip|charge-clip|shield-clip|pattern)-s\d+/g, '$1-sN').replace(/ data-(?:paint|charge-tincture)="[^"]*"/g, '');
 
-export const HATCHINGS = ['plain', 'hatched'] as const;
-
 /** A shield's golden key: its own, then its shape and hatching. */
-export const renderKey = (s: GoldenShield, hatching: (typeof HATCHINGS)[number]) => `${s.key}|${s.shape}|${hatching}`;
+export const renderKey = (s: GoldenShield, hatching: Hatching) => `${s.key}|${s.shape}|${hatching}`;
 
 /** The shields whose hatched render pins their shapes more than their paint: the generated designs and the charge and diminutive cases. */
 const SHAPE_PINS = /^(level0-|rich-|case-charge-|case-dim-)/;
@@ -236,7 +241,7 @@ export const inRenderSample = (key: string): boolean => !(key.endsWith('|hatched
 export function goldenRenders(shields: readonly GoldenShield[], inSample: (key: string) => boolean): Record<string, string> {
   const out: Record<string, string> = {};
   for (const s of shields) {
-    for (const hatching of HATCHINGS) {
+    for (const hatching of s.hatchings) {
       if (!inSample(renderKey(s, hatching))) continue;
       out[renderKey(s, hatching)] = hash(comparable(renderToString(h(Shield, { design: s.design, shape: s.shape, hatching: hatching === 'hatched', size: 200 }))));
     }

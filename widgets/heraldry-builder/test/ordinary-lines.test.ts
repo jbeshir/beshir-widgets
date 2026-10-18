@@ -240,6 +240,18 @@ describe('the rules for lines on ordinaries', () => {
     expect(coreSteps(nd(arms('argent', ord('fess', 'gules', { a: 'plain', b: 'embattled' }))))).toEqual([]);
   });
 
+  it('a compass star is one step from core practice: alone it is allowed, with another step refused (App G "Compass star")', () => {
+    const star = group(charge('compass-star'), 'or');
+    const alone = nd(arms('azure', star));
+    expect(coreSteps(alone)).toEqual(['compass-star']);
+    expect(structuralIssues(alone)).toEqual([]);
+    const withLine = nd(arms('argent', ord('fess', 'gules', { a: 'wavy', b: 'plain' }), group(charge('compass-star'), 'or', { count: 2 })));
+    expect(coreSteps(withLine)).toEqual(['one-edge-line', 'compass-star']);
+    expect(structuralIssues(withLine).filter((i) => i.code === 'structure' && i.rule === 'core-practice').map((i) => i.message)).toEqual([
+      'This design is two steps from core practice (a line on one edge of a band only, a compass star); SENA allows one (A2B, App G).',
+    ]);
+  });
+
   it('per fess with a chief embattled is refused, with a chief indented allowed (A3D1c)', () => {
     const crosses = (lines: object) => structuralIssues(nd(arms({ k: 'divided', division: 'per-fess', parts: ['or', 'gules'] }, ord('chief', 'azure', lines))))
       .filter((i) => i.code === 'structure' && i.rule === 'crosses-line');

@@ -34,6 +34,11 @@ describe('new constructs', () => {
     expect(say('azure', chg('sun', 'or', { count: 2 }, { mods: [{ id: 'in-splendour' }] }))).toBe('A blue shield with two gold suns with faces, in a vertical line.');
   });
 
+  it('words the generated charges and a cross fitchy', () => {
+    expect(say('azure', chg('quatrefoil', 'or'))).toBe('A blue shield with a gold four-petalled flower.');
+    expect(say('azure', chg('cross-flory', 'or', {}, { mods: [{ id: 'fitchy' }] }))).toBe('A blue shield with a gold cross with lily ends, pointed at the foot.');
+  });
+
   it('words a group on a chief and one on a band with something between', () => {
     expect(say('gules', chg('mullet', 'argent', { count: 3 }), ord('chief', 'or', { charged: [chg('rose', 'gules', { count: 3 })] })))
       .toBe('A red shield with three white five-pointed stars, two above one, and a gold band across the top carrying three red roses.');

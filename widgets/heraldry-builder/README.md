@@ -925,6 +925,9 @@ migration: add the next-numbered file.
 - `0008_fieldless_keys.sql`: makes `partition_key` nullable (NULL = fieldless badge) and replaces the lookup index by
   `arms_registry_primary_partition` (`registry_id, primary_key, partition_key`). Like 0007 it drops and recreates `arms`,
   `arms_tags`, `owner_emails` and `owner_tokens` (every registered entry is discarded) and keeps `registries`. **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
+- `0009_phase_d.sql`: discards every registered entry (`arms`, `arms_tags`, `owner_emails`, `owner_tokens`), keeping the schema
+  and `registries`: the annulet joined the roundel's type class (its stored conflict key changed) and the cross crosslet moved
+  to the Crosses category (its stored category tag changed), and the Worker has no path to recompute either. **Run `wrangler d1 migrations apply --remote` before deploying the Worker that needs it.**
 
 Local database (used by `wrangler dev`):
 

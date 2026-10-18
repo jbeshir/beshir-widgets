@@ -9,7 +9,7 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
+import { CHARGES, postureTerm, type ChargeCategory, type ChargeId, type ModifierId } from './charges';
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
 import { lineWords, ordinaryEdgeHost } from './lines';
@@ -99,10 +99,12 @@ function fieldPhrase(field: Paint): string {
   return notSupported(paintGaps(field, true, 'field')[0]);
 }
 
+/** The modifiers the builder words, after the noun: "a sun in splendor", "a cross formy fitchy". */
+const MODIFIER_WORDS: Partial<Record<ModifierId, string>> = { 'in-splendour': 'in splendor', fitchy: 'fitchy' };
+
 function modifierWords(m: Modifier): string {
-  return m.id === 'in-splendour' && m.count === null && m.paint === null
-    ? 'in splendor'
-    : notSupported({ category: 'charge-modifier', detail: m.id });
+  const words = MODIFIER_WORDS[m.id];
+  return words !== undefined && m.count === null && m.paint === null ? words : notSupported({ category: 'charge-modifier', detail: m.id });
 }
 
 export interface BlazonOptions {

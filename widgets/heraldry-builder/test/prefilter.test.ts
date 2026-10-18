@@ -314,3 +314,35 @@ describe('too-close pre-filter with fieldless badges', () => {
     }
   });
 });
+
+describe('too-close pre-filter with a plain cross couped and an annulet', () => {
+  // A plain cross couped, equal-armed or Latin, keys as the ordinary cross couped (App M1f family 1); an annulet as a roundel (one class, a DC apart).
+  const couped = nd(arms('azure', group(charge('cross-couped'), 'or')));
+  const latin = nd(arms('azure', group(charge('cross-latin'), 'or')));
+  const ordinaryCouped = nd(arms('azure', group(ordinary('cross', { mods: ['couped'] }), 'or')));
+  const throughout = nd(arms('azure', group(ordinary('cross'), 'or')));
+  const annulet = nd(arms('azure', group(charge('annulet'), 'or')));
+  const roundel = nd(arms('azure', group(charge('roundel'), 'or')));
+  const designs = [couped, latin, ordinaryCouped, throughout, annulet, roundel];
+
+  it('keys the charge as the ordinary, and the annulet as the roundel', () => {
+    expect(candidateKey(couped)).toEqual(candidateKey(ordinaryCouped));
+    expect(candidateKey(latin)).toEqual(candidateKey(ordinaryCouped));
+    expect(candidateKey(latin)).toEqual(candidateKey(throughout));
+    expect(candidateKey(annulet)).toEqual(candidateKey(roundel));
+  });
+
+  it('finds every entry that is not clear of the probe, and keys only on substantial changes', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(sameKey(a, b), `${signature(a)} vs ${signature(b)}`).toBe(true);
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+    const registry = registryFrom(designs);
+    for (const probe of designs) {
+      const candidates = registry.filter((e) => sameKey(probe, e.design));
+      expect(checkUnique(probe, signature(probe), candidates)).toEqual(checkUnique(probe, signature(probe), registry));
+    }
+    const others = registry.filter((e) => e.signature !== signature(annulet) && sameKey(annulet, e.design));
+    expect(checkUnique(annulet, signature(annulet), others).kind).toBe('too-close');
+  });
+});

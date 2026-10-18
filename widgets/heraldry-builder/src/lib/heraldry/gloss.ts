@@ -276,8 +276,9 @@ function layoutGloss(l: Layout, count: number): string | null {
 function chargesSubject(g: Group, count: number): string {
   if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
   const meta = CHARGES[g.item.charge];
-  const splendour = g.item.mods.some((m) => m.id === 'in-splendour');
-  const noun = (count === 1 ? meta.glossName : meta.glossPlural) + (splendour ? (count === 1 ? ' with a face' : ' with faces') : '');
+  const mods = g.item.mods.map((m) => m.id);
+  const noun = (count === 1 ? meta.glossName : meta.glossPlural) + (mods.includes('in-splendour') ? (count === 1 ? ' with a face' : ' with faces') : '')
+    + (mods.includes('fitchy') ? ', pointed at the foot' : '');
   const colour = colourOf(g.paint);
   const lead = count === 1 ? article(colour ?? noun) : numberWord(count);
   const posture = g.item.posture ? postureGloss(g.item.charge, g.item.posture) : null;
