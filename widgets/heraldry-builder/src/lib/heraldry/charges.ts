@@ -1,8 +1,14 @@
-// Charge metadata: 36 curated charges, their blazon/gloss names, articles, categories, drawn postures and
-// the vocabulary of charge attributes (postures, facings, orientations, forms, modifiers, parts, holds).
-// Artwork lives in charge-art.ts.
+// Charge vocabulary: the charge ids and categories, the type classes, and the charge attributes (postures, facings,
+// orientations, forms, modifiers, parts, holds). Each charge's metadata is its sidecar row in art/meta; its art is in art/paths.
 
-import type { BaseTincture, ContrastClass } from './surface';
+import type { ChargeMeta, ChargeMetaRow } from './art/types';
+import { META_BEAST } from './art/meta/beast';
+import { META_BIRD } from './art/meta/bird';
+import { META_GEOMETRIC } from './art/meta/geometric';
+import { META_MODERN } from './art/meta/modern';
+import { META_MONSTER } from './art/meta/monster';
+import { META_OBJECT } from './art/meta/object';
+import { META_PLANT } from './art/meta/plant';
 import { numberWord } from './words';
 
 export const POSTURES = ['rampant', 'passant', 'statant', 'sejant', 'courant', 'salient', 'couchant', 'dormant', 'sejant-erect',
@@ -105,153 +111,13 @@ export type TypeClass = keyof typeof TYPE_CLASSES;
 /** Which postures a charge can be compared across when it changes posture (SENA App M3). */
 export type PostureClass = 'quadruped' | 'bird' | 'fish' | 'insect';
 
-/** A charge-specific posture word: the blazon term and its plain-English gloss ("trippant", "walking"). */
-interface PostureWording { term: string; gloss: string }
-
-/**
- * The natural colouring of a charge (SENA A3B1; GoT Table 4): what is painted, and what it is for contrast and conflict. Proper is
- * not a tincture: the class and the conflict tinctures come from the table row, which names the part they are taken from
- * (a lion is "considered Or", a tree takes its tincture from its leaves). Brown is a tincture in its own right.
- * One fill covers the charge; a second splits it in two, per fess (the flame's gules and Or).
- */
-export interface ProperPalette {
-  cls: ContrastClass;
-  conflict: readonly BaseTincture[];
-  fills: readonly [string] | readonly [string, string];
-}
-
-interface ChargeMeta {
-  id: ChargeId;
-  /** Blazon name (singular / plural). */
-  name: string;
-  plural: string;
-  /** Stored, never computed from the first letter ("an open book"). */
-  article: 'a' | 'an';
-  category: ChargeCategory;
-  /** Drawn postures, or null when posture-less. */
-  postures: readonly Posture[] | null;
-  /** The builder's (and resolve's) choice when none is given. */
-  defaultPosture: Posture | null;
-  /** The posture SCA practice assumes when none is blazoned (GoT Table 5): it is omitted from the blazon. */
-  scaDefaultPosture: Posture | null;
-  /** This charge's own words for a posture, overriding the posture id and POSTURE_GLOSS. */
-  postureWording: Partial<Record<Posture, PostureWording>>;
-  /** 'to-dexter' for posture-bearing charges, else null. */
-  defaultFacing: Facing | null;
-  /** Its natural colours, or null when SENA gives the charge none (monsters, shapes, things whose colour is the maker's choice). */
-  proper: ProperPalette | null;
-  /** Drawn modifiers. */
-  mods: readonly ModifierId[];
-  /** May be 'crossed' (two in saltire). */
-  long: boolean;
-  postureClass: PostureClass | null;
-  /** Charges of different classes are substantially different (SENA A5E2; see TYPE_CLASSES). */
-  typeClass: TypeClass;
-  /** Gloss names (singular / plural). */
-  glossName: string;
-  glossPlural: string;
-  /** Default orientation, for documentation and the artist. */
-  orientation: string;
-  /**
-   * Optical scale applied to the slot box when drawing, so charges of different ink weight look the
-   * same size: slender charges (sword, key) are drawn larger, solid ones (heart, rose) smaller.
-   */
-  scale: number;
-  /** How much fine detail the silhouette has: 0 = bold at a glance, 1 = detailed, 2 = intricate. Costs readability points. */
-  detail: 0 | 1 | 2;
-}
-
-type Fixed = Pick<ChargeMeta, 'id' | 'name' | 'plural' | 'article' | 'category' | 'typeClass' | 'glossName' | 'glossPlural' | 'orientation' | 'scale' | 'detail'>;
-type Variable = Partial<Pick<ChargeMeta, 'proper' | 'postures' | 'defaultPosture' | 'scaDefaultPosture' | 'postureWording' | 'mods' | 'long' | 'postureClass'>>;
-
-function c(fixed: Fixed, v: Variable = {}): ChargeMeta {
-  const postures = v.postures ?? null;
-  return {
-    ...fixed,
-    postures,
-    defaultPosture: v.defaultPosture ?? null,
-    scaDefaultPosture: v.scaDefaultPosture ?? null,
-    postureWording: v.postureWording ?? {},
-    defaultFacing: postures ? 'to-dexter' : null,
-    proper: v.proper ?? null,
-    mods: v.mods ?? [],
-    long: v.long ?? false,
-    postureClass: v.postureClass ?? null,
-  };
-}
-
-/** The natural colourings (GoT Table 4, RULES-B §6.2): the class and the conflict tinctures are the row's "taken from" part. */
-const PROPER = {
-  tan: { cls: 'metal', conflict: ['or'], fills: ['#d9a84a'] },
-  brown: { cls: 'colour', conflict: ['brown'], fills: ['#7a4a24'] },
-  gold: { cls: 'metal', conflict: ['or'], fills: ['#e3b52a'] },
-  rose: { cls: 'colour', conflict: ['gules'], fills: ['#c62d35'] },
-  foliage: { cls: 'colour', conflict: ['vert'], fills: ['#3f8a44'] },
-  pages: { cls: 'metal', conflict: ['argent'], fills: ['#efe6cf'] },
-  steel: { cls: 'metal', conflict: ['argent'], fills: ['#cdd3d8'] },
-  fire: { cls: 'neutral', conflict: ['gules', 'or'], fills: ['#f2a21b', '#d3302b'] },
-} as const satisfies Record<string, ProperPalette>;
-
-const quadruped = { postureClass: 'quadruped' } as const;
-
-export const CHARGES: Record<ChargeId, ChargeMeta> = {
-  lion: c({ id: 'lion', name: 'lion', plural: 'lions', article: 'a', category: 'beast', typeClass: 'feline', glossName: 'lion', glossPlural: 'lions', orientation: 'faces dexter', scale: 1, detail: 1 },
-    { postures: ['rampant', 'passant', 'statant', 'sejant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', proper: PROPER.tan, ...quadruped }),
-  wolf: c({ id: 'wolf', name: 'wolf', plural: 'wolves', article: 'a', category: 'beast', typeClass: 'canine', glossName: 'wolf', glossPlural: 'wolves', orientation: 'faces dexter', scale: 1.05, detail: 1 },
-    { postures: ['rampant', 'passant', 'statant'], defaultPosture: 'passant', ...quadruped }),
-  boar: c({ id: 'boar', name: 'boar', plural: 'boars', article: 'a', category: 'beast', typeClass: 'boar', glossName: 'boar', glossPlural: 'boars', orientation: 'faces dexter', scale: 1, detail: 1 },
-    { postures: ['passant'], defaultPosture: 'passant', proper: PROPER.brown, ...quadruped }),
-  stag: c({ id: 'stag', name: 'stag', plural: 'stags', article: 'a', category: 'beast', typeClass: 'deer', glossName: 'stag', glossPlural: 'stags', orientation: 'faces dexter', scale: 1.05, detail: 1 },
-    { postures: ['statant', 'passant'], defaultPosture: 'statant', postureWording: { passant: { term: 'trippant', gloss: 'walking' } }, proper: PROPER.brown, ...quadruped }),
-  goat: c({ id: 'goat', name: 'goat', plural: 'goats', article: 'a', category: 'beast', typeClass: 'goat', glossName: 'goat', glossPlural: 'goats', orientation: 'faces dexter', scale: 1, detail: 1 },
-    { postures: ['statant', 'rampant'], defaultPosture: 'statant', ...quadruped }),
-  hare: c({ id: 'hare', name: 'hare', plural: 'hares', article: 'a', category: 'beast', typeClass: 'hare', glossName: 'hare', glossPlural: 'hares', orientation: 'faces dexter', scale: 1.05, detail: 1 },
-    { postures: ['sejant', 'courant'], defaultPosture: 'sejant', proper: PROPER.brown, ...quadruped }),
-  fish: c({ id: 'fish', name: 'fish', plural: 'fish', article: 'a', category: 'beast', typeClass: 'fish', glossName: 'fish', glossPlural: 'fish', orientation: 'head to dexter (naiant) / head up (haurient)', scale: 1.05, detail: 0 },
-    { postures: ['naiant', 'haurient'], defaultPosture: 'naiant', scaDefaultPosture: 'naiant', postureClass: 'fish' }),
-  bee: c({ id: 'bee', name: 'bee', plural: 'bees', article: 'a', category: 'beast', typeClass: 'bee', glossName: 'bee', glossPlural: 'bees', orientation: 'head up (tergiant, fixed)', scale: 1.05, detail: 0 },
-    { postureClass: 'insect', proper: PROPER.gold }),
-  unicorn: c({ id: 'unicorn', name: 'unicorn', plural: 'unicorns', article: 'a', category: 'monster', typeClass: 'unicorn', glossName: 'unicorn', glossPlural: 'unicorns', orientation: 'faces dexter', scale: 1, detail: 2 },
-    { postures: ['rampant', 'passant', 'sejant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', ...quadruped }),
-  dragon: c({ id: 'dragon', name: 'dragon', plural: 'dragons', article: 'a', category: 'monster', typeClass: 'dragon', glossName: 'dragon', glossPlural: 'dragons', orientation: 'faces dexter', scale: 0.9, detail: 2 },
-    { postures: ['rampant', 'passant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', postureWording: { rampant: { term: 'segreant', gloss: 'rearing up' } }, ...quadruped }),
-  eagle: c({ id: 'eagle', name: 'eagle', plural: 'eagles', article: 'an', category: 'bird', typeClass: 'regular-bird', glossName: 'eagle with spread wings', glossPlural: 'eagles with spread wings', orientation: 'head to dexter', scale: 0.95, detail: 0 },
-    { postures: ['displayed'], defaultPosture: 'displayed', scaDefaultPosture: 'displayed', postureClass: 'bird' }),
-  owl: c({ id: 'owl', name: 'owl', plural: 'owls', article: 'an', category: 'bird', typeClass: 'regular-bird', glossName: 'owl', glossPlural: 'owls', orientation: 'upright, facing out', scale: 1, detail: 1 },
-    { postureClass: 'bird', proper: PROPER.brown }),
-  rose: c({ id: 'rose', name: 'rose', plural: 'roses', article: 'a', category: 'plant', typeClass: 'rose', glossName: 'rose', glossPlural: 'roses', orientation: 'upright', scale: 0.88, detail: 0 },
-    { proper: PROPER.rose }),
-  tree: c({ id: 'tree', name: 'tree', plural: 'trees', article: 'a', category: 'plant', typeClass: 'tree', glossName: 'tree', glossPlural: 'trees', orientation: 'upright', scale: 0.95, detail: 2 },
-    { proper: PROPER.foliage }),
-  'fleur-de-lis': c({ id: 'fleur-de-lis', name: 'fleur-de-lys', plural: 'fleurs-de-lys', article: 'a', category: 'plant', typeClass: 'fleur-de-lys', glossName: 'lily (fleur-de-lis)', glossPlural: 'lilies (fleurs-de-lis)', orientation: 'upright', scale: 1, detail: 0 }),
-  mullet: c({ id: 'mullet', name: 'mullet', plural: 'mullets', article: 'a', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'five-pointed star', glossPlural: 'five-pointed stars', orientation: 'one point up', scale: 1.05, detail: 0 }),
-  crescent: c({ id: 'crescent', name: 'crescent', plural: 'crescents', article: 'a', category: 'geometric', typeClass: 'crescent', glossName: 'crescent moon', glossPlural: 'crescent moons', orientation: 'horns up', scale: 1.05, detail: 0 }),
-  sun: c({ id: 'sun', name: 'sun', plural: 'suns', article: 'a', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'sun', glossPlural: 'suns', orientation: '—', scale: 1, detail: 0 },
-    { mods: ['in-splendour'] }),
-  heart: c({ id: 'heart', name: 'heart', plural: 'hearts', article: 'a', category: 'geometric', typeClass: 'heart', glossName: 'heart', glossPlural: 'hearts', orientation: 'point down', scale: 0.88, detail: 0 }),
-  key: c({ id: 'key', name: 'key', plural: 'keys', article: 'a', category: 'object', typeClass: 'key', glossName: 'key', glossPlural: 'keys', orientation: 'wards up, bow down', scale: 1.15, detail: 1 },
-    { long: true }),
-  'open-book': c({ id: 'open-book', name: 'open book', plural: 'open books', article: 'an', category: 'object', typeClass: 'book', glossName: 'open book', glossPlural: 'open books', orientation: 'upright', scale: 0.9, detail: 1 },
-    { proper: PROPER.pages }),
-  sword: c({ id: 'sword', name: 'sword', plural: 'swords', article: 'a', category: 'object', typeClass: 'sword', glossName: 'sword', glossPlural: 'swords', orientation: 'point up', scale: 1.15, detail: 1 },
-    { long: true, proper: PROPER.steel }),
-  crown: c({ id: 'crown', name: 'crown', plural: 'crowns', article: 'a', category: 'object', typeClass: 'crown', glossName: 'crown', glossPlural: 'crowns', orientation: 'upright', scale: 0.95, detail: 0 }),
-  anchor: c({ id: 'anchor', name: 'anchor', plural: 'anchors', article: 'an', category: 'object', typeClass: 'anchor', glossName: 'anchor', glossPlural: 'anchors', orientation: 'ring up', scale: 1.15, detail: 0 },
-    { long: true }),
-  'musical-note': c({ id: 'musical-note', name: 'musical note', plural: 'musical notes', article: 'a', category: 'modern', typeClass: 'musical-note', glossName: 'musical note', glossPlural: 'musical notes', orientation: 'stem up, flag to sinister', scale: 1.15, detail: 1 }),
-  flame: c({ id: 'flame', name: 'flame', plural: 'flames', article: 'a', category: 'modern', typeClass: 'flame', glossName: 'flame', glossPlural: 'flames', orientation: 'tongues up', scale: 0.95, detail: 0 },
-    { proper: PROPER.fire }),
-  gear: c({ id: 'gear', name: 'cogwheel', plural: 'cogwheels', article: 'a', category: 'modern', typeClass: 'cogwheel', glossName: 'gear', glossPlural: 'gears', orientation: '—', scale: 0.9, detail: 0 }),
-  roundel: c({ id: 'roundel', name: 'roundel', plural: 'roundels', article: 'a', category: 'geometric', typeClass: 'roundel', glossName: 'disc', glossPlural: 'discs', orientation: '—', scale: 0.9, detail: 0 }),
-  annulet: c({ id: 'annulet', name: 'annulet', plural: 'annulets', article: 'an', category: 'geometric', typeClass: 'annulet', glossName: 'ring', glossPlural: 'rings', orientation: '—', scale: 0.92, detail: 0 }),
-  billet: c({ id: 'billet', name: 'billet', plural: 'billets', article: 'a', category: 'geometric', typeClass: 'billet', glossName: 'upright rectangle', glossPlural: 'upright rectangles', orientation: 'tall side up', scale: 1, detail: 0 }),
-  lozenge: c({ id: 'lozenge', name: 'lozenge', plural: 'lozenges', article: 'a', category: 'geometric', typeClass: 'lozenge', glossName: 'diamond', glossPlural: 'diamonds', orientation: 'point up', scale: 1, detail: 0 }),
-  goutte: c({ id: 'goutte', name: 'goutte', plural: 'gouttes', article: 'a', category: 'geometric', typeClass: 'goutte', glossName: 'drop', glossPlural: 'drops', orientation: 'point up', scale: 1, detail: 0 }),
-  'cross-crosslet': c({ id: 'cross-crosslet', name: 'cross crosslet', plural: 'crosses crosslet', article: 'a', category: 'geometric', typeClass: 'cross-crosslet', glossName: 'cross with a small cross-bar at each end', glossPlural: 'crosses with a small cross-bar at each end', orientation: 'upright', scale: 1, detail: 0 }),
-  estoile: c({ id: 'estoile', name: 'estoile', plural: 'estoiles', article: 'an', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'six-rayed star with wavy rays', glossPlural: 'six-rayed stars with wavy rays', orientation: 'one ray up', scale: 1.05, detail: 0 }),
-  spark: c({ id: 'spark', name: 'spark', plural: 'sparks', article: 'a', category: 'geometric', typeClass: 'spark', glossName: 'spark', glossPlural: 'sparks', orientation: 'four points, one up', scale: 1.05, detail: 0 }),
-  lightbulb: c({ id: 'lightbulb', name: 'lightbulb', plural: 'lightbulbs', article: 'a', category: 'modern', typeClass: 'lightbulb', glossName: 'lightbulb', glossPlural: 'lightbulbs', orientation: 'bulb up', scale: 1.1, detail: 1 }),
+const ROWS: Record<ChargeId, ChargeMetaRow> = {
+  ...META_BEAST, ...META_MONSTER, ...META_BIRD, ...META_PLANT, ...META_GEOMETRIC, ...META_OBJECT, ...META_MODERN,
 };
+
+/** Every charge's metadata (its sidecar row in art/meta), with its id and default facing. */
+export const CHARGES = Object.fromEntries(CHARGE_IDS.map((id): [ChargeId, ChargeMeta] =>
+  [id, { ...ROWS[id], id, defaultFacing: ROWS[id].faces ? 'to-dexter' : null }])) as Record<ChargeId, ChargeMeta>;
 
 export function isChargeId(value: unknown): value is ChargeId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(CHARGES, value);

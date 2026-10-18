@@ -51,8 +51,8 @@ export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchW
 export { signature } from './signature';
 export {
   SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, divisionRegions, partitionContours, partIndexAt,
-  drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
-  counterchangedSlotParts, type Slot, type DividedField, type VariedField, type CounterchangePart,
+  drawnBox, slotTransform, chargeTransform, UPRIGHT, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
+  counterchangedSlotParts, type ArtPose, type Slot, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
   specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, frameBeside, ordinaryFrameOf, bandPlace, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, counterchangedTrimParts, divisionCutsOrdinary,
@@ -85,7 +85,10 @@ export { furPattern, treatmentPattern, colourHex, ERMINE_SPOT } from './patterns
 export { renderLayers, badgeView, designTinctures, type Layer, type OrdinaryPart } from './render';
 export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';
-export { CHARGE_ART, MODIFIER_ART, ART_ON_BOX, chargePath, chargeOnBox, type ArtBox } from './charge-art';
+export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox } from './charge-art';
+export { CHARGE_ART, CORE_ART_IDS } from './art/paths/index';
+export { bboxOf, ringDepths, ringProblems } from './art/geometry';
+export type { ArtBox, ArtKey, DrawingMeta } from './art/types';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
 export * from './tinctures';
 export {

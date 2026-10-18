@@ -100,15 +100,7 @@ const ordinaryAliases: Alias[] = [
   [['v', 'upside down v'], ['chevron']],
 ];
 
-// Charges: the name and plural as they appear in the blazon, everyday words, and kinds of charge.
-const CHARGE_ALIASES: Record<ChargeId, readonly string[]> = {
-  lion: ['cat'], wolf: ['dog', 'canine'], boar: ['pig'], stag: ['deer'], goat: [], hare: ['rabbit', 'bunny'], fish: [], bee: [],
-  unicorn: ['horse'], dragon: ['wyvern'], eagle: [], owl: [], rose: [], tree: [], 'fleur-de-lis': ['lily', 'lilies', 'fleur'],
-  mullet: ['star'], crescent: ['moon'], sun: [], heart: [], key: [], 'open-book': ['book'], sword: [], crown: [], anchor: [],
-  'musical-note': ['music', 'note'], flame: ['fire'], gear: ['cog', 'gear', 'gearwheel'], lightbulb: ['light bulb', 'lamp'],
-  roundel: ['circle', 'disc', 'disk', 'dot'], annulet: ['ring'], billet: ['rectangle', 'brick'], lozenge: ['diamond'], goutte: ['drop', 'teardrop', 'droplet'],
-  'cross-crosslet': ['crosslet'], estoile: ['star'], spark: ['spark'],
-};
+// Charges: the name and plural as they appear in the blazon, everyday words (each charge's `search`), and kinds of charge.
 /** The SCA's names for a charge of one tincture (bezant, plate, goutte de sang…) also find the charge. */
 const namedWords = (id: ChargeId) => NAMED_TINCTURE_CHARGES.filter((n) => n.charge === id).flatMap((n) => [n.word, n.plural]);
 const chargeTerms = (id: ChargeId) => [CHARGES[id].name, CHARGES[id].plural].map(normaliseWords);
@@ -119,7 +111,7 @@ const namesIn = (...categories: ChargeCategory[]) =>
 const chargeAliases: Alias[] = [
   ...CHARGE_IDS.flatMap((id): Alias[] => [
     [[normaliseWords(CHARGES[id].name)], [...chargeTerms(id), ...semyWords(id)]],
-    [[...CHARGE_ALIASES[id], ...namedWords(id)].map(normaliseWords), [...chargeTerms(id), ...semyWords(id)]],
+    [[...CHARGES[id].search, ...namedWords(id)].map(normaliseWords), [...chargeTerms(id), ...semyWords(id)]],
   ]),
   [['beast'], namesIn('beast')],
   [['monster'], namesIn('monster')],

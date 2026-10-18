@@ -1,0 +1,38 @@
+// Sidecar metadata of the birds: everything about each charge but its path strings, which are in art/paths. CHARGES
+// (charges.ts) adds the id and the default facing to each row.
+
+import type { ChargeMetaRow } from '../types';
+import { HAND_DRAWN, PROPER } from './common';
+
+export const META_BIRD = {
+  eagle: {
+    name: 'eagle', plural: 'eagles', article: 'an', category: 'bird',
+    typeClass: 'regular-bird', typeOf: null, typeToken: null, postureClass: 'bird', birdShape: 'regular',
+    postures: ['displayed'], defaultPosture: 'displayed', scaDefaultPosture: 'displayed', postureWording: {},
+    faces: true, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'animate', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    glossName: 'eagle with spread wings', glossPlural: 'eagles with spread wings', plain: null, search: [],
+    headName: null, holdable: false,
+    drawings: {
+      displayed: { onBox: { x: 35, y: 37, w: 28, h: 20 }, anchors: {}, neck: null },
+    },
+    provenance: HAND_DRAWN,
+  },
+  owl: {
+    name: 'owl', plural: 'owls', article: 'an', category: 'bird',
+    typeClass: 'regular-bird', typeOf: null, typeToken: null, postureClass: 'bird', birdShape: 'regular',
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'never',
+    orient: { drawn: 'palewise', cls: 'animate', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 1, detail: 1, proper: PROPER.brown,
+    glossName: 'owl', glossPlural: 'owls', plain: null, search: [],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: { x: 39, y: 42, w: 22, h: 22 }, anchors: {}, neck: null },
+    },
+    provenance: HAND_DRAWN,
+  },
+} satisfies Record<string, ChargeMetaRow>;
