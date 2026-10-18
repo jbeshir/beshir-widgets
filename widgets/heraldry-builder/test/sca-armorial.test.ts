@@ -228,6 +228,8 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a charge and a label', arms('azure', group(charge('lion'), 'or'), group(ordinary('label'), 'argent'))],
   ['a trimount alone', arms('vert', group(ordinary('trimount'), 'or'))],
   ['a charge and a mount', arms('or', group(charge('lion'), 'gules'), group(ordinary('mount'), 'vert'))],
+  ['a charge in the corner beside a bend', arms('argent', group(ordinary('bend'), 'sable'), group(charge('rose'), 'gules', { position: 'chief' }))],
+  ['a fess between charges under a chief', arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'or', { count: 3, relation: 'between' }), group(ordinary('chief'), 'or'))],
 ];
 
 describe('the matcher reads what the widget writes', () => {
@@ -504,6 +506,24 @@ describe('the matcher reads per pall, per pall inverted and the tierced division
     expect(explainMatch('Azure, a lion per pall argent, gules and Or.').status).not.toBe('match');
     expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Azure, a lion per pall argent, gules and Or.', headings: [] }).tags).toContain('division:per-pall-on-charge');
     expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Tierced argent, gules and Or.', headings: [] }).tags).toContain('division:tierced');
+  });
+});
+
+describe('the matcher reads one charge beside a bend in its corner, written either way', () => {
+  it('reads "in sinister chief" and "in chief" beside a bend as the one design, and not two or more', () => {
+    const corner = (text: string) => explainMatch(text).match?.design?.groups.find((g) => g.role === 'secondary')?.position;
+    expect(corner('Argent, a bend sable and in sinister chief a rose gules.')).toBe('chief');
+    expect(corner('Argent, a bend sable and in chief a rose gules.')).toBe('chief');
+    expect(corner('Argent, a bend sable, in sinister chief a rose gules.')).toBe('chief');
+    expect(corner('Vert, a bend sinister Or and in dexter chief a mullet argent.')).toBe('chief');
+    expect(corner('Argent, a bend sable and in dexter base a rose gules.')).toBe('base');
+    expect(explainMatch('Argent, a bend sable and in dexter chief a rose gules.').status).not.toBe('match');
+    expect(explainMatch('Argent, a bend sable and in sinister chief two roses gules.').status).not.toBe('match');
+  });
+
+  it('files a lone charge in the free corner beside a bend as set in chief, not in a quarter', () => {
+    const tags = classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Azure, a bend invected Or and in sinister chief a Latin cross bottony argent.', headings: [] }).tags;
+    expect(tags.some((t) => t.startsWith('placement:in-sinister-chief'))).toBe(false);
   });
 });
 

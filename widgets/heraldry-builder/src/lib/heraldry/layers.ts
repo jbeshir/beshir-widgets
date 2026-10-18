@@ -17,6 +17,7 @@ import {
 import { PLACE_KINDS, isPeripheralPlace, pathOfPlace, peripheralPlacesOf, placeOfPath, type PeripheralPlace, type PlaceKey, type PlaceKind } from './places';
 import { keptMods, keptOrdinaryLines } from './shape-options';
 import { structuralIssues } from './structure';
+import { tinctureIssues } from './tincture-rule';
 import { strewnGroups } from './strewn';
 import { unsupportedIssues } from './support';
 
@@ -97,6 +98,15 @@ export function newCharge(id: ChargeId, role: Group['role']): Group {
 /** The first problem of a design the builder can't draw as it is, or null. */
 function firstProblem(d: Design): string | null {
   return unsupportedIssues(d)[0]?.message ?? structuralIssues(d)[0]?.message ?? null;
+}
+
+/**
+ * The rule-of-tincture problem a new chief, base or point brings the groups already there, or null: it moves a fess, cross, saltire or
+ * pall into the field it leaves (`bandPlace`), where the band may lie on another part of a divided field.
+ */
+function newTinctureProblem(before: Design, after: Design): string | null {
+  const had = new Set(tinctureIssues(before).map((i) => i.message));
+  return tinctureIssues(after).find((i) => !had.has(i.message))?.message ?? null;
 }
 
 /** The places set by position, and those of the bands (which are not refitted). */
@@ -243,7 +253,8 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
           : `Add a ${peripheralName(type)} first — pictures can only sit on one once there is one.` };
       }
       const peripherals = parts.peripherals.map((p) => (p.place === type ? { ...p.group, charged: [newCharge(startingCharge(d), 'tertiary')] } : p.group));
-      const placed = assembleParts(d, { ...partsOf(d), peripherals });
+      // the pictures already there refitted: a bordure that carries charges is drawn wider, leaving the field less room
+      const placed = refitLayers(assembleParts(d, { ...partsOf(d), peripherals }));
       const path = pathOfPlace(placed, key);
       if (!path) return { reason: `This ${peripheralName(type)} can not carry pictures.` };
       const fitted = fitGroup(placed, path);
@@ -271,7 +282,9 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       // The new group is the chief or border whichever place it ends up in: a chief added beside a border becomes the design's ordinary.
       const path = [placed.groups.findIndex((g) => g.item.k === 'ordinary' && g.item.type === type)];
       const painted = withTinctureApart(placed, path);
-      return painted ? { design: painted } : { reason: `No colour works for a ${peripheralName(key)} here.` };
+      if (!painted) return { reason: `No colour works for a ${peripheralName(key)} here.` };
+      const moved = newTinctureProblem(d, painted);
+      return moved ? { reason: moved } : { design: painted };
     }
     case 'peripheral': {
       if (!ordinary) return { reason: 'Add a band or shape first — a corner or edge shape goes beside one.' };
@@ -284,7 +297,7 @@ function tryAddLayer(d: Design, key: LayerKey): Added {
       for (const type of CORNER_AND_EDGE_TYPES.filter((t) => !present.has(t))) {
         const placed = refitLayers(assembleParts(d, { ...partsOf(d), peripherals: [...parts.peripherals.map((p) => p.group), ordinaryGroup(type, 'or')] }));
         const painted = withTinctureApart(placed, [placed.groups.findIndex((g) => g.item.k === 'ordinary' && g.item.type === type)]);
-        const problem = painted ? firstProblem(painted) : `No colour works for ${ordinaryWithArticle(type)} here.`;
+        const problem = painted ? firstProblem(painted) ?? newTinctureProblem(d, painted) : `No colour works for ${ordinaryWithArticle(type)} here.`;
         if (problem === null && JSON.stringify(simpleParts(painted!).ordinary?.group) === band) return { design: painted! };
         if (problem === null) moved ??= painted;
         else first ??= problem;

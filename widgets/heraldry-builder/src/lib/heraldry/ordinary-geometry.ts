@@ -12,7 +12,9 @@
 //
 // The peripherals beside the chief and bordure — base, point pointed, canton, quarter, gyron (sinister: mirrored), the orle and tressure
 // (rings inside each shape's own inset), the flaunches and gore (curves), and the dexter and sinister points (drawn to be refused) — are
-// drawn here too; a base or point leaves the ordinaries in the field a frame whose bottom is its top. So are the pall (three arms from the
+// drawn here too; a base or point leaves the ordinaries in the field a frame whose bottom is its top, and a chief one whose top is its lower edge:
+// a fess, cross, saltire or pall is centred in what they leave, and drawn narrower (RULES-C §F.1). A bordure that carries charges is
+// drawn wider (RULES-C §F.2). So are the pall (three arms from the
 // chief corners and the middle, or turned over), the fret (a mascle woven with a bendlet and a bendlet sinister) and the edge charges: the
 // label across the chief and the mount and trimount issuant from base.
 
@@ -38,6 +40,8 @@ export interface OrdinarySpec {
   readonly count: number;
   readonly cotised: { readonly count: 1 | 2 | 3; readonly line: Line } | null;
   readonly fimbriated: boolean;
+  /** Whether it is a bordure that carries charges: drawn wider, so that they read (RULES-C §F.2). False for every other ordinary, whose drawing what lies on it doesn't change. */
+  readonly charged: boolean;
 }
 
 /** The spec of an ordinary group. */
@@ -47,24 +51,25 @@ export function specOf(group: Group): OrdinarySpec {
   return {
     type: item.type, lines: item.lines, mods: item.mods, count: group.count,
     cotised: item.cotised && { count: item.cotised.count, line: item.cotised.line }, fimbriated: item.fimbriated !== null,
+    charged: item.type === 'bordure' && group.charged.length > 0,
   };
 }
 
-/** An ordinary with plain lines, no treatment, one of it, neither cotised nor fimbriated. */
+/** An ordinary with plain lines, no treatment, one of it, neither cotised nor fimbriated, nothing on it that widens it. */
 export function plainSpec(type: OrdinaryType): OrdinarySpec {
-  return { type, lines: { a: 'plain', b: 'plain' }, mods: [], count: 1, cotised: null, fimbriated: false };
+  return { type, lines: { a: 'plain', b: 'plain' }, mods: [], count: 1, cotised: null, fimbriated: false, charged: false };
 }
 
 /** Whether the spec is a plain ordinary: what hand-fitted layouts and the other fast paths keyed by type alone apply to. */
 export const isPlainSpec = (s: OrdinarySpec): boolean =>
-  s.lines.a === 'plain' && s.lines.b === 'plain' && s.mods.length === 0 && s.count === 1 && s.cotised === null && !s.fimbriated;
+  s.lines.a === 'plain' && s.lines.b === 'plain' && s.mods.length === 0 && s.count === 1 && s.cotised === null && !s.fimbriated && !s.charged;
 
 /** What the rest of the field leaves for an ordinary: the whole shape, its lines crossing at the fess point, above any base. */
 export interface OrdinaryFrame {
   readonly shape: FieldShape;
   /** Where fess, pale, bend and cross lines cross: the shape's fess point. */
   readonly centre: Point;
-  /** Where the free field starts above: the top of the shape's box, or the lower edge of a chief. Only a group of diminutives keeps below it. */
+  /** Where the free field starts above: the top of the shape's box, or the lower edge of a chief. The bands across the middle of the field are centred between it and `bottom` (`bandPlace`); a group of diminutives keeps below it. */
   readonly top: number;
   /**
    * Where the free field ends below: the foot of the shape's box, or the top of a base or point pointed. An ordinary is drawn on under
@@ -79,20 +84,65 @@ export function defaultOrdinaryFrame(shape: FieldShape): OrdinaryFrame {
 }
 
 /** The frame a chief leaves its ordinaries in a shape: the free field starts at the chief's lower edge. */
-export function underChiefFrame(shape: FieldShape): OrdinaryFrame {
+function underChiefFrame(shape: FieldShape): OrdinaryFrame {
   return { ...defaultOrdinaryFrame(shape), top: shapeFrame(shape).chiefBase };
 }
 
 /** The peripherals that rise from the base of the shield and so end the free field below. */
 const FROM_BASE: readonly OrdinaryType[] = ['base', 'point'];
 
-/** The frame the design's peripherals leave its other ordinaries in a shape: its top under a chief, its bottom the highest line a base or point pointed always covers. */
-export function ordinaryFrameOf(d: Design, shape: FieldShape): OrdinaryFrame {
-  const chief = d.groups.some((g) => g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === 'chief');
+/** The frame peripherals leave the other ordinaries in a shape: its top under a chief (when `chief`), its bottom the highest line any base or point pointed among `beside` always covers. */
+export function frameBeside(shape: FieldShape, chief: boolean, beside: readonly OrdinarySpec[]): OrdinaryFrame {
   const frame = chief ? underChiefFrame(shape) : defaultOrdinaryFrame(shape);
-  const tops = d.groups.flatMap((g) => (g.role === 'peripheral' && g.item.k === 'ordinary' && FROM_BASE.includes(g.item.type)
-    ? ordinaryGeometry(specOf(g), frame).envelope.inner.flat().map(([, y]) => y) : []));
+  const tops = beside.flatMap((spec) => (FROM_BASE.includes(spec.type) ? ordinaryGeometry(spec, frame).envelope.inner.flat().map(([, y]) => y) : []));
   return tops.length === 0 ? frame : { ...frame, bottom: Math.min(frame.bottom, ...tops) };
+}
+
+/** The frame the design's peripherals leave its other ordinaries in a shape. */
+export function ordinaryFrameOf(d: Design, shape: FieldShape): OrdinaryFrame {
+  const peripherals = d.groups.filter((g) => g.role === 'peripheral' && g.item.k === 'ordinary');
+  return frameBeside(shape, peripherals.some((g) => g.item.k === 'ordinary' && g.item.type === 'chief'), peripherals.map(specOf));
+}
+
+/**
+ * The ordinaries across the middle of the field that are centred in what a chief or base leaves of it, and drawn narrower there (RULES-C §F.1):
+ * fesses and bars, crosses, saltires and palls. Pales, bends and piles keep to the fess point, and so do chevrons: a chevron's apex already
+ * lies clear of a chief, and lowered it would leave no room in base and lie off a field's per-chevron line.
+ */
+const CENTRED_IN_FREE_FIELD: readonly OrdinaryType[] = ['fess', 'cross', 'saltire', 'pall', 'pall-inverted'];
+/** How much narrower they are drawn there: a fess under a chief 24 wide, at most a third of the field it leaves (RULES-C §F.1). */
+const FREE_FIELD_SCALE = 0.8;
+/** How wide a shape must be across for the free field to reach that height: below where it narrows to less, its foot is no room for a band. */
+const FREE_FIELD_WIDTH = 60;
+
+const wideSpans = new Map<FieldShape, { top: number; bottom: number }>();
+
+/** The highest and lowest heights, to half a unit, at which a shape is at least FREE_FIELD_WIDTH across: on the heater its top and about 102. */
+function wideSpan(shape: FieldShape): { top: number; bottom: number } {
+  let span = wideSpans.get(shape);
+  if (!span) {
+    const { outline, box } = shapeFrame(shape), rings = pathRings(outline), wide: number[] = [];
+    for (let y = box.y0; y <= box.y1; y += 0.5) {
+      const xs = rowCrossings(rings, y);
+      if (xs.length > 0 && Math.max(...xs) - Math.min(...xs) >= FREE_FIELD_WIDTH) wide.push(y);
+    }
+    span = { top: Math.min(...wide), bottom: Math.max(...wide) };
+    wideSpans.set(shape, span);
+  }
+  return span;
+}
+
+/**
+ * Where an ordinary across the middle of the field is centred in a frame, and how much narrower than usual it is drawn: at the frame's fess
+ * point and as wide as usual, but under a chief or above a base in the middle of the field they leave — from the chief (or where the shape is
+ * first FREE_FIELD_WIDTH across) to the base (or where it narrows to less) — and FREE_FIELD_SCALE as wide. Every other ordinary, and every
+ * ordinary in a frame with neither, keeps its place.
+ */
+export function bandPlace(spec: OrdinarySpec, frame: OrdinaryFrame): { centre: Point; scale: number } {
+  const { box } = shapeFrame(frame.shape);
+  if (!CENTRED_IN_FREE_FIELD.includes(familyOf(spec.type)) || (frame.top <= box.y0 && frame.bottom >= box.y1)) return { centre: frame.centre, scale: 1 };
+  const wide = wideSpan(frame.shape);
+  return { centre: { x: frame.centre.x, y: (Math.max(frame.top, wide.top) + Math.min(frame.bottom, wide.bottom)) / 2 }, scale: FREE_FIELD_SCALE };
 }
 
 /** A trim drawn with an ordinary's body (its fimbriation, its cotises): its path, and the step-2 grid of the shape's points that show it — what it lies on. */
@@ -192,8 +242,9 @@ const DIMINUTIVE_PITCH: Partial<Record<OrdinaryType, Readonly<Record<number, num
 const CHEVRONELS_LIFT = 1 / 4;
 /** How far a group of diminutives enhanced or abased moves, across it: further than a band (BAND_SHIFT), or a group would hardly seem moved. */
 const DIMINUTIVES_SHIFT = 20;
-/** How wide the bordure is (the lozenge's a little narrower). */
+/** How wide the bordure is (the lozenge's a little narrower), and a bordure that carries charges (each shape's `chargedInset`). */
 const BORDURE_WIDTH = 10;
+const CHARGED_BORDURE_WIDTH = 15;
 
 /** Whether an edge of the spec carries a line other than a straight one (enarched and ployé bow a band, they don't widen it). */
 const hasComplexLine = (spec: OrdinarySpec): boolean => !isStraightLine(spec.lines.a) || !isStraightLine(spec.lines.b);
@@ -228,7 +279,7 @@ const cotisedScale = (spec: OrdinarySpec): number =>
 
 /** How wide the ordinary is drawn across its lined edges. */
 function drawnWidth(spec: OrdinarySpec): number {
-  if (spec.type === 'bordure') return BORDURE_WIDTH;
+  if (spec.type === 'bordure') return spec.charged ? CHARGED_BORDURE_WIDTH : BORDURE_WIDTH;
   const plain = PLAIN_WIDTH[familyOf(spec.type) as keyof typeof PLAIN_WIDTH] ?? notSupported({ category: 'ordinary', detail: spec.type });
   return plain * bandScale(spec);
 }
@@ -443,7 +494,7 @@ function pallOutline(spec: OrdinarySpec, frame: OrdinaryFrame): Outline {
   const f = shapeFrame(frame.shape);
   const turned = spec.type === 'pall-inverted';
   const cx = frame.centre.x, cy = frame.centre.y;
-  const half = CROSS_HALF * bandScale(spec);
+  const half = CROSS_HALF * bandScale(spec) * bandPlace(spec, frame).scale;
   const upper = [unit([f.box.x0 - frame.centre.x, f.box.y0 - frame.centre.y]), unit([f.box.x1 - frame.centre.x, f.box.y0 - frame.centre.y]), [0, 1] as Pt];
   // clockwise on the page, from the arm that points up (or from the dexter chief one)
   const dirs: Pt[] = turned ? [[0, -1], [upper[1][0], -upper[1][1]], [upper[0][0], -upper[0][1]]] : upper;
@@ -587,7 +638,7 @@ function uprightOutline(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number):
   // the edge a shape throughout reaches, where it lies before an inverted one is turned over: the top, or (once turned) the base
   const edgeAt = (y: number) => (spec.mods.includes('inverted') ? 2 * flipAxis(frame) - y : y);
   const { x0, x1, y0, y1 } = OVER;
-  const k = bandScale(spec);
+  const k = bandScale(spec) * bandPlace(spec, frame).scale;
   const h = BAND_HALF * k, d = BEND_HALF * k, sd = SALTIRE_HALF * k, c = CROSS_HALF * k, thick = CHEVRON_THICK * k;
   const bend = (x: number) => cy + (x - cx);
   const sinister = (x: number) => cy - (x - cx);
@@ -838,9 +889,12 @@ function contourOf(points: readonly Pt[], runs: readonly (EdgeRun | null)[]): Co
   return { start, edges: closing ? [...edges, { via: [], to: start, run: closing }] : edges };
 }
 
-/** The bordure's inner edge as a ring of points (a flattened curve's repeated last point dropped), clockwise or not as the shape draws it. */
-function insetRing(shape: FieldShape): Pt[] {
-  const inset = pathPolygon(shapeFrame(shape).inset);
+/** The inner edge of a bordure of the spec in a shape: the shape's inset, or its charged inset when the bordure carries charges. */
+const bordureInset = (spec: OrdinarySpec, shape: FieldShape): string => (spec.charged ? shapeFrame(shape).chargedInset : shapeFrame(shape).inset);
+
+/** An inset path as a ring of points (a flattened curve's repeated last point dropped), clockwise or not as the shape draws it. */
+function insetRing(path: string): Pt[] {
+  const inset = pathPolygon(path);
   const ring = inset.filter((p, i) => i === 0 || p[0] !== inset[i - 1][0] || p[1] !== inset[i - 1][1]);
   if (ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop();
   return ring;
@@ -884,13 +938,13 @@ function ringPath(ring: readonly Pt[], line: Line, side: 1 | -1, depth: number, 
   return contourPath({ start: ring[0], edges: [{ via: ring.slice(1), to: ring[0], run }] });
 }
 
-/** A bordure's body: the shape's outline and, inside it, its inset — drawn with the line all the way round, its features toward the field, whole periods from the top middle. */
+/** A bordure's body: the shape's outline and, inside it, its inset (its charged inset when it carries charges) — drawn with the line all the way round, its features toward the field, whole periods from the top middle. */
 function bordureBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
   const f = shapeFrame(frame.shape);
   const line = spec.lines.a;
-  if (line === 'plain') return f.outline + f.inset;
-  const ring = ringFromTop(insetRing(frame.shape), frame.centre.x);
-  return f.outline + ringPath(ring, line, outsideOf(ring) === 1 ? -1 : 1, edgeDepth(line, BORDURE_WIDTH), null);
+  if (line === 'plain') return f.outline + bordureInset(spec, frame.shape);
+  const ring = ringFromTop(insetRing(bordureInset(spec, frame.shape)), frame.centre.x);
+  return f.outline + ringPath(ring, line, outsideOf(ring) === 1 ? -1 : 1, edgeDepth(line, drawnWidth(spec)), null);
 }
 
 /**
@@ -936,7 +990,7 @@ function withoutLoops(ring: readonly Pt[]): Pt[] {
 
 /** The bands of an orle (one) or a tressure (one, two or three), each as its outer and inner edge: the shape's inset moved in, rings started at the top middle. */
 function ringBands(spec: OrdinarySpec, frame: OrdinaryFrame): Array<{ outer: Pt[]; inner: Pt[]; width: number }> {
-  const inset = insetRing(frame.shape);
+  const inset = insetRing(shapeFrame(frame.shape).inset);
   const inBy = (by: number) => ringFromTop(withoutLoops(offsetPolygon(inset, inset.map(() => -by))), frame.centre.x);
   if (spec.type === 'orle') return [{ outer: inBy(ORLE_EDGES[0]), inner: inBy(ORLE_EDGES[1]), width: ORLE_EDGES[1] - ORLE_EDGES[0] }];
   return Array.from({ length: spec.count }, (_, k) => {
@@ -1179,7 +1233,7 @@ function envelopeOf(spec: OrdinarySpec, frame: OrdinaryFrame, outline: Outline |
   if (!outline) {
     // The bordure's line runs along its inner edge: the inset moves inward (the ring grows) for `outer`, outward for `inner`.
     const ring = pathPolygon(shapeFrame(frame.shape).outline);
-    const corners = insetRing(frame.shape);
+    const corners = insetRing(bordureInset(spec, frame.shape));
     const reach = edgeReach(spec.lines.a, width);
     return { outer: [ring, offsetPolygon(corners, corners.map(() => -reach))], inner: [ring, offsetPolygon(corners, corners.map(() => reach))] };
   }
@@ -1278,10 +1332,12 @@ const IN_A_CORNER_OR_BASE: readonly OrdinaryType[] = ['base', 'point', 'canton',
 /** The mean of some points. */
 const middleOf = (points: readonly Pt[]): Point => ({ x: points.reduce((a, [x]) => a + x, 0) / points.length, y: points.reduce((a, [, y]) => a + y, 0) / points.length });
 
-function build(spec: OrdinarySpec, frame: OrdinaryFrame, lift: number): OrdinaryGeometry {
-  const key = JSON.stringify([spec, frame, lift]);
+function build(spec: OrdinarySpec, given: OrdinaryFrame, lift: number): OrdinaryGeometry {
+  const key = JSON.stringify([spec, given, lift]);
   let g = geometryCache.get(key);
   if (!g) {
+    // a band across the middle of the field centred in what a chief or base leaves of it
+    const frame: OrdinaryFrame = { ...given, centre: bandPlace(spec, given).centre };
     const f = shapeFrame(frame.shape);
     const shape = pathPolygon(f.outline);
     const drawn = outlineOf(spec, frame, lift);

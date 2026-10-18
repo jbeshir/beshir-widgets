@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  BUILDER_DIVISIONS, CHARGES, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  BUILDER_DIVISIONS, CHARGES, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -326,6 +326,17 @@ const SECONDARY_POSITION_OF: Readonly<Record<string, 'chief' | 'base' | 'canton'
 
 /** Where charges stand in a half or quarter of the field ("in dexter", "in sinister chief"), by their `arr`. */
 const HALF_POSITION_OF: Readonly<Record<string, HalfPosition>> = Object.fromEntries(HALF_POSITIONS.map((p) => [`in-${p}`, p]));
+
+/**
+ * The position the widget gives one charge in a corner beside an ordinary: "in sinister chief" beside a bend is its "in chief" there, which it
+ * draws in that corner (RULES-C §F.3; the normaliser's `corner-beside-bend`); undefined elsewhere.
+ */
+function cornerPosition(arr: string | null, count: number, type: string | null | undefined): 'chief' | 'base' | undefined {
+  const half = arr ? HALF_POSITION_OF[arr] : undefined;
+  if (!half || count !== 1 || !type) return undefined;
+  const ordinary = plainSpec(type as OrdinaryType);
+  return (['chief', 'base'] as const).find((p) => cornerBesideBend({ k: 'position', position: p, ordinary, peripheral: 'none', keepOut: [] }, { arrangement: { k: 'single' }, position: p }) === half);
+}
 
 const ARTICLES = new Set(['a', 'an', 'the', 'each', 'one', 'two', 'three', 'four', 'five', 'six', 'its', 'his', 'her']);
 
@@ -931,7 +942,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
    * the second group isn't set by position, so the two are tagged as two charge groups.
    */
   function checkBeside(first: Element, second: Element, ordinaries: readonly Element[]): boolean {
-    const position = second.ctx === 'field' && second.arr ? SECONDARY_POSITION_OF[second.arr] : undefined;
+    const position = second.ctx === 'field' && second.arr
+      ? SECONDARY_POSITION_OF[second.arr] ?? (ordinaries.length === 1 ? cornerPosition(second.arr, second.count, ordinaries[0].supported) : undefined) : undefined;
     // The first group lies on the field (alone, or between an ordinary) or on one of the ordinaries.
     const onOrdinary = first.ctx === 'on' && first.host !== null && ordinaries.includes(first.host);
     if (!position || (first.ctx !== 'field' && !onOrdinary) || (first.arr && SECONDARY_POSITION_OF[first.arr]) || ordinaries.some((o) => !o.supported || o.count > 1)) return false;
@@ -1107,7 +1119,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const between = o !== null && g.ctx === 'between';
     // Charges set "between" a chief or bordure are read wrongly, not a placement the widget lacks.
     if (between && ORDINARY_KIND[type!] !== 'central') return;
-    const position = g.ctx === 'field' && g.arr ? SECONDARY_POSITION_OF[g.arr] ?? HALF_POSITION_OF[g.arr] : undefined;
+    const position = g.ctx === 'field' && g.arr ? SECONDARY_POSITION_OF[g.arr] ?? cornerPosition(g.arr, count, type) ?? HALF_POSITION_OF[g.arr] : undefined;
     // Beside a central ordinary with no position the two are co-primary (a gap of the library's own).
     const beside = o !== null && !on && !between && !position && ORDINARY_KIND[type!] === 'central';
     // On or between the ordinary the charges take its layout; elsewhere their own arrangement, when the blazon is fully read.

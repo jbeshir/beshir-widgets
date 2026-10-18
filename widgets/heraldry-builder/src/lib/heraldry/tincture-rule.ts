@@ -16,7 +16,7 @@ import {
 import {
   CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPartTurned, isFieldPaint, partIndexAt, shapeFrame, slotColumn, slotRow, type DividedField, type Pt, type Point, type Slot,
 } from './geometry';
-import { defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
+import { bandPlace, defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
 import { ORDINARY_KIND, ORDINARY_NAME, familyOf, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, partCount, type Division, type Variation } from './divisions';
@@ -161,12 +161,15 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
   if (d.kind === 'badge') return [];
   if (group.item.k === 'ordinary') {
     const spec = specOf(group);
-    // On its own division's line only while it is drawn with that line (a fess wavy on per fess wavy); otherwise as sampled.
-    const onLine = d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === spec.type && d.field.lines.a === spec.lines.a && d.field.lines.b === spec.lines.b;
+    // On its own division's line only while it is drawn with that line (a fess wavy on per fess wavy) and centred where the line runs, not
+    // moved into what a chief or base leaves; otherwise as sampled.
+    const frame = frameOf(d, group);
+    const onLine = d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === spec.type && d.field.lines.a === spec.lines.a && d.field.lines.b === spec.lines.b
+      && bandPlace(spec, frame).centre.y === frame.centre.y;
     if (onLine) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
     const chiefPart = spec.type === 'chief' && d.field.k === 'divided' ? CHIEF_PART[d.field.division] : undefined;
     if (chiefPart !== undefined && d.field.k === 'divided') return [[{ surface: surfaceOf(d.field.parts[chiefPart], null), share: 1 }]];
-    return [groundAt(d.field, ordinarySamples(spec, frameOf(d, group)), parts)];
+    return [groundAt(d.field, ordinarySamples(spec, frame), parts)];
   }
   return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(judgedSlot(group, s)), parts));
 }

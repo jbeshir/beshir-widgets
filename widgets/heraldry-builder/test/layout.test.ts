@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MIN_SLOT_SIZE, minSlotSize, canonicalSlots, contextSlots, fieldContext, groupSlots, inFirstPart, layoutOfKey, ordinaryGeometry, plainSpec, defaultOrdinaryFrame, pathPolygon, pointInPolygon, probePoints,
-  capacityIssue, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type FieldShape, type GroundContext, type Layout, type LayoutContext, type OrdinarySpec, type OrdinaryType, type Slot,
+  bandPlace, frameBeside, capacityIssue, cornerBesideBend, shapeFrame, slotTransform, structuralIssues, FIELD_SHAPES, type FieldShape, type GroundContext, type Layout, type LayoutContext, type OrdinarySpec, type OrdinaryType, type Slot,
 } from '../src/lib/heraldry';
 import type { Pt } from '../src/lib/heraldry/geometry';
 import { fits, groundFor, isHandFitted, type Ground } from '../src/lib/heraldry/layout';
@@ -338,9 +338,31 @@ describe('around and on an ordinary with a chief and a bordure beside it', () =>
     }
   });
 
-  it('have no room where the ordinary leaves none: a fess between charges under a chief', () => {
+  it('fit three charges between a fess under a chief at a size that reads: the fess is centred in the field the chief leaves, and thinner', () => {
     const slots = slotsOf(ctx('between', 'fess', 'chief'), 3, 'host');
-    expect(slots.length !== 3 || slots[0].size < MIN_SLOT_SIZE).toBe(true);
+    expect(slots).toHaveLength(3);
+    expect(slots[0].size).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+    const fess = ordinaryGeometry(plainSpec('fess'), frameBeside('heater', true, []));
+    const ys = pathPolygon(fess.body).map(([, y]) => y), [top, foot] = [Math.min(...ys), Math.max(...ys)];
+    expect(fess.centre.y).toBeCloseTo(66, 0);
+    expect(foot - top).toBeCloseTo(24);
+    for (const s of slots) expect(s.y + s.size / 2 <= top || s.y - s.size / 2 >= foot, JSON.stringify(s)).toBe(true);
+    for (const s of slots) expect(s.y - s.size / 2).toBeGreaterThanOrEqual(heater.chiefBase);
+  });
+
+  it('centre a fess, cross, saltire and pall in what a chief or base leaves, and leave pales, bends and chevrons at the fess point', () => {
+    const baseFrame = frameBeside('heater', false, [plainSpec('base')]);
+    for (const type of ['fess', 'cross', 'saltire', 'pall', 'bar'] as const) {
+      expect(bandPlace(plainSpec(type), frameBeside('heater', true, [])), type).toEqual({ centre: { x: 50, y: expect.closeTo(66, 0) }, scale: 0.8 });
+      expect(bandPlace(plainSpec(type), baseFrame).centre.y, type).toBeCloseTo((0 + baseFrame.bottom) / 2);
+      expect(bandPlace(plainSpec(type), defaultOrdinaryFrame('heater')), type).toEqual({ centre: { x: 50, y: 50 }, scale: 1 });
+    }
+    for (const type of ['pale', 'bend', 'bend-sinister', 'pile', 'chevron'] as const) expect(bandPlace(plainSpec(type), frameBeside('heater', true, [])), type).toEqual({ centre: { x: 50, y: 50 }, scale: 1 });
+    // every shape: below its chief, above where it narrows
+    for (const shape of FIELD_SHAPES) {
+      const { centre } = bandPlace(plainSpec('fess'), frameBeside(shape, true, []));
+      expect(centre.y, shape).toBeGreaterThan(shapeFrame(shape).chiefBase + 12);
+    }
   });
 
   it('are the same as with no peripheral when there is none', () => {
@@ -362,13 +384,16 @@ describe('around and on an ordinary with a chief and a bordure beside it', () =>
   });
 
   it('say where charges sit in a capacity message', () => {
-    const d = nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { count: 3 }), group(ordinary('chief'), 'argent')));
-    expect(capacityIssue(d, [1])?.message).toMatch(/around the fess, under the chief/);
+    const d = nd(arms('azure', group(ordinary('saltire'), 'or'), group(charge('rose'), 'argent', { count: 4 }), group(ordinary('chief'), 'argent')));
+    expect(capacityIssue(d, [1])?.message).toMatch(/around the saltire, under the chief/);
+    const fess = nd(arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'argent', { count: 3 }), group(ordinary('chief'), 'argent')));
+    expect(capacityIssue(fess, [1])).toBeNull();
   });
 });
 
 describe('charges on a bordure', () => {
-  const onBordure: LayoutContext = { k: 'on', ordinary: plainSpec('bordure'), peripheral: 'none', keepOut: [] };
+  // Charges on a bordure make it a charged bordure, drawn 15 wide.
+  const onBordure: LayoutContext = { k: 'on', ordinary: { ...plainSpec('bordure'), charged: true }, peripheral: 'none', keepOut: [] };
   const SHAPES = ['heater', 'banner', 'round', 'lozenge'] as const;
 
   it('lie along the middle of the band in every shape: evenly, upright, one size, the first at the top', () => {
@@ -389,10 +414,13 @@ describe('charges on a bordure', () => {
     }
   });
 
-  it('are as small as the band makes them, and still legible on the heater at every count', () => {
+  it('are as large as the wider band lets them be — at least 9 on the heater at every count, where a plain bordure gives 5 to 7 — and still legible', () => {
+    const plain: LayoutContext = { ...onBordure, ordinary: plainSpec('bordure') };
     for (let count = 1; count <= 12; count++) {
       const [slot] = slotsOf(onBordure, count, 'host');
       expect(slot.size, String(count)).toBeLessThan(MIN_SLOT_SIZE);
+      expect(slot.size, String(count)).toBeGreaterThanOrEqual(9);
+      expect(slot.size, String(count)).toBeGreaterThan(slotsOf(plain, count, 'host')[0].size);
       expect(slot.size, String(count)).toBeGreaterThanOrEqual(minSlotSize(onBordure));
     }
     expect(minSlotSize(onBordure)).toBeLessThan(minSlotSize(field));
@@ -403,6 +431,17 @@ describe('charges on a bordure', () => {
     expect(groupSlots(d, [1, 0], 'heater')).toEqual(slotsOf(onBordure, 8, 'host'));
   });
 
+  it('leave the charges on the field within the wider bordure', () => {
+    const d = nd(arms('gules', group(charge('lion'), 'or'), group(ordinary('bordure'), 'or', { charged: [group(charge('roundel'), 'azure', { count: 8 })] })));
+    for (const shape of SHAPES) {
+      const inset = pathPolygon(shapeFrame(shape).chargedInset);
+      const [lion] = groupSlots(d, [0], shape);
+      expect(pointInPolygon(lion.x, lion.y, inset), shape).toBe(true);
+      expect(lion.size, shape).toBeLessThan(slotsOf(fieldContext('bordure'), 1, 'single', shape)[0].size);
+    }
+    expect(canonicalSlots(d, [0])[0].size).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+  });
+
   it('compose a ground that is the ring: inside the outline, clear of the inner edge', () => {
     const ground = groundFor(onBordure, 'heater');
     expect(ground.avoid).toHaveLength(1);
@@ -410,6 +449,41 @@ describe('charges on a bordure', () => {
     const [top] = slotsOf(onBordure, 1, 'host');
     expect(fits([{ x: top.x, y: top.y, rotation: 0 }], top.size, ground, false)).toBe(true);
     expect(fits([{ x: 50, y: 60, rotation: 0 }], top.size, ground, false)).toBe(false);
+  });
+});
+
+describe('a charge in chief or in base beside a bend', () => {
+  const beside = (type: OrdinaryType, position: 'chief' | 'base'): Extract<LayoutContext, { k: 'position' }> => ({ k: 'position', position, ordinary: plainSpec(type), peripheral: 'none', keepOut: [] });
+  /** Points round a slot's glyph disc, just inside its edge, and its centre. */
+  const disc = (s: Slot): Pt[] => [[s.x, s.y], ...Array.from({ length: 24 }, (_, k): Pt => [s.x + 0.49 * s.size * Math.cos((k * Math.PI) / 12), s.y + 0.49 * s.size * Math.sin((k * Math.PI) / 12)])];
+
+  it('sits in the corner the bend leaves free, clear of the bend, in every shape: sinister chief or dexter base (beside a bend sinister, dexter chief or sinister base)', () => {
+    const cases = [['bend', 'chief', 1, -1], ['bend', 'base', -1, 1], ['bend-sinister', 'chief', -1, -1], ['bend-sinister', 'base', 1, 1]] as const;
+    for (const shape of FIELD_SHAPES) {
+      const { x: fx, y: fy } = shapeFrame(shape).fessPoint;
+      for (const [type, position, sx, sy] of cases) {
+        const where = `${type} ${position} ${shape}`;
+        const [s] = slotsOf(beside(type, position), 1, `in-${position}`, shape);
+        expect(s, where).toBeDefined();
+        expect(Math.sign(s.x - fx), where).toBe(sx);
+        expect(Math.sign(s.y - fy), where).toBe(sy);
+        const bend = pathPolygon(ordinaryGeometry(plainSpec(type), defaultOrdinaryFrame(shape)).body), outline = pathPolygon(shapeFrame(shape).outline);
+        for (const [x, y] of disc(s)) {
+          expect(pointInPolygon(x, y, bend), where).toBe(false);
+          expect(pointInPolygon(x, y, outline), where).toBe(true);
+        }
+        if (shape === 'heater') expect(s.size, where).toBeGreaterThanOrEqual(MIN_SLOT_SIZE);
+      }
+    }
+  });
+
+  it('stands in the corner, not in the middle of the top as it does beside charges; two or more are set as they are elsewhere', () => {
+    const [one] = slotsOf(beside('bend', 'chief'), 1, 'in-chief');
+    const [alone] = slotsOf({ ...beside('bend', 'chief'), ordinary: null }, 1, 'in-chief');
+    expect(one.x).toBeGreaterThan(alone.x);
+    expect(cornerBesideBend(beside('bend', 'chief'), layout('in-chief', 1))).toBe('sinister-chief');
+    expect(cornerBesideBend(beside('bend', 'chief'), layout('in-chief', 2))).toBeNull();
+    expect(cornerBesideBend(beside('fess', 'chief'), layout('in-chief', 1))).toBeNull();
   });
 });
 

@@ -30,8 +30,8 @@ export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError
 export { structuralIssues, couldBeOneFess, coreSteps, COTISED_HOSTS, type CoreStep } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, forcedPosition, statesLayout, HALF_POSITIONS, isHalfPosition,
-  hostCounts, ON_CHARGE_COUNTS, onChargeLayouts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, SECONDARY_POSITIONS, AROUND_COUNTS, aroundLayouts, aroundPrimaryLayouts, primaryCharges, coPrimaries, MAX_CO_PRIMARY_TOTAL, shareTotal,
-  type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type KeepOut, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share, type SecondaryPosition,
+  hostCounts, ON_CHARGE_COUNTS, onChargeLayouts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, hasChargedBordure, withoutChief, cornerBesideBend, SECONDARY_POSITIONS, AROUND_COUNTS, aroundLayouts, aroundPrimaryLayouts, primaryCharges, coPrimaries, MAX_CO_PRIMARY_TOTAL, shareTotal,
+  type FieldContext, type GroundContext, type HalfPosition, type QuarterPosition, type HostCharges, type KeepOut, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share, type SecondaryPosition,
 } from './arrangement';
 export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
 export { tinctureSurface, surfaceOf, fieldSurfaces, sharesTincture, sameSurface, type Surface, type ContrastClass, type BaseTincture } from './surface';
@@ -55,7 +55,7 @@ export {
   counterchangedSlotParts, type Slot, type DrawnField, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
-  specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, counterchangedTrimParts, divisionCutsOrdinary,
+  specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, frameBeside, ordinaryFrameOf, bandPlace, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, counterchangedTrimParts, divisionCutsOrdinary,
   type OrdinarySpec, type OrdinaryFrame, type OrdinaryGeometry, type OrdinaryTrim,
 } from './ordinary-geometry';
 export { variationRegions, inFirstRegion, type Box } from './variation-geometry';

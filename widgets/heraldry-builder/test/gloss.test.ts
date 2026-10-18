@@ -61,6 +61,12 @@ describe('new constructs', () => {
       .toBe('A black shield with a white dragon rearing up and a white crescent moon, in the top-left corner, and a white border around the edge.');
   });
 
+  it('words one charge beside a bend in the corner it stands in', () => {
+    expect(say('argent', ord('bend', 'sable'), chg('rose', 'gules', { position: 'chief' })))
+      .toBe('A white shield with a black diagonal band from top-left to bottom-right and a red rose, in the top-right corner.');
+    expect(say('argent', ord('bend-sinister', 'sable'), chg('rose', 'gules', { position: 'base' }))).toMatch(/a red rose, in the bottom-right corner\.$/);
+  });
+
   it('words a chief and a bordure beside a band', () => {
     expect(say('gules', ord('fess', 'argent'), ord('chief', 'azure'))).toBe('A red shield with a white horizontal band across the middle and a blue band across the top.');
   });

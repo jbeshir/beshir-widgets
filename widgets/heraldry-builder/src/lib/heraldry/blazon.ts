@@ -14,7 +14,7 @@ import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cot
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
 import { lineWords } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
-import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
+import { contextOf, cornerBesideBend, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
 
 function paintWord(p: Paint): string {
@@ -133,10 +133,11 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
   // Charges Table 7 forces into one part of the field by tincture are not said to stand there; how they stand there still is.
   const forced = !options.stateDefaults && g.position !== null && g.position === forcedPosition(d, path);
   if (forced && g.arrangement.k === 'single') return words.join(' ');
-  const position = forced ? null : g.position;
+  const ctx = layoutContext(d, path);
+  // One charge in chief or in base beside a bend is said to stand in the corner it is drawn in (RULES-C §F.3: "and in sinister chief a rose").
+  const position = forced ? null : cornerBesideBend(ctx, { arrangement: g.arrangement, position: g.position }) ?? g.position;
   const layout = layoutWords({ arrangement: g.arrangement, position });
   // Two co-primary groups share one arrangement, said once: a line leads the first ("in pale a crescent and a mullet"), a pattern follows the second.
-  const ctx = layoutContext(d, path);
   if (ctx.k === 'field' && ctx.share) {
     const leads = position !== null || g.arrangement.k === 'line';
     return ctx.share.index === 0 ? (leads ? `${layout} ${words.join(' ')}` : words.join(' ')) : (leads ? words.join(' ') : `${words.join(' ')} ${layout}`);

@@ -41,6 +41,15 @@ describe('house style', () => {
 });
 
 describe('charges in chief, in base or in canton beside the primary', () => {
+  it('say one charge beside a bend stands in the corner the bend leaves (RULES-C §F.3): sinister chief and dexter base, beside a bend sinister dexter chief and sinister base; two or more are in chief', () => {
+    expect(say('argent', ord('bend', 'sable'), chg('rose', 'gules', { position: 'chief' }))).toBe('Argent, a bend sable and in sinister chief a rose gules.');
+    expect(say('argent', ord('bend', 'sable'), chg('rose', 'gules', { position: 'base' }))).toBe('Argent, a bend sable and in dexter base a rose gules.');
+    expect(say('argent', ord('bend-sinister', 'sable'), chg('rose', 'gules', { position: 'chief' }))).toBe('Argent, a bend sinister sable and in dexter chief a rose gules.');
+    expect(say('argent', ord('bend-sinister', 'sable'), chg('rose', 'gules', { position: 'base' }))).toBe('Argent, a bend sinister sable and in sinister base a rose gules.');
+    expect(say('argent', ord('bend', 'sable'), chg('rose', 'gules', { count: 2, position: 'chief' }))).toBe('Argent, a bend sable and in chief two roses gules.');
+    expect(say('argent', ord('pale', 'sable'), chg('rose', 'gules', { position: 'base' }))).toBe('Argent, a pale sable and in base a rose gules.');
+  });
+
   it('follow the primary with "and in …", the position always stated', () => {
     expect(say('purpure', chg('bee', 'or'), chg('mullet', 'argent', { count: 3, position: 'chief' }))).toBe('Purpure, a bee Or and in chief three mullets argent.');
     expect(say('argent', ord('chevron', 'sable'), chg('mullet', 'sable', { count: 3, position: 'chief' }))).toBe('Argent, a chevron and in chief three mullets sable.');

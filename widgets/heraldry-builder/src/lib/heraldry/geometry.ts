@@ -25,6 +25,8 @@ export interface Point { x: number; y: number }
 export const SHIELD_PATH = 'M0 0H100V60C100 92 76 110 50 120C24 110 0 92 0 60Z';
 /** The heater inset by 10 units — the inner edge of its bordure. */
 export const SHIELD_INSET_PATH = 'M10 10H90V60C90 86 70 102 50 110C30 102 10 86 10 60Z';
+/** The heater inset by 15 units — the inner edge of a bordure that carries charges. */
+const SHIELD_CHARGED_INSET_PATH = 'M15 15H85V60C85 83 67 98 50 105C33 98 15 83 15 60Z';
 
 /** The layout every verdict is computed on. */
 export const CANONICAL_SHAPE: FieldShape = 'heater';
@@ -117,6 +119,8 @@ export interface ShapeFrame {
   box: Box;
   /** Inner edge of the bordure: the outline moved inwards (the lozenge's bordure is a little narrower). */
   inset: string;
+  /** Inner edge of a bordure that carries charges: half as far in again, so that they read (RULES-C §F.2: about a sixth of the shield). */
+  chargedInset: string;
   /** Where the partition lines and the arms of a cross or saltire meet. */
   fessPoint: Point;
   /** Lower edge of the chief. */
@@ -129,19 +133,19 @@ export interface ShapeFrame {
 
 const SHAPE_FRAME: Record<FieldShape, ShapeFrame> = {
   heater: {
-    outline: SHIELD_PATH, box: { x0: 0, y0: 0, x1: 100, y1: 120 }, inset: SHIELD_INSET_PATH, fessPoint: { x: 50, y: 50 }, chiefBase: 30,
+    outline: SHIELD_PATH, box: { x0: 0, y0: 0, x1: 100, y1: 120 }, inset: SHIELD_INSET_PATH, chargedInset: SHIELD_CHARGED_INSET_PATH, fessPoint: { x: 50, y: 50 }, chiefBase: 30,
     pile: [[20, 0], [80, 0], [50, 95]], throughoutSlope: 1,
   },
   banner: {
-    outline: 'M0 10H100V110H0Z', box: { x0: 0, y0: 10, x1: 100, y1: 110 }, inset: 'M10 20H90V100H10Z', fessPoint: { x: 50, y: 60 }, chiefBase: 40,
+    outline: 'M0 10H100V110H0Z', box: { x0: 0, y0: 10, x1: 100, y1: 110 }, inset: 'M10 20H90V100H10Z', chargedInset: 'M15 25H85V95H15Z', fessPoint: { x: 50, y: 60 }, chiefBase: 40,
     pile: [[20, 10], [80, 10], [50, 105]], throughoutSlope: 1,
   },
   round: {
-    outline: circlePath(50, 60, 50), box: { x0: 0, y0: 10, x1: 100, y1: 110 }, inset: circlePath(50, 60, 40), fessPoint: { x: 50, y: 60 }, chiefBase: 40,
+    outline: circlePath(50, 60, 50), box: { x0: 0, y0: 10, x1: 100, y1: 110 }, inset: circlePath(50, 60, 40), chargedInset: circlePath(50, 60, 35), fessPoint: { x: 50, y: 60 }, chiefBase: 40,
     pile: [[20, 10], [80, 10], [50, 105]], throughoutSlope: 1,
   },
   lozenge: {
-    outline: lozengePath(50, 60, 50, 60, 0), box: { x0: 0, y0: 0, x1: 100, y1: 120 }, inset: lozengePath(50, 60, 50, 60, 8), fessPoint: { x: 50, y: 60 }, chiefBase: 46,
+    outline: lozengePath(50, 60, 50, 60, 0), box: { x0: 0, y0: 0, x1: 100, y1: 120 }, inset: lozengePath(50, 60, 50, 60, 8), chargedInset: lozengePath(50, 60, 50, 60, 12), fessPoint: { x: 50, y: 60 }, chiefBase: 46,
     pile: [[16, 0], [84, 0], [50, 110]], throughoutSlope: 1.72,
   },
 };

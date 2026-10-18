@@ -58,6 +58,14 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
     'Sable, a dragon and in canton a crescent and a bordure argent.'],
   ['charges on a band and charges in base', arms('azure', group(ordinary('fess'), 'or', { charged: [rose(3)] }), group(charge('crescent'), 'argent', { count: 2, position: 'base' })),
     'Azure, on a fess Or three roses gules and in base two crescents argent.'],
+  ['a bend and a charge in the corner it leaves (O&A 94971, 41640)', arms('argent', group(ordinary('bend'), 'sable'), group(charge('rose'), 'gules', { position: 'chief' })),
+    'Argent, a bend sable and in sinister chief a rose gules.'],
+  ['a bend sinister and a charge in the corner it leaves', arms('vert', group(ordinary('bend-sinister'), 'or'), group(charge('mullet'), 'argent', { position: 'chief' })),
+    'Vert, a bend sinister Or and in dexter chief a mullet argent.'],
+  ['a fess between charges under a chief', arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'or', { count: 3 }), group(ordinary('chief'), 'or')),
+    'Azure, a fess between three roses and a chief Or.'],
+  ['a charge within a bordure with charges', arms('gules', group(charge('lion'), 'or'), group(ordinary('bordure'), 'or', { charged: [group(charge('roundel'), 'azure', { count: 8 })] })),
+    'Gules, a lion and on a bordure Or eight roundels azure.'],
   ['a charge between charges (O&A 1347, the fish naiant)', arms('purpure', group(charge('fish'), 'or'), group(charge('crescent'), 'or', { count: 3, relation: 'between' })),
     'Purpure, a fish between three crescents Or.'],
   ['two charges between charges (O&A 2290)', arms('purpure', group(charge('sword'), 'argent', { count: 2, arrangement: 'in-fess' }), group(charge('anchor'), 'or', { count: 3, relation: 'between' })),
@@ -412,9 +420,9 @@ describe('layers kept through the edits of the layers beneath them', () => {
   });
 
   it('refuses a layer it cannot draw, with the reason, and never drops one silently', () => {
-    const choices = layerChoices(built(arms('azure', group(ordinary('fess'), 'or'), group(charge('mullet'), 'argent', { count: 2 }))));
+    const choices = layerChoices(built(arms('azure', group(ordinary('pall'), 'or'), group(charge('mullet'), 'argent', { count: 3 }))));
     const chief = choices.find((c) => c.value === 'chief')!;
     expect(chief.allowed).toBe(false);
-    expect(!chief.allowed && chief.reason).toMatch(/can't be set around the fess/);
+    expect(!chief.allowed && chief.reason).toMatch(/can't be set around the pall/);
   });
 });

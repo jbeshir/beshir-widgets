@@ -113,8 +113,8 @@ export function layoutWords(l: Layout): string {
 
 // ── Where a group sits ──────────────────────────────────────────────────────
 
-/** Which peripheral ordinaries a design has, as far as the charges set on its field are concerned. */
-export type Peripheral = 'none' | 'chief' | 'bordure' | 'chief-bordure';
+/** Which peripheral ordinaries a design has, as far as the charges set on its field are concerned: a bordure that carries charges is drawn wider. */
+export type Peripheral = 'none' | 'chief' | 'bordure' | 'chief-bordure' | 'charged-bordure' | 'chief-charged-bordure';
 /** The room a primary leaves for a secondary: the top, the bottom, a corner, or all around. */
 export type Yield = 'none' | 'chief' | 'base' | 'canton' | 'around';
 /** A co-primary group's slice of the slots the total count of primary charges is laid out in. */
@@ -129,6 +129,8 @@ export const isSecondaryPosition = (p: Position | null): p is SecondaryPosition 
 export const HALF_POSITIONS = ['dexter', 'sinister', 'dexter-chief', 'sinister-chief', 'dexter-base', 'sinister-base'] as const;
 export type HalfPosition = (typeof HALF_POSITIONS)[number];
 export const isHalfPosition = (p: Position | null): p is HalfPosition => (HALF_POSITIONS as readonly (Position | null)[]).includes(p);
+/** A quarter of the field, as a half position names it. */
+export type QuarterPosition = Exclude<HalfPosition, 'dexter' | 'sinister'>;
 
 /** The layouts of a primary charge group of `count` in a half or quarter: one charge alone, two in pale or in fess, three or four in rows; more don't fit. */
 const MAX_IN_HALF = 4;
@@ -185,14 +187,19 @@ export type LayoutContext =
 /** The context of a lone primary charge group: nothing yielded, no co-primary, no peripherals but a chief or bordure. */
 export const fieldContext = (peripheral: Peripheral): FieldContext => ({ k: 'field', peripheral, keepOut: [], yields: 'none', share: null });
 
-export const hasChief = (p: Peripheral): boolean => p === 'chief' || p === 'chief-bordure';
-export const hasBordure = (p: Peripheral): boolean => p === 'bordure' || p === 'chief-bordure';
+export const hasChief = (p: Peripheral): boolean => p === 'chief' || p === 'chief-bordure' || p === 'chief-charged-bordure';
+export const hasBordure = (p: Peripheral): boolean => p !== 'none' && p !== 'chief';
+export const hasChargedBordure = (p: Peripheral): boolean => p === 'charged-bordure' || p === 'chief-charged-bordure';
+/** The same peripherals without the chief. */
+export const withoutChief = (p: Peripheral): Peripheral => (p === 'chief' ? 'none' : p === 'chief-bordure' ? 'bordure' : p === 'chief-charged-bordure' ? 'charged-bordure' : p);
 
-/** The chief and bordure a design has beside `except` (the host a charge group sits on is not its own peripheral). */
+/** The chief and bordure a design has beside `except` (the host a charge group sits on is not its own peripheral), the bordure charged when it carries charges. */
 function peripheralOf(d: Design, except: Group | null = null): Peripheral {
-  const has = (type: OrdinaryType) => d.groups.some((g) => g !== except && g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === type);
-  const chief = has('chief'), bordure = has('bordure');
-  return chief && bordure ? 'chief-bordure' : chief ? 'chief' : bordure ? 'bordure' : 'none';
+  const find = (type: OrdinaryType) => d.groups.find((g) => g !== except && g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === type);
+  const chief = find('chief') !== undefined, bordure = find('bordure');
+  if (!bordure) return chief ? 'chief' : 'none';
+  const charged = bordure.charged.length > 0;
+  return chief ? (charged ? 'chief-charged-bordure' : 'chief-bordure') : charged ? 'charged-bordure' : 'bordure';
 }
 
 /** The design's peripherals other than a chief or bordure, but `except` (the host a charge group sits on is not in its way): what its charges keep clear of. */
@@ -277,6 +284,20 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
     return primary && { k: 'around', peripheral: peripheralOf(d), keepOut: keepOutOf(d), primary: { count: primary.count, layout: { arrangement: primary.arrangement, position: primary.position } } };
   }
   return null;
+}
+
+/**
+ * The corner a lone charge set in chief or in base beside a bend stands in: the one the bend leaves free (RULES-C §F.3) — sinister chief and
+ * dexter base beside a bend, dexter chief and sinister base beside a bend sinister — and is blazoned in ("and in sinister chief a rose"); null
+ * elsewhere. The design keeps its position in chief or in base. Two or more beside a bend stand along the top or the bottom as elsewhere.
+ */
+export function cornerBesideBend(ctx: LayoutContext, layout: Layout): QuarterPosition | null {
+  if (ctx.k !== 'position' || ctx.ordinary === null || layout.arrangement.k !== 'single' || ctx.position === 'canton') return null;
+  switch (familyOf(ctx.ordinary.type)) {
+    case 'bend': return ctx.position === 'chief' ? 'sinister-chief' : 'dexter-base';
+    case 'bend-sinister': return ctx.position === 'chief' ? 'dexter-chief' : 'sinister-base';
+    default: return null;
+  }
 }
 
 export function layoutContext(d: Design, path: GroupPath): LayoutContext {

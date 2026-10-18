@@ -331,6 +331,20 @@ division, counted variation, ordinary, and a chief or bordure beside a fess: off
 `unsupportedIssues`, `structuralIssues` and `tinctureIssues`, and choosing it gives that design; edges survive a change of division or band; toggles,
 outlines and counts held to the same oracle). The journey has the state `ordinary-embattled-cotised`.
 
+**Bands under a chief, a wider charged bordure, a charge in the corner beside a bend** (C16; RULES-C §F.1–F.3): a fess (and bars), cross,
+saltire or pall beside a chief or a base (or point pointed) is centred in the field they leave and drawn 0.8 as wide (`bandPlace` in
+`ordinary-geometry.ts`: from the chief, or where the shape is first 60 wide, to the base, or where it narrows to less than 60 — on the heater a fess
+under a chief lies at y 66 and is 24 wide), so three charges fit between a fess under a chief; pales, bends, piles and chevrons keep the fess point
+(a chevron's apex already clears a chief). The frame is the same for drawing, the rule of tincture and layout (`frameBeside`); charges between or on
+such a band are moved with it (`freeFieldOf`, `moveIn` in `layout.ts`), and a band so moved no longer lies on its division's line (a fess on per
+fess under a chief is judged where it lies). A chief or base the builder adds is offered only when the band it moves still passes the rule of
+tincture. A bordure that carries charges is drawn 15 wide (`OrdinarySpec.charged`, each shape's `chargedInset`; the peripherals
+`charged-bordure` and `chief-charged-bordure` keep field charges inside it), so eight charges on it are about 10 on the heater (5 to 7 on a plain
+one); charges on a chief within one are read against the chief and may be as small as 9. One charge set in chief or in base beside a bend (bendlets,
+bend sinister, baton) stands in the corner the bend leaves free (`cornerBesideBend`): blazoned "and in sinister chief a rose" ("in dexter chief"
+beside a bend sinister, "in dexter base" or "in sinister base" for one in base), glossed "in the top-right corner"; the design keeps `position:
+'chief'`, and two or more stand along the top as before.
+
 ## Tinctures and hatching
 
 Eight tinctures: three metals and five colours. The rule of tincture follows the SCA's (SENA A3B,

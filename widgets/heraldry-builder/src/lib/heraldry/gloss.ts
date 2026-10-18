@@ -9,7 +9,7 @@ import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, no
 import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
-import { aroundWords, betweenHost, betweenWords, coPrimaries, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout } from './arrangement';
+import { aroundWords, betweenHost, betweenWords, contextOf, coPrimaries, cornerBesideBend, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout, type QuarterPosition } from './arrangement';
 import { specOf } from './ordinary-geometry';
 
 const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
@@ -233,6 +233,11 @@ const HALF_PLACE: Record<HalfPosition, string> = {
   'dexter-chief': 'in the top-left quarter', 'sinister-chief': 'in the top-right quarter', 'dexter-base': 'in the bottom-left quarter', 'sinister-base': 'in the bottom-right quarter',
 };
 
+/** Where one charge set in chief or in base beside a bend stands, as you look at it: in the corner the bend leaves free. */
+const CORNER_PLACE: Record<QuarterPosition, string> = {
+  'dexter-chief': 'in the top-left corner', 'sinister-chief': 'in the top-right corner', 'dexter-base': 'in the bottom-left corner', 'sinister-base': 'in the bottom-right corner',
+};
+
 /** The words for a layout, or null when it needs none (a lone charge, or charges placed by their host). */
 function layoutGloss(l: Layout, count: number): string | null {
   const a: Arrangement = l.arrangement;
@@ -289,7 +294,9 @@ function chargesGloss(d: Design, g: Group): { text: string; clause: boolean } {
   let text = chargesSubject(g, g.count);
   const clause = paintClause(d, g.paint);
   if (clause) text += ` ${clause}`;
-  const where = layoutGloss({ arrangement: g.arrangement, position: g.position }, g.count);
+  const layout: Layout = { arrangement: g.arrangement, position: g.position };
+  const ctx = contextOf(d, g, null), corner = ctx && cornerBesideBend(ctx, layout);
+  const where = corner ? CORNER_PLACE[corner] : layoutGloss(layout, g.count);
   return where ? { text: `${text}, ${where}`, clause: true } : { text, clause: false };
 }
 

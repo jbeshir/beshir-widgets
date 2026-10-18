@@ -10,13 +10,13 @@ import { PLAIN_LINES, groupAt, hostOf, type Design, type GroupPath } from './des
 import { BUILDER_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, familyOf, type OrdinaryType } from './ordinaries';
 import {
-  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, betweenHost, type BetweenHost, contextOf, defaultLayoutOf, fieldContext, hasBordure, hasChief, hostCounts, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
-  type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type KeepOut, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
+  AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, betweenHost, type BetweenHost, contextOf, cornerBesideBend, defaultLayoutOf, fieldContext, hasBordure, hasChargedBordure, hasChief, hostCounts, withoutChief, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
+  type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type QuarterPosition, type KeepOut, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
   CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
 } from './geometry';
-import { bandShift, defaultOrdinaryFrame, isPlainSpec, ordinaryGeometry, trimGrowth, turnAxis, underChiefFrame, upsideDown, type OrdinarySpec } from './ordinary-geometry';
+import { bandPlace, bandShift, defaultOrdinaryFrame, frameBeside, isPlainSpec, ordinaryGeometry, trimGrowth, turnAxis, upsideDown, type OrdinarySpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';
 import type { FieldShape } from './shape';
 import { MAX_DRAWN_COUNT } from './support';
@@ -27,6 +27,11 @@ export const MIN_SLOT_SIZE = 14;
 const MIN_ON_CHARGE_SIZE = 9;
 /** The smallest slot of a charge on a bordure: the band is ten units wide on the heater, so charges on it are small. */
 const MIN_BORDURE_SLOT_SIZE = 6;
+/**
+ * The smallest slot of a charge on a chief within a bordure that carries charges: the wider bordure leaves the chief 15 units of its 30, so its
+ * charges, read against the chief as charges on a charge are, may be as small.
+ */
+const MIN_ON_NARROWED_CHIEF_SIZE = MIN_ON_CHARGE_SIZE;
 
 /** Clear space kept between a charge and the shield's edge, and between charges and the band they sit around. */
 const MARGIN = 2;
@@ -80,7 +85,7 @@ function handSlots(ctx: LayoutContext, count: number, layout: Layout, shape: Fie
     case 'overall': return handSlots(fieldContext(ctx.peripheral), count, layout, shape);
     case 'field': {
       if (layout.position !== null || ctx.yields !== 'none' || ctx.share !== null || ctx.keepOut.length > 0) return null;
-      const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null }[ctx.peripheral];
+      const table = { none: rows.field, bordure: rows.bordure, chief: rows.underChief, 'chief-bordure': null, 'charged-bordure': null, 'chief-charged-bordure': null }[ctx.peripheral];
       const row = table?.[`${count}:${layoutKey(layout)}`];
       return row ? slotsOf(row, () => 0) : null;
     }
@@ -108,6 +113,9 @@ const FIELD_AREA = area(4, 4, 96, 112);
 const BORDURE_AREA = area(12, 12, 88, 104);
 const UNDER_CHIEF_AREA = area(4, 33, 96, 112);
 const BORDURE_UNDER_CHIEF_AREA = area(12, 33, 88, 104);
+/** Within a bordure that carries charges, five units further in all round (it is drawn 15 wide, not 10). */
+const CHARGED_BORDURE_AREA = area(17, 17, 83, 99);
+const CHARGED_BORDURE_UNDER_CHIEF_AREA = area(17, 33, 83, 99);
 const CHIEF_POSITION_AREA = area(4, 4, 96, 36);
 const BASE_POSITION_AREA = area(10, 74, 90, 114);
 const CANTON_POSITION_AREA = area(4, 4, 36, 36);
@@ -142,6 +150,8 @@ const BEND_AREA = area(10, 10, 90, 90);
 const BORDURE_BEND_AREA = area(18, 18, 82, 82);
 const UNDER_CHIEF_BEND_AREA = area(14, 40, 86, 112);
 const BORDURE_UNDER_CHIEF_BEND_AREA = area(18, 40, 82, 82);
+const CHARGED_BORDURE_BEND_AREA = area(23, 23, 77, 77);
+const CHARGED_BORDURE_UNDER_CHIEF_BEND_AREA = area(23, 40, 77, 77);
 
 /** The areas charges set on the field are laid out in, by the peripherals the design has: straight, and for lines in bend. */
 const FIELD_AREAS: Record<Peripheral, { straight: Area; bend: Area }> = {
@@ -149,6 +159,8 @@ const FIELD_AREAS: Record<Peripheral, { straight: Area; bend: Area }> = {
   chief: { straight: UNDER_CHIEF_AREA, bend: UNDER_CHIEF_BEND_AREA },
   bordure: { straight: BORDURE_AREA, bend: BORDURE_BEND_AREA },
   'chief-bordure': { straight: BORDURE_UNDER_CHIEF_AREA, bend: BORDURE_UNDER_CHIEF_BEND_AREA },
+  'charged-bordure': { straight: CHARGED_BORDURE_AREA, bend: CHARGED_BORDURE_BEND_AREA },
+  'chief-charged-bordure': { straight: CHARGED_BORDURE_UNDER_CHIEF_AREA, bend: CHARGED_BORDURE_UNDER_CHIEF_BEND_AREA },
 };
 
 const width = (a: Area) => a.x1 - a.x0;
@@ -352,6 +364,8 @@ function betweenCentres(ordinary: BetweenHost, count: number, peripheral: Periph
 /** A secondary group set by position: one charge in the middle of its place, a row across it, rows, or two crossed, kept within the bordure. */
 function positionCentres(ctx: Extract<LayoutContext, { k: 'position' }>, count: number, layout: Layout): Centre[] | null {
   if (layout.position !== ctx.position) return null;
+  // One beside a bend: where its corner has most room.
+  if (cornerBesideBend(ctx, layout)) return [roomiest(groundIn(ctx, layout, CANONICAL_SHAPE))];
   const a = within(POSITION_AREAS[ctx.position], freeArea(ctx.peripheral));
   const [cx, cy] = centreOf(a);
   const arr = layout.arrangement;
@@ -410,7 +424,7 @@ function settle(spot: Centre, ground: Ground, towards: Pt): Centre {
  */
 function shapeFreeArea(peripheral: Peripheral, shape: FieldShape): Area {
   const frame = shapeFrame(shape);
-  const ring = pathPolygon(hasBordure(peripheral) ? frame.inset : frame.outline);
+  const ring = pathPolygon(fieldEdge(peripheral, shape));
   const xs = ring.map((p) => p[0]), ys = ring.map((p) => p[1]);
   const [side, foot] = hasBordure(peripheral) ? [2, 6] : [4, 8];
   return area(Math.min(...xs) + side, hasChief(peripheral) ? frame.chiefBase + 3 : Math.min(...ys) + side, Math.max(...xs) - side, Math.max(...ys) - foot);
@@ -477,10 +491,12 @@ const CHEVRON_APEX: Pt = [50, 55.56];
 const LIMB_REACH = 46;
 const LIMB_PITCH = 36.8;
 
-/** The chief's axis moves down to the middle of what a bordure leaves of it. */
+/** The chief's axis moves down to the middle of what a bordure leaves of it (a bordure that carries charges, wider, leaves less). */
 const BORDURED_CHIEF_AXIS: { from: Pt; to: Pt } = { from: [6, 20], to: [94, 20] };
+const CHARGED_BORDURED_CHIEF_AXIS: { from: Pt; to: Pt } = { from: [6, 22.5], to: [94, 22.5] };
 
-const axisOf = (ordinary: OrdinaryType, peripheral: Peripheral) => (ordinary === 'chief' && hasBordure(peripheral) ? BORDURED_CHIEF_AXIS : ON_AXIS[ordinary]);
+const axisOf = (ordinary: OrdinaryType, peripheral: Peripheral) =>
+  (ordinary !== 'chief' || !hasBordure(peripheral) ? ON_AXIS[ordinary] : hasChargedBordure(peripheral) ? CHARGED_BORDURED_CHIEF_AXIS : BORDURED_CHIEF_AXIS);
 
 const alongAxis = (axis: { from: Pt; to: Pt }, count: number, peripheral: Peripheral): Centre[] =>
   peripheral === 'none' ? along(axis.from, axis.to, count) : alongWithin(axis.from, axis.to, count, freeArea(peripheral));
@@ -564,12 +580,43 @@ function nominalCentres(ctx: Exclude<GroundContext, { k: 'around' }>, count: num
   }
   if (layout.arrangement.k !== 'host' || layout.position !== null || !hostCounts(ctx.k, ctx.ordinary).includes(count)) return null;
   const { type } = ctx.ordinary;
-  const ruled = ctx.k === 'between' ? betweenCentres(betweenHost(ctx.ordinary), count, ctx.peripheral) : onCentres(type, count, ctx.peripheral);
+  const free = freeFieldOf(ctx, CANONICAL_SHAPE);
+  const peripheral = free?.peripheral ?? ctx.peripheral;
+  const ruled = ctx.k === 'between' ? betweenCentres(betweenHost(ctx.ordinary), count, peripheral) : onCentres(type, count, peripheral);
   // A plain ordinary with no peripherals has its hand rows instead.
   const centres = ruled ?? (ctx.peripheral === 'none' && ctx.keepOut.length === 0 && isPlainSpec(ctx.ordinary) ? null : handCentres(ctx, count));
   // Table 7's chevron inverted row is already the other way up
-  return centres && treatedCentres(ctx.ordinary, ctx.k, centres, ruled !== null && ctx.k === 'between' && betweenHost(ctx.ordinary) !== familyOf(type));
+  const treated = centres && treatedCentres(ctx.ordinary, ctx.k, centres, ruled !== null && ctx.k === 'between' && betweenHost(ctx.ordinary) !== familyOf(type));
+  return treated && free ? treated.map(moveIn(ctx.k, HEATER_SPAN, free)) : treated;
 }
+
+/** A field's span down the shape about a band across its middle: where it starts, the band's middle, where it ends. */
+interface Span { readonly top: number; readonly centre: number; readonly bottom: number }
+
+/** The heater's span with nothing above or below: the band in its usual place. */
+const HEATER_SPAN: Span = { top: shapeFrame(CANONICAL_SHAPE).box.y0, centre: shapeFrame(CANONICAL_SHAPE).fessPoint.y, bottom: shapeFrame(CANONICAL_SHAPE).box.y1 };
+
+/**
+ * Where a chief or base moves a band across the middle of the field in a shape (`bandPlace`): the span of the field they leave about it, and the
+ * peripherals the charges between it or on it are first laid out beside (all but the chief, which the move makes room for); null where the
+ * band keeps its place.
+ */
+function freeFieldOf(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, shape: FieldShape): Span & { peripheral: Peripheral } | null {
+  const frame = frameBeside(shape, hasChief(ctx.peripheral), ctx.keepOut);
+  const place = bandPlace(ctx.ordinary, frame);
+  return place.scale === 1 ? null : { top: frame.top, centre: place.centre.y, bottom: frame.bottom, peripheral: withoutChief(ctx.peripheral) };
+}
+
+/**
+ * How the centres of charges on or between a band move from one span to another, as the band does: on it, as far as its middle; beside it,
+ * keeping their shares of the room above its middle and below it.
+ */
+const moveIn = (k: 'between' | 'on', from: Span, to: Span) => (c: Centre): Centre => at(
+  c.x,
+  k === 'on' ? c.y + to.centre - from.centre
+    : c.y < from.centre ? to.top + ((c.y - from.top) * (to.centre - to.top)) / (from.centre - from.top) : to.centre + ((c.y - from.centre) * (to.bottom - to.centre)) / (from.bottom - from.centre),
+  c.rotation,
+);
 
 /** The share of their distance from the fess point (on a chevron, from its apex) the charges on a couped ordinary keep: its arms are shorter. */
 const COUPED_DRAW_IN = 0.8;
@@ -725,7 +772,7 @@ function evenlyFromTop(ring: readonly Pt[], m: number): Pt[] {
 
 /** Upright charges evenly along the middle of the bordure of a shape (of what its line always leaves of it): the arrangement follows the bordure. */
 function bordureCentres(bordure: OrdinarySpec, count: number, shape: FieldShape): Centre[] {
-  const [outline, inset] = envelopeIn(bordure, shape, 'none').inner;
+  const [outline, inset] = envelopeIn(bordure, shape, 'none', []).inner;
   const centre = midline(inset, outline);
   return evenlyFromTop(centre, count).map(([x, y]) => at(x, y));
 }
@@ -752,11 +799,17 @@ export interface Ground {
   within: readonly Pt[] | null;
 }
 
+/** The edge of what a bordure leaves of a shape to the field (the inner edge of a wider one when it carries charges), or its outline with none. */
+function fieldEdge(peripheral: Peripheral, shape: FieldShape): string {
+  const frame = shapeFrame(shape);
+  return !hasBordure(peripheral) ? frame.outline : hasChargedBordure(peripheral) ? frame.chargedInset : frame.inset;
+}
+
 /** The part of a shape the peripherals leave to the field: inside the bordure, below the chief. */
 function frameGround(peripheral: Peripheral, shape: FieldShape): Pick<Ground, 'contain' | 'margin' | 'minTop'> {
   const frame = shapeFrame(shape);
   return {
-    contain: pathPolygon(hasBordure(peripheral) ? frame.inset : frame.outline),
+    contain: pathPolygon(fieldEdge(peripheral, shape)),
     margin: MARGIN,
     minTop: hasChief(peripheral) ? frame.chiefBase : -Infinity,
   };
@@ -811,18 +864,59 @@ function aroundRoom(peripheral: Peripheral, shape: FieldShape): Pt[] {
   return rect(cx - (k * width(box)) / 2, cy - (k * height(box)) / 2, cx + (k * width(box)) / 2, cy + (k * height(box)) / 2);
 }
 
-/** The ground of a layout: its context's, and for charges set in a half or quarter, that part of the shape. */
-function groundIn(ctx: GroundContext, layout: Layout, shape: FieldShape): Ground {
-  const ground = groundFor(ctx, shape);
-  return isHalfPosition(layout.position) ? { ...ground, within: halfRoom(layout.position, shape) } : ground;
+/**
+ * The side of a bend's middle line (through the shape's fess point) a lone charge beside it stands on, in the corner `cornerBesideBend` names:
+ * a triangle reaching past the shape, its long side on the line.
+ */
+function cornerRoom(corner: QuarterPosition, shape: FieldShape): Pt[] {
+  const { x, y } = shapeFrame(shape).fessPoint, r = 200;
+  switch (corner) {
+    case 'sinister-chief': return [[x - r, y - r], [x + r, y - r], [x + r, y + r]];
+    case 'dexter-base': return [[x - r, y - r], [x + r, y + r], [x - r, y + r]];
+    case 'dexter-chief': return [[x - r, y + r], [x - r, y - r], [x + r, y - r]];
+    case 'sinister-base': return [[x + r, y - r], [x + r, y + r], [x - r, y + r]];
+    default: return corner satisfies never;
+  }
 }
 
-/** The straight polygons about an ordinary in a shape that charges keep clear of (`outer`) or inside (`inner`). */
-const envelopeIn = (spec: OrdinarySpec, shape: FieldShape, peripheral: Peripheral) =>
-  ordinaryGeometry(spec, hasChief(peripheral) ? underChiefFrame(shape) : defaultOrdinaryFrame(shape)).envelope;
+/** The ground of a layout: its context's, and for charges set in a half or quarter, or in the corner beside a bend, that part of the shape. */
+function groundIn(ctx: GroundContext, layout: Layout, shape: FieldShape): Ground {
+  const ground = groundFor(ctx, shape);
+  if (isHalfPosition(layout.position)) return { ...ground, within: halfRoom(layout.position, shape) };
+  const corner = cornerBesideBend(ctx, layout);
+  return corner ? { ...ground, within: cornerRoom(corner, shape) } : ground;
+}
+
+/** The point of a ground with the most room round it — on a grid of every second unit, then every half unit round the best — where one charge is drawn largest. */
+function roomiest(ground: Ground): Centre {
+  const room = (x: number, y: number): number => {
+    if (!pointInPolygon(x, y, ground.contain) || (ground.within && !pointInPolygon(x, y, ground.within)) || ground.avoid.some((poly) => pointInPolygon(x, y, poly))) return -Infinity;
+    return Math.min(
+      edgeDistance(ground.contain, x, y) - ground.margin, y - ground.minTop - ground.margin,
+      ground.within ? edgeDistance(ground.within, x, y) : Infinity, ...ground.avoid.map((poly) => edgeDistance(poly, x, y) - ground.margin),
+    );
+  };
+  let best = { x: 50, y: 50, room: -Infinity };
+  const search = (x0: number, y0: number, x1: number, y1: number, step: number) => {
+    for (let x = x0; x <= x1; x += step) {
+      for (let y = y0; y <= y1; y += step) {
+        const r = room(x, y);
+        if (r > best.room) best = { x, y, room: r };
+      }
+    }
+  };
+  search(0, 0, 100, 120, 2);
+  const { x, y } = best;
+  search(x - 2, y - 2, x + 2, y + 2, 0.5);
+  return at(best.x, best.y);
+}
+
+/** The straight polygons about an ordinary in a shape that charges keep clear of (`outer`) or inside (`inner`), in the frame its chief and the peripherals beside it leave it. */
+const envelopeIn = (spec: OrdinarySpec, shape: FieldShape, peripheral: Peripheral, keepOut: KeepOut) =>
+  ordinaryGeometry(spec, frameBeside(shape, hasChief(peripheral), keepOut)).envelope;
 
 /** The straight polygons about the peripherals charges keep clear of, in a shape (each as `envelope.outer`: lines and all). */
-const keptOut = (keepOut: KeepOut, shape: FieldShape): Pt[][] => keepOut.flatMap((spec) => envelopeIn(spec, shape, 'none').outer);
+const keptOut = (keepOut: KeepOut, shape: FieldShape): Pt[][] => keepOut.flatMap((spec) => envelopeIn(spec, shape, 'none', []).outer);
 
 export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
   const clear = keptOut(ctx.keepOut, shape);
@@ -832,7 +926,7 @@ export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
     return { ...frameGround(ctx.peripheral, shape), avoid: yielded ? [positionRoom(yielded, shape), ...clear] : clear, within: null };
   }
   if (ctx.k === 'position') {
-    const avoid = ctx.ordinary ? envelopeIn(ctx.ordinary, shape, ctx.peripheral).outer : [];
+    const avoid = ctx.ordinary ? envelopeIn(ctx.ordinary, shape, ctx.peripheral, ctx.keepOut).outer : [];
     return { ...frameGround(ctx.peripheral, shape), avoid: [...avoid, ...clear], within: positionRoom(ctx.position, shape) };
   }
   if (ctx.k === 'around') {
@@ -840,7 +934,7 @@ export function groundFor(ctx: GroundContext, shape: FieldShape): Ground {
     const primary = contextSlots({ ...fieldContext(ctx.peripheral), keepOut: ctx.keepOut, yields: 'around' }, ctx.primary.count, ctx.primary.layout, shape);
     return { ...frameGround(ctx.peripheral, shape), avoid: [...primary.map(discPolygon), ...clear], within: null };
   }
-  const envelope = envelopeIn(ctx.ordinary, shape, ctx.peripheral);
+  const envelope = envelopeIn(ctx.ordinary, shape, ctx.peripheral, ctx.keepOut);
   if (ctx.k === 'on' && ctx.ordinary.type === 'bordure') {
     // On the ring: inside the outline, outside the inner edge (and whatever its line takes off the ring).
     const [outline, inset] = envelope.inner;
@@ -920,8 +1014,14 @@ function handAlternative(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, c
 function alternativeCentres(ctx: Exclude<GroundContext, { k: 'around' }>, layout: Layout, count: number): Centre[][] {
   if (layout.arrangement.k !== 'host' || layout.position !== null) return [];
   switch (ctx.k) {
-    case 'between': return [...(betweenHost(ctx.ordinary) === 'chevron' ? betweenAlternatives(familyOf(ctx.ordinary.type), count, ctx.peripheral).map((cs) => treatedCentres(ctx.ordinary, ctx.k, cs, false)) : []), ...handAlternative(ctx, count)];
-    case 'on': return [...onAlternatives(ctx.ordinary.type, count, ctx.peripheral).map((cs) => treatedCentres(ctx.ordinary, ctx.k, cs, false)), ...handAlternative(ctx, count)];
+    case 'between': case 'on': {
+      const free = freeFieldOf(ctx, CANONICAL_SHAPE);
+      const peripheral = free?.peripheral ?? ctx.peripheral;
+      const ruled = ctx.k === 'on' ? onAlternatives(ctx.ordinary.type, count, peripheral)
+        : betweenHost(ctx.ordinary) === 'chevron' ? betweenAlternatives(familyOf(ctx.ordinary.type), count, peripheral) : [];
+      const all = [...ruled.map((cs) => treatedCentres(ctx.ordinary, ctx.k, cs, false)), ...handAlternative(ctx, count)];
+      return free ? all.map((cs) => cs.map(moveIn(ctx.k, HEATER_SPAN, free))) : all;
+    }
     case 'field': case 'position': return [];
     default: return ctx satisfies never;
   }
@@ -1021,14 +1121,28 @@ function genericIn(ctx: Exclude<GroundContext, { k: 'around' }>, count: number, 
   const heater = heaterGeneric(ctx, count, layout);
   if (shape === CANONICAL_SHAPE || heater.length === 0) return heater;
   const ground = groundIn(ctx, layout, shape), crossed = layout.arrangement.k === 'crossed';
-  if (ctx.keepOut.length > 0) {
-    // Beside a peripheral, the room it leaves in this shape (its base or corner is the shape's own) is searched as on the heater, from the
-    // heater's places: none there is no room; the heater's spread mapped in is the fallback only where the search reaches other parts of the field.
+  const fitted = (centres: readonly Centre[], size: number): Slot[] => {
+    const slots = size < 1 ? [] : toSlots(centres, Math.min(heater[0].size, size));
+    return slots.length > 0 && samePartsAsHeater(heater, slots, shape) ? slots : [];
+  };
+  // Beside a peripheral, the room it leaves in this shape (its base or corner is the shape's own) is searched as on the heater, from the
+  // heater's places: none there is no room; the heater's spread mapped in is the fallback only where the search reaches other parts of the field.
+  const besideKeptOut = () => {
     const moved = clearOfKeptOut(centresIn(heater, [1, 1, 0], shape), ground, crossed, KEEP_OUT_SPREADS_IN_SHAPES);
-    const size = Math.min(heater[0].size, moved.size);
-    if (size < 1) return [];
-    const slots = toSlots(moved.centres, size);
-    if (samePartsAsHeater(heater, slots, shape)) return slots;
+    return { slots: fitted(moved.centres, moved.size), none: Math.min(heater[0].size, moved.size) < 1 };
+  };
+  const free = ctx.k === 'between' || ctx.k === 'on' ? freeFieldOf(ctx, shape) : null;
+  if (free && (ctx.k === 'between' || ctx.k === 'on')) {
+    // Beside or on a band a chief or base moves, the heater's slots moved as the band is, from the heater's free field to this shape's, are
+    // tried too: the largest of those, the room left beside other peripherals, and the heater's spread mapped in wins (the first among equals).
+    const centres = heater.map(moveIn(ctx.k, freeFieldOf(ctx, CANONICAL_SHAPE)!, free));
+    const options = [fitted(centres, largestSize(centres, ground, crossed)), ctx.keepOut.length > 0 ? besideKeptOut().slots : [], mappedFromHeater(heater, ground, crossed, shape)];
+    return options.reduce((best, o) => (o.length > 0 && (best.length === 0 || o[0].size > best[0].size) ? o : best), []);
+  }
+  if (ctx.keepOut.length > 0) {
+    const { slots, none } = besideKeptOut();
+    if (none) return [];
+    if (slots.length > 0) return slots;
   }
   return mappedFromHeater(heater, ground, crossed, shape);
 }
@@ -1133,6 +1247,7 @@ export function canonicalSlots(d: Design, path: GroupPath): Slot[] {
 /** The smallest slot (heater units) the charges of a context are drawn in. */
 export function minSlotSize(ctx: LayoutContext): number {
   if (ctx.k === 'on-charge') return MIN_ON_CHARGE_SIZE;
+  if (ctx.k === 'on' && ctx.ordinary.type === 'chief' && hasChargedBordure(ctx.peripheral)) return MIN_ON_NARROWED_CHIEF_SIZE;
   return ctx.k === 'on' && ctx.ordinary.type === 'bordure' ? MIN_BORDURE_SLOT_SIZE : MIN_SLOT_SIZE;
 }
 
