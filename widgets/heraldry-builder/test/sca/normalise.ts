@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
 import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, INVERTED_HOSTS, LINE, NUMBER_WORDS, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
 
 export interface NormalisationRule {
@@ -64,10 +64,21 @@ const OUTLINE_WORD = `(?:fimbriated|endorsed|${COTISES})`;
 const OUTLINE = `(?: ${OUTLINE_WORD}(?: plain| ${LINE})?)`;
 /** What a band is painted with: its tincture, then its outline and the tincture of that, or its outline and its tincture (" gules fimbriated Or", " cotised azure"). */
 const BAND_PAINT = `(?: ${TINCT}(?:${OUTLINE}(?: ${TINCT})?)?|${OUTLINE}(?: ${TINCT})?)`;
-const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]));
+/** Every charge noun, lower case as the text reads once the case rule has run. */
+const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]).map((noun) => noun.toLowerCase()));
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
-/** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor". */
-const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?(?: in splendor)?`;
+/** The modifiers the widget words after a noun: "in splendor", "fitchy". */
+const MODIFIER = alt(Object.values(MODIFIER_WORDS));
+/** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor", "a cross formy fitchy". */
+const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?(?: ${MODIFIER})?`;
+
+/** The other spellings of a cross's form after "cross" or "crosses", each with the widget's word for it ("cross fleury" is "cross flory"). */
+const CROSS_FORM_SPELLINGS: Record<string, string> = {
+  fleury: 'flory', fleurie: 'flory', formee: 'formy', formée: 'formy', pattee: 'formy', pattée: 'formy', patee: 'formy', patée: 'formy',
+  patty: 'formy', patté: 'formy', paty: 'formy', botonny: 'bottony', bottonny: 'bottony', botony: 'bottony', pattonce: 'patonce', patoncy: 'patonce',
+};
+const CROSS_FORM_SPELLING = new RegExp(`(?<![\\w-])(cross|crosses) (${alt(Object.keys(CROSS_FORM_SPELLINGS))})(?![\\w-])`, 'g');
+
 
 const NAMED_BY_WORD = new Map(NAMED_TINCTURE_CHARGES.flatMap((n) => [[n.word, n], [n.plural, n]] as const));
 const escaped = (words: Iterable<string>) => alt([...words].map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -282,6 +293,18 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/(?<!cross |crosses )\bcrosslet\b/g, 'cross crosslet'),
   },
   {
+    // 3d2. Names of the drawn crosses and shapes the SCA spells in more than one way (the Glossary of Terms lists them): the forms of a
+    //      cross (flory/fleury, formy/pattée/patty, bottony/botonny, patonce/pattonce), "fitchy" (fitched, fitchée; "at the foot" is
+    //      what fitchy means), "compass-star" and the Latin plural "triquetrae".
+    id: 'cross-synonyms',
+    description: 'cross fleury → cross flory; cross formée/pattée/patty/paty → cross formy; cross botonny/bottonny → cross bottony; cross pattonce/patoncy → cross patonce (also crosses …); fitched/fitchée and "fitchy at the foot" → fitchy; compass-star(s) → compass star(s); triquetrae → triquetras.',
+    apply: (s) => s
+      .replace(CROSS_FORM_SPELLING, (_m, noun: string, spelling: string) => `${noun} ${CROSS_FORM_SPELLINGS[spelling]}`)
+      .replace(/(?<![\w-])fitch(?:y|ed|ee|ée)(?: at the foot)?(?![\w-])/g, 'fitchy')
+      .replace(/(?<![\w-])compass-star(s?)(?![\w-])/g, 'compass star$1')
+      .replace(/(?<![\w-])triquetrae(?![\w-])/g, 'triquetras'),
+  },
+  {
     // 3e. A semy is "semy of <charges> <tincture>", or one of its names ("crusilly argent", "semy-de-lys Or", "bezanty": a name that
     //     fixes the tincture states none). The widget words it with the name where there is one; the College writes both ways, with
     //     the spellings "crusily", "billetty", "mulletty", "semee". All read as "semy of <charges> <tincture>"; a tincture left unsaid is
@@ -391,7 +414,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //    charge on a beast, monster or bird the second way and every other host the first.
     id: 'charged-with',
     description: '"<a host> <tincture> charged with <group>" → "on <a host> <tincture> <group>".',
-    apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?|${NOUN})(?: (?:${POSTURE}))?(?: in splendor)? ${TINCT}),? charged with `, 'g'), '$1on $2 '),
+    apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?|${NOUN})(?: (?:${POSTURE}))?(?: ${MODIFIER})? ${TINCT}),? charged with `, 'g'), '$1on $2 '),
   },
   {
     // 6. Where the placement words go: the SCA writes "two keys in pale" as often as "in pale two

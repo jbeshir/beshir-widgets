@@ -17,7 +17,7 @@ import { DRAWN_DIVISION_FORMS, PER_PALL_SPELLED, TIERCED_IN, edgeSide } from './
 import {
   BUCKET_DESCRIPTION, CHARGE_BUCKETS, CONTAINER_WORDS, CONTEXT_WORDS, CROSS_POST, CROSS_PRE, FUNCTION_WORDS, FURS,
   GAP_ARRANGEMENTS, GAP_CHARGES, GAP_DIVISION_WORDS, GAP_ORDINARIES, GAP_POSTURES, GAP_TINCTURES, LINES, MARSHALLING,
-  DRAWN_SEMY_NAMES, MODIFIERS, NUMBERS, ORIENTATIONS, PART_WORDS, POSITION_WORDS, SEMY_WORDS,
+  DRAWN_CROSS_VARIANT, DRAWN_SEMY_NAMES, MODIFIERS, NUMBERS, ORIENTATIONS, PART_WORDS, POSITION_WORDS, SEMY_WORDS,
   SUPPORTED_ARRANGEMENT_WORDS, SUPPORTED_CHARGE_BUCKET, SUPPORTED_CHARGE_WORDS, SUPPORTED_ORDINARY_WORDS,
   SUPPORTED_POSTURES, QUALIFIER_WORDS, TREATMENTS, type ChargeBucket,
 } from './gap-terms';
@@ -192,7 +192,7 @@ const JOINS: [RegExp, string][] = [
   [/\bmusical notes?\b/g, 'musical-note'],
   [/\b(gear|cog)[- ]?wheels?\b|\bcogwheels?\b|\bgears\b/g, 'gear'],
   [/\blight ?bulbs?\b/g, 'lightbulb'],
-  [/\bcompass[- ](stars?|roses?)\b/g, 'compass-star'],
+  [/\bcompass[- ](stars?|roses?)\b/g, 'compass-$1'],
   [/\bsea (\w+)/g, 'sea-$1'],
   [/\bdemi (\w+)/g, 'demi-$1'],
   [/\bcubit arms?\b/g, 'cubit-arm'],
@@ -805,6 +805,12 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       tag('ordinary-treatment', base);
       return;
     }
+    // a cross's foot sharpened, where the widget draws it ("a cross formy fitchy"); "fitchy at all points" is another cross
+    const carrier = last?.kind === 'charge' && last.el?.supported ? CHARGES[last.el.supported as ChargeId] : null;
+    if (base === 'fitchy' && carrier?.details.includes('fitchy')) {
+      if (words[i + 1] === 'at' && words[i + 2] === 'all') tag('charge-modifier', 'fitchy-at-all-points');
+      return;
+    }
     if (base === 'inverted') tag('orientation', base);
     else tag('charge-modifier', base);
   }
@@ -917,12 +923,16 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   function readCross(i: number): number {
     const prev = i > 0 ? words[i - 1] : BREAK;
     let variant: string | null = null;
+    let drawn: ChargeId | undefined;
     let end = i;
     if (CROSS_BEFORE.has(prev)) variant = CROSS_VARIANT[prev] ?? prev;
     const next = words[i + 1] ?? BREAK;
     // "a cross couped", "a cross humetty", "a cross voided" (one, with its article) is the ordinary so treated; "crosses couped" are charges
     const ordinaryForm = /^(couped|humetty|voided)$/.test(next) && (pendingCount ?? 1) === 1 && (prev === 'a' || prev === 'an');
     if (!variant && CROSS_AFTER.has(next) && !ordinaryForm) { variant = CROSS_VARIANT[next] ?? next; end = i + 1; }
+    // the widget's Celtic cross is Latin-proportioned: "an equal-armed Celtic cross" is another figure
+    if (variant === 'celtic' && words[i - 2] === 'equal-armed') variant = 'equal-armed-celtic';
+    if (variant) drawn = DRAWN_CROSS_VARIANT[variant];
     if (!variant && next === 'of' && words[i + 2] && words[i + 2] !== BREAK) {
       const what = words[i + 2];
       if (NUMBERS[what]) variant = 'composed'; // "a cross of four lozenges"
@@ -930,8 +940,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
     if (!variant && (pendingCount ?? 1) > 1) variant = 'cross';
     if (variant) {
-      tag('charge-cross', variant);
-      settleHost(newElement('charge', null));
+      if (!drawn) tag('charge-cross', variant);
+      settleHost(newElement('charge', drawn ?? null));
       if (variant === 'composed') { ofNext = true; end = i + 1; }
       return end;
     }

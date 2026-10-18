@@ -138,6 +138,22 @@ above and below):
 | `corner-beside-bend`: one charge "in sinister chief" beside a bend = "in chief" | `normalise.ts`, tagger `cornerPosition` | RULES-C §F.3, App K; corpus counts (C16) |
 | tagger: lines read on the host they follow (`drawnOn`), a line on each edge ("embattled on the upper edge and embattled grady on the lower edge"), treatments and outlines on the hosts the library draws them on (`MOD_HOSTS`, `COTISED_HOSTS`), counted diminutives (`ORDINARY_COUNTS`) | `gaps.ts` | the library's own tables; guarded by "the tagger never files a record under a construct the widget supports" |
 
+### Phase-D additions at a glance
+
+
+What phase D has added so far to the matcher, the normaliser and the tagger (corpus counts are the raw occurrences in the current O&A):
+
+
+| addition | where | source |
+|---|---|---|
+| the drawn crosses and shapes are read at once: the nouns come from `CHARGES` (lower-cased, so "Latin cross", "Maltese cross" and "Celtic cross" read) | `match.ts` (`NOUNS`), `normalise.ts` (`NOUN`) | D2a ids; the proper adjectives were the first miss |
+| `cross-synonyms`: cross fleury/fleurie → flory (cross flory 84, cross fleury 80), formée/pattée/patée/patty/paty → formy, botonny/bottonny → bottony, pattonce/patoncy → patonce; fitched/fitchée and "fitchy at the foot" → fitchy; compass-star → compass star (66); triquetrae → triquetras (22) | `normalise.ts` | Glossary of Terms (spellings); corpus counts (D2b); "delph" and "formee" occur in no current record, so only "delves" (1) is left as a gap |
+| a modifier after a noun: `fitchy` joins "in splendor" (`MODIFIER_WORDS` in the library's `blazon`, read by `readGroup` through `modifierAt`); a lone "a cross fitchy" stays the ordinary cross treated (a gap), as does "a cross couped" with its article (D2a) | `match.ts`, `blazon.ts` | App M1f; D2a |
+| a matched design that needs a detail the Design tab has no control for yet (a cross fitchy) is filed under `charge-modifier:<detail>` instead of failing the builder check; delete `uncontrolledDetails` when D6b adds the Details disclosure | `classify.ts` | D6b |
+| tagger: a cross word the widget draws (`DRAWN_CROSS_VARIANT`, derived from the cross ids) is the charge, not a `charge-cross` gap; "fitchy" after a cross that takes it is untagged, "fitchy at all points" is `charge-modifier:fitchy-at-all-points`; "equal-armed Celtic cross" (the widget's is Latin-proportioned) is `charge-cross:equal-armed-celtic`; "compass rose" stays a gap (`charge-celestial:compass-rose`) while "compass star" is the charge; the supported nouns (compass star, foils, mascle, rustre, fusil, delf, triangle, triquetra, ermine spot) are out of `GAP_CHARGES` | `gaps.ts`, `gap-terms.ts` | the library's own tables; guarded by "the tagger never files a record under a construct the widget supports" |
+| records with a compass star and another step from core practice are matched but refused (`widget-structure-rule`, App G, S1) | `classify.ts` (`findingTags`) | PLAN-D §1.7 S1 |
+
+
 ### Normalisation
 
 `test/sca/normalise.ts` is applied to the SCA blazon and to the widget's alike. It only bridges spelling and
