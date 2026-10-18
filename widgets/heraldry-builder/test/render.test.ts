@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, chargePath, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
+  CHARGES, UPRIGHT, chargePath, chargeTransform, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
   type Design, type FieldShape, type Fill, type Layer,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -94,6 +94,11 @@ describe('charge layers', () => {
     expect(l.slots.map(slotTransform)).toHaveLength(2);
     expect(l.fills).toEqual([{ fill: solidFill('or'), slots: [0, 1] }]);
     expect(l.art).toBe(chargePath('sword', null, []));
+    expect(l.poses).toEqual([UPRIGHT, UPRIGHT]);
+  });
+
+  it('draw the art upright as the slot places it', () => {
+    for (const s of [{ x: 50, y: 54, size: 90, rotation: 0 }, { x: 30, y: 40, size: 20, rotation: -45 }]) expect(chargeTransform(s, UPRIGHT)).toBe(slotTransform(s));
   });
 
   it('split counterchanged charges by the region each lies on', () => {

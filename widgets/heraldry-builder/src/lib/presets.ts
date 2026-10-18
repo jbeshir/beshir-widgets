@@ -2,7 +2,7 @@
 // looks like. "Surprise me" picks another design of the same quality.
 
 import {
-  CHARGE_IDS, FIELD_SHAPES, TINCTURES, groupTinctureChoices, tincturePaint, postureChoices, readability, resolve,
+  CORE_ART_IDS, FIELD_SHAPES, TINCTURES, groupTinctureChoices, tincturePaint, postureChoices, readability, resolve,
   type ChargeId, type Design, type FieldShape, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { assess, picturePath, setCharge, setGroupTincture, setPosture } from './builder';
@@ -53,7 +53,8 @@ export function surpriseDesign(random: () => number): ShapedDesign {
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(random() * xs.length)];
   for (let attempt = 0; attempt < 50; attempt++) {
     const blank: Design = { v: 2, kind: 'arms', field: tincturePaint(pick<Tincture>(TINCTURES)), groups: [] };
-    const withCharge = setCharge(blank, 'picture', pick<ChargeId>(CHARGE_IDS));
+    // only charges whose art is in the main chunk, so a surprise is drawn at once
+    const withCharge = setCharge(blank, 'picture', pick<ChargeId>(CORE_ART_IDS));
     const path = picturePath(withCharge)!;
     const tinctures = groupTinctureChoices(withCharge, path).filter((c) => c.allowed && c.value !== 'counterchanged');
     const postures = postureChoices(withCharge, path).filter((c) => c.allowed);

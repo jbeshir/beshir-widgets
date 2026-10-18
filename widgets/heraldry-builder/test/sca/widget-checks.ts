@@ -16,7 +16,7 @@ import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { Shield } from '../../src/components/Shield';
 import {
-  DEFAULT_FIELD_SHAPE, OUTLINE_COLOUR, fillCode, pathKey, renderLayers, slotTransform, validate,
+  DEFAULT_FIELD_SHAPE, OUTLINE_COLOUR, fillCode, pathKey, renderLayers, chargeTransform, validate,
   type Design, type FieldShape, type Fill, type Issue, type Layer,
 } from '../../src/lib/heraldry';
 import { assess, type DesignStatus } from '../../src/lib/builder';
@@ -113,13 +113,13 @@ function checkOrdinary(layer: Extract<Layer, { k: 'ordinary' }>, block: Block): 
 function checkCharges(layer: Extract<Layer, { k: 'charges' }>, block: Block): string[] {
   const paths = pathTags(block.markup);
   const problems: string[] = [];
-  const want = layer.fills.flatMap((f) => leafCodes(f.fill).flatMap((code) => f.slots.map((s) => `${slotTransform(layer.slots[s])}|${code}`)));
+  const want = layer.fills.flatMap((f) => leafCodes(f.fill).flatMap((code) => f.slots.map((s) => `${chargeTransform(layer.slots[s], layer.poses[s])}|${code}`)));
   const got = paths.filter(filled).map((p) => `${p.attrs.transform}|${p.attrs['data-paint']}`);
   if (sorted(got).join() !== sorted(want).join()) problems.push(`the charges at ${block.group} are painted ${sorted(got).join(' ') || 'nothing'}, expected ${sorted(want).join(' ') || 'nothing'}`);
   if (paths.filter(filled).some((p) => p.attrs.d !== layer.art)) problems.push(`the charges at ${block.group} are not drawn with their own art`);
   // (the shield's own frame outline, last in the markup, has no transform)
   const outlines = paths.filter((p) => p.attrs.transform !== undefined && p.attrs.fill === 'none' && p.attrs.stroke === OUTLINE_COLOUR && p.attrs['vector-effect'] === 'non-scaling-stroke');
-  if (sorted(outlines.map((p) => p.attrs.transform)).join() !== sorted(layer.slots.map(slotTransform)).join()) {
+  if (sorted(outlines.map((p) => p.attrs.transform)).join() !== sorted(layer.slots.map((s, i) => chargeTransform(s, layer.poses[i]))).join()) {
     problems.push(`${outlines.length} charge outlines are drawn at ${block.group}, expected ${layer.slots.length}`);
   }
   return problems;

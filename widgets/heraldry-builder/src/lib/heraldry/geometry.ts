@@ -624,6 +624,17 @@ export function slotTransform(s: Slot): string {
   return s.rotation === 0 ? place : `rotate(${s.rotation} ${s.x} ${s.y}) ${place}`;
 }
 
+/** How a charge's art is posed in its slot, on top of the slot's own turn. */
+export interface ArtPose {}
+
+/** The art as it is drawn. */
+export const UPRIGHT: ArtPose = {};
+
+/** The SVG transform that draws a charge's art in a slot in a pose. */
+export function chargeTransform(s: Slot, _pose: ArtPose): string {
+  return slotTransform(s);
+}
+
 /** Rotate a point about a slot's centre by the slot's rotation. */
 function turned(s: Slot, x: number, y: number): Pt {
   if (s.rotation === 0) return [x, y];

@@ -14,12 +14,12 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  AROUND_COUNTS, ART_ON_BOX, CHARGE_ART, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  AROUND_COUNTS, CHARGE_ART, UPRIGHT, artKeyOf, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
   cornerBesideBend, frameBeside, hasBordure, hasChargedBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryGeometry, plainSpec, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ChargeId, type Design, type FieldShape, type GroundContext, type KeepOut, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
-import { rings, type Pt } from './art-geometry';
+import { placePosed, rings, type Pt } from './art-geometry';
 import { log } from './helpers';
 import { rotatesIn, sampleSeed } from './rotation';
 
@@ -185,15 +185,6 @@ function disc(s: Slot): Pt[] {
   const out: Pt[] = [[s.x, s.y]];
   for (let k = 0; k < 16; k++) out.push([s.x + r * Math.cos((k * Math.PI) / 8), s.y + r * Math.sin((k * Math.PI) / 8)]);
   return out;
-}
-
-/** A drawing's rings placed in a drawn box on the shield, turned with the charge. */
-function place(rs: Pt[][], box: Slot): Pt[][] {
-  const a = (box.rotation * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
-  return rs.map((r) => r.map(([x, y]): Pt => {
-    const dx = (x - 50) * box.size / 100, dy = (y - 50) * box.size / 100;
-    return [box.x + dx * cos - dy * sin, box.y + dx * sin + dy * cos];
-  }));
 }
 
 /** Even-odd point-in-drawing test across all of a drawing's rings. */
@@ -424,7 +415,7 @@ function artProblems(g: ShapeGeometry, entries: Entry[], drawings: Drawing[], ge
     for (const [di, dr] of drawings.entries()) {
       if (!drawnIn(g.shape, ei, di)) continue;
       if (e.layout.arrangement.k === 'crossed' && !CHARGES[dr.id].long) continue;
-      const placed = slots.map((s) => place(dr.rings, drawnBox(s, dr.id)));
+      const placed = slots.map((s) => placePosed(dr.rings, drawnBox(s, dr.id), UPRIGHT));
       for (const rs of placed) {
         const off = rs.flat().find((p) => !fits(p));
         if (off) { problems.push(`${g.shape} ${e.label}: ${dr.label} leaves its ground at ${off.map((n) => n.toFixed(1))}`); break; }
@@ -478,7 +469,7 @@ const CARRIED = ['mullet', 'rose', 'lion'] as const;
 interface OnChargeEntry { ctx: Extract<LayoutContext, { k: 'on-charge' }>; count: number; layout: Layout; label: string }
 
 /** The sampled drawings that carry charges (have an on-box). */
-const HOST_DRAWINGS = SAMPLED_DRAWINGS.filter((d) => ART_ON_BOX[d.id][d.key] !== undefined);
+const HOST_DRAWINGS = SAMPLED_DRAWINGS.filter((d) => CHARGES[d.id].drawings[d.key]!.onBox !== null);
 
 /** Every layout the structure rules accept of one to four charges on each of the sampled host layouts, for every host drawing. */
 function onChargeCatalogue(): OnChargeEntry[] {
@@ -517,9 +508,8 @@ describe('charges on the primary charges fit their hosts', () => {
         const where = `${e.label} (${g.shape})`;
         if (slots.length !== hosts.length * e.count) { problems.push(`${where}: ${slots.length} slots`); continue; }
         if (new Set(slots.map((s) => s.size)).size !== 1 || slots[0].size < 1) { problems.push(`${where}: sizes ${[...new Set(slots.map((s) => s.size))]}`); continue; }
-        const key = host.posture ?? '_';
-        const drawing = rings((CHARGE_ART[host.charge] as Record<string, string>)[key] ?? CHARGE_ART[host.charge][CHARGES[host.charge].defaultPosture ?? '_']!);
-        const drawn = hosts.map((h) => place(drawing, drawnBox(h, host.charge)));
+        const drawing = rings(CHARGE_ART[host.charge][artKeyOf(host.charge, host.posture)]!);
+        const drawn = hosts.map((h) => placePosed(drawing, drawnBox(h, host.charge), UPRIGHT));
         for (const s of slots) {
           // The on-box is mostly inside the drawing (art-onbox.test.ts), so a glyph disc at its edge may reach a gap in it: most of the disc and its centre lie on the host.
           const inside = disc(s).filter((p) => drawn.some((rs) => inDrawing(rs, p))).length;
@@ -542,13 +532,12 @@ describe('charges on the primary charges fit their hosts', () => {
       const { host } = e.ctx;
       const hosts = contextSlots(host.context, host.count, host.layout, g.shape);
       const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
-      const key = host.posture ?? '_';
-      const hostDrawing = rings((CHARGE_ART[host.charge] as Record<string, string>)[key] ?? CHARGE_ART[host.charge][CHARGES[host.charge].defaultPosture ?? '_']!);
-      const drawnHosts = hosts.map((h) => place(hostDrawing, drawnBox(h, host.charge)));
+      const hostDrawing = rings(CHARGE_ART[host.charge][artKeyOf(host.charge, host.posture)]!);
+      const drawnHosts = hosts.map((h) => placePosed(hostDrawing, drawnBox(h, host.charge), UPRIGHT));
       for (const id of CARRIED) {
         const art = rings(CHARGE_ART[id][CHARGES[id].defaultPosture ?? '_']!);
         for (const s of slots) {
-          const rs = place(art, drawnBox(s, id)).flat();
+          const rs = placePosed(art, drawnBox(s, id), UPRIGHT).flat();
           const outside = rs.filter((p) => !drawnHosts.some((h) => inDrawing(h, p) || h.flat().some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.5))).length;
           if (outside > 0.25 * rs.length) problems.push(`${e.label}: ${id} sticks out of its host (${outside}/${rs.length} points)`);
         }

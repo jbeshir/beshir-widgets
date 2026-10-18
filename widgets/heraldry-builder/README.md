@@ -637,7 +637,7 @@ tags). Lines read as blazon does (`lines.ts`): `{a}` alone is what the bare word
 (SENA Table 7 arrangements, the SCA's default postures) and puts the groups in canonical order, so
 equivalent inputs have one JSON form and one signature. The builder's own space is the
 "simple space": one ordinary, one picture group (on the field, between the ordinary, or on it),
-extra pictures on the ordinary, a chief and a bordure beside the ordinary, each with pictures of its own, a secondary group set in chief, in base or in canton beside the ordinary or the picture (SENA App I1: beside a central element such charges are secondary; with none they are the primary group), or a secondary group set "between" the picture when it is one group of one or two charges with no band (Table 7's "around any other charge(s)" layouts), a second primary group of charges that is laid out together with the picture (SENA App I1: two groups on the field with no band between are together the primary group; up to three charges between them, in the order they are written, with the one arrangement of all of them), and a tertiary group on the picture when it is the primary charges (Table 7's "on any other charge": one to four on each, each charge's on-box in `charge-art.ts` saying where its drawing carries them; the count is per host charge). `places.ts` names every group of such a design by a structural place (`ordinary`, `picture`, `co-primary`, `on-picture`, `around`, `in-chief`, `in-base`, `in-canton`, `on-ordinary`, `chief`, `on-chief`, `bordure`, `on-bordure`, `overall`) that doesn't change when groups are added or removed, and `layers.ts` adds and removes the layers on top of the band and the picture.
+extra pictures on the ordinary, a chief and a bordure beside the ordinary, each with pictures of its own, a secondary group set in chief, in base or in canton beside the ordinary or the picture (SENA App I1: beside a central element such charges are secondary; with none they are the primary group), or a secondary group set "between" the picture when it is one group of one or two charges with no band (Table 7's "around any other charge(s)" layouts), a second primary group of charges that is laid out together with the picture (SENA App I1: two groups on the field with no band between are together the primary group; up to three charges between them, in the order they are written, with the one arrangement of all of them), and a tertiary group on the picture when it is the primary charges (Table 7's "on any other charge": one to four on each, each drawing's on-box in its charge's sidecar row (`art/meta`) saying where it carries them; the count is per host charge). `places.ts` names every group of such a design by a structural place (`ordinary`, `picture`, `co-primary`, `on-picture`, `around`, `in-chief`, `in-base`, `in-canton`, `on-ordinary`, `chief`, `on-chief`, `bordure`, `on-bordure`, `overall`) that doesn't change when groups are added or removed, and `layers.ts` adds and removes the layers on top of the band and the picture.
 
 ### Registry-keyed model
 
@@ -1049,6 +1049,9 @@ npm run favicon
 - `test/lines-field.test.ts`: lines on the field — every partition line of every allowed pair is drawn with its profile and at least two periods inside each shape; the regions of every allowed line on every phase-B division and striped variation tile each shape (a rotating half on the heater, a sixth elsewhere) and `partIndexAt` follows them; one line where two regions meet; point direction and straddling; counterchanging on a wave; the verdict in every shape; App H, A3D1c and the hosts a line may go on; A5G1c (RULES-C §B.7); the gloss.
 - `test/signature.test.ts`: the signature is unchanged for designs phase B could draw (pinned, `test/signature-cases.ts`), one-to-one over lined and generated designs, and every id ends in a letter.
 - `test/lines.test.ts`: the line registry (SENA App M2 groups, the hosts each line may go on, the edges each host has and what a bare line means on it) and the periodic-edge generator and contours (whole periods within the repeat bounds on every shape, features inside their span, bands' edges in phase or opposed, plain contours byte-identical to the polygons the phase-B shapes draw, captured in `test/fixtures/straight-contours.json`).
+- `test/art-lint.test.ts`: the house style of every charge drawing (path grammar, size and centring, holes, rings that do not
+  overlap, bytes, anchors and necks), the drawing keys of each sidecar row against its postures and its paths, provenance, and
+  that the rings it reads are the ones the art tests read. `test/art-onbox.test.ts`: each drawing's on-box lies on it.
 - `test/model.test.ts`, `arrangement`, `layout` (including ordinaries that aren't plain: the generic engine keeps their charges clear of or inside the envelopes), `render`, `blazon`, `gloss`, `plain-words`, `tincture`, `counterchange`, `party-paint`, `fur`, `variation`, `treatment`, `semy`, `readability`, `tags`, `search*`, `validate`, `uniqueness`, `sample-registry`: the pure library, by topic. The validation examples (`test/validation-cases.ts`) are shared.
 - `test/worker.test.ts`: every API route. The migrations are applied to a local D1 before it runs; it covers:
   - create, duplicate, too-close and rule-of-tincture rejections, with forged signatures ignored
@@ -1160,18 +1163,27 @@ drawing do not yet, and `resolve` reports them as `unsupported` rather than gues
 
 ## Licence of charge art
 
-All 40 charge silhouettes in `src/lib/heraldry/charge-art.ts`, and the shield, ordinary and
+All charge drawings (36 charges, 48 drawings) in `src/lib/heraldry/art/`, and the shield, ordinary and
 partition geometry, are **original work drawn for this widget**. They are licensed with this
 repository. No artwork is taken from DrawShield, Armoria, Heraldicon, Wikimedia Commons or any
 other source.
 
+The art lives in a sidecar, one row per charge in two halves: `art/paths/<category>.ts` holds only the path strings
+(`art/paths/core.ts` those of the charges in the main chunk, `CORE_ART_IDS`), and `art/meta/<category>.ts` everything else —
+names, type, postures, the way the art is drawn (`orient`), per-drawing on-box, anchors and neck, and the charge's
+**provenance** (who drew it, when and how; every row says `origin: 'original'`). `CHARGES` (`charges.ts`) is built
+from the meta rows, and `charge-art.ts` picks the drawing a charge is drawn with.
+
 How the art is drawn and shown:
 
-- Each silhouette is one even-odd path of straight-line polygons (`M`/`L`/`Z` only), centred
-  in a 100×100 box with its long axis about 86 units. Animals face dexter (the viewer's left).
+- Each silhouette is one even-odd path of straight-line polygons (`M`/`L`/`Z` only, at most one decimal), centred
+  in a 100×100 box with its long axis about 86 units (82–90). Animals face dexter (the viewer's left). Its rings never
+  overlap or cross (an overlap would show as a hole), holes are at least 5 units across, and a drawing is at most 2,600
+  bytes. `test/art-lint.test.ts` checks every drawing; three older ones break a rule and are listed as drawn
+  (`LEGACY_ART_EXEMPT`).
 - Features are at least about 8 units wide where the design allows, so limbs, antlers, rays and
   horns survive at registry-card and favicon sizes.
-- Each charge has an optical `scale` in `CHARGES` (0.88–1.15). Slender charges (sword, key,
+- Each charge has an optical `scale` in its sidecar row (0.88–1.15). Slender charges (sword, key,
   anchor) are drawn larger and solid ones (heart, rose) smaller, so they look the same size.
   `test/geometry-fit.test.ts` checks every drawing at its scale stays on the shield, on or off
   its ordinary, and clear of its neighbours, in every slot table (six fixed drawings and about eight more,

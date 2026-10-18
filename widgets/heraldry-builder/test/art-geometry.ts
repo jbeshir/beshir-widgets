@@ -1,5 +1,5 @@
 // Charge artwork as point rings, for tests that check where the drawn art lies on the shield.
-import type { Slot } from '../src/lib/heraldry';
+import type { ArtPose, Slot } from '../src/lib/heraldry';
 
 export type Pt = [number, number];
 
@@ -11,6 +11,11 @@ export function rings(d: string): Pt[][] {
   });
 }
 
-/** A drawing's rings placed in a drawn box on the shield. */
-export const place = (rs: Pt[][], box: Slot): Pt[][] =>
-  rs.map((r) => r.map(([x, y]): Pt => [box.x + (x - 50) * box.size / 100, box.y + (y - 50) * box.size / 100]));
+/** A drawing's rings placed in a drawn box on the shield, turned with the charge and posed as `chargeTransform` poses it. */
+export function placePosed(rs: Pt[][], box: Slot, _pose: ArtPose): Pt[][] {
+  const a = (box.rotation * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+  return rs.map((r) => r.map(([x, y]): Pt => {
+    const dx = (x - 50) * box.size / 100, dy = (y - 50) * box.size / 100;
+    return [box.x + dx * cos - dy * sin, box.y + dx * sin + dy * cos];
+  }));
+}

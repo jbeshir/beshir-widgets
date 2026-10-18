@@ -19,7 +19,7 @@
 import type { ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 import {
-  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, colourHex, TINCTURE_HATCHING, fillCode, fillHatchTinctures, hatchTincture, badgeView, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
+  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, colourHex, TINCTURE_HATCHING, fillCode, fillHatchTinctures, hatchTincture, badgeView, chargeTransform, gloss, pathKey, renderLayers, shapeFrame,
   type Design, type FieldShape, type Fill, type Hatching, type Layer, type LeafFill, type OrdinaryPart, type PatternSpec, type Slot, type Tincture,
 } from '../lib/heraldry';
 
@@ -239,7 +239,7 @@ function LayerDefs({ layer, scope }: { layer: Layer; scope: Scope }) {
       ))}
       {layer.fills.map((f, i) => fillHatchTinctures(f.fill).some(overlay) && (
         <clipPath key={`c${i}`} id={ids.chargeClip(key, i)}>
-          {f.slots.map((s) => <path key={s} d={layer.art} clip-rule="evenodd" transform={slotTransform(layer.slots[s])} />)}
+          {f.slots.map((s) => <path key={s} d={layer.art} clip-rule="evenodd" transform={chargeTransform(layer.slots[s], layer.poses[s])} />)}
         </clipPath>
       ))}
     </>
@@ -292,11 +292,11 @@ function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: 
           return (
             <>
               {f.slots.map((s) => (
-                <path key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill={paintOf(leaf, ids)} fill-rule="evenodd" data-paint={fillCode(leaf)} />
+                <path key={s} d={layer.art} transform={chargeTransform(layer.slots[s], layer.poses[s])} fill={paintOf(leaf, ids)} fill-rule="evenodd" data-paint={fillCode(leaf)} />
               ))}
               {hatch && leaf.k === 'pattern' && (
                 <LeafMask leaf={leaf} scope={scope} at={at} shapes={f.slots.map((s) => (
-                  <path key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill={`url(#${ids.hatchMask(leaf.spec)})`} fill-rule="evenodd" />
+                  <path key={s} d={layer.art} transform={chargeTransform(layer.slots[s], layer.poses[s])} fill={`url(#${ids.hatchMask(leaf.spec)})`} fill-rule="evenodd" />
                 ))} />
               )}
               {hatch && (
@@ -304,7 +304,7 @@ function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: 
                   <rect x="0" y="0" width="100" height="120" fill={`url(#${ids.charge(key, hatch)})`} mask={maskOf(leaf, scope, at)} />
                   {f.slots.map((s) => (
                     <path
-                      key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill="none" stroke={TINCTURE_FILL[hatch]}
+                      key={s} d={layer.art} transform={chargeTransform(layer.slots[s], layer.poses[s])} fill="none" stroke={TINCTURE_FILL[hatch]}
                       stroke-width={(2 * hatchEdge(layer.slots[s]) * 100) / layer.slots[s].size} stroke-linejoin="round"
                     />
                   ))}
@@ -316,7 +316,7 @@ function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: 
       ))}
       {outlinePx > 0 && layer.slots.map((s, i) => (
         <path
-          key={i} d={layer.art} transform={slotTransform(s)} fill="none" stroke={OUTLINE_COLOUR} stroke-width={outlinePx}
+          key={i} d={layer.art} transform={chargeTransform(s, layer.poses[i])} fill="none" stroke={OUTLINE_COLOUR} stroke-width={outlinePx}
           vector-effect="non-scaling-stroke" stroke-linejoin="round"
         />
       ))}

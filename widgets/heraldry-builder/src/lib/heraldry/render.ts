@@ -4,7 +4,7 @@
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
 import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
-import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type Slot } from './geometry';
+import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, UPRIGHT, type ArtPose, type Slot } from './geometry';
 import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
 import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type SlotFill } from './paint-render';
@@ -19,8 +19,8 @@ export type Layer =
   | { k: 'field'; outline: string; fill: Fill }
   /** The body is always one of the parts. */
   | { k: 'ordinary'; path: GroupPath; parts: readonly OrdinaryPart[] }
-  /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale); each fill paints some of them. */
-  | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; fills: SlotFill[] };
+  /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale), with the art posed in each; each fill paints some of them. */
+  | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; poses: ArtPose[]; fills: SlotFill[] };
 
 const trimPart = (role: OrdinaryPartRole, trim: OrdinaryTrim, fill: Fill): OrdinaryPart => ({ role, d: trim.d, fillRule: trim.fillRule, fill });
 
@@ -46,7 +46,7 @@ function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | nul
   if (group.item.k !== 'charge') throw new RangeError('Not a charge.');
   const { charge, posture, mods } = group.item;
   const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, charge));
-  return { k: 'charges', path, art: chargePath(charge, posture, mods), slots, fills: chargeFills(d, group, host, slots, shape) };
+  return { k: 'charges', path, art: chargePath(charge, posture, mods), slots, poses: slots.map(() => UPRIGHT), fills: chargeFills(d, group, host, slots, shape) };
 }
 
 /**
