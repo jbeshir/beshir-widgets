@@ -438,7 +438,8 @@ export function setPeripheralItem(d: Design, place: PeripheralPlace, type: Ordin
 
 /**
  * The types the corner or edge shape at `place` may take: each blocked with its reason when the design has one already, or when the
- * design it leads to can't be drawn or breaks a rule (a base like the chief, a canton with something overall).
+ * design it leads to can't be drawn or breaks a rule (a base like the chief, a canton with something overall), or moves a band onto a
+ * tincture that breaks the rule (as adding one would: `newTinctureProblem`).
  */
 export function peripheralItemChoices(d: Design, place: PeripheralPlace): Choice<OrdinaryType>[] {
   const path = pathOfPlace(d, place);
@@ -448,7 +449,9 @@ export function peripheralItemChoices(d: Design, place: PeripheralPlace): Choice
   const others = new Set(d.groups.flatMap((g, i) => (i !== path[0] && g.item.k === 'ordinary' ? [g.item.type] : [])));
   return CORNER_AND_EDGE_TYPES.map((type): Choice<OrdinaryType> => {
     if (others.has(type)) return { value: type, allowed: false, reason: `There is already ${ordinaryWithArticle(type)} — choose a different shape.` };
-    const problem = type === current ? null : firstProblem(setPeripheralItem(d, place, type));
+    if (type === current) return { value: type, allowed: true };
+    const next = setPeripheralItem(d, place, type);
+    const problem = firstProblem(next) ?? newTinctureProblem(d, next);
     return problem ? { value: type, allowed: false, reason: problem } : { value: type, allowed: true };
   });
 }

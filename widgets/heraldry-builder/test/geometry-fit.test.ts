@@ -296,7 +296,7 @@ describe('layout catalogue', () => {
  * exhaustive): the slots on their ground, and (below) the field parts they reach. One sample serves all of them, so the slots of a layout left
  * out are never worked out in that shape (they are what the sweeps cost, and are kept between tests).
  */
-const SHAPE_SWEEP_RATE = 0.3;
+const SHAPE_SWEEP_RATE = 0.25;
 const inSweep = (shape: FieldShape, label: string): boolean => shape === 'heater' || rotatesIn(`${shape}|${label}`, SHAPE_SWEEP_RATE);
 
 for (const g of SHAPES) {

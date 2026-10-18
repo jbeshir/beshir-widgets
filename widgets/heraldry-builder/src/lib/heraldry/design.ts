@@ -368,12 +368,13 @@ function canonicalCharge(c: Charge): Charge {
 
 /**
  * The type an ordinary group is drawn and blazoned as. A pall inverted is a type of its own: the pall with the mod is that type, so the two
- * spellings are one design. A single tressure is an orle (RULES-C §C.3, Prec Gwynaeth 04/2004). Barrulets are bars (RULES-C §G.2). SCA armory
+ * spellings are one design (and a pall inverted with the mod is the pall). A single tressure is an orle (RULES-C §C.3, Prec Gwynaeth 04/2004). Barrulets are bars (RULES-C §G.2). SCA armory
  * uses no single diminutive as the main or overall band (RULES-C §C.2): one bar, pallet, bendlet (sinister) or chevronel `alone` is its ordinary,
  * one saltorel a saltire couped (§D.2); a baton stays a type of its own.
  */
 function canonicalOrdinary(item: Ordinary, count: number, alone: boolean): { type: OrdinaryType; mods: readonly OrdinaryMod[] } {
   if (item.type === 'pall' && item.mods.includes('inverted')) return { type: 'pall-inverted', mods: item.mods.filter((m) => m !== 'inverted') };
+  if (item.type === 'pall-inverted' && item.mods.includes('inverted')) return { type: 'pall', mods: item.mods.filter((m) => m !== 'inverted') };
   if (item.type === 'tressure' && count === 1) return { type: 'orle', mods: item.mods };
   const type = item.type === 'barrulet' ? 'bar' : item.type;
   if (!alone || count !== 1 || type === 'baton' || !DIMINUTIVE_OF[type]) return { type, mods: item.mods };

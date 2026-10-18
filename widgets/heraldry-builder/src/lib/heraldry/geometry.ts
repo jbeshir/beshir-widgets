@@ -12,7 +12,7 @@ import { DEFAULT_GYRONNY_PIECES, DRAWN_DIVISIONS, partCount, type Division } fro
 import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import { contoursPath, type Contour, type ContourEdge } from './contour';
-import { ARRONDI_SAGITTA, LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, fitPeriod, runAlong, visibleSpan, type EdgeRun, type LaidLine, type Line } from './lines';
+import { ARRONDI_SAGITTA, LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, fitPeriod, profileSides, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type LaidLine, type Line } from './lines';
 import { surfaceOf, type Surface } from './surface';
 import type { FieldShape } from './shape';
 
@@ -273,11 +273,49 @@ function region(corners: readonly Corner[]): Contour {
   return { start: corners[0][0], edges: closing ? [...edges, { via: [], to: corners[0][0], run: closing }] : edges };
 }
 
+/** Where a laid line's periods start: centred on the chord the shape shows (a line across the field), or clear of the other lines laid out from where they meet at its start (`Junction`). */
+type LineStart = 'centred' | Junction;
+
 /**
- * Where a laid line's periods start: centred on the chord the shape shows (a line across the field); at `from` (a chevron's limb, laid
- * out from the apex); or half a period out from `from`, so that lines laid out from where they cross keep clear of each other there.
+ * The lines that meet one laid out from where they meet: the angle (radians) to the nearest on its left and on its right as it runs out (in
+ * SVG coordinates; null: none within a half-turn), and whether they cross there (`crossing`) or end there (a chevron's limbs at its apex).
+ * Its periods start far enough out that its features keep off the middle line of each angle — their reach that way over the tangent of half
+ * the angle (per chevron inverted, gyronny of twelve) — and, where lines cross, half a period out at least.
  */
-type LineStart = 'centred' | 'meet' | 'cross';
+interface Junction { readonly left: number | null; readonly right: number | null; readonly crossing: boolean }
+
+/** How the lines laid out from `from` to `others` meet the one from `from` to `to`. */
+function junctionOf(from: Pt, to: Pt, others: readonly Pt[], crossing = true): Junction {
+  const heading = ([x, y]: Pt) => Math.atan2(y - from[1], x - from[0]);
+  const turns = others.map((o) => {
+    const t = heading(o) - heading(to);
+    return Math.atan2(Math.sin(t), Math.cos(t));
+  });
+  // y runs down the page, so a positive turn is clockwise as drawn: to the right
+  const nearest = (angles: number[]) => (angles.length === 0 ? null : Math.min(...angles));
+  return { left: nearest(turns.filter((t) => t < 0).map((t) => -t)), right: nearest(turns.filter((t) => t > 0)), crossing };
+}
+
+/**
+ * How far apart the features of two lines meeting at a junction keep at least: a feature that reaches just to the middle line would meet
+ * the other's and pinch off a sliver between them. Where a chevron's limbs meet, half a line depth, so that the notch at the apex reads as a
+ * feature of its own.
+ */
+const JUNCTION_GAP = 1.5;
+
+/** How far out from a junction a line's features start so that they keep clear of the lines beside it (`Junction`). */
+function junctionClearance(line: ComplexLine, side: 1 | -1, depth: number, { left, right, crossing }: Junction): number {
+  const [minus, plus] = profileSides(line);
+  // from an apex a profile that swings both ways swings out first, to its + side, and is half a period along before it swings back
+  const back = crossing || plus === 0 ? minus : 0;
+  // the + side of the profile is the run's `side`: +1 its left
+  const toward = (way: 1 | -1, angle: number | null) => {
+    const reach = (way === side ? plus : back) * depth;
+    // a feature at s along, reaching r across, lies s·sin − r·cos of half the angle from its middle line
+    return angle === null || reach === 0 ? 0 : reach / Math.tan(angle / 2) + (crossing ? JUNCTION_GAP : depth / 2) / 2 / Math.sin(angle / 2);
+  };
+  return Math.max(toward(1, left), toward(-1, right));
+}
 
 /** Lays a partition line from `from` to `to`; null for a plain line. */
 type Lay = (line: Line, from: Pt, to: Pt, start: LineStart) => LaidLine | null;
@@ -290,21 +328,28 @@ function layOn(outline: readonly Pt[]): Lay {
     const dir: Pt = [(to[0] - from[0]) / length, (to[1] - from[1]) / length];
     const [c0, c1] = visibleSpan(from, to, outline) ?? [0, length];
     const chord = c1 - c0;
-    // lines laid out from a junction keep a lead-in straight (half a period at a crossing) plus whatever a period overhangs it by, and
-    // the period is fitted to what is left, so a short arm still shows a whole number of periods (at least two) instead of none
-    const lead = (period: number) => (start === 'centred' ? 0 : (start === 'cross' ? 0.5 : 0) - Math.min(0, PROFILE_REACH[line][0])) * period;
-    let period = fitPeriod(line, chord, 1);
-    // a line across a short chord (the lozenge's diagonals) still shows three periods, the middle one centred
-    if (start === 'centred' && LINE_PROFILE[line].kind === 'periodic') period = Math.min(period, chord / 3);
-    if (start !== 'centred' && LINE_PROFILE[line].kind === 'periodic') {
-      const fitted = fitPeriod(line, chord - lead(period), 1);
-      const turns = Math.max(2, Math.round((chord - lead(fitted)) / fitted));
-      period = chord / (turns + lead(1));
-    }
-    const anchor = start === 'centred' ? (c0 + c1) / 2 : lead(period) + period / 2;
-    const span: [number, number] = [start === 'cross' ? period / 2 : c0 - period, c1 + period];
     // every arrondi line curves the same rotational way (to the left as it runs outward from where the lines meet), by a tenth of its length
     const [side, depth] = line === 'arrondi' ? [1 as const, ARRONDI_SAGITTA * chord] : [fieldSide(dir), LINE_PROFILE[line].depth];
+    const periodic = LINE_PROFILE[line].kind === 'periodic', junction = typeof start === 'object';
+    // lines laid out from a junction keep a lead-in straight (half a period, or what keeps their features clear of the lines beside them)
+    // plus whatever a period overhangs it by, and the period is fitted to what is left, so a short arm still shows a whole number of
+    // periods (at least two) instead of none
+    const half = junction && start.crossing ? 0.5 : 0, clear = junction && periodic ? junctionClearance(line, side, depth, start) : 0;
+    const overhang = -Math.min(0, PROFILE_REACH[line][0]);
+    const straight = (period: number) => Math.max(half * period, clear);
+    const lead = (period: number) => (start === 'centred' ? 0 : straight(period) + overhang * period);
+    let period = fitPeriod(line, chord, 1);
+    // a line across a short chord (the lozenge's diagonals) still shows three periods, the middle one centred
+    if (start === 'centred' && periodic) period = Math.min(period, chord / 3);
+    if (start !== 'centred' && periodic) {
+      const fitted = fitPeriod(line, chord - lead(period), 1);
+      const turns = Math.max(2, Math.round((chord - lead(fitted)) / fitted));
+      period = chord / (turns + half + overhang);
+      if (clear > half * period) period = Math.max(0, chord - clear) / (turns + overhang);
+    }
+    const anchor = start === 'centred' ? (c0 + c1) / 2 : lead(period) + period / 2;
+    // a line with nothing to keep clear of at its start (a chevron's limb whose features turn out of the angle) is drawn from before it
+    const span: [number, number] = [half > 0 || clear > 0 ? straight(period) : c0 - period, c1 + period];
     return { origin: from, dir, run: { line, side, depth, period, anchor, span } };
   };
 }
@@ -387,18 +432,19 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
     // four arms laid out from where the lines cross
     case 'per-saltire': {
       const [tl, tr, br, bl]: Pt[] = [[cx - k, cy - k], [cx + k, cy - k], [cx + k, cy + k], [cx - k, cy + k]];
-      const [TL, TR, BR, BL] = [tl, tr, br, bl].map((end) => lay(a, centre, end, 'cross'));
+      const [TL, TR, BR, BL] = [tl, tr, br, bl].map((end, i, ends) => lay(a, centre, end, junctionOf(centre, end, ends.filter((_, j) => j !== i))));
       return [
         part([[tl, null], [tr, TR], [centre, TL]], [[centre, BR], [br, null], [bl, BL]]),
         part([[tl, TL], [centre, BL], [bl, null]], [[tr, null], [br, BR], [centre, TR]]),
       ];
     }
-    // the two limbs, laid out from the apex: below the centre for the inverted one (the upper part first), on the top edge for the one throughout
+    // the two limbs, laid out from the apex, their features clear of the other limb's: below the centre for the inverted one (the upper
+    // part first), on the top edge for the one throughout
     case 'per-chevron': case 'per-chevron-inverted': case 'per-chevron-throughout': {
       const throughout = division === 'per-chevron-throughout', fall = division === 'per-chevron-inverted' ? -1 : 1;
       const apex: Pt = [cx, throughout ? cut.box.y0 : fall === 1 ? apexY : cy + CHEVRON_APEX_RISE];
       const end = (x: number): Pt => [x, apex[1] + fall * (throughout ? cut.slope : 1) * Math.abs(x - cx)];
-      const D = lay(a, apex, end(x0), 'meet'), S = lay(a, apex, end(x1), 'meet');
+      const D = lay(a, apex, end(x0), junctionOf(apex, end(x0), [end(x1)], false)), S = lay(a, apex, end(x1), junctionOf(apex, end(x1), [end(x0)], false));
       return [
         part([[[x0, y0], null], [[x1, y0], null], [end(x1), S], [apex, D], [end(x0), null]]),
         part([[end(x0), D], [apex, S], [end(x1), null], [[x1, y1], null], [[x0, y1], null]]),
@@ -407,11 +453,11 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
     // the lines run out from the centre, each laid out from where they meet (an arrondi one on its own chord); the sectors alternate
     case 'gyronny': {
       const step = 360 / cut.pieces;
-      const rays = Array.from({ length: cut.pieces }, (_, k): [Pt, LaidLine | null] => {
+      const outs = Array.from({ length: cut.pieces }, (_, k): Pt => {
         const angle = ((GYRONNY_START + k * step) * Math.PI) / 180;
-        const out: Pt = [cx + GYRONNY_REACH * Math.cos(angle), cy + GYRONNY_REACH * Math.sin(angle)];
-        return [out, lay(a, centre, out, a === 'arrondi' ? 'centred' : 'cross')];
+        return [cx + GYRONNY_REACH * Math.cos(angle), cy + GYRONNY_REACH * Math.sin(angle)];
       });
+      const rays = outs.map((out, k): [Pt, LaidLine | null] => [out, lay(a, centre, out, a === 'arrondi' ? 'centred' : junctionOf(centre, out, outs.filter((_, j) => j !== k)))]);
       const sectors = rays.map(([out, laid], j): Array<[Pt, LaidLine | null]> => [[centre, laid], [out, null], rays[(j + 1) % rays.length]]);
       return [part(...sectors.filter((_, j) => j % 2 === 0)), part(...sectors.filter((_, j) => j % 2 === 1))];
     }
@@ -424,7 +470,7 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
         return [cx + (GYRONNY_REACH * (x - cx)) / length, cy + (GYRONNY_REACH * (y - cy)) / length];
       };
       const D = out([cut.box.x0, cy + fall * (cy - cut.box.y0)]), S = out([cut.box.x1, cy + fall * (cy - cut.box.y0)]), M: Pt = [cx, cy - fall * GYRONNY_REACH];
-      const [DL, SL, ML] = [D, S, M].map((end) => lay(a, centre, end, 'cross'));
+      const [DL, SL, ML] = [D, S, M].map((end, i, ends) => lay(a, centre, end, junctionOf(centre, end, ends.filter((_, j) => j !== i))));
       const between = part([[D, null], [S, SL], [centre, DL]]);
       const dexter = part([[D, DL], [centre, ML], [M, null], [[D[0], M[1]], null]]);
       const sinister = part([[S, null], [[S[0], M[1]], null], [M, ML], [centre, SL]]);
@@ -452,7 +498,8 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
     // the per pale line is `a`, the per fess line `b`: four arms laid out from the fess point
     case 'quarterly': {
       const [n, e, s, w]: Pt[] = [[cx, y0], [x1, cy], [cx, y1], [x0, cy]];
-      const [N, E, S, W] = [lay(a, centre, n, 'cross'), lay(b, centre, e, 'cross'), lay(a, centre, s, 'cross'), lay(b, centre, w, 'cross')];
+      const arms: Pt[] = [n, e, s, w], from = (end: Pt) => junctionOf(centre, end, arms.filter((p) => p !== end));
+      const [N, E, S, W] = [lay(a, centre, n, from(n)), lay(b, centre, e, from(e)), lay(a, centre, s, from(s)), lay(b, centre, w, from(w))];
       return [
         part([[[x0, y0], null], [n, N], [centre, W], [w, null]], [[centre, E], [e, null], [[x1, y1], null], [s, S]]),
         part([[n, null], [[x1, y0], null], [e, E], [centre, N]], [[w, W], [centre, S], [s, null], [[x0, y1], null]]),

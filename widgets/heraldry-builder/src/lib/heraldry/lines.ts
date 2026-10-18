@@ -614,6 +614,20 @@ export function profileSwing(line: ComplexLine): number {
   return swings[line];
 }
 
+let sideReaches: Record<ComplexLine, readonly [number, number]> | null = null;
+
+/**
+ * How far a line's drawn points stray to its − side and to its + side, in depths: [0, 1] for the one-sided profiles, [½, ½] for the
+ * antisymmetric ones. Lazily computed — module-cycle safe.
+ */
+export function profileSides(line: ComplexLine): readonly [number, number] {
+  sideReaches ??= Object.fromEntries(LINES.filter((l): l is ComplexLine => l !== 'plain').map((l): [ComplexLine, readonly [number, number]] => {
+    const vs = flatten([0, 0], LINE_PROFILE[l].period).map(([, v]) => v);
+    return [l, [Math.max(0, -Math.min(...vs)) / 2, Math.max(0, ...vs) / 2]];
+  })) as Record<ComplexLine, readonly [number, number]>;
+  return sideReaches[line];
+}
+
 let featureMiddles: Record<ComplexLine, number> | null = null;
 
 /**

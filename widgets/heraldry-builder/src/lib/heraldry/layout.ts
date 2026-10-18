@@ -604,7 +604,7 @@ const HEATER_SPAN: Span = { top: shapeFrame(CANONICAL_SHAPE).box.y0, centre: sha
 function freeFieldOf(ctx: Extract<LayoutContext, { k: 'between' | 'on' }>, shape: FieldShape): Span & { peripheral: Peripheral } | null {
   const frame = frameBeside(shape, hasChief(ctx.peripheral), ctx.keepOut);
   const place = bandPlace(ctx.ordinary, frame);
-  return place.scale === 1 ? null : { top: frame.top, centre: place.centre.y, bottom: frame.bottom, peripheral: withoutChief(ctx.peripheral) };
+  return place.scale === 1 ? null : { top: frame.top, centre: place.centre.y, bottom: frame.baseTop, peripheral: withoutChief(ctx.peripheral) };
 }
 
 /**

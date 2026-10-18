@@ -69,18 +69,20 @@ export interface OrdinaryFrame {
   readonly shape: FieldShape;
   /** Where fess, pale, bend and cross lines cross: the shape's fess point. */
   readonly centre: Point;
-  /** Where the free field starts above: the top of the shape's box, or the lower edge of a chief. The bands across the middle of the field are centred between it and `bottom` (`bandPlace`); a group of diminutives keeps below it. */
+  /** Where the free field starts above: the top of the shape's box, or the lower edge of a chief. The bands across the middle of the field are centred between it and `baseTop` (`bandPlace`); a group of diminutives keeps below it. */
   readonly top: number;
   /**
    * Where the free field ends below: the foot of the shape's box, or the top of a base or point pointed. An ordinary is drawn on under
    * the base (which is painted over it) but lies only above it: its samples stop here.
    */
   readonly bottom: number;
+  /** Where a base ends the free field the bands across its middle are centred in: the foot of the shape's box, or a base's top (a point pointed is narrow and leaves the field beside it free). */
+  readonly baseTop: number;
 }
 
 export function defaultOrdinaryFrame(shape: FieldShape): OrdinaryFrame {
   const f = shapeFrame(shape);
-  return { shape, centre: f.fessPoint, top: f.box.y0, bottom: f.box.y1 };
+  return { shape, centre: f.fessPoint, top: f.box.y0, bottom: f.box.y1, baseTop: f.box.y1 };
 }
 
 /** The frame a chief leaves its ordinaries in a shape: the free field starts at the chief's lower edge. */
@@ -91,11 +93,16 @@ function underChiefFrame(shape: FieldShape): OrdinaryFrame {
 /** The peripherals that rise from the base of the shield and so end the free field below. */
 const FROM_BASE: readonly OrdinaryType[] = ['base', 'point'];
 
-/** The frame peripherals leave the other ordinaries in a shape: its top under a chief (when `chief`), its bottom the highest line any base or point pointed among `beside` always covers. */
+/**
+ * The frame peripherals leave the other ordinaries in a shape: its top under a chief (when `chief`), its bottom the highest line any base or
+ * point pointed among `beside` always covers, its `baseTop` that of a base alone.
+ */
 export function frameBeside(shape: FieldShape, chief: boolean, beside: readonly OrdinarySpec[]): OrdinaryFrame {
   const frame = chief ? underChiefFrame(shape) : defaultOrdinaryFrame(shape);
-  const tops = beside.flatMap((spec) => (FROM_BASE.includes(spec.type) ? ordinaryGeometry(spec, frame).envelope.inner.flat().map(([, y]) => y) : []));
-  return tops.length === 0 ? frame : { ...frame, bottom: Math.min(frame.bottom, ...tops) };
+  const topOf = (spec: OrdinarySpec): number => Math.min(...ordinaryGeometry(spec, frame).envelope.inner.flat().map(([, y]) => y));
+  const below = beside.filter((spec) => FROM_BASE.includes(spec.type));
+  const bases = below.filter((spec) => spec.type === 'base');
+  return { ...frame, bottom: Math.min(frame.bottom, ...below.map(topOf)), baseTop: Math.min(frame.baseTop, ...bases.map(topOf)) };
 }
 
 /** The frame the design's peripherals leave its other ordinaries in a shape. */
@@ -135,14 +142,26 @@ function wideSpan(shape: FieldShape): { top: number; bottom: number } {
 /**
  * Where an ordinary across the middle of the field is centred in a frame, and how much narrower than usual it is drawn: at the frame's fess
  * point and as wide as usual, but under a chief or above a base in the middle of the field they leave — from the chief (or where the shape is
- * first FREE_FIELD_WIDTH across) to the base (or where it narrows to less) — and FREE_FIELD_SCALE as wide. Every other ordinary, and every
- * ordinary in a frame with neither, keeps its place.
+ * first FREE_FIELD_WIDTH across) to the base (or where it narrows to less) — and FREE_FIELD_SCALE as wide. A fess is lowered further where its
+ * lines and trim would reach within UNDER_CHIEF_GAP of a chief (on the lozenge, whose free field is short), but not below where the shape
+ * narrows. Every other ordinary, and every ordinary in a frame with neither, keeps its place.
  */
 export function bandPlace(spec: OrdinarySpec, frame: OrdinaryFrame): { centre: Point; scale: number } {
   const { box } = shapeFrame(frame.shape);
-  if (!CENTRED_IN_FREE_FIELD.includes(familyOf(spec.type)) || (frame.top <= box.y0 && frame.bottom >= box.y1)) return { centre: frame.centre, scale: 1 };
-  const wide = wideSpan(frame.shape);
-  return { centre: { x: frame.centre.x, y: (Math.max(frame.top, wide.top) + Math.min(frame.bottom, wide.bottom)) / 2 }, scale: FREE_FIELD_SCALE };
+  if (!CENTRED_IN_FREE_FIELD.includes(familyOf(spec.type)) || (frame.top <= box.y0 && frame.baseTop >= box.y1)) return { centre: frame.centre, scale: 1 };
+  const wide = wideSpan(frame.shape), lowest = Math.min(frame.baseTop, wide.bottom);
+  const middle = (Math.max(frame.top, wide.top) + lowest) / 2;
+  const clear = spec.type === 'fess' && frame.top > box.y0 ? frame.top + UNDER_CHIEF_GAP + fessReach(spec, FREE_FIELD_SCALE) - bandShift(spec) : middle;
+  return { centre: { x: frame.centre.x, y: Math.max(middle, Math.min(clear, lowest)) }, scale: FREE_FIELD_SCALE };
+}
+
+/** How far above its middle line a fess drawn `scale` as wide as usual reaches: half its width, its lines, and its cotises or fimbriation. */
+function fessReach(spec: OrdinarySpec, scale: number): number {
+  const width = drawnWidth(spec);
+  const lines = Math.max(edgeReach(spec.lines.a, width), edgeReach(spec.lines.b, width));
+  const { cotised } = spec;
+  const trim = cotised ? 2 * cotised.count * cotiseWidth(spec) + edgeReach(cotised.line, cotiseWidth(spec)) : spec.fimbriated ? FIMBRIATION_WIDTH : 0;
+  return BAND_HALF * bandScale(spec) * scale + lines + trim;
 }
 
 /**

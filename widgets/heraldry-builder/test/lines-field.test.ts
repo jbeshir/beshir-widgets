@@ -5,12 +5,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  BUILDER_DIVISIONS, DRAWN_LINES, FIELD_SHAPES, LINES, LINE_LABEL, blazon, couldBeOneFess, counterchangedSlotParts, differences, divisionRegions,
+  BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, DRAWN_LINES, FIELD_SHAPES, LINES, LINE_LABEL, blazon, couldBeOneFess, counterchangedSlotParts, differences, divisionRegions,
   explainDifferences, featureMiddle, fieldSide, gloss, inFirstPart, lineAllowed, partIndexAt, pathPolygon, pathRings, pointInPolygon, readability,
   resolve, reversedRun, edgePoints, edgeCommands, partitionContours, periodStarts, visibleSpan, LINE_PROFILE, shapeFrame, signature, structuralIssues, tinctureIssues, validate, variationRegions,
   type ComplexLine, type Design, type DividedField, type EdgeRun, type FieldShape, type Line, type VariedField,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
+import { rotatesIn } from './rotation';
 
 type Pt = [number, number];
 const chg = (id: string, paint: string, extra: object = {}) => group(charge(id), paint, extra);
@@ -57,8 +58,36 @@ function checkTiling(regions: readonly string[], partAt: (x: number, y: number) 
 
 const plainOf = (l: Line) => ({ a: l, b: l });
 
+/** Where two edges of a ring that don't share a corner cross (edges binned by a coarse grid, so a ring of thousands of points stays cheap). */
+function selfCrossings(ring: readonly Pt[]): Pt[] {
+  const n = ring.length, cell = 4, bins = new Map<string, number[]>();
+  for (let i = 0; i < n; i++) {
+    const [a, b] = [ring[i], ring[(i + 1) % n]];
+    for (let gx = Math.floor(Math.min(a[0], b[0]) / cell); gx <= Math.floor(Math.max(a[0], b[0]) / cell); gx++) {
+      for (let gy = Math.floor(Math.min(a[1], b[1]) / cell); gy <= Math.floor(Math.max(a[1], b[1]) / cell); gy++) {
+        const key = `${gx},${gy}`;
+        bins.set(key, [...(bins.get(key) ?? []), i]);
+      }
+    }
+  }
+  const seen = new Set<string>(), out: Pt[] = [];
+  for (const ids of bins.values()) for (let p = 0; p < ids.length; p++) for (let q = p + 1; q < ids.length; q++) {
+    const [i, j] = ids[p] < ids[q] ? [ids[p], ids[q]] : [ids[q], ids[p]];
+    if (j - i <= 1 || (i === 0 && j === n - 1) || seen.has(`${i}:${j}`)) continue;
+    seen.add(`${i}:${j}`);
+    const [[px, py], [qx, qy]] = [ring[i], ring[(i + 1) % n]], [[rx, ry], [sx, sy]] = [ring[j], ring[(j + 1) % n]];
+    const d = (qx - px) * (sy - ry) - (qy - py) * (sx - rx);
+    if (Math.abs(d) < 1e-12) continue;
+    const t = ((rx - px) * (sy - ry) - (ry - py) * (sx - rx)) / d, u = ((rx - px) * (qy - py) - (ry - py) * (qx - px)) / d;
+    if (t > 1e-6 && t < 1 - 1e-6 && u > 1e-6 && u < 1 - 1e-6) out.push([px + t * (qx - px), py + t * (qy - py)]);
+  }
+  return out;
+}
+
 describe('drawing a line on the field', () => {
   const divisionCases = BUILDER_DIVISIONS.flatMap((division) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'division', division }, l)).map((line) => ({ division, line })));
+  const moreCases = MORE_DIVISIONS.flatMap((division) => (division === 'gyronny' ? GYRONNY_PIECES : [null]).flatMap((pieces) => DRAWN_LINES
+    .filter((l) => lineAllowed({ k: 'division', division }, l)).map((line) => ({ division, line, pieces }))));
   const stripeCases = STRIPES.flatMap((variation) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'variation', variation }, l)).map((line, i) => ({ variation, line, pieces: i % 2 === 0 ? 6 : 8 })));
 
   it('lays every allowed line on every phase-B division and on the striped variations', () => {
@@ -73,6 +102,20 @@ describe('drawing a line on the field', () => {
       const wrong = divisionCases.filter((_, i) => shape === 'heater' || i % 3 === s % 3).flatMap(({ division, line }) => {
         const field: DividedField = { k: 'divided', division, lines: plainOf(line), pieces: null, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
         return checkTiling(divisionRegions(division, field.lines, null, shape), (x, y) => partIndexAt(field, shape, x, y), points).map((w) => `${division} ${line} ${w}`);
+      });
+      expect(wrong).toEqual([]);
+    });
+
+    // Where lines meet (per chevron inverted's limbs, gyronny's rays, per pall's arms) their features keep clear of each other (review K-4,
+    // K-5): no region's outline crosses itself (a periodic line's), and the regions tile the shape on a coarse grid.
+    it(`the regions of a lined phase-C division don't cross themselves where its lines meet, and tile the ${shape}`, () => {
+      const points = gridIn(shape, 8);
+      const wrong = moreCases.filter(({ division, line, pieces }) => shape === 'heater' || rotatesIn(`${shape}|${division}|${pieces}|${line}`, 1 / 4)).flatMap(({ division, line, pieces }) => {
+        const field: DividedField = { k: 'divided', division, lines: plainOf(line), pieces, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }, { k: 'tincture', t: 'azure' }] };
+        const regions = divisionRegions(division, field.lines, pieces, shape);
+        // a single bow (enarched, ployé) runs from end to end: on the lozenge an enarched per chevron inverted's two bows still cross at the apex (deferred)
+        const crossings = LINE_PROFILE[line as ComplexLine].kind === 'single' ? [] : regions.flatMap((r, i) => ringsOf(r).flatMap((ring) => selfCrossings(ring)).map(([x, y]) => `region ${i} crosses itself at (${x.toFixed(1)}, ${y.toFixed(1)})`));
+        return [...crossings, ...checkTiling(regions, (x, y) => partIndexAt(field, shape, x, y), points)].map((w) => `${division} ${pieces ?? ''} ${line} ${w}`);
       });
       expect(wrong).toEqual([]);
     });

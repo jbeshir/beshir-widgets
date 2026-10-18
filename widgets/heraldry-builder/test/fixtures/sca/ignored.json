@@ -34758,7 +34758,7 @@
       "regid:142886": ["charge-plant:shamrock", "charge-symbol:triskelion"],
       "regid:142914": ["charge-celestial:thunderbolt", "charge-plant:thistle", "multiple-groups:charges"]
     }},
-    {"category": "posture", "description": "a posture or attitude the widget lacks, or one its charge can't take (guardant, combattant, couchant…)", "singleGap": 1010, "records": {
+    {"category": "posture", "description": "a posture or attitude the widget lacks, or one its charge can't take (guardant, combattant, couchant…)", "singleGap": 1009, "records": {
       "regid:40": ["charge-bird:cock", "charge-human:lady-head", "posture:addorsed", "proper"],
       "regid:43": ["posture:combattant"],
       "regid:52": ["charge-bird:hawk", "charge-household:tankard", "multiple-groups:charges", "orientation:reversed", "posture:contourny"],
@@ -38078,7 +38078,7 @@
       "regid:89791": ["arrangement:in-chief", "posture:contourny", "posture:regardant", "posture:springing"],
       "regid:89797": ["charge-bird:heron", "posture:contourny"],
       "regid:89810": ["charge-instrument:harp", "posture:displayed", "posture:striking"],
-      "regid:89815": ["posture:couchant"],
+      "regid:89815": ["multiple-groups:tertiary-on-voided", "posture:couchant"],
       "regid:89817": ["multiple-groups:charges", "orientation:inverted", "posture:respectant", "posture:rising"],
       "regid:89834": ["charge-bird:dove", "ordinary:multiple", "orientation:bendwise", "posture:volant", "proper"],
       "regid:89858": ["charge-bird:raven", "charge-tool:mallet", "multiple-groups:charges", "orientation:palewise", "posture:addorsed", "posture:volant"],
@@ -58654,14 +58654,13 @@
       "regid:131320": ["fieldless:couped-ordinary"],
       "regid:131728": ["fieldless:couped-ordinary", "fieldless:overall"]
     }},
-    {"category": "widget-structure-rule", "description": "the matched design breaks a widget structure rule that SENA does not have (a count, placement or arrangement it forbids)", "singleGap": 32, "records": {
+    {"category": "widget-structure-rule", "description": "the matched design breaks a widget structure rule that SENA does not have (a count, placement or arrangement it forbids)", "singleGap": 31, "records": {
       "regid:5022": ["widget-structure-rule:in-bend-sinister"],
       "regid:6326": ["widget-structure-rule:field"],
       "regid:11277": ["widget-structure-rule:crossed"],
       "regid:16369": ["widget-structure-rule:plain-field"],
       "regid:21859": ["widget-structure-rule:around-5"],
       "regid:23854": ["widget-structure-rule:design"],
-      "regid:24574": ["widget-structure-rule:design"],
       "regid:28883": ["widget-structure-rule:in-chief"],
       "regid:30779": ["widget-structure-rule:design"],
       "regid:34827": ["widget-structure-rule:design"],

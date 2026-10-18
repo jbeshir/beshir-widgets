@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, isCountedVariation, postureTerm, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, DRAWN_LINES, LINE_SPELLINGS, LINE_WORD, DIVISIONS, DIVISION_NAME, lineAllowed, isCountedVariation, postureTerm, type Line, type PeripheralJoiner } from '../../src/lib/heraldry';
 
 export interface NormalisationRule {
   id: string;
@@ -40,6 +40,16 @@ const BEND = '\\b(?:(?:a|two|three|four) bend(?:lets)?|a baton)(?! sinister\\b)\
 const BEND_SINISTER = '\\b(?:(?:a|two|three|four) bend(?:lets)?|a baton) sinister\\b';
 
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
+/** The drawn bands and shapes, by name, the longest first, whose lines pass `test` (`lineAllowed` on the band or shape). */
+const ordinariesWhere = (test: (allowed: (line: Line) => boolean) => boolean) =>
+  alt(DRAWN_ORDINARIES.filter((type) => test((line) => lineAllowed({ k: 'ordinary', type, inverted: false }, line))).map((t) => ORDINARY_NAME[t]));
+/** Every division's and variation's name: "potenty" after one is its line, not the fur. */
+const DIVISION_NAMES = alt(DIVISIONS.map((d) => DIVISION_NAME[d]));
+const VARIATION_NAMES = alt(VARIATIONS.map((v) => VARIATION_NAME[v]));
+/** The bands and shapes a potenty line is drawn on: "potenty" after one is its line. */
+const POTENTY_HOSTS = ordinariesWhere((allowed) => allowed('potenty'));
+/** The bands and shapes on which "dancetty" is drawn as indented: they take indented, not dancetty (RULES §A.3; dancetty is a line of two-sided bands). */
+const DANCETTY_AS_INDENTED = ordinariesWhere((allowed) => !allowed('dancetty') && allowed('indented'));
 /** The diminutives the College never uses alone as the main band (RULES-C §C.2), by name, the longest first: what "a <name>" is the ordinary of. */
 const DIMINUTIVE_BY_NAME = new Map(THIN_ORDINARIES.map((t) => [ORDINARY_NAME[t], t]));
 const SINGLE_DIMINUTIVES = alt(DIMINUTIVE_BY_NAME.keys());
@@ -159,7 +169,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(ERMINES_FUR, 'counter-ermine')
       .replace(new RegExp(`\\b(${COLOUR}) ermined (${COLOUR})\\b`, 'g'), (m, a: string, b: string) => FOLDED_ERMINES[`${a} ${b}`] ?? m)
       .replace(new RegExp(`\\bvairy ${FUR_SPEC.vair.ground} and ${FUR_SPEC.vair.spots}\\b`, 'g'), 'vair')
-      .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )(?<!\\bper (?:pale|fess|bend sinister|bend|chevron) )(?<!\\b(?:fess|pale|bend sinister|bend|chevron|pile|chief|bordure) )(?<!\\b(?:quarterly|barry|paly|bendy|bendy sinister) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
+      .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )(?<!\\b(?:${DIVISION_NAMES}) )(?<!\\b(?:${POTENTY_HOSTS}) )(?<!\\b(?:${VARIATION_NAMES}) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
         const [x, y] = TINCTURES.indexOf(a as never) <= TINCTURES.indexOf(b as never) ? [a, b] : [b, a];
         return x === FUR_SPEC.potent.ground && y === FUR_SPEC.potent.spots ? 'potent' : `potenty ${x} and ${y}`;
       })
@@ -169,11 +179,11 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     // 3a2. Lines of partition the SCA spells in more than one way (`LINE_SPELLINGS`), and the equivalence of RULES §A.3: a division has one
     //      line, so "per pale dancetty" is "per pale indented" (dancetty is a line of two-sided bands; the College draws a division's as indented).
     id: 'line-synonyms',
-    description: 'undy → wavy, crenellated → embattled, nebulee → nebuly, ployee → ployé … (LINE_SPELLINGS); "per <division> dancetty", "quarterly (per pale|per fess) dancetty" and dancetty on a chief, bordure, base, canton, quarter, gyron, cross, saltire or pile → "… indented"; "a dance" → "a fess dancetty"; counter-embattled and "embattled on both edges" → "embattled counter-embattled".',
+    description: 'undy → wavy, crenellated → embattled, nebulee → nebuly, ployee → ployé … (LINE_SPELLINGS); "per <division> dancetty", "quarterly (per pale|per fess) dancetty" and dancetty on a band or shape that takes indented but not dancetty (a chief, bordure, base, canton, quarter, gyron, cross, saltire, pile, pall, orle, flaunches, gore …) → "… indented"; "a dance" → "a fess dancetty"; counter-embattled and "embattled on both edges" → "embattled counter-embattled".',
     apply: (s) => s
       .replace(/\b(a|an|on a) dance(?:tte?)?(?![\w-])/g, '$1 fess dancetty')
       .replace(LINE_SPELLING_WORD, (w) => LINE_WORD_OF.get(w)!)
-      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron(?: inverted| throughout)?|pall(?: inverted)?)|gyronny|tierced in (?:pale|fess)|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|base|canton|quarter|gyron|cross|saltire|pile)) dancetty\b/g, '$1 indented')
+      .replace(new RegExp(`\\b(${DIVISION_NAMES}|quarterly per (?:pale|fess)|(?:(?:a|an) )?(?:${DANCETTY_AS_INDENTED})) dancetty\\b`, 'g'), '$1 indented')
       .replace(/(?<![\w-])(?<!embattled )counter-?embattled\b/g, 'embattled counter-embattled')
       .replace(/\bembattled on both edges\b/g, 'embattled counter-embattled'),
   },

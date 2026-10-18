@@ -10,8 +10,9 @@ import { corePracticeProblem, ordinaryLineProblem, structuralIssues } from './st
 import { trimTinctureIssues } from './tincture-rule';
 import { TINCTURES, type Tincture } from './tinctures';
 import { DRAWN_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, THIN, THIN_ORDINARIES, familyOf, isDiminutive, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
-import { OUTLINES, outlineOf, outlinePaintOf, withOutline, withOutlinePaint, type Outline } from './outline';
+import { OUTLINES, cotiseLineFor, outlineOf, outlinePaintOf, withOutline, withOutlinePaint, type Outline } from './outline';
 import { modsClash } from './resolve';
+import { unsupportedIssues } from './support';
 import { LINED_VARIATIONS, type Division, type Variation } from './divisions';
 
 /** What an edge control edits: the background, the band, shape, top band or border at `path`, or the cotises of the band or shape at `path`. */
@@ -50,9 +51,8 @@ function withLinesAt(d: Design, target: EdgeTarget, lines: Lines): Design {
     const item = group.item;
     if (item.k !== 'ordinary') return d;
     if (target.k === 'cotises') return item.cotised ? canonical(replaceGroup(d, target.path, { ...group, item: { ...item, cotised: { ...item.cotised, line: lines.a } } })) : d;
-    // Cotises that followed the band's line follow it to the new one, plain when they can't carry it (triangular, rompu, bevilled are never a cotise's).
-    const followed = lineAllowed({ k: 'cotises', type: item.type }, lines.a) ? lines.a : 'plain';
-    const follow = item.cotised && item.cotised.line === item.lines.a ? { cotised: { ...item.cotised, line: followed } } : {};
+    // Cotises that followed the band's line follow it to the new one (`cotiseLineFor`).
+    const follow = item.cotised && item.cotised.line === cotiseLineFor(item.type, item.lines.a) ? { cotised: { ...item.cotised, line: cotiseLineFor(item.type, lines.a) } } : {};
     return canonical(replaceGroup(d, target.path, { ...group, item: { ...item, ...follow, lines: { ...lines } } }));
   }
   if (d.kind !== 'arms' || (d.field.k !== 'divided' && d.field.k !== 'variation')) return d;
@@ -182,14 +182,19 @@ function treatmentRuleProblem(d: Design, path: GroupPath): string | null {
   return structuralIssues(d).find((i) => i.code === 'structure' && i.rule === 'ordinary-treatment' && i.at.k === 'group' && samePath(i.at.path, path))?.message ?? null;
 }
 
-/** Why the band or shape can't have these treatments, or null: two that contradict each other, a line its new form can't take, or the rules of voiding and fimbriation (never what lies on it). */
+/** What lies on the band or shape at `path` that can't be drawn on it in `d` (charges on a voided one), or null. */
+function onItProblem(d: Design, path: GroupPath): string | null {
+  return unsupportedIssues(d).find((i) => i.at.k === 'group' && i.at.path.length > path.length && samePath(i.at.path.slice(0, path.length), path))?.message ?? null;
+}
+
+/** Why the band or shape can't have these treatments, or null: two that contradict each other, a line its new form can't take, the rules of voiding and fimbriation, or what lies on it. */
 function modsProblem(d: Design, path: GroupPath, mods: readonly OrdinaryMod[]): string | null {
   const item = drawnOrdinaryAt(d, path);
   if (!item) return null;
   const clash = modsClash(item.type, mods);
   if (clash) return clash;
   const next = withMods(d, path, mods);
-  return ordinaryLineProblem(groupAt(next, path)) ?? treatmentRuleProblem(next, path);
+  return ordinaryLineProblem(groupAt(next, path)) ?? treatmentRuleProblem(next, path) ?? onItProblem(next, path);
 }
 
 /** The pall and the pall inverted, which are one band or shape upside down or not: turning one over is a change of type, not a treatment. */

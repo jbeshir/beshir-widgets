@@ -9,7 +9,7 @@ export {
 } from './ordinaries';
 export {
   LINES, DRAWN_LINES, LINE_GROUP, LINE_PROFILE, LINE_WORD, LINE_SPELLINGS, isLine, isStraightLine, lineDiffers, edgeCount, lineAllowed, bareLines, fitPeriod, visibleSpan, edgeCommands, polylineEdgeCommands, edgePoints, periodStarts,
-  reversedRun, runAlong, fieldSide, featureMiddle, profileSwing, edgeNames, lineWords,
+  reversedRun, runAlong, fieldSide, featureMiddle, profileSwing, profileSides, edgeNames, lineWords,
   type Line, type ComplexLine, type LineGroup, type LineReading, type EdgeHost, type LineProfile, type ProfileStep, type EdgeRun, type LaidLine, type EdgeName,
 } from './lines';
 export {

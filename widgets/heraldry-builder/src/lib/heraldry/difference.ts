@@ -531,21 +531,24 @@ const isThroughoutPile = (g: Group): boolean =>
   && g.item.lines.a === g.item.lines.b && g.item.cotised === null && g.item.fimbriated === null && g.count === 1 && g.charged.length === 0 && g.paint.k === 'tincture';
 
 /**
- * A bare per chevron throughout field as "A, a pile inverted throughout B" (its second part, the pile, in the line), and a bare pile inverted
- * throughout on a plain field as the per chevron throughout field it makes ("Per chevron throughout A and B" is also read that way: SENA A5G1b;
- * Freydis Orkneyska 04/2006). Null for any design with other groups.
+ * A per chevron throughout field as "A, a pile inverted throughout B" (its second part, the pile, in the line), and a pile inverted throughout
+ * on a plain field as the per chevron throughout field it makes ("Per chevron throughout A and B" is also read that way: SENA A5G1b;
+ * Freydis Orkneyska 04/2006). Peripherals beside them stay (as in `asStripes`). Null for any design with another main or overall group.
  */
 function asThroughoutOther(d: Design): Design | null {
   if (d.kind !== 'arms') return null;
-  if (d.field.k === 'divided' && d.field.division === 'per-chevron-throughout' && d.groups.length === 0 && d.field.parts.every((p) => p.k === 'tincture')) {
+  const central = d.groups.filter((g) => g.role !== 'peripheral');
+  if (d.field.k === 'divided' && d.field.division === 'per-chevron-throughout' && central.length === 0 && d.field.parts.every((p) => p.k === 'tincture')) {
     const { lines, parts } = d.field;
     const pile: Item = { k: 'ordinary', type: 'pile', lines: { a: lines.a, b: lines.a }, mods: ['inverted', 'throughout'], cotised: null, fimbriated: null };
-    return canonical({ ...d, field: parts[0], groups: [{ role: 'primary', relation: null, item: pile, count: 1, arrangement: { k: 'single' }, position: null, paint: parts[1], charged: [] }] });
+    const group: Group = { role: 'primary', relation: null, item: pile, count: 1, arrangement: { k: 'single' }, position: null, paint: parts[1], charged: [] };
+    return canonical({ ...d, field: parts[0], groups: [group, ...d.groups] });
   }
-  const [g] = d.groups;
-  if (d.field.k !== 'tincture' || d.groups.length !== 1 || !isThroughoutPile(g) || g.item.k !== 'ordinary') return null;
+  const [g] = central;
+  if (d.field.k !== 'tincture' || central.length !== 1 || !isThroughoutPile(g) || g.item.k !== 'ordinary') return null;
   const line = g.item.lines.a;
-  return canonical({ ...d, field: { k: 'divided', division: 'per-chevron-throughout', lines: { a: line, b: line }, pieces: null, parts: [d.field, g.paint] }, groups: [] });
+  const field: Paint = { k: 'divided', division: 'per-chevron-throughout', lines: { a: line, b: line }, pieces: null, parts: [d.field, g.paint] };
+  return canonical({ ...d, field, groups: d.groups.filter((x) => x !== g) });
 }
 
 /**
@@ -672,19 +675,19 @@ export interface CandidateKey { partition: string | null; primary: string | null
 export const MIXED_PRIMARY = '*';
 
 /**
- * The primary of a design that conflict also reads with another partition and primary (`asStripes`: three bars are barry, with no primary):
- * it may conflict with entries of any primary, or none, and (its partition null) of any partition.
+ * The primary of a design that conflict also reads with another partition and primary (`asStripes`: three bars are barry, with no primary;
+ * `asThroughoutOther`: a pile inverted throughout is per chevron throughout, and back): it may conflict with entries of any primary, or none,
+ * and (its partition null) of any partition. Such a design is checked against the whole registry (the key index is not used for it: a
+ * full scan per check), which is the price of one key per design; they are few (three or more diminutives, a per chevron throughout field).
  */
 export const ANY_PRIMARY = '**';
 
 export function candidateKey(raw: Design): CandidateKey {
   const d = liftStrewn(raw);
-  if (asStripes(d) || (d.kind === 'arms' && d.field.k === 'divided' && asThroughoutOther(d))) return { partition: null, primary: ANY_PRIMARY };
-  // a bare per chevron field is no different from a bare per chevron throughout one, which is read as a pile: it may conflict with any primary
-  if (d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'per-chevron' && d.groups.length === 0) return { partition: 'per-chevron', primary: ANY_PRIMARY };
+  if (asStripes(d) || asThroughoutOther(d)) return { partition: null, primary: ANY_PRIMARY };
   const primaries = primaryGroups(d);
   const primary = primaries.length === 0 ? null : primaries.length === 1 ? conflictKey(primaries[0].group.item) : MIXED_PRIMARY;
-  return { partition: asThroughoutOther(d) ? null : partition(d), primary };
+  return { partition: partition(d), primary };
 }
 
 /**

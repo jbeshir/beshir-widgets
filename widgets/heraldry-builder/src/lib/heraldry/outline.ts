@@ -3,6 +3,8 @@
 // all the builder reaches, so the two never stand together here.
 
 import { canonical, groupAt, replaceGroup, type Design, type GroupPath, type Ordinary, type Paint } from './design';
+import { lineAllowed, type Line } from './lines';
+import type { OrdinaryType } from './ordinaries';
 
 export const OUTLINES = ['none', 'fimbriated', 'cotised', 'doubly-cotised', 'triply-cotised'] as const;
 export type Outline = (typeof OUTLINES)[number];
@@ -20,11 +22,14 @@ export function outlinePaintOf(item: Ordinary): Paint | null {
   return item.fimbriated ?? item.cotised?.paint ?? null;
 }
 
-/** The band or shape with this outline in this paint; cotises keep the line they had, else follow the band's own. */
+/** The line the cotises of this band or shape take when they follow its line: that line, plain where a cotise can't carry it (triangular, rompu, bevilled are never a cotise's). */
+export const cotiseLineFor = (type: OrdinaryType, line: Line): Line => (lineAllowed({ k: 'cotises', type }, line) ? line : 'plain');
+
+/** The band or shape with this outline in this paint; cotises keep the line they had, else follow the band's own (`cotiseLineFor`). */
 export function withOutline(item: Ordinary, outline: Outline, paint: Paint): Ordinary {
   if (outline === 'none') return { ...item, cotised: null, fimbriated: null };
   if (outline === 'fimbriated') return { ...item, cotised: null, fimbriated: paint };
-  return { ...item, fimbriated: null, cotised: { count: COTISE_COUNT[outline], paint, line: item.cotised?.line ?? item.lines.a } };
+  return { ...item, fimbriated: null, cotised: { count: COTISE_COUNT[outline], paint, line: item.cotised?.line ?? cotiseLineFor(item.type, item.lines.a) } };
 }
 
 /** The design with the outline of the band or shape at `path` in this paint (canonical). */

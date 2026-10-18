@@ -248,6 +248,8 @@ function placementGaps(d: Design, g: Group, host: Group | null): Found[] {
   }
   if (host.item.k === 'charge') return host.role === 'primary' && !ON_CHARGE_COUNTS.includes(g.count) ? [countGap(`on-charge-${g.count}`, 'host')] : [];
   if (!DRAWN_ORDINARIES.includes(host.item.type)) return [];
+  // Charges on a voided cross, saltire or pall would lie in its voiding, on the field: there is no layout along its border.
+  if (host.item.mods.includes('voided')) return [gap('multiple-groups', 'tertiary-on-voided', 'Charges on a voided band or shape')];
   const type = host.item.type;
   // A charged canton or quarter breaks SENA A6C1 (a structure issue); charges on any other shape beside the field's edges have no layout here.
   if (ORDINARY_KIND[type] !== 'central' && type !== 'chief' && type !== 'bordure') {
