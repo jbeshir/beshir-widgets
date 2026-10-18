@@ -10,7 +10,9 @@ import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-worker
 //  - library: every other test/*.test.ts (the pure heraldry library, store seam, export) needs no Cloudflare global, so it
 //    runs in plain Node with the default pool: files in parallel across forks. Files in a fork share module state (isolate:
 //    false), so the geometry and layout caches and the imports are paid once per fork, not once per file; the tests hold no
-//    state between files (each builds its own designs).
+//    state between files (each builds its own designs). The long sweeps (the goldens, geometry-fit's art and other shapes,
+//    lines, builder replays, prefilter pairs) check a seeded, rotating sample of their cases on each run (test/rotation.ts),
+//    so their time stays flat as art and attributes grow; SCA_FULL=1 runs them in full, `npm run golden:write` writes every key.
 //  - sca: the SCA armorial test reads the 21 MB Latin-1 O&A dump from disk, so it runs in plain Node as its own project.
 //    It runs the cheap per-record checks on every record and the expensive ones (builder replay, gap tagger on ignored
 //    records) on a seeded, rotating sample (test/sca/sample.ts), so its time stays flat as records start passing. `npm run

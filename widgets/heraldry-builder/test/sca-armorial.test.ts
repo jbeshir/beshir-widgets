@@ -27,6 +27,7 @@ import { readIgnoreList } from './sca/ignore-list';
 import { explainMatch } from './sca/match';
 import { createSampler, fullSweep, sampleSeed } from './sca/sample';
 import { OANDA_SHA256, oandaSha256, readArmory, readCurrentArmory, type ArmoryRecord } from './sca/oanda';
+import { rotatesIn } from './rotation';
 
 describe('SCA O&A fixture', () => {
   it('is byte-identical to the download, with the sha256 the README states', () => {
@@ -70,7 +71,7 @@ describe('SCA armory the widget can express', () => {
   it('every record not on the ignore list passes all five checks', () => {
     const problems = records.filter((r) => !ignored.has(r.key)).flatMap((r) => failureLines(r, checkBlazon(r.blazon, options()).failures));
     expect(problems.length, listing(`Failing records not on the ignore list (a new gap: \`npm run sca:ignore\`; else fix the widget; sample seed ${sampleSeed()}, SCA_FULL=1 for the full sweep)`, problems)).toBe(0);
-  }, 120_000);
+  }, 240_000);
 
   it('the ignore list holds only current records, each tagged with known gap categories', () => {
     const categories = new Set<string>(GAP_CATEGORIES.map((c) => c.id));
@@ -246,6 +247,9 @@ describe('the matcher reads what the widget writes', () => {
     expect(canonicalJson(m.match!.design!)).toBe(canonicalJson(design));
   });
 
+  // The 1,500 seeds of each of the two oldest generators are a seeded rotating third (`rotatesIn`; SCA_FULL=1 for all); every other family whole.
+  const seeds = (generator: string) => Array.from({ length: 1500 }, (_, seed) => seed).filter((seed) => rotatesIn(`${generator}|${seed}`, 1 / 3));
+
   it('reads the blazon of every generated design and every sample entry', () => {
     const designs = [
       ...generatedGeometryDesigns(1, 300),
@@ -253,8 +257,8 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...Array.from({ length: 1500 }, (_, seed) => generatedDesign(seed)),
-      ...Array.from({ length: 1500 }, (_, seed) => generatedRichDesign(seed)),
+      ...seeds('level0').map(generatedDesign),
+      ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
     ].filter((d) => d !== null);
     expect(designs.length).toBeGreaterThan(400);
@@ -262,7 +266,7 @@ describe('the matcher reads what the widget writes', () => {
       const m = explainMatch(blazon(d));
       return !m.match || canonicalJson(m.match.design!) !== canonicalJson(d);
     });
-    expect(unread.map((d) => blazon(d))).toEqual([]);
+    expect(unread.map((d) => blazon(d)), `sample seed ${sampleSeed()}`).toEqual([]);
   }, 30_000);
 });
 

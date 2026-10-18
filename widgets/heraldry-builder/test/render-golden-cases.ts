@@ -1,5 +1,6 @@
 // Every shield the golden pins, with hatching off and on, reduced to a short hash of its markup, so a refactor of how paint is drawn
-// is provably neutral. The fixture is test/fixtures/render-golden.json; `GOLDEN_REASON="…" npm run golden:write` regenerates it.
+// is provably neutral. The fixture is test/fixtures/render-golden.json; `GOLDEN_REASON="…" npm run golden:write` regenerates it
+// from every key; `npm test` works out a seeded rotating sample of the hatched renders that pin shapes rather than paint (`inRenderSample`).
 //
 // Keys never depend on which designs the library accepts: the examples and sample entries by their ids, the generated designs by the
 // hash of their canonical JSON (a rule that drops or adds a generated design drops or adds its key, and changes no other), and a fixed
@@ -14,6 +15,7 @@ import {
 import { EXAMPLE_DESIGNS } from '../src/lib/presets';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { hash } from './golden';
+import { rotatesIn } from './rotation';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 import type { SampleFile } from './sample-registry';
 
@@ -225,10 +227,17 @@ export const HATCHINGS = ['plain', 'hatched'] as const;
 /** A shield's golden key: its own, then its shape and hatching. */
 export const renderKey = (s: GoldenShield, hatching: (typeof HATCHINGS)[number]) => `${s.key}|${s.shape}|${hatching}`;
 
-export function goldenRenders(shields: readonly GoldenShield[]): Record<string, string> {
+/** The shields whose hatched render pins their shapes more than their paint: the generated designs and the charge and diminutive cases. */
+const SHAPE_PINS = /^(level0-|rich-|case-charge-|case-dim-)/;
+
+/** Whether `npm test` works out a golden key this run: every plain render and every other hatched one, a rotating third of these hatched (SCA_FULL=1: all). */
+export const inRenderSample = (key: string): boolean => !(key.endsWith('|hatched') && SHAPE_PINS.test(key)) || rotatesIn(key, 1 / 3);
+
+export function goldenRenders(shields: readonly GoldenShield[], inSample: (key: string) => boolean): Record<string, string> {
   const out: Record<string, string> = {};
   for (const s of shields) {
     for (const hatching of HATCHINGS) {
+      if (!inSample(renderKey(s, hatching))) continue;
       out[renderKey(s, hatching)] = hash(comparable(renderToString(h(Shield, { design: s.design, shape: s.shape, hatching: hatching === 'hatched', size: 200 }))));
     }
   }

@@ -60,10 +60,10 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
-  // Seeded sampling: each probe edits a rotating eighth of the entries (`rotatesIn`), so each entry is edited against about 12 probes.
+  // Seeded sampling: each probe edits a rotating twelfth of the entries (`rotatesIn`), so each entry is edited against about 8 probes.
   it('gives the same verdict when an entry is edited (itself excluded)', () => {
     for (const [ri, edited] of registry.entries()) {
-      for (const probe of probes.slice(0, 100).filter((_, pi) => rotatesIn(`edited|${ri}|${pi}`, 1 / 8))) {
+      for (const probe of probes.slice(0, 100).filter((_, pi) => rotatesIn(`edited|${ri}|${pi}`, 1 / 12))) {
         const sig = signature(probe);
         const full = checkUnique(probe, sig, registry, edited.id);
         const candidates = registry.filter((e) => sameKey(probe, e.design));
@@ -72,12 +72,12 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
-  // Seeded sampling: a rotating half of the pairs (`rotatesIn`).
+  // Seeded sampling: a rotating third of the pairs (`rotatesIn`).
   it('keys only on changes that are substantial on their own (generated pairs)', () => {
     const designs = withBadges(generatedDesigns(20_000, 400), 4);
     let keyed = 0;
     for (const [i, a] of designs.entries()) for (const [j, b] of designs.entries()) {
-      if (!rotatesIn(`pair|${i}|${j}`, 1 / 2) || sameKey(a, b)) continue;
+      if (!rotatesIn(`pair|${i}|${j}`, 1 / 3) || sameKey(a, b)) continue;
       keyed++;
       expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
     }

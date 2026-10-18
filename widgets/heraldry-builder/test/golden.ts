@@ -21,6 +21,13 @@ export function goldenDiff(golden: Golden, now: Golden): GoldenDiff {
   };
 }
 
+/**
+ * The entries of a golden that a sampled run works out (`inSample` of their key), so that a key the run skipped is not "gone": a
+ * sampled test diffs only these against what it drew.
+ */
+export const sampledGolden = (golden: Golden, inSample: (key: string) => boolean): Golden =>
+  Object.fromEntries(Object.entries(golden).filter(([key]) => inSample(key)));
+
 export const sameAsGolden = (diff: GoldenDiff): boolean => diff.changed.length + diff.gone.length + diff.added.length === 0;
 
 /** How many entries of each kind (the key up to its first "-" or "|") a list of keys has: "level0 12, case 3". */

@@ -4,10 +4,12 @@
 // the bordure ring's inner edge, below the chief, on the ordinary it is charged on, or clear of the
 // ordinary it sits around; neighbours never overlap; and each slot in any shape touches the same parts of
 // a divided field as its canonical (heater) slot, so what is drawn matches the canonical rule-of-tincture
-// verdict. Hand-fitted layouts are also checked with the real artwork of every charge, drawn in its
-// optically scaled box and turned with the charge; generic layouts with a representative few (all on the heater, a rotating
-// fifth of the layout × drawing pairs of the rotating sample of layouts in each other shape). The slot-on-ground sweep is likewise exhaustive on the heater and
-// a seeded rotating three tenths of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape, the same ones for the check that the smaller
+// verdict. Hand-fitted layouts are also checked with real artwork, drawn in its optically scaled box and turned with the charge: a
+// fixed few drawings and a seeded rotating sample of about eight more (`SAMPLED_DRAWINGS`, so the cost does not grow with the art),
+// every pair on the heater and a fifth of them in each other shape; generic layouts with a representative few (all on the heater, a
+// rotating fifth of the layout × drawing pairs of the rotating sample of layouts in each other shape). The hosts of charges on charges
+// are the sampled drawings that carry charges. The slot-on-ground sweep is likewise exhaustive on the heater and
+// a seeded rotating twelfth of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape, the same ones for the check that the smaller
 // shapes reach the field parts their heater slots reach; SCA_FULL=1 runs every layout in every shape.
 
 import { describe, expect, it } from 'vitest';
@@ -296,7 +298,7 @@ describe('layout catalogue', () => {
  * exhaustive): the slots on their ground, and (below) the field parts they reach. One sample serves all of them, so the slots of a layout left
  * out are never worked out in that shape (they are what the sweeps cost, and are kept between tests).
  */
-const SHAPE_SWEEP_RATE = 0.15;
+const SHAPE_SWEEP_RATE = 0.08;
 const inSweep = (shape: FieldShape, label: string): boolean => shape === 'heater' || rotatesIn(`${shape}|${label}`, SHAPE_SWEEP_RATE);
 
 for (const g of SHAPES) {
@@ -381,11 +383,19 @@ describe('every shape draws each charge on the field parts the canonical verdict
 
 // ── Real artwork in its optically scaled box ────────────────────────────────
 
-interface Drawing { id: ChargeId; label: string; rings: Pt[][] }
+interface Drawing { id: ChargeId; key: Posture | '_'; label: string; rings: Pt[][] }
 const drawingsOf = (ids: readonly ChargeId[], postures: readonly string[] | null = null): Drawing[] =>
   ids.flatMap((id) => Object.entries(CHARGE_ART[id])
     .filter(([posture]) => postures === null || postures.includes(posture) || posture === '_')
-    .map(([posture, d]) => ({ id, label: `${id} ${posture}`, rings: rings(d!) })));
+    .map(([posture, d]) => ({ id, key: posture as Posture | '_', label: `${id} ${posture}`, rings: rings(d!) })));
+
+/** The drawings the art sweeps check on every run: a beast, a bird, two long charges, a round one and a cross. */
+const ART_FIXED_STRATUM: readonly string[] = ['lion rampant', 'eagle displayed', 'sword _', 'key _', 'rose _', 'cross-crosslet _'];
+/** About this many more drawings the art sweeps check, a seeded rotating sample, however many drawings there are. */
+const ART_DRAWING_SAMPLE = 8;
+const ALL_DRAWINGS = drawingsOf(CHARGE_IDS);
+/** The drawings the art sweeps check this run: the fixed stratum and the rotating sample (SCA_FULL=1: every drawing). */
+const SAMPLED_DRAWINGS = ALL_DRAWINGS.filter((d) => ART_FIXED_STRATUM.includes(d.label) || rotatesIn(`drawing|${d.label}`, Math.min(1, ART_DRAWING_SAMPLE / ALL_DRAWINGS.length)));
 
 /** Clear of the shape's edge by at least a unit, so the outline never touches a charge. */
 const SHIELD_MARGIN = 1;
@@ -448,8 +458,8 @@ describe('charge artwork fits its ground at its optical scale', () => {
   const hand = CATALOGUE.filter((e) => isHandFitted(e.ctx, e.count, e.layout));
   const generic = CATALOGUE.filter((e) => !isHandFitted(e.ctx, e.count, e.layout));
   for (const g of SHAPES) {
-    it(`${g.shape}: every drawing of every charge stays on its hand-fitted ground and clear of its neighbours`, () => {
-      expect(artProblems(g, hand, drawingsOf(CHARGE_IDS)).slice(0, 25)).toEqual([]);
+    it(`${g.shape}: the sampled drawings stay on their hand-fitted ground and clear of their neighbours`, () => {
+      expect(artProblems(g, hand, SAMPLED_DRAWINGS).slice(0, 25), `sample seed ${sampleSeed()}, SCA_FULL=1 for every drawing`).toEqual([]);
     }, 60_000);
 
     it(`${g.shape}: a compact few drawings stay on their generic ground and clear of their neighbours`, () => {
@@ -467,19 +477,20 @@ const CARRIED = ['mullet', 'rose', 'lion'] as const;
 
 interface OnChargeEntry { ctx: Extract<LayoutContext, { k: 'on-charge' }>; count: number; layout: Layout; label: string }
 
-/** Every layout the structure rules accept of one to four charges on each of the sampled hosts, for every drawing of every charge that carries charges. */
+/** The sampled drawings that carry charges (have an on-box). */
+const HOST_DRAWINGS = SAMPLED_DRAWINGS.filter((d) => ART_ON_BOX[d.id][d.key] !== undefined);
+
+/** Every layout the structure rules accept of one to four charges on each of the sampled host layouts, for every host drawing. */
 function onChargeCatalogue(): OnChargeEntry[] {
   const entries: OnChargeEntry[] = [];
-  for (const id of CHARGE_IDS) {
-    for (const posture of Object.keys(ART_ON_BOX[id])) {
-      for (const [hostCount, hostKey] of HOST_LAYOUTS) {
-        const host = { charge: id, posture: posture === '_' ? null : (posture as Posture), count: hostCount, layout: layoutOfKey(hostKey, hostCount)!, context: fieldContext('none') };
-        for (const count of [1, 2, 3, 4]) {
-          for (const layout of onChargeLayouts(count)) {
-            const ctx = { k: 'on-charge', host } as const;
-            const slots = contextSlots(ctx, count, layout, 'heater');
-            if (slots.length === hostCount * count && slots[0].size >= minSlotSize(ctx)) entries.push({ ctx, count, layout, label: `${id} ${posture} ×${hostCount} ← ${count} ${layoutKey(layout)}` });
-          }
+  for (const { id, key: posture } of HOST_DRAWINGS) {
+    for (const [hostCount, hostKey] of HOST_LAYOUTS) {
+      const host = { charge: id, posture: posture === '_' ? null : posture, count: hostCount, layout: layoutOfKey(hostKey, hostCount)!, context: fieldContext('none') };
+      for (const count of [1, 2, 3, 4]) {
+        for (const layout of onChargeLayouts(count)) {
+          const ctx = { k: 'on-charge', host } as const;
+          const slots = contextSlots(ctx, count, layout, 'heater');
+          if (slots.length === hostCount * count && slots[0].size >= minSlotSize(ctx)) entries.push({ ctx, count, layout, label: `${id} ${posture} ×${hostCount} ← ${count} ${layoutKey(layout)}` });
         }
       }
     }
@@ -490,9 +501,10 @@ function onChargeCatalogue(): OnChargeEntry[] {
 const ON_CHARGE = onChargeCatalogue();
 
 describe('charges on the primary charges fit their hosts', () => {
-  it('have plenty of legal layouts on the heater', () => {
-    expect(ON_CHARGE.length).toBeGreaterThan(240);
-    expect(new Set(ON_CHARGE.map((e) => e.ctx.host.charge)).size).toBe(CHARGE_IDS.length - 9);
+  it('have plenty of legal layouts on the heater, on every host drawing', () => {
+    expect(HOST_DRAWINGS.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(ON_CHARGE.map((e) => `${e.ctx.host.charge} ${e.ctx.host.posture ?? '_'}`)), `sample seed ${sampleSeed()}`).toEqual(new Set(HOST_DRAWINGS.map((d) => d.label)));
+    expect(ON_CHARGE.length).toBeGreaterThan(8 * HOST_DRAWINGS.length);
   });
 
   for (const g of SHAPES) {

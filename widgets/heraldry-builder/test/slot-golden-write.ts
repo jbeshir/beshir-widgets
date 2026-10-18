@@ -7,7 +7,7 @@ import { describeSlots, goldenSlots, pinnedSlots } from './slot-golden-cases';
 
 it('writes the slot golden', { timeout: 60_000 }, () => {
   const file = new URL('./fixtures/slot-golden.json', import.meta.url);
-  const pinned = pinnedSlots();
+  const pinned = pinnedSlots(() => true);
   const now = goldenSlots(pinned);
   approveRewrite('slot golden', goldenDiff(existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {}, now), describeSlots(pinned));
   writeFileSync(file, `${JSON.stringify(now, null, 1)}\n`);
