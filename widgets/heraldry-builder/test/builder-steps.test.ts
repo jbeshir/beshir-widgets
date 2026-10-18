@@ -8,7 +8,7 @@ import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/B
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
 import { setCharge, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, type Design } from '../src/lib/heraldry';
+import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, CHARGES, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -18,7 +18,7 @@ const ids = (markup: string) => new Set([...markup.matchAll(/data-testid="([^"]+
 
 const field = (d: Design) => ids(renderToString(h(FieldStep, { ...fieldBase, design: d })));
 const ordinary = (d: Design) => ids(renderToString(h(OrdinaryStep, { ...base, design: d })));
-const picture = (d: Design) => ids(renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false })));
+const picture = (d: Design) => ids(renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null })));
 
 describe('the default flow keeps its test ids', () => {
   it('Background', () => {
@@ -49,20 +49,46 @@ describe('the default flow keeps its test ids', () => {
   });
 });
 
+describe('the picture picker', () => {
+  it('has a search box and the Popular tab first, then a tab per kind, on every screen', () => {
+    const got = picture(DEFAULT_DESIGN);
+    for (const id of ['charge-search', 'charge-tab-popular', ...CHARGE_CATEGORIES.map((c) => `charge-tab-${c}`)]) expect(got, id).toContain(id);
+    expect(got).not.toContain('charge-search-results');
+  });
+
+  it('opens on Popular with no picture or a popular one, else on the tab of the picture chosen', () => {
+    expect(picture(DEFAULT_DESIGN)).toContain('charge-mullet');
+    expect(picture(DEFAULT_DESIGN)).not.toContain('charge-cross-tau');
+    const tau = picture(setCharge(DEFAULT_DESIGN, 'picture', 'cross-tau'));
+    expect(tau).toContain('charge-cross-tau');
+    expect(tau).not.toContain('charge-lion');
+    expect(picture(setCharge(DEFAULT_DESIGN, 'picture', 'lion'))).toContain('charge-lion');
+  });
+
+  it('lists every picture once in the menu of a layer, grouped by kind', () => {
+    const band = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
+    const d = setCharge(setGroupTincture(band, picturePath(band)!, 'argent'), 'on-ordinary', 'mullet');
+    const html = renderToString(h(LayerStep, { ...base, design: d, place: 'on-ordinary', n: 4, onAdjust: noop }));
+    const menu = html.slice(html.indexOf('data-testid="on-ordinary-charge-select"')).split('</select>')[0];
+    const values = [...menu.matchAll(/<option[^>]*value="([^"]+)"/g)].map((m) => m[1]);
+    expect(values).toEqual(CHARGE_CATEGORIES.flatMap((c) => CHARGE_IDS.filter((id) => CHARGES[id].category === c)));
+  });
+});
+
 describe('controls that appear only when they apply', () => {
   it('holds counts above six behind More…, open when one is chosen', () => {
     const d = setCharge(DEFAULT_DESIGN, 'picture', 'mullet');
-    const closed = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false }));
+    const closed = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null }));
     expect(closed).toContain('data-testid="count-more"');
     expect(closed).toMatch(/<details[^>]*data-testid="count-more"(?![^>]*\sopen)/);
     expect(ids(closed)).toContain('count-12');
-    const open = renderToString(h(ChargesStep, { ...base, n: 3, design: setCount(d, picturePath(d)!, 8), onAdjust: noop, adjusted: null, compact: false }));
+    const open = renderToString(h(ChargesStep, { ...base, n: 3, design: setCount(d, picturePath(d)!, 8), onAdjust: noop, adjusted: null }));
     expect(open).toMatch(/<details[^>]*data-testid="count-more"[^>]*\sopen/);
   });
 
   it('hides More… when none of its counts is allowed, unless one is chosen', () => {
     const onBand = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
-    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: onBand, onAdjust: noop, adjusted: null, compact: false }));
+    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: onBand, onAdjust: noop, adjusted: null }));
     expect(ids(html)).toContain('count-6');
     expect(ids(html)).not.toContain('count-more');
     expect(ids(html)).not.toContain('count-12');
@@ -70,7 +96,7 @@ describe('controls that appear only when they apply', () => {
 
   it('says once that the greyed-out layouts have no room', () => {
     const d = setCount(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0], 8);
-    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false }));
+    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null }));
     expect(html.match(/Greyed-out layouts have no room for eight mullets\./g)).toHaveLength(1);
     expect(html).not.toContain("There isn't room");
   });
@@ -108,7 +134,7 @@ describe('controls that appear only when they apply', () => {
     // Pictures and the top band or border go together: the add buttons stay, and the picture step no longer warns.
     const pictured = setCharge(band, 'picture', 'lion');
     expect(renderToString(h(AddLayer, { design: pictured, onChange: noop, onAdded: noop }))).toContain('add-layer-bordure');
-    expect(renderToString(h(ChargesStep, { ...base, n: 3, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null, compact: false }))).not.toContain('peripheral-picture-note');
+    expect(renderToString(h(ChargesStep, { ...base, n: 3, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null }))).not.toContain('peripheral-picture-note');
   });
 
   it('numbers a card per layer, with its title, role and remove button; removing returns to the earlier design', () => {
@@ -283,7 +309,7 @@ describe('"More colours and patterns…"', () => {
     expect(disclosures(renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN })))).toEqual([{ testid: 'field-more', open: false }]);
     expect(disclosures(renderToString(h(FieldStep, { ...fieldBase, design: setDivision(DEFAULT_DESIGN, 'per-pale') })))).toEqual([{ testid: 'field-more', open: false }]);
     expect(disclosures(renderToString(h(OrdinaryStep, { ...base, design: lion })))).toEqual([{ testid: 'ordinary-tincture-more', open: false }]);
-    const step3 = renderToString(h(ChargesStep, { ...base, n: 3, design: lion, onAdjust: noop, adjusted: null, compact: false }));
+    const step3 = renderToString(h(ChargesStep, { ...base, n: 3, design: lion, onAdjust: noop, adjusted: null }));
     expect(disclosures(step3)).toEqual([{ testid: 'charge-tincture-more', open: false }]);
     // Nothing of a fur, a pattern, a scatter, brick, a split or natural colours is drawn until it is asked for.
     for (const html of [step3, renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN }))]) {
@@ -302,7 +328,7 @@ describe('"More colours and patterns…"', () => {
     // A lion has natural colours and can't be strewn.
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     const proper = setProper(lion, picturePath(lion)!);
-    const picture = renderToString(h(ChargesStep, { ...base, n: 3, design: proper, onAdjust: noop, adjusted: null, compact: false }));
+    const picture = renderToString(h(ChargesStep, { ...base, n: 3, design: proper, onAdjust: noop, adjusted: null }));
     expect([...picture.matchAll(/data-testid="charge-tincture-mode-([a-z]+)"/g)].map((m) => m[1])).toEqual(['split', 'fur', 'pattern', 'treatment', 'natural']);
     expect(picture).toMatch(/data-testid="charge-tincture-proper"[^>]*><button[^>]*aria-checked="true"/);
     // The background offers its own kinds: no split (that is the division tiles) and no natural colours.
