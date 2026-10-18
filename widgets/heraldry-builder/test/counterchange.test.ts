@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  BUILDER_DIVISIONS, MORE_DIVISIONS, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
+  BUILDER_DIVISIONS, MORE_DIVISIONS, partCount, TINCTURES, TINCTURE_CLASS, blazon, buildSearchText, counterchangeUnavailable, deriveTags, filtersToTags, gloss, matchesWords,
   normalise, queryWords, readability, renderLayers, signature, tinctureIssues, unsupportedIssues, type Division,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -32,7 +32,7 @@ describe('counterchanged and the rule of tincture', () => {
   });
 
   it('is legal on the divisions behind "More divisions" by the same test; a gyronny takes a single charge only', () => {
-    for (const division of MORE_DIVISIONS.filter((d) => d !== 'per-chevron-throughout')) {
+    for (const division of MORE_DIVISIONS.filter((d) => d !== 'per-chevron-throughout' && partCount(d) === 2)) {
       for (const [t1, t2] of [['or', 'azure'], ['gules', 'argent'], ['or', 'argent'], ['vert', 'sable']] as const) {
         const expectLegal = TINCTURE_CLASS[t1] !== TINCTURE_CLASS[t2];
         expect(tinctureIssues(mullets(div(division, t1, t2), 1)).length === 0, `${division} ${t1}/${t2}`).toBe(expectLegal);

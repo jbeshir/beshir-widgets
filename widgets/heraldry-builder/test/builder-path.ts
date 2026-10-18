@@ -8,7 +8,7 @@
 import {
   CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
   asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type EdgeSide, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
+  type ChargeId, type Choice, type EdgeSide, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
@@ -25,7 +25,7 @@ const EXTRA_PICTURES: readonly PicturesKey[] = ['co-primary', 'on-picture', 'aro
 export type BuilderAction =
   | { kind: 'badge' }
   | { kind: 'division'; division: Division }
-  | { kind: 'field-tincture'; part: 0 | 1; tincture: Tincture }
+  | { kind: 'field-tincture'; part: FieldPart; tincture: Tincture }
   | { kind: 'variation'; variation: Variation }
   | { kind: 'division-pieces'; pieces: number }
   | { kind: 'variation-pieces'; pieces: number }
@@ -72,7 +72,11 @@ type PaintWhere = 'ordinary' | Beside | At;
 type EdgeWhere = 'field' | 'ordinary' | 'cotises' | Beside;
 
 /** What a fur or treatment click is about: a part of the background (a plain background is its first part), or what a colour click is about. */
-type ColourWhere = PaintWhere | 'field-1' | 'field-2';
+type ColourWhere = PaintWhere | FieldWhere;
+type FieldWhere = 'field-1' | 'field-2' | 'field-3';
+/** The colour target of a part of the field. */
+const FIELD_WHERE: Record<FieldPart, FieldWhere> = { 0: 'field-1', 1: 'field-2', 2: 'field-3' };
+const partIndices = (n: number): FieldPart[] => ([0, 1, 2] as const).slice(0, n);
 
 const pathAt = (d: Design, at: At): GroupPath | null => (at === 'picture' ? picturePath(d) : at === 'on-ordinary' ? simpleParts(d).onOrdinary?.path ?? null : pathOfPlace(d, at));
 const peripheralAt = (d: Design, place: Beside): GroupPath | null => simpleParts(d).peripherals.find((p) => p.place === place)?.path ?? null;
@@ -92,7 +96,7 @@ const edgeTargetOf = (d: Design, where: EdgeWhere): EdgeTarget | null => {
 };
 
 const paintTargetOf = (d: Design, where: ColourWhere): PaintTarget | null => {
-  if (where === 'field-1' || where === 'field-2') return { k: 'field', part: where === 'field-1' ? 0 : 1 };
+  if (where === 'field-1' || where === 'field-2' || where === 'field-3') return { k: 'field', part: where === 'field-1' ? 0 : where === 'field-2' ? 1 : 2 };
   const path = paintPathOf(d, where);
   return path && { k: 'group', path };
 };
@@ -115,7 +119,7 @@ function actionReason(d: Design, a: BuilderAction): string | null {
     case 'badge': return null;
     case 'division': return DRAWN_DIVISIONS.includes(a.division) ? null : `${a.division} is not offered`;
     case 'field-tincture':
-      if (a.part === 1 && !(d.kind === 'arms' && d.field.k === 'divided')) return 'a plain field has no second tincture';
+      if (a.part > 0 && !(d.kind === 'arms' && d.field.k === 'divided' && a.part < d.field.parts.length)) return `the field has no part ${a.part + 1}`;
       return choiceReason(fieldTinctureChoices(d, a.part), a.tincture);
     case 'variation': return VARIATIONS.includes(a.variation) ? null : `${a.variation} is not offered`;
     case 'division-pieces': return d.kind === 'arms' && d.field.k === 'divided' && d.field.division === 'gyronny' && GYRONNY_PIECES.includes(a.pieces) ? null : `${a.pieces} wedges are not offered`;
@@ -325,18 +329,25 @@ function describeAction(a: BuilderAction): string {
 }
 
 /**
- * The field tincture clicks from the current divided field to `[a, b]`, never asking for two equal parts. A swap goes through a third
- * tincture, the first that `offered` (default: any) lets the first part take.
+ * The field tincture clicks from the current divided field's tinctures to the goal's, never asking for two equal parts: each pass sets the
+ * first part whose goal tincture no other part holds; when every part left waits on another (the parts swap round), the first of them
+ * goes through a tincture no part has, the first that `offered` (default: any) lets the first part take.
  */
-function dividedTinctureSteps([x, y]: [Tincture, Tincture], [a, b]: [Tincture, Tincture], offered: (tincture: Tincture) => boolean = () => true): BuilderAction[] {
-  const set = (part: 0 | 1, tincture: Tincture): BuilderAction => ({ kind: 'field-tincture', part, tincture });
-  if (x === a && y === b) return [];
-  if (a !== y) return [...(x === a ? [] : [set(0, a)]), ...(y === b ? [] : [set(1, b)])];
-  // The first part's new tincture is the second part's current one: move the second part first,
-  // through a third tincture when the parts simply swap.
-  if (b !== x) return [set(1, b), set(0, a)];
-  const z = TINCTURES.find((t) => t !== x && t !== y && offered(t)) ?? TINCTURES.find((t) => t !== x && t !== y)!;
-  return [set(0, z), set(1, b), set(0, a)];
+function dividedTinctureSteps(from: readonly Tincture[], goal: readonly Tincture[], offered: (tincture: Tincture) => boolean = () => true): Array<Extract<BuilderAction, { kind: 'field-tincture' }>> {
+  const now = [...from];
+  const steps: Array<Extract<BuilderAction, { kind: 'field-tincture' }>> = [];
+  const set = (part: FieldPart, tincture: Tincture) => {
+    steps.push({ kind: 'field-tincture', part, tincture });
+    now[part] = tincture;
+  };
+  for (let guard = 0; guard < 2 * goal.length + 2; guard++) {
+    const left = partIndices(goal.length).filter((i) => now[i] !== goal[i]);
+    if (left.length === 0) break;
+    const free = left.find((i) => !now.some((t, j) => j !== i && t === goal[i]));
+    if (free !== undefined) set(free, goal[free]);
+    else set(left[0], TINCTURES.find((t) => !now.includes(t) && offered(t)) ?? TINCTURES.find((t) => !now.includes(t))!);
+  }
+  return steps;
 }
 
 /** The count, placement and layout of a picture, as the layout controls see it. */
@@ -517,12 +528,12 @@ export function builderPath(goal: Design): BuilderPath {
     if (!asParty(now()) && !click({ kind: 'split', target })) return false;
     if (asParty(now())!.division !== goal.division && !click({ kind: 'party-division', target, division: goal.division })) return false;
     // One tincture click at a time: setting a part may move the other, so the next step is worked out from where it landed.
-    const want: [Tincture, Tincture] = [goal.parts[0].t, goal.parts[1].t];
+    const want = goal.parts.map((p) => p.t);
     for (let guard = 0; guard < 4; guard++) {
       const here = asParty(now())!;
-      const [next] = dividedTinctureSteps([here.parts[0].t, here.parts[1].t], want, (t) => !actionReason(d, { kind: 'party-tincture', target, part: 0, tincture: t }));
+      const [next] = dividedTinctureSteps(here.parts.map((p) => p.t), want, (t) => !actionReason(d, { kind: 'party-tincture', target, part: 0, tincture: t }));
       if (!next) return true;
-      if (next.kind !== 'field-tincture' || !click({ kind: 'party-tincture', target, part: next.part, tincture: next.tincture })) return false;
+      if (next.part === 2 || !click({ kind: 'party-tincture', target, part: next.part, tincture: next.tincture })) return false;
     }
     return !!problems.push(`the ${target} tinctures did not settle`) && false;
   };
@@ -534,37 +545,38 @@ export function builderPath(goal: Design): BuilderPath {
     if ((d.kind !== 'arms' || d.field.k !== 'divided' || d.field.division !== f.division) && !click({ kind: 'division', division: f.division })) return done();
     if (f.division === 'gyronny' && d.kind === 'arms' && d.field.k === 'divided' && d.field.pieces !== f.pieces && !click({ kind: 'division-pieces', pieces: f.pieces! })) return done();
     // A part strewn with a charge stands on a tincture: the tinctures are set first (the parts swap through a third), then the charges are strewn.
-    const [a, b] = f.parts.map(groundTincture);
-    if (a && b) {
-      const now = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts.map((p) => groundTincture(p) ?? a) as [Tincture, Tincture] : [a, b] as [Tincture, Tincture];
-      if (!click(...dividedTinctureSteps(now, [a, b]))) return done();
-      for (const i of [0, 1] as const) {
+    const grounds = f.parts.map(groundTincture);
+    const indices = partIndices(f.parts.length);
+    if (grounds.every((t): t is Tincture => t !== null)) {
+      const now = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts.map((p) => groundTincture(p) ?? grounds[0]) : grounds;
+      if (!click(...dividedTinctureSteps(now, grounds))) return done();
+      for (const i of indices) {
         const strewn = asSemy(f.parts[i]);
-        if (strewn && !strewnTo(i === 0 ? 'field-1' : 'field-2', strewn)) return done();
+        if (strewn && !strewnTo(FIELD_WHERE[i], strewn)) return done();
       }
     } else if (f.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
       // A part can be set when the other part leaves it room: each pass sets the parts it can, and the next the ones it couldn't.
-      const partNow = (i: 0 | 1) => (d.kind === 'arms' && d.field.k === 'divided' ? JSON.stringify(d.field.parts[i]) : '');
-      for (let pass = 0; pass < 3 && ([0, 1] as const).some((i) => partNow(i) !== JSON.stringify(f.parts[i])); pass++) {
-        for (const i of [0, 1] as const) {
+      const partNow = (i: FieldPart) => (d.kind === 'arms' && d.field.k === 'divided' ? JSON.stringify(d.field.parts[i]) : '');
+      for (let pass = 0; pass < 3 && indices.some((i) => partNow(i) !== JSON.stringify(f.parts[i])); pass++) {
+        for (const i of indices) {
           const goalPart = f.parts[i];
           if (partNow(i) === JSON.stringify(goalPart)) continue;
           if (goalPart.k === 'tincture') {
             const set: BuilderAction = { kind: 'field-tincture', part: i, tincture: goalPart.t };
             if (!actionReason(d, set)) click(set);
-          } else if (goalPart.k === 'fur' && !actionReason(d, { kind: 'fur', target: i === 0 ? 'field-1' : 'field-2', option: furKindOf(goalPart) })) {
-            if (!attempt(() => furTo(i === 0 ? 'field-1' : 'field-2', goalPart))) continue;
+          } else if (goalPart.k === 'fur' && !actionReason(d, { kind: 'fur', target: FIELD_WHERE[i], option: furKindOf(goalPart) })) {
+            if (!attempt(() => furTo(FIELD_WHERE[i], goalPart))) continue;
           } else if (goalPart.k === 'semy') {
             const strewn = asSemy(goalPart);
-            if (strewn) attempt(() => strewnTo(i === 0 ? 'field-1' : 'field-2', strewn));
+            if (strewn) attempt(() => strewnTo(FIELD_WHERE[i], strewn));
           } else if (goalPart.k === 'treated' && goalPart.ground.k === 'tincture') {
             const ground = goalPart.ground;
             // The other part may hold the tincture for now: try again after it has moved.
-            attempt(() => treatedTo(i === 0 ? 'field-1' : 'field-2', { ...goalPart, ground }));
+            attempt(() => treatedTo(FIELD_WHERE[i], { ...goalPart, ground }));
           }
         }
       }
-      if (([0, 1] as const).some((i) => partNow(i) !== JSON.stringify(f.parts[i]))) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
+      if (indices.some((i) => partNow(i) !== JSON.stringify(f.parts[i]))) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
     } else return { actions, problems: ['a part of the field is neither a tincture, a fur, a treated tincture nor a semy'], design: d };
   } else if (f.k === 'variation') {
     const want = asVariation(f);

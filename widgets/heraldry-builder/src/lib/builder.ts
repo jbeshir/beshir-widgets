@@ -9,7 +9,7 @@ import {
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
-  type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
+  partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
@@ -33,11 +33,15 @@ function withField(d: Design, field: Paint): Design {
   return { v: 2, kind: 'arms', field, groups: d.groups };
 }
 
-/** A second tincture for a newly divided field: contrasting class, sharing none of the first's tinctures. */
-function partner(first: Paint): Paint {
-  if (first.k === 'tincture') return tincturePaint(!isMetal(first.t) ? 'or' : first.t === 'or' ? 'azure' : 'gules');
+/** A tincture to lie next to `first` in a newly divided field: contrasting class, sharing none of its tinctures nor those of the parts `besides`. */
+function partner(first: Paint, besides: readonly Paint[] = []): Paint {
+  const taken = besides.flatMap(bodyTinctures);
+  if (first.k === 'tincture') {
+    const preferred = !isMetal(first.t) ? 'or' : first.t === 'or' ? 'azure' : 'gules';
+    if (!taken.includes(preferred)) return tincturePaint(preferred);
+  }
   const { cls, bases } = surfaceOf(first, null);
-  return tincturePaint((cls === 'metal' ? COLOURS : METALS).find((t) => !bases.includes(t)) ?? 'gules');
+  return tincturePaint((cls === 'metal' ? COLOURS : METALS).find((t) => !bases.includes(t) && !taken.includes(t)) ?? 'gules');
 }
 
 /** The background as separate paints to build another from: a variation's two tinctures, or the parts of the field. */
@@ -77,13 +81,22 @@ export function setPlainField(d: Design): Design {
   return refitLayers(canonical(withField(d, backgroundParts(d)[0])));
 }
 
+/**
+ * The background divided this way, its tinctures kept where they still make a legal field: a second (and a third) part kept when it shares
+ * no tincture with the parts before it, else a partner that contrasts with the part before it (so the middle of a tierced field contrasts
+ * with both outer parts, and the first of a per pall with the other two: SENA A3B3b).
+ */
 export function setDivision(arms: Design, division: Division): Design {
   const d = arms.kind === 'badge' ? armsOf(arms) : arms;
-  const [first, kept] = backgroundParts(d);
-  const second = kept && !bodyTinctures(kept).some((t) => bodyTinctures(first).includes(t)) ? kept : partner(first);
+  const [first, kept, keptThird] = backgroundParts(d);
+  const apart = (p: Paint, others: readonly Paint[]) => !bodyTinctures(p).some((t) => others.flatMap(bodyTinctures).includes(t));
+  const second = kept && apart(kept, [first]) ? kept : partner(first);
   const was = d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation') ? d.field : null;
   const lines = was ? keptLines(was.lines, division, 'division') : { ...PLAIN_LINES };
-  return refitLayers(canonical(withField(d, { k: 'divided', division, lines, pieces: null, parts: [first, second] })));
+  const divided = (parts: Paint[]) => refitLayers(canonical(withField(d, { k: 'divided', division, lines, pieces: null, parts })));
+  if (partCount(division) === 2) return divided([first, second]);
+  const kept3 = keptThird && apart(keptThird, [first, second]) ? divided([first, second, keptThird]) : null;
+  return kept3 && !structuralIssues(kept3).some((i) => i.at.k === 'field') ? kept3 : divided([first, second, partner(second, [first])]);
 }
 
 /** The gyronny background cut into this many wedges; unchanged when the background is not a gyronny. */
@@ -134,7 +147,7 @@ export function setVariationTincture(d: Design, part: 0 | 1, t: Tincture): Desig
   return canonical(withField(d, { ...variationPaint(varied.variation, part === 0 ? mine : theirs, part === 0 ? theirs : mine, varied.pieces), lines: varied.lines }));
 }
 
-export function setFieldTincture(d: Design, part: 0 | 1, t: Tincture): Design {
+export function setFieldTincture(d: Design, part: FieldPart, t: Tincture): Design {
   if (d.kind !== 'arms') return d;
   const f = d.field;
   if (f.k !== 'divided') return canonical(withField(d, tincturePaint(t)));

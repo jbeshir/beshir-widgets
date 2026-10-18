@@ -190,6 +190,20 @@
       "expect": {"selector":"[data-testid=blazon]:has-text(\"Gyronny of six\")"}
     },
     {
+      "label": "per-pall-three-colours",
+      "steps": [
+        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
+        {"click":"[data-testid=field-shape-more] summary"},
+        {"waitFor":"[data-testid=division-per-pall]"},
+        {"click":"[data-testid=division-per-pall]"},
+        {"waitFor":"#swatch-field3-argent"},
+        {"click":"#swatch-field3-argent"},
+        {"waitFor":"[data-testid=blazon]:has-text(\"Per pall azure, Or and argent\")"},
+        {"eval":"window.scrollTo(0, 0)"}
+      ],
+      "expect": {"selector":"[data-testid=blazon]:has-text(\"Per pall azure, Or and argent\")"}
+    },
+    {
       "label": "per-chevron-inverted-embattled",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

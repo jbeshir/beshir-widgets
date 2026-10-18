@@ -455,6 +455,8 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: n
     switch (division) {
       case 'per-pale': return { layout: line('fess'), rule: '2-two-part' };
       case 'per-fess': case 'per-chevron': case 'per-chevron-inverted': return { layout: line('pale'), rule: '2-two-part' };
+      // two on a per pall stand in fess (GoT Table 7)
+      case 'per-pall': case 'per-pall-inverted': return { layout: line('fess'), rule: '2-two-part' };
       case 'per-bend': return { layout: line('bend-sinister'), rule: '2-two-part' };
       case 'per-bend-sinister': return { layout: line('bend'), rule: '2-two-part' };
       case 'quarterly': case 'per-saltire': {
@@ -468,7 +470,15 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: n
       default: return null;
     }
   }
-  if (count === 3) return { layout: rows([2, 1]), rule: '3' };
+  // three on a field divided in three stand one in each part (GoT Table 7: per pall)
+  if (count === 3) {
+    switch (division) {
+      case 'per-pall': return { layout: rows([1, 2]), rule: '3' };
+      case 'tierced-per-pale': return { layout: line('fess'), rule: '3' };
+      case 'tierced-per-fess': return { layout: line('pale'), rule: '3' };
+      default: return { layout: rows([2, 1]), rule: '3' };
+    }
+  }
   if (count === 4) {
     if (division === 'quarterly') return { layout: rows([2, 2]), rule: '4' };
     return division === 'per-saltire' ? { layout: pattern('cross'), rule: '4' } : null;

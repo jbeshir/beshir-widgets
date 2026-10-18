@@ -8,7 +8,7 @@ export type Division = (typeof DIVISIONS)[number];
 /** The divisions the builder offers on the field: the first seven. */
 export const BUILDER_DIVISIONS: readonly Division[] = DIVISIONS.slice(0, 7);
 /** Divisions drawn but reached only behind disclosure ("More divisions and edges…"). */
-export const MORE_DIVISIONS: readonly Division[] = ['per-chevron-inverted', 'per-chevron-throughout', 'gyronny'];
+export const MORE_DIVISIONS: readonly Division[] = ['per-chevron-inverted', 'per-chevron-throughout', 'gyronny', 'per-pall', 'per-pall-inverted', 'tierced-per-pale', 'tierced-per-fess'];
 /** Every division the library draws. */
 export const DRAWN_DIVISIONS: readonly Division[] = [...BUILDER_DIVISIONS, ...MORE_DIVISIONS];
 
@@ -57,16 +57,16 @@ export const DRAWN_TREATMENTS = ['masoned', 'scaly', 'papellony'] as const satis
 export type DrawnTreatment = (typeof DRAWN_TREATMENTS)[number];
 export const isDrawnTreatment = (t: Treatment): t is DrawnTreatment => (DRAWN_TREATMENTS as readonly Treatment[]).includes(t);
 
-/** Blazon words, lower case. */
+/** Blazon words, lower case: the tierced divisions are blazoned "tierced in pale" and "tierced in fess" (RULES-C §G.2). */
 export const DIVISION_NAME: Record<Division, string> = {
   'per-pale': 'per pale', 'per-fess': 'per fess', 'per-bend': 'per bend', 'per-bend-sinister': 'per bend sinister',
   'per-saltire': 'per saltire', 'per-chevron': 'per chevron', quarterly: 'quarterly',
   'per-chevron-inverted': 'per chevron inverted', 'per-pall': 'per pall', 'per-pall-inverted': 'per pall inverted',
-  'tierced-per-pale': 'tierced per pale', 'tierced-per-fess': 'tierced per fess', gyronny: 'gyronny',
+  'tierced-per-pale': 'tierced in pale', 'tierced-per-fess': 'tierced in fess', gyronny: 'gyronny',
   'per-chevron-throughout': 'per chevron throughout',
 };
 
-/** Labels for the parts of a divided paint, as you look at it. Quarterly and per saltire name their two alternating parts. */
+/** Labels for the parts of a divided paint, as you look at it, in blazon order. Quarterly and per saltire name their two alternating parts. */
 export const DIVISION_PART_LABEL: Record<Division, readonly string[]> = {
   'per-pale': ['Left (dexter)', 'Right (sinister)'],
   'per-fess': ['Top (chief)', 'Bottom (base)'],
@@ -76,8 +76,8 @@ export const DIVISION_PART_LABEL: Record<Division, readonly string[]> = {
   'per-chevron': ['Above the chevron line', 'Below'],
   quarterly: ['1st and 4th quarters (top-left, bottom-right)', '2nd and 3rd quarters'],
   'per-chevron-inverted': ['Above the inverted chevron line', 'Below'],
-  'per-pall': ['Top left', 'Top right', 'Bottom'],
-  'per-pall-inverted': ['Bottom left', 'Bottom right', 'Top'],
+  'per-pall': ['Top', 'Left (dexter)', 'Right (sinister)'],
+  'per-pall-inverted': ['Left (dexter)', 'Right (sinister)', 'Bottom'],
   'tierced-per-pale': ['Left', 'Middle', 'Right'],
   'tierced-per-fess': ['Top', 'Middle', 'Bottom'],
   gyronny: ['First part (the gyron above the middle line, on the left)', 'Second part'],
@@ -99,4 +99,10 @@ export function isTreatment(v: unknown): v is Treatment {
 /** Paints a divided paint names: per pall and the tierced divisions have three; the alternating ones have two. */
 export function partCount(d: Division): 2 | 3 {
   return d === 'per-pall' || d === 'per-pall-inverted' || d === 'tierced-per-pale' || d === 'tierced-per-fess' ? 3 : 2;
+}
+
+/** The parts of a division that lie against each other across a line, as pairs of part indices: every pair of per pall's three, a tierced field's middle with each outer part. */
+export function adjacentParts(d: Division): ReadonlyArray<readonly [number, number]> {
+  if (partCount(d) === 2) return [[0, 1]];
+  return d === 'tierced-per-pale' || d === 'tierced-per-fess' ? [[0, 1], [1, 2]] : [[0, 1], [0, 2], [1, 2]];
 }

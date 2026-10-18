@@ -19,7 +19,7 @@ import {
 import { defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
 import { ORDINARY_KIND, ORDINARY_NAME, familyOf, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
-import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, type Division, type Variation } from './divisions';
+import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, partCount, type Division, type Variation } from './divisions';
 import { isStraightLine } from './lines';
 import { coPrimaries, forcedLayout, layoutContext } from './arrangement';
 
@@ -55,18 +55,20 @@ const TRIM_NOUN: Record<Trim, string> = { fimbriation: 'fimbriation', cotises: '
 const trimSamples = (spec: OrdinarySpec, frame: OrdinaryFrame, trim: Trim): Samples =>
   ({ key: `${trim}:${JSON.stringify([spec, frame])}`, points: () => ordinaryGeometry(spec, frame)[trim]?.samples ?? [] });
 
-/** The share of each sample set in the first part of each division: it depends on the lines alone, not on the tinctures. */
-const firstShares = new Map<string, number>();
+/** The share of each sample set in each part of each division, in part order: it depends on the lines alone, not on the tinctures. */
+const partShareCache = new Map<string, readonly number[]>();
 
-function firstShare(f: DividedField, samples: Samples): number {
+function partShares(f: DividedField, samples: Samples): readonly number[] {
   const key = `${f.division}|${f.pieces}|${f.lines.a}|${f.lines.b}|${samples.key}`;
-  let share = firstShares.get(key);
-  if (share === undefined) {
+  let shares = partShareCache.get(key);
+  if (shares === undefined) {
     const points = samples.points();
-    share = points.filter(([px, py]) => partIndexAt(f, CANONICAL_SHAPE, px, py) === 0).length / points.length;
-    firstShares.set(key, share);
+    const counts = f.paints.map(() => 0);
+    for (const [px, py] of points) counts[partIndexAt(f, CANONICAL_SHAPE, px, py)]++;
+    shares = counts.map((n) => n / points.length);
+    partShareCache.set(key, shares);
   }
-  return share;
+  return shares;
 }
 
 /** The share of the samples each field surface lies under, in the field's part order. */
@@ -74,15 +76,16 @@ function groundAt(field: Paint, samples: Samples, partOrder: readonly Surface[])
   // A variation is judged as a whole (A3B1): the one surface lies under everything.
   if (field.k === 'variation') return partOrder.map((surface) => ({ surface, share: 1 }));
   const counts = new Map<Surface, number>();
-  const [a, b] = field.k === 'divided' ? field.parts : [];
+  const paints = field.k === 'divided' ? field.parts.filter(isFieldPaint) : [];
   if (field.k !== 'divided') {
     // One paint all over: its surface lies under everything.
     counts.set(surfaceOf(field, null), 1);
-  } else if (field.parts.length === 2 && isFieldPaint(a) && isFieldPaint(b) && DRAWN_DIVISIONS.includes(field.division)) {
-    const first = firstShare({ k: 'divided', division: field.division, lines: field.lines, pieces: field.pieces, paints: [a, b] }, samples);
-    const [sa, sb] = [surfaceOf(a, null), surfaceOf(b, null)];
-    counts.set(sa, first);
-    counts.set(sb, (counts.get(sb) ?? 0) + 1 - first);
+  } else if (paints.length === field.parts.length && paints.length === partCount(field.division) && DRAWN_DIVISIONS.includes(field.division)) {
+    const shares = partShares({ k: 'divided', division: field.division, lines: field.lines, pieces: field.pieces, paints }, samples);
+    paints.forEach((p, i) => {
+      const surface = surfaceOf(p, null);
+      counts.set(surface, (counts.get(surface) ?? 0) + shares[i]);
+    });
   } else {
     const points = samples.points();
     for (const [x, y] of points) {
@@ -106,6 +109,12 @@ const ORDINARY_ON_LINE: Partial<Record<Division, OrdinaryType>> = {
   'per-pale': 'pale', 'per-fess': 'fess', 'per-bend': 'bend', 'per-bend-sinister': 'bend-sinister',
   'per-chevron': 'chevron', quarterly: 'cross', 'per-saltire': 'saltire',
 };
+
+/**
+ * The part of each division a chief lies on alone, though it is drawn over more: a per pall's chief part, which its arms leave
+ * the chief to (SENA A3B4a: "Per pall argent, gules, and azure, a chief sable" is fine "because the chief lies only on the argent part").
+ */
+const CHIEF_PART: Partial<Record<Division, number>> = { 'per-pall': 0 };
 
 /** The heater slots of a charge group, or none when it has no layout (the structure rules say so). */
 function slotsOf(d: Design, path: GroupPath): Slot[] {
@@ -155,6 +164,8 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
     // On its own division's line only while it is drawn with that line (a fess wavy on per fess wavy); otherwise as sampled.
     const onLine = d.field.k === 'divided' && ORDINARY_ON_LINE[d.field.division] === spec.type && d.field.lines.a === spec.lines.a && d.field.lines.b === spec.lines.b;
     if (onLine) return [parts.map((surface) => ({ surface, share: 1 / parts.length }))];
+    const chiefPart = spec.type === 'chief' && d.field.k === 'divided' ? CHIEF_PART[d.field.division] : undefined;
+    if (chiefPart !== undefined && d.field.k === 'divided') return [[{ surface: surfaceOf(d.field.parts[chiefPart], null), share: 1 }]];
     return [groundAt(d.field, ordinarySamples(spec, frameOf(d, group)), parts)];
   }
   return slotsOf(d, path).map((s) => groundAt(d.field, slotSamples(judgedSlot(group, s)), parts));
@@ -275,6 +286,9 @@ export function counterchangeUnavailable(d: Design, path: GroupPath): string | n
     return `The ${nounOf(group)} ${lie} across a gyronny field, and only a single charge can be counterchanged over gyronny — choose a tincture for ${them} (RULES-C §E.2).`;
   }
   const pair = fieldPair(d);
+  if (d.kind === 'arms' && d.field.k === 'divided' && partCount(d.field.division) === 3) {
+    return `Counterchanged swaps the two tinctures of a field divided in two: over a field divided in three there is no one other tincture for ${them} to take.`;
+  }
   if (pair === null && d.kind === 'arms' && d.field.k === 'divided') {
     return `Counterchanged swaps the two tinctures of a field divided in two, and a fur on the field can't be swapped in this builder.`;
   }

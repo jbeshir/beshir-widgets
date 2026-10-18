@@ -8,10 +8,10 @@ import { tinctureWord, type Tincture } from './tinctures';
 import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
-import { capitalise, numberWord } from './words';
+import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
-import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, type Division } from './divisions';
+import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
 import { lineWords } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
 import { contextOf, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
@@ -78,9 +78,9 @@ function variationWord(p: Paint): string {
   return `${VARIATION_NAME[varied.variation]}${line ? ` ${line}` : ''}${count} ${varied.parts.map((x) => tinctureWord(x.t)).join(' and ')}`;
 }
 
-/** A divided field strewn all over with one charge: both parts are the same semy, in one tincture or each in the other's ("all semy of roses counterchanged"). */
+/** A field divided in two strewn all over with one charge: both parts are the same semy, in one tincture or each in the other's ("all semy of roses counterchanged"). */
 function strewnAllOver(field: Paint): { grounds: [Tincture, Tincture]; charge: ChargeId; ink: Tincture | 'counterchanged' } | null {
-  const [a, b] = field.k === 'divided' ? field.parts.map(asSemy) : [];
+  const [a, b] = field.k === 'divided' && field.parts.length === 2 ? field.parts.map(asSemy) : [];
   if (!a || !b || a.charge.charge !== b.charge.charge) return null;
   const grounds: [Tincture, Tincture] = [a.ground.t, b.ground.t];
   if (a.ink.t === b.ink.t) return { grounds, charge: a.charge.charge, ink: a.ink.t };
@@ -91,8 +91,9 @@ function fieldPhrase(field: Paint): string {
   const all = strewnAllOver(field);
   if (field.k === 'divided' && all) return `${divisionWords(field.division, field.lines, field.pieces)} ${all.grounds.map(tinctureWord).join(' and ')} all ${semyPhrase(all.charge, all.ink)}`;
   if (field.k === 'tincture' || field.k === 'fur' || field.k === 'treated' || field.k === 'semy') return paintWord(field);
-  if (field.k === 'divided' && field.parts.length === 2 && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
-    return `${divisionWords(field.division, field.lines, field.pieces)} ${field.parts.map(paintWord).join(' and ')}`;
+  // "per pale A and B"; a field in three parts "per pall A, B and C", without the serial comma (RULES-C §E.1)
+  if (field.k === 'divided' && field.parts.length === partCount(field.division) && field.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
+    return `${divisionWords(field.division, field.lines, field.pieces)} ${joinAnd(field.parts.map(paintWord))}`;
   }
   if (field.k === 'variation') return variationWord(field);
   return notSupported(paintGaps(field, true, 'field')[0]);

@@ -217,6 +217,13 @@ const REPRESENTATIVE: Array<[string, unknown, string]> = [
   ['per chevron inverted embattled', arms({ k: 'divided', division: 'per-chevron-inverted', lines: { a: 'embattled' }, parts: ['argent', 'sable'] }), 'Per chevron inverted embattled argent and sable.'],
   ['per chevron throughout with three pictures counterchanged (O&A 18819)', arms(div('per-chevron-throughout', 'argent', 'purpure'), group(charge('dragon', { posture: 'rampant' }), 'counterchanged', { count: 3 })),
     'Per chevron throughout argent and purpure, three dragons counterchanged.'],
+  ['per pall with a fur on the first part (O&A 26132)', arms(div('per-pall', { k: 'fur', fur: 'ermine' }, 'sable', 'gules')), 'Per pall ermine, sable and gules.'],
+  ['per pall with a chief (O&A 34585)', arms(div('per-pall', 'or', 'sable', 'purpure'), group(ordinary('chief'), 'vert')), 'Per pall Or, sable and purpure, a chief vert.'],
+  ['per pall with a fur on the third part', arms(div('per-pall', 'gules', 'or', { k: 'fur', fur: 'ermine' })), 'Per pall gules, Or and ermine.'],
+  ['per pall inverted wavy with two pictures in fess', arms({ ...div('per-pall-inverted', 'azure', 'gules', 'argent'), lines: { a: 'wavy' } }, group(charge('mullet'), 'or', { count: 2 })),
+    'Per pall inverted wavy azure, gules and argent, two mullets Or.'],
+  ['tierced in pale', arms(div('tierced-per-pale', 'azure', 'argent', 'gules')), 'Tierced in pale azure, argent and gules.'],
+  ['tierced in fess with the parts swapped round', arms(div('tierced-per-fess', 'or', 'azure', 'argent')), 'Tierced in fess Or, azure and argent.'],
 ];
 
 describe('designs with a chief and a bordure beside the band are built by clicks the builder allows', () => {

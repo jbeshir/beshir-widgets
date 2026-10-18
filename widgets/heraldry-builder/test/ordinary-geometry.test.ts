@@ -7,7 +7,7 @@ import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { Shield } from '../src/components/Shield';
 import {
-  BUILDER_DIVISIONS, BUILDER_ORDINARIES, DRAWN_DIVISIONS, FIELD_SHAPES, PLAIN_LINES, defaultOrdinaryFrame, divisionRegions, fieldOrdinaryGeometry, inFirstPart, inFirstRegion,
+  BUILDER_DIVISIONS, BUILDER_ORDINARIES, DRAWN_DIVISIONS, FIELD_SHAPES, PLAIN_LINES, defaultOrdinaryFrame, partCount, divisionRegions, fieldOrdinaryGeometry, inFirstPart, inFirstRegion,
   ordinaryGeometry, partIndexAt, partyPaint, pathPolygon, pathRings, plainSpec, pointInPolygon, shapeFrame, variationPaint,
   type DividedField, type Design, type Line,
 } from '../src/lib/heraldry';
@@ -83,7 +83,7 @@ describe('ordinary geometry', () => {
       const outline = pathPolygon(shapeFrame(shape).outline);
       for (const division of DRAWN_DIVISIONS) {
         const regions = divisionRegions(division, PLAIN_LINES, null, shape);
-        expect(regions).toHaveLength(2);
+        expect(regions).toHaveLength(partCount(division));
         for (let x = 0.5; x < 100; x += 2) {
           for (let y = 0.25; y < 120; y += 2) {
             if (!pointInPolygon(x, y, outline)) continue;

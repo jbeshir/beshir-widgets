@@ -167,12 +167,6 @@ const startsWith = (tokens: string[], i: number, phrase: readonly string[]) => p
 const isNumber = (w: string | undefined): boolean => (NUMBER_WORDS as readonly string[]).includes(w!);
 const numberOf = (w: string) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1;
 
-function parseField(text: string): unknown {
-  const tokens = text.split(' ');
-  const read = readPaint(tokens, 0, 'field');
-  return read?.end === tokens.length ? read.paint : null;
-}
-
 /** The charge group at `start` with the index after it, or null when count, noun and posture don't agree. */
 function readGroup(tokens: string[], start: number): { phrase: Phrase; end: number } | null {
   let i = start;
@@ -382,11 +376,12 @@ function proposeInputs(normalisedText: string): DesignInput[] | Gap {
     if (body?.k === 'gap') return body.gap;
     return body ? [{ v: 2, kind: 'badge', groups: body.groups }] : [];
   }
-  const comma = normalisedText.indexOf(',');
-  const field = parseField(comma < 0 ? normalisedText : normalisedText.slice(0, comma));
-  if (!field) return [];
-  const tokens = comma < 0 ? [] : normalisedText.slice(comma + 1).replace(/,/g, ' , ').split(/ +/).filter(Boolean);
-  const body = parseBody(tokens);
+  // the field runs to its own end, which is the first comma unless it is divided in three ("per pall argent, sable and gules, …")
+  const all = normalisedText.replace(/,/g, ' , ').split(/ +/).filter(Boolean);
+  const read = readPaint(all, 0, 'field');
+  if (!read || (read.end < all.length && all[read.end] !== ',')) return [];
+  const field = read.paint;
+  const body = parseBody(all.slice(read.end + 1));
   if (body?.k === 'gap') return body.gap;
   return body ? [{ v: 2, field, groups: body.groups }] : [];
 }

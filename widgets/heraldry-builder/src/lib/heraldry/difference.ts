@@ -9,7 +9,8 @@ import {
   asParty, asVariation, canonical, canonicalLines, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
-import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, type Division, type Variation } from './divisions';
+import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, partCount, type Division, type Variation } from './divisions';
+import { divisionPartGrid } from './geometry';
 import { LINE_WORD, edgeCount, lineDiffers, lineWords, type EdgeHost, type Line } from './lines';
 import { ORDINARY_KIND, ORDINARY_NAME, familyOf, isDiminutive, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
@@ -274,16 +275,22 @@ const VARIATION_CATEGORY: Record<Variation, string> = {
   checky: 'checky', lozengy: 'lattice', fusily: 'lattice', 'barry-bendy': 'lattice', 'paly-bendy': 'lattice',
 };
 
+/**
+ * The divisions in another's category (A5F1b): per chevron throughout is per chevron (Dessa 10/2005); tierced in pale and in fess are per
+ * pale and per fess cut once more (SENA is silent: RULES-C §E.1, L11), as paly and barry are.
+ */
+const DIVISION_CATEGORY: Partial<Record<Division, Division>> = { 'per-chevron-throughout': 'per-chevron', 'tierced-per-pale': 'per-pale', 'tierced-per-fess': 'per-fess' };
+
 /** The partition category of a field (A5F1): plain, or the division; a variation is in the category of the division it multiplies. Null for a fieldless badge, which has no field to compare. */
 function partition(d: Design): string | null {
   if (d.kind === 'badge') return null;
   const f = d.field;
-  return f.k === 'divided' ? (f.division === 'per-chevron-throughout' ? 'per-chevron' : f.division) : f.k === 'variation' ? VARIATION_CATEGORY[f.variation] : f.k === 'tincture' || f.k === 'fur' || f.k === 'treated' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
+  return f.k === 'divided' ? DIVISION_CATEGORY[f.division] ?? f.division : f.k === 'variation' ? VARIATION_CATEGORY[f.variation] : f.k === 'tincture' || f.k === 'fur' || f.k === 'treated' ? 'plain' : notSupported(paintGaps(f, true, 'field')[0]);
 }
 
 /** Pieces beyond four are not told apart (A5G1d); a variation with no count, and pily, have more than that. */
 const MANY_PIECES = 5;
-const DIVISION_PIECES: Partial<Record<Division, number>> = { quarterly: 4, 'per-saltire': 4, gyronny: MANY_PIECES };
+const DIVISION_PIECES: Partial<Record<Division, number>> = { quarterly: 4, 'per-saltire': 4, gyronny: MANY_PIECES, 'per-pall': 3, 'per-pall-inverted': 3, 'tierced-per-pale': 3, 'tierced-per-fess': 3 };
 
 /** How many pieces a field is cut into, up to the count that is no longer told apart (A5G1d). */
 function pieceTier(f: Paint): number {
@@ -337,6 +344,15 @@ function lineStyleChanged(a: Paint, b: Paint): boolean {
   return changed > 0 && changed * 2 >= n;
 }
 
+const inThree = (f: Paint): boolean => f.k === 'divided' && partCount(f.division) === 3;
+
+/** The share of the heater's area whose surface differs between two divided fields (each with its parts' surfaces), or null when either is not divided. */
+function changedShare(a: Paint, ta: readonly Surface[], b: Paint, tb: readonly Surface[]): number | null {
+  if (a.k !== 'divided' || b.k !== 'divided') return null;
+  const ga = divisionPartGrid(a.division, a.pieces), gb = divisionPartGrid(b.division, b.pieces);
+  return ga.filter((part, i) => !sameSurface(ta[part], tb[gb[i]])).length / ga.length;
+}
+
 function fieldChanges(a: Design, b: Design): Diff[] {
   // A5G1e: fieldless armory has no field to compare, and "automatically has one distinct change (DC) from any other armory,
   // fielded or fieldless" ("(Fieldless) A mullet purpure" against "(Fieldless) A mullet of six points purpure").
@@ -350,6 +366,11 @@ function fieldChanges(a: Design, b: Design): Diff[] {
   const [ta, tb] = comparedSurfaces(a, b, Math.max(pieceTier(a.field), pieceTier(b.field)) > 4);
   const has = (xs: readonly Surface[], s: Surface) => xs.some((x) => sameSurface(x, s));
   if (ta.length === tb.length && ta.every((s, i) => sameSurface(s, tb[i]))) return changes;
+  // A field divided in three changes its tincture only where at least half its area does (A5G1a; RULES-C §E.2): one part of three is not enough.
+  if (inThree(a.field) || inThree(b.field)) {
+    const changed = changedShare(a.field, ta, b.field, tb);
+    if (changed !== null && changed < 0.5) return changes;
+  }
   // A5F2: for field-primary armory a change of every part to a surface (a tincture or fur) the other field lacks is substantial.
   const substantial = isFieldPrimary(a) && isFieldPrimary(b)
     && ta.length === tb.length && ta.every((s, i) => !sameSurface(s, tb[i])) && ta.some((s) => !has(tb, s)) && tb.some((s) => !has(ta, s));

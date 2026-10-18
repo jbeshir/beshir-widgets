@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   CHARGES, CHARGE_IDS, BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_ORDINARIES, ORDINARY_NAME, DRAWN_LINES, DRAWN_TREATMENTS, LINED_VARIATIONS, LINE_WORD, FURS, FUR_NAME, SEMY_NAMES, lineAllowed, UNSUPPORTED_GAP_CATEGORIES, VARIATIONS, VARIATION_NAME,
-  blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, structuralIssues,
+  blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
 import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, ordinary } from './helpers';
@@ -453,12 +453,38 @@ describe('the matcher reads per chevron inverted, per chevron throughout and gyr
   it('reads a gyronny of eight as the default it is, and files other counts, and a band or picture so divided, under their gaps', () => {
     expect(explainMatch('Gyronny of eight Or and sable.').status).toBe('near-miss');
     expect(explainMatch('Gyronny of ten Or and sable.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'gyronny-pieces-10' }] });
-    expect(explainMatch('Gyronny of three Or and sable.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'gyronny-pieces-3' }] });
     expect(explainMatch('Azure, a lion per chevron inverted argent and gules.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'per-chevron-inverted-on-charge' }] });
     // arrondi is drawn on a gyronny only: elsewhere it is not read, and the tagger files it under its division
     expect(explainMatch('Per saltire arrondi argent and gules.').status).toBe('unparsed');
     expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Per saltire arrondi argent and gules.', headings: [] })).toMatchObject({ status: 'gap', tags: ['division:per-saltire-arrondi'] });
     expect(explainMatch('Azure, a bend gyronny Or and sable.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'gyronny-on-charge' }] });
+  });
+});
+
+// The divisions in three: the field reads "A, B and C" up to its own end (not the first comma), with the serial comma or without.
+describe('the matcher reads per pall, per pall inverted and the tierced divisions', () => {
+  it.each([
+    ['Per pall ermine, sable and gules.', 'Per pall ermine, sable and gules.'],
+    ['Per pall argent, sable, and gules, a cross crosslet sable and two crosses crosslet Or.', 'Per pall argent, sable and gules, a cross crosslet sable and two crosses crosslet Or.'],
+    ['Per pall Or, sable and purpure, a chief vert.', 'Per pall Or, sable and purpure, a chief vert.'],
+    ['Per pall inverted argent, azure and sable.', 'Per pall inverted argent, azure and sable.'],
+    ['Per pall inverted azure vert and Or.', 'Per pall inverted azure, vert and Or.'],
+    ['Tierced per pale azure, argent and gules.', 'Tierced in pale azure, argent and gules.'],
+    ['Tierced in fess gules, argent, and vert, a bordure Or.', 'Tierced in fess gules, argent and vert, a bordure Or.'],
+    ['Tierced per pall azure, Or, and argent, a bordure sable.', 'Per pall azure, Or and argent, a bordure sable.'],
+    ['Gyronny of three argent, sable and gules.', 'Per pall argent, sable and gules.'],
+    ['Per pall wavy Or, gules and argent, a base vert.', 'Per pall wavy Or, gules and argent, a base vert.'],
+  ])('%s', (text, house) => {
+    const m = explainMatch(text);
+    expect(m.status).toBe('match');
+    expect(blazon(m.match!.design!)).toBe(house);
+  });
+
+  it('files counterchanging over three parts, and a band or picture so divided, under their gaps', () => {
+    expect(explainMatch('Per pall inverted argent, sable and gules, in pale a sun counterchanged and a heart argent.')).toMatchObject({ status: 'unsupported', gaps: [{ category: 'division', detail: 'counterchanged-over-three-parts' }] });
+    expect(explainMatch('Azure, a lion per pall argent, gules and Or.').status).not.toBe('match');
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Azure, a lion per pall argent, gules and Or.', headings: [] }).tags).toContain('division:per-pall-on-charge');
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Tierced argent, gules and Or.', headings: [] }).tags).toContain('division:tierced');
   });
 });
 
@@ -578,6 +604,8 @@ describe('the matcher reads the outline of an ordinary', () => {
 // noun no lexicon holds; the classifier files it under `other` alone.
 describe('the tagger never files a record under a construct the widget supports', () => {
   const upper = (text: string) => text.replace(/^./, (c) => c.toUpperCase());
+  /** A division's tinctures as a blazon names them: two, or three for per pall and the tierced divisions. */
+  const partTinctures = (d: Division) => (partCount(d) === 3 ? 'Or, gules and argent' : 'Or and gules');
   const fields: Array<[string, string]> = [
     ...VARIATIONS.map((v): [string, string] => [`${VARIATION_NAME[v]} field`, `${VARIATION_NAME[v]}${isCountedVariation(v) ? ' of eight' : ''} argent and gules`]),
     ...FURS.map((f): [string, string] => [`${FUR_NAME[f]} field`, FUR_NAME[f]]),
@@ -588,8 +616,12 @@ describe('the tagger never files a record under a construct the widget supports'
     ...SEMY_NAMES.map((n): [string, string] => [`${n.word} field`, `azure ${n.word}${n.tincture === null ? ' Or' : ''}`]),
     ['semy of charges', 'azure semy of mullets Or'],
     ['semy on a part', 'per pale gules and argent semy of billets gules'],
-    ...DRAWN_DIVISIONS.map((d): [string, string] => [`${DIVISION_NAME[d]} field`, `${DIVISION_NAME[d]} Or and gules`]),
-    ...DRAWN_DIVISIONS.flatMap((d) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'division', division: d }, l)).map((l): [string, string] => [`${DIVISION_NAME[d]} ${l} field`, `${DIVISION_NAME[d]} ${LINE_WORD[l]} Or and gules`])),
+    ...DRAWN_DIVISIONS.map((d): [string, string] => [`${DIVISION_NAME[d]} field`, `${DIVISION_NAME[d]} ${partTinctures(d)}`]),
+    ...DRAWN_DIVISIONS.flatMap((d) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'division', division: d }, l)).map((l): [string, string] => [`${DIVISION_NAME[d]} ${l} field`, `${DIVISION_NAME[d]} ${LINE_WORD[l]} ${partTinctures(d)}`])),
+    ['tierced per pale field', 'tierced per pale azure, argent and gules'],
+    ['tierced per fess field', 'tierced per fesse azure, argent and gules'],
+    ['per pall with a serial comma', 'per pall argent, sable, and gules'],
+    ['gyronny of three', 'gyronny of three argent, sable and gules'],
     ...LINED_VARIATIONS.flatMap((v) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'variation', variation: v }, l)).map((l): [string, string] => [`${VARIATION_NAME[v]} ${l} field`, `${VARIATION_NAME[v]} ${LINE_WORD[l]} Or and gules`])),
     ['per pale dancetty field', 'per pale dancetty Or and gules'],
     ['quarterly per fess embattled field', 'quarterly per fess embattled Or and gules'],

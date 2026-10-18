@@ -25,10 +25,10 @@ import {
   asParty, asVariation, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
   type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type PartyPaint, type VariationPaint,
 } from './design';
-import { BUILDER_DIVISIONS, VARIATIONS, type Division, type Variation } from './divisions';
+import { BUILDER_DIVISIONS, DIVISION_PART_LABEL, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
-import { ofOtherClass, withPaint, withPartner } from './paint-target';
+import { ofOtherClass, withPaint, withPartner, type FieldPart } from './paint-target';
 import { isPeripheralPlace, placeKind, placesIn, type Placed } from './places';
 import { PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
@@ -301,7 +301,8 @@ function tinctureReason(d: Design, path: GroupPath, t: GroupTincture): string | 
 
 /** On a divided or varied field (or while counterchanged) "counterchanged" is offered too, after the tinctures. */
 function offeredTinctures(d: Design, path: GroupPath): readonly GroupTincture[] {
-  return (d.kind === 'arms' && (d.field.k === 'divided' || d.field.k === 'variation')) || groupAt(d, path).paint.k === 'counterchanged' ? GROUP_TINCTURES : TINCTURES;
+  // a field divided in three has no one other tincture to counterchange to
+  return (d.kind === 'arms' && ((d.field.k === 'divided' && d.field.parts.length === 2) || d.field.k === 'variation')) || groupAt(d, path).paint.k === 'counterchanged' ? GROUP_TINCTURES : TINCTURES;
 }
 
 /** Why a layout would leave every tincture blocked, or null when at least one works. */
@@ -329,14 +330,17 @@ function layoutBlock(d: Design, path: GroupPath, withTinctures: boolean): Block 
 
 // ── Tinctures ───────────────────────────────────────────────────────────────
 
-/** Field tinctures: only the other half of a divided field blocks, for a tincture or fur it shares (the parts need different tinctures). Plain fields: all allowed. */
-export function fieldTinctureChoices(d: Design, part: 0 | 1 = 0): Choice<Tincture>[] {
-  const other = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts[part === 0 ? 1 : 0] : null;
+/** Field tinctures: only the other parts of a divided field block, for a tincture or fur one of them shares (the parts need different tinctures). Plain fields: all allowed. */
+export function fieldTinctureChoices(d: Design, part: FieldPart = 0): Choice<Tincture>[] {
+  const field = d.kind === 'arms' && d.field.k === 'divided' ? d.field : null;
+  const others = field ? field.parts.flatMap((p, i) => (i === part ? [] : [{ p, i }])) : [];
   return TINCTURES.map((t) => {
-    if (!other || !bodyTinctures(other).includes(t)) return choice(t, null);
-    return choice(t, other.k === 'tincture'
-      ? `The other part is already ${TINCTURE_NAME[t]} — a divided field needs two different tinctures.`
-      : `The other part is ${paintName(other)}, which uses ${TINCTURE_NAME[t]} — a divided field needs parts with no tincture in common.`);
+    const other = others.find(({ p }) => bodyTinctures(p).includes(t));
+    if (!field || !other) return choice(t, null);
+    const which = field.parts.length === 2 ? 'The other part' : `The ${DIVISION_PART_LABEL[field.division][other.i].toLowerCase()} part`;
+    return choice(t, other.p.k === 'tincture'
+      ? `${which} is already ${TINCTURE_NAME[t]} — a divided field needs ${field.parts.length === 2 ? 'two' : 'three'} different tinctures.`
+      : `${which} is ${paintName(other.p)}, which uses ${TINCTURE_NAME[t]} — a divided field needs parts with no tincture in common.`);
   });
 }
 

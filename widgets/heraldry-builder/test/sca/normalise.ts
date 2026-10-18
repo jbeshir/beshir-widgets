@@ -67,7 +67,12 @@ const NAMED_CHARGE = new RegExp(`(?<![\\w-])(${escaped(NAMED_BY_WORD.keys())})(?
 const TINCTURE_OR_NAME = new RegExp(`(?<![\\w-])(${escaped([...TINCTURES, 'counterchanged', 'proper', ...FURS.map((f) => FUR_NAME[f]), ...NAMED_BY_WORD.keys()])})(?![\\w-])`);
 
 /** How a divided field starts: "per pale", "quarterly". */
-const DIVISION_START = `(?:per (?:pale|fess|bend sinister|bend|saltire|chevron(?: inverted| throughout)?)(?: ${LINE})?|gyronny(?: ${LINE})?(?: of (?:six|eight|twelve))?|quarterly(?: per (?:pale|fess))?(?: ${LINE})?)`;
+const DIVISION_START = `(?:per (?:pale|fess|bend sinister|bend|saltire|chevron(?: inverted| throughout)?|pall(?: inverted)?)(?: ${LINE})?|gyronny(?: ${LINE})?(?: of (?:six|eight|twelve))?|quarterly(?: per (?:pale|fess))?(?: ${LINE})?|tierced in (?:pale|fess)(?: ${LINE})?)`;
+/** How a field divided in three starts: "per pall", "tierced in pale". */
+const THREE_PART_START = `(?:per pall(?: inverted)?|tierced in (?:pale|fess))(?: ${LINE})?`;
+const THREE_PART_FIELD = new RegExp(`^${THREE_PART_START} ${TINCT}, `);
+/** Where the comma that closes the field is: the first, or the second after a field divided in three ("per pall argent, sable and gules, a …"). */
+const fieldComma = (text: string): number => text.indexOf(',', THREE_PART_FIELD.exec(text)?.[0].length ?? 0);
 const wordOf = (name: string) => new RegExp(`(?<![\\w-])${escaped([name])}(?![\\w-])`, 'g');
 /** The semys' names (in lower case, as the text reads), the longest first, each with the pattern for it and a tincture stated after it, and the semy it strews. */
 const SEMY_NAME_PATTERNS = SEMY_NAMES.map((n) => ({ name: n.word.toLowerCase(), semy: n }))
@@ -165,9 +170,21 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     apply: (s) => s
       .replace(/\b(a|an|on a) dance(?:tte?)?(?![\w-])/g, '$1 fess dancetty')
       .replace(LINE_SPELLING_WORD, (w) => LINE_WORD_OF.get(w)!)
-      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron(?: inverted| throughout)?)|gyronny|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|base|canton|quarter|gyron|cross|saltire|pile)) dancetty\b/g, '$1 indented')
+      .replace(/\b(per (?:pale|fess|bend sinister|bend|saltire|chevron(?: inverted| throughout)?|pall(?: inverted)?)|gyronny|tierced in (?:pale|fess)|quarterly(?: per (?:pale|fess))?|(?:a|an) (?:chief|bordure|base|canton|quarter|gyron|cross|saltire|pile)) dancetty\b/g, '$1 indented')
       .replace(/(?<![\w-])(?<!embattled )counter-?embattled\b/g, 'embattled counter-embattled')
       .replace(/\bembattled on both edges\b/g, 'embattled counter-embattled'),
+  },
+  {
+    // 3a2a. Fields divided in three (RULES-C §E.1, §G.2; PLAN-C C13): "tierced per pale" is the widget's "tierced in pale" (the College writes
+    //      both); "tierced per pall" and "gyronny of three" are per pall (SENA A5G1b: "granted no difference"); the three tinctures take no
+    //      serial comma ("Per pall argent, sable, and gules" is "… sable and gules", RULES-C §E.1), and the comma between the first two is
+    //      written even where a record leaves it out ("Per pall inverted azure vert and Or").
+    id: 'three-part-fields',
+    description: 'tierced per pale/fess → tierced in pale/fess; tierced per/in pall, gyronny of three → per pall; "per pall A, B, and C" and "per pall A B and C" → "per pall A, B and C".',
+    apply: (s) => s
+      .replace(/\btierced (?:per|in) (pale|fess)e?\b/g, 'tierced in $1')
+      .replace(/\b(?:tierced (?:per|in) pall|gyronny of three)\b/g, 'per pall')
+      .replace(new RegExp(`^(${THREE_PART_START} ${TINCT}),? (${TINCT}),? and `), '$1, $2 and '),
   },
   {
     // 3a2b. Diminutives written more than one way (RULES-C §C.2, §D.2, §G.2; PLAN-C C11): the other spellings of their names
@@ -335,15 +352,15 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
       .replace(new RegExp(`,? and (?=(?:a|on a) (?:${joinedBy(', ')})\\b)`, 'g'), ', ')
       // The comma that closes the field stays: "Argent, a base azure".
-      .replace(new RegExp(`(?:,? and|,) (?=(?:a|on a) (?:${joinedBy(' and ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === text.indexOf(',') && m === ', ' ? m : ' and '))
+      .replace(new RegExp(`(?:,? and|,) (?=(?:a|on a) (?:${joinedBy(' and ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === fieldComma(text) && m === ', ' ? m : ' and '))
       // "within an orle", "within a double tressure", "between flaunches" (a tressure double or triple, flaunches without an article)
-      .replace(new RegExp(`(?:,? and|,|,? (?:all )?within) (?=(?:on )?an? (?:(?:double|triple) )?(?:${joinedBy(' within ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === text.indexOf(',') && m === ', ' ? m : ' within '))
-      .replace(new RegExp(`(?:,? and|,|,? between) (?=(?:on )?(?:${joinedBy(' between ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === text.indexOf(',') && m === ', ' ? m : ' between '))
+      .replace(new RegExp(`(?:,? and|,|,? (?:all )?within) (?=(?:on )?an? (?:(?:double|triple) )?(?:${joinedBy(' within ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === fieldComma(text) && m === ', ' ? m : ' within '))
+      .replace(new RegExp(`(?:,? and|,|,? between) (?=(?:on )?(?:${joinedBy(' between ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === fieldComma(text) && m === ', ' ? m : ' between '))
       .replace(/,? and (?=in (?:chief|base|canton)\b)/g, ', ')
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
       .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}${BAND_PAINT}|chief(?:${ORDINARY_LINE})? ${TINCT})|${CORE} ${TINCT})),`, 'g'), '$1')
       .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY}(?:${BAND_PAINT})? between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')
-      .replace(new RegExp(`^(${DIVISION_START} ${TINCT} and ${TINCT}|${VARIATION} ${COLOUR} and ${COLOUR}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
+      .replace(new RegExp(`^(${THREE_PART_START} ${TINCT}, ${TINCT} and ${TINCT}|${DIVISION_START} ${TINCT} and ${TINCT}|${VARIATION} ${COLOUR} and ${COLOUR}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
   },
   {
     // 4a. What lies across everything: "a fess and overall a lion", "a fess, overall a lion", "a fess overall a lion" are one blazon

@@ -11,9 +11,9 @@ import {
   TINCTURE_LABEL, chargeLabel, chargePath, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
   type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue,
-  type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
+  partCount, type FieldPart, type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
-import { numberWord } from '../../lib/heraldry/words';
+import { joinAnd, numberWord } from '../../lib/heraldry/words';
 import {
   companionNote, ordinaryPath, picturePath, placementLabel, setCharge,
   setBadge, setDivision, setDivisionPieces, setFieldEdgeSide, setFieldLine, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
@@ -62,8 +62,10 @@ function icon(input: unknown): Design {
   return r.design;
 }
 
+/** The tinctures a division's icon is drawn in, one per part. */
+const iconParts = (division: Division): string[] => ['or', 'azure', 'gules'].slice(0, partCount(division));
 const ICON_FIELD = (division: Division | null): Design =>
-  icon({ v: 2, field: division ? { k: 'divided', division, parts: ['or', 'azure'] } : 'azure', groups: [] });
+  icon({ v: 2, field: division ? { k: 'divided', division, parts: iconParts(division) } : 'azure', groups: [] });
 /** The "More divisions" tiles' designs, made once. */
 const MORE_DIVISION_ICONS: ReadonlyMap<Division, Design> = new Map(MORE_DIVISIONS.map((d) => [d, ICON_FIELD(d)]));
 /** The badge tile: a star standing alone, with no shield behind it. */
@@ -151,7 +153,7 @@ function paintWords(p: Paint): string {
     case 'stain': return p.stain;
     case 'proper': return 'natural colours';
     case 'fur': return furName(p);
-    case 'divided': return `split ${p.parts.map(paintWords).join(' and ')}`;
+    case 'divided': return `split ${joinAnd(p.parts.map(paintWords))}`;
     case 'variation': return `${lower(VARIATION_LABEL[p.variation].plain)}: ${p.parts.map(paintWords).join(' and ')}`;
     case 'treated': return `${paintWords(p.ground)} with ${lower(TINCTURE_LABEL[p.ink].plain)} ${lower(TREATMENT_LABEL[p.treatment].plain)}`;
     case 'semy': return `${paintWords(p.ground)} strewn with ${paintWords(p.ink)} ${CHARGES[p.charge.charge].plural}`;
@@ -163,7 +165,7 @@ function paintWords(p: Paint): string {
 export const colourWords = (design: Design, path: GroupPath): string => paintWords(groupAt(design, path).paint);
 
 /** The tinctures of a part of the background and the picker that sets it: a plain tincture, or the one under a scatter or brick (which stay). */
-function FieldPartPicker({ design, part, legend, onChange }: { design: Design; part: 0 | 1; legend: string; onChange: (nd: Design) => void }) {
+function FieldPartPicker({ design, part, legend, onChange }: { design: Design; part: FieldPart; legend: string; onChange: (nd: Design) => void }) {
   const target: PaintTarget = { k: 'field', part };
   const paint = fieldParts(design)[part];
   const group = `field${part + 1}`, testid = `field-tincture-${part + 1}`;
@@ -173,23 +175,26 @@ function FieldPartPicker({ design, part, legend, onChange }: { design: Design; p
   return <TincturePicker group={group} testid={testid} legend={legend} choices={fieldTinctureChoices(design, part)} value={paint.k === 'tincture' ? paint.t : null} onChange={(t) => onChange(setFieldTincture(design, part, t))} />;
 }
 
+/** A part index as a field part (a pattern found on a part that isn't there shows the first). */
+const asFieldPart = (i: number): FieldPart => (i === 1 || i === 2 ? i : 0);
+
 /** "More colours and patterns…" for the background: a fur, a scatter or brick for a part of it (which part, when it is divided), or stripes and checks over it all. */
 function FieldMore({ design, division, onChange }: { design: Design; division: Division | null; onChange: (nd: Design) => void }) {
   const parts = fieldParts(design);
   const patterned = parts.findIndex((p) => p.k !== 'tincture');
-  const [part, setPart] = useState<0 | 1>(patterned === 1 ? 1 : 0);
-  // A field that comes to have its pattern on the other part (an example loaded, Undo) shows that part.
+  const [part, setPart] = useState<FieldPart>(asFieldPart(patterned));
+  // A field that comes to have its pattern on another part (an example loaded, Undo) shows that part.
   useEffect(() => {
-    if (patterned >= 0) setPart(patterned === 1 ? 1 : 0);
+    if (patterned >= 0) setPart(asFieldPart(patterned));
   }, [patterned]);
-  const shown: 0 | 1 = division ? part : 0;
+  const shown: FieldPart = division && part < parts.length ? part : 0;
   const target: PaintTarget = { k: 'field', part: shown };
   const noun = division ? 'this part' : 'the background';
   const forPart = (body: ComponentChildren) => (
     <>
       {division && (
         <RadioGroup label="Which part of the background" class="segmented segmented-wide" testid="field-more-part">
-          {([0, 1] as const).map((i) => (
+          {parts.map((_, i) => asFieldPart(i)).map((i) => (
             <ChoiceButton key={i} testid={`field-more-part-${i + 1}`} checked={shown === i} label={DIVISION_PART_LABEL[division][i]} onSelect={() => setPart(i)} onBlocked={never} class="segment">
               <span>{DIVISION_PART_LABEL[division][i]}</span>
             </ChoiceButton>
@@ -230,7 +235,7 @@ function FieldEdges({ design, division, shape, onChange }: { design: Design; div
   const lines = lineChoices(design, target);
   const field = design.field;
   const icon = field.k === 'divided'
-    ? { k: 'divided', division: field.division, pieces: field.pieces, parts: ['or', 'azure'] }
+    ? { k: 'divided', division: field.division, pieces: field.pieces, parts: iconParts(field.division) }
     : field.k === 'variation' ? { k: 'variation', variation: field.variation, pieces: field.pieces, parts: ['or', 'azure'] } : null;
   const lined = field.k === 'divided' || field.k === 'variation' ? field.lines : null;
   const current = lined ? (lined.a !== 'plain' ? lined.a : lined.b) : 'plain';
@@ -276,7 +281,7 @@ function FieldEdges({ design, division, shape, onChange }: { design: Design; div
 function fieldSummary(design: Design): string {
   if (design.kind === 'badge') return 'No background (badge)';
   const field = design.field;
-  if (field.k === 'divided') return `${DIVISION_LABEL[field.division].plain}${lineSuffix(design)}: ${field.parts.map(paintWords).join(' and ')}`;
+  if (field.k === 'divided') return `${DIVISION_LABEL[field.division].plain}${lineSuffix(design)}: ${joinAnd(field.parts.map(paintWords))}`;
   return field.k === 'variation' ? `${capitalise(paintWords(field))}${lineSuffix(design)}` : `${capitalise(paintWords(field))}, plain`;
 }
 
@@ -313,6 +318,7 @@ export function FieldStep({ design, shape, onChange, onBadge, notice, issues, ac
         <>
           <FieldPartPicker design={design} part={0} legend={division ? DIVISION_PART_LABEL[division][0] : 'Background colour'} onChange={onChange} />
           {division && <FieldPartPicker design={design} part={1} legend={DIVISION_PART_LABEL[division][1]} onChange={onChange} />}
+          {division && partCount(division) === 3 && <FieldPartPicker design={design} part={2} legend={DIVISION_PART_LABEL[division][2]} onChange={onChange} />}
         </>
       )}
       {design.kind === 'arms' && <FieldEdges design={design} division={division} shape={shape} onChange={onChange} />}

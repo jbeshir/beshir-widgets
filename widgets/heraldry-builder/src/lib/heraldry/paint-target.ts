@@ -6,8 +6,11 @@ import { canonical, groupAt, paintTinctures, replaceGroup, samePath, type Design
 import { paintIssues } from './structure';
 import { groupBodyTinctureIssues } from './tincture-rule';
 
+/** A part of the field by its index: a field divided in three has a third. */
+export type FieldPart = 0 | 1 | 2;
+
 /** The part of the design a paint is chosen for: a part of the field (the whole field when it is not divided is part 0), or a band or picture. */
-export type PaintTarget = { k: 'field'; part: 0 | 1 } | { k: 'group'; path: GroupPath };
+export type PaintTarget = { k: 'field'; part: FieldPart } | { k: 'group'; path: GroupPath };
 
 /** The paint at the target. */
 export function paintAt(d: Design, target: PaintTarget): Paint {

@@ -389,6 +389,17 @@ describe('the fur picker', () => {
     expect(ids(html)).not.toContain('field-1-fur-vair');
   });
 
+  it('a three-part background shows three colour pickers and a third part switch', () => {
+    const d = setFur(setDivision(DEFAULT_DESIGN, 'per-pall'), { k: 'field', part: 2 }, 'ermine');
+    const html = renderToString(h(FieldStep, { ...fieldBase, design: d }));
+    for (const id of ['field-tincture-1', 'field-tincture-2', 'field-tincture-3', 'field-more-part-1', 'field-more-part-2', 'field-more-part-3', 'field-3-fur-ermine']) expect(ids(html), id).toContain(id);
+    expect(html).toMatch(/data-testid="field-more-part-3"[^>]*><button[^>]*aria-checked="true"/);
+    expect(html).toMatch(/id="swatch-field3-or"/);
+    // the third part's legend names it where it lies; two-part backgrounds keep two pickers
+    expect(html).toContain('Right (sinister)');
+    expect(ids(renderToString(h(FieldStep, { ...fieldBase, design: setDivision(DEFAULT_DESIGN, 'per-pale') })))).not.toContain('field-tincture-3');
+  });
+
   it('gives every chip its own pattern id: the family row and the arrangement row both draw vair and potent', () => {
     for (const fur of ['vair', 'potent'] as const) {
       const html = renderToString(h(FieldStep, { ...fieldBase, design: setFur(DEFAULT_DESIGN, { k: 'field', part: 0 }, fur) }));

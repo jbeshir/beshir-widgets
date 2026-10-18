@@ -8,7 +8,7 @@
 // through the fess point, bands of the same width) around their own fess point and outline.
 
 import { CHARGES, type ChargeId } from './charges';
-import { DEFAULT_GYRONNY_PIECES, DRAWN_DIVISIONS, type Division } from './divisions';
+import { DEFAULT_GYRONNY_PIECES, DRAWN_DIVISIONS, partCount, type Division } from './divisions';
 import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import { contoursPath, type Contour, type ContourEdge } from './contour';
@@ -167,9 +167,9 @@ export type VariedField = Extract<DrawnField, { k: 'varied' }>;
 
 function drawnField(field: Paint): DrawnField {
   if (isFieldPaint(field)) return { k: 'plain', paint: field };
-  if (field.k === 'divided' && DRAWN_DIVISIONS.includes(field.division) && field.parts.length === 2) {
-    const [a, b] = field.parts;
-    if (isFieldPaint(a) && isFieldPaint(b)) return { k: 'divided', division: field.division, lines: field.lines, pieces: field.pieces, paints: [a, b] };
+  if (field.k === 'divided' && DRAWN_DIVISIONS.includes(field.division) && field.parts.length === partCount(field.division)) {
+    const paints = field.parts.filter(isFieldPaint);
+    if (paints.length === field.parts.length) return { k: 'divided', division: field.division, lines: field.lines, pieces: field.pieces, paints };
   }
   const variation = asVariation(field);
   if (variation) return { k: 'varied', paint: variation };
@@ -218,12 +218,37 @@ function gyronnySector(pieces: number, centre: Point, x: number, y: number): num
   return Math.floor(turn / (360 / pieces));
 }
 
-/** Whether (x,y) lies in the first part of a divided field with plain lines in a shape: `inFirstPart`, and the divisions that need the shape's proportions or a piece count. */
-function inFirstPartIn(f: DividedField, frame: ShapeFrame, x: number, y: number): boolean {
+/** How far a per pall's arm (or a per pall inverted's) rises (falls) for each unit it runs out from the centre, on the side of (x): toward the top corner of the box on that side. */
+function pallSlope({ fessPoint: { x: cx, y: cy }, box }: ShapeFrame, x: number): number {
+  return (cy - box.y0) / (x < cx ? cx - box.x0 : box.x1 - cx);
+}
+
+/** The two lines of a tierced division: a middle third of the box's width (or height) centred on the fess point. */
+function tiercedLines(division: 'tierced-per-pale' | 'tierced-per-fess', centre: Point, box: Box): [number, number] {
+  const third = division === 'tierced-per-pale' ? (box.x1 - box.x0) / 3 : (box.y1 - box.y0) / 3;
+  const middle = division === 'tierced-per-pale' ? centre.x : centre.y;
+  return [middle - third / 2, middle + third / 2];
+}
+
+/**
+ * The part (0-based) a point lies in of a divided field with plain lines in a shape: `inFirstPart`, and the divisions that need the
+ * shape's proportions or a piece count, or have three parts. Points exactly on a line count as the later part.
+ */
+function partIndexIn(f: DividedField, frame: ShapeFrame, x: number, y: number): number {
+  const { x: cx, y: cy } = frame.fessPoint;
   switch (f.division) {
-    case 'per-chevron-throughout': return y < frame.box.y0 + frame.throughoutSlope * Math.abs(x - frame.fessPoint.x);
-    case 'gyronny': return gyronnySector(f.pieces ?? DEFAULT_GYRONNY_PIECES, frame.fessPoint, x, y) % 2 === 0;
-    default: return inFirstPart(f.division, frame.fessPoint, x, y);
+    case 'per-chevron-throughout': return y < frame.box.y0 + frame.throughoutSlope * Math.abs(x - cx) ? 0 : 1;
+    case 'gyronny': return gyronnySector(f.pieces ?? DEFAULT_GYRONNY_PIECES, frame.fessPoint, x, y) % 2;
+    // the chief part between the arms, then dexter and sinister of the line down the middle
+    case 'per-pall': return y < cy - pallSlope(frame, x) * Math.abs(x - cx) ? 0 : x < cx ? 1 : 2;
+    // dexter and sinister of the line up the middle, then the base part between the arms
+    case 'per-pall-inverted': return y >= cy + pallSlope(frame, x) * Math.abs(x - cx) ? 2 : x < cx ? 0 : 1;
+    case 'tierced-per-pale': case 'tierced-per-fess': {
+      const [first, second] = tiercedLines(f.division, frame.fessPoint, frame.box);
+      const at = f.division === 'tierced-per-pale' ? x : y;
+      return at < first ? 0 : at < second ? 1 : 2;
+    }
+    default: return inFirstPart(f.division, frame.fessPoint, x, y) ? 0 : 1;
   }
 }
 
@@ -296,17 +321,20 @@ function straddlingCentre(division: Division, { a, b }: Lines, { x, y }: Point):
     case 'per-fess': return { x, y: y + straddleShift(a) };
     case 'per-bend': case 'per-bend-sinister': case 'per-chevron': case 'per-chevron-inverted': case 'per-saltire': return { x, y: y + Math.SQRT2 * straddleShift(a) };
     case 'quarterly': return { x: x + straddleShift(a), y: y + straddleShift(b) };
-    // the apex is on the edge of the shape, and a gyronny's lines meet in every direction: neither can be moved to straddle
-    case 'per-chevron-throughout': case 'gyronny': return { x, y };
+    // both of a tierced division's lines move with the centre they are laid about
+    case 'tierced-per-pale': return { x: x + straddleShift(a), y };
+    case 'tierced-per-fess': return { x, y: y + straddleShift(a) };
+    // the apex is on the edge of the shape, and the lines of a gyronny or a per pall meet in several directions: none can be moved to straddle
+    case 'per-chevron-throughout': case 'gyronny': case 'per-pall': case 'per-pall-inverted': return { x, y };
     default: return notSupported({ category: 'division', detail: division });
   }
 }
 
-/** What a division is cut by beyond its lines and centre: a gyronny's piece count, and the apex and slope of a per chevron throughout. */
-interface Cut { pieces: number; apexTop: number; slope: number }
+/** What a division is cut by beyond its lines and centre: a gyronny's piece count, the slope of a per chevron throughout, and the box a per chevron throughout's apex, a per pall's arms and the tierced divisions' thirds are measured on. */
+interface Cut { pieces: number; box: Box; slope: number }
 
-/** The cut of the party paints of bands and charges, which are never a gyronny or throughout. */
-const PARTY_CUT: Cut = { pieces: DEFAULT_GYRONNY_PIECES, apexTop: 0, slope: 1 };
+/** The cut of the party paints of bands and charges, which are never a gyronny, throughout, per pall or tierced. */
+const PARTY_CUT: Cut = { pieces: DEFAULT_GYRONNY_PIECES, box: { x0: 0, y0: 0, x1: 100, y1: 120 }, slope: 1 };
 
 /** How far from its centre a gyronny's lines run: past every shape, so a sector reaches the whole frame. */
 const GYRONNY_REACH = 300;
@@ -364,7 +392,7 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
     // the two limbs, laid out from the apex: below the centre for the inverted one (the upper part first), on the top edge for the one throughout
     case 'per-chevron': case 'per-chevron-inverted': case 'per-chevron-throughout': {
       const throughout = division === 'per-chevron-throughout', fall = division === 'per-chevron-inverted' ? -1 : 1;
-      const apex: Pt = [cx, throughout ? cut.apexTop : fall === 1 ? apexY : cy + CHEVRON_APEX_RISE];
+      const apex: Pt = [cx, throughout ? cut.box.y0 : fall === 1 ? apexY : cy + CHEVRON_APEX_RISE];
       const end = (x: number): Pt => [x, apex[1] + fall * (throughout ? cut.slope : 1) * Math.abs(x - cx)];
       const D = lay(a, apex, end(x0), 'meet'), S = lay(a, apex, end(x1), 'meet');
       return [
@@ -383,6 +411,40 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
       const sectors = rays.map(([out, laid], j): Array<[Pt, LaidLine | null]> => [[centre, laid], [out, null], rays[(j + 1) % rays.length]]);
       return [part(...sectors.filter((_, j) => j % 2 === 0)), part(...sectors.filter((_, j) => j % 2 === 1))];
     }
+    // three arms laid out from the centre: two to the top corners of the box and one straight down (a per pall inverted: up, and the
+    // two mirrored below the centre); the parts are the one between the two arms first, then dexter and sinister (dexter, sinister, base)
+    case 'per-pall': case 'per-pall-inverted': {
+      const fall = division === 'per-pall' ? -1 : 1;
+      const out = ([x, y]: Pt): Pt => {
+        const length = Math.hypot(x - cx, y - cy);
+        return [cx + (GYRONNY_REACH * (x - cx)) / length, cy + (GYRONNY_REACH * (y - cy)) / length];
+      };
+      const D = out([cut.box.x0, cy + fall * (cy - cut.box.y0)]), S = out([cut.box.x1, cy + fall * (cy - cut.box.y0)]), M: Pt = [cx, cy - fall * GYRONNY_REACH];
+      const [DL, SL, ML] = [D, S, M].map((end) => lay(a, centre, end, 'cross'));
+      const between = part([[D, null], [S, SL], [centre, DL]]);
+      const dexter = part([[D, DL], [centre, ML], [M, null], [[D[0], M[1]], null]]);
+      const sinister = part([[S, null], [[S[0], M[1]], null], [M, ML], [centre, SL]]);
+      return fall === -1 ? [between, dexter, sinister] : [dexter, sinister, between];
+    }
+    // two lines a third of the box apart, each laid out on its own chord
+    case 'tierced-per-pale': {
+      const [p, q] = tiercedLines(division, fess, cut.box);
+      const [P, Q] = [lay(a, [p, y0], [p, y1], 'centred'), lay(a, [q, y0], [q, y1], 'centred')];
+      return [
+        part([[[x0, y0], null], [[p, y0], P], [[p, y1], null], [[x0, y1], null]]),
+        part([[[p, y0], null], [[q, y0], Q], [[q, y1], null], [[p, y1], P]]),
+        part([[[q, y0], null], [[x1, y0], null], [[x1, y1], null], [[q, y1], Q]]),
+      ];
+    }
+    case 'tierced-per-fess': {
+      const [p, q] = tiercedLines(division, fess, cut.box);
+      const [P, Q] = [lay(a, [x0, p], [x1, p], 'centred'), lay(a, [x0, q], [x1, q], 'centred')];
+      return [
+        part([[[x0, y0], null], [[x1, y0], null], [[x1, p], P], [[x0, p], null]]),
+        part([[[x0, p], P], [[x1, p], null], [[x1, q], Q], [[x0, q], null]]),
+        part([[[x0, q], Q], [[x1, q], null], [[x1, y1], null], [[x0, y1], null]]),
+      ];
+    }
     // the per pale line is `a`, the per fess line `b`: four arms laid out from the fess point
     case 'quarterly': {
       const [n, e, s, w]: Pt[] = [[cx, y0], [x1, cy], [cx, y1], [x0, cy]];
@@ -398,7 +460,7 @@ function partitionAt(division: Division, lines: Lines, fess: Point, turn: number
 
 /** Every part of a divided field as its contours (per saltire and quarterly: two for a part), in part order, around the shape's fess point; its lines drawn as `lines` say. */
 export function partitionContours(division: Division, lines: Lines, pieces: number | null, frame: ShapeFrame): readonly (readonly Contour[])[] {
-  const cut: Cut = { pieces: pieces ?? DEFAULT_GYRONNY_PIECES, apexTop: frame.box.y0, slope: frame.throughoutSlope };
+  const cut: Cut = { pieces: pieces ?? DEFAULT_GYRONNY_PIECES, box: frame.box, slope: frame.throughoutSlope };
   return partitionAt(division, lines, straddlingCentre(division, lines, frame.fessPoint), 0, layOn(pathPolygon(frame.outline)), cut);
 }
 
@@ -436,11 +498,34 @@ const plainLines = (l: Lines): boolean => l.a === 'plain' && l.b === 'plain';
  */
 export function partIndexAt(f: DividedField | VariedField, shape: FieldShape, x: number, y: number): number {
   const frame = SHAPE_FRAME[shape];
-  if (f.k === 'divided' && plainLines(f.lines)) return inFirstPartIn(f, frame, x, y) ? 0 : 1;
+  if (f.k === 'divided' && plainLines(f.lines)) return partIndexIn(f, frame, x, y);
   if (f.k === 'varied' && plainLines(f.paint.lines)) return inFirstRegion(f.paint.variation, f.paint.pieces, frame.box, x, y) ? 0 : 1;
   const regions = regionsOf(f, shape);
   const index = regions.slice(0, -1).findIndex((d) => pointInPath(pathRings(d), x, y));
   return index < 0 ? regions.length - 1 : index;
+}
+
+/** The points the heater's area is measured on: a grid two units apart, those inside the outline. */
+let areaPoints: readonly Pt[] | null = null;
+const AREA_STEP = 2;
+
+const partGrids = new Map<string, readonly number[]>();
+
+/**
+ * The part (0-based) of a division with plain lines that each of the heater's area points lies in, in one fixed order of points, so that
+ * two divisions' grids compare point by point: what the share of a field whose tincture changes is measured on (RULES-C §E.2).
+ */
+export function divisionPartGrid(division: Division, pieces: number | null): readonly number[] {
+  const key = `${division}|${pieces}`;
+  let grid = partGrids.get(key);
+  if (!grid) {
+    const outline = pathPolygon(SHIELD_PATH);
+    areaPoints ??= Array.from({ length: 50 }, (_, i) => Array.from({ length: 60 }, (__, j): Pt => [AREA_STEP * (i + 0.5), AREA_STEP * (j + 0.5)])).flat().filter(([x, y]) => pointInPolygon(x, y, outline));
+    const f: DividedField = { k: 'divided', division, lines: PLAIN_LINES, pieces, paints: [] };
+    grid = areaPoints.map(([x, y]) => partIndexAt(f, CANONICAL_SHAPE, x, y));
+    partGrids.set(key, grid);
+  }
+  return grid;
 }
 
 /** Field as paint-filled regions, in paint order. */

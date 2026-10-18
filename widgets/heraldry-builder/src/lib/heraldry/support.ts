@@ -7,7 +7,7 @@ import { capitalise } from './words';
 import { CHARGES, isChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
 import { liesAstride, specOf } from './ordinary-geometry';
-import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, type Division, type Variation } from './divisions';
+import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, partCount, type Division, type Variation } from './divisions';
 import {
   asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
 } from './design';
@@ -365,12 +365,17 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
   }
 
   const hasChief = d.groups.some((g) => g.role === 'peripheral' && g.item.k === 'ordinary' && g.item.type === 'chief');
+  // counterchanging swaps the two tinctures of a field divided in two: over three parts no one other tincture is the group's
+  const inThree = d.kind === 'arms' && d.field.k === 'divided' && partCount(d.field.division) === 3;
   for (const { path, group, host } of walkGroups(d)) {
     const at: IssueAt = { k: 'group', path };
     const owner = group.item.k === 'ordinary' ? group.item.type : group.item.charge;
     const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...placementGaps(d, group, host)];
     if (host) gaps.push(...onChargeGaps(d, host));
     if (againstAstrideLine(d, group, host)) gaps.push(gap('placement', 'counterchanged-chevron'));
+    if (inThree && (group.paint.k === 'counterchanged' || (group.item.k === 'ordinary' && group.item.cotised?.paint.k === 'counterchanged'))) {
+      gaps.push(gap('division', 'counterchanged-over-three-parts', 'Counterchanging over a field divided in three'));
+    }
     if (host && group.item.k === 'ordinary') gaps.push(gap('placement', 'tertiary-ordinary'));
     if (host?.role === 'overall' && host.item.k === 'ordinary') gaps.push(gap('multiple-groups', 'tertiary-on-overall', ON_THAT_CHARGE));
     for (const g of gaps) add(at, g);

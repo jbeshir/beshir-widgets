@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  CHARGES, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  BUILDER_DIVISIONS, CHARGES, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, modDrawn, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -25,7 +25,7 @@ import {
 const DRAWN_DIVISION_IDS: readonly string[] = DRAWN_DIVISIONS;
 
 /** The words after a division's name that make another drawn division ("per chevron inverted"), or a line it is drawn with ("gyronny arrondi"), by the division they follow. */
-const DRAWN_DIVISION_FORMS: Readonly<Record<string, string>> = { 'per-chevron-inverted': 'per-chevron-inverted', 'per-chevron-throughout': 'per-chevron-throughout', 'gyronny-arrondi': 'gyronny', 'gyronny-arrondy': 'gyronny' };
+const DRAWN_DIVISION_FORMS: Readonly<Record<string, string>> = { 'per-chevron-inverted': 'per-chevron-inverted', 'per-chevron-throughout': 'per-chevron-throughout', 'per-pall-inverted': 'per-pall-inverted', 'gyronny-arrondi': 'gyronny', 'gyronny-arrondy': 'gyronny' };
 
 /**
  * Whether the widget draws the line a word spells on this division, variation or band: any line a division takes ("per pale dancetty"
@@ -81,7 +81,7 @@ type Entry =
   | { k: 'tincGap'; v: string } | { k: 'fur'; v: string } | { k: 'charge'; id: ChargeId }
   | { k: 'gapCharge'; b: ChargeBucket; v: string } | { k: 'cross' }
   | { k: 'ord'; v: OrdinaryType } | { k: 'gapOrd'; v: string } | { k: 'line'; v: string }
-  | { k: 'per' } | { k: 'quarterly' } | { k: 'gyronny' } | { k: 'gapDiv'; v: string } | { k: 'treat'; v: string } | { k: 'semy' }
+  | { k: 'per' } | { k: 'quarterly' } | { k: 'gyronny' } | { k: 'tierced'; v: string } | { k: 'gapDiv'; v: string } | { k: 'treat'; v: string } | { k: 'semy' }
   | { k: 'posture'; v: Posture } | { k: 'gapPosture'; v: string } | { k: 'orient'; v: string }
   | { k: 'mod'; v: string } | { k: 'ctx'; v: string } | { k: 'marshal'; v: string }
   | { k: 'in' } | { k: 'on' } | { k: 'between' } | { k: 'of' } | { k: 'and' } | { k: 'container' };
@@ -95,6 +95,7 @@ const entries = <T>(r: Record<string, T>) => Object.entries(r);
 
 add(['in'], { k: 'in' }); add(['on'], { k: 'on' }); add(['between', 'betwixt'], { k: 'between' });
 add(['of'], { k: 'of' }); add(['and', '&'], { k: 'and' }); add(['per'], { k: 'per' }); add(['quarterly'], { k: 'quarterly' }); add(['gyronny'], { k: 'gyronny' });
+add(['tierced-per-pale', 'tierced-per-fess'], (word) => ({ k: 'tierced', v: word }));
 for (const [word, n] of entries(NUMBERS)) LEX.set(word, { k: 'num', n });
 add(['or', 'argent', 'azure', 'gules', 'vert', 'sable', 'purpure', 'celestine'], { k: 'tinc' });
 add(['counterchanged', 'counter-changed', 'counterchange'], { k: 'cc' });
@@ -219,6 +220,9 @@ const JOINS: [RegExp, string][] = [
   [/\bbleu celeste\b/g, 'bleu-celeste'],
   [/\b(vair|potent) en pointe?\b/g, '$1'],
   [/\bpoint pointed\b/g, 'point'],
+  // a field tierced in pale or in fess is drawn ("tierced per pale" is one), tierced per pall and gyronny of three are per pall; a bare "tierced" stays its gap
+  [/\btierced (?:per|in) (pale|fess)e?\b/g, 'tierced-per-$1'],
+  [/\b(?:tierced (?:per|in) pall|gyronny of three)\b/g, 'per pall'],
   // the ordinary, not the division ("per pall inverted") or the arrangement ("in pall inverted")
   [/(?<!\b(?:per|in) )\bpall inverted\b/g, 'pall-inverted'],
   // flaunches are a pair however many the text says; a double or triple tressure is one tressure drawn so
@@ -582,9 +586,10 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (!parts.length) break;
         const name = `per-${parts.join('-and-')}`;
         i = j - 1;
-        // A band or picture divided in two ("a bend per bend azure and argent"): the widget draws the drawn divisions.
+        // A band or picture divided in two ("a bend per bend azure and argent"): the widget draws the builder's divisions there, the others only on the field.
         if (!inField && (els.length || fieldless)) {
           if (!DRAWN_DIVISION_IDS.includes(name)) tag('division', name);
+          else if (!(BUILDER_DIVISIONS as readonly string[]).includes(name)) tag('division', `${name}-on-charge`);
           break;
         }
         if (inField) { divisionEnd = i; fieldDivision = prev === 'quarterly' ? 'quarterly' : name; }
@@ -596,6 +601,15 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         last = { kind: 'div', el: null, name };
         break;
       }
+      case 'tierced':
+        // a band or picture so divided is not drawn
+        if (!inField && (els.length || fieldless)) { tag('division', `${e.v}-on-charge`); break; }
+        divisions++;
+        if (divisions > 1) tag('division', 'compound');
+        last = { kind: 'div', el: null, name: e.v };
+        divisionEnd = i;
+        fieldDivision = e.v;
+        break;
       case 'gyronny':
         // a band or picture so divided is not drawn
         if (!inField && (els.length || fieldless)) { tag('division', 'gyronny-on-charge'); break; }
@@ -761,6 +775,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         last = { ...last, name: drawn };
         divisionEnd = i;
         fieldDivision = drawn;
+        return;
+      }
+      // drawn on the field only: on a band or picture it is the gap the widget files it under
+      if (drawn && !(BUILDER_DIVISIONS as readonly string[]).includes(drawn)) {
+        tag('division', `${drawn}-on-charge`);
         return;
       }
       tag('division', `${last.name}-${base.replace(/^arrondy$/, 'arrondi')}`); // "per chevron inverted", "per saltire arrondi"

@@ -3,11 +3,12 @@
 // so they can double as the reason shown next to a blocked option.
 
 import { TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
-import { capitalise, numberWord } from './words';
+import { capitalise, joinAnd, numberWord } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
-import { DIVISION_NAME, VARIATION_NAME } from './divisions';
+import { DIVISION_NAME, VARIATION_NAME, adjacentParts, partCount, type Division } from './divisions';
 import { LINE_GROUP, LINE_WORD, edgeCount, isStraightLine, lineAllowed, type ComplexLine, type EdgeHost, type Line } from './lines';
-import { surfaceOf } from './surface';
+import { surfaceOf, type Surface } from './surface';
+import type { Ground } from './contrast';
 import { divisionCutsOrdinary, specOf } from './ordinary-geometry';
 import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue, onChargeWords } from './layout';
@@ -264,6 +265,27 @@ function treatmentProblem(p: Paint): string | null {
   return treated && metalAndColourProblem(paintName(treated), treated.ground.t, treated.ink);
 }
 
+/** Whether two parts of a field stand out against each other: a metal and a colour, or a neutral fur against either. */
+const contrasting = (a: Surface, b: Surface): boolean => a.cls === 'neutral' || b.cls === 'neutral' || a.cls !== b.cls;
+
+/**
+ * Why a field divided in three has too little contrast between its parts, or null (its parts already differ): one part must contrast with
+ * the other two (SENA A3B3b); a tierced field's middle part with both outer parts, which also makes its adjacent parts contrast (A3B3d: the
+ * strictest reading, RULES-C §E.2, L11). Null for a field in two parts.
+ */
+function threePartProblem(division: Division, parts: readonly Paint[]): string | null {
+  if (partCount(division) !== 3) return null;
+  const [a, b, c] = parts.map((p) => surfaceOf(p, null));
+  const name = capitalise(DIVISION_NAME[division]);
+  const names = parts.map(paintName);
+  if (division === 'tierced-per-pale' || division === 'tierced-per-fess') {
+    return contrasting(a, b) && contrasting(b, c) ? null : `${name} needs its middle part to contrast with both outer parts — a metal between colours, or a colour between metals (RULES-C §E.2): ${joinAnd(names)} don't.`;
+  }
+  return contrasting(a, b) && contrasting(a, c) || contrasting(b, a) && contrasting(b, c) || contrasting(c, a) && contrasting(c, b)
+    ? null
+    : `${name} needs one part to contrast with both others (SENA A3B3b), and none of ${joinAnd(names)} does.`;
+}
+
 /** Why a paint named `name` of tinctures `a` and `b` is not of a metal and a colour, or null when it is. */
 function metalAndColourProblem(name: string, a: Tincture, b: Tincture): string | null {
   if (a === b) return `${name} needs two different tinctures — both are ${TINCTURE_NAME[a]}.`;
@@ -282,7 +304,12 @@ export function paintIssues(d: Design): Issue[] {
       const t = bodyTinctures(p).find((x) => bodyTinctures(q).includes(x));
       return t ? [{ p, q, t }] : [];
     }))[0];
-    if (shared) {
+    const tierced = d.field.division === 'tierced-per-pale' || d.field.division === 'tierced-per-fess';
+    if (shared && tierced && shared.p === parts[0] && shared.q === parts[2]) {
+      // Tierced with its outer parts alike is the plain field with a pale (a fess) on it (RULES-C L24)
+      const band = d.field.division === 'tierced-per-pale' ? 'pale' : 'fess';
+      add({ code: 'structure', rule: 'field', at: { k: 'field' }, slots: [], message: `That is a ${band}: choose a Background of ${paintName(parts[0])} with a ${band} ${paintName(parts[1])}.` });
+    } else if (shared) {
       const plain = shared.p.k === 'tincture' && shared.q.k === 'tincture';
       const message = !plain
         ? `A divided field's parts can't share a tincture — ${paintName(shared.p)} and ${paintName(shared.q)} both use ${TINCTURE_NAME[shared.t]}.`
@@ -290,6 +317,9 @@ export function paintIssues(d: Design): Issue[] {
           ? `A divided field needs two different tinctures — both parts are ${TINCTURE_NAME[shared.t]}.`
           : `A divided field needs different tinctures — two parts are ${TINCTURE_NAME[shared.t]}.`;
       add({ code: 'structure', rule: 'field', at: { k: 'field' }, message, slots: [] });
+    } else {
+      const three = threePartProblem(d.field.division, parts);
+      if (three) add({ code: 'structure', rule: 'field', at: { k: 'field' }, message: three, slots: [] });
     }
   }
 
@@ -297,10 +327,11 @@ export function paintIssues(d: Design): Issue[] {
   const fieldLine = d.kind === 'arms' ? paintLineProblem(d.field) : null;
   if (fieldLine) add({ code: 'structure', rule: 'line', at: { k: 'field' }, message: fieldLine, slots: [] });
 
-  // A complex line between sable and purpure, or sable and azure, can't be seen (SENA App H).
-  const complex = complexFieldLine(d), party = d.kind === 'arms' ? asParty(d.field) : null;
-  const pair = party ? party.parts.map((p) => p.t) : [];
-  const dark = DARK_PAIRS.find(([x, y]) => pair.includes(x) && pair.includes(y));
+  // A complex line between sable and purpure, or sable and azure, can't be seen (SENA App H): between any two parts it divides (RULES-C L12: across a per pall's too).
+  const complex = complexFieldLine(d);
+  const divided = d.kind === 'arms' && d.field.k === 'divided' ? d.field : null;
+  const sides = divided ? adjacentParts(divided.division).map(([i, j]) => [divided.parts[i], divided.parts[j]] as const) : [];
+  const dark = DARK_PAIRS.find(([x, y]) => sides.some(([p, q]) => p.k === 'tincture' && q.k === 'tincture' && ((p.t === x && q.t === y) || (p.t === y && q.t === x))));
   if (complex && dark) {
     const message = `A ${LINE_WORD[complex]} line between ${TINCTURE_NAME[dark[0]]} and ${TINCTURE_NAME[dark[1]]} can't be seen — divide them with a straight line, or choose another tincture (SENA App H).`;
     add({ code: 'structure', rule: 'line', at: { k: 'field' }, message, slots: [] });
@@ -567,13 +598,17 @@ export function structuralIssues(d: Design): Issue[] {
   const corePractice = corePracticeProblem(d);
   if (corePractice) add({ code: 'structure', rule: 'core-practice', at: { k: 'design' }, message: corePractice, slots: [] });
 
-  // 7. Two parts that don't contrast, across a complex line with a charge over it: the line can't be made out (SENA App H).
+  // 7. Two parts that don't contrast, across a complex line with a charge over it: the line can't be made out (SENA App H; across a per pall's, RULES-C L12).
   const line = complexFieldLine(d);
-  const sides = line && d.kind === 'arms' && d.field.k === 'divided' && d.field.parts.length === 2 ? d.field.parts.map((p) => surfaceOf(p, null)) : [];
-  if (line && sides.length === 2 && sides[0].cls === sides[1].cls) {
-    const over = walked.find(({ path, group, host }) => host === null && group.role !== 'peripheral' && groundShares(d, path).some(overlies));
+  const field = line && d.kind === 'arms' && d.field.k === 'divided' ? d.field : null;
+  const surfaces = field ? field.parts.map((p) => surfaceOf(p, null)) : [];
+  const alike = field ? adjacentParts(field.division).map(([i, j]) => [surfaces[i], surfaces[j]] as const).filter(([x, y]) => x.cls === y.cls) : [];
+  if (line && alike.length > 0) {
+    const across = (g: Ground) => alike.find(([x, y]) => [x, y].every((s) => g.some((share) => share.surface === s && share.share >= OVERLIES_SHARE)));
+    const over = walked.find(({ path, group, host }) => host === null && group.role !== 'peripheral' && groundShares(d, path).some((g) => across(g) !== undefined));
     if (over) {
-      const pair = sides[0].cls === 'metal' ? 'two metals' : sides[0].cls === 'colour' ? 'two colours' : 'two furs';
+      const cls = groundShares(d, over.path).map(across).find((x) => x !== undefined)?.[0].cls;
+      const pair = cls === 'metal' ? 'two metals' : cls === 'colour' ? 'two colours' : 'two furs';
       const message = `${capitalise(chargesPhrase(over.group))} over the ${LINE_WORD[line]} line ${over.group.count === 1 ? 'hides' : 'hide'} it: between ${pair} the line must stay clear to be seen — set the charges off it, or divide the field with a straight line (SENA App H).`;
       add({ code: 'structure', rule: 'line', at: { k: 'group', path: over.path }, message, slots: [] });
     }

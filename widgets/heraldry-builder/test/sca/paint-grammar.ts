@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, lineAllowed, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, partCount, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, lineAllowed, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
 
@@ -167,7 +167,8 @@ function readAllSemy(tokens: readonly string[], i: number, a: string, b: string)
 
 /**
  * The paint starting at `tokens[i]` and the index after it, or null when there is none: a tincture or fur, a division "per pale argent
- * and gules" (of the field, or of a band or picture), a variation "barry argent and azure", or for a group 'counterchanged'.
+ * and gules" (of the field, or of a band or picture) or in three "per pall argent , gules and azure" (the comma a token of its own), a
+ * variation "barry argent and azure", or for a group 'counterchanged'.
  */
 export function readPaint(tokens: readonly string[], i: number, where: 'field' | 'group'): PaintRead | null {
   if (where === 'group' && (tokens[i] === 'counterchanged' || tokens[i] === 'proper')) return { paint: tokens[i], end: i + 1 };
@@ -185,11 +186,16 @@ export function readPaint(tokens: readonly string[], i: number, where: 'field' |
   const pieces = counted ? COUNT_WORDS[tokens[read.end + 1]] : null;
   const end = read.end + (counted ? 2 : 0);
   const first = readOne(tokens, end);
+  const drawn = { ...(lines ? { lines } : {}), ...(pieces ? { pieces } : {}) };
+  if (first && partCount(division) === 3) {
+    const second = tokens[first.end] === ',' ? readOne(tokens, first.end + 1) : null;
+    const third = second && tokens[second.end] === 'and' ? readOne(tokens, second.end + 1) : null;
+    return second && third && { paint: { k: 'divided', division, ...drawn, parts: [first.paint, second.paint, third.paint] }, end: third.end };
+  }
   if (!first || tokens[first.end] !== 'and') return null;
   const second = readOne(tokens, first.end + 1);
   if (!second) return null;
   const all = typeof first.paint === 'string' && typeof second.paint === 'string' ? readAllSemy(tokens, second.end, first.paint, second.paint) : null;
-  const drawn = { ...(lines ? { lines } : {}), ...(pieces ? { pieces } : {}) };
   if (all) return { paint: { k: 'divided', division, ...drawn, parts: all.parts }, end: all.end };
   return { paint: { k: 'divided', division, ...drawn, parts: [first.paint, second.paint] }, end: second.end };
 }

@@ -1,5 +1,6 @@
 // Phase C's two-part divisions beyond the builder's first seven: per chevron inverted, per chevron throughout and gyronny (of six, eight
-// and twelve, and arrondi). They tile every shape, alternate around the centre, read in the words, and are weighed by A5F1/A5G1d.
+// and twelve, and arrondi). They tile every shape, alternate around the centre, read in the words, and are weighed by A5F1/A5G1d. The
+// three-part ones behind the same disclosure are divisions-three.test.ts.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -27,8 +28,8 @@ function gridIn(shape: FieldShape, step: number): Pt[] {
 const inside = (d: string, x: number, y: number) => pathRings(d).filter((r) => pointInPolygon(x, y, r)).length % 2 === 1;
 
 describe('the divisions behind "More divisions"', () => {
-  it('are per chevron inverted, per chevron throughout and gyronny', () => {
-    expect(MORE_DIVISIONS).toEqual(['per-chevron-inverted', 'per-chevron-throughout', 'gyronny']);
+  it('are per chevron inverted, per chevron throughout and gyronny, then the three-part divisions', () => {
+    expect(MORE_DIVISIONS).toEqual(['per-chevron-inverted', 'per-chevron-throughout', 'gyronny', 'per-pall', 'per-pall-inverted', 'tierced-per-pale', 'tierced-per-fess']);
   });
 
   for (const shape of FIELD_SHAPES) {

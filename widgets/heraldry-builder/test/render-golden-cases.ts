@@ -78,6 +78,12 @@ const GEOMETRY_CASES: ReadonlyArray<[string, unknown]> = [
   ...[6, 8, 12].map((n): [string, unknown] => [`div-gyronny-${n}`, arms({ ...div('gyronny', 'or', 'purpure'), pieces: n })]),
   ['div-gyronny-arrondi', arms({ ...div('gyronny', 'argent', 'gules'), pieces: 8, lines: { a: 'arrondi' } })],
   ['line-embattled-per-chevron-inverted', arms(lined('per-chevron-inverted', 'embattled', 'argent', 'sable'))],
+  // the divisions in three: per pall (one of its parts a fur), per pall inverted, tierced in pale and in fess, and a wavy per pall
+  ['div-per-pall', arms(div('per-pall', 'or', 'sable', 'purpure'))],
+  ['div-per-pall-inverted', arms(div('per-pall-inverted', 'argent', 'sable', 'gules'))],
+  ['div-tierced-per-pale', arms(div('tierced-per-pale', 'azure', 'argent', 'gules'))],
+  ['div-tierced-per-fess', arms(div('tierced-per-fess', 'gules', 'argent', 'vert'))],
+  ['line-wavy-per-pall', arms({ k: 'divided', division: 'per-pall', lines: { a: 'wavy' }, parts: [{ k: 'fur', fur: 'ermine', colours: null }, 'azure', 'gules'] })],
 ];
 
 const band = (type: string, lines: object) => arms('azure', group(ordinary(type, { lines }), 'or'));

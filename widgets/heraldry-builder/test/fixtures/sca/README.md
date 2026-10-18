@@ -99,6 +99,8 @@ is read and filed as the widget's refusal (`widget-structure-rule`, L20), a fret
 
 Gyronny, per chevron inverted and per chevron throughout are drawn divisions (`DIVISION_WORDS` follows `DRAWN_DIVISIONS`; the tagger's `gyronny` entry, `DRAWN_DIVISION_FORMS` for "inverted", "throughout" and "arrondi" after the division): "gyronny [arrondi|arrondy] [of six|twelve]" is read with its count (`readPaint`), "gyronny of eight" is a near-miss like any stated default, other counts are `division:gyronny-pieces-<n>`, and a band or picture so divided `division:<d>-on-charge`.
 
+Per pall, per pall inverted and tierced in pale/fess (C13) are read with three tinctures: the field runs to its own end, not the first comma (`proposeInputs` reads the paint over the whole text and wants a comma or the end after it), "A, B and C" (`readPaint`). The normaliser's `three-part-fields` rule writes "tierced per pale|fess" as "tierced in …", "tierced per pall" and "gyronny of three" as "per pall" (A5G1b), drops the serial comma and supplies a missing first comma; `fieldComma` finds the comma that closes such a field for the connector rules. The tagger joins "tierced per|in pale|fess" (its `tierced` entry) and "tierced per pall"; a bare "tierced" keeps `division:tierced`; a drawn-on-the-field-only division on a band or picture is `division:<d>-on-charge`.
+
 Diminutives are read counted: a number word and a plural (`ORDINARY_PLURAL`: "three bars", "two bendlets sinister", "four pallets") is one
 ordinary group of that count, any number of them (the widget files five bars as `ordinary:multiple` and several saltorels as
 `ordinary:saltorel-multiple`); a central band read after "between" and a group before it ("a fleur-de-lys between two pallets") is a

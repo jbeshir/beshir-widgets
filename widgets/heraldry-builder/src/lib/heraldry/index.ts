@@ -76,7 +76,7 @@ export {
 } from './options';
 export { FUR_KINDS, familyOfKind, furColours, furKindOf, furOfKind, furName, furGloss, takesColours, type FurFamily, type FurKind, type FurPaint } from './fur';
 export { furChoices, furColourChoices, furAt, setFur, setFurColour } from './fur-options';
-export { paintAt, type PaintTarget } from './paint-target';
+export { paintAt, type FieldPart, type PaintTarget } from './paint-target';
 export { clearTreatment, treatmentAt, treatmentChoices, setTreatment, treatmentColourChoices, setTreatmentColour } from './treatment-options';
 export { canStrew, semyAt, semyChoices, setSemy, clearSemy, semyColourChoices, setSemyColour } from './semy-options';
 export { treatedName, treatedGloss } from './treatment';
