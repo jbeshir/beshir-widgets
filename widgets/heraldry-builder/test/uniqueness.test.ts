@@ -753,3 +753,65 @@ describe('counterchanged and the same tinctures written out (A5G3a)', () => {
     expect(between(three('counterchanged'), three(div('per-pale', 'azure', 'argent')))).toEqual(['tincture:dc:A5G3']);
   });
 });
+
+describe('facing, gaze and pairs (PLAN-D §1.1 F1–F10)', () => {
+  const lion = (attrs: object = {}, extra: object = {}) => chg('lion', 'or', extra, attrs);
+  const pair = (id: string, word: string) => chg(id, 'or', { count: 2, arrangement: { k: 'pair', pair: word } });
+  const contourny = { facing: 'to-sinister' };
+
+  it('F1: a lion, an eagle or a fish naiant against the same facing to sinister is a distinct change, never substantial', () => {
+    expect(between(design('azure', lion()), design('azure', lion(contourny)))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', chg('eagle', 'or')), design('azure', chg('eagle', 'or', {}, contourny)))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', chg('fish', 'or')), design('azure', chg('fish', 'or', {}, contourny)))).toEqual(['posture:dc:A5G7']);
+    // so a facing and one more change clear it
+    expect(isClear(differences(design('azure', lion()), design('gules', lion(contourny))))).toBe(true);
+  });
+
+  it('F2: no difference for the facing of an owl, of a fish haurient, or of charges in annulo', () => {
+    const owl = design('azure', chg('owl', 'or'));
+    const owlTurned = { ...owl, groups: [{ ...owl.groups[0], item: { ...owl.groups[0].item, facing: 'to-sinister' } }] } as Design;
+    expect(between(owl, owlTurned)).toEqual([]);
+    const haurient = { posture: 'haurient' };
+    expect(between(design('azure', chg('fish', 'or', {}, haurient)), design('azure', chg('fish', 'or', {}, { ...haurient, ...contourny })))).toEqual([]);
+    const annulo = { count: 3, arrangement: 'in-annulo' };
+    expect(between(nd(arms('azure', lion({}, annulo))), nd(arms('azure', lion(contourny, annulo))))).toEqual([]);
+  });
+
+  it('F4: the gaze of a whole beast makes no difference', () => {
+    expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ gaze: 'guardant' }))))).toEqual([]);
+    expect(between(nd(arms('azure', lion({ gaze: 'regardant' }))), nd(arms('azure', lion({ gaze: 'guardant' }))))).toEqual([]);
+  });
+
+  it('F6: two charges facing each other, back to back and the same way are each a distinct change apart, whatever their types', () => {
+    expect(between(design('azure', pair('lion', 'combattant')), design('azure', pair('lion', 'addorsed')))).toEqual(['posture:dc:A5G7']);
+    // F8: the pair is the arrangement in fess, so against two lions in fess only the pose changes (herald question D19)
+    expect(between(design('azure', pair('lion', 'combattant')), design('azure', lion({}, { count: 2, arrangement: 'in-fess' })))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', pair('lion', 'combattant')), design('azure', pair('lion', 'respectant')))).toEqual([]);
+    expect(between(design('azure', pair('lion', 'combattant')), design('azure', pair('eagle', 'addorsed')))).toEqual(['type:sc:A5E2', 'posture:dc:A5G7']);
+    expect(between(design('azure', pair('lion', 'addorsed')), design('azure', pair('eagle', 'addorsed')))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('F6, F8 around a pale: the pair keeps the place the pale gives, and its pose is a distinct change', () => {
+    const pale = (word: string | null) => design('azure', ord('pale', 'argent'), word ? pair('lion', word) : chg('lion', 'or', { count: 2 }));
+    expect(between(pale('combattant'), pale(null))).toEqual(['posture:dc:A5G7']);
+    expect(between(pale('combattant'), pale('addorsed'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('F9: a posture and a facing changed together on one group are one distinct change', () => {
+    expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ posture: 'sejant', ...contourny }))))).toEqual(['posture:dc:A5G7']);
+    expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ posture: 'sejant' }))))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('F10: a beast affronty against one in profile is a substantial change as the primary', () => {
+    expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ facing: 'affronty' }))))).toEqual(['posture:sc:A5E5']);
+  });
+
+  it('explains a facing and a pair in words', () => {
+    const [facing] = explainDifferences(design('azure', lion(contourny)), design('azure', lion()));
+    expect(facing.text).toBe('pose of picture (rampant contourny ↔ rampant)');
+    expect(facing.why).toBe('Turning a lion to face the other way is a distinct change (SENA A5G7).');
+    const [paired] = explainDifferences(design('azure', pair('lion', 'combattant')), design('azure', lion({}, { count: 2, arrangement: 'in-fess' })));
+    expect(paired.text).toBe('pose of picture (rampant combattant ↔ rampant)');
+    expect(paired.why).toBe('Turning the two lions to face each other, back to back or the same way is a distinct change (SENA A5G7).');
+  });
+});

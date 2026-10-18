@@ -360,3 +360,46 @@ export function generatedPeripheralDesigns(seed: number, count: number): Design[
   }
   return designs;
 }
+
+/** Mixed into a seed for the picks of the charge attribute designs. */
+const ATTRIBUTE_SEED = 0x85ebca6b;
+/** The charges the attribute designs use: beasts, a bird and a fish that face (and turn), and two charges that don't. */
+const ATTRIBUTE_CHARGES = ['lion', 'wolf', 'eagle', 'fish', 'rose', 'mullet'];
+const FACING_CHARGES = ['lion', 'wolf', 'eagle', 'fish'];
+
+/**
+ * The design for `seed` with a charge group whose charges carry the phase-D attributes (PLAN-D §0.3.9): about one design in three faces
+ * to sinister (contourny) or is a pair (combattant, respectant or addorsed) on the field or around a pale; the rest are a charge group as
+ * drawn, sometimes with a pale or a fess. Each later attribute step adds its picks after these. Null when the pick isn't registrable.
+ */
+function attributeDesignFor(seed: number): Design | null {
+  const next = prng(seed ^ ATTRIBUTE_SEED);
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
+  const field = next() < 0.6 ? pick(TINCTURES) : { k: 'divided', division: pick(['per-pale', 'per-bend']), parts: [pick(TINCTURES), pick(TINCTURES)] };
+  const attribute = next();
+  const id = attribute < 0.33 ? pick(FACING_CHARGES) : pick(ATTRIBUTE_CHARGES);
+  const band = next() < 0.3 ? pick(['pale', 'fess']) : null;
+  const pair = attribute >= 0.15 && attribute < 0.33;
+  const charge = { k: 'charge', charge: id, ...(attribute < 0.15 ? { facing: 'to-sinister' } : {}) };
+  const group = {
+    item: charge, paint: next() < 0.15 && typeof field === 'object' ? 'counterchanged' : pick(TINCTURES),
+    count: pair ? 2 : 1 + Math.floor(next() * 3),
+    ...(pair ? { arrangement: { k: 'pair', pair: pick(['combattant', 'respectant', 'addorsed']) } } : {}),
+    ...(band ? { relation: 'between' } : {}),
+  };
+  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, group] : [group];
+  const r = resolve({ v: 2, field, groups });
+  if (!r.ok) return null;
+  const n = normalise(r.design);
+  return n.ok ? n.design : null;
+}
+
+/** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */
+export function generatedChargeAttributeDesigns(seed: number, count: number): Design[] {
+  const designs: Design[] = [];
+  for (let s = seed; designs.length < count; s++) {
+    const d = attributeDesignFor(s);
+    if (d) designs.push(d);
+  }
+  return designs;
+}

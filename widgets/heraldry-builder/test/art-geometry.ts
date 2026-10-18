@@ -12,10 +12,10 @@ export function rings(d: string): Pt[][] {
 }
 
 /** A drawing's rings placed in a drawn box on the shield, turned with the charge and posed as `chargeTransform` poses it. */
-export function placePosed(rs: Pt[][], box: Slot, _pose: ArtPose): Pt[][] {
+export function placePosed(rs: Pt[][], box: Slot, pose: ArtPose): Pt[][] {
   const a = (box.rotation * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
   return rs.map((r) => r.map(([x, y]): Pt => {
-    const dx = (x - 50) * box.size / 100, dy = (y - 50) * box.size / 100;
+    const dx = (pose.mirror ? 50 - x : x - 50) * box.size / 100, dy = (y - 50) * box.size / 100;
     return [box.x + dx * cos - dy * sin, box.y + dx * sin + dy * cos];
   }));
 }

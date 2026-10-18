@@ -7,7 +7,7 @@ import {
   CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, BUILDER_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, primaryGroups, signature,
   type Design, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
-import { generatedDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesigns } from './design-generator';
 import { rotatesIn, sampleSeed } from './rotation';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
@@ -71,6 +71,18 @@ describe('too-close pre-filter', () => {
       }
     }
   }, 30_000);
+
+  // Seeded sampling: a rotating twelfth of the pairs of charge attribute designs (facings and pairs), each way round.
+  it('keys only on changes that are substantial on their own (charge attribute designs: facings and pairs)', () => {
+    const designs = generatedChargeAttributeDesigns(30_000, 60);
+    let compared = 0;
+    for (const [i, a] of designs.entries()) for (const [j, b] of designs.entries()) {
+      if (!rotatesIn(`attribute|${i}|${j}`, 1 / 12)) continue;
+      compared++;
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+    expect(compared, `sample seed ${sampleSeed()}`).toBeGreaterThan(150);
+  });
 
   // Seeded sampling: a rotating third of the pairs (`rotatesIn`).
   it('keys only on changes that are substantial on their own (generated pairs)', () => {

@@ -27,7 +27,7 @@ export function strewnGroups(d: Design): Strewn[] {
 /** The charge a semy strews, in the posture it is drawn in. */
 function strewnCharge({ charge, form }: SemyPaint['charge']): Charge {
   const meta = CHARGES[charge];
-  return { k: 'charge', charge, form, posture: meta.defaultPosture, facing: meta.defaultFacing, orientation: null, mods: [], parts: [], holds: [] };
+  return { k: 'charge', charge, form, posture: meta.defaultPosture, gaze: null, facing: meta.defaultFacing, orientation: null, mods: [], parts: [], holds: [] };
 }
 
 const strewnGroup = (role: Group['role'], semy: SemyPaint, paint: Paint = semy.ink): Group => ({

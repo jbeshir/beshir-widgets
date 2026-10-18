@@ -192,7 +192,26 @@ const DIMINUTIVE_CASES: ReadonlyArray<[string, unknown]> = [
   ['dim-bars-wavy-3', arms('azure', group(ordinary('bar', { lines: { a: 'wavy' } }), 'argent', { count: 3 }))],
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
+const contourny = { facing: 'to-sinister' };
+const pair = (word: string) => ({ count: 2, arrangement: { k: 'pair', pair: word } });
+
+/**
+ * The phase-D charge attributes (PLAN-D §0.3.9), plain and hatched: facing to sinister alone, proper, divided, counterchanged and carrying a
+ * charge (its on-box mirrored with it); the pairs on the field and around a pale.
+ */
+const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
+  ['attr-lion-contourny', arms('azure', group(charge('lion', contourny), 'or'))],
+  ['attr-lions-combattant', arms('azure', group(charge('lion'), 'or', pair('combattant')))],
+  ['attr-wolves-addorsed', arms('argent', group(charge('wolf'), 'sable', pair('addorsed')))],
+  ['attr-eagles-respectant', arms('gules', group(charge('eagle'), 'argent', pair('respectant')))],
+  ['attr-lion-contourny-proper', arms('vert', group(charge('lion', contourny), 'proper'))],
+  ['attr-lion-contourny-per-bend', arms('azure', group(charge('lion', contourny), div('per-bend', 'or', 'argent')))],
+  ['attr-lion-contourny-counterchanged', arms(div('per-pale', 'argent', 'gules'), group(charge('lion', contourny), 'counterchanged'))],
+  ['attr-lion-contourny-charged', arms('azure', group(charge('lion', contourny), 'or', { charged: [group(charge('mullet'), 'gules')] }))],
+  ['attr-pale-between-lions-combattant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('lion'), 'or', pair('combattant')))],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The drawings the reviews fixed (U-3, U-5, U-6, K-22; the cotises of a couped band couped with it), each pinned in the shape it was worst in. */
 const REVIEW_VISUAL_CASES: ReadonlyArray<[string, unknown, FieldShape]> = [

@@ -8,7 +8,7 @@ import {
   type Design, type Issue,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesign, generatedDesigns, generatedRichDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedDesigns, generatedRichDesigns } from './design-generator';
 import { UNSUPPORTED_CASES } from './unsupported-cases';
 
 const messages = (r: ReturnType<typeof resolve>): string[] => (r.ok ? [] : r.errors.map((e) => e.message));
@@ -22,7 +22,7 @@ describe('resolve: defaults', () => {
       v: 2, kind: 'arms', field: { k: 'tincture', t: 'azure' },
       groups: [{
         role: 'primary', relation: null, count: 1, arrangement: { k: 'single' }, position: null, paint: { k: 'tincture', t: 'or' }, charged: [],
-        item: { k: 'charge', charge: 'lion', form: null, posture: 'rampant', facing: 'to-dexter', orientation: null, mods: [], parts: [], holds: [] },
+        item: { k: 'charge', charge: 'lion', form: null, posture: 'rampant', gaze: null, facing: 'to-dexter', orientation: null, mods: [], parts: [], holds: [] },
       }],
     });
   });
@@ -92,6 +92,38 @@ describe('resolve: defaults', () => {
 
   it('is idempotent: resolving a resolved design gives it back', () => {
     for (const d of [...generatedDesigns(1, 40), ...generatedRichDesigns(1, 40)]) expect(nd(d)).toEqual(d);
+  });
+});
+
+describe('resolve: facing, gaze and pairs', () => {
+  const lion = (item: object, extra: object = {}) => nd(arms('azure', group(charge('lion', item), 'or', extra)));
+  const itemOf = (d: Design) => d.groups[0].item;
+
+  it('reads a gaze written as a facing (the old form) as the gaze, the body facing its own way', () => {
+    expect(itemOf(lion({ facing: 'regardant' }))).toMatchObject({ gaze: 'regardant', facing: 'to-dexter' });
+    expect(canonicalJson(lion({ facing: 'guardant' }))).toBe(canonicalJson(lion({ gaze: 'guardant' })));
+  });
+
+  it('keeps a facing and a gaze through the canonical form, the gaze after the posture', () => {
+    for (const d of [lion({ facing: 'to-sinister' }), lion({ gaze: 'guardant', facing: 'to-sinister' }), lion({ facing: 'affronty' })]) {
+      expect(nd(JSON.parse(canonicalJson(d)))).toEqual(d);
+    }
+    expect(Object.keys(itemOf(canonical(lion({ facing: 'to-sinister' }))))).toEqual(['k', 'charge', 'form', 'posture', 'gaze', 'facing', 'orientation', 'mods', 'parts', 'holds']);
+  });
+
+  it('words two charges facing each other combattant for beasts and monsters, respectant for the others (CL 11/2012: one pair)', () => {
+    const pair = (id: string, word: string) => nd(arms('azure', group(charge(id), 'or', { count: 2, arrangement: { k: 'pair', pair: word } }))).groups[0].arrangement;
+    expect(pair('lion', 'respectant')).toEqual({ k: 'pair', pair: 'combattant' });
+    expect(pair('dragon', 'respectant')).toEqual({ k: 'pair', pair: 'combattant' });
+    expect(pair('eagle', 'combattant')).toEqual({ k: 'pair', pair: 'respectant' });
+    expect(pair('fish', 'combattant')).toEqual({ k: 'pair', pair: 'respectant' });
+    expect(pair('lion', 'addorsed')).toEqual({ k: 'pair', pair: 'addorsed' });
+  });
+
+  it('lets two charges set around a pale face each other, but no other arrangement', () => {
+    const pale = (arrangement: unknown) => resolve(arms('azure', group(ordinary('pale'), 'argent'), group(charge('lion'), 'or', { count: 2, arrangement })));
+    expect(pale({ k: 'pair', pair: 'combattant' }).ok).toBe(true);
+    expect(messages(pale('in-fess'))).toEqual(['Charges set around or on an ordinary are placed by it — leave the arrangement out.']);
   });
 });
 
@@ -344,7 +376,11 @@ describe('resolve: shape errors', () => {
   it('rejects a posture or facing on a charge that has none', () => {
     expect(bad(arms('or', group(charge('rose', { posture: 'rampant' }), 'gules')))).toEqual(['A rose has no posture.']);
     expect(bad(arms('or', group(charge('owl', { posture: 'close' }), 'gules')))).toEqual(['An owl has no posture.']);
-    expect(bad(arms('or', group(charge('rose', { facing: 'guardant' }), 'gules')))).toEqual(['A rose has no facing.']);
+    expect(bad(arms('or', group(charge('rose', { facing: 'to-sinister' }), 'gules')))).toEqual(['A rose has no facing.']);
+    expect(bad(arms('or', group(charge('rose', { gaze: 'guardant' }), 'gules')))).toEqual(['A rose has no gaze.']);
+    expect(bad(arms('or', group(charge('rose', { facing: 'guardant' }), 'gules')))).toEqual(['A rose has no gaze.']);
+    expect(bad(arms('or', group(charge('lion', { gaze: 'sideways' }), 'gules')))).toEqual(['Unknown gaze.']);
+    expect(bad(arms('or', group(charge('lion', { gaze: 'guardant', facing: 'regardant' }), 'gules')))).toEqual(['The gaze is given twice.']);
   });
 
   it('resolves a posture that is not drawn (it is unsupported, not malformed)', () => {
@@ -521,6 +557,11 @@ describe('support matrix', () => {
       ['counterchanged charges', arms(div('per-pale', 'or', 'azure'), group(charge('rose'), 'counterchanged', { count: 2 }))],
       ['a sun in splendour', arms('azure', group(charge('sun', { mods: ['in-splendour'] }), 'or'))],
       ['twelve charges', arms('azure', group(charge('mullet'), 'or', { count: 12, arrangement: 'rows-4-4-4' }))],
+      ['a lion contourny', arms('azure', group(charge('lion', { facing: 'to-sinister' }), 'or'))],
+      ['an eagle contourny on a charge', arms('azure', group(charge('lozenge'), 'or', { charged: [group(charge('eagle', { facing: 'to-sinister' }), 'gules')] }))],
+      ['two lions combattant', arms('azure', group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))],
+      ['two wolves addorsed within a bordure', arms('azure', group(charge('wolf'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }), group(ordinary('bordure'), 'argent'))],
+      ['a pale between two eagles respectant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('eagle'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
     ];
     for (const [label, input] of supported) {
       it(`${label} has no gap`, () => expect(gapTags(nd(input))).toEqual([]));
@@ -528,6 +569,24 @@ describe('support matrix', () => {
 
     it('every generated design is supported', () => {
       for (const d of [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 200)]) expect(isSupported(d)).toBe(true);
+    });
+
+    it('every generated charge attribute design is supported and legal, and about a third face or pair', () => {
+      const designs = generatedChargeAttributeDesigns(1, 200);
+      for (const d of designs) expect([isSupported(d), structuralIssues(d)]).toEqual([true, []]);
+      const turned = designs.filter((d) => d.groups.some((g) => g.arrangement.k === 'pair' || (g.item.k === 'charge' && g.item.facing === 'to-sinister')));
+      expect(turned.length).toBeGreaterThan(40);
+    });
+
+    it('draws a pair only of two charges that face, each its own way, alone on the field or around a pale', () => {
+      const pair = (id: string, extra: object = {}, item: object = {}) => gapTags(nd(arms('azure', group(charge(id, item), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' }, ...extra }))));
+      expect(pair('lion')).toEqual([]);
+      expect(pair('rose')).toEqual(['posture:addorsed']);
+      expect(pair('owl')).toEqual(['posture:addorsed']);
+      expect(pair('lion', {}, { facing: 'to-sinister' })).toEqual(['posture:addorsed']);
+      expect(pair('lion', { position: 'chief' })).toContain('posture:addorsed');
+      expect(gapTags(nd(arms('azure', group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }), group(charge('rose'), 'gules'))))).toContain('posture:addorsed');
+      expect(gapTags(nd(arms('azure', group(ordinary('pile'), 'argent'), group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }))))).toEqual(['posture:addorsed']);
     });
   });
 

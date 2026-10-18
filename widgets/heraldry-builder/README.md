@@ -629,9 +629,12 @@ recursive paint (a tincture, a fur, a treated tincture, a tincture strewn with a
 ordinary or a charge), a count, an arrangement and optional position, a paint and, in
 `charged`, the groups sitting on it; its role (primary, secondary, peripheral, overall, tertiary)
 and relation (between, about, position) say how it relates to the field and the other groups.
-There is no cap on groups. A fieldless badge (`kind: 'badge'`, `field: null`; see Fieldless badges) is drawn; stains,
-proper on charges without a palette, the other field treatments, lines of partition and charge attributes (form, facing, orientation,
-parts, holds); the builder does not draw those yet, so `resolve` accepts them and `support.ts`
+There is no cap on groups. A fieldless badge (`kind: 'badge'`, `field: null`; see Fieldless badges) is drawn, and so is a charge facing to sinister
+(contourny: its drawing mirrored, its on-box with it) and two charges that face each other or stand back to back (a `pair` arrangement,
+combattant for beasts and monsters and respectant for the rest, laid out as two in fess, or around a pale); a charge's gaze (`gaze`:
+guardant, regardant) is a field of its own, drawn once a drawing of its posture with the head turned exists. Stains,
+proper on charges without a palette, the other field treatments, lines of partition and the other charge attributes (form, affronty, the
+gaze without a drawing, orientation, parts, holds) are not drawn yet: `resolve` accepts them and `support.ts`
 reports each as an `unsupported` issue naming the gap (the SCA test files records under the same
 tags). Lines read as blazon does (`lines.ts`): `{a}` alone is what the bare word means on its host ("a fess embattled" is its upper edge, "a fess wavy" both), `b` is a second edge only on bands, the orle and tressure and quarterly's per fess line, a host with one line must have `b = a`, and a point, label, fret or mount takes none. Furs (the ermine, vair and potent families, with `X ermined Y` and `vairy X and Y`) are drawn as small generated patterns (`patterns.ts`); the hatching option leaves them unhatched. Input may be loose (shorthand paints, defaults omitted): `resolve` fills every default
 (SENA Table 7 arrangements, the SCA's default postures) and puts the groups in canonical order, so

@@ -49,6 +49,20 @@ describe('house style', () => {
     expect(say('azure', chg('cross-crosslet', 'or', { count: 3 }, { mods: [{ id: 'fitchy' }] }))).toBe('Azure, three crosses crosslet fitchy Or.');
     expect(say('argent', chg('triquetra', 'vert'))).toBe('Argent, a triquetra vert.');
   });
+
+  it('words the facing and gaze after the posture, and a pair as its arrangement (R§F.3)', () => {
+    const contourny = { facing: 'to-sinister' };
+    const pair = (word: string) => ({ count: 2, arrangement: { k: 'pair', pair: word } });
+    expect(say('azure', chg('lion', 'or', {}, contourny))).toBe('Azure, a lion contourny Or.');
+    expect(blazon(nd(arms('azure', chg('lion', 'or', {}, contourny))), { stateDefaults: true })).toBe('Azure, a lion rampant contourny Or.');
+    expect(say('azure', chg('wolf', 'or', { count: 3 }, contourny))).toBe('Azure, three wolves passant contourny Or.');
+    expect(say('azure', chg('lion', 'or', {}, { gaze: 'guardant', ...contourny }))).toBe('Azure, a lion guardant contourny Or.');
+    expect(say('azure', chg('lion', 'or', {}, { gaze: 'regardant', ...contourny }))).toBe('Azure, a lion contourny regardant Or.');
+    expect(say('azure', chg('lion', 'or', pair('combattant')))).toBe('Azure, two lions combattant Or.');
+    expect(say('argent', chg('wolf', 'sable', pair('addorsed')))).toBe('Argent, two wolves passant addorsed sable.');
+    expect(say('azure', chg('eagle', 'or', pair('combattant')))).toBe('Azure, two eagles respectant Or.');
+    expect(say('azure', ord('pale', 'argent'), chg('lion', 'or', pair('combattant')))).toBe('Azure, a pale argent between two lions combattant Or.');
+  });
 });
 
 describe('charges in chief, in base or in canton beside the primary', () => {

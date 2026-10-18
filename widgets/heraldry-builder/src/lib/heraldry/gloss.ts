@@ -5,9 +5,9 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
-import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
+import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Pair, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, ordinaryEdgeHost, type ComplexLine, type EdgeName, type Line } from './lines';
-import { LINE_LOOK } from './plain-words';
+import { FACING_LABEL, GAZE_LABEL, LINE_LOOK } from './plain-words';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenHost, betweenWords, contextOf, coPrimaries, cornerBesideBend, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout, type QuarterPosition } from './arrangement';
@@ -268,9 +268,12 @@ function layoutGloss(l: Layout, count: number): string | null {
       if (a.pattern === 'annulo') return 'in a ring';
       return notSupported({ category: 'arrangement', detail: `in-${a.pattern}` });
     case 'crossed': return 'crossed like an X';
-    case 'pair': return notSupported({ category: 'posture', detail: a.pair });
+    case 'pair': return PAIR_GLOSS[a.pair];
   }
 }
+
+/** Two charges facing each other, or back to back. */
+const PAIR_GLOSS: Record<Pair, string> = { combattant: 'facing each other', respectant: 'facing each other', addorsed: 'back to back' };
 
 /** The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word). */
 function chargesSubject(g: Group, count: number): string {
@@ -282,7 +285,10 @@ function chargesSubject(g: Group, count: number): string {
   const colour = colourOf(g.paint);
   const lead = count === 1 ? article(colour ?? noun) : numberWord(count);
   const posture = g.item.posture ? postureGloss(g.item.charge, g.item.posture) : null;
-  return [lead, colour, noun, posture].filter(Boolean).join(' ');
+  // Facing to dexter is how pictures face: only another way is said ("facing right", "looking back").
+  const gaze = g.item.gaze && GAZE_LABEL[g.item.gaze].plain.toLowerCase();
+  const facing = g.item.facing && g.item.facing !== 'to-dexter' ? FACING_LABEL[g.item.facing].plain.toLowerCase() : null;
+  return [lead, colour, noun, posture, gaze, facing].filter(Boolean).join(' ');
 }
 
 /** "three red five-pointed stars, two above one"; counterchanged: "…stars in the opposite colours of the field (…), two above one". */
@@ -305,6 +311,7 @@ function betweenGloss(d: Design, g: Group, ordinary: BetweenHost): { text: strin
   if (!where) return chargesGloss(d, g);
   const clause = paintClause(d, g.paint);
   const colour = clause ? `, ${clause}` : '';
+  if (g.arrangement.k === 'pair') return { text: `${chargesSubject(g, g.count)}${colour}, ${PAIR_GLOSS[g.arrangement.pair]}, ${where}`, clause: false };
   if (/^one (on|in) each /.test(where)) return { text: `${chargesSubject(g, 1)} ${where.slice('one '.length)}${colour}`, clause: false };
   return { text: `${chargesSubject(g, g.count)}${colour}, ${where}`, clause: false };
 }

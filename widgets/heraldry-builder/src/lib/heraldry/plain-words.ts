@@ -3,7 +3,7 @@
 // the term and keep the words for their tooltip. The blazon keeps the heraldic names in blazon.ts;
 // these are display text only. Pure data — no DOM.
 
-import { CHARGES, postureGloss, postureTerm, type ChargeId, type Posture } from './charges';
+import { CHARGES, postureGloss, postureTerm, type ChargeId, type Facing, type Gaze, type Posture } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
@@ -118,6 +118,20 @@ export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
   voided: { plain: 'Hollow', term: 'voided' },
   sinister: { plain: 'On the right', term: 'sinister' },
   thin: { plain: 'Thin', term: 'diminutive' },
+};
+
+/** Which way a charge faces, as the viewer sees it, and the heraldic word ("Facing right · contourny"). */
+export const FACING_LABEL: Record<Facing, PlainTerm> = {
+  'to-dexter': { plain: 'Facing left', term: 'to dexter' },
+  'to-sinister': { plain: 'Facing right', term: 'contourny' },
+  affronty: { plain: 'Facing out', term: 'affronty' },
+};
+
+/** Which way a beast's head is turned, and the heraldic word ("Looking out · guardant"). */
+export const GAZE_LABEL: Record<Gaze, PlainTerm> = {
+  guardant: { plain: 'Looking out', term: 'guardant' },
+  regardant: { plain: 'Looking back', term: 'regardant' },
+  'guardant-regardant': { plain: 'Looking out and back', term: 'guardant regardant' },
 };
 
 /** How many times over a tressure is drawn, double or triple, and the heraldic word. */

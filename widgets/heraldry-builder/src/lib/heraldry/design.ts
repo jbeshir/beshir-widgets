@@ -9,7 +9,7 @@ import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 import { edgeCount, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import {
   CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
-  type ChargeForm, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
+  type ChargeForm, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
 import { DIMINUTIVE_OF, ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER, SAME_ORDINARY } from './ordinaries';
 
@@ -55,6 +55,7 @@ export interface Charge {
   charge: ChargeId;
   form: ChargeForm | null;
   posture: Posture | null;       // null only for posture-less charges
+  gaze: Gaze | null;             // null: the head looks where the body faces; only for charges that face
   facing: Facing | null;         // null only for charges with defaultFacing null
   orientation: Orientation | null; // null = the default orientation for where it lies (e.g. following a bend)
   mods: Modifier[];              // sorted by MODIFIER_IDS order
@@ -340,12 +341,19 @@ export function canonicalPaint(p: Paint): Paint {
   }
 }
 
-function canonicalArrangement(a: Arrangement): Arrangement {
+/**
+ * Two charges facing each other, as the builder words them (§1.1 F6): combattant and respectant are one pair (CL 11/2012), said
+ * combattant of beasts and monsters and respectant of every other charge, so that one drawing has one signature.
+ */
+export const facingEachOther = (item: Item): Pair =>
+  (item.k === 'charge' && CHARGES[item.charge].postureClass === 'quadruped' ? 'combattant' : 'respectant');
+
+function canonicalArrangement(a: Arrangement, item: Item): Arrangement {
   switch (a.k) {
     case 'line': return { k: 'line', dir: a.dir };
     case 'rows': return { k: 'rows', rows: [...a.rows] };
     case 'pattern': return { k: 'pattern', pattern: a.pattern };
-    case 'pair': return { k: 'pair', pair: a.pair };
+    case 'pair': return { k: 'pair', pair: a.pair === 'addorsed' ? 'addorsed' : facingEachOther(item) };
     case 'single': case 'host': case 'crossed': return { k: a.k };
   }
 }
@@ -358,7 +366,7 @@ const sortedBy = <T>(xs: readonly T[], rank: (x: T) => number | string): T[] =>
 
 function canonicalCharge(c: Charge): Charge {
   return {
-    k: 'charge', charge: c.charge, form: c.form, posture: c.posture, facing: c.facing, orientation: c.orientation,
+    k: 'charge', charge: c.charge, form: c.form, posture: c.posture, gaze: c.gaze, facing: c.facing, orientation: c.orientation,
     mods: sortedBy(c.mods, (m) => MODIFIER_IDS.indexOf(m.id)).map((m) => ({ id: m.id, count: m.count, paint: m.paint && canonicalPaint(m.paint) })),
     parts: sortedBy(c.parts, (p) => PART_IDS.indexOf(p.part)).map((p) => ({ part: p.part, paint: canonicalPaint(p.paint) })),
     holds: sortedBy(c.holds, (h) => `${String(HOLD_HOWS.indexOf(h.how)).padStart(2, '0')}${h.item.charge}`)
@@ -403,7 +411,7 @@ function groupOrder(g: Group): string {
 function canonicalGroups(groups: readonly Group[]): Group[] {
   const rebuilt = groups.map((g): Group => ({
     role: g.role, relation: g.relation, item: canonicalItem(g.item, g.count, g.role === 'primary' || g.role === 'overall'), count: g.count,
-    arrangement: canonicalArrangement(g.arrangement), position: g.position, paint: canonicalPaint(g.paint),
+    arrangement: canonicalArrangement(g.arrangement, g.item), position: g.position, paint: canonicalPaint(g.paint),
     charged: canonicalGroups(g.charged),
   }));
   return sortedBy(rebuilt, groupOrder);

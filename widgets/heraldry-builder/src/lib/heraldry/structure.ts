@@ -16,7 +16,7 @@ import { posturesClash } from './difference';
 import { strewnIssues } from './strewn';
 import { TWO_PART_DIVISIONS, groundShares, onDivisionLine, paintName } from './tincture-rule';
 import { MOD_HOSTS, ORDINARY_NAME, ORDINARY_KIND, REFUSED_ORDINARIES, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
-import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
+import { AROUND_COUNTS, coPrimaries, contextOf, drawnLayout, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
@@ -27,8 +27,10 @@ function chargesPhrase(g: Group): string {
 function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): string | null {
   if (g.item.k !== 'charge') return null;
   const meta = CHARGES[g.item.charge];
-  const a = g.arrangement;
-  const layout = { arrangement: a, position: g.position };
+  if (g.arrangement.k === 'pair' && g.count !== 2) return `Only two charges can be ${g.arrangement.pair}.`;
+  // A pair stands as two charges in fess do, or where the ordinary they are set around places them (§1.1 F8).
+  const layout = drawnLayout(ctx, { arrangement: g.arrangement, position: g.position });
+  const a = layout.arrangement;
   switch (ctx.k) {
     case 'position': {
       if (ctx.position !== 'base' && hasChief(ctx.peripheral)) return `There is no room to set charges in ${ctx.position} when the design has a chief.`;
