@@ -12,8 +12,8 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
-import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, LINE, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, DRAWN_TREATMENTS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, INVERTED_HOSTS, LINE, NUMBER_WORDS, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
 
 export interface NormalisationRule {
   id: string;
@@ -23,8 +23,9 @@ export interface NormalisationRule {
 
 const COLOUR = `(?:${TINCTURES.join('|')})`;
 
-const NUMBER = '(?:a|an|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)';
-const NUMBER_WORD = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
+/** A group's count as the text writes it: one is "a" or "an". */
+const NUMBER = `(?:a|an|${NUMBER_WORDS.slice(1).join('|')})`;
+const NUMBER_WORD = NUMBER_WORDS.join('|');
 /** The line a band or shape is written with after its name: "wavy", "embattled counter-embattled", "embattled on the lower edge". */
 const ORDINARY_LINE = ` (?:${COUNTER_EMBATTLED_WORDS}|${LINE})(?: on the (?:${EDGE_NAMES}) edge)?`;
 /** An ordinary as the text spells it once its synonyms are settled: its name, inverted, its line, couped and where it runs, as far as it has them (the tincture follows). */
@@ -35,7 +36,7 @@ const joinedBy = (joiner: PeripheralJoiner) => DRAWN_ORDINARIES.filter((t) => OR
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
 /** The drawn bands and shapes, by name, the longest first, whose lines pass `test` (`lineAllowed` on the band or shape). */
 const ordinariesWhere = (test: (allowed: (line: Line) => boolean) => boolean) =>
-  alt(DRAWN_ORDINARIES.filter((type) => test((line) => lineAllowed({ k: 'ordinary', type, inverted: false }, line))).map((t) => ORDINARY_NAME[t]));
+  alt(DRAWN_ORDINARIES.filter((type) => test((line) => lineAllowed(ordinaryEdgeHost({ type, mods: [] }), line))).map((t) => ORDINARY_NAME[t]));
 /** Every variation's name: "potenty" after one (or a division's) is its line, not the fur. */
 const VARIATION_NAMES = alt(VARIATIONS.map((v) => VARIATION_NAME[v]));
 /** The bands and shapes a potenty line is drawn on: "potenty" after one is its line. */
@@ -58,7 +59,7 @@ const VARIATION = `(?:${alt(VARIATIONS.map((v) => VARIATION_NAME[v]))})(?: ${LIN
 const TREATED = `${COLOUR} (?:${DRAWN_TREATMENTS.join('|')}) ${COLOUR}`;
 const TINCT = `(?:${FUR}|${TREATED}|${COLOUR}|counterchanged|proper)`;
 /** A band's fimbriation or cotises as the text spells them once its synonyms are settled: " fimbriated", " doubly cotised", " endorsed", " cotised wavy". */
-const COTISES = '(?:doubly |triply )?cotised';
+const COTISES = `(?:${alt(OUTLINES.filter((o) => o.endsWith('cotised')).map((o) => o.replace('-', ' ')))})`;
 const OUTLINE_WORD = `(?:fimbriated|endorsed|${COTISES})`;
 const OUTLINE = `(?: ${OUTLINE_WORD}(?: plain| ${LINE})?)`;
 /** What a band is painted with: its tincture, then its outline and the tincture of that, or its outline and its tincture (" gules fimbriated Or", " cotised azure"). */
@@ -218,11 +219,11 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //      saltire is throughout already, so "throughout" after one says nothing (RULES-C §D.2). ("A bendlet enhanced" is a bend enhanced:
     //      rule `diminutives`.)
     id: 'ordinary-treatments',
-    description: 'humetty → couped after an ordinary; chevron reversed → chevron inverted; "<chevron|pile> <line> inverted" → "… inverted <line>"; "<ordinary> couped <line>" → "<ordinary> <line> couped"; "chevron inverted embattled" → "… embattled on the upper edge"; "throughout" after a cross or saltire dropped.',
+    description: 'humetty → couped after an ordinary; chevron reversed → chevron inverted; "<chevron|pile|pall|chevronel(s)> <line> inverted" → "… inverted <line>"; "<ordinary> couped <line>" → "<ordinary> <line> couped"; "chevron inverted embattled" → "… embattled on the upper edge"; "throughout" after a cross or saltire dropped.',
     apply: (s) => s
       .replace(new RegExp(`\\b((?:${BAND_NAMES})(?: inverted)?(?:${ORDINARY_LINE})?) humett(?:y|ee|é)(?![\\w-])`, 'g'), '$1 couped')
       .replace(/\b(chevrons?) reversed\b/g, '$1 inverted')
-      .replace(new RegExp(`\\b(chevron|pile)(${ORDINARY_LINE}) inverted\\b`, 'g'), '$1 inverted$2')
+      .replace(new RegExp(`\\b(${INVERTED_HOSTS})(${ORDINARY_LINE}) inverted\\b`, 'g'), '$1 inverted$2')
       .replace(new RegExp(`\\b((?:${BAND_NAMES})(?: inverted)?) couped(${ORDINARY_LINE})(?![\\w-])`, 'g'), '$1$2 couped')
       .replace(/(?<!per )\bchevron inverted embattled(?! counter-embattled| on the| grady)\b/g, 'chevron inverted embattled on the upper edge')
       .replace(new RegExp(`\\b((?:a|an|on a) (?:${alt(THROUGHOUT_ALREADY.map((t) => ORDINARY_NAME[t]))})(?:${ORDINARY_LINE})?(?: voided)?) throughout\\b`, 'g'), '$1'),

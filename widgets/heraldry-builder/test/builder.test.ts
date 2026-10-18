@@ -338,7 +338,7 @@ describe('a top band and a border beside the band', () => {
     expect(assess(chief).status).toBe('valid');
     expect(layerChoices(chief).map((c) => c.value)).toEqual(['co-primary', 'on-picture', 'around', 'in-chief', 'in-base', 'in-canton', 'on-ordinary', 'on-chief', 'bordure', 'on-bordure', 'peripheral', 'overall']);
     expect(['in-chief', 'in-base', 'in-canton'].map((k) => allowed(chief, k as LayerKey))).toEqual([false, true, false]);
-    expect(issueStep(chief, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
+    expect(issueStep(chief, { code: 'tincture', reason: 'contrast', part: 'body', at: { k: 'group', path: pathOfPlace(chief, 'chief')! }, message: '', slots: [] })).toBe('chief');
     expect(blazon(setLayerTincture(chief, 'chief', 'gules'))).toContain('chief');
     const both = addLayer(chief, 'bordure');
     expect(blazon(both)).toMatch(/^Azure, a chevron argent, a chief and a bordure Or\.$/);
@@ -402,7 +402,7 @@ describe('pictures in chief, in base or in canton beside the band or the picture
     const base = addLayer(lion, 'in-base');
     expect(blazon(base)).toBe('Azure, a lion and in base a mullet Or.');
     expect(assess(base).status).toBe('valid');
-    expect(issueStep(base, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(base, 'in-base')! }, message: '', slots: [] })).toBe('in-base');
+    expect(issueStep(base, { code: 'tincture', reason: 'contrast', part: 'body', at: { k: 'group', path: pathOfPlace(base, 'in-base')! }, message: '', slots: [] })).toBe('in-base');
     expect(blazon(addLayer(lion, 'in-canton'))).toBe('Azure, a lion and in canton a mullet Or.');
     expect(removeLayer(base, 'in-base')).toEqual(lion);
   });
@@ -454,7 +454,7 @@ describe('pictures set around the picture', () => {
     const around = addLayer(lion, 'around');
     expect(blazon(around)).toBe('Azure, a lion between three mullets Or.');
     expect(assess(around).status).toBe('valid');
-    expect(issueStep(around, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: pathOfPlace(around, 'around')! }, message: '', slots: [] })).toBe('around');
+    expect(issueStep(around, { code: 'tincture', reason: 'contrast', part: 'body', at: { k: 'group', path: pathOfPlace(around, 'around')! }, message: '', slots: [] })).toBe('around');
     expect(blazon(setCharge(around, 'around', 'crescent'))).toBe('Azure, a lion between three crescents Or.');
     expect(removeLayer(around, 'around')).toEqual(lion);
     // One group stands around or beside the picture, not both.
@@ -583,7 +583,7 @@ describe('extra pictures on the band', () => {
     d = setCharge(d, 'on-ordinary', 'heart');
     expect(groupAt(d, extra(d)).item).toMatchObject({ charge: 'heart' });
     expect(groupAt(d, picture(d)).item).toMatchObject({ charge: 'mullet' });
-    expect(issueStep(d, { code: 'tincture', reason: 'contrast', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('on-ordinary');
+    expect(issueStep(d, { code: 'tincture', reason: 'contrast', part: 'body', at: { k: 'group', path: extra(d) }, message: '', slots: [] })).toBe('on-ordinary');
     // Changing the band to a chief keeps both pictures.
     const chief = setOrdinary(d, 'chief');
     expect(groupAt(chief, picture(chief))).toMatchObject({ role: 'primary', relation: null });

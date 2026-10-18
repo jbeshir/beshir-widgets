@@ -8,6 +8,7 @@ import {
   type Design, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
 import { generatedDesigns } from './design-generator';
+import { rotatesIn, sampleSeed } from './rotation';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const sameKey = (a: Design, b: Design) => keysMayConflict(candidateKey(a), candidateKey(b));
@@ -59,10 +60,10 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
-  // Seeded sampling: each probe edits a rotating quarter of the entries, so every entry is edited against 25 probes.
+  // Seeded sampling: each probe edits a rotating eighth of the entries (`rotatesIn`), so each entry is edited against about 12 probes.
   it('gives the same verdict when an entry is edited (itself excluded)', () => {
     for (const [ri, edited] of registry.entries()) {
-      for (const probe of probes.slice(0, 100).filter((_, pi) => (ri + pi) % 4 === 0)) {
+      for (const probe of probes.slice(0, 100).filter((_, pi) => rotatesIn(`edited|${ri}|${pi}`, 1 / 8))) {
         const sig = signature(probe);
         const full = checkUnique(probe, sig, registry, edited.id);
         const candidates = registry.filter((e) => sameKey(probe, e.design));
@@ -71,15 +72,16 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
+  // Seeded sampling: a rotating half of the pairs (`rotatesIn`).
   it('keys only on changes that are substantial on their own (generated pairs)', () => {
     const designs = withBadges(generatedDesigns(20_000, 400), 4);
     let keyed = 0;
-    for (const a of designs) for (const b of designs) {
-      if (sameKey(a, b)) continue;
+    for (const [i, a] of designs.entries()) for (const [j, b] of designs.entries()) {
+      if (!rotatesIn(`pair|${i}|${j}`, 1 / 2) || sameKey(a, b)) continue;
       keyed++;
       expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
     }
-    expect(keyed).toBeGreaterThan(10_000);
+    expect(keyed, `sample seed ${sampleSeed()}`).toBeGreaterThan(5_000);
   }, 30_000);
 
   it('keys only on changes that are substantial on their own (every division, ordinary and charge)', () => {

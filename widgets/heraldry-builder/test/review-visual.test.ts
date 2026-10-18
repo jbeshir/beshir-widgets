@@ -5,8 +5,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  FIELD_SHAPES, LINE_PROFILE, crampedInShape, divisionRegions, laidSide, ordinaryGeometry, defaultOrdinaryFrame, pathPolygon, pathRings, plainSpec,
-  shapeFrame, type FieldShape, type Line, type OrdinarySpec,
+  FIELD_SHAPES, LINE_PROFILE, crampedInShape, divisionRegions, laidSide, lineChoices, ordinaryGeometry, defaultOrdinaryFrame, outlineChoices, pathPolygon, pathRings, plainSpec,
+  shapeFrame, toggleChoices, unsupportedIssues, type FieldShape, type Line, type OrdinarySpec,
 } from '../src/lib/heraldry';
 import { arms, charge, group, nd, ordinary, selfCrossings } from './helpers';
 
@@ -60,6 +60,18 @@ describe('a chevron rompu: its limbs cut palewise and its point raised (U-2)', (
   });
 });
 
+describe('a chevron rompu couped and cotised is not drawn, its inner cotise folded under the point (verify V-6)', () => {
+  it('is a gap, and the builder blocks the outline, the toggle and the line that would make it', () => {
+    const rompu = (extra: object) => nd(arms('azure', group(ordinary('chevron', { lines: { a: 'rompu', b: 'rompu' }, ...extra }), 'or')));
+    expect(unsupportedIssues(rompu({ mods: ['couped'], cotised: { count: 1, paint: 'argent' } })).map((i) => `${i.gap.category}:${i.gap.detail}`)).toEqual(['ordinary-treatment:cotised-couped-rompu']);
+    expect(outlineChoices(rompu({ mods: ['couped'] }), [0]).find((c) => c.value === 'cotised')).toMatchObject({ allowed: false });
+    expect(toggleChoices(rompu({ cotised: { count: 1, paint: 'argent' } }), [0]).find((c) => c.value === 'couped')).toMatchObject({ allowed: false });
+    const couped = nd(arms('azure', group(ordinary('chevron', { mods: ['couped'], cotised: { count: 1, paint: 'argent' } }), 'or')));
+    expect(lineChoices(couped, { k: 'group', path: [0] }).find((c) => c.value === 'rompu')).toMatchObject({ allowed: false });
+    expect(outlineChoices(rompu({}), [0]).find((c) => c.value === 'cotised')).toMatchObject({ allowed: true });
+  });
+});
+
 describe('complex lines on a bordure keep their shape (U-3)', () => {
   /** The distance from a point to the shape's outline. */
   const toOutline = (shape: FieldShape) => {
@@ -83,6 +95,17 @@ describe('complex lines on a bordure keep their shape (U-3)', () => {
         // crossings of the mean round the ring: two a period at least, fourteen periods or more round it (the old grady had ten)
         const crossings = inner.filter((d, i) => (d - mean) * (inner[(i + 1) % inner.length] - mean) < 0).length;
         expect([shape, line, crossings >= 28]).toEqual([shape, line, true]);
+      }
+    }
+  });
+
+  it('fits those lines between the inset\'s corners, so no feature folded round one crosses itself (verify V-4)', () => {
+    for (const shape of FIELD_SHAPES) {
+      for (const line of ['grady', 'potenty', 'nebuly', 'dovetailed', 'raguly'] as const) {
+        // the lozenge's bottom point is too sharp for potenty's T-heads (CHANGES-C §5)
+        if (shape === 'lozenge' && line === 'potenty') continue;
+        const rings = ringsOf(lined('bordure', line), shape);
+        expect([shape, line, rings.flatMap((ring) => selfCrossings(ring)).length]).toEqual([shape, line, 0]);
       }
     }
   });

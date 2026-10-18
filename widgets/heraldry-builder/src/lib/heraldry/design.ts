@@ -442,6 +442,9 @@ export type CountLimit = 'host' | 'around' | 'around-primary';
 /** Why a tincture issue: the colours fail the rule of tincture, or counterchanged isn't available for the group. */
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
+/** Which part of a group (or of the field's paint) a tincture issue is about: the group itself, an ordinary's fimbriation or cotises, or the charges of a semy. */
+export type TincturePart = 'body' | 'fimbriation' | 'cotises' | 'strewn';
+
 /** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4, a badge's single main charge (`badge`, SENA A3A2: bands, borders, groups of several charges and split display shapes are not fieldless armory), a dexter or sinister point (`side-point`: never registered, RULES-C §C.3, L21). */
 export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge' | 'line' | 'core-practice' | 'ordinary-treatment' | 'side-point';
 
@@ -454,7 +457,7 @@ export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'r
  */
 export type Issue =
   | { code: 'shape' | 'generic'; at: IssueAt; message: string; slots: number[] }
-  | { code: 'tincture'; reason: TinctureReason; at: IssueAt; message: string; slots: number[] }
+  | { code: 'tincture'; reason: TinctureReason; part: TincturePart; at: IssueAt; message: string; slots: number[] }
   | { code: 'structure'; rule: StructureRule; at: IssueAt; message: string; slots: number[] }
   | { code: 'unsupported'; at: IssueAt; message: string; gap: Gap; limit: CountLimit | null };
 export type UnsupportedIssue = Extract<Issue, { code: 'unsupported' }>;

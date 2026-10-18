@@ -47,6 +47,7 @@ export const UNSUPPORTED_CASES: Array<[string, unknown, string]> = [
   ['a fess inverted', arms('azure', group(ordinary('fess', { mods: ['inverted'] }), 'or')), 'ordinary-treatment:inverted-on-fess'],
   ['a couped band lying across everything', arms('azure', lion, group(ordinary('bend', { mods: ['couped'] }), 'argent', { role: 'overall' })), 'ordinary-treatment:on-overall'],
   ['a couped band as a badge', { v: 2, kind: 'badge', groups: [group(ordinary('chevron', { mods: ['couped'] }), 'or')] }, 'fieldless:couped-ordinary'],
+  ['a chevron rompu couped and cotised', arms('azure', group(ordinary('chevron', { lines: { a: 'rompu', b: 'rompu' }, mods: ['couped'], cotised: { count: 1, paint: 'argent' } }), 'or')), 'ordinary-treatment:cotised-couped-rompu'],
   ['a fimbriated and cotised ordinary', arms('azure', group(ordinary('bend', { fimbriated: 'argent', cotised: { count: 1, paint: 'argent' } }), 'or')), 'ordinary-treatment:fimbriated-and-cotised'],
   ['cotises in a fur', arms('azure', group(ordinary('bend', { cotised: { count: 1, paint: { k: 'fur', fur: 'ermine' } } }), 'or')), 'ordinary-treatment:trim-fur'],
   ['cotises divided', arms('azure', group(ordinary('bend', { cotised: { count: 1, paint: { k: 'divided', division: 'per-pale', parts: ['argent', 'or'] } } }), 'or')), 'ordinary-treatment:trim-divided'],

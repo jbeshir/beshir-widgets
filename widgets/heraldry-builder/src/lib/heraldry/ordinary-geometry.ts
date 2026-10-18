@@ -144,17 +144,25 @@ function wideSpan(shape: FieldShape): { top: number; bottom: number } {
  * Where an ordinary across the middle of the field is centred in a frame, and how much narrower than usual it is drawn: at the frame's fess
  * point and as wide as usual, but under a chief or above a base in the middle of the field they leave — from the chief (or where the shape is
  * first FREE_FIELD_WIDTH across) to the base (or where it narrows to less) — and FREE_FIELD_SCALE as wide. A fess is lowered further where its
- * lines and trim would reach within UNDER_CHIEF_GAP of a chief (on the lozenge, whose free field is short), but not below where the shape
- * narrows. Every other ordinary, and every ordinary in a frame with neither, keeps its place.
+ * lines and trim would reach within UNDER_CHIEF_GAP of a chief, but not below where the shape narrows; where that is still too high (on the
+ * lozenge, whose free field is short) it is drawn there, raised no further if enhanced, and its body narrower until it clears the chief, down
+ * to MIN_UNDER_CHIEF_SCALE (verify K-7). Every other ordinary, and every ordinary in a frame with neither, keeps its place.
  */
 export function bandPlace(spec: OrdinarySpec, frame: OrdinaryFrame): { centre: Point; scale: number } {
   const { box } = shapeFrame(frame.shape);
   if (!CENTRED_IN_FREE_FIELD.includes(familyOf(spec.type)) || (frame.top <= box.y0 && frame.baseTop >= box.y1)) return { centre: frame.centre, scale: 1 };
   const wide = wideSpan(frame.shape), lowest = Math.min(frame.baseTop, wide.bottom);
   const middle = (Math.max(frame.top, wide.top) + lowest) / 2;
-  const clear = spec.type === 'fess' && frame.top > box.y0 ? frame.top + UNDER_CHIEF_GAP + fessReach(spec, FREE_FIELD_SCALE) - bandShift(spec) : middle;
-  return { centre: { x: frame.centre.x, y: Math.max(middle, Math.min(clear, lowest)) }, scale: FREE_FIELD_SCALE };
+  if (spec.type !== 'fess' || frame.top <= box.y0) return { centre: { x: frame.centre.x, y: middle }, scale: FREE_FIELD_SCALE };
+  const shift = bandShift(spec), clearAt = frame.top + UNDER_CHIEF_GAP + fessReach(spec, FREE_FIELD_SCALE);
+  if (clearAt - shift <= lowest) return { centre: { x: frame.centre.x, y: Math.max(middle, clearAt - shift) }, scale: FREE_FIELD_SCALE };
+  const drawnAt = Math.min(clearAt, lowest + Math.max(shift, 0));
+  const room = (drawnAt - frame.top - UNDER_CHIEF_GAP - fessReach(spec, 0)) / (BAND_HALF * bandScale(spec));
+  return { centre: { x: frame.centre.x, y: Math.max(middle, drawnAt - shift) }, scale: Math.max(MIN_UNDER_CHIEF_SCALE, Math.min(FREE_FIELD_SCALE, room)) };
 }
+
+/** How narrow a fess under a chief may be drawn where the free field is too short for it (`bandPlace`): a third of its usual width. */
+const MIN_UNDER_CHIEF_SCALE = 1 / 3;
 
 /** How far above its middle line a fess drawn `scale` as wide as usual reaches: half its width, its lines, and its cotises or fimbriation. */
 function fessReach(spec: OrdinarySpec, scale: number): number {
@@ -1071,15 +1079,45 @@ function bordureLine(line: ComplexLine, width: number): { depth: number; pitch: 
   return { depth, pitch: (100 / p.repeats.target) * (depth / p.depth) };
 }
 
-/** A bordure's body: the shape's outline and, inside it, its inset (its charged inset when it carries charges) — drawn with the line all the way round, its features toward the field, whole periods from the top middle. */
+/**
+ * A bordure's body: the shape's outline and, inside it, its inset (its charged inset when it carries charges) — drawn with the line all the way
+ * round, its features toward the field, whole periods from the top middle. A line cut deep for a bordure (`bordureLine`) is fitted to whole
+ * periods, overhangs and all, between the inset's corners instead where it has any, so that no feature is folded round one (a dovetail or a
+ * cloud lobe there crosses itself: verify V-4).
+ */
 function bordureBody(spec: OrdinarySpec, frame: OrdinaryFrame): string {
   const f = shapeFrame(frame.shape);
   const line = spec.lines.a;
   if (line === 'plain') return f.outline + bordureInset(spec, frame.shape);
   const ring = ringFromTop(insetRing(bordureInset(spec, frame.shape)), frame.centre.x);
   const { depth, pitch } = bordureLine(line, drawnWidth(spec));
-  const periods = pitch === null ? null : Math.max(1, Math.round(polylineLength(ring, true) / pitch));
-  return f.outline + ringPath(ring, line, outsideOf(ring) === 1 ? -1 : 1, depth, periods);
+  const side = outsideOf(ring) === 1 ? -1 : 1;
+  const corners = pitch === null ? [] : ring.flatMap((_, i) => (i > 0 && isCorner(ring, i) ? [i] : []));
+  if (pitch === null || corners.length === 0) {
+    const periods = pitch === null ? null : Math.max(1, Math.round(polylineLength(ring, true) / pitch));
+    return f.outline + ringPath(ring, line, side, depth, periods);
+  }
+  const reach = PROFILE_REACH[line], overhang = reach[1] - 1 - reach[0];
+  // laid from the first corner, so that every edge runs corner to corner
+  const [first] = corners, round = [...ring.slice(first), ...ring.slice(0, first)];
+  const ends = [...corners.slice(1).map((c) => c - first), round.length];
+  const edges = ends.map((end, k): ContourEdge => {
+    const from = k === 0 ? 0 : ends[k - 1], points = [...round.slice(from, end), round[end % round.length]];
+    // whole periods, their overhangs (dovetails, cloud lobes) inside the edge too
+    const length = polylineLength(points, false), period = length / (Math.max(1, Math.round(length / pitch)) + overhang);
+    return { via: points.slice(1, -1), to: points[points.length - 1], run: { line, side, depth, period, anchor: (0.5 - reach[0]) * period, span: [0, length] } };
+  });
+  return f.outline + contourPath({ start: round[0], edges });
+}
+
+/** How sharply a ring must turn at a point for it to be a corner a bordure's features are fitted between: more than 30°. */
+const BORDURE_CORNER = Math.PI / 6;
+
+/** Whether the ring turns at its `i`th point by more than BORDURE_CORNER. */
+function isCorner(ring: readonly Pt[], i: number): boolean {
+  const [p, q, r] = [ring[(i + ring.length - 1) % ring.length], ring[i], ring[(i + 1) % ring.length]];
+  const turn = Math.atan2(r[1] - q[1], r[0] - q[0]) - Math.atan2(q[1] - p[1], q[0] - p[0]);
+  return Math.abs(Math.atan2(Math.sin(turn), Math.cos(turn))) > BORDURE_CORNER;
 }
 
 /**

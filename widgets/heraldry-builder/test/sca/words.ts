@@ -53,6 +53,12 @@ export const TIERCED_IN = /\btierced (?:per|in) (pale|fess)e?\b/g;
 /** "tierced per pall", "gyronny of three": per pall (SENA A5G1b: "granted no difference"). */
 export const PER_PALL_SPELLED = /\b(?:tierced (?:per|in) pall|gyronny of three)\b/g;
 
+/** The bands and shapes that take "inverted" (`MOD_HOSTS.inverted`), by name, thin bands counted too; the pall inverted has the word in its name. */
+export const INVERTED_HOSTS = alt(MOD_HOSTS.inverted.filter((t) => !ORDINARY_NAME[t].endsWith(' inverted')).flatMap((t) => (isDiminutive(t) ? [ORDINARY_NAME[t], ORDINARY_PLURAL[t]] : [ORDINARY_NAME[t]])));
+
+/** The number words, one to twelve, as `numberWord` spells them. */
+export const NUMBER_WORDS: readonly string[] = Array.from({ length: 12 }, (_, i) => numberWord(i + 1));
+
 /** The corner and edge shapes, and the baton, that take "sinister" (`MOD_HOSTS.sinister`), by name. */
 export const SINISTER_HOSTS = alt(MOD_HOSTS.sinister.map((t) => ORDINARY_NAME[t]));
 

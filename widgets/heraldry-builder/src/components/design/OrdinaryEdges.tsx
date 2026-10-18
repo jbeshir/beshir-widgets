@@ -4,7 +4,7 @@
 // its own disclosure, under its "More shapes" row (`OrdinaryShapeControls`).
 
 import {
-  bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, ordinaryCountChoices, ordinaryCountLabel, ordinaryCountLegend, outlineAt, outlineChoices, outlineTinctureChoices,
+  bandPositionChoices, bandPositionOf, bareLines, edgeNames, edgeSideChoices, edgeSideOf, groupAt, lineChoices, ordinaryCountChoices, ordinaryCountLabel, ordinaryCountLegend, ordinaryEdgeHost, outlineAt, outlineChoices, outlineTinctureChoices,
   outlineTinctureOf, setOutlineTincture, toggleChoices, toggledOn, familyOf, THIN_ORDINARIES,
   type Design, type OrdinaryType, type EdgeName, type EdgeSide, type FieldShape, type GroupPath, type Line,
 } from '../../lib/heraldry';
@@ -63,11 +63,11 @@ export function OrdinaryShapeControls({ design, path, testid, noun, shape, onCha
   const outlines = outlineChoices(design, path);
   const counts = ordinaryCountChoices(design, path);
   const type = item.type;
-  const inverted = item.mods.includes('inverted');
   // The edge previews are drawn turned as the band or shape is: upside down, or in the other corner.
   const turned = item.mods.filter((m) => m === 'inverted' || m === 'sinister');
   const current: Line = item.lines.a !== 'plain' ? item.lines.a : item.lines.b;
-  const names = edgeNames({ k: 'ordinary', type, inverted });
+  const host = ordinaryEdgeHost(item);
+  const names = edgeNames(host);
   return (
     <>
       {(toggles.length > 0 || positions.length > 0 || counts.length > 0) && (
@@ -80,7 +80,7 @@ export function OrdinaryShapeControls({ design, path, testid, noun, shape, onCha
       {lines.length > 0 && (
         <EdgePicker
           testid={`${testid}-edge`} noun={noun} iconKey={[type, ...turned, ...(count > 1 ? [count] : [])].join('-')} zoom={THROUGH_THE_MIDDLE.includes(familyOf(type))}
-          icon={(line) => ({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type, mods: turned, lines: bareLines({ k: 'ordinary', type, inverted }, line) }, count, paint: 'or' }] })}
+          icon={(line) => ({ v: 2, field: 'azure', groups: [{ item: { k: 'ordinary', type, mods: turned, lines: bareLines(host, line) }, count, paint: 'or' }] })}
           shape={shape} lines={lines} line={current} onLine={(l) => onChange(setOrdinaryLine(design, path, l))}
           sides={edgeSideChoices(design, target)} side={edgeSideOf(design, target)} sideNoun="edges" sideLabels={sideLabels(names?.a)}
           onSide={(s) => onChange(setOrdinaryEdgeSide(design, path, s))}

@@ -11,14 +11,14 @@ import { fieldSurfaces, surfaceOf, tinctureSurface, type Surface } from './surfa
 import { furName } from './fur';
 import { treatedName } from './treatment';
 import {
-  PLAIN_LINES, asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type IssueAt, type Item, type Paint,
+  PLAIN_LINES, asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type IssueAt, type Item, type Paint, type TincturePart,
 } from './design';
 import {
   CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPartTurned, isFieldPaint, partIndexAt, shapeFrame, slotColumn, slotRow, type DividedField, type Pt, type Point, type Slot,
 } from './geometry';
 import { bandPlace, defaultOrdinaryFrame, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryFrame, type OrdinarySpec } from './ordinary-geometry';
 import { canonicalSlots, groupSlotCount } from './layout';
-import { ORDINARY_KIND, ORDINARY_NAME, familyOf, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, familyOf, familyOfTreated, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import { DIVISION_NAME, DRAWN_DIVISIONS, VARIATION_NAME, divisionPieces, partCount, type Division, type Variation } from './divisions';
 import { isStraightLine } from './lines';
 import { coPrimaries, forcedLayout, layoutContext } from './arrangement';
@@ -48,7 +48,7 @@ const ordinarySamples = (spec: OrdinarySpec, frame: OrdinaryFrame): Samples =>
   ({ key: `ordinary:${JSON.stringify([spec, frame])}`, points: () => ordinaryGeometry(spec, frame).samples });
 
 /** The trims drawn with an ordinary's body, and what they are called in a message. */
-type Trim = 'fimbriation' | 'cotises';
+type Trim = Extract<TincturePart, 'fimbriation' | 'cotises'>;
 const TRIM_NOUN: Record<Trim, string> = { fimbriation: 'fimbriation', cotises: 'cotises' };
 
 /** The points an ordinary's trim lies on in the canonical layout. */
@@ -151,26 +151,31 @@ const loneCentral = (group: Group): boolean => group.arrangement.k === 'single' 
  * minor variation in placement is artistic). A charge alone in the centre of the field is judged at the fess point, however far a chief
  * pushes the drawing down; four charges in cross on a field whose lines meet at the fess point are judged about the fess point, on the
  * lines, though the cross is drawn a little low to leave the base room (the College registers them so: 115232 "Gyronny arrondi azure and
- * Or, in cross four pomegranates … gules", 2017; review R-4).
+ * Or, in cross four pomegranates … gules", 2017; review R-4). Only a little: a cross that a chief, a charge in base or an orle moves
+ * further is judged where it is drawn, as it is seen (verify V-1).
  */
 function judgedSlots(d: Design, group: Group, slots: readonly Slot[]): Slot[] {
-  if (inCrossOnLines(d, group, slots.length)) {
-    const { x, y } = shapeFrame(CANONICAL_SHAPE).fessPoint;
-    const dx = x - slots.reduce((a, s) => a + s.x, 0) / slots.length, dy = y - slots.reduce((a, s) => a + s.y, 0) / slots.length;
-    return slots.map((s) => ({ ...s, x: s.x + dx, y: s.y + dy }));
-  }
+  const shift = inCrossShift(d, group, slots);
+  if (shift) return slots.map((s) => ({ ...s, x: s.x + shift.x, y: s.y + shift.y }));
   const { x, y } = shapeFrame(CANONICAL_SHAPE).fessPoint;
   return loneCentral(group) ? slots.map((s) => ({ ...s, x, y })) : [...slots];
 }
 
+/** How far from the fess point four charges in cross may be drawn and still be judged about it: the plain drawing sits 5 low. */
+const IN_CROSS_SLACK = 6;
+
 /**
- * Whether a group is four charges in cross on a field whose lines meet at the fess point (`judgedSlots`): each stands on a line, which it is
- * judged against drawn straight — an arrondi or wavy line bows the same way under all four, which would set each mostly on one part.
+ * The move that centres four charges in cross on the fess point, when they stand on the lines of a field whose lines all meet there and are
+ * drawn within `IN_CROSS_SLACK` of it (`judgedSlots`); null otherwise. Each is then judged against the lines drawn straight — an arrondi
+ * or wavy line bows the same way under all four, which would set each mostly on one part.
  */
-function inCrossOnLines(d: Design, group: Group, slots: number): boolean {
+function inCrossShift(d: Design, group: Group, slots: readonly Slot[]): Point | null {
   const arr = group.arrangement;
-  return arr.k === 'pattern' && arr.pattern === 'cross' && group.position === null && slots === 4
-    && d.kind === 'arms' && d.field.k === 'divided' && LINES_MEET_AT_FESS_POINT.includes(d.field.division);
+  if (!(arr.k === 'pattern' && arr.pattern === 'cross' && group.position === null && slots.length === 4
+    && d.kind === 'arms' && d.field.k === 'divided' && LINES_MEET_AT_FESS_POINT.includes(d.field.division))) return null;
+  const { x, y } = shapeFrame(CANONICAL_SHAPE).fessPoint;
+  const shift = { x: x - slots.reduce((a, s) => a + s.x, 0) / 4, y: y - slots.reduce((a, s) => a + s.y, 0) / 4 };
+  return Math.hypot(shift.x, shift.y) <= IN_CROSS_SLACK ? shift : null;
 }
 
 /**
@@ -212,7 +217,7 @@ export function groundShares(d: Design, path: GroupPath): Ground[] {
     return slotsOf(d, path).map(() => parts.map((surface) => ({ surface, share: 1 / parts.length })));
   }
   const slots = slotsOf(d, path);
-  const field = inCrossOnLines(d, group, slots.length) ? { ...d.field, lines: PLAIN_LINES } : d.field;
+  const field = inCrossShift(d, group, slots) ? { ...d.field, lines: PLAIN_LINES } : d.field;
   return judgedSlots(d, group, slots).map((s) => groundAt(field, slotSamples(s), parts));
 }
 
@@ -303,7 +308,7 @@ function counterchangeOverVariation(group: Group, variation: Variation, noun: st
   const along = ALONG_STRIPES[variation];
   if (!along) return `${whole} nothing can be counterchanged over a grid of that kind (SENA CC-2).`;
   if (kind !== 'central') return `${whole} a ${noun} can't be counterchanged over stripes — only a band across the middle can (SENA CC-9).`;
-  return along.includes(familyOf(group.item.type)) ? `${whole} it runs along the stripes, so counterchanged would only recolour one stripe (SENA CC-2).` : null;
+  return along.includes(familyOfTreated(group.item)) ? `${whole} it runs along the stripes, so counterchanged would only recolour one stripe (SENA CC-2).` : null;
 }
 
 /**
@@ -508,7 +513,7 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   const all = slots.map((_, i) => i);
   const exception = sharedTinctureException(d, g);
   const failures = grounds.map((ground, i) => (ground.length === 0 ? null : failureOf(g.paint, g.item, ground, pair, parts?.[i], exception)));
-  const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', reason: 'contrast', at, message, slots: idx });
+  const issue = (message: string, idx: number[]): Issue => ({ code: 'tincture', reason: 'contrast', part: 'body', at, message, slots: idx });
 
   if (g.paint.k === 'counterchanged' && pair) {
     // Every part shows the other field tincture over its own, so all the charges pass or fail together.
@@ -565,18 +570,18 @@ export function groupBodyTinctureIssues(d: Design, path: GroupPath): Issue[] {
   const unavailable = counterchangeUnavailable(d, path);
   if (unavailable) {
     const slots = group.item.k === 'charge' ? slotsOf(d, path).map((_, i) => i) : [];
-    return [{ code: 'tincture', reason: 'counterchange-unavailable', at, message: unavailable, slots }];
+    return [{ code: 'tincture', reason: 'counterchange-unavailable', part: 'body', at, message: unavailable, slots }];
   }
   const pair = fieldPair(d);
   const grounds = groundShares(d, path);
   if (group.item.k === 'charge') return chargeIssues(d, path, group, host, grounds, pair);
   if (d.kind !== 'arms') return [];
   const f = grounds[0].length === 0 ? null : failureOf(group.paint, group.item, grounds[0], pair, partGrounds(d, path)?.[0], sharedTinctureException(d, group));
-  if (!group.item.fimbriated) return f ? [{ code: 'tincture', reason: 'contrast', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
+  if (!group.item.fimbriated) return f ? [{ code: 'tincture', reason: 'contrast', part: 'body', at, message: ordinaryMessage(d, group, f, grounds[0], pair), slots: [] }] : [];
   // Within its fimbriation an ordinary need not contrast with the field (GoT "Fimbriation"), but of the field's own tincture it reads as two thin bands.
   const name = ORDINARY_NAME[group.item.type];
   return f === 'same'
-    ? [{ code: 'tincture', reason: 'contrast', at, slots: [], message: `A fimbriated ${name} of the field's tincture reads as two thin bands — give the ${name} another tincture (RULES-C §D.4; Prec Odolf Liafwin, 05/2007).` }]
+    ? [{ code: 'tincture', reason: 'contrast', part: 'body', at, slots: [], message: `A fimbriated ${name} of the field's tincture reads as two thin bands — give the ${name} another tincture (RULES-C §D.4; Prec Odolf Liafwin, 05/2007).` }]
     : [];
 }
 
@@ -598,7 +603,7 @@ function trimIssues(d: Design, path: GroupPath, group: Group, trim: Trim, paint:
   const at = { k: 'group', path } as const;
   const what = `The ${TRIM_NOUN[trim]} of the ${ORDINARY_NAME[group.item.type]}`;
   if (paint.k === 'counterchanged' && !pair) {
-    return [{ code: 'tincture', reason: 'counterchange-unavailable', at, slots: [], message: `${what} can't be counterchanged: that needs a field divided in two tinctures.` }];
+    return [{ code: 'tincture', reason: 'counterchange-unavailable', part: trim, at, slots: [], message: `${what} can't be counterchanged: that needs a field divided in two tinctures.` }];
   }
   const samples = trimSamples(specOf(group), frameOf(d, group), trim);
   if (samples.points().length === 0) return [];
@@ -615,11 +620,11 @@ function trimIssues(d: Design, path: GroupPath, group: Group, trim: Trim, paint:
     });
     if (failing.length === 0) return [];
     const [{ f: pf, contacts }] = failing;
-    return [{ code: 'tincture', reason: 'contrast', at, slots: [], message: `A cotise of the ${ORDINARY_NAME[group.item.type]} (${paintName(paint)}) lies ${whereText(pf, top, contacts, null)}: ${FAILURE_TEXT[pf]}` }];
+    return [{ code: 'tincture', reason: 'contrast', part: trim, at, slots: [], message: `A cotise of the ${ORDINARY_NAME[group.item.type]} (${paintName(paint)}) lies ${whereText(pf, top, contacts, null)}: ${FAILURE_TEXT[pf]}` }];
   }
   const contacts = groundTinctures(ground);
   const where = paint.k === 'counterchanged' && pair ? `on ${TINCTURE_NAME[pair[0]]} and ${TINCTURE_NAME[pair[1]]}` : whereText(f, top, contacts, null);
-  return [{ code: 'tincture', reason: 'contrast', at, slots: [], message: `${what} (${paintName(paint)}) ${trim === 'cotises' ? 'lie' : 'lies'} ${where}: ${FAILURE_TEXT[f]}` }];
+  return [{ code: 'tincture', reason: 'contrast', part: trim, at, slots: [], message: `${what} (${paintName(paint)}) ${trim === 'cotises' ? 'lie' : 'lies'} ${where}: ${FAILURE_TEXT[f]}` }];
 }
 
 /** The issue of a semy whose charges don't stand out against the tincture they are strewn on (SENA A3B4a), or none for any other paint. */
@@ -628,7 +633,7 @@ export function semyIssues(p: Paint, at: IssueAt): Issue[] {
   const failure = semy && contrastFailure(semy.ink.t, [semy.ground.t]);
   if (!semy || !failure) return [];
   return [{
-    code: 'tincture', reason: 'contrast', at, slots: [],
+    code: 'tincture', reason: 'contrast', part: 'strewn', at, slots: [],
     message: `${capitalise(CHARGES[semy.charge.charge].plural)} ${TINCTURE_NAME[semy.ink.t]} strewn on ${TINCTURE_NAME[semy.ground.t]}: ${FAILURE_TEXT[failure]}`,
   }];
 }

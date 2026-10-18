@@ -11,6 +11,7 @@ import {
 } from '../src/lib/heraldry';
 import { normaliseBlazon } from './sca/normalise';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
+import { rotatesIn } from './rotation';
 
 const tags = (d: Design) => unsupportedIssues(d).map((i) => `${i.gap.category}:${i.gap.detail}`);
 
@@ -55,6 +56,14 @@ describe('charges on a voided cross, saltire or pall are not drawn (K-3)', () =>
     expect(toggleChoices(charged, [0]).find((c) => c.value === 'voided')).toMatchObject({ allowed: false });
     expect(toggleChoices(nd(arms('argent', group(ordinary('cross'), 'gules'))), [0]).find((c) => c.value === 'voided')).toMatchObject({ allowed: true });
   });
+
+  it('blocks only on a gap the treatment brings, not one the charges on it already have (verify V-7)', () => {
+    const d = nd(arms('argent', group(ordinary('cross'), 'gules', { charged: [group(charge('roundel'), 'or', { count: 3 })] })));
+    expect(tags(d)).toEqual(['placement:on-cross-3']);
+    const choices = toggleChoices(d, [0]);
+    expect(choices.find((c) => c.value === 'couped')).toMatchObject({ allowed: true });
+    expect(choices.find((c) => c.value === 'voided')).toMatchObject({ allowed: false });
+  });
 });
 
 describe('cotises on a band whose line they can\'t take are plain (K-6)', () => {
@@ -69,19 +78,22 @@ describe('cotises on a band whose line they can\'t take are plain (K-6)', () => 
 
 describe('a lined or trimmed fess under a chief keeps below it (K-7)', () => {
   const top = (d: string | undefined) => (d ? Math.min(...pathRings(d).flat().map(([, y]) => y)) : Infinity);
-  it('clears the chief in every shape (on the lozenge, cotises of the deepest lines by a little less)', () => {
+  it('clears the chief in every shape, cotised on its own line and enhanced too (on the lozenge drawn narrower; verify K-7)', () => {
     const lines = LINES.filter((l) => lineAllowed({ k: 'ordinary', type: 'fess', inverted: false }, l));
     for (const shape of FIELD_SHAPES) {
       const frame = frameBeside(shape, true, [plainSpec('chief')]);
-      for (const line of lines) for (const trim of ['none', 'fimbriated', 'cotised', 'triply'] as const) {
+      for (const line of lines) for (const mods of [[], ['enhanced']] as const) for (const trim of ['none', 'fimbriated', 'cotised', 'cotised-lined', 'triply-lined'] as const) {
+        // the lozenge, whose free field is shortest, and the heater in full; a rotating quarter of the banner's and the round's
+        if (shape !== 'lozenge' && shape !== 'heater' && !rotatesIn(`${shape}|${line}|${mods}|${trim}`, 1 / 4)) continue;
+        // the builder's default: cotises on the band's line where they take it
+        const cotiseLine = trim.endsWith('lined') && lineAllowed({ k: 'cotises', type: 'fess' }, line) ? line : 'plain';
         const spec: OrdinarySpec = {
-          ...plainSpec('fess'), lines: { a: line, b: line }, fimbriated: trim === 'fimbriated',
-          cotised: trim === 'cotised' ? { count: 1, line: 'plain' } : trim === 'triply' ? { count: 3, line: 'plain' } : null,
+          ...plainSpec('fess'), mods: [...mods], lines: { a: line, b: line }, fimbriated: trim === 'fimbriated',
+          cotised: trim === 'none' || trim === 'fimbriated' ? null : { count: trim === 'triply-lined' ? 3 : 1, line: cotiseLine },
         };
         const g = ordinaryGeometry(spec, frame);
         const highest = Math.min(top(g.body), top(g.cotises?.d), top(g.fimbriation?.d));
-        const allowance = shape === 'lozenge' && spec.cotised && line !== 'plain' ? 3.5 : 0;
-        expect(highest, `${shape} ${line} ${trim}`).toBeGreaterThanOrEqual(frame.top - allowance);
+        expect(highest, `${shape} ${line} ${mods} ${trim}`).toBeGreaterThanOrEqual(frame.top);
       }
     }
   });

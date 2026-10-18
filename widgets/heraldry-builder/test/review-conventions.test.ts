@@ -11,6 +11,7 @@ import {
 import { DEFAULT_DESIGN, ordinaryPath, setOrdinary, setOrdinaryOutline, setOrdinaryToggle } from '../src/lib/builder';
 import { ordinaryShapeWords } from '../src/components/design/BuilderSteps';
 import { BAND_NAMES, DIVISION_START, EDGE_NAMES } from './sca/words';
+import { normaliseBlazon } from './sca/normalise';
 import { arms, div, group, nd, ordinary } from './helpers';
 
 /** How far (x, y) lies from the polygon's boundary. */
@@ -97,5 +98,15 @@ describe('the builder\'s words come from the library\'s tables', () => {
     }
     expect(BAND_NAMES.split('|')).toEqual(expect.arrayContaining(['fess', 'pale', 'bend sinister', 'chevron', 'cross', 'saltire', 'pile', 'pall', 'pall inverted']));
     expect(EDGE_NAMES.split('|').sort()).toEqual(['dexter', 'inner', 'lower', 'outer', 'sinister', 'upper']);
+  });
+});
+
+describe('the normaliser\'s words for the inverted bands come from the library (verify V-8)', () => {
+  it('reads "<band> <line> inverted" for every band that takes inverted, the pall and chevronels too', () => {
+    for (const [text, form] of [
+      ['Argent, a pall wavy inverted azure.', 'a pall inverted wavy azure'],
+      ['Argent, a pile embattled inverted azure.', 'a pile inverted embattled azure'],
+      ['Argent, two chevronels wavy inverted azure.', 'two chevronels inverted wavy azure'],
+    ]) expect(normaliseBlazon(text), text).toContain(form);
   });
 });

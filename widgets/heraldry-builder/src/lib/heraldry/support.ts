@@ -156,6 +156,8 @@ function itemGaps(item: Item): Found[] {
     if (item.cotised && item.fimbriated) gaps.push(gap('ordinary-treatment', 'fimbriated-and-cotised', 'A band or shape both fimbriated and cotised'));
     // Narrow bands are never outlined here (PLAN-C C11, the C7a hosts).
     else if (isDiminutive(item.type) && (item.cotised || item.fimbriated)) gaps.push(gap('ordinary-treatment', 'outline-on-diminutives', 'Narrow bands fimbriated or cotised'));
+    // A chevron rompu's raised point folds the inner cotise of a couped one over itself (verify V-6).
+    if (item.cotised && item.mods.includes('couped') && (item.lines.a === 'rompu' || item.lines.b === 'rompu')) gaps.push(gap('ordinary-treatment', 'cotised-couped-rompu', 'A chevron rompu couped and cotised'));
     if (item.cotised) gaps.push(...trimGaps(item.cotised.paint, true));
     if (item.fimbriated) gaps.push(...trimGaps(item.fimbriated, false));
     return gaps;
@@ -349,10 +351,21 @@ function badgeGaps(d: Design): Array<{ at: IssueAt; gap: Found }> {
   return extra;
 }
 
+/** The message of an unsupported issue. */
+const gapMessage = (f: Found): string => `${capitalise(f.what)} isn't available in this builder yet.`;
+
+/** The message of a gap the item `after` has of its own that `before` didn't have (compared by `category:detail`), or null: a change the builder can't draw. */
+export function newItemGap(before: Item, after: Item): string | null {
+  const key = (f: Found) => `${f.gap.category}:${f.gap.detail}`;
+  const had = new Set(itemGaps(before).map(key));
+  const found = itemGaps(after).find((f) => !had.has(key(f)));
+  return found ? gapMessage(found) : null;
+}
+
 /** Everything in `d` the builder doesn't draw, one issue per construct: the design, the field, then the groups in canonical order. */
 export function unsupportedIssues(d: Design): UnsupportedIssue[] {
   const out: UnsupportedIssue[] = [];
-  const add = (at: IssueAt, f: Found) => out.push({ code: 'unsupported', at, gap: f.gap, limit: f.limit, message: `${capitalise(f.what)} isn't available in this builder yet.` });
+  const add = (at: IssueAt, f: Found) => out.push({ code: 'unsupported', at, gap: f.gap, limit: f.limit, message: gapMessage(f) });
 
   if (d.kind === 'badge') {
     // Charges that touch the main one ("within and conjoined to", "surmounted by") are not drawn: a badge is its one main charge and what is on it.

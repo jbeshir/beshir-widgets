@@ -5,8 +5,8 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, postureGloss } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
-import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Paint, type Position, type SemyPaint } from './design';
-import { edgeNames, type ComplexLine, type EdgeName, type Line } from './lines';
+import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
+import { edgeNames, ordinaryEdgeHost, type ComplexLine, type EdgeName, type Line } from './lines';
 import { LINE_LOOK } from './plain-words';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
@@ -184,8 +184,9 @@ function colourOf(p: Paint): string | null {
 const EDGE_GLOSS: Record<EdgeName, string> = { upper: 'top', lower: 'bottom', dexter: 'left', sinister: 'right', outer: 'outer', inner: 'inner', 'pale-line': 'up-and-down', 'fess-line': 'across' };
 
 /** An ordinary's lines in words: " with wavy edges", " with a battlemented top edge", nothing when plain. */
-function ordinaryLines(type: OrdinaryType, inverted: boolean, { a, b }: Lines): string {
-  const names = edgeNames({ k: 'ordinary', type, inverted });
+function ordinaryLines(item: Ordinary): string {
+  const { type, lines: { a, b } } = item;
+  const names = edgeNames(ordinaryEdgeHost(item));
   if (a === b || names === null) return a === 'plain' ? '' : ONE_EDGE.includes(type) ? ` with ${article(LINE_LOOK[a])} ${LINE_LOOK[a]} edge` : ` with ${LINE_LOOK[a]} edges`;
   const edge = (l: ComplexLine, name: EdgeName) => `${article(LINE_LOOK[l])} ${LINE_LOOK[l]} ${EDGE_GLOSS[name]} edge`;
   return ` with ${[a !== 'plain' ? edge(a, names.a) : '', b !== 'plain' ? edge(b, names.b) : ''].filter(Boolean).join(' and ')}`;
@@ -204,7 +205,7 @@ function ordinaryGloss(d: Design, g: Group): string {
     ?? notSupported({ category: 'ordinary', detail: type });
   // "a gold shortened cross", "a blue raised horizontal band …", "a white upside-down V reaching the edges"
   const before = [mods.includes('couped') ? 'shortened ' : '', mods.includes('enhanced') ? 'raised ' : '', mods.includes('abased') ? 'lowered ' : '', mods.includes('voided') ? 'hollow ' : ''].join('');
-  const body = `${before}${shape}${mods.includes('throughout') ? ' reaching the edges' : ''}${ordinaryLines(type, inverted, g.item.lines)}`;
+  const body = `${before}${shape}${mods.includes('throughout') ? ' reaching the edges' : ''}${ordinaryLines(g.item)}`;
   const colour = colourOf(g.paint);
   const { fimbriated, cotised } = g.item;
   const edged = fimbriated ? `, edged in ${colourOf(fimbriated) ?? paintClause(d, fimbriated)}` : '';

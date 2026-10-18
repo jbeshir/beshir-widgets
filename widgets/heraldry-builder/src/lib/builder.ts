@@ -189,7 +189,7 @@ export function setOrdinary(d: Design, picked: OrdinaryType | null): Design {
   const thin = was?.k === 'ordinary' && THIN_ORDINARIES.includes(was.type) ? THIN[picked] : undefined;
   const type = thin ?? picked;
   const mods = was?.k === 'ordinary' ? keptMods(was.mods, type) : [];
-  const lines = was?.k === 'ordinary' ? keptOrdinaryLines(was.lines, type, mods.includes('inverted')) : PLAIN_LINES;
+  const lines = was?.k === 'ordinary' ? keptOrdinaryLines(was.lines, { type, mods }) : PLAIN_LINES;
   const rebuiltDesign = rebuilt(d, ordinaryGroup(type, kept ?? 'or', lines, mods));
   // Its outline goes with it where the new band or shape may have one.
   const placed = was?.k === 'ordinary' ? refitLayers(keptOutline(rebuiltDesign, ordinaryPath(rebuiltDesign)!, was)) : rebuiltDesign;

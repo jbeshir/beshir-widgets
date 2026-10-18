@@ -4,7 +4,7 @@
 // take, a dark pair across a wavy line, App H, a second step from core practice, two treatments that contradict); never by what lies on it.
 
 import { DRAWN_LINES, bareLines, edgeCount, lineAllowed, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
-import { GROUP_TINCTURES, PLAIN_LINES, canonical, groupAt, groupTinctureOf, paintOfGroupTincture, replaceGroup, samePath, type Design, type GroupPath, type GroupTincture, type Lines, type Ordinary, type Paint } from './design';
+import { GROUP_TINCTURES, PLAIN_LINES, canonical, groupAt, groupTinctureOf, paintOfGroupTincture, replaceGroup, samePath, type Design, type GroupPath, type GroupTincture, type Lines, type Ordinary, type Paint, type UnsupportedIssue } from './design';
 import { choice, type Choice } from './options';
 import { corePracticeProblem, ordinaryLineProblem, structuralIssues } from './structure';
 import { trimTinctureIssues } from './tincture-rule';
@@ -12,7 +12,7 @@ import { TINCTURES, type Tincture } from './tinctures';
 import { DRAWN_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, THIN, THIN_ORDINARIES, familyOf, isDiminutive, modDrawn, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { OUTLINES, cotiseLineFor, outlineOf, outlinePaintOf, withOutline, withOutlinePaint, type Outline } from './outline';
 import { modsClash } from './resolve';
-import { unsupportedIssues } from './support';
+import { newItemGap, unsupportedIssues } from './support';
 import { LINED_VARIATIONS, type Division, type Variation } from './divisions';
 
 /** What an edge control edits: the background, the band, shape, top band or border at `path`, or the cotises of the band or shape at `path`. */
@@ -61,8 +61,8 @@ function withLinesAt(d: Design, target: EdgeTarget, lines: Lines): Design {
 }
 
 /** What is wrong with the lines of the target, or null: the rule of its own they break, or (for a band or its cotises) a second step from core practice. */
-function lineProblem(d: Design, target: EdgeTarget): string | null {
-  if (target.k !== 'field') return ordinaryLineProblem(groupAt(d, target.path)) ?? corePracticeProblem(d);
+function lineProblem(before: Design, d: Design, target: EdgeTarget): string | null {
+  if (target.k !== 'field') return ordinaryLineProblem(groupAt(d, target.path)) ?? newItemGap(groupAt(before, target.path).item, groupAt(d, target.path).item) ?? corePracticeProblem(d);
   return structuralIssues(d).find((i) => i.code === 'structure' && i.rule === 'line' && i.at.k === 'field')?.message ?? null;
 }
 
@@ -92,7 +92,7 @@ export function lineChoices(d: Design, target: EdgeTarget): Choice<Line>[] {
   // a host with no edge to draw a line on (the point pointed, the fret, the label, the mount) has no row
   if (!host || edgeCount(host) === 0) return [];
   const side = keptSide(d, target);
-  return (['plain', ...DRAWN_LINES] as const).filter((l) => l === 'plain' || lineAllowed(host, l)).map((line) => choice(line, lineProblem(withLinesAt(d, target, linesOn(host, line, side)), target)));
+  return (['plain', ...DRAWN_LINES] as const).filter((l) => l === 'plain' || lineAllowed(host, l)).map((line) => choice(line, lineProblem(d, withLinesAt(d, target, linesOn(host, line, side)), target)));
 }
 
 /** The target drawn with this line: on all of a background's lines (on the side already chosen, for a quartered field), as a blazon bares it for a band. */
@@ -112,7 +112,7 @@ export function edgeSideChoices(d: Design, target: EdgeTarget): Choice<EdgeSide>
   const host = hostAt(d, target);
   const line = currentLine(linesAt(d, target));
   if (!host || edgeCount(host) !== 2 || line === 'plain') return [];
-  return (['both', 'a', 'b'] as const).map((side) => choice(side, target.k === 'group' ? lineProblem(withLinesAt(d, target, linesOn(host, line, side)), target) : null));
+  return (['both', 'a', 'b'] as const).map((side) => choice(side, target.k === 'group' ? lineProblem(d, withLinesAt(d, target, linesOn(host, line, side)), target) : null));
 }
 
 /** The target with its line drawn on these sides. */
@@ -129,8 +129,8 @@ export function keptLines(lines: Lines, host: Extract<EdgeHost, { k: 'division' 
 }
 
 /** The lines a band or shape keeps when it is replaced by another type (upside down or not): its line where the new type may carry it (as that type's blazon bares it), else plain. */
-export function keptOrdinaryLines(lines: Lines, type: OrdinaryType, inverted: boolean): Lines {
-  const host: EdgeHost = { k: 'ordinary', type, inverted };
+export function keptOrdinaryLines(lines: Lines, item: { type: OrdinaryType; mods: readonly OrdinaryMod[] }): Lines {
+  const host = ordinaryEdgeHost(item);
   const line = currentLine(lines);
   return line !== 'plain' && lineAllowed(host, line) ? bareLines(host, line) : { ...PLAIN_LINES };
 }
@@ -181,9 +181,16 @@ function treatmentRuleProblem(d: Design, path: GroupPath): string | null {
   return structuralIssues(d).find((i) => i.code === 'structure' && i.rule === 'ordinary-treatment' && i.at.k === 'group' && samePath(i.at.path, path))?.message ?? null;
 }
 
-/** What lies on the band or shape at `path` that can't be drawn on it in `d` (charges on a voided one), or null. */
-function onItProblem(d: Design, path: GroupPath): string | null {
-  return unsupportedIssues(d).find((i) => i.at.k === 'group' && i.at.path.length > path.length && samePath(i.at.path.slice(0, path.length), path))?.message ?? null;
+/**
+ * What lies on the band or shape at `path` that can't be drawn on it once it is `next` (charges on a voided one), or null: a gap of the
+ * groups on it that they didn't have before, compared by its typed `category:detail` and where it is (verify V-7), so a gap they already
+ * had (an unusual count on it) blocks nothing.
+ */
+function onItProblem(d: Design, next: Design, path: GroupPath): string | null {
+  const onIt = (x: Design) => unsupportedIssues(x).filter((i) => i.at.k === 'group' && i.at.path.length > path.length && samePath(i.at.path.slice(0, path.length), path));
+  const key = (i: UnsupportedIssue) => `${i.gap.category}:${i.gap.detail}@${i.at.k === 'group' ? i.at.path.join('.') : ''}`;
+  const had = new Set(onIt(d).map(key));
+  return onIt(next).find((i) => !had.has(key(i)))?.message ?? null;
 }
 
 /** Why the band or shape can't have these treatments, or null: two that contradict each other, a line its new form can't take, the rules of voiding and fimbriation, or what lies on it. */
@@ -193,7 +200,7 @@ function modsProblem(d: Design, path: GroupPath, mods: readonly OrdinaryMod[]): 
   const clash = modsClash(item.type, mods);
   if (clash) return clash;
   const next = withMods(d, path, mods);
-  return ordinaryLineProblem(groupAt(next, path)) ?? treatmentRuleProblem(next, path) ?? onItProblem(next, path);
+  return ordinaryLineProblem(groupAt(next, path)) ?? newItemGap(groupAt(d, path).item, groupAt(next, path).item) ?? treatmentRuleProblem(next, path) ?? onItProblem(d, next, path);
 }
 
 /** The pall and the pall inverted, which are one band or shape upside down or not: turning one over is a change of type, not a treatment. */
@@ -204,7 +211,7 @@ function pallTurned(d: Design, path: GroupPath, upsideDown: boolean): Design {
   const group = groupAt(d, path);
   if (group.item.k !== 'ordinary') return d;
   const type = upsideDown ? 'pall-inverted' : 'pall';
-  return canonical(replaceGroup(d, path, { ...group, item: { ...group.item, type, lines: keptOrdinaryLines(group.item.lines, type, false) } }));
+  return canonical(replaceGroup(d, path, { ...group, item: { ...group.item, type, lines: keptOrdinaryLines(group.item.lines, { type, mods: group.item.mods }) } }));
 }
 
 /** Whether a band of this type takes the Thin toggle: a fess, pale, bend (sinister) or chevron, or the thin bands it makes. */
@@ -219,7 +226,7 @@ function thinned(d: Design, path: GroupPath, thin: boolean): Design {
   if (group.item.k !== 'ordinary') return d;
   const type = thin ? THIN[group.item.type] ?? group.item.type : familyOf(group.item.type);
   const mods = keptMods(group.item.mods, type);
-  const item: Ordinary = { ...group.item, type, mods, lines: keptOrdinaryLines(group.item.lines, type, mods.includes('inverted')), cotised: null, fimbriated: null };
+  const item: Ordinary = { ...group.item, type, mods, lines: keptOrdinaryLines(group.item.lines, { type, mods }), cotised: null, fimbriated: null };
   return canonical(replaceGroup(d, path, { ...group, item, count: thin ? ORDINARY_COUNTS[type]![0] : 1 }));
 }
 
@@ -337,8 +344,8 @@ export function outlineAt(d: Design, path: GroupPath): Outline {
 }
 
 /** Why the band or shape at `path` can't be as it is, or null: the rules of its own line, of voiding, fimbriation and cotises (SENA A3C) and a second step from core practice — never the tinctures. */
-function outlineProblem(d: Design, path: GroupPath): string | null {
-  return ordinaryLineProblem(groupAt(d, path)) ?? treatmentRuleProblem(d, path) ?? corePracticeProblem(d);
+function outlineProblem(before: Design, d: Design, path: GroupPath): string | null {
+  return ordinaryLineProblem(groupAt(d, path)) ?? newItemGap(groupAt(before, path).item, groupAt(d, path).item) ?? treatmentRuleProblem(d, path) ?? corePracticeProblem(d);
 }
 
 /** The paints to try for an outline, best first: the one it had, the band's own tincture for cotises (which usually share it), then each tincture (the band's own last for an edging). */
@@ -363,7 +370,7 @@ function outlined(d: Design, path: GroupPath, base: Ordinary, outline: Outline, 
 export function outlineChoices(d: Design, path: GroupPath): Choice<Outline>[] {
   const item = outlinedAt(d, path);
   if (!item) return [];
-  return OUTLINES.map((o) => choice(o, o === 'none' ? null : outlineProblem(outlined(d, path, item, o, outlinePaintOf(item)), path)));
+  return OUTLINES.map((o) => choice(o, o === 'none' ? null : outlineProblem(d, outlined(d, path, item, o, outlinePaintOf(item)), path)));
 }
 
 /** The band or shape with this outline, its tincture kept where it works there, else the first that does (a cotised one in its own, to begin with). */
@@ -378,7 +385,7 @@ export function keptOutline(d: Design, path: GroupPath, from: Ordinary): Design 
   const outline = outlineOf(from);
   if (!item || outline === 'none') return d;
   const next = outlined(d, path, { ...item, cotised: from.cotised, fimbriated: from.fimbriated }, outline, outlinePaintOf(from));
-  return outlineProblem(next, path) ? d : next;
+  return outlineProblem(d, next, path) ? d : next;
 }
 
 /** The tincture of the outline, or null when there is none. */

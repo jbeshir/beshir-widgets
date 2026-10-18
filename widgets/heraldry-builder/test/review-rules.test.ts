@@ -71,6 +71,16 @@ describe('four charges in cross on a field whose lines meet at the fess point st
   it('still refuses them where one stands wholly on a part it does not contrast with', () => {
     expect(issues('Gyronny of six azure and Or, in cross four roses gules.')).toHaveLength(1);
   });
+
+  it('judges them where they are drawn once a chief, a charge in base or an orle moves the cross off the fess point (verify V-1)', () => {
+    for (const text of [
+      'Quarterly azure and Or, in cross four roses gules, a chief argent.',
+      'Gyronny azure and Or, in cross four roses gules, a chief argent.',
+      'Quarterly azure and Or, in cross four roses gules, in base a crescent argent.',
+      'Gyronny azure and Or, in cross four roses gules within an orle argent.',
+    ]) expect(issues(text), text).not.toEqual([]);
+    expect(issues('Quarterly azure and Or, in cross four roses gules within a bordure argent.')).toEqual([]);
+  });
 });
 
 describe('a baton is a bend couped, a baton sinister a bend sinister couped (RULES-C §C.2, R-5)', () => {
@@ -87,6 +97,11 @@ describe('a baton is a bend couped, a baton sinister a bend sinister couped (RUL
     const m = explainMatch('(Fieldless) A baton sinister vair.');
     expect(m.status).toBe('unsupported');
     expect(m.gaps).toEqual([{ category: 'fieldless', detail: 'couped-ordinary' }]);
+  });
+
+  it('counterchanges a baton sinister over bendy, across the stripes, and not over bendy sinister, along them (SENA CC-2; verify V-5)', () => {
+    expect(issues('Bendy argent and azure, a baton sinister counterchanged.')).toEqual([]);
+    expect(issues('Bendy sinister argent and azure, a baton sinister counterchanged.')).toEqual([expect.stringMatching(/runs along the stripes/)]);
   });
 
   it('draws the baton from dexter chief', () => {

@@ -1,7 +1,7 @@
 // The matcher's paint reader, shared by the field and by groups: the paint at a position in the tokens of a
 // normalised blazon, as the loose input `resolve` reads (a tincture word, a fur, a treatment, 'counterchanged' or 'proper', or a division of those).
 
-import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, partCount, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, lineAllowed, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type EdgeHost, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, CHARGES, CHARGE_IDS, DIVISION_NAME, DRAWN_DIVISIONS, partCount, DRAWN_LINES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, lineAllowed, ordinaryEdgeHost, TINCTURES, VARIATIONS, VARIATION_NAME, bareLines, type ComplexLine, type EdgeHost, type Line, type Division, type Fur, type OrdinaryMod, type OrdinaryType, type Tincture, type Treatment, type Variation } from '../../src/lib/heraldry';
 import { edgeSide } from './words';
 
 export const DIVISION_WORDS = new Map<string, Division>(DRAWN_DIVISIONS.map((d) => [DIVISION_NAME[d], d]));
@@ -56,9 +56,9 @@ const COUNTER_EMBATTLED = COUNTER_EMBATTLED_WORDS.split(' ');
  * The lines a band or shape is written with after its name (`at` is the index after it): "embattled" (a band's bare meaning of it: `bareLines`),
  * "embattled counter-embattled" (both edges), "wavy on the lower edge" (that edge alone). An ordinary without a line has plain lines.
  */
-function readOrdinaryLines(type: OrdinaryType, inverted: boolean, tokens: readonly string[], at: number): { lines: Lines | null; end: number } {
+function readOrdinaryLines(type: OrdinaryType, mods: readonly OrdinaryMod[], tokens: readonly string[], at: number): { lines: Lines | null; end: number } {
   if (COUNTER_EMBATTLED.every((w, j) => tokens[at + j] === w)) return { lines: { a: 'embattled', b: 'embattled' }, end: at + COUNTER_EMBATTLED.length };
-  const host = { k: 'ordinary', type, inverted } as const;
+  const host = ordinaryEdgeHost({ type, mods });
   const read = readHostLine(host, tokens, at);
   if (!read) return { lines: null, end: at };
   const side = tokens[read.end] === 'on' && tokens[read.end + 1] === 'the' && tokens[read.end + 3] === 'edge' ? edgeSide(host, tokens[read.end + 2]) : null;
@@ -80,7 +80,7 @@ export function readOrdinaryForm(type: OrdinaryType, tokens: readonly string[], 
       i++;
     }
   }
-  const { lines, end } = readOrdinaryLines(type, mods.includes('inverted'), tokens, i);
+  const { lines, end } = readOrdinaryLines(type, mods, tokens, i);
   i = end;
   for (const mod of MODS_AFTER_LINE) {
     if (tokens[i] === mod) {

@@ -11,7 +11,7 @@ import {
   type ComplexLine, type Design, type DividedField, type EdgeRun, type FieldShape, type Line, type VariedField,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, selfCrossings } from './helpers';
-import { rotatesIn } from './rotation';
+import { rotatesIn, sampleSeed } from './rotation';
 
 type Pt = [number, number];
 const chg = (id: string, paint: string, extra: object = {}) => group(charge(id), paint, extra);
@@ -69,15 +69,15 @@ describe('drawing a line on the field', () => {
     expect(stripeCases.length).toBe(4 * 14);
   });
 
-  // Heater exhaustively; each other shape a rotating third of the cases.
-  FIELD_SHAPES.forEach((shape, s) => {
+  // Heater exhaustively; each other shape a seeded, rotating sixth of the cases (`rotatesIn`; a fixed third until the verify fixes).
+  FIELD_SHAPES.forEach((shape) => {
     it(`the regions of a lined division tile the ${shape} and partIndexAt follows the drawn line`, () => {
       const points = gridIn(shape, 4);
-      const wrong = divisionCases.filter((_, i) => shape === 'heater' || i % 3 === s % 3).flatMap(({ division, line }) => {
+      const wrong = divisionCases.filter(({ division, line }) => shape === 'heater' || rotatesIn(`${shape}|${division}|${line}`, 1 / 6)).flatMap(({ division, line }) => {
         const field: DividedField = { k: 'divided', division, lines: plainOf(line), pieces: null, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
         return checkTiling(divisionRegions(division, field.lines, null, shape), (x, y) => partIndexAt(field, shape, x, y), points).map((w) => `${division} ${line} ${w}`);
       });
-      expect(wrong).toEqual([]);
+      expect(wrong, `sample seed ${sampleSeed()}`).toEqual([]);
     });
 
     // Where lines meet (per chevron inverted's limbs, gyronny's rays, per pall's arms) their features keep clear of each other (review K-4,
@@ -87,21 +87,21 @@ describe('drawing a line on the field', () => {
       const wrong = moreCases.filter(({ division, line, pieces }) => shape === 'heater' || rotatesIn(`${shape}|${division}|${pieces}|${line}`, 1 / 4)).flatMap(({ division, line, pieces }) => {
         const field: DividedField = { k: 'divided', division, lines: plainOf(line), pieces, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }, { k: 'tincture', t: 'azure' }] };
         const regions = divisionRegions(division, field.lines, pieces, shape);
-        // a single bow (enarched, ployé) runs from end to end: on the lozenge an enarched per chevron inverted's two bows still cross at the apex (deferred)
-        const crossings = LINE_PROFILE[line as ComplexLine].kind === 'single' ? [] : regions.flatMap((r, i) => ringsOf(r).flatMap((ring) => selfCrossings(ring)).map(([x, y]) => `region ${i} crosses itself at (${x.toFixed(1)}, ${y.toFixed(1)})`));
+        // on the lozenge an enarched per chevron inverted's two bows still cross at the apex (deferred; verify V-13)
+        const crossings = shape === 'lozenge' && division === 'per-chevron-inverted' && line === 'enarched' ? [] : regions.flatMap((r, i) => ringsOf(r).flatMap((ring) => selfCrossings(ring)).map(([x, y]) => `region ${i} crosses itself at (${x.toFixed(1)}, ${y.toFixed(1)})`));
         return [...crossings, ...checkTiling(regions, (x, y) => partIndexAt(field, shape, x, y), points)].map((w) => `${division} ${pieces ?? ''} ${line} ${w}`);
       });
-      expect(wrong).toEqual([]);
+      expect(wrong, `sample seed ${sampleSeed()}`).toEqual([]);
     });
 
     it(`the stripes of a lined variation tile the ${shape} and partIndexAt follows them`, () => {
       const points = gridIn(shape, 6);
-      const wrong = stripeCases.filter((_, i) => shape === 'heater' || i % 3 === s % 3).flatMap(({ variation, line, pieces }) => {
+      const wrong = stripeCases.filter(({ variation, line }) => shape === 'heater' || rotatesIn(`${shape}|${variation}|${line}`, 1 / 6)).flatMap(({ variation, line, pieces }) => {
         const field: VariedField = { k: 'varied', paint: { k: 'variation', variation, pieces, lines: plainOf(line), parts: [{ k: 'tincture', t: 'argent' }, { k: 'tincture', t: 'azure' }] } };
         const regions = variationRegions(variation, pieces, field.paint.lines, shapeFrame(shape).box);
         return checkTiling(regions, (x, y) => partIndexAt(field, shape, x, y), points).map((w) => `${variation} ${line} ${w}`);
       });
-      expect(wrong).toEqual([]);
+      expect(wrong, `sample seed ${sampleSeed()}`).toEqual([]);
     });
   });
 

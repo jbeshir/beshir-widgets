@@ -9,8 +9,9 @@ import {
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
+import { rotatesIn, sampleSeed } from './rotation';
 import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
-import { arms, charge, div, group, ordinary } from './helpers';
+import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
   const r = normalise(input);
@@ -259,12 +260,15 @@ describe('designs with a chief and a bordure beside the band are built by clicks
     for (const [, input, text] of REPRESENTATIVE) expect(blazon(built(input))).toBe(text);
   });
 
+  // The two slowest of these sweeps build a seeded, rotating half of their designs (`rotatesIn`; SCA_FULL=1 for all).
+  const half = (designs: readonly Design[]) => designs.filter((d) => rotatesIn(canonicalJson(d), 1 / 2));
+
   it('every generated design with a line on the field is built too', () => {
-    const problems = generatedGeometryDesigns(11, 100).flatMap((d) => {
+    const problems = half(generatedGeometryDesigns(11, 100)).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
-    expect(problems).toEqual([]);
+    expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
   }, 60_000);
 
   it('every generated design with a line on a band, a top band or a border is built too', () => {
@@ -292,20 +296,19 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   }, 60_000);
 
   it('every generated design with corner and edge shapes, alone or several beside a band or a picture, is built too', () => {
-    const problems = generatedPeripheralDesigns(11, 60).flatMap((d) => {
+    const problems = half(generatedPeripheralDesigns(11, 60)).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
-    expect(problems).toEqual([]);
+    expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
   }, 60_000);
 
   it('every generated rich design is built too', () => {
-    const designs = generatedRichDesigns(11, 150);
-    const problems = designs.flatMap((d) => {
+    const problems = generatedRichDesigns(11, 150).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
-    expect(problems).toEqual([]);
+    expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
   }, 60_000);
 });
 
@@ -424,5 +427,16 @@ describe('layers kept through the edits of the layers beneath them', () => {
     const chief = choices.find((c) => c.value === 'chief')!;
     expect(chief.allowed).toBe(false);
     expect(!chief.allowed && chief.reason).toMatch(/can't be set around the pall/);
+  });
+});
+
+describe('a layer that gives a band that already breaks the rule of tincture a new problem is refused (verify V-2)', () => {
+  it('refuses a chief that moves a fimbriated band of the field\'s tincture so its fimbriation lies on a colour', () => {
+    for (const [division, type] of [['per-bend', 'fess'], ['per-fess', 'cross']] as const) {
+      const d = nd(arms(div(division, 'argent', 'azure'), group(ordinary(type, { fimbriated: { k: 'tincture', t: 'gules' } }), 'argent')));
+      const chief = layerChoices(d).find((c) => c.value === 'chief')!;
+      expect(chief.allowed, `${division} ${type}`).toBe(false);
+      expect(!chief.allowed && chief.reason).toMatch(/^The fimbriation of the \w+ \(Gules\) lies mostly on Azure/);
+    }
   });
 });

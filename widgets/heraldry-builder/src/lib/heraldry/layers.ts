@@ -111,11 +111,12 @@ function newTinctureProblem(before: Design, after: Design): string | null {
 
 /**
  * What a rule-of-tincture issue is about, whatever its wording and the order of the design's groups: the rule, where the group stands (or the
- * field), and which of its charges. A band moved onto another part that still breaks the rule is the problem it had, not a new one.
+ * field), which part of it (the body, the fimbriation or the cotises: verify V-2), and which of its charges. A band moved onto another part that
+ * still breaks the rule is the problem it had, not a new one.
  */
 function tinctureIssueKey(d: Design, i: Issue): string {
   const where = i.at.k === 'group' ? placeOfPath(d, i.at.path) ?? i.at.path.join('.') : i.at.k;
-  return `${i.code === 'tincture' ? i.reason : i.code}|${where}|${i.code === 'unsupported' ? '' : i.slots.join(' ')}`;
+  return `${i.code === 'tincture' ? `${i.reason}|${i.part}` : i.code}|${where}|${i.code === 'unsupported' ? '' : i.slots.join(' ')}`;
 }
 
 /** The places set by position, and those of the bands (which are not refitted). */
@@ -441,7 +442,7 @@ export function setPeripheralItem(d: Design, place: PeripheralPlace, type: Ordin
   const was = path && groupAt(d, path);
   if (!was || was.item.k !== 'ordinary' || was.item.type === type) return d;
   const mods = keptMods(was.item.mods, type);
-  const next: Group = { ...ordinaryGroup(type, 'or', keptOrdinaryLines(was.item.lines, type, mods.includes('inverted')), mods), paint: was.paint };
+  const next: Group = { ...ordinaryGroup(type, 'or', keptOrdinaryLines(was.item.lines, { type, mods }), mods), paint: was.paint };
   return refitLayers(assembleParts(d, { ...partsOf(d), peripherals: simpleParts(d).peripherals.map((p) => (p.place === place ? next : p.group)) }));
 }
 
