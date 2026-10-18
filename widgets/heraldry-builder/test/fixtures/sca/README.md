@@ -112,9 +112,9 @@ them. The tagger counts them the same way (`ORDINARY_COUNTS`), so a drawn group 
 
 One charge beside a bend (C16; RULES-C §F.3, App K) stands in the corner the bend leaves free, and the widget writes the corner ("Argent, a bend
 sable and in sinister chief a rose gules"). The College writes it both ways — "in sinister chief" (about 40 records) and plain "in chief" (about
-45) beside a bend, "in dexter chief" or "in chief" beside a bend sinister — so the normaliser's `corner-beside-bend` rule reads, after a bend or
-bendlets, "in sinister chief a/an" as "in chief a/an" and "in dexter base a/an" as "in base a/an" (after a bend sinister, bendlets sinister or a
-baton, "in dexter chief" and "in sinister base"); two or more charges are not read so (they stand along the top). The tagger files such a charge
+45) beside a bend, "in dexter chief" or "in chief" beside a bend sinister — so the normaliser's `corner-beside-bend` rule reads, after a bend,
+bendlets or a baton, "in sinister chief a/an" as "in chief a/an" and "in dexter base a/an" as "in base a/an" (after a bend sinister, bendlets sinister or a
+baton sinister, "in dexter chief" and "in sinister base"); two or more charges are not read so (they stand along the top). The tagger files such a charge
 as set in chief or in base beside the bend (`cornerPosition` in `gaps.ts`, derived from the library's `cornerBesideBend`).
 
 ### Phase-C additions at a glance

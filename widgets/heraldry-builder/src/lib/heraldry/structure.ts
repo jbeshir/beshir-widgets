@@ -14,7 +14,7 @@ import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, it
 import { capacityIssue, onChargeWords } from './layout';
 import { posturesClash } from './difference';
 import { strewnIssues } from './strewn';
-import { groundShares, paintName } from './tincture-rule';
+import { TWO_PART_DIVISIONS, groundShares, onDivisionLine, paintName } from './tincture-rule';
 import { ORDINARY_NAME, ORDINARY_KIND, REFUSED_ORDINARIES, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
 
@@ -170,7 +170,7 @@ export function ordinaryLineProblem(g: Group): string | null {
   const cotised = g.item.cotised?.line;
   if (lone && cotised && cotised !== 'plain') return `${capitalise(what)} ${LINE_WORD[lone]} takes no further line, so its cotises can't be ${LINE_WORD[cotised]} (RULES-C §A.5).`;
   const one = oneEdgeLine(g);
-  if (one && LINE_GROUP[one] === 'jagged') return `${capitalise(what)} can't be ${LINE_WORD[one]} on one edge only — draw both edges ${LINE_WORD[one]} (SENA A3D1c).`;
+  if (one && LINE_GROUP[one] === 'jagged') return `${capitalise(what)} can't be ${LINE_WORD[one]} on one edge only — draw both edges ${LINE_WORD[one]} (RULES-C §A.5, L5, after an example in SENA A3D1c).`;
   return null;
 }
 
@@ -310,10 +310,12 @@ export function paintIssues(d: Design): Issue[] {
   const issues: Issue[] = [];
   const add = (issue: Issue) => issues.push(issue);
 
-  // A divided field whose parts share a tincture (SENA A3B3a): of a fur, the ground it is seen against.
+  // A divided field whose parts share a tincture (SENA A3B3a): of a fur, the ground it is seen against; "unless the sections are separated by an
+  // ordinary" — the main band over the line of a field in two parts (review R-11; A3B3c has no such exception for quarterly or per saltire).
   if (d.kind === 'arms' && d.field.k === 'divided') {
     const parts = d.field.parts;
-    const shared = parts.flatMap((p, i) => parts.slice(i + 1).flatMap((q) => {
+    const separated = TWO_PART_DIVISIONS.includes(d.field.division) && primaryGroups(d).some((p) => onDivisionLine(d, p.group));
+    const shared = separated ? undefined : parts.flatMap((p, i) => parts.slice(i + 1).flatMap((q) => {
       const t = bodyTinctures(p).find((x) => bodyTinctures(q).includes(x));
       return t ? [{ p, q, t }] : [];
     }))[0];
@@ -389,8 +391,8 @@ const DISPLAY_FORMS: readonly ChargeId[] = ['heart', 'roundel', 'billet', 'lozen
  */
 function notABadge(group: Group): string | null {
   if (group.item.k === 'ordinary') {
-    // A couped band is a badge (SENA A3A2), one this builder doesn't draw yet: support.ts says so.
-    if (ORDINARY_KIND[group.item.type] === 'central' && group.item.mods.includes('couped')) return null;
+    // A couped band (a baton is one already) is a badge (SENA A3A2), one this builder doesn't draw yet: support.ts says so.
+    if (ORDINARY_KIND[group.item.type] === 'central' && (group.item.mods.includes('couped') || group.item.type === 'baton')) return null;
     return ORDINARY_KIND[group.item.type] !== 'central'
       ? `A fieldless badge has no edge for ${ordinaryWithArticle(group.item.type)} to run along (SENA A3A2).`
       : `A fieldless badge can't have a ${ORDINARY_NAME[group.item.type]} unless it is couped (SENA A3A2).`;
@@ -412,12 +414,12 @@ function notABadge(group: Group): string | null {
   return null;
 }
 
-/** The peripherals that must stay uncharged: a canton or quarter charged is an augmentation (SENA A6C1, RULES-C §C.3). */
+/** The peripherals that must stay uncharged and of one tincture: a canton or quarter otherwise is an augmentation (SENA A6C1, RULES-C §C.3). */
 const UNCHARGED: readonly OrdinaryType[] = ['canton', 'quarter'];
 
 /**
  * What the peripherals beside the chief and bordure rule out: a chief and a base alike in tincture and line ("non-period heraldic style,
- * and grounds for return": RULES-C §C.3, Cynwrig de Montain 11/2006); a charged canton or quarter (SENA A6C1); a group overall, which may
+ * and grounds for return": RULES-C §C.3, Cynwrig de Montain 11/2006); a charged canton or quarter, or one not of a single tincture (SENA A6C1); a group overall, which may
  * not lie over a peripheral other than a chief or bordure it stands under (SENA App I4).
  */
 function peripheralIssues(d: Design): Issue[] {
@@ -431,6 +433,11 @@ function peripheralIssues(d: Design): Issue[] {
   for (const { group, item, path } of peripherals) {
     if (UNCHARGED.includes(item.type) && group.charged.length > 0) {
       out.push({ code: 'structure', rule: 'relation', at: { k: 'group', path: [...path, 0] }, message: `A ${ORDINARY_NAME[item.type]} must stay uncharged: a charged one is an augmentation (SENA A6C1).`, slots: [] });
+    }
+    // "only if it is uncharged and of a single tincture" (A6C1): a fur is one tincture (A3B1); divided, varied, strewn or treated it is not.
+    // The sinister forms too: A6C1 speaks of "a canton", and a canton sinister is one (review R-6).
+    if (UNCHARGED.includes(item.type) && group.paint.k !== 'tincture' && group.paint.k !== 'fur') {
+      out.push({ code: 'structure', rule: 'relation', at: { k: 'group', path }, message: `A ${ORDINARY_NAME[item.type]} must be of one tincture: a divided one reads as an augmentation (SENA A6C1).`, slots: [] });
     }
   }
   const beside = peripherals.find((p) => p.item.type !== 'chief' && p.item.type !== 'bordure');

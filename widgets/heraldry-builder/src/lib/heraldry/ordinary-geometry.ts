@@ -145,8 +145,13 @@ export function bandPlace(spec: OrdinarySpec, frame: OrdinaryFrame): { centre: P
   return { centre: { x: frame.centre.x, y: (Math.max(frame.top, wide.top) + Math.min(frame.bottom, wide.bottom)) / 2 }, scale: FREE_FIELD_SCALE };
 }
 
-/** A trim drawn with an ordinary's body (its fimbriation, its cotises): its path, and the step-2 grid of the shape's points that show it — what it lies on. */
-export interface OrdinaryTrim { readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly samples: readonly Pt[] }
+/**
+ * A trim drawn with an ordinary's body (its fimbriation, its cotises): its path, and the step-2 grid of the shape's points that show it — what it
+ * lies on; for cotises, `pieces` splits those points into the cotises, each the run of edges of the body between two of its ends (a band's
+ * either side, a chevron's above or below both limbs, a cross's or saltire's between two arms), so that each is judged on what it lies on
+ * (SENA A3B4a; each cotise is a charge, App I2c).
+ */
+export interface OrdinaryTrim { readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly samples: readonly Pt[]; readonly pieces?: readonly (readonly Pt[])[] }
 
 /** What an ordinary draws in a frame. */
 export interface OrdinaryGeometry {
@@ -410,7 +415,7 @@ const diminutivePitch = (spec: OrdinarySpec): number =>
 /**
  * A group of diminutives, one outline each: its ordinary's outline drawn as narrow as the diminutive, set `count` times evenly across the
  * place of the ordinary — bars one above another, pallets side by side, bendlets across the bend, chevronels nested — the group moved and
- * turned over as a whole (enhanced, inverted). A baton is one bendlet sinister couped.
+ * turned over as a whole (enhanced, inverted). A baton is one bendlet couped (a baton sinister one mirrored).
  */
 function diminutivePieces(spec: OrdinarySpec, frame: OrdinaryFrame): Outline[] {
   const step = diminutiveStep(spec), first = firstStep(spec, frame);
@@ -1291,6 +1296,37 @@ function gridInside(a: readonly Pt[][], b: readonly Pt[][], step: number = SAMPL
   return out;
 }
 
+/**
+ * The points of a trim split by the run of lined edges of the body outline the edge each lies nearest to belongs to: the edges between two ends
+ * (`null` edges), round the outline. Runs with no points are left out.
+ */
+function besideEdges(outline: Outline, points: readonly Pt[]): Pt[][] {
+  const n = outline.points.length;
+  const distance = ([x, y]: Pt, i: number): number => {
+    const [ax, ay] = outline.points[i], [bx, by] = outline.points[(i + 1) % n];
+    const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2));
+    return Math.hypot(x - ax - t * dx, y - ay - t * dy);
+  };
+  const lined = outline.edges.flatMap((e, i) => (e === null ? [] : [i]));
+  // each lined edge's run: the first lined edge after an end, going round (all one run when the outline has no end)
+  const start = outline.edges.findIndex((e) => e === null);
+  const run = new Map<number, number>();
+  for (let k = 0, current = -1; k < n; k++) {
+    const i = (start + 1 + k) % n;
+    if (outline.edges[i] === null) current = -1;
+    else run.set(i, current < 0 ? (current = i) : current);
+  }
+  const pieces = new Map<number, Pt[]>();
+  for (const p of points) {
+    let best = lined[0];
+    for (const i of lined) if (distance(p, i) < distance(p, best)) best = i;
+    const r = run.get(best) ?? best;
+    pieces.set(r, [...(pieces.get(r) ?? []), p]);
+  }
+  return [...pieces.values()];
+}
+
 /** Grid step of the points a trim is sampled at: fine enough to catch the 2-wide fimbriation and the narrowest cotise. */
 const TRIM_SAMPLE_STEP = 2;
 
@@ -1332,6 +1368,9 @@ const IN_A_CORNER_OR_BASE: readonly OrdinaryType[] = ['base', 'point', 'canton',
 /** The mean of some points. */
 const middleOf = (points: readonly Pt[]): Point => ({ x: points.reduce((a, [x]) => a + x, 0) / points.length, y: points.reduce((a, [, y]) => a + y, 0) / points.length });
 
+/** The cotises' trim: its points, and those points beside each edge of the body (`OrdinaryTrim.pieces`). */
+const cotiseTrim = (d: string, outline: Outline, samples: readonly Pt[]): OrdinaryTrim => ({ d, fillRule: 'evenodd', samples, pieces: besideEdges(outline, samples) });
+
 function build(spec: OrdinarySpec, given: OrdinaryFrame, lift: number): OrdinaryGeometry {
   const key = JSON.stringify([spec, given, lift]);
   let g = geometryCache.get(key);
@@ -1354,7 +1393,7 @@ function build(spec: OrdinarySpec, given: OrdinaryFrame, lift: number): Ordinary
       fillRule: RINGS.includes(spec.type) || spec.mods.includes('voided') ? 'evenodd' : 'nonzero',
       // the fimbriation shows where it lies outside the body
       fimbriation: fimbriation ? { d: fimbriation, fillRule: 'nonzero', samples: above(gridInside(outline, [...pathRings(fimbriation), ...rings], TRIM_SAMPLE_STEP)) } : null,
-      cotises: cotises ? { d: cotises, fillRule: 'evenodd', samples: above(gridInside(outline, pathRings(cotises), TRIM_SAMPLE_STEP)) } : null,
+      cotises: cotises && drawn ? cotiseTrim(cotises, drawn, above(gridInside(outline, pathRings(cotises), TRIM_SAMPLE_STEP))) : null,
       envelope: envelopeOf(spec, frame, drawn, body),
       centre: spec.type === 'chief' ? { x: frame.centre.x, y: f.chiefBase - CHIEF_HEIGHT / 2 }
         : IN_A_CORNER_OR_BASE.includes(spec.type) ? middleOf(samples) : ordinaryCentre(spec, frame),

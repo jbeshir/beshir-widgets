@@ -218,7 +218,7 @@ describe('the rules for lines on ordinaries', () => {
 
   it('a fess indented on one edge only is refused', () => {
     expect(lineIssues(arms('argent', ord('fess', 'gules', { a: 'indented', b: 'plain' })))).toEqual([
-      "A fess can't be indented on one edge only — draw both edges indented (SENA A3D1c).",
+      "A fess can't be indented on one edge only — draw both edges indented (RULES-C §A.5, L5, after an example in SENA A3D1c).",
     ]);
     expect(lineIssues(arms('argent', ord('bend', 'gules', { a: 'plain', b: 'engrailed' })))).toHaveLength(1);
     // Embattled is a band's upper edge alone by default, and may be its lower edge alone.

@@ -6,7 +6,7 @@ import {
   groundTincture, groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position, POSITIONS,
 } from './design';
 import { CHARGES, type ChargeId, type Posture } from './charges';
-import { ORDINARY_KIND, familyOf, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, familyOfTreated, type OrdinaryType } from './ordinaries';
 import { specOf, type OrdinarySpec } from './ordinary-geometry';
 import type { Tincture } from './tinctures';
 import { contrastFailure } from './contrast';
@@ -293,7 +293,7 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
  */
 export function cornerBesideBend(ctx: LayoutContext, layout: Layout): QuarterPosition | null {
   if (ctx.k !== 'position' || ctx.ordinary === null || layout.arrangement.k !== 'single' || ctx.position === 'canton') return null;
-  switch (familyOf(ctx.ordinary.type)) {
+  switch (familyOfTreated(ctx.ordinary)) {
     case 'bend': return ctx.position === 'chief' ? 'sinister-chief' : 'dexter-base';
     case 'bend-sinister': return ctx.position === 'chief' ? 'dexter-chief' : 'sinister-base';
     default: return null;
@@ -310,7 +310,7 @@ export type BetweenHost = OrdinaryType | 'chevron-inverted';
 
 /** The row of Table 7 charges set between an ordinary follow: its own, or its ordinary's for a group of diminutives (two bars as a fess). */
 export const betweenHost = (spec: OrdinarySpec): BetweenHost => {
-  const family = familyOf(spec.type);
+  const family = familyOfTreated(spec);
   return family === 'chevron' && spec.mods.includes('inverted') ? 'chevron-inverted' : family;
 };
 
@@ -491,10 +491,10 @@ function tableDefaultRuleFor(d: Design, group: Group, ctx: LayoutContext, own: n
       default: return null;
     }
   }
-  // three on a field divided in three stand one in each part (GoT Table 7: per pall)
+  // three on a field divided in three stand one in each part (GoT Table 7: per pall); on per chevron inverted one and two, one in the V
   if (count === 3) {
     switch (division) {
-      case 'per-pall': return { layout: rows([1, 2]), rule: '3' };
+      case 'per-pall': case 'per-chevron-inverted': return { layout: rows([1, 2]), rule: '3' };
       case 'tierced-per-pale': return { layout: line('fess'), rule: '3' };
       case 'tierced-per-fess': return { layout: line('pale'), rule: '3' };
       default: return { layout: rows([2, 1]), rule: '3' };

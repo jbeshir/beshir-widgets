@@ -35,9 +35,9 @@ const ORDINARY = `(?:${ORDINARY_NAME_WORDS})(?: inverted)?(?:${ORDINARY_LINE})?(
 const joinedBy = (joiner: PeripheralJoiner) => DRAWN_ORDINARIES.filter((t) => ORDINARY_KIND[t] !== 'central' && t !== 'chief' && t !== 'bordure' && PERIPHERAL_JOINER[t] === joiner).map((t) => ORDINARY_NAME[t]).join('|');
 /** A top band or border, with its line. */
 const PERIPHERAL = `(?:chief|bordure)(?:${ORDINARY_LINE})?`;
-/** A bend or bendlets, and a bend sinister, bendlets sinister or a baton: what a lone charge in chief or base stands beside in a corner. */
-const BEND = '\\b(?:a|two|three|four) bend(?:lets)?(?! sinister\\b)\\b';
-const BEND_SINISTER = '\\b(?:(?:a|two|three|four) bend(?:lets)? sinister|a baton)\\b';
+/** A bend, bendlets or a baton, and a bend sinister, bendlets sinister or a baton sinister: what a lone charge in chief or base stands beside in a corner. */
+const BEND = '\\b(?:(?:a|two|three|four) bend(?:lets)?|a baton)(?! sinister\\b)\\b';
+const BEND_SINISTER = '\\b(?:(?:a|two|three|four) bend(?:lets)?|a baton) sinister\\b';
 
 const alt = (words: Iterable<string>) => [...new Set(words)].sort((a, b) => b.length - a.length).join('|');
 /** The diminutives the College never uses alone as the main band (RULES-C §C.2), by name, the longest first: what "a <name>" is the ordinary of. */
@@ -344,7 +344,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //      … and in sinister chief a rose" (corpus about 40) and "… and in chief a rose" (about 45) for it, and "in dexter chief" beside a bend
     //      sinister; the widget writes the corner. Two or more charges stand along the top, so only "a"/"an" is read so.
     id: 'corner-beside-bend',
-    description: 'beside a bend or bendlets, "in sinister chief a/an" → "in chief a/an" and "in dexter base a/an" → "in base a/an"; beside a bend sinister, bendlets sinister or a baton, "in dexter chief" and "in sinister base" likewise.',
+    description: 'beside a bend, bendlets or a baton, "in sinister chief a/an" → "in chief a/an" and "in dexter base a/an" → "in base a/an"; beside a bend sinister, bendlets sinister or a baton sinister, "in dexter chief" and "in sinister base" likewise.',
     apply: (s) => s
       .replace(new RegExp(`(${BEND}[^,]*?,? (?:and )?in) (?:sinister (chief)|dexter (base)) (?=an? )`, 'g'), '$1 $2$3 ')
       .replace(new RegExp(`(${BEND_SINISTER}[^,]*?,? (?:and )?in) (?:dexter (chief)|sinister (base)) (?=an? )`, 'g'), '$1 $2$3 '),

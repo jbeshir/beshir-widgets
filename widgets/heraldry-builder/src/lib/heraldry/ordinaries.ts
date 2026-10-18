@@ -21,10 +21,10 @@ export const TURNED_ORDINARIES: readonly OrdinaryType[] = ['pall-inverted'];
 export const REFUSED_ORDINARIES: readonly OrdinaryType[] = ['point-dexter', 'point-sinister'];
 /**
  * The ordinary each diminutive is a narrower form of (RULES-C §C.2): one type with it for conflict (bars ≡ the fess, and so on); a baton is
- * a bendlet sinister couped, a saltorel a saltire couped.
+ * a bendlet couped (PicDic; the College writes "a baton sinister" for the other: review R-5), a saltorel a saltire couped.
  */
 export const DIMINUTIVE_OF: Partial<Record<OrdinaryType, OrdinaryType>> = {
-  bar: 'fess', barrulet: 'fess', pallet: 'pale', bendlet: 'bend', 'bendlet-sinister': 'bend-sinister', baton: 'bend-sinister', chevronel: 'chevron', saltorel: 'saltire',
+  bar: 'fess', barrulet: 'fess', pallet: 'pale', bendlet: 'bend', 'bendlet-sinister': 'bend-sinister', baton: 'bend', chevronel: 'chevron', saltorel: 'saltire',
 };
 /** The diminutive the builder's Thin toggle draws an ordinary as: two to four bars, pallets, bendlets (sinister) or chevronels. */
 export const THIN: Partial<Record<OrdinaryType, OrdinaryType>> = { fess: 'bar', pale: 'pallet', bend: 'bendlet', 'bend-sinister': 'bendlet-sinister', chevron: 'chevronel' };
@@ -39,6 +39,9 @@ export const DRAWN_ORDINARIES: readonly OrdinaryType[] = [...BUILDER_ORDINARIES,
 
 /** The ordinary a type is, or is a diminutive of: what its drawing, Table 7's rows and conflict follow. */
 export const familyOf = (type: OrdinaryType): OrdinaryType => DIMINUTIVE_OF[type] ?? type;
+/** `familyOf` with the ordinary's treatments: a baton sinister is of the bend sinister's family (it is drawn mirrored). */
+export const familyOfTreated = (x: { readonly type: OrdinaryType; readonly mods: readonly OrdinaryMod[] }): OrdinaryType =>
+  (x.type === 'baton' && x.mods.includes('sinister') ? 'bend-sinister' : familyOf(x.type));
 /** Whether the type is a diminutive: drawn narrow, as many as its group counts. */
 export const isDiminutive = (type: OrdinaryType): boolean => DIMINUTIVE_OF[type] !== undefined;
 
@@ -121,7 +124,7 @@ export type OrdinaryMod = (typeof ORDINARY_MODS)[number];
  * The ordinaries each treatment is drawn on (RULES-C §D, §C.2): a chevron, chevronels, pile or pall upside down (a pall inverted is a type of its own, the
  * pall so treated); a band, chevron, cross or saltire shortened (couped; a baton is couped already); a chevron or pile reaching the edges (throughout — crosses,
  * saltires and palls are throughout already); a band or chevron, and bars, bendlets and chevronels, raised or lowered; a cross, saltire or pall voided; a canton, quarter or gyron in the sinister chief corner instead of the dexter, a gore issuing from
- * the sinister flank ("a canton sinister", "a gore sinister": RULES-C §C.3, a form of the ordinary, not a place of the field). On any
+ * the sinister flank ("a canton sinister", "a gore sinister": RULES-C §C.3, a form of the ordinary, not a place of the field), a baton from sinister chief. On any
  * other ordinary a treatment is a gap.
  */
 export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
@@ -131,7 +134,7 @@ export const MOD_HOSTS: Record<OrdinaryMod, readonly OrdinaryType[]> = {
   throughout: ['chevron', 'pile'],
   enhanced: ['fess', 'bend', 'bend-sinister', 'chevron', 'bar', 'bendlet', 'bendlet-sinister', 'chevronel'],
   abased: ['fess', 'bend', 'bend-sinister', 'chevron', 'bar', 'bendlet', 'bendlet-sinister', 'chevronel'],
-  sinister: ['canton', 'quarter', 'gyron', 'gore'],
+  sinister: ['canton', 'quarter', 'gyron', 'gore', 'baton'],
 };
 
 /**

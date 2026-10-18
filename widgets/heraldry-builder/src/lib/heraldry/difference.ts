@@ -12,7 +12,7 @@ import {
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, partCount, type Division, type Variation } from './divisions';
 import { divisionPartGrid } from './geometry';
 import { LINE_WORD, edgeCount, lineDiffers, lineWords, type EdgeHost, type Line } from './lines';
-import { ORDINARY_KIND, ORDINARY_NAME, familyOf, isDiminutive, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
+import { ORDINARY_KIND, ORDINARY_NAME, familyOf, familyOfTreated, isDiminutive, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
 import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
 import { paintGaps } from './support';
@@ -81,17 +81,17 @@ function conflictKey(item: Item): string {
 /**
  * RULES-C §C.3, L9: a quarter is a canton drawn larger, one type for conflict; a tressure is a narrow orle (a single tressure is one, a double
  * tressure differs from it only in number, Prec Gwynaeth 04/2004). A `sinister` form changes no key. A diminutive is its ordinary's type
- * (RULES-C §C.2: bars are fesses; a baton a bend sinister couped).
+ * (RULES-C §C.2: bars are fesses; a baton a bend couped, a baton sinister a bend sinister couped).
  */
 const ALIKE_TYPE: Partial<Record<OrdinaryType, OrdinaryType>> = { quarter: 'canton', tressure: 'orle' };
 
 /** An item's type as conflict compares it: a charge's own, an ordinary's with the types that are one (a quarter is a canton, a tressure an orle, bars a fess). */
-const typeKey = (item: Item): string => (item.k === 'ordinary' ? `ordinary:${ALIKE_TYPE[familyOf(item.type)] ?? familyOf(item.type)}` : itemKey(item));
+const typeKey = (item: Item): string => (item.k === 'ordinary' ? `ordinary:${ALIKE_TYPE[familyOfTreated(item)] ?? familyOfTreated(item)}` : itemKey(item));
 
-/** A5G6 (RULES-C §C.3, L16): a canton, quarter or gyron against the same in the other top corner, a gore against one from the other side, is a change of its position. */
-const sidesSwapped = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.mods.includes('sinister') !== y.mods.includes('sinister');
+/** A5G6 (RULES-C §C.3, L16): a canton, quarter or gyron against the same in the other top corner, a gore against one from the other side, is a change of its position (a baton sinister is a bend sinister's type: `typeKey`). */
+const sidesSwapped = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.type !== 'baton' && y.type !== 'baton' && x.mods.includes('sinister') !== y.mods.includes('sinister');
 
-/** Whether an ordinary is couped: with the treatment, or a baton (a bendlet sinister couped). */
+/** Whether an ordinary is couped: with the treatment, or a baton (a bendlet couped). */
 const isCouped = (x: Item): boolean => x.k === 'ordinary' && (x.mods.includes('couped') || x.type === 'baton');
 
 /** A5G4 (RULES-C §D.2): a couped ordinary against one throughout — the same ordinary otherwise — is a change of its type. */
@@ -826,7 +826,7 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         }
         if (typeKey(s.ga.item) === typeKey(s.gb.item)) {
           // the treatments that differ, as each has them
-          const has = (i: Item, m: OrdinaryMod) => i.k === 'ordinary' && i.mods.includes(m);
+          const has = (i: Item, m: OrdinaryMod) => (m === 'couped' ? isCouped(i) : i.k === 'ordinary' && i.mods.includes(m));
           const shown = (['inverted', 'couped'] as const).filter((m) => has(s.ga.item, m) !== has(s.gb.item, m));
           const form = (i: Item) => shown.map((m) => (m === 'inverted' ? (has(i, m) ? 'inverted' : 'upright') : has(i, m) ? 'couped' : 'throughout')).join(', ');
           text = pair(`form of ${itemName(s.ga.item)}`, form(s.ga.item), form(s.gb.item));
@@ -835,7 +835,9 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
             : `Shortening ${itemPhrase(s.ga.item)} (couping it), or turning it upside down, changes its type: a distinct change`;
           break;
         }
-        text = pair(label, itemName(s.ga.item), itemName(s.gb.item));
+        // a baton sinister is the other type of baton (`typeKey`)
+        const typeName = (i: Item) => `${itemName(i)}${i.k === 'ordinary' && i.type === 'baton' && i.mods.includes('sinister') ? ' sinister' : ''}`;
+        text = pair(label, typeName(s.ga.item), typeName(s.gb.item));
         sentence = diff.kind === 'sc'
           ? 'Changing every main picture or band to something unrelated is a substantial change'
           : `${capitalise(itemPhrase(s.ga.item))} and ${itemPhrase(s.gb.item)} are different types — a distinct change`;

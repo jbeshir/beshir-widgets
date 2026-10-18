@@ -8,7 +8,7 @@ import { CHARGES, chargePhrase, type ChargeId } from './charges';
 import { chargeOnBox } from './charge-art';
 import { PLAIN_LINES, groupAt, hostOf, type Design, type GroupPath } from './design';
 import { BUILDER_DIVISIONS } from './divisions';
-import { ORDINARY_NAME, familyOf, type OrdinaryType } from './ordinaries';
+import { ORDINARY_NAME, familyOf, familyOfTreated, type OrdinaryType } from './ordinaries';
 import {
   AROUND_COUNTS, BETWEEN, HOST_LAYOUT, aroundLayouts, betweenHost, type BetweenHost, contextOf, cornerBesideBend, defaultLayoutOf, fieldContext, hasBordure, hasChargedBordure, hasChief, hostCounts, withoutChief, isHalfPosition, layoutKey, layoutWords, onChargeLayouts, overallLayouts, positionLayout, sameLayout,
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type QuarterPosition, type KeepOut, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
@@ -649,7 +649,7 @@ function treatedCentres(spec: OrdinarySpec, kind: 'between' | 'on', centres: Cen
   if (kind === 'on' || inverted) return out.map((c) => at(c.x, c.y + shift, c.rotation));
   const { y0: top, y1: foot } = heater.box;
   return out.map((c) => {
-    const m = bandMiddle(familyOf(spec.type), c.x);
+    const m = bandMiddle(familyOfTreated(spec), c.x);
     const y = c.y < m ? top + ((c.y - top) * (m + shift - top)) / (m - top) : foot - ((foot - c.y) * (foot - m - shift)) / (foot - m);
     return at(c.x, y, c.rotation);
   });
@@ -674,7 +674,7 @@ function clearOfTrims(spec: OrdinarySpec, centres: Centre[]): Centre[] {
     v < m ? lo + ((v - lo) * Math.max(0, m - by - lo)) / (m - lo) : hi - ((hi - v) * Math.max(0, hi - m - by)) / (hi - m);
   const across = (c: Centre, by: number) => at(squeeze(c.x, fx, x0, x1, by), c.y, c.rotation);
   const up = (c: Centre, m: number, by: number) => at(c.x, squeeze(c.y, m, y0, y1, by), c.rotation);
-  const type = familyOf(spec.type);
+  const type = familyOfTreated(spec);
   switch (type) {
     case 'fess': return centres.map((c) => up(c, fy, g));
     case 'bend': case 'bend-sinister': case 'chevron': return centres.map((c) => up(c, bandMiddle(type, c.x), slant));

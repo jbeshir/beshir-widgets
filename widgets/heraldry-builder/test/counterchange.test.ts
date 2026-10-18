@@ -31,7 +31,7 @@ describe('counterchanged and the rule of tincture', () => {
     expect([legal, illegal]).toEqual([30 * BUILDER_DIVISIONS.length, 26 * BUILDER_DIVISIONS.length]);
   });
 
-  it('is legal on the divisions behind "More divisions" by the same test; a gyronny takes a single charge only', () => {
+  it('is legal on the divisions behind "More divisions" by the same test; a gyronny takes a single charge, or one to each gyron in annulo', () => {
     for (const division of MORE_DIVISIONS.filter((d) => d !== 'per-chevron-throughout' && partCount(d) === 2)) {
       for (const [t1, t2] of [['or', 'azure'], ['gules', 'argent'], ['or', 'argent'], ['vert', 'sable']] as const) {
         const expectLegal = TINCTURE_CLASS[t1] !== TINCTURE_CLASS[t2];
@@ -42,7 +42,7 @@ describe('counterchanged and the rule of tincture', () => {
     expect(tinctureIssues(mullets(div('per-chevron-throughout', 'or', 'azure'), 1)).map((i) => i.message)).toEqual(['The mullet lies wholly on the Azure part of the field, so counterchanged would simply make it Or — choose Or instead.']);
     expect(tinctureIssues(mullets(div('per-chevron-throughout', 'or', 'azure'), 3))).toEqual([]);
     expect(counterchangeUnavailable(mullets(div('per-chevron-inverted', 'or', 'azure'), 3), [0])).toBeNull();
-    expect(counterchangeUnavailable(mullets(div('gyronny', 'or', 'azure'), 3), [0])).toMatch(/only a single charge can be counterchanged over gyronny/);
+    expect(counterchangeUnavailable(mullets(div('gyronny', 'or', 'azure'), 3), [0])).toMatch(/only a single charge, or eight in annulo, one to each gyron, can be counterchanged over gyronny/);
     expect(counterchangeUnavailable(mullets(div('gyronny', 'or', 'azure'), 1), [0])).toBeNull();
     const saltire = nd(arms(div('gyronny', 'or', 'azure'), ord('saltire', 'counterchanged')));
     expect(counterchangeUnavailable(saltire, [0])).toMatch(/gyronny/);

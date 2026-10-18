@@ -39,7 +39,7 @@ const ORDINARY_GLOSS: Partial<Record<OrdinaryType, string>> = {
   trimount: 'three hills rising from the bottom',
   'point-dexter': 'triangle in the bottom-left corner',
   'point-sinister': 'triangle in the bottom-right corner',
-  baton: 'short thin diagonal band from top-right to bottom-left',
+  baton: 'short thin diagonal band from top-left to bottom-right',
 };
 
 /** Two to four narrow bands, in everyday words (`DIMINUTIVE_INVERTED_GLOSS` the other way up). */
@@ -58,6 +58,7 @@ const SINISTER_GLOSS: Partial<Record<OrdinaryType, string>> = {
   quarter: 'quarter of the shield in the top-right corner',
   gyron: 'triangle from the top-right corner to the middle',
   gore: 'curved wedge from the right',
+  baton: 'short thin diagonal band from top-right to bottom-left',
 };
 
 /** A double or triple tressure, in everyday words. */

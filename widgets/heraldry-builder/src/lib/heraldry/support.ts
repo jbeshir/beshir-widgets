@@ -337,7 +337,7 @@ function badgeGaps(d: Design): Array<{ at: IssueAt; gap: Found }> {
   const found = (g: Group): Found | null =>
     g.role === 'secondary' ? gap('fieldless', 'conjoined', 'Charges set beside the main charge of a fieldless badge')
       : g.role === 'overall' ? gap('fieldless', 'overall', 'Something overall on a fieldless badge')
-      : g.item.k === 'ordinary' && g.item.mods.includes('couped') ? gap('fieldless', 'couped-ordinary', 'A couped band or shape as a fieldless badge') : null;
+      : g.item.k === 'ordinary' && (g.item.mods.includes('couped') || g.item.type === 'baton') ? gap('fieldless', 'couped-ordinary', 'A couped band or shape as a fieldless badge') : null;
   const primaries = d.groups.filter((g) => g.role === 'primary' && g.item.k === 'charge');
   const extra = d.groups.flatMap((g, i) => {
     const f = found(g);

@@ -56,7 +56,7 @@ describe('diminutives: geometry', () => {
     }
   });
 
-  it('lined, enhanced and inverted groups move and turn as a whole; a baton is a short bendlet sinister', () => {
+  it('lined, enhanced and inverted groups move and turn as a whole; a baton is a short bendlet, a baton sinister one mirrored', () => {
     const heater = (s: OrdinarySpec) => geometryOf(s, 'heater');
     const top = (s: OrdinarySpec) => Math.min(...pathRings(heater(s).body).flat().map(([, y]) => y));
     expect(heater(spec('bar', { count: 3, mods: ['enhanced'] })).centre.y).toBeLessThan(heater(spec('bar', { count: 3 })).centre.y);
@@ -72,6 +72,10 @@ describe('diminutives: geometry', () => {
       const baton = pathRings(geometryOf(spec('baton'), shape).body);
       expect(baton).toHaveLength(1);
       expect(baton[0].every(([x, y]) => pointInPolygon(x, y, outline))).toBe(true);
+      // from dexter chief down to sinister base; sinister, the other way
+      const highest = (ring: readonly (readonly number[])[]) => ring.reduce((a, p) => (p[1] < a[1] ? p : a));
+      expect(highest(baton[0])[0]).toBeLessThan(50);
+      expect(highest(pathRings(geometryOf(spec('baton', { mods: ['sinister'] }), shape).body)[0])[0]).toBeGreaterThan(50);
     }
   });
 
@@ -138,9 +142,11 @@ describe('diminutives: conflict', () => {
     // two or three, four or more (A5E3)
     expect(changes(lone(dims('bar', 4)), lone(dims('pallet', 4)))).toEqual(['type:sc:A5E2']);
     expect(changes(lone(dims('chevronel', 2)), lone(dims('chevronel', 2, 'or', { mods: ['inverted'] })))).toEqual(['type:sc:A5E2']);
-    // a baton is a bend sinister couped
-    expect(changes(lone(dims('baton', 1)), lone(group(ordinary('bend-sinister', { mods: ['couped'] }), 'or')))).toEqual([]);
-    expect(changes(lone(dims('baton', 1)), lone(group(ordinary('bend-sinister'), 'or')))).toEqual(['type:dc:A5G4']);
+    // a baton is a bend couped, a baton sinister a bend sinister couped (RULES-C §C.2; review R-5)
+    expect(changes(lone(dims('baton', 1)), lone(group(ordinary('bend', { mods: ['couped'] }), 'or')))).toEqual([]);
+    expect(changes(lone(dims('baton', 1)), lone(group(ordinary('bend'), 'or')))).toEqual(['type:dc:A5G4']);
+    expect(changes(lone(dims('baton', 1, 'or', { mods: ['sinister'] })), lone(group(ordinary('bend-sinister', { mods: ['couped'] }), 'or')))).toEqual([]);
+    expect(changes(lone(dims('baton', 1)), lone(group(ordinary('bend-sinister', { mods: ['couped'] }), 'or')))).toEqual(['type:sc:A5E2']);
   });
 
   it('three bars wavy vs barry rayonny is one DC; vs barry wavy no change (variation reading)', () => {
@@ -199,10 +205,10 @@ describe('diminutives: builder', () => {
     expect(blazon(three)).toBe('Gules, three bars wavy Or.');
     expect(blazon(setOrdinary(three, 'chevron'))).toBe('Gules, three chevronels wavy Or.');
     expect(blazon(setToggle(three, [0], 'thin', false))).toBe('Gules, a fess wavy Or.');
-    // a cotised band loses its cotises when thinned; the baton and the cross have no thin form
+    // a cotised band loses its cotises when thinned; the baton and the cross have no thin form (the baton turns sinister)
     const cotised = nd(arms('gules', group(ordinary('bend', { cotised: { count: 1, paint: 'or' } }), 'or')));
     expect(blazon(setToggle(cotised, [0], 'thin', true))).toBe('Gules, two bendlets Or.');
-    expect(toggleChoices(nd(arms('gules', dims('baton', 1))), [0]).map((c) => c.value)).toEqual([]);
+    expect(toggleChoices(nd(arms('gules', dims('baton', 1))), [0]).map((c) => c.value)).toEqual(['sinister']);
     expect(toggleChoices(nd(arms('gules', group(ordinary('cross'), 'or'))), [0]).map((c) => c.value)).not.toContain('thin');
   });
 });
