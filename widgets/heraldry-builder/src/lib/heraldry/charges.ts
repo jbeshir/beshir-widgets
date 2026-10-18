@@ -67,6 +67,18 @@ export const CHARGE_IDS = [
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
 
+/** The pictures the picker offers first, in this order: the original pictures; later pictures are added as they are drawn (PLAN-D §2.4). */
+export const POPULAR_CHARGE_IDS: readonly ChargeId[] = [
+  'lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'fish', 'bee',
+  'unicorn', 'dragon',
+  'eagle', 'owl',
+  'rose', 'tree', 'fleur-de-lis',
+  'mullet', 'crescent', 'sun', 'heart',
+  'key', 'open-book', 'sword', 'crown', 'anchor',
+  'musical-note', 'flame', 'gear', 'lightbulb',
+  'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
+];
+
 /**
  * SENA A5E2 type classes: a charge of one class is substantially different in type from a charge of any other (a
  * substantial change for the primary group); two charges of one class differ by at most a distinct change of type

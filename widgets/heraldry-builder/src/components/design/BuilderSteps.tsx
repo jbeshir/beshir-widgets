@@ -7,10 +7,10 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, CHARGE_CATEGORIES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, ordinaryEdgeHost, SHAPE_TOGGLES, toggledOn, bandPositionOf, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
-  TINCTURE_LABEL, chargeLabel, chargePath, lineAllowed, chargesInCategory, countChoices, fieldTinctureChoices, groupAt,
+  TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, ordinaryEdgeHost, SHAPE_TOGGLES, toggledOn, bandPositionOf, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
+  TINCTURE_LABEL, chargeLabel, lineAllowed, countChoices, fieldTinctureChoices, groupAt,
   isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
-  type ChargeCategory, type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue, type Line,
+  type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue, type Line,
   partCount, type FieldPart, type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
 import { joinAnd, numberWord } from '../../lib/heraldry/words';
@@ -19,7 +19,7 @@ import {
   setBadge, setDivision, setDivisionPieces, setFieldEdgeSide, setFieldLine, setFieldTincture, setLayout, setModifier, setOrdinary, setPlainField, setPosture,
 } from '../../lib/builder';
 import { capitalise } from '../../lib/heraldry/words';
-import { ChargeIcon, Shield } from '../Shield';
+import { Shield } from '../Shield';
 import { ChoiceButton, RadioGroup, type OptionStatus } from './Choices';
 import { useExplainer } from './Explainer';
 import { FieldPattern } from './VariationPicker';
@@ -28,6 +28,7 @@ import { MoreShapes } from './MoreShapes';
 import { OrdinaryShapeControls, hasShapeControls, usesShapeControls } from './OrdinaryEdges';
 import { FurPicker } from './FurPicker';
 import { SemyPicker } from './SemyPicker';
+import { ChargePicker, NoneIcon } from './ChargePicker';
 import { TreatmentPicker } from './TreatmentPicker';
 import { MorePaint, paintMode } from './MorePaint';
 import { PaintPicker } from './PaintPicker';
@@ -465,13 +466,6 @@ function CompanionNotes<T>({ options, name, testid }: { options: Array<StatusOpt
 /** Counts up to this many sit in the row; the rest are behind "More…". */
 const COUNT_ROW = 6;
 
-/** The picture list on phones shows one kind at a time; this is the kind to start on. */
-function categoryOf(design: Design): ChargeCategory {
-  const path = picturePath(design);
-  const item = path && groupAt(design, path).item;
-  return item?.k === 'charge' ? CHARGES[item.charge].category : CHARGE_CATEGORIES[0];
-}
-
 export interface PictureControlsProps {
   design: Design;
   path: GroupPath;
@@ -622,68 +616,34 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
 interface ChargesStepProps extends StepProps {
   /** The step's number: a badge has no band or shape step. */
   n: number;
-  compact: boolean;
   onAdjust: (nd: Design, companion: Companion) => void;
   /** The note shown after a count or placement brought its partner along. */
   adjusted: ComponentChildren;
 }
 
-export function ChargesStep({ n, design, onChange, onAdjust, adjusted, issues, accordion, compact }: ChargesStepProps) {
+export function ChargesStep({ n, design, onChange, onAdjust, adjusted, issues, accordion }: ChargesStepProps) {
   const path = picturePath(design);
   const item = path && groupAt(design, path).item;
   const selected = item?.k === 'charge' ? item : null;
-  const [tab, setTab] = useState<ChargeCategory>(() => categoryOf(design));
-  // A design loaded from outside (an example, a registry entry) brings its own kind of picture along.
-  const selectedCategory = selected ? CHARGES[selected.charge].category : null;
-  useEffect(() => {
-    if (selectedCategory) setTab(selectedCategory);
-  }, [selectedCategory]);
 
   return (
     <Step n={n} title="Picture" term="charge" hint={design.kind === 'badge' ? 'Pick the picture your badge is made of: one charge, or two long ones crossed.' : 'Pick a picture and repeat it up to twelve times. You need this or a band or shape (or both).'} summary={picturesSummary(design, path)} issues={issues} accordion={accordion} testid="step-charges" remove={null}>
-      {compact && (
-        <RadioGroup label="Kind of picture" class="charge-tabs" testid="charge-tabs">
-          {CHARGE_CATEGORIES.map((cat) => (
-            <ChoiceButton key={cat} testid={`charge-tab-${cat}`} checked={tab === cat} label={CATEGORY_LABEL[cat]} onSelect={() => setTab(cat)} onBlocked={never} class="chip-choice">
-              <span>{CATEGORY_LABEL[cat]}</span>
-            </ChoiceButton>
-          ))}
-        </RadioGroup>
-      )}
-      <RadioGroup label="Picture" class="charge-picker" testid="charge-select">
-        <div class="charge-category">
+      <ChargePicker
+        base="charge"
+        selected={selected?.charge ?? null}
+        none={
           <ChoiceButton testid="charge-none" checked={!selected} label="No picture" onSelect={() => onChange(setCharge(design, 'picture', null))} onBlocked={never} class="icon-choice charge-choice">
             <NoneIcon />
             <span class="choice-label">None</span>
           </ChoiceButton>
-        </div>
-        {CHARGE_CATEGORIES.filter((cat) => !compact || cat === tab).map((cat) => (
-          <div class="charge-category" key={cat} role="group" aria-label={CATEGORY_LABEL[cat]}>
-            <p class="charge-category-label" aria-hidden="true">{CATEGORY_LABEL[cat]}</p>
-            <div class="icon-grid icon-grid-charges">
-              {chargesInCategory(cat).map((m) => (
-                <ChoiceButton key={m.id} testid={`charge-${m.id}`} checked={selected?.charge === m.id} label={chargeLabel(m.id)} onSelect={() => onChange(setCharge(design, 'picture', m.id))} onBlocked={never} class="icon-choice charge-choice">
-                  <ChargeIcon path={chargePath(m.id, m.defaultPosture, [])} size={30} />
-                  <span class="choice-label">{chargeLabel(m.id)}</span>
-                </ChoiceButton>
-              ))}
-            </div>
-          </div>
-        ))}
-      </RadioGroup>
+        }
+        onSelect={(id) => onChange(setCharge(design, 'picture', id))}
+      />
       <p class="charge-selected" data-testid="charge-selected">
         {selected ? <>Selected: <strong>{chargeLabel(selected.charge)}</strong></> : 'No picture selected.'}
       </p>
 
       {path && selected && <PictureControls design={design} path={path} prefix="" onChange={onChange} onAdjust={onAdjust} adjusted={adjusted} />}
     </Step>
-  );
-}
-
-function NoneIcon() {
-  return (
-    <svg class="none-icon" viewBox="0 0 30 36" width="30" height="36" aria-hidden="true" focusable="false">
-      <path d="M1 1H29V18C29 27.6 22.8 33 15 36C7.2 33 1 27.6 1 18Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2.5" />
-    </svg>
   );
 }
