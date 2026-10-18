@@ -7,12 +7,12 @@
 
 import {
   CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type EdgeSide, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, facingChoices, gazeChoices, pairChoices, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setFacing, setGaze, setPair, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -46,6 +46,9 @@ export type BuilderAction =
   | { kind: 'charge'; at: At; charge: ChargeId | null }
   | { kind: 'layout'; at: At; action: LayoutAction; design: Design }
   | { kind: 'posture'; at: At; posture: Posture }
+  | { kind: 'pair'; at: At; pair: PairChoice }
+  | { kind: 'gaze'; at: At; gaze: Gaze | null }
+  | { kind: 'facing'; at: At; facing: Facing }
   | { kind: 'splendour'; at: At }
   | { kind: 'charge-tincture'; at: At; tincture: GroupTincture }
   | { kind: 'split'; target: PaintWhere }
@@ -167,6 +170,18 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       const path = pathAt(d, a.at);
       return path ? choiceReason(postureChoices(d, path), a.posture) : `there is no ${a.at} to pose`;
     }
+    case 'pair': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(pairChoices(d, path), a.pair) : `there is no ${a.at} to set as a pair`;
+    }
+    case 'gaze': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(gazeChoices(d, path), a.gaze) : `there is no ${a.at} to turn the head of`;
+    }
+    case 'facing': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(facingChoices(d, path), a.facing) : `there is no ${a.at} to face`;
+    }
     case 'splendour': {
       const path = pathAt(d, a.at);
       return path ? choiceReason(modifierChoices(d, path), 'in-splendour') : `there is no ${a.at} to show a face on`;
@@ -267,6 +282,9 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'charge': return setCharge(d, a.at as 'picture' | PicturesKey, a.charge);
     case 'layout': return a.design;
     case 'posture': return setPosture(d, path!, a.posture);
+    case 'pair': return setPair(d, path!, a.pair);
+    case 'gaze': return setGaze(d, path!, a.gaze);
+    case 'facing': return setFacing(d, path!, a.facing);
     case 'splendour': return setModifier(d, path!, 'in-splendour', true);
     case 'charge-tincture': return setGroupTincture(d, path!, a.tincture);
     case 'split': return splitGroup(d, paintPathOf(d, a.target)!)!;
@@ -310,6 +328,9 @@ function describeAction(a: BuilderAction): string {
     case 'charge': return `${a.at} charge ${a.charge ?? 'none'}`;
     case 'layout': return `${a.at} ${a.action.kind} ${a.action.kind === 'count' ? a.action.count : a.action.kind === 'placement' ? a.action.placement : a.action.layout}`;
     case 'posture': return `${a.at} posture ${a.posture}`;
+    case 'pair': return `${a.at} pair ${a.pair}`;
+    case 'gaze': return `${a.at} gaze ${a.gaze ?? 'none'}`;
+    case 'facing': return `${a.at} facing ${a.facing}`;
     case 'splendour': return `${a.at} splendour on`;
     case 'charge-tincture': return `${a.at} tincture ${a.tincture}`;
     case 'split': return `split the ${a.target}`;
@@ -357,6 +378,12 @@ function pictureState(d: Design, at: At): string {
   const g = groupAt(d, path);
   const placement = simpleParts(d).picture?.placement ?? '';
   return `${g.count}/${at === 'picture' ? placement : ''}/${JSON.stringify([g.arrangement, g.position])}`;
+}
+
+/** The design with every pair laid out where it stands (in fess, or where the ordinary places it), the same way: no layout control makes a pair. */
+function unpaired(d: Design): Design {
+  return walkGroups(d).reduce((x, { path, group }) => (group.arrangement.k === 'pair'
+    ? replaceGroup(x, path, { ...group, arrangement: drawnLayout(layoutContext(x, path), group).arrangement }) : x), d);
 }
 
 /** The state of one or several pictures that are laid out together (two main pictures). */
@@ -537,6 +564,8 @@ export function builderPath(goal: Design): BuilderPath {
     }
     return !!problems.push(`the ${target} tinctures did not settle`) && false;
   };
+  /** The clicks that set the parts of a divided field that could not all be set before the band was there to separate them, or null. */
+  let unsettledParts: (() => boolean) | null = null;
   // Field: a badge has none (its tile in the Background step); arms have it set, then the band and the top band and border beside it.
   const f = goal.field;
   if (f === null) {
@@ -555,28 +584,32 @@ export function builderPath(goal: Design): BuilderPath {
         if (strewn && !strewnTo(FIELD_WHERE[i], strewn)) return done();
       }
     } else if (f.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
-      // A part can be set when the other part leaves it room: each pass sets the parts it can, and the next the ones it couldn't.
+      // A part can be set when the other part leaves it room: each pass sets the parts it can, and the next the ones it couldn't. Parts that
+      // share a tincture ("per fess argent and argent masoned sable") need the band that separates them (SENA A3B3a): they are set again after it.
       const partNow = (i: FieldPart) => (d.kind === 'arms' && d.field.k === 'divided' ? JSON.stringify(d.field.parts[i]) : '');
-      for (let pass = 0; pass < 3 && indices.some((i) => partNow(i) !== JSON.stringify(f.parts[i])); pass++) {
-        for (const i of indices) {
-          const goalPart = f.parts[i];
-          if (partNow(i) === JSON.stringify(goalPart)) continue;
-          if (goalPart.k === 'tincture') {
-            const set: BuilderAction = { kind: 'field-tincture', part: i, tincture: goalPart.t };
-            if (!actionReason(d, set)) click(set);
-          } else if (goalPart.k === 'fur' && !actionReason(d, { kind: 'fur', target: FIELD_WHERE[i], option: furKindOf(goalPart) })) {
-            if (!attempt(() => furTo(FIELD_WHERE[i], goalPart))) continue;
-          } else if (goalPart.k === 'semy') {
-            const strewn = asSemy(goalPart);
-            if (strewn) attempt(() => strewnTo(FIELD_WHERE[i], strewn));
-          } else if (goalPart.k === 'treated' && goalPart.ground.k === 'tincture') {
-            const ground = goalPart.ground;
-            // The other part may hold the tincture for now: try again after it has moved.
-            attempt(() => treatedTo(FIELD_WHERE[i], { ...goalPart, ground }));
+      const settle = (): boolean => {
+        for (let pass = 0; pass < 3 && indices.some((i) => partNow(i) !== JSON.stringify(f.parts[i])); pass++) {
+          for (const i of indices) {
+            const goalPart = f.parts[i];
+            if (partNow(i) === JSON.stringify(goalPart)) continue;
+            if (goalPart.k === 'tincture') {
+              const set: BuilderAction = { kind: 'field-tincture', part: i, tincture: goalPart.t };
+              if (!actionReason(d, set)) click(set);
+            } else if (goalPart.k === 'fur' && !actionReason(d, { kind: 'fur', target: FIELD_WHERE[i], option: furKindOf(goalPart) })) {
+              if (!attempt(() => furTo(FIELD_WHERE[i], goalPart))) continue;
+            } else if (goalPart.k === 'semy') {
+              const strewn = asSemy(goalPart);
+              if (strewn) attempt(() => strewnTo(FIELD_WHERE[i], strewn));
+            } else if (goalPart.k === 'treated' && goalPart.ground.k === 'tincture') {
+              const ground = goalPart.ground;
+              // The other part may hold the tincture for now: try again after it has moved.
+              attempt(() => treatedTo(FIELD_WHERE[i], { ...goalPart, ground }));
+            }
           }
         }
-      }
-      if (indices.some((i) => partNow(i) !== JSON.stringify(f.parts[i]))) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
+        return indices.every((i) => partNow(i) === JSON.stringify(f.parts[i]));
+      };
+      if (!settle()) unsettledParts = settle;
     } else return { actions, problems: ['a part of the field is neither a tincture, a fur, a treated tincture nor a semy'], design: d };
   } else if (f.k === 'variation') {
     const want = asVariation(f);
@@ -641,6 +674,15 @@ export function builderPath(goal: Design): BuilderPath {
   };
 
   const parts = simpleParts(goal);
+  /** The goal as the count, placement and layout controls build it: a pair stands in fess, or where the ordinary places it, until the Pair row sets it. */
+  const laidOut = unpaired(goal);
+  /** The click that sets the pictures at `at` as the goal group's pair, when it is one and they aren't yet. */
+  const pairTo = (at: At, goalGroup: Group): boolean => {
+    const want = goalGroup.arrangement;
+    if (want.k !== 'pair') return true;
+    const now = groupAt(d, pathAt(d, at)!).arrangement;
+    return (now.k === 'pair' && now.pair === want.pair) || click({ kind: 'pair', at, pair: want.pair });
+  };
 
   /** The clicks that draw the band thin, turn the band or the corner or edge shape at `target` over, shorten it … or set it in the other corner, as the goal is. */
   const togglesTo = (target: 'ordinary' | Beside, goalItem: Group['item']): boolean => {
@@ -668,6 +710,7 @@ export function builderPath(goal: Design): BuilderPath {
     // The outline before the band's colour (an edged band need not stand out against the field), its line once the band's own is set (cotises follow it).
     if (!outlineTo(item) || !paintTo('ordinary', parts.ordinary.group.paint) || !edgesTo('ordinary', item) || !cotiseLineTo(item)) return done();
   }
+  if (unsettledParts && !unsettledParts()) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
 
   // The top band, border and corner or edge shapes beside the ordinary, before the pictures they leave room for. A corner or edge shape is
   // added as the first that works, then made the goal's type (each type is on the shield once, so it is found again by its type).
@@ -710,32 +753,35 @@ export function builderPath(goal: Design): BuilderPath {
     // Two main pictures are laid out together and judged together: the first waits for the second, then the controls of either lead to the goal's layout of both.
     if (at === 'picture' && parts.coPrimary) continue;
     const together: readonly At[] = at === 'co-primary' ? ['picture', 'co-primary'] : [at];
-    const route = layoutRoute(d, goal, together);
+    const route = layoutRoute(d, laidOut, together);
     if (!route) {
-      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, together)} from ${layoutState(d, together)}`);
+      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(laidOut, together)} from ${layoutState(d, together)}`);
       return done();
     }
     if (!click(...route)) return done();
     for (const own of together) {
       const group = (own === at ? part : parts.picture!).group;
-      const path = pathAt(d, own)!;
-      const now = groupAt(d, path).item;
+      const now = () => { const item = groupAt(d, pathAt(d, own)!).item; return item.k === 'charge' ? item : null; };
       if (group.item.k !== 'charge') continue;
-      const { posture, mods } = group.item;
-      if (posture && now.k === 'charge' && now.posture !== posture && !click({ kind: 'posture', at: own, posture })) return done();
-      if (mods.some((m) => m.id === 'in-splendour') && now.k === 'charge' && !now.mods.some((m) => m.id === 'in-splendour') && !click({ kind: 'splendour', at: own })) return done();
+      const { posture, mods, gaze, facing } = group.item;
+      if (posture && now()?.posture !== posture && !click({ kind: 'posture', at: own, posture })) return done();
+      if (mods.some((m) => m.id === 'in-splendour') && now()?.mods.some((m) => m.id === 'in-splendour') === false && !click({ kind: 'splendour', at: own })) return done();
+      // The Pair row before the head and the facing: setting a pair turns both charges as drawn first.
+      if (!pairTo(own, group)) return done();
+      if (now()?.gaze !== gaze && !click({ kind: 'gaze', at: own, gaze })) return done();
+      if (facing && now()?.facing !== facing && !click({ kind: 'facing', at: own, facing })) return done();
       if (!paintTo(own, group.paint)) return done();
     }
   }
 
-  // Pictures in chief, base or canton take room from the picture, which may have had to give up charges: lay it out again.
+  // Pictures in chief, base or canton take room from the picture, which may have had to give up charges: lay it out again (and set its pair again).
   if (parts.picture && layoutState(d, ['picture']) !== layoutState(goal, ['picture'])) {
-    const route = layoutRoute(d, goal, ['picture']);
+    const route = layoutRoute(d, laidOut, ['picture']);
     if (!route) {
-      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, ['picture'])} from ${layoutState(d, ['picture'])}`);
+      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(laidOut, ['picture'])} from ${layoutState(d, ['picture'])}`);
       return done();
     }
-    if (!click(...route)) return done();
+    if (!click(...route) || !pairTo('picture', parts.picture.group)) return done();
   }
 
   if (canonicalJson(d) !== canonicalJson(goal)) problems.push(`the builder ended on ${canonicalJson(d)}, not ${canonicalJson(goal)}`);

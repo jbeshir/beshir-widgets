@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -236,6 +236,14 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a charge and a mount', arms('or', group(charge('lion'), 'gules'), group(ordinary('mount'), 'vert'))],
   ['a charge in the corner beside a bend', arms('argent', group(ordinary('bend'), 'sable'), group(charge('rose'), 'gules', { position: 'chief' }))],
   ['a fess between charges under a chief', arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'or', { count: 3, relation: 'between' }), group(ordinary('chief'), 'or'))],
+  // which way a charge faces, and two set to each other (SENA §1.1)
+  ['a charge contourny', arms('azure', group(charge('lion', { facing: 'to-sinister' }), 'or'))],
+  ['a charge in a posture contourny', arms('vert', group(charge('wolf', { posture: 'passant', facing: 'to-sinister' }), 'argent'))],
+  ['two beasts combattant', arms('argent', group(charge('wolf', { posture: 'rampant' }), 'sable', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))],
+  ['two beasts passant respectant', arms('argent', group(charge('wolf'), 'sable', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
+  ['two beasts addorsed', arms('or', group(charge('lion'), 'gules', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }))],
+  ['two birds respectant', arms('azure', group(charge('eagle'), 'argent', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
+  ['a pale between two beasts combattant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('lion'), 'or', { count: 2, relation: 'between', arrangement: { k: 'pair', pair: 'combattant' } }))],
   // every charge alone and in threes (the crosses in their plurals: "crosses formy"), and every charge that is drawn fitchy; a lone
   // cross couped is the ordinary of that name (App M1f), so the charge is read in threes only
   ...CHARGE_IDS.flatMap((id): Array<[string, unknown]> => [
@@ -265,6 +273,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
+      ...generatedChargeAttributeDesigns(1, 200),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -335,6 +344,36 @@ describe('the matcher reads the drawn crosses and shapes in the College\'s spell
   });
 });
 
+
+// Which way a charge faces, and two set to each other, as the SCA writes them: each reads as the widget's own design (SENA §1.1).
+describe('the matcher reads which way a charge faces in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a lion rampant to sinister Or.', 'Azure, a lion contourny Or.'],
+    ['Azure, a lion contourné Or.', 'Azure, a lion contourny Or.'],
+    ['Azure, a lion contourney Or.', 'Azure, a lion contourny Or.'],
+    ['Vert, a wolf passant facing to sinister argent.', 'Vert, a wolf passant contourny argent.'],
+    ['Azure, an eagle displayed facing sinister Or.', 'Azure, an eagle contourny Or.'],
+    ['Argent, two wolves combatant sable.', 'Argent, two wolves combattant sable.'],
+    ['Argent, two wolves rampant respectant sable.', 'Argent, two wolves combattant sable.'],
+    ['Argent, two wolves rampant combattant sable.', 'Argent, two wolves combattant sable.'],
+    ['Or, two wolves passant combattant gules.', 'Or, two wolves passant respectant gules.'],
+    ['Azure, two eagles combattant argent.', 'Azure, two eagles respectant argent.'],
+    ['Or, two lions rampant endorsed gules.', 'Or, two lions addorsed gules.'],
+    ['Azure, two lions combattant Or.', 'Azure, two lions combattant Or.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('reads a pale endorsed as its cotises, and leaves three beasts combattant and two keys addorsed to their gaps', () => {
+    expect(read('Azure, a pale endorsed argent.')!.groups[0].item).toMatchObject({ k: 'ordinary', type: 'pale', cotised: { count: 1 } });
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, three lions combattant Or.')).toEqual(['posture:combattant']);
+    expect(tags('Azure, two keys addorsed Or.')).toEqual(['posture:addorsed']);
+    expect(tags('Azure, a lion guardant Or.')).toEqual(['posture:guardant']);
+  });
+});
 
 // A line on the field is read from the College's spellings; a division draws one line, so "per pale dancetty" is indented (RULES §A.3).
 describe('the matcher reads the lines of the field', () => {
@@ -763,6 +802,13 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a bend cotised', 'azure, a bend cotised argent'],
     ['a bend doubly cotised', 'azure, a bend doubly cotised argent'],
     ['a pale endorsed', 'azure, a pale endorsed argent'],
+    ['a charge contourny', 'azure, a lion contourny Or'],
+    ['a charge to sinister', 'azure, a wolf passant to sinister Or'],
+    ['a charge facing sinister', 'azure, an eagle displayed facing sinister Or'],
+    ['a charge contourné', 'azure, a lion contourné Or'],
+    ['two charges combatant', 'argent, two wolves combatant sable'],
+    ['two charges respectant', 'azure, two eagles respectant argent'],
+    ['two charges endorsed', 'or, two lions rampant endorsed gules'],
     ['a chevron fimbriated', 'azure, a chevron Or fimbriated argent'],
     ['a cross voided', 'azure, a cross voided Or'],
     // every charge the widget draws, and the spellings and details of the drawn crosses and shapes

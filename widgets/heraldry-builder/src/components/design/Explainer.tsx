@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { COLOURS, METALS, TINCTURE_LABEL, type Tincture } from '../../lib/heraldry';
 import { pushLayer, restoreFocus } from '../overlay/layers';
 
-export type ExplainKind = 'tincture' | 'structure';
+export type ExplainKind = 'tincture' | 'structure' | 'drawing';
 
 export interface Explanation {
   anchor: HTMLElement;
@@ -20,6 +20,7 @@ const plainList = (ts: readonly Tincture[]) => ts.map((t) => TINCTURE_LABEL[t].p
 const RULE_LINE: Record<ExplainKind, string> = {
   tincture: `The rule of tincture: a colour (${plainList(COLOURS)}) goes on a metal (${plainList(METALS)}) and a metal on a colour, so arms read clearly from a distance.`,
   structure: "Each layout needs room: every picture must be drawn at least a set size, and some combinations aren't heraldic.",
+  drawing: 'A picture can only be turned the ways the builder has a drawing for; the others are listed so you know they exist.',
 };
 
 export function useExplainer() {

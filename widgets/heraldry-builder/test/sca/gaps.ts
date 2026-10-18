@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, FACING_WORD, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -123,6 +123,9 @@ const PARTS = new Set(PART_WORDS);
 /** SCA words for the postures each widget charge can take ("courant" only for the hare). */
 const POSTURE_WORDS = Object.fromEntries(Object.values(CHARGES).map((m) =>
   [m.id, new Set((m.postures ?? []).flatMap((p) => [p, postureTerm(m.id, p)]))])) as Record<ChargeId, Set<string>>;
+/** The words for a charge that faces turned to sinister, and for two of them set to each other, which the widget draws (SENA §1.1). */
+const CONTOURNY = FACING_WORD['to-sinister']!;
+const PAIR_WORDS: ReadonlySet<string> = new Set(PAIRS);
 const CROSS_AFTER = new Set(CROSS_POST);
 const CROSS_BEFORE = new Set(CROSS_PRE);
 const POSITIONS = new Set(POSITION_WORDS);
@@ -356,6 +359,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let pendingCount: number | null = null;
   let pendingArr: string | null = null;
   let last: { kind: 'charge' | 'ord' | 'div'; el: Element | null; name: string } | null = null;
+  /** The element just read when it is a charge the widget has that faces (it is drawn contourny, and two of them as a pair), else null. */
+  const facingLast = (): Element | null => {
+    const c = last?.kind === 'charge' ? last.el?.supported as ChargeId | null : null;
+    return c && CHARGES[c].faces ? last!.el : null;
+  };
   let onHost: Element | null = null; // "on a fess …": later groups lie on it
   let betweenHost: Element | null = null; // "a fess between …": the next group surrounds it
   let held = false; // inside "maintaining …" / "in its beak …"
@@ -649,12 +657,14 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         // "a pale (wavy) Or endorsed argent": a pale's cotises
         if (words[i] === 'endorsed' && last?.kind === 'ord' && last.el === els[els.length - 1]) { contextWord('cotised', i); break; }
         if (e.v === 'close' && /^(couped|erased)$/.test(prev)) break; // "couped close"
+        if (e.v === CONTOURNY ? facingLast() : PAIR_WORDS.has(e.v) && facingLast()?.count === 2) break; // "a lion contourny", "two wolves combattant": drawn
         tag('posture', e.v);
         break;
       case 'orient':
         // "engrailed to chief and invected to base" describes the lines, not a charge
         if (/^to-/.test(lem) && (look(i - 1)?.e.k === 'line' || look(i - 2)?.e.k === 'line' || words[i - 1] === 'elongated')) break;
         if (prev === 'parted') break; // "a bordure parted bordurewise"
+        if (e.v === 'to-sinister' && facingLast() && !/^heads?$/.test(prev)) break; // "a lion rampant to sinister" is contourny: drawn (not "an eagle, head to sinister")
         tag('orientation', e.v);
         break;
       case 'mod':

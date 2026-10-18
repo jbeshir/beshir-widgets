@@ -18,19 +18,19 @@
 import { TINCTURES, TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinList, numberWord } from './words';
 import {
-  AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
+  AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, drawnLayout, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
-import { CHARGES, chargePhrase, postureTerm, type ModifierId, type Posture } from './charges';
+import { CHARGES, FACINGS, chargePhrase, postureTerm, type Facing, type Gaze, type ModifierId, type Posture } from './charges';
 import {
-  asParty, asVariation, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
-  type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type PartyPaint, type VariationPaint,
+  asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
+  type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Pair, type PartyPaint, type VariationPaint,
 } from './design';
 import { BUILDER_DIVISIONS, DIVISION_PART_LABEL, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
-import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
+import { MAX_DRAWN_COUNT, gazeDrawn, pairPlaced, unsupportedIssues } from './support';
 import { ofOtherClass, withPaint, withPartner, type FieldPart } from './paint-target';
 import { isPeripheralPlace, placeKind, placesIn, type Placed } from './places';
-import { PLACE_LABEL } from './plain-words';
+import { FACING_LABEL, GAZE_LABEL, PAIR_LABEL, PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
 import { groupBodyTinctureIssues, groupTinctureIssues, paintName, tinctureIssues, trimTinctureIssues } from './tincture-rule';
@@ -734,6 +734,62 @@ export function postureChoices(d: Design, path: GroupPath): Choice<Posture>[] {
 export function modifierChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
   const item = groupAt(d, path).item;
   return item.k === 'charge' ? CHARGES[item.charge].mods.map(ok) : [];
+}
+
+// ── Facing, gaze and pairs (PLAN-D §0.3.10) ─────────────────────────────────
+
+/**
+ * Which way the group's charge faces, offered for a charge that faces: to dexter as drawn, or to sinister (contourny, the drawing mirrored).
+ * Facing out (affronty) has no drawing; two charges set as a pair already face each their own way.
+ */
+export function facingChoices(d: Design, path: GroupPath): Choice<Facing>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge' || !CHARGES[g.item.charge].faces) return [];
+  const meta = CHARGES[g.item.charge];
+  const pair = g.arrangement.k === 'pair' ? g.arrangement.pair : null;
+  return FACINGS.map((f) => choice(f, f === 'affronty' ? `${FACING_LABEL.affronty.plain} (affronty) is not drawn for the ${meta.name}.`
+    : pair && f === 'to-sinister' ? `The two ${meta.plural} are set ${PAIR_LABEL[pair].plain.toLowerCase()}, each its own way: choose "Same way" first.` : null));
+}
+
+/** The head turns the builder offers: guardant and regardant (a head both ways is not drawn for any charge). */
+const OFFERED_GAZES: readonly Gaze[] = ['guardant', 'regardant'];
+
+/**
+ * Which way the head of the group's charge looks, offered for a posed charge that faces: ahead (null) as drawn, or turned where the charge
+ * has a drawing of its posture with the head turned (none yet: they are listed blocked).
+ */
+export function gazeChoices(d: Design, path: GroupPath): Choice<Gaze | null>[] {
+  const item = groupAt(d, path).item;
+  if (item.k !== 'charge' || !CHARGES[item.charge].faces || !item.posture) return [];
+  const name = CHARGES[item.charge].name;
+  return [null, ...OFFERED_GAZES].map((gaze) => choice(gaze, gaze === null || gazeDrawn(item, gaze) ? null
+    : `The ${name} is not drawn ${GAZE_LABEL[gaze].plain.toLowerCase()} (${gaze}) in this builder.`));
+}
+
+/** How two charges of a group stand to each other: the same way (no pair), facing each other or back to back. */
+export type PairChoice = 'same' | Pair;
+
+/**
+ * The ways two charges that face may stand to each other: the same way, facing each other (combattant for beasts and monsters rampant, respectant
+ * for the rest: `facingEachOther`) or back to back (addorsed); offered for a group of two such charges. A pair is drawn of the main picture
+ * alone on the background laid side by side (in fess), or of two charges either side of a pale (§1.1 F6, F8); elsewhere it is blocked.
+ * Never a Layout option (PLAN-D §0.1.9): the Layout row shows a pair as in fess.
+ */
+export function pairChoices(d: Design, path: GroupPath): Choice<PairChoice>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge' || !CHARGES[g.item.charge].faces || g.count !== 2) return [];
+  const plural = CHARGES[g.item.charge].plural;
+  const reason = !pairPlaced(d, g, hostOf(d, path))
+    ? `Only two ${plural} side by side as the main picture, or either side of a pale, can face each other or stand back to back.`
+    : g.arrangement.k !== 'pair' && contextOf(d, g, hostOf(d, path))?.k === 'field' && layoutKey(g) !== 'in-fess'
+      ? `Lay the two ${plural} side by side (in fess) first.` : null;
+  return (['same', facingEachOther(g.item), 'addorsed'] as const).map((p) => choice(p, p === 'same' ? null : reason));
+}
+
+/** The layout the Layout row shows as chosen: a pair is laid out as its two charges in fess, or where the ordinary places them (§1.1 F8). */
+export function shownLayoutKey(d: Design, path: GroupPath): LayoutKey {
+  const g = groupAt(d, path);
+  return layoutKey(g.arrangement.k === 'pair' ? drawnLayout(layoutContext(d, path), g) : g);
 }
 
 // ── Repairs ─────────────────────────────────────────────────────────────────

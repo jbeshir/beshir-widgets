@@ -9,7 +9,7 @@ import { useEffect, useState } from 'preact/hooks';
 import {
   TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, ordinaryEdgeHost, SHAPE_TOGGLES, toggledOn, bandPositionOf, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, lineAllowed, countChoices, fieldTinctureChoices, groupAt,
-  isBlocked, isHalfPosition, layoutChoices, layoutKey, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, simpleParts,
+  isBlocked, isHalfPosition, layoutChoices, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, shownLayoutKey, simpleParts, FACING_LABEL, PAIR_LABEL,
   type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue, type Line,
   partCount, type FieldPart, type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
@@ -25,6 +25,7 @@ import { useExplainer } from './Explainer';
 import { FieldPattern } from './VariationPicker';
 import { EdgePicker } from './EdgePicker';
 import { MoreShapes } from './MoreShapes';
+import { ChargeMore } from './ChargeMore';
 import { OrdinaryShapeControls, hasShapeControls, usesShapeControls } from './OrdinaryEdges';
 import { FurPicker } from './FurPicker';
 import { SemyPicker } from './SemyPicker';
@@ -432,9 +433,12 @@ export const nounOf = (design: Design, path: GroupPath): string => {
   return g.count === 1 ? meta.name : meta.plural;
 };
 
+/** "3 lions, gold", then how they are turned when it isn't as drawn: "facing right", "facing each other", "back to back". */
 export function picturesSummary(design: Design, path: GroupPath | null): string {
   if (!path) return 'None';
-  return `${groupAt(design, path).count} ${nounOf(design, path)}, ${colourWords(design, path)}`;
+  const g = groupAt(design, path);
+  const turned = g.arrangement.k === 'pair' ? PAIR_LABEL[g.arrangement.pair] : g.item.k === 'charge' && g.item.facing === 'to-sinister' ? FACING_LABEL['to-sinister'] : null;
+  return `${g.count} ${nounOf(design, path)}, ${colourWords(design, path)}${turned ? `, ${turned.plain.toLowerCase()}` : ''}`;
 }
 
 /** A count or placement option: blocked with its reason, or offered saying what else it changes. */
@@ -503,7 +507,7 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
   const row = counts.filter((o) => o.choice.value <= COUNT_ROW);
   const more = counts.filter((o) => o.choice.value > COUNT_ROW);
   const layoutId = `${prefix}arrangement-select`, postureId = `${prefix}posture-select`;
-  const layoutValue = layoutKey(g);
+  const layoutValue = shownLayoutKey(design, path);
   const layoutNote = layouts.note;
   const hasSplendour = mods.some((m) => m.value === 'in-splendour');
   /** A layout in one half or quarter of the shield (D23): kept apart from the layouts over the whole of it. */
@@ -593,6 +597,8 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
           {blockedPostures.length > 0 && <p class="control-note" id={`${postureId}-note`}>{blockedPostures[0].reason}</p>}
         </div>
       )}
+
+      <ChargeMore design={design} path={path} prefix={prefix} onChange={onChange} />
 
       {hasSplendour && item && (
         <div class="control">

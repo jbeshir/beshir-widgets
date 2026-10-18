@@ -8,7 +8,7 @@
 
 import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
 import { NON_STANDARD_TINCTURES } from './tinctures';
-import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Design, type Group, type Issue, type GroupPath, type GroupTincture, type Lines } from './design';
+import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Charge, type Design, type Group, type Issue, type GroupPath, type GroupTincture, type Lines } from './design';
 import { MORE_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
@@ -19,7 +19,7 @@ import { keptMods, keptOrdinaryLines } from './shape-options';
 import { structuralIssues } from './structure';
 import { tinctureIssues } from './tincture-rule';
 import { strewnGroups } from './strewn';
-import { unsupportedIssues } from './support';
+import { gazeDrawn, unsupportedIssues } from './support';
 
 /** The kinds of place the builder adds on top of the band and the picture (`peripheral` adds one more corner or edge shape each time). */
 export type LayerKey = Exclude<PlaceKind, 'ordinary' | 'picture'>;
@@ -77,15 +77,19 @@ export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines
   };
 }
 
-/** The charge of a group, keeping the posture and modifiers of the one it replaces where the new charge has them. */
+/**
+ * The charge of a group, keeping the posture, facing, gaze and modifiers of the one it replaces where the new charge has them (PLAN-D §0.2.7):
+ * facing to sinister when it faces, a head turned when it is drawn so in that posture.
+ */
 export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] {
   const meta = CHARGES[id];
   const was = previous?.item.k === 'charge' ? previous.item : null;
   const posture = meta.postures ? (was?.posture && meta.postures.includes(was.posture) ? was.posture : meta.defaultPosture) : null;
-  return {
-    k: 'charge', charge: id, form: null, posture, gaze: null, facing: meta.defaultFacing, orientation: null,
-    mods: was ? was.mods.filter((m) => meta.mods.includes(m.id)) : [], parts: [], holds: [],
+  const item: Charge = {
+    k: 'charge', charge: id, form: null, posture, gaze: null, facing: meta.faces && was?.facing === 'to-sinister' ? 'to-sinister' : meta.defaultFacing,
+    orientation: null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id)) : [], parts: [], holds: [],
   };
+  return was?.gaze && gazeDrawn(item, was.gaze) ? { ...item, gaze: was.gaze } : item;
 }
 
 /** A single charge in gold, as a new picture starts. */

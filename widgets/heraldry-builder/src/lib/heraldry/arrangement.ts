@@ -3,7 +3,7 @@
 
 import { numberWord, joinAnd } from './words';
 import {
-  groundTincture, groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pattern, type Position, POSITIONS,
+  groundTincture, groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pair, type Pattern, type Position, POSITIONS,
 } from './design';
 import { CHARGES, type ChargeId, type Facing, type Posture } from './charges';
 import { ORDINARY_KIND, familyOfTreated, type OrdinaryType } from './ordinaries';
@@ -24,7 +24,8 @@ export const ROW_PATTERNS: readonly (readonly number[])[] = [
 
 const LINE_DIRS: readonly LineDir[] = ['pale', 'fess', 'bend', 'bend-sinister'];
 const PATTERNS: readonly Pattern[] = ['cross', 'saltire', 'orle', 'annulo', 'chevron', 'chevron-inverted', 'pall', 'pile'];
-const PAIRS = ['combattant', 'respectant', 'addorsed'] as const;
+/** How two charges may stand to each other (design.ts `Pair`). */
+export const PAIRS: readonly Pair[] = ['combattant', 'respectant', 'addorsed'];
 
 const single = (position: Position | null = null): Layout => ({ arrangement: { k: 'single' }, position });
 const line = (dir: LineDir, position: Position | null = null): Layout => ({ arrangement: { k: 'line', dir }, position });

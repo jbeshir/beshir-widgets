@@ -7,8 +7,8 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, CHARGES, type Design } from '../src/lib/heraldry';
+import { setCharge, setFacing, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, withLayout, CHARGES, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -611,5 +611,48 @@ describe('"More shapes and edges…" under the band', () => {
     expect(background('per-bend')).toContain('field-edge-bevilled');
     expect(background('per-bend-sinister')).toContain('field-edge-bevilled');
     expect(background('per-pale')).not.toContain('field-edge-bevilled');
+  });
+});
+
+describe('"Facing, turning and details…" under the picture', () => {
+  const render = (d: Design, accordion: { open: boolean; onToggle: () => void } | null = null) => renderToString(h(ChargesStep, { ...base, accordion, n: 3, design: d, onAdjust: noop, adjusted: null }));
+  const disclosure = (markup: string) => [...markup.matchAll(/<details[^>]*data-testid="charge-more"[^>]*>/g)].map((m) => ({ open: /\sopen/.test(m[0]) }));
+  const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+  const twoLions = (layout: string) => { const d = setCount(lion, picturePath(lion)!, 2); return withLayout(d, picturePath(d)!, layout); };
+
+  it('is one closed row for a charge that faces, drawn empty, and absent for one that does not', () => {
+    expect(disclosure(render(lion))).toEqual([{ open: false }]);
+    expect(render(lion)).toContain('Facing, turning and details…');
+    for (const id of ['facing', 'facing-to-sinister', 'gaze', 'pair']) expect(ids(render(lion)), id).not.toContain(id);
+    for (const id of ['rose', 'sun', 'mullet'] as const) expect(ids(render(setCharge(DEFAULT_DESIGN, 'picture', id))), id).not.toContain('charge-more');
+  });
+
+  it('opens on a picture facing right, with Facing out and the head turns blocked, and the summary says so', () => {
+    const contourny = setFacing(lion, picturePath(lion)!, 'to-sinister');
+    const html = render(contourny);
+    expect(disclosure(html)).toEqual([{ open: true }]);
+    for (const id of ['facing-to-dexter', 'facing-to-sinister', 'facing-affronty', 'gaze-none', 'gaze-guardant', 'gaze-regardant']) expect(ids(html), id).toContain(id);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="facing-to-sinister"/);
+    expect(html).toMatch(/data-testid="facing-affronty" data-blocked="true"/);
+    expect(html).toMatch(/data-testid="gaze-guardant" data-blocked="true"/);
+    expect(ids(html)).not.toContain('pair');
+    expect(render(contourny, { open: false, onToggle: noop })).toMatch(/step-charges-summary">1 lion, gold, facing right</);
+  });
+
+  it('offers the Pair row for two that face side by side, blocked with a reason when they are not, and shows a pair as in fess', () => {
+    const inFess = render(twoLions('in-fess'));
+    for (const id of ['pair-same', 'pair-respectant', 'pair-addorsed']) expect(ids(render(setFacing(twoLions('in-fess'), picturePath(lion)!, 'to-sinister'))), id).toContain(id);
+    expect(disclosure(inFess)).toEqual([{ open: false }]);
+    const inPale = render(setFacing(twoLions('in-pale'), picturePath(lion)!, 'to-sinister'));
+    expect(inPale).toMatch(/data-testid="pair-addorsed" data-blocked="true"/);
+    expect(inPale).toContain('Lay the two lions side by side (in fess) first.');
+    const pair = setPair(twoLions('in-fess'), picturePath(lion)!, 'combattant');
+    const html = render(pair);
+    expect(disclosure(html)).toEqual([{ open: true }]);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="pair-respectant"/);
+    expect(html).toMatch(/data-testid="facing-to-sinister" data-blocked="true"/);
+    expect(html).toContain('<option selected value="in-fess">');
+    expect(html).not.toContain('pair-combattant');
+    expect(render(pair, { open: false, onToggle: noop })).toMatch(/step-charges-summary">2 lions, gold, facing each other</);
   });
 });

@@ -111,12 +111,13 @@ describe('resolve: facing, gaze and pairs', () => {
     expect(Object.keys(itemOf(canonical(lion({ facing: 'to-sinister' }))))).toEqual(['k', 'charge', 'form', 'posture', 'gaze', 'facing', 'orientation', 'mods', 'parts', 'holds']);
   });
 
-  it('words two charges facing each other combattant for beasts and monsters, respectant for the others (CL 11/2012: one pair)', () => {
+  it('words two charges facing each other combattant for beasts and monsters rampant, respectant for the others (CL 11/2012: one pair; A5E5a)', () => {
     const pair = (id: string, word: string) => nd(arms('azure', group(charge(id), 'or', { count: 2, arrangement: { k: 'pair', pair: word } }))).groups[0].arrangement;
     expect(pair('lion', 'respectant')).toEqual({ k: 'pair', pair: 'combattant' });
     expect(pair('dragon', 'respectant')).toEqual({ k: 'pair', pair: 'combattant' });
     expect(pair('eagle', 'combattant')).toEqual({ k: 'pair', pair: 'respectant' });
     expect(pair('fish', 'combattant')).toEqual({ k: 'pair', pair: 'respectant' });
+    expect(pair('wolf', 'combattant')).toEqual({ k: 'pair', pair: 'respectant' });
     expect(pair('lion', 'addorsed')).toEqual({ k: 'pair', pair: 'addorsed' });
   });
 

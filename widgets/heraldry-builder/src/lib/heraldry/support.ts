@@ -177,7 +177,7 @@ function itemGaps(item: Item): Found[] {
 }
 
 /** Whether a charge has a drawing of its posture with the head turned that way. */
-const gazeDrawn = (item: Charge, gaze: Gaze): boolean =>
+export const gazeDrawn = (item: Charge, gaze: Gaze): boolean =>
   gaze !== 'guardant-regardant' && item.posture !== null && CHARGES[item.charge].drawings[`${item.posture}~${gaze}`] !== undefined;
 
 /**
@@ -187,16 +187,20 @@ const gazeDrawn = (item: Charge, gaze: Gaze): boolean =>
 const PAIR_HOSTS: readonly OrdinaryType[] = ['pale'];
 
 /**
- * A pair (two charges combattant, respectant or addorsed) is drawn of two charges that face, each its own way, as the primary group alone
- * on the field or set around an ordinary that has them side by side (§1.1 F6, F8); anything else is a posture gap.
+ * Whether a group stands where a pair (two charges combattant, respectant or addorsed) is drawn: as the primary group alone on the field, or
+ * set around an ordinary that has them side by side (§1.1 F6, F8).
  */
+export function pairPlaced(d: Design, g: Group, host: Group | null): boolean {
+  const ordinary = primaryOrdinary(d);
+  return host === null && g.position === null && (g.role === 'primary' ? coPrimaries(d) === null
+    : g.role === 'secondary' && g.relation === 'between' && ordinary !== null && PAIR_HOSTS.includes(ordinary.type));
+}
+
+/** A pair is drawn of two charges that face, each its own way, where `pairPlaced` says; anything else is a posture gap. */
 function pairGaps(d: Design, g: Group, host: Group | null): Found[] {
   if (g.arrangement.k !== 'pair' || g.item.k !== 'charge') return [];
   const meta = CHARGES[g.item.charge];
-  const ordinary = primaryOrdinary(d);
-  const placed = host === null && g.position === null && (g.role === 'primary' ? coPrimaries(d) === null
-    : g.role === 'secondary' && g.relation === 'between' && ordinary !== null && PAIR_HOSTS.includes(ordinary.type));
-  return meta.faces && g.count === 2 && g.item.facing === meta.defaultFacing && placed ? [] : [gap('posture', g.arrangement.pair)];
+  return meta.faces && g.count === 2 && g.item.facing === meta.defaultFacing && pairPlaced(d, g, host) ? [] : [gap('posture', g.arrangement.pair)];
 }
 
 /** A single diminutive other than the main or overall band (which is its ordinary: `canonical`), "in canton a scarpe" (RULES-C §C.2); a baton is one by itself. */

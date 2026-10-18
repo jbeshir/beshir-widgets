@@ -5,10 +5,10 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setPosture, setFacing, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, edgeSideChoices, facingChoices, gazeChoices, pairChoices, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
   type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
@@ -323,6 +323,47 @@ describe('builder transitions', () => {
     sun = setModifier(sun, picture(sun), 'in-splendour', true);
     expect(blazon(sun)).toBe('Azure, a sun in splendor Or.');
     expect(blazon(setModifier(sun, picture(sun), 'in-splendour', false))).toBe('Azure, a sun Or.');
+  });
+
+  it('facing, the head and pairs (PLAN-D §0.3.10)', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    const values = <T,>(cs: ReadonlyArray<{ value: T; allowed: boolean }>) => cs.map((c) => [c.value, c.allowed]);
+    expect(values(facingChoices(lion, picture(lion)))).toEqual([['to-dexter', true], ['to-sinister', true], ['affronty', false]]);
+    expect(values(gazeChoices(lion, picture(lion)))).toEqual([[null, true], ['guardant', false], ['regardant', false]]);
+    expect(facingChoices(setCharge(DEFAULT_DESIGN, 'picture', 'rose'), [0])).toEqual([]);
+    expect(pairChoices(lion, picture(lion))).toEqual([]);
+    const contourny = setFacing(lion, picture(lion), 'to-sinister');
+    expect(blazon(contourny)).toBe('Azure, a lion contourny Or.');
+    expect(setFacing(contourny, picture(lion), 'to-dexter')).toEqual(lion);
+    // A swap keeps the facing where the new charge faces too (§0.2.7), and drops it where it doesn't.
+    expect(groupAt(setCharge(contourny, 'picture', 'eagle'), [0]).item).toMatchObject({ charge: 'eagle', facing: 'to-sinister' });
+    expect(groupAt(setCharge(contourny, 'picture', 'rose'), [0]).item).toMatchObject({ charge: 'rose', facing: null });
+
+    // Two that face, side by side: the same way, facing each other (the beast's word), back to back; in pale they must be laid in fess first.
+    const two = setLayout(setCount(lion, picture(lion), 2), picture(lion), 'in-fess');
+    expect(values(pairChoices(two, picture(two)))).toEqual([['same', true], ['combattant', true], ['addorsed', true]]);
+    expect(pairChoices(setLayout(two, picture(two), 'in-pale'), picture(two)).filter((c) => !c.allowed).map((c) => c.value)).toEqual(['combattant', 'addorsed']);
+    const combattant = setPair(setFacing(two, picture(two), 'to-sinister'), picture(two), 'combattant');
+    expect(blazon(combattant)).toBe('Azure, two lions combattant Or.');
+    expect(groupAt(combattant, picture(two)).item).toMatchObject({ facing: 'to-dexter' });
+    expect(facingChoices(combattant, picture(two)).find((c) => c.value === 'to-sinister')!.allowed).toBe(false);
+    expect(shownLayoutKey(combattant, picture(two))).toBe('in-fess');
+    expect(setPair(combattant, picture(two), 'same')).toEqual(two);
+    expect(groupAt(setLayout(combattant, picture(two), 'in-pale'), picture(two)).arrangement).toEqual({ k: 'line', dir: 'pale' });
+    // Eagles facing each other are respectant; a swap to a rose sets the two the same way where they stood.
+    const eagles = setCharge(combattant, 'picture', 'eagle');
+    expect(blazon(eagles)).toBe('Azure, two eagles respectant Or.');
+    expect(values(pairChoices(eagles, picture(eagles))).map(([v]) => v)).toEqual(['same', 'respectant', 'addorsed']);
+    expect(groupAt(setCharge(combattant, 'picture', 'rose'), picture(two)).arrangement).toEqual({ k: 'line', dir: 'fess' });
+    expect(blazon(setPair(two, picture(two), 'addorsed'))).toBe('Azure, two lions addorsed Or.');
+
+    // Either side of a pale; not beside a fess, nor as pictures in chief.
+    const pale = setCharge(setOrdinary(DEFAULT_DESIGN, 'pale'), 'picture', 'lion');
+    const flanking = setCount(pale, picture(pale), 2);
+    expect(blazon(setPair(flanking, picture(flanking), 'addorsed'))).toBe('Azure, a pale between two lions addorsed Or.');
+    const fess = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
+    const besideFess = setCount(fess, picture(fess), 2);
+    expect(pairChoices(besideFess, picture(besideFess)).filter((c) => !c.allowed).map((c) => c.value)).toEqual(['combattant', 'addorsed']);
   });
 });
 
