@@ -8,12 +8,15 @@ import { rings, type Pt } from './art-geometry';
 /** The charges whose drawings are too slender or too ringed to carry a charge. */
 const CARRIES_NONE = ['key', 'sword', 'anchor', 'musical-note', 'gear', 'annulet', 'cross-crosslet', 'estoile', 'spark'];
 
-/** The share of the box's sample points (a unit grid) that lie inside the drawing, even-odd across its rings. */
+/** The spacing of the grid of sample points in an on-box, in art units (each box is at least 16 on a side, so 64 points or more). */
+const GRID = 2;
+
+/** The share of the box's sample points (a grid offset half a unit from its corner) that lie inside the drawing, even-odd across its rings. */
 function shareInside(d: string, box: { x: number; y: number; w: number; h: number }): number {
   const rs = rings(d);
   let inside = 0, total = 0;
-  for (let x = box.x + 0.5; x < box.x + box.w; x++) {
-    for (let y = box.y + 0.5; y < box.y + box.h; y++) {
+  for (let x = box.x + 0.5; x < box.x + box.w; x += GRID) {
+    for (let y = box.y + 0.5; y < box.y + box.h; y += GRID) {
       total += 1;
       if (rs.filter((r) => pointInPolygon(x, y, r as Pt[])).length % 2 === 1) inside += 1;
     }

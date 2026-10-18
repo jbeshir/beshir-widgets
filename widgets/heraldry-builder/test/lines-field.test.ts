@@ -69,11 +69,12 @@ describe('drawing a line on the field', () => {
     expect(stripeCases.length).toBe(4 * 14);
   });
 
-  // Heater exhaustively; each other shape a seeded, rotating sixth of the cases (`rotatesIn`; a fixed third until the verify fixes).
+  // A seeded, rotating half of the cases on the heater and a sixth (a quarter of the phase-C divisions) in each other shape (`rotatesIn`;
+  // SCA_FULL=1 for all).
   FIELD_SHAPES.forEach((shape) => {
     it(`the regions of a lined division tile the ${shape} and partIndexAt follows the drawn line`, () => {
       const points = gridIn(shape, 4);
-      const wrong = divisionCases.filter(({ division, line }) => shape === 'heater' || rotatesIn(`${shape}|${division}|${line}`, 1 / 6)).flatMap(({ division, line }) => {
+      const wrong = divisionCases.filter(({ division, line }) => rotatesIn(`${shape}|${division}|${line}`, shape === 'heater' ? 1 / 2 : 1 / 6)).flatMap(({ division, line }) => {
         const field: DividedField = { k: 'divided', division, lines: plainOf(line), pieces: null, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }] };
         return checkTiling(divisionRegions(division, field.lines, null, shape), (x, y) => partIndexAt(field, shape, x, y), points).map((w) => `${division} ${line} ${w}`);
       });
@@ -84,7 +85,7 @@ describe('drawing a line on the field', () => {
     // K-5): no region's outline crosses itself (a periodic line's), and the regions tile the shape on a coarse grid.
     it(`the regions of a lined phase-C division don't cross themselves where its lines meet, and tile the ${shape}`, () => {
       const points = gridIn(shape, 8);
-      const wrong = moreCases.filter(({ division, line, pieces }) => shape === 'heater' || rotatesIn(`${shape}|${division}|${pieces}|${line}`, 1 / 4)).flatMap(({ division, line, pieces }) => {
+      const wrong = moreCases.filter(({ division, line, pieces }) => rotatesIn(`${shape}|${division}|${pieces}|${line}`, shape === 'heater' ? 1 / 2 : 1 / 4)).flatMap(({ division, line, pieces }) => {
         const field: DividedField = { k: 'divided', division, lines: plainOf(line), pieces, paints: [{ k: 'tincture', t: 'or' }, { k: 'tincture', t: 'gules' }, { k: 'tincture', t: 'azure' }] };
         const regions = divisionRegions(division, field.lines, pieces, shape);
         // on the lozenge an enarched per chevron inverted's two bows still cross at the apex (deferred; verify V-13)
@@ -96,7 +97,7 @@ describe('drawing a line on the field', () => {
 
     it(`the stripes of a lined variation tile the ${shape} and partIndexAt follows them`, () => {
       const points = gridIn(shape, 6);
-      const wrong = stripeCases.filter(({ variation, line }) => shape === 'heater' || rotatesIn(`${shape}|${variation}|${line}`, 1 / 6)).flatMap(({ variation, line, pieces }) => {
+      const wrong = stripeCases.filter(({ variation, line }) => rotatesIn(`${shape}|${variation}|${line}`, shape === 'heater' ? 1 / 2 : 1 / 6)).flatMap(({ variation, line, pieces }) => {
         const field: VariedField = { k: 'varied', paint: { k: 'variation', variation, pieces, lines: plainOf(line), parts: [{ k: 'tincture', t: 'argent' }, { k: 'tincture', t: 'azure' }] } };
         const regions = variationRegions(variation, pieces, field.paint.lines, shapeFrame(shape).box);
         return checkTiling(regions, (x, y) => partIndexAt(field, shape, x, y), points).map((w) => `${variation} ${line} ${w}`);

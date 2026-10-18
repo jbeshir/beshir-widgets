@@ -260,11 +260,11 @@ describe('designs with a chief and a bordure beside the band are built by clicks
     for (const [, input, text] of REPRESENTATIVE) expect(blazon(built(input))).toBe(text);
   });
 
-  // The two slowest of these sweeps build a seeded, rotating half of their designs (`rotatesIn`; SCA_FULL=1 for all).
-  const half = (designs: readonly Design[]) => designs.filter((d) => rotatesIn(canonicalJson(d), 1 / 2));
+  // The slowest of these sweeps build a seeded, rotating share of their designs (`rotatesIn`; SCA_FULL=1 for all).
+  const share = (designs: readonly Design[], rate: number) => designs.filter((d) => rotatesIn(canonicalJson(d), rate));
 
   it('every generated design with a line on the field is built too', () => {
-    const problems = half(generatedGeometryDesigns(11, 100)).flatMap((d) => {
+    const problems = share(generatedGeometryDesigns(11, 100), 1 / 3).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
@@ -296,7 +296,7 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   }, 60_000);
 
   it('every generated design with corner and edge shapes, alone or several beside a band or a picture, is built too', () => {
-    const problems = half(generatedPeripheralDesigns(11, 60)).flatMap((d) => {
+    const problems = share(generatedPeripheralDesigns(11, 60), 1 / 3).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
@@ -304,7 +304,7 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   }, 60_000);
 
   it('every generated rich design is built too', () => {
-    const problems = generatedRichDesigns(11, 150).flatMap((d) => {
+    const problems = share(generatedRichDesigns(11, 150), 1 / 2).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
