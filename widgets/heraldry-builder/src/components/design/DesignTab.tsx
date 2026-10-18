@@ -214,6 +214,11 @@ export function DesignTab(p: Props) {
     setOpen((o) => ({ ...o, [k]: true }));
     setTimeout(() => focusControl(selector), 0);
   };
+  /** A jump from a conflict note: a posture difference is also one of facing or of a pair (§1.1 F9), so the picture's "Facing, turning and details…" opens too. */
+  const jump = (t: JumpTarget) => {
+    if (t === 'posture') setTimeout(() => document.querySelector('[data-testid=charge-more]')?.setAttribute('open', ''), 0);
+    reveal(STEP_OF_JUMP[t], JUMP_SELECTOR[t]);
+  };
   const goToStep = (step: StepKey) => reveal(step, stepSelector(step));
   /** A layer just added: open the step that shows it, bring it on screen and put focus on its heading. */
   const revealCard = (key: StepKey) => {
@@ -325,7 +330,7 @@ export function DesignTab(p: Props) {
             </button>
           </div>
           {blockedWhy && <p class="actions-why" id="actions-why">{blockedWhy}</p>}
-          {p.availability?.((t) => reveal(STEP_OF_JUMP[t], JUMP_SELECTOR[t]))}
+          {p.availability?.(jump)}
         </div>
       </div>
 

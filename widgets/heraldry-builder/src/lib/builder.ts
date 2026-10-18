@@ -8,9 +8,9 @@ import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
-  bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
+  bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge, drawnLayout, layoutContext,
   partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
-  type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
+  type Facing, type Gaze, type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
@@ -274,7 +274,9 @@ function swapPicture(d: Design, id: ChargeId): Design {
   const item = chargeItem(id, parts.picture);
   // The pictures on the picture go with it unless the new one has no room for them.
   const carries = item.k === 'charge' && chargeOnBox(id, item.posture) !== null && item.mods.length === 0;
-  return refitLayers(assembleParts(d, { ...parts, picture: { ...parts.picture, item }, onPicture: carries ? parts.onPicture : null }));
+  // Two pictures set as a pair stay a pair when the new ones face too; else they stand where the pair stood, the same way.
+  const arrangement = parts.picture.arrangement.k === 'pair' && !CHARGES[id].faces ? drawnLayout(layoutContext(d, picturePath(d)!), parts.picture).arrangement : parts.picture.arrangement;
+  return refitLayers(assembleParts(d, { ...parts, picture: { ...parts.picture, item, arrangement }, onPicture: carries ? parts.onPicture : null }));
 }
 
 export function setLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
@@ -291,6 +293,27 @@ function withItem(d: Design, path: GroupPath, change: (item: Extract<Group['item
 /** The charge at `path` in a posture; the pictures on it are refitted to the room its new drawing leaves them. */
 export function setPosture(d: Design, path: GroupPath, posture: Posture): Design {
   return refitLayers(withItem(d, path, (item) => ({ ...item, posture })));
+}
+
+/** The charge at `path` facing this way; the pictures on it are refitted to its mirrored drawing. */
+export function setFacing(d: Design, path: GroupPath, facing: Facing): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, facing })));
+}
+
+/** The charge at `path` with its head turned (null: looking ahead, as drawn). */
+export function setGaze(d: Design, path: GroupPath, gaze: Gaze | null): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, gaze })));
+}
+
+/**
+ * The two charges at `path` set as a pair, facing each other or back to back, each turned its own way (so both face as drawn first); 'same'
+ * sets them the same way again, where the pair stood (in fess, or where the ordinary places them).
+ */
+export function setPair(d: Design, path: GroupPath, pair: PairChoice): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const arrangement: Group['arrangement'] = pair !== 'same' ? { k: 'pair', pair } : drawnLayout(layoutContext(d, path), g).arrangement;
+  return refitLayers(canonical(replaceGroup(d, path, { ...g, arrangement, item: { ...g.item, facing: CHARGES[g.item.charge].defaultFacing } })));
 }
 
 export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean): Design {

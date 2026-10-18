@@ -343,10 +343,11 @@ export function canonicalPaint(p: Paint): Paint {
 
 /**
  * Two charges facing each other, as the builder words them (§1.1 F6): combattant and respectant are one pair (CL 11/2012), said
- * combattant of beasts and monsters and respectant of every other charge, so that one drawing has one signature.
+ * combattant of beasts and monsters rampant ("combatant is shorthand for 'in fess one beast rampant contourny and another rampant'", SENA
+ * A5E5a) and respectant of every other charge and posture, so that one drawing has one signature.
  */
 export const facingEachOther = (item: Item): Pair =>
-  (item.k === 'charge' && CHARGES[item.charge].postureClass === 'quadruped' ? 'combattant' : 'respectant');
+  (item.k === 'charge' && CHARGES[item.charge].postureClass === 'quadruped' && item.posture === 'rampant' ? 'combattant' : 'respectant');
 
 function canonicalArrangement(a: Arrangement, item: Item): Arrangement {
   switch (a.k) {

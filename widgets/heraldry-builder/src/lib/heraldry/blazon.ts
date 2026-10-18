@@ -9,7 +9,7 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, postureTerm, type ChargeCategory, type ChargeId, type ModifierId } from './charges';
+import { CHARGES, postureTerm, type ChargeCategory, type ChargeId, type Facing, type ModifierId } from './charges';
 import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
 import { lineWords, ordinaryEdgeHost } from './lines';
@@ -107,12 +107,16 @@ function modifierWords(m: Modifier): string {
   return words !== undefined && m.count === null && m.paint === null ? words : notSupported({ category: 'charge-modifier', detail: m.id });
 }
 
+/** The word for which way a charge faces, after its posture (R§F.3): none as drawn, "contourny" (no final -e), "affronty". */
+export const FACING_WORD: Record<Facing, string | null> = { 'to-dexter': null, 'to-sinister': 'contourny', affronty: 'affronty' };
+
 /**
- * How a charge's head and body are turned, after its posture (R§F.3): "contourny" (no final -e), and the gaze before it or after it as the
+ * How a charge's head and body are turned, after its posture: its `FACING_WORD`, and the gaze before it or after it as the
  * SCA armorial most often has it — "guardant contourny" (98 records against 35), "contourny regardant" (41 against 12).
  */
 export function turnWords(c: Charge): string[] {
-  const facing = c.facing === 'to-sinister' ? ['contourny'] : c.facing === 'affronty' ? ['affronty'] : [];
+  const word = c.facing ? FACING_WORD[c.facing] : null;
+  const facing = word ? [word] : [];
   if (c.gaze === null) return facing;
   const gaze = c.gaze.replace('-', ' ');
   return c.gaze === 'regardant' ? [...facing, gaze] : [gaze, ...facing];

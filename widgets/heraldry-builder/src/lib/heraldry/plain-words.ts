@@ -4,7 +4,7 @@
 // these are display text only. Pure data — no DOM.
 
 import { CHARGES, postureGloss, postureTerm, type ChargeId, type Facing, type Gaze, type Posture } from './charges';
-import { groupAt, hostOf, type Design, type GroupPath } from './design';
+import { groupAt, hostOf, type Design, type GroupPath, type Pair } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
 import { ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, isDiminutive, type OrdinaryType } from './ordinaries';
@@ -132,6 +132,13 @@ export const GAZE_LABEL: Record<Gaze, PlainTerm> = {
   guardant: { plain: 'Looking out', term: 'guardant' },
   regardant: { plain: 'Looking back', term: 'regardant' },
   'guardant-regardant': { plain: 'Looking out and back', term: 'guardant regardant' },
+};
+
+/** How two charges are set to each other, and the heraldic word ("Facing each other · combattant"). */
+export const PAIR_LABEL: Record<Pair, PlainTerm> = {
+  combattant: { plain: 'Facing each other', term: 'combattant' },
+  respectant: { plain: 'Facing each other', term: 'respectant' },
+  addorsed: { plain: 'Back to back', term: 'addorsed' },
 };
 
 /** How many times over a tressure is drawn, double or triple, and the heraldic word. */

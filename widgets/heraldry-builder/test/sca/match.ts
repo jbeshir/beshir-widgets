@@ -12,7 +12,7 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
+  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, FACING_WORD, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
   blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type ModifierId, type OrdinaryType, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
@@ -101,6 +101,9 @@ const POSTURE_BY_WORD = new Map<string, Posture>();
 for (const id of CHARGE_IDS) for (const p of POSTURES) POSTURE_BY_WORD.set(postureTerm(id, p), p);
 const POSTURE_WORDS = new Set<string>([...POSTURES, ...POSTURE_BY_WORD.keys()]);
 
+/** The word after the posture of a charge facing to sinister (affronty is not drawn: the tagger files it). */
+const CONTOURNY = FACING_WORD['to-sinister']!;
+
 /** Posture word → posture: the charge's own term first ("segreant"), else the plain posture id; a posture the charge can't take is still proposed, so the widget reports it. */
 function postureFor(id: ChargeId, word: string): Posture | null {
   const m = CHARGES[id];
@@ -119,7 +122,7 @@ const VOCABULARY = new Set<string>(
   [
     '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
-    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...POSTURE_WORDS, ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
+    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...POSTURE_WORDS, CONTOURNY, ...PAIRS, ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
@@ -137,7 +140,7 @@ const VOCABULARY = new Set<string>(
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
-//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] [MODIFIER] [('in' PATTERN)|ROWS] [T]
+//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['contourny'] [MODIFIER] [('in' PATTERN)|ROWS|PAIR] [T]   (PAIR: two charges combattant, respectant or addorsed)
 //   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | 'within' | ε
 // A group straight after "between", or joined to one by "and", is set around the ordinary or the primary charges; any other
@@ -208,6 +211,10 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     if (!posture) return null;
     item.posture = posture;
   }
+  if (tokens[i] === CONTOURNY) {
+    item.facing = 'to-sinister';
+    i++;
+  }
   const mods: Array<{ id: ModifierId; count: null; paint: null }> = [];
   for (let m = modifierAt(tokens, i); m; m = modifierAt(tokens, i)) {
     mods.push({ id: m.id, count: null, paint: null });
@@ -221,7 +228,12 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     else group.arrangement = `in-${lead.replace(' ', '-')}`;
   }
   if (line) group.arrangement = `in-${line.replace(' ', '-')}`;
-  if (tokens[i] === 'in' && (PATTERN_WORDS as readonly string[]).includes(tokens[i + 1])) {
+  // "two lions combattant": two charges facing each other or back to back (laid out in fess, or where an ordinary places them);
+  // combattant says rampant by itself (SENA A5E5a), and the normaliser leaves it unsaid.
+  if (count === 2 && (PAIRS as readonly string[]).includes(tokens[i])) {
+    if (tokens[i] === 'combattant') item.posture ??= 'rampant';
+    group.arrangement = `pair-${tokens[i++]}`;
+  } else if (tokens[i] === 'in' && (PATTERN_WORDS as readonly string[]).includes(tokens[i + 1])) {
     const pattern = tokens[i + 1];
     group.arrangement = pattern === 'saltire' && count === 2 && CHARGES[noun.id].long ? 'crossed' : `in-${pattern}`;
     i += 2;
