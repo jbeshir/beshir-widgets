@@ -2,12 +2,12 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { HAND_DRAWN, PROPER } from './common';
+import { GENERATED, HAND_DRAWN, PROPER } from './common';
 
 export const META_PLANT = {
   rose: {
     name: 'rose', plural: 'roses', article: 'a', category: 'plant',
-    typeClass: 'rose', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    typeClass: 'rose', typeOf: null, typeToken: 'flower-4-6', postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
@@ -49,5 +49,50 @@ export const META_PLANT = {
       _: { onBox: { x: 36, y: 28, w: 28, h: 42 }, anchors: {}, neck: null },
     },
     provenance: HAND_DRAWN,
+  },
+  trefoil: {
+    name: 'trefoil', plural: 'trefoils', article: 'a', category: 'plant',
+    typeClass: 'rose', typeOf: null, typeToken: 'flower-3', postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    glossName: 'three-lobed clover leaf', glossPlural: 'three-lobed clover leaves', plain: { word: 'clover', plural: 'clovers' }, search: ['shamrock'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  quatrefoil: {
+    name: 'quatrefoil', plural: 'quatrefoils', article: 'a', category: 'plant',
+    typeClass: 'rose', typeOf: null, typeToken: 'flower-4-6', postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    glossName: 'four-petalled flower', glossPlural: 'four-petalled flowers', plain: null, search: ['flower'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  cinquefoil: {
+    name: 'cinquefoil', plural: 'cinquefoils', article: 'a', category: 'plant',
+    typeClass: 'rose', typeOf: null, typeToken: 'flower-4-6', postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [] },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    glossName: 'five-petalled flower', glossPlural: 'five-petalled flowers', plain: null, search: ['flower'],
+    headName: null, holdable: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
   },
 } satisfies Record<string, ChargeMetaRow>;

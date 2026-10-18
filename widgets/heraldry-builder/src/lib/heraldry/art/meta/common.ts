@@ -21,3 +21,11 @@ export const HAND_DRAWN: Provenance = {
   date: '2026-10',
   method: 'polygon coordinates drawn by hand on a 100×100 grid; no image traced',
 };
+
+/** The charges of phase D traced by the generators in art/procedural. */
+export const GENERATED: Provenance = {
+  origin: 'original',
+  author: 'heraldry-builder phase D (generated)',
+  date: '2026-10',
+  method: 'traced by a generator from geometric parameters (art/procedural); no image traced or copied',
+};

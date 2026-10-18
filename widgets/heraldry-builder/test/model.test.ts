@@ -431,8 +431,8 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 36 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(36);
+  it('has the 58 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(58);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
@@ -440,9 +440,12 @@ describe('charge table', () => {
     expect(CHARGE_IDS.filter((id) => CHARGES[id].scaDefaultPosture).map((id) => [id, CHARGES[id].scaDefaultPosture]))
       .toEqual([['lion', 'rampant'], ['fish', 'naiant'], ['unicorn', 'rampant'], ['dragon', 'rampant'], ['eagle', 'displayed']]);
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
-    // A5E2 type classes: only the documented DC-only pairs share one (mullet and sun, eagle and owl).
+    // A5E2 type classes: only the documented DC-only kin share one (mullet and sun, eagle and owl, the lozenge's kin, a cross family…).
     const shared = CHARGE_IDS.filter((id) => CHARGE_IDS.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
-    expect(shared).toEqual(['eagle', 'owl', 'mullet', 'sun', 'estoile']);
+    expect(shared).toEqual([
+      'eagle', 'owl', 'rose', 'mullet', 'sun', 'roundel', 'annulet', 'billet', 'lozenge', 'cross-crosslet', 'estoile', 'compass-star', 'mascle', 'rustre',
+      'fusil', 'delf', 'triangle', 'trefoil', 'quatrefoil', 'cinquefoil', 'cross-couped', 'cross-latin', 'cross-bottony', 'cross-flory', 'cross-patonce',
+    ]);
     expect(CHARGES.lion.typeClass).not.toBe(CHARGES.wolf.typeClass);
     expect(new Set(CHARGE_IDS.map((id) => CHARGES[id].typeClass))).toEqual(new Set(Object.keys(TYPE_CLASSES)));
   });

@@ -168,7 +168,7 @@ function itemGaps(item: Item): Found[] {
   if (item.posture && !meta.postures?.includes(item.posture)) gaps.push(gap('posture', item.posture));
   if (item.facing && item.facing !== meta.defaultFacing) gaps.push(gap('orientation', item.facing));
   if (item.orientation) gaps.push(gap('orientation', item.orientation));
-  for (const m of item.mods) if (!meta.mods.includes(m.id) || m.count !== null || m.paint !== null) gaps.push(gap('charge-modifier', m.id));
+  for (const m of item.mods) if (!(meta.mods.includes(m.id) || meta.details.includes(m.id)) || m.count !== null || m.paint !== null) gaps.push(gap('charge-modifier', m.id));
   for (const p of item.parts) gaps.push(gap('charge-modifier', p.part));
   for (const h of item.holds) gaps.push(gap('charge-modifier', h.how));
   return gaps;

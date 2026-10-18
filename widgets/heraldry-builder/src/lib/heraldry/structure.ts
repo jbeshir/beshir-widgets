@@ -222,15 +222,17 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
 
 /**
  * A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line
- * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6); charges around a bend bevilled (F2).
+ * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6); charges around a bend bevilled (F2);
+ * any compass star (App G "Compass star", 06/2007 CL).
  */
-type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges';
+type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges' | 'compass-star';
 
 const CORE_STEP_WORDS: Record<CoreStep, string> = {
   'one-edge-line': 'a line on one edge of a band only',
   'overall-over-fimbriated': 'a charge overall over a fimbriated ordinary',
   'enhanced-bendlets-with-charges': 'bendlets enhanced with other charges',
   'bevilled-with-charges': 'charges around a bend bevilled',
+  'compass-star': 'a compass star',
 };
 
 /** Bendlets (or bendlets sinister) enhanced, two or more of them. */
@@ -247,7 +249,8 @@ export function coreSteps(d: Design): CoreStep[] {
   const overFimbriated: CoreStep[] = fimbriated && d.groups.some((g) => g.role === 'overall') ? ['overall-over-fimbriated'] : [];
   const bendlets: CoreStep[] = d.groups.some(isBendletsEnhanced) && walkGroups(d).some(({ group }) => group.item.k === 'charge') ? ['enhanced-bendlets-with-charges'] : [];
   const bevilled: CoreStep[] = d.groups.some((g) => g.item.k === 'ordinary' && g.item.lines.a === 'bevilled') && d.groups.some((g) => g.role === 'secondary') ? ['bevilled-with-charges'] : [];
-  return [...lines, ...overFimbriated, ...bendlets, ...bevilled];
+  const compassStar: CoreStep[] = walkGroups(d).some(({ group }) => group.item.k === 'charge' && group.item.charge === 'compass-star') ? ['compass-star'] : [];
+  return [...lines, ...overFimbriated, ...bendlets, ...bevilled, ...compassStar];
 }
 
 /** Why the design is more than one step from core practice (SENA A2B, App G), or null. */

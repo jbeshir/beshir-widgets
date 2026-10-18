@@ -160,6 +160,8 @@ function outlinedItem(p: Phrase): unknown {
 interface Node { phrase: Phrase; on: Phrase | null }
 
 const NOUN_PHRASES = [...NOUNS.keys()].map((n) => n.split(' ')).sort((a, b) => b.length - a.length);
+/** The words of an ordinary's treatment, which may follow its name ("a cross couped"). */
+const ORDINARY_FORM_WORDS: ReadonlySet<string> = new Set<string>([...MODS_BEFORE_LINE, ...MODS_AFTER_LINE]);
 const ORDINARY_PHRASES = [...ORDINARY_WORDS.keys()].map((o) => o.split(' ')).sort((a, b) => b.length - a.length);
 const COUNTED_PHRASES = [...COUNTED_ORDINARIES.keys()].map((o) => o.split(' ')).sort((a, b) => b.length - a.length);
 /** How the ordinaries the widget joins with "within" start: "an orle", "a double tressure". */
@@ -274,15 +276,16 @@ function parseBody(tokens: string[]): Body | null {
     } else {
       const on = w === 'on';
       const j = on ? i + 1 : i;
-      // "a cross crosslet" is a charge, though "a cross" is an ordinary: the longer noun wins. Flaunches have no article; a tressure may be
-      // double or triple.
+      // "a cross crosslet" is a charge, though "a cross" is an ordinary: the longer noun wins, unless the rest of it is the ordinary's own
+      // treatment ("a cross couped" is the ordinary couped; the charge of that name is the same type, App M1f). Flaunches have no article; a
+      // tressure may be double or triple.
       const articled = tokens[j] === 'a' || tokens[j] === 'an';
       const doubled = articled ? ORDINARY_COUNT_WORDS.get(tokens[j + 1]) ?? 1 : 1;
       const at = j + (articled ? 1 : 0) + (doubled > 1 ? 1 : 0);
       const named = ORDINARY_PHRASES.find((o) => {
         const t = ORDINARY_WORDS.get(o.join(' '))!;
         return startsWith(tokens, at, o) && (articled ? ORDINARY_ARTICLE[t] !== null : ORDINARY_ARTICLE[t] === null) && (doubled === 1 || ORDINARY_COUNTS[t]?.includes(doubled))
-          && !NOUN_PHRASES.some((n) => n.length > o.length && startsWith(tokens, at, n));
+          && !NOUN_PHRASES.some((n) => n.length > o.length && startsWith(tokens, at, n) && !n.slice(o.length).every((w) => ORDINARY_FORM_WORDS.has(w)));
       });
       // diminutives counted: "three bars", any number of them (the widget says which it draws)
       const plural = !named && isNumber(tokens[j]) ? COUNTED_PHRASES.find((o) => startsWith(tokens, j + 1, o)) : undefined;

@@ -10,11 +10,12 @@
 import { CHARGES, type ChargeId, type ModifierId, type Posture } from './charges';
 import type { Modifier } from './design';
 import { pathFor } from './art/paths/index';
+import { FITCHY_CROSSES } from './art/procedural/crosses';
 import type { ArtBox, ArtKey } from './art/types';
 
 /**
  * Art for a charge with a modifier drawn: the sun in splendour is the sun with a face (two eyes and a
- * mouth) cut out of its disc. The face is original work, like the rest.
+ * mouth) cut out of its disc. The face is original work, like the rest. A cross fitchy is generated with its foot sharpened.
  */
 export const MODIFIER_ART: Partial<Record<ChargeId, Partial<Record<ModifierId, string>>>> = {
   sun: {
@@ -23,6 +24,7 @@ export const MODIFIER_ART: Partial<Record<ChargeId, Partial<Record<ModifierId, s
       + 'M55.3 44L56.4 41.9 58.5 40.8 60.6 41.9 61.7 44 60.6 46.1 58.5 47.2 56.4 46.1Z'
       + 'M38 54L41 58.5 45 61.5 50 63 55 61.5 59 58.5 62 54 58 56 54.5 58.2 50 59.2 45.5 58.2 42 56Z',
   },
+  ...Object.fromEntries(Object.entries(FITCHY_CROSSES).map(([id, d]) => [id, { fitchy: d }])),
 };
 
 /** Shown only if a charge somehow has no art (never for the shipped table): a plain roundel. */

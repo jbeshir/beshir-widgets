@@ -88,6 +88,7 @@ export type { PatternSpec, SolidColour } from './patterns';
 export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox } from './charge-art';
 export { CHARGE_ART, CORE_ART_IDS } from './art/paths/index';
 export { bboxOf, ringDepths, ringProblems } from './art/geometry';
+export { crossPath } from './art/procedural/crosses';
 export type { ArtBox, ArtKey, DrawingMeta } from './art/types';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
 export * from './tinctures';

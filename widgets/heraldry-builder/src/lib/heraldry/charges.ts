@@ -4,6 +4,7 @@
 import type { ChargeMeta, ChargeMetaRow } from './art/types';
 import { META_BEAST } from './art/meta/beast';
 import { META_BIRD } from './art/meta/bird';
+import { META_CROSS } from './art/meta/cross';
 import { META_GEOMETRIC } from './art/meta/geometric';
 import { META_MODERN } from './art/meta/modern';
 import { META_MONSTER } from './art/meta/monster';
@@ -24,7 +25,7 @@ export type Orientation = (typeof ORIENTATIONS)[number];
 export const CHARGE_FORMS = ['head', 'demi', 'jambe', 'skull'] as const;
 export type ChargeForm = (typeof CHARGE_FORMS)[number];
 
-export const MODIFIER_IDS = ['in-splendour', 'couped', 'erased', 'slipped', 'leaved', 'fructed', 'enflamed', 'winged', 'voided', 'of-points'] as const;
+export const MODIFIER_IDS = ['in-splendour', 'couped', 'erased', 'slipped', 'leaved', 'fructed', 'enflamed', 'winged', 'voided', 'of-points', 'fitchy'] as const;
 export type ModifierId = (typeof MODIFIER_IDS)[number];
 
 export const PART_IDS = ['armed', 'langued', 'crowned', 'collared', 'attired', 'unguled', 'beaked', 'membered', 'seeded', 'barbed'] as const;
@@ -41,13 +42,13 @@ export const POSTURE_GLOSS: Record<Posture, string | null> = {
   close: 'perched, wings folded', rising: 'taking off', volant: 'flying', tergiant: 'seen from above',
 };
 
-export type ChargeCategory = 'beast' | 'monster' | 'bird' | 'plant' | 'geometric' | 'object' | 'modern';
+export type ChargeCategory = 'beast' | 'monster' | 'bird' | 'plant' | 'geometric' | 'cross' | 'object' | 'modern';
 
-export const CHARGE_CATEGORIES: readonly ChargeCategory[] = ['beast', 'monster', 'bird', 'plant', 'geometric', 'object', 'modern'];
+export const CHARGE_CATEGORIES: readonly ChargeCategory[] = ['beast', 'monster', 'bird', 'plant', 'geometric', 'cross', 'object', 'modern'];
 
 export const CATEGORY_LABEL: Record<ChargeCategory, string> = {
   beast: 'Beasts', monster: 'Monsters', bird: 'Birds', plant: 'Plants',
-  geometric: 'Shapes', object: 'Objects', modern: 'Modern',
+  geometric: 'Shapes', cross: 'Crosses', object: 'Objects', modern: 'Modern',
 };
 
 export const CHARGE_IDS = [
@@ -59,6 +60,9 @@ export const CHARGE_IDS = [
   'key', 'open-book', 'sword', 'crown', 'anchor',
   'musical-note', 'flame', 'gear', 'lightbulb',
   'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
+  'compass-star', 'mascle', 'rustre', 'fusil', 'delf', 'triangle', 'triquetra', 'trefoil', 'quatrefoil', 'cinquefoil', 'ermine-spot',
+  'cross-couped', 'cross-latin', 'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory', 'cross-patonce', 'cross-potent',
+  'cross-maltese', 'cross-celtic', 'cross-tau',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -82,10 +86,10 @@ export const TYPE_CLASSES = {
   fish: { source: 'A5C3/App M1b: most fish are one type; A5E2: clearly unrelated shapes are substantially different', guess: false },
   bee: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
   'regular-bird': { source: 'App M1d: eagle and owl are both regular-shaped birds; LoAR 2024-26: "owls and eagles are both regular-shaped birds, there is a single DC" for their type', guess: false },
-  rose: { source: 'App M1i: few-petaled flowers in affronty view; precedent: "a substantial difference between a roundel and a rose"', guess: false },
+  rose: { source: 'App M1i: few-petaled flowers in affronty view; foils are flowers of as many petals (01/2025 CL); precedent: "a substantial difference between a roundel and a rose"', guess: false },
   tree: { source: 'App M1h: trees conflict only with trees (generic vs coniferous a DC)', guess: false },
   'fleur-de-lys': { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
-  'mullet-or-sun': { source: 'A5G4: "a DC for the change … from a mullet of five points to a sun"; App M1g', guess: false },
+  'mullet-or-sun': { source: 'A5G4: "a DC for the change … from a mullet of five points to a sun"; App M1g (mullets, compass stars, estoiles, suns)', guess: false },
   crescent: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
   heart: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
   key: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
@@ -97,13 +101,22 @@ export const TYPE_CLASSES = {
   flame: { source: 'A5E2: clearly unrelated shapes; whether a flame is near enough to a sun for only a DC is unsettled', guess: true },
   cogwheel: { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
   lightbulb: { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
-  roundel: { source: 'A3E2: the roundel and goutte families are one type each; precedent: "a substantial difference between a roundel and a rose"', guess: true },
-  annulet: { source: 'A5E2: clearly unrelated shapes are substantially different; an annulet is not read as a voided roundel', guess: true },
-  billet: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: true },
-  lozenge: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: true },
+  roundel: { source: 'A3E2: the roundel and goutte families are one type each; precedent: "a substantial difference between a roundel and a rose"; an annulet is a DC from a roundel (Halawa bint Tariq 05/2023; herald question D20)', guess: true },
+  billet: { source: 'A5E2: clearly unrelated shapes are substantially different; billet, delf and triangle a DC apart (Violeta de Valencia 03/2021)', guess: true },
+  lozenge: { source: 'A5E2: clearly unrelated shapes are substantially different; lozenge, mascle, rustre and fusil a DC apart (Alicia le Wilfulle 05/2021)', guess: true },
   goutte: { source: 'A3E2: the roundel and goutte families are one type each', guess: true },
-  'cross-crosslet': { source: 'App M1f: a cross crosslet is in a category of its own among the crosses', guess: false },
+  'cross-couped': { source: 'App M1f family 1: a plain cross couped, equal-armed or Latin, is one type with the ordinary cross couped (herald questions D12, D22)', guess: false },
+  'cross-crosslet': { source: 'App M1f family 3: the cross crosslet and the cross bottony, a DC apart (herald question D13)', guess: false },
+  'cross-flory': { source: 'App M1f family 2: the cross flory and the cross patonce, a DC apart (Guillaume of the Shadowlands 10/2015)', guess: false },
+  'cross-moline': { source: 'App M1f family 4', guess: false },
+  'cross-formy': { source: 'App M1f family 5; substantially different from the Maltese cross (Gilbert des Moulins 12/2023)', guess: false },
+  'cross-potent': { source: 'App M1f family 7', guess: false },
+  'cross-tau': { source: 'App M1f family 8', guess: false },
+  'cross-maltese': { source: 'App M1f family 13; substantially different from the cross formy (Gilbert des Moulins 12/2023)', guess: false },
+  'cross-celtic': { source: 'Not among the families of App M1f; at least a DC from the crosses bottony, formy and couped, read here as a type of its own (herald question D14)', guess: true },
   spark: { source: 'A5E2: clearly unrelated shapes are substantially different; the spark is the charge of estencely', guess: true },
+  triquetra: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the other knots', guess: true },
+  'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 
 export type TypeClass = keyof typeof TYPE_CLASSES;
@@ -112,7 +125,7 @@ export type TypeClass = keyof typeof TYPE_CLASSES;
 export type PostureClass = 'quadruped' | 'bird' | 'fish' | 'insect';
 
 const ROWS: Record<ChargeId, ChargeMetaRow> = {
-  ...META_BEAST, ...META_MONSTER, ...META_BIRD, ...META_PLANT, ...META_GEOMETRIC, ...META_OBJECT, ...META_MODERN,
+  ...META_BEAST, ...META_MONSTER, ...META_BIRD, ...META_PLANT, ...META_GEOMETRIC, ...META_CROSS, ...META_OBJECT, ...META_MODERN,
 };
 
 /** Every charge's metadata (its sidecar row in art/meta), with its id and default facing. */

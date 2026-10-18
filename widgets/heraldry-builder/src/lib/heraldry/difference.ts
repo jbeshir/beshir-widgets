@@ -4,7 +4,7 @@
 // Availability UI. Same code on client (instant feedback) and Worker (authoritative).
 
 import { capitalise } from './words';
-import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
+import { CHARGES, postureTerm, type ChargeId, type Posture, type PostureClass, type TypeClass } from './charges';
 import {
   asParty, asVariation, canonical, canonicalLines, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
@@ -72,11 +72,36 @@ export function isClear(diffs: readonly { kind: ChangeKind }[]): boolean {
 /**
  * What A5E2 compares: ordinaries by type — a chevron inverted (and chevronels inverted) is a type of its own (A5E5c pairs it with the
  * chevron), a pile inverted is the pile turned (A5G7) — and charges by type class (an eagle and an owl are one class, a lion and a wolf are not).
+ * A plain cross couped is the ordinary's type (`AS_ORDINARY`).
  */
 function conflictKey(item: Item): string {
-  if (item.k === 'charge') return `charge:${CHARGES[item.charge].typeClass}`;
+  if (item.k === 'charge') return AS_ORDINARY[CHARGES[item.charge].typeClass] ?? `charge:${CHARGES[item.charge].typeClass}`;
   return familyOf(item.type) === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : typeKey(item);
 }
+
+/**
+ * App M1f family 1 (§1.6 T3): a plain cross couped, equal-armed or Latin, is one type with the ordinary cross couped: the same key and
+ * type token, couped (`isCouped`). The two are kept as two ways to draw it — herald questions D12, D22.
+ */
+const AS_ORDINARY: Partial<Record<TypeClass, string>> = { 'cross-couped': 'ordinary:cross' };
+
+/** App M1g (§1.6 T2): a compass star is a mullet of eight points, and a star of eight points or more is a sun as well, so it is a DC from neither — herald question D11. */
+const STAR_TOKENS: Partial<Record<ChargeId, readonly string[]>> = { 'compass-star': ['mullet', 'sun'] };
+
+/**
+ * What A5G4 compares within a type class (§1.6 T1): two items differ in type by a DC when their tokens share none. A charge's token is its
+ * own type, or the type SENA treats it as (`typeOf`), or one several charges share (`typeToken`: foils and roses by their petals, App
+ * M1i); a plain cross couped has the couped ordinary's. An ordinary's is its type.
+ */
+function typeTokens(item: Item): readonly string[] {
+  if (item.k === 'ordinary') return [typeKey(item)];
+  const meta = CHARGES[item.charge];
+  const asOrdinary = AS_ORDINARY[meta.typeClass];
+  return asOrdinary ? [asOrdinary] : STAR_TOKENS[item.charge] ?? [meta.typeToken ?? meta.typeOf ?? item.charge];
+}
+
+/** A5E2/A5G4: of different classes, or of one class with no type token in common. */
+const typesDiffer = (x: Item, y: Item): boolean => conflictKey(x) !== conflictKey(y) || !typeTokens(x).some((t) => typeTokens(y).includes(t));
 
 /**
  * RULES-C §C.3, L9: a quarter is a canton drawn larger, one type for conflict; a tressure is a narrow orle (a single tressure is one, a double
@@ -91,11 +116,11 @@ const typeKey = (item: Item): string => (item.k === 'ordinary' ? `ordinary:${ALI
 /** A5G6 (RULES-C §C.3, L16): a canton, quarter or gyron against the same in the other top corner, a gore against one from the other side, is a change of its position (a baton sinister is a bend sinister's type: `typeKey`). */
 const sidesSwapped = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.type !== 'baton' && y.type !== 'baton' && x.mods.includes('sinister') !== y.mods.includes('sinister');
 
-/** Whether an ordinary is couped: with the treatment, or a baton (a bendlet couped). */
-const isCouped = (x: Item): boolean => x.k === 'ordinary' && (x.mods.includes('couped') || x.type === 'baton');
+/** Whether an ordinary is couped: with the treatment, or a baton (a bendlet couped); a charge that is an ordinary's type is that ordinary couped. */
+const isCouped = (x: Item): boolean => (x.k === 'ordinary' ? x.mods.includes('couped') || x.type === 'baton' : AS_ORDINARY[CHARGES[x.charge].typeClass] !== undefined);
 
 /** A5G4 (RULES-C §D.2): a couped ordinary against one throughout — the same ordinary otherwise — is a change of its type. */
-const coupingDiffers = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && isCouped(x) !== isCouped(y);
+const coupingDiffers = (x: Item, y: Item): boolean => isCouped(x) !== isCouped(y);
 
 /** A5G7 (RULES-C §D.1, L14): a pile against a pile inverted is a change of orientation. */
 const pileTurned = (x: Item, y: Item): boolean =>
@@ -451,7 +476,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   // The in-splendour mod of a sun is an artistic detail (RULES §C.3) and is not looked at.
   // A change of an ordinary's edge, or couping it, is a change of its type: with a change of type, one change (RULES-C §B.3, §D.2); a chevron
   // against a chevron inverted, substantial between primaries, is a distinct change elsewhere (A5G). Enhanced and abased are artistic (§D.6).
-  if (typeKey(gx.item) !== typeKey(gy.item) || conflictKey(gx.item) !== conflictKey(gy.item) || edgesDiffer(gx.item, gy.item) || coupingDiffers(gx.item, gy.item)) dc('type', 'A5G4');
+  if (typesDiffer(gx.item, gy.item) || edgesDiffer(gx.item, gy.item) || coupingDiffers(gx.item, gy.item)) dc('type', 'A5G4');
   if (countCategoryFine(numberOf(gx)) !== countCategoryFine(numberOf(gy))) dc('number', 'A5G5');
   if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);

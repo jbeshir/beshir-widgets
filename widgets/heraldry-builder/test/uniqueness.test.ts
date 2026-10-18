@@ -252,6 +252,34 @@ describe('the primary group (A5E)', () => {
     expect(between(on('lion'), design('azure', ord('fess', 'or')))).toEqual(['type:sc:A5E2']);
   });
 
+  it('compares charges of one class by their type tokens: stars, crosses, shapes, foils and roundels (§1.6 T2–T4)', () => {
+    const on = (id: string, attrs: object = {}) => design('azure', chg(id, 'or', {}, attrs));
+    // App M1g: a compass star is a mullet of eight points, and a star of eight points or more a sun too (herald question D11).
+    expect(between(on('mullet'), on('compass-star'))).toEqual([]);
+    expect(between(on('compass-star'), on('sun'))).toEqual([]);
+    expect(between(on('mullet'), on('sun'))).toEqual(['type:dc:A5G4']);
+    // App M1f: crosses of different families are substantially different, of one family a DC apart; Latin or equal-armed is nothing.
+    expect(between(on('cross-formy'), on('cross-maltese'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('cross-flory'), on('cross-patonce'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('cross-crosslet'), on('cross-bottony'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('cross-couped'), on('cross-latin'))).toEqual([]);
+    expect(between(on('cross-latin', { mods: ['fitchy'] }), on('cross-latin'))).toEqual([]);
+    // A plain cross couped is the ordinary cross couped (herald questions D12, D22), and a DC from the cross throughout.
+    const ordinaryCross = (mods: string[]) => design('azure', group(ordinary('cross', { mods }), 'or'));
+    expect(between(on('cross-latin'), ordinaryCross(['couped']))).toEqual([]);
+    expect(between(on('cross-couped'), ordinaryCross([]))).toEqual(['type:dc:A5G4']);
+    expect(between(on('cross-formy'), ordinaryCross(['couped']))).toEqual(['type:sc:A5E2']);
+    expect(between(on('mascle'), on('lozenge'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('delf'), on('billet'))).toEqual(['type:dc:A5G4']);
+    // App M1i (01/2025 CL): foils are flowers of as many petals; four, five or six petals conflict, three against more is a DC.
+    expect(between(on('cinquefoil'), on('rose'))).toEqual([]);
+    expect(between(on('quatrefoil'), on('cinquefoil'))).toEqual([]);
+    expect(between(on('trefoil'), on('quatrefoil'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('trefoil'), on('rose'))).toEqual(['type:dc:A5G4']);
+    // Halawa bint Tariq 05/2023: an annulet is a DC from a roundel, not an SC (herald question D20).
+    expect(between(on('annulet'), on('roundel'))).toEqual(['type:dc:A5G4']);
+  });
+
   it('two ordinaries of different types are a substantial change, mirror images included', () => {
     const on = (type: string) => design('azure', ord(type, 'or'));
     expect(between(on('fess'), on('pale'))).toEqual(['type:sc:A5E2']);

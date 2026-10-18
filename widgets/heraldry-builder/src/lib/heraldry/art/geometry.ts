@@ -1,4 +1,5 @@
-// Geometry of charge drawings as point rings (`pathRings`): their bounding box and whether they draw cleanly under even-odd.
+// Geometry of charge drawings as point rings (`pathRings`): their bounding box, whether they draw cleanly under even-odd, and the
+// kit the procedural charges are traced with (circles, arcs and stars as polylines, fitted to the box and written as a path).
 
 import { pointInPolygon, type Pt } from '../geometry';
 
@@ -50,4 +51,53 @@ export function ringProblems(rings: readonly (readonly Pt[])[]): RingProblem[] {
   }
   ringDepths(rings).forEach((depth, ring) => depth > 1 && problems.push({ k: 'island', ring }));
   return problems;
+}
+
+/** Points on a circle from angle `a0` to `a1` (radians, clockwise on screen from the +x axis), both ends included. */
+export function arc(cx: number, cy: number, r: number, a0: number, a1: number, segments: number): Pt[] {
+  return Array.from({ length: segments + 1 }, (_, i): Pt => {
+    const a = a0 + ((a1 - a0) * i) / segments;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  });
+}
+
+/** A circle as a ring of `segments` points, starting at the top. */
+export const circle = (cx: number, cy: number, r: number, segments = 48): Pt[] => arc(cx, cy, r, -Math.PI / 2, (3 * Math.PI) / 2, segments).slice(0, -1);
+
+/** A star of `n` points, the first at the top: its points at `rOuter` (alternate rays may differ: one radius per ray, in turn), its notches at `rInner`. */
+export function star(n: number, rOuter: readonly number[], rInner: number): Pt[] {
+  return Array.from({ length: 2 * n }, (_, i): Pt => {
+    const a = -Math.PI / 2 + (Math.PI * i) / n;
+    const r = i % 2 === 0 ? rOuter[(i / 2) % rOuter.length] : rInner;
+    return [50 + r * Math.cos(a), 50 + r * Math.sin(a)];
+  });
+}
+
+/** The two points where two circles meet: on the left, then on the right, of the line from the first centre to the second. */
+export function circlesMeet([x1, y1]: Pt, r1: number, [x2, y2]: Pt, r2: number): [Pt, Pt] {
+  const dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy);
+  const along = (d * d + r1 * r1 - r2 * r2) / (2 * d), h2 = r1 * r1 - along * along;
+  if (h2 < 0) throw new RangeError('The circles do not meet.');
+  const h = Math.sqrt(h2), mx = x1 + (dx * along) / d, my = y1 + (dy * along) / d;
+  return [[mx + (dy * h) / d, my - (dx * h) / d], [mx - (dy * h) / d, my + (dx * h) / d]];
+}
+
+/** The angle of a point seen from a centre, as `arc` takes it. */
+export const angleAt = ([cx, cy]: Pt, [x, y]: Pt): number => Math.atan2(y - cy, x - cx);
+
+/** Rings scaled about their middle to a long side of `long` and centred in the 100×100 box. */
+export function fitRings(rings: readonly (readonly Pt[])[], long = 86): Pt[][] {
+  const box = bboxOf(rings.flat());
+  const s = long / Math.max(box.x1 - box.x0, box.y1 - box.y0), mx = (box.x0 + box.x1) / 2, my = (box.y0 + box.y1) / 2;
+  return rings.map((ring) => ring.map(([x, y]): Pt => [50 + (x - mx) * s, 50 + (y - my) * s]));
+}
+
+const decimal = (v: number) => String(Math.round(v * 10) / 10);
+
+/** Rings as a drawing's path: absolute M/L/Z polygons with one decimal, a point that repeats the one before it (once rounded) dropped. */
+export function ringsPath(rings: readonly (readonly Pt[])[]): string {
+  return rings.map((ring) => {
+    const pts = ring.map(([x, y]) => `${decimal(x)} ${decimal(y)}`).filter((p, i, all) => p !== all[(i + all.length - 1) % all.length]);
+    return `M${pts[0]}L${pts.slice(1).join(' ')}Z`;
+  }).join('');
 }
