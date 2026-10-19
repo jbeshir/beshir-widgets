@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { DERIVED, EVERY_WAY, HAND_DRAWN, PROPER } from './common';
+import { DERIVED, EVERY_WAY, GENERATED, HAND_DRAWN, PROPER } from './common';
 
 export const META_OBJECT = {
   key: {
@@ -29,7 +29,7 @@ export const META_OBJECT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.9, detail: 1, proper: PROPER.pages,
     glossName: 'open book', glossPlural: 'open books', plain: null, search: ['book'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: { x: 14, y: 52, w: 34, h: 22 }, anchors: {}, neck: null },
     },
@@ -164,7 +164,7 @@ export const META_OBJECT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 2, proper: PROPER.brown,
     glossName: 'harp', glossPlural: 'harps', plain: null, search: ['lyre', 'clarsach'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -409,5 +409,35 @@ export const META_OBJECT = {
       _: { onBox: { x: 24, y: 47, w: 42, h: 26 }, anchors: {}, neck: null },
     },
     provenance: DERIVED,
+  },
+  wheel: {
+    name: 'wheel', plural: 'wheels', article: 'a', category: 'object',
+    typeClass: 'wheel', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [], wording: {} },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    glossName: 'spoked cartwheel', glossPlural: 'spoked cartwheels', plain: null, search: ['cartwheel', 'wagon wheel'],
+    headName: null, holdable: false, pairedWings: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
+  },
+  'catherine-wheel': {
+    name: 'Catherine wheel', plural: 'Catherine wheels', article: 'a', category: 'object',
+    typeClass: 'wheel', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'radial', allowed: [], wording: {} },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    glossName: 'wheel with hooked spikes', glossPlural: 'wheels with hooked spikes', plain: { word: 'spiked wheel', plural: 'spiked wheels' }, search: ['catherine', 'spiked wheel'],
+    headName: null, holdable: false, pairedWings: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
   },
 } satisfies Record<string, ChargeMetaRow>;

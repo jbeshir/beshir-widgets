@@ -28,10 +28,10 @@ export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
   reptile: 'a reptile or amphibian other than the serpent and frog (snake, lizard, turtle…)',
   insect: 'an insect, arachnid or other invertebrate other than the bee, butterfly, dragonfly, spider and scorpion',
   human: 'a human figure or body part other than the hand (arm, skull, eye…)',
-  plant: 'a flower, leaf, fruit, foil, named tree or other plant other than the rose, tree, fleur-de-lis, thistle, lily, laurel wreath, oak leaf, acorn, pomegranate and garb',
+  plant: 'a flower, leaf, fruit, foil, named tree or other plant other than the rose, tree, fleur-de-lis, thistle, lily, laurel wreath, oak leaf, acorn, pomegranate, garb and seeblatt',
   celestial: 'a celestial or weather charge other than the sun, mullet, crescent and comet (estoile, moon, cloud…)',
   weapon: 'a weapon or piece of armour other than the sword, arrow, axe, pheon, spear and trident',
-  tool: 'a tool, implement or piece of equipment other than the key, gear, hammer, needle and anvil',
+  tool: 'a tool, implement or piece of equipment other than the key, gear, hammer, needle, anvil, wheel and Catherine wheel',
   household: 'a vessel or container other than the goblet, chalice and tankard, food, furniture, light, jewel, game piece, flag or other object',
   clothing: 'an article of clothing',
   instrument: 'a musical instrument other than the harp and bell (a handbell…)',
@@ -111,7 +111,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     thyme mint parsley mustard hop flax cotton hemp nettle teazel teasel calla arum orchid wisteria pansy
     heartsease forget-me-not bluebell cornflower harebell tobacco banana pineapple ananas coconut melon chili
     pepper tomato potato cabbage corn maize fruit vegetable artichoke aloe stump trunk log root stalk stem thorn
-    bramble briar brier frond spray nesselblatt seeblatt shrub bush sapling hurst grove forest plant herb weed
+    bramble briar brier frond spray nesselblatt shrub bush sapling hurst grove forest plant herb weed
     seaweed kelp moss
   `),
   celestial: w(`
@@ -132,8 +132,8 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     sledgehammer mallet tongs bellows spindle drop-spindle distaff shuttle bobbin spool skein
     yarn clew thimble pin loom comb scissors shears compass compasses caliper calipers square plane chisel saw
     drawknife awl punner trowel wedge nail staple chain rope ladder pick pickaxe shovel spade hoe rake scythe sickle
-    plough plow harrow pitchfork millrind fer-de-moline fer-a-loup millstone millwheel waterwheel wheel cartwheel
-    catherine-wheel cog mortar pestle balance scales hourglass sundial astrolabe armillary quadrant abacus alembic
+    plough plow harrow pitchfork millrind fer-de-moline fer-a-loup millstone millwheel waterwheel
+    cog mortar pestle balance scales hourglass sundial astrolabe armillary quadrant abacus alembic
     retort crucible lens telescope spectacles eyeglasses eyeglass padlock lock fetterlock manacle shackle
     shacklebolt hook fishhook grapnel net horseshoe bridle bit snaffle-bit stirrup saddle spur rowel spur-rowel
     prickspur hames barnacle yoke brush paintbrush palette pen penner inkwell inkhorn penbox pen-box staff crozier
@@ -182,7 +182,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   cross: w('ankh'),
   geometric: w(`
     guze fountain masculyn gout goute drop escutcheon inescutcheon hexagon pentagon octagon
-    polygon icosahedron cube sphere annulus penannular cartouche cornice escarbuncle gunstone
+    polygon icosahedron cube sphere annulus penannular cartouche cornice gunstone
   `),
   symbol: w(`
     knot triskelion triskele pentaskelion valknut yin-yang t'ai-chi tomoe mitsutomoe umebachi mon chi-rho
@@ -197,7 +197,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
 /** SCA words for the widget's own charges → ChargeId: each id, the College's other words for some, and the charges named for their tincture. Any other charge noun is a gap. */
 export const SUPPORTED_CHARGE_WORDS: Readonly<Record<string, ChargeId>> = {
   ...Object.fromEntries(CHARGE_IDS.map((id) => [id, id])),
-  'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet', 'sea-horse': 'seahorse',
+  'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet', 'sea-horse': 'seahorse', cartwheel: 'wheel',
   // the charge's nouns for how it points ("increscent": a crescent fesswise)
   ...Object.fromEntries(CHARGE_IDS.flatMap((id) => Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [[w.name, id], [w.plural, id]] : [])))),
   ...Object.fromEntries(NAMED_TINCTURE_CHARGES.filter((n) => !n.word.includes(' ')).flatMap((n) => [[n.word, n.charge], [n.plural, n.charge]])),
@@ -224,6 +224,7 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   serpent: 'reptile', frog: 'reptile', pomegranate: 'plant', lily: 'plant', garb: 'plant', spider: 'insect', scorpion: 'insect',
   tower: 'building', hand: 'human', pawprint: 'symbol', comet: 'celestial', goblet: 'household', chalice: 'household', castle: 'building', bell: 'instrument', tankard: 'household',
   hawk: 'bird', rapier: 'weapon', dagger: 'weapon', coney: 'beast', rabbit: 'beast', vol: 'bird', coronet: 'household',
+  escarbuncle: 'geometric', seeblatt: 'plant', wheel: 'tool', 'catherine-wheel': 'tool',
 };
 
 /** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */

@@ -206,14 +206,16 @@ const partDrawn = (item: Charge, p: PartPaint): boolean =>
 
 /**
  * Whether a held item is drawn (PLAN-D §1.5 H3): the one item its charge holds, a charge that may be held (its sidecar's `holdable`) as it is
- * drawn by default, in one tincture, held a way the holder's sidecar row takes and its drawing has the anchor for (a paw, a beak, a mouth).
+ * drawn by default, in one tincture or in its natural colours where it has them ("a sword proper"), held a way the holder's sidecar row takes
+ * and its drawing has the anchor for (a paw, a beak, a mouth).
  * Two items, a worn one (H4) or anything else stay `charge-modifier:<how>` gaps; so do holds on a charge that is not primary (`heldGaps`).
  */
 function holdDrawn(item: Charge, h: Held): boolean {
   const held = h.item, meta = CHARGES[held.charge];
   const plain = held.form === null && held.posture === meta.defaultPosture && held.gaze === null && held.facing === meta.defaultFacing && held.orientation === null
     && held.mods.length === 0 && held.parts.length === 0 && held.holds.length === 0;
-  return item.holds.length === 1 && meta.holdable && plain && h.paint.k === 'tincture' && CHARGES[item.charge].holds.includes(h.how) && holdAnchored(item, h.how);
+  const painted = h.paint.k === 'tincture' || (h.paint.k === 'proper' && meta.proper !== null);
+  return item.holds.length === 1 && meta.holdable && plain && painted && CHARGES[item.charge].holds.includes(h.how) && holdAnchored(item, h.how);
 }
 
 /** §1.5 H3: only a primary charge (or one of two co-primary groups) on the field is drawn holding something; elsewhere a drawable hold is a gap. */

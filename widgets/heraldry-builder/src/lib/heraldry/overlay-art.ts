@@ -11,6 +11,7 @@ import { pathRings, pointInPolygon, type Pt } from './geometry';
 import { bboxOf, ringDepths, ringsPath } from './art/geometry';
 import { pathFor } from './art/paths/index';
 import { OVERLAY_PIECES } from './art/paths/pieces';
+import { PROPER } from './art/meta/common';
 import type { AnchorId, ArtPlace, DrawingMeta } from './art/types';
 import { artKeyOf, chargePath } from './charge-art';
 import { boundedMemo } from './memo';
@@ -25,8 +26,11 @@ export type OverlayPart = PieceShape | 'held';
 /** The pieces drawn under the charge: they seem to come from behind it. */
 const UNDER: readonly PieceShape[] = ['wings', 'flames', 'slip', 'leaves'];
 
-/** A piece or held item drawn with a charge: its path in the charge's 100-box, whether it lies under the charge, and its paint. */
-export interface ArtOverlay { part: OverlayPart; d: string; under: boolean; paint: Paint }
+/**
+ * A piece or held item drawn with a charge: its path in the charge's 100-box, whether it lies under the charge, its paint, and the colour it is
+ * drawn in when that is proper (flames fire's, a held item its palette's first; support.ts draws nothing else proper), or null.
+ */
+export interface ArtOverlay { part: OverlayPart; d: string; under: boolean; paint: Paint; natural: string | null }
 
 /** A charge's drawing with its pieces and held items: the art (the charge's own, or drawn smaller to make room for them) and the overlays. */
 export interface OverlaidArt { art: string; overlays: ArtOverlay[] }
@@ -270,8 +274,10 @@ export function overlaidArt(c: Charge): OverlaidArt {
   return {
     art: drawn.art,
     overlays: [
-      ...wanted.map(({ part, paint }, i) => ({ part, d: drawn.pieces[i], under: UNDER.includes(part), paint })),
-      ...held.map(({ held: h }, i) => ({ part: 'held' as const, d: drawn.pieces[wanted.length + i], under: false, paint: h.paint })),
+      ...wanted.map(({ part, paint }, i) => ({ part, d: drawn.pieces[i], under: UNDER.includes(part), paint, natural: part === 'flames' ? PROPER.fire.fills[0] : null })),
+      ...held.map(({ held: h }, i) => ({
+        part: 'held' as const, d: drawn.pieces[wanted.length + i], under: false, paint: h.paint, natural: CHARGES[h.item.charge].proper?.fills[0] ?? null,
+      })),
     ],
   };
 }

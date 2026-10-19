@@ -10,7 +10,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
 import {
   CHARGES, CUT_LABEL, FACING_LABEL, FORM_LABEL, GAZE_LABEL, HOLDABLE_IDS, HOLD_LABEL, MODIFIER_LABEL, ORIENTATION_ANGLE, ORIENTATION_LABEL, PAIR_LABEL, PIECE_IDS, PIECE_LABEL, PROPER_PIECES, chargeLabel, chargePath, cutChoices, cutOf, detailChoices, formChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
-  groupAt, heldTinctureChoices, holdChoices, isPiece, isPiecePart, orientationChoices, pairChoices, partChoices, pieceTinctureChoices, piecePaint, pointsChoices, pointsOf, pointsWord, tincturePaint,
+  groupAt, heldProperChoice, heldTinctureChoices, holdChoices, isPiece, isPiecePart, orientationChoices, pairChoices, partChoices, pieceTinctureChoices, piecePaint, pointsChoices, pointsOf, pointsWord, tincturePaint,
   type Charge, type ChargeForm, type ChargeId, type Choice, type Design, type GroupPath, type HoldHow, type Orientation, type Paint, type PairChoice, type PieceId, type PlainTerm,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
@@ -117,14 +117,16 @@ function PieceColour({ design, path, prefix, piece, onChange, onBlocked }: Props
 }
 
 /**
- * What the charge holds (PLAN-D §1.5): a select of the items it may hold, then, while it holds one, the way it holds it and the item's colour
- * (blocked where it wouldn't stand out from the field, H5). A drawing with no place to hold anything (a demi lion) says why.
+ * What the charge holds (PLAN-D §1.5): a select of the items it may hold, then, while it holds one, the way it holds it and the item's colour,
+ * natural colours first where it has them (blocked where it wouldn't stand out from the field, H5). A drawing with no place to hold anything
+ * (a demi lion) says why.
  */
 function Holding({ design, path, prefix, ways, onChange, onBlocked }: Props & { ways: readonly Choice<HoldHow>[]; onBlocked: (e: Explanation) => void }) {
   const holder = groupAt(design, path).item as Charge;
   const held = holder.holds[0] ?? null;
   const selectId = `${prefix}hold-select`;
   const refused = held === null && ways.every((c) => !c.allowed) ? ways[0] : null;
+  const proper = heldProperChoice(design, path);
   return (
     <>
       <div class="control">
@@ -143,6 +145,18 @@ function Holding({ design, path, prefix, ways, onChange, onBlocked }: Props & { 
           legend="How" testid={`${prefix}hold-how`} choices={ways} current={held.how} label={(how) => HOLD_LABEL[how]} kind="drawing"
           onSelect={(how) => onChange(setHold(design, path, held.item.charge, how))} onBlocked={onBlocked}
         />
+      )}
+      {held && proper && (
+        <div class="control">
+          <RadioGroup label={`Natural colours of the ${CHARGES[held.item.charge].name}`} class="segmented" testid={`${prefix}hold-proper-select`}>
+            <ChoiceButton
+              testid={`${prefix}hold-proper`} checked={held.paint.k === 'proper'} status={proper.allowed ? undefined : { kind: 'blocked', reason: proper.reason }} label="Natural colours (proper)" kind="tincture"
+              onSelect={() => onChange(setHold(design, path, held.item.charge, held.how, { k: 'proper' }))} onBlocked={onBlocked} class="segment"
+            >
+              <span>Natural colours · proper</span>
+            </ChoiceButton>
+          </RadioGroup>
+        </div>
       )}
       {held && (
         // keyed by what holds what, so that why a colour was refused (said of the item as it was) goes with it

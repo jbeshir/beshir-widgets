@@ -981,6 +981,13 @@ export function heldTinctureChoices(d: Design, path: GroupPath): Choice<Tincture
   return held ? TINCTURES.map((t) => choice(t, heldTinctureReason(withHold(d, path, { ...held, paint: tincturePaint(t) }), path))) : [];
 }
 
+/** Natural colours for the item the group's charge holds ("a sword proper"), blocked where they wouldn't stand out from the field (H5); null when it has none. */
+export function heldProperChoice(d: Design, path: GroupPath): Choice<'proper'> | null {
+  const item = groupAt(d, path).item;
+  const held = item.k === 'charge' ? item.holds[0] : undefined;
+  return held && CHARGES[held.item.charge].proper ? choice('proper', heldTinctureReason(withHold(d, path, { ...held, paint: { k: 'proper' } }), path)) : null;
+}
+
 /** The layout the Layout row shows as chosen: a pair is laid out as its two charges in fess, or where the ordinary places them (§1.1 F8). */
 export function shownLayoutKey(d: Design, path: GroupPath): LayoutKey {
   const g = groupAt(d, path);

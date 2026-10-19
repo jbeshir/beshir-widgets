@@ -59,7 +59,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'three-lobed clover leaf', glossPlural: 'three-lobed clover leaves', plain: { word: 'clover', plural: 'clovers' }, search: ['shamrock'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -74,7 +74,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'four-petalled flower', glossPlural: 'four-petalled flowers', plain: null, search: ['flower'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -89,7 +89,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'five-petalled flower', glossPlural: 'five-petalled flowers', plain: null, search: ['flower'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -199,5 +199,20 @@ export const META_PLANT = {
       _: { onBox: null, anchors: {}, neck: null },
     },
     provenance: { origin: 'original', author: 'phase-D art pipeline, B5, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (leaf outlines, ellipses, tapered stem strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
+  },
+  seeblatt: {
+    name: 'seeblatt', plural: 'seeblatter', article: 'a', category: 'plant',
+    typeClass: 'heart', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.88, detail: 0, proper: null,
+    glossName: 'heart-shaped water-lily leaf', glossPlural: 'heart-shaped water-lily leaves', plain: { word: 'lily pad', plural: 'lily pads' }, search: ['leaf', 'water lily'],
+    headName: null, holdable: false, pairedWings: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: GENERATED,
   },
 } satisfies Record<string, ChargeMetaRow>;

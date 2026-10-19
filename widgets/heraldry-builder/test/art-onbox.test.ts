@@ -18,6 +18,8 @@ const CARRIES_NONE = [
   'tower', 'hand', 'pawprint', 'comet', 'goblet', 'chalice', 'castle', 'bell', 'tankard',
   // the aliases (PLAN-D §2.4): the sword's and the wing's have none; the others' boxes are their sources' (the vol's wings leave none)
   'rapier', 'dagger', 'vol',
+  // D16b's generated charges: staves, spokes and a leaf with no room for a charge
+  'escarbuncle', 'seeblatt', 'wheel', 'catherine-wheel',
 ];
 
 /** The drawings that carry no charge whatever their charge: heads (art batch A1 draws them with no room for one). */

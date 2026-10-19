@@ -299,6 +299,8 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a beast with a charge in its mouth', arms('or', group(charge('wolf', { holds: [{ how: 'in-mouth', item: charge('rose'), paint: 'gules' }] }), 'sable'))],
   ['a beast crowned and maintaining', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }], holds: [{ how: 'maintaining', item: charge('mullet'), paint: 'argent' }] }), 'or'))],
   ['two beasts combattant each maintaining', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))],
+  ['a beast maintaining a charge proper', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'proper' }] }), 'or'))],
+  ['a bird maintaining a cross', arms('vert', group(charge('eagle', { holds: [{ how: 'maintaining', item: charge('cross-latin'), paint: 'or' }] }), 'argent'))],
   ['three birds each with a charge in its beak', arms('argent', group(charge('eagle', { holds: [{ how: 'in-beak', item: charge('rose'), paint: 'gules' }] }), 'sable', { count: 3 }))],
   // a demi charge and a head, whose cut follows the noun ("a wolf's head erased")
   ['a demi charge', arms('azure', group(charge('lion', { form: 'demi' }), 'or'))],
@@ -366,6 +368,10 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a chalice', arms('argent', group(charge('chalice'), 'sable'))],
   ['a bell', arms('vert', group(charge('bell'), 'or'))],
   ['a tankard', arms('sable', group(charge('tankard'), 'argent'))],
+  ['an escarbuncle', arms('azure', group(charge('escarbuncle'), 'or'))],
+  ['three seeblatter', arms('argent', group(charge('seeblatt'), 'vert', { count: 3 }))],
+  ['a wheel', arms('gules', group(charge('wheel'), 'or'))],
+  ['a Catherine wheel', arms('sable', group(charge('catherine-wheel'), 'argent'))],
   ['a hawk', arms('azure', group(charge('hawk'), 'argent'))],
   ['a rapier and a dagger', arms('gules', group(charge('rapier'), 'argent'), group(charge('dagger'), 'or'))],
   ['a coney', arms('vert', group(charge('coney'), 'argent'))],
@@ -698,6 +704,21 @@ describe('the matcher reads the College\'s names for the escallop and the dolphi
   });
 });
 
+// D16b's generated charges in the College's words: the Catherine wheel is also Catherine's wheel, a wagon wheel or cartwheel is the wheel.
+describe('the matcher reads the College\'s names for the wheels, the seeblatt and the escarbuncle', () => {
+  it.each([
+    ['Sable, a Catherine\'s wheel argent.', 'Sable, a Catherine wheel argent.'],
+    ['Gules, three wagon wheels Or.', 'Gules, three wheels Or.'],
+    ['Gules, a cartwheel Or.', 'Gules, a wheel Or.'],
+    ['Argent, three seeblatter vert.', 'Argent, three seeblatter vert.'],
+    ['Azure, an escarbuncle Or.', 'Azure, an escarbuncle Or.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
 
 // What a main charge holds (PLAN-D §1.5), as the SCA writes it: maintaining or sustaining (holding, grasping, supporting), or in its beak or
 // mouth however it is held; "each" for more than one charge; the item's tincture as stated, else the next one stated.
@@ -712,6 +733,13 @@ describe('the matcher reads what a charge holds in the College\'s words', () => 
     ['Argent, an eagle sable bearing in his beak a key gules.', 'Argent, an eagle sable maintaining in its beak a key gules.'],
     ['Or, a wolf rampant sable sustaining in its mouth a rose gules.', 'Or, a wolf rampant sable maintaining in its mouth a rose gules.'],
     ['Azure, two lions combattant Or each maintaining a sword argent.', 'Azure, two lions combattant Or each maintaining a sword argent.'],
+    // the paw, claw, talon or foot it is held in is its position: worth nothing (§1.5 H2, D16b)
+    ['Azure, a lion Or maintaining in its dexter forepaw a sword argent.', 'Azure, a lion Or maintaining a sword argent.'],
+    ['Vert, an eagle argent grasping in its talons a crescent Or.', 'Vert, an eagle argent maintaining a crescent Or.'],
+    ['Or, a bear rampant sable sustaining in its sinister paw a heart gules.', 'Or, a bear rampant sable sustaining a heart gules.'],
+    ['Argent, a wolf rampant sable holding in its jaws a key gules.', 'Argent, a wolf rampant sable maintaining in its mouth a key gules.'],
+    ['Azure, a lion Or maintaining a plate.', 'Azure, a lion Or maintaining a roundel argent.'],
+    ['Azure, a lion Or maintaining a sword proper.', 'Azure, a lion Or maintaining a sword proper.'],
   ])('%s', (text, widget) => {
     expect(read(text), text).not.toBeNull();
     expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
@@ -737,6 +765,8 @@ describe('the matcher reads what a charge holds in the College\'s words', () => 
     expect(tags('Azure, a boar Or maintaining a sword argent.')).toEqual(['charge-modifier:maintaining']);
     expect(tags('Azure, a demi-lion Or maintaining a sword argent.')).toEqual(['charge-modifier:maintaining']);
     expect(tags('Azure, a lion Or maintaining a rose gules, slipped and leaved vert.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a lion Or maintaining a fleur-de-lis proper.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a lion Or maintaining a sword proper.')).toEqual([]);
   });
 });
 

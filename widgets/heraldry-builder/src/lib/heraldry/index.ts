@@ -71,7 +71,7 @@ export {
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
-  layoutReason, withLayout, postureChoices, modifierChoices, facingChoices, gazeChoices, pairChoices, orientationChoices, formChoices, cutChoices, cutOf, detailChoices, partChoices, withPart, firstPiecePaint, pieceTinctureChoices, holdChoices, withHold, firstHeldPaint, heldTinctureChoices, pointsChoices, pointsOf, fimbriationTinctureChoices, firstFimbriation, withModifier, NO_MODIFIER_VALUE, shownLayoutKey, fitGroup, suggestTinctureFix,
+  layoutReason, withLayout, postureChoices, modifierChoices, facingChoices, gazeChoices, pairChoices, orientationChoices, formChoices, cutChoices, cutOf, detailChoices, partChoices, withPart, firstPiecePaint, pieceTinctureChoices, holdChoices, withHold, firstHeldPaint, heldTinctureChoices, heldProperChoice, pointsChoices, pointsOf, fimbriationTinctureChoices, firstFimbriation, withModifier, NO_MODIFIER_VALUE, shownLayoutKey, fitGroup, suggestTinctureFix,
   partyDivisionChoices, partyTinctureChoices, groupVariationChoices, setGroupVariation, setGroupVariationPieces, groupVariationTinctureChoices, setGroupVariationTincture, setPartyDivision, setPartyTincture, splitGroup,
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type PairChoice, type ModifierValue, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';

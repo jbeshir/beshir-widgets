@@ -765,8 +765,11 @@ describe('the Details disclosure under the picture', () => {
   it('holds the Holding select for a main charge that holds things, and while it holds one the way it does and the item\'s colour (PLAN-D §3 D9d)', () => {
     const html = render(setHold(pictured('lion'), [0], 'sword'));
     expect(opened(html, 'charge-details')).toEqual([{ open: true }]);
-    expect([...ids(html)].filter((id) => id.startsWith('hold-'))).toEqual(['hold-select', 'hold-how', 'hold-how-maintaining', 'hold-how-sustaining', 'hold-how-in-mouth', 'hold-tincture']);
+    expect([...ids(html)].filter((id) => id.startsWith('hold-'))).toEqual(['hold-select', 'hold-how', 'hold-how-maintaining', 'hold-how-sustaining', 'hold-how-in-mouth', 'hold-proper-select', 'hold-proper', 'hold-tincture']);
     expect(html).toContain('<option selected value="sword">');
+    // natural colours only for an item that has them (D16b): a sword, not a key
+    expect(render(setHold(pictured('lion'), [0], 'sword', 'maintaining', { k: 'proper' }))).toMatch(/aria-checked="true"[^>]*id="hold-proper"/);
+    expect(ids(render(setHold(pictured('lion'), [0], 'key')))).not.toContain('hold-proper');
     expect(html).toMatch(/aria-checked="true"[^>]*id="hold-how-maintaining"/);
     expect(html).toMatch(/id="swatch-held-argent"[^>]*aria-checked="true"/);
     expect(html).toContain('Colour of the sword');

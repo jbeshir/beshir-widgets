@@ -25,7 +25,14 @@ const inBox = (d: string) => { const b = box(d); return b.x0 >= 0 && b.y0 >= 0 &
 
 describe('held items (PLAN-D §1.5)', () => {
   it('are held by the charges with a paw, beak or mouth anchor and are the charges that may be held', () => {
-    expect(CHARGE_IDS.filter((id) => CHARGES[id].holdable)).toEqual(['rose', 'fleur-de-lis', 'mullet', 'key', 'sword', 'anchor', 'cross-crosslet', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident', 'escallop', 'thistle', 'oak-leaf', 'acorn', 'pomegranate', 'garb', 'goblet', 'chalice', 'bell', 'tankard', 'rapier', 'dagger']);
+    // D16b: every charge that reads at hold size on a 48 px shield (sheets/D16b-held.png); not the compass star (a speck of a star), the comet
+    // (a spiky blob) or the laurel wreath (a ring)
+    expect(CHARGE_IDS.filter((id) => CHARGES[id].holdable)).toEqual([
+      'rose', 'fleur-de-lis', 'mullet', 'crescent', 'sun', 'heart', 'key', 'open-book', 'sword', 'anchor', 'flame', 'roundel', 'annulet', 'billet', 'lozenge', 'goutte',
+      'cross-crosslet', 'estoile', 'trefoil', 'quatrefoil', 'cinquefoil', 'cross-couped', 'cross-latin', 'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory',
+      'cross-patonce', 'cross-potent', 'cross-maltese', 'cross-celtic', 'cross-tau', 'arrow', 'hammer', 'harp', 'axe', 'feather', 'needle', 'spear', 'trident', 'escallop',
+      'thistle', 'oak-leaf', 'acorn', 'pomegranate', 'garb', 'goblet', 'chalice', 'bell', 'tankard', 'rapier', 'dagger',
+    ]);
     expect(Object.fromEntries(CHARGE_IDS.filter((id) => CHARGES[id].holds.length > 0).map((id) => [id, CHARGES[id].holds]))).toEqual({
       lion: ['maintaining', 'sustaining', 'in-mouth'], wolf: ['maintaining', 'sustaining', 'in-mouth'], boar: ['in-mouth'], goat: ['maintaining', 'sustaining'],
       hare: ['maintaining', 'sustaining'], fish: ['in-mouth'], unicorn: ['maintaining', 'sustaining'], dragon: ['maintaining', 'sustaining', 'in-mouth'],
@@ -41,16 +48,19 @@ describe('held items (PLAN-D §1.5)', () => {
     expect(CHARGES.crown.holdable).toBe(false);
   });
 
-  it('are drawn for one plain holdable item in a tincture, held by a primary charge whose drawing has the anchor; anything else is a gap (H3)', () => {
+  it('are drawn for one plain holdable item in a tincture or its natural colours, held by a primary charge whose drawing has the anchor; anything else is a gap (H3)', () => {
     for (const d of [
       lone(lion(hold('maintaining', 'sword', 'argent'))), lone(lion(hold('sustaining', 'rose', 'gules')), 'argent'),
       lone(charge('eagle', { holds: [hold('in-beak', 'key', 'or')] }), 'sable', 'argent'), lone(charge('wolf', { holds: [hold('in-mouth', 'key', 'or')] }), 'argent', 'gules'),
       lone(lion(hold('maintaining', 'sword', 'argent')), 'or', 'azure', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }),
       lone(charge('lion', { facing: 'to-sinister', posture: 'passant', holds: [hold('maintaining', 'mullet', 'argent')] }), 'or', 'gules'),
       lone(charge('lion', { form: 'head', holds: [hold('in-mouth', 'rose', 'gules')] }), 'or'),
+      lone(lion(hold('maintaining', 'sword', 'proper'))), lone(charge('eagle', { holds: [hold('maintaining', 'flame', 'proper')] }), 'argent'),
+      lone(charge('bear', { posture: 'rampant', holds: [hold('maintaining', 'cross-latin', 'gules')] }), 'sable', 'or'),
     ]) expect(gaps(d), blazon(d)).toEqual([]);
     expect(gaps(lone(lion(hold('maintaining', 'wolf', 'argent'))))).toEqual(['charge-modifier:maintaining']);
-    expect(gaps(lone(lion(hold('maintaining', 'sword', 'proper'))))).toEqual(['charge-modifier:maintaining']);
+    // natural colours only for an item that has them
+    expect(gaps(lone(lion(hold('maintaining', 'fleur-de-lis', 'proper'))))).toEqual(['charge-modifier:maintaining']);
     expect(gaps(lone(lion(hold('maintaining', 'sword', 'argent', { orientation: 'fesswise' }))))).toEqual(['charge-modifier:maintaining']);
     expect(gaps(lone(lion(hold('maintaining', 'sword', 'argent'), hold('maintaining', 'key', 'argent'))))).toEqual(['charge-modifier:maintaining']);
     expect(gaps(lone(lion(hold('wearing', 'sword', 'argent'))))).toEqual(['charge-modifier:wearing']);
@@ -88,6 +98,11 @@ describe('held items (PLAN-D §1.5)', () => {
       nd(arms({ k: 'divided', division: 'per-pale', parts: ['argent', 'gules'] }, group(lion(hold('maintaining', 'sword', 'or')), 'counterchanged'))),
     ];
     for (const d of designs) for (const hatching of [false, true]) expect(checkRendered(d, renderShieldSvg(d, { hatching })), blazon(d)).toEqual([]);
+    // a held item proper in its palette's colour (a flame in fire's first, as flames all round are)
+    const proper = lone(lion(hold('maintaining', 'sword', 'proper')));
+    expect(checkRendered(proper, renderShieldSvg(proper))).toEqual([]);
+    expect(overlaidArt(item(proper)).overlays.map((o) => o.natural)).toEqual([CHARGES.sword.proper!.fills[0]]);
+    expect(overlaidArt(item(lone(lion(hold('maintaining', 'flame', 'proper'))))).overlays.map((o) => o.natural)).toEqual([CHARGES.flame.proper!.fills[0]]);
     expect(renderShieldSvg(designs[0])).toMatch(/data-overlay="held"/);
     expect(checkRendered(designs[0], renderShieldSvg(lone(lion())))).toEqual(expect.arrayContaining([expect.stringMatching(/pieces of the charges at 0 are drawn nowhere, expected held/)]));
   });
@@ -95,6 +110,7 @@ describe('held items (PLAN-D §1.5)', () => {
   it('are worded after everything else, "each" for more than one holder; glossed as they look; signed', () => {
     expect(blazon(lone(lion(hold('maintaining', 'sword', 'argent'))))).toBe('Azure, a lion Or maintaining a sword argent.');
     expect(blazon(lone(lion(hold('maintaining', 'sword', 'or'))))).toBe('Azure, a lion maintaining a sword Or.');
+    expect(blazon(lone(lion(hold('maintaining', 'sword', 'proper'))))).toBe('Azure, a lion Or maintaining a sword proper.');
     expect(blazon(lone(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }], holds: [hold('sustaining', 'key', 'argent')] })))).toBe('Azure, a lion Or crowned gules sustaining a key argent.');
     expect(blazon(lone(charge('eagle', { holds: [hold('in-beak', 'key', 'gules')] }), 'sable', 'argent', { count: 3 }))).toBe('Argent, three eagles sable each maintaining in its beak a key gules.');
     expect(blazon(lone(charge('wolf', { holds: [hold('in-mouth', 'rose', 'gules')] }), 'argent', 'vert'))).toBe('Vert, a wolf passant argent maintaining in its mouth a rose gules.');
@@ -114,6 +130,9 @@ describe('held items (PLAN-D §1.5)', () => {
     expect(changes(plain, sword)).toEqual(['group-presence:dc:A5G2']);
     expect(changes(sword, lone(lion(hold('maintaining', 'key', 'argent'))))).toEqual(['type:dc:A5G4']);
     expect(changes(sword, lone(lion(hold('maintaining', 'sword', 'gules'))))).toEqual(['tincture:dc:A5G3']);
+    // a held item proper is the tinctures its palette names, as a group proper is: a sword proper is a sword argent
+    expect(changes(sword, lone(lion(hold('maintaining', 'sword', 'proper'))))).toEqual([]);
+    expect(changes(lone(lion(hold('maintaining', 'sword', 'gules'))), lone(lion(hold('maintaining', 'sword', 'proper'))))).toEqual(['tincture:dc:A5G3']);
     // three changes of the held item (type, tincture, the way it is held) are one distinct change of each kind that counts
     expect(changes(sword, lone(lion(hold('sustaining', 'rose', 'gules'))))).toEqual(['type:dc:A5G4', 'tincture:dc:A5G3']);
     expect(changes(sword, lone(lion(hold('sustaining', 'sword', 'argent'))))).toEqual([]);
@@ -136,5 +155,12 @@ describe('held items (PLAN-D §1.5)', () => {
     ]);
     expect(issues(lone(charge('lion', { holds: [hold('maintaining', 'sword', 'gules')] }), 'gules', 'argent'))).toEqual([]);
     expect(issues(lone(charge('lion', { holds: [hold('maintaining', 'sword', 'or')] }), 'or', 'azure'))).toEqual([]);
+    // natural colours are judged as their palette: steel is a metal, argent for conflict
+    expect(issues(lone(charge('lion', { holds: [hold('maintaining', 'sword', 'proper')] }), 'gules', 'or'))).toEqual([
+      'held: The sword the lion holds (Proper) lies on Or: metal on metal',
+    ]);
+    expect(issues(lone(charge('lion', { holds: [hold('maintaining', 'sword', 'proper')] }), 'gules', 'argent'))).toEqual([
+      'held: The sword the lion holds (Proper) lies on Argent: same tincture',
+    ]);
   });
 });

@@ -22,6 +22,7 @@ import { PATHS_SHAPES } from '../src/lib/heraldry/art/procedural/shapes';
 import { PATHS_FOILS } from '../src/lib/heraldry/art/procedural/foils';
 import { PATHS_KNOTS } from '../src/lib/heraldry/art/procedural/knots';
 import { PATHS_CROSSES } from '../src/lib/heraldry/art/procedural/crosses';
+import { PATHS_WHEELS } from '../src/lib/heraldry/art/procedural/wheels';
 import { arms, charge, group, nd } from './helpers';
 
 const SRC = path.join(import.meta.dirname, '../src');
@@ -34,7 +35,7 @@ const MAIN_CHUNK_BESPOKE: readonly string[] = [
   'wing',
 ];
 
-const PROCEDURAL = { stars: PATHS_STARS, shapes: PATHS_SHAPES, foils: PATHS_FOILS, knots: PATHS_KNOTS, crosses: PATHS_CROSSES };
+const PROCEDURAL = { stars: PATHS_STARS, shapes: PATHS_SHAPES, foils: PATHS_FOILS, knots: PATHS_KNOTS, crosses: PATHS_CROSSES, wheels: PATHS_WHEELS };
 const CATEGORY_PATHS: Record<ChargeCategory, object> = {
   beast: PATHS_BEAST, monster: PATHS_MONSTER, bird: PATHS_BIRD, plant: PATHS_PLANT, geometric: PATHS_GEOMETRIC, cross: PATHS_CROSS,
   object: PATHS_OBJECT, modern: PATHS_MODERN,

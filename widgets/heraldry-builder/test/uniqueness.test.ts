@@ -258,6 +258,11 @@ describe('the primary group (A5E)', () => {
     expect(between(on('chalice'), on('tankard'))).toEqual(['type:dc:A5G4']);
     expect(between(on('tower'), on('goblet'))).toEqual(['type:sc:A5E2']);
     expect(between(on('bell'), on('hand'))).toEqual(['type:sc:A5E2']);
+    // D16b (guesses, A5G4): the wheel and the Catherine wheel share a class (DC), as the heart and the seeblatt do; the escarbuncle is a class of its own.
+    expect(between(on('wheel'), on('catherine-wheel'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('heart'), on('seeblatt'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('escarbuncle'), on('mullet'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('wheel'), on('gear'))).toEqual(['type:sc:A5E2']);
     // The aliases of the art in art/procedural/derived.ts are the type of the charge they name (PLAN-D §1.6 T1: hawk = raven = falcon, rapier and dagger = sword,
     // coney and rabbit = hare, coronet = crown); a vol, a pair of wings, has a token of its own.
     for (const [alias, named] of [['hawk', 'raven'], ['hawk', 'falcon'], ['rapier', 'sword'], ['dagger', 'rapier'], ['coney', 'hare'], ['rabbit', 'coney'], ['coronet', 'crown']] as const) {

@@ -368,8 +368,8 @@ export function setPart(d: Design, path: GroupPath, part: PiecePart, on: boolean
 
 /**
  * The charge at `path` holding `item` (null: nothing; PLAN-D §1.5) `how` it is held, by default the way it held the last one where that is
- * still offered, else the first way offered (`holdChoices`), and in `paint`, by default the last one's, else the first tincture that stands
- * out from the field (`firstHeldPaint`). A picture holding something has no room for pictures on it: they are dropped.
+ * still offered, else the first way offered (`holdChoices`), and in `paint`, by default the last one's (natural colours only if the new item
+ * has them), else the first tincture that stands out from the field (`firstHeldPaint`). A picture holding something has no room for pictures on it: they are dropped.
  */
 export function setHold(d: Design, path: GroupPath, item: ChargeId | null, how: HoldHow | null = null, paint: Paint | null = null): Design {
   const g = groupAt(d, path);
@@ -379,7 +379,8 @@ export function setHold(d: Design, path: GroupPath, item: ChargeId | null, how: 
   const way = how ?? (was && ways.includes(was.how) ? was.how : ways[0]);
   if (item === null || way === undefined) return withHold(d, path, null);
   const held = { how: way, item: chargeItem(item, null) as Extract<Group['item'], { k: 'charge' }> };
-  const changed = withHold(d, path, { ...held, paint: paint ?? was?.paint ?? firstHeldPaint(d, path, held) });
+  const kept = was && (was.paint.k !== 'proper' || CHARGES[item].proper) ? was.paint : null;
+  const changed = withHold(d, path, { ...held, paint: paint ?? kept ?? firstHeldPaint(d, path, held) });
   const parts = partsOf(changed);
   return parts.onPicture && parts.picture?.item.k === 'charge' && parts.picture.item.holds.length > 0 ? refitLayers(assembleParts(changed, { ...parts, onPicture: null })) : changed;
 }

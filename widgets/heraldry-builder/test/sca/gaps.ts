@@ -421,7 +421,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
    * Where a hold the widget draws ends (the word before its item) when `words[i]` begins one, else -1 (PLAN-D §1.5): a charge the widget has,
    * alone on the field, holding a single charge that may be held, as drawn, the way its sidecar row takes ("maintaining", "sustaining",
    * holding, grasping or supporting it; "maintaining in its beak", "… in its mouth"), "each" doing so when there are more of them. The item
-   * is followed by its tincture or by what follows it ("a lion maintaining a sword, a bordure Or"). Anything else stays a gap.
+   * is followed by its tincture (or "proper", where it has natural colours) or by what follows it ("a lion maintaining a sword, a bordure Or").
+   * Anything else stays a gap.
    */
   const drawnHoldEnd = (i: number): number => {
     const holder = last?.kind === 'charge' && last.el?.ctx === 'field' ? last.el : null;
@@ -435,7 +436,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     if (!CHARGES[c].holds.includes(how) || !/^an?$/.test(words[end + 1] ?? '') || item?.k !== 'charge' || !CHARGES[item.id].holdable) return -1;
     const next = words[end + 3];
     // "maintaining a rose gules, slipped and leaved vert": a held item with details of its own is not drawn
-    const after = look(end + 3)?.e.k === 'tinc' ? (words[end + 4] === BREAK ? end + 5 : end + 4) : -1;
+    const painted = look(end + 3)?.e.k === 'tinc' || (look(end + 3)?.e.k === 'proper' && CHARGES[item.id].proper !== null);
+    const after = painted ? (words[end + 4] === BREAK ? end + 5 : end + 4) : -1;
     if (after >= 0 && look(after)?.e.k === 'mod') return -1;
     const ends = next === undefined || next === BREAK || after >= 0 || /^(between|within)$/.test(next) || (next === 'and' && /^(on|in|within|overall|all)$/.test(words[end + 4] ?? ''));
     return ends ? end : -1;

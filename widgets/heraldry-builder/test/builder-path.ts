@@ -7,7 +7,7 @@
 
 import {
   CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, formChoices, cutChoices, detailChoices, partChoices, pieceTinctureChoices, holdChoices, heldTinctureChoices, HOLDABLE_IDS, type HoldHow, isPiece, isPiecePart, PROPER_PIECES, type PieceId, type PiecePart, pointsChoices, cutOf, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, formChoices, cutChoices, detailChoices, partChoices, pieceTinctureChoices, holdChoices, heldTinctureChoices, heldProperChoice, HOLDABLE_IDS, type HoldHow, isPiece, isPiecePart, PROPER_PIECES, type PieceId, type PiecePart, pointsChoices, cutOf, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
   type ChargeForm, type ChargeId, type Choice, type ModifierId, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
@@ -222,14 +222,17 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       return choiceReason(partChoices(d, path), a.part) ?? piecePaintReason(setPart(d, path, a.part, true), path, a.part, a.paint);
     }
     case 'hold': {
-      // The Details disclosure's Holding: the item in its select, the way it is held, then its colour.
+      // The Details disclosure's Holding: the item in its select, the way it is held, then its colour or natural colours.
       const path = pathAt(d, a.at);
       if (!path) return `there is no ${a.at} to hold ${a.item}`;
       if (holdChoices(d, path).length === 0) return `the ${a.at} has no Holding select`;
       if (!HOLDABLE_IDS.includes(a.item)) return `the Holding select does not list ${a.item}`;
       const holding = setHold(d, path, a.item);
+      const held = setHold(holding, path, a.item, a.how);
+      const proper = a.paint.k === 'proper' ? heldProperChoice(held, path) : null;
       return choiceReason(holdChoices(holding, path), a.how)
-        ?? (a.paint.k === 'tincture' ? choiceReason(heldTinctureChoices(setHold(holding, path, a.item, a.how), path), a.paint.t) : `a held ${a.item} of ${JSON.stringify(a.paint)} is not offered`);
+        ?? (a.paint.k === 'tincture' ? choiceReason(heldTinctureChoices(held, path), a.paint.t)
+          : proper ? choiceReason([proper], 'proper') : `a held ${a.item} of ${JSON.stringify(a.paint)} is not offered`);
     }
     case 'charge-tincture': {
       const path = pathAt(d, a.at);

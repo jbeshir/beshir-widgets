@@ -3,7 +3,6 @@
 
 import type { Tincture } from './tinctures';
 import { drawnBox } from './charge-art';
-import { PROPER } from './art/meta/common';
 import { fimbriationOf, isVoided, notSupported, paintTinctures, walkGroups, type Charge, type Design, type Group, type GroupPath, type Paint } from './design';
 import { badgeTransform, CANONICAL_SHAPE, shapeFrame, type ArtPose, type Slot } from './geometry';
 import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
@@ -70,17 +69,13 @@ function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | nul
   return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape), overlays: [...chargeOverlays(item), ...overlays.map(pieceOverlay)] };
 }
 
-/** The natural colours of a piece drawn proper: flames are fire's (support.ts draws no other piece proper). */
-const PIECE_PROPER: Partial<Record<OverlayPart, string>> = { flames: PROPER.fire.fills[0] };
-
-/** A piece's paint as a fill: a tincture, or its natural colour. */
-function pieceFill(part: OverlayPart, p: Paint): LeafFill {
-  if (p.k === 'tincture') return { k: 'solid', colour: { k: 'tincture', t: p.t } };
-  const hex = p.k === 'proper' ? PIECE_PROPER[part] : undefined;
-  return hex ? { k: 'solid', colour: { k: 'proper', hex } } : notSupported({ category: 'charge-modifier', detail: part });
+/** A piece's or held item's paint as a fill: a tincture, or its natural colour. */
+function pieceFill(o: ArtOverlay): LeafFill {
+  if (o.paint.k === 'tincture') return { k: 'solid', colour: { k: 'tincture', t: o.paint.t } };
+  return o.paint.k === 'proper' && o.natural ? { k: 'solid', colour: { k: 'proper', hex: o.natural } } : notSupported({ category: 'charge-modifier', detail: o.part });
 }
 
-const pieceOverlay = (o: ArtOverlay): ChargeOverlay => ({ effect: 'fill', part: o.part, art: o.d, under: o.under, fill: pieceFill(o.part, o.paint) });
+const pieceOverlay = (o: ArtOverlay): ChargeOverlay => ({ effect: 'fill', part: o.part, art: o.d, under: o.under, fill: pieceFill(o) });
 
 /** The effects a charge's modifiers draw with its art: fimbriated in a tincture (support.ts draws no other paint), voided. */
 function chargeOverlays(item: Charge): ChargeOverlay[] {
