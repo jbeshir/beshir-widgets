@@ -2,7 +2,7 @@
 
 import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 import { joinAnd, numberWord } from './words';
-import { CHARGES, drawnPoints, postureGloss, type ChargeForm, type ModifierId } from './charges';
+import { CHARGES, drawnPoints, postureGloss, type ChargeForm, type ModifierId, type PartId } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
 import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, fimbriationOf, isVoided, notSupported, type Arrangement, type Charge, type Pair, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
@@ -299,6 +299,21 @@ const FORM_GLOSS: Partial<Record<ChargeForm, { one: string; many: string }>> = {
 };
 const CUT_GLOSS: Partial<Record<ModifierId, string>> = { couped: 'cut off straight', erased: 'cut off with a ragged edge' };
 
+/** What each piece a charge's parts and details draw looks like, given its colour (null: in its natural colours). */
+const PIECE_GLOSS: ReadonlyArray<[ModifierId | PartId, (colour: string | null) => string]> = [
+  ['slipped', (c) => `on a ${c} stem`], ['leaved', (c) => `with ${c} leaves`], ['enflamed', (c) => (c ? `in ${c} flames` : 'in flames')],
+  ['winged', (c) => `with ${c} wings`], ['crowned', (c) => `wearing a ${c} crown`], ['collared', (c) => `with a ${c} collar`],
+];
+
+/** A charge's pieces as they look, after it: ", wearing a red crown", ", on a green stem with green leaves", ", in flames". */
+function piecesGloss(c: Charge): string {
+  const words = PIECE_GLOSS.flatMap(([id, say]) => {
+    const paint = c.mods.find((m) => m.id === id)?.paint ?? c.parts.find((p) => p.part === id)?.paint ?? null;
+    return paint ? [say(colourOf(paint))] : [];
+  });
+  return words.length ? `, ${words.join(', ')}` : '';
+}
+
 /**
  * The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word), "the head and neck of a
  * gold wolf, cut off with a ragged edge".
@@ -315,9 +330,9 @@ function chargesSubject(g: Group, count: number): string {
   const orientation = g.item.orientation && ORIENTATION_LABEL[g.item.orientation].plain.toLowerCase();
   const words = [lead, colour, noun, posture, gaze, facing, orientation].filter(Boolean).join(' ');
   const form = g.item.form && FORM_GLOSS[g.item.form];
-  if (!form) return words;
+  if (!form) return words + piecesGloss(g.item);
   const cut = g.item.mods.map((m) => CUT_GLOSS[m.id]).find((w) => w !== undefined);
-  return `${count === 1 ? form.one : form.many} ${words}${cut ? `, ${cut}` : ''}`;
+  return `${count === 1 ? form.one : form.many} ${words}${cut ? `, ${cut}` : ''}${piecesGloss(g.item)}`;
 }
 
 /** "three red five-pointed stars, two above one"; counterchanged: "…stars in the opposite colours of the field (…), two above one". */

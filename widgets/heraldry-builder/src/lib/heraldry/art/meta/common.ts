@@ -44,3 +44,9 @@ export const EVERY_WAY: readonly Orientation[] = [
  * fimbriated (§1.4 M10), so only the roundel, lozenge, delf, mullet, billet and triangle take them.
  */
 export const OUTLINED: readonly ModifierId[] = ['voided', 'fimbriated'];
+
+/**
+ * The detail of the beasts drawn with a wing behind them (art batch A3: a `wings` anchor on their main drawings, PLAN-D §1.4 M13); support.ts
+ * draws it on the drawings that have the anchor.
+ */
+export const WINGED: readonly ModifierId[] = ['winged'];

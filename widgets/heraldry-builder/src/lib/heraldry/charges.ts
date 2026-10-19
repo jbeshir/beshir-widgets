@@ -87,6 +87,7 @@ export const CHARGE_IDS = [
   'compass-star', 'mascle', 'rustre', 'fusil', 'delf', 'triangle', 'triquetra', 'trefoil', 'quatrefoil', 'cinquefoil', 'ermine-spot',
   'cross-couped', 'cross-latin', 'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory', 'cross-patonce', 'cross-potent',
   'cross-maltese', 'cross-celtic', 'cross-tau',
+  'wing',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -152,6 +153,7 @@ export const TYPE_CLASSES = {
   'cross-celtic': { source: 'Not among the families of App M1f; at least a DC from the crosses bottony, formy and couped, read here as a type of its own (herald question D14)', guess: true },
   spark: { source: 'A5E2: clearly unrelated shapes are substantially different; the spark is the charge of estencely', guess: true },
   triquetra: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the other knots', guess: true },
+  wing: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the feather or the bird', guess: true },
   'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 

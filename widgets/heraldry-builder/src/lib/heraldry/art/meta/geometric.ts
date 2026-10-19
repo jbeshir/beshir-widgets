@@ -14,7 +14,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: ['voided', 'of-points', 'fimbriated', 'pierced'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
     glossName: 'five-pointed star', glossPlural: 'five-pointed stars', plain: { word: 'star', plural: 'stars' }, search: ['star'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 33, y: 38, w: 34, h: 36 }, anchors: {}, neck: null },
     },
@@ -33,7 +33,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
     glossName: 'crescent moon', glossPlural: 'crescent moons', plain: { word: 'moon', plural: 'moons' }, search: ['moon'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 29, y: 53, w: 40, h: 24 }, anchors: {}, neck: null },
     },
@@ -48,7 +48,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: ['in-splendour'], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'sun', glossPlural: 'suns', plain: null, search: [],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 27, y: 24, w: 44, h: 50 }, anchors: {}, neck: null },
     },
@@ -60,12 +60,12 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: ['winged', 'enflamed'], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.88, detail: 0, proper: null,
     glossName: 'heart', glossPlural: 'hearts', plain: null, search: [],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: true,
     drawings: {
-      _: { onBox: { x: 22, y: 13, w: 56, h: 52 }, anchors: {}, neck: null },
+      _: { onBox: { x: 22, y: 13, w: 56, h: 52 }, anchors: { crown: { x: 50, y: 10, size: 30, rotation: 0 }, wings: { x: 99, y: 21, size: 46, rotation: 15 } }, neck: null },
     },
     provenance: HAND_DRAWN,
   },
@@ -75,10 +75,10 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: [], wording: {} },
-    forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
+    forms: [], mods: [], details: [...OUTLINED, 'enflamed'], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.9, detail: 0, proper: null,
     glossName: 'disc', glossPlural: 'discs', plain: null, search: ['circle', 'disc', 'disk', 'dot'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 22, y: 22, w: 56, h: 56 }, anchors: {}, neck: null },
     },
@@ -93,7 +93,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.92, detail: 0, proper: null,
     glossName: 'ring', glossPlural: 'rings', plain: null, search: ['ring'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -108,7 +108,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'upright rectangle', glossPlural: 'upright rectangles', plain: null, search: ['rectangle', 'brick'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 33, y: 24, w: 34, h: 52 }, anchors: {}, neck: null },
     },
@@ -123,7 +123,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'diamond', glossPlural: 'diamonds', plain: null, search: ['diamond'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 38, y: 32, w: 24, h: 36 }, anchors: {}, neck: null },
     },
@@ -138,7 +138,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'drop', glossPlural: 'drops', plain: null, search: ['drop', 'teardrop', 'droplet'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 36, y: 48, w: 28, h: 32 }, anchors: {}, neck: null },
     },
@@ -153,7 +153,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: ['of-points'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
     glossName: 'six-rayed star with wavy rays', glossPlural: 'six-rayed stars with wavy rays', plain: null, search: ['star'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -168,7 +168,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
     glossName: 'spark', glossPlural: 'sparks', plain: null, search: [],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -183,7 +183,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
     glossName: 'star with eight points, four of them long', glossPlural: 'stars with eight points, four of them long', plain: null, search: ['star', 'compass'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -198,7 +198,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'hollow diamond', glossPlural: 'hollow diamonds', plain: null, search: ['diamond'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -213,7 +213,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'diamond with a round hole', glossPlural: 'diamonds with a round hole', plain: null, search: ['diamond'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -228,7 +228,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'narrow diamond', glossPlural: 'narrow diamonds', plain: null, search: ['diamond'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 42, y: 32, w: 16, h: 36 }, anchors: {}, neck: null },
     },
@@ -243,7 +243,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 0.88, detail: 0, proper: null,
     glossName: 'square', glossPlural: 'squares', plain: null, search: ['square'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 26, y: 26, w: 48, h: 48 }, anchors: {}, neck: null },
     },
@@ -258,7 +258,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'triangle', glossPlural: 'triangles', plain: null, search: [],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 34, y: 46, w: 32, h: 32 }, anchors: {}, neck: null },
     },
@@ -273,7 +273,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'three-looped knot', glossPlural: 'three-looped knots', plain: null, search: ['knot', 'trinity'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -288,7 +288,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'ermine tail', glossPlural: 'ermine tails', plain: null, search: ['ermine'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },

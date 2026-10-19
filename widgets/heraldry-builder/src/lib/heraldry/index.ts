@@ -89,6 +89,8 @@ export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type
 export type { PatternSpec, SolidColour } from './patterns';
 export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox, drawnBox, opticalScale } from './charge-art';
 export { CHARGE_ART, CORE_ART_IDS } from './art/paths/index';
+export { OVERLAY_PIECES } from './art/paths/pieces';
+export { OVERLAY_MODIFIERS, overlaidArt } from './overlay-art';
 export { bboxOf, ringDepths, ringProblems, turnFit } from './art/geometry';
 export { crossPath } from './art/procedural/crosses';
 export { ERASED_TEETH, TURNED_POSTURES, derivedPath, isTurnedPosture } from './art/procedural/derived';

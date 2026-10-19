@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, isTurnedPosture, pathRings, ringDepths, ringProblems,
+  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, OVERLAY_PIECES, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, isTurnedPosture, pathRings, ringDepths, ringProblems,
   type ArtKey, type ChargeId, type DrawingMeta,
 } from '../src/lib/heraldry';
 import { rings } from './art-geometry';
@@ -91,6 +91,12 @@ describe('the charge art', () => {
     ]);
     expect(derived).toHaveLength(13);
     expect(derived.flatMap(([id, key, d]) => drawingProblems(d, { onBox: null, anchors: {}, neck: null }).map((rule) => `${id} ${key} ${rule}`))).toEqual([]);
+  });
+
+  it('keeps it in the overlay pieces (art batch A3), each drawn in its own box: all but the size and centring of a whole charge', () => {
+    const problems = Object.entries(OVERLAY_PIECES).flatMap(([piece, d]) =>
+      drawingProblems(d, { onBox: null, anchors: {}, neck: null }).filter((rule) => rule !== 'size' && rule !== 'centre').map((rule) => `${piece} ${rule}`));
+    expect(problems).toEqual([]);
   });
 
   it('stays within the byte budget of a charge', () => {

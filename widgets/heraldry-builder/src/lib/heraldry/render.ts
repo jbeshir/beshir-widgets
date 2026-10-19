@@ -2,13 +2,15 @@
 // walk order (each group followed by the groups on it). DOM-free; Shield.tsx turns layers into SVG.
 
 import type { Tincture } from './tinctures';
-import { chargePath, drawnBox } from './charge-art';
-import { fimbriationOf, isVoided, paintTinctures, walkGroups, type Charge, type Design, type Group, type GroupPath } from './design';
+import { drawnBox } from './charge-art';
+import { PROPER } from './art/meta/common';
+import { fimbriationOf, isVoided, notSupported, paintTinctures, walkGroups, type Charge, type Design, type Group, type GroupPath, type Paint } from './design';
 import { badgeTransform, CANONICAL_SHAPE, shapeFrame, type ArtPose, type Slot } from './geometry';
 import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
 import { chargePoses } from './pose';
 import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
+import { overlaidArt, type ArtOverlay, type OverlayPart } from './overlay-art';
 import type { FieldShape } from './shape';
 
 /** What an ordinary layer paints, in paint order: its fimbriation under its body, the body, then its cotises. */
@@ -16,10 +18,14 @@ type OrdinaryPartRole = 'fimbriation' | 'body' | 'cotises';
 export interface OrdinaryPart { readonly role: OrdinaryPartRole; readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly fill: Fill }
 
 /**
- * A render effect drawn with a charge's own art in each of its slots (PLAN-D §0.3.5): its fimbriation, the art under it edged
- * `FIMBRIATION_WIDTH` wider all round in the fimbriation's fill, or its voiding, the charge kept only `VOIDED_WIDTH` in from its edge.
+ * What a charge's modifiers and parts draw with it in each of its slots (PLAN-D §0.3.5): its fimbriation, the art under it edged
+ * `FIMBRIATION_WIDTH` wider all round in the fimbriation's fill; its voiding, the charge kept only `VOIDED_WIDTH` in from its edge; or a
+ * piece (overlay-art.ts) filled in its paint, under the charge or over it (a collar clipped to the charge's outline).
  */
-export type ChargeOverlay = { effect: 'fimbriation'; fill: LeafFill } | { effect: 'voided' };
+export type ChargeOverlay =
+  | { effect: 'fimbriation'; fill: LeafFill }
+  | { effect: 'voided' }
+  | { effect: 'fill'; part: OverlayPart; art: string; under: boolean; fill: LeafFill };
 
 /** How far a fimbriation reaches out from a charge's edge, in art units (of its 100-unit box). */
 export const FIMBRIATION_WIDTH = 3.5;
@@ -59,10 +65,22 @@ function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | nul
   const { item } = group;
   if (item.k !== 'charge') throw new RangeError('Not a charge.');
   const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, item));
-  const art = chargePath(item);
+  const { art, overlays } = overlaidArt(item);
   const poses = chargePoses(item, group.arrangement, slots, art);
-  return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape), overlays: chargeOverlays(item) };
+  return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape), overlays: [...chargeOverlays(item), ...overlays.map(pieceOverlay)] };
 }
+
+/** The natural colours of a piece drawn proper: flames are fire's (support.ts draws no other piece proper). */
+const PIECE_PROPER: Partial<Record<OverlayPart, string>> = { flames: PROPER.fire.fills[0] };
+
+/** A piece's paint as a fill: a tincture, or its natural colour. */
+function pieceFill(part: OverlayPart, p: Paint): LeafFill {
+  if (p.k === 'tincture') return { k: 'solid', colour: { k: 'tincture', t: p.t } };
+  const hex = p.k === 'proper' ? PIECE_PROPER[part] : undefined;
+  return hex ? { k: 'solid', colour: { k: 'proper', hex } } : notSupported({ category: 'charge-modifier', detail: part });
+}
+
+const pieceOverlay = (o: ArtOverlay): ChargeOverlay => ({ effect: 'fill', part: o.part, art: o.d, under: o.under, fill: pieceFill(o.part, o.paint) });
 
 /** The effects a charge's modifiers draw with its art: fimbriated in a tincture (support.ts draws no other paint), voided. */
 function chargeOverlays(item: Charge): ChargeOverlay[] {

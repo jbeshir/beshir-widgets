@@ -7,7 +7,7 @@ import { capitalise } from './words';
 import { CHARGES, postureTerm, type ChargeId, type Orientation, type Posture, type PostureClass, type TypeClass } from './charges';
 import {
   asParty, asVariation, canonical, canonicalLines, fieldParts, fimbriationOf, groupAt, hostOf, isFieldPrimary, isVoided, itemKey, itemName, notSupported, primaryGroups,
-  type Design, type Group, type GroupPath, type Item, type Paint, type Role,
+  type Charge, type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, partCount, type Division, type Variation } from './divisions';
 import { divisionPartGrid } from './geometry';
@@ -99,6 +99,14 @@ const SUN_POINTS = 8;
  * charge or a head is a type of its own within its beast's class (§1.4 M1, M2: a DC from the whole beast, its cut ignored: M4). An
  * ordinary's is its type.
  */
+/**
+ * What a charge's parts and details add to its type (PLAN-D §1.4): wings, on any charge (M13: a winged charge and a plain one are a DC apart;
+ * the winged fleur-de-lys exception is not made, herald question D8), and a collar on a head (M12; on a whole beast it is nothing). A crown
+ * (M11), flames, a slip and leaves (M14) count for nothing; a crowned inanimate charge would be a DC (M11b), but none is drawn.
+ */
+const typeMarks = (item: Charge): string[] =>
+  [...(item.mods.some((m) => m.id === 'winged') ? ['winged'] : []), ...(item.form === 'head' && item.parts.some((p) => p.part === 'collared') ? ['collared'] : [])];
+
 function typeTokens(item: Item): readonly string[] {
   if (item.k === 'ordinary') return [typeKey(item)];
   const meta = CHARGES[item.charge];
@@ -107,7 +115,8 @@ function typeTokens(item: Item): readonly string[] {
   const own = STAR_TOKENS[item.charge] ?? [meta.typeToken ?? meta.typeOf ?? item.charge];
   const points = item.mods.find((m) => m.id === 'of-points')?.count ?? null;
   const tokens = points !== null && points >= SUN_POINTS ? [...own, 'sun'] : own;
-  return item.form ? tokens.map((t) => `${t}:${item.form}`) : tokens;
+  const formed = item.form ? tokens.map((t) => `${t}:${item.form}`) : tokens;
+  return formed.map((t) => `${t}${typeMarks(item).map((m) => `+${m}`).join('')}`);
 }
 
 /** A5E2/A5G4: of different classes, or of one class with no type token in common. */

@@ -14,7 +14,7 @@ export const META_MODERN = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.15, detail: 1, proper: null,
     glossName: 'musical note', glossPlural: 'musical notes', plain: null, search: ['music', 'note'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -29,7 +29,7 @@ export const META_MODERN = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: PROPER.fire,
     glossName: 'flame', glossPlural: 'flames', plain: null, search: ['fire'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 58, y: 37, w: 24, h: 38 }, anchors: {}, neck: null },
     },
@@ -44,7 +44,7 @@ export const META_MODERN = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.9, detail: 0, proper: null,
     glossName: 'gear', glossPlural: 'gears', plain: null, search: ['cog', 'gear', 'gearwheel'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -59,7 +59,7 @@ export const META_MODERN = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.1, detail: 1, proper: null,
     glossName: 'lightbulb', glossPlural: 'lightbulbs', plain: null, search: ['light bulb', 'lamp'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 29, y: 17, w: 42, h: 30 }, anchors: {}, neck: null },
     },

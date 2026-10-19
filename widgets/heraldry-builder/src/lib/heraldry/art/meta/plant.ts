@@ -11,12 +11,12 @@ export const META_PLANT = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: ['palewise', 'inverted'], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: ['slipped', 'leaved'], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.88, detail: 0, proper: PROPER.rose,
     glossName: 'rose', glossPlural: 'roses', plain: null, search: [],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
-      _: { onBox: { x: 20, y: 21, w: 60, h: 56 }, anchors: {}, neck: null },
+      _: { onBox: { x: 20, y: 21, w: 60, h: 56 }, anchors: { slip: { x: 50, y: 95, size: 36, rotation: 0 } }, neck: null },
     },
     provenance: HAND_DRAWN,
   },
@@ -29,7 +29,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 2, proper: PROPER.foliage,
     glossName: 'tree', glossPlural: 'trees', plain: null, search: [],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 21, y: 18, w: 58, h: 38 }, anchors: {}, neck: null },
     },
@@ -44,7 +44,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'lily (fleur-de-lis)', glossPlural: 'lilies (fleurs-de-lis)', plain: { word: 'lily', plural: 'lilies' }, search: ['lily', 'lilies', 'fleur'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: { x: 36, y: 28, w: 28, h: 42 }, anchors: {}, neck: null },
     },
@@ -59,7 +59,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'three-lobed clover leaf', glossPlural: 'three-lobed clover leaves', plain: { word: 'clover', plural: 'clovers' }, search: ['shamrock'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -74,7 +74,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'four-petalled flower', glossPlural: 'four-petalled flowers', plain: null, search: ['flower'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -89,7 +89,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'five-petalled flower', glossPlural: 'five-petalled flowers', plain: null, search: ['flower'],
-    headName: null, holdable: false,
+    headName: null, holdable: false, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },

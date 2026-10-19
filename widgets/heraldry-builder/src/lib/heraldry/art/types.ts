@@ -124,6 +124,8 @@ export interface ChargeMeta {
   headName: { one: string; many: string } | null;
   /** May be held by another charge. */
   holdable: boolean;
+  /** Drawn winged with a pair of wings, one rising from each side (the heart; art batch A3), not one wing behind it (a beast). */
+  pairedWings: boolean;
   /** Its drawings: the same keys as its path row. */
   drawings: Partial<Record<ArtKey, DrawingMeta>>;
   provenance: Provenance;

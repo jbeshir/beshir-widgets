@@ -216,7 +216,7 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   triquetra: 'symbol', trefoil: 'plant', quatrefoil: 'plant', cinquefoil: 'plant', 'ermine-spot': 'symbol',
   'cross-couped': 'cross', 'cross-latin': 'cross', 'cross-formy': 'cross', 'cross-bottony': 'cross', 'cross-moline': 'cross',
   'cross-flory': 'cross', 'cross-patonce': 'cross', 'cross-potent': 'cross', 'cross-maltese': 'cross', 'cross-celtic': 'cross',
-  'cross-tau': 'cross',
+  'cross-tau': 'cross', wing: 'bird',
 };
 
 /** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */

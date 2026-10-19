@@ -28,6 +28,7 @@ import {
 import { BUILDER_DIVISIONS, DIVISION_PART_LABEL, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, gazeDrawn, pairPlaced, unsupportedIssues } from './support';
+import { OVERLAY_MODIFIERS } from './overlay-art';
 import { ofOtherClass, withPaint, withPartner, type FieldPart } from './paint-target';
 import { isPeripheralPlace, placeKind, placesIn, type Placed } from './places';
 import { FACING_LABEL, GAZE_LABEL, PAIR_LABEL, PLACE_LABEL } from './plain-words';
@@ -849,14 +850,15 @@ export function firstFimbriation(d: Design, path: GroupPath): Paint {
  * The details the group's charge may be drawn with, from its sidecar `details` but the number of points (`pointsChoices`): voided,
  * fimbriated, pierced, fitchy. One that is on can always be switched off; switching one on is blocked where SENA A3C refuses it
  * (`charge-treatment`: only the main charges, not both voided and fimbriated, none voided in a badge, three at most), or for a
- * fimbriation, where no tincture of it would stand out (§1.4 M10, M16).
+ * fimbriation, where no tincture of it would stand out (§1.4 M10, M16). The details drawn as pieces (winged, enflamed, slipped, leaved) are not
+ * offered yet: their toggles come with their tincture pickers (PLAN-D D9b).
  */
 export function detailChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
   const g = groupAt(d, path);
   if (g.item.k !== 'charge') return [];
   const { mods } = g.item;
   const here = (i: Issue) => i.at.k === 'group' && samePath(i.at.path, path);
-  return CHARGES[g.item.charge].details.filter((id) => id !== 'of-points').map((id) => {
+  return CHARGES[g.item.charge].details.filter((id) => id !== 'of-points' && !OVERLAY_MODIFIERS.includes(id)).map((id) => {
     if (mods.some((m) => m.id === id)) return ok(id);
     const on = withModifier(d, path, id, true, id === 'fimbriated' ? { count: null, paint: firstFimbriation(d, path) } : NO_MODIFIER_VALUE);
     const refused = structuralIssues(on).find((i) => i.code === 'structure' && i.rule === 'charge-treatment' && here(i));

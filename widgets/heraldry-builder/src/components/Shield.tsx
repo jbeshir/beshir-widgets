@@ -102,6 +102,8 @@ interface Ids {
   chargeClip: (key: string, i: number) => string;
   /** The mask a voided group's charges are painted through: their band along the edge. */
   voidMask: (key: string) => string;
+  /** The clip of a group's charge art in its own box: what a collar is cut to. */
+  artClip: (key: string) => string;
   pattern: (spec: PatternSpec) => string;
   /** The tile that masks a pattern's hatch: its ground shows the hatch, its marks hide it. */
   hatchMask: (spec: PatternSpec) => string;
@@ -116,6 +118,7 @@ function makeIds(uid: string): Ids {
     region: (key, i) => `region-clip-${uid}-g${key}-${i}`,
     chargeClip: (key, i) => `charge-clip-${uid}-g${key}-${i}`,
     voidMask: (key) => `void-mask-${uid}-g${key}`,
+    artClip: (key) => `art-clip-${uid}-g${key}`,
     pattern: (spec) => `pattern-${uid}-${spec.id}`,
     hatchMask: (spec) => `hatch-tile-${uid}-${spec.id}`,
     leafMask: (key, at) => `hatch-mask-${uid}-g${key}-${at}`,
@@ -284,7 +287,9 @@ function OrdinaryShape({ layer, scope, stroke }: { layer: OrdinaryLayer; scope: 
 /**
  * A group's charges, painted and outlined, with the effects of their modifiers (`ChargeOverlay`): a fimbriation is the art under each
  * charge, stroked wider in its tincture; a voided group is painted through a mask of the art's band along its edge, so the ground
- * shows in the middle. The effects' strokes scale with the charge (art units), unlike the outline.
+ * shows in the middle. The effects' strokes scale with the charge (art units), unlike the outline. The pieces of its parts and details
+ * are drawn with the charge's slot and pose, each outlined as the charge is: wings, flames and slips under it, a collar (clipped to the
+ * charge's art) and a crown over it.
  */
 function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: Scope; shieldPx: number | undefined }) {
   const { ids, key, overlay } = scope;
@@ -293,6 +298,14 @@ function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: 
   // Without any paint (counterchanged on a plain field) the outline is all there is to see.
   const outlinePx = !box ? 0 : layer.fills.length ? chargeOutlinePx(shieldPx, box) : CHARGE_OUTLINE_PX;
   const voided = layer.overlays.some((o) => o.effect === 'voided');
+  const clipped = layer.overlays.some((o) => o.effect === 'fill' && o.part === 'collar');
+  const pieces = (under: boolean) => layer.overlays.map((o, i) => o.effect === 'fill' && o.under === under && layer.slots.map((s, j) => (
+    <path
+      key={`${i}-${j}`} d={o.art} transform={chargeTransform(s, layer.poses[j])} fill={paintOf(o.fill, ids)} fill-rule="evenodd"
+      stroke={OUTLINE_COLOUR} stroke-width={outlinePx} vector-effect="non-scaling-stroke" stroke-linejoin="round"
+      clip-path={o.part === 'collar' ? `url(#${ids.artClip(key)})` : undefined} data-overlay={o.part} data-paint={fillCode(o.fill)}
+    />
+  )));
   const painted = layer.fills.map((f, i) => (
     <Painted key={i} fill={f.fill} clip={undefined} scope={scope} at={String(i)} leaf={(leaf, at) => {
       const hatch = hatchOf(leaf, overlay);
@@ -323,6 +336,8 @@ function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: 
   ));
   return (
     <g data-layer="charges" data-group={key}>
+      {clipped && <clipPath id={ids.artClip(key)}><path d={layer.art} clip-rule="evenodd" /></clipPath>}
+      {pieces(true)}
       {layer.overlays.map((o, i) => o.effect === 'fimbriation' && layer.slots.map((s, j) => (
         <path
           key={`${i}-${j}`} d={layer.art} transform={chargeTransform(s, layer.poses[j])} fill={paintOf(o.fill, ids)} fill-rule="evenodd"
@@ -341,6 +356,7 @@ function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: 
           vector-effect="non-scaling-stroke" stroke-linejoin="round"
         />
       ))}
+      {pieces(false)}
     </g>
   );
 }
