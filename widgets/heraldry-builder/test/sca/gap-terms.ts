@@ -55,6 +55,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     caribou ibex gazelle pig sow hog piglet beaver raccoon skunk opossum possum aardvark anteater armadillo kangaroo
     wombat koala llama alpaca capybara hippopotamus rhinoceros seal walrus panda porcupine sloth cub beast
     attire antler massacre jambe jamb gamb gambe paw scalp
+    polar-bear
   `),
   bird: w(`
     peahen crane heron stork alerion popinjay parrot cock rooster hen
@@ -73,12 +74,14 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     lion-dragon chatloup ypotryll zydrach troll demon devil gorgon frauenadler musimon antelope pantheon bagwyn wurm
     lindwurm qilin kirin baku tengu kitsune east-asian-dragon dragonet werewolf bonacon cetus hippocamp lamia
     alicorn monster
+    male-griffin
   `),
   fish: w(`
     pike lucy luce salmon trout carp herring hake cod codfish eel whale orca shark catfish swordfish stingray
     manta ray crab lobster crayfish crawfish shrimp prawn octopus polypus squid calamary calamarie nautilus whelk
     shell seashell conch cockle oyster mussel sea-urchin jellyfish starfish sea-nettle sturgeon mackerel
     perch roach bream barbel tench goldfish koi flounder plaice angelfish narwhal manatee haddock sardine anchovy
+    bottlenosed-dolphin
   `),
   reptile: w(`
     snake adder viper cobra rattlesnake asp python lizard chameleon gecko iguana skink turtle tortoise
@@ -94,7 +97,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     palmer soldier warrior viking dancer harper jester fool shepherd smith miller baker hunter sailor angel cherub
     seraph savage wodewose giant dwarf elf fairy moor saracen child boy girl figure person head face bust torso
     skull skeleton bone tooth arm cubit-arm leg foot fist finger thumb eye ear nose mouth lip beard moustache
-    hair tress brain mask footprint handprint foi
+    hair tress brain mask footprint human-footprint handprint foi
   `),
   plant: w(`
     laurel oak wreath garland chaplet bouquet leaf lily-of-the-valley lotus water-lily ivy holly vine
@@ -127,6 +130,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     knife caltrap caltrop grenade cannon gun handgun musket pistol rifle sling catapult trebuchet swepe
     ballista battering-ram chaine-shot skyrocket rocket bomb chakram shuriken boomerang helm helmet armour armor
     gauntlet shield buckler targe chamfron morion cuirass breastplate hauberk
+    ukrainian-trident
   `),
   tool: w(`
     sledgehammer mallet tongs bellows spindle drop-spindle distaff shuttle bobbin spool skein
@@ -138,7 +142,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     shacklebolt hook fishhook grapnel net horseshoe bridle bit snaffle-bit stirrup saddle spur rowel spur-rowel
     prickspur hames barnacle yoke brush paintbrush palette pen penner inkwell inkhorn penbox pen-box staff crozier
     crook crutch wand rod stick fleam lancet razor keythong furison grozing crampon crampet scoop noose whip
-    scourge lure jess press quintain weight slow-match match tool
+    scourge lure jess press quintain weight slow-match match tool thors-hammer
   `),
   household: w(`
     cup mug stein beaker mazer drinking-horn cauldron pot fleshpot kettle pan pail bowl ewer
@@ -153,6 +157,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     domino toy ball doll puppet whirligig rattle whistle wagon cart carriage flag banner pennon pennant
     pennoncelle gonfanon gonfalon standard ensign water-bouget bouget cornucopia torse card-pique pique bauble
     glass dish platter tablet thurible censer altar paternoster rosary beads grail keyhole ribbon tassel tub
+    closed-book
   `),
   clothing: w(`
     hat cap chapeau hood glove shoe boot slipper sandal maunch maunche sleeve belt girdle buckle cloak mantle robe
@@ -163,13 +168,13 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     lute lyre horn hunting-horn bugle bugle-horn trumpet clarion recorder flute pipe bagpipe drum tabor doumbek
     dumbek kettledrum viol viola violin fiddle rebec gittern guitar cittern mandolin oud psaltery dulcimer
     panpipe organ zil cymbal tambourine handbell sackbut shawm hautboy crwth harpsichord sistrum shofar
-    ocarina quaver clef g-clef
+    ocarina quaver clef g-clef hawks-bell
   `),
   building: w(`
     fortress fort keep turret bridge gate gateway door arch archway column pillar wall church chapel
     cathedral temple mosque pagoda torii house cottage hall barn mill windmill lighthouse tent pavilion yurt well
     weir keystone battlement portcullis dolmen menhir trilithon pyramid obelisk cairn city town dome minaret spire
-    steeple chimney roof window stair staircase brick portal
+    steeple chimney roof window stair staircase brick portal spired-tower
   `),
   ship: w(`
     ship lymphad drakkar longship galley galleon caravel carrack boat knorr hulk canoe rowboat coracle raft barge
@@ -380,7 +385,7 @@ export const MODIFIERS: Record<string, string> = Object.fromEntries([
     beset irised bellied chainless shedding apaumy clouded cracked framed looped unfurled mastless feathered
     leathered ruined thorned skeletal sundered garbed ribboned sufflexed snagged portalled sailless loaded
     elongated rayonnant`),
-  ['ducally', 'crowned'], ['issuing', 'issuant'], ['imbrued', 'embrued'], ['pommeled', 'pommelled'],
+  ['issuing', 'issuant'], ['imbrued', 'embrued'], ['pommeled', 'pommelled'],
   ['jewelled', 'jeweled'], ['tasseled', 'tasselled'], ['queue-forchy', 'queue-fourchy'],
   ['queue-forchee', 'queue-fourchy'], ['queue-fourchee', 'queue-fourchy'], ['queued', 'queue-fourchy'],
   ['double-queued', 'queue-fourchy'], ['caboshed', 'cabossed'], ['holding', 'maintaining'],
@@ -484,7 +489,7 @@ export const QUALIFIER_WORDS = w(`
   outward outwards inward inwards straight round flat broad ancient antique empty wild polar brunette blonde male
   female diverse various arabic arabian asian east eastern western roman greek grecian norse irish scottish
   japanese chinese egyptian african caucasian ukrainian cornish continental bengal russian german english french
-  danish norman saxon gothic lombardic uncial hebrew persian ionic county ducal comedy tragedy theatrical dunghill
+  danish norman saxon gothic lombardic uncial hebrew persian ionic county ducal ducally comedy tragedy theatrical dunghill
   capital lowercase uppercase blackletter script wine cooking kitchen drawing knitting tilting bottlenosed paschal
   praying world new old wards tips tip form iron wood leather cloth thread string cord lace oil frame handle link
   span phrase spread bladed opening ending shipped triply headed splendor splendour lochaber ansteorra equal

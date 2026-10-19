@@ -207,11 +207,16 @@ const JOINS: [RegExp, string][] = [
   [/\blight ?bulbs?\b/g, 'lightbulb'],
   [/\bcompass[- ](stars?|roses?)\b/g, 'compass-$1'],
   [/\bsea (\w+)/g, 'sea-$1'],
+  // "a natural dolphin", "a natural panther": the creature drawn as in nature, not as the widget's (`lookupUncached`)
+  [/\bnatural (?=[a-z])/g, 'natural-'],
   [/\bdemi (\w+)/g, 'demi-$1'],
   [/\bcubit arms?\b/g, 'cubit-arm'],
   [/\bchess[- ](rook|knight|piece|king|queen|pawn|bishop)s?\b/g, 'chess-$1'],
   [/\b(drinking|hunting|bugle)[- ]horns?\b/g, '$1-horn'],
-  [/\b(paw|foot|hoof|hand) ?prints?\b/g, 'pawprint'],
+  // a paw or hoof print is the widget's pawprint; a (human) foot or hand print is another charge
+  [/\bhuman (?:foot ?prints?|footprints?)\b/g, 'human-footprint'],
+  [/(?<![\w-])(foot|hand) prints?\b/g, '$1print'],
+  [/(?<![\w-])(paw|hoof) ?prints?\b/g, 'pawprint'],
   [/\bermine spots?\b/g, 'ermine-spot'],
   [/\blaurel wreaths?\b/g, 'laurel-wreath'],
   [/\boak (leaf|leaves)\b/g, 'oak-leaf'],
@@ -246,6 +251,16 @@ const JOINS: [RegExp, string][] = [
   [/\b(rod|staff|staves) of (aesculapius|asclepius)\b/g, 'staff-of-aesculapius'],
   [/\bqueue[- ](fourchy|forchy|fourchee|forchee)\b/g, 'queue-fourchy'],
   [/\bshooting stars?\b/g, 'comet'],
+  // charges the widget lacks named after one it has: a Thor's hammer is not its hammer, nor a hawk's bell its bell, a closed book its open one
+  [/\bthor'?s hammers?\b/g, 'thors-hammer'],
+  [/\bhawks?'?s?'? bells?\b/g, 'hawks-bell'],
+  [/\bclosed books?\b/g, 'closed-book'],
+  [/\bopen (books?)\b/g, 'open-$1'], // one word, so "maintaining an open book" holds it (`drawnHoldEnd`)
+  [/\bukrainian tridents?(?: heads?)?\b/g, 'ukrainian-trident'],
+  [/\bpolar bears?\b/g, 'polar-bear'],
+  [/\bmale griffins?\b/g, 'male-griffin'],
+  [/\bbottle-?nosed dolphins?\b/g, 'bottlenosed-dolphin'],
+  [/\bspired towers?\b/g, 'spired-tower'],
   [/\bjoscelyn knots?\b/g, 'joscelyn-knot'],
   [/\byin[- ]yang\b/g, 'yin-yang'],
   [/\bchi[- ]rho\b/g, 'chi-rho'],
@@ -302,6 +317,13 @@ function lookupUncached(word: string): Found | null {
     return rest ? { ...rest, extra: { k: 'mod', v: 'demi' } } : { lem: word, e: { k: 'mod', v: 'demi' } };
   }
   if (parts[0] === 'sea' && parts.length > 1) return { lem: word, e: { k: 'gapCharge', b: 'monster', v: word } };
+  // "natural-dolphin" (JOINS): a charge of its own in the bucket of the creature; "natural colours" are just colours
+  if (parts[0] === 'natural' && parts.length > 1) {
+    const rest = lookup(parts.slice(1).join('-'));
+    if (rest?.e.k === 'charge') return { lem: word, e: { k: 'gapCharge', b: SUPPORTED_CHARGE_BUCKET[rest.e.id], v: `natural-${rest.e.id}` } };
+    if (rest?.e.k === 'gapCharge') return { lem: word, e: { ...rest.e, v: `natural-${rest.e.v}` } };
+    return rest;
+  }
   const last = parts[parts.length - 1];
   if (/^(armed|sided|sized|shaped|colou?red|skinned|nosed|edged)$/.test(last)) return { lem: word, e: { k: 'skip' } }; // "equal-armed", "light-skinned"
   if (/^(winged|headed|tailed|horned|bladed|bitted|hilted|towered|legged|petall?ed|pointed|leaved|leafed|arched|bodied|masted|spoked|footed|eyed|necked|tongued|handled|stringed|tiered|peaked|lobed|rayed|limbed|fanged|crowned|hooded|bellied|backed|maned|tusked)$/.test(last)) {
@@ -385,6 +407,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   };
   /** The charge just read when the widget has it, else null. */
   const chargeLast = (): ChargeId | null => (last?.kind === 'charge' ? (last.el?.supported as ChargeId | null | undefined) ?? null : null);
+  /** Whether the element just read is a charge the widget lacks: its tag already files it, with whatever it does. */
+  const gapChargeLast = (): boolean => last?.kind === 'charge' && last.el !== null && last.el.supported === null;
   /**
    * Whether the charge just read takes this detail or part ("a mullet voided", "a lozenge azure fimbriated argent", "a cross formy fitchy",
    * "a heart winged", "a lion crowned").
@@ -412,6 +436,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let ordEnd = -1; // the index of the last word of the latest band or shape, whose line may follow
   let divisionEnd = -1; // the index of the last word of the field's division, whose line may follow
   let fieldDivision = ''; // … and the division it divides the field in ("quarterly per fess" is quartered)
+  const fieldTinctures: string[] = []; // … and the tinctures of its parts, in order
 
   const words = tokens.map((t) => t.word);
   const look = (i: number) => (i >= 0 && i < tokens.length && words[i] !== BREAK ? lookup(words[i]) : null);
@@ -539,18 +564,36 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       const partName = lem === 'skull' && baseName === 'death' ? 'skull' : `${baseName}-${lem}`;
       tag(`charge-${bucket}`, partName);
       possBase = null;
-      newElement('charge', null);
+      // its cut ("an eagle's head erased") is filed with it: the part is the gap
+      heads.add(newElement('charge', null));
       continue;
     }
     possBase = null;
 
     switch (e.k) {
-      case 'qual': break;
+      case 'qual':
+        // "four crescents in cross horns outward", "pheons points inward": the widget points charges to the center only
+        if (/^(outwards?|inwards?)$/.test(lem) && /^(points?|horns?|tips?|heads?|bases?)$/.test(prev)) tag('orientation', lem.replace(/s$/, ''));
+        break;
       case 'skip':
         // "a mullet azure and another gules", "on a cross argent another gules": a second group or ordinary
         if (lem === 'another' && last && last.el) newElement(last.el.kind, last.el.supported);
         // "a unicorn argent charged with a heart", "three flames each charged with a heart": the groups after lie on the one before
         else if (lem === 'charged' && words[i + 1] === 'with' && last?.el) onHost = last.el;
+        // "a dragon charged on the shoulder with a rose": the widget sets what a charge carries in its middle, not on a part of it
+        else if (lem === 'charged' && /^(on|at)$/.test(words[i + 1] ?? '') && words[i + 2] === 'the' && last?.el) {
+          tag('placement', `on-${lemma(words[i + 3] ?? '') ?? words[i + 3]}`);
+          onHost = last.el;
+          i += words[i + 4] === 'with' ? 4 : 3;
+        }
+        // "a saltire surmounted by a sun", "a sword debruised by a bend": the widget words what lies across a charge "and overall"
+        else if ((lem === 'surmounted' || lem === 'debruised') && words[i + 1] === 'by') { tag('multiple-groups', lem); i++; }
+        // "a tower within a laurel wreath", "a lion within an annulet": the widget sets no charge around another but in a ring of them
+        else if (lem === 'within' && ARTICLES.has(words[i + 1] ?? '') && /^(charge|gapCharge)$/.test(look(i + 2)?.e.k ?? '')) tag('multiple-groups', 'within-charge');
+        // "a boar atop a mount", "a rose atop an anvil": nor one standing on another
+        else if (lem === 'atop') tag('placement', 'atop');
+        // "a phoenix rising from flames": the widget's phoenix rises from flames of its own tincture, drawn with it
+        else if (lem === 'from' && look(i + 1)?.lem === 'flame') { tag('charge-modifier', 'from-flames'); i++; }
         break;
       case 'and':
         // "maintaining a sword and a key" vs "… a sword, and in chief …": a new clause ends a held phrase
@@ -598,16 +641,24 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         pendingCount = e.n;
         break;
       }
-      case 'tinc': ofNext = false; untincturedOrd = false; break;
-      case 'cc':
+      case 'tinc':
+        if (inField) fieldTinctures.push(lem);
+        ofNext = false; untincturedOrd = false;
+        break;
+      case 'cc': {
         // "a bordure counterchanged", "a chevron between three bees counterchanged" (tinctures factor
         // backward): the widget's ordinaries take a single tincture
         // (drawn on a field of two parts: "Per pale Or and gules, a bend counterchanged")
         if (divisions === 0 && !patternedField && (untincturedOrd || (last?.kind === 'ord' && last.el === els[els.length - 1] && look(i - 1)?.e.k !== 'tinc'))) tag('tincture', 'counterchanged-ordinary');
-        // "a heart counterchanged vert and argent": divided as the field is (the widget draws that on a divided field only)
-        if (look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc' && divisions === 0) tag('tincture', 'party');
+        // "a heart counterchanged vert and argent": divided as the field is (the widget draws that on a divided field only); several
+        // charges so on a divided field are counterchanged when the tinctures are the field's the other way round ("Per pale argent and
+        // vert, three hearts counterchanged vert and argent"), else each part's charges are of a tincture of their own ("… Or and sable")
+        const named = look(i + 1)?.e.k === 'tinc' && words[i + 2] === 'and' && look(i + 3)?.e.k === 'tinc' ? [words[i + 1], words[i + 3]] : null;
+        const swapped = named !== null && named[0] === fieldTinctures[1] && named[1] === fieldTinctures[0];
+        if (named && (divisions === 0 || ((last?.el?.count ?? 1) > 1 && !swapped))) tag('tincture', 'party');
         untincturedOrd = false;
         break;
+      }
       case 'proper': {
         // A charge that has natural colours, painted in them: "a lion proper", but not "a brown owl proper" (a qualifier says which natural colours).
         if (prev === 'enflamed' && detailedLast('enflamed')) break; // "a heart gules enflamed proper": flames in fire's colours
@@ -720,7 +771,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       case 'posture': {
         // "a wolf couchant": the widget's wolf has no couchant (its lion has); the posture is kept for a head turned after it
         const c = last?.kind === 'charge' ? last.el?.supported as ChargeId | null : null;
-        if (e.v === 'close' && /^(couped|erased)$/.test(prev)) break; // "couped close"
+        // "a boar's head couped close": cut off behind the jaw, which the widget does not draw (its heads keep the neck)
+        if (e.v === 'close' && /^(couped|erased)$/.test(prev)) { tag('charge-modifier', `${prev}-close`); break; }
         if (c && !POSTURE_WORDS[c].has(lem === 'hauriant' ? 'haurient' : lem)) tag('posture', lem);
         if (c) last!.el!.posture = e.v;
         break;
@@ -739,12 +791,19 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         // "a pale (wavy) Or endorsed argent": a pale's cotises
         if (words[i] === 'endorsed' && last?.kind === 'ord' && last.el === els[els.length - 1]) { contextWord('cotised', i); break; }
         if (e.v === CONTOURNY ? facingLast() : PAIR_WORDS.has(e.v) && facingLast()?.count === 2) break; // "a lion contourny", "two wolves combattant": drawn
+        // "a tiger contourny", "two swans' heads addorsed": the charge the widget lacks is the gap, its facing would be drawn
+        if ((e.v === CONTOURNY || PAIR_WORDS.has(e.v)) && gapChargeLast()) break;
+        // "a swan rousant", "a serpent nowed", "a wyvern erect": the charge's own posture word
+        if (chargeLast() !== null && POSTURE_WORDS[chargeLast()!].has(lem)) break;
+        // "a raven volant, wings addorsed": the wings' position, not two charges back to back
+        if (e.v === 'addorsed' && /^wings?$/.test(prev)) { tag('posture', 'wings-addorsed'); break; }
         tag('posture', e.v);
         break;
       case 'orient':
         // "engrailed to chief and invected to base" describes the lines, not a charge
         if (/^to-/.test(lem) && (look(i - 1)?.e.k === 'line' || look(i - 2)?.e.k === 'line' || words[i - 1] === 'elongated')) break;
         if (prev === 'parted') break; // "a bordure parted bordurewise"
+        if (/^(that|those)$/.test(prev)) break; // "two roses, that to dexter Or, that to sinister sable": which one, not a turn
         if (e.v === 'to-sinister' && facingLast() && !/^heads?$/.test(prev)) break; // "a lion rampant to sinister" is contourny: drawn (not "an eagle, head to sinister")
         if (turnedLast(e.v)) break; // "a sword fesswise": drawn
         tag('orientation', e.v);
@@ -761,17 +820,30 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         // "a lion Or maintaining a sword argent", "three eagles each maintaining in its beak a key": drawn (the matcher reads it), the item held
         const holdEnd = e.v === 'maintaining' ? drawnHoldEnd(i) : -1;
         if (holdEnd >= 0) { held = true; heldOne = true; i = holdEnd; break; }
-        tag('charge-modifier', e.v);
+        // "a bull winged", "a winged pig", "a ram's head crowned": the charge the widget lacks is the gap, not the piece it would draw on it
+        const onGapCharge = /^(crowned|winged)$/.test(e.v) && (gapChargeLast() || (tok.word === 'winged' && next?.k === 'gapCharge'));
+        if (!onGapCharge) tag('charge-modifier', e.v);
         if ((e.v === 'maintaining' && !/ed$/.test(tok.word)) || e.v === 'wearing') held = true;
         // "crowned of a coronet", "gorged with a chaplet": the crown is part of the charge
         if (/^(crowned|gorged|collared)$/.test(e.v) && /^(of|with)$/.test(words[i + 1] ?? '')) { held = true; i++; }
         break;
       }
       case 'ctx': contextWord(lem, i); break;
-      case 'container':
+      case 'container': {
+        // "a sheaf of arrows", "a sheaf of five spears", "a pair of hands", "two pairs of keys in saltire": the widget draws the charge, not a
+        // sheaf or pair of it
+        const at = NUMBERS[words[i + 2] ?? ''] > 1 ? i + 3 : i + 2;
+        const item = words[i + 1] === 'of' ? look(at)?.e : undefined;
+        if (item?.k === 'charge') {
+          tag(`charge-${SUPPORTED_CHARGE_BUCKET[item.id]}`, `${lem}-of-${CHARGES[item.id].plural}`);
+          settleHost(newElement('charge', null));
+          i = at;
+          break;
+        }
         if (words[i + 1] === 'of') { i++; break; }
         if (lem === 'sheaf') { tag('charge-plant', 'garb'); newElement('charge', null); }
         break;
+      }
       case 'of':
         if (last && (last.kind === 'charge' || last.kind === 'ord') && look(i + 1)) ofNext = true;
         break;
@@ -790,6 +862,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (descriptor(i) || qualifies(i)) break;
         if (e.id === 'annulet' && words[i + 1] === 'of') { tag('arrangement', 'in-annulo'); i++; break; } // "an annulet of dolphins"
         if (qualifier) { compound(qualifier, lem, SUPPORTED_CHARGE_BUCKET[e.id]); break; }
+        // "a sinister hand", "two sinister wings": the widget draws the one it has, not its mirror image (a charge that faces turns instead)
+        if (prev === 'sinister' && ARTICLES.has(words[i - 2] ?? '') && !CHARGES[e.id].faces) tag('charge-modifier', 'sinister');
         settleHost(newElement('charge', e.id));
         break;
       }

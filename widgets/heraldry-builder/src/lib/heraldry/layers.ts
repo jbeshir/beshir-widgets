@@ -390,7 +390,8 @@ export function overallItemChoices(d: Design): Choice<LayerItem>[] {
     const issue = [...unsupportedIssues(set), ...structuralIssues(set)].find((i) => i.at.k === 'group' && i.at.path.join() === at);
     return issue?.message ?? null;
   };
-  const main = parts.picture?.group.item;
+  // The main picture on the field; pictures carried by the band are another group, which the one overall may repeat (SENA A3D1a, as `structure`).
+  const main = parts.picture?.placement === 'field' ? parts.picture.group.item : undefined;
   const first = (long: boolean) => CHARGE_IDS.find((id) => CHARGES[id].long === long && !(main?.k === 'charge' && main.charge === id))!;
   const byLong = new Map<boolean, string | null>();
   const bands = OVERALL_ORDINARIES.map((type): Choice<LayerItem> => {

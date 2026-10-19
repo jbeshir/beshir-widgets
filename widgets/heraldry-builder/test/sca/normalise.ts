@@ -74,6 +74,12 @@ const NOUN = alt([
   ...DEMI_NOUNS, ...HEAD_NOUNS.map((noun) => `${noun}(?: couped| erased)?`),
 ]);
 const HEAD = alt(HEAD_NOUNS);
+/** The College's other spellings of the plural heads, each with the widget's ("wolf's heads", "wolves heads", "wolf heads" → "wolves' heads"). */
+const HEAD_PLURAL_OF = new Map(CHARGE_IDS.flatMap((id) => {
+  const { name, plural, forms, headName } = CHARGES[id];
+  return forms.includes('head') && headName ? [`${name}'s heads`, `${plural} heads`, `${name} heads`].map((s) => [s.toLowerCase(), headName.many.toLowerCase()] as const) : [];
+}));
+const HEAD_PLURAL_SPELLING = new RegExp(`(?<![\\w-])(?:${alt(HEAD_PLURAL_OF.keys())})(?![\\w-])`, 'g');
 /** Every posture word as the text may write it after a charge: the posture, the charge's own term ("segreant"), a two-word one in two words ("sejant erect"). */
 const POSTURE = alt([...POSTURES.flatMap((p) => [p, p.replace('-', ' ')]), ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).flatMap((p) => [postureTerm(id, p), postureWords(id, p)]))]);
 /** The words after the first of a two-word posture ("erect"): a posture word followed by one is not that posture. */
@@ -215,18 +221,20 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
   {
     // 3. Spelling variants of one term, listed as variants in the Glossary of Terms or the O&A style
     //    guide: "fleur-de-lis"/"-lys", "hauriant"/"haurient", "splendour"/"splendor" and "in his
-    //    splendor"/"in glory", "combatant"/"combattant", "gray"/"grey", "cog-wheel"/"cogwheel"; and
-    //    the serial comma of a count pattern ("two, two, and one").
+    //    splendor"/"in glory", "combatant"/"combattant", "gray"/"grey", "cog-wheel"/"cog wheel"/"cogwheel",
+    //    "counter-changed"/"counterchanged", and "fleurs de lis" in three words; and the serial comma of a count pattern ("two, two, and one").
     id: 'spelling',
-    description: 'fleur(s)-de-lis → -de-lys, hauriant → haurient, splendour/glory → splendor, combatant → combattant, gray → grey, cog-wheel → cogwheel, no serial comma.',
+    description: 'fleur(s)-de-lis and fleur(s) de lis/lys → -de-lys, hauriant → haurient, splendour/glory → splendor, combatant → combattant, gray → grey, cog-wheel/cog wheel → cogwheel, counter-changed → counterchanged, no serial comma.',
     apply: (s) => s
       .replace(/\bfleur(s?)-de-lis\b/g, 'fleur$1-de-lys')
+      .replace(/\bfleur(s?) de[- ]l[iy]s\b/g, 'fleur$1-de-lys')
+      .replace(/\bcounter-changed\b/g, 'counterchanged')
       .replace(/\bhauriant\b/g, 'haurient')
       .replace(/\bsplendour\b/g, 'splendor')
       .replace(/\bin (?:(?:his|its|their) )?(?:splendor|glory)\b/g, 'in splendor')
       .replace(/\bcombatant\b/g, 'combattant')
       .replace(/\bgray\b/g, 'grey')
-      .replace(/\bcog-wheels?\b/g, (m) => m.replace('-', ''))
+      .replace(/\bcog[- ]wheel(s?)\b/g, 'cogwheel$1')
       .replace(/\b(one|two|three|four|five|six|seven|eight), (one|two|three|four|five|six|seven|eight), and (one|two|three|four|five|six|seven|eight)\b/g, '$1, $2 and $3'),
   },
   {
@@ -234,11 +242,13 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //     ermine family "X ermined Y" names the fur whose ground and spots they are (argent ermined sable is ermine); "vairy argent and
     //     azure" and "potenty argent and azure" are vair and potent, whose tinctures those are; potent's two tinctures are one set either
     //     way round (Prec #FUR, 11/2006), so they are put in the palette's order; "en point" is "en pointe". A cross or saltire keeps
-    //     "potenty argent and azure": "a cross potent" is the cross type, not the fur (the widget writes the fur so).
+    //     "potenty argent and azure": "a cross potent" is the cross type, not the fur (the widget writes the fur so). "Counterermine" is
+    //     counter-ermine in one word.
     id: 'fur-synonyms',
-    description: 'ermines (the fur) → counter-ermine; argent/Or ermined sable and sable ermined argent/Or → ermine, erminois, counter-ermine, pean; vairy/potenty argent and azure → vair/potent; potenty A and B in palette order; en point → en pointe.',
+    description: 'ermines (the fur) and counterermine → counter-ermine; argent/Or ermined sable and sable ermined argent/Or → ermine, erminois, counter-ermine, pean; vairy/potenty argent and azure → vair/potent; potenty A and B in palette order; en point → en pointe.',
     apply: (s) => s
       .replace(ERMINES_FUR, 'counter-ermine')
+      .replace(/\bcounterermine\b/g, 'counter-ermine')
       .replace(new RegExp(`\\b(${COLOUR}) ermined (${COLOUR})\\b`, 'g'), (m, a: string, b: string) => FOLDED_ERMINES[`${a} ${b}`] ?? m)
       .replace(new RegExp(`\\bvairy ${FUR_SPEC.vair.ground} and ${FUR_SPEC.vair.spots}\\b`, 'g'), 'vair')
       .replace(new RegExp(`(?<!\\b(?:cross|crosses|crosslet|saltire|saltires) )(?<!\\b(?:${DIVISION_NAMES}) )(?<!\\b(?:${POTENTY_HOSTS}) )(?<!\\b(?:${VARIATION_NAMES}) )\\bpotenty (${COLOUR}) and (${COLOUR})\\b`, 'g'), (_m, a: string, b: string) => {
@@ -345,9 +355,9 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //     (the widget names a tincture shared by groups once, after the last). "Domestic cat" is the College's usual name for the cat (679 records, far more than "cat" alone),
     //     so it is the widget's cat. The monsters of batch B2 are spelt in more than one way (gryphon 197 + griffon 34 against griffin 1,084; wivern 26 against wyvern 408; "sea horse" 364 and "seahorse" 299 against "sea-horse"; "sea lion" 312 against "sea-lion"). A broad arrow is the pheon (broad-arrow, broadarrow and "broad arrow", 105 records; "pheon" itself 306) and "ax" is the axe (18). "Scallop" and "scallop shell" are the escallop (GoT Table 5 "See Escallop"; 14 records) and a dolphin's embowing is not blazoned and gives no difference (Table 5; "dolphin embowed" 55, "naiant embowed" 14). The
     //     Catherine wheel is also "Catherine's wheel" (43 records against 95); the heraldic wheel is a cartwheel, so a "wagon wheel" (54) or
-    //     "cartwheel" (15) is the wheel.
+    //     "cartwheel" (15) is the wheel. "Seeblätter" is the seeblatt's plural with its umlaut (23 records), "paw print" the pawprint in two words (29).
     id: 'charge-synonyms',
-    description: 'estoille → estoile; domestic cat(s) → cat(s); gryphon/griffon → griffin, wivern → wyvern, phenix → phoenix, sea horse/seahorse → sea-horse, sea lion/sealion → sea-lion; broad arrow(s) → pheon(s); ax → axe; scallop (shell) → escallop; dolphin (naiant) embowed (counter-embowed) → dolphin (naiant); Catherine\'s/Catharine wheel → Catherine wheel; wagon wheel, cart wheel, cartwheel → wheel; crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
+    description: 'estoille → estoile; domestic cat(s) → cat(s); gryphon/griffon → griffin, wivern → wyvern, phenix → phoenix, sea horse/seahorse → sea-horse, sea lion/sealion → sea-lion; broad arrow(s) → pheon(s); ax → axe; scallop (shell) → escallop; dolphin (naiant) embowed (counter-embowed) → dolphin (naiant); Catherine\'s/Catharine wheel → Catherine wheel; wagon wheel, cart wheel, cartwheel → wheel; seeblätter → seeblatter; paw print(s) → pawprint(s); crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
     apply: (s) => s
       .replace(NAMED_CHARGE, (match: string, name: string, arrangement: string, stated: string | undefined, offset: number) => {
         const named = NAMED_BY_WORD.get(name)!;
@@ -369,6 +379,8 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/(?<![\w-])(dolphins?)((?: naiant)?) embowed(?: counter-embowed)?(?! to\b)(?![\w-])/g, '$1$2')
       .replace(/(?<![\w-])(?:catherine's|catharine) (wheels?)(?![\w-])/g, 'catherine $1')
       .replace(/(?<![\w-])(?:wagon |cart ?)(wheels?)(?![\w-])/g, '$1')
+      .replace(/(?<![\w-])seeblätter(?![\w-])/g, 'seeblatter')
+      .replace(/(?<![\w-])paw prints?(?![\w-])/g, (m) => m.replace(' ', ''))
       .replace(/\bcross crosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslet\b/g, 'cross crosslet'),
@@ -504,7 +516,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //    and "between flaunches" (each takes the joiner the O&A uses most for it, PERIPHERAL_JOINER: counts in ordinaries.ts). Every
     //    element and tincture stays.
     id: 'equivalent-connectors',
-    description: '"and a chief/bordure", "within a bordure", "all within a bordure" → ", a chief/bordure"; ", a base/gyron/canton" → " and a …" and "and a point pointed/quarter" → ", a …", ", an orle/a double tressure" → " within …", ", flaunches" → " between flaunches" (each corner or edge shape takes the joiner the O&A uses most, PERIPHERAL_JOINER); "and in chief/base/canton" → ", in chief/base/canton"; no comma after "on a <ordinary> <tincture>" or after the tincture of what is set between it and a group on it; restore the comma after the field.',
+    description: '"and a chief/bordure", "within a bordure", "all within a bordure" → ", a chief/bordure"; ", a base/gyron/canton" → " and a …" and "and a point pointed/quarter" → ", a …", ", an orle/a double tressure" → " within …", ", flaunches" → " between flaunches" (each corner or edge shape takes the joiner the O&A uses most, PERIPHERAL_JOINER); "and in chief/base/canton" → ", in chief/base/canton"; no comma after "on a <ordinary> <tincture>" or after the tincture of what is set between it and a group on it; a comma before "a bordure" where a record omits it; restore the comma after the field.',
     apply: (s) => s
       .replace(/,? and (?=(?:a|on a) chief\b)/g, ', ')
       .replace(new RegExp(`,? and (?=(?:a|on a) (?:${joinedBy(', ')})\\b)`, 'g'), ', ')
@@ -515,6 +527,8 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(new RegExp(`(?:,? and|,|,? between) (?=(?:on )?(?:${joinedBy(' between ')})\\b)`, 'g'), (m: string, at: number, text: string) => (at === fieldComma(text) && m === ', ' ? m : ' between '))
       .replace(/,? and (?=in (?:chief|base|canton)\b)/g, ', ')
       .replace(/,? (?:and|(?:all )?within) (?=a bordure\b)/g, ', ')
+      // "a griffin argent a bordure ermine": the comma before a bordure, which some records omit
+      .replace(/(?<![,\s])(?<!\b(?:and|within|on|between|of|with|by|all|overall|charged|in|semy)) (?=a bordure\b)/g, ', ')
       .replace(new RegExp(`\\b(on (?:(?:a|an) (?:${ORDINARY}${BAND_PAINT}|chief(?:${ORDINARY_LINE})? ${TINCT})|${CORE} ${TINCT})),`, 'g'), '$1')
       .replace(new RegExp(`(\\bon (?:a|an) ${ORDINARY}(?:${BAND_PAINT})? between [^,]*? ${TINCT}), (?=(?:a|an|${NUMBER}) (?:${NOUN})\\b)`, 'g'), '$1 ')
       .replace(new RegExp(`^(${THREE_PART_START} ${TINCT}, ${TINCT} and ${TINCT}|${DIVISION_START} ${TINCT} and ${TINCT}|${VARIATION} ${COLOUR} and ${COLOUR}|${TINCT}) (?=(?:a|an|on|${NUMBER}|in) )`), '$1, '),
@@ -529,10 +543,10 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
   {
     // 5. A single host carries what is on it as "on <host> <group>" or "<host> charged with <group>": SENA writes both
     //    ("Azure, on a bend argent a mullet vert", "a lozenge sable charged with a roundel argent"); the widget words a
-    //    charge on a beast, monster or bird the second way and every other host the first.
+    //    charge on a beast, monster or bird the second way and every other host the first, a fieldless badge's too.
     id: 'charged-with',
-    description: '"<a host> <tincture> charged with <group>" → "on <a host> <tincture> <group>".',
-    apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?|${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})* ${TINCT}),? charged with `, 'g'), '$1on $2 '),
+    description: '"<a host> <tincture> charged with <group>" → "on <a host> <tincture> <group>", also after "(fieldless)".',
+    apply: (s) => s.replace(new RegExp(`(^|^\\(fieldless\\) |, | and )((?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?|${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})* ${TINCT}),? charged with `, 'g'), '$1on $2 '),
   },
   {
     // 5a0. A posture in the charge's own term (GoT; the sidecar's `postureWording`), which the widget writes: a stag passant is trippant,
@@ -565,11 +579,15 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
   {
     // 5a2. Demi charges and heads in the widget's words. "Demi lion" is "demi-lion"; the widget always states how a head is cut off
     //     (`canonical`: couped when it is not erased), so "a wolf's head" is "a wolf's head couped"; the cut stands next to the noun, before
-    //     "contourny" ("head erased contourny" 232 against 18). A head "caboshed" is a gap and keeps its words.
+    //     "contourny" ("head erased contourny" 232 against 18), also when the College writes "a lion's head, erased and sinister facing," (40).
+    //     The plural of a head is "wolves' heads" in the widget; the College mostly writes "two wolf's heads" (238 against 38; boar's, horse's,
+    //     unicorn's, lion's and dragon's heads 60–64 each), sometimes "wolves heads" or "wolf heads". A head "caboshed" is a gap and keeps its words.
     id: 'form-words',
-    description: 'demi X → demi-X; "<charge>\'s head" with no cut → "… couped" (not before caboshed); "head contourny erased" → "head erased contourny".',
+    description: 'demi X → demi-X; "<head>, couped/erased and sinister facing," → "<head> couped/erased contourny"; "<charge>\'s heads", "<charges> heads", "<charge> heads" → "<charges>\' heads"; "<charge>\'s head" with no cut → "… couped" (not before caboshed); "head contourny erased" → "head erased contourny".',
     apply: (s) => s
       .replace(/(?<![\w-])demi (?=[a-z])/g, 'demi-')
+      .replace(/(?<![\w-])(heads?),? (couped|erased) and sinister facing,?(?![\w-])/g, '$1 $2 contourny')
+      .replace(HEAD_PLURAL_SPELLING, (m) => HEAD_PLURAL_OF.get(m)!)
       .replace(new RegExp(`(?<![\\w-])(${HEAD}) contourny (couped|erased)(?![\\w-])`, 'g'), '$1 $2 contourny')
       .replace(new RegExp(`(?<![\\w-])(${HEAD})(?! (?:couped|erased|caboshed|cabossed))(?![\\w-])`, 'g'), '$1 couped'),
   },
@@ -617,14 +635,16 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     // 8. Divided groups. "Counterchanged <tincture> and <tincture>" names the tinctures of a single charge or ordinary divided as the field is
     //    ("Per pale gules and Or, a fleur-de-lys counterchanged Or and sable" is a fleur-de-lys per pale Or and sable); the widget words it
     //    as the division. Several charges so blazoned lie each in one part, divided only where one crosses the line (A5G3a), which is not
-    //    each charge divided, so their text is left alone.
+    //    each charge divided, so their text is left alone, unless they are the field's tinctures the other way round: "Per pale argent and
+    //    vert, three hearts counterchanged vert and argent" are three hearts counterchanged, each of the other part's tincture.
     id: 'divided-groups',
-    description: '"a <charge> counterchanged <tincture> and <tincture>" on a divided field → "a <charge> <the field\'s division> <tincture> and <tincture>"; no "each" before a division.',
+    description: '"a <charge> counterchanged <tincture> and <tincture>" on a divided field → "a <charge> <the field\'s division> <tincture> and <tincture>"; several charges "counterchanged <the field\'s second tincture> and <its first>" → "counterchanged"; no "each" before a division.',
     apply: (s) => {
-      const field = new RegExp(`^(${DIVISION_START}) ${TINCT} and ${TINCT}, `).exec(s);
+      const field = new RegExp(`^(${DIVISION_START}) (?<a>${TINCT}) and (?<b>${TINCT}), `).exec(s);
       // The group's own number is the last number word before "counterchanged".
       const single = new RegExp(`\\b(an?) ((?:(?!\\b${NUMBER}\\b)[^,])*?)\\bcounterchanged (${TINCT} and ${TINCT})\\b`, 'g');
-      const divided = field ? s.replace(single, `$1 $2${field[1]} $3`) : s;
+      const divided = field ? s.replace(single, `$1 $2${field[1]} $3`)
+        .replace(new RegExp(`(?<![\\w-])counterchanged ${escaped([field.groups!.b])} and ${escaped([field.groups!.a])}(?![\\w-])`, 'g'), 'counterchanged') : s;
       // "Three hearts each per pale gules and sable" and "three hearts per pale gules and sable": each charge is divided either way.
       return divided.replace(new RegExp(`\\beach (?=(?:${DIVISION_NAMES}) )`, 'g'), '');
     },

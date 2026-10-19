@@ -96,7 +96,7 @@ export const META_PLANT = {
     provenance: GENERATED,
   },
   acorn: {
-    name: 'acorn', plural: 'acorns', article: 'a', category: 'plant',
+    name: 'acorn', plural: 'acorns', article: 'an', category: 'plant',
     typeClass: 'acorn', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
@@ -156,7 +156,7 @@ export const META_PLANT = {
     provenance: { origin: 'original', author: 'phase-D art pipeline, B5, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (leaf outlines, ellipses, tapered stem strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
   },
   'oak-leaf': {
-    name: 'oak leaf', plural: 'oak leaves', article: 'a', category: 'plant',
+    name: 'oak leaf', plural: 'oak leaves', article: 'an', category: 'plant',
     typeClass: 'leaf', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
