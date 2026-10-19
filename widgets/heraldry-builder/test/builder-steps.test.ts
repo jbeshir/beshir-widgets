@@ -7,7 +7,7 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setBadge, setCharge, setFacing, setModifier, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { setBadge, setCharge, setCut, setForm, setFacing, setModifier, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
 import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, withLayout, CHARGES, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
@@ -712,7 +712,7 @@ describe('the Details disclosure under the picture', () => {
     // the outer disclosure draws its body only when open: a turned mullet shows the Details closed inside it
     expect(opened(render(setOrientation(pictured('mullet'), [0], 'inverted')), 'charge-details')).toEqual([{ open: false }]);
     expect(opened(render(setOrientation(pictured('sword'), [0], 'fesswise')), 'charge-details')).toEqual([]);
-    expect(opened(render(setFacing(pictured('lion'), [0], 'to-sinister')), 'charge-details')).toEqual([]);
+    expect(opened(render(setFacing(pictured('hare'), [0], 'to-sinister')), 'charge-details')).toEqual([]);
   });
 
   it('opens for a mullet of six points: the points 4 to 12, the drawn five marked, and the detail toggles', () => {
@@ -724,6 +724,19 @@ describe('the Details disclosure under the picture', () => {
     expect(html).toContain('5 (usual)');
     for (const id of ['mod-voided', 'mod-fimbriated', 'mod-pierced']) expect(ids(html), id).toContain(id);
     expect(ids(html)).not.toContain('mod-fimbriated-tincture');
+  });
+
+  it('shows the Shape row for a charge drawn as a demi charge or a head, and the Cut row for a head only', () => {
+    const lion = pictured('lion');
+    expect(opened(render(lion), 'charge-more')).toEqual([{ open: false }]);
+    const demi = setForm(lion, [0], 'demi');
+    expect(opened(render(demi), 'charge-details')).toEqual([{ open: true }]);
+    expect([...ids(render(demi))].filter((id) => id.startsWith('form-') || id.startsWith('cut-'))).toEqual(['form-whole', 'form-demi', 'form-head']);
+    expect(render(demi)).toMatch(/aria-checked="true"[^>]*id="form-demi"/);
+    const head = setCut(setForm(lion, [0], 'head'), [0], 'erased');
+    expect([...ids(render(head))].filter((id) => id.startsWith('cut-'))).toEqual(['cut-couped', 'cut-erased']);
+    expect(render(head)).toMatch(/aria-checked="true"[^>]*id="cut-erased"/);
+    for (const id of ['sword', 'mullet', 'sun'] as const) expect([...ids(render(pictured(id)))].filter((x) => x.startsWith('form-')), id).toEqual([]);
   });
 
   it('shows the edging\'s tincture while fimbriated, blocks what does not stand out, and explains a refused toggle', () => {

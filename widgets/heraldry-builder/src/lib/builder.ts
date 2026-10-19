@@ -5,12 +5,12 @@
 // and the picture (pictures on the band, a top band, a border) are heraldry/layers.ts.
 
 import {
-  CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
+  CHARGES, COLOURS, CUT_MODIFIERS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
   firstFimbriation, withModifier, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge, drawnLayout, layoutContext,
   partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
-  type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
+  type ChargeForm, type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
@@ -303,6 +303,22 @@ export function setFacing(d: Design, path: GroupPath, facing: Facing): Design {
 /** The charge at `path` turned this way (null: as usual); the pictures on it are refitted to its turned drawing. */
 export function setOrientation(d: Design, path: GroupPath, orientation: Orientation | null): Design {
   return refitLayers(withItem(d, path, (item) => ({ ...item, orientation })));
+}
+
+/**
+ * The charge at `path` drawn whole (null), as a demi charge or as a head. A head or demi charge has no posture or turned head (a whole one
+ * goes back to the posture it is drawn in), and only a head is cut: `canonical` couples a head, any other shape loses its cut.
+ */
+export function setForm(d: Design, path: GroupPath, form: ChargeForm | null): Design {
+  return refitLayers(withItem(d, path, (item) => ({
+    ...item, form, posture: form === null ? CHARGES[item.charge].defaultPosture : null, gaze: null,
+    mods: form === 'head' ? item.mods : item.mods.filter((m) => !CUT_MODIFIERS.includes(m.id)),
+  })));
+}
+
+/** The head at `path` cut off straight (couped) or ragged (erased). */
+export function setCut(d: Design, path: GroupPath, cut: ModifierId): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, mods: [...item.mods.filter((m) => !CUT_MODIFIERS.includes(m.id)), { id: cut, count: null, paint: null }] })));
 }
 
 /** The charge at `path` with its head turned (null: looking ahead, as drawn). */

@@ -64,8 +64,16 @@ const OUTLINE_WORD = `(?:fimbriated|endorsed|${COTISES})`;
 const OUTLINE = `(?: ${OUTLINE_WORD}(?: plain| ${LINE})?)`;
 /** What a band is painted with: its tincture, then its outline and the tincture of that, or its outline and its tincture (" gules fimbriated Or", " cotised azure"). */
 const BAND_PAINT = `(?: ${TINCT}(?:${OUTLINE}(?: ${TINCT})?)?|${OUTLINE}(?: ${TINCT})?)`;
-/** Every charge noun, lower case as the text reads once the case rule has run, with the charges' nouns for how they point ("increscent"). */
-const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural, ...Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [w.name, w.plural] : []))]).map((noun) => noun.toLowerCase()));
+/** The heads the widget draws, by their nouns ("wolf's head", "lions' heads"), lower case. */
+const HEAD_NOUNS = CHARGE_IDS.flatMap((id) => (CHARGES[id].forms.includes('head') && CHARGES[id].headName ? [CHARGES[id].headName!.one, CHARGES[id].headName!.many] : [])).map((noun) => noun.toLowerCase());
+/** The demi charges the widget draws, by their nouns ("demi-lion", "demi-lions"), lower case. */
+const DEMI_NOUNS = CHARGE_IDS.flatMap((id) => (CHARGES[id].forms.includes('demi') ? [`demi-${CHARGES[id].name}`, `demi-${CHARGES[id].plural}`] : [])).map((noun) => noun.toLowerCase());
+/** Every charge noun, lower case as the text reads once the case rule has run, with the charges' nouns for how they point ("increscent"), their demi charges and their heads with the cut that follows ("wolf's head erased"). */
+const NOUN = alt([
+  ...CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural, ...Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [w.name, w.plural] : []))]).map((noun) => noun.toLowerCase()),
+  ...DEMI_NOUNS, ...HEAD_NOUNS.map((noun) => `${noun}(?: couped| erased)?`),
+]);
+const HEAD = alt(HEAD_NOUNS);
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
 /** The modifiers the widget words after a noun: "in splendor", "fitchy", "voided", "pierced", a star's "of six points" ("of eight rays"). */
 const MODIFIER = `(?:${alt(Object.values(MODIFIER_WORDS))}|of (?:${alt(NUMBER_WORDS)}) (?:points|rays))`;
@@ -461,6 +469,17 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(FACING_EACH_OTHER_WORD, (_, noun: string, pose: string, written: string) => facingEachOtherWords(noun, pose, written))
       .replace(/\bcontourny guardant\b/g, 'guardant contourny')
       .replace(/\bregardant contourny\b/g, 'contourny regardant'),
+  },
+  {
+    // 5a2. Demi charges and heads in the widget's words. "Demi lion" is "demi-lion"; the widget always states how a head is cut off
+    //     (`canonical`: couped when it is not erased), so "a wolf's head" is "a wolf's head couped"; the cut stands next to the noun, before
+    //     "contourny" ("head erased contourny" 232 against 18). A head "caboshed" is a gap and keeps its words.
+    id: 'form-words',
+    description: 'demi X → demi-X; "<charge>\'s head" with no cut → "… couped" (not before caboshed); "head contourny erased" → "head erased contourny".',
+    apply: (s) => s
+      .replace(/(?<![\w-])demi (?=[a-z])/g, 'demi-')
+      .replace(new RegExp(`(?<![\\w-])(${HEAD}) contourny (couped|erased)(?![\\w-])`, 'g'), '$1 $2 contourny')
+      .replace(new RegExp(`(?<![\\w-])(${HEAD})(?! (?:couped|erased|caboshed|cabossed))(?![\\w-])`, 'g'), '$1 couped'),
   },
   {
     // 5b. Which way a charge points, in the SCA's other words for the widget's (SENA App G; GoT Table 7): "barwise" is fesswise, "inverted

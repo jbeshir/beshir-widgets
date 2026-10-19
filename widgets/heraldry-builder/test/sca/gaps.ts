@@ -384,6 +384,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const c = chargeLast();
     return c !== null && CHARGES[c].details.includes(detail as ModifierId);
   };
+  /** The heads the widget draws ("a wolf's head"): they take a cut, couped or erased. */
+  const heads = new Set<Element>();
+  const headLast = (): boolean => last?.kind === 'charge' && last.el !== null && heads.has(last.el);
   let onHost: Element | null = null; // "on a fess …": later groups lie on it
   let betweenHost: Element | null = null; // "a fess between …": the next group surrounds it
   let held = false; // inside "maintaining …" / "in its beak …"
@@ -477,7 +480,8 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       continue;
     }
     const { lem, e } = found;
-    if (found.extra?.k === 'mod') tag('charge-modifier', found.extra.v);
+    // demi-lion: the demi charges the widget draws have none to file
+    if (found.extra?.k === 'mod' && !(found.extra.v === 'demi' && e.k === 'charge' && CHARGES[e.id].forms.includes('demi'))) tag('charge-modifier', found.extra.v);
     const prev = i > 0 ? words[i - 1] : BREAK;
 
     // A possessive: "a wolf's head" (compound charge) or "a smith's hammer" (just a qualifier).
@@ -488,6 +492,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
     if (possBase && PARTS.has(lem)) {
       const base = possBase.e;
+      if (lem === 'head' && base.k === 'charge' && CHARGES[base.id].forms.includes('head')) {
+        heads.add(newElement('charge', base.id)); // "a wolf's head" is drawn
+        possBase = null;
+        continue;
+      }
       const bucket: ChargeBucket = base.k === 'gapCharge' ? base.b : base.k === 'charge' ? SUPPORTED_CHARGE_BUCKET[base.id] : 'human';
       const baseName = base.k === 'charge' ? base.id : possBase.lem;
       const partName = lem === 'skull' && baseName === 'death' ? 'skull' : `${baseName}-${lem}`;
@@ -692,7 +701,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         tag('orientation', e.v);
         break;
       case 'mod':
-        if (turnedLast(e.v)) break; // "a crescent pendant"
+        if (turnedLast(e.v) || (e.v === 'erased' && headLast())) break; // "a crescent pendant", "a wolf's head erased"
         if (detailedLast(e.v)) break; // "a mullet pierced"
         tag('charge-modifier', e.v);
         if ((e.v === 'maintaining' && !/ed$/.test(tok.word)) || e.v === 'wearing') held = true;
@@ -843,6 +852,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     }
     // a detail the widget draws on that charge: a cross's foot sharpened ("a cross formy fitchy"; "fitchy at all points" is another
     // cross), a charge voided or fimbriated ("a lozenge azure fimbriated argent")
+    if (headLast() && (base === 'couped' || base === 'erased')) return;
     if (detailedLast(base)) {
       if (words[i + 1] === 'at' && words[i + 2] === 'all') tag('charge-modifier', 'fitchy-at-all-points');
       return;

@@ -20,7 +20,7 @@ import { capitalise, joinList, numberWord } from './words';
 import {
   AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, drawnLayout, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
-import { CHARGES, FACINGS, ORIENTATIONS, STAR_POINTS, chargePhrase, drawnPoints, postureTerm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
+import { CHARGES, CUT_MODIFIERS, FACINGS, ORIENTATIONS, STAR_POINTS, chargePhrase, drawnPoints, postureTerm, type ChargeForm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
 import {
   asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
   type Charge, type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Modifier, type Paint, type Pair, type PartyPaint, type VariationPaint,
@@ -801,6 +801,23 @@ export function orientationChoices(d: Design, path: GroupPath): Choice<Orientati
       : g.arrangement.k === 'crossed' ? `Two ${plural} crossed are not turned.`
         : o === 'to-center' && g.count < 2 ? `One ${name} has no group to point to the middle of.` : null));
 }
+
+// ── Shape (PLAN-D §0.3.10): the whole charge, a demi charge, a head; a head's cut ──
+
+/** The shapes the group's charge is drawn in: whole (null) and each form its sidecar holds; none for a charge with no form. */
+export function formChoices(d: Design, path: GroupPath): Choice<ChargeForm | null>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' && CHARGES[item.charge].forms.length > 0 ? [null, ...CHARGES[item.charge].forms].map(ok) : [];
+}
+
+/** How a head is cut off, offered for a head only: couped (straight) or erased (ragged). */
+export function cutChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' && item.form === 'head' ? CUT_MODIFIERS.map(ok) : [];
+}
+
+/** The cut of a head, or null (a whole or demi charge has none). */
+export const cutOf = (item: Charge): ModifierId | null => item.mods.find((m) => CUT_MODIFIERS.includes(m.id))?.id ?? null;
 
 // ── Details (PLAN-D §0.3.10): a star's points, voided, fimbriated, pierced, fitchy ──
 
