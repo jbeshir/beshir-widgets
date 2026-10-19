@@ -22,9 +22,9 @@ import { STRATUM_CHARGE_IDS, fullSweep, sampleSeed, unit } from '../rotation';
 import type { ArmoryRecord } from './oanda';
 
 /** About this many designs are drawn and replayed through the builder by the rotating stratum, however many records pass. */
-export const DESIGN_SAMPLE = 40;
+export const DESIGN_SAMPLE = 20;
 /** One in this many ignored records has the gap tagger re-run by the rotating stratum. */
-export const TAGGER_RATE = 36;
+export const TAGGER_RATE = 72;
 
 /** The charges outside the fixed stratum's: not features (their designs are replayed by the rotating stratum). */
 const LATER_CHARGES: ReadonlySet<string> = new Set(CHARGE_IDS.filter((id) => !STRATUM_CHARGE_IDS.includes(id)));

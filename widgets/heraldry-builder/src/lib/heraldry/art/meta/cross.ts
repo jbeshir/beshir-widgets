@@ -30,7 +30,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'shortened cross', glossPlural: 'shortened crosses', plain: null, search: ['greek'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -45,7 +45,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with a long foot', glossPlural: 'crosses with a long foot', plain: null, search: ['christian'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -60,7 +60,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with splayed arms', glossPlural: 'crosses with splayed arms', plain: null, search: ['pattee', 'formee'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -75,7 +75,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with three round knobs at each end', glossPlural: 'crosses with three round knobs at each end', plain: null, search: ['budded', 'trefly'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -90,7 +90,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with each end split and curled back', glossPlural: 'crosses with each end split and curled back', plain: null, search: [],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -105,7 +105,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with lily ends', glossPlural: 'crosses with lily ends', plain: null, search: ['fleury'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -120,7 +120,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with splayed three-pointed ends', glossPlural: 'crosses with splayed three-pointed ends', plain: null, search: [],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -135,7 +135,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with a bar across each end', glossPlural: 'crosses with a bar across each end', plain: null, search: ['crutch'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -150,7 +150,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'eight-pointed cross', glossPlural: 'eight-pointed crosses', plain: null, search: [],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -165,7 +165,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with a ring about its middle', glossPlural: 'crosses with a ring about their middles', plain: null, search: ['ringed', 'irish'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -180,7 +180,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'T-shaped cross', glossPlural: 'T-shaped crosses', plain: null, search: [],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },

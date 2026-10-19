@@ -8,7 +8,7 @@ import {
   setBadge, setCut, setForm, setHold, setPart, setPosture, setFacing, setGaze, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, cutChoices, detailChoices, partChoices, pieceTinctureChoices, heldTinctureChoices, holdChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, cutChoices, detailChoices, partChoices, pieceTinctureChoices, heldProperChoice, heldTinctureChoices, holdChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
   type Charge, type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
@@ -434,6 +434,14 @@ describe('builder transitions', () => {
     expect(setHold(holding, [0], null)).toEqual(lion);
     expect(heldTinctureChoices(holding, [0]).filter((c) => c.allowed).map((c) => c.value)).toEqual(['or', 'argent', 'celestine']);
     expect(heldTinctureChoices(lion, [0])).toEqual([]);
+    // natural colours for an item that has them, blocked where they wouldn't stand out (D16b); kept for another item only if it has them too
+    expect(heldProperChoice(holding, [0])).toEqual({ value: 'proper', allowed: true });
+    const proper = setHold(holding, [0], 'sword', 'maintaining', { k: 'proper' });
+    expect(blazon(proper)).toBe('Azure, a lion Or maintaining a sword proper.');
+    expect(blazon(setHold(proper, [0], 'arrow'))).toBe('Azure, a lion Or maintaining an arrow proper.');
+    expect(blazon(setHold(proper, [0], 'key'))).toBe('Azure, a lion Or maintaining a key argent.');
+    expect(heldProperChoice(setHold(holding, [0], 'key'), [0])).toBeNull();
+    expect(heldProperChoice(setHold(setFieldTincture(lion, 0, 'argent'), [0], 'sword'), [0])).toMatchObject({ allowed: false });
     // a drawing with no paw blocks every way, and a change of shape or posture that loses the paw drops the item
     expect(holdChoices(setForm(lion, [0], 'demi'), [0]).map((c) => (c.allowed ? c.value : c.reason))).toEqual([
       'The demi-lion is not drawn holding anything in this builder.', 'The demi-lion is not drawn holding up anything in this builder.', 'The demi-lion is not drawn with anything in its mouth in this builder.',

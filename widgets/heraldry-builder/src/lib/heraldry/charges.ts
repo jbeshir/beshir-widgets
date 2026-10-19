@@ -94,6 +94,7 @@ export const CHARGE_IDS = [
   'escallop', 'dragonfly', 'thistle', 'dolphin', 'butterfly', 'laurel-wreath', 'oak-leaf', 'acorn', 'serpent', 'frog', 'pomegranate', 'lily', 'garb', 'spider', 'scorpion',
   'tower', 'hand', 'pawprint', 'comet', 'goblet', 'chalice', 'castle', 'bell', 'tankard',
   'hawk', 'rapier', 'dagger', 'coney', 'rabbit', 'vol', 'coronet',
+  'escarbuncle', 'seeblatt', 'wheel', 'catherine-wheel',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -140,7 +141,7 @@ export const TYPE_CLASSES = {
   'fleur-de-lys': { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
   'mullet-or-sun': { source: 'A5G4: "a DC for the change … from a mullet of five points to a sun"; App M1g (mullets, compass stars, estoiles, suns)', guess: false },
   crescent: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
-  heart: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  heart: { source: 'A5E2: clearly unrelated shapes are substantially different; the seeblatt shares the class with a type token of its own (heart vs seeblatt DC: no SENA example, by the likeness of their outlines; herald question)', guess: false },
   key: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
   book: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
   sword: { source: 'A5C3: swords and daggers of all forms are one type', guess: false },
@@ -201,6 +202,8 @@ export const TYPE_CLASSES = {
   bell: { source: 'A5G4: types distinct in period; no SENA example of a church bell against a hawk\'s bell', guess: true },
   hand: { source: 'A5G4: types distinct in period; no SENA example of a hand against a glove or gauntlet', guess: true },
   pawprint: { source: 'A5G4: types distinct in period; no SENA example of a pawprint against another track or foot', guess: true },
+  wheel: { source: 'A5G4: types distinct in period; the wheel and the Catherine wheel share this class with a type token each (DC); no SENA example found, nor against the cogwheel', guess: true },
+  escarbuncle: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the mullet, sun or crosses', guess: true },
   'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 

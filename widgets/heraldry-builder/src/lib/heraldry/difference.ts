@@ -20,7 +20,7 @@ import { orientationTerms, turnWords } from './blazon';
 import { paintGaps } from './support';
 import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
 import { liftStrewn } from './strewn';
-import { fieldSurfaces, sameSurface, tinctureSurface, type Surface } from './surface';
+import { fieldSurfaces, sameSurface, surfaceOf, tinctureSurface, type Surface } from './surface';
 
 export type ChangeKind = 'sc' | 'dc';
 
@@ -703,7 +703,7 @@ function heldRef(x: HeldSide | null, y: HeldSide | null): GroupRef {
 
 /**
  * §1.5 H1, H2: the distinct changes between the items two designs' primary charges hold, paired as groups are (identical items first): an item
- * added or removed (A5G2), of another type (A5G4) or tincture (A5G3), one distinct change each. Their number (one per holder), orientation,
+ * added or removed (A5G2), of another type (A5G4) or tincture (A5G3: as a group's, so a sword proper is a sword argent), one distinct change each. Their number (one per holder), orientation,
  * the way they are held and where are not compared (H2; CL 05/2018, CL 06/2016 — Helayne 04/2021 counted position: herald question D10).
  */
 function heldChanges(a: Design, b: Design): Diff[] {
@@ -712,7 +712,7 @@ function heldChanges(a: Design, b: Design): Diff[] {
   return [
     ...pairs.flatMap(([x, y]) => [
       ...(typesDiffer(x.held.item, y.held.item) ? [change('type', 'dc', 'A5G4', heldRef(x, y))] : []),
-      ...(JSON.stringify(x.held.paint) !== JSON.stringify(y.held.paint) ? [change('tincture', 'dc', 'A5G3', heldRef(x, y))] : []),
+      ...(differs(surfaceOf(x.held.paint, x.held.item), surfaceOf(y.held.paint, y.held.item)) ? [change('tincture', 'dc', 'A5G3', heldRef(x, y))] : []),
     ]),
     ...onlyX.map((x) => change('group-presence', 'dc', 'A5G2', heldRef(x, null))),
     ...onlyY.map((y) => change('group-presence', 'dc', 'A5G2', heldRef(null, y))),

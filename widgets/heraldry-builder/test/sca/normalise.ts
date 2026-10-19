@@ -343,9 +343,11 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //     widget words these as the charge and its tincture, so the name goes, a tincture written after it as well is the same one, and the
     //     tincture goes where the widget puts it: after the arrangement, and not at all when the next tincture stated is the same one
     //     (the widget names a tincture shared by groups once, after the last). "Domestic cat" is the College's usual name for the cat (679 records, far more than "cat" alone),
-    //     so it is the widget's cat. The monsters of batch B2 are spelt in more than one way (gryphon 197 + griffon 34 against griffin 1,084; wivern 26 against wyvern 408; "sea horse" 364 and "seahorse" 299 against "sea-horse"; "sea lion" 312 against "sea-lion"). A broad arrow is the pheon (broad-arrow, broadarrow and "broad arrow", 105 records; "pheon" itself 306) and "ax" is the axe (18). "Scallop" and "scallop shell" are the escallop (GoT Table 5 "See Escallop"; 14 records) and a dolphin's embowing is not blazoned and gives no difference (Table 5; "dolphin embowed" 55, "naiant embowed" 14).
+    //     so it is the widget's cat. The monsters of batch B2 are spelt in more than one way (gryphon 197 + griffon 34 against griffin 1,084; wivern 26 against wyvern 408; "sea horse" 364 and "seahorse" 299 against "sea-horse"; "sea lion" 312 against "sea-lion"). A broad arrow is the pheon (broad-arrow, broadarrow and "broad arrow", 105 records; "pheon" itself 306) and "ax" is the axe (18). "Scallop" and "scallop shell" are the escallop (GoT Table 5 "See Escallop"; 14 records) and a dolphin's embowing is not blazoned and gives no difference (Table 5; "dolphin embowed" 55, "naiant embowed" 14). The
+    //     Catherine wheel is also "Catherine's wheel" (43 records against 95); the heraldic wheel is a cartwheel, so a "wagon wheel" (54) or
+    //     "cartwheel" (15) is the wheel.
     id: 'charge-synonyms',
-    description: 'estoille → estoile; domestic cat(s) → cat(s); gryphon/griffon → griffin, wivern → wyvern, phenix → phoenix, sea horse/seahorse → sea-horse, sea lion/sealion → sea-lion; broad arrow(s) → pheon(s); ax → axe; scallop (shell) → escallop; dolphin (naiant) embowed (counter-embowed) → dolphin (naiant); crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
+    description: 'estoille → estoile; domestic cat(s) → cat(s); gryphon/griffon → griffin, wivern → wyvern, phenix → phoenix, sea horse/seahorse → sea-horse, sea lion/sealion → sea-lion; broad arrow(s) → pheon(s); ax → axe; scallop (shell) → escallop; dolphin (naiant) embowed (counter-embowed) → dolphin (naiant); Catherine\'s/Catharine wheel → Catherine wheel; wagon wheel, cart wheel, cartwheel → wheel; crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
     apply: (s) => s
       .replace(NAMED_CHARGE, (match: string, name: string, arrangement: string, stated: string | undefined, offset: number) => {
         const named = NAMED_BY_WORD.get(name)!;
@@ -365,6 +367,8 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/(?<![\w-])ax(?![\w-])/g, 'axe')
       .replace(/(?<![\w-])(a )?scallop(?: shell)?(s?)(?![\w-])/g, (_m, a: string | undefined, s: string) => `${a ? 'an ' : ''}escallop${s}`)
       .replace(/(?<![\w-])(dolphins?)((?: naiant)?) embowed(?: counter-embowed)?(?! to\b)(?![\w-])/g, '$1$2')
+      .replace(/(?<![\w-])(?:catherine's|catharine) (wheels?)(?![\w-])/g, 'catherine $1')
+      .replace(/(?<![\w-])(?:wagon |cart ?)(wheels?)(?![\w-])/g, '$1')
       .replace(/\bcross crosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslet\b/g, 'cross crosslet'),
@@ -406,12 +410,15 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     // 3d4. What a charge holds (PLAN-D §1.5) in the widget's words: "holding", "grasping" and "supporting" a charge are maintaining it
     //      (the armorial: maintaining 1,435, sustaining 288, grasping 50, holding 26, supporting 10); an item in a beak or a mouth is
     //      "maintaining in its beak (mouth)" whoever holds it how ("maintaining in its beak" 109, "holding" 11, the rest sustaining,
-    //      bearing or grasping: the manner is worth nothing, §1.5 H2; "his", "her" are "its"); no comma before what is held (388 with one,
-    //      1,616 without).
+    //      bearing or grasping: the manner is worth nothing, §1.5 H2; "his", "her" are "its"; "jaws" are its mouth, 5); an item in a paw, claw,
+    //      talon or foot ("in its dexter forepaw" 41, "in its talons" 70, "in its claw(s)" 63, "in its dexter talon" 26, "in its dexter paw" 21,
+    //      "in its feet" 21 …) is held as by "maintaining" (sustaining stays sustaining): which paw or foot is its position, worth nothing as
+    //      well (H2); no comma before what is held (388 with one, 1,616 without).
     id: 'hold-words',
-    description: '"(maintaining|sustaining|holding|grasping|bearing|supporting) in its/his/her beak/mouth" → "maintaining in its beak/mouth"; holding/grasping/supporting a(n) → maintaining a(n); no comma before "(each) maintaining/sustaining".',
+    description: '"(maintaining|sustaining|holding|grasping|bearing|supporting) in its/his/her beak/mouth/jaws" → "maintaining in its beak/mouth"; "… in its (dexter|sinister|both) claw(s)/talon(s)/(fore)paw(s)/foot/feet" → "maintaining" ("sustaining" kept); holding/grasping/supporting a(n) → maintaining a(n); no comma before "(each) maintaining/sustaining".',
     apply: (s) => s
-      .replace(/(?<![\w-])(?:maintaining|sustaining|holding|grasping|bearing|supporting) in (?:its|his|her) (beak|mouth)(?![\w-])/g, 'maintaining in its $1')
+      .replace(/(?<![\w-])(?:maintaining|sustaining|holding|grasping|bearing|supporting) in (?:its|his|her) (beak|mouth|jaws)(?![\w-])/g, (_m, part: string) => `maintaining in its ${part === 'jaws' ? 'mouth' : part}`)
+      .replace(/(?<![\w-])(maintaining|sustaining|holding|grasping|bearing|supporting) in (?:its|his|her) (?:(?:dexter|sinister|both) )?(?:claws?|talons?|forepaws?|paws?|foot|feet)(?![\w-])/g, (_m, how: string) => (how === 'sustaining' ? how : 'maintaining'))
       .replace(/(?<![\w-])(?:holding|grasping|supporting)(?= an? )/g, 'maintaining')
       .replace(/,(?= (?:each )?(?:maintaining|sustaining)(?![\w-]))/g, ''),
   },

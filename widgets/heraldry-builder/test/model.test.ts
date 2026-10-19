@@ -468,8 +468,8 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 117 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(117);
+  it('has the 121 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(121);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
@@ -479,13 +479,14 @@ describe('charge table', () => {
         ['raven', 'close'], ['griffin', 'rampant'], ['swan', 'rising'], ['phoenix', 'rising'], ['wyvern', 'statant'], ['falcon', 'close'], ['seahorse', 'erect'],
         ['martlet', 'close'], ['dove', 'close'], ['sea-lion', 'erect'], ['dolphin', 'naiant'], ['hawk', 'close']]);
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
-    // A5E2 type classes: only the documented DC-only kin share one (lion and cat, wolf and fox, dragon and wyvern, horse and pegasus, fish and dolphin, tower and castle, goblet, chalice and tankard, every bird, mullet and sun, eagle and owl, the lozenge's kin, a cross family…).
+    // A5E2 type classes: only the documented DC-only kin share one (lion and cat, wolf and fox, dragon and wyvern, horse and pegasus, fish and dolphin, tower and castle, goblet, chalice and tankard, heart and seeblatt, the wheels, every bird, mullet and sun, eagle and owl, the lozenge's kin, a cross family…).
     const own = CHARGE_IDS.filter((id) => !(ALIAS_IDS as readonly string[]).includes(id));
     const shared = own.filter((id) => own.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
     expect(shared).toEqual([
-      'lion', 'wolf', 'fish', 'dragon', 'eagle', 'owl', 'rose', 'mullet', 'sun', 'roundel', 'annulet', 'billet', 'lozenge', 'cross-crosslet', 'estoile', 'compass-star', 'mascle', 'rustre',
+      'lion', 'wolf', 'fish', 'dragon', 'eagle', 'owl', 'rose', 'mullet', 'sun', 'heart', 'roundel', 'annulet', 'billet', 'lozenge', 'cross-crosslet', 'estoile', 'compass-star', 'mascle', 'rustre',
       'fusil', 'delf', 'triangle', 'trefoil', 'quatrefoil', 'cinquefoil', 'cross-couped', 'cross-latin', 'cross-bottony', 'cross-flory', 'cross-patonce', 'cat', 'horse', 'fox',
       'raven', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'peacock', 'martlet', 'dove', 'dolphin', 'tower', 'comet', 'goblet', 'chalice', 'castle', 'tankard',
+      'seeblatt', 'wheel', 'catherine-wheel',
     ]);
     // an alias is the same type as the charge it names (the hawk is a raven, a coney a hare…: no difference of type, PLAN-D §1.6 T1)
     expect(ALIAS_IDS.map((id) => [id, CHARGES[id].typeOf])).toEqual([['hawk', 'raven'], ['rapier', 'sword'], ['dagger', 'sword'], ['coney', 'hare'], ['rabbit', 'hare'], ['vol', null], ['coronet', 'crown']]);

@@ -29,7 +29,7 @@ export const META_MODERN = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: PROPER.fire,
     glossName: 'flame', glossPlural: 'flames', plain: null, search: ['fire'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: { x: 58, y: 37, w: 24, h: 38 }, anchors: {}, neck: null },
     },

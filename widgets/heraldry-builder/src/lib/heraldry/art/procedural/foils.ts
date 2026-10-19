@@ -1,6 +1,7 @@
 // Generated foils (PLAN-D §2.6): n round petals about the middle, the first at the top. The outline is traced as one ring, petal by
 // petal, between the points where each petal meets the next (no polygon union); the quatrefoil and cinquefoil are pierced in the
-// middle, and the trefoil has a stalk to the base instead, traced as part of the same outline.
+// middle, and the trefoil has a stalk to the base instead, traced as part of the same outline. The seeblatt (D16b), a water-lily leaf, is
+// two such round lobes running down to a point (GoT Table 5: point to base), with its stalk rising from the notch between them.
 
 import type { Pt } from '../../geometry';
 import type { ArtPaths } from '../types';
@@ -39,8 +40,24 @@ function foil(n: number): Pt[][] {
   ]]);
 }
 
+/** The seeblatt's lobes (radius, and their centres' distance from the middle and height) and its stalk's width. */
+const LOBE = { r: 21, dx: 13, y: 36 }, STEM = 6;
+
+function seeblatt(): Pt[][] {
+  const point: Pt = [50, 93], right: Pt = [50 + LOBE.dx, LOBE.y], left: Pt = [50 - LOBE.dx, LOBE.y];
+  // where the outline leaves each lobe for the point: the tangent from the point, on the outside
+  const toPoint = angleAt(right, point) - Math.acos(LOBE.r / Math.hypot(point[0] - right[0], point[1] - right[1]));
+  const stem = LOBE.y - Math.sqrt(LOBE.r ** 2 - (LOBE.dx - STEM / 2) ** 2);
+  const fromStem = angleAt(right, [50 + STEM / 2, stem]);
+  return fitRings([[
+    [50 - STEM / 2, 7], [50 + STEM / 2, 7], ...arc(...right, LOBE.r, fromStem, toPoint, SEGMENTS),
+    point, ...arc(...left, LOBE.r, Math.PI - toPoint, after(Math.PI - toPoint, Math.PI - fromStem), SEGMENTS),
+  ]]);
+}
+
 export const PATHS_FOILS = {
   trefoil: { _: ringsPath(foil(3)) },
   quatrefoil: { _: ringsPath(foil(4)) },
   cinquefoil: { _: ringsPath(foil(5)) },
+  seeblatt: { _: ringsPath(seeblatt()) },
 } satisfies ArtPaths;
