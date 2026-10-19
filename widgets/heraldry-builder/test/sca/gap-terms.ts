@@ -27,20 +27,20 @@ export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
   fish: 'a named fish, sea mammal, crustacean or shell other than the dolphin and escallop (whale, crab, oyster…)',
   reptile: 'a reptile or amphibian other than the serpent and frog (snake, lizard, turtle…)',
   insect: 'an insect, arachnid or other invertebrate other than the bee, butterfly, dragonfly, spider and scorpion',
-  human: 'a human figure or body part (hand, arm, skull, eye…)',
+  human: 'a human figure or body part other than the hand (arm, skull, eye…)',
   plant: 'a flower, leaf, fruit, foil, named tree or other plant other than the rose, tree, fleur-de-lis, thistle, lily, laurel wreath, oak leaf, acorn, pomegranate and garb',
-  celestial: 'a celestial or weather charge other than the sun, mullet and crescent (estoile, moon, cloud…)',
+  celestial: 'a celestial or weather charge other than the sun, mullet, crescent and comet (estoile, moon, cloud…)',
   weapon: 'a weapon or piece of armour other than the sword, arrow, axe, pheon, spear and trident',
   tool: 'a tool, implement or piece of equipment other than the key, gear, hammer, needle and anvil',
-  household: 'a vessel, container, food, furniture, light, jewel, game piece, flag or other object',
+  household: 'a vessel or container other than the goblet, chalice and tankard, food, furniture, light, jewel, game piece, flag or other object',
   clothing: 'an article of clothing',
-  instrument: 'a musical instrument other than the harp, or a bell',
-  building: 'a building or architectural element',
+  instrument: 'a musical instrument other than the harp and bell (a handbell…)',
+  building: 'a building or architectural element other than the tower and castle',
   ship: 'a ship, boat or part of one',
   nature: 'a landform, rock, water, fire or other natural feature',
   cross: 'a cross used as a charge (crosslet, formy, Maltese, several couped…) rather than the cross ordinary',
   geometric: 'a geometric charge or sub-ordinary used as a charge (annulet, roundel, lozenge, billet…)',
-  symbol: 'a knot, letter, rune, triskelion or other abstract symbol',
+  symbol: 'a knot, letter, rune, triskelion or other abstract symbol other than the pawprint',
 };
 
 /** Charge nouns the widget lacks, by bucket. */
@@ -93,7 +93,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     man woman maiden lady lord knight archer king queen prince princess monk nun friar bishop pope saint pilgrim
     palmer soldier warrior viking dancer harper jester fool shepherd smith miller baker hunter sailor angel cherub
     seraph savage wodewose giant dwarf elf fairy moor saracen child boy girl figure person head face bust torso
-    skull skeleton bone tooth hand arm cubit-arm leg foot fist finger thumb eye ear nose mouth lip beard moustache
+    skull skeleton bone tooth arm cubit-arm leg foot fist finger thumb eye ear nose mouth lip beard moustache
     hair tress brain mask footprint handprint foi
   `),
   plant: w(`
@@ -115,7 +115,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     seaweed kelp moss
   `),
   celestial: w(`
-    star comet moon decrescent increscent lunel sunburst compass-rose cloud rainbow lightning
+    star moon decrescent increscent lunel sunburst compass-rose cloud rainbow lightning
     thunderbolt snowflake raindrop planet wind sunray ray zephyr boreas aeolus mistral half-moon quarter-sun
     constellation eclipse fireball meteor
   `),
@@ -141,7 +141,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     scourge lure jess press quintain weight slow-match match tool
   `),
   household: w(`
-    cup goblet chalice tankard mug stein beaker mazer drinking-horn cauldron pot fleshpot kettle pan pail bowl ewer
+    cup mug stein beaker mazer drinking-horn cauldron pot fleshpot kettle pan pail bowl ewer
     pitcher jug flagon bottle flask jar urinal amphora vase urn barrel tun cask keg bucket basket beehive skep
     honeycomb chest box coffer casket ark purse pouch bag sack scrip wool-pack woolpack woolsack table chair stool
     curule couch throne bed cradle cushion pillow lamp lantern candle candlestick candelabrum menorah torch
@@ -162,11 +162,11 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   instrument: w(`
     lute lyre horn hunting-horn bugle bugle-horn trumpet clarion recorder flute pipe bagpipe drum tabor doumbek
     dumbek kettledrum viol viola violin fiddle rebec gittern guitar cittern mandolin oud psaltery dulcimer
-    panpipe organ zil cymbal tambourine bell handbell sackbut shawm hautboy crwth harpsichord sistrum shofar
+    panpipe organ zil cymbal tambourine handbell sackbut shawm hautboy crwth harpsichord sistrum shofar
     ocarina quaver clef g-clef
   `),
   building: w(`
-    tower castle fortress fort keep turret bridge gate gateway door arch archway column pillar wall church chapel
+    fortress fort keep turret bridge gate gateway door arch archway column pillar wall church chapel
     cathedral temple mosque pagoda torii house cottage hall barn mill windmill lighthouse tent pavilion yurt well
     weir keystone battlement portcullis dolmen menhir trilithon pyramid obelisk cairn city town dome minaret spire
     steeple chimney roof window stair staircase brick portal
@@ -188,7 +188,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     knot triskelion triskele pentaskelion valknut yin-yang t'ai-chi tomoe mitsutomoe umebachi mon chi-rho
     letter rune algiz tiwaz sowilo theow othala beorc tyr futhark lambda numeral word kanji glyph sigil monogram
     labyrinth spiral swirl schnecke koru xicalcoliuhqui pentacle pentagram hexagram star-of-david awen
-    pawprint caduceus staff-of-aesculapius hand-of-fatima hamsa infinity symbol lacy-knot bowen-knot
+    caduceus staff-of-aesculapius hand-of-fatima hamsa infinity symbol lacy-knot bowen-knot
     stafford-knot wake-knot bourchier-knot cavendish-knot heneage-knot hungerford-knot dacre-knot harrington-knot
     savoy-knot joscelyn-knot
   `),
@@ -222,6 +222,7 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   peacock: 'bird', martlet: 'bird', dove: 'bird', 'sea-lion': 'monster',
   escallop: 'fish', dragonfly: 'insect', thistle: 'plant', dolphin: 'fish', butterfly: 'insect', 'laurel-wreath': 'plant', 'oak-leaf': 'plant', acorn: 'plant',
   serpent: 'reptile', frog: 'reptile', pomegranate: 'plant', lily: 'plant', garb: 'plant', spider: 'insect', scorpion: 'insect',
+  tower: 'building', hand: 'human', pawprint: 'symbol', comet: 'celestial', goblet: 'household', chalice: 'household', castle: 'building', bell: 'instrument', tankard: 'household',
 };
 
 /** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */

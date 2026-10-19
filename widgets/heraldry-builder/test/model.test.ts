@@ -468,8 +468,8 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 101 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(101);
+  it('has the 110 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(110);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
@@ -479,12 +479,12 @@ describe('charge table', () => {
         ['raven', 'close'], ['griffin', 'rampant'], ['swan', 'rising'], ['phoenix', 'rising'], ['wyvern', 'statant'], ['falcon', 'close'], ['seahorse', 'erect'],
         ['martlet', 'close'], ['dove', 'close'], ['sea-lion', 'erect'], ['dolphin', 'naiant']]);
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
-    // A5E2 type classes: only the documented DC-only kin share one (lion and cat, wolf and fox, dragon and wyvern, horse and pegasus, fish and dolphin, every bird, mullet and sun, eagle and owl, the lozenge's kin, a cross family…).
+    // A5E2 type classes: only the documented DC-only kin share one (lion and cat, wolf and fox, dragon and wyvern, horse and pegasus, fish and dolphin, tower and castle, goblet, chalice and tankard, every bird, mullet and sun, eagle and owl, the lozenge's kin, a cross family…).
     const shared = CHARGE_IDS.filter((id) => CHARGE_IDS.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
     expect(shared).toEqual([
       'lion', 'wolf', 'fish', 'dragon', 'eagle', 'owl', 'rose', 'mullet', 'sun', 'roundel', 'annulet', 'billet', 'lozenge', 'cross-crosslet', 'estoile', 'compass-star', 'mascle', 'rustre',
       'fusil', 'delf', 'triangle', 'trefoil', 'quatrefoil', 'cinquefoil', 'cross-couped', 'cross-latin', 'cross-bottony', 'cross-flory', 'cross-patonce', 'cat', 'horse', 'fox',
-      'raven', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'peacock', 'martlet', 'dove', 'dolphin',
+      'raven', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'peacock', 'martlet', 'dove', 'dolphin', 'tower', 'comet', 'goblet', 'chalice', 'castle', 'tankard',
     ]);
     expect(CHARGES.lion.typeClass).not.toBe(CHARGES.wolf.typeClass);
     expect(new Set(CHARGE_IDS.map((id) => CHARGES[id].typeClass))).toEqual(new Set(Object.keys(TYPE_CLASSES)));

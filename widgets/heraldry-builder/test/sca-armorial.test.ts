@@ -357,6 +357,15 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a frog', arms('argent', group(charge('frog'), 'vert'))],
   ['a spider', arms('argent', group(charge('spider'), 'sable'))],
   ['a scorpion', arms('or', group(charge('scorpion'), 'sable'))],
+  ['a tower', arms('azure', group(charge('tower'), 'argent'))],
+  ['three castles', arms('gules', group(charge('castle'), 'or', { count: 3 }))],
+  ['a hand', arms('argent', group(charge('hand'), 'gules'))],
+  ['a pawprint', arms('vert', group(charge('pawprint'), 'argent'))],
+  ['a comet', arms('sable', group(charge('comet'), 'or'))],
+  ['a goblet', arms('azure', group(charge('goblet'), 'or'))],
+  ['a chalice', arms('argent', group(charge('chalice'), 'sable'))],
+  ['a bell', arms('vert', group(charge('bell'), 'or'))],
+  ['a tankard', arms('sable', group(charge('tankard'), 'argent'))],
   ['a horse\'s head and a bear\'s head', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'), group(charge('bear', { form: 'head', mods: ['erased'] }), 'or'))],
 ];
 

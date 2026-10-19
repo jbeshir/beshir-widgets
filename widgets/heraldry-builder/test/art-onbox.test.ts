@@ -15,6 +15,8 @@ const CARRIES_NONE = [
   'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
   // art batch B5 and B6: the drawer gave no box, or one of 16–24 units that left the on-charge sweep one layout (escallop, oak leaf, acorn, frog)
   'thistle', 'laurel-wreath', 'pomegranate', 'garb', 'lily', 'dolphin', 'dragonfly', 'butterfly', 'serpent', 'scorpion', 'spider', 'escallop', 'oak-leaf', 'acorn', 'frog',
+  // art batch B7: the drawer gave none (a tower or castle has no room for a charge at the sizes it draws, and the household pieces are slender)
+  'tower', 'hand', 'pawprint', 'comet', 'goblet', 'chalice', 'castle', 'bell', 'tankard',
 ];
 
 /** The drawings that carry no charge whatever their charge: heads (art batch A1 draws them with no room for one). */
