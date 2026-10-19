@@ -4,12 +4,13 @@
 
 import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
-import { CHARGES, isChargeId, type Gaze } from './charges';
+import { CHARGES, STAR_POINTS, isChargeId, type Gaze } from './charges';
+import type { ChargeMeta } from './art/types';
 import { chargeOnBox } from './charge-art';
 import { liesAstride, specOf } from './ordinary-geometry';
 import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, partCount, type Division, type Variation } from './divisions';
 import {
-  asParty, asSemy, asTreated, walkGroups, type Charge, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
+  asParty, asSemy, asTreated, walkGroups, type Charge, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Modifier, type Paint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isDiminutive, isOrdinaryType, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import {
@@ -171,10 +172,21 @@ function itemGaps(item: Item): Found[] {
   if (item.gaze && !gazeDrawn(item, item.gaze)) gaps.push(gap('posture', item.gaze));
   // An orientation is drawn by turning the art (pose.ts) for the charges whose sidecar allows it; anything else keeps its gap.
   if (item.orientation && !meta.orient.allowed.includes(item.orientation)) gaps.push(gap('orientation', item.orientation));
-  for (const m of item.mods) if (!(meta.mods.includes(m.id) || meta.details.includes(m.id)) || m.count !== null || m.paint !== null) gaps.push(gap('charge-modifier', m.id));
+  for (const m of item.mods) if (!modifierDrawn(meta, m)) gaps.push(gap('charge-modifier', m.id));
   for (const p of item.parts) gaps.push(gap('charge-modifier', p.part));
   for (const h of item.holds) gaps.push(gap('charge-modifier', h.how));
   return gaps;
+}
+
+/**
+ * Whether a charge's modifier is drawn (PLAN-D §1.4): one its sidecar row takes, with what it needs and nothing else — a star of 4 to 12
+ * points, a fimbriation of one tincture.
+ */
+function modifierDrawn(meta: ChargeMeta, m: Modifier): boolean {
+  if (!meta.mods.includes(m.id) && !meta.details.includes(m.id)) return false;
+  if (m.id === 'of-points') return m.count !== null && STAR_POINTS.includes(m.count) && m.paint === null;
+  if (m.id === 'fimbriated') return m.count === null && m.paint?.k === 'tincture';
+  return m.count === null && m.paint === null;
 }
 
 /** Whether a charge has a drawing of its posture with the head turned that way. */

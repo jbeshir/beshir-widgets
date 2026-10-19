@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { EVERY_WAY, GENERATED, HAND_DRAWN } from './common';
+import { EVERY_WAY, GENERATED, HAND_DRAWN, OUTLINED } from './common';
 
 export const META_GEOMETRIC = {
   mullet: {
@@ -11,7 +11,7 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: ['palewise', 'inverted'], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: ['voided', 'of-points', 'fimbriated', 'pierced'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
     glossName: 'five-pointed star', glossPlural: 'five-pointed stars', plain: { word: 'star', plural: 'stars' }, search: ['star'],
     headName: null, holdable: false,
@@ -75,7 +75,7 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: [], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 0.9, detail: 0, proper: null,
     glossName: 'disc', glossPlural: 'discs', plain: null, search: ['circle', 'disc', 'disk', 'dot'],
     headName: null, holdable: false,
@@ -105,7 +105,7 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: ['palewise', 'fesswise', 'bendwise', 'bendwise-sinister'], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'upright rectangle', glossPlural: 'upright rectangles', plain: null, search: ['rectangle', 'brick'],
     headName: null, holdable: false,
@@ -120,7 +120,7 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: ['palewise', 'fesswise', 'bendwise', 'bendwise-sinister'], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'diamond', glossPlural: 'diamonds', plain: null, search: ['diamond'],
     headName: null, holdable: false,
@@ -150,7 +150,7 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: [], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: ['of-points'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
     glossName: 'six-rayed star with wavy rays', glossPlural: 'six-rayed stars with wavy rays', plain: null, search: ['star'],
     headName: null, holdable: false,
@@ -240,7 +240,7 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'radial', allowed: ['palewise', 'fesswise', 'bendwise', 'bendwise-sinister'], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 0.88, detail: 0, proper: null,
     glossName: 'square', glossPlural: 'squares', plain: null, search: ['square'],
     headName: null, holdable: false,
@@ -255,7 +255,7 @@ export const META_GEOMETRIC = {
     postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
     faces: false, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'compact-top', allowed: [...EVERY_WAY, 'to-center'], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
+    forms: [], mods: [], details: OUTLINED, parts: [], holds: [],
     demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'triangle', glossPlural: 'triangles', plain: null, search: [],
     headName: null, holdable: false,

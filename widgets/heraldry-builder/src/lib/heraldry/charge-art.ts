@@ -7,15 +7,17 @@
 // third-party heraldic art was traced or copied. Each silhouette is centred with its long axis
 // ~86 units; animals face dexter (the viewer's left); objects point up.
 
-import { CHARGES, type ChargeId, type ModifierId, type Posture } from './charges';
+import { CHARGES, DRAWN_POINTS, type ChargeId, type ModifierId, type Posture } from './charges';
 import type { Modifier } from './design';
 import { pathFor } from './art/paths/index';
 import { FITCHY_CROSSES } from './art/procedural/crosses';
+import { PIERCED_MULLETS, POINTED_STARS } from './art/procedural/stars';
 import type { ArtBox, ArtKey } from './art/types';
 
 /**
  * Art for a charge with a modifier drawn: the sun in splendour is the sun with a face (two eyes and a
- * mouth) cut out of its disc. The face is original work, like the rest. A cross fitchy is generated with its foot sharpened.
+ * mouth) cut out of its disc. The face is original work, like the rest. A cross fitchy is generated with its foot sharpened; the
+ * mullets and estoiles of other numbers of points and the pierced mullets are generated too (`reshapedStar`).
  */
 export const MODIFIER_ART: Partial<Record<ChargeId, Partial<Record<ModifierId, string>>>> = {
   sun: {
@@ -36,9 +38,18 @@ export function artKeyOf(id: ChargeId, posture: Posture | null): ArtKey {
   return (posture && drawings[posture] ? posture : null) ?? (defaultPosture && drawings[defaultPosture] ? defaultPosture : null) ?? '_';
 }
 
+/** The generated art of a star its modifiers reshape: a mullet of other than five points or pierced, an estoile of other than six rays. */
+function reshapedStar(id: ChargeId, mods: readonly Modifier[]): string | undefined {
+  const points = mods.find((m) => m.id === 'of-points')?.count ?? null;
+  const pierced = mods.some((m) => m.id === 'pierced');
+  if (id === 'mullet' && (points !== null || pierced)) return (pierced ? PIERCED_MULLETS : POINTED_STARS.mullet)[points ?? DRAWN_POINTS.mullet];
+  if (id === 'estoile' && points !== null) return POINTED_STARS.estoile[points];
+  return undefined;
+}
+
 /** Path for a charge in a posture with its modifiers; falls back to the default posture, then '_'. */
 export function chargePath(id: ChargeId, posture: Posture | null, mods: readonly Modifier[]): string {
-  const variant = mods.map((m) => MODIFIER_ART[id]?.[m.id]).find((d) => d !== undefined);
+  const variant = reshapedStar(id, mods) ?? mods.map((m) => MODIFIER_ART[id]?.[m.id]).find((d) => d !== undefined);
   return variant ?? pathFor(id, artKeyOf(id, posture)) ?? FALLBACK;
 }
 

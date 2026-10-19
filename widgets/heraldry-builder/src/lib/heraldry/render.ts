@@ -3,17 +3,29 @@
 
 import type { Tincture } from './tinctures';
 import { chargePath } from './charge-art';
-import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
+import { fimbriationOf, isVoided, paintTinctures, walkGroups, type Charge, type Design, type Group, type GroupPath } from './design';
 import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type ArtPose, type Slot } from './geometry';
 import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
 import { chargePoses } from './pose';
-import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type SlotFill } from './paint-render';
+import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 import type { FieldShape } from './shape';
 
 /** What an ordinary layer paints, in paint order: its fimbriation under its body, the body, then its cotises. */
 type OrdinaryPartRole = 'fimbriation' | 'body' | 'cotises';
 export interface OrdinaryPart { readonly role: OrdinaryPartRole; readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly fill: Fill }
+
+/**
+ * A render effect drawn with a charge's own art in each of its slots (PLAN-D §0.3.5): its fimbriation, the art under it edged
+ * `FIMBRIATION_WIDTH` wider all round in the fimbriation's fill, or its voiding, the charge kept only `VOIDED_WIDTH` in from its edge.
+ */
+export type ChargeOverlay = { effect: 'fimbriation'; fill: LeafFill } | { effect: 'voided' };
+
+/** How far a fimbriation reaches out from a charge's edge, in art units (of its 100-unit box). */
+export const FIMBRIATION_WIDTH = 3.5;
+
+/** How wide a voided charge's band is, in art units: about two thirds of the mascle's (10.6), wide enough to read on a small shield. */
+export const VOIDED_WIDTH = 7;
 
 export type Layer =
   /** `outline` is the field's whole shape; a divided field's `fill` cuts it into parts. */
@@ -21,7 +33,7 @@ export type Layer =
   /** The body is always one of the parts. */
   | { k: 'ordinary'; path: GroupPath; parts: readonly OrdinaryPart[] }
   /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale), with the art posed in each; each fill paints some of them. */
-  | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; poses: ArtPose[]; fills: SlotFill[] };
+  | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; poses: ArtPose[]; fills: SlotFill[]; overlays: ChargeOverlay[] };
 
 const trimPart = (role: OrdinaryPartRole, trim: OrdinaryTrim, fill: Fill): OrdinaryPart => ({ role, d: trim.d, fillRule: trim.fillRule, fill });
 
@@ -49,7 +61,16 @@ function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | nul
   const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, charge));
   const art = chargePath(charge, posture, mods);
   const poses = chargePoses(group.item, group.arrangement, slots, art);
-  return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape) };
+  return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape), overlays: chargeOverlays(group.item) };
+}
+
+/** The effects a charge's modifiers draw with its art: fimbriated in a tincture (support.ts draws no other paint), voided. */
+function chargeOverlays(item: Charge): ChargeOverlay[] {
+  const fimbriation = fimbriationOf(item);
+  return [
+    ...(fimbriation?.k === 'tincture' ? [{ effect: 'fimbriation', fill: { k: 'solid', colour: fimbriation } } as const] : []),
+    ...(isVoided(item) ? [{ effect: 'voided' } as const] : []),
+  ];
 }
 
 /**

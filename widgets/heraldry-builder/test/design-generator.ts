@@ -6,7 +6,7 @@
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
-import { CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, type ChargeId, type Design } from '../src/lib/heraldry';
+import { CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, walkGroups, type ChargeId, type Design } from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -369,11 +369,16 @@ const FACING_CHARGES = ['lion', 'wolf', 'eagle', 'fish'];
 /** Charges that turn (§1.3): long, with a top, radial and an insect. */
 const TURNING_CHARGES: readonly ChargeId[] = ['sword', 'key', 'crescent', 'billet', 'mullet', 'bee'];
 
+/** The charges SENA A3C lets be voided or fimbriated (§1.4 M10). */
+const OUTLINED_CHARGES: readonly ChargeId[] = ['mullet', 'roundel', 'lozenge', 'delf', 'billet', 'triangle'];
+
 /**
  * The design for `seed` with a charge group whose charges carry the phase-D attributes (PLAN-D §0.3.9): about one design in three faces
  * to sinister (contourny) or is a pair (combattant, respectant or addorsed) on the field or around a pale; the rest are a charge group as
- * drawn, sometimes with a pale or a fess, and about a third of those are a charge that turns, set one of the ways it may be (§1.3). Each
- * later attribute step adds its picks after these. Null when the pick isn't registrable.
+ * drawn, sometimes with a pale or a fess, and about a third of those are a charge that turns, set one of the ways it may be (§1.3). Of the
+ * rest alone on the field, about two in five carry a modifier (§1.4): a mullet or estoile of 4 to 12 points (a mullet sometimes pierced),
+ * or a simple geometric charge voided or fimbriated. Each later attribute step adds its picks after these. Null when the pick isn't
+ * registrable.
  */
 function attributeDesignFor(seed: number): Design | null {
   const next = prng(seed ^ ATTRIBUTE_SEED);
@@ -392,11 +397,28 @@ function attributeDesignFor(seed: number): Design | null {
   };
   const turning = attribute >= 0.33 && next() < 0.35 ? pick(TURNING_CHARGES) : null;
   const turned = turning ? { ...group, item: { k: 'charge', charge: turning, orientation: pick(CHARGE_META[turning].orient.allowed.filter((o) => o !== 'to-center' || group.count > 1)) } } : group;
-  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, turned] : [turned];
+  const modifier = !turning && !band && attribute >= 0.33 && next() < 0.4 ? next() : null;
+  const modified = modifier === null ? turned : { ...turned, item: modifiedCharge(modifier, next, pick) };
+  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, modified] : [modified];
   const r = resolve({ v: 2, field, groups });
   if (!r.ok) return null;
   const n = normalise(r.design);
   return n.ok ? n.design : null;
+}
+
+/** A charge with a modifier picked by `roll`: a star of some points (a mullet sometimes pierced), a pierced mullet, a charge voided or fimbriated. */
+function modifiedCharge(roll: number, next: () => number, pick: <T>(xs: readonly T[]) => T): object {
+  if (roll < 0.4) {
+    const id = pick(['mullet', 'estoile'] as const);
+    return { k: 'charge', charge: id, mods: [{ id: 'of-points', count: 4 + Math.floor(next() * 9) }, ...(id === 'mullet' && next() < 0.3 ? ['pierced'] : [])] };
+  }
+  if (roll < 0.5) return { k: 'charge', charge: 'mullet', mods: ['pierced'] };
+  return { k: 'charge', charge: pick(OUTLINED_CHARGES), mods: [roll < 0.75 ? 'voided' : { id: 'fimbriated', paint: pick(TINCTURES) }] };
+}
+
+/** The designs whose charges carry no modifier: those the builder path and the matcher can make (neither sets a charge's points, voiding or fimbriation). */
+export function unmodified(designs: readonly Design[]): Design[] {
+  return designs.filter((d) => walkGroups(d).every(({ group }) => group.item.k !== 'charge' || group.item.mods.length === 0));
 }
 
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */

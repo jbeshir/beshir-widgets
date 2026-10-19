@@ -10,7 +10,7 @@ import { LINE_GROUP, LINE_WORD, edgeCount, isStraightLine, lineAllowed, ordinary
 import { surfaceOf, type Surface } from './surface';
 import type { Ground } from './contrast';
 import { divisionCutsOrdinary, specOf } from './ordinary-geometry';
-import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
+import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, fimbriationOf, isVoided, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue, onChargeWords } from './layout';
 import { posturesClash } from './difference';
 import { strewnIssues } from './strewn';
@@ -219,6 +219,29 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
   if (item.fimbriated && voided) return `${capitalise(what)} can't be both voided and fimbriated: voided, it is read as fimbriated already (SENA A5C1).`;
   if (item.cotised && !COTISED_HOSTS.includes(item.type)) return `${capitalise(what)} can't be cotised: only a band, a chevron, a pile, a cross or a saltire can (RULES-C §D.5).`;
   if (item.cotised && g.role === 'tertiary') return `A cotised ${name} can't lie on another charge: with its cotises it would be two groups on it (LoAR 10/2007, Eoforwic).`;
+  return null;
+}
+
+/** Where a charge group that isn't the primary lies, in a message. */
+const NOT_PRIMARY_WHERE: Record<Exclude<Group['role'], 'primary'>, string> = {
+  secondary: 'set beside it', tertiary: 'lying on another charge', overall: 'lying overall', peripheral: 'at the edge',
+};
+
+/**
+ * What SENA A3C allows of voided and fimbriated charges (§1.4 M10; R§A.6), or null: only the primary charges (and only simple geometric
+ * ones take either: art/meta `OUTLINED`), voided not in a fieldless badge, not both, and no more than three in a group, which would need
+ * documentation.
+ */
+function chargeTreatmentProblem(d: Design, g: Group): string | null {
+  const { item } = g;
+  if (item.k !== 'charge') return null;
+  const voided = isVoided(item), fimbriated = fimbriationOf(item) !== null;
+  if (!voided && !fimbriated) return null;
+  const what = voided ? 'voided' : 'fimbriated', noun = g.count === 1 ? CHARGES[item.charge].name : CHARGES[item.charge].plural;
+  if (g.role !== 'primary') return `Only the main charges can be ${what}, not ${chargePhrase(item.charge, g.count)} ${NOT_PRIMARY_WHERE[g.role]} (SENA A3C).`;
+  if (voided && fimbriated) return `A ${CHARGES[item.charge].name} can't be both voided and fimbriated: voided, it is read as fimbriated already (SENA A5C1).`;
+  if (voided && d.kind === 'badge') return 'A fieldless badge has no field to show through a voided charge (SENA A3C).';
+  if (g.count > 3) return `More than three ${noun} ${what} in a group are not registered without documentation (SENA A3C).`;
   return null;
 }
 
@@ -624,12 +647,14 @@ export function structuralIssues(d: Design): Issue[] {
     if (problem) add({ code: 'structure', rule: 'line', at: { k: 'group', path }, message: problem, slots: [] });
   }
 
-  // 6b'. What an ordinary's treatments rule out (RULES-C §D), and where voiding, fimbriation and cotises may be (SENA A3C).
+  // 6b'. What an ordinary's treatments rule out (RULES-C §D), and where voiding, fimbriation and cotises may be (SENA A3C), on ordinaries and charges.
   for (const { path, group } of walked) {
     const problem = ordinaryTreatmentProblem(group);
     if (problem) add({ code: 'structure', rule: 'relation', at: { k: 'group', path }, message: problem, slots: [] });
     const treated = ordinaryTreatmentRuleProblem(d, group);
     if (treated) add({ code: 'structure', rule: 'ordinary-treatment', at: { k: 'group', path }, message: treated, slots: [] });
+    const outlined = chargeTreatmentProblem(d, group);
+    if (outlined) add({ code: 'structure', rule: 'charge-treatment', at: { k: 'group', path }, message: outlined, slots: [] });
   }
 
   // 6c. One step from core practice is registrable, two are not (SENA A2B, App G).

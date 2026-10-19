@@ -6,7 +6,7 @@
 import { capitalise } from './words';
 import { CHARGES, postureTerm, type ChargeId, type Orientation, type Posture, type PostureClass, type TypeClass } from './charges';
 import {
-  asParty, asVariation, canonical, canonicalLines, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
+  asParty, asVariation, canonical, canonicalLines, fieldParts, fimbriationOf, groupAt, hostOf, isFieldPrimary, isVoided, itemKey, itemName, notSupported, primaryGroups,
   type Design, type Group, type GroupPath, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, partCount, type Division, type Variation } from './divisions';
@@ -89,16 +89,23 @@ const AS_ORDINARY: Partial<Record<TypeClass, string>> = { 'cross-couped': 'ordin
 /** App M1g (§1.6 T2): a compass star is a mullet of eight points, and a star of eight points or more is a sun as well, so it is a DC from neither — herald question D11. */
 const STAR_TOKENS: Partial<Record<ChargeId, readonly string[]>> = { 'compass-star': ['mullet', 'sun'] };
 
+/** App M1g: how many points make a mullet or an estoile a sun as well (Ulrich Michel Schmidt 10/2019). */
+const SUN_POINTS = 8;
+
 /**
  * What A5G4 compares within a type class (§1.6 T1): two items differ in type by a DC when their tokens share none. A charge's token is its
  * own type, or the type SENA treats it as (`typeOf`), or one several charges share (`typeToken`: foils and roses by their petals, App
- * M1i); a plain cross couped has the couped ordinary's. An ordinary's is its type.
+ * M1i); a plain cross couped has the couped ordinary's; a mullet or estoile of eight points or more is a sun as well (§1.6 T2). An
+ * ordinary's is its type.
  */
 function typeTokens(item: Item): readonly string[] {
   if (item.k === 'ordinary') return [typeKey(item)];
   const meta = CHARGES[item.charge];
   const asOrdinary = AS_ORDINARY[meta.typeClass];
-  return asOrdinary ? [asOrdinary] : STAR_TOKENS[item.charge] ?? [meta.typeToken ?? meta.typeOf ?? item.charge];
+  if (asOrdinary) return [asOrdinary];
+  const own = STAR_TOKENS[item.charge] ?? [meta.typeToken ?? meta.typeOf ?? item.charge];
+  const points = item.mods.find((m) => m.id === 'of-points')?.count ?? null;
+  return points !== null && points >= SUN_POINTS ? [...own, 'sun'] : own;
 }
 
 /** A5E2/A5G4: of different classes, or of one class with no type token in common. */
@@ -692,30 +699,35 @@ function asThroughoutOther(d: Design): Design | null {
   return canonical({ ...d, field, groups: d.groups.filter((x) => x !== g) });
 }
 
+/** How an item is voided and fimbriated (`fimbriation` its paint), and the item without either. */
+function outlineOf(item: Item): { voided: boolean; fimbriation: Paint | null; plain: Item } {
+  if (item.k === 'ordinary') return { voided: item.mods.includes('voided'), fimbriation: item.fimbriated, plain: { ...item, mods: item.mods.filter((m) => m !== 'voided'), fimbriated: null } };
+  return { voided: isVoided(item), fimbriation: fimbriationOf(item), plain: { ...item, mods: item.mods.filter((m) => m.id !== 'voided' && m.id !== 'fimbriated') } };
+}
+
 /**
- * The ways conflict reads a design (SENA A5C1; RULES-C §C.2, §D.3, §D.4), each to be compared, the least different taken: a voided primary
- * ordinary as the ordinary with one of its shape in the field's tincture on it, and as the ordinary of the field's tincture fimbriated (the
- * fimbriation worth nothing); a fimbriated one as the ordinary alone, and as one of the fimbriation's tincture with the ordinary on it
- * (not when something lies on it already: that would make quaternaries); three or more diminutives also as the variation (`asStripes`).
- * Every other design is read as it is.
+ * The ways conflict reads a design (SENA A5C1; RULES-C §C.2, §D.3, §D.4; §1.4 M8, M9), each to be compared, the least different taken: a
+ * voided primary ordinary or charge as the item with one of its shape in the field's tincture on it, and as the item of the field's
+ * tincture fimbriated (the fimbriation worth nothing); a fimbriated one as the item alone, and as one of the fimbriation's tincture with the
+ * item on it (not when something lies on it already: that would make quaternaries); three or more diminutives also as the variation
+ * (`asStripes`). Every other design is read as it is.
  */
 function readings(d: Design): Design[] {
   const stripes = asStripes(d);
   if (stripes) return [d, stripes];
   const throughout = asThroughoutOther(d);
   if (throughout) return [d, throughout];
-  const i = d.groups.findIndex((g) => g.role === 'primary' && g.item.k === 'ordinary' && (g.item.fimbriated !== null || g.item.mods.includes('voided')));
+  const i = d.groups.findIndex((g) => g.role === 'primary' && (outlineOf(g.item).voided || outlineOf(g.item).fimbriation !== null));
   const g = d.groups[i];
-  if (!g || g.item.k !== 'ordinary') return [d];
-  const item = { ...g.item, mods: g.item.mods.filter((m) => m !== 'voided'), fimbriated: null };
+  if (!g) return [d];
+  const { voided, fimbriation, plain: item } = outlineOf(g.item);
   const on = (paint: Paint): Group => ({ role: 'tertiary', relation: null, item, count: 1, arrangement: { k: 'single' }, position: null, paint, charged: [] });
   const read = (group: Group) => canonical({ ...d, groups: d.groups.map((x, j) => (j === i ? group : x)) });
   const unloaded = g.charged.length === 0;
-  if (g.item.mods.includes('voided')) {
+  if (voided) {
     if (d.kind !== 'arms') return [d];
     return [...(unloaded ? [read({ ...g, item, charged: [on(d.field)] })] : []), read({ ...g, item, paint: d.field })];
   }
-  const fimbriation = g.item.fimbriated;
   return [read({ ...g, item }), ...(fimbriation && unloaded ? [read({ ...g, item, paint: fimbriation, charged: [on(g.paint)] })] : [])];
 }
 

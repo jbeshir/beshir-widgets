@@ -36,8 +36,17 @@ export type Orientation = (typeof ORIENTATIONS)[number];
 export const CHARGE_FORMS = ['head', 'demi', 'jambe', 'skull'] as const;
 export type ChargeForm = (typeof CHARGE_FORMS)[number];
 
-export const MODIFIER_IDS = ['in-splendour', 'couped', 'erased', 'slipped', 'leaved', 'fructed', 'enflamed', 'winged', 'voided', 'of-points', 'fitchy'] as const;
+export const MODIFIER_IDS = ['in-splendour', 'couped', 'erased', 'slipped', 'leaved', 'fructed', 'enflamed', 'winged', 'voided', 'of-points', 'fitchy', 'fimbriated', 'pierced'] as const;
 export type ModifierId = (typeof MODIFIER_IDS)[number];
+
+/** The stars that may be given a number of points (`of-points`), and the number each is drawn with when none is given. */
+export const DRAWN_POINTS = { mullet: 5, estoile: 6 } as const satisfies Partial<Record<ChargeId, number>>;
+
+/** How many points a star may be given ("of six points", "of eight rays"): at least 4, at most 12. */
+export const STAR_POINTS: readonly number[] = [4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+/** How many points a star is drawn with when none is given ("a mullet": five), or null for a charge that takes no number of points. */
+export const drawnPoints = (id: ChargeId): number | null => (id in DRAWN_POINTS ? DRAWN_POINTS[id as keyof typeof DRAWN_POINTS] : null);
 
 export const PART_IDS = ['armed', 'langued', 'crowned', 'collared', 'attired', 'unguled', 'beaked', 'membered', 'seeded', 'barbed'] as const;
 export type PartId = (typeof PART_IDS)[number];

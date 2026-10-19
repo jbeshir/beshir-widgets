@@ -9,7 +9,7 @@ import { CHARGES } from './charges';
 import { LINE_WORD, isStraightLine, type ComplexLine } from './lines';
 import { adjacentParts } from './divisions';
 import { defaultLayoutOf } from './arrangement';
-import { fieldTinctures, replaceGroup, walkGroups, type Design, type Group, type WalkedGroup } from './design';
+import { fieldTinctures, replaceGroup, walkGroups, type Charge, type Design, type Group, type WalkedGroup } from './design';
 import { drawnBox } from './geometry';
 import { canonicalSlots } from './layout';
 import { chargeWords, ordinaryWords } from './plain-words';
@@ -93,6 +93,12 @@ function lighterCount(d: Design, { path, group, host }: WalkedGroup): number | n
   return fewer.filter((n) => n <= 3).pop() ?? fewer[0] ?? null;
 }
 
+/** A star of eight points or more (§1.4 M5) has finer points than the star as drawn: one point of detail more than its drawing. */
+const MANY_POINTS = 8;
+
+/** How much fine detail a charge carries: its drawing's, one more for a star of many points. */
+const chargeDetail = (c: Charge): number => CHARGES[c.charge].detail + ((c.mods.find((m) => m.id === 'of-points')?.count ?? 0) >= MANY_POINTS ? 1 : 0);
+
 export function readability(d: Design): Readability {
   const entries = walkGroups(d);
   const charges = entries.filter(({ group }) => group.item.k === 'charge');
@@ -120,7 +126,7 @@ export function readability(d: Design): Readability {
   const count = (biggest ? sizePoints(biggest.group.count) : 0) + Math.max(0, charges.length - 1) + (smallest < SMALL_CHARGE ? 1 : 0);
   const lighter = biggest ? lighterCount(d, biggest) : null;
   const detailed = charges.reduce<{ points: number; entry: WalkedGroup | null }>((best, e) => {
-    const points = e.group.item.k === 'charge' ? CHARGES[e.group.item.charge].detail : 0;
+    const points = e.group.item.k === 'charge' ? chargeDetail(e.group.item) : 0;
     return points > best.points ? { points, entry: e } : best;
   }, { points: 0, entry: null });
   const biggestMeta = biggest && biggest.group.item.k === 'charge' ? CHARGES[biggest.group.item.charge] : null;

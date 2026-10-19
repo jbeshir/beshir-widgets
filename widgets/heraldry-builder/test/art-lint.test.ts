@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, bboxOf, pathRings, ringDepths, ringProblems,
+  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, PIERCED_MULLETS, POINTED_STARS, bboxOf, pathRings, ringDepths, ringProblems,
   type ArtKey, type ChargeId, type DrawingMeta,
 } from '../src/lib/heraldry';
 import { rings } from './art-geometry';
@@ -26,7 +26,8 @@ const NUMBER = '(?:100|\\d{1,2})(?:\\.\\d)?';
 const PAIR = `${NUMBER} ${NUMBER}`;
 const PATH_GRAMMAR = new RegExp(`^(?:M${PAIR}L${PAIR}(?: ${PAIR})*Z)+$`);
 const MAX_DRAWING_BYTES = 2600;
-const MAX_CHARGE_BYTES = 9000;
+/** Raised from 9,000 by the orchestrator after art batch A2a (lions of ten drawings); a drawing keeps its own budget. */
+const MAX_CHARGE_BYTES = 30000;
 /** A drawing's long side (target 86) and how far its middle may be from the box's. */
 const LONG_SIDE = [82, 90] as const;
 const CENTRE_SLACK = 6;
@@ -73,10 +74,13 @@ describe('the charge art', () => {
     expect(problems).toEqual(LEGACY_ART_EXEMPT);
   });
 
-  it('keeps it in the art drawn for a modifier too: the sun in splendour, the crosses fitchy', () => {
+  it('keeps it in the art drawn for a modifier too: the sun in splendour, the crosses fitchy, the stars of other points, the pierced mullets', () => {
     const problems = Object.entries(MODIFIER_ART).flatMap(([id, byModifier]) => Object.entries(byModifier!).flatMap(([modifier, d]) =>
       drawingProblems(d!, CHARGES[id as ChargeId].drawings._!).map((rule) => `${id} ${modifier} ${rule}`)));
-    expect(problems).toEqual([]);
+    const stars = [...Object.entries(POINTED_STARS.mullet).map(([n, d]) => [`mullet of ${n}`, d]), ...Object.entries(POINTED_STARS.estoile).map(([n, d]) => [`estoile of ${n}`, d]),
+      ...Object.entries(PIERCED_MULLETS).map(([n, d]) => [`mullet of ${n} pierced`, d])];
+    const starProblems = stars.flatMap(([name, d]) => drawingProblems(d, CHARGES.mullet.drawings._!).map((rule) => `${name} ${rule}`));
+    expect([...problems, ...starProblems]).toEqual([]);
   });
 
   it('stays within the byte budget of a charge', () => {
