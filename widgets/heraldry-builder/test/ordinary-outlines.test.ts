@@ -2,7 +2,7 @@
 // line of their own that follows the ordinary's by default), fimbriation (a narrow band round the body, under it) and voiding (the
 // middle cut out). Their geometry on every shape and the parts render draws, the rules (SENA A3C, A3B4a, the fimbriated ordinary of the
 // field's tincture), the conflict readings (App I2c cotises as a group; A5C1 voided and fimbriated read two ways), words and signature,
-// and the builder's outline controls.
+// the builder's outline controls; and the same treatments on charges (PLAN-D §1.4), with the stars of other numbers of points and pierced.
 
 import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
@@ -391,5 +391,84 @@ describe('cotises, fimbriation and voiding: words and signature', () => {
     expect(signature(lone('argent', ordinary('bend', { cotised: { count: 1, paint: 'sable', line: 'wavy' } }), 'purpure'))).toBe('arms|ar|P:o.bend#c1~wavy(sa):1:single:pu');
     expect(signature(lone('gules', ordinary('cross', { mods: ['couped', 'voided'], fimbriated: 'argent' }), 'or'))).toBe('arms|gu|P:o.cross+couped+voided#f(ar):1:single:or');
     expect(signature(lone('gules', ordinary('cross'), 'or'))).toBe('arms|gu|P:o.cross:1:single:or');
+  });
+});
+
+describe('voided, fimbriated, pierced and pointed charges (PLAN-D §1.4 M5–M10, M16)', () => {
+  const star = (mods: unknown[], paint = 'or', extra: object = {}, field: unknown = 'azure', id = 'mullet') => lone(field, charge(id, { mods }), paint, extra);
+  const points = (count: number) => ({ id: 'of-points', count });
+  const fimbriated = (paint: string) => ({ id: 'fimbriated', paint });
+  const ruleIssues = (d: Design) => structuralIssues(d).filter((i) => i.code === 'structure' && i.rule === 'charge-treatment').map((i) => i.message);
+
+  it('draws a star of 4 to 12 points, pierced, voided and fimbriated in a tincture; anything else is a gap', () => {
+    const gaps = (d: Design) => unsupportedIssues(d).map((i) => `${i.gap.category}:${i.gap.detail}`);
+    for (const mods of [[points(4)], [points(12)], ['pierced'], [points(6), 'pierced'], ['voided'], [fimbriated('argent')]]) expect(gaps(star(mods))).toEqual([]);
+    expect(gaps(star([points(8)], 'or', {}, 'azure', 'estoile'))).toEqual([]);
+    for (const mods of [[points(3)], [points(13)], [{ id: 'of-points' }], [{ id: 'fimbriated' }], [{ id: 'fimbriated', paint: { k: 'fur', fur: 'ermine' } }], [{ id: 'voided', count: 2 }]]) {
+      expect(gaps(star(mods)), JSON.stringify(mods)).toHaveLength(1);
+    }
+    expect(gaps(star(['pierced'], 'or', {}, 'azure', 'estoile'))).toEqual(['charge-modifier:pierced']);
+    expect(gaps(star(['voided'], 'or', {}, 'azure', 'rose'))).toEqual(['charge-modifier:voided']);
+    // A charge on a reshaped or outlined charge is not drawn (its on-box is the plain drawing's).
+    expect(gaps(nd(arms('azure', group(charge('lozenge', { mods: ['voided'] }), 'or', { charged: [group(charge('mullet'), 'gules')] }))))).toEqual(['multiple-groups:tertiary-on-modifier']);
+  });
+
+  it('a mullet of five points is a mullet and an estoile of six rays an estoile; others are generated', () => {
+    expect(star([points(5)])).toEqual(star([]));
+    expect(star([points(6)], 'or', {}, 'azure', 'estoile')).toEqual(star([], 'or', {}, 'azure', 'estoile'));
+    const art = (d: Design) => renderLayers(d, 'heater').flatMap((l) => (l.k === 'charges' ? [l.art] : []))[0];
+    expect(new Set([star([]), star([points(6)]), star(['pierced']), star([points(6), 'pierced'])].map(art)).size).toBe(4);
+    expect(art(star(['voided']))).toBe(art(star([])));
+  });
+
+  it('checkRendered accepts a fimbriated and a voided charge group, plain and hatched, and refuses one drawn without its effect', () => {
+    const designs = [star([fimbriated('argent')], 'gules', { count: 3 }), star(['voided'], 'or', {}, div('per-pale', 'azure', 'gules'))];
+    for (const d of designs) for (const hatching of [false, true]) expect(checkRendered(d, renderShieldSvg(d, { hatching })), blazon(d)).toEqual([]);
+    expect(checkRendered(designs[0], renderShieldSvg(star([], 'gules', { count: 3 })))).toEqual([expect.stringMatching(/fimbriation of the charges at 0 is drawn nowhere/)]);
+    expect(checkRendered(designs[1], renderShieldSvg(star([], 'or', {}, div('per-pale', 'azure', 'gules'))))).toEqual([expect.stringMatching(/not voided as drawn/)]);
+  });
+
+  it('voided and fimbriated charges are primary only, not both, voided not in a badge, three at most (SENA A3C, M10)', () => {
+    expect(ruleIssues(star(['voided'], 'or', { count: 3 }))).toEqual([]);
+    expect(ruleIssues(star(['voided'], 'or', { count: 4 }))).toEqual(['More than three mullets voided in a group are not registered without documentation (SENA A3C).']);
+    expect(ruleIssues(nd(arms('azure', group(ordinary('fess'), 'argent'), group(charge('mullet', { mods: [fimbriated('argent')] }), 'gules', { count: 3, relation: 'between' })))))
+      .toEqual(['Only the main charges can be fimbriated, not three mullets set beside it (SENA A3C).']);
+    expect(ruleIssues(nd({ v: 2, kind: 'badge', groups: [group(charge('mullet', { mods: ['voided'] }), 'or')] }))).toEqual(['A fieldless badge has no field to show through a voided charge (SENA A3C).']);
+    expect(ruleIssues(star(['voided', fimbriated('argent')]))).toEqual(["A mullet can't be both voided and fimbriated: voided, it is read as fimbriated already (SENA A5C1)."]);
+  });
+
+  it('a fimbriated charge need not contrast with the field, its fimbriation must; a voided charge is judged as the charge (M16)', () => {
+    const tincture = (d: Design) => tinctureIssues(d).map((i) => i.message);
+    expect(tincture(star([fimbriated('argent')], 'azure'))).toEqual([]);
+    expect(tincture(star([fimbriated('gules')], 'azure'))).toEqual(['The fimbriation of the mullet (Gules) lies on Azure: colour on colour']);
+    expect(tincture(star([fimbriated('azure')], 'or'))).toEqual(['The fimbriation of the mullet (Azure) lies on Azure: same tincture']);
+    expect(tincture(star(['voided'], 'gules'))).toEqual(['Gules mullet on Azure field: colour on colour']);
+  });
+
+  it('compares stars by their points, and voided and fimbriated charges in two readings (M5–M9, App M1g, A5C1)', () => {
+    const on = (id: string, mods: unknown[] = [], paint = 'or') => star(mods, paint, {}, 'azure', id);
+    expect(changes(on('mullet', [points(5)]), on('mullet', [points(6)]))).toEqual([]);
+    expect(changes(on('mullet', [points(8)]), on('sun'))).toEqual([]);
+    expect(changes(on('estoile', [points(8)]), on('sun'))).toEqual([]);
+    expect(changes(on('mullet', [points(7)]), on('sun'))).toEqual(['type:dc:A5G4']);
+    expect(changes(on('estoile'), on('mullet'))).toEqual(['type:dc:A5G4']);
+    expect(changes(on('mullet', ['pierced']), on('mullet'))).toEqual([]);
+    expect(changes(on('mullet', ['voided']), on('mullet'))).toHaveLength(1);
+    expect(changes(on('mullet', [fimbriated('argent')]), on('mullet'))).toEqual([]);
+    expect(changes(on('mullet', [fimbriated('argent')]), on('mullet', [fimbriated('gules')]))).toEqual([]);
+    // Read as the mullet of the field's tincture fimbriated (the fimbriation worth nothing): "a mullet azure fimbriated argent".
+    expect(changes(on('mullet', ['voided'], 'argent'), on('mullet', [fimbriated('argent')], 'azure'))).toEqual([]);
+  });
+
+  it('words and signs them: points after the noun, voided and pierced before the tincture, the fimbriation after it', () => {
+    expect(blazon(star([points(6), 'pierced']))).toBe('Azure, a mullet of six points pierced Or.');
+    expect(blazon(star([points(8)], 'or', { count: 3 }, 'azure', 'estoile'))).toBe('Azure, three estoiles of eight rays Or.');
+    expect(blazon(star(['voided', points(6)], 'argent', {}, 'sable'))).toBe('Sable, a mullet of six points voided argent.');
+    expect(blazon(lone('azure', charge('lozenge', { mods: [fimbriated('argent')] }), 'azure'))).toBe('Azure, a lozenge azure fimbriated argent.');
+    expect(gloss(star([points(6), 'pierced']))).toBe('A blue shield with a gold six-pointed star with a round hole.');
+    expect(gloss(lone('azure', charge('lozenge', { mods: ['voided'] }), 'or'))).toMatch(/gold hollow diamond/);
+    expect(gloss(lone('azure', charge('lozenge', { mods: [fimbriated('argent')] }), 'gules'))).toMatch(/red diamond edged in white/);
+    expect(signature(star([points(6), 'pierced']))).toBe('arms|az|P:c.mullet+of-points*6+pierced:1:single:or');
+    expect(signature(lone('azure', charge('lozenge', { mods: [fimbriated('argent')] }), 'azure'))).toBe('arms|az|P:c.lozenge+fimbriated(ar):1:single:az');
   });
 });

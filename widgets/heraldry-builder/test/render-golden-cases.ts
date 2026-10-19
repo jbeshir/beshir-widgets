@@ -218,6 +218,12 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-swords-to-center', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'argent', { count: 4, arrangement: 'in-cross' }))],
   ['attr-sword-bendwise-sinister', arms('azure', group(charge('sword', { orientation: 'bendwise-sinister' }), 'or'))],
   ['attr-billet-fesswise', arms('vert', group(charge('billet', { orientation: 'fesswise' }), 'argent'))],
+  ['attr-mullet-of-six', arms('azure', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }] }), 'or'))],
+  ['attr-estoile-of-eight', arms('gules', group(charge('estoile', { mods: [{ id: 'of-points', count: 8 }] }), 'or'))],
+  ['attr-mullet-voided', arms('azure', group(charge('mullet', { mods: ['voided'] }), 'or'))],
+  ['attr-lozenge-fimbriated', arms('azure', group(charge('lozenge', { mods: [{ id: 'fimbriated', paint: 'argent' }] }), 'azure'))],
+  ['attr-mullet-of-six-pierced', arms('sable', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }, 'pierced'] }), 'argent'))],
+  ['attr-mullets-voided-per-pale', arms(div('per-pale', 'azure', 'gules'), group(charge('mullet', { mods: ['voided'] }), 'or', { count: 3 }))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
@@ -255,7 +261,7 @@ export function goldenShields(): GoldenShield[] {
 }
 
 /** The markup with the per-instance id fragment and the attributes that only describe the fills to the SCA render check removed. */
-const comparable = (svg: string) => svg.replace(/(hatch|hatch-tile|hatch-mask|region-clip|charge-clip|shield-clip|pattern)-s\d+/g, '$1-sN').replace(/ data-(?:paint|charge-tincture)="[^"]*"/g, '');
+const comparable = (svg: string) => svg.replace(/(hatch|hatch-tile|hatch-mask|region-clip|charge-clip|void-mask|shield-clip|pattern)-s\d+/g, '$1-sN').replace(/ data-(?:paint|charge-tincture)="[^"]*"/g, '');
 
 /** A shield's golden key: its own, then its shape and hatching. */
 export const renderKey = (s: GoldenShield, hatching: Hatching) => `${s.key}|${s.shape}|${hatching}`;

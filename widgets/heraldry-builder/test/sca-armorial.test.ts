@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, unmodified, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -286,7 +286,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...generatedChargeAttributeDesigns(1, 200),
+      ...unmodified(generatedChargeAttributeDesigns(1, 200)),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),

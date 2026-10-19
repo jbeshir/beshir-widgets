@@ -2,10 +2,10 @@
 
 import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 import { joinAnd, numberWord } from './words';
-import { CHARGES, postureGloss } from './charges';
+import { CHARGES, drawnPoints, postureGloss } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
-import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, notSupported, type Arrangement, type Pair, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
+import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, fimbriationOf, isVoided, notSupported, type Arrangement, type Charge, type Pair, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, ordinaryEdgeHost, type ComplexLine, type EdgeName, type Line } from './lines';
 import { FACING_LABEL, GAZE_LABEL, LINE_LOOK, ORIENTATION_LABEL } from './plain-words';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
@@ -275,13 +275,27 @@ function layoutGloss(l: Layout, count: number): string | null {
 /** Two charges facing each other, or back to back. */
 const PAIR_GLOSS: Record<Pair, string> = { combattant: 'facing each other', respectant: 'facing each other', addorsed: 'back to back' };
 
+/**
+ * A charge's gloss noun with what its modifiers say: "hollow diamonds", "a six-pointed star with a round hole", "suns with faces", "a cross
+ * with splayed arms, pointed at the foot", "a diamond edged in white".
+ */
+function chargeNoun(c: Charge, count: number): string {
+  const meta = CHARGES[c.charge];
+  const mods = c.mods.map((m) => m.id);
+  const name = count === 1 ? meta.glossName : meta.glossPlural;
+  const drawn = drawnPoints(c.charge), points = c.mods.find((m) => m.id === 'of-points')?.count ?? null;
+  const pointed = drawn !== null && points !== null ? name.replace(`${numberWord(drawn)}-`, `${numberWord(points)}-`) : name;
+  const fimbriation = fimbriationOf(c);
+  const edged = fimbriation && colourOf(fimbriation);
+  return (isVoided(c) ? 'hollow ' : '') + pointed + (mods.includes('in-splendour') ? (count === 1 ? ' with a face' : ' with faces') : '')
+    + (mods.includes('pierced') ? (count === 1 ? ' with a round hole' : ' with round holes') : '')
+    + (mods.includes('fitchy') ? ', pointed at the foot' : '') + (edged ? ` edged in ${edged}` : '');
+}
+
 /** The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word). */
 function chargesSubject(g: Group, count: number): string {
   if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
-  const meta = CHARGES[g.item.charge];
-  const mods = g.item.mods.map((m) => m.id);
-  const noun = (count === 1 ? meta.glossName : meta.glossPlural) + (mods.includes('in-splendour') ? (count === 1 ? ' with a face' : ' with faces') : '')
-    + (mods.includes('fitchy') ? ', pointed at the foot' : '');
+  const noun = chargeNoun(g.item, count);
   const colour = colourOf(g.paint);
   const lead = count === 1 ? article(colour ?? noun) : numberWord(count);
   const posture = g.item.posture ? postureGloss(g.item.charge, g.item.posture) : null;

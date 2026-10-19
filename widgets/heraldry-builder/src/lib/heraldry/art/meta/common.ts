@@ -1,6 +1,6 @@
 // Values the sidecar rows share: the natural colourings and the provenance of the hand-drawn art.
 
-import type { Orientation } from '../../charges';
+import type { ModifierId, Orientation } from '../../charges';
 import type { ProperPalette, Provenance } from '../types';
 
 /** The natural colourings (GoT Table 4, RULES-B §6.2): the class and the conflict tinctures are the row's "taken from" part. */
@@ -38,3 +38,9 @@ export const GENERATED: Provenance = {
 export const EVERY_WAY: readonly Orientation[] = [
   'palewise', 'fesswise', 'fesswise-reversed', 'bendwise', 'bendwise-inverted', 'bendwise-sinister', 'bendwise-sinister-inverted', 'inverted',
 ];
+
+/**
+ * The modifiers that outline a charge (render effects, PLAN-D §0.3.5): SENA A3C lets only simple geometric charges be voided or
+ * fimbriated (§1.4 M10), so only the roundel, lozenge, delf, mullet, billet and triangle take them.
+ */
+export const OUTLINED: readonly ModifierId[] = ['voided', 'fimbriated'];

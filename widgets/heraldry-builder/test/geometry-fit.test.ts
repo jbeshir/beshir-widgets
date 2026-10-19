@@ -540,7 +540,11 @@ describe('charges on the primary charges fit their hosts', () => {
   it('have plenty of legal layouts on the heater, on every host drawing', () => {
     expect(HOST_DRAWINGS.length).toBeGreaterThanOrEqual(3);
     expect(new Set(ON_CHARGE.map((e) => `${e.ctx.host.charge} ${e.ctx.host.posture ?? '_'}`)), `sample seed ${sampleSeed()}`).toEqual(new Set(HOST_DRAWINGS.map((d) => d.label)));
-    expect(ON_CHARGE.length).toBeGreaterThan(8 * HOST_DRAWINGS.length);
+    // Over every host drawing (SCA_FULL=1) there are more than eight layouts each; a sample may hold mostly the hosts with few (a bee, a
+    // fusil: two), so on its own each host has at least two.
+    const perHost = HOST_DRAWINGS.map((d) => ON_CHARGE.filter((e) => `${e.ctx.host.charge} ${e.ctx.host.posture ?? '_'}` === d.label).length);
+    expect(Math.min(...perHost), `sample seed ${sampleSeed()}`).toBeGreaterThanOrEqual(2);
+    if (fullSweep()) expect(ON_CHARGE.length).toBeGreaterThan(8 * HOST_DRAWINGS.length);
   });
 
   for (const g of SHAPES) {

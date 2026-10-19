@@ -8,7 +8,7 @@ import { canonicalFur, furColours } from './fur';
 import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 import { edgeCount, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import {
-  CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
+  CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS, drawnPoints,
   type ChargeForm, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
 import { DIMINUTIVE_OF, ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER, SAME_ORDINARY } from './ordinaries';
@@ -64,6 +64,12 @@ export interface Charge {
 }
 
 export type Item = Ordinary | Charge;
+
+/** The paint a charge is fimbriated with ("a lozenge azure fimbriated argent"), or null. */
+export const fimbriationOf = (c: Charge): Paint | null => c.mods.find((m) => m.id === 'fimbriated')?.paint ?? null;
+
+/** Whether a charge is voided: drawn as its band along its edge, the ground showing in the middle. */
+export const isVoided = (c: Charge): boolean => c.mods.some((m) => m.id === 'voided');
 
 /** The singular name of what an item is, in a message: "fess", "lion". */
 export const itemName = (i: Item): string => (i.k === 'ordinary' ? ORDINARY_NAME[i.type] : CHARGES[i.charge].name);
@@ -365,10 +371,12 @@ const sortedBy = <T>(xs: readonly T[], rank: (x: T) => number | string): T[] =>
     return a < b ? -1 : a > b ? 1 : 0;
   });
 
+/** A charge in canonical form: its attributes in fixed order, and a star "of" the number of points it is drawn with is that star ("a mullet of five points" is a mullet). */
 function canonicalCharge(c: Charge): Charge {
+  const mods = c.mods.filter((m) => !(m.id === 'of-points' && m.count === drawnPoints(c.charge)));
   return {
     k: 'charge', charge: c.charge, form: c.form, posture: c.posture, gaze: c.gaze, facing: c.facing, orientation: c.orientation,
-    mods: sortedBy(c.mods, (m) => MODIFIER_IDS.indexOf(m.id)).map((m) => ({ id: m.id, count: m.count, paint: m.paint && canonicalPaint(m.paint) })),
+    mods: sortedBy(mods, (m) => MODIFIER_IDS.indexOf(m.id)).map((m) => ({ id: m.id, count: m.count, paint: m.paint && canonicalPaint(m.paint) })),
     parts: sortedBy(c.parts, (p) => PART_IDS.indexOf(p.part)).map((p) => ({ part: p.part, paint: canonicalPaint(p.paint) })),
     holds: sortedBy(c.holds, (h) => `${String(HOLD_HOWS.indexOf(h.how)).padStart(2, '0')}${h.item.charge}`)
       .map((h) => ({ how: h.how, item: canonicalCharge(h.item), paint: canonicalPaint(h.paint) })),
@@ -455,7 +463,7 @@ export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 export type TincturePart = 'body' | 'fimbriation' | 'cotises' | 'strewn';
 
 /** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4, a badge's single main charge (`badge`, SENA A3A2: bands, borders, groups of several charges and split display shapes are not fieldless armory), a dexter or sinister point (`side-point`: never registered, RULES-C §C.3, L21). */
-export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge' | 'line' | 'core-practice' | 'ordinary-treatment' | 'side-point';
+export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge' | 'line' | 'core-practice' | 'ordinary-treatment' | 'charge-treatment' | 'side-point';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)

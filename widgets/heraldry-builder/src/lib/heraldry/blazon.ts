@@ -9,9 +9,9 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, postureTerm, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation } from './charges';
+import { CHARGES, MODIFIER_IDS, drawnPoints, postureTerm, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation } from './charges';
 import type { OrientWording } from './art/types';
-import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
+import { asParty, asSemy, asTreated, asVariation, fimbriationOf, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
 import { lineWords, ordinaryEdgeHost } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
@@ -103,9 +103,27 @@ function fieldPhrase(field: Paint): string {
 /** The modifiers the builder words, after the noun: "a sun in splendor", "a cross formy fitchy". */
 export const MODIFIER_WORDS: Partial<Record<ModifierId, string>> = { 'in-splendour': 'in splendor', fitchy: 'fitchy' };
 
-function modifierWords(m: Modifier): string {
-  const words = MODIFIER_WORDS[m.id];
-  return words !== undefined && m.count === null && m.paint === null ? words : notSupported({ category: 'charge-modifier', detail: m.id });
+/** The modifiers that reshape a charge, worded after the noun: "a lozenge voided", "a mullet of six points pierced". */
+const RESHAPING_WORDS: Partial<Record<ModifierId, string>> = { voided: 'voided', pierced: 'pierced' };
+
+/** What a star's points are called: an estoile's are rays ("an estoile of eight rays"). */
+const POINTS_WORD: Partial<Record<ChargeId, string>> = { estoile: 'rays' };
+
+/** The order modifiers are worded in: the number of points first ("a mullet of six points voided"), then the rest as listed. */
+const WORDING_ORDER: readonly ModifierId[] = ['of-points', ...MODIFIER_IDS.filter((id) => id !== 'of-points')];
+
+/**
+ * A charge's modifiers in words, after its noun. A fimbriation is worded after the charge's tincture (`tokens`): "a lozenge azure
+ * fimbriated argent".
+ */
+function modifiersWords(c: Charge): string[] {
+  const words = (m: Modifier): string[] => {
+    if (m.id === 'fimbriated' && m.count === null && m.paint !== null) return [];
+    if (m.id === 'of-points' && m.count !== null && m.paint === null && drawnPoints(c.charge) !== null) return [`of ${numberWord(m.count)} ${POINTS_WORD[c.charge] ?? 'points'}`];
+    const word = MODIFIER_WORDS[m.id] ?? RESHAPING_WORDS[m.id];
+    return word !== undefined && m.count === null && m.paint === null ? [word] : notSupported({ category: 'charge-modifier', detail: m.id });
+  };
+  return [...c.mods].sort((x, y) => WORDING_ORDER.indexOf(x.id) - WORDING_ORDER.indexOf(y.id)).flatMap(words);
 }
 
 /** The word for which way a charge faces, after its posture (R§F.3): none as drawn, "contourny" (no final -e), "affronty". */
@@ -187,7 +205,7 @@ function laidChargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonO
   const words = [g.count === 1 ? noun.article : numberWord(g.count), g.count === 1 ? noun.name : noun.plural];
   // GoT Table 5: a posture the College assumes is left out (RULES §F.8).
   if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureTerm(g.item.charge, g.item.posture));
-  words.push(...turnWords(g.item), ...(g.item.orientation === 'to-center' ? [] : orientationWords(g.item)), ...g.item.mods.map(modifierWords));
+  words.push(...turnWords(g.item), ...(g.item.orientation === 'to-center' ? [] : orientationWords(g.item)), ...modifiersWords(g.item));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
   // Charges Table 7 forces into one part of the field by tincture are not said to stand there; how they stand there still is.
   const forced = !options.stateDefaults && g.position !== null && g.position === forcedPosition(d, path);
@@ -286,8 +304,10 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     const paint = semy ? tinctureWord(semy.ground.t) : g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : groupPaintWord(g);
     const joiner = kind === 'peripheral' && g.item.k === 'ordinary' ? PERIPHERAL_JOINER[g.item.type] : ', ';
     out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, strewn: semy ? ` ${semyPhrase(semy.charge.charge, semy.ink.t)}` : '', linked, lead, joiner });
-    // The fimbriation follows the ordinary's own tincture, always written; cotises may share the ordinary's ("a bend cotised azure"). What
-    // follows may share the trim's ("a chevron gules fimbriated between three lions argent").
+    // The fimbriation follows the ordinary's or charge's own tincture, always written; cotises may share the ordinary's ("a bend cotised
+    // azure"). What follows may share the trim's ("a chevron gules fimbriated between three lions argent").
+    const fimbriation = g.item.k === 'charge' ? fimbriationOf(g.item) : null;
+    if (fimbriation) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriation), strewn: '', linked: false, lead: ' ', joiner: ', ' });
     if (g.item.k !== 'ordinary') return;
     const { type, lines, fimbriated, cotised } = g.item;
     if (fimbriated) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriated), strewn: '', linked: false, lead: ' ', joiner: ', ' });
