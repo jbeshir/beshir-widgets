@@ -314,7 +314,7 @@ describe('badges are built by clicks the builder allows', () => {
   });
 
   it('the SCA blazon of a badge is matched to the same design', () => {
-    expect(checkBlazon('(Fieldless) A mullet of six points Or.').match.status).toBe('vocabulary');
+    expect(checkBlazon('(Fieldless) A mullet pierced Or.').match.status).toBe('vocabulary');
     expect(checkBlazon('(Fieldless) An owl Or.').failures).toEqual([]);
     expect(checkBlazon('(Fieldless) A lion passant per pale argent and gules.').failures).toEqual([]);
     expect(checkBlazon('(Fieldless) A heart gules ermined Or.').failures).toEqual([]);

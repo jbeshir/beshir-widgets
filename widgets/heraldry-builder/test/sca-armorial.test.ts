@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedChargeAttributeDesigns, unturned, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -244,6 +244,19 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['two beasts addorsed', arms('or', group(charge('lion'), 'gules', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }))],
   ['two birds respectant', arms('azure', group(charge('eagle'), 'argent', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
   ['a pale between two beasts combattant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('lion'), 'or', { count: 2, relation: 'between', arrangement: { k: 'pair', pair: 'combattant' } }))],
+  // which way a charge points (SENA §1.3): its orientation words, the crescent's nouns, and to center after the layout
+  ['a charge fesswise', arms('azure', group(charge('sword', { orientation: 'fesswise' }), 'argent'))],
+  ['a charge fesswise reversed', arms('azure', group(charge('sword', { orientation: 'fesswise-reversed' }), 'argent'))],
+  ['a charge bendwise', arms('azure', group(charge('key', { orientation: 'bendwise' }), 'or'))],
+  ['a charge bendwise sinister inverted', arms('azure', group(charge('sword', { orientation: 'bendwise-sinister-inverted' }), 'argent'))],
+  ['a charge inverted', arms('azure', group(charge('mullet', { orientation: 'inverted' }), 'or'))],
+  ['a charge reversed', arms('azure', group(charge('key', { orientation: 'reversed' }), 'or'))],
+  ['a charge palewise', arms('azure', group(charge('sword', { orientation: 'palewise' }), 'argent'))],
+  ['an increscent', arms('gules', group(charge('crescent', { orientation: 'fesswise' }), 'argent'))],
+  ['three decrescents', arms('or', group(charge('crescent', { orientation: 'fesswise-reversed' }), 'azure', { count: 3 }))],
+  ['a crescent pendant', arms('vert', group(charge('crescent', { orientation: 'inverted' }), 'or'))],
+  ['three crescents to center', arms('vert', group(charge('crescent', { orientation: 'to-center' }), 'or', { count: 3, arrangement: 'in-annulo' }))],
+  ['four charges in cross points to center', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'argent', { count: 4, arrangement: 'in-cross' }))],
   // every charge alone and in threes (the crosses in their plurals: "crosses formy"), and every charge that is drawn fitchy; a lone
   // cross couped is the ordinary of that name (App M1f), so the charge is read in threes only
   ...CHARGE_IDS.flatMap((id): Array<[string, unknown]> => [
@@ -273,7 +286,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...unturned(generatedChargeAttributeDesigns(1, 200)),
+      ...generatedChargeAttributeDesigns(1, 200),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -372,6 +385,31 @@ describe('the matcher reads which way a charge faces in the College\'s words', (
     expect(tags('Azure, three lions combattant Or.')).toEqual(['posture:combattant']);
     expect(tags('Azure, two keys addorsed Or.')).toEqual(['posture:addorsed']);
     expect(tags('Azure, a lion guardant Or.')).toEqual(['posture:guardant']);
+  });
+});
+
+// Which way a charge points, as the SCA writes it: each reads as the widget's own design (SENA §1.3); a charge that is not turned that way keeps its gap.
+describe('the matcher reads which way a charge points in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a sword fesswise argent.', 'Azure, a sword fesswise argent.'],
+    ['Azure, a sword barwise argent.', 'Azure, a sword fesswise argent.'],
+    ['Azure, a sword inverted bendwise argent.', 'Azure, a sword bendwise inverted argent.'],
+    ['Azure, a sword bendwise sinister inverted argent.', 'Azure, a sword bendwise sinister inverted argent.'],
+    ['Vert, a crescent inverted Or.', 'Vert, a crescent pendant Or.'],
+    ['Gules, an increscent argent.', 'Gules, an increscent argent.'],
+    ['Or, three decrescents azure.', 'Or, three decrescents azure.'],
+    ['Azure, four swords in cross points to center argent.', 'Azure, four swords in cross points to center argent.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('files a charge turned a way it is not, or a lion turned at all, under its orientation', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a lion inverted Or.')).toEqual(['orientation:inverted']);
+    expect(tags('Azure, a mullet fesswise Or.')).toEqual(['orientation:fesswise']);
+    expect(tags('Azure, a sword saltirewise argent.')).toEqual(['orientation:saltirewise']);
   });
 });
 
@@ -803,6 +841,15 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a bend doubly cotised', 'azure, a bend doubly cotised argent'],
     ['a pale endorsed', 'azure, a pale endorsed argent'],
     ['a charge contourny', 'azure, a lion contourny Or'],
+    ['a charge fesswise', 'azure, a sword fesswise argent'],
+    ['a charge fesswise reversed', 'azure, a sword fesswise reversed argent'],
+    ['a charge bendwise sinister inverted', 'azure, a sword bendwise sinister inverted argent'],
+    ['a charge inverted', 'azure, a mullet inverted Or'],
+    ['a charge palewise', 'azure, a sword palewise argent'],
+    ['a crescent pendant', 'azure, a crescent pendant Or'],
+    ['an increscent', 'gules, an increscent argent'],
+    ['decrescents', 'or, three decrescents azure'],
+    ['charges to center', 'azure, four swords in cross points to center argent'],
     ['a charge to sinister', 'azure, a wolf passant to sinister Or'],
     ['a charge facing sinister', 'azure, an eagle displayed facing sinister Or'],
     ['a charge contourné', 'azure, a lion contourné Or'],

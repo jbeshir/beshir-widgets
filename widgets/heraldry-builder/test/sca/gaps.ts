@@ -9,7 +9,7 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, FACING_WORD, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, FACING_WORD, ORIENTATION_WORDS, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
   type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
@@ -126,6 +126,14 @@ const POSTURE_WORDS = Object.fromEntries(Object.values(CHARGES).map((m) =>
 /** The words for a charge that faces turned to sinister, and for two of them set to each other, which the widget draws (SENA §1.1). */
 const CONTOURNY = FACING_WORD['to-sinister']!;
 const PAIR_WORDS: ReadonlySet<string> = new Set(PAIRS);
+/**
+ * The words, as the tagger reads them, a charge the widget has is turned by: each word of the orientations its sidecar row allows
+ * ("fesswise reversed" is two) and of its own words for them ("pendant"); "bendwise sinister" is one word (`JOINS`).
+ */
+const ORIENTATION_WORDS_OF = Object.fromEntries(Object.values(CHARGES).map((m) => [m.id, new Set(m.orient.allowed.flatMap((o) => {
+  const own = m.orient.wording[o];
+  return [ORIENTATION_WORDS[o], ...(own?.k === 'words' ? [own.words] : [])].flatMap((w) => w.replace('bendwise sinister', 'bendwise-sinister').replace(/^(points|horns) to center$/, 'to-center').split(' '));
+}))])) as Record<ChargeId, Set<string>>;
 const CROSS_AFTER = new Set(CROSS_POST);
 const CROSS_BEFORE = new Set(CROSS_PRE);
 const POSITIONS = new Set(POSITION_WORDS);
@@ -363,6 +371,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const facingLast = (): Element | null => {
     const c = last?.kind === 'charge' ? last.el?.supported as ChargeId | null : null;
     return c && CHARGES[c].faces ? last!.el : null;
+  };
+  /** Whether the charge just read is one the widget turns this way ("a sword fesswise", "a crescent pendant", "four swords in cross points to center"). */
+  const turnedLast = (word: string): boolean => {
+    const c = last?.kind === 'charge' ? last.el?.supported as ChargeId | null : null;
+    return c !== null && c !== undefined && ORIENTATION_WORDS_OF[c].has(word);
   };
   let onHost: Element | null = null; // "on a fess …": later groups lie on it
   let betweenHost: Element | null = null; // "a fess between …": the next group surrounds it
@@ -665,9 +678,11 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (/^to-/.test(lem) && (look(i - 1)?.e.k === 'line' || look(i - 2)?.e.k === 'line' || words[i - 1] === 'elongated')) break;
         if (prev === 'parted') break; // "a bordure parted bordurewise"
         if (e.v === 'to-sinister' && facingLast() && !/^heads?$/.test(prev)) break; // "a lion rampant to sinister" is contourny: drawn (not "an eagle, head to sinister")
+        if (turnedLast(e.v)) break; // "a sword fesswise": drawn
         tag('orientation', e.v);
         break;
       case 'mod':
+        if (turnedLast(e.v)) break; // "a crescent pendant"
         tag('charge-modifier', e.v);
         if ((e.v === 'maintaining' && !/ed$/.test(tok.word)) || e.v === 'wearing') held = true;
         // "crowned of a coronet", "gorged with a chaplet": the crown is part of the charge
@@ -821,7 +836,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       if (words[i + 1] === 'at' && words[i + 2] === 'all') tag('charge-modifier', 'fitchy-at-all-points');
       return;
     }
-    if (base === 'inverted') tag('orientation', base);
+    if (base === 'inverted') { if (!turnedLast(base)) tag('orientation', base); }
     else tag('charge-modifier', base);
   }
 

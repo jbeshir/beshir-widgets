@@ -20,7 +20,7 @@ import { capitalise, joinList, numberWord } from './words';
 import {
   AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, drawnLayout, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
-import { CHARGES, FACINGS, chargePhrase, postureTerm, type Facing, type Gaze, type ModifierId, type Posture } from './charges';
+import { CHARGES, FACINGS, ORIENTATIONS, chargePhrase, postureTerm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
 import {
   asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
   type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Pair, type PartyPaint, type VariationPaint,
@@ -784,6 +784,22 @@ export function pairChoices(d: Design, path: GroupPath): Choice<PairChoice>[] {
     : g.arrangement.k !== 'pair' && contextOf(d, g, hostOf(d, path))?.k === 'field' && layoutKey(g) !== 'in-fess'
       ? `Lay the two ${plural} side by side (in fess) first.` : null;
   return (['same', facingEachOther(g.item), 'addorsed'] as const).map((p) => choice(p, p === 'same' ? null : reason));
+}
+
+/**
+ * Which way the group's charge may be turned, offered for a charge whose sidecar row allows some: as usual (null: upright, or along a bend
+ * it lies on), then every way but "reversed" and "to center", which are offered where the charge takes them. The ways it doesn't take are
+ * listed blocked; so are all of them for two crossed, and "to center" for a single charge (§1.3, `orientationGaps`).
+ */
+export function orientationChoices(d: Design, path: GroupPath): Choice<Orientation | null>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge' || CHARGES[g.item.charge].orient.allowed.length === 0) return [];
+  const { name, plural, orient } = CHARGES[g.item.charge];
+  const ways = ORIENTATIONS.filter((o) => orient.allowed.includes(o) || (o !== 'reversed' && o !== 'to-center'));
+  return [null, ...ways].map((o) => choice(o, o === null ? null
+    : !orient.allowed.includes(o) ? (orient.cls === 'radial' || orient.cls === 'compact-axis' ? `A ${name} looks the same turned that way.` : `A ${name} is not turned that way in SCA heraldry.`)
+      : g.arrangement.k === 'crossed' ? `Two ${plural} crossed are not turned.`
+        : o === 'to-center' && g.count < 2 ? `One ${name} has no group to point to the middle of.` : null));
 }
 
 /** The layout the Layout row shows as chosen: a pair is laid out as its two charges in fess, or where the ordinary places them (§1.1 F8). */

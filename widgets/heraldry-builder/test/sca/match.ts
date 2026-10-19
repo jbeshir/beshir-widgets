@@ -12,8 +12,8 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, FACING_WORD, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
-  blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type ModifierId, type OrdinaryType, type Posture,
+  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, FACING_WORD, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
+  blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type ModifierId, type OrdinaryType, type Orientation, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
 import { EDGE_NAMES } from './words';
@@ -88,13 +88,29 @@ const PATTERN_WORDS = ['saltire', 'cross', 'orle', 'annulo'] as const;
 const LEADS = [...ARRANGEMENT_LINE_WORDS, ...POSITION_WORDS].sort((a, b) => b.split(' ').length - a.split(' ').length);
 
 /** Charge noun (lower case, as the normalised text reads: "latin cross") → charge and number. "fish" is both. */
-const NOUNS = new Map<string, { id: ChargeId; plural: boolean; singular: boolean }>();
+const NOUNS = new Map<string, { id: ChargeId; plural: boolean; singular: boolean; article: string; orientation: Orientation | null }>();
 for (const id of CHARGE_IDS) {
   const m = CHARGES[id];
   const [name, plural] = [m.name.toLowerCase(), m.plural.toLowerCase()];
-  NOUNS.set(name, { id, singular: true, plural: plural === name });
-  if (plural !== name) NOUNS.set(plural, { id, singular: false, plural: true });
+  NOUNS.set(name, { id, singular: true, plural: plural === name, article: m.article, orientation: null });
+  if (plural !== name) NOUNS.set(plural, { id, singular: false, plural: true, article: m.article, orientation: null });
+  // a noun of its own that says which way the charge points ("an increscent": a crescent fesswise)
+  for (const [o, w] of Object.entries(m.orient.wording)) {
+    if (w.k !== 'noun') continue;
+    NOUNS.set(w.name, { id, singular: true, plural: false, article: w.article, orientation: o as Orientation });
+    NOUNS.set(w.plural, { id, singular: false, plural: true, article: w.article, orientation: o as Orientation });
+  }
 }
+
+/** The words that say which way a charge points, after its facing, by what they mean: the orientation's own or one the charge words itself ("pendant"). */
+const ORIENTATION_PHRASES = ORIENTATIONS.filter((o) => o !== 'to-center').flatMap((o) => [
+  { words: ORIENTATION_WORDS[o].split(' '), orientation: o, charge: null as ChargeId | null },
+  ...CHARGE_IDS.flatMap((id) => { const w = CHARGES[id].orient.wording[o]; return w?.k === 'words' ? [{ words: w.words.split(' '), orientation: o, charge: id as ChargeId | null }] : []; }),
+]).sort((a, b) => b.words.length - a.words.length);
+
+/** The words that say a group's charges point to the middle of the group, after its layout: "points to center", the crescent's "horns to center". */
+const TO_CENTER_PHRASES = [ORIENTATION_WORDS['to-center'], ...CHARGE_IDS.flatMap((id) => { const w = CHARGES[id].orient.wording['to-center']; return w?.k === 'words' ? [w.words] : []; })]
+  .map((w) => w.split(' '));
 
 /** Every posture word the widget's blazons can contain, by the posture it names (for the charge it was written with, else any). */
 const POSTURE_BY_WORD = new Map<string, Posture>();
@@ -122,7 +138,7 @@ const VOCABULARY = new Set<string>(
   [
     '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
-    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...POSTURE_WORDS, CONTOURNY, ...PAIRS, ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
+    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...POSTURE_WORDS, CONTOURNY, ...PAIRS, ...ORIENTATION_PHRASES.flatMap((o) => o.words), ...TO_CENTER_PHRASES.flat(), ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
@@ -140,7 +156,7 @@ const VOCABULARY = new Set<string>(
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
-//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['contourny'] [MODIFIER] [('in' PATTERN)|ROWS|PAIR] [T]   (PAIR: two charges combattant, respectant or addorsed)
+//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['contourny'] [ORIENTATION] [MODIFIER] [('in' PATTERN)|ROWS|PAIR] [POINTS TO CENTER] [T]   (PAIR: two charges combattant, respectant or addorsed)
 //   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | 'within' | ε
 // A group straight after "between", or joined to one by "and", is set around the ordinary or the primary charges; any other
@@ -204,8 +220,9 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
   i += nounWords.length;
   const noun = NOUNS.get(nounWords.join(' '))!;
   if (count === 1 ? !noun.singular : !noun.plural) return null;
-  if (count === 1 && countWord !== CHARGES[noun.id].article) return null;
+  if (count === 1 && countWord !== noun.article) return null;
   const item: Record<string, unknown> = { k: 'charge', charge: noun.id };
+  if (noun.orientation) item.orientation = noun.orientation;
   if (POSTURE_WORDS.has(tokens[i])) {
     const posture = postureFor(noun.id, tokens[i++]);
     if (!posture) return null;
@@ -214,6 +231,12 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
   if (tokens[i] === CONTOURNY) {
     item.facing = 'to-sinister';
     i++;
+  }
+  // which way it points: one word or two ("fesswise", "bendwise sinister inverted"); a noun of its own has said it already
+  const turn = noun.orientation ? undefined : ORIENTATION_PHRASES.find((o) => (o.charge === null || o.charge === noun.id) && startsWith(tokens, i, o.words));
+  if (turn) {
+    item.orientation = turn.orientation;
+    i += turn.words.length;
   }
   const mods: Array<{ id: ModifierId; count: null; paint: null }> = [];
   for (let m = modifierAt(tokens, i); m; m = modifierAt(tokens, i)) {
@@ -245,6 +268,12 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     }
     if (rows.length < 2) return null;
     group.arrangement = `rows-${rows.join('-')}`;
+  }
+  // "in cross points to center": the group's charges point to the middle of the group, said after its layout
+  const toCenter = TO_CENTER_PHRASES.find((w) => startsWith(tokens, i, w));
+  if (toCenter) {
+    item.orientation = 'to-center';
+    i += toCenter.length;
   }
   const read = readPaint(tokens, i, 'group');
   return { phrase: { group, paint: read?.paint ?? null }, end: read ? read.end : i };

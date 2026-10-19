@@ -8,7 +8,7 @@ import {
   type Design, type Issue,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedChargeAttributeDesigns, generatedDesign, generatedDesigns, generatedRichDesigns, unturned } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedDesigns, generatedRichDesigns } from './design-generator';
 import { UNSUPPORTED_CASES } from './unsupported-cases';
 
 const messages = (r: ReturnType<typeof resolve>): string[] => (r.ok ? [] : r.errors.map((e) => e.message));
@@ -582,7 +582,7 @@ describe('support matrix', () => {
       for (const d of designs) expect([isSupported(d), structuralIssues(d)]).toEqual([true, []]);
       const turned = designs.filter((d) => d.groups.some((g) => g.arrangement.k === 'pair' || (g.item.k === 'charge' && g.item.facing === 'to-sinister')));
       expect(turned.length).toBeGreaterThan(40);
-      expect(designs.length - unturned(designs).length).toBeGreaterThan(20);
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.orientation !== null)).length).toBeGreaterThan(20);
     });
 
     it('draws a pair only of two charges that face, each its own way, alone on the field or around a pale', () => {
