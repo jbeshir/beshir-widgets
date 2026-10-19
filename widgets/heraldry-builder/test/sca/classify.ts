@@ -41,18 +41,18 @@ export interface Classification {
 
 
 /** The design-only checks, once per distinct design: many records match the same one. */
-const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { replayed: boolean }>();
+const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { drawnAndBuilt: boolean }>();
 
-function checkDesign(design: Design, replay: boolean) {
+function checkDesign(design: Design, drawAndBuild: boolean) {
   const key = canonicalJson(design);
   let found = designChecks.get(key);
-  // A design whose builder replay was skipped (the sampled `npm test`) is checked again if a later caller asks for the replay.
-  if (!found || (replay && !found.replayed)) {
+  // A design not drawn and replayed (the sampled `npm test`) is checked again if a later caller asks for both.
+  if (!found || (drawAndBuild && !found.drawnAndBuilt)) {
     const a = assessMatched(design);
-    const rendered = checkRendered(design, renderShieldSvg(design));
-    const path = replay ? builderPath(design) : null;
+    const rendered = drawAndBuild ? checkRendered(design, renderShieldSvg(design)) : [];
+    const path = drawAndBuild ? builderPath(design) : null;
     found = {
-      replayed: replay,
+      drawnAndBuilt: drawAndBuild,
       assess: a.kind === 'ok' ? null : `${a.kind === 'violation' ? a.status : a.kind}: ${a.issues.map((i) => i.message).join(' ')}`,
       render: rendered.length ? rendered.join('; ') : null,
       builder: path && path.problems.length ? path.problems.join('; ') : null,
@@ -78,8 +78,8 @@ const gapTag = (g: Gap): string => `${g.category}:${g.detail}`;
  * record, which is what `npm run sca:ignore` runs.
  */
 export interface ClassifyOptions {
-  /** Whether to replay the builder's clicks for this matched design (the 'builder' check); skipped, it reads as passing. */
-  builder?: (design: Design) => boolean;
+  /** Whether to draw this matched design and replay the builder's clicks for it (the 'render' and 'builder' checks); skipped, both read as passing. */
+  drawAndBuild?: (design: Design) => boolean;
   /** Whether to re-run the gap tagger for an unmatched record; skipped, the classification is 'gap-unchecked', with no tags. */
   tagger?: (record: ArmoryRecord) => boolean;
 }
@@ -89,7 +89,7 @@ export function checkBlazon(scaBlazon: string, options: ClassifyOptions = {}): {
   const match = explainMatch(scaBlazon);
   if (!match.match) return { match, failures: [{ check: 'match', detail: noMatchDetail(match) }] };
   const design = match.match.design!;
-  const found = checkDesign(design, options.builder ? options.builder(design) : true);
+  const found = checkDesign(design, options.drawAndBuild ? options.drawAndBuild(design) : true);
   const ours = blazon(design);
   const failures: CheckFailure[] = [];
   if (found.assess) failures.push({ check: 'assess', detail: found.assess });

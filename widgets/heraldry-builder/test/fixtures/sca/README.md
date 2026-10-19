@@ -32,7 +32,7 @@ as a to-do list.
 
 Regenerate it with `npm run sca:ignore` after changing the widget or the SCA tooling. It
 reclassifies every current record through `test/sca/classify.ts`, the same code the test uses, and
-rewrites the whole file. It is the authoritative full sweep: unlike `npm test`, which samples the expensive per-record checks (the builder replay, the gap tagger on ignored records; `test/sca/sample.ts`), it checks every record in full. The run fails, writing nothing, if a matched design the widget would
+rewrites the whole file. It is the authoritative full sweep: unlike `npm test`, which samples the expensive per-record checks (the render check and the builder replay, the gap tagger on ignored records; `test/sca/sample.ts`), it checks every record in full. The run fails, writing nothing, if a matched design the widget would
 register can't be blazoned, drawn or built: that is a widget bug, and is never ignored.
 
 The format is valid JSON, laid out for readable diffs:

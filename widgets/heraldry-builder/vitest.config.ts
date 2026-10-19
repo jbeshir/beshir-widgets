@@ -14,7 +14,7 @@ import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-worker
 //    lines, builder replays, prefilter pairs) check a seeded, rotating sample of their cases on each run (test/rotation.ts),
 //    so their time stays flat as art and attributes grow; SCA_FULL=1 runs them in full, `npm run golden:write` writes every key.
 //  - sca: the SCA armorial test reads the 21 MB Latin-1 O&A dump from disk, so it runs in plain Node as its own project.
-//    It runs the cheap per-record checks on every record and the expensive ones (builder replay, gap tagger on ignored
+//    It runs the cheap per-record checks on every record and the expensive ones (render and builder replay, gap tagger on ignored
 //    records) on a seeded, rotating sample (test/sca/sample.ts), so its time stays flat as records start passing. `npm run
 //    sca:ignore` (vitest.sca-ignore.config.ts) is the authoritative full sweep; the final gate runs it. SCA_FULL=1 makes
 //    this project do the full sweep too.

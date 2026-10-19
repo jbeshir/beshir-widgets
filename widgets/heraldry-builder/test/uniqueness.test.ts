@@ -9,6 +9,7 @@ import {
 } from '../src/lib/heraldry';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
+import { rotatesIn, sampleSeed } from './rotation';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
 const ord = (type: string, paint: string, extra: object = {}) => group(ordinary(type), paint, extra);
@@ -592,13 +593,15 @@ describe('sweeps over generated designs', () => {
     }
   }, 30_000);
 
+  // Seeded sampling: a rotating half of the pairs (`rotatesIn`; SCA_FULL=1 for all).
   it('is symmetric: the same changes either way round (SENA compares, it does not order)', () => {
     let pairs = 0;
-    for (const a of designs) for (const b of designs) {
+    for (const [i, a] of designs.entries()) for (const [j, b] of designs.entries()) {
+      if (!rotatesIn(`symmetric|${i}|${j}`, 1 / 2)) continue;
       expect(asMultiset(differences(a, b)), `${signature(a)} vs ${signature(b)}`).toEqual(asMultiset(differences(b, a)));
       pairs++;
     }
-    expect(pairs).toBeGreaterThan(20_000);
+    expect(pairs, `sample seed ${sampleSeed()}`).toBeGreaterThan(20_000);
   }, 60_000);
 
   it('gives at most one distinct change per attribute and group, and no distinct change for an attribute that is substantial', () => {
