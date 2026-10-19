@@ -682,8 +682,8 @@ button, input, select, textarea {
 .taken-verdict { font-size: 17px; }
 /* "More colours and patterns…": one row under a colour picker; open, a row of kinds, then the options of the kind shown. */
 .more-paint summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; }
-.more-paint summary::before { content: '+'; width: 1em; font-weight: 700; }
-.more-paint[open] summary::before { content: '−'; }
+.more-paint > summary::before { content: '+'; width: 1em; font-weight: 700; }
+.more-paint[open] > summary::before { content: '−'; }
 .more-paint-body { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 0 5px; padding-left: 12px; border-left: 2px solid var(--card-border); }
 .more-paint-modes.segmented > .option-wrap { flex: 0 1 auto; }
 .more-paint-modes .segment { font-size: 15px; }

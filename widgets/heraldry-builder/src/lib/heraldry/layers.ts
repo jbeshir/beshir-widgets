@@ -20,6 +20,7 @@ import { structuralIssues } from './structure';
 import { tinctureIssues } from './tincture-rule';
 import { strewnGroups } from './strewn';
 import { gazeDrawn, unsupportedIssues } from './support';
+import { withDrawnPieces } from './overlay-art';
 
 /** The kinds of place the builder adds on top of the band and the picture (`peripheral` adds one more corner or edge shape each time). */
 export type LayerKey = Exclude<PlaceKind, 'ordinary' | 'picture'>;
@@ -78,8 +79,9 @@ export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines
 }
 
 /**
- * The charge of a group, keeping the posture, facing, gaze, orientation and modifiers of the one it replaces where the new charge has them
- * (PLAN-D §0.2.7): facing to sinister when it faces, a head turned when it is drawn so in that posture, an orientation it takes, a form it is drawn in (a head keeps its cut).
+ * The charge of a group, keeping the posture, facing, gaze, orientation, modifiers and parts of the one it replaces where the new charge has them
+ * (PLAN-D §0.2.7): facing to sinister when it faces, a head turned when it is drawn so in that posture, an orientation it takes, a form it is drawn in (a head keeps its cut),
+ * a piece (a crown, wings…) where its drawing has the place for it.
  */
 export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] {
   const meta = CHARGES[id];
@@ -88,9 +90,10 @@ export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] 
   const form = was?.form && meta.forms.includes(was.form) ? was.form : null;
   const item: Charge = {
     k: 'charge', charge: id, form, posture: form ? null : posture, gaze: null, facing: meta.faces && was?.facing === 'to-sinister' ? 'to-sinister' : meta.defaultFacing,
-    orientation: was?.orientation && meta.orient.allowed.includes(was.orientation) ? was.orientation : null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id) || meta.details.includes(m.id) || (form === 'head' && CUT_MODIFIERS.includes(m.id))) : [], parts: [], holds: [],
+    orientation: was?.orientation && meta.orient.allowed.includes(was.orientation) ? was.orientation : null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id) || meta.details.includes(m.id) || (form === 'head' && CUT_MODIFIERS.includes(m.id))) : [],
+    parts: was ? was.parts.filter((p) => meta.parts.includes(p.part)) : [], holds: [],
   };
-  return was?.gaze && gazeDrawn(item, was.gaze) ? { ...item, gaze: was.gaze } : item;
+  return withDrawnPieces(was?.gaze && gazeDrawn(item, was.gaze) ? { ...item, gaze: was.gaze } : item);
 }
 
 /** A single charge in gold, as a new picture starts. */

@@ -7,10 +7,10 @@
 import {
   CHARGES, COLOURS, CUT_MODIFIERS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
-  firstFimbriation, gazeDrawn, withModifier, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  firstFimbriation, firstPiecePaint, gazeDrawn, isPiece, withDrawnPieces, withModifier, withPart, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge, drawnLayout, layoutContext,
   partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
-  type ChargeForm, type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
+  type ChargeForm, type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PiecePart, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
@@ -283,10 +283,11 @@ export function setLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
   return withLayout(d, path, key);
 }
 
+/** The design with the charge at `path` changed; a piece its new drawing has no place for is dropped (`withDrawnPieces`: a lion sejant has no wings). */
 function withItem(d: Design, path: GroupPath, change: (item: Extract<Group['item'], { k: 'charge' }>) => Extract<Group['item'], { k: 'charge' }>): Design {
   const g = groupAt(d, path);
   if (g.item.k !== 'charge') return d;
-  const item = change(g.item);
+  const item = withDrawnPieces(change(g.item));
   return canonical(replaceGroup(d, path, { ...g, item }));
 }
 
@@ -344,17 +345,25 @@ export function setPair(d: Design, path: GroupPath, pair: PairChoice): Design {
 }
 
 /**
- * The charge at `path` with modifier `id` on, carrying `value` (a star's number of points, a fimbriation's tincture), or off. A fimbriation
- * switched on without a tincture is given the first that stands out where the charges lie (`firstFimbriation`).
+ * The charge at `path` with modifier `id` on, carrying `value` (a star's number of points, a fimbriation's or a piece's paint), or off. A
+ * fimbriation switched on without a tincture is given the first that stands out where the charges lie (`firstFimbriation`), a piece its
+ * first paint (`firstPiecePaint`); a slip switched off takes its leaves with it.
  */
 export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean, value: ModifierValue = NO_MODIFIER_VALUE): Design {
-  const given = id === 'fimbriated' && on && value.paint === null ? { count: null, paint: firstFimbriation(d, path) } : value;
-  const changed = withModifier(d, path, id, on, given);
+  const given = !on || value.paint !== null ? value
+    : id === 'fimbriated' ? { count: null, paint: firstFimbriation(d, path) } : isPiece(id) ? { count: null, paint: firstPiecePaint(d, path, id) } : value;
+  const unslipped = id === 'slipped' && !on ? withModifier(d, path, 'leaved', false) : d;
+  const changed = withModifier(unslipped, path, id, on, given);
   // A picture drawn with a modifier has no room for pictures on it (its drawing is changed): they are dropped.
   const parts = partsOf(changed);
   return parts.onPicture && parts.picture?.item.k === 'charge' && parts.picture.item.mods.length > 0
     ? refitLayers(assembleParts(changed, { ...parts, onPicture: null }))
     : changed;
+}
+
+/** The charge at `path` with a crown or collar on in `paint` (switched on without one: `firstPiecePaint`), or off. */
+export function setPart(d: Design, path: GroupPath, part: PiecePart, on: boolean, paint: Paint | null = null): Design {
+  return withPart(d, path, part, on ? paint ?? firstPiecePaint(d, path, part) : null);
 }
 
 export function setGroupTincture(d: Design, path: GroupPath, t: GroupTincture): Design {

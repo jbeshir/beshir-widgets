@@ -7,12 +7,12 @@
 
 import {
   CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, formChoices, cutChoices, detailChoices, pointsChoices, cutOf, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, formChoices, cutChoices, detailChoices, partChoices, pieceTinctureChoices, isPiece, isPiecePart, PROPER_PIECES, type PieceId, type PiecePart, pointsChoices, cutOf, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
   type ChargeForm, type ChargeId, type Choice, type ModifierId, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setFacing, setGaze, setOrientation, setForm, setCut, setPair, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setFacing, setGaze, setOrientation, setForm, setCut, setPair, setPart, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -54,6 +54,7 @@ export type BuilderAction =
   | { kind: 'orientation'; at: At; orientation: Orientation }
   | { kind: 'splendour'; at: At }
   | { kind: 'modifier'; at: At; id: ModifierId; count: number | null; paint: Paint | null }
+  | { kind: 'part'; at: At; part: PiecePart; paint: Paint }
   | { kind: 'charge-tincture'; at: At; tincture: GroupTincture }
   | { kind: 'split'; target: PaintWhere }
   | { kind: 'party-division'; target: PaintWhere; division: Division }
@@ -203,13 +204,21 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       return path ? choiceReason(modifierChoices(d, path), 'in-splendour') : `there is no ${a.at} to show a face on`;
     }
     case 'modifier': {
-      // The Details disclosure: a star's points chip, a detail's toggle, and for a fimbriation then its tincture.
+      // The Details disclosure: a star's points chip, a detail's toggle, and for a fimbriation or a piece then its paint.
       const path = pathAt(d, a.at);
       if (!path) return `there is no ${a.at} to draw ${a.id}`;
       if (a.id === 'of-points') return choiceReason(pointsChoices(d, path), a.count);
       const toggled = choiceReason(detailChoices(d, path), a.id);
-      if (toggled || a.id !== 'fimbriated') return toggled;
+      if (toggled) return toggled;
+      if (isPiece(a.id)) return piecePaintReason(setModifier(d, path, a.id, true), path, a.id, a.paint);
+      if (a.id !== 'fimbriated') return null;
       return a.paint?.k === 'tincture' ? choiceReason(fimbriationTinctureChoices(setModifier(d, path, 'fimbriated', true), path), a.paint.t) : `a fimbriation of ${JSON.stringify(a.paint)} is not offered`;
+    }
+    case 'part': {
+      // The Details disclosure: a crown's or collar's toggle, then its colour.
+      const path = pathAt(d, a.at);
+      if (!path) return `there is no ${a.at} to draw ${a.part}`;
+      return choiceReason(partChoices(d, path), a.part) ?? piecePaintReason(setPart(d, path, a.part, true), path, a.part, a.paint);
     }
     case 'charge-tincture': {
       const path = pathAt(d, a.at);
@@ -315,6 +324,7 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'orientation': return setOrientation(d, path!, a.orientation);
     case 'splendour': return setModifier(d, path!, 'in-splendour', true);
     case 'modifier': return setModifier(d, path!, a.id, true, { count: a.count, paint: a.paint });
+    case 'part': return setPart(d, path!, a.part, true, a.paint);
     case 'charge-tincture': return setGroupTincture(d, path!, a.tincture);
     case 'split': return splitGroup(d, paintPathOf(d, a.target)!)!;
     case 'party-division': return setPartyDivision(d, paintPathOf(d, a.target)!, a.division);
@@ -330,6 +340,12 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'semy-colour': return setSemyColour(d, paintTargetOf(d, a.target)!, a.slot, a.tincture);
     case 'proper': return setProper(d, path!);
   }
+}
+
+/** Why a piece of the charge at `path` (switched on) can't be given `paint` by its colour picker: natural colours only for flames, else a tincture offered. */
+function piecePaintReason(d: Design, path: GroupPath, piece: PieceId, paint: Paint | null): string | null {
+  if (paint?.k === 'proper') return PROPER_PIECES.includes(piece) ? null : `the ${piece} piece has no natural colours`;
+  return paint?.k === 'tincture' ? choiceReason(pieceTinctureChoices(d, path, piece), paint.t) : `a ${piece} piece of ${JSON.stringify(paint)} is not offered`;
 }
 
 function describeAction(a: BuilderAction): string {
@@ -364,7 +380,8 @@ function describeAction(a: BuilderAction): string {
     case 'facing': return `${a.at} facing ${a.facing}`;
     case 'orientation': return `${a.at} turned ${a.orientation}`;
     case 'splendour': return `${a.at} splendour on`;
-    case 'modifier': return `${a.at} ${a.id} on${a.count === null ? '' : ` (${a.count})`}${a.paint?.k === 'tincture' ? ` (${a.paint.t})` : ''}`;
+    case 'modifier': return `${a.at} ${a.id} on${a.count === null ? '' : ` (${a.count})`}${a.paint?.k === 'tincture' ? ` (${a.paint.t})` : a.paint?.k === 'proper' ? ' (proper)' : ''}`;
+    case 'part': return `${a.at} ${a.part} on (${a.paint.k === 'tincture' ? a.paint.t : a.paint.k})`;
     case 'charge-tincture': return `${a.at} tincture ${a.tincture}`;
     case 'split': return `split the ${a.target}`;
     case 'party-division': return `${a.target} divided ${a.division}`;
@@ -818,10 +835,15 @@ export function builderPath(goal: Design): BuilderPath {
       if (now()?.gaze !== gaze && !click({ kind: 'gaze', at: own, gaze })) return done();
       if (facing && now()?.facing !== facing && !click({ kind: 'facing', at: own, facing })) return done();
       if (orientation && now()?.orientation !== orientation && !click({ kind: 'orientation', at: own, orientation })) return done();
-      // The details, in canonical order (a star's points before piercing it), before the tincture: a fimbriated charge need not contrast.
+      // The details, in canonical order (a star's points before piercing it, a slip before its leaves), then the parts, before the tincture:
+      // a fimbriated charge need not contrast.
       const { details } = CHARGES[group.item.charge];
       for (const m of mods.filter((m) => details.includes(m.id))) {
         if (!now()?.mods.some((n) => n.id === m.id && n.count === m.count && JSON.stringify(n.paint) === JSON.stringify(m.paint)) && !click({ kind: 'modifier', at: own, id: m.id, count: m.count, paint: m.paint })) return done();
+      }
+      for (const p of group.item.parts) {
+        if (!isPiece(p.part) || !isPiecePart(p.part)) return { actions, problems: [...problems, `the ${own} is ${p.part}, which the builder has no control for`], design: d };
+        if (!now()?.parts.some((n) => n.part === p.part && JSON.stringify(n.paint) === JSON.stringify(p.paint)) && !click({ kind: 'part', at: own, part: p.part, paint: p.paint })) return done();
       }
       if (!paintTo(own, group.paint)) return done();
     }

@@ -6,7 +6,7 @@ import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, CUT_MODIFIERS, STAR_POINTS, isChargeId, type Gaze } from './charges';
 import { chargeOnBox } from './charge-art';
-import { OVERLAY_MODIFIERS, pieceAnchored } from './overlay-art';
+import { PROPER_PIECES, isPiece, pieceDrawable } from './overlay-art';
 import { liesAstride, specOf } from './ordinary-geometry';
 import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, partCount, type Division, type Variation } from './divisions';
 import {
@@ -190,9 +190,9 @@ function modifierDrawn(item: Charge, m: Modifier): boolean {
   if (!meta.mods.includes(m.id) && !meta.details.includes(m.id)) return false;
   if (m.id === 'of-points') return m.count !== null && STAR_POINTS.includes(m.count) && m.paint === null;
   if (m.id === 'fimbriated') return m.count === null && m.paint?.k === 'tincture';
-  if (OVERLAY_MODIFIERS.includes(m.id)) {
-    const painted = m.paint?.k === 'tincture' || (m.id === 'enflamed' && m.paint?.k === 'proper');
-    return m.count === null && painted && pieceAnchored(item, m.id) && (m.id !== 'leaved' || item.mods.some((x) => x.id === 'slipped'));
+  if (isPiece(m.id)) {
+    const painted = m.paint?.k === 'tincture' || (PROPER_PIECES.includes(m.id) && m.paint?.k === 'proper');
+    return m.count === null && painted && pieceDrawable(item, m.id);
   }
   return m.count === null && m.paint === null;
 }
@@ -202,7 +202,7 @@ function modifierDrawn(item: Charge, m: Modifier): boolean {
  * only on an animate charge or a head: a crowned mullet stays a gap) and its drawing has the anchor; armed, langued and the rest are gaps.
  */
 const partDrawn = (item: Charge, p: PartPaint): boolean =>
-  CHARGES[item.charge].parts.includes(p.part) && p.paint.k === 'tincture' && pieceAnchored(item, p.part);
+  CHARGES[item.charge].parts.includes(p.part) && isPiece(p.part) && p.paint.k === 'tincture' && pieceDrawable(item, p.part);
 
 /** Whether a charge has a drawing of its posture with the head turned that way. */
 export const gazeDrawn = (item: Charge, gaze: Gaze): boolean =>

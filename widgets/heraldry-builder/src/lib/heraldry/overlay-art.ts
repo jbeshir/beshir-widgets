@@ -4,7 +4,7 @@
 // drawn with the charge's slot and pose. A charge whose pieces under it reach out of the box is drawn smaller with them, to fit it; a crown
 // or a collar never moves it (one may reach a unit past the box's top), so a crowned or collared charge keeps its on-box.
 
-import { CHARGES } from './charges';
+import { CHARGES, isPartId } from './charges';
 import type { Charge, Modifier, Paint, PartPaint } from './design';
 import { pathRings, pointInPolygon, type Pt } from './geometry';
 import { bboxOf, ringDepths, ringsPath } from './art/geometry';
@@ -31,12 +31,33 @@ export interface OverlaidArt { art: string; overlays: ArtOverlay[] }
 const PIECE_ANCHOR: Record<OverlayPart, AnchorId | null> = { wings: 'wings', flames: null, slip: 'slip', leaves: 'slip', collar: 'collar', crown: 'crown' };
 
 /** What draws each piece: a modifier with its paint (winged, enflamed, slipped, leaved) or a part (crowned, collared). */
-const PIECE_OF: Record<OverlayPart, Modifier['id'] | PartPaint['part']> = {
+const PIECE_OF = {
   wings: 'winged', flames: 'enflamed', slip: 'slipped', leaves: 'leaved', collar: 'collared', crown: 'crowned',
-};
+} as const satisfies Record<OverlayPart, Modifier['id'] | PartPaint['part']>;
+
+/** A modifier or part drawn as a piece, by its blazon word. */
+export type PieceId = (typeof PIECE_OF)[OverlayPart];
+/** A part drawn as a piece: crowned, collared. */
+export type PiecePart = Extract<PieceId, PartPaint['part']>;
+
+/** Every piece by its word, the modifiers first. */
+export const PIECE_IDS: readonly PieceId[] = ['winged', 'enflamed', 'slipped', 'leaved', 'crowned', 'collared'];
+
+/** The pieces that may be in natural colours: flames (fire's colours); every other piece is in a tincture. */
+export const PROPER_PIECES: readonly PieceId[] = ['enflamed'];
+
+/** Whether a modifier or part is drawn as a piece. */
+export const isPiece = (id: Modifier['id'] | PartPaint['part']): id is PieceId => (PIECE_IDS as readonly string[]).includes(id);
+
+/** Whether a piece is a part (crowned, collared) rather than a modifier. */
+export const isPiecePart = (piece: PieceId): piece is PiecePart => isPartId(piece);
 
 /** The modifiers drawn as pieces: each needs its own paint ("winged Or", "enflamed proper"). */
-export const OVERLAY_MODIFIERS: readonly Modifier['id'][] = ['winged', 'enflamed', 'slipped', 'leaved'];
+export const OVERLAY_MODIFIERS: readonly Modifier['id'][] = PIECE_IDS.filter((piece): piece is Exclude<PieceId, PiecePart> => !isPiecePart(piece));
+
+/** The paint of a charge's piece, or null when it has none. */
+export const piecePaint = (c: Pick<Charge, 'mods' | 'parts'>, piece: PieceId): Paint | null =>
+  c.mods.find((m) => m.id === piece)?.paint ?? c.parts.find((p) => p.part === piece)?.paint ?? null;
 
 /** A collar is a band across its anchor's square through the middle, this share of the side thick, clipped to the outline (A3 ruling). */
 const COLLAR_THICKNESS = 0.28;
@@ -143,7 +164,7 @@ function drawingAnchors(c: Pick<Charge, 'charge' | 'form' | 'posture' | 'gaze'>)
 }
 
 /** Whether a charge's drawing has the anchor the piece of a part or modifier is placed at (flames go round any outline). */
-export function pieceAnchored(c: Pick<Charge, 'charge' | 'form' | 'posture' | 'gaze'>, of: Modifier['id'] | PartPaint['part']): boolean {
+export function pieceAnchored(c: Pick<Charge, 'charge' | 'form' | 'posture' | 'gaze'>, of: PieceId): boolean {
   const anchor = PIECE_ANCHOR[OVERLAY_PARTS.find((part) => PIECE_OF[part] === of)!];
   return anchor === null || drawingAnchors(c)[anchor] !== undefined;
 }
@@ -151,10 +172,23 @@ export function pieceAnchored(c: Pick<Charge, 'charge' | 'form' | 'posture' | 'g
 /** The pieces a charge's parts and details draw, in drawing order, each with its paint: those with a paint and their anchor (support.ts). */
 function pieces(c: Charge, anchors: DrawingMeta['anchors']): Array<{ part: OverlayPart; paint: Paint }> {
   return OVERLAY_PARTS.flatMap((part) => {
-    const paint = c.mods.find((m) => m.id === PIECE_OF[part])?.paint ?? c.parts.find((p) => p.part === PIECE_OF[part])?.paint ?? null;
+    const paint = piecePaint(c, PIECE_OF[part]);
     const anchor = PIECE_ANCHOR[part];
     return paint && (anchor === null || anchors[anchor]) ? [{ part, paint }] : [];
   });
+}
+
+/** Whether a charge's drawing takes a piece: it has the piece's anchor, and leaves grow only on a slip. */
+export const pieceDrawable = (c: Pick<Charge, 'charge' | 'form' | 'posture' | 'gaze' | 'mods'>, piece: PieceId): boolean =>
+  pieceAnchored(c, piece) && (piece !== 'leaved' || c.mods.some((m) => m.id === 'slipped'));
+
+/**
+ * A charge with only the pieces its drawing takes (`pieceDrawable`). A change of posture, shape or charge drops the others (a lion sejant
+ * has no wings; a demi lion no crown).
+ */
+export function withDrawnPieces(c: Charge): Charge {
+  const drawn = (id: Modifier['id'] | PartPaint['part']) => !isPiece(id) || pieceDrawable(c, id);
+  return { ...c, mods: c.mods.filter((m) => drawn(m.id)), parts: c.parts.filter((p) => drawn(p.part)) };
 }
 
 const overlaidMemo = boundedMemo<{ art: string; pieces: string[] }>(500);

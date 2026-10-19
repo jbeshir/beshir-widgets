@@ -7,7 +7,7 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setBadge, setCharge, setCut, setForm, setFacing, setModifier, setPosture, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { setBadge, setCharge, setCut, setForm, setFacing, setModifier, setPart, setPosture, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
 import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, withLayout, CHARGES, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
@@ -712,8 +712,9 @@ describe('the Details disclosure under the picture', () => {
     for (const id of ['mullet', 'roundel', 'cross-formy'] as const) expect(opened(render(pictured(id)), 'charge-more'), id).toEqual([{ open: false }]);
     // the outer disclosure draws its body only when open: a turned mullet shows the Details closed inside it
     expect(opened(render(setOrientation(pictured('mullet'), [0], 'inverted')), 'charge-details')).toEqual([{ open: false }]);
-    expect(opened(render(setOrientation(pictured('sword'), [0], 'fesswise')), 'charge-details')).toEqual([]);
-    expect(opened(render(setFacing(pictured('hare'), [0], 'to-sinister')), 'charge-details')).toEqual([]);
+    expect(opened(render(setOrientation(pictured('key'), [0], 'fesswise')), 'charge-details')).toEqual([]);
+    // every beast that faces now takes a piece (the hare wings and a collar): the Details are there, closed
+    expect(opened(render(setFacing(pictured('hare'), [0], 'to-sinister')), 'charge-details')).toEqual([{ open: false }]);
   });
 
   it('opens for a mullet of six points: the points 4 to 12, the drawn five marked, and the detail toggles', () => {
@@ -742,6 +743,23 @@ describe('the Details disclosure under the picture', () => {
     expect(render(demi)).toMatch(/<select[^>]*data-testid="posture-select" disabled><option selected value>No pose \(front half\)<\/option><\/select>/);
     expect(render(head)).toContain('No pose (head only)');
     expect(render(lion)).not.toContain('No pose');
+  });
+
+  it('is closed for a lion, and opens for a crowned lion: the piece toggles, the crown\'s colour, wings blocked where the drawing has none', () => {
+    const lion = pictured('lion');
+    expect(opened(render(setFacing(lion, [0], 'to-sinister')), 'charge-details')).toEqual([{ open: false }]);
+    const crowned = setPart(lion, [0], 'crowned', true);
+    const html = render(crowned);
+    expect(opened(html, 'charge-more')).toEqual([{ open: true }]);
+    expect(opened(html, 'charge-details')).toEqual([{ open: true }]);
+    expect([...ids(html)].filter((id) => /^(mod|part)-/.test(id))).toEqual(['mod-winged', 'part-crowned', 'part-collared', 'part-crowned-tincture']);
+    expect(html).toMatch(/aria-pressed="true"[^>]*id="part-crowned"/);
+    expect(html).toMatch(/id="swatch-crowned-gules"[^>]*aria-checked="true"/);
+    expect(html).toContain('Colour of the crown');
+    expect(render(setPart(setPosture(lion, [0], 'sejant'), [0], 'crowned', true))).toMatch(/data-testid="mod-winged" data-blocked="true"/);
+    const enflamed = render(setModifier(pictured('heart'), [0], 'enflamed', true));
+    expect(enflamed).toMatch(/aria-checked="true"[^>]*id="mod-enflamed-proper"/);
+    expect(ids(enflamed)).toContain('mod-enflamed-tincture');
   });
 
   it('shows the edging\'s tincture while fimbriated, blocks what does not stand out, and explains a refused toggle', () => {

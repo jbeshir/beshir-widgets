@@ -22,16 +22,16 @@ import {
 } from './arrangement';
 import { CHARGES, CUT_MODIFIERS, FACINGS, ORIENTATIONS, POSTURES, STAR_POINTS, chargePhrase, drawnPoints, postureWords, type ChargeForm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
 import {
-  asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
+  asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, tincturePaint, variationPaint, walkGroups,
   type Charge, type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Modifier, type Paint, type Pair, type PartyPaint, type VariationPaint,
 } from './design';
 import { BUILDER_DIVISIONS, DIVISION_PART_LABEL, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, gazeDrawn, pairPlaced, unsupportedIssues } from './support';
-import { OVERLAY_MODIFIERS } from './overlay-art';
+import { isPiece, pieceAnchored, piecePaint, type PieceId, type PiecePart } from './overlay-art';
 import { ofOtherClass, withPaint, withPartner, type FieldPart } from './paint-target';
 import { isPeripheralPlace, placeKind, placesIn, type Placed } from './places';
-import { FACING_LABEL, GAZE_LABEL, PAIR_LABEL, PLACE_LABEL } from './plain-words';
+import { FACING_LABEL, GAZE_LABEL, PAIR_LABEL, PIECE_LABEL, PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
 import { groupBodyTinctureIssues, groupTinctureIssues, paintName, tinctureIssues, trimTinctureIssues } from './tincture-rule';
@@ -822,7 +822,7 @@ export function cutChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
 /** The cut of a head, or null (a whole or demi charge has none). */
 export const cutOf = (item: Charge): ModifierId | null => item.mods.find((m) => CUT_MODIFIERS.includes(m.id))?.id ?? null;
 
-// ── Details (PLAN-D §0.3.10): a star's points, voided, fimbriated, pierced, fitchy ──
+// ── Details (PLAN-D §0.3.10): a star's points, voided, fimbriated, pierced, fitchy; the pieces (§0.3.5) ──
 
 /** What a modifier carries besides its id: a star's number of points, a fimbriation's tincture; neither for the rest. */
 export type ModifierValue = Pick<Modifier, 'count' | 'paint'>;
@@ -848,19 +848,21 @@ export function firstFimbriation(d: Design, path: GroupPath): Paint {
 
 /**
  * The details the group's charge may be drawn with, from its sidecar `details` but the number of points (`pointsChoices`): voided,
- * fimbriated, pierced, fitchy. One that is on can always be switched off; switching one on is blocked where SENA A3C refuses it
- * (`charge-treatment`: only the main charges, not both voided and fimbriated, none voided in a badge, three at most), or for a
- * fimbriation, where no tincture of it would stand out (§1.4 M10, M16). The details drawn as pieces (winged, enflamed, slipped, leaved) are not
- * offered yet: their toggles come with their tincture pickers (PLAN-D D9b).
+ * fimbriated, pierced, fitchy, and the pieces winged, enflamed, slipped and leaved. One that is on can always be switched off; switching one
+ * on is blocked where SENA A3C refuses it (`charge-treatment`: only the main charges, not both voided and fimbriated, none voided in a
+ * badge, three at most), for a fimbriation where no tincture of it would stand out (§1.4 M10, M16), and for a piece where the charge's
+ * drawing has no place for it or, leaves, without a slip (`pieceReason`).
  */
 export function detailChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
   const g = groupAt(d, path);
   if (g.item.k !== 'charge') return [];
-  const { mods } = g.item;
+  const item = g.item;
   const here = (i: Issue) => i.at.k === 'group' && samePath(i.at.path, path);
-  return CHARGES[g.item.charge].details.filter((id) => id !== 'of-points' && !OVERLAY_MODIFIERS.includes(id)).map((id) => {
-    if (mods.some((m) => m.id === id)) return ok(id);
-    const on = withModifier(d, path, id, true, id === 'fimbriated' ? { count: null, paint: firstFimbriation(d, path) } : NO_MODIFIER_VALUE);
+  return CHARGES[item.charge].details.filter((id) => id !== 'of-points').map((id) => {
+    if (item.mods.some((m) => m.id === id)) return ok(id);
+    const unplaced = isPiece(id) ? pieceReason(item, id) : null;
+    if (unplaced) return choice(id, unplaced);
+    const on = withModifier(d, path, id, true, id === 'fimbriated' ? { count: null, paint: firstFimbriation(d, path) } : isPiece(id) ? { count: null, paint: firstPiecePaint(d, path, id) } : NO_MODIFIER_VALUE);
     const refused = structuralIssues(on).find((i) => i.code === 'structure' && i.rule === 'charge-treatment' && here(i));
     return choice(id, refused?.message ?? (id === 'fimbriated' ? trimTinctureIssues(on, path)[0]?.message ?? null : null));
   });
@@ -880,6 +882,59 @@ export function fimbriationTinctureChoices(d: Design, path: GroupPath): Choice<T
   const item = groupAt(d, path).item;
   if (item.k !== 'charge' || !item.mods.some((m) => m.id === 'fimbriated')) return [];
   return TINCTURES.map((t) => choice(t, trimTinctureIssues(withModifier(d, path, 'fimbriated', true, { count: null, paint: paintOfGroupTincture(t) }), path)[0]?.message ?? null));
+}
+
+/** What a charge is drawn as, for a reason: "lion sejant", "demi-lion", "wolf's head". */
+function drawnName(item: Charge): string {
+  const { name, headName } = CHARGES[item.charge];
+  if (item.form === 'head') return headName!.one.toLowerCase();
+  if (item.form === 'demi') return `demi-${name}`;
+  return item.posture ? `${name} ${postureWords(item.charge, item.posture)}` : name;
+}
+
+/** Why a charge can't be given a piece: leaves without a slip, or a drawing with no place for it (a lion sejant has no wings); null when it can. */
+function pieceReason(item: Charge, piece: PieceId): string | null {
+  if (piece === 'leaved' && !item.mods.some((m) => m.id === 'slipped')) return 'Leaves grow from a stem: put the flower on a stem (slipped) first.';
+  return pieceAnchored(item, piece) ? null : `The ${drawnName(item)} is not drawn ${PIECE_LABEL[piece].plain.toLowerCase()} in this builder.`;
+}
+
+/**
+ * The paint a piece is given when it is switched on: wings the charge's own tincture (a winged lion Or), flames proper, a stem green and its
+ * leaves the stem's, a crown or collar gold (red on a gold charge). Pieces are not judged by the rule of tincture (§1.4 M16): any tincture
+ * may be chosen after (`pieceTinctureChoices`).
+ */
+export function firstPiecePaint(d: Design, path: GroupPath, piece: PieceId): Paint {
+  const g = groupAt(d, path);
+  const own = g.paint.k === 'tincture' ? g.paint.t : null;
+  switch (piece) {
+    case 'winged': return tincturePaint(own ?? 'or');
+    case 'enflamed': return { k: 'proper' };
+    case 'slipped': return tincturePaint('vert');
+    case 'leaved': return (g.item.k === 'charge' ? piecePaint(g.item, 'slipped') : null) ?? tincturePaint('vert');
+    case 'crowned': case 'collared': return tincturePaint(own === 'or' ? 'gules' : 'or');
+  }
+}
+
+/** The parts the group's charge may be drawn with (crowned, collared: `parts` drawn as pieces), each blocked where its drawing has no place for it. */
+export function partChoices(d: Design, path: GroupPath): Choice<PiecePart>[] {
+  const item = groupAt(d, path).item;
+  if (item.k !== 'charge') return [];
+  return CHARGES[item.charge].parts.filter((part): part is PiecePart => isPiece(part))
+    .map((part) => choice(part, item.parts.some((p) => p.part === part) ? null : pieceReason(item, part)));
+}
+
+/** The group's charge with `part` on in `paint`, or off (null). */
+export function withPart(d: Design, path: GroupPath, part: PiecePart, paint: Paint | null): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const parts = g.item.parts.filter((p) => p.part !== part);
+  return canonical(replaceGroup(d, path, { ...g, item: { ...g.item, parts: paint ? [...parts, { part, paint }] : parts } }));
+}
+
+/** The tinctures a piece of the group's charge may be, offered while it has the piece: every one (pieces are artistic detail, §1.4 M16). */
+export function pieceTinctureChoices(d: Design, path: GroupPath, piece: PieceId): Choice<Tincture>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' && piecePaint(item, piece) !== null ? TINCTURES.map(ok) : [];
 }
 
 /** The layout the Layout row shows as chosen: a pair is laid out as its two charges in fess, or where the ordinary places them (§1.1 F8). */

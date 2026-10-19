@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedChargeAttributeDesigns, unadorned, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -277,6 +277,20 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['three beasts passant guardant in pale', arms('gules', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or', { count: 3, arrangement: 'in-pale' }))],
   ['a stag lodged', arms('vert', group(charge('stag', { posture: 'couchant' }), 'or'))],
   ['three birds rising', arms('azure', group(charge('eagle', { posture: 'rising' }), 'argent', { count: 3 }))],
+  // the pieces drawn with a charge (PLAN-D §0.3.5), after its tincture; a piece of the charge's tincture, or of what follows, leaves it unsaid
+  ['a beast crowned', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }] }), 'or'))],
+  ['a beast crowned of its own tincture', arms('gules', group(charge('lion', { parts: [{ part: 'crowned', paint: 'or' }] }), 'or'))],
+  ['a beast crowned and collared', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }, { part: 'collared', paint: 'gules' }] }), 'argent'))],
+  ['a beast crowned and collared each its own tincture', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'or' }, { part: 'collared', paint: 'gules' }] }), 'argent'))],
+  ['a beast crowned of the next tincture', arms('or', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }] }), 'sable'), group(ordinary('bordure'), 'gules'))],
+  ['a head collared', arms('vert', group(charge('wolf', { form: 'head', mods: ['couped'], parts: [{ part: 'collared', paint: 'or' }] }), 'argent'))],
+  ['a bird crowned', arms('argent', group(charge('eagle', { parts: [{ part: 'crowned', paint: 'or' }] }), 'gules'))],
+  ['a beast winged', arms('azure', group(charge('lion', { posture: 'passant', mods: [{ id: 'winged', paint: 'or' }] }), 'or'))],
+  ['two hearts winged in pale', arms('argent', group(charge('heart', { mods: [{ id: 'winged', paint: 'or' }] }), 'gules', { count: 2, arrangement: 'in-pale' }))],
+  ['a heart enflamed proper', arms('argent', group(charge('heart', { mods: [{ id: 'enflamed', paint: 'proper' }] }), 'gules'))],
+  ['three charges enflamed', arms('azure', group(charge('sword', { mods: [{ id: 'enflamed', paint: 'gules' }] }), 'or', { count: 3 }))],
+  ['three flowers slipped and leaved', arms('argent', group(charge('rose', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'gules', { count: 3 }))],
+  ['flowers slipped and leaved on a chief', arms('azure', chiefOf(group(charge('rose', { mods: [{ id: 'slipped', paint: 'gules' }, { id: 'leaved', paint: 'gules' }] }), 'gules', { count: 3 })))],
   // a demi charge and a head, whose cut follows the noun ("a wolf's head erased")
   ['a demi charge', arms('azure', group(charge('lion', { form: 'demi' }), 'or'))],
   ['three demi charges', arms('azure', group(charge('eagle', { form: 'demi' }), 'argent', { count: 3 }))],
@@ -312,7 +326,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...generatedChargeAttributeDesigns(1, 200).filter(unadorned),
+      ...generatedChargeAttributeDesigns(1, 200),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -513,6 +527,44 @@ describe('the matcher reads a star\'s points and a charge\'s details in the Coll
 });
 
 // A line on the field is read from the College's spellings; a division draws one line, so "per pale dancetty" is indented (RULES §A.3).
+// The pieces drawn with a charge (PLAN-D §0.3.5), as the SCA writes them: crowned, collared (a ducal coronet about the neck), winged (a
+// winged beast), enflamed, slipped and leaved; each run of them takes the tincture it states, else the next one stated.
+describe('the matcher reads the pieces drawn with a charge in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Gules, a lion rampant crowned Or.', 'Gules, a lion crowned Or.'],
+    ['Azure, a lion Or ducally crowned gules.', 'Azure, a lion Or crowned gules.'],
+    ['Azure, a lion Or crowned with a ducal coronet gules.', 'Azure, a lion Or crowned gules.'],
+    ['Vert, a wolf rampant argent gorged of a ducal coronet Or.', 'Vert, a wolf rampant argent collared Or.'],
+    ['Azure, a lion argent crowned Or and collared gules.', 'Azure, a lion argent crowned Or collared gules.'],
+    ['Azure, a winged lion passant Or.', 'Azure, a lion passant winged Or.'],
+    ['Azure, a winged lion passant argent winged Or.', 'Azure, a lion passant argent winged Or.'],
+    ['Sable, a winged heart Or.', 'Sable, a heart winged Or.'],
+    ['Argent, a heart gules inflamed proper.', 'Argent, a heart gules enflamed proper.'],
+    ['Or, a rose, slipped and leaved, gules.', 'Or, a rose slipped and leaved gules.'],
+    ['Ermine, a rose gules, slipped and leaved vert.', 'Ermine, a rose gules slipped and leaved vert.'],
+    ['Azure, on a chief Or three roses slipped and leaved gules.', 'Azure, on a chief Or three roses slipped and leaved gules.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('gives a piece the tincture it states, else the next one stated, and the charge the piece\'s when it states none', () => {
+    const first = (text: string) => read(text)!.groups[0];
+    const or = { k: 'tincture', t: 'or' }, gules = { k: 'tincture', t: 'gules' }, vert = { k: 'tincture', t: 'vert' };
+    expect(first('Azure, a lion Or crowned gules.')).toMatchObject({ paint: or, item: { parts: [{ part: 'crowned', paint: gules }] } });
+    expect(first('Azure, a lion crowned Or.')).toMatchObject({ paint: or, item: { parts: [{ part: 'crowned', paint: or }] } });
+    expect(first('Argent, a rose gules slipped and leaved, a chief vert.')).toMatchObject({ paint: gules, item: { mods: [{ id: 'slipped', paint: vert }, { id: 'leaved', paint: vert }] } });
+  });
+
+  it('files a piece on a charge or drawing that has no place for it under its gap', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a winged lion sejant Or.')).toEqual(['charge-modifier:winged']);
+    expect(tags('Azure, a mullet crowned Or.')).toEqual(['charge-modifier:crowned']);
+    expect(tags('Azure, a demi-lion crowned Or.')).toEqual(['charge-modifier:crowned']);
+  });
+});
+
 describe('the matcher reads the lines of the field', () => {
   it.each([
     ['Per pale undy argent and azure, a mullet Or.', 'Per pale wavy argent and azure, a mullet Or.'],
@@ -976,6 +1028,14 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a mullet voided', 'azure, a mullet voided Or'],
     ['a delf voided', 'azure, a delf voided Or'],
     ['a lozenge fimbriated', 'azure, a lozenge azure fimbriated argent'],
+    ['a lion crowned', 'azure, a lion rampant crowned Or'],
+    ['a lion ducally crowned', 'azure, a lion Or ducally crowned gules'],
+    ['a wolf gorged of a ducal coronet', 'azure, a wolf argent gorged of a ducal coronet Or'],
+    ['a wolf\'s head collared', 'azure, a wolf\'s head argent collared Or'],
+    ['a winged lion', 'azure, a winged lion passant Or'],
+    ['a heart winged', 'azure, a heart gules winged Or'],
+    ['a heart enflamed proper', 'azure, a heart gules enflamed proper'],
+    ['a rose slipped and leaved', 'azure, a rose gules slipped and leaved vert'],
     ['triquetrae', 'azure, three triquetrae Or'],
     ['ermine spots', 'azure, three ermine spots Or'],
     ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, ${ordinaryWithArticle(t)} ${LINE_WORD[l]} Or`])),

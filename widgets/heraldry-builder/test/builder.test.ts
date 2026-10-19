@@ -5,10 +5,10 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setBadge, setCut, setForm, setPosture, setFacing, setGaze, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setBadge, setCut, setForm, setPart, setPosture, setFacing, setGaze, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, cutChoices, detailChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, cutChoices, detailChoices, partChoices, pieceTinctureChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
   type Charge, type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
@@ -334,7 +334,7 @@ describe('builder transitions', () => {
     expect(pointsChoices(setCharge(DEFAULT_DESIGN, 'picture', 'roundel'), [0])).toEqual([]);
     expect(detailChoices(mullet, picture(mullet)).map((c) => [c.value, c.allowed])).toEqual([['voided', true], ['fimbriated', true], ['pierced', true]]);
     expect(detailChoices(setCharge(DEFAULT_DESIGN, 'picture', 'cross-formy'), [0]).map((c) => c.value)).toEqual(['fitchy']);
-    expect(detailChoices(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), [0])).toEqual([]);
+    expect(detailChoices(setCharge(DEFAULT_DESIGN, 'picture', 'sun'), [0])).toEqual([]);
     // the points: the number the star is drawn with is the star as drawn
     const six = setModifier(mullet, picture(mullet), 'of-points', true, { count: 6, paint: null });
     expect(blazon(six)).toBe('Azure, a mullet of six points Or.');
@@ -381,6 +381,43 @@ describe('builder transitions', () => {
     expect(blazon(setCharge(erased, 'picture', 'stag'))).toBe("Azure, a stag's head erased Or.");
     expect(blazon(setCharge(erased, 'picture', 'eagle'))).toBe('Azure, an eagle Or.');
     expect(blazon(setCharge(setForm(lion, [0], 'demi'), 'picture', 'stag'))).toBe('Azure, a stag statant Or.');
+  });
+
+  it('the Details\' pieces: wings, flames, a stem and leaves, a crown and a collar, each in a paint of its own, where the drawing has a place for it (PLAN-D §3 D9b)', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(detailChoices(lion, [0]).map((c) => [c.value, c.allowed])).toEqual([['winged', true]]);
+    expect(partChoices(lion, [0]).map((c) => [c.value, c.allowed])).toEqual([['crowned', true], ['collared', true]]);
+    expect(partChoices(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0])).toEqual([]);
+    // switched on in a first paint: a crown gold (red on a gold charge), wings the charge's own, flames proper, a stem and its leaves green
+    const crowned = setPart(lion, [0], 'crowned', true);
+    expect(blazon(crowned)).toBe('Azure, a lion Or crowned gules.');
+    expect(blazon(setPart(setGroupTincture(lion, [0], 'argent'), [0], 'crowned', true))).toBe('Azure, a lion argent crowned Or.');
+    expect(blazon(setPart(crowned, [0], 'collared', true, tincturePaint('gules')))).toBe('Azure, a lion Or crowned and collared gules.');
+    expect(setPart(crowned, [0], 'crowned', false)).toEqual(lion);
+    expect(blazon(setModifier(lion, [0], 'winged', true))).toBe('Azure, a lion winged Or.');
+    expect(blazon(setModifier(setCharge(DEFAULT_DESIGN, 'picture', 'heart'), [0], 'enflamed', true))).toBe('Azure, a heart Or enflamed proper.');
+    // any tincture for a piece (artistic detail, §1.4 M16), offered only while the charge has it
+    expect(pieceTinctureChoices(crowned, [0], 'crowned').every((c) => c.allowed)).toBe(true);
+    expect(pieceTinctureChoices(lion, [0], 'crowned')).toEqual([]);
+    // leaves grow on a stem: blocked without one, and gone with it
+    const rose = setCharge(DEFAULT_DESIGN, 'picture', 'rose');
+    expect(detailChoices(rose, [0]).find((c) => c.value === 'leaved')).toEqual({ value: 'leaved', allowed: false, reason: 'Leaves grow from a stem: put the flower on a stem (slipped) first.' });
+    const slipped = setModifier(rose, [0], 'slipped', true);
+    const leaved = setModifier(slipped, [0], 'leaved', true);
+    expect(blazon(leaved)).toBe('Azure, a rose Or slipped and leaved vert.');
+    expect(setModifier(leaved, [0], 'slipped', false)).toEqual(rose);
+    // a drawing with no place for a piece blocks it, and a change of posture or shape drops it
+    const sejant = setPosture(lion, [0], 'sejant');
+    expect(detailChoices(sejant, [0])).toEqual([{ value: 'winged', allowed: false, reason: 'The lion sejant is not drawn with wings in this builder.' }]);
+    expect(blazon(setPosture(setModifier(lion, [0], 'winged', true), [0], 'sejant'))).toBe('Azure, a lion sejant Or.');
+    expect(partChoices(setForm(lion, [0], 'demi'), [0]).find((c) => c.value === 'crowned')).toEqual({ value: 'crowned', allowed: false, reason: 'The demi-lion is not drawn with a crown in this builder.' });
+    expect(blazon(setForm(crowned, [0], 'demi'))).toBe('Azure, a demi-lion Or.');
+    // a swap keeps the pieces the new charge takes, where its drawing has the place for them (§0.2.7)
+    const adorned = setModifier(setPart(crowned, [0], 'collared', true), [0], 'winged', true);
+    const pieces = (d: Design) => { const { mods, parts } = groupAt(d, [0]).item as Charge; return [...mods.map((m) => m.id), ...parts.map((p) => p.part)]; };
+    expect(pieces(setCharge(adorned, 'picture', 'wolf'))).toEqual(['winged', 'crowned', 'collared']);
+    expect(pieces(setCharge(adorned, 'picture', 'goat'))).toEqual(['winged', 'collared']);
+    expect(pieces(setCharge(adorned, 'picture', 'eagle'))).toEqual(['crowned']);
   });
 
   it('the Turned row: as usual first, the ways a charge takes, the rest and to center blocked with their reasons (PLAN-D §3 D5b)', () => {
