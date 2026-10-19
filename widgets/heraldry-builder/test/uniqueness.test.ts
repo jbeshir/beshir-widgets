@@ -928,6 +928,19 @@ describe('orientation (PLAN-D §1.3 O1–O10)', () => {
     expect(between(design('azure', turned('crescent', null)), design('azure', turned('heart', 'inverted')))).toEqual(['type:sc:A5E2']);
   });
 
+  it('art batch B4: arrow palewise against sword fesswise (O2), axe fesswise against fesswise reversed (O3), pheon (O5) and harp (O5d, O9)', () => {
+    const around = (id: string, orientation: string) => design('azure', ord('fess', 'argent'), turned(id, orientation, { count: 2 }));
+    expect(between(around('arrow', 'palewise'), around('sword', 'fesswise'))).toEqual(['type:dc:A5G4', 'posture:dc:A5G7']);
+    expect(between(design('azure', turned('axe', 'fesswise')), design('azure', turned('axe', 'fesswise-reversed')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('arrow', null)), design('azure', turned('arrow', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('pheon', null)), design('azure', turned('pheon', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('pheon', 'bendwise')), design('azure', turned('crescent', 'bendwise')))).toEqual(['type:sc:A5E2']);
+    expect(between(design('azure', turned('harp', null)), design('azure', turned('harp', 'reversed')))).toEqual([]);
+    expect(between(design('azure', turned('arrow', null)), design('azure', turned('spear', null)))).toEqual(['type:sc:A5E2']);
+    expect(between(design('azure', turned('spear', null)), design('azure', turned('trident', null)))).toEqual(['type:sc:A5E2']);
+  });
+
+
   it('O6, O9, O10: no difference for turning a radial charge, for reversing, or for an insect', () => {
     expect(between(design('azure', turned('mullet', null)), design('azure', turned('mullet', 'inverted')))).toEqual([]);
     expect(between(design('azure', turned('billet', null)), design('azure', turned('billet', 'fesswise')))).toEqual([]);

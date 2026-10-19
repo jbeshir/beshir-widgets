@@ -90,6 +90,7 @@ export const CHARGE_IDS = [
   'wing',
   'cat', 'bear', 'horse', 'fox', 'squirrel',
   'raven', 'griffin', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'seahorse', 'peacock', 'martlet', 'dove', 'sea-lion',
+  'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -104,7 +105,7 @@ export const POPULAR_CHARGE_IDS: readonly ChargeId[] = [
   'key', 'open-book', 'sword', 'crown', 'anchor',
   'musical-note', 'flame', 'gear', 'lightbulb',
   'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
-  'cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix',
+  'cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix', 'arrow',
 ];
 
 /**
@@ -163,6 +164,16 @@ export const TYPE_CLASSES = {
   seahorse: { source: 'A5E2: "two unicorns and a raven … does not conflict with … three sea-horses" (sea-monsters by type); App M3 lists sea-creatures among the tailed bipeds; no SENA example against the horse', guess: true },
   'sea-lion': { source: 'A5G4: types distinct in period; App M3 lists sea-creatures among the tailed bipeds; no SENA example against the lion or the sea-horse', guess: true },
   squirrel: { source: 'A5G4: types distinct in period; no SENA example against the other beasts', guess: true },
+  arrow: { source: 'A5E2: clearly unrelated shapes are substantially different; App L2 / A5G7b compare an arrow with a sword only for orientation; arrow vs pheon/spear no SENA example', guess: true },
+  axe: { source: 'A5G4: a claymore is distinctly (not substantially) changed from an axe; kept a class of its own (herald question D17)', guess: true },
+  hammer: { source: 'A5E2: clearly unrelated shapes are substantially different; hammer vs mallet/Thor\'s hammer no SENA example', guess: true },
+  harp: { source: 'A5E2: clearly unrelated shapes are substantially different; GoT Table 5 "Harp": forepillar details artistic; harp vs lyre no SENA example', guess: true },
+  pheon: { source: 'A5E2: clearly unrelated shapes are substantially different; GoT Table 5 treats pheon and arrowhead alike for orientation; pheon vs arrow no SENA example', guess: true },
+  feather: { source: 'A5E2: clearly unrelated shapes are substantially different; feather vs quill pen no SENA example', guess: true },
+  needle: { source: 'A5E2: clearly unrelated shapes are substantially different; needle vs other slender tools (awl, nail) no SENA example', guess: true },
+  anvil: { source: 'A5E2: clearly unrelated shapes are substantially different; GoT Table 5: horn direction and number of horns are artistic', guess: true },
+  spear: { source: 'A5E2: clearly unrelated shapes are substantially different; spear vs lance/pike/trident no SENA example', guess: true },
+  trident: { source: 'A5E2: clearly unrelated shapes are substantially different; trident vs spear/salmon-spear no SENA example', guess: true },
   'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 

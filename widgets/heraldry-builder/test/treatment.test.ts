@@ -40,7 +40,7 @@ describe('what is supported', () => {
       const expected = CHARGES[id].proper ? [] : [`proper:${id}`];
       expect(gaps(arms('azure', group(charge(id), 'proper'))).filter((g) => g.startsWith('proper'))).toEqual(expected);
     }
-    expect(CHARGE_IDS.filter((id) => CHARGES[id].proper)).toEqual(['lion', 'boar', 'stag', 'hare', 'bee', 'owl', 'rose', 'tree', 'open-book', 'sword', 'flame', 'bear']);
+    expect(CHARGE_IDS.filter((id) => CHARGES[id].proper)).toEqual(['lion', 'boar', 'stag', 'hare', 'bee', 'owl', 'rose', 'tree', 'open-book', 'sword', 'flame', 'bear', 'arrow', 'harp', 'spear']);
     expect(gaps(arms('azure', group(ordinary('bend'), 'proper')))).toEqual(['proper:bend']);
   });
 });

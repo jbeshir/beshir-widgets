@@ -329,6 +329,18 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a falcon rising', arms('or', group(charge('falcon', { posture: 'rising' }), 'gules'))],
   ['three phoenixes', arms('argent', group(charge('phoenix'), 'gules', { count: 3 }))],
   ['a peacock', arms('azure', group(charge('peacock'), 'argent'))],
+  ['an arrow', arms('azure', group(charge('arrow'), 'argent'))],
+  ['three arrows fesswise', arms('gules', group(charge('arrow', { orientation: 'fesswise' }), 'or', { count: 3 }))],
+  ['an axe reversed', arms('vert', group(charge('axe', { orientation: 'reversed' }), 'argent'))],
+  ['a hammer', arms('sable', group(charge('hammer'), 'or'))],
+  ['a harp', arms('azure', group(charge('harp'), 'or'))],
+  ['a harp reversed', arms('azure', group(charge('harp', { orientation: 'reversed' }), 'argent'))],
+  ['three pheons', arms('argent', group(charge('pheon'), 'gules', { count: 3 }))],
+  ['a feather', arms('azure', group(charge('feather'), 'argent'))],
+  ['a needle inverted', arms('or', group(charge('needle', { orientation: 'inverted' }), 'sable'))],
+  ['an anvil', arms('gules', group(charge('anvil'), 'argent'))],
+  ['a spear bendwise', arms('vert', group(charge('spear', { orientation: 'bendwise' }), 'or'))],
+  ['a trident', arms('azure', group(charge('trident'), 'or'))],
   ['a horse\'s head and a bear\'s head', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'), group(charge('bear', { form: 'head', mods: ['erased'] }), 'or'))],
 ];
 
@@ -624,6 +636,21 @@ describe('the matcher reads the College\'s names for the monsters and birds of a
     expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
   });
 });
+
+// The tools and weapons of art batch B4 in the College's words: "ax" is the axe (18 records) and a broad arrow the pheon (105).
+describe('the matcher reads the College\'s names for the tools and weapons of art batch B4', () => {
+  it.each([
+    ['Gules, an ax argent.', 'Gules, an axe argent.'],
+    ['Azure, three broad arrows Or.', 'Azure, three pheons Or.'],
+    ['Azure, a broadarrow Or.', 'Azure, a pheon Or.'],
+    ['Azure, a broad-arrow Or.', 'Azure, a pheon Or.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
 
 // What a main charge holds (PLAN-D §1.5), as the SCA writes it: maintaining or sustaining (holding, grasping, supporting), or in its beak or
 // mouth however it is held; "each" for more than one charge; the item's tincture as stated, else the next one stated.
