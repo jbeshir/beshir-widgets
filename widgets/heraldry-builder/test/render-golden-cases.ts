@@ -224,6 +224,11 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-lozenge-fimbriated', arms('azure', group(charge('lozenge', { mods: [{ id: 'fimbriated', paint: 'argent' }] }), 'azure'))],
   ['attr-mullet-of-six-pierced', arms('sable', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }, 'pierced'] }), 'argent'))],
   ['attr-mullets-voided-per-pale', arms(div('per-pale', 'azure', 'gules'), group(charge('mullet', { mods: ['voided'] }), 'or', { count: 3 }))],
+  ['attr-demi-lion', arms('azure', group(charge('lion', { form: 'demi' }), 'or'))],
+  ['attr-wolf-head-erased', arms('argent', group(charge('wolf', { form: 'head', mods: ['erased'] }), 'sable'))],
+  ['attr-stags-heads-couped', arms('vert', group(charge('stag', { form: 'head', mods: ['couped'] }), 'or', { count: 3 }))],
+  ['attr-lion-head-contourny', arms('gules', group(charge('lion', { form: 'head', facing: 'to-sinister' }), 'or'))],
+  ['attr-demi-dragon', arms('sable', group(charge('dragon', { form: 'demi' }), 'argent'))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));

@@ -39,6 +39,9 @@ export type ChargeForm = (typeof CHARGE_FORMS)[number];
 export const MODIFIER_IDS = ['in-splendour', 'couped', 'erased', 'slipped', 'leaved', 'fructed', 'enflamed', 'winged', 'voided', 'of-points', 'fitchy', 'fimbriated', 'pierced'] as const;
 export type ModifierId = (typeof MODIFIER_IDS)[number];
 
+/** How a head is cut off: straight (couped) or torn (erased). A head is one or the other, couped when neither is given (§0.3: heads always state their cut). */
+export const CUT_MODIFIERS: readonly ModifierId[] = ['couped', 'erased'];
+
 /** The stars that may be given a number of points (`of-points`), and the number each is drawn with when none is given. */
 export const DRAWN_POINTS = { mullet: 5, estoile: 6 } as const satisfies Partial<Record<ChargeId, number>>;
 

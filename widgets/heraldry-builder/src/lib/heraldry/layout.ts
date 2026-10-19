@@ -14,7 +14,7 @@ import {
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type QuarterPosition, type KeepOut, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
-  CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
+  CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, opticalScale, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
 } from './geometry';
 import { bandPlace, bandShift, defaultOrdinaryFrame, frameBeside, isPlainSpec, ordinaryGeometry, trimGrowth, turnAxis, upsideDown, type OrdinarySpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';
@@ -705,10 +705,10 @@ function onChargeCentres(room: Area, count: number, layout: Layout): Centre[] {
  */
 function onChargeSlots(ctx: Extract<LayoutContext, { k: 'on-charge' }>, count: number, layout: Layout, shape: FieldShape): Slot[] {
   const { host } = ctx;
-  const art = chargeOnBox(host.charge, host.posture);
+  const art = chargeOnBox(host);
   const hosts = contextSlots(host.context, host.count, host.layout, shape);
   if (!art || hosts.length !== host.count || !onChargeLayouts(count).some((l) => sameLayout(l, layout))) return [];
-  const scale = CHARGES[host.charge].scale / 100;
+  const scale = opticalScale(host) / 100;
   // A host drawn mirrored has the room of its drawing mirrored, so the charges on it sit on its body.
   const rooms = hosts.map((s, i) => {
     const x = host.mirrored[i] ? 100 - art.x - art.w : art.x;

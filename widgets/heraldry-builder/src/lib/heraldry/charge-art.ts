@@ -7,10 +7,11 @@
 // third-party heraldic art was traced or copied. Each silhouette is centred with its long axis
 // ~86 units; animals face dexter (the viewer's left); objects point up.
 
-import { CHARGES, DRAWN_POINTS, type ChargeId, type ModifierId, type Posture } from './charges';
-import type { Modifier } from './design';
+import { CHARGES, DRAWN_POINTS, type ChargeId, type ModifierId } from './charges';
+import type { Charge, Modifier } from './design';
 import { pathFor } from './art/paths/index';
 import { FITCHY_CROSSES } from './art/procedural/crosses';
+import { derivedPath } from './art/procedural/derived';
 import { PIERCED_MULLETS, POINTED_STARS } from './art/procedural/stars';
 import type { ArtBox, ArtKey } from './art/types';
 
@@ -32,9 +33,16 @@ export const MODIFIER_ART: Partial<Record<ChargeId, Partial<Record<ModifierId, s
 /** Shown only if a charge somehow has no art (never for the shipped table): a plain roundel. */
 const FALLBACK = pathFor('roundel', '_')!;
 
-/** The key of the drawing a charge has in a posture: the posture's own, else its default posture's, else the posture-less one. */
-export function artKeyOf(id: ChargeId, posture: Posture | null): ArtKey {
-  const { drawings, defaultPosture } = CHARGES[id];
+/** What picks a charge's drawing: the charge, its form and its posture (a head or a demi charge has none of its own), and its modifiers. */
+type DrawnCharge = Pick<Charge, 'charge' | 'form' | 'posture' | 'mods'>;
+
+/**
+ * The key of a charge's drawing: a head's or a demi charge's (whatever the posture), else the posture's own, else its default posture's,
+ * else the posture-less one.
+ */
+export function artKeyOf({ charge, form, posture }: Pick<Charge, 'charge' | 'form' | 'posture'>): ArtKey {
+  if (form === 'head' || form === 'demi') return form;
+  const { drawings, defaultPosture } = CHARGES[charge];
   return (posture && drawings[posture] ? posture : null) ?? (defaultPosture && drawings[defaultPosture] ? defaultPosture : null) ?? '_';
 }
 
@@ -47,13 +55,19 @@ function reshapedStar(id: ChargeId, mods: readonly Modifier[]): string | undefin
   return undefined;
 }
 
-/** Path for a charge in a posture with its modifiers; falls back to the default posture, then '_'. */
-export function chargePath(id: ChargeId, posture: Posture | null, mods: readonly Modifier[]): string {
-  const variant = reshapedStar(id, mods) ?? mods.map((m) => MODIFIER_ART[id]?.[m.id]).find((d) => d !== undefined);
-  return variant ?? pathFor(id, artKeyOf(id, posture)) ?? FALLBACK;
+/** The drawing of a head (erased, its neck torn: derived) or a demi charge (cut from its rampant drawing unless it has one of its own). */
+function formPath(c: DrawnCharge): string | undefined {
+  if (c.form === 'head' && c.mods.some((m) => m.id === 'erased')) return derivedPath(c.charge, 'erased-head');
+  return c.form === 'demi' ? pathFor(c.charge, 'demi') ?? derivedPath(c.charge, 'demi') : undefined;
 }
 
-/** The rectangle of a charge's drawing that carries the charges on it, or null for a charge that carries none. */
-export function chargeOnBox(id: ChargeId, posture: Posture | null): ArtBox | null {
-  return CHARGES[id].drawings[artKeyOf(id, posture)]?.onBox ?? null;
+/** Path for a charge in its form and posture with its modifiers; falls back to the default posture, then '_'. */
+export function chargePath(c: DrawnCharge): string {
+  const variant = formPath(c) ?? reshapedStar(c.charge, c.mods) ?? c.mods.map((m) => MODIFIER_ART[c.charge]?.[m.id]).find((d) => d !== undefined);
+  return variant ?? pathFor(c.charge, artKeyOf(c)) ?? FALLBACK;
+}
+
+/** The rectangle of a charge's drawing that carries the charges on it, or null for a charge that carries none (a derived drawing has none). */
+export function chargeOnBox(c: Pick<Charge, 'charge' | 'form' | 'posture'>): ArtBox | null {
+  return CHARGES[c.charge].drawings[artKeyOf(c)]?.onBox ?? null;
 }

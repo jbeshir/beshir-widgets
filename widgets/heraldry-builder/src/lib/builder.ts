@@ -273,7 +273,7 @@ function swapPicture(d: Design, id: ChargeId): Design {
   if (!parts.picture) return d;
   const item = chargeItem(id, parts.picture);
   // The pictures on the picture go with it unless the new one has no room for them.
-  const carries = item.k === 'charge' && chargeOnBox(id, item.posture) !== null && item.mods.length === 0;
+  const carries = item.k === 'charge' && chargeOnBox(item) !== null && item.mods.length === 0;
   // Two pictures set as a pair stay a pair when the new ones face too; else they stand where the pair stood, the same way.
   const arrangement = parts.picture.arrangement.k === 'pair' && !CHARGES[id].faces ? drawnLayout(layoutContext(d, picturePath(d)!), parts.picture).arrangement : parts.picture.arrangement;
   return refitLayers(assembleParts(d, { ...parts, picture: { ...parts.picture, item, arrangement }, onPicture: carries ? parts.onPicture : null }));

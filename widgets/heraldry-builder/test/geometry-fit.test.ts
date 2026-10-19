@@ -14,9 +14,9 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  AROUND_COUNTS, CHARGE_ART, MIRRORED, UPRIGHT, artKeyOf, artPose, orientationTurns, mirroredSlots, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  AROUND_COUNTS, CHARGE_ART, MIRRORED, UPRIGHT, artKeyOf, artPose, derivedPath, opticalScale, orientationTurns, mirroredSlots, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
   cornerBesideBend, frameBeside, hasBordure, hasChargedBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryGeometry, plainSpec, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
-  type ArtPose, type ChargeId, type Orientation, type Design, type FieldShape, type GroundContext, type KeepOut, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
+  type ArtKey, type ArtPose, type ChargeForm, type ChargeId, type Orientation, type Design, type FieldShape, type GroundContext, type KeepOut, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { placePosed, rings, type Pt } from './art-geometry';
@@ -374,17 +374,25 @@ describe('every shape draws each charge on the field parts the canonical verdict
 
 // ── Real artwork in its optically scaled box ────────────────────────────────
 
-interface Drawing { id: ChargeId; key: Posture | '_'; label: string; rings: Pt[][] }
+/** A drawing of a charge: one of its art (a posture's, '_' or its head) or one derived from it (an erased head, a demi charge). */
+interface Drawing { id: ChargeId; form: ChargeForm | null; key: ArtKey; label: string; art: string; rings: Pt[][] }
+const drawing = (id: ChargeId, key: ArtKey, art: string, label = `${id} ${key}`): Drawing =>
+  ({ id, form: key === 'head' || key === 'demi' ? key : null, key, label, art, rings: rings(art) });
 const drawingsOf = (ids: readonly ChargeId[], postures: readonly string[] | null = null): Drawing[] =>
   ids.flatMap((id) => Object.entries(CHARGE_ART[id])
     .filter(([posture]) => postures === null || postures.includes(posture) || posture === '_')
-    .map(([posture, d]) => ({ id, key: posture as Posture | '_', label: `${id} ${posture}`, rings: rings(d!) })));
+    .map(([posture, d]) => drawing(id, posture as ArtKey, d!)));
+/** The drawings derived from others (PLAN-D §2.6): every head erased and every demi charge. */
+const derivedDrawings = (): Drawing[] => CHARGE_IDS.flatMap((id) => [
+  ...(CHARGES[id].forms.includes('head') ? [drawing(id, 'head', derivedPath(id, 'erased-head')!, `${id} head erased`)] : []),
+  ...(CHARGES[id].forms.includes('demi') ? [drawing(id, 'demi', derivedPath(id, 'demi')!)] : []),
+]);
 
 /** The drawings the art sweeps check on every run: a beast, a bird, two long charges, a round one and a cross. */
 const ART_FIXED_STRATUM: readonly string[] = ['lion rampant', 'eagle displayed', 'sword _', 'key _', 'rose _', 'cross-crosslet _'];
 /** About this many more drawings the art sweeps check, a seeded rotating sample, however many drawings there are. */
 const ART_DRAWING_SAMPLE = 8;
-const ALL_DRAWINGS = drawingsOf(CHARGE_IDS);
+const ALL_DRAWINGS = [...drawingsOf(CHARGE_IDS), ...derivedDrawings()];
 /** The drawings the art sweeps check this run: the fixed stratum and the rotating sample (SCA_FULL=1: every drawing). */
 const SAMPLED_DRAWINGS = ALL_DRAWINGS.filter((d) => ART_FIXED_STRATUM.includes(d.label) || rotatesIn(`drawing|${d.label}`, Math.min(1, ART_DRAWING_SAMPLE / ALL_DRAWINGS.length)));
 
@@ -419,7 +427,7 @@ function artProblems(
       if (!drawnIn(g.shape, ei, di)) continue;
       if (e.layout.arrangement.k === 'crossed' && !CHARGES[dr.id].long) continue;
       const posed = poses(e, slots, dr);
-      const placed = slots.map((s, i) => placePosed(dr.rings, drawnBox(s, dr.id), posed[i]));
+      const placed = slots.map((s, i) => placePosed(dr.rings, drawnBox(s, { charge: dr.id, form: dr.form }), posed[i]));
       for (const rs of placed) {
         const off = rs.flat().find((p) => !fits(p));
         if (off) { problems.push(`${g.shape} ${e.label}: ${dr.label} leaves its ground at ${off.map((n) => n.toFixed(1))}`); break; }
@@ -445,9 +453,12 @@ describe('charge artwork fits its ground at its optical scale', () => {
 
   it('drawnBox scales the slot about its centre and keeps its turn', () => {
     const slot = { x: 50, y: 54, size: 90, rotation: -45 };
-    expect(drawnBox(slot, 'lion')).toEqual({ x: 50, y: 54, size: 90, rotation: -45 });
-    expect(drawnBox(slot, 'wolf')).toEqual({ x: 50, y: 54, size: 94.5, rotation: -45 });
-    for (const id of CHARGE_IDS) expect(drawnBox(slot, id)).toMatchObject({ x: 50, y: 54, rotation: -45 });
+    expect(drawnBox(slot, { charge: 'lion', form: null })).toEqual({ x: 50, y: 54, size: 90, rotation: -45 });
+    expect(drawnBox(slot, { charge: 'wolf', form: null })).toEqual({ x: 50, y: 54, size: 94.5, rotation: -45 });
+    // a head or demi charge fills its box to its cut: drawn as the solid charges are, whatever its beast's scale
+    expect(drawnBox(slot, { charge: 'wolf', form: 'head' })).toEqual({ x: 50, y: 54, size: 85.5, rotation: -45 });
+    expect(drawnBox(slot, { charge: 'lion', form: 'demi' })).toEqual({ x: 50, y: 54, size: 85.5, rotation: -45 });
+    for (const id of CHARGE_IDS) expect(drawnBox(slot, { charge: id, form: null })).toMatchObject({ x: 50, y: 54, rotation: -45 });
   });
 
   const hand = CATALOGUE.filter((e) => isHandFitted(e.ctx, e.count, e.layout));
@@ -495,7 +506,7 @@ describe('charge artwork fits its ground at its optical scale', () => {
     const posed = (e: Entry, slots: readonly Slot[], dr: Drawing) => {
       const o = way.get(dr)!;
       if (e.layout.arrangement.k === 'crossed' || (o === 'to-center' && e.count < 2)) return slots.map(() => UPRIGHT);
-      return orientationTurns(o, CHARGES[dr.id].orient.drawn, slots).map((turn) => artPose(CHARGE_ART[dr.id][dr.key]!, o === 'reversed', turn, CHARGES[dr.id].scale));
+      return orientationTurns(o, CHARGES[dr.id].orient.drawn, slots).map((turn) => artPose(dr.art, o === 'reversed', turn, opticalScale({ charge: dr.id, form: dr.form })));
     };
     expect(turning.length).toBeGreaterThan(1);
     expect(artProblems(SHAPES[0], hand, [...way.keys()], false, posed).slice(0, 25), `sample seed ${sampleSeed()}, SCA_FULL=1 for every drawing and way`).toEqual([]);
@@ -512,7 +523,7 @@ const CARRIED = ['mullet', 'rose', 'lion'] as const;
 interface OnChargeEntry { ctx: Extract<LayoutContext, { k: 'on-charge' }>; count: number; layout: Layout; label: string }
 
 /** The sampled drawings that carry charges (have an on-box). */
-const HOST_DRAWINGS = SAMPLED_DRAWINGS.filter((d) => CHARGES[d.id].drawings[d.key]!.onBox !== null);
+const HOST_DRAWINGS = SAMPLED_DRAWINGS.filter((d) => d.form === null && CHARGES[d.id].drawings[d.key]!.onBox !== null);
 
 /** Every layout the structure rules accept of one to four charges on each of the sampled host layouts, for every host drawing. */
 function onChargeCatalogue(): OnChargeEntry[] {
@@ -521,7 +532,7 @@ function onChargeCatalogue(): OnChargeEntry[] {
     // A lone host is also drawn mirrored (contourny) when it faces: its on-box is mirrored with it.
     const hostings = HOST_LAYOUTS.flatMap(([n, key]) => [{ n, key, mirror: false }, ...(n === 1 && CHARGES[id].faces ? [{ n, key, mirror: true }] : [])]);
     for (const { n: hostCount, key: hostKey, mirror } of hostings) {
-      const host = { charge: id, posture: posture === '_' ? null : posture, mirrored: Array.from({ length: hostCount }, () => mirror), count: hostCount, layout: layoutOfKey(hostKey, hostCount)!, context: fieldContext('none') };
+      const host = { charge: id, form: null, posture: posture === '_' ? null : posture as Posture, mirrored: Array.from({ length: hostCount }, () => mirror), count: hostCount, layout: layoutOfKey(hostKey, hostCount)!, context: fieldContext('none') };
       for (const count of [1, 2, 3, 4]) {
         for (const layout of onChargeLayouts(count)) {
           const ctx = { k: 'on-charge', host } as const;
@@ -557,8 +568,8 @@ describe('charges on the primary charges fit their hosts', () => {
         const where = `${e.label} (${g.shape})`;
         if (slots.length !== hosts.length * e.count) { problems.push(`${where}: ${slots.length} slots`); continue; }
         if (new Set(slots.map((s) => s.size)).size !== 1 || slots[0].size < 1) { problems.push(`${where}: sizes ${[...new Set(slots.map((s) => s.size))]}`); continue; }
-        const drawing = rings(CHARGE_ART[host.charge][artKeyOf(host.charge, host.posture)]!);
-        const drawn = hosts.map((h, i) => placePosed(drawing, drawnBox(h, host.charge), host.mirrored[i] ? MIRRORED : UPRIGHT));
+        const drawing = rings(CHARGE_ART[host.charge][artKeyOf(host)]!);
+        const drawn = hosts.map((h, i) => placePosed(drawing, drawnBox(h, host), host.mirrored[i] ? MIRRORED : UPRIGHT));
         for (const s of slots) {
           // The on-box is mostly inside the drawing (art-onbox.test.ts), so a glyph disc at its edge may reach a gap in it: most of the disc and its centre lie on the host.
           const inside = disc(s).filter((p) => drawn.some((rs) => inDrawing(rs, p))).length;
@@ -581,12 +592,12 @@ describe('charges on the primary charges fit their hosts', () => {
       const { host } = e.ctx;
       const hosts = contextSlots(host.context, host.count, host.layout, g.shape);
       const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
-      const hostDrawing = rings(CHARGE_ART[host.charge][artKeyOf(host.charge, host.posture)]!);
-      const drawnHosts = hosts.map((h, i) => placePosed(hostDrawing, drawnBox(h, host.charge), host.mirrored[i] ? MIRRORED : UPRIGHT));
+      const hostDrawing = rings(CHARGE_ART[host.charge][artKeyOf(host)]!);
+      const drawnHosts = hosts.map((h, i) => placePosed(hostDrawing, drawnBox(h, host), host.mirrored[i] ? MIRRORED : UPRIGHT));
       for (const id of CARRIED) {
         const art = rings(CHARGE_ART[id][CHARGES[id].defaultPosture ?? '_']!);
         for (const s of slots) {
-          const rs = placePosed(art, drawnBox(s, id), UPRIGHT).flat();
+          const rs = placePosed(art, drawnBox(s, { charge: id, form: null }), UPRIGHT).flat();
           const outside = rs.filter((p) => !drawnHosts.some((h) => inDrawing(h, p) || h.flat().some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.5))).length;
           if (outside > 0.25 * rs.length) problems.push(`${e.label}: ${id} sticks out of its host (${outside}/${rs.length} points)`);
         }

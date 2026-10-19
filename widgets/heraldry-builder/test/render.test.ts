@@ -3,9 +3,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   CHARGES, MIRRORED, ORIENTATION_ANGLE, UPRIGHT, artPose, chargePath, chargeTransform, orientationTurns, turnFit, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
-  type Design, type FieldShape, type Fill, type Layer,
+  type Charge, type ChargeId, type Design, type FieldShape, type Fill, type Layer, type Posture,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
+
+/** The drawing of a whole charge in a posture with its modifiers. */
+const art = (id: ChargeId, posture: Posture | null, mods: Charge['mods']) => chargePath({ charge: id, form: null, posture, mods });
 
 const kinds = (d: Design, shape: FieldShape = 'heater') => renderLayers(d, shape).map((l) => (l.k === 'field' ? 'field' : `${l.k}:${l.path.join('.')}`));
 const layer = <K extends Layer['k']>(d: Design, i: number, k: K, shape: FieldShape = 'heater') => {
@@ -90,10 +93,10 @@ describe('charge layers', () => {
   it('draw the drawn boxes of the group in its paint', () => {
     const d = nd(arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'in-fess' })));
     const l = layer(d, 1, 'charges');
-    expect(l.slots).toEqual(groupSlots(d, [0], 'heater').map((s) => drawnBox(s, 'sword')));
+    expect(l.slots).toEqual(groupSlots(d, [0], 'heater').map((s) => drawnBox(s, { charge: 'sword', form: null })));
     expect(l.slots.map(slotTransform)).toHaveLength(2);
     expect(l.fills).toEqual([{ fill: solidFill('or'), slots: [0, 1] }]);
-    expect(l.art).toBe(chargePath('sword', null, []));
+    expect(l.art).toBe(art('sword', null, []));
     expect(l.poses).toEqual([UPRIGHT, UPRIGHT]);
   });
 
@@ -132,7 +135,7 @@ describe('charge layers', () => {
 
   it('pose a turned or reversed charge, and leave the follow turn of charges on a bend as it was', () => {
     const poses = (item: object, extra: object = {}) => layer(nd(arms('azure', group(charge('sword', item), 'or', extra))), 1, 'charges').poses;
-    expect(poses({ orientation: 'fesswise' })).toEqual([artPose(chargePath('sword', null, []), false, -90, CHARGES.sword.scale)]);
+    expect(poses({ orientation: 'fesswise' })).toEqual([artPose(art('sword', null, []), false, -90, CHARGES.sword.scale)]);
     expect(poses({ orientation: 'reversed' })).toEqual([MIRRORED]);
     expect(poses({ orientation: 'to-center' }, { count: 4, arrangement: 'in-cross' }).map((p) => p.turn)).toEqual([180, 90, -90, 0]);
     const onBend = (item: object) => layer(nd(arms('azure', group(ordinary('bend'), 'argent', { charged: [group(charge('sword', item), 'gules', { count: 3 })] }))), 2, 'charges').poses;
@@ -215,28 +218,28 @@ describe('charge layers', () => {
 
 describe('charge art', () => {
   it('draws the hare courant with the running hare and the sejant one sitting', () => {
-    expect(chargePath('hare', 'courant', [])).not.toBe(chargePath('hare', 'sejant', []));
-    expect(chargePath('hare', 'courant', []).startsWith('M7 67.1')).toBe(true);
+    expect(art('hare', 'courant', [])).not.toBe(art('hare', 'sejant', []));
+    expect(art('hare', 'courant', []).startsWith('M7 67.1')).toBe(true);
   });
 
   it('draws a sun in splendour as the sun with a face cut out', () => {
-    const plain = chargePath('sun', null, []);
-    const splendour = chargePath('sun', null, [{ id: 'in-splendour', count: null, paint: null }]);
+    const plain = art('sun', null, []);
+    const splendour = art('sun', null, [{ id: 'in-splendour', count: null, paint: null }]);
     expect(splendour.startsWith(plain)).toBe(true);
     expect(splendour.length).toBeGreaterThan(plain.length);
     // Two eyes and a mouth: three more subpaths.
     expect(splendour.split('M').length - plain.split('M').length).toBe(3);
-    expect(chargePath('sun', null, [])).toBe(plain);
+    expect(art('sun', null, [])).toBe(plain);
   });
 
   it('draws a sun in splendour on the shield', () => {
     const d = nd(arms('azure', group({ k: 'charge', charge: 'sun', mods: [{ id: 'in-splendour' }] }, 'or')));
-    expect(layer(d, 1, 'charges').art).toBe(chargePath('sun', null, [{ id: 'in-splendour', count: null, paint: null }]));
+    expect(layer(d, 1, 'charges').art).toBe(art('sun', null, [{ id: 'in-splendour', count: null, paint: null }]));
   });
 
   it('falls back to the default posture and then to the posture-less drawing', () => {
-    expect(chargePath('lion', 'courant', [])).toBe(chargePath('lion', 'rampant', []));
-    expect(chargePath('rose', null, [])).toBe(chargePath('rose', 'rampant', []));
+    expect(art('lion', 'courant', [])).toBe(art('lion', 'rampant', []));
+    expect(art('rose', null, [])).toBe(art('rose', 'rampant', []));
   });
 });
 

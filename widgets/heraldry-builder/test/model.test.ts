@@ -568,6 +568,9 @@ describe('support matrix', () => {
       ['four swords to center in cross', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'or', { count: 4, arrangement: 'in-cross' }))],
       ['three swords palewise on a bend', arms('azure', group(ordinary('bend'), 'or', { charged: [group(charge('sword', { orientation: 'palewise' }), 'gules', { count: 3 })] }))],
       ['a bee bendwise', arms('or', group(charge('bee', { orientation: 'bendwise' }), 'sable'))],
+      ['a wolf\'s head erased', arms('azure', group(charge('wolf', { form: 'head', mods: ['erased'] }), 'or'))],
+      ['two lions\' heads respectant', arms('azure', group(charge('lion', { form: 'head' }), 'or', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
+      ['a demi-eagle contourny', arms('azure', group(charge('eagle', { form: 'demi', facing: 'to-sinister' }), 'or'))],
     ];
     for (const [label, input] of supported) {
       it(`${label} has no gap`, () => expect(gapTags(nd(input))).toEqual([]));
@@ -577,12 +580,13 @@ describe('support matrix', () => {
       for (const d of [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 200)]) expect(isSupported(d)).toBe(true);
     });
 
-    it('every generated charge attribute design is supported and legal, about a third face or pair, and some turn', () => {
+    it('every generated charge attribute design is supported and legal, about a third face or pair, some turn, some are heads or demi charges', () => {
       const designs = generatedChargeAttributeDesigns(1, 200);
       for (const d of designs) expect([isSupported(d), structuralIssues(d)]).toEqual([true, []]);
       const turned = designs.filter((d) => d.groups.some((g) => g.arrangement.k === 'pair' || (g.item.k === 'charge' && g.item.facing === 'to-sinister')));
       expect(turned.length).toBeGreaterThan(40);
       expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.orientation !== null)).length).toBeGreaterThan(20);
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.form !== null)).length).toBeGreaterThan(10);
     });
 
     it('draws a pair only of two charges that face, each its own way, alone on the field or around a pale', () => {

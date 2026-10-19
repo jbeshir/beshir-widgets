@@ -171,7 +171,7 @@ export function chargeFills(d: Design, group: Group, host: Group | null, slots: 
     case 'variation': {
       const varied = variationOf(group.paint);
       const mirrored: VariationPaint = { ...varied, variation: MIRRORED_VARIATION[varied.variation] ?? varied.variation };
-      const charge = group.item.k === 'charge' ? group.item.charge : null;
+      const charge = group.item.k === 'charge' ? group.item : null;
       return slots.map((s, i) => {
         const { x, y, size } = charge ? drawnBox(s, charge) : s;
         return { fill: variationFill(poses[i].mirror ? mirrored : varied, { x0: x - size / 2, y0: y - size / 2, x1: x + size / 2, y1: y + size / 2 }, s.rotation + poses[i].turn), slots: [i] };

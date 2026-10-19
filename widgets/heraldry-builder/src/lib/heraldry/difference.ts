@@ -95,7 +95,8 @@ const SUN_POINTS = 8;
 /**
  * What A5G4 compares within a type class (§1.6 T1): two items differ in type by a DC when their tokens share none. A charge's token is its
  * own type, or the type SENA treats it as (`typeOf`), or one several charges share (`typeToken`: foils and roses by their petals, App
- * M1i); a plain cross couped has the couped ordinary's; a mullet or estoile of eight points or more is a sun as well (§1.6 T2). An
+ * M1i); a plain cross couped has the couped ordinary's; a mullet or estoile of eight points or more is a sun as well (§1.6 T2). A demi
+ * charge or a head is a type of its own within its beast's class (§1.4 M1, M2: a DC from the whole beast, its cut ignored: M4). An
  * ordinary's is its type.
  */
 function typeTokens(item: Item): readonly string[] {
@@ -105,7 +106,8 @@ function typeTokens(item: Item): readonly string[] {
   if (asOrdinary) return [asOrdinary];
   const own = STAR_TOKENS[item.charge] ?? [meta.typeToken ?? meta.typeOf ?? item.charge];
   const points = item.mods.find((m) => m.id === 'of-points')?.count ?? null;
-  return points !== null && points >= SUN_POINTS ? [...own, 'sun'] : own;
+  const tokens = points !== null && points >= SUN_POINTS ? [...own, 'sun'] : own;
+  return item.form ? tokens.map((t) => `${t}:${item.form}`) : tokens;
 }
 
 /** A5E2/A5G4: of different classes, or of one class with no type token in common. */
@@ -215,11 +217,20 @@ function facingCounts(g: Group): boolean {
 }
 
 /**
- * §1.1 F1 (A5G7a, App L1): two charges that can be posed alike facing different ways — to dexter, to sinister (contourny) or affronty (F10).
- * A fish naiant is read by L1d's general clause (herald question D18).
+ * Whether two charges can be posed alike: in postures of one posture class (App M3), or as two heads or two demi charges of beasts that
+ * face (§1.1 F5: a head to dexter against one contourny is a DC; a demi charge is read as its beast).
+ */
+function posedAlike(x: Item, y: Item): boolean {
+  if (comparablePostures(x, y) !== null) return true;
+  return x.k === 'charge' && y.k === 'charge' && x.form !== null && x.form === y.form && CHARGES[x.charge].faces && CHARGES[y.charge].faces;
+}
+
+/**
+ * §1.1 F1, F5 (A5G7a, App L1): two charges that can be posed alike facing different ways — to dexter, to sinister (contourny) or affronty
+ * (F10). A fish naiant is read by L1d's general clause (herald question D18).
  */
 function facingApart(x: Group, y: Group): boolean {
-  return comparablePostures(x.item, y.item) !== null && x.item.k === 'charge' && y.item.k === 'charge' && x.item.facing !== y.item.facing
+  return posedAlike(x.item, y.item) && x.item.k === 'charge' && y.item.k === 'charge' && x.item.facing !== y.item.facing
     && facingCounts(x) && facingCounts(y);
 }
 

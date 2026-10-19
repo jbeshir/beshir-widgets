@@ -2,7 +2,7 @@
 
 import { TINCTURE_GLOSS, TINCTURE_WORD } from './tinctures';
 import { joinAnd, numberWord } from './words';
-import { CHARGES, drawnPoints, postureGloss } from './charges';
+import { CHARGES, drawnPoints, postureGloss, type ChargeForm, type ModifierId } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
 import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, fimbriationOf, isVoided, notSupported, type Arrangement, type Charge, type Pair, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
@@ -292,7 +292,17 @@ function chargeNoun(c: Charge, count: number): string {
     + (mods.includes('fitchy') ? ', pointed at the foot' : '') + (edged ? ` edged in ${edged}` : '');
 }
 
-/** The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word). */
+/** What a head or a demi charge shows of the beast, said before it; how a head is cut off, said after it. */
+const FORM_GLOSS: Partial<Record<ChargeForm, { one: string; many: string }>> = {
+  head: { one: 'the head and neck of', many: 'the heads and necks of' },
+  demi: { one: 'the front half of', many: 'the front halves of' },
+};
+const CUT_GLOSS: Partial<Record<ModifierId, string>> = { couped: 'cut off straight', erased: 'cut off with a ragged edge' };
+
+/**
+ * The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word), "the head and neck of a
+ * gold wolf, cut off with a ragged edge".
+ */
 function chargesSubject(g: Group, count: number): string {
   if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
   const noun = chargeNoun(g.item, count);
@@ -303,7 +313,11 @@ function chargesSubject(g: Group, count: number): string {
   const gaze = g.item.gaze && GAZE_LABEL[g.item.gaze].plain.toLowerCase();
   const facing = g.item.facing && g.item.facing !== 'to-dexter' ? FACING_LABEL[g.item.facing].plain.toLowerCase() : null;
   const orientation = g.item.orientation && ORIENTATION_LABEL[g.item.orientation].plain.toLowerCase();
-  return [lead, colour, noun, posture, gaze, facing, orientation].filter(Boolean).join(' ');
+  const words = [lead, colour, noun, posture, gaze, facing, orientation].filter(Boolean).join(' ');
+  const form = g.item.form && FORM_GLOSS[g.item.form];
+  if (!form) return words;
+  const cut = g.item.mods.map((m) => CUT_GLOSS[m.id]).find((w) => w !== undefined);
+  return `${count === 1 ? form.one : form.many} ${words}${cut ? `, ${cut}` : ''}`;
 }
 
 /** "three red five-pointed stars, two above one"; counterchanged: "…stars in the opposite colours of the field (…), two above one". */

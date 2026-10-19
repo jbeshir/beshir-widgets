@@ -4,7 +4,7 @@
 import { CHARGES, type Orientation } from './charges';
 import type { Arrangement, Charge } from './design';
 import { mirroredSlots } from './arrangement';
-import { r2, type ArtPose, type Slot } from './geometry';
+import { opticalScale, r2, type ArtPose, type Slot } from './geometry';
 import { reachOf, turnFit } from './art/geometry';
 
 /**
@@ -64,5 +64,5 @@ export function artPose(art: string, mirror: boolean, turn: number, scale: numbe
 export function chargePoses(item: Charge, arrangement: Arrangement, slots: readonly Slot[], art: string): ArtPose[] {
   const mirrored = mirroredSlots(item.facing, arrangement, slots.length);
   const turns = orientationTurns(item.orientation, CHARGES[item.charge].orient.drawn, slots);
-  return slots.map((_, i) => artPose(art, mirrored[i] !== (item.orientation === 'reversed'), turns[i], CHARGES[item.charge].scale));
+  return slots.map((_, i) => artPose(art, mirrored[i] !== (item.orientation === 'reversed'), turns[i], opticalScale(item)));
 }

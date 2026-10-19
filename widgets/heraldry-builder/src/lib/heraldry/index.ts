@@ -1,6 +1,6 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
-export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
+export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type ModifierId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
@@ -52,7 +52,7 @@ export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchW
 export { signature } from './signature';
 export {
   SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, divisionRegions, partitionContours, partIndexAt,
-  drawnBox, slotTransform, chargeTransform, UPRIGHT, MIRRORED, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
+  drawnBox, opticalScale, slotTransform, chargeTransform, UPRIGHT, MIRRORED, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
   counterchangedSlotParts, type ArtPose, type Slot, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
@@ -91,6 +91,7 @@ export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox } from './charge-art';
 export { CHARGE_ART, CORE_ART_IDS } from './art/paths/index';
 export { bboxOf, ringDepths, ringProblems, turnFit } from './art/geometry';
 export { crossPath } from './art/procedural/crosses';
+export { ERASED_TEETH, derivedPath } from './art/procedural/derived';
 export { PIERCED_MULLETS, POINTED_STARS } from './art/procedural/stars';
 export type { ArtBox, ArtKey, DrawingMeta } from './art/types';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';

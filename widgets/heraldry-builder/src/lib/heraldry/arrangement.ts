@@ -5,7 +5,7 @@ import { numberWord, joinAnd } from './words';
 import {
   groundTincture, groupAt, hostOf, itemKey, notSupported, type Arrangement, type Design, type Group, type GroupPath, type LineDir, type Pair, type Pattern, type Position, POSITIONS,
 } from './design';
-import { CHARGES, type ChargeId, type Facing, type Posture } from './charges';
+import { CHARGES, type ChargeForm, type ChargeId, type Facing, type Posture } from './charges';
 import { ORDINARY_KIND, familyOfTreated, type OrdinaryType } from './ordinaries';
 import { specOf, type OrdinarySpec } from './ordinary-geometry';
 import type { Tincture } from './tinctures';
@@ -193,7 +193,7 @@ export type KeepOut = readonly OrdinarySpec[];
 export interface FieldContext { k: 'field'; peripheral: Peripheral; keepOut: KeepOut; yields: Yield; share: Share | null }
 
 /** The primary charges a group of charges is on, as they are drawn: what `contextSlots` needs to find each of them and the room its drawing offers. */
-export interface HostCharges { charge: ChargeId; posture: Posture | null; mirrored: readonly boolean[]; count: number; layout: Layout; context: FieldContext }
+export interface HostCharges { charge: ChargeId; form: ChargeForm | null; posture: Posture | null; mirrored: readonly boolean[]; count: number; layout: Layout; context: FieldContext }
 
 export type LayoutContext =
   | FieldContext                                                                 // primary charge group
@@ -285,7 +285,7 @@ export function contextOf(d: Design, group: Group, host: Group | null): LayoutCo
       // Only the primary charges carry charges: the charges of other groups are too small, and a tertiary carries none.
       const context = host.role === 'primary' ? contextOf(d, host, null) : null;
       if (context?.k !== 'field') return null;
-      return { k: 'on-charge', host: { charge: host.item.charge, posture: host.item.posture, mirrored: mirroredSlots(host.item.facing, host.arrangement, host.count), count: host.count, layout: { arrangement: host.arrangement, position: host.position }, context } };
+      return { k: 'on-charge', host: { charge: host.item.charge, form: host.item.form, posture: host.item.posture, mirrored: mirroredSlots(host.item.facing, host.arrangement, host.count), count: host.count, layout: { arrangement: host.arrangement, position: host.position }, context } };
     }
     // The bordure runs round the whole edge, under no chief of its own: what lies beside it doesn't change where its charges go.
     return { k: 'on', ordinary: specOf(host), peripheral: host.item.type === 'bordure' ? 'none' : peripheralOf(d, host), keepOut: keepOutOf(d, host) };

@@ -4,8 +4,7 @@
 
 import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
-import { CHARGES, STAR_POINTS, isChargeId, type Gaze } from './charges';
-import type { ChargeMeta } from './art/types';
+import { CHARGES, CUT_MODIFIERS, STAR_POINTS, isChargeId, type Gaze } from './charges';
 import { chargeOnBox } from './charge-art';
 import { liesAstride, specOf } from './ordinary-geometry';
 import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, partCount, type Division, type Variation } from './divisions';
@@ -165,14 +164,15 @@ function itemGaps(item: Item): Found[] {
   }
   const meta = CHARGES[item.charge];
   const gaps: Found[] = [];
-  if (item.form) gaps.push(gap('charge-modifier', item.form));
+  // A head or demi charge is drawn for the charges whose sidecar row has it (PLAN-D §1.4 M1, M2): a head from its own drawing, a demi charge cut from one.
+  if (item.form && !meta.forms.includes(item.form)) gaps.push(gap('charge-modifier', item.form));
   if (item.posture && !meta.postures?.includes(item.posture)) gaps.push(gap('posture', item.posture));
   // Facing to sinister is the drawing mirrored; facing out of the shield has no drawing (PLAN-D §0.2.2: filed as a posture word).
   if (item.facing === 'affronty') gaps.push(gap('posture', 'affronty'));
   if (item.gaze && !gazeDrawn(item, item.gaze)) gaps.push(gap('posture', item.gaze));
   // An orientation is drawn by turning the art (pose.ts) for the charges whose sidecar allows it; anything else keeps its gap.
   if (item.orientation && !meta.orient.allowed.includes(item.orientation)) gaps.push(gap('orientation', item.orientation));
-  for (const m of item.mods) if (!modifierDrawn(meta, m)) gaps.push(gap('charge-modifier', m.id));
+  for (const m of item.mods) if (!modifierDrawn(item, m)) gaps.push(gap('charge-modifier', m.id));
   for (const p of item.parts) gaps.push(gap('charge-modifier', p.part));
   for (const h of item.holds) gaps.push(gap('charge-modifier', h.how));
   return gaps;
@@ -180,9 +180,11 @@ function itemGaps(item: Item): Found[] {
 
 /**
  * Whether a charge's modifier is drawn (PLAN-D §1.4): one its sidecar row takes, with what it needs and nothing else — a star of 4 to 12
- * points, a fimbriation of one tincture.
+ * points, a fimbriation of one tincture; a head's cut, couped or erased (a whole or demi charge takes none).
  */
-function modifierDrawn(meta: ChargeMeta, m: Modifier): boolean {
+function modifierDrawn(item: Charge, m: Modifier): boolean {
+  const meta = CHARGES[item.charge];
+  if (CUT_MODIFIERS.includes(m.id)) return item.form === 'head' && m.count === null && m.paint === null;
   if (!meta.mods.includes(m.id) && !meta.details.includes(m.id)) return false;
   if (m.id === 'of-points') return m.count !== null && STAR_POINTS.includes(m.count) && m.paint === null;
   if (m.id === 'fimbriated') return m.count === null && m.paint?.k === 'tincture';
@@ -332,7 +334,7 @@ function onChargeGaps(d: Design, host: Group): Found[] {
   if (host.role !== 'primary') return [gap('multiple-groups', `tertiary-on-${host.role}`, ON_THAT_CHARGE)];
   if (coPrimaries(d)) return [gap('multiple-groups', 'tertiary-on-co-primary', ON_THAT_CHARGE)];
   const gaps: Found[] = [];
-  if (chargeOnBox(host.item.charge, host.item.posture) === null) gaps.push(gap('placement', `on-${host.item.charge}`, `Charges on a ${CHARGES[host.item.charge].name}`));
+  if (chargeOnBox(host.item) === null) gaps.push(gap('placement', `on-${host.item.charge}`, `Charges on a ${CHARGES[host.item.charge].name}`));
   if (host.item.mods.length > 0) gaps.push(gap('multiple-groups', 'tertiary-on-modifier', ON_THAT_CHARGE));
   // A turned charge's on-box is not turned with it.
   if (host.item.orientation !== null && host.item.orientation !== 'palewise') gaps.push(gap('placement', 'on-turned-charge', ON_THAT_CHARGE));
