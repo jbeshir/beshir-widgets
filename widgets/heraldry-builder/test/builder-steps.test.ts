@@ -7,7 +7,7 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setFacing, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { setCharge, setFacing, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
 import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, withLayout, CHARGES, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
@@ -624,7 +624,7 @@ describe('"Facing, turning and details…" under the picture', () => {
     expect(disclosure(render(lion))).toEqual([{ open: false }]);
     expect(render(lion)).toContain('Facing, turning and details…');
     for (const id of ['facing', 'facing-to-sinister', 'gaze', 'pair']) expect(ids(render(lion)), id).not.toContain(id);
-    for (const id of ['rose', 'sun', 'mullet'] as const) expect(ids(render(setCharge(DEFAULT_DESIGN, 'picture', id))), id).not.toContain('charge-more');
+    for (const id of ['sun', 'roundel', 'cross-crosslet'] as const) expect(ids(render(setCharge(DEFAULT_DESIGN, 'picture', id))), id).not.toContain('charge-more');
   });
 
   it('opens on a picture facing right, with Facing out and the head turns blocked, and the summary says so', () => {
@@ -654,5 +654,48 @@ describe('"Facing, turning and details…" under the picture', () => {
     expect(html).toContain('<option selected value="in-fess">');
     expect(html).not.toContain('pair-combattant');
     expect(render(pair, { open: false, onToggle: noop })).toMatch(/step-charges-summary">2 lions, gold, facing each other</);
+  });
+});
+
+describe('the Turned row under the picture', () => {
+  const render = (d: Design, accordion: { open: boolean; onToggle: () => void } | null = null) => renderToString(h(ChargesStep, { ...base, accordion, n: 3, design: d, onAdjust: noop, adjusted: null }));
+  const disclosure = (markup: string) => [...markup.matchAll(/<details[^>]*data-testid="charge-more"[^>]*>/g)].map((m) => ({ open: /\sopen/.test(m[0]) }));
+  type Id = Parameters<typeof setCharge>[2];
+  const pictured = (id: Id) => setCharge(DEFAULT_DESIGN, 'picture', id);
+  /** The picture with an orientation set, so that its disclosure is open and the row drawn. */
+  const turned = (id: Id, orientation: 'palewise' | 'inverted' | 'fesswise', count = 1) => {
+    const d = setCount(pictured(id), picturePath(pictured(id))!, count);
+    return setOrientation(d, picturePath(d)!, orientation);
+  };
+  const turnedIds = (markup: string) => [...ids(markup)].filter((id) => id.startsWith('turned-'));
+
+  it('is a closed disclosure for a charge that turns, and absent for one that does not turn or face', () => {
+    for (const id of ['sword', 'mullet', 'crescent'] as const) expect(disclosure(render(pictured(id))), id).toEqual([{ open: false }]);
+    for (const id of ['sun', 'roundel'] as const) expect(disclosure(render(pictured(id))), id).toEqual([]);
+    expect(turnedIds(render(pictured('sword')))).toEqual([]);
+    expect(turnedIds(render(pictured('lion')))).toEqual([]);
+  });
+
+  it('lists as usual first, then the ways the charge takes, and blocks the others with their reason', () => {
+    const sword = render(turned('sword', 'palewise'));
+    expect(turnedIds(sword).slice(0, 3)).toEqual(['turned-none', 'turned-palewise', 'turned-fesswise']);
+    for (const id of ['turned-fesswise-reversed', 'turned-bendwise-sinister-inverted', 'turned-inverted', 'turned-to-center']) expect(turnedIds(sword), id).toContain(id);
+    expect(turnedIds(sword)).not.toContain('turned-reversed');
+    expect(turnedIds(render(turned('key', 'palewise')))).toContain('turned-reversed');
+    expect(sword).toMatch(/data-testid="turned-to-center" data-blocked="true"/);
+    expect(sword).toContain('One sword has no group to point to the middle of.');
+    expect(render(turned('sword', 'palewise', 3))).not.toMatch(/data-testid="turned-to-center" data-blocked/);
+    const mullet = render(turned('mullet', 'inverted'));
+    expect(mullet).toMatch(/data-testid="turned-fesswise" data-blocked="true"/);
+    expect(mullet).toContain('A mullet looks the same turned that way.');
+    expect(mullet).not.toMatch(/data-testid="turned-inverted" data-blocked/);
+  });
+
+  it('opens on a turned picture, and the summary says how it lies', () => {
+    const flat = turned('sword', 'fesswise');
+    const html = render(flat);
+    expect(disclosure(html)).toEqual([{ open: true }]);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="turned-fesswise"/);
+    expect(render(flat, { open: false, onToggle: noop })).toMatch(/step-charges-summary">1 sword, gold, lying flat</);
   });
 });

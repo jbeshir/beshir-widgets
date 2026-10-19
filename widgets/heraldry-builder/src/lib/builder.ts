@@ -10,7 +10,7 @@ import {
   isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge, drawnLayout, layoutContext,
   partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
-  type Facing, type Gaze, type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
+  type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
@@ -298,6 +298,11 @@ export function setPosture(d: Design, path: GroupPath, posture: Posture): Design
 /** The charge at `path` facing this way; the pictures on it are refitted to its mirrored drawing. */
 export function setFacing(d: Design, path: GroupPath, facing: Facing): Design {
   return refitLayers(withItem(d, path, (item) => ({ ...item, facing })));
+}
+
+/** The charge at `path` turned this way (null: as usual); the pictures on it are refitted to its turned drawing. */
+export function setOrientation(d: Design, path: GroupPath, orientation: Orientation | null): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, orientation })));
 }
 
 /** The charge at `path` with its head turned (null: looking ahead, as drawn). */

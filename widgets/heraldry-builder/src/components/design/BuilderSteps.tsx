@@ -9,7 +9,7 @@ import { useEffect, useState } from 'preact/hooks';
 import {
   TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, ordinaryEdgeHost, SHAPE_TOGGLES, toggledOn, bandPositionOf, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, lineAllowed, countChoices, fieldTinctureChoices, groupAt,
-  isBlocked, isHalfPosition, layoutChoices, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, shownLayoutKey, simpleParts, FACING_LABEL, PAIR_LABEL,
+  isBlocked, isHalfPosition, layoutChoices, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, shownLayoutKey, simpleParts, FACING_LABEL, ORIENTATION_LABEL, PAIR_LABEL,
   type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue, type Line,
   partCount, type FieldPart, type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
@@ -433,12 +433,13 @@ export const nounOf = (design: Design, path: GroupPath): string => {
   return g.count === 1 ? meta.name : meta.plural;
 };
 
-/** "3 lions, gold", then how they are turned when it isn't as drawn: "facing right", "facing each other", "back to back". */
+/** "3 lions, gold", then how they are turned when it isn't as drawn: "facing right", "facing each other", "back to back", "lying flat". */
 export function picturesSummary(design: Design, path: GroupPath | null): string {
   if (!path) return 'None';
   const g = groupAt(design, path);
-  const turned = g.arrangement.k === 'pair' ? PAIR_LABEL[g.arrangement.pair] : g.item.k === 'charge' && g.item.facing === 'to-sinister' ? FACING_LABEL['to-sinister'] : null;
-  return `${g.count} ${nounOf(design, path)}, ${colourWords(design, path)}${turned ? `, ${turned.plain.toLowerCase()}` : ''}`;
+  const facing = g.arrangement.k === 'pair' ? PAIR_LABEL[g.arrangement.pair] : g.item.k === 'charge' && g.item.facing === 'to-sinister' ? FACING_LABEL['to-sinister'] : null;
+  const pointing = g.item.k === 'charge' && g.item.orientation ? ORIENTATION_LABEL[g.item.orientation] : null;
+  return [`${g.count} ${nounOf(design, path)}`, colourWords(design, path), ...[facing, pointing].flatMap((t) => (t ? [t.plain.toLowerCase()] : []))].join(', ');
 }
 
 /** A count or placement option: blocked with its reason, or offered saying what else it changes. */

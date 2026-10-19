@@ -3,7 +3,7 @@
 // endings before lookup); hyphenated terms are single tokens. Where a word is in more than one list,
 // gaps.ts decides by the order it loads them in.
 
-import { CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_NAME, ORDINARY_SPELLINGS, SAME_ORDINARY, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId, type OrdinaryType } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_NAME, ORDINARY_SPELLINGS, SAME_ORDINARY, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId, type OrdinaryType } from '../../src/lib/heraldry';
 
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
@@ -198,6 +198,8 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
 export const SUPPORTED_CHARGE_WORDS: Readonly<Record<string, ChargeId>> = {
   ...Object.fromEntries(CHARGE_IDS.map((id) => [id, id])),
   'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet',
+  // the charge's nouns for how it points ("increscent": a crescent fesswise)
+  ...Object.fromEntries(CHARGE_IDS.flatMap((id) => Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [[w.name, id], [w.plural, id]] : [])))),
   ...Object.fromEntries(NAMED_TINCTURE_CHARGES.filter((n) => !n.word.includes(' ')).flatMap((n) => [[n.word, n.charge], [n.plural, n.charge]])),
 };
 

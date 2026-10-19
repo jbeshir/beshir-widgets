@@ -5,10 +5,10 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, setFacing, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setPosture, setFacing, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, edgeSideChoices, facingChoices, gazeChoices, pairChoices, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, edgeSideChoices, facingChoices, gazeChoices, orientationChoices, pairChoices, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
   type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
@@ -323,6 +323,32 @@ describe('builder transitions', () => {
     sun = setModifier(sun, picture(sun), 'in-splendour', true);
     expect(blazon(sun)).toBe('Azure, a sun in splendor Or.');
     expect(blazon(setModifier(sun, picture(sun), 'in-splendour', false))).toBe('Azure, a sun Or.');
+  });
+
+  it('the Turned row: as usual first, the ways a charge takes, the rest and to center blocked with their reasons (PLAN-D §3 D5b)', () => {
+    const sword = setCharge(DEFAULT_DESIGN, 'picture', 'sword');
+    const turns = orientationChoices(sword, picture(sword));
+    expect(turns.map((c) => c.value)).toEqual([null, 'palewise', 'fesswise', 'fesswise-reversed', 'bendwise', 'bendwise-inverted', 'bendwise-sinister', 'bendwise-sinister-inverted', 'inverted', 'to-center']);
+    expect(turns.filter((c) => !c.allowed).map((c) => c.value)).toEqual(['to-center']);
+    expect(orientationChoices(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), [0])).toEqual([]);
+    // a mullet looks the same turned any way but upside down
+    const mullet = orientationChoices(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0]);
+    expect(mullet.find((c) => c.value === 'fesswise')).toMatchObject({ allowed: false, reason: 'A mullet looks the same turned that way.' });
+    expect(mullet.find((c) => c.value === 'inverted')!.allowed).toBe(true);
+    // to center needs a group; two crossed are not turned at all
+    const three = setCount(sword, picture(sword), 3);
+    expect(orientationChoices(three, picture(three)).find((c) => c.value === 'to-center')!.allowed).toBe(true);
+    const crossed = setLayout(setCount(sword, picture(sword), 2), picture(sword), 'crossed');
+    expect(orientationChoices(crossed, picture(crossed)).filter((c) => c.value !== null).every((c) => !c.allowed)).toBe(true);
+    // turning and turning back
+    const flat = setOrientation(sword, picture(sword), 'fesswise');
+    expect(blazon(flat)).toBe('Azure, a sword fesswise Or.');
+    expect(setOrientation(flat, picture(flat), null)).toEqual(sword);
+    expect(blazon(setOrientation(setCharge(DEFAULT_DESIGN, 'picture', 'crescent'), [0], 'fesswise-reversed'))).toBe('Azure, a decrescent Or.');
+    // A swap keeps the orientation where the new charge takes it (§0.2.7), and drops it where it doesn't.
+    expect(groupAt(setCharge(flat, 'picture', 'key'), [0]).item).toMatchObject({ charge: 'key', orientation: 'fesswise' });
+    expect(groupAt(setCharge(flat, 'picture', 'mullet'), [0]).item).toMatchObject({ charge: 'mullet', orientation: null });
+    expect(groupAt(setCharge(flat, 'picture', 'lion'), [0]).item).toMatchObject({ charge: 'lion', orientation: null });
   });
 
   it('facing, the head and pairs (PLAN-D §0.3.10)', () => {

@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, chargeItem, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
 import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, INVERTED_HOSTS, LINE, NUMBER_WORDS, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
 
 export interface NormalisationRule {
@@ -64,13 +64,15 @@ const OUTLINE_WORD = `(?:fimbriated|endorsed|${COTISES})`;
 const OUTLINE = `(?: ${OUTLINE_WORD}(?: plain| ${LINE})?)`;
 /** What a band is painted with: its tincture, then its outline and the tincture of that, or its outline and its tincture (" gules fimbriated Or", " cotised azure"). */
 const BAND_PAINT = `(?: ${TINCT}(?:${OUTLINE}(?: ${TINCT})?)?|${OUTLINE}(?: ${TINCT})?)`;
-/** Every charge noun, lower case as the text reads once the case rule has run. */
-const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]).map((noun) => noun.toLowerCase()));
+/** Every charge noun, lower case as the text reads once the case rule has run, with the charges' nouns for how they point ("increscent"). */
+const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural, ...Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [w.name, w.plural] : []))]).map((noun) => noun.toLowerCase()));
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
 /** The modifiers the widget words after a noun: "in splendor", "fitchy". */
 const MODIFIER = alt(Object.values(MODIFIER_WORDS));
-/** How a charge that faces is turned, after its posture, as the widget words it: "contourny". */
-const TURNED = '(?: contourny)?';
+/** The words for which way a charge points, as the widget words them: "fesswise", "bendwise sinister inverted", the crescent's "pendant" (not "points to center", which follows the layout). */
+const ORIENT = alt([...ORIENTATIONS.filter((o) => o !== 'to-center').map((o) => ORIENTATION_WORDS[o]), ...CHARGE_IDS.flatMap((id) => Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'words' ? [w.words] : [])))]);
+/** How a charge is turned, after its posture, as the widget words it: "contourny", then which way it points. */
+const TURNED = `(?: contourny)?(?: (?:${ORIENT}))?`;
 /** The charges that face, by their nouns, singular and plural (lower case). */
 const FACING_ID = new Map(CHARGE_IDS.filter((id) => CHARGES[id].faces).flatMap((id) => [CHARGES[id].name, CHARGES[id].plural].map((noun) => [noun.toLowerCase(), id] as const)));
 const FACING_NOUN = alt(FACING_ID.keys());
@@ -457,6 +459,17 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(FACING_EACH_OTHER_WORD, (_, noun: string, pose: string, written: string) => facingEachOtherWords(noun, pose, written))
       .replace(/\bcontourny guardant\b/g, 'guardant contourny')
       .replace(/\bregardant contourny\b/g, 'contourny regardant'),
+  },
+  {
+    // 5b. Which way a charge points, in the SCA's other words for the widget's (SENA App G; GoT Table 7): "barwise" is fesswise, "inverted
+    //     bendwise (sinister)" is "bendwise (sinister) inverted" (the armorial has 177 against 127), and a crescent inverted is pendant
+    //     (133 against 96, `orient.wording`). "palewise" stays stated: the widget words it too.
+    id: 'orientation-synonyms',
+    description: 'barwise → fesswise; inverted bendwise (sinister) → bendwise (sinister) inverted; crescent(s) inverted → crescent(s) pendant.',
+    apply: (s) => s
+      .replace(/\bbarwise\b/g, 'fesswise')
+      .replace(/\binverted (bendwise(?: sinister)?)\b/g, '$1 inverted')
+      .replace(/\b(crescents?) inverted\b/g, '$1 pendant'),
   },
   {
     // 6. Where the placement words go: the SCA writes "two keys in pale" as often as "in pale two
