@@ -886,6 +886,9 @@ button, input, select, textarea {
 
 .segmented > .option-wrap { flex: 1 0 44px; }
 .segmented-wide > .option-wrap { flex: 1 1 140px; }
+/* The chip rows of "Facing, turning and details…": as many to a line as fit, at least two in a phone's narrow disclosure. */
+.chip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.chip-grid-previews { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
 
 .segment {
   padding: 6px 10px;

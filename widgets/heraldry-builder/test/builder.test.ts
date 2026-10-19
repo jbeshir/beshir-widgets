@@ -463,10 +463,9 @@ describe('builder transitions', () => {
     expect(turns.map((c) => c.value)).toEqual([null, 'palewise', 'fesswise', 'fesswise-reversed', 'bendwise', 'bendwise-inverted', 'bendwise-sinister', 'bendwise-sinister-inverted', 'inverted', 'to-center']);
     expect(turns.filter((c) => !c.allowed).map((c) => c.value)).toEqual(['to-center']);
     expect(orientationChoices(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), [0])).toEqual([]);
-    // a mullet looks the same turned any way but upside down
+    // a mullet has no set top: only its own ways are listed (upright, upside down), none blocked (U-10)
     const mullet = orientationChoices(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0]);
-    expect(mullet.find((c) => c.value === 'fesswise')).toMatchObject({ allowed: false, reason: 'A mullet looks the same turned that way.' });
-    expect(mullet.find((c) => c.value === 'inverted')!.allowed).toBe(true);
+    expect(mullet).toEqual([{ value: null, allowed: true }, { value: 'palewise', allowed: true }, { value: 'inverted', allowed: true }]);
     // to center needs a group; two crossed are not turned at all
     const three = setCount(sword, picture(sword), 3);
     expect(orientationChoices(three, picture(three)).find((c) => c.value === 'to-center')!.allowed).toBe(true);

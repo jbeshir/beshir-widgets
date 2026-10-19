@@ -687,8 +687,7 @@ describe('the Turned row under the picture', () => {
     expect(sword).toContain('One sword has no group to point to the middle of.');
     expect(render(turned('sword', 'palewise', 3))).not.toMatch(/data-testid="turned-to-center" data-blocked/);
     const mullet = render(turned('mullet', 'inverted'));
-    expect(mullet).toMatch(/data-testid="turned-fesswise" data-blocked="true"/);
-    expect(mullet).toContain('A mullet looks the same turned that way.');
+    expect(turnedIds(mullet)).toEqual(['turned-none', 'turned-palewise', 'turned-inverted']);
     expect(mullet).not.toMatch(/data-testid="turned-inverted" data-blocked/);
   });
 
