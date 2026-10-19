@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, plainlyPosed, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -265,6 +265,16 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a charge voided', arms('gules', group(charge('delf', { mods: ['voided'] }), 'argent'))],
   ['a charge fimbriated', arms('azure', group(charge('lozenge', { mods: [{ id: 'fimbriated', paint: 'argent' }] }), 'azure'))],
   ['three charges fimbriated and a bordure', arms('or', group(charge('roundel', { mods: [{ id: 'fimbriated', paint: 'sable' }] }), 'gules', { count: 3 }), group(ordinary('bordure'), 'azure'))],
+  // postures in one word or two, and a head turned, before "contourny" when it looks out and after it when it looks back (SENA §1.1, §1.2)
+  ['a beast couchant', arms('azure', group(charge('lion', { posture: 'couchant' }), 'or'))],
+  ['a beast sejant erect', arms('azure', group(charge('lion', { posture: 'sejant-erect' }), 'or'))],
+  ['two beasts sejant erect in pale', arms('azure', group(charge('lion', { posture: 'sejant-erect' }), 'or', { count: 2, arrangement: 'in-pale' }))],
+  ['a beast passant guardant', arms('gules', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or'))],
+  ['a beast guardant contourny', arms('gules', group(charge('lion', { gaze: 'guardant', facing: 'to-sinister' }), 'or'))],
+  ['a beast contourny regardant', arms('vert', group(charge('lion', { gaze: 'regardant', facing: 'to-sinister' }), 'argent'))],
+  ['three beasts passant guardant in pale', arms('gules', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or', { count: 3, arrangement: 'in-pale' }))],
+  ['a stag lodged', arms('vert', group(charge('stag', { posture: 'couchant' }), 'or'))],
+  ['three birds rising', arms('azure', group(charge('eagle', { posture: 'rising' }), 'argent', { count: 3 }))],
   // a demi charge and a head, whose cut follows the noun ("a wolf's head erased")
   ['a demi charge', arms('azure', group(charge('lion', { form: 'demi' }), 'or'))],
   ['three demi charges', arms('azure', group(charge('eagle', { form: 'demi' }), 'argent', { count: 3 }))],
@@ -300,7 +310,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...plainlyPosed(generatedChargeAttributeDesigns(1, 200)),
+      ...generatedChargeAttributeDesigns(1, 200),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -387,17 +397,30 @@ describe('the matcher reads which way a charge faces in the College\'s words', (
     ['Azure, two eagles combattant argent.', 'Azure, two eagles respectant argent.'],
     ['Or, two lions rampant endorsed gules.', 'Or, two lions addorsed gules.'],
     ['Azure, two lions combattant Or.', 'Azure, two lions combattant Or.'],
+    ['Gules, a lion passant gardant Or.', 'Gules, a lion passant guardant Or.'],
+    ['Gules, a lion rampant guardant Or.', 'Gules, a lion guardant Or.'],
+    ['Gules, a lion rampant contourny guardant Or.', 'Gules, a lion guardant contourny Or.'],
+    ['Vert, a lion regardant contourny argent.', 'Vert, a lion contourny regardant argent.'],
+    ['Vert, a lion reguardant argent.', 'Vert, a lion regardant argent.'],
+    ['Vert, a lion sejant erect to sinister argent.', 'Vert, a lion sejant erect contourny argent.'],
+    ['Or, two lions rampant addorsed regardant gules.', 'Or, two lions regardant addorsed gules.'],
+    ['Purpure, a stag salient argent.', 'Purpure, a stag springing argent.'],
+    ['Vert, three stags passant Or.', 'Vert, three stags trippant Or.'],
   ])('%s', (text, widget) => {
     expect(read(text), text).not.toBeNull();
     expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
   });
 
-  it('reads a pale endorsed as its cotises, and leaves three beasts combattant and two keys addorsed to their gaps', () => {
+  it('reads a pale endorsed as its cotises, and leaves three beasts combattant, two keys addorsed and a head turned where it is not drawn to their gaps', () => {
     expect(read('Azure, a pale endorsed argent.')!.groups[0].item).toMatchObject({ k: 'ordinary', type: 'pale', cotised: { count: 1 } });
     const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
     expect(tags('Azure, three lions combattant Or.')).toEqual(['posture:combattant']);
     expect(tags('Azure, two keys addorsed Or.')).toEqual(['posture:addorsed']);
-    expect(tags('Azure, a lion guardant Or.')).toEqual(['posture:guardant']);
+    expect(tags('Azure, a lion couchant guardant Or.')).toEqual(['posture:guardant']);
+    expect(tags('Azure, a wolf regardant Or.')).toEqual(['posture:regardant']);
+    expect(tags('Azure, a lion statant erect Or.')).toEqual(['posture:statant-erect']);
+    expect(tags('Azure, a lion\'s head guardant Or.')).toEqual(['posture:guardant']);
+    expect(tags('Azure, a lion passant guardant Or.')).toEqual([]);
   });
 });
 

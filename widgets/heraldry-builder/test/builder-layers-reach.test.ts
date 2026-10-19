@@ -4,8 +4,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  LAYER_KEYS, addLayer, blazon, canonicalJson, countChoices, layerChoices, normalise, pathOfPlace, placementChoices, placesOf, removeLayer,
-  type Design, type LayerKey, type PlaceKey,
+  CHARGES, CHARGE_IDS, LAYER_KEYS, addLayer, blazon, canonicalJson, countChoices, layerChoices, normalise, pathOfPlace, placementChoices, placesOf, removeLayer,
+  type Design, type LayerKey, type PlaceKey, type Posture,
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
@@ -317,6 +317,20 @@ describe('designs with a chief and a bordure beside the band are built by clicks
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
     expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
+  }, 60_000);
+
+  // The Pose select reaches every posture a charge is drawn in, and the Head row every head turn drawn for it (SENA §1.1, §1.2).
+  it('every posture each beast, monster, bird and fish is drawn in, and every head turned where it is drawn so, is built too', () => {
+    const designs = CHARGE_IDS.flatMap((id) => Object.keys(CHARGES[id].drawings).flatMap((key) => {
+      const [posture, gaze] = key.split('~');
+      return (CHARGES[id].postures ?? []).includes(posture as Posture) ? [built(arms('azure', group(charge(id, { posture, ...(gaze ? { gaze } : {}) }), 'or')))] : [];
+    }));
+    expect(designs.length).toBeGreaterThan(40);
+    const problems = designs.flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
   }, 60_000);
 });
 

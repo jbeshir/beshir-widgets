@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, drawnPoints, pointsWord, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, drawnPoints, pointsWord, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, postureWords, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
 import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, INVERTED_HOSTS, LINE, NUMBER_WORDS, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
 
 export interface NormalisationRule {
@@ -74,22 +74,29 @@ const NOUN = alt([
   ...DEMI_NOUNS, ...HEAD_NOUNS.map((noun) => `${noun}(?: couped| erased)?`),
 ]);
 const HEAD = alt(HEAD_NOUNS);
-const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
+/** Every posture word as the text may write it after a charge: the posture, the charge's own term ("segreant"), a two-word one in two words ("sejant erect"). */
+const POSTURE = alt([...POSTURES.flatMap((p) => [p, p.replace('-', ' ')]), ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).flatMap((p) => [postureTerm(id, p), postureWords(id, p)]))]);
+/** The words after the first of a two-word posture ("erect"): a posture word followed by one is not that posture. */
+const POSTURE_TAIL = alt(POSTURES.flatMap((p) => p.split('-').slice(1)));
+/** Which way a charge's head is turned, as the widget words it: "guardant", "regardant", "guardant regardant". */
+const GAZE = alt(GAZES.map((g) => g.replace('-', ' ')));
 /** The modifiers the widget words after a noun: "in splendor", "fitchy", "voided", "pierced", a star's "of six points" ("of eight rays"). */
 const MODIFIER = `(?:${alt(Object.values(MODIFIER_WORDS))}|of (?:${alt(NUMBER_WORDS)}) (?:points|rays))`;
 /** The stars that are given a number of points, by their nouns (lower case): the mullet, the estoile. */
 const STARS = CHARGE_IDS.filter((id) => drawnPoints(id) !== null);
 /** The words for which way a charge points, as the widget words them: "fesswise", "bendwise sinister inverted", the crescent's "pendant" (not "points to center", which follows the layout). */
 const ORIENT = alt([...ORIENTATIONS.filter((o) => o !== 'to-center').map((o) => ORIENTATION_WORDS[o]), ...CHARGE_IDS.flatMap((id) => Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'words' ? [w.words] : [])))]);
-/** How a charge is turned, after its posture, as the widget words it: "contourny", then which way it points. */
-const TURNED = `(?: contourny)?(?: (?:${ORIENT}))?`;
+/** How a charge is turned, after its posture, as the widget words it: its head and "contourny" ("guardant contourny", "contourny regardant"), then which way it points. */
+const TURNED = `(?: (?:${GAZE}))?(?: contourny)?(?: (?:${GAZE}))?(?: (?:${ORIENT}))?`;
 /** The charges that face, by their nouns, singular and plural (lower case). */
 const FACING_ID = new Map(CHARGE_IDS.filter((id) => CHARGES[id].faces).flatMap((id) => [CHARGES[id].name, CHARGES[id].plural].map((noun) => [noun.toLowerCase(), id] as const)));
 const FACING_NOUN = alt(FACING_ID.keys());
 /** The posture and head words that may stand between such a noun and how it faces: "a lion statant guardant to sinister". */
-const POSE_WORDS = `(?: (?:${POSTURE}|${alt(GAZES.map((g) => g.replace('-', ' ')))}))*`;
+const POSE_WORDS = `(?: (?:${POSTURE}|${GAZE}))*`;
 const TO_SINISTER = new RegExp(`(?<![\\w-])((?:${FACING_NOUN})${POSE_WORDS}) (?:facing (?:to )?|to )sinister\\b`, 'g');
 const ENDORSED_CHARGES = new RegExp(`(?<![\\w-])((?:${FACING_NOUN})${POSE_WORDS}) endorsed\\b`, 'g');
+/** Two charges set to each other with their heads turned as the College mostly writes them, the head after the pair word ("addorsed regardant" 25 against 8, "combattant guardant" 11 against 0). */
+const PAIR_THEN_GAZE = new RegExp(`(?<![\\w-])((?:${FACING_NOUN})${POSE_WORDS}) (combattant|respectant|addorsed) (${GAZE})(?![\\w-])`, 'g');
 const FACING_EACH_OTHER_WORD = new RegExp(`(?<![\\w-])(${FACING_NOUN})(${POSE_WORDS}) (combattant|respectant)\\b`, 'g');
 
 /**
@@ -108,6 +115,19 @@ function facingEachOtherWords(noun: string, pose: string, written: string): stri
 }
 /** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor", "a cross formy fitchy". */
 const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})*`;
+
+/** Each charge's Table 5 default posture after its noun, singular or plural, in its term or the posture's word: "lions? rampant", "dragons? (?:rampant|segreant)". */
+const STATED_DEFAULT_POSTURES = CHARGE_IDS.flatMap((id) => {
+  const { name, plural, scaDefaultPosture: p } = CHARGES[id];
+  if (p === null) return [];
+  return [new RegExp(`\\b(${alt([name, plural].map((n) => n.toLowerCase()))}) (?:${alt([p.replace('-', ' '), postureWords(id, p)])})\\b(?! (?:${POSTURE_TAIL})\\b)`, 'g')];
+});
+
+/** Each posture a charge has a term of its own for, after its noun, singular or plural, with that term: "stags? salient" → "springing". */
+const POSTURE_TERMS = CHARGE_IDS.flatMap((id) => Object.entries(CHARGES[id].postureWording).flatMap(([p, w]) => (w ? [{
+  pattern: new RegExp(`\\b(${alt([CHARGES[id].name, CHARGES[id].plural].map((n) => n.toLowerCase()))}) ${p.replace('-', ' ')}\\b(?! (?:${POSTURE_TAIL})\\b)`, 'g'),
+  term: w.term,
+}] : [])));
 
 /** The other spellings of a cross's form after "cross" or "crosses", each with the widget's word for it ("cross fleury" is "cross flory"). */
 const CROSS_FORM_SPELLINGS: Record<string, string> = {
@@ -454,18 +474,29 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?|${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})* ${TINCT}),? charged with `, 'g'), '$1on $2 '),
   },
   {
+    // 5a0. A posture in the charge's own term (GoT; the sidecar's `postureWording`), which the widget writes: a stag passant is trippant,
+    //      couchant lodged, salient springing ("stag salient" 48, "stag springing" 62); a dragon rampant is segreant (rule 7 then leaves it unsaid).
+    id: 'posture-terms',
+    description: '"<charge> <posture>" → "<charge> <its own term for the posture>": stag passant → trippant, couchant → lodged, salient → springing; dragon rampant → segreant.',
+    apply: (s) => POSTURE_TERMS.reduce((t, { pattern, term }) => t.replace(pattern, `$1 ${term}`), s),
+  },
+  {
     // 5a. Which way a charge that faces is turned, in the SCA's other words for the widget's (GoT; SENA §1.1): contourny's spellings
     //     (contourné, contourne, contournee, contourney); "to sinister" and "facing (to) sinister" after such a charge and its posture;
     //     "endorsed" after one is addorsed (after a pale it is the pale's cotises, rule 4); two facing each other are combattant and
     //     respectant alike (CL 11/2012), which the widget words by the charge and its posture (`facingEachOtherWords`): combattant for
     //     beasts and monsters rampant, the posture then left unsaid, respectant for the rest;
-    //     and the head before "contourny" when it looks out, after it when it looks back ("contourny guardant", "regardant contourny").
+    //     and the head in its other spellings (gardant, reguardant), before the pair word ("addorsed regardant" → "regardant addorsed"), before
+    //     "contourny" when it looks out and after it when it looks back ("contourny guardant", "regardant contourny").
     id: 'facing-synonyms',
-    description: 'contourné/contourne/contournee/contourney → contourny; "<charge that faces> [posture] (facing) to sinister" → "… contourny"; "… endorsed" → "… addorsed"; combattant/respectant → the widget\'s word for the charge and posture (combattant: rampant, which it then leaves unsaid); contourny guardant → guardant contourny, regardant contourny → contourny regardant.',
+    description: 'contourné/contourne/contournee/contourney → contourny; gardant → guardant, reguardant → regardant; "<pair word> <head>" → "<head> <pair word>"; "<charge that faces> [posture] (facing) to sinister" → "… contourny"; "… endorsed" → "… addorsed"; combattant/respectant → the widget\'s word for the charge and posture (combattant: rampant, which it then leaves unsaid); contourny guardant → guardant contourny, regardant contourny → contourny regardant.',
     apply: (s) => s
       .replace(/(?<![\w-])contourn(?:ée|é|ee|ey|e)(?![\w-])/g, 'contourny')
+      .replace(/(?<![\w-])gardant(?![\w-])/g, 'guardant')
+      .replace(/(?<![\w-])reguardant(?![\w-])/g, 'regardant')
       .replace(TO_SINISTER, '$1 contourny')
       .replace(ENDORSED_CHARGES, '$1 addorsed')
+      .replace(PAIR_THEN_GAZE, '$1 $3 $2')
       .replace(FACING_EACH_OTHER_WORD, (_, noun: string, pose: string, written: string) => facingEachOtherWords(noun, pose, written))
       .replace(/\bcontourny guardant\b/g, 'guardant contourny')
       .replace(/\bregardant contourny\b/g, 'contourny regardant'),
@@ -513,16 +544,13 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(new RegExp(`\\bin (saltire|cross) (${CORE})\\b`, 'g'), '$2 in $1'),
   },
   {
-    // 7. Postures the College assumes may be stated or left out (Glossary Table 5): a lion or unicorn
-    //    rampant, a dragon rampant/segreant, an eagle displayed, a fish naiant. Both sides drop them;
-    //    the name always means that posture, so only a design that has it can match.
+    // 7. Postures the College assumes may be stated or left out (Glossary Table 5): each charge's `scaDefaultPosture` (a lion or
+    //    unicorn rampant, a dragon rampant/segreant, an eagle displayed, a fish naiant), in its own term or the posture's word. Both
+    //    sides drop them; the name always means that posture, so only a design that has it can match. A posture word that begins a
+    //    longer one stays ("statant" of "statant erect").
     id: 'stated-default-postures',
-    description: 'Drop Table 5 default postures after the charge.',
-    apply: (s) => s
-      .replace(/\b(lions?|unicorns?) rampant\b/g, '$1')
-      .replace(/\b(dragons?) (?:rampant|segreant)\b/g, '$1')
-      .replace(/\b(eagles?) displayed\b/g, '$1')
-      .replace(/\b(fish) naiant\b/g, '$1'),
+    description: 'Drop each charge\'s Table 5 default posture (`scaDefaultPosture`) after it.',
+    apply: (s) => STATED_DEFAULT_POSTURES.reduce((t, pattern) => t.replace(pattern, '$1'), s),
   },
   {
     // 8. Divided groups. "Counterchanged <tincture> and <tincture>" names the tinctures of a single charge or ordinary divided as the field is
