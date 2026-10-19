@@ -887,7 +887,8 @@ export function fimbriationTinctureChoices(d: Design, path: GroupPath): Choice<T
 /** What a charge is drawn as, for a reason: "lion sejant", "demi-lion", "wolf's head". */
 function drawnName(item: Charge): string {
   const { name, headName } = CHARGES[item.charge];
-  if (item.form === 'head') return headName!.one.toLowerCase();
+  // a head the charge has no word for is not drawn (support.ts: the gap charge-modifier:head), but its controls still name it
+  if (item.form === 'head') return headName ? headName.one.toLowerCase() : `${name}'s head`;
   if (item.form === 'demi') return `demi-${name}`;
   return item.posture ? `${name} ${postureWords(item.charge, item.posture)}` : name;
 }

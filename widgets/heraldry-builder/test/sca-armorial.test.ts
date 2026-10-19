@@ -24,6 +24,7 @@ import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
 import { GAP_CATEGORIES, categoryOf } from './sca/gaps';
 import { readIgnoreList } from './sca/ignore-list';
+import { CHARGE_SPELLINGS, CROSS_FORM_SPELLINGS } from './sca/words';
 import { explainMatch } from './sca/match';
 import { createSampler, fullSweep, sampleSeed } from './sca/sample';
 import { OANDA_SHA256, oandaSha256, readArmory, readCurrentArmory, type ArmoryRecord } from './sca/oanda';
@@ -1296,7 +1297,9 @@ describe('the tagger never files a record under a construct the widget supports'
     // every charge the widget draws, and the spellings and details of the drawn crosses and shapes
     ...CHARGE_IDS.map((id): [string, string] => [`a ${id}`, `azure, ${CHARGES[id].article} ${CHARGES[id].name} Or`]),
     ...CHARGE_IDS.filter((id) => CHARGES[id].details.includes('fitchy')).map((id): [string, string] => [`${id} fitchy`, `azure, three ${CHARGES[id].plural} fitchy Or`]),
-    ['crosses fleury', 'azure, three crosses fleury Or'],
+    // the College's other names and spellings of them, and of the drawn crosses' forms, as the normaliser reads them (sca/words.ts)
+    ...Object.keys(CHARGE_SPELLINGS).map((spelling): [string, string] => [`spelt ${spelling}`, `azure, three ${spelling}s Or`]),
+    ...Object.keys(CROSS_FORM_SPELLINGS).map((spelling): [string, string] => [`a cross ${spelling}`, `azure, a cross ${spelling} Or`]),
     ['crosses pattee fitched', 'azure, three crosses pattee fitched Or'],
     ['a cross botonny', 'azure, a cross botonny Or'],
     ['crosses couped', 'azure, three crosses couped Or'],

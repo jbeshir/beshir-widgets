@@ -12,8 +12,8 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, drawnPoints, pointsWord, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, PIECE_IDS, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, postureWords, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
-import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, INVERTED_HOSTS, LINE, NUMBER_WORDS, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, GAZE_WORDS, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, drawnPoints, pointsWord, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, PIECE_IDS, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, postureWords, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { BAND_NAMES, BEND, BEND_SINISTER, CHARGE_SPELLINGS, CROSS_FORM_SPELLINGS, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, INVERTED_HOSTS, LINE, NUMBER_WORDS, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
 
 export interface NormalisationRule {
   id: string;
@@ -85,7 +85,7 @@ const POSTURE = alt([...POSTURES.flatMap((p) => [p, p.replace('-', ' ')]), ...CH
 /** The words after the first of a two-word posture ("erect"): a posture word followed by one is not that posture. */
 const POSTURE_TAIL = alt(POSTURES.flatMap((p) => p.split('-').slice(1)));
 /** Which way a charge's head is turned, as the widget words it: "guardant", "regardant", "guardant regardant". */
-const GAZE = alt(GAZES.map((g) => g.replace('-', ' ')));
+const GAZE = alt(GAZES.map((g) => GAZE_WORDS[g]));
 /** The modifiers the widget words after a noun: "in splendor", "fitchy", "voided", "pierced", a star's "of six points" ("of eight rays"). */
 const MODIFIER = `(?:${alt(Object.values(MODIFIER_WORDS))}|of (?:${alt(NUMBER_WORDS)}) (?:points|rays))`;
 /** The stars that are given a number of points, by their nouns (lower case): the mullet, the estoile. */
@@ -145,11 +145,8 @@ const POSTURE_TERMS = CHARGE_IDS.flatMap((id) => Object.entries(CHARGES[id].post
   term: w.term,
 }] : [])));
 
-/** The other spellings of a cross's form after "cross" or "crosses", each with the widget's word for it ("cross fleury" is "cross flory"). */
-const CROSS_FORM_SPELLINGS: Record<string, string> = {
-  fleury: 'flory', fleurie: 'flory', formee: 'formy', formée: 'formy', pattee: 'formy', pattée: 'formy', patee: 'formy', patée: 'formy',
-  patty: 'formy', patté: 'formy', paty: 'formy', botonny: 'bottony', bottonny: 'bottony', botony: 'bottony', pattonce: 'patonce', patoncy: 'patonce',
-};
+/** Another name or spelling of a drawn charge (`CHARGE_SPELLINGS`), singular or plural, with the article before it. */
+const CHARGE_SPELLING = new RegExp(`(?<![\\w-])(?:(an?) )?(${alt(Object.keys(CHARGE_SPELLINGS))})(e?s)?(?![\\w-])`, 'g');
 const CROSS_FORM_SPELLING = new RegExp(`(?<![\\w-])(cross|crosses) (${alt(Object.keys(CROSS_FORM_SPELLINGS))})(?![\\w-])`, 'g');
 
 
@@ -352,12 +349,12 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //     the cross crosslet; a bezant is a roundel Or, a plate a roundel argent, a goutte de sang a goutte gules (Glossary of Terms): the
     //     widget words these as the charge and its tincture, so the name goes, a tincture written after it as well is the same one, and the
     //     tincture goes where the widget puts it: after the arrangement, and not at all when the next tincture stated is the same one
-    //     (the widget names a tincture shared by groups once, after the last). "Domestic cat" is the College's usual name for the cat (679 records, far more than "cat" alone),
-    //     so it is the widget's cat. The monsters of batch B2 are spelt in more than one way (gryphon 197 + griffon 34 against griffin 1,084; wivern 26 against wyvern 408; "sea horse" 364 and "seahorse" 299 against "sea-horse"; "sea lion" 312 against "sea-lion"). A broad arrow is the pheon (broad-arrow, broadarrow and "broad arrow", 105 records; "pheon" itself 306) and "ax" is the axe (18). "Scallop" and "scallop shell" are the escallop (GoT Table 5 "See Escallop"; 14 records) and a dolphin's embowing is not blazoned and gives no difference (Table 5; "dolphin embowed" 55, "naiant embowed" 14). The
-    //     Catherine wheel is also "Catherine's wheel" (43 records against 95); the heraldic wheel is a cartwheel, so a "wagon wheel" (54) or
-    //     "cartwheel" (15) is the wheel. "Seeblätter" is the seeblatt's plural with its umlaut (23 records), "paw print" the pawprint in two words (29).
+    //     (the widget names a tincture shared by groups once, after the last). The other names and spellings of the drawn charges are
+    //     words.ts's CHARGE_SPELLINGS, which the tagger reads too. A dolphin's embowing is not blazoned and gives no difference (Table 5;
+    //     "dolphin embowed" 55, "naiant embowed" 14). "Seeblätter" is the seeblatt's plural with its umlaut (23 records), "paw print" the
+    //     pawprint in two words (29).
     id: 'charge-synonyms',
-    description: 'estoille → estoile; domestic cat(s) → cat(s); gryphon/griffon → griffin, wivern → wyvern, phenix → phoenix, sea horse/seahorse → sea-horse, sea lion/sealion → sea-lion; broad arrow(s) → pheon(s); ax → axe; scallop (shell) → escallop; dolphin (naiant) embowed (counter-embowed) → dolphin (naiant); Catherine\'s/Catharine wheel → Catherine wheel; wagon wheel, cart wheel, cartwheel → wheel; seeblätter → seeblatter; paw print(s) → pawprint(s); crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
+    description: `${Object.entries(CHARGE_SPELLINGS).map(([spelling, id]) => `${spelling}(s) → ${CHARGES[id].name.toLowerCase()}`).join(', ')}; dolphin (naiant) embowed (counter-embowed) → dolphin (naiant); seeblätter → seeblatter; paw print(s) → pawprint(s); crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d'or / d'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.`,
     apply: (s) => s
       .replace(NAMED_CHARGE, (match: string, name: string, arrangement: string, stated: string | undefined, offset: number) => {
         const named = NAMED_BY_WORD.get(name)!;
@@ -367,18 +364,11 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
         const tincture = shared && (NAMED_BY_WORD.get(shared[1])?.tincture ?? shared[1]) === named.tincture ? '' : ` ${named.tincture}`;
         return `${noun}${arrangement}${tincture}${stated && stated.trim() !== named.tincture ? stated : ''}`;
       })
-      .replace(/(?<![\w-])estoille(s?)(?![\w-])/g, 'estoile$1')
-      .replace(/(?<![\w-])domestic (cats?)(?![\w-])/g, '$1')
-      .replace(/(?<![\w-])(?:gryphon|griffon)(s?)(?![\w-])/g, 'griffin$1')
-      .replace(/(?<![\w-])wivern(s?)(?![\w-])/g, 'wyvern$1')
-      .replace(/(?<![\w-])phenix(es)?(?![\w-])/g, 'phoenix$1')
-      .replace(/(?<![\w-])sea ?(horse|lion)(s?)(?![\w-])/g, 'sea-$1$2')
-      .replace(/(?<![\w-])broad[ -]?arrow(s?)(?![\w-])/g, 'pheon$1')
-      .replace(/(?<![\w-])ax(?![\w-])/g, 'axe')
-      .replace(/(?<![\w-])(a )?scallop(?: shell)?(s?)(?![\w-])/g, (_m, a: string | undefined, s: string) => `${a ? 'an ' : ''}escallop${s}`)
+      .replace(CHARGE_SPELLING, (_m, article: string | undefined, spelling: string, plural: string | undefined) => {
+        const meta = CHARGES[CHARGE_SPELLINGS[spelling]];
+        return `${article ? `${plural ? article : meta.article} ` : ''}${(plural ? meta.plural : meta.name).toLowerCase()}`;
+      })
       .replace(/(?<![\w-])(dolphins?)((?: naiant)?) embowed(?: counter-embowed)?(?! to\b)(?![\w-])/g, '$1$2')
-      .replace(/(?<![\w-])(?:catherine's|catharine) (wheels?)(?![\w-])/g, 'catherine $1')
-      .replace(/(?<![\w-])(?:wagon |cart ?)(wheels?)(?![\w-])/g, '$1')
       .replace(/(?<![\w-])seeblätter(?![\w-])/g, 'seeblatter')
       .replace(/(?<![\w-])paw prints?(?![\w-])/g, (m) => m.replace(' ', ''))
       .replace(/\bcross crosslets\b/g, 'crosses crosslet')

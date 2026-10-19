@@ -5,6 +5,8 @@
 
 import { CHARGES, CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_NAME, ORDINARY_SPELLINGS, SAME_ORDINARY, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId, type OrdinaryType } from '../../src/lib/heraldry';
 
+import { CHARGE_SPELLINGS } from './words';
+
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
 
@@ -123,7 +125,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     constellation eclipse fireball meteor
   `),
   weapon: w(`
-    arrowhead broad-arrow broadarrow bolt quarrel quiver ax battle-axe battleaxe labrys tomahawk bow
+    arrowhead bolt quarrel quiver battle-axe battleaxe labrys tomahawk bow
     longbow crossbow spearhead lance javelin pikestaff pikehead boarspear halberd poleaxe glaive bill billhook
     bardiche partisan voulge mace morningstar flail warhammer club scimitar sabre saber falchion
     cutlass claymore katana gladius seax dirk kris kriss shamshir cinquedea tulwar flamberge curtana estoc longsword
@@ -202,7 +204,9 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
 /** SCA words for the widget's own charges → ChargeId: each id, the College's other words for some, and the charges named for their tincture. Any other charge noun is a gap. */
 export const SUPPORTED_CHARGE_WORDS: Readonly<Record<string, ChargeId>> = {
   ...Object.fromEntries(CHARGE_IDS.map((id) => [id, id])),
-  'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet', 'sea-horse': 'seahorse', cartwheel: 'wheel',
+  'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet',
+  // the College's other names and spellings of them (words.ts, which the normaliser reads too), joined into one word (gaps.ts JOINS)
+  ...Object.fromEntries(Object.entries(CHARGE_SPELLINGS).map(([spelling, id]) => [spelling.replaceAll(' ', '-'), id])),
   // the charge's nouns for how it points ("increscent": a crescent fesswise)
   ...Object.fromEntries(CHARGE_IDS.flatMap((id) => Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [[w.name, id], [w.plural, id]] : [])))),
   ...Object.fromEntries(NAMED_TINCTURE_CHARGES.filter((n) => !n.word.includes(' ')).flatMap((n) => [[n.word, n.charge], [n.plural, n.charge]])),

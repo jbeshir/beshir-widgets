@@ -9,7 +9,7 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureWords, type ChargeCategory, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId } from './charges';
+import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureWords, type ChargeCategory, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type PartId } from './charges';
 import type { OrientWording } from './art/types';
 import { asParty, asSemy, asTreated, asVariation, fimbriationOf, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
@@ -102,7 +102,7 @@ function fieldPhrase(field: Paint): string {
 }
 
 /** The modifiers the builder words, after the noun: "a sun in splendor", "a cross formy fitchy", "a lozenge voided", "a mullet pierced". */
-export const MODIFIER_WORDS: Partial<Record<ModifierId, string>> = { 'in-splendour': 'in splendor', fitchy: 'fitchy', voided: 'voided', pierced: 'pierced' };
+export const MODIFIER_WORDS = { 'in-splendour': 'in splendor', fitchy: 'fitchy', voided: 'voided', pierced: 'pierced' } as const satisfies Partial<Record<ModifierId, string>>;
 
 /** What a star's points are called: an estoile's are rays ("an estoile of eight rays"), a mullet's points. */
 export const pointsWord = (id: ChargeId): string => (id === 'estoile' ? 'rays' : 'points');
@@ -119,14 +119,14 @@ function modifiersWords(c: Charge): string[] {
     if (c.form === 'head' && CUT_MODIFIERS.includes(m.id)) return [];
     if ((m.id === 'fimbriated' || OVERLAY_MODIFIERS.includes(m.id)) && m.count === null && m.paint !== null) return [];
     if (m.id === 'of-points' && m.count !== null && m.paint === null && drawnPoints(c.charge) !== null) return [`of ${numberWord(m.count)} ${pointsWord(c.charge)}`];
-    const word = MODIFIER_WORDS[m.id];
+    const word = (MODIFIER_WORDS as Partial<Record<ModifierId, string>>)[m.id];
     return word !== undefined && m.count === null && m.paint === null ? [word] : notSupported({ category: 'charge-modifier', detail: m.id });
   };
   return [...c.mods].sort((x, y) => WORDING_ORDER.indexOf(x.id) - WORDING_ORDER.indexOf(y.id)).flatMap(words);
 }
 
 /** The parts the builder words, after the charge's tincture ("a lion Or crowned gules"). */
-const PART_WORDS: Partial<Record<PartId, string>> = { crowned: 'crowned', collared: 'collared' };
+export const PART_WORDS = { crowned: 'crowned', collared: 'collared' } as const satisfies Partial<Record<PartId, string>>;
 
 /**
  * A charge's pieces in words after its tincture, each with its own (PLAN-D §0.3.5): its modifiers with a paint, then its parts — "slipped and
@@ -137,7 +137,7 @@ const PART_WORDS: Partial<Record<PartId, string>> = { crowned: 'crowned', collar
 function piecesWords(c: Charge): Array<{ text: string; paint: string }> {
   const pieces = [
     ...c.mods.filter((m) => OVERLAY_MODIFIERS.includes(m.id)).map((m) => ({ word: m.id, paint: m.paint })),
-    ...c.parts.map((p) => ({ word: PART_WORDS[p.part] ?? notSupported({ category: 'charge-modifier', detail: p.part }), paint: p.paint })),
+    ...c.parts.map((p) => ({ word: (PART_WORDS as Partial<Record<PartId, string>>)[p.part] ?? notSupported({ category: 'charge-modifier', detail: p.part }), paint: p.paint })),
   ].map(({ word, paint }) => ({ word, paint: paint ? paintWord(paint) : notSupported({ category: 'charge-modifier', detail: word }) }));
   return pieces.reduce<Array<{ text: string; paint: string }>>((out, { word, paint }) => {
     const last = out[out.length - 1];
@@ -162,7 +162,10 @@ function holdsWords(c: Charge, count: number): Array<{ text: string; paint: stri
 }
 
 /** The word for which way a charge faces, after its posture (R§F.3): none as drawn, "contourny" (no final -e), "affronty". */
-export const FACING_WORD: Record<Facing, string | null> = { 'to-dexter': null, 'to-sinister': 'contourny', affronty: 'affronty' };
+export const FACING_WORD = { 'to-dexter': null, 'to-sinister': 'contourny', affronty: 'affronty' } as const satisfies Record<Facing, string | null>;
+
+/** The words for which way a charge's head is turned ("guardant regardant"). */
+export const GAZE_WORDS: Record<Gaze, string> = { guardant: 'guardant', regardant: 'regardant', 'guardant-regardant': 'guardant regardant' };
 
 /**
  * How a charge's head and body are turned, after its posture: its `FACING_WORD`, and the gaze before it or after it as the
@@ -172,7 +175,7 @@ export function turnWords(c: Charge): string[] {
   const word = c.facing ? FACING_WORD[c.facing] : null;
   const facing = word ? [word] : [];
   if (c.gaze === null) return facing;
-  const gaze = c.gaze.replace('-', ' ');
+  const gaze = GAZE_WORDS[c.gaze];
   return c.gaze === 'regardant' ? [...facing, gaze] : [gaze, ...facing];
 }
 

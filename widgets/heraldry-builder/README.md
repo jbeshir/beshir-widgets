@@ -1026,10 +1026,10 @@ npm run build
 # (tsconfig.test.json: test/**/*.ts, in Node as they run)
 npm run typecheck
 
-# Run all tests in three vitest projects (vitest.config.ts): `workers` (test/worker.test.ts and test/migrations.test.ts,
-# the only files that use the D1 binding: vitest-pool-workers, local Miniflare D1), `library` (every other test file: the
-# heraldry library and store seam, in plain Node, files in parallel) and `sca` (the SCA armorial test, plain Node;
-# `npx vitest run --project sca` alone)
+# Run all tests in four vitest projects (vitest.config.ts): `workers` (test/worker.test.ts and test/migrations.test.ts,
+# the only files that use the D1 binding: vitest-pool-workers, local Miniflare D1), `library` (every other test/*.test.ts: the
+# heraldry library and store seam, in plain Node, files in parallel), `lazy-art` (test/lazy/: the browser build's lazily loaded
+# art, with vite.config.ts's alias, each file isolated) and `sca` (the SCA armorial test, plain Node; `npx vitest run --project sca` alone)
 npm test
 
 # Rewrite the SCA ignore list (test/fixtures/sca/ignored.json) after changing the widget or test/sca/. This is also the
@@ -1174,8 +1174,11 @@ names, rules, search and the builder's options never wait for art.
 - The library reads art through `art/paths/index.ts` (`pathFor`, `artReady`, `loadArtFor`, `onArtChange`), which imports
   every module statically. Tests, the SSR goldens, `sca:ignore`, the sample and golden writers, the art tools and the worker
   (bundled by wrangler) all read it, so they stay synchronous. Only `vite build`/`vite dev` replace it, with an alias in
-  `vite.config.ts` (vitest does not read that file), by `art/paths/lazy.ts`. It has the same exports
-  (`test/art-lazy.test.ts` checks the types and that every charge's art is in exactly one module).
+  `vite.config.ts` (`LAZY_ART_ALIAS`), by `art/paths/lazy.ts`. It has the same exports (`test/art-lazy.test.ts` checks the types
+  and that every charge's art is in exactly one module); how it loads is `art/paths/loader.ts`'s, which the `lazy-art` vitest
+  project runs (`test/lazy/`, with the same alias). A category whose chunk fails to load (offline, or a tab left open across a
+  deploy) is not asked for again by drawing, only by `loadArtFor` (opening, loading or saving a design). An alias charge waits
+  only for the charge it is drawn from.
 - In the app, the draft's art is loaded before the first paint (`main.tsx`), an example's or a registry entry's before it
   replaces the design, a category's when its picker tab or a search shows it (the tiles are empty until then, and choosing one
   waits for it), and an entry's before its nametag sheet or a saved picture is drawn. A shield drawn anywhere else asks for its
@@ -1247,10 +1250,10 @@ The 121 charges are:
   (polygon coordinates drawn by hand on a 100×100 grid), and 52 of phase D's art batches (A1–A3, A3w, B1–B8: primitive shapes —
   polygons, ellipses, tapered limb and stem strokes — placed by hand on a grid from a written description, unioned and traced to
   one outline by the batch's script, then reviewed by an art director over one to three rounds). The overlay pieces (crown,
-  slip, leaf; `art/paths/pieces.ts`) were drawn the same way.
+  slip, leaf; `art/paths/pieces.ts`, each with its record in `OVERLAY_PIECE_PROVENANCE`) were drawn the same way.
 - **26 generated** (`art/procedural`): the shapes, foils, compass star, triquetra, ermine spot, the eleven crosses, the
   escarbuncle, seeblatt, wheel and Catherine wheel, one drawing each, plus the stars of 4–12 points and the pierced mullets.
-- **7 aliases** drawn with another charge's art (`ALIASES`, `art/procedural/derived.ts`): hawk (the falcon), coney and rabbit
+- **7 aliases** drawn with another charge's art (`ALIAS_SOURCE` in `charges.ts`, reshaped by `art/procedural/derived.ts`): hawk (the falcon), coney and rabbit
   (the hare), coronet (the crown), rapier and dagger (the sword, slimmer and shorter) and vol (the wing, paired, tips up).
 - Derived drawings, computed from a charge's own: demi charges, erased heads and the fish urinant (`derivedPath`).
 

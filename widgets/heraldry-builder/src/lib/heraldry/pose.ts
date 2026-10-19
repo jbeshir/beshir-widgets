@@ -80,9 +80,12 @@ export function artPose(art: string, mirror: boolean, turn: number, scale: numbe
   return { mirror, turn, fit: turn % 180 === 0 ? boxFit : Math.min(boxFit, Math.floor((1000 * TURNED_REACH) / (reachOf(art) * scale)) / 1000) };
 }
 
-/** The poses of a group's charges in their slots: mirrored by facing and pair, or reversed; turned by orientation. */
-export function chargePoses(item: Charge, arrangement: Arrangement, slots: readonly Slot[], art: string): ArtPose[] {
+/**
+ * The poses of a group's charges in their slots: mirrored by facing and pair, or reversed; turned by orientation, and refitted by `outline`,
+ * the art with what is drawn under it (its wings, flames or slip).
+ */
+export function chargePoses(item: Charge, arrangement: Arrangement, slots: readonly Slot[], outline: string): ArtPose[] {
   const mirrored = mirroredSlots(item.facing, arrangement, slots.length);
   const turns = orientationTurns(item.orientation, CHARGES[item.charge].orient, slots);
-  return slots.map((_, i) => artPose(art, mirrored[i] !== (item.orientation === 'reversed'), turns[i], opticalScale(item)));
+  return slots.map((_, i) => artPose(outline, mirrored[i] !== (item.orientation === 'reversed'), turns[i], opticalScale(item)));
 }

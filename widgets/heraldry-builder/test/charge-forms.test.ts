@@ -71,7 +71,7 @@ describe('demi charges and heads (PLAN-D §1.4)', () => {
     expect(blazon(lone(demi('lion')))).toBe('Azure, a demi-lion Or.');
     expect(blazon(lone(head('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))).toBe('Azure, two lions\' heads couped respectant Or.');
     expect(blazon(lone(demi('dragon'), 'or', { count: 2 }, 'gules'))).toBe('Gules, in pale two demi-dragons Or.');
-    expect(gloss(lone(head('wolf', { mods: ['erased'] })))).toBe('A blue shield with the head and neck of a gold wolf, cut off with a ragged edge.');
+    expect(gloss(lone(head('wolf', { mods: ['erased'] })))).toBe('A blue shield with the head and neck of a gold wolf, cut off ragged.');
     expect(gloss(lone(demi('lion'), 'or', { count: 3 }))).toMatch(/^A blue shield with the front halves of three gold lions, /);
   });
 

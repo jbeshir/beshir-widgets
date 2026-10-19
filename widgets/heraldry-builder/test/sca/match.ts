@@ -12,7 +12,7 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, CUT_MODIFIERS, FACING_WORD, GAZES, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, PIECE_IDS, POSTURES, HOLD_WORDS, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
+  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, CUT_MODIFIERS, FACING_WORD, GAZES, GAZE_WORDS, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, PIECE_IDS, POSTURES, HOLD_WORDS, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
   blazon, drawnPoints, isPiecePart, normalise, pointsWord, postureTerm, type ChargeForm, type ChargeId, type Design, type Gap, type HoldHow, type Issue, type ModifierId, type OrdinaryType, type Orientation, type PieceId, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
@@ -129,10 +129,10 @@ const POSTURE_WORDS = new Set<string>([...POSTURES, ...POSTURE_BY_WORD.keys()]);
 const POSTURE_PHRASES = [...POSTURE_WORDS].map((word) => ({ word, words: word.replace('-', ' ').split(' ') })).sort((a, b) => b.words.length - a.words.length);
 
 /** The words for a turned head, by the gaze they name, the longest first ("guardant regardant"). */
-const GAZE_PHRASES = GAZES.map((gaze) => ({ gaze, words: gaze.split('-') })).sort((a, b) => b.words.length - a.words.length);
+const GAZE_PHRASES = GAZES.map((gaze) => ({ gaze, words: GAZE_WORDS[gaze].split(' ') })).sort((a, b) => b.words.length - a.words.length);
 
 /** The word after the posture of a charge facing to sinister (affronty is not drawn: the tagger files it). */
-const CONTOURNY = FACING_WORD['to-sinister']!;
+const CONTOURNY = FACING_WORD['to-sinister'];
 
 /** Posture word → posture: the charge's own term first ("segreant"), else the plain posture id; a posture the charge can't take is still proposed, so the widget reports it. */
 function postureFor(id: ChargeId, word: string): Posture | null {
@@ -142,7 +142,7 @@ function postureFor(id: ChargeId, word: string): Posture | null {
 }
 
 /** The modifiers the widget words after a noun ("in splendor", "fitchy", "voided", "pierced"), each with the tokens of its phrase. */
-const MODIFIER_PHRASES = Object.entries(MODIFIER_WORDS).map(([id, phrase]) => ({ id: id as ModifierId, words: phrase!.split(' ') }));
+const MODIFIER_PHRASES = Object.entries(MODIFIER_WORDS).map(([id, phrase]) => ({ id: id as ModifierId, words: phrase.split(' ') }));
 
 /** What may follow a charge with a tincture of its own (its trims): a fimbriation, or a piece drawn with it ("crowned", "winged", "slipped"…). */
 type TrimWord = 'fimbriated' | PieceId;

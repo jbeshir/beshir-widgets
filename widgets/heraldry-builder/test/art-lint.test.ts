@@ -3,9 +3,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, OVERLAY_PIECES, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, isTurnedPosture, pathRings, ringDepths, ringProblems,
-  type ArtKey, type ChargeId, type DrawingMeta,
+  CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, OVERLAY_PIECES, OVERLAY_PIECE_PROVENANCE, PIECE_IDS, PIERCED_MULLETS, overlaidArt, POINTED_STARS, bboxOf, derivedPath, isTurnedPosture, pathRings, ringDepths, ringProblems,
+  type ArtKey, type Charge, type ChargeId, type DrawingMeta, type PieceId,
 } from '../src/lib/heraldry';
+import { arms, charge, group, nd } from './helpers';
 import { chargeArt, rings } from './art-geometry';
 
 type Rule = 'grammar' | 'points' | 'size' | 'centre' | 'hole' | 'rings' | 'bytes' | 'anchors' | 'neck';
@@ -67,6 +68,20 @@ function allowedKeys(id: ChargeId): ArtKey[] {
 
 const drawingKeys = (id: ChargeId) => Object.keys(chargeArt(id)) as ArtKey[];
 
+/** A charge drawn with each piece (and a rose slipped with its leaves), as the shield draws it. */
+const PIECED: Record<PieceId, Charge> = Object.fromEntries(PIECE_IDS.map((piece) => {
+  const item = {
+    winged: charge('heart', { mods: [{ id: 'winged', paint: 'or' }] }),
+    enflamed: charge('heart', { mods: [{ id: 'enflamed', paint: 'proper' }] }),
+    slipped: charge('rose', { mods: [{ id: 'slipped', paint: 'vert' }] }),
+    leaved: charge('rose', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }),
+    crowned: charge('lion', { parts: [{ part: 'crowned', paint: 'or' }] }),
+    collared: charge('wolf', { parts: [{ part: 'collared', paint: 'or' }] }),
+  }[piece];
+  const d = nd(arms('azure', group(item, 'gules')));
+  return [piece, d.groups[0].item as Charge];
+})) as Record<PieceId, Charge>;
+
 describe('the charge art', () => {
   it('keeps the house style: path grammar, size, centring, holes, rings that do not overlap, bytes, anchors and necks', () => {
     const problems: Problem[] = CHARGE_IDS.flatMap((id) => drawingKeys(id).flatMap((key) =>
@@ -99,6 +114,14 @@ describe('the charge art', () => {
     expect(problems).toEqual([]);
   });
 
+  // made as the shield is drawn, never shipped: the byte budget is the shipped art's
+  it('keeps it in the pieces made when a charge is drawn (wings, flames, a collar band, and the pieces above placed): all but size, centring and bytes', () => {
+    const problems = PIECE_IDS.flatMap((piece) => overlaidArt(PIECED[piece]).overlays.flatMap((o) =>
+      drawingProblems(o.d, { onBox: null, anchors: {}, neck: null }).filter((rule) => rule !== 'size' && rule !== 'centre' && rule !== 'bytes').map((rule) => `${piece} ${o.part} ${rule}`)));
+    expect(PIECE_IDS.map((piece) => overlaidArt(PIECED[piece]).overlays.length)).toEqual(PIECE_IDS.map((piece) => (piece === 'leaved' ? 2 : 1)));
+    expect(problems).toEqual([]);
+  });
+
   it('stays within the byte budget of a charge', () => {
     for (const id of CHARGE_IDS) expect(drawingKeys(id).reduce((n, key) => n + chargeArt(id)[key]!.length, 0), id).toBeLessThanOrEqual(MAX_CHARGE_BYTES);
   });
@@ -119,10 +142,14 @@ describe('the charge art', () => {
     for (const id of CHARGE_IDS) expect(Object.keys(CHARGES[id].drawings).sort(), id).toEqual(drawingKeys(id).sort());
   });
 
-  it('says where every charge came from', () => {
+  it('says where every charge came from, and every overlay piece', () => {
     for (const id of CHARGE_IDS) {
       const { origin, author, date, method } = CHARGES[id].provenance;
       expect([origin, author, date, method].every((s) => s.length > 0), id).toBe(true);
+    }
+    expect(Object.keys(OVERLAY_PIECE_PROVENANCE).sort()).toEqual(Object.keys(OVERLAY_PIECES).sort());
+    for (const [piece, { origin, author, date, method }] of Object.entries(OVERLAY_PIECE_PROVENANCE)) {
+      expect([origin, author, date, method].every((s) => s.length > 0), piece).toBe(true);
     }
   });
 

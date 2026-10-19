@@ -65,7 +65,8 @@ function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | nul
   if (item.k !== 'charge') throw new RangeError('Not a charge.');
   const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, item));
   const { art, overlays } = overlaidArt(item);
-  const poses = chargePoses(item, group.arrangement, slots, art);
+  // the pieces under the charge (wings, flames, a slip) turn with it, so it is refitted with them
+  const poses = chargePoses(item, group.arrangement, slots, [art, ...overlays.filter((o) => o.under).map((o) => o.d)].join(''));
   return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape), overlays: [...chargeOverlays(item), ...overlays.map(pieceOverlay)] };
 }
 
