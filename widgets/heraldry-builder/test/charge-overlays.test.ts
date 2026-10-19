@@ -28,7 +28,7 @@ const withDetail = (detail: string) => CHARGE_IDS.filter((id) => (CHARGES[id].de
 
 describe('parts and details drawn as pieces (PLAN-D §0.3.5, §1.4)', () => {
   it('are taken by the charges art batch A3 anchored: crowned only animate charges (M11), winged the A3 list, enflamed and slipped as planned', () => {
-    expect(withPart('crowned')).toEqual(['lion', 'wolf', 'boar', 'stag', 'fish', 'unicorn', 'dragon', 'eagle', 'owl', 'cat', 'griffin']);
+    expect(withPart('crowned')).toEqual(['lion', 'wolf', 'boar', 'stag', 'fish', 'unicorn', 'dragon', 'eagle', 'owl', 'cat', 'bear', 'horse', 'griffin']);
     expect(withPart('collared')).toEqual(['lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'unicorn', 'dragon', 'cat', 'bear', 'horse', 'swan', 'coney', 'rabbit']);
     expect(withDetail('winged')).toEqual(['lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'unicorn', 'heart', 'coney', 'rabbit']);
     expect(withDetail('enflamed')).toEqual(['heart', 'sword', 'roundel', 'rapier', 'dagger']);

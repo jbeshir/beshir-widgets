@@ -252,12 +252,12 @@ describe('the rules for lines on ordinaries', () => {
     ]);
   });
 
-  it('charges in annulo or in orle turned from upright are one step from core practice (§1.7 S2, App G); to center in annulo is none', () => {
+  it('charges in annulo or in orle turned from upright, to center too, are one step from core practice (§1.7 S2, App G)', () => {
     const swords = (orientation: string) => group(charge('sword', { orientation }), 'or', { count: 4, arrangement: 'in-annulo' });
     const alone = nd(arms('azure', swords('fesswise')));
     expect(coreSteps(alone)).toEqual(['non-default-orientation-in-annulo-or-orle']);
     expect(structuralIssues(alone)).toEqual([]);
-    expect(coreSteps(nd(arms('azure', swords('to-center'))))).toEqual([]);
+    expect(coreSteps(nd(arms('azure', swords('to-center'))))).toEqual(['non-default-orientation-in-annulo-or-orle']);
     expect(coreSteps(nd(arms('azure', group(charge('sword', { orientation: 'to-center' }), 'or', { count: 8, arrangement: 'in-orle' }))))).toEqual(['non-default-orientation-in-annulo-or-orle']);
     const withLine = nd(arms('argent', swords('fesswise'), group(ordinary('bend', { lines: { a: 'wavy', b: 'plain' } }), 'gules', { role: 'overall' })));
     expect(structuralIssues(withLine).filter((i) => i.code === 'structure' && i.rule === 'core-practice').map((i) => i.message)).toEqual([

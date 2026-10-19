@@ -75,16 +75,23 @@ export function isClear(diffs: readonly { kind: ChangeKind }[]): boolean {
 /**
  * What A5E2 compares: ordinaries by type — a chevron inverted (and chevronels inverted) is a type of its own (A5E5c pairs it with the
  * chevron), a pile inverted is the pile turned (A5G7) — and charges by type class (an eagle and an owl are one class, a lion and a wolf are not).
- * A plain cross couped is the ordinary's type (`AS_ORDINARY`).
+ * A plain cross couped is the ordinary's type (`AS_ORDINARY`). A head is substantially different from the whole beast or a demi one (§1.4 M2):
+ * the registry holds "Argent, a bear rampant sable" and "Argent, a bear's head couped sable" (2014), "Vert, a horse rampant
+ * contourny argent, a bordure Or" and "Vert, a horse's head couped argent, a bordure Or" (2023), "Argent, three boars statant gules" and
+ * "Argent, three boar's heads erased gules" (2015) for different owners; heads of one class still share a key (M3).
  */
 function conflictKey(item: Item): string {
-  if (item.k === 'charge') return AS_ORDINARY[CHARGES[item.charge].typeClass] ?? `charge:${CHARGES[item.charge].typeClass}`;
+  if (item.k === 'charge') {
+    const cls = AS_ORDINARY[CHARGES[item.charge].typeClass] ?? `charge:${CHARGES[item.charge].typeClass}`;
+    return item.form === 'head' ? `${cls}:head` : cls;
+  }
   return familyOf(item.type) === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : typeKey(item);
 }
 
 /**
  * App M1f family 1 (§1.6 T3): a plain cross couped, equal-armed or Latin, is one type with the ordinary cross couped: the same key and
- * type token, couped (`isCouped`). The two are kept as two ways to draw it — herald questions D12, D22.
+ * type token, couped (`isCouped`), as App M1f has it ("no difference is granted for … changing between equal-armed and Latinate"). The
+ * two are kept as two ways to draw it.
  */
 const AS_ORDINARY: Partial<Record<TypeClass, string>> = { 'cross-couped': 'ordinary:cross' };
 
@@ -97,9 +104,9 @@ const SUN_POINTS = 8;
 /**
  * What A5G4 compares within a type class (§1.6 T1): two items differ in type by a DC when their tokens share none. A charge's token is its
  * own type, or the type SENA treats it as (`typeOf`), or one several charges share (`typeToken`: foils and roses by their petals, App
- * M1i); a plain cross couped has the couped ordinary's; a mullet or estoile of eight points or more is a sun as well (§1.6 T2). A demi
- * charge or a head is a type of its own within its beast's class (§1.4 M1, M2: a DC from the whole beast, its cut ignored: M4). An
- * ordinary's is its type.
+ * M1i); a plain cross couped has the couped ordinary's; a mullet or estoile of eight points or more is a sun as well (§1.6 T2).
+ * A demi charge or a head is a type of its own (§1.4 M1: a DC from the whole beast; a head is a class of its own as well, M2: `conflictKey`), its
+ * cut ignored (M4). An ordinary's is its type.
  */
 /**
  * What a charge's parts and details add to its type (PLAN-D §1.4): wings, on any charge (M13: a winged charge and a plain one are a DC apart;
@@ -179,7 +186,7 @@ function arrangementGroup(g: Group): string | null {
 /**
  * A5E5a (RULES §C.4 SC-5; PLAN-D §1.2): postures substantially different from those of the other lines; unlisted postures are in none.
  * P1 quadrupeds (winged monsters too): statant erect is in L1a's rampant line, so it is in the rampant line here too. P2 birds (striking,
- * of the rising line, is not drawn). P3 fish. P4 insects turn by orientation, not posture. P5 bipeds and P6 serpents: none (case by case).
+ * of the rising line, is not drawn). P3 fish. P4 insects turn by orientation, not posture (`orientationsApart`). P5 bipeds and P6 serpents: none (case by case).
  */
 const POSTURE_SC_LINES: Record<PostureClass, Partial<Record<Posture, string>>> = {
   quadruped: {
@@ -195,8 +202,9 @@ const POSTURE_SC_LINES: Record<PostureClass, Partial<Record<Posture, string>>> =
 
 /**
  * A5G7 (RULES §C.7, App L1; PLAN-D §1.2): postures within a line don't differ, across lines they do. A sejant erect is in the rampant
- * and the sejant line both, so it differs from neither (RULES §G.7); rampant against sejant is a DC (herald question D2). P5 (L1f): a
- * biped erect, statant or haurient against one naiant, sejant or passant. P6 (L1g "case by case"): each serpent posture is a line of its
+ * and the sejant line both, so it differs from neither (RULES §G.7); rampant against sejant is a DC and never an SC, as A5E5a puts sejant
+ * in the rampant line and App L1a gives it a line of its own (herald question D2, decided). P5 (L1f; CL 12/2024 statant is erect for a
+ * wyvern): a biped erect, statant or haurient against one naiant or sejant. P6 (L1g "case by case"): each serpent posture is a line of its
  * own — herald question D3.
  */
 const POSTURE_DC_LINES: Record<PostureClass, Partial<Record<Posture, readonly string[]>>> = {
@@ -207,15 +215,21 @@ const POSTURE_DC_LINES: Record<PostureClass, Partial<Record<Posture, readonly st
   bird: { close: ['close'], naiant: ['close'], displayed: ['displayed'], volant: ['volant'], rising: ['rising'] },
   fish: { haurient: ['haurient'], urinant: ['haurient'], naiant: ['naiant'] },
   insect: {},
-  biped: { erect: ['erect'], statant: ['erect'], haurient: ['erect'], naiant: ['low'], sejant: ['low'], passant: ['low'] },
+  biped: { erect: ['erect'], statant: ['erect'], haurient: ['erect'], naiant: ['low'], sejant: ['low'] },
   serpent: { glissant: ['glissant'], nowed: ['nowed'], erect: ['erect'] },
 };
 
+/**
+ * A charge's posture as conflict reads it: as set, or for a charge drawn in no posture its Table 5 one (GoT Table 5 "Owl — Close guardant":
+ * an owl is close for A5E5a and A5G7). Null for none: a head or a demi charge, or a charge with no Table 5 posture.
+ */
+const postureOf = (c: Charge): Posture | null => c.posture ?? (CHARGES[c.charge].postures === null ? CHARGES[c.charge].scaDefaultPosture : null);
+
 /** The postures of two charges that share a posture class (App M3), or null when they are not comparable or either has no posture. */
 function comparablePostures(x: Item, y: Item): { cls: PostureClass; px: Posture; py: Posture } | null {
-  if (x.k !== 'charge' || y.k !== 'charge' || !x.posture || !y.posture) return null;
-  const cls = CHARGES[x.charge].postureClass;
-  return cls !== null && cls === CHARGES[y.charge].postureClass ? { cls, px: x.posture, py: y.posture } : null;
+  if (x.k !== 'charge' || y.k !== 'charge') return null;
+  const px = postureOf(x), py = postureOf(y), cls = CHARGES[x.charge].postureClass;
+  return px !== null && py !== null && cls !== null && cls === CHARGES[y.charge].postureClass ? { cls, px, py } : null;
 }
 
 /** Whether comparable postures lie in different lines of A5G7's table, so that changing one for the other is a distinct change. */
@@ -248,7 +262,7 @@ function posedAlike(x: Item, y: Item): boolean {
 
 /**
  * §1.1 F1, F5 (A5G7a, App L1): two charges that can be posed alike facing different ways — to dexter, to sinister (contourny) or affronty
- * (F10). A fish naiant is read by L1d's general clause (herald question D18).
+ * (F10). A fish naiant is read by L1d: "a distinct change may be given for facing to dexter or to sinister".
  */
 function facingApart(x: Group, y: Group): boolean {
   return posedAlike(x.item, y.item) && x.item.k === 'charge' && y.item.k === 'charge' && x.item.facing !== y.item.facing
@@ -279,6 +293,13 @@ const ORIENTATION_AXIS: Record<Orientation, 'pale' | 'fess' | 'bend' | 'bend-sin
   'bendwise-sinister': 'bend-sinister', 'bendwise-sinister-inverted': 'bend-sinister', 'to-center': 'to-center',
 };
 
+/**
+ * App L1c (A5G7a; PLAN-D §1.2 P4): the groups of orientation of a compact creature found tergiant (a bee, a butterfly) — tergiant, tergiant
+ * inverted, bendwise and bendwise sinister (either way along the bend) — and fesswise as a group of its own ("A bee fesswise", 03/2026, is
+ * clear of "A bee bendwise"). A distinct change only: A5E5a gives such charges no substantial one.
+ */
+const tergiantGroup = (o: Orientation): string => (o === 'inverted' ? 'inverted' : ORIENTATION_AXIS[o]);
+
 /** §1.3 O9: which way an orientation points; reversed is the drawing mirrored, "an optionally blazonable detail not worth difference". */
 const pointing = (o: Orientation): Orientation => (o === 'reversed' ? 'palewise' : o);
 
@@ -308,7 +329,8 @@ function axesApart(x: Side, y: Side): boolean {
  * §1.3 O2–O10 (A5G7b, A5G7c, App L2, GoT Table 5): whether two groups point differently enough for a distinct change. Long charges along
  * different axes, whatever their types (O2, O7); along one axis, the same type with ends that differ pointing the other way (O3; a staff or
  * bow, `long-plain`, not: O4, herald question D4). Charges with a top, of one type, pointing another way (O5, O7); leaves only along another
- * axis (O5b, O5c). Never for radial charges, animate charges or charges of different types (O6, O10), nor for reversing (O9).
+ * axis (O5b, O5c); compact tergiant creatures of one type in another App L1c group (P4, `tergiantGroup`). Never for radial charges, other
+ * animate charges or charges of different types (O6, O10), nor for reversing (O9).
  */
 function orientationsApart(x: Side, y: Side): boolean {
   const ox = orientationOf(x), oy = orientationOf(y), ix = x.group.item, iy = y.group.item;
@@ -319,6 +341,7 @@ function orientationsApart(x: Side, y: Side): boolean {
   }
   if (cx !== cy || !sameType(ix, iy)) return false;
   if (cx === 'compact-top') return pointing(ox) !== pointing(oy);
+  if (cx === 'compact-tergiant') return tergiantGroup(pointing(ox)) !== tergiantGroup(pointing(oy));
   return cx === 'compact-axis' && ORIENTATION_AXIS[ox] !== ORIENTATION_AXIS[oy];
 }
 
@@ -554,7 +577,7 @@ function birdShapeChange(x: Item, y: Item): ChangeKind | null {
   return periodBirdPosture(mx.birdShape, x.posture) && periodBirdPosture(my.birdShape, y.posture) ? 'sc' : 'dc';
 }
 
-/** Whether the period drew a bird of this shape in this posture (T6): close and rising for every shape, naiant for a swan; none (the owl) is close. */
+/** Whether the period drew a bird of this shape in this posture (T6): close and rising for every shape, naiant for a swan; none (the owl, a demi bird) is read as close. */
 const periodBirdPosture = (shape: BirdShape, posture: Posture | null): boolean =>
   posture === null || posture === 'close' || posture === 'rising' || (shape === 'swan' && posture === 'naiant');
 

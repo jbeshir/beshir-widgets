@@ -6,6 +6,7 @@ import type { Arrangement, Charge } from './design';
 import { mirroredSlots } from './arrangement';
 import { opticalScale } from './charge-art';
 import { r2, type ArtPose, type Slot } from './geometry';
+import type { ArtEnd, ChargeMeta } from './art/types';
 import { reachOf, turnFit } from './art/geometry';
 
 /**
@@ -25,21 +26,39 @@ function normalAngle(a: number): number {
   return r > 180 ? r - 360 : r;
 }
 
-/** The way (degrees clockwise from up) from a slot to the middle of its group's slots; upright for a slot at the middle. */
-function towardCentre(slots: readonly Slot[], s: Slot): number {
+
+/** Half a turn for a charge whose base is the end that goes the way named (`orient.point`, `orient.lead`: GoT Table 5), else none. */
+const fromBase = (end: ArtEnd): number => (end === 'base' ? 180 : 0);
+
+/**
+ * The degrees clockwise from up a drawing is turned so that its `point` end points from a slot to the middle of its group's slots (half a turn
+ * more for a point at the base, GoT Table 5: an arrow); upright for a slot at the middle.
+ */
+function towardCentre(slots: readonly Slot[], s: Slot, point: ArtEnd): number {
   const dx = slots.reduce((n, o) => n + o.x, 0) / slots.length - s.x, dy = slots.reduce((n, o) => n + o.y, 0) / slots.length - s.y;
-  return Math.hypot(dx, dy) < 0.5 ? 0 : r2((Math.atan2(dx, -dy) * 180) / Math.PI);
+  return Math.hypot(dx, dy) < 0.5 ? 0 : r2((Math.atan2(dx, -dy) * 180) / Math.PI) + fromBase(point);
 }
 
 /**
- * The degrees each slot's art is turned within the slot for a charge drawn pointing `drawn` and set `orientation`: the way it points on the
- * shield less the way it is drawn and the slot's own turn (an explicit orientation on a bend overrides following it). None for no orientation.
+ * The degrees a charge's drawing is turned to lie `orientation` (not to center) on the shield, before its slot's own turn: the way the
+ * orientation points less the way it is drawn, and half a turn more off the pale for a charge whose base leads (the feather fesswise lies
+ * quill to dexter, an arrow fesswise point to sinister).
  */
-export function orientationTurns(orientation: Orientation | null, drawn: Exclude<Orientation, 'to-center'>, slots: readonly Slot[]): number[] {
+export function drawingTurn(orientation: Exclude<Orientation, 'to-center'>, orient: ChargeMeta['orient']): number {
+  const way = ORIENTATION_ANGLE[orientation];
+  return normalAngle(way + (way % 180 === 0 ? 0 : fromBase(orient.lead)) - ORIENTATION_ANGLE[orient.drawn]);
+}
+
+/**
+ * The degrees each slot's art is turned within the slot for a charge turned as `orient` says and set `orientation`: the way it points on
+ * the shield less the way it is drawn and the slot's own turn (an explicit orientation on a bend overrides following it); to center, its
+ * point (an arrow's base) toward the middle of the slots. None for no orientation.
+ */
+export function orientationTurns(orientation: Orientation | null, orient: ChargeMeta['orient'], slots: readonly Slot[]): number[] {
   return slots.map((s) => {
     if (orientation === null) return 0;
-    const way = orientation === 'to-center' ? towardCentre(slots, s) : ORIENTATION_ANGLE[orientation];
-    return normalAngle(way - ORIENTATION_ANGLE[drawn] - s.rotation);
+    const turn = orientation === 'to-center' ? towardCentre(slots, s, orient.point) - ORIENTATION_ANGLE[orient.drawn] : drawingTurn(orientation, orient);
+    return normalAngle(turn - s.rotation);
   });
 }
 
@@ -64,6 +83,6 @@ export function artPose(art: string, mirror: boolean, turn: number, scale: numbe
 /** The poses of a group's charges in their slots: mirrored by facing and pair, or reversed; turned by orientation. */
 export function chargePoses(item: Charge, arrangement: Arrangement, slots: readonly Slot[], art: string): ArtPose[] {
   const mirrored = mirroredSlots(item.facing, arrangement, slots.length);
-  const turns = orientationTurns(item.orientation, CHARGES[item.charge].orient.drawn, slots);
+  const turns = orientationTurns(item.orientation, CHARGES[item.charge].orient, slots);
   return slots.map((_, i) => artPose(art, mirrored[i] !== (item.orientation === 'reversed'), turns[i], opticalScale(item)));
 }

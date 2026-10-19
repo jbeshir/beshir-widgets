@@ -5,8 +5,14 @@ import type {
 } from '../charges';
 import type { BaseTincture, ContrastClass } from '../surface';
 
-/** How a charge's orientation is read and turned: animate charges face, the rest point (their drawn way is `orient.drawn`). */
-export type OrientClass = 'animate' | 'radial' | 'compact-top' | 'compact-axis' | 'long-ends' | 'long-plain';
+/**
+ * How a charge's orientation is read and turned: animate charges face, the rest point (their drawn way is `orient.drawn`). A compact
+ * creature found tergiant (the bee, the butterfly: SENA A5E5a) turns as a compact charge does, by the groups of App L1c (A5G7a).
+ */
+export type OrientClass = 'animate' | 'compact-tergiant' | 'radial' | 'compact-top' | 'compact-axis' | 'long-ends' | 'long-plain';
+
+/** An end of a charge's drawing, as drawn: its top or its base. */
+export type ArtEnd = 'top' | 'base';
 
 /** The shape of a bird (SENA App M1d): birds of different shapes differ in type. */
 export type BirdShape = 'regular' | 'swan' | 'poultry' | 'crane';
@@ -79,7 +85,10 @@ export interface ChargeMeta {
   postures: readonly Posture[] | null;
   /** The builder's (and resolve's) choice when none is given. */
   defaultPosture: Posture | null;
-  /** The posture SCA practice assumes when none is blazoned (GoT Table 5): it is omitted from the blazon. */
+  /**
+   * The posture SCA practice assumes when none is blazoned (GoT Table 5): it is omitted from the blazon. A charge drawn in no posture may have
+   * one too (the owl is close), which conflict reads it in.
+   */
   scaDefaultPosture: Posture | null;
   /** This charge's own words for a posture, overriding the posture id and POSTURE_GLOSS. */
   postureWording: Partial<Record<Posture, PostureWording>>;
@@ -89,8 +98,15 @@ export interface ChargeMeta {
   facingCounts: 'normal' | 'never' | 'always';
   /** 'to-dexter' for a charge that faces, else null. */
   defaultFacing: Facing | null;
-  /** The way the art is drawn, how it turns, the orientations it may be turned to, and its own words for some of them. */
-  orient: { drawn: Exclude<Orientation, 'to-center'>; cls: OrientClass; allowed: readonly Orientation[]; wording: Partial<Record<Orientation, OrientWording>> };
+  /**
+   * The way the art is drawn, how it turns, the orientations it may be turned to, and its own words for some of them. `point` is the end
+   * "points to center" turns to the centre, and `lead` the end set to dexter fesswise and to chief bendwise: the top for most charges; GoT
+   * Table 5 draws the arrow, the pheon, the needle and the feather point to base, and sets the feather fesswise quill (its base) to dexter.
+   */
+  orient: {
+    drawn: Exclude<Orientation, 'to-center'>; point: ArtEnd; lead: ArtEnd; cls: OrientClass; allowed: readonly Orientation[];
+    wording: Partial<Record<Orientation, OrientWording>>;
+  };
   /** Drawn forms (a head, a demi charge…). */
   forms: readonly ChargeForm[];
   /** Drawn modifiers chosen with the charge itself (the sun in splendour). */

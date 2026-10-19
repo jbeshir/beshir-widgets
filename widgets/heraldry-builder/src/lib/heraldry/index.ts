@@ -84,7 +84,7 @@ export { treatedName, treatedGloss } from './treatment';
 export { hasNaturalColours, properChoice, setProper } from './proper-options';
 export { furPattern, treatmentPattern, colourHex, ERMINE_SPOT } from './patterns';
 export { FIMBRIATION_WIDTH, VOIDED_WIDTH, renderLayers, badgeView, designTinctures, type ChargeOverlay, type Layer, type OrdinaryPart } from './render';
-export { ORIENTATION_ANGLE, artPose, chargePoses, orientationTurns } from './pose';
+export { ORIENTATION_ANGLE, artPose, chargePoses, drawingTurn, orientationTurns } from './pose';
 export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';
 export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox, drawnBox, opticalScale } from './charge-art';

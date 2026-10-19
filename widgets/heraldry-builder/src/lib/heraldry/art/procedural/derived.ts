@@ -46,11 +46,12 @@ export const ALIASES: Record<AliasId, { source: ChargeId; reshape?: (rings: Ring
     source: 'sword',
     reshape: (rings) => fitRings(rings.map((r) => r.map(([x, y]): Pt => [x, y < SWORD_GUARD ? SWORD_GUARD - (SWORD_GUARD - y) * DAGGER_BLADE : y]))),
   },
-  // a vol is a pair of wings joined at their roots, each narrowed to its half of the box
+  // a vol is a pair of wings joined at their roots, each narrowed to its half of the box and turned tips up (elevated: drawn as the wing
+  // is, bow at chief and tips to base, the pair would be "in lure")
   vol: {
     source: 'wing',
     reshape: (rings) => {
-      const dexter = rings.map((r) => r.map(([x, y]): Pt => [VOL_ROOT - (WING_ROOT - x) * VOL_WIDTH, y]));
+      const dexter = rings.map((r) => r.map(([x, y]): Pt => [VOL_ROOT - (WING_ROOT - x) * VOL_WIDTH, 100 - y]));
       return fitRings([...dexter, ...dexter.map((r) => r.map(([x, y]): Pt => [100 - x, y]))]);
     },
   },

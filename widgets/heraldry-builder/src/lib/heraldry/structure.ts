@@ -268,12 +268,11 @@ const isBendletsEnhanced = (g: Group): boolean =>
 
 /**
  * §1.7 S2, App G: "Charges oriented in annulo instead of their default palewise orientation" and "Charges in orle not in their default
- * orientation" — any orientation but palewise, and in annulo but to center (read as following the annulus: herald question D27). Charges set around a
- * bordure follow it, which is no step: they are charges on the bordure, not in orle.
+ * orientation" — any orientation but palewise, to center too (App G makes no exception for it; herald question D27 decided).
+ * Charges set around a bordure follow it, which is no step: they are charges on the bordure, not in orle.
  */
 const turnedInRing = (g: Group): boolean => g.item.k === 'charge' && g.arrangement.k === 'pattern'
-  && (g.arrangement.pattern === 'annulo' || g.arrangement.pattern === 'orle') && g.item.orientation !== null && g.item.orientation !== 'palewise'
-  && (g.item.orientation !== 'to-center' || g.arrangement.pattern === 'orle');
+  && (g.arrangement.pattern === 'annulo' || g.arrangement.pattern === 'orle') && g.item.orientation !== null && g.item.orientation !== 'palewise';
 
 /** The steps from core practice the design takes, one per element that takes one (SENA App G). */
 export function coreSteps(d: Design): CoreStep[] {
