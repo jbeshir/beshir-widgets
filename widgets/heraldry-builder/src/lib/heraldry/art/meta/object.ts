@@ -14,7 +14,7 @@ export const META_OBJECT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: true, scale: 1.15, detail: 1, proper: null,
     glossName: 'key', glossPlural: 'keys', plain: null, search: [],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -44,7 +44,7 @@ export const META_OBJECT = {
     forms: [], mods: [], details: ['enflamed'], parts: [], holds: [],
     demiCut: null, long: true, scale: 1.15, detail: 1, proper: PROPER.steel,
     glossName: 'sword', glossPlural: 'swords', plain: null, search: [],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
@@ -74,7 +74,7 @@ export const META_OBJECT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: true, scale: 1.15, detail: 0, proper: null,
     glossName: 'anchor', glossPlural: 'anchors', plain: null, search: [],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },

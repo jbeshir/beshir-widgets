@@ -14,7 +14,7 @@ export const META_GEOMETRIC = {
     forms: [], mods: [], details: ['voided', 'of-points', 'fimbriated', 'pierced'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1.05, detail: 0, proper: null,
     glossName: 'five-pointed star', glossPlural: 'five-pointed stars', plain: { word: 'star', plural: 'stars' }, search: ['star'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: { x: 33, y: 38, w: 34, h: 36 }, anchors: {}, neck: null },
     },

@@ -242,6 +242,9 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-heart-winged', arms('argent', group(charge('heart', { mods: [{ id: 'winged', paint: 'or' }] }), 'gules'))],
   ['attr-roundel-enflamed', arms('argent', group(charge('roundel', { mods: [{ id: 'enflamed', paint: 'proper' }] }), 'azure'))],
   ['attr-roses-slipped-leaved', arms('argent', group(charge('rose', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'gules', { count: 3 }))],
+  ['attr-lion-maintaining-sword', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or'))],
+  ['attr-eagles-key-in-beak', arms('argent', group(charge('eagle', { holds: [{ how: 'in-beak', item: charge('key'), paint: 'gules' }] }), 'sable', { count: 3 }))],
+  ['attr-lions-combattant-sustaining-roses', arms('or', group(charge('lion', { holds: [{ how: 'sustaining', item: charge('rose'), paint: 'gules' }] }), 'azure', pair('combattant')))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));

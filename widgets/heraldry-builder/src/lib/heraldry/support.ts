@@ -6,11 +6,11 @@ import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, CUT_MODIFIERS, STAR_POINTS, isChargeId, type Gaze } from './charges';
 import { chargeOnBox } from './charge-art';
-import { PROPER_PIECES, isPiece, pieceDrawable } from './overlay-art';
+import { PROPER_PIECES, holdAnchored, isPiece, pieceDrawable } from './overlay-art';
 import { liesAstride, specOf } from './ordinary-geometry';
 import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, partCount, type Division, type Variation } from './divisions';
 import {
-  asParty, asSemy, asTreated, walkGroups, type Charge, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Modifier, type Paint, type PartPaint, type UnsupportedIssue,
+  asParty, asSemy, asTreated, walkGroups, type Charge, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type Held, type IssueAt, type Item, type Modifier, type Paint, type PartPaint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isDiminutive, isOrdinaryType, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import {
@@ -175,7 +175,7 @@ function itemGaps(item: Item): Found[] {
   if (item.orientation && !meta.orient.allowed.includes(item.orientation)) gaps.push(gap('orientation', item.orientation));
   for (const m of item.mods) if (!modifierDrawn(item, m)) gaps.push(gap('charge-modifier', m.id));
   for (const p of item.parts) if (!partDrawn(item, p)) gaps.push(gap('charge-modifier', p.part));
-  for (const h of item.holds) gaps.push(gap('charge-modifier', h.how));
+  for (const how of new Set(item.holds.filter((h) => !holdDrawn(item, h)).map((h) => h.how))) gaps.push(gap('charge-modifier', how));
   return gaps;
 }
 
@@ -203,6 +203,25 @@ function modifierDrawn(item: Charge, m: Modifier): boolean {
  */
 const partDrawn = (item: Charge, p: PartPaint): boolean =>
   CHARGES[item.charge].parts.includes(p.part) && isPiece(p.part) && p.paint.k === 'tincture' && pieceDrawable(item, p.part);
+
+/**
+ * Whether a held item is drawn (PLAN-D §1.5 H3): the one item its charge holds, a charge that may be held (its sidecar's `holdable`) as it is
+ * drawn by default, in one tincture, held a way the holder's sidecar row takes and its drawing has the anchor for (a paw, a beak, a mouth).
+ * Two items, a worn one (H4) or anything else stay `charge-modifier:<how>` gaps; so do holds on a charge that is not primary (`heldGaps`).
+ */
+function holdDrawn(item: Charge, h: Held): boolean {
+  const held = h.item, meta = CHARGES[held.charge];
+  const plain = held.form === null && held.posture === meta.defaultPosture && held.gaze === null && held.facing === meta.defaultFacing && held.orientation === null
+    && held.mods.length === 0 && held.parts.length === 0 && held.holds.length === 0;
+  return item.holds.length === 1 && meta.holdable && plain && h.paint.k === 'tincture' && CHARGES[item.charge].holds.includes(h.how) && holdAnchored(item, h.how);
+}
+
+/** §1.5 H3: only a primary charge (or one of two co-primary groups) on the field is drawn holding something; elsewhere a drawable hold is a gap. */
+function heldGaps(g: Group, host: Group | null): Found[] {
+  if (g.item.k !== 'charge' || (g.role === 'primary' && host === null)) return [];
+  const item = g.item;
+  return item.holds.filter((h) => holdDrawn(item, h)).map((h) => gap('charge-modifier', h.how));
+}
 
 /** Whether a charge has a drawing of its posture with the head turned that way. */
 export const gazeDrawn = (item: Charge, gaze: Gaze): boolean =>
@@ -348,7 +367,8 @@ function onChargeGaps(d: Design, host: Group): Found[] {
   if (coPrimaries(d)) return [gap('multiple-groups', 'tertiary-on-co-primary', ON_THAT_CHARGE)];
   const gaps: Found[] = [];
   if (chargeOnBox(host.item) === null) gaps.push(gap('placement', `on-${host.item.charge}`, `Charges on a ${CHARGES[host.item.charge].name}`));
-  if (host.item.mods.length > 0) gaps.push(gap('multiple-groups', 'tertiary-on-modifier', ON_THAT_CHARGE));
+  // (a charge holding something may be drawn smaller to hold it: its on-box no longer fits)
+  if (host.item.mods.length > 0 || host.item.holds.length > 0) gaps.push(gap('multiple-groups', 'tertiary-on-modifier', ON_THAT_CHARGE));
   // A turned charge's on-box is not turned with it.
   if (host.item.orientation !== null && host.item.orientation !== 'palewise') gaps.push(gap('placement', 'on-turned-charge', ON_THAT_CHARGE));
   if (hasAround(d)) gaps.push(gap('multiple-groups', 'tertiary-on-charge-around', ON_THAT_CHARGE));
@@ -454,7 +474,7 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
   for (const { path, group, host } of walkGroups(d)) {
     const at: IssueAt = { k: 'group', path };
     const owner = group.item.k === 'ordinary' ? group.item.type : group.item.charge;
-    const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...pairGaps(d, group, host), ...orientationGaps(group), ...placementGaps(d, group, host)];
+    const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...pairGaps(d, group, host), ...orientationGaps(group), ...placementGaps(d, group, host), ...heldGaps(group, host)];
     if (host) gaps.push(...onChargeGaps(d, host));
     if (againstAstrideLine(d, group, host)) gaps.push(gap('placement', 'counterchanged-chevron'));
     if (inThree && (group.paint.k === 'counterchanged' || (group.item.k === 'ordinary' && group.item.cotised?.paint.k === 'counterchanged'))) {

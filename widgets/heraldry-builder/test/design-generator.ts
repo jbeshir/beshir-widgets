@@ -7,7 +7,7 @@
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
 import {
-  CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve,
+  CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, walkGroups,
   type ChargeId, type Design,
 } from '../src/lib/heraldry';
 
@@ -387,7 +387,8 @@ const OUTLINED_CHARGES: readonly ChargeId[] = ['mullet', 'roundel', 'lozenge', '
  * head (half of them erased) or a demi charge. About three in ten of the whole beasts, eagles and fish neither turned nor modified are in
  * a posture they are drawn in (§1.2), half of those with the head turned where that posture is drawn so (the lion guardant or regardant,
  * §1.1 F4). About three in ten of the whole lions, roses and mullets neither turned nor modified are adorned (`adornedCharge`, §0.3.5).
- * Each later attribute step adds its picks after these. Null when the pick isn't registrable.
+ * About half the whole lions and eagles alone on a plain field, neither turned, modified nor adorned, hold something (`heldItem`,
+ * §1.5). Each later attribute step adds its picks after these. Null when the pick isn't registrable.
  */
 function attributeDesignFor(seed: number): Design | null {
   const next = prng(seed ^ ATTRIBUTE_SEED);
@@ -417,7 +418,9 @@ function attributeDesignFor(seed: number): Design | null {
   const gaze = gazes.length > 0 && next() < 0.5 ? pick(gazes) : null;
   const posed = posture === null ? formed : { ...formed, item: { ...formed.item, posture, ...(gaze ? { gaze } : {}) } };
   const adorned = form === null && !turning && modifier === null && ADORNED.includes(id) && next() < 0.3 ? { ...posed, item: adornedCharge(id, posed.item, next, pick) } : posed;
-  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, adorned] : [adorned];
+  const holds = adorned === posed && form === null && !turning && modifier === null && !band && typeof field === 'string' && HOLDERS.includes(id) && next() < 0.5;
+  const holding = holds ? { ...adorned, item: { ...adorned.item, holds: [heldItem(id, field, next, pick)] } } : adorned;
+  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, holding] : [holding];
   const r = resolve({ v: 2, field, groups });
   if (!r.ok) return null;
   const n = normalise(r.design);
@@ -446,6 +449,27 @@ function adornedCharge(id: string, item: object, next: () => number, pick: <T>(x
   }
   return { k: 'charge', charge: 'heart', mods: [next() < 0.5 ? { id: 'winged', paint: pick(TINCTURES) } : { id: 'enflamed', paint: next() < 0.5 ? 'proper' : pick(TINCTURES) }] };
 }
+
+/** The charges the attribute designs have hold something (§1.5): the lion in its paw, the eagle in its beak. */
+const HOLDERS: readonly string[] = ['lion', 'eagle'];
+
+const METALS: readonly string[] = ['or', 'argent'];
+
+/**
+ * What a lion maintains or sustains (a sword, a key or a rose) or an eagle holds in its beak (a rose or a key), in a tincture that contrasts with
+ * the field (§1.5 H5).
+ */
+function heldItem(id: string, field: string, next: () => number, pick: <T>(xs: readonly T[]) => T): object {
+  const paint = pick(TINCTURES.filter((t) => METALS.includes(t) !== METALS.includes(field)));
+  if (id === 'lion') return { how: next() < 0.75 ? 'maintaining' : 'sustaining', item: { k: 'charge', charge: pick(['sword', 'key', 'rose']) }, paint };
+  return { how: 'in-beak', item: { k: 'charge', charge: pick(['rose', 'key']) }, paint };
+}
+
+/**
+ * Whether a design has no charge holding anything: the builder and the SCA matcher reach held items in PLAN-D D9d, until then
+ * builder-layers-reach and the SCA round trip leave them out.
+ */
+export const holdsNothing = (d: Design): boolean => walkGroups(d).every(({ group: { item } }) => item.k !== 'charge' || item.holds.length === 0);
 
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */
 export function generatedChargeAttributeDesigns(seed: number, count: number): Design[] {

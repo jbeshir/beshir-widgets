@@ -15,7 +15,7 @@ export const META_CROSS = {
     forms: [], mods: [], details: ['fitchy'], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'cross with a small cross-bar at each end', glossPlural: 'crosses with a small cross-bar at each end', plain: null, search: ['crosslet'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },

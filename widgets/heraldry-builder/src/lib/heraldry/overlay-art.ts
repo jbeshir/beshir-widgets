@@ -2,10 +2,11 @@
 // heart), flames all round, a stem with leaves under a flower, a collar round the neck and a crown on the head. Each piece is placed at an
 // anchor of the drawing (a square of its 100-box: centre, side and turn clockwise) and given in the charge's own 100-box, so that it is
 // drawn with the charge's slot and pose. A charge whose pieces under it reach out of the box is drawn smaller with them, to fit it; a crown
-// or a collar never moves it (one may reach a unit past the box's top), so a crowned or collared charge keeps its on-box.
+// or a collar never moves it (one may reach a unit past the box's top), so a crowned or collared charge keeps its on-box. The item a charge
+// holds (PLAN-D §1.5) is drawn the same way, over it, at the anchor of its paw, beak or mouth.
 
-import { CHARGES, isPartId } from './charges';
-import type { Charge, Modifier, Paint, PartPaint } from './design';
+import { CHARGES, isPartId, type HoldHow } from './charges';
+import type { Charge, Held, Modifier, Paint, PartPaint } from './design';
 import { pathRings, pointInPolygon, type Pt } from './geometry';
 import { bboxOf, ringDepths, ringsPath } from './art/geometry';
 import { pathFor } from './art/paths/index';
@@ -16,27 +17,30 @@ import { boundedMemo } from './memo';
 
 /** What an overlay piece is, in the order they are drawn: the first four under the charge, the collar and crown over it. */
 const OVERLAY_PARTS = ['wings', 'flames', 'slip', 'leaves', 'collar', 'crown'] as const;
-export type OverlayPart = (typeof OVERLAY_PARTS)[number];
+type PieceShape = (typeof OVERLAY_PARTS)[number];
+
+/** What is drawn with a charge: a piece of its parts and details, or the item it holds (PLAN-D §1.5), drawn over it after the pieces. */
+export type OverlayPart = PieceShape | 'held';
 
 /** The pieces drawn under the charge: they seem to come from behind it. */
-const UNDER: readonly OverlayPart[] = ['wings', 'flames', 'slip', 'leaves'];
+const UNDER: readonly PieceShape[] = ['wings', 'flames', 'slip', 'leaves'];
 
-/** A piece drawn with a charge: its path in the charge's 100-box, whether it lies under the charge, and its paint. */
+/** A piece or held item drawn with a charge: its path in the charge's 100-box, whether it lies under the charge, and its paint. */
 export interface ArtOverlay { part: OverlayPart; d: string; under: boolean; paint: Paint }
 
-/** A charge's drawing with its pieces: the art (the charge's own, or drawn smaller to make room for them) and the pieces. */
+/** A charge's drawing with its pieces and held items: the art (the charge's own, or drawn smaller to make room for them) and the overlays. */
 export interface OverlaidArt { art: string; overlays: ArtOverlay[] }
 
 /** The anchor each piece is placed at; flames go all round the outline. */
-const PIECE_ANCHOR: Record<OverlayPart, AnchorId | null> = { wings: 'wings', flames: null, slip: 'slip', leaves: 'slip', collar: 'collar', crown: 'crown' };
+const PIECE_ANCHOR: Record<PieceShape, AnchorId | null> = { wings: 'wings', flames: null, slip: 'slip', leaves: 'slip', collar: 'collar', crown: 'crown' };
 
 /** What draws each piece: a modifier with its paint (winged, enflamed, slipped, leaved) or a part (crowned, collared). */
 const PIECE_OF = {
   wings: 'winged', flames: 'enflamed', slip: 'slipped', leaves: 'leaved', collar: 'collared', crown: 'crowned',
-} as const satisfies Record<OverlayPart, Modifier['id'] | PartPaint['part']>;
+} as const satisfies Record<PieceShape, Modifier['id'] | PartPaint['part']>;
 
 /** A modifier or part drawn as a piece, by its blazon word. */
-export type PieceId = (typeof PIECE_OF)[OverlayPart];
+export type PieceId = (typeof PIECE_OF)[PieceShape];
 /** A part drawn as a piece: crowned, collared. */
 export type PiecePart = Extract<PieceId, PartPaint['part']>;
 
@@ -147,7 +151,7 @@ function leaves(a: ArtPlace): Pt[][] {
   });
 }
 
-function pieceRings(part: OverlayPart, a: ArtPlace | null, art: readonly (readonly Pt[])[], paired: boolean): Pt[][] {
+function pieceRings(part: PieceShape, a: ArtPlace | null, art: readonly (readonly Pt[])[], paired: boolean): Pt[][] {
   switch (part) {
     case 'wings': return wings(a!, paired);
     case 'flames': return flames(art);
@@ -170,7 +174,7 @@ export function pieceAnchored(c: Pick<Charge, 'charge' | 'form' | 'posture' | 'g
 }
 
 /** The pieces a charge's parts and details draw, in drawing order, each with its paint: those with a paint and their anchor (support.ts). */
-function pieces(c: Charge, anchors: DrawingMeta['anchors']): Array<{ part: OverlayPart; paint: Paint }> {
+function pieces(c: Charge, anchors: DrawingMeta['anchors']): Array<{ part: PieceShape; paint: Paint }> {
   return OVERLAY_PARTS.flatMap((part) => {
     const paint = piecePaint(c, PIECE_OF[part]);
     const anchor = PIECE_ANCHOR[part];
@@ -191,24 +195,79 @@ export function withDrawnPieces(c: Charge): Charge {
   return { ...c, mods: c.mods.filter((m) => drawn(m.id)), parts: c.parts.filter((p) => drawn(p.part)) };
 }
 
+/** The anchor where each way of holding puts the held item; a worn item is not held (§1.5 H4: "wearing" stays a gap). */
+const HOLD_ANCHOR: Record<HoldHow, AnchorId | null> = { maintaining: 'hold', sustaining: 'hold', 'in-beak': 'beak', 'in-mouth': 'mouth', wearing: null };
+
+/** Whether a charge's drawing has the anchor a way of holding puts the held item at (a lion sejant has a paw, the demi lion none). */
+export function holdAnchored(c: Pick<Charge, 'charge' | 'form' | 'posture' | 'gaze'>, how: HoldHow): boolean {
+  const anchor = HOLD_ANCHOR[how];
+  return anchor !== null && drawingAnchors(c)[anchor] !== undefined;
+}
+
+/**
+ * How large a held item is drawn: its anchor's side marks the paw, beak or mouth, and the item (at its charge's optical scale) is this many
+ * times as long but never less than `HELD_MIN` (a beak's square is a third of a paw's: a key in it would be a speck on a 48 px shield); a
+ * sustained item is drawn half as large again (§1.5 H7).
+ */
+const HELD_SIZE = 2.2;
+const HELD_MIN = 30;
+const SUSTAINED = 1.5;
+
+/**
+ * Where along a held long item (a sword, a key) its anchor lies, from its foot: it is gripped near its hilt or bow, the rest of it rising from
+ * the paw along the anchor's turn, or held across the beak or mouth pointing ahead. Anything else is centred on its anchor.
+ */
+const GRIP = 0.3;
+
+/** A held item's drawing (its charge's default one) placed at its anchor in the holder's 100-box. */
+function heldRings(h: Held, a: ArtPlace): Pt[][] {
+  const meta = CHARGES[h.item.charge];
+  const size = Math.max(a.size * HELD_SIZE, HELD_MIN) * meta.scale * (h.how === 'sustaining' ? SUSTAINED : 1);
+  const across = h.how === 'in-beak' || h.how === 'in-mouth';
+  const rotation = meta.long ? a.rotation + (across ? -90 : 0) : 0;
+  const [dx, dy] = meta.long ? turned(rotation)([0, -(0.5 - GRIP) * size]) : [0, 0];
+  return map(pathRings(chargePath(h.item)), placed({ x: a.x + dx, y: a.y + dy, size, rotation }));
+}
+
+/** The items a charge holds that its drawing has the anchor for, each with its anchor. */
+function heldItems(c: Charge, anchors: DrawingMeta['anchors']): Array<{ held: Held; anchor: ArtPlace }> {
+  return c.holds.flatMap((held) => {
+    const anchor = HOLD_ANCHOR[held.how];
+    const at = anchor && anchors[anchor];
+    return at ? [{ held, anchor: at }] : [];
+  });
+}
+
 const overlaidMemo = boundedMemo<{ art: string; pieces: string[] }>(500);
 
-/** A charge's drawing with the pieces its parts and details draw, given in its 100-box, drawn smaller together where they reach out of it. */
+/**
+ * A charge's drawing with the pieces its parts and details draw and the items it holds, given in its 100-box, drawn smaller together where
+ * the pieces under it or a held item reach out of it.
+ */
 export function overlaidArt(c: Charge): OverlaidArt {
   const art = chargePath(c);
   const anchors = drawingAnchors(c), paired = CHARGES[c.charge].pairedWings;
-  const wanted = pieces(c, anchors);
-  if (wanted.length === 0) return { art, overlays: [] };
-  const drawn = overlaidMemo(`${wanted.map((p) => p.part).join()}|${paired}|${JSON.stringify(anchors)}|${art}`, () => {
+  const wanted = pieces(c, anchors), held = heldItems(c, anchors);
+  if (wanted.length === 0 && held.length === 0) return { art, overlays: [] };
+  const heldKey = held.map(({ held: h }) => `${h.how}:${JSON.stringify(h.item)}`).join();
+  const drawn = overlaidMemo(`${wanted.map((p) => p.part).join()}|${heldKey}|${paired}|${JSON.stringify(anchors)}|${art}`, () => {
     const rings = pathRings(art);
     const placedPieces = wanted.map(({ part }) => {
       const anchor = PIECE_ANCHOR[part];
       return pieceRings(part, anchor && anchors[anchor]!, rings, paired);
     });
-    const reach = Math.max(...[rings, ...placedPieces.filter((_, i) => UNDER.includes(wanted[i].part))].flat(2).map(([x, y]) => Math.max(Math.abs(x - 50), Math.abs(y - 50))));
+    const placedHeld = held.map(({ held: h, anchor }) => heldRings(h, anchor));
+    const reaching = [rings, ...placedPieces.filter((_, i) => UNDER.includes(wanted[i].part)), ...placedHeld];
+    const reach = Math.max(...reaching.flat(2).map(([x, y]) => Math.max(Math.abs(x - 50), Math.abs(y - 50))));
     const k = Math.min(1, REACH / reach);
     const fit = (rs: Pt[][]) => ringsPath(k === 1 ? rs : map(rs, ([x, y]) => [50 + (x - 50) * k, 50 + (y - 50) * k]));
-    return { art: k === 1 ? art : fit(rings), pieces: placedPieces.map(fit) };
+    return { art: k === 1 ? art : fit(rings), pieces: [...placedPieces, ...placedHeld].map(fit) };
   });
-  return { art: drawn.art, overlays: wanted.map(({ part, paint }, i) => ({ part, d: drawn.pieces[i], under: UNDER.includes(part), paint })) };
+  return {
+    art: drawn.art,
+    overlays: [
+      ...wanted.map(({ part, paint }, i) => ({ part, d: drawn.pieces[i], under: UNDER.includes(part), paint })),
+      ...held.map(({ held: h }, i) => ({ part: 'held' as const, d: drawn.pieces[wanted.length + i], under: false, paint: h.paint })),
+    ],
+  };
 }

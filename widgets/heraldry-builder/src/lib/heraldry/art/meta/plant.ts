@@ -14,7 +14,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: ['slipped', 'leaved'], parts: [], holds: [],
     demiCut: null, long: false, scale: 0.88, detail: 0, proper: PROPER.rose,
     glossName: 'rose', glossPlural: 'roses', plain: null, search: [],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: { x: 20, y: 21, w: 60, h: 56 }, anchors: { slip: { x: 50, y: 95, size: 36, rotation: 0 } }, neck: null },
     },
@@ -44,7 +44,7 @@ export const META_PLANT = {
     forms: [], mods: [], details: [], parts: [], holds: [],
     demiCut: null, long: false, scale: 1, detail: 0, proper: null,
     glossName: 'lily (fleur-de-lis)', glossPlural: 'lilies (fleurs-de-lis)', plain: { word: 'lily', plural: 'lilies' }, search: ['lily', 'lilies', 'fleur'],
-    headName: null, holdable: false, pairedWings: false,
+    headName: null, holdable: true, pairedWings: false,
     drawings: {
       _: { onBox: { x: 36, y: 28, w: 28, h: 42 }, anchors: {}, neck: null },
     },
