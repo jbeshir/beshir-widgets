@@ -5,9 +5,10 @@ import { describe, expect, it } from 'vitest';
 import {
   FIELD_SHAPES, ON_CHARGE_COUNTS, addLayer, blazon, canonicalJson, chargeOnBox, contextSlots, deriveTags, drawnBox, gloss, groupSlots, hasRoom, isForced,
   layerChoices, layoutCandidates, layoutContext, layoutKey, layoutWords, normalise, pathOfPlace, pointInPolygon, removeLayer, setLayerCharge, statesLayout,
-  structuralIssues, tableDefault, tinctureIssues, unsupportedIssues, CHARGES, CHARGE_ART,
+  structuralIssues, tableDefault, tinctureIssues, unsupportedIssues, CHARGES,
   type Design,
 } from '../src/lib/heraldry';
+import { CHARGE_ART } from '../src/lib/heraldry/art/paths/all';
 import { assess, setCharge, setModifier, setPosture } from '../src/lib/builder';
 import { builderPath } from './builder-path';
 import { rings } from './art-geometry';

@@ -3,9 +3,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, OVERLAY_PIECES, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, isTurnedPosture, pathRings, ringDepths, ringProblems,
+  CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, OVERLAY_PIECES, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, isTurnedPosture, pathRings, ringDepths, ringProblems,
   type ArtKey, type ChargeId, type DrawingMeta,
 } from '../src/lib/heraldry';
+import { CHARGE_ART } from '../src/lib/heraldry/art/paths/all';
 import { rings } from './art-geometry';
 
 type Rule = 'grammar' | 'points' | 'size' | 'centre' | 'hole' | 'rings' | 'bytes' | 'anchors' | 'neck';

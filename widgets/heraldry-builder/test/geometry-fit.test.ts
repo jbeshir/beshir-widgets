@@ -14,10 +14,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  AROUND_COUNTS, CHARGE_ART, MIRRORED, UPRIGHT, artKeyOf, artPose, derivedPath, isTurnedPosture, opticalScale, orientationTurns, mirroredSlots, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
+  AROUND_COUNTS, MIRRORED, UPRIGHT, artKeyOf, artPose, derivedPath, isTurnedPosture, opticalScale, orientationTurns, mirroredSlots, CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, FIELD_SHAPES, SECONDARY_POSITIONS, contextSlots, drawnBox, fieldContext, inFirstPart, layoutCandidates, layoutKey,
   cornerBesideBend, frameBeside, hasBordure, hasChargedBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryGeometry, plainSpec, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ArtKey, type ArtPose, type Charge, type ChargeForm, type ChargeId, type Gaze, type HostCharges, type Orientation, type Design, type FieldShape, type GroundContext, type KeepOut, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
+import { CHARGE_ART } from '../src/lib/heraldry/art/paths/all';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
 import { placePosed, rings, type Pt } from './art-geometry';
 import { log } from './helpers';

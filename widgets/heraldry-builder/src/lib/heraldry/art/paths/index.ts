@@ -1,32 +1,27 @@
-// Every charge's path strings, statically imported: the art is ready as soon as the module is. The generated charges are traced
-// when their modules load (art/procedural).
+// How the library reads charge art: every charge's path strings, statically imported (all.ts), so the art is ready as soon as the
+// module is. Tests, the SSR goldens, the SCA and sample writers and the worker read it so. The browser build reads lazy.ts in its place
+// (vite.config.ts), which has the same exports and loads the art outside the main chunk a category at a time.
 
 import type { ArtKey } from '../types';
 import type { ChargeId } from '../../charges';
-import { PATHS_CORE } from './core';
-import { PATHS_BEAST } from './beast';
-import { PATHS_MONSTER } from './monster';
-import { PATHS_BIRD } from './bird';
-import { PATHS_PLANT } from './plant';
-import { PATHS_GEOMETRIC } from './geometric';
-import { PATHS_CROSS } from './cross';
-import { PATHS_OBJECT } from './object';
-import { PATHS_MODERN } from './modern';
-import { PATHS_STARS } from '../procedural/stars';
-import { PATHS_SHAPES } from '../procedural/shapes';
-import { PATHS_FOILS } from '../procedural/foils';
-import { PATHS_KNOTS } from '../procedural/knots';
-import { PATHS_CROSSES } from '../procedural/crosses';
+import { CHARGE_ART } from './all';
 
 export { CORE_ART_IDS } from './core';
-
-/** One path per drawing in viewBox 0 0 100 100, drawn with fill-rule evenodd. */
-export const CHARGE_ART: Readonly<Record<ChargeId, Readonly<Partial<Record<ArtKey, string>>>>> = Object.freeze({
-  ...PATHS_CORE, ...PATHS_BEAST, ...PATHS_MONSTER, ...PATHS_BIRD, ...PATHS_PLANT, ...PATHS_GEOMETRIC, ...PATHS_CROSS, ...PATHS_OBJECT, ...PATHS_MODERN,
-  ...PATHS_STARS, ...PATHS_SHAPES, ...PATHS_FOILS, ...PATHS_KNOTS, ...PATHS_CROSSES,
-});
 
 /** The path of one drawing, or undefined when the charge has no such drawing. */
 export function pathFor(id: ChargeId, key: ArtKey): string | undefined {
   return CHARGE_ART[id][key];
+}
+
+/** Whether the art of these charges is loaded: always, here. */
+export const artReady = (_ids: readonly ChargeId[]): boolean => true;
+
+/** Loads the art of these charges: it is loaded already. */
+export function loadArtFor(_ids: readonly ChargeId[]): Promise<void> {
+  return Promise.resolve();
+}
+
+/** Calls `listener` whenever art starts or finishes loading, with whether any is still loading: never, here. Returns the unsubscribe. */
+export function onArtChange(_listener: (pending: boolean) => void): () => void {
+  return () => {};
 }
