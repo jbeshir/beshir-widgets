@@ -13,7 +13,7 @@ import { LINE_WORD, type ComplexLine, type Line } from './lines';
 import type { BandPosition, ShapeToggle } from './shape-options';
 import type { Outline } from './outline';
 import type { PieceId } from './overlay-art';
-import { HOLD_WORDS } from './blazon';
+import { FACING_WORD, GAZE_WORDS, HOLD_WORDS, MODIFIER_WORDS, ORIENTATION_WORDS, PART_WORDS } from './blazon';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
 
 type FurLayout = FurSpec['layout'];
@@ -125,37 +125,37 @@ export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
 /** Which way a charge faces, as the viewer sees it, and the heraldic word ("Facing right · contourny"). */
 export const FACING_LABEL: Record<Facing, PlainTerm> = {
   'to-dexter': { plain: 'Facing left', term: 'to dexter' },
-  'to-sinister': { plain: 'Facing right', term: 'contourny' },
-  affronty: { plain: 'Facing out', term: 'affronty' },
+  'to-sinister': { plain: 'Facing right', term: FACING_WORD['to-sinister'] },
+  affronty: { plain: 'Facing out', term: FACING_WORD.affronty },
 };
 
 /** Which way a beast's head is turned, and the heraldic word ("Looking out · guardant"). */
 export const GAZE_LABEL: Record<Gaze, PlainTerm> = {
-  guardant: { plain: 'Looking out', term: 'guardant' },
-  regardant: { plain: 'Looking back', term: 'regardant' },
-  'guardant-regardant': { plain: 'Looking out and back', term: 'guardant regardant' },
+  guardant: { plain: 'Looking out', term: GAZE_WORDS.guardant },
+  regardant: { plain: 'Looking back', term: GAZE_WORDS.regardant },
+  'guardant-regardant': { plain: 'Looking out and back', term: GAZE_WORDS['guardant-regardant'] },
 };
 
 /** Which way a charge points, as the viewer sees it, and the heraldic words ("Slanting · bendwise"). */
 export const ORIENTATION_LABEL: Record<Orientation, PlainTerm> = {
-  palewise: { plain: 'Upright', term: 'palewise' },
-  fesswise: { plain: 'Lying flat', term: 'fesswise' },
-  'fesswise-reversed': { plain: 'Lying flat the other way', term: 'fesswise reversed' },
-  bendwise: { plain: 'Slanting', term: 'bendwise' },
-  'bendwise-inverted': { plain: 'Slanting, upside down', term: 'bendwise inverted' },
-  'bendwise-sinister': { plain: 'Slanting the other way', term: 'bendwise sinister' },
-  'bendwise-sinister-inverted': { plain: 'Slanting the other way, upside down', term: 'bendwise sinister inverted' },
-  inverted: { plain: 'Upside down', term: 'inverted' },
-  reversed: { plain: 'Mirrored', term: 'reversed' },
-  'to-center': { plain: 'Pointing to the middle', term: 'to center' },
+  palewise: { plain: 'Upright', term: ORIENTATION_WORDS.palewise },
+  fesswise: { plain: 'Lying flat', term: ORIENTATION_WORDS.fesswise },
+  'fesswise-reversed': { plain: 'Lying flat the other way', term: ORIENTATION_WORDS['fesswise-reversed'] },
+  bendwise: { plain: 'Slanting', term: ORIENTATION_WORDS.bendwise },
+  'bendwise-inverted': { plain: 'Slanting, upside down', term: ORIENTATION_WORDS['bendwise-inverted'] },
+  'bendwise-sinister': { plain: 'Slanting the other way', term: ORIENTATION_WORDS['bendwise-sinister'] },
+  'bendwise-sinister-inverted': { plain: 'Slanting the other way, upside down', term: ORIENTATION_WORDS['bendwise-sinister-inverted'] },
+  inverted: { plain: 'Upside down', term: ORIENTATION_WORDS.inverted },
+  reversed: { plain: 'Mirrored', term: ORIENTATION_WORDS.reversed },
+  'to-center': { plain: 'Pointing to the middle', term: ORIENTATION_WORDS['to-center'] },
 };
 
 /** The details a charge may be drawn with (the Details disclosure), as they look, and the heraldic word ("Hollow · voided"). */
 export const MODIFIER_LABEL: Partial<Record<ModifierId, PlainTerm>> = {
-  voided: { plain: 'Hollow', term: 'voided' },
+  voided: { plain: 'Hollow', term: MODIFIER_WORDS.voided },
   fimbriated: { plain: 'Edged', term: 'fimbriated' },
-  pierced: { plain: 'With a round hole', term: 'pierced' },
-  fitchy: { plain: 'Pointed at the foot', term: 'fitchy' },
+  pierced: { plain: 'With a round hole', term: MODIFIER_WORDS.pierced },
+  fitchy: { plain: 'Pointed at the foot', term: MODIFIER_WORDS.fitchy },
 };
 
 /** The parts and details drawn as pieces (the Details disclosure), as they look, and the heraldic word ("With wings · winged"). */
@@ -164,8 +164,8 @@ export const PIECE_LABEL: Record<PieceId, PlainTerm> = {
   enflamed: { plain: 'In flames', term: 'enflamed' },
   slipped: { plain: 'On a stem', term: 'slipped' },
   leaved: { plain: 'With leaves', term: 'leaved' },
-  crowned: { plain: 'With a crown', term: 'crowned' },
-  collared: { plain: 'With a collar', term: 'collared' },
+  crowned: { plain: 'With a crown', term: PART_WORDS.crowned },
+  collared: { plain: 'With a collar', term: PART_WORDS.collared },
 };
 
 /** The ways a charge holds an item (the Holding row), as they look, and the heraldic words (as `blazon` writes them). */
@@ -188,8 +188,8 @@ export const FORM_LABEL: Record<ChargeForm | 'whole', PlainTerm> = {
 
 /** How a head is cut off (the Cut row), as it looks, and the heraldic word. */
 export const CUT_LABEL: Partial<Record<ModifierId, PlainTerm>> = {
-  couped: { plain: 'Cut straight', term: 'couped' },
-  erased: { plain: 'Torn, ragged', term: 'erased' },
+  couped: { plain: 'Cut off straight', term: 'couped' },
+  erased: { plain: 'Cut off ragged', term: 'erased' },
 };
 
 /** How two charges are set to each other, and the heraldic word ("Facing each other · combattant"). */

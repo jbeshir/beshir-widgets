@@ -4,7 +4,7 @@
 // not there. The alias charges (hawk, rapier, dagger, coney, rabbit, vol, coronet; PLAN-D §2.4) have no drawings of their own: each is drawn from
 // another charge's, as it is or reshaped.
 
-import { CHARGES, isAliasId, type AliasId, type ChargeId, type Posture } from '../../charges';
+import { ALIAS_SOURCE, CHARGES, isAliasId, type AliasId, type ChargeId, type Posture } from '../../charges';
 import { boundedMemo } from '../../memo';
 import { pathRings, type Pt } from '../../geometry';
 import { pathFor } from '../paths/index';
@@ -33,27 +33,21 @@ const WING_ROOT = 93;
 const VOL_ROOT = 49;
 const VOL_WIDTH = 0.45;
 
-/** The aliases: the charge each is drawn from, and how its drawing is made from that charge's (as it is when it has no `reshape`). */
-export const ALIASES: Record<AliasId, { source: ChargeId; reshape?: (rings: Rings) => Pt[][] }> = {
-  hawk: { source: 'falcon' },
-  coney: { source: 'hare' },
-  rabbit: { source: 'hare' },
-  coronet: { source: 'crown' },
+/** How each alias's drawing is made from the drawing of the charge it is drawn from (ALIAS_SOURCE), or null when it is that drawing as it is. */
+export const ALIAS_RESHAPE: Record<AliasId, ((rings: Rings) => Pt[][]) | null> = {
+  hawk: null,
+  coney: null,
+  rabbit: null,
+  coronet: null,
   // a rapier is a slimmer sword
-  rapier: { source: 'sword', reshape: (rings) => rings.map((r) => r.map(([x, y]): Pt => [50 + (x - 50) * RAPIER_WIDTH, y])) },
+  rapier: (rings) => rings.map((r) => r.map(([x, y]): Pt => [50 + (x - 50) * RAPIER_WIDTH, y])),
   // a dagger is a sword with half the blade, above the cross guard, the whole drawing fitted to the box again
-  dagger: {
-    source: 'sword',
-    reshape: (rings) => fitRings(rings.map((r) => r.map(([x, y]): Pt => [x, y < SWORD_GUARD ? SWORD_GUARD - (SWORD_GUARD - y) * DAGGER_BLADE : y]))),
-  },
+  dagger: (rings) => fitRings(rings.map((r) => r.map(([x, y]): Pt => [x, y < SWORD_GUARD ? SWORD_GUARD - (SWORD_GUARD - y) * DAGGER_BLADE : y]))),
   // a vol is a pair of wings joined at their roots, each narrowed to its half of the box and turned tips up (elevated: drawn as the wing
   // is, bow at chief and tips to base, the pair would be "in lure")
-  vol: {
-    source: 'wing',
-    reshape: (rings) => {
-      const dexter = rings.map((r) => r.map(([x, y]): Pt => [VOL_ROOT - (WING_ROOT - x) * VOL_WIDTH, 100 - y]));
-      return fitRings([...dexter, ...dexter.map((r) => r.map(([x, y]): Pt => [100 - x, y]))]);
-    },
+  vol: (rings) => {
+    const dexter = rings.map((r) => r.map(([x, y]): Pt => [VOL_ROOT - (WING_ROOT - x) * VOL_WIDTH, 100 - y]));
+    return fitRings([...dexter, ...dexter.map((r) => r.map(([x, y]): Pt => [100 - x, y]))]);
   },
 };
 
@@ -92,8 +86,7 @@ function eraseEdge(rings: readonly (readonly Pt[])[], neck: NeckEdge): Pt[][] {
 /** The drawing of an alias charge, from the drawing of the charge it is drawn from; undefined for any other charge or while that is not loaded. */
 export function aliasPath(id: ChargeId, key: ArtKey): string | undefined {
   if (!isAliasId(id)) return undefined;
-  const alias = ALIASES[id];
-  const source = pathFor(alias.source, key), { reshape } = alias;
+  const source = pathFor(ALIAS_SOURCE[id], key), reshape = ALIAS_RESHAPE[id];
   return source && reshape ? derivedMemo(`alias|${id}|${source}`, () => ringsPath(reshape(pathRings(source)))) : source;
 }
 

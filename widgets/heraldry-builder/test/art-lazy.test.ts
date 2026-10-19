@@ -5,7 +5,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { ALIASES, ALIAS_IDS, CHARGES, CHARGE_IDS, CORE_ART_IDS, chargeIdsOf, semyPaint, type ChargeCategory, type ChargeId } from '../src/lib/heraldry';
+import { ALIAS_IDS, ALIAS_SOURCE, CHARGES, CHARGE_IDS, CORE_ART_IDS, chargeIdsOf, semyPaint, type ChargeCategory, type ChargeId } from '../src/lib/heraldry';
 import type * as LazyArt from '../src/lib/heraldry/art/paths/lazy';
 import type * as StaticArt from '../src/lib/heraldry/art/paths/index';
 import { PATHS_CORE } from '../src/lib/heraldry/art/paths/core';
@@ -71,7 +71,7 @@ describe('lazy-loaded art (PLAN-D §0.3.3)', () => {
 
   it('draws each alias from a charge of its own category, so loading the alias loads what it is drawn from (PLAN-D §0.3.1)', () => {
     for (const id of ALIAS_IDS) {
-      const { source } = ALIASES[id];
+      const source = ALIAS_SOURCE[id];
       expect(CHARGES[id].category, id).toBe(CHARGES[source].category);
       expect(CHARGES[source].drawings, id).not.toEqual({});
     }

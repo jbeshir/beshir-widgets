@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers';
-// Three projects, so each kind of test runs in the cheapest runtime that is faithful to it:
+import { LAZY_ART_ALIAS } from './vite.config';
+// Four projects, so each kind of test runs in the cheapest runtime that is faithful to it:
 //  - workers: the two files that use the D1 binding (test/worker.test.ts, test/migrations.test.ts) run in the workers
 //    runtime (workerd) via @cloudflare/vitest-pool-workers, against a local Miniflare D1 — no real Cloudflare account or
 //    network is involved. They share one worker (singleWorker) and apply the committed migrations (read here, applied by
@@ -18,6 +19,8 @@ import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-worker
 //    records) on a seeded, rotating sample (test/sca/sample.ts), so its time stays flat as records start passing. `npm run
 //    sca:ignore` (vitest.sca-ignore.config.ts) is the authoritative full sweep; the final gate runs it. SCA_FULL=1 makes
 //    this project do the full sweep too.
+//  - lazy-art: test/lazy/*.test.ts read the charge art as the browser build does (vite.config.ts's alias: art/paths/lazy.ts, which loads
+//    it a category at a time), each file in a module state of its own (isolated), so the art they load is never seen by another file.
 const migrations = await readD1Migrations(path.join(import.meta.dirname, 'migrations'));
 const SCA_TEST = 'test/sca-armorial.test.ts';
 const WORKER_TESTS = ['test/worker.test.ts', 'test/migrations.test.ts'];
@@ -62,6 +65,14 @@ export default defineConfig({
           exclude: [...WORKER_TESTS, SCA_TEST],
           environment: 'node',
           isolate: false,
+        },
+      },
+      {
+        resolve: { alias: [LAZY_ART_ALIAS] },
+        test: {
+          name: 'lazy-art',
+          include: ['test/lazy/*.test.ts'],
+          environment: 'node',
         },
       },
       {

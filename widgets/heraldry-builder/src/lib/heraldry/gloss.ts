@@ -5,9 +5,9 @@ import { joinAnd, numberWord } from './words';
 import { CHARGES, drawnPoints, postureGloss, type ChargeForm, type ModifierId, type PartId } from './charges';
 import { furGloss } from './fur';
 import { treatedGloss } from './treatment';
-import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, fimbriationOf, isVoided, notSupported, type Arrangement, type Charge, type Pair, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
+import { asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, fimbriationOf, isVoided, notSupported, type Arrangement, type Charge, type Cotises, type Design, type Group, type Lines, type Ordinary, type Paint, type Position, type SemyPaint } from './design';
 import { edgeNames, ordinaryEdgeHost, type ComplexLine, type EdgeName, type Line } from './lines';
-import { FACING_LABEL, GAZE_LABEL, LINE_LOOK, ORIENTATION_LABEL } from './plain-words';
+import { CUT_LABEL, FACING_LABEL, GAZE_LABEL, HOLD_LABEL, LINE_LOOK, MODIFIER_LABEL, ORIENTATION_LABEL, PAIR_LABEL } from './plain-words';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, isDiminutive, type OrdinaryType } from './ordinaries';
 import { aroundWords, betweenHost, betweenWords, contextOf, coPrimaries, cornerBesideBend, isHalfPosition, primaryCharges, type BetweenHost, type HalfPosition, type Layout, type QuarterPosition } from './arrangement';
@@ -268,12 +268,9 @@ function layoutGloss(l: Layout, count: number): string | null {
       if (a.pattern === 'annulo') return 'in a ring';
       return notSupported({ category: 'arrangement', detail: `in-${a.pattern}` });
     case 'crossed': return 'crossed like an X';
-    case 'pair': return PAIR_GLOSS[a.pair];
+    case 'pair': return PAIR_LABEL[a.pair].plain.toLowerCase();
   }
 }
-
-/** Two charges facing each other, or back to back. */
-const PAIR_GLOSS: Record<Pair, string> = { combattant: 'facing each other', respectant: 'facing each other', addorsed: 'back to back' };
 
 /**
  * A charge's gloss noun with what its modifiers say: "hollow diamonds", "a six-pointed star with a round hole", "suns with faces", "a cross
@@ -287,17 +284,20 @@ function chargeNoun(c: Charge, count: number): string {
   const pointed = drawn !== null && points !== null ? name.replace(`${numberWord(drawn)}-`, `${numberWord(points)}-`) : name;
   const fimbriation = fimbriationOf(c);
   const edged = fimbriation && colourOf(fimbriation);
-  return (isVoided(c) ? 'hollow ' : '') + pointed + (mods.includes('in-splendour') ? (count === 1 ? ' with a face' : ' with faces') : '')
-    + (mods.includes('pierced') ? (count === 1 ? ' with a round hole' : ' with round holes') : '')
-    + (mods.includes('fitchy') ? ', pointed at the foot' : '') + (edged ? ` edged in ${edged}` : '');
+  const look = (id: 'voided' | 'pierced' | 'fitchy' | 'fimbriated') => MODIFIER_LABEL[id]!.plain.toLowerCase();
+  return (isVoided(c) ? `${look('voided')} ` : '') + pointed + (mods.includes('in-splendour') ? (count === 1 ? ' with a face' : ' with faces') : '')
+    + (mods.includes('pierced') ? ` ${count === 1 ? look('pierced') : PIERCED_MANY}` : '')
+    + (mods.includes('fitchy') ? `, ${look('fitchy')}` : '') + (edged ? ` ${look('fimbriated')} in ${edged}` : '');
 }
 
-/** What a head or a demi charge shows of the beast, said before it; how a head is cut off, said after it. */
+/** What charges pierced look like, more than one of them (MODIFIER_LABEL has one). */
+const PIERCED_MANY = 'with round holes';
+
+/** What a head or a demi charge shows of the beast, said before it; how a head is cut off (CUT_LABEL), said after it. */
 const FORM_GLOSS: Partial<Record<ChargeForm, { one: string; many: string }>> = {
   head: { one: 'the head and neck of', many: 'the heads and necks of' },
   demi: { one: 'the front half of', many: 'the front halves of' },
 };
-const CUT_GLOSS: Partial<Record<ModifierId, string>> = { couped: 'cut off straight', erased: 'cut off with a ragged edge' };
 
 /** What each piece a charge's parts and details draw looks like, given its colour (null: in its natural colours). */
 const PIECE_GLOSS: ReadonlyArray<[ModifierId | PartId, (colour: string | null) => string]> = [
@@ -320,11 +320,10 @@ function heldGloss(c: Charge, count: number): string {
   return c.holds.map((h) => {
     const colour = colourOf(h.paint), name = CHARGES[h.item.charge].glossName;
     const item = colour ? `a ${colour} ${name}` : `a ${name}`;
+    const look = HOLD_LABEL[h.how].plain.toLowerCase();
     switch (h.how) {
-      case 'maintaining': return `, ${each}holding ${item}`;
-      case 'sustaining': return `, ${each}holding up ${item}`;
-      case 'in-beak': return `, ${each}with ${item} in its beak`;
-      case 'in-mouth': return `, ${each}with ${item} in its mouth`;
+      case 'maintaining': case 'sustaining': return `, ${each}${look} ${item}`;
+      case 'in-beak': case 'in-mouth': return `, ${each}with ${item} ${look}`;
       case 'wearing': return notSupported({ category: 'charge-modifier', detail: h.how });
     }
   }).join('');
@@ -332,7 +331,7 @@ function heldGloss(c: Charge, count: number): string {
 
 /**
  * The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word), "the head and neck of a
- * gold wolf, cut off with a ragged edge".
+ * gold wolf, cut off ragged".
  */
 function chargesSubject(g: Group, count: number): string {
   if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
@@ -347,7 +346,7 @@ function chargesSubject(g: Group, count: number): string {
   const words = [lead, colour, noun, posture, gaze, facing, orientation].filter(Boolean).join(' ');
   const form = g.item.form && FORM_GLOSS[g.item.form];
   if (!form) return words + piecesGloss(g.item) + heldGloss(g.item, count);
-  const cut = g.item.mods.map((m) => CUT_GLOSS[m.id]).find((w) => w !== undefined);
+  const cut = g.item.mods.map((m) => CUT_LABEL[m.id]?.plain.toLowerCase()).find((w) => w !== undefined);
   return `${count === 1 ? form.one : form.many} ${words}${cut ? `, ${cut}` : ''}${piecesGloss(g.item)}${heldGloss(g.item, count)}`;
 }
 
@@ -371,7 +370,7 @@ function betweenGloss(d: Design, g: Group, ordinary: BetweenHost): { text: strin
   if (!where) return chargesGloss(d, g);
   const clause = paintClause(d, g.paint);
   const colour = clause ? `, ${clause}` : '';
-  if (g.arrangement.k === 'pair') return { text: `${chargesSubject(g, g.count)}${colour}, ${PAIR_GLOSS[g.arrangement.pair]}, ${where}`, clause: false };
+  if (g.arrangement.k === 'pair') return { text: `${chargesSubject(g, g.count)}${colour}, ${PAIR_LABEL[g.arrangement.pair].plain.toLowerCase()}, ${where}`, clause: false };
   if (/^one (on|in) each /.test(where)) return { text: `${chargesSubject(g, 1)} ${where.slice('one '.length)}${colour}`, clause: false };
   return { text: `${chargesSubject(g, g.count)}${colour}, ${where}`, clause: false };
 }

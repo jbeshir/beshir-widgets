@@ -257,7 +257,8 @@ export function overlaidArt(c: Charge): OverlaidArt {
   const anchors = drawingAnchors(c), paired = CHARGES[c.charge].pairedWings;
   const wanted = pieces(c, anchors), held = heldItems(c, anchors);
   if (wanted.length === 0 && held.length === 0) return { art, overlays: [] };
-  const heldKey = held.map(({ held: h }) => `${h.how}:${JSON.stringify(h.item)}`).join();
+  // keyed on the held item's drawing, not the item: until its art has loaded the drawing is the fallback, which must not be kept
+  const heldKey = held.map(({ held: h }) => `${h.how}:${h.item.charge}:${chargePath(h.item)}`).join();
   const drawn = overlaidMemo(`${wanted.map((p) => p.part).join()}|${heldKey}|${paired}|${JSON.stringify(anchors)}|${art}`, () => {
     const rings = pathRings(art);
     const placedPieces = wanted.map(({ part }) => {

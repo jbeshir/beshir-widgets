@@ -9,7 +9,8 @@
 // A record that doesn't pass is a gap, tagged `<category>` or `<category>:<subtag>` (GAP_CATEGORIES):
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
-// build is no gap but a widget bug: status 'fails', which the ignore list never hides.
+// build is no gap but a widget bug: status 'fails', which the ignore list never hides — but for the one
+// refusal the builder is known to make: a tincture for a field part another part has (`BuilderPath.unsettledField`).
 import { blazon, bodyTinctures, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
@@ -20,10 +21,8 @@ import { assessMatched, checkRendered, renderShieldSvg } from './widget-checks';
 
 export type CheckName = 'match' | 'assess' | 'blazon' | 'render' | 'builder';
 
-export interface CheckFailure {
-  check: CheckName;
-  detail: string;
-}
+/** A failed check: what failed; a failed builder replay also says whether it stopped at a field whose parts did not settle. */
+export type CheckFailure = { check: Exclude<CheckName, 'builder'>; detail: string } | { check: 'builder'; detail: string; unsettledField: boolean };
 
 export interface Classification {
   /**
@@ -52,7 +51,7 @@ function partsShareTincture(d: Design): boolean {
 }
 
 /** The design-only checks, once per distinct design: many records match the same one. */
-const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { drawnAndBuilt: boolean }>();
+const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { unsettledField: boolean; drawnAndBuilt: boolean }>();
 
 function checkDesign(design: Design, drawAndBuild: boolean) {
   const key = canonicalJson(design);
@@ -67,6 +66,7 @@ function checkDesign(design: Design, drawAndBuild: boolean) {
       assess: a.kind === 'ok' ? null : `${a.kind === 'violation' ? a.status : a.kind}: ${a.issues.map((i) => i.message).join(' ')}`,
       render: rendered.length ? rendered.join('; ') : null,
       builder: path && path.problems.length ? path.problems.join('; ') : null,
+      unsettledField: path?.unsettledField ?? false,
     };
     designChecks.set(key, found);
   }
@@ -106,7 +106,7 @@ export function checkBlazon(scaBlazon: string, options: ClassifyOptions = {}): {
   if (found.assess) failures.push({ check: 'assess', detail: found.assess });
   if (!wordedAs(match.match, match.normalised)) failures.push({ check: 'blazon', detail: `the widget blazons it "${ours}"` });
   if (found.render) failures.push({ check: 'render', detail: found.render });
-  if (found.builder) failures.push({ check: 'builder', detail: found.builder });
+  if (found.builder) failures.push({ check: 'builder', detail: found.builder, unsettledField: found.unsettledField });
   return { match, failures };
 }
 
@@ -131,7 +131,7 @@ function layoutTag(design: Design, issue: Issue): string {
 /** The widget's objections to a matched design, as finding tags; [] when it has none. */
 function findingTags(design: Design, failures: readonly CheckFailure[]): string[] {
   const a = assessMatched(design);
-  if (a.kind !== 'violation') return failures.some((f) => f.check === 'builder') && partsShareTincture(design) ? ['widget-structure-rule:field-parts-share-tincture'] : [];
+  if (a.kind !== 'violation') return failures.some((f) => f.check === 'builder' && f.unsettledField) && partsShareTincture(design) ? ['widget-structure-rule:field-parts-share-tincture'] : [];
   const tag = (i: Issue) => {
     // A construct the library reports only once the design is judged (charges Table 7 forces into one part).
     if (i.code === 'unsupported') return gapTag(i.gap);

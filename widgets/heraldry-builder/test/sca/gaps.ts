@@ -13,7 +13,7 @@ import {
   type ChargeId, type Gaze, type HoldHow, type ModifierId, type PartId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
-import { DRAWN_DIVISION_FORMS, PER_PALL_SPELLED, TIERCED_IN, edgeSide } from './words';
+import { CHARGE_SPELLINGS, CROSS_FORM_SPELLINGS, DRAWN_DIVISION_FORMS, PER_PALL_SPELLED, TIERCED_IN, edgeSide } from './words';
 import {
   BUCKET_DESCRIPTION, CHARGE_BUCKETS, CONTAINER_WORDS, CONTEXT_WORDS, CROSS_POST, CROSS_PRE, FUNCTION_WORDS, FURS,
   GAP_ARRANGEMENTS, GAP_CHARGES, GAP_DIVISION_WORDS, GAP_ORDINARIES, GAP_POSTURES, GAP_TINCTURES, LINES, MARSHALLING,
@@ -125,7 +125,7 @@ const PARTS = new Set(PART_WORDS);
 const POSTURE_WORDS = Object.fromEntries(Object.values(CHARGES).map((m) =>
   [m.id, new Set((m.postures ?? []).flatMap((p) => [p, postureTerm(m.id, p)]))])) as Record<ChargeId, Set<string>>;
 /** The words for a charge that faces turned to sinister, and for two of them set to each other, which the widget draws (SENA §1.1). */
-const CONTOURNY = FACING_WORD['to-sinister']!;
+const CONTOURNY = FACING_WORD['to-sinister'];
 const PAIR_WORDS: ReadonlySet<string> = new Set(PAIRS);
 /**
  * The words, as the tagger reads them, a charge the widget has is turned by: each word of the orientations its sidecar row allows
@@ -135,15 +135,16 @@ const ORIENTATION_WORDS_OF = Object.fromEntries(Object.values(CHARGES).map((m) =
   const own = m.orient.wording[o];
   return [ORIENTATION_WORDS[o], ...(own?.k === 'words' ? [own.words] : [])].flatMap((w) => w.replace('bendwise sinister', 'bendwise-sinister').replace(/^(points|horns) to center$/, 'to-center').split(' '));
 }))])) as Record<ChargeId, Set<string>>;
-const CROSS_AFTER = new Set(CROSS_POST);
 const CROSS_BEFORE = new Set(CROSS_PRE);
 const POSITIONS = new Set(POSITION_WORDS);
-/** Spelling variants of a cross variant → sub-tag. */
+/** Spelling variants of a cross variant → sub-tag: the drawn crosses' (the normaliser's, accent-free as the tagger reads) and the others'. */
 const CROSS_VARIANT: Record<string, string> = {
-  formee: 'formy', pattee: 'formy', patty: 'formy', paty: 'formy', fleury: 'flory', botonny: 'bottony',
-  botony: 'bottony', fitched: 'fitchy', cleche: 'clechy', clechee: 'clechy', pomelly: 'pommelly',
+  ...Object.fromEntries(Object.entries(CROSS_FORM_SPELLINGS).map(([spelling, form]) => [accentFree(spelling), form])),
+  fitched: 'fitchy', cleche: 'clechy', clechee: 'clechy', pomelly: 'pommelly',
   pommetty: 'pommelly', ancree: 'anchored', anchory: 'anchored', humetty: 'couped', st: 'saint',
 };
+/** The words after "cross" that make it a cross variant: the tagger's list and the drawn crosses' other spellings. */
+const CROSS_AFTER = new Set([...CROSS_POST, ...Object.keys(CROSS_FORM_SPELLINGS).map(accentFree)]);
 /** Irregular plurals. */
 const IRREGULAR: Record<string, string> = {
   men: 'man', women: 'woman', mice: 'mouse', reremice: 'reremouse', geese: 'goose', teeth: 'tooth', feet: 'foot',
@@ -266,15 +267,23 @@ const JOINS: [RegExp, string][] = [
   [/\bchi[- ]rho\b/g, 'chi-rho'],
   [/\b(lacy|bowen|stafford|wake|bourchier|cavendish|heneage|hungerford|dacre|harrington|savoy) knots?\b/g, '$1-knot'],
   [/\bcross(es)?[- ]crosslets?\b/g, 'crosslet'],
+  // the other names of drawn charges written in two words ("a sea lion", "a wagon wheel"), read as one (gap-terms.ts SUPPORTED_CHARGE_WORDS)
+  ...Object.keys(CHARGE_SPELLINGS).filter((spelling) => spelling.includes(' '))
+    .map((spelling): [RegExp, string] => [new RegExp(`(?<![\\w-])${spelling}(e?s)?\\b`, 'g'), `${spelling.replaceAll(' ', '-')}$1`]),
 ];
 
 interface Token { word: string; poss: boolean }
 const BREAK = '|';
 
+/** A word without its accents, as the tagger reads it. */
+function accentFree(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 /** Lower-case, strip accents, drop "(Fieldless)", join multi-word terms and split into tokens. */
 function tokenise(blazon: string): { tokens: Token[]; fieldless: boolean } {
   // goutté (strewn with drops) would otherwise lose its accent and read as goutte (a drop)
-  let s = blazon.toLowerCase().replace(/\bg(o?)utt?é/g, 'goutty').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[‘’`]/g, "'");
+  let s = accentFree(blazon.toLowerCase().replace(/\bg(o?)utt?é/g, 'goutty')).replace(/[‘’`]/g, "'");
   const fieldless = /^\s*\(fieldless\)/.test(s);
   if (fieldless) s = s.replace(/^\s*\(fieldless\)/, '');
   for (const [re, to] of JOINS) s = s.replace(re, to);

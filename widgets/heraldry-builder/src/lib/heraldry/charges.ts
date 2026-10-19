@@ -99,9 +99,15 @@ export const CHARGE_IDS = [
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
 
-/** The charges with no drawings of their own: each is drawn from another charge's (art/procedural/derived.ts; PLAN-D §2.4). */
-export const ALIAS_IDS = ['hawk', 'rapier', 'dagger', 'coney', 'rabbit', 'vol', 'coronet'] as const satisfies readonly ChargeId[];
-export type AliasId = (typeof ALIAS_IDS)[number];
+/**
+ * The charges with no drawings of their own, each with the charge it is drawn from, as it is or reshaped (art/procedural/derived.ts; PLAN-D
+ * §2.4): its art is that charge's, so it is loaded with it.
+ */
+export const ALIAS_SOURCE = {
+  hawk: 'falcon', rapier: 'sword', dagger: 'sword', coney: 'hare', rabbit: 'hare', vol: 'wing', coronet: 'crown',
+} as const satisfies Partial<Record<ChargeId, ChargeId>>;
+export type AliasId = keyof typeof ALIAS_SOURCE;
+export const ALIAS_IDS = Object.keys(ALIAS_SOURCE) as readonly AliasId[];
 export const isAliasId = (id: ChargeId): id is AliasId => (ALIAS_IDS as readonly ChargeId[]).includes(id);
 
 /** The pictures the picker offers first, in this order: the original pictures; later pictures are added as they are drawn (PLAN-D §2.4). */

@@ -1,6 +1,6 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
-export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, ALIAS_IDS, isAliasId, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, HOLD_HOWS, HOLDABLE_IDS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type AliasId, type HoldHow, type ModifierId, type PartId, type TypeClass } from './charges';
+export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, ALIAS_IDS, ALIAS_SOURCE, isAliasId, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, HOLD_HOWS, HOLDABLE_IDS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type AliasId, type HoldHow, type ModifierId, type PartId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
@@ -39,7 +39,7 @@ export {
   FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownSurfaces, counterchangeUnavailable, describeSlots, type ShownSurfaces,
 } from './tincture-rule';
 export { validate, normalise, type NormaliseResult } from './validate';
-export { blazon, FACING_WORD, HOLD_WORDS, MODIFIER_WORDS, pointsWord, MODS_BEFORE_LINE, MODS_AFTER_LINE, ORIENTATION_WORDS, orientationWords, type BlazonOptions } from './blazon';
+export { blazon, FACING_WORD, GAZE_WORDS, HOLD_WORDS, MODIFIER_WORDS, pointsWord, MODS_BEFORE_LINE, MODS_AFTER_LINE, ORIENTATION_WORDS, orientationWords, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
   DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, FACING_LABEL, GAZE_LABEL, HOLD_LABEL, MODIFIER_LABEL, PIECE_LABEL, FORM_LABEL, CUT_LABEL, ORIENTATION_LABEL, PAIR_LABEL, ordinaryCountLabel, ordinaryCountLegend, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
@@ -89,11 +89,11 @@ export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type
 export type { PatternSpec, SolidColour } from './patterns';
 export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox, drawnBox, opticalScale } from './charge-art';
 export { CORE_ART_IDS, artReady, loadArtFor, onArtChange } from './art/paths/index';
-export { OVERLAY_PIECES } from './art/paths/pieces';
+export { OVERLAY_PIECES, OVERLAY_PIECE_PROVENANCE } from './art/paths/pieces';
 export { OVERLAY_MODIFIERS, PIECE_IDS, PROPER_PIECES, isPiece, isPiecePart, overlaidArt, piecePaint, withDrawnPieces, type PieceId, type PiecePart } from './overlay-art';
 export { bboxOf, ringDepths, ringProblems, turnFit } from './art/geometry';
 export { crossPath } from './art/procedural/crosses';
-export { ERASED_TEETH, ALIASES, TURNED_POSTURES, aliasPath, derivedPath, isTurnedPosture } from './art/procedural/derived';
+export { ERASED_TEETH, TURNED_POSTURES, aliasPath, derivedPath, isTurnedPosture } from './art/procedural/derived';
 export { PIERCED_MULLETS, POINTED_STARS } from './art/procedural/stars';
 export type { ArtBox, ArtKey, DrawingMeta } from './art/types';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';

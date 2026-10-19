@@ -704,12 +704,6 @@ function tertiaryChanges(x: Side | null, y: Side | null): Diff[] {
 
 // ── Held items ──────────────────────────────────────────────────────────────
 
-/**
- * §1.5 H1 (SENA App I5; CL 08/2015, CL 02/2019): whether an identifiable item a primary charge maintains or sustains counts as a secondary
- * charge group. The owner's brief counted held items for nothing; current SENA counts them — herald question D1.
- */
-const HELD_ITEMS_ARE_GROUPS = true;
-
 /** An item the charges of a primary group hold, with where its holder is and its place in the holder's `holds`. */
 interface HeldSide { path: GroupPath; index: number; held: Held }
 
@@ -728,9 +722,11 @@ function heldRef(x: HeldSide | null, y: HeldSide | null): GroupRef {
  * §1.5 H1, H2: the distinct changes between the items two designs' primary charges hold, paired as groups are (identical items first): an item
  * added or removed (A5G2), of another type (A5G4) or tincture (A5G3: as a group's, so a sword proper is a sword argent), one distinct change each. Their number (one per holder), orientation,
  * the way they are held and where are not compared (H2; CL 05/2018, CL 06/2016 — Helayne 04/2021 counted position: herald question D10).
+ * An identifiable item a primary charge maintains or sustains counts as a secondary charge group (§1.5 H1: SENA App I5; CL 08/2015,
+ * CL 02/2019). The owner's brief counted held items for nothing; current SENA counts them — herald question D1. Should the heralds rule
+ * for the brief, this returns no changes.
  */
 function heldChanges(a: Design, b: Design): Diff[] {
-  if (!HELD_ITEMS_ARE_GROUPS) return [];
   const { pairs, onlyX, onlyY } = pairUp(heldOf(a), heldOf(b), (h) => itemKey(h.held.item));
   return [
     ...pairs.flatMap(([x, y]) => [

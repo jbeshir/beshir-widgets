@@ -499,6 +499,11 @@ export interface BuilderPath {
   actions: BuilderAction[];
   /** Empty when every click was offered and allowed and the builder ended on the normalised target. */
   problems: string[];
+  /**
+   * Whether it stopped because the parts of the field did not settle: a part's tincture is another part's, which the builder refuses
+   * (`fieldTinctureChoices`) unless a band between them lets it set it after the band (SENA A3B3a).
+   */
+  unsettledField: boolean;
   /** The design the clicks built. */
   design: Design;
 }
@@ -525,7 +530,7 @@ export function builderPath(goal: Design): BuilderPath {
     actions.push(a);
     return true;
   });
-  const done = () => ({ actions, problems, design: d });
+  const done = (): BuilderPath => ({ actions, problems, unsettledField: false, design: d });
   /** Make a run of clicks, or none: when one is not allowed yet, the design, the clicks and the problems are as they were. */
   const attempt = (clicks: () => boolean): boolean => {
     const before = { design: d, actions: actions.length, problems: problems.length };
@@ -686,10 +691,10 @@ export function builderPath(goal: Design): BuilderPath {
           if (spare) click({ kind: 'field-tincture', part: i, tincture: spare });
         }
       }
-    } else return { actions, problems: ['a part of the field is neither a tincture, a fur, a treated tincture nor a semy'], design: d };
+    } else return { actions, unsettledField: false, problems: ['a part of the field is neither a tincture, a fur, a treated tincture nor a semy'], design: d };
   } else if (f.k === 'variation') {
     const want = asVariation(f);
-    if (!want) return { actions, problems: ['a stripe of the background is neither a tincture nor a fur'], design: d };
+    if (!want) return { actions, unsettledField: false, problems: ['a stripe of the background is neither a tincture nor a fur'], design: d };
     const now = () => (d.kind === 'arms' ? asVariation(d.field) : null);
     if (!click({ kind: 'variation', variation: want.variation })) return done();
     if (want.pieces !== null && now()!.pieces !== want.pieces && !click({ kind: 'variation-pieces', pieces: want.pieces })) return done();
@@ -786,23 +791,23 @@ export function builderPath(goal: Design): BuilderPath {
     // The outline before the band's colour (an edged band need not stand out against the field), its line once the band's own is set (cotises follow it).
     if (!outlineTo(item) || !paintTo('ordinary', parts.ordinary.group.paint) || !edgesTo('ordinary', item) || !cotiseLineTo(item)) return done();
   }
-  if (unsettledParts && !unsettledParts()) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
+  if (unsettledParts && !unsettledParts()) return { actions, problems: [...problems, 'the parts of the field did not settle'], unsettledField: true, design: d };
 
   // The top band, border and corner or edge shapes beside the ordinary, before the pictures they leave room for. A corner or edge shape is
   // added as the first that works, then made the goal's type (each type is on the shield once, so it is found again by its type).
   for (const peripheral of parts.peripherals) {
     const item = peripheral.group.item;
-    if (item.k !== 'ordinary') return { actions, problems: [...problems, `the ${peripheral.place} is not a band or shape`], design: d };
+    if (item.k !== 'ordinary') return { actions, unsettledField: false, problems: [...problems, `the ${peripheral.place} is not a band or shape`], design: d };
     let place: Beside;
     if (isPeripheralPlace(peripheral.place)) {
       const before = d;
       if (!click({ kind: 'add-layer', place: 'peripheral' })) return done();
       const added = addedLayerStep(before, d, 'peripheral');
-      if (added === 'ordinary' || !isPeripheralPlace(added)) return { actions, problems: [...problems, 'the corner or edge shape became the band'], design: d };
+      if (added === 'ordinary' || !isPeripheralPlace(added)) return { actions, unsettledField: false, problems: [...problems, 'the corner or edge shape became the band'], design: d };
       const now = groupAt(d, peripheralAt(d, added)!).item;
       if (now.k === 'ordinary' && now.type !== item.type && !click({ kind: 'peripheral-item', place: added, type: item.type })) return done();
       const found = simpleParts(d).peripherals.find((p) => isPeripheralPlace(p.place) && p.group.item.k === 'ordinary' && p.group.item.type === item.type);
-      if (!found) return { actions, problems: [...problems, `the ${item.type} went missing`], design: d };
+      if (!found) return { actions, unsettledField: false, problems: [...problems, `the ${item.type} went missing`], design: d };
       place = found.place as PeripheralPlace;
     } else {
       place = peripheral.place as PeripheralKey;
@@ -824,7 +829,7 @@ export function builderPath(goal: Design): BuilderPath {
         if (!paintTo(at, part.group.paint)) return done();
         continue;
       }
-    } else if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };
+    } else if (item.k !== 'charge') return { actions, unsettledField: false, problems: [...problems, `the ${at} is not a charge`], design: d };
     else if (!click({ kind: 'charge', at, charge: item.charge })) return done();
     // The Shape row and a head's cut at once: a head fits where the whole beast does not, so the layout is chosen for the shape.
     if (item.k === 'charge' && item.form !== null && !click({ kind: 'form', at, form: item.form })) return done();
@@ -867,7 +872,7 @@ export function builderPath(goal: Design): BuilderPath {
         if (!now()?.mods.some((n) => n.id === m.id && n.count === m.count && JSON.stringify(n.paint) === JSON.stringify(m.paint)) && !click({ kind: 'modifier', at: own, id: m.id, count: m.count, paint: m.paint })) return done();
       }
       for (const p of group.item.parts) {
-        if (!isPiece(p.part) || !isPiecePart(p.part)) return { actions, problems: [...problems, `the ${own} is ${p.part}, which the builder has no control for`], design: d };
+        if (!isPiece(p.part) || !isPiecePart(p.part)) return { actions, unsettledField: false, problems: [...problems, `the ${own} is ${p.part}, which the builder has no control for`], design: d };
         if (!now()?.parts.some((n) => n.part === p.part && JSON.stringify(n.paint) === JSON.stringify(p.paint)) && !click({ kind: 'part', at: own, part: p.part, paint: p.paint })) return done();
       }
       for (const h of group.item.holds) {
