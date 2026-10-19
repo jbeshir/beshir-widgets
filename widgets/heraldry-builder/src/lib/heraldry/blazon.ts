@@ -100,14 +100,11 @@ function fieldPhrase(field: Paint): string {
   return notSupported(paintGaps(field, true, 'field')[0]);
 }
 
-/** The modifiers the builder words, after the noun: "a sun in splendor", "a cross formy fitchy". */
-export const MODIFIER_WORDS: Partial<Record<ModifierId, string>> = { 'in-splendour': 'in splendor', fitchy: 'fitchy' };
+/** The modifiers the builder words, after the noun: "a sun in splendor", "a cross formy fitchy", "a lozenge voided", "a mullet pierced". */
+export const MODIFIER_WORDS: Partial<Record<ModifierId, string>> = { 'in-splendour': 'in splendor', fitchy: 'fitchy', voided: 'voided', pierced: 'pierced' };
 
-/** The modifiers that reshape a charge, worded after the noun: "a lozenge voided", "a mullet of six points pierced". */
-const RESHAPING_WORDS: Partial<Record<ModifierId, string>> = { voided: 'voided', pierced: 'pierced' };
-
-/** What a star's points are called: an estoile's are rays ("an estoile of eight rays"). */
-const POINTS_WORD: Partial<Record<ChargeId, string>> = { estoile: 'rays' };
+/** What a star's points are called: an estoile's are rays ("an estoile of eight rays"), a mullet's points. */
+export const pointsWord = (id: ChargeId): string => (id === 'estoile' ? 'rays' : 'points');
 
 /** The order modifiers are worded in: the number of points first ("a mullet of six points voided"), then the rest as listed. */
 const WORDING_ORDER: readonly ModifierId[] = ['of-points', ...MODIFIER_IDS.filter((id) => id !== 'of-points')];
@@ -119,8 +116,8 @@ const WORDING_ORDER: readonly ModifierId[] = ['of-points', ...MODIFIER_IDS.filte
 function modifiersWords(c: Charge): string[] {
   const words = (m: Modifier): string[] => {
     if (m.id === 'fimbriated' && m.count === null && m.paint !== null) return [];
-    if (m.id === 'of-points' && m.count !== null && m.paint === null && drawnPoints(c.charge) !== null) return [`of ${numberWord(m.count)} ${POINTS_WORD[c.charge] ?? 'points'}`];
-    const word = MODIFIER_WORDS[m.id] ?? RESHAPING_WORDS[m.id];
+    if (m.id === 'of-points' && m.count !== null && m.paint === null && drawnPoints(c.charge) !== null) return [`of ${numberWord(m.count)} ${pointsWord(c.charge)}`];
+    const word = MODIFIER_WORDS[m.id];
     return word !== undefined && m.count === null && m.paint === null ? [word] : notSupported({ category: 'charge-modifier', detail: m.id });
   };
   return [...c.mods].sort((x, y) => WORDING_ORDER.indexOf(x.id) - WORDING_ORDER.indexOf(y.id)).flatMap(words);

@@ -7,10 +7,10 @@
 import {
   CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
-  isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  firstFimbriation, withModifier, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge, drawnLayout, layoutContext,
   partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
-  type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
+  type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
@@ -321,10 +321,13 @@ export function setPair(d: Design, path: GroupPath, pair: PairChoice): Design {
   return refitLayers(canonical(replaceGroup(d, path, { ...g, arrangement, item: { ...g.item, facing: CHARGES[g.item.charge].defaultFacing } })));
 }
 
-export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean): Design {
-  const changed = withItem(d, path, (item) => ({
-    ...item, mods: on ? [...item.mods.filter((m) => m.id !== id), { id, count: null, paint: null }] : item.mods.filter((m) => m.id !== id),
-  }));
+/**
+ * The charge at `path` with modifier `id` on, carrying `value` (a star's number of points, a fimbriation's tincture), or off. A fimbriation
+ * switched on without a tincture is given the first that stands out where the charges lie (`firstFimbriation`).
+ */
+export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean, value: ModifierValue = NO_MODIFIER_VALUE): Design {
+  const given = id === 'fimbriated' && on && value.paint === null ? { count: null, paint: firstFimbriation(d, path) } : value;
+  const changed = withModifier(d, path, id, on, given);
   // A picture drawn with a modifier has no room for pictures on it (its drawing is changed): they are dropped.
   const parts = partsOf(changed);
   return parts.onPicture && parts.picture?.item.k === 'charge' && parts.picture.item.mods.length > 0

@@ -10,7 +10,7 @@
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
 // build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { CHARGES, blazon, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, walkGroups, type Design, type Issue, type ModifierId } from '../../src/lib/heraldry';
+import { blazon, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, wordedAs, type MatchResult } from './match';
@@ -39,16 +39,6 @@ export interface Classification {
 
 // ── Checks ──────────────────────────────────────────────────────────────────
 
-/**
- * The details a design asks of its charges that the builder has no control for yet (a cross fitchy): the library draws and blazons
- * them, but the Design tab offers only the modifiers in a charge's `mods`. They fail the builder check without a replay, and are a gap
- * until the Details disclosure lands (D6b).
- */
-function uncontrolledDetails(design: Design): ModifierId[] {
-  return walkGroups(design).flatMap(({ group: { item } }) => (item.k === 'charge'
-    ? item.mods.filter((m) => !CHARGES[item.charge].mods.includes(m.id)).map((m) => m.id) : []));
-}
-
 
 /** The design-only checks, once per distinct design: many records match the same one. */
 const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { replayed: boolean }>();
@@ -60,13 +50,12 @@ function checkDesign(design: Design, replay: boolean) {
   if (!found || (replay && !found.replayed)) {
     const a = assessMatched(design);
     const rendered = checkRendered(design, renderShieldSvg(design));
-    const uncontrolled = uncontrolledDetails(design);
-    const path = replay && !uncontrolled.length ? builderPath(design) : null;
+    const path = replay ? builderPath(design) : null;
     found = {
       replayed: replay,
       assess: a.kind === 'ok' ? null : `${a.kind === 'violation' ? a.status : a.kind}: ${a.issues.map((i) => i.message).join(' ')}`,
       render: rendered.length ? rendered.join('; ') : null,
-      builder: uncontrolled.length ? `the Design tab has no control for ${uncontrolled.join(', ')}` : path && path.problems.length ? path.problems.join('; ') : null,
+      builder: path && path.problems.length ? path.problems.join('; ') : null,
     };
     designChecks.set(key, found);
   }
@@ -163,10 +152,9 @@ function arrangementWording(m: MatchResult): string | null {
   return `blazon-wording-differs:${!widget ? 'sca-states-arrangement' : !sca ? 'widget-states-arrangement' : 'arrangement-differs'}`;
 }
 
-function gapTags(record: ArmoryRecord, m: MatchResult, failures: readonly CheckFailure[], options: ClassifyOptions): string[] | null {
+function gapTags(record: ArmoryRecord, m: MatchResult, options: ClassifyOptions): string[] | null {
   if (m.match) {
-    const design = m.match.design!;
-    return [...findingTags(design), ...(failures.every((f) => f.check === 'builder') ? uncontrolledDetails(design).map((id) => `charge-modifier:${id}`) : [])];
+    return findingTags(m.match.design!);
   }
   const wording = arrangementWording(m);
   if (wording) return [wording];
@@ -180,7 +168,7 @@ function gapTags(record: ArmoryRecord, m: MatchResult, failures: readonly CheckF
 export function classify(record: ArmoryRecord, options: ClassifyOptions = {}): Classification {
   const { match, failures } = checkBlazon(record.blazon, options);
   if (!failures.length) return { status: 'passes', failures, tags: [] };
-  const found = gapTags(record, match, failures, options);
+  const found = gapTags(record, match, options);
   if (!found) return { status: 'gap-unchecked', failures, tags: [] };
   const tags = [...new Set(found)].sort();
   return { status: tags.length ? 'gap' : 'fails', failures, tags };

@@ -10,7 +10,7 @@ import {
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
 import { rotatesIn, sampleSeed } from './rotation';
-import { generatedChargeAttributeDesigns, generatedGeometryDesigns, unmodified, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
@@ -311,8 +311,8 @@ describe('designs with a chief and a bordure beside the band are built by clicks
     expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
   }, 60_000);
 
-  it('every generated design with a charge facing to sinister, turned, or set as a pair, is built too', () => {
-    const problems = share(unmodified(generatedChargeAttributeDesigns(11, 60)), 1 / 3).flatMap((d) => {
+  it('every generated design with a charge facing to sinister, turned, set as a pair, or with its points, voided, fimbriated or pierced, is built too', () => {
+    const problems = share(generatedChargeAttributeDesigns(11, 60), 1 / 3).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });

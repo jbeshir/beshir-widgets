@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedChargeAttributeDesigns, generatedDesign, unmodified, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -257,6 +257,14 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a crescent pendant', arms('vert', group(charge('crescent', { orientation: 'inverted' }), 'or'))],
   ['three crescents to center', arms('vert', group(charge('crescent', { orientation: 'to-center' }), 'or', { count: 3, arrangement: 'in-annulo' }))],
   ['four charges in cross points to center', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'argent', { count: 4, arrangement: 'in-cross' }))],
+  // a star's points, voided, pierced and fimbriated charges (SENA §1.4): the points after the noun, the fimbriation after the tincture
+  ['a star of six points', arms('azure', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }] }), 'or'))],
+  ['three stars of eight rays', arms('gules', group(charge('estoile', { mods: [{ id: 'of-points', count: 8 }] }), 'or', { count: 3 }))],
+  ['a star of six points pierced', arms('sable', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }, 'pierced'] }), 'argent'))],
+  ['a star of six points voided', arms('sable', group(charge('mullet', { mods: ['voided', { id: 'of-points', count: 6 }] }), 'argent'))],
+  ['a charge voided', arms('gules', group(charge('delf', { mods: ['voided'] }), 'argent'))],
+  ['a charge fimbriated', arms('azure', group(charge('lozenge', { mods: [{ id: 'fimbriated', paint: 'argent' }] }), 'azure'))],
+  ['three charges fimbriated and a bordure', arms('or', group(charge('roundel', { mods: [{ id: 'fimbriated', paint: 'sable' }] }), 'gules', { count: 3 }), group(ordinary('bordure'), 'azure'))],
   // every charge alone and in threes (the crosses in their plurals: "crosses formy"), and every charge that is drawn fitchy; a lone
   // cross couped is the ordinary of that name (App M1f), so the charge is read in threes only
   ...CHARGE_IDS.flatMap((id): Array<[string, unknown]> => [
@@ -286,7 +294,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...unmodified(generatedChargeAttributeDesigns(1, 200)),
+      ...generatedChargeAttributeDesigns(1, 200),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -349,11 +357,10 @@ describe('the matcher reads the drawn crosses and shapes in the College\'s spell
   });
 
 
-  // The library draws and blazons a fitchy cross, but the Design tab has no control for a detail yet (D6b): a matched design
-  // that needs one is a gap, not a widget bug.
-  it('files a fitchy cross under its modifier until the builder has a control for it', () => {
+  // The Details disclosure sets a cross fitchy, so a matched design that needs one passes (D6b).
+  it('passes a fitchy cross, which the builder draws by its Details toggle', () => {
     const c = classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Azure, three crosses formy fitchy Or.', headings: [] });
-    expect([c.status, c.tags, c.failures.map((f) => f.check)]).toEqual(['gap', ['charge-modifier:fitchy'], ['builder']]);
+    expect([c.status, c.failures]).toEqual(['passes', []]);
   });
 });
 
@@ -410,6 +417,42 @@ describe('the matcher reads which way a charge points in the College\'s words', 
     expect(tags('Azure, a lion inverted Or.')).toEqual(['orientation:inverted']);
     expect(tags('Azure, a mullet fesswise Or.')).toEqual(['orientation:fesswise']);
     expect(tags('Azure, a sword saltirewise argent.')).toEqual(['orientation:saltirewise']);
+  });
+});
+
+// A star's points and a charge's details, as the SCA writes them: each reads as the widget's own design (SENA §1.4); a charge that does
+// not take a detail, or a number of points the widget doesn't draw, keeps its gap.
+describe('the matcher reads a star\'s points and a charge\'s details in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a mullet of six points Or.', 'Azure, a mullet of six points Or.'],
+    ['Azure, a mullet of five points Or.', 'Azure, a mullet Or.'],
+    ['Azure, three mullets of five points Or.', 'Azure, three mullets Or.'],
+    ['Gules, an estoile of six rays Or.', 'Gules, an estoile Or.'],
+    ['Gules, an estoile of eight points Or.', 'Gules, an estoile of eight rays Or.'],
+    ['Sable, a mullet of six points voided argent.', 'Sable, a mullet of six points voided argent.'],
+    ['Sable, a mullet of six points pierced argent.', 'Sable, a mullet of six points pierced argent.'],
+    ['Azure, a mullet pierced Or.', 'Azure, a mullet pierced Or.'],
+    ['Azure, a triangle voided Or.', 'Azure, a triangle voided Or.'],
+    ['Azure, a lozenge azure fimbriated argent.', 'Azure, a lozenge azure fimbriated argent.'],
+    ['Or, a roundel gules fimbriated sable, a bordure azure.', 'Or, a roundel gules fimbriated sable, a bordure azure.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('keeps the fimbriation\'s tincture its own: the charge\'s is not carried into it, nor it into the charge', () => {
+    const item = (text: string) => read(text)!.groups[0].item;
+    expect(item('Azure, a roundel gules fimbriated Or.')).toMatchObject({ mods: [{ id: 'fimbriated', paint: { k: 'tincture', t: 'or' } }] });
+    expect(read('Azure, a roundel gules fimbriated Or.')!.groups[0].paint).toEqual({ k: 'tincture', t: 'gules' });
+  });
+
+  it('files points the widget does not draw, and a detail on a charge that does not take it, under their gaps', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a mullet of five greater and five lesser points Or.')).toEqual(['charge-modifier:points']);
+    expect(tags('Azure, a rose voided Or.')).toEqual(['charge-modifier:voided']);
+    expect(tags('Azure, a lion pierced Or.')).toEqual(['charge-modifier:pierced']);
+    expect(tags('Azure, a heart gules fimbriated Or.')).toEqual(['charge-modifier:fimbriated']);
   });
 });
 
@@ -867,6 +910,13 @@ describe('the tagger never files a record under a construct the widget supports'
     ['crosses couped', 'azure, three crosses couped Or'],
     ['compass stars', 'azure, three compass-stars Or'],
     ['a crosslet fitchy', 'azure, a crosslet fitchy Or'],
+    ['a mullet of six points', 'azure, a mullet of six points Or'],
+    ['estoiles of eight rays', 'azure, three estoiles of eight rays Or'],
+    ['an estoile of eight points', 'azure, an estoile of eight points Or'],
+    ['a mullet of six points pierced', 'azure, a mullet of six points pierced Or'],
+    ['a mullet voided', 'azure, a mullet voided Or'],
+    ['a delf voided', 'azure, a delf voided Or'],
+    ['a lozenge fimbriated', 'azure, a lozenge azure fimbriated argent'],
     ['triquetrae', 'azure, three triquetrae Or'],
     ['ermine spots', 'azure, three ermine spots Or'],
     ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, ${ordinaryWithArticle(t)} ${LINE_WORD[l]} Or`])),

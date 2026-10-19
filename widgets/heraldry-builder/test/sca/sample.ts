@@ -23,8 +23,11 @@ export const BUILDER_SAMPLE = 120;
 /** One in this many ignored records has the gap tagger re-run by the rotating stratum. */
 export const TAGGER_RATE = 12;
 
-/** The features of a design: the tokens of its signature (ordinaries `o.fess`, charges `c.lion`, lines, mods, divisions, layouts, tinctures). */
-const features = (d: Design): string[] => signature(d).split(/[|:(),{}/+~.>]/).filter(Boolean);
+/**
+ * The features of a design: the tokens of its signature (ordinaries `o.fess`, charges `c.lion`, lines, mods, divisions, layouts, tinctures). A
+ * modifier's number is a token of its own (`+of-points*6` is `of-points` and `6`), so a star of every number of points is one feature.
+ */
+const features = (d: Design): string[] => signature(d).split(/[|:(),{}/+~.>*]/).filter(Boolean);
 
 export interface Sampler {
   /** Whether to replay the builder for this design; the answer is fixed for a design on first ask. */

@@ -6,9 +6,9 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
+  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, detailChoices, pointsChoices, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeId, type Choice, type ModifierId, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
@@ -51,6 +51,7 @@ export type BuilderAction =
   | { kind: 'facing'; at: At; facing: Facing }
   | { kind: 'orientation'; at: At; orientation: Orientation }
   | { kind: 'splendour'; at: At }
+  | { kind: 'modifier'; at: At; id: ModifierId; count: number | null; paint: Paint | null }
   | { kind: 'charge-tincture'; at: At; tincture: GroupTincture }
   | { kind: 'split'; target: PaintWhere }
   | { kind: 'party-division'; target: PaintWhere; division: Division }
@@ -191,6 +192,15 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       const path = pathAt(d, a.at);
       return path ? choiceReason(modifierChoices(d, path), 'in-splendour') : `there is no ${a.at} to show a face on`;
     }
+    case 'modifier': {
+      // The Details disclosure: a star's points chip, a detail's toggle, and for a fimbriation then its tincture.
+      const path = pathAt(d, a.at);
+      if (!path) return `there is no ${a.at} to draw ${a.id}`;
+      if (a.id === 'of-points') return choiceReason(pointsChoices(d, path), a.count);
+      const toggled = choiceReason(detailChoices(d, path), a.id);
+      if (toggled || a.id !== 'fimbriated') return toggled;
+      return a.paint?.k === 'tincture' ? choiceReason(fimbriationTinctureChoices(setModifier(d, path, 'fimbriated', true), path), a.paint.t) : `a fimbriation of ${JSON.stringify(a.paint)} is not offered`;
+    }
     case 'charge-tincture': {
       const path = pathAt(d, a.at);
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : `there is no ${a.at} to colour`;
@@ -292,6 +302,7 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'facing': return setFacing(d, path!, a.facing);
     case 'orientation': return setOrientation(d, path!, a.orientation);
     case 'splendour': return setModifier(d, path!, 'in-splendour', true);
+    case 'modifier': return setModifier(d, path!, a.id, true, { count: a.count, paint: a.paint });
     case 'charge-tincture': return setGroupTincture(d, path!, a.tincture);
     case 'split': return splitGroup(d, paintPathOf(d, a.target)!)!;
     case 'party-division': return setPartyDivision(d, paintPathOf(d, a.target)!, a.division);
@@ -339,6 +350,7 @@ function describeAction(a: BuilderAction): string {
     case 'facing': return `${a.at} facing ${a.facing}`;
     case 'orientation': return `${a.at} turned ${a.orientation}`;
     case 'splendour': return `${a.at} splendour on`;
+    case 'modifier': return `${a.at} ${a.id} on${a.count === null ? '' : ` (${a.count})`}${a.paint?.k === 'tincture' ? ` (${a.paint.t})` : ''}`;
     case 'charge-tincture': return `${a.at} tincture ${a.tincture}`;
     case 'split': return `split the ${a.target}`;
     case 'party-division': return `${a.target} divided ${a.division}`;
@@ -788,6 +800,11 @@ export function builderPath(goal: Design): BuilderPath {
       if (now()?.gaze !== gaze && !click({ kind: 'gaze', at: own, gaze })) return done();
       if (facing && now()?.facing !== facing && !click({ kind: 'facing', at: own, facing })) return done();
       if (orientation && now()?.orientation !== orientation && !click({ kind: 'orientation', at: own, orientation })) return done();
+      // The details, in canonical order (a star's points before piercing it), before the tincture: a fimbriated charge need not contrast.
+      const { details } = CHARGES[group.item.charge];
+      for (const m of mods.filter((m) => details.includes(m.id))) {
+        if (!now()?.mods.some((n) => n.id === m.id && n.count === m.count && JSON.stringify(n.paint) === JSON.stringify(m.paint)) && !click({ kind: 'modifier', at: own, id: m.id, count: m.count, paint: m.paint })) return done();
+      }
       if (!paintTo(own, group.paint)) return done();
     }
   }

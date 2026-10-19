@@ -5,12 +5,12 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, setFacing, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setBadge, setPosture, setFacing, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, edgeSideChoices, facingChoices, gazeChoices, orientationChoices, pairChoices, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, detailChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
-  type Design, type Division, type GroupPath, type LayerKey,
+  type Charge, type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
 
@@ -323,6 +323,39 @@ describe('builder transitions', () => {
     sun = setModifier(sun, picture(sun), 'in-splendour', true);
     expect(blazon(sun)).toBe('Azure, a sun in splendor Or.');
     expect(blazon(setModifier(sun, picture(sun), 'in-splendour', false))).toBe('Azure, a sun Or.');
+  });
+
+  it('the Details: a star\'s points, voided, fimbriated, pierced and fitchy, refused where SENA A3C and M16 refuse them (PLAN-D §3 D6b)', () => {
+    const mullet = setCharge(DEFAULT_DESIGN, 'picture', 'mullet');
+    expect(pointsChoices(mullet, picture(mullet)).map((c) => [c.value, c.allowed])).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => [n, true]));
+    expect(pointsChoices(setCharge(DEFAULT_DESIGN, 'picture', 'roundel'), [0])).toEqual([]);
+    expect(detailChoices(mullet, picture(mullet)).map((c) => [c.value, c.allowed])).toEqual([['voided', true], ['fimbriated', true], ['pierced', true]]);
+    expect(detailChoices(setCharge(DEFAULT_DESIGN, 'picture', 'cross-formy'), [0]).map((c) => c.value)).toEqual(['fitchy']);
+    expect(detailChoices(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), [0])).toEqual([]);
+    // the points: the number the star is drawn with is the star as drawn
+    const six = setModifier(mullet, picture(mullet), 'of-points', true, { count: 6, paint: null });
+    expect(blazon(six)).toBe('Azure, a mullet of six points Or.');
+    expect(pointsOf(groupAt(six, [0]).item as Charge)).toBe(6);
+    expect(setModifier(six, [0], 'of-points', true, { count: 5, paint: null })).toEqual(mullet);
+    expect(blazon(setModifier(six, [0], 'pierced', true))).toBe('Azure, a mullet of six points pierced Or.');
+    // a fimbriation is switched on in the first tincture that stands out where the charge lies, and its tincture is blocked where it doesn't
+    const edged = setModifier(mullet, [0], 'fimbriated', true);
+    expect(blazon(edged)).toBe('Azure, a mullet Or fimbriated argent.');
+    expect(fimbriationTinctureChoices(mullet, [0])).toEqual([]);
+    expect(fimbriationTinctureChoices(edged, [0]).find((c) => c.value === 'gules')).toEqual({ value: 'gules', allowed: false, reason: 'The fimbriation of the mullet (Gules) lies on Azure: colour on colour' });
+    expect(blazon(setModifier(edged, [0], 'fimbriated', true, { count: null, paint: tincturePaint('or') }))).toBe('Azure, a mullet Or fimbriated Or.');
+    expect(detailChoices(edged, [0]).find((c) => c.value === 'voided')).toEqual({ value: 'voided', allowed: false, reason: "A mullet can't be both voided and fimbriated: voided, it is read as fimbriated already (SENA A5C1)." });
+    expect(setModifier(edged, [0], 'fimbriated', false)).toEqual(mullet);
+    // three at most; none voided in a badge
+    const four = setCount(mullet, [0], 4);
+    expect(detailChoices(four, [0]).filter((c) => !c.allowed).map((c) => c.value)).toEqual(['voided', 'fimbriated']);
+    const badge = setCharge(setBadge(DEFAULT_DESIGN), 'picture', 'mullet');
+    expect(detailChoices(badge, picture(badge)).find((c) => c.value === 'voided')).toMatchObject({ allowed: false, reason: 'A fieldless badge has no field to show through a voided charge (SENA A3C).' });
+    // A swap keeps the details the new charge takes (§0.2.7) and drops the rest.
+    const voided = setModifier(six, [0], 'voided', true);
+    expect(blazon(setCharge(voided, 'picture', 'lozenge'))).toBe('Azure, a lozenge voided Or.');
+    expect(blazon(setCharge(voided, 'picture', 'estoile'))).toBe('Azure, an estoile Or.');
+    expect(blazon(setCharge(voided, 'picture', 'sun'))).toBe('Azure, a sun Or.');
   });
 
   it('the Turned row: as usual first, the ways a charge takes, the rest and to center blocked with their reasons (PLAN-D §3 D5b)', () => {
