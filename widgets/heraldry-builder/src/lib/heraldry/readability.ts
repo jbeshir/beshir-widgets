@@ -99,7 +99,7 @@ const MANY_POINTS = 8;
 
 /** How much fine detail a charge carries: its drawing's, one more for a star of many points, one more for each piece its parts and details draw. */
 const chargeDetail = (c: Charge): number =>
-  CHARGES[c.charge].detail + ((c.mods.find((m) => m.id === 'of-points')?.count ?? 0) >= MANY_POINTS ? 1 : 0) + overlaidArt(c).overlays.length;
+  CHARGES[c.charge].detail + ((c.mods.find((m) => m.id === 'of-points')?.count ?? 0) >= MANY_POINTS ? 1 : 0) + overlaidArt(c).overlays.filter((o) => o.part !== 'held').length;
 
 export function readability(d: Design): Readability {
   const entries = walkGroups(d);
@@ -119,13 +119,14 @@ export function readability(d: Design): Readability {
   const crossing = straddle(d, entries);
   const complexLine = d.kind === 'arms' && d.field.k === 'divided' ? [d.field.lines.a, d.field.lines.b].find((l): l is ComplexLine => !isStraightLine(l)) ?? null : null;
 
-  // The largest charge group sets the count score; each further group adds a point.
+  // The largest charge group sets the count score; each further group adds a point, and so does what a group holds (§1.5 H6: a held item is a group, A3E2).
   const biggest = charges.reduce<WalkedGroup | null>((best, e) => (best === null || e.group.count > best.group.count ? e : best), null);
   const sizes = charges.flatMap(({ path, group: { item } }) =>
     item.k === 'charge' ? canonicalSlots(d, path).map((s) => drawnBox(s, item).size) : []);
   const smallest = Math.min(Infinity, ...sizes);
   const sizePoints = (c: number) => (c === 1 ? 0 : c <= 3 ? 1 : c <= 5 ? 2 : 3);
-  const count = (biggest ? sizePoints(biggest.group.count) : 0) + Math.max(0, charges.length - 1) + (smallest < SMALL_CHARGE ? 1 : 0);
+  const holding = charges.filter(({ group: { item } }) => item.k === 'charge' && item.holds.length > 0).length;
+  const count = (biggest ? sizePoints(biggest.group.count) : 0) + Math.max(0, charges.length - 1) + holding + (smallest < SMALL_CHARGE ? 1 : 0);
   const lighter = biggest ? lighterCount(d, biggest) : null;
   const detailed = charges.reduce<{ points: number; entry: WalkedGroup | null }>((best, e) => {
     const points = e.group.item.k === 'charge' ? chargeDetail(e.group.item) : 0;

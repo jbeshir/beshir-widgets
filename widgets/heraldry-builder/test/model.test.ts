@@ -586,7 +586,7 @@ describe('support matrix', () => {
       for (const d of [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 200)]) expect(isSupported(d)).toBe(true);
     });
 
-    it('every generated charge attribute design is supported and legal, about a third face or pair, some turn, some are heads or demi charges, some posed', () => {
+    it('every generated charge attribute design is supported and legal, about a third face or pair, some turn, some are heads or demi charges, some posed, some hold something', () => {
       const designs = generatedChargeAttributeDesigns(1, 200);
       for (const d of designs) expect([isSupported(d), structuralIssues(d)]).toEqual([true, []]);
       const turned = designs.filter((d) => d.groups.some((g) => g.arrangement.k === 'pair' || (g.item.k === 'charge' && g.item.facing === 'to-sinister')));
@@ -596,6 +596,7 @@ describe('support matrix', () => {
       // some in a posture other than the one they are drawn in by default (§1.2), a lion now and then with its head turned (§1.1 F4)
       expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.posture !== null && g.item.posture !== CHARGES[g.item.charge].defaultPosture)).length).toBeGreaterThan(10);
       expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.gaze !== null)).length).toBeGreaterThan(0);
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.holds.length > 0)).length).toBeGreaterThan(3);
     });
 
     it('draws a pair only of two charges that face, each its own way, alone on the field or around a pale', () => {

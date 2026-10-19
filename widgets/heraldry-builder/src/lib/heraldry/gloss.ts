@@ -314,6 +314,22 @@ function piecesGloss(c: Charge): string {
   return words.length ? `, ${words.join(', ')}` : '';
 }
 
+/** What a charge holds, as it looks (§1.5): ", holding a silver sword", ", with a gold key in its beak"; "each" when there are more of them. */
+function heldGloss(c: Charge, count: number): string {
+  const each = count > 1 ? 'each ' : '';
+  return c.holds.map((h) => {
+    const colour = colourOf(h.paint), name = CHARGES[h.item.charge].glossName;
+    const item = colour ? `a ${colour} ${name}` : `a ${name}`;
+    switch (h.how) {
+      case 'maintaining': return `, ${each}holding ${item}`;
+      case 'sustaining': return `, ${each}holding up ${item}`;
+      case 'in-beak': return `, ${each}with ${item} in its beak`;
+      case 'in-mouth': return `, ${each}with ${item} in its mouth`;
+      case 'wearing': return notSupported({ category: 'charge-modifier', detail: h.how });
+    }
+  }).join('');
+}
+
 /**
  * The charges themselves: "three green unicorns rearing up", "a five-pointed star" (counterchanged: no colour word), "the head and neck of a
  * gold wolf, cut off with a ragged edge".
@@ -330,9 +346,9 @@ function chargesSubject(g: Group, count: number): string {
   const orientation = g.item.orientation && ORIENTATION_LABEL[g.item.orientation].plain.toLowerCase();
   const words = [lead, colour, noun, posture, gaze, facing, orientation].filter(Boolean).join(' ');
   const form = g.item.form && FORM_GLOSS[g.item.form];
-  if (!form) return words + piecesGloss(g.item);
+  if (!form) return words + piecesGloss(g.item) + heldGloss(g.item, count);
   const cut = g.item.mods.map((m) => CUT_GLOSS[m.id]).find((w) => w !== undefined);
-  return `${count === 1 ? form.one : form.many} ${words}${cut ? `, ${cut}` : ''}${piecesGloss(g.item)}`;
+  return `${count === 1 ? form.one : form.many} ${words}${cut ? `, ${cut}` : ''}${piecesGloss(g.item)}${heldGloss(g.item, count)}`;
 }
 
 /** "three red five-pointed stars, two above one"; counterchanged: "…stars in the opposite colours of the field (…), two above one". */

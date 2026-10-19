@@ -7,7 +7,7 @@ import { capitalise } from './words';
 import { CHARGES, postureTerm, type ChargeId, type Orientation, type Posture, type PostureClass, type TypeClass } from './charges';
 import {
   asParty, asVariation, canonical, canonicalLines, fieldParts, fimbriationOf, groupAt, hostOf, isFieldPrimary, isVoided, itemKey, itemName, notSupported, primaryGroups,
-  type Charge, type Design, type Group, type GroupPath, type Item, type Paint, type Role,
+  type Charge, type Design, type Group, type GroupPath, type Held, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, partCount, type Division, type Variation } from './divisions';
 import { divisionPartGrid } from './geometry';
@@ -56,9 +56,10 @@ export function isSenaRule(v: unknown): v is SenaRule {
 /**
  * The groups a change is about: `a` and `b` are their paths in the two designs (null on the side that lacks the
  * group); `role` and `host` (the role of the group it sits on, for tertiaries) are those of the first design's group,
- * else the second's.
+ * else the second's. A held item (§1.5 H1) is a secondary group of its own: `a` and `b` are then the paths of its holders and `held`
+ * its place in each holder's `holds`; null for any other group.
  */
-export type GroupRef = { role: Role; item: 'ordinary' | 'charge'; host: Role | null }
+export type GroupRef = { role: Role; item: 'ordinary' | 'charge'; host: Role | null; held: { a: number | null; b: number | null } | null }
   & ({ a: GroupPath; b: GroupPath } | { a: GroupPath; b: null } | { a: null; b: GroupPath });
 
 export interface Diff { attr: DiffAttr; kind: ChangeKind; rule: SenaRule; group: GroupRef | null }
@@ -364,13 +365,16 @@ const secondariesOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'se
 const tertiariesOf = (host: Side | null): Side[] =>
   host ? host.group.charged.map((group, j) => ({ design: host.design, path: [...host.path, j], group, host: host.group })) : [];
 
-/** A5C2b: identical items are paired first, then the rest in canonical order; what is left over is unpaired. */
-function pairUp(xs: readonly Side[], ys: readonly Side[]): { pairs: Array<[Side, Side]>; onlyX: Side[]; onlyY: Side[] } {
+/** A group's item as A5C2b pairs groups by. */
+const sideKey = (s: Side): string => itemKey(s.group.item);
+
+/** A5C2b: identical items (by `key`) are paired first, then the rest in canonical order; what is left over is unpaired. */
+function pairUp<T>(xs: readonly T[], ys: readonly T[], key: (x: T) => string): { pairs: Array<[T, T]>; onlyX: T[]; onlyY: T[] } {
   const restY = [...ys];
-  const restX: Side[] = [];
-  const pairs: Array<[Side, Side]> = [];
+  const restX: T[] = [];
+  const pairs: Array<[T, T]> = [];
   for (const x of xs) {
-    const i = restY.findIndex((y) => itemKey(y.group.item) === itemKey(x.group.item));
+    const i = restY.findIndex((y) => key(y) === key(x));
     if (i >= 0) pairs.push([x, restY.splice(i, 1)[0]]);
     else restX.push(x);
   }
@@ -382,7 +386,7 @@ function pairUp(xs: readonly Side[], ys: readonly Side[]): { pairs: Array<[Side,
 function refOf(x: Side, y: Side | null): GroupRef;
 function refOf(x: null, y: Side): GroupRef;
 function refOf(x: Side | null, y: Side | null): GroupRef {
-  const base = (s: Side) => ({ role: s.group.role, item: s.group.item.k, host: s.host?.role ?? null });
+  const base = (s: Side) => ({ role: s.group.role, item: s.group.item.k, host: s.host?.role ?? null, held: null });
   if (x) return { ...base(x), a: x.path, b: y ? y.path : null };
   if (y) return { ...base(y), a: null, b: y.path };
   throw new RangeError('A group reference needs a group.');
@@ -580,7 +584,7 @@ function pooledPrimaryChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] 
 function primaryGroupChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
   const substantial = xs.length === 1 && ys.length === 1 ? primaryChanges(xs[0], ys[0]) : pooledPrimaryChanges(xs, ys);
   const skip = new Set(substantial.map((c) => c.attr));
-  const distinct = pairUp(xs, ys).pairs.flatMap(([x, y]) => groupChanges(x, y, skip));
+  const distinct = pairUp(xs, ys, sideKey).pairs.flatMap(([x, y]) => groupChanges(x, y, skip));
   const seen = new Set<DiffAttr>();
   return [...substantial, ...distinct.filter((c) => !seen.has(c.attr) && !!seen.add(c.attr))];
 }
@@ -648,11 +652,51 @@ function poseSentence(x: Group, y: Group): string {
 
 /** A5C2c: tertiaries compare only when their hosts are paired; on an unpaired host (`null` opposite) each is an added or removed group. */
 function tertiaryChanges(x: Side | null, y: Side | null): Diff[] {
-  const { pairs, onlyX, onlyY } = pairUp(tertiariesOf(x), tertiariesOf(y));
+  const { pairs, onlyX, onlyY } = pairUp(tertiariesOf(x), tertiariesOf(y), sideKey);
   return [
     ...pairs.flatMap(([p, q]) => groupChanges(p, q, new Set())),
     ...onlyX.map((p) => change('group-presence', 'dc', 'A5G2', refOf(p, null))),
     ...onlyY.map((q) => change('group-presence', 'dc', 'A5G2', refOf(null, q))),
+  ];
+}
+
+// ── Held items ──────────────────────────────────────────────────────────────
+
+/**
+ * §1.5 H1 (SENA App I5; CL 08/2015, CL 02/2019): whether an identifiable item a primary charge maintains or sustains counts as a secondary
+ * charge group. The owner's brief counted held items for nothing; current SENA counts them — herald question D1.
+ */
+const HELD_ITEMS_ARE_GROUPS = true;
+
+/** An item the charges of a primary group hold, with where its holder is and its place in the holder's `holds`. */
+interface HeldSide { path: GroupPath; index: number; held: Held }
+
+/** The items a design's primary groups (one or two co-primary) hold: each a secondary group of one item per holding charge (§1.5 H1). */
+const heldOf = (d: Design): HeldSide[] =>
+  primariesOf(d).flatMap(({ path, group: { item } }) => (item.k === 'charge' ? item.holds.map((held, index) => ({ path, index, held })) : []));
+
+function heldRef(x: HeldSide | null, y: HeldSide | null): GroupRef {
+  const held = { a: x?.index ?? null, b: y?.index ?? null };
+  if (x) return { role: 'secondary', item: 'charge', host: 'primary', held, a: x.path, b: y ? y.path : null };
+  if (y) return { role: 'secondary', item: 'charge', host: 'primary', held, a: null, b: y.path };
+  throw new RangeError('A held item reference needs a held item.');
+}
+
+/**
+ * §1.5 H1, H2: the distinct changes between the items two designs' primary charges hold, paired as groups are (identical items first): an item
+ * added or removed (A5G2), of another type (A5G4) or tincture (A5G3), one distinct change each. Their number (one per holder), orientation,
+ * the way they are held and where are not compared (H2; CL 05/2018, CL 06/2016 — Helayne 04/2021 counted position: herald question D10).
+ */
+function heldChanges(a: Design, b: Design): Diff[] {
+  if (!HELD_ITEMS_ARE_GROUPS) return [];
+  const { pairs, onlyX, onlyY } = pairUp(heldOf(a), heldOf(b), (h) => itemKey(h.held.item));
+  return [
+    ...pairs.flatMap(([x, y]) => [
+      ...(typesDiffer(x.held.item, y.held.item) ? [change('type', 'dc', 'A5G4', heldRef(x, y))] : []),
+      ...(JSON.stringify(x.held.paint) !== JSON.stringify(y.held.paint) ? [change('tincture', 'dc', 'A5G3', heldRef(x, y))] : []),
+    ]),
+    ...onlyX.map((x) => change('group-presence', 'dc', 'A5G2', heldRef(x, null))),
+    ...onlyY.map((y) => change('group-presence', 'dc', 'A5G2', heldRef(null, y))),
   ];
 }
 
@@ -801,11 +845,11 @@ function compare(a: Design, b: Design): Diff[] {
   } else if (pb.length > 0) {
     out.push(change('primary-presence', 'sc', 'A5E1', refOf(null, pb[0])));
   }
-  out.push(...tertiaryChanges(pa[0] ?? null, pb[0] ?? null));
+  out.push(...tertiaryChanges(pa[0] ?? null, pb[0] ?? null), ...heldChanges(a, b));
 
   // Secondary and overall groups: those that pair are compared, each one added or removed is one distinct change (A5G2).
   for (const [xs, ys] of [[secondariesOf(a), secondariesOf(b)], [overallsOf(a), overallsOf(b)]]) {
-    const { pairs, onlyX, onlyY } = pairUp(xs, ys);
+    const { pairs, onlyX, onlyY } = pairUp(xs, ys, sideKey);
     for (const [x, y] of pairs) out.push(...groupChanges(x, y, new Set()), ...tertiaryChanges(x, y));
     for (const x of onlyX) out.push(change('group-presence', 'dc', 'A5G2', refOf(x, null)), ...tertiaryChanges(x, null));
     for (const y of onlyY) out.push(change('group-presence', 'dc', 'A5G2', refOf(null, y)), ...tertiaryChanges(null, y));
@@ -944,11 +988,41 @@ function noGroup(attr: DiffAttr): never {
   throw new RangeError(`A "${attr}" change is about a pair of groups.`);
 }
 
+/** The item held at `index` by the charges at `path`, and what holds it: "lion", "lions". */
+function heldAt(d: Design, path: GroupPath, index: number): { held: Held; holder: string; count: number } {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') throw new RangeError('Only charges hold items.');
+  return { held: g.item.holds[index], holder: g.count === 1 ? CHARGES[g.item.charge].name : CHARGES[g.item.charge].plural, count: g.count };
+}
+
+/** A change of a held item in words (§1.5 H1): "what the lion holds (sword ↔ none)", "colour of the sword the lion holds (argent ↔ gules)". */
+function heldNote(a: Design, b: Design, diff: Diff, ref: GroupRef, held: NonNullable<GroupRef['held']>): { text: string; sentence: string } {
+  const x = ref.a && held.a !== null ? heldAt(a, ref.a, held.a) : null, y = ref.b && held.b !== null ? heldAt(b, ref.b, held.b) : null;
+  const { holder, count } = x ?? y ?? noGroup(diff.attr);
+  const holds = `the ${holder} ${count === 1 ? 'holds' : 'hold'}`;
+  const name = (h: { held: Held } | null) => (h ? itemName(h.held.item) : 'none');
+  const pair = (label: string, p: string, q: string) => `${label} (${p} ↔ ${q})`;
+  switch (diff.attr) {
+    case 'group-presence':
+      return { text: pair(`what ${holds}`, name(x), name(y)), sentence: `Adding or taking away the ${name(x ?? y)} ${holds} is one distinct change: a held item is a group of its own` };
+    case 'type':
+      return { text: pair(`what ${holds}`, name(x), name(y)), sentence: `${capitalise(itemPhrase(x!.held.item))} and ${itemPhrase(y!.held.item)} are different types — a distinct change` };
+    case 'tincture':
+      return { text: pair(`colour of the ${name(x)} ${holds}`, paintName(x!.held.paint), paintName(y!.held.paint)), sentence: `Changing the colour of what ${holds} is a distinct change` };
+    default:
+      throw new RangeError(`A held item has no "${diff.attr}" change.`);
+  }
+}
+
 /** Each difference between `a` (new) and `b` (existing) in words: "pose of picture (passant ↔ courant)". */
 export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly Diff[] = differences(rawA, rawB)): DifferenceNote[] {
   const [a, b] = readingsCompared(rawA, rawB, diffs);
   return diffs.map((diff) => {
     const ref = diff.group;
+    if (ref?.held) {
+      const { text, sentence } = heldNote(a, b, diff, ref, ref.held);
+      return { attr: diff.attr, kind: diff.kind, rule: diff.rule, text, why: `${sentence} (SENA ${diff.rule}).`, item: ref.item };
+    }
     const ga = ref?.a ? groupAt(a, ref.a) : null, gb = ref?.b ? groupAt(b, ref.b) : null;
     const nounA = ref?.a ? groupNoun(a, ref.a) : null, nounB = ref?.b ? groupNoun(b, ref.b) : null;
     const noun = () => nounA ?? nounB ?? noGroup(diff.attr);

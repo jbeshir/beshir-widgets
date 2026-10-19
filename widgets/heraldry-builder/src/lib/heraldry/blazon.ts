@@ -9,7 +9,7 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureWords, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation, type PartId } from './charges';
+import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureWords, type ChargeCategory, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId } from './charges';
 import type { OrientWording } from './art/types';
 import { asParty, asSemy, asTreated, asVariation, fimbriationOf, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
@@ -143,6 +143,22 @@ function piecesWords(c: Charge): Array<{ text: string; paint: string }> {
     const last = out[out.length - 1];
     return last?.paint === paint ? [...out.slice(0, -1), { text: `${last.text} and ${word}`, paint }] : [...out, { text: word, paint }];
   }, []);
+}
+
+/** How the College words each way of holding, before the held item (the SCA armorial: "maintaining in its beak" 116, "holding in its beak" 14). */
+const HOLD_WORDS: Record<HoldHow, string> = { maintaining: 'maintaining', sustaining: 'sustaining', 'in-beak': 'maintaining in its beak', 'in-mouth': 'maintaining in its mouth', wearing: 'wearing' };
+
+/**
+ * What a group's charges hold, after everything else about them, each with its tincture (§1.5): "a lion Or maintaining a sword argent",
+ * "an eagle maintaining in its beak a key Or". Charges of a group of more each hold their own: "two lions combattant Or each maintaining a sword
+ * argent" (the armorial has "each maintaining" 25 times after more than one charge; without "each" they hold one item "between them"). A held
+ * item of the charges' tincture leaves theirs unsaid, as a piece does ("a lion maintaining a sword Or").
+ */
+function holdsWords(c: Charge, count: number): Array<{ text: string; paint: string }> {
+  return c.holds.map((h) => {
+    const meta = CHARGES[h.item.charge];
+    return { text: `${count > 1 ? 'each ' : ''}${HOLD_WORDS[h.how]} ${meta.article} ${meta.name}`, paint: paintWord(h.paint) };
+  });
 }
 
 /** The word for which way a charge faces, after its posture (R§F.3): none as drawn, "contourny" (no final -e), "affronty". */
@@ -342,7 +358,7 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     // azure"). What follows may share the trim's ("a chevron gules fimbriated between three lions argent").
     const fimbriation = g.item.k === 'charge' ? fimbriationOf(g.item) : null;
     if (fimbriation) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriation), strewn: '', linked: false, lead: ' ', joiner: ', ' });
-    if (g.item.k === 'charge') for (const piece of piecesWords(g.item)) out.push({ kind: 'trim', ...piece, strewn: '', linked: true, lead: ' ', joiner: ', ' });
+    if (g.item.k === 'charge') for (const piece of [...piecesWords(g.item), ...holdsWords(g.item, g.count)]) out.push({ kind: 'trim', ...piece, strewn: '', linked: true, lead: ' ', joiner: ', ' });
     if (g.item.k !== 'ordinary') return;
     const { type, lines, fimbriated, cotised } = g.item;
     if (fimbriated) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriated), strewn: '', linked: false, lead: ' ', joiner: ', ' });

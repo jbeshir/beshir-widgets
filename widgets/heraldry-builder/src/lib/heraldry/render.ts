@@ -110,7 +110,7 @@ export function badgeView(d: Design, layers: readonly Layer[]): string | null {
   return badgeTransform(layers.flatMap((l) => (l.k === 'charges' ? l.slots : [])));
 }
 
-/** The tinctures a design uses, in order of first use: what hatching patterns are needed for. Counterchanged adds none. */
+/** The tinctures a design uses, in order of first use: what hatching patterns are needed for; held items' too (§1.5 H6). Counterchanged adds none. */
 export function designTinctures(d: Design): Tincture[] {
   const seen = new Set<Tincture>();
   const take = (p: Group['paint']) => paintTinctures(p).forEach((t) => seen.add(t));
@@ -118,6 +118,7 @@ export function designTinctures(d: Design): Tincture[] {
   walkGroups(d).forEach(({ group }) => {
     take(group.paint);
     if (group.item.k === 'ordinary') [group.item.fimbriated, group.item.cotised?.paint].forEach((p) => p && take(p));
+    else group.item.holds.forEach((h) => take(h.paint));
   });
   return [...seen];
 }

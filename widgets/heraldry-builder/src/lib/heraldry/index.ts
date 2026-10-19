@@ -1,6 +1,6 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
-export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type ModifierId, type PartId, type TypeClass } from './charges';
+export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, HOLD_HOWS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type HoldHow, type ModifierId, type PartId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
