@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, pathRings, ringDepths, ringProblems,
+  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, isTurnedPosture, pathRings, ringDepths, ringProblems,
   type ArtKey, type ChargeId, type DrawingMeta,
 } from '../src/lib/heraldry';
 import { rings } from './art-geometry';
@@ -83,12 +83,13 @@ describe('the charge art', () => {
     expect([...problems, ...starProblems]).toEqual([]);
   });
 
-  it('keeps it in the drawings derived from others: every head erased, every demi charge (PLAN-D §2.6)', () => {
+  it('keeps it in the drawings derived from others: every head erased, every demi charge, every posture turned from another (PLAN-D §2.6)', () => {
     const derived = CHARGE_IDS.flatMap((id) => [
       ...(CHARGES[id].forms.includes('head') ? [[id, 'erased-head', derivedPath(id, 'erased-head')!] as const] : []),
       ...(CHARGES[id].forms.includes('demi') ? [[id, 'demi', derivedPath(id, 'demi')!] as const] : []),
+      ...(CHARGES[id].postures ?? []).filter(isTurnedPosture).map((p) => [id, p, derivedPath(id, p)!] as const),
     ]);
-    expect(derived).toHaveLength(12);
+    expect(derived).toHaveLength(13);
     expect(derived.flatMap(([id, key, d]) => drawingProblems(d, { onBox: null, anchors: {}, neck: null }).map((rule) => `${id} ${key} ${rule}`))).toEqual([]);
   });
 
@@ -100,11 +101,11 @@ describe('the charge art', () => {
     for (const id of CHARGE_IDS) for (const key of drawingKeys(id)) expect(pathRings(CHARGE_ART[id][key]!), `${id} ${key}`).toEqual(rings(CHARGE_ART[id][key]!));
   });
 
-  it('has a drawing for every drawn posture, or one posture-less drawing, and no other', () => {
+  it('has a drawing for every drawn posture but one turned from another (urinant), or one posture-less drawing, and no other', () => {
     for (const id of CHARGE_IDS) {
       const keys = drawingKeys(id);
       expect(keys.every((k) => allowedKeys(id).includes(k)), `${id}: ${keys}`).toBe(true);
-      expect(keys, id).toEqual(expect.arrayContaining([...(CHARGES[id].postures ?? ['_'])]));
+      expect(keys, id).toEqual(expect.arrayContaining([...(CHARGES[id].postures?.filter((p) => !isTurnedPosture(p)) ?? ['_'])]));
     }
   });
 

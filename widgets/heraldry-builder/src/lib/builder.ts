@@ -7,7 +7,7 @@
 import {
   CHARGES, COLOURS, CUT_MODIFIERS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
-  firstFimbriation, withModifier, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  firstFimbriation, gazeDrawn, withModifier, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge, drawnLayout, layoutContext,
   partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
   type ChargeForm, type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
@@ -290,9 +290,15 @@ function withItem(d: Design, path: GroupPath, change: (item: Extract<Group['item
   return canonical(replaceGroup(d, path, { ...g, item }));
 }
 
-/** The charge at `path` in a posture; the pictures on it are refitted to the room its new drawing leaves them. */
+/**
+ * The charge at `path` in a posture, its head still turned where that posture is drawn so (else looking ahead); the pictures on it are
+ * refitted to the room its new drawing leaves them.
+ */
 export function setPosture(d: Design, path: GroupPath, posture: Posture): Design {
-  return refitLayers(withItem(d, path, (item) => ({ ...item, posture })));
+  return refitLayers(withItem(d, path, (item) => {
+    const posed = { ...item, posture };
+    return posed.gaze && !gazeDrawn(posed, posed.gaze) ? { ...posed, gaze: null } : posed;
+  }));
 }
 
 /** The charge at `path` facing this way; the pictures on it are refitted to its mirrored drawing. */

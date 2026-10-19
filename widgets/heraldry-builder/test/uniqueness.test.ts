@@ -754,6 +754,52 @@ describe('counterchanged and the same tinctures written out (A5G3a)', () => {
   });
 });
 
+describe('postures (PLAN-D §1.2 P1–P3, P7)', () => {
+  const on = (id: string, posture: string, attrs: object = {}) => design('azure', chg(id, 'or', {}, { posture, ...attrs }));
+  /** A posture compared whether or not it is drawn (statant erect, an eagle naiant: conflict does not need the art). */
+  const undrawn = (id: string, posture: string, ...before: object[]) => nd(arms('azure', ...before, chg(id, 'or', before.length ? { count: 3, relation: 'between' } : {}, { posture })));
+
+  it('P1: the four-legged lines — passant against couchant a DC, couchant against dormant and rampant against salient none, rampant against sejant a DC', () => {
+    expect(between(on('lion', 'passant'), on('lion', 'couchant'))).toEqual(['posture:dc:A5G7']);
+    expect(between(on('lion', 'couchant'), on('lion', 'dormant'))).toEqual([]);
+    expect(between(on('lion', 'rampant'), on('lion', 'salient'))).toEqual([]);
+    expect(between(on('lion', 'courant'), on('lion', 'passant'))).toEqual([]);
+    // herald question D2: rampant and sejant share A5E5a's line but not App L1a's
+    expect(between(on('lion', 'rampant'), on('lion', 'sejant'))).toEqual(['posture:dc:A5G7']);
+    expect(between(on('lion', 'sejant-erect'), on('lion', 'rampant'))).toEqual([]);
+    expect(between(on('lion', 'sejant-erect'), on('lion', 'sejant'))).toEqual([]);
+    expect(between(on('lion', 'couchant'), on('lion', 'rampant'))).toEqual(['posture:sc:A5E5']);
+    expect(between(on('stag', 'couchant'), on('stag', 'statant'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('P1: statant erect joins the rampant line, so against passant it is a substantial change as the primary, against rampant none', () => {
+    expect(between(undrawn('lion', 'statant-erect'), undrawn('lion', 'passant'))).toEqual(['posture:sc:A5E5']);
+    expect(between(undrawn('lion', 'statant-erect'), undrawn('lion', 'rampant'))).toEqual([]);
+    // beside a fess, as a secondary group, it is a distinct change only
+    const fess = ord('fess', 'argent');
+    expect(between(undrawn('lion', 'statant-erect', fess), undrawn('lion', 'passant', fess))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('P2: birds — close against rising a substantial change as the primary, close against naiant none, displayed against volant a DC', () => {
+    expect(between(on('eagle', 'close'), on('eagle', 'rising'))).toEqual(['posture:sc:A5E5']);
+    expect(between(on('eagle', 'close'), undrawn('eagle', 'naiant'))).toEqual([]);
+    expect(between(on('eagle', 'displayed'), on('eagle', 'volant'))).toEqual(['posture:dc:A5G7']);
+    expect(between(on('eagle', 'displayed'), on('eagle', 'close'))).toEqual(['posture:sc:A5E5']);
+  });
+
+  it('P3: a fish haurient against urinant is no difference; P7: a beast and a bird are not compared by posture', () => {
+    expect(between(on('fish', 'haurient'), on('fish', 'urinant'))).toEqual([]);
+    expect(between(on('fish', 'naiant'), on('fish', 'urinant'))).toEqual(['posture:sc:A5E5']);
+    expect(between(on('lion', 'couchant'), on('eagle', 'close'))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('F4: a lion guardant or regardant against one looking ahead is no difference, whatever its posture', () => {
+    expect(between(on('lion', 'passant', { gaze: 'guardant' }), on('lion', 'passant'))).toEqual([]);
+    expect(between(on('lion', 'rampant', { gaze: 'regardant' }), on('lion', 'rampant', { gaze: 'guardant' }))).toEqual([]);
+    expect(between(on('lion', 'passant', { gaze: 'guardant' }), on('lion', 'rampant'))).toEqual(['posture:sc:A5E5']);
+  });
+});
+
 describe('facing, gaze and pairs (PLAN-D §1.1 F1–F10)', () => {
   const lion = (attrs: object = {}, extra: object = {}) => chg('lion', 'or', extra, attrs);
   const pair = (id: string, word: string) => chg(id, 'or', { count: 2, arrangement: { k: 'pair', pair: word } });

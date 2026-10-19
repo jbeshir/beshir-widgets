@@ -40,7 +40,7 @@ describe('demi charges and heads (PLAN-D §1.4)', () => {
 
   it('draw a head from its own drawing, erased with its neck torn into tufts inside the box, whatever the posture', () => {
     for (const id of withForm('head')) {
-      expect(drawn(lone(head(id, { posture: 'rampant' }))), id).toBe(chargePath({ charge: id, form: 'head', posture: null, mods: [] }));
+      expect(drawn(lone(head(id, { posture: 'rampant' }))), id).toBe(chargePath({ charge: id, form: 'head', posture: null, gaze: null, mods: [] }));
       const erased = derivedPath(id, 'erased-head')!;
       expect(drawn(lone(head(id, { mods: ['erased'] }))), id).toBe(erased);
       const { y } = CHARGES[id].drawings.head!.neck!;

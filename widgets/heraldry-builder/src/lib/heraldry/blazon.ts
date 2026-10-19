@@ -9,7 +9,7 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureTerm, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation } from './charges';
+import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureWords, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation } from './charges';
 import type { OrientWording } from './art/types';
 import { asParty, asSemy, asTreated, asVariation, fimbriationOf, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
@@ -217,7 +217,7 @@ function laidChargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonO
   const meta = CHARGES[g.item.charge];
   const words = countedNoun(g.item, g.count);
   // GoT Table 5: a posture the College assumes is left out (RULES §F.8).
-  if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureTerm(g.item.charge, g.item.posture));
+  if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureWords(g.item.charge, g.item.posture));
   words.push(...turnWords(g.item), ...(g.item.orientation === 'to-center' ? [] : orientationWords(g.item)), ...modifiersWords(g.item));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
   // Charges Table 7 forces into one part of the field by tincture are not said to stand there; how they stand there still is.

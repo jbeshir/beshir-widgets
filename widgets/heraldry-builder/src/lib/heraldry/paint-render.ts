@@ -3,8 +3,9 @@
 
 import { TINCTURE_CODE, type Tincture } from './tinctures';
 import { CHARGES } from './charges';
+import { drawnBox } from './charge-art';
 import { asParty, asSemy, asTreated, asVariation, notSupported, type Design, type Group, type Paint, type PartyPaint, type VariationPaint } from './design';
-import { counterchangedSlotParts, drawnBox, fieldRegions, partitionRegions, type ArtPose, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
+import { counterchangedSlotParts, fieldRegions, partitionRegions, type ArtPose, type CounterchangePart, type FieldPaint, type Slot } from './geometry';
 import type { Division, Variation } from './divisions';
 import { counterchangedOrdinaryParts, counterchangedTrimParts, ordinaryGeometry, type OrdinaryFrame, type OrdinarySpec, type OrdinaryTrim } from './ordinary-geometry';
 import { furPattern, semyPattern, treatmentPattern, type SolidColour, type PatternSpec } from './patterns';

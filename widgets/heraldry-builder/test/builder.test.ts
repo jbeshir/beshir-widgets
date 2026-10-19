@@ -5,7 +5,7 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setBadge, setCut, setForm, setPosture, setFacing, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setBadge, setCut, setForm, setPosture, setFacing, setGaze, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
   addLayer, addedLayerStep, blazon, cutChoices, detailChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
@@ -315,10 +315,13 @@ describe('builder transitions', () => {
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     const choices = postureChoices(lion, picture(lion));
     expect(choices.find((c) => c.value === 'passant')!.allowed).toBe(true);
-    expect(choices.some((c) => c.value === 'courant')).toBe(false);
+    expect(choices.some((c) => c.value === 'statant-erect')).toBe(false);
+    // The postures drawn beyond the four of a four-legged beast follow them, in the order of POSTURES (PLAN-D §3 D8a).
+    expect(choices.map((c) => c.value)).toEqual(['rampant', 'passant', 'statant', 'sejant', 'courant', 'salient', 'couchant', 'dormant', 'sejant-erect']);
+    expect(blazon(setPosture(lion, picture(lion), 'sejant-erect'))).toBe('Azure, a lion sejant erect Or.');
     // Swapping the charge keeps a posture it is drawn in and falls back to the default otherwise.
     expect(groupAt(setCharge(setPosture(lion, picture(lion), 'passant'), 'picture', 'wolf'), [0]).item).toMatchObject({ charge: 'wolf', posture: 'passant' });
-    expect(groupAt(setCharge(setPosture(lion, picture(lion), 'sejant'), 'picture', 'wolf'), [0]).item).toMatchObject({ charge: 'wolf', posture: 'passant' });
+    expect(groupAt(setCharge(setPosture(lion, picture(lion), 'couchant'), 'picture', 'wolf'), [0]).item).toMatchObject({ charge: 'wolf', posture: 'passant' });
     let sun = setCharge(DEFAULT_DESIGN, 'picture', 'sun');
     sun = setModifier(sun, picture(sun), 'in-splendour', true);
     expect(blazon(sun)).toBe('Azure, a sun in splendor Or.');
@@ -410,7 +413,15 @@ describe('builder transitions', () => {
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     const values = <T,>(cs: ReadonlyArray<{ value: T; allowed: boolean }>) => cs.map((c) => [c.value, c.allowed]);
     expect(values(facingChoices(lion, picture(lion)))).toEqual([['to-dexter', true], ['to-sinister', true], ['affronty', false]]);
-    expect(values(gazeChoices(lion, picture(lion)))).toEqual([[null, true], ['guardant', false], ['regardant', false]]);
+    expect(values(gazeChoices(lion, picture(lion)))).toEqual([[null, true], ['guardant', true], ['regardant', true]]);
+    // A head turn is offered where that posture is drawn so (A2a: the lion passant guardant, not regardant; couchant neither).
+    const passant = setPosture(lion, picture(lion), 'passant');
+    expect(values(gazeChoices(passant, picture(passant)))).toEqual([[null, true], ['guardant', true], ['regardant', false]]);
+    expect(values(gazeChoices(setPosture(lion, picture(lion), 'couchant'), [0]))).toEqual([[null, true], ['guardant', false], ['regardant', false]]);
+    // A new posture keeps the head turned where it is drawn so, and looks ahead again where it is not.
+    expect(groupAt(setPosture(setGaze(lion, [0], 'guardant'), [0], 'passant'), [0]).item).toMatchObject({ posture: 'passant', gaze: 'guardant' });
+    expect(groupAt(setPosture(setGaze(lion, [0], 'regardant'), [0], 'passant'), [0]).item).toMatchObject({ posture: 'passant', gaze: null });
+    expect(blazon(setGaze(passant, [0], 'guardant'))).toBe('Azure, a lion passant guardant Or.');
     expect(facingChoices(setCharge(DEFAULT_DESIGN, 'picture', 'rose'), [0])).toEqual([]);
     expect(pairChoices(lion, picture(lion))).toEqual([]);
     const contourny = setFacing(lion, picture(lion), 'to-sinister');

@@ -59,12 +59,12 @@ describe('the on-box of a charge', () => {
   });
 
   it('is found by posture, falling back to the default posture and then the posture-less drawing; a head or a demi charge has none', () => {
-    expect(chargeOnBox({ charge: 'lion', form: 'head', posture: null })).toBeNull();
-    expect(chargeOnBox({ charge: 'lion', form: 'demi', posture: null })).toBeNull();
-    expect(chargeOnBox({ charge: 'lion', form: null, posture: 'passant' })).toEqual(CHARGES.lion.drawings.passant!.onBox);
-    expect(chargeOnBox({ charge: 'lion', form: null, posture: null })).toEqual(CHARGES.lion.drawings.rampant!.onBox);
-    expect(chargeOnBox({ charge: 'heart', form: null, posture: null })).toEqual(CHARGES.heart.drawings._!.onBox);
-    expect(chargeOnBox({ charge: 'key', form: null, posture: null })).toBeNull();
+    expect(chargeOnBox({ charge: 'lion', form: 'head', posture: null, gaze: null })).toBeNull();
+    expect(chargeOnBox({ charge: 'lion', form: 'demi', posture: null, gaze: null })).toBeNull();
+    expect(chargeOnBox({ charge: 'lion', form: null, posture: 'passant', gaze: null })).toEqual(CHARGES.lion.drawings.passant!.onBox);
+    expect(chargeOnBox({ charge: 'lion', form: null, posture: null, gaze: null })).toEqual(CHARGES.lion.drawings.rampant!.onBox);
+    expect(chargeOnBox({ charge: 'heart', form: null, posture: null, gaze: null })).toEqual(CHARGES.heart.drawings._!.onBox);
+    expect(chargeOnBox({ charge: 'key', form: null, posture: null, gaze: null })).toBeNull();
   });
 });
 

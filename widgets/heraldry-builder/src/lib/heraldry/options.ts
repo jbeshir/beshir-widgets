@@ -20,7 +20,7 @@ import { capitalise, joinList, numberWord } from './words';
 import {
   AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, drawnLayout, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
-import { CHARGES, CUT_MODIFIERS, FACINGS, ORIENTATIONS, STAR_POINTS, chargePhrase, drawnPoints, postureTerm, type ChargeForm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
+import { CHARGES, CUT_MODIFIERS, FACINGS, ORIENTATIONS, POSTURES, STAR_POINTS, chargePhrase, drawnPoints, postureWords, type ChargeForm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
 import {
   asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
   type Charge, type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Modifier, type Paint, type Pair, type PartyPaint, type VariationPaint,
@@ -715,9 +715,9 @@ function blockedNote(g: Group, blocks: readonly (Block | null)[]): string | null
 const QUADRUPED_POSTURES: readonly Posture[] = ['rampant', 'passant', 'statant', 'sejant'];
 
 /**
- * Postures for the group's charge. Four-legged charges list the four quadruped postures (and any other
- * they are drawn in, like the hare's courant), with the ones this charge isn't drawn in blocked;
- * other posture-bearing charges list their own; posture-less charges return [].
+ * Postures for the group's charge. Four-legged charges list the four quadruped postures, with the ones this charge isn't drawn in blocked,
+ * then any other they are drawn in (the hare's courant, the lion's couchant…) in the order of `POSTURES`; other posture-bearing charges
+ * list their own; posture-less charges return [].
  */
 export function postureChoices(d: Design, path: GroupPath): Choice<Posture>[] {
   const item = groupAt(d, path).item;
@@ -725,8 +725,9 @@ export function postureChoices(d: Design, path: GroupPath): Choice<Posture>[] {
   const meta = CHARGES[item.charge];
   const drawn = meta.postures;
   if (!drawn) return [];
-  const list = drawn.some((p) => QUADRUPED_POSTURES.includes(p)) ? [...QUADRUPED_POSTURES, ...drawn.filter((p) => !QUADRUPED_POSTURES.includes(p))] : drawn;
-  const names = drawn.map((p) => postureTerm(item.charge, p));
+  const others = POSTURES.filter((p) => drawn.includes(p) && !QUADRUPED_POSTURES.includes(p));
+  const list = drawn.some((p) => QUADRUPED_POSTURES.includes(p)) ? [...QUADRUPED_POSTURES, ...others] : drawn;
+  const names = drawn.map((p) => postureWords(item.charge, p));
   return list.map((p) => choice(p, drawn.includes(p) ? null : `The ${meta.name} is only drawn ${joinList(names, 'or')} in this builder.`));
 }
 
@@ -756,7 +757,8 @@ const OFFERED_GAZES: readonly Gaze[] = ['guardant', 'regardant'];
 
 /**
  * Which way the head of the group's charge looks, offered for a posed charge that faces: ahead (null) as drawn, or turned where the charge
- * has a drawing of its posture with the head turned (none yet: they are listed blocked).
+ * has a drawing of its posture with the head turned (the lion rampant, passant, statant and sejant guardant, rampant regardant); the
+ * others are listed blocked.
  */
 export function gazeChoices(d: Design, path: GroupPath): Choice<Gaze | null>[] {
   const item = groupAt(d, path).item;

@@ -1,6 +1,6 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
-export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type ModifierId, type TypeClass } from './charges';
+export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type ModifierId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
@@ -26,7 +26,7 @@ export {
   type Charge, type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type TreatedPaint, type SemyPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type CountLimit, type IssueAt, type TincturePart,
 } from './design';
 export { resolve, type ResolveResult } from './resolve';
-export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
+export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT, gazeDrawn } from './support';
 export { structuralIssues, couldBeOneFess, coreSteps, COTISED_HOSTS } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, forcedPosition, statesLayout, HALF_POSITIONS, isHalfPosition,
@@ -52,7 +52,7 @@ export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchW
 export { signature } from './signature';
 export {
   SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, divisionRegions, partitionContours, partIndexAt,
-  drawnBox, opticalScale, slotTransform, chargeTransform, UPRIGHT, MIRRORED, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
+  slotTransform, chargeTransform, UPRIGHT, MIRRORED, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
   counterchangedSlotParts, type ArtPose, type Slot, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
@@ -87,11 +87,11 @@ export { FIMBRIATION_WIDTH, VOIDED_WIDTH, renderLayers, badgeView, designTinctur
 export { ORIENTATION_ANGLE, artPose, chargePoses, orientationTurns } from './pose';
 export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';
-export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox } from './charge-art';
+export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox, drawnBox, opticalScale } from './charge-art';
 export { CHARGE_ART, CORE_ART_IDS } from './art/paths/index';
 export { bboxOf, ringDepths, ringProblems, turnFit } from './art/geometry';
 export { crossPath } from './art/procedural/crosses';
-export { ERASED_TEETH, derivedPath } from './art/procedural/derived';
+export { ERASED_TEETH, TURNED_POSTURES, derivedPath, isTurnedPosture } from './art/procedural/derived';
 export { PIERCED_MULLETS, POINTED_STARS } from './art/procedural/stars';
 export type { ArtBox, ArtKey, DrawingMeta } from './art/types';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';

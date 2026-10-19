@@ -229,6 +229,13 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-stags-heads-couped', arms('vert', group(charge('stag', { form: 'head', mods: ['couped'] }), 'or', { count: 3 }))],
   ['attr-lion-head-contourny', arms('gules', group(charge('lion', { form: 'head', facing: 'to-sinister' }), 'or'))],
   ['attr-demi-dragon', arms('sable', group(charge('dragon', { form: 'demi' }), 'argent'))],
+  ['attr-lion-couchant', arms('azure', group(charge('lion', { posture: 'couchant' }), 'or'))],
+  ['attr-lion-passant-guardant', arms('gules', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or'))],
+  ['attr-lion-rampant-regardant', arms('or', group(charge('lion', { gaze: 'regardant' }), 'gules'))],
+  ['attr-eagle-close', arms('azure', group(charge('eagle', { posture: 'close' }), 'argent'))],
+  ['attr-eagles-rising', arms('vert', group(charge('eagle', { posture: 'rising' }), 'or', { count: 3 }))],
+  ['attr-stag-lodged', arms('vert', group(charge('stag', { posture: 'couchant' }), 'or'))],
+  ['attr-fish-urinant', arms('azure', group(charge('fish', { posture: 'urinant' }), 'argent'))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));

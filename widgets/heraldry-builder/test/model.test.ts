@@ -385,8 +385,8 @@ describe('resolve: shape errors', () => {
   });
 
   it('resolves a posture that is not drawn (it is unsupported, not malformed)', () => {
-    const d = nd(arms('or', group(charge('lion', { posture: 'couchant' }), 'gules')));
-    expect(gapTags(d)).toEqual(['posture:couchant']);
+    const d = nd(arms('or', group(charge('lion', { posture: 'statant-erect' }), 'gules')));
+    expect(gapTags(d)).toEqual(['posture:statant-erect']);
   });
 
   it('rejects a tertiary at the top level and any other role below', () => {
@@ -514,11 +514,11 @@ describe('support matrix', () => {
   });
 
   it('files a badge under the gaps of its charge, as arms are', () => {
-    expect(gapTags(nd({ v: 2, kind: 'badge', groups: [group(charge('lion', { posture: 'couchant' }), 'or')] }))).toEqual(['posture:couchant']);
+    expect(gapTags(nd({ v: 2, kind: 'badge', groups: [group(charge('lion', { posture: 'statant-erect' }), 'or')] }))).toEqual(['posture:statant-erect']);
   });
 
   it('names a field gap before the group gaps, each at its place', () => {
-    const d = nd(arms({ k: 'stain', stain: 'murrey' }, group(charge('lion', { posture: 'couchant' }), 'or')));
+    const d = nd(arms({ k: 'stain', stain: 'murrey' }, group(charge('lion', { posture: 'statant-erect' }), 'or')));
     expect(unsupportedIssues(d).map((i) => [i.at.k, i.gap.category])).toEqual([['field', 'tincture'], ['group', 'posture']]);
   });
 
@@ -571,6 +571,12 @@ describe('support matrix', () => {
       ['a wolf\'s head erased', arms('azure', group(charge('wolf', { form: 'head', mods: ['erased'] }), 'or'))],
       ['two lions\' heads respectant', arms('azure', group(charge('lion', { form: 'head' }), 'or', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
       ['a demi-eagle contourny', arms('azure', group(charge('eagle', { form: 'demi', facing: 'to-sinister' }), 'or'))],
+      ['a lion couchant', arms('azure', group(charge('lion', { posture: 'couchant' }), 'or'))],
+      ['a lion passant guardant', arms('azure', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or'))],
+      ['a lion rampant regardant contourny', arms('azure', group(charge('lion', { gaze: 'regardant', facing: 'to-sinister' }), 'or'))],
+      ['an eagle close, three eagles rising', arms('azure', group(charge('eagle', { posture: 'close' }), 'or'), group(ordinary('chief'), 'argent', { charged: [group(charge('eagle', { posture: 'rising' }), 'gules', { count: 3 })] }))],
+      ['a stag lodged', arms('vert', group(charge('stag', { posture: 'couchant' }), 'or'))],
+      ['a fish urinant', arms('azure', group(charge('fish', { posture: 'urinant' }), 'argent'))],
     ];
     for (const [label, input] of supported) {
       it(`${label} has no gap`, () => expect(gapTags(nd(input))).toEqual([]));
@@ -580,13 +586,16 @@ describe('support matrix', () => {
       for (const d of [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 200)]) expect(isSupported(d)).toBe(true);
     });
 
-    it('every generated charge attribute design is supported and legal, about a third face or pair, some turn, some are heads or demi charges', () => {
+    it('every generated charge attribute design is supported and legal, about a third face or pair, some turn, some are heads or demi charges, some posed', () => {
       const designs = generatedChargeAttributeDesigns(1, 200);
       for (const d of designs) expect([isSupported(d), structuralIssues(d)]).toEqual([true, []]);
       const turned = designs.filter((d) => d.groups.some((g) => g.arrangement.k === 'pair' || (g.item.k === 'charge' && g.item.facing === 'to-sinister')));
       expect(turned.length).toBeGreaterThan(40);
       expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.orientation !== null)).length).toBeGreaterThan(20);
       expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.form !== null)).length).toBeGreaterThan(10);
+      // some in a posture other than the one they are drawn in by default (§1.2), a lion now and then with its head turned (§1.1 F4)
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.posture !== null && g.item.posture !== CHARGES[g.item.charge].defaultPosture)).length).toBeGreaterThan(10);
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.gaze !== null)).length).toBeGreaterThan(0);
     });
 
     it('draws a pair only of two charges that face, each its own way, alone on the field or around a pale', () => {
