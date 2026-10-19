@@ -30,6 +30,8 @@ describe('held items (PLAN-D §1.5)', () => {
       lion: ['maintaining', 'sustaining', 'in-mouth'], wolf: ['maintaining', 'sustaining', 'in-mouth'], boar: ['in-mouth'], goat: ['maintaining', 'sustaining'],
       hare: ['maintaining', 'sustaining'], fish: ['in-mouth'], unicorn: ['maintaining', 'sustaining'], dragon: ['maintaining', 'sustaining', 'in-mouth'],
       eagle: ['maintaining', 'sustaining', 'in-beak'], owl: ['maintaining', 'sustaining', 'in-beak'],
+      // the horse and the bear are drawn with a mouth on their heads only
+      cat: ['maintaining', 'sustaining'], bear: ['maintaining', 'sustaining', 'in-mouth'], horse: ['in-mouth'], fox: ['maintaining', 'sustaining'], squirrel: ['maintaining', 'sustaining'],
     });
     // a crown is worn, not held (H4)
     expect(CHARGES.crown.holdable).toBe(false);

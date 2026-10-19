@@ -19,7 +19,7 @@ const withForm = (form: 'head' | 'demi') => CHARGE_IDS.filter((id) => CHARGES[id
 
 describe('demi charges and heads (PLAN-D §1.4)', () => {
   it('are drawn for the beasts that have them: heads of the six of art batch A1, demi charges of those drawn rampant and the eagle', () => {
-    expect(withForm('head')).toEqual(['lion', 'wolf', 'boar', 'stag', 'unicorn', 'dragon']);
+    expect(withForm('head')).toEqual(['lion', 'wolf', 'boar', 'stag', 'unicorn', 'dragon', 'bear', 'horse']);
     expect(withForm('demi')).toEqual(['lion', 'wolf', 'goat', 'unicorn', 'dragon', 'eagle']);
     for (const id of withForm('head')) expect(CHARGES[id].headName, id).not.toBeNull();
     expect(gaps(lone(head('wolf', { mods: ['erased'] })))).toEqual([]);
@@ -81,6 +81,9 @@ describe('demi charges and heads (PLAN-D §1.4)', () => {
     expect(changes(on(head('lion')), on(charge('lion')))).toEqual(['type:dc:A5G4']);
     expect(changes(on(head('lion')), on(demi('lion')))).toEqual(['type:dc:A5G4']);
     expect(changes(on(head('wolf')), on(head('lion')))).toEqual(['type:sc:A5E2']);
+    // William Ulfsson 08/2014: wolves' heads against horses' heads are more than a DC
+    expect(changes(on(head('wolf')), on(head('horse')))).toEqual(['type:sc:A5E2']);
+    expect(changes(on(head('bear')), on(head('horse')))).toEqual(['type:sc:A5E2']);
     expect(changes(on(head('wolf', { mods: ['erased'] })), on(head('wolf')))).toEqual([]);
   });
 

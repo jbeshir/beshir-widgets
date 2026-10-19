@@ -830,7 +830,16 @@ export function builderPath(goal: Design): BuilderPath {
     // Two main pictures are laid out together and judged together: the first waits for the second, then the controls of either lead to the goal's layout of both.
     if (at === 'picture' && parts.coPrimary) continue;
     const together: readonly At[] = at === 'co-primary' ? ['picture', 'co-primary'] : [at];
-    const route = layoutRoute(d, laidOut, together);
+    let route = layoutRoute(d, laidOut, together);
+    // A drawn posture can fit where the default one does not (two horses rampant in rows with a lion; the horse is drawn passant): then it comes first.
+    if (!route) {
+      for (const own of together) {
+        const { item: wanted } = (own === at ? part : parts.picture!).group;
+        const { item: have } = groupAt(d, pathAt(d, own)!);
+        if (wanted.k === 'charge' && have.k === 'charge' && wanted.posture && have.posture !== wanted.posture && !click({ kind: 'posture', at: own, posture: wanted.posture })) return done();
+      }
+      route = layoutRoute(d, laidOut, together);
+    }
     if (!route) {
       problems.push(`no route through the count, placement and layout controls reaches ${layoutState(laidOut, together)} from ${layoutState(d, together)}`);
       return done();

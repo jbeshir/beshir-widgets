@@ -250,6 +250,13 @@ describe('the primary group (A5E)', () => {
     expect(between(on('mullet'), on('sun'))).toEqual(['type:dc:A5G4']);
     expect(between(on('mullet'), on('rose'))).toEqual(['type:sc:A5E2']);
     expect(between(on('eagle'), on('owl'))).toEqual(['type:dc:A5G4']);
+    // art batch B1: a cat is a feline like the lion, a fox a canine like the wolf (A5C3); the bear, horse and squirrel are types of their own
+    expect(between(on('cat', { posture: 'rampant' }), on('lion', { posture: 'rampant' }))).toEqual([]);
+    expect(between(on('fox', { posture: 'rampant' }), on('wolf', { posture: 'rampant' }))).toEqual([]);
+    expect(between(on('cat'), on('fox'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('bear', { posture: 'rampant' }), on('wolf', { posture: 'rampant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('horse', { posture: 'passant' }), on('wolf', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('squirrel'), on('hare'))).toEqual(['type:sc:A5E2']);
     expect(between(on('lion'), design('azure', ord('fess', 'or')))).toEqual(['type:sc:A5E2']);
   });
 

@@ -88,6 +88,7 @@ export const CHARGE_IDS = [
   'cross-couped', 'cross-latin', 'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory', 'cross-patonce', 'cross-potent',
   'cross-maltese', 'cross-celtic', 'cross-tau',
   'wing',
+  'cat', 'bear', 'horse', 'fox', 'squirrel',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -102,6 +103,7 @@ export const POPULAR_CHARGE_IDS: readonly ChargeId[] = [
   'key', 'open-book', 'sword', 'crown', 'anchor',
   'musical-note', 'flame', 'gear', 'lightbulb',
   'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
+  'cat', 'bear', 'horse', 'fox',
 ];
 
 /**
@@ -154,6 +156,9 @@ export const TYPE_CLASSES = {
   spark: { source: 'A5E2: clearly unrelated shapes are substantially different; the spark is the charge of estencely', guess: true },
   triquetra: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the other knots', guess: true },
   wing: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the feather or the bird', guess: true },
+  bear: { source: 'A5G4: types distinct in period; bear vs wolverine no difference (Jurgen der Vielfrass 08/2018)', guess: true },
+  horse: { source: 'A5G4: types distinct in period; William Ulfsson 08/2014: wolves\' heads vs horses\' heads "more than a DC"; pegasus is a horse +winged (Vagn Feilan 11/2014)', guess: false },
+  squirrel: { source: 'A5G4: types distinct in period; no SENA example against the other beasts', guess: true },
   'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 
