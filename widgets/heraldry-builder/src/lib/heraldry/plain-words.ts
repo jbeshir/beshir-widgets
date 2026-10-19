@@ -3,7 +3,7 @@
 // the term and keep the words for their tooltip. The blazon keeps the heraldic names in blazon.ts;
 // these are display text only. Pure data — no DOM.
 
-import { CHARGES, postureGloss, postureWords, type ChargeForm, type ChargeId, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
+import { CHARGES, postureGloss, postureWords, type ChargeForm, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type Posture } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath, type Pair } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
@@ -13,6 +13,7 @@ import { LINE_WORD, type ComplexLine, type Line } from './lines';
 import type { BandPosition, ShapeToggle } from './shape-options';
 import type { Outline } from './outline';
 import type { PieceId } from './overlay-art';
+import { HOLD_WORDS } from './blazon';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
 
 type FurLayout = FurSpec['layout'];
@@ -165,6 +166,15 @@ export const PIECE_LABEL: Record<PieceId, PlainTerm> = {
   leaved: { plain: 'With leaves', term: 'leaved' },
   crowned: { plain: 'With a crown', term: 'crowned' },
   collared: { plain: 'With a collar', term: 'collared' },
+};
+
+/** The ways a charge holds an item (the Holding row), as they look, and the heraldic words (as `blazon` writes them). */
+export const HOLD_LABEL: Record<HoldHow, PlainTerm> = {
+  maintaining: { plain: 'Holding', term: HOLD_WORDS.maintaining },
+  sustaining: { plain: 'Holding up', term: HOLD_WORDS.sustaining },
+  'in-beak': { plain: 'In its beak', term: HOLD_WORDS['in-beak'] },
+  'in-mouth': { plain: 'In its mouth', term: HOLD_WORDS['in-mouth'] },
+  wearing: { plain: 'Wearing', term: HOLD_WORDS.wearing },
 };
 
 /** The shapes a charge is drawn in (the Shape row), as they look, and the heraldic word; null is the whole charge. */

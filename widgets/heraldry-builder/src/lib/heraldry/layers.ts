@@ -81,7 +81,7 @@ export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines
 /**
  * The charge of a group, keeping the posture, facing, gaze, orientation, modifiers and parts of the one it replaces where the new charge has them
  * (PLAN-D §0.2.7): facing to sinister when it faces, a head turned when it is drawn so in that posture, an orientation it takes, a form it is drawn in (a head keeps its cut),
- * a piece (a crown, wings…) where its drawing has the place for it.
+ * a piece (a crown, wings…) where its drawing has the place for it, the item it holds where it holds it that way (`withDrawnPieces`).
  */
 export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] {
   const meta = CHARGES[id];
@@ -91,7 +91,7 @@ export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] 
   const item: Charge = {
     k: 'charge', charge: id, form, posture: form ? null : posture, gaze: null, facing: meta.faces && was?.facing === 'to-sinister' ? 'to-sinister' : meta.defaultFacing,
     orientation: was?.orientation && meta.orient.allowed.includes(was.orientation) ? was.orientation : null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id) || meta.details.includes(m.id) || (form === 'head' && CUT_MODIFIERS.includes(m.id))) : [],
-    parts: was ? was.parts.filter((p) => meta.parts.includes(p.part)) : [], holds: [],
+    parts: was ? was.parts.filter((p) => meta.parts.includes(p.part)) : [], holds: was ? was.holds : [],
   };
   return withDrawnPieces(was?.gaze && gazeDrawn(item, was.gaze) ? { ...item, gaze: was.gaze } : item);
 }

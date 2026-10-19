@@ -393,6 +393,19 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(new RegExp(`(?<![\\w-])winged ((?:${WINGED_NOUN})(?![\\w-])${CHARGE_WORDS})`, 'g'), '$1 winged'),
   },
   {
+    // 3d4. What a charge holds (PLAN-D §1.5) in the widget's words: "holding", "grasping" and "supporting" a charge are maintaining it
+    //      (the armorial: maintaining 1,435, sustaining 288, grasping 50, holding 26, supporting 10); an item in a beak or a mouth is
+    //      "maintaining in its beak (mouth)" whoever holds it how ("maintaining in its beak" 109, "holding" 11, the rest sustaining,
+    //      bearing or grasping: the manner is worth nothing, §1.5 H2; "his", "her" are "its"); no comma before what is held (388 with one,
+    //      1,616 without).
+    id: 'hold-words',
+    description: '"(maintaining|sustaining|holding|grasping|bearing|supporting) in its/his/her beak/mouth" → "maintaining in its beak/mouth"; holding/grasping/supporting a(n) → maintaining a(n); no comma before "(each) maintaining/sustaining".',
+    apply: (s) => s
+      .replace(/(?<![\w-])(?:maintaining|sustaining|holding|grasping|bearing|supporting) in (?:its|his|her) (beak|mouth)(?![\w-])/g, 'maintaining in its $1')
+      .replace(/(?<![\w-])(?:holding|grasping|supporting)(?= an? )/g, 'maintaining')
+      .replace(/,(?= (?:each )?(?:maintaining|sustaining)(?![\w-]))/g, ''),
+  },
+  {
     // 3e. A semy is "semy of <charges> <tincture>", or one of its names ("crusilly argent", "semy-de-lys Or", "bezanty": a name that
     //     fixes the tincture states none). The widget words it with the name where there is one; the College writes both ways, with
     //     the spellings "crusily", "billetty", "mulletty", "semee". All read as "semy of <charges> <tincture>"; a tincture left unsaid is

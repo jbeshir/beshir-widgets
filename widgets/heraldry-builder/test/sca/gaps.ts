@@ -10,7 +10,7 @@
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
   COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, STAR_POINTS, drawnPoints, FACING_WORD, ORIENTATION_WORDS, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, chargeItem, gazeDrawn, structuralIssues, unsupportedIssues, walkGroups,
-  type ChargeId, type Gaze, type ModifierId, type PartId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
+  type ChargeId, type Gaze, type HoldHow, type ModifierId, type PartId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import { DRAWN_DIVISION_FORMS, PER_PALL_SPELLED, TIERCED_IN, edgeSide } from './words';
@@ -397,6 +397,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   let onHost: Element | null = null; // "on a fess …": later groups lie on it
   let betweenHost: Element | null = null; // "a fess between …": the next group surrounds it
   let held = false; // inside "maintaining …" / "in its beak …"
+  let heldOne = false; // … a hold the widget draws, which ends with its one item
   let ofNext = false; // "a wreath of laurel": the next noun is material, not a group
   let semyNext = false; // "semy of mullets"
   let semyQuiet = false; // … and what it strews is no gap: strewn on the field, or drawn where the widget draws it
@@ -413,6 +414,30 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const words = tokens.map((t) => t.word);
   const look = (i: number) => (i >= 0 && i < tokens.length && words[i] !== BREAK ? lookup(words[i]) : null);
   const isNounEntry = (e: Entry | undefined) => !!e && (e.k === 'charge' || e.k === 'gapCharge' || e.k === 'cross' || e.k === 'ord' || e.k === 'gapOrd');
+
+  /**
+   * Where a hold the widget draws ends (the word before its item) when `words[i]` begins one, else -1 (PLAN-D §1.5): a charge the widget has,
+   * alone on the field, holding a single charge that may be held, as drawn, the way its sidecar row takes ("maintaining", "sustaining",
+   * holding, grasping or supporting it; "maintaining in its beak", "… in its mouth"), "each" doing so when there are more of them. The item
+   * is followed by its tincture or by what follows it ("a lion maintaining a sword, a bordure Or"). Anything else stays a gap.
+   */
+  const drawnHoldEnd = (i: number): number => {
+    const holder = last?.kind === 'charge' && last.el?.ctx === 'field' ? last.el : null;
+    const c = holder?.supported as ChargeId | null | undefined;
+    if (!holder || !c || (holder.count > 1) !== (words[i - 1] === 'each')) return -1;
+    const part = words[i + 1] === 'in' && /^(its|his|her)$/.test(words[i + 2] ?? '') && /^(beak|mouth)$/.test(words[i + 3] ?? '') ? words[i + 3] : null;
+    if (!/^(maintaining|sustaining|holding|grasping|supporting)$/.test(words[i]) && !(part && words[i] === 'bearing')) return -1;
+    const how: HoldHow = part === 'beak' ? 'in-beak' : part === 'mouth' ? 'in-mouth' : words[i] === 'sustaining' ? 'sustaining' : 'maintaining';
+    const end = part ? i + 3 : i;
+    const item = look(end + 2)?.e;
+    if (!CHARGES[c].holds.includes(how) || !/^an?$/.test(words[end + 1] ?? '') || item?.k !== 'charge' || !CHARGES[item.id].holdable) return -1;
+    const next = words[end + 3];
+    // "maintaining a rose gules, slipped and leaved vert": a held item with details of its own is not drawn
+    const after = look(end + 3)?.e.k === 'tinc' ? (words[end + 4] === BREAK ? end + 5 : end + 4) : -1;
+    if (after >= 0 && look(after)?.e.k === 'mod') return -1;
+    const ends = next === undefined || next === BREAK || after >= 0 || /^(between|within)$/.test(next) || (next === 'and' && /^(on|in|within|overall|all)$/.test(words[end + 4] ?? ''));
+    return ends ? end : -1;
+  };
 
   /** Whether the variation named `v` at `words[i]` is written as the widget draws it: a count it offers (if it takes one), then two tinctures. */
   const variationFollows = (v: string, i: number, lined = 0): boolean => {
@@ -457,6 +482,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
     const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : overallNext ? 'overall' : betweenHost ? 'between' : onHost ? 'on' : 'field';
     const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null, posture: null };
+    if (heldOne) { held = false; heldOne = false; }
     if (kind === 'charge' && ctx !== 'held' && ctx !== 'of') {
       if (pendingArr) { el.arr = pendingArr; pendingArr = null; }
       if (el.count > MAX_DRAWN_COUNT && el.count < 99) tag('count', String(el.count));
@@ -473,7 +499,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
 
   for (let i = 0; i < tokens.length; i++) {
     const tok = tokens[i];
-    if (tok.word === BREAK) { held = false; pendingCount = null; ofNext = false; possBase = null; pendingOnHost = false; continue; }
+    if (tok.word === BREAK) { held = false; heldOne = false; pendingCount = null; ofNext = false; possBase = null; pendingOnHost = false; continue; }
     if (tok.word === 'overall') {
       overallNext = true; onHost = null; betweenHost = null; pendingOnHost = false; inField = false;
       continue;
@@ -728,6 +754,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         // "a winged lion": the wings of the charge that follows, where it takes them
         const next = look(i + 1)?.e;
         if (tok.word === 'winged' && next?.k === 'charge' && CHARGES[next.id].details.includes('winged')) break;
+        // "a lion Or maintaining a sword argent", "three eagles each maintaining in its beak a key": drawn (the matcher reads it), the item held
+        const holdEnd = e.v === 'maintaining' ? drawnHoldEnd(i) : -1;
+        if (holdEnd >= 0) { held = true; heldOne = true; i = holdEnd; break; }
         tag('charge-modifier', e.v);
         if ((e.v === 'maintaining' && !/ed$/.test(tok.word)) || e.v === 'wearing') held = true;
         // "crowned of a coronet", "gorged with a chaplet": the crown is part of the charge

@@ -187,12 +187,16 @@ export const pieceDrawable = (c: Pick<Charge, 'charge' | 'form' | 'posture' | 'g
   pieceAnchored(c, piece) && (piece !== 'leaved' || c.mods.some((m) => m.id === 'slipped'));
 
 /**
- * A charge with only the pieces its drawing takes (`pieceDrawable`). A change of posture, shape or charge drops the others (a lion sejant
- * has no wings; a demi lion no crown).
+ * A charge with only the pieces its drawing takes (`pieceDrawable`) and the items it holds a way its sidecar row takes and its drawing has
+ * the anchor for (`holdAnchored`). A change of posture, shape or charge drops the others (a lion sejant has no wings; a demi lion no crown
+ * and no paw to hold a sword).
  */
 export function withDrawnPieces(c: Charge): Charge {
   const drawn = (id: Modifier['id'] | PartPaint['part']) => !isPiece(id) || pieceDrawable(c, id);
-  return { ...c, mods: c.mods.filter((m) => drawn(m.id)), parts: c.parts.filter((p) => drawn(p.part)) };
+  return {
+    ...c, mods: c.mods.filter((m) => drawn(m.id)), parts: c.parts.filter((p) => drawn(p.part)),
+    holds: c.holds.filter((h) => CHARGES[c.charge].holds.includes(h.how) && holdAnchored(c, h.how)),
+  };
 }
 
 /** The anchor where each way of holding puts the held item; a worn item is not held (§1.5 H4: "wearing" stays a gap). */

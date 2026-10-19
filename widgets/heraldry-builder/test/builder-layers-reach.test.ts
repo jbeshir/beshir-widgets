@@ -10,7 +10,7 @@ import {
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
 import { rotatesIn, sampleSeed } from './rotation';
-import { generatedChargeAttributeDesigns, generatedGeometryDesigns, holdsNothing, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
@@ -311,13 +311,31 @@ describe('designs with a chief and a bordure beside the band are built by clicks
     expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
   }, 60_000);
 
-  it('every generated design with a charge facing to sinister, turned, set as a pair, or with its points, voided, fimbriated or pierced, is built too', () => {
-    const problems = share(generatedChargeAttributeDesigns(11, 60).filter(holdsNothing), 1 / 3).flatMap((d) => {
+  it('every generated design with a charge facing to sinister, turned, set as a pair, with its points, voided, fimbriated or pierced, adorned or holding something, is built too', () => {
+    const problems = share(generatedChargeAttributeDesigns(11, 60), 1 / 3).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
     expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
   }, 60_000);
+
+  // The Holding controls (PLAN-D §1.5): a held item each way a charge holds one, fixed rather than sampled.
+  it('a lion maintaining a sword, a lion sustaining a key, an eagle with a key in its beak, a wolf with a rose in its mouth, a dragon maintaining an anchor and two lions combattant each maintaining a sword are built by the Holding controls', () => {
+    const holding = (how: string, item: string, paint: string) => ({ holds: [{ how, item: charge(item), paint }] });
+    const designs = [
+      arms('azure', group(charge('lion', holding('maintaining', 'sword', 'argent')), 'or')),
+      arms('vert', group(charge('lion', holding('sustaining', 'key', 'or')), 'argent')),
+      arms('argent', group(charge('eagle', holding('in-beak', 'key', 'gules')), 'sable')),
+      arms('or', group(charge('wolf', holding('in-mouth', 'rose', 'gules')), 'sable')),
+      arms('gules', group(charge('dragon', holding('maintaining', 'anchor', 'argent')), 'or')),
+      arms('azure', group(charge('lion', holding('maintaining', 'sword', 'argent')), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } })),
+    ].map(built);
+    for (const d of designs) {
+      const path = builderPath(d);
+      expect(path.problems, blazon(d)).toEqual([]);
+      expect(path.actions.filter((a) => a.kind === 'hold'), blazon(d)).toHaveLength(1);
+    }
+  });
 
   // The Pose select reaches every posture a charge is drawn in, and the Head row every head turn drawn for it (SENA §1.1, §1.2).
   it('every posture each beast, monster, bird and fish is drawn in, and every head turned where it is drawn so, is built too', () => {

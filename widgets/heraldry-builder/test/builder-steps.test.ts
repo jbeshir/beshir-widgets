@@ -7,7 +7,7 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setBadge, setCharge, setCut, setForm, setFacing, setModifier, setPart, setPosture, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { setBadge, setCharge, setCut, setForm, setFacing, setHold, setModifier, setPart, setPosture, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
 import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, withLayout, CHARGES, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
@@ -760,6 +760,25 @@ describe('the Details disclosure under the picture', () => {
     const enflamed = render(setModifier(pictured('heart'), [0], 'enflamed', true));
     expect(enflamed).toMatch(/aria-checked="true"[^>]*id="mod-enflamed-proper"/);
     expect(ids(enflamed)).toContain('mod-enflamed-tincture');
+  });
+
+  it('holds the Holding select for a main charge that holds things, and while it holds one the way it does and the item\'s colour (PLAN-D §3 D9d)', () => {
+    const html = render(setHold(pictured('lion'), [0], 'sword'));
+    expect(opened(html, 'charge-details')).toEqual([{ open: true }]);
+    expect([...ids(html)].filter((id) => id.startsWith('hold-'))).toEqual(['hold-select', 'hold-how', 'hold-how-maintaining', 'hold-how-sustaining', 'hold-how-in-mouth', 'hold-tincture']);
+    expect(html).toContain('<option selected value="sword">');
+    expect(html).toMatch(/aria-checked="true"[^>]*id="hold-how-maintaining"/);
+    expect(html).toMatch(/id="swatch-held-argent"[^>]*aria-checked="true"/);
+    expect(html).toContain('Colour of the sword');
+    // a mullet holds nothing: no Holding select, though its Details are open
+    const mullet = render(setModifier(pictured('mullet'), [0], 'voided', true));
+    expect(opened(mullet, 'charge-details')).toEqual([{ open: true }]);
+    expect(ids(mullet)).not.toContain('hold-select');
+    // a demi lion has no paw: the select is there, switched off, and says why
+    const demi = render(setForm(pictured('lion'), [0], 'demi'));
+    expect(demi).toMatch(/<select(?=[^>]*data-testid="hold-select")[^>]*disabled/);
+    expect(demi).toContain('The demi-lion is not drawn holding anything in this builder.');
+    expect(ids(demi)).not.toContain('hold-how');
   });
 
   it('shows the edging\'s tincture while fimbriated, blocks what does not stand out, and explains a refused toggle', () => {

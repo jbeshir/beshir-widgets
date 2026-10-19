@@ -12,8 +12,8 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, CUT_MODIFIERS, FACING_WORD, GAZES, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, PIECE_IDS, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
-  blazon, drawnPoints, isPiecePart, normalise, pointsWord, postureTerm, type ChargeForm, type ChargeId, type Design, type Gap, type Issue, type ModifierId, type OrdinaryType, type Orientation, type PieceId, type Posture,
+  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, CUT_MODIFIERS, FACING_WORD, GAZES, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, PIECE_IDS, POSTURES, HOLD_WORDS, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
+  blazon, drawnPoints, isPiecePart, normalise, pointsWord, postureTerm, type ChargeForm, type ChargeId, type Design, type Gap, type HoldHow, type Issue, type ModifierId, type OrdinaryType, type Orientation, type PieceId, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
 import { EDGE_NAMES } from './words';
@@ -148,13 +148,16 @@ const MODIFIER_PHRASES = Object.entries(MODIFIER_WORDS).map(([id, phrase]) => ({
 type TrimWord = 'fimbriated' | PieceId;
 const TRIM_WORDS: ReadonlySet<string> = new Set<TrimWord>(['fimbriated', ...PIECE_IDS]);
 
+/** The words for each way a charge holds an item, before the item ("maintaining in its beak"), the longest first; a worn item is no held one (§1.5 H4). */
+const HOLD_PHRASES = Object.entries(HOLD_WORDS).filter(([how]) => how !== 'wearing').map(([how, words]) => ({ how: how as HoldHow, words: words.split(' ') })).sort((a, b) => b.words.length - a.words.length);
+
 
 const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${alt(NUMBER_WORDS)})`;
 
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, ...CUT_MODIFIERS, ...TRIM_WORDS, 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
+    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, ...CUT_MODIFIERS, ...TRIM_WORDS, ...HOLD_PHRASES.flatMap((h) => h.words), 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
     ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...CHARGE_IDS.filter((id) => drawnPoints(id) !== null).map(pointsWord), ...POSTURE_PHRASES.flatMap((p) => p.words), ...GAZE_PHRASES.flatMap((g) => g.words), CONTOURNY, ...PAIRS, ...ORIENTATION_PHRASES.flatMap((o) => o.words), ...TO_CENTER_PHRASES.flat(), ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
@@ -174,10 +177,11 @@ const VOCABULARY = new Set<string>(
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
-//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] [GAZE] ['contourny'] [GAZE] [ORIENTATION] MODIFIER* [('in' PATTERN)|ROWS|PAIR] [POINTS TO CENTER] [T] (TRIM ('and' TRIM)* [T] ['and'])*
+//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] [GAZE] ['contourny'] [GAZE] [ORIENTATION] MODIFIER* [('in' PATTERN)|ROWS|PAIR] [POINTS TO CENTER] [T] (TRIM ('and' TRIM)* [T] ['and'])* (['each'] HOLD ('a'|'an') NOUN [T])*
 //                 (POSTURE: one word or two, "sejant erect"; GAZE: guardant, regardant; PAIR: two charges combattant, respectant or addorsed; MODIFIER: "in splendor", "fitchy", "voided", "pierced", or a star's
 //                 "of" COUNT "points"|"rays"; TRIM: "fimbriated", or a piece: crowned, collared, winged, enflamed, slipped, leaved. Each run of trims is a phrase of its own for the
-//                 tincture it states, like an ordinary's fimbriation: "a lion Or crowned and collared gules"; a run straight after the charge gives it its tincture, "a heart winged Or")
+//                 tincture it states, like an ordinary's fimbriation: "a lion Or crowned and collared gules"; a run straight after the charge gives it its tincture, "a heart winged Or"); HOLD: maintaining, sustaining,
+//                 "maintaining in its beak|mouth", after "each" for more than one charge: each held item a phrase of its own for its tincture)
 //   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | 'within' | ε
 // A group straight after "between", or joined to one by "and", is set around the ordinary or the primary charges; any other
@@ -196,11 +200,13 @@ interface Phrase {
   outlines?: Array<{ phrase: Phrase; read: OutlineRead }>;
   /** A charge group's trims, each run of them ("crowned and collared") a phrase of its own for the tincture it states or takes from what follows. */
   trims?: Array<{ phrase: Phrase; words: readonly TrimWord[] }>;
+  /** What a charge group's charges hold, each item a phrase of its own for the tincture it states or takes from what follows. */
+  holds?: Array<{ phrase: Phrase; how: HoldHow; item: ChargeId }>;
 }
 
 /**
- * The ordinary's or charge's item input with its outlines or trims in the paints their phrases came to have (a charge's fimbriation and
- * pieces are modifiers, its crown and collar parts).
+ * The ordinary's or charge's item input with its outlines, trims and held items in the paints their phrases came to have (a charge's
+ * fimbriation and pieces are modifiers, its crown and collar parts).
  */
 function outlinedItem(p: Phrase): unknown {
   const item = p.group.item as { k: string; mods?: unknown[] };
@@ -210,6 +216,7 @@ function outlinedItem(p: Phrase): unknown {
     return {
       ...item, mods: [...(item.mods ?? []), ...trims.filter((t) => !parts.includes(t)).map(({ word, paint }) => ({ id: word, count: null, paint }))],
       parts: parts.map(({ word, paint }) => ({ part: word, paint })),
+      holds: (p.holds ?? []).map(({ phrase, how, item: held }) => ({ how, item: { k: 'charge', charge: held }, paint: phrase.paint })),
     };
   }
   const outlined = (p.outlines ?? []).map(({ phrase, read }) => (read.k === 'fimbriated'
@@ -339,9 +346,10 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     i += toCenter.length;
   }
   const read = readPaint(tokens, i, 'group');
-  // "a lozenge azure fimbriated argent", "a lion Or crowned gules", "a heart winged Or": the trims after the charges' tincture
-  const { trims, end } = readTrims(tokens, read ? read.end : i);
-  return { phrase: { group, paint: read?.paint ?? null, ...(trims.length > 0 ? { trims } : {}) }, end };
+  // "a lozenge azure fimbriated argent", "a lion Or crowned gules", "a heart winged Or": the trims after the charges' tincture, then what they hold
+  const { trims, end: trimmed } = readTrims(tokens, read ? read.end : i);
+  const { holds, end } = readHolds(tokens, trimmed, count);
+  return { phrase: { group, paint: read?.paint ?? null, ...(trims.length > 0 ? { trims } : {}), ...(holds.length > 0 ? { holds } : {}) }, end };
 }
 
 /** The runs of trims from `at`, each with the tincture it states: "crowned and collared gules", "slipped vert and leaved Or", "fimbriated argent". */
@@ -362,6 +370,37 @@ function readTrims(tokens: string[], at: number): { trims: NonNullable<Phrase['t
   return { trims, end: i };
 }
 
+/** The held item written at `tokens[at]`: a single charge as drawn ("a sword"), with the index after it; null for anything else. */
+function heldItemAt(tokens: string[], at: number): { id: ChargeId; end: number } | null {
+  const nounWords = NOUN_PHRASES.find((n) => startsWith(tokens, at + 1, n));
+  const noun = nounWords && NOUNS.get(nounWords.join(' '));
+  return noun && noun.singular && tokens[at] === noun.article && noun.form === null && noun.orientation === null ? { id: noun.id, end: at + 1 + nounWords.length } : null;
+}
+
+/**
+ * What the group's charges hold from `at`, each item with the tincture it states: "maintaining a sword argent", "maintaining in its beak a
+ * key", and for more than one charge "each maintaining a sword" (without "each" they hold one item between them, which the widget doesn't
+ * draw). Items joined by "and" with no tincture between them are held together ("maintaining a sword and a key argent": two items, which
+ * the widget reports). The item is a single charge as drawn; anything more said of it leaves it unread.
+ */
+function readHolds(tokens: string[], at: number, count: number): { holds: NonNullable<Phrase['holds']>; end: number } {
+  const holds: NonNullable<Phrase['holds']> = [];
+  let i = at;
+  for (;;) {
+    const lead = count > 1 ? (tokens[i] === 'each' ? i + 1 : -1) : i;
+    const how = lead < 0 ? undefined : HOLD_PHRASES.find((h) => startsWith(tokens, lead, h.words));
+    let item = how ? heldItemAt(tokens, lead + how.words.length) : null;
+    if (!how || !item) break;
+    while (item) {
+      const paint = readPaint(tokens, item.end, 'group');
+      holds.push({ phrase: { group: {}, paint: paint?.paint ?? null }, how: how.how, item: item.id });
+      i = paint ? paint.end : item.end;
+      item = !paint && tokens[i] === 'and' ? heldItemAt(tokens, i + 1) : null;
+    }
+  }
+  return { holds, end: i };
+}
+
 /** What the body of a blazon reads as: the design input's groups, or a construct the widget doesn't draw. */
 type Body = { k: 'groups'; groups: object[] } | { k: 'gap'; gap: Gap };
 
@@ -370,9 +409,10 @@ function parseBody(tokens: string[]): Body | null {
   const top: Node[] = [];
   /** Every phrase in blazon order, for factoring tinctures backwards. */
   const order: { phrase: Phrase; onHost: boolean; trim: boolean }[] = [];
-  /** A phrase and its outlines' or trims' phrases, in blazon order. */
+  /** A phrase and its outlines', trims' or held items' phrases, in blazon order. */
   const ordered = (phrase: Phrase, onHost: boolean) => order.push(
-    { phrase, onHost, trim: false }, ...(phrase.outlines ?? []).map((o) => ({ phrase: o.phrase, onHost, trim: false })), ...(phrase.trims ?? []).map((o) => ({ phrase: o.phrase, onHost, trim: true })),
+    { phrase, onHost, trim: false }, ...(phrase.outlines ?? []).map((o) => ({ phrase: o.phrase, onHost, trim: false })),
+    ...[...(phrase.trims ?? []), ...(phrase.holds ?? [])].map((o) => ({ phrase: o.phrase, onHost, trim: true })),
   );
   let host: Node | null = null;       // an "on" ordinary still waiting for its group
   let between = false;
@@ -503,7 +543,7 @@ function parseBody(tokens: string[]): Body | null {
       carry = groundOf(phrase.paint);
     }
   }
-  const withPaint = (p: Phrase) => ({ ...p.group, ...(p.outlines || p.trims ? { item: outlinedItem(p) } : {}), paint: p.paint });
+  const withPaint = (p: Phrase) => ({ ...p.group, ...(p.outlines || p.trims || p.holds ? { item: outlinedItem(p) } : {}), paint: p.paint });
   return { k: 'groups', groups: top.map((n) => (n.on ? { ...withPaint(n.phrase), charged: [withPaint(n.on)] } : withPaint(n.phrase))) };
 }
 

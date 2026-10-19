@@ -7,10 +7,10 @@
 import {
   CHARGES, COLOURS, CUT_MODIFIERS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
-  firstFimbriation, firstPiecePaint, gazeDrawn, isPiece, withDrawnPieces, withModifier, withPart, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  firstFimbriation, firstHeldPaint, firstPiecePaint, gazeDrawn, holdChoices, isPiece, withDrawnPieces, withHold, withModifier, withPart, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
   bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge, drawnLayout, layoutContext,
   partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
-  type ChargeForm, type Facing, type Gaze, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PiecePart, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
+  type ChargeForm, type Facing, type Gaze, type HoldHow, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PiecePart, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
@@ -364,6 +364,24 @@ export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: bool
 /** The charge at `path` with a crown or collar on in `paint` (switched on without one: `firstPiecePaint`), or off. */
 export function setPart(d: Design, path: GroupPath, part: PiecePart, on: boolean, paint: Paint | null = null): Design {
   return withPart(d, path, part, on ? paint ?? firstPiecePaint(d, path, part) : null);
+}
+
+/**
+ * The charge at `path` holding `item` (null: nothing; PLAN-D §1.5) `how` it is held, by default the way it held the last one where that is
+ * still offered, else the first way offered (`holdChoices`), and in `paint`, by default the last one's, else the first tincture that stands
+ * out from the field (`firstHeldPaint`). A picture holding something has no room for pictures on it: they are dropped.
+ */
+export function setHold(d: Design, path: GroupPath, item: ChargeId | null, how: HoldHow | null = null, paint: Paint | null = null): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const was = g.item.holds[0] ?? null;
+  const ways = holdChoices(d, path).filter((c) => c.allowed).map((c) => c.value);
+  const way = how ?? (was && ways.includes(was.how) ? was.how : ways[0]);
+  if (item === null || way === undefined) return withHold(d, path, null);
+  const held = { how: way, item: chargeItem(item, null) as Extract<Group['item'], { k: 'charge' }> };
+  const changed = withHold(d, path, { ...held, paint: paint ?? was?.paint ?? firstHeldPaint(d, path, held) });
+  const parts = partsOf(changed);
+  return parts.onPicture && parts.picture?.item.k === 'charge' && parts.picture.item.holds.length > 0 ? refitLayers(assembleParts(changed, { ...parts, onPicture: null })) : changed;
 }
 
 export function setGroupTincture(d: Design, path: GroupPath, t: GroupTincture): Design {
