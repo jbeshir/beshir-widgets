@@ -89,7 +89,7 @@ describe('the charge art', () => {
       ...(CHARGES[id].forms.includes('demi') ? [[id, 'demi', derivedPath(id, 'demi')!] as const] : []),
       ...(CHARGES[id].postures ?? []).filter(isTurnedPosture).map((p) => [id, p, derivedPath(id, p)!] as const),
     ]);
-    expect(derived).toHaveLength(13);
+    expect(derived).toHaveLength(15);
     expect(derived.flatMap(([id, key, d]) => drawingProblems(d, { onBox: null, anchors: {}, neck: null }).map((rule) => `${id} ${key} ${rule}`))).toEqual([]);
   });
 

@@ -313,6 +313,12 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
     [`three ${id}`, arms('azure', group(charge(id), 'or', { count: 3 }))],
     ...(CHARGES[id].details.includes('fitchy') ? [[`three ${id} fitchy`, arms('azure', group(charge(id, { mods: [fitchy] }), 'or', { count: 3 }))] as [string, unknown]] : []),
   ]),
+  ['a cat', arms('azure', group(charge('cat', { posture: 'passant' }), 'argent'))],
+  ['a bear', arms('or', group(charge('bear'), 'sable'))],
+  ['a horse', arms('vert', group(charge('horse', { posture: 'courant' }), 'argent'))],
+  ['a fox', arms('argent', group(charge('fox', { posture: 'sejant' }), 'gules'))],
+  ['a squirrel', arms('azure', group(charge('squirrel'), 'or', { count: 3 }))],
+  ['a horse\'s head and a bear\'s head', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'), group(charge('bear', { form: 'head', mods: ['erased'] }), 'or'))],
 ];
 
 describe('the matcher reads what the widget writes', () => {
@@ -573,6 +579,19 @@ describe('the matcher reads the pieces drawn with a charge in the College\'s wor
     expect(tags('Azure, a demi-lion crowned Or.')).toEqual(['charge-modifier:crowned']);
   });
 });
+
+// The beasts of art batch B1 in the College's words: "domestic cat" is the cat.
+describe('the matcher reads the College\'s names for the beasts of art batch B1', () => {
+  it.each([
+    ['Azure, a domestic cat passant argent.', 'Azure, a cat passant argent.'],
+    ['Argent, two domestic cats sejant respectant sable.', 'Argent, two cats sejant respectant sable.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
 
 // What a main charge holds (PLAN-D §1.5), as the SCA writes it: maintaining or sustaining (holding, grasping, supporting), or in its beak or
 // mouth however it is held; "each" for more than one charge; the item's tincture as stated, else the next one stated.

@@ -245,6 +245,13 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-lion-maintaining-sword', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or'))],
   ['attr-eagles-key-in-beak', arms('argent', group(charge('eagle', { holds: [{ how: 'in-beak', item: charge('key'), paint: 'gules' }] }), 'sable', { count: 3 }))],
   ['attr-lions-combattant-sustaining-roses', arms('or', group(charge('lion', { holds: [{ how: 'sustaining', item: charge('rose'), paint: 'gules' }] }), 'azure', pair('combattant')))],
+  ['attr-bear-contourny', arms('or', group(charge('bear', contourny), 'sable'))],
+  ['attr-cat-couchant', arms('gules', group(charge('cat', { posture: 'couchant' }), 'argent'))],
+  ['attr-horses-courant', arms('vert', group(charge('horse', { posture: 'courant' }), 'argent', { count: 3 }))],
+  ['attr-fox-sejant', arms('argent', group(charge('fox', { posture: 'sejant' }), 'gules'))],
+  ['attr-squirrels-addorsed', arms('azure', group(charge('squirrel'), 'or', pair('addorsed')))],
+  ['attr-horse-head-couped', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'))],
+  ['attr-bear-head-collared', arms('or', group(charge('bear', { form: 'head', parts: [{ part: 'collared', paint: 'gules' }] }), 'sable'))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));

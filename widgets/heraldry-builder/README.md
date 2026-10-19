@@ -7,7 +7,7 @@ widget served via Cloudflare Workers, with a registry API backed by Cloudflare D
 ## Overview
 
 - **Builder.** Pick a field (plain or one of seven divisions, or seven more behind "More divisions and edges…"), an optional ordinary (ten) and an
-  optional group of 1–12 charges (59 charges: 37 drawn by hand in 78 drawings — postures, heads turned, heads, the wing —, the rest generated; counts above six sit
+  optional group of 1–12 charges (64 charges: 42 drawn by hand in 96 drawings — postures, heads turned, heads, the wing —, the rest generated; counts above six sit
   behind **More…**). The default flow is three steps, Background → Band or shape → Picture (the Background step also has a **Badge** tile, "No background": see Fieldless badges); a
   further card appears for each layer added on demand from the "+ Add…" row (pictures on the band, a chief or a bordure,
   around, on or beside the picture, in chief, base or canton, or something overall: see Design below). Every option is
@@ -1174,7 +1174,7 @@ drawing do not yet, and `resolve` reports them as `unsupported` rather than gues
 
 ## Licence of charge art
 
-All charge drawings (36 charges drawn by hand in 77 drawings, and the generated ones) in `src/lib/heraldry/art/`, and the shield, ordinary and
+All charge drawings (42 charges drawn by hand in 96 drawings, and the generated ones) in `src/lib/heraldry/art/`, and the shield, ordinary and
 partition geometry, are **original work drawn for this widget**. They are licensed with this
 repository. No artwork is taken from DrawShield, Armoria, Heraldicon, Wikimedia Commons or any
 other source.

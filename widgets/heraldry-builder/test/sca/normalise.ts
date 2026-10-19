@@ -342,9 +342,10 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //     the cross crosslet; a bezant is a roundel Or, a plate a roundel argent, a goutte de sang a goutte gules (Glossary of Terms): the
     //     widget words these as the charge and its tincture, so the name goes, a tincture written after it as well is the same one, and the
     //     tincture goes where the widget puts it: after the arrangement, and not at all when the next tincture stated is the same one
-    //     (the widget names a tincture shared by groups once, after the last).
+    //     (the widget names a tincture shared by groups once, after the last). "Domestic cat" is the College's usual name for the cat (679 records, far more than "cat" alone),
+    //     so it is the widget's cat.
     id: 'charge-synonyms',
-    description: 'estoille → estoile; crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
+    description: 'estoille → estoile; domestic cat(s) → cat(s); crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
     apply: (s) => s
       .replace(NAMED_CHARGE, (match: string, name: string, arrangement: string, stated: string | undefined, offset: number) => {
         const named = NAMED_BY_WORD.get(name)!;
@@ -355,6 +356,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
         return `${noun}${arrangement}${tincture}${stated && stated.trim() !== named.tincture ? stated : ''}`;
       })
       .replace(/(?<![\w-])estoille(s?)(?![\w-])/g, 'estoile$1')
+      .replace(/(?<![\w-])domestic (cats?)(?![\w-])/g, '$1')
       .replace(/\bcross crosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslet\b/g, 'cross crosslet'),

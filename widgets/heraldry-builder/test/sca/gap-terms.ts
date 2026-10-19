@@ -21,7 +21,7 @@ export const CHARGE_BUCKETS = [
 export type ChargeBucket = (typeof CHARGE_BUCKETS)[number];
 
 export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
-  beast: 'a natural beast other than the lion, wolf, boar, stag, goat and hare (bear, cat, horse, deer…), or a beast\'s head or limb',
+  beast: 'a natural beast other than the lion, wolf, boar, stag, goat, hare, cat, bear, horse, fox and squirrel (deer, dog, tiger…), or a beast\'s head or limb',
   bird: 'a bird other than the eagle and owl, a bird\'s head or limb, or a wing or feather',
   monster: 'a heraldic monster other than the unicorn and dragon (griffin, wyvern, sea-creatures…)',
   fish: 'a named fish, sea mammal, crustacean or shell (dolphin, whale, escallop…)',
@@ -46,9 +46,9 @@ export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
 /** Charge nouns the widget lacks, by bucket. */
 export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   beast: w(`
-    bear grizzly cat lioness tiger leopard panther catamount lynx ounce wildcat cougar puma jaguar cheetah kitten
-    horse stallion mare pony foal colt donkey ass mule zebra dog talbot greyhound hound wolfhound bloodhound mastiff
-    terrier poodle corgi brachet alaunt lymer spaniel dane samoyed cur husky collie dachshund retriever setter beagle fox vixen jackal hyena coyote coney rabbit squirrel
+    grizzly lioness tiger leopard panther catamount lynx ounce wildcat cougar puma jaguar cheetah kitten
+    stallion mare pony foal colt donkey ass mule zebra dog talbot greyhound hound wolfhound bloodhound mastiff
+    terrier poodle corgi brachet alaunt lymer spaniel dane samoyed cur husky collie dachshund retriever setter beagle vixen jackal hyena coyote coney rabbit
     elephant bull ox cow calf bison buffalo yak ram sheep lamb ewe badger brock hedgehog urchin otter sea-otter weasel
     stoat ferret marten mink polecat wolverine mouse rat shrew mole vole hamster bat reremouse monkey ape baboon
     gorilla camel dromedary camelopard cameleopard giraffe deer buck hart hind doe fawn roe elk moose reindeer
@@ -216,7 +216,7 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   triquetra: 'symbol', trefoil: 'plant', quatrefoil: 'plant', cinquefoil: 'plant', 'ermine-spot': 'symbol',
   'cross-couped': 'cross', 'cross-latin': 'cross', 'cross-formy': 'cross', 'cross-bottony': 'cross', 'cross-moline': 'cross',
   'cross-flory': 'cross', 'cross-patonce': 'cross', 'cross-potent': 'cross', 'cross-maltese': 'cross', 'cross-celtic': 'cross',
-  'cross-tau': 'cross', wing: 'bird',
+  'cross-tau': 'cross', wing: 'bird', cat: 'beast', bear: 'beast', horse: 'beast', fox: 'beast', squirrel: 'beast',
 };
 
 /** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */
