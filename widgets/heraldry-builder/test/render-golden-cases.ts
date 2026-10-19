@@ -266,6 +266,12 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-peacock-contourny', arms('azure', group(charge('peacock', contourny), 'argent'))],
   ['attr-martlets-addorsed', arms('gules', group(charge('martlet'), 'argent', pair('addorsed')))],
   ['attr-doves-respectant', arms('azure', group(charge('dove'), 'argent', pair('respectant')))],
+  ['attr-arrows-fesswise', arms('vert', group(charge('arrow', { orientation: 'fesswise' }), 'argent', { count: 3 }))],
+  ['attr-axe-reversed', arms('gules', group(charge('axe', { orientation: 'reversed' }), 'argent'))],
+  ['attr-harp-reversed', arms('azure', group(charge('harp', { orientation: 'reversed' }), 'or'))],
+  ['attr-pheons-to-center', arms('argent', group(charge('pheon', { orientation: 'to-center' }), 'sable', { count: 4, arrangement: 'in-cross' }))],
+  ['attr-trident-inverted', arms('azure', group(charge('trident', { orientation: 'inverted' }), 'or'))],
+  ['attr-spears-bendwise', arms('vert', group(charge('spear', { orientation: 'bendwise' }), 'or', { count: 2 }))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));

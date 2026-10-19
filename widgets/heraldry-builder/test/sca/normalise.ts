@@ -343,9 +343,9 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //     widget words these as the charge and its tincture, so the name goes, a tincture written after it as well is the same one, and the
     //     tincture goes where the widget puts it: after the arrangement, and not at all when the next tincture stated is the same one
     //     (the widget names a tincture shared by groups once, after the last). "Domestic cat" is the College's usual name for the cat (679 records, far more than "cat" alone),
-    //     so it is the widget's cat. The monsters of batch B2 are spelt in more than one way (gryphon 197 + griffon 34 against griffin 1,084; wivern 26 against wyvern 408; "sea horse" 364 and "seahorse" 299 against "sea-horse"; "sea lion" 312 against "sea-lion").
+    //     so it is the widget's cat. The monsters of batch B2 are spelt in more than one way (gryphon 197 + griffon 34 against griffin 1,084; wivern 26 against wyvern 408; "sea horse" 364 and "seahorse" 299 against "sea-horse"; "sea lion" 312 against "sea-lion"). A broad arrow is the pheon (broad-arrow, broadarrow and "broad arrow", 105 records; "pheon" itself 306) and "ax" is the axe (18).
     id: 'charge-synonyms',
-    description: 'estoille → estoile; domestic cat(s) → cat(s); gryphon/griffon → griffin, wivern → wyvern, phenix → phoenix, sea horse/seahorse → sea-horse, sea lion/sealion → sea-lion; crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
+    description: 'estoille → estoile; domestic cat(s) → cat(s); gryphon/griffon → griffin, wivern → wyvern, phenix → phoenix, sea horse/seahorse → sea-horse, sea lion/sealion → sea-lion; broad arrow(s) → pheon(s); ax → axe; crosslet(s) → cross crosslet / crosses crosslet; bezant, plate, torteau, hurt, pellet, ogress, pomme, golpe, goutte d\'or / d\'eau / de sang / de larmes / de poix → the roundel or goutte and its tincture, after its arrangement and left out when the next tincture stated is the same.',
     apply: (s) => s
       .replace(NAMED_CHARGE, (match: string, name: string, arrangement: string, stated: string | undefined, offset: number) => {
         const named = NAMED_BY_WORD.get(name)!;
@@ -361,6 +361,8 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/(?<![\w-])wivern(s?)(?![\w-])/g, 'wyvern$1')
       .replace(/(?<![\w-])phenix(es)?(?![\w-])/g, 'phoenix$1')
       .replace(/(?<![\w-])sea ?(horse|lion)(s?)(?![\w-])/g, 'sea-$1$2')
+      .replace(/(?<![\w-])broad[ -]?arrow(s?)(?![\w-])/g, 'pheon$1')
+      .replace(/(?<![\w-])ax(?![\w-])/g, 'axe')
       .replace(/\bcross crosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslets\b/g, 'crosses crosslet')
       .replace(/(?<!cross |crosses )\bcrosslet\b/g, 'cross crosslet'),

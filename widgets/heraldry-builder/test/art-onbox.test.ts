@@ -11,6 +11,8 @@ const CARRIES_NONE = [
   'key', 'sword', 'anchor', 'musical-note', 'gear', 'annulet', 'cross-crosslet', 'estoile', 'spark',
   'compass-star', 'mascle', 'rustre', 'triquetra', 'trefoil', 'quatrefoil', 'cinquefoil', 'ermine-spot', 'cross-couped', 'cross-latin',
   'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory', 'cross-patonce', 'cross-potent', 'cross-maltese', 'cross-celtic', 'cross-tau',
+  // art batch B4: the tools and weapons are slender, ringed (harp) or give a 16-unit box at most (pheon; art batch B4 drew no box for the others)
+  'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
 ];
 
 /** The drawings that carry no charge whatever their charge: heads (art batch A1 draws them with no room for one). */

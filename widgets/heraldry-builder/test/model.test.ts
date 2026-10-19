@@ -468,12 +468,12 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 76 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(76);
+  it('has the 86 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(86);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
-    expect(CHARGE_IDS.filter((id) => CHARGES[id].long)).toEqual(['key', 'sword', 'anchor']);
+    expect(CHARGE_IDS.filter((id) => CHARGES[id].long)).toEqual(['key', 'sword', 'anchor', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident']);
     expect(CHARGE_IDS.filter((id) => CHARGES[id].scaDefaultPosture).map((id) => [id, CHARGES[id].scaDefaultPosture]))
       .toEqual([['lion', 'rampant'], ['fish', 'naiant'], ['unicorn', 'rampant'], ['dragon', 'rampant'], ['eagle', 'displayed'], ['squirrel', 'sejant-erect'],
         ['raven', 'close'], ['griffin', 'rampant'], ['swan', 'rising'], ['phoenix', 'rising'], ['wyvern', 'statant'], ['falcon', 'close'], ['seahorse', 'erect'],

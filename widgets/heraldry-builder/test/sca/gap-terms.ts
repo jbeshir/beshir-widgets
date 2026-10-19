@@ -22,7 +22,7 @@ export type ChargeBucket = (typeof CHARGE_BUCKETS)[number];
 
 export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
   beast: 'a natural beast other than the lion, wolf, boar, stag, goat, hare, cat, bear, horse, fox and squirrel (deer, dog, tiger…), or a beast\'s head or limb',
-  bird: 'a bird other than the eagle, owl, raven, falcon, swan, phoenix, peacock, martlet and dove, a bird\'s head or limb, or a wing or feather',
+  bird: 'a bird other than the eagle, owl, raven, falcon, swan, phoenix, peacock, martlet and dove, a bird\'s head or limb, a wing, quill or plume',
   monster: 'a heraldic monster other than the unicorn, dragon, griffin, wyvern, pegasus, sea-horse and sea-lion (cockatrice, other sea-creatures…)',
   fish: 'a named fish, sea mammal, crustacean or shell (dolphin, whale, escallop…)',
   reptile: 'a reptile or amphibian (serpent, lizard, turtle, frog…)',
@@ -30,11 +30,11 @@ export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
   human: 'a human figure or body part (hand, arm, skull, eye…)',
   plant: 'a flower, leaf, fruit, foil, named tree or other plant other than the rose, tree and fleur-de-lis',
   celestial: 'a celestial or weather charge other than the sun, mullet and crescent (estoile, moon, cloud…)',
-  weapon: 'a weapon or piece of armour other than the sword',
-  tool: 'a tool, implement or piece of equipment other than the key and gear',
+  weapon: 'a weapon or piece of armour other than the sword, arrow, axe, pheon, spear and trident',
+  tool: 'a tool, implement or piece of equipment other than the key, gear, hammer, needle and anvil',
   household: 'a vessel, container, food, furniture, light, jewel, game piece, flag or other object',
   clothing: 'an article of clothing',
-  instrument: 'a musical instrument or bell',
+  instrument: 'a musical instrument other than the harp, or a bell',
   building: 'a building or architectural element',
   ship: 'a ship, boat or part of one',
   nature: 'a landform, rock, water, fire or other natural feature',
@@ -62,7 +62,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     blackbird thrush finch goldfinch linnet tit kingfisher hummingbird pelican ostrich emu penguin puffin gull
     seagull tern osprey kestrel merlin peregrine gyrfalcon vulture condor kite ibis flamingo chough cockatoo quail
     pheasant partridge grouse moorcock turkey loon egret cormorant albatross woodpecker starling cardinal jackdaw
-    pigeon bluebird songbird corvid dodo eaglet owlet bird wing vol feather quill plume nest egg
+    pigeon bluebird songbird corvid dodo eaglet owlet bird wing vol quill plume nest egg
   `),
   monster: w(`
     cockatrice basilisk
@@ -120,16 +120,16 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     constellation eclipse fireball meteor
   `),
   weapon: w(`
-    arrow arrowhead pheon broad-arrow broadarrow bolt quarrel quiver axe ax battle-axe battleaxe labrys tomahawk bow
-    longbow crossbow spear spearhead lance javelin pikestaff pikehead boarspear halberd poleaxe glaive bill billhook
+    arrowhead broad-arrow broadarrow bolt quarrel quiver ax battle-axe battleaxe labrys tomahawk bow
+    longbow crossbow spearhead lance javelin pikestaff pikehead boarspear halberd poleaxe glaive bill billhook
     bardiche partisan voulge mace morningstar flail warhammer club dagger rapier scimitar sabre saber falchion
     cutlass claymore katana gladius seax dirk kris kriss shamshir cinquedea tulwar flamberge curtana estoc longsword
-    knife trident caltrap caltrop grenade cannon gun handgun musket pistol rifle sling catapult trebuchet swepe
+    knife caltrap caltrop grenade cannon gun handgun musket pistol rifle sling catapult trebuchet swepe
     ballista battering-ram chaine-shot skyrocket rocket bomb chakram shuriken boomerang helm helmet armour armor
     gauntlet shield buckler targe chamfron morion cuirass breastplate hauberk
   `),
   tool: w(`
-    hammer sledgehammer mallet anvil tongs bellows needle spindle drop-spindle distaff shuttle bobbin spool skein
+    sledgehammer mallet tongs bellows spindle drop-spindle distaff shuttle bobbin spool skein
     yarn clew thimble pin loom comb scissors shears compass compasses caliper calipers square plane chisel saw
     drawknife awl punner trowel wedge nail staple chain rope ladder pick pickaxe shovel spade hoe rake scythe sickle
     plough plow harrow pitchfork millrind fer-de-moline fer-a-loup millstone millwheel waterwheel wheel cartwheel
@@ -160,7 +160,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     chaperon bonnet coif kerchief cuff button clog fez mitten scarf
   `),
   instrument: w(`
-    harp lute lyre horn hunting-horn bugle bugle-horn trumpet clarion recorder flute pipe bagpipe drum tabor doumbek
+    lute lyre horn hunting-horn bugle bugle-horn trumpet clarion recorder flute pipe bagpipe drum tabor doumbek
     dumbek kettledrum viol viola violin fiddle rebec gittern guitar cittern mandolin oud psaltery dulcimer
     panpipe organ zil cymbal tambourine bell handbell sackbut shawm hautboy crwth harpsichord sistrum shofar
     ocarina quaver clef g-clef
@@ -217,6 +217,7 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   'cross-couped': 'cross', 'cross-latin': 'cross', 'cross-formy': 'cross', 'cross-bottony': 'cross', 'cross-moline': 'cross',
   'cross-flory': 'cross', 'cross-patonce': 'cross', 'cross-potent': 'cross', 'cross-maltese': 'cross', 'cross-celtic': 'cross',
   'cross-tau': 'cross', wing: 'bird', cat: 'beast', bear: 'beast', horse: 'beast', fox: 'beast', squirrel: 'beast',
+  arrow: 'weapon', hammer: 'tool', harp: 'instrument', axe: 'weapon', pheon: 'weapon', feather: 'bird', needle: 'tool', anvil: 'tool', spear: 'weapon', trident: 'weapon',
   raven: 'bird', griffin: 'monster', swan: 'bird', phoenix: 'bird', wyvern: 'monster', falcon: 'bird', pegasus: 'monster', seahorse: 'monster',
   peacock: 'bird', martlet: 'bird', dove: 'bird', 'sea-lion': 'monster',
 };
