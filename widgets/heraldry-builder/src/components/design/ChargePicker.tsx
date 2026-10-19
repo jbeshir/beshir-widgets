@@ -6,7 +6,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, CHARGE_CATEGORIES, CHARGES, POPULAR_CHARGE_IDS, artReady, chargeLabel, chargePath, chargesInCategory, loadArtFor, searchCharges,
+  CATEGORY_LABEL, CHARGE_CATEGORIES, CHARGES, POPULAR_CHARGE_IDS, artReady, chargeLabel, chargePath, chargesInCategory, loadArtFor, searchCharges, searchesForm,
   type ChargeCategory, type ChargeId,
 } from '../../lib/heraldry';
 import { ChargeIcon } from '../Shield';
@@ -89,6 +89,11 @@ export function ChargePicker({ base, selected, none, status = OPEN, onSelect }: 
         {searching ? (
           <div class="charge-category" data-testid={`${base}-search-results`} role="group" aria-label="Search results">
             {found.length ? <div class="icon-grid icon-grid-charges">{found.map(tile)}</div> : <p class="field-hint">No pictures match</p>}
+            {searchesForm(query) && (
+              <p class="field-hint" data-testid={`${base}-search-form-hint`}>
+                A head or a front half (demi) is drawn from the whole picture: choose it, open “Facing, turning and details…”, then Details, and pick its Shape.
+              </p>
+            )}
           </div>
         ) : (
           <div class="charge-category" role="group" aria-label={TAB_LABEL[tab]}>

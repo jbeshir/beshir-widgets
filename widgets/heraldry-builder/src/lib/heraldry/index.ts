@@ -47,7 +47,7 @@ export {
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
 export { deriveTags, filtersToTags, matchesTags, NO_FILTERS, type SearchFilters } from './tags';
-export { searchCharges } from './charge-search';
+export { searchCharges, searchesForm } from './charge-search';
 export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchWord } from './search-terms';
 export { signature } from './signature';
 export {

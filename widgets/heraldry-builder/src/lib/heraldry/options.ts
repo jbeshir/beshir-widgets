@@ -792,15 +792,17 @@ export function pairChoices(d: Design, path: GroupPath): Choice<PairChoice>[] {
 /**
  * Which way the group's charge may be turned, offered for a charge whose sidecar row allows some: as usual (null: upright, or along a bend
  * it lies on), then every way but "reversed" and "to center", which are offered where the charge takes them. The ways it doesn't take are
- * listed blocked; so are all of them for two crossed, and "to center" for a single charge (§1.3, `orientationGaps`).
+ * listed blocked, but for a charge with no set top (`radial`: a mullet, a rose), which lists only its own ways — the others aren't ways
+ * SCA heraldry has for it, not drawings the builder lacks (App L2). All are blocked for two crossed, and "to center" for a single charge
+ * (§1.3, `orientationGaps`).
  */
 export function orientationChoices(d: Design, path: GroupPath): Choice<Orientation | null>[] {
   const g = groupAt(d, path);
   if (g.item.k !== 'charge' || CHARGES[g.item.charge].orient.allowed.length === 0) return [];
   const { name, plural, orient } = CHARGES[g.item.charge];
-  const ways = ORIENTATIONS.filter((o) => orient.allowed.includes(o) || (o !== 'reversed' && o !== 'to-center'));
+  const ways = ORIENTATIONS.filter((o) => orient.allowed.includes(o) || (orient.cls !== 'radial' && o !== 'reversed' && o !== 'to-center'));
   return [null, ...ways].map((o) => choice(o, o === null ? null
-    : !orient.allowed.includes(o) ? (orient.cls === 'radial' || orient.cls === 'compact-axis' ? `A ${name} looks the same turned that way.` : `A ${name} is not turned that way in SCA heraldry.`)
+    : !orient.allowed.includes(o) ? `A ${name} is not turned that way in SCA heraldry.`
       : g.arrangement.k === 'crossed' ? `Two ${plural} crossed are not turned.`
         : o === 'to-center' && g.count < 2 ? `One ${name} has no group to point to the middle of.` : null));
 }

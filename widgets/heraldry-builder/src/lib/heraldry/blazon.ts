@@ -107,14 +107,13 @@ export const MODIFIER_WORDS = { 'in-splendour': 'in splendor', fitchy: 'fitchy',
 /** What a star's points are called: an estoile's are rays ("an estoile of eight rays"), a mullet's points. */
 export const pointsWord = (id: ChargeId): string => (id === 'estoile' ? 'rays' : 'points');
 
-/** The order modifiers are worded in: the number of points first ("a mullet of six points voided"), then the rest as listed. */
-const WORDING_ORDER: readonly ModifierId[] = ['of-points', ...MODIFIER_IDS.filter((id) => id !== 'of-points')];
-
 /**
- * A charge's modifiers in words, after its noun. A head's cut is worded with its noun (`countedNoun`), a fimbriation after the charge's
+ * A charge's modifiers in words, after its noun: its number of points alone, said straight after the noun and before the way it is turned
+ * ("a mullet of six points inverted voided": the SCA armorial has "mullet of seven points inverted" 12 times, never "mullet inverted of
+ * … points"), or the rest in their listed order. A head's cut is worded with its noun (`countedNoun`), a fimbriation after the charge's
  * tincture (`tokens`): "a lozenge azure fimbriated argent".
  */
-function modifiersWords(c: Charge): string[] {
+function modifiersWords(c: Charge, which: 'points' | 'rest'): string[] {
   const words = (m: Modifier): string[] => {
     if (c.form === 'head' && CUT_MODIFIERS.includes(m.id)) return [];
     if ((m.id === 'fimbriated' || OVERLAY_MODIFIERS.includes(m.id)) && m.count === null && m.paint !== null) return [];
@@ -122,7 +121,7 @@ function modifiersWords(c: Charge): string[] {
     const word = (MODIFIER_WORDS as Partial<Record<ModifierId, string>>)[m.id];
     return word !== undefined && m.count === null && m.paint === null ? [word] : notSupported({ category: 'charge-modifier', detail: m.id });
   };
-  return [...c.mods].sort((x, y) => WORDING_ORDER.indexOf(x.id) - WORDING_ORDER.indexOf(y.id)).flatMap(words);
+  return c.mods.filter((m) => (m.id === 'of-points') === (which === 'points')).sort((x, y) => MODIFIER_IDS.indexOf(x.id) - MODIFIER_IDS.indexOf(y.id)).flatMap(words);
 }
 
 /** The parts the builder words, after the charge's tincture ("a lion Or crowned gules"). */
@@ -227,7 +226,7 @@ function wordsLayout(d: Design, path: GroupPath, g: Group, { stateDefaults }: Bl
 }
 
 /**
- * A charge group's phrase: [layout prefix] count noun [posture] [gaze and facing] [orientation] [mods] [layout postfix] [to center], without
+ * A charge group's phrase: [layout prefix] count noun [posture] [points] [gaze and facing] [orientation] [mods] [layout postfix] [to center], without
  * its tincture. A noun of the charge's own for its orientation replaces its name ("three decrescents").
  */
 function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptions): string {
@@ -258,7 +257,7 @@ function laidChargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonO
   const words = countedNoun(g.item, g.count);
   // GoT Table 5: a posture the College assumes is left out (RULES §F.8).
   if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureWords(g.item.charge, g.item.posture));
-  words.push(...turnWords(g.item), ...(g.item.orientation === 'to-center' ? [] : orientationWords(g.item)), ...modifiersWords(g.item));
+  words.push(...modifiersWords(g.item, 'points'), ...turnWords(g.item), ...(g.item.orientation === 'to-center' ? [] : orientationWords(g.item)), ...modifiersWords(g.item, 'rest'));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
   // Charges Table 7 forces into one part of the field by tincture are not said to stand there; how they stand there still is.
   const forced = !options.stateDefaults && g.position !== null && g.position === forcedPosition(d, path);
