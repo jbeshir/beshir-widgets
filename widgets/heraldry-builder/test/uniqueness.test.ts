@@ -248,6 +248,16 @@ describe('the primary group (A5E)', () => {
     expect(between(on('lion'), on('dragon'))).toEqual(['type:sc:A5E2']);
     expect(between(on('stag', { posture: 'statant' }), on('boar', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
     expect(between(on('mullet'), on('sun'))).toEqual(['type:dc:A5G4']);
+    // Anna Syveken 06/2020: a comet is a DC from a mullet; App M1g gives it its own token, so from the sun too.
+    expect(between(on('comet'), on('mullet'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('comet'), on('sun'))).toEqual(['type:dc:A5G4']);
+    // Art batch B7 (guesses, A5G4): a tower is a DC from a castle, a goblet from a chalice and from a tankard; unrelated classes are an SC.
+    expect(between(on('tower'), on('castle'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('goblet'), on('chalice'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('goblet'), on('tankard'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('chalice'), on('tankard'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('tower'), on('goblet'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('bell'), on('hand'))).toEqual(['type:sc:A5E2']);
     expect(between(on('mullet'), on('rose'))).toEqual(['type:sc:A5E2']);
     expect(between(on('eagle'), on('owl'))).toEqual(['type:dc:A5G4']);
     // art batch B1: a cat is a feline like the lion, a fox a canine like the wolf (A5C3); the bear, horse and squirrel are types of their own
@@ -964,6 +974,17 @@ describe('orientation (PLAN-D §1.3 O1–O10)', () => {
     expect(between(design('azure', turned('thistle', null)), design('azure', turned('thistle', 'inverted')))).toEqual([]);
     expect(between(design('azure', turned('acorn', null)), design('azure', turned('oak-leaf', null)))).toEqual(['type:sc:A5E2']);
     expect(between(design('azure', turned('lily', null)), design('azure', turned('rose', null)))).toEqual(['type:sc:A5E2']);
+  });
+
+
+  it('art batch B7: the compact-top towers, cups, bell, hand, pawprint and comet by direction (O5), the reversed hand and tankard none (O9)', () => {
+    for (const id of ['tower', 'castle', 'goblet', 'chalice', 'tankard', 'bell', 'hand', 'pawprint', 'comet']) {
+      expect(between(design('azure', turned(id, null)), design('azure', turned(id, 'inverted'))), id).toEqual(['posture:dc:A5G7']);
+    }
+    expect(between(design('azure', turned('tower', null)), design('azure', turned('tower', 'fesswise')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('hand', null)), design('azure', turned('hand', 'reversed')))).toEqual([]);
+    expect(between(design('azure', turned('tankard', null)), design('azure', turned('tankard', 'reversed')))).toEqual([]);
+    expect(between(design('azure', turned('tower', 'inverted')), design('azure', turned('castle', 'inverted')))).toEqual(['type:dc:A5G4']);
   });
 
 

@@ -282,6 +282,10 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-serpent-glissant', arms('argent', group(charge('serpent', { posture: 'glissant' }), 'vert'))],
   ['attr-serpent-erect-contourny', arms('argent', group(charge('serpent', { posture: 'erect', ...contourny }), 'vert'))],
   ['attr-dragonfly-bendwise', arms('sable', group(charge('dragonfly', { orientation: 'bendwise' }), 'argent'))],
+  ['attr-towers-inverted', arms('azure', group(charge('tower', { orientation: 'inverted' }), 'argent', { count: 3 }))],
+  ['attr-hand-reversed', arms('argent', group(charge('hand', { orientation: 'reversed' }), 'gules'))],
+  ['attr-bell-bendwise', arms('vert', group(charge('bell', { orientation: 'bendwise' }), 'or'))],
+  ['attr-lion-maintaining-goblet', arms('azure', group(charge('lion', { posture: 'rampant', holds: [{ how: 'maintaining', item: charge('goblet'), paint: 'or' }] }), 'argent'))],
   ['attr-lion-maintaining-thistle', arms('gules', group(charge('lion', { posture: 'rampant', holds: [{ how: 'maintaining', item: charge('thistle'), paint: 'or' }] }), 'argent'))],
 ];
 

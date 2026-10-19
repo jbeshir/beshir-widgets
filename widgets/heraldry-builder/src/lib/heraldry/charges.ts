@@ -92,6 +92,7 @@ export const CHARGE_IDS = [
   'raven', 'griffin', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'seahorse', 'peacock', 'martlet', 'dove', 'sea-lion',
   'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
   'escallop', 'dragonfly', 'thistle', 'dolphin', 'butterfly', 'laurel-wreath', 'oak-leaf', 'acorn', 'serpent', 'frog', 'pomegranate', 'lily', 'garb', 'spider', 'scorpion',
+  'tower', 'hand', 'pawprint', 'comet', 'goblet', 'chalice', 'castle', 'bell', 'tankard',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -106,7 +107,7 @@ export const POPULAR_CHARGE_IDS: readonly ChargeId[] = [
   'key', 'open-book', 'sword', 'crown', 'anchor',
   'musical-note', 'flame', 'gear', 'lightbulb',
   'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
-  'cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix', 'arrow', 'escallop', 'dolphin',
+  'cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix', 'arrow', 'escallop', 'dolphin', 'tower',
 ];
 
 /**
@@ -189,6 +190,11 @@ export const TYPE_CLASSES = {
   serpent: { source: 'A5G4: types distinct in period; App L1g treats serpent postures case by case; no SENA example against another reptile', guess: true },
   spider: { source: 'A5G4: types distinct in period; GoT Table 5 gives the spider its own default (tergiant, head to chief, Julius Gautieri 03/2023); no SENA example against another arthropod', guess: true },
   shell: { source: 'A5G4: types distinct in period; the escallop has its own GoT Table 5 entry (hinge to chief, 01/2025 CL) and A5G7c compares escallop vs escallop inverted (DC); no SENA example against another shell', guess: true },
+  fortification: { source: 'A5G4: types distinct in period; PLAN-D §2.4: tower and castle share this class with a type token each (tower vs castle DC); no SENA example found', guess: true },
+  cup: { source: 'A5G4: types distinct in period; PLAN-D §1.6 T5: goblet, chalice and tankard share this class with a type token each (DC); no SENA example found', guess: true },
+  bell: { source: 'A5G4: types distinct in period; no SENA example of a church bell against a hawk\'s bell', guess: true },
+  hand: { source: 'A5G4: types distinct in period; no SENA example of a hand against a glove or gauntlet', guess: true },
+  pawprint: { source: 'A5G4: types distinct in period; no SENA example of a pawprint against another track or foot', guess: true },
   'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 
