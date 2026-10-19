@@ -54,7 +54,7 @@ export function ChargePicker({ base, selected, none, status = OPEN, onSelect }: 
   const found = searching ? searchCharges(query).slice(0, MAX_RESULTS) : [];
   const tile = (id: ChargeId) => (
     <ChoiceButton key={id} testid={`${base}-${id}`} checked={selected === id} status={status(id)} label={chargeLabel(id)} onSelect={() => onSelect(id)} onBlocked={why.explain} class="icon-choice charge-choice">
-      <ChargeIcon path={chargePath({ charge: id, form: null, posture: CHARGES[id].defaultPosture, mods: [] })} size={30} />
+      <ChargeIcon path={chargePath({ charge: id, form: null, posture: CHARGES[id].defaultPosture, gaze: null, mods: [] })} size={30} />
       <span class="choice-label">{chargeLabel(id)}</span>
     </ChoiceButton>
   );

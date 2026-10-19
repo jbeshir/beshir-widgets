@@ -1,16 +1,22 @@
 // Drawings computed from another drawing of the same charge (PLAN-D §0.3.1, §2.6): a demi charge is the top of its rampant (or default)
-// drawing cut off and fitted to the box again, an erased head its couped head with the neck's straight edge torn into tufts. Computed when
-// first asked for and memoised by the source path, and undefined while that path is not there.
+// drawing cut off and fitted to the box again, an erased head its couped head with the neck's straight edge torn into tufts, a fish urinant
+// its haurient drawing turned upside down. Computed when first asked for and memoised by the source path, and undefined while that path is
+// not there.
 
-import { CHARGES, type ChargeId } from '../../charges';
+import { CHARGES, type ChargeId, type Posture } from '../../charges';
 import { boundedMemo } from '../../memo';
 import { pathRings, type Pt } from '../../geometry';
 import { pathFor } from '../paths/index';
 import type { ArtKey, NeckEdge } from '../types';
 import { clipRingsHalfPlane, fitRings, ringsPath } from '../geometry';
 
-/** The drawings derived from others: a demi charge, and an erased head. */
-type DerivedKey = 'demi' | 'erased-head';
+/** The postures drawn as another posture's drawing turned upside down (§2.6): urinant, a fish diving head down, is haurient turned 180°. */
+export const TURNED_POSTURES = { urinant: 'haurient' } as const satisfies Partial<Record<Posture, Posture>>;
+export type TurnedPosture = keyof typeof TURNED_POSTURES;
+export const isTurnedPosture = (key: string): key is TurnedPosture => Object.prototype.hasOwnProperty.call(TURNED_POSTURES, key);
+
+/** The drawings derived from others: a demi charge, an erased head, and a posture turned from another. */
+type DerivedKey = 'demi' | 'erased-head' | TurnedPosture;
 
 /** Where a demi charge is cut off when its sidecar row gives no `demiCut`, as y in its drawing's box. */
 const DEMI_CUT = 58;
@@ -46,6 +52,10 @@ function eraseEdge(rings: readonly (readonly Pt[])[], neck: NeckEdge): Pt[][] {
 
 /** A derived drawing of a charge, or undefined while the drawing it is computed from is not loaded. */
 export function derivedPath(id: ChargeId, key: DerivedKey): string | undefined {
+  if (isTurnedPosture(key)) {
+    const source = pathFor(id, TURNED_POSTURES[key]);
+    return source && derivedMemo(`turned|${source}`, () => ringsPath(pathRings(source).map((r) => r.map(([x, y]): Pt => [100 - x, 100 - y]))));
+  }
   if (key === 'demi') {
     const source = pathFor(id, demiSource(id));
     const cut = CHARGES[id].demiCut ?? DEMI_CUT;

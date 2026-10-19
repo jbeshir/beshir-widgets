@@ -8,7 +8,7 @@ import {
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 /** The drawing of a whole charge in a posture with its modifiers. */
-const art = (id: ChargeId, posture: Posture | null, mods: Charge['mods']) => chargePath({ charge: id, form: null, posture, mods });
+const art = (id: ChargeId, posture: Posture | null, mods: Charge['mods']) => chargePath({ charge: id, form: null, posture, gaze: null, mods });
 
 const kinds = (d: Design, shape: FieldShape = 'heater') => renderLayers(d, shape).map((l) => (l.k === 'field' ? 'field' : `${l.k}:${l.path.join('.')}`));
 const layer = <K extends Layer['k']>(d: Design, i: number, k: K, shape: FieldShape = 'heater') => {
@@ -93,7 +93,7 @@ describe('charge layers', () => {
   it('draw the drawn boxes of the group in its paint', () => {
     const d = nd(arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'in-fess' })));
     const l = layer(d, 1, 'charges');
-    expect(l.slots).toEqual(groupSlots(d, [0], 'heater').map((s) => drawnBox(s, { charge: 'sword', form: null })));
+    expect(l.slots).toEqual(groupSlots(d, [0], 'heater').map((s) => drawnBox(s, { charge: 'sword', form: null, posture: null, gaze: null })));
     expect(l.slots.map(slotTransform)).toHaveLength(2);
     expect(l.fills).toEqual([{ fill: solidFill('or'), slots: [0, 1] }]);
     expect(l.art).toBe(art('sword', null, []));
@@ -171,6 +171,21 @@ describe('charge layers', () => {
     expect(layer(pale, 2, 'charges').poses).toEqual([UPRIGHT, MIRRORED]);
   });
 
+  it('turn each of a pair facing each other toward the other and each of a pair back to back away from it: whole, heads and demi charges', () => {
+    // The art faces dexter (house style), a head's too: its mouth is on its dexter side.
+    for (const id of ['lion', 'wolf'] as const) expect(CHARGES[id].drawings.head!.anchors.mouth!.x, id).toBeLessThan(50);
+    for (const form of [null, 'head', 'demi'] as const) {
+      const pair = (word: string) => nd(arms('azure', group(charge('lion', { form }), 'or', { count: 2, arrangement: { k: 'pair', pair: word } })));
+      for (const word of ['combattant', 'respectant']) {
+        const [dexter, sinister] = groupSlots(pair(word), [0], 'heater');
+        expect(dexter.x, `${form} ${word}`).toBeLessThan(sinister.x);
+        // the dexter one mirrored to face sinister, toward the other; the sinister one as drawn, facing dexter
+        expect(layer(pair(word), 1, 'charges').poses, `${form} ${word}`).toEqual([MIRRORED, UPRIGHT]);
+      }
+      expect(layer(pair('addorsed'), 1, 'charges').poses, `${form} addorsed`).toEqual([UPRIGHT, MIRRORED]);
+    }
+  });
+
   it('mirror the line of a divided or striped charge with it, its tinctures dexter or chief first', () => {
     const fills = (paint: unknown, item: object = {}) => layer(nd(arms('azure', group(charge('lion', item), paint))), 1, 'charges').fills;
     const contourny = { facing: 'to-sinister' };
@@ -238,7 +253,7 @@ describe('charge art', () => {
   });
 
   it('falls back to the default posture and then to the posture-less drawing', () => {
-    expect(art('lion', 'courant', [])).toBe(art('lion', 'rampant', []));
+    expect(art('lion', 'statant-erect', [])).toBe(art('lion', 'rampant', []));
     expect(art('rose', null, [])).toBe(art('rose', 'rampant', []));
   });
 });

@@ -126,6 +126,7 @@ const chargeAliases: Alias[] = [
 // ("courant", "running") — stands for its whole family, so "passant wolf" finds a statant wolf.
 const POSTURE_FAMILIES: readonly (readonly Posture[])[] = [
   ['rampant', 'salient'], ['passant', 'statant', 'courant'], ['couchant', 'dormant'], ['haurient', 'urinant'], ['rising', 'volant'],
+  ['sejant', 'sejant-erect'], ['glissant', 'nowed'],
 ];
 const firstWord = (phrase: string) => phrase.split(' ')[0];
 const postureWords = (p: Posture): string[] => {

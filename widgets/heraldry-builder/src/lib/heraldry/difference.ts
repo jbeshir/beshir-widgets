@@ -165,20 +165,28 @@ function arrangementGroup(g: Group): string | null {
   }
 }
 
-/** A5E5 (RULES §C.4 SC-5): postures substantially different from those of the other lines; unlisted postures are in none. */
+/**
+ * A5E5a (RULES §C.4 SC-5; PLAN-D §1.2): postures substantially different from those of the other lines; unlisted postures are in none.
+ * P1 quadrupeds (winged monsters too): statant erect is in L1a's rampant line, so it is in the rampant line here too. P2 birds (striking,
+ * of the rising line, is not drawn). P3 fish. P4 insects turn by orientation, not posture. P5 bipeds and P6 serpents: none (case by case).
+ */
 const POSTURE_SC_LINES: Record<PostureClass, Partial<Record<Posture, string>>> = {
   quadruped: {
-    rampant: 'rampant', salient: 'rampant', 'sejant-erect': 'rampant', sejant: 'rampant',
+    rampant: 'rampant', salient: 'rampant', 'sejant-erect': 'rampant', sejant: 'rampant', 'statant-erect': 'rampant',
     courant: 'passant', passant: 'passant', statant: 'passant', couchant: 'passant', dormant: 'passant',
   },
   bird: { displayed: 'displayed', volant: 'displayed', close: 'close', naiant: 'close', rising: 'rising' },
   fish: { haurient: 'haurient', urinant: 'haurient', naiant: 'naiant' },
   insect: {},
+  biped: {},
+  serpent: {},
 };
 
 /**
- * A5G7 (RULES §C.7, App L1): postures within a line don't differ, across lines they do. A sejant erect is in the rampant
- * and the sejant line both, so it differs from neither (RULES §G.7).
+ * A5G7 (RULES §C.7, App L1; PLAN-D §1.2): postures within a line don't differ, across lines they do. A sejant erect is in the rampant
+ * and the sejant line both, so it differs from neither (RULES §G.7); rampant against sejant is a DC (herald question D2). P5 (L1f): a
+ * biped erect, statant or haurient against one naiant, sejant or passant. P6 (L1g "case by case"): each serpent posture is a line of its
+ * own — herald question D3.
  */
 const POSTURE_DC_LINES: Record<PostureClass, Partial<Record<Posture, readonly string[]>>> = {
   quadruped: {
@@ -188,6 +196,8 @@ const POSTURE_DC_LINES: Record<PostureClass, Partial<Record<Posture, readonly st
   bird: { close: ['close'], naiant: ['close'], displayed: ['displayed'], volant: ['volant'], rising: ['rising'] },
   fish: { haurient: ['haurient'], urinant: ['haurient'], naiant: ['naiant'] },
   insect: {},
+  biped: { erect: ['erect'], statant: ['erect'], haurient: ['erect'], naiant: ['low'], sejant: ['low'], passant: ['low'] },
+  serpent: { glissant: ['glissant'], nowed: ['nowed'], erect: ['erect'] },
 };
 
 /** The postures of two charges that share a posture class (App M3), or null when they are not comparable or either has no posture. */

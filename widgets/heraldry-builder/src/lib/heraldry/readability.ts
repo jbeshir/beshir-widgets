@@ -10,7 +10,7 @@ import { LINE_WORD, isStraightLine, type ComplexLine } from './lines';
 import { adjacentParts } from './divisions';
 import { defaultLayoutOf } from './arrangement';
 import { fieldTinctures, replaceGroup, walkGroups, type Charge, type Design, type Group, type WalkedGroup } from './design';
-import { drawnBox } from './geometry';
+import { drawnBox } from './charge-art';
 import { canonicalSlots } from './layout';
 import { chargeWords, ordinaryWords } from './plain-words';
 import { designTinctures } from './render';

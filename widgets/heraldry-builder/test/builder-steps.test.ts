@@ -7,7 +7,7 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setBadge, setCharge, setCut, setForm, setFacing, setModifier, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { setBadge, setCharge, setCut, setForm, setFacing, setModifier, setPosture, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
 import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, withLayout, CHARGES, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
@@ -634,7 +634,8 @@ describe('"Facing, turning and details…" under the picture', () => {
     for (const id of ['facing-to-dexter', 'facing-to-sinister', 'facing-affronty', 'gaze-none', 'gaze-guardant', 'gaze-regardant']) expect(ids(html), id).toContain(id);
     expect(html).toMatch(/aria-checked="true"[^>]*id="facing-to-sinister"/);
     expect(html).toMatch(/data-testid="facing-affronty" data-blocked="true"/);
-    expect(html).toMatch(/data-testid="gaze-guardant" data-blocked="true"/);
+    expect(html).not.toMatch(/data-testid="gaze-guardant" data-blocked="true"/);
+    expect(render(setPosture(contourny, picturePath(lion)!, 'couchant'))).toMatch(/data-testid="gaze-guardant" data-blocked="true"/);
     expect(ids(html)).not.toContain('pair');
     expect(render(contourny, { open: false, onToggle: noop })).toMatch(/step-charges-summary">1 lion, gold, facing right</);
   });
@@ -737,6 +738,10 @@ describe('the Details disclosure under the picture', () => {
     expect([...ids(render(head))].filter((id) => id.startsWith('cut-'))).toEqual(['cut-couped', 'cut-erased']);
     expect(render(head)).toMatch(/aria-checked="true"[^>]*id="cut-erased"/);
     for (const id of ['sword', 'mullet', 'sun'] as const) expect([...ids(render(pictured(id)))].filter((x) => x.startsWith('form-')), id).toEqual([]);
+    // a head or demi charge has no pose: the Pose select says so instead of standing empty (D7b's deferred blank select)
+    expect(render(demi)).toMatch(/<select[^>]*data-testid="posture-select" disabled><option selected value>No pose \(front half\)<\/option><\/select>/);
+    expect(render(head)).toContain('No pose (head only)');
+    expect(render(lion)).not.toContain('No pose');
   });
 
   it('shows the edging\'s tincture while fimbriated, blocks what does not stand out, and explains a refused toggle', () => {

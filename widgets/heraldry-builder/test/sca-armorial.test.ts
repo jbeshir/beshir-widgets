@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, plainlyPosed, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -300,7 +300,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...generatedChargeAttributeDesigns(1, 200),
+      ...plainlyPosed(generatedChargeAttributeDesigns(1, 200)),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -778,7 +778,7 @@ describe('the matcher accepts stated defaults only for the design that has them'
 // A construct the matcher parses but the widget doesn't draw is filed under the widget's own gap.
 describe('the matcher files what the widget does not draw under its gap', () => {
   it.each([
-    ['Azure, a lion couchant Or.', ['posture:couchant']],
+    ['Azure, a wolf couchant Or.', ['posture:couchant']],
     ['Azure, two wolves Or and two roses argent.', ['multiple-groups:co-primary-count']],
     ['Azure, a wolf Or, a rose argent and a heart gules.', ['multiple-groups:co-primary-3']],
     ['Azure, three lions Or between three roses argent.', ['placement:around-primary-3']],

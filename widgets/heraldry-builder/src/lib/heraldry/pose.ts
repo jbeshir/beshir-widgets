@@ -4,7 +4,8 @@
 import { CHARGES, type Orientation } from './charges';
 import type { Arrangement, Charge } from './design';
 import { mirroredSlots } from './arrangement';
-import { opticalScale, r2, type ArtPose, type Slot } from './geometry';
+import { opticalScale } from './charge-art';
+import { r2, type ArtPose, type Slot } from './geometry';
 import { reachOf, turnFit } from './art/geometry';
 
 /**

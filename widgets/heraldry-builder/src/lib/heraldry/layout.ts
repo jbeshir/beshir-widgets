@@ -5,7 +5,7 @@
 
 import { capitalise } from './words';
 import { CHARGES, chargePhrase, type ChargeId } from './charges';
-import { chargeOnBox } from './charge-art';
+import { chargeOnBox, opticalScale } from './charge-art';
 import { PLAIN_LINES, groupAt, hostOf, walkGroups, type Design, type GroupPath } from './design';
 import { BUILDER_DIVISIONS } from './divisions';
 import { ORDINARY_NAME, familyOf, familyOfTreated, type OrdinaryType } from './ordinaries';
@@ -14,7 +14,7 @@ import {
   type FieldContext, type GroundContext, type HalfPosition, type HostCharges, type QuarterPosition, type KeepOut, type Layout, type LayoutContext, type Peripheral, type SecondaryPosition, type Share, type Yield,
 } from './arrangement';
 import {
-  CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, opticalScale, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
+  CANONICAL_SHAPE, CHEVRON_APEX_RISE, SHIELD_INSET_PATH, partIndexAt, pathPolygon, pointInPolygon, probePoints, shapeFrame, type DividedField, type Pt, type Slot,
 } from './geometry';
 import { bandPlace, bandShift, defaultOrdinaryFrame, frameBeside, isPlainSpec, ordinaryGeometry, trimGrowth, turnAxis, upsideDown, type OrdinarySpec } from './ordinary-geometry';
 import { HEATER_SLOT_ROWS, SHAPED_SLOT_ROWS, type SlotRow, type SlotRows } from './shape-slots';

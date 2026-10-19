@@ -219,7 +219,7 @@ describe('the builder offers a badge', () => {
 
   it('adds only pictures on the picture, and only where its drawing has room for them', () => {
     expect(layerChoices(setBadge(lion)).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-picture']);
-    const bare = CHARGE_IDS.find((id) => chargeOnBox({ charge: id, form: null, posture: CHARGES[id].defaultPosture }) === null)!;
+    const bare = CHARGE_IDS.find((id) => chargeOnBox({ charge: id, form: null, posture: CHARGES[id].defaultPosture, gaze: null }) === null)!;
     expect(layerChoices(setBadge(setCharge(DEFAULT_DESIGN, 'picture', bare))).filter((c) => c.allowed)).toEqual([]);
     expect(layerChoices(setBadge(DEFAULT_DESIGN)).filter((c) => c.allowed)).toEqual([]);
   });

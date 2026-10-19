@@ -8,7 +8,7 @@ export const META_MONSTER = {
   unicorn: {
     name: 'unicorn', plural: 'unicorns', article: 'a', category: 'monster',
     typeClass: 'unicorn', typeOf: null, typeToken: null, postureClass: 'quadruped', birdShape: null,
-    postures: ['rampant', 'passant', 'sejant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', postureWording: {},
+    postures: ['rampant', 'passant', 'sejant', 'courant', 'couchant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', postureWording: {},
     faces: true, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'animate', allowed: [], wording: {} },
     forms: ['demi', 'head'], mods: [], details: [], parts: [], holds: [],
@@ -20,6 +20,8 @@ export const META_MONSTER = {
       passant: { onBox: { x: 29, y: 46, w: 38, h: 24 }, anchors: {}, neck: null },
       sejant: { onBox: { x: 28, y: 44, w: 20, h: 30 }, anchors: {}, neck: null },
       head: { onBox: null, anchors: { collar: { x: 63.3, y: 82, size: 32, rotation: 0 }, crown: { x: 59, y: 19, size: 16, rotation: 0 } }, neck: { y: 93, x0: 49, x1: 87 } },
+      courant: { onBox: { x: 27, y: 47, w: 35, h: 22 }, anchors: { hold: { x: 9.3, y: 67, size: 16, rotation: 0 }, crown: { x: 23.5, y: 26.2, size: 12.4, rotation: 0 }, collar: { x: 30.6, y: 42.1, size: 14.2, rotation: 30 } }, neck: null },
+      couchant: { onBox: { x: 34, y: 52, w: 36, h: 29 }, anchors: { hold: { x: 14.7, y: 78.5, size: 16.3, rotation: 0 }, crown: { x: 25.9, y: 29.7, size: 14.2, rotation: 0 }, collar: { x: 34, y: 48, size: 16.3, rotation: 30 } }, neck: null },
     },
     provenance: HAND_DRAWN,
   },

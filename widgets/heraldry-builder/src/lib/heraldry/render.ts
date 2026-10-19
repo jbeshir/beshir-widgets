@@ -2,9 +2,9 @@
 // walk order (each group followed by the groups on it). DOM-free; Shield.tsx turns layers into SVG.
 
 import type { Tincture } from './tinctures';
-import { chargePath } from './charge-art';
+import { chargePath, drawnBox } from './charge-art';
 import { fimbriationOf, isVoided, paintTinctures, walkGroups, type Charge, type Design, type Group, type GroupPath } from './design';
-import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type ArtPose, type Slot } from './geometry';
+import { badgeTransform, CANONICAL_SHAPE, shapeFrame, type ArtPose, type Slot } from './geometry';
 import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
 import { chargePoses } from './pose';

@@ -9,7 +9,7 @@ import { useEffect, useState } from 'preact/hooks';
 import {
   TREATMENT_LABEL, VARIATION_LABEL, asSemy, asTreated, asVariation, fieldParts, furName, semyColourChoices, setSemyColour, setTreatmentColour, treatmentColourChoices, CHARGES, DIVISION_LABEL, DIVISION_PART_LABEL, BUILDER_DIVISIONS, MORE_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, TILE_OF, ORDINARY_COUNTS, ordinaryCountLabel, LINE_LABEL, ORDINARY_LABEL, OUTLINE_LABEL, SHAPE_TOGGLE_LABEL, BAND_POSITION_LABEL, ordinaryEdgeHost, SHAPE_TOGGLES, toggledOn, bandPositionOf, outlineAt, outlineTinctureOf, edgeSideChoices, edgeSideOf, lineChoices, lineWords,
   TINCTURE_LABEL, chargeLabel, lineAllowed, countChoices, fieldTinctureChoices, groupAt,
-  isBlocked, isHalfPosition, layoutChoices, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, shownLayoutKey, simpleParts, FACING_LABEL, ORIENTATION_LABEL, PAIR_LABEL,
+  isBlocked, isHalfPosition, layoutChoices, layoutLabel, layoutOfKey, modifierChoices, placementChoices, plainFirst, postureChoices, postureLabel, resolve, shownLayoutKey, simpleParts, FACING_LABEL, FORM_LABEL, ORIENTATION_LABEL, PAIR_LABEL,
   type Choice, type Companion, type Design, type Division, type FieldShape, type GroupPath, type Issue, type Line,
   partCount, type FieldPart, type LayoutChoice, type LayoutKey, type OrdinaryType, type Paint, type PaintTarget, type PlainTerm, type Posture,
 } from '../../lib/heraldry';
@@ -580,22 +580,27 @@ export function PictureControls({ design, path, prefix, onChange, onAdjust, adju
       {postures.length > 0 && item && (
         <div class="control">
           <label class="picker-legend" for={postureId}>Pose</label>
-          <select
-            id={postureId}
-            class="select"
-            data-testid={postureId}
-            value={item.posture ?? ''}
-            title={CHARGES[item.charge].scaDefaultPosture === null ? `The SCA has no default pose for ${CHARGES[item.charge].article} ${CHARGES[item.charge].name}, so the blazon always names it.` : undefined}
-            aria-describedby={blockedPostures.length > 0 ? `${postureId}-note` : undefined}
-            onChange={(e) => onChange(setPosture(design, path, (e.currentTarget as HTMLSelectElement).value as Posture))}
-          >
-            {postures.map((c) => (
-              <option key={c.value} value={c.value} disabled={!c.allowed}>
-                {postureOption(design, path, c.value)}{c.allowed ? '' : ' (not drawn)'}
-              </option>
-            ))}
-          </select>
-          {blockedPostures.length > 0 && <p class="control-note" id={`${postureId}-note`}>{blockedPostures[0].reason}</p>}
+          {item.form !== null
+            // a head or a demi charge has no pose of its own: the select says so rather than showing none of the postures
+            ? <select id={postureId} class="select" data-testid={postureId} value="" disabled><option value="">No pose ({FORM_LABEL[item.form].plain.toLowerCase()})</option></select>
+            : (
+              <select
+                id={postureId}
+                class="select"
+                data-testid={postureId}
+                value={item.posture ?? ''}
+                title={CHARGES[item.charge].scaDefaultPosture === null ? `The SCA has no default pose for ${CHARGES[item.charge].article} ${CHARGES[item.charge].name}, so the blazon always names it.` : undefined}
+                aria-describedby={blockedPostures.length > 0 ? `${postureId}-note` : undefined}
+                onChange={(e) => onChange(setPosture(design, path, (e.currentTarget as HTMLSelectElement).value as Posture))}
+              >
+                {postures.map((c) => (
+                  <option key={c.value} value={c.value} disabled={!c.allowed}>
+                    {postureOption(design, path, c.value)}{c.allowed ? '' : ' (not drawn)'}
+                  </option>
+                ))}
+              </select>
+            )}
+          {item.form === null && blockedPostures.length > 0 && <p class="control-note" id={`${postureId}-note`}>{blockedPostures[0].reason}</p>}
         </div>
       )}
 

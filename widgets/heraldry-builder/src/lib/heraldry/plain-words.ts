@@ -3,7 +3,7 @@
 // the term and keep the words for their tooltip. The blazon keeps the heraldic names in blazon.ts;
 // these are display text only. Pure data — no DOM.
 
-import { CHARGES, postureGloss, postureTerm, type ChargeForm, type ChargeId, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
+import { CHARGES, postureGloss, postureWords, type ChargeForm, type ChargeId, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath, type Pair } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
@@ -334,7 +334,7 @@ export function ordinaryWords(type: OrdinaryType): string {
 
 /** Posture words, plain first: "Standing (statant)". Displayed has no everyday gloss of its own. */
 export function postureLabel(id: ChargeId, posture: Posture, note: string | null = null): string {
-  const term = postureTerm(id, posture);
+  const term = postureWords(id, posture);
   const plain = postureGloss(id, posture) ?? (posture === 'displayed' ? 'wings spread' : null);
   return plain ? `${capitalise(plain)} (${[term, note].filter(Boolean).join(', ')})` : `${capitalise(term)}${note ? ` (${note})` : ''}`;
 }

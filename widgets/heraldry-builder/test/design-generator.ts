@@ -381,7 +381,9 @@ const OUTLINED_CHARGES: readonly ChargeId[] = ['mullet', 'roundel', 'lozenge', '
  * drawn, sometimes with a pale or a fess, and about a third of those are a charge that turns, set one of the ways it may be (§1.3). Of the
  * rest alone on the field, about two in five carry a modifier (§1.4): a mullet or estoile of 4 to 12 points (a mullet sometimes pierced),
  * or a simple geometric charge voided or fimbriated. About three in ten of the lions, wolves and eagles neither turned nor modified are a
- * head (half of them erased) or a demi charge. Each later attribute step adds its picks after these. Null when the pick isn't registrable.
+ * head (half of them erased) or a demi charge. About three in ten of the whole beasts, eagles and fish neither turned nor modified are in
+ * a posture they are drawn in (§1.2), half of those with the head turned where that posture is drawn so (the lion guardant or regardant,
+ * §1.1 F4). Each later attribute step adds its picks after these. Null when the pick isn't registrable.
  */
 function attributeDesignFor(seed: number): Design | null {
   const next = prng(seed ^ ATTRIBUTE_SEED);
@@ -405,7 +407,12 @@ function attributeDesignFor(seed: number): Design | null {
   const forms = turning || modifier !== null ? undefined : FORM_CHARGES[id as ChargeId];
   const form = forms && next() < 0.3 ? pick(forms) : null;
   const formed = form === null ? modified : { ...modified, item: { ...charge, form, ...(form === 'head' && next() < 0.5 ? { mods: ['erased'] } : {}) } };
-  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, formed] : [formed];
+  const postures = form === null && !turning && modifier === null ? CHARGE_META[id as ChargeId].postures : null;
+  const posture = postures && next() < 0.3 ? pick(postures) : null;
+  const gazes = posture === null ? [] : (['guardant', 'regardant'] as const).filter((g) => CHARGE_META[id as ChargeId].drawings[`${posture}~${g}`]);
+  const gaze = gazes.length > 0 && next() < 0.5 ? pick(gazes) : null;
+  const posed = posture === null ? formed : { ...formed, item: { ...formed.item, posture, ...(gaze ? { gaze } : {}) } };
+  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, posed] : [posed];
   const r = resolve({ v: 2, field, groups });
   if (!r.ok) return null;
   const n = normalise(r.design);
@@ -421,6 +428,10 @@ function modifiedCharge(roll: number, next: () => number, pick: <T>(xs: readonly
   if (roll < 0.5) return { k: 'charge', charge: 'mullet', mods: ['pierced'] };
   return { k: 'charge', charge: pick(OUTLINED_CHARGES), mods: [roll < 0.75 ? 'voided' : { id: 'fimbriated', paint: pick(TINCTURES) }] };
 }
+
+/** The designs whose charges look ahead and are in a one-word posture: the SCA matcher reads no head turn and no "sejant erect" until D8b. */
+export const plainlyPosed = (designs: readonly Design[]): Design[] =>
+  designs.filter((d) => !d.groups.some((g) => g.item.k === 'charge' && (g.item.gaze !== null || (g.item.posture?.includes('-') ?? false))));
 
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */
 export function generatedChargeAttributeDesigns(seed: number, count: number): Design[] {

@@ -13,7 +13,7 @@ import { META_PLANT } from './art/meta/plant';
 import { numberWord } from './words';
 
 export const POSTURES = ['rampant', 'passant', 'statant', 'sejant', 'courant', 'salient', 'couchant', 'dormant', 'sejant-erect',
-  'statant-erect', 'naiant', 'haurient', 'urinant', 'displayed', 'close', 'rising', 'volant', 'tergiant'] as const;
+  'statant-erect', 'naiant', 'haurient', 'urinant', 'displayed', 'close', 'rising', 'volant', 'tergiant', 'erect', 'glissant', 'nowed'] as const;
 export type Posture = (typeof POSTURES)[number];
 
 /** Which way a charge's body faces: to dexter (as drawn), to sinister (contourny: the drawing mirrored), or out of the shield. */
@@ -60,9 +60,10 @@ export type HoldHow = (typeof HOLD_HOWS)[number];
 /** Plain-English posture words for the gloss. Displayed is folded into the eagle's gloss name. */
 export const POSTURE_GLOSS: Record<Posture, string | null> = {
   rampant: 'rearing up', passant: 'walking', statant: 'standing', sejant: 'sitting', courant: 'running', salient: 'leaping',
-  couchant: 'lying down', dormant: 'asleep', 'sejant-erect': 'sitting upright', 'statant-erect': 'standing upright',
+  couchant: 'lying down', dormant: 'sleeping', 'sejant-erect': 'sitting up', 'statant-erect': 'standing on hind legs',
   naiant: 'swimming', haurient: 'upright, head up', urinant: 'diving, head down', displayed: null,
   close: 'perched, wings folded', rising: 'taking off', volant: 'flying', tergiant: 'seen from above',
+  erect: 'upright', glissant: 'gliding', nowed: 'knotted',
 };
 
 export type ChargeCategory = 'beast' | 'monster' | 'bird' | 'plant' | 'geometric' | 'cross' | 'object' | 'modern';
@@ -156,8 +157,11 @@ export const TYPE_CLASSES = {
 
 export type TypeClass = keyof typeof TYPE_CLASSES;
 
-/** Which postures a charge can be compared across when it changes posture (SENA App M3). */
-export type PostureClass = 'quadruped' | 'bird' | 'fish' | 'insect';
+/**
+ * Which postures a charge can be compared across when it changes posture (SENA App M3): four-legged beasts and monsters, birds, fish,
+ * insects (tergiant), tailed bipeds (sea-creatures, wyverns, cockatrices; App M3) and serpents.
+ */
+export type PostureClass = 'quadruped' | 'bird' | 'fish' | 'insect' | 'biped' | 'serpent';
 
 const ROWS: Record<ChargeId, ChargeMetaRow> = {
   ...META_BEAST, ...META_MONSTER, ...META_BIRD, ...META_PLANT, ...META_GEOMETRIC, ...META_CROSS, ...META_OBJECT, ...META_MODERN,
@@ -190,6 +194,11 @@ export const isHoldHow = isIn(HOLD_HOWS);
 /** Blazon word for a posture on a given charge ("segreant" for a rampant dragon). */
 export function postureTerm(id: ChargeId, p: Posture): string {
   return CHARGES[id].postureWording[p]?.term ?? p;
+}
+
+/** A posture as a blazon writes it on a given charge: its term, a two-word one two words ("sejant erect", "statant erect"). */
+export function postureWords(id: ChargeId, p: Posture): string {
+  return postureTerm(id, p).replace('-', ' ');
 }
 
 /** Plain-English word for a posture on a given charge; null for displayed. */
