@@ -1096,9 +1096,10 @@ npm run favicon
   assess, blazon) on every record but the expensive ones on a seeded, rotating sample (`test/sca/sample.ts`):
   the render check and the builder-click replay (`builderPath`, ~40 ms a design) on the simplest design with each feature
   (records are checked shortest blazon first, and a design with a feature no design before it has is always checked, so
-  every ordinary, charge, division, line, treatment and layout is drawn and replayed on every run) plus ~120 designs picked by a hash
+  every ordinary, division, line, treatment and layout, and each of the 36 charges drawn before phase D, is drawn and replayed on every run;
+  a charge drawn since only in the rotating share, so this stays flat as art lands) plus ~40 designs picked by a hash
   of the UTC date (or `SCA_SAMPLE_SEED`), and the gap tagger's re-run on the ignored records (the ratchet's "still has the
-  gap it is filed under") for the first record of each gap category plus one in twelve. "An ignored record that now passes"
+  gap it is filed under") for the first record of each gap category plus one in thirty-six. "An ignored record that now passes"
   and "a new failure" are still checked on every record, by the match and the cheap checks. **`npm run sca:ignore` is the
   authoritative full sweep** (it never samples, and fails on any widget bug in any record); the final gate runs it, and
   `SCA_FULL=1 npx vitest run --project sca` makes the test do the same. Sampled failures print the seed to reproduce.
@@ -1107,10 +1108,11 @@ npm run favicon
   shape's), the hatched render goldens of the generated designs and of the charge and diminutive cases (a
   third), geometry-fit's art sweeps (six fixed drawings and about eight rotating ones, whatever the number of drawings; the hosts of
   charges on charges are the sampled drawings that carry them; the compact few drawings in half the generic layouts on the heater) and
-  its shapes other than the heater (a twelfth of the layouts),
+  its shapes other than the heater (a twentieth of the layouts),
   lines-field (half the cases on the heater, a sixth elsewhere), ordinary-lines (half of the heater's lines), the corner and edge
-  shapes' keep-out sweeps (half on the heater), half of uniqueness's symmetry pairs, a third of builder-layers-reach's generated field-line and corner-shape designs and half of its rich ones,
-  a twelfth of prefilter's edited entries per probe and a third of its generated pairs, and a third of the seeds of the two oldest
+  shapes' keep-out sweeps (half on the heater), half of uniqueness's symmetry pairs, a fifth of builder-layers-reach's generated field-line and corner-shape designs, a quarter of its rich
+  ones and a sixth of its charge-attribute ones, a twelfth of prefilter's edited entries per probe, a third of its generated pairs and a
+  quarter of its charge pairs with a charge added in phase D (`STRATUM_CHARGE_IDS`, test/rotation.ts: every pair of the 36 earlier ones), and a third of the seeds of the two oldest
   generators in this test's round trip — and their failures print it too. A sampled golden test compares only the keys it worked out;
   `npm run golden:write` always works out every key.
 

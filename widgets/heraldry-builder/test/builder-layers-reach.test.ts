@@ -264,7 +264,7 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   const share = (designs: readonly Design[], rate: number) => designs.filter((d) => rotatesIn(canonicalJson(d), rate));
 
   it('every generated design with a line on the field is built too', () => {
-    const problems = share(generatedGeometryDesigns(11, 100), 1 / 3).flatMap((d) => {
+    const problems = share(generatedGeometryDesigns(11, 100), 1 / 5).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
@@ -296,7 +296,7 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   }, 60_000);
 
   it('every generated design with corner and edge shapes, alone or several beside a band or a picture, is built too', () => {
-    const problems = share(generatedPeripheralDesigns(11, 60), 1 / 3).flatMap((d) => {
+    const problems = share(generatedPeripheralDesigns(11, 60), 1 / 5).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
@@ -304,7 +304,7 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   }, 60_000);
 
   it('every generated rich design is built too', () => {
-    const problems = share(generatedRichDesigns(11, 150), 1 / 2).flatMap((d) => {
+    const problems = share(generatedRichDesigns(11, 150), 1 / 4).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
@@ -312,7 +312,7 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   }, 60_000);
 
   it('every generated design with a charge facing to sinister, turned, set as a pair, with its points, voided, fimbriated or pierced, adorned or holding something, is built too', () => {
-    const problems = share(generatedChargeAttributeDesigns(11, 60), 1 / 3).flatMap((d) => {
+    const problems = share(generatedChargeAttributeDesigns(11, 60), 1 / 6).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });

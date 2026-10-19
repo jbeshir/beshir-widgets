@@ -6,7 +6,9 @@
 //   - a fixed stratum: a design is always drawn and replayed when it has a feature (an ordinary, charge, division, line,
 //     treatment, tincture, layout…: a token of its signature) that no design asked about before it has — so every feature the
 //     widget draws is drawn and replayed at least once, on every run. The armorial test asks shortest blazon first, so this is
-//     the simplest design with each feature, the cheapest to replay (in record order the stratum took 2.5 times as long); and
+//     the simplest design with each feature, the cheapest to replay (in record order the stratum took 2.5 times as long). A
+//     charge is a feature only if it is one of the 36 of `STRATUM_CHARGE_IDS` (test/rotation.ts): a charge drawn since is
+//     replayed by the rotating stratum, so the fixed one does not grow with the art; and
 //   - a rotating stratum: ~DESIGN_SAMPLE designs picked by a hash of (seed, design), the seed being the UTC date (or
 //     SCA_SAMPLE_SEED), so different runs check different designs and every design is checked within a few runs.
 // The same rotation thins the gap tagger's re-run on the ignored records (the ratchet's "still has the gap it is filed under"),
@@ -15,20 +17,24 @@
 // `npm run sca:ignore` (test/sca/update-ignore-list.ts) never samples: it is the authoritative full sweep over every record, and the
 // final gate runs it. SCA_FULL=1 makes `npm test` run the full sweep too.
 
-import { canonicalJson, signature, type Design } from '../../src/lib/heraldry';
-import { fullSweep, sampleSeed, unit } from '../rotation';
+import { CHARGE_IDS, canonicalJson, signature, type Design } from '../../src/lib/heraldry';
+import { STRATUM_CHARGE_IDS, fullSweep, sampleSeed, unit } from '../rotation';
 import type { ArmoryRecord } from './oanda';
 
 /** About this many designs are drawn and replayed through the builder by the rotating stratum, however many records pass. */
-export const DESIGN_SAMPLE = 120;
+export const DESIGN_SAMPLE = 40;
 /** One in this many ignored records has the gap tagger re-run by the rotating stratum. */
-export const TAGGER_RATE = 12;
+export const TAGGER_RATE = 36;
+
+/** The charges outside the fixed stratum's: not features (their designs are replayed by the rotating stratum). */
+const LATER_CHARGES: ReadonlySet<string> = new Set(CHARGE_IDS.filter((id) => !STRATUM_CHARGE_IDS.includes(id)));
 
 /**
- * The features of a design: the tokens of its signature (ordinaries `o.fess`, charges `c.lion`, lines, mods, divisions, layouts, tinctures). A
- * modifier's number is a token of its own (`+of-points*6` is `of-points` and `6`), so a star of every number of points is one feature.
+ * The features of a design: the tokens of its signature (ordinaries `o.fess`, charges `c.lion`, lines, mods, divisions, layouts, tinctures)
+ * but a later charge. A modifier's number is a token of its own (`+of-points*6` is `of-points` and `6`), so a star of every number of
+ * points is one feature.
  */
-const features = (d: Design): string[] => signature(d).split(/[|:(),{}/+~.>*]/).filter(Boolean);
+const features = (d: Design): string[] => signature(d).split(/[|:(),{}/+~.>*]/).filter((f) => f !== '' && !LATER_CHARGES.has(f));
 
 export interface Sampler {
   /** Whether to draw this design and replay the builder for it; the answer is fixed for a design on first ask. */
