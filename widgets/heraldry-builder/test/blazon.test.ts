@@ -257,6 +257,10 @@ describe('every charge', () => {
       expect(blazon(nd(arms('azure', chg(id, 'or', { count: 3 })))), id).toBe(`Azure, three ${meta.plural}${posture} Or.`);
     }
   });
+
+  it('takes "an" before a vowel sound and "a" before any other ("an acorn", "an oak leaf", "a unicorn")', () => {
+    for (const id of CHARGE_IDS) expect(CHARGES[id].article, id).toBe(/^(?:[aeio]|u(?!ni))/i.test(CHARGES[id].name) ? 'an' : 'a');
+  });
 });
 
 describe('what it will not write', () => {

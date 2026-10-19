@@ -561,7 +561,7 @@ describe('the matcher reads demi charges and heads in the College\'s words', () 
   it('files what the widget does not draw of them under their gaps', () => {
     const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
     expect(tags('Azure, a demi-boar Or.')).toEqual(['charge-modifier:demi']);
-    expect(tags('Azure, a goat\'s head erased Or.')).toEqual(['charge-beast:goat-head', 'charge-modifier:erased']);
+    expect(tags('Azure, a goat\'s head erased Or.')).toEqual(['charge-beast:goat-head']); // the head is the gap, with its cut
     expect(tags('Azure, a lion erased Or.')).toEqual(['charge-modifier:erased']);
     expect(tags('Azure, a demi-lion erased Or.')).toEqual(['charge-modifier:erased']);
   });
@@ -716,6 +716,82 @@ describe('the matcher reads the College\'s names for the wheels, the seeblatt an
     const read = (b: string) => explainMatch(b).match?.design ?? null;
     expect(read(text), text).not.toBeNull();
     expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+// D17's audit of the records filed under `other`: spellings and punctuation of constructs the widget draws, which the matcher now reads.
+describe('the matcher reads the College\'s spellings found by the audit of the `other` records', () => {
+  it.each([
+    ['Azure, three wolf\'s heads erased Or.', 'Azure, three wolves\' heads erased Or.'],
+    ['Azure, three boars heads couped argent.', 'Azure, three boars\' heads couped argent.'],
+    ['Pean, a lion\'s head, erased and sinister facing, gules.', 'Pean, a lion\'s head erased contourny gules.'],
+    ['Argent, three seeblätter vert.', 'Argent, three seeblatter vert.'],
+    ['(Fieldless) A paw print purpure.', '(Fieldless) A pawprint purpure.'],
+    ['Per pale Or and sable, a wolf passant counter-changed.', 'Per pale Or and sable, a wolf passant counterchanged.'],
+    ['Counterermine, a lion Or.', 'Counter-ermine, a lion Or.'],
+    ['Or, a horse rampant between three fleurs de lis sable.', 'Or, a horse rampant between three fleurs-de-lys sable.'],
+    ['Ermine, a cog wheel gules.', 'Ermine, a cogwheel gules.'],
+    ['Per bend vert and gules, a griffin argent a bordure ermine.', 'Per bend vert and gules, a griffin argent, a bordure ermine.'],
+    ['(Fieldless) On a horse rampant gules a mullet Or.', '(Fieldless) A horse rampant gules charged with a mullet Or.'],
+    ['Per pale argent and vert, three hearts counterchanged vert and argent.', 'Per pale argent and vert, three hearts counterchanged.'],
+    ['(Fieldless) An acorn vert.', '(Fieldless) An acorn vert.'],
+    ['Argent, an oak leaf fesswise reversed gules.', 'Argent, an oak leaf fesswise reversed gules.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+// The tagger's blind spots the same audit found: each construct the widget does not draw is filed under its gap, not `other`.
+describe('the tagger files the constructs the audit of the `other` records found under their gaps', () => {
+  it.each([
+    ['Or, three sheaves of arrows sable.', 'charge-weapon:sheaf-of-arrows'],
+    ['Argent, a pair of hands vert.', 'charge-human:pair-of-hands'],
+    ['Azure, a sheaf of three spears argent.', 'charge-weapon:sheaf-of-spears'],
+    ['Per pale sable and argent, two foxes combattant counterchanged argent and gules.', 'tincture:party'],
+    ['Argent, a cross engrailed sable between four pairs of keys in saltire vert.', 'charge-tool:pair-of-keys'],
+    ['Sable, a saltire argent surmounted by a sun Or.', 'multiple-groups:surmounted'],
+    ['Barry wavy azure and argent, an eagle Or within a laurel wreath vert.', 'multiple-groups:within-charge'],
+    ['Argent, a wolf\'s head erased sable within an annulet azure.', 'multiple-groups:within-charge'],
+    ['Argent, a dragon purpure charged on the shoulder with a rose argent.', 'placement:on-shoulder'],
+    ['Azure, a goat statant argent atop a bezant.', 'placement:atop'],
+    ['Argent, a phoenix purpure rising from flames gules.', 'charge-modifier:from-flames'],
+    ['Per saltire argent and vert, four crescents horns outward counterchanged gules and argent.', 'orientation:outward'],
+    ['Or, a sinister wing gules.', 'charge-modifier:sinister'],
+    ['Argent, a sinister hand vert.', 'charge-modifier:sinister'],
+    ['Azure, a boar\'s head couped close argent.', 'charge-modifier:couped-close'],
+    ['Vert, two natural seahorses addorsed argent.', 'charge-monster:natural-seahorse'],
+    ['Azure, a natural dolphin naiant argent.', 'charge-fish:natural-dolphin'],
+    ['Gules, three Thor\'s hammers argent.', 'charge-tool:thors-hammer'],
+    ['Purpure, a hawk\'s bell Or.', 'charge-instrument:hawks-bell'],
+    ['Vert, a closed book Or.', 'charge-household:closed-book'],
+    ['(Fieldless) A Ukrainian trident head azure.', 'charge-weapon:ukrainian-trident'],
+    ['Sable, a polar bear statant argent.', 'charge-beast:polar-bear'],
+    ['Sable, a male griffin rampant argent.', 'charge-monster:male-griffin'],
+    ['Or, a bottlenosed dolphin naiant sable.', 'charge-fish:bottlenosed-dolphin'],
+    ['Or, a spired tower gules.', 'charge-building:spired-tower'],
+    ['Argent, a human footprint gules.', 'charge-human:human-footprint'],
+  ])('%s', (text, tag) => {
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags).toContain(tag);
+  });
+
+  // The audit of the phase-D tag families (40 records each): a cut, facing, crown or wings on a charge the widget lacks is filed with that
+  // charge, a charge's own posture word or a drawn hold is no gap, and "that to dexter" says which charge, not how it is turned.
+  it.each([
+    ['Argent, an eagle\'s head erased sable.', ['charge-bird:eagle-head']],
+    ['Argent, a tiger rampant contourny sable.', ['charge-beast:tiger']],
+    ['Argent, two swans\' heads erased addorsed sable.', ['charge-bird:swan-head']],
+    ['Or, a bull gules winged argent.', ['charge-beast:bull']],
+    ['Or, a winged pig gules.', ['charge-beast:pig']],
+    ['Vert, a ram\'s head couped crowned Or.', ['charge-beast:ram-head']],
+    ['Azure, a seahorse ducally gorged Or.', ['charge-modifier:gorged']],
+    ['Argent, a swan rousant gules.', []],
+    ['Azure, a dragon passant Or maintaining an open book argent.', []],
+    ['Argent, two roses, that to dexter Or, that to sinister sable.', ['other:vocabulary']],
+    ['Azure, a raven volant, wings addorsed argent.', ['posture:wings-addorsed']],
+  ])('%s', (text, tags) => {
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags).toEqual(tags);
   });
 });
 
