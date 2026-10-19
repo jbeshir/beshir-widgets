@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { EVERY_WAY, HAND_DRAWN, PROPER } from './common';
+import { DERIVED, EVERY_WAY, HAND_DRAWN, PROPER } from './common';
 
 export const META_OBJECT = {
   key: {
@@ -364,5 +364,50 @@ export const META_OBJECT = {
       _: { onBox: null, anchors: {}, neck: null },
     },
     provenance: { origin: 'original', author: 'phase-D art pipeline, B7, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, tapered strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
+  },
+  rapier: {
+    name: 'rapier', plural: 'rapiers', article: 'a', category: 'object',
+    typeClass: 'sword', typeOf: 'sword', typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'long-ends', allowed: [...EVERY_WAY, 'to-center'], wording: {} },
+    forms: [], mods: [], details: ['enflamed'], parts: [], holds: [],
+    demiCut: null, long: true, scale: 1.15, detail: 1, proper: PROPER.steel,
+    glossName: 'rapier', glossPlural: 'rapiers', plain: null, search: [],
+    headName: null, holdable: true, pairedWings: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: DERIVED,
+  },
+  dagger: {
+    name: 'dagger', plural: 'daggers', article: 'a', category: 'object',
+    typeClass: 'sword', typeOf: 'sword', typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'long-ends', allowed: [...EVERY_WAY, 'to-center'], wording: {} },
+    forms: [], mods: [], details: ['enflamed'], parts: [], holds: [],
+    demiCut: null, long: true, scale: 1, detail: 1, proper: PROPER.steel,
+    glossName: 'dagger', glossPlural: 'daggers', plain: null, search: [],
+    headName: null, holdable: true, pairedWings: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: DERIVED,
+  },
+  coronet: {
+    name: 'coronet', plural: 'coronets', article: 'a', category: 'object',
+    typeClass: 'crown', typeOf: 'crown', typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    glossName: 'coronet', glossPlural: 'coronets', plain: null, search: [],
+    headName: null, holdable: false, pairedWings: false,
+    drawings: {
+      _: { onBox: { x: 24, y: 47, w: 42, h: 26 }, anchors: {}, neck: null },
+    },
+    provenance: DERIVED,
   },
 } satisfies Record<string, ChargeMetaRow>;

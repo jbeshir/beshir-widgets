@@ -1,6 +1,6 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
-export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, HOLD_HOWS, HOLDABLE_IDS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type HoldHow, type ModifierId, type PartId, type TypeClass } from './charges';
+export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, ALIAS_IDS, isAliasId, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, HOLD_HOWS, HOLDABLE_IDS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type AliasId, type HoldHow, type ModifierId, type PartId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
@@ -93,7 +93,7 @@ export { OVERLAY_PIECES } from './art/paths/pieces';
 export { OVERLAY_MODIFIERS, PIECE_IDS, PROPER_PIECES, isPiece, isPiecePart, overlaidArt, piecePaint, withDrawnPieces, type PieceId, type PiecePart } from './overlay-art';
 export { bboxOf, ringDepths, ringProblems, turnFit } from './art/geometry';
 export { crossPath } from './art/procedural/crosses';
-export { ERASED_TEETH, TURNED_POSTURES, derivedPath, isTurnedPosture } from './art/procedural/derived';
+export { ERASED_TEETH, ALIASES, TURNED_POSTURES, aliasPath, derivedPath, isTurnedPosture } from './art/procedural/derived';
 export { PIERCED_MULLETS, POINTED_STARS } from './art/procedural/stars';
 export type { ArtBox, ArtKey, DrawingMeta } from './art/types';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';

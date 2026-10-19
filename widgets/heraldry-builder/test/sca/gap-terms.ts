@@ -48,7 +48,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   beast: w(`
     grizzly lioness tiger leopard panther catamount lynx ounce wildcat cougar puma jaguar cheetah kitten
     stallion mare pony foal colt donkey ass mule zebra dog talbot greyhound hound wolfhound bloodhound mastiff
-    terrier poodle corgi brachet alaunt lymer spaniel dane samoyed cur husky collie dachshund retriever setter beagle vixen jackal hyena coyote coney rabbit
+    terrier poodle corgi brachet alaunt lymer spaniel dane samoyed cur husky collie dachshund retriever setter beagle vixen jackal hyena coyote
     elephant bull ox cow calf bison buffalo yak ram sheep lamb ewe badger brock hedgehog urchin otter sea-otter weasel
     stoat ferret marten mink polecat wolverine mouse rat shrew mole vole hamster bat reremouse monkey ape baboon
     gorilla camel dromedary camelopard cameleopard giraffe deer buck hart hind doe fawn roe elk moose reindeer
@@ -57,12 +57,12 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     attire antler massacre jambe jamb gamb gambe paw scalp
   `),
   bird: w(`
-    hawk peahen crane heron stork alerion popinjay parrot cock rooster hen
+    peahen crane heron stork alerion popinjay parrot cock rooster hen
     chicken crow corbie rook magpie jay goose duck drake swallow sparrow wren robin lark skylark nightingale
     blackbird thrush finch goldfinch linnet tit kingfisher hummingbird pelican ostrich emu penguin puffin gull
     seagull tern osprey kestrel merlin peregrine gyrfalcon vulture condor kite ibis flamingo chough cockatoo quail
     pheasant partridge grouse moorcock turkey loon egret cormorant albatross woodpecker starling cardinal jackdaw
-    pigeon bluebird songbird corvid dodo eaglet owlet bird wing vol quill plume nest egg
+    pigeon bluebird songbird corvid dodo eaglet owlet bird wing quill plume nest egg
   `),
   monster: w(`
     cockatrice basilisk
@@ -122,7 +122,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   weapon: w(`
     arrowhead broad-arrow broadarrow bolt quarrel quiver ax battle-axe battleaxe labrys tomahawk bow
     longbow crossbow spearhead lance javelin pikestaff pikehead boarspear halberd poleaxe glaive bill billhook
-    bardiche partisan voulge mace morningstar flail warhammer club dagger rapier scimitar sabre saber falchion
+    bardiche partisan voulge mace morningstar flail warhammer club scimitar sabre saber falchion
     cutlass claymore katana gladius seax dirk kris kriss shamshir cinquedea tulwar flamberge curtana estoc longsword
     knife caltrap caltrop grenade cannon gun handgun musket pistol rifle sling catapult trebuchet swepe
     ballista battering-ram chaine-shot skyrocket rocket bomb chakram shuriken boomerang helm helmet armour armor
@@ -147,7 +147,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     curule couch throne bed cradle cushion pillow lamp lantern candle candlestick candelabrum menorah torch
     firebrand beacon brazier cresset andiron mirror handmirror fan parasol umbrella broom besom spoon fork ladle
     cleaver saltcellar salt bread loaf pretzel cheese cake pie fleece hide pelt wool coin money ring necklace
-    torc torque brooch gem gemstone jewel pearl coronet eastern-crown antique-crown celestial-crown mural-crown
+    torc torque brooch gem gemstone jewel pearl eastern-crown antique-crown celestial-crown mural-crown
     naval-crown imperial-crown papal-crown circlet diadem tiara mitre sceptre scepter orb scroll
     escroll card chess-piece chess-rook chess-knight chess-king chess-queen chess-bishop chess-pawn zule die dice
     domino toy ball doll puppet whirligig rattle whistle wagon cart carriage flag banner pennon pennant
@@ -223,6 +223,7 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   escallop: 'fish', dragonfly: 'insect', thistle: 'plant', dolphin: 'fish', butterfly: 'insect', 'laurel-wreath': 'plant', 'oak-leaf': 'plant', acorn: 'plant',
   serpent: 'reptile', frog: 'reptile', pomegranate: 'plant', lily: 'plant', garb: 'plant', spider: 'insect', scorpion: 'insect',
   tower: 'building', hand: 'human', pawprint: 'symbol', comet: 'celestial', goblet: 'household', chalice: 'household', castle: 'building', bell: 'instrument', tankard: 'household',
+  hawk: 'bird', rapier: 'weapon', dagger: 'weapon', coney: 'beast', rabbit: 'beast', vol: 'bird', coronet: 'household',
 };
 
 /** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */

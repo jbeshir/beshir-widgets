@@ -50,3 +50,11 @@ export const OUTLINED: readonly ModifierId[] = ['voided', 'fimbriated'];
  * draws it on the drawings that have the anchor.
  */
 export const WINGED: readonly ModifierId[] = ['winged'];
+
+/** The alias charges of phase D, drawn from another charge's drawing by a transform (art/procedural/derived.ts). */
+export const DERIVED: Provenance = {
+  origin: 'original',
+  author: 'heraldry-builder phase D (derived)',
+  date: '2026-10',
+  method: 'computed from the drawing of another charge (art/procedural/derived.ts); no image traced or copied',
+};

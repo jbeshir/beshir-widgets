@@ -5,7 +5,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { CHARGES, CHARGE_IDS, CORE_ART_IDS, chargeIdsOf, semyPaint, type ChargeCategory, type ChargeId } from '../src/lib/heraldry';
+import { ALIASES, ALIAS_IDS, CHARGES, CHARGE_IDS, CORE_ART_IDS, chargeIdsOf, semyPaint, type ChargeCategory, type ChargeId } from '../src/lib/heraldry';
 import type * as LazyArt from '../src/lib/heraldry/art/paths/lazy';
 import type * as StaticArt from '../src/lib/heraldry/art/paths/index';
 import { PATHS_CORE } from '../src/lib/heraldry/art/paths/core';
@@ -55,17 +55,27 @@ describe('lazy-loaded art (PLAN-D §0.3.3)', () => {
     const modules: Record<string, object> = { core: PATHS_CORE, ...PROCEDURAL, ...CATEGORY_PATHS };
     const owners = new Map<string, string[]>();
     for (const [name, paths] of Object.entries(modules)) for (const id of Object.keys(paths)) owners.set(id, [...(owners.get(id) ?? []), name]);
-    expect([...owners.keys()].sort()).toEqual([...CHARGE_IDS].sort());
+    // the aliases have none: they are drawn from another charge's (PLAN-D §0.3.1)
+    expect([...owners.keys()].sort()).toEqual(CHARGE_IDS.filter((id) => !(ALIAS_IDS as readonly string[]).includes(id)).sort());
     expect([...owners].filter(([, names]) => names.length > 1)).toEqual([]);
     for (const [cat, paths] of Object.entries(CATEGORY_PATHS)) for (const id of Object.keys(paths)) expect(CHARGES[id as ChargeId].category, id).toBe(cat);
   });
 
   it('draws the original charges, the generated ones and the most wanted bespoke ones from the main chunk (PLAN-D §2.4)', () => {
     const procedural = Object.values(PROCEDURAL).flatMap((paths) => Object.keys(paths));
-    const bespoke = CHARGE_IDS.slice(36).filter((id) => !procedural.includes(id));
+    const bespoke = CHARGE_IDS.slice(36).filter((id) => !procedural.includes(id) && !(ALIAS_IDS as readonly string[]).includes(id));
     expect([...CORE_ART_IDS]).toEqual(Object.keys(PATHS_CORE));
     expect([...CORE_ART_IDS].sort()).toEqual([...CHARGE_IDS.slice(0, 36), ...bespoke.filter((id) => MAIN_CHUNK_BESPOKE.includes(id))].sort());
   });
+
+  it('draws each alias from a charge of its own category, so loading the alias loads what it is drawn from (PLAN-D §0.3.1)', () => {
+    for (const id of ALIAS_IDS) {
+      const { source } = ALIASES[id];
+      expect(CHARGES[id].category, id).toBe(CHARGES[source].category);
+      expect(CHARGES[source].drawings, id).not.toEqual({});
+    }
+  });
+
 
   it('is read through art/paths/index only, and no generated art reads a category module (PLAN-D §0.3.1)', () => {
     const paths = path.join(SRC, 'lib/heraldry/art/paths');

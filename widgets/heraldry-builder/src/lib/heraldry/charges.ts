@@ -93,9 +93,15 @@ export const CHARGE_IDS = [
   'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
   'escallop', 'dragonfly', 'thistle', 'dolphin', 'butterfly', 'laurel-wreath', 'oak-leaf', 'acorn', 'serpent', 'frog', 'pomegranate', 'lily', 'garb', 'spider', 'scorpion',
   'tower', 'hand', 'pawprint', 'comet', 'goblet', 'chalice', 'castle', 'bell', 'tankard',
+  'hawk', 'rapier', 'dagger', 'coney', 'rabbit', 'vol', 'coronet',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
+
+/** The charges with no drawings of their own: each is drawn from another charge's (art/procedural/derived.ts; PLAN-D §2.4). */
+export const ALIAS_IDS = ['hawk', 'rapier', 'dagger', 'coney', 'rabbit', 'vol', 'coronet'] as const satisfies readonly ChargeId[];
+export type AliasId = (typeof ALIAS_IDS)[number];
+export const isAliasId = (id: ChargeId): id is AliasId => (ALIAS_IDS as readonly ChargeId[]).includes(id);
 
 /** The pictures the picker offers first, in this order: the original pictures; later pictures are added as they are drawn (PLAN-D §2.4). */
 export const POPULAR_CHARGE_IDS: readonly ChargeId[] = [

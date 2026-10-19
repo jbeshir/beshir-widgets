@@ -12,7 +12,7 @@ import type { Charge, Modifier } from './design';
 import { r2, type Slot } from './geometry';
 import { pathFor } from './art/paths/index';
 import { FITCHY_CROSSES } from './art/procedural/crosses';
-import { derivedPath, isTurnedPosture } from './art/procedural/derived';
+import { aliasPath, derivedPath, isTurnedPosture } from './art/procedural/derived';
 import { PIERCED_MULLETS, POINTED_STARS } from './art/procedural/stars';
 import type { ArtBox, ArtKey } from './art/types';
 
@@ -66,8 +66,9 @@ function formPath(c: DrawnCharge): string | undefined {
   return c.form === 'demi' ? pathFor(c.charge, 'demi') ?? derivedPath(c.charge, 'demi') : undefined;
 }
 
-/** The path of one of a charge's drawings: its own, or a posture turned from another posture's drawing (urinant). */
-const keyPath = (id: ChargeId, key: ArtKey): string | undefined => pathFor(id, key) ?? (isTurnedPosture(key) ? derivedPath(id, key) : undefined);
+/** The path of one of a charge's drawings: its own, or a posture turned from another posture's drawing (urinant), or an alias's, from its source's. */
+const keyPath = (id: ChargeId, key: ArtKey): string | undefined =>
+  pathFor(id, key) ?? (isTurnedPosture(key) ? derivedPath(id, key) : aliasPath(id, key));
 
 /** Path for a charge in its form and pose with its modifiers; falls back to the default posture, then '_'. */
 export function chargePath(c: DrawnCharge): string {

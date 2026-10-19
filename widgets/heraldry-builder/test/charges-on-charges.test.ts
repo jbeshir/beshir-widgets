@@ -8,10 +8,9 @@ import {
   structuralIssues, tableDefault, tinctureIssues, unsupportedIssues, CHARGES,
   type Design,
 } from '../src/lib/heraldry';
-import { CHARGE_ART } from '../src/lib/heraldry/art/paths/all';
 import { assess, setCharge, setModifier, setPosture } from '../src/lib/builder';
 import { builderPath } from './builder-path';
-import { rings } from './art-geometry';
+import { chargeArt, rings } from './art-geometry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const DEFAULT = nd(arms('azure'));
@@ -98,7 +97,7 @@ describe('charges on the primary charges: layout', () => {
       const d = nd(arms('azure', on(host, 'or', tertiary('mullet', 'gules', { count: 2, arrangement: 'in-fess' }))));
       for (const shape of FIELD_SHAPES) {
         const [hostSlot] = groupSlots(d, [0], shape);
-        const drawing = rings(CHARGE_ART[host][CHARGES[host].defaultPosture ?? '_']!);
+        const drawing = rings(chargeArt(host)[CHARGES[host].defaultPosture ?? '_']!);
         const box = drawnBox(hostSlot, { charge: host, form: null, posture: CHARGES[host].defaultPosture, gaze: null });
         const at = (x: number, y: number) => [box.x + ((x - 50) * box.size) / 100, box.y + ((y - 50) * box.size) / 100] as const;
         const placed = drawing.map((r) => r.map(([x, y]) => at(x, y) as unknown as [number, number]));

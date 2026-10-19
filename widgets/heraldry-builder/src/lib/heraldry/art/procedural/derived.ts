@@ -1,9 +1,10 @@
 // Drawings computed from another drawing of the same charge (PLAN-D §0.3.1, §2.6): a demi charge is the top of its rampant (or default)
 // drawing cut off and fitted to the box again, an erased head its couped head with the neck's straight edge torn into tufts, a fish urinant
 // its haurient drawing turned upside down. Computed when first asked for and memoised by the source path, and undefined while that path is
-// not there.
+// not there. The alias charges (hawk, rapier, dagger, coney, rabbit, vol, coronet; PLAN-D §2.4) have no drawings of their own: each is drawn from
+// another charge's, as it is or reshaped.
 
-import { CHARGES, type ChargeId, type Posture } from '../../charges';
+import { CHARGES, isAliasId, type AliasId, type ChargeId, type Posture } from '../../charges';
 import { boundedMemo } from '../../memo';
 import { pathRings, type Pt } from '../../geometry';
 import { pathFor } from '../paths/index';
@@ -17,6 +18,43 @@ export const isTurnedPosture = (key: string): key is TurnedPosture => Object.pro
 
 /** The drawings derived from others: a demi charge, an erased head, and a posture turned from another. */
 type DerivedKey = 'demi' | 'erased-head' | TurnedPosture;
+
+type Rings = readonly (readonly Pt[])[];
+
+/** How much slimmer a rapier is than the sword it is drawn from. */
+const RAPIER_WIDTH = 0.75;
+
+/** The y of the sword drawing's cross guard (its blade is above it), and the share of the blade a dagger keeps. */
+const SWORD_GUARD = 63;
+const DAGGER_BLADE = 0.5;
+
+/** The x of the wing drawing's root edge, where the vol's wing is rooted (x in the dexter half, apart from its mirror image) and its narrowing. */
+const WING_ROOT = 93;
+const VOL_ROOT = 49;
+const VOL_WIDTH = 0.45;
+
+/** The aliases: the charge each is drawn from, and how its drawing is made from that charge's (as it is when it has no `reshape`). */
+export const ALIASES: Record<AliasId, { source: ChargeId; reshape?: (rings: Rings) => Pt[][] }> = {
+  hawk: { source: 'falcon' },
+  coney: { source: 'hare' },
+  rabbit: { source: 'hare' },
+  coronet: { source: 'crown' },
+  // a rapier is a slimmer sword
+  rapier: { source: 'sword', reshape: (rings) => rings.map((r) => r.map(([x, y]): Pt => [50 + (x - 50) * RAPIER_WIDTH, y])) },
+  // a dagger is a sword with half the blade, above the cross guard, the whole drawing fitted to the box again
+  dagger: {
+    source: 'sword',
+    reshape: (rings) => fitRings(rings.map((r) => r.map(([x, y]): Pt => [x, y < SWORD_GUARD ? SWORD_GUARD - (SWORD_GUARD - y) * DAGGER_BLADE : y]))),
+  },
+  // a vol is a pair of wings joined at their roots, each narrowed to its half of the box
+  vol: {
+    source: 'wing',
+    reshape: (rings) => {
+      const dexter = rings.map((r) => r.map(([x, y]): Pt => [VOL_ROOT - (WING_ROOT - x) * VOL_WIDTH, y]));
+      return fitRings([...dexter, ...dexter.map((r) => r.map(([x, y]): Pt => [100 - x, y]))]);
+    },
+  },
+};
 
 /** Where a demi charge is cut off when its sidecar row gives no `demiCut`, as y in its drawing's box. */
 const DEMI_CUT = 58;
@@ -48,6 +86,14 @@ function eraseEdge(rings: readonly (readonly Pt[])[], neck: NeckEdge): Pt[][] {
     ...(k < ERASED_TEETH - 1 ? [[x0 + (k + 1) * w, neck.y - half] as Pt] : []),
   ]).flat();
   return [[...outer.slice(0, at + 1), ...torn, ...outer.slice(at + 1)], ...rest.map((r) => [...r])];
+}
+
+/** The drawing of an alias charge, from the drawing of the charge it is drawn from; undefined for any other charge or while that is not loaded. */
+export function aliasPath(id: ChargeId, key: ArtKey): string | undefined {
+  if (!isAliasId(id)) return undefined;
+  const alias = ALIASES[id];
+  const source = pathFor(alias.source, key), { reshape } = alias;
+  return source && reshape ? derivedMemo(`alias|${id}|${source}`, () => ringsPath(reshape(pathRings(source)))) : source;
 }
 
 /** A derived drawing of a charge, or undefined while the drawing it is computed from is not loaded. */

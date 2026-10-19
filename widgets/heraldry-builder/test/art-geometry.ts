@@ -1,7 +1,14 @@
 // Charge artwork as point rings, for tests that check where the drawn art lies on the shield.
-import type { ArtPose, Slot } from '../src/lib/heraldry';
+import { CHARGES, aliasPath, isAliasId, type ArtPose, type ChargeId, type Slot } from '../src/lib/heraldry';
+import type { ArtKey } from '../src/lib/heraldry/art/types';
+import { CHARGE_ART } from '../src/lib/heraldry/art/paths/all';
 
 export type Pt = [number, number];
+
+/** A charge's drawings by key: its own, or, for an alias, those computed from the drawings of the charge it is drawn from (PLAN-D §2.4). */
+export const chargeArt = (id: ChargeId): Partial<Record<ArtKey, string>> =>
+  isAliasId(id) ? Object.fromEntries(Object.keys(CHARGES[id].drawings).map((key) => [key, aliasPath(id, key as ArtKey)!])) : CHARGE_ART[id];
+
 
 /** Each drawing as rings of points in its 0–100 box (the art is M/L/Z polygons only). */
 export function rings(d: string): Pt[][] {

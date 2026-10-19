@@ -18,9 +18,8 @@ import {
   cornerBesideBend, frameBeside, hasBordure, hasChargedBordure, hasChief, layoutContext, layoutOfKey, minSlotSize, onChargeLayouts, ordinaryGeometry, plainSpec, pathPolygon, pointInPolygon, probePoints, resolve, shapeFrame, structuralIssues,
   type ArtKey, type ArtPose, type Charge, type ChargeForm, type ChargeId, type Gaze, type HostCharges, type Orientation, type Design, type FieldShape, type GroundContext, type KeepOut, type Layout, type LayoutContext, type OrdinaryType, type Peripheral, type Posture, type SecondaryPosition, type Slot,
 } from '../src/lib/heraldry';
-import { CHARGE_ART } from '../src/lib/heraldry/art/paths/all';
 import { isHandFitted, reachesHeaterParts } from '../src/lib/heraldry/layout';
-import { placePosed, rings, type Pt } from './art-geometry';
+import { chargeArt, placePosed, rings, type Pt } from './art-geometry';
 import { log } from './helpers';
 import { fullSweep, rotatesIn, sampleSeed, unit } from './rotation';
 
@@ -393,7 +392,7 @@ const drawing = (id: ChargeId, key: ArtKey, art: string, label = `${id} ${key}`)
   return { id, form, key, label, art, rings: rings(art), charge: { charge: id, form, ...(form ? { posture: null, gaze: null } : poseOfKey(key)) } };
 };
 const drawingsOf = (ids: readonly ChargeId[], postures: readonly string[] | null = null): Drawing[] =>
-  ids.flatMap((id) => Object.entries(CHARGE_ART[id])
+  ids.flatMap((id) => Object.entries(chargeArt(id))
     .filter(([posture]) => postures === null || postures.includes(posture) || posture === '_')
     .map(([posture, d]) => drawing(id, posture as ArtKey, d!)));
 /** The drawings derived from others (PLAN-D §2.6): every head erased, every demi charge and every posture turned from another (urinant). */
@@ -589,7 +588,7 @@ describe('charges on the primary charges fit their hosts', () => {
         const where = `${e.label} (${g.shape})`;
         if (slots.length !== hosts.length * e.count) { problems.push(`${where}: ${slots.length} slots`); continue; }
         if (new Set(slots.map((s) => s.size)).size !== 1 || slots[0].size < 1) { problems.push(`${where}: sizes ${[...new Set(slots.map((s) => s.size))]}`); continue; }
-        const drawing = rings(CHARGE_ART[host.charge][artKeyOf(host)]!);
+        const drawing = rings(chargeArt(host.charge)[artKeyOf(host)]!);
         const drawn = hosts.map((h, i) => placePosed(drawing, drawnBox(h, host), host.mirrored[i] ? MIRRORED : UPRIGHT));
         for (const s of slots) {
           // The on-box is mostly inside the drawing (art-onbox.test.ts), so a glyph disc at its edge may reach a gap in it: most of the disc and its centre lie on the host.
@@ -613,10 +612,10 @@ describe('charges on the primary charges fit their hosts', () => {
       const { host } = e.ctx;
       const hosts = contextSlots(host.context, host.count, host.layout, g.shape);
       const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
-      const hostDrawing = rings(CHARGE_ART[host.charge][artKeyOf(host)]!);
+      const hostDrawing = rings(chargeArt(host.charge)[artKeyOf(host)]!);
       const drawnHosts = hosts.map((h, i) => placePosed(hostDrawing, drawnBox(h, host), host.mirrored[i] ? MIRRORED : UPRIGHT));
       for (const id of CARRIED) {
-        const art = rings(CHARGE_ART[id][CHARGES[id].defaultPosture ?? '_']!);
+        const art = rings(chargeArt(id)[CHARGES[id].defaultPosture ?? '_']!);
         for (const s of slots) {
           const rs = placePosed(art, drawnBox(s, { charge: id, form: null, posture: CHARGES[id].defaultPosture, gaze: null }), UPRIGHT).flat();
           const outside = rs.filter((p) => !drawnHosts.some((h) => inDrawing(h, p) || h.flat().some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 1.5))).length;

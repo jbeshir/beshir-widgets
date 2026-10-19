@@ -285,6 +285,9 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-towers-inverted', arms('azure', group(charge('tower', { orientation: 'inverted' }), 'argent', { count: 3 }))],
   ['attr-hand-reversed', arms('argent', group(charge('hand', { orientation: 'reversed' }), 'gules'))],
   ['attr-bell-bendwise', arms('vert', group(charge('bell', { orientation: 'bendwise' }), 'or'))],
+  ['attr-hawk-rising', arms('sable', group(charge('hawk', { posture: 'rising' }), 'or'))],
+  ['attr-rapiers-saltire', arms('azure', group(charge('rapier'), 'argent', { count: 2, arrangement: 'crossed' }))],
+  ['attr-vols-three', arms('gules', group(charge('vol'), 'argent', { count: 3 }))],
   ['attr-lion-maintaining-goblet', arms('azure', group(charge('lion', { posture: 'rampant', holds: [{ how: 'maintaining', item: charge('goblet'), paint: 'or' }] }), 'argent'))],
   ['attr-lion-maintaining-thistle', arms('gules', group(charge('lion', { posture: 'rampant', holds: [{ how: 'maintaining', item: charge('thistle'), paint: 'or' }] }), 'argent'))],
 ];

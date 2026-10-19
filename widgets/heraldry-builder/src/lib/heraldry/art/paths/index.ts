@@ -3,14 +3,14 @@
 // (vite.config.ts), which has the same exports and loads the art outside the main chunk a category at a time.
 
 import type { ArtKey } from '../types';
-import type { ChargeId } from '../../charges';
+import { isAliasId, type ChargeId } from '../../charges';
 import { CHARGE_ART } from './all';
 
 export { CORE_ART_IDS } from './core';
 
-/** The path of one drawing, or undefined when the charge has no such drawing. */
+/** The path of one drawing, or undefined when the charge has no such drawing (an alias has none: art/procedural/derived.ts). */
 export function pathFor(id: ChargeId, key: ArtKey): string | undefined {
-  return CHARGE_ART[id][key];
+  return isAliasId(id) ? undefined : CHARGE_ART[id][key];
 }
 
 /** Whether the art of these charges is loaded: always, here. */
