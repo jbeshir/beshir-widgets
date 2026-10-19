@@ -341,6 +341,22 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['an anvil', arms('gules', group(charge('anvil'), 'argent'))],
   ['a spear bendwise', arms('vert', group(charge('spear', { orientation: 'bendwise' }), 'or'))],
   ['a trident', arms('azure', group(charge('trident'), 'or'))],
+  ['a thistle', arms('argent', group(charge('thistle'), 'proper'))],
+  ['three laurel wreaths', arms('azure', group(charge('laurel-wreath'), 'or', { count: 3 }))],
+  ['an oak leaf bendwise', arms('argent', group(charge('oak-leaf', { orientation: 'bendwise' }), 'vert'))],
+  ['an acorn slipped and leaved', arms('azure', group(charge('acorn', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'or'))],
+  ['a pomegranate', arms('argent', group(charge('pomegranate'), 'gules'))],
+  ['a garb', arms('azure', group(charge('garb'), 'or'))],
+  ['a lily', arms('azure', group(charge('lily'), 'argent'))],
+  ['three escallops inverted', arms('gules', group(charge('escallop', { orientation: 'inverted' }), 'argent', { count: 3 }))],
+  ['a dolphin haurient', arms('azure', group(charge('dolphin', { posture: 'haurient' }), 'argent'))],
+  ['a dolphin contourny', arms('azure', group(charge('dolphin', { facing: 'to-sinister' }), 'or'))],
+  ['a dragonfly bendwise', arms('sable', group(charge('dragonfly', { orientation: 'bendwise' }), 'argent'))],
+  ['a butterfly', arms('azure', group(charge('butterfly'), 'or'))],
+  ['a serpent glissant', arms('argent', group(charge('serpent', { posture: 'glissant' }), 'vert'))],
+  ['a frog', arms('argent', group(charge('frog'), 'vert'))],
+  ['a spider', arms('argent', group(charge('spider'), 'sable'))],
+  ['a scorpion', arms('or', group(charge('scorpion'), 'sable'))],
   ['a horse\'s head and a bear\'s head', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'), group(charge('bear', { form: 'head', mods: ['erased'] }), 'or'))],
 ];
 
@@ -644,6 +660,22 @@ describe('the matcher reads the College\'s names for the tools and weapons of ar
     ['Azure, three broad arrows Or.', 'Azure, three pheons Or.'],
     ['Azure, a broadarrow Or.', 'Azure, a pheon Or.'],
     ['Azure, a broad-arrow Or.', 'Azure, a pheon Or.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+
+// The sea creatures of art batch B6 in the College's words: a scallop (shell) is the escallop (Table 5), a dolphin's embowing is not blazoned.
+describe('the matcher reads the College\'s names for the escallop and the dolphin of art batch B6', () => {
+  it.each([
+    ['Gules, three scallop shells argent.', 'Gules, three escallops argent.'],
+    ['Gules, a scallop argent.', 'Gules, an escallop argent.'],
+    ['Azure, a dolphin embowed argent.', 'Azure, a dolphin argent.'],
+    ['Azure, a dolphin naiant embowed argent.', 'Azure, a dolphin argent.'],
+    ['Azure, a dolphin hauriant argent.', 'Azure, a dolphin haurient argent.'],
   ])('%s', (text, widget) => {
     const read = (b: string) => explainMatch(b).match?.design ?? null;
     expect(read(text), text).not.toBeNull();

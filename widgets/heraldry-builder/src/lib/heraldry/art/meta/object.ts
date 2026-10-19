@@ -230,4 +230,19 @@ export const META_OBJECT = {
     },
     provenance: { origin: 'original', author: 'phase-D art pipeline, B4, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, quadratic curves, tapered strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
   },
+  escallop: {
+    name: 'escallop', plural: 'escallops', article: 'an', category: 'object',
+    typeClass: 'shell', typeOf: null, typeToken: null, postureClass: null, birdShape: null,
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: EVERY_WAY, wording: {} },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 0.95, detail: 1, proper: null,
+    glossName: 'escallop', glossPlural: 'escallops', plain: { word: 'scallop shell', plural: 'scallop shells' }, search: ['scallop', 'shell', 'cockle', 'pilgrim'],
+    headName: null, holdable: true, pairedWings: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: { origin: 'original', author: 'phase-D art pipeline, B6, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, tapered strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
+  },
 } satisfies Record<string, ChargeMetaRow>;

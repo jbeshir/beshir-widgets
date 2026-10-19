@@ -213,6 +213,8 @@ const JOINS: [RegExp, string][] = [
   [/\b(drinking|hunting|bugle)[- ]horns?\b/g, '$1-horn'],
   [/\b(paw|foot|hoof|hand) ?prints?\b/g, 'pawprint'],
   [/\bermine spots?\b/g, 'ermine-spot'],
+  [/\blaurel wreaths?\b/g, 'laurel-wreath'],
+  [/\boak (leaf|leaves)\b/g, 'oak-leaf'],
   [/\bwater[- ]?bougets?\b/g, 'water-bouget'],
   [/\bcard[- ]piques?\b/g, 'card-pique'],
   [/\bbattle[- ]?axes?\b/g, 'battle-axe'],

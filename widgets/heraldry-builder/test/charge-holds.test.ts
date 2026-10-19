@@ -25,7 +25,7 @@ const inBox = (d: string) => { const b = box(d); return b.x0 >= 0 && b.y0 >= 0 &
 
 describe('held items (PLAN-D §1.5)', () => {
   it('are held by the charges with a paw, beak or mouth anchor and are the charges that may be held', () => {
-    expect(CHARGE_IDS.filter((id) => CHARGES[id].holdable)).toEqual(['rose', 'fleur-de-lis', 'mullet', 'key', 'sword', 'anchor', 'cross-crosslet', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident']);
+    expect(CHARGE_IDS.filter((id) => CHARGES[id].holdable)).toEqual(['rose', 'fleur-de-lis', 'mullet', 'key', 'sword', 'anchor', 'cross-crosslet', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident', 'escallop', 'thistle', 'oak-leaf', 'acorn', 'pomegranate', 'garb']);
     expect(Object.fromEntries(CHARGE_IDS.filter((id) => CHARGES[id].holds.length > 0).map((id) => [id, CHARGES[id].holds]))).toEqual({
       lion: ['maintaining', 'sustaining', 'in-mouth'], wolf: ['maintaining', 'sustaining', 'in-mouth'], boar: ['in-mouth'], goat: ['maintaining', 'sustaining'],
       hare: ['maintaining', 'sustaining'], fish: ['in-mouth'], unicorn: ['maintaining', 'sustaining'], dragon: ['maintaining', 'sustaining', 'in-mouth'],

@@ -272,6 +272,17 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-pheons-to-center', arms('argent', group(charge('pheon', { orientation: 'to-center' }), 'sable', { count: 4, arrangement: 'in-cross' }))],
   ['attr-trident-inverted', arms('azure', group(charge('trident', { orientation: 'inverted' }), 'or'))],
   ['attr-spears-bendwise', arms('vert', group(charge('spear', { orientation: 'bendwise' }), 'or', { count: 2 }))],
+  ['attr-acorns-slipped-leaved', arms('argent', group(charge('acorn', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'or', { count: 3 }))],
+  ['attr-acorn-inverted-slipped', arms('azure', group(charge('acorn', { orientation: 'inverted', mods: [{ id: 'slipped', paint: 'vert' }] }), 'or'))],
+  ['attr-oak-leaf-bendwise-slipped-leaved', arms('argent', group(charge('oak-leaf', { orientation: 'bendwise', mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'vert'))],
+  ['attr-escallops-inverted', arms('gules', group(charge('escallop', { orientation: 'inverted' }), 'argent', { count: 3 }))],
+  ['attr-dolphin-contourny', arms('azure', group(charge('dolphin', contourny), 'argent'))],
+  ['attr-dolphin-haurient', arms('azure', group(charge('dolphin', { posture: 'haurient' }), 'or'))],
+  ['attr-dolphins-respectant', arms('azure', group(charge('dolphin'), 'or', pair('respectant')))],
+  ['attr-serpent-glissant', arms('argent', group(charge('serpent', { posture: 'glissant' }), 'vert'))],
+  ['attr-serpent-erect-contourny', arms('argent', group(charge('serpent', { posture: 'erect', ...contourny }), 'vert'))],
+  ['attr-dragonfly-bendwise', arms('sable', group(charge('dragonfly', { orientation: 'bendwise' }), 'argent'))],
+  ['attr-lion-maintaining-thistle', arms('gules', group(charge('lion', { posture: 'rampant', holds: [{ how: 'maintaining', item: charge('thistle'), paint: 'or' }] }), 'argent'))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
