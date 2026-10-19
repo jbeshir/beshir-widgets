@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { COLOURS, METALS, TINCTURE_LABEL, type Tincture } from '../../lib/heraldry';
 import { pushLayer, restoreFocus } from '../overlay/layers';
 
-export type ExplainKind = 'tincture' | 'structure' | 'drawing';
+export type ExplainKind = 'tincture' | 'structure' | 'drawing' | 'detail';
 
 export interface Explanation {
   anchor: HTMLElement;
@@ -21,6 +21,7 @@ const RULE_LINE: Record<ExplainKind, string> = {
   tincture: `The rule of tincture: a colour (${plainList(COLOURS)}) goes on a metal (${plainList(METALS)}) and a metal on a colour, so arms read clearly from a distance.`,
   structure: "Each layout needs room: every picture must be drawn at least a set size, and some combinations aren't heraldic.",
   drawing: 'A picture can only be turned the ways the builder has a drawing for; the others are listed so you know they exist.',
+  detail: 'SCA heraldry lets only the main pictures, and only simple shapes, be hollow (voided) or edged (fimbriated), and an edging must stand out from what it lies on.',
 };
 
 export function useExplainer() {

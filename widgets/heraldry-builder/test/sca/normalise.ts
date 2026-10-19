@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, drawnPoints, pointsWord, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
 import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, INVERTED_HOSTS, LINE, NUMBER_WORDS, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
 
 export interface NormalisationRule {
@@ -67,8 +67,10 @@ const BAND_PAINT = `(?: ${TINCT}(?:${OUTLINE}(?: ${TINCT})?)?|${OUTLINE}(?: ${TI
 /** Every charge noun, lower case as the text reads once the case rule has run, with the charges' nouns for how they point ("increscent"). */
 const NOUN = alt(CHARGE_IDS.flatMap((id) => [CHARGES[id].name, CHARGES[id].plural, ...Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [w.name, w.plural] : []))]).map((noun) => noun.toLowerCase()));
 const POSTURE = alt([...POSTURES, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? []).map((p) => postureTerm(id, p)))]);
-/** The modifiers the widget words after a noun: "in splendor", "fitchy". */
-const MODIFIER = alt(Object.values(MODIFIER_WORDS));
+/** The modifiers the widget words after a noun: "in splendor", "fitchy", "voided", "pierced", a star's "of six points" ("of eight rays"). */
+const MODIFIER = `(?:${alt(Object.values(MODIFIER_WORDS))}|of (?:${alt(NUMBER_WORDS)}) (?:points|rays))`;
+/** The stars that are given a number of points, by their nouns (lower case): the mullet, the estoile. */
+const STARS = CHARGE_IDS.filter((id) => drawnPoints(id) !== null);
 /** The words for which way a charge points, as the widget words them: "fesswise", "bendwise sinister inverted", the crescent's "pendant" (not "points to center", which follows the layout). */
 const ORIENT = alt([...ORIENTATIONS.filter((o) => o !== 'to-center').map((o) => ORIENTATION_WORDS[o]), ...CHARGE_IDS.flatMap((id) => Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'words' ? [w.words] : [])))]);
 /** How a charge is turned, after its posture, as the widget words it: "contourny", then which way it points. */
@@ -97,7 +99,7 @@ function facingEachOtherWords(noun: string, pose: string, written: string): stri
   return [noun, ...kept, pair].join(' ');
 }
 /** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor", "a cross formy fitchy". */
-const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})?`;
+const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})*`;
 
 /** The other spellings of a cross's form after "cross" or "crosses", each with the widget's word for it ("cross fleury" is "cross flory"). */
 const CROSS_FORM_SPELLINGS: Record<string, string> = {
@@ -441,7 +443,7 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
     //    charge on a beast, monster or bird the second way and every other host the first.
     id: 'charged-with',
     description: '"<a host> <tincture> charged with <group>" → "on <a host> <tincture> <group>".',
-    apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?|${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})? ${TINCT}),? charged with `, 'g'), '$1on $2 '),
+    apply: (s) => s.replace(new RegExp(`(^|, | and )((?:a|an) (?:${ORDINARY}|chief(?:${ORDINARY_LINE})?|${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})* ${TINCT}),? charged with `, 'g'), '$1on $2 '),
   },
   {
     // 5a. Which way a charge that faces is turned, in the SCA's other words for the widget's (GoT; SENA §1.1): contourny's spellings
@@ -470,6 +472,17 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/\bbarwise\b/g, 'fesswise')
       .replace(/\binverted (bendwise(?: sinister)?)\b/g, '$1 inverted')
       .replace(/\b(crescents?) inverted\b/g, '$1 pendant'),
+  },
+  {
+    // 5c. A star's points in the widget's words (§1.4 M5): "a mullet of five points" is the mullet as drawn and "an estoile of six rays" the
+    //     estoile, so the number goes (`canonical`); an estoile's points are its rays ("estoile(s) of N points" 40, "of N rays" 68).
+    id: 'points-synonyms',
+    description: 'mullet(s) of five points → mullet(s); estoile(s) of six rays → estoile(s); estoile(s) of N points → estoile(s) of N rays.',
+    apply: (s) => STARS.reduce((t, id) => {
+      const noun = `(${CHARGES[id].name.toLowerCase()}|${CHARGES[id].plural.toLowerCase()}) of`;
+      return t.replace(new RegExp(`\\b${noun} ${NUMBER_WORDS[drawnPoints(id)! - 1]} (?:points|rays)\\b`, 'g'), '$1')
+        .replace(new RegExp(`\\b${noun} (${alt(NUMBER_WORDS)}) (?:points|rays)\\b`, 'g'), `$1 of $2 ${pointsWord(id)}`);
+    }, s),
   },
   {
     // 6. Where the placement words go: the SCA writes "two keys in pale" as often as "in pale two

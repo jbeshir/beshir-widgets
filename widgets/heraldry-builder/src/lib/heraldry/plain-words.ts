@@ -3,7 +3,7 @@
 // the term and keep the words for their tooltip. The blazon keeps the heraldic names in blazon.ts;
 // these are display text only. Pure data — no DOM.
 
-import { CHARGES, postureGloss, postureTerm, type ChargeId, type Facing, type Gaze, type Orientation, type Posture } from './charges';
+import { CHARGES, postureGloss, postureTerm, type ChargeId, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath, type Pair } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
@@ -146,6 +146,14 @@ export const ORIENTATION_LABEL: Record<Orientation, PlainTerm> = {
   inverted: { plain: 'Upside down', term: 'inverted' },
   reversed: { plain: 'Mirrored', term: 'reversed' },
   'to-center': { plain: 'Pointing to the middle', term: 'to center' },
+};
+
+/** The details a charge may be drawn with (the Details disclosure), as they look, and the heraldic word ("Hollow · voided"). */
+export const MODIFIER_LABEL: Partial<Record<ModifierId, PlainTerm>> = {
+  voided: { plain: 'Hollow', term: 'voided' },
+  fimbriated: { plain: 'Edged', term: 'fimbriated' },
+  pierced: { plain: 'With a round hole', term: 'pierced' },
+  fitchy: { plain: 'Pointed at the foot', term: 'fitchy' },
 };
 
 /** How two charges are set to each other, and the heraldic word ("Facing each other · combattant"). */

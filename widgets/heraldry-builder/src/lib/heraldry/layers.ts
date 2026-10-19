@@ -87,7 +87,7 @@ export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] 
   const posture = meta.postures ? (was?.posture && meta.postures.includes(was.posture) ? was.posture : meta.defaultPosture) : null;
   const item: Charge = {
     k: 'charge', charge: id, form: null, posture, gaze: null, facing: meta.faces && was?.facing === 'to-sinister' ? 'to-sinister' : meta.defaultFacing,
-    orientation: was?.orientation && meta.orient.allowed.includes(was.orientation) ? was.orientation : null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id)) : [], parts: [], holds: [],
+    orientation: was?.orientation && meta.orient.allowed.includes(was.orientation) ? was.orientation : null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id) || meta.details.includes(m.id)) : [], parts: [], holds: [],
   };
   return was?.gaze && gazeDrawn(item, was.gaze) ? { ...item, gaze: was.gaze } : item;
 }

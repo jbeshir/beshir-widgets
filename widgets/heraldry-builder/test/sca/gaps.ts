@@ -9,8 +9,8 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, FACING_WORD, ORIENTATION_WORDS, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
-  type ChargeId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
+  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, STAR_POINTS, drawnPoints, FACING_WORD, ORIENTATION_WORDS, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
+  type ChargeId, type ModifierId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import { DRAWN_DIVISION_FORMS, PER_PALL_SPELLED, TIERCED_IN, edgeSide } from './words';
@@ -377,6 +377,13 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
     const c = last?.kind === 'charge' ? last.el?.supported as ChargeId | null : null;
     return c !== null && c !== undefined && ORIENTATION_WORDS_OF[c].has(word);
   };
+  /** The charge just read when the widget has it, else null. */
+  const chargeLast = (): ChargeId | null => (last?.kind === 'charge' ? (last.el?.supported as ChargeId | null | undefined) ?? null : null);
+  /** Whether the charge just read takes this detail ("a mullet voided", "a lozenge azure fimbriated argent", "a mullet pierced", "a cross formy fitchy"). */
+  const detailedLast = (detail: string): boolean => {
+    const c = chargeLast();
+    return c !== null && CHARGES[c].details.includes(detail as ModifierId);
+  };
   let onHost: Element | null = null; // "on a fess …": later groups lie on it
   let betweenHost: Element | null = null; // "a fess between …": the next group surrounds it
   let held = false; // inside "maintaining …" / "in its beak …"
@@ -528,6 +535,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
             if (!GYRONNY_PIECES.includes(e.n)) tag('division', `gyronny-pieces-${e.n}`);
             break;
           }
+          // "a mullet of six points", "an estoile of eight rays": drawn for 4 to 12 (one of five greater and five lesser points is not)
+          const star = chargeLast();
+          if (star !== null && drawnPoints(star) !== null && STAR_POINTS.includes(e.n) && next && /^(point|ray)s?$/.test(next.lem)) { i++; break; }
           // "a mullet of five greater and five lesser points"
           const pointsSoon = words.slice(i + 1, i + 6).some((x) => /^(points|rays)$/.test(x));
           if (last.kind === 'charge' && pointsSoon) tag('charge-modifier', 'points');
@@ -683,6 +693,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         break;
       case 'mod':
         if (turnedLast(e.v)) break; // "a crescent pendant"
+        if (detailedLast(e.v)) break; // "a mullet pierced"
         tag('charge-modifier', e.v);
         if ((e.v === 'maintaining' && !/ed$/.test(tok.word)) || e.v === 'wearing') held = true;
         // "crowned of a coronet", "gorged with a chaplet": the crown is part of the charge
@@ -830,9 +841,9 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
       tag('ordinary-treatment', base);
       return;
     }
-    // a cross's foot sharpened, where the widget draws it ("a cross formy fitchy"); "fitchy at all points" is another cross
-    const carrier = last?.kind === 'charge' && last.el?.supported ? CHARGES[last.el.supported as ChargeId] : null;
-    if (base === 'fitchy' && carrier?.details.includes('fitchy')) {
+    // a detail the widget draws on that charge: a cross's foot sharpened ("a cross formy fitchy"; "fitchy at all points" is another
+    // cross), a charge voided or fimbriated ("a lozenge azure fimbriated argent")
+    if (detailedLast(base)) {
       if (words[i + 1] === 'at' && words[i + 2] === 'all') tag('charge-modifier', 'fitchy-at-all-points');
       return;
     }

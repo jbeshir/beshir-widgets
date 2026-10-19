@@ -13,7 +13,7 @@
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
   COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, FACING_WORD, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
-  blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type ModifierId, type OrdinaryType, type Orientation, type Posture,
+  blazon, drawnPoints, normalise, pointsWord, postureTerm, type ChargeId, type Design, type Gap, type Issue, type ModifierId, type OrdinaryType, type Orientation, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
 import { EDGE_NAMES } from './words';
@@ -127,7 +127,7 @@ function postureFor(id: ChargeId, word: string): Posture | null {
   return POSTURE_BY_WORD.get(word) ?? POSTURES.find((p) => p === word) ?? null;
 }
 
-/** The modifiers the widget words after a noun ("in splendor", "fitchy"), each with the tokens of its phrase. */
+/** The modifiers the widget words after a noun ("in splendor", "fitchy", "voided", "pierced"), each with the tokens of its phrase. */
 const MODIFIER_PHRASES = Object.entries(MODIFIER_WORDS).map(([id, phrase]) => ({ id: id as ModifierId, words: phrase!.split(' ') }));
 
 
@@ -138,7 +138,7 @@ const VOCABULARY = new Set<string>(
   [
     '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
-    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...POSTURE_WORDS, CONTOURNY, ...PAIRS, ...ORIENTATION_PHRASES.flatMap((o) => o.words), ...TO_CENTER_PHRASES.flat(), ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
+    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...CHARGE_IDS.filter((id) => drawnPoints(id) !== null).map(pointsWord), ...POSTURE_WORDS, CONTOURNY, ...PAIRS, ...ORIENTATION_PHRASES.flatMap((o) => o.words), ...TO_CENTER_PHRASES.flat(), ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
@@ -156,7 +156,9 @@ const VOCABULARY = new Set<string>(
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
-//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['contourny'] [ORIENTATION] [MODIFIER] [('in' PATTERN)|ROWS|PAIR] [POINTS TO CENTER] [T]   (PAIR: two charges combattant, respectant or addorsed)
+//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['contourny'] [ORIENTATION] MODIFIER* [('in' PATTERN)|ROWS|PAIR] [POINTS TO CENTER] [T] ['fimbriated' [T]]
+//                 (PAIR: two charges combattant, respectant or addorsed; MODIFIER: "in splendor", "fitchy", "voided", "pierced", or a star's
+//                 "of" COUNT "points"|"rays"; the fimbriation is a phrase of its own for the tincture it states, like an ordinary's)
 //   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | 'within' | ε
 // A group straight after "between", or joined to one by "and", is set around the ordinary or the primary charges; any other
@@ -168,12 +170,17 @@ interface Phrase {
   /** The group input, without its paint. */
   group: Record<string, unknown>;
   paint: unknown;
-  /** An ordinary's fimbriation and cotises: each a phrase of its own for the tincture it states, or takes from what follows (a cotised band that says one tincture has it for both). */
+  /**
+   * An ordinary's fimbriation and cotises, or a charge group's fimbriation: each a phrase of its own for the tincture it states, or takes from
+   * what follows (a cotised band that says one tincture has it for both).
+   */
   outlines?: Array<{ phrase: Phrase; read: OutlineRead }>;
 }
 
-/** The ordinary's item input with its outlines in the paints their phrases came to have. */
+/** The ordinary's or charge's item input with its outlines in the paints their phrases came to have (a charge's fimbriation is a modifier). */
 function outlinedItem(p: Phrase): unknown {
+  const item = p.group.item as { k: string; mods?: unknown[] };
+  if (item.k === 'charge') return { ...item, mods: [...(item.mods ?? []), ...(p.outlines ?? []).map(({ phrase }) => ({ id: 'fimbriated', count: null, paint: phrase.paint }))] };
   const outlined = (p.outlines ?? []).map(({ phrase, read }) => (read.k === 'fimbriated'
     ? { fimbriated: phrase.paint }
     : { cotised: { count: read.count, paint: phrase.paint, ...(read.line ? { line: read.line } : {}) } }));
@@ -194,7 +201,12 @@ const startsWith = (tokens: string[], i: number, phrase: readonly string[]) => p
 const isNumber = (w: string | undefined): boolean => (NUMBER_WORDS as readonly string[]).includes(w!);
 const numberOf = (w: string) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1;
 
-const modifierAt = (tokens: string[], i: number) => MODIFIER_PHRASES.find((m) => startsWith(tokens, i, m.words));
+/** The modifier of a `charge` written at `tokens[i]`, with its number and length, or null: a phrase, or a star's "of six points" ("of eight rays"). */
+function modifierAt(tokens: string[], i: number, charge: ChargeId): { id: ModifierId; count: number | null; length: number } | null {
+  if (tokens[i] === 'of' && isNumber(tokens[i + 1]) && drawnPoints(charge) !== null && tokens[i + 2] === pointsWord(charge)) return { id: 'of-points', count: numberOf(tokens[i + 1]), length: 3 };
+  const m = MODIFIER_PHRASES.find((p) => startsWith(tokens, i, p.words));
+  return m ? { id: m.id, count: null, length: m.words.length } : null;
+}
 
 
 /** The charge group at `start` with the index after it, or null when count, noun and posture don't agree. */
@@ -238,10 +250,10 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     item.orientation = turn.orientation;
     i += turn.words.length;
   }
-  const mods: Array<{ id: ModifierId; count: null; paint: null }> = [];
-  for (let m = modifierAt(tokens, i); m; m = modifierAt(tokens, i)) {
-    mods.push({ id: m.id, count: null, paint: null });
-    i += m.words.length;
+  const mods: Array<{ id: ModifierId; count: number | null; paint: null }> = [];
+  for (let m = modifierAt(tokens, i, noun.id); m; m = modifierAt(tokens, i, noun.id)) {
+    mods.push({ id: m.id, count: m.count, paint: null });
+    i += m.length;
   }
   if (mods.length > 0) item.mods = mods;
   const group: Record<string, unknown> = { item, count };
@@ -276,7 +288,12 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     i += toCenter.length;
   }
   const read = readPaint(tokens, i, 'group');
-  return { phrase: { group, paint: read?.paint ?? null }, end: read ? read.end : i };
+  const end = read ? read.end : i;
+  // "a lozenge azure fimbriated argent": the fimbriation after the charges' tincture
+  if (tokens[end] !== 'fimbriated') return { phrase: { group, paint: read?.paint ?? null }, end };
+  const trimmed = readPaint(tokens, end + 1, 'group');
+  const outlines = [{ phrase: { group: {}, paint: trimmed?.paint ?? null }, read: { k: 'fimbriated', end: end + 1 } as const }];
+  return { phrase: { group, paint: read?.paint ?? null, outlines }, end: trimmed ? trimmed.end : end + 1 };
 }
 
 /** What the body of a blazon reads as: the design input's groups, or a construct the widget doesn't draw. */
@@ -287,6 +304,8 @@ function parseBody(tokens: string[]): Body | null {
   const top: Node[] = [];
   /** Every phrase in blazon order, for factoring tinctures backwards. */
   const order: { phrase: Phrase; onHost: boolean }[] = [];
+  /** A phrase and its outlines' phrases, in blazon order. */
+  const ordered = (phrase: Phrase, onHost: boolean) => order.push({ phrase, onHost }, ...(phrase.outlines ?? []).map((o) => ({ phrase: o.phrase, onHost })));
   let host: Node | null = null;       // an "on" ordinary still waiting for its group
   let between = false;
   let joined = false;                  // the last connector was "and", or "between" has just been read
@@ -375,27 +394,27 @@ function parseBody(tokens: string[]): Body | null {
         if (overall) {
           g.phrase.group.role = 'overall';
           top.push({ phrase: g.phrase, on: null });
-          order.push({ phrase: g.phrase, onHost: false });
+          ordered(g.phrase, false);
           overall = false;
         } else if (on) {
           // "on a lion …": a group on a charge, which the widget reports rather than draws.
           const node: Node = { phrase: g.phrase, on: null };
           top.push(node);
-          order.push({ phrase: g.phrase, onHost: false });
+          ordered(g.phrase, false);
           host = node;
           between = false;
         } else if (between && joined) {
           // Set between what came before: a central ordinary, or the primary charges ("a lion between three mullets").
           g.phrase.group.relation = 'between';
           top.push({ phrase: g.phrase, on: null });
-          order.push({ phrase: g.phrase, onHost: false });
+          ordered(g.phrase, false);
         } else if (host && !host.on) {
           host.on = g.phrase;
-          order.push({ phrase: g.phrase, onHost: true });
+          ordered(g.phrase, true);
           between = false;
         } else {
           top.push({ phrase: g.phrase, on: null });
-          order.push({ phrase: g.phrase, onHost: false });
+          ordered(g.phrase, false);
         }
         joined = false;
         i = g.end;

@@ -20,10 +20,10 @@ import { capitalise, joinList, numberWord } from './words';
 import {
   AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, drawnLayout, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
-import { CHARGES, FACINGS, ORIENTATIONS, chargePhrase, postureTerm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
+import { CHARGES, FACINGS, ORIENTATIONS, STAR_POINTS, chargePhrase, drawnPoints, postureTerm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
 import {
   asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
-  type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Pair, type PartyPaint, type VariationPaint,
+  type Charge, type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Modifier, type Paint, type Pair, type PartyPaint, type VariationPaint,
 } from './design';
 import { BUILDER_DIVISIONS, DIVISION_PART_LABEL, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
@@ -800,6 +800,65 @@ export function orientationChoices(d: Design, path: GroupPath): Choice<Orientati
     : !orient.allowed.includes(o) ? (orient.cls === 'radial' || orient.cls === 'compact-axis' ? `A ${name} looks the same turned that way.` : `A ${name} is not turned that way in SCA heraldry.`)
       : g.arrangement.k === 'crossed' ? `Two ${plural} crossed are not turned.`
         : o === 'to-center' && g.count < 2 ? `One ${name} has no group to point to the middle of.` : null));
+}
+
+// ── Details (PLAN-D §0.3.10): a star's points, voided, fimbriated, pierced, fitchy ──
+
+/** What a modifier carries besides its id: a star's number of points, a fimbriation's tincture; neither for the rest. */
+export type ModifierValue = Pick<Modifier, 'count' | 'paint'>;
+export const NO_MODIFIER_VALUE: ModifierValue = { count: null, paint: null };
+
+/** The group's charge with modifier `id` on, carrying `value`, or off (canonical: a star given the points it is drawn with has none). */
+export function withModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean, value: ModifierValue = NO_MODIFIER_VALUE): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const mods = g.item.mods.filter((m) => m.id !== id);
+  return canonical(replaceGroup(d, path, { ...g, item: { ...g.item, mods: on ? [...mods, { id, ...value }] : mods } }));
+}
+
+/** The tinctures to try for a charge's fimbriation, best first: each but the charge's own, which comes last. */
+const fimbriationPaints = (g: Group): Paint[] =>
+  [...TINCTURES.filter((t) => g.paint.k !== 'tincture' || t !== g.paint.t), ...(g.paint.k === 'tincture' ? [g.paint.t] : [])].map((t) => paintOfGroupTincture(t));
+
+/** The fimbriation a charge at `path` is given when it is switched on: the first tincture that stands out where the charges lie (§1.4 M16). */
+export function firstFimbriation(d: Design, path: GroupPath): Paint {
+  const paints = fimbriationPaints(groupAt(d, path));
+  return paints.find((p) => trimTinctureIssues(withModifier(d, path, 'fimbriated', true, { count: null, paint: p }), path).length === 0) ?? paints[0];
+}
+
+/**
+ * The details the group's charge may be drawn with, from its sidecar `details` but the number of points (`pointsChoices`): voided,
+ * fimbriated, pierced, fitchy. One that is on can always be switched off; switching one on is blocked where SENA A3C refuses it
+ * (`charge-treatment`: only the main charges, not both voided and fimbriated, none voided in a badge, three at most), or for a
+ * fimbriation, where no tincture of it would stand out (§1.4 M10, M16).
+ */
+export function detailChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return [];
+  const { mods } = g.item;
+  const here = (i: Issue) => i.at.k === 'group' && samePath(i.at.path, path);
+  return CHARGES[g.item.charge].details.filter((id) => id !== 'of-points').map((id) => {
+    if (mods.some((m) => m.id === id)) return ok(id);
+    const on = withModifier(d, path, id, true, id === 'fimbriated' ? { count: null, paint: firstFimbriation(d, path) } : NO_MODIFIER_VALUE);
+    const refused = structuralIssues(on).find((i) => i.code === 'structure' && i.rule === 'charge-treatment' && here(i));
+    return choice(id, refused?.message ?? (id === 'fimbriated' ? trimTinctureIssues(on, path)[0]?.message ?? null : null));
+  });
+}
+
+/** How many points the group's star may have (4 to 12), offered for a mullet or an estoile; the number it is drawn with is one of them. */
+export function pointsChoices(d: Design, path: GroupPath): Choice<number>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' && drawnPoints(item.charge) !== null ? STAR_POINTS.map(ok) : [];
+}
+
+/** How many points the charge has: the number it is given, else the number it is drawn with (null: not a star). */
+export const pointsOf = (item: Charge): number | null => item.mods.find((m) => m.id === 'of-points')?.count ?? drawnPoints(item.charge);
+
+/** The tinctures the fimbriation of the group's charges may be, offered while they are fimbriated: blocked where it wouldn't stand out (§1.4 M16). */
+export function fimbriationTinctureChoices(d: Design, path: GroupPath): Choice<Tincture>[] {
+  const item = groupAt(d, path).item;
+  if (item.k !== 'charge' || !item.mods.some((m) => m.id === 'fimbriated')) return [];
+  return TINCTURES.map((t) => choice(t, trimTinctureIssues(withModifier(d, path, 'fimbriated', true, { count: null, paint: paintOfGroupTincture(t) }), path)[0]?.message ?? null));
 }
 
 /** The layout the Layout row shows as chosen: a pair is laid out as its two charges in fess, or where the ordinary places them (§1.1 F8). */
