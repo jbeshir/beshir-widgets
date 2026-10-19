@@ -429,10 +429,6 @@ function modifiedCharge(roll: number, next: () => number, pick: <T>(xs: readonly
   return { k: 'charge', charge: pick(OUTLINED_CHARGES), mods: [roll < 0.75 ? 'voided' : { id: 'fimbriated', paint: pick(TINCTURES) }] };
 }
 
-/** The designs whose charges look ahead and are in a one-word posture: the SCA matcher reads no head turn and no "sejant erect" until D8b. */
-export const plainlyPosed = (designs: readonly Design[]): Design[] =>
-  designs.filter((d) => !d.groups.some((g) => g.item.k === 'charge' && (g.item.gaze !== null || (g.item.posture?.includes('-') ?? false))));
-
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */
 export function generatedChargeAttributeDesigns(seed: number, count: number): Design[] {
   const designs: Design[] = [];

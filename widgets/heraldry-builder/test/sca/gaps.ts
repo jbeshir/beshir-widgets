@@ -9,8 +9,8 @@
 // charge groups and ordinaries there are. Every word it doesn't recognise is noted; a record with no
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
-  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, STAR_POINTS, drawnPoints, FACING_WORD, ORIENTATION_WORDS, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, structuralIssues, unsupportedIssues, walkGroups,
-  type ChargeId, type ModifierId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
+  COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, STAR_POINTS, drawnPoints, FACING_WORD, ORIENTATION_WORDS, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, chargeItem, gazeDrawn, structuralIssues, unsupportedIssues, walkGroups,
+  type ChargeId, type Gaze, type ModifierId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import { DRAWN_DIVISION_FORMS, PER_PALL_SPELLED, TIERCED_IN, edgeSide } from './words';
@@ -19,7 +19,7 @@ import {
   GAP_ARRANGEMENTS, GAP_CHARGES, GAP_DIVISION_WORDS, GAP_ORDINARIES, GAP_POSTURES, GAP_TINCTURES, LINES, MARSHALLING,
   DRAWN_CROSS_VARIANT, DRAWN_SEMY_NAMES, MODIFIERS, NUMBERS, ORIENTATIONS, PART_WORDS, POSITION_WORDS, SEMY_WORDS,
   SUPPORTED_ARRANGEMENT_WORDS, SUPPORTED_CHARGE_BUCKET, SUPPORTED_CHARGE_WORDS, SUPPORTED_ORDINARY_WORDS,
-  SUPPORTED_POSTURES, QUALIFIER_WORDS, TREATMENTS, type ChargeBucket,
+  SUPPORTED_GAZES, SUPPORTED_POSTURES, QUALIFIER_WORDS, TREATMENTS, type ChargeBucket,
 } from './gap-terms';
 
 /** The divisions the widget draws, as the tagger names them. */
@@ -79,7 +79,7 @@ type Entry =
   | { k: 'gapCharge'; b: ChargeBucket; v: string } | { k: 'cross' }
   | { k: 'ord'; v: OrdinaryType } | { k: 'gapOrd'; v: string } | { k: 'line'; v: string }
   | { k: 'per' } | { k: 'quarterly' } | { k: 'gyronny' } | { k: 'tierced'; v: string } | { k: 'gapDiv'; v: string } | { k: 'treat'; v: string } | { k: 'semy' }
-  | { k: 'posture'; v: Posture } | { k: 'gapPosture'; v: string } | { k: 'orient'; v: string }
+  | { k: 'posture'; v: Posture } | { k: 'gaze'; v: Gaze } | { k: 'gapPosture'; v: string } | { k: 'orient'; v: string }
   | { k: 'mod'; v: string } | { k: 'ctx'; v: string } | { k: 'marshal'; v: string }
   | { k: 'in' } | { k: 'on' } | { k: 'between' } | { k: 'of' } | { k: 'and' } | { k: 'container' };
 
@@ -109,6 +109,7 @@ for (const [word, v] of entries(TREATMENTS)) add([word], { k: 'treat', v });
 add(SEMY_WORDS, { k: 'semy' });
 for (const [word, v] of entries(MARSHALLING)) add([word], { k: 'marshal', v });
 for (const [word, v] of entries(SUPPORTED_POSTURES)) add([word], { k: 'posture', v: v as Posture });
+for (const [word, v] of entries(SUPPORTED_GAZES)) add([word], { k: 'gaze', v: v as Gaze });
 for (const [word, v] of entries(GAP_POSTURES)) add([word], { k: 'gapPosture', v });
 for (const [word, v] of entries(ORIENTATIONS)) add([word], { k: 'orient', v });
 add(CONTEXT_WORDS, (word) => ({ k: 'ctx', v: word }));
@@ -120,7 +121,7 @@ add(QUALIFIER_WORDS, { k: 'qual' });
 add(CROSS_PRE, { k: 'skip' }); // read with the following "cross" by readCross
 
 const PARTS = new Set(PART_WORDS);
-/** SCA words for the postures each widget charge can take ("courant" only for the hare). */
+/** SCA words for the postures each widget charge can take ("couchant" only for the lion, unicorn and stag, which calls it "lodged"). */
 const POSTURE_WORDS = Object.fromEntries(Object.values(CHARGES).map((m) =>
   [m.id, new Set((m.postures ?? []).flatMap((p) => [p, postureTerm(m.id, p)]))])) as Record<ChargeId, Set<string>>;
 /** The words for a charge that faces turned to sinister, and for two of them set to each other, which the widget draws (SENA §1.1). */
@@ -199,6 +200,7 @@ const JOINS: [RegExp, string][] = [
   [/\b(in|its|his|her) (splendou?r|glory)\b/g, ' '],
   [/\bin (her|its|his) piety\b/g, 'in-piety'],
   [/\bat gaze\b/g, 'at-gaze'],
+  [/\b(sejant|statant) erect\b/g, '$1-erect'],
   [/\bin (his |its |her )?pride\b/g, 'in-pride'],
   [/\bmusical notes?\b/g, 'musical-note'],
   [/\b(gear|cog)[- ]?wheels?\b|\bcogwheels?\b|\bgears\b/g, 'gear'],
@@ -326,6 +328,8 @@ interface Element {
   host: Element | null;
   /** A layout key the blazon words: "in-pale", "rows-2-1", "in-chief"; "in-canton" for charges set in canton beside the primary. */
   arr: string | null;
+  /** The posture the blazon gives it, when the widget has that posture ("a lion couchant"); null when it gives none. */
+  posture: Posture | null;
 }
 
 /** Where charges stand when the blazon sets them beside the primary ("and in chief three mullets"), by their `arr`. */
@@ -449,7 +453,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
 
   const newElement = (kind: 'charge' | 'ord', supported: string | null): Element => {
     const ctx: Ctx = held ? 'held' : ofNext ? 'of' : semyNext ? 'semy' : overallNext ? 'overall' : betweenHost ? 'between' : onHost ? 'on' : 'field';
-    const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null };
+    const el: Element = { kind, supported, count: pendingCount ?? 1, ctx, host: ctx === 'between' ? betweenHost : ctx === 'on' ? onHost : null, arr: null, posture: null };
     if (kind === 'charge' && ctx !== 'held' && ctx !== 'of') {
       if (pendingArr) { el.arr = pendingArr; pendingArr = null; }
       if (el.count > MAX_DRAWN_COUNT && el.count < 99) tag('count', String(el.count));
@@ -680,15 +684,26 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         tag('marshalling', e.v);
         break;
       case 'posture': {
-        // "a wolf courant": the widget's wolf has no courant (only its hare does)
+        // "a wolf couchant": the widget's wolf has no couchant (its lion has); the posture is kept for a head turned after it
         const c = last?.kind === 'charge' ? last.el?.supported as ChargeId | null : null;
+        if (e.v === 'close' && /^(couped|erased)$/.test(prev)) break; // "couped close"
         if (c && !POSTURE_WORDS[c].has(lem === 'hauriant' ? 'haurient' : lem)) tag('posture', lem);
+        if (c) last!.el!.posture = e.v;
+        break;
+      }
+      case 'gaze': {
+        // "a lion passant guardant": drawn where the charge has a drawing of its posture (as written, else its own) with the head so
+        // turned; a head has no posture to turn from
+        const c = chargeLast();
+        if (c === null) break;
+        const el = last!.el!;
+        const item = chargeItem(c, null);
+        if (heads.has(el) || item.k !== 'charge' || !gazeDrawn({ ...item, posture: el.posture ?? item.posture }, e.v)) tag('posture', e.v);
         break;
       }
       case 'gapPosture':
         // "a pale (wavy) Or endorsed argent": a pale's cotises
         if (words[i] === 'endorsed' && last?.kind === 'ord' && last.el === els[els.length - 1]) { contextWord('cotised', i); break; }
-        if (e.v === 'close' && /^(couped|erased)$/.test(prev)) break; // "couped close"
         if (e.v === CONTOURNY ? facingLast() : PAIR_WORDS.has(e.v) && facingLast()?.count === 2) break; // "a lion contourny", "two wolves combattant": drawn
         tag('posture', e.v);
         break;

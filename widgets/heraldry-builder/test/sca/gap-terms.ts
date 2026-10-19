@@ -315,23 +315,29 @@ export const GAP_DIVISION_WORDS: Record<string, string> = {
 
 // ── Postures, orientation, modifiers ────────────────────────────────────────
 
-/** Posture words the widget has for some charges, with the widget posture they name. */
+/** Posture words the widget has for some charges, with the widget posture they name ("sejant erect" is joined to one word, gaps.ts). */
 export const SUPPORTED_POSTURES: Record<string, string> = {
   rampant: 'rampant', segreant: 'rampant', passant: 'passant', trippant: 'passant', courant: 'courant',
   statant: 'statant', sejant: 'sejant', naiant: 'naiant', haurient: 'haurient', hauriant: 'haurient',
-  displayed: 'displayed',
+  displayed: 'displayed', couchant: 'couchant', lodged: 'couchant', dormant: 'dormant', salient: 'salient', springing: 'salient',
+  'sejant-erect': 'sejant-erect', 'statant-erect': 'statant-erect', close: 'close', rising: 'rising', volant: 'volant', urinant: 'urinant',
+};
+
+/** The words for a head turned, which the widget draws on some charges in some postures, with the gaze they name. */
+export const SUPPORTED_GAZES: Record<string, string> = {
+  guardant: 'guardant', gardant: 'guardant', regardant: 'regardant', reguardant: 'regardant',
 };
 
 /** Postures and attitudes the widget never draws → sub-tag. */
 export const GAP_POSTURES: Record<string, string> = Object.fromEntries([
-  ...same(`guardant regardant combattant respectant addorsed couchant dormant salient rising volant close contourny
-    affronty tergiant erect springing lodged clymant forcene embowed urinant uriant involved coiled glissant nowed
+  ...same(`combattant respectant addorsed contourny
+    affronty tergiant erect clymant forcene embowed uriant involved coiled glissant nowed
     migrant stooping striking perched trussing vorant ululant rousant jessant kneeling seated resting lying
     leaping rearing vigilant vulning sleeping hovering descending ondoyant ascending swimming diving
     climbing pascuant feeding crowing triumphant pouncing naissant herissony couched
     coward aversant counter-passant counter-rampant counter-statant counter-sejant counter-courant counter-salient
     counter-naiant counter-embowed counter-volant at-gaze in-pride in-piety in-vigilance in-benediction`),
-  ['gardant', 'guardant'], ['reguardant', 'regardant'], ['combatant', 'combattant'], ['endorsed', 'addorsed'],
+  ['combatant', 'combattant'], ['endorsed', 'addorsed'],
   ['contourne', 'contourny'], ['contournee', 'contourny'], ['contourney', 'contourny'], ['affronte', 'affronty'],
   ['affrontee', 'affronty'], ['counterpassant', 'counter-passant'], ['counterembowed', 'counter-embowed'],
   ['countersalient', 'counter-salient'], ['counterstatant', 'counter-statant'], ['saliant', 'salient'],

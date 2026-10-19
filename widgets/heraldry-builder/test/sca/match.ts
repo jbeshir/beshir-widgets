@@ -12,7 +12,7 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, CUT_MODIFIERS, FACING_WORD, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
+  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, CUT_MODIFIERS, FACING_WORD, GAZES, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
   blazon, drawnPoints, normalise, pointsWord, postureTerm, type ChargeForm, type ChargeId, type Design, type Gap, type Issue, type ModifierId, type OrdinaryType, type Orientation, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
@@ -125,6 +125,11 @@ const TO_CENTER_PHRASES = [ORIENTATION_WORDS['to-center'], ...CHARGE_IDS.flatMap
 const POSTURE_BY_WORD = new Map<string, Posture>();
 for (const id of CHARGE_IDS) for (const p of POSTURES) POSTURE_BY_WORD.set(postureTerm(id, p), p);
 const POSTURE_WORDS = new Set<string>([...POSTURES, ...POSTURE_BY_WORD.keys()]);
+/** The posture words as a blazon writes them, each in its words ("sejant erect" is two: `postureWords`), the longest first. */
+const POSTURE_PHRASES = [...POSTURE_WORDS].map((word) => ({ word, words: word.replace('-', ' ').split(' ') })).sort((a, b) => b.words.length - a.words.length);
+
+/** The words for a turned head, by the gaze they name, the longest first ("guardant regardant"). */
+const GAZE_PHRASES = GAZES.map((gaze) => ({ gaze, words: gaze.split('-') })).sort((a, b) => b.words.length - a.words.length);
 
 /** The word after the posture of a charge facing to sinister (affronty is not drawn: the tagger files it). */
 const CONTOURNY = FACING_WORD['to-sinister']!;
@@ -147,7 +152,7 @@ const VOCABULARY = new Set<string>(
   [
     '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, ...CUT_MODIFIERS, 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
-    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...CHARGE_IDS.filter((id) => drawnPoints(id) !== null).map(pointsWord), ...POSTURE_WORDS, CONTOURNY, ...PAIRS, ...ORIENTATION_PHRASES.flatMap((o) => o.words), ...TO_CENTER_PHRASES.flat(), ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
+    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...CHARGE_IDS.filter((id) => drawnPoints(id) !== null).map(pointsWord), ...POSTURE_PHRASES.flatMap((p) => p.words), ...GAZE_PHRASES.flatMap((g) => g.words), CONTOURNY, ...PAIRS, ...ORIENTATION_PHRASES.flatMap((o) => o.words), ...TO_CENTER_PHRASES.flat(), ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
@@ -165,8 +170,8 @@ const VOCABULARY = new Set<string>(
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
-//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['contourny'] [ORIENTATION] MODIFIER* [('in' PATTERN)|ROWS|PAIR] [POINTS TO CENTER] [T] ['fimbriated' [T]]
-//                 (PAIR: two charges combattant, respectant or addorsed; MODIFIER: "in splendor", "fitchy", "voided", "pierced", or a star's
+//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] [GAZE] ['contourny'] [GAZE] [ORIENTATION] MODIFIER* [('in' PATTERN)|ROWS|PAIR] [POINTS TO CENTER] [T] ['fimbriated' [T]]
+//                 (POSTURE: one word or two, "sejant erect"; GAZE: guardant, regardant; PAIR: two charges combattant, respectant or addorsed; MODIFIER: "in splendor", "fitchy", "voided", "pierced", or a star's
 //                 "of" COUNT "points"|"rays"; the fimbriation is a phrase of its own for the tincture it states, like an ordinary's)
 //   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | 'within' | ε
@@ -217,6 +222,9 @@ function modifierAt(tokens: string[], i: number, charge: ChargeId): { id: Modifi
   return m ? { id: m.id, count: null, length: m.words.length } : null;
 }
 
+/** The head turn written at `tokens[i]`, or undefined: "guardant", "regardant", "guardant regardant". */
+const gazeAt = (tokens: string[], i: number) => GAZE_PHRASES.find((g) => startsWith(tokens, i, g.words));
+
 
 /** The charge group at `start` with the index after it, or null when count, noun and posture don't agree. */
 function readGroup(tokens: string[], start: number): { phrase: Phrase; end: number } | null {
@@ -252,15 +260,25 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     mods.push({ id: cut, count: null, paint: null });
     i++;
   }
-  if (POSTURE_WORDS.has(tokens[i])) {
-    const posture = postureFor(noun.id, tokens[i++]);
+  const posed = POSTURE_PHRASES.find((p) => startsWith(tokens, i, p.words));
+  if (posed) {
+    const posture = postureFor(noun.id, posed.word);
     if (!posture) return null;
     item.posture = posture;
+    i += posed.words.length;
   }
+  // the head turned, before "contourny" or after it ("guardant contourny", "contourny regardant": verify() decides which the widget writes)
+  let gaze = gazeAt(tokens, i);
+  if (gaze) i += gaze.words.length;
   if (tokens[i] === CONTOURNY) {
     item.facing = 'to-sinister';
     i++;
   }
+  if (!gaze) {
+    gaze = gazeAt(tokens, i);
+    if (gaze) i += gaze.words.length;
+  }
+  if (gaze) item.gaze = gaze.gaze;
   // which way it points: one word or two ("fesswise", "bendwise sinister inverted"); a noun of its own has said it already
   const turn = noun.orientation ? undefined : ORIENTATION_PHRASES.find((o) => (o.charge === null || o.charge === noun.id) && startsWith(tokens, i, o.words));
   if (turn) {
