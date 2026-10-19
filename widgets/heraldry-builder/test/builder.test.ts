@@ -5,10 +5,10 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setBadge, setCut, setForm, setPart, setPosture, setFacing, setGaze, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setBadge, setCut, setForm, setHold, setPart, setPosture, setFacing, setGaze, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, cutChoices, detailChoices, partChoices, pieceTinctureChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, cutChoices, detailChoices, partChoices, pieceTinctureChoices, heldTinctureChoices, holdChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
   type Charge, type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
@@ -418,6 +418,35 @@ describe('builder transitions', () => {
     expect(pieces(setCharge(adorned, 'picture', 'wolf'))).toEqual(['winged', 'crowned', 'collared']);
     expect(pieces(setCharge(adorned, 'picture', 'goat'))).toEqual(['winged', 'collared']);
     expect(pieces(setCharge(adorned, 'picture', 'eagle'))).toEqual(['crowned']);
+  });
+
+  it('the Holding controls: what a main charge holds, the ways its drawing takes, a tincture that stands out from the field (PLAN-D §3 D9d)', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(holdChoices(lion, [0]).map((c) => [c.value, c.allowed])).toEqual([['maintaining', true], ['sustaining', true], ['in-mouth', true]]);
+    expect(holdChoices(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0])).toEqual([]);
+    // held the first way offered, in the first tincture but the lion's own that stands out from the field (H5)
+    const holding = setHold(lion, [0], 'sword');
+    expect(blazon(holding)).toBe('Azure, a lion Or maintaining a sword argent.');
+    const sustained = setHold(holding, [0], 'sword', 'sustaining');
+    expect(blazon(sustained)).toBe('Azure, a lion Or sustaining a sword argent.');
+    expect(blazon(setHold(sustained, [0], 'key'))).toBe('Azure, a lion Or sustaining a key argent.');
+    expect(blazon(setHold(holding, [0], 'sword', 'maintaining', tincturePaint('or')))).toBe('Azure, a lion maintaining a sword Or.');
+    expect(setHold(holding, [0], null)).toEqual(lion);
+    expect(heldTinctureChoices(holding, [0]).filter((c) => c.allowed).map((c) => c.value)).toEqual(['or', 'argent', 'celestine']);
+    expect(heldTinctureChoices(lion, [0])).toEqual([]);
+    // a drawing with no paw blocks every way, and a change of shape or posture that loses the paw drops the item
+    expect(holdChoices(setForm(lion, [0], 'demi'), [0]).map((c) => (c.allowed ? c.value : c.reason))).toEqual([
+      'The demi-lion is not drawn holding anything in this builder.', 'The demi-lion is not drawn holding up anything in this builder.', 'The demi-lion is not drawn with anything in its mouth in this builder.',
+    ]);
+    expect(blazon(setForm(holding, [0], 'demi'))).toBe('Azure, a demi-lion Or.');
+    // a swap keeps the item where the new charge holds it that way (§0.2.7)
+    expect(blazon(setCharge(holding, 'picture', 'wolf'))).toBe('Azure, a wolf rampant Or maintaining a sword argent.');
+    expect(blazon(setCharge(holding, 'picture', 'boar'))).toBe('Azure, a boar passant Or.');
+    expect(blazon(setCharge(holding, 'picture', 'mullet'))).toBe('Azure, a mullet Or.');
+    // only a main charge holds (H3)
+    const aroundFess = setOrdinary(lion, 'fess');
+    expect(groupAt(aroundFess, [1])).toMatchObject({ role: 'secondary', item: { charge: 'lion' } });
+    expect(holdChoices(aroundFess, [1])).toEqual([]);
   });
 
   it('the Turned row: as usual first, the ways a charge takes, the rest and to center blocked with their reasons (PLAN-D §3 D5b)', () => {

@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedChargeAttributeDesigns, generatedDesign, holdsNothing, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -291,6 +291,15 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['three charges enflamed', arms('azure', group(charge('sword', { mods: [{ id: 'enflamed', paint: 'gules' }] }), 'or', { count: 3 }))],
   ['three flowers slipped and leaved', arms('argent', group(charge('rose', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'gules', { count: 3 }))],
   ['flowers slipped and leaved on a chief', arms('azure', chiefOf(group(charge('rose', { mods: [{ id: 'slipped', paint: 'gules' }, { id: 'leaved', paint: 'gules' }] }), 'gules', { count: 3 })))],
+  // what a main charge holds (PLAN-D §1.5), last; an item of the charge's tincture, or of what follows, leaves it unsaid
+  ['a beast maintaining', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or'))],
+  ['a beast maintaining of its own tincture', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'or' }] }), 'or'))],
+  ['a beast sustaining, then a bordure of the held tincture', arms('vert', group(charge('lion', { holds: [{ how: 'sustaining', item: charge('key'), paint: 'or' }] }), 'argent'), group(ordinary('bordure'), 'or'))],
+  ['a bird with a charge in its beak', arms('argent', group(charge('eagle', { holds: [{ how: 'in-beak', item: charge('key'), paint: 'gules' }] }), 'sable'))],
+  ['a beast with a charge in its mouth', arms('or', group(charge('wolf', { holds: [{ how: 'in-mouth', item: charge('rose'), paint: 'gules' }] }), 'sable'))],
+  ['a beast crowned and maintaining', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }], holds: [{ how: 'maintaining', item: charge('mullet'), paint: 'argent' }] }), 'or'))],
+  ['two beasts combattant each maintaining', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))],
+  ['three birds each with a charge in its beak', arms('argent', group(charge('eagle', { holds: [{ how: 'in-beak', item: charge('rose'), paint: 'gules' }] }), 'sable', { count: 3 }))],
   // a demi charge and a head, whose cut follows the noun ("a wolf's head erased")
   ['a demi charge', arms('azure', group(charge('lion', { form: 'demi' }), 'or'))],
   ['three demi charges', arms('azure', group(charge('eagle', { form: 'demi' }), 'argent', { count: 3 }))],
@@ -326,7 +335,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...generatedChargeAttributeDesigns(1, 200).filter(holdsNothing),
+      ...generatedChargeAttributeDesigns(1, 200),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -562,6 +571,47 @@ describe('the matcher reads the pieces drawn with a charge in the College\'s wor
     expect(tags('Azure, a winged lion sejant Or.')).toEqual(['charge-modifier:winged']);
     expect(tags('Azure, a mullet crowned Or.')).toEqual(['charge-modifier:crowned']);
     expect(tags('Azure, a demi-lion crowned Or.')).toEqual(['charge-modifier:crowned']);
+  });
+});
+
+// What a main charge holds (PLAN-D §1.5), as the SCA writes it: maintaining or sustaining (holding, grasping, supporting), or in its beak or
+// mouth however it is held; "each" for more than one charge; the item's tincture as stated, else the next one stated.
+describe('the matcher reads what a charge holds in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a lion rampant Or maintaining a sword argent.', 'Azure, a lion Or maintaining a sword argent.'],
+    ['Azure, a lion Or, maintaining a sword argent.', 'Azure, a lion Or maintaining a sword argent.'],
+    ['Azure, a lion Or holding a sword argent.', 'Azure, a lion Or maintaining a sword argent.'],
+    ['Azure, a lion Or grasping a key argent.', 'Azure, a lion Or maintaining a key argent.'],
+    ['Argent, an eagle sable holding in its beak a key gules.', 'Argent, an eagle sable maintaining in its beak a key gules.'],
+    ['Argent, an eagle sable bearing in his beak a key gules.', 'Argent, an eagle sable maintaining in its beak a key gules.'],
+    ['Or, a wolf rampant sable sustaining in its mouth a rose gules.', 'Or, a wolf rampant sable maintaining in its mouth a rose gules.'],
+    ['Azure, two lions combattant Or each maintaining a sword argent.', 'Azure, two lions combattant Or each maintaining a sword argent.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('gives the held item the tincture it states, else the next one stated, and the charge the item\'s when it states none', () => {
+    const first = (text: string) => read(text)!.groups[0];
+    const or = { k: 'tincture', t: 'or' }, argent = { k: 'tincture', t: 'argent' };
+    expect(first('Azure, a lion maintaining a sword Or.')).toMatchObject({ paint: or, item: { holds: [{ how: 'maintaining', item: { charge: 'sword' }, paint: or }] } });
+    expect(first('Vert, a lion argent sustaining a key, a bordure Or.')).toMatchObject({ paint: argent, item: { holds: [{ how: 'sustaining', paint: or }] } });
+  });
+
+  it('leaves unread what the widget doesn\'t draw: two items, an item turned, an item between two charges, a held charge of a secondary group', () => {
+    for (const text of [
+      'Azure, a lion Or maintaining a sword and a key argent.', 'Azure, a lion Or maintaining a sword fesswise argent.',
+      'Azure, two lions combattant Or maintaining a sword argent.', 'Azure, a fess argent between three lions Or each maintaining a sword argent.',
+    ]) expect(read(text), text).toBeNull();
+  });
+
+  it('files a hold the widget doesn\'t draw under its gap, and one it draws under none', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a lion Or maintaining a sword and a key argent.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a boar Or maintaining a sword argent.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a demi-lion Or maintaining a sword argent.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a lion Or maintaining a rose gules, slipped and leaved vert.')).toEqual(['charge-modifier:maintaining']);
   });
 });
 
@@ -1036,6 +1086,11 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a heart winged', 'azure, a heart gules winged Or'],
     ['a heart enflamed proper', 'azure, a heart gules enflamed proper'],
     ['a rose slipped and leaved', 'azure, a rose gules slipped and leaved vert'],
+    ['a lion maintaining a sword', 'azure, a lion rampant Or maintaining a sword argent'],
+    ['a lion holding a key', 'azure, a lion Or, holding a key argent'],
+    ['two lions each maintaining a sword', 'azure, two lions combattant Or each maintaining a sword argent'],
+    ['an eagle with a key in its beak', 'argent, an eagle sable maintaining in its beak a key gules'],
+    ['a wolf with a rose in its mouth', 'or, a wolf rampant sable holding in its mouth a rose gules'],
     ['triquetrae', 'azure, three triquetrae Or'],
     ['ermine spots', 'azure, three ermine spots Or'],
     ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, ${ordinaryWithArticle(t)} ${LINE_WORD[l]} Or`])),

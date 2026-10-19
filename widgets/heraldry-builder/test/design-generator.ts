@@ -7,7 +7,7 @@
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
 import {
-  CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, walkGroups,
+  CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve,
   type ChargeId, type Design,
 } from '../src/lib/heraldry';
 
@@ -464,12 +464,6 @@ function heldItem(id: string, field: string, next: () => number, pick: <T>(xs: r
   if (id === 'lion') return { how: next() < 0.75 ? 'maintaining' : 'sustaining', item: { k: 'charge', charge: pick(['sword', 'key', 'rose']) }, paint };
   return { how: 'in-beak', item: { k: 'charge', charge: pick(['rose', 'key']) }, paint };
 }
-
-/**
- * Whether a design has no charge holding anything: the builder and the SCA matcher reach held items in PLAN-D D9d, until then
- * builder-layers-reach and the SCA round trip leave them out.
- */
-export const holdsNothing = (d: Design): boolean => walkGroups(d).every(({ group: { item } }) => item.k !== 'charge' || item.holds.length === 0);
 
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */
 export function generatedChargeAttributeDesigns(seed: number, count: number): Design[] {

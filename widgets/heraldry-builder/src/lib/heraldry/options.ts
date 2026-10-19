@@ -20,18 +20,18 @@ import { capitalise, joinList, numberWord } from './words';
 import {
   AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, drawnLayout, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
-import { CHARGES, CUT_MODIFIERS, FACINGS, ORIENTATIONS, POSTURES, STAR_POINTS, chargePhrase, drawnPoints, postureWords, type ChargeForm, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
+import { CHARGES, CUT_MODIFIERS, FACINGS, ORIENTATIONS, POSTURES, STAR_POINTS, chargePhrase, drawnPoints, postureWords, type ChargeForm, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type Posture } from './charges';
 import {
   asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, tincturePaint, variationPaint, walkGroups,
-  type Charge, type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type Modifier, type Paint, type Pair, type PartyPaint, type VariationPaint,
+  type Charge, type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Held, type Issue, type Modifier, type Paint, type Pair, type PartyPaint, type VariationPaint,
 } from './design';
 import { BUILDER_DIVISIONS, DIVISION_PART_LABEL, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
 import { MAX_DRAWN_COUNT, gazeDrawn, pairPlaced, unsupportedIssues } from './support';
-import { isPiece, pieceAnchored, piecePaint, type PieceId, type PiecePart } from './overlay-art';
+import { holdAnchored, isPiece, pieceAnchored, piecePaint, type PieceId, type PiecePart } from './overlay-art';
 import { ofOtherClass, withPaint, withPartner, type FieldPart } from './paint-target';
 import { isPeripheralPlace, placeKind, placesIn, type Placed } from './places';
-import { FACING_LABEL, GAZE_LABEL, PAIR_LABEL, PIECE_LABEL, PLACE_LABEL } from './plain-words';
+import { FACING_LABEL, GAZE_LABEL, HOLD_LABEL, PAIR_LABEL, PIECE_LABEL, PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
 import { groupBodyTinctureIssues, groupTinctureIssues, paintName, tinctureIssues, trimTinctureIssues } from './tincture-rule';
@@ -836,13 +836,13 @@ export function withModifier(d: Design, path: GroupPath, id: ModifierId, on: boo
   return canonical(replaceGroup(d, path, { ...g, item: { ...g.item, mods: on ? [...mods, { id, ...value }] : mods } }));
 }
 
-/** The tinctures to try for a charge's fimbriation, best first: each but the charge's own, which comes last. */
-const fimbriationPaints = (g: Group): Paint[] =>
+/** The tinctures to try for a charge's fimbriation or held item, best first: each but the charge's own, which comes last. */
+const paintsOwnLast = (g: Group): Paint[] =>
   [...TINCTURES.filter((t) => g.paint.k !== 'tincture' || t !== g.paint.t), ...(g.paint.k === 'tincture' ? [g.paint.t] : [])].map((t) => paintOfGroupTincture(t));
 
 /** The fimbriation a charge at `path` is given when it is switched on: the first tincture that stands out where the charges lie (§1.4 M16). */
 export function firstFimbriation(d: Design, path: GroupPath): Paint {
-  const paints = fimbriationPaints(groupAt(d, path));
+  const paints = paintsOwnLast(groupAt(d, path));
   return paints.find((p) => trimTinctureIssues(withModifier(d, path, 'fimbriated', true, { count: null, paint: p }), path).length === 0) ?? paints[0];
 }
 
@@ -935,6 +935,50 @@ export function withPart(d: Design, path: GroupPath, part: PiecePart, paint: Pai
 export function pieceTinctureChoices(d: Design, path: GroupPath, piece: PieceId): Choice<Tincture>[] {
   const item = groupAt(d, path).item;
   return item.k === 'charge' && piecePaint(item, piece) !== null ? TINCTURES.map(ok) : [];
+}
+
+// ── Holding (PLAN-D §0.3.10, §1.5): the item a main charge holds, the way it holds it, and its tincture ──
+
+/** How a refusal says a way of holding: "holding anything", "with anything in its beak". */
+const holdingWords = (how: HoldHow): string => {
+  const plain = HOLD_LABEL[how].plain.toLowerCase();
+  return how === 'in-beak' || how === 'in-mouth' ? `with anything ${plain}` : `${plain} anything`;
+};
+
+/**
+ * The ways the group's charge may hold an item (its sidecar `holds`: in its paw, held up, in its beak or its mouth), offered for a main
+ * charge only (§1.5 H3: a primary or co-primary charge on the field); each blocked where its drawing has no place for the item (a lion
+ * couchant has no paw free, a demi lion none).
+ */
+export function holdChoices(d: Design, path: GroupPath): Choice<HoldHow>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge' || g.role !== 'primary') return [];
+  const item = g.item;
+  return CHARGES[item.charge].holds.map((how) => choice(how, holdAnchored(item, how) ? null : `The ${drawnName(item)} is not drawn ${holdingWords(how)} in this builder.`));
+}
+
+/** The group's charge holding `held`, or nothing (null): one item a charge (H3). */
+export function withHold(d: Design, path: GroupPath, held: Held | null): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  return canonical(replaceGroup(d, path, { ...g, item: { ...g.item, holds: held ? [held] : [] } }));
+}
+
+/** Why the item the group's charge holds breaks the rule of tincture (§1.5 H5: it must stand out from the field its holder lies on), or null. */
+const heldTinctureReason = (d: Design, path: GroupPath): string | null =>
+  groupTinctureIssues(d, path).find((i) => i.code === 'tincture' && i.part === 'held')?.message ?? null;
+
+/** The tincture an item is given when the group's charge first holds it: the first that stands out from the field (§1.5 H5), the charge's own last. */
+export function firstHeldPaint(d: Design, path: GroupPath, held: Omit<Held, 'paint'>): Paint {
+  const paints = paintsOwnLast(groupAt(d, path));
+  return paints.find((paint) => heldTinctureReason(withHold(d, path, { ...held, paint }), path) === null) ?? paints[0];
+}
+
+/** The tinctures the item the group's charge holds may be, offered while it holds one: blocked where it wouldn't stand out from the field (§1.5 H5). */
+export function heldTinctureChoices(d: Design, path: GroupPath): Choice<Tincture>[] {
+  const item = groupAt(d, path).item;
+  const held = item.k === 'charge' ? item.holds[0] : undefined;
+  return held ? TINCTURES.map((t) => choice(t, heldTinctureReason(withHold(d, path, { ...held, paint: tincturePaint(t) }), path))) : [];
 }
 
 /** The layout the Layout row shows as chosen: a pair is laid out as its two charges in fess, or where the ordinary places them (§1.1 F8). */

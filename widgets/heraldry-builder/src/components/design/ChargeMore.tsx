@@ -3,17 +3,18 @@
 // (guardant, regardant), for two charges the Pair row (the same way, facing each other, back to back), for a charge that turns, the
 // Turned row (as usual, or the way it points, each chip previewed turned) and, for a charge with details, the nested Details disclosure
 // (its shape and cut, a star's points, voided, fimbriated in a tincture, pierced, fitchy, and the pieces — wings, flames, a stem and
-// leaves, a crown, a collar — each in its colour). Undrawn options are blocked with their reason.
+// leaves, a crown, a collar — each in its colour, and for a main charge that holds things, what it holds, how and in what colour).
+// Undrawn options are blocked with their reason.
 
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
 import {
-  CHARGES, CUT_LABEL, FACING_LABEL, FORM_LABEL, GAZE_LABEL, MODIFIER_LABEL, ORIENTATION_ANGLE, ORIENTATION_LABEL, PAIR_LABEL, PIECE_IDS, PIECE_LABEL, PROPER_PIECES, chargePath, cutChoices, cutOf, detailChoices, formChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
-  groupAt, isPiece, isPiecePart, orientationChoices, pairChoices, partChoices, pieceTinctureChoices, piecePaint, pointsChoices, pointsOf, pointsWord, tincturePaint,
-  type Charge, type ChargeForm, type Choice, type Design, type GroupPath, type Orientation, type Paint, type PairChoice, type PieceId, type PlainTerm,
+  CHARGES, CUT_LABEL, FACING_LABEL, FORM_LABEL, GAZE_LABEL, HOLDABLE_IDS, HOLD_LABEL, MODIFIER_LABEL, ORIENTATION_ANGLE, ORIENTATION_LABEL, PAIR_LABEL, PIECE_IDS, PIECE_LABEL, PROPER_PIECES, chargeLabel, chargePath, cutChoices, cutOf, detailChoices, formChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
+  groupAt, heldTinctureChoices, holdChoices, isPiece, isPiecePart, orientationChoices, pairChoices, partChoices, pieceTinctureChoices, piecePaint, pointsChoices, pointsOf, pointsWord, tincturePaint,
+  type Charge, type ChargeForm, type ChargeId, type Choice, type Design, type GroupPath, type HoldHow, type Orientation, type Paint, type PairChoice, type PieceId, type PlainTerm,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
-import { setCut, setForm, setFacing, setGaze, setModifier, setOrientation, setPair, setPart } from '../../lib/builder';
+import { setCut, setForm, setFacing, setGaze, setModifier, setOrientation, setHold, setPair, setPart } from '../../lib/builder';
 import { ChargeIcon } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { Disclosure } from './Disclosure';
@@ -115,6 +116,45 @@ function PieceColour({ design, path, prefix, piece, onChange, onBlocked }: Props
   );
 }
 
+/**
+ * What the charge holds (PLAN-D §1.5): a select of the items it may hold, then, while it holds one, the way it holds it and the item's colour
+ * (blocked where it wouldn't stand out from the field, H5). A drawing with no place to hold anything (a demi lion) says why.
+ */
+function Holding({ design, path, prefix, ways, onChange, onBlocked }: Props & { ways: readonly Choice<HoldHow>[]; onBlocked: (e: Explanation) => void }) {
+  const holder = groupAt(design, path).item as Charge;
+  const held = holder.holds[0] ?? null;
+  const selectId = `${prefix}hold-select`;
+  const refused = held === null && ways.every((c) => !c.allowed) ? ways[0] : null;
+  return (
+    <>
+      <div class="control">
+        <label class="picker-legend" for={selectId}>What it holds</label>
+        <select
+          id={selectId} class="select" data-testid={selectId} value={held?.item.charge ?? ''} disabled={refused !== null} aria-describedby={refused ? `${selectId}-note` : undefined}
+          onChange={(e) => { const v = (e.currentTarget as HTMLSelectElement).value; onChange(setHold(design, path, v === '' ? null : v as ChargeId)); }}
+        >
+          <option value="">Nothing</option>
+          {HOLDABLE_IDS.map((id) => <option key={id} value={id}>{chargeLabel(id)}</option>)}
+        </select>
+        {refused && !refused.allowed && <p class="control-note" id={`${selectId}-note`}>{refused.reason}</p>}
+      </div>
+      {held && (
+        <ChipRow
+          legend="How" testid={`${prefix}hold-how`} choices={ways} current={held.how} label={(how) => HOLD_LABEL[how]} kind="drawing"
+          onSelect={(how) => onChange(setHold(design, path, held.item.charge, how))} onBlocked={onBlocked}
+        />
+      )}
+      {held && (
+        // keyed by what holds what, so that why a colour was refused (said of the item as it was) goes with it
+        <TincturePicker
+          key={`${holder.charge}|${held.item.charge}`} group={`${prefix}held`} legend={`Colour of the ${CHARGES[held.item.charge].name}`} choices={heldTinctureChoices(design, path)} value={held.paint.k === 'tincture' ? held.paint.t : null} testid={`${prefix}hold-tincture`}
+          onChange={(t) => onChange(setHold(design, path, held.item.charge, held.how, tincturePaint(t)))}
+        />
+      )}
+    </>
+  );
+}
+
 /** A choice's test id suffix: no head turn is "none"; either way of facing each other is "respectant", whatever the charge's word. */
 function testValue(v: unknown): string {
   return v === null ? 'none' : v === 'combattant' ? 'respectant' : String(v);
@@ -131,13 +171,14 @@ export function ChargeMore({ design, path, prefix, onChange }: Props) {
   const forms = formChoices(design, path);
   const details = detailChoices(design, path);
   const parts = partChoices(design, path);
-  if (g.item.k !== 'charge' || (facings.length === 0 && turns.length === 0 && points.length === 0 && details.length === 0 && parts.length === 0 && forms.length === 0)) return null;
+  const ways = holdChoices(design, path);
+  if (g.item.k !== 'charge' || (facings.length === 0 && turns.length === 0 && points.length === 0 && details.length === 0 && parts.length === 0 && forms.length === 0 && ways.length === 0)) return null;
   const item = g.item;
   const meta = CHARGES[item.charge];
   const fimbriations = fimbriationTinctureChoices(design, path);
   const fimbriation = fimbriationOf(item);
   const cuts = cutChoices(design, path);
-  const detailed = item.mods.some((m) => meta.details.includes(m.id)) || item.parts.length > 0 || item.form !== null;
+  const detailed = item.mods.some((m) => meta.details.includes(m.id)) || item.parts.length > 0 || item.holds.length > 0 || item.form !== null;
   const gazes = gazeChoices(design, path);
   const pairs = pairChoices(design, path);
   const pair: PairChoice = g.arrangement.k === 'pair' ? g.arrangement.pair : 'same';
@@ -161,7 +202,7 @@ export function ChargeMore({ design, path, prefix, onChange }: Props) {
               preview={(o) => <TurnedPreview item={item} orientation={o} />} onSelect={(o) => onChange(setOrientation(design, path, o))} onBlocked={explain}
             />
           )}
-          {(points.length > 0 || details.length > 0 || parts.length > 0 || forms.length > 0) && (
+          {(points.length > 0 || details.length > 0 || parts.length > 0 || forms.length > 0 || ways.length > 0) && (
             <Disclosure testid={`${prefix}charge-details`} class="charge-details" summary="Details" used={detailed}>
               {() => (
                 <>
@@ -214,6 +255,7 @@ export function ChargeMore({ design, path, prefix, onChange }: Props) {
                   {PIECE_IDS.filter((piece) => piecePaint(item, piece) !== null).map((piece) => (
                     <PieceColour key={piece} design={design} path={path} prefix={prefix} piece={piece} onChange={onChange} onBlocked={explain} />
                   ))}
+                  {ways.length > 0 && <Holding design={design} path={path} prefix={prefix} ways={ways} onChange={onChange} onBlocked={explain} />}
                 </>
               )}
             </Disclosure>

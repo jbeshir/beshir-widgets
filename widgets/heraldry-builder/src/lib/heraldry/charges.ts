@@ -173,6 +173,9 @@ const ROWS: Record<ChargeId, ChargeMetaRow> = {
 export const CHARGES = Object.fromEntries(CHARGE_IDS.map((id): [ChargeId, ChargeMeta] =>
   [id, { ...ROWS[id], id, defaultFacing: ROWS[id].faces ? 'to-dexter' : null }])) as Record<ChargeId, ChargeMeta>;
 
+/** The charges another charge may hold (their sidecar's `holdable`, PLAN-D §1.5), in charge order: the Holding select lists them. */
+export const HOLDABLE_IDS: readonly ChargeId[] = CHARGE_IDS.filter((id) => CHARGES[id].holdable);
+
 export function isChargeId(value: unknown): value is ChargeId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(CHARGES, value);
 }

@@ -146,7 +146,7 @@ function piecesWords(c: Charge): Array<{ text: string; paint: string }> {
 }
 
 /** How the College words each way of holding, before the held item (the SCA armorial: "maintaining in its beak" 116, "holding in its beak" 14). */
-const HOLD_WORDS: Record<HoldHow, string> = { maintaining: 'maintaining', sustaining: 'sustaining', 'in-beak': 'maintaining in its beak', 'in-mouth': 'maintaining in its mouth', wearing: 'wearing' };
+export const HOLD_WORDS: Record<HoldHow, string> = { maintaining: 'maintaining', sustaining: 'sustaining', 'in-beak': 'maintaining in its beak', 'in-mouth': 'maintaining in its mouth', wearing: 'wearing' };
 
 /**
  * What a group's charges hold, after everything else about them, each with its tincture (§1.5): "a lion Or maintaining a sword argent",

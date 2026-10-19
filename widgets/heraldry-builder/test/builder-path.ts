@@ -7,12 +7,12 @@
 
 import {
   CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, formChoices, cutChoices, detailChoices, partChoices, pieceTinctureChoices, isPiece, isPiecePart, PROPER_PIECES, type PieceId, type PiecePart, pointsChoices, cutOf, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, formChoices, cutChoices, detailChoices, partChoices, pieceTinctureChoices, holdChoices, heldTinctureChoices, HOLDABLE_IDS, type HoldHow, isPiece, isPiecePart, PROPER_PIECES, type PieceId, type PiecePart, pointsChoices, cutOf, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
   type ChargeForm, type ChargeId, type Choice, type ModifierId, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setFacing, setGaze, setOrientation, setForm, setCut, setPair, setPart, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setFacing, setGaze, setOrientation, setForm, setCut, setPair, setPart, setHold, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -55,6 +55,7 @@ export type BuilderAction =
   | { kind: 'splendour'; at: At }
   | { kind: 'modifier'; at: At; id: ModifierId; count: number | null; paint: Paint | null }
   | { kind: 'part'; at: At; part: PiecePart; paint: Paint }
+  | { kind: 'hold'; at: At; item: ChargeId; how: HoldHow; paint: Paint }
   | { kind: 'charge-tincture'; at: At; tincture: GroupTincture }
   | { kind: 'split'; target: PaintWhere }
   | { kind: 'party-division'; target: PaintWhere; division: Division }
@@ -220,6 +221,16 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       if (!path) return `there is no ${a.at} to draw ${a.part}`;
       return choiceReason(partChoices(d, path), a.part) ?? piecePaintReason(setPart(d, path, a.part, true), path, a.part, a.paint);
     }
+    case 'hold': {
+      // The Details disclosure's Holding: the item in its select, the way it is held, then its colour.
+      const path = pathAt(d, a.at);
+      if (!path) return `there is no ${a.at} to hold ${a.item}`;
+      if (holdChoices(d, path).length === 0) return `the ${a.at} has no Holding select`;
+      if (!HOLDABLE_IDS.includes(a.item)) return `the Holding select does not list ${a.item}`;
+      const holding = setHold(d, path, a.item);
+      return choiceReason(holdChoices(holding, path), a.how)
+        ?? (a.paint.k === 'tincture' ? choiceReason(heldTinctureChoices(setHold(holding, path, a.item, a.how), path), a.paint.t) : `a held ${a.item} of ${JSON.stringify(a.paint)} is not offered`);
+    }
     case 'charge-tincture': {
       const path = pathAt(d, a.at);
       return path ? choiceReason(groupTinctureChoices(d, path), a.tincture) : `there is no ${a.at} to colour`;
@@ -325,6 +336,7 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'splendour': return setModifier(d, path!, 'in-splendour', true);
     case 'modifier': return setModifier(d, path!, a.id, true, { count: a.count, paint: a.paint });
     case 'part': return setPart(d, path!, a.part, true, a.paint);
+    case 'hold': return setHold(d, path!, a.item, a.how, a.paint);
     case 'charge-tincture': return setGroupTincture(d, path!, a.tincture);
     case 'split': return splitGroup(d, paintPathOf(d, a.target)!)!;
     case 'party-division': return setPartyDivision(d, paintPathOf(d, a.target)!, a.division);
@@ -382,6 +394,7 @@ function describeAction(a: BuilderAction): string {
     case 'splendour': return `${a.at} splendour on`;
     case 'modifier': return `${a.at} ${a.id} on${a.count === null ? '' : ` (${a.count})`}${a.paint?.k === 'tincture' ? ` (${a.paint.t})` : a.paint?.k === 'proper' ? ' (proper)' : ''}`;
     case 'part': return `${a.at} ${a.part} on (${a.paint.k === 'tincture' ? a.paint.t : a.paint.k})`;
+    case 'hold': return `${a.at} holding ${a.item} (${a.how}, ${a.paint.k === 'tincture' ? a.paint.t : a.paint.k})`;
     case 'charge-tincture': return `${a.at} tincture ${a.tincture}`;
     case 'split': return `split the ${a.target}`;
     case 'party-division': return `${a.target} divided ${a.division}`;
@@ -835,8 +848,8 @@ export function builderPath(goal: Design): BuilderPath {
       if (now()?.gaze !== gaze && !click({ kind: 'gaze', at: own, gaze })) return done();
       if (facing && now()?.facing !== facing && !click({ kind: 'facing', at: own, facing })) return done();
       if (orientation && now()?.orientation !== orientation && !click({ kind: 'orientation', at: own, orientation })) return done();
-      // The details, in canonical order (a star's points before piercing it, a slip before its leaves), then the parts, before the tincture:
-      // a fimbriated charge need not contrast.
+      // The details, in canonical order (a star's points before piercing it, a slip before its leaves), then the parts and what it holds, before
+      // the tincture: a fimbriated charge need not contrast.
       const { details } = CHARGES[group.item.charge];
       for (const m of mods.filter((m) => details.includes(m.id))) {
         if (!now()?.mods.some((n) => n.id === m.id && n.count === m.count && JSON.stringify(n.paint) === JSON.stringify(m.paint)) && !click({ kind: 'modifier', at: own, id: m.id, count: m.count, paint: m.paint })) return done();
@@ -844,6 +857,9 @@ export function builderPath(goal: Design): BuilderPath {
       for (const p of group.item.parts) {
         if (!isPiece(p.part) || !isPiecePart(p.part)) return { actions, problems: [...problems, `the ${own} is ${p.part}, which the builder has no control for`], design: d };
         if (!now()?.parts.some((n) => n.part === p.part && JSON.stringify(n.paint) === JSON.stringify(p.paint)) && !click({ kind: 'part', at: own, part: p.part, paint: p.paint })) return done();
+      }
+      for (const h of group.item.holds) {
+        if (!now()?.holds.some((n) => JSON.stringify(n) === JSON.stringify(h)) && !click({ kind: 'hold', at: own, item: h.item.charge, how: h.how, paint: h.paint })) return done();
       }
       if (!paintTo(own, group.paint)) return done();
     }

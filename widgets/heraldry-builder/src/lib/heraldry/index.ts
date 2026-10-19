@@ -1,6 +1,6 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
-export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, HOLD_HOWS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type HoldHow, type ModifierId, type PartId, type TypeClass } from './charges';
+export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, HOLD_HOWS, HOLDABLE_IDS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type HoldHow, type ModifierId, type PartId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
@@ -39,10 +39,10 @@ export {
   FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownSurfaces, counterchangeUnavailable, describeSlots, type ShownSurfaces,
 } from './tincture-rule';
 export { validate, normalise, type NormaliseResult } from './validate';
-export { blazon, FACING_WORD, MODIFIER_WORDS, pointsWord, MODS_BEFORE_LINE, MODS_AFTER_LINE, ORIENTATION_WORDS, orientationWords, type BlazonOptions } from './blazon';
+export { blazon, FACING_WORD, HOLD_WORDS, MODIFIER_WORDS, pointsWord, MODS_BEFORE_LINE, MODS_AFTER_LINE, ORIENTATION_WORDS, orientationWords, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, FACING_LABEL, GAZE_LABEL, MODIFIER_LABEL, PIECE_LABEL, FORM_LABEL, CUT_LABEL, ORIENTATION_LABEL, PAIR_LABEL, ordinaryCountLabel, ordinaryCountLegend, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, FACING_LABEL, GAZE_LABEL, HOLD_LABEL, MODIFIER_LABEL, PIECE_LABEL, FORM_LABEL, CUT_LABEL, ORIENTATION_LABEL, PAIR_LABEL, ordinaryCountLabel, ordinaryCountLegend, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
@@ -71,7 +71,7 @@ export {
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
-  layoutReason, withLayout, postureChoices, modifierChoices, facingChoices, gazeChoices, pairChoices, orientationChoices, formChoices, cutChoices, cutOf, detailChoices, partChoices, withPart, firstPiecePaint, pieceTinctureChoices, pointsChoices, pointsOf, fimbriationTinctureChoices, firstFimbriation, withModifier, NO_MODIFIER_VALUE, shownLayoutKey, fitGroup, suggestTinctureFix,
+  layoutReason, withLayout, postureChoices, modifierChoices, facingChoices, gazeChoices, pairChoices, orientationChoices, formChoices, cutChoices, cutOf, detailChoices, partChoices, withPart, firstPiecePaint, pieceTinctureChoices, holdChoices, withHold, firstHeldPaint, heldTinctureChoices, pointsChoices, pointsOf, fimbriationTinctureChoices, firstFimbriation, withModifier, NO_MODIFIER_VALUE, shownLayoutKey, fitGroup, suggestTinctureFix,
   partyDivisionChoices, partyTinctureChoices, groupVariationChoices, setGroupVariation, setGroupVariationPieces, groupVariationTinctureChoices, setGroupVariationTincture, setPartyDivision, setPartyTincture, splitGroup,
   type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type PairChoice, type ModifierValue, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';
