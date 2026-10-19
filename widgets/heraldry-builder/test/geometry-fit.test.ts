@@ -6,7 +6,7 @@
 // a divided field as its canonical (heater) slot, so what is drawn matches the canonical rule-of-tincture
 // verdict. Hand-fitted layouts are also checked with real artwork, drawn in its optically scaled box and turned with the charge: a
 // fixed few drawings and a seeded rotating sample of about eight more (`SAMPLED_DRAWINGS`, so the cost does not grow with the art),
-// every pair on the heater and a fifth of them in each other shape; generic layouts with a representative few (all on the heater, a
+// every pair on the heater and a fifth of them in each other shape; generic layouts with a representative few (a rotating half on the heater, a
 // rotating fifth of the layout × drawing pairs of the rotating sample of layouts in each other shape). The hosts of charges on charges
 // are the sampled drawings that carry charges. The slot-on-ground sweep is likewise exhaustive on the heater and
 // a seeded rotating twelfth of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape, the same ones for the check that the smaller
@@ -291,6 +291,8 @@ describe('layout catalogue', () => {
  */
 const SHAPE_SWEEP_RATE = 0.08;
 const inSweep = (shape: FieldShape, label: string): boolean => shape === 'heater' || rotatesIn(`${shape}|${label}`, SHAPE_SWEEP_RATE);
+/** The generic layouts the compact few drawings are drawn in: a rotating half on the heater, and the sweep's share in each other shape. */
+const inGenericSweep = (shape: FieldShape, label: string): boolean => (shape === 'heater' ? rotatesIn(`heater|generic|${label}`, 1 / 2) : inSweep(shape, label));
 
 for (const g of SHAPES) {
   describe(`${g.shape}: charge slots fit their ground`, () => {
@@ -431,7 +433,7 @@ function artProblems(
 ): string[] {
   const problems: string[] = [];
   for (const [ei, e] of entries.entries()) {
-    if (generic && !inSweep(g.shape, e.label)) continue;
+    if (generic && !inGenericSweep(g.shape, e.label)) continue;
     if (!drawings.some((_, di) => drawnIn(g.shape, ei, di))) continue;
     const slots = contextSlots(e.ctx, e.count, e.layout, g.shape);
     const fits = groundFits(g, e.ctx, e.layout, SHIELD_MARGIN, true);

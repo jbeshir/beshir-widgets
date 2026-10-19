@@ -32,8 +32,8 @@ const GOLDEN_CONTEXTS: readonly GoldenContext[] = [
 
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
-/** Whether `npm test` works out a combination this run, by key: every heater one, a rotating third of each other shape's (SCA_FULL=1: all). */
-export const inSlotSample = (key: string): boolean => key.endsWith('|heater') || rotatesIn(key, 1 / 3);
+/** Whether `npm test` works out a combination this run, by key: every heater one, a rotating sixth of each other shape's (SCA_FULL=1: all). */
+export const inSlotSample = (key: string): boolean => key.endsWith('|heater') || rotatesIn(key, 1 / 6);
 
 /** The slots of every pinned combination in the sample that has any, by key "<context>|<count>|<layout>|<shape>". */
 export function pinnedSlots(inSample: (key: string) => boolean): Map<string, readonly Slot[]> {

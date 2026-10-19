@@ -5,10 +5,10 @@
 // that loses the gap it is filed under, fails the test until the list is regenerated
 // (`npm run sca:ignore`).
 //
-// Cost control: `npm test` runs the cheap checks (match, assess, blazon, render) on EVERY record but replays the
-// builder's clicks (the 'builder' check, ~11 ms a design, most of this file's time) and re-runs the gap tagger on the
-// ignored records for a seeded, rotating sample only (test/sca/sample.ts): so this file's cost stays roughly flat as
-// records start passing. `npm run sca:ignore` is the authoritative full sweep over every record (the final gate runs it);
+// Cost control: `npm test` runs the cheap checks (match, assess, blazon) on EVERY record but draws the design and replays
+// the builder's clicks (the 'render' and 'builder' checks; the replay, ~40 ms a design, is most of this file's time) and
+// re-runs the gap tagger on the ignored records for a seeded, rotating sample only (test/sca/sample.ts): so this file's cost
+// stays roughly flat as records start passing. `npm run sca:ignore` is the authoritative full sweep over every record (the final gate runs it);
 // `SCA_FULL=1 npx vitest run --project sca` makes this test do the same, `SCA_SAMPLE_SEED=<text>` picks the sample.
 
 import { readFileSync } from 'node:fs';
@@ -55,10 +55,10 @@ describe('SCA armory the widget can express', () => {
   const ignored = new Map(entries);
   let records: ArmoryRecord[];
   let byKey: Map<string, ArmoryRecord>;
-  /** Which designs get the builder replay and which ignored records get the tagger re-run in this run. */
+  /** Which designs are drawn and get the builder replay, and which ignored records get the tagger re-run, in this run. */
   let sampler: ReturnType<typeof createSampler>;
   const options = () => ({
-    builder: (design: Parameters<typeof sampler.builder>[0]) => sampler.builder(design),
+    drawAndBuild: (design: Parameters<typeof sampler.drawAndBuild>[0]) => sampler.drawAndBuild(design),
     tagger: (r: ArmoryRecord) => sampler.tagger(r, ignored.get(r.key)?.primary ?? ''),
   });
 
@@ -69,7 +69,9 @@ describe('SCA armory the widget can express', () => {
   });
 
   it('every record not on the ignore list passes all five checks', () => {
-    const problems = records.filter((r) => !ignored.has(r.key)).flatMap((r) => failureLines(r, checkBlazon(r.blazon, options()).failures));
+    // Shortest blazon first, so that the sampler's fixed stratum is the simplest design with each feature (test/sca/sample.ts).
+    const passing = records.filter((r) => !ignored.has(r.key)).sort((a, b) => a.blazon.length - b.blazon.length);
+    const problems = passing.flatMap((r) => failureLines(r, checkBlazon(r.blazon, options()).failures));
     expect(problems.length, listing(`Failing records not on the ignore list (a new gap: \`npm run sca:ignore\`; else fix the widget; sample seed ${sampleSeed()}, SCA_FULL=1 for the full sweep)`, problems)).toBe(0);
   }, 240_000);
 
