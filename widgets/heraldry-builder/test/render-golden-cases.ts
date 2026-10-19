@@ -252,6 +252,20 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-squirrels-addorsed', arms('azure', group(charge('squirrel'), 'or', pair('addorsed')))],
   ['attr-horse-head-couped', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'))],
   ['attr-bear-head-collared', arms('or', group(charge('bear', { form: 'head', parts: [{ part: 'collared', paint: 'gules' }] }), 'sable'))],
+  ['attr-griffin-passant-crowned', arms('azure', group(charge('griffin', { posture: 'passant', parts: [{ part: 'crowned', paint: 'gules' }] }), 'or'))],
+  ['attr-griffins-sejant-contourny', arms('gules', group(charge('griffin', { posture: 'sejant', ...contourny }), 'argent', { count: 3 }))],
+  ['attr-wyvern-erect-maintaining-sword', arms('vert', group(charge('wyvern', { posture: 'erect', holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or'))],
+  ['attr-phoenix-contourny', arms('sable', group(charge('phoenix', contourny), 'or'))],
+  ['attr-pegasus-passant', arms('azure', group(charge('pegasus', { posture: 'passant' }), 'argent'))],
+  ['attr-seahorses-contourny', arms('argent', group(charge('seahorse', contourny), 'azure', { count: 3 }))],
+  ['attr-sea-lion-erect', arms('or', group(charge('sea-lion'), 'gules'))],
+  ['attr-raven-volant', arms('or', group(charge('raven', { posture: 'volant' }), 'sable'))],
+  ['attr-ravens-key-in-beak', arms('argent', group(charge('raven', { holds: [{ how: 'in-beak', item: charge('key'), paint: 'or' }] }), 'sable', { count: 3 }))],
+  ['attr-falcon-rising-contourny', arms('vert', group(charge('falcon', { posture: 'rising', ...contourny }), 'argent'))],
+  ['attr-swan-close-collared', arms('azure', group(charge('swan', { posture: 'close', parts: [{ part: 'collared', paint: 'or' }] }), 'argent'))],
+  ['attr-peacock-contourny', arms('azure', group(charge('peacock', contourny), 'argent'))],
+  ['attr-martlets-addorsed', arms('gules', group(charge('martlet'), 'argent', pair('addorsed')))],
+  ['attr-doves-respectant', arms('azure', group(charge('dove'), 'argent', pair('respectant')))],
 ];
 
 export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));

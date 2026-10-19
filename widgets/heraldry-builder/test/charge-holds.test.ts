@@ -32,6 +32,8 @@ describe('held items (PLAN-D §1.5)', () => {
       eagle: ['maintaining', 'sustaining', 'in-beak'], owl: ['maintaining', 'sustaining', 'in-beak'],
       // the horse and the bear are drawn with a mouth on their heads only
       cat: ['maintaining', 'sustaining'], bear: ['maintaining', 'sustaining', 'in-mouth'], horse: ['in-mouth'], fox: ['maintaining', 'sustaining'], squirrel: ['maintaining', 'sustaining'],
+      // the birds are drawn with a beak; the griffin and the wyvern with a paw; the swan, peacock and the sea-creatures with neither
+      raven: ['in-beak'], griffin: ['maintaining', 'sustaining'], phoenix: ['in-beak'], wyvern: ['maintaining', 'sustaining'], falcon: ['in-beak'], martlet: ['in-beak'], dove: ['in-beak'],
     });
     // a crown is worn, not held (H4)
     expect(CHARGES.crown.holdable).toBe(false);
