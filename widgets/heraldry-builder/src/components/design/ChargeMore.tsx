@@ -9,7 +9,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
 import {
-  CHARGES, CUT_LABEL, FACING_LABEL, FORM_LABEL, GAZE_LABEL, HOLDABLE_IDS, HOLD_LABEL, MODIFIER_LABEL, ORIENTATION_ANGLE, ORIENTATION_LABEL, PAIR_LABEL, PIECE_IDS, PIECE_LABEL, PROPER_PIECES, chargeLabel, chargePath, cutChoices, cutOf, detailChoices, formChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
+  CHARGES, CUT_LABEL, FACING_LABEL, FORM_LABEL, GAZE_LABEL, HOLDABLE_IDS, HOLD_LABEL, MODIFIER_LABEL, ORIENTATION_LABEL, PAIR_LABEL, PIECE_IDS, PIECE_LABEL, PROPER_PIECES, chargeLabel, chargePath, cutChoices, cutOf, detailChoices, drawingTurn, formChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
   groupAt, heldProperChoice, heldTinctureChoices, holdChoices, isPiece, isPiecePart, orientationChoices, pairChoices, partChoices, pieceTinctureChoices, piecePaint, pointsChoices, pointsOf, pointsWord, tincturePaint,
   type Charge, type ChargeForm, type ChargeId, type Choice, type Design, type GroupPath, type HoldHow, type Orientation, type Paint, type PairChoice, type PieceId, type PlainTerm,
 } from '../../lib/heraldry';
@@ -35,7 +35,7 @@ const AS_USUAL: PlainTerm = { plain: 'As usual', term: 'upright, or along its ba
 
 /** The charge drawn small, turned the way `orientation` points (a mirrored one flipped; pointing to the middle is shown upright). */
 function TurnedPreview({ item, orientation }: { item: Charge; orientation: Orientation | null }) {
-  const way = orientation === null || orientation === 'to-center' || orientation === 'reversed' ? 0 : ORIENTATION_ANGLE[orientation] - ORIENTATION_ANGLE[CHARGES[item.charge].orient.drawn];
+  const way = orientation === null || orientation === 'to-center' || orientation === 'reversed' ? 0 : drawingTurn(orientation, CHARGES[item.charge].orient);
   return (
     <span class="turned-preview" style={{ transform: `${orientation === 'reversed' ? 'scaleX(-1) ' : ''}rotate(${way}deg)` }}>
       <ChargeIcon path={chargePath(item)} size={22} />

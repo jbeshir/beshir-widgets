@@ -524,7 +524,7 @@ describe('charge artwork fits its ground at its optical scale', () => {
     const posed = (e: Entry, slots: readonly Slot[], dr: Drawing) => {
       const o = way.get(dr)!;
       if (e.layout.arrangement.k === 'crossed' || (o === 'to-center' && e.count < 2)) return slots.map(() => UPRIGHT);
-      return orientationTurns(o, CHARGES[dr.id].orient.drawn, slots).map((turn) => artPose(dr.art, o === 'reversed', turn, opticalScale(dr.charge)));
+      return orientationTurns(o, CHARGES[dr.id].orient, slots).map((turn) => artPose(dr.art, o === 'reversed', turn, opticalScale(dr.charge)));
     };
     expect(turning.length).toBeGreaterThan(1);
     expect(artProblems(SHAPES[0], hand, [...way.keys()], false, posed).slice(0, 25), `sample seed ${sampleSeed()}, SCA_FULL=1 for every drawing and way`).toEqual([]);

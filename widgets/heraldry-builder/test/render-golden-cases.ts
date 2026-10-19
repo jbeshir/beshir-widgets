@@ -270,6 +270,8 @@ const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
   ['attr-axe-reversed', arms('gules', group(charge('axe', { orientation: 'reversed' }), 'argent'))],
   ['attr-harp-reversed', arms('azure', group(charge('harp', { orientation: 'reversed' }), 'or'))],
   ['attr-pheons-to-center', arms('argent', group(charge('pheon', { orientation: 'to-center' }), 'sable', { count: 4, arrangement: 'in-cross' }))],
+  ['attr-feather-fesswise', arms('azure', group(charge('feather', { orientation: 'fesswise' }), 'argent'))],
+  ['attr-arrows-in-annulo-to-center', arms('argent', group(charge('arrow', { orientation: 'to-center' }), 'sable', { count: 8, arrangement: 'in-annulo' }))],
   ['attr-trident-inverted', arms('azure', group(charge('trident', { orientation: 'inverted' }), 'or'))],
   ['attr-spears-bendwise', arms('vert', group(charge('spear', { orientation: 'bendwise' }), 'or', { count: 2 }))],
   ['attr-acorns-slipped-leaved', arms('argent', group(charge('acorn', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'or', { count: 3 }))],

@@ -475,8 +475,8 @@ describe('charge table', () => {
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
     expect(CHARGE_IDS.filter((id) => CHARGES[id].long)).toEqual(['key', 'sword', 'anchor', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident', 'rapier', 'dagger']);
     expect(CHARGE_IDS.filter((id) => CHARGES[id].scaDefaultPosture).map((id) => [id, CHARGES[id].scaDefaultPosture]))
-      .toEqual([['lion', 'rampant'], ['fish', 'naiant'], ['unicorn', 'rampant'], ['dragon', 'rampant'], ['eagle', 'displayed'], ['squirrel', 'sejant-erect'],
-        ['raven', 'close'], ['griffin', 'rampant'], ['swan', 'rising'], ['phoenix', 'rising'], ['wyvern', 'statant'], ['falcon', 'close'], ['seahorse', 'erect'],
+      .toEqual([['lion', 'rampant'], ['fish', 'naiant'], ['unicorn', 'rampant'], ['dragon', 'rampant'], ['eagle', 'displayed'], ['owl', 'close'], ['squirrel', 'sejant-erect'],
+        ['raven', 'close'], ['griffin', 'rampant'], ['swan', 'rising'], ['phoenix', 'rising'], ['wyvern', 'statant'], ['falcon', 'close'], ['seahorse', 'erect'], ['peacock', 'close'],
         ['martlet', 'close'], ['dove', 'close'], ['sea-lion', 'erect'], ['dolphin', 'naiant'], ['hawk', 'close']]);
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
     // A5E2 type classes: only the documented DC-only kin share one (lion and cat, wolf and fox, dragon and wyvern, horse and pegasus, fish and dolphin, tower and castle, goblet, chalice and tankard, heart and seeblatt, the wheels, every bird, mullet and sun, eagle and owl, the lozenge's kin, a cross family…).

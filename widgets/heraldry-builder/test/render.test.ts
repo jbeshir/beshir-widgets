@@ -2,8 +2,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, MIRRORED, ORIENTATION_ANGLE, UPRIGHT, artPose, chargePath, chargeTransform, orientationTurns, turnFit, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
-  type Charge, type ChargeId, type Design, type FieldShape, type Fill, type Layer, type Posture,
+  CHARGES, MIRRORED, ORIENTATION_ANGLE, UPRIGHT, artPose, chargePath, chargeTransform, orientationTurns, pathRings, turnFit, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
+  type Charge, type ChargeId, type Design, type FieldShape, type Fill, type Layer, type Orientation, type Posture,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
@@ -127,10 +127,33 @@ describe('charge layers', () => {
 
   it('turn each charge by its orientation less the slot\'s own turn, and to center slot by slot', () => {
     const slots = [{ x: 50, y: 30, size: 20, rotation: 0 }, { x: 30, y: 50, size: 20, rotation: 0 }, { x: 70, y: 50, size: 20, rotation: 0 }, { x: 50, y: 70, size: 20, rotation: 0 }];
-    expect(orientationTurns('to-center', 'palewise', slots)).toEqual([180, 90, -90, 0]);
-    expect(orientationTurns('fesswise', 'palewise', [{ x: 50, y: 50, size: 20, rotation: -45 }])).toEqual([-45]);
-    expect(orientationTurns('bendwise-sinister-inverted', 'palewise', slots.slice(0, 1))).toEqual([ORIENTATION_ANGLE['bendwise-sinister-inverted']]);
-    expect(orientationTurns(null, 'palewise', slots)).toEqual([0, 0, 0, 0]);
+    expect(orientationTurns('to-center', CHARGES.sword.orient, slots)).toEqual([180, 90, -90, 0]);
+    expect(orientationTurns('fesswise', CHARGES.sword.orient, [{ x: 50, y: 50, size: 20, rotation: -45 }])).toEqual([-45]);
+    expect(orientationTurns('bendwise-sinister-inverted', CHARGES.sword.orient, slots.slice(0, 1))).toEqual([ORIENTATION_ANGLE['bendwise-sinister-inverted']]);
+    expect(orientationTurns(null, CHARGES.sword.orient, slots)).toEqual([0, 0, 0, 0]);
+    // GoT Table 5: an arrow and a pheon are drawn point to base, so their base points to center; a feather fesswise lies quill to dexter
+    expect(orientationTurns('to-center', CHARGES.arrow.orient, slots)).toEqual([0, -90, 90, 180]);
+    expect(orientationTurns('to-center', CHARGES.pheon.orient, slots)).toEqual([0, -90, 90, 180]);
+    expect(orientationTurns('to-center', CHARGES.arrow.orient, [{ x: 50, y: 50, size: 20, rotation: 0 }])).toEqual([0]);
+    expect(orientationTurns('fesswise', CHARGES.arrow.orient, slots.slice(0, 1))).toEqual([-90]);
+    expect(['fesswise', 'fesswise-reversed', 'bendwise', 'bendwise-sinister', 'inverted'].map((o) => orientationTurns(o as Orientation, CHARGES.feather.orient, slots.slice(0, 1))[0]))
+      .toEqual([90, -90, 135, -135, 180]);
+  });
+
+  it('draw arrows in annulo points to center with each head nearer the middle than its nock (rules review R-1)', () => {
+    const d = nd(arms('argent', group(charge('arrow', { orientation: 'to-center' }), 'sable', { count: 8, arrangement: 'in-annulo' })));
+    const { art: drawing, slots, poses } = layer(d, 1, 'charges');
+    const points = pathRings(drawing).flat();
+    const [head, nock] = [points.reduce((a, p) => (p[1] > a[1] ? p : a)), points.reduce((a, p) => (p[1] < a[1] ? p : a))];
+    const middle = { x: slots.reduce((n, s) => n + s.x, 0) / slots.length, y: slots.reduce((n, s) => n + s.y, 0) / slots.length };
+    // a point of the drawing where it lies on the shield: turned about the middle of its box, then the slot's turn and place
+    const onShield = ([x, y]: readonly number[], s: (typeof slots)[number], turn: number) => {
+      const a = ((turn + s.rotation) * Math.PI) / 180, dx = (x - 50) * s.size / 100, dy = (y - 50) * s.size / 100;
+      return { x: s.x + dx * Math.cos(a) - dy * Math.sin(a), y: s.y + dx * Math.sin(a) + dy * Math.cos(a) };
+    };
+    const far = (p: { x: number; y: number }) => Math.hypot(p.x - middle.x, p.y - middle.y);
+    expect(slots).toHaveLength(8);
+    slots.forEach((s, i) => expect(far(onShield(head, s, poses[i].turn)), `slot ${i}`).toBeLessThan(far(onShield(nock, s, poses[i].turn))));
   });
 
   it('pose a turned or reversed charge, and leave the follow turn of charges on a bend as it was', () => {

@@ -272,7 +272,7 @@ describe('the primary group (A5E)', () => {
     expect(between(on('hawk'), on('eagle', { posture: 'close' }))).toEqual(['type:dc:A5G4']);
     expect(between(on('rapier'), on('key'))).toEqual(['type:sc:A5E2']);
     expect(between(on('mullet'), on('rose'))).toEqual(['type:sc:A5E2']);
-    expect(between(on('eagle'), on('owl'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('eagle'), on('owl'))).toEqual(['posture:sc:A5E5', 'type:dc:A5G4']); // the owl is close (GoT Table 5)
     // art batch B1: a cat is a feline like the lion, a fox a canine like the wolf (A5C3); the bear, horse and squirrel are types of their own
     expect(between(on('cat', { posture: 'rampant' }), on('lion', { posture: 'rampant' }))).toEqual([]);
     expect(between(on('fox', { posture: 'rampant' }), on('wolf', { posture: 'rampant' }))).toEqual([]);
@@ -383,7 +383,8 @@ describe('the primary group (A5E)', () => {
     expect(between(on('lion', 'rampant'), on('hare', 'courant'))).toEqual(['type:sc:A5E2', 'posture:sc:A5E5']);
     // never between an animate charge and one without a posture
     expect(between(on('lion', 'rampant'), design('azure', chg('rose', 'or')))).toEqual(['type:sc:A5E2']);
-    expect(between(on('eagle', 'displayed'), design('azure', chg('owl', 'or')))).toEqual(['type:dc:A5G4']);
+    // the owl, drawn in no posture, is close (GoT Table 5)
+    expect(between(on('eagle', 'displayed'), design('azure', chg('owl', 'or')))).toEqual(['posture:sc:A5E5', 'type:dc:A5G4']);
   });
 });
 
@@ -837,7 +838,7 @@ describe('postures (PLAN-D §1.2 P1–P3, P7)', () => {
     expect(between(on('peacock', 'close'), on('eagle', 'close'))).toEqual(['type:sc:A5E2']);
     expect(between(on('swan', 'rising'), on('raven', 'close'))).toEqual(['type:sc:A5E2', 'posture:sc:A5E5']);
     expect(between(undrawn('swan', 'naiant'), on('raven', 'close'))).toEqual(['type:sc:A5E2']);
-    expect(between(on('swan', 'rising'), nd(arms('azure', chg('owl', 'or'))))).toEqual(['type:sc:A5E2']);
+    expect(between(on('swan', 'rising'), nd(arms('azure', chg('owl', 'or'))))).toEqual(['type:sc:A5E2', 'posture:sc:A5E5']);
     // "There is not an SC between birds displayed" (CL 04/2024): a DC, and none from the postures either
     expect(between(undrawn('swan', 'displayed'), on('eagle', 'displayed'))).toEqual(['type:dc:A5G4']);
     expect(between(undrawn('peacock', 'volant'), on('eagle', 'volant'))).toEqual(['type:dc:A5G4']);
@@ -983,7 +984,7 @@ describe('orientation (PLAN-D §1.3 O1–O10)', () => {
     expect(between(design('azure', turned('acorn', null)), design('azure', turned('acorn', 'inverted')))).toEqual(['posture:dc:A5G7']);
     expect(between(design('azure', turned('dragonfly', null)), design('azure', turned('dragonfly', 'inverted')))).toEqual(['posture:dc:A5G7']);
     expect(between(design('azure', turned('dragonfly', null)), design('azure', turned('dragonfly', 'fesswise')))).toEqual(['posture:sc:A5E5']);
-    expect(between(design('azure', turned('butterfly', null)), design('azure', turned('butterfly', 'bendwise')))).toEqual([]);
+    expect(between(design('azure', turned('butterfly', null)), design('azure', turned('butterfly', 'bendwise')))).toEqual(['posture:dc:A5G7']);
     expect(between(design('azure', turned('thistle', null)), design('azure', turned('thistle', 'inverted')))).toEqual([]);
     expect(between(design('azure', turned('acorn', null)), design('azure', turned('oak-leaf', null)))).toEqual(['type:sc:A5E2']);
     expect(between(design('azure', turned('lily', null)), design('azure', turned('rose', null)))).toEqual(['type:sc:A5E2']);
@@ -1001,11 +1002,11 @@ describe('orientation (PLAN-D §1.3 O1–O10)', () => {
   });
 
 
-  it('O6, O9, O10: no difference for turning a radial charge, for reversing, or for an insect', () => {
+  it('O6, O9, O10: no difference for turning a radial charge or for reversing; a compact insect turned to another App L1c group is a distinct change (P4)', () => {
     expect(between(design('azure', turned('mullet', null)), design('azure', turned('mullet', 'inverted')))).toEqual([]);
     expect(between(design('azure', turned('billet', null)), design('azure', turned('billet', 'fesswise')))).toEqual([]);
     expect(between(design('azure', turned('key', null)), design('azure', turned('key', 'reversed')))).toEqual([]);
-    expect(between(design('azure', turned('bee', null)), design('azure', turned('bee', 'bendwise')))).toEqual([]);
+    expect(between(design('azure', turned('bee', null)), design('azure', turned('bee', 'bendwise')))).toEqual(['posture:dc:A5G7']);
   });
 
   it('O7: long charges to center against the same palewise are a distinct change', () => {
