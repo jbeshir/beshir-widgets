@@ -149,7 +149,7 @@ export function semyPattern(p: SemyPaint, scale: number): PatternSpec {
     transform: `rotate(45) scale(${scale})`,
     ground: colour(p.ground.t),
     marks: [{
-      d: chargePath(p.charge.charge, null, []),
+      d: chargePath({ charge: p.charge.charge, form: null, posture: null, mods: [] }),
       colour: colour(p.ink.t),
       transform: `rotate(-45 ${middle} ${middle}) translate(${middle} ${middle}) scale(${SEMY_CHARGE_SHARE * SEMY_TILE / 100}) translate(-50 -50)`,
     }],

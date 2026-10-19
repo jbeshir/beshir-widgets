@@ -6,7 +6,7 @@
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
-import { CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, type ChargeId, type Design } from '../src/lib/heraldry';
+import { CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, walkGroups, type ChargeId, type Design } from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -369,6 +369,9 @@ const FACING_CHARGES = ['lion', 'wolf', 'eagle', 'fish'];
 /** Charges that turn (§1.3): long, with a top, radial and an insect. */
 const TURNING_CHARGES: readonly ChargeId[] = ['sword', 'key', 'crescent', 'billet', 'mullet', 'bee'];
 
+/** The beasts the attribute designs draw as a head or a demi charge (§1.4 M1, M2), with the forms each is drawn in. */
+const FORM_CHARGES: Partial<Record<ChargeId, readonly ('head' | 'demi')[]>> = { lion: ['head', 'demi'], wolf: ['head', 'demi'], eagle: ['demi'] };
+
 /** The charges SENA A3C lets be voided or fimbriated (§1.4 M10). */
 const OUTLINED_CHARGES: readonly ChargeId[] = ['mullet', 'roundel', 'lozenge', 'delf', 'billet', 'triangle'];
 
@@ -377,8 +380,8 @@ const OUTLINED_CHARGES: readonly ChargeId[] = ['mullet', 'roundel', 'lozenge', '
  * to sinister (contourny) or is a pair (combattant, respectant or addorsed) on the field or around a pale; the rest are a charge group as
  * drawn, sometimes with a pale or a fess, and about a third of those are a charge that turns, set one of the ways it may be (§1.3). Of the
  * rest alone on the field, about two in five carry a modifier (§1.4): a mullet or estoile of 4 to 12 points (a mullet sometimes pierced),
- * or a simple geometric charge voided or fimbriated. Each later attribute step adds its picks after these. Null when the pick isn't
- * registrable.
+ * or a simple geometric charge voided or fimbriated. About three in ten of the lions, wolves and eagles neither turned nor modified are a
+ * head (half of them erased) or a demi charge. Each later attribute step adds its picks after these. Null when the pick isn't registrable.
  */
 function attributeDesignFor(seed: number): Design | null {
   const next = prng(seed ^ ATTRIBUTE_SEED);
@@ -399,7 +402,10 @@ function attributeDesignFor(seed: number): Design | null {
   const turned = turning ? { ...group, item: { k: 'charge', charge: turning, orientation: pick(CHARGE_META[turning].orient.allowed.filter((o) => o !== 'to-center' || group.count > 1)) } } : group;
   const modifier = !turning && !band && attribute >= 0.33 && next() < 0.4 ? next() : null;
   const modified = modifier === null ? turned : { ...turned, item: modifiedCharge(modifier, next, pick) };
-  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, modified] : [modified];
+  const forms = turning || modifier !== null ? undefined : FORM_CHARGES[id as ChargeId];
+  const form = forms && next() < 0.3 ? pick(forms) : null;
+  const formed = form === null ? modified : { ...modified, item: { ...charge, form, ...(form === 'head' && next() < 0.5 ? { mods: ['erased'] } : {}) } };
+  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, formed] : [formed];
   const r = resolve({ v: 2, field, groups });
   if (!r.ok) return null;
   const n = normalise(r.design);
@@ -414,6 +420,11 @@ function modifiedCharge(roll: number, next: () => number, pick: <T>(xs: readonly
   }
   if (roll < 0.5) return { k: 'charge', charge: 'mullet', mods: ['pierced'] };
   return { k: 'charge', charge: pick(OUTLINED_CHARGES), mods: [roll < 0.75 ? 'voided' : { id: 'fimbriated', paint: pick(TINCTURES) }] };
+}
+
+/** The designs whose charges are whole: those the builder path and the matcher can make (neither makes a head or a demi charge yet). */
+export function whole(designs: readonly Design[]): Design[] {
+  return designs.filter((d) => walkGroups(d).every(({ group }) => group.item.k !== 'charge' || group.item.form === null));
 }
 
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */

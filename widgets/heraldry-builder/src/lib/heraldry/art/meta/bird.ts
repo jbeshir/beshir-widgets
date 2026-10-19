@@ -11,8 +11,8 @@ export const META_BIRD = {
     postures: ['displayed'], defaultPosture: 'displayed', scaDefaultPosture: 'displayed', postureWording: {},
     faces: true, facingCounts: 'normal',
     orient: { drawn: 'palewise', cls: 'animate', allowed: [], wording: {} },
-    forms: [], mods: [], details: [], parts: [], holds: [],
-    demiCut: null, long: false, scale: 0.95, detail: 0, proper: null,
+    forms: ['demi'], mods: [], details: [], parts: [], holds: [],
+    demiCut: 63, long: false, scale: 0.95, detail: 0, proper: null,
     glossName: 'eagle with spread wings', glossPlural: 'eagles with spread wings', plain: null, search: [],
     headName: null, holdable: false,
     drawings: {

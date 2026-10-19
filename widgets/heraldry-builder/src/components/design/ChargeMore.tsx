@@ -35,7 +35,7 @@ function TurnedPreview({ item, orientation }: { item: Charge; orientation: Orien
   const way = orientation === null || orientation === 'to-center' || orientation === 'reversed' ? 0 : ORIENTATION_ANGLE[orientation] - ORIENTATION_ANGLE[CHARGES[item.charge].orient.drawn];
   return (
     <span class="turned-preview" style={{ transform: `${orientation === 'reversed' ? 'scaleX(-1) ' : ''}rotate(${way}deg)` }}>
-      <ChargeIcon path={chargePath(item.charge, item.posture, item.mods)} size={22} />
+      <ChargeIcon path={chargePath(item)} size={22} />
     </span>
   );
 }

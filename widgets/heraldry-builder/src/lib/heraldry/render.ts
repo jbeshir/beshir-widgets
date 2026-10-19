@@ -56,12 +56,12 @@ function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | n
 }
 
 function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
-  if (group.item.k !== 'charge') throw new RangeError('Not a charge.');
-  const { charge, posture, mods } = group.item;
-  const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, charge));
-  const art = chargePath(charge, posture, mods);
-  const poses = chargePoses(group.item, group.arrangement, slots, art);
-  return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape), overlays: chargeOverlays(group.item) };
+  const { item } = group;
+  if (item.k !== 'charge') throw new RangeError('Not a charge.');
+  const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, item));
+  const art = chargePath(item);
+  const poses = chargePoses(item, group.arrangement, slots, art);
+  return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape), overlays: chargeOverlays(item) };
 }
 
 /** The effects a charge's modifiers draw with its art: fimbriated in a tincture (support.ts draws no other paint), voided. */

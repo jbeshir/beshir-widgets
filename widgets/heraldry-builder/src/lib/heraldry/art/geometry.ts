@@ -129,3 +129,44 @@ export function turnFit(d: string, turn: number): number {
 export function reachOf(d: string): number {
   return Math.max(...pathRings(d).flat().map(([x, y]) => Math.hypot(x - 50, y - 50)));
 }
+
+/**
+ * What of some rings lies above the line y = `cut` (`cut` the y of no point), each piece a ring of its own (PLAN-D §2.6): the stretches of
+ * the rings above the line are joined along it, the points where they cross it paired from left to right as the inside of the drawing
+ * crosses it, so a drawing cut through two legs keeps two outlines and no edge runs back along the line.
+ */
+export function clipRingsHalfPlane(rings: readonly (readonly Pt[])[], cut: number): Pt[][] {
+  const kept = rings.filter((ring) => ring.every(([, y]) => y < cut)).map((ring) => [...ring]);
+  /** The stretches above the line, each from where it rises over the line to where it falls back. */
+  const stretches: Pt[][] = [];
+  for (const ring of rings) {
+    const below = ring.findIndex(([, y]) => y > cut);
+    if (below < 0 || ring.every(([, y]) => y > cut)) continue;
+    const from = [...ring.slice(below), ...ring.slice(0, below)];
+    let stretch: Pt[] | null = null;
+    from.forEach((p, i) => {
+      const q = from[(i + 1) % from.length];
+      const crossing: Pt = [p[0] + ((cut - p[1]) * (q[0] - p[0])) / (q[1] - p[1]), cut];
+      if (p[1] > cut && q[1] < cut) stretch = [crossing, q];
+      else if (stretch && p[1] < cut && q[1] > cut) { stretch.push(crossing); stretches.push(stretch); stretch = null; }
+      else if (stretch) stretch.push(q);
+    });
+  }
+  // Each stretch's two ends, ordered along the line: the 1st and 2nd bound the drawing's inside on it, the 3rd and 4th…
+  const ends = stretches.flatMap((s, i) => [{ s: i, first: true, x: s[0][0] }, { s: i, first: false, x: s[s.length - 1][0] }]).sort((a, b) => a.x - b.x);
+  const partner = new Map(ends.map((e, i) => [`${e.s}|${e.first}`, ends[i ^ 1]]));
+  const used = new Set<number>();
+  for (let start = 0; start < stretches.length; start++) {
+    if (used.has(start)) continue;
+    const ring: Pt[] = [];
+    let at = { s: start, first: true };
+    while (!used.has(at.s)) {
+      used.add(at.s);
+      ring.push(...(at.first ? stretches[at.s] : [...stretches[at.s]].reverse()));
+      const next = partner.get(`${at.s}|${!at.first}`)!;
+      at = { s: next.s, first: next.first };
+    }
+    kept.push(ring);
+  }
+  return kept;
+}

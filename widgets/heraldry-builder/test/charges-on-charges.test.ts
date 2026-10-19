@@ -76,11 +76,11 @@ describe('charges on the primary charges: layout', () => {
   it('puts the charges on every host in its drawing’s on-box, all at one size', () => {
     const d = nd(arms('vert', on('flame', 'argent', tertiary('heart', 'azure'), { count: 3 })));
     for (const shape of FIELD_SHAPES) {
-      const hosts = groupSlots(d, [0], shape).map((s) => drawnBox(s, 'flame'));
+      const hosts = groupSlots(d, [0], shape).map((s) => drawnBox(s, { charge: 'flame', form: null }));
       const slots = groupSlots(d, [0, 0], shape);
       expect(slots, shape).toHaveLength(3);
       expect(new Set(slots.map((s) => s.size)).size, shape).toBe(1);
-      const art = chargeOnBox('flame', null)!;
+      const art = chargeOnBox({ charge: 'flame', form: null, posture: null })!;
       slots.forEach((s, i) => {
         const room = hosts.find((h) => {
           const x0 = h.x + ((art.x - 50) * h.size) / 100, y0 = h.y + ((art.y - 50) * h.size) / 100;
@@ -98,7 +98,7 @@ describe('charges on the primary charges: layout', () => {
       for (const shape of FIELD_SHAPES) {
         const [hostSlot] = groupSlots(d, [0], shape);
         const drawing = rings(CHARGE_ART[host][CHARGES[host].defaultPosture ?? '_']!);
-        const box = drawnBox(hostSlot, host);
+        const box = drawnBox(hostSlot, { charge: host, form: null });
         const at = (x: number, y: number) => [box.x + ((x - 50) * box.size) / 100, box.y + ((y - 50) * box.size) / 100] as const;
         const placed = drawing.map((r) => r.map(([x, y]) => at(x, y) as unknown as [number, number]));
         for (const s of groupSlots(d, [0, 0], shape)) {

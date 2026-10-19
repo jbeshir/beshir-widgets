@@ -8,7 +8,7 @@ import { canonicalFur, furColours } from './fur';
 import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 import { edgeCount, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import {
-  CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS, drawnPoints,
+  CHARGES, CUT_MODIFIERS, HOLD_HOWS, MODIFIER_IDS, PART_IDS, drawnPoints,
   type ChargeForm, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
 import { DIMINUTIVE_OF, ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER, SAME_ORDINARY } from './ordinaries';
@@ -350,10 +350,11 @@ export function canonicalPaint(p: Paint): Paint {
 /**
  * Two charges facing each other, as the builder words them (§1.1 F6): combattant and respectant are one pair (CL 11/2012), said
  * combattant of beasts and monsters rampant ("combatant is shorthand for 'in fess one beast rampant contourny and another rampant'", SENA
- * A5E5a) and respectant of every other charge and posture, so that one drawing has one signature.
+ * A5E5a) and respectant of every other charge and posture, and of heads and demi charges (the SCA armorial: "heads respectant" 187 times
+ * against 3 "combatant"), so that one drawing has one signature.
  */
 export const facingEachOther = (item: Item): Pair =>
-  (item.k === 'charge' && CHARGES[item.charge].postureClass === 'quadruped' && item.posture === 'rampant' ? 'combattant' : 'respectant');
+  (item.k === 'charge' && item.form === null && CHARGES[item.charge].postureClass === 'quadruped' && item.posture === 'rampant' ? 'combattant' : 'respectant');
 
 function canonicalArrangement(a: Arrangement, item: Item): Arrangement {
   switch (a.k) {
@@ -371,11 +372,16 @@ const sortedBy = <T>(xs: readonly T[], rank: (x: T) => number | string): T[] =>
     return a < b ? -1 : a > b ? 1 : 0;
   });
 
-/** A charge in canonical form: its attributes in fixed order, and a star "of" the number of points it is drawn with is that star ("a mullet of five points" is a mullet). */
+/**
+ * A charge in canonical form: its attributes in fixed order; a star "of" the number of points it is drawn with is that star ("a mullet of
+ * five points" is a mullet); a head or a demi charge has no posture, and a head with no cut is couped.
+ */
 function canonicalCharge(c: Charge): Charge {
-  const mods = c.mods.filter((m) => !(m.id === 'of-points' && m.count === drawnPoints(c.charge)));
+  const drawn = c.mods.filter((m) => !(m.id === 'of-points' && m.count === drawnPoints(c.charge)));
+  const uncut = c.form === 'head' && !drawn.some((m) => CUT_MODIFIERS.includes(m.id));
+  const mods = uncut ? [...drawn, { id: 'couped', count: null, paint: null } as const] : drawn;
   return {
-    k: 'charge', charge: c.charge, form: c.form, posture: c.posture, gaze: c.gaze, facing: c.facing, orientation: c.orientation,
+    k: 'charge', charge: c.charge, form: c.form, posture: c.form === 'head' || c.form === 'demi' ? null : c.posture, gaze: c.gaze, facing: c.facing, orientation: c.orientation,
     mods: sortedBy(mods, (m) => MODIFIER_IDS.indexOf(m.id)).map((m) => ({ id: m.id, count: m.count, paint: m.paint && canonicalPaint(m.paint) })),
     parts: sortedBy(c.parts, (p) => PART_IDS.indexOf(p.part)).map((p) => ({ part: p.part, paint: canonicalPaint(p.paint) })),
     holds: sortedBy(c.holds, (h) => `${String(HOLD_HOWS.indexOf(h.how)).padStart(2, '0')}${h.item.charge}`)

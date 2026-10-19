@@ -9,7 +9,7 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, MODIFIER_IDS, drawnPoints, postureTerm, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation } from './charges';
+import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureTerm, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation } from './charges';
 import type { OrientWording } from './art/types';
 import { asParty, asSemy, asTreated, asVariation, fimbriationOf, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
@@ -110,11 +110,12 @@ export const pointsWord = (id: ChargeId): string => (id === 'estoile' ? 'rays' :
 const WORDING_ORDER: readonly ModifierId[] = ['of-points', ...MODIFIER_IDS.filter((id) => id !== 'of-points')];
 
 /**
- * A charge's modifiers in words, after its noun. A fimbriation is worded after the charge's tincture (`tokens`): "a lozenge azure
- * fimbriated argent".
+ * A charge's modifiers in words, after its noun. A head's cut is worded with its noun (`countedNoun`), a fimbriation after the charge's
+ * tincture (`tokens`): "a lozenge azure fimbriated argent".
  */
 function modifiersWords(c: Charge): string[] {
   const words = (m: Modifier): string[] => {
+    if (c.form === 'head' && CUT_MODIFIERS.includes(m.id)) return [];
     if (m.id === 'fimbriated' && m.count === null && m.paint !== null) return [];
     if (m.id === 'of-points' && m.count !== null && m.paint === null && drawnPoints(c.charge) !== null) return [`of ${numberWord(m.count)} ${pointsWord(c.charge)}`];
     const word = MODIFIER_WORDS[m.id];
@@ -194,12 +195,27 @@ function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptio
   return g.item.k === 'charge' && g.item.orientation === 'to-center' ? [laid, ...orientationWords(g.item)].join(' ') : laid;
 }
 
+/**
+ * A charge's count and noun: "a lion", "three demi-lions", "a wolf's head erased" (the cut before the posture words: the SCA armorial has
+ * "head erased contourny" 232 times against 18 "contourny erased"); a noun of its own for its orientation replaces its name.
+ */
+function countedNoun(c: Charge, count: number): string[] {
+  const meta = CHARGES[c.charge];
+  const lead = (article: 'a' | 'an') => (count === 1 ? article : numberWord(count));
+  if (c.form === 'demi') return [lead('a'), `demi-${count === 1 ? meta.name : meta.plural}`];
+  if (c.form === 'head' && meta.headName) {
+    return [lead(meta.article), count === 1 ? meta.headName.one : meta.headName.many, ...c.mods.filter((m) => CUT_MODIFIERS.includes(m.id)).map((m) => m.id)];
+  }
+  if (c.form) return notSupported({ category: 'charge-modifier', detail: c.form });
+  const own = ownWording(c);
+  const noun = own?.k === 'noun' ? own : meta;
+  return [lead(noun.article), count === 1 ? noun.name : noun.plural];
+}
+
 function laidChargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptions): string {
   if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
   const meta = CHARGES[g.item.charge];
-  const own = ownWording(g.item);
-  const noun = own?.k === 'noun' ? own : meta;
-  const words = [g.count === 1 ? noun.article : numberWord(g.count), g.count === 1 ? noun.name : noun.plural];
+  const words = countedNoun(g.item, g.count);
   // GoT Table 5: a posture the College assumes is left out (RULES §F.8).
   if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureTerm(g.item.charge, g.item.posture));
   words.push(...turnWords(g.item), ...(g.item.orientation === 'to-center' ? [] : orientationWords(g.item)), ...modifiersWords(g.item));

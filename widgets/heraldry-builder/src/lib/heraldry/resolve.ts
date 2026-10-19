@@ -10,7 +10,7 @@ import { asObject } from './json';
 import { isStain, isFur, isTincture } from './tinctures';
 import { capitalise } from './words';
 import {
-  CHARGES, isChargeForm, isChargeId, isFacing, isGaze, isHoldHow, isModifierId, isOrientation, isPartId, isPosture,
+  CHARGES, CUT_MODIFIERS, isChargeForm, isChargeId, isFacing, isGaze, isHoldHow, isModifierId, isOrientation, isPartId, isPosture,
 } from './charges';
 import {
   canonical, ROLE_ORDER, PLAIN_LINES, POSITIONS,
@@ -268,6 +268,7 @@ function parseCharge(o: Record<string, unknown>, at: IssueAt, E: Errors, depth: 
     return held && paint && !badHold ? { how: ho.how, item: held, paint } : null;
   }));
   if (!ok || !mods || !parts || !holds) return null;
+  if (CUT_MODIFIERS.every((cut) => mods.some((m) => m.id === cut))) return E.add(at, `${name} can't be both couped and erased.`);
   return {
     k: 'charge', charge: o.charge, form: o.form ?? null, posture: o.posture ?? meta.defaultPosture, gaze: gaze ?? null, facing: facing ?? meta.defaultFacing,
     orientation: o.orientation ?? null, mods, parts, holds,

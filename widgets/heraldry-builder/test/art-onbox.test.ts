@@ -12,6 +12,9 @@ const CARRIES_NONE = [
   'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory', 'cross-patonce', 'cross-potent', 'cross-maltese', 'cross-celtic', 'cross-tau',
 ];
 
+/** The drawings that carry no charge whatever their charge: heads (art batch A1 draws them with no room for one). */
+const KEYS_CARRYING_NONE: readonly string[] = ['head'];
+
 /** The spacing of the grid of sample points in an on-box, in art units (each box is at least 16 on a side, so 64 points or more). */
 const GRID = 2;
 
@@ -34,7 +37,7 @@ function shareInside(d: string, box: ArtBox): number {
 describe('the on-box of a charge', () => {
   it('has one for every drawing of every charge that carries charges, and for no other', () => {
     for (const id of CHARGE_IDS) {
-      const drawn = Object.keys(CHARGE_ART[id]).sort();
+      const drawn = Object.keys(CHARGE_ART[id]).filter((k) => !KEYS_CARRYING_NONE.includes(k)).sort();
       const boxed = onBoxes.filter((b) => b.id === id).map((b) => b.key).sort();
       expect(boxed, id).toEqual(CARRIES_NONE.includes(id) ? [] : drawn);
     }
@@ -55,11 +58,13 @@ describe('the on-box of a charge', () => {
     for (const { id, key, box } of onBoxes) expect(Math.min(box.w, box.h), `${id} ${key}`).toBeGreaterThanOrEqual(16);
   });
 
-  it('is found by posture, falling back to the default posture and then the posture-less drawing', () => {
-    expect(chargeOnBox('lion', 'passant')).toEqual(CHARGES.lion.drawings.passant!.onBox);
-    expect(chargeOnBox('lion', null)).toEqual(CHARGES.lion.drawings.rampant!.onBox);
-    expect(chargeOnBox('heart', null)).toEqual(CHARGES.heart.drawings._!.onBox);
-    expect(chargeOnBox('key', null)).toBeNull();
+  it('is found by posture, falling back to the default posture and then the posture-less drawing; a head or a demi charge has none', () => {
+    expect(chargeOnBox({ charge: 'lion', form: 'head', posture: null })).toBeNull();
+    expect(chargeOnBox({ charge: 'lion', form: 'demi', posture: null })).toBeNull();
+    expect(chargeOnBox({ charge: 'lion', form: null, posture: 'passant' })).toEqual(CHARGES.lion.drawings.passant!.onBox);
+    expect(chargeOnBox({ charge: 'lion', form: null, posture: null })).toEqual(CHARGES.lion.drawings.rampant!.onBox);
+    expect(chargeOnBox({ charge: 'heart', form: null, posture: null })).toEqual(CHARGES.heart.drawings._!.onBox);
+    expect(chargeOnBox({ charge: 'key', form: null, posture: null })).toBeNull();
   });
 });
 

@@ -7,10 +7,10 @@
 // gets the same verdict in every shape. The other shapes reuse the heater's construction (lines
 // through the fess point, bands of the same width) around their own fess point and outline.
 
-import { CHARGES, type ChargeId } from './charges';
+import { CHARGES } from './charges';
 import { boundedMemo } from './memo';
 import { DEFAULT_GYRONNY_PIECES, DRAWN_DIVISIONS, partCount, type Division } from './divisions';
-import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
+import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Charge, type Lines, type Paint, type VariationPaint } from './design';
 import { inFirstRegion, variationRegions, type Box } from './variation-geometry';
 import { contoursPath, type Contour, type ContourEdge } from './contour';
 import { ARRONDI_SAGITTA, LINE_PROFILE, PROFILE_REACH, featureMiddle, fieldSide, fitPeriod, laidSide, profileSides, runAlong, visibleSpan, type ComplexLine, type EdgeRun, type LaidLine, type Line } from './lines';
@@ -592,9 +592,19 @@ export function inFirstPartTurned(division: Division, centre: Point, turn: numbe
 /** Slot centre and box size in shield units, and how far the charge is turned (degrees clockwise, 0 = upright). */
 export interface Slot { x: number; y: number; size: number; rotation: number }
 
+/**
+ * How large a head or a demi charge is drawn, whatever its beast's optical scale: it fills its box out to the corners along the line it is
+ * cut off at (art batch A1; the demi clip, PLAN-D §2.6), so it is drawn as the solid charges are (at the wolf's 1.05 a wolf's head or demi-wolf
+ * reaches past a heater's flank).
+ */
+const CUT_OFF_SCALE = 0.95;
+
+/** A charge's optical scale (`ChargeMeta.scale`): its beast's, or a head's or demi charge's. */
+export const opticalScale = (c: Pick<Charge, 'charge' | 'form'>): number => (c.form === 'head' || c.form === 'demi' ? CUT_OFF_SCALE : CHARGES[c.charge].scale);
+
 /** The box a charge's art is drawn in: the slot scaled by the charge's optical scale about its centre. */
-export function drawnBox(slot: Slot, charge: ChargeId): Slot {
-  return { x: slot.x, y: slot.y, size: r2(slot.size * CHARGES[charge].scale), rotation: slot.rotation };
+export function drawnBox(slot: Slot, c: Pick<Charge, 'charge' | 'form'>): Slot {
+  return { x: slot.x, y: slot.y, size: r2(slot.size * opticalScale(c)), rotation: slot.rotation };
 }
 
 /** How far from the edge of the picture a fieldless badge is kept, in shield units. */

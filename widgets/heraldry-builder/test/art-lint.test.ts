@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, PIERCED_MULLETS, POINTED_STARS, bboxOf, pathRings, ringDepths, ringProblems,
+  CHARGE_ART, CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, pathRings, ringDepths, ringProblems,
   type ArtKey, type ChargeId, type DrawingMeta,
 } from '../src/lib/heraldry';
 import { rings } from './art-geometry';
@@ -81,6 +81,15 @@ describe('the charge art', () => {
       ...Object.entries(PIERCED_MULLETS).map(([n, d]) => [`mullet of ${n} pierced`, d])];
     const starProblems = stars.flatMap(([name, d]) => drawingProblems(d, CHARGES.mullet.drawings._!).map((rule) => `${name} ${rule}`));
     expect([...problems, ...starProblems]).toEqual([]);
+  });
+
+  it('keeps it in the drawings derived from others: every head erased, every demi charge (PLAN-D §2.6)', () => {
+    const derived = CHARGE_IDS.flatMap((id) => [
+      ...(CHARGES[id].forms.includes('head') ? [[id, 'erased-head', derivedPath(id, 'erased-head')!] as const] : []),
+      ...(CHARGES[id].forms.includes('demi') ? [[id, 'demi', derivedPath(id, 'demi')!] as const] : []),
+    ]);
+    expect(derived).toHaveLength(12);
+    expect(derived.flatMap(([id, key, d]) => drawingProblems(d, { onBox: null, anchors: {}, neck: null }).map((rule) => `${id} ${key} ${rule}`))).toEqual([]);
   });
 
   it('stays within the byte budget of a charge', () => {

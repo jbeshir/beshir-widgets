@@ -120,7 +120,7 @@ export function readability(d: Design): Readability {
   // The largest charge group sets the count score; each further group adds a point.
   const biggest = charges.reduce<WalkedGroup | null>((best, e) => (best === null || e.group.count > best.group.count ? e : best), null);
   const sizes = charges.flatMap(({ path, group: { item } }) =>
-    item.k === 'charge' ? canonicalSlots(d, path).map((s) => drawnBox(s, item.charge).size) : []);
+    item.k === 'charge' ? canonicalSlots(d, path).map((s) => drawnBox(s, item).size) : []);
   const smallest = Math.min(Infinity, ...sizes);
   const sizePoints = (c: number) => (c === 1 ? 0 : c <= 3 ? 1 : c <= 5 ? 2 : 3);
   const count = (biggest ? sizePoints(biggest.group.count) : 0) + Math.max(0, charges.length - 1) + (smallest < SMALL_CHARGE ? 1 : 0);
