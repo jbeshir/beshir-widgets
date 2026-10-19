@@ -10,7 +10,7 @@
 // gap tag but unknown words is tagged by its index headings or, failing that, `other`.
 import {
   COUNTER_EMBATTLED_WORDS, ordinaryEdgeHost, BUILDER_DIVISIONS, CHARGES, STAR_POINTS, drawnPoints, FACING_WORD, ORIENTATION_WORDS, PAIRS, COTISED_HOSTS, DRAWN_DIVISIONS, DRAWN_TREATMENTS, GYRONNY_PIECES, HALF_POSITIONS, MAX_DRAWN_COUNT, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, cornerBesideBend, modDrawn, plainSpec, ROW_PATTERNS, VARIATIONS, VARIATION_PIECES, LINE_SPELLINGS, LINED_VARIATIONS, hostCounts, isCountedVariation, edgeCount, lineAllowed, postureTerm, resolve, chargeItem, gazeDrawn, structuralIssues, unsupportedIssues, walkGroups,
-  type ChargeId, type Gaze, type ModifierId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
+  type ChargeId, type Gaze, type ModifierId, type PartId, type EdgeHost, type HalfPosition, type OrdinaryMod, type OrdinaryType, type Posture, type Variation,
 } from '../../src/lib/heraldry';
 import type { ArmoryRecord } from './oanda';
 import { DRAWN_DIVISION_FORMS, PER_PALL_SPELLED, TIERCED_IN, edgeSide } from './words';
@@ -383,10 +383,13 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
   };
   /** The charge just read when the widget has it, else null. */
   const chargeLast = (): ChargeId | null => (last?.kind === 'charge' ? (last.el?.supported as ChargeId | null | undefined) ?? null : null);
-  /** Whether the charge just read takes this detail ("a mullet voided", "a lozenge azure fimbriated argent", "a mullet pierced", "a cross formy fitchy"). */
+  /**
+   * Whether the charge just read takes this detail or part ("a mullet voided", "a lozenge azure fimbriated argent", "a cross formy fitchy",
+   * "a heart winged", "a lion crowned").
+   */
   const detailedLast = (detail: string): boolean => {
     const c = chargeLast();
-    return c !== null && CHARGES[c].details.includes(detail as ModifierId);
+    return c !== null && (CHARGES[c].details.includes(detail as ModifierId) || CHARGES[c].parts.includes(detail as PartId));
   };
   /** The heads the widget draws ("a wolf's head"): they take a cut, couped or erased. */
   const heads = new Set<Element>();
@@ -577,6 +580,7 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         break;
       case 'proper': {
         // A charge that has natural colours, painted in them: "a lion proper", but not "a brown owl proper" (a qualifier says which natural colours).
+        if (prev === 'enflamed' && detailedLast('enflamed')) break; // "a heart gules enflamed proper": flames in fire's colours
         const drawn = last?.kind === 'charge' && !held && last.el?.ctx !== 'of' ? last.el?.supported : null;
         let noun = i - 1;
         while (noun >= 0 && look(noun)?.e.k !== 'charge') noun--;
@@ -715,14 +719,21 @@ function tagBlazon(blazon: string, headings: readonly string[]): string[] {
         if (turnedLast(e.v)) break; // "a sword fesswise": drawn
         tag('orientation', e.v);
         break;
-      case 'mod':
+      case 'mod': {
         if (turnedLast(e.v) || (e.v === 'erased' && headLast())) break; // "a crescent pendant", "a wolf's head erased"
-        if (detailedLast(e.v)) break; // "a mullet pierced"
+        // "a lion gorged of a ducal coronet", "crowned with a coronet": the collar and crown drawn on a charge that takes them (normalise.ts)
+        const coronet = /^(crowned|gorged|collared)$/.test(e.v) && /^(of|with)$/.test(words[i + 1] ?? '') && /^an?$/.test(words[i + 2] ?? '')
+          ? (words[i + 3] === 'coronet' ? 3 : words[i + 3] === 'ducal' && words[i + 4] === 'coronet' ? 4 : 0) : 0;
+        if (detailedLast(e.v === 'gorged' ? 'collared' : e.v) && (e.v !== 'gorged' || coronet > 0)) { i += coronet; break; } // "a mullet pierced", "a lion crowned"
+        // "a winged lion": the wings of the charge that follows, where it takes them
+        const next = look(i + 1)?.e;
+        if (tok.word === 'winged' && next?.k === 'charge' && CHARGES[next.id].details.includes('winged')) break;
         tag('charge-modifier', e.v);
         if ((e.v === 'maintaining' && !/ed$/.test(tok.word)) || e.v === 'wearing') held = true;
         // "crowned of a coronet", "gorged with a chaplet": the crown is part of the charge
         if (/^(crowned|gorged|collared)$/.test(e.v) && /^(of|with)$/.test(words[i + 1] ?? '')) { held = true; i++; }
         break;
+      }
       case 'ctx': contextWord(lem, i); break;
       case 'container':
         if (words[i + 1] === 'of') { i++; break; }

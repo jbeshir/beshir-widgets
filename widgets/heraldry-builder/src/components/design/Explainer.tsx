@@ -20,7 +20,7 @@ const plainList = (ts: readonly Tincture[]) => ts.map((t) => TINCTURE_LABEL[t].p
 const RULE_LINE: Record<ExplainKind, string> = {
   tincture: `The rule of tincture: a colour (${plainList(COLOURS)}) goes on a metal (${plainList(METALS)}) and a metal on a colour, so arms read clearly from a distance.`,
   structure: "Each layout needs room: every picture must be drawn at least a set size, and some combinations aren't heraldic.",
-  drawing: 'A picture can only be turned the ways the builder has a drawing for; the others are listed so you know they exist.',
+  drawing: 'A picture can only be turned, posed, or given wings, a crown or a stem where the builder has a drawing for it; the others are listed so you know they exist.',
   detail: 'SCA heraldry lets only the main pictures, and only simple shapes, be hollow (voided) or edged (fimbriated), and an edging must stand out from what it lies on.',
 };
 

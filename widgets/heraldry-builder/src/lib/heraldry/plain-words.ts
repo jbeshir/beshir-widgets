@@ -12,6 +12,7 @@ import { DIVISION_NAME } from './divisions';
 import { LINE_WORD, type ComplexLine, type Line } from './lines';
 import type { BandPosition, ShapeToggle } from './shape-options';
 import type { Outline } from './outline';
+import type { PieceId } from './overlay-art';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
 
 type FurLayout = FurSpec['layout'];
@@ -154,6 +155,16 @@ export const MODIFIER_LABEL: Partial<Record<ModifierId, PlainTerm>> = {
   fimbriated: { plain: 'Edged', term: 'fimbriated' },
   pierced: { plain: 'With a round hole', term: 'pierced' },
   fitchy: { plain: 'Pointed at the foot', term: 'fitchy' },
+};
+
+/** The parts and details drawn as pieces (the Details disclosure), as they look, and the heraldic word ("With wings · winged"). */
+export const PIECE_LABEL: Record<PieceId, PlainTerm> = {
+  winged: { plain: 'With wings', term: 'winged' },
+  enflamed: { plain: 'In flames', term: 'enflamed' },
+  slipped: { plain: 'On a stem', term: 'slipped' },
+  leaved: { plain: 'With leaves', term: 'leaved' },
+  crowned: { plain: 'With a crown', term: 'crowned' },
+  collared: { plain: 'With a collar', term: 'collared' },
 };
 
 /** The shapes a charge is drawn in (the Shape row), as they look, and the heraldic word; null is the whole charge. */

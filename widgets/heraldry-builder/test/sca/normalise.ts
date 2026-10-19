@@ -12,7 +12,7 @@
 // (NORMALISATION_RULES). Rules 4–7 are conventions, not spellings: the widget's emitter picks one of
 // the equivalent forms and O&A uses both, so without them records the widget can express would not
 // match. Delete a rule here to see how many records depend on it.
-import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, drawnPoints, pointsWord, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, postureWords, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
+import { COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, SAME_ORDINARY, THROUGHOUT_ALREADY, CHARGES, CHARGE_IDS, GAZES, ORIENTATIONS, ORIENTATION_WORDS, chargeItem, drawnPoints, pointsWord, facingEachOther, DRAWN_TREATMENTS, MODIFIER_WORDS, ORDINARY_PLURAL, ORDINARY_SPELLINGS, THIN_ORDINARIES, OUTLINES, familyOf, isDiminutive, NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, FURS, FUR_NAME, FUR_SPEC, DRAWN_ORDINARIES, ORDINARY_KIND, ORDINARY_NAME, PERIPHERAL_JOINER, PIECE_IDS, POSTURES, TINCTURES, VARIATIONS, VARIATION_NAME, VARIATION_SPELLINGS, LINE_SPELLINGS, LINE_WORD, lineAllowed, ordinaryEdgeHost, isCountedVariation, postureTerm, postureWords, type Line, type OrdinaryType, type PeripheralJoiner } from '../../src/lib/heraldry';
 import { BAND_NAMES, BEND, BEND_SINISTER, DIVISION_NAMES, DIVISION_START, EDGE_NAMES, INVERTED_HOSTS, LINE, NUMBER_WORDS, PER_PALL_SPELLED, SINISTER_HOSTS, THREE_PART_START, TIERCED_IN, alt } from './words';
 
 export interface NormalisationRule {
@@ -113,8 +113,18 @@ function facingEachOtherWords(noun: string, pose: string, written: string): stri
   const kept = pair === 'combattant' ? words.filter((w) => w !== 'rampant' && w !== postureTerm(id, 'rampant')) : words;
   return [noun, ...kept, pair].join(' ');
 }
-/** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor", "a cross formy fitchy". */
-const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})*`;
+/** The pieces drawn with a charge (PLAN-D §0.3.5), by their words: "crowned", "winged", "slipped"… */
+const PIECE = alt(PIECE_IDS);
+/** A run of pieces as the widget writes those that share a tincture: "crowned and collared", "slipped and leaved". */
+const PIECES = `(?:${PIECE})(?: and (?:${PIECE}))*`;
+/** The charges drawn winged, by their nouns, singular and plural (lower case): "a winged lion" is a lion winged. */
+const WINGED_NOUN = alt(CHARGE_IDS.filter((id) => CHARGES[id].details.includes('winged')).flatMap((id) => [CHARGES[id].name, CHARGES[id].plural]).map((noun) => noun.toLowerCase()));
+/** The words after a charge's noun within its own group, its tincture too: no "and", "between", "on" and the like, nor a second "winged". */
+const GROUP_WORDS = `(?: (?!(?:and|between|on|within|each|charged|winged)(?![\\w-]))[\\w'-]+)*?`;
+/** The words after a charge's noun before its tincture (or before what follows it, when its tincture is the next one stated). */
+const CHARGE_WORDS = `(?: (?!(?:and|between|on|within|each|charged|winged|all|per|${COLOUR}|counterchanged|proper|${alt(FURS.map((f) => FUR_NAME[f]))}|${VARIATION_NAMES})(?![\\w-]))[\\w'-]+)*`;
+/** A charge group without its tincture or layout: "three wolves passant", "a sun in splendor", "a cross formy fitchy", "a heart winged". */
+const CORE = `${NUMBER} (?:${NOUN})(?: (?:${POSTURE}))?${TURNED}(?: ${MODIFIER})*(?: ${PIECES})?`;
 
 /** Each charge's Table 5 default posture after its noun, singular or plural, in its term or the posture's word: "lions? rampant", "dragons? (?:rampant|segreant)". */
 const STATED_DEFAULT_POSTURES = CHARGE_IDS.flatMap((id) => {
@@ -360,6 +370,27 @@ export const NORMALISATION_RULES: readonly NormalisationRule[] = [
       .replace(/(?<![\w-])fitch(?:y|ed|ee|ée)(?: at the foot)?(?![\w-])/g, 'fitchy')
       .replace(/(?<![\w-])compass-star(s?)(?![\w-])/g, 'compass star$1')
       .replace(/(?<![\w-])triquetrae(?![\w-])/g, 'triquetras'),
+  },
+  {
+    // 3d3. The pieces drawn with a charge (PLAN-D §0.3.5) in the widget's words. "Ducally crowned" and "crowned of (with) a (ducal) coronet"
+    //      are crowned, "gorged of a (ducal) coronet" is collared, "inflamed" enflamed and "leafed" leaved (GoT); commas around a run of
+    //      pieces go ("a rose, slipped and leaved, gules"), and so does "and" between two runs with their own tinctures ("crowned Or and
+    //      collared gules": the widget writes them one after the other). A winged beast is the beast winged (SENA M13: wings are a part of
+    //      the charge): "a winged lion rampant Or" is "a lion rampant winged Or" (wings of its tincture, which the widget leaves unsaid
+    //      before them; "a winged lion rampant, a chief Or" likewise "a lion rampant winged, a chief Or"), and "three winged boars argent
+    //      winged Or" is "three boars argent winged Or".
+    id: 'piece-words',
+    description: 'ducally crowned / crowned of (with) a (ducal) coronet → crowned; gorged of (with) a (ducal) coronet → collared; inflamed → enflamed; leafed → leaved; no comma before a piece or between a run of pieces and its tincture; "<pieces> <tincture> and <piece>" → "<pieces> <tincture> <piece>"; "winged <beast> … winged" → "<beast> … winged"; "winged <beast> …" → "<beast> … winged" before its tincture, or what follows it.',
+    apply: (s) => s
+      .replace(/(?<![\w-])ducally crowned(?![\w-])/g, 'crowned')
+      .replace(/(?<![\w-])(crowned|gorged|collared) (?:of|with) an? (?:ducal )?coronet(?![\w-])/g, (_m, word: string) => (word === 'crowned' ? 'crowned' : 'collared'))
+      .replace(/(?<![\w-])inflamed(?![\w-])/g, 'enflamed')
+      .replace(/(?<![\w-])leafed(?![\w-])/g, 'leaved')
+      .replace(new RegExp(`,(?= (?:${PIECE})(?![\\w-]))`, 'g'), '')
+      .replace(new RegExp(`(?<![\\w-])(${PIECES}),(?= ${TINCT}(?![\\w-]))`, 'g'), '$1')
+      .replace(new RegExp(`(?<![\\w-])(${PIECES} ${TINCT}) and (?=(?:${PIECE})(?![\\w-]))`, 'g'), '$1 ')
+      .replace(new RegExp(`(?<![\\w-])winged ((?:${WINGED_NOUN})(?![\\w-])${GROUP_WORDS} winged)(?![\\w-])`, 'g'), '$1')
+      .replace(new RegExp(`(?<![\\w-])winged ((?:${WINGED_NOUN})(?![\\w-])${CHARGE_WORDS})`, 'g'), '$1 winged'),
   },
   {
     // 3e. A semy is "semy of <charges> <tincture>", or one of its names ("crusilly argent", "semy-de-lys Or", "bezanty": a name that

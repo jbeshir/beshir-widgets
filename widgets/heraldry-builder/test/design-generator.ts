@@ -7,7 +7,7 @@
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
 import {
-  CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, OVERLAY_MODIFIERS, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, walkGroups,
+  CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve,
   type ChargeId, type Design,
 } from '../src/lib/heraldry';
 
@@ -446,13 +446,6 @@ function adornedCharge(id: string, item: object, next: () => number, pick: <T>(x
   }
   return { k: 'charge', charge: 'heart', mods: [next() < 0.5 ? { id: 'winged', paint: pick(TINCTURES) } : { id: 'enflamed', paint: next() < 0.5 ? 'proper' : pick(TINCTURES) }] };
 }
-
-/**
- * Whether a design has no charge with a part or detail drawn as a piece (crowned, collared, winged, enflamed, slipped, leaved): the builder
- * and the SCA matcher reach those in PLAN-D D9b, until then builder-layers-reach and the SCA round trip leave them out.
- */
-export const unadorned = (d: Design): boolean =>
-  walkGroups(d).every(({ group: { item } }) => item.k !== 'charge' || (item.parts.length === 0 && !item.mods.some((m) => OVERLAY_MODIFIERS.includes(m.id))));
 
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */
 export function generatedChargeAttributeDesigns(seed: number, count: number): Design[] {

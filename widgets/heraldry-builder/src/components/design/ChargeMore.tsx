@@ -2,16 +2,18 @@
 // anything in it and open by itself while the design uses it. It holds the Facing row (to dexter as drawn, or contourny), the Head row
 // (guardant, regardant), for two charges the Pair row (the same way, facing each other, back to back), for a charge that turns, the
 // Turned row (as usual, or the way it points, each chip previewed turned) and, for a charge with details, the nested Details disclosure
-// (a star's points, voided, fimbriated in a tincture, pierced, fitchy). Undrawn options are blocked with their reason.
+// (its shape and cut, a star's points, voided, fimbriated in a tincture, pierced, fitchy, and the pieces — wings, flames, a stem and
+// leaves, a crown, a collar — each in its colour). Undrawn options are blocked with their reason.
 
 import type { ComponentChildren } from 'preact';
+import { useEffect } from 'preact/hooks';
 import {
-  CHARGES, CUT_LABEL, FACING_LABEL, FORM_LABEL, GAZE_LABEL, MODIFIER_LABEL, ORIENTATION_ANGLE, ORIENTATION_LABEL, PAIR_LABEL, chargePath, cutChoices, cutOf, detailChoices, formChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
-  groupAt, orientationChoices, pairChoices, pointsChoices, pointsOf, pointsWord, tincturePaint,
-  type Charge, type ChargeForm, type Choice, type Design, type GroupPath, type Orientation, type PairChoice, type PlainTerm,
+  CHARGES, CUT_LABEL, FACING_LABEL, FORM_LABEL, GAZE_LABEL, MODIFIER_LABEL, ORIENTATION_ANGLE, ORIENTATION_LABEL, PAIR_LABEL, PIECE_IDS, PIECE_LABEL, PROPER_PIECES, chargePath, cutChoices, cutOf, detailChoices, formChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
+  groupAt, isPiece, isPiecePart, orientationChoices, pairChoices, partChoices, pieceTinctureChoices, piecePaint, pointsChoices, pointsOf, pointsWord, tincturePaint,
+  type Charge, type ChargeForm, type Choice, type Design, type GroupPath, type Orientation, type Paint, type PairChoice, type PieceId, type PlainTerm,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
-import { setCut, setForm, setFacing, setGaze, setModifier, setOrientation, setPair } from '../../lib/builder';
+import { setCut, setForm, setFacing, setGaze, setModifier, setOrientation, setPair, setPart } from '../../lib/builder';
 import { ChargeIcon } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { Disclosure } from './Disclosure';
@@ -71,26 +73,71 @@ function ChipRow<T>({ legend, testid, choices, current, label, kind, preview, on
   );
 }
 
+/** One detail's or part's toggle, pressed while the charge has it; one refused says why. */
+function DetailToggle({ testid, choice: c, on, label: { plain, term }, kind, onToggle, onBlocked }: {
+  testid: string; choice: Choice<string>; on: boolean; label: PlainTerm; kind: ExplainKind; onToggle: () => void; onBlocked: (e: Explanation) => void;
+}) {
+  return (
+    <ChoiceButton
+      toggle testid={testid} checked={on} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
+      label={`${plain} (${term})`} title={term} kind={kind} onSelect={onToggle} onBlocked={onBlocked} class="segment"
+    >
+      <span>{plain}</span>
+    </ChoiceButton>
+  );
+}
+
+/** What each piece's colour picker names. */
+const PIECE_NOUN: Record<PieceId, string> = { winged: 'wings', enflamed: 'flames', slipped: 'stem', leaved: 'leaves', crowned: 'crown', collared: 'collar' };
+
+/** A piece's colour, while the charge has it: natural colours for flames, then the tinctures (none blocked: pieces are artistic detail, §1.4 M16). */
+function PieceColour({ design, path, prefix, piece, onChange, onBlocked }: Props & { piece: PieceId; onBlocked: (e: Explanation) => void }) {
+  const item = groupAt(design, path).item as Charge;
+  const paint = piecePaint(item, piece)!;
+  const testid = `${prefix}${isPiecePart(piece) ? 'part' : 'mod'}-${piece}`;
+  const set = (p: Paint) => onChange(isPiecePart(piece) ? setPart(design, path, piece, true, p) : setModifier(design, path, piece, true, { count: null, paint: p }));
+  return (
+    <>
+      {PROPER_PIECES.includes(piece) && (
+        <div class="control">
+          <RadioGroup label={`Natural colours of the ${PIECE_NOUN[piece]}`} class="segmented" testid={`${testid}-proper-select`}>
+            <ChoiceButton testid={`${testid}-proper`} checked={paint.k === 'proper'} label="Natural colours (proper)" kind="tincture" onSelect={() => set({ k: 'proper' })} onBlocked={onBlocked} class="segment">
+              <span>Natural colours · proper</span>
+            </ChoiceButton>
+          </RadioGroup>
+        </div>
+      )}
+      <TincturePicker
+        group={`${prefix}${piece}`} legend={`Colour of the ${PIECE_NOUN[piece]}`} choices={pieceTinctureChoices(design, path, piece)} value={paint.k === 'tincture' ? paint.t : null} testid={`${testid}-tincture`}
+        onChange={(t) => set(tincturePaint(t))}
+      />
+    </>
+  );
+}
+
 /** A choice's test id suffix: no head turn is "none"; either way of facing each other is "respectant", whatever the charge's word. */
 function testValue(v: unknown): string {
   return v === null ? 'none' : v === 'combattant' ? 'respectant' : String(v);
 }
 
 export function ChargeMore({ design, path, prefix, onChange }: Props) {
-  const { explain, node: explainer } = useExplainer();
+  const { explain, close, node: explainer } = useExplainer();
   const g = groupAt(design, path);
+  // Why an option was refused speaks of the charge as it was: a change to it (another charge, pose or piece) closes the explanation.
+  useEffect(close, [g.item, close]);
   const facings = facingChoices(design, path);
   const turns = orientationChoices(design, path);
   const points = pointsChoices(design, path);
   const forms = formChoices(design, path);
   const details = detailChoices(design, path);
-  if (g.item.k !== 'charge' || (facings.length === 0 && turns.length === 0 && points.length === 0 && details.length === 0 && forms.length === 0)) return null;
+  const parts = partChoices(design, path);
+  if (g.item.k !== 'charge' || (facings.length === 0 && turns.length === 0 && points.length === 0 && details.length === 0 && parts.length === 0 && forms.length === 0)) return null;
   const item = g.item;
   const meta = CHARGES[item.charge];
   const fimbriations = fimbriationTinctureChoices(design, path);
   const fimbriation = fimbriationOf(item);
   const cuts = cutChoices(design, path);
-  const detailed = item.mods.some((m) => meta.details.includes(m.id)) || item.form !== null;
+  const detailed = item.mods.some((m) => meta.details.includes(m.id)) || item.parts.length > 0 || item.form !== null;
   const gazes = gazeChoices(design, path);
   const pairs = pairChoices(design, path);
   const pair: PairChoice = g.arrangement.k === 'pair' ? g.arrangement.pair : 'same';
@@ -114,7 +161,7 @@ export function ChargeMore({ design, path, prefix, onChange }: Props) {
               preview={(o) => <TurnedPreview item={item} orientation={o} />} onSelect={(o) => onChange(setOrientation(design, path, o))} onBlocked={explain}
             />
           )}
-          {(points.length > 0 || details.length > 0 || forms.length > 0) && (
+          {(points.length > 0 || details.length > 0 || parts.length > 0 || forms.length > 0) && (
             <Disclosure testid={`${prefix}charge-details`} class="charge-details" summary="Details" used={detailed}>
               {() => (
                 <>
@@ -133,20 +180,26 @@ export function ChargeMore({ design, path, prefix, onChange }: Props) {
                       onSelect={(n) => onChange(setModifier(design, path, 'of-points', true, { count: n, paint: null }))} onBlocked={explain}
                     />
                   )}
-                  {details.length > 0 && (
+                  {(details.length > 0 || parts.length > 0) && (
                     <div class="control">
                       <p class="picker-legend">Drawn</p>
                       <div class="segmented segmented-wide" role="group" aria-label="Drawn">
                         {details.map((c) => {
                           const on = item.mods.some((m) => m.id === c.value);
-                          const { plain, term } = MODIFIER_LABEL[c.value]!;
                           return (
-                            <ChoiceButton
-                              key={c.value} toggle testid={`${prefix}mod-${c.value}`} checked={on} status={c.allowed ? undefined : { kind: 'blocked', reason: c.reason }}
-                              label={`${plain} (${term})`} title={term} kind="detail" onSelect={() => onChange(setModifier(design, path, c.value, !on))} onBlocked={explain} class="segment"
-                            >
-                              <span>{plain}</span>
-                            </ChoiceButton>
+                            <DetailToggle
+                              key={c.value} testid={`${prefix}mod-${c.value}`} choice={c} on={on} label={isPiece(c.value) ? PIECE_LABEL[c.value] : MODIFIER_LABEL[c.value]!} kind={isPiece(c.value) ? 'drawing' : 'detail'}
+                              onToggle={() => onChange(setModifier(design, path, c.value, !on))} onBlocked={explain}
+                            />
+                          );
+                        })}
+                        {parts.map((c) => {
+                          const on = item.parts.some((p) => p.part === c.value);
+                          return (
+                            <DetailToggle
+                              key={c.value} testid={`${prefix}part-${c.value}`} choice={c} on={on} label={PIECE_LABEL[c.value]} kind="drawing"
+                              onToggle={() => onChange(setPart(design, path, c.value, !on))} onBlocked={explain}
+                            />
                           );
                         })}
                       </div>
@@ -158,6 +211,9 @@ export function ChargeMore({ design, path, prefix, onChange }: Props) {
                       onChange={(t) => onChange(setModifier(design, path, 'fimbriated', true, { count: null, paint: tincturePaint(t) }))}
                     />
                   )}
+                  {PIECE_IDS.filter((piece) => piecePaint(item, piece) !== null).map((piece) => (
+                    <PieceColour key={piece} design={design} path={path} prefix={prefix} piece={piece} onChange={onChange} onBlocked={explain} />
+                  ))}
                 </>
               )}
             </Disclosure>
