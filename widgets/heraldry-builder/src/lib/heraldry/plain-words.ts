@@ -3,7 +3,7 @@
 // the term and keep the words for their tooltip. The blazon keeps the heraldic names in blazon.ts;
 // these are display text only. Pure data — no DOM.
 
-import { CHARGES, postureGloss, postureTerm, type ChargeId, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
+import { CHARGES, postureGloss, postureTerm, type ChargeForm, type ChargeId, type Facing, type Gaze, type ModifierId, type Orientation, type Posture } from './charges';
 import { groupAt, hostOf, type Design, type GroupPath, type Pair } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
@@ -154,6 +154,21 @@ export const MODIFIER_LABEL: Partial<Record<ModifierId, PlainTerm>> = {
   fimbriated: { plain: 'Edged', term: 'fimbriated' },
   pierced: { plain: 'With a round hole', term: 'pierced' },
   fitchy: { plain: 'Pointed at the foot', term: 'fitchy' },
+};
+
+/** The shapes a charge is drawn in (the Shape row), as they look, and the heraldic word; null is the whole charge. */
+export const FORM_LABEL: Record<ChargeForm | 'whole', PlainTerm> = {
+  whole: { plain: 'Whole', term: 'as drawn' },
+  demi: { plain: 'Front half', term: 'demi' },
+  head: { plain: 'Head only', term: 'head' },
+  jambe: { plain: 'Leg only', term: 'jambe' },
+  skull: { plain: 'Skull only', term: 'skull' },
+};
+
+/** How a head is cut off (the Cut row), as it looks, and the heraldic word. */
+export const CUT_LABEL: Partial<Record<ModifierId, PlainTerm>> = {
+  couped: { plain: 'Cut straight', term: 'couped' },
+  erased: { plain: 'Torn, ragged', term: 'erased' },
 };
 
 /** How two charges are set to each other, and the heraldic word ("Facing each other · combattant"). */

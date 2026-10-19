@@ -18,7 +18,7 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns, whole } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
@@ -265,6 +265,12 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a charge voided', arms('gules', group(charge('delf', { mods: ['voided'] }), 'argent'))],
   ['a charge fimbriated', arms('azure', group(charge('lozenge', { mods: [{ id: 'fimbriated', paint: 'argent' }] }), 'azure'))],
   ['three charges fimbriated and a bordure', arms('or', group(charge('roundel', { mods: [{ id: 'fimbriated', paint: 'sable' }] }), 'gules', { count: 3 }), group(ordinary('bordure'), 'azure'))],
+  // a demi charge and a head, whose cut follows the noun ("a wolf's head erased")
+  ['a demi charge', arms('azure', group(charge('lion', { form: 'demi' }), 'or'))],
+  ['three demi charges', arms('azure', group(charge('eagle', { form: 'demi' }), 'argent', { count: 3 }))],
+  ['a head couped', arms('azure', group(charge('wolf', { form: 'head', mods: ['couped'] }), 'argent'))],
+  ['a head erased contourny', arms('azure', group(charge('lion', { form: 'head', facing: 'to-sinister', mods: ['erased'] }), 'or'))],
+  ['three heads erased', arms('sable', group(charge('stag', { form: 'head', mods: ['erased'] }), 'or', { count: 3 }))],
   // every charge alone and in threes (the crosses in their plurals: "crosses formy"), and every charge that is drawn fitchy; a lone
   // cross couped is the ordinary of that name (App M1f), so the charge is read in threes only
   ...CHARGE_IDS.flatMap((id): Array<[string, unknown]> => [
@@ -294,7 +300,7 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...whole(generatedChargeAttributeDesigns(1, 200)),
+      ...generatedChargeAttributeDesigns(1, 200),
       ...seeds('level0').map(generatedDesign),
       ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
@@ -422,6 +428,31 @@ describe('the matcher reads which way a charge points in the College\'s words', 
 
 // A star's points and a charge's details, as the SCA writes them: each reads as the widget's own design (SENA §1.4); a charge that does
 // not take a detail, or a number of points the widget doesn't draw, keeps its gap.
+describe('the matcher reads demi charges and heads in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a demi-lion Or.', 'Azure, a demi-lion Or.'],
+    ['Azure, a demi lion rampant Or.', 'Azure, a demi-lion Or.'],
+    ['Gules, three demi-eagles displayed argent.', 'Gules, three demi-eagles argent.'],
+    ['Vert, a wolf\'s head erased argent.', 'Vert, a wolf\'s head erased argent.'],
+    ['Vert, a wolf\'s head argent.', 'Vert, a wolf\'s head couped argent.'],
+    ['Sable, three stags\' heads couped Or.', 'Sable, three stags\' heads couped Or.'],
+    ['Sable, a lion\'s head contourny erased Or.', 'Sable, a lion\'s head erased contourny Or.'],
+    ['Sable, two lions\' heads erased respectant Or.', 'Sable, two lions\' heads erased respectant Or.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('files what the widget does not draw of them under their gaps', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a demi-boar Or.')).toEqual(['charge-modifier:demi']);
+    expect(tags('Azure, a goat\'s head erased Or.')).toEqual(['charge-beast:goat-head', 'charge-modifier:erased']);
+    expect(tags('Azure, a lion erased Or.')).toEqual(['charge-modifier:erased']);
+    expect(tags('Azure, a demi-lion erased Or.')).toEqual(['charge-modifier:erased']);
+  });
+});
+
 describe('the matcher reads a star\'s points and a charge\'s details in the College\'s words', () => {
   const read = (text: string) => explainMatch(text).match?.design ?? null;
   it.each([
@@ -884,6 +915,9 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a bend doubly cotised', 'azure, a bend doubly cotised argent'],
     ['a pale endorsed', 'azure, a pale endorsed argent'],
     ['a charge contourny', 'azure, a lion contourny Or'],
+    ['a demi charge', 'azure, a demi-lion Or'],
+    ['a head erased', "azure, a wolf's head erased Or"],
+    ['heads respectant', "azure, two lions' heads couped respectant Or"],
     ['a charge fesswise', 'azure, a sword fesswise argent'],
     ['a charge fesswise reversed', 'azure, a sword fesswise reversed argent'],
     ['a charge bendwise sinister inverted', 'azure, a sword bendwise sinister inverted argent'],

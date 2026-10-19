@@ -5,10 +5,10 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setBadge, setPosture, setFacing, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setBadge, setCut, setForm, setPosture, setFacing, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, detailChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, cutChoices, detailChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
   type Charge, type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
@@ -356,6 +356,28 @@ describe('builder transitions', () => {
     expect(blazon(setCharge(voided, 'picture', 'lozenge'))).toBe('Azure, a lozenge voided Or.');
     expect(blazon(setCharge(voided, 'picture', 'estoile'))).toBe('Azure, an estoile Or.');
     expect(blazon(setCharge(voided, 'picture', 'sun'))).toBe('Azure, a sun Or.');
+  });
+
+  it('the Shape row: whole, demi or head where the charge is drawn so, a head cut couped or erased, kept through a swap (PLAN-D §3 D7b)', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(formChoices(lion, [0]).map((c) => [c.value, c.allowed])).toEqual([[null, true], ['demi', true], ['head', true]]);
+    expect(formChoices(setCharge(DEFAULT_DESIGN, 'picture', 'stag'), [0]).map((c) => c.value)).toEqual([null, 'head']);
+    expect(formChoices(setCharge(DEFAULT_DESIGN, 'picture', 'sun'), [0])).toEqual([]);
+    expect(cutChoices(lion, [0])).toEqual([]);
+    const head = setForm(lion, [0], 'head');
+    expect(blazon(head)).toBe("Azure, a lion's head couped Or.");
+    expect(cutChoices(head, [0]).map((c) => c.value)).toEqual(['couped', 'erased']);
+    expect(blazon(setCut(head, [0], 'erased'))).toBe("Azure, a lion's head erased Or.");
+    expect(blazon(setForm(lion, [0], 'demi'))).toBe('Azure, a demi-lion Or.');
+    // the cut goes with the head; a whole charge is back in its posture
+    const erased = setCut(head, [0], 'erased');
+    expect(setForm(erased, [0], null)).toEqual(lion);
+    expect(blazon(setForm(setForm(erased, [0], 'demi'), [0], null))).toBe('Azure, a lion Or.');
+    // a swap keeps the form where the new charge is drawn so, and the cut with it
+    expect(blazon(setCharge(erased, 'picture', 'wolf'))).toBe("Azure, a wolf's head erased Or.");
+    expect(blazon(setCharge(erased, 'picture', 'stag'))).toBe("Azure, a stag's head erased Or.");
+    expect(blazon(setCharge(erased, 'picture', 'eagle'))).toBe('Azure, an eagle Or.');
+    expect(blazon(setCharge(setForm(lion, [0], 'demi'), 'picture', 'stag'))).toBe('Azure, a stag statant Or.');
   });
 
   it('the Turned row: as usual first, the ways a charge takes, the rest and to center blocked with their reasons (PLAN-D §3 D5b)', () => {

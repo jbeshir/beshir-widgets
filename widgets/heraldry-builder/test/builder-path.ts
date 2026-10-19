@@ -7,12 +7,12 @@
 
 import {
   CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, detailChoices, pointsChoices, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type ModifierId, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, formChoices, cutChoices, detailChoices, pointsChoices, cutOf, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeForm, type ChargeId, type Choice, type ModifierId, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setFacing, setGaze, setOrientation, setPair, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setFacing, setGaze, setOrientation, setForm, setCut, setPair, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -45,6 +45,8 @@ export type BuilderAction =
   | { kind: 'overall-item'; item: LayerItem }
   | { kind: 'charge'; at: At; charge: ChargeId | null }
   | { kind: 'layout'; at: At; action: LayoutAction; design: Design }
+  | { kind: 'form'; at: At; form: ChargeForm | null }
+  | { kind: 'cut'; at: At; cut: ModifierId }
   | { kind: 'posture'; at: At; posture: Posture }
   | { kind: 'pair'; at: At; pair: PairChoice }
   | { kind: 'gaze'; at: At; gaze: Gaze | null }
@@ -168,6 +170,14 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       }
       return a.charge === null || CHARGE_IDS.includes(a.charge) ? null : `${a.charge} is not offered`;
     case 'layout': return null;
+    case 'form': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(formChoices(d, path), a.form) : `there is no ${a.at} to shape`;
+    }
+    case 'cut': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(cutChoices(d, path), a.cut) : `there is no ${a.at} to cut`;
+    }
     case 'posture': {
       const path = pathAt(d, a.at);
       return path ? choiceReason(postureChoices(d, path), a.posture) : `there is no ${a.at} to pose`;
@@ -296,6 +306,8 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'overall-item': return setOverallItem(d, a.item);
     case 'charge': return setCharge(d, a.at as 'picture' | PicturesKey, a.charge);
     case 'layout': return a.design;
+    case 'form': return setForm(d, path!, a.form);
+    case 'cut': return setCut(d, path!, a.cut);
     case 'posture': return setPosture(d, path!, a.posture);
     case 'pair': return setPair(d, path!, a.pair);
     case 'gaze': return setGaze(d, path!, a.gaze);
@@ -344,6 +356,8 @@ function describeAction(a: BuilderAction): string {
     case 'overall-item': return `overall ${a.item.k === 'ordinary' ? a.item.type : a.item.charge}`;
     case 'charge': return `${a.at} charge ${a.charge ?? 'none'}`;
     case 'layout': return `${a.at} ${a.action.kind} ${a.action.kind === 'count' ? a.action.count : a.action.kind === 'placement' ? a.action.placement : a.action.layout}`;
+    case 'form': return `${a.at} shape ${a.form ?? 'whole'}`;
+    case 'cut': return `${a.at} cut ${a.cut}`;
     case 'posture': return `${a.at} posture ${a.posture}`;
     case 'pair': return `${a.at} pair ${a.pair}`;
     case 'gaze': return `${a.at} gaze ${a.gaze ?? 'none'}`;
@@ -779,6 +793,10 @@ export function builderPath(goal: Design): BuilderPath {
       }
     } else if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };
     else if (!click({ kind: 'charge', at, charge: item.charge })) return done();
+    // The Shape row and a head's cut at once: a head fits where the whole beast does not, so the layout is chosen for the shape.
+    if (item.k === 'charge' && item.form !== null && !click({ kind: 'form', at, form: item.form })) return done();
+    const cut = item.k === 'charge' ? cutOf(item) : null;
+    if (cut && !click({ kind: 'cut', at, cut })) return done();
     // Two main pictures are laid out together and judged together: the first waits for the second, then the controls of either lead to the goal's layout of both.
     if (at === 'picture' && parts.coPrimary) continue;
     const together: readonly At[] = at === 'co-primary' ? ['picture', 'co-primary'] : [at];

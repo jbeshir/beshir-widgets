@@ -6,7 +6,7 @@
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
-import { CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, walkGroups, type ChargeId, type Design } from '../src/lib/heraldry';
+import { CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, type ChargeId, type Design } from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -420,11 +420,6 @@ function modifiedCharge(roll: number, next: () => number, pick: <T>(xs: readonly
   }
   if (roll < 0.5) return { k: 'charge', charge: 'mullet', mods: ['pierced'] };
   return { k: 'charge', charge: pick(OUTLINED_CHARGES), mods: [roll < 0.75 ? 'voided' : { id: 'fimbriated', paint: pick(TINCTURES) }] };
-}
-
-/** The designs whose charges are whole: those the builder path and the matcher can make (neither makes a head or a demi charge yet). */
-export function whole(designs: readonly Design[]): Design[] {
-  return designs.filter((d) => walkGroups(d).every(({ group }) => group.item.k !== 'charge' || group.item.form === null));
 }
 
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */

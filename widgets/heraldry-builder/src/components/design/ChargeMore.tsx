@@ -6,12 +6,12 @@
 
 import type { ComponentChildren } from 'preact';
 import {
-  CHARGES, FACING_LABEL, GAZE_LABEL, MODIFIER_LABEL, ORIENTATION_ANGLE, ORIENTATION_LABEL, PAIR_LABEL, chargePath, detailChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
+  CHARGES, CUT_LABEL, FACING_LABEL, FORM_LABEL, GAZE_LABEL, MODIFIER_LABEL, ORIENTATION_ANGLE, ORIENTATION_LABEL, PAIR_LABEL, chargePath, cutChoices, cutOf, detailChoices, formChoices, drawnPoints, facingChoices, fimbriationOf, fimbriationTinctureChoices, gazeChoices,
   groupAt, orientationChoices, pairChoices, pointsChoices, pointsOf, pointsWord, tincturePaint,
-  type Charge, type Choice, type Design, type GroupPath, type Orientation, type PairChoice, type PlainTerm,
+  type Charge, type ChargeForm, type Choice, type Design, type GroupPath, type Orientation, type PairChoice, type PlainTerm,
 } from '../../lib/heraldry';
 import { numberWord } from '../../lib/heraldry/words';
-import { setFacing, setGaze, setModifier, setOrientation, setPair } from '../../lib/builder';
+import { setCut, setForm, setFacing, setGaze, setModifier, setOrientation, setPair } from '../../lib/builder';
 import { ChargeIcon } from '../Shield';
 import { ChoiceButton, RadioGroup } from './Choices';
 import { Disclosure } from './Disclosure';
@@ -82,13 +82,15 @@ export function ChargeMore({ design, path, prefix, onChange }: Props) {
   const facings = facingChoices(design, path);
   const turns = orientationChoices(design, path);
   const points = pointsChoices(design, path);
+  const forms = formChoices(design, path);
   const details = detailChoices(design, path);
-  if (g.item.k !== 'charge' || (facings.length === 0 && turns.length === 0 && points.length === 0 && details.length === 0)) return null;
+  if (g.item.k !== 'charge' || (facings.length === 0 && turns.length === 0 && points.length === 0 && details.length === 0 && forms.length === 0)) return null;
   const item = g.item;
   const meta = CHARGES[item.charge];
   const fimbriations = fimbriationTinctureChoices(design, path);
   const fimbriation = fimbriationOf(item);
-  const detailed = item.mods.some((m) => meta.details.includes(m.id));
+  const cuts = cutChoices(design, path);
+  const detailed = item.mods.some((m) => meta.details.includes(m.id)) || item.form !== null;
   const gazes = gazeChoices(design, path);
   const pairs = pairChoices(design, path);
   const pair: PairChoice = g.arrangement.k === 'pair' ? g.arrangement.pair : 'same';
@@ -112,10 +114,19 @@ export function ChargeMore({ design, path, prefix, onChange }: Props) {
               preview={(o) => <TurnedPreview item={item} orientation={o} />} onSelect={(o) => onChange(setOrientation(design, path, o))} onBlocked={explain}
             />
           )}
-          {(points.length > 0 || details.length > 0) && (
+          {(points.length > 0 || details.length > 0 || forms.length > 0) && (
             <Disclosure testid={`${prefix}charge-details`} class="charge-details" summary="Details" used={detailed}>
               {() => (
                 <>
+                  {forms.length > 0 && (
+                    <ChipRow<ChargeForm | 'whole'>
+                      legend="Shape" testid={`${prefix}form`} choices={forms.map((c): Choice<ChargeForm | 'whole'> => ({ ...c, value: c.value ?? 'whole' }))} current={item.form ?? 'whole'} label={(f) => FORM_LABEL[f]} kind="drawing"
+                      onSelect={(f) => onChange(setForm(design, path, f === 'whole' ? null : f))} onBlocked={explain}
+                    />
+                  )}
+                  {cuts.length > 0 && (
+                    <ChipRow legend="Cut" testid={`${prefix}cut`} choices={cuts} current={cutOf(item)} label={(m) => CUT_LABEL[m]!} kind="drawing" onSelect={(m) => onChange(setCut(design, path, m))} onBlocked={explain} />
+                  )}
                   {points.length > 0 && (
                     <ChipRow
                       legend="Points" testid={`${prefix}points`} choices={points} current={pointsOf(item)} label={(n) => pointsLabel(item, n)} kind="drawing"

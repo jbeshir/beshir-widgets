@@ -6,7 +6,7 @@
 // sets it apart from the rest), the pictures are refitted to the room it
 // leaves, and anything that can't be drawn is blocked with its reason, never silently dropped.
 
-import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
+import { CHARGE_IDS, CHARGES, CUT_MODIFIERS, type ChargeId } from './charges';
 import { NON_STANDARD_TINCTURES } from './tinctures';
 import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Charge, type Design, type Group, type Issue, type GroupPath, type GroupTincture, type Lines } from './design';
 import { MORE_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
@@ -79,15 +79,16 @@ export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines
 
 /**
  * The charge of a group, keeping the posture, facing, gaze, orientation and modifiers of the one it replaces where the new charge has them
- * (PLAN-D §0.2.7): facing to sinister when it faces, a head turned when it is drawn so in that posture, an orientation it takes.
+ * (PLAN-D §0.2.7): facing to sinister when it faces, a head turned when it is drawn so in that posture, an orientation it takes, a form it is drawn in (a head keeps its cut).
  */
 export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] {
   const meta = CHARGES[id];
   const was = previous?.item.k === 'charge' ? previous.item : null;
   const posture = meta.postures ? (was?.posture && meta.postures.includes(was.posture) ? was.posture : meta.defaultPosture) : null;
+  const form = was?.form && meta.forms.includes(was.form) ? was.form : null;
   const item: Charge = {
-    k: 'charge', charge: id, form: null, posture, gaze: null, facing: meta.faces && was?.facing === 'to-sinister' ? 'to-sinister' : meta.defaultFacing,
-    orientation: was?.orientation && meta.orient.allowed.includes(was.orientation) ? was.orientation : null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id) || meta.details.includes(m.id)) : [], parts: [], holds: [],
+    k: 'charge', charge: id, form, posture: form ? null : posture, gaze: null, facing: meta.faces && was?.facing === 'to-sinister' ? 'to-sinister' : meta.defaultFacing,
+    orientation: was?.orientation && meta.orient.allowed.includes(was.orientation) ? was.orientation : null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id) || meta.details.includes(m.id) || (form === 'head' && CUT_MODIFIERS.includes(m.id))) : [], parts: [], holds: [],
   };
   return was?.gaze && gazeDrawn(item, was.gaze) ? { ...item, gaze: was.gaze } : item;
 }
