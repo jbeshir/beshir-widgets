@@ -24,11 +24,11 @@ export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
   beast: 'a natural beast other than the lion, wolf, boar, stag, goat, hare, cat, bear, horse, fox and squirrel (deer, dog, tiger…), or a beast\'s head or limb',
   bird: 'a bird other than the eagle, owl, raven, falcon, swan, phoenix, peacock, martlet and dove, a bird\'s head or limb, a wing, quill or plume',
   monster: 'a heraldic monster other than the unicorn, dragon, griffin, wyvern, pegasus, sea-horse and sea-lion (cockatrice, other sea-creatures…)',
-  fish: 'a named fish, sea mammal, crustacean or shell (dolphin, whale, escallop…)',
-  reptile: 'a reptile or amphibian (serpent, lizard, turtle, frog…)',
-  insect: 'an insect, arachnid or other invertebrate other than the bee',
+  fish: 'a named fish, sea mammal, crustacean or shell other than the dolphin and escallop (whale, crab, oyster…)',
+  reptile: 'a reptile or amphibian other than the serpent and frog (snake, lizard, turtle…)',
+  insect: 'an insect, arachnid or other invertebrate other than the bee, butterfly, dragonfly, spider and scorpion',
   human: 'a human figure or body part (hand, arm, skull, eye…)',
-  plant: 'a flower, leaf, fruit, foil, named tree or other plant other than the rose, tree and fleur-de-lis',
+  plant: 'a flower, leaf, fruit, foil, named tree or other plant other than the rose, tree, fleur-de-lis, thistle, lily, laurel wreath, oak leaf, acorn, pomegranate and garb',
   celestial: 'a celestial or weather charge other than the sun, mullet and crescent (estoile, moon, cloud…)',
   weapon: 'a weapon or piece of armour other than the sword, arrow, axe, pheon, spear and trident',
   tool: 'a tool, implement or piece of equipment other than the key, gear, hammer, needle and anvil',
@@ -75,18 +75,18 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     alicorn monster
   `),
   fish: w(`
-    dolphin pike lucy luce salmon trout carp herring hake cod codfish eel whale orca shark catfish swordfish stingray
-    manta ray crab lobster crayfish crawfish shrimp prawn octopus polypus squid calamary calamarie nautilus whelk escallop
-    scallop shell seashell conch cockle oyster mussel sea-urchin jellyfish starfish sea-nettle sturgeon mackerel
+    pike lucy luce salmon trout carp herring hake cod codfish eel whale orca shark catfish swordfish stingray
+    manta ray crab lobster crayfish crawfish shrimp prawn octopus polypus squid calamary calamarie nautilus whelk
+    shell seashell conch cockle oyster mussel sea-urchin jellyfish starfish sea-nettle sturgeon mackerel
     perch roach bream barbel tench goldfish koi flounder plaice angelfish narwhal manatee haddock sardine anchovy
   `),
   reptile: w(`
-    serpent snake adder viper cobra rattlesnake asp python lizard chameleon gecko iguana skink turtle tortoise
-    sea-turtle sea-tortoise frog toad newt tadpole crocodile alligator worm
+    snake adder viper cobra rattlesnake asp python lizard chameleon gecko iguana skink turtle tortoise
+    sea-turtle sea-tortoise toad newt tadpole crocodile alligator worm
   `),
   insect: w(`
-    wasp hornet honeybee bumblebee butterfly moth dragonfly damselfly beetle scarab ladybug ladybird ant emmet
-    grasshopper locust cricket mantis fly mosquito cockroach earwig spider scorpion snail slug caterpillar cicada
+    wasp hornet honeybee bumblebee moth damselfly beetle scarab ladybug ladybird ant emmet
+    grasshopper locust cricket mantis fly mosquito cockroach earwig snail slug caterpillar cicada
     firefly flea louse tick spiderweb cobweb web chrysalis cocoon centipede earthworm
   `),
   human: w(`
@@ -97,12 +97,12 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     hair tress brain mask footprint handprint foi
   `),
   plant: w(`
-    laurel oak wreath garland chaplet bouquet leaf thistle lily lily-of-the-valley lotus water-lily ivy holly vine
-    grapevine grape acorn sprig slip branch bough blossom flower floret sexfoil
-    septfoil octofoil foil shamrock clover garb sheaf wheat rye barley oat rice reed bulrush cattail rush fern palm
+    laurel oak wreath garland chaplet bouquet leaf lily-of-the-valley lotus water-lily ivy holly vine
+    grapevine grape sprig slip branch bough blossom flower floret sexfoil
+    septfoil octofoil foil shamrock clover sheaf wheat rye barley oat rice reed bulrush cattail rush fern palm
     pine fir spruce cedar cypress yew ash elm birch beech alder aspen poplar willow linden rowan hazel hawthorn
     maple olive bay mistletoe elder crequier juniper dogwood madrone sycamore ginkgo acanthus bamboo cactus saguaro
-    apple pear cherry plum peach lemon orange quince pomegranate fig date strawberry raspberry blackberry berry
+    apple pear cherry plum peach lemon orange quince fig date strawberry raspberry blackberry berry
     fraise pumpkin gourd turnip carrot onion garlic leek peapod pea bean mushroom toadstool fungus nut walnut
     hazelnut chestnut almond pinecone pine-cone cone seed bulb rosebud garden-rose garden-rosebud tulip iris daisy
     marguerite buttercup peascod sunflower daffodil poppy violet columbine gillyflower carnation lilac lavender heather trillium
@@ -220,6 +220,8 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   arrow: 'weapon', hammer: 'tool', harp: 'instrument', axe: 'weapon', pheon: 'weapon', feather: 'bird', needle: 'tool', anvil: 'tool', spear: 'weapon', trident: 'weapon',
   raven: 'bird', griffin: 'monster', swan: 'bird', phoenix: 'bird', wyvern: 'monster', falcon: 'bird', pegasus: 'monster', seahorse: 'monster',
   peacock: 'bird', martlet: 'bird', dove: 'bird', 'sea-lion': 'monster',
+  escallop: 'fish', dragonfly: 'insect', thistle: 'plant', dolphin: 'fish', butterfly: 'insect', 'laurel-wreath': 'plant', 'oak-leaf': 'plant', acorn: 'plant',
+  serpent: 'reptile', frog: 'reptile', pomegranate: 'plant', lily: 'plant', garb: 'plant', spider: 'insect', scorpion: 'insect',
 };
 
 /** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */

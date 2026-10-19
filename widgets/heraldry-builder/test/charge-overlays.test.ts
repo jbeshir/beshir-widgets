@@ -32,7 +32,7 @@ describe('parts and details drawn as pieces (PLAN-D §0.3.5, §1.4)', () => {
     expect(withPart('collared')).toEqual(['lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'unicorn', 'dragon', 'cat', 'bear', 'horse', 'swan']);
     expect(withDetail('winged')).toEqual(['lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'unicorn', 'heart']);
     expect(withDetail('enflamed')).toEqual(['heart', 'sword', 'roundel']);
-    expect(withDetail('slipped')).toEqual(['rose']);
+    expect(withDetail('slipped')).toEqual(['rose', 'oak-leaf', 'acorn']);
     expect(CHARGE_IDS.filter((id) => CHARGES[id].pairedWings)).toEqual(['heart']);
     // the overlay pieces are not charges
     for (const piece of Object.keys(OVERLAY_PIECES)) expect(CHARGE_IDS as readonly string[]).not.toContain(`piece-${piece}`);

@@ -39,6 +39,6 @@ describe('the popular pictures', () => {
     expect(new Set(POPULAR_CHARGE_IDS).size).toBe(POPULAR_CHARGE_IDS.length);
     expect(POPULAR_CHARGE_IDS.every((id: ChargeId) => CHARGE_IDS.includes(id))).toBe(true);
     expect(POPULAR_CHARGE_IDS.slice(0, 36)).toEqual(CHARGE_IDS.slice(0, 36));
-    expect(POPULAR_CHARGE_IDS.slice(36)).toEqual(['cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix', 'arrow']);
+    expect(POPULAR_CHARGE_IDS.slice(36)).toEqual(['cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix', 'arrow', 'escallop', 'dolphin']);
   });
 });

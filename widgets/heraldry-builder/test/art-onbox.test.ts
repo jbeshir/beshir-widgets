@@ -13,6 +13,8 @@ const CARRIES_NONE = [
   'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory', 'cross-patonce', 'cross-potent', 'cross-maltese', 'cross-celtic', 'cross-tau',
   // art batch B4: the tools and weapons are slender, ringed (harp) or give a 16-unit box at most (pheon; art batch B4 drew no box for the others)
   'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
+  // art batch B5 and B6: the drawer gave no box, or one of 16–24 units that left the on-charge sweep one layout (escallop, oak leaf, acorn, frog)
+  'thistle', 'laurel-wreath', 'pomegranate', 'garb', 'lily', 'dolphin', 'dragonfly', 'butterfly', 'serpent', 'scorpion', 'spider', 'escallop', 'oak-leaf', 'acorn', 'frog',
 ];
 
 /** The drawings that carry no charge whatever their charge: heads (art batch A1 draws them with no room for one). */

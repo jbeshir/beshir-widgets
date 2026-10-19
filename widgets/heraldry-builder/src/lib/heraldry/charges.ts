@@ -91,6 +91,7 @@ export const CHARGE_IDS = [
   'cat', 'bear', 'horse', 'fox', 'squirrel',
   'raven', 'griffin', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'seahorse', 'peacock', 'martlet', 'dove', 'sea-lion',
   'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
+  'escallop', 'dragonfly', 'thistle', 'dolphin', 'butterfly', 'laurel-wreath', 'oak-leaf', 'acorn', 'serpent', 'frog', 'pomegranate', 'lily', 'garb', 'spider', 'scorpion',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -105,7 +106,7 @@ export const POPULAR_CHARGE_IDS: readonly ChargeId[] = [
   'key', 'open-book', 'sword', 'crown', 'anchor',
   'musical-note', 'flame', 'gear', 'lightbulb',
   'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
-  'cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix', 'arrow',
+  'cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix', 'arrow', 'escallop', 'dolphin',
 ];
 
 /**
@@ -174,6 +175,20 @@ export const TYPE_CLASSES = {
   anvil: { source: 'A5E2: clearly unrelated shapes are substantially different; GoT Table 5: horn direction and number of horns are artistic', guess: true },
   spear: { source: 'A5E2: clearly unrelated shapes are substantially different; spear vs lance/pike/trident no SENA example', guess: true },
   trident: { source: 'A5E2: clearly unrelated shapes are substantially different; trident vs spear/salmon-spear no SENA example', guess: true },
+  acorn: { source: 'A5G4: types distinct in period; A5E2: clearly unrelated shapes are substantially different; no SENA example against other fruit or nuts', guess: true },
+  garb: { source: 'A5G4: types distinct in period; A5E2: clearly unrelated shapes are substantially different; no SENA example against the other plants', guess: true },
+  chaplet: { source: 'App M1k: chaplets and wreaths differ by a DC only as their leaves differ (App M1j); A5E2: clearly unrelated shapes are substantially different', guess: false },
+  'trumpet-flower': { source: 'App M1i: "no difference for type between trumpet-shaped flowers in profile (columbines, lilies, tulips, daffodils, etc.)"; an SC between few-petaled flowers affronty, multi-petaled flowers affronty and trumpet-shaped flowers in profile', guess: false },
+  leaf: { source: 'App M1j (01/2024 CL): leaves in different categories (leaf-, heart-, maple-, oak-, frond-, fan-shaped) have a DC between them, leaves of one category conflict; A5E2: clearly unrelated shapes are substantially different', guess: false },
+  fruit: { source: 'A5G4: types distinct in period; A5E2: clearly unrelated shapes are substantially different; no SENA example against the other round fruit', guess: true },
+  thistle: { source: 'App M1i: flowers outside the petal categories are "treated as individual cases, by type"; A5E2: clearly unrelated shapes are substantially different; no SENA example against the rose or the tree', guess: true },
+  butterfly: { source: 'A5G4: types distinct in period; A5E5a groups the butterfly with the bee as compact tergiant creatures (no comparable postures); no SENA example against the bee or the dragonfly', guess: true },
+  dragonfly: { source: 'A5G4: types distinct in period; A5E5a treats the dragonfly as a long tergiant creature (comparable orientations), unlike the compact bee and butterfly; no SENA example against another insect', guess: true },
+  frog: { source: 'A5G4: types distinct in period; App M3 lists frogs among the quadrupeds that can be tergiant (filed under the insect posture class here only as a modelling shortcut, PLAN-D §1.2); frog = toad (GoT Table 5 "Toad: see Frog")', guess: true },
+  scorpion: { source: 'A5G4: types distinct in period; GoT Table 5 gives the scorpion its own default (tergiant, head to chief, Valentine l\'Argent 05/2023); no SENA example against another arthropod', guess: true },
+  serpent: { source: 'A5G4: types distinct in period; App L1g treats serpent postures case by case; no SENA example against another reptile', guess: true },
+  spider: { source: 'A5G4: types distinct in period; GoT Table 5 gives the spider its own default (tergiant, head to chief, Julius Gautieri 03/2023); no SENA example against another arthropod', guess: true },
+  shell: { source: 'A5G4: types distinct in period; the escallop has its own GoT Table 5 entry (hinge to chief, 01/2025 CL) and A5G7c compares escallop vs escallop inverted (DC); no SENA example against another shell', guess: true },
   'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 

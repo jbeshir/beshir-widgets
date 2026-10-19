@@ -861,6 +861,15 @@ describe('facing, gaze and pairs (PLAN-D §1.1 F1–F10)', () => {
     expect(between(nd(arms('azure', lion({}, annulo))), nd(arms('azure', lion(contourny, annulo))))).toEqual([]);
   });
 
+  it('F3: a dolphin\'s facing counts in every posture, and the dolphin is a type of its own among the fish', () => {
+    const dolphin = (attrs: object = {}) => chg('dolphin', 'or', {}, attrs);
+    expect(between(design('azure', dolphin()), design('azure', dolphin(contourny)))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', dolphin({ posture: 'haurient' })), design('azure', dolphin({ posture: 'haurient', ...contourny })))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', dolphin()), design('azure', dolphin({ posture: 'haurient' })))).toEqual(['posture:sc:A5E5']);
+    expect(between(design('azure', dolphin()), design('azure', chg('fish', 'or')))).toEqual(['type:dc:A5G4']);
+  });
+
+
   it('F4: the gaze of a whole beast makes no difference', () => {
     expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ gaze: 'guardant' }))))).toEqual([]);
     expect(between(nd(arms('azure', lion({ gaze: 'regardant' }))), nd(arms('azure', lion({ gaze: 'guardant' }))))).toEqual([]);
@@ -938,6 +947,23 @@ describe('orientation (PLAN-D §1.3 O1–O10)', () => {
     expect(between(design('azure', turned('harp', null)), design('azure', turned('harp', 'reversed')))).toEqual([]);
     expect(between(design('azure', turned('arrow', null)), design('azure', turned('spear', null)))).toEqual(['type:sc:A5E2']);
     expect(between(design('azure', turned('spear', null)), design('azure', turned('trident', null)))).toEqual(['type:sc:A5E2']);
+  });
+
+
+  it('art batch B5 and B6: an oak leaf by its axis only (O5b, O5c), an escallop by its direction (O5), a dragonfly like a long tergiant insect (P4), flowers none (O6)', () => {
+    const oak = (o: string | null) => design('argent', turned('oak-leaf', o, {}, 'vert'));
+    expect(between(oak(null), oak('bendwise'))).toEqual(['posture:dc:A5G7']);
+    expect(between(oak(null), oak('fesswise'))).toEqual(['posture:dc:A5G7']);
+    expect(between(oak(null), oak('inverted'))).toEqual([]);
+    expect(between(oak('fesswise'), oak('fesswise-reversed'))).toEqual([]);
+    expect(between(design('azure', turned('escallop', null)), design('azure', turned('escallop', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('acorn', null)), design('azure', turned('acorn', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('dragonfly', null)), design('azure', turned('dragonfly', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('dragonfly', null)), design('azure', turned('dragonfly', 'fesswise')))).toEqual(['posture:sc:A5E5']);
+    expect(between(design('azure', turned('butterfly', null)), design('azure', turned('butterfly', 'bendwise')))).toEqual([]);
+    expect(between(design('azure', turned('thistle', null)), design('azure', turned('thistle', 'inverted')))).toEqual([]);
+    expect(between(design('azure', turned('acorn', null)), design('azure', turned('oak-leaf', null)))).toEqual(['type:sc:A5E2']);
+    expect(between(design('azure', turned('lily', null)), design('azure', turned('rose', null)))).toEqual(['type:sc:A5E2']);
   });
 
 
