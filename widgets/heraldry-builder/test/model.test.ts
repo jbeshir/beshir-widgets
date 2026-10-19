@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   canonical, canonicalJson, canonicalLines, resolve, signature, structuralIssues, unsupportedIssues, isSupported, walkGroups, groupAt, hostOf, pathKey,
-  primaryGroup, isFieldPrimary, UNSUPPORTED_GAP_CATEGORIES, CHARGES, CHARGE_IDS, TYPE_CLASSES, MAX_DRAWN_COUNT, UnsupportedConstructError, notSupported,
+  primaryGroup, isFieldPrimary, UNSUPPORTED_GAP_CATEGORIES, ALIAS_IDS, CHARGES, CHARGE_IDS, TYPE_CLASSES, MAX_DRAWN_COUNT, UnsupportedConstructError, notSupported,
   type Design, type Issue,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
@@ -468,24 +468,28 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 110 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(110);
+  it('has the 117 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(117);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
-    expect(CHARGE_IDS.filter((id) => CHARGES[id].long)).toEqual(['key', 'sword', 'anchor', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident']);
+    expect(CHARGE_IDS.filter((id) => CHARGES[id].long)).toEqual(['key', 'sword', 'anchor', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident', 'rapier', 'dagger']);
     expect(CHARGE_IDS.filter((id) => CHARGES[id].scaDefaultPosture).map((id) => [id, CHARGES[id].scaDefaultPosture]))
       .toEqual([['lion', 'rampant'], ['fish', 'naiant'], ['unicorn', 'rampant'], ['dragon', 'rampant'], ['eagle', 'displayed'], ['squirrel', 'sejant-erect'],
         ['raven', 'close'], ['griffin', 'rampant'], ['swan', 'rising'], ['phoenix', 'rising'], ['wyvern', 'statant'], ['falcon', 'close'], ['seahorse', 'erect'],
-        ['martlet', 'close'], ['dove', 'close'], ['sea-lion', 'erect'], ['dolphin', 'naiant']]);
+        ['martlet', 'close'], ['dove', 'close'], ['sea-lion', 'erect'], ['dolphin', 'naiant'], ['hawk', 'close']]);
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
     // A5E2 type classes: only the documented DC-only kin share one (lion and cat, wolf and fox, dragon and wyvern, horse and pegasus, fish and dolphin, tower and castle, goblet, chalice and tankard, every bird, mullet and sun, eagle and owl, the lozenge's kin, a cross family…).
-    const shared = CHARGE_IDS.filter((id) => CHARGE_IDS.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
+    const own = CHARGE_IDS.filter((id) => !(ALIAS_IDS as readonly string[]).includes(id));
+    const shared = own.filter((id) => own.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
     expect(shared).toEqual([
       'lion', 'wolf', 'fish', 'dragon', 'eagle', 'owl', 'rose', 'mullet', 'sun', 'roundel', 'annulet', 'billet', 'lozenge', 'cross-crosslet', 'estoile', 'compass-star', 'mascle', 'rustre',
       'fusil', 'delf', 'triangle', 'trefoil', 'quatrefoil', 'cinquefoil', 'cross-couped', 'cross-latin', 'cross-bottony', 'cross-flory', 'cross-patonce', 'cat', 'horse', 'fox',
       'raven', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'peacock', 'martlet', 'dove', 'dolphin', 'tower', 'comet', 'goblet', 'chalice', 'castle', 'tankard',
     ]);
+    // an alias is the same type as the charge it names (the hawk is a raven, a coney a hare…: no difference of type, PLAN-D §1.6 T1)
+    expect(ALIAS_IDS.map((id) => [id, CHARGES[id].typeOf])).toEqual([['hawk', 'raven'], ['rapier', 'sword'], ['dagger', 'sword'], ['coney', 'hare'], ['rabbit', 'hare'], ['vol', null], ['coronet', 'crown']]);
+    for (const id of ALIAS_IDS) if (CHARGES[id].typeOf) expect(CHARGES[id].typeClass, id).toBe(CHARGES[CHARGES[id].typeOf!].typeClass);
     expect(CHARGES.lion.typeClass).not.toBe(CHARGES.wolf.typeClass);
     expect(new Set(CHARGE_IDS.map((id) => CHARGES[id].typeClass))).toEqual(new Set(Object.keys(TYPE_CLASSES)));
   });

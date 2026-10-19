@@ -258,6 +258,14 @@ describe('the primary group (A5E)', () => {
     expect(between(on('chalice'), on('tankard'))).toEqual(['type:dc:A5G4']);
     expect(between(on('tower'), on('goblet'))).toEqual(['type:sc:A5E2']);
     expect(between(on('bell'), on('hand'))).toEqual(['type:sc:A5E2']);
+    // The aliases of the art in art/procedural/derived.ts are the type of the charge they name (PLAN-D §1.6 T1: hawk = raven = falcon, rapier and dagger = sword,
+    // coney and rabbit = hare, coronet = crown); a vol, a pair of wings, has a token of its own.
+    for (const [alias, named] of [['hawk', 'raven'], ['hawk', 'falcon'], ['rapier', 'sword'], ['dagger', 'rapier'], ['coney', 'hare'], ['rabbit', 'coney'], ['coronet', 'crown']] as const) {
+      expect(between(on(alias), on(named)), `${alias} / ${named}`).toEqual([]);
+    }
+    expect(between(on('vol'), on('wing'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('hawk'), on('eagle', { posture: 'close' }))).toEqual(['type:dc:A5G4']);
+    expect(between(on('rapier'), on('key'))).toEqual(['type:sc:A5E2']);
     expect(between(on('mullet'), on('rose'))).toEqual(['type:sc:A5E2']);
     expect(between(on('eagle'), on('owl'))).toEqual(['type:dc:A5G4']);
     // art batch B1: a cat is a feline like the lion, a fox a canine like the wolf (A5C3); the bear, horse and squirrel are types of their own

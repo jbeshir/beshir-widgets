@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { HAND_DRAWN, PROPER, WINGED } from './common';
+import { DERIVED, HAND_DRAWN, PROPER, WINGED } from './common';
 
 export const META_BEAST = {
   lion: {
@@ -351,5 +351,37 @@ export const META_BEAST = {
       _: { onBox: null, anchors: {}, neck: null },
     },
     provenance: { origin: 'original', author: 'phase-D art pipeline, B6, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, tapered strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
+  },
+  coney: {
+    name: 'coney', plural: 'coneys', article: 'a', category: 'beast',
+    typeClass: 'hare', typeOf: 'hare', typeToken: null, postureClass: 'quadruped', birdShape: null,
+    postures: ['sejant', 'courant'], defaultPosture: 'sejant', scaDefaultPosture: null, postureWording: {},
+    faces: true, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'animate', allowed: [], wording: {} },
+    forms: [], mods: [], details: WINGED, parts: ['collared'], holds: ['maintaining', 'sustaining'],
+    demiCut: null, long: false, scale: 1.05, detail: 1, proper: PROPER.brown,
+    glossName: 'coney', glossPlural: 'coneys', plain: null, search: [],
+    headName: null, holdable: false, pairedWings: false,
+    drawings: {
+      sejant: { onBox: { x: 29, y: 48, w: 38, h: 30 }, anchors: { hold: { x: 35, y: 88, size: 14, rotation: 0 }, collar: { x: 38, y: 47, size: 14, rotation: 20 }, wings: { x: 68, y: 35, size: 40, rotation: 20 } }, neck: null },
+      courant: { onBox: { x: 26, y: 41, w: 40, h: 24 }, anchors: { hold: { x: 10, y: 64, size: 16, rotation: 0 }, collar: { x: 35, y: 38, size: 14, rotation: 30 } }, neck: null },
+    },
+    provenance: DERIVED,
+  },
+  rabbit: {
+    name: 'rabbit', plural: 'rabbits', article: 'a', category: 'beast',
+    typeClass: 'hare', typeOf: 'hare', typeToken: null, postureClass: 'quadruped', birdShape: null,
+    postures: ['sejant', 'courant'], defaultPosture: 'sejant', scaDefaultPosture: null, postureWording: {},
+    faces: true, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'animate', allowed: [], wording: {} },
+    forms: [], mods: [], details: WINGED, parts: ['collared'], holds: ['maintaining', 'sustaining'],
+    demiCut: null, long: false, scale: 1.05, detail: 1, proper: PROPER.brown,
+    glossName: 'rabbit', glossPlural: 'rabbits', plain: null, search: [],
+    headName: null, holdable: false, pairedWings: false,
+    drawings: {
+      sejant: { onBox: { x: 29, y: 48, w: 38, h: 30 }, anchors: { hold: { x: 35, y: 88, size: 14, rotation: 0 }, collar: { x: 38, y: 47, size: 14, rotation: 20 }, wings: { x: 68, y: 35, size: 40, rotation: 20 } }, neck: null },
+      courant: { onBox: { x: 26, y: 41, w: 40, h: 24 }, anchors: { hold: { x: 10, y: 64, size: 16, rotation: 0 }, collar: { x: 35, y: 38, size: 14, rotation: 30 } }, neck: null },
+    },
+    provenance: DERIVED,
   },
 } satisfies Record<string, ChargeMetaRow>;

@@ -3,7 +3,7 @@
 // wanted, so nothing in src imports this module but index.ts (tests and the art tools may).
 
 import type { ArtKey } from '../types';
-import type { ChargeId } from '../../charges';
+import type { AliasId, ChargeId } from '../../charges';
 import { MAIN_ART } from './main';
 import { PATHS_BEAST } from './beast';
 import { PATHS_MONSTER } from './monster';
@@ -14,7 +14,7 @@ import { PATHS_CROSS } from './cross';
 import { PATHS_OBJECT } from './object';
 import { PATHS_MODERN } from './modern';
 
-/** One path per drawing in viewBox 0 0 100 100, drawn with fill-rule evenodd. */
-export const CHARGE_ART: Readonly<Record<ChargeId, Readonly<Partial<Record<ArtKey, string>>>>> = Object.freeze({
+/** The art of every charge but the aliases: one path per drawing in viewBox 0 0 100 100, drawn with fill-rule evenodd. */
+export const CHARGE_ART: Readonly<Record<Exclude<ChargeId, AliasId>, Readonly<Partial<Record<ArtKey, string>>>>> = Object.freeze({
   ...MAIN_ART, ...PATHS_BEAST, ...PATHS_MONSTER, ...PATHS_BIRD, ...PATHS_PLANT, ...PATHS_GEOMETRIC, ...PATHS_CROSS, ...PATHS_OBJECT, ...PATHS_MODERN,
 });

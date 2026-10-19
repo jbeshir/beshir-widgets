@@ -6,8 +6,7 @@ import {
   CHARGE_IDS, CHARGES, CORE_ART_IDS, MODIFIER_ART, OVERLAY_PIECES, PIERCED_MULLETS, POINTED_STARS, bboxOf, derivedPath, isTurnedPosture, pathRings, ringDepths, ringProblems,
   type ArtKey, type ChargeId, type DrawingMeta,
 } from '../src/lib/heraldry';
-import { CHARGE_ART } from '../src/lib/heraldry/art/paths/all';
-import { rings } from './art-geometry';
+import { chargeArt, rings } from './art-geometry';
 
 type Rule = 'grammar' | 'points' | 'size' | 'centre' | 'hole' | 'rings' | 'bytes' | 'anchors' | 'neck';
 interface Problem { id: ChargeId; key: string; rule: Rule }
@@ -66,12 +65,12 @@ function allowedKeys(id: ChargeId): ArtKey[] {
   return [...(postures ? postures.flatMap((p): ArtKey[] => [p, `${p}~guardant`, `${p}~regardant`]) : ['_' as const]), 'head', 'demi'];
 }
 
-const drawingKeys = (id: ChargeId) => Object.keys(CHARGE_ART[id]) as ArtKey[];
+const drawingKeys = (id: ChargeId) => Object.keys(chargeArt(id)) as ArtKey[];
 
 describe('the charge art', () => {
   it('keeps the house style: path grammar, size, centring, holes, rings that do not overlap, bytes, anchors and necks', () => {
     const problems: Problem[] = CHARGE_IDS.flatMap((id) => drawingKeys(id).flatMap((key) =>
-      drawingProblems(CHARGE_ART[id][key]!, CHARGES[id].drawings[key]!).map((rule) => ({ id, key, rule }))));
+      drawingProblems(chargeArt(id)[key]!, CHARGES[id].drawings[key]!).map((rule) => ({ id, key, rule }))));
     expect(problems).toEqual(LEGACY_ART_EXEMPT);
   });
 
@@ -101,11 +100,11 @@ describe('the charge art', () => {
   });
 
   it('stays within the byte budget of a charge', () => {
-    for (const id of CHARGE_IDS) expect(drawingKeys(id).reduce((n, key) => n + CHARGE_ART[id][key]!.length, 0), id).toBeLessThanOrEqual(MAX_CHARGE_BYTES);
+    for (const id of CHARGE_IDS) expect(drawingKeys(id).reduce((n, key) => n + chargeArt(id)[key]!.length, 0), id).toBeLessThanOrEqual(MAX_CHARGE_BYTES);
   });
 
   it('reads the same rings as the art tests do', () => {
-    for (const id of CHARGE_IDS) for (const key of drawingKeys(id)) expect(pathRings(CHARGE_ART[id][key]!), `${id} ${key}`).toEqual(rings(CHARGE_ART[id][key]!));
+    for (const id of CHARGE_IDS) for (const key of drawingKeys(id)) expect(pathRings(chargeArt(id)[key]!), `${id} ${key}`).toEqual(rings(chargeArt(id)[key]!));
   });
 
   it('has a drawing for every drawn posture but one turned from another (urinant), or one posture-less drawing, and no other', () => {

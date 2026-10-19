@@ -29,9 +29,9 @@ const withDetail = (detail: string) => CHARGE_IDS.filter((id) => (CHARGES[id].de
 describe('parts and details drawn as pieces (PLAN-D §0.3.5, §1.4)', () => {
   it('are taken by the charges art batch A3 anchored: crowned only animate charges (M11), winged the A3 list, enflamed and slipped as planned', () => {
     expect(withPart('crowned')).toEqual(['lion', 'wolf', 'boar', 'stag', 'fish', 'unicorn', 'dragon', 'eagle', 'owl', 'cat', 'griffin']);
-    expect(withPart('collared')).toEqual(['lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'unicorn', 'dragon', 'cat', 'bear', 'horse', 'swan']);
-    expect(withDetail('winged')).toEqual(['lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'unicorn', 'heart']);
-    expect(withDetail('enflamed')).toEqual(['heart', 'sword', 'roundel']);
+    expect(withPart('collared')).toEqual(['lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'unicorn', 'dragon', 'cat', 'bear', 'horse', 'swan', 'coney', 'rabbit']);
+    expect(withDetail('winged')).toEqual(['lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'unicorn', 'heart', 'coney', 'rabbit']);
+    expect(withDetail('enflamed')).toEqual(['heart', 'sword', 'roundel', 'rapier', 'dagger']);
     expect(withDetail('slipped')).toEqual(['rose', 'oak-leaf', 'acorn']);
     expect(CHARGE_IDS.filter((id) => CHARGES[id].pairedWings)).toEqual(['heart']);
     // the overlay pieces are not charges

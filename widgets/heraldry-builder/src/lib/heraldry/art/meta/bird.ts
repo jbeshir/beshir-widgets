@@ -2,7 +2,7 @@
 // (charges.ts) adds the id and the default facing to each row.
 
 import type { ChargeMetaRow } from '../types';
-import { HAND_DRAWN, PROPER } from './common';
+import { DERIVED, HAND_DRAWN, PROPER } from './common';
 
 export const META_BIRD = {
   eagle: {
@@ -49,9 +49,9 @@ export const META_BIRD = {
     glossName: 'wing', glossPlural: 'wings', plain: null, search: ['dexter wing', 'feathered wing'],
     headName: null, holdable: false, pairedWings: false,
     drawings: {
-      _: { onBox: { x: 35, y: 33, w: 22, h: 22 }, anchors: {}, neck: null },
+      _: { onBox: { x: 35, y: 14, w: 36, h: 36 }, anchors: {}, neck: null },
     },
-    provenance: { origin: 'original', author: 'phase-D art pipeline, A3, claude-opus-5-5 drawer', date: '2026-10-18', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied' },
+    provenance: { origin: 'original', author: 'phase-D art pipeline, A3w, claude-opus-5-5 drawer', date: '2026-10-19', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied' },
   },
   phoenix: {
     name: 'phoenix', plural: 'phoenixes', article: 'a', category: 'bird',
@@ -161,5 +161,36 @@ export const META_BIRD = {
       close: { onBox: { x: 36, y: 56, w: 40, h: 18 }, anchors: { collar: { x: 25, y: 44, size: 13, rotation: 0 } }, neck: null },
     },
     provenance: { origin: 'original', author: 'phase-D art pipeline, B3, claude-opus-5-5 drawer', date: '2026-10-18', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied' },
+  },
+  hawk: {
+    name: 'hawk', plural: 'hawks', article: 'a', category: 'bird',
+    typeClass: 'regular-bird', typeOf: 'raven', typeToken: null, postureClass: 'bird', birdShape: 'regular',
+    postures: ['close', 'rising'], defaultPosture: 'close', scaDefaultPosture: 'close', postureWording: {},
+    faces: true, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'animate', allowed: [], wording: {} },
+    forms: [], mods: [], details: [], parts: [], holds: ['in-beak'],
+    demiCut: null, long: false, scale: 1, detail: 1, proper: null,
+    glossName: 'hawk', glossPlural: 'hawks', plain: null, search: [],
+    headName: null, holdable: false, pairedWings: false,
+    drawings: {
+      close: { onBox: { x: 38, y: 39, w: 18, h: 25 }, anchors: { beak: { x: 21, y: 17, size: 12, rotation: 0 } }, neck: null },
+      rising: { onBox: { x: 37, y: 53, w: 16, h: 20 }, anchors: { beak: { x: 10, y: 32, size: 11, rotation: 0 } }, neck: null },
+    },
+    provenance: DERIVED,
+  },
+  vol: {
+    name: 'vol', plural: 'vols', article: 'a', category: 'bird',
+    typeClass: 'wing', typeOf: null, typeToken: null, postureClass: null, birdShape: 'regular',
+    postures: null, defaultPosture: null, scaDefaultPosture: null, postureWording: {},
+    faces: false, facingCounts: 'normal',
+    orient: { drawn: 'palewise', cls: 'compact-top', allowed: [], wording: {} },
+    forms: [], mods: [], details: [], parts: [], holds: [],
+    demiCut: null, long: false, scale: 1, detail: 0, proper: null,
+    glossName: 'pair of wings', glossPlural: 'pairs of wings', plain: null, search: ['pair of wings', 'two wings'],
+    headName: null, holdable: false, pairedWings: false,
+    drawings: {
+      _: { onBox: null, anchors: {}, neck: null },
+    },
+    provenance: DERIVED,
   },
 } satisfies Record<string, ChargeMetaRow>;

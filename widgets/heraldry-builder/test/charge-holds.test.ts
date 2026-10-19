@@ -25,7 +25,7 @@ const inBox = (d: string) => { const b = box(d); return b.x0 >= 0 && b.y0 >= 0 &
 
 describe('held items (PLAN-D §1.5)', () => {
   it('are held by the charges with a paw, beak or mouth anchor and are the charges that may be held', () => {
-    expect(CHARGE_IDS.filter((id) => CHARGES[id].holdable)).toEqual(['rose', 'fleur-de-lis', 'mullet', 'key', 'sword', 'anchor', 'cross-crosslet', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident', 'escallop', 'thistle', 'oak-leaf', 'acorn', 'pomegranate', 'garb', 'goblet', 'chalice', 'bell', 'tankard']);
+    expect(CHARGE_IDS.filter((id) => CHARGES[id].holdable)).toEqual(['rose', 'fleur-de-lis', 'mullet', 'key', 'sword', 'anchor', 'cross-crosslet', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident', 'escallop', 'thistle', 'oak-leaf', 'acorn', 'pomegranate', 'garb', 'goblet', 'chalice', 'bell', 'tankard', 'rapier', 'dagger']);
     expect(Object.fromEntries(CHARGE_IDS.filter((id) => CHARGES[id].holds.length > 0).map((id) => [id, CHARGES[id].holds]))).toEqual({
       lion: ['maintaining', 'sustaining', 'in-mouth'], wolf: ['maintaining', 'sustaining', 'in-mouth'], boar: ['in-mouth'], goat: ['maintaining', 'sustaining'],
       hare: ['maintaining', 'sustaining'], fish: ['in-mouth'], unicorn: ['maintaining', 'sustaining'], dragon: ['maintaining', 'sustaining', 'in-mouth'],
@@ -34,6 +34,8 @@ describe('held items (PLAN-D §1.5)', () => {
       cat: ['maintaining', 'sustaining'], bear: ['maintaining', 'sustaining', 'in-mouth'], horse: ['in-mouth'], fox: ['maintaining', 'sustaining'], squirrel: ['maintaining', 'sustaining'],
       // the birds are drawn with a beak; the griffin and the wyvern with a paw; the swan, peacock and the sea-creatures with neither
       raven: ['in-beak'], griffin: ['maintaining', 'sustaining'], phoenix: ['in-beak'], wyvern: ['maintaining', 'sustaining'], falcon: ['in-beak'], martlet: ['in-beak'], dove: ['in-beak'],
+      // the aliases are drawn as the hawk's falcon and the coney's and rabbit's hare
+      hawk: ['in-beak'], coney: ['maintaining', 'sustaining'], rabbit: ['maintaining', 'sustaining'],
     });
     // a crown is worn, not held (H4)
     expect(CHARGES.crown.holdable).toBe(false);
