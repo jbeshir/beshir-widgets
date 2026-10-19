@@ -4,6 +4,7 @@
 // Availability UI. Same code on client (instant feedback) and Worker (authoritative).
 
 import { capitalise } from './words';
+import type { BirdShape } from './art/types';
 import { CHARGES, postureTerm, type ChargeId, type Orientation, type Posture, type PostureClass, type TypeClass } from './charges';
 import {
   asParty, asVariation, canonical, canonicalLines, fieldParts, fimbriationOf, groupAt, hostOf, isFieldPrimary, isVoided, itemKey, itemName, notSupported, primaryGroups,
@@ -540,17 +541,35 @@ function fieldChanges(a: Design, b: Design): Diff[] {
   return [...changes, substantial ? change('field-tincture', 'sc', 'A5F2', null) : change('field-tincture', 'dc', 'A5G1a', null)];
 }
 
+/**
+ * §1.6 T6 (App M1d; CL 04/2024, CL 02/2025): birds of different shapes (regular, swan, poultry) are one class, yet they are a substantial
+ * change apart when both are in postures the period drew for their shape — close, rising (also with wings displayed), and a swan's naiant —
+ * and a distinct change only otherwise ("There is not an SC between birds displayed"). A bird with no posture (the owl) is close.
+ * Null for any other pair, birds of one shape included (the posture lines and the type tokens decide those).
+ */
+function birdShapeChange(x: Item, y: Item): ChangeKind | null {
+  if (x.k !== 'charge' || y.k !== 'charge') return null;
+  const [mx, my] = [CHARGES[x.charge], CHARGES[y.charge]];
+  if (mx.birdShape === null || my.birdShape === null || mx.birdShape === my.birdShape || mx.typeClass !== my.typeClass) return null;
+  return periodBirdPosture(mx.birdShape, x.posture) && periodBirdPosture(my.birdShape, y.posture) ? 'sc' : 'dc';
+}
+
+/** Whether the period drew a bird of this shape in this posture (T6): close and rising for every shape, naiant for a swan; none (the owl) is close. */
+const periodBirdPosture = (shape: BirdShape, posture: Posture | null): boolean =>
+  posture === null || posture === 'close' || posture === 'rising' || (shape === 'swan' && posture === 'naiant');
+
 /** A5E2–A5E5: the substantial changes between two primary groups. */
 function primaryChanges(x: Side, y: Side): Diff[] {
   const ref = refOf(x, y);
   const out: Diff[] = [];
-  if (conflictKey(x.group.item) !== conflictKey(y.group.item)) out.push(change('type', 'sc', 'A5E2', ref));
+  const shapes = birdShapeChange(x.group.item, y.group.item);
+  if (conflictKey(x.group.item) !== conflictKey(y.group.item) || shapes === 'sc') out.push(change('type', 'sc', 'A5E2', ref));
   if (countCategory(x.group.count) !== countCategory(y.group.count)) out.push(change('number', 'sc', 'A5E3', ref));
   const gx = arrangementGroup(x.group), gy = arrangementGroup(y.group);
   if (gx !== null && gy !== null && gx !== gy && !isForced(x.design, x.path) && !isForced(y.design, y.path)) {
     out.push(change('arrangement', 'sc', 'A5E4', ref));
   }
-  const postures = comparablePostures(x.group.item, y.group.item);
+  const postures = shapes === 'dc' ? null : comparablePostures(x.group.item, y.group.item);
   if (postures) {
     const lines = POSTURE_SC_LINES[postures.cls];
     const lx = lines[postures.px], ly = lines[postures.py];

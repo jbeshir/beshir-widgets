@@ -257,6 +257,18 @@ describe('the primary group (A5E)', () => {
     expect(between(on('bear', { posture: 'rampant' }), on('wolf', { posture: 'rampant' }))).toEqual(['type:sc:A5E2']);
     expect(between(on('horse', { posture: 'passant' }), on('wolf', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
     expect(between(on('squirrel'), on('hare'))).toEqual(['type:sc:A5E2']);
+    // art batch B2: the wyvern is a DC from the dragon (App M1e), the pegasus from the horse (Vagn Feilan 11/2014); the griffin and the sea-creatures are types of their own
+    expect(between(on('wyvern', { posture: 'statant' }), on('dragon', { posture: 'passant' }))).toEqual(['type:dc:A5G4']);
+    expect(between(on('pegasus', { posture: 'passant' }), on('horse', { posture: 'passant' }))).toEqual(['type:dc:A5G4']);
+    expect(between(on('griffin', { posture: 'passant' }), on('lion', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('griffin', { posture: 'passant' }), on('dragon', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('sea-lion'), on('lion'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('seahorse'), on('horse', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('seahorse'), on('sea-lion'))).toEqual(['type:sc:A5E2']);
+    // art batch B3: a falcon is a raven (Teodr' Viktorov 08/2023); the other birds are one class by shape (T6, below)
+    expect(between(on('falcon', { posture: 'close' }), on('raven', { posture: 'close' }))).toEqual([]);
+    expect(between(on('falcon', { posture: 'rising' }), on('raven', { posture: 'rising' }))).toEqual([]);
+    expect(between(on('dove'), on('martlet'))).toEqual(['type:dc:A5G4']);
     expect(between(on('lion'), design('azure', ord('fess', 'or')))).toEqual(['type:sc:A5E2']);
   });
 
@@ -795,6 +807,22 @@ describe('postures (PLAN-D §1.2 P1–P3, P7)', () => {
     expect(between(on('eagle', 'close'), undrawn('eagle', 'naiant'))).toEqual([]);
     expect(between(on('eagle', 'displayed'), on('eagle', 'volant'))).toEqual(['posture:dc:A5G7']);
     expect(between(on('eagle', 'displayed'), on('eagle', 'close'))).toEqual(['posture:sc:A5E5']);
+  });
+
+  it('T6: birds of different shapes are a substantial change apart in the postures the period drew (close, rising, a swan naiant), a distinct change otherwise', () => {
+    expect(between(on('swan', 'close'), on('raven', 'close'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('peacock', 'close'), on('eagle', 'close'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('swan', 'rising'), on('raven', 'close'))).toEqual(['type:sc:A5E2', 'posture:sc:A5E5']);
+    expect(between(undrawn('swan', 'naiant'), on('raven', 'close'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('swan', 'rising'), nd(arms('azure', chg('owl', 'or'))))).toEqual(['type:sc:A5E2']);
+    // "There is not an SC between birds displayed" (CL 04/2024): a DC, and none from the postures either
+    expect(between(undrawn('swan', 'displayed'), on('eagle', 'displayed'))).toEqual(['type:dc:A5G4']);
+    expect(between(undrawn('peacock', 'volant'), on('eagle', 'volant'))).toEqual(['type:dc:A5G4']);
+    expect(between(undrawn('raven', 'naiant'), undrawn('swan', 'naiant'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('swan', 'close'), on('eagle', 'displayed'))).toEqual(['type:dc:A5G4', 'posture:dc:A5G7']);
+    // birds of one shape: the posture lines decide as before
+    expect(between(on('raven', 'close'), on('eagle', 'displayed'))).toEqual(['posture:sc:A5E5', 'type:dc:A5G4']);
+    expect(between(on('raven', 'close'), on('raven', 'rising'))).toEqual(['posture:sc:A5E5']);
   });
 
   it('P3: a fish haurient against urinant is no difference; P7: a beast and a bird are not compared by posture', () => {

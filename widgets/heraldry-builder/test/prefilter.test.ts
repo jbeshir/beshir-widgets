@@ -38,6 +38,13 @@ describe('too-close pre-filter', () => {
   const registry = registryFrom(withBadges(generatedDesigns(1, 120), 3));
   const probes = withBadges(generatedDesigns(10_000, 1500), 5);
 
+  it('returns birds of different shapes together: a swan displayed and an eagle displayed (T6, a DC only)', () => {
+    const bird = (id: string, posture: string) => nd(arms('azure', group(charge(id, { posture }), 'or')));
+    expect(sameKey(bird('swan', 'displayed'), bird('eagle', 'displayed'))).toBe(true);
+    const [a, b] = [bird('swan', 'displayed'), bird('eagle', 'displayed')];
+    expect(checkUnique(a, signature(a), registryFrom([b])).kind).toBe('too-close');
+  });
+
   it('gives the same verdict as scanning the whole registry', () => {
     const outcomes = new Set<string>();
     for (const probe of probes) {

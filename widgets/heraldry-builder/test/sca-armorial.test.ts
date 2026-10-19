@@ -318,6 +318,17 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a horse', arms('vert', group(charge('horse', { posture: 'courant' }), 'argent'))],
   ['a fox', arms('argent', group(charge('fox', { posture: 'sejant' }), 'gules'))],
   ['a squirrel', arms('azure', group(charge('squirrel'), 'or', { count: 3 }))],
+  ['a griffin passant', arms('azure', group(charge('griffin', { posture: 'passant' }), 'or'))],
+  ['griffins sejant', arms('gules', group(charge('griffin', { posture: 'sejant' }), 'argent', { count: 3 }))],
+  ['a wyvern erect', arms('vert', group(charge('wyvern', { posture: 'erect' }), 'or'))],
+  ['a pegasus passant', arms('azure', group(charge('pegasus', { posture: 'passant' }), 'argent'))],
+  ['a sea-horse contourny', arms('argent', group(charge('seahorse', { facing: 'to-sinister' }), 'azure'))],
+  ['a swan close', arms('azure', group(charge('swan', { posture: 'close' }), 'argent'))],
+  ['a swan', arms('azure', group(charge('swan'), 'argent'))],
+  ['a raven volant', arms('or', group(charge('raven', { posture: 'volant' }), 'sable'))],
+  ['a falcon rising', arms('or', group(charge('falcon', { posture: 'rising' }), 'gules'))],
+  ['three phoenixes', arms('argent', group(charge('phoenix'), 'gules', { count: 3 }))],
+  ['a peacock', arms('azure', group(charge('peacock'), 'argent'))],
   ['a horse\'s head and a bear\'s head', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'), group(charge('bear', { form: 'head', mods: ['erased'] }), 'or'))],
 ];
 
@@ -592,6 +603,27 @@ describe('the matcher reads the College\'s names for the beasts of art batch B1'
   });
 });
 
+
+// The monsters and birds of art batches B2 and B3 in the College's words: the spellings they use, and the swan rising is rousant (60 records
+// against 11 for "rising"; the posture is its default, so it is left unsaid).
+describe('the matcher reads the College\'s names for the monsters and birds of art batches B2 and B3', () => {
+  it.each([
+    ['Azure, a gryphon passant Or.', 'Azure, a griffin passant Or.'],
+    ['Gules, three griffons sejant argent.', 'Gules, three griffins sejant argent.'],
+    ['Vert, a wivern erect Or.', 'Vert, a wyvern erect Or.'],
+    ['Sable, a phenix Or.', 'Sable, a phoenix Or.'],
+    ['Argent, a sea horse azure.', 'Argent, a sea-horse azure.'],
+    ['Argent, three seahorses azure.', 'Argent, three sea-horses azure.'],
+    ['Or, a sea lion gules.', 'Or, a sea-lion gules.'],
+    ['Azure, a swan rousant argent.', 'Azure, a swan argent.'],
+    ['Azure, a swan rising argent.', 'Azure, a swan argent.'],
+    ['Azure, a swan close argent.', 'Azure, a swan close argent.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
 
 // What a main charge holds (PLAN-D §1.5), as the SCA writes it: maintaining or sustaining (holding, grasping, supporting), or in its beak or
 // mouth however it is held; "each" for more than one charge; the item's tincture as stated, else the next one stated.

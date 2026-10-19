@@ -89,6 +89,7 @@ export const CHARGE_IDS = [
   'cross-maltese', 'cross-celtic', 'cross-tau',
   'wing',
   'cat', 'bear', 'horse', 'fox', 'squirrel',
+  'raven', 'griffin', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'seahorse', 'peacock', 'martlet', 'dove', 'sea-lion',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
@@ -103,7 +104,7 @@ export const POPULAR_CHARGE_IDS: readonly ChargeId[] = [
   'key', 'open-book', 'sword', 'crown', 'anchor',
   'musical-note', 'flame', 'gear', 'lightbulb',
   'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
-  'cat', 'bear', 'horse', 'fox',
+  'cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix',
 ];
 
 /**
@@ -124,7 +125,7 @@ export const TYPE_CLASSES = {
   dragon: { source: 'App M1e names only the near kin of the dragon (wyvern, sea-dragon: a DC); no SENA example against the four-legged beasts', guess: true },
   fish: { source: 'A5C3/App M1b: most fish are one type; A5E2: clearly unrelated shapes are substantially different', guess: false },
   bee: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
-  'regular-bird': { source: 'App M1d: eagle and owl are both regular-shaped birds; LoAR 2024-26: "owls and eagles are both regular-shaped birds, there is a single DC" for their type', guess: false },
+  'regular-bird': { source: 'App M1d: every bird is one class, told apart by its shape (regular, swan, poultry: `birdShape`, PLAN-D T6); LoAR 2024-26: "owls and eagles are both regular-shaped birds, there is a single DC" for their type; Teodr\' Viktorov 08/2023: a raven is a falcon', guess: false },
   rose: { source: 'App M1i: few-petaled flowers in affronty view; foils are flowers of as many petals (01/2025 CL); precedent: "a substantial difference between a roundel and a rose"', guess: false },
   tree: { source: 'App M1h: trees conflict only with trees (generic vs coniferous a DC)', guess: false },
   'fleur-de-lys': { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
@@ -158,6 +159,9 @@ export const TYPE_CLASSES = {
   wing: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the feather or the bird', guess: true },
   bear: { source: 'A5G4: types distinct in period; bear vs wolverine no difference (Jurgen der Vielfrass 08/2018)', guess: true },
   horse: { source: 'A5G4: types distinct in period; William Ulfsson 08/2014: wolves\' heads vs horses\' heads "more than a DC"; pegasus is a horse +winged (Vagn Feilan 11/2014)', guess: false },
+  griffin: { source: 'A5G4: types distinct in period; A5G7a compares a griffin segreant only with an eagle displayed (postures not comparable); no SENA example against the dragon or the lion', guess: true },
+  seahorse: { source: 'A5E2: "two unicorns and a raven … does not conflict with … three sea-horses" (sea-monsters by type); App M3 lists sea-creatures among the tailed bipeds; no SENA example against the horse', guess: true },
+  'sea-lion': { source: 'A5G4: types distinct in period; App M3 lists sea-creatures among the tailed bipeds; no SENA example against the lion or the sea-horse', guess: true },
   squirrel: { source: 'A5G4: types distinct in period; no SENA example against the other beasts', guess: true },
   'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;

@@ -22,8 +22,8 @@ export type ChargeBucket = (typeof CHARGE_BUCKETS)[number];
 
 export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
   beast: 'a natural beast other than the lion, wolf, boar, stag, goat, hare, cat, bear, horse, fox and squirrel (deer, dog, tiger…), or a beast\'s head or limb',
-  bird: 'a bird other than the eagle and owl, a bird\'s head or limb, or a wing or feather',
-  monster: 'a heraldic monster other than the unicorn and dragon (griffin, wyvern, sea-creatures…)',
+  bird: 'a bird other than the eagle, owl, raven, falcon, swan, phoenix, peacock, martlet and dove, a bird\'s head or limb, or a wing or feather',
+  monster: 'a heraldic monster other than the unicorn, dragon, griffin, wyvern, pegasus, sea-horse and sea-lion (cockatrice, other sea-creatures…)',
   fish: 'a named fish, sea mammal, crustacean or shell (dolphin, whale, escallop…)',
   reptile: 'a reptile or amphibian (serpent, lizard, turtle, frog…)',
   insect: 'an insect, arachnid or other invertebrate other than the bee',
@@ -57,7 +57,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     attire antler massacre jambe jamb gamb gambe paw scalp
   `),
   bird: w(`
-    raven swan falcon hawk dove peacock peahen crane heron stork martlet alerion popinjay parrot cock rooster hen
+    hawk peahen crane heron stork alerion popinjay parrot cock rooster hen
     chicken crow corbie rook magpie jay goose duck drake swallow sparrow wren robin lark skylark nightingale
     blackbird thrush finch goldfinch linnet tit kingfisher hummingbird pelican ostrich emu penguin puffin gull
     seagull tern osprey kestrel merlin peregrine gyrfalcon vulture condor kite ibis flamingo chough cockatoo quail
@@ -65,7 +65,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     pigeon bluebird songbird corvid dodo eaglet owlet bird wing vol feather quill plume nest egg
   `),
   monster: w(`
-    griffin gryphon griffon phoenix wyvern wivern pegasus cockatrice basilisk sea-lion sealion sea-horse seahorse
+    cockatrice basilisk
     sea-unicorn sea-wolf seawolf sea-dog seadog sea-dragon seadragon sea-serpent sea-goat seagoat sea-stag
     sea-griffin sea-cat sea-bear sea-fox sea-boar sea-pegasus sea-coney sea-catamount sea-pithon sea-tyger
     pithon kraken mermaid merman melusine siren triton harpy centaur sagittary satyr sphinx manticore enfield alphyn
@@ -197,7 +197,7 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
 /** SCA words for the widget's own charges → ChargeId: each id, the College's other words for some, and the charges named for their tincture. Any other charge noun is a gap. */
 export const SUPPORTED_CHARGE_WORDS: Readonly<Record<string, ChargeId>> = {
   ...Object.fromEntries(CHARGE_IDS.map((id) => [id, id])),
-  'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet',
+  'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet', 'sea-horse': 'seahorse',
   // the charge's nouns for how it points ("increscent": a crescent fesswise)
   ...Object.fromEntries(CHARGE_IDS.flatMap((id) => Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [[w.name, id], [w.plural, id]] : [])))),
   ...Object.fromEntries(NAMED_TINCTURE_CHARGES.filter((n) => !n.word.includes(' ')).flatMap((n) => [[n.word, n.charge], [n.plural, n.charge]])),
@@ -217,6 +217,8 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   'cross-couped': 'cross', 'cross-latin': 'cross', 'cross-formy': 'cross', 'cross-bottony': 'cross', 'cross-moline': 'cross',
   'cross-flory': 'cross', 'cross-patonce': 'cross', 'cross-potent': 'cross', 'cross-maltese': 'cross', 'cross-celtic': 'cross',
   'cross-tau': 'cross', wing: 'bird', cat: 'beast', bear: 'beast', horse: 'beast', fox: 'beast', squirrel: 'beast',
+  raven: 'bird', griffin: 'monster', swan: 'bird', phoenix: 'bird', wyvern: 'monster', falcon: 'bird', pegasus: 'monster', seahorse: 'monster',
+  peacock: 'bird', martlet: 'bird', dove: 'bird', 'sea-lion': 'monster',
 };
 
 /** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */

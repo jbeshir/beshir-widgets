@@ -10,7 +10,7 @@
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
 // build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { blazon, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
+import { blazon, bodyTinctures, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, wordedAs, type MatchResult } from './match';
@@ -40,6 +40,17 @@ export interface Classification {
 // ── Checks ──────────────────────────────────────────────────────────────────
 
 
+/**
+ * Whether a design's divided field has parts that share a tincture. Only a main band over the line of a field in two parts makes that legal
+ * (SENA A3B3a; structure.ts), and the builder blocks a shared tincture (`fieldTinctureChoices`) unless it can set the part before the other
+ * (a fur or treatment) — so it cannot always build the design. Such designs are always replayed: the ratchet needs the verdict at once.
+ */
+function partsShareTincture(d: Design): boolean {
+  if (d.kind !== 'arms' || d.field.k !== 'divided') return false;
+  const { parts } = d.field;
+  return parts.some((p, k) => parts.slice(k + 1).some((q) => bodyTinctures(p).some((t) => bodyTinctures(q).includes(t))));
+}
+
 /** The design-only checks, once per distinct design: many records match the same one. */
 const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { drawnAndBuilt: boolean }>();
 
@@ -50,7 +61,7 @@ function checkDesign(design: Design, drawAndBuild: boolean) {
   if (!found || (drawAndBuild && !found.drawnAndBuilt)) {
     const a = assessMatched(design);
     const rendered = drawAndBuild ? checkRendered(design, renderShieldSvg(design)) : [];
-    const path = drawAndBuild ? builderPath(design) : null;
+    const path = drawAndBuild || partsShareTincture(design) ? builderPath(design) : null;
     found = {
       drawnAndBuilt: drawAndBuild,
       assess: a.kind === 'ok' ? null : `${a.kind === 'violation' ? a.status : a.kind}: ${a.issues.map((i) => i.message).join(' ')}`,
@@ -118,9 +129,9 @@ function layoutTag(design: Design, issue: Issue): string {
 }
 
 /** The widget's objections to a matched design, as finding tags; [] when it has none. */
-function findingTags(design: Design): string[] {
+function findingTags(design: Design, failures: readonly CheckFailure[]): string[] {
   const a = assessMatched(design);
-  if (a.kind !== 'violation') return [];
+  if (a.kind !== 'violation') return failures.some((f) => f.check === 'builder') && partsShareTincture(design) ? ['widget-structure-rule:field-parts-share-tincture'] : [];
   const tag = (i: Issue) => {
     // A construct the library reports only once the design is judged (charges Table 7 forces into one part).
     if (i.code === 'unsupported') return gapTag(i.gap);
@@ -152,9 +163,9 @@ function arrangementWording(m: MatchResult): string | null {
   return `blazon-wording-differs:${!widget ? 'sca-states-arrangement' : !sca ? 'widget-states-arrangement' : 'arrangement-differs'}`;
 }
 
-function gapTags(record: ArmoryRecord, m: MatchResult, options: ClassifyOptions): string[] | null {
+function gapTags(record: ArmoryRecord, m: MatchResult, failures: readonly CheckFailure[], options: ClassifyOptions): string[] | null {
   if (m.match) {
-    return findingTags(m.match.design!);
+    return findingTags(m.match.design!, failures);
   }
   const wording = arrangementWording(m);
   if (wording) return [wording];
@@ -168,7 +179,7 @@ function gapTags(record: ArmoryRecord, m: MatchResult, options: ClassifyOptions)
 export function classify(record: ArmoryRecord, options: ClassifyOptions = {}): Classification {
   const { match, failures } = checkBlazon(record.blazon, options);
   if (!failures.length) return { status: 'passes', failures, tags: [] };
-  const found = gapTags(record, match, options);
+  const found = gapTags(record, match, failures, options);
   if (!found) return { status: 'gap-unchecked', failures, tags: [] };
   const tags = [...new Set(found)].sort();
   return { status: tags.length ? 'gap' : 'fails', failures, tags };
