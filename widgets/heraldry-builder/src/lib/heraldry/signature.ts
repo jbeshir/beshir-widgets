@@ -39,7 +39,8 @@ function charge(c: Charge): string {
   const gaze = c.gaze ? `~gaze-${c.gaze}` : '';
   const facing = c.facing !== CHARGES[c.charge].defaultFacing ? `~facing-${c.facing}` : '';
   const orientation = c.orientation ? `~orient-${c.orientation}` : '';
-  return `c.${c.charge}${c.posture ? `.${c.posture}` : ''}${c.mods.map(modifier).join('')}${form}${gaze}${facing}${orientation}`;
+  const parts = c.parts.map((x) => `~part-${x.part}(${paint(x.paint)})`).join('');
+  return `c.${c.charge}${c.posture ? `.${c.posture}` : ''}${c.mods.map(modifier).join('')}${form}${gaze}${facing}${orientation}${parts}`;
 }
 
 function item(i: Item): string {

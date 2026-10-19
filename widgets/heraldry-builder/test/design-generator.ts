@@ -6,7 +6,10 @@
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
-import { CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, type ChargeId, type Design } from '../src/lib/heraldry';
+import {
+  CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, OVERLAY_MODIFIERS, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, walkGroups,
+  type ChargeId, type Design,
+} from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -383,7 +386,8 @@ const OUTLINED_CHARGES: readonly ChargeId[] = ['mullet', 'roundel', 'lozenge', '
  * or a simple geometric charge voided or fimbriated. About three in ten of the lions, wolves and eagles neither turned nor modified are a
  * head (half of them erased) or a demi charge. About three in ten of the whole beasts, eagles and fish neither turned nor modified are in
  * a posture they are drawn in (§1.2), half of those with the head turned where that posture is drawn so (the lion guardant or regardant,
- * §1.1 F4). Each later attribute step adds its picks after these. Null when the pick isn't registrable.
+ * §1.1 F4). About three in ten of the whole lions, roses and mullets neither turned nor modified are adorned (`adornedCharge`, §0.3.5).
+ * Each later attribute step adds its picks after these. Null when the pick isn't registrable.
  */
 function attributeDesignFor(seed: number): Design | null {
   const next = prng(seed ^ ATTRIBUTE_SEED);
@@ -412,7 +416,8 @@ function attributeDesignFor(seed: number): Design | null {
   const gazes = posture === null ? [] : (['guardant', 'regardant'] as const).filter((g) => CHARGE_META[id as ChargeId].drawings[`${posture}~${g}`]);
   const gaze = gazes.length > 0 && next() < 0.5 ? pick(gazes) : null;
   const posed = posture === null ? formed : { ...formed, item: { ...formed.item, posture, ...(gaze ? { gaze } : {}) } };
-  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, posed] : [posed];
+  const adorned = form === null && !turning && modifier === null && ADORNED.includes(id) && next() < 0.3 ? { ...posed, item: adornedCharge(id, posed.item, next, pick) } : posed;
+  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, adorned] : [adorned];
   const r = resolve({ v: 2, field, groups });
   if (!r.ok) return null;
   const n = normalise(r.design);
@@ -428,6 +433,26 @@ function modifiedCharge(roll: number, next: () => number, pick: <T>(xs: readonly
   if (roll < 0.5) return { k: 'charge', charge: 'mullet', mods: ['pierced'] };
   return { k: 'charge', charge: pick(OUTLINED_CHARGES), mods: [roll < 0.75 ? 'voided' : { id: 'fimbriated', paint: pick(TINCTURES) }] };
 }
+
+/** The charges the attribute designs give parts or details drawn as pieces (§0.3.5): the lion, the rose and the mullet (as a heart). */
+const ADORNED: readonly string[] = ['lion', 'rose', 'mullet'];
+
+/** A lion crowned, a rose slipped and leaved, or in the mullet's place a heart winged or enflamed (in a tincture or proper). */
+function adornedCharge(id: string, item: object, next: () => number, pick: <T>(xs: readonly T[]) => T): object {
+  if (id === 'lion') return { ...item, parts: [{ part: 'crowned', paint: pick(TINCTURES) }] };
+  if (id === 'rose') {
+    const paint = pick(TINCTURES);
+    return { ...item, mods: [{ id: 'slipped', paint }, { id: 'leaved', paint }] };
+  }
+  return { k: 'charge', charge: 'heart', mods: [next() < 0.5 ? { id: 'winged', paint: pick(TINCTURES) } : { id: 'enflamed', paint: next() < 0.5 ? 'proper' : pick(TINCTURES) }] };
+}
+
+/**
+ * Whether a design has no charge with a part or detail drawn as a piece (crowned, collared, winged, enflamed, slipped, leaved): the builder
+ * and the SCA matcher reach those in PLAN-D D9b, until then builder-layers-reach and the SCA round trip leave them out.
+ */
+export const unadorned = (d: Design): boolean =>
+  walkGroups(d).every(({ group: { item } }) => item.k !== 'charge' || (item.parts.length === 0 && !item.mods.some((m) => OVERLAY_MODIFIERS.includes(m.id))));
 
 /** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */
 export function generatedChargeAttributeDesigns(seed: number, count: number): Design[] {

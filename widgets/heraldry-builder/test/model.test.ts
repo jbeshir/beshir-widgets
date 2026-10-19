@@ -468,8 +468,8 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 58 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(58);
+  it('has the 59 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(59);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');

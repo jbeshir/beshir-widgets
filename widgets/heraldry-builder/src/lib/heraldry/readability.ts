@@ -11,6 +11,7 @@ import { adjacentParts } from './divisions';
 import { defaultLayoutOf } from './arrangement';
 import { fieldTinctures, replaceGroup, walkGroups, type Charge, type Design, type Group, type WalkedGroup } from './design';
 import { drawnBox } from './charge-art';
+import { overlaidArt } from './overlay-art';
 import { canonicalSlots } from './layout';
 import { chargeWords, ordinaryWords } from './plain-words';
 import { designTinctures } from './render';
@@ -96,8 +97,9 @@ function lighterCount(d: Design, { path, group, host }: WalkedGroup): number | n
 /** A star of eight points or more (§1.4 M5) has finer points than the star as drawn: one point of detail more than its drawing. */
 const MANY_POINTS = 8;
 
-/** How much fine detail a charge carries: its drawing's, one more for a star of many points. */
-const chargeDetail = (c: Charge): number => CHARGES[c.charge].detail + ((c.mods.find((m) => m.id === 'of-points')?.count ?? 0) >= MANY_POINTS ? 1 : 0);
+/** How much fine detail a charge carries: its drawing's, one more for a star of many points, one more for each piece its parts and details draw. */
+const chargeDetail = (c: Charge): number =>
+  CHARGES[c.charge].detail + ((c.mods.find((m) => m.id === 'of-points')?.count ?? 0) >= MANY_POINTS ? 1 : 0) + overlaidArt(c).overlays.length;
 
 export function readability(d: Design): Readability {
   const entries = walkGroups(d);

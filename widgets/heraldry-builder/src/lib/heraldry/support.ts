@@ -6,10 +6,11 @@ import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
 import { CHARGES, CUT_MODIFIERS, STAR_POINTS, isChargeId, type Gaze } from './charges';
 import { chargeOnBox } from './charge-art';
+import { OVERLAY_MODIFIERS, pieceAnchored } from './overlay-art';
 import { liesAstride, specOf } from './ordinary-geometry';
 import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, partCount, type Division, type Variation } from './divisions';
 import {
-  asParty, asSemy, asTreated, walkGroups, type Charge, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Modifier, type Paint, type UnsupportedIssue,
+  asParty, asSemy, asTreated, walkGroups, type Charge, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Modifier, type Paint, type PartPaint, type UnsupportedIssue,
 } from './design';
 import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isDiminutive, isOrdinaryType, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import {
@@ -173,14 +174,15 @@ function itemGaps(item: Item): Found[] {
   // An orientation is drawn by turning the art (pose.ts) for the charges whose sidecar allows it; anything else keeps its gap.
   if (item.orientation && !meta.orient.allowed.includes(item.orientation)) gaps.push(gap('orientation', item.orientation));
   for (const m of item.mods) if (!modifierDrawn(item, m)) gaps.push(gap('charge-modifier', m.id));
-  for (const p of item.parts) gaps.push(gap('charge-modifier', p.part));
+  for (const p of item.parts) if (!partDrawn(item, p)) gaps.push(gap('charge-modifier', p.part));
   for (const h of item.holds) gaps.push(gap('charge-modifier', h.how));
   return gaps;
 }
 
 /**
  * Whether a charge's modifier is drawn (PLAN-D §1.4): one its sidecar row takes, with what it needs and nothing else — a star of 4 to 12
- * points, a fimbriation of one tincture; a head's cut, couped or erased (a whole or demi charge takes none).
+ * points, a fimbriation of one tincture; a head's cut, couped or erased (a whole or demi charge takes none); a piece (overlay-art.ts) in one
+ * tincture where its drawing has the anchor for it — wings, a slip with leaves only on a slip, flames (in a tincture or proper).
  */
 function modifierDrawn(item: Charge, m: Modifier): boolean {
   const meta = CHARGES[item.charge];
@@ -188,8 +190,19 @@ function modifierDrawn(item: Charge, m: Modifier): boolean {
   if (!meta.mods.includes(m.id) && !meta.details.includes(m.id)) return false;
   if (m.id === 'of-points') return m.count !== null && STAR_POINTS.includes(m.count) && m.paint === null;
   if (m.id === 'fimbriated') return m.count === null && m.paint?.k === 'tincture';
+  if (OVERLAY_MODIFIERS.includes(m.id)) {
+    const painted = m.paint?.k === 'tincture' || (m.id === 'enflamed' && m.paint?.k === 'proper');
+    return m.count === null && painted && pieceAnchored(item, m.id) && (m.id !== 'leaved' || item.mods.some((x) => x.id === 'slipped'));
+  }
   return m.count === null && m.paint === null;
 }
+
+/**
+ * Whether a charge's part is drawn (PLAN-D §1.4 M11, M12, M15): crowned or collared in one tincture, where its sidecar row takes it (crowned
+ * only on an animate charge or a head: a crowned mullet stays a gap) and its drawing has the anchor; armed, langued and the rest are gaps.
+ */
+const partDrawn = (item: Charge, p: PartPaint): boolean =>
+  CHARGES[item.charge].parts.includes(p.part) && p.paint.k === 'tincture' && pieceAnchored(item, p.part);
 
 /** Whether a charge has a drawing of its posture with the head turned that way. */
 export const gazeDrawn = (item: Charge, gaze: Gaze): boolean =>

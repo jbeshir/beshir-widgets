@@ -9,7 +9,7 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureWords, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation } from './charges';
+import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureWords, type ChargeCategory, type ChargeId, type Facing, type ModifierId, type Orientation, type PartId } from './charges';
 import type { OrientWording } from './art/types';
 import { asParty, asSemy, asTreated, asVariation, fimbriationOf, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
@@ -17,6 +17,7 @@ import { lineWords, ordinaryEdgeHost } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
 import { contextOf, cornerBesideBend, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
+import { OVERLAY_MODIFIERS } from './overlay-art';
 
 function paintWord(p: Paint): string {
   switch (p.k) {
@@ -116,12 +117,32 @@ const WORDING_ORDER: readonly ModifierId[] = ['of-points', ...MODIFIER_IDS.filte
 function modifiersWords(c: Charge): string[] {
   const words = (m: Modifier): string[] => {
     if (c.form === 'head' && CUT_MODIFIERS.includes(m.id)) return [];
-    if (m.id === 'fimbriated' && m.count === null && m.paint !== null) return [];
+    if ((m.id === 'fimbriated' || OVERLAY_MODIFIERS.includes(m.id)) && m.count === null && m.paint !== null) return [];
     if (m.id === 'of-points' && m.count !== null && m.paint === null && drawnPoints(c.charge) !== null) return [`of ${numberWord(m.count)} ${pointsWord(c.charge)}`];
     const word = MODIFIER_WORDS[m.id];
     return word !== undefined && m.count === null && m.paint === null ? [word] : notSupported({ category: 'charge-modifier', detail: m.id });
   };
   return [...c.mods].sort((x, y) => WORDING_ORDER.indexOf(x.id) - WORDING_ORDER.indexOf(y.id)).flatMap(words);
+}
+
+/** The parts the builder words, after the charge's tincture ("a lion Or crowned gules"). */
+const PART_WORDS: Partial<Record<PartId, string>> = { crowned: 'crowned', collared: 'collared' };
+
+/**
+ * A charge's pieces in words after its tincture, each with its own (PLAN-D §0.3.5): its modifiers with a paint, then its parts — "slipped and
+ * leaved vert", "winged Or", "enflamed proper", "crowned gules". Pieces of one paint in a row share it ("crowned and collared Or"). A
+ * piece of the charge's own tincture leaves the charge's unsaid ("a heart winged Or", "a lion crowned Or"): the corpus never writes the
+ * tincture twice ("a heart Or winged Or" 0; "heart winged Or" and the like 60, crowned 35, collared 18, slipped and leaved 463).
+ */
+function piecesWords(c: Charge): Array<{ text: string; paint: string }> {
+  const pieces = [
+    ...c.mods.filter((m) => OVERLAY_MODIFIERS.includes(m.id)).map((m) => ({ word: m.id, paint: m.paint })),
+    ...c.parts.map((p) => ({ word: PART_WORDS[p.part] ?? notSupported({ category: 'charge-modifier', detail: p.part }), paint: p.paint })),
+  ].map(({ word, paint }) => ({ word, paint: paint ? paintWord(paint) : notSupported({ category: 'charge-modifier', detail: word }) }));
+  return pieces.reduce<Array<{ text: string; paint: string }>>((out, { word, paint }) => {
+    const last = out[out.length - 1];
+    return last?.paint === paint ? [...out.slice(0, -1), { text: `${last.text} and ${word}`, paint }] : [...out, { text: word, paint }];
+  }, []);
 }
 
 /** The word for which way a charge faces, after its posture (R§F.3): none as drawn, "contourny" (no final -e), "affronty". */
@@ -321,6 +342,7 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     // azure"). What follows may share the trim's ("a chevron gules fimbriated between three lions argent").
     const fimbriation = g.item.k === 'charge' ? fimbriationOf(g.item) : null;
     if (fimbriation) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriation), strewn: '', linked: false, lead: ' ', joiner: ', ' });
+    if (g.item.k === 'charge') for (const piece of piecesWords(g.item)) out.push({ kind: 'trim', ...piece, strewn: '', linked: true, lead: ' ', joiner: ', ' });
     if (g.item.k !== 'ordinary') return;
     const { type, lines, fimbriated, cotised } = g.item;
     if (fimbriated) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriated), strewn: '', linked: false, lead: ' ', joiner: ', ' });
