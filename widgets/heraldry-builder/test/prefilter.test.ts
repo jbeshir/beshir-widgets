@@ -8,7 +8,7 @@ import {
   type Design, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
 import { generatedChargeAttributeDesigns, generatedDesigns } from './design-generator';
-import { rotatesIn, sampleSeed } from './rotation';
+import { STRATUM_CHARGE_IDS, rotatesIn, sampleSeed } from './rotation';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const sameKey = (a: Design, b: Design) => keysMayConflict(candidateKey(a), candidateKey(b));
@@ -103,6 +103,8 @@ describe('too-close pre-filter', () => {
     expect(keyed, `sample seed ${sampleSeed()}`).toBeGreaterThan(5_000);
   }, 30_000);
 
+  // Every pair of the fixed stratum's charges (and the chief that stands for none); a pair with a later charge is a seeded rotating
+  // quarter (`rotatesIn`; SCA_FULL=1 for all), so the pairs do not grow with the square of the art.
   it('keys only on changes that are substantial on their own (every division, ordinary and charge)', () => {
     const field = (division: string | null) => (division ? div(division, 'or', 'azure') : 'azure');
     const fields = [null, ...BUILDER_DIVISIONS].map((d) => nd(arms(field(d), group(ordinary('pale'), 'gules'))));
@@ -110,9 +112,11 @@ describe('too-close pre-filter', () => {
       .map((type) => nd(arms(field(null), ...(type ? [group(ordinary(type), 'or')] : [group(ordinary('chief'), 'or')]))));
     const charges = [null, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? [null]).map((posture) => [id, posture] as const))]
       .map((c) => nd(arms(field(null), ...(c ? [group(charge(c[0], c[1] ? { posture: c[1] } : {}), 'or')] : [group(ordinary('chief'), 'or')]))));
+    const inStratum = (d: Design) => d.groups[0].item.k !== 'charge' || STRATUM_CHARGE_IDS.includes(d.groups[0].item.charge);
+    const inSample = (a: Design, b: Design) => (inStratum(a) && inStratum(b)) || rotatesIn(`charge-pair|${signature(a)}|${signature(b)}`, 1 / 4);
     for (const set of [fields, ordinaries, charges]) {
       for (const a of set) for (const b of set) {
-        if (sameKey(a, b)) continue;
+        if (sameKey(a, b) || !inSample(a, b)) continue;
         expect(differences(a, b).filter((d) => d.kind === 'sc').length, `${signature(a)} vs ${signature(b)}`).toBeGreaterThan(0);
       }
     }

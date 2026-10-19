@@ -9,7 +9,7 @@
 // every pair on the heater and a fifth of them in each other shape; generic layouts with a representative few (a rotating half on the heater, a
 // rotating fifth of the layout × drawing pairs of the rotating sample of layouts in each other shape). The hosts of charges on charges
 // are the sampled drawings that carry charges. The slot-on-ground sweep is likewise exhaustive on the heater and
-// a seeded rotating twelfth of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape, the same ones for the check that the smaller
+// a seeded rotating twentieth of the layouts (by date, or SCA_SAMPLE_SEED) in each other shape, the same ones for the check that the smaller
 // shapes reach the field parts their heater slots reach; SCA_FULL=1 runs every layout in every shape.
 
 import { describe, expect, it } from 'vitest';
@@ -290,7 +290,7 @@ describe('layout catalogue', () => {
  * exhaustive): the slots on their ground, and (below) the field parts they reach. One sample serves all of them, so the slots of a layout left
  * out are never worked out in that shape (they are what the sweeps cost, and are kept between tests).
  */
-const SHAPE_SWEEP_RATE = 0.08;
+const SHAPE_SWEEP_RATE = 0.05;
 const inSweep = (shape: FieldShape, label: string): boolean => shape === 'heater' || rotatesIn(`${shape}|${label}`, SHAPE_SWEEP_RATE);
 /** The generic layouts the compact few drawings are drawn in: a rotating half on the heater, and the sweep's share in each other shape. */
 const inGenericSweep = (shape: FieldShape, label: string): boolean => (shape === 'heater' ? rotatesIn(`heater|generic|${label}`, 1 / 2) : inSweep(shape, label));

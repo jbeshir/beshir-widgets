@@ -1,6 +1,8 @@
 // The seed and the hash behind the seeded, rotating samples of the long sweeps in `npm test` (test/sca/sample.ts for the SCA
 // armorial test; test/geometry-fit.test.ts). Free of Node imports so the SPA's tsconfig can compile it.
 
+import { CHARGE_IDS, type ChargeId } from '../src/lib/heraldry';
+
 const env = (): Record<string, string | undefined> => (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
 /** The rotation key: SCA_SAMPLE_SEED, else the UTC date, so a run on another day samples other items. */
@@ -20,6 +22,12 @@ export function unit(text: string): number {
   h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
   return ((h ^ (h >>> 16)) >>> 0) / 2 ** 32;
 }
+
+/**
+ * The fixed stratum of the sweeps that would otherwise grow with the art: the 36 charges drawn before phase D, which `CHARGE_IDS`
+ * lists first. A charge added since is checked by such a sweep's rotating share (SCA_FULL=1: always).
+ */
+export const STRATUM_CHARGE_IDS: readonly ChargeId[] = CHARGE_IDS.slice(0, 36);
 
 /** Whether a seeded rotating sample of the given rate includes `item` (any stable text) this run; always true in a full sweep. */
 export const rotatesIn = (item: string, rate: number, seed = sampleSeed()): boolean => fullSweep() || unit(`${seed}|${item}`) < rate;
