@@ -2,7 +2,8 @@
 // the drawn shape, and only the charges with no room for a charge on them have none.
 
 import { describe, expect, it } from 'vitest';
-import { CHARGE_ART, CHARGE_IDS, CHARGES, chargeOnBox, crossPath, pointInPolygon, type ArtBox, type ArtKey } from '../src/lib/heraldry';
+import { CHARGE_IDS, CHARGES, chargeOnBox, crossPath, pointInPolygon, type ArtBox, type ArtKey } from '../src/lib/heraldry';
+import { CHARGE_ART } from '../src/lib/heraldry/art/paths/all';
 import { rings, type Pt } from './art-geometry';
 
 /** The charges whose drawings are too slender or too ringed to carry a charge. */

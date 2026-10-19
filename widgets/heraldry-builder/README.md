@@ -1149,6 +1149,40 @@ domain, assets, D1, rate-limit bindings and email vars. After the one-time D1 an
 (the `RESEND_API_KEY` and `EMAIL_HMAC_KEY` secrets must exist before registrations work), apply any
 pending migrations (see Migrations), then run `npm run build` and `npx wrangler deploy`.
 
+## Bundle and lazy-loaded art
+
+`npm run build` makes one main chunk and one small chunk per charge category (`dist/assets/<category>-*.js`). The main chunk
+holds the app and the art of the charges most designs use: the 36 original charges, every generated one (`art/procedural`) and
+the bespoke ones that unlock the most registry records (at most 25 and the wing; `art/paths/core.ts`, `CORE_ART_IDS`). Every other
+charge's path strings are in its category's module, `art/paths/<category>.ts`; its sidecar meta row stays in the main chunk, so
+names, rules, search and the builder's options never wait for art.
+
+- The library reads art through `art/paths/index.ts` (`pathFor`, `artReady`, `loadArtFor`, `onArtChange`), which imports
+  every module statically. Tests, the SSR goldens, `sca:ignore`, the sample and golden writers, the art tools and the worker
+  (bundled by wrangler) all read it, so they stay synchronous. Only `vite build`/`vite dev` replace it, with an alias in
+  `vite.config.ts` (vitest does not read that file), by `art/paths/lazy.ts`. It has the same exports
+  (`test/art-lazy.test.ts` checks the types and that every charge's art is in exactly one module).
+- In the app, the draft's art is loaded before the first paint (`main.tsx`), an example's or a registry entry's before it
+  replaces the design, a category's when its picker tab or a search shows it (the tiles are empty until then, and choosing one
+  waits for it), and an entry's before its nametag sheet or a saved picture is drawn. A shield drawn anywhere else asks for its
+  art itself: until it comes the charge is drawn as the fallback roundel, then everything is drawn again. `<html data-art>`
+  is `pending` while any art is loading and `ready` otherwise (never on the shield's own markup, so goldens and exports are
+  unchanged); the journey's `lazy-category` state waits for it.
+- A new charge's art lands in the right module by itself: the art import tool writes it to
+  `core.ts` for the main-chunk ids and to its category's module otherwise.
+
+Sizes (`npm run build`, raw / gzip, kB; worker = `wrangler deploy --dry-run`):
+
+| | before lazy art (D11) | lazy art (D10) |
+|---|---:|---:|
+| main chunk `index-*.js` | 729.58 / 223.63 | 730.60 / 224.03 |
+| `beast-*.js` (squirrel) | — | 1.56 / 0.73 |
+| each other category chunk (empty so far) | — | 0.03 / 0.05 |
+| worker upload (KiB) | 734.54 / 189.38 | 734.64 / 189.48 |
+
+The main chunk grows by the loader (about 2.5 kB, of it about 1.3 kB Vite's preload helper) for the squirrel's 1.5 kB moved out;
+every charge added outside the main chunk from now on costs it nothing.
+
 ## Deferred features
 
 The model already has a place for each of these (see Design model); the builder, blazon and
@@ -1180,7 +1214,8 @@ repository. No artwork is taken from DrawShield, Armoria, Heraldicon, Wikimedia 
 other source.
 
 The art lives in a sidecar, one row per charge in two halves: `art/paths/<category>.ts` holds only the path strings
-(`art/paths/core.ts` those of the charges in the main chunk, `CORE_ART_IDS`), and `art/meta/<category>.ts` everything else —
+(`art/paths/core.ts` those of the charges in the main chunk, `CORE_ART_IDS`; the others are loaded lazily, see Bundle and
+lazy-loaded art), and `art/meta/<category>.ts` everything else —
 names, type, postures, the way the art is drawn (`orient`), per-drawing on-box, anchors and neck, and the charge's
 **provenance** (who drew it, when and how; every row says `origin: 'original'`). `CHARGES` (`charges.ts`) is built
 from the meta rows, and `charge-art.ts` picks the drawing a charge is drawn with.

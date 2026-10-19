@@ -4,7 +4,7 @@
 
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
-import type { FieldShape, Design } from '../lib/heraldry';
+import { chargeIdsOf, loadArtFor, type FieldShape, type Design } from '../lib/heraldry';
 import { pictureFileName, standaloneSvg, type PictureFormat } from '../lib/exportPicture';
 import { Shield } from './Shield';
 
@@ -68,6 +68,7 @@ function download(blob: Blob, fileName: string): void {
 }
 
 async function savePicture(format: PictureFormat, design: Design, shape: FieldShape, hatching: boolean, displayName: string): Promise<string> {
+  await loadArtFor(chargeIdsOf(design));
   const markup = renderedShieldMarkup(design, shape, hatching);
   const fileName = pictureFileName(displayName, format);
   const blob = format === 'svg'

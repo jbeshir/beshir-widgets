@@ -8,7 +8,7 @@ import { canonicalFur, furColours } from './fur';
 import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 import { edgeCount, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import {
-  CHARGES, CUT_MODIFIERS, HOLD_HOWS, MODIFIER_IDS, PART_IDS, drawnPoints,
+  CHARGES, CUT_MODIFIERS, HOLD_HOWS, MODIFIER_IDS, PART_IDS, drawnPoints, isChargeId,
   type ChargeForm, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
 import { DIMINUTIVE_OF, ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER, SAME_ORDINARY } from './ordinaries';
@@ -188,6 +188,25 @@ export function fieldSemys(d: Design): SemyPaint[] {
 /** True when no group is primary and no semy strews the field: the field carries the design (RULES §B.3). */
 export function isFieldPrimary(d: Design): boolean {
   return primaryGroup(d) === null && fieldSemys(d).length === 0;
+}
+
+/**
+ * Every charge a design draws, for loading their art: its groups' and their tertiaries', what they hold, and what a semy strews
+ * anywhere in its paints. Read off the whole design, whatever holds a `charge`, so no place a charge can be drawn is missed.
+ */
+export function chargeIdsOf(d: Design): ChargeId[] {
+  const ids = new Set<ChargeId>();
+  const visit = (v: unknown): void => {
+    if (Array.isArray(v)) v.forEach(visit);
+    else if (v !== null && typeof v === 'object') {
+      for (const [k, x] of Object.entries(v)) {
+        if (k === 'charge' && isChargeId(x)) ids.add(x);
+        else visit(x);
+      }
+    }
+  };
+  visit(d);
+  return [...ids];
 }
 
 /** The plain tincture a paint is, or the one a semy is strewn on; null for any other paint. */

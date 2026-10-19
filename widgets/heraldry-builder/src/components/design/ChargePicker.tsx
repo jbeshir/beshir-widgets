@@ -1,11 +1,12 @@
 // The picture list: a search box, the tabs (Popular first, then one per kind of picture) and the tiles of the tab
 // chosen, or of the pictures a typed query finds. Shared by the Picture step and the Scatter picker, which differ in
-// the test ids (`base`) and in which pictures are blocked.
+// the test ids (`base`) and in which pictures are blocked. Pictures whose art is outside the main chunk have it loaded when a tab or
+// a search shows them; their tiles are empty until it comes, and choosing one waits for it.
 
 import type { ComponentChildren } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useState } from 'preact/hooks';
 import {
-  CATEGORY_LABEL, CHARGE_CATEGORIES, CHARGES, POPULAR_CHARGE_IDS, chargeLabel, chargePath, chargesInCategory, searchCharges,
+  CATEGORY_LABEL, CHARGE_CATEGORIES, CHARGES, POPULAR_CHARGE_IDS, artReady, chargeLabel, chargePath, chargesInCategory, loadArtFor, searchCharges,
   type ChargeCategory, type ChargeId,
 } from '../../lib/heraldry';
 import { ChargeIcon } from '../Shield';
@@ -52,9 +53,13 @@ export function ChargePicker({ base, selected, none, status = OPEN, onSelect }: 
 
   const searching = query.trim() !== '';
   const found = searching ? searchCharges(query).slice(0, MAX_RESULTS) : [];
+  const shown = searching ? found : idsOf(tab);
+  // before the browser paints, so <html data-art> is "pending" as soon as the tiles are
+  useLayoutEffect(() => void loadArtFor(shown), [shown.join()]);
+  const choose = (id: ChargeId) => (artReady([id]) ? onSelect(id) : void loadArtFor([id]).then(() => onSelect(id)));
   const tile = (id: ChargeId) => (
-    <ChoiceButton key={id} testid={`${base}-${id}`} checked={selected === id} status={status(id)} label={chargeLabel(id)} onSelect={() => onSelect(id)} onBlocked={why.explain} class="icon-choice charge-choice">
-      <ChargeIcon path={chargePath({ charge: id, form: null, posture: CHARGES[id].defaultPosture, gaze: null, mods: [] })} size={30} />
+    <ChoiceButton key={id} testid={`${base}-${id}`} checked={selected === id} status={status(id)} label={chargeLabel(id)} onSelect={() => choose(id)} onBlocked={why.explain} class="icon-choice charge-choice">
+      <ChargeIcon path={artReady([id]) ? chargePath({ charge: id, form: null, posture: CHARGES[id].defaultPosture, gaze: null, mods: [] }) : ''} size={30} />
       <span class="choice-label">{chargeLabel(id)}</span>
     </ChoiceButton>
   );
@@ -88,7 +93,7 @@ export function ChargePicker({ base, selected, none, status = OPEN, onSelect }: 
         ) : (
           <div class="charge-category" role="group" aria-label={TAB_LABEL[tab]}>
             <p class="charge-category-label" aria-hidden="true">{TAB_LABEL[tab]}</p>
-            <div class="icon-grid icon-grid-charges">{idsOf(tab).map(tile)}</div>
+            <div class="icon-grid icon-grid-charges">{shown.map(tile)}</div>
           </div>
         )}
       </RadioGroup>

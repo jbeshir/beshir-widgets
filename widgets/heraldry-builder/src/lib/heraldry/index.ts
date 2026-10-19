@@ -21,7 +21,7 @@ export { OUTLINES, type Outline } from './outline';
 export { contourPath, contoursPath, type Contour, type ContourEdge } from './contour';
 export { DIVISIONS, BUILDER_DIVISIONS, MORE_DIVISIONS, LINED_VARIATIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, GYRONNY_PIECES, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, VARIATION_SPELLINGS, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
 export {
-  canonical, canonicalJson, canonicalLines, facingEachOther, fimbriationOf, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, groundTincture, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, variationPaint, asVariation, treatedPaint, asTreated, semyPaint, asSemy, fieldSemys, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
+  canonical, canonicalJson, canonicalLines, facingEachOther, fimbriationOf, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, groundTincture, pathKey, primaryGroup, primaryGroups, isFieldPrimary, chargeIdsOf, tincturePaint, partyPaint, asParty, variationPaint, asVariation, treatedPaint, asTreated, semyPaint, asSemy, fieldSemys, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
   UNSUPPORTED_GAP_CATEGORIES,
   type Charge, type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type TreatedPaint, type SemyPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type CountLimit, type IssueAt, type TincturePart,
 } from './design';
@@ -88,7 +88,7 @@ export { ORIENTATION_ANGLE, artPose, chargePoses, orientationTurns } from './pos
 export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';
 export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox, drawnBox, opticalScale } from './charge-art';
-export { CHARGE_ART, CORE_ART_IDS } from './art/paths/index';
+export { CORE_ART_IDS, artReady, loadArtFor, onArtChange } from './art/paths/index';
 export { OVERLAY_PIECES } from './art/paths/pieces';
 export { OVERLAY_MODIFIERS, PIECE_IDS, PROPER_PIECES, isPiece, isPiecePart, overlaidArt, piecePaint, withDrawnPieces, type PieceId, type PiecePart } from './overlay-art';
 export { bboxOf, ringDepths, ringProblems, turnFit } from './art/geometry';
