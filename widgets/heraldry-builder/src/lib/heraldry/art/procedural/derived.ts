@@ -21,12 +21,17 @@ type DerivedKey = 'demi' | 'erased-head' | TurnedPosture;
 
 type Rings = readonly (readonly Pt[])[];
 
-/** How much slimmer a rapier is than the sword it is drawn from. */
-const RAPIER_WIDTH = 0.75;
-
-/** The y of the sword drawing's cross guard (its blade is above it), and the share of the blade a dagger keeps. */
+/** The sword drawing's cross guard: its y (the blade is above it, the point at SWORD_POINT) and how far out its blade, grip and pommel reach (the guard's quillons reach further). */
 const SWORD_GUARD = 63;
-const DAGGER_BLADE = 0.5;
+const SWORD_POINT = 7;
+const SWORD_HILT_HALF = 10;
+
+/** A rapier: its blade, grip and pommel slimmer than the sword's, its blade longer, its quillons as long as the sword's. */
+const RAPIER = { width: 0.6, blade: 1.3 };
+/** A dagger: the share of the blade it keeps, how much narrower it is (so its guard is short), and its blade's width at the point against at the guard. */
+const DAGGER = { blade: 0.5, width: 0.55, tip: 0.5 };
+
+const along = (y: number, share: number) => (y < SWORD_GUARD ? SWORD_GUARD - (SWORD_GUARD - y) * share : y);
 
 /** The x of the wing drawing's root edge, where the vol's wing is rooted (x in the dexter half, apart from its mirror image) and its narrowing. */
 const WING_ROOT = 93;
@@ -39,10 +44,13 @@ export const ALIAS_RESHAPE: Record<AliasId, ((rings: Rings) => Pt[][]) | null> =
   coney: null,
   rabbit: null,
   coronet: null,
-  // a rapier is a slimmer sword
-  rapier: (rings) => rings.map((r) => r.map(([x, y]): Pt => [50 + (x - 50) * RAPIER_WIDTH, y])),
-  // a dagger is a sword with half the blade, above the cross guard, the whole drawing fitted to the box again
-  dagger: (rings) => fitRings(rings.map((r) => r.map(([x, y]): Pt => [x, y < SWORD_GUARD ? SWORD_GUARD - (SWORD_GUARD - y) * DAGGER_BLADE : y]))),
+  // a rapier is a sword with a slimmer, longer blade and the same long quillons, fitted to the box again
+  rapier: (rings) => fitRings(rings.map((r) => r.map(([x, y]): Pt => [Math.abs(x - 50) < SWORD_HILT_HALF ? 50 + (x - 50) * RAPIER.width : x, along(y, RAPIER.blade)]))),
+  // a dagger is a narrower sword with half the blade, tapering to its point, and a short guard (not to be read as a Latin cross), fitted to the box again
+  dagger: (rings) => fitRings(rings.map((r) => r.map(([x, y]): Pt => {
+    const taper = y < SWORD_GUARD ? DAGGER.tip + (1 - DAGGER.tip) * (y - SWORD_POINT) / (SWORD_GUARD - SWORD_POINT) : 1;
+    return [50 + (x - 50) * DAGGER.width * taper, along(y, DAGGER.blade)];
+  }))),
   // a vol is a pair of wings joined at their roots, each narrowed to its half of the box and turned tips up (elevated: drawn as the wing
   // is, bow at chief and tips to base, the pair would be "in lure")
   vol: (rings) => {

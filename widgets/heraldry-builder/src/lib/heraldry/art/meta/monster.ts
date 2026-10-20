@@ -12,13 +12,13 @@ export const META_MONSTER = {
     faces: true, facingCounts: 'normal',
     orient: { drawn: 'palewise', point: 'top', lead: 'top', cls: 'animate', allowed: [], wording: {} },
     forms: ['demi', 'head'], mods: [], details: WINGED, parts: ['crowned', 'collared'], holds: ['maintaining', 'sustaining'],
-    demiCut: 63, long: false, scale: 1, detail: 2, proper: null,
+    demiCut: 50, long: false, scale: 1, detail: 2, proper: null,
     glossName: 'unicorn', glossPlural: 'unicorns', plain: null, search: ['horse'],
     headName: { one: 'unicorn\'s head', many: 'unicorns\' heads' }, holdable: false, pairedWings: false,
     drawings: {
       rampant: { onBox: { x: 36, y: 36, w: 18, h: 24 }, anchors: { hold: { x: 26, y: 48, size: 18, rotation: -20 }, crown: { x: 31, y: 15, size: 18, rotation: 0 }, collar: { x: 44, y: 38, size: 14, rotation: 20 }, wings: { x: 73, y: 28, size: 42, rotation: 20 } }, neck: null },
-      passant: { onBox: { x: 29, y: 46, w: 38, h: 24 }, anchors: { hold: { x: 22, y: 72, size: 18, rotation: 0 }, crown: { x: 31, y: 24, size: 18, rotation: 0 }, collar: { x: 37, y: 38, size: 18, rotation: -40 } }, neck: null },
-      sejant: { onBox: { x: 28, y: 44, w: 20, h: 30 }, anchors: { hold: { x: 24, y: 88, size: 16, rotation: 0 }, crown: { x: 34, y: 19, size: 18, rotation: 0 }, collar: { x: 40, y: 40, size: 18, rotation: -35 } }, neck: null },
+      passant: { onBox: { x: 29, y: 46, w: 38, h: 24 }, anchors: { hold: { x: 20, y: 62, size: 18, rotation: -20 }, crown: { x: 31, y: 24, size: 18, rotation: 0 }, collar: { x: 37, y: 38, size: 18, rotation: -40 } }, neck: null },
+      sejant: { onBox: { x: 28, y: 44, w: 20, h: 30 }, anchors: { hold: { x: 17, y: 74, size: 16, rotation: -25 }, crown: { x: 34, y: 19, size: 18, rotation: 0 }, collar: { x: 40, y: 40, size: 18, rotation: -35 } }, neck: null },
       head: { onBox: null, anchors: { collar: { x: 63.3, y: 82, size: 32, rotation: 0 }, crown: { x: 59, y: 19, size: 16, rotation: 0 } }, neck: { y: 93, x0: 49, x1: 87 } },
       courant: { onBox: { x: 27, y: 47, w: 35, h: 22 }, anchors: { hold: { x: 9.3, y: 67, size: 16, rotation: 0 }, crown: { x: 23.5, y: 26.2, size: 12.4, rotation: 0 }, collar: { x: 30.6, y: 42.1, size: 14.2, rotation: 30 } }, neck: null },
       couchant: { onBox: { x: 34, y: 52, w: 36, h: 29 }, anchors: { hold: { x: 14.7, y: 78.5, size: 16.3, rotation: 0 }, crown: { x: 25.9, y: 29.7, size: 14.2, rotation: 0 }, collar: { x: 34, y: 48, size: 16.3, rotation: 30 } }, neck: null },
@@ -36,11 +36,11 @@ export const META_MONSTER = {
     glossName: 'dragon', glossPlural: 'dragons', plain: null, search: [],
     headName: { one: 'dragon\'s head', many: 'dragons\' heads' }, holdable: false, pairedWings: false,
     drawings: {
-      rampant: { onBox: { x: 34, y: 31, w: 38, h: 24 }, anchors: { hold: { x: 16, y: 46, size: 18, rotation: 0 }, mouth: { x: 30, y: 12, size: 12, rotation: 0 }, crown: { x: 40, y: 10, size: 20, rotation: 0 }, collar: { x: 43, y: 29, size: 13, rotation: 30 } }, neck: null },
-      passant: { onBox: { x: 53, y: 21, w: 28, h: 40 }, anchors: { hold: { x: 14, y: 64, size: 18, rotation: 0 }, mouth: { x: 14, y: 30, size: 12, rotation: 0 }, crown: { x: 27, y: 24, size: 20, rotation: 0 }, collar: { x: 40, y: 40, size: 14, rotation: 20 } }, neck: null },
+      rampant: { onBox: { x: 44, y: 40, w: 18, h: 18 }, anchors: { hold: { x: 18.9, y: 38.1, size: 16.2, rotation: 0 }, mouth: { x: 14.4, y: 25.5, size: 10.8, rotation: 0 }, crown: { x: 31.5, y: 12.9, size: 14.4, rotation: 0 }, collar: { x: 36.9, y: 29.1, size: 11.7, rotation: 30 } }, neck: null },
+      passant: { onBox: { x: 39, y: 51, w: 25, h: 16 }, anchors: { hold: { x: 13.7, y: 63.6, size: 17.2, rotation: 0 }, mouth: { x: 11.8, y: 34.5, size: 11.5, rotation: 0 }, crown: { x: 29.9, y: 21.6, size: 15.3, rotation: 0 }, collar: { x: 37.6, y: 35, size: 12.4, rotation: 20 } }, neck: null },
       head: { onBox: null, anchors: { collar: { x: 66, y: 87, size: 33, rotation: 0 }, crown: { x: 38.9, y: 17.6, size: 15.5, rotation: 0 }, mouth: { x: 17.6, y: 48.6, size: 19.3, rotation: 0 } }, neck: { y: 92, x0: 50.5, x1: 81.4 } },
     },
-    provenance: HAND_DRAWN,
+    provenance: { ...HAND_DRAWN, method: `${HAND_DRAWN.method}; review redraw, FXA, 2026-10-19: dragon rampant (A-13), dragon passant (A-13), polygon coordinates placed by hand from a written description; no image traced or copied` },
   },
   griffin: {
     name: 'griffin', plural: 'griffins', article: 'a', category: 'monster',
@@ -88,7 +88,7 @@ export const META_MONSTER = {
     drawings: {
       erect: { onBox: { x: 33, y: 42, w: 16, h: 18 }, anchors: {}, neck: null },
     },
-    provenance: { origin: 'original', author: 'phase-D art pipeline, B2, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, tapered limb strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
+    provenance: { origin: 'original', author: 'phase-D art pipeline, B2, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, tapered limb strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied; review redraw, FXA, 2026-10-19: sea-lion head eye and mouth (A-24), polygon coordinates placed by hand from a written description; no image traced or copied' },
   },
   seahorse: {
     name: 'sea-horse', plural: 'sea-horses', article: 'a', category: 'monster',
@@ -116,8 +116,8 @@ export const META_MONSTER = {
     glossName: 'wyvern', glossPlural: 'wyverns', plain: null, search: ['wivern', 'two-legged dragon'],
     headName: null, holdable: false, pairedWings: false,
     drawings: {
-      statant: { onBox: { x: 43, y: 54, w: 18, h: 17 }, anchors: { hold: { x: 39, y: 86, size: 15, rotation: 0 } }, neck: null },
-      erect: { onBox: { x: 38, y: 48, w: 16, h: 18 }, anchors: { hold: { x: 24, y: 59, size: 16, rotation: -20 } }, neck: null },
+      statant: { onBox: { x: 43, y: 54, w: 18, h: 17 }, anchors: { hold: { x: 28, y: 62, size: 15, rotation: -30 } }, neck: null },
+      erect: { onBox: { x: 38, y: 48, w: 16, h: 18 }, anchors: { hold: { x: 23, y: 60, size: 16, rotation: -35 } }, neck: null },
     },
     provenance: { origin: 'original', author: 'phase-D art pipeline, B2, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, tapered limb strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
   },

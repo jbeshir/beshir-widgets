@@ -16,12 +16,12 @@ export const META_BIRD = {
     glossName: 'eagle with spread wings', glossPlural: 'eagles with spread wings', plain: null, search: [],
     headName: null, holdable: false, pairedWings: false,
     drawings: {
-      displayed: { onBox: { x: 35, y: 37, w: 28, h: 20 }, anchors: { hold: { x: 40, y: 74, size: 16, rotation: 0 }, beak: { x: 38, y: 20, size: 12, rotation: 0 }, crown: { x: 44, y: 9, size: 18, rotation: 0 } }, neck: null },
-      close: { onBox: { x: 29, y: 23, w: 30, h: 36 }, anchors: { beak: { x: 23.1, y: 13, size: 8.1, rotation: 0 }, crown: { x: 31.2, y: 3.6, size: 9.9, rotation: 0 }, hold: { x: 27.8, y: 85.7, size: 13, rotation: 0 } }, neck: null },
+      displayed: { onBox: { x: 35, y: 37, w: 28, h: 20 }, anchors: { hold: { x: 34, y: 84, size: 16, rotation: -40 }, beak: { x: 38, y: 20, size: 12, rotation: 0 }, crown: { x: 44, y: 13, size: 18, rotation: 0 } }, neck: null },
+      close: { onBox: { x: 35, y: 28, w: 25, h: 44 }, anchors: { beak: { x: 21.9, y: 20.1, size: 8.5, rotation: 0 }, crown: { x: 40.9, y: 3.7, size: 10, rotation: 0 }, hold: { x: 30, y: 82, size: 13, rotation: -35 } }, neck: null },
       rising: { onBox: { x: 33, y: 34, w: 31, h: 31 }, anchors: { beak: { x: 19.4, y: 36.4, size: 8.9, rotation: 0 }, crown: { x: 30, y: 27.7, size: 10.9, rotation: 0 }, hold: { x: 37.1, y: 85.8, size: 12.9, rotation: 0 } }, neck: null },
       volant: { onBox: { x: 31, y: 45, w: 35, h: 22 }, anchors: { beak: { x: 11.3, y: 55.7, size: 8.6, rotation: 0 }, crown: { x: 19.2, y: 45.1, size: 10.6, rotation: 0 }, hold: { x: 67.8, y: 75.5, size: 10.6, rotation: 0 } }, neck: null },
     },
-    provenance: HAND_DRAWN,
+    provenance: { ...HAND_DRAWN, method: `${HAND_DRAWN.method}; review redraw, FXB, 2026-10-19: eagle close (A-17), control points placed by hand on the 100-unit grid from a written description and smoothed with a Hermite spline by a script; no image traced or copied` },
   },
   owl: {
     name: 'owl', plural: 'owls', article: 'an', category: 'bird',
@@ -34,7 +34,7 @@ export const META_BIRD = {
     glossName: 'owl', glossPlural: 'owls', plain: null, search: [],
     headName: null, holdable: false, pairedWings: false,
     drawings: {
-      _: { onBox: { x: 39, y: 42, w: 22, h: 22 }, anchors: { hold: { x: 40, y: 88, size: 14, rotation: 0 }, beak: { x: 50, y: 42, size: 10, rotation: 0 }, crown: { x: 50, y: 12, size: 22, rotation: 0 } }, neck: null },
+      _: { onBox: { x: 39, y: 42, w: 22, h: 22 }, anchors: { hold: { x: 32, y: 82, size: 14, rotation: -35 }, beak: { x: 50, y: 50, size: 10, rotation: 0 }, crown: { x: 50, y: 12, size: 22, rotation: 0 } }, neck: null },
     },
     provenance: HAND_DRAWN,
   },
@@ -81,7 +81,7 @@ export const META_BIRD = {
     drawings: {
       close: { onBox: { x: 25, y: 43, w: 32, h: 19 }, anchors: { beak: { x: 8, y: 31, size: 9, rotation: 0 } }, neck: null },
     },
-    provenance: { origin: 'original', author: 'phase-D art pipeline, B3, claude-opus-5-5 drawer', date: '2026-10-18', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied' },
+    provenance: { origin: 'original', author: 'phase-D art pipeline, B3, claude-opus-5-5 drawer', date: '2026-10-18', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied; review redraw, FXB, 2026-10-19: dove close tail (A-25), control points placed by hand on the 100-unit grid from a written description and smoothed with a Hermite spline by a script; no image traced or copied' },
   },
   falcon: {
     name: 'falcon', plural: 'falcons', article: 'a', category: 'bird',
@@ -110,9 +110,9 @@ export const META_BIRD = {
     glossName: 'martlet (footless bird)', glossPlural: 'martlets (footless birds)', plain: null, search: ['swallow', 'swift'],
     headName: null, holdable: false, pairedWings: false,
     drawings: {
-      close: { onBox: { x: 28, y: 35, w: 28, h: 18 }, anchors: { beak: { x: 8, y: 40, size: 10, rotation: 0 } }, neck: null },
+      close: { onBox: { x: 36, y: 42, w: 27, h: 19 }, anchors: { beak: { x: 8, y: 31.6, size: 10.5, rotation: 0 } }, neck: null },
     },
-    provenance: { origin: 'original', author: 'phase-D art pipeline, B3, claude-opus-5-5 drawer', date: '2026-10-18', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied' },
+    provenance: { origin: 'original', author: 'phase-D art pipeline, B3, claude-opus-5-5 drawer', date: '2026-10-18', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied; review redraw, FXB, 2026-10-19: martlet close (A-7), control points placed by hand on the 100-unit grid from a written description and smoothed with a Hermite spline by a script; no image traced or copied' },
   },
   peacock: {
     name: 'peacock', plural: 'peacocks', article: 'a', category: 'bird',
@@ -160,7 +160,7 @@ export const META_BIRD = {
       rising: { onBox: { x: 31, y: 65, w: 42, h: 16 }, anchors: { collar: { x: 25, y: 51, size: 13, rotation: 0 } }, neck: null },
       close: { onBox: { x: 36, y: 56, w: 40, h: 18 }, anchors: { collar: { x: 25, y: 44, size: 13, rotation: 0 } }, neck: null },
     },
-    provenance: { origin: 'original', author: 'phase-D art pipeline, B3, claude-opus-5-5 drawer', date: '2026-10-18', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied' },
+    provenance: { origin: 'original', author: 'phase-D art pipeline, B3, claude-opus-5-5 drawer', date: '2026-10-18', method: 'polygon coordinates placed by hand on a 100×100 grid from a written description; no image traced or copied; review redraw, FXB, 2026-10-19: swan rising wings (A-12), control points placed by hand on the 100-unit grid from a written description and smoothed with a Hermite spline by a script; no image traced or copied' },
   },
   hawk: {
     name: 'hawk', plural: 'hawks', article: 'a', category: 'bird',

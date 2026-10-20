@@ -307,7 +307,7 @@ export const META_GEOMETRIC = {
     drawings: {
       _: { onBox: null, anchors: {}, neck: null },
     },
-    provenance: { origin: 'original', author: 'phase-D art pipeline, B7, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, tapered strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied' },
+    provenance: { origin: 'original', author: 'phase-D art pipeline, B7, claude-opus-5-5 drawer', date: '2026-10-18', method: 'primitive shapes (polygons, ellipses, tapered strokes) placed by hand on a 100×100 grid from a written description, unioned by rasterisation and traced to one outline; no image traced or copied; review redraw, FXB, 2026-10-19: comet (A-5), control points placed by hand on the 100-unit grid from a written description and smoothed with a Hermite spline by a script; no image traced or copied' },
   },
   escarbuncle: {
     name: 'escarbuncle', plural: 'escarbuncles', article: 'an', category: 'geometric',

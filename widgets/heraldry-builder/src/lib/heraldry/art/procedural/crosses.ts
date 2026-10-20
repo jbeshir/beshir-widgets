@@ -48,9 +48,11 @@ function armSide(arm: CrossArm, L: number): Pt[] {
     case 'potent': return [[HALF, -HALF], [L - 10, -HALF], [L - 10, -19], [L, -19]];
     case 'formy': return [[PINCH, -PINCH], [0.45 * L, -8.5], [0.7 * L, -12], [0.88 * L, -16.5], [L, -21]];
     case 'maltese': return [[PINCH, -PINCH], [L, -20], [L - 13, 0]];
-    case 'patonce': return [[PINCH, -PINCH], [0.55 * L, -10], [L - 8, -15], [L - 3, -22], [L - 6, -11], [L, 0]];
+    // two outer points curling outward, the middle one standing well past them
+    case 'patonce': return [[PINCH, -PINCH], [0.5 * L, -9], [L - 18, -12], [L - 17, -19], [L - 11, -26], [L - 8, -19], [L - 11, -12], [L - 6, -7], [L, 0]];
     case 'flory': return [[HALF, -HALF], [L - 17, -HALF], [L - 14, -15], [L - 15, -21], [L - 10, -20], [L - 6, -14], [L - 9, -7], [L - 4, -5], [L, 0]];
-    case 'moline': return [[HALF, -HALF], [L - 12, -HALF], [L - 7, -11], [L - 3, -15], [L - 1, -21], [L, -14], [L - 2, -8], [L - 6, 0]];
+    // a horn curling outward and back towards the crossing, a deep notch between it and its mirror image
+    case 'moline': return [[HALF, -HALF], [L - 16, -HALF], [L - 11, -12], [L - 9, -15], [L - 11, -17.5], [L - 14, -19], [L - 17, -21], [L - 15, -25], [L - 10, -27], [L - 4, -25], [L, -20], [L + 1, -13], [L, -6], [L, -3], [L - 12, 0]];
     case 'bottony': return bottony(L);
     default: return arm satisfies never;
   }
@@ -70,7 +72,9 @@ function lengths({ arm, latin, ring, fitchy }: CrossSpec): readonly [number, num
   if (ring) return [32, 32, 54];
   if (latin) return [28, 28, 58];
   if (arm === 'tau') return [HALF, 35, 77];
-  return fitchy ? [38, 38, 48] : [43, 43, 43];
+  // the wide-spread ends of the moline and patonce would meet their neighbours' on the shorter arms of a fitchy cross
+  if (fitchy) return arm === 'moline' || arm === 'patonce' ? [43, 43, 50] : [38, 38, 48];
+  return [43, 43, 43];
 }
 
 /** The Celtic cross: plain arms through a ring; the outline runs out along each arm and round the ring's outside to the next. */
