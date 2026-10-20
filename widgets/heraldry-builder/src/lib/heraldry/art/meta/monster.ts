@@ -12,7 +12,7 @@ export const META_MONSTER = {
     faces: true, facingCounts: 'normal',
     orient: { drawn: 'palewise', point: 'top', lead: 'top', cls: 'animate', allowed: [], wording: {} },
     forms: ['demi', 'head'], mods: [], details: WINGED, parts: ['crowned', 'collared'], holds: ['maintaining', 'sustaining'],
-    demiCut: 46, long: false, scale: 1, detail: 2, proper: null,
+    demiCut: 68, long: false, scale: 1, detail: 2, proper: null,
     glossName: 'unicorn', glossPlural: 'unicorns', plain: null, search: ['horse'],
     headName: { one: 'unicorn\'s head', many: 'unicorns\' heads' }, holdable: false, pairedWings: false,
     drawings: {

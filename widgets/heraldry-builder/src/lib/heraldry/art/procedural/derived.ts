@@ -9,7 +9,7 @@ import { boundedMemo } from '../../memo';
 import { pathRings, type Pt } from '../../geometry';
 import { pathFor } from '../paths/index';
 import type { ArtKey, NeckEdge } from '../types';
-import { bboxOf, clipRingsHalfPlane, fitRings, ringsPath } from '../geometry';
+import { clipRingsHalfPlane, fitRings, ringsPath } from '../geometry';
 
 /** The postures drawn as another posture's drawing turned upside down (§2.6): urinant, a fish diving head down, is haurient turned 180°. */
 export const TURNED_POSTURES = { urinant: 'haurient' } as const satisfies Partial<Record<Posture, Posture>>;
@@ -101,17 +101,23 @@ function eraseEdge(rings: readonly (readonly Pt[])[], neck: NeckEdge): Pt[][] {
   return [[...outer.slice(0, at + 1), ...torn, ...outer.slice(at + 1)], ...rest.map((r) => [...r])];
 }
 
+/** The share of the largest piece's area that another piece the cut leaves needs for a demi charge to keep it. */
+const DEMI_PIECE_SHARE = 0.15;
+
+/** The area a ring encloses (shoelace). */
+const ringArea = (r: readonly Pt[]) => Math.abs(r.reduce((s, [x, y], i) => { const [u, v] = r[(i + 1) % r.length]; return s + x * v - u * y; }, 0)) / 2;
+
 /**
- * What a demi charge keeps of its drawing: what lies above the cut, less the pieces the cut leaves apart from the body — a hind quarter or a
- * tail joined to the body only below the cut would float beside it. Of the pieces with an edge on the cut, the largest is the body; the rings
- * that lie wholly above the cut are kept.
+ * What a demi charge keeps of its drawing: what lies above the cut, less the slivers the cut leaves apart from the body — the tip of a hind
+ * leg or tail joined to the body only below the cut would float beside it. Of the pieces with an edge on the cut, those of at least
+ * `DEMI_PIECE_SHARE` of the largest one's area are kept (the body and a foreleg the cut leaves apart from it); the rings that lie wholly above
+ * the cut are kept.
  */
 function demiRings(rings: Rings, cut: number): Pt[][] {
   const above = clipRingsHalfPlane(rings, cut);
   const pieces = above.filter((r) => r.some(([, y]) => y === cut));
-  const size = (r: readonly Pt[]) => { const b = bboxOf(r); return (b.x1 - b.x0) * (b.y1 - b.y0); };
-  const body = pieces.reduce((a, b) => (size(b) > size(a) ? b : a));
-  return above.filter((r) => r === body || !pieces.includes(r));
+  const body = Math.max(...pieces.map(ringArea));
+  return above.filter((r) => !pieces.includes(r) || ringArea(r) >= DEMI_PIECE_SHARE * body);
 }
 
 /** The drawing of an alias charge, from the drawing of the charge it is drawn from; undefined for any other charge or while that is not loaded. */
