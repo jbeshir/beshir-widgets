@@ -9,7 +9,7 @@ import { boundedMemo } from '../../memo';
 import { pathRings, type Pt } from '../../geometry';
 import { pathFor } from '../paths/index';
 import type { ArtKey, NeckEdge } from '../types';
-import { clipRingsHalfPlane, fitRings, ringsPath } from '../geometry';
+import { bboxOf, clipRingsHalfPlane, fitRings, ringsPath } from '../geometry';
 
 /** The postures drawn as another posture's drawing turned upside down (§2.6): urinant, a fish diving head down, is haurient turned 180°. */
 export const TURNED_POSTURES = { urinant: 'haurient' } as const satisfies Partial<Record<Posture, Posture>>;
@@ -33,10 +33,13 @@ const DAGGER = { blade: 0.5, width: 0.55, tip: 0.5 };
 
 const along = (y: number, share: number) => (y < SWORD_GUARD ? SWORD_GUARD - (SWORD_GUARD - y) * share : y);
 
-/** The x of the wing drawing's root edge, where the vol's wing is rooted (x in the dexter half, apart from its mirror image) and its narrowing. */
-const WING_ROOT = 93;
-const VOL_ROOT = 49;
-const VOL_WIDTH = 0.45;
+/** The middle of the wing drawing's root, the straight edge at x 93 by which the wing joins its bird. */
+const WING_ROOT: Pt = [93, 66];
+/**
+ * How a vol's dexter wing is made from the wing: turned clockwise about its root by `turn` degrees, so its tip rises to chief; its lower
+ * part leaned in by `lean` per unit down, so the roots meet low; narrowed to `width`; `gap` from its mirror image.
+ */
+const VOL = { turn: 60, lean: 0.5, width: 0.75, gap: 2 };
 
 /** How each alias's drawing is made from the drawing of the charge it is drawn from (ALIAS_SOURCE), or null when it is that drawing as it is. */
 export const ALIAS_RESHAPE: Record<AliasId, ((rings: Rings) => Pt[][]) | null> = {
@@ -51,10 +54,17 @@ export const ALIAS_RESHAPE: Record<AliasId, ((rings: Rings) => Pt[][]) | null> =
     const taper = y < SWORD_GUARD ? DAGGER.tip + (1 - DAGGER.tip) * (y - SWORD_POINT) / (SWORD_GUARD - SWORD_POINT) : 1;
     return [50 + (x - 50) * DAGGER.width * taper, along(y, DAGGER.blade)];
   }))),
-  // a vol is a pair of wings joined at their roots, each narrowed to its half of the box and turned tips up (elevated: drawn as the wing
-  // is, bow at chief and tips to base, the pair would be "in lure")
+  // a vol is a pair of wings joined at their roots, tips up (elevated): the dexter one the wing raised about its root, the bow inside and the
+  // feathers fanning out to dexter, as an eagle displayed holds its wings; the sinister one its mirror image. A wing turned over (its y
+  // flipped) or left as drawn (the pair "in lure") would not do.
   vol: (rings) => {
-    const dexter = rings.map((r) => r.map(([x, y]): Pt => [VOL_ROOT - (WING_ROOT - x) * VOL_WIDTH, 100 - y]));
+    const a = (VOL.turn * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+    const raised = rings.map((r) => r.map(([x, y]): Pt => {
+      const [dx, dy] = [x - WING_ROOT[0], y - WING_ROOT[1]], down = dx * sin + dy * cos;
+      return [dx * cos - dy * sin + VOL.lean * down, down];
+    }));
+    const inner = Math.max(...raised.flat().map(([x]) => x));
+    const dexter = raised.map((r) => r.map(([x, y]): Pt => [50 - VOL.gap / 2 - (inner - x) * VOL.width, y]));
     return fitRings([...dexter, ...dexter.map((r) => r.map(([x, y]): Pt => [100 - x, y]))]);
   },
 };
@@ -91,6 +101,19 @@ function eraseEdge(rings: readonly (readonly Pt[])[], neck: NeckEdge): Pt[][] {
   return [[...outer.slice(0, at + 1), ...torn, ...outer.slice(at + 1)], ...rest.map((r) => [...r])];
 }
 
+/**
+ * What a demi charge keeps of its drawing: what lies above the cut, less the pieces the cut leaves apart from the body — a hind quarter or a
+ * tail joined to the body only below the cut would float beside it. Of the pieces with an edge on the cut, the largest is the body; the rings
+ * that lie wholly above the cut are kept.
+ */
+function demiRings(rings: Rings, cut: number): Pt[][] {
+  const above = clipRingsHalfPlane(rings, cut);
+  const pieces = above.filter((r) => r.some(([, y]) => y === cut));
+  const size = (r: readonly Pt[]) => { const b = bboxOf(r); return (b.x1 - b.x0) * (b.y1 - b.y0); };
+  const body = pieces.reduce((a, b) => (size(b) > size(a) ? b : a));
+  return above.filter((r) => r === body || !pieces.includes(r));
+}
+
 /** The drawing of an alias charge, from the drawing of the charge it is drawn from; undefined for any other charge or while that is not loaded. */
 export function aliasPath(id: ChargeId, key: ArtKey): string | undefined {
   if (!isAliasId(id)) return undefined;
@@ -108,7 +131,7 @@ export function derivedPath(id: ChargeId, key: DerivedKey): string | undefined {
     const source = pathFor(id, demiSource(id));
     const cut = CHARGES[id].demiCut ?? DEMI_CUT;
     // cut between the drawing's points, which lie on a grid of tenths
-    return source && derivedMemo(`demi|${cut}|${source}`, () => ringsPath(fitRings(clipRingsHalfPlane(pathRings(source), cut + 0.05))));
+    return source && derivedMemo(`demi|${cut}|${source}`, () => ringsPath(fitRings(demiRings(pathRings(source), cut + 0.05))));
   }
   const source = pathFor(id, 'head'), neck = CHARGES[id].drawings.head?.neck;
   return source && neck ? derivedMemo(`erased|${neck.y}|${neck.x0}|${neck.x1}|${source}`, () => ringsPath(eraseEdge(pathRings(source), neck))) : undefined;

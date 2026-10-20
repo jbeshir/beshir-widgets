@@ -103,6 +103,8 @@ function fieldPhrase(field: Paint): string {
 
 /** The modifiers the builder words, after the noun: "a sun in splendor", "a cross formy fitchy", "a lozenge voided", "a mullet pierced". */
 export const MODIFIER_WORDS = { 'in-splendour': 'in splendor', fitchy: 'fitchy', voided: 'voided', pierced: 'pierced' } as const satisfies Partial<Record<ModifierId, string>>;
+/** MODIFIER_WORDS looked up by any modifier. */
+const MODIFIER_WORD: Partial<Record<ModifierId, string>> = MODIFIER_WORDS;
 
 /** What a star's points are called: an estoile's are rays ("an estoile of eight rays"), a mullet's points. */
 export const pointsWord = (id: ChargeId): string => (id === 'estoile' ? 'rays' : 'points');
@@ -118,7 +120,7 @@ function modifiersWords(c: Charge, which: 'points' | 'rest'): string[] {
     if (c.form === 'head' && CUT_MODIFIERS.includes(m.id)) return [];
     if ((m.id === 'fimbriated' || OVERLAY_MODIFIERS.includes(m.id)) && m.count === null && m.paint !== null) return [];
     if (m.id === 'of-points' && m.count !== null && m.paint === null && drawnPoints(c.charge) !== null) return [`of ${numberWord(m.count)} ${pointsWord(c.charge)}`];
-    const word = (MODIFIER_WORDS as Partial<Record<ModifierId, string>>)[m.id];
+    const word = MODIFIER_WORD[m.id];
     return word !== undefined && m.count === null && m.paint === null ? [word] : notSupported({ category: 'charge-modifier', detail: m.id });
   };
   return c.mods.filter((m) => (m.id === 'of-points') === (which === 'points')).sort((x, y) => MODIFIER_IDS.indexOf(x.id) - MODIFIER_IDS.indexOf(y.id)).flatMap(words);
@@ -126,6 +128,8 @@ function modifiersWords(c: Charge, which: 'points' | 'rest'): string[] {
 
 /** The parts the builder words, after the charge's tincture ("a lion Or crowned gules"). */
 export const PART_WORDS = { crowned: 'crowned', collared: 'collared' } as const satisfies Partial<Record<PartId, string>>;
+/** PART_WORDS looked up by any part. */
+const PART_WORD: Partial<Record<PartId, string>> = PART_WORDS;
 
 /**
  * A charge's pieces in words after its tincture, each with its own (PLAN-D §0.3.5): its modifiers with a paint, then its parts — "slipped and
@@ -136,7 +140,7 @@ export const PART_WORDS = { crowned: 'crowned', collared: 'collared' } as const 
 function piecesWords(c: Charge): Array<{ text: string; paint: string }> {
   const pieces = [
     ...c.mods.filter((m) => OVERLAY_MODIFIERS.includes(m.id)).map((m) => ({ word: m.id, paint: m.paint })),
-    ...c.parts.map((p) => ({ word: (PART_WORDS as Partial<Record<PartId, string>>)[p.part] ?? notSupported({ category: 'charge-modifier', detail: p.part }), paint: p.paint })),
+    ...c.parts.map((p) => ({ word: PART_WORD[p.part] ?? notSupported({ category: 'charge-modifier', detail: p.part }), paint: p.paint })),
   ].map(({ word, paint }) => ({ word, paint: paint ? paintWord(paint) : notSupported({ category: 'charge-modifier', detail: word }) }));
   return pieces.reduce<Array<{ text: string; paint: string }>>((out, { word, paint }) => {
     const last = out[out.length - 1];

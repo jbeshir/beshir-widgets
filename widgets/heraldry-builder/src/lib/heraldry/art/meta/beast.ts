@@ -41,7 +41,7 @@ export const META_BEAST = {
     faces: true, facingCounts: 'normal',
     orient: { drawn: 'palewise', point: 'top', lead: 'top', cls: 'animate', allowed: [], wording: {} },
     forms: ['demi', 'head'], mods: [], details: WINGED, parts: ['crowned', 'collared'], holds: ['maintaining', 'sustaining', 'in-mouth'],
-    demiCut: 52, long: false, scale: 1.05, detail: 1, proper: null,
+    demiCut: 46, long: false, scale: 1.05, detail: 1, proper: null,
     glossName: 'wolf', glossPlural: 'wolves', plain: null, search: ['dog', 'canine'],
     headName: { one: 'wolf\'s head', many: 'wolves\' heads' }, holdable: false, pairedWings: false,
     drawings: {
@@ -99,7 +99,7 @@ export const META_BEAST = {
     faces: true, facingCounts: 'normal',
     orient: { drawn: 'palewise', point: 'top', lead: 'top', cls: 'animate', allowed: [], wording: {} },
     forms: ['demi'], mods: [], details: WINGED, parts: ['collared'], holds: ['maintaining', 'sustaining'],
-    demiCut: 54, long: false, scale: 1, detail: 1, proper: null,
+    demiCut: 52, long: false, scale: 1, detail: 1, proper: null,
     glossName: 'goat', glossPlural: 'goats', plain: null, search: [],
     headName: null, holdable: false, pairedWings: false,
     drawings: {
@@ -168,12 +168,12 @@ export const META_BEAST = {
     headName: { one: 'bear\'s head', many: 'bears\' heads' }, holdable: false, pairedWings: false,
     drawings: {
       rampant: { onBox: { x: 35, y: 23, w: 34, h: 34 }, anchors: { hold: { x: 30, y: 21, size: 16, rotation: 0 }, collar: { x: 58, y: 32, size: 14, rotation: -15 } }, neck: null },
-      passant: { onBox: { x: 44, y: 22, w: 34, h: 34 }, anchors: { hold: { x: 17, y: 61, size: 18, rotation: 0 }, collar: { x: 34, y: 40, size: 16, rotation: -75 } }, neck: null },
+      passant: { onBox: { x: 44, y: 22, w: 34, h: 34 }, anchors: { hold: { x: 21, y: 63, size: 18, rotation: 0 }, collar: { x: 34, y: 40, size: 16, rotation: -75 } }, neck: null },
       statant: { onBox: { x: 44, y: 22, w: 34, h: 34 }, anchors: { collar: { x: 34, y: 40, size: 16, rotation: -75 } }, neck: null },
       'sejant-erect': { onBox: { x: 40, y: 51, w: 34, h: 34 }, anchors: { hold: { x: 23, y: 23, size: 19, rotation: 0 }, collar: { x: 48, y: 31, size: 17, rotation: -15 } }, neck: null },
       head: { onBox: null, anchors: { collar: { x: 66.9, y: 80.4, size: 41.7, rotation: 0 }, crown: { x: 58.3, y: 15.3, size: 20.8, rotation: 0 }, mouth: { x: 12.2, y: 61.3, size: 13.9, rotation: 0 } }, neck: { y: 90, x0: 44.4, x1: 90.4 } },
     },
-    provenance: { origin: 'original', author: 'phase-D art pipeline, B1, claude-opus-5-5 drawer', date: '2026-10-18', method: 'round 1: ellipses, tapered limbs and polygons placed by hand on a grid from a written description, merged and outline-traced by a B1 script; no image traced or copied; round 2: bear rampant head, upper foreleg and raised hind leg re-placed by hand; review redraw, FXA, 2026-10-19: bear passant dexter foreleg raised (A-4), polygon coordinates placed by hand from a written description; no image traced or copied' },
+    provenance: { origin: 'original', author: 'phase-D art pipeline, B1, claude-opus-5-5 drawer', date: '2026-10-18', method: 'round 1: ellipses, tapered limbs and polygons placed by hand on a grid from a written description, merged and outline-traced by a B1 script; no image traced or copied; round 2: bear rampant head, upper foreleg and raised hind leg re-placed by hand; review redraw, FXA, 2026-10-19: bear passant dexter foreleg raised (A-4), polygon coordinates placed by hand from a written description; no image traced or copied; review fix, fix-verify, 2026-10-20: bear passant dexter foreleg stepped forward and down, clear of the jaw, and the lower jaw raised (A-4, V-5), polygon coordinates placed by hand from a written description; no image traced or copied' },
   },
   cat: {
     name: 'cat', plural: 'cats', article: 'a', category: 'beast',
