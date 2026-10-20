@@ -75,11 +75,12 @@ describe('demi charges and heads (PLAN-D §1.4)', () => {
     expect(gloss(lone(demi('lion'), 'or', { count: 3 }))).toMatch(/^A blue shield with the front halves of three gold lions, /);
   });
 
-  it('a demi charge differs from the whole beast by a distinct change of type, a head substantially, as from another beast\'s head; the cut is worth nothing (M1–M4)', () => {
+  it('a demi charge differs from the whole beast by a distinct change of type, a head substantially (from a demi one distinctly), as from another beast\'s head; the cut is worth nothing (M1–M4)', () => {
     const on = (item: object) => lone(item);
     expect(changes(on(demi('lion')), on(charge('lion')))).toEqual(['type:dc:A5G4']);
     expect(changes(on(head('lion')), on(charge('lion')))).toEqual(['type:sc:A5E2']);
-    expect(changes(on(head('lion')), on(demi('lion')))).toEqual(['type:sc:A5E2']);
+    // against a demi beast a head is a distinct change only (SENA A3D1b; herald question D7)
+    expect(changes(on(head('lion')), on(demi('lion')))).toEqual(['type:dc:A5G4']);
     expect(changes(on(head('wolf')), on(head('lion')))).toEqual(['type:sc:A5E2']);
     // William Ulfsson 08/2014: wolves' heads against horses' heads are more than a DC
     expect(changes(on(head('wolf')), on(head('horse')))).toEqual(['type:sc:A5E2']);

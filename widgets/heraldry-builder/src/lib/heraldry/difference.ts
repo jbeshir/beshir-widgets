@@ -75,18 +75,26 @@ export function isClear(diffs: readonly { kind: ChangeKind }[]): boolean {
 /**
  * What A5E2 compares: ordinaries by type — a chevron inverted (and chevronels inverted) is a type of its own (A5E5c pairs it with the
  * chevron), a pile inverted is the pile turned (A5G7) — and charges by type class (an eagle and an owl are one class, a lion and a wolf are not).
- * A plain cross couped is the ordinary's type (`AS_ORDINARY`). A head is substantially different from the whole beast or a demi one (§1.4 M2):
- * the registry holds "Argent, a bear rampant sable" and "Argent, a bear's head couped sable" (2014), "Vert, a horse rampant
- * contourny argent, a bordure Or" and "Vert, a horse's head couped argent, a bordure Or" (2023), "Argent, three boars statant gules" and
- * "Argent, three boar's heads erased gules" (2015) for different owners; heads of one class still share a key (M3).
+ * A plain cross couped is the ordinary's type (`AS_ORDINARY`). A head, a demi charge and the whole charge share their class's key; what a
+ * head is against the whole charge is `headAndWhole`'s.
  */
 function conflictKey(item: Item): string {
-  if (item.k === 'charge') {
-    const cls = AS_ORDINARY[CHARGES[item.charge].typeClass] ?? `charge:${CHARGES[item.charge].typeClass}`;
-    return item.form === 'head' ? `${cls}:head` : cls;
-  }
+  if (item.k === 'charge') return AS_ORDINARY[CHARGES[item.charge].typeClass] ?? `charge:${CHARGES[item.charge].typeClass}`;
   return familyOf(item.type) === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : typeKey(item);
 }
+
+/**
+ * §1.4 M2: as the primary, a head is substantially different from its whole beast (A5E2): the registry holds "Argent, a bear rampant
+ * sable" and "Argent, a bear's head couped sable" (2014), "Vert, a horse rampant contourny argent, a bordure Or" and "Vert, a horse's head
+ * couped argent, a bordure Or" (2023), "Argent, three boars statant gules" and "Argent, three boar's heads erased gules" (2015) for
+ * different owners. Against a demi beast it is a distinct change only (A5G4, as a demi charge against the whole one, M1: SENA A3D1b; the
+ * LoAR finds a head couped and a demi beast hard to tell apart; herald question D7), and so is a head of one class against a head of it (M3).
+ */
+const headAndWhole = (x: Item, y: Item): boolean =>
+  x.k === 'charge' && y.k === 'charge' && ((x.form === 'head' && y.form === null) || (x.form === null && y.form === 'head'));
+
+/** A5E2: whether two primary charges or ordinaries are of different classes, a head and its whole beast being apart (`headAndWhole`). */
+const classesApart = (x: Item, y: Item): boolean => conflictKey(x) !== conflictKey(y) || headAndWhole(x, y);
 
 /**
  * App M1f family 1 (§1.6 T3): a plain cross couped, equal-armed or Latin, is one type with the ordinary cross couped: the same key and
@@ -105,8 +113,8 @@ const SUN_POINTS = 8;
  * What A5G4 compares within a type class (§1.6 T1): two items differ in type by a DC when their tokens share none. A charge's token is its
  * own type, or the type SENA treats it as (`typeOf`), or one several charges share (`typeToken`: foils and roses by their petals, App
  * M1i); a plain cross couped has the couped ordinary's; a mullet or estoile of eight points or more is a sun as well (§1.6 T2).
- * A demi charge or a head is a type of its own (§1.4 M1: a DC from the whole beast; a head is a class of its own as well, M2: `conflictKey`), its
- * cut ignored (M4). An ordinary's is its type.
+ * A demi charge or a head is a type of its own (§1.4 M1: a DC from the whole beast; as the primary a head is an SC from it, M2:
+ * `headAndWhole`), its cut ignored (M4). An ordinary's is its type.
  */
 /**
  * What a charge's parts and details add to its type (PLAN-D §1.4): wings, on any charge (M13: a winged charge and a plain one are a DC apart;
@@ -586,7 +594,7 @@ function primaryChanges(x: Side, y: Side): Diff[] {
   const ref = refOf(x, y);
   const out: Diff[] = [];
   const shapes = birdShapeChange(x.group.item, y.group.item);
-  if (conflictKey(x.group.item) !== conflictKey(y.group.item) || shapes === 'sc') out.push(change('type', 'sc', 'A5E2', ref));
+  if (classesApart(x.group.item, y.group.item) || shapes === 'sc') out.push(change('type', 'sc', 'A5E2', ref));
   if (countCategory(x.group.count) !== countCategory(y.group.count)) out.push(change('number', 'sc', 'A5E3', ref));
   const gx = arrangementGroup(x.group), gy = arrangementGroup(y.group);
   if (gx !== null && gy !== null && gx !== gy && !isForced(x.design, x.path) && !isForced(y.design, y.path)) {
@@ -611,9 +619,7 @@ function primaryChanges(x: Side, y: Side): Diff[] {
 function pooledPrimaryChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
   const ref = refOf(xs[0], ys[0]);
   const out: Diff[] = [];
-  const typesOf = (side: readonly Side[]) => new Set(side.map((s) => conflictKey(s.group.item)));
-  const theirs = typesOf(ys);
-  if (![...typesOf(xs)].some((k) => theirs.has(k))) out.push(change('type', 'sc', 'A5E2', ref));
+  if (!xs.some((x) => ys.some((y) => !classesApart(x.group.item, y.group.item)))) out.push(change('type', 'sc', 'A5E2', ref));
   const total = (side: readonly Side[]) => side.reduce((n, s) => n + s.group.count, 0);
   if (countCategory(total(xs)) !== countCategory(total(ys))) out.push(change('number', 'sc', 'A5E3', ref));
   const [x, y] = [xs[0], ys[0]];

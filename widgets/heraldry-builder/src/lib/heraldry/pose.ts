@@ -26,7 +26,6 @@ function normalAngle(a: number): number {
   return r > 180 ? r - 360 : r;
 }
 
-
 /** Half a turn for a charge whose base is the end that goes the way named (`orient.point`, `orient.lead`: GoT Table 5), else none. */
 const fromBase = (end: ArtEnd): number => (end === 'base' ? 180 : 0);
 

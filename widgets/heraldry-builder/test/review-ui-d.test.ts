@@ -91,6 +91,6 @@ describe('U-9: searching for a head or a front half', () => {
     expect(searchCharges('demi')).toEqual(expect.arrayContaining(['lion', 'eagle']));
     expect(searchCharges('demi')).not.toContain('mullet');
     expect(['wolf head', 'demi', 'heads'].map(searchesForm)).toEqual([true, true, true]);
-    expect(['wolf', 'star', ''].map(searchesForm)).toEqual([false, false, false]);
+    expect(['wolf', 'star', '', 'skull', 'jambe'].map(searchesForm)).toEqual([false, false, false, false, false]);
   });
 });

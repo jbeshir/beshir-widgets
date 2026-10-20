@@ -51,8 +51,9 @@ function armSide(arm: CrossArm, L: number): Pt[] {
     // two outer points curling outward, the middle one standing well past them
     case 'patonce': return [[PINCH, -PINCH], [0.5 * L, -9], [L - 18, -12], [L - 17, -19], [L - 11, -26], [L - 8, -19], [L - 11, -12], [L - 6, -7], [L, 0]];
     case 'flory': return [[HALF, -HALF], [L - 17, -HALF], [L - 14, -15], [L - 15, -21], [L - 10, -20], [L - 6, -14], [L - 9, -7], [L - 4, -5], [L, 0]];
-    // a horn curling outward and back towards the crossing, a deep notch between it and its mirror image
-    case 'moline': return [[HALF, -HALF], [L - 16, -HALF], [L - 11, -12], [L - 9, -15], [L - 11, -17.5], [L - 14, -19], [L - 17, -21], [L - 15, -25], [L - 10, -27], [L - 4, -25], [L, -20], [L + 1, -13], [L, -6], [L, -3], [L - 12, 0]];
+    // a horn curling outward and a little back towards the crossing, a deep notch between it and its mirror image; every point of the horn
+    // lies at least 5.5 further along the arm than across it, so the horns of neighbouring arms stay apart and the cross reads as a cross
+    case 'moline': return [[HALF, -HALF], [L - 16, -HALF], [L - 11, -12], [L - 9, -15], [L - 10, -17.5], [L - 12.5, -19], [L - 15, -21], [L - 12.5, -25], [L - 8, -27], [L - 3, -25], [L, -20], [L + 1, -13], [L, -6], [L, -3], [L - 12, 0]];
     case 'bottony': return bottony(L);
     default: return arm satisfies never;
   }

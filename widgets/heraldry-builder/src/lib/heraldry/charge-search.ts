@@ -1,7 +1,7 @@
 // Finding a picture in the charge picker by typing: the words each charge is known by, and the ranked search through them.
 // The same word handling as the registry search (queryWords, matchesWords), so "star" and "wolves" find what they find there.
 
-import { CATEGORY_LABEL, CHARGE_FORMS, CHARGE_IDS, CHARGES, type ChargeId } from './charges';
+import { CATEGORY_LABEL, CHARGE_IDS, CHARGES, type ChargeId } from './charges';
 import { FORM_LABEL, chargeLabel } from './plain-words';
 import { matchesWords, normaliseWords, queryWords } from './search-terms';
 
@@ -23,7 +23,8 @@ export function chargeSearchText(id: ChargeId): string {
   return ` ${normaliseWords([...nameWords(id), chargeLabel(id), glossName, glossPlural, ...search, ...formWords(id), CATEGORY_LABEL[category]].join(' '))} `;
 }
 
-const FORM_TERMS: ReadonlySet<string> = new Set(CHARGE_FORMS.map((f) => FORM_LABEL[f].term));
+/** The words of the shapes some charge is drawn in: a shape no charge is drawn in finds no picture, so it gets no hint. */
+const FORM_TERMS: ReadonlySet<string> = new Set(CHARGE_IDS.flatMap((id) => CHARGES[id].forms.map((f) => FORM_LABEL[f].term)));
 
 /** True when the query names a shape a charge is drawn in ("wolf head", "demi"), which is chosen in the charge's own Shape row. */
 export function searchesForm(query: string): boolean {

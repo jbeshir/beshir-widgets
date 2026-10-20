@@ -1,7 +1,7 @@
 // The drawings the phase-D art review found hard to name at nametag size (findings A-4 … A-29 and the rules review's R-9,
 // /workspace/pd/review/findings-art.md): each is pinned by the feature that tells it apart, measured on its drawing — a line across the
 // drawing and the stretches of it that lie inside (even-odd), or the share of a held item that lies over its holder. The redrawn beasts and
-// birds whose feature is a matter of shape (the dragon, swan, boar, eagle close, dolphin, sea-lion, dove) and the demi cuts are pinned by
+// birds whose feature is a matter of shape (the dragon, swan, boar, eagle close, dolphin, sea-lion, dove) are pinned by
 // the render golden.
 
 import { describe, expect, it } from 'vitest';
@@ -55,11 +55,15 @@ function heldOverHolder(holder: object, how: string, item: string): number {
 }
 
 describe('the redrawn charges keep the feature that names them (art review)', () => {
-  it('raises a bear passant\'s dexter forepaw well clear of the ground, and keeps a bear statant\'s on it (A-4)', () => {
+  it('raises a bear passant\'s dexter forepaw well clear of the ground and of its jaw, and keeps a bear statant\'s on the ground (A-4, V-5)', () => {
     // how far the lowest point of the front quarter of the drawing (the dexter forepaw) is above the ground line (its lowest point)
     const clear = (posture: string) => { const d = drawing({ charge: 'bear', posture }).flat(); return lowest([d]) - lowest([d.filter(([x]) => x < 25)]); };
     expect(clear('passant')).toBeGreaterThanOrEqual(12);
     expect(clear('statant')).toBeLessThan(4);
+    // under the jaw, down the line x = 20, the field shows at least 8 between the head and the raised foreleg
+    const down = inside(drawing({ charge: 'bear', posture: 'passant' }), 20, true);
+    expect(down.length).toBeGreaterThanOrEqual(2);
+    expect(down[down.length - 1][0] - down[down.length - 2][1]).toBeGreaterThanOrEqual(8);
   });
 
   it('draws a comet\'s tail as three streamers apart from each other (A-5)', () => {
@@ -89,11 +93,14 @@ describe('the redrawn charges keep the feature that names them (art review)', ()
     expect(fork[1][0] - fork[0][1]).toBeGreaterThanOrEqual(6);
   });
 
-  it('splits each end of a cross moline into two horns at least 9 across, with a notch 6 deep between them (A-8)', () => {
+  it('splits each end of a cross moline into two horns at least 9 across, with a notch 6 deep between them, the horns of neighbouring arms 6 apart (A-8, V-3)', () => {
     const d = drawing({ charge: 'cross-moline' });
     const horns = inside(d, highest(d) + 6);
     expect(horns).toHaveLength(2);
     expect(widths(horns).every((w) => w >= 9)).toBe(true);
+    // the arms meet only at the crossing: away from it no point comes within 3 of a diagonal, which runs between neighbouring arms' horns
+    const offDiagonal = d.flat().filter(([x, y]) => Math.hypot(x - 50, y - 50) > 20).map(([x, y]) => Math.min(Math.abs(x - y), Math.abs(x + y - 100)) / Math.SQRT2);
+    expect(Math.min(...offDiagonal)).toBeGreaterThanOrEqual(3);
   });
 
   it('stands the middle point of a cross patonce\'s ends at least 7 past the two outer points (A-9)', () => {
@@ -110,6 +117,13 @@ describe('the redrawn charges keep the feature that names them (art review)', ()
     expect(guard).toBeLessThanOrEqual(0.36 * height);
     const blade = (share: number) => widths(inside(d, highest(d) + share * height))[0];
     expect(blade(0.1)).toBeLessThanOrEqual(0.75 * blade(0.4));
+  });
+
+  it('cuts a demi goat, wolf and unicorn off as one piece across, with no hind quarter beside the body (A-10)', () => {
+    for (const id of ['goat', 'wolf', 'unicorn']) {
+      const d = drawing({ charge: id, form: 'demi' });
+      for (const up of [0.5, 2, 4, 6]) expect(inside(d, lowest(d) - up), `${id} ${up} above the cut`).toHaveLength(1);
+    }
   });
 
   it('draws a rapier with a blade much slimmer than the sword\'s and as long a guard (A-22)', () => {
