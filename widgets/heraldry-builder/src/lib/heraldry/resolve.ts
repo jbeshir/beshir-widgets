@@ -10,7 +10,7 @@ import { asObject } from './json';
 import { isStain, isFur, isTincture } from './tinctures';
 import { capitalise } from './words';
 import {
-  CHARGES, isChargeForm, isChargeId, isFacing, isHoldHow, isModifierId, isOrientation, isPartId, isPosture,
+  CHARGES, CUT_MODIFIERS, isChargeForm, isChargeId, isFacing, isGaze, isHoldHow, isModifierId, isOrientation, isPartId, isPosture,
 } from './charges';
 import {
   canonical, ROLE_ORDER, PLAIN_LINES, POSITIONS,
@@ -218,7 +218,7 @@ function parseModifier(v: unknown, at: IssueAt, E: Errors, depth: number): Modif
 }
 
 function parseCharge(o: Record<string, unknown>, at: IssueAt, E: Errors, depth: number): Charge | null {
-  const bad = E.unknownKeys(o, ['k', 'charge', 'form', 'posture', 'facing', 'orientation', 'mods', 'parts', 'holds'], at, 'charge');
+  const bad = E.unknownKeys(o, ['k', 'charge', 'form', 'posture', 'gaze', 'facing', 'orientation', 'mods', 'parts', 'holds'], at, 'charge');
   if (!isChargeId(o.charge)) return E.add(at, 'Unknown charge.');
   const meta = CHARGES[o.charge];
   const name = `${capitalise(meta.article)} ${meta.name}`;
@@ -229,8 +229,15 @@ function parseCharge(o: Record<string, unknown>, at: IssueAt, E: Errors, depth: 
   if (given(o.form) && !isChargeForm(o.form)) fail('Unknown charge form.');
   if (given(o.posture) && !isPosture(o.posture)) fail('Unknown posture.');
   else if (given(o.posture) && meta.postures === null) fail(`${name} has no posture.`);
-  if (given(o.facing) && !isFacing(o.facing)) fail('Unknown facing.');
-  else if (given(o.facing) && meta.defaultFacing === null) fail(`${name} has no facing.`);
+  // A gaze was once a facing ("facing": "guardant"): it is read as the gaze, the body facing its default way.
+  const legacyGaze = isGaze(o.facing) ? o.facing : null;
+  const facing = legacyGaze ? null : o.facing;
+  if (given(facing) && !isFacing(facing)) fail('Unknown facing.');
+  else if (given(facing) && meta.defaultFacing === null) fail(`${name} has no facing.`);
+  const gaze = o.gaze ?? legacyGaze;
+  if (given(gaze) && !isGaze(gaze)) fail('Unknown gaze.');
+  else if (given(gaze) && meta.defaultFacing === null) fail(`${name} has no gaze.`);
+  else if (given(o.gaze) && legacyGaze) fail('The gaze is given twice.');
   if (given(o.orientation) && !isOrientation(o.orientation)) fail('Unknown orientation.');
 
   const list = (key: 'mods' | 'parts' | 'holds'): unknown[] => {
@@ -261,8 +268,9 @@ function parseCharge(o: Record<string, unknown>, at: IssueAt, E: Errors, depth: 
     return held && paint && !badHold ? { how: ho.how, item: held, paint } : null;
   }));
   if (!ok || !mods || !parts || !holds) return null;
+  if (CUT_MODIFIERS.every((cut) => mods.some((m) => m.id === cut))) return E.add(at, `${name} can't be both couped and erased.`);
   return {
-    k: 'charge', charge: o.charge, form: o.form ?? null, posture: o.posture ?? meta.defaultPosture, facing: o.facing ?? meta.defaultFacing,
+    k: 'charge', charge: o.charge, form: o.form ?? null, posture: o.posture ?? meta.defaultPosture, gaze: gaze ?? null, facing: facing ?? meta.defaultFacing,
     orientation: o.orientation ?? null, mods, parts, holds,
   } as Charge;
 }
@@ -399,7 +407,9 @@ function placeGroups(d: Design, raws: readonly RawGroup[], groups: readonly Grou
       const mate = ctx?.k === 'field' && ctx.share ? raws.find((_, k) => groups[k] !== g && groups[k].role === 'primary')?.layout ?? null : null;
       const stated = r.layout ?? mate;
       if (stated) {
-        if (ctx && (ctx.k === 'between' || ctx.k === 'on') && stated.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
+        // Where they stand, that is; two set around it may still face each other or stand back to back (a pair).
+        const placedBy = ctx?.k === 'on' || (ctx?.k === 'between' && stated.arrangement.k !== 'pair');
+        if (placedBy && stated.arrangement.k !== 'host') E.add(at, 'Charges set around or on an ordinary are placed by it — leave the arrangement out.');
         if (stated.arrangement.k === 'rows') {
           const sum = stated.arrangement.rows.reduce((a, b) => a + b, 0), total = ctx?.k === 'field' ? shareTotal(ctx.share, g.count) : g.count;
           if (sum !== total) E.add(at, `The rows add up to ${sum}, not ${total}.`);

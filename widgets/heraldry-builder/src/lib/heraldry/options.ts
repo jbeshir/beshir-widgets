@@ -18,19 +18,20 @@
 import { TINCTURES, TINCTURE_CLASS, TINCTURE_NAME, type Tincture } from './tinctures';
 import { capitalise, joinList, numberWord } from './words';
 import {
-  AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
+  AROUND_COUNTS, HOST_LAYOUT, ON_CHARGE_COUNTS, aroundWords, coPrimaries, contextOf, defaultLayoutOf, drawnLayout, hostCounts, layoutCandidates, layoutContext, layoutKey, layoutOfKey, isSecondaryPosition, positionLayout, positionLayouts, sameLayout, type LayoutKey,
 } from './arrangement';
-import { CHARGES, chargePhrase, postureTerm, type ModifierId, type Posture } from './charges';
+import { CHARGES, CUT_MODIFIERS, FACINGS, ORIENTATIONS, POSTURES, STAR_POINTS, chargePhrase, drawnPoints, postureWords, type ChargeForm, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type Posture } from './charges';
 import {
-  asParty, asVariation, canonical, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, variationPaint, walkGroups,
-  type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Issue, type PartyPaint, type VariationPaint,
+  asParty, asVariation, canonical, facingEachOther, GROUP_TINCTURES, groupAt, groupTinctureOf, hostOf, itemKey, itemName, bodyTinctures, paintOfGroupTincture, partyPaint, replaceGroup, samePath, tincturePaint, variationPaint, walkGroups,
+  type Charge, type CountLimit, type Design, type Group, type GroupPath, type GroupTincture, type Held, type Issue, type Modifier, type Paint, type Pair, type PartyPaint, type VariationPaint,
 } from './design';
 import { BUILDER_DIVISIONS, DIVISION_PART_LABEL, VARIATIONS, type Division, type Variation } from './divisions';
 import { ORDINARY_KIND, ORDINARY_NAME } from './ordinaries';
-import { MAX_DRAWN_COUNT, unsupportedIssues } from './support';
+import { MAX_DRAWN_COUNT, gazeDrawn, pairPlaced, unsupportedIssues } from './support';
+import { holdAnchored, isPiece, pieceAnchored, piecePaint, type PieceId, type PiecePart } from './overlay-art';
 import { ofOtherClass, withPaint, withPartner, type FieldPart } from './paint-target';
 import { isPeripheralPlace, placeKind, placesIn, type Placed } from './places';
-import { PLACE_LABEL } from './plain-words';
+import { FACING_LABEL, GAZE_LABEL, HOLD_LABEL, PAIR_LABEL, PIECE_LABEL, PLACE_LABEL } from './plain-words';
 import { hasRoom } from './layout';
 import { structuralIssues } from './structure';
 import { groupBodyTinctureIssues, groupTinctureIssues, paintName, tinctureIssues, trimTinctureIssues } from './tincture-rule';
@@ -715,9 +716,9 @@ function blockedNote(g: Group, blocks: readonly (Block | null)[]): string | null
 const QUADRUPED_POSTURES: readonly Posture[] = ['rampant', 'passant', 'statant', 'sejant'];
 
 /**
- * Postures for the group's charge. Four-legged charges list the four quadruped postures (and any other
- * they are drawn in, like the hare's courant), with the ones this charge isn't drawn in blocked;
- * other posture-bearing charges list their own; posture-less charges return [].
+ * Postures for the group's charge. Four-legged charges list the four quadruped postures, with the ones this charge isn't drawn in blocked,
+ * then any other they are drawn in (the hare's courant, the lion's couchant…) in the order of `POSTURES`; other posture-bearing charges
+ * list their own; posture-less charges return [].
  */
 export function postureChoices(d: Design, path: GroupPath): Choice<Posture>[] {
   const item = groupAt(d, path).item;
@@ -725,8 +726,9 @@ export function postureChoices(d: Design, path: GroupPath): Choice<Posture>[] {
   const meta = CHARGES[item.charge];
   const drawn = meta.postures;
   if (!drawn) return [];
-  const list = drawn.some((p) => QUADRUPED_POSTURES.includes(p)) ? [...QUADRUPED_POSTURES, ...drawn.filter((p) => !QUADRUPED_POSTURES.includes(p))] : drawn;
-  const names = drawn.map((p) => postureTerm(item.charge, p));
+  const others = POSTURES.filter((p) => drawn.includes(p) && !QUADRUPED_POSTURES.includes(p));
+  const list = drawn.some((p) => QUADRUPED_POSTURES.includes(p)) ? [...QUADRUPED_POSTURES, ...others] : drawn;
+  const names = drawn.map((p) => postureWords(item.charge, p));
   return list.map((p) => choice(p, drawn.includes(p) ? null : `The ${meta.name} is only drawn ${joinList(names, 'or')} in this builder.`));
 }
 
@@ -734,6 +736,265 @@ export function postureChoices(d: Design, path: GroupPath): Choice<Posture>[] {
 export function modifierChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
   const item = groupAt(d, path).item;
   return item.k === 'charge' ? CHARGES[item.charge].mods.map(ok) : [];
+}
+
+// ── Facing, gaze and pairs (PLAN-D §0.3.10) ─────────────────────────────────
+
+/**
+ * Which way the group's charge faces, offered for a charge that faces: to dexter as drawn, or to sinister (contourny, the drawing mirrored).
+ * Facing out (affronty) has no drawing; two charges set as a pair already face each their own way.
+ */
+export function facingChoices(d: Design, path: GroupPath): Choice<Facing>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge' || !CHARGES[g.item.charge].faces) return [];
+  const meta = CHARGES[g.item.charge];
+  const pair = g.arrangement.k === 'pair' ? g.arrangement.pair : null;
+  return FACINGS.map((f) => choice(f, f === 'affronty' ? `${FACING_LABEL.affronty.plain} (affronty) is not drawn for the ${meta.name}.`
+    : pair && f === 'to-sinister' ? `The two ${meta.plural} are set ${PAIR_LABEL[pair].plain.toLowerCase()}, each its own way: choose "Same way" first.` : null));
+}
+
+/** The head turns the builder offers: guardant and regardant (a head both ways is not drawn for any charge). */
+const OFFERED_GAZES: readonly Gaze[] = ['guardant', 'regardant'];
+
+/**
+ * Which way the head of the group's charge looks, offered for a posed charge that faces: ahead (null) as drawn, or turned where the charge
+ * has a drawing of its posture with the head turned (the lion rampant, passant, statant and sejant guardant, rampant regardant); the
+ * others are listed blocked.
+ */
+export function gazeChoices(d: Design, path: GroupPath): Choice<Gaze | null>[] {
+  const item = groupAt(d, path).item;
+  if (item.k !== 'charge' || !CHARGES[item.charge].faces || !item.posture) return [];
+  const name = CHARGES[item.charge].name;
+  return [null, ...OFFERED_GAZES].map((gaze) => choice(gaze, gaze === null || gazeDrawn(item, gaze) ? null
+    : `The ${name} is not drawn ${GAZE_LABEL[gaze].plain.toLowerCase()} (${gaze}) in this builder.`));
+}
+
+/** How two charges of a group stand to each other: the same way (no pair), facing each other or back to back. */
+export type PairChoice = 'same' | Pair;
+
+/**
+ * The ways two charges that face may stand to each other: the same way, facing each other (combattant for beasts and monsters rampant, respectant
+ * for the rest: `facingEachOther`) or back to back (addorsed); offered for a group of two such charges. A pair is drawn of the main picture
+ * alone on the background laid side by side (in fess), or of two charges either side of a pale (§1.1 F6, F8); elsewhere it is blocked.
+ * Never a Layout option (PLAN-D §0.1.9): the Layout row shows a pair as in fess.
+ */
+export function pairChoices(d: Design, path: GroupPath): Choice<PairChoice>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge' || !CHARGES[g.item.charge].faces || g.count !== 2) return [];
+  const plural = CHARGES[g.item.charge].plural;
+  const reason = !pairPlaced(d, g, hostOf(d, path))
+    ? `Only two ${plural} side by side as the main picture, or either side of a pale, can face each other or stand back to back.`
+    : g.arrangement.k !== 'pair' && contextOf(d, g, hostOf(d, path))?.k === 'field' && layoutKey(g) !== 'in-fess'
+      ? `Lay the two ${plural} side by side (in fess) first.` : null;
+  return (['same', facingEachOther(g.item), 'addorsed'] as const).map((p) => choice(p, p === 'same' ? null : reason));
+}
+
+/**
+ * Which way the group's charge may be turned, offered for a charge whose sidecar row allows some: as usual (null: upright, or along a bend
+ * it lies on), then every way but "reversed" and "to center", which are offered where the charge takes them. The ways it doesn't take are
+ * listed blocked, but for a charge with no set top (`radial`: a mullet, a rose), which lists only its own ways — the others aren't ways
+ * SCA heraldry has for it, not drawings the builder lacks (App L2). All are blocked for two crossed, and "to center" for a single charge
+ * (§1.3, `orientationGaps`).
+ */
+export function orientationChoices(d: Design, path: GroupPath): Choice<Orientation | null>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge' || CHARGES[g.item.charge].orient.allowed.length === 0) return [];
+  const { name, plural, orient } = CHARGES[g.item.charge];
+  const ways = ORIENTATIONS.filter((o) => orient.allowed.includes(o) || (orient.cls !== 'radial' && o !== 'reversed' && o !== 'to-center'));
+  return [null, ...ways].map((o) => choice(o, o === null ? null
+    : !orient.allowed.includes(o) ? `A ${name} is not turned that way in SCA heraldry.`
+      : g.arrangement.k === 'crossed' ? `Two ${plural} crossed are not turned.`
+        : o === 'to-center' && g.count < 2 ? `One ${name} has no group to point to the middle of.` : null));
+}
+
+// ── Shape (PLAN-D §0.3.10): the whole charge, a demi charge, a head; a head's cut ──
+
+/** The shapes the group's charge is drawn in: whole (null) and each form its sidecar holds; none for a charge with no form. */
+export function formChoices(d: Design, path: GroupPath): Choice<ChargeForm | null>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' && CHARGES[item.charge].forms.length > 0 ? [null, ...CHARGES[item.charge].forms].map(ok) : [];
+}
+
+/** How a head is cut off, offered for a head only: couped (straight) or erased (ragged). */
+export function cutChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' && item.form === 'head' ? CUT_MODIFIERS.map(ok) : [];
+}
+
+/** The cut of a head, or null (a whole or demi charge has none). */
+export const cutOf = (item: Charge): ModifierId | null => item.mods.find((m) => CUT_MODIFIERS.includes(m.id))?.id ?? null;
+
+// ── Details (PLAN-D §0.3.10): a star's points, voided, fimbriated, pierced, fitchy; the pieces (§0.3.5) ──
+
+/** What a modifier carries besides its id: a star's number of points, a fimbriation's tincture; neither for the rest. */
+export type ModifierValue = Pick<Modifier, 'count' | 'paint'>;
+export const NO_MODIFIER_VALUE: ModifierValue = { count: null, paint: null };
+
+/** The group's charge with modifier `id` on, carrying `value`, or off (canonical: a star given the points it is drawn with has none). */
+export function withModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean, value: ModifierValue = NO_MODIFIER_VALUE): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const mods = g.item.mods.filter((m) => m.id !== id);
+  return canonical(replaceGroup(d, path, { ...g, item: { ...g.item, mods: on ? [...mods, { id, ...value }] : mods } }));
+}
+
+/** The tinctures to try for a charge's fimbriation or held item, best first: each but the charge's own, which comes last. */
+const paintsOwnLast = (g: Group): Paint[] =>
+  [...TINCTURES.filter((t) => g.paint.k !== 'tincture' || t !== g.paint.t), ...(g.paint.k === 'tincture' ? [g.paint.t] : [])].map((t) => paintOfGroupTincture(t));
+
+/** The fimbriation a charge at `path` is given when it is switched on: the first tincture that stands out where the charges lie (§1.4 M16). */
+export function firstFimbriation(d: Design, path: GroupPath): Paint {
+  const paints = paintsOwnLast(groupAt(d, path));
+  return paints.find((p) => trimTinctureIssues(withModifier(d, path, 'fimbriated', true, { count: null, paint: p }), path).length === 0) ?? paints[0];
+}
+
+/**
+ * The details the group's charge may be drawn with, from its sidecar `details` but the number of points (`pointsChoices`): voided,
+ * fimbriated, pierced, fitchy, and the pieces winged, enflamed, slipped and leaved. One that is on can always be switched off; switching one
+ * on is blocked where SENA A3C refuses it (`charge-treatment`: only the main charges, not both voided and fimbriated, none voided in a
+ * badge, three at most), for a fimbriation where no tincture of it would stand out (§1.4 M10, M16), and for a piece where the charge's
+ * drawing has no place for it or, leaves, without a slip (`pieceReason`).
+ */
+export function detailChoices(d: Design, path: GroupPath): Choice<ModifierId>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return [];
+  const item = g.item;
+  const here = (i: Issue) => i.at.k === 'group' && samePath(i.at.path, path);
+  return CHARGES[item.charge].details.filter((id) => id !== 'of-points').map((id) => {
+    if (item.mods.some((m) => m.id === id)) return ok(id);
+    const unplaced = isPiece(id) ? pieceReason(item, id) : null;
+    if (unplaced) return choice(id, unplaced);
+    const on = withModifier(d, path, id, true, id === 'fimbriated' ? { count: null, paint: firstFimbriation(d, path) } : isPiece(id) ? { count: null, paint: firstPiecePaint(d, path, id) } : NO_MODIFIER_VALUE);
+    const refused = structuralIssues(on).find((i) => i.code === 'structure' && i.rule === 'charge-treatment' && here(i));
+    return choice(id, refused?.message ?? (id === 'fimbriated' ? trimTinctureIssues(on, path)[0]?.message ?? null : null));
+  });
+}
+
+/** How many points the group's star may have (4 to 12), offered for a mullet or an estoile; the number it is drawn with is one of them. */
+export function pointsChoices(d: Design, path: GroupPath): Choice<number>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' && drawnPoints(item.charge) !== null ? STAR_POINTS.map(ok) : [];
+}
+
+/** How many points the charge has: the number it is given, else the number it is drawn with (null: not a star). */
+export const pointsOf = (item: Charge): number | null => item.mods.find((m) => m.id === 'of-points')?.count ?? drawnPoints(item.charge);
+
+/** The tinctures the fimbriation of the group's charges may be, offered while they are fimbriated: blocked where it wouldn't stand out (§1.4 M16). */
+export function fimbriationTinctureChoices(d: Design, path: GroupPath): Choice<Tincture>[] {
+  const item = groupAt(d, path).item;
+  if (item.k !== 'charge' || !item.mods.some((m) => m.id === 'fimbriated')) return [];
+  return TINCTURES.map((t) => choice(t, trimTinctureIssues(withModifier(d, path, 'fimbriated', true, { count: null, paint: paintOfGroupTincture(t) }), path)[0]?.message ?? null));
+}
+
+/** What a charge is drawn as, for a reason: "lion sejant", "demi-lion", "wolf's head". */
+function drawnName(item: Charge): string {
+  const { name, headName } = CHARGES[item.charge];
+  // a head the charge has no word for is not drawn (support.ts: the gap charge-modifier:head), but its controls still name it
+  if (item.form === 'head') return headName ? headName.one.toLowerCase() : `${name}'s head`;
+  if (item.form === 'demi') return `demi-${name}`;
+  return item.posture ? `${name} ${postureWords(item.charge, item.posture)}` : name;
+}
+
+/** Why a charge can't be given a piece: leaves without a slip, or a drawing with no place for it (a lion sejant has no wings); null when it can. */
+function pieceReason(item: Charge, piece: PieceId): string | null {
+  if (piece === 'leaved' && !item.mods.some((m) => m.id === 'slipped')) return 'Leaves grow from a stem: put the flower on a stem (slipped) first.';
+  return pieceAnchored(item, piece) ? null : `The ${drawnName(item)} is not drawn ${PIECE_LABEL[piece].plain.toLowerCase()} in this builder.`;
+}
+
+/**
+ * The paint a piece is given when it is switched on: wings the charge's own tincture (a winged lion Or), flames proper, a stem green and its
+ * leaves the stem's, a crown or collar gold (red on a gold charge). Pieces are not judged by the rule of tincture (§1.4 M16): any tincture
+ * may be chosen after (`pieceTinctureChoices`).
+ */
+export function firstPiecePaint(d: Design, path: GroupPath, piece: PieceId): Paint {
+  const g = groupAt(d, path);
+  const own = g.paint.k === 'tincture' ? g.paint.t : null;
+  switch (piece) {
+    case 'winged': return tincturePaint(own ?? 'or');
+    case 'enflamed': return { k: 'proper' };
+    case 'slipped': return tincturePaint('vert');
+    case 'leaved': return (g.item.k === 'charge' ? piecePaint(g.item, 'slipped') : null) ?? tincturePaint('vert');
+    case 'crowned': case 'collared': return tincturePaint(own === 'or' ? 'gules' : 'or');
+  }
+}
+
+/** The parts the group's charge may be drawn with (crowned, collared: `parts` drawn as pieces), each blocked where its drawing has no place for it. */
+export function partChoices(d: Design, path: GroupPath): Choice<PiecePart>[] {
+  const item = groupAt(d, path).item;
+  if (item.k !== 'charge') return [];
+  return CHARGES[item.charge].parts.filter((part): part is PiecePart => isPiece(part))
+    .map((part) => choice(part, item.parts.some((p) => p.part === part) ? null : pieceReason(item, part)));
+}
+
+/** The group's charge with `part` on in `paint`, or off (null). */
+export function withPart(d: Design, path: GroupPath, part: PiecePart, paint: Paint | null): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const parts = g.item.parts.filter((p) => p.part !== part);
+  return canonical(replaceGroup(d, path, { ...g, item: { ...g.item, parts: paint ? [...parts, { part, paint }] : parts } }));
+}
+
+/** The tinctures a piece of the group's charge may be, offered while it has the piece: every one (pieces are artistic detail, §1.4 M16). */
+export function pieceTinctureChoices(d: Design, path: GroupPath, piece: PieceId): Choice<Tincture>[] {
+  const item = groupAt(d, path).item;
+  return item.k === 'charge' && piecePaint(item, piece) !== null ? TINCTURES.map(ok) : [];
+}
+
+// ── Holding (PLAN-D §0.3.10, §1.5): the item a main charge holds, the way it holds it, and its tincture ──
+
+/** How a refusal says a way of holding: "holding anything", "with anything in its beak". */
+const holdingWords = (how: HoldHow): string => {
+  const plain = HOLD_LABEL[how].plain.toLowerCase();
+  return how === 'in-beak' || how === 'in-mouth' ? `with anything ${plain}` : `${plain} anything`;
+};
+
+/**
+ * The ways the group's charge may hold an item (its sidecar `holds`: in its paw, held up, in its beak or its mouth), offered for a main
+ * charge only (§1.5 H3: a primary or co-primary charge on the field); each blocked where its drawing has no place for the item (a lion
+ * couchant has no paw free, a demi lion none).
+ */
+export function holdChoices(d: Design, path: GroupPath): Choice<HoldHow>[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge' || g.role !== 'primary') return [];
+  const item = g.item;
+  return CHARGES[item.charge].holds.map((how) => choice(how, holdAnchored(item, how) ? null : `The ${drawnName(item)} is not drawn ${holdingWords(how)} in this builder.`));
+}
+
+/** The group's charge holding `held`, or nothing (null): one item a charge (H3). */
+export function withHold(d: Design, path: GroupPath, held: Held | null): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  return canonical(replaceGroup(d, path, { ...g, item: { ...g.item, holds: held ? [held] : [] } }));
+}
+
+/** Why the item the group's charge holds breaks the rule of tincture (§1.5 H5: it must stand out from the field its holder lies on), or null. */
+const heldTinctureReason = (d: Design, path: GroupPath): string | null =>
+  groupTinctureIssues(d, path).find((i) => i.code === 'tincture' && i.part === 'held')?.message ?? null;
+
+/** The tincture an item is given when the group's charge first holds it: the first that stands out from the field (§1.5 H5), the charge's own last. */
+export function firstHeldPaint(d: Design, path: GroupPath, held: Omit<Held, 'paint'>): Paint {
+  const paints = paintsOwnLast(groupAt(d, path));
+  return paints.find((paint) => heldTinctureReason(withHold(d, path, { ...held, paint }), path) === null) ?? paints[0];
+}
+
+/** The tinctures the item the group's charge holds may be, offered while it holds one: blocked where it wouldn't stand out from the field (§1.5 H5). */
+export function heldTinctureChoices(d: Design, path: GroupPath): Choice<Tincture>[] {
+  const item = groupAt(d, path).item;
+  const held = item.k === 'charge' ? item.holds[0] : undefined;
+  return held ? TINCTURES.map((t) => choice(t, heldTinctureReason(withHold(d, path, { ...held, paint: tincturePaint(t) }), path))) : [];
+}
+
+/** Natural colours for the item the group's charge holds ("a sword proper"), blocked where they wouldn't stand out from the field (H5); null when it has none. */
+export function heldProperChoice(d: Design, path: GroupPath): Choice<'proper'> | null {
+  const item = groupAt(d, path).item;
+  const held = item.k === 'charge' ? item.holds[0] : undefined;
+  return held && CHARGES[held.item.charge].proper ? choice('proper', heldTinctureReason(withHold(d, path, { ...held, paint: { k: 'proper' } }), path)) : null;
+}
+
+/** The layout the Layout row shows as chosen: a pair is laid out as its two charges in fess, or where the ordinary places them (§1.1 F8). */
+export function shownLayoutKey(d: Design, path: GroupPath): LayoutKey {
+  const g = groupAt(d, path);
+  return layoutKey(g.arrangement.k === 'pair' ? drawnLayout(layoutContext(d, path), g) : g);
 }
 
 // ── Repairs ─────────────────────────────────────────────────────────────────

@@ -9,8 +9,9 @@ import { CHARGES } from './charges';
 import { LINE_WORD, isStraightLine, type ComplexLine } from './lines';
 import { adjacentParts } from './divisions';
 import { defaultLayoutOf } from './arrangement';
-import { fieldTinctures, replaceGroup, walkGroups, type Design, type Group, type WalkedGroup } from './design';
-import { drawnBox } from './geometry';
+import { fieldTinctures, replaceGroup, walkGroups, type Charge, type Design, type Group, type WalkedGroup } from './design';
+import { drawnBox } from './charge-art';
+import { overlaidArt } from './overlay-art';
 import { canonicalSlots } from './layout';
 import { chargeWords, ordinaryWords } from './plain-words';
 import { designTinctures } from './render';
@@ -93,6 +94,13 @@ function lighterCount(d: Design, { path, group, host }: WalkedGroup): number | n
   return fewer.filter((n) => n <= 3).pop() ?? fewer[0] ?? null;
 }
 
+/** A star of eight points or more (§1.4 M5) has finer points than the star as drawn: one point of detail more than its drawing. */
+const MANY_POINTS = 8;
+
+/** How much fine detail a charge carries: its drawing's, one more for a star of many points, one more for each piece its parts and details draw. */
+const chargeDetail = (c: Charge): number =>
+  CHARGES[c.charge].detail + ((c.mods.find((m) => m.id === 'of-points')?.count ?? 0) >= MANY_POINTS ? 1 : 0) + overlaidArt(c).overlays.filter((o) => o.part !== 'held').length;
+
 export function readability(d: Design): Readability {
   const entries = walkGroups(d);
   const charges = entries.filter(({ group }) => group.item.k === 'charge');
@@ -111,16 +119,17 @@ export function readability(d: Design): Readability {
   const crossing = straddle(d, entries);
   const complexLine = d.kind === 'arms' && d.field.k === 'divided' ? [d.field.lines.a, d.field.lines.b].find((l): l is ComplexLine => !isStraightLine(l)) ?? null : null;
 
-  // The largest charge group sets the count score; each further group adds a point.
+  // The largest charge group sets the count score; each further group adds a point, and so does what a group holds (§1.5 H6: a held item is a group, A3E2).
   const biggest = charges.reduce<WalkedGroup | null>((best, e) => (best === null || e.group.count > best.group.count ? e : best), null);
   const sizes = charges.flatMap(({ path, group: { item } }) =>
-    item.k === 'charge' ? canonicalSlots(d, path).map((s) => drawnBox(s, item.charge).size) : []);
+    item.k === 'charge' ? canonicalSlots(d, path).map((s) => drawnBox(s, item).size) : []);
   const smallest = Math.min(Infinity, ...sizes);
   const sizePoints = (c: number) => (c === 1 ? 0 : c <= 3 ? 1 : c <= 5 ? 2 : 3);
-  const count = (biggest ? sizePoints(biggest.group.count) : 0) + Math.max(0, charges.length - 1) + (smallest < SMALL_CHARGE ? 1 : 0);
+  const holding = charges.filter(({ group: { item } }) => item.k === 'charge' && item.holds.length > 0).length;
+  const count = (biggest ? sizePoints(biggest.group.count) : 0) + Math.max(0, charges.length - 1) + holding + (smallest < SMALL_CHARGE ? 1 : 0);
   const lighter = biggest ? lighterCount(d, biggest) : null;
   const detailed = charges.reduce<{ points: number; entry: WalkedGroup | null }>((best, e) => {
-    const points = e.group.item.k === 'charge' ? CHARGES[e.group.item.charge].detail : 0;
+    const points = e.group.item.k === 'charge' ? chargeDetail(e.group.item) : 0;
     return points > best.points ? { points, entry: e } : best;
   }, { points: 0, entry: null });
   const biggestMeta = biggest && biggest.group.item.k === 'charge' ? CHARGES[biggest.group.item.charge] : null;

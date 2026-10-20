@@ -4,21 +4,23 @@
 // Availability UI. Same code on client (instant feedback) and Worker (authoritative).
 
 import { capitalise } from './words';
-import { CHARGES, postureTerm, type Posture, type PostureClass } from './charges';
+import type { BirdShape } from './art/types';
+import { CHARGES, postureTerm, type ChargeId, type Orientation, type Posture, type PostureClass, type TypeClass } from './charges';
 import {
-  asParty, asVariation, canonical, canonicalLines, fieldParts, groupAt, hostOf, isFieldPrimary, itemKey, itemName, notSupported, primaryGroups,
-  type Design, type Group, type GroupPath, type Item, type Paint, type Role,
+  asParty, asVariation, canonical, canonicalLines, fieldParts, fimbriationOf, groupAt, hostOf, isFieldPrimary, isVoided, itemKey, itemName, notSupported, primaryGroups,
+  type Charge, type Design, type Group, type GroupPath, type Held, type Item, type Paint, type Role,
 } from './design';
 import { DIVISION_NAME, VARIATION_NAME, isCountedVariation, partCount, type Division, type Variation } from './divisions';
 import { divisionPartGrid } from './geometry';
 import { LINE_WORD, edgeCount, lineDiffers, lineWords, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import { ORDINARY_KIND, ORDINARY_NAME, familyOf, familyOfTreated, isDiminutive, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { ORDINARY_LABEL } from './plain-words';
-import { isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
+import { contextOf, drawnLayout, isForced, layoutKey, layoutWords, primaryCharges, type LayoutKey } from './arrangement';
+import { orientationTerms, turnWords } from './blazon';
 import { paintGaps } from './support';
 import { paintName, shownSurfaces, type ShownSurfaces } from './tincture-rule';
 import { liftStrewn } from './strewn';
-import { fieldSurfaces, sameSurface, tinctureSurface, type Surface } from './surface';
+import { fieldSurfaces, sameSurface, surfaceOf, tinctureSurface, type Surface } from './surface';
 
 export type ChangeKind = 'sc' | 'dc';
 
@@ -55,9 +57,10 @@ export function isSenaRule(v: unknown): v is SenaRule {
 /**
  * The groups a change is about: `a` and `b` are their paths in the two designs (null on the side that lacks the
  * group); `role` and `host` (the role of the group it sits on, for tertiaries) are those of the first design's group,
- * else the second's.
+ * else the second's. A held item (§1.5 H1) is a secondary group of its own: `a` and `b` are then the paths of its holders and `held`
+ * its place in each holder's `holds`; null for any other group.
  */
-export type GroupRef = { role: Role; item: 'ordinary' | 'charge'; host: Role | null }
+export type GroupRef = { role: Role; item: 'ordinary' | 'charge'; host: Role | null; held: { a: number | null; b: number | null } | null }
   & ({ a: GroupPath; b: GroupPath } | { a: GroupPath; b: null } | { a: null; b: GroupPath });
 
 export interface Diff { attr: DiffAttr; kind: ChangeKind; rule: SenaRule; group: GroupRef | null }
@@ -72,11 +75,69 @@ export function isClear(diffs: readonly { kind: ChangeKind }[]): boolean {
 /**
  * What A5E2 compares: ordinaries by type — a chevron inverted (and chevronels inverted) is a type of its own (A5E5c pairs it with the
  * chevron), a pile inverted is the pile turned (A5G7) — and charges by type class (an eagle and an owl are one class, a lion and a wolf are not).
+ * A plain cross couped is the ordinary's type (`AS_ORDINARY`). A head, a demi charge and the whole charge share their class's key; what a
+ * head is against the whole charge is `headAndWhole`'s.
  */
 function conflictKey(item: Item): string {
-  if (item.k === 'charge') return `charge:${CHARGES[item.charge].typeClass}`;
+  if (item.k === 'charge') return AS_ORDINARY[CHARGES[item.charge].typeClass] ?? `charge:${CHARGES[item.charge].typeClass}`;
   return familyOf(item.type) === 'chevron' && item.mods.includes('inverted') ? 'ordinary:chevron-inverted' : typeKey(item);
 }
+
+/**
+ * §1.4 M2: as the primary, a head is substantially different from its whole beast (A5E2): the registry holds "Argent, a bear rampant
+ * sable" and "Argent, a bear's head couped sable" (2014), "Vert, a horse rampant contourny argent, a bordure Or" and "Vert, a horse's head
+ * couped argent, a bordure Or" (2023), "Argent, three boars statant gules" and "Argent, three boar's heads erased gules" (2015) for
+ * different owners. Against a demi beast it is a distinct change only (A5G4, as a demi charge against the whole one, M1: SENA A3D1b; the
+ * LoAR finds a head couped and a demi beast hard to tell apart; herald question D7), and so is a head of one class against a head of it (M3).
+ */
+const headAndWhole = (x: Item, y: Item): boolean =>
+  x.k === 'charge' && y.k === 'charge' && ((x.form === 'head' && y.form === null) || (x.form === null && y.form === 'head'));
+
+/** A5E2: whether two primary charges or ordinaries are of different classes, a head and its whole beast being apart (`headAndWhole`). */
+const classesApart = (x: Item, y: Item): boolean => conflictKey(x) !== conflictKey(y) || headAndWhole(x, y);
+
+/**
+ * App M1f family 1 (§1.6 T3): a plain cross couped, equal-armed or Latin, is one type with the ordinary cross couped: the same key and
+ * type token, couped (`isCouped`), as App M1f has it ("no difference is granted for … changing between equal-armed and Latinate"). The
+ * two are kept as two ways to draw it.
+ */
+const AS_ORDINARY: Partial<Record<TypeClass, string>> = { 'cross-couped': 'ordinary:cross' };
+
+/** App M1g (§1.6 T2): a compass star is a mullet of eight points, and a star of eight points or more is a sun as well, so it is a DC from neither — herald question D11. */
+const STAR_TOKENS: Partial<Record<ChargeId, readonly string[]>> = { 'compass-star': ['mullet', 'sun'] };
+
+/** App M1g: how many points make a mullet or an estoile a sun as well (Ulrich Michel Schmidt 10/2019). */
+const SUN_POINTS = 8;
+
+/**
+ * What A5G4 compares within a type class (§1.6 T1): two items differ in type by a DC when their tokens share none. A charge's token is its
+ * own type, or the type SENA treats it as (`typeOf`), or one several charges share (`typeToken`: foils and roses by their petals, App
+ * M1i); a plain cross couped has the couped ordinary's; a mullet or estoile of eight points or more is a sun as well (§1.6 T2).
+ * A demi charge or a head is a type of its own (§1.4 M1: a DC from the whole beast; as the primary a head is an SC from it, M2:
+ * `headAndWhole`), its cut ignored (M4). An ordinary's is its type.
+ */
+/**
+ * What a charge's parts and details add to its type (PLAN-D §1.4): wings, on any charge (M13: a winged charge and a plain one are a DC apart;
+ * the winged fleur-de-lys exception is not made, herald question D8), and a collar on a head (M12; on a whole beast it is nothing). A crown
+ * (M11), flames, a slip and leaves (M14) count for nothing; a crowned inanimate charge would be a DC (M11b), but none is drawn.
+ */
+const typeMarks = (item: Charge): string[] =>
+  [...(item.mods.some((m) => m.id === 'winged') ? ['winged'] : []), ...(item.form === 'head' && item.parts.some((p) => p.part === 'collared') ? ['collared'] : [])];
+
+function typeTokens(item: Item): readonly string[] {
+  if (item.k === 'ordinary') return [typeKey(item)];
+  const meta = CHARGES[item.charge];
+  const asOrdinary = AS_ORDINARY[meta.typeClass];
+  if (asOrdinary) return [asOrdinary];
+  const own = STAR_TOKENS[item.charge] ?? [meta.typeToken ?? meta.typeOf ?? item.charge];
+  const points = item.mods.find((m) => m.id === 'of-points')?.count ?? null;
+  const tokens = points !== null && points >= SUN_POINTS ? [...own, 'sun'] : own;
+  const formed = item.form ? tokens.map((t) => `${t}:${item.form}`) : tokens;
+  return formed.map((t) => `${t}${typeMarks(item).map((m) => `+${m}`).join('')}`);
+}
+
+/** A5E2/A5G4: of different classes, or of one class with no type token in common. */
+const typesDiffer = (x: Item, y: Item): boolean => conflictKey(x) !== conflictKey(y) || !typeTokens(x).some((t) => typeTokens(y).includes(t));
 
 /**
  * RULES-C §C.3, L9: a quarter is a canton drawn larger, one type for conflict; a tressure is a narrow orle (a single tressure is one, a double
@@ -91,11 +152,11 @@ const typeKey = (item: Item): string => (item.k === 'ordinary' ? `ordinary:${ALI
 /** A5G6 (RULES-C §C.3, L16): a canton, quarter or gyron against the same in the other top corner, a gore against one from the other side, is a change of its position (a baton sinister is a bend sinister's type: `typeKey`). */
 const sidesSwapped = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && x.type !== 'baton' && y.type !== 'baton' && x.mods.includes('sinister') !== y.mods.includes('sinister');
 
-/** Whether an ordinary is couped: with the treatment, or a baton (a bendlet couped). */
-const isCouped = (x: Item): boolean => x.k === 'ordinary' && (x.mods.includes('couped') || x.type === 'baton');
+/** Whether an ordinary is couped: with the treatment, or a baton (a bendlet couped); a charge that is an ordinary's type is that ordinary couped. */
+const isCouped = (x: Item): boolean => (x.k === 'ordinary' ? x.mods.includes('couped') || x.type === 'baton' : AS_ORDINARY[CHARGES[x.charge].typeClass] !== undefined);
 
 /** A5G4 (RULES-C §D.2): a couped ordinary against one throughout — the same ordinary otherwise — is a change of its type. */
-const coupingDiffers = (x: Item, y: Item): boolean => x.k === 'ordinary' && y.k === 'ordinary' && isCouped(x) !== isCouped(y);
+const coupingDiffers = (x: Item, y: Item): boolean => isCouped(x) !== isCouped(y);
 
 /** A5G7 (RULES-C §D.1, L14): a pile against a pile inverted is a change of orientation. */
 const pileTurned = (x: Item, y: Item): boolean =>
@@ -118,6 +179,8 @@ function arrangementGroup(g: Group): string | null {
   switch (a.k) {
     case 'line': return `line-${a.dir}`;
     case 'crossed': return 'saltire';
+    // §1.1 F8 (App K): a pair is two charges in fess, whichever way they face.
+    case 'pair': return 'line-fess';
     case 'pattern':
       return a.pattern === 'saltire' ? 'saltire' : a.pattern === 'cross' ? 'cross' : a.pattern === 'orle' || a.pattern === 'annulo' ? 'ring' : null;
     case 'rows': {
@@ -128,20 +191,29 @@ function arrangementGroup(g: Group): string | null {
   }
 }
 
-/** A5E5 (RULES §C.4 SC-5): postures substantially different from those of the other lines; unlisted postures are in none. */
+/**
+ * A5E5a (RULES §C.4 SC-5; PLAN-D §1.2): postures substantially different from those of the other lines; unlisted postures are in none.
+ * P1 quadrupeds (winged monsters too): statant erect is in L1a's rampant line, so it is in the rampant line here too. P2 birds (striking,
+ * of the rising line, is not drawn). P3 fish. P4 insects turn by orientation, not posture (`orientationsApart`). P5 bipeds and P6 serpents: none (case by case).
+ */
 const POSTURE_SC_LINES: Record<PostureClass, Partial<Record<Posture, string>>> = {
   quadruped: {
-    rampant: 'rampant', salient: 'rampant', 'sejant-erect': 'rampant', sejant: 'rampant',
+    rampant: 'rampant', salient: 'rampant', 'sejant-erect': 'rampant', sejant: 'rampant', 'statant-erect': 'rampant',
     courant: 'passant', passant: 'passant', statant: 'passant', couchant: 'passant', dormant: 'passant',
   },
   bird: { displayed: 'displayed', volant: 'displayed', close: 'close', naiant: 'close', rising: 'rising' },
   fish: { haurient: 'haurient', urinant: 'haurient', naiant: 'naiant' },
   insect: {},
+  biped: {},
+  serpent: {},
 };
 
 /**
- * A5G7 (RULES §C.7, App L1): postures within a line don't differ, across lines they do. A sejant erect is in the rampant
- * and the sejant line both, so it differs from neither (RULES §G.7).
+ * A5G7 (RULES §C.7, App L1; PLAN-D §1.2): postures within a line don't differ, across lines they do. A sejant erect is in the rampant
+ * and the sejant line both, so it differs from neither (RULES §G.7); rampant against sejant is a DC and never an SC, as A5E5a puts sejant
+ * in the rampant line and App L1a gives it a line of its own (herald question D2, decided). P5 (L1f; CL 12/2024 statant is erect for a
+ * wyvern): a biped erect, statant or haurient against one naiant or sejant. P6 (L1g "case by case"): each serpent posture is a line of its
+ * own — herald question D3.
  */
 const POSTURE_DC_LINES: Record<PostureClass, Partial<Record<Posture, readonly string[]>>> = {
   quadruped: {
@@ -151,13 +223,21 @@ const POSTURE_DC_LINES: Record<PostureClass, Partial<Record<Posture, readonly st
   bird: { close: ['close'], naiant: ['close'], displayed: ['displayed'], volant: ['volant'], rising: ['rising'] },
   fish: { haurient: ['haurient'], urinant: ['haurient'], naiant: ['naiant'] },
   insect: {},
+  biped: { erect: ['erect'], statant: ['erect'], haurient: ['erect'], naiant: ['low'], sejant: ['low'] },
+  serpent: { glissant: ['glissant'], nowed: ['nowed'], erect: ['erect'] },
 };
+
+/**
+ * A charge's posture as conflict reads it: as set, or for a charge drawn in no posture its Table 5 one (GoT Table 5 "Owl — Close guardant":
+ * an owl is close for A5E5a and A5G7). Null for none: a head or a demi charge, or a charge with no Table 5 posture.
+ */
+const postureOf = (c: Charge): Posture | null => c.posture ?? (CHARGES[c.charge].postures === null ? CHARGES[c.charge].scaDefaultPosture : null);
 
 /** The postures of two charges that share a posture class (App M3), or null when they are not comparable or either has no posture. */
 function comparablePostures(x: Item, y: Item): { cls: PostureClass; px: Posture; py: Posture } | null {
-  if (x.k !== 'charge' || y.k !== 'charge' || !x.posture || !y.posture) return null;
-  const cls = CHARGES[x.charge].postureClass;
-  return cls !== null && cls === CHARGES[y.charge].postureClass ? { cls, px: x.posture, py: y.posture } : null;
+  if (x.k !== 'charge' || y.k !== 'charge') return null;
+  const px = postureOf(x), py = postureOf(y), cls = CHARGES[x.charge].postureClass;
+  return px !== null && py !== null && cls !== null && cls === CHARGES[y.charge].postureClass ? { cls, px, py } : null;
 }
 
 /** Whether comparable postures lie in different lines of A5G7's table, so that changing one for the other is a distinct change. */
@@ -165,6 +245,112 @@ function postureLinesApart({ cls, px, py }: { cls: PostureClass; px: Posture; py
   const lines = POSTURE_DC_LINES[cls];
   const lx = lines[px] ?? [], ly = lines[py] ?? [];
   return px !== py && !lx.some((l) => ly.includes(l));
+}
+
+/**
+ * §1.1 F1–F3, F5: whether a group's facing counts for conflict. Not for an owl (`facingCounts: 'never'`), a fish haurient or urinant (its head
+ * is up or down), or charges in annulo (F2); a dolphin's counts in every posture (`'always'`, F3). Facing forced by counterchanging (F2,
+ * Rœrekr á Úlfhamre 07/2013) is not told apart: herald question D25.
+ */
+function facingCounts(g: Group): boolean {
+  if (g.item.k !== 'charge' || (g.arrangement.k === 'pattern' && g.arrangement.pattern === 'annulo')) return false;
+  const meta = CHARGES[g.item.charge];
+  const upOrDown = meta.postureClass === 'fish' && (g.item.posture === 'haurient' || g.item.posture === 'urinant');
+  return meta.facingCounts === 'always' || (meta.facingCounts === 'normal' && !upOrDown);
+}
+
+/**
+ * Whether two charges can be posed alike: in postures of one posture class (App M3), or as two heads or two demi charges of beasts that
+ * face (§1.1 F5: a head to dexter against one contourny is a DC; a demi charge is read as its beast).
+ */
+function posedAlike(x: Item, y: Item): boolean {
+  if (comparablePostures(x, y) !== null) return true;
+  return x.k === 'charge' && y.k === 'charge' && x.form !== null && x.form === y.form && CHARGES[x.charge].faces && CHARGES[y.charge].faces;
+}
+
+/**
+ * §1.1 F1, F5 (A5G7a, App L1): two charges that can be posed alike facing different ways — to dexter, to sinister (contourny) or affronty
+ * (F10). A fish naiant is read by L1d: "a distinct change may be given for facing to dexter or to sinister".
+ */
+function facingApart(x: Group, y: Group): boolean {
+  return posedAlike(x.item, y.item) && x.item.k === 'charge' && y.item.k === 'charge' && x.item.facing !== y.item.facing
+    && facingCounts(x) && facingCounts(y);
+}
+
+/** How a group of two charges that can face each other stands (§1.1 F6): facing each other (combattant is respectant), back to back, or the same way. */
+type PoseClass = 'respectant' | 'addorsed' | 'same';
+
+/** The pose class of a group of two charges that face (heads included); null for any other group. F7: affronty is no group posture. */
+function poseClass(g: Group): PoseClass | null {
+  if (g.count !== 2 || g.item.k !== 'charge' || !CHARGES[g.item.charge].faces || g.item.facing === 'affronty') return null;
+  return g.arrangement.k !== 'pair' ? 'same' : g.arrangement.pair === 'addorsed' ? 'addorsed' : 'respectant';
+}
+
+/**
+ * §1.1 F6 (A5G7a): two groups of two in different pose classes, whatever their types ("two lions combatant" against "two hawks addorsed"); a
+ * pair against the same two both to dexter is read as such a change (herald question D19).
+ */
+function poseClassesApart(x: Group, y: Group): boolean {
+  const cx = poseClass(x), cy = poseClass(y);
+  return cx !== null && cy !== null && cx !== cy;
+}
+
+/** §1.3: the axis each orientation lies along (a sword palewise and a sword inverted lie along one; to center is a way of its own). */
+const ORIENTATION_AXIS: Record<Orientation, 'pale' | 'fess' | 'bend' | 'bend-sinister' | 'to-center'> = {
+  palewise: 'pale', inverted: 'pale', reversed: 'pale', fesswise: 'fess', 'fesswise-reversed': 'fess', bendwise: 'bend', 'bendwise-inverted': 'bend',
+  'bendwise-sinister': 'bend-sinister', 'bendwise-sinister-inverted': 'bend-sinister', 'to-center': 'to-center',
+};
+
+/**
+ * App L1c (A5G7a; PLAN-D §1.2 P4): the groups of orientation of a compact creature found tergiant (a bee, a butterfly) — tergiant, tergiant
+ * inverted, bendwise and bendwise sinister (either way along the bend) — and fesswise as a group of its own ("A bee fesswise", 03/2026, is
+ * clear of "A bee bendwise"). A distinct change only: A5E5a gives such charges no substantial one.
+ */
+const tergiantGroup = (o: Orientation): string => (o === 'inverted' ? 'inverted' : ORIENTATION_AXIS[o]);
+
+/** §1.3 O9: which way an orientation points; reversed is the drawing mirrored, "an optionally blazonable detail not worth difference". */
+const pointing = (o: Orientation): Orientation => (o === 'reversed' ? 'palewise' : o);
+
+/** Charges on a bend lie along it (GoT Table 7): the way a charge with no orientation of its own points on these hosts. */
+const FOLLOWED: Partial<Record<OrdinaryType, Orientation>> = { bend: 'bendwise', 'bend-sinister': 'bendwise-sinister' };
+
+/** A group's orientation as conflict reads it: as set, else the way it lies (along the bend it is on, or palewise); null for two crossed. */
+function orientationOf(s: Side): Orientation | null {
+  if (s.group.item.k !== 'charge' || s.group.arrangement.k === 'crossed') return null;
+  const host = s.host?.item;
+  return s.group.item.orientation ?? (host?.k === 'ordinary' ? FOLLOWED[host.type] : undefined) ?? 'palewise';
+}
+
+/** Whether two groups' charges are of one type: the same class and type tokens. */
+const sameType = (x: Item, y: Item): boolean => conflictKey(x) === conflictKey(y) && typeTokens(x).join() === typeTokens(y).join();
+
+const isLong = (item: Item): boolean => item.k === 'charge' && CHARGES[item.charge].orient.cls.startsWith('long-');
+
+/** §1.3 O1 (A5E5b): two primary groups of long charges lying along different axes (to center is a distinct change only, O7). */
+function axesApart(x: Side, y: Side): boolean {
+  const ox = orientationOf(x), oy = orientationOf(y);
+  return ox !== null && oy !== null && isLong(x.group.item) && isLong(y.group.item) && ORIENTATION_AXIS[ox] !== ORIENTATION_AXIS[oy]
+    && ox !== 'to-center' && oy !== 'to-center';
+}
+
+/**
+ * §1.3 O2–O10 (A5G7b, A5G7c, App L2, GoT Table 5): whether two groups point differently enough for a distinct change. Long charges along
+ * different axes, whatever their types (O2, O7); along one axis, the same type with ends that differ pointing the other way (O3; a staff or
+ * bow, `long-plain`, not: O4, herald question D4). Charges with a top, of one type, pointing another way (O5, O7); leaves only along another
+ * axis (O5b, O5c); compact tergiant creatures of one type in another App L1c group (P4, `tergiantGroup`). Never for radial charges, other
+ * animate charges or charges of different types (O6, O10), nor for reversing (O9).
+ */
+function orientationsApart(x: Side, y: Side): boolean {
+  const ox = orientationOf(x), oy = orientationOf(y), ix = x.group.item, iy = y.group.item;
+  if (ox === null || oy === null || ix.k !== 'charge' || iy.k !== 'charge') return false;
+  const cx = CHARGES[ix.charge].orient.cls, cy = CHARGES[iy.charge].orient.cls;
+  if (isLong(ix) && isLong(iy)) {
+    return ORIENTATION_AXIS[ox] !== ORIENTATION_AXIS[oy] || (cx === 'long-ends' && cy === 'long-ends' && sameType(ix, iy) && pointing(ox) !== pointing(oy));
+  }
+  if (cx !== cy || !sameType(ix, iy)) return false;
+  if (cx === 'compact-top') return pointing(ox) !== pointing(oy);
+  if (cx === 'compact-tergiant') return tergiantGroup(pointing(ox)) !== tergiantGroup(pointing(oy));
+  return cx === 'compact-axis' && ORIENTATION_AXIS[ox] !== ORIENTATION_AXIS[oy];
 }
 
 /** Whether two charges that can be posed alike are posed in different lines (a lion rampant and a wolf passant): SENA A3D2c asks the charges of one group to be posed alike. */
@@ -188,7 +374,12 @@ function appK(count: number): readonly LayoutKey[] {
 /** A group with the design it is in and where (isForced needs the design and the path). */
 interface Side { design: Design; path: GroupPath; group: Group; host: Group | null }
 
-const layoutOf = (s: Side): LayoutKey => layoutKey({ arrangement: s.group.arrangement, position: s.group.position });
+/** A group's layout as conflict compares it: a pair as the layout it is drawn in (§1.1 F8: facing within a pair is no change of arrangement). */
+function layoutOf(s: Side): LayoutKey {
+  const ctx = contextOf(s.design, s.group, s.host);
+  const layout = { arrangement: s.group.arrangement, position: s.group.position };
+  return layoutKey(ctx ? drawnLayout(ctx, layout) : layout);
+}
 
 function sidesWhere(d: Design, keep: (g: Group) => boolean): Side[] {
   return d.groups.flatMap((group, i) => (keep(group) ? [{ design: d, path: [i], group, host: null }] : []));
@@ -206,13 +397,16 @@ const secondariesOf = (d: Design): Side[] => sidesWhere(d, (g) => g.role === 'se
 const tertiariesOf = (host: Side | null): Side[] =>
   host ? host.group.charged.map((group, j) => ({ design: host.design, path: [...host.path, j], group, host: host.group })) : [];
 
-/** A5C2b: identical items are paired first, then the rest in canonical order; what is left over is unpaired. */
-function pairUp(xs: readonly Side[], ys: readonly Side[]): { pairs: Array<[Side, Side]>; onlyX: Side[]; onlyY: Side[] } {
+/** A group's item as A5C2b pairs groups by. */
+const sideKey = (s: Side): string => itemKey(s.group.item);
+
+/** A5C2b: identical items (by `key`) are paired first, then the rest in canonical order; what is left over is unpaired. */
+function pairUp<T>(xs: readonly T[], ys: readonly T[], key: (x: T) => string): { pairs: Array<[T, T]>; onlyX: T[]; onlyY: T[] } {
   const restY = [...ys];
-  const restX: Side[] = [];
-  const pairs: Array<[Side, Side]> = [];
+  const restX: T[] = [];
+  const pairs: Array<[T, T]> = [];
   for (const x of xs) {
-    const i = restY.findIndex((y) => itemKey(y.group.item) === itemKey(x.group.item));
+    const i = restY.findIndex((y) => key(y) === key(x));
     if (i >= 0) pairs.push([x, restY.splice(i, 1)[0]]);
     else restX.push(x);
   }
@@ -224,7 +418,7 @@ function pairUp(xs: readonly Side[], ys: readonly Side[]): { pairs: Array<[Side,
 function refOf(x: Side, y: Side | null): GroupRef;
 function refOf(x: null, y: Side): GroupRef;
 function refOf(x: Side | null, y: Side | null): GroupRef {
-  const base = (s: Side) => ({ role: s.group.role, item: s.group.item.k, host: s.host?.role ?? null });
+  const base = (s: Side) => ({ role: s.group.role, item: s.group.item.k, host: s.host?.role ?? null, held: null });
   if (x) return { ...base(x), a: x.path, b: y ? y.path : null };
   if (y) return { ...base(y), a: null, b: y.path };
   throw new RangeError('A group reference needs a group.');
@@ -378,22 +572,43 @@ function fieldChanges(a: Design, b: Design): Diff[] {
   return [...changes, substantial ? change('field-tincture', 'sc', 'A5F2', null) : change('field-tincture', 'dc', 'A5G1a', null)];
 }
 
+/**
+ * §1.6 T6 (App M1d; CL 04/2024, CL 02/2025): birds of different shapes (regular, swan, poultry) are one class, yet they are a substantial
+ * change apart when both are in postures the period drew for their shape — close, rising (also with wings displayed), and a swan's naiant —
+ * and a distinct change only otherwise ("There is not an SC between birds displayed"). A bird with no posture (the owl) is close.
+ * Null for any other pair, birds of one shape included (the posture lines and the type tokens decide those).
+ */
+function birdShapeChange(x: Item, y: Item): ChangeKind | null {
+  if (x.k !== 'charge' || y.k !== 'charge') return null;
+  const [mx, my] = [CHARGES[x.charge], CHARGES[y.charge]];
+  if (mx.birdShape === null || my.birdShape === null || mx.birdShape === my.birdShape || mx.typeClass !== my.typeClass) return null;
+  return periodBirdPosture(mx.birdShape, x.posture) && periodBirdPosture(my.birdShape, y.posture) ? 'sc' : 'dc';
+}
+
+/** Whether the period drew a bird of this shape in this posture (T6): close and rising for every shape, naiant for a swan; none (the owl, a demi bird) is read as close. */
+const periodBirdPosture = (shape: BirdShape, posture: Posture | null): boolean =>
+  posture === null || posture === 'close' || posture === 'rising' || (shape === 'swan' && posture === 'naiant');
+
 /** A5E2–A5E5: the substantial changes between two primary groups. */
 function primaryChanges(x: Side, y: Side): Diff[] {
   const ref = refOf(x, y);
   const out: Diff[] = [];
-  if (conflictKey(x.group.item) !== conflictKey(y.group.item)) out.push(change('type', 'sc', 'A5E2', ref));
+  const shapes = birdShapeChange(x.group.item, y.group.item);
+  if (classesApart(x.group.item, y.group.item) || shapes === 'sc') out.push(change('type', 'sc', 'A5E2', ref));
   if (countCategory(x.group.count) !== countCategory(y.group.count)) out.push(change('number', 'sc', 'A5E3', ref));
   const gx = arrangementGroup(x.group), gy = arrangementGroup(y.group);
   if (gx !== null && gy !== null && gx !== gy && !isForced(x.design, x.path) && !isForced(y.design, y.path)) {
     out.push(change('arrangement', 'sc', 'A5E4', ref));
   }
-  const postures = comparablePostures(x.group.item, y.group.item);
+  const postures = shapes === 'dc' ? null : comparablePostures(x.group.item, y.group.item);
   if (postures) {
     const lines = POSTURE_SC_LINES[postures.cls];
     const lx = lines[postures.px], ly = lines[postures.py];
-    if (lx !== undefined && ly !== undefined && lx !== ly) out.push(change('posture', 'sc', 'A5E5', ref));
-  }
+    // §1.1 F10 (A5E5a): a beast affronty is a line of its own.
+    const affronty = postures.cls === 'quadruped' && x.group.item.k === 'charge' && y.group.item.k === 'charge'
+      && (x.group.item.facing === 'affronty') !== (y.group.item.facing === 'affronty');
+    if ((lx !== undefined && ly !== undefined && lx !== ly) || affronty) out.push(change('posture', 'sc', 'A5E5', ref));
+  } else if (axesApart(x, y)) out.push(change('posture', 'sc', 'A5E5', ref));
   return out;
 }
 
@@ -404,9 +619,7 @@ function primaryChanges(x: Side, y: Side): Diff[] {
 function pooledPrimaryChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
   const ref = refOf(xs[0], ys[0]);
   const out: Diff[] = [];
-  const typesOf = (side: readonly Side[]) => new Set(side.map((s) => conflictKey(s.group.item)));
-  const theirs = typesOf(ys);
-  if (![...typesOf(xs)].some((k) => theirs.has(k))) out.push(change('type', 'sc', 'A5E2', ref));
+  if (!xs.some((x) => ys.some((y) => !classesApart(x.group.item, y.group.item)))) out.push(change('type', 'sc', 'A5E2', ref));
   const total = (side: readonly Side[]) => side.reduce((n, s) => n + s.group.count, 0);
   if (countCategory(total(xs)) !== countCategory(total(ys))) out.push(change('number', 'sc', 'A5E3', ref));
   const [x, y] = [xs[0], ys[0]];
@@ -419,7 +632,7 @@ function pooledPrimaryChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] 
 function primaryGroupChanges(xs: readonly Side[], ys: readonly Side[]): Diff[] {
   const substantial = xs.length === 1 && ys.length === 1 ? primaryChanges(xs[0], ys[0]) : pooledPrimaryChanges(xs, ys);
   const skip = new Set(substantial.map((c) => c.attr));
-  const distinct = pairUp(xs, ys).pairs.flatMap(([x, y]) => groupChanges(x, y, skip));
+  const distinct = pairUp(xs, ys, sideKey).pairs.flatMap(([x, y]) => groupChanges(x, y, skip));
   const seen = new Set<DiffAttr>();
   return [...substantial, ...distinct.filter((c) => !seen.has(c.attr) && !!seen.add(c.attr))];
 }
@@ -451,7 +664,7 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
   // The in-splendour mod of a sun is an artistic detail (RULES §C.3) and is not looked at.
   // A change of an ordinary's edge, or couping it, is a change of its type: with a change of type, one change (RULES-C §B.3, §D.2); a chevron
   // against a chevron inverted, substantial between primaries, is a distinct change elsewhere (A5G). Enhanced and abased are artistic (§D.6).
-  if (typeKey(gx.item) !== typeKey(gy.item) || conflictKey(gx.item) !== conflictKey(gy.item) || edgesDiffer(gx.item, gy.item) || coupingDiffers(gx.item, gy.item)) dc('type', 'A5G4');
+  if (typesDiffer(gx.item, gy.item) || edgesDiffer(gx.item, gy.item) || coupingDiffers(gx.item, gy.item)) dc('type', 'A5G4');
   if (countCategoryFine(numberOf(gx)) !== countCategoryFine(numberOf(gy))) dc('number', 'A5G5');
   if (tinctureChanged(x, y)) dc('tincture', 'A5G3');
   const kx = layoutOf(x), ky = layoutOf(y);
@@ -464,18 +677,70 @@ function groupChanges(x: Side, y: Side, skip: ReadonlySet<DiffAttr>): Diff[] {
     && (gx.count === gy.count || (appK(gy.count).includes(kx) && appK(gx.count).includes(ky))))) {
     dc('arrangement', 'A5G6');
   }
-  const postures = comparablePostures(gx.item, gy.item);
-  if ((postures && postureLinesApart(postures)) || pileTurned(gx.item, gy.item)) dc('posture', 'A5G7');
+  // §1.1 F9: posture, facing, the pose of a pair and orientation together give at most one distinct change.
+  if (posesApart(gx, gy) || orientationsApart(x, y)) dc('posture', 'A5G7');
   return out;
+}
+
+/** A5G7: postures in different lines, facings or pair poses that differ (§1.1 F1–F6), or a pile against a pile inverted. */
+function posesApart(x: Group, y: Group): boolean {
+  const postures = comparablePostures(x.item, y.item);
+  return (postures !== null && postureLinesApart(postures)) || facingApart(x, y) || poseClassesApart(x, y) || pileTurned(x.item, y.item);
+}
+
+/** Why two groups' poses differ by a distinct change, in words: the posture first, then a pair's pose, the facing, then the orientation. */
+function poseSentence(x: Group, y: Group): string {
+  const postures = comparablePostures(x.item, y.item);
+  if ((postures !== null && postureLinesApart(postures)) || pileTurned(x.item, y.item)) return 'A different pose is a distinct change';
+  const plural = x.item.k === 'charge' ? CHARGES[x.item.charge].plural : itemName(x.item);
+  if (poseClassesApart(x, y)) return `Turning the two ${plural} to face each other, back to back or the same way is a distinct change`;
+  if (facingApart(x, y)) return `Turning ${itemPhrase(x.item)} to face the other way is a distinct change`;
+  return `Pointing the ${plural} another way is a distinct change`;
 }
 
 /** A5C2c: tertiaries compare only when their hosts are paired; on an unpaired host (`null` opposite) each is an added or removed group. */
 function tertiaryChanges(x: Side | null, y: Side | null): Diff[] {
-  const { pairs, onlyX, onlyY } = pairUp(tertiariesOf(x), tertiariesOf(y));
+  const { pairs, onlyX, onlyY } = pairUp(tertiariesOf(x), tertiariesOf(y), sideKey);
   return [
     ...pairs.flatMap(([p, q]) => groupChanges(p, q, new Set())),
     ...onlyX.map((p) => change('group-presence', 'dc', 'A5G2', refOf(p, null))),
     ...onlyY.map((q) => change('group-presence', 'dc', 'A5G2', refOf(null, q))),
+  ];
+}
+
+// ── Held items ──────────────────────────────────────────────────────────────
+
+/** An item the charges of a primary group hold, with where its holder is and its place in the holder's `holds`. */
+interface HeldSide { path: GroupPath; index: number; held: Held }
+
+/** The items a design's primary groups (one or two co-primary) hold: each a secondary group of one item per holding charge (§1.5 H1). */
+const heldOf = (d: Design): HeldSide[] =>
+  primariesOf(d).flatMap(({ path, group: { item } }) => (item.k === 'charge' ? item.holds.map((held, index) => ({ path, index, held })) : []));
+
+function heldRef(x: HeldSide | null, y: HeldSide | null): GroupRef {
+  const held = { a: x?.index ?? null, b: y?.index ?? null };
+  if (x) return { role: 'secondary', item: 'charge', host: 'primary', held, a: x.path, b: y ? y.path : null };
+  if (y) return { role: 'secondary', item: 'charge', host: 'primary', held, a: null, b: y.path };
+  throw new RangeError('A held item reference needs a held item.');
+}
+
+/**
+ * §1.5 H1, H2: the distinct changes between the items two designs' primary charges hold, paired as groups are (identical items first): an item
+ * added or removed (A5G2), of another type (A5G4) or tincture (A5G3: as a group's, so a sword proper is a sword argent), one distinct change each. Their number (one per holder), orientation,
+ * the way they are held and where are not compared (H2; CL 05/2018, CL 06/2016 — Helayne 04/2021 counted position: herald question D10).
+ * An identifiable item a primary charge maintains or sustains counts as a secondary charge group (§1.5 H1: SENA App I5; CL 08/2015,
+ * CL 02/2019). The owner's brief counted held items for nothing; current SENA counts them — herald question D1. Should the heralds rule
+ * for the brief, this returns no changes.
+ */
+function heldChanges(a: Design, b: Design): Diff[] {
+  const { pairs, onlyX, onlyY } = pairUp(heldOf(a), heldOf(b), (h) => itemKey(h.held.item));
+  return [
+    ...pairs.flatMap(([x, y]) => [
+      ...(typesDiffer(x.held.item, y.held.item) ? [change('type', 'dc', 'A5G4', heldRef(x, y))] : []),
+      ...(differs(surfaceOf(x.held.paint, x.held.item), surfaceOf(y.held.paint, y.held.item)) ? [change('tincture', 'dc', 'A5G3', heldRef(x, y))] : []),
+    ]),
+    ...onlyX.map((x) => change('group-presence', 'dc', 'A5G2', heldRef(x, null))),
+    ...onlyY.map((y) => change('group-presence', 'dc', 'A5G2', heldRef(null, y))),
   ];
 }
 
@@ -552,30 +817,35 @@ function asThroughoutOther(d: Design): Design | null {
   return canonical({ ...d, field, groups: d.groups.filter((x) => x !== g) });
 }
 
+/** How an item is voided and fimbriated (`fimbriation` its paint), and the item without either. */
+function outlineOf(item: Item): { voided: boolean; fimbriation: Paint | null; plain: Item } {
+  if (item.k === 'ordinary') return { voided: item.mods.includes('voided'), fimbriation: item.fimbriated, plain: { ...item, mods: item.mods.filter((m) => m !== 'voided'), fimbriated: null } };
+  return { voided: isVoided(item), fimbriation: fimbriationOf(item), plain: { ...item, mods: item.mods.filter((m) => m.id !== 'voided' && m.id !== 'fimbriated') } };
+}
+
 /**
- * The ways conflict reads a design (SENA A5C1; RULES-C §C.2, §D.3, §D.4), each to be compared, the least different taken: a voided primary
- * ordinary as the ordinary with one of its shape in the field's tincture on it, and as the ordinary of the field's tincture fimbriated (the
- * fimbriation worth nothing); a fimbriated one as the ordinary alone, and as one of the fimbriation's tincture with the ordinary on it
- * (not when something lies on it already: that would make quaternaries); three or more diminutives also as the variation (`asStripes`).
- * Every other design is read as it is.
+ * The ways conflict reads a design (SENA A5C1; RULES-C §C.2, §D.3, §D.4; §1.4 M8, M9), each to be compared, the least different taken: a
+ * voided primary ordinary or charge as the item with one of its shape in the field's tincture on it, and as the item of the field's
+ * tincture fimbriated (the fimbriation worth nothing); a fimbriated one as the item alone, and as one of the fimbriation's tincture with the
+ * item on it (not when something lies on it already: that would make quaternaries); three or more diminutives also as the variation
+ * (`asStripes`). Every other design is read as it is.
  */
 function readings(d: Design): Design[] {
   const stripes = asStripes(d);
   if (stripes) return [d, stripes];
   const throughout = asThroughoutOther(d);
   if (throughout) return [d, throughout];
-  const i = d.groups.findIndex((g) => g.role === 'primary' && g.item.k === 'ordinary' && (g.item.fimbriated !== null || g.item.mods.includes('voided')));
+  const i = d.groups.findIndex((g) => g.role === 'primary' && (outlineOf(g.item).voided || outlineOf(g.item).fimbriation !== null));
   const g = d.groups[i];
-  if (!g || g.item.k !== 'ordinary') return [d];
-  const item = { ...g.item, mods: g.item.mods.filter((m) => m !== 'voided'), fimbriated: null };
+  if (!g) return [d];
+  const { voided, fimbriation, plain: item } = outlineOf(g.item);
   const on = (paint: Paint): Group => ({ role: 'tertiary', relation: null, item, count: 1, arrangement: { k: 'single' }, position: null, paint, charged: [] });
   const read = (group: Group) => canonical({ ...d, groups: d.groups.map((x, j) => (j === i ? group : x)) });
   const unloaded = g.charged.length === 0;
-  if (g.item.mods.includes('voided')) {
+  if (voided) {
     if (d.kind !== 'arms') return [d];
     return [...(unloaded ? [read({ ...g, item, charged: [on(d.field)] })] : []), read({ ...g, item, paint: d.field })];
   }
-  const fimbriation = g.item.fimbriated;
   return [read({ ...g, item }), ...(fimbriation && unloaded ? [read({ ...g, item, paint: fimbriation, charged: [on(g.paint)] })] : [])];
 }
 
@@ -619,11 +889,11 @@ function compare(a: Design, b: Design): Diff[] {
   } else if (pb.length > 0) {
     out.push(change('primary-presence', 'sc', 'A5E1', refOf(null, pb[0])));
   }
-  out.push(...tertiaryChanges(pa[0] ?? null, pb[0] ?? null));
+  out.push(...tertiaryChanges(pa[0] ?? null, pb[0] ?? null), ...heldChanges(a, b));
 
   // Secondary and overall groups: those that pair are compared, each one added or removed is one distinct change (A5G2).
   for (const [xs, ys] of [[secondariesOf(a), secondariesOf(b)], [overallsOf(a), overallsOf(b)]]) {
-    const { pairs, onlyX, onlyY } = pairUp(xs, ys);
+    const { pairs, onlyX, onlyY } = pairUp(xs, ys, sideKey);
     for (const [x, y] of pairs) out.push(...groupChanges(x, y, new Set()), ...tertiaryChanges(x, y));
     for (const x of onlyX) out.push(change('group-presence', 'dc', 'A5G2', refOf(x, null)), ...tertiaryChanges(x, null));
     for (const y of onlyY) out.push(change('group-presence', 'dc', 'A5G2', refOf(null, y)), ...tertiaryChanges(null, y));
@@ -762,11 +1032,41 @@ function noGroup(attr: DiffAttr): never {
   throw new RangeError(`A "${attr}" change is about a pair of groups.`);
 }
 
+/** The item held at `index` by the charges at `path`, and what holds it: "lion", "lions". */
+function heldAt(d: Design, path: GroupPath, index: number): { held: Held; holder: string; count: number } {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') throw new RangeError('Only charges hold items.');
+  return { held: g.item.holds[index], holder: g.count === 1 ? CHARGES[g.item.charge].name : CHARGES[g.item.charge].plural, count: g.count };
+}
+
+/** A change of a held item in words (§1.5 H1): "what the lion holds (sword ↔ none)", "colour of the sword the lion holds (argent ↔ gules)". */
+function heldNote(a: Design, b: Design, diff: Diff, ref: GroupRef, held: NonNullable<GroupRef['held']>): { text: string; sentence: string } {
+  const x = ref.a && held.a !== null ? heldAt(a, ref.a, held.a) : null, y = ref.b && held.b !== null ? heldAt(b, ref.b, held.b) : null;
+  const { holder, count } = x ?? y ?? noGroup(diff.attr);
+  const holds = `the ${holder} ${count === 1 ? 'holds' : 'hold'}`;
+  const name = (h: { held: Held } | null) => (h ? itemName(h.held.item) : 'none');
+  const pair = (label: string, p: string, q: string) => `${label} (${p} ↔ ${q})`;
+  switch (diff.attr) {
+    case 'group-presence':
+      return { text: pair(`what ${holds}`, name(x), name(y)), sentence: `Adding or taking away the ${name(x ?? y)} ${holds} is one distinct change: a held item is a group of its own` };
+    case 'type':
+      return { text: pair(`what ${holds}`, name(x), name(y)), sentence: `${capitalise(itemPhrase(x!.held.item))} and ${itemPhrase(y!.held.item)} are different types — a distinct change` };
+    case 'tincture':
+      return { text: pair(`colour of the ${name(x)} ${holds}`, paintName(x!.held.paint), paintName(y!.held.paint)), sentence: `Changing the colour of what ${holds} is a distinct change` };
+    default:
+      throw new RangeError(`A held item has no "${diff.attr}" change.`);
+  }
+}
+
 /** Each difference between `a` (new) and `b` (existing) in words: "pose of picture (passant ↔ courant)". */
 export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly Diff[] = differences(rawA, rawB)): DifferenceNote[] {
   const [a, b] = readingsCompared(rawA, rawB, diffs);
   return diffs.map((diff) => {
     const ref = diff.group;
+    if (ref?.held) {
+      const { text, sentence } = heldNote(a, b, diff, ref, ref.held);
+      return { attr: diff.attr, kind: diff.kind, rule: diff.rule, text, why: `${sentence} (SENA ${diff.rule}).`, item: ref.item };
+    }
     const ga = ref?.a ? groupAt(a, ref.a) : null, gb = ref?.b ? groupAt(b, ref.b) : null;
     const nounA = ref?.a ? groupNoun(a, ref.a) : null, nounB = ref?.b ? groupNoun(b, ref.b) : null;
     const noun = () => nounA ?? nounB ?? noGroup(diff.attr);
@@ -777,7 +1077,12 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
     const itemOrNone = (d: Design, g: Group | null) => (!g ? 'none' : isCotiseGroup(d, g) ? `${g.count} a side` : g.item.k === 'ordinary' ? ORDINARY_NAME[g.item.type] : CHARGES[g.item.charge].plural);
     const tinctureWord = (g: Group) => (g.paint.k === 'counterchanged' ? 'counterchanged' : paintName(g.paint));
     const fieldWord = (d: Design) => (d.kind === 'arms' && d.field.k === 'variation' ? d.field.parts.map(paintName).join('/') : fieldParts(d).map(paintName).join('/'));
-    const postureWord = (g: Group) => { const i = g.item; return i.k === 'ordinary' ? (i.mods.includes('inverted') ? 'inverted' : 'upright') : i.posture ? postureTerm(i.charge, i.posture) : 'none'; };
+    const postureWord = (g: Group) => {
+      const i = g.item;
+      if (i.k === 'ordinary') return i.mods.includes('inverted') ? 'inverted' : 'upright';
+      const words = [...(i.posture ? [postureTerm(i.charge, i.posture)] : []), ...turnWords(i), ...orientationTerms(i), ...(g.arrangement.k === 'pair' ? [g.arrangement.pair] : [])];
+      return words.join(' ') || 'none';
+    };
 
     let text: string;
     let sentence: string;
@@ -874,7 +1179,7 @@ export function explainDifferences(rawA: Design, rawB: Design, diffs: readonly D
         break;
       case 'posture':
         text = pair(`pose of ${noun().one}`, postureWord(both().ga), postureWord(both().gb));
-        sentence = diff.kind === 'sc' ? 'These poses are substantially different — a substantial change' : 'A different pose is a distinct change';
+        sentence = diff.kind === 'sc' ? 'These poses are substantially different — a substantial change' : poseSentence(both().ga, both().gb);
         break;
     }
     return { attr: diff.attr, kind: diff.kind, rule: diff.rule, text, why: `${sentence} (SENA ${diff.rule}).`, item: ref?.item ?? null };

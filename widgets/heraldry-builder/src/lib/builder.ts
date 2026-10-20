@@ -5,12 +5,12 @@
 // and the picture (pictures on the band, a top band, a border) are heraldry/layers.ts.
 
 import {
-  CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
+  CHARGES, COLOURS, CUT_MODIFIERS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, THIN, THIN_ORDINARIES, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
   asParty, asVariation, fieldParts, isCountedVariation, keptLines, keptMods, keptOrdinaryLines, keptOutline, setBandPosition, setOrdinaryCount, setOutline, setEdgeSide, setLine, setToggle, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
-  isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
-  bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
+  firstFimbriation, firstHeldPaint, firstPiecePaint, gazeDrawn, holdChoices, isPiece, withDrawnPieces, withHold, withModifier, withPart, NO_MODIFIER_VALUE, isAllowed, isMetal, isSupported, pathOfPlace, placeKind, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge, drawnLayout, layoutContext,
   partCount, type FieldPart, type BandPosition, type ChargeId, type Companion, type Design, type Division, type EdgeSide, type Outline, type ShapeToggle, type Line, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
-  type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
+  type ChargeForm, type Facing, type Gaze, type HoldHow, type Orientation, type LayoutKey, type ModifierId, type ModifierValue, type OrdinaryType, type Paint, type PiecePart, type PairChoice, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
 import { capitalise, numberWord } from './heraldry/words';
 
@@ -273,35 +273,116 @@ function swapPicture(d: Design, id: ChargeId): Design {
   if (!parts.picture) return d;
   const item = chargeItem(id, parts.picture);
   // The pictures on the picture go with it unless the new one has no room for them.
-  const carries = item.k === 'charge' && chargeOnBox(id, item.posture) !== null && item.mods.length === 0;
-  return refitLayers(assembleParts(d, { ...parts, picture: { ...parts.picture, item }, onPicture: carries ? parts.onPicture : null }));
+  const carries = item.k === 'charge' && chargeOnBox(item) !== null && item.mods.length === 0;
+  // Two pictures set as a pair stay a pair when the new ones face too; else they stand where the pair stood, the same way.
+  const arrangement = parts.picture.arrangement.k === 'pair' && !CHARGES[id].faces ? drawnLayout(layoutContext(d, picturePath(d)!), parts.picture).arrangement : parts.picture.arrangement;
+  return refitLayers(assembleParts(d, { ...parts, picture: { ...parts.picture, item, arrangement }, onPicture: carries ? parts.onPicture : null }));
 }
 
 export function setLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
   return withLayout(d, path, key);
 }
 
+/** The design with the charge at `path` changed; a piece its new drawing has no place for is dropped (`withDrawnPieces`: a lion sejant has no wings). */
 function withItem(d: Design, path: GroupPath, change: (item: Extract<Group['item'], { k: 'charge' }>) => Extract<Group['item'], { k: 'charge' }>): Design {
   const g = groupAt(d, path);
   if (g.item.k !== 'charge') return d;
-  const item = change(g.item);
+  const item = withDrawnPieces(change(g.item));
   return canonical(replaceGroup(d, path, { ...g, item }));
 }
 
-/** The charge at `path` in a posture; the pictures on it are refitted to the room its new drawing leaves them. */
+/**
+ * The charge at `path` in a posture, its head still turned where that posture is drawn so (else looking ahead); the pictures on it are
+ * refitted to the room its new drawing leaves them.
+ */
 export function setPosture(d: Design, path: GroupPath, posture: Posture): Design {
-  return refitLayers(withItem(d, path, (item) => ({ ...item, posture })));
+  return refitLayers(withItem(d, path, (item) => {
+    const posed = { ...item, posture };
+    return posed.gaze && !gazeDrawn(posed, posed.gaze) ? { ...posed, gaze: null } : posed;
+  }));
 }
 
-export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean): Design {
-  const changed = withItem(d, path, (item) => ({
-    ...item, mods: on ? [...item.mods.filter((m) => m.id !== id), { id, count: null, paint: null }] : item.mods.filter((m) => m.id !== id),
-  }));
+/** The charge at `path` facing this way; the pictures on it are refitted to its mirrored drawing. */
+export function setFacing(d: Design, path: GroupPath, facing: Facing): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, facing })));
+}
+
+/** The charge at `path` turned this way (null: as usual); the pictures on it are refitted to its turned drawing. */
+export function setOrientation(d: Design, path: GroupPath, orientation: Orientation | null): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, orientation })));
+}
+
+/**
+ * The charge at `path` drawn whole (null), as a demi charge or as a head. A head or demi charge has no posture or turned head (a whole one
+ * goes back to the posture it is drawn in), and only a head is cut: `canonical` couples a head, any other shape loses its cut.
+ */
+export function setForm(d: Design, path: GroupPath, form: ChargeForm | null): Design {
+  return refitLayers(withItem(d, path, (item) => ({
+    ...item, form, posture: form === null ? CHARGES[item.charge].defaultPosture : null, gaze: null,
+    mods: form === 'head' ? item.mods : item.mods.filter((m) => !CUT_MODIFIERS.includes(m.id)),
+  })));
+}
+
+/** The head at `path` cut off straight (couped) or ragged (erased). */
+export function setCut(d: Design, path: GroupPath, cut: ModifierId): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, mods: [...item.mods.filter((m) => !CUT_MODIFIERS.includes(m.id)), { id: cut, count: null, paint: null }] })));
+}
+
+/** The charge at `path` with its head turned (null: looking ahead, as drawn). */
+export function setGaze(d: Design, path: GroupPath, gaze: Gaze | null): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, gaze })));
+}
+
+/**
+ * The two charges at `path` set as a pair, facing each other or back to back, each turned its own way (so both face as drawn first); 'same'
+ * sets them the same way again, where the pair stood (in fess, or where the ordinary places them).
+ */
+export function setPair(d: Design, path: GroupPath, pair: PairChoice): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const arrangement: Group['arrangement'] = pair !== 'same' ? { k: 'pair', pair } : drawnLayout(layoutContext(d, path), g).arrangement;
+  return refitLayers(canonical(replaceGroup(d, path, { ...g, arrangement, item: { ...g.item, facing: CHARGES[g.item.charge].defaultFacing } })));
+}
+
+/**
+ * The charge at `path` with modifier `id` on, carrying `value` (a star's number of points, a fimbriation's or a piece's paint), or off. A
+ * fimbriation switched on without a tincture is given the first that stands out where the charges lie (`firstFimbriation`), a piece its
+ * first paint (`firstPiecePaint`); a slip switched off takes its leaves with it.
+ */
+export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean, value: ModifierValue = NO_MODIFIER_VALUE): Design {
+  const given = !on || value.paint !== null ? value
+    : id === 'fimbriated' ? { count: null, paint: firstFimbriation(d, path) } : isPiece(id) ? { count: null, paint: firstPiecePaint(d, path, id) } : value;
+  const unslipped = id === 'slipped' && !on ? withModifier(d, path, 'leaved', false) : d;
+  const changed = withModifier(unslipped, path, id, on, given);
   // A picture drawn with a modifier has no room for pictures on it (its drawing is changed): they are dropped.
   const parts = partsOf(changed);
   return parts.onPicture && parts.picture?.item.k === 'charge' && parts.picture.item.mods.length > 0
     ? refitLayers(assembleParts(changed, { ...parts, onPicture: null }))
     : changed;
+}
+
+/** The charge at `path` with a crown or collar on in `paint` (switched on without one: `firstPiecePaint`), or off. */
+export function setPart(d: Design, path: GroupPath, part: PiecePart, on: boolean, paint: Paint | null = null): Design {
+  return withPart(d, path, part, on ? paint ?? firstPiecePaint(d, path, part) : null);
+}
+
+/**
+ * The charge at `path` holding `item` (null: nothing; PLAN-D §1.5) `how` it is held, by default the way it held the last one where that is
+ * still offered, else the first way offered (`holdChoices`), and in `paint`, by default the last one's (natural colours only if the new item
+ * has them), else the first tincture that stands out from the field (`firstHeldPaint`). A picture holding something has no room for pictures on it: they are dropped.
+ */
+export function setHold(d: Design, path: GroupPath, item: ChargeId | null, how: HoldHow | null = null, paint: Paint | null = null): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const was = g.item.holds[0] ?? null;
+  const ways = holdChoices(d, path).filter((c) => c.allowed).map((c) => c.value);
+  const way = how ?? (was && ways.includes(was.how) ? was.how : ways[0]);
+  if (item === null || way === undefined) return withHold(d, path, null);
+  const held = { how: way, item: chargeItem(item, null) as Extract<Group['item'], { k: 'charge' }> };
+  const kept = was && (was.paint.k !== 'proper' || CHARGES[item].proper) ? was.paint : null;
+  const changed = withHold(d, path, { ...held, paint: paint ?? kept ?? firstHeldPaint(d, path, held) });
+  const parts = partsOf(changed);
+  return parts.onPicture && parts.picture?.item.k === 'charge' && parts.picture.item.holds.length > 0 ? refitLayers(assembleParts(changed, { ...parts, onPicture: null })) : changed;
 }
 
 export function setGroupTincture(d: Design, path: GroupPath, t: GroupTincture): Design {

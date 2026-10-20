@@ -10,13 +10,13 @@ import { LINE_GROUP, LINE_WORD, edgeCount, isStraightLine, lineAllowed, ordinary
 import { surfaceOf, type Surface } from './surface';
 import type { Ground } from './contrast';
 import { divisionCutsOrdinary, specOf } from './ordinary-geometry';
-import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
+import { asParty, asTreated, asVariation, bodyTinctures, fieldParts, fimbriationOf, isVoided, itemKey, itemName, primaryGroup, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type Paint } from './design';
 import { capacityIssue, onChargeWords } from './layout';
 import { posturesClash } from './difference';
 import { strewnIssues } from './strewn';
 import { TWO_PART_DIVISIONS, groundShares, onDivisionLine, paintName } from './tincture-rule';
 import { MOD_HOSTS, ORDINARY_NAME, ORDINARY_KIND, REFUSED_ORDINARIES, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
-import { AROUND_COUNTS, coPrimaries, contextOf, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
+import { AROUND_COUNTS, coPrimaries, contextOf, drawnLayout, hasChief, isHalfPosition, layoutCandidates, layoutKey, layoutWords, primaryCharges, shareTotal, type LayoutContext } from './arrangement';
 
 /** "a rose" / "three roses": a group's charges in words. */
 function chargesPhrase(g: Group): string {
@@ -27,8 +27,10 @@ function chargesPhrase(g: Group): string {
 function layoutIssue(d: Design, path: GroupPath, g: Group, ctx: LayoutContext): string | null {
   if (g.item.k !== 'charge') return null;
   const meta = CHARGES[g.item.charge];
-  const a = g.arrangement;
-  const layout = { arrangement: a, position: g.position };
+  if (g.arrangement.k === 'pair' && g.count !== 2) return `Only two charges can be ${g.arrangement.pair}.`;
+  // A pair stands as two charges in fess do, or where the ordinary they are set around places them (§1.1 F8).
+  const layout = drawnLayout(ctx, { arrangement: g.arrangement, position: g.position });
+  const a = layout.arrangement;
   switch (ctx.k) {
     case 'position': {
       if (ctx.position !== 'base' && hasChief(ctx.peripheral)) return `There is no room to set charges in ${ctx.position} when the design has a chief.`;
@@ -220,22 +222,57 @@ function ordinaryTreatmentRuleProblem(d: Design, g: Group): string | null {
   return null;
 }
 
+/** Where a charge group that isn't the primary lies, in a message. */
+const NOT_PRIMARY_WHERE: Record<Exclude<Group['role'], 'primary'>, string> = {
+  secondary: 'set beside it', tertiary: 'lying on another charge', overall: 'lying overall', peripheral: 'at the edge',
+};
+
+/**
+ * What SENA A3C allows of voided and fimbriated charges (§1.4 M10; R§A.6), or null: only the primary charges (and only simple geometric
+ * ones take either: art/meta `OUTLINED`), voided not in a fieldless badge, not both, and no more than three in a group, which would need
+ * documentation.
+ */
+function chargeTreatmentProblem(d: Design, g: Group): string | null {
+  const { item } = g;
+  if (item.k !== 'charge') return null;
+  const voided = isVoided(item), fimbriated = fimbriationOf(item) !== null;
+  if (!voided && !fimbriated) return null;
+  const what = voided ? 'voided' : 'fimbriated', noun = g.count === 1 ? CHARGES[item.charge].name : CHARGES[item.charge].plural;
+  if (g.role !== 'primary') return `Only the main charges can be ${what}, not ${chargePhrase(item.charge, g.count)} ${NOT_PRIMARY_WHERE[g.role]} (SENA A3C).`;
+  if (voided && fimbriated) return `A ${CHARGES[item.charge].name} can't be both voided and fimbriated: voided, it is read as fimbriated already (SENA A5C1).`;
+  if (voided && d.kind === 'badge') return 'A fieldless badge has no field to show through a voided charge (SENA A3C).';
+  if (g.count > 3) return `More than three ${noun} ${what} in a group are not registered without documentation (SENA A3C).`;
+  return null;
+}
+
 /**
  * A step from core practice (SENA A2B, App G): a line on one edge of a band alone, other than embattled (its own default) or a jagged line
- * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6); charges around a bend bevilled (F2).
+ * (refused); a charge overall over a fimbriated ordinary; bendlets enhanced with any other charges (RULES-C §D.6); charges around a bend bevilled (F2);
+ * any compass star (App G "Compass star", 06/2007 CL); charges in annulo or in orle turned from their default palewise (S2).
  */
-type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges';
+type CoreStep = 'one-edge-line' | 'overall-over-fimbriated' | 'enhanced-bendlets-with-charges' | 'bevilled-with-charges' | 'compass-star'
+  | 'non-default-orientation-in-annulo-or-orle';
 
 const CORE_STEP_WORDS: Record<CoreStep, string> = {
   'one-edge-line': 'a line on one edge of a band only',
   'overall-over-fimbriated': 'a charge overall over a fimbriated ordinary',
   'enhanced-bendlets-with-charges': 'bendlets enhanced with other charges',
   'bevilled-with-charges': 'charges around a bend bevilled',
+  'compass-star': 'a compass star',
+  'non-default-orientation-in-annulo-or-orle': 'charges in annulo or in orle turned from upright',
 };
 
 /** Bendlets (or bendlets sinister) enhanced, two or more of them. */
 const isBendletsEnhanced = (g: Group): boolean =>
   g.item.k === 'ordinary' && (g.item.type === 'bendlet' || g.item.type === 'bendlet-sinister') && g.count > 1 && g.item.mods.includes('enhanced');
+
+/**
+ * §1.7 S2, App G: "Charges oriented in annulo instead of their default palewise orientation" and "Charges in orle not in their default
+ * orientation" — any orientation but palewise, to center too (App G makes no exception for it; herald question D27 decided).
+ * Charges set around a bordure follow it, which is no step: they are charges on the bordure, not in orle.
+ */
+const turnedInRing = (g: Group): boolean => g.item.k === 'charge' && g.arrangement.k === 'pattern'
+  && (g.arrangement.pattern === 'annulo' || g.arrangement.pattern === 'orle') && g.item.orientation !== null && g.item.orientation !== 'palewise';
 
 /** The steps from core practice the design takes, one per element that takes one (SENA App G). */
 export function coreSteps(d: Design): CoreStep[] {
@@ -247,7 +284,9 @@ export function coreSteps(d: Design): CoreStep[] {
   const overFimbriated: CoreStep[] = fimbriated && d.groups.some((g) => g.role === 'overall') ? ['overall-over-fimbriated'] : [];
   const bendlets: CoreStep[] = d.groups.some(isBendletsEnhanced) && walkGroups(d).some(({ group }) => group.item.k === 'charge') ? ['enhanced-bendlets-with-charges'] : [];
   const bevilled: CoreStep[] = d.groups.some((g) => g.item.k === 'ordinary' && g.item.lines.a === 'bevilled') && d.groups.some((g) => g.role === 'secondary') ? ['bevilled-with-charges'] : [];
-  return [...lines, ...overFimbriated, ...bendlets, ...bevilled];
+  const compassStar: CoreStep[] = walkGroups(d).some(({ group }) => group.item.k === 'charge' && group.item.charge === 'compass-star') ? ['compass-star'] : [];
+  const ring: CoreStep[] = walkGroups(d).some(({ group }) => turnedInRing(group)) ? ['non-default-orientation-in-annulo-or-orle'] : [];
+  return [...lines, ...overFimbriated, ...bendlets, ...bevilled, ...compassStar, ...ring];
 }
 
 /** Why the design is more than one step from core practice (SENA A2B, App G), or null. */
@@ -607,12 +646,14 @@ export function structuralIssues(d: Design): Issue[] {
     if (problem) add({ code: 'structure', rule: 'line', at: { k: 'group', path }, message: problem, slots: [] });
   }
 
-  // 6b'. What an ordinary's treatments rule out (RULES-C §D), and where voiding, fimbriation and cotises may be (SENA A3C).
+  // 6b'. What an ordinary's treatments rule out (RULES-C §D), and where voiding, fimbriation and cotises may be (SENA A3C), on ordinaries and charges.
   for (const { path, group } of walked) {
     const problem = ordinaryTreatmentProblem(group);
     if (problem) add({ code: 'structure', rule: 'relation', at: { k: 'group', path }, message: problem, slots: [] });
     const treated = ordinaryTreatmentRuleProblem(d, group);
     if (treated) add({ code: 'structure', rule: 'ordinary-treatment', at: { k: 'group', path }, message: treated, slots: [] });
+    const outlined = chargeTreatmentProblem(d, group);
+    if (outlined) add({ code: 'structure', rule: 'charge-treatment', at: { k: 'group', path }, message: outlined, slots: [] });
   }
 
   // 6c. One step from core practice is registrable, two are not (SENA A2B, App G).

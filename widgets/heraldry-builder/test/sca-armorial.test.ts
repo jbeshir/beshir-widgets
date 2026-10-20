@@ -5,10 +5,10 @@
 // that loses the gap it is filed under, fails the test until the list is regenerated
 // (`npm run sca:ignore`).
 //
-// Cost control: `npm test` runs the cheap checks (match, assess, blazon, render) on EVERY record but replays the
-// builder's clicks (the 'builder' check, ~11 ms a design, most of this file's time) and re-runs the gap tagger on the
-// ignored records for a seeded, rotating sample only (test/sca/sample.ts): so this file's cost stays roughly flat as
-// records start passing. `npm run sca:ignore` is the authoritative full sweep over every record (the final gate runs it);
+// Cost control: `npm test` runs the cheap checks (match, assess, blazon) on EVERY record but draws the design and replays
+// the builder's clicks (the 'render' and 'builder' checks; the replay, ~40 ms a design, is most of this file's time) and
+// re-runs the gap tagger on the ignored records for a seeded, rotating sample only (test/sca/sample.ts): so this file's cost
+// stays roughly flat as records start passing. `npm run sca:ignore` is the authoritative full sweep over every record (the final gate runs it);
 // `SCA_FULL=1 npx vitest run --project sca` makes this test do the same, `SCA_SAMPLE_SEED=<text>` picks the sample.
 
 import { readFileSync } from 'node:fs';
@@ -18,15 +18,17 @@ import {
   COTISED_HOSTS, GYRONNY_PIECES, MOD_HOSTS, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_MODS, isDiminutive, type OrdinaryType,
   blazon, canonicalJson, isCountedVariation, normalise, ordinaryWithArticle, partCount, structuralIssues, type Division,
 } from '../src/lib/heraldry';
-import { generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesign, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary, plain } from './helpers';
 import entries from '../src/data/sample-registry.json';
 import { checkBlazon, classify, failureLines, listing } from './sca/classify';
 import { GAP_CATEGORIES, categoryOf } from './sca/gaps';
 import { readIgnoreList } from './sca/ignore-list';
+import { CHARGE_SPELLINGS, CROSS_FORM_SPELLINGS } from './sca/words';
 import { explainMatch } from './sca/match';
 import { createSampler, fullSweep, sampleSeed } from './sca/sample';
 import { OANDA_SHA256, oandaSha256, readArmory, readCurrentArmory, type ArmoryRecord } from './sca/oanda';
+import { rotatesIn } from './rotation';
 
 describe('SCA O&A fixture', () => {
   it('is byte-identical to the download, with the sha256 the README states', () => {
@@ -54,10 +56,10 @@ describe('SCA armory the widget can express', () => {
   const ignored = new Map(entries);
   let records: ArmoryRecord[];
   let byKey: Map<string, ArmoryRecord>;
-  /** Which designs get the builder replay and which ignored records get the tagger re-run in this run. */
+  /** Which designs are drawn and get the builder replay, and which ignored records get the tagger re-run, in this run. */
   let sampler: ReturnType<typeof createSampler>;
   const options = () => ({
-    builder: (design: Parameters<typeof sampler.builder>[0]) => sampler.builder(design),
+    drawAndBuild: (design: Parameters<typeof sampler.drawAndBuild>[0]) => sampler.drawAndBuild(design),
     tagger: (r: ArmoryRecord) => sampler.tagger(r, ignored.get(r.key)?.primary ?? ''),
   });
 
@@ -68,9 +70,11 @@ describe('SCA armory the widget can express', () => {
   });
 
   it('every record not on the ignore list passes all five checks', () => {
-    const problems = records.filter((r) => !ignored.has(r.key)).flatMap((r) => failureLines(r, checkBlazon(r.blazon, options()).failures));
+    // Shortest blazon first, so that the sampler's fixed stratum is the simplest design with each feature (test/sca/sample.ts).
+    const passing = records.filter((r) => !ignored.has(r.key)).sort((a, b) => a.blazon.length - b.blazon.length);
+    const problems = passing.flatMap((r) => failureLines(r, checkBlazon(r.blazon, options()).failures));
     expect(problems.length, listing(`Failing records not on the ignore list (a new gap: \`npm run sca:ignore\`; else fix the widget; sample seed ${sampleSeed()}, SCA_FULL=1 for the full sweep)`, problems)).toBe(0);
-  }, 120_000);
+  }, 240_000);
 
   it('the ignore list holds only current records, each tagged with known gap categories', () => {
     const categories = new Set<string>(GAP_CATEGORIES.map((c) => c.id));
@@ -113,6 +117,7 @@ describe('SCA armory the widget can express', () => {
 const field = { k: 'divided', division: 'per-pale', parts: ['or', 'gules'] };
 const swords = { v: 2, field: 'azure', groups: [group(charge('sword'), 'or', { count: 2, arrangement: 'crossed' })] };
 const sun = charge('sun', { mods: [{ id: 'in-splendour', count: null, paint: null }] });
+const fitchy = { id: 'fitchy', count: null, paint: null };
 const chiefOf = (...on: object[]) => group(ordinary('chief'), 'argent', { charged: on });
 const mullets = (n: number, extra: object = {}) => group(charge('mullet'), 'gules', { count: n, ...extra });
 const BLAZONED_DESIGNS: Array<[string, unknown]> = [
@@ -234,6 +239,147 @@ const BLAZONED_DESIGNS: Array<[string, unknown]> = [
   ['a charge and a mount', arms('or', group(charge('lion'), 'gules'), group(ordinary('mount'), 'vert'))],
   ['a charge in the corner beside a bend', arms('argent', group(ordinary('bend'), 'sable'), group(charge('rose'), 'gules', { position: 'chief' }))],
   ['a fess between charges under a chief', arms('azure', group(ordinary('fess'), 'or'), group(charge('rose'), 'or', { count: 3, relation: 'between' }), group(ordinary('chief'), 'or'))],
+  // which way a charge faces, and two set to each other (SENA §1.1)
+  ['a charge contourny', arms('azure', group(charge('lion', { facing: 'to-sinister' }), 'or'))],
+  ['a charge in a posture contourny', arms('vert', group(charge('wolf', { posture: 'passant', facing: 'to-sinister' }), 'argent'))],
+  ['two beasts combattant', arms('argent', group(charge('wolf', { posture: 'rampant' }), 'sable', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))],
+  ['two beasts passant respectant', arms('argent', group(charge('wolf'), 'sable', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
+  ['two beasts addorsed', arms('or', group(charge('lion'), 'gules', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }))],
+  ['two birds respectant', arms('azure', group(charge('eagle'), 'argent', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
+  ['a pale between two beasts combattant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('lion'), 'or', { count: 2, relation: 'between', arrangement: { k: 'pair', pair: 'combattant' } }))],
+  // which way a charge points (SENA §1.3): its orientation words, the crescent's nouns, and to center after the layout
+  ['a charge fesswise', arms('azure', group(charge('sword', { orientation: 'fesswise' }), 'argent'))],
+  ['a charge fesswise reversed', arms('azure', group(charge('sword', { orientation: 'fesswise-reversed' }), 'argent'))],
+  ['a charge bendwise', arms('azure', group(charge('key', { orientation: 'bendwise' }), 'or'))],
+  ['a charge bendwise sinister inverted', arms('azure', group(charge('sword', { orientation: 'bendwise-sinister-inverted' }), 'argent'))],
+  ['a charge inverted', arms('azure', group(charge('mullet', { orientation: 'inverted' }), 'or'))],
+  ['a charge reversed', arms('azure', group(charge('key', { orientation: 'reversed' }), 'or'))],
+  ['a charge palewise', arms('azure', group(charge('sword', { orientation: 'palewise' }), 'argent'))],
+  ['an increscent', arms('gules', group(charge('crescent', { orientation: 'fesswise' }), 'argent'))],
+  ['three decrescents', arms('or', group(charge('crescent', { orientation: 'fesswise-reversed' }), 'azure', { count: 3 }))],
+  ['a crescent pendant', arms('vert', group(charge('crescent', { orientation: 'inverted' }), 'or'))],
+  ['three crescents to center', arms('vert', group(charge('crescent', { orientation: 'to-center' }), 'or', { count: 3, arrangement: 'in-annulo' }))],
+  ['four charges in cross points to center', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'argent', { count: 4, arrangement: 'in-cross' }))],
+  // a star's points, voided, pierced and fimbriated charges (SENA §1.4): the points after the noun, the fimbriation after the tincture
+  ['a star of six points', arms('azure', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }] }), 'or'))],
+  ['three stars of eight rays', arms('gules', group(charge('estoile', { mods: [{ id: 'of-points', count: 8 }] }), 'or', { count: 3 }))],
+  ['a star of six points pierced', arms('sable', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }, 'pierced'] }), 'argent'))],
+  ['a star of six points voided', arms('sable', group(charge('mullet', { mods: ['voided', { id: 'of-points', count: 6 }] }), 'argent'))],
+  ['a charge voided', arms('gules', group(charge('delf', { mods: ['voided'] }), 'argent'))],
+  ['a charge fimbriated', arms('azure', group(charge('lozenge', { mods: [{ id: 'fimbriated', paint: 'argent' }] }), 'azure'))],
+  ['three charges fimbriated and a bordure', arms('or', group(charge('roundel', { mods: [{ id: 'fimbriated', paint: 'sable' }] }), 'gules', { count: 3 }), group(ordinary('bordure'), 'azure'))],
+  // postures in one word or two, and a head turned, before "contourny" when it looks out and after it when it looks back (SENA §1.1, §1.2)
+  ['a beast couchant', arms('azure', group(charge('lion', { posture: 'couchant' }), 'or'))],
+  ['a beast sejant erect', arms('azure', group(charge('lion', { posture: 'sejant-erect' }), 'or'))],
+  ['two beasts sejant erect in pale', arms('azure', group(charge('lion', { posture: 'sejant-erect' }), 'or', { count: 2, arrangement: 'in-pale' }))],
+  ['a beast passant guardant', arms('gules', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or'))],
+  ['a beast guardant contourny', arms('gules', group(charge('lion', { gaze: 'guardant', facing: 'to-sinister' }), 'or'))],
+  ['a beast contourny regardant', arms('vert', group(charge('lion', { gaze: 'regardant', facing: 'to-sinister' }), 'argent'))],
+  ['three beasts passant guardant in pale', arms('gules', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or', { count: 3, arrangement: 'in-pale' }))],
+  ['a stag lodged', arms('vert', group(charge('stag', { posture: 'couchant' }), 'or'))],
+  ['three birds rising', arms('azure', group(charge('eagle', { posture: 'rising' }), 'argent', { count: 3 }))],
+  // the pieces drawn with a charge (PLAN-D §0.3.5), after its tincture; a piece of the charge's tincture, or of what follows, leaves it unsaid
+  ['a beast crowned', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }] }), 'or'))],
+  ['a beast crowned of its own tincture', arms('gules', group(charge('lion', { parts: [{ part: 'crowned', paint: 'or' }] }), 'or'))],
+  ['a beast crowned and collared', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }, { part: 'collared', paint: 'gules' }] }), 'argent'))],
+  ['a beast crowned and collared each its own tincture', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'or' }, { part: 'collared', paint: 'gules' }] }), 'argent'))],
+  ['a beast crowned of the next tincture', arms('or', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }] }), 'sable'), group(ordinary('bordure'), 'gules'))],
+  ['a head collared', arms('vert', group(charge('wolf', { form: 'head', mods: ['couped'], parts: [{ part: 'collared', paint: 'or' }] }), 'argent'))],
+  ['a bird crowned', arms('argent', group(charge('eagle', { parts: [{ part: 'crowned', paint: 'or' }] }), 'gules'))],
+  ['a beast winged', arms('azure', group(charge('lion', { posture: 'passant', mods: [{ id: 'winged', paint: 'or' }] }), 'or'))],
+  ['two hearts winged in pale', arms('argent', group(charge('heart', { mods: [{ id: 'winged', paint: 'or' }] }), 'gules', { count: 2, arrangement: 'in-pale' }))],
+  ['a heart enflamed proper', arms('argent', group(charge('heart', { mods: [{ id: 'enflamed', paint: 'proper' }] }), 'gules'))],
+  ['three charges enflamed', arms('azure', group(charge('sword', { mods: [{ id: 'enflamed', paint: 'gules' }] }), 'or', { count: 3 }))],
+  ['three flowers slipped and leaved', arms('argent', group(charge('rose', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'gules', { count: 3 }))],
+  ['flowers slipped and leaved on a chief', arms('azure', chiefOf(group(charge('rose', { mods: [{ id: 'slipped', paint: 'gules' }, { id: 'leaved', paint: 'gules' }] }), 'gules', { count: 3 })))],
+  // what a main charge holds (PLAN-D §1.5), last; an item of the charge's tincture, or of what follows, leaves it unsaid
+  ['a beast maintaining', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or'))],
+  ['a beast maintaining of its own tincture', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'or' }] }), 'or'))],
+  ['a beast sustaining, then a bordure of the held tincture', arms('vert', group(charge('lion', { holds: [{ how: 'sustaining', item: charge('key'), paint: 'or' }] }), 'argent'), group(ordinary('bordure'), 'or'))],
+  ['a bird with a charge in its beak', arms('argent', group(charge('eagle', { holds: [{ how: 'in-beak', item: charge('key'), paint: 'gules' }] }), 'sable'))],
+  ['a beast with a charge in its mouth', arms('or', group(charge('wolf', { holds: [{ how: 'in-mouth', item: charge('rose'), paint: 'gules' }] }), 'sable'))],
+  ['a beast crowned and maintaining', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }], holds: [{ how: 'maintaining', item: charge('mullet'), paint: 'argent' }] }), 'or'))],
+  ['two beasts combattant each maintaining', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))],
+  ['a beast maintaining a charge proper', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'proper' }] }), 'or'))],
+  ['a bird maintaining a cross', arms('vert', group(charge('eagle', { holds: [{ how: 'maintaining', item: charge('cross-latin'), paint: 'or' }] }), 'argent'))],
+  ['three birds each with a charge in its beak', arms('argent', group(charge('eagle', { holds: [{ how: 'in-beak', item: charge('rose'), paint: 'gules' }] }), 'sable', { count: 3 }))],
+  // a demi charge and a head, whose cut follows the noun ("a wolf's head erased")
+  ['a demi charge', arms('azure', group(charge('lion', { form: 'demi' }), 'or'))],
+  ['three demi charges', arms('azure', group(charge('eagle', { form: 'demi' }), 'argent', { count: 3 }))],
+  ['a head couped', arms('azure', group(charge('wolf', { form: 'head', mods: ['couped'] }), 'argent'))],
+  ['a head erased contourny', arms('azure', group(charge('lion', { form: 'head', facing: 'to-sinister', mods: ['erased'] }), 'or'))],
+  ['three heads erased', arms('sable', group(charge('stag', { form: 'head', mods: ['erased'] }), 'or', { count: 3 }))],
+  // every charge alone and in threes (the crosses in their plurals: "crosses formy"), and every charge that is drawn fitchy; a lone
+  // cross couped is the ordinary of that name (App M1f), so the charge is read in threes only
+  ...CHARGE_IDS.flatMap((id): Array<[string, unknown]> => [
+    ...(id === 'cross-couped' ? [] : [[`a ${id}`, arms('azure', group(charge(id), 'or'))] as [string, unknown]]),
+    [`three ${id}`, arms('azure', group(charge(id), 'or', { count: 3 }))],
+    ...(CHARGES[id].details.includes('fitchy') ? [[`three ${id} fitchy`, arms('azure', group(charge(id, { mods: [fitchy] }), 'or', { count: 3 }))] as [string, unknown]] : []),
+  ]),
+  ['a cat', arms('azure', group(charge('cat', { posture: 'passant' }), 'argent'))],
+  ['a bear', arms('or', group(charge('bear'), 'sable'))],
+  ['a horse', arms('vert', group(charge('horse', { posture: 'courant' }), 'argent'))],
+  ['a fox', arms('argent', group(charge('fox', { posture: 'sejant' }), 'gules'))],
+  ['a squirrel', arms('azure', group(charge('squirrel'), 'or', { count: 3 }))],
+  ['a griffin passant', arms('azure', group(charge('griffin', { posture: 'passant' }), 'or'))],
+  ['griffins sejant', arms('gules', group(charge('griffin', { posture: 'sejant' }), 'argent', { count: 3 }))],
+  ['a wyvern erect', arms('vert', group(charge('wyvern', { posture: 'erect' }), 'or'))],
+  ['a pegasus passant', arms('azure', group(charge('pegasus', { posture: 'passant' }), 'argent'))],
+  ['a sea-horse contourny', arms('argent', group(charge('seahorse', { facing: 'to-sinister' }), 'azure'))],
+  ['a swan close', arms('azure', group(charge('swan', { posture: 'close' }), 'argent'))],
+  ['a swan', arms('azure', group(charge('swan'), 'argent'))],
+  ['a raven volant', arms('or', group(charge('raven', { posture: 'volant' }), 'sable'))],
+  ['a falcon rising', arms('or', group(charge('falcon', { posture: 'rising' }), 'gules'))],
+  ['three phoenixes', arms('argent', group(charge('phoenix'), 'gules', { count: 3 }))],
+  ['a peacock', arms('azure', group(charge('peacock'), 'argent'))],
+  ['an arrow', arms('azure', group(charge('arrow'), 'argent'))],
+  ['three arrows fesswise', arms('gules', group(charge('arrow', { orientation: 'fesswise' }), 'or', { count: 3 }))],
+  ['an axe reversed', arms('vert', group(charge('axe', { orientation: 'reversed' }), 'argent'))],
+  ['a hammer', arms('sable', group(charge('hammer'), 'or'))],
+  ['a harp', arms('azure', group(charge('harp'), 'or'))],
+  ['a harp reversed', arms('azure', group(charge('harp', { orientation: 'reversed' }), 'argent'))],
+  ['three pheons', arms('argent', group(charge('pheon'), 'gules', { count: 3 }))],
+  ['a feather', arms('azure', group(charge('feather'), 'argent'))],
+  ['a needle inverted', arms('or', group(charge('needle', { orientation: 'inverted' }), 'sable'))],
+  ['an anvil', arms('gules', group(charge('anvil'), 'argent'))],
+  ['a spear bendwise', arms('vert', group(charge('spear', { orientation: 'bendwise' }), 'or'))],
+  ['a trident', arms('azure', group(charge('trident'), 'or'))],
+  ['a thistle', arms('argent', group(charge('thistle'), 'proper'))],
+  ['three laurel wreaths', arms('azure', group(charge('laurel-wreath'), 'or', { count: 3 }))],
+  ['an oak leaf bendwise', arms('argent', group(charge('oak-leaf', { orientation: 'bendwise' }), 'vert'))],
+  ['an acorn slipped and leaved', arms('azure', group(charge('acorn', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'or'))],
+  ['a pomegranate', arms('argent', group(charge('pomegranate'), 'gules'))],
+  ['a garb', arms('azure', group(charge('garb'), 'or'))],
+  ['a lily', arms('azure', group(charge('lily'), 'argent'))],
+  ['three escallops inverted', arms('gules', group(charge('escallop', { orientation: 'inverted' }), 'argent', { count: 3 }))],
+  ['a dolphin haurient', arms('azure', group(charge('dolphin', { posture: 'haurient' }), 'argent'))],
+  ['a dolphin contourny', arms('azure', group(charge('dolphin', { facing: 'to-sinister' }), 'or'))],
+  ['a dragonfly bendwise', arms('sable', group(charge('dragonfly', { orientation: 'bendwise' }), 'argent'))],
+  ['a butterfly', arms('azure', group(charge('butterfly'), 'or'))],
+  ['a serpent glissant', arms('argent', group(charge('serpent', { posture: 'glissant' }), 'vert'))],
+  ['a frog', arms('argent', group(charge('frog'), 'vert'))],
+  ['a spider', arms('argent', group(charge('spider'), 'sable'))],
+  ['a scorpion', arms('or', group(charge('scorpion'), 'sable'))],
+  ['a tower', arms('azure', group(charge('tower'), 'argent'))],
+  ['three castles', arms('gules', group(charge('castle'), 'or', { count: 3 }))],
+  ['a hand', arms('argent', group(charge('hand'), 'gules'))],
+  ['a pawprint', arms('vert', group(charge('pawprint'), 'argent'))],
+  ['a comet', arms('sable', group(charge('comet'), 'or'))],
+  ['a goblet', arms('azure', group(charge('goblet'), 'or'))],
+  ['a chalice', arms('argent', group(charge('chalice'), 'sable'))],
+  ['a bell', arms('vert', group(charge('bell'), 'or'))],
+  ['a tankard', arms('sable', group(charge('tankard'), 'argent'))],
+  ['an escarbuncle', arms('azure', group(charge('escarbuncle'), 'or'))],
+  ['three seeblatter', arms('argent', group(charge('seeblatt'), 'vert', { count: 3 }))],
+  ['a wheel', arms('gules', group(charge('wheel'), 'or'))],
+  ['a Catherine wheel', arms('sable', group(charge('catherine-wheel'), 'argent'))],
+  ['a hawk', arms('azure', group(charge('hawk'), 'argent'))],
+  ['a rapier and a dagger', arms('gules', group(charge('rapier'), 'argent'), group(charge('dagger'), 'or'))],
+  ['a coney', arms('vert', group(charge('coney'), 'argent'))],
+  ['three rabbits', arms('sable', group(charge('rabbit'), 'or', { count: 3 }))],
+  ['a vol', arms('azure', group(charge('vol'), 'argent'))],
+  ['a coronet', arms('gules', group(charge('coronet'), 'or'))],
+  ['a horse\'s head and a bear\'s head', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'), group(charge('bear', { form: 'head', mods: ['erased'] }), 'or'))],
 ];
 
 describe('the matcher reads what the widget writes', () => {
@@ -246,6 +392,9 @@ describe('the matcher reads what the widget writes', () => {
     expect(canonicalJson(m.match!.design!)).toBe(canonicalJson(design));
   });
 
+  // The 1,500 seeds of each of the two oldest generators are a seeded rotating third (`rotatesIn`; SCA_FULL=1 for all); every other family whole.
+  const seeds = (generator: string) => Array.from({ length: 1500 }, (_, seed) => seed).filter((seed) => rotatesIn(`${generator}|${seed}`, 1 / 3));
+
   it('reads the blazon of every generated design and every sample entry', () => {
     const designs = [
       ...generatedGeometryDesigns(1, 300),
@@ -253,8 +402,9 @@ describe('the matcher reads what the widget writes', () => {
       ...generatedTreatedOrdinaryDesigns(1, 120),
       ...generatedOutlinedOrdinaryDesigns(1, 120),
       ...generatedPeripheralDesigns(1, 120),
-      ...Array.from({ length: 1500 }, (_, seed) => generatedDesign(seed)),
-      ...Array.from({ length: 1500 }, (_, seed) => generatedRichDesign(seed)),
+      ...generatedChargeAttributeDesigns(1, 200),
+      ...seeds('level0').map(generatedDesign),
+      ...seeds('rich').map(generatedRichDesign),
       ...entries.entries.map((e) => normalise(e.design).design),
     ].filter((d) => d !== null);
     expect(designs.length).toBeGreaterThan(400);
@@ -262,11 +412,441 @@ describe('the matcher reads what the widget writes', () => {
       const m = explainMatch(blazon(d));
       return !m.match || canonicalJson(m.match.design!) !== canonicalJson(d);
     });
-    expect(unread.map((d) => blazon(d))).toEqual([]);
+    expect(unread.map((d) => blazon(d)), `sample seed ${sampleSeed()}`).toEqual([]);
   }, 30_000);
 });
 
+// The drawn crosses and shapes as the SCA spells them: each reads as the widget's own design.
+describe('the matcher reads the drawn crosses and shapes in the College\'s spellings', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  const same = (text: string, widget: string) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!), text).toBe(canonicalJson(read(widget)!));
+  };
+  it.each([
+    ['Azure, a cross fleury Or.', 'Azure, a cross flory Or.'],
+    ['Azure, three crosses fleury Or.', 'Azure, three crosses flory Or.'],
+    ['Azure, a cross fleurie Or.', 'Azure, a cross flory Or.'],
+    ['Azure, a cross pattee Or.', 'Azure, a cross formy Or.'],
+    ['Azure, a cross patty Or.', 'Azure, a cross formy Or.'],
+    ['Azure, a cross paty Or.', 'Azure, a cross formy Or.'],
+    ['Azure, a cross pattée Or.', 'Azure, a cross formy Or.'],
+    ['Azure, three crosses formée Or.', 'Azure, three crosses formy Or.'],
+    ['Azure, a cross botonny Or.', 'Azure, a cross bottony Or.'],
+    ['Azure, three crosses bottonny Or.', 'Azure, three crosses bottony Or.'],
+    ['Azure, a cross pattonce Or.', 'Azure, a cross patonce Or.'],
+    ['Azure, a cross formy fitched Or.', 'Azure, a cross formy fitchy Or.'],
+    ['Azure, a cross formy fitchée Or.', 'Azure, a cross formy fitchy Or.'],
+    ['Azure, a cross formy fitchy at the foot Or.', 'Azure, a cross formy fitchy Or.'],
+    ['Azure, three crosses fleury fitched Or.', 'Azure, three crosses flory fitchy Or.'],
+    ['Azure, a cross crosslet fitched Or.', 'Azure, a cross crosslet fitchy Or.'],
+    ['Azure, a crosslet fitchy Or.', 'Azure, a cross crosslet fitchy Or.'],
+    ['Azure, a compass-star Or.', 'Azure, a compass star Or.'],
+    ['Azure, three compass-stars Or.', 'Azure, three compass stars Or.'],
+    ['Azure, three triquetrae Or.', 'Azure, three triquetras Or.'],
+    ['Azure, a Maltese cross Or.', 'Azure, a maltese cross Or.'],
+    ['Azure, three Latin crosses Or.', 'Azure, three latin crosses Or.'],
+  ])('%s', (text, widget) => same(text, widget));
+
+
+  it('reads "cross flory" and "cross fleury" as the one charge, and a cross couped with its article as the ordinary', () => {
+    expect(read('Azure, a cross flory Or.')!.groups[0].item).toMatchObject({ k: 'charge', charge: 'cross-flory' });
+    expect(read('Azure, a cross couped Or.')!.groups[0].item).toMatchObject({ k: 'ordinary', type: 'cross' });
+  });
+
+
+  it('leaves the ordinary cross fitchy, a cross fitchy at all points and the equal-armed Celtic cross unmatched, under their gaps', () => {
+    for (const text of ['Azure, a cross fitchy Or.', 'Azure, a cross formy fitchy at all points Or.', 'Azure, an equal-armed Celtic cross Or.']) {
+      expect(explainMatch(text).match, text).toBeNull();
+    }
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a cross formy fitchy at all points Or.')).toEqual(['charge-modifier:fitchy-at-all-points']);
+    expect(tags('Azure, an equal-armed Celtic cross Or.')).toEqual(['charge-cross:equal-armed-celtic']);
+  });
+
+
+  // The Details disclosure sets a cross fitchy, so a matched design that needs one passes (D6b).
+  it('passes a fitchy cross, which the builder draws by its Details toggle', () => {
+    const c = classify({ key: 'regid:0', type: 'd', date: '', blazon: 'Azure, three crosses formy fitchy Or.', headings: [] });
+    expect([c.status, c.failures]).toEqual(['passes', []]);
+  });
+});
+
+
+// Which way a charge faces, and two set to each other, as the SCA writes them: each reads as the widget's own design (SENA §1.1).
+describe('the matcher reads which way a charge faces in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a lion rampant to sinister Or.', 'Azure, a lion contourny Or.'],
+    ['Azure, a lion contourné Or.', 'Azure, a lion contourny Or.'],
+    ['Azure, a lion contourney Or.', 'Azure, a lion contourny Or.'],
+    ['Vert, a wolf passant facing to sinister argent.', 'Vert, a wolf passant contourny argent.'],
+    ['Azure, an eagle displayed facing sinister Or.', 'Azure, an eagle contourny Or.'],
+    ['Argent, two wolves combatant sable.', 'Argent, two wolves combattant sable.'],
+    ['Argent, two wolves rampant respectant sable.', 'Argent, two wolves combattant sable.'],
+    ['Argent, two wolves rampant combattant sable.', 'Argent, two wolves combattant sable.'],
+    ['Or, two wolves passant combattant gules.', 'Or, two wolves passant respectant gules.'],
+    ['Azure, two eagles combattant argent.', 'Azure, two eagles respectant argent.'],
+    ['Or, two lions rampant endorsed gules.', 'Or, two lions addorsed gules.'],
+    ['Azure, two lions combattant Or.', 'Azure, two lions combattant Or.'],
+    ['Gules, a lion passant gardant Or.', 'Gules, a lion passant guardant Or.'],
+    ['Gules, a lion rampant guardant Or.', 'Gules, a lion guardant Or.'],
+    ['Gules, a lion rampant contourny guardant Or.', 'Gules, a lion guardant contourny Or.'],
+    ['Vert, a lion regardant contourny argent.', 'Vert, a lion contourny regardant argent.'],
+    ['Vert, a lion reguardant argent.', 'Vert, a lion regardant argent.'],
+    ['Vert, a lion sejant erect to sinister argent.', 'Vert, a lion sejant erect contourny argent.'],
+    ['Or, two lions rampant addorsed regardant gules.', 'Or, two lions regardant addorsed gules.'],
+    ['Purpure, a stag salient argent.', 'Purpure, a stag springing argent.'],
+    ['Vert, three stags passant Or.', 'Vert, three stags trippant Or.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('reads a pale endorsed as its cotises, and leaves three beasts combattant, two keys addorsed and a head turned where it is not drawn to their gaps', () => {
+    expect(read('Azure, a pale endorsed argent.')!.groups[0].item).toMatchObject({ k: 'ordinary', type: 'pale', cotised: { count: 1 } });
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, three lions combattant Or.')).toEqual(['posture:combattant']);
+    expect(tags('Azure, two keys addorsed Or.')).toEqual(['posture:addorsed']);
+    expect(tags('Azure, a lion couchant guardant Or.')).toEqual(['posture:guardant']);
+    expect(tags('Azure, a wolf regardant Or.')).toEqual(['posture:regardant']);
+    expect(tags('Azure, a lion statant erect Or.')).toEqual(['posture:statant-erect']);
+    expect(tags('Azure, a lion\'s head guardant Or.')).toEqual(['posture:guardant']);
+    expect(tags('Azure, a lion passant guardant Or.')).toEqual([]);
+  });
+});
+
+// Which way a charge points, as the SCA writes it: each reads as the widget's own design (SENA §1.3); a charge that is not turned that way keeps its gap.
+describe('the matcher reads which way a charge points in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a sword fesswise argent.', 'Azure, a sword fesswise argent.'],
+    ['Azure, a sword barwise argent.', 'Azure, a sword fesswise argent.'],
+    ['Azure, a sword inverted bendwise argent.', 'Azure, a sword bendwise inverted argent.'],
+    ['Azure, a sword bendwise sinister inverted argent.', 'Azure, a sword bendwise sinister inverted argent.'],
+    ['Vert, a crescent inverted Or.', 'Vert, a crescent pendant Or.'],
+    ['Gules, an increscent argent.', 'Gules, an increscent argent.'],
+    ['Or, three decrescents azure.', 'Or, three decrescents azure.'],
+    ['Azure, four swords in cross points to center argent.', 'Azure, four swords in cross points to center argent.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('files a charge turned a way it is not, or a lion turned at all, under its orientation', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a lion inverted Or.')).toEqual(['orientation:inverted']);
+    expect(tags('Azure, a mullet fesswise Or.')).toEqual(['orientation:fesswise']);
+    expect(tags('Azure, a sword saltirewise argent.')).toEqual(['orientation:saltirewise']);
+  });
+});
+
+// A star's points and a charge's details, as the SCA writes them: each reads as the widget's own design (SENA §1.4); a charge that does
+// not take a detail, or a number of points the widget doesn't draw, keeps its gap.
+describe('the matcher reads demi charges and heads in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a demi-lion Or.', 'Azure, a demi-lion Or.'],
+    ['Azure, a demi lion rampant Or.', 'Azure, a demi-lion Or.'],
+    ['Gules, three demi-eagles displayed argent.', 'Gules, three demi-eagles argent.'],
+    ['Vert, a wolf\'s head erased argent.', 'Vert, a wolf\'s head erased argent.'],
+    ['Vert, a wolf\'s head argent.', 'Vert, a wolf\'s head couped argent.'],
+    ['Sable, three stags\' heads couped Or.', 'Sable, three stags\' heads couped Or.'],
+    ['Sable, a lion\'s head contourny erased Or.', 'Sable, a lion\'s head erased contourny Or.'],
+    ['Sable, two lions\' heads erased respectant Or.', 'Sable, two lions\' heads erased respectant Or.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('files what the widget does not draw of them under their gaps', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a demi-boar Or.')).toEqual(['charge-modifier:demi']);
+    expect(tags('Azure, a goat\'s head erased Or.')).toEqual(['charge-beast:goat-head']); // the head is the gap, with its cut
+    expect(tags('Azure, a lion erased Or.')).toEqual(['charge-modifier:erased']);
+    expect(tags('Azure, a demi-lion erased Or.')).toEqual(['charge-modifier:erased']);
+  });
+});
+
+describe('the matcher reads a star\'s points and a charge\'s details in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a mullet of six points Or.', 'Azure, a mullet of six points Or.'],
+    ['Azure, a mullet of five points Or.', 'Azure, a mullet Or.'],
+    ['Azure, three mullets of five points Or.', 'Azure, three mullets Or.'],
+    ['Gules, an estoile of six rays Or.', 'Gules, an estoile Or.'],
+    ['Gules, an estoile of eight points Or.', 'Gules, an estoile of eight rays Or.'],
+    ['Sable, a mullet of six points voided argent.', 'Sable, a mullet of six points voided argent.'],
+    ['Sable, a mullet of six points pierced argent.', 'Sable, a mullet of six points pierced argent.'],
+    ['Azure, a mullet pierced Or.', 'Azure, a mullet pierced Or.'],
+    ['Azure, a triangle voided Or.', 'Azure, a triangle voided Or.'],
+    ['Azure, a lozenge azure fimbriated argent.', 'Azure, a lozenge azure fimbriated argent.'],
+    ['Or, a roundel gules fimbriated sable, a bordure azure.', 'Or, a roundel gules fimbriated sable, a bordure azure.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('keeps the fimbriation\'s tincture its own: the charge\'s is not carried into it, nor it into the charge', () => {
+    const item = (text: string) => read(text)!.groups[0].item;
+    expect(item('Azure, a roundel gules fimbriated Or.')).toMatchObject({ mods: [{ id: 'fimbriated', paint: { k: 'tincture', t: 'or' } }] });
+    expect(read('Azure, a roundel gules fimbriated Or.')!.groups[0].paint).toEqual({ k: 'tincture', t: 'gules' });
+  });
+
+  it('files points the widget does not draw, and a detail on a charge that does not take it, under their gaps', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a mullet of five greater and five lesser points Or.')).toEqual(['charge-modifier:points']);
+    expect(tags('Azure, a rose voided Or.')).toEqual(['charge-modifier:voided']);
+    expect(tags('Azure, a lion pierced Or.')).toEqual(['charge-modifier:pierced']);
+    expect(tags('Azure, a heart gules fimbriated Or.')).toEqual(['charge-modifier:fimbriated']);
+  });
+});
+
 // A line on the field is read from the College's spellings; a division draws one line, so "per pale dancetty" is indented (RULES §A.3).
+// The pieces drawn with a charge (PLAN-D §0.3.5), as the SCA writes them: crowned, collared (a ducal coronet about the neck), winged (a
+// winged beast), enflamed, slipped and leaved; each run of them takes the tincture it states, else the next one stated.
+describe('the matcher reads the pieces drawn with a charge in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Gules, a lion rampant crowned Or.', 'Gules, a lion crowned Or.'],
+    ['Azure, a lion Or ducally crowned gules.', 'Azure, a lion Or crowned gules.'],
+    ['Azure, a lion Or crowned with a ducal coronet gules.', 'Azure, a lion Or crowned gules.'],
+    ['Vert, a wolf rampant argent gorged of a ducal coronet Or.', 'Vert, a wolf rampant argent collared Or.'],
+    ['Azure, a lion argent crowned Or and collared gules.', 'Azure, a lion argent crowned Or collared gules.'],
+    ['Azure, a winged lion passant Or.', 'Azure, a lion passant winged Or.'],
+    ['Azure, a winged lion passant argent winged Or.', 'Azure, a lion passant argent winged Or.'],
+    ['Sable, a winged heart Or.', 'Sable, a heart winged Or.'],
+    ['Argent, a heart gules inflamed proper.', 'Argent, a heart gules enflamed proper.'],
+    ['Or, a rose, slipped and leaved, gules.', 'Or, a rose slipped and leaved gules.'],
+    ['Ermine, a rose gules, slipped and leaved vert.', 'Ermine, a rose gules slipped and leaved vert.'],
+    ['Azure, on a chief Or three roses slipped and leaved gules.', 'Azure, on a chief Or three roses slipped and leaved gules.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('gives a piece the tincture it states, else the next one stated, and the charge the piece\'s when it states none', () => {
+    const first = (text: string) => read(text)!.groups[0];
+    const or = { k: 'tincture', t: 'or' }, gules = { k: 'tincture', t: 'gules' }, vert = { k: 'tincture', t: 'vert' };
+    expect(first('Azure, a lion Or crowned gules.')).toMatchObject({ paint: or, item: { parts: [{ part: 'crowned', paint: gules }] } });
+    expect(first('Azure, a lion crowned Or.')).toMatchObject({ paint: or, item: { parts: [{ part: 'crowned', paint: or }] } });
+    expect(first('Argent, a rose gules slipped and leaved, a chief vert.')).toMatchObject({ paint: gules, item: { mods: [{ id: 'slipped', paint: vert }, { id: 'leaved', paint: vert }] } });
+  });
+
+  it('files a piece on a charge or drawing that has no place for it under its gap', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a winged lion sejant Or.')).toEqual(['charge-modifier:winged']);
+    expect(tags('Azure, a mullet crowned Or.')).toEqual(['charge-modifier:crowned']);
+    expect(tags('Azure, a demi-lion crowned Or.')).toEqual(['charge-modifier:crowned']);
+  });
+});
+
+// The beasts of art batch B1 in the College's words: "domestic cat" is the cat.
+describe('the matcher reads the College\'s names for the beasts of art batch B1', () => {
+  it.each([
+    ['Azure, a domestic cat passant argent.', 'Azure, a cat passant argent.'],
+    ['Argent, two domestic cats sejant respectant sable.', 'Argent, two cats sejant respectant sable.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+
+// The monsters and birds of art batches B2 and B3 in the College's words: the spellings they use, and the swan rising is rousant (60 records
+// against 11 for "rising"; the posture is its default, so it is left unsaid).
+describe('the matcher reads the College\'s names for the monsters and birds of art batches B2 and B3', () => {
+  it.each([
+    ['Azure, a gryphon passant Or.', 'Azure, a griffin passant Or.'],
+    ['Gules, three griffons sejant argent.', 'Gules, three griffins sejant argent.'],
+    ['Vert, a wivern erect Or.', 'Vert, a wyvern erect Or.'],
+    ['Sable, a phenix Or.', 'Sable, a phoenix Or.'],
+    ['Argent, a sea horse azure.', 'Argent, a sea-horse azure.'],
+    ['Argent, three seahorses azure.', 'Argent, three sea-horses azure.'],
+    ['Or, a sea lion gules.', 'Or, a sea-lion gules.'],
+    ['Azure, a swan rousant argent.', 'Azure, a swan argent.'],
+    ['Azure, a swan rising argent.', 'Azure, a swan argent.'],
+    ['Azure, a swan close argent.', 'Azure, a swan close argent.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+// The tools and weapons of art batch B4 in the College's words: "ax" is the axe (18 records) and a broad arrow the pheon (105).
+describe('the matcher reads the College\'s names for the tools and weapons of art batch B4', () => {
+  it.each([
+    ['Gules, an ax argent.', 'Gules, an axe argent.'],
+    ['Azure, three broad arrows Or.', 'Azure, three pheons Or.'],
+    ['Azure, a broadarrow Or.', 'Azure, a pheon Or.'],
+    ['Azure, a broad-arrow Or.', 'Azure, a pheon Or.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+
+// The sea creatures of art batch B6 in the College's words: a scallop (shell) is the escallop (Table 5), a dolphin's embowing is not blazoned.
+describe('the matcher reads the College\'s names for the escallop and the dolphin of art batch B6', () => {
+  it.each([
+    ['Gules, three scallop shells argent.', 'Gules, three escallops argent.'],
+    ['Gules, a scallop argent.', 'Gules, an escallop argent.'],
+    ['Azure, a dolphin embowed argent.', 'Azure, a dolphin argent.'],
+    ['Azure, a dolphin naiant embowed argent.', 'Azure, a dolphin argent.'],
+    ['Azure, a dolphin hauriant argent.', 'Azure, a dolphin haurient argent.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+// D16b's generated charges in the College's words: the Catherine wheel is also Catherine's wheel, a wagon wheel or cartwheel is the wheel.
+describe('the matcher reads the College\'s names for the wheels, the seeblatt and the escarbuncle', () => {
+  it.each([
+    ['Sable, a Catherine\'s wheel argent.', 'Sable, a Catherine wheel argent.'],
+    ['Gules, three wagon wheels Or.', 'Gules, three wheels Or.'],
+    ['Gules, a cartwheel Or.', 'Gules, a wheel Or.'],
+    ['Argent, three seeblatter vert.', 'Argent, three seeblatter vert.'],
+    ['Azure, an escarbuncle Or.', 'Azure, an escarbuncle Or.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+// D17's audit of the records filed under `other`: spellings and punctuation of constructs the widget draws, which the matcher now reads.
+describe('the matcher reads the College\'s spellings found by the audit of the `other` records', () => {
+  it.each([
+    ['Azure, three wolf\'s heads erased Or.', 'Azure, three wolves\' heads erased Or.'],
+    ['Azure, three boars heads couped argent.', 'Azure, three boars\' heads couped argent.'],
+    ['Pean, a lion\'s head, erased and sinister facing, gules.', 'Pean, a lion\'s head erased contourny gules.'],
+    ['Argent, three seeblätter vert.', 'Argent, three seeblatter vert.'],
+    ['(Fieldless) A paw print purpure.', '(Fieldless) A pawprint purpure.'],
+    ['Per pale Or and sable, a wolf passant counter-changed.', 'Per pale Or and sable, a wolf passant counterchanged.'],
+    ['Counterermine, a lion Or.', 'Counter-ermine, a lion Or.'],
+    ['Or, a horse rampant between three fleurs de lis sable.', 'Or, a horse rampant between three fleurs-de-lys sable.'],
+    ['Ermine, a cog wheel gules.', 'Ermine, a cogwheel gules.'],
+    ['Per bend vert and gules, a griffin argent a bordure ermine.', 'Per bend vert and gules, a griffin argent, a bordure ermine.'],
+    ['(Fieldless) On a horse rampant gules a mullet Or.', '(Fieldless) A horse rampant gules charged with a mullet Or.'],
+    ['Per pale argent and vert, three hearts counterchanged vert and argent.', 'Per pale argent and vert, three hearts counterchanged.'],
+    ['(Fieldless) An acorn vert.', '(Fieldless) An acorn vert.'],
+    ['Argent, an oak leaf fesswise reversed gules.', 'Argent, an oak leaf fesswise reversed gules.'],
+  ])('%s', (text, widget) => {
+    const read = (b: string) => explainMatch(b).match?.design ?? null;
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+});
+
+// The tagger's blind spots the same audit found: each construct the widget does not draw is filed under its gap, not `other`.
+describe('the tagger files the constructs the audit of the `other` records found under their gaps', () => {
+  it.each([
+    ['Or, three sheaves of arrows sable.', 'charge-weapon:sheaf-of-arrows'],
+    ['Argent, a pair of hands vert.', 'charge-human:pair-of-hands'],
+    ['Azure, a sheaf of three spears argent.', 'charge-weapon:sheaf-of-spears'],
+    ['Per pale sable and argent, two foxes combattant counterchanged argent and gules.', 'tincture:party'],
+    ['Argent, a cross engrailed sable between four pairs of keys in saltire vert.', 'charge-tool:pair-of-keys'],
+    ['Sable, a saltire argent surmounted by a sun Or.', 'multiple-groups:surmounted'],
+    ['Barry wavy azure and argent, an eagle Or within a laurel wreath vert.', 'multiple-groups:within-charge'],
+    ['Argent, a wolf\'s head erased sable within an annulet azure.', 'multiple-groups:within-charge'],
+    ['Argent, a dragon purpure charged on the shoulder with a rose argent.', 'placement:on-shoulder'],
+    ['Azure, a goat statant argent atop a bezant.', 'placement:atop'],
+    ['Argent, a phoenix purpure rising from flames gules.', 'charge-modifier:from-flames'],
+    ['Per saltire argent and vert, four crescents horns outward counterchanged gules and argent.', 'orientation:outward'],
+    ['Or, a sinister wing gules.', 'charge-modifier:sinister'],
+    ['Argent, a sinister hand vert.', 'charge-modifier:sinister'],
+    ['Azure, a boar\'s head couped close argent.', 'charge-modifier:couped-close'],
+    ['Vert, two natural seahorses addorsed argent.', 'charge-monster:natural-seahorse'],
+    ['Azure, a natural dolphin naiant argent.', 'charge-fish:natural-dolphin'],
+    ['Gules, three Thor\'s hammers argent.', 'charge-tool:thors-hammer'],
+    ['Purpure, a hawk\'s bell Or.', 'charge-instrument:hawks-bell'],
+    ['Vert, a closed book Or.', 'charge-household:closed-book'],
+    ['(Fieldless) A Ukrainian trident head azure.', 'charge-weapon:ukrainian-trident'],
+    ['Sable, a polar bear statant argent.', 'charge-beast:polar-bear'],
+    ['Sable, a male griffin rampant argent.', 'charge-monster:male-griffin'],
+    ['Or, a bottlenosed dolphin naiant sable.', 'charge-fish:bottlenosed-dolphin'],
+    ['Or, a spired tower gules.', 'charge-building:spired-tower'],
+    ['Argent, a human footprint gules.', 'charge-human:human-footprint'],
+  ])('%s', (text, tag) => {
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags).toContain(tag);
+  });
+
+  // The audit of the phase-D tag families (40 records each): a cut, facing, crown or wings on a charge the widget lacks is filed with that
+  // charge, a charge's own posture word or a drawn hold is no gap, and "that to dexter" says which charge, not how it is turned.
+  it.each([
+    ['Argent, an eagle\'s head erased sable.', ['charge-bird:eagle-head']],
+    ['Argent, a tiger rampant contourny sable.', ['charge-beast:tiger']],
+    ['Argent, two swans\' heads erased addorsed sable.', ['charge-bird:swan-head']],
+    ['Or, a bull gules winged argent.', ['charge-beast:bull']],
+    ['Or, a winged pig gules.', ['charge-beast:pig']],
+    ['Vert, a ram\'s head couped crowned Or.', ['charge-beast:ram-head']],
+    ['Azure, a seahorse ducally gorged Or.', ['charge-modifier:gorged']],
+    ['Argent, a swan rousant gules.', []],
+    ['Azure, a dragon passant Or maintaining an open book argent.', []],
+    ['Argent, two roses, that to dexter Or, that to sinister sable.', ['other:vocabulary']],
+    ['Azure, a raven volant, wings addorsed argent.', ['posture:wings-addorsed']],
+  ])('%s', (text, tags) => {
+    expect(classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags).toEqual(tags);
+  });
+});
+
+
+// What a main charge holds (PLAN-D §1.5), as the SCA writes it: maintaining or sustaining (holding, grasping, supporting), or in its beak or
+// mouth however it is held; "each" for more than one charge; the item's tincture as stated, else the next one stated.
+describe('the matcher reads what a charge holds in the College\'s words', () => {
+  const read = (text: string) => explainMatch(text).match?.design ?? null;
+  it.each([
+    ['Azure, a lion rampant Or maintaining a sword argent.', 'Azure, a lion Or maintaining a sword argent.'],
+    ['Azure, a lion Or, maintaining a sword argent.', 'Azure, a lion Or maintaining a sword argent.'],
+    ['Azure, a lion Or holding a sword argent.', 'Azure, a lion Or maintaining a sword argent.'],
+    ['Azure, a lion Or grasping a key argent.', 'Azure, a lion Or maintaining a key argent.'],
+    ['Argent, an eagle sable holding in its beak a key gules.', 'Argent, an eagle sable maintaining in its beak a key gules.'],
+    ['Argent, an eagle sable bearing in his beak a key gules.', 'Argent, an eagle sable maintaining in its beak a key gules.'],
+    ['Or, a wolf rampant sable sustaining in its mouth a rose gules.', 'Or, a wolf rampant sable maintaining in its mouth a rose gules.'],
+    ['Azure, two lions combattant Or each maintaining a sword argent.', 'Azure, two lions combattant Or each maintaining a sword argent.'],
+    // the paw, claw, talon or foot it is held in is its position: worth nothing (§1.5 H2, D16b)
+    ['Azure, a lion Or maintaining in its dexter forepaw a sword argent.', 'Azure, a lion Or maintaining a sword argent.'],
+    ['Vert, an eagle argent grasping in its talons a crescent Or.', 'Vert, an eagle argent maintaining a crescent Or.'],
+    ['Or, a bear rampant sable sustaining in its sinister paw a heart gules.', 'Or, a bear rampant sable sustaining a heart gules.'],
+    ['Argent, a wolf rampant sable holding in its jaws a key gules.', 'Argent, a wolf rampant sable maintaining in its mouth a key gules.'],
+    ['Azure, a lion Or maintaining a plate.', 'Azure, a lion Or maintaining a roundel argent.'],
+    ['Azure, a lion Or maintaining a sword proper.', 'Azure, a lion Or maintaining a sword proper.'],
+  ])('%s', (text, widget) => {
+    expect(read(text), text).not.toBeNull();
+    expect(canonicalJson(read(text)!)).toBe(canonicalJson(read(widget)!));
+  });
+
+  it('gives the held item the tincture it states, else the next one stated, and the charge the item\'s when it states none', () => {
+    const first = (text: string) => read(text)!.groups[0];
+    const or = { k: 'tincture', t: 'or' }, argent = { k: 'tincture', t: 'argent' };
+    expect(first('Azure, a lion maintaining a sword Or.')).toMatchObject({ paint: or, item: { holds: [{ how: 'maintaining', item: { charge: 'sword' }, paint: or }] } });
+    expect(first('Vert, a lion argent sustaining a key, a bordure Or.')).toMatchObject({ paint: argent, item: { holds: [{ how: 'sustaining', paint: or }] } });
+  });
+
+  it('leaves unread what the widget doesn\'t draw: two items, an item turned, an item between two charges, a held charge of a secondary group', () => {
+    for (const text of [
+      'Azure, a lion Or maintaining a sword and a key argent.', 'Azure, a lion Or maintaining a sword fesswise argent.',
+      'Azure, two lions combattant Or maintaining a sword argent.', 'Azure, a fess argent between three lions Or each maintaining a sword argent.',
+    ]) expect(read(text), text).toBeNull();
+  });
+
+  it('files a hold the widget doesn\'t draw under its gap, and one it draws under none', () => {
+    const tags = (text: string) => classify({ key: 'regid:0', type: 'd', date: '', blazon: text, headings: [] }).tags;
+    expect(tags('Azure, a lion Or maintaining a sword and a key argent.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a boar Or maintaining a sword argent.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a demi-lion Or maintaining a sword argent.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a lion Or maintaining a rose gules, slipped and leaved vert.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a lion Or maintaining a fleur-de-lis proper.')).toEqual(['charge-modifier:maintaining']);
+    expect(tags('Azure, a lion Or maintaining a sword proper.')).toEqual([]);
+  });
+});
+
 describe('the matcher reads the lines of the field', () => {
   it.each([
     ['Per pale undy argent and azure, a mullet Or.', 'Per pale wavy argent and azure, a mullet Or.'],
@@ -557,7 +1137,7 @@ describe('the matcher accepts stated defaults only for the design that has them'
 // A construct the matcher parses but the widget doesn't draw is filed under the widget's own gap.
 describe('the matcher files what the widget does not draw under its gap', () => {
   it.each([
-    ['Azure, a lion couchant Or.', ['posture:couchant']],
+    ['Azure, a wolf couchant Or.', ['posture:couchant']],
     ['Azure, two wolves Or and two roses argent.', ['multiple-groups:co-primary-count']],
     ['Azure, a wolf Or, a rose argent and a heart gules.', ['multiple-groups:co-primary-3']],
     ['Azure, three lions Or between three roses argent.', ['placement:around-primary-3']],
@@ -693,8 +1273,60 @@ describe('the tagger never files a record under a construct the widget supports'
     ['a bend cotised', 'azure, a bend cotised argent'],
     ['a bend doubly cotised', 'azure, a bend doubly cotised argent'],
     ['a pale endorsed', 'azure, a pale endorsed argent'],
+    ['a charge contourny', 'azure, a lion contourny Or'],
+    ['a demi charge', 'azure, a demi-lion Or'],
+    ['a head erased', "azure, a wolf's head erased Or"],
+    ['heads respectant', "azure, two lions' heads couped respectant Or"],
+    ['a charge fesswise', 'azure, a sword fesswise argent'],
+    ['a charge fesswise reversed', 'azure, a sword fesswise reversed argent'],
+    ['a charge bendwise sinister inverted', 'azure, a sword bendwise sinister inverted argent'],
+    ['a charge inverted', 'azure, a mullet inverted Or'],
+    ['a charge palewise', 'azure, a sword palewise argent'],
+    ['a crescent pendant', 'azure, a crescent pendant Or'],
+    ['an increscent', 'gules, an increscent argent'],
+    ['decrescents', 'or, three decrescents azure'],
+    ['charges to center', 'azure, four swords in cross points to center argent'],
+    ['a charge to sinister', 'azure, a wolf passant to sinister Or'],
+    ['a charge facing sinister', 'azure, an eagle displayed facing sinister Or'],
+    ['a charge contourné', 'azure, a lion contourné Or'],
+    ['two charges combatant', 'argent, two wolves combatant sable'],
+    ['two charges respectant', 'azure, two eagles respectant argent'],
+    ['two charges endorsed', 'or, two lions rampant endorsed gules'],
     ['a chevron fimbriated', 'azure, a chevron Or fimbriated argent'],
     ['a cross voided', 'azure, a cross voided Or'],
+    // every charge the widget draws, and the spellings and details of the drawn crosses and shapes
+    ...CHARGE_IDS.map((id): [string, string] => [`a ${id}`, `azure, ${CHARGES[id].article} ${CHARGES[id].name} Or`]),
+    ...CHARGE_IDS.filter((id) => CHARGES[id].details.includes('fitchy')).map((id): [string, string] => [`${id} fitchy`, `azure, three ${CHARGES[id].plural} fitchy Or`]),
+    // the College's other names and spellings of them, and of the drawn crosses' forms, as the normaliser reads them (sca/words.ts)
+    ...Object.keys(CHARGE_SPELLINGS).map((spelling): [string, string] => [`spelt ${spelling}`, `azure, three ${spelling}s Or`]),
+    ...Object.keys(CROSS_FORM_SPELLINGS).map((spelling): [string, string] => [`a cross ${spelling}`, `azure, a cross ${spelling} Or`]),
+    ['crosses pattee fitched', 'azure, three crosses pattee fitched Or'],
+    ['a cross botonny', 'azure, a cross botonny Or'],
+    ['crosses couped', 'azure, three crosses couped Or'],
+    ['compass stars', 'azure, three compass-stars Or'],
+    ['a crosslet fitchy', 'azure, a crosslet fitchy Or'],
+    ['a mullet of six points', 'azure, a mullet of six points Or'],
+    ['estoiles of eight rays', 'azure, three estoiles of eight rays Or'],
+    ['an estoile of eight points', 'azure, an estoile of eight points Or'],
+    ['a mullet of six points pierced', 'azure, a mullet of six points pierced Or'],
+    ['a mullet voided', 'azure, a mullet voided Or'],
+    ['a delf voided', 'azure, a delf voided Or'],
+    ['a lozenge fimbriated', 'azure, a lozenge azure fimbriated argent'],
+    ['a lion crowned', 'azure, a lion rampant crowned Or'],
+    ['a lion ducally crowned', 'azure, a lion Or ducally crowned gules'],
+    ['a wolf gorged of a ducal coronet', 'azure, a wolf argent gorged of a ducal coronet Or'],
+    ['a wolf\'s head collared', 'azure, a wolf\'s head argent collared Or'],
+    ['a winged lion', 'azure, a winged lion passant Or'],
+    ['a heart winged', 'azure, a heart gules winged Or'],
+    ['a heart enflamed proper', 'azure, a heart gules enflamed proper'],
+    ['a rose slipped and leaved', 'azure, a rose gules slipped and leaved vert'],
+    ['a lion maintaining a sword', 'azure, a lion rampant Or maintaining a sword argent'],
+    ['a lion holding a key', 'azure, a lion Or, holding a key argent'],
+    ['two lions each maintaining a sword', 'azure, two lions combattant Or each maintaining a sword argent'],
+    ['an eagle with a key in its beak', 'argent, an eagle sable maintaining in its beak a key gules'],
+    ['a wolf with a rose in its mouth', 'or, a wolf rampant sable holding in its mouth a rose gules'],
+    ['triquetrae', 'azure, three triquetrae Or'],
+    ['ermine spots', 'azure, three ermine spots Or'],
     ...DRAWN_ORDINARIES.flatMap((t) => DRAWN_LINES.filter((l) => lineAllowed({ k: 'ordinary', type: t, inverted: false }, l)).map((l): [string, string] => [`a ${ORDINARY_NAME[t]} ${l}`, `azure, ${ordinaryWithArticle(t)} ${LINE_WORD[l]} Or`])),
     ['a chief and a bordure', 'azure, a chief and a bordure Or'],
     ['a band and a canton', 'azure, a bend Or and a canton argent'],

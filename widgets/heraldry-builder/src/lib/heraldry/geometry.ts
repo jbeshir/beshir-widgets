@@ -7,7 +7,6 @@
 // gets the same verdict in every shape. The other shapes reuse the heater's construction (lines
 // through the fess point, bands of the same width) around their own fess point and outline.
 
-import { CHARGES, type ChargeId } from './charges';
 import { boundedMemo } from './memo';
 import { DEFAULT_GYRONNY_PIECES, DRAWN_DIVISIONS, partCount, type Division } from './divisions';
 import { asSemy, asTreated, asVariation, notSupported, PLAIN_LINES, type Lines, type Paint, type VariationPaint } from './design';
@@ -592,11 +591,6 @@ export function inFirstPartTurned(division: Division, centre: Point, turn: numbe
 /** Slot centre and box size in shield units, and how far the charge is turned (degrees clockwise, 0 = upright). */
 export interface Slot { x: number; y: number; size: number; rotation: number }
 
-/** The box a charge's art is drawn in: the slot scaled by the charge's optical scale about its centre. */
-export function drawnBox(slot: Slot, charge: ChargeId): Slot {
-  return { x: slot.x, y: slot.y, size: r2(slot.size * CHARGES[charge].scale), rotation: slot.rotation };
-}
-
 /** How far from the edge of the picture a fieldless badge is kept, in shield units. */
 const BADGE_MARGIN = 8;
 
@@ -622,6 +616,29 @@ export function badgeTransform(boxes: readonly Slot[]): string {
 export function slotTransform(s: Slot): string {
   const place = `translate(${s.x - s.size / 2} ${s.y - s.size / 2}) scale(${s.size / 100})`;
   return s.rotation === 0 ? place : `rotate(${s.rotation} ${s.x} ${s.y}) ${place}`;
+}
+
+/** How a charge's art is posed in its slot, on top of the slot's own turn: mirrored first, then scaled and turned about the middle of its box. */
+export interface ArtPose {
+  /** Drawn mirrored about the art's upright middle line: a charge facing to sinister (contourny), one of a pair, or reversed. */
+  mirror: boolean;
+  /** Degrees clockwise the art is turned within its slot (a charge fesswise, bendwise, inverted…). */
+  turn: number;
+  /** The scale that keeps the turned art's long side as upright (`turnFit`); 1 unturned. */
+  fit: number;
+}
+
+/** The art as it is drawn. */
+export const UPRIGHT: ArtPose = { mirror: false, turn: 0, fit: 1 };
+
+/** The art mirrored: facing the other way. */
+export const MIRRORED: ArtPose = { mirror: true, turn: 0, fit: 1 };
+
+/** The SVG transform that draws a charge's art in a slot in a pose: the slot's, then the pose about the middle of the art's box. */
+export function chargeTransform(s: Slot, pose: ArtPose): string {
+  const turn = pose.turn === 0 ? '' : ` rotate(${pose.turn} 50 50)`;
+  const scale = pose.mirror || pose.fit !== 1 ? ` translate(50 50) scale(${pose.mirror ? -pose.fit : pose.fit} ${pose.fit}) translate(-50 -50)` : '';
+  return `${slotTransform(s)}${turn}${scale}`;
 }
 
 /** Rotate a point about a slot's centre by the slot's rotation. */

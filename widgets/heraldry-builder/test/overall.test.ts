@@ -204,6 +204,12 @@ describe('the builder layer', () => {
     expect(blazon(fess)).toBe('Azure, a lion argent and overall a fess Or.');
   });
 
+  it('lets the picture overall repeat the pictures a band carries, which are another group (regid:79652, SENA A3D1a)', () => {
+    const d = addLayer(built(arms('argent', group(ordinary('fess'), 'gules', { charged: [group(charge('boar'), 'argent', { count: 2 })] }))), 'overall');
+    expect(overallItemChoices(d).find((c) => JSON.stringify(c.value) === JSON.stringify({ k: 'charge', charge: 'boar' }))).toMatchObject({ allowed: true });
+    expect(structuralIssues(setOverallItem(d, { k: 'charge', charge: 'boar' }))).toEqual([]);
+  });
+
   it('goes with the band or picture it lies over: kept through edits, dropped when there is nothing to lie over', () => {
     const d = addLayer(built(arms('azure', lion())), 'overall');
     expect(pathOfPlace(setOrdinary(d, 'fess'), 'overall')).not.toBeNull();

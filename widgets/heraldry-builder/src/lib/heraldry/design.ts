@@ -8,8 +8,8 @@ import { canonicalFur, furColours } from './fur';
 import type { OrdinaryMod, OrdinaryType } from './ordinaries';
 import { edgeCount, ordinaryEdgeHost, type EdgeHost, type Line } from './lines';
 import {
-  CHARGES, HOLD_HOWS, MODIFIER_IDS, PART_IDS,
-  type ChargeForm, type ChargeId, type Facing, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
+  CHARGES, CUT_MODIFIERS, HOLD_HOWS, MODIFIER_IDS, PART_IDS, drawnPoints, isChargeId,
+  type ChargeForm, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type PartId, type Posture,
 } from './charges';
 import { DIMINUTIVE_OF, ORDINARY_MODS, ORDINARY_NAME, PERIPHERAL_ORDER, SAME_ORDINARY } from './ordinaries';
 
@@ -55,6 +55,7 @@ export interface Charge {
   charge: ChargeId;
   form: ChargeForm | null;
   posture: Posture | null;       // null only for posture-less charges
+  gaze: Gaze | null;             // null: the head looks where the body faces; only for charges that face
   facing: Facing | null;         // null only for charges with defaultFacing null
   orientation: Orientation | null; // null = the default orientation for where it lies (e.g. following a bend)
   mods: Modifier[];              // sorted by MODIFIER_IDS order
@@ -63,6 +64,12 @@ export interface Charge {
 }
 
 export type Item = Ordinary | Charge;
+
+/** The paint a charge is fimbriated with ("a lozenge azure fimbriated argent"), or null. */
+export const fimbriationOf = (c: Charge): Paint | null => c.mods.find((m) => m.id === 'fimbriated')?.paint ?? null;
+
+/** Whether a charge is voided: drawn as its band along its edge, the ground showing in the middle. */
+export const isVoided = (c: Charge): boolean => c.mods.some((m) => m.id === 'voided');
 
 /** The singular name of what an item is, in a message: "fess", "lion". */
 export const itemName = (i: Item): string => (i.k === 'ordinary' ? ORDINARY_NAME[i.type] : CHARGES[i.charge].name);
@@ -181,6 +188,25 @@ export function fieldSemys(d: Design): SemyPaint[] {
 /** True when no group is primary and no semy strews the field: the field carries the design (RULES §B.3). */
 export function isFieldPrimary(d: Design): boolean {
   return primaryGroup(d) === null && fieldSemys(d).length === 0;
+}
+
+/**
+ * Every charge a design draws, for loading their art: its groups' and their tertiaries', what they hold, and what a semy strews
+ * anywhere in its paints. Read off the whole design, whatever holds a `charge`, so no place a charge can be drawn is missed.
+ */
+export function chargeIdsOf(d: Design): ChargeId[] {
+  const ids = new Set<ChargeId>();
+  const visit = (v: unknown): void => {
+    if (Array.isArray(v)) v.forEach(visit);
+    else if (v !== null && typeof v === 'object') {
+      for (const [k, x] of Object.entries(v)) {
+        if (k === 'charge' && isChargeId(x)) ids.add(x);
+        else visit(x);
+      }
+    }
+  };
+  visit(d);
+  return [...ids];
 }
 
 /** The plain tincture a paint is, or the one a semy is strewn on; null for any other paint. */
@@ -340,12 +366,21 @@ export function canonicalPaint(p: Paint): Paint {
   }
 }
 
-function canonicalArrangement(a: Arrangement): Arrangement {
+/**
+ * Two charges facing each other, as the builder words them (§1.1 F6): combattant and respectant are one pair (CL 11/2012), said
+ * combattant of beasts and monsters rampant ("combatant is shorthand for 'in fess one beast rampant contourny and another rampant'", SENA
+ * A5E5a) and respectant of every other charge and posture, and of heads and demi charges (the SCA armorial: "heads respectant" 187 times
+ * against 3 "combatant"), so that one drawing has one signature.
+ */
+export const facingEachOther = (item: Item): Pair =>
+  (item.k === 'charge' && item.form === null && CHARGES[item.charge].postureClass === 'quadruped' && item.posture === 'rampant' ? 'combattant' : 'respectant');
+
+function canonicalArrangement(a: Arrangement, item: Item): Arrangement {
   switch (a.k) {
     case 'line': return { k: 'line', dir: a.dir };
     case 'rows': return { k: 'rows', rows: [...a.rows] };
     case 'pattern': return { k: 'pattern', pattern: a.pattern };
-    case 'pair': return { k: 'pair', pair: a.pair };
+    case 'pair': return { k: 'pair', pair: a.pair === 'addorsed' ? 'addorsed' : facingEachOther(item) };
     case 'single': case 'host': case 'crossed': return { k: a.k };
   }
 }
@@ -356,10 +391,17 @@ const sortedBy = <T>(xs: readonly T[], rank: (x: T) => number | string): T[] =>
     return a < b ? -1 : a > b ? 1 : 0;
   });
 
+/**
+ * A charge in canonical form: its attributes in fixed order; a star "of" the number of points it is drawn with is that star ("a mullet of
+ * five points" is a mullet); a head or a demi charge has no posture, and a head with no cut is couped.
+ */
 function canonicalCharge(c: Charge): Charge {
+  const drawn = c.mods.filter((m) => !(m.id === 'of-points' && m.count === drawnPoints(c.charge)));
+  const uncut = c.form === 'head' && !drawn.some((m) => CUT_MODIFIERS.includes(m.id));
+  const mods = uncut ? [...drawn, { id: 'couped', count: null, paint: null } as const] : drawn;
   return {
-    k: 'charge', charge: c.charge, form: c.form, posture: c.posture, facing: c.facing, orientation: c.orientation,
-    mods: sortedBy(c.mods, (m) => MODIFIER_IDS.indexOf(m.id)).map((m) => ({ id: m.id, count: m.count, paint: m.paint && canonicalPaint(m.paint) })),
+    k: 'charge', charge: c.charge, form: c.form, posture: c.form === 'head' || c.form === 'demi' ? null : c.posture, gaze: c.gaze, facing: c.facing, orientation: c.orientation,
+    mods: sortedBy(mods, (m) => MODIFIER_IDS.indexOf(m.id)).map((m) => ({ id: m.id, count: m.count, paint: m.paint && canonicalPaint(m.paint) })),
     parts: sortedBy(c.parts, (p) => PART_IDS.indexOf(p.part)).map((p) => ({ part: p.part, paint: canonicalPaint(p.paint) })),
     holds: sortedBy(c.holds, (h) => `${String(HOLD_HOWS.indexOf(h.how)).padStart(2, '0')}${h.item.charge}`)
       .map((h) => ({ how: h.how, item: canonicalCharge(h.item), paint: canonicalPaint(h.paint) })),
@@ -403,7 +445,7 @@ function groupOrder(g: Group): string {
 function canonicalGroups(groups: readonly Group[]): Group[] {
   const rebuilt = groups.map((g): Group => ({
     role: g.role, relation: g.relation, item: canonicalItem(g.item, g.count, g.role === 'primary' || g.role === 'overall'), count: g.count,
-    arrangement: canonicalArrangement(g.arrangement), position: g.position, paint: canonicalPaint(g.paint),
+    arrangement: canonicalArrangement(g.arrangement, g.item), position: g.position, paint: canonicalPaint(g.paint),
     charged: canonicalGroups(g.charged),
   }));
   return sortedBy(rebuilt, groupOrder);
@@ -443,10 +485,10 @@ export type CountLimit = 'host' | 'around' | 'around-primary';
 export type TinctureReason = 'contrast' | 'counterchange-unavailable';
 
 /** Which part of a group (or of the field's paint) a tincture issue is about: the group itself, an ordinary's fimbriation or cotises, or the charges of a semy. */
-export type TincturePart = 'body' | 'fimbriation' | 'cotises' | 'strewn';
+export type TincturePart = 'body' | 'fimbriation' | 'cotises' | 'strewn' | 'held';
 
 /** Which structure rule an issue breaks: the field's tinctures, a fur's colours (`fur`), a treatment whose ink doesn't contrast with its tincture (`treatment`), a band or picture divided or varied the wrong way (`divided-paint`), how groups relate, one charge type in two groups on the field, a layout the count doesn't have, no room at a size that reads, a chief with nothing across the line, a group overall that breaks SENA App I4, a badge's single main charge (`badge`, SENA A3A2: bands, borders, groups of several charges and split display shapes are not fieldless armory), a dexter or sinister point (`side-point`: never registered, RULES-C §C.3, L21). */
-export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge' | 'line' | 'core-practice' | 'ordinary-treatment' | 'side-point';
+export type StructureRule = 'field' | 'fur' | 'treatment' | 'divided-paint' | 'relation' | 'same-type' | 'layout' | 'capacity' | 'crosses-line' | 'overall' | 'badge' | 'line' | 'core-practice' | 'ordinary-treatment' | 'charge-treatment' | 'side-point';
 
 /**
  * shape       — malformed input (unknown key/id, wrong type)

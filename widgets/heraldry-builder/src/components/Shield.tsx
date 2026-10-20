@@ -19,7 +19,7 @@
 import type { ComponentChildren } from 'preact';
 import { useRef } from 'preact/hooks';
 import {
-  OUTLINE_COLOUR, SHIELD_VIEWBOX, TINCTURE_FILL, colourHex, TINCTURE_HATCHING, fillCode, fillHatchTinctures, hatchTincture, badgeView, gloss, pathKey, renderLayers, shapeFrame, slotTransform,
+  FIMBRIATION_WIDTH, OUTLINE_COLOUR, SHIELD_VIEWBOX, VOIDED_WIDTH, TINCTURE_FILL, colourHex, TINCTURE_HATCHING, fillCode, fillHatchTinctures, hatchTincture, badgeView, chargeTransform, gloss, pathKey, renderLayers, shapeFrame,
   type Design, type FieldShape, type Fill, type Hatching, type Layer, type LeafFill, type OrdinaryPart, type PatternSpec, type Slot, type Tincture,
 } from '../lib/heraldry';
 
@@ -100,6 +100,10 @@ interface Ids {
   charge: (key: string, t: Tincture) => string;
   region: (key: string, i: number) => string;
   chargeClip: (key: string, i: number) => string;
+  /** The mask a voided group's charges are painted through: their band along the edge. */
+  voidMask: (key: string) => string;
+  /** The clip of a group's charge art in its own box: what a collar is cut to. */
+  artClip: (key: string) => string;
   pattern: (spec: PatternSpec) => string;
   /** The tile that masks a pattern's hatch: its ground shows the hatch, its marks hide it. */
   hatchMask: (spec: PatternSpec) => string;
@@ -113,6 +117,8 @@ function makeIds(uid: string): Ids {
     charge: (key, t) => `hatch-${uid}-g${key}-${t}`,
     region: (key, i) => `region-clip-${uid}-g${key}-${i}`,
     chargeClip: (key, i) => `charge-clip-${uid}-g${key}-${i}`,
+    voidMask: (key) => `void-mask-${uid}-g${key}`,
+    artClip: (key) => `art-clip-${uid}-g${key}`,
     pattern: (spec) => `pattern-${uid}-${spec.id}`,
     hatchMask: (spec) => `hatch-tile-${uid}-${spec.id}`,
     leafMask: (key, at) => `hatch-mask-${uid}-g${key}-${at}`,
@@ -239,7 +245,7 @@ function LayerDefs({ layer, scope }: { layer: Layer; scope: Scope }) {
       ))}
       {layer.fills.map((f, i) => fillHatchTinctures(f.fill).some(overlay) && (
         <clipPath key={`c${i}`} id={ids.chargeClip(key, i)}>
-          {f.slots.map((s) => <path key={s} d={layer.art} clip-rule="evenodd" transform={slotTransform(layer.slots[s])} />)}
+          {f.slots.map((s) => <path key={s} d={layer.art} clip-rule="evenodd" transform={chargeTransform(layer.slots[s], layer.poses[s])} />)}
         </clipPath>
       ))}
     </>
@@ -278,48 +284,79 @@ function OrdinaryShape({ layer, scope, stroke }: { layer: OrdinaryLayer; scope: 
   );
 }
 
+/**
+ * A group's charges, painted and outlined, with the effects of their modifiers (`ChargeOverlay`): a fimbriation is the art under each
+ * charge, stroked wider in its tincture; a voided group is painted through a mask of the art's band along its edge, so the ground
+ * shows in the middle. The effects' strokes scale with the charge (art units), unlike the outline. The pieces of its parts and details
+ * are drawn with the charge's slot and pose, each outlined as the charge is: wings, flames and slips under it, a collar (clipped to the
+ * charge's art) and a crown over it.
+ */
 function ChargesShape({ layer, scope, shieldPx }: { layer: ChargesLayer; scope: Scope; shieldPx: number | undefined }) {
   const { ids, key, overlay } = scope;
   // Every charge in a group shares one box size, so the first box sets the outline and hatch pitch.
   const box = layer.slots[0];
   // Without any paint (counterchanged on a plain field) the outline is all there is to see.
   const outlinePx = !box ? 0 : layer.fills.length ? chargeOutlinePx(shieldPx, box) : CHARGE_OUTLINE_PX;
+  const voided = layer.overlays.some((o) => o.effect === 'voided');
+  const clipped = layer.overlays.some((o) => o.effect === 'fill' && o.part === 'collar');
+  const pieces = (under: boolean) => layer.overlays.map((o, i) => o.effect === 'fill' && o.under === under && layer.slots.map((s, j) => (
+    <path
+      key={`${i}-${j}`} d={o.art} transform={chargeTransform(s, layer.poses[j])} fill={paintOf(o.fill, ids)} fill-rule="evenodd"
+      stroke={OUTLINE_COLOUR} stroke-width={outlinePx} vector-effect="non-scaling-stroke" stroke-linejoin="round"
+      clip-path={o.part === 'collar' ? `url(#${ids.artClip(key)})` : undefined} data-overlay={o.part} data-paint={fillCode(o.fill)}
+    />
+  )));
+  const painted = layer.fills.map((f, i) => (
+    <Painted key={i} fill={f.fill} clip={undefined} scope={scope} at={String(i)} leaf={(leaf, at) => {
+      const hatch = hatchOf(leaf, overlay);
+      return (
+        <>
+          {f.slots.map((s) => (
+            <path key={s} d={layer.art} transform={chargeTransform(layer.slots[s], layer.poses[s])} fill={paintOf(leaf, ids)} fill-rule="evenodd" data-paint={fillCode(leaf)} />
+          ))}
+          {hatch && leaf.k === 'pattern' && (
+            <LeafMask leaf={leaf} scope={scope} at={at} shapes={f.slots.map((s) => (
+              <path key={s} d={layer.art} transform={chargeTransform(layer.slots[s], layer.poses[s])} fill={`url(#${ids.hatchMask(leaf.spec)})`} fill-rule="evenodd" />
+            ))} />
+          )}
+          {hatch && (
+            <g clip-path={`url(#${ids.chargeClip(key, i)})`}>
+              <rect x="0" y="0" width="100" height="120" fill={`url(#${ids.charge(key, hatch)})`} mask={maskOf(leaf, scope, at)} />
+              {f.slots.map((s) => (
+                <path
+                  key={s} d={layer.art} transform={chargeTransform(layer.slots[s], layer.poses[s])} fill="none" stroke={TINCTURE_FILL[hatch]}
+                  stroke-width={(2 * hatchEdge(layer.slots[s]) * 100) / layer.slots[s].size} stroke-linejoin="round"
+                />
+              ))}
+            </g>
+          )}
+        </>
+      );
+    }} />
+  ));
   return (
     <g data-layer="charges" data-group={key}>
-      {layer.fills.map((f, i) => (
-        <Painted key={i} fill={f.fill} clip={undefined} scope={scope} at={String(i)} leaf={(leaf, at) => {
-          const hatch = hatchOf(leaf, overlay);
-          return (
-            <>
-              {f.slots.map((s) => (
-                <path key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill={paintOf(leaf, ids)} fill-rule="evenodd" data-paint={fillCode(leaf)} />
-              ))}
-              {hatch && leaf.k === 'pattern' && (
-                <LeafMask leaf={leaf} scope={scope} at={at} shapes={f.slots.map((s) => (
-                  <path key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill={`url(#${ids.hatchMask(leaf.spec)})`} fill-rule="evenodd" />
-                ))} />
-              )}
-              {hatch && (
-                <g clip-path={`url(#${ids.chargeClip(key, i)})`}>
-                  <rect x="0" y="0" width="100" height="120" fill={`url(#${ids.charge(key, hatch)})`} mask={maskOf(leaf, scope, at)} />
-                  {f.slots.map((s) => (
-                    <path
-                      key={s} d={layer.art} transform={slotTransform(layer.slots[s])} fill="none" stroke={TINCTURE_FILL[hatch]}
-                      stroke-width={(2 * hatchEdge(layer.slots[s]) * 100) / layer.slots[s].size} stroke-linejoin="round"
-                    />
-                  ))}
-                </g>
-              )}
-            </>
-          );
-        }} />
-      ))}
+      {clipped && <clipPath id={ids.artClip(key)}><path d={layer.art} clip-rule="evenodd" /></clipPath>}
+      {pieces(true)}
+      {layer.overlays.map((o, i) => o.effect === 'fimbriation' && layer.slots.map((s, j) => (
+        <path
+          key={`${i}-${j}`} d={layer.art} transform={chargeTransform(s, layer.poses[j])} fill={paintOf(o.fill, ids)} fill-rule="evenodd"
+          stroke={paintOf(o.fill, ids)} stroke-width={2 * FIMBRIATION_WIDTH} stroke-linejoin="miter" data-overlay="fimbriation" data-paint={fillCode(o.fill)}
+        />
+      )))}
+      {voided && (
+        <mask id={ids.voidMask(key)} maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="120">
+          {layer.slots.map((s, j) => <path key={j} d={layer.art} transform={chargeTransform(s, layer.poses[j])} fill="none" stroke="#fff" stroke-width={2 * VOIDED_WIDTH} stroke-linejoin="miter" data-overlay="voided" />)}
+        </mask>
+      )}
+      {voided ? <g mask={`url(#${ids.voidMask(key)})`}>{painted}</g> : painted}
       {outlinePx > 0 && layer.slots.map((s, i) => (
         <path
-          key={i} d={layer.art} transform={slotTransform(s)} fill="none" stroke={OUTLINE_COLOUR} stroke-width={outlinePx}
+          key={i} d={layer.art} transform={chargeTransform(s, layer.poses[i])} fill="none" stroke={OUTLINE_COLOUR} stroke-width={outlinePx}
           vector-effect="non-scaling-stroke" stroke-linejoin="round"
         />
       ))}
+      {pieces(false)}
     </g>
   );
 }

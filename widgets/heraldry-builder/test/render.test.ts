@@ -2,10 +2,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGES, chargePath, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
-  type Design, type FieldShape, type Fill, type Layer,
+  CHARGES, MIRRORED, ORIENTATION_ANGLE, UPRIGHT, artPose, chargePath, chargeTransform, orientationTurns, pathRings, turnFit, designTinctures, drawnBox, fieldRegions, fillCode, fillHatchTinctures, groupSlots, renderLayers, slotTransform, solidFill,
+  type Charge, type ChargeId, type Design, type FieldShape, type Fill, type Layer, type Orientation, type Posture,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
+
+/** The drawing of a whole charge in a posture with its modifiers. */
+const art = (id: ChargeId, posture: Posture | null, mods: Charge['mods']) => chargePath({ charge: id, form: null, posture, gaze: null, mods });
 
 const kinds = (d: Design, shape: FieldShape = 'heater') => renderLayers(d, shape).map((l) => (l.k === 'field' ? 'field' : `${l.k}:${l.path.join('.')}`));
 const layer = <K extends Layer['k']>(d: Design, i: number, k: K, shape: FieldShape = 'heater') => {
@@ -90,10 +93,129 @@ describe('charge layers', () => {
   it('draw the drawn boxes of the group in its paint', () => {
     const d = nd(arms('azure', group(charge('sword'), 'or', { count: 2, arrangement: 'in-fess' })));
     const l = layer(d, 1, 'charges');
-    expect(l.slots).toEqual(groupSlots(d, [0], 'heater').map((s) => drawnBox(s, 'sword')));
+    expect(l.slots).toEqual(groupSlots(d, [0], 'heater').map((s) => drawnBox(s, { charge: 'sword', form: null, posture: null, gaze: null })));
     expect(l.slots.map(slotTransform)).toHaveLength(2);
     expect(l.fills).toEqual([{ fill: solidFill('or'), slots: [0, 1] }]);
-    expect(l.art).toBe(chargePath('sword', null, []));
+    expect(l.art).toBe(art('sword', null, []));
+    expect(l.poses).toEqual([UPRIGHT, UPRIGHT]);
+  });
+
+  it('draw the art upright as the slot places it', () => {
+    for (const s of [{ x: 50, y: 54, size: 90, rotation: 0 }, { x: 30, y: 40, size: 20, rotation: -45 }]) expect(chargeTransform(s, UPRIGHT)).toBe(slotTransform(s));
+  });
+
+  it('draw the art mirrored about the middle of its box, inside the slot\'s own placing and turn', () => {
+    const s = { x: 30, y: 40, size: 20, rotation: -45 };
+    expect(chargeTransform(s, MIRRORED)).toBe(`${slotTransform(s)} translate(50 50) scale(-1 1) translate(-50 -50)`);
+  });
+
+  it('turn the art about the middle of its box and scale it, inside the slot\'s own placing and turn, mirrored first', () => {
+    const s = { x: 30, y: 40, size: 20, rotation: -45 };
+    expect(chargeTransform(s, { mirror: false, turn: 90, fit: 1 })).toBe(`${slotTransform(s)} rotate(90 50 50)`);
+    expect(chargeTransform(s, { mirror: true, turn: -45, fit: 0.8 })).toBe(`${slotTransform(s)} rotate(-45 50 50) translate(50 50) scale(-0.8 0.8) translate(-50 -50)`);
+  });
+
+  it('refit a turned drawing so that its bounding box is no longer than upright, and turned off its axis within its slot\'s disc', () => {
+    const blade = 'M40 7L60 7L60 93L40 93Z', square = 'M7 7L93 7L93 93L7 93Z';
+    expect([turnFit(blade, 0), turnFit(blade, 90), turnFit(blade, 180)]).toEqual([1, 1, 1]);
+    expect(turnFit(blade, 45)).toBe(1);
+    expect(turnFit(square, -45)).toBe(0.707);
+    expect(artPose(square, true, 45, 1)).toEqual({ mirror: true, turn: 45, fit: 0.707 });
+    expect(artPose(blade, false, 90, 1.15)).toEqual({ mirror: false, turn: 90, fit: Math.floor(45_000 / (Math.hypot(10, 43) * 1.15)) / 1000 });
+    expect(artPose(blade, false, 180, 1.15).fit).toBe(1);
+  });
+
+  it('turn each charge by its orientation less the slot\'s own turn, and to center slot by slot', () => {
+    const slots = [{ x: 50, y: 30, size: 20, rotation: 0 }, { x: 30, y: 50, size: 20, rotation: 0 }, { x: 70, y: 50, size: 20, rotation: 0 }, { x: 50, y: 70, size: 20, rotation: 0 }];
+    expect(orientationTurns('to-center', CHARGES.sword.orient, slots)).toEqual([180, 90, -90, 0]);
+    expect(orientationTurns('fesswise', CHARGES.sword.orient, [{ x: 50, y: 50, size: 20, rotation: -45 }])).toEqual([-45]);
+    expect(orientationTurns('bendwise-sinister-inverted', CHARGES.sword.orient, slots.slice(0, 1))).toEqual([ORIENTATION_ANGLE['bendwise-sinister-inverted']]);
+    expect(orientationTurns(null, CHARGES.sword.orient, slots)).toEqual([0, 0, 0, 0]);
+    // GoT Table 5: an arrow and a pheon are drawn point to base, so their base points to center; a feather fesswise lies quill to dexter
+    expect(orientationTurns('to-center', CHARGES.arrow.orient, slots)).toEqual([0, -90, 90, 180]);
+    expect(orientationTurns('to-center', CHARGES.pheon.orient, slots)).toEqual([0, -90, 90, 180]);
+    expect(orientationTurns('to-center', CHARGES.arrow.orient, [{ x: 50, y: 50, size: 20, rotation: 0 }])).toEqual([0]);
+    expect(orientationTurns('fesswise', CHARGES.arrow.orient, slots.slice(0, 1))).toEqual([-90]);
+    expect(['fesswise', 'fesswise-reversed', 'bendwise', 'bendwise-sinister', 'inverted'].map((o) => orientationTurns(o as Orientation, CHARGES.feather.orient, slots.slice(0, 1))[0]))
+      .toEqual([90, -90, 135, -135, 180]);
+  });
+
+  it('draw arrows in annulo points to center with each head nearer the middle than its nock (rules review R-1)', () => {
+    const d = nd(arms('argent', group(charge('arrow', { orientation: 'to-center' }), 'sable', { count: 8, arrangement: 'in-annulo' })));
+    const { art: drawing, slots, poses } = layer(d, 1, 'charges');
+    const points = pathRings(drawing).flat();
+    const [head, nock] = [points.reduce((a, p) => (p[1] > a[1] ? p : a)), points.reduce((a, p) => (p[1] < a[1] ? p : a))];
+    const middle = { x: slots.reduce((n, s) => n + s.x, 0) / slots.length, y: slots.reduce((n, s) => n + s.y, 0) / slots.length };
+    // a point of the drawing where it lies on the shield: turned about the middle of its box, then the slot's turn and place
+    const onShield = ([x, y]: readonly number[], s: (typeof slots)[number], turn: number) => {
+      const a = ((turn + s.rotation) * Math.PI) / 180, dx = (x - 50) * s.size / 100, dy = (y - 50) * s.size / 100;
+      return { x: s.x + dx * Math.cos(a) - dy * Math.sin(a), y: s.y + dx * Math.sin(a) + dy * Math.cos(a) };
+    };
+    const far = (p: { x: number; y: number }) => Math.hypot(p.x - middle.x, p.y - middle.y);
+    expect(slots).toHaveLength(8);
+    slots.forEach((s, i) => expect(far(onShield(head, s, poses[i].turn)), `slot ${i}`).toBeLessThan(far(onShield(nock, s, poses[i].turn))));
+  });
+
+  it('pose a turned or reversed charge, and leave the follow turn of charges on a bend as it was', () => {
+    const poses = (item: object, extra: object = {}) => layer(nd(arms('azure', group(charge('sword', item), 'or', extra))), 1, 'charges').poses;
+    expect(poses({ orientation: 'fesswise' })).toEqual([artPose(art('sword', null, []), false, -90, CHARGES.sword.scale)]);
+    expect(poses({ orientation: 'reversed' })).toEqual([MIRRORED]);
+    expect(poses({ orientation: 'to-center' }, { count: 4, arrangement: 'in-cross' }).map((p) => p.turn)).toEqual([180, 90, -90, 0]);
+    const onBend = (item: object) => layer(nd(arms('azure', group(ordinary('bend'), 'argent', { charged: [group(charge('sword', item), 'gules', { count: 3 })] }))), 2, 'charges').poses;
+    expect(onBend({})).toEqual([UPRIGHT, UPRIGHT, UPRIGHT]);
+    expect(onBend({ orientation: 'bendwise' }).map((p) => p.turn)).toEqual([0, 0, 0]);
+    expect(onBend({ orientation: 'palewise' }).map((p) => p.turn)).toEqual([45, 45, 45]);
+  });
+
+  it('turn the division of a turned charge and the split of a proper one with it', () => {
+    const fills = (paint: unknown, item: object) => layer(nd(arms('azure', group(charge('sword', item), paint))), 1, 'charges').fills;
+    expect(fills(div('per-pale', 'or', 'argent'), { orientation: 'fesswise' })).not.toEqual(fills(div('per-pale', 'or', 'argent'), {}));
+    const flame = (item: object) => layer(nd(arms('azure', group(charge('flame', item), 'proper'))), 1, 'charges').fills;
+    expect(flame({ orientation: 'inverted' })).not.toEqual(flame({}));
+  });
+
+  it('mirror every charge facing to sinister (contourny), and nothing else', () => {
+    expect(layer(nd(arms('azure', group(charge('lion', { facing: 'to-sinister' }), 'or', { count: 3 }))), 1, 'charges').poses).toEqual([MIRRORED, MIRRORED, MIRRORED]);
+    expect(layer(nd(arms('azure', group(charge('lion'), 'or', { count: 2 }))), 1, 'charges').poses).toEqual([UPRIGHT, UPRIGHT]);
+  });
+
+  it('lay a pair out as two in fess, the dexter one first, and mirror the dexter one facing in, the sinister one addorsed', () => {
+    const pair = (word: string, ...before: object[]) => nd(arms('azure', ...before, group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: word } })));
+    const fess = nd(arms('azure', group(charge('lion'), 'or', { count: 2, arrangement: 'in-fess' })));
+    for (const word of ['combattant', 'addorsed']) expect(groupSlots(pair(word), [0], 'heater')).toEqual(groupSlots(fess, [0], 'heater'));
+    const [dexter, sinister] = groupSlots(pair('combattant'), [0], 'heater');
+    expect(dexter.x).toBeLessThan(sinister.x);
+    expect(layer(pair('combattant'), 1, 'charges').poses).toEqual([MIRRORED, UPRIGHT]);
+    expect(layer(pair('addorsed'), 1, 'charges').poses).toEqual([UPRIGHT, MIRRORED]);
+    // around a pale, too: the dexter one first
+    const pale = pair('addorsed', group(ordinary('pale'), 'argent'));
+    const [left, right] = groupSlots(pale, [1], 'heater');
+    expect(left.x).toBeLessThan(right.x);
+    expect(layer(pale, 2, 'charges').poses).toEqual([UPRIGHT, MIRRORED]);
+  });
+
+  it('turn each of a pair facing each other toward the other and each of a pair back to back away from it: whole, heads and demi charges', () => {
+    // The art faces dexter (house style), a head's too: its mouth is on its dexter side.
+    for (const id of ['lion', 'wolf'] as const) expect(CHARGES[id].drawings.head!.anchors.mouth!.x, id).toBeLessThan(50);
+    for (const form of [null, 'head', 'demi'] as const) {
+      const pair = (word: string) => nd(arms('azure', group(charge('lion', { form }), 'or', { count: 2, arrangement: { k: 'pair', pair: word } })));
+      for (const word of ['combattant', 'respectant']) {
+        const [dexter, sinister] = groupSlots(pair(word), [0], 'heater');
+        expect(dexter.x, `${form} ${word}`).toBeLessThan(sinister.x);
+        // the dexter one mirrored to face sinister, toward the other; the sinister one as drawn, facing dexter
+        expect(layer(pair(word), 1, 'charges').poses, `${form} ${word}`).toEqual([MIRRORED, UPRIGHT]);
+      }
+      expect(layer(pair('addorsed'), 1, 'charges').poses, `${form} addorsed`).toEqual([UPRIGHT, MIRRORED]);
+    }
+  });
+
+  it('mirror the line of a divided or striped charge with it, its tinctures dexter or chief first', () => {
+    const fills = (paint: unknown, item: object = {}) => layer(nd(arms('azure', group(charge('lion', item), paint))), 1, 'charges').fills;
+    const contourny = { facing: 'to-sinister' };
+    expect(fills(div('per-bend', 'or', 'argent'), contourny)).toEqual(fills(div('per-bend-sinister', 'or', 'argent')));
+    expect(fills(div('per-pale', 'or', 'argent'), contourny)).toEqual(fills(div('per-pale', 'or', 'argent')));
+    const bendy = (variation: string) => ({ k: 'variation', variation, parts: ['or', 'argent'] });
+    expect(fills(bendy('bendy'), contourny)).toEqual(fills(bendy('bendy-sinister')));
   });
 
   it('split counterchanged charges by the region each lies on', () => {
@@ -134,28 +256,28 @@ describe('charge layers', () => {
 
 describe('charge art', () => {
   it('draws the hare courant with the running hare and the sejant one sitting', () => {
-    expect(chargePath('hare', 'courant', [])).not.toBe(chargePath('hare', 'sejant', []));
-    expect(chargePath('hare', 'courant', []).startsWith('M7 67.1')).toBe(true);
+    expect(art('hare', 'courant', [])).not.toBe(art('hare', 'sejant', []));
+    expect(art('hare', 'courant', []).startsWith('M7 67.1')).toBe(true);
   });
 
   it('draws a sun in splendour as the sun with a face cut out', () => {
-    const plain = chargePath('sun', null, []);
-    const splendour = chargePath('sun', null, [{ id: 'in-splendour', count: null, paint: null }]);
+    const plain = art('sun', null, []);
+    const splendour = art('sun', null, [{ id: 'in-splendour', count: null, paint: null }]);
     expect(splendour.startsWith(plain)).toBe(true);
     expect(splendour.length).toBeGreaterThan(plain.length);
     // Two eyes and a mouth: three more subpaths.
     expect(splendour.split('M').length - plain.split('M').length).toBe(3);
-    expect(chargePath('sun', null, [])).toBe(plain);
+    expect(art('sun', null, [])).toBe(plain);
   });
 
   it('draws a sun in splendour on the shield', () => {
     const d = nd(arms('azure', group({ k: 'charge', charge: 'sun', mods: [{ id: 'in-splendour' }] }, 'or')));
-    expect(layer(d, 1, 'charges').art).toBe(chargePath('sun', null, [{ id: 'in-splendour', count: null, paint: null }]));
+    expect(layer(d, 1, 'charges').art).toBe(art('sun', null, [{ id: 'in-splendour', count: null, paint: null }]));
   });
 
   it('falls back to the default posture and then to the posture-less drawing', () => {
-    expect(chargePath('lion', 'courant', [])).toBe(chargePath('lion', 'rampant', []));
-    expect(chargePath('rose', null, [])).toBe(chargePath('rose', 'rampant', []));
+    expect(art('lion', 'statant-erect', [])).toBe(art('lion', 'rampant', []));
+    expect(art('rose', null, [])).toBe(art('rose', 'rampant', []));
   });
 });
 

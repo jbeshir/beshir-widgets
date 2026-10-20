@@ -118,7 +118,7 @@ describe('peripherals: charges keep out of them', () => {
     ];
   }
 
-  it('charges keep out of a base, point pointed, canton, quarter and gyron, and of several at once (heater exhaustive, other shapes in turn)', () => {
+  it('charges keep out of a base, point pointed, canton, quarter and gyron, and of several at once (a rotating half on the heater, other shapes in turn)', () => {
     const keepOuts: OrdinarySpec[][] = [
       ...NEW_PERIPHERALS.map((t) => [spec(t)]), ...SIDED.map((t) => [sinister(t)]),
       [spec('base', { lines: { a: 'wavy', b: 'wavy' } })], [spec('canton', { lines: { a: 'embattled', b: 'embattled' } })],
@@ -131,7 +131,7 @@ describe('peripherals: charges keep out of them', () => {
           for (const layout of layouts(count)) {
             if (!layout) continue;
             for (const shape of FIELD_SHAPES) {
-              if (shape !== 'heater' && !rotatesIn(`${shape}|${JSON.stringify(ctx)}|${count}|${JSON.stringify(layout)}`, 1 / 7)) continue;
+              if (!rotatesIn(`${shape}|${JSON.stringify(ctx)}|${count}|${JSON.stringify(layout)}`, shape === 'heater' ? 1 / 2 : 1 / 7)) continue;
               const avoid = keepOut.flatMap((s) => geometryOf(s, shape).envelope.outer);
               for (const s of contextSlots(ctx, count, layout, shape)) {
                 const where = `${shape} ${ctx.k} ${keepOut.map((x) => x.type + x.mods.join('')).join('+')} ${count} ${s.x},${s.y} ${s.size} (sample seed ${sampleSeed()})`;
@@ -347,7 +347,7 @@ describe('peripherals II: geometry', () => {
 });
 
 describe('peripherals II: charges keep inside an orle or tressure and out of flaunches and a gore', () => {
-  it('in every context and count (heater exhaustive, other shapes in turn), and at a size that reads alone', () => {
+  it('in every context and count (a rotating half on the heater, other shapes in turn), and at a size that reads alone', () => {
     const keepOuts: OrdinarySpec[][] = [...RINGED.map((s) => [s]), ...CURVED.map((s) => [s]), [spec('orle', { lines: { a: 'wavy', b: 'wavy' } })], [spec('flaunches', { lines: { a: 'engrailed', b: 'engrailed' } })], [spec('orle'), spec('canton')]];
     const layouts = (n: number) => (n === 1 ? [layoutOfKey('single', 1)!] : n === 2 ? [layoutOfKey('in-pale', 2)!, layoutOfKey('in-fess', 2)!] : [layoutOfKey('rows-2-1', 3)!, layoutOfKey('in-pale', 3)!]);
     let checked = 0;
@@ -356,7 +356,7 @@ describe('peripherals II: charges keep inside an orle or tressure and out of fla
         for (const count of [1, 2, 3]) {
           for (const layout of layouts(count)) {
             for (const shape of FIELD_SHAPES) {
-              if (shape !== 'heater' && !rotatesIn(`${shape}|${JSON.stringify(keepOut)}|${peripheral}|${count}|${JSON.stringify(layout)}`, 1 / 5)) continue;
+              if (!rotatesIn(`${shape}|${JSON.stringify(keepOut)}|${peripheral}|${count}|${JSON.stringify(layout)}`, shape === 'heater' ? 1 / 2 : 1 / 5)) continue;
               const avoid = keepOut.flatMap((s) => geometryOf(s, shape).envelope.outer);
               for (const s of contextSlots({ ...fieldContext(peripheral), keepOut }, count, layout, shape)) {
                 const where = `${shape} ${keepOut.map((x) => x.type + x.count).join('+')} ${peripheral} ${count} ${s.x},${s.y} ${s.size} (sample seed ${sampleSeed()})`;

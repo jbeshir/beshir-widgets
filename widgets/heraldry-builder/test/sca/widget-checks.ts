@@ -6,7 +6,8 @@
 //   in plain Node, checked layer by layer against renderLayers (the geometry Shield draws from):
 //   one field block with a region per part, then for each group in paint order a block with its
 //   ordinary shape or its charges, each drawn at the expected slot, painted the paint it names (data-paint) and
-//   outlined once, with no stray paint.
+//   outlined once, with no stray paint, and the effects of their modifiers (a fimbriation under them, voiding) and the
+//   pieces of their parts and details (wings, flames, slips under them; a collar clipped to their art and a crown over them).
 //
 // (builderPath, the clicks that build a design in the builder, is test/builder-path.ts.) The checks return
 // their problems as strings rather than throwing, so the caller can report them per record. Only the
@@ -16,7 +17,7 @@ import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { Shield } from '../../src/components/Shield';
 import {
-  DEFAULT_FIELD_SHAPE, OUTLINE_COLOUR, fillCode, pathKey, renderLayers, slotTransform, validate,
+  DEFAULT_FIELD_SHAPE, OUTLINE_COLOUR, fillCode, pathKey, renderLayers, chargeTransform, validate,
   type Design, type FieldShape, type Fill, type Issue, type Layer,
 } from '../../src/lib/heraldry';
 import { assess, type DesignStatus } from '../../src/lib/builder';
@@ -110,16 +111,43 @@ function checkOrdinary(layer: Extract<Layer, { k: 'ordinary' }>, block: Block): 
   return problems;
 }
 
+/**
+ * What is wrong with a group's charges as drawn: each painted at its slot in each leaf of its fills, drawn with its own art, outlined once;
+ * fimbriated, its art under it at each slot in the fimbriation's paint; voided, painted through a mask of its art at each slot; the pieces of
+ * its parts and details at each slot in their paints, on their side of it.
+ */
 function checkCharges(layer: Extract<Layer, { k: 'charges' }>, block: Block): string[] {
   const paths = pathTags(block.markup);
   const problems: string[] = [];
-  const want = layer.fills.flatMap((f) => leafCodes(f.fill).flatMap((code) => f.slots.map((s) => `${slotTransform(layer.slots[s])}|${code}`)));
-  const got = paths.filter(filled).map((p) => `${p.attrs.transform}|${p.attrs['data-paint']}`);
+  const painted = paths.filter((p) => filled(p) && p.attrs['data-overlay'] === undefined);
+  const want = layer.fills.flatMap((f) => leafCodes(f.fill).flatMap((code) => f.slots.map((s) => `${chargeTransform(layer.slots[s], layer.poses[s])}|${code}`)));
+  const got = painted.map((p) => `${p.attrs.transform}|${p.attrs['data-paint']}`);
   if (sorted(got).join() !== sorted(want).join()) problems.push(`the charges at ${block.group} are painted ${sorted(got).join(' ') || 'nothing'}, expected ${sorted(want).join(' ') || 'nothing'}`);
-  if (paths.filter(filled).some((p) => p.attrs.d !== layer.art)) problems.push(`the charges at ${block.group} are not drawn with their own art`);
+  const effect = (p: PathTag) => p.attrs['data-overlay'] === 'fimbriation' || p.attrs['data-overlay'] === 'voided';
+  const piece = (p: PathTag) => p.attrs['data-overlay'] !== undefined && !effect(p);
+  if (paths.some((p) => (painted.includes(p) || effect(p)) && p.attrs.d !== layer.art)) problems.push(`the charges at ${block.group} are not drawn with their own art`);
+  const transforms = layer.slots.map((s, i) => chargeTransform(s, layer.poses[i]));
+  const overlaid = (effect: string) => sorted(paths.filter((p) => p.attrs['data-overlay'] === effect).map((p) => `${p.attrs.transform}|${p.attrs['data-paint'] ?? ''}`)).join();
+  const fimbriations = layer.overlays.flatMap((o) => (o.effect === 'fimbriation' ? transforms.map((t) => `${t}|${fillCode(o.fill)}`) : []));
+  if (overlaid('fimbriation') !== sorted(fimbriations).join()) problems.push(`the fimbriation of the charges at ${block.group} is drawn ${overlaid('fimbriation') || 'nowhere'}, expected ${sorted(fimbriations).join() || 'none'}`);
+  if (paths.some((p) => p.attrs['data-overlay'] === 'fimbriation' && painted.some((q) => q.index < p.index))) problems.push(`the fimbriation of the charges at ${block.group} is drawn over them`);
+  const voided = layer.overlays.some((o) => o.effect === 'voided');
+  const voids = voided ? transforms.map((t) => `${t}|`) : [];
+  if (overlaid('voided') !== sorted(voids).join() || voided !== /<g mask="url\(#void-mask-/.test(block.markup)) problems.push(`the charges at ${block.group} are ${voided ? 'not ' : ''}voided as drawn`);
+  // the pieces of its parts and details (overlay-art.ts): each at every slot in its paint, under the charges or over them, a collar clipped
+  const pieces = layer.overlays.flatMap((o) => (o.effect === 'fill' ? transforms.map((t) => `${o.part}|${t}|${fillCode(o.fill)}|${o.art}`) : []));
+  const drawn = paths.filter(piece).map((p) => `${p.attrs['data-overlay']}|${p.attrs.transform}|${p.attrs['data-paint']}|${p.attrs.d}`);
+  const parts = (xs: string[]) => sorted(xs).map((x) => x.split('|')[0]).join(' ');
+  if (sorted(drawn).join() !== sorted(pieces).join()) problems.push(`the pieces of the charges at ${block.group} are drawn ${parts(drawn) || 'nowhere'}, expected ${parts(pieces) || 'none'}`);
+  const under = new Set(layer.overlays.flatMap((o) => (o.effect === 'fill' && o.under ? [o.part as string] : [])));
+  const sideways = paths.filter(piece).some((p) => painted.some((q) => (under.has(p.attrs['data-overlay']) ? q.index < p.index : q.index > p.index)));
+  if (sideways) problems.push(`the pieces of the charges at ${block.group} are not drawn on their side of them`);
+  const clip = /<clipPath id="(art-clip-[^"]+)"><path d="([^"]*)"/.exec(block.markup);
+  const unclipped = (p: PathTag) => clip === null || clip[2] !== layer.art || p.attrs['clip-path'] !== `url(#${clip[1]})`;
+  if (paths.some((p) => p.attrs['data-overlay'] === 'collar' && unclipped(p))) problems.push(`the collar of the charges at ${block.group} is not clipped to their art`);
   // (the shield's own frame outline, last in the markup, has no transform)
   const outlines = paths.filter((p) => p.attrs.transform !== undefined && p.attrs.fill === 'none' && p.attrs.stroke === OUTLINE_COLOUR && p.attrs['vector-effect'] === 'non-scaling-stroke');
-  if (sorted(outlines.map((p) => p.attrs.transform)).join() !== sorted(layer.slots.map(slotTransform)).join()) {
+  if (sorted(outlines.map((p) => p.attrs.transform)).join() !== sorted(transforms).join()) {
     problems.push(`${outlines.length} charge outlines are drawn at ${block.group}, expected ${layer.slots.length}`);
   }
   return problems;

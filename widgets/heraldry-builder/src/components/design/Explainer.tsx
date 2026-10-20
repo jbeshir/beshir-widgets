@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { COLOURS, METALS, TINCTURE_LABEL, type Tincture } from '../../lib/heraldry';
 import { pushLayer, restoreFocus } from '../overlay/layers';
 
-export type ExplainKind = 'tincture' | 'structure';
+export type ExplainKind = 'tincture' | 'structure' | 'drawing' | 'detail' | 'turning';
 
 export interface Explanation {
   anchor: HTMLElement;
@@ -20,6 +20,9 @@ const plainList = (ts: readonly Tincture[]) => ts.map((t) => TINCTURE_LABEL[t].p
 const RULE_LINE: Record<ExplainKind, string> = {
   tincture: `The rule of tincture: a colour (${plainList(COLOURS)}) goes on a metal (${plainList(METALS)}) and a metal on a colour, so arms read clearly from a distance.`,
   structure: "Each layout needs room: every picture must be drawn at least a set size, and some combinations aren't heraldic.",
+  drawing: 'A picture can only be turned, posed, or given wings, a crown or a stem where the builder has a drawing for it; the others are listed so you know they exist.',
+  detail: 'SCA heraldry lets only the main pictures, and only simple shapes, be hollow (voided) or edged (fimbriated), and an edging must stand out from what it lies on.',
+  turning: 'SCA heraldry turns a picture only the ways it is blazoned turned; two pictures crossed lie the way the cross sets, and only a group can point to its middle.',
 };
 
 export function useExplainer() {
@@ -40,7 +43,9 @@ function ExplainerPanel({ explanation: e, onClose }: { explanation: Explanation;
 
   useEffect(() => {
     const pop = pushLayer({ close: () => closeRef.current(), modal: false });
-    ref.current?.focus();
+    // Scrolled into view only as far as it must be: the option that opened it stays where it was when there's room.
+    ref.current?.focus({ preventScroll: true });
+    ref.current?.scrollIntoView({ block: 'nearest' });
     return () => {
       pop();
       // Hand focus back to the option unless the user already moved on to another control.

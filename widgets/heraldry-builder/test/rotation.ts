@@ -1,6 +1,8 @@
 // The seed and the hash behind the seeded, rotating samples of the long sweeps in `npm test` (test/sca/sample.ts for the SCA
 // armorial test; test/geometry-fit.test.ts). Free of Node imports so the SPA's tsconfig can compile it.
 
+import { CHARGE_IDS, type ChargeId } from '../src/lib/heraldry';
+
 const env = (): Record<string, string | undefined> => (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
 
 /** The rotation key: SCA_SAMPLE_SEED, else the UTC date, so a run on another day samples other items. */
@@ -8,12 +10,24 @@ export const sampleSeed = (): string => env().SCA_SAMPLE_SEED || new Date().toIS
 /** SCA_FULL=1: run every sweep in full, sampled or not (what `npm run sca:ignore` always does for the SCA records). */
 export const fullSweep = (): boolean => env().SCA_FULL === '1';
 
-/** FNV-1a, uniform enough to split by: a number in [0, 1). */
+/**
+ * FNV-1a with MurmurHash3's finaliser, uniform enough to split by: a number in [0, 1). Without the finaliser, items that differ
+ * only in a short numeric tail (`attribute|${i}|${j}`) are picked together or not at all, so a sample's size swung 3–4 times
+ * wider than chance from one seed to the next (prefilter's attribute pairs: 144 to 500 of an expected 300; with it, 242 to 366).
+ */
 export function unit(text: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
-  return h / 2 ** 32;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 2 ** 32;
 }
+
+/**
+ * The fixed stratum of the sweeps that would otherwise grow with the art: the 36 charges drawn before phase D, which `CHARGE_IDS`
+ * lists first. A charge added since is checked by such a sweep's rotating share (SCA_FULL=1: always).
+ */
+export const STRATUM_CHARGE_IDS: readonly ChargeId[] = CHARGE_IDS.slice(0, 36);
 
 /** Whether a seeded rotating sample of the given rate includes `item` (any stable text) this run; always true in a full sweep. */
 export const rotatesIn = (item: string, rate: number, seed = sampleSeed()): boolean => fullSweep() || unit(`${seed}|${item}`) < rate;

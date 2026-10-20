@@ -2,18 +2,41 @@
 // the drawn shape, and only the charges with no room for a charge on them have none.
 
 import { describe, expect, it } from 'vitest';
-import { ART_ON_BOX, CHARGE_ART, CHARGE_IDS, chargeOnBox, pointInPolygon } from '../src/lib/heraldry';
-import { rings, type Pt } from './art-geometry';
+import { CHARGE_IDS, CHARGES, chargeOnBox, crossPath, pointInPolygon, type ArtBox, type ArtKey } from '../src/lib/heraldry';
+import { chargeArt, rings, type Pt } from './art-geometry';
 
 /** The charges whose drawings are too slender or too ringed to carry a charge. */
-const CARRIES_NONE = ['key', 'sword', 'anchor', 'musical-note', 'gear', 'annulet', 'cross-crosslet', 'estoile', 'spark'];
+const CARRIES_NONE = [
+  'key', 'sword', 'anchor', 'musical-note', 'gear', 'annulet', 'cross-crosslet', 'estoile', 'spark',
+  'compass-star', 'mascle', 'rustre', 'triquetra', 'trefoil', 'quatrefoil', 'cinquefoil', 'ermine-spot', 'cross-couped', 'cross-latin',
+  'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory', 'cross-patonce', 'cross-potent', 'cross-maltese', 'cross-celtic', 'cross-tau',
+  // art batch B4: the tools and weapons are slender, ringed (harp) or give a 16-unit box at most (pheon; art batch B4 drew no box for the others)
+  'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
+  // art batch B5 and B6: the drawer gave no box, or one of 16–24 units that left the on-charge sweep one layout (escallop, oak leaf, acorn, frog)
+  'thistle', 'laurel-wreath', 'pomegranate', 'garb', 'lily', 'dolphin', 'dragonfly', 'butterfly', 'serpent', 'scorpion', 'spider', 'escallop', 'oak-leaf', 'acorn', 'frog',
+  // art batch B7: the drawer gave none (a tower or castle has no room for a charge at the sizes it draws, and the household pieces are slender)
+  'tower', 'hand', 'pawprint', 'comet', 'goblet', 'chalice', 'castle', 'bell', 'tankard',
+  // the aliases (PLAN-D §2.4): the sword's and the wing's have none; the others' boxes are their sources' (the vol's wings leave none)
+  'rapier', 'dagger', 'vol',
+  // D16b's generated charges: staves, spokes and a leaf with no room for a charge
+  'escarbuncle', 'seeblatt', 'wheel', 'catherine-wheel',
+];
 
-/** The share of the box's sample points (a unit grid) that lie inside the drawing, even-odd across its rings. */
-function shareInside(d: string, box: { x: number; y: number; w: number; h: number }): number {
+/** The drawings that carry no charge whatever their charge: heads (art batch A1 draws them with no room for one). */
+const KEYS_CARRYING_NONE: readonly string[] = ['head'];
+
+/** The spacing of the grid of sample points in an on-box, in art units (each box is at least 16 on a side, so 64 points or more). */
+const GRID = 2;
+
+/** Every drawing's on-box, by charge and drawing key. */
+const onBoxes = CHARGE_IDS.flatMap((id) => Object.entries(CHARGES[id].drawings).flatMap(([key, m]) => (m!.onBox ? [{ id, key: key as ArtKey, box: m!.onBox }] : [])));
+
+/** The share of the box's sample points (a grid offset half a unit from its corner) that lie inside the drawing, even-odd across its rings. */
+function shareInside(d: string, box: ArtBox): number {
   const rs = rings(d);
   let inside = 0, total = 0;
-  for (let x = box.x + 0.5; x < box.x + box.w; x++) {
-    for (let y = box.y + 0.5; y < box.y + box.h; y++) {
+  for (let x = box.x + 0.5; x < box.x + box.w; x += GRID) {
+    for (let y = box.y + 0.5; y < box.y + box.h; y += GRID) {
       total += 1;
       if (rs.filter((r) => pointInPolygon(x, y, r as Pt[])).length % 2 === 1) inside += 1;
     }
@@ -24,42 +47,43 @@ function shareInside(d: string, box: { x: number; y: number; w: number; h: numbe
 describe('the on-box of a charge', () => {
   it('has one for every drawing of every charge that carries charges, and for no other', () => {
     for (const id of CHARGE_IDS) {
-      const drawn = Object.keys(CHARGE_ART[id]).sort();
-      const boxed = Object.keys(ART_ON_BOX[id]).sort();
+      const drawn = Object.keys(chargeArt(id)).filter((k) => !KEYS_CARRYING_NONE.includes(k)).sort();
+      const boxed = onBoxes.filter((b) => b.id === id).map((b) => b.key).sort();
       expect(boxed, id).toEqual(CARRIES_NONE.includes(id) ? [] : drawn);
     }
   });
 
   it('lies at least 90% inside its drawing, within the art box', () => {
-    for (const id of CHARGE_IDS) {
-      for (const [posture, box] of Object.entries(ART_ON_BOX[id])) {
-        const where = `${id} ${posture}`;
-        expect(box!.x, where).toBeGreaterThanOrEqual(0);
-        expect(box!.y, where).toBeGreaterThanOrEqual(0);
-        expect(box!.x + box!.w, where).toBeLessThanOrEqual(100);
-        expect(box!.y + box!.h, where).toBeLessThanOrEqual(100);
-        expect(shareInside(CHARGE_ART[id][posture as keyof (typeof CHARGE_ART)[typeof id]]!, box!), where).toBeGreaterThanOrEqual(0.9);
-      }
+    for (const { id, key, box } of onBoxes) {
+      const where = `${id} ${key}`;
+      expect(box.x, where).toBeGreaterThanOrEqual(0);
+      expect(box.y, where).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.w, where).toBeLessThanOrEqual(100);
+      expect(box.y + box.h, where).toBeLessThanOrEqual(100);
+      expect(shareInside(chargeArt(id)[key]!, box), where).toBeGreaterThanOrEqual(0.9);
     }
   });
 
   it('is big enough to carry something: at least 16 units of the 100 on a side', () => {
-    for (const id of CHARGE_IDS) {
-      for (const [posture, box] of Object.entries(ART_ON_BOX[id])) expect(Math.min(box!.w, box!.h), `${id} ${posture}`).toBeGreaterThanOrEqual(16);
-    }
+    for (const { id, key, box } of onBoxes) expect(Math.min(box.w, box.h), `${id} ${key}`).toBeGreaterThanOrEqual(16);
   });
 
-  it('is found by posture, falling back to the default posture and then the posture-less drawing', () => {
-    expect(chargeOnBox('lion', 'passant')).toEqual(ART_ON_BOX.lion.passant);
-    expect(chargeOnBox('lion', null)).toEqual(ART_ON_BOX.lion.rampant);
-    expect(chargeOnBox('heart', null)).toEqual(ART_ON_BOX.heart._);
-    expect(chargeOnBox('key', null)).toBeNull();
+  it('is found by posture, falling back to the default posture and then the posture-less drawing; a head or a demi charge has none', () => {
+    expect(chargeOnBox({ charge: 'lion', form: 'head', posture: null, gaze: null })).toBeNull();
+    expect(chargeOnBox({ charge: 'lion', form: 'demi', posture: null, gaze: null })).toBeNull();
+    expect(chargeOnBox({ charge: 'lion', form: null, posture: 'passant', gaze: null })).toEqual(CHARGES.lion.drawings.passant!.onBox);
+    expect(chargeOnBox({ charge: 'lion', form: null, posture: null, gaze: null })).toEqual(CHARGES.lion.drawings.rampant!.onBox);
+    expect(chargeOnBox({ charge: 'heart', form: null, posture: null, gaze: null })).toEqual(CHARGES.heart.drawings._!.onBox);
+    expect(chargeOnBox({ charge: 'key', form: null, posture: null, gaze: null })).toBeNull();
   });
 });
 
 describe('the cross crosslet', () => {
-  it('crosses each arm short of its end, so the arm runs on past the bar (App M1f; a bar flush with the end is a cross potent)', () => {
-    const [ring] = rings(CHARGE_ART['cross-crosslet']._!);
+  it.each([
+    ['hand-drawn', chargeArt('cross-crosslet')._!],
+    ['generated by the cross family', crossPath({ arm: 'crosslet', latin: false, ring: false, fitchy: false })],
+  ])('crosses each arm short of its end, so the arm runs on past the bar (App M1f; a bar flush with the end is a cross potent): %s', (_, d) => {
+    const [ring] = rings(d);
     const inside = (x: number, y: number) => pointInPolygon(x, y, ring as Pt[]);
     // Each arm as seen from the centre, turned a quarter at a time: [along, across] → art coordinates.
     for (const turn of [([a, c]: Pt): Pt => [50 + c, 50 - a], ([a, c]: Pt): Pt => [50 + a, 50 + c], ([a, c]: Pt): Pt => [50 - c, 50 + a], ([a, c]: Pt): Pt => [50 - a, 50 - c]]) {

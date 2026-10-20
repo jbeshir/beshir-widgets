@@ -5,6 +5,7 @@
 // in print only the page is drawn.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { chargeIdsOf, loadArtFor } from '../lib/heraldry';
 import { TAGS_PER_PAGE, sheetTags, type Copies, type Nametag } from '../lib/nametags';
 import * as store from '../store';
 import { Shield } from './Shield';
@@ -20,8 +21,10 @@ const LONG_NAME = 20;
 
 type State = { status: 'loading' } | { status: 'ready'; tag: Nametag } | { status: 'missing' };
 
+/** The entry's tag, with the art of its arms loaded so the sheet is printed with it. */
 async function loadTag(id: string): Promise<State> {
   const r = await store.getEntry(id);
+  if (r.ok) await loadArtFor(chargeIdsOf(r.entry.design));
   return r.ok
     ? { status: 'ready', tag: { displayName: r.entry.displayName, blazon: r.entry.blazon, arms: { design: r.entry.design, shape: r.entry.shape } } }
     : { status: 'missing' };

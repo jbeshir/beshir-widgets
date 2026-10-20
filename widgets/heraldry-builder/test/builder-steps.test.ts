@@ -7,8 +7,8 @@ import { renderToString } from 'preact-render-to-string';
 import { ChargesStep, FieldStep, OrdinaryStep } from '../src/components/design/BuilderSteps';
 import { AddLayer } from '../src/components/design/AddLayer';
 import { LayerStep } from '../src/components/design/LayerStep';
-import { setCharge, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
-import { addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, type Design } from '../src/lib/heraldry';
+import { setBadge, setCharge, setCut, setForm, setFacing, setHold, setModifier, setPart, setPosture, setOrientation, setPair, setDivision, setFieldLine, setOrdinary, setOrdinaryLine, setOrdinaryOutline, setOrdinaryToggle, setGroupTincture, setVariation, ordinaryPath, picturePath, DEFAULT_DESIGN } from '../src/lib/builder';
+import { CHARGE_CATEGORIES, CHARGE_IDS, addLayer, layerChoices, layersIn, pathOfPlace, removeLayer, setFur, setGroupVariation, setProper, setSemy, setTreatment, splitGroup, toggleChoices, withLayout, CHARGES, type Design } from '../src/lib/heraldry';
 import { setCount } from './helpers';
 
 const noop = () => {};
@@ -18,7 +18,7 @@ const ids = (markup: string) => new Set([...markup.matchAll(/data-testid="([^"]+
 
 const field = (d: Design) => ids(renderToString(h(FieldStep, { ...fieldBase, design: d })));
 const ordinary = (d: Design) => ids(renderToString(h(OrdinaryStep, { ...base, design: d })));
-const picture = (d: Design) => ids(renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false })));
+const picture = (d: Design) => ids(renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null })));
 
 describe('the default flow keeps its test ids', () => {
   it('Background', () => {
@@ -49,20 +49,46 @@ describe('the default flow keeps its test ids', () => {
   });
 });
 
+describe('the picture picker', () => {
+  it('has a search box and the Popular tab first, then a tab per kind, on every screen', () => {
+    const got = picture(DEFAULT_DESIGN);
+    for (const id of ['charge-search', 'charge-tab-popular', ...CHARGE_CATEGORIES.map((c) => `charge-tab-${c}`)]) expect(got, id).toContain(id);
+    expect(got).not.toContain('charge-search-results');
+  });
+
+  it('opens on Popular with no picture or a popular one, else on the tab of the picture chosen', () => {
+    expect(picture(DEFAULT_DESIGN)).toContain('charge-mullet');
+    expect(picture(DEFAULT_DESIGN)).not.toContain('charge-cross-tau');
+    const tau = picture(setCharge(DEFAULT_DESIGN, 'picture', 'cross-tau'));
+    expect(tau).toContain('charge-cross-tau');
+    expect(tau).not.toContain('charge-lion');
+    expect(picture(setCharge(DEFAULT_DESIGN, 'picture', 'lion'))).toContain('charge-lion');
+  });
+
+  it('lists every picture once in the menu of a layer, grouped by kind', () => {
+    const band = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
+    const d = setCharge(setGroupTincture(band, picturePath(band)!, 'argent'), 'on-ordinary', 'mullet');
+    const html = renderToString(h(LayerStep, { ...base, design: d, place: 'on-ordinary', n: 4, onAdjust: noop }));
+    const menu = html.slice(html.indexOf('data-testid="on-ordinary-charge-select"')).split('</select>')[0];
+    const values = [...menu.matchAll(/<option[^>]*value="([^"]+)"/g)].map((m) => m[1]);
+    expect(values).toEqual(CHARGE_CATEGORIES.flatMap((c) => CHARGE_IDS.filter((id) => CHARGES[id].category === c)));
+  });
+});
+
 describe('controls that appear only when they apply', () => {
   it('holds counts above six behind More…, open when one is chosen', () => {
     const d = setCharge(DEFAULT_DESIGN, 'picture', 'mullet');
-    const closed = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false }));
+    const closed = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null }));
     expect(closed).toContain('data-testid="count-more"');
     expect(closed).toMatch(/<details[^>]*data-testid="count-more"(?![^>]*\sopen)/);
     expect(ids(closed)).toContain('count-12');
-    const open = renderToString(h(ChargesStep, { ...base, n: 3, design: setCount(d, picturePath(d)!, 8), onAdjust: noop, adjusted: null, compact: false }));
+    const open = renderToString(h(ChargesStep, { ...base, n: 3, design: setCount(d, picturePath(d)!, 8), onAdjust: noop, adjusted: null }));
     expect(open).toMatch(/<details[^>]*data-testid="count-more"[^>]*\sopen/);
   });
 
   it('hides More… when none of its counts is allowed, unless one is chosen', () => {
     const onBand = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
-    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: onBand, onAdjust: noop, adjusted: null, compact: false }));
+    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: onBand, onAdjust: noop, adjusted: null }));
     expect(ids(html)).toContain('count-6');
     expect(ids(html)).not.toContain('count-more');
     expect(ids(html)).not.toContain('count-12');
@@ -70,7 +96,7 @@ describe('controls that appear only when they apply', () => {
 
   it('says once that the greyed-out layouts have no room', () => {
     const d = setCount(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0], 8);
-    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null, compact: false }));
+    const html = renderToString(h(ChargesStep, { ...base, n: 3, design: d, onAdjust: noop, adjusted: null }));
     expect(html.match(/Greyed-out layouts have no room for eight mullets\./g)).toHaveLength(1);
     expect(html).not.toContain("There isn't room");
   });
@@ -108,7 +134,7 @@ describe('controls that appear only when they apply', () => {
     // Pictures and the top band or border go together: the add buttons stay, and the picture step no longer warns.
     const pictured = setCharge(band, 'picture', 'lion');
     expect(renderToString(h(AddLayer, { design: pictured, onChange: noop, onAdded: noop }))).toContain('add-layer-bordure');
-    expect(renderToString(h(ChargesStep, { ...base, n: 3, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null, compact: false }))).not.toContain('peripheral-picture-note');
+    expect(renderToString(h(ChargesStep, { ...base, n: 3, design: addLayer(pictured, 'bordure'), onAdjust: noop, adjusted: null }))).not.toContain('peripheral-picture-note');
   });
 
   it('numbers a card per layer, with its title, role and remove button; removing returns to the earlier design', () => {
@@ -283,7 +309,7 @@ describe('"More colours and patterns…"', () => {
     expect(disclosures(renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN })))).toEqual([{ testid: 'field-more', open: false }]);
     expect(disclosures(renderToString(h(FieldStep, { ...fieldBase, design: setDivision(DEFAULT_DESIGN, 'per-pale') })))).toEqual([{ testid: 'field-more', open: false }]);
     expect(disclosures(renderToString(h(OrdinaryStep, { ...base, design: lion })))).toEqual([{ testid: 'ordinary-tincture-more', open: false }]);
-    const step3 = renderToString(h(ChargesStep, { ...base, n: 3, design: lion, onAdjust: noop, adjusted: null, compact: false }));
+    const step3 = renderToString(h(ChargesStep, { ...base, n: 3, design: lion, onAdjust: noop, adjusted: null }));
     expect(disclosures(step3)).toEqual([{ testid: 'charge-tincture-more', open: false }]);
     // Nothing of a fur, a pattern, a scatter, brick, a split or natural colours is drawn until it is asked for.
     for (const html of [step3, renderToString(h(FieldStep, { ...fieldBase, design: DEFAULT_DESIGN }))]) {
@@ -302,7 +328,7 @@ describe('"More colours and patterns…"', () => {
     // A lion has natural colours and can't be strewn.
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     const proper = setProper(lion, picturePath(lion)!);
-    const picture = renderToString(h(ChargesStep, { ...base, n: 3, design: proper, onAdjust: noop, adjusted: null, compact: false }));
+    const picture = renderToString(h(ChargesStep, { ...base, n: 3, design: proper, onAdjust: noop, adjusted: null }));
     expect([...picture.matchAll(/data-testid="charge-tincture-mode-([a-z]+)"/g)].map((m) => m[1])).toEqual(['split', 'fur', 'pattern', 'treatment', 'natural']);
     expect(picture).toMatch(/data-testid="charge-tincture-proper"[^>]*><button[^>]*aria-checked="true"/);
     // The background offers its own kinds: no split (that is the division tiles) and no natural colours.
@@ -585,5 +611,187 @@ describe('"More shapes and edges…" under the band', () => {
     expect(background('per-bend')).toContain('field-edge-bevilled');
     expect(background('per-bend-sinister')).toContain('field-edge-bevilled');
     expect(background('per-pale')).not.toContain('field-edge-bevilled');
+  });
+});
+
+describe('"Facing, turning and details…" under the picture', () => {
+  const render = (d: Design, accordion: { open: boolean; onToggle: () => void } | null = null) => renderToString(h(ChargesStep, { ...base, accordion, n: 3, design: d, onAdjust: noop, adjusted: null }));
+  const disclosure = (markup: string) => [...markup.matchAll(/<details[^>]*data-testid="charge-more"[^>]*>/g)].map((m) => ({ open: /\sopen/.test(m[0]) }));
+  const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+  const twoLions = (layout: string) => { const d = setCount(lion, picturePath(lion)!, 2); return withLayout(d, picturePath(d)!, layout); };
+
+  it('is one closed row for a charge that faces, drawn empty, and absent for one that does not', () => {
+    expect(disclosure(render(lion))).toEqual([{ open: false }]);
+    expect(render(lion)).toContain('Facing, turning and details…');
+    for (const id of ['facing', 'facing-to-sinister', 'gaze', 'pair']) expect(ids(render(lion)), id).not.toContain(id);
+    for (const id of ['sun', 'gear', 'annulet'] as const) expect(ids(render(setCharge(DEFAULT_DESIGN, 'picture', id))), id).not.toContain('charge-more');
+  });
+
+  it('opens on a picture facing right, with Facing out and the head turns blocked, and the summary says so', () => {
+    const contourny = setFacing(lion, picturePath(lion)!, 'to-sinister');
+    const html = render(contourny);
+    expect(disclosure(html)).toEqual([{ open: true }]);
+    for (const id of ['facing-to-dexter', 'facing-to-sinister', 'facing-affronty', 'gaze-none', 'gaze-guardant', 'gaze-regardant']) expect(ids(html), id).toContain(id);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="facing-to-sinister"/);
+    expect(html).toMatch(/data-testid="facing-affronty" data-blocked="true"/);
+    expect(html).not.toMatch(/data-testid="gaze-guardant" data-blocked="true"/);
+    expect(render(setPosture(contourny, picturePath(lion)!, 'couchant'))).toMatch(/data-testid="gaze-guardant" data-blocked="true"/);
+    expect(ids(html)).not.toContain('pair');
+    expect(render(contourny, { open: false, onToggle: noop })).toMatch(/step-charges-summary">1 lion, gold, facing right</);
+  });
+
+  it('offers the Pair row for two that face side by side, blocked with a reason when they are not, and shows a pair as in fess', () => {
+    const inFess = render(twoLions('in-fess'));
+    for (const id of ['pair-same', 'pair-respectant', 'pair-addorsed']) expect(ids(render(setFacing(twoLions('in-fess'), picturePath(lion)!, 'to-sinister'))), id).toContain(id);
+    expect(disclosure(inFess)).toEqual([{ open: false }]);
+    const inPale = render(setFacing(twoLions('in-pale'), picturePath(lion)!, 'to-sinister'));
+    expect(inPale).toMatch(/data-testid="pair-addorsed" data-blocked="true"/);
+    expect(inPale).toContain('Lay the two lions side by side (in fess) first.');
+    const pair = setPair(twoLions('in-fess'), picturePath(lion)!, 'combattant');
+    const html = render(pair);
+    expect(disclosure(html)).toEqual([{ open: true }]);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="pair-respectant"/);
+    expect(html).toMatch(/data-testid="facing-to-sinister" data-blocked="true"/);
+    expect(html).toContain('<option selected value="in-fess">');
+    expect(html).not.toContain('pair-combattant');
+    expect(render(pair, { open: false, onToggle: noop })).toMatch(/step-charges-summary">2 lions, gold, facing each other</);
+  });
+});
+
+describe('the Turned row under the picture', () => {
+  const render = (d: Design, accordion: { open: boolean; onToggle: () => void } | null = null) => renderToString(h(ChargesStep, { ...base, accordion, n: 3, design: d, onAdjust: noop, adjusted: null }));
+  const disclosure = (markup: string) => [...markup.matchAll(/<details[^>]*data-testid="charge-more"[^>]*>/g)].map((m) => ({ open: /\sopen/.test(m[0]) }));
+  type Id = Parameters<typeof setCharge>[2];
+  const pictured = (id: Id) => setCharge(DEFAULT_DESIGN, 'picture', id);
+  /** The picture with an orientation set, so that its disclosure is open and the row drawn. */
+  const turned = (id: Id, orientation: 'palewise' | 'inverted' | 'fesswise', count = 1) => {
+    const d = setCount(pictured(id), picturePath(pictured(id))!, count);
+    return setOrientation(d, picturePath(d)!, orientation);
+  };
+  const turnedIds = (markup: string) => [...ids(markup)].filter((id) => id.startsWith('turned-'));
+
+  it('is a closed disclosure for a charge that turns, and absent for one that does not turn or face', () => {
+    for (const id of ['sword', 'mullet', 'crescent'] as const) expect(disclosure(render(pictured(id))), id).toEqual([{ open: false }]);
+    for (const id of ['sun', 'annulet'] as const) expect(disclosure(render(pictured(id))), id).toEqual([]);
+    expect(turnedIds(render(pictured('sword')))).toEqual([]);
+    expect(turnedIds(render(pictured('lion')))).toEqual([]);
+  });
+
+  it('lists as usual first, then the ways the charge takes, and blocks the others with their reason', () => {
+    const sword = render(turned('sword', 'palewise'));
+    expect(turnedIds(sword).slice(0, 3)).toEqual(['turned-none', 'turned-palewise', 'turned-fesswise']);
+    for (const id of ['turned-fesswise-reversed', 'turned-bendwise-sinister-inverted', 'turned-inverted', 'turned-to-center']) expect(turnedIds(sword), id).toContain(id);
+    expect(turnedIds(sword)).not.toContain('turned-reversed');
+    expect(turnedIds(render(turned('key', 'palewise')))).toContain('turned-reversed');
+    expect(sword).toMatch(/data-testid="turned-to-center" data-blocked="true"/);
+    expect(sword).toContain('One sword has no group to point to the middle of.');
+    expect(render(turned('sword', 'palewise', 3))).not.toMatch(/data-testid="turned-to-center" data-blocked/);
+    const mullet = render(turned('mullet', 'inverted'));
+    expect(turnedIds(mullet)).toEqual(['turned-none', 'turned-palewise', 'turned-inverted']);
+    expect(mullet).not.toMatch(/data-testid="turned-inverted" data-blocked/);
+  });
+
+  it('opens on a turned picture, and the summary says how it lies', () => {
+    const flat = turned('sword', 'fesswise');
+    const html = render(flat);
+    expect(disclosure(html)).toEqual([{ open: true }]);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="turned-fesswise"/);
+    expect(render(flat, { open: false, onToggle: noop })).toMatch(/step-charges-summary">1 sword, gold, lying flat</);
+  });
+});
+
+describe('the Details disclosure under the picture', () => {
+  const render = (d: Design) => renderToString(h(ChargesStep, { ...base, accordion: null, n: 3, design: d, onAdjust: noop, adjusted: null }));
+  const opened = (markup: string, testid: string) => [...markup.matchAll(new RegExp(`<details[^>]*data-testid="${testid}"[^>]*>`, 'g'))].map((m) => ({ open: /\sopen/.test(m[0]) }));
+  type Id = Parameters<typeof setCharge>[2];
+  const pictured = (id: Id) => setCharge(DEFAULT_DESIGN, 'picture', id);
+  const sixPoints = setModifier(pictured('mullet'), [0], 'of-points', true, { count: 6, paint: null });
+
+  it('is closed by default, and there only for a charge that has details', () => {
+    for (const id of ['mullet', 'roundel', 'cross-formy'] as const) expect(opened(render(pictured(id)), 'charge-more'), id).toEqual([{ open: false }]);
+    // the outer disclosure draws its body only when open: a turned mullet shows the Details closed inside it
+    expect(opened(render(setOrientation(pictured('mullet'), [0], 'inverted')), 'charge-details')).toEqual([{ open: false }]);
+    expect(opened(render(setOrientation(pictured('key'), [0], 'fesswise')), 'charge-details')).toEqual([]);
+    // every beast that faces now takes a piece (the hare wings and a collar): the Details are there, closed
+    expect(opened(render(setFacing(pictured('hare'), [0], 'to-sinister')), 'charge-details')).toEqual([{ open: false }]);
+  });
+
+  it('opens for a mullet of six points: the points 4 to 12, the drawn five marked, and the detail toggles', () => {
+    const html = render(sixPoints);
+    expect(opened(html, 'charge-more')).toEqual([{ open: true }]);
+    expect(opened(html, 'charge-details')).toEqual([{ open: true }]);
+    expect([...ids(html)].filter((id) => id.startsWith('points-'))).toEqual(['points-4', 'points-5', 'points-6', 'points-7', 'points-8', 'points-9', 'points-10', 'points-11', 'points-12']);
+    expect(html).toMatch(/aria-checked="true"[^>]*id="points-6"/);
+    expect(html).toContain('5 (usual)');
+    for (const id of ['mod-voided', 'mod-fimbriated', 'mod-pierced']) expect(ids(html), id).toContain(id);
+    expect(ids(html)).not.toContain('mod-fimbriated-tincture');
+  });
+
+  it('shows the Shape row for a charge drawn as a demi charge or a head, and the Cut row for a head only', () => {
+    const lion = pictured('lion');
+    expect(opened(render(lion), 'charge-more')).toEqual([{ open: false }]);
+    const demi = setForm(lion, [0], 'demi');
+    expect(opened(render(demi), 'charge-details')).toEqual([{ open: true }]);
+    expect([...ids(render(demi))].filter((id) => id.startsWith('form-') || id.startsWith('cut-'))).toEqual(['form-whole', 'form-demi', 'form-head']);
+    expect(render(demi)).toMatch(/aria-checked="true"[^>]*id="form-demi"/);
+    const head = setCut(setForm(lion, [0], 'head'), [0], 'erased');
+    expect([...ids(render(head))].filter((id) => id.startsWith('cut-'))).toEqual(['cut-couped', 'cut-erased']);
+    expect(render(head)).toMatch(/aria-checked="true"[^>]*id="cut-erased"/);
+    for (const id of ['sword', 'mullet', 'sun'] as const) expect([...ids(render(pictured(id)))].filter((x) => x.startsWith('form-')), id).toEqual([]);
+    // a head or demi charge has no pose: the Pose select says so instead of standing empty (D7b's deferred blank select)
+    expect(render(demi)).toMatch(/<select[^>]*data-testid="posture-select" disabled><option selected value>No pose \(front half\)<\/option><\/select>/);
+    expect(render(head)).toContain('No pose (head only)');
+    expect(render(lion)).not.toContain('No pose');
+  });
+
+  it('is closed for a lion, and opens for a crowned lion: the piece toggles, the crown\'s colour, wings blocked where the drawing has none', () => {
+    const lion = pictured('lion');
+    expect(opened(render(setFacing(lion, [0], 'to-sinister')), 'charge-details')).toEqual([{ open: false }]);
+    const crowned = setPart(lion, [0], 'crowned', true);
+    const html = render(crowned);
+    expect(opened(html, 'charge-more')).toEqual([{ open: true }]);
+    expect(opened(html, 'charge-details')).toEqual([{ open: true }]);
+    expect([...ids(html)].filter((id) => /^(mod|part)-/.test(id))).toEqual(['mod-winged', 'part-crowned', 'part-collared', 'part-crowned-tincture']);
+    expect(html).toMatch(/aria-pressed="true"[^>]*id="part-crowned"/);
+    expect(html).toMatch(/id="swatch-crowned-gules"[^>]*aria-checked="true"/);
+    expect(html).toContain('Colour of the crown');
+    expect(render(setPart(setPosture(lion, [0], 'sejant'), [0], 'crowned', true))).toMatch(/data-testid="mod-winged" data-blocked="true"/);
+    const enflamed = render(setModifier(pictured('heart'), [0], 'enflamed', true));
+    expect(enflamed).toMatch(/aria-checked="true"[^>]*id="mod-enflamed-proper"/);
+    expect(ids(enflamed)).toContain('mod-enflamed-tincture');
+  });
+
+  it('holds the Holding select for a main charge that holds things, and while it holds one the way it does and the item\'s colour (PLAN-D §3 D9d)', () => {
+    const html = render(setHold(pictured('lion'), [0], 'sword'));
+    expect(opened(html, 'charge-details')).toEqual([{ open: true }]);
+    expect([...ids(html)].filter((id) => id.startsWith('hold-'))).toEqual(['hold-select', 'hold-how', 'hold-how-maintaining', 'hold-how-sustaining', 'hold-how-in-mouth', 'hold-proper-select', 'hold-proper', 'hold-tincture']);
+    expect(html).toContain('<option selected value="sword">');
+    // natural colours only for an item that has them (D16b): a sword, not a key
+    expect(render(setHold(pictured('lion'), [0], 'sword', 'maintaining', { k: 'proper' }))).toMatch(/aria-checked="true"[^>]*id="hold-proper"/);
+    expect(ids(render(setHold(pictured('lion'), [0], 'key')))).not.toContain('hold-proper');
+    expect(html).toMatch(/aria-checked="true"[^>]*id="hold-how-maintaining"/);
+    expect(html).toMatch(/id="swatch-held-argent"[^>]*aria-checked="true"/);
+    expect(html).toContain('Colour of the sword');
+    // a mullet holds nothing: no Holding select, though its Details are open
+    const mullet = render(setModifier(pictured('mullet'), [0], 'voided', true));
+    expect(opened(mullet, 'charge-details')).toEqual([{ open: true }]);
+    expect(ids(mullet)).not.toContain('hold-select');
+    // a demi lion has no paw: the select is there, switched off, and says why
+    const demi = render(setForm(pictured('lion'), [0], 'demi'));
+    expect(demi).toMatch(/<select(?=[^>]*data-testid="hold-select")[^>]*disabled/);
+    expect(demi).toContain('The demi-lion is not drawn holding anything in this builder.');
+    expect(ids(demi)).not.toContain('hold-how');
+  });
+
+  it('shows the edging\'s tincture while fimbriated, blocks what does not stand out, and explains a refused toggle', () => {
+    const lozenge = setModifier(pictured('lozenge'), [0], 'fimbriated', true);
+    const html = render(lozenge);
+    expect(opened(html, 'charge-details')).toEqual([{ open: true }]);
+    expect(ids(html)).toContain('mod-fimbriated-tincture');
+    expect(html).toMatch(/aria-pressed="true"[^>]*id="mod-fimbriated"/);
+    expect(html).toMatch(/data-testid="swatch-fimbriation-gules" data-blocked="true"/);
+    expect(html).toMatch(/data-testid="mod-voided" data-blocked="true"/);
+    const badge = setModifier(setCharge(setBadge(DEFAULT_DESIGN), 'picture', 'mullet'), [0], 'pierced', true);
+    expect(render(badge)).toContain('A fieldless badge has no field to show through a voided charge (SENA A3C).');
   });
 });

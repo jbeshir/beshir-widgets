@@ -219,7 +219,7 @@ describe('the builder offers a badge', () => {
 
   it('adds only pictures on the picture, and only where its drawing has room for them', () => {
     expect(layerChoices(setBadge(lion)).filter((c) => c.allowed).map((c) => c.value)).toEqual(['on-picture']);
-    const bare = CHARGE_IDS.find((id) => chargeOnBox(id, CHARGES[id].defaultPosture) === null)!;
+    const bare = CHARGE_IDS.find((id) => chargeOnBox({ charge: id, form: null, posture: CHARGES[id].defaultPosture, gaze: null }) === null)!;
     expect(layerChoices(setBadge(setCharge(DEFAULT_DESIGN, 'picture', bare))).filter((c) => c.allowed)).toEqual([]);
     expect(layerChoices(setBadge(DEFAULT_DESIGN)).filter((c) => c.allowed)).toEqual([]);
   });
@@ -314,7 +314,7 @@ describe('badges are built by clicks the builder allows', () => {
   });
 
   it('the SCA blazon of a badge is matched to the same design', () => {
-    expect(checkBlazon('(Fieldless) A mullet of six points Or.').match.status).toBe('vocabulary');
+    expect(checkBlazon('(Fieldless) A mullet of five greater and five lesser points Or.').match.status).toBe('vocabulary');
     expect(checkBlazon('(Fieldless) An owl Or.').failures).toEqual([]);
     expect(checkBlazon('(Fieldless) A lion passant per pale argent and gules.').failures).toEqual([]);
     expect(checkBlazon('(Fieldless) A heart gules ermined Or.').failures).toEqual([]);

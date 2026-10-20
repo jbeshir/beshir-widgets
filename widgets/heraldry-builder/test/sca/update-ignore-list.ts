@@ -8,6 +8,8 @@ import { IGNORED_PATH, buildIgnoreList, serialiseIgnoreList } from './ignore-lis
 import { readCurrentArmory } from './oanda';
 
 // The authoritative full sweep: classify() without sampling options runs every check on every record (`npm test` samples; sample.ts).
+// Its time grows with the passing records (each replays the builder), hence the long timeout: measured 214 s per run at 9,945 passing records
+// (D15) and 225–230 s at 10,125 (D16a), so 600 s leaves room for the records still to come.
 it('writes the ignore list', () => {
   const entries: { key: string; tags: string[] }[] = [];
   const bugs: string[] = [];
@@ -24,4 +26,4 @@ it('writes the ignore list', () => {
   // A registrable design the widget can't blazon, draw or build is a bug to fix, not a gap to ignore.
   if (bugs.length) throw new Error(listing('Widget failures (fix these; they are never ignored)', bugs));
   writeFileSync(IGNORED_PATH, serialiseIgnoreList(buildIgnoreList(entries)));
-}, 120_000);
+}, 600_000);

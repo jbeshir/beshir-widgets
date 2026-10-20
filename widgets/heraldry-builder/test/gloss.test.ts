@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { CHARGE_IDS, betweenWords, gloss } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { V } from './validation-cases';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
@@ -32,6 +32,20 @@ describe('new constructs', () => {
     expect(say('gules', chg('gear', 'or'))).toBe('A red shield with a gold gear.');
     expect(say('azure', chg('sun', 'or', {}, { mods: [{ id: 'in-splendour' }] }))).toBe('A blue shield with a gold sun with a face.');
     expect(say('azure', chg('sun', 'or', { count: 2 }, { mods: [{ id: 'in-splendour' }] }))).toBe('A blue shield with two gold suns with faces, in a vertical line.');
+  });
+
+  it('words a charge facing right, looking back, and two facing each other or back to back', () => {
+    const pair = (word: string) => ({ count: 2, arrangement: { k: 'pair', pair: word } });
+    expect(say('azure', chg('lion', 'or', {}, { facing: 'to-sinister' }))).toBe('A blue shield with a gold lion rearing up facing right.');
+    expect(say('azure', chg('lion', 'or', {}, { gaze: 'regardant' }))).toBe('A blue shield with a gold lion rearing up looking back.');
+    expect(say('azure', chg('lion', 'or', pair('combattant')))).toBe('A blue shield with two gold lions rearing up, facing each other.');
+    expect(say('azure', chg('eagle', 'or', pair('addorsed')))).toBe('A blue shield with two gold eagles with spread wings, back to back.');
+    expect(say('azure', ord('pale', 'argent'), chg('lion', 'or', pair('combattant')))).toMatch(/two gold lions rearing up, facing each other, /);
+  });
+
+  it('words the generated charges and a cross fitchy', () => {
+    expect(say('azure', chg('quatrefoil', 'or'))).toBe('A blue shield with a gold four-petalled flower.');
+    expect(say('azure', chg('cross-flory', 'or', {}, { mods: [{ id: 'fitchy' }] }))).toBe('A blue shield with a gold cross with lily ends, pointed at the foot.');
   });
 
   it('words a group on a chief and one on a band with something between', () => {
@@ -112,6 +126,6 @@ describe('every charge', () => {
   });
 
   it('never throws on, and always ends a sentence for, generated designs', () => {
-    for (const d of [...generatedDesigns(9, 200), ...generatedRichDesigns(9, 200), ...generatedGeometryDesigns(9, 100), ...generatedLinedOrdinaryDesigns(9, 60), ...generatedTreatedOrdinaryDesigns(9, 40), ...generatedOutlinedOrdinaryDesigns(9, 40), ...generatedPeripheralDesigns(9, 40)]) expect(gloss(d)).toMatch(/\.$/);
+    for (const d of [...generatedDesigns(9, 200), ...generatedRichDesigns(9, 200), ...generatedGeometryDesigns(9, 100), ...generatedLinedOrdinaryDesigns(9, 60), ...generatedTreatedOrdinaryDesigns(9, 40), ...generatedOutlinedOrdinaryDesigns(9, 40), ...generatedPeripheralDesigns(9, 40), ...generatedChargeAttributeDesigns(9, 100)]) expect(gloss(d)).toMatch(/\.$/);
   });
 });

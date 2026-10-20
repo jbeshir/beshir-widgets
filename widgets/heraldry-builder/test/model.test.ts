@@ -4,11 +4,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   canonical, canonicalJson, canonicalLines, resolve, signature, structuralIssues, unsupportedIssues, isSupported, walkGroups, groupAt, hostOf, pathKey,
-  primaryGroup, isFieldPrimary, UNSUPPORTED_GAP_CATEGORIES, CHARGES, CHARGE_IDS, TYPE_CLASSES, MAX_DRAWN_COUNT, UnsupportedConstructError, notSupported,
+  primaryGroup, isFieldPrimary, UNSUPPORTED_GAP_CATEGORIES, ALIAS_IDS, CHARGES, CHARGE_IDS, TYPE_CLASSES, MAX_DRAWN_COUNT, UnsupportedConstructError, notSupported,
   type Design, type Issue,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
-import { generatedDesign, generatedDesigns, generatedRichDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedDesign, generatedDesigns, generatedRichDesigns } from './design-generator';
 import { UNSUPPORTED_CASES } from './unsupported-cases';
 
 const messages = (r: ReturnType<typeof resolve>): string[] => (r.ok ? [] : r.errors.map((e) => e.message));
@@ -22,7 +22,7 @@ describe('resolve: defaults', () => {
       v: 2, kind: 'arms', field: { k: 'tincture', t: 'azure' },
       groups: [{
         role: 'primary', relation: null, count: 1, arrangement: { k: 'single' }, position: null, paint: { k: 'tincture', t: 'or' }, charged: [],
-        item: { k: 'charge', charge: 'lion', form: null, posture: 'rampant', facing: 'to-dexter', orientation: null, mods: [], parts: [], holds: [] },
+        item: { k: 'charge', charge: 'lion', form: null, posture: 'rampant', gaze: null, facing: 'to-dexter', orientation: null, mods: [], parts: [], holds: [] },
       }],
     });
   });
@@ -92,6 +92,39 @@ describe('resolve: defaults', () => {
 
   it('is idempotent: resolving a resolved design gives it back', () => {
     for (const d of [...generatedDesigns(1, 40), ...generatedRichDesigns(1, 40)]) expect(nd(d)).toEqual(d);
+  });
+});
+
+describe('resolve: facing, gaze and pairs', () => {
+  const lion = (item: object, extra: object = {}) => nd(arms('azure', group(charge('lion', item), 'or', extra)));
+  const itemOf = (d: Design) => d.groups[0].item;
+
+  it('reads a gaze written as a facing (the old form) as the gaze, the body facing its own way', () => {
+    expect(itemOf(lion({ facing: 'regardant' }))).toMatchObject({ gaze: 'regardant', facing: 'to-dexter' });
+    expect(canonicalJson(lion({ facing: 'guardant' }))).toBe(canonicalJson(lion({ gaze: 'guardant' })));
+  });
+
+  it('keeps a facing and a gaze through the canonical form, the gaze after the posture', () => {
+    for (const d of [lion({ facing: 'to-sinister' }), lion({ gaze: 'guardant', facing: 'to-sinister' }), lion({ facing: 'affronty' })]) {
+      expect(nd(JSON.parse(canonicalJson(d)))).toEqual(d);
+    }
+    expect(Object.keys(itemOf(canonical(lion({ facing: 'to-sinister' }))))).toEqual(['k', 'charge', 'form', 'posture', 'gaze', 'facing', 'orientation', 'mods', 'parts', 'holds']);
+  });
+
+  it('words two charges facing each other combattant for beasts and monsters rampant, respectant for the others (CL 11/2012: one pair; A5E5a)', () => {
+    const pair = (id: string, word: string) => nd(arms('azure', group(charge(id), 'or', { count: 2, arrangement: { k: 'pair', pair: word } }))).groups[0].arrangement;
+    expect(pair('lion', 'respectant')).toEqual({ k: 'pair', pair: 'combattant' });
+    expect(pair('dragon', 'respectant')).toEqual({ k: 'pair', pair: 'combattant' });
+    expect(pair('eagle', 'combattant')).toEqual({ k: 'pair', pair: 'respectant' });
+    expect(pair('fish', 'combattant')).toEqual({ k: 'pair', pair: 'respectant' });
+    expect(pair('wolf', 'combattant')).toEqual({ k: 'pair', pair: 'respectant' });
+    expect(pair('lion', 'addorsed')).toEqual({ k: 'pair', pair: 'addorsed' });
+  });
+
+  it('lets two charges set around a pale face each other, but no other arrangement', () => {
+    const pale = (arrangement: unknown) => resolve(arms('azure', group(ordinary('pale'), 'argent'), group(charge('lion'), 'or', { count: 2, arrangement })));
+    expect(pale({ k: 'pair', pair: 'combattant' }).ok).toBe(true);
+    expect(messages(pale('in-fess'))).toEqual(['Charges set around or on an ordinary are placed by it — leave the arrangement out.']);
   });
 });
 
@@ -344,12 +377,16 @@ describe('resolve: shape errors', () => {
   it('rejects a posture or facing on a charge that has none', () => {
     expect(bad(arms('or', group(charge('rose', { posture: 'rampant' }), 'gules')))).toEqual(['A rose has no posture.']);
     expect(bad(arms('or', group(charge('owl', { posture: 'close' }), 'gules')))).toEqual(['An owl has no posture.']);
-    expect(bad(arms('or', group(charge('rose', { facing: 'guardant' }), 'gules')))).toEqual(['A rose has no facing.']);
+    expect(bad(arms('or', group(charge('rose', { facing: 'to-sinister' }), 'gules')))).toEqual(['A rose has no facing.']);
+    expect(bad(arms('or', group(charge('rose', { gaze: 'guardant' }), 'gules')))).toEqual(['A rose has no gaze.']);
+    expect(bad(arms('or', group(charge('rose', { facing: 'guardant' }), 'gules')))).toEqual(['A rose has no gaze.']);
+    expect(bad(arms('or', group(charge('lion', { gaze: 'sideways' }), 'gules')))).toEqual(['Unknown gaze.']);
+    expect(bad(arms('or', group(charge('lion', { gaze: 'guardant', facing: 'regardant' }), 'gules')))).toEqual(['The gaze is given twice.']);
   });
 
   it('resolves a posture that is not drawn (it is unsupported, not malformed)', () => {
-    const d = nd(arms('or', group(charge('lion', { posture: 'couchant' }), 'gules')));
-    expect(gapTags(d)).toEqual(['posture:couchant']);
+    const d = nd(arms('or', group(charge('lion', { posture: 'statant-erect' }), 'gules')));
+    expect(gapTags(d)).toEqual(['posture:statant-erect']);
   });
 
   it('rejects a tertiary at the top level and any other role below', () => {
@@ -431,18 +468,29 @@ describe('canonical form and tree helpers', () => {
 });
 
 describe('charge table', () => {
-  it('has the 36 charges and their SCA attributes', () => {
-    expect(CHARGE_IDS).toHaveLength(36);
+  it('has the 121 charges and their SCA attributes', () => {
+    expect(CHARGE_IDS).toHaveLength(121);
     expect(CHARGES.hare.postures).toEqual(['sejant', 'courant']);
     expect(CHARGES.gear.name).toBe('cogwheel');
     expect(CHARGES['fleur-de-lis'].name).toBe('fleur-de-lys');
-    expect(CHARGE_IDS.filter((id) => CHARGES[id].long)).toEqual(['key', 'sword', 'anchor']);
+    expect(CHARGE_IDS.filter((id) => CHARGES[id].long)).toEqual(['key', 'sword', 'anchor', 'arrow', 'hammer', 'axe', 'feather', 'needle', 'spear', 'trident', 'rapier', 'dagger']);
     expect(CHARGE_IDS.filter((id) => CHARGES[id].scaDefaultPosture).map((id) => [id, CHARGES[id].scaDefaultPosture]))
-      .toEqual([['lion', 'rampant'], ['fish', 'naiant'], ['unicorn', 'rampant'], ['dragon', 'rampant'], ['eagle', 'displayed']]);
+      .toEqual([['lion', 'rampant'], ['fish', 'naiant'], ['unicorn', 'rampant'], ['dragon', 'rampant'], ['eagle', 'displayed'], ['owl', 'close'], ['squirrel', 'sejant-erect'],
+        ['raven', 'close'], ['griffin', 'rampant'], ['swan', 'rising'], ['phoenix', 'rising'], ['wyvern', 'statant'], ['falcon', 'close'], ['seahorse', 'erect'], ['peacock', 'close'],
+        ['martlet', 'close'], ['dove', 'close'], ['sea-lion', 'erect'], ['dolphin', 'naiant'], ['hawk', 'close']]);
     expect(CHARGES.sun.mods).toEqual(['in-splendour']);
-    // A5E2 type classes: only the documented DC-only pairs share one (mullet and sun, eagle and owl).
-    const shared = CHARGE_IDS.filter((id) => CHARGE_IDS.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
-    expect(shared).toEqual(['eagle', 'owl', 'mullet', 'sun', 'estoile']);
+    // A5E2 type classes: only the documented DC-only kin share one (lion and cat, wolf and fox, dragon and wyvern, horse and pegasus, fish and dolphin, tower and castle, goblet, chalice and tankard, heart and seeblatt, the wheels, every bird, mullet and sun, eagle and owl, the lozenge's kin, a cross family…).
+    const own = CHARGE_IDS.filter((id) => !(ALIAS_IDS as readonly string[]).includes(id));
+    const shared = own.filter((id) => own.some((o) => o !== id && CHARGES[o].typeClass === CHARGES[id].typeClass));
+    expect(shared).toEqual([
+      'lion', 'wolf', 'fish', 'dragon', 'eagle', 'owl', 'rose', 'mullet', 'sun', 'heart', 'roundel', 'annulet', 'billet', 'lozenge', 'cross-crosslet', 'estoile', 'compass-star', 'mascle', 'rustre',
+      'fusil', 'delf', 'triangle', 'trefoil', 'quatrefoil', 'cinquefoil', 'cross-couped', 'cross-latin', 'cross-bottony', 'cross-flory', 'cross-patonce', 'cat', 'horse', 'fox',
+      'raven', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'peacock', 'martlet', 'dove', 'dolphin', 'tower', 'comet', 'goblet', 'chalice', 'castle', 'tankard',
+      'seeblatt', 'wheel', 'catherine-wheel',
+    ]);
+    // an alias is the same type as the charge it names (the hawk is a raven, a coney a hare…: no difference of type, PLAN-D §1.6 T1)
+    expect(ALIAS_IDS.map((id) => [id, CHARGES[id].typeOf])).toEqual([['hawk', 'raven'], ['rapier', 'sword'], ['dagger', 'sword'], ['coney', 'hare'], ['rabbit', 'hare'], ['vol', null], ['coronet', 'crown']]);
+    for (const id of ALIAS_IDS) if (CHARGES[id].typeOf) expect(CHARGES[id].typeClass, id).toBe(CHARGES[CHARGES[id].typeOf!].typeClass);
     expect(CHARGES.lion.typeClass).not.toBe(CHARGES.wolf.typeClass);
     expect(new Set(CHARGE_IDS.map((id) => CHARGES[id].typeClass))).toEqual(new Set(Object.keys(TYPE_CLASSES)));
   });
@@ -474,11 +522,11 @@ describe('support matrix', () => {
   });
 
   it('files a badge under the gaps of its charge, as arms are', () => {
-    expect(gapTags(nd({ v: 2, kind: 'badge', groups: [group(charge('lion', { posture: 'couchant' }), 'or')] }))).toEqual(['posture:couchant']);
+    expect(gapTags(nd({ v: 2, kind: 'badge', groups: [group(charge('lion', { posture: 'statant-erect' }), 'or')] }))).toEqual(['posture:statant-erect']);
   });
 
   it('names a field gap before the group gaps, each at its place', () => {
-    const d = nd(arms({ k: 'stain', stain: 'murrey' }, group(charge('lion', { posture: 'couchant' }), 'or')));
+    const d = nd(arms({ k: 'stain', stain: 'murrey' }, group(charge('lion', { posture: 'statant-erect' }), 'or')));
     expect(unsupportedIssues(d).map((i) => [i.at.k, i.gap.category])).toEqual([['field', 'tincture'], ['group', 'posture']]);
   });
 
@@ -518,6 +566,25 @@ describe('support matrix', () => {
       ['counterchanged charges', arms(div('per-pale', 'or', 'azure'), group(charge('rose'), 'counterchanged', { count: 2 }))],
       ['a sun in splendour', arms('azure', group(charge('sun', { mods: ['in-splendour'] }), 'or'))],
       ['twelve charges', arms('azure', group(charge('mullet'), 'or', { count: 12, arrangement: 'rows-4-4-4' }))],
+      ['a lion contourny', arms('azure', group(charge('lion', { facing: 'to-sinister' }), 'or'))],
+      ['an eagle contourny on a charge', arms('azure', group(charge('lozenge'), 'or', { charged: [group(charge('eagle', { facing: 'to-sinister' }), 'gules')] }))],
+      ['two lions combattant', arms('azure', group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } }))],
+      ['two wolves addorsed within a bordure', arms('azure', group(charge('wolf'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }), group(ordinary('bordure'), 'argent'))],
+      ['a pale between two eagles respectant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('eagle'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
+      ['an inverted sword', arms('azure', group(charge('sword', { orientation: 'inverted' }), 'or'))],
+      ['three increscents', arms('azure', group(charge('crescent', { orientation: 'fesswise' }), 'argent', { count: 3 }))],
+      ['four swords to center in cross', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'or', { count: 4, arrangement: 'in-cross' }))],
+      ['three swords palewise on a bend', arms('azure', group(ordinary('bend'), 'or', { charged: [group(charge('sword', { orientation: 'palewise' }), 'gules', { count: 3 })] }))],
+      ['a bee bendwise', arms('or', group(charge('bee', { orientation: 'bendwise' }), 'sable'))],
+      ['a wolf\'s head erased', arms('azure', group(charge('wolf', { form: 'head', mods: ['erased'] }), 'or'))],
+      ['two lions\' heads respectant', arms('azure', group(charge('lion', { form: 'head' }), 'or', { count: 2, arrangement: { k: 'pair', pair: 'respectant' } }))],
+      ['a demi-eagle contourny', arms('azure', group(charge('eagle', { form: 'demi', facing: 'to-sinister' }), 'or'))],
+      ['a lion couchant', arms('azure', group(charge('lion', { posture: 'couchant' }), 'or'))],
+      ['a lion passant guardant', arms('azure', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or'))],
+      ['a lion rampant regardant contourny', arms('azure', group(charge('lion', { gaze: 'regardant', facing: 'to-sinister' }), 'or'))],
+      ['an eagle close, three eagles rising', arms('azure', group(charge('eagle', { posture: 'close' }), 'or'), group(ordinary('chief'), 'argent', { charged: [group(charge('eagle', { posture: 'rising' }), 'gules', { count: 3 })] }))],
+      ['a stag lodged', arms('vert', group(charge('stag', { posture: 'couchant' }), 'or'))],
+      ['a fish urinant', arms('azure', group(charge('fish', { posture: 'urinant' }), 'argent'))],
     ];
     for (const [label, input] of supported) {
       it(`${label} has no gap`, () => expect(gapTags(nd(input))).toEqual([]));
@@ -525,6 +592,30 @@ describe('support matrix', () => {
 
     it('every generated design is supported', () => {
       for (const d of [...generatedDesigns(1, 200), ...generatedRichDesigns(1, 200)]) expect(isSupported(d)).toBe(true);
+    });
+
+    it('every generated charge attribute design is supported and legal, about a third face or pair, some turn, some are heads or demi charges, some posed, some hold something', () => {
+      const designs = generatedChargeAttributeDesigns(1, 200);
+      for (const d of designs) expect([isSupported(d), structuralIssues(d)]).toEqual([true, []]);
+      const turned = designs.filter((d) => d.groups.some((g) => g.arrangement.k === 'pair' || (g.item.k === 'charge' && g.item.facing === 'to-sinister')));
+      expect(turned.length).toBeGreaterThan(40);
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.orientation !== null)).length).toBeGreaterThan(20);
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.form !== null)).length).toBeGreaterThan(10);
+      // some in a posture other than the one they are drawn in by default (§1.2), a lion now and then with its head turned (§1.1 F4)
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.posture !== null && g.item.posture !== CHARGES[g.item.charge].defaultPosture)).length).toBeGreaterThan(10);
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.gaze !== null)).length).toBeGreaterThan(0);
+      expect(designs.filter((d) => d.groups.some((g) => g.item.k === 'charge' && g.item.holds.length > 0)).length).toBeGreaterThan(3);
+    });
+
+    it('draws a pair only of two charges that face, each its own way, alone on the field or around a pale', () => {
+      const pair = (id: string, extra: object = {}, item: object = {}) => gapTags(nd(arms('azure', group(charge(id, item), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' }, ...extra }))));
+      expect(pair('lion')).toEqual([]);
+      expect(pair('rose')).toEqual(['posture:addorsed']);
+      expect(pair('owl')).toEqual(['posture:addorsed']);
+      expect(pair('lion', {}, { facing: 'to-sinister' })).toEqual(['posture:addorsed']);
+      expect(pair('lion', { position: 'chief' })).toContain('posture:addorsed');
+      expect(gapTags(nd(arms('azure', group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }), group(charge('rose'), 'gules'))))).toContain('posture:addorsed');
+      expect(gapTags(nd(arms('azure', group(ordinary('pile'), 'argent'), group(charge('lion'), 'or', { count: 2, arrangement: { k: 'pair', pair: 'addorsed' } }))))).toEqual(['posture:addorsed']);
     });
   });
 
