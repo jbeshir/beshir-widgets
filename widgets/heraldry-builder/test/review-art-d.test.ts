@@ -5,7 +5,7 @@
 // the render golden.
 
 import { describe, expect, it } from 'vitest';
-import { chargePath, overlaidArt, pathRings, resolve, type Charge } from '../src/lib/heraldry';
+import { CHARGE_IDS, CHARGES, chargePath, overlaidArt, pathRings, resolve, type Charge } from '../src/lib/heraldry';
 import type { Pt } from '../src/lib/heraldry/geometry';
 import { charge } from './helpers';
 
@@ -119,10 +119,38 @@ describe('the redrawn charges keep the feature that names them (art review)', ()
     expect(blade(0.1)).toBeLessThanOrEqual(0.75 * blade(0.4));
   });
 
-  it('cuts a demi goat, wolf and unicorn off as one piece across, with no hind quarter beside the body (A-10)', () => {
+  it('cuts a demi goat, wolf and unicorn off across the body, with no hind quarter beside it (A-10, fix-demi)', () => {
     for (const id of ['goat', 'wolf', 'unicorn']) {
       const d = drawing({ charge: id, form: 'demi' });
-      for (const up of [0.5, 2, 4, 6]) expect(inside(d, lowest(d) - up), `${id} ${up} above the cut`).toHaveLength(1);
+      // just above the cut the body is the widest stretch; a raised foreleg may stand apart before it (dexter), nothing behind it
+      for (const up of [0.5, 2, 4, 6]) {
+        const across = inside(d, lowest(d) - up), body = across.reduce((a, b) => (b[1] - b[0] > a[1] - a[0] ? b : a));
+        expect(across.filter(([from]) => from > body[0]), `${id} ${up} above the cut`).toEqual([]);
+      }
+    }
+  });
+
+  it('keeps a demi beast\'s raised forelegs (an eagle\'s wings) above its cut, so it is not read as a head (fix-demi)', () => {
+    // A point well inside each forepaw (each wing's tip) of the drawing the demi is cut from, in that drawing's box.
+    const forepaws: Record<string, { pose: object; paws: Pt[] }> = {
+      lion: { pose: { posture: 'rampant' }, paws: [[16, 44], [20, 63]] },
+      wolf: { pose: { posture: 'rampant' }, paws: [[30, 47]] },
+      goat: { pose: { posture: 'rampant' }, paws: [[26, 44], [32, 65]] },
+      unicorn: { pose: { posture: 'rampant' }, paws: [[23, 53], [29, 66]] },
+      dragon: { pose: { posture: 'rampant' }, paws: [[22, 38], [26, 56]] },
+      eagle: { pose: {}, paws: [[14, 42], [86, 42]] },
+    };
+    expect(Object.keys(forepaws).sort()).toEqual(CHARGE_IDS.filter((id) => (CHARGES[id].forms as readonly string[]).includes('demi')).sort());
+    for (const [id, { pose, paws }] of Object.entries(forepaws)) {
+      const whole = drawing({ charge: id, ...pose }), demi = drawing({ charge: id, form: 'demi' });
+      // the demi is the whole drawing down to its cut, scaled and moved: its top is the whole drawing's top, its foot the cut
+      const top = (rs: Rings) => rs.flat().reduce((a, b) => (b[1] < a[1] || (b[1] === a[1] && b[0] < a[0]) ? b : a));
+      const scale = (lowest(demi) - highest(demi)) / (CHARGES[id as 'lion'].demiCut! - highest(whole));
+      const [wx, wy] = top(whole), [dx, dy] = top(demi);
+      for (const [x, y] of paws) {
+        expect(isInside(whole, x, y), `${id} paw (${x}, ${y}) on the drawing`).toBe(true);
+        expect(isInside(demi, dx + (x - wx) * scale, dy + (y - wy) * scale), `${id} keeps its paw (${x}, ${y})`).toBe(true);
+      }
     }
   });
 

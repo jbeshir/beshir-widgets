@@ -41,7 +41,7 @@ export const META_BEAST = {
     faces: true, facingCounts: 'normal',
     orient: { drawn: 'palewise', point: 'top', lead: 'top', cls: 'animate', allowed: [], wording: {} },
     forms: ['demi', 'head'], mods: [], details: WINGED, parts: ['crowned', 'collared'], holds: ['maintaining', 'sustaining', 'in-mouth'],
-    demiCut: 46, long: false, scale: 1.05, detail: 1, proper: null,
+    demiCut: 56, long: false, scale: 1.05, detail: 1, proper: null,
     glossName: 'wolf', glossPlural: 'wolves', plain: null, search: ['dog', 'canine'],
     headName: { one: 'wolf\'s head', many: 'wolves\' heads' }, holdable: false, pairedWings: false,
     drawings: {
@@ -99,7 +99,7 @@ export const META_BEAST = {
     faces: true, facingCounts: 'normal',
     orient: { drawn: 'palewise', point: 'top', lead: 'top', cls: 'animate', allowed: [], wording: {} },
     forms: ['demi'], mods: [], details: WINGED, parts: ['collared'], holds: ['maintaining', 'sustaining'],
-    demiCut: 52, long: false, scale: 1, detail: 1, proper: null,
+    demiCut: 68, long: false, scale: 1, detail: 1, proper: null,
     glossName: 'goat', glossPlural: 'goats', plain: null, search: [],
     headName: null, holdable: false, pairedWings: false,
     drawings: {
