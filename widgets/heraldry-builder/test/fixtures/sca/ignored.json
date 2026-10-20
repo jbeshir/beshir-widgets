@@ -36525,7 +36525,7 @@
       "regid:142929": ["charge-beast:reremouse", "count:semy"],
       "regid:142930": ["charge-beast:reremouse"]
     }},
-    {"category": "other", "description": "not recognised as expressible, but no specific gap found", "singleGap": 989, "records": {
+    {"category": "other", "description": "not recognised as expressible, but no specific gap found", "singleGap": 988, "records": {
       "regid:43": ["other"],
       "regid:76": ["other:unparsed"],
       "regid:127": ["other:near-miss"],
@@ -37020,7 +37020,6 @@
       "regid:67614": ["other:unparsed"],
       "regid:67800": ["other:vocabulary"],
       "regid:67934": ["other:near-miss"],
-      "regid:67950": ["other:unparsed"],
       "regid:68025": ["other:near-miss"],
       "regid:68071": ["other:unparsed"],
       "regid:68082": ["other:unparsed"],
@@ -37516,7 +37515,7 @@
       "regid:142477": ["other:unparsed"],
       "regid:142673": ["other:unparsed"]
     }},
-    {"category": "placement", "description": "one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)", "singleGap": 823, "records": {
+    {"category": "placement", "description": "one charge group and one ordinary, but in a count or position the widget does not allow, or cannot fit at a legible size (a bend between three, on a bordure, six on a chevron…)", "singleGap": 824, "records": {
       "regid:87": ["placement:atop", "proper"],
       "regid:243": ["orientation:outward", "placement:around-primary-1"],
       "regid:246": ["charge-instrument:guitar", "placement:between-pale-1"],
@@ -38103,6 +38102,7 @@
       "regid:67660": ["charge-cross:fourchy", "charge-household:fork", "placement:around-1"],
       "regid:67763": ["placement:around-primary-2"],
       "regid:67819": ["placement:on-cross-maltese"],
+      "regid:67950": ["placement:on-charge-1"],
       "regid:68335": ["charge-plant:daisy", "placement:in-base-1", "proper"],
       "regid:68448": ["placement:between-fess-2"],
       "regid:69050": ["arrangement:in-dexter-chief", "placement:between-fess-1"],
