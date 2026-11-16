@@ -1,0 +1,3 @@
+# The SCA Ordinary & Armorial dump is committed byte-for-byte as downloaded (its licence requires
+# the content to be unchanged); git must never normalise line endings or diff it.
+widgets/heraldry-builder/test/fixtures/sca/oanda.db binary

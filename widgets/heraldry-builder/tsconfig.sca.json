@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["test/sca", "test/sca-armorial.test.ts", "vitest.sca-ignore.config.ts"]
+}

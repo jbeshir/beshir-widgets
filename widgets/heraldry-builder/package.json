@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit && tsc -p tsconfig.sca.json --noEmit",
     "test": "vitest run",
+    "sca:ignore": "vitest run --config vitest.sca-ignore.config.ts",
     "favicon": "cd ../../scripts/favicon && npm ci --no-audit --no-fund && node generate-favicon.mjs ../../widgets/heraldry-builder/public/favicon.svg ../../widgets/heraldry-builder/public/favicon.ico"
   },
   "dependencies": {
@@ -19,6 +20,8 @@
     "@cloudflare/vitest-pool-workers": "^0.16.18",
     "@cloudflare/workers-types": "^4.20260620.1",
     "@preact/preset-vite": "^2.10.2",
+    "@types/node": "^22.20.5",
+    "preact-render-to-string": "^6.8.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.9",
