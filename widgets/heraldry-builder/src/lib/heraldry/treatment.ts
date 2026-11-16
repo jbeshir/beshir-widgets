@@ -1,7 +1,7 @@
 // Treatments as paints: a tincture with a pattern of lines in another ("argent masoned sable", "gules scaly Or"). SENA counts
 // the treatment as part of the tincture it lies on (GoT "Field Treatment"), so only its words and its look are needed here.
 
-import { TINCTURE_GLOSS, tinctureWord } from './tinctures';
+import { TINCTURE_WORD, tinctureWord } from './tinctures';
 import type { TreatedPaint } from './design';
 import type { Treatment } from './divisions';
 
@@ -21,5 +21,5 @@ export function treatedName(p: TreatedPaint): string {
 
 /** A treated tincture in plain words, its look in brackets: "argent masoned sable (white with black brick-wall lines)". */
 export function treatedGloss(p: TreatedPaint): string {
-  return `${treatedName(p)} (${TINCTURE_GLOSS[p.ground.t]} with ${TINCTURE_GLOSS[p.ink]} ${TREATMENT_LOOK[p.treatment]})`;
+  return `${treatedName(p)} (${TINCTURE_WORD[p.ground.t]} with ${TINCTURE_WORD[p.ink]} ${TREATMENT_LOOK[p.treatment]})`;
 }

@@ -43,7 +43,7 @@ export const GAP_CATEGORIES = [
   { id: 'fieldless', description: 'a fieldless badge the widget does not draw: charges conjoined to the main one, something overall, or two main charges' },
   { id: 'marshalling', description: 'impaling, quartering, dimidiation, an augmentation or other combined arms' },
   { id: 'fur', description: 'a fur (ermine, vair, potent, pean…) anywhere in the arms' },
-  { id: 'tincture', description: 'a tincture outside the widget\'s eight, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged' },
+  { id: 'tincture', description: 'a tincture outside the widget\'s seven, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged' },
   { id: 'proper', description: 'a charge tinctured proper (natural colouring)' },
   { id: 'field-treatment', description: 'a variegated pattern (barry, checky, compony, masoned…) on the field or any element, or a semy the widget does not draw (a counterchanged or proper strewn charge, an unknown one, a posture or an arrangement of it)' },
   { id: 'division', description: 'a field division the widget lacks (compound, vêtu, chaussé, party of N, per saltire arrondi, gyronny of 10 or 16, per chevron enhanced…), or a drawn one where the widget does not draw it (gyronny or per pall on a band or charge, counterchanged over three parts)' },
@@ -94,7 +94,7 @@ add(['in'], { k: 'in' }); add(['on'], { k: 'on' }); add(['between', 'betwixt'], 
 add(['of'], { k: 'of' }); add(['and', '&'], { k: 'and' }); add(['per'], { k: 'per' }); add(['quarterly'], { k: 'quarterly' }); add(['gyronny'], { k: 'gyronny' });
 add(['tierced-per-pale', 'tierced-per-fess'], (word) => ({ k: 'tierced', v: word }));
 for (const [word, n] of entries(NUMBERS)) LEX.set(word, { k: 'num', n });
-add(['or', 'argent', 'azure', 'gules', 'vert', 'sable', 'purpure', 'celestine'], { k: 'tinc' });
+add(['or', 'argent', 'azure', 'gules', 'vert', 'sable', 'purpure'], { k: 'tinc' });
 add(['counterchanged', 'counter-changed', 'counterchange'], { k: 'cc' });
 add(['proper', 'ppr'], { k: 'proper' });
 for (const [word, id] of entries(SUPPORTED_CHARGE_WORDS)) LEX.set(word, { k: 'charge', id });

@@ -31,13 +31,7 @@ describe('contrastFailure', () => {
     // A neutral (evenly divided metal and colour) ground takes either class, but never its own tincture.
     expect(contrastFailure('gules', ['argent', 'sable'])).toBeNull();
     expect(contrastFailure('argent', ['argent', 'sable'])).toBe('same');
-  });
-
-  it('treats celestine as a metal', () => {
-    expect(contrastFailure('celestine', ['or'])).toBe('metal-on-metal');
-    expect(contrastFailure('celestine', ['sable'])).toBeNull();
-  });
-});
+  });});
 
 describe('what a group lies on', () => {
   it('a charge on a plain field lies on the field', () => {
@@ -91,7 +85,7 @@ describe('neutral surfaces (RB 1.2)', () => {
     expect(groundFailure(tinctureSurface('gules'), pieces([neutral, 1]))).toBeNull();
     expect(groundFailure(tinctureSurface('gules'), pieces([neutral, 0.5], [tinctureSurface('azure'), 0.5]))).toBeNull();
     expect(groundFailure(tinctureSurface('gules'), pieces([neutral, 0.2], [tinctureSurface('azure'), 0.8]))).toBe('colour-on-colour');
-    expect(groundFailure(tinctureSurface('or'), pieces([neutral, 0.2], [tinctureSurface('celestine'), 0.8]))).toBe('metal-on-metal');
+    expect(groundFailure(tinctureSurface('or'), pieces([neutral, 0.2], [tinctureSurface('argent'), 0.8]))).toBe('metal-on-metal');
   });
 
   it('shares a tincture when any base is in common, and is the same only when class and bases match', () => {
@@ -229,8 +223,6 @@ describe('plain tinctures on plain, divided and neutral grounds', () => {
     expect(messages(arms('gules', chg('lion', 'azure')))).toEqual(['Azure lion on Gules field: colour on colour']);
     expect(messages(arms(div('per-pale', 'azure', 'vert'), chg('wolf', 'gules'))))
       .toEqual(['Gules wolf on Azure and Vert field: colour on colour (a two-colour field needs a metal charge)']);
-    expect(messages(arms(div('per-pale', 'or', 'argent'), ord('bend', 'celestine'))))
-      .toEqual(['Celestine bend on Or and Argent field: metal on metal (a two-metal field needs a colour ordinary)']);
   });
 
   it('accepts anything but the grounds’ own tinctures on an evenly divided metal and colour', () => {

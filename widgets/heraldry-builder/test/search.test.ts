@@ -189,12 +189,6 @@ describe('the plain-English queries over the sample registry', () => {
     expect(find('yellow animal on black with a white border')).toEqual(['demo-004']);
   });
 
-  it('finds celestine by cyan, sky blue, light blue and turquoise, and keeps plain "blue" for azure', () => {
-    for (const q of ['cyan', 'sky blue', 'light blue', 'turquoise', 'Celestine']) expect(find(q), q).toEqual(['demo-017']);
-    expect(find('blue')).not.toContain('demo-017');
-    expect(find('blue sky blue')).toEqual([]);
-  });
-
   it('answers the other everyday words', () => {
     expect(find('moon')).toEqual(['demo-017']);
     expect(find('fire')).toEqual(['demo-015']);
@@ -237,7 +231,7 @@ describe('the offline store answers like the library', () => {
 
   const QUERIES = [
     'yellow', 'gold lion', 'passant wolf', 'wolf passant', 'bird', 'white border', 'star', 'wolves', 'Or',
-    'yellow animal on black with a white border', 'cyan', 'sky blue', 'walking', 'the', '%', 'Bright', 'key', 'chief',
+    'yellow animal on black with a white border', 'walking', 'the', '%', 'Bright', 'key', 'chief',
   ];
 
   it('returns the same ids in the same order, for every query', async () => {

@@ -100,36 +100,6 @@ describe('unknown API routes', () => {
 // ── create ───────────────────────────────────────────────────────────────────────────────────
 
 describe('POST /api/arms', () => {
-  it('accepts celestine designs and rejects celestine on another metal', async () => {
-    const ok = await call('POST', '/api/arms', {
-      body: {
-        email: OWNER_EMAIL, displayName: 'Sky Marlowe',
-        contact: null,
-        design: arms('vert', group(ordinary('chevron'), 'celestine'), group(charge('rose'), 'argent', { count: 3 })),
-      },
-    });
-    expect(ok.status, await ok.clone().text()).toBe(201);
-    const data = await bodyOf(ok);
-    expect(data.blazon).toBe('Vert, a chevron celestine between three roses argent.');
-    expect(data.signature).toBe('arms|vt|P:o.chevron:1:single:ce|S>:c.rose:3:host:ar');
-    const tags = await env.DB.prepare(`SELECT tag FROM arms_tags WHERE arms_id = ?`).bind(data.id).all<{ tag: string }>();
-    expect(tags.results.map((r) => r.tag)).toEqual(expect.arrayContaining(['ordinary-tincture:celestine', 'tincture:celestine']));
-
-    const check = await call('POST', '/api/arms/check', {
-      body: { design: lone('celestine', 'stag', 'sable') },
-    });
-    expect(check.status).toBe(200);
-    expect((await bodyOf(check)).verdict).toBe('ok');
-
-    const bad = await call('POST', '/api/arms', {
-      body: { email: OWNER_EMAIL, displayName: 'Metal Metal', contact: null, design: arms('argent', group(ordinary('fess'), 'celestine')) },
-    });
-    expect(bad.status).toBe(400);
-    const err = await bodyOf(bad);
-    expect(err.error).toBe('invalid_design');
-    expect(err.issues.map((i: Json) => i.message).join(' ')).toMatch(/metal on metal/);
-  });
-
   it('registers in the default registry, returns id + secret, and stores only the hash', async () => {
     const res = await call('POST', '/api/arms', {
       body: {
@@ -522,13 +492,6 @@ describe('GET /api/arms (search)', () => {
     expect(none.items).toEqual([]);
   });
 
-  it('finds celestine arms by its filter and by everyday colour words in q', async () => {
-    expect(names(await find({ tincture: 'celestine' }))).toEqual(['Quinn Ashworth']);
-    expect(names(await find({ chargeTincture: 'celestine' }))).toEqual([]);
-    for (const q of ['cyan', 'sky blue', 'light blue', 'Turquoise', 'celestine']) expect(names(await find({ q })), q).toEqual(['Quinn Ashworth']);
-    expect(names(await find({ q: 'cyan', charge: 'crescent' }))).toEqual(['Quinn Ashworth']);
-  });
-
   it('matches q case-insensitively as whole words of name, blazon or gloss; punctuation matches nothing', async () => {
     expect(names(await find({ q: 'UNICORN' }))).toEqual(['Basil Thorne']);
     expect(names(await find({ q: 'pike' }))).toEqual(['Noor Pike']);
@@ -628,7 +591,7 @@ describe('GET /api/arms (search)', () => {
 const PARITY_CASES: SearchArgs[] = [
   {}, { charge: 'mullet' }, { ordinary: 'chief' }, { tincture: 'or' }, { tincture: 'argent', division: 'plain' },
   { chargeTincture: 'or' }, { posture: 'rampant' }, { division: 'per-bend-sinister' }, { category: 'beast' }, { fieldTincture: 'azure' },
-  { tincture: 'celestine' }, { q: 'Sable' }, { q: 'cyan' }, { q: 'sky blue', division: 'plain' }, { q: 'a', tincture: 'vert' },
+  { q: 'Sable' }, { q: 'white', division: 'plain' }, { q: 'a', tincture: 'vert' },
   { q: 'yellow' }, { q: 'gold lion' }, { q: 'passant wolf' }, { q: 'wolf passant' }, { q: 'walking wolf' }, { q: 'standing goat' },
   { q: 'bird' }, { q: 'white border' }, { q: 'star' }, { q: 'wolves' }, { q: 'Or' }, { q: 'or', ordinary: 'bend' }, { q: 'animal' },
   { q: 'yellow animal on black with a white border' }, { q: 'a red dragon' }, { q: 'rearing dragon' }, { q: 'segreant' },

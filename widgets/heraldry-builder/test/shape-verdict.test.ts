@@ -50,7 +50,7 @@ const BROKEN: Array<[string, unknown]> = [
 const COUNTERCHANGED: Array<[string, unknown]> = [
   ['per pale, 3 two and one', arms(div('per-pale', 'or', 'azure'), chg('mullet', 'counterchanged', { count: 3 }))],
   ['per fess, 2 in bend', arms(div('per-fess', 'gules', 'argent'), chg('rose', 'counterchanged', { count: 2, arrangement: 'in-bend' }))],
-  ['per bend, 3 in fess', arms(div('per-bend', 'celestine', 'vert'), chg('key', 'counterchanged', { count: 3, arrangement: 'in-fess' }))],
+  ['per bend, 3 in fess', arms(div('per-bend', 'argent', 'vert'), chg('key', 'counterchanged', { count: 3, arrangement: 'in-fess' }))],
   ['per bend sinister, single', arms(div('per-bend-sinister', 'sable', 'or'), chg('lion', 'counterchanged'))],
   ['per saltire, 5 in cross', arms(div('per-saltire', 'argent', 'purpure'), chg('heart', 'counterchanged', { count: 5, arrangement: 'in-cross' }))],
   ['per chevron, 6', arms(div('per-chevron', 'azure', 'or'), chg('crescent', 'counterchanged', { count: 6 }))],

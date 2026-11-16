@@ -1022,7 +1022,7 @@
         "kind": "arms",
         "field": {
           "k": "tincture",
-          "t": "celestine"
+          "t": "argent"
         },
         "groups": [
           {
@@ -1053,8 +1053,8 @@
           }
         ]
       },
-      "signature": "arms|ce|P:c.crescent:1:single:gu",
-      "blazon": "Celestine, a crescent gules."
+      "signature": "arms|ar|P:c.crescent:1:single:gu",
+      "blazon": "Argent, a crescent gules."
     },
     {
       "id": "demo-018",

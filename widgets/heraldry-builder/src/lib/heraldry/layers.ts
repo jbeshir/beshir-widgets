@@ -7,7 +7,6 @@
 // leaves, and anything that can't be drawn is blocked with its reason, never silently dropped.
 
 import { CHARGE_IDS, CHARGES, CUT_MODIFIERS, type ChargeId } from './charges';
-import { NON_STANDARD_TINCTURES } from './tinctures';
 import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Charge, type Design, type Group, type Issue, type GroupPath, type GroupTincture, type Lines } from './design';
 import { MORE_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
@@ -155,14 +154,14 @@ function withFirstTincture(d: Design, path: GroupPath): Design | null {
 }
 
 /**
- * The design painted with the first standard tincture that works for the group at `path` and is in no other band or picture,
+ * The design painted with the first tincture that works for the group at `path` and is in no other band or picture,
  * so a band laid across everything, or a top band or border beside the band, can be told from what it crosses or meets;
  * else the first that works; null when none does.
  */
 function withTinctureApart(d: Design, path: GroupPath): Design | null {
   const choices = groupTinctureChoices(d, path);
   const others = new Set(walkGroups(d).filter((w) => !samePath(w.path, path)).flatMap((w) => bodyTinctures(w.group.paint)));
-  const apart = choices.find((c) => c.allowed && c.value !== 'counterchanged' && !NON_STANDARD_TINCTURES.has(c.value) && !others.has(c.value));
+  const apart = choices.find((c) => c.allowed && c.value !== 'counterchanged' && !others.has(c.value));
   return apart ? canonical(withTincture(d, path, apart.value)) : withFirstTincture(d, path);
 }
 

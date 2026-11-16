@@ -51328,7 +51328,7 @@
       "regid:142564": ["charge-insect:cicada"],
       "regid:142689": ["charge-insect:snail"]
     }},
-    {"category": "tincture", "description": "a tincture outside the widget's eight, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged", "singleGap": 83, "records": {
+    {"category": "tincture", "description": "a tincture outside the widget's seven, a charge counterchanged in named tinctures (counterchanged vert and argent), or an ordinary counterchanged", "singleGap": 83, "records": {
       "regid:838": ["tincture:party"],
       "regid:7561": ["tincture:party"],
       "regid:10167": ["tincture:party"],
