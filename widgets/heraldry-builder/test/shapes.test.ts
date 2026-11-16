@@ -13,8 +13,8 @@ const searchText = (design: Design) => buildSearchText({ displayName: '', blazon
 const between = (a: unknown, b: unknown) => differences(nd(a), nd(b)).map((d) => `${d.attr}:${d.kind}:${d.rule}`);
 
 describe('the shapes', () => {
-  it('are charges in the Shapes category that the builder draws without a gap', () => {
-    const shapes = chargesInCategory('geometric').map((m) => m.id);
+  it('are charges in the Shapes category (the cross crosslet among the Crosses) that the builder draws without a gap', () => {
+    const shapes = [...chargesInCategory('geometric'), ...chargesInCategory('cross')].map((m) => m.id);
     for (const id of SHAPES) {
       expect(shapes).toContain(id);
       const d = on(id, 'or');

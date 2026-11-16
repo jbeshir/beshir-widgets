@@ -2,25 +2,43 @@
 // walk order (each group followed by the groups on it). DOM-free; Shield.tsx turns layers into SVG.
 
 import type { Tincture } from './tinctures';
-import { chargePath } from './charge-art';
-import { paintTinctures, walkGroups, type Design, type Group, type GroupPath } from './design';
-import { badgeTransform, CANONICAL_SHAPE, drawnBox, shapeFrame, type Slot } from './geometry';
+import { drawnBox } from './charge-art';
+import { fimbriationOf, isVoided, notSupported, paintTinctures, walkGroups, type Charge, type Design, type Group, type GroupPath, type Paint } from './design';
+import { badgeTransform, CANONICAL_SHAPE, shapeFrame, type ArtPose, type Slot } from './geometry';
 import { defaultOrdinaryFrame, fieldOrdinaryGeometry, ordinaryFrameOf, ordinaryGeometry, specOf, type OrdinaryTrim } from './ordinary-geometry';
 import { groupSlots } from './layout';
-import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type SlotFill } from './paint-render';
+import { chargePoses } from './pose';
+import { chargeFills, fieldFill, ordinaryFill, trimFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
+import { overlaidArt, type ArtOverlay, type OverlayPart } from './overlay-art';
 import type { FieldShape } from './shape';
 
 /** What an ordinary layer paints, in paint order: its fimbriation under its body, the body, then its cotises. */
 type OrdinaryPartRole = 'fimbriation' | 'body' | 'cotises';
 export interface OrdinaryPart { readonly role: OrdinaryPartRole; readonly d: string; readonly fillRule: 'nonzero' | 'evenodd'; readonly fill: Fill }
 
+/**
+ * What a charge's modifiers and parts draw with it in each of its slots (PLAN-D §0.3.5): its fimbriation, the art under it edged
+ * `FIMBRIATION_WIDTH` wider all round in the fimbriation's fill; its voiding, the charge kept only `VOIDED_WIDTH` in from its edge; or a
+ * piece (overlay-art.ts) filled in its paint, under the charge or over it (a collar clipped to the charge's outline).
+ */
+export type ChargeOverlay =
+  | { effect: 'fimbriation'; fill: LeafFill }
+  | { effect: 'voided' }
+  | { effect: 'fill'; part: OverlayPart; art: string; under: boolean; fill: LeafFill };
+
+/** How far a fimbriation reaches out from a charge's edge, in art units (of its 100-unit box). */
+export const FIMBRIATION_WIDTH = 3.5;
+
+/** How wide a voided charge's band is, in art units: about two thirds of the mascle's (10.6), wide enough to read on a small shield. */
+export const VOIDED_WIDTH = 7;
+
 export type Layer =
   /** `outline` is the field's whole shape; a divided field's `fill` cuts it into parts. */
   | { k: 'field'; outline: string; fill: Fill }
   /** The body is always one of the parts. */
   | { k: 'ordinary'; path: GroupPath; parts: readonly OrdinaryPart[] }
-  /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale); each fill paints some of them. */
-  | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; fills: SlotFill[] };
+  /** `slots` are the drawn boxes (the slots scaled by the charge's optical scale), with the art posed in each; each fill paints some of them. */
+  | { k: 'charges'; path: GroupPath; art: string; slots: Slot[]; poses: ArtPose[]; fills: SlotFill[]; overlays: ChargeOverlay[] };
 
 const trimPart = (role: OrdinaryPartRole, trim: OrdinaryTrim, fill: Fill): OrdinaryPart => ({ role, d: trim.d, fillRule: trim.fillRule, fill });
 
@@ -43,10 +61,30 @@ function ordinaryLayer(d: Design, path: GroupPath, group: Group, host: Group | n
 }
 
 function chargeLayer(d: Design, path: GroupPath, group: Group, host: Group | null, shape: FieldShape): Layer {
-  if (group.item.k !== 'charge') throw new RangeError('Not a charge.');
-  const { charge, posture, mods } = group.item;
-  const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, charge));
-  return { k: 'charges', path, art: chargePath(charge, posture, mods), slots, fills: chargeFills(d, group, host, slots, shape) };
+  const { item } = group;
+  if (item.k !== 'charge') throw new RangeError('Not a charge.');
+  const slots = groupSlots(d, path, shape).map((s) => drawnBox(s, item));
+  const { art, overlays } = overlaidArt(item);
+  // the pieces under the charge (wings, flames, a slip) turn with it, so it is refitted with them
+  const poses = chargePoses(item, group.arrangement, slots, [art, ...overlays.filter((o) => o.under).map((o) => o.d)].join(''));
+  return { k: 'charges', path, art, slots, poses, fills: chargeFills(d, group, host, slots, poses, shape), overlays: [...chargeOverlays(item), ...overlays.map(pieceOverlay)] };
+}
+
+/** A piece's or held item's paint as a fill: a tincture, or its natural colour. */
+function pieceFill(o: ArtOverlay): LeafFill {
+  if (o.paint.k === 'tincture') return { k: 'solid', colour: { k: 'tincture', t: o.paint.t } };
+  return o.paint.k === 'proper' && o.natural ? { k: 'solid', colour: { k: 'proper', hex: o.natural } } : notSupported({ category: 'charge-modifier', detail: o.part });
+}
+
+const pieceOverlay = (o: ArtOverlay): ChargeOverlay => ({ effect: 'fill', part: o.part, art: o.d, under: o.under, fill: pieceFill(o) });
+
+/** The effects a charge's modifiers draw with its art: fimbriated in a tincture (support.ts draws no other paint), voided. */
+function chargeOverlays(item: Charge): ChargeOverlay[] {
+  const fimbriation = fimbriationOf(item);
+  return [
+    ...(fimbriation?.k === 'tincture' ? [{ effect: 'fimbriation', fill: { k: 'solid', colour: fimbriation } } as const] : []),
+    ...(isVoided(item) ? [{ effect: 'voided' } as const] : []),
+  ];
 }
 
 /**
@@ -68,7 +106,7 @@ export function badgeView(d: Design, layers: readonly Layer[]): string | null {
   return badgeTransform(layers.flatMap((l) => (l.k === 'charges' ? l.slots : [])));
 }
 
-/** The tinctures a design uses, in order of first use: what hatching patterns are needed for. Counterchanged adds none. */
+/** The tinctures a design uses, in order of first use: what hatching patterns are needed for; held items' too (§1.5 H6). Counterchanged adds none. */
 export function designTinctures(d: Design): Tincture[] {
   const seen = new Set<Tincture>();
   const take = (p: Group['paint']) => paintTinctures(p).forEach((t) => seen.add(t));
@@ -76,6 +114,7 @@ export function designTinctures(d: Design): Tincture[] {
   walkGroups(d).forEach(({ group }) => {
     take(group.paint);
     if (group.item.k === 'ordinary') [group.item.fimbriated, group.item.cotised?.paint].forEach((p) => p && take(p));
+    else group.item.holds.forEach((h) => take(h.paint));
   });
   return [...seen];
 }

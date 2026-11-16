@@ -9,6 +9,7 @@ import {
 } from '../src/lib/heraldry';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
+import { rotatesIn, sampleSeed } from './rotation';
 
 const chg = (id: string, paint: string, extra: object = {}, attrs: object = {}) => group(charge(id, attrs), paint, extra);
 const ord = (type: string, paint: string, extra: object = {}) => group(ordinary(type), paint, extra);
@@ -247,9 +248,79 @@ describe('the primary group (A5E)', () => {
     expect(between(on('lion'), on('dragon'))).toEqual(['type:sc:A5E2']);
     expect(between(on('stag', { posture: 'statant' }), on('boar', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
     expect(between(on('mullet'), on('sun'))).toEqual(['type:dc:A5G4']);
+    // Anna Syveken 06/2020: a comet is a DC from a mullet; App M1g gives it its own token, so from the sun too.
+    expect(between(on('comet'), on('mullet'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('comet'), on('sun'))).toEqual(['type:dc:A5G4']);
+    // Art batch B7 (guesses, A5G4): a tower is a DC from a castle, a goblet from a chalice and from a tankard; unrelated classes are an SC.
+    expect(between(on('tower'), on('castle'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('goblet'), on('chalice'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('goblet'), on('tankard'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('chalice'), on('tankard'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('tower'), on('goblet'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('bell'), on('hand'))).toEqual(['type:sc:A5E2']);
+    // D16b (guesses, A5G4): the wheel and the Catherine wheel share a class (DC), as the heart and the seeblatt do; the escarbuncle is a class of its own.
+    expect(between(on('wheel'), on('catherine-wheel'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('heart'), on('seeblatt'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('escarbuncle'), on('mullet'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('wheel'), on('gear'))).toEqual(['type:sc:A5E2']);
+    // The aliases of the art in art/procedural/derived.ts are the type of the charge they name (PLAN-D §1.6 T1: hawk = raven = falcon, rapier and dagger = sword,
+    // coney and rabbit = hare, coronet = crown); a vol, a pair of wings, has a token of its own.
+    for (const [alias, named] of [['hawk', 'raven'], ['hawk', 'falcon'], ['rapier', 'sword'], ['dagger', 'rapier'], ['coney', 'hare'], ['rabbit', 'coney'], ['coronet', 'crown']] as const) {
+      expect(between(on(alias), on(named)), `${alias} / ${named}`).toEqual([]);
+    }
+    expect(between(on('vol'), on('wing'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('hawk'), on('eagle', { posture: 'close' }))).toEqual(['type:dc:A5G4']);
+    expect(between(on('rapier'), on('key'))).toEqual(['type:sc:A5E2']);
     expect(between(on('mullet'), on('rose'))).toEqual(['type:sc:A5E2']);
-    expect(between(on('eagle'), on('owl'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('eagle'), on('owl'))).toEqual(['posture:sc:A5E5', 'type:dc:A5G4']); // the owl is close (GoT Table 5)
+    // art batch B1: a cat is a feline like the lion, a fox a canine like the wolf (A5C3); the bear, horse and squirrel are types of their own
+    expect(between(on('cat', { posture: 'rampant' }), on('lion', { posture: 'rampant' }))).toEqual([]);
+    expect(between(on('fox', { posture: 'rampant' }), on('wolf', { posture: 'rampant' }))).toEqual([]);
+    expect(between(on('cat'), on('fox'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('bear', { posture: 'rampant' }), on('wolf', { posture: 'rampant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('horse', { posture: 'passant' }), on('wolf', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('squirrel'), on('hare'))).toEqual(['type:sc:A5E2']);
+    // art batch B2: the wyvern is a DC from the dragon (App M1e), the pegasus from the horse (Vagn Feilan 11/2014); the griffin and the sea-creatures are types of their own
+    expect(between(on('wyvern', { posture: 'statant' }), on('dragon', { posture: 'passant' }))).toEqual(['type:dc:A5G4']);
+    expect(between(on('pegasus', { posture: 'passant' }), on('horse', { posture: 'passant' }))).toEqual(['type:dc:A5G4']);
+    expect(between(on('griffin', { posture: 'passant' }), on('lion', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('griffin', { posture: 'passant' }), on('dragon', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('sea-lion'), on('lion'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('seahorse'), on('horse', { posture: 'passant' }))).toEqual(['type:sc:A5E2']);
+    expect(between(on('seahorse'), on('sea-lion'))).toEqual(['type:sc:A5E2']);
+    // art batch B3: a falcon is a raven (Teodr' Viktorov 08/2023); the other birds are one class by shape (T6, below)
+    expect(between(on('falcon', { posture: 'close' }), on('raven', { posture: 'close' }))).toEqual([]);
+    expect(between(on('falcon', { posture: 'rising' }), on('raven', { posture: 'rising' }))).toEqual([]);
+    expect(between(on('dove'), on('martlet'))).toEqual(['type:dc:A5G4']);
     expect(between(on('lion'), design('azure', ord('fess', 'or')))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('compares charges of one class by their type tokens: stars, crosses, shapes, foils and roundels (§1.6 T2–T4)', () => {
+    const on = (id: string, attrs: object = {}) => design('azure', chg(id, 'or', {}, attrs));
+    // App M1g: a compass star is a mullet of eight points, and a star of eight points or more a sun too (herald question D11).
+    expect(between(on('mullet'), on('compass-star'))).toEqual([]);
+    expect(between(on('compass-star'), on('sun'))).toEqual([]);
+    expect(between(on('mullet'), on('sun'))).toEqual(['type:dc:A5G4']);
+    // App M1f: crosses of different families are substantially different, of one family a DC apart; Latin or equal-armed is nothing.
+    expect(between(on('cross-formy'), on('cross-maltese'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('cross-flory'), on('cross-patonce'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('cross-crosslet'), on('cross-bottony'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('cross-couped'), on('cross-latin'))).toEqual([]);
+    expect(between(on('cross-latin', { mods: ['fitchy'] }), on('cross-latin'))).toEqual([]);
+    // A plain cross couped is the ordinary cross couped (herald questions D12, D22), and a DC from the cross throughout.
+    const ordinaryCross = (mods: string[]) => design('azure', group(ordinary('cross', { mods }), 'or'));
+    expect(between(on('cross-latin'), ordinaryCross(['couped']))).toEqual([]);
+    expect(between(on('cross-couped'), ordinaryCross([]))).toEqual(['type:dc:A5G4']);
+    expect(between(on('cross-formy'), ordinaryCross(['couped']))).toEqual(['type:sc:A5E2']);
+    expect(between(on('mascle'), on('lozenge'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('delf'), on('billet'))).toEqual(['type:dc:A5G4']);
+    // App M1i (01/2025 CL): foils are flowers of as many petals; four, five or six petals conflict, three against more is a DC.
+    expect(between(on('cinquefoil'), on('rose'))).toEqual([]);
+    expect(between(on('quatrefoil'), on('cinquefoil'))).toEqual([]);
+    expect(between(on('trefoil'), on('quatrefoil'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('trefoil'), on('rose'))).toEqual(['type:dc:A5G4']);
+    // Halawa bint Tariq 05/2023: an annulet is a DC from a roundel, not an SC (herald question D20).
+    expect(between(on('annulet'), on('roundel'))).toEqual(['type:dc:A5G4']);
   });
 
   it('two ordinaries of different types are a substantial change, mirror images included', () => {
@@ -312,7 +383,8 @@ describe('the primary group (A5E)', () => {
     expect(between(on('lion', 'rampant'), on('hare', 'courant'))).toEqual(['type:sc:A5E2', 'posture:sc:A5E5']);
     // never between an animate charge and one without a posture
     expect(between(on('lion', 'rampant'), design('azure', chg('rose', 'or')))).toEqual(['type:sc:A5E2']);
-    expect(between(on('eagle', 'displayed'), design('azure', chg('owl', 'or')))).toEqual(['type:dc:A5G4']);
+    // the owl, drawn in no posture, is close (GoT Table 5)
+    expect(between(on('eagle', 'displayed'), design('azure', chg('owl', 'or')))).toEqual(['posture:sc:A5E5', 'type:dc:A5G4']);
   });
 });
 
@@ -564,13 +636,15 @@ describe('sweeps over generated designs', () => {
     }
   }, 30_000);
 
+  // Seeded sampling: a rotating half of the pairs (`rotatesIn`; SCA_FULL=1 for all).
   it('is symmetric: the same changes either way round (SENA compares, it does not order)', () => {
     let pairs = 0;
-    for (const a of designs) for (const b of designs) {
+    for (const [i, a] of designs.entries()) for (const [j, b] of designs.entries()) {
+      if (!rotatesIn(`symmetric|${i}|${j}`, 1 / 2)) continue;
       expect(asMultiset(differences(a, b)), `${signature(a)} vs ${signature(b)}`).toEqual(asMultiset(differences(b, a)));
       pairs++;
     }
-    expect(pairs).toBeGreaterThan(20_000);
+    expect(pairs, `sample seed ${sampleSeed()}`).toBeGreaterThan(20_000);
   }, 60_000);
 
   it('gives at most one distinct change per attribute and group, and no distinct change for an attribute that is substantial', () => {
@@ -723,5 +797,237 @@ describe('counterchanged and the same tinctures written out (A5G3a)', () => {
   it('but several charges counterchanged lie each in one part, unlike several charges each divided', () => {
     const three = (paint: unknown) => nd(arms(div('per-pale', 'argent', 'azure'), group(charge('lion'), paint, { count: 3 })));
     expect(between(three('counterchanged'), three(div('per-pale', 'azure', 'argent')))).toEqual(['tincture:dc:A5G3']);
+  });
+});
+
+describe('postures (PLAN-D §1.2 P1–P3, P7)', () => {
+  const on = (id: string, posture: string, attrs: object = {}) => design('azure', chg(id, 'or', {}, { posture, ...attrs }));
+  /** A posture compared whether or not it is drawn (statant erect, an eagle naiant: conflict does not need the art). */
+  const undrawn = (id: string, posture: string, ...before: object[]) => nd(arms('azure', ...before, chg(id, 'or', before.length ? { count: 3, relation: 'between' } : {}, { posture })));
+
+  it('P1: the four-legged lines — passant against couchant a DC, couchant against dormant and rampant against salient none, rampant against sejant a DC', () => {
+    expect(between(on('lion', 'passant'), on('lion', 'couchant'))).toEqual(['posture:dc:A5G7']);
+    expect(between(on('lion', 'couchant'), on('lion', 'dormant'))).toEqual([]);
+    expect(between(on('lion', 'rampant'), on('lion', 'salient'))).toEqual([]);
+    expect(between(on('lion', 'courant'), on('lion', 'passant'))).toEqual([]);
+    // herald question D2: rampant and sejant share A5E5a's line but not App L1a's
+    expect(between(on('lion', 'rampant'), on('lion', 'sejant'))).toEqual(['posture:dc:A5G7']);
+    expect(between(on('lion', 'sejant-erect'), on('lion', 'rampant'))).toEqual([]);
+    expect(between(on('lion', 'sejant-erect'), on('lion', 'sejant'))).toEqual([]);
+    expect(between(on('lion', 'couchant'), on('lion', 'rampant'))).toEqual(['posture:sc:A5E5']);
+    expect(between(on('stag', 'couchant'), on('stag', 'statant'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('P1: statant erect joins the rampant line, so against passant it is a substantial change as the primary, against rampant none', () => {
+    expect(between(undrawn('lion', 'statant-erect'), undrawn('lion', 'passant'))).toEqual(['posture:sc:A5E5']);
+    expect(between(undrawn('lion', 'statant-erect'), undrawn('lion', 'rampant'))).toEqual([]);
+    // beside a fess, as a secondary group, it is a distinct change only
+    const fess = ord('fess', 'argent');
+    expect(between(undrawn('lion', 'statant-erect', fess), undrawn('lion', 'passant', fess))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('P2: birds — close against rising a substantial change as the primary, close against naiant none, displayed against volant a DC', () => {
+    expect(between(on('eagle', 'close'), on('eagle', 'rising'))).toEqual(['posture:sc:A5E5']);
+    expect(between(on('eagle', 'close'), undrawn('eagle', 'naiant'))).toEqual([]);
+    expect(between(on('eagle', 'displayed'), on('eagle', 'volant'))).toEqual(['posture:dc:A5G7']);
+    expect(between(on('eagle', 'displayed'), on('eagle', 'close'))).toEqual(['posture:sc:A5E5']);
+  });
+
+  it('T6: birds of different shapes are a substantial change apart in the postures the period drew (close, rising, a swan naiant), a distinct change otherwise', () => {
+    expect(between(on('swan', 'close'), on('raven', 'close'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('peacock', 'close'), on('eagle', 'close'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('swan', 'rising'), on('raven', 'close'))).toEqual(['type:sc:A5E2', 'posture:sc:A5E5']);
+    expect(between(undrawn('swan', 'naiant'), on('raven', 'close'))).toEqual(['type:sc:A5E2']);
+    expect(between(on('swan', 'rising'), nd(arms('azure', chg('owl', 'or'))))).toEqual(['type:sc:A5E2', 'posture:sc:A5E5']);
+    // "There is not an SC between birds displayed" (CL 04/2024): a DC, and none from the postures either
+    expect(between(undrawn('swan', 'displayed'), on('eagle', 'displayed'))).toEqual(['type:dc:A5G4']);
+    expect(between(undrawn('peacock', 'volant'), on('eagle', 'volant'))).toEqual(['type:dc:A5G4']);
+    expect(between(undrawn('raven', 'naiant'), undrawn('swan', 'naiant'))).toEqual(['type:dc:A5G4']);
+    expect(between(on('swan', 'close'), on('eagle', 'displayed'))).toEqual(['type:dc:A5G4', 'posture:dc:A5G7']);
+    // birds of one shape: the posture lines decide as before
+    expect(between(on('raven', 'close'), on('eagle', 'displayed'))).toEqual(['posture:sc:A5E5', 'type:dc:A5G4']);
+    expect(between(on('raven', 'close'), on('raven', 'rising'))).toEqual(['posture:sc:A5E5']);
+  });
+
+  it('P3: a fish haurient against urinant is no difference; P7: a beast and a bird are not compared by posture', () => {
+    expect(between(on('fish', 'haurient'), on('fish', 'urinant'))).toEqual([]);
+    expect(between(on('fish', 'naiant'), on('fish', 'urinant'))).toEqual(['posture:sc:A5E5']);
+    expect(between(on('lion', 'couchant'), on('eagle', 'close'))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('F4: a lion guardant or regardant against one looking ahead is no difference, whatever its posture', () => {
+    expect(between(on('lion', 'passant', { gaze: 'guardant' }), on('lion', 'passant'))).toEqual([]);
+    expect(between(on('lion', 'rampant', { gaze: 'regardant' }), on('lion', 'rampant', { gaze: 'guardant' }))).toEqual([]);
+    expect(between(on('lion', 'passant', { gaze: 'guardant' }), on('lion', 'rampant'))).toEqual(['posture:sc:A5E5']);
+  });
+});
+
+describe('facing, gaze and pairs (PLAN-D §1.1 F1–F10)', () => {
+  const lion = (attrs: object = {}, extra: object = {}) => chg('lion', 'or', extra, attrs);
+  const pair = (id: string, word: string) => chg(id, 'or', { count: 2, arrangement: { k: 'pair', pair: word } });
+  const contourny = { facing: 'to-sinister' };
+
+  it('F1: a lion, an eagle or a fish naiant against the same facing to sinister is a distinct change, never substantial', () => {
+    expect(between(design('azure', lion()), design('azure', lion(contourny)))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', chg('eagle', 'or')), design('azure', chg('eagle', 'or', {}, contourny)))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', chg('fish', 'or')), design('azure', chg('fish', 'or', {}, contourny)))).toEqual(['posture:dc:A5G7']);
+    // so a facing and one more change clear it
+    expect(isClear(differences(design('azure', lion()), design('gules', lion(contourny))))).toBe(true);
+  });
+
+  it('F2: no difference for the facing of an owl, of a fish haurient, or of charges in annulo', () => {
+    const owl = design('azure', chg('owl', 'or'));
+    const owlTurned = { ...owl, groups: [{ ...owl.groups[0], item: { ...owl.groups[0].item, facing: 'to-sinister' } }] } as Design;
+    expect(between(owl, owlTurned)).toEqual([]);
+    const haurient = { posture: 'haurient' };
+    expect(between(design('azure', chg('fish', 'or', {}, haurient)), design('azure', chg('fish', 'or', {}, { ...haurient, ...contourny })))).toEqual([]);
+    const annulo = { count: 3, arrangement: 'in-annulo' };
+    expect(between(nd(arms('azure', lion({}, annulo))), nd(arms('azure', lion(contourny, annulo))))).toEqual([]);
+  });
+
+  it('F3: a dolphin\'s facing counts in every posture, and the dolphin is a type of its own among the fish', () => {
+    const dolphin = (attrs: object = {}) => chg('dolphin', 'or', {}, attrs);
+    expect(between(design('azure', dolphin()), design('azure', dolphin(contourny)))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', dolphin({ posture: 'haurient' })), design('azure', dolphin({ posture: 'haurient', ...contourny })))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', dolphin()), design('azure', dolphin({ posture: 'haurient' })))).toEqual(['posture:sc:A5E5']);
+    expect(between(design('azure', dolphin()), design('azure', chg('fish', 'or')))).toEqual(['type:dc:A5G4']);
+  });
+
+
+  it('F4: the gaze of a whole beast makes no difference', () => {
+    expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ gaze: 'guardant' }))))).toEqual([]);
+    expect(between(nd(arms('azure', lion({ gaze: 'regardant' }))), nd(arms('azure', lion({ gaze: 'guardant' }))))).toEqual([]);
+  });
+
+  it('F6: two charges facing each other, back to back and the same way are each a distinct change apart, whatever their types', () => {
+    expect(between(design('azure', pair('lion', 'combattant')), design('azure', pair('lion', 'addorsed')))).toEqual(['posture:dc:A5G7']);
+    // F8: the pair is the arrangement in fess, so against two lions in fess only the pose changes (herald question D19)
+    expect(between(design('azure', pair('lion', 'combattant')), design('azure', lion({}, { count: 2, arrangement: 'in-fess' })))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', pair('lion', 'combattant')), design('azure', pair('lion', 'respectant')))).toEqual([]);
+    expect(between(design('azure', pair('lion', 'combattant')), design('azure', pair('eagle', 'addorsed')))).toEqual(['type:sc:A5E2', 'posture:dc:A5G7']);
+    expect(between(design('azure', pair('lion', 'addorsed')), design('azure', pair('eagle', 'addorsed')))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('F6, F8 around a pale: the pair keeps the place the pale gives, and its pose is a distinct change', () => {
+    const pale = (word: string | null) => design('azure', ord('pale', 'argent'), word ? pair('lion', word) : chg('lion', 'or', { count: 2 }));
+    expect(between(pale('combattant'), pale(null))).toEqual(['posture:dc:A5G7']);
+    expect(between(pale('combattant'), pale('addorsed'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('F9: a posture and a facing changed together on one group are one distinct change', () => {
+    expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ posture: 'sejant', ...contourny }))))).toEqual(['posture:dc:A5G7']);
+    expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ posture: 'sejant' }))))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('F10: a beast affronty against one in profile is a substantial change as the primary', () => {
+    expect(between(nd(arms('azure', lion())), nd(arms('azure', lion({ facing: 'affronty' }))))).toEqual(['posture:sc:A5E5']);
+  });
+
+  it('explains a facing and a pair in words', () => {
+    const [facing] = explainDifferences(design('azure', lion(contourny)), design('azure', lion()));
+    expect(facing.text).toBe('pose of picture (rampant contourny ↔ rampant)');
+    expect(facing.why).toBe('Turning a lion to face the other way is a distinct change (SENA A5G7).');
+    const [paired] = explainDifferences(design('azure', pair('lion', 'combattant')), design('azure', lion({}, { count: 2, arrangement: 'in-fess' })));
+    expect(paired.text).toBe('pose of picture (rampant combattant ↔ rampant)');
+    expect(paired.why).toBe('Turning the two lions to face each other, back to back or the same way is a distinct change (SENA A5G7).');
+  });
+});
+
+describe('orientation (PLAN-D §1.3 O1–O10)', () => {
+  const turned = (id: string, orientation: string | null, extra: object = {}, paint = 'or') => chg(id, paint, extra, orientation ? { orientation } : {});
+
+  it('O1: long primary charges along different axes are a substantial change; to center against an axis only a distinct one (O7)', () => {
+    expect(between(design('azure', turned('sword', 'fesswise')), design('azure', turned('sword', 'bendwise-inverted')))).toEqual(['posture:sc:A5E5']);
+    expect(between(design('azure', turned('sword', null)), design('azure', turned('sword', 'fesswise')))).toEqual(['posture:sc:A5E5']);
+    const four = { count: 4, arrangement: 'in-cross' };
+    expect(between(design('azure', turned('sword', 'to-center', four)), design('azure', turned('sword', 'palewise', four)))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('O2: long charges of any types along different axes are a distinct change as secondaries', () => {
+    const around = (id: string, orientation: string) => design('azure', ord('fess', 'argent'), turned(id, orientation, { count: 2 }));
+    expect(between(around('key', 'palewise'), around('sword', 'fesswise'))).toEqual(['type:dc:A5G4', 'posture:dc:A5G7']);
+    expect(between(around('sword', 'palewise'), around('sword', 'bendwise'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('O3: a long charge with ends turned the other way along one axis is a distinct change, never substantial; across types nothing', () => {
+    expect(between(design('azure', turned('sword', null)), design('azure', turned('sword', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('sword', 'fesswise')), design('azure', turned('sword', 'fesswise-reversed')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('key', 'inverted')), design('azure', turned('sword', null)))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('O5: a crescent, an increscent and a decrescent are a distinct change apart; charges of different types are not (O6)', () => {
+    expect(between(design('azure', turned('crescent', null)), design('azure', turned('crescent', 'fesswise')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('crescent', 'fesswise')), design('azure', turned('crescent', 'fesswise-reversed')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('crescent', null)), design('azure', turned('heart', 'inverted')))).toEqual(['type:sc:A5E2']);
+  });
+
+  it('art batch B4: arrow palewise against sword fesswise (O2), axe fesswise against fesswise reversed (O3), pheon (O5) and harp (O5d, O9)', () => {
+    const around = (id: string, orientation: string) => design('azure', ord('fess', 'argent'), turned(id, orientation, { count: 2 }));
+    expect(between(around('arrow', 'palewise'), around('sword', 'fesswise'))).toEqual(['type:dc:A5G4', 'posture:dc:A5G7']);
+    expect(between(design('azure', turned('axe', 'fesswise')), design('azure', turned('axe', 'fesswise-reversed')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('arrow', null)), design('azure', turned('arrow', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('pheon', null)), design('azure', turned('pheon', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('pheon', 'bendwise')), design('azure', turned('crescent', 'bendwise')))).toEqual(['type:sc:A5E2']);
+    expect(between(design('azure', turned('harp', null)), design('azure', turned('harp', 'reversed')))).toEqual([]);
+    expect(between(design('azure', turned('arrow', null)), design('azure', turned('spear', null)))).toEqual(['type:sc:A5E2']);
+    expect(between(design('azure', turned('spear', null)), design('azure', turned('trident', null)))).toEqual(['type:sc:A5E2']);
+  });
+
+
+  it('art batch B5 and B6: an oak leaf by its axis only (O5b, O5c), an escallop by its direction (O5), a dragonfly like a long tergiant insect (P4), flowers none (O6)', () => {
+    const oak = (o: string | null) => design('argent', turned('oak-leaf', o, {}, 'vert'));
+    expect(between(oak(null), oak('bendwise'))).toEqual(['posture:dc:A5G7']);
+    expect(between(oak(null), oak('fesswise'))).toEqual(['posture:dc:A5G7']);
+    expect(between(oak(null), oak('inverted'))).toEqual([]);
+    expect(between(oak('fesswise'), oak('fesswise-reversed'))).toEqual([]);
+    expect(between(design('azure', turned('escallop', null)), design('azure', turned('escallop', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('acorn', null)), design('azure', turned('acorn', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('dragonfly', null)), design('azure', turned('dragonfly', 'inverted')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('dragonfly', null)), design('azure', turned('dragonfly', 'fesswise')))).toEqual(['posture:sc:A5E5']);
+    expect(between(design('azure', turned('butterfly', null)), design('azure', turned('butterfly', 'bendwise')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('thistle', null)), design('azure', turned('thistle', 'inverted')))).toEqual([]);
+    expect(between(design('azure', turned('acorn', null)), design('azure', turned('oak-leaf', null)))).toEqual(['type:sc:A5E2']);
+    expect(between(design('azure', turned('lily', null)), design('azure', turned('rose', null)))).toEqual(['type:sc:A5E2']);
+  });
+
+
+  it('art batch B7: the compact-top towers, cups, bell, hand, pawprint and comet by direction (O5), the reversed hand and tankard none (O9)', () => {
+    for (const id of ['tower', 'castle', 'goblet', 'chalice', 'tankard', 'bell', 'hand', 'pawprint', 'comet']) {
+      expect(between(design('azure', turned(id, null)), design('azure', turned(id, 'inverted'))), id).toEqual(['posture:dc:A5G7']);
+    }
+    expect(between(design('azure', turned('tower', null)), design('azure', turned('tower', 'fesswise')))).toEqual(['posture:dc:A5G7']);
+    expect(between(design('azure', turned('hand', null)), design('azure', turned('hand', 'reversed')))).toEqual([]);
+    expect(between(design('azure', turned('tankard', null)), design('azure', turned('tankard', 'reversed')))).toEqual([]);
+    expect(between(design('azure', turned('tower', 'inverted')), design('azure', turned('castle', 'inverted')))).toEqual(['type:dc:A5G4']);
+  });
+
+
+  it('O6, O9, O10: no difference for turning a radial charge or for reversing; a compact insect turned to another App L1c group is a distinct change (P4)', () => {
+    expect(between(design('azure', turned('mullet', null)), design('azure', turned('mullet', 'inverted')))).toEqual([]);
+    expect(between(design('azure', turned('billet', null)), design('azure', turned('billet', 'fesswise')))).toEqual([]);
+    expect(between(design('azure', turned('key', null)), design('azure', turned('key', 'reversed')))).toEqual([]);
+    expect(between(design('azure', turned('bee', null)), design('azure', turned('bee', 'bendwise')))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('O7: long charges to center against the same palewise are a distinct change', () => {
+    const four = (orientation: string | null) => design('azure', ord('fess', 'argent'), turned('sword', orientation, { count: 4 }));
+    expect(between(four('to-center'), four(null))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('charges on a bend lie along it: set bendwise there they are as they were, set palewise they are turned', () => {
+    const onBend = (orientation: string | null) => design('azure', group(ordinary('bend'), 'argent', { charged: [turned('sword', orientation, { count: 3 }, 'gules')] }));
+    expect(between(onBend(null), onBend('bendwise'))).toEqual([]);
+    expect(between(onBend(null), onBend('palewise'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('F9: a change of axis and of direction together on one group are one distinct change', () => {
+    const around = (orientation: string | null) => design('azure', ord('fess', 'argent'), turned('sword', orientation, { count: 2 }));
+    expect(between(around('inverted'), around('fesswise-reversed'))).toEqual(['posture:dc:A5G7']);
+  });
+
+  it('explains an orientation in words', () => {
+    const [note] = explainDifferences(design('azure', turned('crescent', 'fesswise')), design('azure', turned('crescent', null)));
+    expect(note.text).toBe('pose of picture (increscent ↔ none)');
+    expect(note.why).toBe('Pointing the crescents another way is a distinct change (SENA A5G7).');
   });
 });

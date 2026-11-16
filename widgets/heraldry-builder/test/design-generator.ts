@@ -6,7 +6,10 @@
 // as well as beside it, pictures on the chief and the bordure, pictures in chief, in base or in canton, pictures
 // set around the picture, pictures on the picture, a second main picture beside the picture, and a band or sword across everything.
 
-import { DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve, type Design } from '../src/lib/heraldry';
+import {
+  CHARGES as CHARGE_META, DIMINUTIVE_COUNTS, DRAWN_LINES, THIN_ORDINARIES, layoutCandidates, layoutKey, lineAllowed, modDrawn, normalise, resolve,
+  type ChargeId, type Design,
+} from '../src/lib/heraldry';
 
 /** mulberry32: a small deterministic PRNG. */
 function prng(seed: number): () => number {
@@ -356,6 +359,117 @@ export function generatedPeripheralDesigns(seed: number, count: number): Design[
   const designs: Design[] = [];
   for (let s = seed; designs.length < count; s++) {
     const d = peripheralDesignFor(s);
+    if (d) designs.push(d);
+  }
+  return designs;
+}
+
+/** Mixed into a seed for the picks of the charge attribute designs. */
+const ATTRIBUTE_SEED = 0x85ebca6b;
+/** The charges the attribute designs use: beasts, a bird and a fish that face (and turn), and two charges that don't. */
+const ATTRIBUTE_CHARGES = ['lion', 'wolf', 'eagle', 'fish', 'rose', 'mullet'];
+const FACING_CHARGES = ['lion', 'wolf', 'eagle', 'fish'];
+/** Charges that turn (§1.3): long, with a top, radial and an insect. */
+const TURNING_CHARGES: readonly ChargeId[] = ['sword', 'key', 'crescent', 'billet', 'mullet', 'bee'];
+
+/** The beasts the attribute designs draw as a head or a demi charge (§1.4 M1, M2), with the forms each is drawn in. */
+const FORM_CHARGES: Partial<Record<ChargeId, readonly ('head' | 'demi')[]>> = { lion: ['head', 'demi'], wolf: ['head', 'demi'], eagle: ['demi'] };
+
+/** The charges SENA A3C lets be voided or fimbriated (§1.4 M10). */
+const OUTLINED_CHARGES: readonly ChargeId[] = ['mullet', 'roundel', 'lozenge', 'delf', 'billet', 'triangle'];
+
+/**
+ * The design for `seed` with a charge group whose charges carry the phase-D attributes (PLAN-D §0.3.9): about one design in three faces
+ * to sinister (contourny) or is a pair (combattant, respectant or addorsed) on the field or around a pale; the rest are a charge group as
+ * drawn, sometimes with a pale or a fess, and about a third of those are a charge that turns, set one of the ways it may be (§1.3). Of the
+ * rest alone on the field, about two in five carry a modifier (§1.4): a mullet or estoile of 4 to 12 points (a mullet sometimes pierced),
+ * or a simple geometric charge voided or fimbriated. About three in ten of the lions, wolves and eagles neither turned nor modified are a
+ * head (half of them erased) or a demi charge. About three in ten of the whole beasts, eagles and fish neither turned nor modified are in
+ * a posture they are drawn in (§1.2), half of those with the head turned where that posture is drawn so (the lion guardant or regardant,
+ * §1.1 F4). About three in ten of the whole lions, roses and mullets neither turned nor modified are adorned (`adornedCharge`, §0.3.5).
+ * About half the whole lions and eagles alone on a plain field, neither turned, modified nor adorned, hold something (`heldItem`,
+ * §1.5). Each later attribute step adds its picks after these. Null when the pick isn't registrable.
+ */
+function attributeDesignFor(seed: number): Design | null {
+  const next = prng(seed ^ ATTRIBUTE_SEED);
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)];
+  const field = next() < 0.6 ? pick(TINCTURES) : { k: 'divided', division: pick(['per-pale', 'per-bend']), parts: [pick(TINCTURES), pick(TINCTURES)] };
+  const attribute = next();
+  const id = attribute < 0.33 ? pick(FACING_CHARGES) : pick(ATTRIBUTE_CHARGES);
+  const band = next() < 0.3 ? pick(['pale', 'fess']) : null;
+  const pair = attribute >= 0.15 && attribute < 0.33;
+  const charge = { k: 'charge', charge: id, ...(attribute < 0.15 ? { facing: 'to-sinister' } : {}) };
+  const group = {
+    item: charge, paint: next() < 0.15 && typeof field === 'object' ? 'counterchanged' : pick(TINCTURES),
+    count: pair ? 2 : 1 + Math.floor(next() * 3),
+    ...(pair ? { arrangement: { k: 'pair', pair: pick(['combattant', 'respectant', 'addorsed']) } } : {}),
+    ...(band ? { relation: 'between' } : {}),
+  };
+  const turning = attribute >= 0.33 && next() < 0.35 ? pick(TURNING_CHARGES) : null;
+  const turned = turning ? { ...group, item: { k: 'charge', charge: turning, orientation: pick(CHARGE_META[turning].orient.allowed.filter((o) => o !== 'to-center' || group.count > 1)) } } : group;
+  const modifier = !turning && !band && attribute >= 0.33 && next() < 0.4 ? next() : null;
+  const modified = modifier === null ? turned : { ...turned, item: modifiedCharge(modifier, next, pick) };
+  const forms = turning || modifier !== null ? undefined : FORM_CHARGES[id as ChargeId];
+  const form = forms && next() < 0.3 ? pick(forms) : null;
+  const formed = form === null ? modified : { ...modified, item: { ...charge, form, ...(form === 'head' && next() < 0.5 ? { mods: ['erased'] } : {}) } };
+  const postures = form === null && !turning && modifier === null ? CHARGE_META[id as ChargeId].postures : null;
+  const posture = postures && next() < 0.3 ? pick(postures) : null;
+  const gazes = posture === null ? [] : (['guardant', 'regardant'] as const).filter((g) => CHARGE_META[id as ChargeId].drawings[`${posture}~${g}`]);
+  const gaze = gazes.length > 0 && next() < 0.5 ? pick(gazes) : null;
+  const posed = posture === null ? formed : { ...formed, item: { ...formed.item, posture, ...(gaze ? { gaze } : {}) } };
+  const adorned = form === null && !turning && modifier === null && ADORNED.includes(id) && next() < 0.3 ? { ...posed, item: adornedCharge(id, posed.item, next, pick) } : posed;
+  const holds = adorned === posed && form === null && !turning && modifier === null && !band && typeof field === 'string' && HOLDERS.includes(id) && next() < 0.5;
+  const holding = holds ? { ...adorned, item: { ...adorned.item, holds: [heldItem(id, field, next, pick)] } } : adorned;
+  const groups = band ? [{ item: { k: 'ordinary', type: band }, paint: pick(TINCTURES) }, holding] : [holding];
+  const r = resolve({ v: 2, field, groups });
+  if (!r.ok) return null;
+  const n = normalise(r.design);
+  return n.ok ? n.design : null;
+}
+
+/** A charge with a modifier picked by `roll`: a star of some points (a mullet sometimes pierced), a pierced mullet, a charge voided or fimbriated. */
+function modifiedCharge(roll: number, next: () => number, pick: <T>(xs: readonly T[]) => T): object {
+  if (roll < 0.4) {
+    const id = pick(['mullet', 'estoile'] as const);
+    return { k: 'charge', charge: id, mods: [{ id: 'of-points', count: 4 + Math.floor(next() * 9) }, ...(id === 'mullet' && next() < 0.3 ? ['pierced'] : [])] };
+  }
+  if (roll < 0.5) return { k: 'charge', charge: 'mullet', mods: ['pierced'] };
+  return { k: 'charge', charge: pick(OUTLINED_CHARGES), mods: [roll < 0.75 ? 'voided' : { id: 'fimbriated', paint: pick(TINCTURES) }] };
+}
+
+/** The charges the attribute designs give parts or details drawn as pieces (§0.3.5): the lion, the rose and the mullet (as a heart). */
+const ADORNED: readonly string[] = ['lion', 'rose', 'mullet'];
+
+/** A lion crowned, a rose slipped and leaved, or in the mullet's place a heart winged or enflamed (in a tincture or proper). */
+function adornedCharge(id: string, item: object, next: () => number, pick: <T>(xs: readonly T[]) => T): object {
+  if (id === 'lion') return { ...item, parts: [{ part: 'crowned', paint: pick(TINCTURES) }] };
+  if (id === 'rose') {
+    const paint = pick(TINCTURES);
+    return { ...item, mods: [{ id: 'slipped', paint }, { id: 'leaved', paint }] };
+  }
+  return { k: 'charge', charge: 'heart', mods: [next() < 0.5 ? { id: 'winged', paint: pick(TINCTURES) } : { id: 'enflamed', paint: next() < 0.5 ? 'proper' : pick(TINCTURES) }] };
+}
+
+/** The charges the attribute designs have hold something (§1.5): the lion in its paw, the eagle in its beak. */
+const HOLDERS: readonly string[] = ['lion', 'eagle'];
+
+const METALS: readonly string[] = ['or', 'argent'];
+
+/**
+ * What a lion maintains or sustains (a sword, a key or a rose) or an eagle holds in its beak (a rose or a key), in a tincture that contrasts with
+ * the field (§1.5 H5).
+ */
+function heldItem(id: string, field: string, next: () => number, pick: <T>(xs: readonly T[]) => T): object {
+  const paint = pick(TINCTURES.filter((t) => METALS.includes(t) !== METALS.includes(field)));
+  if (id === 'lion') return { how: next() < 0.75 ? 'maintaining' : 'sustaining', item: { k: 'charge', charge: pick(['sword', 'key', 'rose']) }, paint };
+  return { how: 'in-beak', item: { k: 'charge', charge: pick(['rose', 'key']) }, paint };
+}
+
+/** The first `count` designs from `attributeDesignFor`, trying seeds from `seed` upwards. */
+export function generatedChargeAttributeDesigns(seed: number, count: number): Design[] {
+  const designs: Design[] = [];
+  for (let s = seed; designs.length < count; s++) {
+    const d = attributeDesignFor(s);
     if (d) designs.push(d);
   }
   return designs;

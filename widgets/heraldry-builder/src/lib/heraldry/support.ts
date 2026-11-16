@@ -4,14 +4,15 @@
 
 import { FUR_NAME, FUR_SPEC, STAIN_NAME } from './tinctures';
 import { capitalise } from './words';
-import { CHARGES, isChargeId } from './charges';
+import { CHARGES, CUT_MODIFIERS, STAR_POINTS, isChargeId, type Gaze } from './charges';
 import { chargeOnBox } from './charge-art';
+import { PROPER_PIECES, holdAnchored, isPiece, pieceDrawable } from './overlay-art';
 import { liesAstride, specOf } from './ordinary-geometry';
 import { BUILDER_DIVISIONS, DIVISION_NAME, DRAWN_DIVISIONS, GYRONNY_PIECES, VARIATION_PIECES, isDrawnTreatment, partCount, type Division, type Variation } from './divisions';
 import {
-  asParty, asSemy, asTreated, walkGroups, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type IssueAt, type Item, type Paint, type UnsupportedIssue,
+  asParty, asSemy, asTreated, walkGroups, type Charge, type CountLimit, type Design, type Lines, type Gap, type GapCategory, type Group, type GroupPath, type Held, type IssueAt, type Item, type Modifier, type Paint, type PartPaint, type UnsupportedIssue,
 } from './design';
-import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isDiminutive, isOrdinaryType, ordinaryWithArticle } from './ordinaries';
+import { DRAWN_ORDINARIES, OVERALL_ORDINARIES, ORDINARY_COUNTS, modDrawn, ORDINARY_KIND, isDiminutive, isOrdinaryType, ordinaryWithArticle, type OrdinaryType } from './ordinaries';
 import {
   AROUND_COUNTS, MAX_CO_PRIMARY_TOTAL, ON_CHARGE_COUNTS, coPrimaries, aroundPrimaryLayouts, halfLayouts, hostCounts, isHalfPosition, isSecondaryPosition, layoutKey, overallLayouts, positionLayouts, primaryCharges, primaryOrdinary, ROW_PATTERNS, sameLayout,
 } from './arrangement';
@@ -164,14 +165,102 @@ function itemGaps(item: Item): Found[] {
   }
   const meta = CHARGES[item.charge];
   const gaps: Found[] = [];
-  if (item.form) gaps.push(gap('charge-modifier', item.form));
+  // A head or demi charge is drawn for the charges whose sidecar row has it (PLAN-D §1.4 M1, M2): a head from its own drawing, a demi charge cut from one.
+  if (item.form && !meta.forms.includes(item.form)) gaps.push(gap('charge-modifier', item.form));
   if (item.posture && !meta.postures?.includes(item.posture)) gaps.push(gap('posture', item.posture));
-  if (item.facing && item.facing !== meta.defaultFacing) gaps.push(gap('orientation', item.facing));
-  if (item.orientation) gaps.push(gap('orientation', item.orientation));
-  for (const m of item.mods) if (!meta.mods.includes(m.id) || m.count !== null || m.paint !== null) gaps.push(gap('charge-modifier', m.id));
-  for (const p of item.parts) gaps.push(gap('charge-modifier', p.part));
-  for (const h of item.holds) gaps.push(gap('charge-modifier', h.how));
+  // Facing to sinister is the drawing mirrored; facing out of the shield has no drawing (PLAN-D §0.2.2: filed as a posture word).
+  if (item.facing === 'affronty') gaps.push(gap('posture', 'affronty'));
+  if (item.gaze && !gazeDrawn(item, item.gaze)) gaps.push(gap('posture', item.gaze));
+  // An orientation is drawn by turning the art (pose.ts) for the charges whose sidecar allows it; anything else keeps its gap.
+  if (item.orientation && !meta.orient.allowed.includes(item.orientation)) gaps.push(gap('orientation', item.orientation));
+  for (const m of item.mods) if (!modifierDrawn(item, m)) gaps.push(gap('charge-modifier', m.id));
+  for (const p of item.parts) if (!partDrawn(item, p)) gaps.push(gap('charge-modifier', p.part));
+  for (const how of new Set(item.holds.filter((h) => !holdDrawn(item, h)).map((h) => h.how))) gaps.push(gap('charge-modifier', how));
   return gaps;
+}
+
+/**
+ * Whether a charge's modifier is drawn (PLAN-D §1.4): one its sidecar row takes, with what it needs and nothing else — a star of 4 to 12
+ * points, a fimbriation of one tincture; a head's cut, couped or erased (a whole or demi charge takes none); a piece (overlay-art.ts) in one
+ * tincture where its drawing has the anchor for it — wings, a slip with leaves only on a slip, flames (in a tincture or proper).
+ */
+function modifierDrawn(item: Charge, m: Modifier): boolean {
+  const meta = CHARGES[item.charge];
+  if (CUT_MODIFIERS.includes(m.id)) return item.form === 'head' && m.count === null && m.paint === null;
+  if (!meta.mods.includes(m.id) && !meta.details.includes(m.id)) return false;
+  if (m.id === 'of-points') return m.count !== null && STAR_POINTS.includes(m.count) && m.paint === null;
+  if (m.id === 'fimbriated') return m.count === null && m.paint?.k === 'tincture';
+  if (isPiece(m.id)) {
+    const painted = m.paint?.k === 'tincture' || (PROPER_PIECES.includes(m.id) && m.paint?.k === 'proper');
+    return m.count === null && painted && pieceDrawable(item, m.id);
+  }
+  return m.count === null && m.paint === null;
+}
+
+/**
+ * Whether a charge's part is drawn (PLAN-D §1.4 M11, M12, M15): crowned or collared in one tincture, where its sidecar row takes it (crowned
+ * only on an animate charge or a head: a crowned mullet stays a gap) and its drawing has the anchor; armed, langued and the rest are gaps.
+ */
+const partDrawn = (item: Charge, p: PartPaint): boolean =>
+  CHARGES[item.charge].parts.includes(p.part) && isPiece(p.part) && p.paint.k === 'tincture' && pieceDrawable(item, p.part);
+
+/**
+ * Whether a held item is drawn (PLAN-D §1.5 H3): the one item its charge holds, a charge that may be held (its sidecar's `holdable`) as it is
+ * drawn by default, in one tincture or in its natural colours where it has them ("a sword proper"), held a way the holder's sidecar row takes
+ * and its drawing has the anchor for (a paw, a beak, a mouth).
+ * Two items, a worn one (H4) or anything else stay `charge-modifier:<how>` gaps; so do holds on a charge that is not primary (`heldGaps`).
+ */
+function holdDrawn(item: Charge, h: Held): boolean {
+  const held = h.item, meta = CHARGES[held.charge];
+  const plain = held.form === null && held.posture === meta.defaultPosture && held.gaze === null && held.facing === meta.defaultFacing && held.orientation === null
+    && held.mods.length === 0 && held.parts.length === 0 && held.holds.length === 0;
+  const painted = h.paint.k === 'tincture' || (h.paint.k === 'proper' && meta.proper !== null);
+  return item.holds.length === 1 && meta.holdable && plain && painted && CHARGES[item.charge].holds.includes(h.how) && holdAnchored(item, h.how);
+}
+
+/** §1.5 H3: only a primary charge (or one of two co-primary groups) on the field is drawn holding something; elsewhere a drawable hold is a gap. */
+function heldGaps(g: Group, host: Group | null): Found[] {
+  if (g.item.k !== 'charge' || (g.role === 'primary' && host === null)) return [];
+  const item = g.item;
+  return item.holds.filter((h) => holdDrawn(item, h)).map((h) => gap('charge-modifier', h.how));
+}
+
+/** Whether a charge has a drawing of its posture with the head turned that way. */
+export const gazeDrawn = (item: Charge, gaze: Gaze): boolean =>
+  gaze !== 'guardant-regardant' && item.posture !== null && CHARGES[item.charge].drawings[`${item.posture}~${gaze}`] !== undefined;
+
+/**
+ * The ordinaries that set two charges around them side by side, the dexter one first: where a pair is drawn around an ordinary. A pile
+ * sets them low in the flanks, where a beast turned to face it no longer fits (geometry-fit.test.ts).
+ */
+const PAIR_HOSTS: readonly OrdinaryType[] = ['pale'];
+
+/**
+ * Whether a group stands where a pair (two charges combattant, respectant or addorsed) is drawn: as the primary group alone on the field, or
+ * set around an ordinary that has them side by side (§1.1 F6, F8).
+ */
+export function pairPlaced(d: Design, g: Group, host: Group | null): boolean {
+  const ordinary = primaryOrdinary(d);
+  return host === null && g.position === null && (g.role === 'primary' ? coPrimaries(d) === null
+    : g.role === 'secondary' && g.relation === 'between' && ordinary !== null && PAIR_HOSTS.includes(ordinary.type));
+}
+
+/** A pair is drawn of two charges that face, each its own way, where `pairPlaced` says; anything else is a posture gap. */
+function pairGaps(d: Design, g: Group, host: Group | null): Found[] {
+  if (g.arrangement.k !== 'pair' || g.item.k !== 'charge') return [];
+  const meta = CHARGES[g.item.charge];
+  return meta.faces && g.count === 2 && g.item.facing === meta.defaultFacing && pairPlaced(d, g, host) ? [] : [gap('posture', g.arrangement.pair)];
+}
+
+/**
+ * A group's orientation is drawn charge by charge, except that two crossed charges lie as their saltire lies, and to center needs a group of
+ * charges to point at the middle of (§1.3).
+ */
+function orientationGaps(g: Group): Found[] {
+  // (an orientation the charge doesn't take is a gap of the item's: `itemGaps`)
+  if (g.item.k !== 'charge' || g.item.orientation === null || !CHARGES[g.item.charge].orient.allowed.includes(g.item.orientation)) return [];
+  if (g.arrangement.k === 'crossed') return [gap('orientation', g.item.orientation)];
+  return g.item.orientation === 'to-center' && g.count < 2 ? [gap('orientation', 'to-center', 'One charge pointing to the middle')] : [];
 }
 
 /** A single diminutive other than the main or overall band (which is its ordinary: `canonical`), "in canton a scarpe" (RULES-C §C.2); a baton is one by itself. */
@@ -196,7 +285,6 @@ function layoutGaps(g: Group, hasChief: boolean): Found[] {
     return gaps;
   }
   if (g.count > MAX_DRAWN_COUNT) gaps.push(gap('count', String(g.count)));
-  if (a.k === 'pair') gaps.push(gap('posture', a.pair));
   if (a.k === 'pattern' && a.pattern !== 'cross' && a.pattern !== 'saltire' && a.pattern !== 'orle' && a.pattern !== 'annulo') {
     gaps.push(gap('arrangement', `in-${a.pattern}`));
   }
@@ -280,8 +368,11 @@ function onChargeGaps(d: Design, host: Group): Found[] {
   if (host.role !== 'primary') return [gap('multiple-groups', `tertiary-on-${host.role}`, ON_THAT_CHARGE)];
   if (coPrimaries(d)) return [gap('multiple-groups', 'tertiary-on-co-primary', ON_THAT_CHARGE)];
   const gaps: Found[] = [];
-  if (chargeOnBox(host.item.charge, host.item.posture) === null) gaps.push(gap('placement', `on-${host.item.charge}`, `Charges on a ${CHARGES[host.item.charge].name}`));
-  if (host.item.mods.length > 0) gaps.push(gap('multiple-groups', 'tertiary-on-modifier', ON_THAT_CHARGE));
+  if (chargeOnBox(host.item) === null) gaps.push(gap('placement', `on-${host.item.charge}`, `Charges on a ${CHARGES[host.item.charge].name}`));
+  // (a charge holding something may be drawn smaller to hold it: its on-box no longer fits)
+  if (host.item.mods.length > 0 || host.item.holds.length > 0) gaps.push(gap('multiple-groups', 'tertiary-on-modifier', ON_THAT_CHARGE));
+  // A turned charge's on-box is not turned with it.
+  if (host.item.orientation !== null && host.item.orientation !== 'palewise') gaps.push(gap('placement', 'on-turned-charge', ON_THAT_CHARGE));
   if (hasAround(d)) gaps.push(gap('multiple-groups', 'tertiary-on-charge-around', ON_THAT_CHARGE));
   return gaps;
 }
@@ -385,7 +476,7 @@ export function unsupportedIssues(d: Design): UnsupportedIssue[] {
   for (const { path, group, host } of walkGroups(d)) {
     const at: IssueAt = { k: 'group', path };
     const owner = group.item.k === 'ordinary' ? group.item.type : group.item.charge;
-    const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...placementGaps(d, group, host)];
+    const gaps = [...itemGaps(group.item), ...paintFound(group.paint, false, owner), ...layoutGaps(group, hasChief), ...pairGaps(d, group, host), ...orientationGaps(group), ...placementGaps(d, group, host), ...heldGaps(group, host)];
     if (host) gaps.push(...onChargeGaps(d, host));
     if (againstAstrideLine(d, group, host)) gaps.push(gap('placement', 'counterchanged-chevron'));
     if (inThree && (group.paint.k === 'counterchanged' || (group.item.k === 'ordinary' && group.item.cotised?.paint.k === 'counterchanged'))) {

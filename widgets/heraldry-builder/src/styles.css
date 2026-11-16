@@ -682,8 +682,8 @@ button, input, select, textarea {
 .taken-verdict { font-size: 17px; }
 /* "More colours and patterns…": one row under a colour picker; open, a row of kinds, then the options of the kind shown. */
 .more-paint summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-size: 15px; font-weight: 600; }
-.more-paint summary::before { content: '+'; width: 1em; font-weight: 700; }
-.more-paint[open] summary::before { content: '−'; }
+.more-paint > summary::before { content: '+'; width: 1em; font-weight: 700; }
+.more-paint[open] > summary::before { content: '−'; }
 .more-paint-body { display: flex; flex-direction: column; gap: 12px; margin: 4px 0 0 5px; padding-left: 12px; border-left: 2px solid var(--card-border); }
 .more-paint-modes.segmented > .option-wrap { flex: 0 1 auto; }
 .more-paint-modes .segment { font-size: 15px; }
@@ -867,6 +867,8 @@ button, input, select, textarea {
 
 .charge-icon { color: var(--fg); }
 .choice.is-blocked .charge-icon { color: var(--fg-secondary); }
+.turned-preview { display: inline-flex; flex: none; margin-right: 6px; }
+.segment .charge-icon { color: inherit; }
 
 .charge-options {
   display: flex;
@@ -884,6 +886,9 @@ button, input, select, textarea {
 
 .segmented > .option-wrap { flex: 1 0 44px; }
 .segmented-wide > .option-wrap { flex: 1 1 140px; }
+/* The chip rows of "Facing, turning and details…": as many to a line as fit, at least two in a phone's narrow disclosure. */
+.chip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.chip-grid-previews { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
 
 .segment {
   padding: 6px 10px;

@@ -298,11 +298,12 @@ describe('the Scatter picker', () => {
   const picker = (d: Design, target: { k: 'field'; part: 0 | 1 } | { k: 'group'; path: number[] }) =>
     renderToString(h(SemyPicker, { design: d, target, group: 'field1', testid: 'field-1', noun: 'the background', onChange: () => {} }));
 
-  it('offers every picture in a menu, with the one blocked by the rule saying why, and the colour of the pictures once something is strewn', () => {
+  it('offers the pictures as tiles to search and browse by kind, with the one blocked by the rule saying why, and the colour of the pictures once something is strewn', () => {
     const plain = picker(nd(arms('azure', group(charge('mullet'), 'or', { count: 3 }))), { k: 'field', part: 0 });
-    expect(plain).toContain('data-testid="field-1-semy-select"');
-    expect(plain).toMatch(/<option value="mullet" disabled title="[^"]*A3D1a[^"]*">Star · mullet \(not here\)<\/option>/);
-    expect(plain).toMatch(/<option value="rose">Rose<\/option>/);
+    for (const id of ['field-1-semy-charge-search', 'field-1-semy-charge-tab-popular', 'field-1-semy-charge-tab-cross', 'field-1-semy-charge-none', 'field-1-semy-charge-rose']) expect(plain, id).toContain(`data-testid="${id}"`);
+    expect(plain).toMatch(/<button[^>]*aria-disabled="true"[^>]*aria-label="Star · mullet, not available"/);
+    expect(plain).toMatch(/id="field-1-semy-charge-mullet-why">[^<]*A3D1a/);
+    expect(plain).not.toContain('field-1-semy-charge-rose-why');
     expect(plain).not.toContain('field-1-semy-colour-1');
     const strewn = picker(nd(arms(semy('azure', 'rose', 'argent'))), { k: 'field', part: 0 });
     // The colour it is strewn on is the background colour picker's.

@@ -8,7 +8,7 @@ import { describeRender, goldenRenders, goldenShields } from './render-golden-ca
 it('writes the render golden', { timeout: 120_000 }, () => {
   const file = new URL('./fixtures/render-golden.json', import.meta.url);
   const shields = goldenShields();
-  const now = goldenRenders(shields);
+  const now = goldenRenders(shields, () => true);
   approveRewrite('render golden', goldenDiff(existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {}, now), describeRender(shields));
   writeFileSync(file, `${JSON.stringify(now, null, 1)}\n`);
 });

@@ -2,7 +2,8 @@
 // out" of a duplicate, and different for any two different canonical designs.
 
 import { TINCTURE_CODE } from './tinctures';
-import { notSupported, type Design, type Group, type Item, type Lines, type Paint, type Role } from './design';
+import { CHARGES } from './charges';
+import { notSupported, type Charge, type Design, type Group, type Item, type Lines, type Modifier, type Paint, type Role } from './design';
 import { layoutKey } from './arrangement';
 import { paintGaps } from './support';
 
@@ -29,8 +30,25 @@ function paint(p: Paint): string {
   }
 }
 
+/** A modifier, with its number and paint when it has them: "+of-points*6", "+fimbriated(argent)". */
+const modifier = (m: Modifier): string => `+${m.id}${m.count === null ? '' : `*${m.count}`}${m.paint ? `(${paint(m.paint)})` : ''}`;
+
+/**
+ * A charge: its id, posture and modifiers (a head's cut among them), then only the attributes that are not its default (PLAN-D §0.3.7), so older
+ * signatures hold; last what it holds, each item signed as a charge with its paint ("~hold-maintaining(c.sword/ar)").
+ */
+function charge(c: Charge): string {
+  const form = c.form ? `~form-${c.form}` : '';
+  const gaze = c.gaze ? `~gaze-${c.gaze}` : '';
+  const facing = c.facing !== CHARGES[c.charge].defaultFacing ? `~facing-${c.facing}` : '';
+  const orientation = c.orientation ? `~orient-${c.orientation}` : '';
+  const parts = c.parts.map((x) => `~part-${x.part}(${paint(x.paint)})`).join('');
+  const holds = c.holds.map((h) => `~hold-${h.how}(${charge(h.item)}/${paint(h.paint)})`).join('');
+  return `c.${c.charge}${c.posture ? `.${c.posture}` : ''}${c.mods.map(modifier).join('')}${form}${gaze}${facing}${orientation}${parts}${holds}`;
+}
+
 function item(i: Item): string {
-  if (i.k === 'charge') return `c.${i.charge}${i.posture ? `.${i.posture}` : ''}${i.mods.map((m) => `+${m.id}`).join('')}`;
+  if (i.k === 'charge') return charge(i);
   // cotises: their number of pairs, their line (one on every cotise edge) and their paint; then the fimbriation's paint
   const cotised = i.cotised ? `#c${i.cotised.count}${linesCode({ a: i.cotised.line, b: i.cotised.line })}(${paint(i.cotised.paint)})` : '';
   const fimbriated = i.fimbriated ? `#f(${paint(i.fimbriated)})` : '';

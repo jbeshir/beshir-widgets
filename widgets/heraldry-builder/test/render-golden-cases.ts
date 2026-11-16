@@ -1,5 +1,6 @@
 // Every shield the golden pins, with hatching off and on, reduced to a short hash of its markup, so a refactor of how paint is drawn
-// is provably neutral. The fixture is test/fixtures/render-golden.json; `GOLDEN_REASON="…" npm run golden:write` regenerates it.
+// is provably neutral. The fixture is test/fixtures/render-golden.json; `GOLDEN_REASON="…" npm run golden:write` regenerates it
+// from every key; `npm test` works out a seeded rotating sample of the hatched renders that pin shapes rather than paint (`inRenderSample`).
 //
 // Keys never depend on which designs the library accepts: the examples and sample entries by their ids, the generated designs by the
 // hash of their canonical JSON (a rule that drops or adds a generated design drops or adds its key, and changes no other), and a fixed
@@ -14,10 +15,15 @@ import {
 import { EXAMPLE_DESIGNS } from '../src/lib/presets';
 import { generatedDesigns, generatedRichDesigns } from './design-generator';
 import { hash } from './golden';
+import { rotatesIn } from './rotation';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 import type { SampleFile } from './sample-registry';
 
-export interface GoldenShield { key: string; design: Design; shape: FieldShape }
+export const HATCHINGS = ['plain', 'hatched'] as const;
+type Hatching = (typeof HATCHINGS)[number];
+
+/** A pinned shield and the hatchings it is rendered in. */
+export interface GoldenShield { key: string; design: Design; shape: FieldShape; hatchings: readonly Hatching[] }
 
 /** A shape chosen by a key's hash, so the four shapes share the shields evenly whatever else is pinned. */
 const shapeFor = (key: string): FieldShape => FIELD_SHAPES[parseInt(hash(key), 16) % FIELD_SHAPES.length];
@@ -186,7 +192,123 @@ const DIMINUTIVE_CASES: ReadonlyArray<[string, unknown]> = [
   ['dim-bars-wavy-3', arms('azure', group(ordinary('bar', { lines: { a: 'wavy' } }), 'argent', { count: 3 }))],
 ];
 
-export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
+const contourny = { facing: 'to-sinister' };
+const pair = (word: string) => ({ count: 2, arrangement: { k: 'pair', pair: word } });
+
+/**
+ * The phase-D charge attributes (PLAN-D §0.3.9), plain and hatched: facing to sinister alone, proper, divided, counterchanged and carrying a
+ * charge (its on-box mirrored with it); the pairs on the field and around a pale.
+ */
+const CHARGE_ATTRIBUTE_CASES: ReadonlyArray<[string, unknown]> = [
+  ['attr-lion-contourny', arms('azure', group(charge('lion', contourny), 'or'))],
+  ['attr-lions-combattant', arms('azure', group(charge('lion'), 'or', pair('combattant')))],
+  ['attr-wolves-addorsed', arms('argent', group(charge('wolf'), 'sable', pair('addorsed')))],
+  ['attr-eagles-respectant', arms('gules', group(charge('eagle'), 'argent', pair('respectant')))],
+  ['attr-lion-contourny-proper', arms('vert', group(charge('lion', contourny), 'proper'))],
+  ['attr-lion-contourny-per-bend', arms('azure', group(charge('lion', contourny), div('per-bend', 'or', 'argent')))],
+  ['attr-lion-contourny-counterchanged', arms(div('per-pale', 'argent', 'gules'), group(charge('lion', contourny), 'counterchanged'))],
+  ['attr-lion-contourny-charged', arms('azure', group(charge('lion', contourny), 'or', { charged: [group(charge('mullet'), 'gules')] }))],
+  ['attr-pale-between-lions-combattant', arms('azure', group(ordinary('pale'), 'argent'), group(charge('lion'), 'or', pair('combattant')))],
+  ['attr-sword-fesswise', arms('azure', group(charge('sword', { orientation: 'fesswise' }), 'argent'))],
+  ['attr-swords-palewise-on-bend', arms('azure', group(ordinary('bend'), 'or', { charged: [group(charge('sword', { orientation: 'palewise' }), 'gules', { count: 3 })] }))],
+  ['attr-increscent', arms('gules', group(charge('crescent', { orientation: 'fesswise' }), 'argent'))],
+  ['attr-decrescents', arms('or', group(charge('crescent', { orientation: 'fesswise-reversed' }), 'azure', { count: 3 }))],
+  ['attr-mullet-inverted', arms('azure', group(charge('mullet', { orientation: 'inverted' }), 'or'))],
+  ['attr-bee-bendwise', arms('or', group(charge('bee', { orientation: 'bendwise' }), 'sable'))],
+  ['attr-swords-to-center', arms('azure', group(charge('sword', { orientation: 'to-center' }), 'argent', { count: 4, arrangement: 'in-cross' }))],
+  ['attr-sword-bendwise-sinister', arms('azure', group(charge('sword', { orientation: 'bendwise-sinister' }), 'or'))],
+  ['attr-billet-fesswise', arms('vert', group(charge('billet', { orientation: 'fesswise' }), 'argent'))],
+  ['attr-mullet-of-six', arms('azure', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }] }), 'or'))],
+  ['attr-estoile-of-eight', arms('gules', group(charge('estoile', { mods: [{ id: 'of-points', count: 8 }] }), 'or'))],
+  ['attr-mullet-voided', arms('azure', group(charge('mullet', { mods: ['voided'] }), 'or'))],
+  ['attr-lozenge-fimbriated', arms('azure', group(charge('lozenge', { mods: [{ id: 'fimbriated', paint: 'argent' }] }), 'azure'))],
+  ['attr-mullet-of-six-pierced', arms('sable', group(charge('mullet', { mods: [{ id: 'of-points', count: 6 }, 'pierced'] }), 'argent'))],
+  ['attr-mullets-voided-per-pale', arms(div('per-pale', 'azure', 'gules'), group(charge('mullet', { mods: ['voided'] }), 'or', { count: 3 }))],
+  ['attr-demi-lion', arms('azure', group(charge('lion', { form: 'demi' }), 'or'))],
+  ['attr-wolf-head-erased', arms('argent', group(charge('wolf', { form: 'head', mods: ['erased'] }), 'sable'))],
+  ['attr-stags-heads-couped', arms('vert', group(charge('stag', { form: 'head', mods: ['couped'] }), 'or', { count: 3 }))],
+  ['attr-lion-head-contourny', arms('gules', group(charge('lion', { form: 'head', facing: 'to-sinister' }), 'or'))],
+  ['attr-demi-dragon', arms('sable', group(charge('dragon', { form: 'demi' }), 'argent'))],
+  ['attr-lion-couchant', arms('azure', group(charge('lion', { posture: 'couchant' }), 'or'))],
+  ['attr-lion-passant-guardant', arms('gules', group(charge('lion', { posture: 'passant', gaze: 'guardant' }), 'or'))],
+  ['attr-lion-rampant-regardant', arms('or', group(charge('lion', { gaze: 'regardant' }), 'gules'))],
+  ['attr-eagle-close', arms('azure', group(charge('eagle', { posture: 'close' }), 'argent'))],
+  ['attr-eagles-rising', arms('vert', group(charge('eagle', { posture: 'rising' }), 'or', { count: 3 }))],
+  ['attr-stag-lodged', arms('vert', group(charge('stag', { posture: 'couchant' }), 'or'))],
+  ['attr-fish-urinant', arms('azure', group(charge('fish', { posture: 'urinant' }), 'argent'))],
+  ['attr-lion-crowned', arms('azure', group(charge('lion', { parts: [{ part: 'crowned', paint: 'gules' }] }), 'or'))],
+  ['attr-wolf-head-collared', arms('vert', group(charge('wolf', { form: 'head', parts: [{ part: 'collared', paint: 'or' }] }), 'argent'))],
+  ['attr-lions-combattant-winged', arms('azure', group(charge('lion', { mods: [{ id: 'winged', paint: 'argent' }] }), 'or', pair('combattant')))],
+  ['attr-heart-winged', arms('argent', group(charge('heart', { mods: [{ id: 'winged', paint: 'or' }] }), 'gules'))],
+  ['attr-roundel-enflamed', arms('argent', group(charge('roundel', { mods: [{ id: 'enflamed', paint: 'proper' }] }), 'azure'))],
+  ['attr-roses-slipped-leaved', arms('argent', group(charge('rose', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'gules', { count: 3 }))],
+  ['attr-lion-maintaining-sword', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or'))],
+  ['attr-eagles-key-in-beak', arms('argent', group(charge('eagle', { holds: [{ how: 'in-beak', item: charge('key'), paint: 'gules' }] }), 'sable', { count: 3 }))],
+  ['attr-lions-combattant-sustaining-roses', arms('or', group(charge('lion', { holds: [{ how: 'sustaining', item: charge('rose'), paint: 'gules' }] }), 'azure', pair('combattant')))],
+  ['attr-bear-contourny', arms('or', group(charge('bear', contourny), 'sable'))],
+  ['attr-cat-couchant', arms('gules', group(charge('cat', { posture: 'couchant' }), 'argent'))],
+  ['attr-horses-courant', arms('vert', group(charge('horse', { posture: 'courant' }), 'argent', { count: 3 }))],
+  ['attr-fox-sejant', arms('argent', group(charge('fox', { posture: 'sejant' }), 'gules'))],
+  ['attr-squirrels-addorsed', arms('azure', group(charge('squirrel'), 'or', pair('addorsed')))],
+  ['attr-horse-head-couped', arms('azure', group(charge('horse', { form: 'head', mods: ['couped'] }), 'argent'))],
+  ['attr-bear-head-collared', arms('or', group(charge('bear', { form: 'head', parts: [{ part: 'collared', paint: 'gules' }] }), 'sable'))],
+  ['attr-griffin-passant-crowned', arms('azure', group(charge('griffin', { posture: 'passant', parts: [{ part: 'crowned', paint: 'gules' }] }), 'or'))],
+  ['attr-griffins-sejant-contourny', arms('gules', group(charge('griffin', { posture: 'sejant', ...contourny }), 'argent', { count: 3 }))],
+  ['attr-wyvern-erect-maintaining-sword', arms('vert', group(charge('wyvern', { posture: 'erect', holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or'))],
+  ['attr-phoenix-contourny', arms('sable', group(charge('phoenix', contourny), 'or'))],
+  ['attr-pegasus-passant', arms('azure', group(charge('pegasus', { posture: 'passant' }), 'argent'))],
+  ['attr-seahorses-contourny', arms('argent', group(charge('seahorse', contourny), 'azure', { count: 3 }))],
+  ['attr-sea-lion-erect', arms('or', group(charge('sea-lion'), 'gules'))],
+  ['attr-raven-volant', arms('or', group(charge('raven', { posture: 'volant' }), 'sable'))],
+  ['attr-ravens-key-in-beak', arms('argent', group(charge('raven', { holds: [{ how: 'in-beak', item: charge('key'), paint: 'or' }] }), 'sable', { count: 3 }))],
+  ['attr-falcon-rising-contourny', arms('vert', group(charge('falcon', { posture: 'rising', ...contourny }), 'argent'))],
+  ['attr-swan-close-collared', arms('azure', group(charge('swan', { posture: 'close', parts: [{ part: 'collared', paint: 'or' }] }), 'argent'))],
+  ['attr-peacock-contourny', arms('azure', group(charge('peacock', contourny), 'argent'))],
+  ['attr-martlets-addorsed', arms('gules', group(charge('martlet'), 'argent', pair('addorsed')))],
+  ['attr-doves-respectant', arms('azure', group(charge('dove'), 'argent', pair('respectant')))],
+  ['attr-arrows-fesswise', arms('vert', group(charge('arrow', { orientation: 'fesswise' }), 'argent', { count: 3 }))],
+  ['attr-axe-reversed', arms('gules', group(charge('axe', { orientation: 'reversed' }), 'argent'))],
+  ['attr-harp-reversed', arms('azure', group(charge('harp', { orientation: 'reversed' }), 'or'))],
+  ['attr-pheons-to-center', arms('argent', group(charge('pheon', { orientation: 'to-center' }), 'sable', { count: 4, arrangement: 'in-cross' }))],
+  ['attr-feather-fesswise', arms('azure', group(charge('feather', { orientation: 'fesswise' }), 'argent'))],
+  ['attr-arrows-in-annulo-to-center', arms('argent', group(charge('arrow', { orientation: 'to-center' }), 'sable', { count: 8, arrangement: 'in-annulo' }))],
+  ['attr-trident-inverted', arms('azure', group(charge('trident', { orientation: 'inverted' }), 'or'))],
+  // the art review's redraws and fixes (A-4 … A-27), whose shape is pinned here; their naming features in review-art-d.test.ts
+  ['attr-bear-passant', arms('or', group(charge('bear', { posture: 'passant' }), 'sable'))],
+  ['attr-demi-goat', arms('sable', group(charge('goat', { form: 'demi' }), 'argent'))],
+  ['attr-demi-wolf', arms('or', group(charge('wolf', { form: 'demi' }), 'azure'))],
+  ['attr-demi-unicorn', arms('azure', group(charge('unicorn', { form: 'demi' }), 'argent'))],
+  ['attr-dragon-passant', arms('argent', group(charge('dragon', { posture: 'passant' }), 'vert'))],
+  ['attr-boar-statant', arms('gules', group(charge('boar', { posture: 'statant' }), 'argent'))],
+  ['attr-eagle-sustaining-axe', arms('azure', group(charge('eagle', { holds: [{ how: 'sustaining', item: charge('axe'), paint: 'argent' }] }), 'or'))],
+  ['attr-wyvern-sustaining-axe', arms('vert', group(charge('wyvern', { holds: [{ how: 'sustaining', item: charge('axe'), paint: 'argent' }] }), 'or'))],
+  ['attr-lion-statant-maintaining-sword', arms('gules', group(charge('lion', { posture: 'statant', holds: [{ how: 'maintaining', item: charge('sword'), paint: 'argent' }] }), 'or'))],
+  ['attr-hare-collared', arms('vert', group(charge('hare', { parts: [{ part: 'collared', paint: 'gules' }] }), 'argent'))],
+  ['attr-spears-bendwise', arms('vert', group(charge('spear', { orientation: 'bendwise' }), 'or', { count: 2 }))],
+  ['attr-acorns-slipped-leaved', arms('argent', group(charge('acorn', { mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'or', { count: 3 }))],
+  ['attr-acorn-inverted-slipped', arms('azure', group(charge('acorn', { orientation: 'inverted', mods: [{ id: 'slipped', paint: 'vert' }] }), 'or'))],
+  ['attr-oak-leaf-bendwise-slipped-leaved', arms('argent', group(charge('oak-leaf', { orientation: 'bendwise', mods: [{ id: 'slipped', paint: 'vert' }, { id: 'leaved', paint: 'vert' }] }), 'vert'))],
+  ['attr-escallops-inverted', arms('gules', group(charge('escallop', { orientation: 'inverted' }), 'argent', { count: 3 }))],
+  ['attr-dolphin-contourny', arms('azure', group(charge('dolphin', contourny), 'argent'))],
+  ['attr-dolphin-haurient', arms('azure', group(charge('dolphin', { posture: 'haurient' }), 'or'))],
+  ['attr-dolphins-respectant', arms('azure', group(charge('dolphin'), 'or', pair('respectant')))],
+  ['attr-serpent-glissant', arms('argent', group(charge('serpent', { posture: 'glissant' }), 'vert'))],
+  ['attr-serpent-erect-contourny', arms('argent', group(charge('serpent', { posture: 'erect', ...contourny }), 'vert'))],
+  ['attr-dragonfly-bendwise', arms('sable', group(charge('dragonfly', { orientation: 'bendwise' }), 'argent'))],
+  ['attr-towers-inverted', arms('azure', group(charge('tower', { orientation: 'inverted' }), 'argent', { count: 3 }))],
+  ['attr-hand-reversed', arms('argent', group(charge('hand', { orientation: 'reversed' }), 'gules'))],
+  ['attr-bell-bendwise', arms('vert', group(charge('bell', { orientation: 'bendwise' }), 'or'))],
+  ['attr-hawk-rising', arms('sable', group(charge('hawk', { posture: 'rising' }), 'or'))],
+  ['attr-rapiers-saltire', arms('azure', group(charge('rapier'), 'argent', { count: 2, arrangement: 'crossed' }))],
+  ['attr-vols-three', arms('gules', group(charge('vol'), 'argent', { count: 3 }))],
+  ['attr-lion-maintaining-goblet', arms('azure', group(charge('lion', { posture: 'rampant', holds: [{ how: 'maintaining', item: charge('goblet'), paint: 'or' }] }), 'argent'))],
+  ['attr-lion-maintaining-sword-proper', arms('azure', group(charge('lion', { holds: [{ how: 'maintaining', item: charge('sword'), paint: 'proper' }] }), 'or'))],
+  ['attr-eagle-maintaining-latin-cross', arms('vert', group(charge('eagle', { holds: [{ how: 'maintaining', item: charge('cross-latin'), paint: 'or' }] }), 'argent'))],
+  ['attr-raven-roundel-in-beak', arms('argent', group(charge('raven', { holds: [{ how: 'in-beak', item: charge('roundel'), paint: 'gules' }] }), 'sable'))],
+  ['attr-lion-maintaining-thistle', arms('gules', group(charge('lion', { posture: 'rampant', holds: [{ how: 'maintaining', item: charge('thistle'), paint: 'or' }] }), 'argent'))],
+];
+
+export const PAINT_CASE_DESIGNS: ReadonlyArray<{ name: string; design: Design }> = [...PAINT_CASES, ...GEOMETRY_CASES, ...ORDINARY_LINE_CASES, ...TREATMENT_CASES, ...OUTLINE_CASES, ...PERIPHERAL_CASES, ...MORE_SHAPE_CASES, ...DIMINUTIVE_CASES, ...CHARGE_ATTRIBUTE_CASES].map(([name, input]) => ({ name, design: nd(input) }));
 
 /** The drawings the reviews fixed (U-3, U-5, U-6, K-22; the cotises of a couped band couped with it), each pinned in the shape it was worst in. */
 const REVIEW_VISUAL_CASES: ReadonlyArray<[string, unknown, FieldShape]> = [
@@ -203,32 +325,40 @@ const REVIEW_VISUAL_CASES: ReadonlyArray<[string, unknown, FieldShape]> = [
 /** The generated designs, each keyed by its canonical JSON (the generators may yield one design twice: it is pinned once). */
 function generated(kind: string, designs: readonly Design[]): GoldenShield[] {
   const byKey = new Map(designs.map((design) => [`${kind}-${hash(canonicalJson(design))}`, design]));
-  return [...byKey].map(([key, design]) => ({ key, design, shape: shapeFor(key) }));
+  return [...byKey].map(([key, design]) => ({ key, design, shape: shapeFor(key), hatchings: HATCHINGS }));
 }
+
+/** The charge cases of the charges after the first 36 (phase D on), pinned plain only: their hatching is the one the 36 already pin. */
+const PLAIN_ONLY_CASES: ReadonlySet<string> = new Set(CHARGE_IDS.slice(36).map((id) => `charge-${id}`));
 
 export function goldenShields(): GoldenShield[] {
   return [
-    ...EXAMPLE_DESIGNS.map((p): GoldenShield => ({ key: `example-${p.id}`, design: p.design, shape: 'heater' })),
-    ...(sample as unknown as SampleFile).entries.map((e): GoldenShield => ({ key: `sample-${e.id}`, design: e.design as Design, shape: e.shape })),
-    ...PAINT_CASE_DESIGNS.map(({ name, design }): GoldenShield => ({ key: `case-${name}`, design, shape: shapeFor(name) })),
-    ...REVIEW_VISUAL_CASES.map(([name, input, shape]): GoldenShield => ({ key: `case-${name}`, design: nd(input), shape })),
+    ...EXAMPLE_DESIGNS.map((p): GoldenShield => ({ key: `example-${p.id}`, design: p.design, shape: 'heater', hatchings: HATCHINGS })),
+    ...(sample as unknown as SampleFile).entries.map((e): GoldenShield => ({ key: `sample-${e.id}`, design: e.design as Design, shape: e.shape, hatchings: HATCHINGS })),
+    ...PAINT_CASE_DESIGNS.map(({ name, design }): GoldenShield => ({ key: `case-${name}`, design, shape: shapeFor(name), hatchings: PLAIN_ONLY_CASES.has(name) ? ['plain'] : HATCHINGS })),
+    ...REVIEW_VISUAL_CASES.map(([name, input, shape]): GoldenShield => ({ key: `case-${name}`, design: nd(input), shape, hatchings: HATCHINGS })),
     ...generated('level0', generatedDesigns(1, 300)),
     ...generated('rich', generatedRichDesigns(1, 100)),
   ];
 }
 
 /** The markup with the per-instance id fragment and the attributes that only describe the fills to the SCA render check removed. */
-const comparable = (svg: string) => svg.replace(/(hatch|hatch-tile|hatch-mask|region-clip|charge-clip|shield-clip|pattern)-s\d+/g, '$1-sN').replace(/ data-(?:paint|charge-tincture)="[^"]*"/g, '');
-
-export const HATCHINGS = ['plain', 'hatched'] as const;
+const comparable = (svg: string) => svg.replace(/(hatch|hatch-tile|hatch-mask|region-clip|charge-clip|void-mask|art-clip|shield-clip|pattern)-s\d+/g, '$1-sN').replace(/ data-(?:paint|charge-tincture)="[^"]*"/g, '');
 
 /** A shield's golden key: its own, then its shape and hatching. */
-export const renderKey = (s: GoldenShield, hatching: (typeof HATCHINGS)[number]) => `${s.key}|${s.shape}|${hatching}`;
+export const renderKey = (s: GoldenShield, hatching: Hatching) => `${s.key}|${s.shape}|${hatching}`;
 
-export function goldenRenders(shields: readonly GoldenShield[]): Record<string, string> {
+/** The shields whose hatched render pins their shapes more than their paint: the generated designs and the charge and diminutive cases. */
+const SHAPE_PINS = /^(level0-|rich-|case-charge-|case-dim-)/;
+
+/** Whether `npm test` works out a golden key this run: every plain render and every other hatched one, a rotating third of these hatched (SCA_FULL=1: all). */
+export const inRenderSample = (key: string): boolean => !(key.endsWith('|hatched') && SHAPE_PINS.test(key)) || rotatesIn(key, 1 / 3);
+
+export function goldenRenders(shields: readonly GoldenShield[], inSample: (key: string) => boolean): Record<string, string> {
   const out: Record<string, string> = {};
   for (const s of shields) {
-    for (const hatching of HATCHINGS) {
+    for (const hatching of s.hatchings) {
+      if (!inSample(renderKey(s, hatching))) continue;
       out[renderKey(s, hatching)] = hash(comparable(renderToString(h(Shield, { design: s.design, shape: s.shape, hatching: hatching === 'hatched', size: 200 }))));
     }
   }

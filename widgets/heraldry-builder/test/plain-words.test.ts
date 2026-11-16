@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  CHARGE_IDS, CHARGES, DIVISIONS, DIVISION_LABEL, DIVISION_NAME, ORDINARY_LABEL, ORDINARY_NAME, TINCTURE_NAME, ORDINARY_TYPES, POSTURES, TINCTURE_LABEL, TINCTURES,
+  CHARGE_IDS, CHARGES, DIVISIONS, FACINGS, FACING_LABEL, GAZES, GAZE_LABEL, plainFirst, DIVISION_LABEL, DIVISION_NAME, ORDINARY_LABEL, ORDINARY_NAME, TINCTURE_NAME, ORDINARY_TYPES, POSTURES, TINCTURE_LABEL, TINCTURES,
   chargeLabel, chargeWords, groupLabel, layoutKey, layoutLabel, layoutCandidates, ordinaryWords, postureLabel, ROW_PATTERNS,
 } from '../src/lib/heraldry';
 import { capitalise, joinAnd, joinList } from '../src/lib/heraldry/words';
@@ -56,6 +56,13 @@ describe('postures', () => {
     expect(postureLabel('dragon', 'rampant')).toBe('Rearing up (segreant)');
     expect(postureLabel('eagle', 'displayed')).toBe('Wings spread (displayed)');
     expect(postureLabel('lion', 'rampant', 'default')).toBe('Rearing up (rampant, default)');
+  });
+
+  it('say a facing and a gaze as the viewer sees them, with the heraldic word', () => {
+    expect(plainFirst(FACING_LABEL['to-sinister'])).toBe('Facing right · contourny');
+    expect(plainFirst(GAZE_LABEL.guardant)).toBe('Looking out · guardant');
+    expect(plainFirst(GAZE_LABEL.regardant)).toBe('Looking back · regardant');
+    for (const v of [...FACINGS.map((f) => FACING_LABEL[f]), ...GAZES.map((g) => GAZE_LABEL[g])]) expect(v.plain).toMatch(/^[A-Z][a-z ]+$/);
   });
 
   it('label every drawn posture of every charge', () => {

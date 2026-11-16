@@ -38,6 +38,43 @@ describe('house style', () => {
     expect(say('azure', chg('sun', 'or', {}, { mods: [{ id: 'in-splendour' }] }))).toBe('Azure, a sun in splendor Or.');
     expect(say('gules', chg('lightbulb', 'or', { count: 2 }))).toBe('Gules, in pale two lightbulbs Or.');
   });
+
+  it('names the generated charges, a cross fitchy after its noun', () => {
+    expect(say('azure', chg('compass-star', 'or'))).toBe('Azure, a compass star Or.');
+    expect(say('vert', chg('ermine-spot', 'argent', { count: 3 }))).toBe('Vert, three ermine spots argent.');
+    expect(say('gules', chg('delf', 'or', { count: 3 }))).toBe('Gules, three delfs Or.');
+    expect(say('azure', chg('cross-maltese', 'argent', { count: 3 }))).toBe('Azure, three Maltese crosses argent.');
+    expect(say('azure', chg('cross-formy', 'or', { count: 3 }))).toBe('Azure, three crosses formy Or.');
+    expect(say('azure', chg('cross-latin', 'or', {}, { mods: [{ id: 'fitchy' }] }))).toBe('Azure, a Latin cross fitchy Or.');
+    expect(say('azure', chg('cross-crosslet', 'or', { count: 3 }, { mods: [{ id: 'fitchy' }] }))).toBe('Azure, three crosses crosslet fitchy Or.');
+    expect(say('argent', chg('triquetra', 'vert'))).toBe('Argent, a triquetra vert.');
+  });
+
+  it('words the facing and gaze after the posture, and a pair as its arrangement (R§F.3)', () => {
+    const contourny = { facing: 'to-sinister' };
+    const pair = (word: string) => ({ count: 2, arrangement: { k: 'pair', pair: word } });
+    expect(say('azure', chg('lion', 'or', {}, contourny))).toBe('Azure, a lion contourny Or.');
+    expect(blazon(nd(arms('azure', chg('lion', 'or', {}, contourny))), { stateDefaults: true })).toBe('Azure, a lion rampant contourny Or.');
+    expect(say('azure', chg('wolf', 'or', { count: 3 }, contourny))).toBe('Azure, three wolves passant contourny Or.');
+    expect(say('azure', chg('lion', 'or', {}, { gaze: 'guardant', ...contourny }))).toBe('Azure, a lion guardant contourny Or.');
+    expect(say('azure', chg('lion', 'or', {}, { gaze: 'regardant', ...contourny }))).toBe('Azure, a lion contourny regardant Or.');
+    expect(say('azure', chg('lion', 'or', pair('combattant')))).toBe('Azure, two lions combattant Or.');
+    expect(say('argent', chg('wolf', 'sable', pair('addorsed')))).toBe('Argent, two wolves passant addorsed sable.');
+    expect(say('azure', chg('eagle', 'or', pair('combattant')))).toBe('Azure, two eagles respectant Or.');
+    expect(say('azure', ord('pale', 'argent'), chg('lion', 'or', pair('combattant')))).toBe('Azure, a pale argent between two lions combattant Or.');
+  });
+
+  it('words an orientation after the facing, a crescent fesswise as an increscent, and to center after the layout (§1.3, O-W)', () => {
+    const turned = (id: string, orientation: string, extra: object = {}) => chg(id, 'argent', extra, { orientation });
+    expect(say('azure', turned('sword', 'fesswise'))).toBe('Azure, a sword fesswise argent.');
+    expect(say('azure', turned('sword', 'bendwise-sinister-inverted'))).toBe('Azure, a sword bendwise sinister inverted argent.');
+    expect(say('gules', turned('crescent', 'fesswise'))).toBe('Gules, an increscent argent.');
+    expect(say('or', turned('crescent', 'fesswise-reversed', { count: 3 }))).toBe('Or, three decrescents argent.');
+    expect(say('vert', turned('crescent', 'inverted'))).toBe('Vert, a crescent pendant argent.');
+    expect(say('azure', turned('sword', 'to-center', { count: 4, arrangement: 'in-cross' }))).toBe('Azure, four swords in cross points to center argent.');
+    expect(say('azure', turned('crescent', 'to-center', { count: 4, arrangement: 'in-cross' }))).toBe('Azure, four crescents in cross horns to center argent.');
+    expect(say('azure', turned('sword', 'fesswise', { count: 2, arrangement: 'in-pale' }))).toBe('Azure, in pale two swords fesswise argent.');
+  });
 });
 
 describe('charges in chief, in base or in canton beside the primary', () => {
@@ -219,6 +256,10 @@ describe('every charge', () => {
       expect(blazon(nd(arms('azure', chg(id, 'or')))), id).toBe(`Azure, ${meta.article} ${meta.name}${posture} Or.`);
       expect(blazon(nd(arms('azure', chg(id, 'or', { count: 3 })))), id).toBe(`Azure, three ${meta.plural}${posture} Or.`);
     }
+  });
+
+  it('takes "an" before a vowel sound and "a" before any other ("an acorn", "an oak leaf", "a unicorn")', () => {
+    for (const id of CHARGE_IDS) expect(CHARGES[id].article, id).toBe(/^(?:[aeio]|u(?!ni))/i.test(CHARGES[id].name) ? 'an' : 'a');
   });
 });
 

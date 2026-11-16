@@ -6,9 +6,9 @@
 // sets it apart from the rest), the pictures are refitted to the room it
 // leaves, and anything that can't be drawn is blocked with its reason, never silently dropped.
 
-import { CHARGE_IDS, CHARGES, type ChargeId } from './charges';
+import { CHARGE_IDS, CHARGES, CUT_MODIFIERS, type ChargeId } from './charges';
 import { NON_STANDARD_TINCTURES } from './tinctures';
-import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Design, type Group, type Issue, type GroupPath, type GroupTincture, type Lines } from './design';
+import { PLAIN_LINES, bodyTinctures, canonical, groupAt, samePath, tincturePaint, walkGroups, type Charge, type Design, type Group, type Issue, type GroupPath, type GroupTincture, type Lines } from './design';
 import { MORE_ORDINARIES, ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_NAME, OVERALL_ORDINARIES, ordinaryWithArticle, type OrdinaryMod, type OrdinaryType } from './ordinaries';
 import { aroundLayouts, layoutKey, type SecondaryPosition } from './arrangement';
 import {
@@ -19,7 +19,8 @@ import { keptMods, keptOrdinaryLines } from './shape-options';
 import { structuralIssues } from './structure';
 import { tinctureIssues } from './tincture-rule';
 import { strewnGroups } from './strewn';
-import { unsupportedIssues } from './support';
+import { gazeDrawn, unsupportedIssues } from './support';
+import { withDrawnPieces } from './overlay-art';
 
 /** The kinds of place the builder adds on top of the band and the picture (`peripheral` adds one more corner or edge shape each time). */
 export type LayerKey = Exclude<PlaceKind, 'ordinary' | 'picture'>;
@@ -77,15 +78,22 @@ export function ordinaryGroup(type: OrdinaryType, t: GroupTincture, lines: Lines
   };
 }
 
-/** The charge of a group, keeping the posture and modifiers of the one it replaces where the new charge has them. */
+/**
+ * The charge of a group, keeping the posture, facing, gaze, orientation, modifiers and parts of the one it replaces where the new charge has them
+ * (PLAN-D §0.2.7): facing to sinister when it faces, a head turned when it is drawn so in that posture, an orientation it takes, a form it is drawn in (a head keeps its cut),
+ * a piece (a crown, wings…) where its drawing has the place for it, the item it holds where it holds it that way (`withDrawnPieces`).
+ */
 export function chargeItem(id: ChargeId, previous: Group | null): Group['item'] {
   const meta = CHARGES[id];
   const was = previous?.item.k === 'charge' ? previous.item : null;
   const posture = meta.postures ? (was?.posture && meta.postures.includes(was.posture) ? was.posture : meta.defaultPosture) : null;
-  return {
-    k: 'charge', charge: id, form: null, posture, facing: meta.defaultFacing, orientation: null,
-    mods: was ? was.mods.filter((m) => meta.mods.includes(m.id)) : [], parts: [], holds: [],
+  const form = was?.form && meta.forms.includes(was.form) ? was.form : null;
+  const item: Charge = {
+    k: 'charge', charge: id, form, posture: form ? null : posture, gaze: null, facing: meta.faces && was?.facing === 'to-sinister' ? 'to-sinister' : meta.defaultFacing,
+    orientation: was?.orientation && meta.orient.allowed.includes(was.orientation) ? was.orientation : null, mods: was ? was.mods.filter((m) => meta.mods.includes(m.id) || meta.details.includes(m.id) || (form === 'head' && CUT_MODIFIERS.includes(m.id))) : [],
+    parts: was ? was.parts.filter((p) => meta.parts.includes(p.part)) : [], holds: was ? was.holds : [],
   };
+  return withDrawnPieces(was?.gaze && gazeDrawn(item, was.gaze) ? { ...item, gaze: was.gaze } : item);
 }
 
 /** A single charge in gold, as a new picture starts. */
@@ -382,7 +390,8 @@ export function overallItemChoices(d: Design): Choice<LayerItem>[] {
     const issue = [...unsupportedIssues(set), ...structuralIssues(set)].find((i) => i.at.k === 'group' && i.at.path.join() === at);
     return issue?.message ?? null;
   };
-  const main = parts.picture?.group.item;
+  // The main picture on the field; pictures carried by the band are another group, which the one overall may repeat (SENA A3D1a, as `structure`).
+  const main = parts.picture?.placement === 'field' ? parts.picture.group.item : undefined;
   const first = (long: boolean) => CHARGE_IDS.find((id) => CHARGES[id].long === long && !(main?.k === 'charge' && main.charge === id))!;
   const byLong = new Map<boolean, string | null>();
   const bands = OVERALL_ORDINARIES.map((type): Choice<LayerItem> => {

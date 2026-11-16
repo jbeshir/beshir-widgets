@@ -6,13 +6,13 @@
 // The checks return their problems as strings rather than throwing, so the caller can report them per record.
 
 import {
-  CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
-  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
-  type ChargeId, type Choice, type EdgeSide, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
+  CHARGES, CHARGE_IDS, DRAWN_DIVISIONS, GYRONNY_PIECES, BUILDER_ORDINARIES, MORE_ORDINARIES, THIN_ORDINARIES, TILE_OF, ordinaryCountChoices, TINCTURES, VARIATIONS, VARIATION_PIECES, asVariation, isCountedVariation, addLayer, canonicalJson, fieldTinctureChoices, groupAt, groupTinctureChoices, groupTinctureOf, layerChoices, overallItemChoices,
+  asParty, asSemy, groundTincture, groupVariationChoices, groupVariationTinctureChoices, setGroupVariation, setGroupVariationPieces, setGroupVariationTincture, furAt, paintAt, properChoice, setProper, setTreatment, setTreatmentColour, treatmentAt, treatmentChoices, treatmentColourChoices, semyAt, semyChoices, semyColourChoices, setSemy, setSemyColour, furChoices, furColourChoices, lineChoices, edgeSideChoices, outlineAt, outlineChoices, outlineTinctureChoices, setOutlineTincture, toggleChoices, toggledOn, bandPositionChoices, bandPositionOf, type BandPosition, type Outline, type ShapeToggle, type EdgeTarget, furColours, furKindOf, setFur, setFurColour, isPeripheralPlace, modifierChoices, formChoices, cutChoices, detailChoices, partChoices, pieceTinctureChoices, holdChoices, heldTinctureChoices, heldProperChoice, HOLDABLE_IDS, type HoldHow, isPiece, isPiecePart, PROPER_PIECES, type PieceId, type PiecePart, pointsChoices, cutOf, fimbriationTinctureChoices, facingChoices, gazeChoices, orientationChoices, paintTinctures, pairChoices, type Orientation, drawnLayout, layoutContext, replaceGroup, walkGroups, peripheralItemChoices, setPeripheralItem, addedLayerStep, partyDivisionChoices, partyTinctureChoices, pathOfPlace, postureChoices, setOverallItem, setLayerTincture, setPartyDivision, setPartyTincture, simpleParts, splitGroup,
+  type ChargeForm, type ChargeId, type Choice, type ModifierId, type EdgeSide, type Facing, type Gaze, type PairChoice, type FieldPart, type FurKind, type Line, type FurPaint, type PaintTarget, type Paint, type SemyPaint, type TreatedPaint, type Treatment, type Design, type Division, type Group, type GroupPath, type GroupTincture, type LayerItem, type LayerKey, type OrdinaryType, type PeripheralKey, type PeripheralPlace, type PicturesKey, type Posture, type Tincture, type Variation,
 } from '../src/lib/heraldry';
 import {
   DEFAULT_DESIGN, ordinaryPath, picturePath, setCharge, setDivision, setFieldTincture, setGroupTincture, setModifier, setOrdinary, setOrdinaryTincture,
-  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setVariation, setVariationPieces, setVariationTincture,
+  setBadge, setDivisionPieces, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setPosture, setFacing, setGaze, setOrientation, setForm, setCut, setPair, setPart, setHold, setVariation, setVariationPieces, setVariationTincture,
 } from '../src/lib/builder';
 import { layoutMoves, type LayoutAction } from './helpers';
 
@@ -45,8 +45,17 @@ export type BuilderAction =
   | { kind: 'overall-item'; item: LayerItem }
   | { kind: 'charge'; at: At; charge: ChargeId | null }
   | { kind: 'layout'; at: At; action: LayoutAction; design: Design }
+  | { kind: 'form'; at: At; form: ChargeForm | null }
+  | { kind: 'cut'; at: At; cut: ModifierId }
   | { kind: 'posture'; at: At; posture: Posture }
+  | { kind: 'pair'; at: At; pair: PairChoice }
+  | { kind: 'gaze'; at: At; gaze: Gaze | null }
+  | { kind: 'facing'; at: At; facing: Facing }
+  | { kind: 'orientation'; at: At; orientation: Orientation }
   | { kind: 'splendour'; at: At }
+  | { kind: 'modifier'; at: At; id: ModifierId; count: number | null; paint: Paint | null }
+  | { kind: 'part'; at: At; part: PiecePart; paint: Paint }
+  | { kind: 'hold'; at: At; item: ChargeId; how: HoldHow; paint: Paint }
   | { kind: 'charge-tincture'; at: At; tincture: GroupTincture }
   | { kind: 'split'; target: PaintWhere }
   | { kind: 'party-division'; target: PaintWhere; division: Division }
@@ -163,13 +172,67 @@ function actionReason(d: Design, a: BuilderAction): string | null {
       }
       return a.charge === null || CHARGE_IDS.includes(a.charge) ? null : `${a.charge} is not offered`;
     case 'layout': return null;
+    case 'form': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(formChoices(d, path), a.form) : `there is no ${a.at} to shape`;
+    }
+    case 'cut': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(cutChoices(d, path), a.cut) : `there is no ${a.at} to cut`;
+    }
     case 'posture': {
       const path = pathAt(d, a.at);
       return path ? choiceReason(postureChoices(d, path), a.posture) : `there is no ${a.at} to pose`;
     }
+    case 'pair': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(pairChoices(d, path), a.pair) : `there is no ${a.at} to set as a pair`;
+    }
+    case 'gaze': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(gazeChoices(d, path), a.gaze) : `there is no ${a.at} to turn the head of`;
+    }
+    case 'facing': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(facingChoices(d, path), a.facing) : `there is no ${a.at} to face`;
+    }
+    case 'orientation': {
+      const path = pathAt(d, a.at);
+      return path ? choiceReason(orientationChoices(d, path), a.orientation) : `there is no ${a.at} to turn`;
+    }
     case 'splendour': {
       const path = pathAt(d, a.at);
       return path ? choiceReason(modifierChoices(d, path), 'in-splendour') : `there is no ${a.at} to show a face on`;
+    }
+    case 'modifier': {
+      // The Details disclosure: a star's points chip, a detail's toggle, and for a fimbriation or a piece then its paint.
+      const path = pathAt(d, a.at);
+      if (!path) return `there is no ${a.at} to draw ${a.id}`;
+      if (a.id === 'of-points') return choiceReason(pointsChoices(d, path), a.count);
+      const toggled = choiceReason(detailChoices(d, path), a.id);
+      if (toggled) return toggled;
+      if (isPiece(a.id)) return piecePaintReason(setModifier(d, path, a.id, true), path, a.id, a.paint);
+      if (a.id !== 'fimbriated') return null;
+      return a.paint?.k === 'tincture' ? choiceReason(fimbriationTinctureChoices(setModifier(d, path, 'fimbriated', true), path), a.paint.t) : `a fimbriation of ${JSON.stringify(a.paint)} is not offered`;
+    }
+    case 'part': {
+      // The Details disclosure: a crown's or collar's toggle, then its colour.
+      const path = pathAt(d, a.at);
+      if (!path) return `there is no ${a.at} to draw ${a.part}`;
+      return choiceReason(partChoices(d, path), a.part) ?? piecePaintReason(setPart(d, path, a.part, true), path, a.part, a.paint);
+    }
+    case 'hold': {
+      // The Details disclosure's Holding: the item in its select, the way it is held, then its colour or natural colours.
+      const path = pathAt(d, a.at);
+      if (!path) return `there is no ${a.at} to hold ${a.item}`;
+      if (holdChoices(d, path).length === 0) return `the ${a.at} has no Holding select`;
+      if (!HOLDABLE_IDS.includes(a.item)) return `the Holding select does not list ${a.item}`;
+      const holding = setHold(d, path, a.item);
+      const held = setHold(holding, path, a.item, a.how);
+      const proper = a.paint.k === 'proper' ? heldProperChoice(held, path) : null;
+      return choiceReason(holdChoices(holding, path), a.how)
+        ?? (a.paint.k === 'tincture' ? choiceReason(heldTinctureChoices(held, path), a.paint.t)
+          : proper ? choiceReason([proper], 'proper') : `a held ${a.item} of ${JSON.stringify(a.paint)} is not offered`);
     }
     case 'charge-tincture': {
       const path = pathAt(d, a.at);
@@ -266,8 +329,17 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'overall-item': return setOverallItem(d, a.item);
     case 'charge': return setCharge(d, a.at as 'picture' | PicturesKey, a.charge);
     case 'layout': return a.design;
+    case 'form': return setForm(d, path!, a.form);
+    case 'cut': return setCut(d, path!, a.cut);
     case 'posture': return setPosture(d, path!, a.posture);
+    case 'pair': return setPair(d, path!, a.pair);
+    case 'gaze': return setGaze(d, path!, a.gaze);
+    case 'facing': return setFacing(d, path!, a.facing);
+    case 'orientation': return setOrientation(d, path!, a.orientation);
     case 'splendour': return setModifier(d, path!, 'in-splendour', true);
+    case 'modifier': return setModifier(d, path!, a.id, true, { count: a.count, paint: a.paint });
+    case 'part': return setPart(d, path!, a.part, true, a.paint);
+    case 'hold': return setHold(d, path!, a.item, a.how, a.paint);
     case 'charge-tincture': return setGroupTincture(d, path!, a.tincture);
     case 'split': return splitGroup(d, paintPathOf(d, a.target)!)!;
     case 'party-division': return setPartyDivision(d, paintPathOf(d, a.target)!, a.division);
@@ -283,6 +355,12 @@ function applyAction(d: Design, a: BuilderAction): Design {
     case 'semy-colour': return setSemyColour(d, paintTargetOf(d, a.target)!, a.slot, a.tincture);
     case 'proper': return setProper(d, path!);
   }
+}
+
+/** Why a piece of the charge at `path` (switched on) can't be given `paint` by its colour picker: natural colours only for flames, else a tincture offered. */
+function piecePaintReason(d: Design, path: GroupPath, piece: PieceId, paint: Paint | null): string | null {
+  if (paint?.k === 'proper') return PROPER_PIECES.includes(piece) ? null : `the ${piece} piece has no natural colours`;
+  return paint?.k === 'tincture' ? choiceReason(pieceTinctureChoices(d, path, piece), paint.t) : `a ${piece} piece of ${JSON.stringify(paint)} is not offered`;
 }
 
 function describeAction(a: BuilderAction): string {
@@ -309,8 +387,17 @@ function describeAction(a: BuilderAction): string {
     case 'overall-item': return `overall ${a.item.k === 'ordinary' ? a.item.type : a.item.charge}`;
     case 'charge': return `${a.at} charge ${a.charge ?? 'none'}`;
     case 'layout': return `${a.at} ${a.action.kind} ${a.action.kind === 'count' ? a.action.count : a.action.kind === 'placement' ? a.action.placement : a.action.layout}`;
+    case 'form': return `${a.at} shape ${a.form ?? 'whole'}`;
+    case 'cut': return `${a.at} cut ${a.cut}`;
     case 'posture': return `${a.at} posture ${a.posture}`;
+    case 'pair': return `${a.at} pair ${a.pair}`;
+    case 'gaze': return `${a.at} gaze ${a.gaze ?? 'none'}`;
+    case 'facing': return `${a.at} facing ${a.facing}`;
+    case 'orientation': return `${a.at} turned ${a.orientation}`;
     case 'splendour': return `${a.at} splendour on`;
+    case 'modifier': return `${a.at} ${a.id} on${a.count === null ? '' : ` (${a.count})`}${a.paint?.k === 'tincture' ? ` (${a.paint.t})` : a.paint?.k === 'proper' ? ' (proper)' : ''}`;
+    case 'part': return `${a.at} ${a.part} on (${a.paint.k === 'tincture' ? a.paint.t : a.paint.k})`;
+    case 'hold': return `${a.at} holding ${a.item} (${a.how}, ${a.paint.k === 'tincture' ? a.paint.t : a.paint.k})`;
     case 'charge-tincture': return `${a.at} tincture ${a.tincture}`;
     case 'split': return `split the ${a.target}`;
     case 'party-division': return `${a.target} divided ${a.division}`;
@@ -357,6 +444,12 @@ function pictureState(d: Design, at: At): string {
   const g = groupAt(d, path);
   const placement = simpleParts(d).picture?.placement ?? '';
   return `${g.count}/${at === 'picture' ? placement : ''}/${JSON.stringify([g.arrangement, g.position])}`;
+}
+
+/** The design with every pair laid out where it stands (in fess, or where the ordinary places it), the same way: no layout control makes a pair. */
+function unpaired(d: Design): Design {
+  return walkGroups(d).reduce((x, { path, group }) => (group.arrangement.k === 'pair'
+    ? replaceGroup(x, path, { ...group, arrangement: drawnLayout(layoutContext(x, path), group).arrangement }) : x), d);
 }
 
 /** The state of one or several pictures that are laid out together (two main pictures). */
@@ -406,6 +499,11 @@ export interface BuilderPath {
   actions: BuilderAction[];
   /** Empty when every click was offered and allowed and the builder ended on the normalised target. */
   problems: string[];
+  /**
+   * Whether it stopped because the parts of the field did not settle: a part's tincture is another part's, which the builder refuses
+   * (`fieldTinctureChoices`) unless a band between them lets it set it after the band (SENA A3B3a).
+   */
+  unsettledField: boolean;
   /** The design the clicks built. */
   design: Design;
 }
@@ -432,7 +530,7 @@ export function builderPath(goal: Design): BuilderPath {
     actions.push(a);
     return true;
   });
-  const done = () => ({ actions, problems, design: d });
+  const done = (): BuilderPath => ({ actions, problems, unsettledField: false, design: d });
   /** Make a run of clicks, or none: when one is not allowed yet, the design, the clicks and the problems are as they were. */
   const attempt = (clicks: () => boolean): boolean => {
     const before = { design: d, actions: actions.length, problems: problems.length };
@@ -537,6 +635,8 @@ export function builderPath(goal: Design): BuilderPath {
     }
     return !!problems.push(`the ${target} tinctures did not settle`) && false;
   };
+  /** The clicks that set the parts of a divided field that could not all be set before the band was there to separate them, or null. */
+  let unsettledParts: (() => boolean) | null = null;
   // Field: a badge has none (its tile in the Background step); arms have it set, then the band and the top band and border beside it.
   const f = goal.field;
   if (f === null) {
@@ -545,9 +645,10 @@ export function builderPath(goal: Design): BuilderPath {
     if ((d.kind !== 'arms' || d.field.k !== 'divided' || d.field.division !== f.division) && !click({ kind: 'division', division: f.division })) return done();
     if (f.division === 'gyronny' && d.kind === 'arms' && d.field.k === 'divided' && d.field.pieces !== f.pieces && !click({ kind: 'division-pieces', pieces: f.pieces! })) return done();
     // A part strewn with a charge stands on a tincture: the tinctures are set first (the parts swap through a third), then the charges are strewn.
+    // Parts that stand on one tincture need the band that separates them, so they are settled part by part below.
     const grounds = f.parts.map(groundTincture);
     const indices = partIndices(f.parts.length);
-    if (grounds.every((t): t is Tincture => t !== null)) {
+    if (grounds.every((t): t is Tincture => t !== null) && new Set(grounds).size === grounds.length) {
       const now = d.kind === 'arms' && d.field.k === 'divided' ? d.field.parts.map((p) => groundTincture(p) ?? grounds[0]) : grounds;
       if (!click(...dividedTinctureSteps(now, grounds))) return done();
       for (const i of indices) {
@@ -555,32 +656,45 @@ export function builderPath(goal: Design): BuilderPath {
         if (strewn && !strewnTo(FIELD_WHERE[i], strewn)) return done();
       }
     } else if (f.parts.every((p) => p.k === 'tincture' || p.k === 'fur' || p.k === 'treated' || p.k === 'semy')) {
-      // A part can be set when the other part leaves it room: each pass sets the parts it can, and the next the ones it couldn't.
+      // A part can be set when the other part leaves it room: each pass sets the parts it can, and the next the ones it couldn't. Parts that
+      // share a tincture ("per fess argent and argent masoned sable") need the band that separates them (SENA A3B3a): they are set again after it.
       const partNow = (i: FieldPart) => (d.kind === 'arms' && d.field.k === 'divided' ? JSON.stringify(d.field.parts[i]) : '');
-      for (let pass = 0; pass < 3 && indices.some((i) => partNow(i) !== JSON.stringify(f.parts[i])); pass++) {
-        for (const i of indices) {
-          const goalPart = f.parts[i];
-          if (partNow(i) === JSON.stringify(goalPart)) continue;
-          if (goalPart.k === 'tincture') {
-            const set: BuilderAction = { kind: 'field-tincture', part: i, tincture: goalPart.t };
-            if (!actionReason(d, set)) click(set);
-          } else if (goalPart.k === 'fur' && !actionReason(d, { kind: 'fur', target: FIELD_WHERE[i], option: furKindOf(goalPart) })) {
-            if (!attempt(() => furTo(FIELD_WHERE[i], goalPart))) continue;
-          } else if (goalPart.k === 'semy') {
-            const strewn = asSemy(goalPart);
-            if (strewn) attempt(() => strewnTo(FIELD_WHERE[i], strewn));
-          } else if (goalPart.k === 'treated' && goalPart.ground.k === 'tincture') {
-            const ground = goalPart.ground;
-            // The other part may hold the tincture for now: try again after it has moved.
-            attempt(() => treatedTo(FIELD_WHERE[i], { ...goalPart, ground }));
+      const settle = (): boolean => {
+        for (let pass = 0; pass < 3 && indices.some((i) => partNow(i) !== JSON.stringify(f.parts[i])); pass++) {
+          for (const i of indices) {
+            const goalPart = f.parts[i];
+            if (partNow(i) === JSON.stringify(goalPart)) continue;
+            if (goalPart.k === 'tincture') {
+              const set: BuilderAction = { kind: 'field-tincture', part: i, tincture: goalPart.t };
+              if (!actionReason(d, set)) click(set);
+            } else if (goalPart.k === 'fur' && !actionReason(d, { kind: 'fur', target: FIELD_WHERE[i], option: furKindOf(goalPart) })) {
+              if (!attempt(() => furTo(FIELD_WHERE[i], goalPart))) continue;
+            } else if (goalPart.k === 'semy') {
+              const strewn = asSemy(goalPart);
+              if (strewn) attempt(() => strewnTo(FIELD_WHERE[i], strewn));
+            } else if (goalPart.k === 'treated' && goalPart.ground.k === 'tincture') {
+              const ground = goalPart.ground;
+              // The other part may hold the tincture for now: try again after it has moved.
+              attempt(() => treatedTo(FIELD_WHERE[i], { ...goalPart, ground }));
+            }
           }
         }
+        return indices.every((i) => partNow(i) === JSON.stringify(f.parts[i]));
+      };
+      if (!settle()) {
+        unsettledParts = settle;
+        // Until the band is there, a part that could not be set stands on a tincture the goal uses nowhere, so the band's colours are not
+        // refused for lying across it ("Per bend sable and sable estoilly argent, on a bend gules fimbriated Or …", regid:76853).
+        const used = new Set(walkGroups(goal).flatMap(({ group }) => [group.paint, ...(group.item.k === 'ordinary' ? [group.item.fimbriated, group.item.cotised?.paint] : [])].flatMap((paint) => (paint ? paintTinctures(paint) : []))));
+        for (const i of indices.filter((i) => partNow(i) !== JSON.stringify(f.parts[i]))) {
+          const spare = TINCTURES.find((t) => !used.has(t) && !grounds.includes(t) && !actionReason(d, { kind: 'field-tincture', part: i, tincture: t }));
+          if (spare) click({ kind: 'field-tincture', part: i, tincture: spare });
+        }
       }
-      if (indices.some((i) => partNow(i) !== JSON.stringify(f.parts[i]))) return { actions, problems: [...problems, 'the parts of the field did not settle'], design: d };
-    } else return { actions, problems: ['a part of the field is neither a tincture, a fur, a treated tincture nor a semy'], design: d };
+    } else return { actions, unsettledField: false, problems: ['a part of the field is neither a tincture, a fur, a treated tincture nor a semy'], design: d };
   } else if (f.k === 'variation') {
     const want = asVariation(f);
-    if (!want) return { actions, problems: ['a stripe of the background is neither a tincture nor a fur'], design: d };
+    if (!want) return { actions, unsettledField: false, problems: ['a stripe of the background is neither a tincture nor a fur'], design: d };
     const now = () => (d.kind === 'arms' ? asVariation(d.field) : null);
     if (!click({ kind: 'variation', variation: want.variation })) return done();
     if (want.pieces !== null && now()!.pieces !== want.pieces && !click({ kind: 'variation-pieces', pieces: want.pieces })) return done();
@@ -641,6 +755,15 @@ export function builderPath(goal: Design): BuilderPath {
   };
 
   const parts = simpleParts(goal);
+  /** The goal as the count, placement and layout controls build it: a pair stands in fess, or where the ordinary places it, until the Pair row sets it. */
+  const laidOut = unpaired(goal);
+  /** The click that sets the pictures at `at` as the goal group's pair, when it is one and they aren't yet. */
+  const pairTo = (at: At, goalGroup: Group): boolean => {
+    const want = goalGroup.arrangement;
+    if (want.k !== 'pair') return true;
+    const now = groupAt(d, pathAt(d, at)!).arrangement;
+    return (now.k === 'pair' && now.pair === want.pair) || click({ kind: 'pair', at, pair: want.pair });
+  };
 
   /** The clicks that draw the band thin, turn the band or the corner or edge shape at `target` over, shorten it … or set it in the other corner, as the goal is. */
   const togglesTo = (target: 'ordinary' | Beside, goalItem: Group['item']): boolean => {
@@ -668,22 +791,23 @@ export function builderPath(goal: Design): BuilderPath {
     // The outline before the band's colour (an edged band need not stand out against the field), its line once the band's own is set (cotises follow it).
     if (!outlineTo(item) || !paintTo('ordinary', parts.ordinary.group.paint) || !edgesTo('ordinary', item) || !cotiseLineTo(item)) return done();
   }
+  if (unsettledParts && !unsettledParts()) return { actions, problems: [...problems, 'the parts of the field did not settle'], unsettledField: true, design: d };
 
   // The top band, border and corner or edge shapes beside the ordinary, before the pictures they leave room for. A corner or edge shape is
   // added as the first that works, then made the goal's type (each type is on the shield once, so it is found again by its type).
   for (const peripheral of parts.peripherals) {
     const item = peripheral.group.item;
-    if (item.k !== 'ordinary') return { actions, problems: [...problems, `the ${peripheral.place} is not a band or shape`], design: d };
+    if (item.k !== 'ordinary') return { actions, unsettledField: false, problems: [...problems, `the ${peripheral.place} is not a band or shape`], design: d };
     let place: Beside;
     if (isPeripheralPlace(peripheral.place)) {
       const before = d;
       if (!click({ kind: 'add-layer', place: 'peripheral' })) return done();
       const added = addedLayerStep(before, d, 'peripheral');
-      if (added === 'ordinary' || !isPeripheralPlace(added)) return { actions, problems: [...problems, 'the corner or edge shape became the band'], design: d };
+      if (added === 'ordinary' || !isPeripheralPlace(added)) return { actions, unsettledField: false, problems: [...problems, 'the corner or edge shape became the band'], design: d };
       const now = groupAt(d, peripheralAt(d, added)!).item;
       if (now.k === 'ordinary' && now.type !== item.type && !click({ kind: 'peripheral-item', place: added, type: item.type })) return done();
       const found = simpleParts(d).peripherals.find((p) => isPeripheralPlace(p.place) && p.group.item.k === 'ordinary' && p.group.item.type === item.type);
-      if (!found) return { actions, problems: [...problems, `the ${item.type} went missing`], design: d };
+      if (!found) return { actions, unsettledField: false, problems: [...problems, `the ${item.type} went missing`], design: d };
       place = found.place as PeripheralPlace;
     } else {
       place = peripheral.place as PeripheralKey;
@@ -705,37 +829,67 @@ export function builderPath(goal: Design): BuilderPath {
         if (!paintTo(at, part.group.paint)) return done();
         continue;
       }
-    } else if (item.k !== 'charge') return { actions, problems: [...problems, `the ${at} is not a charge`], design: d };
+    } else if (item.k !== 'charge') return { actions, unsettledField: false, problems: [...problems, `the ${at} is not a charge`], design: d };
     else if (!click({ kind: 'charge', at, charge: item.charge })) return done();
+    // The Shape row and a head's cut at once: a head fits where the whole beast does not, so the layout is chosen for the shape.
+    if (item.k === 'charge' && item.form !== null && !click({ kind: 'form', at, form: item.form })) return done();
+    const cut = item.k === 'charge' ? cutOf(item) : null;
+    if (cut && !click({ kind: 'cut', at, cut })) return done();
     // Two main pictures are laid out together and judged together: the first waits for the second, then the controls of either lead to the goal's layout of both.
     if (at === 'picture' && parts.coPrimary) continue;
     const together: readonly At[] = at === 'co-primary' ? ['picture', 'co-primary'] : [at];
-    const route = layoutRoute(d, goal, together);
+    let route = layoutRoute(d, laidOut, together);
+    // A drawn posture can fit where the default one does not (two horses rampant in rows with a lion; the horse is drawn passant): then it comes first.
     if (!route) {
-      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, together)} from ${layoutState(d, together)}`);
+      for (const own of together) {
+        const { item: wanted } = (own === at ? part : parts.picture!).group;
+        const { item: have } = groupAt(d, pathAt(d, own)!);
+        if (wanted.k === 'charge' && have.k === 'charge' && wanted.posture && have.posture !== wanted.posture && !click({ kind: 'posture', at: own, posture: wanted.posture })) return done();
+      }
+      route = layoutRoute(d, laidOut, together);
+    }
+    if (!route) {
+      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(laidOut, together)} from ${layoutState(d, together)}`);
       return done();
     }
     if (!click(...route)) return done();
     for (const own of together) {
       const group = (own === at ? part : parts.picture!).group;
-      const path = pathAt(d, own)!;
-      const now = groupAt(d, path).item;
+      const now = () => { const item = groupAt(d, pathAt(d, own)!).item; return item.k === 'charge' ? item : null; };
       if (group.item.k !== 'charge') continue;
-      const { posture, mods } = group.item;
-      if (posture && now.k === 'charge' && now.posture !== posture && !click({ kind: 'posture', at: own, posture })) return done();
-      if (mods.some((m) => m.id === 'in-splendour') && now.k === 'charge' && !now.mods.some((m) => m.id === 'in-splendour') && !click({ kind: 'splendour', at: own })) return done();
+      const { posture, mods, gaze, facing, orientation } = group.item;
+      if (posture && now()?.posture !== posture && !click({ kind: 'posture', at: own, posture })) return done();
+      if (mods.some((m) => m.id === 'in-splendour') && now()?.mods.some((m) => m.id === 'in-splendour') === false && !click({ kind: 'splendour', at: own })) return done();
+      // The Pair row before the head and the facing: setting a pair turns both charges as drawn first.
+      if (!pairTo(own, group)) return done();
+      if (now()?.gaze !== gaze && !click({ kind: 'gaze', at: own, gaze })) return done();
+      if (facing && now()?.facing !== facing && !click({ kind: 'facing', at: own, facing })) return done();
+      if (orientation && now()?.orientation !== orientation && !click({ kind: 'orientation', at: own, orientation })) return done();
+      // The details, in canonical order (a star's points before piercing it, a slip before its leaves), then the parts and what it holds, before
+      // the tincture: a fimbriated charge need not contrast.
+      const { details } = CHARGES[group.item.charge];
+      for (const m of mods.filter((m) => details.includes(m.id))) {
+        if (!now()?.mods.some((n) => n.id === m.id && n.count === m.count && JSON.stringify(n.paint) === JSON.stringify(m.paint)) && !click({ kind: 'modifier', at: own, id: m.id, count: m.count, paint: m.paint })) return done();
+      }
+      for (const p of group.item.parts) {
+        if (!isPiece(p.part) || !isPiecePart(p.part)) return { actions, unsettledField: false, problems: [...problems, `the ${own} is ${p.part}, which the builder has no control for`], design: d };
+        if (!now()?.parts.some((n) => n.part === p.part && JSON.stringify(n.paint) === JSON.stringify(p.paint)) && !click({ kind: 'part', at: own, part: p.part, paint: p.paint })) return done();
+      }
+      for (const h of group.item.holds) {
+        if (!now()?.holds.some((n) => JSON.stringify(n) === JSON.stringify(h)) && !click({ kind: 'hold', at: own, item: h.item.charge, how: h.how, paint: h.paint })) return done();
+      }
       if (!paintTo(own, group.paint)) return done();
     }
   }
 
-  // Pictures in chief, base or canton take room from the picture, which may have had to give up charges: lay it out again.
+  // Pictures in chief, base or canton take room from the picture, which may have had to give up charges: lay it out again (and set its pair again).
   if (parts.picture && layoutState(d, ['picture']) !== layoutState(goal, ['picture'])) {
-    const route = layoutRoute(d, goal, ['picture']);
+    const route = layoutRoute(d, laidOut, ['picture']);
     if (!route) {
-      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(goal, ['picture'])} from ${layoutState(d, ['picture'])}`);
+      problems.push(`no route through the count, placement and layout controls reaches ${layoutState(laidOut, ['picture'])} from ${layoutState(d, ['picture'])}`);
       return done();
     }
-    if (!click(...route)) return done();
+    if (!click(...route) || !pairTo('picture', parts.picture.group)) return done();
   }
 
   if (canonicalJson(d) !== canonicalJson(goal)) problems.push(`the builder ended on ${canonicalJson(d)}, not ${canonicalJson(goal)}`);

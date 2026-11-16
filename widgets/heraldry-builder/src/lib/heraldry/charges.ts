@@ -1,25 +1,55 @@
-// Charge metadata: 36 curated charges, their blazon/gloss names, articles, categories, drawn postures and
-// the vocabulary of charge attributes (postures, facings, orientations, forms, modifiers, parts, holds).
-// Artwork lives in charge-art.ts.
+// Charge vocabulary: the charge ids and categories, the type classes, and the charge attributes (postures, facings, gazes,
+// orientations, forms, modifiers, parts, holds). Each charge's metadata is its sidecar row in art/meta; its art is in art/paths.
 
-import type { BaseTincture, ContrastClass } from './surface';
+import type { ChargeMeta, ChargeMetaRow } from './art/types';
+import { META_BEAST } from './art/meta/beast';
+import { META_BIRD } from './art/meta/bird';
+import { META_CROSS } from './art/meta/cross';
+import { META_GEOMETRIC } from './art/meta/geometric';
+import { META_MODERN } from './art/meta/modern';
+import { META_MONSTER } from './art/meta/monster';
+import { META_OBJECT } from './art/meta/object';
+import { META_PLANT } from './art/meta/plant';
 import { numberWord } from './words';
 
 export const POSTURES = ['rampant', 'passant', 'statant', 'sejant', 'courant', 'salient', 'couchant', 'dormant', 'sejant-erect',
-  'statant-erect', 'naiant', 'haurient', 'urinant', 'displayed', 'close', 'rising', 'volant', 'tergiant'] as const;
+  'statant-erect', 'naiant', 'haurient', 'urinant', 'displayed', 'close', 'rising', 'volant', 'tergiant', 'erect', 'glissant', 'nowed'] as const;
 export type Posture = (typeof POSTURES)[number];
 
-export const FACINGS = ['to-dexter', 'to-sinister', 'affronty', 'guardant', 'regardant', 'guardant-regardant'] as const;
+/** Which way a charge's body faces: to dexter (as drawn), to sinister (contourny: the drawing mirrored), or out of the shield. */
+export const FACINGS = ['to-dexter', 'to-sinister', 'affronty'] as const;
 export type Facing = (typeof FACINGS)[number];
 
-export const ORIENTATIONS = ['palewise', 'fesswise', 'bendwise', 'bendwise-sinister', 'inverted', 'reversed'] as const;
+/** Which way a beast's head is turned, whatever its body does: out of the shield, back over its shoulder, or both. */
+export const GAZES = ['guardant', 'regardant', 'guardant-regardant'] as const;
+export type Gaze = (typeof GAZES)[number];
+
+/**
+ * Which way an inanimate charge (or an insect) points, as directions on the shield for art drawn palewise top up (PLAN-D §1.3): fesswise
+ * has its top to dexter, bendwise to dexter chief, bendwise sinister to sinister chief, and each reversed or inverted the other way;
+ * reversed is the drawing mirrored; to center turns the top of each charge to the middle of its group.
+ */
+export const ORIENTATIONS = ['palewise', 'fesswise', 'fesswise-reversed', 'bendwise', 'bendwise-inverted', 'bendwise-sinister',
+  'bendwise-sinister-inverted', 'inverted', 'reversed', 'to-center'] as const;
 export type Orientation = (typeof ORIENTATIONS)[number];
 
 export const CHARGE_FORMS = ['head', 'demi', 'jambe', 'skull'] as const;
 export type ChargeForm = (typeof CHARGE_FORMS)[number];
 
-export const MODIFIER_IDS = ['in-splendour', 'couped', 'erased', 'slipped', 'leaved', 'fructed', 'enflamed', 'winged', 'voided', 'of-points'] as const;
+export const MODIFIER_IDS = ['in-splendour', 'couped', 'erased', 'slipped', 'leaved', 'fructed', 'enflamed', 'winged', 'voided', 'of-points', 'fitchy', 'fimbriated', 'pierced'] as const;
 export type ModifierId = (typeof MODIFIER_IDS)[number];
+
+/** How a head is cut off: straight (couped) or torn (erased). A head is one or the other, couped when neither is given (§0.3: heads always state their cut). */
+export const CUT_MODIFIERS: readonly ModifierId[] = ['couped', 'erased'];
+
+/** The stars that may be given a number of points (`of-points`), and the number each is drawn with when none is given. */
+export const DRAWN_POINTS = { mullet: 5, estoile: 6 } as const satisfies Partial<Record<ChargeId, number>>;
+
+/** How many points a star may be given ("of six points", "of eight rays"): at least 4, at most 12. */
+export const STAR_POINTS: readonly number[] = [4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+/** How many points a star is drawn with when none is given ("a mullet": five), or null for a charge that takes no number of points. */
+export const drawnPoints = (id: ChargeId): number | null => (id in DRAWN_POINTS ? DRAWN_POINTS[id as keyof typeof DRAWN_POINTS] : null);
 
 export const PART_IDS = ['armed', 'langued', 'crowned', 'collared', 'attired', 'unguled', 'beaked', 'membered', 'seeded', 'barbed'] as const;
 export type PartId = (typeof PART_IDS)[number];
@@ -30,18 +60,19 @@ export type HoldHow = (typeof HOLD_HOWS)[number];
 /** Plain-English posture words for the gloss. Displayed is folded into the eagle's gloss name. */
 export const POSTURE_GLOSS: Record<Posture, string | null> = {
   rampant: 'rearing up', passant: 'walking', statant: 'standing', sejant: 'sitting', courant: 'running', salient: 'leaping',
-  couchant: 'lying down', dormant: 'asleep', 'sejant-erect': 'sitting upright', 'statant-erect': 'standing upright',
+  couchant: 'lying down', dormant: 'sleeping', 'sejant-erect': 'sitting up', 'statant-erect': 'standing on hind legs',
   naiant: 'swimming', haurient: 'upright, head up', urinant: 'diving, head down', displayed: null,
   close: 'perched, wings folded', rising: 'taking off', volant: 'flying', tergiant: 'seen from above',
+  erect: 'upright', glissant: 'gliding', nowed: 'knotted',
 };
 
-export type ChargeCategory = 'beast' | 'monster' | 'bird' | 'plant' | 'geometric' | 'object' | 'modern';
+export type ChargeCategory = 'beast' | 'monster' | 'bird' | 'plant' | 'geometric' | 'cross' | 'object' | 'modern';
 
-export const CHARGE_CATEGORIES: readonly ChargeCategory[] = ['beast', 'monster', 'bird', 'plant', 'geometric', 'object', 'modern'];
+export const CHARGE_CATEGORIES: readonly ChargeCategory[] = ['beast', 'monster', 'bird', 'plant', 'geometric', 'cross', 'object', 'modern'];
 
 export const CATEGORY_LABEL: Record<ChargeCategory, string> = {
   beast: 'Beasts', monster: 'Monsters', bird: 'Birds', plant: 'Plants',
-  geometric: 'Shapes', object: 'Objects', modern: 'Modern',
+  geometric: 'Shapes', cross: 'Crosses', object: 'Objects', modern: 'Modern',
 };
 
 export const CHARGE_IDS = [
@@ -53,9 +84,44 @@ export const CHARGE_IDS = [
   'key', 'open-book', 'sword', 'crown', 'anchor',
   'musical-note', 'flame', 'gear', 'lightbulb',
   'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
+  'compass-star', 'mascle', 'rustre', 'fusil', 'delf', 'triangle', 'triquetra', 'trefoil', 'quatrefoil', 'cinquefoil', 'ermine-spot',
+  'cross-couped', 'cross-latin', 'cross-formy', 'cross-bottony', 'cross-moline', 'cross-flory', 'cross-patonce', 'cross-potent',
+  'cross-maltese', 'cross-celtic', 'cross-tau',
+  'wing',
+  'cat', 'bear', 'horse', 'fox', 'squirrel',
+  'raven', 'griffin', 'swan', 'phoenix', 'wyvern', 'falcon', 'pegasus', 'seahorse', 'peacock', 'martlet', 'dove', 'sea-lion',
+  'arrow', 'hammer', 'harp', 'axe', 'pheon', 'feather', 'needle', 'anvil', 'spear', 'trident',
+  'escallop', 'dragonfly', 'thistle', 'dolphin', 'butterfly', 'laurel-wreath', 'oak-leaf', 'acorn', 'serpent', 'frog', 'pomegranate', 'lily', 'garb', 'spider', 'scorpion',
+  'tower', 'hand', 'pawprint', 'comet', 'goblet', 'chalice', 'castle', 'bell', 'tankard',
+  'hawk', 'rapier', 'dagger', 'coney', 'rabbit', 'vol', 'coronet',
+  'escarbuncle', 'seeblatt', 'wheel', 'catherine-wheel',
 ] as const;
 
 export type ChargeId = (typeof CHARGE_IDS)[number];
+
+/**
+ * The charges with no drawings of their own, each with the charge it is drawn from, as it is or reshaped (art/procedural/derived.ts; PLAN-D
+ * §2.4): its art is that charge's, so it is loaded with it.
+ */
+export const ALIAS_SOURCE = {
+  hawk: 'falcon', rapier: 'sword', dagger: 'sword', coney: 'hare', rabbit: 'hare', vol: 'wing', coronet: 'crown',
+} as const satisfies Partial<Record<ChargeId, ChargeId>>;
+export type AliasId = keyof typeof ALIAS_SOURCE;
+export const ALIAS_IDS = Object.keys(ALIAS_SOURCE) as readonly AliasId[];
+export const isAliasId = (id: ChargeId): id is AliasId => (ALIAS_IDS as readonly ChargeId[]).includes(id);
+
+/** The pictures the picker offers first, in this order: the original pictures; later pictures are added as they are drawn (PLAN-D §2.4). */
+export const POPULAR_CHARGE_IDS: readonly ChargeId[] = [
+  'lion', 'wolf', 'boar', 'stag', 'goat', 'hare', 'fish', 'bee',
+  'unicorn', 'dragon',
+  'eagle', 'owl',
+  'rose', 'tree', 'fleur-de-lis',
+  'mullet', 'crescent', 'sun', 'heart',
+  'key', 'open-book', 'sword', 'crown', 'anchor',
+  'musical-note', 'flame', 'gear', 'lightbulb',
+  'roundel', 'annulet', 'billet', 'lozenge', 'goutte', 'cross-crosslet', 'estoile', 'spark',
+  'cat', 'bear', 'horse', 'fox', 'raven', 'griffin', 'swan', 'phoenix', 'arrow', 'escallop', 'dolphin', 'tower',
+];
 
 /**
  * SENA A5E2 type classes: a charge of one class is substantially different in type from a charge of any other (a
@@ -75,13 +141,13 @@ export const TYPE_CLASSES = {
   dragon: { source: 'App M1e names only the near kin of the dragon (wyvern, sea-dragon: a DC); no SENA example against the four-legged beasts', guess: true },
   fish: { source: 'A5C3/App M1b: most fish are one type; A5E2: clearly unrelated shapes are substantially different', guess: false },
   bee: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
-  'regular-bird': { source: 'App M1d: eagle and owl are both regular-shaped birds; LoAR 2024-26: "owls and eagles are both regular-shaped birds, there is a single DC" for their type', guess: false },
-  rose: { source: 'App M1i: few-petaled flowers in affronty view; precedent: "a substantial difference between a roundel and a rose"', guess: false },
+  'regular-bird': { source: 'App M1d: every bird is one class, told apart by its shape (regular, swan, poultry: `birdShape`, PLAN-D T6); LoAR 2024-26: "owls and eagles are both regular-shaped birds, there is a single DC" for their type; Teodr\' Viktorov 08/2023: a raven is a falcon', guess: false },
+  rose: { source: 'App M1i: few-petaled flowers in affronty view; foils are flowers of as many petals (01/2025 CL); precedent: "a substantial difference between a roundel and a rose"', guess: false },
   tree: { source: 'App M1h: trees conflict only with trees (generic vs coniferous a DC)', guess: false },
   'fleur-de-lys': { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
-  'mullet-or-sun': { source: 'A5G4: "a DC for the change … from a mullet of five points to a sun"; App M1g', guess: false },
+  'mullet-or-sun': { source: 'A5G4: "a DC for the change … from a mullet of five points to a sun"; App M1g (mullets, compass stars, estoiles, suns)', guess: false },
   crescent: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
-  heart: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
+  heart: { source: 'A5E2: clearly unrelated shapes are substantially different; the seeblatt shares the class with a type token of its own (heart vs seeblatt DC: no SENA example, by the likeness of their outlines; herald question)', guess: false },
   key: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
   book: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: false },
   sword: { source: 'A5C3: swords and daggers of all forms are one type', guess: false },
@@ -91,167 +157,80 @@ export const TYPE_CLASSES = {
   flame: { source: 'A5E2: clearly unrelated shapes; whether a flame is near enough to a sun for only a DC is unsettled', guess: true },
   cogwheel: { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
   lightbulb: { source: 'A5G4: a charge not used in period differs in type by a distinct change of shape; substantial by our reading', guess: true },
-  roundel: { source: 'A3E2: the roundel and goutte families are one type each; precedent: "a substantial difference between a roundel and a rose"', guess: true },
-  annulet: { source: 'A5E2: clearly unrelated shapes are substantially different; an annulet is not read as a voided roundel', guess: true },
-  billet: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: true },
-  lozenge: { source: 'A5E2: clearly unrelated shapes are substantially different', guess: true },
+  roundel: { source: 'A3E2: the roundel and goutte families are one type each; precedent: "a substantial difference between a roundel and a rose"; an annulet is a DC from a roundel (Halawa bint Tariq 05/2023; herald question D20)', guess: true },
+  billet: { source: 'A5E2: clearly unrelated shapes are substantially different; billet, delf and triangle a DC apart (Violeta de Valencia 03/2021)', guess: true },
+  lozenge: { source: 'A5E2: clearly unrelated shapes are substantially different; lozenge, mascle, rustre and fusil a DC apart (Alicia le Wilfulle 05/2021)', guess: true },
   goutte: { source: 'A3E2: the roundel and goutte families are one type each', guess: true },
-  'cross-crosslet': { source: 'App M1f: a cross crosslet is in a category of its own among the crosses', guess: false },
+  'cross-couped': { source: 'App M1f family 1: a plain cross couped, equal-armed or Latin, is one type with the ordinary cross couped ("no difference is granted for … changing between equal-armed and Latinate")', guess: false },
+  'cross-crosslet': { source: 'App M1f family 3: the cross crosslet and the cross bottony, a DC apart (herald question D13)', guess: false },
+  'cross-flory': { source: 'App M1f family 2: the cross flory and the cross patonce, a DC apart (Guillaume of the Shadowlands 10/2015)', guess: false },
+  'cross-moline': { source: 'App M1f family 4', guess: false },
+  'cross-formy': { source: 'App M1f family 5; substantially different from the Maltese cross (Gilbert des Moulins 12/2023)', guess: false },
+  'cross-potent': { source: 'App M1f family 7', guess: false },
+  'cross-tau': { source: 'App M1f family 8', guess: false },
+  'cross-maltese': { source: 'App M1f family 13; substantially different from the cross formy (Gilbert des Moulins 12/2023)', guess: false },
+  'cross-celtic': { source: 'Not among the families of App M1f; at least a DC from the crosses bottony, formy and couped, read here as a type of its own (herald question D14)', guess: true },
   spark: { source: 'A5E2: clearly unrelated shapes are substantially different; the spark is the charge of estencely', guess: true },
+  triquetra: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the other knots', guess: true },
+  wing: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the feather or the bird', guess: true },
+  bear: { source: 'A5G4: types distinct in period; bear vs wolverine no difference (Jurgen der Vielfrass 08/2018)', guess: true },
+  horse: { source: 'A5G4: types distinct in period; William Ulfsson 08/2014: wolves\' heads vs horses\' heads "more than a DC"; pegasus is a horse +winged (Vagn Feilan 11/2014)', guess: false },
+  griffin: { source: 'A5G4: types distinct in period; A5G7a compares a griffin segreant only with an eagle displayed (postures not comparable); no SENA example against the dragon or the lion', guess: true },
+  seahorse: { source: 'A5E2: "two unicorns and a raven … does not conflict with … three sea-horses" (sea-monsters by type); App M3 lists sea-creatures among the tailed bipeds; no SENA example against the horse', guess: true },
+  'sea-lion': { source: 'A5G4: types distinct in period; App M3 lists sea-creatures among the tailed bipeds; no SENA example against the lion or the sea-horse', guess: true },
+  squirrel: { source: 'A5G4: types distinct in period; no SENA example against the other beasts', guess: true },
+  arrow: { source: 'A5E2: clearly unrelated shapes are substantially different; App L2 / A5G7b compare an arrow with a sword only for orientation; arrow vs pheon/spear no SENA example', guess: true },
+  axe: { source: 'A5G4: a claymore is distinctly (not substantially) changed from an axe; kept a class of its own (herald question D17)', guess: true },
+  hammer: { source: 'A5E2: clearly unrelated shapes are substantially different; hammer vs mallet/Thor\'s hammer no SENA example', guess: true },
+  harp: { source: 'A5E2: clearly unrelated shapes are substantially different; GoT Table 5 "Harp": forepillar details artistic; harp vs lyre no SENA example', guess: true },
+  pheon: { source: 'A5E2: clearly unrelated shapes are substantially different; GoT Table 5 treats pheon and arrowhead alike for orientation; pheon vs arrow no SENA example', guess: true },
+  feather: { source: 'A5E2: clearly unrelated shapes are substantially different; feather vs quill pen no SENA example', guess: true },
+  needle: { source: 'A5E2: clearly unrelated shapes are substantially different; needle vs other slender tools (awl, nail) no SENA example', guess: true },
+  anvil: { source: 'A5E2: clearly unrelated shapes are substantially different; GoT Table 5: horn direction and number of horns are artistic', guess: true },
+  spear: { source: 'A5E2: clearly unrelated shapes are substantially different; spear vs lance/pike/trident no SENA example', guess: true },
+  trident: { source: 'A5E2: clearly unrelated shapes are substantially different; trident vs spear/salmon-spear no SENA example', guess: true },
+  acorn: { source: 'A5G4: types distinct in period; A5E2: clearly unrelated shapes are substantially different; no SENA example against other fruit or nuts', guess: true },
+  garb: { source: 'A5G4: types distinct in period; A5E2: clearly unrelated shapes are substantially different; no SENA example against the other plants', guess: true },
+  chaplet: { source: 'App M1k: chaplets and wreaths differ by a DC only as their leaves differ (App M1j); A5E2: clearly unrelated shapes are substantially different', guess: false },
+  'trumpet-flower': { source: 'App M1i: "no difference for type between trumpet-shaped flowers in profile (columbines, lilies, tulips, daffodils, etc.)"; an SC between few-petaled flowers affronty, multi-petaled flowers affronty and trumpet-shaped flowers in profile', guess: false },
+  leaf: { source: 'App M1j (01/2024 CL): leaves in different categories (leaf-, heart-, maple-, oak-, frond-, fan-shaped) have a DC between them, leaves of one category conflict; A5E2: clearly unrelated shapes are substantially different', guess: false },
+  fruit: { source: 'A5G4: types distinct in period; A5E2: clearly unrelated shapes are substantially different; no SENA example against the other round fruit', guess: true },
+  thistle: { source: 'App M1i: flowers outside the petal categories are "treated as individual cases, by type"; A5E2: clearly unrelated shapes are substantially different; no SENA example against the rose or the tree', guess: true },
+  butterfly: { source: 'A5G4: types distinct in period; A5E5a groups the butterfly with the bee as compact tergiant creatures (no SC for orientation; the App L1c groups are a DC); no SENA example against the bee or the dragonfly', guess: true },
+  dragonfly: { source: 'A5G4: types distinct in period; A5E5a treats the dragonfly as a long tergiant creature (comparable orientations), unlike the compact bee and butterfly; no SENA example against another insect', guess: true },
+  frog: { source: 'A5G4: types distinct in period; App M3 lists frogs among the quadrupeds that can be tergiant (filed under the insect posture class here only as a modelling shortcut, PLAN-D §1.2); frog = toad (GoT Table 5 "Toad: see Frog")', guess: true },
+  scorpion: { source: 'A5G4: types distinct in period; GoT Table 5 gives the scorpion its own default (tergiant, head to chief, Valentine l\'Argent 05/2023); no SENA example against another arthropod', guess: true },
+  serpent: { source: 'A5G4: types distinct in period; App L1g treats serpent postures case by case; no SENA example against another reptile', guess: true },
+  spider: { source: 'A5G4: types distinct in period; GoT Table 5 gives the spider its own default (tergiant, head to chief, Julius Gautieri 03/2023); no SENA example against another arthropod', guess: true },
+  shell: { source: 'A5G4: types distinct in period; the escallop has its own GoT Table 5 entry (hinge to chief, 01/2025 CL) and A5G7c compares escallop vs escallop inverted (DC); no SENA example against another shell', guess: true },
+  fortification: { source: 'A5G4: types distinct in period; PLAN-D §2.4: tower and castle share this class with a type token each (tower vs castle DC); no SENA example found', guess: true },
+  cup: { source: 'A5G4: types distinct in period; PLAN-D §1.6 T5: goblet, chalice and tankard share this class with a type token each (DC); no SENA example found', guess: true },
+  bell: { source: 'A5G4: types distinct in period; no SENA example of a church bell against a hawk\'s bell', guess: true },
+  hand: { source: 'A5G4: types distinct in period; no SENA example of a hand against a glove or gauntlet', guess: true },
+  pawprint: { source: 'A5G4: types distinct in period; no SENA example of a pawprint against another track or foot', guess: true },
+  wheel: { source: 'A5G4: types distinct in period; the wheel and the Catherine wheel share this class with a type token each (DC); no SENA example found, nor against the cogwheel', guess: true },
+  escarbuncle: { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the mullet, sun or crosses', guess: true },
+  'ermine-spot': { source: 'A5E2: clearly unrelated shapes are substantially different; no SENA example against the goutte or the other tails', guess: true },
 } as const satisfies Record<string, { source: string; guess: boolean }>;
 
 export type TypeClass = keyof typeof TYPE_CLASSES;
 
-/** Which postures a charge can be compared across when it changes posture (SENA App M3). */
-export type PostureClass = 'quadruped' | 'bird' | 'fish' | 'insect';
-
-/** A charge-specific posture word: the blazon term and its plain-English gloss ("trippant", "walking"). */
-interface PostureWording { term: string; gloss: string }
-
 /**
- * The natural colouring of a charge (SENA A3B1; GoT Table 4): what is painted, and what it is for contrast and conflict. Proper is
- * not a tincture: the class and the conflict tinctures come from the table row, which names the part they are taken from
- * (a lion is "considered Or", a tree takes its tincture from its leaves). Brown is a tincture in its own right.
- * One fill covers the charge; a second splits it in two, per fess (the flame's gules and Or).
+ * Which postures a charge can be compared across when it changes posture (SENA App M3): four-legged beasts and monsters, birds, fish,
+ * insects (tergiant), tailed bipeds (sea-creatures, wyverns, cockatrices; App M3) and serpents.
  */
-export interface ProperPalette {
-  cls: ContrastClass;
-  conflict: readonly BaseTincture[];
-  fills: readonly [string] | readonly [string, string];
-}
+export type PostureClass = 'quadruped' | 'bird' | 'fish' | 'insect' | 'biped' | 'serpent';
 
-interface ChargeMeta {
-  id: ChargeId;
-  /** Blazon name (singular / plural). */
-  name: string;
-  plural: string;
-  /** Stored, never computed from the first letter ("an open book"). */
-  article: 'a' | 'an';
-  category: ChargeCategory;
-  /** Drawn postures, or null when posture-less. */
-  postures: readonly Posture[] | null;
-  /** The builder's (and resolve's) choice when none is given. */
-  defaultPosture: Posture | null;
-  /** The posture SCA practice assumes when none is blazoned (GoT Table 5): it is omitted from the blazon. */
-  scaDefaultPosture: Posture | null;
-  /** This charge's own words for a posture, overriding the posture id and POSTURE_GLOSS. */
-  postureWording: Partial<Record<Posture, PostureWording>>;
-  /** 'to-dexter' for posture-bearing charges, else null. */
-  defaultFacing: Facing | null;
-  /** Its natural colours, or null when SENA gives the charge none (monsters, shapes, things whose colour is the maker's choice). */
-  proper: ProperPalette | null;
-  /** Drawn modifiers. */
-  mods: readonly ModifierId[];
-  /** May be 'crossed' (two in saltire). */
-  long: boolean;
-  postureClass: PostureClass | null;
-  /** Charges of different classes are substantially different (SENA A5E2; see TYPE_CLASSES). */
-  typeClass: TypeClass;
-  /** Gloss names (singular / plural). */
-  glossName: string;
-  glossPlural: string;
-  /** Default orientation, for documentation and the artist. */
-  orientation: string;
-  /**
-   * Optical scale applied to the slot box when drawing, so charges of different ink weight look the
-   * same size: slender charges (sword, key) are drawn larger, solid ones (heart, rose) smaller.
-   */
-  scale: number;
-  /** How much fine detail the silhouette has: 0 = bold at a glance, 1 = detailed, 2 = intricate. Costs readability points. */
-  detail: 0 | 1 | 2;
-}
-
-type Fixed = Pick<ChargeMeta, 'id' | 'name' | 'plural' | 'article' | 'category' | 'typeClass' | 'glossName' | 'glossPlural' | 'orientation' | 'scale' | 'detail'>;
-type Variable = Partial<Pick<ChargeMeta, 'proper' | 'postures' | 'defaultPosture' | 'scaDefaultPosture' | 'postureWording' | 'mods' | 'long' | 'postureClass'>>;
-
-function c(fixed: Fixed, v: Variable = {}): ChargeMeta {
-  const postures = v.postures ?? null;
-  return {
-    ...fixed,
-    postures,
-    defaultPosture: v.defaultPosture ?? null,
-    scaDefaultPosture: v.scaDefaultPosture ?? null,
-    postureWording: v.postureWording ?? {},
-    defaultFacing: postures ? 'to-dexter' : null,
-    proper: v.proper ?? null,
-    mods: v.mods ?? [],
-    long: v.long ?? false,
-    postureClass: v.postureClass ?? null,
-  };
-}
-
-/** The natural colourings (GoT Table 4, RULES-B §6.2): the class and the conflict tinctures are the row's "taken from" part. */
-const PROPER = {
-  tan: { cls: 'metal', conflict: ['or'], fills: ['#d9a84a'] },
-  brown: { cls: 'colour', conflict: ['brown'], fills: ['#7a4a24'] },
-  gold: { cls: 'metal', conflict: ['or'], fills: ['#e3b52a'] },
-  rose: { cls: 'colour', conflict: ['gules'], fills: ['#c62d35'] },
-  foliage: { cls: 'colour', conflict: ['vert'], fills: ['#3f8a44'] },
-  pages: { cls: 'metal', conflict: ['argent'], fills: ['#efe6cf'] },
-  steel: { cls: 'metal', conflict: ['argent'], fills: ['#cdd3d8'] },
-  fire: { cls: 'neutral', conflict: ['gules', 'or'], fills: ['#f2a21b', '#d3302b'] },
-} as const satisfies Record<string, ProperPalette>;
-
-const quadruped = { postureClass: 'quadruped' } as const;
-
-export const CHARGES: Record<ChargeId, ChargeMeta> = {
-  lion: c({ id: 'lion', name: 'lion', plural: 'lions', article: 'a', category: 'beast', typeClass: 'feline', glossName: 'lion', glossPlural: 'lions', orientation: 'faces dexter', scale: 1, detail: 1 },
-    { postures: ['rampant', 'passant', 'statant', 'sejant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', proper: PROPER.tan, ...quadruped }),
-  wolf: c({ id: 'wolf', name: 'wolf', plural: 'wolves', article: 'a', category: 'beast', typeClass: 'canine', glossName: 'wolf', glossPlural: 'wolves', orientation: 'faces dexter', scale: 1.05, detail: 1 },
-    { postures: ['rampant', 'passant', 'statant'], defaultPosture: 'passant', ...quadruped }),
-  boar: c({ id: 'boar', name: 'boar', plural: 'boars', article: 'a', category: 'beast', typeClass: 'boar', glossName: 'boar', glossPlural: 'boars', orientation: 'faces dexter', scale: 1, detail: 1 },
-    { postures: ['passant'], defaultPosture: 'passant', proper: PROPER.brown, ...quadruped }),
-  stag: c({ id: 'stag', name: 'stag', plural: 'stags', article: 'a', category: 'beast', typeClass: 'deer', glossName: 'stag', glossPlural: 'stags', orientation: 'faces dexter', scale: 1.05, detail: 1 },
-    { postures: ['statant', 'passant'], defaultPosture: 'statant', postureWording: { passant: { term: 'trippant', gloss: 'walking' } }, proper: PROPER.brown, ...quadruped }),
-  goat: c({ id: 'goat', name: 'goat', plural: 'goats', article: 'a', category: 'beast', typeClass: 'goat', glossName: 'goat', glossPlural: 'goats', orientation: 'faces dexter', scale: 1, detail: 1 },
-    { postures: ['statant', 'rampant'], defaultPosture: 'statant', ...quadruped }),
-  hare: c({ id: 'hare', name: 'hare', plural: 'hares', article: 'a', category: 'beast', typeClass: 'hare', glossName: 'hare', glossPlural: 'hares', orientation: 'faces dexter', scale: 1.05, detail: 1 },
-    { postures: ['sejant', 'courant'], defaultPosture: 'sejant', proper: PROPER.brown, ...quadruped }),
-  fish: c({ id: 'fish', name: 'fish', plural: 'fish', article: 'a', category: 'beast', typeClass: 'fish', glossName: 'fish', glossPlural: 'fish', orientation: 'head to dexter (naiant) / head up (haurient)', scale: 1.05, detail: 0 },
-    { postures: ['naiant', 'haurient'], defaultPosture: 'naiant', scaDefaultPosture: 'naiant', postureClass: 'fish' }),
-  bee: c({ id: 'bee', name: 'bee', plural: 'bees', article: 'a', category: 'beast', typeClass: 'bee', glossName: 'bee', glossPlural: 'bees', orientation: 'head up (tergiant, fixed)', scale: 1.05, detail: 0 },
-    { postureClass: 'insect', proper: PROPER.gold }),
-  unicorn: c({ id: 'unicorn', name: 'unicorn', plural: 'unicorns', article: 'a', category: 'monster', typeClass: 'unicorn', glossName: 'unicorn', glossPlural: 'unicorns', orientation: 'faces dexter', scale: 1, detail: 2 },
-    { postures: ['rampant', 'passant', 'sejant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', ...quadruped }),
-  dragon: c({ id: 'dragon', name: 'dragon', plural: 'dragons', article: 'a', category: 'monster', typeClass: 'dragon', glossName: 'dragon', glossPlural: 'dragons', orientation: 'faces dexter', scale: 0.9, detail: 2 },
-    { postures: ['rampant', 'passant'], defaultPosture: 'rampant', scaDefaultPosture: 'rampant', postureWording: { rampant: { term: 'segreant', gloss: 'rearing up' } }, ...quadruped }),
-  eagle: c({ id: 'eagle', name: 'eagle', plural: 'eagles', article: 'an', category: 'bird', typeClass: 'regular-bird', glossName: 'eagle with spread wings', glossPlural: 'eagles with spread wings', orientation: 'head to dexter', scale: 0.95, detail: 0 },
-    { postures: ['displayed'], defaultPosture: 'displayed', scaDefaultPosture: 'displayed', postureClass: 'bird' }),
-  owl: c({ id: 'owl', name: 'owl', plural: 'owls', article: 'an', category: 'bird', typeClass: 'regular-bird', glossName: 'owl', glossPlural: 'owls', orientation: 'upright, facing out', scale: 1, detail: 1 },
-    { postureClass: 'bird', proper: PROPER.brown }),
-  rose: c({ id: 'rose', name: 'rose', plural: 'roses', article: 'a', category: 'plant', typeClass: 'rose', glossName: 'rose', glossPlural: 'roses', orientation: 'upright', scale: 0.88, detail: 0 },
-    { proper: PROPER.rose }),
-  tree: c({ id: 'tree', name: 'tree', plural: 'trees', article: 'a', category: 'plant', typeClass: 'tree', glossName: 'tree', glossPlural: 'trees', orientation: 'upright', scale: 0.95, detail: 2 },
-    { proper: PROPER.foliage }),
-  'fleur-de-lis': c({ id: 'fleur-de-lis', name: 'fleur-de-lys', plural: 'fleurs-de-lys', article: 'a', category: 'plant', typeClass: 'fleur-de-lys', glossName: 'lily (fleur-de-lis)', glossPlural: 'lilies (fleurs-de-lis)', orientation: 'upright', scale: 1, detail: 0 }),
-  mullet: c({ id: 'mullet', name: 'mullet', plural: 'mullets', article: 'a', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'five-pointed star', glossPlural: 'five-pointed stars', orientation: 'one point up', scale: 1.05, detail: 0 }),
-  crescent: c({ id: 'crescent', name: 'crescent', plural: 'crescents', article: 'a', category: 'geometric', typeClass: 'crescent', glossName: 'crescent moon', glossPlural: 'crescent moons', orientation: 'horns up', scale: 1.05, detail: 0 }),
-  sun: c({ id: 'sun', name: 'sun', plural: 'suns', article: 'a', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'sun', glossPlural: 'suns', orientation: '—', scale: 1, detail: 0 },
-    { mods: ['in-splendour'] }),
-  heart: c({ id: 'heart', name: 'heart', plural: 'hearts', article: 'a', category: 'geometric', typeClass: 'heart', glossName: 'heart', glossPlural: 'hearts', orientation: 'point down', scale: 0.88, detail: 0 }),
-  key: c({ id: 'key', name: 'key', plural: 'keys', article: 'a', category: 'object', typeClass: 'key', glossName: 'key', glossPlural: 'keys', orientation: 'wards up, bow down', scale: 1.15, detail: 1 },
-    { long: true }),
-  'open-book': c({ id: 'open-book', name: 'open book', plural: 'open books', article: 'an', category: 'object', typeClass: 'book', glossName: 'open book', glossPlural: 'open books', orientation: 'upright', scale: 0.9, detail: 1 },
-    { proper: PROPER.pages }),
-  sword: c({ id: 'sword', name: 'sword', plural: 'swords', article: 'a', category: 'object', typeClass: 'sword', glossName: 'sword', glossPlural: 'swords', orientation: 'point up', scale: 1.15, detail: 1 },
-    { long: true, proper: PROPER.steel }),
-  crown: c({ id: 'crown', name: 'crown', plural: 'crowns', article: 'a', category: 'object', typeClass: 'crown', glossName: 'crown', glossPlural: 'crowns', orientation: 'upright', scale: 0.95, detail: 0 }),
-  anchor: c({ id: 'anchor', name: 'anchor', plural: 'anchors', article: 'an', category: 'object', typeClass: 'anchor', glossName: 'anchor', glossPlural: 'anchors', orientation: 'ring up', scale: 1.15, detail: 0 },
-    { long: true }),
-  'musical-note': c({ id: 'musical-note', name: 'musical note', plural: 'musical notes', article: 'a', category: 'modern', typeClass: 'musical-note', glossName: 'musical note', glossPlural: 'musical notes', orientation: 'stem up, flag to sinister', scale: 1.15, detail: 1 }),
-  flame: c({ id: 'flame', name: 'flame', plural: 'flames', article: 'a', category: 'modern', typeClass: 'flame', glossName: 'flame', glossPlural: 'flames', orientation: 'tongues up', scale: 0.95, detail: 0 },
-    { proper: PROPER.fire }),
-  gear: c({ id: 'gear', name: 'cogwheel', plural: 'cogwheels', article: 'a', category: 'modern', typeClass: 'cogwheel', glossName: 'gear', glossPlural: 'gears', orientation: '—', scale: 0.9, detail: 0 }),
-  roundel: c({ id: 'roundel', name: 'roundel', plural: 'roundels', article: 'a', category: 'geometric', typeClass: 'roundel', glossName: 'disc', glossPlural: 'discs', orientation: '—', scale: 0.9, detail: 0 }),
-  annulet: c({ id: 'annulet', name: 'annulet', plural: 'annulets', article: 'an', category: 'geometric', typeClass: 'annulet', glossName: 'ring', glossPlural: 'rings', orientation: '—', scale: 0.92, detail: 0 }),
-  billet: c({ id: 'billet', name: 'billet', plural: 'billets', article: 'a', category: 'geometric', typeClass: 'billet', glossName: 'upright rectangle', glossPlural: 'upright rectangles', orientation: 'tall side up', scale: 1, detail: 0 }),
-  lozenge: c({ id: 'lozenge', name: 'lozenge', plural: 'lozenges', article: 'a', category: 'geometric', typeClass: 'lozenge', glossName: 'diamond', glossPlural: 'diamonds', orientation: 'point up', scale: 1, detail: 0 }),
-  goutte: c({ id: 'goutte', name: 'goutte', plural: 'gouttes', article: 'a', category: 'geometric', typeClass: 'goutte', glossName: 'drop', glossPlural: 'drops', orientation: 'point up', scale: 1, detail: 0 }),
-  'cross-crosslet': c({ id: 'cross-crosslet', name: 'cross crosslet', plural: 'crosses crosslet', article: 'a', category: 'geometric', typeClass: 'cross-crosslet', glossName: 'cross with a small cross-bar at each end', glossPlural: 'crosses with a small cross-bar at each end', orientation: 'upright', scale: 1, detail: 0 }),
-  estoile: c({ id: 'estoile', name: 'estoile', plural: 'estoiles', article: 'an', category: 'geometric', typeClass: 'mullet-or-sun', glossName: 'six-rayed star with wavy rays', glossPlural: 'six-rayed stars with wavy rays', orientation: 'one ray up', scale: 1.05, detail: 0 }),
-  spark: c({ id: 'spark', name: 'spark', plural: 'sparks', article: 'a', category: 'geometric', typeClass: 'spark', glossName: 'spark', glossPlural: 'sparks', orientation: 'four points, one up', scale: 1.05, detail: 0 }),
-  lightbulb: c({ id: 'lightbulb', name: 'lightbulb', plural: 'lightbulbs', article: 'a', category: 'modern', typeClass: 'lightbulb', glossName: 'lightbulb', glossPlural: 'lightbulbs', orientation: 'bulb up', scale: 1.1, detail: 1 }),
+const ROWS: Record<ChargeId, ChargeMetaRow> = {
+  ...META_BEAST, ...META_MONSTER, ...META_BIRD, ...META_PLANT, ...META_GEOMETRIC, ...META_CROSS, ...META_OBJECT, ...META_MODERN,
 };
+
+/** Every charge's metadata (its sidecar row in art/meta), with its id and default facing. */
+export const CHARGES = Object.fromEntries(CHARGE_IDS.map((id): [ChargeId, ChargeMeta] =>
+  [id, { ...ROWS[id], id, defaultFacing: ROWS[id].faces ? 'to-dexter' : null }])) as Record<ChargeId, ChargeMeta>;
+
+/** The charges another charge may hold (their sidecar's `holdable`, PLAN-D §1.5), in charge order: the Holding select lists them. */
+export const HOLDABLE_IDS: readonly ChargeId[] = CHARGE_IDS.filter((id) => CHARGES[id].holdable);
 
 export function isChargeId(value: unknown): value is ChargeId {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(CHARGES, value);
@@ -266,6 +245,7 @@ const isIn = <T extends string>(list: readonly T[]) => (value: unknown): value i
 
 export const isPosture = isIn(POSTURES);
 export const isFacing = isIn(FACINGS);
+export const isGaze = isIn(GAZES);
 export const isOrientation = isIn(ORIENTATIONS);
 export const isChargeForm = isIn(CHARGE_FORMS);
 export const isModifierId = isIn(MODIFIER_IDS);
@@ -275,6 +255,11 @@ export const isHoldHow = isIn(HOLD_HOWS);
 /** Blazon word for a posture on a given charge ("segreant" for a rampant dragon). */
 export function postureTerm(id: ChargeId, p: Posture): string {
   return CHARGES[id].postureWording[p]?.term ?? p;
+}
+
+/** A posture as a blazon writes it on a given charge: its term, a two-word one two words ("sejant erect", "statant erect"). */
+export function postureWords(id: ChargeId, p: Posture): string {
+  return postureTerm(id, p).replace('-', ' ');
 }
 
 /** Plain-English word for a posture on a given charge; null for displayed. */

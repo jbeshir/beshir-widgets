@@ -169,7 +169,7 @@ describe('capacity', () => {
         for (const s of around) for (const p of primary) expect(Math.hypot(s.x - p.x, s.y - p.y), shape).toBeGreaterThan((s.size + p.size) / 2 * 0.5);
       }
     }
-  }, 30_000);
+  });
 
   it('does not fit twelve in pale', () => {
     expect(fits(field, 12, 'in-pale')).toBe(false);

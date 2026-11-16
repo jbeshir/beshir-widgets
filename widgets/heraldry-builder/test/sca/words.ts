@@ -4,7 +4,7 @@
 import {
   DRAWN_DIVISIONS, DRAWN_LINES, DRAWN_ORDINARIES, DIVISION_NAME, GYRONNY_PIECES, LINE_SPELLINGS, LINE_WORD, MOD_HOSTS, ORDINARY_ARTICLE,
   ORDINARY_COUNTS, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, edgeCount, edgeNames, familyOf, isDiminutive, lineAllowed, ordinaryEdgeHost,
-  partCount, type Division, type EdgeHost, type OrdinaryType,
+  partCount, type ChargeId, type Division, type EdgeHost, type OrdinaryType,
 } from '../../src/lib/heraldry';
 import { numberWord } from '../../src/lib/heraldry/words';
 
@@ -69,3 +69,28 @@ const familyPhrases = (family: OrdinaryType): string[] => DRAWN_ORDINARIES.filte
 export const BEND = `\\b(?:${alt(familyPhrases('bend'))})(?! sinister\\b)\\b`;
 /** A bend sinister, bendlets sinister or a baton sinister (a bend's band that takes "sinister"). */
 export const BEND_SINISTER = `\\b(?:${alt([...familyPhrases('bend-sinister'), ...familyPhrases('bend').filter((p) => MOD_HOSTS.sinister.some((t) => p === `${ORDINARY_ARTICLE[t]} ${ORDINARY_NAME[t]}`)).map((p) => `${p} sinister`)])})\\b`;
+
+/**
+ * The other spellings of a drawn cross's form after "cross" or "crosses" (the Glossary of Terms lists them), each with the widget's word for
+ * it ("cross fleury" is "cross flory"). The normaliser respells them; the tagger reads them as the drawn cross (its words are accent-free).
+ */
+export const CROSS_FORM_SPELLINGS: Readonly<Record<string, string>> = {
+  fleury: 'flory', fleurie: 'flory', formee: 'formy', formée: 'formy', pattee: 'formy', pattée: 'formy', patee: 'formy', patée: 'formy',
+  patty: 'formy', patté: 'formy', paty: 'formy', botonny: 'bottony', bottonny: 'bottony', botony: 'bottony', pattonce: 'patonce', patoncy: 'patonce',
+};
+
+/**
+ * The College's other names and spellings of charges the widget draws (singular; a plural adds "s" or "es"), each with the charge. Gryphon
+ * 197 and griffon 34 records against griffin 1,084; wivern 26 against wyvern 408; "sea horse" 364 and "seahorse" 299 against "sea-horse";
+ * "sea lion" 312 against "sea-lion"; a broad arrow is the pheon (broad-arrow, broadarrow and "broad arrow", 105; "pheon" itself 306); "ax"
+ * is the axe (18); "scallop" and "scallop shell" the escallop (GoT Table 5 "See Escallop"; 14); "domestic cat" the College's usual name for
+ * the cat (679, far more than "cat" alone); the Catherine wheel is also "Catherine's wheel" (43 against 95); the heraldic wheel is a
+ * cartwheel, so a "wagon wheel" (54) or "cartwheel" (15) is the wheel. The normaliser writes each as the charge's name; the tagger reads
+ * each as the charge (one word: those of two are joined with a hyphen).
+ */
+export const CHARGE_SPELLINGS: Readonly<Record<string, ChargeId>> = {
+  estoille: 'estoile', 'domestic cat': 'cat', gryphon: 'griffin', griffon: 'griffin', wivern: 'wyvern', phenix: 'phoenix',
+  'sea horse': 'seahorse', seahorse: 'seahorse', 'sea lion': 'sea-lion', sealion: 'sea-lion',
+  'broad arrow': 'pheon', 'broad-arrow': 'pheon', broadarrow: 'pheon', ax: 'axe', scallop: 'escallop', 'scallop shell': 'escallop',
+  "catherine's wheel": 'catherine-wheel', 'catharine wheel': 'catherine-wheel', 'wagon wheel': 'wheel', 'cart wheel': 'wheel', cartwheel: 'wheel',
+};

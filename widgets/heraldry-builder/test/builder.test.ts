@@ -5,12 +5,12 @@ import {
   DEFAULT_DESIGN, adjustDesign, assess, chargesClash, companionNote, fixText, isUntouched,
   issueStep, ordinaryPath, picturePath, placementLabel, readabilityTip, replaceDesign, sameShapedDesign, setCharge,
   setDivision, setFieldTincture, setGroupTincture, setLayout, setModifier, setOrdinary, setOrdinaryTincture, setPlainField,
-  setPosture, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
+  setBadge, setCut, setForm, setHold, setPart, setPosture, setFacing, setGaze, setOrientation, setPair, setFieldEdgeSide, setFieldLine, setCotiseLine, setOrdinaryBandPosition, setOrdinaryEdgeSide, setOrdinaryLine, setOrdinaryNumber, setOrdinaryOutline, setOrdinaryToggle, setVariation, setVariationPieces, setVariationTincture, undoStillOffered,
 } from '../src/lib/builder';
 import {
-  addLayer, addedLayerStep, blazon, edgeSideChoices, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
+  addLayer, addedLayerStep, blazon, cutChoices, detailChoices, partChoices, pieceTinctureChoices, heldProperChoice, heldTinctureChoices, holdChoices, formChoices, edgeSideChoices, facingChoices, fimbriationTinctureChoices, gazeChoices, orientationChoices, pairChoices, pointsChoices, pointsOf, tincturePaint, shownLayoutKey, lineChoices, outlineAt, outlineChoices, outlineTinctureChoices, outlineTinctureOf, setOutlineTincture, toggleChoices, countChoices, groupAt, groupTinctureChoices, layerChoices, pathOfPlace, layoutChoices, placementChoices, postureChoices, readability, removeLayer, setLayerTincture, signature, simpleParts, suggestTinctureFix,
   MORE_ORDINARIES, REFUSED_ORDINARIES, layersIn, ordinaryCountChoices, peripheralItemChoices, setPeripheralItem,
-  type Design, type Division, type GroupPath, type LayerKey,
+  type Charge, type Design, type Division, type GroupPath, type LayerKey,
 } from '../src/lib/heraldry';
 import { arms, charge, div, group, nd, ordinary, plain, setCount, setPlacement } from './helpers';
 
@@ -315,14 +315,220 @@ describe('builder transitions', () => {
     const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
     const choices = postureChoices(lion, picture(lion));
     expect(choices.find((c) => c.value === 'passant')!.allowed).toBe(true);
-    expect(choices.some((c) => c.value === 'courant')).toBe(false);
+    expect(choices.some((c) => c.value === 'statant-erect')).toBe(false);
+    // The postures drawn beyond the four of a four-legged beast follow them, in the order of POSTURES (PLAN-D §3 D8a).
+    expect(choices.map((c) => c.value)).toEqual(['rampant', 'passant', 'statant', 'sejant', 'courant', 'salient', 'couchant', 'dormant', 'sejant-erect']);
+    expect(blazon(setPosture(lion, picture(lion), 'sejant-erect'))).toBe('Azure, a lion sejant erect Or.');
     // Swapping the charge keeps a posture it is drawn in and falls back to the default otherwise.
     expect(groupAt(setCharge(setPosture(lion, picture(lion), 'passant'), 'picture', 'wolf'), [0]).item).toMatchObject({ charge: 'wolf', posture: 'passant' });
-    expect(groupAt(setCharge(setPosture(lion, picture(lion), 'sejant'), 'picture', 'wolf'), [0]).item).toMatchObject({ charge: 'wolf', posture: 'passant' });
+    expect(groupAt(setCharge(setPosture(lion, picture(lion), 'couchant'), 'picture', 'wolf'), [0]).item).toMatchObject({ charge: 'wolf', posture: 'passant' });
     let sun = setCharge(DEFAULT_DESIGN, 'picture', 'sun');
     sun = setModifier(sun, picture(sun), 'in-splendour', true);
     expect(blazon(sun)).toBe('Azure, a sun in splendor Or.');
     expect(blazon(setModifier(sun, picture(sun), 'in-splendour', false))).toBe('Azure, a sun Or.');
+  });
+
+  it('the Details: a star\'s points, voided, fimbriated, pierced and fitchy, refused where SENA A3C and M16 refuse them (PLAN-D §3 D6b)', () => {
+    const mullet = setCharge(DEFAULT_DESIGN, 'picture', 'mullet');
+    expect(pointsChoices(mullet, picture(mullet)).map((c) => [c.value, c.allowed])).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => [n, true]));
+    expect(pointsChoices(setCharge(DEFAULT_DESIGN, 'picture', 'roundel'), [0])).toEqual([]);
+    expect(detailChoices(mullet, picture(mullet)).map((c) => [c.value, c.allowed])).toEqual([['voided', true], ['fimbriated', true], ['pierced', true]]);
+    expect(detailChoices(setCharge(DEFAULT_DESIGN, 'picture', 'cross-formy'), [0]).map((c) => c.value)).toEqual(['fitchy']);
+    expect(detailChoices(setCharge(DEFAULT_DESIGN, 'picture', 'sun'), [0])).toEqual([]);
+    // the points: the number the star is drawn with is the star as drawn
+    const six = setModifier(mullet, picture(mullet), 'of-points', true, { count: 6, paint: null });
+    expect(blazon(six)).toBe('Azure, a mullet of six points Or.');
+    expect(pointsOf(groupAt(six, [0]).item as Charge)).toBe(6);
+    expect(setModifier(six, [0], 'of-points', true, { count: 5, paint: null })).toEqual(mullet);
+    expect(blazon(setModifier(six, [0], 'pierced', true))).toBe('Azure, a mullet of six points pierced Or.');
+    // a fimbriation is switched on in the first tincture that stands out where the charge lies, and its tincture is blocked where it doesn't
+    const edged = setModifier(mullet, [0], 'fimbriated', true);
+    expect(blazon(edged)).toBe('Azure, a mullet Or fimbriated argent.');
+    expect(fimbriationTinctureChoices(mullet, [0])).toEqual([]);
+    expect(fimbriationTinctureChoices(edged, [0]).find((c) => c.value === 'gules')).toEqual({ value: 'gules', allowed: false, reason: 'The fimbriation of the mullet (Gules) lies on Azure: colour on colour' });
+    expect(blazon(setModifier(edged, [0], 'fimbriated', true, { count: null, paint: tincturePaint('or') }))).toBe('Azure, a mullet Or fimbriated Or.');
+    expect(detailChoices(edged, [0]).find((c) => c.value === 'voided')).toEqual({ value: 'voided', allowed: false, reason: "A mullet can't be both voided and fimbriated: voided, it is read as fimbriated already (SENA A5C1)." });
+    expect(setModifier(edged, [0], 'fimbriated', false)).toEqual(mullet);
+    // three at most; none voided in a badge
+    const four = setCount(mullet, [0], 4);
+    expect(detailChoices(four, [0]).filter((c) => !c.allowed).map((c) => c.value)).toEqual(['voided', 'fimbriated']);
+    const badge = setCharge(setBadge(DEFAULT_DESIGN), 'picture', 'mullet');
+    expect(detailChoices(badge, picture(badge)).find((c) => c.value === 'voided')).toMatchObject({ allowed: false, reason: 'A fieldless badge has no field to show through a voided charge (SENA A3C).' });
+    // A swap keeps the details the new charge takes (§0.2.7) and drops the rest.
+    const voided = setModifier(six, [0], 'voided', true);
+    expect(blazon(setCharge(voided, 'picture', 'lozenge'))).toBe('Azure, a lozenge voided Or.');
+    expect(blazon(setCharge(voided, 'picture', 'estoile'))).toBe('Azure, an estoile Or.');
+    expect(blazon(setCharge(voided, 'picture', 'sun'))).toBe('Azure, a sun Or.');
+  });
+
+  it('the Shape row: whole, demi or head where the charge is drawn so, a head cut couped or erased, kept through a swap (PLAN-D §3 D7b)', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(formChoices(lion, [0]).map((c) => [c.value, c.allowed])).toEqual([[null, true], ['demi', true], ['head', true]]);
+    expect(formChoices(setCharge(DEFAULT_DESIGN, 'picture', 'stag'), [0]).map((c) => c.value)).toEqual([null, 'head']);
+    expect(formChoices(setCharge(DEFAULT_DESIGN, 'picture', 'sun'), [0])).toEqual([]);
+    expect(cutChoices(lion, [0])).toEqual([]);
+    const head = setForm(lion, [0], 'head');
+    expect(blazon(head)).toBe("Azure, a lion's head couped Or.");
+    expect(cutChoices(head, [0]).map((c) => c.value)).toEqual(['couped', 'erased']);
+    expect(blazon(setCut(head, [0], 'erased'))).toBe("Azure, a lion's head erased Or.");
+    expect(blazon(setForm(lion, [0], 'demi'))).toBe('Azure, a demi-lion Or.');
+    // the cut goes with the head; a whole charge is back in its posture
+    const erased = setCut(head, [0], 'erased');
+    expect(setForm(erased, [0], null)).toEqual(lion);
+    expect(blazon(setForm(setForm(erased, [0], 'demi'), [0], null))).toBe('Azure, a lion Or.');
+    // a swap keeps the form where the new charge is drawn so, and the cut with it
+    expect(blazon(setCharge(erased, 'picture', 'wolf'))).toBe("Azure, a wolf's head erased Or.");
+    expect(blazon(setCharge(erased, 'picture', 'stag'))).toBe("Azure, a stag's head erased Or.");
+    expect(blazon(setCharge(erased, 'picture', 'eagle'))).toBe('Azure, an eagle Or.');
+    expect(blazon(setCharge(setForm(lion, [0], 'demi'), 'picture', 'stag'))).toBe('Azure, a stag statant Or.');
+  });
+
+  it('the Details\' pieces: wings, flames, a stem and leaves, a crown and a collar, each in a paint of its own, where the drawing has a place for it (PLAN-D §3 D9b)', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(detailChoices(lion, [0]).map((c) => [c.value, c.allowed])).toEqual([['winged', true]]);
+    expect(partChoices(lion, [0]).map((c) => [c.value, c.allowed])).toEqual([['crowned', true], ['collared', true]]);
+    expect(partChoices(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0])).toEqual([]);
+    // switched on in a first paint: a crown gold (red on a gold charge), wings the charge's own, flames proper, a stem and its leaves green
+    const crowned = setPart(lion, [0], 'crowned', true);
+    expect(blazon(crowned)).toBe('Azure, a lion Or crowned gules.');
+    expect(blazon(setPart(setGroupTincture(lion, [0], 'argent'), [0], 'crowned', true))).toBe('Azure, a lion argent crowned Or.');
+    expect(blazon(setPart(crowned, [0], 'collared', true, tincturePaint('gules')))).toBe('Azure, a lion Or crowned and collared gules.');
+    expect(setPart(crowned, [0], 'crowned', false)).toEqual(lion);
+    expect(blazon(setModifier(lion, [0], 'winged', true))).toBe('Azure, a lion winged Or.');
+    expect(blazon(setModifier(setCharge(DEFAULT_DESIGN, 'picture', 'heart'), [0], 'enflamed', true))).toBe('Azure, a heart Or enflamed proper.');
+    // any tincture for a piece (artistic detail, §1.4 M16), offered only while the charge has it
+    expect(pieceTinctureChoices(crowned, [0], 'crowned').every((c) => c.allowed)).toBe(true);
+    expect(pieceTinctureChoices(lion, [0], 'crowned')).toEqual([]);
+    // leaves grow on a stem: blocked without one, and gone with it
+    const rose = setCharge(DEFAULT_DESIGN, 'picture', 'rose');
+    expect(detailChoices(rose, [0]).find((c) => c.value === 'leaved')).toEqual({ value: 'leaved', allowed: false, reason: 'Leaves grow from a stem: put the flower on a stem (slipped) first.' });
+    const slipped = setModifier(rose, [0], 'slipped', true);
+    const leaved = setModifier(slipped, [0], 'leaved', true);
+    expect(blazon(leaved)).toBe('Azure, a rose Or slipped and leaved vert.');
+    expect(setModifier(leaved, [0], 'slipped', false)).toEqual(rose);
+    // a drawing with no place for a piece blocks it, and a change of posture or shape drops it
+    const sejant = setPosture(lion, [0], 'sejant');
+    expect(detailChoices(sejant, [0])).toEqual([{ value: 'winged', allowed: false, reason: 'The lion sejant is not drawn with wings in this builder.' }]);
+    expect(blazon(setPosture(setModifier(lion, [0], 'winged', true), [0], 'sejant'))).toBe('Azure, a lion sejant Or.');
+    expect(partChoices(setForm(lion, [0], 'demi'), [0]).find((c) => c.value === 'crowned')).toEqual({ value: 'crowned', allowed: false, reason: 'The demi-lion is not drawn with a crown in this builder.' });
+    expect(blazon(setForm(crowned, [0], 'demi'))).toBe('Azure, a demi-lion Or.');
+    // a swap keeps the pieces the new charge takes, where its drawing has the place for them (§0.2.7)
+    const adorned = setModifier(setPart(crowned, [0], 'collared', true), [0], 'winged', true);
+    const pieces = (d: Design) => { const { mods, parts } = groupAt(d, [0]).item as Charge; return [...mods.map((m) => m.id), ...parts.map((p) => p.part)]; };
+    expect(pieces(setCharge(adorned, 'picture', 'wolf'))).toEqual(['winged', 'crowned', 'collared']);
+    expect(pieces(setCharge(adorned, 'picture', 'goat'))).toEqual(['winged', 'collared']);
+    expect(pieces(setCharge(adorned, 'picture', 'eagle'))).toEqual(['crowned']);
+  });
+
+  it('the Holding controls: what a main charge holds, the ways its drawing takes, a tincture that stands out from the field (PLAN-D §3 D9d)', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    expect(holdChoices(lion, [0]).map((c) => [c.value, c.allowed])).toEqual([['maintaining', true], ['sustaining', true], ['in-mouth', true]]);
+    expect(holdChoices(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0])).toEqual([]);
+    // held the first way offered, in the first tincture but the lion's own that stands out from the field (H5)
+    const holding = setHold(lion, [0], 'sword');
+    expect(blazon(holding)).toBe('Azure, a lion Or maintaining a sword argent.');
+    const sustained = setHold(holding, [0], 'sword', 'sustaining');
+    expect(blazon(sustained)).toBe('Azure, a lion Or sustaining a sword argent.');
+    expect(blazon(setHold(sustained, [0], 'key'))).toBe('Azure, a lion Or sustaining a key argent.');
+    expect(blazon(setHold(holding, [0], 'sword', 'maintaining', tincturePaint('or')))).toBe('Azure, a lion maintaining a sword Or.');
+    expect(setHold(holding, [0], null)).toEqual(lion);
+    expect(heldTinctureChoices(holding, [0]).filter((c) => c.allowed).map((c) => c.value)).toEqual(['or', 'argent', 'celestine']);
+    expect(heldTinctureChoices(lion, [0])).toEqual([]);
+    // natural colours for an item that has them, blocked where they wouldn't stand out (D16b); kept for another item only if it has them too
+    expect(heldProperChoice(holding, [0])).toEqual({ value: 'proper', allowed: true });
+    const proper = setHold(holding, [0], 'sword', 'maintaining', { k: 'proper' });
+    expect(blazon(proper)).toBe('Azure, a lion Or maintaining a sword proper.');
+    expect(blazon(setHold(proper, [0], 'arrow'))).toBe('Azure, a lion Or maintaining an arrow proper.');
+    expect(blazon(setHold(proper, [0], 'key'))).toBe('Azure, a lion Or maintaining a key argent.');
+    expect(heldProperChoice(setHold(holding, [0], 'key'), [0])).toBeNull();
+    expect(heldProperChoice(setHold(setFieldTincture(lion, 0, 'argent'), [0], 'sword'), [0])).toMatchObject({ allowed: false });
+    // a drawing with no paw blocks every way, and a change of shape or posture that loses the paw drops the item
+    expect(holdChoices(setForm(lion, [0], 'demi'), [0]).map((c) => (c.allowed ? c.value : c.reason))).toEqual([
+      'The demi-lion is not drawn holding anything in this builder.', 'The demi-lion is not drawn holding up anything in this builder.', 'The demi-lion is not drawn with anything in its mouth in this builder.',
+    ]);
+    expect(blazon(setForm(holding, [0], 'demi'))).toBe('Azure, a demi-lion Or.');
+    // a swap keeps the item where the new charge holds it that way (§0.2.7)
+    expect(blazon(setCharge(holding, 'picture', 'wolf'))).toBe('Azure, a wolf rampant Or maintaining a sword argent.');
+    expect(blazon(setCharge(holding, 'picture', 'boar'))).toBe('Azure, a boar passant Or.');
+    expect(blazon(setCharge(holding, 'picture', 'mullet'))).toBe('Azure, a mullet Or.');
+    // only a main charge holds (H3)
+    const aroundFess = setOrdinary(lion, 'fess');
+    expect(groupAt(aroundFess, [1])).toMatchObject({ role: 'secondary', item: { charge: 'lion' } });
+    expect(holdChoices(aroundFess, [1])).toEqual([]);
+  });
+
+  it('the Turned row: as usual first, the ways a charge takes, the rest and to center blocked with their reasons (PLAN-D §3 D5b)', () => {
+    const sword = setCharge(DEFAULT_DESIGN, 'picture', 'sword');
+    const turns = orientationChoices(sword, picture(sword));
+    expect(turns.map((c) => c.value)).toEqual([null, 'palewise', 'fesswise', 'fesswise-reversed', 'bendwise', 'bendwise-inverted', 'bendwise-sinister', 'bendwise-sinister-inverted', 'inverted', 'to-center']);
+    expect(turns.filter((c) => !c.allowed).map((c) => c.value)).toEqual(['to-center']);
+    expect(orientationChoices(setCharge(DEFAULT_DESIGN, 'picture', 'lion'), [0])).toEqual([]);
+    // a mullet has no set top: only its own ways are listed (upright, upside down), none blocked (U-10)
+    const mullet = orientationChoices(setCharge(DEFAULT_DESIGN, 'picture', 'mullet'), [0]);
+    expect(mullet).toEqual([{ value: null, allowed: true }, { value: 'palewise', allowed: true }, { value: 'inverted', allowed: true }]);
+    // to center needs a group; two crossed are not turned at all
+    const three = setCount(sword, picture(sword), 3);
+    expect(orientationChoices(three, picture(three)).find((c) => c.value === 'to-center')!.allowed).toBe(true);
+    const crossed = setLayout(setCount(sword, picture(sword), 2), picture(sword), 'crossed');
+    expect(orientationChoices(crossed, picture(crossed)).filter((c) => c.value !== null).every((c) => !c.allowed)).toBe(true);
+    // turning and turning back
+    const flat = setOrientation(sword, picture(sword), 'fesswise');
+    expect(blazon(flat)).toBe('Azure, a sword fesswise Or.');
+    expect(setOrientation(flat, picture(flat), null)).toEqual(sword);
+    expect(blazon(setOrientation(setCharge(DEFAULT_DESIGN, 'picture', 'crescent'), [0], 'fesswise-reversed'))).toBe('Azure, a decrescent Or.');
+    // A swap keeps the orientation where the new charge takes it (§0.2.7), and drops it where it doesn't.
+    expect(groupAt(setCharge(flat, 'picture', 'key'), [0]).item).toMatchObject({ charge: 'key', orientation: 'fesswise' });
+    expect(groupAt(setCharge(flat, 'picture', 'mullet'), [0]).item).toMatchObject({ charge: 'mullet', orientation: null });
+    expect(groupAt(setCharge(flat, 'picture', 'lion'), [0]).item).toMatchObject({ charge: 'lion', orientation: null });
+  });
+
+  it('facing, the head and pairs (PLAN-D §0.3.10)', () => {
+    const lion = setCharge(DEFAULT_DESIGN, 'picture', 'lion');
+    const values = <T,>(cs: ReadonlyArray<{ value: T; allowed: boolean }>) => cs.map((c) => [c.value, c.allowed]);
+    expect(values(facingChoices(lion, picture(lion)))).toEqual([['to-dexter', true], ['to-sinister', true], ['affronty', false]]);
+    expect(values(gazeChoices(lion, picture(lion)))).toEqual([[null, true], ['guardant', true], ['regardant', true]]);
+    // A head turn is offered where that posture is drawn so (A2a: the lion passant guardant, not regardant; couchant neither).
+    const passant = setPosture(lion, picture(lion), 'passant');
+    expect(values(gazeChoices(passant, picture(passant)))).toEqual([[null, true], ['guardant', true], ['regardant', false]]);
+    expect(values(gazeChoices(setPosture(lion, picture(lion), 'couchant'), [0]))).toEqual([[null, true], ['guardant', false], ['regardant', false]]);
+    // A new posture keeps the head turned where it is drawn so, and looks ahead again where it is not.
+    expect(groupAt(setPosture(setGaze(lion, [0], 'guardant'), [0], 'passant'), [0]).item).toMatchObject({ posture: 'passant', gaze: 'guardant' });
+    expect(groupAt(setPosture(setGaze(lion, [0], 'regardant'), [0], 'passant'), [0]).item).toMatchObject({ posture: 'passant', gaze: null });
+    expect(blazon(setGaze(passant, [0], 'guardant'))).toBe('Azure, a lion passant guardant Or.');
+    expect(facingChoices(setCharge(DEFAULT_DESIGN, 'picture', 'rose'), [0])).toEqual([]);
+    expect(pairChoices(lion, picture(lion))).toEqual([]);
+    const contourny = setFacing(lion, picture(lion), 'to-sinister');
+    expect(blazon(contourny)).toBe('Azure, a lion contourny Or.');
+    expect(setFacing(contourny, picture(lion), 'to-dexter')).toEqual(lion);
+    // A swap keeps the facing where the new charge faces too (§0.2.7), and drops it where it doesn't.
+    expect(groupAt(setCharge(contourny, 'picture', 'eagle'), [0]).item).toMatchObject({ charge: 'eagle', facing: 'to-sinister' });
+    expect(groupAt(setCharge(contourny, 'picture', 'rose'), [0]).item).toMatchObject({ charge: 'rose', facing: null });
+
+    // Two that face, side by side: the same way, facing each other (the beast's word), back to back; in pale they must be laid in fess first.
+    const two = setLayout(setCount(lion, picture(lion), 2), picture(lion), 'in-fess');
+    expect(values(pairChoices(two, picture(two)))).toEqual([['same', true], ['combattant', true], ['addorsed', true]]);
+    expect(pairChoices(setLayout(two, picture(two), 'in-pale'), picture(two)).filter((c) => !c.allowed).map((c) => c.value)).toEqual(['combattant', 'addorsed']);
+    const combattant = setPair(setFacing(two, picture(two), 'to-sinister'), picture(two), 'combattant');
+    expect(blazon(combattant)).toBe('Azure, two lions combattant Or.');
+    expect(groupAt(combattant, picture(two)).item).toMatchObject({ facing: 'to-dexter' });
+    expect(facingChoices(combattant, picture(two)).find((c) => c.value === 'to-sinister')!.allowed).toBe(false);
+    expect(shownLayoutKey(combattant, picture(two))).toBe('in-fess');
+    expect(setPair(combattant, picture(two), 'same')).toEqual(two);
+    expect(groupAt(setLayout(combattant, picture(two), 'in-pale'), picture(two)).arrangement).toEqual({ k: 'line', dir: 'pale' });
+    // Eagles facing each other are respectant; a swap to a rose sets the two the same way where they stood.
+    const eagles = setCharge(combattant, 'picture', 'eagle');
+    expect(blazon(eagles)).toBe('Azure, two eagles respectant Or.');
+    expect(values(pairChoices(eagles, picture(eagles))).map(([v]) => v)).toEqual(['same', 'respectant', 'addorsed']);
+    expect(groupAt(setCharge(combattant, 'picture', 'rose'), picture(two)).arrangement).toEqual({ k: 'line', dir: 'fess' });
+    expect(blazon(setPair(two, picture(two), 'addorsed'))).toBe('Azure, two lions addorsed Or.');
+
+    // Either side of a pale; not beside a fess, nor as pictures in chief.
+    const pale = setCharge(setOrdinary(DEFAULT_DESIGN, 'pale'), 'picture', 'lion');
+    const flanking = setCount(pale, picture(pale), 2);
+    expect(blazon(setPair(flanking, picture(flanking), 'addorsed'))).toBe('Azure, a pale between two lions addorsed Or.');
+    const fess = setCharge(setOrdinary(DEFAULT_DESIGN, 'fess'), 'picture', 'lion');
+    const besideFess = setCount(fess, picture(fess), 2);
+    expect(pairChoices(besideFess, picture(besideFess)).filter((c) => !c.allowed).map((c) => c.value)).toEqual(['combattant', 'addorsed']);
   });
 });
 

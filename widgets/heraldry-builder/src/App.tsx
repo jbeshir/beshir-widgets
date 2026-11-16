@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { DEFAULT_FIELD_SHAPE, blazon, type Companion, type FieldShape, type Design, type ShapedDesign } from './lib/heraldry';
+import { DEFAULT_FIELD_SHAPE, blazon, chargeIdsOf, loadArtFor, onArtChange, type Companion, type FieldShape, type Design, type ShapedDesign } from './lib/heraldry';
 import { DEFAULT_DESIGN, adjustDesign, assess, badgeDesign, isUntouched, sameDesign, replaceDesign, undoStillOffered, type Replacement } from './lib/builder';
 import { surpriseDesign } from './lib/presets';
 import { RECOVER_HASH, entryHash, parseHash, registryParam } from './lib/route';
@@ -23,13 +23,17 @@ const TAB_TESTID: Record<Tab, string> = { design: 'tab-design', registry: 'tab-r
 const DRAFT_DEBOUNCE_MS = 400;
 const ANNOUNCE_DEBOUNCE_MS = 700;
 
-export function App() {
+interface Props {
+  /** The design saved on this device, its art loaded (main.tsx), or null. */
+  draft: ShapedDesign | null;
+}
+
+export function App({ draft }: Props) {
   const route = useRoute();
   const [tab, setTab] = useState<Tab>(route.mode === 'builder' ? 'design' : route.mode === 'yours' ? 'yours' : 'registry');
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set([tab]));
   const [ready, setReady] = useState(false);
 
-  const [draft] = useState(() => store.loadDraft());
   const [design, setDesign] = useState<Design>(draft?.design ?? DEFAULT_DESIGN);
   const [shape, setShape] = useState<FieldShape>(draft?.shape ?? DEFAULT_FIELD_SHAPE);
   const report = useMemo(() => assess(design), [design]);
@@ -49,6 +53,17 @@ export function App() {
   const announce = useCallback((m: string) => setAnnouncement((cur) => (cur === m ? `${m}\u00a0` : m)), []);
   const focusPreview = useRef(false);
   const [replaced, setReplaced] = useState<Replacement | null>(null);
+
+  // Art outside the main chunk loads a category at a time (lib/heraldry/art/paths/lazy.ts): everything is drawn again when some
+  // comes, and <html data-art> says whether any is still loading ("pending") or not ("ready").
+  const [, setArtLoads] = useState(0);
+  useLayoutEffect(() => {
+    document.documentElement.dataset.art = 'ready';
+    return onArtChange((pending) => {
+      document.documentElement.dataset.art = pending ? 'pending' : 'ready';
+      setArtLoads((n) => n + 1);
+    });
+  }, []);
 
   // The nametag sheet replaces the app on screen (the app stays mounted, hidden, so no state is lost).
   // Back returns to the page it was opened from (the entry's page when the sheet was the first page
@@ -129,15 +144,16 @@ export function App() {
     announce(`Restored your design: ${blazon(replaced.previous.design)}`);
   };
 
-  // An example or a surprise design replaces the builder's design; focus goes to the preview so the change is seen and heard.
-  const applyDesign = ({ design: nd, shape: s }: ShapedDesign, caption: string) => {
+  // An example or a surprise design replaces the builder's design once its art is loaded; focus goes to the preview so the change is
+  // seen and heard.
+  const applyDesign = ({ design: nd, shape: s }: ShapedDesign, caption: string) => void loadArtFor(chargeIdsOf(nd)).then(() => {
     setReplaced(replaceDesign({ design, shape }, { design: nd, shape: s }));
     setDesign(nd);
     setShape(s);
     setCheck(null);
     focusPreview.current = true;
     announce(`Loaded ${caption}: ${blazon(nd)}`);
-  };
+  });
 
   // A count or placement that brought its partner along: applied, with the note and Undo under the controls.
   const adjust = (nd: Design, companion: Companion) => {
@@ -166,8 +182,8 @@ export function App() {
     else setTimeout(() => announce(m), 100);
   };
 
-  // "Load into builder" from an entry: adopt its design and shape and go to the Design tab.
-  const loadDesign = ({ design: nd, shape: s }: ShapedDesign) => {
+  // "Load into builder" from an entry: adopt its design and shape, once its art is loaded, and go to the Design tab.
+  const loadDesign = ({ design: nd, shape: s }: ShapedDesign) => void loadArtFor(chargeIdsOf(nd)).then(() => {
     setReplaced(replaceDesign({ design, shape }, { design: nd, shape: s }));
     setDesign(nd);
     setShape(s);
@@ -178,7 +194,7 @@ export function App() {
     focusPreview.current = true;
     // The entry sheet keeps #app inert until it unmounts, so announce once inert is lifted.
     announceWhenInteractive(`Loaded into the builder: ${blazon(nd)}`);
-  };
+  });
 
   // After "Load into builder" the opener (a registry card) is hidden, so focus the preview instead of
   // dropping to <body>. Runs after the entry sheet has unmounted and restored (nothing) focus.

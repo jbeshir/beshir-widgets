@@ -89,7 +89,7 @@ describe('migrations', () => {
       insertOldArms('a2'),
       env.MIGRATION_DB.prepare(`INSERT INTO arms_tags (arms_id, registry_id, tag) VALUES ('a1', 'default', 'charge:wolf'), ('a1', 'default', 'tincture:or'), ('a2', 'default', 'charge:wolf')`),
     ]);
-    expect(DESIGN_MODEL).toBe(env.MIGRATIONS.length - 2);
+    expect(env.MIGRATIONS.slice(DESIGN_MODEL).map((m) => m.name)).toEqual(['0007_design_model.sql', '0008_fieldless_keys.sql', '0009_phase_d.sql']);
     await applyD1Migrations(env.MIGRATION_DB, env.MIGRATIONS.slice(0, DESIGN_MODEL));
     expect(laterMigrations.length).toBeGreaterThan(0);
 
@@ -177,6 +177,25 @@ describe('migrations', () => {
       const n = await env.MIGRATION_DB.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>();
       expect(n!.n, table).toBe(0);
     }
+  });
+
+  it('0009 discards every registered entry with its tags, owner emails and tokens, and leaves the schema and the registries as they were', async () => {
+    const phaseD = env.MIGRATIONS.find((m) => m.name === '0009_phase_d.sql')!;
+    await env.MIGRATION_DB.batch([
+      insertArms('p9'),
+      env.MIGRATION_DB.prepare(`INSERT INTO arms_tags (arms_id, registry_id, tag) VALUES ('p9', 'default', 'charge-category:geometric')`),
+      env.MIGRATION_DB.prepare(`INSERT INTO owner_emails (arms_id, email_hmac, key_version, created_at) VALUES ('p9', 'h', 1, 'now')`),
+      env.MIGRATION_DB.prepare(`INSERT INTO owner_tokens (token_hash, arms_id, created_at, expires_at) VALUES ('t9', 'p9', 'now', 'later')`),
+    ]);
+    const schema = await schemaObjects(env.MIGRATION_DB);
+    await execAll(env.MIGRATION_DB, phaseD.queries.join(';\n'));
+    for (const table of ['arms', 'arms_tags', 'owner_emails', 'owner_tokens']) {
+      const n = await env.MIGRATION_DB.prepare(`SELECT COUNT(*) AS n FROM ${table}`).first<{ n: number }>();
+      expect(n!.n, table).toBe(0);
+    }
+    expect(await schemaObjects(env.MIGRATION_DB)).toEqual(schema);
+    const registries = await env.MIGRATION_DB.prepare(`SELECT id FROM registries`).all();
+    expect(registries.results.map((r) => r.id)).toContain('default');
   });
 
   it('serves every form of the candidate lookup from the primary-and-partition index', async () => {

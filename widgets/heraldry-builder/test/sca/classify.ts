@@ -9,8 +9,9 @@
 // A record that doesn't pass is a gap, tagged `<category>` or `<category>:<subtag>` (GAP_CATEGORIES):
 // first what the matcher and the widget's own checks found ("widget findings"), else what the gap
 // tagger reads in the blazon. A matched, registrable design that then fails to blazon, render or
-// build is no gap but a widget bug: status 'fails', which the ignore list never hides.
-import { blazon, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
+// build is no gap but a widget bug: status 'fails', which the ignore list never hides — but for the one
+// refusal the builder is known to make: a tincture for a field part another part has (`BuilderPath.unsettledField`).
+import { blazon, bodyTinctures, canonicalJson, groupAt, hasChief, layoutContext, layoutKey, type Design, type Issue } from '../../src/lib/heraldry';
 import { tagGaps } from './gaps';
 import type { Gap } from '../../src/lib/heraldry';
 import { arrangementPhrases, explainMatch, wordedAs, type MatchResult } from './match';
@@ -20,10 +21,8 @@ import { assessMatched, checkRendered, renderShieldSvg } from './widget-checks';
 
 export type CheckName = 'match' | 'assess' | 'blazon' | 'render' | 'builder';
 
-export interface CheckFailure {
-  check: CheckName;
-  detail: string;
-}
+/** A failed check: what failed; a failed builder replay also says whether it stopped at a field whose parts did not settle. */
+export type CheckFailure = { check: Exclude<CheckName, 'builder'>; detail: string } | { check: 'builder'; detail: string; unsettledField: boolean };
 
 export interface Classification {
   /**
@@ -39,22 +38,35 @@ export interface Classification {
 
 // ── Checks ──────────────────────────────────────────────────────────────────
 
-/** The design-only checks, once per distinct design: many records match the same one. */
-const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { replayed: boolean }>();
 
-function checkDesign(design: Design, replay: boolean) {
+/**
+ * Whether a design's divided field has parts that share a tincture. Only a main band over the line of a field in two parts makes that legal
+ * (SENA A3B3a; structure.ts), and the builder blocks a shared tincture (`fieldTinctureChoices`) unless it can set the part before the other
+ * (a fur or treatment) — so it cannot always build the design. Such designs are always replayed: the ratchet needs the verdict at once.
+ */
+function partsShareTincture(d: Design): boolean {
+  if (d.kind !== 'arms' || d.field.k !== 'divided') return false;
+  const { parts } = d.field;
+  return parts.some((p, k) => parts.slice(k + 1).some((q) => bodyTinctures(p).some((t) => bodyTinctures(q).includes(t))));
+}
+
+/** The design-only checks, once per distinct design: many records match the same one. */
+const designChecks = new Map<string, Record<'assess' | 'render' | 'builder', string | null> & { unsettledField: boolean; drawnAndBuilt: boolean }>();
+
+function checkDesign(design: Design, drawAndBuild: boolean) {
   const key = canonicalJson(design);
   let found = designChecks.get(key);
-  // A design whose builder replay was skipped (the sampled `npm test`) is checked again if a later caller asks for the replay.
-  if (!found || (replay && !found.replayed)) {
+  // A design not drawn and replayed (the sampled `npm test`) is checked again if a later caller asks for both.
+  if (!found || (drawAndBuild && !found.drawnAndBuilt)) {
     const a = assessMatched(design);
-    const rendered = checkRendered(design, renderShieldSvg(design));
-    const path = replay ? builderPath(design) : null;
+    const rendered = drawAndBuild ? checkRendered(design, renderShieldSvg(design)) : [];
+    const path = drawAndBuild || partsShareTincture(design) ? builderPath(design) : null;
     found = {
-      replayed: replay,
+      drawnAndBuilt: drawAndBuild,
       assess: a.kind === 'ok' ? null : `${a.kind === 'violation' ? a.status : a.kind}: ${a.issues.map((i) => i.message).join(' ')}`,
       render: rendered.length ? rendered.join('; ') : null,
       builder: path && path.problems.length ? path.problems.join('; ') : null,
+      unsettledField: path?.unsettledField ?? false,
     };
     designChecks.set(key, found);
   }
@@ -77,8 +89,8 @@ const gapTag = (g: Gap): string => `${g.category}:${g.detail}`;
  * record, which is what `npm run sca:ignore` runs.
  */
 export interface ClassifyOptions {
-  /** Whether to replay the builder's clicks for this matched design (the 'builder' check); skipped, it reads as passing. */
-  builder?: (design: Design) => boolean;
+  /** Whether to draw this matched design and replay the builder's clicks for it (the 'render' and 'builder' checks); skipped, both read as passing. */
+  drawAndBuild?: (design: Design) => boolean;
   /** Whether to re-run the gap tagger for an unmatched record; skipped, the classification is 'gap-unchecked', with no tags. */
   tagger?: (record: ArmoryRecord) => boolean;
 }
@@ -88,13 +100,13 @@ export function checkBlazon(scaBlazon: string, options: ClassifyOptions = {}): {
   const match = explainMatch(scaBlazon);
   if (!match.match) return { match, failures: [{ check: 'match', detail: noMatchDetail(match) }] };
   const design = match.match.design!;
-  const found = checkDesign(design, options.builder ? options.builder(design) : true);
+  const found = checkDesign(design, options.drawAndBuild ? options.drawAndBuild(design) : true);
   const ours = blazon(design);
   const failures: CheckFailure[] = [];
   if (found.assess) failures.push({ check: 'assess', detail: found.assess });
   if (!wordedAs(match.match, match.normalised)) failures.push({ check: 'blazon', detail: `the widget blazons it "${ours}"` });
   if (found.render) failures.push({ check: 'render', detail: found.render });
-  if (found.builder) failures.push({ check: 'builder', detail: found.builder });
+  if (found.builder) failures.push({ check: 'builder', detail: found.builder, unsettledField: found.unsettledField });
   return { match, failures };
 }
 
@@ -117,9 +129,9 @@ function layoutTag(design: Design, issue: Issue): string {
 }
 
 /** The widget's objections to a matched design, as finding tags; [] when it has none. */
-function findingTags(design: Design): string[] {
+function findingTags(design: Design, failures: readonly CheckFailure[]): string[] {
   const a = assessMatched(design);
-  if (a.kind !== 'violation') return [];
+  if (a.kind !== 'violation') return failures.some((f) => f.check === 'builder' && f.unsettledField) && partsShareTincture(design) ? ['widget-structure-rule:field-parts-share-tincture'] : [];
   const tag = (i: Issue) => {
     // A construct the library reports only once the design is judged (charges Table 7 forces into one part).
     if (i.code === 'unsupported') return gapTag(i.gap);
@@ -151,10 +163,9 @@ function arrangementWording(m: MatchResult): string | null {
   return `blazon-wording-differs:${!widget ? 'sca-states-arrangement' : !sca ? 'widget-states-arrangement' : 'arrangement-differs'}`;
 }
 
-function gapTags(record: ArmoryRecord, m: MatchResult, options: ClassifyOptions): string[] | null {
+function gapTags(record: ArmoryRecord, m: MatchResult, failures: readonly CheckFailure[], options: ClassifyOptions): string[] | null {
   if (m.match) {
-    const design = m.match.design!;
-    return findingTags(design);
+    return findingTags(m.match.design!, failures);
   }
   const wording = arrangementWording(m);
   if (wording) return [wording];
@@ -168,7 +179,7 @@ function gapTags(record: ArmoryRecord, m: MatchResult, options: ClassifyOptions)
 export function classify(record: ArmoryRecord, options: ClassifyOptions = {}): Classification {
   const { match, failures } = checkBlazon(record.blazon, options);
   if (!failures.length) return { status: 'passes', failures, tags: [] };
-  const found = gapTags(record, match, options);
+  const found = gapTags(record, match, failures, options);
   if (!found) return { status: 'gap-unchecked', failures, tags: [] };
   const tags = [...new Set(found)].sort();
   return { status: tags.length ? 'gap' : 'fails', failures, tags };

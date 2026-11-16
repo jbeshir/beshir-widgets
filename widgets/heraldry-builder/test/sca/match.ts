@@ -12,8 +12,8 @@
 // blazon of the same design with its defaults stated (`blazon(design, { stateDefaults: true })`); a
 // blazon the widget cannot reproduce word for word either way is a near-miss, not a match.
 import {
-  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, POSTURES, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
-  blazon, normalise, postureTerm, type ChargeId, type Design, type Gap, type Issue, type OrdinaryType, type Posture,
+  COUNTER_EMBATTLED_WORDS, MODS_AFTER_LINE, MODS_BEFORE_LINE, SAME_ORDINARY, CHARGES, CHARGE_IDS, CUT_MODIFIERS, FACING_WORD, GAZES, GAZE_WORDS, ORIENTATION_WORDS, ORIENTATIONS, PAIRS, DRAWN_LINES, DRAWN_ORDINARIES, DRAWN_TREATMENTS, FURS, FUR_NAME, LINE_WORD, MODIFIER_WORDS, ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, ORDINARY_TYPES, PERIPHERAL_JOINER, PIECE_IDS, POSTURES, HOLD_WORDS, isDiminutive, TINCTURES, VARIATIONS, VARIATION_NAME,
+  blazon, drawnPoints, isPiecePart, normalise, pointsWord, postureTerm, type ChargeForm, type ChargeId, type Design, type Gap, type HoldHow, type Issue, type ModifierId, type OrdinaryType, type Orientation, type PieceId, type Posture,
 } from '../../src/lib/heraldry';
 import { normaliseBlazon } from './normalise';
 import { EDGE_NAMES } from './words';
@@ -87,18 +87,52 @@ const PATTERN_WORDS = ['saltire', 'cross', 'orle', 'annulo'] as const;
 /** What can follow "in" before a group, the longest first ("sinister chief" before "sinister"). */
 const LEADS = [...ARRANGEMENT_LINE_WORDS, ...POSITION_WORDS].sort((a, b) => b.split(' ').length - a.split(' ').length);
 
-/** Charge noun → charge and number. "fish" is both. */
-const NOUNS = new Map<string, { id: ChargeId; plural: boolean; singular: boolean }>();
+/** Charge noun (lower case, as the normalised text reads: "latin cross") → charge, number and form. "fish" is both. */
+const NOUNS = new Map<string, { id: ChargeId; plural: boolean; singular: boolean; article: string; orientation: Orientation | null; form: ChargeForm | null }>();
 for (const id of CHARGE_IDS) {
   const m = CHARGES[id];
-  NOUNS.set(m.name, { id, singular: true, plural: m.plural === m.name });
-  if (m.plural !== m.name) NOUNS.set(m.plural, { id, singular: false, plural: true });
+  const [name, plural] = [m.name.toLowerCase(), m.plural.toLowerCase()];
+  NOUNS.set(name, { id, singular: true, plural: plural === name, article: m.article, orientation: null, form: null });
+  if (plural !== name) NOUNS.set(plural, { id, singular: false, plural: true, article: m.article, orientation: null, form: null });
+  // a demi charge ("a demi-lion") and a head ("a wolf's head", cut off couped or erased: the words follow it)
+  if (m.forms.includes('demi')) {
+    NOUNS.set(`demi-${name}`, { id, singular: true, plural: false, article: 'a', orientation: null, form: 'demi' });
+    NOUNS.set(`demi-${plural}`, { id, singular: false, plural: true, article: 'a', orientation: null, form: 'demi' });
+  }
+  if (m.forms.includes('head') && m.headName) {
+    NOUNS.set(m.headName.one.toLowerCase(), { id, singular: true, plural: false, article: m.article, orientation: null, form: 'head' });
+    NOUNS.set(m.headName.many.toLowerCase(), { id, singular: false, plural: true, article: m.article, orientation: null, form: 'head' });
+  }
+  // a noun of its own that says which way the charge points ("an increscent": a crescent fesswise)
+  for (const [o, w] of Object.entries(m.orient.wording)) {
+    if (w.k !== 'noun') continue;
+    NOUNS.set(w.name, { id, singular: true, plural: false, article: w.article, orientation: o as Orientation, form: null });
+    NOUNS.set(w.plural, { id, singular: false, plural: true, article: w.article, orientation: o as Orientation, form: null });
+  }
 }
+
+/** The words that say which way a charge points, after its facing, by what they mean: the orientation's own or one the charge words itself ("pendant"). */
+const ORIENTATION_PHRASES = ORIENTATIONS.filter((o) => o !== 'to-center').flatMap((o) => [
+  { words: ORIENTATION_WORDS[o].split(' '), orientation: o, charge: null as ChargeId | null },
+  ...CHARGE_IDS.flatMap((id) => { const w = CHARGES[id].orient.wording[o]; return w?.k === 'words' ? [{ words: w.words.split(' '), orientation: o, charge: id as ChargeId | null }] : []; }),
+]).sort((a, b) => b.words.length - a.words.length);
+
+/** The words that say a group's charges point to the middle of the group, after its layout: "points to center", the crescent's "horns to center". */
+const TO_CENTER_PHRASES = [ORIENTATION_WORDS['to-center'], ...CHARGE_IDS.flatMap((id) => { const w = CHARGES[id].orient.wording['to-center']; return w?.k === 'words' ? [w.words] : []; })]
+  .map((w) => w.split(' '));
 
 /** Every posture word the widget's blazons can contain, by the posture it names (for the charge it was written with, else any). */
 const POSTURE_BY_WORD = new Map<string, Posture>();
 for (const id of CHARGE_IDS) for (const p of POSTURES) POSTURE_BY_WORD.set(postureTerm(id, p), p);
 const POSTURE_WORDS = new Set<string>([...POSTURES, ...POSTURE_BY_WORD.keys()]);
+/** The posture words as a blazon writes them, each in its words ("sejant erect" is two: `postureWords`), the longest first. */
+const POSTURE_PHRASES = [...POSTURE_WORDS].map((word) => ({ word, words: word.replace('-', ' ').split(' ') })).sort((a, b) => b.words.length - a.words.length);
+
+/** The words for a turned head, by the gaze they name, the longest first ("guardant regardant"). */
+const GAZE_PHRASES = GAZES.map((gaze) => ({ gaze, words: GAZE_WORDS[gaze].split(' ') })).sort((a, b) => b.words.length - a.words.length);
+
+/** The word after the posture of a charge facing to sinister (affronty is not drawn: the tagger files it). */
+const CONTOURNY = FACING_WORD['to-sinister'];
 
 /** Posture word → posture: the charge's own term first ("segreant"), else the plain posture id; a posture the charge can't take is still proposed, so the widget reports it. */
 function postureFor(id: ChargeId, word: string): Posture | null {
@@ -107,14 +141,25 @@ function postureFor(id: ChargeId, word: string): Posture | null {
   return POSTURE_BY_WORD.get(word) ?? POSTURES.find((p) => p === word) ?? null;
 }
 
+/** The modifiers the widget words after a noun ("in splendor", "fitchy", "voided", "pierced"), each with the tokens of its phrase. */
+const MODIFIER_PHRASES = Object.entries(MODIFIER_WORDS).map(([id, phrase]) => ({ id: id as ModifierId, words: phrase.split(' ') }));
+
+/** What may follow a charge with a tincture of its own (its trims): a fimbriation, or a piece drawn with it ("crowned", "winged", "slipped"…). */
+type TrimWord = 'fimbriated' | PieceId;
+const TRIM_WORDS: ReadonlySet<string> = new Set<TrimWord>(['fimbriated', ...PIECE_IDS]);
+
+/** The words for each way a charge holds an item, before the item ("maintaining in its beak"), the longest first; a worn item is no held one (§1.5 H4). */
+const HOLD_PHRASES = Object.entries(HOLD_WORDS).filter(([how]) => how !== 'wearing').map(([how, words]) => ({ how: how as HoldHow, words: words.split(' ') })).sort((a, b) => b.words.length - a.words.length);
+
+
 const ROWS = `(?:${alt(NUMBER_WORDS)})(?:, (?:${alt(NUMBER_WORDS)}))* and (?:${alt(NUMBER_WORDS)})`;
 
 /** Every word the widget's blazons can contain; anything else can't be matched. */
 const VOCABULARY = new Set<string>(
   [
-    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'splendor', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, 'fimbriated', 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
+    '(fieldless)', ...TINCTURES, ...FURS.map((f) => FUR_NAME[f]), 'ermined', 'vairy', 'potenty', ...DRAWN_TREATMENTS, 'counterchanged', 'proper', 'semy', 'all', 'and', 'a', 'an', 'on', 'between', 'in', 'chief', 'bordure', 'base', 'canton', 'dexter', 'each', 'charged', 'with', 'overall', 'within', 'the', 'edge', ...EDGE_NAMES.split('|'), COUNTER_EMBATTLED_WORDS, ...MODS_BEFORE_LINE, ...MODS_AFTER_LINE, ...CUT_MODIFIERS, ...TRIM_WORDS, ...HOLD_PHRASES.flatMap((h) => h.words), 'cotised', 'doubly', 'triply', 'endorsed', 'plain',
     ...DIVISION_WORDS.keys(), ...VARIATIONS.map((v) => VARIATION_NAME[v]), 'of', ...DRAWN_LINES.map((l) => LINE_WORD[l]), ...ORDINARY_WORDS.keys(), ...ARRANGEMENT_LINE_WORDS, ...PATTERN_WORDS, ...NUMBER_WORDS,
-    ...NOUNS.keys(), ...POSTURE_WORDS, ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
+    ...NOUNS.keys(), ...MODIFIER_PHRASES.flatMap((m) => m.words), ...CHARGE_IDS.filter((id) => drawnPoints(id) !== null).map(pointsWord), ...POSTURE_PHRASES.flatMap((p) => p.words), ...GAZE_PHRASES.flatMap((g) => g.words), CONTOURNY, ...PAIRS, ...ORIENTATION_PHRASES.flatMap((o) => o.words), ...TO_CENTER_PHRASES.flat(), ...ORDINARY_COUNT_WORDS.keys(), ...COUNTED_ORDINARIES.keys(),
   ].flatMap((w) => w.split(/[ ,]+/)).filter(Boolean),
 );
 
@@ -132,7 +177,11 @@ const VOCABULARY = new Set<string>(
 //               | 'overall' (ordinary|group)         the one band or group lying across everything before it
 //               | 'between'                        the groups that follow are set around the ordinary
 //               | group
-//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] ['in splendor'] [('in' PATTERN)|ROWS] [T]
+//   group      := [('in' LINE|POSITION)] COUNT NOUN [POSTURE] [GAZE] ['contourny'] [GAZE] [ORIENTATION] MODIFIER* [('in' PATTERN)|ROWS|PAIR] [POINTS TO CENTER] [T] (TRIM ('and' TRIM)* [T] ['and'])* (['each'] HOLD ('a'|'an') NOUN [T])*
+//                 (POSTURE: one word or two, "sejant erect"; GAZE: guardant, regardant; PAIR: two charges combattant, respectant or addorsed; MODIFIER: "in splendor", "fitchy", "voided", "pierced", or a star's
+//                 "of" COUNT "points"|"rays"; TRIM: "fimbriated", or a piece: crowned, collared, winged, enflamed, slipped, leaved. Each run of trims is a phrase of its own for the
+//                 tincture it states, like an ordinary's fimbriation: "a lion Or crowned and collared gules"; a run straight after the charge gives it its tincture, "a heart winged Or"); HOLD: maintaining, sustaining,
+//                 "maintaining in its beak|mouth", after "each" for more than one charge: each held item a phrase of its own for its tincture)
 //   (a group in chief, in base or in canton after another is set there beside it: SENA App I1, which `resolve` applies)
 //   connector  := ',' | 'and' | 'within' | ε
 // A group straight after "between", or joined to one by "and", is set around the ordinary or the primary charges; any other
@@ -144,12 +193,32 @@ interface Phrase {
   /** The group input, without its paint. */
   group: Record<string, unknown>;
   paint: unknown;
-  /** An ordinary's fimbriation and cotises: each a phrase of its own for the tincture it states, or takes from what follows (a cotised band that says one tincture has it for both). */
+  /**
+   * An ordinary's fimbriation and cotises: each a phrase of its own for the tincture it states, or takes from what follows (a cotised band that
+   * says one tincture has it for both).
+   */
   outlines?: Array<{ phrase: Phrase; read: OutlineRead }>;
+  /** A charge group's trims, each run of them ("crowned and collared") a phrase of its own for the tincture it states or takes from what follows. */
+  trims?: Array<{ phrase: Phrase; words: readonly TrimWord[] }>;
+  /** What a charge group's charges hold, each item a phrase of its own for the tincture it states or takes from what follows. */
+  holds?: Array<{ phrase: Phrase; how: HoldHow; item: ChargeId }>;
 }
 
-/** The ordinary's item input with its outlines in the paints their phrases came to have. */
+/**
+ * The ordinary's or charge's item input with its outlines, trims and held items in the paints their phrases came to have (a charge's
+ * fimbriation and pieces are modifiers, its crown and collar parts).
+ */
 function outlinedItem(p: Phrase): unknown {
+  const item = p.group.item as { k: string; mods?: unknown[] };
+  if (item.k === 'charge') {
+    const trims = (p.trims ?? []).flatMap(({ phrase, words }) => words.map((word) => ({ word, paint: phrase.paint })));
+    const parts = trims.filter(({ word }) => word !== 'fimbriated' && isPiecePart(word));
+    return {
+      ...item, mods: [...(item.mods ?? []), ...trims.filter((t) => !parts.includes(t)).map(({ word, paint }) => ({ id: word, count: null, paint }))],
+      parts: parts.map(({ word, paint }) => ({ part: word, paint })),
+      holds: (p.holds ?? []).map(({ phrase, how, item: held }) => ({ how, item: { k: 'charge', charge: held }, paint: phrase.paint })),
+    };
+  }
   const outlined = (p.outlines ?? []).map(({ phrase, read }) => (read.k === 'fimbriated'
     ? { fimbriated: phrase.paint }
     : { cotised: { count: read.count, paint: phrase.paint, ...(read.line ? { line: read.line } : {}) } }));
@@ -160,6 +229,8 @@ function outlinedItem(p: Phrase): unknown {
 interface Node { phrase: Phrase; on: Phrase | null }
 
 const NOUN_PHRASES = [...NOUNS.keys()].map((n) => n.split(' ')).sort((a, b) => b.length - a.length);
+/** The words of an ordinary's treatment, which may follow its name ("a cross couped"). */
+const ORDINARY_FORM_WORDS: ReadonlySet<string> = new Set<string>([...MODS_BEFORE_LINE, ...MODS_AFTER_LINE]);
 const ORDINARY_PHRASES = [...ORDINARY_WORDS.keys()].map((o) => o.split(' ')).sort((a, b) => b.length - a.length);
 const COUNTED_PHRASES = [...COUNTED_ORDINARIES.keys()].map((o) => o.split(' ')).sort((a, b) => b.length - a.length);
 /** How the ordinaries the widget joins with "within" start: "an orle", "a double tressure". */
@@ -167,6 +238,17 @@ const WITHIN_PHRASES = DRAWN_ORDINARIES.filter((t) => PERIPHERAL_JOINER[t] === '
 const startsWith = (tokens: string[], i: number, phrase: readonly string[]) => phrase.every((w, j) => tokens[i + j] === w);
 const isNumber = (w: string | undefined): boolean => (NUMBER_WORDS as readonly string[]).includes(w!);
 const numberOf = (w: string) => NUMBER_WORDS.indexOf(w as (typeof NUMBER_WORDS)[number]) + 1;
+
+/** The modifier of a `charge` written at `tokens[i]`, with its number and length, or null: a phrase, or a star's "of six points" ("of eight rays"). */
+function modifierAt(tokens: string[], i: number, charge: ChargeId): { id: ModifierId; count: number | null; length: number } | null {
+  if (tokens[i] === 'of' && isNumber(tokens[i + 1]) && drawnPoints(charge) !== null && tokens[i + 2] === pointsWord(charge)) return { id: 'of-points', count: numberOf(tokens[i + 1]), length: 3 };
+  const m = MODIFIER_PHRASES.find((p) => startsWith(tokens, i, p.words));
+  return m ? { id: m.id, count: null, length: m.words.length } : null;
+}
+
+/** The head turn written at `tokens[i]`, or undefined: "guardant", "regardant", "guardant regardant". */
+const gazeAt = (tokens: string[], i: number) => GAZE_PHRASES.find((g) => startsWith(tokens, i, g.words));
+
 
 /** The charge group at `start` with the index after it, or null when count, noun and posture don't agree. */
 function readGroup(tokens: string[], start: number): { phrase: Phrase; end: number } | null {
@@ -191,17 +273,47 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
   i += nounWords.length;
   const noun = NOUNS.get(nounWords.join(' '))!;
   if (count === 1 ? !noun.singular : !noun.plural) return null;
-  if (count === 1 && countWord !== CHARGES[noun.id].article) return null;
+  if (count === 1 && countWord !== noun.article) return null;
   const item: Record<string, unknown> = { k: 'charge', charge: noun.id };
-  if (POSTURE_WORDS.has(tokens[i])) {
-    const posture = postureFor(noun.id, tokens[i++]);
+  const mods: Array<{ id: ModifierId; count: number | null; paint: null }> = [];
+  if (noun.orientation) item.orientation = noun.orientation;
+  if (noun.form) item.form = noun.form;
+  // a head's cut follows its noun, before its posture and facing
+  const cut = noun.form === 'head' ? CUT_MODIFIERS.find((c) => c === tokens[i]) : undefined;
+  if (cut) {
+    mods.push({ id: cut, count: null, paint: null });
+    i++;
+  }
+  const posed = POSTURE_PHRASES.find((p) => startsWith(tokens, i, p.words));
+  if (posed) {
+    const posture = postureFor(noun.id, posed.word);
     if (!posture) return null;
     item.posture = posture;
+    i += posed.words.length;
   }
-  if (startsWith(tokens, i, ['in', 'splendor'])) {
-    item.mods = [{ id: 'in-splendour', count: null, paint: null }];
-    i += 2;
+  // the head turned, before "contourny" or after it ("guardant contourny", "contourny regardant": verify() decides which the widget writes)
+  let gaze = gazeAt(tokens, i);
+  if (gaze) i += gaze.words.length;
+  if (tokens[i] === CONTOURNY) {
+    item.facing = 'to-sinister';
+    i++;
   }
+  if (!gaze) {
+    gaze = gazeAt(tokens, i);
+    if (gaze) i += gaze.words.length;
+  }
+  if (gaze) item.gaze = gaze.gaze;
+  // which way it points: one word or two ("fesswise", "bendwise sinister inverted"); a noun of its own has said it already
+  const turn = noun.orientation ? undefined : ORIENTATION_PHRASES.find((o) => (o.charge === null || o.charge === noun.id) && startsWith(tokens, i, o.words));
+  if (turn) {
+    item.orientation = turn.orientation;
+    i += turn.words.length;
+  }
+  for (let m = modifierAt(tokens, i, noun.id); m; m = modifierAt(tokens, i, noun.id)) {
+    mods.push({ id: m.id, count: m.count, paint: null });
+    i += m.length;
+  }
+  if (mods.length > 0) item.mods = mods;
   const group: Record<string, unknown> = { item, count };
   // "in chief three mullets" places the group (the widget lays it out there); "in pale two keys" arranges it.
   if (lead) {
@@ -209,7 +321,12 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     else group.arrangement = `in-${lead.replace(' ', '-')}`;
   }
   if (line) group.arrangement = `in-${line.replace(' ', '-')}`;
-  if (tokens[i] === 'in' && (PATTERN_WORDS as readonly string[]).includes(tokens[i + 1])) {
+  // "two lions combattant": two charges facing each other or back to back (laid out in fess, or where an ordinary places them);
+  // combattant says rampant by itself (SENA A5E5a), and the normaliser leaves it unsaid.
+  if (count === 2 && (PAIRS as readonly string[]).includes(tokens[i])) {
+    if (tokens[i] === 'combattant') item.posture ??= 'rampant';
+    group.arrangement = `pair-${tokens[i++]}`;
+  } else if (tokens[i] === 'in' && (PATTERN_WORDS as readonly string[]).includes(tokens[i + 1])) {
     const pattern = tokens[i + 1];
     group.arrangement = pattern === 'saltire' && count === 2 && CHARGES[noun.id].long ? 'crossed' : `in-${pattern}`;
     i += 2;
@@ -222,8 +339,66 @@ function readGroup(tokens: string[], start: number): { phrase: Phrase; end: numb
     if (rows.length < 2) return null;
     group.arrangement = `rows-${rows.join('-')}`;
   }
+  // "in cross points to center": the group's charges point to the middle of the group, said after its layout
+  const toCenter = TO_CENTER_PHRASES.find((w) => startsWith(tokens, i, w));
+  if (toCenter) {
+    item.orientation = 'to-center';
+    i += toCenter.length;
+  }
   const read = readPaint(tokens, i, 'group');
-  return { phrase: { group, paint: read?.paint ?? null }, end: read ? read.end : i };
+  // "a lozenge azure fimbriated argent", "a lion Or crowned gules", "a heart winged Or": the trims after the charges' tincture, then what they hold
+  const { trims, end: trimmed } = readTrims(tokens, read ? read.end : i);
+  const { holds, end } = readHolds(tokens, trimmed, count);
+  return { phrase: { group, paint: read?.paint ?? null, ...(trims.length > 0 ? { trims } : {}), ...(holds.length > 0 ? { holds } : {}) }, end };
+}
+
+/** The runs of trims from `at`, each with the tincture it states: "crowned and collared gules", "slipped vert and leaved Or", "fimbriated argent". */
+function readTrims(tokens: string[], at: number): { trims: NonNullable<Phrase['trims']>; end: number } {
+  const trims: NonNullable<Phrase['trims']> = [];
+  let i = at;
+  while (TRIM_WORDS.has(tokens[i])) {
+    const words: TrimWord[] = [tokens[i++] as TrimWord];
+    while (tokens[i] === 'and' && TRIM_WORDS.has(tokens[i + 1])) {
+      words.push(tokens[i + 1] as TrimWord);
+      i += 2;
+    }
+    const paint = readPaint(tokens, i, 'group');
+    trims.push({ phrase: { group: {}, paint: paint?.paint ?? null }, words });
+    if (paint) i = paint.end;
+    if (tokens[i] === 'and' && TRIM_WORDS.has(tokens[i + 1])) i++;
+  }
+  return { trims, end: i };
+}
+
+/** The held item written at `tokens[at]`: a single charge as drawn ("a sword"), with the index after it; null for anything else. */
+function heldItemAt(tokens: string[], at: number): { id: ChargeId; end: number } | null {
+  const nounWords = NOUN_PHRASES.find((n) => startsWith(tokens, at + 1, n));
+  const noun = nounWords && NOUNS.get(nounWords.join(' '));
+  return noun && noun.singular && tokens[at] === noun.article && noun.form === null && noun.orientation === null ? { id: noun.id, end: at + 1 + nounWords.length } : null;
+}
+
+/**
+ * What the group's charges hold from `at`, each item with the tincture it states: "maintaining a sword argent", "maintaining in its beak a
+ * key", and for more than one charge "each maintaining a sword" (without "each" they hold one item between them, which the widget doesn't
+ * draw). Items joined by "and" with no tincture between them are held together ("maintaining a sword and a key argent": two items, which
+ * the widget reports). The item is a single charge as drawn; anything more said of it leaves it unread.
+ */
+function readHolds(tokens: string[], at: number, count: number): { holds: NonNullable<Phrase['holds']>; end: number } {
+  const holds: NonNullable<Phrase['holds']> = [];
+  let i = at;
+  for (;;) {
+    const lead = count > 1 ? (tokens[i] === 'each' ? i + 1 : -1) : i;
+    const how = lead < 0 ? undefined : HOLD_PHRASES.find((h) => startsWith(tokens, lead, h.words));
+    let item = how ? heldItemAt(tokens, lead + how.words.length) : null;
+    if (!how || !item) break;
+    while (item) {
+      const paint = readPaint(tokens, item.end, 'group');
+      holds.push({ phrase: { group: {}, paint: paint?.paint ?? null }, how: how.how, item: item.id });
+      i = paint ? paint.end : item.end;
+      item = !paint && tokens[i] === 'and' ? heldItemAt(tokens, i + 1) : null;
+    }
+  }
+  return { holds, end: i };
 }
 
 /** What the body of a blazon reads as: the design input's groups, or a construct the widget doesn't draw. */
@@ -233,7 +408,12 @@ type Body = { k: 'groups'; groups: object[] } | { k: 'gap'; gap: Gap };
 function parseBody(tokens: string[]): Body | null {
   const top: Node[] = [];
   /** Every phrase in blazon order, for factoring tinctures backwards. */
-  const order: { phrase: Phrase; onHost: boolean }[] = [];
+  const order: { phrase: Phrase; onHost: boolean; trim: boolean }[] = [];
+  /** A phrase and its outlines', trims' or held items' phrases, in blazon order. */
+  const ordered = (phrase: Phrase, onHost: boolean) => order.push(
+    { phrase, onHost, trim: false }, ...(phrase.outlines ?? []).map((o) => ({ phrase: o.phrase, onHost, trim: false })),
+    ...[...(phrase.trims ?? []), ...(phrase.holds ?? [])].map((o) => ({ phrase: o.phrase, onHost, trim: true })),
+  );
   let host: Node | null = null;       // an "on" ordinary still waiting for its group
   let between = false;
   let joined = false;                  // the last connector was "and", or "between" has just been read
@@ -274,15 +454,16 @@ function parseBody(tokens: string[]): Body | null {
     } else {
       const on = w === 'on';
       const j = on ? i + 1 : i;
-      // "a cross crosslet" is a charge, though "a cross" is an ordinary: the longer noun wins. Flaunches have no article; a tressure may be
-      // double or triple.
+      // "a cross crosslet" is a charge, though "a cross" is an ordinary: the longer noun wins, unless the rest of it is the ordinary's own
+      // treatment ("a cross couped" is the ordinary couped; the charge of that name is the same type, App M1f). Flaunches have no article; a
+      // tressure may be double or triple.
       const articled = tokens[j] === 'a' || tokens[j] === 'an';
       const doubled = articled ? ORDINARY_COUNT_WORDS.get(tokens[j + 1]) ?? 1 : 1;
       const at = j + (articled ? 1 : 0) + (doubled > 1 ? 1 : 0);
       const named = ORDINARY_PHRASES.find((o) => {
         const t = ORDINARY_WORDS.get(o.join(' '))!;
         return startsWith(tokens, at, o) && (articled ? ORDINARY_ARTICLE[t] !== null : ORDINARY_ARTICLE[t] === null) && (doubled === 1 || ORDINARY_COUNTS[t]?.includes(doubled))
-          && !NOUN_PHRASES.some((n) => n.length > o.length && startsWith(tokens, at, n));
+          && !NOUN_PHRASES.some((n) => n.length > o.length && startsWith(tokens, at, n) && !n.slice(o.length).every((w) => ORDINARY_FORM_WORDS.has(w)));
       });
       // diminutives counted: "three bars", any number of them (the widget says which it draws)
       const plural = !named && isNumber(tokens[j]) ? COUNTED_PHRASES.find((o) => startsWith(tokens, j + 1, o)) : undefined;
@@ -305,12 +486,9 @@ function parseBody(tokens: string[]): Body | null {
         // a band set around charges before it ("a fleur-de-lys between two pallets") is a secondary group, which the widget files as a gap
         const around = between && joined && !host && ORDINARY_KIND[type] === 'central' && top.length > 0 ? { role: 'secondary', relation: 'between' } : {};
         const node: Node = { phrase: { group: { ...(overall ? { role: 'overall' } : {}), ...around, item: { k: 'ordinary', type, ...(lines ? { lines } : {}), ...(mods.length > 0 ? { mods } : {}) }, ...(count > 1 ? { count } : {}) }, paint: read?.paint ?? null }, on: null };
+        if (outlines.length > 0) node.phrase.outlines = outlines;
         top.push(node);
-        order.push({ phrase: node.phrase, onHost: false });
-        if (outlines.length > 0) {
-          node.phrase.outlines = outlines;
-          order.push(...outlines.map(({ phrase }) => ({ phrase, onHost: false })));
-        }
+        ordered(node.phrase, false);
         host = on ? node : null;
         between = false;
         overall = false;
@@ -321,27 +499,27 @@ function parseBody(tokens: string[]): Body | null {
         if (overall) {
           g.phrase.group.role = 'overall';
           top.push({ phrase: g.phrase, on: null });
-          order.push({ phrase: g.phrase, onHost: false });
+          ordered(g.phrase, false);
           overall = false;
         } else if (on) {
           // "on a lion …": a group on a charge, which the widget reports rather than draws.
           const node: Node = { phrase: g.phrase, on: null };
           top.push(node);
-          order.push({ phrase: g.phrase, onHost: false });
+          ordered(g.phrase, false);
           host = node;
           between = false;
         } else if (between && joined) {
           // Set between what came before: a central ordinary, or the primary charges ("a lion between three mullets").
           g.phrase.group.relation = 'between';
           top.push({ phrase: g.phrase, on: null });
-          order.push({ phrase: g.phrase, onHost: false });
+          ordered(g.phrase, false);
         } else if (host && !host.on) {
           host.on = g.phrase;
-          order.push({ phrase: g.phrase, onHost: true });
+          ordered(g.phrase, true);
           between = false;
         } else {
           top.push({ phrase: g.phrase, on: null });
-          order.push({ phrase: g.phrase, onHost: false });
+          ordered(g.phrase, false);
         }
         joined = false;
         i = g.end;
@@ -349,18 +527,23 @@ function parseBody(tokens: string[]): Body | null {
     }
   }
   let carry: unknown = null;
-  for (const { phrase, onHost } of order.reverse()) {
+  // A group on a host takes no tincture from outside it (Bruce), but a charge there takes its trims' ("on a chief three roses slipped and leaved Or").
+  let trimCarry: unknown = null;
+  for (const { phrase, onHost, trim } of order.reverse()) {
     if (onHost) {
+      phrase.paint ??= trimCarry;
       if (!phrase.paint) return null;
+      trimCarry = trim ? phrase.paint : null;
       carry = null;
     } else {
+      trimCarry = null;
       phrase.paint ??= carry;
       if (!phrase.paint) return null;
       // A tincture stated for what follows is the ground of a semy, not the semy: "a lion, a bordure Or semy of mullets sable".
       carry = groundOf(phrase.paint);
     }
   }
-  const withPaint = (p: Phrase) => ({ ...p.group, ...(p.outlines ? { item: outlinedItem(p) } : {}), paint: p.paint });
+  const withPaint = (p: Phrase) => ({ ...p.group, ...(p.outlines || p.trims || p.holds ? { item: outlinedItem(p) } : {}), paint: p.paint });
   return { k: 'groups', groups: top.map((n) => (n.on ? { ...withPaint(n.phrase), charged: [withPaint(n.on)] } : withPaint(n.phrase))) };
 }
 

@@ -3,8 +3,8 @@
 // the term and keep the words for their tooltip. The blazon keeps the heraldic names in blazon.ts;
 // these are display text only. Pure data — no DOM.
 
-import { CHARGES, postureGloss, postureTerm, type ChargeId, type Posture } from './charges';
-import { groupAt, hostOf, type Design, type GroupPath } from './design';
+import { CHARGES, postureGloss, postureWords, type ChargeForm, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type Posture } from './charges';
+import { groupAt, hostOf, type Design, type GroupPath, type Pair } from './design';
 import type { Division, Treatment, Variation } from './divisions';
 import type { LayoutKey } from './arrangement';
 import { ORDINARY_COUNT_WORD, ORDINARY_KIND, ORDINARY_NAME, ORDINARY_PLURAL, isDiminutive, type OrdinaryType } from './ordinaries';
@@ -12,6 +12,8 @@ import { DIVISION_NAME } from './divisions';
 import { LINE_WORD, type ComplexLine, type Line } from './lines';
 import type { BandPosition, ShapeToggle } from './shape-options';
 import type { Outline } from './outline';
+import type { PieceId } from './overlay-art';
+import { FACING_WORD, GAZE_WORDS, HOLD_WORDS, MODIFIER_WORDS, ORIENTATION_WORDS, PART_WORDS } from './blazon';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type FurSpec, type Tincture } from './tinctures';
 
 type FurLayout = FurSpec['layout'];
@@ -118,6 +120,83 @@ export const SHAPE_TOGGLE_LABEL: Record<ShapeToggle, PlainTerm> = {
   voided: { plain: 'Hollow', term: 'voided' },
   sinister: { plain: 'On the right', term: 'sinister' },
   thin: { plain: 'Thin', term: 'diminutive' },
+};
+
+/** Which way a charge faces, as the viewer sees it, and the heraldic word ("Facing right · contourny"). */
+export const FACING_LABEL: Record<Facing, PlainTerm> = {
+  'to-dexter': { plain: 'Facing left', term: 'to dexter' },
+  'to-sinister': { plain: 'Facing right', term: FACING_WORD['to-sinister'] },
+  affronty: { plain: 'Facing out', term: FACING_WORD.affronty },
+};
+
+/** Which way a beast's head is turned, and the heraldic word ("Looking out · guardant"). */
+export const GAZE_LABEL: Record<Gaze, PlainTerm> = {
+  guardant: { plain: 'Looking out', term: GAZE_WORDS.guardant },
+  regardant: { plain: 'Looking back', term: GAZE_WORDS.regardant },
+  'guardant-regardant': { plain: 'Looking out and back', term: GAZE_WORDS['guardant-regardant'] },
+};
+
+/** Which way a charge points, as the viewer sees it, and the heraldic words ("Slanting · bendwise"). */
+export const ORIENTATION_LABEL: Record<Orientation, PlainTerm> = {
+  palewise: { plain: 'Upright', term: ORIENTATION_WORDS.palewise },
+  fesswise: { plain: 'Lying flat', term: ORIENTATION_WORDS.fesswise },
+  'fesswise-reversed': { plain: 'Lying flat the other way', term: ORIENTATION_WORDS['fesswise-reversed'] },
+  bendwise: { plain: 'Slanting', term: ORIENTATION_WORDS.bendwise },
+  'bendwise-inverted': { plain: 'Slanting, upside down', term: ORIENTATION_WORDS['bendwise-inverted'] },
+  'bendwise-sinister': { plain: 'Slanting the other way', term: ORIENTATION_WORDS['bendwise-sinister'] },
+  'bendwise-sinister-inverted': { plain: 'Slanting the other way, upside down', term: ORIENTATION_WORDS['bendwise-sinister-inverted'] },
+  inverted: { plain: 'Upside down', term: ORIENTATION_WORDS.inverted },
+  reversed: { plain: 'Mirrored', term: ORIENTATION_WORDS.reversed },
+  'to-center': { plain: 'Pointing to the middle', term: ORIENTATION_WORDS['to-center'] },
+};
+
+/** The details a charge may be drawn with (the Details disclosure), as they look, and the heraldic word ("Hollow · voided"). */
+export const MODIFIER_LABEL: Partial<Record<ModifierId, PlainTerm>> = {
+  voided: { plain: 'Hollow', term: MODIFIER_WORDS.voided },
+  fimbriated: { plain: 'Edged', term: 'fimbriated' },
+  pierced: { plain: 'With a round hole', term: MODIFIER_WORDS.pierced },
+  fitchy: { plain: 'Pointed at the foot', term: MODIFIER_WORDS.fitchy },
+};
+
+/** The parts and details drawn as pieces (the Details disclosure), as they look, and the heraldic word ("With wings · winged"). */
+export const PIECE_LABEL: Record<PieceId, PlainTerm> = {
+  winged: { plain: 'With wings', term: 'winged' },
+  enflamed: { plain: 'In flames', term: 'enflamed' },
+  slipped: { plain: 'On a stem', term: 'slipped' },
+  leaved: { plain: 'With leaves', term: 'leaved' },
+  crowned: { plain: 'With a crown', term: PART_WORDS.crowned },
+  collared: { plain: 'With a collar', term: PART_WORDS.collared },
+};
+
+/** The ways a charge holds an item (the Holding row), as they look, and the heraldic words (as `blazon` writes them). */
+export const HOLD_LABEL: Record<HoldHow, PlainTerm> = {
+  maintaining: { plain: 'Holding', term: HOLD_WORDS.maintaining },
+  sustaining: { plain: 'Holding up', term: HOLD_WORDS.sustaining },
+  'in-beak': { plain: 'In its beak', term: HOLD_WORDS['in-beak'] },
+  'in-mouth': { plain: 'In its mouth', term: HOLD_WORDS['in-mouth'] },
+  wearing: { plain: 'Wearing', term: HOLD_WORDS.wearing },
+};
+
+/** The shapes a charge is drawn in (the Shape row), as they look, and the heraldic word; null is the whole charge. */
+export const FORM_LABEL: Record<ChargeForm | 'whole', PlainTerm> = {
+  whole: { plain: 'Whole', term: 'as drawn' },
+  demi: { plain: 'Front half', term: 'demi' },
+  head: { plain: 'Head only', term: 'head' },
+  jambe: { plain: 'Leg only', term: 'jambe' },
+  skull: { plain: 'Skull only', term: 'skull' },
+};
+
+/** How a head is cut off (the Cut row), as it looks, and the heraldic word. */
+export const CUT_LABEL: Partial<Record<ModifierId, PlainTerm>> = {
+  couped: { plain: 'Cut off straight', term: 'couped' },
+  erased: { plain: 'Cut off ragged', term: 'erased' },
+};
+
+/** How two charges are set to each other, and the heraldic word ("Facing each other · combattant"). */
+export const PAIR_LABEL: Record<Pair, PlainTerm> = {
+  combattant: { plain: 'Facing each other', term: 'combattant' },
+  respectant: { plain: 'Facing each other', term: 'respectant' },
+  addorsed: { plain: 'Back to back', term: 'addorsed' },
 };
 
 /** How many times over a tressure is drawn, double or triple, and the heraldic word. */
@@ -254,25 +333,17 @@ export const FUR_LAYOUT_PLAIN: Record<FurLayout, string> = {
   'en-pointe': 'In columns',
 };
 
-/** Charges whose heraldic name isn't an everyday word; the rest are already plain ("lion", "key"). */
-const CHARGE_PLAIN: Readonly<Partial<Record<ChargeId, { one: string; many: string }>>> = {
-  mullet: { one: 'star', many: 'stars' },
-  crescent: { one: 'moon', many: 'moons' },
-  'fleur-de-lis': { one: 'lily', many: 'lilies' },
-};
-
 /** A charge for a picker or filter: "Star · mullet", or just "Lion" where the name is plain already. */
 export function chargeLabel(id: ChargeId): string {
-  const plain = CHARGE_PLAIN[id];
-  return plain ? plainFirst({ plain: capitalise(plain.one), term: CHARGES[id].name }) : capitalise(CHARGES[id].name);
+  const { plain, name } = CHARGES[id];
+  return plain ? plainFirst({ plain: capitalise(plain.word), term: name }) : capitalise(name);
 }
 
 /** A charge in a sentence, plain word first: "a lion", "three stars (mullets)". */
 export function chargeWords(id: ChargeId, count: number): string {
-  const meta = CHARGES[id];
-  const plain = CHARGE_PLAIN[id];
-  const heraldic = count === 1 ? meta.name : meta.plural;
-  return plain ? `${count === 1 ? plain.one : plain.many} (${heraldic})` : heraldic;
+  const { plain, name, plural } = CHARGES[id];
+  const heraldic = count === 1 ? name : plural;
+  return plain ? `${count === 1 ? plain.word : plain.plural} (${heraldic})` : heraldic;
 }
 
 /** An ordinary in a sentence, plain first: "horizontal band (fess)", "cross". */
@@ -284,7 +355,7 @@ export function ordinaryWords(type: OrdinaryType): string {
 
 /** Posture words, plain first: "Standing (statant)". Displayed has no everyday gloss of its own. */
 export function postureLabel(id: ChargeId, posture: Posture, note: string | null = null): string {
-  const term = postureTerm(id, posture);
+  const term = postureWords(id, posture);
   const plain = postureGloss(id, posture) ?? (posture === 'displayed' ? 'wings spread' : null);
   return plain ? `${capitalise(plain)} (${[term, note].filter(Boolean).join(', ')})` : `${capitalise(term)}${note ? ` (${note})` : ''}`;
 }

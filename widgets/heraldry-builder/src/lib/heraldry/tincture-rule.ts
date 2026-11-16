@@ -11,7 +11,7 @@ import { fieldSurfaces, surfaceOf, tinctureSurface, type Surface } from './surfa
 import { furName } from './fur';
 import { treatedName } from './treatment';
 import {
-  PLAIN_LINES, asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type IssueAt, type Item, type Paint, type TincturePart,
+  PLAIN_LINES, asParty, asSemy, asTreated, asVariation, fieldParts, fieldTinctures, fimbriationOf, groupAt, hostOf, itemName, notSupported, paintTinctures, primaryGroups, walkGroups, type Design, type Group, type GroupPath, type Issue, type IssueAt, type Item, type Paint, type TincturePart,
 } from './design';
 import {
   CANONICAL_SHAPE, fieldSurfaceAt, groundPoints, inFirstPartTurned, isFieldPaint, partIndexAt, shapeFrame, slotColumn, slotRow, type DividedField, type Pt, type Point, type Slot,
@@ -502,10 +502,13 @@ function sharedTinctureException(d: Design, group: Group): SharedTinctureExcepti
   return shape && !lined && multiplyDivided(d.field) !== multiplyDivided(group.paint) && !(lattice && bend) ? 'shape-on-multiply-divided' : 'none';
 }
 
-/** The issues of a charge group, one per run of failing slots that share a ground and a failure. */
+/**
+ * The issues of a charge group, one per run of failing slots that share a ground and a failure. A fimbriated charge need not contrast with
+ * what it lies on: its fimbriation must (§1.4 M16; `chargeFimbriationIssues`). A voided charge is judged as the charge.
+ */
 function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, grounds: readonly Ground[], pair: readonly [Tincture, Tincture] | null): Issue[] {
   const parts = partGrounds(d, path);
-  if (g.item.k !== 'charge') return [];
+  if (g.item.k !== 'charge' || fimbriationOf(g.item)) return [];
   const { charge } = g.item;
   const at = { k: 'group', path } as const;
   const slots = canonicalSlots(d, path);
@@ -558,9 +561,9 @@ function chargeIssues(d: Design, path: GroupPath, g: Group, host: Group | null, 
   });
 }
 
-/** The rule-of-tincture violations of the group at `path` alone, its trims' included (and a charge group Table 7 forces into one part, a gap). */
+/** The rule-of-tincture violations of the group at `path` alone, its trims' and held items' included (and a charge group Table 7 forces into one part, a gap). */
 export function groupTinctureIssues(d: Design, path: GroupPath): Issue[] {
-  return [...groupBodyTinctureIssues(d, path), ...trimTinctureIssues(d, path)];
+  return [...groupBodyTinctureIssues(d, path), ...trimTinctureIssues(d, path), ...heldTinctureIssues(d, path)];
 }
 
 /** The violations of the group at `path` in its own paint: for an ordinary its body, not its fimbriation or cotises. */
@@ -585,16 +588,61 @@ export function groupBodyTinctureIssues(d: Design, path: GroupPath): Issue[] {
     : [];
 }
 
-/** The violations of the fimbriation and the cotises of the ordinary at `path` against what they lie on. */
+/** The violations of the fimbriation and the cotises of the ordinary at `path`, or the fimbriation of its charges, against what they lie on. */
 export function trimTinctureIssues(d: Design, path: GroupPath): Issue[] {
   const group = groupAt(d, path);
-  if (group.item.k !== 'ordinary' || d.kind !== 'arms') return [];
+  if (group.item.k === 'charge') return chargeFimbriationIssues(d, path, group);
+  if (d.kind !== 'arms') return [];
   const pair = fieldPair(d);
   const { fimbriated, cotised } = group.item;
   return [
     ...(fimbriated ? trimIssues(d, path, group, 'fimbriation', fimbriated, pair) : []),
     ...(cotised ? trimIssues(d, path, group, 'cotises', cotised.paint, pair) : []),
   ];
+}
+
+/**
+ * The issue of a fimbriated charge group whose fimbriation doesn't contrast with what the charges lie on, naming the slots where it doesn't
+ * (SENA A3B4a; R§A.6: the fimbriation must contrast with the field, the fimbriated charge need not).
+ */
+function chargeFimbriationIssues(d: Design, path: GroupPath, g: Group): Issue[] {
+  const paint = g.item.k === 'charge' ? fimbriationOf(g.item) : null;
+  if (!paint) return [];
+  const pair = fieldPair(d), parts = partGrounds(d, path), host = hostOf(d, path);
+  const failing = groundShares(d, path).flatMap((ground, i) => {
+    const f = ground.length === 0 ? null : failureOf(paint, g.item, ground, pair, parts?.[i], 'none');
+    return f ? [{ i, f, contacts: groundTinctures(ground) }] : [];
+  });
+  if (failing.length === 0) return [];
+  const [{ f, contacts }] = failing;
+  const where = whereText(f, paint.k === 'tincture' ? paint.t : null, contacts, host);
+  return [{
+    code: 'tincture', reason: 'contrast', part: 'fimbriation', at: { k: 'group', path }, slots: failing.map(({ i }) => i),
+    message: `The fimbriation of the ${nounOf(g)} (${paintName(paint)}) lies ${where}: ${FAILURE_TEXT[f]}`,
+  }];
+}
+
+/**
+ * The issues of the items a charge group holds that don't contrast with what the charges lie on (§1.5 H5; SENA App I5: a held charge must
+ * have good contrast with the field, not with its holder), naming the slots where they don't.
+ */
+function heldTinctureIssues(d: Design, path: GroupPath): Issue[] {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return [];
+  const pair = fieldPair(d), parts = partGrounds(d, path), host = hostOf(d, path), grounds = groundShares(d, path);
+  return g.item.holds.flatMap((h) => {
+    const failing = grounds.flatMap((ground, i) => {
+      const f = ground.length === 0 ? null : failureOf(h.paint, h.item, ground, pair, parts?.[i], 'none');
+      return f ? [{ i, f, contacts: groundTinctures(ground) }] : [];
+    });
+    if (failing.length === 0) return [];
+    const [{ f, contacts }] = failing;
+    const where = whereText(f, h.paint.k === 'tincture' ? h.paint.t : null, contacts, host);
+    return [{
+      code: 'tincture', reason: 'contrast', part: 'held', at: { k: 'group', path }, slots: failing.map(({ i }) => i),
+      message: `The ${CHARGES[h.item.charge].name} the ${nounOf(g)} ${g.count > 1 ? 'hold' : 'holds'} (${paintName(h.paint)}) lies ${where}: ${FAILURE_TEXT[f]}`,
+    } satisfies Issue];
+  });
 }
 
 /** The issue of an ordinary's fimbriation or cotises that don't contrast with the field they lie on (RULES-C §D.4, §D.5: SENA A3B4a). */

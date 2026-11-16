@@ -12,6 +12,7 @@ import {
 } from '../src/lib/heraldry';
 import type { Lines } from '../src/lib/heraldry/design';
 import { arms, charge, group, nd, ordinary } from './helpers';
+import { rotatesIn, sampleSeed } from './rotation';
 
 type Pt = [number, number];
 
@@ -121,26 +122,27 @@ describe('drawing a line on an ordinary', () => {
     }
   });
 
-  it('every allowed line on every drawn ordinary is drawn within its outer envelope and covers its inner one', () => {
+  it('every allowed line on every drawn ordinary is drawn within its outer envelope and covers its inner one (a rotating half on the heater)', () => {
     let k = 0;
     for (const shape of FIELD_SHAPES) {
       const outline = pathPolygon(shapeFrame(shape).outline);
       for (const type of BUILDER_ORDINARIES) {
         for (const line of DRAWN_LINES.filter((l) => allowed(type, l))) {
-          // Heater exhaustive; a rotating third elsewhere.
-          if (shape !== 'heater' && k++ % 3 !== FIELD_SHAPES.indexOf(shape) - 1) continue;
+          // A seeded rotating half of the pairs on the heater (`rotatesIn`; SCA_FULL=1 for all); a third in turn elsewhere.
+          if (shape === 'heater' ? !rotatesIn(`${type}|${line}`, 1 / 2) : k++ % 3 !== FIELD_SHAPES.indexOf(shape) - 1) continue;
+          const where = `${shape} ${type} ${line} (sample seed ${sampleSeed()})`;
           const g = geometryOf(type, both(line), shape);
           const body = pathRings(g.body);
-          expect(g.body, `${shape} ${type} ${line}`).not.toBe(geometryOf(type, { a: 'plain', b: 'plain' }, shape).body);
+          expect(g.body, where).not.toBe(geometryOf(type, { a: 'plain', b: 'plain' }, shape).body);
           for (const p of body.flat()) {
             if (!pointInPolygon(p[0], p[1], outline)) continue;
-            expect(inRings(g.envelope.outer, p) || nearAnEdge(g.envelope.outer, p, 0.05), `${shape} ${type} ${line} ${p} out of its envelope`).toBe(true);
+            expect(inRings(g.envelope.outer, p) || nearAnEdge(g.envelope.outer, p, 0.05), `${where}: ${p} out of its envelope`).toBe(true);
           }
           for (const p of g.envelope.inner.flat()) {
             if (!pointInPolygon(p[0], p[1], outline)) continue;
-            expect(inRings(body, p) || nearAnEdge(body, p, 0.05), `${shape} ${type} ${line} ${p} not on the body`).toBe(true);
+            expect(inRings(body, p) || nearAnEdge(body, p, 0.05), `${where}: ${p} not on the body`).toBe(true);
           }
-          expect(g.samples.length, `${shape} ${type} ${line}`).toBeGreaterThan(0);
+          expect(g.samples.length, where).toBeGreaterThan(0);
         }
       }
     }
@@ -165,7 +167,7 @@ describe('charges around and on a lined ordinary', () => {
     }
   });
 
-  it('around and on every lined ordinary, counts 1–3 keep off and on the drawn body (heater; a rotating fifth elsewhere)', () => {
+  it('around and on every lined ordinary, counts 1–3 keep off and on the drawn body (a rotating half on the heater, a fifth elsewhere)', () => {
     let k = 0;
     const problems: string[] = [];
     for (const shape of FIELD_SHAPES) {
@@ -174,7 +176,7 @@ describe('charges around and on a lined ordinary', () => {
         for (const line of DRAWN_LINES.filter((l) => allowed(type, l))) {
           for (const kind of ['between', 'on'] as const) {
             if (kind === 'between' && (type === 'chief' || type === 'bordure')) continue;
-            if (shape !== 'heater' && k++ % 5 !== FIELD_SHAPES.indexOf(shape)) continue;
+            if (shape === 'heater' ? !rotatesIn(`${kind}|${type}|${line}`, 1 / 2) : k++ % 5 !== FIELD_SHAPES.indexOf(shape)) continue;
             const s = spec(type, both(line));
             const body = pathRings(ordinaryGeometry(s, defaultOrdinaryFrame(shape)).body);
             // Three charges on a chevron enarched: its bowed limbs leave the straight limbs' places — no room (a capacity issue, PROGRESS-C C5a).
@@ -193,7 +195,7 @@ describe('charges around and on a lined ordinary', () => {
         }
       }
     }
-    expect([...new Set(problems)].slice(0, 20)).toEqual([]);
+    expect([...new Set(problems)].slice(0, 20), `sample seed ${sampleSeed()}`).toEqual([]);
   });
 });
 
@@ -236,6 +238,31 @@ describe('the rules for lines on ordinaries', () => {
     ]);
     // Embattled on either edge alone is no step.
     expect(coreSteps(nd(arms('argent', ord('fess', 'gules', { a: 'plain', b: 'embattled' }))))).toEqual([]);
+  });
+
+  it('a compass star is one step from core practice: alone it is allowed, with another step refused (App G "Compass star")', () => {
+    const star = group(charge('compass-star'), 'or');
+    const alone = nd(arms('azure', star));
+    expect(coreSteps(alone)).toEqual(['compass-star']);
+    expect(structuralIssues(alone)).toEqual([]);
+    const withLine = nd(arms('argent', ord('fess', 'gules', { a: 'wavy', b: 'plain' }), group(charge('compass-star'), 'or', { count: 2 })));
+    expect(coreSteps(withLine)).toEqual(['one-edge-line', 'compass-star']);
+    expect(structuralIssues(withLine).filter((i) => i.code === 'structure' && i.rule === 'core-practice').map((i) => i.message)).toEqual([
+      'This design is two steps from core practice (a line on one edge of a band only, a compass star); SENA allows one (A2B, App G).',
+    ]);
+  });
+
+  it('charges in annulo or in orle turned from upright, to center too, are one step from core practice (§1.7 S2, App G)', () => {
+    const swords = (orientation: string) => group(charge('sword', { orientation }), 'or', { count: 4, arrangement: 'in-annulo' });
+    const alone = nd(arms('azure', swords('fesswise')));
+    expect(coreSteps(alone)).toEqual(['non-default-orientation-in-annulo-or-orle']);
+    expect(structuralIssues(alone)).toEqual([]);
+    expect(coreSteps(nd(arms('azure', swords('to-center'))))).toEqual(['non-default-orientation-in-annulo-or-orle']);
+    expect(coreSteps(nd(arms('azure', group(charge('sword', { orientation: 'to-center' }), 'or', { count: 8, arrangement: 'in-orle' }))))).toEqual(['non-default-orientation-in-annulo-or-orle']);
+    const withLine = nd(arms('argent', swords('fesswise'), group(ordinary('bend', { lines: { a: 'wavy', b: 'plain' } }), 'gules', { role: 'overall' })));
+    expect(structuralIssues(withLine).filter((i) => i.code === 'structure' && i.rule === 'core-practice').map((i) => i.message)).toEqual([
+      'This design is two steps from core practice (a line on one edge of a band only, charges in annulo or in orle turned from upright); SENA allows one (A2B, App G).',
+    ]);
   });
 
   it('per fess with a chief embattled is refused, with a chief indented allowed (A3D1c)', () => {

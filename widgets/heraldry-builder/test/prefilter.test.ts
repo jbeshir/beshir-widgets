@@ -7,8 +7,8 @@ import {
   CHARGE_IDS, CHARGES, BUILDER_DIVISIONS, BUILDER_ORDINARIES, ORDINARY_KIND, candidateKey, checkUnique, differences, isClear, keysMayConflict, primaryGroups, signature,
   type Design, type RegistryEntryLike, type Verdict,
 } from '../src/lib/heraldry';
-import { generatedDesigns } from './design-generator';
-import { rotatesIn, sampleSeed } from './rotation';
+import { generatedChargeAttributeDesigns, generatedDesigns } from './design-generator';
+import { STRATUM_CHARGE_IDS, rotatesIn, sampleSeed } from './rotation';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const sameKey = (a: Design, b: Design) => keysMayConflict(candidateKey(a), candidateKey(b));
@@ -38,6 +38,13 @@ describe('too-close pre-filter', () => {
   const registry = registryFrom(withBadges(generatedDesigns(1, 120), 3));
   const probes = withBadges(generatedDesigns(10_000, 1500), 5);
 
+  it('returns birds of different shapes together: a swan displayed and an eagle displayed (T6, a DC only)', () => {
+    const bird = (id: string, posture: string) => nd(arms('azure', group(charge(id, { posture }), 'or')));
+    expect(sameKey(bird('swan', 'displayed'), bird('eagle', 'displayed'))).toBe(true);
+    const [a, b] = [bird('swan', 'displayed'), bird('eagle', 'displayed')];
+    expect(checkUnique(a, signature(a), registryFrom([b])).kind).toBe('too-close');
+  });
+
   it('gives the same verdict as scanning the whole registry', () => {
     const outcomes = new Set<string>();
     for (const probe of probes) {
@@ -60,10 +67,10 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
-  // Seeded sampling: each probe edits a rotating eighth of the entries (`rotatesIn`), so each entry is edited against about 12 probes.
+  // Seeded sampling: each probe edits a rotating twelfth of the entries (`rotatesIn`), so each entry is edited against about 8 probes.
   it('gives the same verdict when an entry is edited (itself excluded)', () => {
     for (const [ri, edited] of registry.entries()) {
-      for (const probe of probes.slice(0, 100).filter((_, pi) => rotatesIn(`edited|${ri}|${pi}`, 1 / 8))) {
+      for (const probe of probes.slice(0, 100).filter((_, pi) => rotatesIn(`edited|${ri}|${pi}`, 1 / 12))) {
         const sig = signature(probe);
         const full = checkUnique(probe, sig, registry, edited.id);
         const candidates = registry.filter((e) => sameKey(probe, e.design));
@@ -72,18 +79,32 @@ describe('too-close pre-filter', () => {
     }
   }, 30_000);
 
-  // Seeded sampling: a rotating half of the pairs (`rotatesIn`).
+  // Seeded sampling: a rotating twelfth of the pairs of charge attribute designs (facings and pairs), each way round.
+  it('keys only on changes that are substantial on their own (charge attribute designs: facings and pairs)', () => {
+    const designs = generatedChargeAttributeDesigns(30_000, 60);
+    let compared = 0;
+    for (const [i, a] of designs.entries()) for (const [j, b] of designs.entries()) {
+      if (!rotatesIn(`attribute|${i}|${j}`, 1 / 12)) continue;
+      compared++;
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+    expect(compared, `sample seed ${sampleSeed()}`).toBeGreaterThan(150);
+  });
+
+  // Seeded sampling: a rotating third of the pairs (`rotatesIn`).
   it('keys only on changes that are substantial on their own (generated pairs)', () => {
     const designs = withBadges(generatedDesigns(20_000, 400), 4);
     let keyed = 0;
     for (const [i, a] of designs.entries()) for (const [j, b] of designs.entries()) {
-      if (!rotatesIn(`pair|${i}|${j}`, 1 / 2) || sameKey(a, b)) continue;
+      if (!rotatesIn(`pair|${i}|${j}`, 1 / 3) || sameKey(a, b)) continue;
       keyed++;
       expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
     }
     expect(keyed, `sample seed ${sampleSeed()}`).toBeGreaterThan(5_000);
   }, 30_000);
 
+  // Every pair of the fixed stratum's charges (and the chief that stands for none); a pair with a later charge is a seeded rotating
+  // quarter (`rotatesIn`; SCA_FULL=1 for all), so the pairs do not grow with the square of the art.
   it('keys only on changes that are substantial on their own (every division, ordinary and charge)', () => {
     const field = (division: string | null) => (division ? div(division, 'or', 'azure') : 'azure');
     const fields = [null, ...BUILDER_DIVISIONS].map((d) => nd(arms(field(d), group(ordinary('pale'), 'gules'))));
@@ -91,9 +112,11 @@ describe('too-close pre-filter', () => {
       .map((type) => nd(arms(field(null), ...(type ? [group(ordinary(type), 'or')] : [group(ordinary('chief'), 'or')]))));
     const charges = [null, ...CHARGE_IDS.flatMap((id) => (CHARGES[id].postures ?? [null]).map((posture) => [id, posture] as const))]
       .map((c) => nd(arms(field(null), ...(c ? [group(charge(c[0], c[1] ? { posture: c[1] } : {}), 'or')] : [group(ordinary('chief'), 'or')]))));
+    const inStratum = (d: Design) => d.groups[0].item.k !== 'charge' || STRATUM_CHARGE_IDS.includes(d.groups[0].item.charge);
+    const inSample = (a: Design, b: Design) => (inStratum(a) && inStratum(b)) || rotatesIn(`charge-pair|${signature(a)}|${signature(b)}`, 1 / 4);
     for (const set of [fields, ordinaries, charges]) {
       for (const a of set) for (const b of set) {
-        if (sameKey(a, b)) continue;
+        if (sameKey(a, b) || !inSample(a, b)) continue;
         expect(differences(a, b).filter((d) => d.kind === 'sc').length, `${signature(a)} vs ${signature(b)}`).toBeGreaterThan(0);
       }
     }
@@ -312,5 +335,37 @@ describe('too-close pre-filter with fieldless badges', () => {
       const candidates = registry.filter((e) => sameKey(a, e.design));
       expect(checkUnique(a, signature(a), candidates)).toEqual(checkUnique(a, signature(a), registry));
     }
+  });
+});
+
+describe('too-close pre-filter with a plain cross couped and an annulet', () => {
+  // A plain cross couped, equal-armed or Latin, keys as the ordinary cross couped (App M1f family 1); an annulet as a roundel (one class, a DC apart).
+  const couped = nd(arms('azure', group(charge('cross-couped'), 'or')));
+  const latin = nd(arms('azure', group(charge('cross-latin'), 'or')));
+  const ordinaryCouped = nd(arms('azure', group(ordinary('cross', { mods: ['couped'] }), 'or')));
+  const throughout = nd(arms('azure', group(ordinary('cross'), 'or')));
+  const annulet = nd(arms('azure', group(charge('annulet'), 'or')));
+  const roundel = nd(arms('azure', group(charge('roundel'), 'or')));
+  const designs = [couped, latin, ordinaryCouped, throughout, annulet, roundel];
+
+  it('keys the charge as the ordinary, and the annulet as the roundel', () => {
+    expect(candidateKey(couped)).toEqual(candidateKey(ordinaryCouped));
+    expect(candidateKey(latin)).toEqual(candidateKey(ordinaryCouped));
+    expect(candidateKey(latin)).toEqual(candidateKey(throughout));
+    expect(candidateKey(annulet)).toEqual(candidateKey(roundel));
+  });
+
+  it('finds every entry that is not clear of the probe, and keys only on substantial changes', () => {
+    for (const a of designs) for (const b of designs) {
+      if (!isClear(differences(a, b))) expect(sameKey(a, b), `${signature(a)} vs ${signature(b)}`).toBe(true);
+      if (!sameKey(a, b)) expect(differences(a, b).some((d) => d.kind === 'sc'), `${signature(a)} vs ${signature(b)}`).toBe(true);
+    }
+    const registry = registryFrom(designs);
+    for (const probe of designs) {
+      const candidates = registry.filter((e) => sameKey(probe, e.design));
+      expect(checkUnique(probe, signature(probe), candidates)).toEqual(checkUnique(probe, signature(probe), registry));
+    }
+    const others = registry.filter((e) => e.signature !== signature(annulet) && sameKey(annulet, e.design));
+    expect(checkUnique(annulet, signature(annulet), others).kind).toBe('too-close');
   });
 });

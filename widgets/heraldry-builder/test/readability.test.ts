@@ -69,6 +69,9 @@ describe('readability bands', () => {
     expect(detail('key')).toBe(1);
     expect(detail('dragon')).toBe(2);
     expect(detail('gear')).toBe(0);
+    // A star of eight points or more has finer points than the star as drawn.
+    const star = (count: number) => points(legal('azure', chg('mullet', 'or', {}, { mods: [{ id: 'of-points', count }] })), 'detail');
+    expect([star(6), star(8)]).toEqual([0, 1]);
     expect(points(legal('azure', ord('fess', 'argent', { charged: [chg('dragon', 'gules')] }), chg('rose', 'argent', { count: 2 })), 'detail')).toBe(2);
   });
 

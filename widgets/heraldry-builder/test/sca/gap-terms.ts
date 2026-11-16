@@ -3,7 +3,9 @@
 // endings before lookup); hyphenated terms are single tokens. Where a word is in more than one list,
 // gaps.ts decides by the order it loads them in.
 
-import { CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_NAME, ORDINARY_SPELLINGS, SAME_ORDINARY, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId, type OrdinaryType } from '../../src/lib/heraldry';
+import { CHARGES, CHARGE_IDS, DRAWN_ORDINARIES, LINE_SPELLINGS, NAMED_TINCTURE_CHARGES, ORDINARY_NAME, ORDINARY_SPELLINGS, SAME_ORDINARY, SEMY_NAMES, SEMY_SPELLINGS, VARIATION_SPELLINGS, type ChargeId, type OrdinaryType } from '../../src/lib/heraldry';
+
+import { CHARGE_SPELLINGS } from './words';
 
 /** Space-separated words → array (keeps the lists compact). */
 const w = (s: string): string[] => s.trim().split(/\s+/);
@@ -21,51 +23,52 @@ export const CHARGE_BUCKETS = [
 export type ChargeBucket = (typeof CHARGE_BUCKETS)[number];
 
 export const BUCKET_DESCRIPTION: Record<ChargeBucket, string> = {
-  beast: 'a natural beast other than the lion, wolf, boar, stag, goat and hare (bear, cat, horse, deer…), or a beast\'s head or limb',
-  bird: 'a bird other than the eagle and owl, a bird\'s head or limb, or a wing or feather',
-  monster: 'a heraldic monster other than the unicorn and dragon (griffin, wyvern, sea-creatures…)',
-  fish: 'a named fish, sea mammal, crustacean or shell (dolphin, whale, escallop…)',
-  reptile: 'a reptile or amphibian (serpent, lizard, turtle, frog…)',
-  insect: 'an insect, arachnid or other invertebrate other than the bee',
-  human: 'a human figure or body part (hand, arm, skull, eye…)',
-  plant: 'a flower, leaf, fruit, foil, named tree or other plant other than the rose, tree and fleur-de-lis',
-  celestial: 'a celestial or weather charge other than the sun, mullet and crescent (estoile, moon, cloud…)',
-  weapon: 'a weapon or piece of armour other than the sword',
-  tool: 'a tool, implement or piece of equipment other than the key and gear',
-  household: 'a vessel, container, food, furniture, light, jewel, game piece, flag or other object',
+  beast: 'a natural beast other than the lion, wolf, boar, stag, goat, hare, cat, bear, horse, fox and squirrel (deer, dog, tiger…), or a beast\'s head or limb',
+  bird: 'a bird other than the eagle, owl, raven, falcon, swan, phoenix, peacock, martlet and dove, a bird\'s head or limb, a wing, quill or plume',
+  monster: 'a heraldic monster other than the unicorn, dragon, griffin, wyvern, pegasus, sea-horse and sea-lion (cockatrice, other sea-creatures…)',
+  fish: 'a named fish, sea mammal, crustacean or shell other than the dolphin and escallop (whale, crab, oyster…)',
+  reptile: 'a reptile or amphibian other than the serpent and frog (snake, lizard, turtle…)',
+  insect: 'an insect, arachnid or other invertebrate other than the bee, butterfly, dragonfly, spider and scorpion',
+  human: 'a human figure or body part other than the hand (arm, skull, eye…)',
+  plant: 'a flower, leaf, fruit, foil, named tree or other plant other than the rose, tree, fleur-de-lis, thistle, lily, laurel wreath, oak leaf, acorn, pomegranate, garb and seeblatt',
+  celestial: 'a celestial or weather charge other than the sun, mullet, crescent and comet (estoile, moon, cloud…)',
+  weapon: 'a weapon or piece of armour other than the sword, arrow, axe, pheon, spear and trident',
+  tool: 'a tool, implement or piece of equipment other than the key, gear, hammer, needle, anvil, wheel and Catherine wheel',
+  household: 'a vessel or container other than the goblet, chalice and tankard, food, furniture, light, jewel, game piece, flag or other object',
   clothing: 'an article of clothing',
-  instrument: 'a musical instrument or bell',
-  building: 'a building or architectural element',
+  instrument: 'a musical instrument other than the harp and bell (a handbell…)',
+  building: 'a building or architectural element other than the tower and castle',
   ship: 'a ship, boat or part of one',
   nature: 'a landform, rock, water, fire or other natural feature',
   cross: 'a cross used as a charge (crosslet, formy, Maltese, several couped…) rather than the cross ordinary',
   geometric: 'a geometric charge or sub-ordinary used as a charge (annulet, roundel, lozenge, billet…)',
-  symbol: 'a knot, letter, rune, triskelion or other abstract symbol',
+  symbol: 'a knot, letter, rune, triskelion or other abstract symbol other than the pawprint',
 };
 
 /** Charge nouns the widget lacks, by bucket. */
 export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   beast: w(`
-    bear grizzly cat lioness tiger leopard panther catamount lynx ounce wildcat cougar puma jaguar cheetah kitten
-    horse stallion mare pony foal colt donkey ass mule zebra dog talbot greyhound hound wolfhound bloodhound mastiff
-    terrier poodle corgi brachet alaunt lymer spaniel dane samoyed cur husky collie dachshund retriever setter beagle fox vixen jackal hyena coyote coney rabbit squirrel
+    grizzly lioness tiger leopard panther catamount lynx ounce wildcat cougar puma jaguar cheetah kitten
+    stallion mare pony foal colt donkey ass mule zebra dog talbot greyhound hound wolfhound bloodhound mastiff
+    terrier poodle corgi brachet alaunt lymer spaniel dane samoyed cur husky collie dachshund retriever setter beagle vixen jackal hyena coyote
     elephant bull ox cow calf bison buffalo yak ram sheep lamb ewe badger brock hedgehog urchin otter sea-otter weasel
     stoat ferret marten mink polecat wolverine mouse rat shrew mole vole hamster bat reremouse monkey ape baboon
     gorilla camel dromedary camelopard cameleopard giraffe deer buck hart hind doe fawn roe elk moose reindeer
     caribou ibex gazelle pig sow hog piglet beaver raccoon skunk opossum possum aardvark anteater armadillo kangaroo
     wombat koala llama alpaca capybara hippopotamus rhinoceros seal walrus panda porcupine sloth cub beast
     attire antler massacre jambe jamb gamb gambe paw scalp
+    polar-bear
   `),
   bird: w(`
-    raven swan falcon hawk dove peacock peahen crane heron stork martlet alerion popinjay parrot cock rooster hen
+    peahen crane heron stork alerion popinjay parrot cock rooster hen
     chicken crow corbie rook magpie jay goose duck drake swallow sparrow wren robin lark skylark nightingale
     blackbird thrush finch goldfinch linnet tit kingfisher hummingbird pelican ostrich emu penguin puffin gull
     seagull tern osprey kestrel merlin peregrine gyrfalcon vulture condor kite ibis flamingo chough cockatoo quail
     pheasant partridge grouse moorcock turkey loon egret cormorant albatross woodpecker starling cardinal jackdaw
-    pigeon bluebird songbird corvid dodo eaglet owlet bird wing vol feather quill plume nest egg
+    pigeon bluebird songbird corvid dodo eaglet owlet bird wing quill plume nest egg
   `),
   monster: w(`
-    griffin gryphon griffon phoenix wyvern wivern pegasus cockatrice basilisk sea-lion sealion sea-horse seahorse
+    cockatrice basilisk
     sea-unicorn sea-wolf seawolf sea-dog seadog sea-dragon seadragon sea-serpent sea-goat seagoat sea-stag
     sea-griffin sea-cat sea-bear sea-fox sea-boar sea-pegasus sea-coney sea-catamount sea-pithon sea-tyger
     pithon kraken mermaid merman melusine siren triton harpy centaur sagittary satyr sphinx manticore enfield alphyn
@@ -73,36 +76,38 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     lion-dragon chatloup ypotryll zydrach troll demon devil gorgon frauenadler musimon antelope pantheon bagwyn wurm
     lindwurm qilin kirin baku tengu kitsune east-asian-dragon dragonet werewolf bonacon cetus hippocamp lamia
     alicorn monster
+    male-griffin
   `),
   fish: w(`
-    dolphin pike lucy luce salmon trout carp herring hake cod codfish eel whale orca shark catfish swordfish stingray
-    manta ray crab lobster crayfish crawfish shrimp prawn octopus polypus squid calamary calamarie nautilus whelk escallop
-    scallop shell seashell conch cockle oyster mussel sea-urchin jellyfish starfish sea-nettle sturgeon mackerel
+    pike lucy luce salmon trout carp herring hake cod codfish eel whale orca shark catfish swordfish stingray
+    manta ray crab lobster crayfish crawfish shrimp prawn octopus polypus squid calamary calamarie nautilus whelk
+    shell seashell conch cockle oyster mussel sea-urchin jellyfish starfish sea-nettle sturgeon mackerel
     perch roach bream barbel tench goldfish koi flounder plaice angelfish narwhal manatee haddock sardine anchovy
+    bottlenosed-dolphin
   `),
   reptile: w(`
-    serpent snake adder viper cobra rattlesnake asp python lizard chameleon gecko iguana skink turtle tortoise
-    sea-turtle sea-tortoise frog toad newt tadpole crocodile alligator worm
+    snake adder viper cobra rattlesnake asp python lizard chameleon gecko iguana skink turtle tortoise
+    sea-turtle sea-tortoise toad newt tadpole crocodile alligator worm
   `),
   insect: w(`
-    wasp hornet honeybee bumblebee butterfly moth dragonfly damselfly beetle scarab ladybug ladybird ant emmet
-    grasshopper locust cricket mantis fly mosquito cockroach earwig spider scorpion snail slug caterpillar cicada
+    wasp hornet honeybee bumblebee moth damselfly beetle scarab ladybug ladybird ant emmet
+    grasshopper locust cricket mantis fly mosquito cockroach earwig snail slug caterpillar cicada
     firefly flea louse tick spiderweb cobweb web chrysalis cocoon centipede earthworm
   `),
   human: w(`
     man woman maiden lady lord knight archer king queen prince princess monk nun friar bishop pope saint pilgrim
     palmer soldier warrior viking dancer harper jester fool shepherd smith miller baker hunter sailor angel cherub
     seraph savage wodewose giant dwarf elf fairy moor saracen child boy girl figure person head face bust torso
-    skull skeleton bone tooth hand arm cubit-arm leg foot fist finger thumb eye ear nose mouth lip beard moustache
-    hair tress brain mask footprint handprint foi
+    skull skeleton bone tooth arm cubit-arm leg foot fist finger thumb eye ear nose mouth lip beard moustache
+    hair tress brain mask footprint human-footprint handprint foi
   `),
   plant: w(`
-    laurel oak wreath garland chaplet bouquet leaf thistle lily lily-of-the-valley lotus water-lily ivy holly vine
-    grapevine grape acorn sprig slip branch bough blossom flower floret cinquefoil quatrefoil trefoil sexfoil
-    septfoil octofoil foil shamrock clover garb sheaf wheat rye barley oat rice reed bulrush cattail rush fern palm
+    laurel oak wreath garland chaplet bouquet leaf lily-of-the-valley lotus water-lily ivy holly vine
+    grapevine grape sprig slip branch bough blossom flower floret sexfoil
+    septfoil octofoil foil shamrock clover sheaf wheat rye barley oat rice reed bulrush cattail rush fern palm
     pine fir spruce cedar cypress yew ash elm birch beech alder aspen poplar willow linden rowan hazel hawthorn
     maple olive bay mistletoe elder crequier juniper dogwood madrone sycamore ginkgo acanthus bamboo cactus saguaro
-    apple pear cherry plum peach lemon orange quince pomegranate fig date strawberry raspberry blackberry berry
+    apple pear cherry plum peach lemon orange quince fig date strawberry raspberry blackberry berry
     fraise pumpkin gourd turnip carrot onion garlic leek peapod pea bean mushroom toadstool fungus nut walnut
     hazelnut chestnut almond pinecone pine-cone cone seed bulb rosebud garden-rose garden-rosebud tulip iris daisy
     marguerite buttercup peascod sunflower daffodil poppy violet columbine gillyflower carnation lilac lavender heather trillium
@@ -111,48 +116,50 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     thyme mint parsley mustard hop flax cotton hemp nettle teazel teasel calla arum orchid wisteria pansy
     heartsease forget-me-not bluebell cornflower harebell tobacco banana pineapple ananas coconut melon chili
     pepper tomato potato cabbage corn maize fruit vegetable artichoke aloe stump trunk log root stalk stem thorn
-    bramble briar brier frond spray nesselblatt seeblatt shrub bush sapling hurst grove forest plant herb weed
+    bramble briar brier frond spray nesselblatt shrub bush sapling hurst grove forest plant herb weed
     seaweed kelp moss
   `),
   celestial: w(`
-    star comet moon decrescent increscent lunel sunburst compass-star cloud rainbow lightning
+    star moon decrescent increscent lunel sunburst compass-rose cloud rainbow lightning
     thunderbolt snowflake raindrop planet wind sunray ray zephyr boreas aeolus mistral half-moon quarter-sun
     constellation eclipse fireball meteor
   `),
   weapon: w(`
-    arrow arrowhead pheon broad-arrow broadarrow bolt quarrel quiver axe ax battle-axe battleaxe labrys tomahawk bow
-    longbow crossbow spear spearhead lance javelin pikestaff pikehead boarspear halberd poleaxe glaive bill billhook
-    bardiche partisan voulge mace morningstar flail warhammer club dagger rapier scimitar sabre saber falchion
+    arrowhead bolt quarrel quiver battle-axe battleaxe labrys tomahawk bow
+    longbow crossbow spearhead lance javelin pikestaff pikehead boarspear halberd poleaxe glaive bill billhook
+    bardiche partisan voulge mace morningstar flail warhammer club scimitar sabre saber falchion
     cutlass claymore katana gladius seax dirk kris kriss shamshir cinquedea tulwar flamberge curtana estoc longsword
-    knife trident caltrap caltrop grenade cannon gun handgun musket pistol rifle sling catapult trebuchet swepe
+    knife caltrap caltrop grenade cannon gun handgun musket pistol rifle sling catapult trebuchet swepe
     ballista battering-ram chaine-shot skyrocket rocket bomb chakram shuriken boomerang helm helmet armour armor
     gauntlet shield buckler targe chamfron morion cuirass breastplate hauberk
+    ukrainian-trident
   `),
   tool: w(`
-    hammer sledgehammer mallet anvil tongs bellows needle spindle drop-spindle distaff shuttle bobbin spool skein
+    sledgehammer mallet tongs bellows spindle drop-spindle distaff shuttle bobbin spool skein
     yarn clew thimble pin loom comb scissors shears compass compasses caliper calipers square plane chisel saw
     drawknife awl punner trowel wedge nail staple chain rope ladder pick pickaxe shovel spade hoe rake scythe sickle
-    plough plow harrow pitchfork millrind fer-de-moline fer-a-loup millstone millwheel waterwheel wheel cartwheel
-    catherine-wheel cog mortar pestle balance scales hourglass sundial astrolabe armillary quadrant abacus alembic
+    plough plow harrow pitchfork millrind fer-de-moline fer-a-loup millstone millwheel waterwheel
+    cog mortar pestle balance scales hourglass sundial astrolabe armillary quadrant abacus alembic
     retort crucible lens telescope spectacles eyeglasses eyeglass padlock lock fetterlock manacle shackle
     shacklebolt hook fishhook grapnel net horseshoe bridle bit snaffle-bit stirrup saddle spur rowel spur-rowel
     prickspur hames barnacle yoke brush paintbrush palette pen penner inkwell inkhorn penbox pen-box staff crozier
     crook crutch wand rod stick fleam lancet razor keythong furison grozing crampon crampet scoop noose whip
-    scourge lure jess press quintain weight slow-match match tool
+    scourge lure jess press quintain weight slow-match match tool thors-hammer
   `),
   household: w(`
-    cup goblet chalice tankard mug stein beaker mazer drinking-horn cauldron pot fleshpot kettle pan pail bowl ewer
+    cup mug stein beaker mazer drinking-horn cauldron pot fleshpot kettle pan pail bowl ewer
     pitcher jug flagon bottle flask jar urinal amphora vase urn barrel tun cask keg bucket basket beehive skep
     honeycomb chest box coffer casket ark purse pouch bag sack scrip wool-pack woolpack woolsack table chair stool
     curule couch throne bed cradle cushion pillow lamp lantern candle candlestick candelabrum menorah torch
     firebrand beacon brazier cresset andiron mirror handmirror fan parasol umbrella broom besom spoon fork ladle
     cleaver saltcellar salt bread loaf pretzel cheese cake pie fleece hide pelt wool coin money ring necklace
-    torc torque brooch gem gemstone jewel pearl coronet eastern-crown antique-crown celestial-crown mural-crown
+    torc torque brooch gem gemstone jewel pearl eastern-crown antique-crown celestial-crown mural-crown
     naval-crown imperial-crown papal-crown circlet diadem tiara mitre sceptre scepter orb scroll
     escroll card chess-piece chess-rook chess-knight chess-king chess-queen chess-bishop chess-pawn zule die dice
     domino toy ball doll puppet whirligig rattle whistle wagon cart carriage flag banner pennon pennant
     pennoncelle gonfanon gonfalon standard ensign water-bouget bouget cornucopia torse card-pique pique bauble
     glass dish platter tablet thurible censer altar paternoster rosary beads grail keyhole ribbon tassel tub
+    closed-book
   `),
   clothing: w(`
     hat cap chapeau hood glove shoe boot slipper sandal maunch maunche sleeve belt girdle buckle cloak mantle robe
@@ -160,16 +167,16 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
     chaperon bonnet coif kerchief cuff button clog fez mitten scarf
   `),
   instrument: w(`
-    harp lute lyre horn hunting-horn bugle bugle-horn trumpet clarion recorder flute pipe bagpipe drum tabor doumbek
+    lute lyre horn hunting-horn bugle bugle-horn trumpet clarion recorder flute pipe bagpipe drum tabor doumbek
     dumbek kettledrum viol viola violin fiddle rebec gittern guitar cittern mandolin oud psaltery dulcimer
-    panpipe organ zil cymbal tambourine bell handbell sackbut shawm hautboy crwth harpsichord sistrum shofar
-    ocarina quaver clef g-clef
+    panpipe organ zil cymbal tambourine handbell sackbut shawm hautboy crwth harpsichord sistrum shofar
+    ocarina quaver clef g-clef hawks-bell
   `),
   building: w(`
-    tower castle fortress fort keep turret bridge gate gateway door arch archway column pillar wall church chapel
+    fortress fort keep turret bridge gate gateway door arch archway column pillar wall church chapel
     cathedral temple mosque pagoda torii house cottage hall barn mill windmill lighthouse tent pavilion yurt well
     weir keystone battlement portcullis dolmen menhir trilithon pyramid obelisk cairn city town dome minaret spire
-    steeple chimney roof window stair staircase brick portal
+    steeple chimney roof window stair staircase brick portal spired-tower
   `),
   ship: w(`
     ship lymphad drakkar longship galley galleon caravel carrack boat knorr hulk canoe rowboat coracle raft barge
@@ -181,15 +188,14 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
   `),
   cross: w('ankh'),
   geometric: w(`
-    guze fountain fusil mascle
-    masculyn rustre delf triangle gout goute drop escutcheon inescutcheon hexagon pentagon octagon
-    polygon icosahedron cube sphere annulus penannular cartouche cornice escarbuncle gunstone
+    guze fountain masculyn gout goute drop escutcheon inescutcheon hexagon pentagon octagon
+    polygon icosahedron cube sphere annulus penannular cartouche cornice gunstone
   `),
   symbol: w(`
-    knot triquetra triskelion triskele pentaskelion valknut yin-yang t'ai-chi tomoe mitsutomoe umebachi mon chi-rho
+    knot triskelion triskele pentaskelion valknut yin-yang t'ai-chi tomoe mitsutomoe umebachi mon chi-rho
     letter rune algiz tiwaz sowilo theow othala beorc tyr futhark lambda numeral word kanji glyph sigil monogram
-    labyrinth spiral swirl schnecke koru xicalcoliuhqui pentacle pentagram hexagram star-of-david awen ermine-spot
-    pawprint caduceus staff-of-aesculapius hand-of-fatima hamsa infinity symbol lacy-knot bowen-knot
+    labyrinth spiral swirl schnecke koru xicalcoliuhqui pentacle pentagram hexagram star-of-david awen
+    caduceus staff-of-aesculapius hand-of-fatima hamsa infinity symbol lacy-knot bowen-knot
     stafford-knot wake-knot bourchier-knot cavendish-knot heneage-knot hungerford-knot dacre-knot harrington-knot
     savoy-knot joscelyn-knot
   `),
@@ -199,6 +205,10 @@ export const GAP_CHARGES: Record<ChargeBucket, string[]> = {
 export const SUPPORTED_CHARGE_WORDS: Readonly<Record<string, ChargeId>> = {
   ...Object.fromEntries(CHARGE_IDS.map((id) => [id, id])),
   'fleur-de-lys': 'fleur-de-lis', book: 'open-book', crosslet: 'cross-crosslet',
+  // the College's other names and spellings of them (words.ts, which the normaliser reads too), joined into one word (gaps.ts JOINS)
+  ...Object.fromEntries(Object.entries(CHARGE_SPELLINGS).map(([spelling, id]) => [spelling.replaceAll(' ', '-'), id])),
+  // the charge's nouns for how it points ("increscent": a crescent fesswise)
+  ...Object.fromEntries(CHARGE_IDS.flatMap((id) => Object.values(CHARGES[id].orient.wording).flatMap((w) => (w.k === 'noun' ? [[w.name, id], [w.plural, id]] : [])))),
   ...Object.fromEntries(NAMED_TINCTURE_CHARGES.filter((n) => !n.word.includes(' ')).flatMap((n) => [[n.word, n.charge], [n.plural, n.charge]])),
 };
 
@@ -211,7 +221,25 @@ export const SUPPORTED_CHARGE_BUCKET: Record<ChargeId, ChargeBucket> = {
   'musical-note': 'symbol', flame: 'nature', gear: 'tool', lightbulb: 'household',
   roundel: 'geometric', annulet: 'geometric', billet: 'geometric', lozenge: 'geometric', goutte: 'geometric',
   'cross-crosslet': 'cross', estoile: 'celestial', spark: 'celestial',
+  'compass-star': 'celestial', mascle: 'geometric', rustre: 'geometric', fusil: 'geometric', delf: 'geometric', triangle: 'geometric',
+  triquetra: 'symbol', trefoil: 'plant', quatrefoil: 'plant', cinquefoil: 'plant', 'ermine-spot': 'symbol',
+  'cross-couped': 'cross', 'cross-latin': 'cross', 'cross-formy': 'cross', 'cross-bottony': 'cross', 'cross-moline': 'cross',
+  'cross-flory': 'cross', 'cross-patonce': 'cross', 'cross-potent': 'cross', 'cross-maltese': 'cross', 'cross-celtic': 'cross',
+  'cross-tau': 'cross', wing: 'bird', cat: 'beast', bear: 'beast', horse: 'beast', fox: 'beast', squirrel: 'beast',
+  arrow: 'weapon', hammer: 'tool', harp: 'instrument', axe: 'weapon', pheon: 'weapon', feather: 'bird', needle: 'tool', anvil: 'tool', spear: 'weapon', trident: 'weapon',
+  raven: 'bird', griffin: 'monster', swan: 'bird', phoenix: 'bird', wyvern: 'monster', falcon: 'bird', pegasus: 'monster', seahorse: 'monster',
+  peacock: 'bird', martlet: 'bird', dove: 'bird', 'sea-lion': 'monster',
+  escallop: 'fish', dragonfly: 'insect', thistle: 'plant', dolphin: 'fish', butterfly: 'insect', 'laurel-wreath': 'plant', 'oak-leaf': 'plant', acorn: 'plant',
+  serpent: 'reptile', frog: 'reptile', pomegranate: 'plant', lily: 'plant', garb: 'plant', spider: 'insect', scorpion: 'insect',
+  tower: 'building', hand: 'human', pawprint: 'symbol', comet: 'celestial', goblet: 'household', chalice: 'household', castle: 'building', bell: 'instrument', tankard: 'household',
+  hawk: 'bird', rapier: 'weapon', dagger: 'weapon', coney: 'beast', rabbit: 'beast', vol: 'bird', coronet: 'household',
+  escarbuncle: 'geometric', seeblatt: 'plant', wheel: 'tool', 'catherine-wheel': 'tool',
 };
+
+/** The cross variants the widget draws as charges ("a cross formy", "a Latin cross", "crosses couped"): the SCA's word for the variant → the charge. */
+export const DRAWN_CROSS_VARIANT: Readonly<Record<string, ChargeId>> = Object.fromEntries(
+  CHARGE_IDS.filter((id) => id.startsWith('cross-') && id !== 'cross-crosslet').map((id) => [id.slice('cross-'.length), id]));
+
 
 /** Parts that make a compound charge after a possessive ("a wolf's head", "a stag's attires"). */
 export const PART_WORDS = w(`
@@ -304,23 +332,29 @@ export const GAP_DIVISION_WORDS: Record<string, string> = {
 
 // ── Postures, orientation, modifiers ────────────────────────────────────────
 
-/** Posture words the widget has for some charges, with the widget posture they name. */
+/** Posture words the widget has for some charges, with the widget posture they name ("sejant erect" is joined to one word, gaps.ts). */
 export const SUPPORTED_POSTURES: Record<string, string> = {
   rampant: 'rampant', segreant: 'rampant', passant: 'passant', trippant: 'passant', courant: 'courant',
   statant: 'statant', sejant: 'sejant', naiant: 'naiant', haurient: 'haurient', hauriant: 'haurient',
-  displayed: 'displayed',
+  displayed: 'displayed', couchant: 'couchant', lodged: 'couchant', dormant: 'dormant', salient: 'salient', springing: 'salient',
+  'sejant-erect': 'sejant-erect', 'statant-erect': 'statant-erect', close: 'close', rising: 'rising', volant: 'volant', urinant: 'urinant',
+};
+
+/** The words for a head turned, which the widget draws on some charges in some postures, with the gaze they name. */
+export const SUPPORTED_GAZES: Record<string, string> = {
+  guardant: 'guardant', gardant: 'guardant', regardant: 'regardant', reguardant: 'regardant',
 };
 
 /** Postures and attitudes the widget never draws → sub-tag. */
 export const GAP_POSTURES: Record<string, string> = Object.fromEntries([
-  ...same(`guardant regardant combattant respectant addorsed couchant dormant salient rising volant close contourny
-    affronty tergiant erect springing lodged clymant forcene embowed urinant uriant involved coiled glissant nowed
+  ...same(`combattant respectant addorsed contourny
+    affronty tergiant erect clymant forcene embowed uriant involved coiled glissant nowed
     migrant stooping striking perched trussing vorant ululant rousant jessant kneeling seated resting lying
     leaping rearing vigilant vulning sleeping hovering descending ondoyant ascending swimming diving
     climbing pascuant feeding crowing triumphant pouncing naissant herissony couched
     coward aversant counter-passant counter-rampant counter-statant counter-sejant counter-courant counter-salient
     counter-naiant counter-embowed counter-volant at-gaze in-pride in-piety in-vigilance in-benediction`),
-  ['gardant', 'guardant'], ['reguardant', 'regardant'], ['combatant', 'combattant'], ['endorsed', 'addorsed'],
+  ['combatant', 'combattant'], ['endorsed', 'addorsed'],
   ['contourne', 'contourny'], ['contournee', 'contourny'], ['contourney', 'contourny'], ['affronte', 'affronty'],
   ['affrontee', 'affronty'], ['counterpassant', 'counter-passant'], ['counterembowed', 'counter-embowed'],
   ['countersalient', 'counter-salient'], ['counterstatant', 'counter-statant'], ['saliant', 'salient'],
@@ -355,7 +389,7 @@ export const MODIFIERS: Record<string, string> = Object.fromEntries([
     beset irised bellied chainless shedding apaumy clouded cracked framed looped unfurled mastless feathered
     leathered ruined thorned skeletal sundered garbed ribboned sufflexed snagged portalled sailless loaded
     elongated rayonnant`),
-  ['ducally', 'crowned'], ['issuing', 'issuant'], ['imbrued', 'embrued'], ['pommeled', 'pommelled'],
+  ['issuing', 'issuant'], ['imbrued', 'embrued'], ['pommeled', 'pommelled'],
   ['jewelled', 'jeweled'], ['tasseled', 'tasselled'], ['queue-forchy', 'queue-fourchy'],
   ['queue-forchee', 'queue-fourchy'], ['queue-fourchee', 'queue-fourchy'], ['queued', 'queue-fourchy'],
   ['double-queued', 'queue-fourchy'], ['caboshed', 'cabossed'], ['holding', 'maintaining'],
@@ -459,7 +493,7 @@ export const QUALIFIER_WORDS = w(`
   outward outwards inward inwards straight round flat broad ancient antique empty wild polar brunette blonde male
   female diverse various arabic arabian asian east eastern western roman greek grecian norse irish scottish
   japanese chinese egyptian african caucasian ukrainian cornish continental bengal russian german english french
-  danish norman saxon gothic lombardic uncial hebrew persian ionic county ducal comedy tragedy theatrical dunghill
+  danish norman saxon gothic lombardic uncial hebrew persian ionic county ducal ducally comedy tragedy theatrical dunghill
   capital lowercase uppercase blackletter script wine cooking kitchen drawing knitting tilting bottlenosed paschal
   praying world new old wards tips tip form iron wood leather cloth thread string cord lace oil frame handle link
   span phrase spread bladed opening ending shipped triply headed splendor splendour lochaber ansteorra equal

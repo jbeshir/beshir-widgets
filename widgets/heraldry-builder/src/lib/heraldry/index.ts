@@ -1,6 +1,6 @@
 // Barrel of the heraldry library: everything the SPA and the Worker use.
 
-export { POSTURES, POSTURE_GLOSS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, CHARGES, TYPE_CLASSES, isChargeId, postureTerm, postureGloss, chargesInCategory, type Posture, type ChargeCategory, type ChargeId, type ModifierId, type TypeClass } from './charges';
+export { POSTURES, POSTURE_GLOSS, FACINGS, GAZES, ORIENTATIONS, CHARGE_CATEGORIES, CATEGORY_LABEL, CHARGE_IDS, ALIAS_IDS, ALIAS_SOURCE, isAliasId, POPULAR_CHARGE_IDS, CHARGES, CHARGE_FORMS, CUT_MODIFIERS, HOLD_HOWS, HOLDABLE_IDS, MODIFIER_IDS, STAR_POINTS, TYPE_CLASSES, drawnPoints, isChargeId, postureTerm, postureWords, postureGloss, chargesInCategory, type Posture, type Facing, type Gaze, type Orientation, type ChargeCategory, type ChargeForm, type ChargeId, type AliasId, type HoldHow, type ModifierId, type PartId, type TypeClass } from './charges';
 export { NAMED_TINCTURE_CHARGES, SEMY_NAMES, SEMY_SPELLINGS, semyPhrase } from './aliases';
 export { STREWN_COUNT, liftStrewn, strewnGroups, strewnIssues, type Strewn } from './strewn';
 export {
@@ -21,16 +21,16 @@ export { OUTLINES, type Outline } from './outline';
 export { contourPath, contoursPath, type Contour, type ContourEdge } from './contour';
 export { DIVISIONS, BUILDER_DIVISIONS, MORE_DIVISIONS, LINED_VARIATIONS, DRAWN_DIVISIONS, DIVISION_NAME, DIVISION_PART_LABEL, GYRONNY_PIECES, DRAWN_TREATMENTS, TREATMENTS, VARIATIONS, VARIATION_NAME, VARIATION_PIECES, VARIATION_SPELLINGS, DEFAULT_PIECES, isCountedVariation, partCount, type Division, type Treatment, type Variation } from './divisions';
 export {
-  canonical, canonicalJson, canonicalLines, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, groundTincture, pathKey, primaryGroup, primaryGroups, isFieldPrimary, tincturePaint, partyPaint, asParty, variationPaint, asVariation, treatedPaint, asTreated, semyPaint, asSemy, fieldSemys, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
+  canonical, canonicalJson, canonicalLines, facingEachOther, fimbriationOf, replaceGroup, PLAIN_LINES, fieldTinctures, fieldParts, paintTinctures, bodyTinctures, groupAt, hostOf, walkGroups, groundTincture, pathKey, primaryGroup, primaryGroups, isFieldPrimary, chargeIdsOf, tincturePaint, partyPaint, asParty, variationPaint, asVariation, treatedPaint, asTreated, semyPaint, asSemy, fieldSemys, paintOfGroupTincture, groupTinctureOf, GROUP_TINCTURES, isGroupTincture,
   UNSUPPORTED_GAP_CATEGORIES,
-  type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type TreatedPaint, type SemyPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type CountLimit, type IssueAt, type TincturePart,
+  type Charge, type Design, type Group, type GroupPath, type GroupTincture, type Paint, type PartyPaint, type TreatedPaint, type SemyPaint, type VariationPaint, type Item, type Issue, type UnsupportedIssue, type Gap, type GapCategory, type CountLimit, type IssueAt, type TincturePart,
 } from './design';
 export { resolve, type ResolveResult } from './resolve';
-export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT } from './support';
+export { unsupportedIssues, isSupported, notSupported, UnsupportedConstructError, MAX_DRAWN_COUNT, gazeDrawn } from './support';
 export { structuralIssues, couldBeOneFess, coreSteps, COTISED_HOSTS } from './structure';
 export {
   ROW_PATTERNS, layoutKey, layoutOfKey, layoutContext, layoutCandidates, tableDefault, defaultLayout, isForced, forcedPosition, statesLayout, HALF_POSITIONS, isHalfPosition,
-  hostCounts, ON_CHARGE_COUNTS, onChargeLayouts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, hasChargedBordure, withoutChief, cornerBesideBend, SECONDARY_POSITIONS, AROUND_COUNTS, aroundLayouts, aroundPrimaryLayouts, primaryCharges, coPrimaries, MAX_CO_PRIMARY_TOTAL, shareTotal,
+  hostCounts, ON_CHARGE_COUNTS, onChargeLayouts, betweenWords, layoutWords, fieldContext, hasChief, hasBordure, hasChargedBordure, withoutChief, cornerBesideBend, SECONDARY_POSITIONS, AROUND_COUNTS, aroundLayouts, aroundPrimaryLayouts, primaryCharges, coPrimaries, MAX_CO_PRIMARY_TOTAL, shareTotal, mirroredSlots, drawnLayout, PAIRS,
   type FieldContext, type GroundContext, type HalfPosition, type QuarterPosition, type HostCharges, type KeepOut, type Layout, type LayoutKey, type LayoutContext, type Peripheral, type Yield, type Share, type SecondaryPosition,
 } from './arrangement';
 export { GROUND_CLASS_SHARE, contrastFailure, groundFailure, groundTinctures, type ContrastFailure, type Ground, type GroundShare } from './contrast';
@@ -39,20 +39,21 @@ export {
   FAILURE_TEXT, tinctureIssues, groupTinctureIssues, groundShares, groundContacts, shownSurfaces, counterchangeUnavailable, describeSlots, type ShownSurfaces,
 } from './tincture-rule';
 export { validate, normalise, type NormaliseResult } from './validate';
-export { blazon, MODS_BEFORE_LINE, MODS_AFTER_LINE, type BlazonOptions } from './blazon';
+export { blazon, FACING_WORD, GAZE_WORDS, HOLD_WORDS, MODIFIER_WORDS, pointsWord, MODS_BEFORE_LINE, MODS_AFTER_LINE, ORIENTATION_WORDS, orientationWords, type BlazonOptions } from './blazon';
 export { gloss } from './gloss';
 export {
-  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, ordinaryCountLabel, ordinaryCountLegend, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
+  DIVISION_LABEL, FUR_FAMILY_LABEL, FUR_LAYOUT_PLAIN, TREATMENT_LABEL, VARIATION_LABEL, ORDINARY_LABEL, LINE_LABEL, SHAPE_TOGGLE_LABEL, FACING_LABEL, GAZE_LABEL, HOLD_LABEL, MODIFIER_LABEL, PIECE_LABEL, FORM_LABEL, CUT_LABEL, ORIENTATION_LABEL, PAIR_LABEL, ordinaryCountLabel, ordinaryCountLegend, OUTLINE_LABEL, BAND_POSITION_LABEL, PLACE_LABEL, TINCTURE_LABEL, plainFirst, layoutLabel, chargeLabel, chargeWords, ordinaryWords, postureLabel, groupLabel,
   type PlainTerm,
 } from './plain-words';
 export { readability, BAND_LABEL, BAND_RANGE, isReadabilityBand, type Readability, type ReadabilityBand } from './readability';
 export { deriveTags, filtersToTags, matchesTags, NO_FILTERS, type SearchFilters } from './tags';
+export { searchCharges, searchesForm } from './charge-search';
 export { buildSearchText, normaliseWords, matchesWords, queryWords, type SearchWord } from './search-terms';
 export { signature } from './signature';
 export {
   SHIELD_VIEWBOX, SHIELD_PATH, fieldRegions, fieldSurfaceAt, inFirstPart, divisionRegions, partitionContours, partIndexAt,
-  drawnBox, slotTransform, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
-  counterchangedSlotParts, type Slot, type DividedField, type VariedField, type CounterchangePart,
+  slotTransform, chargeTransform, UPRIGHT, MIRRORED, probePoints, groundPoints, slotRow, slotColumn, shapeFrame, pathPolygon, pathRings, pointInPolygon,
+  counterchangedSlotParts, type ArtPose, type Slot, type DividedField, type VariedField, type CounterchangePart,
 } from './geometry';
 export {
   specOf, plainSpec, isPlainSpec, defaultOrdinaryFrame, frameBeside, ordinaryFrameOf, bandPlace, ordinaryGeometry, liesAstride, fieldOrdinaryGeometry, counterchangedOrdinaryParts, counterchangedTrimParts, divisionCutsOrdinary,
@@ -70,9 +71,9 @@ export {
 } from './layers';
 export {
   COUNTS, isBlocked, firstAllowed, isAllowed, simpleParts, partsOf, assembleParts, withTincture, fieldTinctureChoices, groupTinctureChoices, countChoices, placementChoices, layoutChoices,
-  layoutReason, withLayout, postureChoices, modifierChoices, fitGroup, suggestTinctureFix,
+  layoutReason, withLayout, postureChoices, modifierChoices, facingChoices, gazeChoices, pairChoices, orientationChoices, formChoices, cutChoices, cutOf, detailChoices, partChoices, withPart, firstPiecePaint, pieceTinctureChoices, holdChoices, withHold, firstHeldPaint, heldTinctureChoices, heldProperChoice, pointsChoices, pointsOf, fimbriationTinctureChoices, firstFimbriation, withModifier, NO_MODIFIER_VALUE, shownLayoutKey, fitGroup, suggestTinctureFix,
   partyDivisionChoices, partyTinctureChoices, groupVariationChoices, setGroupVariation, setGroupVariationPieces, groupVariationTinctureChoices, setGroupVariationTincture, setPartyDivision, setPartyTincture, splitGroup,
-  type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
+  type Choice, type AllowedChoice, type BlockedChoice, type LayoutChoice, type LayoutChoices, type PairChoice, type ModifierValue, type Placement, type Companion, type SimpleParts, type PartsInput, type TinctureFix,
 } from './options';
 export { FUR_KINDS, familyOfKind, furColours, furKindOf, furOfKind, furName, furGloss, takesColours, type FurFamily, type FurKind, type FurPaint } from './fur';
 export { furChoices, furColourChoices, furAt, setFur, setFurColour } from './fur-options';
@@ -82,10 +83,19 @@ export { canStrew, semyAt, semyChoices, setSemy, clearSemy, semyColourChoices, s
 export { treatedName, treatedGloss } from './treatment';
 export { hasNaturalColours, properChoice, setProper } from './proper-options';
 export { furPattern, treatmentPattern, colourHex, ERMINE_SPOT } from './patterns';
-export { renderLayers, badgeView, designTinctures, type Layer, type OrdinaryPart } from './render';
+export { FIMBRIATION_WIDTH, VOIDED_WIDTH, renderLayers, badgeView, designTinctures, type ChargeOverlay, type Layer, type OrdinaryPart } from './render';
+export { ORIENTATION_ANGLE, artPose, chargePoses, drawingTurn, orientationTurns } from './pose';
 export { fillCode, fillHatchTinctures, hatchTincture, solidFill, type Fill, type LeafFill, type SlotFill } from './paint-render';
 export type { PatternSpec, SolidColour } from './patterns';
-export { CHARGE_ART, MODIFIER_ART, ART_ON_BOX, chargePath, chargeOnBox, type ArtBox } from './charge-art';
+export { MODIFIER_ART, artKeyOf, chargePath, chargeOnBox, drawnBox, opticalScale } from './charge-art';
+export { CORE_ART_IDS, artReady, loadArtFor, onArtChange } from './art/paths/index';
+export { OVERLAY_PIECES, OVERLAY_PIECE_PROVENANCE } from './art/paths/pieces';
+export { OVERLAY_MODIFIERS, PIECE_IDS, PROPER_PIECES, isPiece, isPiecePart, overlaidArt, piecePaint, withDrawnPieces, type PieceId, type PiecePart } from './overlay-art';
+export { bboxOf, ringDepths, ringProblems, turnFit } from './art/geometry';
+export { crossPath } from './art/procedural/crosses';
+export { ERASED_TEETH, TURNED_POSTURES, aliasPath, derivedPath, isTurnedPosture } from './art/procedural/derived';
+export { PIERCED_MULLETS, POINTED_STARS } from './art/procedural/stars';
+export type { ArtBox, ArtKey, DrawingMeta } from './art/types';
 export { FIELD_SHAPES, DEFAULT_FIELD_SHAPE, FIELD_SHAPE_NAME, isFieldShape, type FieldShape, type ShapedDesign } from './shape';
 export * from './tinctures';
 export {

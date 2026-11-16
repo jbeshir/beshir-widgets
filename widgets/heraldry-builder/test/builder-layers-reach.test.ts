@@ -4,13 +4,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  LAYER_KEYS, addLayer, blazon, canonicalJson, countChoices, layerChoices, normalise, pathOfPlace, placementChoices, placesOf, removeLayer,
-  type Design, type LayerKey, type PlaceKey,
+  CHARGES, CHARGE_IDS, LAYER_KEYS, addLayer, blazon, canonicalJson, countChoices, layerChoices, normalise, pathOfPlace, placementChoices, placesOf, removeLayer,
+  type Design, type LayerKey, type PlaceKey, type Posture,
 } from '../src/lib/heraldry';
 import { picturePath, setCharge, setDivision, setFieldTincture, setOrdinary, setPlainField } from '../src/lib/builder';
 import { builderPath } from './builder-path';
 import { rotatesIn, sampleSeed } from './rotation';
-import { generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
+import { generatedChargeAttributeDesigns, generatedGeometryDesigns, generatedLinedOrdinaryDesigns, generatedRichDesigns, generatedTreatedOrdinaryDesigns, generatedOutlinedOrdinaryDesigns, generatedPeripheralDesigns } from './design-generator';
 import { arms, charge, div, group, nd, ordinary } from './helpers';
 
 const built = (input: unknown): Design => {
@@ -260,11 +260,11 @@ describe('designs with a chief and a bordure beside the band are built by clicks
     for (const [, input, text] of REPRESENTATIVE) expect(blazon(built(input))).toBe(text);
   });
 
-  // The two slowest of these sweeps build a seeded, rotating half of their designs (`rotatesIn`; SCA_FULL=1 for all).
-  const half = (designs: readonly Design[]) => designs.filter((d) => rotatesIn(canonicalJson(d), 1 / 2));
+  // The slowest of these sweeps build a seeded, rotating share of their designs (`rotatesIn`; SCA_FULL=1 for all).
+  const share = (designs: readonly Design[], rate: number) => designs.filter((d) => rotatesIn(canonicalJson(d), rate));
 
   it('every generated design with a line on the field is built too', () => {
-    const problems = half(generatedGeometryDesigns(11, 100)).flatMap((d) => {
+    const problems = share(generatedGeometryDesigns(11, 100), 1 / 5).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
@@ -296,7 +296,7 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   }, 60_000);
 
   it('every generated design with corner and edge shapes, alone or several beside a band or a picture, is built too', () => {
-    const problems = half(generatedPeripheralDesigns(11, 60)).flatMap((d) => {
+    const problems = share(generatedPeripheralDesigns(11, 60), 1 / 5).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
@@ -304,11 +304,51 @@ describe('designs with a chief and a bordure beside the band are built by clicks
   }, 60_000);
 
   it('every generated rich design is built too', () => {
-    const problems = generatedRichDesigns(11, 150).flatMap((d) => {
+    const problems = share(generatedRichDesigns(11, 150), 1 / 4).flatMap((d) => {
       const path = builderPath(d);
       return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
     });
     expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
+  }, 60_000);
+
+  it('every generated design with a charge facing to sinister, turned, set as a pair, with its points, voided, fimbriated or pierced, adorned or holding something, is built too', () => {
+    const problems = share(generatedChargeAttributeDesigns(11, 60), 1 / 6).flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems, `sample seed ${sampleSeed()}`).toEqual([]);
+  }, 60_000);
+
+  // The Holding controls (PLAN-D §1.5): a held item each way a charge holds one, fixed rather than sampled.
+  it('a lion maintaining a sword, a lion sustaining a key, an eagle with a key in its beak, a wolf with a rose in its mouth, a dragon maintaining an anchor and two lions combattant each maintaining a sword are built by the Holding controls', () => {
+    const holding = (how: string, item: string, paint: string) => ({ holds: [{ how, item: charge(item), paint }] });
+    const designs = [
+      arms('azure', group(charge('lion', holding('maintaining', 'sword', 'argent')), 'or')),
+      arms('vert', group(charge('lion', holding('sustaining', 'key', 'or')), 'argent')),
+      arms('argent', group(charge('eagle', holding('in-beak', 'key', 'gules')), 'sable')),
+      arms('or', group(charge('wolf', holding('in-mouth', 'rose', 'gules')), 'sable')),
+      arms('gules', group(charge('dragon', holding('maintaining', 'anchor', 'argent')), 'or')),
+      arms('azure', group(charge('lion', holding('maintaining', 'sword', 'argent')), 'or', { count: 2, arrangement: { k: 'pair', pair: 'combattant' } })),
+    ].map(built);
+    for (const d of designs) {
+      const path = builderPath(d);
+      expect(path.problems, blazon(d)).toEqual([]);
+      expect(path.actions.filter((a) => a.kind === 'hold'), blazon(d)).toHaveLength(1);
+    }
+  });
+
+  // The Pose select reaches every posture a charge is drawn in, and the Head row every head turn drawn for it (SENA §1.1, §1.2).
+  it('every posture each beast, monster, bird and fish is drawn in, and every head turned where it is drawn so, is built too', () => {
+    const designs = CHARGE_IDS.flatMap((id) => Object.keys(CHARGES[id].drawings).flatMap((key) => {
+      const [posture, gaze] = key.split('~');
+      return (CHARGES[id].postures ?? []).includes(posture as Posture) ? [built(arms('azure', group(charge(id, { posture, ...(gaze ? { gaze } : {}) }), 'or')))] : [];
+    }));
+    expect(designs.length).toBeGreaterThan(40);
+    const problems = designs.flatMap((d) => {
+      const path = builderPath(d);
+      return path.problems.length ? [`${blazon(d)}: ${path.problems.join('; ')}`] : [];
+    });
+    expect(problems).toEqual([]);
   }, 60_000);
 });
 

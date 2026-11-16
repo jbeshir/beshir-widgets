@@ -9,13 +9,15 @@ import { furColours, furName } from './fur';
 import { treatedName } from './treatment';
 import { semyPhrase } from './aliases';
 import { capitalise, joinAnd, numberWord } from './words';
-import { CHARGES, postureTerm, type ChargeCategory, type ChargeId } from './charges';
-import { asParty, asSemy, asTreated, asVariation, hostOf, notSupported, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
+import { CHARGES, CUT_MODIFIERS, MODIFIER_IDS, drawnPoints, postureWords, type ChargeCategory, type ChargeId, type Facing, type Gaze, type HoldHow, type ModifierId, type Orientation, type PartId } from './charges';
+import type { OrientWording } from './art/types';
+import { asParty, asSemy, asTreated, asVariation, fimbriationOf, hostOf, notSupported, type Charge, type Cotises, type Design, type Group, type GroupPath, type Lines, type Modifier, type Paint } from './design';
 import { DEFAULT_GYRONNY_PIECES, DEFAULT_PIECES, DIVISION_NAME, VARIATION_NAME, partCount, type Division } from './divisions';
 import { lineWords, ordinaryEdgeHost } from './lines';
 import { ORDINARY_ARTICLE, ORDINARY_COUNTS, ORDINARY_COUNT_WORD, ORDINARY_NAME, ORDINARY_PLURAL, PERIPHERAL_JOINER, isDiminutive, type OrdinaryMod, type OrdinaryType, type PeripheralJoiner } from './ordinaries';
 import { contextOf, cornerBesideBend, forcedPosition, isHalfPosition, layoutContext, layoutWords, statesLayout } from './arrangement';
 import { paintGaps } from './support';
+import { OVERLAY_MODIFIERS } from './overlay-art';
 
 function paintWord(p: Paint): string {
   switch (p.k) {
@@ -99,10 +101,114 @@ function fieldPhrase(field: Paint): string {
   return notSupported(paintGaps(field, true, 'field')[0]);
 }
 
-function modifierWords(m: Modifier): string {
-  return m.id === 'in-splendour' && m.count === null && m.paint === null
-    ? 'in splendor'
-    : notSupported({ category: 'charge-modifier', detail: m.id });
+/** The modifiers the builder words, after the noun: "a sun in splendor", "a cross formy fitchy", "a lozenge voided", "a mullet pierced". */
+export const MODIFIER_WORDS = { 'in-splendour': 'in splendor', fitchy: 'fitchy', voided: 'voided', pierced: 'pierced' } as const satisfies Partial<Record<ModifierId, string>>;
+/** MODIFIER_WORDS looked up by any modifier. */
+const MODIFIER_WORD: Partial<Record<ModifierId, string>> = MODIFIER_WORDS;
+
+/** What a star's points are called: an estoile's are rays ("an estoile of eight rays"), a mullet's points. */
+export const pointsWord = (id: ChargeId): string => (id === 'estoile' ? 'rays' : 'points');
+
+/**
+ * A charge's modifiers in words, after its noun: its number of points alone, said straight after the noun and before the way it is turned
+ * ("a mullet of six points inverted voided": the SCA armorial has "mullet of seven points inverted" 12 times, never "mullet inverted of
+ * … points"), or the rest in their listed order. A head's cut is worded with its noun (`countedNoun`), a fimbriation after the charge's
+ * tincture (`tokens`): "a lozenge azure fimbriated argent".
+ */
+function modifiersWords(c: Charge, which: 'points' | 'rest'): string[] {
+  const words = (m: Modifier): string[] => {
+    if (c.form === 'head' && CUT_MODIFIERS.includes(m.id)) return [];
+    if ((m.id === 'fimbriated' || OVERLAY_MODIFIERS.includes(m.id)) && m.count === null && m.paint !== null) return [];
+    if (m.id === 'of-points' && m.count !== null && m.paint === null && drawnPoints(c.charge) !== null) return [`of ${numberWord(m.count)} ${pointsWord(c.charge)}`];
+    const word = MODIFIER_WORD[m.id];
+    return word !== undefined && m.count === null && m.paint === null ? [word] : notSupported({ category: 'charge-modifier', detail: m.id });
+  };
+  return c.mods.filter((m) => (m.id === 'of-points') === (which === 'points')).sort((x, y) => MODIFIER_IDS.indexOf(x.id) - MODIFIER_IDS.indexOf(y.id)).flatMap(words);
+}
+
+/** The parts the builder words, after the charge's tincture ("a lion Or crowned gules"). */
+export const PART_WORDS = { crowned: 'crowned', collared: 'collared' } as const satisfies Partial<Record<PartId, string>>;
+/** PART_WORDS looked up by any part. */
+const PART_WORD: Partial<Record<PartId, string>> = PART_WORDS;
+
+/**
+ * A charge's pieces in words after its tincture, each with its own (PLAN-D §0.3.5): its modifiers with a paint, then its parts — "slipped and
+ * leaved vert", "winged Or", "enflamed proper", "crowned gules". Pieces of one paint in a row share it ("crowned and collared Or"). A
+ * piece of the charge's own tincture leaves the charge's unsaid ("a heart winged Or", "a lion crowned Or"): the corpus never writes the
+ * tincture twice ("a heart Or winged Or" 0; "heart winged Or" and the like 60, crowned 35, collared 18, slipped and leaved 463).
+ */
+function piecesWords(c: Charge): Array<{ text: string; paint: string }> {
+  const pieces = [
+    ...c.mods.filter((m) => OVERLAY_MODIFIERS.includes(m.id)).map((m) => ({ word: m.id, paint: m.paint })),
+    ...c.parts.map((p) => ({ word: PART_WORD[p.part] ?? notSupported({ category: 'charge-modifier', detail: p.part }), paint: p.paint })),
+  ].map(({ word, paint }) => ({ word, paint: paint ? paintWord(paint) : notSupported({ category: 'charge-modifier', detail: word }) }));
+  return pieces.reduce<Array<{ text: string; paint: string }>>((out, { word, paint }) => {
+    const last = out[out.length - 1];
+    return last?.paint === paint ? [...out.slice(0, -1), { text: `${last.text} and ${word}`, paint }] : [...out, { text: word, paint }];
+  }, []);
+}
+
+/** How the College words each way of holding, before the held item (the SCA armorial: "maintaining in its beak" 116, "holding in its beak" 14). */
+export const HOLD_WORDS: Record<HoldHow, string> = { maintaining: 'maintaining', sustaining: 'sustaining', 'in-beak': 'maintaining in its beak', 'in-mouth': 'maintaining in its mouth', wearing: 'wearing' };
+
+/**
+ * What a group's charges hold, after everything else about them, each with its tincture (§1.5): "a lion Or maintaining a sword argent",
+ * "an eagle maintaining in its beak a key Or". Charges of a group of more each hold their own: "two lions combattant Or each maintaining a sword
+ * argent" (the armorial has "each maintaining" 25 times after more than one charge; without "each" they hold one item "between them"). A held
+ * item of the charges' tincture leaves theirs unsaid, as a piece does ("a lion maintaining a sword Or").
+ */
+function holdsWords(c: Charge, count: number): Array<{ text: string; paint: string }> {
+  return c.holds.map((h) => {
+    const meta = CHARGES[h.item.charge];
+    return { text: `${count > 1 ? 'each ' : ''}${HOLD_WORDS[h.how]} ${meta.article} ${meta.name}`, paint: paintWord(h.paint) };
+  });
+}
+
+/** The word for which way a charge faces, after its posture (R§F.3): none as drawn, "contourny" (no final -e), "affronty". */
+export const FACING_WORD = { 'to-dexter': null, 'to-sinister': 'contourny', affronty: 'affronty' } as const satisfies Record<Facing, string | null>;
+
+/** The words for which way a charge's head is turned ("guardant regardant"). */
+export const GAZE_WORDS: Record<Gaze, string> = { guardant: 'guardant', regardant: 'regardant', 'guardant-regardant': 'guardant regardant' };
+
+/**
+ * How a charge's head and body are turned, after its posture: its `FACING_WORD`, and the gaze before it or after it as the
+ * SCA armorial most often has it — "guardant contourny" (98 records against 35), "contourny regardant" (41 against 12).
+ */
+export function turnWords(c: Charge): string[] {
+  const word = c.facing ? FACING_WORD[c.facing] : null;
+  const facing = word ? [word] : [];
+  if (c.gaze === null) return facing;
+  const gaze = GAZE_WORDS[c.gaze];
+  return c.gaze === 'regardant' ? [...facing, gaze] : [gaze, ...facing];
+}
+
+/**
+ * The words for which way a charge points (§1.3), after its facing: "bendwise inverted" (the SCA armorial's 177 against 127 for
+ * "inverted bendwise"), "points to center" (152; said after the layout: "in cross points to center").
+ */
+export const ORIENTATION_WORDS: Record<Orientation, string> = {
+  palewise: 'palewise', fesswise: 'fesswise', 'fesswise-reversed': 'fesswise reversed', bendwise: 'bendwise', 'bendwise-inverted': 'bendwise inverted',
+  'bendwise-sinister': 'bendwise sinister', 'bendwise-sinister-inverted': 'bendwise sinister inverted', inverted: 'inverted', reversed: 'reversed',
+  'to-center': 'points to center',
+};
+
+/** A charge's own words for its orientation, if it has some (its sidecar's `orient.wording`). */
+const ownWording = (c: Charge): OrientWording | undefined => (c.orientation ? CHARGES[c.charge].orient.wording[c.orientation] : undefined);
+
+/**
+ * The words for which way a charge points (§1.3 O-W): its own ("a crescent pendant": 133 records against 96 "crescent inverted"; "horns to
+ * center") or the orientation's; none when its noun says it ("an increscent").
+ */
+export function orientationWords(c: Charge): string[] {
+  if (!c.orientation) return [];
+  const own = ownWording(c);
+  return own?.k === 'noun' ? [] : [own?.words ?? ORIENTATION_WORDS[c.orientation]];
+}
+
+/** Which way a charge points in a word or two, a noun that says it included ("increscent"), as a conflict note names it. */
+export function orientationTerms(c: Charge): string[] {
+  const own = ownWording(c);
+  return own?.k === 'noun' ? [own.name] : orientationWords(c);
 }
 
 export interface BlazonOptions {
@@ -115,20 +221,47 @@ export interface BlazonOptions {
 /** Whether the layout of a group is worded: when it isn't the default, or with `stateDefaults` whenever it isn't alone in the centre. */
 function wordsLayout(d: Design, path: GroupPath, g: Group, { stateDefaults }: BlazonOptions): boolean {
   if (contextOf(d, g, hostOf(d, path)) === null) return false;
+  // A pair is always worded: the College assumes charges face to dexter.
+  if (g.arrangement.k === 'pair') return true;
   const k = layoutContext(d, path).k;
   // Charges on the primary charges, and charges overall, state every layout but the one charge alone, defaults or not (Table 7: they must be stated).
   if (!stateDefaults || k === 'on-charge' || k === 'overall') return statesLayout(d, path);
   return k === 'position' || k === 'around' || (k === 'field' && (g.arrangement.k !== 'single' || g.position !== null));
 }
 
-/** A charge group's phrase: [layout prefix] count noun [posture] [mods] [layout postfix], without its tincture. */
+/**
+ * A charge group's phrase: [layout prefix] count noun [posture] [points] [gaze and facing] [orientation] [mods] [layout postfix] [to center], without
+ * its tincture. A noun of the charge's own for its orientation replaces its name ("three decrescents").
+ */
 function chargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptions): string {
+  const laid = laidChargePhrase(d, path, g, options);
+  return g.item.k === 'charge' && g.item.orientation === 'to-center' ? [laid, ...orientationWords(g.item)].join(' ') : laid;
+}
+
+/**
+ * A charge's count and noun: "a lion", "three demi-lions", "a wolf's head erased" (the cut before the posture words: the SCA armorial has
+ * "head erased contourny" 232 times against 18 "contourny erased"); a noun of its own for its orientation replaces its name.
+ */
+function countedNoun(c: Charge, count: number): string[] {
+  const meta = CHARGES[c.charge];
+  const lead = (article: 'a' | 'an') => (count === 1 ? article : numberWord(count));
+  if (c.form === 'demi') return [lead('a'), `demi-${count === 1 ? meta.name : meta.plural}`];
+  if (c.form === 'head' && meta.headName) {
+    return [lead(meta.article), count === 1 ? meta.headName.one : meta.headName.many, ...c.mods.filter((m) => CUT_MODIFIERS.includes(m.id)).map((m) => m.id)];
+  }
+  if (c.form) return notSupported({ category: 'charge-modifier', detail: c.form });
+  const own = ownWording(c);
+  const noun = own?.k === 'noun' ? own : meta;
+  return [lead(noun.article), count === 1 ? noun.name : noun.plural];
+}
+
+function laidChargePhrase(d: Design, path: GroupPath, g: Group, options: BlazonOptions): string {
   if (g.item.k !== 'charge') throw new RangeError('Not a charge.');
   const meta = CHARGES[g.item.charge];
-  const words = [g.count === 1 ? meta.article : numberWord(g.count), g.count === 1 ? meta.name : meta.plural];
+  const words = countedNoun(g.item, g.count);
   // GoT Table 5: a posture the College assumes is left out (RULES §F.8).
-  if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureTerm(g.item.charge, g.item.posture));
-  words.push(...g.item.mods.map(modifierWords));
+  if (g.item.posture && (options.stateDefaults || g.item.posture !== meta.scaDefaultPosture)) words.push(postureWords(g.item.charge, g.item.posture));
+  words.push(...modifiersWords(g.item, 'points'), ...turnWords(g.item), ...(g.item.orientation === 'to-center' ? [] : orientationWords(g.item)), ...modifiersWords(g.item, 'rest'));
   if (!wordsLayout(d, path, g, options)) return words.join(' ');
   // Charges Table 7 forces into one part of the field by tincture are not said to stand there; how they stand there still is.
   const forced = !options.stateDefaults && g.position !== null && g.position === forcedPosition(d, path);
@@ -227,8 +360,11 @@ function tokens(d: Design, options: BlazonOptions): Token[] {
     const paint = semy ? tinctureWord(semy.ground.t) : g.item.k === 'charge' && g.count > 1 && g.paint.k === 'divided' ? `each ${paintWord(g.paint)}` : groupPaintWord(g);
     const joiner = kind === 'peripheral' && g.item.k === 'ordinary' ? PERIPHERAL_JOINER[g.item.type] : ', ';
     out.push({ kind, text: kind === 'overall' ? `overall ${text}` : text, paint, strewn: semy ? ` ${semyPhrase(semy.charge.charge, semy.ink.t)}` : '', linked, lead, joiner });
-    // The fimbriation follows the ordinary's own tincture, always written; cotises may share the ordinary's ("a bend cotised azure"). What
-    // follows may share the trim's ("a chevron gules fimbriated between three lions argent").
+    // The fimbriation follows the ordinary's or charge's own tincture, always written; cotises may share the ordinary's ("a bend cotised
+    // azure"). What follows may share the trim's ("a chevron gules fimbriated between three lions argent").
+    const fimbriation = g.item.k === 'charge' ? fimbriationOf(g.item) : null;
+    if (fimbriation) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriation), strewn: '', linked: false, lead: ' ', joiner: ', ' });
+    if (g.item.k === 'charge') for (const piece of [...piecesWords(g.item), ...holdsWords(g.item, g.count)]) out.push({ kind: 'trim', ...piece, strewn: '', linked: true, lead: ' ', joiner: ', ' });
     if (g.item.k !== 'ordinary') return;
     const { type, lines, fimbriated, cotised } = g.item;
     if (fimbriated) out.push({ kind: 'trim', text: 'fimbriated', paint: paintWord(fimbriated), strewn: '', linked: false, lead: ' ', joiner: ', ' });
