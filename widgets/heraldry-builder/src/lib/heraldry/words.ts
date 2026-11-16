@@ -14,3 +14,13 @@ export function joinList(words: readonly string[], conjunction: 'and' | 'or'): s
 export function joinAnd(words: readonly string[]): string {
   return joinList(words, 'and');
 }
+
+const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
+  'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'] as const;
+
+/** "two" … "twenty". A single item is written with its article, so callers never pass 1 for a count. */
+export function numberWord(n: number): string {
+  const word = NUMBER_WORDS[n - 1];
+  if (word === undefined || !Number.isInteger(n)) throw new RangeError(`No number word for ${n}.`);
+  return word;
+}

@@ -2,12 +2,12 @@
 // stay registrable; the meter only nudges, naming the one change that helps most — and holds the
 // nudge back while the rule of tincture is broken, which has to be fixed first.
 
-import { BAND_LABEL, BAND_RANGE, readability, type NormDesign, type ReadabilityBand } from '../../lib/heraldry';
+import { BAND_LABEL, BAND_RANGE, readability, type Design, type ReadabilityBand } from '../../lib/heraldry';
 import { readabilityTip, type DesignReport } from '../../lib/builder';
 
 const BANDS: ReadabilityBand[] = ['bold', 'fine', 'busy'];
 
-export function ReadabilityMeter({ design, report }: { design: NormDesign; report: DesignReport }) {
+export function ReadabilityMeter({ design, report }: { design: Design; report: DesignReport }) {
   const r = readability(design);
   const scored = r.breakdown.filter((b) => b.points > 0);
   const tip = readabilityTip(r, report);

@@ -3,10 +3,12 @@
 // parser that turns a typed query into "words", each a list of alternatives. An entry matches when
 // every word has at least one alternative that appears in its text as a whole word or phrase.
 
-import { CHARGES, CHARGE_IDS, POSTURES, POSTURE_GLOSS, POSTURE_GROUP, chargesInCategory, type ChargeCategory, type ChargeId } from './charges';
-import { ORDINARY_NAME, ORDINARY_TYPES, type NormDesign } from './design';
-import { gloss } from './gloss';
 import { TINCTURES, TINCTURE_NAME, TINCTURE_WORD, type Tincture } from './tinctures';
+import { CHARGES, CHARGE_IDS, POSTURES, POSTURE_GLOSS, chargesInCategory, type ChargeCategory, type ChargeId, type Posture } from './charges';
+import type { Design } from './design';
+import { NAMED_TINCTURE_CHARGES, SEMY_NAMES } from './aliases';
+import { gloss } from './gloss';
+import { ORDINARY_NAME, ORDINARY_TYPES } from './ordinaries';
 
 /**
  * "sky blue" is one colour word, not "blue" with a modifier: closed up into a single word so that a
@@ -33,7 +35,7 @@ export function normaliseWords(s: string): string {
  * and padded with a space at each end so a whole word or phrase is a " word " substring. Contact
  * details, email and field shape are not part of it.
  */
-export function buildSearchText(entry: { displayName: string; blazon: string; design: NormDesign }): string {
+export function buildSearchText(entry: { displayName: string; blazon: string; design: Design }): string {
   return ` ${normaliseWords(`${entry.displayName} ${entry.blazon} ${gloss(entry.design)}`)} `;
 }
 
@@ -102,15 +104,21 @@ const CHARGE_ALIASES: Record<ChargeId, readonly string[]> = {
   lion: ['cat'], wolf: ['dog', 'canine'], boar: ['pig'], stag: ['deer'], goat: [], hare: ['rabbit', 'bunny'], fish: [], bee: [],
   unicorn: ['horse'], dragon: ['wyvern'], eagle: [], owl: [], rose: [], tree: [], 'fleur-de-lis': ['lily', 'lilies', 'fleur'],
   mullet: ['star'], crescent: ['moon'], sun: [], heart: [], key: [], 'open-book': ['book'], sword: [], crown: [], anchor: [],
-  'musical-note': ['music', 'note'], flame: ['fire'], gear: ['cog'], lightbulb: ['light bulb', 'lamp'],
+  'musical-note': ['music', 'note'], flame: ['fire'], gear: ['cog', 'gear', 'gearwheel'], lightbulb: ['light bulb', 'lamp'],
+  roundel: ['circle', 'disc', 'disk', 'dot'], annulet: ['ring'], billet: ['rectangle', 'brick'], lozenge: ['diamond'], goutte: ['drop', 'teardrop', 'droplet'],
+  'cross-crosslet': ['crosslet'], estoile: ['star'], spark: ['spark'],
 };
+/** The SCA's names for a charge of one tincture (bezant, plate, goutte de sang…) also find the charge. */
+const namedWords = (id: ChargeId) => NAMED_TINCTURE_CHARGES.filter((n) => n.charge === id).flatMap((n) => [n.word, n.plural]);
 const chargeTerms = (id: ChargeId) => [CHARGES[id].name, CHARGES[id].plural].map(normaliseWords);
+/** The names of the semy of a charge (crusilly, billety…), which a design strewn with it is blazoned with. */
+const semyWords = (id: ChargeId) => SEMY_NAMES.filter((n) => n.charge === id && !n.word.startsWith('semy of')).map((n) => normaliseWords(n.word));
 const namesIn = (...categories: ChargeCategory[]) =>
   categories.flatMap((c) => chargesInCategory(c)).flatMap((m) => chargeTerms(m.id));
 const chargeAliases: Alias[] = [
   ...CHARGE_IDS.flatMap((id): Alias[] => [
-    [[normaliseWords(CHARGES[id].name)], chargeTerms(id)],
-    [CHARGE_ALIASES[id].map(normaliseWords), chargeTerms(id)],
+    [[normaliseWords(CHARGES[id].name)], [...chargeTerms(id), ...semyWords(id)]],
+    [[...CHARGE_ALIASES[id], ...namedWords(id)].map(normaliseWords), [...chargeTerms(id), ...semyWords(id)]],
   ]),
   [['beast'], namesIn('beast')],
   [['monster'], namesIn('monster')],
@@ -121,20 +129,36 @@ const chargeAliases: Alias[] = [
 ];
 
 // Postures: every word for a posture — the blazon term, the plain word, a charge's own wording
-// ("courant", "running") — stands for its whole group, so "passant wolf" finds a statant wolf.
+// ("courant", "running") — stands for its whole family, so "passant wolf" finds a statant wolf.
+const POSTURE_FAMILIES: readonly (readonly Posture[])[] = [
+  ['rampant', 'salient'], ['passant', 'statant', 'courant'], ['couchant', 'dormant'], ['haurient', 'urinant'], ['rising', 'volant'],
+];
 const firstWord = (phrase: string) => phrase.split(' ')[0];
-const postureWords = POSTURES.map((p) => {
+const postureWords = (p: Posture): string[] => {
   const own = CHARGE_IDS.flatMap((id) => {
     const w = CHARGES[id].postureWording[p];
     return w ? [w.term, firstWord(w.gloss)] : [];
   });
   const plain = POSTURE_GLOSS[p];
-  return { group: POSTURE_GROUP[p], words: [p, ...(plain ? [firstWord(plain)] : []), ...own] };
-});
-const postureAliases: Alias[] = [...new Set(postureWords.map((p) => p.group))].map((group) => {
-  const words = [...new Set(postureWords.filter((p) => p.group === group).flatMap((p) => p.words))];
+  return [p, ...(plain ? [firstWord(plain)] : []), ...own];
+};
+const postureAliases: Alias[] = [
+  ...POSTURE_FAMILIES,
+  ...POSTURES.filter((p) => !POSTURE_FAMILIES.some((f) => f.includes(p))).map((p) => [p]),
+].map((family): Alias => {
+  const words = [...new Set(family.flatMap(postureWords))];
   return [words, words];
 });
+
+// Layout words: how a group is arranged, as the blazon and the gloss say it.
+const layoutAliases: Alias[] = [
+  [['splendour', 'splendor', 'glory'], ['splendor']],
+  [['ring', 'circle'], ['annulo', 'ring', 'orle']],
+  [['crossed'], ['crossed', 'saltire']],
+];
+
+// Strewn charges: the gloss says "strewn with", the blazon "semy" or the name of the semy; every word finds either.
+const semyAliases: Alias[] = [[['strewn', 'scattered', 'sprinkled', 'semy', 'seme', 'semee'], ['strewn', 'semy']]];
 
 const ALIASES: readonly Alias[] = [
   ...tinctureAliases,
@@ -143,6 +167,8 @@ const ALIASES: readonly Alias[] = [
   ...ordinaryAliases,
   ...chargeAliases,
   ...postureAliases,
+  ...layoutAliases,
+  ...semyAliases,
 ];
 
 /** Words and phrases a typed key stands for, exactly as they appear in an entry's text. */

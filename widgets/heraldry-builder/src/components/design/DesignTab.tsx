@@ -6,32 +6,37 @@
 
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { blazon, type ChargedDesign, type Companion, type FieldShape, type NormDesign, type ShapedDesign } from '../../lib/heraldry';
-import type { Issue } from '../../lib/heraldry';
+import { blazon, groupAt, groupTinctureOf, layersIn, type Companion, type FieldShape, type Design, type LayerKey, type ShapedDesign } from '../../lib/heraldry';
 import { useCompact } from '../../lib/useCompact';
-import type { DesignReport } from '../../lib/builder';
+import { issueStep, picturePath, type DesignReport, type StepKey } from '../../lib/builder';
 import type { RefObject } from 'preact';
 import type { JumpTarget } from '../Availability';
 import { SavePicture } from '../SavePicture';
 import { Shield } from '../Shield';
 import { BlazonPanel } from './BlazonPanel';
+import { AddLayer } from './AddLayer';
 import { ChargesStep, FieldStep, OrdinaryStep, type Accordion } from './BuilderSteps';
 import { Examples } from './Examples';
+import { LayerStep } from './LayerStep';
 import { ReadabilityMeter } from './ReadabilityMeter';
 import { ShapePicker } from './ShapePicker';
 import { ViolationPanel } from './ViolationPanel';
 import { WelcomeStrip } from './WelcomeStrip';
 
 interface Props {
-  design: NormDesign;
+  design: Design;
   /** The shape the preview is drawn in (display only). */
   shape: FieldShape;
   report: DesignReport;
-  onChange: (nd: NormDesign) => void;
+  onChange: (nd: Design) => void;
   /** Apply a count or placement that brings its partner along (App keeps it for Undo). */
-  onAdjust: (nd: ChargedDesign, companion: Companion) => void;
+  onAdjust: (nd: Design, companion: Companion) => void;
   /** The note (with Undo, and the rule fix when the change broke it) for such a change, shown under the picture controls. */
-  adjusted: (onFix: (nd: NormDesign) => void) => ComponentChildren;
+  adjusted: (onFix: (nd: Design) => void) => ComponentChildren;
+  /** Make the design a badge (App keeps the arms for Undo). */
+  onBadge: (nd: Design) => void;
+  /** The note (with Undo) after the design was made a badge, shown under the background tiles. */
+  badgeNotice: ComponentChildren;
   onShape: (shape: FieldShape) => void;
   onStartOver: () => void;
   /** Whether the examples box starts open (a device's first visit). */
@@ -52,26 +57,31 @@ interface Props {
   availability?: (onJump: (t: JumpTarget) => void) => ComponentChildren;
 }
 
-type Layer = Issue['layer'];
-type StepKey = 'field' | 'ordinary' | 'charges';
-
-const STEP_OF_LAYER: Record<Layer, StepKey> = { field: 'field', ordinary: 'ordinary', charges: 'charges', design: 'charges' };
 const STEP_OF_JUMP: Record<JumpTarget, StepKey> = {
-  field: 'field', ordinary: 'ordinary', charge: 'charges', count: 'charges', arrangement: 'charges', posture: 'charges', tincture: 'charges',
+  field: 'field', ordinary: 'ordinary', charge: 'picture', count: 'picture', arrangement: 'picture', posture: 'picture', tincture: 'picture',
 };
 
-const STEP_SELECTOR: Record<Layer, string> = {
-  field: '[data-testid=step-field]', ordinary: '[data-testid=step-ordinary]', charges: '[data-testid=step-charges]', design: '[data-testid=step-charges]',
+/** The card of a step: the layers are keyed by place, so a card keeps its id as its siblings come and go. */
+const stepSelector = (step: StepKey): string => {
+  switch (step) {
+    case 'field': return '[data-testid=step-field]';
+    case 'ordinary': return '[data-testid=step-ordinary]';
+    case 'picture': return '[data-testid=step-charges]';
+    case 'co-primary': case 'on-picture': case 'around': case 'in-chief': case 'in-base': case 'in-canton': case 'on-ordinary':
+    case 'chief': case 'on-chief': case 'bordure': case 'on-bordure': case 'overall':
+      return `[data-testid=step-layer-${step}]`;
+    default: return step satisfies never;
+  }
 };
 const JUMP_SELECTOR: Record<JumpTarget, string> = {
-  field: STEP_SELECTOR.field, ordinary: STEP_SELECTOR.ordinary, charge: '[data-testid=charge-select]',
+  field: stepSelector('field'), ordinary: stepSelector('ordinary'), charge: '[data-testid=charge-select]',
   count: '[data-testid=count-select]', arrangement: '#arrangement-select', posture: '#posture-select',
   tincture: '[data-testid=charge-tincture]',
 };
 
 /** Scroll a builder control into view and focus it (the checked option of a group, or the control itself). */
 function focusControl(selector: string): void {
-  const el = document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(STEP_SELECTOR.charges);
+  const el = document.querySelector<HTMLElement>(selector) ?? document.querySelector<HTMLElement>(stepSelector('picture'));
   if (!el) return;
   el.scrollIntoView({ block: 'center' });
   const target = el.matches('select, button, input')
@@ -82,7 +92,7 @@ function focusControl(selector: string): void {
 
 /** Compact sticky shield + blazon bar for single-column layouts, shown once the main preview scrolls away. */
 function MiniPreview({ design, shape, status, watch, onFix }: {
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
   status: DesignReport['status'];
   watch: RefObject<HTMLElement>;
@@ -111,12 +121,31 @@ function MiniPreview({ design, shape, status, watch, onFix }: {
   );
 }
 
-/** Register, always in reach at the bottom of the screen whenever the preview column's own Register
- * button can scroll away (single-column screens, or a preview column taller than the screen); says
- * why when it can't be used yet. */
-function RegisterBar({ blockedWhy, onRegister }: { blockedWhy: string | null; onRegister: () => void }) {
+/** Register, in reach at the bottom of the screen once the preview column's own Register button has
+ * scrolled up out of sight (single-column screens, or a preview column taller than the screen) — not
+ * before, where it would cover the shield; says why when it can't be used yet. */
+function RegisterBar({ blockedWhy, onRegister, watch }: { blockedWhy: string | null; onRegister: () => void; watch: RefObject<HTMLElement> }) {
+  const [passed, setPassed] = useState(false);
+  // Measured on scroll rather than observed: a jump from below the button to the top of the page never crosses it.
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const el = watch.current;
+      setPassed(!!el && el.getBoundingClientRect().bottom < 0);
+    };
+    const schedule = () => { frame ||= requestAnimationFrame(update); };
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, []);
   return (
-    <div class="register-bar" data-testid="register-bar">
+    <div class="register-bar" data-testid="register-bar" data-passed={passed ? 'true' : 'false'}>
       {blockedWhy && <p class="register-bar-why" id="register-bar-why">{blockedWhy}</p>}
       <button
         type="button"
@@ -141,6 +170,7 @@ export function DesignTab(p: Props) {
   const layoutRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const figureRef = useRef<HTMLElement>(null);
+  const registerRef = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
     const layout = layoutRef.current;
     const el = previewRef.current;
@@ -161,23 +191,45 @@ export function DesignTab(p: Props) {
   });
   const compact = useCompact();
   // Phones collapse the steps, each showing what is chosen; a step with a problem opens by itself.
-  const [open, setOpen] = useState<Record<StepKey, boolean>>({ field: false, ordinary: false, charges: false });
+  const [open, setOpen] = useState<Partial<Record<StepKey, boolean>>>({});
   useEffect(() => {
-    const broken = report.problems.map((i) => STEP_OF_LAYER[i.layer]);
+    const broken = report.problems.map((i) => issueStep(design, i));
     if (broken.some((k) => !open[k])) setOpen((o) => ({ ...o, ...Object.fromEntries(broken.map((k) => [k, true])) }));
   }, [report]);
-  const accordion = (k: StepKey): Accordion | null => (compact ? { open: open[k], onToggle: () => setOpen((o) => ({ ...o, [k]: !o[k] })) } : null);
+  // The layers that have a card are numbered from 4, in the order the cards come; a card that has just been added opens by itself.
+  const layerCards = layersIn(design);
+  // A badge has no band or shape step, so its picture is step 2.
+  const pictureStep = design.kind === 'badge' ? 2 : 3;
+  const layerStep = (key: LayerKey) => pictureStep + 1 + layerCards.indexOf(key);
+  const shownCards = useRef(new Set<LayerKey>(layerCards));
+  useEffect(() => {
+    const added = layerCards.filter((key) => !shownCards.current.has(key));
+    shownCards.current = new Set(layerCards);
+    if (added.length > 0) setOpen((o) => ({ ...o, ...Object.fromEntries(added.map((key) => [key, true])) }));
+  }, [layerCards.join()]);
+  const accordion = (k: StepKey): Accordion | null => (compact ? { open: open[k] ?? false, onToggle: () => setOpen((o) => ({ ...o, [k]: !o[k] })) } : null);
   /** Open the step a control lives in, then move to the control once it is on screen. */
   const reveal = (k: StepKey, selector: string) => {
     setOpen((o) => ({ ...o, [k]: true }));
     setTimeout(() => focusControl(selector), 0);
   };
-  const goToLayer = (layer: Layer) => reveal(STEP_OF_LAYER[layer], STEP_SELECTOR[layer]);
-  // The fix beside Undo recolours the charges and the note goes with it, so focus moves to the new
+  const goToStep = (step: StepKey) => reveal(step, stepSelector(step));
+  /** A layer just added: open the step that shows it, bring it on screen and put focus on its heading. */
+  const revealCard = (key: StepKey) => {
+    setOpen((o) => ({ ...o, [key]: true }));
+    setTimeout(() => {
+      const heading = document.querySelector<HTMLElement>(`${stepSelector(key)} .step-title`);
+      heading?.scrollIntoView({ block: 'center' });
+      (heading?.querySelector<HTMLElement>('.step-toggle') ?? heading)?.focus({ preventScroll: true });
+    }, 0);
+  };
+  // The fix beside Undo recolours the picture and the note goes with it, so focus moves to the new
   // colour's swatch (named by id: the picker may not have re-rendered its checked swatch yet).
-  const fixFromNotice = (nd: NormDesign) => {
+  const fixFromNotice = (nd: Design) => {
     p.onChange(nd);
-    reveal('charges', nd.charges ? `#swatch-charge-${nd.charges.tincture}` : JUMP_SELECTOR.tincture);
+    const path = picturePath(nd);
+    const t = path && groupTinctureOf(groupAt(nd, path).paint);
+    reveal('picture', t ? `#swatch-charge-${t}` : JUMP_SELECTOR.tincture);
   };
   // The dismiss button disappears with the strip, so focus moves on to the examples box.
   const welcomeShown = p.onDismissWelcome !== null;
@@ -186,10 +238,10 @@ export function DesignTab(p: Props) {
     if (welcomeWasShown.current && !welcomeShown) document.querySelector<HTMLElement>('[data-testid=examples-summary]')?.focus();
     welcomeWasShown.current = welcomeShown;
   }, [welcomeShown]);
-  const layerIssues = (layer: 'field' | 'ordinary' | 'charges') => report.problems.filter((i) => i.layer === layer);
+  const stepIssues = (step: StepKey) => report.problems.filter((i) => issueStep(design, i) === step);
   const blockedWhy = report.status === 'violation'
     ? 'Fix the problem above before registering.'
-    : report.status === 'incomplete' ? 'Add a band or shape, or a picture, first.' : null;
+    : report.status === 'incomplete' ? (design.kind === 'badge' ? 'Add a picture first.' : 'Add a band or shape, or a picture, first.') : null;
 
   return (
     <>
@@ -201,7 +253,7 @@ export function DesignTab(p: Props) {
         shape={shape}
         status={report.status}
         watch={figureRef}
-        onFix={() => goToLayer(report.problems[0]?.layer ?? 'charges')}
+        onFix={() => goToStep(report.problems[0] ? issueStep(design, report.problems[0]) : 'picture')}
       />
       <div class="design-preview" ref={previewRef}>
         <h2 class="sr-only">Preview</h2>
@@ -209,7 +261,7 @@ export function DesignTab(p: Props) {
           <Shield design={design} shape={shape} hatching={p.hatching} class="shield-large" />
           <figcaption class="sr-only">Preview of your arms</figcaption>
         </figure>
-        <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />
+        {design.kind === 'arms' && <ShapePicker design={design} value={shape} onChange={p.onShape} idPrefix="shape" />}
         <div class="preview-toggles">
           <button
             type="button"
@@ -234,11 +286,11 @@ export function DesignTab(p: Props) {
             design={design}
             problems={report.problems}
             onFix={(nd) => {
-              const layer = report.problems[0]?.layer ?? 'charges';
+              const step = report.problems[0] ? issueStep(design, report.problems[0]) : 'picture';
               p.onChange(nd);
-              setTimeout(() => goToLayer(layer), 0);
+              setTimeout(() => goToStep(step), 0);
             }}
-            onGoTo={goToLayer}
+            onGoTo={goToStep}
           />
         )}
         {report.hint && (
@@ -253,6 +305,7 @@ export function DesignTab(p: Props) {
               type="button"
               class="button-primary"
               data-testid="open-register"
+              ref={registerRef}
               disabled={!!blockedWhy}
               aria-describedby={blockedWhy ? 'actions-why' : undefined}
               onClick={p.onRegister}
@@ -280,9 +333,13 @@ export function DesignTab(p: Props) {
         <p class="rule-intro" data-testid="rule-intro">
           The one rule (the rule of tincture): gold, white and sky blue (the metals) go on colours, and colours go on metals — never colour on colour or metal on metal. Locked choices would break it; tap one to see why.
         </p>
-        <FieldStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('field')} accordion={accordion('field')} />
-        <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={layerIssues('ordinary')} accordion={accordion('ordinary')} />
-        <ChargesStep design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={layerIssues('charges')} accordion={accordion('charges')} compact={compact} />
+        <FieldStep design={design} shape={shape} onChange={p.onChange} onBadge={p.onBadge} notice={p.badgeNotice} issues={stepIssues('field')} accordion={accordion('field')} />
+        {design.kind === 'arms' && <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />}
+        <ChargesStep n={pictureStep} design={design} onChange={p.onChange} onAdjust={p.onAdjust} adjusted={p.adjusted(fixFromNotice)} issues={stepIssues('picture')} accordion={accordion('picture')} compact={compact} />
+        {layerCards.map((key) => (
+          <LayerStep key={key} design={design} place={key} n={layerStep(key)} onChange={p.onChange} onAdjust={p.onAdjust} issues={stepIssues(key)} accordion={accordion(key)} />
+        ))}
+        <AddLayer design={design} onChange={p.onChange} onAdded={revealCard} />
         <div class="builder-footer">
           <button type="button" class="button-tertiary" data-testid="start-over" onClick={p.onStartOver}>
             Start over
@@ -290,7 +347,7 @@ export function DesignTab(p: Props) {
           <span class="draft-note">Your design is saved on this device as you go.</span>
         </div>
       </div>
-      <RegisterBar blockedWhy={blockedWhy} onRegister={p.onRegister} />
+      <RegisterBar blockedWhy={blockedWhy} onRegister={p.onRegister} watch={registerRef} />
     </div>
     </>
   );

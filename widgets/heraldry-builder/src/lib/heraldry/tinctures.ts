@@ -1,7 +1,6 @@
-// The eight tinctures: three metals and five colours; no furs, stains or custom colours.
-// Celestine, a cyan metal, is the one non-standard tincture. Pure data — no DOM.
+// The eight tinctures (three metals and five colours), the furs and what they are made of, and the stains the builder names
+// but does not draw. Celestine, a cyan metal, is the one non-standard tincture. Pure data — no DOM.
 
-import { joinList } from './words';
 export type Colour = 'gules' | 'azure' | 'vert' | 'sable' | 'purpure';
 export type Metal = 'or' | 'argent' | 'celestine';
 export type Tincture = Colour | Metal;
@@ -69,27 +68,59 @@ export function isMetal(t: Tincture): boolean {
   return TINCTURE_CLASS[t] === 'metal';
 }
 
-/** "Or and Argent" / "Gules, Azure, Vert, Sable or Purpure". */
-export function listTinctureNames(ts: readonly Tincture[], conj: 'and' | 'or' = 'and'): string {
-  return joinList(ts.map((t) => TINCTURE_NAME[t]), conj);
-}
+// ── Stains (vocabulary only; the builder does not draw them yet) and furs ───
 
-// ── Charge tinctures ────────────────────────────────────────────────────────
+export const STAINS = ['sanguine', 'murrey', 'tenne'] as const;
+export type Stain = (typeof STAINS)[number];
+
+export const FURS = [
+  'ermine', 'erminois', 'counter-ermine', 'pean', 'vair', 'counter-vair', 'vair-en-pointe', 'potent', 'counter-potent', 'potent-en-pointe',
+] as const;
+export type Fur = (typeof FURS)[number];
+
+/** Blazon words, lower case. */
+export const STAIN_NAME: Record<Stain, string> = { sanguine: 'sanguine', murrey: 'murrey', tenne: 'tenne' };
+export const FUR_NAME: Record<Fur, string> = {
+  ermine: 'ermine', erminois: 'erminois', 'counter-ermine': 'counter-ermine', pean: 'pean', vair: 'vair',
+  'counter-vair': 'counter-vair', 'vair-en-pointe': 'vair en pointe', potent: 'potent', 'counter-potent': 'counter-potent', 'potent-en-pointe': 'potent en pointe',
+};
 
 /**
- * What a charge group can be tinctured: one of the tinctures, or counterchanged — on a divided
- * field, each charge (or each part of a charge that crosses a partition line) takes the field's
- * other tincture, so it always shows the opposite of what it lies on.
+ * What a fur is made of. Ermine's family is a ground sprinkled with spots (a metal or colour "ermined" with the other
+ * kind, SENA App F4); the vair and potent families are two tinctures laid in rows of bells or crutch-heads, set `plain`
+ * (each row against the one before), `counter` (like against like) or `en-pointe` (in columns).
  */
-export type ChargeTincture = Tincture | 'counterchanged';
-export const CHARGE_TINCTURES: readonly ChargeTincture[] = [...TINCTURES, 'counterchanged'];
-
-export function isChargeTincture(value: unknown): value is ChargeTincture {
-  return value === 'counterchanged' || isTincture(value);
+export interface FurSpec {
+  family: 'ermine' | 'vair' | 'potent';
+  layout: 'plain' | 'counter' | 'en-pointe';
+  /** The ground (ermine family) or the first tincture (vair and potent) when the fur names no other colours. */
+  ground: Tincture;
+  /** The spots (ermine family) or the second tincture (vair and potent). */
+  spots: Tincture;
 }
 
-/** Blazon words: the tincture names, and "counterchanged" (a term, not a tincture, so lower case). */
-export const CHARGE_TINCTURE_NAME: Record<ChargeTincture, string> = { ...TINCTURE_NAME, counterchanged: 'counterchanged' };
+export const FUR_SPEC: Record<Fur, FurSpec> = {
+  ermine: { family: 'ermine', layout: 'plain', ground: 'argent', spots: 'sable' },
+  erminois: { family: 'ermine', layout: 'plain', ground: 'or', spots: 'sable' },
+  'counter-ermine': { family: 'ermine', layout: 'plain', ground: 'sable', spots: 'argent' },
+  pean: { family: 'ermine', layout: 'plain', ground: 'sable', spots: 'or' },
+  vair: { family: 'vair', layout: 'plain', ground: 'argent', spots: 'azure' },
+  'counter-vair': { family: 'vair', layout: 'counter', ground: 'argent', spots: 'azure' },
+  'vair-en-pointe': { family: 'vair', layout: 'en-pointe', ground: 'argent', spots: 'azure' },
+  potent: { family: 'potent', layout: 'plain', ground: 'argent', spots: 'azure' },
+  'counter-potent': { family: 'potent', layout: 'counter', ground: 'argent', spots: 'azure' },
+  'potent-en-pointe': { family: 'potent', layout: 'en-pointe', ground: 'argent', spots: 'azure' },
+};
 
-/** Signature codes; `cc` is distinct from every tincture code. */
-export const CHARGE_TINCTURE_CODE: Record<ChargeTincture, string> = { ...TINCTURE_CODE, counterchanged: 'cc' };
+export function isStain(value: unknown): value is Stain {
+  return typeof value === 'string' && (STAINS as readonly string[]).includes(value);
+}
+
+export function isFur(value: unknown): value is Fur {
+  return typeof value === 'string' && (FURS as readonly string[]).includes(value);
+}
+
+/** The tincture as written in a blazon: "Or" capitalised, every other tincture lower case. */
+export function tinctureWord(t: Tincture): string {
+  return t === 'or' ? 'Or' : t;
+}

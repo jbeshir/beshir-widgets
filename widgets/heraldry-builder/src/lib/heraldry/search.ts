@@ -12,7 +12,7 @@ import { cleanText, textLength } from './text';
 import { NO_FILTERS, filtersToTags, matchesTags, type SearchFilters } from './tags';
 import { API_ERROR } from './api-errors';
 import { registrationOrder } from './check';
-import type { NormDesign } from './design';
+import type { Design } from './design';
 import { matchesWords, queryWords, type SearchWord } from './search-terms';
 
 const SEARCH_DEFAULT_LIMIT = 24;
@@ -124,7 +124,7 @@ export interface SearchableEntry {
   id: string;
   /** The entry's search text (buildSearchText). */
   searchText: string;
-  design: NormDesign;
+  design: Design;
   /** ISO-8601; newest first. */
   createdAt: string;
 }

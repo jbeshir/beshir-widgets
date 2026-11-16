@@ -1,7 +1,7 @@
-// The blazon (display serif) with its plain-English gloss and a copy button.
+// The blazon (display serif) with its plain-English gloss and a copy button; a badge with no picture yet has no blazon.
 
 import { useEffect, useState } from 'preact/hooks';
-import { blazon, gloss, type NormDesign } from '../../lib/heraldry';
+import { blazon, gloss, type Design } from '../../lib/heraldry';
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -10,7 +10,7 @@ async function copyText(text: string): Promise<boolean> {
       return true;
     }
   } catch {
-    // fall through to the legacy path
+    // fall through to the textarea fallback
   }
   try {
     const ta = document.createElement('textarea');
@@ -28,8 +28,9 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export function BlazonPanel({ design }: { design: NormDesign }) {
-  const text = blazon(design);
+export function BlazonPanel({ design }: { design: Design }) {
+  const empty = design.kind === 'badge' && design.groups.length === 0;
+  const text = empty ? '' : blazon(design);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   useEffect(() => setCopied('idle'), [text]);
 
@@ -37,12 +38,13 @@ export function BlazonPanel({ design }: { design: NormDesign }) {
     <section class="blazon-panel" aria-labelledby="blazon-title">
       <h2 id="blazon-title" class="section-label">Blazon</h2>
       <p class="blazon" data-testid="blazon" lang="en">{text}</p>
-      <p class="gloss" data-testid="gloss">{gloss(design)}</p>
+      <p class="gloss" data-testid="gloss">{empty ? 'Pick a picture below: a badge is its picture alone.' : gloss(design)}</p>
       <div class="blazon-actions">
         <button
           type="button"
           class="button-secondary button-small"
           data-testid="copy-blazon"
+          disabled={empty}
           onClick={async () => setCopied((await copyText(text)) ? 'copied' : 'failed')}
         >
           {copied === 'copied' ? 'Copied' : 'Copy blazon'}

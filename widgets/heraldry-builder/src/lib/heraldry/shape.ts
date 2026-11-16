@@ -3,7 +3,7 @@
 // API, database) but is never part of it, so blazon, gloss, signature, tags, uniqueness and the rule
 // of tincture cannot see it.
 
-import type { NormDesign } from './design';
+import type { Design } from './design';
 
 export type FieldShape = 'heater' | 'banner' | 'round' | 'lozenge';
 export const FIELD_SHAPES: readonly FieldShape[] = ['heater', 'banner', 'round', 'lozenge'];
@@ -17,7 +17,7 @@ export const FIELD_SHAPE_NAME: Record<FieldShape, string> = {
 
 /** A design together with the shape it is displayed in. Only `design` is the arms. */
 export interface ShapedDesign {
-  design: NormDesign;
+  design: Design;
   shape: FieldShape;
 }
 

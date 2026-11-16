@@ -1,7 +1,7 @@
 // The example designs: every one is a design the builder accepts, follows the rule of tincture, reads
 // at a glance and can be registered alongside the others. "Surprise me" repeats for a given seed.
 import { describe, it, expect } from 'vitest';
-import { areDistinct, normalise, readability, signature } from '../src/lib/heraldry';
+import { isClear, differences, normalise, readability, signature, walkGroups } from '../src/lib/heraldry';
 import { assess } from '../src/lib/builder';
 import { EXAMPLE_DESIGNS, surpriseDesign } from '../src/lib/presets';
 
@@ -35,7 +35,7 @@ describe('example designs', () => {
   it('are pairwise distinct under the uniqueness rules', () => {
     for (const [i, a] of EXAMPLE_DESIGNS.entries()) {
       for (const b of EXAMPLE_DESIGNS.slice(i + 1)) {
-        expect(areDistinct(a.design, b.design), `${a.id} vs ${b.id}`).toBe(true);
+        expect(isClear(differences(a.design, b.design)), `${a.id} vs ${b.id}`).toBe(true);
         expect(signature(a.design)).not.toBe(signature(b.design));
       }
     }
@@ -44,7 +44,7 @@ describe('example designs', () => {
   it('vary in shape, include a celestine and a counterchanged design', () => {
     expect(new Set(EXAMPLE_DESIGNS.map((p) => p.shape)).size).toBeGreaterThanOrEqual(3);
     expect(EXAMPLE_DESIGNS.some((p) => JSON.stringify(p.design).includes('"celestine"'))).toBe(true);
-    expect(EXAMPLE_DESIGNS.some((p) => p.design.charges?.tincture === 'counterchanged')).toBe(true);
+    expect(EXAMPLE_DESIGNS.some((p) => walkGroups(p.design).some(({ group }) => group.paint.k === 'counterchanged'))).toBe(true);
   });
 });
 

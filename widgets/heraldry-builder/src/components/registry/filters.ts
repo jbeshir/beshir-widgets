@@ -2,7 +2,7 @@
 
 import {
   CATEGORY_LABEL, CHARGE_CATEGORIES, DIVISIONS, DIVISION_LABEL, ORDINARY_LABEL, ORDINARY_TYPES, POSTURES, POSTURE_GLOSS,
-  TINCTURES, TINCTURE_LABEL, chargeLabel, chargesInCategory, postureLabel, type PlainTerm, type SearchParams,
+  TINCTURES, TINCTURE_LABEL, chargeLabel, chargesInCategory, type PlainTerm, type Posture, type SearchParams,
 } from '../../lib/heraldry';
 import { capitalise } from '../../lib/heraldry/words';
 
@@ -29,6 +29,12 @@ interface FilterSpec {
 /** "Gold (Or)": everyday word first, heraldic term in brackets (which chip labels drop). */
 const termed = ({ plain, term }: PlainTerm) => `${plain} (${term})`;
 
+/** Everyday words first, as the builder's posture list: "Standing (statant)". */
+function postureOption(p: Posture): string {
+  const plain = POSTURE_GLOSS[p] ?? (p === 'displayed' ? 'wings spread' : null);
+  return plain ? `${capitalise(plain)} (${p})` : capitalise(p);
+}
+
 const tinctureOptions = TINCTURES.map((t) => ({ value: t, label: termed(TINCTURE_LABEL[t]) }));
 
 export const FILTER_SPECS: FilterSpec[] = [
@@ -42,7 +48,7 @@ export const FILTER_SPECS: FilterSpec[] = [
       chargesInCategory(cat).map((m) => ({ value: m.id, label: chargeLabel(m.id), group: CATEGORY_LABEL[cat] })),
     ),
   },
-  { key: 'posture', testid: 'filter-posture', label: 'Pose', any: 'Any', options: POSTURES.map((p) => ({ value: p, label: postureLabel(p, POSTURE_GLOSS[p], p) })) },
+  { key: 'posture', testid: 'filter-posture', label: 'Pose', any: 'Any', options: POSTURES.map((p) => ({ value: p, label: postureOption(p) })) },
   { key: 'ordinary', testid: 'filter-ordinary', label: 'Band or shape', any: 'Any', options: ORDINARY_TYPES.map((o) => ({ value: o, label: termed(ORDINARY_LABEL[o]) })) },
   {
     key: 'division', testid: 'filter-division', label: 'Background split', any: 'Any',

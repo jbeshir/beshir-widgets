@@ -1,120 +1,279 @@
-// Builder edits: pure NormDesign → NormDesign transitions used by the Design tab (DOM-free, unit
-// tested). Lower-layer edits are always applied; the charge group is then refitted structurally
-// (fitCharges) and any rule-of-tincture conflict is left in place for the violation panel to
-// surface and offer a fix — never silently repaired.
+// Builder edits: pure Design → Design transitions used by the Design tab (DOM-free, unit tested).
+// Lower-layer edits are always applied; the pictures are then refitted structurally (fitGroup) and any
+// rule-of-tincture conflict is left in place for the violation panel to surface and offer a fix —
+// never silently repaired. Every transition returns a canonical design. The layers on top of the band
+// and the picture (pictures on the band, a top band, a border) are heraldry/layers.ts.
 
 import {
-  DEFAULT_FIELD_SHAPE, CHARGES, NUMBER_WORD, ORDINARY_LABEL, TINCTURE_CLASS, TINCTURE_LABEL, chargeContext, chargeSlotContacts, chargeTinctureChoices,
-  contrastFailure, countChoices, fieldTinctures, fitCharges, isMetal, ordinaryTinctureChoices, placementChoices, structuralIssues, tinctureIssues,
-  type Arrangement, type ChargedDesign, type ChargeId, type Choice, type Companion, type Count, type Division, type Issue, type LayoutChoice, type NormDesign,
-  type ChargeTincture, type OrdinaryType, type Placement, type Posture, type Readability, type ShapedDesign, type Tincture,
+  CHARGES, COLOURS, DEFAULT_FIELD_SHAPE, METALS, chargeOnBox, ORDINARY_KIND, ORDINARY_LABEL, PLACE_KEYS, PLACE_LABEL, PLAIN_LINES, TINCTURE_CLASS, TINCTURE_LABEL, addLayer, assembleParts, canonical,
+  asParty, asVariation, fieldParts, variationPaint, isTincture, firstAllowed, groundFailure, groundShares, groundTinctures, groupAt, groupTinctureChoices, groupTinctureIssues, groupTinctureOf, hostOf,
+  isAllowed, isMetal, isSupported, pathOfPlace, ordinaryGroup, partsOf, placeOfPath, refitLayers, removeLayer, replaceGroup, setLayerCharge, simpleParts, structuralIssues, tincturePaint,
+  bodyTinctures, surfaceOf, tinctureIssues, tinctureSurface, validate, withTincture, withLayout, chargeItem, newCharge,
+  type ChargeId, type Companion, type Design, type Division, type Variation, type Group, type GroupPath, type GroupTincture, type Issue, type PicturesKey,
+  type LayoutKey, type ModifierId, type OrdinaryType, type Paint, type Placement, type PlaceKey, type Posture, type Readability, type ShapedDesign, type Tincture,
 } from './heraldry';
-import { capitalise } from './heraldry/words';
+import { capitalise, numberWord } from './heraldry/words';
 
-export const DEFAULT_DESIGN: NormDesign = { v: 1, field: { kind: 'plain', tincture: 'azure' }, ordinary: null, charges: null };
+export const DEFAULT_DESIGN: Design = { v: 2, kind: 'arms', field: tincturePaint('azure'), groups: [] };
 
-function firstAllowed<T>(choices: Choice<T>[], fallback: T): T {
-  return choices.find((c) => c.allowed)?.value ?? fallback;
+/** The builder's steps: the background, then the places (band or shape, picture, pictures on the band, top band, border). */
+export type StepKey = 'field' | PlaceKey;
+
+export const STEP_LABEL: Record<StepKey, string> = {
+  field: 'Background',
+  ...(Object.fromEntries(PLACE_KEYS.map((key) => [key, PLACE_LABEL[key].plain])) as Record<PlaceKey, string>),
+};
+
+// ── Where things are ────────────────────────────────────────────────────────
+
+export const ordinaryPath = (d: Design): GroupPath | null => simpleParts(d).ordinary?.path ?? null;
+export const picturePath = (d: Design): GroupPath | null => simpleParts(d).picture?.path ?? null;
+
+// ── Field ───────────────────────────────────────────────────────────────────
+
+function withField(d: Design, field: Paint): Design {
+  return { v: 2, kind: 'arms', field, groups: d.groups };
 }
 
-function isAllowed<T>(choices: Choice<T>[], v: T): boolean {
-  return choices.some((c) => c.value === v && c.allowed);
+/** A second tincture for a newly divided field: contrasting class, sharing none of the first's tinctures. */
+function partner(first: Paint): Paint {
+  if (first.k === 'tincture') return tincturePaint(!isMetal(first.t) ? 'or' : first.t === 'or' ? 'azure' : 'gules');
+  const { cls, bases } = surfaceOf(first, null);
+  return tincturePaint((cls === 'metal' ? COLOURS : METALS).find((t) => !bases.includes(t)) ?? 'gules');
 }
 
-/** A second tincture for a newly divided field: contrasting class, never equal to the first. */
-function partner(t: Tincture): Tincture {
-  if (!isMetal(t)) return 'or';
-  return t === 'or' ? 'azure' : 'gules';
+/** The background as separate paints to build another from: a variation's two tinctures, or the parts of the field. */
+function backgroundParts(d: Design): Paint[] {
+  const varied = d.kind === 'arms' ? asVariation(d.field) : null;
+  return varied ? varied.parts : fieldParts(d);
 }
 
-export function setPlainField(nd: NormDesign): NormDesign {
-  if (nd.field.kind === 'plain') return nd;
-  return fitCharges({ ...nd, field: { kind: 'plain', tincture: nd.field.tinctures[0] } });
+/** The backgrounds a badge is put on, plainest first: the first one its picture stands out against. */
+const BADGE_BACKGROUNDS: readonly Tincture[] = ['azure', 'gules', 'vert', 'sable', 'purpure', 'argent', 'or'];
+
+/** The design as a fieldless badge: its main picture and what is on it, alone and at its centre; everything that needs a background is dropped. */
+export function setBadge(d: Design): Design {
+  if (d.kind === 'badge') return d;
+  const parts = partsOf(d);
+  const picture = parts.picture;
+  // A badge is one charge, or two long ones crossed, and its picture is its own: no counterchanging, no place on a background or a band.
+  const several = picture && (picture.arrangement.k === 'host' || (picture.count > 1 && picture.arrangement.k !== 'crossed'));
+  const main: Group | null = picture && {
+    ...picture, position: null, paint: picture.paint.k === 'counterchanged' ? tincturePaint('or') : picture.paint,
+    ...(several ? { count: 1, arrangement: { k: 'single' } as const } : {}),
+  };
+  const badge: Design = { v: 2, kind: 'badge', field: null, groups: [] };
+  return refitLayers(assembleParts(badge, { ...partsOf(badge), picture: main, onPicture: main && parts.onPicture }));
 }
 
-export function setDivision(nd: NormDesign, division: Division): NormDesign {
-  const [t1, t2] = fieldTinctures(nd.field);
-  const tinctures: [Tincture, Tincture] = [t1, t2 && t2 !== t1 ? t2 : partner(t1)];
-  return fitCharges({ ...nd, field: { kind: 'divided', division, tinctures } });
+/** A badge's picture on a background it stands out against, for the first click on a background: arms need one. */
+function armsOf(d: Design): Design {
+  const on = (t: Tincture): Design => ({ v: 2, kind: 'arms', field: tincturePaint(t), groups: d.groups });
+  const fits = (t: Tincture) => validate(on(t)).length === 0;
+  return refitLayers(canonical(on(BADGE_BACKGROUNDS.find(fits) ?? BADGE_BACKGROUNDS[0])));
 }
 
-export function setFieldTincture(nd: NormDesign, part: 0 | 1, t: Tincture): NormDesign {
-  const f = nd.field;
-  if (f.kind === 'plain') return { ...nd, field: { kind: 'plain', tincture: t } };
-  const tinctures: [Tincture, Tincture] = part === 0 ? [t, f.tinctures[1]] : [f.tinctures[0], t];
-  return { ...nd, field: { ...f, tinctures } };
+export function setPlainField(d: Design): Design {
+  if (d.kind === 'badge') return armsOf(d);
+  if (d.field.k !== 'divided' && d.field.k !== 'variation') return d;
+  return refitLayers(canonical(withField(d, backgroundParts(d)[0])));
 }
 
-export function setOrdinary(nd: NormDesign, type: OrdinaryType | null): NormDesign {
-  if (!type) return fitCharges({ ...nd, ordinary: null });
-  const choices = ordinaryTinctureChoices(nd, type);
-  const keep = nd.ordinary && isAllowed(choices, nd.ordinary.tincture) ? nd.ordinary.tincture : null;
-  const tincture = keep ?? firstAllowed(choices, nd.ordinary?.tincture ?? 'or');
-  const next: NormDesign = { ...nd, ordinary: { type, tincture } };
-  // Charges on a bordure aren't possible; on any other ordinary, keep them where they were.
-  return fitCharges(next);
+export function setDivision(arms: Design, division: Division): Design {
+  const d = arms.kind === 'badge' ? armsOf(arms) : arms;
+  const [first, kept] = backgroundParts(d);
+  const second = kept && !bodyTinctures(kept).some((t) => bodyTinctures(first).includes(t)) ? kept : partner(first);
+  return refitLayers(canonical(withField(d, { k: 'divided', division, lines: { ...PLAIN_LINES }, pieces: null, parts: [first, second] })));
 }
 
-export function setOrdinaryTincture(nd: NormDesign, t: Tincture): NormDesign {
-  if (!nd.ordinary) return nd;
-  return { ...nd, ordinary: { ...nd.ordinary, tincture: t } };
+/** The tincture that stands for a paint in a variation: its own, or the first of the ones it is made of. */
+const tinctureOf = (p: Paint): Tincture => (p.k === 'tincture' ? p.t : surfaceOf(p, null).bases.find(isTincture) ?? 'gules');
+
+/** The two tinctures of a variation made of these: a metal and a colour, so the second keeps its place only when it is the other class. */
+function contrastingPair(first: Tincture, second: Tincture | null): [Tincture, Tincture] {
+  return [first, second !== null && TINCTURE_CLASS[second] !== TINCTURE_CLASS[first] ? second : tinctureOf(partner(tincturePaint(first)))];
 }
 
-export function setCharge(nd: NormDesign, id: ChargeId | null): NormDesign {
-  if (!id) return { ...nd, charges: null };
-  const meta = CHARGES[id];
-  const g = nd.charges;
-  if (g) {
-    const posture = meta.postures ? (g.posture && meta.postures.includes(g.posture) ? g.posture : meta.defaultPosture) : null;
-    return fitCharges({ ...nd, charges: { ...g, charge: id, posture } });
+/** The background covered in this variation of the tinctures it has, the stripe count kept when the variation is counted. */
+export function setVariation(d: Design, variation: Variation): Design {
+  if (d.kind !== 'arms') return d;
+  const [first, kept] = backgroundParts(d);
+  const [a, b] = contrastingPair(tinctureOf(first), kept ? tinctureOf(kept) : null);
+  return refitLayers(canonical(withField(d, variationPaint(variation, a, b, d.field.k === 'variation' ? d.field.pieces : null))));
+}
+
+/** The stripes of the varied background cut into this many; unchanged when the background is not a variation. */
+export function setVariationPieces(d: Design, pieces: number): Design {
+  const varied = d.kind === 'arms' ? asVariation(d.field) : null;
+  return varied ? refitLayers(canonical(withField(d, variationPaint(varied.variation, varied.parts[0].t, varied.parts[1].t, pieces)))) : d;
+}
+
+/** One tincture of the varied background; the other changes too only when it would no longer be a metal with a colour. */
+export function setVariationTincture(d: Design, part: 0 | 1, t: Tincture): Design {
+  const varied = d.kind === 'arms' ? asVariation(d.field) : null;
+  if (!varied) return d;
+  const [mine, theirs] = contrastingPair(t, varied.parts[part === 0 ? 1 : 0].t);
+  return canonical(withField(d, variationPaint(varied.variation, part === 0 ? mine : theirs, part === 0 ? theirs : mine, varied.pieces)));
+}
+
+export function setFieldTincture(d: Design, part: 0 | 1, t: Tincture): Design {
+  if (d.kind !== 'arms') return d;
+  const f = d.field;
+  if (f.k !== 'divided') return canonical(withField(d, tincturePaint(t)));
+  const parts = f.parts.map((p, i) => (i === part ? tincturePaint(t) : p));
+  return canonical(withField(d, { ...f, parts }));
+}
+
+// ── Ordinary ────────────────────────────────────────────────────────────────
+
+/**
+ * The ordinary replaced (null: removed), the pictures kept where they can be: a picture on a vanished
+ * ordinary goes to the background, extra pictures are dropped. The top band and border, and the pictures in
+ * chief, base or canton, stay when the builder still draws them beside the new ordinary; one of the new
+ * ordinary's own kind gives way to it.
+ */
+function rebuilt(d: Design, ordinary: Group | null): Design {
+  const parts = partsOf(d);
+  const type = ordinary?.item.k === 'ordinary' ? ordinary.item.type : null;
+  const assemble = (peripherals: readonly Group[], positioned: Group | null) => refitLayers(assembleParts(d, { ...parts, ordinary, peripherals, positioned }));
+  const beside = parts.peripherals.filter((g) => g.item.k !== 'ordinary' || g.item.type !== type);
+  // Dropped only when they are what the builder can't draw beside the new ordinary (the pictures beside it first); a design that is unsupported either way keeps them.
+  let first: Design | null = null;
+  for (const peripherals of parts.peripherals.length > 0 ? [beside, []] : [beside]) {
+    for (const positioned of parts.positioned ? [parts.positioned, null] : [null]) {
+      const tried = assemble(peripherals, positioned);
+      if (isSupported(tried)) return tried;
+      first ??= tried;
+    }
   }
-  const placed = fitCharges({
-    ...nd,
-    charges: { charge: id, count: 1, placement: 'field', arrangement: 'single', posture: meta.defaultPosture, tincture: 'or' },
-  });
-  const tincture = firstAllowed(chargeTinctureChoices(placed), 'or');
-  return { ...placed, charges: { ...placed.charges!, tincture } };
+  return first!;
 }
 
-/** The design a count or placement choice leads to; a blocked (or unknown) one changes nothing. */
-function chosenDesign<T>(nd: NormDesign, choices: LayoutChoice<T>[], value: T): NormDesign {
-  const c = choices.find((x) => x.value === value);
-  return c?.allowed ? c.design : nd;
+export function setOrdinary(d: Design, type: OrdinaryType | null): Design {
+  if (!type) return rebuilt(d, null);
+  const previous = simpleParts(d).ordinary?.group.paint;
+  const kept = previous && groupTinctureOf(previous);
+  const placed = rebuilt(d, ordinaryGroup(type, kept ?? 'or'));
+  const path = ordinaryPath(placed)!;
+  const choices = groupTinctureChoices(placed, path);
+  const tincture = kept && isAllowed(choices, kept) ? kept : firstAllowed(choices, kept ?? 'or');
+  return tincture === kept ? placed : setGroupTincture(placed, path, tincture);
 }
 
-/** A new count, bringing the placement along when only the other placement takes it (see countChoices). */
-export function setCount(nd: NormDesign, count: Count): NormDesign {
-  return chosenDesign(nd, countChoices(nd), count);
+export function setOrdinaryTincture(d: Design, t: GroupTincture): Design {
+  const path = ordinaryPath(d);
+  return path ? setGroupTincture(d, path, t) : d;
 }
 
-/** A new placement, bringing the nearest count it takes along when the current one doesn't fit (see placementChoices). */
-export function setPlacement(nd: NormDesign, placement: Placement): NormDesign {
-  return chosenDesign(nd, placementChoices(nd), placement);
+// ── Pictures ────────────────────────────────────────────────────────────────
+
+/** The picture at `path` painted with the first tincture that works there (Or when none does), as a new picture should be. */
+function withStartingTincture(d: Design, path: GroupPath): Design {
+  return withTincture(d, path, firstAllowed(groupTinctureChoices(d, path), 'or'));
 }
 
-/** Whether the charges break the rule of tincture where they lie (the ordinary's own colour aside). */
-export function chargesClash(nd: NormDesign): boolean {
-  return tinctureIssues(nd).some((i) => i.layer === 'charges');
+/**
+ * The picture ('picture'), the pictures on the band ('on-ordinary') or the pictures on a top band or border ('on-chief', 'on-bordure') as this charge; null removes it. A new
+ * picture starts as a single charge on the background in the first tincture that works; a swapped one
+ * keeps its count, layout and tincture where they still work. Removing the picture promotes the
+ * pictures on the band, else the pictures around it, to the picture.
+ */
+export function setCharge(d: Design, at: 'picture' | PicturesKey, id: ChargeId | null): Design {
+  if (at !== 'picture') {
+    if (!id) return removeLayer(d, at);
+    return pathOfPlace(d, at) ? setLayerCharge(d, at, id) : setLayerCharge(addLayer(d, at), at, id);
+  }
+  const parts = partsOf(d);
+  if (!id) return refitLayers(assembleParts(d, { ...parts, picture: parts.onOrdinary ?? parts.around ?? parts.coPrimary, placement: parts.onOrdinary ? 'ordinary' : 'field', onOrdinary: null, around: null, coPrimary: null }));
+  if (parts.picture) return swapPicture(d, id);
+  // A new picture goes on the background, or onto the band when pictures already stand beside it in chief, base or canton (one secondary group).
+  const onField = refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'field', onOrdinary: null }));
+  const placed = isSupported(onField) || !parts.ordinary ? onField : refitLayers(assembleParts(d, { ...parts, picture: newCharge(id, 'primary'), placement: 'ordinary', onOrdinary: null }));
+  return canonical(withStartingTincture(placed, picturePath(placed)!));
 }
 
-const colourWord = (t: Tincture) => TINCTURE_LABEL[t].plain.toLowerCase();
+function swapPicture(d: Design, id: ChargeId): Design {
+  const parts = partsOf(d);
+  if (!parts.picture) return d;
+  const item = chargeItem(id, parts.picture);
+  // The pictures on the picture go with it unless the new one has no room for them.
+  const carries = item.k === 'charge' && chargeOnBox(id, item.posture) !== null && item.mods.length === 0;
+  return refitLayers(assembleParts(d, { ...parts, picture: { ...parts.picture, item }, onPicture: carries ? parts.onPicture : null }));
+}
+
+export function setLayout(d: Design, path: GroupPath, key: LayoutKey): Design {
+  return withLayout(d, path, key);
+}
+
+function withItem(d: Design, path: GroupPath, change: (item: Extract<Group['item'], { k: 'charge' }>) => Extract<Group['item'], { k: 'charge' }>): Design {
+  const g = groupAt(d, path);
+  if (g.item.k !== 'charge') return d;
+  const item = change(g.item);
+  return canonical(replaceGroup(d, path, { ...g, item }));
+}
+
+/** The charge at `path` in a posture; the pictures on it are refitted to the room its new drawing leaves them. */
+export function setPosture(d: Design, path: GroupPath, posture: Posture): Design {
+  return refitLayers(withItem(d, path, (item) => ({ ...item, posture })));
+}
+
+export function setModifier(d: Design, path: GroupPath, id: ModifierId, on: boolean): Design {
+  const changed = withItem(d, path, (item) => ({
+    ...item, mods: on ? [...item.mods.filter((m) => m.id !== id), { id, count: null, paint: null }] : item.mods.filter((m) => m.id !== id),
+  }));
+  // A picture drawn with a modifier has no room for pictures on it (its drawing is changed): they are dropped.
+  const parts = partsOf(changed);
+  return parts.onPicture && parts.picture?.item.k === 'charge' && parts.picture.item.mods.length > 0
+    ? refitLayers(assembleParts(changed, { ...parts, onPicture: null }))
+    : changed;
+}
+
+export function setGroupTincture(d: Design, path: GroupPath, t: GroupTincture): Design {
+  return canonical(withTincture(d, path, t));
+}
+
+// ── Notes about count and placement changes ─────────────────────────────────
+
+/** Whether the group's tinctures break the rule of tincture where it lies. */
+export function chargesClash(d: Design, path: GroupPath): boolean {
+  return groupTinctureIssues(d, path).length > 0;
+}
+
+const colourWord = (t: GroupTincture) => TINCTURE_LABEL[t].plain.toLowerCase();
 
 /** What clashing charges lie on, in plain words: "red cross", "gold background", "gold part of the background". */
-function clashGround(nd: ChargedDesign, t: Tincture): string {
-  const o = nd.ordinary;
-  if (o && chargeContext(o, nd.charges.placement) === 'on') return `${colourWord(o.tincture)} ${ORDINARY_LABEL[o.type].plain.toLowerCase()}`;
+function clashGround(d: Design, path: GroupPath, t: Tincture): string {
+  const host = hostOf(d, path);
+  if (host?.item.k === 'ordinary') {
+    const paint = groupTinctureOf(host.paint);
+    return `${paint ? colourWord(paint) : asParty(host.paint) ? 'split-colour' : 'swapped-colour'} ${ORDINARY_LABEL[host.item.type].plain.toLowerCase()}`;
+  }
   // The look-alike tinctures under the failing charges: the ones they don't stand out against.
-  const alike = chargeSlotContacts(nd)
-    .filter((cs) => contrastFailure(t, cs))
-    .flatMap((cs) => cs.filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[t]));
+  const alike = groundShares(d, path)
+    .filter((ground) => groundFailure(tinctureSurface(t), ground))
+    .flatMap((ground) => groundTinctures(ground).filter((c) => TINCTURE_CLASS[c] === TINCTURE_CLASS[t]));
   const words = [...new Set(alike)].map(colourWord);
-  if (nd.field.kind === 'plain') return `${words[0]} background`;
+  if (d.kind === 'arms' && (d.field.k === 'tincture' || d.field.k === 'semy')) return `${words[0]} background`;
   return words.length === 1 ? `${words[0]} part of the background` : `${words.join(' and ')} parts of the background`;
 }
 
+/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border". */
+export function placementLabel(d: Design, placement: Placement): string {
+  const o = simpleParts(d).ordinary?.group.item;
+  const name = (type: OrdinaryType) => ORDINARY_LABEL[type].plain.toLowerCase();
+  const ordinary = o?.k === 'ordinary' ? o.type : null;
+  if (placement === 'ordinary') return ordinary ? `On the ${name(ordinary)}` : 'On the band or shape';
+  if (!ordinary) return 'On the background';
+  if (ordinary === 'chief') return 'Below the top bar';
+  if (ordinary === 'bordure') return 'Within the border';
+  return ORDINARY_KIND[ordinary] === 'central' ? `Around the ${name(ordinary)}` : 'On the background';
+}
+
+const countText = (n: number) => (n === 1 ? 'one' : numberWord(n));
+
 /** The layout change itself: "Moves the lions around the cross" / "Changed to four lions". */
-function companionChange(next: ChargedDesign, companion: Companion, tense: 'offered' | 'done', noun: string): string {
-  if (companion.kind === 'count') return `${tense === 'offered' ? 'Changes' : 'Changed'} to ${NUMBER_WORD[next.charges.count]} ${noun}`;
+function companionChange(next: Design, companion: Companion, tense: 'offered' | 'done', noun: string, count: number): string {
+  if (companion.kind === 'count') return `${tense === 'offered' ? 'Changes' : 'Changed'} to ${countText(count)} ${noun}`;
   // "On the cross" → "onto the cross"; "Around the cross" → "around the cross".
   const label = placementLabel(next, companion.placement);
   const where = companion.placement === 'ordinary' ? label.replace(/^On /, 'onto ') : `${label.charAt(0).toLowerCase()}${label.slice(1)}`;
@@ -124,40 +283,26 @@ function companionChange(next: ChargedDesign, companion: Companion, tense: 'offe
 /**
  * What else a count or placement choice changes, in words, for the design it leads to: offered
  * ("Moves the lions around the cross", "Changes to four lions") or done ("Moved…", "Changed…").
- * Only the layout moves, never a colour, so when the charges' colour then breaks the rule the note
+ * Only the layout moves, never a colour, so when the picture's colour then breaks the rule the note
  * says so: "…; the gold lions would then need a new colour" / "… The gold lions don't stand out on
  * the gold background — pick a new colour below."
  */
-export function companionNote(next: ChargedDesign, companion: Companion, tense: 'offered' | 'done'): string {
-  const g = next.charges;
-  const meta = CHARGES[g.charge];
+export function companionNote(next: Design, companion: Companion, tense: 'offered' | 'done'): string {
+  const path = picturePath(next);
+  const g = path && groupAt(next, path);
+  if (!path || !g || g.item.k !== 'charge') throw new RangeError('A companion note needs a picture.');
+  const meta = CHARGES[g.item.charge];
   const noun = g.count === 1 ? meta.glossName : meta.glossPlural;
-  const change = companionChange(next, companion, tense, noun);
-  if (!chargesClash(next)) return tense === 'offered' ? change : `${change}.`;
-  const subject = g.tincture === 'counterchanged' ? `the ${noun}` : `the ${colourWord(g.tincture)} ${noun}`;
+  const change = companionChange(next, companion, tense, noun, g.count);
+  if (!chargesClash(next, path)) return tense === 'offered' ? change : `${change}.`;
+  const paint = groupTinctureOf(g.paint);
+  const plainPaint = paint && paint !== 'counterchanged' ? paint : null;
+  const subject = plainPaint ? `the ${colourWord(plainPaint)} ${noun}` : `the ${noun}`;
   if (tense === 'offered') return `${change}; ${subject} would then need a new colour`;
-  const why = g.tincture === 'counterchanged'
-    ? `can't take swapped colours there`
-    : `${g.count === 1 ? "doesn't" : "don't"} stand out on the ${clashGround(next, g.tincture)}`;
+  const why = plainPaint
+    ? `${g.count === 1 ? "doesn't" : "don't"} stand out on the ${clashGround(next, path, plainPaint)}`
+    : "can't take swapped colours there";
   return `${change}. ${capitalise(subject)} ${why} — pick a new colour below.`;
-}
-
-export function setArrangement(nd: NormDesign, arrangement: Arrangement): NormDesign {
-  const g = nd.charges;
-  if (!g) return nd;
-  return { ...nd, charges: { ...g, arrangement } };
-}
-
-export function setPosture(nd: NormDesign, posture: Posture): NormDesign {
-  const g = nd.charges;
-  if (!g) return nd;
-  return { ...nd, charges: { ...g, posture } };
-}
-
-export function setChargeTincture(nd: NormDesign, t: ChargeTincture): NormDesign {
-  const g = nd.charges;
-  if (!g) return nd;
-  return { ...nd, charges: { ...g, tincture: t } };
 }
 
 // ── Status ──────────────────────────────────────────────────────────────────
@@ -172,12 +317,22 @@ export interface DesignReport {
   hint: string | null;
 }
 
-export function assess(nd: NormDesign): DesignReport {
-  const issues = [...structuralIssues(nd), ...tinctureIssues(nd)];
+export function assess(d: Design): DesignReport {
+  const issues = [...structuralIssues(d), ...tinctureIssues(d)];
   const problems = issues.filter((i) => i.code !== 'generic');
   const generic = issues.find((i) => i.code === 'generic');
   const status: DesignStatus = problems.length ? 'violation' : generic ? 'incomplete' : 'valid';
-  return { status, problems, hint: generic ? 'Add a band or shape, or a picture — a plain background alone is too generic to register.' : null };
+  const hint = d.kind === 'badge' ? 'Add a picture — a badge is made of its picture alone.' : 'Add a band or shape, or a picture — a plain background alone is too generic to register.';
+  return { status, problems, hint: generic ? hint : null };
+}
+
+/** The step an issue belongs to: the background, or the place of the group it is about (the picture, when that is all the group is). */
+export function issueStep(d: Design, issue: Issue): StepKey {
+  if (issue.at.k === 'field') return 'field';
+  if (issue.at.k === 'design') return 'picture';
+  const place = placeOfPath(d, issue.at.path);
+  // Pictures set only on the band are the picture step's own.
+  return !place || (place === 'on-ordinary' && simpleParts(d).onOrdinary === null) ? 'picture' : place;
 }
 
 /**
@@ -194,26 +349,7 @@ export function fixText(label: string): string {
   return `Fix: ${label.charAt(0).toLowerCase()}${label.slice(1)}`;
 }
 
-export const LAYER_LABEL: Record<Issue['layer'], string> = {
-  design: 'Design', field: 'Background', ordinary: 'Band or shape', charges: 'Picture',
-};
-
-/** "On the background" / "On the vertical band" / "Around the vertical band" / "Below the top bar" / "Within the border". */
-export function placementLabel(nd: NormDesign, placement: Placement): string {
-  const o = nd.ordinary;
-  const name = (type: OrdinaryType) => ORDINARY_LABEL[type].plain.toLowerCase();
-  if (placement === 'ordinary') return o && o.type !== 'bordure' ? `On the ${name(o.type)}` : 'On the band or shape';
-  switch (chargeContext(o, 'field')) {
-    case 'between': return `Around the ${name(o!.type)}`;
-    case 'chief': return 'Below the top bar';
-    case 'bordure': return 'Within the border';
-    default: return 'On the background';
-  }
-}
-
-export function sameDesign(a: NormDesign, b: NormDesign): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
+export const sameDesign = (a: Design, b: Design): boolean => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 
 export function sameShapedDesign(a: ShapedDesign, b: ShapedDesign): boolean {
   return a.shape === b.shape && sameDesign(a.design, b.design);
@@ -231,7 +367,8 @@ export function isUntouched(d: ShapedDesign): boolean {
  */
 export type Replacement =
   | { kind: 'replaced'; previous: ShapedDesign; replacement: ShapedDesign }
-  | { kind: 'adjusted'; previous: ShapedDesign; replacement: ShapedDesign; note: string };
+  | { kind: 'adjusted'; previous: ShapedDesign; replacement: ShapedDesign; note: string }
+  | { kind: 'badge'; previous: ShapedDesign; replacement: ShapedDesign; note: string };
 
 /** What replacing `current` with `next` would lose: null when current is untouched or identical to next. */
 export function replaceDesign(current: ShapedDesign, next: ShapedDesign): Replacement | null {
@@ -239,12 +376,23 @@ export function replaceDesign(current: ShapedDesign, next: ShapedDesign): Replac
 }
 
 /** A count or placement choice applied with its companion change, kept so it can be undone. */
-export function adjustDesign(current: ShapedDesign, next: ChargedDesign, companion: Companion): Replacement {
+export function adjustDesign(current: ShapedDesign, next: Design, companion: Companion): Replacement {
   return { kind: 'adjusted', previous: current, replacement: { shape: current.shape, design: next }, note: companionNote(next, companion, 'done') };
+}
+
+/** How many charges and bands a design draws, counting each of a group's and those on them. */
+const piecesOf = (groups: readonly Group[]): number => groups.reduce((n, g) => n + g.count + piecesOf(g.charged), 0);
+
+/** The design made a badge, kept so it can be undone; null when there was nothing to lose (the starting design). */
+export function badgeDesign(current: ShapedDesign, next: Design): Replacement | null {
+  if (isUntouched(current) || sameDesign(current.design, next)) return null;
+  const note = piecesOf(next.groups) < piecesOf(current.design.groups)
+    ? 'Made a badge: a badge is its picture alone, so the background and everything else are left out.'
+    : 'Made a badge: a badge has no background.';
+  return { kind: 'badge', previous: current, replacement: { shape: current.shape, design: next }, note };
 }
 
 /** Undo stays on offer only until the replacement is edited; undoing then would throw that work away too. */
 export function undoStillOffered(r: Replacement, now: ShapedDesign): boolean {
   return sameShapedDesign(r.replacement, now);
 }
-

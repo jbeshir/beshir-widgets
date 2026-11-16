@@ -14,5 +14,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["src", "test/store.test.ts", "test/builder.test.ts"]
+  "include": ["src", "test/builder.test.ts", "test/shield.test.ts", "test/builder-controls-reach-every-legal-design.test.ts", "test/store.test.ts", "test/search.test.ts", "test/presets.test.ts", "test/celestine.test.ts", "test/builder-steps.test.ts", "test/helpers.ts", "test/sample-search-entries.ts"]
 }
