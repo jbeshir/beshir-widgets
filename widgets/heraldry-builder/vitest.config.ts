@@ -65,6 +65,10 @@ export default defineConfig({
           exclude: [...WORKER_TESTS, SCA_TEST],
           environment: 'node',
           isolate: false,
+          // Files share a fork's geometry and layout caches, so whichever test first fills a cache pays for it — a few
+          // seconds alone, past vitest's 5s default under CI's parallel load. A project-wide ceiling keeps that from
+          // depending on test order; the long sweeps still set their own larger timeouts.
+          testTimeout: 30_000,
         },
       },
       {
