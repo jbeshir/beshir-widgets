@@ -30,7 +30,6 @@ export const EXAMPLE_DESIGNS: readonly ExampleDesign[] = [
   example('white-star-on-red', 'White star on red', 'round', single('gules', 'mullet', 'argent')),
   example('gold-sun-on-black', 'Gold sun on black', 'lozenge', single('sable', 'sun', 'or')),
   example('gold-eagle-on-green', 'Gold eagle on green', 'banner', single('vert', 'eagle', 'or')),
-  example('sky-blue-crescent-on-black', 'Sky-blue moon on black', 'heater', single('sable', 'crescent', 'celestine')),
   example('swapped-star-on-gold-and-blue', 'Star with swapped colours on a gold-and-blue split', 'heater', {
     v: 2, field: { k: 'divided', division: 'per-pale', parts: ['or', 'azure'] },
     groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'counterchanged' }],

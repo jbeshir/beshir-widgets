@@ -78,7 +78,7 @@ function parsePieces(v: unknown, at: IssueAt, E: Errors): number | null | undefi
 }
 
 function parseTincture(v: unknown, what: string, at: IssueAt, E: Errors) {
-  return isTincture(v) ? v : E.add(at, `${capitalise(what)} needs one of the eight tinctures.`);
+  return isTincture(v) ? v : E.add(at, `${capitalise(what)} needs one of the seven tinctures.`);
 }
 
 /** `inField` paints (the field and its parts) can't be counterchanged or proper. */

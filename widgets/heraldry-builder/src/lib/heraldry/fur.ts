@@ -2,7 +2,7 @@
 // "vairy Or and gules" are a fur plus two colours; a fur whose colours are its own ("ermine" is argent with sable
 // spots) carries none, so equal furs have equal JSON.
 
-import { FURS, FUR_NAME, FUR_SPEC, TINCTURES, TINCTURE_GLOSS, isFur, tinctureWord, type Fur, type FurSpec, type Tincture } from './tinctures';
+import { FURS, FUR_NAME, FUR_SPEC, TINCTURES, TINCTURE_WORD, isFur, tinctureWord, type Fur, type FurSpec, type Tincture } from './tinctures';
 import type { Paint } from './design';
 
 export type FurPaint = Extract<Paint, { k: 'fur' }>;
@@ -51,7 +51,7 @@ export function furName(p: FurPaint): string {
 
 /** A fur in plain words, its look in brackets: "ermine (white with black spots)", "vair (rows of white and blue bells)". */
 export function furGloss(p: FurPaint): string {
-  const [a, b] = furColours(p).map((t) => TINCTURE_GLOSS[t]);
+  const [a, b] = furColours(p).map((t) => TINCTURE_WORD[t]);
   const { family } = FUR_SPEC[p.fur];
   const look = family === 'ermine' ? `${a} with ${b} spots` : family === 'vair' ? `rows of ${a} and ${b} bells` : `${a} and ${b} crutch-heads fitted together`;
   return `${furName(p)} (${look})`;

@@ -432,7 +432,7 @@ describe('builder transitions', () => {
     expect(blazon(setHold(sustained, [0], 'key'))).toBe('Azure, a lion Or sustaining a key argent.');
     expect(blazon(setHold(holding, [0], 'sword', 'maintaining', tincturePaint('or')))).toBe('Azure, a lion maintaining a sword Or.');
     expect(setHold(holding, [0], null)).toEqual(lion);
-    expect(heldTinctureChoices(holding, [0]).filter((c) => c.allowed).map((c) => c.value)).toEqual(['or', 'argent', 'celestine']);
+    expect(heldTinctureChoices(holding, [0]).filter((c) => c.allowed).map((c) => c.value)).toEqual(['or', 'argent']);
     expect(heldTinctureChoices(lion, [0])).toEqual([]);
     // natural colours for an item that has them, blocked where they wouldn't stand out (D16b); kept for another item only if it has them too
     expect(heldProperChoice(holding, [0])).toEqual({ value: 'proper', allowed: true });

@@ -1,12 +1,11 @@
 // Radio group of the tinctures, metals and colours grouped. Choices that would break the
 // rule of tincture (or a divided field's "two different tinctures") stay visible but blocked:
 // lock glyph + strike, aria-disabled, data-blocked; activating one opens the explainer instead.
-// A non-standard tincture (celestine) says so on its swatch and in its accessible name. The charge
-// picker also offers "counterchanged" on a divided field, in a group of its own after the colours.
+// The charge picker also offers "counterchanged" on a divided field, in a group of its own after the colours.
 
 import { useRef } from 'preact/hooks';
 import {
-  GROUP_TINCTURES, COLOURS, METALS, NON_STANDARD_TINCTURES, TINCTURE_FILL, TINCTURE_LABEL, plainFirst,
+  GROUP_TINCTURES, COLOURS, METALS, TINCTURE_FILL, TINCTURE_LABEL, plainFirst,
   type Choice, type GroupTincture,
 } from '../../lib/heraldry';
 import { LockGlyph, useExplainer } from './Explainer';
@@ -52,7 +51,6 @@ export function TincturePicker<T extends GroupTincture>({ group, legend, choices
   const offered = (ts: readonly GroupTincture[]) => ts.filter((t): t is T => byValue.has(t));
   const legendId = `tl-${group}`;
   const anyBlocked = choices.some((c) => !c.allowed);
-  const isNonStandard = (t: GroupTincture) => t !== 'counterchanged' && NON_STANDARD_TINCTURES.has(t);
   const nameOf = (t: GroupTincture) => TINCTURE_LABEL[t].plain;
   // The one swatch Tab lands on: the chosen one, or (when the paint is something else, a fur or a split) the first allowed.
   const tabStop = value !== null && byValue.has(value) ? value : (order.find((t) => byValue.get(t)?.allowed) ?? order[0]);
@@ -95,7 +93,6 @@ export function TincturePicker<T extends GroupTincture>({ group, legend, choices
     // A checked swatch that is also blocked is the cause of a violation, not a disabled option.
     const conflicts = blocked && checked;
     const whyId = `why-${group}-${t}`;
-    const nonStandard = isNonStandard(t);
     // The testid sits on a role-less wrapper box: test drivers (Playwright) refuse to click an
     // aria-disabled control, but a blocked swatch must stay clickable so it can explain itself.
     return (
@@ -107,7 +104,7 @@ export function TincturePicker<T extends GroupTincture>({ group, legend, choices
         class={`swatch${checked ? ' is-checked' : ''}${blocked ? ' is-blocked' : ''}`}
         aria-checked={checked ? 'true' : 'false'}
         aria-disabled={blocked && !checked ? 'true' : undefined}
-        aria-label={`${nameOf(t)} (${TINCTURE_LABEL[t].term})${nonStandard ? ', non-standard' : ''}${conflicts ? ', selected, conflicts with the design' : blocked ? ', not allowed here' : ''}`}
+        aria-label={`${nameOf(t)} (${TINCTURE_LABEL[t].term})${conflicts ? ', selected, conflicts with the design' : blocked ? ', not allowed here' : ''}`}
         aria-describedby={blocked ? whyId : undefined}
         data-blocked={blocked ? 'true' : undefined}
         data-tincture={t}
@@ -121,7 +118,6 @@ export function TincturePicker<T extends GroupTincture>({ group, legend, choices
         <span class="swatch-text" aria-hidden="true">
           <span class="swatch-name">{nameOf(t)}</span>
           <span class="swatch-word">{TINCTURE_LABEL[t].term}</span>
-          {nonStandard && <span class="swatch-flag">Non-standard</span>}
         </span>
       </button>
       {c && !c.allowed && <span class="sr-only" id={whyId}>{c.reason}</span>}

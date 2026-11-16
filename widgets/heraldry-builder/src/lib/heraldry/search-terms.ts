@@ -11,24 +11,14 @@ import { gloss } from './gloss';
 import { ORDINARY_NAME, ORDINARY_TYPES } from './ordinaries';
 import { LINE_SPELLINGS, LINE_WORD, LINES, type ComplexLine } from './lines';
 
-/**
- * "sky blue" is one colour word, not "blue" with a modifier: closed up into a single word so that a
- * search for plain "blue" (Azure) doesn't also find celestine, while "sky blue" still does.
- */
-function closeUp(text: string): string {
-  return text.replace(/\bsky blue\b/g, 'skyblue');
-}
-
 /** Lowercase words separated by single spaces: accents and punctuation (hyphens included) removed. */
 export function normaliseWords(s: string): string {
-  return closeUp(
-    s
-      .normalize('NFKD')
-      .replace(/\p{M}+/gu, '')
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, ' ')
-      .trim(),
-  );
+  return s
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
 }
 
 /**
@@ -83,11 +73,11 @@ type Alias = readonly [keys: readonly string[], terms: readonly string[]];
 // Tinctures: the blazon name, the plain colour word the gloss uses and everyday alternatives are
 // interchangeable ("yellow" finds Or, "Or" finds gold). "Or" is a colour here, never the English word.
 const TINCTURE_ALIASES: Record<Tincture, readonly string[]> = {
-  or: ['yellow'], argent: ['silver'], celestine: ['cyan', 'light blue', 'turquoise'],
+  or: ['yellow'], argent: ['silver'],
   azure: [], gules: [], vert: [], sable: [], purpure: ['violet'],
 };
 const tinctureAliases: Alias[] = TINCTURES.map((t) => {
-  const names = [TINCTURE_NAME[t].toLowerCase(), TINCTURE_WORD[t], ...TINCTURE_ALIASES[t]].map(closeUp);
+  const names = [TINCTURE_NAME[t].toLowerCase(), TINCTURE_WORD[t], ...TINCTURE_ALIASES[t]];
   return [names, names];
 });
 
@@ -185,7 +175,7 @@ const MAX_PHRASE_WORDS = Math.max(...[...SYNONYMS.keys()].map((k) => k.split(' '
 
 /**
  * Turn a typed query into words to AND together. Stopwords are dropped, plurals reduced to the
- * singular, multi-word keys ("sky blue", "fleurs-de-lis") read as one word, and each word is
+ * singular, multi-word keys ("cross shaped", "fleurs-de-lis") read as one word, and each word is
  * expanded to everything it can stand for. A query with no searchable word yields [].
  */
 export function queryWords(q: string): SearchWord[] {

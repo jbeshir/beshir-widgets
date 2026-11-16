@@ -39,7 +39,7 @@ describe('query words', () => {
   it('expands everyday words to the blazon term, and the term to the everyday word', () => {
     const cases: Array<[string, string]> = [
       ['yellow', 'or'], ['gold', 'or'], ['white', 'argent'], ['silver', 'argent'], ['red', 'gules'], ['blue', 'azure'],
-      ['green', 'vert'], ['black', 'sable'], ['purple', 'purpure'], ['cyan', 'celestine'], ['sky blue', 'celestine'],
+      ['green', 'vert'], ['black', 'sable'], ['purple', 'purpure'],
       ['star', 'mullet'], ['border', 'bordure'], ['stripe', 'fess'], ['x', 'saltire'], ['moon', 'crescent'], ['fire', 'flame'],
       ['cog', 'cogwheel'], ['gear', 'cogwheel'], ['dog', 'wolf'], ['rabbit', 'hare'], ['bird', 'eagle'], ['animal', 'lion'],
       ['lily', 'fleur de lys'], ['Gules', 'red'], ['Or', 'gold'],

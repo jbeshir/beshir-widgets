@@ -257,16 +257,6 @@
       "expect": {"selector":"[data-testid=shape-lozenge] [role=radio][aria-checked=true]"}
     },
     {
-      "label": "celestine-selected",
-      "steps": [
-        {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},
-        {"click":"[data-testid=ordinary-bend]"},
-        {"click":"[data-testid=swatch-ordinary-celestine]"},
-        {"waitFor":"[data-testid=swatch-ordinary-celestine] [role=radio][aria-checked=true]"}
-      ],
-      "expect": {"selector":"[data-testid=swatch-ordinary-celestine] [role=radio][aria-checked=true]"}
-    },
-    {
       "label": "counterchanged-design",
       "steps": [
         {"eval":"document.querySelectorAll('[data-testid$=-toggle][aria-expanded=false]').forEach((b) => b.click())"},

@@ -337,7 +337,7 @@ export function DesignTab(p: Props) {
       <div class="design-builder">
         <h2 class="sr-only">Build your arms</h2>
         <p class="rule-intro" data-testid="rule-intro">
-          The one rule (the rule of tincture): gold, white and sky blue (the metals) go on colours, and colours go on metals — never colour on colour or metal on metal. Locked choices would break it; tap one to see why.
+          The one rule (the rule of tincture): gold and white (the metals) go on colours, and colours go on metals — never colour on colour or metal on metal. Locked choices would break it; tap one to see why.
         </p>
         <FieldStep design={design} shape={shape} onChange={p.onChange} onBadge={p.onBadge} notice={p.badgeNotice} issues={stepIssues('field')} accordion={accordion('field')} />
         {design.kind === 'arms' && <OrdinaryStep design={design} shape={shape} onChange={p.onChange} issues={stepIssues('ordinary')} accordion={accordion('ordinary')} />}

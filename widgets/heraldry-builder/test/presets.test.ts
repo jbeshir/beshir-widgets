@@ -41,9 +41,8 @@ describe('example designs', () => {
     }
   });
 
-  it('vary in shape, include a celestine and a counterchanged design', () => {
+  it('vary in shape and include a counterchanged design', () => {
     expect(new Set(EXAMPLE_DESIGNS.map((p) => p.shape)).size).toBeGreaterThanOrEqual(3);
-    expect(EXAMPLE_DESIGNS.some((p) => JSON.stringify(p.design).includes('"celestine"'))).toBe(true);
     expect(EXAMPLE_DESIGNS.some((p) => walkGroups(p.design).some(({ group }) => group.paint.k === 'counterchanged'))).toBe(true);
   });
 });

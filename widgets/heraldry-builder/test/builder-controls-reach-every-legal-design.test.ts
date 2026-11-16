@@ -172,10 +172,10 @@ function legalTriples(b: Base): Triple[] {
 
 // ── The sweep ───────────────────────────────────────────────────────────────
 
-// Three plain fields (a metal, a colour, celestine) and every division in metal/colour, colour/metal, colour/colour and
+// Two plain fields (a metal and a colour) and every division in metal/colour, colour/metal, colour/colour and
 // metal/metal pairs; no ordinary, or each of the ten in argent and gules.
 const FIELDS: Array<{ field: unknown; division: string }> = [
-  ...['or', 'azure', 'celestine'].map((t) => ({ field: t, division: 'plain' })),
+  ...['or', 'azure'].map((t) => ({ field: t, division: 'plain' })),
   ...BUILDER_DIVISIONS.flatMap((division) => [['or', 'azure'], ['gules', 'argent'], ['azure', 'vert'], ['or', 'argent']]
     .map((parts) => ({ field: { k: 'divided', division, parts }, division }))),
 ];

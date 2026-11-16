@@ -101,11 +101,6 @@ describe('readability bands', () => {
     expect(label(legal('azure', chg('mullet', 'or')))).toBe('Plain background');
   });
 
-  it('treats celestine as a metal', () => {
-    expect(points(nd(arms(div('per-pale', 'celestine', 'argent'), chg('mullet', 'gules'))), 'touching')).toBeGreaterThan(0);
-    expect(points(legal(div('per-pale', 'celestine', 'sable'), chg('mullet', 'or')), 'touching')).toBe(0);
-  });
-
   it('names its factors without heraldic jargon', () => {
     const d = legal('azure', ord('fess', 'or', { charged: [chg('mullet', 'gules', { count: 3 })] }));
     const labels = readability(d).breakdown.map((b) => b.label).join(' | ');

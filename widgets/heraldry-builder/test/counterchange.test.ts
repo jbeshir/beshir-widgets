@@ -14,7 +14,7 @@ const ord = (type: string, paint: string, extra: object = {}) => group(ordinary(
 const mullets = (field: unknown, count = 3) => nd(arms(field, chg('mullet', 'counterchanged', { count })));
 
 describe('counterchanged and the rule of tincture', () => {
-  it('is legal on every division exactly when one field tincture is a metal and the other a colour (celestine included)', () => {
+  it('is legal on every division exactly when one field tincture is a metal and the other a colour', () => {
     let legal = 0, illegal = 0;
     for (const division of BUILDER_DIVISIONS) {
       for (const t1 of TINCTURES) {
@@ -27,8 +27,8 @@ describe('counterchanged and the rule of tincture', () => {
         }
       }
     }
-    // 3 metals × 5 colours × 2 orders = 30 legal pairs per division; 3·2 + 5·4 = 26 same-class pairs.
-    expect([legal, illegal]).toEqual([30 * BUILDER_DIVISIONS.length, 26 * BUILDER_DIVISIONS.length]);
+    // 2 metals × 5 colours × 2 orders = 20 legal pairs per division; 2·1 + 5·4 = 22 same-class pairs.
+    expect([legal, illegal]).toEqual([20 * BUILDER_DIVISIONS.length, 22 * BUILDER_DIVISIONS.length]);
   });
 
   it('is legal on the divisions behind "More divisions" by the same test; a gyronny takes a single charge, or one to each gyron in annulo', () => {
@@ -52,8 +52,6 @@ describe('counterchanged and the rule of tincture', () => {
     const hint = '(counterchanging needs a field of one metal and one colour)';
     expect(tinctureIssues(mullets(div('per-pale', 'or', 'argent'))).map((i) => i.message))
       .toEqual([`Counterchanged mullets on Or and Argent: metal on metal ${hint}`]);
-    expect(tinctureIssues(mullets(div('quarterly', 'celestine', 'or'))).map((i) => i.message))
-      .toEqual([`Counterchanged mullets on Celestine and Or: metal on metal ${hint}`]);
     expect(tinctureIssues(mullets(div('per-bend', 'azure', 'vert'), 1)).map((i) => i.message))
       .toEqual([`Counterchanged mullet on Azure and Vert: colour on colour ${hint}`]);
   });
