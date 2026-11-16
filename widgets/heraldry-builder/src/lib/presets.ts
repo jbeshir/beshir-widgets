@@ -21,27 +21,44 @@ function example(id: string, caption: string, shape: FieldShape, input: unknown)
 }
 
 /** Arms of one plain-coloured picture on a plain field. */
-const single = (field: string, charge: string, tincture: string) => ({
-  v: 2, field, groups: [{ item: { k: 'charge', charge }, paint: tincture }],
+const single = (field: string, charge: string, tincture: string, extra: object = {}) => ({
+  v: 2, field, groups: [{ item: { k: 'charge', charge, ...extra }, paint: tincture }],
 });
 
+// Modelled on common patterns in the SCA Ordinary & Armorial (a beast in a common posture, three of a
+// charge, an ordinary between three, a charge and a chief, a divided field with a counterchanged
+// charge, a charge within a bordure), but none is a registered blazon: real arms belong to real people.
 export const EXAMPLE_DESIGNS: readonly ExampleDesign[] = [
-  example('gold-lion-on-blue', 'Gold lion on blue', 'heater', single('azure', 'lion', 'or')),
-  example('white-star-on-red', 'White star on red', 'round', single('gules', 'mullet', 'argent')),
-  example('gold-sun-on-black', 'Gold sun on black', 'lozenge', single('sable', 'sun', 'or')),
-  example('gold-eagle-on-green', 'Gold eagle on green', 'banner', single('vert', 'eagle', 'or')),
-  example('swapped-star-on-gold-and-blue', 'Star with swapped colours on a gold-and-blue split', 'heater', {
-    v: 2, field: { k: 'divided', division: 'per-pale', parts: ['or', 'azure'] },
-    groups: [{ item: { k: 'charge', charge: 'mullet' }, paint: 'counterchanged' }],
-  }),
-  example('white-anchor-on-blue-with-border', 'White anchor on blue with a white border', 'banner', {
-    v: 2, field: 'azure',
+  example('white-wolf-on-blue', 'White wolf on blue', 'heater', single('azure', 'wolf', 'argent', { posture: 'rampant' })),
+  example('white-tower-on-red-with-border', 'White tower on red with a white border', 'banner', {
+    v: 2, field: 'gules',
     groups: [
+      { item: { k: 'charge', charge: 'tower' }, paint: 'argent' },
       { item: { k: 'ordinary', type: 'bordure' }, paint: 'argent' },
-      { item: { k: 'charge', charge: 'anchor' }, paint: 'argent' },
     ],
   }),
-  example('gold-crown-on-purple', 'Gold crown on purple', 'round', single('purpure', 'crown', 'or')),
+  example('three-gold-acorns-on-green', 'Three gold acorns on green', 'round', {
+    v: 2, field: 'vert', groups: [{ item: { k: 'charge', charge: 'acorn' }, count: 3, paint: 'or' }],
+  }),
+  example('blue-dolphin-on-white', 'Blue dolphin on white', 'lozenge', single('argent', 'dolphin', 'azure')),
+  example('swapped-crescent-on-blue-and-white', 'Crescent with swapped colours on a blue-and-white diagonal split', 'heater', {
+    v: 2, field: { k: 'divided', division: 'per-bend', parts: ['azure', 'argent'] },
+    groups: [{ item: { k: 'charge', charge: 'crescent' }, paint: 'counterchanged' }],
+  }),
+  example('white-peaked-band-between-three-stars-on-black', 'White peaked band between three stars on black', 'banner', {
+    v: 2, field: 'sable',
+    groups: [
+      { item: { k: 'ordinary', type: 'chevron' }, paint: 'argent' },
+      { item: { k: 'charge', charge: 'mullet' }, count: 3, relation: 'between', paint: 'argent' },
+    ],
+  }),
+  example('gold-rose-on-purple-with-top-bar', 'Gold rose on purple with a gold top bar', 'round', {
+    v: 2, field: 'purpure',
+    groups: [
+      { item: { k: 'charge', charge: 'rose' }, paint: 'or' },
+      { item: { k: 'ordinary', type: 'chief' }, paint: 'or' },
+    ],
+  }),
 ];
 
 /**
