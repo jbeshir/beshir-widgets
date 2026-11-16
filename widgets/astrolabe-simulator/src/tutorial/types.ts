@@ -1,6 +1,6 @@
 import type { AstrolabeState, Face } from '../store';
 import type { ConceptId } from './concepts';
-import type { PartRef } from './parts';
+import type { FrameRef, PartRef } from './parts';
 
 /** The twelve lessons, in course order (SYLLABUS §2). */
 export type LessonId =
@@ -64,7 +64,7 @@ export interface LessonStep {
    * highlights: the reading spot and, when it matters, the tool being moved
    * (e.g. 'alidade-edge', 'rule-edge'). Must be on the step's face.
    */
-  frame?: readonly PartRef[];
+  frame?: readonly FrameRef[];
   snapshot: Snapshot;
   demonstration?: Demonstration;
   check?: LessonCheck;

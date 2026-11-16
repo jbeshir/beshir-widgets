@@ -9,7 +9,7 @@ import { FRAME_PADDING, magnifyTransform, magnifyView, unionBox, type FractionBo
 import { getState, useStore } from './store';
 import { toolTips, type TurnedTool } from './toolTips';
 import { HIGHLIGHTS_APPLIED } from './tutorial/highlights';
-import { partSelector, type PartRef } from './tutorial/parts';
+import { frameSelector, type FrameRef } from './tutorial/parts';
 import type { Snapshot } from './tutorial/types';
 
 const PHONE = '(max-width: 520px)';
@@ -30,11 +30,11 @@ function useMedia(query: string): boolean {
 }
 
 /** The step's frame (else its highlighted parts) as a box in instrument fractions (independent of any zoom already applied). */
-function highlightBox(instrument: Element, refs: readonly PartRef[]): FractionBox | null {
+function highlightBox(instrument: Element, refs: readonly FrameRef[]): FractionBox | null {
   const frame = instrument.getBoundingClientRect();
   if (frame.width < 1 || frame.height < 1) return null;
   let box: FractionBox | null = null;
-  const selector = refs.length ? refs.map(partSelector).join(', ') : '[data-highlighted]';
+  const selector = refs.length ? refs.map(frameSelector).join(', ') : '[data-highlighted]';
   for (const el of instrument.querySelectorAll(selector)) {
     const r = el.getBoundingClientRect();
     if (r.width <= 0 && r.height <= 0) continue;

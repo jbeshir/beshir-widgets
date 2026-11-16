@@ -546,7 +546,7 @@ This keeps b1e9e5f's shape: both faces are covered; step 1's result says no date
 - Purpose: a faded example (second worked value).
 - Instruction: find Regulus. Read its height and direction.
 - Demonstration: none.
-- Magnify frame: `star-pointer[star=regulus]`, `almucantar[altitude=30]`, `almucantar[altitude=40]`, `azimuth-line[azimuth=120]` (what the reading uses). These do not fit at 2×, so a phone keeps the whole instrument (no magnified view with a decoy 120).
+- Magnify frame: `star-pointer[star=regulus]`, the numerals `label(almucantar[altitude=30])`, `label(almucantar[altitude=40])`, `label(azimuth-line[azimuth=120])` (what the reading uses; numerals only, so the frame fits at 2× and a phone opens magnified without a decoy 120).
 - Stop cue: the two height circles either side of the tip, and the nearest azimuth line.
 - Meaning: Regulus is about 33° up, in the east-south-east (azimuth about 115°, just short of the 120° line).
 - Introduces: —
@@ -1887,3 +1887,8 @@ Number corrections (model value vs. the earlier text):
 - **L3#5 (lessons-03-04-23).** The frame now covers Regulus's tip, the 30° and 40° circles and the 120° line. They do not fit at 2×, so a phone shows the whole instrument.
 - **L6#9, L8#8 (UXM-22).** Frames add the next limb hour mark (15, 21); they still fit at 2× with the rule tip at the start and at the solution (audit, gallery).
 - **Cheap copy.** L10#4 stop cue no longer mentions the Sun end (outside its frame); the clause moved to the result. L10#6 uses `rotate-rete`, `lay-rule`.
+
+### 7.5 Phase 16 rework (UXM-23)
+
+- **Frame label entries.** A frame may hold `{ label: <instance ref> }` (written `label(almucantar[altitude=30])`): it frames only the engraved numeral of that instance (`data-label` on the numeral), not its circle or line. Plate numerals for almucantars and azimuth lines carry `data-label`.
+- **L3#5 (UXM-23).** Frame is the Regulus tip plus the 30° and 40° numerals and the 120° foot numeral, so it fits at 2× and the phone opens magnified.

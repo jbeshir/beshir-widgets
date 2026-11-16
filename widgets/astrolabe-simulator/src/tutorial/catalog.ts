@@ -5,7 +5,7 @@ import { alidadeRotationForLongitude } from '../backGeometry';
 import { limbHourAtAngle, ruleSunEndAngle } from '../limbScale';
 import { shadowSquareIntersection, shadowSquareReading } from '../shadowSquare';
 import { STARS } from '../data/stars';
-import { isValidPartRef, type PartRef } from './parts';
+import { isValidPartRef, type FrameRef, type PartRef } from './parts';
 import type {
   ChoiceCheck, ChoiceOption, Demonstration, Lesson, LessonCheck, LessonStep, Predicate, RotationField, Snapshot,
 } from './types';
@@ -350,7 +350,7 @@ const turn = (field: RotationField, from: number, to: number, durationMs = 700, 
 
 interface StepSpec {
   id: string; title: string; purpose: string; body: string; stopCue?: string; result: string;
-  highlights?: readonly PartRef[]; frame?: readonly PartRef[]; introduces?: LessonStep['introduces']; uses?: LessonStep['uses'];
+  highlights?: readonly PartRef[]; frame?: readonly FrameRef[]; introduces?: LessonStep['introduces']; uses?: LessonStep['uses'];
   snapshot: Snapshot; check?: LessonCheck; demonstration?: Demonstration; solution?: Partial<Snapshot>;
 }
 const base = (spec: StepSpec) => ({
@@ -625,8 +625,8 @@ const localSky: Lesson = {
       stopCue: 'The two height circles either side of the tip, and the nearest azimuth line.',
       result: `Regulus is about ${deg(L.regulus.altitude)} up, in the east-south-east: azimuth about ${deg(L.regulus.azimuth)}, just short of the 120° line.`,
       highlights: [{ part: 'star-pointer', star: 'regulus' }], uses: ['read-alt-az', 'interpolate', 'east-west'],
-      // The cue reads the tip, the 30° and 40° circles and the 120° line (only the star is highlighted); if they do not fit at 2× the phone shows the whole instrument.
-      frame: [{ part: 'star-pointer', star: 'regulus' }, { part: 'almucantar', altitude: 30 }, { part: 'almucantar', altitude: 40 }, { part: 'azimuth-line', azimuth: 120 }],
+      // The reading needs the tip, the 30° and 40° numerals and the 120° foot numeral (only the star is highlighted); framing just those numerals, not whole circles, lets the phone magnify.
+      frame: [{ part: 'star-pointer', star: 'regulus' }, { label: { part: 'almucantar', altitude: 30 } }, { label: { part: 'almucantar', altitude: 40 } }, { label: { part: 'azimuth-line', azimuth: 120 } }],
       snapshot: at(APRIL, 'front', skySetting),
       check: choice('Where is Regulus?', [
         right(`About ${deg(L.regulus.altitude)} high, in the east-south-east`),

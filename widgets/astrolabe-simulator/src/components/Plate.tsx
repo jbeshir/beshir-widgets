@@ -151,14 +151,14 @@ export function Plate({ latitude, almucantars, azimuths, unequalHours, tropics }
           {ALTITUDES.map((altitude) => {
             const label = projectHorizontal(latitude, altitude, 96, ASTROLABE_R);
             return <UprightLabel key={altitude} x={label.x} y={label.y} className="astro-label astro-plate-numeral" fontSize={13}
-              data={{ 'data-part': 'almucantar', 'data-altitude': altitude }}>{`${altitude}°`}</UprightLabel>;
+              data={{ 'data-part': 'almucantar', 'data-altitude': altitude, 'data-label': 'true' }}>{`${altitude}°`}</UprightLabel>;
           })}
         </g>}
         {azimuths && <g aria-label="Azimuth degree labels">
           {AZIMUTHS.map((degrees) => {
             const label = azimuthLabelPoint(latitude, degrees, rim);
             return <UprightLabel key={degrees} x={label.x} y={label.y} className="astro-label astro-plate-numeral" fontSize={13}
-              data={{ 'data-part': 'azimuth-line', 'data-azimuth': degrees }}>{`${degrees}°`}</UprightLabel>;
+              data={{ 'data-part': 'azimuth-line', 'data-azimuth': degrees, 'data-label': 'true' }}>{`${degrees}°`}</UprightLabel>;
           })}
         </g>}
         <g data-part="zenith">

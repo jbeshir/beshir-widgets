@@ -151,3 +151,33 @@ export function describePartRef(ref: PartRef): string {
   const instance = partInstance(ref);
   return instance ? `${partId(ref)}[${instance.key}=${formatPartValue(instance.value)}]` : partId(ref);
 }
+
+/**
+ * A frame-only reference: `{ label: ref }` names just the engraved numeral of
+ * an instance (the element also carries `data-label`), not its line or circle,
+ * so Magnify can frame the number a reading needs without the whole curve.
+ */
+export type LabelRef = { readonly label: InstancePartRef };
+export type FrameRef = PartRef | LabelRef;
+
+const isLabelRef = (ref: unknown): ref is { label: unknown } => typeof ref === 'object' && ref !== null && 'label' in ref;
+
+export function frameBase(ref: FrameRef): PartRef {
+  return isLabelRef(ref) ? ref.label : ref;
+}
+
+/** True for a valid part ref, or a `{ label }` wrapping one valid instance ref. */
+export function isValidFrameRef(ref: unknown): ref is FrameRef {
+  if (isLabelRef(ref)) return Object.keys(ref).length === 1 && typeof ref.label === 'object' && isValidPartRef(ref.label);
+  return isValidPartRef(ref);
+}
+
+/** CSS selector of a frame entry; a label entry only matches the numerals (`data-label`). */
+export function frameSelector(ref: FrameRef): string {
+  return isLabelRef(ref) ? `${partSelector(ref.label)}[data-label]` : partSelector(ref);
+}
+
+/** `almucantar[altitude=30]`, or `label(almucantar[altitude=30])` for a label entry. */
+export function describeFrameRef(ref: FrameRef): string {
+  return isLabelRef(ref) ? `label(${describePartRef(ref.label)})` : describePartRef(ref);
+}

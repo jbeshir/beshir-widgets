@@ -3,7 +3,7 @@ import type { AstrolabeState } from '../store';
 import { evaluateCheckpoint } from './checkpoints';
 import { CONCEPTS, type ConceptId } from './concepts';
 import { LESSONS } from './catalog';
-import { describePartRef, isValidPartRef, partFace, partId, type PartId } from './parts';
+import { describeFrameRef, describePartRef, frameBase, isValidFrameRef, partFace, partId, type PartId } from './parts';
 import type { Lesson, LessonId, LessonStep, Predicate, Snapshot } from './types';
 
 /*
@@ -354,9 +354,9 @@ describe('learner-visible copy', () => {
     const errors: string[] = [];
     for (const located of STEPS) {
       for (const ref of located.step.frame ?? []) {
-        if (!isValidPartRef(ref)) { errors.push(`${where(located)}: frame has an invalid part`); continue; }
-        const face = partFace(ref);
-        if (face !== 'both' && face !== located.step.snapshot.face) errors.push(`${where(located)}: frame ${describePartRef(ref)} is not on the ${located.step.snapshot.face}`);
+        if (!isValidFrameRef(ref)) { errors.push(`${where(located)}: frame has an invalid part`); continue; }
+        const face = partFace(frameBase(ref));
+        if (face !== 'both' && face !== located.step.snapshot.face) errors.push(`${where(located)}: frame ${describeFrameRef(ref)} is not on the ${located.step.snapshot.face}`);
       }
     }
     expect(errors).toEqual([]);

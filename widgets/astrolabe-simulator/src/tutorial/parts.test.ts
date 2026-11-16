@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LESSONS, validateCatalog } from './catalog';
-import { CALENDAR_DATES, describePartRef, formatPartValue, isValidPartRef, PART_IDS, PARTS, partSelector, type PartRef } from './parts';
+import { CALENDAR_DATES, describeFrameRef, describePartRef, formatPartValue, frameSelector, isValidFrameRef, isValidPartRef, PART_IDS, PARTS, partSelector, type PartRef } from './parts';
 
 describe('part vocabulary', () => {
   it('has the 39 part ids of SYLLABUS 1.2, each with a face', () => {
@@ -38,6 +38,17 @@ describe('part vocabulary', () => {
     expect(formatPartValue(30)).toBe('30');
     expect(formatPartValue(0.5)).toBe('0.5');
     expect(describePartRef({ part: 'almucantar', altitude: 30 })).toBe('almucantar[altitude=30]');
+  });
+  it('names a numeral-only frame entry with the shared formatter', () => {
+    const label = { label: { part: 'almucantar', altitude: 30 } } as const;
+    expect(frameSelector(label)).toBe('[data-part="almucantar"][data-altitude="30"][data-label]');
+    expect(frameSelector({ label: { part: 'azimuth-line', azimuth: 120 } })).toBe('[data-part="azimuth-line"][data-azimuth="120"][data-label]');
+    expect(frameSelector('rete')).toBe('[data-part="rete"]');
+    expect(describeFrameRef(label)).toBe('label(almucantar[altitude=30])');
+    expect(isValidFrameRef(label)).toBe(true);
+    for (const bad of [{ label: 'rete' }, { label: { part: 'almucantar', altitude: 35 } }, { label: { part: 'almucantar', altitude: 30 }, extra: 1 }, { label: null }]) {
+      expect(isValidFrameRef(bad), JSON.stringify(bad)).toBe(false);
+    }
   });
   it('rejects unknown ids, keys and values', () => {
     const bad: unknown[] = [

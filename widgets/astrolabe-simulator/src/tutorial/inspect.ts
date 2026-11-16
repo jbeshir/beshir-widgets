@@ -2,7 +2,7 @@ import { applyTransaction, getState, reset, setFace } from '../store';
 import { LESSONS } from './catalog';
 import { CONCEPTS } from './concepts';
 import {
-  PARTIAL_COVERAGE, PARTS, PART_IDS, describePartRef, formatPartValue, partFace, partId, partInstance, partSelector, type PartId, type PartRef,
+  PARTIAL_COVERAGE, PARTS, PART_IDS, describeFrameRef, describePartRef, frameSelector, formatPartValue, partFace, partId, partInstance, partSelector, type FrameRef, type PartId, type PartRef,
 } from './parts';
 import { composeTutorialSearch } from './url';
 import { toolTips, type ScreenPoint } from '../toolTips';
@@ -132,6 +132,11 @@ export function formatFailure(f: ProbeFailure): string {
 
 export function resolveRef(ref: PartRef, root: ParentNode = document): Element[] {
   return [...root.querySelectorAll(partSelector(ref))];
+}
+
+/** Elements a frame entry resolves to (a `{ label }` entry only the numerals). */
+export function resolveFrameRef(ref: FrameRef, root: ParentNode = document): Element[] {
+  return [...root.querySelectorAll(frameSelector(ref))];
 }
 
 const frames = async (count: number): Promise<void> => { for (let i = 0; i < count; i += 1) await frame(); };
@@ -419,12 +424,12 @@ function frameProblems(step: LessonStep, stage: string, turning: boolean): strin
   };
   let all: DOMRect | null = null;
   for (const ref of framed) {
-    const rects = resolveRef(ref).map((el) => el.getBoundingClientRect()).filter((r) => Math.max(r.width, r.height) >= 1);
+    const rects = resolveFrameRef(ref).map((el) => el.getBoundingClientRect()).filter((r) => Math.max(r.width, r.height) >= 1);
     if (!rects.length) continue;
     const left = Math.min(...rects.map((r) => r.left)); const top = Math.min(...rects.map((r) => r.top));
     const box = new DOMRect(left, top, Math.max(...rects.map((r) => r.right)) - left, Math.max(...rects.map((r) => r.bottom)) - top);
     all = all ? new DOMRect(Math.min(all.left, box.left), Math.min(all.top, box.top), Math.max(all.right, box.right) - Math.min(all.left, box.left), Math.max(all.bottom, box.bottom) - Math.min(all.top, box.top)) : box;
-    place(describePartRef(ref), box);
+    place(describeFrameRef(ref), box);
   }
   if (turning && all) {
     const near: ScreenPoint = { x: all.left + all.width / 2, y: all.top + all.height / 2 };
